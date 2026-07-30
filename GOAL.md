@@ -184,7 +184,14 @@ final health is restored, and internal userdata is untouched. The run and
 approval are non-reusable. The selected successor is a future-only,
 predeclared operator-attended observation window with bounded pre-handoff
 channel/health retries, exactly one handoff attempt, and unchanged mandatory
-rollback. It must not be applied retroactively to this closed run.**
+rollback. Its reusable orchestrator implementation now binds exact `900/3/1`
+limits into the manifest and original F1 approval, revalidates the exact
+one-transfer/no-replay candidate closure, re-derives stored retry failures,
+and fsyncs one handoff intent before dispatch. Focused `71/71` and independent
+related `154/154` validation passed; final independent review returned `GO`
+with no device contact. This is H0 machinery only: no new run, final manifest,
+approval, continuation receipt, or live authority exists, and it cannot be
+applied retroactively to the closed run.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
 outer works ended by `0.291 ms`, followed by deferred child and parent PM
@@ -666,15 +673,15 @@ The A90 branch proceeds independently:
    storage, source recheck, absent-only work copy, and failure cleanup.
 4. Preserve the fresh D3 rootfs identity and its authenticated package,
    clean-ext4, ownership, init, and credential-absence closure.
-5. Before any later device action, create a new run and prepared manifest that
-   binds the exact A90 target, V3403 boot, fresh rootfs, exact V2321 rollback,
-   checked runner, bounded observation, and final health.
-6. Independently review the implemented staging-plus-orchestrator closure. The
-   orchestrator only composes the checked staging and flash helpers, records
-   candidate intent before one invocation, and exposes rollback-only recovery.
-7. Bind the exact recovery-ADB digest. Only after the reviewed closure exists,
-   promote a final manifest, repeat the exact connected preflight, and obtain
-   one fresh exact approval.
+5. Preserve the independently reviewed attended-orchestrator closure and its
+   exact `900/3/1`, candidate-one/no-replay, durable-intent, and rollback-only
+   recovery gates.
+6. Before any later device action, create a new run and immutable manifest
+   binding the exact A90 target, current V3403 boot, fresh rootfs, exact V2321
+   rollback, current runner, attended observation, and final health.
+7. Bind the exact recovery-ADB digest, repeat fresh connected D0, and only then
+   prepare and obtain one fresh exact F1 approval. No earlier run, receipt, or
+   approval may be reused.
 
 No device step is added when H0 can answer the question.
 

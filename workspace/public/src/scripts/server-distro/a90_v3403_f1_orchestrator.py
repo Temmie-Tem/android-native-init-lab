@@ -45,6 +45,8 @@ ORCHESTRATOR_SCHEMA = "a90_v3403_f1_orchestrator_v1"
 JOURNAL_SCHEMA = "a90_v3403_f1_journal_v1"
 APPROVAL_PREPARED_SCHEMA = "a90_v3403_f1_approval_prepared_v1"
 APPROVAL_PREFIX = "A90-F1-V2-APPROVE:"
+ATTENDED_WINDOW_SCHEMA = "a90_v3403_f1_attended_window_v1"
+ATTENDED_CONTINUE_PREFIX = "A90-F1-ATTENDED-CONTINUE:"
 FINAL_MANIFEST_SCHEMA = staging.FINAL_MANIFEST_SCHEMA
 FINAL_MANIFEST_STATUS = staging.FINAL_MANIFEST_STATUS
 PRIVATE_RUN_BASE = staging.PRIVATE_RUN_BASE
@@ -94,6 +96,16 @@ F1_HANDOFF_MIN_TIMEOUT_SEC = (
 )
 OBSERVATION_MENU_SETTLE_SEC = 3.0
 OBSERVATION_CHANNEL_CANARY = ("run", "/bin/busybox", "true")
+UNATTENDED_OBSERVATION_MODE = "unattended-single-shot-v1"
+ATTENDED_OBSERVATION_MODE = "operator-attended-v1"
+ATTENDED_WINDOW_SEC = 900
+ATTENDED_PRE_HANDOFF_ATTEMPT_LIMIT = 3
+ATTENDED_HANDOFF_ATTEMPT_LIMIT = 1
+ATTENDED_RETRYABLE_CHANNEL_ERRORS = (
+    "A90P1 END marker not found",
+    "observation menu hide did not complete",
+    "observation channel did not settle",
+)
 RECOVERY_ADB_MARKER_RE = re.compile(
     r"(?:^|\] )ADB ready: ([^\s]+) recovery\r?$",
     re.MULTILINE,
@@ -140,6 +152,10 @@ class F1Spec:
     ssh_marker_timeout: int
     candidate_return_timeout: int
     rollback_boot_timeout: int
+    observation_mode: str
+    attended_window_sec: int
+    pre_handoff_attempt_limit: int
+    handoff_attempt_limit: int
     recovery_serial_sha256: str
     recovery_serial: str
     recovery_evidence: tuple[staging.BoundFile, ...]
@@ -173,6 +189,18 @@ def is_canonical_utc_timestamp(value: Any) -> bool:
     except ValueError:
         return False
     return parsed.strftime("%Y-%m-%dT%H:%M:%SZ") == value
+
+
+def parse_utc_timestamp(value: Any, label: str) -> dt.datetime:
+    if not is_canonical_utc_timestamp(value):
+        raise ContractError(f"{label} is not canonical UTC")
+    return dt.datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(
+        tzinfo=dt.UTC
+    )
+
+
+def current_utc() -> dt.datetime:
+    return dt.datetime.now(dt.UTC).replace(microsecond=0)
 
 
 def _private_json_bytes(payload: Any) -> bytes:
@@ -283,6 +311,43 @@ def validate_handoff_timeout(value: Any) -> int:
             f"V3403 handoff corridor (minimum {F1_HANDOFF_MIN_TIMEOUT_SEC}s)"
         )
     return timeout
+
+
+def validate_observation_policy(
+    observation: dict[str, Any],
+) -> tuple[str, int, int, int]:
+    mode = require_string(observation.get("mode"), "observation.mode")
+    window = observation.get("attended_window_sec")
+    attempts = observation.get("pre_handoff_attempt_limit")
+    handoffs = observation.get("handoff_attempt_limit")
+    if mode == ATTENDED_OBSERVATION_MODE:
+        if type(window) is not int or window != ATTENDED_WINDOW_SEC:
+            raise ContractError("attended window must be exactly 900 seconds")
+        if (
+            type(attempts) is not int
+            or attempts != ATTENDED_PRE_HANDOFF_ATTEMPT_LIMIT
+        ):
+            raise ContractError("attended pre-handoff limit must be exactly 3")
+        if (
+            type(handoffs) is not int
+            or handoffs != ATTENDED_HANDOFF_ATTEMPT_LIMIT
+        ):
+            raise ContractError("attended handoff limit must be exactly 1")
+    elif mode == UNATTENDED_OBSERVATION_MODE:
+        if (
+            type(window) is not int
+            or type(attempts) is not int
+            or type(handoffs) is not int
+            or window != 0
+            or attempts != 1
+            or handoffs != 1
+        ):
+            raise ContractError(
+                "unattended observation must bind window=0 attempts=1 handoff=1"
+            )
+    else:
+        raise ContractError("observation.mode is not a reviewed exact mode")
+    return mode, window, attempts, handoffs
 
 
 def require_private_regular(path: Path, *, mode_mask: int = 0o077) -> None:
@@ -465,6 +530,12 @@ def load_spec(
         observation.get("rollback_boot_timeout_sec"),
         "observation.rollback_boot_timeout_sec",
     )
+    (
+        observation_mode,
+        attended_window_sec,
+        pre_handoff_attempt_limit,
+        handoff_attempt_limit,
+    ) = validate_observation_policy(observation)
 
     target = _dict(manifest.get("target"), "target")
     recovery_serial_sha256_value = target.get("recovery_adb_serial_sha256")
@@ -585,6 +656,10 @@ def load_spec(
             ssh_marker_timeout=ssh_marker_timeout,
             candidate_return_timeout=candidate_return_timeout,
             rollback_boot_timeout=rollback_boot_timeout,
+            observation_mode=observation_mode,
+            attended_window_sec=attended_window_sec,
+            pre_handoff_attempt_limit=pre_handoff_attempt_limit,
+            handoff_attempt_limit=handoff_attempt_limit,
             recovery_serial_sha256=recovery_serial_sha256,
             recovery_serial=recovery_serial,
             recovery_evidence=recovery_evidence,
@@ -650,16 +725,20 @@ def append_record(
     *,
     manifest_sha256: str,
     run_id: str,
+    timestamp_utc: str | None = None,
 ) -> Path:
     journal_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     existing = sorted(journal_dir.glob("*.json"))
     sequence = len(existing)
     path = journal_dir / f"{sequence:04d}-{action}.json"
+    record_timestamp = timestamp_utc or utc_now()
+    if not is_canonical_utc_timestamp(record_timestamp):
+        raise ContractError("journal timestamp is not canonical UTC")
     body = {
         **payload,
         "schema": JOURNAL_SCHEMA,
         "sequence": sequence,
-        "timestamp_utc": utc_now(),
+        "timestamp_utc": record_timestamp,
         "run_id": run_id,
         "manifest_sha256": manifest_sha256,
         "state": state,
@@ -951,6 +1030,10 @@ def approval_binding(spec: F1Spec) -> dict[str, Any]:
         "connected_d0_sha256": connected_d0.sha256,
         "connected_path_preflight_sha256": connected_paths.sha256,
         "recovery_adb_serial_sha256": spec.recovery_serial_sha256,
+        "observation_mode": spec.observation_mode,
+        "attended_window_sec": spec.attended_window_sec,
+        "pre_handoff_attempt_limit": spec.pre_handoff_attempt_limit,
+        "handoff_attempt_limit": spec.handoff_attempt_limit,
         "candidate_attempt_limit": 1,
         "mandatory_rollback_preapproved_after_candidate_start": True,
         "candidate_replay": False,
@@ -1046,6 +1129,387 @@ def approved_bindings(
     elif args.approval != prepared["approval_token"]:
         raise ContractError("fresh exact F1 approval token mismatch")
     return prepared
+
+
+def require_consumed_approval(
+    records: list[dict[str, Any]],
+    approval_prepared: dict[str, Any],
+) -> None:
+    approved_records = [
+        record for record in records if record.get("action") == "approved"
+    ]
+    if (
+        len(approved_records) != 1
+        or approved_records[0].get("approval_binding_sha256")
+        != approval_prepared["approval_binding_sha256"]
+        or approved_records[0].get("approval_token_sha256")
+        != hashlib.sha256(
+            str(approval_prepared["approval_token"]).encode("utf-8")
+        ).hexdigest()
+    ):
+        raise ContractError("transaction lacks the exact consumed approval binding")
+
+
+def validate_attended_candidate_closure(
+    spec: F1Spec,
+    approval_prepared: dict[str, Any],
+    transaction_dir: Path,
+    records: list[dict[str, Any]],
+) -> None:
+    actions = action_names(records)
+    expected_prefix = [
+        "preflight",
+        "approved",
+        "staging-started",
+        "rootfs-staged",
+        "rootfs-candidate-preflight",
+        "candidate-transfer-started",
+        "candidate-flashed",
+        "attended-window-open",
+    ]
+    if actions[:len(expected_prefix)] != expected_prefix:
+        raise ContractError("attended candidate journal prefix is not exact")
+    common_keys = {
+        "schema",
+        "sequence",
+        "timestamp_utc",
+        "run_id",
+        "manifest_sha256",
+        "state",
+        "action",
+    }
+    approved = records[1]
+    candidate_start = records[5]
+    candidate_flashed = records[6]
+    window = records[7]
+    approved_keys = common_keys | {
+        "approval_consumed",
+        "candidate_attempted",
+        "rollback_pre_authorized",
+        "approval_token_sha256",
+        "approval_binding_sha256",
+        "orchestrator_sha256",
+    }
+    start_keys = common_keys | {
+        "candidate_attempted",
+        "candidate_sha256",
+        "candidate_transfer_count_max",
+        "rollback_required",
+        "candidate_replay",
+    }
+    flashed_keys = common_keys | {
+        "candidate_sha256",
+        "candidate_transfer_count",
+        "candidate_replay",
+        "rollback_required",
+        "record",
+    }
+    approval_token_sha256 = hashlib.sha256(
+        str(approval_prepared["approval_token"]).encode("utf-8")
+    ).hexdigest()
+    if (
+        set(approved) != approved_keys
+        or approved.get("state") != "APPROVED"
+        or approved.get("approval_consumed") is not True
+        or approved.get("candidate_attempted") is not False
+        or approved.get("rollback_pre_authorized") is not True
+        or approved.get("approval_token_sha256") != approval_token_sha256
+        or approved.get("approval_binding_sha256")
+        != approval_prepared["approval_binding_sha256"]
+        or approved.get("orchestrator_sha256") != spec.orchestrator_sha256
+        or set(candidate_start) != start_keys
+        or candidate_start.get("state") != "APPROVED"
+        or candidate_start.get("candidate_attempted") is not True
+        or candidate_start.get("candidate_sha256") != spec.candidate.sha256
+        or type(candidate_start.get("candidate_transfer_count_max")) is not int
+        or candidate_start.get("candidate_transfer_count_max") != 1
+        or candidate_start.get("candidate_replay") is not False
+        or candidate_start.get("rollback_required") is not True
+        or set(candidate_flashed) != flashed_keys
+        or candidate_flashed.get("state") != "CANDIDATE_FLASHED"
+        or candidate_flashed.get("candidate_sha256") != spec.candidate.sha256
+        or type(candidate_flashed.get("candidate_transfer_count")) is not int
+        or candidate_flashed.get("candidate_transfer_count") != 1
+        or candidate_flashed.get("candidate_replay") is not False
+        or candidate_flashed.get("rollback_required") is not True
+    ):
+        raise ContractError("attended candidate transfer evidence is not exact")
+    approved_timestamp = parse_utc_timestamp(
+        approved.get("timestamp_utc"),
+        "attended approval",
+    )
+    start_timestamp = parse_utc_timestamp(
+        candidate_start.get("timestamp_utc"),
+        "attended candidate intent",
+    )
+    flashed_timestamp = parse_utc_timestamp(
+        candidate_flashed.get("timestamp_utc"),
+        "attended candidate completion",
+    )
+    window_timestamp = parse_utc_timestamp(
+        window.get("timestamp_utc"),
+        "attended window opened",
+    )
+    if not (
+        approved_timestamp
+        <= start_timestamp
+        <= flashed_timestamp
+        <= window_timestamp
+    ):
+        raise ContractError("attended candidate timestamps are out of order")
+
+    execution = candidate_flashed.get("record")
+    phase_keys = {
+        "local_image_validated",
+        "native_recovery_requested",
+        "recovery_endpoint_selected",
+        "payload_transfer_started",
+        "boot_write_started",
+        "boot_write_completed",
+        "readback_completed",
+    }
+    execution_keys = {
+        "returncode",
+        "raw_log",
+        "raw_log_size",
+        "raw_log_sha256",
+        "process_started",
+        "phase_classification",
+    }
+    expected_log = transaction_dir / "candidate-flash.raw.log"
+    if (
+        not isinstance(execution, dict)
+        or set(execution) != execution_keys
+        or type(execution.get("returncode")) is not int
+        or execution.get("returncode") != 0
+        or execution.get("process_started") is not True
+        or type(execution.get("raw_log_size")) is not int
+        or execution.get("raw_log_size") < 0
+        or not isinstance(execution.get("raw_log_sha256"), str)
+        or execution.get("raw_log") != str(expected_log)
+        or not isinstance(execution.get("phase_classification"), dict)
+        or set(execution["phase_classification"]) != phase_keys
+        or any(
+            value is not True
+            for value in execution["phase_classification"].values()
+        )
+    ):
+        raise ContractError("attended candidate execution record is not exact")
+    try:
+        require_private_regular(expected_log)
+        log_stat = os.lstat(expected_log)
+        resolved_log = expected_log.resolve(strict=True)
+    except (FileNotFoundError, ContractError) as exc:
+        raise ContractError("attended candidate raw log is unavailable") from exc
+    if (
+        log_stat.st_nlink != 1
+        or resolved_log != expected_log
+        or resolved_log.stat().st_size != execution["raw_log_size"]
+        or sha256_file(resolved_log) != execution["raw_log_sha256"]
+        or classify_flash_log(resolved_log) != execution["phase_classification"]
+    ):
+        raise ContractError("attended candidate raw log lost its exact binding")
+
+
+def attended_window_path(transaction_dir: Path) -> Path:
+    return transaction_dir / "attended-window.json"
+
+
+def attended_window_binding(
+    spec: F1Spec,
+    approval_prepared: dict[str, Any],
+    window_record: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "schema": "a90_v3403_f1_attended_continue_binding_v1",
+        "run_id": spec.stage.run_id,
+        "manifest_sha256": spec.stage.manifest_sha256,
+        "approval_binding_sha256": approval_prepared[
+            "approval_binding_sha256"
+        ],
+        "candidate_boot_sha256": spec.candidate.sha256,
+        "rollback_boot_sha256": spec.rollback.sha256,
+        "window_sequence": window_record.get("sequence"),
+        "window_opened_utc": window_record.get("timestamp_utc"),
+        "window_deadline_utc": window_record.get("window_deadline_utc"),
+        "attended_window_sec": spec.attended_window_sec,
+        "pre_handoff_attempt_limit": spec.pre_handoff_attempt_limit,
+        "handoff_attempt_limit": spec.handoff_attempt_limit,
+        "handoff_argv_sha256": json_sha256(list(spec.handoff_command)),
+        "candidate_replay": False,
+        "only_partition_payload": "boot",
+    }
+
+
+def open_attended_window(
+    spec: F1Spec,
+    approval_prepared: dict[str, Any],
+    transaction_dir: Path,
+    journal_dir: Path,
+) -> dict[str, Any]:
+    if spec.observation_mode != ATTENDED_OBSERVATION_MODE:
+        raise ContractError("attended window requires exact attended observation mode")
+    opened = utc_now()
+    deadline = (
+        parse_utc_timestamp(opened, "attended window opened")
+        + dt.timedelta(seconds=spec.attended_window_sec)
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    record_path = append_record(
+        journal_dir,
+        "CANDIDATE_FLASHED",
+        "attended-window-open",
+        {
+            "window_deadline_utc": deadline,
+            "attended_window_sec": spec.attended_window_sec,
+            "pre_handoff_attempt_limit": spec.pre_handoff_attempt_limit,
+            "handoff_attempt_limit": spec.handoff_attempt_limit,
+            "candidate_replay": False,
+            "rollback_required": True,
+            "handoff_intent": False,
+            "handoff_sent": False,
+        },
+        manifest_sha256=spec.stage.manifest_sha256,
+        run_id=spec.stage.run_id,
+        timestamp_utc=opened,
+    )
+    window_record = json.loads(record_path.read_text(encoding="utf-8"))
+    binding = attended_window_binding(
+        spec,
+        approval_prepared,
+        window_record,
+    )
+    binding_sha256 = json_sha256(binding)
+    receipt = {
+        "schema": ATTENDED_WINDOW_SCHEMA,
+        "created_utc": utc_now(),
+        "run_id": spec.stage.run_id,
+        "manifest_sha256": spec.stage.manifest_sha256,
+        "continue_binding": binding,
+        "continue_binding_sha256": binding_sha256,
+        "continue_token": ATTENDED_CONTINUE_PREFIX + binding_sha256,
+        "candidate_already_started": True,
+        "additional_partition_authority": False,
+        "candidate_replay": False,
+        "rollback_pre_authorized": True,
+    }
+    write_private_json_exclusive(
+        attended_window_path(transaction_dir),
+        receipt,
+    )
+    return {
+        "schema": ORCHESTRATOR_SCHEMA,
+        "status": "PAUSED_F1_V2_ATTENDED_WINDOW",
+        "run_id": spec.stage.run_id,
+        "manifest_sha256": spec.stage.manifest_sha256,
+        "continue_token": receipt["continue_token"],
+        "window_deadline_utc": deadline,
+        "pre_handoff_attempt_limit": spec.pre_handoff_attempt_limit,
+        "handoff_attempt_limit": spec.handoff_attempt_limit,
+        "candidate_transfer_count": 1,
+        "candidate_replay": False,
+        "rollback_required": True,
+        "additional_partition_authority": False,
+    }
+
+
+def load_attended_window(
+    spec: F1Spec,
+    approval_prepared: dict[str, Any],
+    transaction_dir: Path,
+    records: list[dict[str, Any]],
+) -> dict[str, Any]:
+    path = attended_window_path(transaction_dir)
+    require_private_regular(path)
+    receipt = json.loads(path.read_text(encoding="utf-8"))
+    window_records = [
+        record
+        for record in records
+        if record.get("action") == "attended-window-open"
+    ]
+    expected_keys = {
+        "schema",
+        "created_utc",
+        "run_id",
+        "manifest_sha256",
+        "continue_binding",
+        "continue_binding_sha256",
+        "continue_token",
+        "candidate_already_started",
+        "additional_partition_authority",
+        "candidate_replay",
+        "rollback_pre_authorized",
+    }
+    if len(window_records) != 1:
+        raise ContractError("attended continuation requires one exact window record")
+    window_record = window_records[0]
+    window_keys = {
+        "schema",
+        "sequence",
+        "timestamp_utc",
+        "run_id",
+        "manifest_sha256",
+        "state",
+        "action",
+        "window_deadline_utc",
+        "attended_window_sec",
+        "pre_handoff_attempt_limit",
+        "handoff_attempt_limit",
+        "candidate_replay",
+        "rollback_required",
+        "handoff_intent",
+        "handoff_sent",
+    }
+    opened = parse_utc_timestamp(
+        window_record.get("timestamp_utc"),
+        "attended window opened",
+    )
+    deadline = parse_utc_timestamp(
+        window_record.get("window_deadline_utc"),
+        "attended window deadline",
+    )
+    if (
+        set(window_record) != window_keys
+        or window_record.get("state") != "CANDIDATE_FLASHED"
+        or type(window_record.get("attended_window_sec")) is not int
+        or window_record.get("attended_window_sec") != ATTENDED_WINDOW_SEC
+        or type(window_record.get("pre_handoff_attempt_limit")) is not int
+        or window_record.get("pre_handoff_attempt_limit")
+        != ATTENDED_PRE_HANDOFF_ATTEMPT_LIMIT
+        or type(window_record.get("handoff_attempt_limit")) is not int
+        or window_record.get("handoff_attempt_limit")
+        != ATTENDED_HANDOFF_ATTEMPT_LIMIT
+        or deadline
+        != opened + dt.timedelta(seconds=ATTENDED_WINDOW_SEC)
+        or window_record.get("candidate_replay") is not False
+        or window_record.get("rollback_required") is not True
+        or window_record.get("handoff_intent") is not False
+        or window_record.get("handoff_sent") is not False
+    ):
+        raise ContractError("attended window journal record is not exact")
+    binding = attended_window_binding(
+        spec,
+        approval_prepared,
+        window_record,
+    )
+    binding_sha256 = json_sha256(binding)
+    if (
+        not isinstance(receipt, dict)
+        or set(receipt) != expected_keys
+        or receipt.get("schema") != ATTENDED_WINDOW_SCHEMA
+        or not is_canonical_utc_timestamp(receipt.get("created_utc"))
+        or receipt.get("run_id") != spec.stage.run_id
+        or receipt.get("manifest_sha256") != spec.stage.manifest_sha256
+        or receipt.get("continue_binding") != binding
+        or receipt.get("continue_binding_sha256") != binding_sha256
+        or receipt.get("continue_token")
+        != ATTENDED_CONTINUE_PREFIX + binding_sha256
+        or receipt.get("candidate_already_started") is not True
+        or receipt.get("additional_partition_authority") is not False
+        or receipt.get("candidate_replay") is not False
+        or receipt.get("rollback_pre_authorized") is not True
+    ):
+        raise ContractError("attended continuation receipt lost its exact binding")
+    return receipt
 
 
 def stage_command(spec: F1Spec, args: argparse.Namespace) -> list[str]:
@@ -1436,12 +1900,145 @@ def observe_candidate(spec: F1Spec, args: argparse.Namespace, transaction_dir: P
     return result
 
 
+def attended_retryable_error_identity(
+    error_type: str,
+    message: str,
+    *,
+    attempt: int,
+) -> bool:
+    phases = (
+        f"attended-attempt-{attempt}-before-health",
+        f"attended-attempt-{attempt}-before-handoff",
+    )
+    if error_type == "ContractError":
+        return message in {
+            f"{phase} {suffix}"
+            for phase in phases
+            for suffix in ATTENDED_RETRYABLE_CHANNEL_ERRORS[1:]
+        }
+    if error_type == "RuntimeError":
+        marker = ATTENDED_RETRYABLE_CHANNEL_ERRORS[0]
+        return message == marker or message.startswith(marker + "\n")
+    return False
+
+
+def attended_pre_handoff_retryable(
+    exc: Exception,
+    *,
+    attempt: int,
+) -> bool:
+    if type(exc) not in (ContractError, RuntimeError):
+        return False
+    return attended_retryable_error_identity(
+        type(exc).__name__,
+        str(exc),
+        attempt=attempt,
+    )
+
+
+def attended_stored_failure_retryable(
+    error: Any,
+    *,
+    attempt: int,
+) -> bool:
+    return (
+        isinstance(error, dict)
+        and set(error) == {"type", "message"}
+        and isinstance(error.get("type"), str)
+        and isinstance(error.get("message"), str)
+        and attended_retryable_error_identity(
+            error["type"],
+            error["message"],
+            attempt=attempt,
+        )
+    )
+
+
+def wait_for_candidate_return_attended_once(
+    spec: F1Spec,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    deadline = time.monotonic() + spec.candidate_return_timeout
+    last = ""
+    while time.monotonic() < deadline:
+        try:
+            bridge = staging.require_exact_bridge(spec.stage, args)
+        except Exception as exc:  # noqa: BLE001 - bounded host-only enumeration
+            last = f"{type(exc).__name__}: {exc}"
+            time.sleep(args.poll_interval)
+            continue
+        time.sleep(OBSERVATION_MENU_SETTLE_SEC)
+        channel = settle_observation_channel(
+            args,
+            phase="attended-candidate-return",
+        )
+        version = run_f1_cmd(args, ["version"])
+        selftest = run_f1_cmd(args, ["selftest"])
+        version_text = str(version.get("text") or "")
+        if (
+            spec.candidate_version not in version_text
+            or spec.candidate_build not in version_text
+            or "fail=0" not in str(selftest.get("text") or "")
+        ):
+            raise ContractError(
+                "attended candidate return is not the exact healthy candidate"
+            )
+        return {
+            "exact_bridge": True,
+            "selected_realpath": bridge.get("selected_realpath"),
+            "channel": channel,
+            "version": version,
+            "selftest": selftest,
+            "device_command_attempts": 1,
+        }
+    raise RuntimeError(
+        "attended candidate did not re-enumerate before rollback deadline; "
+        f"last={last!r}"
+    )
+
+
+def observe_attended_after_handoff(
+    spec: F1Spec,
+    args: argparse.Namespace,
+    transaction_dir: Path,
+    pre_handoff: dict[str, Any],
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "proof": False,
+        "pre_handoff": pre_handoff,
+        "handoff_attempt_limit": spec.handoff_attempt_limit,
+    }
+    try:
+        result["handoff"] = run_handoff(spec, args)
+        result["ssh"] = observe_ssh(spec, args)
+        result["proof"] = True
+    except Exception as exc:  # noqa: BLE001 - rollback remains mandatory
+        result["error"] = {"type": type(exc).__name__, "message": str(exc)}
+    finally:
+        try:
+            result["candidate_return"] = (
+                wait_for_candidate_return_attended_once(spec, args)
+            )
+        except Exception as exc:  # noqa: BLE001 - recovery must resume later
+            result["candidate_return_error"] = {
+                "type": type(exc).__name__,
+                "message": str(exc),
+            }
+    write_private_json_exclusive(transaction_dir / "observation.json", result)
+    return result
+
+
 def verify_final_health(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
     bridge = staging.require_exact_bridge(spec.stage, args)
+    channel = settle_observation_channel(
+        args,
+        phase="before-final-health",
+    )
     baseline = require_f1_baseline(args)
     return {
         "exact_bridge": True,
         "selected_realpath": bridge.get("selected_realpath"),
+        "channel": channel,
         "version": spec.rollback_version,
         "build": spec.rollback_build,
         "selftest_fail_zero": True,
@@ -2146,6 +2743,24 @@ def execute_approved_f1(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any
         run_id=spec.stage.run_id,
     )
     ensure_event(transaction_dir, events, "candidate_flash_done")
+    if spec.observation_mode == ATTENDED_OBSERVATION_MODE:
+        attended_result = open_attended_window(
+            spec,
+            approval_prepared,
+            transaction_dir,
+            journal_dir,
+        )
+        validate_attended_candidate_closure(
+            spec,
+            approval_prepared,
+            transaction_dir,
+            read_journal(spec, transaction_dir),
+        )
+        return attended_result
+    candidate_health_channel = settle_observation_channel(
+        args,
+        phase="before-candidate-health",
+    )
     candidate_health = verify_candidate_health(spec, args)
     append_record(
         journal_dir,
@@ -2155,6 +2770,7 @@ def execute_approved_f1(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any
             "candidate_version": spec.candidate_version,
             "candidate_build": spec.candidate_build,
             "selftest_fail_zero": True,
+            "channel": candidate_health_channel,
             "health": candidate_health,
         },
         manifest_sha256=spec.stage.manifest_sha256,
@@ -2198,6 +2814,359 @@ def execute_approved_f1(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any
     )
 
 
+def validate_attended_continuation(
+    spec: F1Spec,
+    args: argparse.Namespace,
+    approval_prepared: dict[str, Any],
+    transaction_dir: Path,
+    records: list[dict[str, Any]],
+) -> tuple[dict[str, Any], int]:
+    if spec.observation_mode != ATTENDED_OBSERVATION_MODE:
+        raise ContractError("manifest does not select attended observation")
+    require_consumed_approval(records, approval_prepared)
+    actions = action_names(records)
+    if (
+        actions.count("candidate-transfer-started") != 1
+        or actions.count("candidate-flashed") != 1
+        or actions.count("attended-window-open") != 1
+    ):
+        raise ContractError("attended continuation lacks exact candidate/window state")
+    for forbidden in (
+        "candidate-host-rejected",
+        "attended-pre-handoff-ready",
+        "attended-handoff-started",
+        "observation-proven",
+        "observation-no-proof",
+        "rollback-transfer-started",
+        "rollback-flashed",
+        "rollback-completion-recovered-by-health",
+        "closed",
+    ):
+        if forbidden in actions:
+            raise ContractError(
+                f"attended continuation is closed by durable action: {forbidden}"
+            )
+    validate_attended_candidate_closure(
+        spec,
+        approval_prepared,
+        transaction_dir,
+        records,
+    )
+    window_index = actions.index("attended-window-open")
+    suffix = records[window_index + 1:]
+    if len(suffix) % 2 != 0:
+        raise ContractError("attended pre-handoff journal has an incomplete pair")
+    receipt = load_attended_window(
+        spec,
+        approval_prepared,
+        transaction_dir,
+        records,
+    )
+    if args.attended_approval != receipt["continue_token"]:
+        raise ContractError("fresh exact attended continuation token mismatch")
+    window_opened = parse_utc_timestamp(
+        records[window_index]["timestamp_utc"],
+        "attended window opened",
+    )
+    deadline = parse_utc_timestamp(
+        receipt["continue_binding"]["window_deadline_utc"],
+        "attended window deadline",
+    )
+    journal_keys = {
+        "schema",
+        "sequence",
+        "timestamp_utc",
+        "run_id",
+        "manifest_sha256",
+        "state",
+        "action",
+    }
+    attempt_keys = journal_keys | {
+        "attempt",
+        "attempt_limit",
+        "handoff_intent",
+        "handoff_sent",
+        "candidate_replay",
+        "rollback_required",
+    }
+    failure_keys = journal_keys | {
+        "attempt",
+        "attempt_limit",
+        "retryable_channel_failure",
+        "continuation_allowed",
+        "within_deadline",
+        "handoff_intent",
+        "handoff_sent",
+        "candidate_replay",
+        "rollback_required",
+        "error",
+    }
+    for index in range(0, len(suffix), 2):
+        attempt = suffix[index]
+        failure = suffix[index + 1]
+        expected_attempt = index // 2 + 1
+        attempt_timestamp = parse_utc_timestamp(
+            attempt.get("timestamp_utc"),
+            "attended pre-handoff attempt",
+        )
+        failure_timestamp = parse_utc_timestamp(
+            failure.get("timestamp_utc"),
+            "attended pre-handoff failure",
+        )
+        if (
+            set(attempt) != attempt_keys
+            or attempt.get("state") != "CANDIDATE_FLASHED"
+            or attempt.get("action") != "attended-pre-handoff-attempt"
+            or type(attempt.get("attempt")) is not int
+            or attempt.get("attempt") != expected_attempt
+            or type(attempt.get("attempt_limit")) is not int
+            or attempt.get("attempt_limit") != spec.pre_handoff_attempt_limit
+            or attempt.get("handoff_intent") is not False
+            or attempt.get("handoff_sent") is not False
+            or attempt.get("candidate_replay") is not False
+            or attempt.get("rollback_required") is not True
+            or set(failure) != failure_keys
+            or failure.get("state") != "CANDIDATE_FLASHED"
+            or failure.get("action") != "attended-pre-handoff-failed"
+            or type(failure.get("attempt")) is not int
+            or failure.get("attempt") != expected_attempt
+            or type(failure.get("attempt_limit")) is not int
+            or failure.get("attempt_limit") != spec.pre_handoff_attempt_limit
+            or failure.get("retryable_channel_failure") is not True
+            or failure.get("continuation_allowed") is not True
+            or failure.get("within_deadline") is not True
+            or failure.get("handoff_intent") is not False
+            or failure.get("handoff_sent") is not False
+            or failure.get("candidate_replay") is not False
+            or failure.get("rollback_required") is not True
+            or not attended_stored_failure_retryable(
+                failure.get("error"),
+                attempt=expected_attempt,
+            )
+            or not (
+                window_opened
+                <= attempt_timestamp
+                <= failure_timestamp
+                <= deadline
+            )
+        ):
+            raise ContractError(
+                "attended pre-handoff retry lacks exact no-intent/no-send proof"
+            )
+    attempts = len(suffix) // 2
+    if attempts >= spec.pre_handoff_attempt_limit:
+        raise ContractError("attended pre-handoff attempt budget is exhausted")
+    if current_utc() > deadline:
+        raise ContractError("attended observation window expired; rollback only")
+    return receipt, attempts + 1
+
+
+def continue_attended_f1(
+    spec: F1Spec,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    approval_prepared = approved_bindings(spec, args, recovery=True)
+    verify_local_closure(spec)
+    transaction_dir = exact_transaction_dir(spec, args.transaction_dir)
+    records = read_journal(spec, transaction_dir)
+    receipt, attempt = validate_attended_continuation(
+        spec,
+        args,
+        approval_prepared,
+        transaction_dir,
+        records,
+    )
+    events = repair_timeline_from_journal(transaction_dir, records)
+    journal_dir = transaction_dir / "journal"
+    append_record(
+        journal_dir,
+        "CANDIDATE_FLASHED",
+        "attended-pre-handoff-attempt",
+        {
+            "attempt": attempt,
+            "attempt_limit": spec.pre_handoff_attempt_limit,
+            "handoff_intent": False,
+            "handoff_sent": False,
+            "candidate_replay": False,
+            "rollback_required": True,
+        },
+        manifest_sha256=spec.stage.manifest_sha256,
+        run_id=spec.stage.run_id,
+    )
+    try:
+        channel_before_health = settle_observation_channel(
+            args,
+            phase=f"attended-attempt-{attempt}-before-health",
+        )
+        candidate_health = verify_candidate_health(spec, args)
+        source_preflight = remote_source_preflight(spec, args)
+        channel_before_handoff = settle_observation_channel(
+            args,
+            phase=f"attended-attempt-{attempt}-before-handoff",
+        )
+        handoff_deadline = parse_utc_timestamp(
+            receipt["continue_binding"]["window_deadline_utc"],
+            "attended window deadline",
+        )
+        if current_utc() > handoff_deadline:
+            raise ContractError(
+                "attended observation window expired before handoff"
+            )
+    except Exception as exc:
+        retryable = attended_pre_handoff_retryable(
+            exc,
+            attempt=attempt,
+        )
+        deadline = parse_utc_timestamp(
+            receipt["continue_binding"]["window_deadline_utc"],
+            "attended window deadline",
+        )
+        failure_observed = current_utc()
+        within_deadline = failure_observed <= deadline
+        continuation_allowed = (
+            retryable
+            and attempt < spec.pre_handoff_attempt_limit
+            and within_deadline
+        )
+        append_record(
+            journal_dir,
+            "CANDIDATE_FLASHED",
+            "attended-pre-handoff-failed",
+            {
+                "attempt": attempt,
+                "attempt_limit": spec.pre_handoff_attempt_limit,
+                "retryable_channel_failure": retryable,
+                "continuation_allowed": continuation_allowed,
+                "within_deadline": within_deadline,
+                "handoff_intent": False,
+                "handoff_sent": False,
+                "candidate_replay": False,
+                "rollback_required": True,
+                "error": {
+                    "type": type(exc).__name__,
+                    "message": str(exc),
+                },
+            },
+            manifest_sha256=spec.stage.manifest_sha256,
+            run_id=spec.stage.run_id,
+            timestamp_utc=failure_observed.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )
+        if not continuation_allowed:
+            raise RuntimeError(
+                "attended pre-handoff continuation ended; rollback only"
+            ) from exc
+        return {
+            "schema": ORCHESTRATOR_SCHEMA,
+            "status": "PAUSED_F1_V2_ATTENDED_RETRY_AVAILABLE",
+            "run_id": spec.stage.run_id,
+            "manifest_sha256": spec.stage.manifest_sha256,
+            "continue_token": receipt["continue_token"],
+            "attempt": attempt,
+            "attempts_remaining": (
+                spec.pre_handoff_attempt_limit - attempt
+            ),
+            "handoff_attempted": False,
+            "candidate_replay": False,
+            "rollback_required": True,
+        }
+    append_record(
+        journal_dir,
+        "CANDIDATE_FLASHED",
+        "candidate-boot-ready",
+        {
+            "candidate_version": spec.candidate_version,
+            "candidate_build": spec.candidate_build,
+            "selftest_fail_zero": True,
+            "attended_attempt": attempt,
+            "channel": channel_before_health,
+            "health": candidate_health,
+        },
+        manifest_sha256=spec.stage.manifest_sha256,
+        run_id=spec.stage.run_id,
+    )
+    ensure_event(transaction_dir, events, "candidate_boot_ready")
+    pre_handoff = {
+        "attempt": attempt,
+        "source_preflight": source_preflight,
+        "channel_before_handoff": channel_before_handoff,
+    }
+    append_record(
+        journal_dir,
+        "CANDIDATE_FLASHED",
+        "attended-pre-handoff-ready",
+        {
+            "attempt": attempt,
+            "handoff_intent": False,
+            "handoff_sent": False,
+            "source_exact": True,
+            "candidate_health_exact": True,
+        },
+        manifest_sha256=spec.stage.manifest_sha256,
+        run_id=spec.stage.run_id,
+    )
+    intent_timestamp = current_utc()
+    if intent_timestamp > handoff_deadline:
+        raise RuntimeError(
+            "attended window expired before durable handoff intent; "
+            "rollback only"
+        )
+    append_record(
+        journal_dir,
+        "CANDIDATE_FLASHED",
+        "attended-handoff-started",
+        {
+            "handoff_attempt": 1,
+            "handoff_attempt_limit": spec.handoff_attempt_limit,
+            "handoff_argv_sha256": json_sha256(list(spec.handoff_command)),
+            "journal_fsync_completed_before_dispatch": True,
+            "candidate_replay": False,
+            "rollback_required": True,
+        },
+        manifest_sha256=spec.stage.manifest_sha256,
+        run_id=spec.stage.run_id,
+        timestamp_utc=intent_timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
+    observation = observe_attended_after_handoff(
+        spec,
+        args,
+        transaction_dir,
+        pre_handoff,
+    )
+    append_record(
+        journal_dir,
+        "OBSERVED",
+        "observation-proven" if observation.get("proof") else "observation-no-proof",
+        {
+            "debian_pid1_proven": observation.get("proof") is True,
+            "candidate_replay": False,
+            "rollback_required": True,
+            "candidate_returned": "candidate_return" in observation,
+            "handoff_attempt_count": 1,
+        },
+        manifest_sha256=spec.stage.manifest_sha256,
+        run_id=spec.stage.run_id,
+    )
+    if "candidate_return" not in observation:
+        raise RuntimeError("attended candidate did not return; recover rollback only")
+    health = invoke_rollback(
+        spec,
+        args,
+        transaction_dir,
+        journal_dir,
+        events,
+        from_native=True,
+    )
+    return close_transaction(
+        spec,
+        transaction_dir,
+        journal_dir,
+        events,
+        observation_proven=observation.get("proof") is True,
+        final_health=health,
+        candidate_complete=True,
+    )
+
+
 def action_names(records: list[dict[str, Any]]) -> list[str]:
     return [str(record.get("action")) for record in records]
 
@@ -2217,19 +3186,7 @@ def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[st
         raise ContractError("pre-session abort has no rollback authority to exercise")
     if "closed" in actions:
         raise ContractError("transaction is already closed")
-    approved_records = [
-        record for record in records if record.get("action") == "approved"
-    ]
-    if (
-        len(approved_records) != 1
-        or approved_records[0].get("approval_binding_sha256")
-        != approval_prepared["approval_binding_sha256"]
-        or approved_records[0].get("approval_token_sha256")
-        != hashlib.sha256(
-            str(approval_prepared["approval_token"]).encode("utf-8")
-        ).hexdigest()
-    ):
-        raise ContractError("transaction lacks the exact consumed approval binding")
+    require_consumed_approval(records, approval_prepared)
     events = repair_timeline_from_journal(transaction_dir, records)
     journal_dir = transaction_dir / "journal"
 
@@ -2412,6 +3369,11 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         "def rollback_pre_spawn_retry(",
         "def validate_handoff_timeout(",
         "def settle_observation_channel(",
+        "def validate_attended_candidate_closure(",
+        "def open_attended_window(",
+        "def load_attended_window(",
+        "def validate_attended_continuation(",
+        "def continue_attended_f1(",
         "def execute_approved_f1(",
         "def recover_approved_rollback(",
         "def invoke_rollback(",
@@ -2442,9 +3404,22 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         "F1_HANDOFF_MIN_TIMEOUT_SEC = (",
         "OBSERVATION_MENU_SETTLE_SEC = 3.0",
         'OBSERVATION_CHANNEL_CANARY = ("run", "/bin/busybox", "true")',
+        'ATTENDED_OBSERVATION_MODE = "operator-attended-v1"',
+        "ATTENDED_WINDOW_SEC = 900",
+        "ATTENDED_PRE_HANDOFF_ATTEMPT_LIMIT = 3",
+        "ATTENDED_HANDOFF_ATTEMPT_LIMIT = 1",
     ):
         if token not in observation_constants:
             issues.append(f"missing observation channel contract: {token}")
+    exact_retryable_errors = (
+        "ATTENDED_RETRYABLE_CHANNEL_ERRORS = (\n"
+        '    "A90P1 END marker not found",\n'
+        '    "observation menu hide did not complete",\n'
+        '    "observation channel did not settle",\n'
+        ")\n"
+    )
+    if observation_constants.count(exact_retryable_errors) != 1:
+        issues.append("attended retryable channel errors are not exact")
     read_budget_start = observation_constants.find(
         "F1_HANDOFF_MIN_READ_BUDGET_SEC = ("
     )
@@ -2516,6 +3491,60 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         )
         if load.count(load_gate) != 1:
             issues.append("manifest load lacks exact handoff timeout gate")
+        if load.count(") = validate_observation_policy(observation)") != 1:
+            issues.append("manifest load lacks exact attended policy gate")
+    policy_start = source.find("def validate_observation_policy(")
+    policy_end = source.find("def require_private_regular(", policy_start + 1)
+    if policy_start < 0 or policy_end < 0:
+        issues.append("attended policy validator boundary is missing")
+    else:
+        policy = source[policy_start:policy_end]
+        for token in (
+            "if mode == ATTENDED_OBSERVATION_MODE:",
+            "type(window) is not int or window != ATTENDED_WINDOW_SEC",
+            "type(attempts) is not int",
+            "attempts != ATTENDED_PRE_HANDOFF_ATTEMPT_LIMIT",
+            "type(handoffs) is not int",
+            "handoffs != ATTENDED_HANDOFF_ATTEMPT_LIMIT",
+            "elif mode == UNATTENDED_OBSERVATION_MODE:",
+            "return mode, window, attempts, handoffs",
+        ):
+            if token not in policy:
+                issues.append(f"attended policy validator missing: {token}")
+    candidate_closure_start = source.find(
+        "def validate_attended_candidate_closure("
+    )
+    attended_window_path_start = source.find(
+        "def attended_window_path(",
+        candidate_closure_start + 1,
+    )
+    if candidate_closure_start < 0 or attended_window_path_start < 0:
+        issues.append("attended candidate closure boundary is missing")
+    else:
+        candidate_closure = source[
+            candidate_closure_start:attended_window_path_start
+        ]
+        for token in (
+            "actions[:len(expected_prefix)] != expected_prefix",
+            "set(approved) != approved_keys",
+            "set(candidate_start) != start_keys",
+            "set(candidate_flashed) != flashed_keys",
+            'candidate_start.get("candidate_sha256") != spec.candidate.sha256',
+            'type(candidate_start.get("candidate_transfer_count_max")) is not int',
+            'candidate_start.get("candidate_transfer_count_max") != 1',
+            'type(candidate_flashed.get("candidate_transfer_count")) is not int',
+            'candidate_flashed.get("candidate_transfer_count") != 1',
+            'candidate_flashed.get("candidate_replay") is not False',
+            'candidate_flashed.get("rollback_required") is not True',
+            "set(execution) != execution_keys",
+            'execution.get("process_started") is not True',
+            "value is not True",
+            "classify_flash_log(resolved_log)",
+        ):
+            if token not in candidate_closure:
+                issues.append(
+                    f"attended candidate closure is not exact: {token}"
+                )
     execute_start = source.find("def execute_approved_f1(")
     recover_start = source.find("def recover_approved_rollback(")
     simulate_start = source.find("def simulate_transaction(")
@@ -2543,11 +3572,14 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         else:
             cursor = position
     observe_start = source.find("def observe_candidate(")
-    final_health_start = source.find("def verify_final_health(", observe_start + 1)
-    if observe_start < 0 or final_health_start < 0:
+    attended_start = source.find(
+        "def attended_retryable_error_identity(",
+        observe_start + 1,
+    )
+    if observe_start < 0 or attended_start < 0:
         issues.append("observation source boundary is missing")
     else:
-        observe = source[observe_start:final_health_start]
+        observe = source[observe_start:attended_start]
         observe_ordered = (
             'phase="before-source-preflight"',
             "remote_source_preflight(spec, args)",
@@ -2571,6 +3603,153 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             is not None
         ):
             issues.append("observation corridor is not exact single-shot order")
+    retry_classifier_start = source.find(
+        "def attended_retryable_error_identity("
+    )
+    retry_runtime_start = source.find(
+        "def attended_pre_handoff_retryable(",
+        retry_classifier_start + 1,
+    )
+    retry_stored_start = source.find(
+        "def attended_stored_failure_retryable(",
+        retry_runtime_start + 1,
+    )
+    candidate_return_start = source.find(
+        "def wait_for_candidate_return_attended_once(",
+        retry_stored_start + 1,
+    )
+    if (
+        retry_classifier_start < 0
+        or retry_runtime_start < 0
+        or retry_stored_start < 0
+        or candidate_return_start < 0
+    ):
+        issues.append("attended retry classifier boundary is missing")
+    else:
+        retry_identity = source[
+            retry_classifier_start:retry_runtime_start
+        ]
+        for token in (
+            'if error_type == "ContractError":',
+            "for suffix in ATTENDED_RETRYABLE_CHANNEL_ERRORS[1:]",
+            'if error_type == "RuntimeError":',
+            "message == marker or message.startswith(marker +",
+            "return False",
+        ):
+            if token not in retry_identity:
+                issues.append(
+                    f"attended retry classifier is not exact: {token}"
+                )
+        retry_runtime = source[retry_runtime_start:retry_stored_start]
+        for token in (
+            "if type(exc) not in (ContractError, RuntimeError):",
+            "return False",
+            "return attended_retryable_error_identity(",
+            "type(exc).__name__",
+            "attempt=attempt",
+        ):
+            if token not in retry_runtime:
+                issues.append(
+                    f"attended runtime retry classifier is not exact: {token}"
+                )
+        retry_stored = source[retry_stored_start:candidate_return_start]
+        for token in (
+            'set(error) == {"type", "message"}',
+            'isinstance(error.get("type"), str)',
+            'isinstance(error.get("message"), str)',
+            "and attended_retryable_error_identity(",
+            "attempt=attempt",
+        ):
+            if token not in retry_stored:
+                issues.append(
+                    f"attended stored retry classifier is not exact: {token}"
+                )
+    validation_start = source.find("def validate_attended_continuation(")
+    continue_start = source.find(
+        "def continue_attended_f1(",
+        validation_start + 1,
+    )
+    if validation_start < 0 or continue_start < 0:
+        issues.append("attended continuation validator boundary is missing")
+    else:
+        validation = source[validation_start:continue_start]
+        for token in (
+            "validate_attended_candidate_closure(",
+            "set(attempt) != attempt_keys",
+            "set(failure) != failure_keys",
+            'failure.get("within_deadline") is not True',
+            'failure.get("candidate_replay") is not False',
+            'failure.get("rollback_required") is not True',
+            "attended_stored_failure_retryable(",
+            "<= failure_timestamp",
+            "<= deadline",
+        ):
+            if token not in validation:
+                issues.append(
+                    f"attended resume validation is not exact: {token}"
+                )
+    action_names_start = source.find("def action_names(", continue_start + 1)
+    if continue_start < 0 or action_names_start < 0:
+        issues.append("attended continuation source boundary is missing")
+    else:
+        attended = source[continue_start:action_names_start]
+        attended_ordered = (
+            "validate_attended_continuation(",
+            '"attended-pre-handoff-attempt"',
+            'phase=f"attended-attempt-{attempt}-before-health"',
+            "verify_candidate_health(spec, args)",
+            "remote_source_preflight(spec, args)",
+            'phase=f"attended-attempt-{attempt}-before-handoff"',
+            '"attended observation window expired before handoff"',
+            '"attended-pre-handoff-failed"',
+            '"candidate-boot-ready"',
+            '"attended-pre-handoff-ready"',
+            "intent_timestamp = current_utc()",
+            '"attended window expired before durable handoff intent; "',
+            '"attended-handoff-started"',
+            "observe_attended_after_handoff(",
+            "invoke_rollback(",
+            "close_transaction(",
+        )
+        attended_cursor = -1
+        for token in attended_ordered:
+            position = attended.find(token, attended_cursor + 1)
+            if position < 0:
+                issues.append(
+                    f"attended contract missing or out of order: {token}"
+                )
+            else:
+                attended_cursor = position
+        intent_position = attended.find('"attended-handoff-started"')
+        dispatch_position = attended.find(
+            "observe_attended_after_handoff(",
+            intent_position + 1,
+        )
+        if (
+            intent_position < 0
+            or dispatch_position <= intent_position
+            or attended.count('"attended-handoff-started"') != 1
+            or attended.count("observe_attended_after_handoff(") != 1
+            or '"journal_fsync_completed_before_dispatch": True'
+            not in attended[intent_position:dispatch_position]
+        ):
+            issues.append(
+                "attended handoff intent is not durably ordered before dispatch"
+            )
+        for token in (
+            '"handoff_intent": False',
+            '"handoff_sent": False',
+            '"retryable_channel_failure": retryable',
+            '"continuation_allowed": continuation_allowed',
+            '"within_deadline": within_deadline',
+            'timestamp_utc=failure_observed.strftime("%Y-%m-%dT%H:%M:%SZ")',
+            "attempt < spec.pre_handoff_attempt_limit",
+            "current_utc() > handoff_deadline",
+            'timestamp_utc=intent_timestamp.strftime("%Y-%m-%dT%H:%M:%SZ")',
+            "within_deadline",
+        ):
+            if token not in attended:
+                issues.append(f"attended retry contract missing: {token}")
     handoff_start = source.find("def run_handoff(")
     ssh_start = source.find("def ssh_command(", handoff_start + 1)
     if handoff_start < 0 or ssh_start < 0:
@@ -2691,8 +3870,10 @@ def build_parser() -> argparse.ArgumentParser:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--prepare-approval", action="store_true")
     mode.add_argument("--execute-approved-f1", action="store_true")
+    mode.add_argument("--continue-attended-f1", action="store_true")
     mode.add_argument("--recover-approved-rollback", action="store_true")
     parser.add_argument("--approval")
+    parser.add_argument("--attended-approval")
     parser.add_argument("--transaction-dir", type=Path)
     parser.add_argument(
         "--recovery-path",
@@ -2716,7 +3897,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    live = args.execute_approved_f1 or args.recover_approved_rollback
+    live = (
+        args.execute_approved_f1
+        or args.continue_attended_f1
+        or args.recover_approved_rollback
+    )
     final_only = live or args.prepare_approval
     spec, issues = load_spec(
         args.manifest,
@@ -2728,8 +3913,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0 if not result["contract_issues"] else 2
     if args.prepare_approval:
-        if args.approval is not None:
-            raise ContractError("approval preparation does not accept --approval")
+        if args.approval is not None or args.attended_approval is not None:
+            raise ContractError("approval preparation does not accept live approval")
         result = prepare_approval(spec)
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
@@ -2738,12 +3923,24 @@ def main(argv: list[str] | None = None) -> int:
     if args.execute_approved_f1:
         if args.recovery_path is not None:
             raise ContractError("initial execution does not accept --recovery-path")
+        if args.attended_approval is not None:
+            raise ContractError("initial execution does not accept attended approval")
         if args.approval is None:
             raise ContractError("initial execution requires --approval")
         result = execute_approved_f1(spec, args)
+    elif args.continue_attended_f1:
+        if args.approval is not None or args.recovery_path is not None:
+            raise ContractError(
+                "attended continuation accepts no F1 approval or recovery path"
+            )
+        if args.attended_approval is None:
+            raise ContractError(
+                "attended continuation requires --attended-approval"
+            )
+        result = continue_attended_f1(spec, args)
     else:
-        if args.approval is not None:
-            raise ContractError("rollback recovery does not accept --approval")
+        if args.approval is not None or args.attended_approval is not None:
+            raise ContractError("rollback recovery does not accept live approval")
         result = recover_approved_rollback(spec, args)
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0

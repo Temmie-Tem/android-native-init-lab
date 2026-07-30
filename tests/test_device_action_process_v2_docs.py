@@ -8,7 +8,7 @@ AGENTS_HARD_MAX_LINES = 260
 GOAL_REVIEW_THRESHOLD_LINES = 800
 GOAL_HARD_MAX_LINES = 900
 ATTENDED_REQUIRED_CLAUSES = (
-    "Status: `H0_DESIGN_SELECTED_IMPLEMENTATION_REQUIRED`",
+    "Status: `H0_IMPLEMENTED_STATIC_GO_NO_LIVE_MANIFEST`",
     "It is not live authority and cannot be applied to a candidate after candidate intent.",
     '"attended_window_sec": 900',
     '"pre_handoff_attempt_limit": 3',

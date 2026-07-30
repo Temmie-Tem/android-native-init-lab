@@ -20,12 +20,13 @@ Do not add a device step when host-only work can answer the question.
   selftest; source preflight, handoff, and `switch_root` were not attempted.
   After one low-risk menu hide, health-only recovery closed
   `ABORTED_F1_V2_CANDIDATE_UNCERTAIN_ROLLED_BACK` with exact V2321 health.
-- The future-only A90 successor is the H0 design in
+- The future-only A90 successor is the H0 implementation in
   `docs/operations/A90_F1_ATTENDED_OBSERVATION_V1.md`: a predeclared bounded
   operator-attended pre-handoff window, at most three health/channel attempts,
-  exactly one handoff, and unchanged mandatory rollback. It is not executable
-  until runner/schema implementation, focused tests, and independent review
-  pass. It never applies retroactively to a consumed run.
+  exactly one handoff, and unchanged mandatory rollback. Runner/schema
+  implementation, focused tests, and independent review passed. No new run,
+  final manifest, approval, continuation receipt, or live authority exists.
+  It never applies retroactively to a consumed run.
 - P2.82 consumed one exact approval. Its byte-identical reads end in terminal
   failure `0x8e/detail=0xc10`; the newline-bearing comparator made exact NONE
   readback impossible. No accepted ACM endpoint appeared. Child suspend,

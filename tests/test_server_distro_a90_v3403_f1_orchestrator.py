@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import datetime as dt
 import hashlib
 import json
 import os
@@ -89,6 +90,10 @@ def sample_spec() -> object:
         observer_key=Path("/private/observer-key"),
         ssh_marker_timeout=90,
         candidate_return_timeout=240,
+        observation_mode=f1.UNATTENDED_OBSERVATION_MODE,
+        attended_window_sec=0,
+        pre_handoff_attempt_limit=1,
+        handoff_attempt_limit=1,
         orchestrator_sha256=f1.sha256_file(SOURCE.resolve()),
         recovery_serial_sha256=hashlib.sha256(b"recovery-target").hexdigest(),
         recovery_serial="recovery-target",
@@ -98,9 +103,21 @@ def sample_spec() -> object:
     )
 
 
+def attended_spec() -> object:
+    spec = sample_spec()
+    spec.observation_mode = f1.ATTENDED_OBSERVATION_MODE
+    spec.attended_window_sec = f1.ATTENDED_WINDOW_SEC
+    spec.pre_handoff_attempt_limit = (
+        f1.ATTENDED_PRE_HANDOFF_ATTEMPT_LIMIT
+    )
+    spec.handoff_attempt_limit = f1.ATTENDED_HANDOFF_ATTEMPT_LIMIT
+    return spec
+
+
 def sample_args() -> object:
     return types.SimpleNamespace(
         approval="test-approval-token",
+        attended_approval=None,
         bridge_host="localhost",
         bridge_port=54321,
         bridge_timeout=180.0,
@@ -112,6 +129,131 @@ def sample_args() -> object:
         poll_interval=0.0,
         recovery_path=None,
     )
+
+
+def write_attended_candidate_state(
+    base: Path,
+    spec: object,
+) -> tuple[Path, dict[str, object], dict[str, object]]:
+    prepared = write_approval_prepared(base, spec)
+    transaction = base / spec.stage.run_id / "f1-live"
+    journal = transaction / "journal"
+    f1.append_record(
+        journal,
+        "PREFLIGHT",
+        "preflight",
+        {"fixture": True},
+        manifest_sha256=spec.stage.manifest_sha256,
+        run_id=spec.stage.run_id,
+    )
+    f1.append_record(
+        journal,
+        "APPROVED",
+        "approved",
+        {
+            "approval_consumed": True,
+            "candidate_attempted": False,
+            "rollback_pre_authorized": True,
+            "approval_binding_sha256": prepared["approval_binding_sha256"],
+            "approval_token_sha256": hashlib.sha256(
+                str(prepared["approval_token"]).encode("utf-8")
+            ).hexdigest(),
+            "orchestrator_sha256": spec.orchestrator_sha256,
+        },
+        manifest_sha256=spec.stage.manifest_sha256,
+        run_id=spec.stage.run_id,
+    )
+    f1.append_record(
+        journal,
+        "APPROVED",
+        "staging-started",
+        {"fixture": True},
+        manifest_sha256=spec.stage.manifest_sha256,
+        run_id=spec.stage.run_id,
+    )
+    f1.append_record(
+        journal,
+        "APPROVED",
+        "rootfs-staged",
+        {"fixture": True},
+        manifest_sha256=spec.stage.manifest_sha256,
+        run_id=spec.stage.run_id,
+    )
+    f1.append_record(
+        journal,
+        "APPROVED",
+        "rootfs-candidate-preflight",
+        {"fixture": True},
+        manifest_sha256=spec.stage.manifest_sha256,
+        run_id=spec.stage.run_id,
+    )
+    f1.append_record(
+        journal,
+        "APPROVED",
+        "candidate-transfer-started",
+        {
+            "candidate_attempted": True,
+            "candidate_sha256": spec.candidate.sha256,
+            "candidate_transfer_count_max": 1,
+            "candidate_replay": False,
+            "rollback_required": True,
+        },
+        manifest_sha256=spec.stage.manifest_sha256,
+        run_id=spec.stage.run_id,
+    )
+    raw_log = transaction / "candidate-flash.raw.log"
+    raw_log.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    raw_log.write_text(
+        "\n".join(
+            (
+                "phase.native_init_flash.inspect_local_image.elapsed_sec=1 ok=1",
+                "phase.native_init_flash.native_to_recovery.elapsed_sec=1 ok=1",
+                "] ADB ready: recovery-target recovery",
+                "phase.native_init_flash.adb_push.elapsed_sec=1 ok=1",
+                "phase.native_init_flash.boot_dd_write.elapsed_sec=1 ok=1",
+                (
+                    "phase.native_init_flash.boot_readback_sha256."
+                    "elapsed_sec=1 ok=1"
+                ),
+                "",
+            )
+        ),
+        encoding="utf-8",
+    )
+    raw_log.chmod(0o600)
+    execution = {
+        **f1.command_record(raw_log, 0),
+        "process_started": True,
+        "phase_classification": f1.classify_flash_log(raw_log),
+    }
+    f1.append_record(
+        journal,
+        "CANDIDATE_FLASHED",
+        "candidate-flashed",
+        {
+            "candidate_sha256": spec.candidate.sha256,
+            "candidate_transfer_count": 1,
+            "candidate_replay": False,
+            "rollback_required": True,
+            "record": execution,
+        },
+        manifest_sha256=spec.stage.manifest_sha256,
+        run_id=spec.stage.run_id,
+    )
+    events: list[dict[str, str]] = []
+    for name in (
+        "live_session_start",
+        "candidate_flash_start",
+        "candidate_flash_done",
+    ):
+        f1.add_event(transaction, events, name)
+    opened = f1.open_attended_window(
+        spec,
+        prepared,
+        transaction,
+        journal,
+    )
+    return transaction, prepared, opened
 
 
 def write_approval_prepared(base: Path, spec: object) -> dict[str, object]:
@@ -1063,9 +1205,11 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             ]
         )
         self.assertFalse(args.execute_approved_f1)
+        self.assertFalse(args.continue_attended_f1)
         self.assertFalse(args.recover_approved_rollback)
         self.assertFalse(args.prepare_approval)
         self.assertIsNone(args.approval)
+        self.assertIsNone(args.attended_approval)
         self.assertIsNone(args.recovery_path)
 
     def test_run_logged_timeout_is_private_and_structured(self) -> None:
@@ -1966,6 +2110,882 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             path.write_text(json.dumps(value), encoding="utf-8")
             with self.assertRaisesRegex(f1.ContractError, "invalid journal"):
                 f1.read_journal(spec, transaction)
+
+    def test_observation_policy_is_exact_and_rejects_bool_limits(self) -> None:
+        attended = {
+            "mode": f1.ATTENDED_OBSERVATION_MODE,
+            "attended_window_sec": 900,
+            "pre_handoff_attempt_limit": 3,
+            "handoff_attempt_limit": 1,
+        }
+        self.assertEqual(
+            f1.validate_observation_policy(attended),
+            (f1.ATTENDED_OBSERVATION_MODE, 900, 3, 1),
+        )
+        unattended = {
+            "mode": f1.UNATTENDED_OBSERVATION_MODE,
+            "attended_window_sec": 0,
+            "pre_handoff_attempt_limit": 1,
+            "handoff_attempt_limit": 1,
+        }
+        self.assertEqual(
+            f1.validate_observation_policy(unattended),
+            (f1.UNATTENDED_OBSERVATION_MODE, 0, 1, 1),
+        )
+        for key, value in (
+            ("attended_window_sec", 901),
+            ("pre_handoff_attempt_limit", 4),
+            ("handoff_attempt_limit", 2),
+            ("handoff_attempt_limit", True),
+        ):
+            with self.subTest(key=key, value=value):
+                mutated = dict(attended)
+                mutated[key] = value
+                with self.assertRaises(f1.ContractError):
+                    f1.validate_observation_policy(mutated)
+        attended_binding = f1.approval_binding(attended_spec())
+        self.assertEqual(
+            attended_binding["observation_mode"],
+            f1.ATTENDED_OBSERVATION_MODE,
+        )
+        self.assertEqual(attended_binding["attended_window_sec"], 900)
+        self.assertEqual(attended_binding["pre_handoff_attempt_limit"], 3)
+        self.assertEqual(attended_binding["handoff_attempt_limit"], 1)
+        self.assertNotEqual(
+            f1.json_sha256(attended_binding),
+            f1.json_sha256(f1.approval_binding(sample_spec())),
+        )
+
+    def test_attended_window_receipt_is_private_exact_and_non_authorizing(self) -> None:
+        spec = attended_spec()
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            transaction, prepared, opened = write_attended_candidate_state(
+                Path(temp_dir),
+                spec,
+            )
+            path = transaction / "attended-window.json"
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+            receipt = json.loads(path.read_text())
+            self.assertEqual(receipt["continue_token"], opened["continue_token"])
+            self.assertFalse(receipt["additional_partition_authority"])
+            self.assertFalse(receipt["candidate_replay"])
+            self.assertTrue(receipt["rollback_pre_authorized"])
+            records = f1.read_journal(spec, transaction)
+            loaded = f1.load_attended_window(
+                spec,
+                prepared,
+                transaction,
+                records,
+            )
+            self.assertEqual(loaded, receipt)
+            window = next(
+                record
+                for record in records
+                if record["action"] == "attended-window-open"
+            )
+            self.assertFalse(window["handoff_intent"])
+            self.assertFalse(window["handoff_sent"])
+            malformed = [dict(record) for record in records]
+            malformed[-1]["pre_handoff_attempt_limit"] = 4
+            with self.assertRaisesRegex(
+                f1.ContractError,
+                "window journal record is not exact",
+            ):
+                f1.load_attended_window(
+                    spec,
+                    prepared,
+                    transaction,
+                    malformed,
+                )
+
+    def test_attended_continuation_requires_exact_token_and_live_deadline(self) -> None:
+        spec = attended_spec()
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            transaction, prepared, opened = write_attended_candidate_state(
+                Path(temp_dir),
+                spec,
+            )
+            records = f1.read_journal(spec, transaction)
+            args = sample_args()
+            args.approval = None
+            args.attended_approval = "wrong"
+            with self.assertRaisesRegex(f1.ContractError, "token mismatch"):
+                f1.validate_attended_continuation(
+                    spec,
+                    args,
+                    prepared,
+                    transaction,
+                    records,
+                )
+            args.attended_approval = opened["continue_token"]
+            _receipt, attempt = f1.validate_attended_continuation(
+                spec,
+                args,
+                prepared,
+                transaction,
+                records,
+            )
+            self.assertEqual(attempt, 1)
+
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            with mock.patch.object(
+                f1,
+                "utc_now",
+                return_value="2020-01-01T00:00:00Z",
+            ):
+                transaction, prepared, opened = write_attended_candidate_state(
+                    Path(temp_dir),
+                    spec,
+                )
+            args.attended_approval = opened["continue_token"]
+            with self.assertRaisesRegex(f1.ContractError, "expired"):
+                f1.validate_attended_continuation(
+                    spec,
+                    args,
+                    prepared,
+                    transaction,
+                    f1.read_journal(spec, transaction),
+                )
+
+    def test_attended_resume_rejects_candidate_count_replay_or_order(self) -> None:
+        spec = attended_spec()
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            transaction, prepared, opened = write_attended_candidate_state(
+                Path(temp_dir),
+                spec,
+            )
+            records = f1.read_journal(spec, transaction)
+            args = sample_args()
+            args.approval = None
+            args.attended_approval = opened["continue_token"]
+            cases: dict[str, list[dict[str, object]]] = {}
+
+            wrong_count = copy.deepcopy(records)
+            wrong_count[6]["candidate_transfer_count"] = 2
+            cases["count"] = wrong_count
+
+            replayed = copy.deepcopy(records)
+            replayed[6]["candidate_replay"] = True
+            cases["replay"] = replayed
+
+            reordered = copy.deepcopy(records)
+            reordered[5], reordered[6] = reordered[6], reordered[5]
+            cases["order"] = reordered
+
+            for case, malformed in cases.items():
+                with (
+                    self.subTest(case=case),
+                    self.assertRaises(f1.ContractError),
+                ):
+                    f1.validate_attended_continuation(
+                        spec,
+                        args,
+                        prepared,
+                        transaction,
+                        malformed,
+                    )
+
+    def test_attended_retry_budget_never_sends_handoff(self) -> None:
+        spec = attended_spec()
+        args = sample_args()
+        args.approval = None
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            base = Path(temp_dir)
+            old_base = f1.PRIVATE_RUN_BASE
+            try:
+                f1.PRIVATE_RUN_BASE = base
+                transaction, prepared, opened = write_attended_candidate_state(
+                    base,
+                    spec,
+                )
+                args.transaction_dir = transaction
+                args.attended_approval = opened["continue_token"]
+                with (
+                    mock.patch.object(
+                        f1,
+                        "approved_bindings",
+                        return_value=prepared,
+                    ),
+                    mock.patch.object(f1, "verify_local_closure"),
+                    mock.patch.object(
+                        f1,
+                        "settle_observation_channel",
+                        side_effect=RuntimeError(
+                            "A90P1 END marker not found"
+                        ),
+                    ),
+                    mock.patch.object(f1, "run_handoff") as handoff,
+                ):
+                    for attempt in (1, 2):
+                        result = f1.continue_attended_f1(spec, args)
+                        self.assertEqual(
+                            result["status"],
+                            "PAUSED_F1_V2_ATTENDED_RETRY_AVAILABLE",
+                        )
+                        self.assertEqual(result["attempt"], attempt)
+                    with self.assertRaisesRegex(
+                        RuntimeError,
+                        "rollback only",
+                    ):
+                        f1.continue_attended_f1(spec, args)
+                handoff.assert_not_called()
+                records = f1.read_journal(spec, transaction)
+                failures = [
+                    record
+                    for record in records
+                    if record["action"] == "attended-pre-handoff-failed"
+                ]
+                self.assertEqual(len(failures), 3)
+                self.assertTrue(failures[0]["continuation_allowed"])
+                self.assertTrue(failures[1]["continuation_allowed"])
+                self.assertFalse(failures[2]["continuation_allowed"])
+                self.assertTrue(
+                    all(record["handoff_intent"] is False for record in failures)
+                )
+                self.assertTrue(
+                    all(record["handoff_sent"] is False for record in failures)
+                )
+            finally:
+                f1.PRIVATE_RUN_BASE = old_base
+
+    def test_attended_retry_classifier_accepts_only_exact_channel_failures(
+        self,
+    ) -> None:
+        self.assertTrue(
+            f1.attended_pre_handoff_retryable(
+                RuntimeError("A90P1 END marker not found\npartial frame"),
+                attempt=1,
+            )
+        )
+        self.assertTrue(
+            f1.attended_pre_handoff_retryable(
+                f1.ContractError(
+                    "attended-attempt-1-before-health "
+                    "observation menu hide did not complete"
+                ),
+                attempt=1,
+            )
+        )
+        self.assertTrue(
+            f1.attended_pre_handoff_retryable(
+                f1.ContractError(
+                    "attended-attempt-1-before-handoff "
+                    "observation channel did not settle"
+                ),
+                attempt=1,
+            )
+        )
+        self.assertFalse(
+            f1.attended_pre_handoff_retryable(
+                RuntimeError(
+                    "unclassified wrapper: A90P1 END marker not found"
+                ),
+                attempt=1,
+            )
+        )
+        self.assertFalse(
+            f1.attended_pre_handoff_retryable(
+                f1.ContractError(
+                    "candidate health mismatch; observation channel did not settle "
+                    "was seen earlier"
+                ),
+                attempt=1,
+            )
+        )
+        self.assertFalse(
+            f1.attended_pre_handoff_retryable(
+                ValueError("A90P1 END marker not found"),
+                attempt=1,
+            )
+        )
+
+    def test_attended_resume_rederives_prior_failure_classification(self) -> None:
+        spec = attended_spec()
+        for case in ("unclassified", "expired"):
+            with self.subTest(case=case), tempfile.TemporaryDirectory(
+                dir=f1.staging.PRIVATE_ROOT
+            ) as temp_dir:
+                transaction, prepared, opened = write_attended_candidate_state(
+                    Path(temp_dir),
+                    spec,
+                )
+                journal = transaction / "journal"
+                f1.append_record(
+                    journal,
+                    "CANDIDATE_FLASHED",
+                    "attended-pre-handoff-attempt",
+                    {
+                        "attempt": 1,
+                        "attempt_limit": 3,
+                        "handoff_intent": False,
+                        "handoff_sent": False,
+                        "candidate_replay": False,
+                        "rollback_required": True,
+                    },
+                    manifest_sha256=spec.stage.manifest_sha256,
+                    run_id=spec.stage.run_id,
+                )
+                failure_timestamp = None
+                error = {
+                    "type": "ValueError",
+                    "message": "candidate health mismatch",
+                }
+                within_deadline = False
+                if case == "expired":
+                    deadline = f1.parse_utc_timestamp(
+                        opened["window_deadline_utc"],
+                        "test deadline",
+                    )
+                    failure_timestamp = (
+                        deadline + dt.timedelta(seconds=1)
+                    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+                    error = {
+                        "type": "RuntimeError",
+                        "message": "A90P1 END marker not found\npartial frame",
+                    }
+                    within_deadline = True
+                f1.append_record(
+                    journal,
+                    "CANDIDATE_FLASHED",
+                    "attended-pre-handoff-failed",
+                    {
+                        "attempt": 1,
+                        "attempt_limit": 3,
+                        "retryable_channel_failure": True,
+                        "continuation_allowed": True,
+                        "within_deadline": within_deadline,
+                        "handoff_intent": False,
+                        "handoff_sent": False,
+                        "candidate_replay": False,
+                        "rollback_required": True,
+                        "error": error,
+                    },
+                    manifest_sha256=spec.stage.manifest_sha256,
+                    run_id=spec.stage.run_id,
+                    timestamp_utc=failure_timestamp,
+                )
+                args = sample_args()
+                args.approval = None
+                args.attended_approval = opened["continue_token"]
+                with self.assertRaisesRegex(
+                    f1.ContractError,
+                    "lacks exact no-intent/no-send proof",
+                ):
+                    f1.validate_attended_continuation(
+                        spec,
+                        args,
+                        prepared,
+                        transaction,
+                        f1.read_journal(spec, transaction),
+                    )
+
+    def test_attended_deadline_is_rechecked_before_handoff_intent(self) -> None:
+        spec = attended_spec()
+        args = sample_args()
+        args.approval = None
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            base = Path(temp_dir)
+            old_base = f1.PRIVATE_RUN_BASE
+            try:
+                f1.PRIVATE_RUN_BASE = base
+                transaction, prepared, opened = write_attended_candidate_state(
+                    base,
+                    spec,
+                )
+                args.transaction_dir = transaction
+                args.attended_approval = opened["continue_token"]
+                deadline = f1.parse_utc_timestamp(
+                    opened["window_deadline_utc"],
+                    "test deadline",
+                )
+                with (
+                    mock.patch.object(
+                        f1,
+                        "approved_bindings",
+                        return_value=prepared,
+                    ),
+                    mock.patch.object(f1, "verify_local_closure"),
+                    mock.patch.object(
+                        f1,
+                        "settle_observation_channel",
+                        side_effect=(
+                            {"phase": "health"},
+                            {"phase": "handoff"},
+                        ),
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "verify_candidate_health",
+                        return_value={"healthy": True},
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "remote_source_preflight",
+                        return_value={"source": "exact"},
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "current_utc",
+                        side_effect=(
+                            deadline - dt.timedelta(seconds=1),
+                            deadline + dt.timedelta(seconds=1),
+                            deadline + dt.timedelta(seconds=1),
+                        ),
+                    ),
+                    mock.patch.object(f1, "run_handoff") as handoff,
+                    self.assertRaisesRegex(RuntimeError, "rollback only"),
+                ):
+                    f1.continue_attended_f1(spec, args)
+                handoff.assert_not_called()
+                records = f1.read_journal(spec, transaction)
+                self.assertNotIn(
+                    "attended-handoff-started",
+                    [record["action"] for record in records],
+                )
+                self.assertFalse(records[-1]["continuation_allowed"])
+                self.assertFalse(records[-1]["handoff_intent"])
+                self.assertFalse(records[-1]["handoff_sent"])
+            finally:
+                f1.PRIVATE_RUN_BASE = old_base
+
+    def test_attended_intent_timestamp_cannot_cross_deadline(self) -> None:
+        spec = attended_spec()
+        args = sample_args()
+        args.approval = None
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            base = Path(temp_dir)
+            old_base = f1.PRIVATE_RUN_BASE
+            try:
+                f1.PRIVATE_RUN_BASE = base
+                transaction, prepared, opened = write_attended_candidate_state(
+                    base,
+                    spec,
+                )
+                args.transaction_dir = transaction
+                args.attended_approval = opened["continue_token"]
+                deadline = f1.parse_utc_timestamp(
+                    opened["window_deadline_utc"],
+                    "test deadline",
+                )
+                with (
+                    mock.patch.object(
+                        f1,
+                        "approved_bindings",
+                        return_value=prepared,
+                    ),
+                    mock.patch.object(f1, "verify_local_closure"),
+                    mock.patch.object(
+                        f1,
+                        "settle_observation_channel",
+                        side_effect=(
+                            {"phase": "health"},
+                            {"phase": "handoff"},
+                        ),
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "verify_candidate_health",
+                        return_value={"healthy": True},
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "remote_source_preflight",
+                        return_value={"source": "exact"},
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "current_utc",
+                        side_effect=(
+                            deadline - dt.timedelta(seconds=1),
+                            deadline - dt.timedelta(seconds=1),
+                            deadline + dt.timedelta(seconds=1),
+                        ),
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "observe_attended_after_handoff",
+                    ) as observe,
+                    self.assertRaisesRegex(
+                        RuntimeError,
+                        "expired before durable handoff intent",
+                    ),
+                ):
+                    f1.continue_attended_f1(spec, args)
+                observe.assert_not_called()
+                actions = [
+                    record["action"]
+                    for record in f1.read_journal(spec, transaction)
+                ]
+                self.assertIn("attended-pre-handoff-ready", actions)
+                self.assertNotIn("attended-handoff-started", actions)
+            finally:
+                f1.PRIVATE_RUN_BASE = old_base
+
+    def test_attended_candidate_return_uses_one_device_command_sequence(
+        self,
+    ) -> None:
+        spec = attended_spec()
+        version = {
+            "text": (
+                f"{spec.candidate_version}\n"
+                f"{spec.candidate_build}\n"
+            )
+        }
+        selftest = {"text": "fail=0"}
+        with (
+            mock.patch.object(
+                f1.staging,
+                "require_exact_bridge",
+                return_value={"selected_realpath": "exact"},
+            ) as bridge,
+            mock.patch.object(f1.time, "sleep"),
+            mock.patch.object(
+                f1,
+                "settle_observation_channel",
+                return_value={"settled": True},
+            ) as settle,
+            mock.patch.object(
+                f1,
+                "run_f1_cmd",
+                side_effect=(version, selftest),
+            ) as command,
+        ):
+            result = f1.wait_for_candidate_return_attended_once(
+                spec,
+                sample_args(),
+            )
+        bridge.assert_called_once()
+        settle.assert_called_once()
+        self.assertEqual(command.call_count, 2)
+        self.assertEqual(result["device_command_attempts"], 1)
+
+    def test_attended_handoff_failure_is_not_retried(self) -> None:
+        spec = attended_spec()
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            with (
+                mock.patch.object(
+                    f1,
+                    "run_handoff",
+                    side_effect=RuntimeError("handoff failed"),
+                ) as handoff,
+                mock.patch.object(f1, "observe_ssh") as ssh,
+                mock.patch.object(
+                    f1,
+                    "wait_for_candidate_return_attended_once",
+                    return_value={"returned": True},
+                ) as candidate_return,
+            ):
+                result = f1.observe_attended_after_handoff(
+                    spec,
+                    sample_args(),
+                    Path(temp_dir),
+                    {"ready": True},
+                )
+        handoff.assert_called_once()
+        ssh.assert_not_called()
+        candidate_return.assert_called_once()
+        self.assertFalse(result["proof"])
+        self.assertEqual(result["candidate_return"], {"returned": True})
+
+    def test_attended_success_durably_records_one_handoff_before_dispatch(self) -> None:
+        spec = attended_spec()
+        args = sample_args()
+        args.approval = None
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            base = Path(temp_dir)
+            old_base = f1.PRIVATE_RUN_BASE
+            try:
+                f1.PRIVATE_RUN_BASE = base
+                transaction, prepared, opened = write_attended_candidate_state(
+                    base,
+                    spec,
+                )
+                args.transaction_dir = transaction
+                args.attended_approval = opened["continue_token"]
+
+                def observe_after_intent(
+                    _spec: object,
+                    _args: object,
+                    path: Path,
+                    _pre_handoff: dict[str, object],
+                ) -> dict[str, object]:
+                    records = f1.read_journal(spec, path)
+                    self.assertEqual(
+                        records[-1]["action"],
+                        "attended-handoff-started",
+                    )
+                    self.assertTrue(
+                        records[-1][
+                            "journal_fsync_completed_before_dispatch"
+                        ]
+                    )
+                    return {"proof": True, "candidate_return": {"ok": True}}
+
+                with (
+                    mock.patch.object(
+                        f1,
+                        "approved_bindings",
+                        return_value=prepared,
+                    ),
+                    mock.patch.object(f1, "verify_local_closure"),
+                    mock.patch.object(
+                        f1,
+                        "settle_observation_channel",
+                        side_effect=({"phase": "health"}, {"phase": "handoff"}),
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "verify_candidate_health",
+                        return_value={"healthy": True},
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "remote_source_preflight",
+                        return_value={"source": "exact"},
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "observe_attended_after_handoff",
+                        side_effect=observe_after_intent,
+                    ) as observe,
+                    mock.patch.object(
+                        f1,
+                        "invoke_rollback",
+                        return_value={"final": "healthy"},
+                    ) as rollback,
+                    mock.patch.object(
+                        f1,
+                        "close_transaction",
+                        return_value={"status": "closed"},
+                    ),
+                ):
+                    result = f1.continue_attended_f1(spec, args)
+                self.assertEqual(result["status"], "closed")
+                observe.assert_called_once()
+                rollback.assert_called_once()
+                actions = [
+                    record["action"]
+                    for record in f1.read_journal(spec, transaction)
+                ]
+                self.assertEqual(actions.count("attended-handoff-started"), 1)
+                self.assertLess(
+                    actions.index("attended-handoff-started"),
+                    actions.index("observation-proven"),
+                )
+            finally:
+                f1.PRIVATE_RUN_BASE = old_base
+
+    def test_execute_attended_opens_window_before_health_or_handoff(self) -> None:
+        spec = attended_spec()
+        args = sample_args()
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            base = Path(temp_dir)
+            old_base = f1.PRIVATE_RUN_BASE
+            try:
+                f1.PRIVATE_RUN_BASE = base
+                transaction = base / spec.stage.run_id / "f1-live"
+                args.transaction_dir = transaction
+                prepared = {
+                    "approval_binding_sha256": "9" * 64,
+                    "approval_token": args.approval,
+                }
+                calls = 0
+
+                def fake_run_logged(
+                    command: list[str],
+                    *,
+                    log_path: Path,
+                    timeout: float,
+                ) -> dict[str, object]:
+                    nonlocal calls
+                    calls += 1
+                    if log_path.name == "candidate-flash.raw.log":
+                        log_path.write_text(
+                            "\n".join(
+                                (
+                                    (
+                                        "phase.native_init_flash."
+                                        "inspect_local_image.elapsed_sec=1 ok=1"
+                                    ),
+                                    (
+                                        "phase.native_init_flash."
+                                        "native_to_recovery.elapsed_sec=1 ok=1"
+                                    ),
+                                    "] ADB ready: recovery-target recovery",
+                                    (
+                                        "phase.native_init_flash."
+                                        "adb_push.elapsed_sec=1 ok=1"
+                                    ),
+                                    (
+                                        "phase.native_init_flash."
+                                        "boot_dd_write.elapsed_sec=1 ok=1"
+                                    ),
+                                    (
+                                        "phase.native_init_flash."
+                                        "boot_readback_sha256."
+                                        "elapsed_sec=1 ok=1"
+                                    ),
+                                    "",
+                                )
+                            ),
+                            encoding="utf-8",
+                        )
+                    else:
+                        log_path.write_bytes(b"")
+                    log_path.chmod(0o600)
+                    return {
+                        **f1.command_record(log_path, 0),
+                        "process_started": True,
+                    }
+
+                with (
+                    mock.patch.object(
+                        f1,
+                        "approved_bindings",
+                        return_value=prepared,
+                    ),
+                    mock.patch.object(f1, "verify_local_closure"),
+                    mock.patch.object(f1, "run_logged", side_effect=fake_run_logged),
+                    mock.patch.object(f1, "validate_stage_result"),
+                    mock.patch.object(
+                        f1.staging,
+                        "require_exact_bridge",
+                        return_value={"selected_realpath": "exact"},
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "require_f1_baseline",
+                        return_value={"healthy": True},
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "remote_source_preflight",
+                        return_value={"source": "exact"},
+                    ),
+                    mock.patch.object(f1, "verify_candidate_health") as health,
+                    mock.patch.object(f1, "observe_candidate") as observe,
+                ):
+                    result = f1.execute_approved_f1(spec, args)
+                self.assertEqual(
+                    result["status"],
+                    "PAUSED_F1_V2_ATTENDED_WINDOW",
+                )
+                self.assertEqual(calls, 2)
+                health.assert_not_called()
+                observe.assert_not_called()
+                actions = [
+                    record["action"]
+                    for record in f1.read_journal(spec, transaction)
+                ]
+                self.assertEqual(actions[-1], "attended-window-open")
+            finally:
+                f1.PRIVATE_RUN_BASE = old_base
+
+    def test_final_health_settles_menu_before_baseline_reads(self) -> None:
+        spec = sample_spec()
+        args = sample_args()
+        order: list[str] = []
+        with (
+            mock.patch.object(
+                f1.staging,
+                "require_exact_bridge",
+                side_effect=lambda *_args: (
+                    order.append("bridge") or {"selected_realpath": "exact"}
+                ),
+            ),
+            mock.patch.object(
+                f1,
+                "settle_observation_channel",
+                side_effect=lambda *_args, **_kwargs: (
+                    order.append("settle") or {"settled": True}
+                ),
+            ),
+            mock.patch.object(
+                f1,
+                "require_f1_baseline",
+                side_effect=lambda *_args: (
+                    order.append("baseline") or {"healthy": True}
+                ),
+            ),
+        ):
+            result = f1.verify_final_health(spec, args)
+        self.assertEqual(order, ["bridge", "settle", "baseline"])
+        self.assertEqual(result["channel"], {"settled": True})
+
+    def test_attended_source_contract_rejects_limit_and_intent_regressions(self) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+        for original, replacement in (
+            ("ATTENDED_WINDOW_SEC = 900", "ATTENDED_WINDOW_SEC = 901"),
+            (
+                "ATTENDED_PRE_HANDOFF_ATTEMPT_LIMIT = 3",
+                "ATTENDED_PRE_HANDOFF_ATTEMPT_LIMIT = 4",
+            ),
+            (
+                "ATTENDED_HANDOFF_ATTEMPT_LIMIT = 1",
+                "ATTENDED_HANDOFF_ATTEMPT_LIMIT = 2",
+            ),
+        ):
+            with self.subTest(original=original):
+                mutated = source.replace(original, replacement, 1)
+                self.assertTrue(
+                    any(
+                        original in issue
+                        for issue in f1.source_contract_issues(mutated)
+                    )
+                )
+        classifier_start = source.index(
+            "def attended_pre_handoff_retryable("
+        )
+        classifier_end = source.index(
+            "def wait_for_candidate_return_attended_once(",
+            classifier_start,
+        )
+        classifier = source[classifier_start:classifier_end].replace(
+            "    return False",
+            "    return True",
+            1,
+        )
+        mutated = source[:classifier_start] + classifier + source[classifier_end:]
+        self.assertTrue(
+            any(
+                "retry classifier is not exact" in issue
+                for issue in f1.source_contract_issues(mutated)
+            )
+        )
+        mutated = source.replace(
+            '    "observation channel did not settle",\n)',
+            '    "observation channel did not settle",\n'
+            '    "unclassified extra failure",\n)',
+            1,
+        )
+        self.assertIn(
+            "attended retryable channel errors are not exact",
+            f1.source_contract_issues(mutated),
+        )
+        start = source.index("def continue_attended_f1(")
+        end = source.index("def action_names(", start)
+        body = source[start:end].replace(
+            '"attended-handoff-started"',
+            '"attended-handoff-late"',
+            1,
+        )
+        mutated = source[:start] + body + source[end:]
+        self.assertTrue(
+            any(
+                "attended-handoff-started" in issue
+                or "durably ordered" in issue
+                for issue in f1.source_contract_issues(mutated)
+            )
+        )
+        mutated = source.replace(
+            '"journal_fsync_completed_before_dispatch": True',
+            '"journal_fsync_completed_before_dispatch": False',
+            1,
+        )
+        self.assertIn(
+            "attended handoff intent is not durably ordered before dispatch",
+            f1.source_contract_issues(mutated),
+        )
 
     def test_recovery_source_has_no_candidate_invocation(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")

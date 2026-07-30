@@ -1,12 +1,12 @@
 # A90 F1 Operator-Attended Observation v1
 
-Status: `H0_DESIGN_SELECTED_IMPLEMENTATION_REQUIRED`
+Status: `H0_IMPLEMENTED_STATIC_GO_NO_LIVE_MANIFEST`
 
 This contract defines a future A90-only extension to Process v2. It is not
 live authority and cannot be applied to a candidate after candidate intent.
 The reusable runner, manifest schema, approval binding, journal validation,
-and focused tests must implement this contract and pass one independent safety
-review before any manifest may select it.
+and focused tests now implement this contract and passed independent safety
+review. No final manifest or approval currently selects it.
 
 ## Purpose
 
@@ -137,9 +137,9 @@ run. In particular, it does not apply to
 `a90-v3403-debian-f1-20260731-01`, which is closed with final V2321 health
 restored.
 
-## Implementation Gate
+## Implementation Closure
 
-Before this status may become executable, host-only work must prove:
+Host-only implementation proves:
 
 - strict manifest and approval-binding validation;
 - canonical private continuation-receipt generation and reopening;
@@ -150,3 +150,23 @@ Before this status may become executable, host-only work must prove:
 - recovery compatibility without candidate retransmission;
 - mutation tests for every attempt/deadline/handoff limit; and
 - one independent review of the execution-critical closure.
+
+The runner also reopens the exact successful candidate-transfer closure before
+continuation. It requires the original approval, one exact candidate intent
+and completion, transfer count one, no replay, the bound candidate SHA256,
+the exact successful private flash log, and all checked transfer/readback
+milestones. Stored retry booleans are never self-authenticating: continuation
+re-derives the exact error identity and verifies the attempt/failure
+timestamps are inside the window.
+
+The focused suite passes `71/71`. Independent review passed its related
+`154/154` closure, `py_compile`, and `git diff --check`, and returned `GO`
+with no remaining Critical, High, or Medium finding. The reviewed source and
+test SHA256 values are respectively
+`695c4f8c19a8016bee095156b21573353668181370d34266b3aadb1460ef8330`
+and
+`5740fce0062dc9e06b8d3b7700fdc2ba295caf7265f7bb626bbf45e92f944e59`.
+
+This status does not create a run, final manifest, continuation receipt,
+approval, or device authority. A future experiment still requires a new
+immutable run closure, fresh connected D0, and one exact F1 approval.

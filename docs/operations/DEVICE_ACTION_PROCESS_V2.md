@@ -319,7 +319,7 @@ occurred. Once handoff intent exists, no observation command may be retried;
 the mandatory rollback path remains the only recovery transition.
 
 An attended mode cannot be created after candidate intent or applied to a
-consumed run. The selected A90 design and its implementation gate are in
+consumed run. The selected A90 contract and its implementation closure are in
 `docs/operations/A90_F1_ATTENDED_OBSERVATION_V1.md`.
 
 ## Regular-Path Transport
