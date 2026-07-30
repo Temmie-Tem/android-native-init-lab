@@ -46,6 +46,39 @@ def sample_spec() -> object:
 
 
 class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
+    def test_baseline_check_propagates_explicit_serial_pacing(self) -> None:
+        args = types.SimpleNamespace(
+            bridge_host="localhost",
+            bridge_port=54321,
+            remote_timeout=180.0,
+        )
+        responses = (
+            {
+                "text": (
+                    f"{stage.EXPECTED_BASELINE_VERSION} "
+                    f"{stage.EXPECTED_BASELINE_BUILD}"
+                )
+            },
+            {"text": "pstore=ready entries=0"},
+            {"text": "selftest pass=11 warn=1 fail=0"},
+        )
+        with mock.patch.object(
+            stage.d1,
+            "run_cmd",
+            side_effect=responses,
+        ) as run:
+            result = stage.require_baseline(
+                args,
+                input_mode="slow",
+                input_char_delay_sec=0.02,
+            )
+
+        self.assertEqual(set(result), {"version", "status", "selftest"})
+        self.assertEqual(run.call_count, 3)
+        for call in run.call_args_list:
+            self.assertEqual(call.kwargs["input_mode"], "slow")
+            self.assertEqual(call.kwargs["input_char_delay_sec"], 0.02)
+
     def test_execution_support_closure_is_exact(self) -> None:
         expected = {
             "run_d1_chroot_mvp.py",

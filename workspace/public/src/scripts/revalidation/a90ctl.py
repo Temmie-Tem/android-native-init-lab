@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import math
 import os
 import re
 import shlex
@@ -20,6 +21,7 @@ BRIDGE_SERIAL_MISSING_TEXT = "serial device is not connected"
 BRIDGE_BUSY_TEXT = "busy: another client is active"
 INPUT_MODE_ENV = "A90CTL_INPUT_MODE"
 INPUT_CHAR_DELAY_ENV = "A90CTL_INPUT_CHAR_DELAY_SEC"
+DEFAULT_MINIMUM_READ_BUDGET_SEC = 0.25
 END_RE = re.compile(r"^A90P1 END (?P<fields>.+)$", re.MULTILINE)
 BEGIN_RE = re.compile(r"^A90P1 BEGIN (?P<fields>.+)$", re.MULTILINE)
 COMMAND_NAME_RE = re.compile(r"^[A-Za-z0-9_.+-]+$")
@@ -174,11 +176,22 @@ def bridge_exchange(host: str,
                     markers: tuple[bytes, ...],
                     *,
                     input_mode: str | None = None,
+                    input_char_delay_sec: float | None = None,
+                    minimum_read_budget_sec: float = DEFAULT_MINIMUM_READ_BUDGET_SEC,
                     require_prompt_after_end: bool = False,
                     post_marker_drain_sec: float = 0.15) -> str:
     deadline = time.monotonic() + timeout_sec
     wire_line = encode_wire_line(line, input_mode=input_mode)
     mode = input_mode or os.environ.get(INPUT_MODE_ENV, "normal")
+    minimum_read_budget = float(minimum_read_budget_sec)
+    if (
+        not math.isfinite(minimum_read_budget)
+        or minimum_read_budget < 0.0
+        or minimum_read_budget > timeout_sec
+    ):
+        raise RuntimeError(
+            f"invalid minimum read budget: {minimum_read_budget!r}"
+        )
     with SerialBridgeLock(timeout_sec=timeout_sec, purpose=f"a90ctl:{line.split(' ', 1)[0]}"):
         remaining = deadline - time.monotonic()
         if remaining <= 0:
@@ -189,11 +202,39 @@ def bridge_exchange(host: str,
             prefix = "" if mode in {"double", "slow"} else "\n"
             payload = prefix + wire_line + "\n"
             if mode == "slow":
-                delay = float(os.environ.get(INPUT_CHAR_DELAY_ENV, "0.02"))
-                for ch in payload:
+                delay = (
+                    float(os.environ.get(INPUT_CHAR_DELAY_ENV, "0.02"))
+                    if input_char_delay_sec is None
+                    else float(input_char_delay_sec)
+                )
+                if not math.isfinite(delay) or delay < 0.0 or delay > 1.0:
+                    raise RuntimeError(
+                        f"invalid slow input character delay: {delay!r}"
+                    )
+                paced_send_budget = len(payload) * delay
+                remaining = deadline - time.monotonic()
+                if remaining < paced_send_budget + minimum_read_budget:
+                    raise TimeoutError(
+                        "slow serial deadline lacks full send and read budget "
+                        "before first byte"
+                    )
+                for index, ch in enumerate(payload):
+                    remaining_chars = len(payload) - index
+                    required = (
+                        remaining_chars * delay
+                        + minimum_read_budget
+                    )
+                    if deadline - time.monotonic() < required:
+                        raise TimeoutError(
+                            "slow serial deadline exhausted during paced send"
+                        )
                     sock.sendall(ch.encode("utf-8"))
                     time.sleep(delay)
             else:
+                if deadline - time.monotonic() < minimum_read_budget:
+                    raise TimeoutError(
+                        "serial deadline lacks minimum read budget before send"
+                    )
                 sock.sendall(payload.encode("utf-8"))
             data = read_until(
                 sock,
@@ -205,10 +246,15 @@ def bridge_exchange(host: str,
     return data.decode("utf-8", errors="replace")
 
 
-def should_retry_cmdv1_exchange(text: str) -> bool:
+def should_retry_cmdv1_exchange(
+    text: str,
+    *,
+    input_mode: str | None = None,
+) -> bool:
     if text.strip() == "" or BRIDGE_SERIAL_MISSING_TEXT in text or BRIDGE_BUSY_TEXT in text:
         return True
-    if os.environ.get(INPUT_MODE_ENV) in {"double", "slow"} and "[err] unknown command:" in text:
+    mode = input_mode or os.environ.get(INPUT_MODE_ENV, "normal")
+    if mode in {"double", "slow"} and "[err] unknown command:" in text:
         return True
     return False
 
@@ -265,6 +311,7 @@ def run_cmdv1(args: argparse.Namespace, command: list[str]) -> ProtocolResult:
         args.timeout,
         command,
         retry_unsafe=args.retry_unsafe,
+        input_mode=args.input_mode,
     )
 
 
@@ -274,12 +321,16 @@ def run_cmdv1_command(host: str,
                       command: list[str],
                       *,
                       retry_unsafe: bool = False,
+                      input_mode: str | None = None,
+                      input_char_delay_sec: float | None = None,
+                      minimum_read_budget_sec: float = DEFAULT_MINIMUM_READ_BUDGET_SEC,
                       require_prompt_after_end: bool = True,
                       post_marker_drain_sec: float = 0.15) -> ProtocolResult:
     deadline = time.monotonic() + timeout_sec
     last_error: OSError | None = None
     last_text = ""
     allow_retry = retry_unsafe or command_allows_retry(command)
+    selected_input_mode = input_mode or os.environ.get(INPUT_MODE_ENV, "normal")
 
     line = encode_cmdv1_line(command)
     while time.monotonic() < deadline:
@@ -289,7 +340,7 @@ def run_cmdv1_command(host: str,
 
         try:
             markers = (b"A90P1 END ",)
-            if allow_retry and os.environ.get(INPUT_MODE_ENV) in {"double", "slow"}:
+            if allow_retry and selected_input_mode in {"double", "slow"}:
                 markers = (b"A90P1 END ", b"[err] unknown command:")
             text = bridge_exchange(
                 host,
@@ -297,6 +348,9 @@ def run_cmdv1_command(host: str,
                 line,
                 remaining,
                 markers=markers,
+                input_mode=selected_input_mode,
+                input_char_delay_sec=input_char_delay_sec,
+                minimum_read_budget_sec=minimum_read_budget_sec,
                 require_prompt_after_end=require_prompt_after_end,
                 post_marker_drain_sec=post_marker_drain_sec,
             )
@@ -312,7 +366,7 @@ def run_cmdv1_command(host: str,
             try:
                 validate_protocol_command(result, command)
             except RuntimeError as exc:
-                if not allow_retry or os.environ.get(INPUT_MODE_ENV) not in {"double", "slow"}:
+                if not allow_retry or selected_input_mode not in {"double", "slow"}:
                     raise
                 last_text = str(exc)
                 sleep_before_retry(deadline)
@@ -330,7 +384,10 @@ def run_cmdv1_command(host: str,
             continue
         if not allow_retry:
             return parse_protocol_output(text)
-        if not should_retry_cmdv1_exchange(text):
+        if not should_retry_cmdv1_exchange(
+            text,
+            input_mode=selected_input_mode,
+        ):
             return parse_protocol_output(text)
 
         last_text = text

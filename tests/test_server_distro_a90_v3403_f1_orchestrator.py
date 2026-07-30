@@ -77,8 +77,18 @@ def sample_spec() -> object:
         candidate_build="candidate-build",
         rollback_version=f1.staging.EXPECTED_BASELINE_VERSION,
         rollback_build=f1.staging.EXPECTED_BASELINE_BUILD,
+        handoff_command=(
+            f1.HANDOFF_COMMAND,
+            f1.HANDOFF_TOKEN,
+            stage.remote_final,
+            stage.local_sha256,
+        ),
+        handoff_timeout=f1.F1_HANDOFF_MIN_TIMEOUT_SEC,
         observer_device="usb-local-device",
         observer_port=2222,
+        observer_key=Path("/private/observer-key"),
+        ssh_marker_timeout=90,
+        candidate_return_timeout=240,
         orchestrator_sha256=f1.sha256_file(SOURCE.resolve()),
         recovery_serial_sha256=hashlib.sha256(b"recovery-target").hexdigest(),
         recovery_serial="recovery-target",
@@ -99,6 +109,7 @@ def sample_args() -> object:
         staging_command_timeout=1800.0,
         flash_command_timeout=600.0,
         ssh_connect_timeout=8.0,
+        poll_interval=0.0,
         recovery_path=None,
     )
 
@@ -238,6 +249,112 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         issues = f1.source_contract_issues(mutated)
         self.assertIn("recovery contains a candidate execution route", issues)
 
+    def test_source_gate_rejects_missing_pre_handoff_settle(self) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+        mutated = source.replace(
+            'phase="before-handoff"',
+            'phase="removed-before-handoff"',
+            1,
+        )
+        issues = f1.source_contract_issues(mutated)
+        self.assertIn(
+            'observation contract missing or out of order: phase="before-handoff"',
+            issues,
+        )
+
+    def test_source_gate_rejects_looped_or_unbudgeted_handoff(self) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+        looped = source.replace(
+            "    text = a90ctl.bridge_exchange(",
+            "    while True:\n        text = a90ctl.bridge_exchange(",
+            1,
+        )
+        self.assertIn(
+            "handoff bridge exchange is not direct single-shot",
+            f1.source_contract_issues(looped),
+        )
+
+        unbudgeted = source.replace(
+            "        minimum_read_budget_sec=minimum_read_budget,\n",
+            "",
+            1,
+        )
+        self.assertIn(
+            (
+                "handoff transport contract missing: "
+                "minimum_read_budget_sec=minimum_read_budget"
+            ),
+            f1.source_contract_issues(unbudgeted),
+        )
+
+    def test_source_gate_binds_timeout_formula_load_and_runtime(self) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+
+        no_runtime_gate = source.replace(
+            "    validate_handoff_timeout(spec.handoff_timeout)\n",
+            "",
+            1,
+        )
+        self.assertIn(
+            "handoff runtime lacks exact timeout gate before transport",
+            f1.source_contract_issues(no_runtime_gate),
+        )
+
+        load_gate = (
+            "handoff_timeout = validate_handoff_timeout(\n"
+            '        observation.get("handoff_timeout_sec")\n'
+            "    )"
+        )
+        raw_positive_gate = (
+            "handoff_timeout = require_positive_int(\n"
+            '        observation.get("handoff_timeout_sec"),\n'
+            '        "observation.handoff_timeout_sec",\n'
+            "    )"
+        )
+        no_manifest_gate = source.replace(load_gate, raw_positive_gate, 1)
+        self.assertIn(
+            "manifest load lacks exact handoff timeout gate",
+            f1.source_contract_issues(no_manifest_gate),
+        )
+
+        reduced_read_budget = source.replace(
+            "    + F1_HANDOFF_MISC_ALLOWANCE_SEC\n",
+            "",
+            1,
+        )
+        self.assertIn(
+            (
+                "handoff 900-second read budget lacks exact operand: "
+                "F1_HANDOFF_MISC_ALLOWANCE_SEC"
+            ),
+            f1.source_contract_issues(reduced_read_budget),
+        )
+
+    def test_short_handoff_timeout_is_rejected_before_transport(self) -> None:
+        self.assertEqual(f1.F1_HANDOFF_MIN_READ_BUDGET_SEC, 900)
+        self.assertEqual(f1.F1_HANDOFF_MIN_TIMEOUT_SEC, 905)
+        with self.assertRaisesRegex(
+            f1.ContractError,
+            "must reserve the complete V3403 handoff corridor",
+        ):
+            f1.validate_handoff_timeout(45)
+        self.assertEqual(
+            f1.validate_handoff_timeout(f1.F1_HANDOFF_MIN_TIMEOUT_SEC),
+            f1.F1_HANDOFF_MIN_TIMEOUT_SEC,
+        )
+
+        spec = sample_spec()
+        spec.handoff_timeout = 45
+        with (
+            mock.patch.object(f1.a90ctl, "bridge_exchange") as exchange,
+            self.assertRaisesRegex(
+                f1.ContractError,
+                "must reserve the complete V3403 handoff corridor",
+            ),
+        ):
+            f1.run_handoff(spec, sample_args())
+        exchange.assert_not_called()
+
     def test_candidate_flash_command_is_exact_and_boot_only(self) -> None:
         command = f1.flash_command(
             sample_spec(),
@@ -288,6 +405,260 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         self.assertIsNotNone(source)
         for token in (" rm ", " mv ", " cp ", " dd ", " mount ", " ln "):
             self.assertNotIn(token, body)
+
+    def test_f1_command_lane_binds_slow_mode_and_delay(self) -> None:
+        expected = {
+            "command": ["version"],
+            "rc": 0,
+            "status": "ok",
+            "end": {"cmd": "version"},
+            "text": "version",
+        }
+        with mock.patch.object(f1.d1, "run_cmd", return_value=expected) as run:
+            actual = f1.run_f1_cmd(sample_args(), ["version"])
+
+        self.assertIs(actual, expected)
+        run.assert_called_once_with(
+            "localhost",
+            54321,
+            180.0,
+            ["version"],
+            input_mode="slow",
+            input_char_delay_sec=0.02,
+            allow_error=False,
+        )
+
+    def test_observation_channel_settle_requires_framed_hide_and_canary(self) -> None:
+        hide = {
+            "command": ["hide"],
+            "rc": 0,
+            "status": "ok",
+            "end": {"cmd": "hide"},
+            "text": "menu: hide requested",
+        }
+        canary = {
+            "command": list(f1.OBSERVATION_CHANNEL_CANARY),
+            "rc": 0,
+            "status": "ok",
+            "end": {"cmd": "run"},
+            "text": "done",
+        }
+        with (
+            mock.patch.object(
+                f1,
+                "run_f1_cmd",
+                side_effect=(hide, canary),
+            ) as run,
+            mock.patch.object(f1.time, "sleep") as sleep,
+        ):
+            result = f1.settle_observation_channel(
+                sample_args(),
+                phase="before-handoff",
+            )
+
+        self.assertTrue(result["framed_hide"])
+        self.assertEqual(result["phase"], "before-handoff")
+        self.assertEqual(
+            [call.args[1] for call in run.call_args_list],
+            [["hide"], list(f1.OBSERVATION_CHANNEL_CANARY)],
+        )
+        sleep.assert_called_once_with(f1.OBSERVATION_MENU_SETTLE_SEC)
+
+    def test_observation_channel_settle_rejects_busy_canary(self) -> None:
+        hide = {
+            "rc": 0,
+            "status": "ok",
+            "end": {"cmd": "hide"},
+            "text": "menu: hide requested",
+        }
+        busy = {
+            "rc": -16,
+            "status": "busy",
+            "end": {"cmd": "run"},
+            "text": "busy",
+        }
+        with (
+            mock.patch.object(
+                f1,
+                "run_f1_cmd",
+                side_effect=(hide, busy),
+            ),
+            mock.patch.object(f1.time, "sleep"),
+            self.assertRaisesRegex(
+                f1.ContractError,
+                "observation channel did not settle",
+            ),
+        ):
+            f1.settle_observation_channel(
+                sample_args(),
+                phase="before-source-preflight",
+            )
+
+    def test_observation_orders_two_settles_around_source_and_handoff(self) -> None:
+        order: list[str] = []
+
+        def settle(args: object, *, phase: str) -> dict[str, object]:
+            order.append(phase)
+            return {"phase": phase}
+
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            with (
+                mock.patch.object(
+                    f1,
+                    "settle_observation_channel",
+                    side_effect=settle,
+                ),
+                mock.patch.object(
+                    f1,
+                    "remote_source_preflight",
+                    side_effect=lambda spec, args: order.append("source") or {},
+                ),
+                mock.patch.object(
+                    f1,
+                    "run_handoff",
+                    side_effect=lambda spec, args: order.append("handoff") or {},
+                ),
+                mock.patch.object(
+                    f1,
+                    "observe_ssh",
+                    side_effect=lambda spec, args: order.append("ssh") or {},
+                ),
+                mock.patch.object(
+                    f1,
+                    "wait_for_candidate_return",
+                    return_value={"returned": True},
+                ),
+            ):
+                result = f1.observe_candidate(
+                    sample_spec(),
+                    sample_args(),
+                    Path(temp_dir),
+                )
+
+        self.assertTrue(result["proof"])
+        self.assertEqual(
+            order,
+            [
+                "before-source-preflight",
+                "source",
+                "before-handoff",
+                "handoff",
+                "ssh",
+            ],
+        )
+
+    def test_first_observation_settle_failure_never_sends_source_or_handoff(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            with (
+                mock.patch.object(
+                    f1,
+                    "settle_observation_channel",
+                    side_effect=f1.ContractError("not settled"),
+                ),
+                mock.patch.object(f1, "remote_source_preflight") as source,
+                mock.patch.object(f1, "run_handoff") as handoff,
+                mock.patch.object(
+                    f1,
+                    "wait_for_candidate_return",
+                    return_value={"returned": True},
+                ),
+            ):
+                result = f1.observe_candidate(
+                    sample_spec(),
+                    sample_args(),
+                    Path(temp_dir),
+                )
+
+        self.assertFalse(result["proof"])
+        source.assert_not_called()
+        handoff.assert_not_called()
+
+    def test_second_observation_settle_failure_never_sends_handoff(self) -> None:
+        settles = (
+            {"phase": "before-source-preflight"},
+            f1.ContractError("not settled"),
+        )
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            with (
+                mock.patch.object(
+                    f1,
+                    "settle_observation_channel",
+                    side_effect=settles,
+                ),
+                mock.patch.object(
+                    f1,
+                    "remote_source_preflight",
+                    return_value={"exact": True},
+                ) as source,
+                mock.patch.object(f1, "run_handoff") as handoff,
+                mock.patch.object(
+                    f1,
+                    "wait_for_candidate_return",
+                    return_value={"returned": True},
+                ),
+            ):
+                result = f1.observe_candidate(
+                    sample_spec(),
+                    sample_args(),
+                    Path(temp_dir),
+                )
+
+        self.assertFalse(result["proof"])
+        source.assert_called_once()
+        handoff.assert_not_called()
+
+    def test_handoff_uses_slow_lane_once_and_never_retries(self) -> None:
+        spec = sample_spec()
+        phase_lines = [
+            (
+                f"source_sha phase={phase} sha={spec.stage.local_sha256} "
+                "expected_sha_match=1"
+            )
+            for phase in (
+                "initial",
+                "post-display-cleanup",
+                "work-copy",
+                "post-copy-source",
+            )
+        ]
+        text = "\n".join(
+            phase_lines
+            + [
+                "work_copy=ready",
+                "exec_switch_root_now",
+            ]
+        )
+        with mock.patch.object(
+            f1.a90ctl,
+            "bridge_exchange",
+            return_value=text,
+        ) as exchange:
+            result = f1.run_handoff(spec, sample_args())
+
+        self.assertTrue(result["proof"])
+        self.assertEqual(exchange.call_count, 1)
+        self.assertEqual(exchange.call_args.kwargs["input_mode"], "slow")
+        self.assertEqual(
+            exchange.call_args.kwargs["input_char_delay_sec"],
+            0.02,
+        )
+        self.assertEqual(
+            exchange.call_args.kwargs["minimum_read_budget_sec"],
+            900.0,
+        )
+
+        with (
+            mock.patch.object(
+                f1.a90ctl,
+                "bridge_exchange",
+                return_value="truncated",
+            ) as failed,
+            self.assertRaisesRegex(RuntimeError, "handoff proof missing"),
+        ):
+            f1.run_handoff(spec, sample_args())
+        failed.assert_called_once()
 
     def test_approved_binding_rejects_draft_before_live_work(self) -> None:
         spec = sample_spec()

@@ -73,6 +73,27 @@ OBSERVATION_OUTPUT_MARKERS = (
     "work_copy=ready",
     "exec_switch_root_now",
 )
+F1_SERIAL_INPUT_MODE = "slow"
+F1_SERIAL_INPUT_CHAR_DELAY_SEC = 0.02
+F1_HANDOFF_MAX_PRE_READ_SEC = 5.0
+F1_HANDOFF_COPY_BOUND_SEC = 300
+F1_HANDOFF_SHA_PASS_COUNT = 4
+F1_HANDOFF_SHA_ALLOWANCE_PER_PASS_SEC = 90
+F1_HANDOFF_SWITCH_HELPER_BOUND_COUNT = 2
+F1_HANDOFF_SWITCH_HELPER_BOUND_SEC = 30
+F1_HANDOFF_MISC_ALLOWANCE_SEC = 180
+F1_HANDOFF_MIN_READ_BUDGET_SEC = (
+    F1_HANDOFF_COPY_BOUND_SEC
+    + F1_HANDOFF_SHA_PASS_COUNT * F1_HANDOFF_SHA_ALLOWANCE_PER_PASS_SEC
+    + F1_HANDOFF_SWITCH_HELPER_BOUND_COUNT
+    * F1_HANDOFF_SWITCH_HELPER_BOUND_SEC
+    + F1_HANDOFF_MISC_ALLOWANCE_SEC
+)
+F1_HANDOFF_MIN_TIMEOUT_SEC = (
+    F1_HANDOFF_MIN_READ_BUDGET_SEC + int(F1_HANDOFF_MAX_PRE_READ_SEC)
+)
+OBSERVATION_MENU_SETTLE_SEC = 3.0
+OBSERVATION_CHANNEL_CANARY = ("run", "/bin/busybox", "true")
 RECOVERY_ADB_MARKER_RE = re.compile(
     r"(?:^|\] )ADB ready: ([^\s]+) recovery\r?$",
     re.MULTILINE,
@@ -254,6 +275,16 @@ def require_positive_int(value: Any, label: str) -> int:
     return value
 
 
+def validate_handoff_timeout(value: Any) -> int:
+    timeout = require_positive_int(value, "observation.handoff_timeout_sec")
+    if timeout < F1_HANDOFF_MIN_TIMEOUT_SEC:
+        raise ContractError(
+            "observation.handoff_timeout_sec must reserve the complete "
+            f"V3403 handoff corridor (minimum {F1_HANDOFF_MIN_TIMEOUT_SEC}s)"
+        )
+    return timeout
+
+
 def require_private_regular(path: Path, *, mode_mask: int = 0o077) -> None:
     info = path.lstat()
     if not stat.S_ISREG(info.st_mode) or path.is_symlink():
@@ -419,9 +450,8 @@ def load_spec(
         observation.get("candidate_boot_timeout_sec"),
         "observation.candidate_boot_timeout_sec",
     )
-    handoff_timeout = require_positive_int(
-        observation.get("handoff_timeout_sec"),
-        "observation.handoff_timeout_sec",
+    handoff_timeout = validate_handoff_timeout(
+        observation.get("handoff_timeout_sec")
     )
     ssh_marker_timeout = require_positive_int(
         observation.get("ssh_marker_timeout_sec"),
@@ -1135,6 +1165,88 @@ def validate_stage_result(spec: F1Spec) -> dict[str, Any]:
     return value
 
 
+def run_f1_cmd(
+    args: argparse.Namespace,
+    command: list[str],
+    *,
+    allow_error: bool = False,
+) -> dict[str, Any]:
+    return d1.run_cmd(
+        args.bridge_host,
+        args.bridge_port,
+        args.remote_timeout,
+        command,
+        input_mode=F1_SERIAL_INPUT_MODE,
+        input_char_delay_sec=F1_SERIAL_INPUT_CHAR_DELAY_SEC,
+        allow_error=allow_error,
+    )
+
+
+def run_f1_shell(
+    args: argparse.Namespace,
+    script: str,
+    *,
+    allow_error: bool = False,
+) -> dict[str, Any]:
+    return d1.run_shell(
+        args.bridge_host,
+        args.bridge_port,
+        args.remote_timeout,
+        script,
+        input_mode=F1_SERIAL_INPUT_MODE,
+        input_char_delay_sec=F1_SERIAL_INPUT_CHAR_DELAY_SEC,
+        allow_error=allow_error,
+    )
+
+
+def require_f1_baseline(args: argparse.Namespace) -> dict[str, Any]:
+    return staging.require_baseline(
+        args,
+        input_mode=F1_SERIAL_INPUT_MODE,
+        input_char_delay_sec=F1_SERIAL_INPUT_CHAR_DELAY_SEC,
+    )
+
+
+def settle_observation_channel(
+    args: argparse.Namespace,
+    *,
+    phase: str,
+) -> dict[str, Any]:
+    hide = run_f1_cmd(args, ["hide"], allow_error=True)
+    hide_end = hide.get("end") if isinstance(hide.get("end"), dict) else {}
+    if (
+        hide.get("rc") != 0
+        or hide.get("status") != "ok"
+        or hide_end.get("cmd") != "hide"
+        or "menu: hide requested" not in str(hide.get("text") or "")
+    ):
+        raise ContractError(f"{phase} observation menu hide did not complete")
+
+    time.sleep(OBSERVATION_MENU_SETTLE_SEC)
+    canary = run_f1_cmd(
+        args,
+        list(OBSERVATION_CHANNEL_CANARY),
+        allow_error=True,
+    )
+    canary_end = (
+        canary.get("end") if isinstance(canary.get("end"), dict) else {}
+    )
+    if (
+        canary.get("rc") != 0
+        or canary.get("status") != "ok"
+        or canary_end.get("cmd") != OBSERVATION_CHANNEL_CANARY[0]
+    ):
+        raise ContractError(f"{phase} observation channel did not settle")
+    return {
+        "phase": phase,
+        "framed_hide": True,
+        "menu_settle_sec": OBSERVATION_MENU_SETTLE_SEC,
+        "canary_command": list(OBSERVATION_CHANNEL_CANARY),
+        "hide": hide,
+        "canary": canary,
+    }
+
+
 def remote_source_preflight(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
     final = staging.shlex.quote(spec.stage.remote_final)
     work = staging.shlex.quote(spec.stage.remote_work)
@@ -1157,28 +1269,13 @@ def remote_source_preflight(spec: F1Spec, args: argparse.Namespace) -> dict[str,
             'echo A90F1_SOURCE_PRECHECK exact=1 work_absent=1',
         )
     )
-    return d1.run_shell(
-        args.bridge_host,
-        args.bridge_port,
-        args.remote_timeout,
-        script,
-    )
+    return run_f1_shell(args, script)
 
 
 def verify_candidate_health(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
     bridge = staging.require_exact_bridge(spec.stage, args)
-    version = d1.run_cmd(
-        args.bridge_host,
-        args.bridge_port,
-        args.remote_timeout,
-        ["version"],
-    )
-    selftest = d1.run_cmd(
-        args.bridge_host,
-        args.bridge_port,
-        args.remote_timeout,
-        ["selftest"],
-    )
+    version = run_f1_cmd(args, ["version"])
+    selftest = run_f1_cmd(args, ["selftest"])
     version_text = str(version.get("text") or "")
     if (
         spec.candidate_version not in version_text
@@ -1196,13 +1293,22 @@ def verify_candidate_health(spec: F1Spec, args: argparse.Namespace) -> dict[str,
 
 
 def run_handoff(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
+    validate_handoff_timeout(spec.handoff_timeout)
     line = a90ctl.encode_cmdv1_line(list(spec.handoff_command))
+    minimum_read_budget = (
+        float(spec.handoff_timeout) - F1_HANDOFF_MAX_PRE_READ_SEC
+    )
+    if minimum_read_budget <= 0.0:
+        raise ContractError("handoff timeout cannot reserve its read budget")
     text = a90ctl.bridge_exchange(
         args.bridge_host,
         args.bridge_port,
         line,
         spec.handoff_timeout,
         markers=(b"exec_switch_root_now", b"A90P1 END "),
+        input_mode=F1_SERIAL_INPUT_MODE,
+        input_char_delay_sec=F1_SERIAL_INPUT_CHAR_DELAY_SEC,
+        minimum_read_budget_sec=minimum_read_budget,
         require_prompt_after_end=False,
         post_marker_drain_sec=0.3,
     )
@@ -1288,22 +1394,10 @@ def wait_for_candidate_return(spec: F1Spec, args: argparse.Namespace) -> dict[st
     last = ""
     while time.monotonic() < deadline:
         try:
-            version = d1.run_cmd(
-                args.bridge_host,
-                args.bridge_port,
-                args.remote_timeout,
-                ["version"],
-                allow_error=True,
-            )
+            version = run_f1_cmd(args, ["version"], allow_error=True)
             text = str(version.get("text") or "")
             if spec.candidate_version in text and spec.candidate_build in text:
-                selftest = d1.run_cmd(
-                    args.bridge_host,
-                    args.bridge_port,
-                    args.remote_timeout,
-                    ["selftest"],
-                    allow_error=True,
-                )
+                selftest = run_f1_cmd(args, ["selftest"], allow_error=True)
                 if "fail=0" in str(selftest.get("text") or ""):
                     return {"version": version, "selftest": selftest}
             last = text
@@ -1316,7 +1410,15 @@ def wait_for_candidate_return(spec: F1Spec, args: argparse.Namespace) -> dict[st
 def observe_candidate(spec: F1Spec, args: argparse.Namespace, transaction_dir: Path) -> dict[str, Any]:
     result: dict[str, Any] = {"proof": False}
     try:
+        result["channel_before_source"] = settle_observation_channel(
+            args,
+            phase="before-source-preflight",
+        )
         result["source_preflight"] = remote_source_preflight(spec, args)
+        result["channel_before_handoff"] = settle_observation_channel(
+            args,
+            phase="before-handoff",
+        )
         result["handoff"] = run_handoff(spec, args)
         result["ssh"] = observe_ssh(spec, args)
         result["proof"] = True
@@ -1336,7 +1438,7 @@ def observe_candidate(spec: F1Spec, args: argparse.Namespace, transaction_dir: P
 
 def verify_final_health(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
     bridge = staging.require_exact_bridge(spec.stage, args)
-    baseline = staging.require_baseline(args)
+    baseline = require_f1_baseline(args)
     return {
         "exact_bridge": True,
         "selected_realpath": bridge.get("selected_realpath"),
@@ -1350,20 +1452,8 @@ def verify_final_health(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any
 
 def require_rollback_source_native(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
     staging.require_exact_bridge(spec.stage, args)
-    version = d1.run_cmd(
-        args.bridge_host,
-        args.bridge_port,
-        args.remote_timeout,
-        ["version"],
-        allow_error=True,
-    )
-    selftest = d1.run_cmd(
-        args.bridge_host,
-        args.bridge_port,
-        args.remote_timeout,
-        ["selftest"],
-        allow_error=True,
-    )
+    version = run_f1_cmd(args, ["version"], allow_error=True)
+    selftest = run_f1_cmd(args, ["selftest"], allow_error=True)
     version_text = str(version.get("text") or "")
     known = (
         spec.candidate_version in version_text and spec.candidate_build in version_text
@@ -1939,7 +2029,7 @@ def execute_approved_f1(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any
             run_id=spec.stage.run_id,
         )
         staging.require_exact_bridge(spec.stage, args)
-        staging.require_baseline(args)
+        require_f1_baseline(args)
         verify_local_closure(spec)
         source_preflight = remote_source_preflight(spec, args)
         append_record(
@@ -2320,6 +2410,8 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         "def load_approval_prepared(",
         "def candidate_failure_is_definite_pre_session(",
         "def rollback_pre_spawn_retry(",
+        "def validate_handoff_timeout(",
+        "def settle_observation_channel(",
         "def execute_approved_f1(",
         "def recover_approved_rollback(",
         "def invoke_rollback(",
@@ -2329,6 +2421,101 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
     for token in required_functions:
         if token not in source:
             issues.append(f"missing function: {token}")
+    constants_start = source.find('F1_SERIAL_INPUT_MODE = "slow"')
+    constants_end = source.find("RECOVERY_ADB_MARKER_RE", constants_start + 1)
+    if constants_start < 0 or constants_end < 0:
+        observation_constants = ""
+        issues.append("observation constant boundary is missing")
+    else:
+        observation_constants = source[constants_start:constants_end]
+    for token in (
+        'F1_SERIAL_INPUT_MODE = "slow"',
+        "F1_SERIAL_INPUT_CHAR_DELAY_SEC = 0.02",
+        "F1_HANDOFF_MAX_PRE_READ_SEC = 5.0",
+        "F1_HANDOFF_COPY_BOUND_SEC = 300",
+        "F1_HANDOFF_SHA_PASS_COUNT = 4",
+        "F1_HANDOFF_SHA_ALLOWANCE_PER_PASS_SEC = 90",
+        "F1_HANDOFF_SWITCH_HELPER_BOUND_COUNT = 2",
+        "F1_HANDOFF_SWITCH_HELPER_BOUND_SEC = 30",
+        "F1_HANDOFF_MISC_ALLOWANCE_SEC = 180",
+        "F1_HANDOFF_MIN_READ_BUDGET_SEC = (",
+        "F1_HANDOFF_MIN_TIMEOUT_SEC = (",
+        "OBSERVATION_MENU_SETTLE_SEC = 3.0",
+        'OBSERVATION_CHANNEL_CANARY = ("run", "/bin/busybox", "true")',
+    ):
+        if token not in observation_constants:
+            issues.append(f"missing observation channel contract: {token}")
+    read_budget_start = observation_constants.find(
+        "F1_HANDOFF_MIN_READ_BUDGET_SEC = ("
+    )
+    timeout_budget_start = observation_constants.find(
+        "F1_HANDOFF_MIN_TIMEOUT_SEC = ("
+    )
+    menu_start = observation_constants.find("OBSERVATION_MENU_SETTLE_SEC =")
+    if (
+        read_budget_start < 0
+        or timeout_budget_start <= read_budget_start
+        or menu_start <= timeout_budget_start
+    ):
+        issues.append("handoff timeout budget boundary is missing")
+    else:
+        read_budget = observation_constants[
+            read_budget_start:timeout_budget_start
+        ]
+        for operand in (
+            "F1_HANDOFF_COPY_BOUND_SEC",
+            "F1_HANDOFF_SHA_PASS_COUNT",
+            "F1_HANDOFF_SHA_ALLOWANCE_PER_PASS_SEC",
+            "F1_HANDOFF_SWITCH_HELPER_BOUND_COUNT",
+            "F1_HANDOFF_SWITCH_HELPER_BOUND_SEC",
+            "F1_HANDOFF_MISC_ALLOWANCE_SEC",
+        ):
+            if read_budget.count(operand) != 1:
+                issues.append(
+                    f"handoff 900-second read budget lacks exact operand: {operand}"
+                )
+        compact_timeout_budget = "".join(
+            observation_constants[timeout_budget_start:menu_start].split()
+        )
+        if (
+            "F1_HANDOFF_MIN_READ_BUDGET_SEC"
+            "+int(F1_HANDOFF_MAX_PRE_READ_SEC)"
+            not in compact_timeout_budget
+        ):
+            issues.append("handoff 905-second timeout formula is not exact")
+    timeout_validator_start = source.find("def validate_handoff_timeout(")
+    timeout_validator_end = source.find(
+        "def require_private_regular(",
+        timeout_validator_start + 1,
+    )
+    if timeout_validator_start < 0 or timeout_validator_end < 0:
+        issues.append("handoff timeout validator boundary is missing")
+    else:
+        timeout_validator = source[
+            timeout_validator_start:timeout_validator_end
+        ]
+        for token in (
+            'require_positive_int(value, "observation.handoff_timeout_sec")',
+            "if timeout < F1_HANDOFF_MIN_TIMEOUT_SEC:",
+            "return timeout",
+        ):
+            if timeout_validator.count(token) != 1:
+                issues.append(
+                    f"handoff timeout validator lacks exact gate: {token}"
+                )
+    load_start = source.find("def load_spec(")
+    load_end = source.find("\ndef ", load_start + len("def load_spec("))
+    if load_start < 0 or load_end < 0:
+        issues.append("manifest load source boundary is missing")
+    else:
+        load = source[load_start:load_end]
+        load_gate = (
+            "handoff_timeout = validate_handoff_timeout(\n"
+            '        observation.get("handoff_timeout_sec")\n'
+            "    )"
+        )
+        if load.count(load_gate) != 1:
+            issues.append("manifest load lacks exact handoff timeout gate")
     execute_start = source.find("def execute_approved_f1(")
     recover_start = source.find("def recover_approved_rollback(")
     simulate_start = source.find("def simulate_transaction(")
@@ -2339,7 +2526,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         "approved_bindings(spec, args, recovery=False)",
         "verify_local_closure(spec)",
         "validate_stage_result(spec)",
-        "staging.require_baseline(args)",
+        "require_f1_baseline(args)",
         "remote_source_preflight(spec, args)",
         '"candidate-transfer-started"',
         "flash_command(spec, args, rollback=False, from_native=True)",
@@ -2355,6 +2542,75 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             issues.append(f"execute contract missing or out of order: {token}")
         else:
             cursor = position
+    observe_start = source.find("def observe_candidate(")
+    final_health_start = source.find("def verify_final_health(", observe_start + 1)
+    if observe_start < 0 or final_health_start < 0:
+        issues.append("observation source boundary is missing")
+    else:
+        observe = source[observe_start:final_health_start]
+        observe_ordered = (
+            'phase="before-source-preflight"',
+            "remote_source_preflight(spec, args)",
+            'phase="before-handoff"',
+            "run_handoff(spec, args)",
+        )
+        observe_cursor = -1
+        for token in observe_ordered:
+            position = observe.find(token, observe_cursor + 1)
+            if position < 0:
+                issues.append(
+                    f"observation contract missing or out of order: {token}"
+                )
+            else:
+                observe_cursor = position
+        if (
+            observe.count("settle_observation_channel(") != 2
+            or observe.count("remote_source_preflight(spec, args)") != 1
+            or observe.count("run_handoff(spec, args)") != 1
+            or re.search(r"^\s+(?:for|while)\b", observe, re.MULTILINE)
+            is not None
+        ):
+            issues.append("observation corridor is not exact single-shot order")
+    handoff_start = source.find("def run_handoff(")
+    ssh_start = source.find("def ssh_command(", handoff_start + 1)
+    if handoff_start < 0 or ssh_start < 0:
+        issues.append("handoff source boundary is missing")
+    else:
+        handoff = source[handoff_start:ssh_start]
+        if handoff.count("a90ctl.bridge_exchange(") != 1:
+            issues.append("handoff must contain one direct bridge exchange")
+        bridge_position = handoff.find("a90ctl.bridge_exchange(")
+        bridge_prefix = handoff[:bridge_position]
+        if (
+            handoff.count(
+                "validate_handoff_timeout(spec.handoff_timeout)"
+            )
+            != 1
+            or bridge_prefix.count(
+                "validate_handoff_timeout(spec.handoff_timeout)"
+            )
+            != 1
+        ):
+            issues.append("handoff runtime lacks exact timeout gate before transport")
+        if (
+            handoff.count("run_handoff(") != 1
+            or re.search(
+                r"^\s+(?:for|while)\b",
+                bridge_prefix,
+                re.MULTILINE,
+            )
+            is not None
+            or "retry_unsafe" in handoff
+        ):
+            issues.append("handoff bridge exchange is not direct single-shot")
+        for token in (
+            "input_mode=F1_SERIAL_INPUT_MODE",
+            "input_char_delay_sec=F1_SERIAL_INPUT_CHAR_DELAY_SEC",
+            "minimum_read_budget_sec=minimum_read_budget",
+            "require_prompt_after_end=False",
+        ):
+            if token not in handoff:
+                issues.append(f"handoff transport contract missing: {token}")
     recover = source[recover_start:simulate_start]
     if "rollback=False" in recover or "spec.candidate" in recover:
         issues.append("recovery contains a candidate execution route")

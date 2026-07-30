@@ -75,6 +75,8 @@ def run_cmd(host: str,
             command: list[str],
             *,
             retry_unsafe: bool = False,
+            input_mode: str | None = None,
+            input_char_delay_sec: float | None = None,
             allow_error: bool = False) -> dict[str, Any]:
     result = a90ctl.run_cmdv1_command(
         host,
@@ -82,6 +84,8 @@ def run_cmd(host: str,
         timeout,
         command,
         retry_unsafe=retry_unsafe,
+        input_mode=input_mode,
+        input_char_delay_sec=input_char_delay_sec,
         require_prompt_after_end=True,
     )
     payload = {
@@ -102,6 +106,8 @@ def run_shell(host: str,
               timeout: float,
               script: str,
               *,
+              input_mode: str | None = None,
+              input_char_delay_sec: float | None = None,
               allow_error: bool = False) -> dict[str, Any]:
     return run_cmd(
         host,
@@ -109,6 +115,8 @@ def run_shell(host: str,
         timeout,
         ["run", "/bin/busybox", "sh", "-c", script],
         retry_unsafe=True,
+        input_mode=input_mode,
+        input_char_delay_sec=input_char_delay_sec,
         allow_error=allow_error,
     )
 

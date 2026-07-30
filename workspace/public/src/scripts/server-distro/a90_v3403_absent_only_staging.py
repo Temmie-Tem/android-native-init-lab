@@ -1186,24 +1186,35 @@ def run_remote(args: argparse.Namespace, script: str, *, allow_error: bool = Fal
     )
 
 
-def require_baseline(args: argparse.Namespace) -> dict[str, Any]:
+def require_baseline(
+    args: argparse.Namespace,
+    *,
+    input_mode: str | None = None,
+    input_char_delay_sec: float | None = None,
+) -> dict[str, Any]:
     version = d1.run_cmd(
         args.bridge_host,
         args.bridge_port,
         args.remote_timeout,
         ["version"],
+        input_mode=input_mode,
+        input_char_delay_sec=input_char_delay_sec,
     )
     status_result = d1.run_cmd(
         args.bridge_host,
         args.bridge_port,
         args.remote_timeout,
         ["status"],
+        input_mode=input_mode,
+        input_char_delay_sec=input_char_delay_sec,
     )
     selftest = d1.run_cmd(
         args.bridge_host,
         args.bridge_port,
         args.remote_timeout,
         ["selftest"],
+        input_mode=input_mode,
+        input_char_delay_sec=input_char_delay_sec,
     )
     version_text = str(version.get("text") or "")
     status_text = str(status_result.get("text") or "")

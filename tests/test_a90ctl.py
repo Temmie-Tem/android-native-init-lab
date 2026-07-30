@@ -120,6 +120,13 @@ class A90CtlProtocolHelperTests(unittest.TestCase):
         self.assertFalse(a90ctl.should_retry_cmdv1_exchange("A90P1 END seq=1 cmd=status rc=0"))
         with mock.patch.dict(os.environ, {a90ctl.INPUT_MODE_ENV: "double"}):
             self.assertTrue(a90ctl.should_retry_cmdv1_exchange("[err] unknown command: ssttaattuuss"))
+        with mock.patch.dict(os.environ, {a90ctl.INPUT_MODE_ENV: "normal"}):
+            self.assertTrue(
+                a90ctl.should_retry_cmdv1_exchange(
+                    "[err] unknown command: truncated",
+                    input_mode="slow",
+                )
+            )
 
     def test_result_to_json_includes_derived_rc_and_status(self) -> None:
         result = a90ctl.ProtocolResult(
@@ -138,7 +145,19 @@ class A90CtlProtocolHelperTests(unittest.TestCase):
         responses = ["", "A90P1 BEGIN seq=1 cmd=status\nbody\nA90P1 END seq=1 cmd=status rc=0 status=ok\n"]
         calls: list[str] = []
 
-        def fake_bridge(host, port, line, timeout, *, markers, require_prompt_after_end, post_marker_drain_sec):
+        def fake_bridge(
+            host,
+            port,
+            line,
+            timeout,
+            *,
+            markers,
+            input_mode,
+            input_char_delay_sec,
+            minimum_read_budget_sec,
+            require_prompt_after_end,
+            post_marker_drain_sec,
+        ):
             calls.append(line)
             return responses.pop(0)
 
@@ -152,7 +171,19 @@ class A90CtlProtocolHelperTests(unittest.TestCase):
     def test_run_cmdv1_command_can_skip_prompt_and_drain_for_fast_input(self) -> None:
         calls: list[tuple[bool, float]] = []
 
-        def fake_bridge(host, port, line, timeout, *, markers, require_prompt_after_end, post_marker_drain_sec):
+        def fake_bridge(
+            host,
+            port,
+            line,
+            timeout,
+            *,
+            markers,
+            input_mode,
+            input_char_delay_sec,
+            minimum_read_budget_sec,
+            require_prompt_after_end,
+            post_marker_drain_sec,
+        ):
             calls.append((require_prompt_after_end, post_marker_drain_sec))
             return "A90P1 BEGIN seq=1 cmd=doompad\nA90P1 END seq=1 cmd=doompad rc=0 status=ok\n"
 
@@ -169,6 +200,156 @@ class A90CtlProtocolHelperTests(unittest.TestCase):
 
         self.assertEqual(result.status, "ok")
         self.assertEqual(calls, [(False, 0.0)])
+
+    def test_run_cmdv1_command_binds_explicit_slow_mode_and_delay(self) -> None:
+        calls: list[tuple[str, float | None]] = []
+
+        def fake_bridge(
+            host,
+            port,
+            line,
+            timeout,
+            *,
+            markers,
+            input_mode,
+            input_char_delay_sec,
+            minimum_read_budget_sec,
+            require_prompt_after_end,
+            post_marker_drain_sec,
+        ):
+            calls.append((input_mode, input_char_delay_sec))
+            return (
+                "A90P1 BEGIN seq=1 cmd=status\n"
+                "A90P1 END seq=1 cmd=status rc=0 status=ok\n"
+            )
+
+        with (
+            mock.patch.dict(os.environ, {a90ctl.INPUT_MODE_ENV: "double"}),
+            mock.patch.object(
+                a90ctl,
+                "bridge_exchange",
+                side_effect=fake_bridge,
+            ),
+        ):
+            result = a90ctl.run_cmdv1_command(
+                "localhost",
+                54321,
+                2.0,
+                ["status"],
+                input_mode="slow",
+                input_char_delay_sec=0.02,
+            )
+
+        self.assertEqual(result.status, "ok")
+        self.assertEqual(calls, [("slow", 0.02)])
+
+    def test_slow_exchange_lock_exhaustion_sends_zero_bytes(self) -> None:
+        clock = [0.0]
+        sent: list[bytes] = []
+
+        class FakeLock:
+            def __enter__(self):
+                clock[0] = 44.95
+                return self
+
+            def __exit__(self, exc_type, exc, traceback):
+                return False
+
+        class FakeSocket:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, traceback):
+                return False
+
+            def settimeout(self, value):
+                return None
+
+            def sendall(self, payload):
+                sent.append(payload)
+
+        with (
+            mock.patch.object(a90ctl.time, "monotonic", side_effect=lambda: clock[0]),
+            mock.patch.object(a90ctl, "SerialBridgeLock", return_value=FakeLock()),
+            mock.patch.object(
+                a90ctl.socket,
+                "create_connection",
+                return_value=FakeSocket(),
+            ),
+            self.assertRaisesRegex(
+                TimeoutError,
+                "before first byte",
+            ),
+        ):
+            a90ctl.bridge_exchange(
+                "localhost",
+                54321,
+                "x" * 150,
+                45.0,
+                markers=(b"done",),
+                input_mode="slow",
+                input_char_delay_sec=0.02,
+                minimum_read_budget_sec=0.25,
+            )
+
+        self.assertEqual(sent, [])
+
+    def test_slow_exchange_checks_deadline_during_paced_send(self) -> None:
+        clock = [0.0]
+        sent: list[bytes] = []
+
+        class FakeLock:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, traceback):
+                return False
+
+        class FakeSocket:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, traceback):
+                return False
+
+            def settimeout(self, value):
+                return None
+
+            def sendall(self, payload):
+                sent.append(payload)
+                clock[0] += 0.1
+
+        def fake_sleep(delay: float) -> None:
+            clock[0] += delay
+
+        line = "x" * 20
+        with (
+            mock.patch.object(a90ctl.time, "monotonic", side_effect=lambda: clock[0]),
+            mock.patch.object(a90ctl.time, "sleep", side_effect=fake_sleep),
+            mock.patch.object(a90ctl, "SerialBridgeLock", return_value=FakeLock()),
+            mock.patch.object(
+                a90ctl.socket,
+                "create_connection",
+                return_value=FakeSocket(),
+            ),
+            self.assertRaisesRegex(
+                TimeoutError,
+                "during paced send",
+            ),
+        ):
+            a90ctl.bridge_exchange(
+                "localhost",
+                54321,
+                line,
+                1.0,
+                markers=(b"done",),
+                input_mode="slow",
+                input_char_delay_sec=0.02,
+                minimum_read_budget_sec=0.25,
+            )
+
+        self.assertGreater(len(sent), 0)
+        self.assertLess(len(sent), len(line) + 1)
 
     def test_run_cmdv1_command_does_not_retry_unsafe_busy_response(self) -> None:
         with mock.patch.object(a90ctl, "bridge_exchange", return_value=a90ctl.BRIDGE_BUSY_TEXT) as bridge:

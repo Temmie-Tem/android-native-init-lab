@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest import mock
 
 from _loader import load_script
 
@@ -9,6 +10,38 @@ d1 = load_script("workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.p
 
 
 class ServerDistroD1ChrootMvpTests(unittest.TestCase):
+    def test_run_cmd_propagates_explicit_serial_pacing(self) -> None:
+        result = d1.a90ctl.ProtocolResult(
+            begin={"cmd": "version"},
+            end={"cmd": "version", "rc": "0", "status": "ok"},
+            text="version",
+        )
+        with mock.patch.object(
+            d1.a90ctl,
+            "run_cmdv1_command",
+            return_value=result,
+        ) as run:
+            payload = d1.run_cmd(
+                "localhost",
+                54321,
+                180.0,
+                ["version"],
+                input_mode="slow",
+                input_char_delay_sec=0.02,
+            )
+
+        self.assertEqual(payload["status"], "ok")
+        run.assert_called_once_with(
+            "localhost",
+            54321,
+            180.0,
+            ["version"],
+            retry_unsafe=False,
+            input_mode="slow",
+            input_char_delay_sec=0.02,
+            require_prompt_after_end=True,
+        )
+
     def test_relative_run_dir_normalizes_under_repo_root(self) -> None:
         run_dir = d1.normalize_run_dir(d1.Path("workspace/private/runs/server-distro/example"))
 

@@ -53,12 +53,13 @@ recovery endpoint selection, payload transfer, boot write, and boot readback
 all completed. V3403 returned exact version `0.11.159`, build
 `v3403-d3-immutable-handoff`, and a zero-failure selftest.
 
-The Debian observation did not execute a valid framed handoff command.
-Console/menu input interleaved with the encoded observer request and the
-command path rejected it before an accepted handoff frame was observed.
-There is therefore no Debian PID1 proof, no accepted substitute evidence, and
-no candidate replay. The bounded return check subsequently reconfirmed exact
-V3403 version/build and zero-failure selftest.
+The Debian observation did not reach the handoff. Console/menu input
+interleaved with the first candidate-side remote source-preflight request and
+corrupted that framed command. The observation result contains no accepted
+source-preflight, handoff, or SSH phase, so the switch-root handoff command was
+never sent. There is therefore no Debian PID1 proof, no accepted substitute
+evidence, and no candidate replay. The bounded return check subsequently
+reconfirmed exact V3403 version/build and zero-failure selftest.
 
 ## Rollback and recovery closure
 
@@ -118,6 +119,7 @@ mounted, written, formatted, or flashed. The only partition payloads were the
 approved candidate and mandatory rollback writes to `boot`.
 
 Do not replay this run, reuse its approval, or invoke its rollback again. The
-next unit is host-only diagnosis and remediation of console/menu command
-serialization. Any later candidate experiment requires a fresh run,
-fresh connected preflight, immutable manifest, and fresh exact approval.
+host-only diagnosis and command/menu serialization remediation is recorded in
+`A90_V3403_F1_OBSERVATION_CHANNEL_H0_2026-07-31.md`. Any later candidate
+experiment requires a fresh run, fresh connected preflight, immutable
+manifest, and fresh exact approval.
