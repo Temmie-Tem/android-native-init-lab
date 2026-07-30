@@ -10,12 +10,13 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: direct PID1, E1A/E1B, E2 through the real UDC, and E3 through exact
-configfs UDC binding are live proven. P2.84 F1 is closed healthy/no-proof.
-Retained `0x8e/detail=0` proves normalized NONE readback and inner
-`dwc3_otg_start_peripheral(..., 0)` return. Retained
-`0x8f/detail=0xc18` proves child suspend and the zero-return PHY power helper
-used the same `stop_pid` and were nested inside that helper; it does not prove
-analog change. No `0x90` survived. Exact rollback and final health passed.**
+configfs UDC binding are live proven. P2.86 F1 is closed healthy/no-proof.
+Candidate and exact Magisk rollback each completed one boot-only transfer.
+Two byte-identical retained reads contain one exact P2.86 progress record:
+`0x8f/detail=0xc18`. It proves the unchanged normalized NONE, child-suspend,
+and zero-return PHY power-helper prefix again; it does not prove analog change.
+No P2.86 `0x90`, `0xc50..0xc5c`, or terminal `0x93` survived. Exact rollback
+and final health passed.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
 outer works ended by `0.291 ms`, followed by deferred child and parent PM
@@ -24,17 +25,17 @@ ran synchronously inside the stop helper. Runtime-PM reference and child-count
 state, not the source call name alone, select synchronous versus deferred
 execution.
 
-The P2.86 successor first waits, on the existing stop deadline, for both child
-and parent exact `runtime_status=suspended`. Parent suspended proves the parent
-callback returned and released `suspend_resume_mutex`; it does not prove the
-enclosing outer work returned. Requeue bookkeeping and the worker return tail
-remain. The successor therefore also needs actual outer entry/return probes and
-a bounded classified PERIPHERAL helper with a closed post-kill reap deadline.
-No kernel change is selected.
+P2.86 added exact parent-suspended wait, actual outer-work probes, bounded
+classified PERIPHERAL handling, closed post-kill reap, and publish-before-trace
+cleanup. Its live result retained none of those later classifications. The
+candidate observer closed as a bounded `endpoint-timeout`; the operator
+reported a normal candidate boot without a boot loop. Absence of a later slot
+does not uniquely identify a blocked syscall, blocked trace cleanup, failure
+before publication, or loss of the newer slot before rollback.
 
 No S22+ F1 live run is currently authorized. Both P2.84 stock-D1 approvals and
-the P2.84 F1 approval are consumed. Do not repeat P2.82 or replay/rebuild
-P2.84.
+the P2.84 and P2.86 F1 approvals are consumed. Do not repeat P2.82 or
+replay/rebuild P2.84 or P2.86.
 
 P2.86 run `c6cde593033d6f1be93f82c8ff5a81e8` passed its frozen pre-intent
 closure and pre-LTO qualification. Its first Full-LTO A/B pair failed closed:
@@ -73,6 +74,13 @@ private-root and absolute clang-resource leaks before B may start.
 - P2.86's first Full-LTO pair failed closed with a completely attributed
   build-layout path leak. `1,124 = 138 * 8 + 20`; the 20-byte residual is
   exactly the GNU build ID, and Image has no other difference.
+- P2.86's corrected Full-LTO A/B, linked/package/static closure, independent
+  downstream-runner registration review, ready manifest, D0, one candidate
+  transfer, exact rollback, and final health passed. Its formal live verdict is
+  `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`.
+- P2.86 recovery resumed rollback-only after a USB inventory-membership race
+  interrupted the first physical-Download endpoint snapshot. No candidate
+  replay or rollback retry occurred.
 - Exact source rejects treating a parent-PM sign or PHY flag as electrical
   proof; swallowed clock errors remain non-proof.
 - Process v2 common D0/F1 execution, regular-path boot-only Odin transport,
@@ -86,6 +94,7 @@ Load-bearing current reports:
 - `docs/reports/S22PLUS_FYG8_P284_STOCK_TRACE_PM_ORDER_CORRECTION_H0_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P286_SUCCESSOR_CHANGE_CLOSURE_FREEZE_H0_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P286_FULL_LTO_PRIVATE_PATH_REPRO_FAILURE_H0_2026-07-30.md`
+- `docs/reports/S22PLUS_FYG8_P286_PARENT_TAIL_BOUNDED_RESTART_F1_CLOSED_2026-07-30.md`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 
@@ -232,20 +241,16 @@ review of these results; intent derivation remains a later bounded unit.
 
 ## Ordered Execution
 
-1. Finalize the two pending H0 reports and private-path failure record.
-2. Verify the relocated clang copy by commit, clean state, version, and
-   effective-tool bytes.
-3. Print all 70 SOURCE_KEY-to-path rows, verify all intent receipts, and compare
-   them with a clean status.
-4. Run corrected Full-LTO A only.
-5. Require zero random-private-root and absolute clang-resource leaks in A;
-   stop without B on any leak.
-6. Only after that gate, run one clean B and prove all linked artifacts
-   byte-equal.
-7. Run linked audit, deterministic boot-only package A/B, static closure, and
-   offline promotion.
-8. Create a fresh ready manifest, then perform separate D0.
-9. Request fresh live authority only after all host and D0 gates pass.
+1. Preserve the closed P2.86 journal, structured result, and raw evidence.
+2. Reopen the exact P2.86 source and map the interval after
+   `0x8f/detail=0xc18` to the first possible later publication.
+3. Explain why no bounded timeout/failure checkpoint survived despite
+   publish-before-cleanup and the closed reap deadline.
+4. Separate a blocked operation from a publication/retention loss using H0
+   source, decoder, and slot-order evidence before changing a candidate.
+5. Do not select or implement P2.88 until the gap analysis is source-complete.
+6. Any later candidate must repeat immutable identity, Full-LTO/package/static
+   closure, ready manifest, D0, and fresh exact F1 approval.
 
 No device step is added when H0 can answer the question.
 
