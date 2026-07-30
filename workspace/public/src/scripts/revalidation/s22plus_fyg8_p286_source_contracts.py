@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import s22plus_fyg8_p286_source_contract as p286
 import s22plus_fyg8_p288_source_contract as p288
+import s22plus_fyg8_p290_source_contract as p290
 import s22plus_fyg8_source_contracts as historical
 
 
@@ -15,6 +16,7 @@ REGISTRY = {
     **historical.REGISTRY,
     p286.CONTRACT_ID: p286,
     p288.CONTRACT_ID: p288,
+    p290.CONTRACT_ID: p290,
 }
 
 
@@ -46,10 +48,26 @@ def _p288_selection(contract) -> SelectedSourceContract:  # noqa: ANN001
     )
 
 
+def _p290_selection(contract) -> SelectedSourceContract:  # noqa: ANN001
+    return SelectedSourceContract(
+        module=p290,
+        contract=contract,
+        implementation_verdict=p290.IMPLEMENTATION_VERDICT,
+        source_check_run_id=p290.SOURCE_CHECK_RUN_ID,
+        userspace_verdict=p290.USERSPACE_VERDICT,
+    )
+
+
 def select(
     source_contract_id: str | None,
     profile: str,
 ) -> SelectedSourceContract:
+    if source_contract_id == p290.CONTRACT_ID:
+        try:
+            contract = p290.require(source_contract_id, profile)
+        except p290.SourceContractError as exc:
+            raise SourceContractSelectionError(str(exc)) from exc
+        return _p290_selection(contract)
     if source_contract_id == p288.CONTRACT_ID:
         try:
             contract = p288.require(source_contract_id, profile)
