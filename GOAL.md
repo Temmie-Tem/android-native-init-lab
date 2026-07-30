@@ -515,17 +515,19 @@ corrected A/B pair then matched.
   handoff retained a per-owner `-EBUSY` after its final owner rescan reached
   zero, so `switch_root` was not reached. Candidate/rollback are `1/1`, no
   replay, exact V2321 health is restored, and the run is closed.
-- A90 V3404 is the fresh H0 successor to that exact boundary. Only strict-D3
-  per-owner `-EBUSY` is deferred to the successful final zero-owner scan.
-  D4/preserving mode, service failures, final-scan failures, non-timeout owner
-  errors, and any nonzero owner count remain fail-closed. Focused `16/16`,
-  inherited D3/HUD regressions, AArch64 static build, boot packaging, marker
-  audit, and independent review pass. The private boot artifact is
-  hash-identified by the generated source-build report; no run or live
-  authority exists. The reusable staging adapter now accepts exactly V3403
-  and V3404 cycle-bound run IDs, derives distinct final paths, and rejects
-  cross-cycle pairing. Its focused `41/41` plus unchanged orchestrator `72/72`
-  pass independent review; no execution or approval has occurred.
+- A90 V3404 run `a90-v3404-debian-f1-20260731-01` is closed healthy/no-proof.
+  One candidate and one exact V2321 rollback transferred with no replay.
+  Strict display cleanup, absent-only work-copy verification, loop mount,
+  proc/sys movement, dev preparation, and `exec_switch_root_now` passed; the
+  Debian sysvinit SELinux warning followed. No SSH PID1 marker or automatic
+  candidate return was observed, so this run does not prove Debian PID1.
+  Operator reboot recovered exact V3404, and rollback write/readback then
+  completed once. USB re-enumeration changed only the transient tty realpath.
+  An independently reviewed, hash-bound no-transfer closure performed exact
+  V2321 D0 health reads and closed the journal without reinvoking rollback.
+  The final result is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, counts `1/1`,
+  canonical eight events, and no live authority. Host comparison rejects a
+  missing firstboot/init payload; the 2026-07-03 switch-root pass remains valid.
 
 Load-bearing current reports:
 
@@ -536,6 +538,7 @@ Load-bearing current reports:
 - `docs/reports/NATIVE_INIT_V3403_D3_IMMUTABLE_HANDOFF_H0_CLOSURE_2026-07-30.md`
 - `docs/reports/NATIVE_INIT_V3404_D3_RESOLVED_OWNER_TIMEOUT_SOURCE_BUILD_2026-07-31.md`
 - `docs/reports/A90_V3404_REUSABLE_F1_STAGING_BINDING_H0_2026-07-31.md`
+- `docs/reports/A90_V3404_D3_SWITCHROOT_NO_PROOF_F1_CLOSED_2026-07-31.md`
 - `docs/reports/S22PLUS_FYG8_P284_CONTROLLED_SUSPEND_F1_CLOSED_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_POST_SUSPEND_RESTART_GAP_FOCUSED_ANALYSIS_H0_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_STOCK_OUTER_D1_V2_LIVE_NO_PROOF_2026-07-29.md`
@@ -730,15 +733,15 @@ The A90 branch proceeds independently:
 7. Preserve closed run `a90-v3403-debian-f1-20260731-03`, its consumed
    approval and continuation, `1/1` transfers, one handoff, source-unchanged
    failure, final V2321 health, and no-proof verdict.
-8. Preserve V3404's completed H0 closure: only strict-D3 per-owner `-EBUSY`
-   may be resolved by a successful zero-owner rescan; D4, service, scan,
-   non-timeout owner, and nonzero-owner results remain fatal.
-9. Preserve the reviewed reusable staging closure: exact V3403/V3404 run IDs
-   select distinct final paths, cross-cycle pairing fails, and the unchanged
-   attended orchestrator remains manifest-bound.
-10. Create a fresh V3404 run/rootfs/manifest, complete exact D0 and path
-    preflight, and stop before staging at one new F1 approval. No V3403 run,
-    receipt, continuation, or approval may be reused.
+8. Preserve closed V3404 run `a90-v3404-debian-f1-20260731-01`, its consumed
+   approval and continuation, one handoff, candidate/rollback `1/1`, exact
+   V2321 health, no replay, and no-proof verdict.
+9. Preserve the 2026-07-03 true switch-root proof and the current host finding
+   that init, inittab, firstboot, package identity, and isolated PID1 execution
+   remain intact; do not classify this run as an image-payload absence.
+10. Before another F1, use H0 and bounded D0 postmortem evidence to isolate the
+    new work-copy/display-cleanup runtime difference and design a durable
+    pre-init watchdog/trace boundary. No consumed run or approval is reusable.
 
 No device step is added when H0 can answer the question.
 
