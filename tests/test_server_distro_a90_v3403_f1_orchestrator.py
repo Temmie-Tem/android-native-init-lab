@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import stat
@@ -728,7 +729,7 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                     timeout=3.0,
                 )
             self.assertEqual(record["returncode"], 125)
-            self.assertEqual(record["execution_error"]["type"], "FileNotFoundError")
+            self.assertEqual(record["execution_error"]["type"], "OSError")
             self.assertEqual(record["execution_error"]["stage"], "process-spawn")
             self.assertEqual(record["execution_error"]["errno"], 2)
             self.assertFalse(record["process_started"])
@@ -763,7 +764,7 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             "returncode": 125,
             "process_started": False,
             "execution_error": {
-                "type": "FileNotFoundError",
+                "type": "OSError",
                 "stage": "process-spawn",
                 "errno": 2,
             },
@@ -891,7 +892,7 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                     **f1.command_record(log_path, 125),
                     "process_started": False,
                     "execution_error": {
-                        "type": "FileNotFoundError",
+                        "type": "OSError",
                         "stage": "process-spawn",
                         "errno": 2,
                     },
@@ -935,6 +936,85 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             self.assertTrue(records[-1]["rollback_retry_preserved"])
             self.assertEqual(records[-1]["rollback_transfer_count"], 0)
 
+            mutations: list[tuple[str, object]] = []
+
+            def mutated(
+                label: str,
+                record_index: int,
+                key_path: tuple[str, ...],
+                value: object,
+            ) -> None:
+                changed = copy.deepcopy(records)
+                target: dict[str, object] = changed[record_index]
+                for key in key_path[:-1]:
+                    target = target[key]  # type: ignore[assignment]
+                target[key_path[-1]] = value
+                mutations.append((label, changed))
+
+            mutated("intent timestamp", -2, ("timestamp_utc",), "not-utc")
+            mutated("rejection timestamp", -1, ("timestamp_utc",), "not-utc")
+            mutated("intent sequence float", -2, ("sequence",), 0.0)
+            mutated("rejection sequence float", -1, ("sequence",), 1.0)
+            mutated("attempt bool", -2, ("rollback_attempt_limit",), True)
+            mutated("attempt float", -2, ("rollback_attempt_limit",), 1.0)
+            mutated(
+                "prior count bool",
+                -2,
+                ("prior_pre_spawn_rejections",),
+                False,
+            )
+            mutated(
+                "transfer count bool",
+                -1,
+                ("rollback_transfer_count",),
+                False,
+            )
+            mutated(
+                "returncode float",
+                -1,
+                ("record", "returncode"),
+                125.0,
+            )
+            mutated(
+                "raw size bool",
+                -1,
+                ("record", "raw_log_size"),
+                False,
+            )
+            mutated(
+                "bogus error type",
+                -1,
+                ("record", "execution_error", "type"),
+                "BogusError",
+            )
+            mutated(
+                "errno bool",
+                -1,
+                ("record", "execution_error", "errno"),
+                True,
+            )
+            for label, changed in mutations:
+                with self.subTest(mutation=label):
+                    mutated_allowed, _, _ = f1.rollback_pre_spawn_retry(
+                        spec,
+                        transaction,
+                        changed,  # type: ignore[arg-type]
+                    )
+                    self.assertFalse(mutated_allowed)
+
+            raw_log = Path(str(records[-1]["record"]["raw_log"]))
+            symlink_target = transaction / "other-empty-private.raw.log"
+            symlink_target.write_bytes(b"")
+            symlink_target.chmod(0o600)
+            raw_log.unlink()
+            raw_log.symlink_to(symlink_target)
+            symlink_allowed, _, _ = f1.rollback_pre_spawn_retry(
+                spec,
+                transaction,
+                records,
+            )
+            self.assertFalse(symlink_allowed)
+
     def test_unpaired_latest_rollback_intent_is_never_retried(self) -> None:
         spec = sample_spec()
         records = [
@@ -948,7 +1028,7 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                 "record": {
                     "process_started": False,
                     "execution_error": {
-                        "type": "FileNotFoundError",
+                        "type": "OSError",
                         "stage": "process-spawn",
                     },
                 },
@@ -1054,7 +1134,7 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                         **f1.command_record(log_path, 125),
                         "process_started": False,
                         "execution_error": {
-                            "type": "FileNotFoundError",
+                            "type": "OSError",
                             "stage": "process-spawn",
                             "errno": 2,
                         },
@@ -1124,6 +1204,29 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             )
             self.assertEqual(path.name, "0000-preflight.json")
             self.assertEqual(len(f1.read_journal(spec, transaction)), 1)
+
+    def test_journal_rejects_float_sequence_and_noncanonical_timestamp(self) -> None:
+        spec = sample_spec()
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            transaction = Path(temp_dir)
+            path = f1.append_record(
+                transaction / "journal",
+                "PREFLIGHT",
+                "preflight",
+                {},
+                manifest_sha256=spec.stage.manifest_sha256,
+                run_id=spec.stage.run_id,
+            )
+            value = json.loads(path.read_text())
+            value["sequence"] = 0.0
+            path.write_text(json.dumps(value), encoding="utf-8")
+            with self.assertRaisesRegex(f1.ContractError, "invalid journal"):
+                f1.read_journal(spec, transaction)
+            value["sequence"] = 0
+            value["timestamp_utc"] = "not-utc"
+            path.write_text(json.dumps(value), encoding="utf-8")
+            with self.assertRaisesRegex(f1.ContractError, "invalid journal"):
+                f1.read_journal(spec, transaction)
 
     def test_recovery_source_has_no_candidate_invocation(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")

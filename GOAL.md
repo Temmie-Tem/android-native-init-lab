@@ -59,12 +59,17 @@ after a started failure could satisfy the loose retry predicate. The fourth
 host-only remediation accepts only one directly adjacent latest
 intent/process-not-started pair with exact outer/nested shape, zero-transfer
 fields, recovery mode, private empty raw-log path/size/SHA, and prior rejection
-count. A conflicting or malformed record now fails closed. The combined
-closure passes `100/100` and contains no concrete network address. It has not
-staged a byte or invoked a flash. The changed closure still needs independent
-re-review and a fresh exact three-path D0 before final-manifest promotion. The
-private manifest therefore remains a non-approvable draft. Debian PID1 is
-still unproved, internal userdata remains untouched, and no A90 live authority
+count. The fifth independent review correctly returned `NO_GO`: Python numeric
+type equivalence, arbitrary `*Error` strings, noncanonical timestamps, and a
+resolve-before-lstat raw-log check still admitted malformed evidence. The
+fifth host-only remediation requires exact integer types and canonical
+timestamps, normalizes spawn failures to exact `OSError`, and rejects the exact
+raw-log pathname as a symlink before resolution. The combined closure passes
+`101/101` and contains no concrete network address. It has not staged a byte
+or invoked a flash. The changed closure still needs independent re-review and
+a fresh exact three-path D0 before final-manifest promotion. The private
+manifest therefore remains a non-approvable draft. Debian PID1 is still
+unproved, internal userdata remains untouched, and no A90 live authority
 exists.**
 
 Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two

@@ -77,6 +77,9 @@ RECOVERY_ADB_MARKER_RE = re.compile(
     r"(?:^|\] )ADB ready: ([^\s]+) recovery\r?$",
     re.MULTILINE,
 )
+UTC_TIMESTAMP_RE = re.compile(
+    r"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+)
 SUCCESSFUL_STAGE_STATES = (
     "approval-binding-reopened",
     "connected-preflight",
@@ -139,6 +142,16 @@ def utc_now() -> str:
     return dt.datetime.now(dt.UTC).replace(microsecond=0).isoformat().replace(
         "+00:00", "Z"
     )
+
+
+def is_canonical_utc_timestamp(value: Any) -> bool:
+    if not isinstance(value, str) or UTC_TIMESTAMP_RE.fullmatch(value) is None:
+        return False
+    try:
+        parsed = dt.datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        return False
+    return parsed.strftime("%Y-%m-%dT%H:%M:%SZ") == value
 
 
 def _private_json_bytes(payload: Any) -> bytes:
@@ -236,7 +249,7 @@ def require_string(value: Any, label: str) -> str:
 
 
 def require_positive_int(value: Any, label: str) -> int:
-    if not isinstance(value, int) or value <= 0:
+    if type(value) is not int or value <= 0:
         raise ContractError(f"{label} must be a positive integer")
     return value
 
@@ -263,7 +276,7 @@ def private_bound_file(value: Any, label: str) -> staging.BoundFile:
     size_value = item.get("size")
     if not isinstance(path_value, str):
         raise ContractError(f"{label}.path is missing")
-    if not isinstance(size_value, int) or size_value <= 0:
+    if type(size_value) is not int or size_value <= 0:
         raise ContractError(f"{label}.size must be positive")
     bound = staging.BoundFile(
         label=label,
@@ -501,7 +514,7 @@ def load_spec(
                     issues.append("f1_orchestrator.path does not select this source")
         size_value = orchestrator.get("size")
         sha_value = orchestrator.get("sha256")
-        if not isinstance(size_value, int) or size_value <= 0:
+        if type(size_value) is not int or size_value <= 0:
             issues.append("f1_orchestrator.size is not bound")
         else:
             orchestrator_size = size_value
@@ -641,9 +654,15 @@ def read_journal(spec: F1Spec, transaction_dir: Path) -> list[dict[str, Any]]:
         if (
             not isinstance(value, dict)
             or value.get("schema") != JOURNAL_SCHEMA
+            or type(value.get("sequence")) is not int
             or value.get("sequence") != sequence
             or value.get("run_id") != spec.stage.run_id
             or value.get("manifest_sha256") != spec.stage.manifest_sha256
+            or not is_canonical_utc_timestamp(value.get("timestamp_utc"))
+            or not isinstance(value.get("state"), str)
+            or not value.get("state")
+            or not isinstance(value.get("action"), str)
+            or not value.get("action")
         ):
             raise ContractError(f"invalid journal record: {path}")
         if path.name != f"{sequence:04d}-{value.get('action')}.json":
@@ -830,7 +849,7 @@ def run_logged(
         except OSError as exc:
             returncode = 125
             execution_error = {
-                "type": type(exc).__name__,
+                "type": "OSError",
                 "stage": "process-spawn",
                 "errno": exc.errno,
             }
@@ -1523,15 +1542,22 @@ def rollback_pre_spawn_retry(
         or rejection.get("action") != "rollback-process-not-started"
         or intent.get("state") != "RECOVERY_ROLLBACK"
         or rejection.get("state") != "RECOVERY_ROLLBACK"
+        or type(intent.get("sequence")) is not int
+        or type(rejection.get("sequence")) is not int
         or rejection.get("sequence") != intent.get("sequence", -2) + 1
+        or not is_canonical_utc_timestamp(intent.get("timestamp_utc"))
+        or not is_canonical_utc_timestamp(rejection.get("timestamp_utc"))
         or intent.get("rollback_sha256") != spec.rollback.sha256
+        or type(intent.get("rollback_attempt_limit")) is not int
         or intent.get("rollback_attempt_limit") != 1
         or intent.get("rollback_process_started") is not None
         or intent.get("candidate_replay") is not False
         or recovery_mode not in ("from-native", "adb-recovery")
+        or type(intent.get("prior_pre_spawn_rejections")) is not int
         or intent.get("prior_pre_spawn_rejections") != prior_rejections
         or rejection.get("candidate_replay") is not False
         or rejection.get("rollback_process_started") is not False
+        or type(rejection.get("rollback_transfer_count")) is not int
         or rejection.get("rollback_transfer_count") != 0
         or rejection.get("rollback_retry_preserved") is not True
     ):
@@ -1567,24 +1593,19 @@ def rollback_pre_spawn_retry(
     )
     if (
         set(execution) != execution_keys
+        or type(execution.get("returncode")) is not int
         or execution.get("returncode") != 125
         or execution.get("process_started") is not False
         or not isinstance(execution_error, dict)
         or set(execution_error) != {"type", "stage", "errno"}
-        or not isinstance(error_type, str)
-        or (
-            error_type != "OSError"
-            and not error_type.endswith("Error")
-        )
-        or error_type == "TimeoutExpired"
+        or error_type != "OSError"
         or execution_error.get("stage") != "process-spawn"
-        or not (
-            execution_error.get("errno") is None
-            or isinstance(execution_error.get("errno"), int)
-        )
+        or type(execution_error.get("errno")) is not int
+        or execution_error.get("errno") <= 0
         or not isinstance(phase_classification, dict)
         or set(phase_classification) != phase_keys
         or any(value is not False for value in phase_classification.values())
+        or type(execution.get("raw_log_size")) is not int
         or execution.get("raw_log_size") != 0
         or execution.get("raw_log_sha256") != hashlib.sha256(b"").hexdigest()
     ):
@@ -1598,11 +1619,15 @@ def rollback_pre_spawn_retry(
         log_name = "rollback-flash.raw.log"
     expected_log = (transaction_dir / log_name).resolve()
     raw_log_value = execution.get("raw_log")
-    if not isinstance(raw_log_value, str):
+    if (
+        not isinstance(raw_log_value, str)
+        or raw_log_value != str(expected_log)
+    ):
         return False, recovery_mode, 0
+    raw_log_path = Path(raw_log_value)
     try:
-        actual_log = Path(raw_log_value).resolve(strict=True)
-        require_private_regular(actual_log)
+        require_private_regular(raw_log_path)
+        actual_log = raw_log_path.resolve(strict=True)
     except (FileNotFoundError, ContractError):
         return False, recovery_mode, 0
     if (

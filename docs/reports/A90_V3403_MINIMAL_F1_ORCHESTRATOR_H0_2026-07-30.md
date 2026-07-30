@@ -3,7 +3,7 @@
 Date: 2026-07-30 KST
 
 Status:
-`PASS_HOST_FOURTH_REMEDIATION_RE_REVIEW_PENDING_NO_LIVE_AUTHORITY`
+`PASS_HOST_FIFTH_REMEDIATION_RE_REVIEW_PENDING_NO_LIVE_AUTHORITY`
 
 ## Scope
 
@@ -19,9 +19,9 @@ rollback transfer, mount, `switch_root`, or userdata operation occurred.
 
 - Orchestrator:
   `workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py`
-- Size: `85495`
+- Size: `86690`
 - SHA256:
-  `2e0f6868f0637d3c71b938146fdfa5e46a894fc51592281f439950b43118feb8`
+  `a4a1aaebcb44fb31f774a88f976eae7379118229f2a515be7bcfaa0f51077457`
 - Focused tests:
   `tests/test_server_distro_a90_v3403_f1_orchestrator.py`
 - Staging adapter SHA256:
@@ -160,12 +160,32 @@ transaction path and recomputes its identity. Any missing, extra, nonadjacent,
 conflicting, malformed, moved, non-private, nonempty, or hash-mismatched input
 returns non-retryable.
 
+The fifth independent review of remediation commit
+`6bf5ced7d529c999c0b5f1e297b9da9ee679c681` confirmed that the fourth
+conflicting sequence was closed and that a genuine pair still recovered
+correctly, but returned `NO_GO` after a larger mutation matrix. Python numeric
+equality admitted boolean and float substitutes for integer fields; an
+arbitrary `BogusError` string passed the suffix check; noncanonical timestamps
+were not rejected; and resolving the raw-log path before `lstat` allowed the
+exact name to be a symlink to another private empty file.
+
+The fifth remediation changes all load-bearing numeric fields to exact
+`type(value) is int` checks, including generic journal sequence, attempt
+limit, prior rejection count, transfer count, return code, raw-log size, and
+errno. Journal timestamps must use the exact seconds-resolution UTC form.
+Every caught spawn `OSError` is normalized to the fixed
+`type=OSError,stage=process-spawn,errno>0` record, so arbitrary class strings
+cannot enter the retry proof. The raw-log string must equal the exact expected
+transaction path; that original path is checked with `lstat` as a private
+non-symlink regular file before resolution and hash reopening. Boolean, float,
+bogus-error, timestamp, and symlink mutations now fail closed.
+
 ## Validation
 
 - Python compilation passed.
-- The orchestrator suite passes `44/44`.
+- The orchestrator suite passes `45/45`.
 - The orchestrator, staging adapter, V3403 build, D3 handoff, and rootfs group
-  passes `100/100`.
+  passes `101/101`.
 - Every modeled candidate-intent failure selects rollback-only recovery.
 - A previously started rollback is never invoked twice.
 - Durable completion records repair missing ordered timeline events without
@@ -201,6 +221,9 @@ returns non-retryable.
   process-not-started shape is rejected. Direct pairing and the complete raw
   log/record identity are required before the same-approval retry branch can
   run.
+- The independent matrix's bool/float numeric substitutions, bogus error
+  type, noncanonical timestamps, and exact-name symlink are all rejected;
+  generic journal reads also reject float sequence values.
 - The private draft inspection reports `device_contact=false` and
   `device_write=false`.
 - A forced live invocation with the draft is rejected before creating either
@@ -208,7 +231,7 @@ returns non-retryable.
 
 ## Remaining gate
 
-All four earlier review rounds are closed `NO_GO`; the fourth remediation has
+All five earlier review rounds are closed `NO_GO`; the fifth remediation has
 not yet passed the required independent re-review. The current private draft
 remains deliberately non-approvable.
 
