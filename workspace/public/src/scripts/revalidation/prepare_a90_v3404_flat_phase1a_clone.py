@@ -70,6 +70,9 @@ def export_head(output: Path) -> None:
         raise RuntimeError(
             f"tracked export failed: git={archive_rc} tar={extract.returncode}"
         )
+    # Legacy bootstrap locates the repository solely through a .git directory.
+    # This empty marker is not a repository and carries no canonical object link.
+    (output / ".git").mkdir(mode=0o700)
 
 
 def copy_inputs(output: Path) -> dict[str, str]:

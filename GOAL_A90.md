@@ -213,6 +213,20 @@ new candidate version. Its binding plan is:
 
 `docs/plans/A90_V3404_FLAT_BUILDER_PHASE1A_DISPOSABLE_CLONE_PLAN_2026-07-31.md`
 
+Phase 1A closed
+`A90_V3404_PHASE1A_ISOLATED_PATH_ATTRIBUTION_PASS`. Unmapped clone A/B matched
+init/helper but changed engine/ramdisk/boot. Two Doom `__FILE__` strings carried
+the build root. A clone-private prefix-map restored all five Phase 0 hashes
+exactly, proving complete path attribution. The original golden remains a
+bridge control but is not portable.
+
+`docs/reports/A90_V3404_FLAT_BUILDER_PHASE1A_ISOLATED_PATH_ATTRIBUTION_H0_2026-07-31.md`
+
+Phase 1B is selected next: materialize the effective adapter/SFX sources and
+flat manifest, use a stable public virtual source prefix, and establish a new
+portable A/B golden profile. It must retain the old five hashes as the exact
+semantic bridge control and creates no candidate or live authority.
+
 ## Later Phases
 
 Phase 1 flattens the measured inherited builder/import chain into one
@@ -248,6 +262,7 @@ approval under `AGENTS.md`.
 - `docs/reports/A90_V3404_BUILD_DETERMINISM_PHASE0_H0_2026-07-31.md`
 - `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1_STOP_H0_2026-07-31.md`
 - `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1_SUCCESSOR_REPEATED_STOP_H0_2026-07-31.md`
+- `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1A_ISOLATED_PATH_ATTRIBUTION_H0_2026-07-31.md`
 
 Private journals, structured results, raw logs, work-image evidence, approval
 receipts, and exact rollback identity remain under `workspace/private/`.
