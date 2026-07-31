@@ -12,7 +12,10 @@ Status:
 > writer-tail source facts remain valid, but the two-branch premise is false.
 > The next write returns deterministic pre-mutation `-ESTALE` because kernel
 > state omits the active slot's nonzero detail; userspace then parks. Do not
-> implement the observer or deferred-close designs for this incident. See
+> implement the observer or deferred-close designs for this incident. The
+> source-of-truth integration requirement below is not withdrawn with the
+> observer; it remains load-bearing successor scope under
+> `CHECKPOINT_SOT_COHERENCE`. See
 > `S22PLUS_FYG8_P284_P290_ACCEPT_TO_RESUME_HISTORY_ERRATUM_H0_2026-07-31.md`.
 
 ## Questions

@@ -304,6 +304,51 @@ errors must be tested separately. If the retained channel cannot report its
 own failure, the design must bind another bounded evidence carrier; passing
 `ACCEPT_TO_RESUME_CLOSURE` cannot substitute for this property.
 
+## Load-bearing SoT and identity scope
+
+Withdrawing the child-observer protocol did not withdraw source-of-truth
+integration. That requirement is independent and remains load-bearing under:
+
+```text
+CHECKPOINT_SOT_COHERENCE
+```
+
+One machine-readable definition must own the complete checkpoint contract:
+slot layout and CRC domain, exact active-state representation, position
+sequence, allowed outcome/detail rules, terminal semantics, and publication
+errno classes. It must generate or mechanically constrain the materialized
+kernel state/writer/validator tables, userspace encoder and client, host model
+and decoder, and the full-sequence walk vectors. A consumer with a hand-copied
+record field, position, detail rule, or terminal rule fails the gate.
+
+The gate must regenerate every derived artifact in a clean temporary tree,
+require deterministic byte equality, prove that each consumer uses the
+generated contract rather than a private duplicate, and retain the linked-data
+comparison for compiled kernel tables. This closes the class in which one
+layer accepts a record shape that another layer cannot represent or resume.
+
+The same new candidate identity must include:
+
+1. the exact-active-slot kernel repair, including seed and every successful
+   commit update;
+2. errno-preserving runtime/client behavior and any byte-affecting evidence
+   carrier; and
+3. the SoT schema, generator, and every generated kernel/userspace input that
+   can change `boot.img` bytes.
+
+Pure verifier/static/post-build tools, host-only model/decoder adapters,
+selectors, freeze reports, and prose documentation remain outside
+`SOURCE_KEYS`. Their exact bytes and results must instead be approval-bundle
+bound. This distinction is intentional: “same identity” binds the SoT,
+generator, and byte-affecting outputs, not evidence-only consumers.
+
+Before intent, the freeze gate must derive changed paths from Git, require an
+exact bidirectional match with the declared mutation set, print the complete
+`SOURCE_KEYS -> path` map, prove that no verifier/document path is a selected
+source key, and reject overlap between payload and evidence-only classes. No
+SOURCE_KEYS count is declared until that materialized split is computed. After
+intent, every selected source receipt is immutable.
+
 ## Repair constraints
 
 The preferred repair is to retain the exact expected active slot in kernel
@@ -337,6 +382,7 @@ dispatch or any later E3 boundary.
 The deferred-close and child-observer proposals are withdrawn for this
 incident. A successor must first repair and exhaustively prove
 `ACCEPT_TO_RESUME_CLOSURE`, `ACCEPT_TO_RESUME_SEQUENCE_WALK`, and
-`CHECKPOINT_ERRNO_OBSERVABILITY`, derive a new identity, and complete ordinary
-Full-LTO/static/package closure. Only a later fresh F1 can observe the first
-real boundary after `0x8f`.
+`CHECKPOINT_ERRNO_OBSERVABILITY`, with `CHECKPOINT_SOT_COHERENCE` bound into the
+same new identity. It must then complete ordinary Full-LTO/static/package
+closure. Only a later fresh F1 can observe the first real boundary after
+`0x8f`.
