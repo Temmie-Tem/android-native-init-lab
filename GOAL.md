@@ -40,14 +40,22 @@ seven-lane mutation matrix passes, including the rule that a Tier-2-originated
 generated payload delta still changes payload identity. The final 93-key
 source contract, new-candidate retirement selector, build/package adapters,
 and Git-derived change freeze are implemented. Stage C remains open pending
-its required independent safety review and a clean post-commit freeze.
+its required independent safety review. The clean post-commit freeze passes
+with all 93 payload keys unchanged and exact Git-derived/declaration path
+agreement.
+
+P2.92 intent run `029c8b1739f06242008c0a7657cef9e2` is now derived and
+immutable. Its exact userspace two-build result and refreshed five-sample
+generic-arm64 lifecycle control feed a `21/21` pre-LTO qualification pass.
+The qualification and linked-audit receipts reverify against the current
+Tier-2 closure without changing any Tier-1 payload source.
 
 The four formal Process-v2 verdicts remain
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: rollback and health evidence are
 unchanged, while restart-helper dispatch and every later E3 boundary remain
 unproved. This is observation-channel recovery, not E3 progress. Full-LTO,
-manifest, D0, or another F1 remain prohibited until the final P2.92 freeze,
-pre-LTO closure, and Stage C review are complete.
+manifest, D0, or another F1 remain prohibited until the independent Stage C
+review is complete; final freeze and pre-LTO closure now pass.
 
 The live transaction exercised the durable recovery design. Initial rollback
 endpoint discovery stopped on a measured USB membership race. Rollback-only
