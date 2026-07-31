@@ -37,7 +37,10 @@ class P292ContractTest(unittest.TestCase):
         self.assertIn(b"struct s22_fyg8_e1_slot active;", source["base_patch"])
 
     def test_candidate_patch_rebinds_without_duplicate_defconfig(self) -> None:
-        source = p292.source_bytes(ROOT)
+        with intent._base_context():
+            source, _receipts = intent.base.source_receipts(
+                ROOT, p292.PROFILE, p292.CONTRACT_ID
+            )
         run_id = bytes.fromhex("11" * 16)
         unsat = model.unsat_record(p292.PROFILE, run_id)
         unsat_tag = unsat[len(model.UNSAT_FAMILY) :]

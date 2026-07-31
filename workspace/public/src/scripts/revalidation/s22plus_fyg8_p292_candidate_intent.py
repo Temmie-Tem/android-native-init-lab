@@ -25,6 +25,7 @@ DEFAULT_BASE_PATCH = base.DEFAULT_BASE_PATCH
 DEFCONFIG = base.DEFCONFIG
 BASE_FILES = base.BASE_FILES
 IntentError = base.IntentError
+_INHERITED_BUILD_PATCH = base.build_patch
 
 RUN_ID_DOMAINS = {**base.RUN_ID_DOMAINS, "E2": RUN_ID_DOMAIN}
 SUPERSEDED_FOR_NEW_CANDIDATES = {
@@ -65,9 +66,16 @@ def build_patch(
             ).encode("ascii"),
         ),
     )
+    old_counts = tuple(base_patch.count(old) for old, _new in replacements)
+    if old_counts == (0, 0):
+        return _INHERITED_BUILD_PATCH(
+            base_patch, run_id, unsat_tag, profile
+        )
+    if old_counts != (1, 1):
+        raise IntentError("P2.92 candidate config source binding differs")
     value = base_patch
     for old, new in replacements:
-        if value.count(old) != 1 or old == new:
+        if old == new:
             raise IntentError(
                 "P2.92 candidate config source binding differs"
             )
