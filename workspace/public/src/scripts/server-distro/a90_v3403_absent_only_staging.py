@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Absent-only SD rootfs staging adapter for A90 V3403/V3404 F1 transactions.
+"""Absent-only SD rootfs staging adapter for A90 V3403-V3405 F1 transactions.
 
 The default mode is host-only inspection.  The write-capable mode is usable
 only with a final prepared manifest and explicit exact manifest/adapter
@@ -53,6 +53,7 @@ REMOTE_WORK = REMOTE_ROOT / "d3-handoff-work.img"
 REMOTE_FINAL_PREFIX_BY_CYCLE = {
     "v3403": "debian-bookworm-arm64-d3-sysvinit-v3403-keyed-",
     "v3404": "debian-bookworm-arm64-d3-sysvinit-v3404-keyed-",
+    "v3405": "debian-bookworm-arm64-d3-sysvinit-v3405-keyed-",
 }
 STAGE_PREFIX = ".a90-stage-"
 STAGE_PAYLOAD_NAME = "payload.img"
@@ -71,7 +72,7 @@ REQUIRED_SUPPORT_FILES = (
 )
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 RUN_ID_RE = re.compile(
-    r"^a90-(?P<cycle>v3403|v3404)-debian-f1-"
+    r"^a90-(?P<cycle>v3403|v3404|v3405)-debian-f1-"
     r"(?P<suffix>[0-9]{8}-[0-9]{2})$"
 )
 PSTORE_ZERO_RE = re.compile(r"^pstore=[^\r\n]*\bentries=0\b", re.MULTILINE)
@@ -1169,7 +1170,8 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         for token in (
             '"v3403": "debian-bookworm-arm64-d3-sysvinit-v3403-keyed-"',
             '"v3404": "debian-bookworm-arm64-d3-sysvinit-v3404-keyed-"',
-            'r"^a90-(?P<cycle>v3403|v3404)-debian-f1-"',
+            '"v3405": "debian-bookworm-arm64-d3-sysvinit-v3405-keyed-"',
+            'r"^a90-(?P<cycle>v3403|v3404|v3405)-debian-f1-"',
             'r"(?P<suffix>[0-9]{8}-[0-9]{2})$"',
         ):
             if identity.count(token) != 1:

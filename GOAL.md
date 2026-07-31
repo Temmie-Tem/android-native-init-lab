@@ -552,6 +552,7 @@ Load-bearing current reports:
 - `docs/reports/A90_V3404_D3_SWITCHROOT_NO_PROOF_F1_CLOSED_2026-07-31.md`
 - `docs/reports/A90_V3404_D3_WORK_COPY_POSTMORTEM_DEBIAN_PID1_PROVEN_2026-07-31.md`
 - `docs/reports/A90_V3405_D3_SYNC_DECISION_SUPERVISOR_H0_2026-07-31.md`
+- `docs/reports/A90_V3405_F1_RETAINED_PMSG_NCM_REBIND_H0_2026-07-31.md`
 - `docs/reports/S22PLUS_FYG8_P284_CONTROLLED_SUSPEND_F1_CLOSED_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_POST_SUSPEND_RESTART_GAP_FOCUSED_ANALYSIS_H0_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_STOCK_OUTER_D1_V2_LIVE_NO_PROOF_2026-07-29.md`
@@ -756,9 +757,10 @@ The A90 branch proceeds independently:
    firstboot; do not classify it as an image-payload or SELinux-init failure.
 10. Preserve the independently reviewed V3405 no-sync parent supervisor and
     exact private H0 image; its artifact-build GO is not live authority.
-11. Before another F1, add a retained current-run pmsg `phase=armed` observer
-    and stable USB-parent NCM rebind, then review changed F1 machinery and use
-    a fresh manifest, preflight, and approval. No prior approval is reusable.
+11. Preserve the independently reviewed V3405 retained-pmsg observer and
+    same-current-ACM-USB-parent NCM rebind. Before another F1, bind them with
+    the exact rootfs/candidate/rollback in a fresh manifest, then run fresh
+    preflight and obtain fresh approval. No prior approval is reusable.
 
 No device step is added when H0 can answer the question.
 

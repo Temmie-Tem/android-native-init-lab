@@ -25,6 +25,7 @@ SOURCE = Path(
 )
 TEST_RUN_ID = "a90-v3403-debian-f1-20260730-02"
 TEST_RUN_ID_V3404 = "a90-v3404-debian-f1-20260731-04"
+TEST_RUN_ID_V3405 = "a90-v3405-debian-f1-20260731-05"
 
 
 def sample_spec() -> object:
@@ -120,7 +121,7 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
         with self.assertRaises(stage.ContractError):
             stage.derive_remote_final("b" * 64)
 
-    def test_v3404_run_derives_cycle_bound_final_and_stage_paths(self) -> None:
+    def test_successor_runs_derive_cycle_bound_final_and_stage_paths(self) -> None:
         self.assertEqual(
             str(stage.derive_remote_final(TEST_RUN_ID_V3404)),
             (
@@ -136,9 +137,24 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
                 f"{TEST_RUN_ID_V3404}"
             ),
         )
+        self.assertEqual(
+            str(stage.derive_remote_final(TEST_RUN_ID_V3405)),
+            (
+                "/mnt/sdext/a90/runtime/"
+                "debian-bookworm-arm64-d3-sysvinit-v3405-keyed-"
+                "20260731-05.img"
+            ),
+        )
+        self.assertEqual(
+            str(stage.derive_stage_dir(TEST_RUN_ID_V3405)),
+            (
+                "/mnt/sdext/a90/runtime/.a90-stage-"
+                f"{TEST_RUN_ID_V3405}"
+            ),
+        )
         for unsupported in (
             "a90-v3402-debian-f1-20260731-04",
-            "a90-v3405-debian-f1-20260731-04",
+            "a90-v3406-debian-f1-20260731-04",
             "a90-v3404-debian-f1-20260731-4",
         ):
             with self.subTest(run_id=unsupported):
@@ -564,8 +580,8 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
     def test_source_contract_binds_manifest_final_to_exact_run_id(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
         mutated = source.replace(
-            "(?P<cycle>v3403|v3404)",
             "(?P<cycle>v3403|v3404|v3405)",
+            "(?P<cycle>v3403|v3404|v3405|v3406)",
             1,
         )
         issues = stage.source_contract_issues(mutated)

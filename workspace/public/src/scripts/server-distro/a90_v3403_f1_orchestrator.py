@@ -17,9 +17,11 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import hashlib
+import ipaddress
 import json
 import os
 import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -96,6 +98,20 @@ F1_HANDOFF_MIN_TIMEOUT_SEC = (
 )
 OBSERVATION_MENU_SETTLE_SEC = 3.0
 OBSERVATION_CHANNEL_CANARY = ("run", "/bin/busybox", "true")
+HOST_NCM_PROFILE_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,64}$")
+HOST_NCM_REBIND_TIMEOUT_SEC = 30
+HOST_NCM_REBIND_POLL_SEC = 1.0
+HOST_NCM_CONNECTION_TYPE = "802-3-ethernet"
+PSTORE_MOUNT_PATH = "/sys/fs/pstore"
+PSTORE_ENTRY_RE = re.compile(
+    r"^[dlcb?\-]\s+\S+\s+([A-Za-z0-9_.-]+)\r?$",
+    re.MULTILINE,
+)
+PSTORE_PMSG_ENTRY_RE = re.compile(r"^pmsg-ramoops(?:-[0-9]+)?$")
+RETAINED_PMSG_MARKER = "A90D3RET_V3405"
+RETAINED_PMSG_REQUIRED_PHASE = "phase=armed"
+RETAINED_PMSG_OBSERVER_CONTRACT = "mount-read-fsync-exact-unlink-unmount-v1"
+NCM_REBIND_IDENTITY = "same-current-acm-usb-parent-v1"
 UNATTENDED_OBSERVATION_MODE = "unattended-single-shot-v1"
 ATTENDED_OBSERVATION_MODE = "operator-attended-v1"
 ATTENDED_WINDOW_SEC = 900
@@ -147,6 +163,7 @@ class F1Spec:
     observer_public_key_sha256: str
     observer_device: str
     observer_port: int
+    observer_host_ncm_profile: str
     candidate_boot_timeout: int
     handoff_timeout: int
     ssh_marker_timeout: int
@@ -509,6 +526,23 @@ def load_spec(
         raise ContractError("observer must not use Wi-Fi or an external network")
     observer_device = require_string(observer.get("device_ip"), "observer.device_ip")
     observer_port = require_positive_int(observer.get("device_port"), "observer.device_port")
+    observer_host_ncm_profile = require_string(
+        observer.get("host_ncm_profile"),
+        "observer.host_ncm_profile",
+    )
+    if HOST_NCM_PROFILE_RE.fullmatch(observer_host_ncm_profile) is None:
+        raise ContractError("observer.host_ncm_profile is not an exact safe name")
+    if observer.get("ncm_rebind_identity") != NCM_REBIND_IDENTITY:
+        raise ContractError("observer NCM rebind identity is not the reviewed contract")
+    if (
+        observer.get("retained_pmsg_marker") != RETAINED_PMSG_MARKER
+        or observer.get("retained_pmsg_required_phase")
+        != RETAINED_PMSG_REQUIRED_PHASE
+        or observer.get("retained_pmsg_observer_contract")
+        != RETAINED_PMSG_OBSERVER_CONTRACT
+        or observer.get("retained_pmsg_cleanup_after_private_fsync") is not True
+    ):
+        raise ContractError("observer retained pmsg contract is not exact")
 
     observation = _dict(manifest.get("observation"), "observation")
     candidate_boot_timeout = require_positive_int(
@@ -651,6 +685,7 @@ def load_spec(
             observer_public_key_sha256=observer_public_key_sha256,
             observer_device=observer_device,
             observer_port=observer_port,
+            observer_host_ncm_profile=observer_host_ncm_profile,
             candidate_boot_timeout=candidate_boot_timeout,
             handoff_timeout=handoff_timeout,
             ssh_marker_timeout=ssh_marker_timeout,
@@ -1706,6 +1741,386 @@ def settle_observation_channel(
     }
 
 
+def _host_command(command: list[str], *, timeout: float) -> dict[str, Any]:
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=REPO_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ContractError("bounded host NCM command failed") from exc
+    return {
+        "command": command,
+        "returncode": completed.returncode,
+        "stdout": completed.stdout,
+        "stderr": completed.stderr,
+    }
+
+
+def _host_ncm_peer_cidr(device_ip: str) -> str:
+    device = ipaddress.IPv4Address(staging.validate_observer_device(device_ip))
+    network = ipaddress.IPv4Network(
+        f"{device}/{staging.HOST_NCM_PREFIX}",
+        strict=False,
+    )
+    peer = ipaddress.IPv4Address(int(device) - 1)
+    if peer not in network or peer == network.network_address:
+        raise ContractError("observer address has no exact USB-local host peer")
+    return f"{peer}/{staging.HOST_NCM_PREFIX}"
+
+
+def _nmcli_active_connection(interface: str) -> tuple[str, dict[str, Any]]:
+    receipt = _host_command(
+        [
+            "nmcli",
+            "-g",
+            "GENERAL.CONNECTION",
+            "device",
+            "show",
+            interface,
+        ],
+        timeout=10.0,
+    )
+    lines = str(receipt["stdout"]).splitlines()
+    active = lines[0].strip() if receipt["returncode"] == 0 and lines else ""
+    return active, receipt
+
+
+def rebind_host_ncm_after_reenumeration(
+    spec: F1Spec,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    if shutil.which("nmcli") is None:
+        raise ContractError("nmcli is unavailable for exact host NCM rebind")
+    bridge = staging.require_exact_bridge(spec.stage, args)
+    bridge_realpath = bridge.get("selected_realpath")
+    if not isinstance(bridge_realpath, str):
+        raise ContractError("exact bridge lacks a selected realpath")
+
+    deadline = time.monotonic() + HOST_NCM_REBIND_TIMEOUT_SEC
+    interfaces: tuple[str, ...] = ()
+    while time.monotonic() < deadline:
+        interfaces = staging.exact_a90_ncm_interfaces(bridge_realpath)
+        if len(interfaces) == 1:
+            break
+        if len(interfaces) > 1:
+            raise ContractError("multiple NCM interfaces share the exact A90 USB parent")
+        time.sleep(HOST_NCM_REBIND_POLL_SEC)
+    if len(interfaces) != 1:
+        raise ContractError("exact A90 USB parent did not expose one NCM interface")
+    interface = interfaces[0]
+
+    profile = _host_command(
+        [
+            "nmcli",
+            "-g",
+            "connection.type",
+            "connection",
+            "show",
+            spec.observer_host_ncm_profile,
+        ],
+        timeout=10.0,
+    )
+    if (
+        profile["returncode"] != 0
+        or str(profile["stdout"]).strip() != HOST_NCM_CONNECTION_TYPE
+    ):
+        raise ContractError("manifest-bound host NCM profile is absent or not Ethernet")
+
+    active_before, active_before_receipt = _nmcli_active_connection(interface)
+    try:
+        ready_before = staging.require_host_ncm_ready(
+            spec.observer_device,
+            bridge_realpath,
+        )
+    except (ContractError, staging.ContractError):
+        ready_before = None
+    if (
+        ready_before is not None
+        and active_before == spec.observer_host_ncm_profile
+    ):
+        return {
+            "same_current_acm_usb_parent": True,
+            "exact_interface_count": 1,
+            "profile_bound": True,
+            "mutated": False,
+            "profile_check": profile,
+            "active_before": active_before_receipt,
+            "ready": ready_before,
+        }
+
+    host_cidr = _host_ncm_peer_cidr(spec.observer_device)
+    modify = _host_command(
+        [
+            "nmcli",
+            "--wait",
+            "10",
+            "connection",
+            "modify",
+            spec.observer_host_ncm_profile,
+            "connection.interface-name",
+            interface,
+            "ipv4.method",
+            "manual",
+            "ipv4.addresses",
+            host_cidr,
+            "ipv4.gateway",
+            "",
+            "ipv4.never-default",
+            "yes",
+            "ipv4.dns",
+            "",
+            "ipv6.method",
+            "disabled",
+            "connection.autoconnect",
+            "no",
+        ],
+        timeout=15.0,
+    )
+    if modify["returncode"] != 0:
+        raise ContractError("manifest-bound host NCM profile modification failed")
+    activate = _host_command(
+        [
+            "nmcli",
+            "--wait",
+            "15",
+            "connection",
+            "up",
+            spec.observer_host_ncm_profile,
+            "ifname",
+            interface,
+        ],
+        timeout=20.0,
+    )
+    if activate["returncode"] != 0:
+        raise ContractError("manifest-bound host NCM profile activation failed")
+
+    active_after, active_after_receipt = _nmcli_active_connection(interface)
+    if active_after != spec.observer_host_ncm_profile:
+        raise ContractError("exact A90 NCM interface did not select the bound profile")
+    ready: dict[str, bool] | None = None
+    deadline = time.monotonic() + HOST_NCM_REBIND_TIMEOUT_SEC
+    while time.monotonic() < deadline:
+        try:
+            ready = staging.require_host_ncm_ready(
+                spec.observer_device,
+                bridge_realpath,
+            )
+            break
+        except (ContractError, staging.ContractError):
+            time.sleep(HOST_NCM_REBIND_POLL_SEC)
+    if ready is None:
+        raise ContractError("rebound exact A90 NCM path did not become USB-local ready")
+    return {
+        "same_current_acm_usb_parent": True,
+        "exact_interface_count": 1,
+        "profile_bound": True,
+        "mutated": True,
+        "profile_check": profile,
+        "active_before": active_before_receipt,
+        "modify": modify,
+        "activate": activate,
+        "active_after": active_after_receipt,
+        "ready": ready,
+    }
+
+
+def _pstore_entry_names(text: str) -> tuple[str, ...]:
+    names = tuple(PSTORE_ENTRY_RE.findall(text))
+    if len(names) != len(set(names)):
+        raise ContractError("pstore listing contains duplicate entry names")
+    return names
+
+
+def require_clean_pstore_before_handoff(
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    mount = run_f1_cmd(
+        args,
+        ["mountfs", "pstore", PSTORE_MOUNT_PATH, "pstore", "ro"],
+    )
+    mounted = True
+    try:
+        listing = run_f1_cmd(args, ["ls", PSTORE_MOUNT_PATH])
+        summary = run_f1_cmd(args, ["pstore", "full"])
+        entries = _pstore_entry_names(str(listing.get("text") or ""))
+        if entries:
+            raise ContractError("pre-handoff pstore is not empty")
+        unmount = run_f1_cmd(args, ["umount", PSTORE_MOUNT_PATH])
+        mounted = False
+    finally:
+        if mounted:
+            run_f1_cmd(
+                args,
+                ["umount", PSTORE_MOUNT_PATH],
+                allow_error=True,
+            )
+    return {
+        "mounted_read_only": True,
+        "entries": [],
+        "mount": mount,
+        "listing": listing,
+        "summary": summary,
+        "unmount": unmount,
+    }
+
+
+def _retained_pmsg_classification(text: str) -> str:
+    if "A90D3RET_V3405 phase=sync-timeout " in text:
+        return "sync-timeout-observed"
+    if (
+        "A90D3RET_V3405 phase=sync-return" in text
+        and "A90D3RET_V3405 phase=reboot-enter" in text
+    ):
+        return "sync-returned-reboot-entered"
+    if "A90D3RET_V3405 phase=sync-enter" in text:
+        return "sync-enter-no-terminal-marker"
+    return "armed-before-sync"
+
+
+def collect_and_clear_retained_pmsg(
+    spec: F1Spec,
+    args: argparse.Namespace,
+    transaction_dir: Path,
+) -> dict[str, Any]:
+    mount = run_f1_cmd(
+        args,
+        ["mountfs", "pstore", PSTORE_MOUNT_PATH, "pstore"],
+    )
+    mounted = True
+    try:
+        listing = run_f1_cmd(args, ["ls", PSTORE_MOUNT_PATH])
+        summary = run_f1_cmd(args, ["pstore", "full"])
+        entries = _pstore_entry_names(str(listing.get("text") or ""))
+        if (
+            len(entries) != 1
+            or PSTORE_PMSG_ENTRY_RE.fullmatch(entries[0]) is None
+        ):
+            raise ContractError("candidate return lacks one exact retained pmsg entry")
+        entry = entries[0]
+        path = f"{PSTORE_MOUNT_PATH}/{entry}"
+        digest_record = run_f1_cmd(
+            args,
+            [
+                "run",
+                "/bin/busybox",
+                "sh",
+                "-c",
+                f"/bin/busybox sha256sum {staging.shlex.quote(path)}",
+            ],
+        )
+        digests = re.findall(
+            r"\b[0-9a-f]{64}\b",
+            str(digest_record.get("text") or ""),
+        )
+        if len(digests) != 1:
+            raise ContractError("retained pmsg digest is not exact")
+        digest = digests[0]
+        content = run_f1_cmd(args, ["cat", path])
+        content_text = str(content.get("text") or "")
+        armed_token = f"{RETAINED_PMSG_MARKER} {RETAINED_PMSG_REQUIRED_PHASE} "
+        armed_count = content_text.count(armed_token)
+        classification = _retained_pmsg_classification(content_text)
+        capture = {
+            "schema": "a90_v3405_retained_pmsg_capture_v1",
+            "run_id": spec.stage.run_id,
+            "manifest_sha256": spec.stage.manifest_sha256,
+            "rootfs_sha256": spec.stage.local_sha256,
+            "marker": RETAINED_PMSG_MARKER,
+            "required_phase": RETAINED_PMSG_REQUIRED_PHASE,
+            "armed_count": armed_count,
+            "classification": classification,
+            "entry": entry,
+            "sha256": digest,
+            "mount": mount,
+            "listing": listing,
+            "summary": summary,
+            "digest": digest_record,
+            "content": content,
+            "private_fsync_before_cleanup": True,
+        }
+        write_private_json_exclusive(
+            transaction_dir / "retained-pmsg-capture.json",
+            capture,
+        )
+        if armed_count != 1:
+            raise ContractError("retained pmsg lacks one exact armed positive control")
+
+        cleanup_intent = {
+            "schema": "a90_v3405_retained_pmsg_cleanup_intent_v1",
+            "run_id": spec.stage.run_id,
+            "manifest_sha256": spec.stage.manifest_sha256,
+            "entry": entry,
+            "sha256": digest,
+            "capture_fsynced": True,
+            "exact_unlink_pending": True,
+        }
+        write_private_json_exclusive(
+            transaction_dir / "retained-pmsg-cleanup-intent.json",
+            cleanup_intent,
+        )
+        cleanup_script = "\n".join(
+            (
+                "set -eu",
+                f"P={staging.shlex.quote(path)}",
+                f"EXPECTED={staging.shlex.quote(digest)}",
+                'ACTUAL=$(/bin/busybox sha256sum "$P")',
+                'ACTUAL=${ACTUAL%% *}',
+                '[ "$ACTUAL" = "$EXPECTED" ]',
+                '/bin/busybox rm "$P"',
+                "echo A90D3RET_PMSG_CLEANUP exact=1",
+            )
+        )
+        cleanup = run_f1_cmd(
+            args,
+            ["run", "/bin/busybox", "sh", "-c", cleanup_script],
+        )
+        listing_after = run_f1_cmd(args, ["ls", PSTORE_MOUNT_PATH])
+        if _pstore_entry_names(str(listing_after.get("text") or "")):
+            raise ContractError("retained pmsg cleanup did not leave pstore empty")
+        unmount = run_f1_cmd(args, ["umount", PSTORE_MOUNT_PATH])
+        mounted = False
+    finally:
+        if mounted:
+            run_f1_cmd(
+                args,
+                ["umount", PSTORE_MOUNT_PATH],
+                allow_error=True,
+            )
+
+    cleanup_receipt = {
+        "schema": "a90_v3405_retained_pmsg_cleanup_v1",
+        "run_id": spec.stage.run_id,
+        "manifest_sha256": spec.stage.manifest_sha256,
+        "entry": entry,
+        "sha256": digest,
+        "capture_fsynced_before_unlink": True,
+        "exact_unlink": True,
+        "pstore_empty_after": True,
+        "unmounted": True,
+        "cleanup": cleanup,
+        "listing_after": listing_after,
+        "unmount": unmount,
+    }
+    write_private_json_exclusive(
+        transaction_dir / "retained-pmsg-cleanup.json",
+        cleanup_receipt,
+    )
+    return {
+        "proof": True,
+        "armed_positive_control": True,
+        "classification": classification,
+        "entry_sha256": digest,
+        "capture_fsynced_before_cleanup": True,
+        "exact_cleanup": True,
+        "pstore_empty_after": True,
+    }
+
+
 def remote_source_preflight(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
     final = staging.shlex.quote(spec.stage.remote_final)
     work = staging.shlex.quote(spec.stage.remote_work)
@@ -1873,6 +2288,13 @@ def observe_candidate(spec: F1Spec, args: argparse.Namespace, transaction_dir: P
             args,
             phase="before-source-preflight",
         )
+        result["host_ncm_rebind"] = rebind_host_ncm_after_reenumeration(
+            spec,
+            args,
+        )
+        result["pstore_before_handoff"] = require_clean_pstore_before_handoff(
+            args,
+        )
         result["source_preflight"] = remote_source_preflight(spec, args)
         result["channel_before_handoff"] = settle_observation_channel(
             args,
@@ -1886,11 +2308,17 @@ def observe_candidate(spec: F1Spec, args: argparse.Namespace, transaction_dir: P
     finally:
         try:
             result["candidate_return"] = wait_for_candidate_return(spec, args)
+            result["retained_pmsg"] = collect_and_clear_retained_pmsg(
+                spec,
+                args,
+                transaction_dir,
+            )
         except Exception as exc:  # noqa: BLE001 - recovery must resume later
             result["candidate_return_error"] = {
                 "type": type(exc).__name__,
                 "message": str(exc),
             }
+            result["proof"] = False
     write_private_json_exclusive(transaction_dir / "observation.json", result)
     return result
 
@@ -2014,11 +2442,17 @@ def observe_attended_after_handoff(
             result["candidate_return"] = (
                 wait_for_candidate_return_attended_once(spec, args)
             )
+            result["retained_pmsg"] = collect_and_clear_retained_pmsg(
+                spec,
+                args,
+                transaction_dir,
+            )
         except Exception as exc:  # noqa: BLE001 - recovery must resume later
             result["candidate_return_error"] = {
                 "type": type(exc).__name__,
                 "message": str(exc),
             }
+            result["proof"] = False
     write_private_json_exclusive(transaction_dir / "observation.json", result)
     return result
 
@@ -2780,6 +3214,8 @@ def execute_approved_f1(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any
         "observation-proven" if observation.get("proof") else "observation-no-proof",
         {
             "debian_pid1_proven": observation.get("proof") is True,
+            "retained_pmsg_armed_proven": observation.get("proof") is True,
+            "retained_pmsg_cleaned": observation.get("proof") is True,
             "candidate_replay": False,
             "rollback_required": True,
             "candidate_returned": "candidate_return" in observation,
@@ -2994,6 +3430,8 @@ def continue_attended_f1(
             phase=f"attended-attempt-{attempt}-before-health",
         )
         candidate_health = verify_candidate_health(spec, args)
+        host_ncm_rebind = rebind_host_ncm_after_reenumeration(spec, args)
+        pstore_before_handoff = require_clean_pstore_before_handoff(args)
         source_preflight = remote_source_preflight(spec, args)
         channel_before_handoff = settle_observation_channel(
             args,
@@ -3082,6 +3520,8 @@ def continue_attended_f1(
     ensure_event(transaction_dir, events, "candidate_boot_ready")
     pre_handoff = {
         "attempt": attempt,
+        "host_ncm_rebind": host_ncm_rebind,
+        "pstore_before_handoff": pstore_before_handoff,
         "source_preflight": source_preflight,
         "channel_before_handoff": channel_before_handoff,
     }
@@ -3095,6 +3535,8 @@ def continue_attended_f1(
             "handoff_sent": False,
             "source_exact": True,
             "candidate_health_exact": True,
+            "host_ncm_rebound": True,
+            "pstore_clean_before_handoff": True,
         },
         manifest_sha256=spec.stage.manifest_sha256,
         run_id=spec.stage.run_id,
@@ -3133,6 +3575,8 @@ def continue_attended_f1(
         "observation-proven" if observation.get("proof") else "observation-no-proof",
         {
             "debian_pid1_proven": observation.get("proof") is True,
+            "retained_pmsg_armed_proven": observation.get("proof") is True,
+            "retained_pmsg_cleaned": observation.get("proof") is True,
             "candidate_replay": False,
             "rollback_required": True,
             "candidate_returned": "candidate_return" in observation,
@@ -3365,6 +3809,9 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         "def rollback_pre_spawn_retry(",
         "def validate_handoff_timeout(",
         "def settle_observation_channel(",
+        "def rebind_host_ncm_after_reenumeration(",
+        "def require_clean_pstore_before_handoff(",
+        "def collect_and_clear_retained_pmsg(",
         "def validate_attended_candidate_closure(",
         "def open_attended_window(",
         "def load_attended_window(",
@@ -3417,6 +3864,15 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         "F1_HANDOFF_MIN_TIMEOUT_SEC = (",
         "OBSERVATION_MENU_SETTLE_SEC = 3.0",
         'OBSERVATION_CHANNEL_CANARY = ("run", "/bin/busybox", "true")',
+        "HOST_NCM_REBIND_TIMEOUT_SEC = 30",
+        'PSTORE_MOUNT_PATH = "/sys/fs/pstore"',
+        'RETAINED_PMSG_MARKER = "A90D3RET_V3405"',
+        'RETAINED_PMSG_REQUIRED_PHASE = "phase=armed"',
+        (
+            'RETAINED_PMSG_OBSERVER_CONTRACT = '
+            '"mount-read-fsync-exact-unlink-unmount-v1"'
+        ),
+        'NCM_REBIND_IDENTITY = "same-current-acm-usb-parent-v1"',
         'ATTENDED_OBSERVATION_MODE = "operator-attended-v1"',
         "ATTENDED_WINDOW_SEC = 900",
         "ATTENDED_PRE_HANDOFF_ATTEMPT_LIMIT = 3",
@@ -3506,6 +3962,15 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             issues.append("manifest load lacks exact handoff timeout gate")
         if load.count(") = validate_observation_policy(observation)") != 1:
             issues.append("manifest load lacks exact attended policy gate")
+        for token in (
+            'observer.get("host_ncm_profile")',
+            "HOST_NCM_PROFILE_RE.fullmatch(observer_host_ncm_profile)",
+            'observer.get("ncm_rebind_identity") != NCM_REBIND_IDENTITY',
+            'observer.get("retained_pmsg_marker") != RETAINED_PMSG_MARKER',
+            "retained_pmsg_cleanup_after_private_fsync",
+        ):
+            if token not in load:
+                issues.append(f"manifest load lacks V3405 observer gate: {token}")
     policy_start = source.find("def validate_observation_policy(")
     policy_end = source.find("def require_private_regular(", policy_start + 1)
     if policy_start < 0 or policy_end < 0:
@@ -3584,6 +4049,104 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             issues.append(f"execute contract missing or out of order: {token}")
         else:
             cursor = position
+    ncm_start = source.find("def rebind_host_ncm_after_reenumeration(")
+    pstore_parser_start = source.find("def _pstore_entry_names(", ncm_start + 1)
+    if ncm_start < 0 or pstore_parser_start < 0:
+        issues.append("host NCM rebind source boundary is missing")
+    else:
+        ncm = source[ncm_start:pstore_parser_start]
+        for token in (
+            "staging.require_exact_bridge(spec.stage, args)",
+            "staging.exact_a90_ncm_interfaces(bridge_realpath)",
+            "if len(interfaces) > 1:",
+            "spec.observer_host_ncm_profile",
+            '"connection.interface-name"',
+            "interface",
+            '"ipv4.never-default"',
+            '"connection.autoconnect"',
+            "staging.require_host_ncm_ready(",
+        ):
+            if token not in ncm:
+                issues.append(f"host NCM rebind contract missing: {token}")
+        for forbidden in (
+            '"delete"',
+            "host_ncm_candidates(",
+            "usb_serial",
+            "mac",
+        ):
+            if forbidden in ncm:
+                issues.append(
+                    f"host NCM rebind contains unbound identity/action: {forbidden}"
+                )
+    clean_start = source.find("def require_clean_pstore_before_handoff(")
+    classify_start = source.find(
+        "def _retained_pmsg_classification(",
+        clean_start + 1,
+    )
+    if clean_start < 0 or classify_start < 0:
+        issues.append("pre-handoff pstore gate source boundary is missing")
+    else:
+        clean = source[clean_start:classify_start]
+        clean_ordered = (
+            '["mountfs", "pstore", PSTORE_MOUNT_PATH, "pstore", "ro"]',
+            '["ls", PSTORE_MOUNT_PATH]',
+            "if entries:",
+            '["umount", PSTORE_MOUNT_PATH]',
+        )
+        clean_cursor = -1
+        for token in clean_ordered:
+            position = clean.find(token, clean_cursor + 1)
+            if position < 0:
+                issues.append(
+                    f"pre-handoff pstore gate missing or out of order: {token}"
+                )
+            else:
+                clean_cursor = position
+    collect_start = source.find("def collect_and_clear_retained_pmsg(")
+    remote_source_start = source.find(
+        "def remote_source_preflight(",
+        collect_start + 1,
+    )
+    if collect_start < 0 or remote_source_start < 0:
+        issues.append("retained pmsg collector source boundary is missing")
+    else:
+        collect = source[collect_start:remote_source_start]
+        collect_ordered = (
+            '["mountfs", "pstore", PSTORE_MOUNT_PATH, "pstore"]',
+            "PSTORE_PMSG_ENTRY_RE.fullmatch(entries[0])",
+            "digest_record = run_f1_cmd(",
+            "content = run_f1_cmd(args, [\"cat\", path])",
+            "write_private_json_exclusive(",
+            '"retained-pmsg-capture.json"',
+            "if armed_count != 1:",
+            '"retained-pmsg-cleanup-intent.json"',
+            'ACTUAL=$(/bin/busybox sha256sum "$P")',
+            '[ "$ACTUAL" = "$EXPECTED" ]',
+            '/bin/busybox rm "$P"',
+            "if _pstore_entry_names(",
+            '["umount", PSTORE_MOUNT_PATH]',
+            '"retained-pmsg-cleanup.json"',
+        )
+        collect_cursor = -1
+        for token in collect_ordered:
+            position = collect.find(token, collect_cursor + 1)
+            if position < 0:
+                issues.append(
+                    f"retained pmsg collector missing or out of order: {token}"
+                )
+            else:
+                collect_cursor = position
+        for forbidden in (
+            "run_f1_shell(",
+            "rm -rf",
+            '/bin/busybox rm *',
+            '"s\\n"',
+            "\nsync\n",
+        ):
+            if forbidden in collect:
+                issues.append(
+                    f"retained pmsg collector contains forbidden action: {forbidden!r}"
+                )
     observe_start = source.find("def observe_candidate(")
     attended_start = source.find(
         "def attended_retryable_error_identity(",
@@ -3595,9 +4158,13 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         observe = source[observe_start:attended_start]
         observe_ordered = (
             'phase="before-source-preflight"',
+            "rebind_host_ncm_after_reenumeration(",
+            "require_clean_pstore_before_handoff(",
             "remote_source_preflight(spec, args)",
             'phase="before-handoff"',
             "run_handoff(spec, args)",
+            "wait_for_candidate_return(spec, args)",
+            "collect_and_clear_retained_pmsg(",
         )
         observe_cursor = -1
         for token in observe_ordered:
@@ -3610,8 +4177,11 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
                 observe_cursor = position
         if (
             observe.count("settle_observation_channel(") != 2
+            or observe.count("rebind_host_ncm_after_reenumeration(") != 1
+            or observe.count("require_clean_pstore_before_handoff(") != 1
             or observe.count("remote_source_preflight(spec, args)") != 1
             or observe.count("run_handoff(spec, args)") != 1
+            or observe.count("collect_and_clear_retained_pmsg(") != 1
             or re.search(r"^\s+(?:for|while)\b", observe, re.MULTILINE)
             is not None
         ):
@@ -3677,6 +4247,34 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
                 issues.append(
                     f"attended stored retry classifier is not exact: {token}"
                 )
+    attended_observe_start = source.find("def observe_attended_after_handoff(")
+    final_health_start = source.find(
+        "def verify_final_health(",
+        attended_observe_start + 1,
+    )
+    if attended_observe_start < 0 or final_health_start < 0:
+        issues.append("attended post-handoff observer boundary is missing")
+    else:
+        attended_observe = source[attended_observe_start:final_health_start]
+        attended_observe_ordered = (
+            "run_handoff(spec, args)",
+            "observe_ssh(spec, args)",
+            "wait_for_candidate_return_attended_once(spec, args)",
+            "collect_and_clear_retained_pmsg(",
+        )
+        attended_observe_cursor = -1
+        for token in attended_observe_ordered:
+            position = attended_observe.find(
+                token,
+                attended_observe_cursor + 1,
+            )
+            if position < 0:
+                issues.append(
+                    "attended post-handoff observer missing or out of order: "
+                    f"{token}"
+                )
+            else:
+                attended_observe_cursor = position
     validation_start = source.find("def validate_attended_continuation(")
     continue_start = source.find(
         "def continue_attended_f1(",
@@ -3711,6 +4309,8 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             '"attended-pre-handoff-attempt"',
             'phase=f"attended-attempt-{attempt}-before-health"',
             "verify_candidate_health(spec, args)",
+            "rebind_host_ncm_after_reenumeration(spec, args)",
+            "require_clean_pstore_before_handoff(args)",
             "remote_source_preflight(spec, args)",
             'phase=f"attended-attempt-{attempt}-before-handoff"',
             '"attended observation window expired before handoff"',

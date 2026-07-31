@@ -87,6 +87,7 @@ def sample_spec() -> object:
         handoff_timeout=f1.F1_HANDOFF_MIN_TIMEOUT_SEC,
         observer_device="usb-local-device",
         observer_port=2222,
+        observer_host_ncm_profile="a90-v3405-ncm",
         observer_key=Path("/private/observer-key"),
         ssh_marker_timeout=90,
         candidate_return_timeout=240,
@@ -418,6 +419,44 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             issues,
         )
 
+    def test_source_gate_requires_ncm_rebind_and_retained_pmsg_order(self) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+        no_rebind = source.replace(
+            "        result[\"host_ncm_rebind\"] = "
+            "rebind_host_ncm_after_reenumeration(\n",
+            "        result[\"host_ncm_rebind\"] = missing_ncm_rebind(\n",
+            1,
+        )
+        self.assertTrue(
+            any(
+                "rebind_host_ncm_after_reenumeration" in issue
+                for issue in f1.source_contract_issues(no_rebind)
+            )
+        )
+
+        writable_precheck = source.replace(
+            '["mountfs", "pstore", PSTORE_MOUNT_PATH, "pstore", "ro"]',
+            '["mountfs", "pstore", PSTORE_MOUNT_PATH, "pstore"]',
+            1,
+        )
+        self.assertTrue(
+            any(
+                "pre-handoff pstore gate" in issue
+                for issue in f1.source_contract_issues(writable_precheck)
+            )
+        )
+
+        wildcard_cleanup = source.replace(
+            '/bin/busybox rm "$P"',
+            "/bin/busybox rm *",
+            1,
+        )
+        issues = f1.source_contract_issues(wildcard_cleanup)
+        self.assertTrue(
+            any("retained pmsg collector" in issue for issue in issues),
+            issues,
+        )
+
     def test_source_gate_rejects_looped_or_unbudgeted_handoff(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
         looped = source.replace(
@@ -650,6 +689,268 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                 phase="before-source-preflight",
             )
 
+    def test_ncm_rebind_selects_only_same_current_acm_usb_parent(self) -> None:
+        spec = sample_spec()
+        spec.observer_device = "192.168.7.2"
+        commands: list[list[str]] = []
+
+        def host_command(
+            command: list[str],
+            *,
+            timeout: float,
+        ) -> dict[str, object]:
+            self.assertGreater(timeout, 0)
+            commands.append(command)
+            if command[:3] == ["nmcli", "-g", "connection.type"]:
+                stdout = f"{f1.HOST_NCM_CONNECTION_TYPE}\n"
+            elif "GENERAL.CONNECTION" in command:
+                stdout = (
+                    "--\n"
+                    if len(
+                        [
+                            item
+                            for item in commands
+                            if "GENERAL.CONNECTION" in item
+                        ]
+                    )
+                    == 1
+                    else f"{spec.observer_host_ncm_profile}\n"
+                )
+            else:
+                stdout = ""
+            return {
+                "command": command,
+                "returncode": 0,
+                "stdout": stdout,
+                "stderr": "",
+            }
+
+        with (
+            mock.patch.object(f1.shutil, "which", return_value="/usr/bin/nmcli"),
+            mock.patch.object(
+                f1.staging,
+                "require_exact_bridge",
+                return_value={"selected_realpath": "/dev/ttyACM-test"},
+            ),
+            mock.patch.object(
+                f1.staging,
+                "exact_a90_ncm_interfaces",
+                return_value=("enx-current",),
+            ),
+            mock.patch.object(
+                f1.staging,
+                "require_host_ncm_ready",
+                side_effect=(
+                    f1.staging.ContractError("old interface"),
+                    {
+                        "verified_a90_ncm": True,
+                        "direct_route": True,
+                        "host_cidr_present": True,
+                        "device_ping": True,
+                    },
+                ),
+            ),
+            mock.patch.object(f1, "_host_command", side_effect=host_command),
+            mock.patch.object(f1.time, "sleep"),
+        ):
+            result = f1.rebind_host_ncm_after_reenumeration(
+                spec,
+                sample_args(),
+            )
+
+        self.assertTrue(result["mutated"])
+        self.assertTrue(result["same_current_acm_usb_parent"])
+        flattened = [" ".join(command) for command in commands]
+        modify = next(line for line in flattened if " connection modify " in line)
+        activate = next(line for line in flattened if " connection up " in line)
+        self.assertIn("connection.interface-name enx-current", modify)
+        self.assertIn("ipv4.addresses 192.168.7.1/24", modify)
+        self.assertIn(spec.observer_host_ncm_profile, activate)
+        self.assertFalse(any(" connection delete " in line for line in flattened))
+
+    def test_pstore_listing_parser_is_exact_and_rejects_duplicates(self) -> None:
+        self.assertEqual(
+            f1._pstore_entry_names(
+                "-      123 pmsg-ramoops-0\r\n"
+                "-       45 console-ramoops-0\r\n"
+            ),
+            ("pmsg-ramoops-0", "console-ramoops-0"),
+        )
+        with self.assertRaisesRegex(f1.ContractError, "duplicate"):
+            f1._pstore_entry_names(
+                "- 1 pmsg-ramoops-0\n- 1 pmsg-ramoops-0\n"
+            )
+
+    def test_clean_pstore_gate_mounts_read_only_and_always_unmounts(self) -> None:
+        calls: list[list[str]] = []
+
+        def command(
+            _args: object,
+            argv: list[str],
+            *,
+            allow_error: bool = False,
+        ) -> dict[str, object]:
+            calls.append(argv)
+            if argv[0] == "ls":
+                return {"text": ""}
+            return {"text": "", "allow_error": allow_error}
+
+        with mock.patch.object(f1, "run_f1_cmd", side_effect=command):
+            result = f1.require_clean_pstore_before_handoff(sample_args())
+        self.assertTrue(result["mounted_read_only"])
+        self.assertEqual(
+            calls,
+            [
+                ["mountfs", "pstore", f1.PSTORE_MOUNT_PATH, "pstore", "ro"],
+                ["ls", f1.PSTORE_MOUNT_PATH],
+                ["pstore", "full"],
+                ["umount", f1.PSTORE_MOUNT_PATH],
+            ],
+        )
+
+    def test_dirty_pre_handoff_pstore_stops_and_unmounts_without_cleanup(self) -> None:
+        calls: list[list[str]] = []
+
+        def command(
+            _args: object,
+            argv: list[str],
+            *,
+            allow_error: bool = False,
+        ) -> dict[str, object]:
+            calls.append(argv)
+            if argv[0] == "ls":
+                return {"text": "- 12 pmsg-ramoops-0\n"}
+            return {"text": "", "allow_error": allow_error}
+
+        with (
+            mock.patch.object(f1, "run_f1_cmd", side_effect=command),
+            self.assertRaisesRegex(f1.ContractError, "not empty"),
+        ):
+            f1.require_clean_pstore_before_handoff(sample_args())
+        self.assertEqual(calls[-1], ["umount", f1.PSTORE_MOUNT_PATH])
+        self.assertFalse(any(argv[0] == "run" for argv in calls))
+
+    def test_retained_pmsg_is_fsynced_before_exact_unlink(self) -> None:
+        spec = sample_spec()
+        digest = "9" * 64
+        calls: list[list[str]] = []
+        listing_count = 0
+
+        def command(
+            _args: object,
+            argv: list[str],
+            *,
+            allow_error: bool = False,
+        ) -> dict[str, object]:
+            nonlocal listing_count
+            calls.append(argv)
+            if argv[0] == "ls":
+                listing_count += 1
+                return {
+                    "text": (
+                        "-      321 pmsg-ramoops-0\n"
+                        if listing_count == 1
+                        else ""
+                    )
+                }
+            if argv[0] == "cat":
+                return {
+                    "text": (
+                        "A90D3RET_V3405 phase=armed delay_sec=120 "
+                        "grace_sec=20\n"
+                        "A90D3RET_V3405 phase=sync-enter\n"
+                        "A90D3RET_V3405 phase=sync-timeout "
+                        "stat_read=1 state=D wchan_read=1 wchan=wait_on_page\n"
+                    )
+                }
+            if argv[:4] == ["run", "/bin/busybox", "sh", "-c"]:
+                script = argv[4]
+                if "sha256sum" in script and "rm " not in script:
+                    return {"text": f"{digest}  {f1.PSTORE_MOUNT_PATH}/pmsg-ramoops-0\n"}
+                self.assertIn(f"EXPECTED={digest}", script)
+                self.assertIn('/bin/busybox rm "$P"', script)
+                self.assertNotIn("/bin/busybox rm *", script)
+                capture = transaction / "retained-pmsg-capture.json"
+                self.assertTrue(capture.is_file())
+                self.assertEqual(stat.S_IMODE(capture.stat().st_mode), 0o600)
+                return {"text": "A90D3RET_PMSG_CLEANUP exact=1\n"}
+            return {"text": "", "allow_error": allow_error}
+
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            transaction = Path(temp_dir)
+            with mock.patch.object(f1, "run_f1_cmd", side_effect=command):
+                result = f1.collect_and_clear_retained_pmsg(
+                    spec,
+                    sample_args(),
+                    transaction,
+                )
+            self.assertTrue(result["proof"])
+            self.assertEqual(result["classification"], "sync-timeout-observed")
+            self.assertTrue(
+                (transaction / "retained-pmsg-cleanup-intent.json").is_file()
+            )
+            self.assertTrue(
+                (transaction / "retained-pmsg-cleanup.json").is_file()
+            )
+        self.assertEqual(
+            calls[0],
+            ["mountfs", "pstore", f1.PSTORE_MOUNT_PATH, "pstore"],
+        )
+        self.assertEqual(calls[-1], ["umount", f1.PSTORE_MOUNT_PATH])
+
+    def test_retained_pmsg_without_armed_marker_is_preserved(self) -> None:
+        spec = sample_spec()
+        digest = "8" * 64
+        calls: list[list[str]] = []
+
+        def command(
+            _args: object,
+            argv: list[str],
+            *,
+            allow_error: bool = False,
+        ) -> dict[str, object]:
+            calls.append(argv)
+            if argv[0] == "ls":
+                return {"text": "- 22 pmsg-ramoops-0\n"}
+            if argv[0] == "cat":
+                return {"text": "foreign retained text\n"}
+            if argv[0] == "run":
+                return {
+                    "text": (
+                        f"{digest}  "
+                        f"{f1.PSTORE_MOUNT_PATH}/pmsg-ramoops-0\n"
+                    )
+                }
+            return {"text": "", "allow_error": allow_error}
+
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            transaction = Path(temp_dir)
+            with (
+                mock.patch.object(f1, "run_f1_cmd", side_effect=command),
+                self.assertRaisesRegex(
+                    f1.ContractError,
+                    "armed positive control",
+                ),
+            ):
+                f1.collect_and_clear_retained_pmsg(
+                    spec,
+                    sample_args(),
+                    transaction,
+                )
+            self.assertTrue(
+                (transaction / "retained-pmsg-capture.json").is_file()
+            )
+            self.assertFalse(
+                (transaction / "retained-pmsg-cleanup-intent.json").exists()
+            )
+        self.assertEqual(calls[-1], ["umount", f1.PSTORE_MOUNT_PATH])
+        self.assertFalse(
+            any(
+                argv[0] == "run" and "/bin/busybox rm" in argv[-1]
+                for argv in calls
+            )
+        )
+
     def test_observation_orders_two_settles_around_source_and_handoff(self) -> None:
         order: list[str] = []
 
@@ -663,6 +964,16 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                     f1,
                     "settle_observation_channel",
                     side_effect=settle,
+                ),
+                mock.patch.object(
+                    f1,
+                    "rebind_host_ncm_after_reenumeration",
+                    side_effect=lambda spec, args: order.append("ncm") or {},
+                ),
+                mock.patch.object(
+                    f1,
+                    "require_clean_pstore_before_handoff",
+                    side_effect=lambda args: order.append("pstore") or {},
                 ),
                 mock.patch.object(
                     f1,
@@ -684,6 +995,11 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                     "wait_for_candidate_return",
                     return_value={"returned": True},
                 ),
+                mock.patch.object(
+                    f1,
+                    "collect_and_clear_retained_pmsg",
+                    return_value={"proof": True},
+                ),
             ):
                 result = f1.observe_candidate(
                     sample_spec(),
@@ -696,6 +1012,8 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             order,
             [
                 "before-source-preflight",
+                "ncm",
+                "pstore",
                 "source",
                 "before-handoff",
                 "handoff",
@@ -719,6 +1037,11 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                     f1,
                     "wait_for_candidate_return",
                     return_value={"returned": True},
+                ),
+                mock.patch.object(
+                    f1,
+                    "collect_and_clear_retained_pmsg",
+                    return_value={"proof": True},
                 ),
             ):
                 result = f1.observe_candidate(
@@ -745,6 +1068,16 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                 ),
                 mock.patch.object(
                     f1,
+                    "rebind_host_ncm_after_reenumeration",
+                    return_value={"bound": True},
+                ),
+                mock.patch.object(
+                    f1,
+                    "require_clean_pstore_before_handoff",
+                    return_value={"clean": True},
+                ),
+                mock.patch.object(
+                    f1,
                     "remote_source_preflight",
                     return_value={"exact": True},
                 ) as source,
@@ -753,6 +1086,11 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                     f1,
                     "wait_for_candidate_return",
                     return_value={"returned": True},
+                ),
+                mock.patch.object(
+                    f1,
+                    "collect_and_clear_retained_pmsg",
+                    return_value={"proof": True},
                 ),
             ):
                 result = f1.observe_candidate(
@@ -2534,6 +2872,16 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                     ),
                     mock.patch.object(
                         f1,
+                        "rebind_host_ncm_after_reenumeration",
+                        return_value={"bound": True},
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "require_clean_pstore_before_handoff",
+                        return_value={"clean": True},
+                    ),
+                    mock.patch.object(
+                        f1,
                         "remote_source_preflight",
                         return_value={"source": "exact"},
                     ),
@@ -2600,6 +2948,16 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                         f1,
                         "verify_candidate_health",
                         return_value={"healthy": True},
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "rebind_host_ncm_after_reenumeration",
+                        return_value={"bound": True},
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "require_clean_pstore_before_handoff",
+                        return_value={"clean": True},
                     ),
                     mock.patch.object(
                         f1,
@@ -2688,6 +3046,11 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                     "wait_for_candidate_return_attended_once",
                     return_value={"returned": True},
                 ) as candidate_return,
+                mock.patch.object(
+                    f1,
+                    "collect_and_clear_retained_pmsg",
+                    return_value={"proof": True},
+                ),
             ):
                 result = f1.observe_attended_after_handoff(
                     spec,
@@ -2751,6 +3114,16 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                         f1,
                         "verify_candidate_health",
                         return_value={"healthy": True},
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "rebind_host_ncm_after_reenumeration",
+                        return_value={"bound": True},
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "require_clean_pstore_before_handoff",
+                        return_value={"clean": True},
                     ),
                     mock.patch.object(
                         f1,
