@@ -285,13 +285,14 @@ class A90ObservationPipelineTests(unittest.TestCase):
 
     def test_redacted_v3406_fixture_replays_exact_fact_boundary(self) -> None:
         fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
-        facts = pipeline.classify_phase2_display_facts(
+        facts = pipeline.classify_phase2_display_run(
             handoff_log=fixture["native_release_log"],
             native_release_marker=fixture["native_release_marker"],
             pid1_comm_init=fixture["ssh_facts"]["pid1_comm_init"],
             proc1_exe_init=fixture["ssh_facts"]["proc1_exe_init"],
             dropbear_started=fixture["ssh_facts"]["dropbear_started"],
             display_status=fixture["ssh_facts"]["display_status"],
+            candidate_return_present=fixture["candidate_return_present"],
         )
         self.assertEqual(
             {name: fact.state.value for name, fact in facts.items()},
@@ -299,6 +300,34 @@ class A90ObservationPipelineTests(unittest.TestCase):
         )
         self.assertFalse(fixture["candidate_return_present"])
         self.assertEqual(fixture["expected_atomic_result"], "NO_PROOF")
+        decision = pipeline.decide_phase2_display_run(facts)
+        self.assertEqual(decision.decision, pipeline.AtomicDecision.NO_PROOF)
+        self.assertEqual(
+            decision.signature.to_dict(),
+            fixture["expected_failure_signature"],
+        )
+
+    def test_atomic_decision_uses_first_nonproven_boundary(self) -> None:
+        facts = pipeline.classify_phase2_display_run(
+            handoff_log=NATIVE_LOG_CRLF,
+            native_release_marker=NATIVE_MARKER,
+            pid1_comm_init=True,
+            proc1_exe_init=True,
+            dropbear_started=True,
+            display_status="ready",
+            candidate_return_present=False,
+        )
+        decision = pipeline.decide_phase2_display_run(facts)
+        self.assertEqual(
+            decision.signature.to_dict(),
+            {
+                "workflow": "F1_V3406_DISPLAY",
+                "phase": "RETURN_OBSERVATION",
+                "failure_class": "BOUNDED_RETURN_REFUTED",
+                "effect_started": True,
+                "last_proven_boundary": "DISPLAY_ACQUISITION_PROVEN",
+            },
+        )
 
 
 if __name__ == "__main__":

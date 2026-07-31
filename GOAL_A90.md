@@ -281,6 +281,35 @@ mode. The reduced contract is recorded in:
 
 `docs/plans/A90_RESIDENT_FAST_HANDOFF_V1.md`
 
+The first transition-v2 implementation is now host-only and deliberately has
+no live backend. The pure contract namespaces the risk tier from the legacy
+chroot stage, validates predecessor release plus successor acquisition, splits
+mechanical display facts from operator/camera visibility, and refuses fresh
+preparation after one ambiguity or two identical failure signatures. One
+effects-injected engine serves both resident-install and switch-root
+simulation; the thin CLI exposes simulations only.
+
+The central observation replay now compares expected facts, atomic decision,
+and the exact five-field failure signature instead of accepting parse success.
+The V3406 corrected fixture remains `NO_PROOF` at display acquisition with
+native release, Debian PID1, and Dropbear preserved. The private corpus closes
+19 exact raw replays plus one explicit `SOURCE_BYTES_CHANGED` unavailability;
+the latter proves that the old V3405 D0 raw path was appended after its v3
+catalog hash and is not an immutable historical capture.
+
+No resident baseline, manifest, approval, device action, flash, or reboot was
+created. The implementation boundary is recorded in:
+
+`docs/reports/A90_TRANSITION_V2_H0_IMPLEMENTATION_2026-08-01.md`
+
+Independent review returned PASS with no remaining Critical, High, Medium, or
+Low finding after its adversarial probes were converted into regressions. The
+final engine requires atomic one-shot approval consumption before effects,
+conservatively rolls back uncertain candidate effects, preserves ambiguity as
+the next-preparation stop, and continues native return, exact cleanup, and
+final health after a Debian observation no-proof whenever return remains
+available. This remains H0 simulation only.
+
 ## Completed Bounded Unit: Phase 0 Build Determinism
 
 Phase 0 closed `A90_V3404_BUILD_DETERMINISM_PHASE0_HOST_PASS`. Two clean,

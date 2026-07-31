@@ -21,8 +21,9 @@ MAX_TEXT_BYTES = 20 * 1024 * 1024
 TEXT_SUFFIXES = frozenset(
     {".json", ".jsonl", ".log", ".out", ".stderr", ".stdout", ".txt"}
 )
-CATALOG_SCHEMA = "a90-private-observation-corpus-v3"
-FIXTURE_SCHEMA = "a90-observation-redacted-fixture-v1"
+CATALOG_SCHEMA = "a90-private-observation-corpus-v4"
+FIXTURE_SCHEMA = "a90-observation-redacted-fixture-v2"
+EXPECTATION_SCHEMA = "a90-private-observation-replay-expectations-v1"
 ONE_WAY_COMMANDS = frozenset({"switch-root-to-distro"})
 
 
@@ -81,15 +82,146 @@ def _replay_a90p1(data: bytes) -> dict[str, Any]:
     except pipeline.ObservationContractError as exc:
         return {
             "status": "REJECT",
+            "decision": "REJECT_TRANSCRIPT",
             "frames": 0,
             "transitions": 0,
             "error": str(exc),
+            "failure_signature": {
+                "workflow": "A90P1_REPLAY",
+                "phase": "FRAME_PARSE",
+                "failure_class": "FRAME_CONTRACT_REJECT",
+                "effect_started": False,
+                "last_proven_boundary": "RAW_BYTES_CAPTURED",
+            },
         }
     return {
         "status": "PASS",
+        "decision": "ACCEPT_TRANSACTIONS",
         "frames": len(transcript.frames),
         "transitions": len(transcript.transitions),
         "error": None,
+        "failure_signature": None,
+    }
+
+
+def migrate_v3_expectations(value: dict[str, Any]) -> dict[str, Any]:
+    """Bind the already-reviewed v3 replay judgments as an external oracle."""
+
+    if value.get("schema") != "a90-private-observation-corpus-v3":
+        raise CorpusError("legacy corpus schema is not v3")
+    entries = value.get("entries")
+    if not isinstance(entries, list):
+        raise CorpusError("legacy corpus entries are absent")
+    expected: list[dict[str, Any]] = []
+    for item in entries:
+        if not isinstance(item, dict) or item.get("a90p1_replay") is None:
+            continue
+        replay = item["a90p1_replay"]
+        if not isinstance(replay, dict):
+            raise CorpusError("legacy replay entry is invalid")
+        status = replay.get("status")
+        if status not in {"PASS", "REJECT"}:
+            raise CorpusError("legacy replay status is invalid")
+        expected.append(
+            {
+                "path": item.get("path"),
+                "source_sha256": item.get("sha256"),
+                "expected_decision": (
+                    "ACCEPT_TRANSACTIONS"
+                    if status == "PASS"
+                    else "REJECT_TRANSCRIPT"
+                ),
+                "expected_failure_signature": (
+                    None
+                    if status == "PASS"
+                    else {
+                        "workflow": "A90P1_REPLAY",
+                        "phase": "FRAME_PARSE",
+                        "failure_class": "FRAME_CONTRACT_REJECT",
+                        "effect_started": False,
+                        "last_proven_boundary": "RAW_BYTES_CAPTURED",
+                    }
+                ),
+                "expected_frames": replay.get("frames"),
+                "expected_transitions": replay.get("transitions"),
+                "correction": None,
+            }
+        )
+    if not expected:
+        raise CorpusError("legacy corpus has no labeled A90P1 replay")
+    return {
+        "schema": EXPECTATION_SCHEMA,
+        "source_schema": "a90-private-observation-corpus-v3",
+        "entries": expected,
+    }
+
+
+def verify_private_replay_expectations(
+    expectations: dict[str, Any],
+    *,
+    root: Path = PRIVATE_RUNS,
+) -> dict[str, Any]:
+    """Require exact source identity, decision, signature, and frame geometry."""
+
+    if expectations.get("schema") != EXPECTATION_SCHEMA:
+        raise CorpusError("expectation schema is not exact")
+    labeled = expectations.get("entries")
+    if not isinstance(labeled, list) or not labeled:
+        raise CorpusError("expectation entries are absent")
+    catalog = build_private_catalog(root)
+    actual_by_path = {
+        item["path"]: item
+        for item in catalog["entries"]
+        if item.get("a90p1_replay") is not None
+    }
+    if set(actual_by_path) != {
+        item.get("path") for item in labeled if isinstance(item, dict)
+    }:
+        raise CorpusError("labeled A90P1 source inventory changed")
+    unavailable = 0
+    for expected in labeled:
+        if not isinstance(expected, dict):
+            raise CorpusError("expectation entry is invalid")
+        actual = actual_by_path[expected["path"]]
+        replay = actual["a90p1_replay"]
+        if actual["sha256"] != expected.get("source_sha256"):
+            unavailable_signature = {
+                "workflow": "A90P1_REPLAY",
+                "phase": "IMMUTABLE_CAPTURE",
+                "failure_class": "SOURCE_BYTES_CHANGED",
+                "effect_started": False,
+                "last_proven_boundary": "CATALOG_V3_METADATA",
+            }
+            if (
+                expected.get("expected_decision")
+                != "UNAVAILABLE_SOURCE_MUTATED"
+                or expected.get("expected_failure_signature")
+                != unavailable_signature
+            ):
+                raise CorpusError(
+                    f"labeled replay source bytes changed: {expected['path']}"
+                )
+            unavailable += 1
+            continue
+        comparison = {
+            "source_sha256": actual["sha256"],
+            "expected_decision": replay["decision"],
+            "expected_failure_signature": replay["failure_signature"],
+            "expected_frames": replay["frames"],
+            "expected_transitions": replay["transitions"],
+        }
+        oracle = {key: expected.get(key) for key in comparison}
+        if comparison != oracle:
+            raise CorpusError(
+                f"labeled replay decision changed: {expected['path']}"
+            )
+    return {
+        "schema": EXPECTATION_SCHEMA,
+        "status": "PASS",
+        "labeled_replays": len(labeled),
+        "exact_replays": len(labeled) - unavailable,
+        "unavailable_source_mutated": unavailable,
+        "decision_and_signature_match": True,
     }
 
 
@@ -225,11 +357,14 @@ def extract_v3406_redacted_fixture(source: Path) -> dict[str, Any]:
         "display_status": "bounded-failure",
     }:
         raise CorpusError("source SSH facts are not the V3406 boundary")
-    facts = pipeline.classify_phase2_display_facts(
+    candidate_return_present = isinstance(value.get("candidate_return"), dict)
+    facts = pipeline.classify_phase2_display_run(
         handoff_log=release_log,
         native_release_marker=release_marker,
+        candidate_return_present=candidate_return_present,
         **ssh_facts,
     )
+    decision = pipeline.decide_phase2_display_run(facts)
     return {
         "schema": FIXTURE_SCHEMA,
         "redaction": "allowlisted-fields-only-v1",
@@ -237,12 +372,68 @@ def extract_v3406_redacted_fixture(source: Path) -> dict[str, Any]:
         "native_release_log": release_log,
         "native_release_marker": release_marker,
         "ssh_facts": ssh_facts,
-        "candidate_return_present": isinstance(value.get("candidate_return"), dict),
+        "candidate_return_present": candidate_return_present,
         "expected_facts": {
             name: fact.state.value for name, fact in sorted(facts.items())
         },
-        "expected_atomic_result": "NO_PROOF",
+        "historical_atomic_result": "NO_PROOF",
+        "expected_atomic_result": decision.decision.value,
+        "expected_failure_signature": (
+            decision.signature.to_dict() if decision.signature is not None else None
+        ),
+        "corrections": [
+            {
+                "id": "A90_V3406_CRLF_NATIVE_RELEASE",
+                "reason": "LF-only validation rejected exact CRLF transport lines",
+                "expected": "native_release=PROVEN",
+            },
+            {
+                "id": "A90_V3406_INDEPENDENT_SUBPROOFS",
+                "reason": "one display exception must not erase unrelated facts",
+                "expected": "debian_pid1=PROVEN,dropbear=PROVEN",
+            },
+            {
+                "id": "A90_V3406_D3_PID1_SCOPE",
+                "reason": "duplicate marker and SSH-tail text is scoped to D3 marker",
+                "expected": "debian_pid1=PROVEN",
+            },
+        ],
     }
+
+
+def replay_redacted_fixture(value: dict[str, Any]) -> dict[str, Any]:
+    """Replay one labeled fixture and compare decisions, not parse success."""
+
+    if value.get("schema") != FIXTURE_SCHEMA:
+        raise CorpusError("fixture schema is not exact")
+    ssh_facts = value.get("ssh_facts")
+    if not isinstance(ssh_facts, dict):
+        raise CorpusError("fixture SSH facts are absent")
+    facts = pipeline.classify_phase2_display_run(
+        handoff_log=value.get("native_release_log"),
+        native_release_marker=value.get("native_release_marker"),
+        pid1_comm_init=ssh_facts.get("pid1_comm_init"),
+        proc1_exe_init=ssh_facts.get("proc1_exe_init"),
+        dropbear_started=ssh_facts.get("dropbear_started"),
+        display_status=ssh_facts.get("display_status"),
+        candidate_return_present=value.get("candidate_return_present"),
+    )
+    decision = pipeline.decide_phase2_display_run(facts)
+    actual = {
+        "facts": {name: fact.state.value for name, fact in sorted(facts.items())},
+        "atomic_result": decision.decision.value,
+        "failure_signature": (
+            decision.signature.to_dict() if decision.signature is not None else None
+        ),
+    }
+    expected = {
+        "facts": value.get("expected_facts"),
+        "atomic_result": value.get("expected_atomic_result"),
+        "failure_signature": value.get("expected_failure_signature"),
+    }
+    if actual != expected:
+        raise CorpusError("fixture decision or failure signature changed")
+    return {"status": "PASS", "actual": actual}
 
 
 def _output_path(path: Path, *, private: bool) -> Path:
@@ -280,6 +471,8 @@ def main() -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--catalog-output", type=Path)
     mode.add_argument("--extract-v3406", type=Path)
+    mode.add_argument("--migrate-v3-expectations", type=Path)
+    mode.add_argument("--verify-expectations", type=Path)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if args.catalog_output is not None:
@@ -287,11 +480,22 @@ def main() -> int:
             raise CorpusError("catalog mode does not accept --output")
         value = build_private_catalog()
         write_json_exclusive(args.catalog_output, value, private=True)
-    else:
+    elif args.extract_v3406 is not None:
         if args.output is None:
             raise CorpusError("extract mode requires --output")
         value = extract_v3406_redacted_fixture(args.extract_v3406)
         write_json_exclusive(args.output, value, private=False)
+    elif args.migrate_v3_expectations is not None:
+        if args.output is None:
+            raise CorpusError("expectation migration requires --output")
+        source, _ = _load_object(require_private_source(args.migrate_v3_expectations))
+        value = migrate_v3_expectations(source)
+        write_json_exclusive(args.output, value, private=True)
+    else:
+        if args.output is not None:
+            raise CorpusError("expectation verification does not accept --output")
+        source, _ = _load_object(require_private_source(args.verify_expectations))
+        value = verify_private_replay_expectations(source)
     print(json.dumps({"schema": value["schema"], "status": "PASS"}, sort_keys=True))
     return 0
 

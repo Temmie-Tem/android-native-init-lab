@@ -135,3 +135,40 @@ The corrected static presenter SHA256 is
 - Do not add another review ladder for an unchanged ordinary D1 profile.
 - Do not activate the live runner before a fresh connected manifest and the
   exact baseline both exist.
+
+## H0 transition-v2 implementation boundary
+
+The first reduced implementation is deliberately not a live runner. It has
+three layers:
+
+- `a90_transition_contract_v2.py` contains only namespaced risk/workflow
+  identities, approval bindings, successor ownership, proof states, and the
+  repeat/ambiguity preparation gate;
+- `a90_transition_engine_v2.py` owns the only state path and accepts an
+  injected effects port; and
+- `a90_transition_v2.py` exposes only deterministic H0 simulations. It has no
+  execute-live, device, flash, reboot, manifest-publication, or approval-
+  preparation option.
+
+The resident path models candidate transfer once and exact rollback once after
+any started or ambiguous candidate effect. The ordinary D1 path contains no
+payload or flash phase and permits one handoff per fresh namespaced D1
+approval. A single ambiguity closes the line; two identical failure signatures
+close preparation for a third run.
+
+Display proof is not one return code. The contract requires predecessor native
+release plus Debian PID1, Dropbear, DRM master, connected connector, committed
+modeset, enabled backlight, and DPMS-on facts. Operator/camera visibility is a
+separate fact. When it is unavailable but every mechanical fact, native return,
+cleanup, and final health pass, the bounded result is
+`PASS_SWITCHROOT_RETURN_NO_PROOF_DISPLAY_VISIBILITY`.
+
+The implementation creates no resident baseline and changes no current live
+authority. Adding a real effects backend, immutable live manifest, or approval
+preparation remains a separately reviewed H0 unit before any F1 request.
+
+Independent review of the current H0 closure returned PASS with no remaining
+Critical, High, Medium, or Low finding. The review fault probes are retained as
+regressions for contradictory effect results, effect and intent exceptions,
+non-enum ambiguity, malformed observation evidence, recovery-tail failure
+preceded by ambiguity, and cross-invocation approval reuse.

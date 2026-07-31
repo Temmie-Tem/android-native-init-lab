@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Iterable
 
+from a90_transition_contract_v2 import FailureSignature
+
 
 COMMAND_NAME_RE = re.compile(r"^[A-Za-z0-9_.+-]+$")
 UNSIGNED_DECIMAL_RE = re.compile(r"^(?:0|[1-9][0-9]*)$")
@@ -72,6 +74,11 @@ class FactState(str, Enum):
     PROVEN = "PROVEN"
     REFUTED = "REFUTED"
     UNKNOWN = "UNKNOWN"
+
+
+class AtomicDecision(str, Enum):
+    PASS = "PASS"
+    NO_PROOF = "NO_PROOF"
 
 
 class FrameTrust(str, Enum):
@@ -155,6 +162,20 @@ class ObservationFact:
             "state": self.state.value,
             "evidence_sha256": self.evidence_sha256,
             "error": self.error,
+        }
+
+
+@dataclass(frozen=True)
+class ObservationDecision:
+    decision: AtomicDecision
+    signature: FailureSignature | None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "decision": self.decision.value,
+            "failure_signature": (
+                self.signature.to_dict() if self.signature is not None else None
+            ),
         }
 
 
@@ -652,6 +673,74 @@ def classify_phase2_display_facts(
         display_state,
     )
     return facts
+
+
+def classify_phase2_display_run(
+    *,
+    handoff_log: str | bytes,
+    native_release_marker: str | bytes,
+    pid1_comm_init: bool | None,
+    proc1_exe_init: bool | None,
+    dropbear_started: bool | None,
+    display_status: str,
+    candidate_return_present: bool | None,
+) -> dict[str, ObservationFact]:
+    """Classify a complete display run without coupling independent facts."""
+
+    facts = classify_phase2_display_facts(
+        handoff_log=handoff_log,
+        native_release_marker=native_release_marker,
+        pid1_comm_init=pid1_comm_init,
+        proc1_exe_init=proc1_exe_init,
+        dropbear_started=dropbear_started,
+        display_status=display_status,
+    )
+    if candidate_return_present is True:
+        state = FactState.PROVEN
+    elif candidate_return_present is False:
+        state = FactState.REFUTED
+    else:
+        state = FactState.UNKNOWN
+    facts["bounded_return"] = _fact("bounded_return", state)
+    return facts
+
+
+_PHASE2_REQUIREMENTS = (
+    ("native_release", "HANDOFF_RELEASE", "CANDIDATE_EFFECT_STARTED"),
+    ("debian_pid1", "DEBIAN_PID1", "NATIVE_RELEASE_PROVEN"),
+    ("dropbear", "DEBIAN_OBSERVATION", "DEBIAN_PID1_PROVEN"),
+    ("display_acquisition", "DISPLAY_ACQUISITION", "DROPBEAR_PROVEN"),
+    ("bounded_return", "RETURN_OBSERVATION", "DISPLAY_ACQUISITION_PROVEN"),
+)
+
+
+def decide_phase2_display_run(
+    facts: dict[str, ObservationFact],
+    *,
+    workflow: str = "F1_V3406_DISPLAY",
+    effect_started: bool = True,
+) -> ObservationDecision:
+    """Produce the atomic outcome and stable first-failure signature."""
+
+    if set(facts) != {name for name, _, _ in _PHASE2_REQUIREMENTS}:
+        raise ObservationContractError("phase2 display fact set is not exact")
+    for name, phase, prior_boundary in _PHASE2_REQUIREMENTS:
+        fact = facts[name]
+        if fact.name != name:
+            raise ObservationContractError("phase2 display fact identity changed")
+        if fact.state is FactState.PROVEN:
+            continue
+        signature = FailureSignature(
+            workflow=workflow,
+            phase=phase,
+            failure_class=f"{name.upper()}_{fact.state.value}",
+            effect_started=effect_started,
+            last_proven_boundary=(
+                prior_boundary if effect_started else "NO_EFFECT_STARTED"
+            ),
+        )
+        return ObservationDecision(AtomicDecision.NO_PROOF, signature)
+    return ObservationDecision(AtomicDecision.PASS, None)
 
 
 def facts_to_dict(

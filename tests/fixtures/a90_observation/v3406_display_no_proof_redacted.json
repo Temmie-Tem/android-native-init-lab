@@ -1,16 +1,42 @@
 {
   "candidate_return_present": false,
+  "corrections": [
+    {
+      "expected": "native_release=PROVEN",
+      "id": "A90_V3406_CRLF_NATIVE_RELEASE",
+      "reason": "LF-only validation rejected exact CRLF transport lines"
+    },
+    {
+      "expected": "debian_pid1=PROVEN,dropbear=PROVEN",
+      "id": "A90_V3406_INDEPENDENT_SUBPROOFS",
+      "reason": "one display exception must not erase unrelated facts"
+    },
+    {
+      "expected": "debian_pid1=PROVEN",
+      "id": "A90_V3406_D3_PID1_SCOPE",
+      "reason": "duplicate marker and SSH-tail text is scoped to D3 marker"
+    }
+  ],
   "expected_atomic_result": "NO_PROOF",
+  "expected_failure_signature": {
+    "effect_started": true,
+    "failure_class": "DISPLAY_ACQUISITION_REFUTED",
+    "last_proven_boundary": "DROPBEAR_PROVEN",
+    "phase": "DISPLAY_ACQUISITION",
+    "workflow": "F1_V3406_DISPLAY"
+  },
   "expected_facts": {
+    "bounded_return": "REFUTED",
     "debian_pid1": "PROVEN",
     "display_acquisition": "REFUTED",
     "dropbear": "PROVEN",
     "native_release": "PROVEN"
   },
+  "historical_atomic_result": "NO_PROOF",
   "native_release_log": "A90D3DISPLAY native_kms_release rc=0 fd_before=3 disable_plane_rc=0 disable_crtc_rc=0 munmap_failures=0 rmfb_failures=0 destroy_dumb_failures=0 drop_master_rc=0 close_rc=0 release_complete=1\r\nA90D3DISPLAY native_pid1_drm_fd_count=0 observed=0\r\nA90D3DISPLAY other_drm_fd_count=0 observed=0\r\nA90D3DISPLAY native_kms_initialized=0 observed=0\r\nA90D3DISPLAY display_services_restart_blocked=1 corridor=synchronous-handoff\r\n",
   "native_release_marker": "schema=a90-native-display-release-v1\nnative_pid1_drm_fd_count=0\nother_drm_fd_count=0\nnative_kms_initialized=0\ndisplay_services_restart_blocked=1\nrelease_complete=1\n",
   "redaction": "allowlisted-fields-only-v1",
-  "schema": "a90-observation-redacted-fixture-v1",
+  "schema": "a90-observation-redacted-fixture-v2",
   "source": {
     "sha256": "8bb497095118a908f16c4094b7900dc855947619e763d4bc997a38a42bcf337c",
     "size": 15013
