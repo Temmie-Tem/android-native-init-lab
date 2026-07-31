@@ -19,6 +19,14 @@ MANIFEST = (
     "s22plus_fyg8_r4w1c_process_v2_draft.json"
 )
 
+sys.path.insert(0, str(REVALIDATION))
+try:
+    import prepare_s22plus_fyg8_p292_ready_manifest as p292_builder
+    import s22plus_fyg8_p292_repair_decoder as p292_decoder
+    import s22plus_fyg8_p292_repair_model as p292_model
+finally:
+    sys.path.remove(str(REVALIDATION))
+
 
 def load_module():
     sys.path.insert(0, str(REVALIDATION))
@@ -115,6 +123,51 @@ class DeviceActionD0V2Test(unittest.TestCase):
             "b" * 64,
         )
 
+    def p292_manifest(self):
+        run_manifest = {
+            "profile": "E2",
+            "run_id": "12" * 16,
+            "source_contract_id": p292_builder.SOURCE_CONTRACT_ID,
+            "decoder": p292_decoder.DECODER_ID,
+            "policy_id": p292_decoder.POLICY_ID,
+            "records": {
+                "long_family_hex": p292_model.LONG_FAMILY.hex(),
+                "unsat_family_hex": p292_model.UNSAT_FAMILY.hex(),
+                "terminal_stage": self.module.f1.typed_evidence._latest_stage_terminal(
+                    p292_decoder, "E2"
+                ),
+            },
+            "observation_contract": {
+                "minimum_success_count": 1,
+                "clean_baseline_required": True,
+            },
+        }
+        paths = {
+            "candidate_static": ROOT / "workspace/private/p292-candidate-static.json",
+            "run_manifest": ROOT / "workspace/private/p292-run-manifest.json",
+            "static_check": ROOT / "workspace/private/p292-static-check.json",
+        }
+        receipts = {
+            name: {"size": index + 1, "sha256": f"{index + 1:064x}"}
+            for index, name in enumerate(paths)
+        }
+        return p292_builder.derive_manifest(
+            root=ROOT,
+            run_manifest=run_manifest,
+            evidence_paths=paths,
+            evidence_receipts=receipts,
+            candidate_ap={
+                "path": "workspace/private/p292-candidate/AP.tar.md5",
+                "size": 10,
+                "sha256": "a" * 64,
+            },
+            rollback_ap=copy.deepcopy(self.profile["rollback"]["ap"]),
+            target_profile=PROFILE,
+            manifest_id="s22plus-fyg8-p292-d0-fixture",
+            live_run_id="s22plus-fyg8-p292-d0-fixture",
+            timeout_sec=300,
+        )
+
     def usb_root(self, root: Path, *, download=False):
         usb = root / "usb"
         entry = usb / "3-1"
@@ -162,6 +215,25 @@ class DeviceActionD0V2Test(unittest.TestCase):
         self.assertTrue((Path(temporary.name) / "run/result.json").is_file())
         self.assertEqual(client.calls.count("root_health"), 1)
         self.assertEqual(client.calls.count("properties"), 2)
+
+    def test_connected_p292_fixture_passes_same_parser_and_validator(self):
+        manifest = self.p292_manifest()
+        temporary, result, client = self.run_connected(
+            bundle=self.bundle(manifest=manifest)
+        )
+        self.addCleanup(temporary.cleanup)
+        self.assertEqual(result["verdict"], self.module.D0_VERDICT)
+        self.assertTrue(result["observer"]["baseline_clean"])
+        self.assertEqual(
+            manifest["observation"]["acceptance"]["source_contract_id"],
+            p292_builder.SOURCE_CONTRACT_ID,
+        )
+        self.module.validate_result(
+            result,
+            self.bundle(manifest=manifest),
+            Path(temporary.name) / "run",
+        )
+        self.assertEqual(client.calls.count("root_health"), 1)
 
     def test_target_evidence_binds_profile_and_topology_digests(self):
         temporary, result, _client = self.run_connected()
