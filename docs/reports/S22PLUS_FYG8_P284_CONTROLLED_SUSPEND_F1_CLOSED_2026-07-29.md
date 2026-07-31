@@ -5,6 +5,14 @@ Date: 2026-07-29 KST
 Status:
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK; TRANSACTION_CLOSED`
 
+> Causal erratum, 2026-07-31: the formal verdict, transaction, retained tuple,
+> rollback, and health evidence remain unchanged. Candidate-bound native replay
+> now proves that the retained `PROGRESS/detail=0xc18` active slot made every
+> later checkpoint return deterministic pre-mutation `-ESTALE`; the userspace
+> wrapper then entered `quiet_park()`. Absence of `0x90` is therefore not
+> evidence that USB, PM, tracefs, or the restart helper blocked. See
+> `S22PLUS_FYG8_P284_P290_ACCEPT_TO_RESUME_HISTORY_ERRATUM_H0_2026-07-31.md`.
+
 ## Scope
 
 This report records one authorized P2.84 Process v2 candidate attempt, its

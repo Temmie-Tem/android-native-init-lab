@@ -7,6 +7,14 @@ Tier: H0
 Status:
 `NO_REUSABLE_CHILD_AT_GEN88_SIMPLE_CHILD_OBSERVER_REQUIRES_NEW_KERNEL_PROTOCOL`
 
+> Superseding decision, 2026-07-31:
+> `OBSERVER_PROTOCOL_NOT_REQUIRED_FOR_P290_INCIDENT`. The child-lifetime and
+> writer-tail source facts remain valid, but the two-branch premise is false.
+> The next write returns deterministic pre-mutation `-ESTALE` because kernel
+> state omits the active slot's nonzero detail; userspace then parks. Do not
+> implement the observer or deferred-close designs for this incident. See
+> `S22PLUS_FYG8_P284_P290_ACCEPT_TO_RESUME_HISTORY_ERRATUM_H0_2026-07-31.md`.
+
 ## Questions
 
 P2.90 retained a valid generation 88 but no adjacent generation 89. The exact

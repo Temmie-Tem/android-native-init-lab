@@ -6,6 +6,14 @@ Tier: H0
 
 Status: `REFUTED_P290_OLD_PATCH_ITEM_TERMINAL_REJECTION_HYPOTHESIS`
 
+> Causal erratum, 2026-07-31: refutation of the historical-patch
+> `-ERANGE`/terminal hypothesis remains correct. The “correct residual class”
+> below is superseded. The materialized request validator accepts `(0x8f,1)`,
+> but the writer's separate active-slot self-check reconstructs generation 88
+> as `PROGRESS/detail=0`, mismatches committed `detail=0xc18`, and returns
+> deterministic pre-mutation `-ESTALE`. See
+> `S22PLUS_FYG8_P284_P290_ACCEPT_TO_RESUME_HISTORY_ERRATUM_H0_2026-07-31.md`.
+
 ## Question
 
 The post-live review proposed that P2.90 generation 89 was deterministically

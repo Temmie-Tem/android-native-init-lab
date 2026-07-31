@@ -5,6 +5,13 @@ Date: 2026-07-30 KST
 Status:
 `PASS_P286_EARLY_RESTART_TRACE_CLASSIFICATION_ONLY_H0`
 
+> Applicability notice, 2026-07-31: the data-flow verdict that the two trace
+> snapshots are classification-only remains correct. Their removal did not
+> address the closed live incident, because deterministic active-slot
+> `-ESTALE` stopped the next checkpoint first. This report is retained as a
+> source-design result, not as causal evidence for the P2.86 silence. See
+> `S22PLUS_FYG8_P284_P290_ACCEPT_TO_RESUME_HISTORY_ERRATUM_H0_2026-07-31.md`.
+
 ## Verdict
 
 The two trace snapshots surrounding P2.86's PERIPHERAL helper are not

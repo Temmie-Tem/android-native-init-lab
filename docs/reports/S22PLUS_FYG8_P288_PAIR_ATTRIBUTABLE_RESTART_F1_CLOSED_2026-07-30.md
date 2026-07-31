@@ -10,6 +10,14 @@ Transaction: `CLOSED`
 
 Recovery required: false
 
+> Causal erratum, 2026-07-31: the formal no-proof verdict, transaction,
+> retained tuple, rollback, and health evidence remain unchanged. Generation 89
+> was absent because the committed generation-88
+> `PROGRESS/detail=0xc18` slot could not be reconstructed by the kernel state;
+> the next write returned pre-mutation `-ESTALE` and userspace parked. Marker
+> placement and restart-device behavior did not determine this absence. See
+> `S22PLUS_FYG8_P284_P290_ACCEPT_TO_RESUME_HISTORY_ERRATUM_H0_2026-07-31.md`.
+
 ## Result
 
 One exact P2.88 boot-only candidate and the exact Magisk boot-only rollback

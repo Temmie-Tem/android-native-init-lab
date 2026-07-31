@@ -2,6 +2,14 @@
 
 Date: 2026-07-29 KST
 
+> Superseding causal verdict, 2026-07-31:
+> `REFUTED_P284_POST_0X8F_DEVICE_GAP_ATTRIBUTION_H0`. The retained
+> `PROGRESS/detail=0xc18` slot deterministically caused the next checkpoint to
+> return pre-mutation `-ESTALE`, followed by `quiet_park()`. The ranked
+> outer-work/flush/wait4 mechanism below remains a useful source audit but did
+> not cause the missing P2.84 successor record. See
+> `S22PLUS_FYG8_P284_P290_ACCEPT_TO_RESUME_HISTORY_ERRATUM_H0_2026-07-31.md`.
+
 Correction notice: the later D1 v2 raw trace disproves this report's
 unconditional claim that stock child and parent runtime-suspend callbacks are
 nested in the stop-side outer work. The corrected context-dependent PM model

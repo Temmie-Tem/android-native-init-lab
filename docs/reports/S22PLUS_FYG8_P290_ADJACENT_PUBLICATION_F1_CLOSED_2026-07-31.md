@@ -10,6 +10,14 @@ Transaction: `CLOSED`
 
 Recovery required: false
 
+> Causal erratum, 2026-07-31: the formal no-proof verdict, transaction,
+> retained tuple, rollback, and health evidence remain unchanged. The adjacent
+> generation-89 request was reached but returned deterministic pre-mutation
+> `-ESTALE`: kernel state reconstructed the active generation-88 slot with
+> `detail=0` instead of its committed `detail=0xc18`. Userspace then entered
+> `quiet_park()`. No unexplained post-commit non-return remains. See
+> `S22PLUS_FYG8_P284_P290_ACCEPT_TO_RESUME_HISTORY_ERRATUM_H0_2026-07-31.md`.
+
 ## Result
 
 One exact P2.90 boot-only candidate and the exact Magisk boot-only rollback

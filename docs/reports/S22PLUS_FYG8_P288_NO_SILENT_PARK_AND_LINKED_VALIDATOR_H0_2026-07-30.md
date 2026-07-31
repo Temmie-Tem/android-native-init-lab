@@ -6,6 +6,13 @@ Status: `PASS_P288_NO_SILENT_PARK_INVARIANT_REFUTED_H0`
 
 Tier: H0
 
+> Causal erratum, 2026-07-31: the linked-validator proof and refutation of the
+> absolute no-silent-park claim remain valid. The live residual is no longer
+> unresolved publication non-return versus double failure. The exact next
+> publication returned deterministic pre-mutation `-ESTALE`, and its discarded
+> fallback/error path reached `quiet_park()`. See
+> `S22PLUS_FYG8_P284_P290_ACCEPT_TO_RESUME_HISTORY_ERRATUM_H0_2026-07-31.md`.
+
 ## Result
 
 The formal post-build proof introduced by commit

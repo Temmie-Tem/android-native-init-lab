@@ -5,6 +5,14 @@ Risk tier: H0 only
 Device authority: none
 Predecessor: closed P2.88 run `20bb4d70842fe7ae1a6bd0aec261d722`
 
+> Applicability notice, 2026-07-31: the adjacent-position, park-topology,
+> table, and exhaustive-validator implementation facts remain valid. They did
+> not repair the live channel because the writer accepted
+> `PROGRESS/detail=0xc18` without retaining enough state to validate that slot
+> on the next request. The successor must add `ACCEPT_TO_RESUME_CLOSURE`; the
+> checked-park work is not causal progress past `0x8f`. See
+> `S22PLUS_FYG8_P284_P290_ACCEPT_TO_RESUME_HISTORY_ERRATUM_H0_2026-07-31.md`.
+
 ## Result
 
 `PASS_P290_CHECKED_PARK_ADJACENT_CORRIDOR_IMPLEMENTATION_HOST_ONLY`

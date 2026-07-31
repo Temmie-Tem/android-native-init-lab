@@ -5,6 +5,14 @@ Date: 2026-07-30 KST
 Status:
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK; TRANSACTION_CLOSED`
 
+> Causal erratum, 2026-07-31: the formal verdict, stronger parent-suspended
+> meaning of generation 88, transaction, rollback, and health evidence remain
+> unchanged. The missing successor was caused by deterministic active-slot
+> reconstruction `-ESTALE` after `PROGRESS/detail=0xc18`, followed by
+> `quiet_park()`. It is not evidence that the pre-dispatch trace snapshot or
+> another restart operation blocked. See
+> `S22PLUS_FYG8_P284_P290_ACCEPT_TO_RESUME_HISTORY_ERRATUM_H0_2026-07-31.md`.
+
 Correction notice: the later focused H0 source/slot audit proves that P2.86
 withheld this run's `0x8f/detail=0xc18` publication until exact parent
 `runtime_status=suspended` readback succeeded. The same audit rules out a torn

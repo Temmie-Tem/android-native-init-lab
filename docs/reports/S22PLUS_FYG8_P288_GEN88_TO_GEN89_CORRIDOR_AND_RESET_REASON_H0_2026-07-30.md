@@ -7,6 +7,15 @@ Status:
 
 Tier: H0
 
+> Current split verdict, 2026-07-31:
+> `PASS_P288_ASYNC_RESET_REJECTED_H0`;
+> `REFUTED_P288_GEN88_TO_GEN89_CORRIDOR_ATTRIBUTION_H0`. Reset-reason evidence
+> remains valid. The missing generation 89 is now fully explained by the
+> active-slot `PROGRESS/detail=0xc18` reconstruction mismatch, deterministic
+> pre-mutation `-ESTALE`, and `quiet_park()`. The unresolved publisher/gate
+> corridor below is superseded. See
+> `S22PLUS_FYG8_P284_P290_ACCEPT_TO_RESUME_HISTORY_ERRATUM_H0_2026-07-31.md`.
+
 Correction: the reset-reason result and exact 12-gate materialized count remain
 valid. The causal treatment of returned gate failures and the proposed
 close-error client-divergence model are superseded by

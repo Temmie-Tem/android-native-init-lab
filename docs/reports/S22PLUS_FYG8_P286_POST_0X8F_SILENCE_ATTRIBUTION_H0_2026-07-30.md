@@ -5,6 +5,14 @@ Date: 2026-07-30 KST
 Status:
 `PASS_P286_POST_0X8F_GAP_RELOCALIZED_PREPUBLICATION_H0`
 
+> Superseding causal verdict, 2026-07-31:
+> `REFUTED_P286_TRACEFS_PREPUBLICATION_LIVE_ATTRIBUTION_H0`. Parent suspended,
+> source ordering, raw-ring adjacency, and tracefs blocking-surface facts remain
+> valid. They do not explain the live silence. The exact active
+> `PROGRESS/detail=0xc18` record guarantees that the next writer call returns
+> pre-mutation `-ESTALE`, after which userspace intentionally parks. See
+> `S22PLUS_FYG8_P284_P290_ACCEPT_TO_RESUME_HISTORY_ERRATUM_H0_2026-07-31.md`.
+
 ## Verdict
 
 The retained P2.86 record proves more than the closing report stated, but the
