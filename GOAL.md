@@ -367,9 +367,9 @@ operations before the asserted publication boundaries.
    write returned pre-mutation `-ESTALE` and userspace intentionally parked.
 4. Implement P2.64 Stage C with one descriptor producing disjoint Tier 1/2/3
    receipt sets; require its mutation matrix and independent review before closure.
-5. Pass `CHECKPOINT_SOT_ZERO_DELTA`: A must match the retained P2.90 baseline
-   and B must match both. On mismatch, narrow SoT generation to an exact subset,
-   leave excluded artifacts untouched, and restart; never weaken equality.
+5. `CHECKPOINT_SOT_ZERO_DELTA` passed over the complete 13-artifact retained
+   P2.90 scope: A matched the frozen baseline first, then B matched both the
+   same baseline and A. No comparison was weakened and no repair was present.
 6. Prove `ACCEPT_TO_RESUME_CLOSURE` exhaustively across kernel writer,
    userspace client, model, and decoder. Then prove
    `ACCEPT_TO_RESUME_SEQUENCE_WALK` by continuously walking the exact

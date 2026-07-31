@@ -1,0 +1,120 @@
+{
+  "artifact_count": 13,
+  "artifacts": [
+    {
+      "key": "candidate_patch",
+      "mode": "0400",
+      "path": "candidate.patch",
+      "sha256": "f64f93f7e750187bb69e2f8dabca68b0c52ef31bf181bd1b0c06b5d6935853f1",
+      "size": 28128,
+      "type": "regular"
+    },
+    {
+      "key": "p260_e3_runtime_include",
+      "mode": "0400",
+      "path": "materialized-sources/s22plus_fyg8_p260_e3_runtime.inc.c",
+      "sha256": "767bd359de56cb24be84c4479cd01d4f710a676490c23f966617b996fe5cc612",
+      "size": 20665,
+      "type": "regular"
+    },
+    {
+      "key": "classifier_include",
+      "mode": "0400",
+      "path": "materialized-sources/s22plus_fyg8_p282_classifier.inc.c",
+      "sha256": "e14a634ec39102d999f51e64b01b1350d9c000e465f01b639b106d51c36d483e",
+      "size": 14317,
+      "type": "regular"
+    },
+    {
+      "key": "p286_classifier_include",
+      "mode": "0400",
+      "path": "materialized-sources/s22plus_fyg8_p286_classifier.inc.c",
+      "sha256": "14b82ca22e307708cc412b29fa2b7e4784dc791348298c376ab3d8bc4d66d09e",
+      "size": 3701,
+      "type": "regular"
+    },
+    {
+      "key": "plan_header",
+      "mode": "0400",
+      "path": "materialized-sources/s22plus_fyg8_p286_e3_plan.h",
+      "sha256": "b68a6c4d5bafa864f91e0be21c53aefc5a288741c0b8870833ea603a26e3f015",
+      "size": 4652,
+      "type": "regular"
+    },
+    {
+      "key": "trace_descriptor_header",
+      "mode": "0400",
+      "path": "materialized-sources/s22plus_fyg8_p286_trace_descriptor.h",
+      "sha256": "c25981ebaefe55afbbf1ec16b58edd8303ba702771ab9522bc32097b6c3fc9fe",
+      "size": 18767,
+      "type": "regular"
+    },
+    {
+      "key": "p288_classifier_include",
+      "mode": "0400",
+      "path": "materialized-sources/s22plus_fyg8_p288_classifier.inc.c",
+      "sha256": "7a15ae652d652a321e1291fd6fe4f6b400a219f22337f7886ec63f7f4e059025",
+      "size": 1873,
+      "type": "regular"
+    },
+    {
+      "key": "checkpoint_client",
+      "mode": "0400",
+      "path": "materialized-sources/s22plus_fyg8_p290_checkpoint.c",
+      "sha256": "2a4ef815ccfd151503acca96411abfc2e8c949e5a303d3c1196fd67882632f72",
+      "size": 23016,
+      "type": "regular"
+    },
+    {
+      "key": "runtime_wrapper",
+      "mode": "0400",
+      "path": "materialized-sources/s22plus_fyg8_p290_e3_runtime.c",
+      "sha256": "2a06708091b001b585dc2cac6ddc32ca1240217259066cad04b43c5ecc263d72",
+      "size": 26368,
+      "type": "regular"
+    },
+    {
+      "key": "p290_e3_runtime_include",
+      "mode": "0400",
+      "path": "materialized-sources/s22plus_fyg8_p290_e3_runtime.inc.c",
+      "sha256": "c737dfa5ff273472b150f2aca1f25b8188129ad2f3188c7625c5fdd984c00725",
+      "size": 97286,
+      "type": "regular"
+    },
+    {
+      "key": "p290_position_header",
+      "mode": "0400",
+      "path": "materialized-sources/s22plus_fyg8_p290_positions.h",
+      "sha256": "24936fde82d96b29ec0d3120fed5d4d3c9c55afe83b48a362b54416afa9a710d",
+      "size": 1440,
+      "type": "regular"
+    },
+    {
+      "key": "p290_checkpoint_header",
+      "mode": "0400",
+      "path": "materialized-sources/s22plus_r4w1e_checkpoint.h",
+      "sha256": "b6203e2f990cdb86dc6630d22e218f09e272fe5d39c4df301d80c634a213692f",
+      "size": 1947,
+      "type": "regular"
+    },
+    {
+      "key": "p288_legacy_runtime",
+      "mode": "0400",
+      "path": "materialized-sources/s22plus_r4w1e_e1_runtime.c",
+      "sha256": "8fd76a904f72c02c8bb10c6b0505f8d3b01e4db4ad349dc4228b5609ac945284",
+      "size": 19398,
+      "type": "regular"
+    }
+  ],
+  "authority": {
+    "mode": "0400",
+    "path": "workspace/private/outputs/s22plus_fyg8_p290/intent/candidate-intent.json",
+    "profile": "E2",
+    "run_id": "2ec2bbaeed33025c92a0831c5e82dd3b",
+    "sha256": "1e33bed20a46d646610e7e0e0bab7bd55c807451ec0b1cc7d4b3f3a1a48fc2dd",
+    "size": 19910,
+    "source_contract_id": "s22plus-fyg8-p290-checked-park-adjacent-corridor-v1",
+    "type": "regular"
+  },
+  "schema": "s22plus_fyg8_p292_sot_zero_delta_baseline_v1"
+}

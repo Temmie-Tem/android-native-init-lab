@@ -50,7 +50,7 @@ authority was created.
 The P2.90 intent-bound `candidate.patch` has SHA256:
 
 ```text
-f64f93f7e750187bb69e2f8dabca68b0c52ef31bf181bd1b0c06b5d6935853f1e
+f64f93f7e750187bb69e2f8dabca68b0c52ef31bf181bd1b0c06b5d6935853f1
 ```
 
 Its `s22_fyg8_e1_state` stores:

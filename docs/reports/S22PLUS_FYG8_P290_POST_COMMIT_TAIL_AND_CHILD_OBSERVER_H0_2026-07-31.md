@@ -41,7 +41,7 @@ No device was contacted and no candidate source was changed.
 ## Exact inputs
 
 The P2.90 intent-bound `candidate.patch` has SHA256
-`f64f93f7e750187bb69e2f8dabca68b0c52ef31bf181bd1b0c06b5d6935853f1e`.
+`f64f93f7e750187bb69e2f8dabca68b0c52ef31bf181bd1b0c06b5d6935853f1`.
 The materialized E3 include and checkpoint client have SHA256 values
 `c737dfa5ff273472b150f2aca1f25b8188129ad2f3188c7625c5fdd984c00725`
 and
