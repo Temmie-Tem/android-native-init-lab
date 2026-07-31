@@ -188,6 +188,39 @@ atomic decision before another live candidate is prepared.
 
 `docs/reports/A90_HOST_OBSERVATION_PARSER_RECURRENCE_ANALYSIS_H0_2026-07-31.md`
 
+## Selected Simplification: Resident Fast Handoff
+
+The ordinary A90 experiment path is now split from rare boot installation and
+recovery. The existing F1 orchestrator is frozen for one-time installation and
+exact recovery only. After a separately authorized native-init boot is
+promoted to a known-healthy resident baseline, repeated Debian experiments are
+intended to use a small D1 transaction with no candidate or rollback flash:
+
+```text
+exact resident preflight -> one handoff -> Debian observation
+-> changed USB epoch -> exact native return -> exact work cleanup -> health
+```
+
+The current F1 Process v2 cannot perform that promotion because its terminal
+PASS requires mandatory rollback. Leaving a candidate resident therefore
+requires one explicit policy change and reviewed promotion contract; no
+existing F1 approval may be reinterpreted. Until then exact V2321 remains
+resident and the D1 live runner stays inactive.
+
+The corrected Phase 2 display rootfs has been rebuilt twice as an A/B pair.
+Both 2 GiB images are byte-identical at SHA256
+`88152ef1150fc98765eed7c3f196ab9ef8a325d4cc5f74222e45949b089950c2`,
+and both contain the corrected static presenter at SHA256
+`35e6a18d50c73ef14b2309124d4dbe7f1cd0607f525afd992e6a6334c55dd583`.
+Read-only e2fsck passed for both, and the base and source inputs remained
+unchanged.
+
+The host-only qualifier emits `live_ready=false` and names every remaining
+promotion/D1 blocker. It has no device, transport, flash, approval, or execute
+mode. The reduced contract is recorded in:
+
+`docs/plans/A90_RESIDENT_FAST_HANDOFF_V1.md`
+
 ## Completed Bounded Unit: Phase 0 Build Determinism
 
 Phase 0 closed `A90_V3404_BUILD_DETERMINISM_PHASE0_HOST_PASS`. Two clean,

@@ -111,7 +111,7 @@ class A90Phase2CDisplayPacketTests(unittest.TestCase):
             self.assertEqual(pair["A"]["sha256"], pair["B"]["sha256"])
         self.assertEqual(
             result["debian"]["image_sha256"],
-            "394fc9e3db303ea41e48139a6f57b6559ddd868412d6b7b217d2765276e4d55c",
+            "88152ef1150fc98765eed7c3f196ab9ef8a325d4cc5f74222e45949b089950c2",
         )
         self.assertEqual(
             result["debian"]["presenters"]["A"]["sha256"],

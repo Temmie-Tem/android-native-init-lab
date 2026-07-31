@@ -19,16 +19,16 @@ helper_sha256 = "fa395d3ecb6944a57487f3966948a634596157e4de3fdc39575a2fc502d1cee
 engine_sha256 = "5b262978867bf98239e5d7e1b112f29b0217b59f057fc48c5b6e91d90eb5eaad"
 
 [debian]
-receipt = "workspace/private/outputs/a90-phase2-display-v1-ab-07-return-epoch-diagnostics/ab-receipt.json"
-receipt_sha256 = "dfd1bd121800a7e97a855c1c92af1dab21bcd77f84786d26bfaa024ce932abf7"
+receipt = "workspace/private/outputs/server-distro/a90-phase2-display-v1-ab-08-20260801/ab-receipt.json"
+receipt_sha256 = "8d8a4e017e171523b3a8236ad977201bdb1c1a26458084725c302e1292b09f84"
 manifest = "workspace/public/src/scripts/server-distro/phase2_display_v1/manifest.toml"
-manifest_sha256 = "84d5fe878d9102bf77afec612e7d06fef38fc7b729ecf2e45a93e22b44f32c95"
-image_a = "workspace/private/outputs/a90-phase2-display-v1-ab-07-return-epoch-diagnostics/A/phase2-display-v1.img"
-image_b = "workspace/private/outputs/a90-phase2-display-v1-ab-07-return-epoch-diagnostics/B/phase2-display-v1.img"
+manifest_sha256 = "fead4c45c42add75331cc93738177902f21aa18ea0f7e0e53098bec7b0d46d09"
+image_a = "workspace/private/outputs/server-distro/a90-phase2-display-v1-ab-08-20260801/A/phase2-display-v1.img"
+image_b = "workspace/private/outputs/server-distro/a90-phase2-display-v1-ab-08-20260801/B/phase2-display-v1.img"
 image_bytes = 2147483648
-image_sha256 = "394fc9e3db303ea41e48139a6f57b6559ddd868412d6b7b217d2765276e4d55c"
+image_sha256 = "88152ef1150fc98765eed7c3f196ab9ef8a325d4cc5f74222e45949b089950c2"
 filesystem_label = "PHASE2DISPLAYV1"
-presenter_sha256 = "71ef72d67cc42f6c5ce9b295b1ad8f9be2104e4b2a0f267b21d4ba28c876e77d"
+presenter_sha256 = "35e6a18d50c73ef14b2309124d4dbe7f1cd0607f525afd992e6a6334c55dd583"
 clean_absent_paths = [
   "/root/.ssh/authorized_keys",
   "/etc/dropbear/dropbear_ed25519_host_key",
@@ -45,7 +45,7 @@ flash_runner_sha256 = "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437
 staging_adapter = "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py"
 staging_adapter_sha256 = "97429b35f24250f73e2801ecd916ce459d9c80ed4ea824b8cc8f449a07c66ae9"
 orchestrator = "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py"
-orchestrator_sha256 = "41d4a1cddb47ad0bdd63ddce81dfbc94e96329804c746a872f1e16e7b63cadb0"
+orchestrator_sha256 = "5af458986ab0206281ccf5ce73189e499578c648536078f52264b264ec82d4d3"
 fixed_work_image = "/mnt/sdext/a90/runtime/d3-handoff-work.img"
 supported_live_cycles = ["v3403", "v3404", "v3405", "v3406"]
 
