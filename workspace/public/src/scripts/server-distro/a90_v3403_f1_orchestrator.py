@@ -1332,7 +1332,10 @@ def approved_bindings(
 ) -> dict[str, Any]:
     if (
         spec.manifest.get("schema")
-        != staging.expected_manifest_schema(spec.stage.run_id)
+        != staging.selected_manifest_schema(
+            spec.manifest,
+            spec.stage.run_id,
+        )
     ):
         raise ContractError("live F1 refuses a non-final manifest schema")
     if spec.manifest.get("status") != FINAL_MANIFEST_STATUS:

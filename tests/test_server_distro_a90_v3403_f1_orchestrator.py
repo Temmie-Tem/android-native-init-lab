@@ -1469,6 +1469,31 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         with self.assertRaisesRegex(f1.ContractError, "non-final"):
             f1.approved_bindings(spec, sample_args(), recovery=False)
 
+    def test_approved_binding_selects_exact_resident_schema(self) -> None:
+        spec = sample_spec()
+        spec.stage.run_id = "a90-v3406-debian-display-f1-20260731-01"
+        spec.manifest = {
+            "schema": f1.staging.RESIDENT_PROMOTION_MANIFEST_SCHEMA,
+            "status": f1.FINAL_MANIFEST_STATUS,
+            "resident_promotion": {},
+        }
+        args = sample_args()
+        args.approval = "resident-token"
+        prepared = {"approval_token": args.approval}
+        with mock.patch.object(
+            f1,
+            "load_approval_prepared",
+            return_value=prepared,
+        ):
+            self.assertIs(
+                f1.approved_bindings(spec, args, recovery=False),
+                prepared,
+            )
+
+            spec.manifest.pop("resident_promotion")
+            with self.assertRaisesRegex(f1.ContractError, "non-final"):
+                f1.approved_bindings(spec, args, recovery=False)
+
     def test_approved_binding_requires_fresh_exact_token(self) -> None:
         spec = sample_spec()
         with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
