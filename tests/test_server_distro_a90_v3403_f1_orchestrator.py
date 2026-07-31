@@ -1560,6 +1560,10 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             f1.sha256_file(f1.CDC_GUARD_PATH),
             f1.CDC_GUARD_SHA256,
         )
+        self.assertEqual(
+            f1.CDC_GUARD_PATH.stat().st_size,
+            f1.CDC_GUARD_SIZE,
+        )
 
     def test_rollback_recovery_reopens_binding_without_second_token(self) -> None:
         spec = sample_spec()

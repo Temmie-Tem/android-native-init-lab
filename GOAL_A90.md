@@ -77,7 +77,7 @@ transfer between the two files.
   never installs a persistent rule or stops ModemManager globally.
 - Related regression passes `332/332`; independent safety review returned GO
   with no blocking finding. The reviewed orchestrator SHA256 is
-  `27326f21928776d1da4b38298497148c77a4193df8716824305eae0a6416ee17`.
+  `aa0677077ddf82ed559a2b703e599ee05c3fa77f7023260d193c01c462b25b20`.
 - No new A90 live authority exists. The changed execution closure requires a
   fresh manifest, run directory, preflight, and exact F1 approval. The consumed
   `-03` approval and candidate must not be replayed.

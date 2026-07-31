@@ -45,7 +45,7 @@ flash_runner_sha256 = "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437
 staging_adapter = "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py"
 staging_adapter_sha256 = "6b2dd55dfb534e179a824370fed545147a4d48c9181aa5099e8b59f32b77a2f2"
 orchestrator = "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py"
-orchestrator_sha256 = "27326f21928776d1da4b38298497148c77a4193df8716824305eae0a6416ee17"
+orchestrator_sha256 = "aa0677077ddf82ed559a2b703e599ee05c3fa77f7023260d193c01c462b25b20"
 fixed_work_image = "/mnt/sdext/a90/runtime/d3-handoff-work.img"
 supported_live_cycles = ["v3403", "v3404", "v3405", "v3406"]
 

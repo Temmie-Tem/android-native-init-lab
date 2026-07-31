@@ -47,10 +47,10 @@ does not install a persistent udev rule.
 
 Reviewed execution identities:
 
-- orchestrator: `27326f21928776d1da4b38298497148c77a4193df8716824305eae0a6416ee17`
+- orchestrator: `aa0677077ddf82ed559a2b703e599ee05c3fa77f7023260d193c01c462b25b20`
 - resident promotion: `0e18d50ee059419b273f7af9d3735e8ac8c5ee49c825973f3c36f1adcc7a13c8`
 - CDC ACM guard: `6c8a6d2151928d2e098ca41b3c9dc24cdbbfabe9be10df19969be274744ef9a9`
-- Phase 2C contract: `2721a65246d92a52725ea8713444e94f103e824b90fdd94555fd3e945b9a102a`
+- Phase 2C contract: `38bf85a2abb38c199d73cc448d68f7cfcf4155d8fa3cec14c6126cab15adcf5b`
 
 ## Authority after closure
 

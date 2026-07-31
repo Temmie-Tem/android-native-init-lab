@@ -99,7 +99,7 @@ NATIVE_FLASH_PATH = (REVAL_DIR / "native_init_flash.py").resolve()
 CDC_GUARD_PATH = (
     REVAL_DIR / "device_action_cdc_acm_observer_v1.py"
 ).resolve()
-CDC_GUARD_SIZE = 51304
+CDC_GUARD_SIZE = 51402
 CDC_GUARD_SHA256 = "6c8a6d2151928d2e098ca41b3c9dc24cdbbfabe9be10df19969be274744ef9a9"
 STAGING_PATH = (SCRIPT_DIR / "a90_v3403_absent_only_staging.py").resolve()
 OBSERVATION_OUTPUT_MARKERS = (
@@ -5924,7 +5924,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         if token not in source:
             issues.append(f"missing function: {token}")
     for token in (
-        "CDC_GUARD_SIZE = 51304",
+        "CDC_GUARD_SIZE = 51402",
         'CDC_GUARD_SHA256 = "6c8a6d2151928d2e098ca41b3c9dc24cdbbfabe9be10df19969be274744ef9a9"',
     ):
         if token not in source:
