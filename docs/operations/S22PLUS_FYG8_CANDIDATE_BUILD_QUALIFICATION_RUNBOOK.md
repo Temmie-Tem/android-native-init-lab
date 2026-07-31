@@ -451,6 +451,24 @@ Require:
 Only then run the Process v2 offline promotion. Offline promotion still creates
 no D0/F1 binding or authority.
 
+For P2.92, invoke the versioned adapter rather than the historical P2.34 CLI
+directly:
+
+```bash
+PYTHONPATH=workspace/public/src/scripts/revalidation \
+python3 workspace/public/src/scripts/revalidation/\
+prepare_s22plus_fyg8_p292_process_v2.py \
+  --candidate-static <new-P2.92-static-result> \
+  --candidate-ap <exact-P2.92-AP.tar.md5> \
+  --out <new-P2.92-process-v2-directory>
+```
+
+The adapter contains no promotion logic of its own. It binds the reviewed
+common implementation to the P2.92 candidate-static checker and the P2.92 E2
+stock-closure selector. The historical CLI defaults remain P2.34-bound and
+must not be used directly for P2.92. Require a nonexistent output directory,
+the P2.92 static schema/verdict, and `ready_manifest_created=false`.
+
 When a candidate adds a bounded runtime control lifecycle, a later ready
 manifest must consume a versioned timing receipt produced by the exact runtime
 harness. The receipt must bind raw samples, runtime/tool hashes, a reviewed

@@ -88,6 +88,14 @@ and passes a two-build byte-identical AArch64 compile/ELF/strip/QEMU smoke.
 This proof reports `static_attempt_started=false` and grants no retry,
 promotion, manifest, D0, or F1 authority.
 
+The remaining offline-promotion invocation is now deterministic as H0
+preparation. A thin P2.92 adapter binds the unchanged common promotion
+implementation to the P2.92 candidate checker and P2.92 stock-closure
+selector; the historical direct CLI is P2.34-bound. Thirty-eight focused
+P2.92/common Process-v2 tests pass, the adapter is outside all 93 payload keys
+and the frozen implementation, and the frozen guard remains `51/50/0`. No
+stopped static or promotion attempt was replayed.
+
 The four formal Process-v2 verdicts remain
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: rollback and health evidence are
 unchanged, while restart-helper dispatch and every later E3 boundary remain

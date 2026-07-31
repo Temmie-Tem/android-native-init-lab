@@ -122,3 +122,24 @@ byte-identical smoke binary. Its safety result explicitly records
 `static_attempt_started=false`, `promotion_started=false`, and no D0/F1
 authority. This closes the PATH recurrence mechanism but does not authorize a
 second static attempt.
+
+## Offline-promotion adapter closure
+
+The H0 readiness audit also found that the historical
+`prepare_s22plus_fyg8_p234_process_v2.py` CLI remains directly bound to the
+P2.34 candidate checker and the historical E2 closure selector. Its common
+implementation supports the P2.92 evidence model, but invoking that CLI
+directly would reject the P2.92 static schema or source-contract ID before
+creating promotion evidence.
+
+`prepare_s22plus_fyg8_p292_process_v2.py` is a logic-free version adapter. It
+binds that unchanged common implementation to the P2.92 static checker and
+`s22plus_fyg8_p292_e2_stock_closure`, while retaining the existing promotion
+schema, safety result, and `O_EXCL` evidence writes. The adapter and its focused
+test are outside all 93 payload source keys and outside the frozen 51-entry
+qualification implementation. Thirty-eight focused P2.92 and common
+Process-v2 tests pass; the frozen mutation guard remains `51/50/0`.
+
+This closes a future promotion-command ambiguity only. It does not execute or
+authorize the stopped formal static replay, offline promotion, manifest, D0,
+or F1.
