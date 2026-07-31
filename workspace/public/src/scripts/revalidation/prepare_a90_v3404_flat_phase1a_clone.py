@@ -75,12 +75,14 @@ def export_head(output: Path) -> None:
 def copy_inputs(output: Path) -> dict[str, str]:
     copied: dict[str, str] = {}
     boot_root = output / "workspace/private/inputs/boot_images"
-    boot_root.mkdir(parents=True, mode=0o700)
+    boot_root.mkdir(parents=True, exist_ok=True, mode=0o700)
     for name in BOOT_NAMES:
         source = REPO_ROOT / "workspace/private/inputs/boot_images" / name
         target = boot_root / name
         if not source.is_file() or source.is_symlink():
             raise RuntimeError(f"invalid boot input: {source}")
+        if target.exists() or target.is_symlink():
+            raise RuntimeError(f"clone boot target already exists: {target}")
         digest = sha256(source)
         expected = EXPECTED_BOOT_SHA256.get(name)
         if expected and digest != expected:
