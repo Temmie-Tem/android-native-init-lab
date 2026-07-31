@@ -28,8 +28,9 @@ The four formal Process-v2 verdicts remain
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: rollback and health evidence are
 unchanged, while restart-helper dispatch and every later E3 boundary remain
 unproved. This is observation-channel recovery, not E3 progress. The next
-successor must repair and exhaustively prove `ACCEPT_TO_RESUME_CLOSURE` before
-identity, Full-LTO, manifest, D0, or another F1 is considered.
+successor must repair and exhaustively prove `ACCEPT_TO_RESUME_CLOSURE`, its
+full 107-position cumulative walk, and separate checkpoint-errno observability
+before identity, Full-LTO, manifest, D0, or another F1 is considered.
 
 The live transaction exercised the durable recovery design. Initial rollback
 endpoint discovery stopped on a measured USB membership race. Rollback-only
@@ -356,6 +357,9 @@ corrected A/B pair then matched.
   `generation=88/stage=0x8f/PROGRESS/item=0/detail=0xc18`, and all inherited the
   same writer/state spans. Native replay returns exact pre-mutation `-ESTALE`;
   the detail-zero positive control advances to generation 89.
+- The same four runs establish a stable live prefix baseline: all 88 declared
+  positions through generation 88 committed in four independent boots. Any
+  repaired successor divergence before that tuple is a new regression signal.
 - The successor load-bearing gate is `ACCEPT_TO_RESUME_CLOSURE`: every accepted
   nonterminal committed state must be byte-exactly representable and resumable
   by kernel writer, userspace client, model, and decoder.
@@ -606,12 +610,20 @@ operations before the asserted publication boundaries.
 4. Design and fault-test exact active-slot retention, including seed
    initialization and update after every successful commit.
 5. Prove `ACCEPT_TO_RESUME_CLOSURE` exhaustively across kernel writer,
-   userspace client, model, and decoder, including every declared successor.
-6. Prove the inherited 87-position detail-zero prefix remains byte-identical,
+   userspace client, model, and decoder. Then prove
+   `ACCEPT_TO_RESUME_SEQUENCE_WALK` by continuously walking the exact
+   runtime-derived 107-position stream from seed through terminal without
+   resetting state, including a producer-derived runtime-reachable walk with
+   consecutive nonzero-detail progress records.
+6. Separately prove `CHECKPOINT_ERRNO_OBSERVABILITY`: preserve exact returned
+   errno and produce bounded causal evidence before every park.
+7. Prove the inherited 87-position detail-zero prefix remains byte-identical,
    preserve valid nonzero progress detail, and retain fail-closed corruption
    handling. Do not add deferred-close or child-observer machinery for this
    incident.
-7. No new S22+ device action or F1 request is permitted by the closed P2.90
+8. Treat the four-run generation-88 tuple as the live prefix baseline; any
+   earlier successor divergence is a new regression, not the known defect.
+9. No new S22+ device action or F1 request is permitted by the closed P2.90
    unit. A successor requires fresh H0 design, identity, A/B, manifest, D0, and
    exact approval.
 

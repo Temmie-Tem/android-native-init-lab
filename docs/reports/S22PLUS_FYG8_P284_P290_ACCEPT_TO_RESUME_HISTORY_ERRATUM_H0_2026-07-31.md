@@ -201,6 +201,27 @@ audits, Full-LTO receipts, transfer counts, rollback evidence, and final-health
 evidence remain valid. They are no longer evidence for the cause of the
 post-`0x8f` silence.
 
+## Stable prefix baseline asset
+
+The four live boots independently accepted and committed the complete declared
+prefix through ordinal 87, reaching the same CRC-valid generation-88 tuple:
+
+```text
+generation=88 / stage=0x8f / outcome=PROGRESS / item=0 / detail=0xc18
+```
+
+This is a positive reproducibility asset, not only a repeated failure record.
+The retained position sequence through generation 88 advanced deterministically
+across four candidate boots. P2.86 and its successors give the final `0x8f`
+record the stronger parent-suspended meaning; that semantic strengthening does
+not weaken the repeated wire-position baseline.
+
+For a repaired successor, any missing, changed, or earlier terminal record
+before generation 88 is a new regression signal. It must not be explained as
+the known post-generation-88 `-ESTALE`. Reaching the exact baseline again only
+re-establishes the stable prefix; generation 89 or later is still required for
+new E3 evidence.
+
 ## General gate: accept-to-resume closure
 
 The successor gate is named:
@@ -238,6 +259,51 @@ The same closure must be checked in both directions:
 Simple encodability, request acceptance, table equality, decode success, or
 producer reachability alone does not prove this property.
 
+### Full-sequence cumulative walk
+
+The one-step closure proof is necessary but not sufficient. A second gate,
+`ACCEPT_TO_RESUME_SEQUENCE_WALK`, must detect state corruption that accumulates
+only after multiple commits.
+
+The host harness must derive the exact 107-position request stream from the
+same runtime-producer source of truth, including the detail value that runtime
+would publish at each position. Starting from the seed record, its canonical
+success walk must execute the materialized writer continuously through the
+declared terminal position without resetting kernel state, retained bytes,
+file position, model, or decoder between writes. After every write it must
+prove:
+
+1. the expected generation and position committed;
+2. kernel expected state reproduces the active slot byte-for-byte;
+3. model and decoder accept the same post-commit state; and
+4. the next declared write advances without active-slot `-ESTALE`.
+
+The suite must contain at least one runtime-reachable walk with consecutive
+nonzero-detail progress records so a two-step form of the inherited defect
+cannot hide behind an isolated positive case. That vector may follow a
+diagnostic branch, but it must be producer-derived rather than a hand-written
+tuple sequence. The existing exhaustive one-step domain proof remains
+required; the sequence walk complements it rather than replacing it.
+
+## Independent errno observability gate
+
+Closure proves that the layers agree in the nominal and enumerated state space.
+It does not prove that a disagreement is observable. The successor therefore
+also requires a separate gate:
+
+```text
+CHECKPOINT_ERRNO_OBSERVABILITY
+```
+
+Every nonzero checkpoint open/write/close result exercised by fault injection
+must preserve its exact errno and reach a distinct host-verifiable
+classification or explicitly specified checkpoint-channel-failure record
+before parking. A route equivalent to `if (rc != 0) quiet_park()` without
+durable causal evidence fails this gate. Primary and fallback publication
+errors must be tested separately. If the retained channel cannot report its
+own failure, the design must bind another bounded evidence carrier; passing
+`ACCEPT_TO_RESUME_CLOSURE` cannot substitute for this property.
+
 ## Repair constraints
 
 The preferred repair is to retain the exact expected active slot in kernel
@@ -270,6 +336,7 @@ dispatch or any later E3 boundary.
 
 The deferred-close and child-observer proposals are withdrawn for this
 incident. A successor must first repair and exhaustively prove
-`ACCEPT_TO_RESUME_CLOSURE`, derive a new identity, and complete ordinary
+`ACCEPT_TO_RESUME_CLOSURE`, `ACCEPT_TO_RESUME_SEQUENCE_WALK`, and
+`CHECKPOINT_ERRNO_OBSERVABILITY`, derive a new identity, and complete ordinary
 Full-LTO/static/package closure. Only a later fresh F1 can observe the first
 real boundary after `0x8f`.
