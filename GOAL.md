@@ -399,29 +399,24 @@ corrected A/B pair then matched.
   handoff retained a per-owner `-EBUSY` after its final owner rescan reached
   zero, so `switch_root` was not reached. Candidate/rollback are `1/1`, no
   replay, exact V2321 health is restored, and the run is closed.
-- A90 V3404 run `a90-v3404-debian-f1-20260731-01` is closed healthy/no-proof.
-  One candidate and one exact V2321 rollback transferred with no replay.
-  Strict display cleanup, absent-only work-copy verification, loop mount,
-  proc/sys movement, dev preparation, and `exec_switch_root_now` passed; the
-  Debian sysvinit SELinux warning followed. No SSH PID1 marker or automatic
-  candidate return was observed by the live contract.
-  Operator reboot recovered exact V3404, and rollback write/readback then
-  completed once. USB re-enumeration changed only the transient tty realpath.
-  An independently reviewed, hash-bound no-transfer closure performed exact
-  V2321 D0 health reads and closed the journal without reinvoking rollback.
-  The final result is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, counts `1/1`,
-  canonical eight events, and no live authority. Host comparison rejects a
-  missing firstboot/init payload; the 2026-07-03 switch-root pass remains valid.
-  A later bounded D0 read-only preservation of the still-present work image
-  produced an exact 2 GiB host copy. Offline evidence now proves this V3404
-  handoff itself made Debian sysvinit PID1 and completed firstboot:
-  `/run/a90-d3-marker` records `proc1_exe=/usr/sbin/init`, and Dropbear started.
-  The formal transaction remains closed no-proof because its live SSH contract
-  failed. Host logs attribute that timeout to a missing fixed NCM profile after
-  candidate re-enumeration. The 120-second child entered global `sync`; reboot
-  exec remains unproved. Offline closure excludes a missing reboot binary.
-  D0 proves sysrq enabled and the hardware watchdog active but kernel-petted,
-  so it is not a userspace-hang backstop; softdog was not opened.
+- A90 V3404 run `a90-v3404-debian-f1-20260731-01` is closed healthy/no-proof
+  with candidate/rollback `1/1`, no replay, and exact V2321 final health.
+  Offline preservation of its 2 GiB work image proves Debian sysvinit PID1,
+  firstboot, `/usr/sbin/init`, and Dropbear. Its live SSH contract failed after
+  NCM profile loss, and the 120-second child entered global `sync`; reboot exec
+  remains unproved. D0 excludes a missing reboot binary and proves sysrq
+  enabled plus an active but kernel-petted hardware watchdog.
+- A90 V3405 run `a90-v3405-debian-f1-20260731-01` is closed healthy/no-proof
+  with candidate/rollback `1/1`, no replay, one handoff, and exact V2321 final
+  health. All four immutable source hashes and `exec_switch_root_now` passed.
+  Live USB-local SSH then proved `pid1_comm=init`, a distro init executable,
+  `dropbear_started=1`, and the Debian marker in two attempts. The no-sync
+  supervisor returned to the exact healthy candidate, as required before the
+  from-native rollback, so the former global-sync return failure is bypassed.
+  Formal observation remains no-proof because the first candidate-return
+  channel check lost `A90P1 END`; retained-pmsg collection was therefore not
+  reached. The first rollback health check also met menu corruption, after
+  which health-only recovery performed no transfer and closed exact V2321.
 
 Load-bearing current reports:
 
@@ -436,6 +431,7 @@ Load-bearing current reports:
 - `docs/reports/A90_V3404_D3_WORK_COPY_POSTMORTEM_DEBIAN_PID1_PROVEN_2026-07-31.md`
 - `docs/reports/A90_V3405_D3_SYNC_DECISION_SUPERVISOR_H0_2026-07-31.md`
 - `docs/reports/A90_V3405_F1_RETAINED_PMSG_NCM_REBIND_H0_2026-07-31.md`
+- `docs/reports/A90_V3405_DEBIAN_PID1_F1_CLOSED_2026-07-31.md`
 - `docs/reports/S22PLUS_FYG8_P284_CONTROLLED_SUSPEND_F1_CLOSED_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_POST_SUSPEND_RESTART_GAP_FOCUSED_ANALYSIS_H0_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_STOCK_OUTER_D1_V2_LIVE_NO_PROOF_2026-07-29.md`
@@ -657,10 +653,12 @@ The A90 branch proceeds independently:
    firstboot; do not classify it as an image-payload or SELinux-init failure.
 10. Preserve the independently reviewed V3405 no-sync parent supervisor and
     exact private H0 image; its artifact-build GO is not live authority.
-11. Preserve the reviewed V3405 observer, NCM rebind, and completed exact
-    retained-work cleanup. Fresh D0 now proves all three paths absent, and the
-    final V3405 F1 manifest/approval is prepared. One fresh exact F1 token is
-    the next gate; no prior cleanup or F1 token is reusable.
+11. Preserve closed V3405 run `a90-v3405-debian-f1-20260731-01`, both consumed
+    approvals, candidate/rollback `1/1`, one handoff, live SSH Debian PID1,
+    automatic healthy candidate return, and exact V2321 final health. Preserve
+    its formal no-proof distinction: the first return-channel frame failed
+    before retained-pmsg collection. No approval is reusable and no A90 live
+    authority remains.
 
 No device step is added when H0 can answer the question.
 

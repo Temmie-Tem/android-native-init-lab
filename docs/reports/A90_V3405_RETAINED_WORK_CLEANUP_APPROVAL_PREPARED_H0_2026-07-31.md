@@ -2,7 +2,7 @@
 
 Date: 2026-07-31
 
-Status: `CLEANUP_PASS_F1_APPROVAL_PREPARED_AWAITING_EXACT_OPERATOR_ACK`
+Status: `CLEANUP_PASS_F1_APPROVAL_CONSUMED_BY_CLOSED_SUCCESSOR`
 
 ## Scope
 
@@ -178,12 +178,11 @@ manifest SHA256 is:
 One exclusive F1 approval receipt was prepared with `device_contact=false`,
 `device_write=false`, `f1_authorized=false`, and `live_authorized=false`.
 
-## Next gate
+## Successor disposition
 
-The next action is one fresh exact acknowledgement of the prepared F1 token.
-It authorizes one boot-only candidate attempt, its bounded attended V3405
-Debian handoff/retained-pmsg observation, and the mandatory exact V2321
-rollback after candidate execution begins.
+The prepared F1 token was acknowledged exactly once and consumed by run
+`a90-v3405-debian-f1-20260731-01`. The candidate, attended handoff, mandatory
+rollback, and final health closure are recorded separately in
+`A90_V3405_DEBIAN_PID1_F1_CLOSED_2026-07-31.md`.
 
-Missing Debian or retained-pmsg proof remains no-proof and cannot suppress the
-rollback. No cleanup approval or earlier F1 token is reusable.
+No cleanup, F1, or attended-continuation approval is reusable.
