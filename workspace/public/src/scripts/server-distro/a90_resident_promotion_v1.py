@@ -546,15 +546,36 @@ def _validate_debian_receipt(
         debian_ab = fast.validate_ab_receipt(bound.path)
     except (ContractError, ImportError, OSError, RuntimeError) as exc:
         raise ContractError("Debian A/B receipt is not exact") from exc
+    rootfs = _dict(spec.manifest.get("debian_rootfs"), "debian_rootfs")
+    keyed_source = _dict(
+        rootfs.get("keyed_source"),
+        "debian_rootfs.keyed_source",
+    )
+    materialization_label = "debian_rootfs.keyed_source.materialization"
+    manifest_materialization = base.private_bound_file(
+        keyed_source.get("materialization"),
+        materialization_label,
+    )
+    closure_materialization = base.bound_by_label(
+        spec.stage,
+        materialization_label,
+    )
+    if manifest_materialization != closure_materialization:
+        raise ContractError("keyed rootfs materialization left the bound closure")
+    if (
+        keyed_source.get("size") != spec.stage.local_size
+        or keyed_source.get("sha256") != spec.stage.local_sha256
+        or spec.stage.local_size != fast.EXPECTED_IMAGE_BYTES
+        or spec.stage.local_sha256 == fast.EXPECTED_IMAGE_SHA256
+    ):
+        raise ContractError("resident promotion requires a fresh keyed rootfs")
     slots = _dict(debian_ab.get("slots"), "debian_ab_receipt.slots")
     for slot_name in ("A", "B"):
         slot = _dict(slots.get(slot_name), f"debian_ab_receipt slot {slot_name}")
         image = _dict(slot.get("image"), f"debian_ab_receipt slot {slot_name} image")
         if (
             image.get("bytes") != fast.EXPECTED_IMAGE_BYTES
-            or image.get("bytes") != spec.stage.local_size
             or image.get("sha256") != fast.EXPECTED_IMAGE_SHA256
-            or image.get("sha256") != spec.stage.local_sha256
         ):
             raise ContractError("Debian A/B receipt rootfs identity changed")
     if (
@@ -569,7 +590,9 @@ def _validate_debian_receipt(
     return {
         "path": str(bound.path),
         "sha256": bound.sha256,
+        "clean_rootfs_sha256": fast.EXPECTED_IMAGE_SHA256,
         "rootfs_sha256": spec.stage.local_sha256,
+        "keyed_materialization_sha256": closure_materialization.sha256,
         "deterministic_ab": True,
     }
 

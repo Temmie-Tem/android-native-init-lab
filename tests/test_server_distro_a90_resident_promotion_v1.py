@@ -64,7 +64,12 @@ class ResidentPromotionV1Tests(unittest.TestCase):
         prior_run_id = "a90-v3406-debian-display-f1-20260801-99"
         candidate_sha = "1" * 64
         rollback_sha = "2" * 64
-        rootfs_sha = fast.EXPECTED_IMAGE_SHA256
+        rootfs_sha = "3" * 64
+        materialization = self.write_json(
+            root,
+            "keyed-rootfs-summary.json",
+            {"schema": "a90-phase2d-keyed-rootfs-v1"},
+        )
         prior_manifest_value = {
             "schema": base.staging.FINAL_MANIFEST_SCHEMA,
             "status": base.staging.FINAL_MANIFEST_STATUS,
@@ -104,7 +109,13 @@ class ResidentPromotionV1Tests(unittest.TestCase):
                 "only_partition_payload": "boot",
                 "forbidden_partition_writes": True,
             },
-            "debian_rootfs": {"keyed_source": {"sha256": rootfs_sha}},
+            "debian_rootfs": {
+                "keyed_source": {
+                    "size": fast.EXPECTED_IMAGE_BYTES,
+                    "sha256": rootfs_sha,
+                    "materialization": materialization,
+                }
+            },
             "observation": {
                 "mode": base.UNATTENDED_OBSERVATION_MODE,
                 "attended_window_sec": 0,
@@ -358,7 +369,10 @@ class ResidentPromotionV1Tests(unittest.TestCase):
             "debian_ab_receipt": receipt,
         }
         spec = SimpleNamespace(
-            manifest={"resident_promotion": resident},
+            manifest={
+                "resident_promotion": resident,
+                "debian_rootfs": prior_manifest_value["debian_rootfs"],
+            },
             candidate=SimpleNamespace(sha256=candidate_sha),
             rollback=SimpleNamespace(sha256=rollback_sha),
             candidate_version="0.10.0",
@@ -374,6 +388,14 @@ class ResidentPromotionV1Tests(unittest.TestCase):
                 local_sha256=rootfs_sha,
                 bridge_device="/dev/serial/by-id/fake-a90",
                 bridge_realpath="/dev/ttyACM0",
+                bound_files=(
+                    promotion.staging.BoundFile(
+                        label="debian_rootfs.keyed_source.materialization",
+                        path=Path(materialization["path"]),
+                        size=materialization["size"],
+                        sha256=materialization["sha256"],
+                    ),
+                ),
             ),
         )
         return spec
@@ -416,6 +438,33 @@ class ResidentPromotionV1Tests(unittest.TestCase):
         self.assertEqual(value["prior_closed_run"]["candidate_transfer_count"], 1)
         self.assertEqual(value["prior_closed_run"]["rollback_transfer_count"], 1)
         self.assertTrue(value["debian_ab_receipt"]["deterministic_ab"])
+        self.assertNotEqual(
+            value["debian_ab_receipt"]["rootfs_sha256"],
+            value["debian_ab_receipt"]["clean_rootfs_sha256"],
+        )
+
+    def test_clean_unkeyed_image_is_rejected_as_resident_input(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            spec = self.fixture(Path(tmp))
+            spec.stage.local_sha256 = fast.EXPECTED_IMAGE_SHA256
+            spec.manifest["debian_rootfs"]["keyed_source"]["sha256"] = (
+                fast.EXPECTED_IMAGE_SHA256
+            )
+            with self.assertRaisesRegex(
+                promotion.ContractError,
+                "fresh keyed rootfs",
+            ):
+                self.validate(spec)
+
+    def test_keyed_materialization_must_remain_in_bound_closure(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            spec = self.fixture(Path(tmp))
+            spec.stage.bound_files = ()
+            with self.assertRaisesRegex(
+                base.ContractError,
+                "bound closure",
+            ):
+                self.validate(spec)
 
     def test_prior_candidate_mismatch_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:

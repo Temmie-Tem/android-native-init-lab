@@ -187,15 +187,8 @@ class RetainedWorkCleanupTests(unittest.TestCase):
             "WORK_SIZE",
             self.fixture.work_size,
         )
-        self.sha_patch = mock.patch.object(
-            cleanup,
-            "WORK_SHA256",
-            self.fixture.work_sha,
-        )
         self.size_patch.start()
-        self.sha_patch.start()
         self.addCleanup(self.size_patch.stop)
-        self.addCleanup(self.sha_patch.stop)
 
     def tearDown(self) -> None:
         self.temp.cleanup()
@@ -219,23 +212,29 @@ class RetainedWorkCleanupTests(unittest.TestCase):
             sha256_file(cleanup.A90CTL_SOURCE),
         )
         self.assertEqual(
+            prepared["approval_binding"]["work_sha256"],
+            self.fixture.work_sha,
+        )
+        self.assertEqual(
             (self.fixture.run_dir / "approval-prepared.json").stat().st_mode
             & 0o777,
             0o600,
         )
         self.assertFalse(prepared["live_authorized"])
 
-    def test_live_profile_is_exactly_v3406_and_current_work_hash(self) -> None:
+    def test_live_profile_is_exactly_v3406_and_manifest_bound_work_hash(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
         for token in (
             'APPROVAL_PREFIX = "A90-V3406-WORK-CLEANUP-APPROVE:"',
-            'WORK_SHA256 = "d1353db59571c3ca4b8be14fed0d19e4a46217ded285e7ceb62ac85b1c6f94c0"',
+            '"work_image.sha256"',
+            '"work_sha256": spec.work_sha256',
             'r"^a90-v3406-work-cleanup-[0-9]{8}-[0-9]{2}$"',
             'r"^a90-v3406-debian-display-f1-',
             "debian-bookworm-arm64-phase2-display-v3406-keyed-",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, source)
+        self.assertNotIn("WORK_SHA256", source)
 
     def test_connected_d0_requires_one_exact_a90_and_selected_run(self) -> None:
         value = json.loads(self.fixture.connected.read_text(encoding="utf-8"))
@@ -267,6 +266,12 @@ class RetainedWorkCleanupTests(unittest.TestCase):
         )
         self.fixture.write_manifest()
         with self.assertRaisesRegex(cleanup.ContractError, "size/hash mismatch"):
+            self.fixture.load()
+
+    def test_manifest_work_hash_must_equal_preserved_bytes(self) -> None:
+        self.fixture.manifest["work_image"]["sha256"] = "f" * 64
+        self.fixture.write_manifest()
+        with self.assertRaisesRegex(cleanup.ContractError, "exact work image"):
             self.fixture.load()
 
     def test_manifest_rejects_transport_hash_drift(self) -> None:
@@ -358,6 +363,7 @@ class RetainedWorkCleanupTests(unittest.TestCase):
         )
         self.assertEqual(result["dispatch_count"], 1)
         self.assertFalse(result["cleanup_retransmitted"])
+        self.assertEqual(result["work_sha256"], self.fixture.work_sha)
 
     def test_lost_response_reconciles_read_only_without_redispatch(self) -> None:
         spec = self.fixture.load()

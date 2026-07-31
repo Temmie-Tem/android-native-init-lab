@@ -59,7 +59,6 @@ A90CTL_SOURCE = (REVAL_DIR / "a90ctl.py").resolve()
 WORK_PATH = "/mnt/sdext/a90/runtime/d3-handoff-work.img"
 WORK_SIZE = 2147483648
 WORK_MODE = "0600"
-WORK_SHA256 = "d1353db59571c3ca4b8be14fed0d19e4a46217ded285e7ceb62ac85b1c6f94c0"
 EXPECTED_VERSION = "0.9.285"
 EXPECTED_BUILD = "v2321-usb-clean-identity-rodata"
 EXPECTED_VENDOR_PRODUCT = "04e8:6861"
@@ -109,6 +108,7 @@ class CleanupSpec:
     bridge_realpath_sha256: str
     usb_serial_sha256: str
     host_copy: BoundFile
+    work_sha256: str
     source_path: str
     stage_path: str
 
@@ -375,16 +375,19 @@ def load_manifest(path: Path, expected_sha256: str) -> CleanupSpec:
         raise ContractError("connected D0 and cleanup target identity differ")
 
     work_item = require_dict(manifest.get("work_image"), "work_image")
+    work_sha256 = validate_sha256(
+        work_item.get("sha256"),
+        "work_image.sha256",
+    )
     if (
         work_item.get("device_path") != WORK_PATH
         or work_item.get("size") != WORK_SIZE
         or work_item.get("mode") != WORK_MODE
-        or work_item.get("sha256") != WORK_SHA256
     ):
         raise ContractError("work-image contract is not exact")
     host_copy = load_bound(work_item.get("host_preservation"), "host_preservation")
     require_private_regular(host_copy.path)
-    if host_copy.size != WORK_SIZE or host_copy.sha256 != WORK_SHA256:
+    if host_copy.size != WORK_SIZE or host_copy.sha256 != work_sha256:
         raise ContractError("host preservation is not the exact work image")
     if host_copy.path.is_relative_to(run_root):
         raise ContractError("host preservation must remain outside cleanup run")
@@ -421,6 +424,7 @@ def load_manifest(path: Path, expected_sha256: str) -> CleanupSpec:
         bridge_realpath_sha256=bridge_realpath_sha256,
         usb_serial_sha256=usb_serial_sha256,
         host_copy=host_copy,
+        work_sha256=work_sha256,
         source_path=source_path,
         stage_path=stage_path,
     )
@@ -439,7 +443,7 @@ def approval_binding(spec: CleanupSpec) -> dict[str, Any]:
         "device_path": WORK_PATH,
         "size": WORK_SIZE,
         "mode": WORK_MODE,
-        "work_sha256": WORK_SHA256,
+        "work_sha256": spec.work_sha256,
         "host_preservation_sha256": spec.host_copy.sha256,
         "read_timeout_sec": int(READ_TIMEOUT_SEC),
         "cleanup_timeout_sec": int(CLEANUP_TIMEOUT_SEC),
@@ -454,7 +458,7 @@ def approval_path(spec: CleanupSpec) -> Path:
 
 def prepare_approval(spec: CleanupSpec) -> dict[str, Any]:
     host_sha, host_stat = hash_open_regular(spec.host_copy.path)
-    if host_stat.st_size != WORK_SIZE or host_sha != WORK_SHA256:
+    if host_stat.st_size != WORK_SIZE or host_sha != spec.work_sha256:
         raise ContractError("host preservation changed before approval preparation")
     binding = approval_binding(spec)
     binding_sha = json_sha256(binding)
@@ -720,7 +724,7 @@ def run_read_preflight(
             WORK_PATH,
             spec.source_path,
             spec.stage_path,
-            WORK_SHA256,
+            spec.work_sha256,
         ],
     )
     text = require_protocol_ok(result, "work-image preflight")
@@ -803,7 +807,7 @@ def execute_cleanup(
     before_health = health_preflight(host, port, read_timeout)
     before_remote = run_read_preflight(spec, host, port, cleanup_timeout)
     host_sha, host_stat = hash_open_regular(spec.host_copy.path)
-    if host_stat.st_size != WORK_SIZE or host_sha != WORK_SHA256:
+    if host_stat.st_size != WORK_SIZE or host_sha != spec.work_sha256:
         raise ContractError("host preservation changed before dispatch")
     if transaction_dir.exists():
         raise ContractError("transaction directory appeared during preflight")
@@ -826,7 +830,7 @@ def execute_cleanup(
         "host_preservation_sha256": host_sha,
         "transport_sha256": spec.transport.sha256,
         "device_path": WORK_PATH,
-        "work_sha256": WORK_SHA256,
+        "work_sha256": spec.work_sha256,
         "dispatch_limit": 1,
         "retry_forbidden": True,
     }
@@ -859,7 +863,7 @@ def execute_cleanup(
                 cleanup_script(),
                 "sh",
                 WORK_PATH,
-                WORK_SHA256,
+                spec.work_sha256,
                 spec.source_path,
                 spec.stage_path,
             ],
@@ -936,6 +940,7 @@ def execute_cleanup(
         "post_error": post_error,
         "effect_proven": effect_proven,
         "post_health_proven": post_health_proven,
+        "work_sha256": spec.work_sha256,
         "host_preservation_sha256": host_sha,
         "device_write": True,
         "deleted_path": WORK_PATH if effect_proven else None,
@@ -958,7 +963,7 @@ def inspect(spec: CleanupSpec) -> dict[str, Any]:
         "runner_sha256": spec.runner.sha256,
         "transport_sha256": spec.transport.sha256,
         "connected_d0_sha256": spec.connected_d0.sha256,
-        "work_sha256": WORK_SHA256,
+        "work_sha256": spec.work_sha256,
         "host_preservation_sha256": spec.host_copy.sha256,
         "ready_for_approval_preparation": True,
         "device_contact": False,

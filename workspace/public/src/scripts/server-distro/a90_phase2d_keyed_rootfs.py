@@ -37,21 +37,23 @@ PRIVATE_RUN_BASE = PRIVATE_ROOT / "runs" / "server-distro"
 CLEAN_IMAGE = (
     PRIVATE_ROOT
     / "outputs"
-    / "a90-phase2-display-v1-ab-07-return-epoch-diagnostics"
+    / "server-distro"
+    / "a90-phase2-display-v1-ab-08-20260801"
     / "A"
     / "phase2-display-v1.img"
 )
 CLEAN_RECEIPT = (
     PRIVATE_ROOT
     / "outputs"
-    / "a90-phase2-display-v1-ab-07-return-epoch-diagnostics"
+    / "server-distro"
+    / "a90-phase2-display-v1-ab-08-20260801"
     / "ab-receipt.json"
 )
 CLEAN_IMAGE_SHA256 = (
-    "394fc9e3db303ea41e48139a6f57b6559ddd868412d6b7b217d2765276e4d55c"
+    "88152ef1150fc98765eed7c3f196ab9ef8a325d4cc5f74222e45949b089950c2"
 )
 CLEAN_RECEIPT_SHA256 = (
-    "dfd1bd121800a7e97a855c1c92af1dab21bcd77f84786d26bfaa024ce932abf7"
+    "8d8a4e017e171523b3a8236ad977201bdb1c1a26458084725c302e1292b09f84"
 )
 IMAGE_BYTES = 2 * 1024 * 1024 * 1024
 FILESYSTEM_LABEL = "PHASE2DISPLAYV1"

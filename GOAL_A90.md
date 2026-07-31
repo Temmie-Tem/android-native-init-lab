@@ -28,8 +28,19 @@ transfer between the two files.
 - No cleanup, F1, attended continuation, resident-baseline installation, or
   other live approval exists.
 - A90 resident boot-promotion v1 has an independently reviewed H0 runner. It
-  has no final manifest, connected preflight, approval, or device authority;
-  exact V2321 remains resident.
+  has no final manifest, approval, or device authority; exact V2321 remains
+  resident. Its Debian gate now distinguishes the deterministic clean A/B
+  base from the fresh per-run keyed execution image and rejects direct staging
+  of the unkeyed base.
+- A fresh keyed V3406 input was materialized host-only. Connected D0 then
+  proved exact V2321 health, zero pstore entries, and absent new source/stage
+  paths, but stopped because the fixed predecessor work path is present. That
+  exact 2 GiB work image is preserved read-only on the host and unchanged on
+  the device. No cleanup approval exists yet.
+- The retained-work cleanup runner now takes the exact work SHA256 from its
+  manifest instead of requiring a source edit for each runtime-mutated image.
+  The manifest, preserved bytes, approval binding, remote preflight, unlink,
+  and final result still share one exact hash. Independent review passed.
 - Do not add a device step while host-only work can answer the selected
   question.
 
@@ -230,6 +241,17 @@ device was contacted. The runner remains inactive without a final connected
 manifest and fresh approval.
 
 `docs/reports/A90_RESIDENT_BOOT_PROMOTION_V1_H0_RUNNER_2026-08-01.md`
+
+The next preparation unit corrected the clean/keyed identity split, created
+one fresh private keyed input, and performed one exact A90 D0 read. V2321
+health passed, while the path gate stopped on the retained fixed work image.
+The image was preserved byte-for-byte on the host without device writes. The
+cleanup helper's per-image source hash was reduced to a manifest-bound value,
+so future retained work cleanup needs data-only preparation rather than a code
+change. Both changed execution closures passed independent review. No cleanup,
+staging, flash, or reboot occurred.
+
+`docs/reports/A90_RESIDENT_PROMOTION_KEYED_INPUT_PREP_H0_D0_2026-08-01.md`
 
 The corrected Phase 2 display rootfs has been rebuilt twice as an A/B pair.
 Both 2 GiB images are byte-identical at SHA256

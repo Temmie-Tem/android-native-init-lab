@@ -69,6 +69,13 @@ The raw corrected Debian A/B build receipt is delegated to the existing exact
 2 GiB qualification validator; that helper's path, size, and SHA256 are also
 manifest-bound.
 
+The A/B images are deterministic clean bases and intentionally contain no
+observer authorized key. They are never the final staged resident input. The
+final input must be a new-inode per-run keyed child whose materialization
+receipt is accepted by the V3406 staging validator and retained in the bound
+execution closure. The keyed image keeps the exact 2 GiB size but must not have
+the clean A/B SHA256.
+
 ## Immutable Manifest and Approval
 
 The future data-only manifest must select `mode=a90-resident-promotion-v1` and

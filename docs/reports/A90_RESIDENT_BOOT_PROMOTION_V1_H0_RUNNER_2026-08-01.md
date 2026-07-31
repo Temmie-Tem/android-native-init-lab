@@ -76,3 +76,21 @@ reboot/health tail over the existing F1 owner.
 The next unit, if selected, is limited to fresh A90 connected read-only
 preflight and a data-only final manifest. It still requires a separate fresh
 approval before any live promotion.
+
+## Keyed-input closure amendment
+
+The first connected-preparation audit found that the runner treated the exact
+clean A/B SHA256 as the final staged SHA256. That would accept a deterministic
+base with no observer authorized key and make the later D1 SSH observation
+unusable. No live manifest or authority existed, so no device transition was
+affected.
+
+The corrected gate validates the clean A/B receipt as the immutable base, then
+requires a distinct 2 GiB keyed image whose materialization receipt already
+passed the V3406 staging validator and remains in the bound-file closure. A
+clean unkeyed image is now explicitly rejected. The current Phase 2C packet
+bindings were refreshed to the exact current staging adapter and orchestrator.
+
+Focused validation passed 98 tests and the actual 2 GiB clean-base audit.
+Independent changed-closure review returned `PASS / GO`, independently passed
+180 focused tests, and found no device-authority or flash-surface expansion.
