@@ -216,10 +216,10 @@ not implemented or authorized. `SLOT_COUNT=2` is now a load-bearing diagnostic
 constraint and the first architectural item to revisit if packing dominates a
 later campaign again.
 
-The failed `detail_spec()` probe was corrected in-unit by calling the real
-`detail_name()` API before the full audit; the production-API probe rule
-prevented a repeat. `ACCEPT_TO_RESUME_PAIR_ADJACENCY` now fault-validates the
-A-success → terminal-B shape, but proof awaits future materialized source.
+Repository-module AST closure rejects absent `module.attr` and alias shadowing
+before execution. The mandatory tuple locks it with
+`ACCEPT_TO_RESUME_PAIR_ADJACENCY`; pair proof awaits future materialized source,
+and runtime behavior probes remain separately required.
 
 The sole attached stock FYG8 S22+ passed a read-only D0 at
 `configured/super-speed` with parent and child runtime PM both active; no A90
@@ -652,8 +652,8 @@ operations before the asserted publication boundaries.
    conditional 16-value A plus 132-value terminal B mapping. Prove the pair is
    continuously resumable and pass `ACCEPT_TO_RESUME_PAIR_ADJACENCY` on the
    materialized runtime before calling it final retained evidence.
-13. Probe every production API once with actual accepted/rejected inputs before
-   writing its verifier lane, then fault-validate exact rendering and
+13. Pass repository-module attribute closure and probe every behavior-bearing
+   API before its verifier, then fault-validate exact rendering and
    `digital-control-state-nominal`. A stock-active debugfs D1 is optional.
 14. Decide separately whether a USB-2-only physical topology is part of the
    successor. Bind it in any future F1 manifest/approval; do not treat an

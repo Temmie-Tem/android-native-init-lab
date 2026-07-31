@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
+import importlib
 import json
 import os
 from pathlib import Path
@@ -26,6 +28,11 @@ import s22plus_fyg8_p292_sot_zero_delta as zero
 SCHEMA = "s22plus_fyg8_p292_accept_to_resume_result_v1"
 VERDICT = "PASS_P292_ACCEPT_TO_RESUME_AND_ERRNO_CLOSURE"
 PAIR_ADJACENCY_VERDICT = "PASS_ACCEPT_TO_RESUME_PAIR_ADJACENCY"
+PYTHON_ATTR_VERDICT = "PASS_REPOSITORY_MODULE_ATTRIBUTE_CLOSURE"
+SUCCESSOR_MANDATORY_GATES = (
+    PAIR_ADJACENCY_VERDICT,
+    PYTHON_ATTR_VERDICT,
+)
 CANONICAL_LIVE_DETAIL_ORDINAL = 87
 CANONICAL_LIVE_DETAIL = 0xC18
 CONSECUTIVE_DETAIL_ORDINALS = (86, 87)
@@ -198,6 +205,87 @@ def audit_pair_publication_adjacency(
         "calls_between_first_return_and_terminal_invocation": 0,
         "first_failure_returns_without_terminal_attempt": True,
         "abort_or_park_between_publications": False,
+        "verified": True,
+    }
+
+
+def _attribute_chain(node: ast.Attribute) -> tuple[str, tuple[str, ...]] | None:
+    attributes = []
+    value: ast.expr = node
+    while isinstance(value, ast.Attribute):
+        attributes.append(value.attr)
+        value = value.value
+    if not isinstance(value, ast.Name):
+        return None
+    return value.id, tuple(reversed(attributes))
+
+
+def audit_repository_module_attributes(
+    source: bytes, *, filename: str, repository_root: Path
+) -> dict[str, Any]:
+    """Resolve every imported repository-module attribute used by source."""
+
+    try:
+        tree = ast.parse(source, filename=filename)
+    except (SyntaxError, ValueError) as exc:
+        raise ClosureError(f"Python AST parse failed: {filename}: {exc}") from exc
+    root = repository_root.resolve()
+    modules: dict[str, Any] = {}
+    for node in tree.body:
+        if not isinstance(node, ast.Import):
+            continue
+        for imported in node.names:
+            try:
+                module = importlib.import_module(imported.name)
+            except Exception as exc:
+                raise ClosureError(
+                    f"Python import failed: {filename}: {imported.name}: {exc}"
+                ) from exc
+            origin = getattr(module, "__file__", None)
+            if origin is None:
+                continue
+            try:
+                Path(origin).resolve().relative_to(root)
+            except ValueError:
+                continue
+            alias = imported.asname or imported.name.split(".")[0]
+            if alias in modules:
+                raise ClosureError(f"duplicate repository import alias: {alias}")
+            modules[alias] = module
+    bound = {
+        node.id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store)
+    } | {node.arg for node in ast.walk(tree) if isinstance(node, ast.arg)}
+    shadowed = sorted(set(modules) & bound)
+    if shadowed:
+        raise ClosureError(f"repository import aliases are shadowed: {shadowed}")
+    checked: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Attribute) or not isinstance(
+            node.ctx, ast.Load
+        ):
+            continue
+        chain = _attribute_chain(node)
+        if chain is None or chain[0] not in modules:
+            continue
+        alias, attributes = chain
+        value = modules[alias]
+        for attribute in attributes:
+            if not hasattr(value, attribute):
+                dotted = ".".join((alias, *attributes))
+                raise ClosureError(
+                    f"repository module attribute is absent: {dotted} "
+                    f"at {filename}:{node.lineno}"
+                )
+            value = getattr(value, attribute)
+        checked.add(".".join((alias, *attributes)))
+    return {
+        "verdict": PYTHON_ATTR_VERDICT,
+        "filename": filename,
+        "repository_module_count": len(modules),
+        "attribute_reference_count": len(checked),
+        "import_alias_shadowing_rejected": True,
         "verified": True,
     }
 
@@ -1492,6 +1580,20 @@ def run_closure(
     )
     if runtime.count(stop_route) != 1 or runtime.count(suspended_route) != 1:
         raise ClosureError("consecutive detail runtime producer route differs")
+    verifier_path = Path(__file__).resolve()
+    api_attribute_results = tuple(
+        audit_repository_module_attributes(
+            path.read_bytes(),
+            filename=str(path.relative_to(root)),
+            repository_root=root,
+        )
+        for path in (
+            verifier_path,
+            verifier_path.with_name(
+                "test_s22plus_fyg8_p292_accept_to_resume.py"
+            ),
+        )
+    )
 
     return {
         "schema": SCHEMA,
@@ -1512,6 +1614,13 @@ def run_closure(
             "verified": True,
         },
         "accept_to_resume_sequence_walk": sequence_walk,
+        "repository_module_attribute_closure": {
+            "files": api_attribute_results,
+            "file_count": len(api_attribute_results),
+            "all_references_resolve": True,
+            "verified": True,
+        },
+        "successor_mandatory_gates": list(SUCCESSOR_MANDATORY_GATES),
         "checkpoint_errno_observability": {
             "client": client_result,
             "runtime_wrapper": wrapper_result,

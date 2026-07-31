@@ -63,6 +63,56 @@ class AcceptToResumeTest(unittest.TestCase):
                 "exact_old_generation_88_resumed_to_89"
             ]
         )
+        self.assertEqual(
+            result["repository_module_attribute_closure"]["file_count"], 2
+        )
+        self.assertEqual(
+            result["successor_mandatory_gates"],
+            list(closure.SUCCESSOR_MANDATORY_GATES),
+        )
+
+    def test_repository_module_attribute_gate(self) -> None:
+        source = b"""\
+import s22plus_fyg8_p282_contract_spec as spec
+import s22plus_fyg8_p292_identity_tiers as identity
+DETAIL = spec.detail_name(0xc40)
+TIERS = identity.path_tiers()
+"""
+        result = closure.audit_repository_module_attributes(
+            source,
+            filename="positive-fixture.py",
+            repository_root=self.root,
+        )
+        self.assertEqual(result["verdict"], closure.PYTHON_ATTR_VERDICT)
+        self.assertEqual(result["repository_module_count"], 2)
+
+    def test_repository_module_attribute_mistakes_fail_at_ast_gate(
+        self,
+    ) -> None:
+        fixtures = {
+            "detail_spec": b"""\
+import s22plus_fyg8_p282_contract_spec as spec
+VALUE = spec.detail_spec(0xc40)
+""",
+            "repo_root": b"""\
+import s22plus_fyg8_p292_identity_tiers as identity
+ROOT = identity.repo_root()
+""",
+            "shadowed_alias": b"""\
+import s22plus_fyg8_p282_contract_spec as spec
+def invalid(spec):
+    return spec.detail_name(0xc40)
+""",
+        }
+        for name, source in fixtures.items():
+            with self.subTest(name=name), self.assertRaises(
+                closure.ClosureError
+            ):
+                closure.audit_repository_module_attributes(
+                    source,
+                    filename=f"{name}.py",
+                    repository_root=self.root,
+                )
 
     def test_pair_publication_adjacency_gate(self) -> None:
         result = closure.audit_pair_publication_adjacency(

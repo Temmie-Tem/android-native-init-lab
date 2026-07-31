@@ -367,6 +367,35 @@ shows that the underlying tendency to invent API shape is not yet eliminated.
 No candidate, build, approval, or device action may treat the intervention as
 a substitute for the required pre-call probe.
 
+While constructing the static gate below, an exploratory script also
+incorrectly addressed `ast.Import.asname`; the actual field is on each
+`ast.alias` in `Import.names`. `ast.dump()` was inspected before the corrected
+probe. This is outside the new gate's deliberately narrow scope because
+`ast` is a standard-library module rather than a repository module. The event
+is a concrete reminder that the gate reduces only the selected repository-API
+subset of the occurrence rate.
+
+## Repository Python Attribute Closure
+
+`PASS_REPOSITORY_MODULE_ATTRIBUTE_CLOSURE` now parses each selected Tier-2
+Python verifier with `ast`, imports every top-level repository module, rejects
+an imported alias that is shadowed, and resolves every loaded
+`module.attr[.attr...]` chain against the actual namespace with
+`hasattr`/`getattr`. Standard-library and third-party modules are deliberately
+outside this narrow gate.
+
+The current verifier and focused-test sources pass with seven modules/36
+unique attribute chains and four modules/18 chains, respectively. Exact
+negative fixtures for both defects from this unit, `spec.detail_spec` and
+`identity.repo_root`, fail at this AST gate. A shadowed repository-module alias
+also fails closed, preventing the checker from mistaking a local value for the
+imported module.
+
+The formal `run_closure()` result now includes this two-file check. This moves
+the repository-module subset from first execution to static qualification; it
+does not replace runtime behavior probes for attributes that exist but have an
+unknown contract.
+
 ## Two-Slot Pair Adjacency Gate
 
 The A/B adjacency was previously a design assumption. No successor runtime
@@ -403,11 +432,18 @@ hides more than one function call, so the checker cannot be configured to
 bless an extra publication inside either expression.
 
 The exact current P2.92 runtime was first used to probe the existing C-function
-extractor API, then tokenized successfully. `py_compile` and all nine focused
+extractor API, then tokenized successfully. `py_compile` and all eleven focused
 ACCEPT_TO_RESUME tests pass. The new gate becomes an actual evidence claim only
 when a future successor feeds its materialized runtime and SoT-derived A/B
 expressions through it; until then it is a validated mandatory gate, not proof
 of nonexistent candidate code.
+
+The machine-readable `SUCCESSOR_MANDATORY_GATES` tuple contains both
+`PASS_ACCEPT_TO_RESUME_PAIR_ADJACENCY` and
+`PASS_REPOSITORY_MODULE_ATTRIBUTE_CLOSURE`, and the formal closure result emits
+that list. A successor qualification that omits the still-targetless adjacency
+gate therefore differs from the declared mandatory set instead of silently
+dropping it.
 
 ## Deterministic Interpretation Requirement
 
@@ -464,8 +500,9 @@ is now:
    one normal or failure semantic and require the materialized runtime to pass
    `ACCEPT_TO_RESUME_PAIR_ADJACENCY` before claiming A/B are the final
    surviving pair;
-3. before writing each verifier lane, call its production API once with an
-   actual accepted and rejected input and record return/exception behavior;
+3. pass repository-module attribute closure, then call every behavior-bearing
+   production API once with an actual accepted and rejected input before
+   writing its dependent verifier lane; record return/exception behavior;
 4. fault-validate exact field rendering, cross-slot pair coherence,
    `ACCEPT_TO_RESUME_SEQUENCE_WALK`, and the positive
    `digital-control-state-nominal` conclusion;
