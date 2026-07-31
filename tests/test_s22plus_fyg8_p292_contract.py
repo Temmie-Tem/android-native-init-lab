@@ -23,6 +23,7 @@ class P292ContractTest(unittest.TestCase):
     def test_selector_and_retirement(self) -> None:
         selected = registry.select(p292.CONTRACT_ID, p292.PROFILE)
         self.assertEqual(selected.contract_id, p292.CONTRACT_ID)
+        self.assertEqual(intent.parse_args([]).profile, p292.PROFILE)
         self.assertIn(p292.CONTRACT_ID, intent.candidate_contract_ids())
         self.assertNotIn(
             registry.p290.CONTRACT_ID, intent.candidate_contract_ids()
