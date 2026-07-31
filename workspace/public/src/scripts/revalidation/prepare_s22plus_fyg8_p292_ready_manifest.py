@@ -23,6 +23,7 @@ from s22plus_boot_only_f1_transport import (
 
 SCHEMA = "s22plus_fyg8_p292_ready_manifest_builder_v1"
 VERDICT = "PASS_P292_PROCESS_V2_READY_MANIFEST_HOST_ONLY"
+REHEARSAL_VERDICT = "PASS_P292_PROCESS_V2_READY_MANIFEST_REHEARSAL_HOST_ONLY"
 SOURCE_CONTRACT_ID = evidence.P292_SOURCE_CONTRACT_ID
 DEFAULT_CANDIDATE_STATIC = Path(
     "workspace/private/device-action/s22plus_fyg8_p292_ready_1/"
@@ -207,6 +208,28 @@ def durable_create(path: Path, payload: bytes) -> None:
         os.close(descriptor)
 
 
+def verify_and_finalize(
+    *,
+    root: Path,
+    output: Path,
+    canonical_directory: Path,
+    payload: bytes,
+    verify_only: bool,
+) -> bool:
+    if output.parent.absolute() != canonical_directory.absolute():
+        raise ManifestError("manifest output directory is not canonical")
+    if output.exists():
+        raise ManifestError("manifest output already exists")
+    with tempfile.TemporaryDirectory(prefix="p292-ready-manifest-") as temporary:
+        proposal = Path(temporary) / "manifest.json"
+        proposal.write_bytes(payload)
+        core.verify_bundle(root, proposal)
+    if verify_only:
+        return False
+    durable_create(output, payload)
+    return True
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--candidate-static", type=Path, default=DEFAULT_CANDIDATE_STATIC)
@@ -219,6 +242,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--live-run-id", default=DEFAULT_LIVE_RUN_ID)
     parser.add_argument("--timeout-sec", type=int, default=DEFAULT_TIMEOUT_SEC)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
+    parser.add_argument("--verify-only", action="store_true")
     return parser.parse_args(argv)
 
 
@@ -301,21 +325,25 @@ def main(argv: list[str] | None = None) -> int:
         except evidence.EvidenceError as exc:
             raise ManifestError(str(exc)) from exc
         payload = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
-        with tempfile.TemporaryDirectory(prefix="p292-ready-manifest-") as temporary:
-            proposal = Path(temporary) / "manifest.json"
-            proposal.write_bytes(payload)
-            core.verify_bundle(root, proposal)
         output = resolve(root, args.out)
         manifest_directory = resolve(root, DEFAULT_OUT).parent
-        if output.parent.absolute() != manifest_directory.absolute():
-            raise ManifestError("manifest output directory is not canonical")
-        durable_create(output, payload)
+        created = verify_and_finalize(
+            root=root,
+            output=output,
+            canonical_directory=manifest_directory,
+            payload=payload,
+            verify_only=args.verify_only,
+        )
         print(
             json.dumps(
                 {
                     "schema": SCHEMA,
-                    "verdict": VERDICT,
-                    "manifest": {"path": str(output), **receipt(payload)},
+                    "verdict": REHEARSAL_VERDICT if args.verify_only else VERDICT,
+                    "manifest": {
+                        "path": str(output),
+                        **receipt(payload),
+                        "created": created,
+                    },
                     "offline_contract": verification,
                     "safety": {
                         "host_only": True,
@@ -323,6 +351,7 @@ def main(argv: list[str] | None = None) -> int:
                         "device_write": False,
                         "d0_started": False,
                         "f1_authorized": False,
+                        "manifest_created": created,
                     },
                 },
                 indent=2,

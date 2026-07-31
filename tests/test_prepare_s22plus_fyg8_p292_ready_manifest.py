@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -104,9 +105,51 @@ class P292ReadyManifestBuilderTest(unittest.TestCase):
         args = builder.parse_args([])
         self.assertEqual(args.out, builder.DEFAULT_OUT)
         self.assertEqual(args.timeout_sec, 300)
+        self.assertFalse(args.verify_only)
+        self.assertTrue(builder.parse_args(["--verify-only"]).verify_only)
         source = (SCRIPT_DIR / "prepare_s22plus_fyg8_p292_ready_manifest.py").read_text()
         for forbidden in ("device_action_f1_live_v2", "subprocess", "adb ", "Odin4"):
             self.assertNotIn(forbidden, source)
+
+    def test_verify_only_runs_full_bundle_check_without_creating_output(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "manifests"
+            canonical.mkdir()
+            output = canonical / "candidate.json"
+            seen = []
+            with mock.patch.object(
+                builder.core,
+                "verify_bundle",
+                side_effect=lambda _root, proposal: seen.append(proposal.read_bytes()),
+            ) as verify:
+                created = builder.verify_and_finalize(
+                    root=root,
+                    output=output,
+                    canonical_directory=canonical,
+                    payload=b"proposal\n",
+                    verify_only=True,
+                )
+            self.assertFalse(created)
+            self.assertFalse(output.exists())
+            verify.assert_called_once()
+            self.assertEqual(seen, [b"proposal\n"])
+
+    def test_verify_only_rejects_preexisting_output(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            canonical = root / "manifests"
+            canonical.mkdir()
+            output = canonical / "candidate.json"
+            output.write_bytes(b"old\n")
+            with self.assertRaisesRegex(builder.ManifestError, "already exists"):
+                builder.verify_and_finalize(
+                    root=root,
+                    output=output,
+                    canonical_directory=canonical,
+                    payload=b"proposal\n",
+                    verify_only=True,
+                )
 
     def test_manifest_creation_is_exclusive(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -486,6 +486,19 @@ proposal through `device_action_f1_v2.verify_bundle()`. It creates the final
 manifest with `O_EXCL` only after those checks pass. The builder has no connected
 or live mode; manifest success still precedes an ordinary exact-target D0.
 
+No approval-scoped sequence may be the first execution of its implementation
+against the selected real artifacts. Before requesting approval, run every
+host-only stage with the exact available inputs. For P2.92, run promotion into
+a fresh rehearsal directory and then invoke the manifest builder with
+`--verify-only`, the resulting three evidence files, the exact candidate AP,
+and the target profile's canonical rollback path. `--verify-only` must report
+`PASS_P292_PROCESS_V2_READY_MANIFEST_REHEARSAL_HOST_ONLY`, must execute the same
+offline and `verify_bundle()` closure as creation, and must leave the requested
+manifest path absent. A connected-only step must instead have a passing captured
+fixture through the same parser and validator. If a step cannot be rehearsed on
+real inputs before approval, use a captured prior fixture; otherwise do not ask
+for approval. Do not add unexecuted preflight code inside an approval window.
+
 When a candidate adds a bounded runtime control lifecycle, a later ready
 manifest must consume a versioned timing receipt produced by the exact runtime
 harness. The receipt must bind raw samples, runtime/tool hashes, a reviewed
