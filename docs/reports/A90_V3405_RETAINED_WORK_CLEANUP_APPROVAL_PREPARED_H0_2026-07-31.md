@@ -2,7 +2,7 @@
 
 Date: 2026-07-31
 
-Status: `H0_CLEANUP_APPROVAL_PREPARED_AWAITING_EXACT_OPERATOR_ACK`
+Status: `H0_CORRECTED_CLEANUP_APPROVAL_PREPARED_AWAITING_EXACT_OPERATOR_ACK`
 
 ## Scope
 
@@ -99,16 +99,37 @@ Validation passed:
 - independent safety review: `GO`, with no remaining Critical, High, or
   Medium finding.
 
-The final private cleanup manifest SHA256 is:
+## Pre-dispatch host rejection and correction
+
+The first acknowledged cleanup token did not reach a device command or create
+the live transaction directory. The helper stopped in its host target
+continuity gate because the prepared manifest had hashed the tty realpath with
+one trailing newline, while the reviewed helper correctly hashes the exact
+string without a newline.
+
+The first run closed as a host pre-dispatch rejection with:
+
+- cleanup dispatch count `0`;
+- device contact and device write both false;
+- no transaction directory;
+- no unlink, staging, reboot, or payload action; and
+- its approval permanently superseded rather than rebound.
+
+Fresh D0 then reconfirmed exact V2321 health, selftest `fail=0`, empty pstore,
+the same exact retained-work size/hash, both adjacent paths absent, the
+dedicated NCM profile active, and no command to the other connected device.
+
+A successor manifest binds the exact realpath string without a trailing
+newline. Its SHA256 is:
 
 ```text
-b882109ff487a87c28816a92e0db1d579326f8e81167247d559ce28d5023c24e
+217280b8234f3b46a18d45c9c4d6f545d9bec598a31bbbe4d8d572534d747d85
 ```
 
 Host-only inspection reported approval-preparation readiness. One exclusive
 mode-`0600` approval receipt was created with `device_contact=false`,
 `device_write=false`, and `live_authorized=false`. Its exact token remains
-private until operator acknowledgement.
+private until operator acknowledgement. The earlier token is not reusable.
 
 ## Next gate
 
