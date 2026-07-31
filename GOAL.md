@@ -370,23 +370,27 @@ operations before the asserted publication boundaries.
 5. `CHECKPOINT_SOT_ZERO_DELTA` passed over the complete 13-artifact retained
    P2.90 scope: A matched the frozen baseline first, then B matched both the
    same baseline and A. No comparison was weakened and no repair was present.
-6. Prove `ACCEPT_TO_RESUME_CLOSURE` exhaustively across kernel writer,
+6. `CHECKPOINT_REPAIR_DELTA_ATTRIBUTION` passed. Exactly five retained
+   materialized artifacts changed for exact active-slot state and
+   operation-aware publication errno preservation; the other eight stayed
+   byte-identical and repaired A/B outputs were deterministic.
+7. Prove `ACCEPT_TO_RESUME_CLOSURE` exhaustively across kernel writer,
    userspace client, model, and decoder. Then prove
    `ACCEPT_TO_RESUME_SEQUENCE_WALK` by continuously walking the exact
    runtime-derived 107-position stream from seed through terminal without
    resetting state, including a producer-derived runtime-reachable walk with
    consecutive nonzero-detail progress records.
-7. Separately prove `CHECKPOINT_ERRNO_OBSERVABILITY`: preserve exact returned
+8. Separately prove `CHECKPOINT_ERRNO_OBSERVABILITY`: preserve exact returned
    errno and produce bounded causal evidence before every park.
-8. Recompute SOURCE_KEYS before intent. Keep SoT/generator and byte-affecting
+9. Recompute SOURCE_KEYS before intent. Keep SoT/generator and byte-affecting
    outputs inside identity; keep evidence-only consumers outside and bundle-bound.
-9. Prove the inherited detail-zero prefix, nonzero detail, and corruption
+10. Prove the inherited detail-zero prefix, nonzero detail, and corruption
    handling. Initialize the repaired writer from the exact retained P2.90
    gen87/88 image and prove its seed path commits generation 89.
-10. Treat the four-run generation-88 tuple as the live prefix baseline; any
+11. Treat the four-run generation-88 tuple as the live prefix baseline; any
    earlier divergence is a regression. On renewed closure-proven silence, stop
    code-position tracing and test system-state-transition coupling.
-11. No new S22+ device action or F1 request is permitted by the closed P2.90
+12. No new S22+ device action or F1 request is permitted by the closed P2.90
    unit; a successor requires fresh H0 design, identity, A/B, manifest, D0, and exact approval.
 
 No device step is added when H0 can answer the question.
