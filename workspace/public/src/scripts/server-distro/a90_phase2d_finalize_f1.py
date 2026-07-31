@@ -78,6 +78,7 @@ EXECUTION_REVIEW_SOURCES = (
     REVAL_DIR / "a90_observation_pipeline.py",
     REVAL_DIR / "a90ctl.py",
     SCRIPT_DIR / "run_d1_chroot_mvp.py",
+    REVAL_DIR / "a90_transition_contract_v2.py",
     SCRIPT_DIR / "a90_phase2c_display_packet.py",
     SCRIPT_DIR / "a90_phase2d_display_observer.py",
     SCRIPT_DIR / "a90_v3403_absent_only_staging.py",

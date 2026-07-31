@@ -86,6 +86,7 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
     def test_execution_support_closure_is_exact(self) -> None:
         expected = {
             "run_d1_chroot_mvp.py",
+            "a90_transition_contract_v2.py",
             "_workspace_bootstrap.py",
             "a90_bridge.py",
             "a90_observation_pipeline.py",

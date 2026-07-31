@@ -55,6 +55,16 @@ transfer between the two files.
   review found no target, staging, approval, boot-only, or rollback bypass.
 - The current manifest and approval are stale because the bound staging adapter
   changed. Do not retry this transaction or reinterpret its consumed token.
+- Fresh run `a90-v3406-debian-display-f1-20260801-03` now has a new-inode
+  keyed rootfs and a passing exact A90 D0/path preflight. Exact V2321 remains
+  healthy; final, fixed-work, and run-stage paths are absent. The separately
+  connected S22+ received no command.
+- The current F1 execution closure now binds the transition-contract dependency
+  imported by the central observation pipeline. Phase 2C and finalizer H0
+  audits pass, isolated focused regression passes `276/276`, and independent
+  review returned GO with no unresolved finding. No final or resident manifest,
+  approval receipt, transaction, device write, transfer, flash, or reboot has
+  yet been created for this run.
 - Do not add a device step while host-only work can answer the selected
   question.
 

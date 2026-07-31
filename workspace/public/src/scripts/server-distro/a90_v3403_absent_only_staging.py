@@ -66,6 +66,7 @@ PRIVATE_RUN_BASE = PRIVATE_ROOT / "runs" / "server-distro"
 PUBLIC_ROOT = REPO_ROOT / "workspace" / "public"
 REQUIRED_SUPPORT_FILES = (
     SCRIPT_DIR / "run_d1_chroot_mvp.py",
+    REVAL_DIR / "a90_transition_contract_v2.py",
     REVAL_DIR / "_workspace_bootstrap.py",
     REVAL_DIR / "a90_bridge.py",
     REVAL_DIR / "a90_observation_pipeline.py",
