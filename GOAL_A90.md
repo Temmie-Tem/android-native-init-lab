@@ -245,11 +245,23 @@ unchanged.
 
 `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1B_PORTABLE_AB_H0_2026-07-31.md`
 
-Phase 1C is selected next: commit Phase 1B, create a wholly fresh disposable
-export from that committed `HEAD`, and reproduce the five portable hashes
-without copying any working-tree file into the clone. This is the packaging
-and independent-export gate before the legacy chain can be retired for future
-versions. It remains schema work, not V3406 or live authority.
+Phase 1C closed
+`A90_V3404_FLAT_BUILDER_PHASE1C_COMMITTED_EXPORT_PASS`. A wholly fresh
+disposable export of committed `HEAD`
+`79e5424da8be26b0bde77fb081f2725446d741f5` reproduced the same five portable
+hashes in byte-identical A/B builds without copying any working-tree file into
+the clone. The clone fault test passed with the canonical repository absent,
+the committed builder and manifest hashes matched, both sides were free of
+canonical and sandbox source paths, and the accepted V3404 artifact remained
+unchanged.
+
+`docs/reports/A90_V3404_FLAT_BUILDER_PHASE1C_COMMITTED_EXPORT_H0_2026-07-31.md`
+
+Phase 1D is selected next: add a shallow data-only manifest resolver and prove
+cycle rejection, unknown-key rejection, and byte-identical resolution of a
+no-op child manifest over the flat V3404 effective baseline. Keep the fixture
+under a host schema name. Do not create V3406 until an actual candidate change
+is selected. This remains H0 schema work and creates no live authority.
 
 ## Later Phases
 
