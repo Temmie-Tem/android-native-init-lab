@@ -35,6 +35,20 @@ struct a90_kms_flip_result {
     uint64_t timestamp_us;
 };
 
+struct a90_kms_release_result {
+    bool initialized_before;
+    bool release_complete;
+    int fd_before;
+    int disable_plane_rc;
+    int disable_crtc_rc;
+    unsigned int munmap_failures;
+    unsigned int rmfb_failures;
+    unsigned int destroy_dumb_failures;
+    int drop_master_rc;
+    int close_rc;
+    int rc;
+};
+
 struct a90_kms_scaled_plane_result {
     bool attempted;
     bool presented;
@@ -93,6 +107,7 @@ int a90_kms_disable_scaled_plane(void);
 struct a90_fb *a90_kms_framebuffer(void);
 void a90_kms_info(struct a90_kms_info *info);
 int a90_kms_drm_fd(void);
+int a90_kms_release_for_handoff(struct a90_kms_release_result *result);
 int a90_kms_probe(bool verbose);
 
 #endif

@@ -45,6 +45,8 @@
 #define A90_D3_SWITCH_TIMEOUT_MS 30000
 #define A90_D3_COPY_TIMEOUT_MS 300000
 #define A90_D3_IMMUTABLE_TAG "A90D3H0"
+#define A90_D3_DISPLAY_RELEASE_TAG "A90D3DISPLAY"
+#define A90_D3_DISPLAY_RELEASE_MARKER "run/a90-native-display-release"
 #define A90_D_HANDOFF_HUD_TIMEOUT_MS 3000
 #define A90_D_HANDOFF_DRM_OWNER_TIMEOUT_MS 1000
 #define A90_D_HW_TAG "A90DHW"
@@ -74,6 +76,17 @@
 #define A90_DPUBLIC_HUD_SERVICE_STOP_TIMEOUT_MS 1000
 
 static int d3_path_is_mounted(const char *mountpoint);
+
+struct d3_display_release_proof {
+    bool valid;
+    unsigned int native_pid1_drm_fd_count;
+    unsigned int other_drm_fd_count;
+    bool native_kms_initialized;
+    bool display_services_restart_blocked;
+    struct a90_kms_release_result kms_release;
+};
+
+static struct d3_display_release_proof d3_last_display_release;
 
 static void d_hw_print_contract(void) {
     a90_console_printf("A90DHW contract.version=1\r\n");
@@ -720,33 +733,97 @@ static bool d_handoff_pid_is_native_init(pid_t pid) {
     return strcmp(target, "/init") == 0;
 }
 
-static bool d_handoff_pid_has_drm_fd(pid_t pid) {
+static int d_handoff_count_pid_drm_fds(pid_t pid, unsigned int *count_out) {
     char dir_path[64];
     DIR *dir;
     struct dirent *entry;
-    bool found = false;
+    unsigned int count = 0;
+
+    if (pid <= 0 || count_out == NULL) {
+        return -EINVAL;
+    }
+    *count_out = 0;
 
     snprintf(dir_path, sizeof(dir_path), "/proc/%ld/fd", (long)pid);
     dir = opendir(dir_path);
     if (dir == NULL) {
-        return false;
+        if (errno == ENOENT || errno == ESRCH) {
+            return 0;
+        }
+        return -errno;
     }
     while ((entry = readdir(dir)) != NULL) {
         char fd_path[PATH_MAX];
         char target[PATH_MAX];
+        int rc;
 
         if (entry->d_name[0] == '.') {
             continue;
         }
         snprintf(fd_path, sizeof(fd_path), "%s/%s", dir_path, entry->d_name);
-        if (d_handoff_readlink(fd_path, target, sizeof(target)) == 0 &&
-            d_handoff_path_is_drm_target(target)) {
-            found = true;
-            break;
+        rc = d_handoff_readlink(fd_path, target, sizeof(target));
+        if (rc < 0) {
+            if (rc == -ENOENT || rc == -ESRCH) {
+                continue;
+            }
+            closedir(dir);
+            return rc;
+        }
+        if (d_handoff_path_is_drm_target(target)) {
+            count++;
         }
     }
     closedir(dir);
-    return found;
+    *count_out = count;
+    return 0;
+}
+
+static bool d_handoff_pid_has_drm_fd(pid_t pid) {
+    unsigned int count = 0;
+
+    return d_handoff_count_pid_drm_fds(pid, &count) == 0 && count != 0U;
+}
+
+static int d_handoff_count_all_drm_fds(pid_t native_pid1,
+                                       unsigned int *native_pid1_count_out,
+                                       unsigned int *other_count_out) {
+    DIR *proc;
+    struct dirent *entry;
+    unsigned int native_pid1_count = 0;
+    unsigned int other_count = 0;
+
+    if (native_pid1 <= 0 ||
+        native_pid1_count_out == NULL ||
+        other_count_out == NULL) {
+        return -EINVAL;
+    }
+    proc = opendir("/proc");
+    if (proc == NULL) {
+        return -errno;
+    }
+    while ((entry = readdir(proc)) != NULL) {
+        pid_t pid;
+        unsigned int count = 0;
+        int rc;
+
+        if (d_handoff_parse_pid(entry->d_name, &pid) < 0) {
+            continue;
+        }
+        rc = d_handoff_count_pid_drm_fds(pid, &count);
+        if (rc < 0) {
+            closedir(proc);
+            return rc;
+        }
+        if (pid == native_pid1) {
+            native_pid1_count += count;
+        } else {
+            other_count += count;
+        }
+    }
+    closedir(proc);
+    *native_pid1_count_out = native_pid1_count;
+    *other_count_out = other_count;
+    return 0;
 }
 
 static bool d_handoff_pid_alive(pid_t pid) {
@@ -1302,16 +1379,29 @@ static int d_handoff_count_display_owners(bool preserve_dpublic, unsigned int *c
     return 0;
 }
 
-static int d_handoff_stop_display_owners_mode(const char *tag, bool preserve_dpublic) {
+static int d_handoff_stop_display_owners_mode(
+        const char *tag,
+        bool preserve_dpublic,
+        struct d3_display_release_proof *proof) {
     DIR *proc;
     struct dirent *entry;
     struct dpublic_hud_service_opts dpublic_opts;
+    struct a90_kms_release_result kms_release;
+    struct a90_kms_info kms_info;
     unsigned int killed = 0;
     unsigned int owner_timeouts = 0;
     unsigned int remaining = 0;
+    unsigned int native_pid1_drm_fd_count = 0;
+    unsigned int other_drm_fd_count = 0;
     int final_rc = 0;
     int scan_rc;
     int service_rc;
+
+    memset(&kms_release, 0, sizeof(kms_release));
+    memset(&kms_info, 0, sizeof(kms_info));
+    if (proof != NULL) {
+        memset(proof, 0, sizeof(*proof));
+    }
 
     service_rc = a90_service_stop(A90_SERVICE_HUD, A90_D_HANDOFF_HUD_TIMEOUT_MS);
     a90_console_printf("%s handoff_display service=autohud stop_rc=%d\r\n", tag, service_rc);
@@ -1362,6 +1452,31 @@ static int d_handoff_stop_display_owners_mode(const char *tag, bool preserve_dpu
     }
     closedir(proc);
 
+    if (!preserve_dpublic) {
+        int release_rc = a90_kms_release_for_handoff(&kms_release);
+
+        a90_console_printf(
+            "%s native_kms_release rc=%d fd_before=%d "
+            "disable_plane_rc=%d disable_crtc_rc=%d "
+            "munmap_failures=%u rmfb_failures=%u "
+            "destroy_dumb_failures=%u drop_master_rc=%d close_rc=%d "
+            "release_complete=%d\r\n",
+            A90_D3_DISPLAY_RELEASE_TAG,
+            release_rc,
+            kms_release.fd_before,
+            kms_release.disable_plane_rc,
+            kms_release.disable_crtc_rc,
+            kms_release.munmap_failures,
+            kms_release.rmfb_failures,
+            kms_release.destroy_dumb_failures,
+            kms_release.drop_master_rc,
+            kms_release.close_rc,
+            kms_release.release_complete ? 1 : 0);
+        if (release_rc < 0) {
+            final_rc = kms_release.rc < 0 ? kms_release.rc : -EIO;
+        }
+    }
+
     scan_rc = d_handoff_count_display_owners(preserve_dpublic, &remaining);
     if (scan_rc < 0) {
         final_rc = final_rc < 0 ? final_rc : scan_rc;
@@ -1371,6 +1486,50 @@ static int d_handoff_stop_display_owners_mode(const char *tag, bool preserve_dpu
         a90_console_printf("%s handoff_display owner_timeouts=%u resolved_by_zero_owner_scan=1\r\n",
                            tag, owner_timeouts);
     }
+    if (!preserve_dpublic) {
+        scan_rc = d_handoff_count_all_drm_fds(
+            getpid(),
+            &native_pid1_drm_fd_count,
+            &other_drm_fd_count);
+        a90_kms_info(&kms_info);
+        if (scan_rc < 0) {
+            final_rc = final_rc < 0 ? final_rc : scan_rc;
+        } else if (getpid() != 1 ||
+                   native_pid1_drm_fd_count != 0U ||
+                   other_drm_fd_count != 0U ||
+                   kms_info.initialized) {
+            final_rc = -EBUSY;
+        }
+        a90_console_printf(
+            "%s native_pid1_drm_fd_count=0 observed=%u\r\n",
+            A90_D3_DISPLAY_RELEASE_TAG,
+            native_pid1_drm_fd_count);
+        a90_console_printf(
+            "%s other_drm_fd_count=0 observed=%u\r\n",
+            A90_D3_DISPLAY_RELEASE_TAG,
+            other_drm_fd_count);
+        a90_console_printf(
+            "%s native_kms_initialized=0 observed=%d\r\n",
+            A90_D3_DISPLAY_RELEASE_TAG,
+            kms_info.initialized ? 1 : 0);
+        a90_console_printf(
+            "%s display_services_restart_blocked=1 corridor=synchronous-handoff\r\n",
+            A90_D3_DISPLAY_RELEASE_TAG);
+        if (proof != NULL) {
+            proof->valid =
+                final_rc == 0 &&
+                getpid() == 1 &&
+                native_pid1_drm_fd_count == 0U &&
+                other_drm_fd_count == 0U &&
+                !kms_info.initialized &&
+                kms_release.release_complete;
+            proof->native_pid1_drm_fd_count = native_pid1_drm_fd_count;
+            proof->other_drm_fd_count = other_drm_fd_count;
+            proof->native_kms_initialized = kms_info.initialized;
+            proof->display_services_restart_blocked = true;
+            proof->kms_release = kms_release;
+        }
+    }
     a90_console_printf("%s handoff_display required_nonpreserved_owner_count=0 observed=%u\r\n",
                        tag, remaining);
     a90_console_printf("%s handoff_display=done killed=%u rc=%d\r\n",
@@ -1379,13 +1538,16 @@ static int d_handoff_stop_display_owners_mode(const char *tag, bool preserve_dpu
 }
 
 static int d_handoff_stop_display_owners(const char *tag) {
-    return d_handoff_stop_display_owners_mode(tag, true);
+    return d_handoff_stop_display_owners_mode(tag, true, NULL);
 }
 
 static int d3_handoff_stop_display_owners_strict(void) {
     a90_console_printf("%s handoff_display strict=1 preserve_dpublic=0\r\n",
                        A90_D3_IMMUTABLE_TAG);
-    return d_handoff_stop_display_owners_mode(A90_D3_TAG, false);
+    return d_handoff_stop_display_owners_mode(
+        A90_D3_TAG,
+        false,
+        &d3_last_display_release);
 }
 
 static int d3_hex64_valid(const char *s) {
@@ -1788,6 +1950,89 @@ static int d3_check_distro_init(void) {
     return 0;
 }
 
+static int d3_write_display_release_marker(
+        const struct d3_display_release_proof *proof) {
+    char marker_path[PATH_MAX];
+    char marker[1024];
+    size_t offset = 0;
+    size_t marker_size;
+    int fd;
+    int rc;
+    int n;
+
+    if (proof == NULL || !proof->valid ||
+        proof->native_pid1_drm_fd_count != 0U ||
+        proof->other_drm_fd_count != 0U ||
+        proof->native_kms_initialized ||
+        !proof->display_services_restart_blocked ||
+        !proof->kms_release.release_complete) {
+        return -EPERM;
+    }
+    rc = d3_join(
+        marker_path,
+        sizeof(marker_path),
+        A90_D3_ROOT,
+        A90_D3_DISPLAY_RELEASE_MARKER);
+    if (rc < 0) {
+        return rc;
+    }
+    n = snprintf(
+        marker,
+        sizeof(marker),
+        "schema=a90-native-display-release-v1\n"
+        "native_pid1_drm_fd_count=%u\n"
+        "other_drm_fd_count=%u\n"
+        "native_kms_initialized=%d\n"
+        "display_services_restart_blocked=%d\n"
+        "release_complete=%d\n",
+        proof->native_pid1_drm_fd_count,
+        proof->other_drm_fd_count,
+        proof->native_kms_initialized ? 1 : 0,
+        proof->display_services_restart_blocked ? 1 : 0,
+        proof->kms_release.release_complete ? 1 : 0);
+    if (n < 0 || (size_t)n >= sizeof(marker)) {
+        return -EOVERFLOW;
+    }
+    marker_size = (size_t)n;
+    fd = open(
+        marker_path,
+        O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
+        0600);
+    if (fd < 0) {
+        return -errno;
+    }
+    while (offset < marker_size) {
+        ssize_t written = write(fd, marker + offset, marker_size - offset);
+
+        if (written < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            rc = -errno;
+            close(fd);
+            (void)unlink(marker_path);
+            return rc;
+        }
+        if (written == 0) {
+            close(fd);
+            (void)unlink(marker_path);
+            return -EIO;
+        }
+        offset += (size_t)written;
+    }
+    if (close(fd) < 0) {
+        rc = -errno;
+        (void)unlink(marker_path);
+        return rc;
+    }
+    a90_console_printf(
+        "%s release_marker=ready path=%s bytes=%zu\r\n",
+        A90_D3_DISPLAY_RELEASE_TAG,
+        marker_path,
+        marker_size);
+    return 0;
+}
+
 static int d3_move_mount_one(const char *src, const char *leaf) {
     char dst[PATH_MAX];
     int rc = d3_join(dst, sizeof(dst), A90_D3_ROOT, leaf);
@@ -2135,6 +2380,14 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     rc = d3_check_distro_init();
     if (rc < 0) {
         a90_console_printf("%s stop=distro-init-invalid rc=%d\r\n", A90_D3_TAG, rc);
+        goto fail_before_move;
+    }
+    rc = d3_write_display_release_marker(&d3_last_display_release);
+    if (rc < 0) {
+        a90_console_printf(
+            "%s stop=display-release-marker rc=%d\r\n",
+            A90_D3_TAG,
+            rc);
         goto fail_before_move;
     }
     rc = d3_move_core_mounts(&moved_proc, &moved_sys, &moved_dev, &mounted_devpts);

@@ -1,0 +1,42 @@
+schema = "a90-phase2-display-v1-rootfs"
+profile = "phase2-display-v1"
+candidate_authority = false
+
+[base]
+image = "workspace/private/builds/server-distro/a90-v3405-d3-return-diagnostic-20260731-02/a90-v3405-d3-return-diagnostic-20260731-02.img"
+image_sha256 = "96cb77e7be9adae5a5964b8a5a3e849dd949216eb902286dbdaf253159965b86"
+summary = "workspace/private/builds/server-distro/a90-v3405-d3-return-diagnostic-20260731-02/summary.json"
+summary_sha256 = "2b63a046091813942e51f5861bb5edbf6025e8dfb9df070fbc6301011cbb197e"
+
+[toolchain]
+cc = "aarch64-linux-gnu-gcc"
+strip = "aarch64-linux-gnu-strip"
+readelf = "aarch64-linux-gnu-readelf"
+gcc_version = "aarch64-linux-gnu-gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0"
+strip_version = "GNU strip (GNU Binutils for Ubuntu) 2.46"
+
+[sources]
+presenter = "workspace/public/src/scripts/server-distro/phase2_display_v1/a90_debian_display_v1.c"
+presenter_sha256 = "1a94e36d67461830c2fb5842998a904706a2f207a8097a7daff9a2e86f13127e"
+launcher = "workspace/public/src/scripts/server-distro/phase2_display_v1/a90_debian_display_launcher_v1.sh"
+launcher_sha256 = "9b54d1e0e62b85a2bb74af7385c3179dbdcc30a77f6bb6e2df25662518e444b7"
+inittab = "workspace/public/src/scripts/server-distro/phase2_display_v1/inittab"
+inittab_sha256 = "97314c04560145ab746e672235d4ed9a32d13d1bb99899988db64a3f9312917d"
+stage = "workspace/public/src/scripts/server-distro/phase2_display_v1/a90-server-distro-stage"
+stage_sha256 = "a677eed266c29519682369e435eddf3251745f7c13bb37bd7dbad21f50ae5768"
+draw_c = "workspace/public/src/native-init/a90_draw.c"
+draw_c_sha256 = "1c11936fe37685981e3c1bd690a2e78faa105beb67ba53f75bc1ca2c0317e4f0"
+draw_h = "workspace/public/src/native-init/a90_draw.h"
+draw_h_sha256 = "684f0118849846130e6abe4abbc8f183b48d665eaf100cb938ca1c7078a893fa"
+kms_h = "workspace/public/src/native-init/a90_kms.h"
+kms_h_sha256 = "d727e3823f2f59189fa56d0158b8630cfde700975b8fe2903b932c2605d1372e"
+builder = "workspace/public/src/scripts/server-distro/prepare_phase2_display_v1_rootfs.py"
+builder_sha256 = "6abc98fc1753ff2d9f7433cfd73fda502b428dee681c1b5ac6147e284b15c6a1"
+
+[validation]
+filesystem_label = "PHASE2DISPLAYV1"
+image_bytes = 2147483648
+display_uid = 3904
+display_gid = 3904
+presenter_target = "/usr/local/sbin/a90-debian-display-v1"
+launcher_target = "/usr/local/sbin/a90-debian-display-launcher-v1"

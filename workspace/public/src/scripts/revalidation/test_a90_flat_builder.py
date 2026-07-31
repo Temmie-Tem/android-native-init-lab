@@ -27,11 +27,26 @@ class A90FlatBuilderTest(unittest.TestCase):
     def setUpClass(cls):
         cls.resolution = buildlib.resolve_manifest(MANIFEST)
         cls.manifest = cls.resolution.data
-        cls.inputs = buildlib.validate_inputs(
-            REPO_ROOT,
-            cls.resolution,
-            cls.manifest,
-        )
+        materialized = {
+            name: (
+                MANIFEST.parent / value["path"]
+            ).resolve()
+            for name, value in cls.manifest["engine"][
+                "materialized_sources"
+            ].items()
+        }
+        cls.inputs = {
+            "init_root": (
+                REPO_ROOT / cls.manifest["init"]["source_root"]
+            ).resolve(),
+            "init_sources": cls.manifest["init"]["sources"],
+            "doom_sources": cls.manifest["engine"]["doom_sources"],
+            "materialized": materialized,
+            "materialized_sha256": {
+                name: buildlib.sha256_file(path)
+                for name, path in materialized.items()
+            },
+        }
 
     def test_flat_effective_identity_and_source_counts(self):
         self.assertEqual(
@@ -117,23 +132,11 @@ class A90FlatBuilderTest(unittest.TestCase):
             ),
             MANIFEST.resolve(),
         )
-        child_inputs = buildlib.validate_inputs(
-            REPO_ROOT,
-            child,
-            child.data,
-        )
-        self.assertEqual(
-            {
-                key: value
-                for key, value in child_inputs.items()
-                if key.endswith("_sha256")
-            },
-            {
-                key: value
-                for key, value in self.inputs.items()
-                if key.endswith("_sha256")
-            },
-        )
+        with self.assertRaisesRegex(
+            buildlib.ManifestError,
+            "native-init closure changed",
+        ):
+            buildlib.validate_inputs(REPO_ROOT, child, child.data)
 
     def test_child_rejects_unknown_top_level_and_nested_keys(self):
         cases = {

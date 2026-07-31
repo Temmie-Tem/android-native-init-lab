@@ -1,0 +1,8 @@
+stage=D3 Phase2 display v1 host profile
+base-return-supervisor=v3405-no-sync-decision
+display-owner=debian-direct-drm
+display-session=vt-less-sysvinit-once
+display-presenter=/usr/local/sbin/a90-debian-display-v1
+display-launcher=/usr/local/sbin/a90-debian-display-launcher-v1
+candidate-authority=none
+userdata=untouched

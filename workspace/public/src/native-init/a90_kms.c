@@ -822,13 +822,22 @@ out:
 
 static int kms_open_card(bool verbose, char *node_path, size_t node_path_size) {
     int fd;
+    int fd_flags;
 
     if (kms_ensure_card0_path(node_path, node_path_size) < 0) {
         return -1;
     }
 
-    fd = open(node_path, O_RDWR);
+    fd = open(node_path, O_RDWR | O_CLOEXEC);
     if (fd < 0) {
+        return -1;
+    }
+    fd_flags = fcntl(fd, F_GETFD);
+    if (fd_flags < 0 || fcntl(fd, F_SETFD, fd_flags | FD_CLOEXEC) < 0) {
+        int saved_errno = errno;
+
+        close(fd);
+        errno = saved_errno;
         return -1;
     }
     if (fd >= 0 && fd < STDERR_FILENO + 1) {
@@ -1620,6 +1629,149 @@ int a90_kms_disable_scaled_plane(void) {
         return negative_errno_or(EIO);
     }
     kms_scaled_plane.enabled = false;
+    return 0;
+}
+
+static void kms_release_record_error(int rc, int *first_error) {
+    if (rc < 0 && first_error != NULL && *first_error == 0) {
+        *first_error = rc;
+    }
+}
+
+static void kms_reset_after_release(void) {
+    memset(&kms_state, 0, sizeof(kms_state));
+    kms_state.fd = -1;
+    kms_state.crtc_index = -1;
+    kms_state.map[0] = MAP_FAILED;
+    kms_state.map[1] = MAP_FAILED;
+
+    memset(&kms_scaled_plane, 0, sizeof(kms_scaled_plane));
+    kms_scaled_plane.map[0] = MAP_FAILED;
+    kms_scaled_plane.map[1] = MAP_FAILED;
+
+    memset(&kms_fb, 0, sizeof(kms_fb));
+}
+
+int a90_kms_release_for_handoff(struct a90_kms_release_result *result) {
+    struct a90_kms_release_result local;
+    int fd = kms_state.fd;
+    int first_error = 0;
+    uint32_t index;
+
+    memset(&local, 0, sizeof(local));
+    local.fd_before = fd;
+    local.drop_master_rc = -ENODEV;
+    local.initialized_before =
+        fd >= 0 ||
+        kms_state.map[0] != MAP_FAILED ||
+        kms_state.map[1] != MAP_FAILED;
+
+    local.disable_plane_rc = a90_kms_disable_scaled_plane();
+    kms_release_record_error(local.disable_plane_rc, &first_error);
+
+    if (fd >= 0 && kms_state.crtc_id != 0U) {
+        struct drm_mode_crtc disable;
+
+        memset(&disable, 0, sizeof(disable));
+        disable.crtc_id = kms_state.crtc_id;
+        if (drm_ioctl_retry(fd, DRM_IOCTL_MODE_SETCRTC, &disable) < 0) {
+            local.disable_crtc_rc = negative_errno_or(EIO);
+            kms_release_record_error(local.disable_crtc_rc, &first_error);
+        }
+    }
+
+    for (index = 0; index < 2U; ++index) {
+        if (kms_scaled_plane.map[index] != NULL &&
+            kms_scaled_plane.map[index] != MAP_FAILED &&
+            kms_scaled_plane.map_size > 0U &&
+            munmap(kms_scaled_plane.map[index],
+                   kms_scaled_plane.map_size) < 0) {
+            local.munmap_failures++;
+            kms_release_record_error(negative_errno_or(EIO), &first_error);
+        }
+        if (fd >= 0 && kms_scaled_plane.fb_id[index] != 0U) {
+            uint32_t fb_id = kms_scaled_plane.fb_id[index];
+
+            if (drm_ioctl_retry(fd, DRM_IOCTL_MODE_RMFB, &fb_id) < 0) {
+                local.rmfb_failures++;
+                kms_release_record_error(negative_errno_or(EIO), &first_error);
+            }
+        }
+        if (fd >= 0 && kms_scaled_plane.handle[index] != 0U) {
+            struct drm_mode_destroy_dumb destroy;
+
+            memset(&destroy, 0, sizeof(destroy));
+            destroy.handle = kms_scaled_plane.handle[index];
+            if (drm_ioctl_retry(fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy) < 0) {
+                local.destroy_dumb_failures++;
+                kms_release_record_error(negative_errno_or(EIO), &first_error);
+            }
+        }
+    }
+
+    for (index = 0; index < 2U; ++index) {
+        if (kms_state.map[index] != NULL &&
+            kms_state.map[index] != MAP_FAILED &&
+            kms_state.map_size > 0U &&
+            munmap(kms_state.map[index], kms_state.map_size) < 0) {
+            local.munmap_failures++;
+            kms_release_record_error(negative_errno_or(EIO), &first_error);
+        }
+        if (fd >= 0 && kms_state.fb_id[index] != 0U) {
+            uint32_t fb_id = kms_state.fb_id[index];
+
+            if (drm_ioctl_retry(fd, DRM_IOCTL_MODE_RMFB, &fb_id) < 0) {
+                local.rmfb_failures++;
+                kms_release_record_error(negative_errno_or(EIO), &first_error);
+            }
+        }
+        if (fd >= 0 && kms_state.handle[index] != 0U) {
+            struct drm_mode_destroy_dumb destroy;
+
+            memset(&destroy, 0, sizeof(destroy));
+            destroy.handle = kms_state.handle[index];
+            if (drm_ioctl_retry(fd, DRM_IOCTL_MODE_DESTROY_DUMB, &destroy) < 0) {
+                local.destroy_dumb_failures++;
+                kms_release_record_error(negative_errno_or(EIO), &first_error);
+            }
+        }
+    }
+
+    if (fd >= 0) {
+        if (drm_ioctl_retry(fd, DRM_IOCTL_DROP_MASTER, NULL) < 0) {
+            int saved_errno = errno;
+
+            local.drop_master_rc = -saved_errno;
+            if (saved_errno != EINVAL && saved_errno != ENOTTY) {
+                kms_release_record_error(local.drop_master_rc, &first_error);
+            }
+        } else {
+            local.drop_master_rc = 0;
+        }
+        if (close(fd) < 0) {
+            local.close_rc = negative_errno_or(EIO);
+            kms_release_record_error(local.close_rc, &first_error);
+        }
+    }
+
+    kms_reset_after_release();
+    local.release_complete =
+        kms_state.fd < 0 &&
+        kms_state.map[0] == MAP_FAILED &&
+        kms_state.map[1] == MAP_FAILED &&
+        kms_scaled_plane.map[0] == MAP_FAILED &&
+        kms_scaled_plane.map[1] == MAP_FAILED;
+    if (!local.release_complete && first_error == 0) {
+        first_error = -EIO;
+    }
+    local.rc = first_error;
+    if (result != NULL) {
+        *result = local;
+    }
+    if (first_error < 0) {
+        errno = -first_error;
+        return -1;
+    }
     return 0;
 }
 

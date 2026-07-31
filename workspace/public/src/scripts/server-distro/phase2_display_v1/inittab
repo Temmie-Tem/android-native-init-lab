@@ -1,0 +1,5 @@
+# A90 Phase 2 display host profile.
+id:2:initdefault:
+si::sysinit:/etc/a90-d3-firstboot
+ds:2:once:/usr/local/sbin/a90-debian-display-launcher-v1
+ca:12345:ctrlaltdel:/sbin/reboot -f

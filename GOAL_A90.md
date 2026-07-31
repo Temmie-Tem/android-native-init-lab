@@ -298,14 +298,37 @@ acquisition marker, and failure contracts are recorded in:
 
 `docs/reports/A90_PHASE2A_DRM_VTLESS_HANDOFF_CONTRACT_H0_2026-07-31.md`
 
-Phase 2B is selected as H0 source implementation only. Add explicit native PID1
-KMS teardown and `CLOEXEC`, audit PID 1 plus every other DRM fd before exec,
-harden a current-source Debian presenter to require master and clean partial
-state, and wire a minimal sysvinit display launcher independent of networking.
-Cross-compile and fault-test the complete closure, build only reproducible
-private host artifacts, and obtain independent safety review before any
-candidate identity is considered. Use the host schema `phase2-display-v1`;
-do not create V3406 identity, device authority, or a live step in Phase 2B.
+Phase 2B closed `A90_PHASE2B_DISPLAY_HANDOFF_SOURCE_H0_PASS`. D3 strict cleanup
+now disables and destroys native PID 1 KMS state, drops master, closes the
+close-on-exec DRM descriptor, scans PID 1 plus every other process for zero DRM
+fds, and writes a fail-closed release marker into the verified work root before
+mount movement. D4 preserve semantics remain separate.
+
+The current-source Debian profile requires that release proof, acquires exact
+DRM master, proves sole fd ownership and Debian PID 1, then drops to numeric
+UID/GID 3904 with zero effective capabilities and no-new-privileges before
+`SETCRTC`. Its marker binds the sysfs-matched device number and complete
+ownership/mode state. A sysvinit `once` launcher allows three attempts without
+VT, network, reboot, sync, or sysrq dependence.
+
+Native boot, ramdisk, init, helper, and engine were byte-identical across A/B.
+The static presenter and normalized 2 GiB Debian ext4 image were also
+byte-identical across A/B and both filesystems passed read-only `e2fsck`.
+Historical V3404 closure drift remains fail-closed, the accepted V3404 boot and
+V3405 base remained unchanged, and both host manifests grant no candidate
+authority. Independent review found and closed pre-SETCRTC capability proof
+and DRM major/minor marker gaps, then returned `GO` with no remaining Critical,
+High, or Medium finding.
+
+`docs/reports/A90_PHASE2B_DISPLAY_HANDOFF_SOURCE_H0_2026-07-31.md`
+
+Phase 2C is selected as H0 candidate-qualification and observation-packet
+design only. Bind the exact Phase 2B native and Debian host profiles, re-audit
+the A90 checked boot-only flash path and fresh absent-only work-image staging
+lifecycle, and define one-run evidence for native release, Debian sole DRM
+master, visible acquisition, bounded display failure, and healthy no-sync
+return. Do not assign V3406, stage an image, access a device, or create live
+authority in this unit.
 
 ## Later Phases
 
