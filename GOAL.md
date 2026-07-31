@@ -66,6 +66,10 @@ triggers AGENTS.md rule 7. The decoder was restored byte-exactly and the
 adapter moved into the live-tier evidence layer; 93/93 source receipts,
 frozen qualification, and linked closure reverify. No promotion retry,
 ready manifest, D0, approval binding, or F1 action occurred after the stop.
+An H0 recurrence guard now pins the complete frozen qualification receipt and
+byte-verifies its 51 logical implementation entries over 50 unique files,
+including the one declared alias pair. It passes with zero changed bytes but
+does not retroactively lift the rule-7 stop or authorize a promotion retry.
 
 The four formal Process-v2 verdicts remain
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: rollback and health evidence are
@@ -268,6 +272,7 @@ Load-bearing current reports:
 - `docs/reports/S22PLUS_FYG8_P284_P290_ACCEPT_TO_RESUME_HISTORY_ERRATUM_H0_2026-07-31.md`
 - `docs/reports/S22PLUS_FYG8_P292_ACCEPT_TO_RESUME_AND_STAGE_C_H0_2026-07-31.md`
 - `docs/reports/S22PLUS_FYG8_P292_FINAL_IDENTITY_FREEZE_H0_2026-07-31.md`
+- `docs/reports/S22PLUS_FYG8_P292_FROZEN_GATE_REPEAT_STOP_2026-07-31.md`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 

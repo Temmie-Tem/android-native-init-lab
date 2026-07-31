@@ -157,6 +157,24 @@ A source, intent, patch, gate result, substrate, executor, qualification
 implementation, or build-wrapper change invalidates the receipt; regenerate
 it before Full LTO. Historical source contracts do not consume this receipt.
 
+### Frozen P2.92 qualification mutation guard
+
+Before any P2.92 static replay or offline promotion, run:
+
+```bash
+PYTHONPATH=workspace/public/src/scripts/revalidation \
+python3 workspace/public/src/scripts/revalidation/\
+s22plus_fyg8_p292_frozen_qualification_guard.py
+```
+
+Require exact verdict
+`PASS_P292_FROZEN_QUALIFICATION_IMPLEMENTATION_UNCHANGED_H0`, 51 logical
+implementation entries, 50 unique regular paths, the single declared
+linked-audit alias pair, and `changed_count=0`. The guard pins the complete
+qualification-file receipt before trusting its embedded implementation
+receipts. A failure is a pre-session host stop, not permission to regenerate
+the frozen qualification, weaken the comparison, or retry promotion.
+
 ## Build record before preflight
 
 Create one private run directory and record these values before build A:

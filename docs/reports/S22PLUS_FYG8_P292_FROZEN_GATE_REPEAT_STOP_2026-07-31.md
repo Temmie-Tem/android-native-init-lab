@@ -56,3 +56,20 @@ accept-to-resume and Process-v2 tests pass. Host revalidation confirms:
 The existing Full-LTO and package artifacts remain valid. Promotion and D0
 remain intentionally incomplete under the rule-7 stop. No S22+ F1 is
 authorized.
+
+## Preventive H0 guard
+
+`s22plus_fyg8_p292_frozen_qualification_guard.py` now fails closed before a
+future static or promotion replay if the exact frozen P2.92 qualification or
+any implementation receipt bound by that qualification has changed. The guard
+pins the complete qualification receipt, then stable-reads and byte-verifies
+all 51 logical implementation entries. Those entries resolve to 50 unique
+regular repository files; the only accepted alias pair is `linked_audit` and
+`p292_linked_audit` over the same P2.92 linked-audit file.
+
+The focused fault suite rejects a changed implementation, an unexpected path
+alias, an indirect final path, and a changed qualification receipt. The exact
+current qualification passes with `51/51` logical entries, `50/50` unique
+paths, and zero changed bytes. This is a host-only recurrence-prevention guard.
+It does not erase the two prior failures, lift the rule-7 stop, authorize a
+promotion retry, or create D0/F1 authority.
