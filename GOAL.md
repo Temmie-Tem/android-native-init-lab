@@ -11,8 +11,9 @@ isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: direct PID1, E1A/E1B, E2 through the real UDC, and E3 through exact
-configfs UDC binding are live proven. P2.92 F1 is closed healthy/no-proof, but
-it restored the observation channel and advanced the live frontier from
+configfs UDC binding plus DCTL RUN_STOP/DSTS-not-halted are live proven;
+physical attach remains unproved. P2.92 F1 is closed healthy/no-proof, but it
+restored the observation channel and advanced the live frontier from
 generation 88 to terminal generation 106. Its final stable pair was
 `stage=0x92/item=1/outcome=FAILURE/detail=0xd00`: power-helper off/on zero,
 direct run-stop bind, UDC `not attached`, and speed `UNKNOWN`. Candidate and
@@ -167,13 +168,40 @@ for the full 30-second final window the UDC stayed `not attached` with speed
 rail collapse or identify why pullup/run-stop success failed to become a
 physical attach/enumeration.
 
-The four formal Process-v2 verdicts remain
-`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: rollback and health evidence are
-unchanged, while restart-helper dispatch and every later E3 boundary remain
-unproved. This is observation-channel recovery, not E3 progress. Full-LTO,
-final freeze, pre-LTO closure, and the independent Stage C review remain
-passed evidence. No manifest, D0, or another F1 receives authority from the
-failed scoped re-entry.
+The earlier four P2.84-through-P2.90 formal Process-v2 verdicts remain
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; their rollback and health evidence is
+unchanged. P2.92 is a fifth closed no-proof result, but unlike those four it
+proves restart-helper dispatch and return plus every declared coordinate
+through direct run-stop and final sampling. Its remaining failure is strictly
+later: no physical attach or host endpoint followed the running-controller
+boundary. Full-LTO, final freeze, pre-LTO closure, and the independent Stage C
+review remain passed evidence. No later F1 receives authority from this result.
+
+Post-live H0 distinguishes the project histories. O1.1 did enumerate and pass
+128 framed ACM exchanges, but it preserved Magisk `/init` and used Android's
+stock USB stack. No direct/minimal PID1 candidate has proven host enumeration.
+P2.80 already proved a runtime-resume-nested `run_stop(1)` write,
+`DSTS.DEVCTRLHLT` clear, and final `not attached`; P2.92 reaches the same wall
+after its full controlled power cycle by a direct run-stop path. Thus P2.92 is
+the first controlled-suspend successor beyond generation 88, not the first
+project observation of the post-run-stop electrical boundary.
+
+Exact FYG8 source rejects the tentative missing-software-session hypothesis
+for the explicit role path. `mode=peripheral` sets `vbus_active=true` and
+floating ID, `dwc3_ext_event_notify()` derives `B_SESS_VLD`, peripheral start
+writes the UTMI VBUS-valid override, and direct run-stop sets DCTL RUN_STOP and
+observes DSTS no longer halted. Stock Type-C/PDIC/redriver or physical-cable
+side effects can still matter, but the software session bit itself is not the
+missing predecessor.
+
+The retained `u16 detail` has ample value capacity. Current P2.92 uses 15,013
+values across 107 positions, leaving `0x8000..0xbfff` free as a proposed tagged
+14-bit snapshot band. A successor can reuse generation 105
+`stage=0x92/item=0` to retain selected DCTL, DSTS, UTMI-valid, GCTL, and
+GUSB2PHYCFG bits immediately before the generation-106 terminal result. DWC3
+debugfs reads are not load-bearing because they runtime-resume the controller;
+capture must occur inside or adjacent to run-stop. This is H0 design only, not
+a selected identity or device authorization.
 
 The live transaction exercised the durable recovery design. Initial rollback
 endpoint discovery stopped on a measured USB membership race. Rollback-only
@@ -334,6 +362,22 @@ corrected A/B pair then matched.
 - P2.92 proves the exact old generation-87/88 retained image can seed repaired
   writer state and commit generation 89; a separate old-ring initial-condition
   test creates a new seed and commits generation one.
+- P2.92 then live-advanced through generation 106. Its complete deep-suspend,
+  restart, reinit, direct-run-stop, and final-sampling path rejoins the older
+  P2.80 boundary: DWC3 running while UDC remains `not attached` and the host
+  sees no endpoint.
+- O1.1 is the only candidate-side ACM exchange success, and it used Android's
+  stock USB choreography. No direct/minimal PID1 candidate has proven host
+  enumeration. P2.80 nested run-stop and P2.92 direct run-stop both reach the
+  same no-attach boundary.
+- Exact source proves the explicit peripheral write creates `vbus_active`,
+  `B_SESS_VLD`, and the UTMI VBUS-valid write before the successful DCTL
+  RUN_STOP/DSTS-not-halted result. The remaining unknown is physical/link
+  state after that boundary, not absence of the software session predicate.
+- The proposed next observation reuses generation 105 for one packed
+  `0x8000..0xbfff` register snapshot and generation 106 for the terminal tuple;
+  it adds values, not more location markers. It is not implemented or
+  authorized.
 - `CHECKPOINT_ERRNO_OBSERVABILITY` preserves exact open/write/close errno,
   emits operation-aware failure details, and reaches an explicit volatile sink
   before park only when the checkpoint channel and fallback both fail.
@@ -370,6 +414,8 @@ Load-bearing current reports:
 - `docs/reports/S22PLUS_FYG8_P292_ACCEPT_TO_RESUME_AND_STAGE_C_H0_2026-07-31.md`
 - `docs/reports/S22PLUS_FYG8_P292_FINAL_IDENTITY_FREEZE_H0_2026-07-31.md`
 - `docs/reports/S22PLUS_FYG8_P292_FROZEN_GATE_REPEAT_STOP_2026-07-31.md`
+- `docs/reports/S22PLUS_FYG8_P292_F1_FINAL_NOT_ATTACHED_2026-08-01.md`
+- `docs/reports/S22PLUS_FYG8_P292_POST_RUN_STOP_BOUNDARY_AND_VALUE_TELEMETRY_H0_2026-08-01.md`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 
@@ -549,11 +595,16 @@ operations before the asserted publication boundaries.
 10. The inherited detail-zero prefix, nonzero details, two corruption controls,
    exact retained P2.90 gen87/88 resume to generation 89, and old-ring seed
    startup through generation one are host-proven.
-11. Treat the four-run generation-88 tuple as the live prefix baseline; any
-   earlier divergence is a regression. On renewed closure-proven silence, stop
-   code-position tracing and test system-state-transition coupling.
-12. No new S22+ device action or F1 request is permitted by the closed P2.90
-   unit; a successor requires fresh H0 design, identity, A/B, manifest, D0, and exact approval.
+11. Preserve generation 106 as the new live prefix baseline. Any successor
+   divergence before generation 105 is a regression; do not return to generic
+   code-position tracing.
+12. Design and fault-validate one exact packed post-run-stop value snapshot at
+   the existing generation-105 position. Bind its detail band coherently across
+   SoT, writer, client, model, decoder, producer routes, and the continuous
+   accept-to-resume walk. Do not use PM-perturbing debugfs as exact evidence.
+13. No new S22+ device action or F1 request is permitted by the closed P2.92
+   unit; a successor requires fresh H0 design, identity, A/B, manifest, D0, and
+   exact approval.
 
 No device step is added when H0 can answer the question.
 
