@@ -11,10 +11,12 @@ isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: direct PID1, E1A/E1B, E2 through the real UDC, and E3 through exact
-configfs UDC binding are live proven. P2.90 F1 is closed healthy/no-proof.
-P2.84, P2.86, P2.88, and P2.90 each ended with the same CRC-valid active
-`generation=88/stage=0x8f/outcome=PROGRESS/item=0/detail=0xc18`; each candidate
-and exact Magisk rollback completed once, with no replay and verified final
+configfs UDC binding are live proven. P2.92 F1 is closed healthy/no-proof, but
+it restored the observation channel and advanced the live frontier from
+generation 88 to terminal generation 106. Its final stable pair was
+`stage=0x92/item=1/outcome=FAILURE/detail=0xd00`: power-helper off/on zero,
+direct run-stop bind, UDC `not attached`, and speed `UNKNOWN`. Candidate and
+exact Magisk rollback each transferred once with no replay and verified final
 health.**
 
 Candidate-bound native replay now proves why no later checkpoint survived.
@@ -144,6 +146,26 @@ clean D0, and private target as approval binding
 `8732587efadc21b1534d74c37727679a53778afd2ae2e1ef2ee2d6e63d2fc5e1`.
 No F1, Odin invocation, partition transfer, Download transition, or candidate
 execution has occurred. F1 still requires the fresh exact operator token.
+
+That exact approval was later supplied and the P2.92 Process-v2 transaction is
+now `CLOSED` with verdict `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. The candidate
+and rollback each completed exactly one Odin boot-only transfer; rollback
+restored the FYG8 Android kernel, root, boot, supporting partitions, and normal
+health, and no recovery is required. The host CDC-ACM observer timed out, but
+two byte-identical retained reads contain one integrity-clean P2.92 record.
+Generation 105 marks `final_sampling_started`; terminal generation 106 is
+`stage=0x92/item=1/detail=0xd00`. Reaching it proves the fixed writer resumed
+the inherited generation-88 nonzero-detail state and then crossed every new
+P2.90/P2.92 coordinate: suspended-publish return, restart entry/deadline,
+restart helper return, child active, parent peripheral, exact UDC membership,
+restart trace capture/classification, bind cleanup/setup/UDC return, and bind
+trace classification. The authoritative traces prove FEMTO power-on/init and
+child resume returned zero, HSPHY notify-connect occurred, and configfs bind
+observed direct `run_stop` returning zero. The remaining live failure is later:
+for the full 30-second final window the UDC stayed `not attached` with speed
+`UNKNOWN`, matching the host endpoint timeout. This does not prove electrical
+rail collapse or identify why pullup/run-stop success failed to become a
+physical attach/enumeration.
 
 The four formal Process-v2 verdicts remain
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: rollback and health evidence are
