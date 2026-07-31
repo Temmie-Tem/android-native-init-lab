@@ -108,6 +108,24 @@ def output_root(repo: Path, requested: Path) -> Path:
     return resolved
 
 
+def selected_manifest(requested: Path) -> Path:
+    versions = (HERE / "versions").resolve()
+    if requested.is_symlink() or requested.parent.is_symlink():
+        raise RuntimeError(
+            f"manifest/profile must not be a symlink: {requested}"
+        )
+    resolved = requested.resolve()
+    try:
+        relative = resolved.relative_to(versions)
+    except ValueError as exc:
+        raise RuntimeError(f"manifest must stay below {versions}: {resolved}") from exc
+    if len(relative.parts) != 2 or relative.name != "manifest.toml":
+        raise RuntimeError(
+            "manifest must be versions/<host-profile>/manifest.toml"
+        )
+    return resolved
+
+
 def compile_objects(
     *,
     cc: str,
@@ -421,6 +439,7 @@ def write_json(path: Path, value: dict[str, Any]) -> None:
 def build_one(
     repo: Path,
     manifest_path: Path,
+    resolution: buildlib.ManifestResolution,
     manifest: dict[str, Any],
     inputs: dict[str, Any],
     versions: dict[str, str],
@@ -443,12 +462,25 @@ def build_one(
     require_markers(helper, validation["helper_strings"], "helper")
     require_markers(engine, validation["engine_strings"], "engine")
     artifacts = artifact_info(root)
+    buildlib.revalidate_manifest_lineage(resolution)
     receipt = {
         "schema": "a90-flat-builder-v1-build-receipt",
         "profile": manifest["profile"],
         "candidate_authority": False,
         "manifest": str(manifest_path.relative_to(repo)),
-        "manifest_sha256": buildlib.sha256_file(manifest_path),
+        "manifest_sha256": resolution.lineage_sha256[0],
+        "effective_manifest_sha256": resolution.effective_sha256,
+        "manifest_lineage": [
+            {
+                "path": str(path.relative_to(repo)),
+                "sha256": digest,
+            }
+            for path, digest in zip(
+                resolution.lineage,
+                resolution.lineage_sha256,
+                strict=True,
+            )
+        ],
         "inputs": {
             key: value
             for key, value in inputs.items()
@@ -465,11 +497,17 @@ def build_one(
 def audit(
     repo: Path,
     manifest_path: Path,
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, str]]:
-    manifest = buildlib.load_manifest(manifest_path)
-    inputs = buildlib.validate_inputs(repo, manifest_path, manifest)
+) -> tuple[
+    buildlib.ManifestResolution,
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, str],
+]:
+    resolution = buildlib.resolve_manifest(manifest_path)
+    manifest = resolution.data
+    inputs = buildlib.validate_inputs(repo, resolution, manifest)
     versions = validate_toolchain(manifest)
-    return manifest, inputs, versions
+    return resolution, manifest, inputs, versions
 
 
 def main() -> int:
@@ -482,13 +520,25 @@ def main() -> int:
     args = parser.parse_args()
     os.environ.update({"LC_ALL": "C", "LANG": "C", "TZ": "UTC"})
     repo = repo_root()
-    manifest_path = args.manifest.resolve()
-    manifest, inputs, versions = audit(repo, manifest_path)
+    manifest_path = selected_manifest(args.manifest)
+    resolution, manifest, inputs, versions = audit(repo, manifest_path)
     audit_result = {
         "schema": buildlib.SCHEMA,
         "profile": manifest["profile"],
         "candidate_authority": False,
-        "manifest_sha256": buildlib.sha256_file(manifest_path),
+        "manifest_sha256": resolution.lineage_sha256[0],
+        "effective_manifest_sha256": resolution.effective_sha256,
+        "manifest_lineage": [
+            {
+                "path": str(path.relative_to(repo)),
+                "sha256": digest,
+            }
+            for path, digest in zip(
+                resolution.lineage,
+                resolution.lineage_sha256,
+                strict=True,
+            )
+        ],
         "input_pins": {
             key: value
             for key, value in inputs.items()
@@ -497,6 +547,7 @@ def main() -> int:
         "toolchain": versions,
     }
     if args.audit_only:
+        buildlib.revalidate_manifest_lineage(resolution)
         print(json.dumps(audit_result, indent=2, sort_keys=True))
         return 0
     if args.out_dir is None and args.ab_root is None:
@@ -510,6 +561,7 @@ def main() -> int:
         receipt = build_one(
             repo,
             manifest_path,
+            resolution,
             manifest,
             inputs,
             versions,
@@ -521,6 +573,7 @@ def main() -> int:
         a_receipt = build_one(
             repo,
             manifest_path,
+            resolution,
             manifest,
             inputs,
             versions,
@@ -529,6 +582,7 @@ def main() -> int:
         b_receipt = build_one(
             repo,
             manifest_path,
+            resolution,
             manifest,
             inputs,
             versions,
@@ -544,6 +598,7 @@ def main() -> int:
         )
         if a_receipt["artifacts"] != b_receipt["artifacts"]:
             byte_identical = False
+        buildlib.revalidate_manifest_lineage(resolution)
         ab_receipt = {
             **audit_result,
             "schema": "a90-flat-builder-v1-ab-receipt",
@@ -560,6 +615,7 @@ def main() -> int:
             return 1
     if buildlib.sha256_file(inputs["accepted_boot"]) != accepted_before:
         raise RuntimeError("accepted historical boot changed during flat build")
+    buildlib.revalidate_manifest_lineage(resolution)
     return 0
 
 

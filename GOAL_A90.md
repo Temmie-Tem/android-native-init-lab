@@ -257,11 +257,32 @@ unchanged.
 
 `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1C_COMMITTED_EXPORT_H0_2026-07-31.md`
 
-Phase 1D is selected next: add a shallow data-only manifest resolver and prove
-cycle rejection, unknown-key rejection, and byte-identical resolution of a
-no-op child manifest over the flat V3404 effective baseline. Keep the fixture
-under a host schema name. Do not create V3406 until an actual candidate change
-is selected. This remains H0 schema work and creates no live authority.
+Phase 1D closed
+`A90_V3404_FLAT_BUILDER_PHASE1D_SHALLOW_MANIFEST_PASS`. A two-line
+`flat-builder-v1-noop` child resolves to the exact V3404 effective data and
+effective hash. The resolver permits one child over one flat sibling baseline,
+tracks leaf-source provenance, and rejects cycles, deeper chains, path-like
+parents, unknown keys, type changes, execution manifests outside the versions
+tree, manifest/profile symlinks, and any candidate-authority escalation.
+Receipts bind the effective hash plus ordered raw child/parent hashes, and the
+raw lineage is revalidated after each build before receipt acceptance. Focused
+tests passed `14/14`.
+Final-code A/B reproduced all five Phase 1C portable hashes, left the accepted
+V3404 artifact unchanged, and retained static AArch64 closure with no source
+path leak. Independent H0 review returned `GO` with no Critical, High, or
+Medium finding against the latest source hashes and fresh `ab-03` receipt.
+
+`docs/reports/A90_V3404_FLAT_BUILDER_PHASE1D_SHALLOW_MANIFEST_H0_2026-07-31.md`
+
+Phase 1 is closed. The flat V3404 effective snapshot and shallow resolver are
+the qualified host baseline for future versions. The 171-module Python
+mutation chain remains historical evidence and is not deleted. No V3406
+identity was created.
+
+Phase 2A is selected next as H0 only: inventory the carried kernel,
+native-init, and Debian rootfs display ownership surfaces, then write the
+DRM/KMS plus VT/session handoff contract. Do not change display code, create a
+candidate, or perform a device action in this inventory unit.
 
 ## Later Phases
 

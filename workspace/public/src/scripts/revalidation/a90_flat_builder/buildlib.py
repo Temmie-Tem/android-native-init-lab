@@ -2,18 +2,62 @@
 
 from __future__ import annotations
 
+import copy
+from dataclasses import dataclass
 import hashlib
+import json
 from pathlib import Path
+import re
 import tomllib
 from typing import Any, Iterable
 
 
 SCHEMA = "a90-flat-builder-v1"
 HEX_DIGITS = frozenset("0123456789abcdef")
+MAX_EXTENDS_DEPTH = 1
+VERSION_NAME = re.compile(r"[a-z0-9][a-z0-9._-]*")
+TOP_LEVEL_KEYS = frozenset({
+    "schema",
+    "extends",
+    "profile",
+    "cycle",
+    "decision",
+    "candidate_authority",
+    "reproducible_mtime",
+    "random_seed",
+    "boot_partition_max_bytes",
+    "inputs",
+    "toolchain",
+    "init",
+    "helper",
+    "engine",
+    "ramdisk",
+    "validation",
+    "legacy_bridge",
+})
 
 
 class ManifestError(RuntimeError):
     """The flat manifest or one of its pinned inputs is invalid."""
+
+
+@dataclass(frozen=True)
+class ManifestResolution:
+    """Resolved data plus the source file that supplied each leaf value."""
+
+    data: dict[str, Any]
+    requested_path: Path
+    lineage: tuple[Path, ...]
+    lineage_sha256: tuple[str, ...]
+    origins: dict[tuple[str, ...], Path]
+    effective_sha256: str
+
+    def origin_for(self, *keys: str) -> Path:
+        try:
+            return self.origins[tuple(keys)]
+        except KeyError as exc:
+            joined = ".".join(keys)
+            raise ManifestError(f"manifest value has no source origin: {joined}") from exc
 
 
 def sha256_file(path: Path) -> str:
@@ -32,16 +76,200 @@ def _require_sha256(value: object, label: str) -> str:
     return value
 
 
-def load_manifest(path: Path) -> dict[str, Any]:
-    with path.open("rb") as stream:
-        manifest = tomllib.load(stream)
+def _effective_sha256(manifest: dict[str, Any]) -> str:
+    encoded = json.dumps(
+        manifest,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _read_manifest(path: Path) -> tuple[dict[str, Any], str]:
+    require_regular(path, "manifest")
+    try:
+        raw = path.read_bytes()
+        manifest = tomllib.loads(raw.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
+        raise ManifestError(f"cannot parse manifest {path}: {exc}") from exc
     if manifest.get("schema") != SCHEMA:
         raise ManifestError(f"unsupported schema: {manifest.get('schema')!r}")
-    if "extends" in manifest:
-        raise ManifestError("v3404-effective must be a fully flattened manifest")
-    if manifest.get("candidate_authority") is not False:
-        raise ManifestError("flat-builder profile must grant no candidate authority")
-    return manifest
+    unknown = sorted(set(manifest) - TOP_LEVEL_KEYS)
+    if unknown:
+        raise ManifestError(f"unknown top-level manifest keys: {unknown}")
+    return manifest, hashlib.sha256(raw).hexdigest()
+
+
+def _leaf_origins(
+    value: object,
+    source: Path,
+    prefix: tuple[str, ...] = (),
+) -> dict[tuple[str, ...], Path]:
+    if isinstance(value, dict):
+        result: dict[tuple[str, ...], Path] = {}
+        for key, child in value.items():
+            result.update(_leaf_origins(child, source, (*prefix, key)))
+        return result
+    return {prefix: source}
+
+
+def _merge_known(
+    parent: object,
+    overlay: object,
+    *,
+    path: tuple[str, ...],
+    source: Path,
+    origins: dict[tuple[str, ...], Path],
+) -> object:
+    label = ".".join(path)
+    if isinstance(parent, dict):
+        if not isinstance(overlay, dict):
+            raise ManifestError(f"{label} must remain a table")
+        unknown = sorted(set(overlay) - set(parent))
+        if unknown:
+            raise ManifestError(f"{label} contains unknown keys: {unknown}")
+        merged = copy.deepcopy(parent)
+        for key, value in overlay.items():
+            merged[key] = _merge_known(
+                parent[key],
+                value,
+                path=(*path, key),
+                source=source,
+                origins=origins,
+            )
+        return merged
+    if type(overlay) is not type(parent):
+        raise ManifestError(
+            f"{label} changes type from {type(parent).__name__} "
+            f"to {type(overlay).__name__}"
+        )
+    origins[path] = source
+    return copy.deepcopy(overlay)
+
+
+def _resolve_manifest(
+    path: Path,
+    *,
+    versions_root: Path,
+    stack: tuple[Path, ...],
+) -> ManifestResolution:
+    if path.is_symlink() or path.parent.is_symlink():
+        raise ManifestError(f"manifest path must not use symlinks: {path}")
+    resolved_path = path.resolve()
+    if resolved_path in stack:
+        cycle = " -> ".join(item.parent.name for item in (*stack, resolved_path))
+        raise ManifestError(f"manifest extends cycle: {cycle}")
+    manifest, manifest_sha256 = _read_manifest(resolved_path)
+    extends = manifest.get("extends")
+    if extends is None:
+        if manifest.get("candidate_authority") is not False:
+            raise ManifestError(
+                "flat-builder profile must grant no candidate authority"
+            )
+        data = copy.deepcopy(manifest)
+        return ManifestResolution(
+            data=data,
+            requested_path=resolved_path,
+            lineage=(resolved_path,),
+            lineage_sha256=(manifest_sha256,),
+            origins=_leaf_origins(data, resolved_path),
+            effective_sha256=_effective_sha256(data),
+        )
+    if not isinstance(extends, str) or VERSION_NAME.fullmatch(extends) is None:
+        raise ManifestError(f"invalid extends version name: {extends!r}")
+    parent_candidate = versions_root / extends / "manifest.toml"
+    if parent_candidate.is_symlink() or parent_candidate.parent.is_symlink():
+        raise ManifestError(
+            f"parent manifest path must not use symlinks: {parent_candidate}"
+        )
+    parent_path = parent_candidate.resolve()
+    current_stack = (*stack, resolved_path)
+    if parent_path in current_stack:
+        cycle = " -> ".join(
+            item.parent.name for item in (*current_stack, parent_path)
+        )
+        raise ManifestError(f"manifest extends cycle: {cycle}")
+    if len(stack) >= MAX_EXTENDS_DEPTH:
+        raise ManifestError(
+            f"manifest extends depth exceeds {MAX_EXTENDS_DEPTH}"
+        )
+    try:
+        parent_path.relative_to(versions_root.resolve())
+    except ValueError as exc:
+        raise ManifestError(f"extends escapes versions root: {extends!r}") from exc
+    parent = _resolve_manifest(
+        parent_candidate,
+        versions_root=versions_root,
+        stack=current_stack,
+    )
+    overlay = {
+        key: value
+        for key, value in manifest.items()
+        if key not in {"schema", "extends"}
+    }
+    unknown = sorted(set(overlay) - set(parent.data))
+    if unknown:
+        raise ManifestError(f"child manifest contains unknown keys: {unknown}")
+    origins = dict(parent.origins)
+    data = copy.deepcopy(parent.data)
+    for key, value in overlay.items():
+        data[key] = _merge_known(
+            parent.data[key],
+            value,
+            path=(key,),
+            source=resolved_path,
+            origins=origins,
+        )
+    if data.get("candidate_authority") is not False:
+        raise ManifestError("child manifest must grant no candidate authority")
+    return ManifestResolution(
+        data=data,
+        requested_path=resolved_path,
+        lineage=(resolved_path, *parent.lineage),
+        lineage_sha256=(manifest_sha256, *parent.lineage_sha256),
+        origins=origins,
+        effective_sha256=_effective_sha256(data),
+    )
+
+
+def resolve_manifest(path: Path) -> ManifestResolution:
+    """Resolve one child over one flat sibling manifest directory."""
+
+    requested = path.absolute()
+    versions_root = requested.parent.parent.resolve()
+    return _resolve_manifest(
+        requested,
+        versions_root=versions_root,
+        stack=(),
+    )
+
+
+def load_manifest(path: Path) -> dict[str, Any]:
+    """Compatibility wrapper returning only resolved manifest data."""
+
+    return resolve_manifest(path).data
+
+
+def revalidate_manifest_lineage(resolution: ManifestResolution) -> None:
+    """Fail if any raw manifest changed after the effective snapshot was made."""
+
+    if len(resolution.lineage) != len(resolution.lineage_sha256):
+        raise ManifestError("manifest lineage path/hash cardinality mismatch")
+    for path, expected in zip(
+        resolution.lineage,
+        resolution.lineage_sha256,
+        strict=True,
+    ):
+        if path.is_symlink() or path.parent.is_symlink():
+            raise ManifestError(f"manifest lineage gained a symlink: {path}")
+        require_regular(path, "manifest lineage member")
+        actual = sha256_file(path)
+        if actual != expected:
+            raise ManifestError(
+                f"manifest lineage changed: {path}: "
+                f"got {actual}, expected {expected}"
+            )
 
 
 def resolve_repo_path(repo_root: Path, relative: str, label: str) -> Path:
@@ -130,9 +358,17 @@ def _pin_file(
 
 def validate_inputs(
     repo_root: Path,
-    manifest_path: Path,
+    manifest_source: Path | ManifestResolution,
     manifest: dict[str, Any],
 ) -> dict[str, Any]:
+    if isinstance(manifest_source, ManifestResolution):
+        resolution = manifest_source
+        manifest_path = resolution.requested_path
+    else:
+        resolution = resolve_manifest(manifest_source)
+        manifest_path = resolution.requested_path
+        if resolution.data != manifest:
+            raise ManifestError("manifest data does not match its resolved source")
     inputs = manifest["inputs"]
     base_boot, base_boot_sha = _pin_file(
         repo_root, inputs, "base_boot", "base_boot_sha256", "base boot"
@@ -214,12 +450,19 @@ def validate_inputs(
             f"got {doom_closure_sha}, expected {expected_doom_closure}"
         )
 
-    version_root = manifest_path.parent
     materialized: dict[str, Path] = {}
     materialized_sha: dict[str, str] = {}
     source_pins = engine["materialized_sources"]
     for name in ("adapter", "sfx", "sdl_mixer_stub"):
         entry = source_pins[name]
+        version_root = (
+            resolution.origin_for(
+                "engine",
+                "materialized_sources",
+                name,
+                "path",
+            ).parent
+        )
         path = require_regular(
             (version_root / entry["path"]).resolve(),
             f"materialized {name}",
