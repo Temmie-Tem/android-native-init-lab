@@ -88,6 +88,12 @@ class P294ContractTest(unittest.TestCase):
         self.assertEqual(args.lifecycle_result, pre_lto.DEFAULT_LIFECYCLE_RESULT)
         self.assertEqual(inherited.DEFAULT_USERSPACE_RESULT, previous_userspace)
         self.assertEqual(inherited.DEFAULT_LIFECYCLE_RESULT, previous_lifecycle)
+        augmented = pre_lto._argv_with_source(["--intent", "one", "--patch", "two"])
+        self.assertEqual(augmented[:4], ["--intent", "one", "--patch", "two"])
+        self.assertEqual(
+            augmented[-2:],
+            ["--source", str(pre_lto.candidate_contract.DEFAULT_SOURCE)],
+        )
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 import importlib
 from pathlib import Path
+import sys
 from typing import Iterator
 
 import build_s22plus_fyg8_p294_candidate as candidate_builder
@@ -171,7 +172,7 @@ def verify_receipt(*args, **kwargs):  # noqa: ANN002, ANN003, ANN201
 
 
 def _argv_with_source(argv: list[str] | None) -> list[str]:
-    values = [] if argv is None else list(argv)
+    values = list(sys.argv[1:] if argv is None else argv)
     if not any(
         value == "--source" or value.startswith("--source=")
         for value in values
