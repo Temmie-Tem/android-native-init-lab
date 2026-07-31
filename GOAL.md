@@ -757,10 +757,10 @@ The A90 branch proceeds independently:
    firstboot; do not classify it as an image-payload or SELinux-init failure.
 10. Preserve the independently reviewed V3405 no-sync parent supervisor and
     exact private H0 image; its artifact-build GO is not live authority.
-11. Preserve the independently reviewed V3405 retained-pmsg observer and
-    same-current-ACM-USB-parent NCM rebind. Before another F1, bind them with
-    the exact rootfs/candidate/rollback in a fresh manifest, then run fresh
-    preflight and obtain fresh approval. No prior approval is reusable.
+11. Preserve the reviewed V3405 observer, NCM rebind, and retained-work cleanup
+    contract. Fresh D0 found the exact preserved V3404 work copy; its prepared
+    cleanup approval is the next gate. After cleanup, repeat D0/path preflight
+    and prepare a separate fresh F1 manifest/approval. No prior token is reusable.
 
 No device step is added when H0 can answer the question.
 
