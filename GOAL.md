@@ -625,7 +625,8 @@ operations before the asserted publication boundaries.
    preserve valid nonzero progress detail, and retain fail-closed corruption
    handling. Do not add deferred-close or child-observer machinery.
 10. Treat the four-run generation-88 tuple as the live prefix baseline; any
-   earlier successor divergence is a new regression, not the known defect.
+   earlier divergence is a regression. If a closure-proven successor is silent
+   again, stop code-position tracing and test coupling to the system-state transition.
 11. No new S22+ device action or F1 request is permitted by the closed P2.90
    unit; a successor requires fresh H0 design, identity, A/B, manifest, D0, and exact approval.
 

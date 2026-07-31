@@ -431,3 +431,11 @@ incident. A successor must first repair and exhaustively prove
 same new identity. It must then complete ordinary Full-LTO/static/package
 closure. Only a later fresh F1 can observe the first real boundary after
 `0x8f`.
+
+The observer withdrawal does not withdraw the successor interpretation rule.
+If a closure-proven repaired successor reaches the exact generation-88
+baseline and a later fresh F1 again produces no successor record and no
+errno-classified evidence, stop adding code-position instrumentation. The next
+H0 must instead test whether the silence is coupled to the system-state
+transition reached at `0x8f`. This is a mandatory investigation pivot, not
+proof of a particular electrical state and not device authority.
