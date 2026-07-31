@@ -1,4 +1,4 @@
-# A90 V3405 Live Debian PID1 Evidence and F1 Closure
+# A90 V3405 Live Debian PID1, Display Release, and F1 Closure
 
 Date: 2026-07-31
 
@@ -52,6 +52,35 @@ source_sha phase=post-copy-source expected_sha_match=1
 
 It also returned the exact `exec_switch_root_now` boundary. No handoff retry
 or candidate replay occurred.
+
+## Proven successful boundary
+
+The live run directly proves the complete mechanism-level path:
+
+```text
+native-init strict display release
+-> immutable work-copy handoff
+-> switch_root
+-> Debian sysvinit PID1
+-> USB-local Dropbear observation
+-> no-sync supervisor return to healthy native-init
+```
+
+Display release was affirmative rather than inferred. The handoff log records:
+
+```text
+handoff_display strict=1 preserve_dpublic=0
+handoff_display service=autohud stop_rc=0
+handoff_display service=dpublic-hud-presenter stop_rc=0
+handoff_display required_nonpreserved_owner_count=0 observed=0
+handoff_display=done killed=2 rc=0
+```
+
+Native-init therefore released every modeled DRM owner before `switch_root`.
+The V3405 diagnostic Debian firstboot does not start a DRM/KMS presenter, so
+the subsequent black screen is expected. It proves successful native display
+release, not an inability of Debian to acquire DRM; Debian display acquisition
+was outside this run and remains untested.
 
 ## Live Debian PID1 evidence
 
