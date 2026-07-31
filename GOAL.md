@@ -212,10 +212,25 @@ bands must not be overloaded. The reduced two-slot P2.94 implementation uses A f
 times COREIDLE and SUSPHY, or 132 values: 148 normal values total. Fixed
 RUN_STOP, DEVCTRLHLT, PRTCAP, and VBUS-valid mismatches use fifteen exact masks;
 CONNECTSPD is ignored for UNKNOWN speed and exact-checked otherwise. This is
-implemented and host-validated but has no derived intent, Full-LTO build, or
-device authority. `SLOT_COUNT=2` is now a load-bearing diagnostic constraint
-and the first architectural item to revisit if packing dominates a later
-campaign again.
+implemented and host-validated. P2.94 intent run
+`dd20b502d5e45480b9f89c9b5e2232a2` is immutable, its `21/21` pre-LTO
+qualification passed, and its corrected Full-LTO A/B pair is byte-identical
+over all nine preserved artifacts. `Image` SHA256 is
+`8161a50d0eb5acea89a0c4a3343d73236a59c1223dee55840e5c8695587bb719`.
+All 103 payload receipts still match the intent with `CHANGED_KEYS=[]`.
+`SLOT_COUNT=2` is now a load-bearing diagnostic constraint and the first
+architectural item to revisit if packing dominates a later campaign again.
+
+Promotion is stopped before formal static closure. P2.94 qualification was
+created at commit `9b062785` and correctly binds observer SHA256
+`a2536c44f8585cb41e58eab97c4bb97e4f957533139c847b49f55ef729f7586a`.
+Later A90 commit `28515909` changed that shared Tier-2 observer to SHA256
+`6c8a6d2151928d2e098ca41b3c9dc24cdbbfabe9be10df19969be274744ef9a9`.
+The current formal checker therefore fails closed with
+`P2.86 gate implementation is stale`. This is post-qualification verifier
+drift, not a payload or A/B mismatch, but it is the repeated frozen-gate stale
+failure class under rule 7. No package promotion, ready manifest, D0, approval
+binding, F1, Odin invocation, or device contact followed the stop.
 
 Repository-module AST closure rejects absent `module.attr` and alias shadowing
 before execution. The mandatory tuple locks it with
