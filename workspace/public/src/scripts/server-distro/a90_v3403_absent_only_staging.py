@@ -1992,7 +1992,7 @@ def execute_approved_stage(
     manifest: dict[str, Any],
     args: argparse.Namespace,
 ) -> dict[str, Any]:
-    if manifest.get("schema") != expected_manifest_schema(spec.run_id):
+    if manifest.get("schema") != selected_manifest_schema(manifest, spec.run_id):
         raise ContractError("live staging refuses a non-final manifest schema")
     if manifest.get("status") != FINAL_MANIFEST_STATUS:
         raise ContractError("live staging refuses a non-ready manifest status")

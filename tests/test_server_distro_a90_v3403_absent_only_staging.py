@@ -996,6 +996,34 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
         with self.assertRaisesRegex(stage.ContractError, "non-final manifest schema"):
             stage.execute_approved_stage(spec, manifest, args)
 
+    def test_live_gate_selects_exact_resident_schema_before_device_calls(self) -> None:
+        spec = types.SimpleNamespace(
+            manifest_sha256="a" * 64,
+            run_id=TEST_RUN_ID_V3406,
+            observer_device="observer-device",
+        )
+        manifest = {
+            "schema": stage.RESIDENT_PROMOTION_MANIFEST_SCHEMA,
+            "status": stage.FINAL_MANIFEST_STATUS,
+            "resident_promotion": {},
+        }
+        args = types.SimpleNamespace(
+            approved_manifest_sha256=spec.manifest_sha256,
+            approved_adapter_sha256=stage.sha256_file(SOURCE.resolve()),
+            approved_run_id=spec.run_id,
+            device_ip=spec.observer_device,
+            approval="exact-token",
+        )
+        with (
+            mock.patch.object(
+                stage,
+                "validate_parent_approval",
+                side_effect=RuntimeError("resident-schema-selected"),
+            ),
+            self.assertRaisesRegex(RuntimeError, "resident-schema-selected"),
+        ):
+            stage.execute_approved_stage(spec, manifest, args)
+
     def test_live_run_dir_is_exact_and_private(self) -> None:
         spec = types.SimpleNamespace(run_id="a90-v3403-debian-f1-20260730-02")
         expected = (
