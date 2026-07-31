@@ -30,7 +30,7 @@ CONTRACT = (
     / "contract.toml"
 )
 PACKET_SCHEMA = "a90-phase2c-display-qualification-packet-v1"
-DECISION = "A90_PHASE2C_HOST_PROFILES_BOUND_NOT_LIVE_READY"
+DECISION = "A90_PHASE2C_HOST_PROFILES_BOUND_PHASE2D_RUNNER_INTEGRATED_NOT_LIVE_READY"
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 ANDROID_BOOT_MAGIC = b"ANDROID!"
 EXT4_MAGIC_OFFSET = 1024 + 0x38
@@ -413,8 +413,16 @@ def validate_machinery(contract: dict[str, Any]) -> dict[str, Any]:
     ):
         raise ContractError("fixed work-image identity drifted")
     cycles = set(machinery["supported_live_cycles"])
-    if cycles != {"v3403", "v3404", "v3405"}:
+    if cycles != {"v3403", "v3404", "v3405", "v3406"}:
         raise ContractError("current staging cycle inventory is not exact")
+    if (
+        'PHASE2_DISPLAY_MANIFEST_SCHEMA = "a90_native_init_f1_prepared_v3"'
+        not in stage
+        or '"v3406": "debian-bookworm-arm64-phase2-display-v3406-keyed-"'
+        not in stage
+        or "validate_phase2_keyed_materialization(" not in stage
+    ):
+        raise ContractError("Phase 2 keyed staging closure is not integrated")
 
     ssh_observer = function_slice(
         orchestrator,
@@ -424,11 +432,14 @@ def validate_machinery(contract: dict[str, Any]) -> dict[str, Any]:
     current_display_observation = (
         "/run/a90-display/ready" in ssh_observer
         and "/run/a90-display/failure" in ssh_observer
-        and "A90D3DISPLAY native_kms_release" in orchestrator
+        and "display.validate_native_release_evidence(" in orchestrator
+        and "display.validate_debian_ready_marker(" in orchestrator
+        and "open_display_visible_confirmation(" in orchestrator
+        and "validate_confirmed_display_proof(" in orchestrator
     )
-    if current_display_observation:
+    if not current_display_observation:
         raise ContractError(
-            "orchestrator gained display observation without a Phase 2C contract update"
+            "orchestrator lacks the reviewed Phase 2D display observation"
         )
     return {
         "hashes": {
@@ -444,8 +455,8 @@ def validate_machinery(contract: dict[str, Any]) -> dict[str, Any]:
         "work_must_be_absent": True,
         "automatic_work_cleanup_allowed": False,
         "supported_live_cycles": sorted(cycles),
-        "phase2_profile_supported_for_live_staging": False,
-        "display_observation_integrated": False,
+        "phase2_profile_supported_for_live_staging": True,
+        "display_observation_integrated": True,
     }
 
 
@@ -645,21 +656,6 @@ def build_packet(contract_path: Path = CONTRACT) -> dict[str, Any]:
             ),
         },
         {
-            "code": "PHASE2_LIVE_STAGING_IDENTITY_NOT_DEFINED",
-            "detail": (
-                "The current absent-only adapter accepts only V3403-V3405 run "
-                "identities; Phase 2C deliberately assigns no candidate cycle."
-            ),
-        },
-        {
-            "code": "DISPLAY_OBSERVATION_NOT_IN_EXECUTION_RUNNER",
-            "detail": (
-                "The current orchestrator proves Debian PID1/Dropbear/return but "
-                "does not parse native release, display ready/failure, or a "
-                "manifest-bound visible-acquisition receipt."
-            ),
-        },
-        {
             "code": "FRESH_D0_MANIFEST_APPROVAL_ABSENT",
             "detail": (
                 "No target-bound D0, final manifest, rollback binding, or fresh "
@@ -681,7 +677,7 @@ def build_packet(contract_path: Path = CONTRACT) -> dict[str, Any]:
         "ready_for_live_candidate": False,
         "blockers": blockers,
         "next_change_unit": (
-            "reviewed per-run keying plus Phase 2 display observation integration"
+            "fresh per-run key materialization, connected D0, and final manifest"
         ),
         "independent_review_required_before_live_use": True,
         "safety": {

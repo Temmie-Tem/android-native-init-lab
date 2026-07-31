@@ -41,11 +41,11 @@ clean_absent_paths = [
 flash_runner = "workspace/public/src/scripts/revalidation/native_init_flash.py"
 flash_runner_sha256 = "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
 staging_adapter = "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py"
-staging_adapter_sha256 = "782f581e2022041945f81ddd9d3e5cc5511c6cb7a2f6e340c97480350fb956eb"
+staging_adapter_sha256 = "0262d480360ad55e74273c77005af62e9670d63ef10f635b45fd006cce21199f"
 orchestrator = "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py"
-orchestrator_sha256 = "7397284176dbf612528dd2ce92f61a5a142506a6c0ca896effda3fb07502bd9c"
+orchestrator_sha256 = "8465eb450637cd0dec0084d68c91ad43a48f13b6d2b3f96d5ccf63cac48c3703"
 fixed_work_image = "/mnt/sdext/a90/runtime/d3-handoff-work.img"
-supported_live_cycles = ["v3403", "v3404", "v3405"]
+supported_live_cycles = ["v3403", "v3404", "v3405", "v3406"]
 
 [observation]
 display_uid = 3904

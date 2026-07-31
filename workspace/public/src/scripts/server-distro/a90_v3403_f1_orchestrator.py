@@ -39,6 +39,7 @@ for _path in (SCRIPT_DIR, REVAL_DIR):
         sys.path.insert(0, str(_path))
 
 import a90_v3403_absent_only_staging as staging  # noqa: E402
+import a90_phase2d_display_observer as display  # noqa: E402
 import a90ctl  # noqa: E402
 import run_d1_chroot_mvp as d1  # noqa: E402
 
@@ -49,6 +50,8 @@ APPROVAL_PREPARED_SCHEMA = "a90_v3403_f1_approval_prepared_v1"
 APPROVAL_PREFIX = "A90-F1-V2-APPROVE:"
 ATTENDED_WINDOW_SCHEMA = "a90_v3403_f1_attended_window_v1"
 ATTENDED_CONTINUE_PREFIX = "A90-F1-ATTENDED-CONTINUE:"
+DISPLAY_VISIBLE_SCHEMA = "a90_v3406_f1_display_visible_v1"
+DISPLAY_VISIBLE_PREFIX = "A90-F1-DISPLAY-VISIBLE:"
 FINAL_MANIFEST_SCHEMA = staging.FINAL_MANIFEST_SCHEMA
 FINAL_MANIFEST_STATUS = staging.FINAL_MANIFEST_STATUS
 PRIVATE_RUN_BASE = staging.PRIVATE_RUN_BASE
@@ -122,6 +125,24 @@ ATTENDED_RETRYABLE_CHANNEL_ERRORS = (
     "observation menu hide did not complete",
     "observation channel did not settle",
 )
+PHASE2_DISPLAY_PROFILE = "phase2-display-v1"
+PHASE2_DISPLAY_VISIBLE_TEXT = (
+    "A90 DEBIAN",
+    "DIRECT DRM SESSION",
+    "PID 1: SYSVINIT / VT: NONE",
+    "DISPLAY OWNER: DEBIAN",
+)
+PHASE2_DISPLAY_UID = 3904
+PHASE2_DISPLAY_GID = 3904
+PHASE2_DISPLAY_MAX_ATTEMPTS = 3
+DISPLAY_D3_BEGIN = "A90OBS_D3_BEGIN"
+DISPLAY_D3_END = "A90OBS_D3_END"
+DISPLAY_RELEASE_BEGIN = "A90OBS_RELEASE_BEGIN"
+DISPLAY_RELEASE_END = "A90OBS_RELEASE_END"
+DISPLAY_READY_BEGIN = "A90OBS_READY_BEGIN"
+DISPLAY_READY_END = "A90OBS_READY_END"
+DISPLAY_FAILURE_BEGIN = "A90OBS_FAILURE_BEGIN"
+DISPLAY_FAILURE_END = "A90OBS_FAILURE_END"
 RECOVERY_ADB_MARKER_RE = re.compile(
     r"(?:^|\] )ADB ready: ([^\s]+) recovery\r?$",
     re.MULTILINE,
@@ -173,6 +194,12 @@ class F1Spec:
     attended_window_sec: int
     pre_handoff_attempt_limit: int
     handoff_attempt_limit: int
+    display_required: bool
+    display_profile: str
+    display_uid: int
+    display_gid: int
+    display_max_attempts: int
+    display_visible_text: tuple[str, ...]
     recovery_serial_sha256: str
     recovery_serial: str
     recovery_evidence: tuple[staging.BoundFile, ...]
@@ -365,6 +392,75 @@ def validate_observation_policy(
     else:
         raise ContractError("observation.mode is not a reviewed exact mode")
     return mode, window, attempts, handoffs
+
+
+def validate_display_observation(
+    manifest: dict[str, Any],
+    observation: dict[str, Any],
+    observation_mode: str,
+) -> tuple[bool, str, int, int, int, tuple[str, ...]]:
+    required = (
+        manifest.get("schema") == staging.PHASE2_DISPLAY_MANIFEST_SCHEMA
+    )
+    value = observation.get("display")
+    if not required:
+        if value is not None:
+            raise ContractError(
+                "legacy manifest must not add the Phase 2 display contract"
+            )
+        return False, "", 0, 0, 0, ()
+    if observation_mode != ATTENDED_OBSERVATION_MODE:
+        raise ContractError(
+            "Phase 2 display proof requires operator-attended observation"
+        )
+    item = _dict(value, "observation.display")
+    expected_keys = {
+        "profile",
+        "native_release_schema",
+        "native_release_marker_path",
+        "ready_schema",
+        "ready_marker_path",
+        "failure_schema",
+        "failure_marker_path",
+        "display_uid",
+        "display_gid",
+        "max_attempts",
+        "visible_text",
+        "operator_visible_confirmation_required",
+    }
+    if set(item) != expected_keys:
+        raise ContractError("Phase 2 display contract key set is not exact")
+    visible = item.get("visible_text")
+    if (
+        item.get("profile") != PHASE2_DISPLAY_PROFILE
+        or item.get("native_release_schema")
+        != "a90-native-display-release-v1"
+        or item.get("native_release_marker_path")
+        != "/run/a90-native-display-release"
+        or item.get("ready_schema") != "a90-debian-display-v1"
+        or item.get("ready_marker_path") != "/run/a90-display/ready"
+        or item.get("failure_schema")
+        != "a90-debian-display-v1-failure"
+        or item.get("failure_marker_path") != "/run/a90-display/failure"
+        or type(item.get("display_uid")) is not int
+        or item.get("display_uid") != PHASE2_DISPLAY_UID
+        or type(item.get("display_gid")) is not int
+        or item.get("display_gid") != PHASE2_DISPLAY_GID
+        or type(item.get("max_attempts")) is not int
+        or item.get("max_attempts") != PHASE2_DISPLAY_MAX_ATTEMPTS
+        or not isinstance(visible, list)
+        or tuple(visible) != PHASE2_DISPLAY_VISIBLE_TEXT
+        or item.get("operator_visible_confirmation_required") is not True
+    ):
+        raise ContractError("Phase 2 display contract is not exact")
+    return (
+        True,
+        PHASE2_DISPLAY_PROFILE,
+        PHASE2_DISPLAY_UID,
+        PHASE2_DISPLAY_GID,
+        PHASE2_DISPLAY_MAX_ATTEMPTS,
+        PHASE2_DISPLAY_VISIBLE_TEXT,
+    )
 
 
 def require_private_regular(path: Path, *, mode_mask: int = 0o077) -> None:
@@ -570,6 +666,18 @@ def load_spec(
         pre_handoff_attempt_limit,
         handoff_attempt_limit,
     ) = validate_observation_policy(observation)
+    (
+        display_required,
+        display_profile,
+        display_uid,
+        display_gid,
+        display_max_attempts,
+        display_visible_text,
+    ) = validate_display_observation(
+        manifest,
+        observation,
+        observation_mode,
+    )
 
     target = _dict(manifest.get("target"), "target")
     recovery_serial_sha256_value = target.get("recovery_adb_serial_sha256")
@@ -695,6 +803,12 @@ def load_spec(
             attended_window_sec=attended_window_sec,
             pre_handoff_attempt_limit=pre_handoff_attempt_limit,
             handoff_attempt_limit=handoff_attempt_limit,
+            display_required=display_required,
+            display_profile=display_profile,
+            display_uid=display_uid,
+            display_gid=display_gid,
+            display_max_attempts=display_max_attempts,
+            display_visible_text=display_visible_text,
             recovery_serial_sha256=recovery_serial_sha256,
             recovery_serial=recovery_serial,
             recovery_evidence=recovery_evidence,
@@ -1148,7 +1262,10 @@ def approved_bindings(
     *,
     recovery: bool,
 ) -> dict[str, Any]:
-    if spec.manifest.get("schema") != FINAL_MANIFEST_SCHEMA:
+    if (
+        spec.manifest.get("schema")
+        != staging.expected_manifest_schema(spec.stage.run_id)
+    ):
         raise ContractError("live F1 refuses a non-final manifest schema")
     if spec.manifest.get("status") != FINAL_MANIFEST_STATUS:
         raise ContractError("live F1 refuses a non-ready manifest status")
@@ -2202,11 +2319,29 @@ def run_handoff(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
 
 
 def ssh_command(spec: F1Spec, args: argparse.Namespace) -> list[str]:
-    remote_script = (
-        "cat /run/a90-d3-marker 2>/dev/null; "
-        "echo pid1_comm=$(cat /proc/1/comm 2>/dev/null); "
-        "echo proc1_exe=$(readlink /proc/1/exe 2>/dev/null)"
-    )
+    if spec.display_required:
+        remote_script = (
+            f"echo {DISPLAY_D3_BEGIN}; "
+            "cat /run/a90-d3-marker 2>/dev/null; "
+            f"echo {DISPLAY_D3_END}; "
+            f"echo {DISPLAY_RELEASE_BEGIN}; "
+            "cat /run/a90-native-display-release 2>/dev/null; "
+            f"echo {DISPLAY_RELEASE_END}; "
+            f"echo {DISPLAY_READY_BEGIN}; "
+            "cat /run/a90-display/ready 2>/dev/null; "
+            f"echo {DISPLAY_READY_END}; "
+            f"echo {DISPLAY_FAILURE_BEGIN}; "
+            "cat /run/a90-display/failure 2>/dev/null; "
+            f"echo {DISPLAY_FAILURE_END}; "
+            "echo pid1_comm=$(cat /proc/1/comm 2>/dev/null); "
+            "echo proc1_exe=$(readlink /proc/1/exe 2>/dev/null)"
+        )
+    else:
+        remote_script = (
+            "cat /run/a90-d3-marker 2>/dev/null; "
+            "echo pid1_comm=$(cat /proc/1/comm 2>/dev/null); "
+            "echo proc1_exe=$(readlink /proc/1/exe 2>/dev/null)"
+        )
     return [
         "ssh",
         "-i",
@@ -2224,6 +2359,20 @@ def ssh_command(spec: F1Spec, args: argparse.Namespace) -> list[str]:
         f"root@{spec.observer_device}",
         remote_script,
     ]
+
+
+def exact_ssh_section(text: str, begin: str, end: str) -> str:
+    begin_line = begin + "\n"
+    end_line = end + "\n"
+    if text.count(begin_line) != 1 or text.count(end_line) != 1:
+        raise ContractError(f"SSH observation section is not exact: {begin}")
+    prefix, suffix = text.split(begin_line, 1)
+    content, tail = suffix.split(end_line, 1)
+    if prefix and not prefix.endswith("\n"):
+        raise ContractError(f"SSH observation section prefix is malformed: {begin}")
+    if tail and not tail.endswith("\n"):
+        raise ContractError(f"SSH observation section suffix is malformed: {end}")
+    return content
 
 
 def observe_ssh(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
@@ -2244,8 +2393,76 @@ def observe_ssh(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
         last = {"returncode": completed.returncode, "text": text}
         proc1_init = re.search(r"^pid1_comm=init$", text, re.MULTILINE) is not None
         proc1_exe = re.search(r"^proc1_exe=\S*/init$", text, re.MULTILINE) is not None
+        if spec.display_required and completed.returncode == 0:
+            try:
+                d3_marker = exact_ssh_section(
+                    text,
+                    DISPLAY_D3_BEGIN,
+                    DISPLAY_D3_END,
+                )
+                release_marker = exact_ssh_section(
+                    text,
+                    DISPLAY_RELEASE_BEGIN,
+                    DISPLAY_RELEASE_END,
+                )
+                ready_marker = exact_ssh_section(
+                    text,
+                    DISPLAY_READY_BEGIN,
+                    DISPLAY_READY_END,
+                )
+                failure_marker = exact_ssh_section(
+                    text,
+                    DISPLAY_FAILURE_BEGIN,
+                    DISPLAY_FAILURE_END,
+                )
+                if (
+                    "A90D3_MARKER" not in d3_marker
+                    or "dropbear_started=1" not in d3_marker
+                    or not release_marker
+                    or not proc1_init
+                    or not proc1_exe
+                    or bool(ready_marker) == bool(failure_marker)
+                ):
+                    raise ContractError(
+                        "Phase 2 SSH observation is not mechanically complete"
+                    )
+                if ready_marker:
+                    marker = display.validate_debian_ready_marker(
+                        ready_marker,
+                        display_uid=spec.display_uid,
+                        display_gid=spec.display_gid,
+                    )
+                    status = "ready"
+                else:
+                    marker = display.validate_bounded_failure_marker(
+                        failure_marker,
+                        max_attempts=spec.display_max_attempts,
+                        ready_absent=True,
+                    )
+                    status = "bounded-failure"
+                return {
+                    "proof": status == "ready",
+                    "attempts": attempts,
+                    "pid1_comm_init": True,
+                    "proc1_exe_init": True,
+                    "dropbear_started": True,
+                    "display_status": status,
+                    "display_marker": marker,
+                    "display_marker_text": (
+                        ready_marker if ready_marker else failure_marker
+                    ),
+                    "native_release_marker_text": release_marker,
+                    "text": text,
+                }
+            except ContractError as exc:
+                last = {
+                    "returncode": completed.returncode,
+                    "error": str(exc),
+                    "text": text,
+                }
         if (
-            completed.returncode == 0
+            not spec.display_required
+            and completed.returncode == 0
             and "A90D3_MARKER" in text
             and proc1_init
             and proc1_exe
@@ -2434,7 +2651,26 @@ def observe_attended_after_handoff(
     try:
         result["handoff"] = run_handoff(spec, args)
         result["ssh"] = observe_ssh(spec, args)
-        result["proof"] = True
+        if spec.display_required:
+            display.validate_native_release_evidence(
+                result["handoff"]["text"],
+                result["ssh"]["native_release_marker_text"],
+            )
+            result["native_release_proven"] = True
+            result["debian_pid1_proven"] = True
+            result["display_status"] = result["ssh"]["display_status"]
+            result["display_mechanical_proof"] = (
+                result["ssh"]["display_status"] == "ready"
+            )
+            result["bounded_display_failure"] = (
+                result["ssh"]["display_status"] == "bounded-failure"
+            )
+            result["visible_confirmation_required"] = (
+                result["display_mechanical_proof"]
+            )
+            result["proof"] = False
+        else:
+            result["proof"] = True
     except Exception as exc:  # noqa: BLE001 - rollback remains mandatory
         result["error"] = {"type": type(exc).__name__, "message": str(exc)}
     finally:
@@ -2455,6 +2691,404 @@ def observe_attended_after_handoff(
             result["proof"] = False
     write_private_json_exclusive(transaction_dir / "observation.json", result)
     return result
+
+
+def display_visible_path(transaction_dir: Path) -> Path:
+    return transaction_dir / "display-visible-confirmation.json"
+
+
+def display_visible_binding(
+    spec: F1Spec,
+    approval_prepared: dict[str, Any],
+    attended_receipt: dict[str, Any],
+    open_record: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "schema": "a90_v3406_f1_display_visible_binding_v1",
+        "run_id": spec.stage.run_id,
+        "manifest_sha256": spec.stage.manifest_sha256,
+        "approval_binding_sha256": approval_prepared[
+            "approval_binding_sha256"
+        ],
+        "candidate_boot_sha256": spec.candidate.sha256,
+        "rollback_boot_sha256": spec.rollback.sha256,
+        "final_keyed_rootfs_sha256": spec.stage.local_sha256,
+        "display_profile": spec.display_profile,
+        "display_ready_marker_sha256": open_record.get(
+            "display_ready_marker_sha256"
+        ),
+        "visible_text_sha256": json_sha256(list(spec.display_visible_text)),
+        "confirmation_open_sequence": open_record.get("sequence"),
+        "confirmation_opened_utc": open_record.get("timestamp_utc"),
+        "observation_deadline_utc": attended_receipt[
+            "continue_binding"
+        ]["window_deadline_utc"],
+        "candidate_returned": True,
+        "retained_pmsg_captured_and_cleaned": True,
+        "candidate_replay": False,
+        "rollback_pre_authorized": True,
+        "only_partition_payload": "boot",
+    }
+
+
+def open_display_visible_confirmation(
+    spec: F1Spec,
+    approval_prepared: dict[str, Any],
+    attended_receipt: dict[str, Any],
+    transaction_dir: Path,
+    journal_dir: Path,
+    observation: dict[str, Any],
+) -> dict[str, Any]:
+    if (
+        not spec.display_required
+        or observation.get("display_mechanical_proof") is not True
+        or observation.get("visible_confirmation_required") is not True
+        or "candidate_return" not in observation
+        or observation.get("retained_pmsg", {}).get("proof") is not True
+    ):
+        raise ContractError(
+            "display visible confirmation requires complete mechanical proof and return"
+        )
+    deadline = parse_utc_timestamp(
+        attended_receipt["continue_binding"]["window_deadline_utc"],
+        "display visible observation deadline",
+    )
+    if current_utc() > deadline:
+        raise ContractError(
+            "display visible observation window expired; rollback only"
+        )
+    marker_text = observation["ssh"].get("display_marker_text")
+    if not isinstance(marker_text, str):
+        raise ContractError("display ready marker text is absent")
+    display.validate_debian_ready_marker(
+        marker_text,
+        display_uid=spec.display_uid,
+        display_gid=spec.display_gid,
+    )
+    marker_sha256 = hashlib.sha256(marker_text.encode("utf-8")).hexdigest()
+    path = append_record(
+        journal_dir,
+        "OBSERVED",
+        "display-visible-confirmation-open",
+        {
+            "display_ready_marker_sha256": marker_sha256,
+            "observation_deadline_utc": deadline.strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            ),
+            "candidate_returned": True,
+            "retained_pmsg_captured_and_cleaned": True,
+            "candidate_replay": False,
+            "rollback_required": True,
+        },
+        manifest_sha256=spec.stage.manifest_sha256,
+        run_id=spec.stage.run_id,
+    )
+    open_record = json.loads(path.read_text(encoding="utf-8"))
+    binding = display_visible_binding(
+        spec,
+        approval_prepared,
+        attended_receipt,
+        open_record,
+    )
+    binding_sha256 = json_sha256(binding)
+    receipt = {
+        "schema": DISPLAY_VISIBLE_SCHEMA,
+        "created_utc": utc_now(),
+        "run_id": spec.stage.run_id,
+        "manifest_sha256": spec.stage.manifest_sha256,
+        "visible_binding": binding,
+        "visible_binding_sha256": binding_sha256,
+        "visible_token": DISPLAY_VISIBLE_PREFIX + binding_sha256,
+        "expected_visible_text": list(spec.display_visible_text),
+        "operator_attestation_required": True,
+        "candidate_already_returned": True,
+        "additional_partition_authority": False,
+        "candidate_replay": False,
+        "rollback_pre_authorized": True,
+    }
+    write_private_json_exclusive(
+        display_visible_path(transaction_dir),
+        receipt,
+    )
+    return {
+        "schema": ORCHESTRATOR_SCHEMA,
+        "status": "PAUSED_F1_V2_DISPLAY_VISIBLE_CONFIRMATION",
+        "run_id": spec.stage.run_id,
+        "manifest_sha256": spec.stage.manifest_sha256,
+        "visible_token": receipt["visible_token"],
+        "observation_deadline_utc": binding["observation_deadline_utc"],
+        "expected_visible_text": list(spec.display_visible_text),
+        "candidate_transfer_count": 1,
+        "candidate_returned": True,
+        "retained_pmsg_captured_and_cleaned": True,
+        "candidate_replay": False,
+        "rollback_required": True,
+        "additional_partition_authority": False,
+    }
+
+
+def load_display_visible_confirmation(
+    spec: F1Spec,
+    approval_prepared: dict[str, Any],
+    transaction_dir: Path,
+    records: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if not spec.display_required:
+        raise ContractError("manifest does not require display confirmation")
+    path = display_visible_path(transaction_dir)
+    require_private_regular(path)
+    receipt = json.loads(path.read_text(encoding="utf-8"))
+    opens = [
+        record
+        for record in records
+        if record.get("action") == "display-visible-confirmation-open"
+    ]
+    if len(opens) != 1:
+        raise ContractError("display confirmation requires one exact open record")
+    open_record = opens[0]
+    expected_record_keys = {
+        "schema",
+        "sequence",
+        "timestamp_utc",
+        "run_id",
+        "manifest_sha256",
+        "state",
+        "action",
+        "display_ready_marker_sha256",
+        "observation_deadline_utc",
+        "candidate_returned",
+        "retained_pmsg_captured_and_cleaned",
+        "candidate_replay",
+        "rollback_required",
+    }
+    attended = load_attended_window(
+        spec,
+        approval_prepared,
+        transaction_dir,
+        records,
+    )
+    binding = display_visible_binding(
+        spec,
+        approval_prepared,
+        attended,
+        open_record,
+    )
+    binding_sha256 = json_sha256(binding)
+    expected_receipt_keys = {
+        "schema",
+        "created_utc",
+        "run_id",
+        "manifest_sha256",
+        "visible_binding",
+        "visible_binding_sha256",
+        "visible_token",
+        "expected_visible_text",
+        "operator_attestation_required",
+        "candidate_already_returned",
+        "additional_partition_authority",
+        "candidate_replay",
+        "rollback_pre_authorized",
+    }
+    if (
+        set(open_record) != expected_record_keys
+        or open_record.get("state") != "OBSERVED"
+        or open_record.get("candidate_returned") is not True
+        or open_record.get("retained_pmsg_captured_and_cleaned") is not True
+        or open_record.get("candidate_replay") is not False
+        or open_record.get("rollback_required") is not True
+        or not isinstance(receipt, dict)
+        or set(receipt) != expected_receipt_keys
+        or receipt.get("schema") != DISPLAY_VISIBLE_SCHEMA
+        or not is_canonical_utc_timestamp(receipt.get("created_utc"))
+        or receipt.get("run_id") != spec.stage.run_id
+        or receipt.get("manifest_sha256") != spec.stage.manifest_sha256
+        or receipt.get("visible_binding") != binding
+        or receipt.get("visible_binding_sha256") != binding_sha256
+        or receipt.get("visible_token")
+        != DISPLAY_VISIBLE_PREFIX + binding_sha256
+        or receipt.get("expected_visible_text")
+        != list(spec.display_visible_text)
+        or receipt.get("operator_attestation_required") is not True
+        or receipt.get("candidate_already_returned") is not True
+        or receipt.get("additional_partition_authority") is not False
+        or receipt.get("candidate_replay") is not False
+        or receipt.get("rollback_pre_authorized") is not True
+    ):
+        raise ContractError("display confirmation receipt lost its exact binding")
+    return receipt
+
+
+def validate_confirmed_display_proof(
+    spec: F1Spec,
+    approval_prepared: dict[str, Any],
+    transaction_dir: Path,
+    records: list[dict[str, Any]],
+) -> dict[str, Any]:
+    receipt = load_display_visible_confirmation(
+        spec,
+        approval_prepared,
+        transaction_dir,
+        records,
+    )
+    confirmations = [
+        record
+        for record in records
+        if record.get("action") == "display-visible-confirmed"
+    ]
+    observations = [
+        record
+        for record in records
+        if record.get("action") == "observation-no-proof"
+    ]
+    if len(confirmations) != 1 or len(observations) != 1:
+        raise ContractError(
+            "display proof requires one exact observation and confirmation"
+        )
+    confirmation = confirmations[0]
+    observation_record = observations[0]
+    confirmation_keys = {
+        "schema",
+        "sequence",
+        "timestamp_utc",
+        "run_id",
+        "manifest_sha256",
+        "state",
+        "action",
+        "visible_binding_sha256",
+        "operator_attested_exact_visible_text",
+        "display_ready_marker_sha256",
+        "visible_text_sha256",
+        "within_observation_deadline",
+        "candidate_returned",
+        "candidate_replay",
+        "rollback_required",
+    }
+    observation_keys = {
+        "schema",
+        "sequence",
+        "timestamp_utc",
+        "run_id",
+        "manifest_sha256",
+        "state",
+        "action",
+        "debian_pid1_proven",
+        "native_release_proven",
+        "display_mechanical_proven",
+        "bounded_display_failure",
+        "visible_confirmation_required",
+        "retained_pmsg_armed_proven",
+        "retained_pmsg_cleaned",
+        "candidate_replay",
+        "rollback_required",
+        "candidate_returned",
+        "handoff_attempt_count",
+    }
+    binding = receipt["visible_binding"]
+    deadline = parse_utc_timestamp(
+        binding["observation_deadline_utc"],
+        "display visible observation deadline",
+    )
+    opened = parse_utc_timestamp(
+        binding["confirmation_opened_utc"],
+        "display visible confirmation opened",
+    )
+    confirmed = parse_utc_timestamp(
+        confirmation.get("timestamp_utc"),
+        "display visible confirmation",
+    )
+    if (
+        set(observation_record) != observation_keys
+        or observation_record.get("state") != "OBSERVED"
+        or observation_record.get("debian_pid1_proven") is not True
+        or observation_record.get("native_release_proven") is not True
+        or observation_record.get("display_mechanical_proven") is not True
+        or observation_record.get("bounded_display_failure") is not False
+        or observation_record.get("visible_confirmation_required") is not True
+        or observation_record.get("retained_pmsg_armed_proven") is not True
+        or observation_record.get("retained_pmsg_cleaned") is not True
+        or observation_record.get("candidate_replay") is not False
+        or observation_record.get("rollback_required") is not True
+        or observation_record.get("candidate_returned") is not True
+        or observation_record.get("handoff_attempt_count") != 1
+        or set(confirmation) != confirmation_keys
+        or confirmation.get("state") != "OBSERVED"
+        or confirmation.get("visible_binding_sha256")
+        != receipt["visible_binding_sha256"]
+        or confirmation.get("operator_attested_exact_visible_text") is not True
+        or confirmation.get("display_ready_marker_sha256")
+        != binding["display_ready_marker_sha256"]
+        or confirmation.get("visible_text_sha256")
+        != binding["visible_text_sha256"]
+        or confirmation.get("within_observation_deadline") is not True
+        or confirmation.get("candidate_returned") is not True
+        or confirmation.get("candidate_replay") is not False
+        or confirmation.get("rollback_required") is not True
+        or not (
+            observation_record["sequence"]
+            < binding["confirmation_open_sequence"]
+            < confirmation["sequence"]
+        )
+        or not opened <= confirmed <= deadline
+    ):
+        raise ContractError("display confirmation journal proof is not exact")
+
+    observation_path = transaction_dir / "observation.json"
+    require_private_regular(observation_path)
+    observation = json.loads(observation_path.read_text(encoding="utf-8"))
+    marker_text = (
+        observation.get("ssh", {}).get("display_marker_text")
+        if isinstance(observation, dict)
+        else None
+    )
+    if (
+        not isinstance(observation, dict)
+        or observation.get("native_release_proven") is not True
+        or observation.get("debian_pid1_proven") is not True
+        or observation.get("display_status") != "ready"
+        or observation.get("display_mechanical_proof") is not True
+        or observation.get("bounded_display_failure") is not False
+        or observation.get("visible_confirmation_required") is not True
+        or "candidate_return" not in observation
+        or observation.get("retained_pmsg", {}).get("proof") is not True
+        or not isinstance(marker_text, str)
+    ):
+        raise ContractError(
+            "display confirmation lost its exact observation evidence"
+        )
+    display.validate_debian_ready_marker(
+        marker_text,
+        display_uid=spec.display_uid,
+        display_gid=spec.display_gid,
+    )
+    if (
+        hashlib.sha256(marker_text.encode("utf-8")).hexdigest()
+        != binding["display_ready_marker_sha256"]
+    ):
+        raise ContractError("display ready marker does not match confirmation")
+
+    result_path = transaction_dir / "display-visible-confirmation-result.json"
+    require_private_regular(result_path)
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    expected_result = {
+        "schema": "a90_v3406_f1_display_visible_result_v1",
+        "run_id": spec.stage.run_id,
+        "manifest_sha256": spec.stage.manifest_sha256,
+        "visible_binding_sha256": receipt["visible_binding_sha256"],
+        "confirmation_sequence": confirmation["sequence"],
+        "confirmation_timestamp_utc": confirmation["timestamp_utc"],
+        "operator_attested_exact_visible_text": True,
+        "candidate_replay": False,
+        "rollback_required": True,
+    }
+    if result != expected_result:
+        raise ContractError("display confirmation result lost its exact binding")
+    return {
+        "proof": True,
+        "receipt": receipt,
+        "confirmation": confirmation,
+        "observation_sha256": sha256_file(observation_path),
+        "result_sha256": sha256_file(result_path),
+    }
 
 
 def verify_final_health(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
@@ -2898,6 +3532,8 @@ def close_transaction(
         raise ContractError("completed candidate transaction lacks the canonical timeline")
     if not candidate_complete:
         status = "ABORTED_F1_V2_CANDIDATE_UNCERTAIN_ROLLED_BACK"
+    elif observation_proven and spec.display_required:
+        status = "PASS_F1_V2_DISPLAY_ACQUISITION_PROVEN_AND_ROLLED_BACK"
     elif observation_proven:
         status = "PASS_F1_V2_DEBIAN_PID1_PROVEN_AND_ROLLED_BACK"
     else:
@@ -2911,6 +3547,9 @@ def close_transaction(
         "candidate_transfer_uncertain": not candidate_complete,
         "candidate_replay": False,
         "debian_pid1_proven": observation_proven,
+        "display_acquisition_proven": (
+            observation_proven and spec.display_required
+        ),
         "rollback_transfer_count": 1,
         "final_health_restored": bool(final_health),
         "timeline_events": names,
@@ -3569,14 +4208,38 @@ def continue_attended_f1(
         transaction_dir,
         pre_handoff,
     )
+    mechanical_display_proof = (
+        spec.display_required
+        and observation.get("display_mechanical_proof") is True
+    )
+    bounded_display_failure = (
+        spec.display_required
+        and observation.get("bounded_display_failure") is True
+    )
     append_record(
         journal_dir,
         "OBSERVED",
         "observation-proven" if observation.get("proof") else "observation-no-proof",
         {
-            "debian_pid1_proven": observation.get("proof") is True,
-            "retained_pmsg_armed_proven": observation.get("proof") is True,
-            "retained_pmsg_cleaned": observation.get("proof") is True,
+            "debian_pid1_proven": (
+                observation.get("proof") is True
+                or observation.get("debian_pid1_proven") is True
+            ),
+            "native_release_proven": (
+                observation.get("native_release_proven") is True
+            ),
+            "display_mechanical_proven": mechanical_display_proof,
+            "bounded_display_failure": bounded_display_failure,
+            "visible_confirmation_required": (
+                mechanical_display_proof
+                and observation.get("visible_confirmation_required") is True
+            ),
+            "retained_pmsg_armed_proven": (
+                observation.get("retained_pmsg", {}).get("proof") is True
+            ),
+            "retained_pmsg_cleaned": (
+                observation.get("retained_pmsg", {}).get("proof") is True
+            ),
             "candidate_replay": False,
             "rollback_required": True,
             "candidate_returned": "candidate_return" in observation,
@@ -3587,6 +4250,15 @@ def continue_attended_f1(
     )
     if "candidate_return" not in observation:
         raise RuntimeError("attended candidate did not return; recover rollback only")
+    if spec.display_required and mechanical_display_proof:
+        return open_display_visible_confirmation(
+            spec,
+            approval_prepared,
+            receipt,
+            transaction_dir,
+            journal_dir,
+            observation,
+        )
     health = invoke_rollback(
         spec,
         args,
@@ -3601,6 +4273,138 @@ def continue_attended_f1(
         journal_dir,
         events,
         observation_proven=observation.get("proof") is True,
+        final_health=health,
+        candidate_complete=True,
+    )
+
+
+def confirm_visible_display(
+    spec: F1Spec,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    approval_prepared = approved_bindings(spec, args, recovery=True)
+    verify_local_closure(spec)
+    transaction_dir = exact_transaction_dir(spec, args.transaction_dir)
+    records = read_journal(spec, transaction_dir)
+    actions = action_names(records)
+    if "closed" in actions:
+        raise ContractError("transaction is already closed")
+    require_consumed_approval(records, approval_prepared)
+    if (
+        actions.count("display-visible-confirmation-open") != 1
+        or "display-visible-confirmed" in actions
+        or "rollback-transfer-started" in actions
+    ):
+        raise ContractError(
+            "display confirmation requires one open, unconfirmed window before rollback"
+        )
+    receipt = load_display_visible_confirmation(
+        spec,
+        approval_prepared,
+        transaction_dir,
+        records,
+    )
+    if args.visible_approval != receipt["visible_token"]:
+        raise ContractError("exact display visible confirmation token mismatch")
+    deadline = parse_utc_timestamp(
+        receipt["visible_binding"]["observation_deadline_utc"],
+        "display visible observation deadline",
+    )
+    confirmed = current_utc()
+    if confirmed > deadline:
+        raise ContractError(
+            "display visible observation window expired; rollback only"
+        )
+    observation_path = transaction_dir / "observation.json"
+    require_private_regular(observation_path)
+    observation = json.loads(observation_path.read_text(encoding="utf-8"))
+    if (
+        not isinstance(observation, dict)
+        or observation.get("display_mechanical_proof") is not True
+        or observation.get("visible_confirmation_required") is not True
+        or "candidate_return" not in observation
+        or observation.get("retained_pmsg", {}).get("proof") is not True
+        or observation.get("ssh", {}).get("display_marker_text") is None
+    ):
+        raise ContractError(
+            "display confirmation lost its mechanical observation closure"
+        )
+    marker_text = observation["ssh"]["display_marker_text"]
+    display.validate_debian_ready_marker(
+        marker_text,
+        display_uid=spec.display_uid,
+        display_gid=spec.display_gid,
+    )
+    marker_sha256 = hashlib.sha256(marker_text.encode("utf-8")).hexdigest()
+    if (
+        marker_sha256
+        != receipt["visible_binding"]["display_ready_marker_sha256"]
+    ):
+        raise ContractError("display ready marker changed after confirmation opened")
+    journal_dir = transaction_dir / "journal"
+    confirmation_path = append_record(
+        journal_dir,
+        "OBSERVED",
+        "display-visible-confirmed",
+        {
+            "visible_binding_sha256": receipt["visible_binding_sha256"],
+            "operator_attested_exact_visible_text": True,
+            "display_ready_marker_sha256": marker_sha256,
+            "visible_text_sha256": json_sha256(
+                list(spec.display_visible_text)
+            ),
+            "within_observation_deadline": True,
+            "candidate_returned": True,
+            "candidate_replay": False,
+            "rollback_required": True,
+        },
+        manifest_sha256=spec.stage.manifest_sha256,
+        run_id=spec.stage.run_id,
+        timestamp_utc=confirmed.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
+    confirmation_record = json.loads(
+        confirmation_path.read_text(encoding="utf-8")
+    )
+    write_private_json_exclusive(
+        transaction_dir / "display-visible-confirmation-result.json",
+        {
+            "schema": "a90_v3406_f1_display_visible_result_v1",
+            "run_id": spec.stage.run_id,
+            "manifest_sha256": spec.stage.manifest_sha256,
+            "visible_binding_sha256": receipt["visible_binding_sha256"],
+            "confirmation_sequence": confirmation_record["sequence"],
+            "confirmation_timestamp_utc": confirmation_record[
+                "timestamp_utc"
+            ],
+            "operator_attested_exact_visible_text": True,
+            "candidate_replay": False,
+            "rollback_required": True,
+        },
+    )
+    validate_confirmed_display_proof(
+        spec,
+        approval_prepared,
+        transaction_dir,
+        read_journal(spec, transaction_dir),
+    )
+    events = repair_timeline_from_journal(
+        transaction_dir,
+        read_journal(spec, transaction_dir),
+    )
+    health = invoke_rollback(
+        spec,
+        args,
+        transaction_dir,
+        journal_dir,
+        events,
+        from_native=True,
+    )
+    return close_transaction(
+        spec,
+        transaction_dir,
+        journal_dir,
+        events,
+        observation_proven=True,
         final_health=health,
         candidate_complete=True,
     )
@@ -3626,6 +4430,22 @@ def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[st
     if "closed" in actions:
         raise ContractError("transaction is already closed")
     require_consumed_approval(records, approval_prepared)
+    display_observation_proven = False
+    if spec.display_required and "display-visible-confirmed" in actions:
+        try:
+            validate_confirmed_display_proof(
+                spec,
+                approval_prepared,
+                transaction_dir,
+                records,
+            )
+        # Recovery must never let an evidence-parser exception preempt the
+        # already-authorized exact rollback.  In particular, the display
+        # observer owns a distinct ContractError type.
+        except Exception:  # noqa: BLE001 - evidence failure is NO_PROOF
+            display_observation_proven = False
+        else:
+            display_observation_proven = True
     events = repair_timeline_from_journal(transaction_dir, records)
     journal_dir = transaction_dir / "journal"
 
@@ -3735,7 +4555,11 @@ def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[st
             from_native=from_native,
         )
 
-    observation_proven = "observation-proven" in actions
+    observation_proven = (
+        display_observation_proven
+        if spec.display_required
+        else "observation-proven" in actions
+    )
     candidate_complete = (
         "candidate-flashed" in actions and "candidate-boot-ready" in actions
     )
@@ -3812,6 +4636,11 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         "def rebind_host_ncm_after_reenumeration(",
         "def require_clean_pstore_before_handoff(",
         "def collect_and_clear_retained_pmsg(",
+        "def validate_display_observation(",
+        "def open_display_visible_confirmation(",
+        "def load_display_visible_confirmation(",
+        "def validate_confirmed_display_proof(",
+        "def confirm_visible_display(",
         "def validate_attended_candidate_closure(",
         "def open_attended_window(",
         "def load_attended_window(",
@@ -3877,9 +4706,20 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         "ATTENDED_WINDOW_SEC = 900",
         "ATTENDED_PRE_HANDOFF_ATTEMPT_LIMIT = 3",
         "ATTENDED_HANDOFF_ATTEMPT_LIMIT = 1",
+        "PHASE2_DISPLAY_UID = 3904",
+        "PHASE2_DISPLAY_GID = 3904",
+        "PHASE2_DISPLAY_MAX_ATTEMPTS = 3",
     ):
         if token not in observation_constants:
             issues.append(f"missing observation channel contract: {token}")
+    display_constants = source[:source.find("def source_contract_issues(")]
+    for token in (
+        'DISPLAY_VISIBLE_SCHEMA = "a90_v3406_f1_display_visible_v1"',
+        'DISPLAY_VISIBLE_PREFIX = "A90-F1-DISPLAY-VISIBLE:"',
+        'PHASE2_DISPLAY_PROFILE = "phase2-display-v1"',
+    ):
+        if display_constants.count(token) != 1:
+            issues.append(f"missing display confirmation contract: {token}")
     exact_retryable_errors = (
         "ATTENDED_RETRYABLE_CHANNEL_ERRORS = (\n"
         '    "A90P1 END marker not found",\n'
@@ -3962,6 +4802,14 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             issues.append("manifest load lacks exact handoff timeout gate")
         if load.count(") = validate_observation_policy(observation)") != 1:
             issues.append("manifest load lacks exact attended policy gate")
+        if load.count(
+            ") = validate_display_observation(\n"
+            "        manifest,\n"
+            "        observation,\n"
+            "        observation_mode,\n"
+            "    )"
+        ) != 1:
+            issues.append("manifest load lacks exact Phase 2 display gate")
         for token in (
             'observer.get("host_ncm_profile")',
             "HOST_NCM_PROFILE_RE.fullmatch(observer_host_ncm_profile)",
@@ -3989,6 +4837,29 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         ):
             if token not in policy:
                 issues.append(f"attended policy validator missing: {token}")
+    display_policy_start = source.find("def validate_display_observation(")
+    display_policy_end = source.find(
+        "def require_private_regular(",
+        display_policy_start + 1,
+    )
+    if display_policy_start < 0 or display_policy_end < 0:
+        issues.append("Phase 2 display policy boundary is missing")
+    else:
+        display_policy = source[
+            display_policy_start:display_policy_end
+        ]
+        for token in (
+            "manifest.get(\"schema\") "
+            "== staging.PHASE2_DISPLAY_MANIFEST_SCHEMA",
+            "if observation_mode != ATTENDED_OBSERVATION_MODE:",
+            "if set(item) != expected_keys:",
+            "tuple(visible) != PHASE2_DISPLAY_VISIBLE_TEXT",
+            'item.get("operator_visible_confirmation_required") is not True',
+        ):
+            if token not in display_policy:
+                issues.append(
+                    f"Phase 2 display policy is not exact: {token}"
+                )
     candidate_closure_start = source.find(
         "def validate_attended_candidate_closure("
     )
@@ -4321,6 +5192,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             '"attended window expired before durable handoff intent; "',
             '"attended-handoff-started"',
             "observe_attended_after_handoff(",
+            "open_display_visible_confirmation(",
             "invoke_rollback(",
             "close_transaction(",
         )
@@ -4363,6 +5235,53 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         ):
             if token not in attended:
                 issues.append(f"attended retry contract missing: {token}")
+        for token in (
+            "if spec.display_required and mechanical_display_proof:",
+            "return open_display_visible_confirmation(",
+            '"visible_confirmation_required": (',
+            '"display_mechanical_proven": mechanical_display_proof',
+        ):
+            if token not in attended:
+                issues.append(
+                    f"attended display confirmation gate missing: {token}"
+                )
+    confirm_start = source.find("def confirm_visible_display(")
+    action_names_start = source.find("def action_names(", confirm_start + 1)
+    if confirm_start < 0 or action_names_start < 0:
+        issues.append("display visible confirmation boundary is missing")
+    else:
+        confirm = source[confirm_start:action_names_start]
+        confirm_ordered = (
+            "approved_bindings(spec, args, recovery=True)",
+            "require_consumed_approval(records, approval_prepared)",
+            "load_display_visible_confirmation(",
+            'args.visible_approval != receipt["visible_token"]',
+            "confirmed > deadline",
+            '"display-visible-confirmed"',
+            "validate_confirmed_display_proof(",
+            "invoke_rollback(",
+            "close_transaction(",
+        )
+        confirm_cursor = -1
+        for token in confirm_ordered:
+            position = confirm.find(token, confirm_cursor + 1)
+            if position < 0:
+                issues.append(
+                    "display visible confirmation missing or out of order: "
+                    f"{token}"
+                )
+            else:
+                confirm_cursor = position
+        for forbidden in (
+            "rollback=False",
+            "candidate-transfer-started",
+            "candidate-flashed",
+        ):
+            if forbidden in confirm:
+                issues.append(
+                    "display visible confirmation contains candidate route: "
+                    f"{forbidden}"
+                )
     handoff_start = source.find("def run_handoff(")
     ssh_start = source.find("def ssh_command(", handoff_start + 1)
     if handoff_start < 0 or ssh_start < 0:
@@ -4430,10 +5349,36 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         issues.append("recovery does not rebuild timeline from durable journal")
     if "approved_bindings(spec, args, recovery=True)" not in recover:
         issues.append("recovery does not reopen the consumed approval binding")
+    if (
+        '"display-visible-confirmed" in actions'
+        not in recover
+        or "if spec.display_required" not in recover
+        or "validate_confirmed_display_proof(" not in recover
+        or "display_observation_proven = False" not in recover
+    ):
+        issues.append(
+            "display recovery can promote mechanical proof without operator confirmation"
+        )
     if "rollback_pre_spawn_retry(" not in recover:
         issues.append("recovery cannot distinguish a definite rollback pre-spawn failure")
     if "pre_spawn_retry_index=rejection_count" not in recover:
         issues.append("recovery does not preserve the exact rollback after pre-spawn failure")
+    parser_start = source.find("def build_parser(")
+    main_start = source.find("def main(", parser_start + 1)
+    if parser_start < 0 or main_start < 0:
+        issues.append("CLI source boundary is missing")
+    else:
+        cli = source[parser_start:]
+        for token in (
+            'mode.add_argument("--confirm-visible-display", action="store_true")',
+            'parser.add_argument("--visible-approval")',
+            "result = confirm_visible_display(spec, args)",
+            '"display confirmation accepts only --visible-approval"',
+        ):
+            if token not in cli:
+                issues.append(
+                    f"display visible confirmation CLI gate missing: {token}"
+                )
     append_start = source.find("def append_record(")
     read_start = source.find("def read_journal(", append_start + 1)
     if append_start < 0 or read_start < 0:
@@ -4484,9 +5429,11 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument("--prepare-approval", action="store_true")
     mode.add_argument("--execute-approved-f1", action="store_true")
     mode.add_argument("--continue-attended-f1", action="store_true")
+    mode.add_argument("--confirm-visible-display", action="store_true")
     mode.add_argument("--recover-approved-rollback", action="store_true")
     parser.add_argument("--approval")
     parser.add_argument("--attended-approval")
+    parser.add_argument("--visible-approval")
     parser.add_argument("--transaction-dir", type=Path)
     parser.add_argument(
         "--recovery-path",
@@ -4513,6 +5460,7 @@ def main(argv: list[str] | None = None) -> int:
     live = (
         args.execute_approved_f1
         or args.continue_attended_f1
+        or args.confirm_visible_display
         or args.recover_approved_rollback
     )
     final_only = live or args.prepare_approval
@@ -4526,7 +5474,11 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0 if not result["contract_issues"] else 2
     if args.prepare_approval:
-        if args.approval is not None or args.attended_approval is not None:
+        if (
+            args.approval is not None
+            or args.attended_approval is not None
+            or args.visible_approval is not None
+        ):
             raise ContractError("approval preparation does not accept live approval")
         result = prepare_approval(spec)
         print(json.dumps(result, indent=2, sort_keys=True))
@@ -4538,11 +5490,17 @@ def main(argv: list[str] | None = None) -> int:
             raise ContractError("initial execution does not accept --recovery-path")
         if args.attended_approval is not None:
             raise ContractError("initial execution does not accept attended approval")
+        if args.visible_approval is not None:
+            raise ContractError("initial execution does not accept display approval")
         if args.approval is None:
             raise ContractError("initial execution requires --approval")
         result = execute_approved_f1(spec, args)
     elif args.continue_attended_f1:
-        if args.approval is not None or args.recovery_path is not None:
+        if (
+            args.approval is not None
+            or args.visible_approval is not None
+            or args.recovery_path is not None
+        ):
             raise ContractError(
                 "attended continuation accepts no F1 approval or recovery path"
             )
@@ -4551,8 +5509,26 @@ def main(argv: list[str] | None = None) -> int:
                 "attended continuation requires --attended-approval"
             )
         result = continue_attended_f1(spec, args)
+    elif args.confirm_visible_display:
+        if (
+            args.approval is not None
+            or args.attended_approval is not None
+            or args.recovery_path is not None
+        ):
+            raise ContractError(
+                "display confirmation accepts only --visible-approval"
+            )
+        if args.visible_approval is None:
+            raise ContractError(
+                "display confirmation requires --visible-approval"
+            )
+        result = confirm_visible_display(spec, args)
     else:
-        if args.approval is not None or args.attended_approval is not None:
+        if (
+            args.approval is not None
+            or args.attended_approval is not None
+            or args.visible_approval is not None
+        ):
             raise ContractError("rollback recovery does not accept live approval")
         result = recover_approved_rollback(spec, args)
     print(json.dumps(result, indent=2, sort_keys=True))

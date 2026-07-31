@@ -345,14 +345,27 @@ final baseline health.
 
 `docs/reports/A90_PHASE2C_DISPLAY_QUALIFICATION_OBSERVATION_PACKET_H0_2026-07-31.md`
 
-Phase 2D is selected as the next H0 execution-critical implementation unit.
-Create a new-inode per-run key materializer from the exact clean Phase 2 base
-and integrate exact display ready/failure plus manifest-bound visible
-acquisition evidence into the A90 manifest/orchestrator closure. Do not assign
-a candidate identity until that closure and its fault tests pass. Because this
-changes execution-critical manifest and observation machinery, obtain one
-independent safety review before any live use. Do not access a device, stage an
-image, prepare live approval, flash, or reboot in Phase 2D.
+Phase 2D host implementation closed
+`A90_PHASE2D_V3406_EXECUTION_CLOSURE_H0_PASS`. A new-inode per-run key
+materializer, split display observer, bounded A90 D0 helper, V3406
+absent-only staging contract, attended visible-confirmation flow, recovery
+evidence revalidation, and host-only finalizer are now integrated. The
+finalizer hard-pins the canonical V2321 rollback, while staging and finalizer
+both revalidate the connected-preflight helper's path, size, and SHA256.
+
+Malformed display evidence, including the observer module's distinct
+exception type, is fail-closed `NO_PROOF` and cannot preempt the
+already-authorized rollback. Integrated tests passed `185/185`; the Phase 2C
+machine closure passed `6/6`; Python and diff checks passed. Independent
+review returned `GO` with zero unresolved High or Medium findings and no
+device action.
+
+`docs/reports/A90_PHASE2D_V3406_EXECUTION_CLOSURE_H0_2026-07-31.md`
+
+The next bounded unit is activation preparation, not F1: commit this reviewed
+closure, materialize one fresh private V3406 keyed image, perform one exact
+A90 D0 baseline/path-absence preflight, finalize the immutable manifest, and
+prepare the host-only approval receipt. Stop at the fresh exact F1 token.
 
 ## Later Phases
 

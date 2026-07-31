@@ -96,8 +96,6 @@ class A90Phase2CDisplayPacketTests(unittest.TestCase):
             {item["code"] for item in result["blockers"]},
             {
                 "FINAL_KEYED_ROOTFS_NOT_MATERIALIZED",
-                "PHASE2_LIVE_STAGING_IDENTITY_NOT_DEFINED",
-                "DISPLAY_OBSERVATION_NOT_IN_EXECUTION_RUNNER",
                 "FRESH_D0_MANIFEST_APPROVAL_ABSENT",
             },
         )
@@ -123,8 +121,11 @@ class A90Phase2CDisplayPacketTests(unittest.TestCase):
         self.assertTrue(
             result["machinery"]["checked_boot_only_coupled_route"]
         )
-        self.assertFalse(
+        self.assertTrue(
             result["machinery"]["display_observation_integrated"]
+        )
+        self.assertTrue(
+            result["machinery"]["phase2_profile_supported_for_live_staging"]
         )
         self.assertEqual(
             result["safety"],

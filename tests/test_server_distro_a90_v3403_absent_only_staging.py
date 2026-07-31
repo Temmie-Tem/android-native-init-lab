@@ -26,6 +26,7 @@ SOURCE = Path(
 TEST_RUN_ID = "a90-v3403-debian-f1-20260730-02"
 TEST_RUN_ID_V3404 = "a90-v3404-debian-f1-20260731-04"
 TEST_RUN_ID_V3405 = "a90-v3405-debian-f1-20260731-05"
+TEST_RUN_ID_V3406 = "a90-v3406-debian-display-f1-20260731-01"
 
 
 def sample_spec() -> object:
@@ -90,6 +91,8 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
             "a90_serial_lock.py",
             "a90ctl.py",
             "serial_tcp_bridge.py",
+            "a90_phase2d_keyed_rootfs.py",
+            "a90_phase2d_display_observer.py",
             "evidence.py",
         }
         self.assertEqual(
@@ -152,9 +155,26 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
                 f"{TEST_RUN_ID_V3405}"
             ),
         )
+        self.assertEqual(
+            str(stage.derive_remote_final(TEST_RUN_ID_V3406)),
+            (
+                "/mnt/sdext/a90/runtime/"
+                "debian-bookworm-arm64-phase2-display-v3406-keyed-"
+                "20260731-01.img"
+            ),
+        )
+        self.assertEqual(
+            stage.expected_manifest_schema(TEST_RUN_ID_V3406),
+            stage.PHASE2_DISPLAY_MANIFEST_SCHEMA,
+        )
+        self.assertEqual(
+            stage.expected_manifest_schema(TEST_RUN_ID_V3405),
+            stage.FINAL_MANIFEST_SCHEMA,
+        )
         for unsupported in (
             "a90-v3402-debian-f1-20260731-04",
             "a90-v3406-debian-f1-20260731-04",
+            "a90-v3405-debian-display-f1-20260731-04",
             "a90-v3404-debian-f1-20260731-4",
         ):
             with self.subTest(run_id=unsupported):
@@ -212,6 +232,93 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
                 flash_runner=runner,
             )
 
+    def test_v3406_connected_evidence_binds_current_preflight_helper(
+        self,
+    ) -> None:
+        candidate = stage.BoundFile(
+            "candidate",
+            Path("/private/candidate"),
+            4096,
+            "a" * 64,
+        )
+        rollback = stage.BoundFile(
+            "rollback",
+            Path("/private/rollback"),
+            8192,
+            "b" * 64,
+        )
+        runner = stage.BoundFile(
+            "runner",
+            Path("/public/runner"),
+            1024,
+            "c" * 64,
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            helper = Path(temp_dir) / "connected.py"
+            helper.write_text("# exact helper\n", encoding="utf-8")
+            helper_sha = stage.sha256_file(helper)
+            value = {
+                "schema": stage.D0_RESULT_SCHEMA,
+                "outcome": stage.D0_RESULT_OUTCOME,
+                "target": {
+                    "profile": stage.TARGET_PROFILE,
+                    "matching_a90_usb_devices": 1,
+                    "bridge_selected_realpath": "/dev/exact-private-binding",
+                },
+                "health": {
+                    "bridge_exact": True,
+                    "bridge_running": True,
+                    "version": stage.EXPECTED_BASELINE_VERSION,
+                    "version_build": stage.EXPECTED_BASELINE_BUILD,
+                    "pstore_entries": 0,
+                    "selftest": {"fail": 0},
+                },
+                "safety": {
+                    "device_write": False,
+                    "flash": False,
+                    "payload_sent": False,
+                    "reboot_requested": False,
+                    "rootfs_staged": False,
+                    "userdata_touched": False,
+                },
+                "artifacts": {
+                    "candidate_boot": {"size": 4096, "sha256": "a" * 64},
+                    "rollback_boot": {"size": 8192, "sha256": "b" * 64},
+                },
+                "repository": {
+                    "runner_sha256": "c" * 64,
+                    "connected_preflight": str(helper.resolve()),
+                    "connected_preflight_size": helper.stat().st_size,
+                    "connected_preflight_sha256": helper_sha,
+                },
+            }
+            with mock.patch.object(
+                stage,
+                "PHASE2_CONNECTED_PREFLIGHT_PATH",
+                helper,
+            ):
+                stage.validate_connected_d0_evidence(
+                    value,
+                    expected_realpath="/dev/exact-private-binding",
+                    candidate=candidate,
+                    rollback=rollback,
+                    flash_runner=runner,
+                    require_phase2_preflight=True,
+                )
+                value["repository"]["connected_preflight_sha256"] = "0" * 64
+                with self.assertRaisesRegex(
+                    stage.ContractError,
+                    "preflight helper",
+                ):
+                    stage.validate_connected_d0_evidence(
+                        value,
+                        expected_realpath="/dev/exact-private-binding",
+                        candidate=candidate,
+                        rollback=rollback,
+                        flash_runner=runner,
+                        require_phase2_preflight=True,
+                    )
+
     def test_path_preflight_semantics_require_all_three_exact_paths(self) -> None:
         run_id = TEST_RUN_ID
         connected = stage.BoundFile(
@@ -268,6 +375,200 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
                 remote_work=str(stage.REMOTE_WORK),
                 remote_stage_dir=stage_dir,
             )
+
+    def test_v3406_materialization_binds_clean_source_key_pair_and_image(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(
+            dir=stage.PRIVATE_ROOT
+        ) as temp_dir:
+            base = Path(temp_dir)
+            run_root = base / TEST_RUN_ID_V3406
+            run_root.mkdir()
+            local = run_root / "phase2-display-v1-keyed.img"
+            clean = base / "clean.img"
+            for path in (local, clean):
+                with path.open("wb") as stream:
+                    stream.truncate(stage.PHASE2_IMAGE_BYTES)
+                path.chmod(0o600)
+            receipt = base / "clean-receipt.json"
+            receipt.write_text("{}\n", encoding="utf-8")
+            receipt.chmod(0o600)
+            keyer = base / "keyer.py"
+            keyer.write_text("# keyer\n", encoding="utf-8")
+            private_key = run_root / "observer-key"
+            public_key = run_root / "observer-key.pub"
+            private_key.write_bytes(b"private")
+            private_key.chmod(0o600)
+            public_bytes = b"ssh-ed25519 AAAA\n"
+            public_key.write_bytes(public_bytes)
+            public_key.chmod(0o644)
+            public_sha = hashlib.sha256(public_bytes).hexdigest()
+            keyer_sha = "a" * 64
+            private_sha = "b" * 64
+            local_info = local.stat()
+            clean_info = clean.stat()
+            summary = {
+                "schema": "a90-phase2d-keyed-rootfs-v1",
+                "decision": "A90_PHASE2D_KEYED_ROOTFS_HOST_PASS",
+                "run_id": TEST_RUN_ID_V3406,
+                "materializer": {
+                    "path": str(keyer.resolve()),
+                    "size": keyer.stat().st_size,
+                    "sha256": keyer_sha,
+                },
+                "source": {
+                    "path": str(clean.resolve()),
+                    "size": stage.PHASE2_IMAGE_BYTES,
+                    "sha256": stage.PHASE2_CLEAN_IMAGE_SHA256,
+                    "inode": clean_info.st_ino,
+                    "device": clean_info.st_dev,
+                    "receipt_path": str(receipt.resolve()),
+                    "receipt_sha256": stage.PHASE2_CLEAN_RECEIPT_SHA256,
+                    "unchanged": True,
+                },
+                "observer": {
+                    "private_key_path": str(private_key.resolve()),
+                    "private_key_sha256": private_sha,
+                    "public_key_path": str(public_key.resolve()),
+                    "public_key_sha256": public_sha,
+                    "algorithm": "ssh-ed25519",
+                    "single_run": True,
+                },
+                "keyed_image": {
+                    "path": str(local.resolve()),
+                    "size": stage.PHASE2_IMAGE_BYTES,
+                    "sha256": "c" * 64,
+                    "inode": local_info.st_ino,
+                    "device": local_info.st_dev,
+                    "new_inode": True,
+                    "filesystem": "ext4",
+                    "filesystem_label": stage.PHASE2_FILESYSTEM_LABEL,
+                    "authorized_keys": {
+                        "target": stage.PHASE2_AUTHORIZED_KEYS,
+                        "mode": 0o600,
+                        "uid": 0,
+                        "gid": 0,
+                        "size": len(public_bytes),
+                        "sha256": public_sha,
+                        "root_owned_mode_0600": True,
+                    },
+                    "e2fsck_read_only_rc": 0,
+                    "runtime_paths_absent": list(
+                        stage.PHASE2_ABSENT_RUNTIME_PATHS
+                    ),
+                },
+                "candidate_authority": False,
+                "f1_authorized": False,
+                "live_authority": False,
+                "device_contact": False,
+                "device_write": False,
+                "rootfs_staged": False,
+                "flash": False,
+                "reboot": False,
+            }
+            summary_path = run_root / "keyed-rootfs-summary.json"
+            summary_path.write_text(
+                json.dumps(summary),
+                encoding="utf-8",
+            )
+            summary_path.chmod(0o600)
+            keyed_value = {
+                "materialization": {
+                    "path": str(summary_path),
+                    "size": summary_path.stat().st_size,
+                    "sha256": "d" * 64,
+                }
+            }
+            observer = {
+                "private_key_path": str(private_key),
+                "public_key_sha256": public_sha,
+            }
+
+            def fake_sha(path: Path) -> str:
+                resolved = path.resolve()
+                if resolved == keyer.resolve():
+                    return keyer_sha
+                if resolved == private_key.resolve():
+                    return private_sha
+                raise AssertionError(f"unexpected hash: {resolved}")
+
+            def fake_stat(_image: Path, target: str) -> object:
+                if target == stage.PHASE2_AUTHORIZED_KEYS:
+                    return {
+                        "mode": 0o600,
+                        "uid": 0,
+                        "gid": 0,
+                        "size": len(public_bytes),
+                    }
+                return None
+
+            old_values = (
+                stage.PHASE2_KEYER_PATH,
+                stage.PHASE2_CLEAN_IMAGE,
+                stage.PHASE2_CLEAN_RECEIPT,
+            )
+            try:
+                stage.PHASE2_KEYER_PATH = keyer
+                stage.PHASE2_CLEAN_IMAGE = clean
+                stage.PHASE2_CLEAN_RECEIPT = receipt
+                with (
+                    mock.patch.object(stage, "require_regular_file"),
+                    mock.patch.object(stage, "sha256_file", side_effect=fake_sha),
+                    mock.patch.object(
+                        stage,
+                        "validate_phase2_key_material_pair",
+                    ),
+                    mock.patch.object(
+                        stage,
+                        "_debugfs_cat",
+                        return_value=public_bytes,
+                    ),
+                    mock.patch.object(
+                        stage,
+                        "_debugfs_stat",
+                        side_effect=fake_stat,
+                    ),
+                    mock.patch.object(
+                        stage,
+                        "_ext4_label",
+                        return_value=stage.PHASE2_FILESYSTEM_LABEL,
+                    ),
+                ):
+                    bound = stage.validate_phase2_keyed_materialization(
+                        run_id=TEST_RUN_ID_V3406,
+                        run_root=run_root,
+                        keyed_value=keyed_value,
+                        local_image=local,
+                        local_size=stage.PHASE2_IMAGE_BYTES,
+                        local_sha256="c" * 64,
+                        observer=observer,
+                    )
+                    self.assertEqual(bound.path, summary_path)
+                    summary["keyed_image"]["new_inode"] = False
+                    summary_path.write_text(
+                        json.dumps(summary),
+                        encoding="utf-8",
+                    )
+                    with self.assertRaisesRegex(
+                        stage.ContractError,
+                        "summary is not exact",
+                    ):
+                        stage.validate_phase2_keyed_materialization(
+                            run_id=TEST_RUN_ID_V3406,
+                            run_root=run_root,
+                            keyed_value=keyed_value,
+                            local_image=local,
+                            local_size=stage.PHASE2_IMAGE_BYTES,
+                            local_sha256="c" * 64,
+                            observer=observer,
+                        )
+            finally:
+                (
+                    stage.PHASE2_KEYER_PATH,
+                    stage.PHASE2_CLEAN_IMAGE,
+                    stage.PHASE2_CLEAN_RECEIPT,
+                ) = old_values
 
     def test_remote_final_rejects_every_other_path(self) -> None:
         expected = str(stage.derive_remote_final(TEST_RUN_ID))
@@ -580,15 +881,15 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
     def test_source_contract_binds_manifest_final_to_exact_run_id(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
         mutated = source.replace(
-            "(?P<cycle>v3403|v3404|v3405)",
             "(?P<cycle>v3403|v3404|v3405|v3406)",
+            "(?P<cycle>v3403|v3404|v3405|v3406|v3407)",
             1,
         )
         issues = stage.source_contract_issues(mutated)
         self.assertTrue(any("versioned run identity" in issue for issue in issues))
 
         mutated = source.replace(
-            'return match.group("cycle"), match.group("suffix")',
+            'return cycle, match.group("suffix")',
             'return "v3404", match.group("suffix")',
             1,
         )

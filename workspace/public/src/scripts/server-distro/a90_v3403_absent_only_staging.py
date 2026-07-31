@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Absent-only SD rootfs staging adapter for A90 V3403-V3405 F1 transactions.
+"""Absent-only SD rootfs staging adapter for A90 V3403-V3406 F1 transactions.
 
 The default mode is host-only inspection.  The write-capable mode is usable
 only with a final prepared manifest and explicit exact manifest/adapter
@@ -43,6 +43,7 @@ import run_d1_chroot_mvp as d1  # noqa: E402
 
 ADAPTER_SCHEMA = "a90_v3403_absent_only_staging_adapter_v1"
 FINAL_MANIFEST_SCHEMA = "a90_native_init_f1_prepared_v2"
+PHASE2_DISPLAY_MANIFEST_SCHEMA = "a90_native_init_f1_prepared_v3"
 FINAL_MANIFEST_STATUS = "ready-for-f1-approval"
 TARGET_PROFILE = "galaxy-a90-5g-native-init"
 EXPECTED_BASELINE_VERSION = "0.9.285"
@@ -54,6 +55,7 @@ REMOTE_FINAL_PREFIX_BY_CYCLE = {
     "v3403": "debian-bookworm-arm64-d3-sysvinit-v3403-keyed-",
     "v3404": "debian-bookworm-arm64-d3-sysvinit-v3404-keyed-",
     "v3405": "debian-bookworm-arm64-d3-sysvinit-v3405-keyed-",
+    "v3406": "debian-bookworm-arm64-phase2-display-v3406-keyed-",
 }
 STAGE_PREFIX = ".a90-stage-"
 STAGE_PAYLOAD_NAME = "payload.img"
@@ -68,11 +70,46 @@ REQUIRED_SUPPORT_FILES = (
     REVAL_DIR / "a90_serial_lock.py",
     REVAL_DIR / "a90ctl.py",
     REVAL_DIR / "serial_tcp_bridge.py",
+    SCRIPT_DIR / "a90_phase2d_keyed_rootfs.py",
+    SCRIPT_DIR / "a90_phase2d_display_observer.py",
     REPO_ROOT / "workspace" / "public" / "src" / "harness" / "a90harness" / "evidence.py",
+)
+PHASE2_KEYER_PATH = SCRIPT_DIR / "a90_phase2d_keyed_rootfs.py"
+PHASE2_CONNECTED_PREFLIGHT_PATH = (
+    SCRIPT_DIR / "a90_phase2d_connected_preflight.py"
+)
+PHASE2_CLEAN_IMAGE = (
+    PRIVATE_ROOT
+    / "outputs"
+    / "a90-phase2-display-v1-ab-06"
+    / "A"
+    / "phase2-display-v1.img"
+)
+PHASE2_CLEAN_RECEIPT = (
+    PRIVATE_ROOT
+    / "outputs"
+    / "a90-phase2-display-v1-ab-06"
+    / "ab-receipt.json"
+)
+PHASE2_CLEAN_IMAGE_SHA256 = (
+    "cf2cf17d5c706123f85b21d4f2479fc348329cdc09e48fe6406874328e3977c8"
+)
+PHASE2_CLEAN_RECEIPT_SHA256 = (
+    "34b0c83ae612762287ee3ad1c7217c0031a259cb8fa745a55a1cc40964f279d2"
+)
+PHASE2_IMAGE_BYTES = 2 * 1024 * 1024 * 1024
+PHASE2_FILESYSTEM_LABEL = "PHASE2DISPLAYV1"
+PHASE2_AUTHORIZED_KEYS = "/root/.ssh/authorized_keys"
+PHASE2_ABSENT_RUNTIME_PATHS = (
+    "/etc/dropbear/dropbear_ed25519_host_key",
+    "/run/a90-native-display-release",
+    "/run/a90-display/ready",
+    "/run/a90-display/failure",
 )
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 RUN_ID_RE = re.compile(
-    r"^a90-(?P<cycle>v3403|v3404|v3405)-debian-f1-"
+    r"^a90-(?P<cycle>v3403|v3404|v3405|v3406)-"
+    r"(?P<kind>debian|debian-display)-f1-"
     r"(?P<suffix>[0-9]{8}-[0-9]{2})$"
 )
 PSTORE_ZERO_RE = re.compile(r"^pstore=[^\r\n]*\bentries=0\b", re.MULTILINE)
@@ -254,9 +291,20 @@ def exact_run_id_parts(run_id: str) -> tuple[str, str]:
     match = RUN_ID_RE.fullmatch(run_id)
     if match is None:
         raise ContractError(
-            "run_id must be an exact supported A90 V3403/V3404 form"
+            "run_id must be an exact supported A90 V3403-V3406 form"
         )
-    return match.group("cycle"), match.group("suffix")
+    cycle = match.group("cycle")
+    kind = match.group("kind")
+    if (cycle == "v3406") != (kind == "debian-display"):
+        raise ContractError("run_id cycle and Debian profile kind do not match")
+    return cycle, match.group("suffix")
+
+
+def expected_manifest_schema(run_id: str) -> str:
+    cycle, _ = exact_run_id_parts(run_id)
+    if cycle == "v3406":
+        return PHASE2_DISPLAY_MANIFEST_SCHEMA
+    return FINAL_MANIFEST_SCHEMA
 
 
 def derive_remote_final(run_id: str) -> PurePosixPath:
@@ -324,9 +372,12 @@ def _bound_file(
         raise ContractError(f"{label}.{path_key} is missing")
     if not isinstance(size_value, int) or size_value <= 0:
         raise ContractError(f"{label}.{size_key} must be positive")
+    lexical_path = Path(path_value)
+    if lexical_path.is_symlink():
+        raise ContractError(f"{label}.{path_key} must not be a symbolic link")
     return BoundFile(
         label=label,
-        path=Path(path_value).resolve(strict=True),
+        path=lexical_path.resolve(strict=True),
         size=size_value,
         sha256=validate_sha256(sha_value, f"{label}.{sha_key}"),
     )
@@ -345,6 +396,240 @@ def load_bound_json(bound: BoundFile) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ContractError(f"{bound.label} root must be an object")
     return value
+
+
+def _debugfs_stat(image: Path, target: str) -> dict[str, int] | None:
+    result = subprocess.run(
+        ["debugfs", "-R", f"stat {target}", str(image)],
+        cwd=REPO_ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=60.0,
+        check=False,
+    )
+    text = (result.stdout + result.stderr).decode(
+        "utf-8",
+        errors="replace",
+    )
+    if "Inode:" not in text:
+        return None
+    mode = re.search(r"\bMode:\s+0([0-7]{3,4})\b", text)
+    owner = re.search(r"\bUser:\s+(\d+)\s+Group:\s+(\d+)\b", text)
+    size = re.search(r"\bSize:\s+(\d+)\b", text)
+    if mode is None or owner is None or size is None:
+        raise ContractError(f"cannot parse debugfs stat for {target}")
+    return {
+        "mode": int(mode.group(1), 8),
+        "uid": int(owner.group(1)),
+        "gid": int(owner.group(2)),
+        "size": int(size.group(1)),
+    }
+
+
+def _debugfs_cat(image: Path, target: str) -> bytes:
+    result = subprocess.run(
+        ["debugfs", "-R", f"cat {target}", str(image)],
+        cwd=REPO_ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=60.0,
+        check=False,
+    )
+    if b"File not found" in result.stdout + result.stderr:
+        raise ContractError(f"ext4 path is absent: {target}")
+    return result.stdout
+
+
+def _ext4_label(image: Path) -> str:
+    with image.open("rb") as stream:
+        stream.seek(1024 + 0x38)
+        if stream.read(2) != b"\x53\xef":
+            raise ContractError("keyed Phase 2 image is not ext4")
+        stream.seek(1024 + 0x78)
+        raw = stream.read(16)
+    try:
+        return raw.split(b"\0", 1)[0].decode("ascii")
+    except UnicodeDecodeError as exc:
+        raise ContractError("keyed Phase 2 label is not ASCII") from exc
+
+
+def validate_phase2_key_material_pair(
+    private_key: Path,
+    public_key: Path,
+) -> None:
+    private_info = private_key.lstat()
+    public_info = public_key.lstat()
+    if (
+        private_key.is_symlink()
+        or not stat.S_ISREG(private_info.st_mode)
+        or stat.S_IMODE(private_info.st_mode) != 0o600
+        or public_key.is_symlink()
+        or not stat.S_ISREG(public_info.st_mode)
+        or public_info.st_mode & 0o022
+    ):
+        raise ContractError("Phase 2 observer key modes are not exact")
+    result = subprocess.run(
+        ["ssh-keygen", "-y", "-f", str(private_key)],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        timeout=60.0,
+        check=False,
+        env={**os.environ, "LC_ALL": "C", "LANG": "C"},
+    )
+    public_fields = public_key.read_text(encoding="utf-8").strip().split()
+    derived_fields = result.stdout.strip().split()
+    if (
+        result.returncode != 0
+        or len(public_fields) < 2
+        or len(derived_fields) != 2
+        or public_fields[:2] != derived_fields
+        or public_fields[0] != "ssh-ed25519"
+    ):
+        raise ContractError("Phase 2 observer private/public key pair mismatch")
+
+
+def validate_phase2_keyed_materialization(
+    *,
+    run_id: str,
+    run_root: Path,
+    keyed_value: dict[str, Any],
+    local_image: Path,
+    local_size: int,
+    local_sha256: str,
+    observer: dict[str, Any],
+) -> BoundFile:
+    materialization = _bound_file(
+        keyed_value.get("materialization"),
+        "debian_rootfs.keyed_source.materialization",
+    )
+    require_below(
+        materialization.path,
+        PRIVATE_ROOT,
+        materialization.label,
+    )
+    if materialization.path.parent != run_root:
+        raise ContractError(
+            "Phase 2 materialization receipt must be inside the run directory"
+        )
+    summary = load_bound_json(materialization)
+    source = _dict(summary.get("source"), "keyed summary source")
+    materializer = _dict(
+        summary.get("materializer"),
+        "keyed summary materializer",
+    )
+    keyed = _dict(summary.get("keyed_image"), "keyed summary image")
+    authorized = _dict(
+        keyed.get("authorized_keys"),
+        "keyed summary authorized_keys",
+    )
+    summary_observer = _dict(
+        summary.get("observer"),
+        "keyed summary observer",
+    )
+    expected_materializer = PHASE2_KEYER_PATH.resolve(strict=True)
+    clean_image = PHASE2_CLEAN_IMAGE.resolve(strict=True)
+    clean_receipt = PHASE2_CLEAN_RECEIPT.resolve(strict=True)
+    local_info = local_image.lstat()
+    clean_info = clean_image.lstat()
+    private_key_input = Path(observer.get("private_key_path", ""))
+    if private_key_input.is_symlink():
+        raise ContractError("Phase 2 observer private key must not be a symbolic link")
+    private_key = private_key_input.resolve(strict=True)
+    public_key = private_key.with_suffix(private_key.suffix + ".pub")
+    if (
+        summary.get("schema") != "a90-phase2d-keyed-rootfs-v1"
+        or summary.get("decision") != "A90_PHASE2D_KEYED_ROOTFS_HOST_PASS"
+        or summary.get("run_id") != run_id
+        or materializer.get("path") != str(expected_materializer)
+        or materializer.get("size") != expected_materializer.stat().st_size
+        or materializer.get("sha256") != sha256_file(expected_materializer)
+        or source.get("path") != str(clean_image)
+        or source.get("size") != PHASE2_IMAGE_BYTES
+        or source.get("sha256") != PHASE2_CLEAN_IMAGE_SHA256
+        or source.get("inode") != clean_info.st_ino
+        or source.get("device") != clean_info.st_dev
+        or source.get("receipt_path") != str(clean_receipt)
+        or source.get("receipt_sha256") != PHASE2_CLEAN_RECEIPT_SHA256
+        or source.get("unchanged") is not True
+        or keyed.get("path") != str(local_image)
+        or keyed.get("size") != PHASE2_IMAGE_BYTES
+        or keyed.get("size") != local_size
+        or keyed.get("sha256") != local_sha256
+        or keyed.get("inode") != local_info.st_ino
+        or keyed.get("device") != local_info.st_dev
+        or keyed.get("new_inode") is not True
+        or (local_info.st_dev, local_info.st_ino)
+        == (clean_info.st_dev, clean_info.st_ino)
+        or keyed.get("filesystem") != "ext4"
+        or keyed.get("filesystem_label") != PHASE2_FILESYSTEM_LABEL
+        or keyed.get("e2fsck_read_only_rc") != 0
+        or keyed.get("runtime_paths_absent")
+        != list(PHASE2_ABSENT_RUNTIME_PATHS)
+        or authorized.get("target") != PHASE2_AUTHORIZED_KEYS
+        or authorized.get("mode") != 0o600
+        or authorized.get("uid") != 0
+        or authorized.get("gid") != 0
+        or authorized.get("size") != public_key.stat().st_size
+        or authorized.get("root_owned_mode_0600") is not True
+        or authorized.get("sha256")
+        != observer.get("public_key_sha256")
+        or summary_observer.get("private_key_path") != str(private_key)
+        or summary_observer.get("private_key_sha256")
+        != sha256_file(private_key)
+        or summary_observer.get("public_key_path") != str(public_key)
+        or summary_observer.get("public_key_sha256")
+        != observer.get("public_key_sha256")
+        or summary_observer.get("algorithm") != "ssh-ed25519"
+        or summary_observer.get("single_run") is not True
+        or any(
+            summary.get(name) is not False
+            for name in (
+                "candidate_authority",
+                "f1_authorized",
+                "live_authority",
+                "device_contact",
+                "device_write",
+                "rootfs_staged",
+                "flash",
+                "reboot",
+            )
+        )
+    ):
+        raise ContractError("Phase 2 keyed-rootfs summary is not exact")
+    require_regular_file(
+        clean_image,
+        expected_size=PHASE2_IMAGE_BYTES,
+        expected_sha256=PHASE2_CLEAN_IMAGE_SHA256,
+    )
+    require_regular_file(
+        clean_receipt,
+        expected_size=clean_receipt.stat().st_size,
+        expected_sha256=PHASE2_CLEAN_RECEIPT_SHA256,
+    )
+    validate_phase2_key_material_pair(private_key, public_key)
+    public_bytes = public_key.read_bytes()
+    if (
+        public_bytes.count(b"\n") != 1
+        or _debugfs_cat(local_image, PHASE2_AUTHORIZED_KEYS)
+        != public_bytes
+        or _debugfs_stat(local_image, PHASE2_AUTHORIZED_KEYS)
+        != {
+            "mode": 0o600,
+            "uid": 0,
+            "gid": 0,
+            "size": len(public_bytes),
+        }
+        or _ext4_label(local_image) != PHASE2_FILESYSTEM_LABEL
+        or any(
+            _debugfs_stat(local_image, path) is not None
+            for path in PHASE2_ABSENT_RUNTIME_PATHS
+        )
+    ):
+        raise ContractError(
+            "Phase 2 keyed image content does not match its observer key"
+        )
+    return materialization
 
 
 def json_sha256(value: Any) -> str:
@@ -517,6 +802,7 @@ def validate_connected_d0_evidence(
     candidate: BoundFile,
     rollback: BoundFile,
     flash_runner: BoundFile,
+    require_phase2_preflight: bool = False,
 ) -> None:
     target = _dict(value.get("target"), "connected D0 target")
     health = _dict(value.get("health"), "connected D0 health")
@@ -569,6 +855,18 @@ def validate_connected_d0_evidence(
             raise ContractError(f"connected D0 {label} artifact mismatch")
     if repository.get("runner_sha256") != flash_runner.sha256:
         raise ContractError("connected D0 flash runner mismatch")
+    if require_phase2_preflight:
+        source = PHASE2_CONNECTED_PREFLIGHT_PATH.resolve(strict=True)
+        source_info = source.lstat()
+        source_sha256 = sha256_file(source)
+        if (
+            repository.get("connected_preflight") != str(source)
+            or repository.get("connected_preflight_size") != source_info.st_size
+            or repository.get("connected_preflight_sha256") != source_sha256
+        ):
+            raise ContractError(
+                "connected D0 Phase 2 preflight helper binding mismatch"
+            )
 
 
 def validate_path_preflight_evidence(
@@ -660,11 +958,16 @@ def stage_spec_from_manifest(
         expected_manifest_sha256,
     )
     issues: list[str] = []
+    run_id = manifest.get("run_id")
+    if not isinstance(run_id, str) or RUN_ID_RE.fullmatch(run_id) is None:
+        raise ContractError("run_id is not an exact supported A90 F1 form")
+    cycle, _ = exact_run_id_parts(run_id)
     schema = manifest.get("schema")
     status_value = manifest.get("status")
-    if schema != FINAL_MANIFEST_SCHEMA:
+    required_schema = expected_manifest_schema(run_id)
+    if schema != required_schema:
         issues.append(
-            f"manifest schema is {schema!r}, live requires {FINAL_MANIFEST_SCHEMA!r}"
+            f"manifest schema is {schema!r}, live requires {required_schema!r}"
         )
     if status_value != FINAL_MANIFEST_STATUS:
         issues.append(
@@ -672,10 +975,6 @@ def stage_spec_from_manifest(
         )
     if not allow_draft and issues:
         raise ContractError("; ".join(issues))
-
-    run_id = manifest.get("run_id")
-    if not isinstance(run_id, str) or RUN_ID_RE.fullmatch(run_id) is None:
-        raise ContractError("run_id is not an exact supported A90 F1 form")
     run_root = (PRIVATE_RUN_BASE / run_id).resolve()
     if manifest_path.resolve().parent != run_root:
         raise ContractError("manifest must be directly inside its exact private run directory")
@@ -703,7 +1002,10 @@ def stage_spec_from_manifest(
     local_path_value = keyed.get("local_path")
     if not isinstance(local_path_value, str):
         raise ContractError("keyed rootfs local_path is missing")
-    local_path = Path(local_path_value).resolve(strict=True)
+    local_path_input = Path(local_path_value)
+    if local_path_input.is_symlink():
+        raise ContractError("keyed rootfs local_path must not be a symbolic link")
+    local_path = local_path_input.resolve(strict=True)
     if local_path.parent != run_root:
         raise ContractError("keyed rootfs must be directly inside its exact private run directory")
     local_size = keyed.get("size")
@@ -711,6 +1013,30 @@ def stage_spec_from_manifest(
         raise ContractError("keyed rootfs size must be positive")
     local_sha = validate_sha256(keyed.get("sha256"), "keyed rootfs sha256")
     remote_final = validate_remote_final(keyed.get("device_path"), run_id)
+    keyed_materialization: BoundFile | None = None
+    if cycle == "v3406":
+        if local_size != PHASE2_IMAGE_BYTES:
+            raise ContractError("V3406 keyed rootfs must be exactly 2 GiB")
+        try:
+            keyed_materialization = validate_phase2_keyed_materialization(
+                run_id=run_id,
+                run_root=run_root,
+                keyed_value=keyed,
+                local_image=local_path,
+                local_size=local_size,
+                local_sha256=local_sha,
+                observer=observer,
+            )
+        except (ContractError, FileNotFoundError, json.JSONDecodeError) as exc:
+            if not allow_draft:
+                raise
+            issues.append(
+                f"Phase 2 keyed materialization is not final: {exc}"
+            )
+    elif keyed.get("materialization") is not None:
+        raise ContractError(
+            "legacy rootfs contract must not add Phase 2 materialization"
+        )
 
     work = _dict(rootfs.get("work_copy"), "debian_rootfs.work_copy")
     if work.get("device_path") != str(REMOTE_WORK):
@@ -800,6 +1126,16 @@ def stage_spec_from_manifest(
         manifest.get("host_preparation"),
         "host_preparation",
     )
+    connected_preflight_source: BoundFile | None = None
+    if cycle == "v3406":
+        source = PHASE2_CONNECTED_PREFLIGHT_PATH.resolve(strict=True)
+        source_info = source.lstat()
+        connected_preflight_source = BoundFile(
+            "phase2_connected_preflight",
+            source,
+            source_info.st_size,
+            sha256_file(source),
+        )
     for item in (
         connected_d0,
         connected_paths,
@@ -819,6 +1155,7 @@ def stage_spec_from_manifest(
                 candidate=candidate,
                 rollback=rollback,
                 flash_runner=flash_runner,
+                require_phase2_preflight=cycle == "v3406",
             ),
         ),
         (
@@ -870,6 +1207,12 @@ def stage_spec_from_manifest(
             rollback,
             flash_runner,
             host_preparation,
+            *((keyed_materialization,) if keyed_materialization else ()),
+            *(
+                (connected_preflight_source,)
+                if connected_preflight_source
+                else ()
+            ),
             *support_files,
         ),
     )
@@ -1171,7 +1514,9 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             '"v3403": "debian-bookworm-arm64-d3-sysvinit-v3403-keyed-"',
             '"v3404": "debian-bookworm-arm64-d3-sysvinit-v3404-keyed-"',
             '"v3405": "debian-bookworm-arm64-d3-sysvinit-v3405-keyed-"',
-            'r"^a90-(?P<cycle>v3403|v3404|v3405)-debian-f1-"',
+            '"v3406": "debian-bookworm-arm64-phase2-display-v3406-keyed-"',
+            'r"^a90-(?P<cycle>v3403|v3404|v3405|v3406)-"',
+            'r"(?P<kind>debian|debian-display)-f1-"',
             'r"(?P<suffix>[0-9]{8}-[0-9]{2})$"',
         ):
             if identity.count(token) != 1:
@@ -1182,6 +1527,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         "approval binding": "def canonical_f1_approval_binding(",
         "connected D0 evidence": "def validate_connected_d0_evidence(",
         "path preflight evidence": "def validate_path_preflight_evidence(",
+        "phase2 materialization": "def validate_phase2_keyed_materialization(",
         "parent approval": "def validate_parent_approval(",
         "host NCM": "def require_host_ncm_ready(",
         "preflight": "def remote_readonly_preflight_script(",
@@ -1206,7 +1552,12 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         for token in (
             "match = RUN_ID_RE.fullmatch(run_id)",
             "if match is None:",
-            'return match.group("cycle"), match.group("suffix")',
+            'kind = match.group("kind")',
+            'if (cycle == "v3406") != (kind == "debian-display"):',
+            'return cycle, match.group("suffix")',
+            'def expected_manifest_schema(run_id: str) -> str:',
+            'if cycle == "v3406":',
+            "return PHASE2_DISPLAY_MANIFEST_SCHEMA",
         ):
             if token not in run_identity:
                 issues.append(f"run identity contract missing: {token}")
@@ -1287,6 +1638,17 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             issues.append("manifest remote final is not bound to its exact run_id")
         if "stage_dir = derive_stage_dir(run_id)" not in manifest_loader:
             issues.append("stage path is not derived from the stable run_id")
+        for token in (
+            'if cycle == "v3406":',
+            "local_size != PHASE2_IMAGE_BYTES",
+            "validate_phase2_keyed_materialization(",
+            "elif keyed.get(\"materialization\") is not None:",
+            "*((keyed_materialization,) if keyed_materialization else ())",
+        ):
+            if token not in manifest_loader:
+                issues.append(
+                    f"V3406 keyed materialization gate missing: {token}"
+                )
     execute_start = source.find("\ndef execute_approved_stage(")
     inspect_start = source.find("\ndef inspect_manifest(", execute_start + 1)
     if execute_start < 0 or inspect_start < 0:
@@ -1608,7 +1970,7 @@ def execute_approved_stage(
     manifest: dict[str, Any],
     args: argparse.Namespace,
 ) -> dict[str, Any]:
-    if manifest.get("schema") != FINAL_MANIFEST_SCHEMA:
+    if manifest.get("schema") != expected_manifest_schema(spec.run_id):
         raise ContractError("live staging refuses a non-final manifest schema")
     if manifest.get("status") != FINAL_MANIFEST_STATUS:
         raise ContractError("live staging refuses a non-ready manifest status")

@@ -95,6 +95,12 @@ def sample_spec() -> object:
         attended_window_sec=0,
         pre_handoff_attempt_limit=1,
         handoff_attempt_limit=1,
+        display_required=False,
+        display_profile="",
+        display_uid=0,
+        display_gid=0,
+        display_max_attempts=0,
+        display_visible_text=(),
         orchestrator_sha256=f1.sha256_file(SOURCE.resolve()),
         recovery_serial_sha256=hashlib.sha256(b"recovery-target").hexdigest(),
         recovery_serial="recovery-target",
@@ -115,10 +121,135 @@ def attended_spec() -> object:
     return spec
 
 
+def display_spec() -> object:
+    spec = attended_spec()
+    spec.stage.run_id = "a90-v3406-debian-display-f1-20260731-01"
+    spec.manifest["schema"] = f1.staging.PHASE2_DISPLAY_MANIFEST_SCHEMA
+    spec.display_required = True
+    spec.display_profile = f1.PHASE2_DISPLAY_PROFILE
+    spec.display_uid = f1.PHASE2_DISPLAY_UID
+    spec.display_gid = f1.PHASE2_DISPLAY_GID
+    spec.display_max_attempts = f1.PHASE2_DISPLAY_MAX_ATTEMPTS
+    spec.display_visible_text = f1.PHASE2_DISPLAY_VISIBLE_TEXT
+    return spec
+
+
+def display_contract() -> dict[str, object]:
+    return {
+        "profile": f1.PHASE2_DISPLAY_PROFILE,
+        "native_release_schema": "a90-native-display-release-v1",
+        "native_release_marker_path": "/run/a90-native-display-release",
+        "ready_schema": "a90-debian-display-v1",
+        "ready_marker_path": "/run/a90-display/ready",
+        "failure_schema": "a90-debian-display-v1-failure",
+        "failure_marker_path": "/run/a90-display/failure",
+        "display_uid": f1.PHASE2_DISPLAY_UID,
+        "display_gid": f1.PHASE2_DISPLAY_GID,
+        "max_attempts": f1.PHASE2_DISPLAY_MAX_ATTEMPTS,
+        "visible_text": list(f1.PHASE2_DISPLAY_VISIBLE_TEXT),
+        "operator_visible_confirmation_required": True,
+    }
+
+
+def display_ready_marker() -> str:
+    return "\n".join(
+        (
+            "schema=a90-debian-display-v1",
+            "pid1_exe=/usr/sbin/init",
+            "presenter_pid=42",
+            f"presenter_uid={f1.PHASE2_DISPLAY_UID}",
+            f"presenter_gid={f1.PHASE2_DISPLAY_GID}",
+            "presenter_cap_eff=0000000000000000",
+            "no_new_privs=1",
+            "controlling_vt=none",
+            "drm_node=/dev/dri/card0",
+            "drm_node_major_minor=226:0",
+            "drm_master=1",
+            "connector_id=1",
+            "crtc_id=2",
+            "mode=1080x2400@60",
+            "setcrtc_rc=0",
+            "native_pid1_drm_fd_count=0",
+            "other_native_drm_fd_count=0",
+            "presenter_self_drm_fd_count=1",
+            "other_process_drm_fd_count=0",
+            "native_init_process_count=0",
+            "",
+        )
+    )
+
+
+def native_release_marker() -> str:
+    return "\n".join(
+        (
+            "schema=a90-native-display-release-v1",
+            "native_pid1_drm_fd_count=0",
+            "other_drm_fd_count=0",
+            "native_kms_initialized=0",
+            "display_services_restart_blocked=1",
+            "release_complete=1",
+            "",
+        )
+    )
+
+
+def framed_display_ssh(
+    *,
+    ready: str = "",
+    failure: str = "",
+) -> str:
+    return "".join(
+        (
+            f"{f1.DISPLAY_D3_BEGIN}\n",
+            "A90D3_MARKER\n",
+            "dropbear_started=1\n",
+            f"{f1.DISPLAY_D3_END}\n",
+            f"{f1.DISPLAY_RELEASE_BEGIN}\n",
+            native_release_marker(),
+            f"{f1.DISPLAY_RELEASE_END}\n",
+            f"{f1.DISPLAY_READY_BEGIN}\n",
+            ready,
+            f"{f1.DISPLAY_READY_END}\n",
+            f"{f1.DISPLAY_FAILURE_BEGIN}\n",
+            failure,
+            f"{f1.DISPLAY_FAILURE_END}\n",
+            "pid1_comm=init\n",
+            "proc1_exe=/usr/sbin/init\n",
+        )
+    )
+
+
+def append_display_observation_record(
+    transaction: Path,
+    spec: object,
+) -> None:
+    f1.append_record(
+        transaction / "journal",
+        "OBSERVED",
+        "observation-no-proof",
+        {
+            "debian_pid1_proven": True,
+            "native_release_proven": True,
+            "display_mechanical_proven": True,
+            "bounded_display_failure": False,
+            "visible_confirmation_required": True,
+            "retained_pmsg_armed_proven": True,
+            "retained_pmsg_cleaned": True,
+            "candidate_replay": False,
+            "rollback_required": True,
+            "candidate_returned": True,
+            "handoff_attempt_count": 1,
+        },
+        manifest_sha256=spec.stage.manifest_sha256,
+        run_id=spec.stage.run_id,
+    )
+
+
 def sample_args() -> object:
     return types.SimpleNamespace(
         approval="test-approval-token",
         attended_approval=None,
+        visible_approval=None,
         bridge_host="localhost",
         bridge_port=54321,
         bridge_timeout=180.0,
@@ -3409,6 +3540,529 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             "super.img",
         ):
             self.assertNotIn(forbidden, function)
+
+
+class DisplayObservationTests(unittest.TestCase):
+    def test_display_manifest_contract_is_exact_and_attended(self) -> None:
+        manifest = {"schema": f1.staging.PHASE2_DISPLAY_MANIFEST_SCHEMA}
+        observation = {
+            "display": display_contract(),
+        }
+        self.assertEqual(
+            f1.validate_display_observation(
+                manifest,
+                observation,
+                f1.ATTENDED_OBSERVATION_MODE,
+            ),
+            (
+                True,
+                f1.PHASE2_DISPLAY_PROFILE,
+                f1.PHASE2_DISPLAY_UID,
+                f1.PHASE2_DISPLAY_GID,
+                f1.PHASE2_DISPLAY_MAX_ATTEMPTS,
+                f1.PHASE2_DISPLAY_VISIBLE_TEXT,
+            ),
+        )
+        with self.assertRaisesRegex(f1.ContractError, "operator-attended"):
+            f1.validate_display_observation(
+                manifest,
+                observation,
+                f1.UNATTENDED_OBSERVATION_MODE,
+            )
+        altered = copy.deepcopy(observation)
+        altered["display"]["visible_text"][0] = "not-the-reviewed-screen"
+        with self.assertRaisesRegex(f1.ContractError, "not exact"):
+            f1.validate_display_observation(
+                manifest,
+                altered,
+                f1.ATTENDED_OBSERVATION_MODE,
+            )
+
+    def test_display_ssh_accepts_ready_or_terminal_failure_only(self) -> None:
+        spec = display_spec()
+        args = sample_args()
+        ready = types.SimpleNamespace(
+            returncode=0,
+            stdout=framed_display_ssh(ready=display_ready_marker()),
+            stderr="",
+        )
+        with mock.patch.object(f1.subprocess, "run", return_value=ready):
+            result = f1.observe_ssh(spec, args)
+        self.assertEqual(result["display_status"], "ready")
+        self.assertTrue(result["proof"])
+
+        failure_marker = (
+            "schema=a90-debian-display-v1-failure\n"
+            f"attempt={f1.PHASE2_DISPLAY_MAX_ATTEMPTS}\n"
+            "rc=5\n"
+        )
+        failure = types.SimpleNamespace(
+            returncode=0,
+            stdout=framed_display_ssh(failure=failure_marker),
+            stderr="",
+        )
+        with mock.patch.object(f1.subprocess, "run", return_value=failure):
+            result = f1.observe_ssh(spec, args)
+        self.assertEqual(result["display_status"], "bounded-failure")
+        self.assertFalse(result["proof"])
+
+        ambiguous = types.SimpleNamespace(
+            returncode=0,
+            stdout=framed_display_ssh(
+                ready=display_ready_marker(),
+                failure=failure_marker,
+            ),
+            stderr="",
+        )
+        spec.ssh_marker_timeout = 1
+        with (
+            mock.patch.object(f1.subprocess, "run", return_value=ambiguous),
+            mock.patch.object(f1.time, "monotonic", side_effect=(0, 0, 2)),
+            mock.patch.object(f1.time, "sleep"),
+            self.assertRaisesRegex(RuntimeError, "marker timeout"),
+        ):
+            f1.observe_ssh(spec, args)
+
+    def test_display_visible_receipt_binds_exact_mechanical_evidence(self) -> None:
+        spec = display_spec()
+        observation = {
+            "native_release_proven": True,
+            "debian_pid1_proven": True,
+            "display_status": "ready",
+            "display_mechanical_proof": True,
+            "bounded_display_failure": False,
+            "visible_confirmation_required": True,
+            "candidate_return": {"healthy": True},
+            "retained_pmsg": {"proof": True},
+            "ssh": {"display_marker_text": display_ready_marker()},
+        }
+        with tempfile.TemporaryDirectory(
+            dir=f1.staging.PRIVATE_ROOT
+        ) as temp_dir:
+            transaction, prepared, attended = (
+                write_attended_candidate_state(Path(temp_dir), spec)
+            )
+            attended = f1.load_attended_window(
+                spec,
+                prepared,
+                transaction,
+                f1.read_journal(spec, transaction),
+            )
+            receipt_result = f1.open_display_visible_confirmation(
+                spec,
+                prepared,
+                attended,
+                transaction,
+                transaction / "journal",
+                observation,
+            )
+            records = f1.read_journal(spec, transaction)
+            receipt = f1.load_display_visible_confirmation(
+                spec,
+                prepared,
+                transaction,
+                records,
+            )
+            self.assertEqual(
+                receipt_result["visible_token"],
+                receipt["visible_token"],
+            )
+            self.assertEqual(
+                receipt["visible_binding"]["candidate_boot_sha256"],
+                spec.candidate.sha256,
+            )
+            self.assertEqual(
+                receipt["visible_binding"]["final_keyed_rootfs_sha256"],
+                spec.stage.local_sha256,
+            )
+            self.assertTrue(
+                receipt["visible_binding"][
+                    "retained_pmsg_captured_and_cleaned"
+                ]
+            )
+            tampered = copy.deepcopy(records)
+            tampered[-1]["display_ready_marker_sha256"] = "0" * 64
+            with self.assertRaisesRegex(f1.ContractError, "lost its exact binding"):
+                f1.load_display_visible_confirmation(
+                    spec,
+                    prepared,
+                    transaction,
+                    tampered,
+                )
+
+    def test_display_confirmation_is_one_shot_then_rolls_back(self) -> None:
+        spec = display_spec()
+        args = sample_args()
+        args.approval = None
+        observation = {
+            "native_release_proven": True,
+            "debian_pid1_proven": True,
+            "display_status": "ready",
+            "display_mechanical_proof": True,
+            "bounded_display_failure": False,
+            "visible_confirmation_required": True,
+            "candidate_return": {"healthy": True},
+            "retained_pmsg": {"proof": True},
+            "ssh": {"display_marker_text": display_ready_marker()},
+        }
+        with tempfile.TemporaryDirectory(
+            dir=f1.staging.PRIVATE_ROOT
+        ) as temp_dir:
+            base = Path(temp_dir)
+            old_base = f1.PRIVATE_RUN_BASE
+            try:
+                f1.PRIVATE_RUN_BASE = base
+                transaction, prepared, attended = (
+                    write_attended_candidate_state(base, spec)
+                )
+                attended = f1.load_attended_window(
+                    spec,
+                    prepared,
+                    transaction,
+                    f1.read_journal(spec, transaction),
+                )
+                append_display_observation_record(transaction, spec)
+                f1.write_private_json_exclusive(
+                    transaction / "observation.json",
+                    observation,
+                )
+                opened = f1.open_display_visible_confirmation(
+                    spec,
+                    prepared,
+                    attended,
+                    transaction,
+                    transaction / "journal",
+                    observation,
+                )
+                args.transaction_dir = transaction
+                args.visible_approval = opened["visible_token"]
+                with (
+                    mock.patch.object(
+                        f1,
+                        "approved_bindings",
+                        return_value=prepared,
+                    ),
+                    mock.patch.object(f1, "verify_local_closure"),
+                    mock.patch.object(
+                        f1,
+                        "repair_timeline_from_journal",
+                        return_value=[],
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "invoke_rollback",
+                        return_value={"final": "healthy"},
+                    ) as rollback,
+                    mock.patch.object(
+                        f1,
+                        "close_transaction",
+                        return_value={"status": "closed"},
+                    ) as close,
+                ):
+                    result = f1.confirm_visible_display(spec, args)
+                self.assertEqual(result["status"], "closed")
+                rollback.assert_called_once()
+                self.assertTrue(rollback.call_args.kwargs["from_native"])
+                self.assertTrue(
+                    close.call_args.kwargs["observation_proven"]
+                )
+                actions = [
+                    item["action"]
+                    for item in f1.read_journal(spec, transaction)
+                ]
+                self.assertEqual(
+                    actions.count("display-visible-confirmed"),
+                    1,
+                )
+                confirmed_records = f1.read_journal(spec, transaction)
+                validated = f1.validate_confirmed_display_proof(
+                    spec,
+                    prepared,
+                    transaction,
+                    confirmed_records,
+                )
+                self.assertTrue(validated["proof"])
+                forged = copy.deepcopy(confirmed_records)
+                for item in forged:
+                    if item["action"] == "display-visible-confirmed":
+                        item["visible_binding_sha256"] = "0" * 64
+                with self.assertRaisesRegex(
+                    f1.ContractError,
+                    "journal proof is not exact",
+                ):
+                    f1.validate_confirmed_display_proof(
+                        spec,
+                        prepared,
+                        transaction,
+                        forged,
+                    )
+                with (
+                    mock.patch.object(
+                        f1,
+                        "approved_bindings",
+                        return_value=prepared,
+                    ),
+                    mock.patch.object(f1, "verify_local_closure"),
+                    self.assertRaisesRegex(
+                        f1.ContractError,
+                        "unconfirmed window",
+                    ),
+                ):
+                    f1.confirm_visible_display(spec, args)
+            finally:
+                f1.PRIVATE_RUN_BASE = old_base
+
+    def test_attended_display_ready_pauses_but_bounded_failure_rolls_back(
+        self,
+    ) -> None:
+        cases = (
+            (
+                "ready",
+                {
+                    "proof": False,
+                    "native_release_proven": True,
+                    "debian_pid1_proven": True,
+                    "display_mechanical_proof": True,
+                    "bounded_display_failure": False,
+                    "visible_confirmation_required": True,
+                    "candidate_return": {"healthy": True},
+                    "retained_pmsg": {"proof": True},
+                    "ssh": {
+                        "display_marker_text": display_ready_marker(),
+                    },
+                },
+            ),
+            (
+                "bounded-failure",
+                {
+                    "proof": False,
+                    "native_release_proven": True,
+                    "debian_pid1_proven": True,
+                    "display_mechanical_proof": False,
+                    "bounded_display_failure": True,
+                    "visible_confirmation_required": False,
+                    "candidate_return": {"healthy": True},
+                    "retained_pmsg": {"proof": True},
+                },
+            ),
+        )
+        for case, observation in cases:
+            with self.subTest(case=case), tempfile.TemporaryDirectory(
+                dir=f1.staging.PRIVATE_ROOT
+            ) as temp_dir:
+                spec = display_spec()
+                args = sample_args()
+                args.approval = None
+                base = Path(temp_dir)
+                old_base = f1.PRIVATE_RUN_BASE
+                try:
+                    f1.PRIVATE_RUN_BASE = base
+                    transaction, prepared, attended = (
+                        write_attended_candidate_state(base, spec)
+                    )
+                    args.transaction_dir = transaction
+                    args.attended_approval = attended["continue_token"]
+                    with (
+                        mock.patch.object(
+                            f1,
+                            "approved_bindings",
+                            return_value=prepared,
+                        ),
+                        mock.patch.object(f1, "verify_local_closure"),
+                        mock.patch.object(
+                            f1,
+                            "settle_observation_channel",
+                            side_effect=(
+                                {"phase": "health"},
+                                {"phase": "handoff"},
+                            ),
+                        ),
+                        mock.patch.object(
+                            f1,
+                            "verify_candidate_health",
+                            return_value={"healthy": True},
+                        ),
+                        mock.patch.object(
+                            f1,
+                            "rebind_host_ncm_after_reenumeration",
+                            return_value={"bound": True},
+                        ),
+                        mock.patch.object(
+                            f1,
+                            "require_clean_pstore_before_handoff",
+                            return_value={"clean": True},
+                        ),
+                        mock.patch.object(
+                            f1,
+                            "remote_source_preflight",
+                            return_value={"source": "exact"},
+                        ),
+                        mock.patch.object(
+                            f1,
+                            "observe_attended_after_handoff",
+                            return_value=observation,
+                        ),
+                        mock.patch.object(
+                            f1,
+                            "invoke_rollback",
+                            return_value={"final": "healthy"},
+                        ) as rollback,
+                        mock.patch.object(
+                            f1,
+                            "close_transaction",
+                            return_value={"status": "closed"},
+                        ) as close,
+                    ):
+                        result = f1.continue_attended_f1(spec, args)
+                    actions = [
+                        item["action"]
+                        for item in f1.read_journal(spec, transaction)
+                    ]
+                    if case == "ready":
+                        self.assertEqual(
+                            result["status"],
+                            "PAUSED_F1_V2_DISPLAY_VISIBLE_CONFIRMATION",
+                        )
+                        rollback.assert_not_called()
+                        close.assert_not_called()
+                        self.assertEqual(
+                            actions.count(
+                                "display-visible-confirmation-open"
+                            ),
+                            1,
+                        )
+                    else:
+                        self.assertEqual(result["status"], "closed")
+                        rollback.assert_called_once()
+                        self.assertFalse(
+                            close.call_args.kwargs["observation_proven"]
+                        )
+                        self.assertNotIn(
+                            "display-visible-confirmation-open",
+                            actions,
+                        )
+                finally:
+                    f1.PRIVATE_RUN_BASE = old_base
+
+    def test_display_pass_status_requires_visible_confirmation(self) -> None:
+        spec = display_spec()
+        with tempfile.TemporaryDirectory(
+            dir=f1.staging.PRIVATE_ROOT
+        ) as temp_dir:
+            transaction = Path(temp_dir)
+            journal = transaction / "journal"
+            events: list[dict[str, str]] = []
+            with (
+                mock.patch.object(
+                    f1,
+                    "repair_timeline_from_journal",
+                    return_value=[
+                        {"name": name, "timestamp_utc": f1.utc_now()}
+                        for name in f1.CANONICAL_EVENTS[:-1]
+                    ],
+                ),
+                mock.patch.object(f1, "read_journal", return_value=[]),
+                mock.patch.object(f1, "ensure_event") as ensure,
+            ):
+                ensure.side_effect = lambda _path, value, name: value.append(
+                    {"name": name, "timestamp_utc": f1.utc_now()}
+                )
+                result = f1.close_transaction(
+                    spec,
+                    transaction,
+                    journal,
+                    events,
+                    observation_proven=True,
+                    final_health={"healthy": True},
+                    candidate_complete=True,
+                )
+            self.assertEqual(
+                result["status"],
+                "PASS_F1_V2_DISPLAY_ACQUISITION_PROVEN_AND_ROLLED_BACK",
+            )
+            self.assertTrue(result["display_acquisition_proven"])
+
+    def test_recovery_source_revalidates_display_confirmation(self) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+        recovery = source[
+            source.index("def recover_approved_rollback("):
+            source.index("def simulate_transaction(")
+        ]
+        self.assertIn(
+            "validate_confirmed_display_proof(",
+            recovery,
+        )
+        mutated = source.replace(
+            "            validate_confirmed_display_proof(\n",
+            "            dict(\n",
+            1,
+        )
+        self.assertTrue(
+            any(
+                "display recovery can promote" in issue
+                for issue in f1.source_contract_issues(mutated)
+            )
+        )
+
+    def test_display_observer_error_cannot_preempt_recovery_rollback(
+        self,
+    ) -> None:
+        spec = display_spec()
+        args = sample_args()
+        args.recovery_path = "from-native"
+        transaction = Path("/private/f1-live")
+        args.transaction_dir = transaction
+        prepared = {"approval_binding_sha256": "a" * 64}
+        records = [
+            {"action": "candidate-transfer-started"},
+            {"action": "display-visible-confirmed"},
+        ]
+        with (
+            mock.patch.object(
+                f1,
+                "approved_bindings",
+                return_value=prepared,
+            ),
+            mock.patch.object(f1, "verify_local_closure"),
+            mock.patch.object(
+                f1,
+                "exact_transaction_dir",
+                return_value=transaction,
+            ),
+            mock.patch.object(f1, "read_journal", return_value=records),
+            mock.patch.object(f1, "require_consumed_approval"),
+            mock.patch.object(
+                f1,
+                "validate_confirmed_display_proof",
+                side_effect=f1.display.ContractError("malformed marker"),
+            ),
+            mock.patch.object(
+                f1,
+                "repair_timeline_from_journal",
+                return_value=[],
+            ),
+            mock.patch.object(
+                f1,
+                "rollback_pre_spawn_retry",
+                return_value=(False, None, 0),
+            ),
+            mock.patch.object(f1, "require_rollback_source_native"),
+            mock.patch.object(
+                f1,
+                "invoke_rollback",
+                return_value={"healthy": True},
+            ) as rollback,
+            mock.patch.object(
+                f1,
+                "close_transaction",
+                return_value={"status": "closed"},
+            ) as close,
+        ):
+            result = f1.recover_approved_rollback(spec, args)
+        self.assertEqual(result["status"], "closed")
+        rollback.assert_called_once()
+        self.assertTrue(rollback.call_args.kwargs["from_native"])
+        self.assertFalse(close.call_args.kwargs["observation_proven"])
 
 
 if __name__ == "__main__":

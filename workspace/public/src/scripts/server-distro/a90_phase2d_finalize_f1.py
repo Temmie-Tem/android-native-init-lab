@@ -1,0 +1,866 @@
+#!/usr/bin/env python3
+"""Finalize one host-prepared A90 V3406 display F1 manifest.
+
+The default mode is host-only audit.  Finalization reopens the reviewed
+keyed-rootfs, connected D0/path evidence, Phase 2 candidate, exact V2321
+rollback, and current execution sources.  It creates private boot copies,
+host-preparation evidence, and one immutable final manifest.  It cannot
+contact a device, stage the rootfs, flash, reboot, or grant F1 authority.
+"""
+
+from __future__ import annotations
+
+import argparse
+import ast
+import copy
+import datetime as dt
+import hashlib
+import json
+import os
+import re
+import stat
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+
+REPO_ROOT = Path(__file__).resolve().parents[5]
+SCRIPT_DIR = Path(__file__).resolve().parent
+REVAL_DIR = REPO_ROOT / "workspace" / "public" / "src" / "scripts" / "revalidation"
+for _path in (SCRIPT_DIR, REVAL_DIR):
+    if str(_path) not in sys.path:
+        sys.path.insert(0, str(_path))
+
+import a90_phase2d_connected_preflight as connected  # noqa: E402
+import a90_v3403_absent_only_staging as staging  # noqa: E402
+import a90_v3403_f1_orchestrator as orchestrator  # noqa: E402
+
+
+SCHEMA = "a90_phase2d_f1_finalizer_v1"
+PASS_DECISION = "A90_PHASE2D_V3406_FINAL_MANIFEST_HOST_PASS"
+RUN_ID_RE = connected.RUN_ID_RE
+PRIVATE_RUN_BASE = staging.PRIVATE_RUN_BASE
+KEYED_SUMMARY_NAME = "keyed-rootfs-summary.json"
+FINAL_MANIFEST_NAME = "prepared-manifest.json"
+HOST_PREPARATION_NAME = "host-preparation.json"
+CANDIDATE_COPY_NAME = "candidate-boot-phase2-display-v1.img"
+ROLLBACK_COPY_NAME = "rollback-boot-v2321.img"
+CANDIDATE_SOURCE = (
+    staging.PRIVATE_ROOT
+    / "outputs"
+    / "a90-phase2-display-v1-native-ab-02"
+    / "A"
+    / "boot.img"
+)
+CANDIDATE_SHA256 = (
+    "3d3e66535654a62f83c5772caba27624acc160911307190de458154acaefdabb"
+)
+CANDIDATE_SIZE = 66379776
+CANDIDATE_VERSION = "0.11.161"
+CANDIDATE_BUILD = "phase2-display-v1-native-handoff"
+ROLLBACK_SOURCE = (
+    staging.PRIVATE_ROOT
+    / "inputs"
+    / "boot_images"
+    / "boot_linux_v2321_usb_clean_identity_rodata.img"
+)
+ROLLBACK_SHA256 = (
+    "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb"
+)
+ROLLBACK_SIZE = 60882944
+TEMPLATE_SCHEMA = staging.FINAL_MANIFEST_SCHEMA
+TEMPLATE_RUN_ID_RE = re.compile(
+    r"^a90-v3405-debian-f1-[0-9]{8}-[0-9]{2}$"
+)
+
+
+class ContractError(RuntimeError):
+    """Raised when final host preparation is not exact."""
+
+
+def utc_now() -> str:
+    return (
+        dt.datetime.now(dt.UTC)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
+
+def sha256_file(path: Path) -> str:
+    return staging.sha256_file(path)
+
+
+def regular_record(
+    path: Path,
+    *,
+    private: bool,
+    expected_sha256: str | None = None,
+) -> dict[str, Any]:
+    lexical = path.lstat()
+    if stat.S_ISLNK(lexical.st_mode):
+        raise ContractError(f"input path must not be a symbolic link: {path}")
+    resolved = path.resolve(strict=True)
+    info = resolved.lstat()
+    if (
+        not stat.S_ISREG(info.st_mode)
+        or info.st_mode & 0o022
+        or (private and info.st_mode & 0o077)
+    ):
+        raise ContractError(f"input is not an exact regular file: {resolved}")
+    if private:
+        staging.require_below(resolved, staging.PRIVATE_ROOT, "private input")
+    actual = sha256_file(resolved)
+    if expected_sha256 is not None and actual != expected_sha256:
+        raise ContractError(f"input sha256 mismatch: {resolved}")
+    return {
+        "path": str(resolved),
+        "size": info.st_size,
+        "sha256": actual,
+    }
+
+
+def load_exact_json(
+    path: Path,
+    *,
+    private: bool,
+    expected_sha256: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    record = regular_record(
+        path,
+        private=private,
+        expected_sha256=expected_sha256,
+    )
+    try:
+        value = json.loads(Path(record["path"]).read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ContractError(f"input is not valid JSON: {path}") from exc
+    if not isinstance(value, dict):
+        raise ContractError(f"JSON input is not an object: {path}")
+    return value, record
+
+
+def copy_absent_private(
+    source: Path,
+    destination: Path,
+    *,
+    expected_size: int,
+    expected_sha256: str,
+) -> dict[str, Any]:
+    source_record = regular_record(
+        source,
+        private=True,
+        expected_sha256=expected_sha256,
+    )
+    if source_record["size"] != expected_size:
+        raise ContractError("boot source size mismatch")
+    if destination.exists() or destination.is_symlink():
+        raise ContractError(f"boot destination must be absent: {destination}")
+    result = subprocess.run(
+        [
+            "cp",
+            "--reflink=never",
+            "--sparse=always",
+            "--preserve=mode",
+            str(source.resolve()),
+            str(destination),
+        ],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        timeout=300.0,
+        check=False,
+        env={**os.environ, "LC_ALL": "C", "LANG": "C", "TZ": "UTC"},
+    )
+    if result.returncode != 0:
+        raise ContractError("boot artifact copy failed")
+    destination.chmod(0o600)
+    copied = regular_record(
+        destination,
+        private=True,
+        expected_sha256=expected_sha256,
+    )
+    source_info = source.resolve().stat()
+    destination_info = destination.stat()
+    if (
+        copied["size"] != expected_size
+        or (
+            source_info.st_dev == destination_info.st_dev
+            and source_info.st_ino == destination_info.st_ino
+        )
+    ):
+        raise ContractError("boot copy is not an exact new inode")
+    return copied
+
+
+def current_source_record(path: Path) -> dict[str, Any]:
+    return regular_record(path, private=False)
+
+
+def validate_template_rollback(template: dict[str, Any]) -> None:
+    value = template.get("rollback_boot")
+    if not isinstance(value, dict):
+        raise ContractError("template rollback_boot is missing")
+    source = ROLLBACK_SOURCE.resolve(strict=True)
+    if (
+        value.get("path") != str(source)
+        or value.get("size") != ROLLBACK_SIZE
+        or value.get("sha256") != ROLLBACK_SHA256
+        or value.get("partition") != "boot"
+        or value.get("expected_version") != staging.EXPECTED_BASELINE_VERSION
+        or value.get("expected_build") != staging.EXPECTED_BASELINE_BUILD
+    ):
+        raise ContractError("template does not bind the exact canonical V2321 rollback")
+    record = regular_record(
+        ROLLBACK_SOURCE,
+        private=True,
+        expected_sha256=ROLLBACK_SHA256,
+    )
+    if record["size"] != ROLLBACK_SIZE:
+        raise ContractError("canonical V2321 rollback size mismatch")
+
+
+def validate_connected_preflight_source(value: dict[str, Any]) -> None:
+    repository = value.get("repository")
+    if not isinstance(repository, dict):
+        raise ContractError("connected D0 repository binding is missing")
+    source = current_source_record(Path(connected.__file__).resolve())
+    if (
+        repository.get("connected_preflight") != source["path"]
+        or repository.get("connected_preflight_size") != source["size"]
+        or repository.get("connected_preflight_sha256") != source["sha256"]
+    ):
+        raise ContractError(
+            "connected D0 evidence does not bind the current preflight helper"
+        )
+
+
+def display_observation() -> dict[str, Any]:
+    return {
+        "profile": orchestrator.PHASE2_DISPLAY_PROFILE,
+        "native_release_schema": "a90-native-display-release-v1",
+        "native_release_marker_path": "/run/a90-native-display-release",
+        "ready_schema": "a90-debian-display-v1",
+        "ready_marker_path": "/run/a90-display/ready",
+        "failure_schema": "a90-debian-display-v1-failure",
+        "failure_marker_path": "/run/a90-display/failure",
+        "display_uid": orchestrator.PHASE2_DISPLAY_UID,
+        "display_gid": orchestrator.PHASE2_DISPLAY_GID,
+        "max_attempts": orchestrator.PHASE2_DISPLAY_MAX_ATTEMPTS,
+        "visible_text": list(orchestrator.PHASE2_DISPLAY_VISIBLE_TEXT),
+        "operator_visible_confirmation_required": True,
+    }
+
+
+def prepare_manifest(
+    *,
+    template: dict[str, Any],
+    run_id: str,
+    run_dir: Path,
+    summary: dict[str, Any],
+    summary_record: dict[str, Any],
+    candidate_record: dict[str, Any],
+    rollback_record: dict[str, Any],
+    connected_value: dict[str, Any],
+    connected_record: dict[str, Any],
+    paths_record: dict[str, Any],
+    host_preparation_record: dict[str, Any],
+    repository_commit: str,
+) -> dict[str, Any]:
+    manifest = copy.deepcopy(template)
+    keyed = summary["keyed_image"]
+    observer_summary = summary["observer"]
+    bridge = connected_value["target"]
+    remote_final = str(staging.derive_remote_final(run_id))
+    manifest["schema"] = staging.PHASE2_DISPLAY_MANIFEST_SCHEMA
+    manifest["status"] = staging.FINAL_MANIFEST_STATUS
+    manifest["run_id"] = run_id
+    manifest["candidate_boot"] = {
+        **candidate_record,
+        "partition": "boot",
+        "expected_version": CANDIDATE_VERSION,
+        "expected_build": CANDIDATE_BUILD,
+    }
+    manifest["rollback_boot"] = {
+        **rollback_record,
+        "partition": "boot",
+        "expected_version": staging.EXPECTED_BASELINE_VERSION,
+        "expected_build": staging.EXPECTED_BASELINE_BUILD,
+    }
+    target = manifest["target"]
+    target.update(
+        {
+            "profile": staging.TARGET_PROFILE,
+            "bridge_device": bridge["bridge_device"],
+            "bridge_selected_realpath": bridge["bridge_selected_realpath"],
+            "bridge_selected_exact": True,
+            "current_version": staging.EXPECTED_BASELINE_VERSION,
+            "current_build": staging.EXPECTED_BASELINE_BUILD,
+            "connected_d0_result": {
+                **connected_record,
+                "outcome": staging.D0_RESULT_OUTCOME,
+            },
+            "connected_path_preflight": {
+                **paths_record,
+                "keyed_source_path_absent": True,
+                "handoff_work_path_absent": True,
+                "run_stage_path_absent": True,
+            },
+        }
+    )
+    rootfs = manifest["debian_rootfs"]
+    old_observer = rootfs["observer"]
+    rootfs.update(
+        {
+            "kind": "bookworm-arm64-phase2-display-v1-per-run-keyed",
+            "mount_mode": "read-write-on-work-copy-only",
+            "keyed_source": {
+                "local_path": keyed["path"],
+                "size": keyed["size"],
+                "sha256": keyed["sha256"],
+                "device_path": remote_final,
+                "filesystem": "ext4",
+                "filesystem_label": staging.PHASE2_FILESYSTEM_LABEL,
+                "authorized_keys_root_owned_mode_0600": True,
+                "e2fsck_read_only_pass": True,
+                "materialization": summary_record,
+            },
+            "pristine_provenance": {
+                "path": summary["source"]["path"],
+                "size": summary["source"]["size"],
+                "sha256": summary["source"]["sha256"],
+                "receipt_path": summary["source"]["receipt_path"],
+                "receipt_sha256": summary["source"]["receipt_sha256"],
+            },
+            "observer": {
+                "private_key_path": observer_summary["private_key_path"],
+                "public_key_sha256": observer_summary["public_key_sha256"],
+                "device_ip": old_observer["device_ip"],
+                "device_port": old_observer["device_port"],
+                "transport_scope": orchestrator.OBSERVER_TRANSPORT_SCOPE,
+                "wifi_or_external_network": False,
+                "host_ncm_profile": old_observer["host_ncm_profile"],
+                "ncm_rebind_identity": orchestrator.NCM_REBIND_IDENTITY,
+                "retained_pmsg_marker": orchestrator.RETAINED_PMSG_MARKER,
+                "retained_pmsg_required_phase": (
+                    orchestrator.RETAINED_PMSG_REQUIRED_PHASE
+                ),
+                "retained_pmsg_observer_contract": (
+                    orchestrator.RETAINED_PMSG_OBSERVER_CONTRACT
+                ),
+                "retained_pmsg_cleanup_after_private_fsync": True,
+            },
+            "handoff_command": [
+                orchestrator.HANDOFF_COMMAND,
+                orchestrator.HANDOFF_TOKEN,
+                remote_final,
+                keyed["sha256"],
+            ],
+            "work_copy": {
+                "device_path": str(staging.REMOTE_WORK),
+                "created_and_mounted_only_by_v3406": True,
+                "must_be_absent_before_handoff": True,
+                "source_must_remain_byte_identical_on_every_pre_switch_failure": True,
+            },
+            "internal_userdata_touched": False,
+            "expected_auto_reboot_sec": 120,
+        }
+    )
+    adapter = current_source_record(Path(staging.__file__).resolve())
+    tcpctl = current_source_record(
+        staging.REVAL_DIR / "tcpctl_host.py"
+    )
+    support = [
+        current_source_record(path.resolve())
+        for path in staging.REQUIRED_SUPPORT_FILES
+    ]
+    manifest["rootfs_staging"] = {
+        "adapter": {**adapter, "status": "reviewed-ready"},
+        "transport": {**tcpctl, "scope": "exclusive-payload-only"},
+        "support_files": support,
+        "independent_review_passed": True,
+        "review_verdict": "GO_PHASE2D_V3406_EXECUTION_CLOSURE",
+        "implementation_ready_for_review": True,
+        "part_of_future_f1_transaction": True,
+        "must_follow_fresh_exact_approval": True,
+        "existing_tcpctl_install_selected_for_exclusive_payload_only": True,
+        "existing_tcpctl_install_selected_for_final_publication": False,
+        "final_publication": "absent-only-hardlink",
+        "timeout_sec": 1800,
+        "required_contract": [
+            "exact keyed materialization receipt and image content",
+            "exclusive stage directory and absent-only final hardlink",
+            "fixed work image absent before handoff",
+        ],
+    }
+    orchestrator_record = current_source_record(
+        Path(orchestrator.__file__).resolve()
+    )
+    manifest["f1_orchestrator"] = {
+        **orchestrator_record,
+        "status": "reviewed-ready",
+        "independent_review_passed": True,
+        "candidate_attempt_limit": 1,
+        "rollback_attempt_limit": 1,
+        "candidate_route_in_recovery": False,
+    }
+    runner = current_source_record(
+        staging.REVAL_DIR / "native_init_flash.py"
+    )
+    manifest["transport"].update(
+        {
+            "repository_commit": repository_commit,
+            "candidate_and_rollback_runner": runner["path"],
+            "runner_size": runner["size"],
+            "runner_sha256": runner["sha256"],
+            "only_partition_payload": "boot",
+            "candidate_expected_arguments": [
+                "--from-native",
+                "--image",
+                candidate_record["path"],
+                "--expect-sha256",
+                candidate_record["sha256"],
+            ],
+            "rollback_expected_arguments": [
+                "--from-native|adb-recovery",
+                "--image",
+                rollback_record["path"],
+                "--expect-sha256",
+                rollback_record["sha256"],
+            ],
+            "forbidden_partition_writes": True,
+        }
+    )
+    observation = manifest["observation"]
+    observation.update(
+        {
+            "mode": orchestrator.ATTENDED_OBSERVATION_MODE,
+            "attended_window_sec": orchestrator.ATTENDED_WINDOW_SEC,
+            "pre_handoff_attempt_limit": (
+                orchestrator.ATTENDED_PRE_HANDOFF_ATTEMPT_LIMIT
+            ),
+            "handoff_attempt_limit": (
+                orchestrator.ATTENDED_HANDOFF_ATTEMPT_LIMIT
+            ),
+            "handoff_timeout_sec": orchestrator.F1_HANDOFF_MIN_TIMEOUT_SEC,
+            "display": display_observation(),
+            "pass_semantics": (
+                "exact visible confirmation plus mandatory V2321 rollback"
+            ),
+        }
+    )
+    manifest["host_preparation"] = host_preparation_record
+    manifest["readiness_blockers"] = []
+    manifest["authority"] = {
+        "candidate_transfer_authorized": False,
+        "live_authority": False,
+        "rootfs_staging_authorized": False,
+        "manifest_grants_live_authority": False,
+        "fresh_operator_approval_required": True,
+        "rollback_authority_activates_after_candidate_start": True,
+        "approval_must_reference_exact_final_manifest": True,
+    }
+    approval_path = run_dir / "approval-prepared.json"
+    manifest["approval_preparation"] = {
+        "schema": orchestrator.APPROVAL_PREPARED_SCHEMA,
+        "path": str(approval_path),
+        "must_not_exist_before_final_manifest": True,
+        "created_by_host_only_prepare_mode": True,
+        "fresh_exact_token_must_be_acknowledged_by_operator": True,
+        "transaction_directory_consumes_token_once": True,
+        "rollback_recovery_requires_no_second_token": True,
+        "device_contact": False,
+        "device_write": False,
+        "f1_authorized": False,
+        "live_authorized": False,
+    }
+    approval_scope = manifest["approval_scope_template"]
+    approval_scope.pop("bind_v3405_observer_contract", None)
+    approval_scope.update(
+        {
+            "bind_phase2_materialization_receipt": True,
+            "bind_display_visible_confirmation_contract": True,
+            "bind_keyed_rootfs_sha256": True,
+            "bind_v3406_observer_contract": True,
+            "one_candidate_attempt": True,
+            "no_candidate_replay": True,
+            "mandatory_exact_rollback_authorized_after_candidate_start": True,
+        }
+    )
+    return manifest
+
+
+def execute(args: argparse.Namespace) -> dict[str, Any]:
+    if RUN_ID_RE.fullmatch(args.run_id) is None:
+        raise ContractError("run ID is not the exact V3406 display form")
+    run_dir = (PRIVATE_RUN_BASE / args.run_id).resolve(strict=True)
+    staging.require_below(run_dir, PRIVATE_RUN_BASE, "run directory")
+    if (run_dir / FINAL_MANIFEST_NAME).exists():
+        raise ContractError("final manifest already exists and is never overwritten")
+    if (run_dir / "approval-prepared.json").exists():
+        raise ContractError("approval receipt must be absent before finalization")
+    summary, summary_record = load_exact_json(
+        run_dir / KEYED_SUMMARY_NAME,
+        private=True,
+        expected_sha256=args.expect_keyed_summary_sha256,
+    )
+    if (
+        summary.get("run_id") != args.run_id
+        or summary.get("decision") != "A90_PHASE2D_KEYED_ROOTFS_HOST_PASS"
+    ):
+        raise ContractError("keyed summary does not select this run")
+    template, template_record = load_exact_json(
+        args.template_manifest,
+        private=True,
+        expected_sha256=args.expect_template_sha256,
+    )
+    if (
+        template.get("schema") != TEMPLATE_SCHEMA
+        or TEMPLATE_RUN_ID_RE.fullmatch(str(template.get("run_id"))) is None
+        or template.get("status") != staging.FINAL_MANIFEST_STATUS
+    ):
+        raise ContractError("template is not an exact closed V3405 manifest")
+    validate_template_rollback(template)
+    connected_value, connected_record = load_exact_json(
+        args.connected_d0,
+        private=True,
+        expected_sha256=args.expect_connected_d0_sha256,
+    )
+    validate_connected_preflight_source(connected_value)
+    paths_value, paths_record = load_exact_json(
+        args.path_preflight,
+        private=True,
+        expected_sha256=args.expect_path_preflight_sha256,
+    )
+    review_record = regular_record(
+        args.review_report,
+        private=False,
+        expected_sha256=args.expect_review_report_sha256,
+    )
+    try:
+        Path(review_record["path"]).relative_to(
+            (REPO_ROOT / "docs" / "reports").resolve(strict=True)
+        )
+    except ValueError as exc:
+        raise ContractError(
+            "independent review report must be under docs/reports"
+        ) from exc
+    review_text = Path(review_record["path"]).read_text(encoding="utf-8")
+    if (
+        "Independent verdict: GO" not in review_text
+        or "Unresolved HIGH: 0" not in review_text
+        or "Unresolved MEDIUM: 0" not in review_text
+        or "Device actions: none" not in review_text
+    ):
+        raise ContractError("independent review report is not an exact GO")
+
+    candidate_source = CANDIDATE_SOURCE.resolve(strict=True)
+    candidate_copy = copy_absent_private(
+        candidate_source,
+        run_dir / CANDIDATE_COPY_NAME,
+        expected_size=CANDIDATE_SIZE,
+        expected_sha256=CANDIDATE_SHA256,
+    )
+    rollback_copy = copy_absent_private(
+        ROLLBACK_SOURCE,
+        run_dir / ROLLBACK_COPY_NAME,
+        expected_size=ROLLBACK_SIZE,
+        expected_sha256=ROLLBACK_SHA256,
+    )
+    runner = current_source_record(
+        staging.REVAL_DIR / "native_init_flash.py"
+    )
+    staging.validate_connected_d0_evidence(
+        connected_value,
+        expected_realpath=connected_value["target"][
+            "bridge_selected_realpath"
+        ],
+        candidate=staging.BoundFile(
+            "candidate_boot",
+            Path(candidate_copy["path"]),
+            candidate_copy["size"],
+            candidate_copy["sha256"],
+        ),
+        rollback=staging.BoundFile(
+            "rollback_boot",
+            Path(rollback_copy["path"]),
+            rollback_copy["size"],
+            rollback_copy["sha256"],
+        ),
+        flash_runner=staging.BoundFile(
+            "transport",
+            Path(runner["path"]),
+            runner["size"],
+            runner["sha256"],
+        ),
+        require_phase2_preflight=True,
+    )
+    staging.validate_path_preflight_evidence(
+        paths_value,
+        run_id=args.run_id,
+        connected_d0=staging.BoundFile(
+            "connected_d0",
+            Path(connected_record["path"]),
+            connected_record["size"],
+            connected_record["sha256"],
+        ),
+        remote_final=str(staging.derive_remote_final(args.run_id)),
+        remote_work=str(staging.REMOTE_WORK),
+        remote_stage_dir=str(staging.derive_stage_dir(args.run_id)),
+    )
+    repository_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        timeout=30.0,
+        check=True,
+    ).stdout.strip()
+    host_preparation = {
+        "schema": "a90_phase2d_v3406_host_preparation_v1",
+        "timestamp_utc": utc_now(),
+        "run_id": args.run_id,
+        "status": PASS_DECISION,
+        "keyed_rootfs": summary_record,
+        "candidate_boot": candidate_copy,
+        "rollback_boot": rollback_copy,
+        "connected_d0": connected_record,
+        "connected_path_preflight": paths_record,
+        "independent_review": review_record,
+        "template_manifest": template_record,
+        "repository": {
+            "commit": repository_commit,
+            "finalizer": current_source_record(Path(__file__).resolve()),
+            "connected_preflight": current_source_record(
+                Path(connected.__file__).resolve()
+            ),
+            "staging_adapter": current_source_record(Path(staging.__file__).resolve()),
+            "orchestrator": current_source_record(
+                Path(orchestrator.__file__).resolve()
+            ),
+        },
+        "next_gate": "host-only approval receipt preparation",
+        "safety": {
+            "device_contact": False,
+            "device_write": False,
+            "rootfs_staged": False,
+            "flash": False,
+            "reboot": False,
+            "f1_authorized": False,
+            "live_authority": False,
+        },
+    }
+    host_path = run_dir / HOST_PREPARATION_NAME
+    staging.write_private_json_exclusive(host_path, host_preparation)
+    host_record = regular_record(host_path, private=True)
+    manifest = prepare_manifest(
+        template=template,
+        run_id=args.run_id,
+        run_dir=run_dir,
+        summary=summary,
+        summary_record=summary_record,
+        candidate_record=candidate_copy,
+        rollback_record=rollback_copy,
+        connected_value=connected_value,
+        connected_record=connected_record,
+        paths_record=paths_record,
+        host_preparation_record=host_record,
+        repository_commit=repository_commit,
+    )
+    manifest_path = run_dir / FINAL_MANIFEST_NAME
+    staging.write_private_json_exclusive(manifest_path, manifest)
+    manifest_sha256 = sha256_file(manifest_path)
+    spec, issues = orchestrator.load_spec(
+        manifest_path,
+        manifest_sha256,
+        allow_draft=False,
+    )
+    orchestrator.verify_local_closure(spec)
+    if issues:
+        raise ContractError(f"final manifest retained issues: {issues}")
+    return {
+        "schema": SCHEMA,
+        "decision": PASS_DECISION,
+        "run_id": args.run_id,
+        "manifest": {
+            "path": str(manifest_path),
+            "size": manifest_path.stat().st_size,
+            "sha256": manifest_sha256,
+        },
+        "host_preparation": host_record,
+        "candidate_authority": False,
+        "f1_authorized": False,
+        "live_authority": False,
+        "device_contact": False,
+        "device_write": False,
+        "rootfs_staged": False,
+        "flash": False,
+        "reboot": False,
+        "fresh_exact_f1_approval_required": True,
+    }
+
+
+def source_contract_issues(source: str) -> tuple[str, ...]:
+    issues: list[str] = []
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return ("finalizer source is not valid Python",)
+    validator_node = next(
+        (
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "source_contract_issues"
+        ),
+        None,
+    )
+    if validator_node is None:
+        return ("finalizer source validator boundary is missing",)
+    lines = source.splitlines(keepends=True)
+    subject = "".join(
+        lines[: validator_node.lineno - 1]
+        + lines[validator_node.end_lineno :]
+    )
+    for token in (
+        '"cp",\n            "--reflink=never",',
+        "destination.exists() or destination.is_symlink()",
+        "staging.validate_connected_d0_evidence(",
+        "validate_template_rollback(template)",
+        "validate_connected_preflight_source(connected_value)",
+        "ROLLBACK_SOURCE,",
+        "expected_size=ROLLBACK_SIZE",
+        "expected_sha256=ROLLBACK_SHA256",
+        "staging.validate_path_preflight_evidence(",
+        "orchestrator.load_spec(",
+        "orchestrator.verify_local_closure(spec)",
+        '"candidate_transfer_authorized": False',
+        '"live_authority": False',
+        '"rootfs_staged": False',
+        '"flash": False',
+        '"reboot": False',
+        '"fresh_exact_f1_approval_required": True',
+    ):
+        if token not in subject:
+            issues.append(f"finalizer source contract missing: {token!r}")
+    for forbidden in (
+        "--execute-approved-f1",
+        "--execute-approved-stage",
+        "flash_command(",
+        "invoke_rollback(",
+        "run_remote(",
+        "run_f1_cmd(",
+        "/bin/busybox reboot",
+        "/bin/busybox dd",
+    ):
+        if forbidden in subject:
+            issues.append(f"finalizer contains forbidden action: {forbidden!r}")
+    return tuple(issues)
+
+
+def audit_payload() -> dict[str, Any]:
+    source = Path(__file__).read_text(encoding="utf-8")
+    issues = source_contract_issues(source)
+    candidate = regular_record(
+        CANDIDATE_SOURCE,
+        private=True,
+        expected_sha256=CANDIDATE_SHA256,
+    )
+    if candidate["size"] != CANDIDATE_SIZE:
+        issues = (*issues, "Phase 2 candidate size mismatch")
+    rollback = regular_record(
+        ROLLBACK_SOURCE,
+        private=True,
+        expected_sha256=ROLLBACK_SHA256,
+    )
+    if rollback["size"] != ROLLBACK_SIZE:
+        issues = (*issues, "canonical V2321 rollback size mismatch")
+    return {
+        "schema": SCHEMA,
+        "mode": "host-only-audit",
+        "source_sha256": sha256_file(Path(__file__).resolve()),
+        "candidate_sha256": candidate["sha256"],
+        "candidate_size": candidate["size"],
+        "rollback_sha256": rollback["sha256"],
+        "rollback_size": rollback["size"],
+        "contract_issues": list(issues),
+        "ready_for_finalization_inputs": not issues,
+        "device_contact": False,
+        "device_write": False,
+        "rootfs_staged": False,
+        "flash": False,
+        "reboot": False,
+        "f1_authorized": False,
+        "live_authority": False,
+    }
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--audit-only", action="store_true")
+    mode.add_argument("--finalize", action="store_true")
+    parser.add_argument("--run-id")
+    parser.add_argument("--expect-keyed-summary-sha256")
+    parser.add_argument("--template-manifest", type=Path)
+    parser.add_argument("--expect-template-sha256")
+    parser.add_argument("--connected-d0", type=Path)
+    parser.add_argument("--expect-connected-d0-sha256")
+    parser.add_argument("--path-preflight", type=Path)
+    parser.add_argument("--expect-path-preflight-sha256")
+    parser.add_argument("--review-report", type=Path)
+    parser.add_argument("--expect-review-report-sha256")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    if args.audit_only:
+        connected_names = (
+            "run_id",
+            "expect_keyed_summary_sha256",
+            "template_manifest",
+            "expect_template_sha256",
+            "connected_d0",
+            "expect_connected_d0_sha256",
+            "path_preflight",
+            "expect_path_preflight_sha256",
+            "review_report",
+            "expect_review_report_sha256",
+        )
+        if any(getattr(args, name) is not None for name in connected_names):
+            raise ContractError("audit mode accepts no finalization inputs")
+        result = audit_payload()
+    else:
+        required = (
+            "run_id",
+            "expect_keyed_summary_sha256",
+            "template_manifest",
+            "expect_template_sha256",
+            "connected_d0",
+            "expect_connected_d0_sha256",
+            "path_preflight",
+            "expect_path_preflight_sha256",
+            "review_report",
+            "expect_review_report_sha256",
+        )
+        missing = [name for name in required if getattr(args, name) is None]
+        if missing:
+            raise ContractError(f"finalization inputs are missing: {missing}")
+        result = execute(args)
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except KeyboardInterrupt:
+        raise SystemExit(130)
+    except Exception as exc:  # noqa: BLE001 - concise fail-closed CLI
+        print(
+            f"a90-phase2d-finalize-f1: {type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
