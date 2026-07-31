@@ -83,6 +83,7 @@ class P294ContractTest(unittest.TestCase):
         previous_userspace = inherited.DEFAULT_USERSPACE_RESULT
         previous_lifecycle = inherited.DEFAULT_LIFECYCLE_RESULT
         args = pre_lto.parse_args([])
+        self.assertEqual(args.source, pre_lto.candidate_contract.DEFAULT_SOURCE)
         self.assertEqual(args.userspace_result, pre_lto.DEFAULT_USERSPACE_RESULT)
         self.assertEqual(args.lifecycle_result, pre_lto.DEFAULT_LIFECYCLE_RESULT)
         self.assertEqual(inherited.DEFAULT_USERSPACE_RESULT, previous_userspace)

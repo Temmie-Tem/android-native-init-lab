@@ -170,14 +170,24 @@ def verify_receipt(*args, **kwargs):  # noqa: ANN002, ANN003, ANN201
         return base.verify_receipt(*args, **kwargs)
 
 
+def _argv_with_source(argv: list[str] | None) -> list[str]:
+    values = [] if argv is None else list(argv)
+    if not any(
+        value == "--source" or value.startswith("--source=")
+        for value in values
+    ):
+        values.extend(("--source", str(candidate_contract.DEFAULT_SOURCE)))
+    return values
+
+
 def parse_args(argv: list[str] | None = None):
     with _context():
-        return base.parse_args(argv)
+        return base.parse_args(_argv_with_source(argv))
 
 
 def main(argv: list[str] | None = None) -> int:
     with _context():
-        return base.main(argv)
+        return base.main(_argv_with_source(argv))
 
 
 if __name__ == "__main__":
