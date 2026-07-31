@@ -3543,6 +3543,63 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
 
 
 class DisplayObservationTests(unittest.TestCase):
+    def test_attended_crlf_release_preserves_independent_facts(self) -> None:
+        release_log = (
+            "A90D3DISPLAY native_kms_release rc=0 fd_before=3 "
+            "disable_plane_rc=0 disable_crtc_rc=0 "
+            "munmap_failures=0 rmfb_failures=0 "
+            "destroy_dumb_failures=0 drop_master_rc=0 close_rc=0 "
+            "release_complete=1\r\n"
+            "A90D3DISPLAY native_pid1_drm_fd_count=0 observed=0\r\n"
+            "A90D3DISPLAY other_drm_fd_count=0 observed=0\r\n"
+            "A90D3DISPLAY native_kms_initialized=0 observed=0\r\n"
+            "A90D3DISPLAY display_services_restart_blocked=1 "
+            "corridor=synchronous-handoff\r\n"
+        )
+        ssh = {
+            "pid1_comm_init": True,
+            "proc1_exe_init": True,
+            "dropbear_started": True,
+            "display_status": "bounded-failure",
+            "native_release_marker_text": native_release_marker(),
+        }
+        with tempfile.TemporaryDirectory(
+            dir=f1.staging.PRIVATE_ROOT
+        ) as temp_dir:
+            with (
+                mock.patch.object(
+                    f1,
+                    "run_handoff",
+                    return_value={"proof": True, "text": release_log},
+                ),
+                mock.patch.object(f1, "observe_ssh", return_value=ssh),
+                mock.patch.object(
+                    f1,
+                    "wait_for_candidate_return_attended_once",
+                    return_value={"healthy": True},
+                ),
+                mock.patch.object(
+                    f1,
+                    "collect_and_clear_retained_pmsg",
+                    return_value={"proof": True},
+                ),
+            ):
+                result = f1.observe_attended_after_handoff(
+                    display_spec(),
+                    sample_args(),
+                    Path(temp_dir),
+                    {"ready": True},
+                )
+        self.assertTrue(result["native_release_proven"])
+        self.assertTrue(result["debian_pid1_proven"])
+        self.assertTrue(result["dropbear_proven"])
+        self.assertTrue(result["bounded_display_failure"])
+        self.assertFalse(result["display_mechanical_proof"])
+        self.assertEqual(
+            result["facts"]["display_acquisition"]["state"],
+            "REFUTED",
+        )
+
     def test_display_manifest_contract_is_exact_and_attended(self) -> None:
         manifest = {"schema": f1.staging.PHASE2_DISPLAY_MANIFEST_SCHEMA}
         observation = {
@@ -3614,14 +3671,112 @@ class DisplayObservationTests(unittest.TestCase):
             ),
             stderr="",
         )
-        spec.ssh_marker_timeout = 1
-        with (
-            mock.patch.object(f1.subprocess, "run", return_value=ambiguous),
-            mock.patch.object(f1.time, "monotonic", side_effect=(0, 0, 2)),
-            mock.patch.object(f1.time, "sleep"),
-            self.assertRaisesRegex(RuntimeError, "marker timeout"),
+        with mock.patch.object(f1.subprocess, "run", return_value=ambiguous):
+            result = f1.observe_ssh(spec, args)
+        self.assertEqual(result["display_status"], "unknown")
+        self.assertIn("display_marker", result["observation_errors"])
+        self.assertTrue(result["pid1_comm_init"])
+        self.assertTrue(result["proc1_exe_init"])
+        self.assertTrue(result["dropbear_started"])
+
+    def test_malformed_display_marker_preserves_independent_facts_end_to_end(
+        self,
+    ) -> None:
+        spec = display_spec()
+        malformed = (
+            "schema=a90-debian-display-v1-failure\n"
+            f"attempt={f1.PHASE2_DISPLAY_MAX_ATTEMPTS}\n"
+            "rc=0\n"
+        )
+        partial, terminal = f1.classify_phase2_ssh_attempt(
+            spec,
+            returncode=0,
+            text=framed_display_ssh(failure=malformed),
+        )
+        self.assertTrue(terminal)
+        self.assertEqual(partial["display_status"], "unknown")
+        release_log = (
+            "A90D3DISPLAY native_kms_release rc=0 fd_before=3 "
+            "disable_plane_rc=0 disable_crtc_rc=0 "
+            "munmap_failures=0 rmfb_failures=0 "
+            "destroy_dumb_failures=0 drop_master_rc=0 close_rc=0 "
+            "release_complete=1\r\n"
+            "A90D3DISPLAY native_pid1_drm_fd_count=0 observed=0\r\n"
+            "A90D3DISPLAY other_drm_fd_count=0 observed=0\r\n"
+            "A90D3DISPLAY native_kms_initialized=0 observed=0\r\n"
+            "A90D3DISPLAY display_services_restart_blocked=1 "
+            "corridor=synchronous-handoff\r\n"
+        )
+        with tempfile.TemporaryDirectory(
+            dir=f1.staging.PRIVATE_ROOT
+        ) as temp_dir:
+            with (
+                mock.patch.object(
+                    f1,
+                    "run_handoff",
+                    return_value={"proof": True, "text": release_log},
+                ),
+                mock.patch.object(f1, "observe_ssh", return_value=partial),
+                mock.patch.object(
+                    f1,
+                    "wait_for_candidate_return_attended_once",
+                    return_value={"healthy": True},
+                ),
+                mock.patch.object(
+                    f1,
+                    "collect_and_clear_retained_pmsg",
+                    return_value={"proof": True},
+                ),
+            ):
+                result = f1.observe_attended_after_handoff(
+                    spec,
+                    sample_args(),
+                    Path(temp_dir),
+                    {"ready": True},
+                )
+        self.assertTrue(result["native_release_proven"])
+        self.assertTrue(result["debian_pid1_proven"])
+        self.assertTrue(result["dropbear_proven"])
+        self.assertEqual(
+            result["facts"]["display_acquisition"]["state"],
+            "UNKNOWN",
+        )
+        self.assertNotIn("error", result)
+
+    def test_phase2_d3_fact_requires_exact_unique_lines(self) -> None:
+        spec = display_spec()
+        exact = framed_display_ssh(failure=(
+            "schema=a90-debian-display-v1-failure\n"
+            f"attempt={f1.PHASE2_DISPLAY_MAX_ATTEMPTS}\n"
+            "rc=1\n"
+        ))
+        for forged in (
+            exact.replace("A90D3_MARKER\n", "XA90D3_MARKERX\n", 1),
+            exact.replace("dropbear_started=1\n", "dropbear_started=10\n", 1),
+            exact.replace(
+                "dropbear_started=1\n",
+                "dropbear_started=1\ndropbear_started=1\n",
+                1,
+            ),
+            exact.replace(
+                "dropbear_started=1\n",
+                "dropbear_started=0\ndropbear_started=1\n",
+                1,
+            ),
+            exact.replace(
+                "A90D3_MARKER\n",
+                "A90D3_MARKERX\nA90D3_MARKER\n",
+                1,
+            ),
         ):
-            f1.observe_ssh(spec, args)
+            with self.subTest():
+                partial, terminal = f1.classify_phase2_ssh_attempt(
+                    spec,
+                    returncode=0,
+                    text=forged,
+                )
+                self.assertTrue(terminal)
+                self.assertFalse(partial["dropbear_started"])
 
     def test_display_visible_receipt_binds_exact_mechanical_evidence(self) -> None:
         spec = display_spec()

@@ -39,6 +39,7 @@ import a90_v3403_f1_orchestrator as orchestrator  # noqa: E402
 
 SCHEMA = "a90_phase2d_f1_finalizer_v1"
 PASS_DECISION = "A90_PHASE2D_V3406_FINAL_MANIFEST_HOST_PASS"
+REVIEW_DECISION = "GO_A90_OBSERVATION_PIPELINE_PHASE0"
 RUN_ID_RE = connected.RUN_ID_RE
 PRIVATE_RUN_BASE = staging.PRIVATE_RUN_BASE
 KEYED_SUMMARY_NAME = "keyed-rootfs-summary.json"
@@ -72,6 +73,17 @@ ROLLBACK_SIZE = 60882944
 TEMPLATE_SCHEMA = staging.FINAL_MANIFEST_SCHEMA
 TEMPLATE_RUN_ID_RE = re.compile(
     r"^a90-v3405-debian-f1-[0-9]{8}-[0-9]{2}$"
+)
+EXECUTION_REVIEW_SOURCES = (
+    REVAL_DIR / "a90_observation_pipeline.py",
+    REVAL_DIR / "a90ctl.py",
+    SCRIPT_DIR / "run_d1_chroot_mvp.py",
+    SCRIPT_DIR / "a90_phase2c_display_packet.py",
+    SCRIPT_DIR / "a90_phase2d_display_observer.py",
+    SCRIPT_DIR / "a90_v3403_absent_only_staging.py",
+    SCRIPT_DIR / "a90_v3403_f1_orchestrator.py",
+    SCRIPT_DIR / "phase2c_display_packet_v1" / "contract.toml",
+    Path(__file__).resolve(),
 )
 
 
@@ -196,6 +208,35 @@ def copy_absent_private(
 
 def current_source_record(path: Path) -> dict[str, Any]:
     return regular_record(path, private=False)
+
+
+def required_review_source_records() -> tuple[dict[str, Any], ...]:
+    return tuple(current_source_record(path.resolve()) for path in EXECUTION_REVIEW_SOURCES)
+
+
+def validate_independent_review_report(review_text: str) -> None:
+    lines = review_text.splitlines()
+    required = {
+        "Independent verdict:": "Independent verdict: GO",
+        "Unresolved HIGH:": "Unresolved HIGH: 0",
+        "Unresolved MEDIUM:": "Unresolved MEDIUM: 0",
+        "Device actions:": "Device actions: none",
+        "Review decision:": f"Review decision: `{REVIEW_DECISION}`",
+    }
+    for prefix, exact in required.items():
+        matching = [line for line in lines if line.startswith(prefix)]
+        if matching != [exact]:
+            raise ContractError("independent review report is not an exact GO")
+    for record in required_review_source_records():
+        path = Path(record["path"])
+        relative = path.relative_to(REPO_ROOT.resolve(strict=True))
+        token = f"- `{relative}`: `{record['sha256']}`"
+        source_prefix = f"- `{relative}`:"
+        matching = [line for line in lines if line.startswith(source_prefix)]
+        if matching != [token]:
+            raise ContractError(
+                f"independent review does not bind current source: {relative}"
+            )
 
 
 def validate_template_rollback(template: dict[str, Any]) -> None:
@@ -380,7 +421,7 @@ def prepare_manifest(
         "transport": {**tcpctl, "scope": "exclusive-payload-only"},
         "support_files": support,
         "independent_review_passed": True,
-        "review_verdict": "GO_PHASE2D_V3406_EXECUTION_CLOSURE",
+        "review_verdict": REVIEW_DECISION,
         "implementation_ready_for_review": True,
         "part_of_future_f1_transaction": True,
         "must_follow_fresh_exact_approval": True,
@@ -547,13 +588,7 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
             "independent review report must be under docs/reports"
         ) from exc
     review_text = Path(review_record["path"]).read_text(encoding="utf-8")
-    if (
-        "Independent verdict: GO" not in review_text
-        or "Unresolved HIGH: 0" not in review_text
-        or "Unresolved MEDIUM: 0" not in review_text
-        or "Device actions: none" not in review_text
-    ):
-        raise ContractError("independent review report is not an exact GO")
+    validate_independent_review_report(review_text)
 
     candidate_source = CANDIDATE_SOURCE.resolve(strict=True)
     candidate_copy = copy_absent_private(
@@ -729,6 +764,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         "staging.validate_connected_d0_evidence(",
         "validate_template_rollback(template)",
         "validate_connected_preflight_source(connected_value)",
+        "validate_independent_review_report(review_text)",
         "ROLLBACK_SOURCE,",
         "expected_size=ROLLBACK_SIZE",
         "expected_sha256=ROLLBACK_SHA256",

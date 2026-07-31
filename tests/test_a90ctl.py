@@ -11,15 +11,24 @@ from _loader import load_script
 a90ctl = load_script("workspace/public/src/scripts/revalidation/a90ctl.py")
 
 
+def frame(seq: int, command: str, *, rc: int = 0, status: str = "ok") -> str:
+    errno = -rc if rc < 0 else 0
+    return (
+        f"A90P1 BEGIN seq={seq} cmd={command} argc=1 flags=0x0\r\n"
+        f"{command} body\r\n"
+        f"A90P1 END seq={seq} cmd={command} rc={rc} errno={errno} "
+        f"duration_ms=7 flags=0x0 status={status}\r\n"
+    )
+
+
 class A90CtlProtocolHelperTests(unittest.TestCase):
-    def test_parse_fields_and_protocol_properties(self) -> None:
-        fields = a90ctl.parse_fields("seq=2 ignored cmd=status rc=0x10 status=ok value=a=b")
-        self.assertEqual(
-            fields,
-            {"seq": "2", "cmd": "status", "rc": "0x10", "status": "ok", "value": "a=b"},
+    def test_protocol_properties(self) -> None:
+        result = a90ctl.ProtocolResult(
+            begin={"seq": "2", "cmd": "status"},
+            end={"seq": "2", "cmd": "status", "rc": "0", "status": "ok"},
+            text="payload",
         )
-        result = a90ctl.ProtocolResult(begin={}, end=fields, text="payload")
-        self.assertEqual(result.rc, 16)
+        self.assertEqual(result.rc, 0)
         self.assertEqual(result.status, "ok")
 
     def test_shell_command_to_argv_accepts_quotes_and_rejects_invalid_or_empty(self) -> None:
@@ -64,6 +73,11 @@ class A90CtlProtocolHelperTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             a90ctl.encode_wire_line("status", input_mode="invalid")
 
+    def test_bridge_output_decode_is_strict_utf8(self) -> None:
+        self.assertEqual(a90ctl.decode_bridge_output("정상\r\n".encode()), "정상\r\n")
+        with self.assertRaisesRegex(RuntimeError, "not valid UTF-8"):
+            a90ctl.decode_bridge_output(b"body\xff\r\n")
+
     def test_prompt_detection_after_last_end(self) -> None:
         self.assertFalse(a90ctl.has_prompt_after_last_end(bytearray(b"A90P1 END seq=1 cmd=status rc=0")))
         self.assertTrue(
@@ -77,28 +91,33 @@ class A90CtlProtocolHelperTests(unittest.TestCase):
             )
         )
 
-    def test_parse_protocol_output_matches_last_end_to_corresponding_begin(self) -> None:
-        text = (
-            "noise\n"
-            "A90P1 BEGIN seq=1 cmd=status\n"
-            "status body\n"
-            "A90P1 BEGIN seq=2 cmd=wifi\n"
-            "wifi body\n"
-            "A90P1 END seq=1 cmd=status rc=0 status=ok\n"
-            "A90P1 END seq=2 cmd=wifi rc=5 status=busy\n"
+    def test_parse_protocol_output_selects_last_complete_strict_frame(self) -> None:
+        text = "noise\n" + frame(1, "status") + frame(
+            2,
+            "wifi",
+            rc=-5,
+            status="error",
         )
         result = a90ctl.parse_protocol_output(text)
-        self.assertEqual(result.begin, {"seq": "2", "cmd": "wifi"})
+        self.assertEqual(
+            result.begin,
+            {"seq": "2", "cmd": "wifi", "argc": "1", "flags": "0x0"},
+        )
         self.assertEqual(result.end["cmd"], "wifi")
-        self.assertEqual(result.rc, 5)
-        self.assertEqual(result.status, "busy")
+        self.assertEqual(result.rc, -5)
+        self.assertEqual(result.status, "error")
 
-    def test_parse_protocol_output_allows_missing_begin_but_requires_end(self) -> None:
-        result = a90ctl.parse_protocol_output("body\nA90P1 END seq=7 cmd=status rc=0 status=ok\n")
-        self.assertEqual(result.begin, {})
-        self.assertEqual(result.end["seq"], "7")
+    def test_parse_protocol_output_requires_exact_begin_and_end(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "END lacks BEGIN"):
+            a90ctl.parse_protocol_output(
+                "body\n"
+                "A90P1 END seq=7 cmd=status rc=0 errno=0 duration_ms=1 "
+                "flags=0x0 status=ok\n"
+            )
         with self.assertRaisesRegex(RuntimeError, "A90P1 END marker not found"):
-            a90ctl.parse_protocol_output("A90P1 BEGIN seq=1 cmd=status\nbody\n")
+            a90ctl.parse_protocol_output(
+                "A90P1 BEGIN seq=1 cmd=status argc=1 flags=0x0\nbody\n"
+            )
 
     def test_validate_protocol_command_rejects_mismatched_command(self) -> None:
         result = a90ctl.ProtocolResult(
@@ -139,10 +158,14 @@ class A90CtlProtocolHelperTests(unittest.TestCase):
         self.assertEqual(payload["end"]["cmd"], "status")
         self.assertEqual(payload["rc"], 0)
         self.assertEqual(payload["status"], "ok")
+        self.assertEqual(
+            payload["trust"],
+            "A90P1_V1_STRUCTURAL_ONLY",
+        )
         self.assertIn("A90P1 END", payload["text"])
 
     def test_run_cmdv1_command_retries_safe_empty_exchange_then_succeeds(self) -> None:
-        responses = ["", "A90P1 BEGIN seq=1 cmd=status\nbody\nA90P1 END seq=1 cmd=status rc=0 status=ok\n"]
+        responses = ["", frame(1, "status")]
         calls: list[str] = []
 
         def fake_bridge(
@@ -185,7 +208,7 @@ class A90CtlProtocolHelperTests(unittest.TestCase):
             post_marker_drain_sec,
         ):
             calls.append((require_prompt_after_end, post_marker_drain_sec))
-            return "A90P1 BEGIN seq=1 cmd=doompad\nA90P1 END seq=1 cmd=doompad rc=0 status=ok\n"
+            return frame(1, "doompad")
 
         with mock.patch.object(a90ctl, "bridge_exchange", side_effect=fake_bridge):
             result = a90ctl.run_cmdv1_command(
@@ -218,10 +241,7 @@ class A90CtlProtocolHelperTests(unittest.TestCase):
             post_marker_drain_sec,
         ):
             calls.append((input_mode, input_char_delay_sec))
-            return (
-                "A90P1 BEGIN seq=1 cmd=status\n"
-                "A90P1 END seq=1 cmd=status rc=0 status=ok\n"
-            )
+            return frame(1, "status")
 
         with (
             mock.patch.dict(os.environ, {a90ctl.INPUT_MODE_ENV: "double"}),

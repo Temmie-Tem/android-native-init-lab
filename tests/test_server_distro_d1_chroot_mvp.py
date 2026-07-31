@@ -31,6 +31,7 @@ class ServerDistroD1ChrootMvpTests(unittest.TestCase):
             )
 
         self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["trust"], "A90P1_V1_STRUCTURAL_ONLY")
         run.assert_called_once_with(
             "localhost",
             54321,

@@ -2375,91 +2375,137 @@ def exact_ssh_section(text: str, begin: str, end: str) -> str:
     return content
 
 
-def observe_ssh(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
-    deadline = time.monotonic() + spec.ssh_marker_timeout
-    attempts = 0
-    last: dict[str, Any] | None = None
-    while time.monotonic() < deadline:
-        attempts += 1
-        completed = subprocess.run(
-            ssh_command(spec, args),
-            cwd=REPO_ROOT,
-            text=True,
-            capture_output=True,
-            timeout=args.ssh_connect_timeout + 10.0,
-            check=False,
+def _phase2_line_state(text: str, key: str, expected: str) -> bool | None:
+    matches = re.findall(rf"^{re.escape(key)}=(.*)$", text, re.MULTILINE)
+    if len(matches) != 1:
+        return None
+    return matches[0] == expected
+
+
+def classify_phase2_ssh_attempt(
+    spec: F1Spec,
+    *,
+    returncode: int,
+    text: str,
+) -> tuple[dict[str, Any], bool]:
+    sections: dict[str, str | None] = {}
+    errors: dict[str, str] = {}
+    for name, begin, end in (
+        ("d3", DISPLAY_D3_BEGIN, DISPLAY_D3_END),
+        ("release", DISPLAY_RELEASE_BEGIN, DISPLAY_RELEASE_END),
+        ("ready", DISPLAY_READY_BEGIN, DISPLAY_READY_END),
+        ("failure", DISPLAY_FAILURE_BEGIN, DISPLAY_FAILURE_END),
+    ):
+        try:
+            sections[name] = exact_ssh_section(text, begin, end)
+        except ContractError as exc:
+            sections[name] = None
+            errors[name] = str(exc)
+
+    d3_marker = sections["d3"]
+    if d3_marker is None:
+        dropbear_started: bool | None = None
+    else:
+        d3_lines = d3_marker.splitlines()
+        schema_lines = [
+            line for line in d3_lines if line.startswith("A90D3_MARKER")
+        ]
+        dropbear_lines = [
+            line for line in d3_lines if line.startswith("dropbear_started=")
+        ]
+        dropbear_started = (
+            schema_lines == ["A90D3_MARKER"]
+            and dropbear_lines == ["dropbear_started=1"]
         )
-        text = completed.stdout + completed.stderr
-        last = {"returncode": completed.returncode, "text": text}
-        proc1_init = re.search(r"^pid1_comm=init$", text, re.MULTILINE) is not None
-        proc1_exe = re.search(r"^proc1_exe=\S*/init$", text, re.MULTILINE) is not None
-        if spec.display_required and completed.returncode == 0:
+    pid1_comm_init = _phase2_line_state(text, "pid1_comm", "init")
+    proc1_exe_init = _phase2_line_state(text, "proc1_exe", "/usr/sbin/init")
+    ready_marker = sections["ready"] or ""
+    failure_marker = sections["failure"] or ""
+    terminal_signal = bool(ready_marker or failure_marker) or (
+        "schema=a90-debian-display-v1\n" in text
+        or "schema=a90-debian-display-v1-failure\n" in text
+    )
+    display_status = "unknown"
+    display_marker: dict[str, str] = {}
+    if returncode == 0 and sections["ready"] is not None and sections["failure"] is not None:
+        if bool(ready_marker) != bool(failure_marker):
             try:
-                d3_marker = exact_ssh_section(
-                    text,
-                    DISPLAY_D3_BEGIN,
-                    DISPLAY_D3_END,
-                )
-                release_marker = exact_ssh_section(
-                    text,
-                    DISPLAY_RELEASE_BEGIN,
-                    DISPLAY_RELEASE_END,
-                )
-                ready_marker = exact_ssh_section(
-                    text,
-                    DISPLAY_READY_BEGIN,
-                    DISPLAY_READY_END,
-                )
-                failure_marker = exact_ssh_section(
-                    text,
-                    DISPLAY_FAILURE_BEGIN,
-                    DISPLAY_FAILURE_END,
-                )
-                if (
-                    "A90D3_MARKER" not in d3_marker
-                    or "dropbear_started=1" not in d3_marker
-                    or not release_marker
-                    or not proc1_init
-                    or not proc1_exe
-                    or bool(ready_marker) == bool(failure_marker)
-                ):
-                    raise ContractError(
-                        "Phase 2 SSH observation is not mechanically complete"
-                    )
                 if ready_marker:
-                    marker = display.validate_debian_ready_marker(
+                    display_marker = display.validate_debian_ready_marker(
                         ready_marker,
                         display_uid=spec.display_uid,
                         display_gid=spec.display_gid,
                     )
-                    status = "ready"
+                    display_status = "ready"
                 else:
-                    marker = display.validate_bounded_failure_marker(
+                    display_marker = display.validate_bounded_failure_marker(
                         failure_marker,
                         max_attempts=spec.display_max_attempts,
                         ready_absent=True,
                     )
-                    status = "bounded-failure"
-                return {
-                    "proof": status == "ready",
-                    "attempts": attempts,
-                    "pid1_comm_init": True,
-                    "proc1_exe_init": True,
-                    "dropbear_started": True,
-                    "display_status": status,
-                    "display_marker": marker,
-                    "display_marker_text": (
-                        ready_marker if ready_marker else failure_marker
-                    ),
-                    "native_release_marker_text": release_marker,
-                    "text": text,
-                }
-            except ContractError as exc:
-                last = {
-                    "returncode": completed.returncode,
-                    "error": str(exc),
-                    "text": text,
-                }
+                    display_status = "bounded-failure"
+            except display.ContractError as exc:
+                errors["display_marker"] = str(exc)
+        elif ready_marker or failure_marker:
+            errors["display_marker"] = (
+                "Phase 2 ready/failure markers are ambiguous"
+            )
+    result = {
+        "proof": display_status == "ready",
+        "pid1_comm_init": pid1_comm_init,
+        "proc1_exe_init": proc1_exe_init,
+        "dropbear_started": dropbear_started,
+        "display_status": display_status,
+        "display_marker": display_marker,
+        "display_marker_text": (
+            ready_marker if ready_marker else failure_marker
+        ),
+        "native_release_marker_text": sections["release"] or "",
+        "observation_errors": errors,
+        "text": text,
+    }
+    terminal = display_status in {"ready", "bounded-failure"} or terminal_signal
+    return result, terminal
+
+
+def observe_ssh(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
+    deadline = time.monotonic() + spec.ssh_marker_timeout
+    attempts = 0
+    last: dict[str, Any] | None = None
+    last_partial: dict[str, Any] | None = None
+    while time.monotonic() < deadline:
+        attempts += 1
+        try:
+            completed = subprocess.run(
+                ssh_command(spec, args),
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                timeout=args.ssh_connect_timeout + 10.0,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as exc:
+            last = {
+                "returncode": None,
+                "error": f"TimeoutExpired: {exc}",
+                "text": "",
+            }
+            time.sleep(args.poll_interval)
+            continue
+        text = completed.stdout + completed.stderr
+        last = {"returncode": completed.returncode, "text": text}
+        proc1_init = re.search(r"^pid1_comm=init$", text, re.MULTILINE) is not None
+        proc1_exe = re.search(r"^proc1_exe=\S*/init$", text, re.MULTILINE) is not None
+        if spec.display_required:
+            partial, terminal = classify_phase2_ssh_attempt(
+                spec,
+                returncode=completed.returncode,
+                text=text,
+            )
+            partial["attempts"] = attempts
+            last_partial = partial
+            if terminal:
+                return partial
         if (
             not spec.display_required
             and completed.returncode == 0
@@ -2477,6 +2523,23 @@ def observe_ssh(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
                 "text": text,
             }
         time.sleep(args.poll_interval)
+    if spec.display_required:
+        if last_partial is None:
+            last_partial = {
+                "proof": False,
+                "attempts": attempts,
+                "pid1_comm_init": None,
+                "proc1_exe_init": None,
+                "dropbear_started": None,
+                "display_status": "unknown",
+                "display_marker": {},
+                "display_marker_text": "",
+                "native_release_marker_text": "",
+                "observation_errors": {"timeout": str(last)},
+                "text": "",
+            }
+        last_partial["timed_out"] = True
+        return last_partial
     raise RuntimeError(f"Debian PID1 marker timeout after {attempts} attempts; last={last}")
 
 
@@ -2652,18 +2715,37 @@ def observe_attended_after_handoff(
         result["handoff"] = run_handoff(spec, args)
         result["ssh"] = observe_ssh(spec, args)
         if spec.display_required:
-            display.validate_native_release_evidence(
-                result["handoff"]["text"],
-                result["ssh"]["native_release_marker_text"],
+            facts = display.classify_phase2_display_facts(
+                handoff_log=result["handoff"]["text"],
+                native_release_marker=result["ssh"][
+                    "native_release_marker_text"
+                ],
+                pid1_comm_init=result["ssh"].get("pid1_comm_init"),
+                proc1_exe_init=result["ssh"].get("proc1_exe_init"),
+                dropbear_started=result["ssh"].get("dropbear_started"),
+                display_status=str(result["ssh"].get("display_status")),
             )
-            result["native_release_proven"] = True
-            result["debian_pid1_proven"] = True
+            result["facts"] = display.facts_to_dict(facts)
+            result["native_release_proven"] = (
+                facts["native_release"].state is display.FactState.PROVEN
+            )
+            result["debian_pid1_proven"] = (
+                facts["debian_pid1"].state is display.FactState.PROVEN
+            )
+            result["dropbear_proven"] = (
+                facts["dropbear"].state is display.FactState.PROVEN
+            )
             result["display_status"] = result["ssh"]["display_status"]
             result["display_mechanical_proof"] = (
-                result["ssh"]["display_status"] == "ready"
+                result["native_release_proven"]
+                and result["debian_pid1_proven"]
+                and result["dropbear_proven"]
+                and facts["display_acquisition"].state
+                is display.FactState.PROVEN
             )
             result["bounded_display_failure"] = (
-                result["ssh"]["display_status"] == "bounded-failure"
+                facts["display_acquisition"].state
+                is display.FactState.REFUTED
             )
             result["visible_confirmation_required"] = (
                 result["display_mechanical_proof"]

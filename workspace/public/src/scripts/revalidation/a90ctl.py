@@ -4,13 +4,13 @@ import argparse
 import json
 import math
 import os
-import re
 import shlex
 import socket
 import sys
 import time
 from dataclasses import dataclass
 
+import a90_observation_pipeline as observation
 from a90_serial_lock import SerialBridgeLock, SerialBridgeLockBusy
 
 
@@ -22,9 +22,6 @@ BRIDGE_BUSY_TEXT = "busy: another client is active"
 INPUT_MODE_ENV = "A90CTL_INPUT_MODE"
 INPUT_CHAR_DELAY_ENV = "A90CTL_INPUT_CHAR_DELAY_SEC"
 DEFAULT_MINIMUM_READ_BUDGET_SEC = 0.25
-END_RE = re.compile(r"^A90P1 END (?P<fields>.+)$", re.MULTILINE)
-BEGIN_RE = re.compile(r"^A90P1 BEGIN (?P<fields>.+)$", re.MULTILINE)
-COMMAND_NAME_RE = re.compile(r"^[A-Za-z0-9_.+-]+$")
 SAFE_RETRY_COMMANDS = {
     "version",
     "status",
@@ -62,6 +59,7 @@ class ProtocolResult:
     begin: dict[str, str]
     end: dict[str, str]
     text: str
+    trust: str = observation.FrameTrust.STRUCTURAL_ONLY.value
 
     @property
     def rc(self) -> int:
@@ -74,16 +72,6 @@ class ProtocolResult:
 
 def log(message: str) -> None:
     print(f"[a90ctl] {message}", file=sys.stderr, flush=True)
-
-
-def parse_fields(text: str) -> dict[str, str]:
-    fields: dict[str, str] = {}
-    for item in text.split():
-        if "=" not in item:
-            continue
-        key, value = item.split("=", 1)
-        fields[key] = value
-    return fields
 
 
 def shell_command_to_argv(command: str) -> list[str] | None:
@@ -110,7 +98,10 @@ def encode_cmdv1x_arg(arg: str) -> str:
 def encode_cmdv1_line(command: list[str]) -> str:
     if not command:
         raise RuntimeError("cmdv1 command is required")
-    if not command[0] or not COMMAND_NAME_RE.match(command[0]):
+    if (
+        not command[0]
+        or observation.COMMAND_NAME_RE.fullmatch(command[0]) is None
+    ):
         raise RuntimeError(f"cmdv1 command name cannot be encoded safely: {command[0]!r}")
     if any("\x00" in arg for arg in command):
         raise RuntimeError("cmdv1 cannot encode NUL bytes")
@@ -167,6 +158,13 @@ def read_until(sock: socket.socket,
                     pass
             break
     return bytes(data)
+
+
+def decode_bridge_output(data: bytes) -> str:
+    try:
+        return data.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise RuntimeError("serial bridge output is not valid UTF-8") from exc
 
 
 def bridge_exchange(host: str,
@@ -243,7 +241,7 @@ def bridge_exchange(host: str,
                 require_prompt_after_end=require_prompt_after_end,
                 post_marker_drain_sec=post_marker_drain_sec,
             )
-    return data.decode("utf-8", errors="replace")
+    return decode_bridge_output(data)
 
 
 def should_retry_cmdv1_exchange(
@@ -266,26 +264,16 @@ def sleep_before_retry(deadline: float) -> None:
 
 
 def parse_protocol_output(text: str) -> ProtocolResult:
-    begin_matches = list(BEGIN_RE.finditer(text))
-    end_matches = list(END_RE.finditer(text))
-    begin_match = begin_matches[-1] if begin_matches else None
-    end_match = end_matches[-1] if end_matches else None
-    if end_match is None:
+    if observation.END_PREFIX not in text:
         raise RuntimeError(f"A90P1 END marker not found\n{text}")
-    end_fields = parse_fields(end_match.group("fields"))
-    if begin_match is not None:
-        matching_begin = None
-        for candidate in reversed(begin_matches):
-            begin_fields = parse_fields(candidate.group("fields"))
-            if (begin_fields.get("seq") == end_fields.get("seq") and
-                    begin_fields.get("cmd") == end_fields.get("cmd")):
-                matching_begin = candidate
-                break
-        if matching_begin is not None:
-            begin_match = matching_begin
+    try:
+        transcript = observation.parse_a90p1_transcript(text)
+    except observation.ObservationContractError as exc:
+        raise RuntimeError(f"A90P1 strict framing rejected output: {exc}") from exc
+    frame = transcript.frames[-1]
     return ProtocolResult(
-        begin=parse_fields(begin_match.group("fields")) if begin_match else {},
-        end=end_fields,
+        begin=frame.begin,
+        end=frame.end,
         text=text,
     )
 
@@ -361,7 +349,7 @@ def run_cmdv1_command(host: str,
             sleep_before_retry(deadline)
             continue
 
-        if END_RE.search(text) is not None:
+        if observation.END_PREFIX in text:
             result = parse_protocol_output(text)
             try:
                 validate_protocol_command(result, command)
@@ -421,6 +409,7 @@ def result_to_json(result: ProtocolResult) -> str:
             "end": result.end,
             "rc": result.rc,
             "status": result.status,
+            "trust": result.trust,
             "text": result.text,
         },
         ensure_ascii=False,

@@ -67,6 +67,7 @@ REQUIRED_SUPPORT_FILES = (
     SCRIPT_DIR / "run_d1_chroot_mvp.py",
     REVAL_DIR / "_workspace_bootstrap.py",
     REVAL_DIR / "a90_bridge.py",
+    REVAL_DIR / "a90_observation_pipeline.py",
     REVAL_DIR / "a90_serial_lock.py",
     REVAL_DIR / "a90ctl.py",
     REVAL_DIR / "serial_tcp_bridge.py",

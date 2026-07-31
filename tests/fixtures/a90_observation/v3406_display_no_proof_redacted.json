@@ -1,0 +1,24 @@
+{
+  "candidate_return_present": false,
+  "expected_atomic_result": "NO_PROOF",
+  "expected_facts": {
+    "debian_pid1": "PROVEN",
+    "display_acquisition": "REFUTED",
+    "dropbear": "PROVEN",
+    "native_release": "PROVEN"
+  },
+  "native_release_log": "A90D3DISPLAY native_kms_release rc=0 fd_before=3 disable_plane_rc=0 disable_crtc_rc=0 munmap_failures=0 rmfb_failures=0 destroy_dumb_failures=0 drop_master_rc=0 close_rc=0 release_complete=1\r\nA90D3DISPLAY native_pid1_drm_fd_count=0 observed=0\r\nA90D3DISPLAY other_drm_fd_count=0 observed=0\r\nA90D3DISPLAY native_kms_initialized=0 observed=0\r\nA90D3DISPLAY display_services_restart_blocked=1 corridor=synchronous-handoff\r\n",
+  "native_release_marker": "schema=a90-native-display-release-v1\nnative_pid1_drm_fd_count=0\nother_drm_fd_count=0\nnative_kms_initialized=0\ndisplay_services_restart_blocked=1\nrelease_complete=1\n",
+  "redaction": "allowlisted-fields-only-v1",
+  "schema": "a90-observation-redacted-fixture-v1",
+  "source": {
+    "sha256": "8bb497095118a908f16c4094b7900dc855947619e763d4bc997a38a42bcf337c",
+    "size": 15013
+  },
+  "ssh_facts": {
+    "display_status": "bounded-failure",
+    "dropbear_started": true,
+    "pid1_comm_init": true,
+    "proc1_exe_init": true
+  }
+}

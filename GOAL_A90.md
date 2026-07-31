@@ -403,13 +403,29 @@ device action.
 
 `docs/reports/A90_PHASE2D_V3406_EXECUTION_CLOSURE_H0_2026-07-31.md`
 
-The next bounded unit is H0 observation-pipeline Phase 0, not another F1.
-Build the private corpus catalog and redacted replay fixtures, introduce the
-byte-preserving line codec and independent fact result, unify the duplicated
-native-release validator, and reject the current A90P1 malformed/spoof matrix.
-Preserve and diagnose presenter attempt-3 `rc=1` and bounded-return timing only
-after the evidence reader has this regression closure. Retained-work cleanup
-remains separate and must not precede evidence preservation.
+Observation-pipeline Phase 0 is closed
+`A90_OBSERVATION_PIPELINE_PHASE0_H0_PASS`. One byte-aware codec and strict
+A90P1 parser now serve `a90ctl`, the server-distro wrapper, display validators,
+and independent fact classification. Private replay passes 18/18 raw logs,
+230 complete frames, and two explicit `switch_root` transitions. The current
+execution path carries `A90P1_V1_STRUCTURAL_ONLY`; exact F016 forgery remains a
+named protocol-v1 limit rather than being presented as authenticated evidence.
+
+Malformed display evidence no longer erases valid native-release, Debian PID1,
+or Dropbear subproofs. The finalizer requires the exact independent GO report
+and current hashes for all nine reviewed execution sources. Focused tests pass
+185/185 and independent review returned GO with no unresolved Critical, High,
+or Medium finding. No device action occurred.
+
+`docs/reports/A90_OBSERVATION_PIPELINE_PHASE0_H0_2026-07-31.md`
+
+The next bounded unit is H0 return-channel and presenter diagnosis, not F1.
+The repeated 220-228 second missing-END results do not prove delayed supervisor
+return: the current observer can mistake the USB bridge retained through Debian
+for native return and spend its single attempt on a long menu command. Fix that
+semantic epoch gate and retain exact presenter.log plus read-only
+DRM/backlight/connector evidence before preparing another rootfs or approval.
+Retained-work cleanup remains separate from evidence preservation.
 
 ## Later Phases
 
@@ -445,6 +461,7 @@ approval under `AGENTS.md`.
 - `docs/reports/A90_V3405_DEBIAN_PID1_F1_CLOSED_2026-07-31.md`
 - `docs/reports/A90_V3406_PHASE2_DISPLAY_NO_PROOF_F1_CLOSED_2026-07-31.md`
 - `docs/reports/A90_HOST_OBSERVATION_PARSER_RECURRENCE_ANALYSIS_H0_2026-07-31.md`
+- `docs/reports/A90_OBSERVATION_PIPELINE_PHASE0_H0_2026-07-31.md`
 - `docs/reports/A90_V3404_BUILD_DETERMINISM_PHASE0_H0_2026-07-31.md`
 - `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1_STOP_H0_2026-07-31.md`
 - `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1_SUCCESSOR_REPEATED_STOP_H0_2026-07-31.md`

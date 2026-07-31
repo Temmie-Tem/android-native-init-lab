@@ -88,6 +88,7 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
             "run_d1_chroot_mvp.py",
             "_workspace_bootstrap.py",
             "a90_bridge.py",
+            "a90_observation_pipeline.py",
             "a90_serial_lock.py",
             "a90ctl.py",
             "serial_tcp_bridge.py",

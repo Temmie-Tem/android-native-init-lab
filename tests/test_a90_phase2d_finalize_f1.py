@@ -62,6 +62,57 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
         self.assertTrue(args.audit_only)
         self.assertFalse(args.finalize)
 
+    def test_review_report_binds_current_execution_closure(self) -> None:
+        source_lines = []
+        for record in finalizer.required_review_source_records():
+            relative = Path(record["path"]).relative_to(
+                finalizer.REPO_ROOT.resolve(strict=True)
+            )
+            source_lines.append(f"- `{relative}`: `{record['sha256']}`")
+        review = "\n".join(
+            (
+                "Independent verdict: GO",
+                "Unresolved HIGH: 0",
+                "Unresolved MEDIUM: 0",
+                "Device actions: none",
+                f"Review decision: `{finalizer.REVIEW_DECISION}`",
+                *source_lines,
+            )
+        )
+        finalizer.validate_independent_review_report(review)
+        with self.assertRaisesRegex(
+            finalizer.ContractError,
+            "does not bind current source",
+        ):
+            finalizer.validate_independent_review_report(
+                review.replace(source_lines[0], "", 1)
+            )
+        with self.assertRaisesRegex(
+            finalizer.ContractError,
+            "does not bind current source",
+        ):
+            finalizer.validate_independent_review_report(
+                review + "\n" + source_lines[0].replace(
+                    source_lines[0].rsplit("`", 2)[1],
+                    "0" * 64,
+                    1,
+                )
+            )
+        for conflict in (
+            "Independent verdict: NO-GO",
+            "Unresolved HIGH: 1",
+            "Unresolved MEDIUM: 1",
+            "Device actions: present",
+            "Review decision: `GO_OLD_CLOSURE`",
+        ):
+            with self.subTest(conflict=conflict), self.assertRaisesRegex(
+                finalizer.ContractError,
+                "not an exact GO",
+            ):
+                finalizer.validate_independent_review_report(
+                    review + "\n" + conflict
+                )
+
     def test_copy_is_new_inode_exact_hash_and_absent_only(self) -> None:
         with tempfile.TemporaryDirectory(
             dir=finalizer.staging.PRIVATE_ROOT
