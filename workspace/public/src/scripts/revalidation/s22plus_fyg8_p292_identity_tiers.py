@@ -11,6 +11,7 @@ from typing import Any, Mapping
 
 import s22plus_fyg8_p290_source_contract as p290
 import s22plus_fyg8_p292_repair_generator as repair_generator
+import s22plus_fyg8_p292_repair_model as repair_model
 import s22plus_fyg8_p292_repair_spec as repair_spec
 
 
@@ -19,9 +20,9 @@ PROFILE = repair_spec.PROFILE
 SOURCE_CHECK_RUN_ID = hashlib.sha256(
     b"S22PLUS-FYG8-P292-SOURCE-CHECK-V1"
 ).digest()[:16]
-SOURCE_CHECK_UNSAT_TAG = hashlib.sha256(
-    b"S22PLUS-FYG8-P292-SOURCE-CHECK-UNSAT-V1"
-).digest()[:16]
+SOURCE_CHECK_UNSAT_TAG = repair_model.unsat_record(
+    repair_spec.PROFILE, SOURCE_CHECK_RUN_ID
+)[len(repair_model.UNSAT_FAMILY) :]
 
 TIER1_DIRECT_PATHS = {
     "p292_identity_tiers": Path(
@@ -47,6 +48,30 @@ TIER1_DIRECT_PATHS = {
     "p292_repair_generator": Path(
         "workspace/public/src/scripts/revalidation/"
         "s22plus_fyg8_p292_repair_generator.py"
+    ),
+    "p292_source_contract": Path(
+        "workspace/public/src/scripts/revalidation/"
+        "s22plus_fyg8_p292_source_contract.py"
+    ),
+    "p292_candidate_intent": Path(
+        "workspace/public/src/scripts/revalidation/"
+        "s22plus_fyg8_p292_candidate_intent.py"
+    ),
+    "p292_userspace_build": Path(
+        "workspace/public/src/scripts/revalidation/"
+        "s22plus_fyg8_p292_userspace_build.py"
+    ),
+    "p292_build": Path(
+        "workspace/public/src/scripts/revalidation/"
+        "s22plus_fyg8_p292_build.py"
+    ),
+    "p292_candidate_builder": Path(
+        "workspace/public/src/scripts/revalidation/"
+        "build_s22plus_fyg8_p292_candidate.py"
+    ),
+    "p292_boot_only_packager": Path(
+        "workspace/public/src/scripts/revalidation/"
+        "s22plus_fyg8_p292_boot_only_packager.py"
     ),
 }
 
@@ -95,6 +120,45 @@ TIER2_DIRECT_PATHS = {
         "workspace/public/src/scripts/revalidation/"
         "test_s22plus_fyg8_p292_identity_mutation_matrix.py"
     ),
+    "p292_source_contract_selector": Path(
+        "workspace/public/src/scripts/revalidation/"
+        "s22plus_fyg8_p286_source_contracts.py"
+    ),
+    "p292_change_freeze": Path(
+        "workspace/public/src/scripts/revalidation/"
+        "s22plus_fyg8_p292_change_freeze.py"
+    ),
+    "p292_candidate_contract": Path(
+        "workspace/public/src/scripts/revalidation/"
+        "s22plus_fyg8_p292_candidate_contract.py"
+    ),
+    "p292_build_repro_check": Path(
+        "workspace/public/src/scripts/revalidation/"
+        "s22plus_fyg8_p292_build_repro_check.py"
+    ),
+    "p292_candidate_static_checker": Path(
+        "workspace/public/src/scripts/revalidation/"
+        "s22plus_fyg8_p292_candidate_static_checker.py"
+    ),
+    "p292_e2_stock_closure": Path(
+        "workspace/public/src/scripts/revalidation/"
+        "s22plus_fyg8_p292_e2_stock_closure.py"
+    ),
+    "p292_linked_audit": Path(
+        "workspace/public/src/scripts/revalidation/"
+        "s22plus_fyg8_p292_linked_audit.py"
+    ),
+    "p292_postbuild_linked_audit": Path(
+        "workspace/public/src/scripts/revalidation/"
+        "s22plus_fyg8_p292_postbuild_linked_audit.py"
+    ),
+    "p292_pre_lto_qualification": Path(
+        "workspace/public/src/scripts/revalidation/"
+        "s22plus_fyg8_p292_pre_lto_qualification.py"
+    ),
+    "p292_contract_test": Path(
+        "tests/test_s22plus_fyg8_p292_contract.py"
+    ),
     "p292_zero_delta_report": Path(
         "docs/reports/"
         "S22PLUS_FYG8_P292_CHECKPOINT_SOT_ZERO_DELTA_H0_2026-07-31.md"
@@ -113,6 +177,10 @@ TIER2_DIRECT_PATHS = {
         "docs/reports/"
         "S22PLUS_FYG8_P292_ACCEPT_TO_RESUME_AND_STAGE_C_H0_"
         "2026-07-31.md"
+    ),
+    "p292_final_identity_report": Path(
+        "docs/reports/"
+        "S22PLUS_FYG8_P292_FINAL_IDENTITY_FREEZE_H0_2026-07-31.md"
     ),
 }
 
@@ -162,6 +230,20 @@ TIER2_INHERITED_KEYS = frozenset(
 )
 TIER1_INHERITED_KEYS = frozenset(
     p290.SOURCE_KEYS - TIER2_INHERITED_KEYS
+)
+INHERITED_PAYLOAD_SOURCE_KEYS = {
+    f"p290_input__{key}": key for key in sorted(TIER1_INHERITED_KEYS)
+}
+GENERATED_PAYLOAD_SOURCE_KEYS = {
+    key: ("base_patch" if key == "candidate_patch" else key)
+    for key in sorted(PAYLOAD_GENERATED_KEYS)
+}
+TIER1_SOURCE_KEYS = frozenset(
+    (
+        *INHERITED_PAYLOAD_SOURCE_KEYS,
+        *TIER1_DIRECT_PATHS,
+        *GENERATED_PAYLOAD_SOURCE_KEYS.values(),
+    )
 )
 TIER_NAMES = ("tier1_payload", "tier2_qualification", "tier3_live")
 
@@ -259,12 +341,13 @@ def descriptor() -> dict[str, Any]:
         "stage_c": "conservative-three-tier-split",
         "tier1": {
             "purpose": "kernel-embedded payload identity",
-            "inherited_source_keys": sorted(TIER1_INHERITED_KEYS),
+            "inherited_source_keys": dict(INHERITED_PAYLOAD_SOURCE_KEYS),
             "direct_paths": {
                 key: _canonical_relative(path)
                 for key, path in sorted(TIER1_DIRECT_PATHS.items())
             },
-            "generated_artifact_keys": sorted(PAYLOAD_GENERATED_KEYS),
+            "generated_artifact_keys": dict(GENERATED_PAYLOAD_SOURCE_KEYS),
+            "source_keys": sorted(TIER1_SOURCE_KEYS),
             "source_check_run_id": SOURCE_CHECK_RUN_ID.hex(),
             "source_check_unsat_tag": SOURCE_CHECK_UNSAT_TAG.hex(),
         },
@@ -315,7 +398,7 @@ def tier1_materials(root: Path) -> dict[str, bytes]:
     if set(inherited) != set(p290.SOURCE_KEYS):
         raise IdentityTierError("inherited P2.90 source key set differs")
     direct = {
-        f"direct:{key}": _read_direct(root, path, f"Tier-1 {key}")
+        key: _read_direct(root, path, f"Tier-1 {key}")
         for key, path in sorted(TIER1_DIRECT_PATHS.items())
     }
     generated = repair_generator.generate_bytes(
@@ -328,12 +411,19 @@ def tier1_materials(root: Path) -> dict[str, bytes]:
         raise IdentityTierError("generated Tier-1 artifact set differs")
     result = {
         **{
-            f"inherited:{key}": inherited[key]
-            for key in sorted(TIER1_INHERITED_KEYS)
+            source_key: inherited[legacy_key]
+            for source_key, legacy_key in sorted(
+                INHERITED_PAYLOAD_SOURCE_KEYS.items()
+            )
         },
         **direct,
-        **{f"generated:{key}": value for key, value in generated.items()},
+        **{
+            GENERATED_PAYLOAD_SOURCE_KEYS[key]: value
+            for key, value in sorted(generated.items())
+        },
     }
+    if set(result) != TIER1_SOURCE_KEYS:
+        raise IdentityTierError("Tier-1 source material key set differs")
     return result
 
 
@@ -462,6 +552,12 @@ def validate() -> dict[str, Any]:
         != frozenset(p290.SOURCE_KEYS)
         or TIER1_INHERITED_KEYS & TIER2_INHERITED_KEYS
         or len(PAYLOAD_GENERATED_KEYS) != 13
+        or len(TIER1_SOURCE_KEYS)
+        != (
+            len(TIER1_INHERITED_KEYS)
+            + len(TIER1_DIRECT_PATHS)
+            + len(PAYLOAD_GENERATED_KEYS)
+        )
         or repair_spec.ACTIVE_STATE_REPRESENTATION
         != "exact-committed-active-slot"
     ):
@@ -472,6 +568,7 @@ def validate() -> dict[str, Any]:
         "inherited_payload_key_count": len(TIER1_INHERITED_KEYS),
         "inherited_nonpayload_key_count": len(TIER2_INHERITED_KEYS),
         "tier1_direct_count": len(TIER1_DIRECT_PATHS),
+        "tier1_source_key_count": len(TIER1_SOURCE_KEYS),
         "generated_payload_count": len(PAYLOAD_GENERATED_KEYS),
         "tier2_direct_count": len(TIER2_DIRECT_PATHS),
         "tier3_direct_count": len(TIER3_DIRECT_PATHS),

@@ -37,6 +37,7 @@ Slot = base.Slot
 DesignError = base.DesignError
 crc32 = base.crc32
 model_run_id = base.model_run_id
+unsat_record = base.unsat_record
 
 
 def _validate_position_semantics(

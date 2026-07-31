@@ -34,19 +34,20 @@ operation-aware publication errno evidence. This restores observation
 capability; it is not E3 device progress.
 
 P2.64 Stage C is now implemented conservatively for the successor. One
-descriptor separates 87 Tier-1 payload receipts, 41 Tier-2
+descriptor separates 93 Tier-1 payload receipts, 52 Tier-2
 qualification/provenance receipts, and three Tier-3 Process-v2 receipts. Its
 seven-lane mutation matrix passes, including the rule that a Tier-2-originated
-generated payload delta still changes payload identity. Stage C remains open
-pending its required independent safety review and final pre-intent source
-closure.
+generated payload delta still changes payload identity. The final 93-key
+source contract, new-candidate retirement selector, build/package adapters,
+and Git-derived change freeze are implemented. Stage C remains open pending
+its required independent safety review and a clean post-commit freeze.
 
 The four formal Process-v2 verdicts remain
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: rollback and health evidence are
 unchanged, while restart-helper dispatch and every later E3 boundary remain
 unproved. This is observation-channel recovery, not E3 progress. Full-LTO,
-manifest, D0, or another F1 remain prohibited until the final P2.92 identity,
-freeze, pre-LTO closure, and Stage C review are complete.
+manifest, D0, or another F1 remain prohibited until the final P2.92 freeze,
+pre-LTO closure, and Stage C review are complete.
 
 The live transaction exercised the durable recovery design. Initial rollback
 endpoint discovery stopped on a measured USB membership race. Rollback-only
@@ -211,8 +212,11 @@ corrected A/B pair then matched.
   emits operation-aware failure details, and reaches an explicit volatile sink
   before park only when the checkpoint channel and fallback both fail.
 - The conservative P2.64 Stage C mutation matrix passes with disjoint
-  `87/41/3` Tier-1/Tier-2/Tier-3 receipt sets. Independent safety review and
-  final successor input registration remain pending.
+  `93/52/3` Tier-1/Tier-2/Tier-3 receipt sets. Final successor inputs are
+  registered; independent safety review and a clean final freeze remain.
+- The P2.92 source contract binds 68 namespaced P2.90 payload inputs, twelve
+  direct successor inputs, and thirteen generated payload artifacts. Its
+  repaired `candidate_patch` is the exact candidate `base_patch`.
 - Exact source rejects treating a parent-PM sign or PHY flag as electrical
   proof; swallowed clock errors remain non-proof.
 - Process v2 common D0/F1 execution, regular-path boot-only Odin transport,
@@ -238,6 +242,7 @@ Load-bearing current reports:
 - `docs/reports/S22PLUS_FYG8_P290_POST_COMMIT_TAIL_AND_CHILD_OBSERVER_H0_2026-07-31.md`
 - `docs/reports/S22PLUS_FYG8_P284_P290_ACCEPT_TO_RESUME_HISTORY_ERRATUM_H0_2026-07-31.md`
 - `docs/reports/S22PLUS_FYG8_P292_ACCEPT_TO_RESUME_AND_STAGE_C_H0_2026-07-31.md`
+- `docs/reports/S22PLUS_FYG8_P292_FINAL_IDENTITY_FREEZE_H0_2026-07-31.md`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 
@@ -394,8 +399,8 @@ operations before the asserted publication boundaries.
    nonzero-detail progress state was accepted but not resumable, so the next
    write returned pre-mutation `-ESTALE` and userspace intentionally parked.
 4. Preserve the implemented P2.64 Stage C descriptor and passing seven-lane
-   mutation matrix. Add final successor payload inputs before intent and obtain
-   the required independent review before closure.
+   mutation matrix. The final successor inputs are registered as `93/52/3`;
+   obtain the required independent review before Full-LTO closure.
 5. `CHECKPOINT_SOT_ZERO_DELTA` passed over the complete 13-artifact retained
    P2.90 scope: A matched the frozen baseline first, then B matched both the
    same baseline and A. No comparison was weakened and no repair was present.
@@ -410,8 +415,10 @@ operations before the asserted publication boundaries.
 8. `CHECKPOINT_ERRNO_OBSERVABILITY` passes for exact open/write/close errno,
    successful operation-aware fallback, and the explicit total-channel
    volatile evidence sink before park.
-9. Recompute SOURCE_KEYS before intent. Keep SoT/generator and byte-affecting
-   outputs inside identity; keep evidence-only consumers outside and bundle-bound.
+9. Run the Git-derived final freeze from base
+   `0b994dd9fb0d5f38a546e10d831cd34d5804ca75`, print and verify all 93
+   SOURCE_KEYS with `changed_keys=[]`, and require a clean worktree before
+   intent. Keep evidence-only consumers outside identity and bundle-bound.
 10. The inherited detail-zero prefix, nonzero details, two corruption controls,
    exact retained P2.90 gen87/88 resume to generation 89, and old-ring seed
    startup through generation one are host-proven.

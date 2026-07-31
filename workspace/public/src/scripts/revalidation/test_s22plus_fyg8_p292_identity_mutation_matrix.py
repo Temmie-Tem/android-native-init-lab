@@ -18,6 +18,7 @@ class IdentityMutationMatrixTest(unittest.TestCase):
         result = tiers.validate()
         self.assertTrue(result["verified"])
         self.assertEqual(result["generated_payload_count"], 13)
+        self.assertEqual(result["tier1_source_key_count"], 93)
         self.assertGreater(result["inherited_nonpayload_key_count"], 0)
         self.assertEqual(
             result["path_validation"]["multi_tier_path_count"], 0

@@ -84,7 +84,7 @@ def run_matrix(root: Path) -> dict[str, Any]:
     tier3 = tiers.tier3_materials(root)
     baseline = _derive(tier1, tier2, tier3)
     payload_mutation = _derive(
-        _mutated(tier1, "direct:p292_repair_spec"), tier2, tier3
+        _mutated(tier1, "p292_repair_spec"), tier2, tier3
     )
     qualification_mutation = _derive(
         tier1, _mutated(tier2, "direct:p292_repair_decoder"), tier3
@@ -93,7 +93,7 @@ def run_matrix(root: Path) -> dict[str, Any]:
         tier1, _mutated(tier2, "direct:p292_zero_delta_report"), tier3
     )
     tier2_generated_delta = _derive(
-        _mutated(tier1, "generated:checkpoint_client"),
+        _mutated(tier1, "checkpoint_client"),
         _mutated(tier2, "inherited:decoder_adapter"),
         tier3,
     )
