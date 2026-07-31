@@ -607,9 +607,9 @@ operations before the asserted publication boundaries.
 4. Implement P2.64 Stage C: one descriptor produces disjoint Tier 1 payload,
    Tier 2 qualification/provenance, and Tier 3 package/live receipt sets;
    require its mutation matrix and independent review before closing the debt.
-5. Pass `CHECKPOINT_SOT_ZERO_DELTA` by reproducing current materialized outputs
-   twice byte-for-byte with repairs forbidden; only then pass
-   `CHECKPOINT_REPAIR_DELTA_ATTRIBUTION` for exact-slot and errno changes.
+5. Pass `CHECKPOINT_SOT_ZERO_DELTA`: freeze retained intent-bound P2.90 artifact
+   SHA256s as the baseline, require clean run A to match it, then require clean
+   run B to match both that baseline and A; repairs remain forbidden.
 6. Prove `ACCEPT_TO_RESUME_CLOSURE` exhaustively across kernel writer,
    userspace client, model, and decoder. Then prove
    `ACCEPT_TO_RESUME_SEQUENCE_WALK` by continuously walking the exact

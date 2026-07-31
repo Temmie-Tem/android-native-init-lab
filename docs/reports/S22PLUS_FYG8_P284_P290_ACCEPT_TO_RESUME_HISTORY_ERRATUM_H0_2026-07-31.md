@@ -363,12 +363,18 @@ generator, and byte-affecting outputs, not evidence-only consumers.
 SoT introduction and the repair must not be applied as one opaque rewrite.
 They are two ordered pre-intent phases:
 
-1. **SoT zero-delta replay (`CHECKPOINT_SOT_ZERO_DELTA`).** Freeze the current
-   P2.90 materialized payload file set, modes, sizes, and SHA256 values. With
-   exact-active-slot and errno repairs forbidden, generate every current
-   materialized output twice in clean temporary trees. Both generated trees
-   must be byte-identical to each other and to the frozen current outputs. Any
-   missing, extra, reordered, or changed byte stops the unit before repair.
+1. **SoT zero-delta replay (`CHECKPOINT_SOT_ZERO_DELTA`).** Before invoking the
+   new generator, freeze an immutable baseline manifest from the retained,
+   intent-bound P2.90 materialized artifacts: relative path, type, mode, size,
+   and SHA256. The retained P2.90 artifacts, never either generator run, are
+   the authority for this baseline. With exact-active-slot and errno repairs
+   forbidden, generate run A in a clean temporary tree and first require every
+   output to match that baseline exactly. Only after run A passes may run B be
+   generated in a separate clean tree; run B must match both the same baseline
+   and run A. Thus the first comparison proves fidelity and the later
+   comparisons additionally prove determinism. Any missing, extra, reordered,
+   mode/size-mismatched, or SHA256-mismatched artifact stops the unit before
+   repair.
 2. **Attributed repair delta (`CHECKPOINT_REPAIR_DELTA_ATTRIBUTION`).** Only
    after zero-delta passes may the SoT be changed for exact-active-slot
    retention and errno preservation. Regenerate all outputs and require the

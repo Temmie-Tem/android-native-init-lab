@@ -318,10 +318,13 @@ byte-affecting generated output. Tier 2 will carry verifier, decoder, audit,
 test, and evidence receipts without changing the run ID. Tier 3 will carry
 candidate/rollback AP, manifest, runner, target, and approval binding.
 
-The SoT migration is explicitly two-phase before intent. Phase 1 must
-reproduce the current P2.90 materialized outputs byte-for-byte with no repair
-present. Phase 2 may begin only after that zero-delta proof and may introduce
-only the predeclared exact-slot and errno-preservation delta. This separates
+The SoT migration is explicitly two-phase before intent. Phase 1 first freezes
+the retained, intent-bound P2.90 materialized artifacts as the authoritative
+path/type/mode/size/SHA256 baseline. With no repair present, clean generator
+run A must match that baseline before clean run B is allowed; run B must then
+match both the same baseline and run A. Phase 2 may begin only after those
+ordered fidelity and determinism checks pass and may introduce only the
+predeclared exact-slot and errno-preservation delta. This separates
 representation migration from behavioral repair.
 
 Stage C is therefore activated, not yet complete. The debt closes only after
