@@ -322,13 +322,37 @@ High, or Medium finding.
 
 `docs/reports/A90_PHASE2B_DISPLAY_HANDOFF_SOURCE_H0_2026-07-31.md`
 
-Phase 2C is selected as H0 candidate-qualification and observation-packet
-design only. Bind the exact Phase 2B native and Debian host profiles, re-audit
-the A90 checked boot-only flash path and fresh absent-only work-image staging
-lifecycle, and define one-run evidence for native release, Debian sole DRM
-master, visible acquisition, bounded display failure, and healthy no-sync
-return. Do not assign V3406, stage an image, access a device, or create live
-authority in this unit.
+Phase 2C closed `A90_PHASE2C_HOST_PROFILES_BOUND_NOT_LIVE_READY`. One
+machine-readable H0 packet now reopens and binds both A/B sides of all five
+native artifacts, both clean 2 GiB ext4 images, and both static presenters. It
+also re-audits the exact coupled A90 checked boot-only route and the absent-only
+hard-link staging lifecycle.
+
+The clean Phase 2B ext4 image has no observer authorized key, generated
+Dropbear host key, native release marker, display-ready marker, or
+display-failure marker. It is therefore a deterministic base, not the final
+keyed rootfs. The current staging adapter accepts only V3403-V3405 identities,
+and the current orchestrator observes Debian PID 1/Dropbear/return but not the
+new native release, DRM acquisition, bounded failure, or physical visibility
+contracts. No candidate identity, staging, device action, or live authority
+was created.
+
+The observation packet now requires exact native KMS teardown, Debian sole DRM
+master under UID/GID 3904 with zero effective capabilities, four fixed visible
+screen strings through a bound attended receipt, terminal attempt-3 failure
+without replay, healthy no-sync return, retained armed pmsg, one rollback, and
+final baseline health.
+
+`docs/reports/A90_PHASE2C_DISPLAY_QUALIFICATION_OBSERVATION_PACKET_H0_2026-07-31.md`
+
+Phase 2D is selected as the next H0 execution-critical implementation unit.
+Create a new-inode per-run key materializer from the exact clean Phase 2 base
+and integrate exact display ready/failure plus manifest-bound visible
+acquisition evidence into the A90 manifest/orchestrator closure. Do not assign
+a candidate identity until that closure and its fault tests pass. Because this
+changes execution-critical manifest and observation machinery, obtain one
+independent safety review before any live use. Do not access a device, stage an
+image, prepare live approval, flash, or reboot in Phase 2D.
 
 ## Later Phases
 

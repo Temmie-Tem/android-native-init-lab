@@ -1,0 +1,64 @@
+schema = "a90-phase2c-display-qualification-v1"
+profile = "phase2-display-v1"
+candidate_authority = false
+device_action = false
+live_authority = false
+
+[native]
+receipt = "workspace/private/outputs/a90-phase2-display-v1-native-ab-02/ab-receipt.json"
+receipt_sha256 = "f5d93c96a1290dfb734e553a7b3ba24aa91eba6a068902270b9d2046af46ef91"
+manifest = "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase2-display-v1/manifest.toml"
+manifest_sha256 = "1d9a98a1e6d8a81ad5c8803a4d30181da598e197af6d432f083a1203f4e7413a"
+boot_a = "workspace/private/outputs/a90-phase2-display-v1-native-ab-02/A/boot.img"
+boot_b = "workspace/private/outputs/a90-phase2-display-v1-native-ab-02/B/boot.img"
+boot_bytes = 66379776
+boot_sha256 = "3d3e66535654a62f83c5772caba27624acc160911307190de458154acaefdabb"
+ramdisk_sha256 = "7a34eec3bfd66abfca5d6d4043d514d87eb4eb3c458d281562025045ea45be66"
+init_sha256 = "67db45ee45144c1cd7bfde9cfd2ac6401292bad57fcf36f6c8543e31b59b83bd"
+helper_sha256 = "fa395d3ecb6944a57487f3966948a634596157e4de3fdc39575a2fc502d1ceef"
+engine_sha256 = "5b262978867bf98239e5d7e1b112f29b0217b59f057fc48c5b6e91d90eb5eaad"
+
+[debian]
+receipt = "workspace/private/outputs/a90-phase2-display-v1-ab-06/ab-receipt.json"
+receipt_sha256 = "34b0c83ae612762287ee3ad1c7217c0031a259cb8fa745a55a1cc40964f279d2"
+manifest = "workspace/public/src/scripts/server-distro/phase2_display_v1/manifest.toml"
+manifest_sha256 = "b2f3cac37456188b72c7bea0676086893b95a6376f016564cd1bf8a933bee3cc"
+image_a = "workspace/private/outputs/a90-phase2-display-v1-ab-06/A/phase2-display-v1.img"
+image_b = "workspace/private/outputs/a90-phase2-display-v1-ab-06/B/phase2-display-v1.img"
+image_bytes = 2147483648
+image_sha256 = "cf2cf17d5c706123f85b21d4f2479fc348329cdc09e48fe6406874328e3977c8"
+filesystem_label = "PHASE2DISPLAYV1"
+presenter_sha256 = "8c41524749c6a59a8896e02d96a613efdffafcd01d165872f2317b22606a805b"
+clean_absent_paths = [
+  "/root/.ssh/authorized_keys",
+  "/etc/dropbear/dropbear_ed25519_host_key",
+  "/run/a90-native-display-release",
+  "/run/a90-display/ready",
+  "/run/a90-display/failure",
+]
+
+[machinery]
+flash_runner = "workspace/public/src/scripts/revalidation/native_init_flash.py"
+flash_runner_sha256 = "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
+staging_adapter = "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py"
+staging_adapter_sha256 = "782f581e2022041945f81ddd9d3e5cc5511c6cb7a2f6e340c97480350fb956eb"
+orchestrator = "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py"
+orchestrator_sha256 = "7397284176dbf612528dd2ce92f61a5a142506a6c0ca896effda3fb07502bd9c"
+fixed_work_image = "/mnt/sdext/a90/runtime/d3-handoff-work.img"
+supported_live_cycles = ["v3403", "v3404", "v3405"]
+
+[observation]
+display_uid = 3904
+display_gid = 3904
+max_display_attempts = 3
+visible_text = [
+  "A90 DEBIAN",
+  "DIRECT DRM SESSION",
+  "PID 1: SYSVINIT / VT: NONE",
+  "DISPLAY OWNER: DEBIAN",
+]
+native_release_schema = "a90-native-display-release-v1"
+debian_ready_schema = "a90-debian-display-v1"
+debian_failure_schema = "a90-debian-display-v1-failure"
+return_marker = "A90D3RET_V3405"
+required_return_phase = "phase=armed"
