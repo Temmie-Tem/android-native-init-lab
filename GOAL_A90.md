@@ -78,8 +78,15 @@ transfer between the two files.
 - Related regression passes `332/332`; independent safety review returned GO
   with no blocking finding. The reviewed orchestrator SHA256 is
   `aa0677077ddf82ed559a2b703e599ee05c3fa77f7023260d193c01c462b25b20`.
-- No new A90 live authority exists. The changed execution closure requires a
-  fresh manifest, run directory, preflight, and exact F1 approval. The consumed
+- Fresh private run `a90-v3406-debian-display-f1-20260801-05` has a new-inode
+  keyed rootfs, exact healthy V2321 D0, and absent final/work/stage paths. Its
+  resident manifest SHA256 is
+  `58e2a0a401c2493df610a29fde9e583564f90a6e07e7cb597464dc8f54e2de9b`.
+- Host-only `-04` stopped on a stale exact helper-size binding and is preserved
+  as non-reusable evidence. Commit `e73a72a6` corrected the 51402-byte binding,
+  passed `332/332`, and received independent GO.
+- The `-05` approval receipt is prepared but grants no live authority. The only
+  next gate is the operator echoing the exact fresh F1 token. The consumed
   `-03` approval and candidate must not be replayed.
 - Do not add a device step while host-only work can answer the selected
   question.
@@ -726,6 +733,7 @@ approval under `AGENTS.md`.
 - `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1A_ISOLATED_PATH_ATTRIBUTION_H0_2026-07-31.md`
 - `docs/reports/A90_RESIDENT_PROMOTION_MODEMMANAGER_GUARD_CORRIDOR_H0_2026-08-01.md`
 - `docs/reports/A90_RESIDENT_PROMOTION_GUARD_CORRIDOR_INDEPENDENT_REVIEW_2026-08-01.md`
+- `docs/reports/A90_RESIDENT_PROMOTION_V3406_05_F1_READY_H0_D0_2026-08-01.md`
 
 Private journals, structured results, raw logs, work-image evidence, approval
 receipts, and exact rollback identity remain under `workspace/private/`.
