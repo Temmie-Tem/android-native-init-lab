@@ -104,6 +104,28 @@ requires an unchanged Process-v2 `verify_bundle()` pass before one `O_EXCL`
 manifest write. Seventy focused manifest/evidence/core/D0 tests pass; the
 builder is outside the 93 payload keys and frozen `51/50/0` implementation.
 
+A later exact scoped re-entry completed the one authorized formal static pass
+but stopped before invoking promotion: an untested ad-hoc preflight assumed a
+direct `candidate.ap.sha256` field instead of reading the actual nested static
+result. No official promotion, manifest, D0, or device action followed. The
+recurrence is now addressed structurally rather than by another approval-window
+wrapper. The runbook forbids first execution of host code inside an approval
+scope, and the P2.92 ready-manifest builder has a tested `--verify-only` path
+that executes the same offline and `verify_bundle()` closure without creating
+the requested manifest.
+
+The actual-input preapproval sequence is now rehearsed at commit `b24dce9c`.
+Canonical P2.92 promotion passes on the qualified build host; its three exact
+outputs then pass local ready-manifest `--verify-only` with the real candidate,
+canonical rollback, full Stage C source closure, and pinned Odin. The proposed
+manifest bytes are stable while `manifest_created=false`, and an exact P2.92
+acceptance/observer fixture passes the production connected-D0 collector and
+result validator. Seventy-three focused tests pass on both hosts. Host roles
+are explicit: promotion runs on the qualified build host, while ready-manifest
+verification/creation and connected D0 run on the local attended host. This is
+H0 rehearsal evidence only and grants no promotion, manifest, D0, or F1
+authority.
+
 The four formal Process-v2 verdicts remain
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: rollback and health evidence are
 unchanged, while restart-helper dispatch and every later E3 boundary remain
