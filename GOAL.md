@@ -50,6 +50,23 @@ generic-arm64 lifecycle control feed a `21/21` pre-LTO qualification pass.
 The qualification and linked-audit receipts reverify against the current
 Tier-2 closure without changing any Tier-1 payload source.
 
+The independent P2.92 Stage C safety review has passed. Full-LTO A/B is
+byte-identical, the final linked/postbuild audit passes, deterministic
+candidate A/B packages are byte-identical, and the first formal static
+closure passed. Process-v2 P2.92 registration now binds all 93 payload, 52
+qualification, and three live-tier receipts without changing the candidate
+run ID.
+
+Promotion is nevertheless stopped before manifest or D0. A later terminal
+adapter was first placed in the frozen P2.92 repair decoder, causing the exact
+`P2.86 gate implementation is stale` rejection already seen earlier when a
+postbuild correction was placed in the frozen linked-audit file. This is the
+second occurrence of the same frozen-gate stale failure class and therefore
+triggers AGENTS.md rule 7. The decoder was restored byte-exactly and the
+adapter moved into the live-tier evidence layer; 93/93 source receipts,
+frozen qualification, and linked closure reverify. No promotion retry,
+ready manifest, D0, approval binding, or F1 action occurred after the stop.
+
 The four formal Process-v2 verdicts remain
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: rollback and health evidence are
 unchanged, while restart-helper dispatch and every later E3 boundary remain
