@@ -92,6 +92,21 @@ class ProcessAndSocketParsing(unittest.TestCase):
             ],
         )
 
+    def test_listen_sockets_treats_localhost_as_ipv4_loopback(self) -> None:
+        tcp = "\n".join([
+            "sl local_address rem_address st tx_queue rx_queue tr tm->when retrnsmt uid timeout inode",
+            "0: 0100007F:D431 00000000:0000 0A 0 0 0 1000 0 111",
+        ])
+        with mock.patch.object(bridge.Path, "read_text", return_value=tcp):
+            sockets = bridge.listen_sockets("localhost", 54321)
+
+        self.assertEqual(
+            sockets,
+            [
+                {"address": "127.0.0.1", "port": 54321, "inode": "111", "uid": 1000},
+            ],
+        )
+
 
 class StatusAndSelectionHelpers(unittest.TestCase):
     def test_serial_candidates_accepts_ordered_multi_glob(self) -> None:

@@ -17,6 +17,12 @@ transfer between the two files.
 - All V3402 through V3406 live approvals and attended continuations are
   consumed and non-reusable.
 - Exact V2321 health was restored after the V3406 display run.
+- Fresh V3406 `-03` connected D0 again proved exact V2321 health. Its final and
+  stage paths are absent, while the retained work path is present and has been
+  preserved byte-for-byte on the host.
+- No cleanup approval receipt or F1 approval exists. The retained work path
+  may be unlinked only through its separately reviewed fresh exact cleanup
+  contract.
 - Do not add a device step while host-only work can answer the selected
   question.
 
@@ -436,10 +442,18 @@ finding. No device action occurred.
 
 `docs/reports/A90_RETURN_EPOCH_PRESENTER_DIAGNOSTICS_H0_2026-07-31.md`
 
-The next bounded unit is fresh single-run key materialization, then connected
-A90 D0 and final manifest preparation. Retained-work cleanup remains separate
-from evidence preservation. No F1 request is valid until those host and D0
-bindings are closed.
+Fresh single-run key materialization and connected A90 D0 are complete for
+V3406 `-03`. D0 found the predecessor work image and stopped before staging.
+The exact 2 GiB work image was read-only extracted over the single A90 NCM
+interface, matched device and host SHA256, and remained unchanged afterward.
+
+The common bridge helper now rejects the earlier false listener absence caused
+by comparing `localhost` literally with `127.0.0.1`. The cleanup helper is
+pinned to the newly preserved work hash, and its private manifest passes
+host-only inspection. Independent review and one fresh cleanup approval are
+the next gates; no F1 request is valid before cleanup PASS and repeated D0.
+
+`docs/reports/A90_V3406_RETAINED_WORK_CLEANUP_02_PREP_H0_D0_2026-07-31.md`
 
 ## Later Phases
 

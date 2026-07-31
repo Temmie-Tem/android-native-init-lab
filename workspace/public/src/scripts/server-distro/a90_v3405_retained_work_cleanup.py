@@ -55,10 +55,11 @@ CONNECTED_PREFLIGHT = (
     / "server-distro"
     / "a90_phase2d_connected_preflight.py"
 )
+A90CTL_SOURCE = (REVAL_DIR / "a90ctl.py").resolve()
 WORK_PATH = "/mnt/sdext/a90/runtime/d3-handoff-work.img"
 WORK_SIZE = 2147483648
 WORK_MODE = "0600"
-WORK_SHA256 = "0beb73d3fbf5989f0dba19163d91f9dae2efeb20c103fd4ec2ed83dd6d4505e1"
+WORK_SHA256 = "d1353db59571c3ca4b8be14fed0d19e4a46217ded285e7ceb62ac85b1c6f94c0"
 EXPECTED_VERSION = "0.9.285"
 EXPECTED_BUILD = "v2321-usb-clean-identity-rodata"
 EXPECTED_VENDOR_PRODUCT = "04e8:6861"
@@ -102,6 +103,7 @@ class CleanupSpec:
     run_id: str
     f1_run_id: str
     runner: BoundFile
+    transport: BoundFile
     connected_d0: BoundFile
     bridge_device: Path
     bridge_realpath_sha256: str
@@ -301,6 +303,9 @@ def load_manifest(path: Path, expected_sha256: str) -> CleanupSpec:
     runner = load_bound(manifest.get("runner"), "runner")
     if runner.path != Path(__file__).resolve():
         raise ContractError("manifest runner is not this exact helper")
+    transport = load_bound(manifest.get("transport"), "transport")
+    if transport.path != A90CTL_SOURCE.resolve(strict=True):
+        raise ContractError("manifest transport is not the exact a90ctl source")
     connected_d0 = load_bound(manifest.get("connected_d0"), "connected_d0")
     require_private_regular(connected_d0.path)
     d0_value = json.loads(connected_d0.path.read_text(encoding="utf-8"))
@@ -410,6 +415,7 @@ def load_manifest(path: Path, expected_sha256: str) -> CleanupSpec:
         run_id=run_id,
         f1_run_id=f1_run_id,
         runner=runner,
+        transport=transport,
         connected_d0=connected_d0,
         bridge_device=bridge_device,
         bridge_realpath_sha256=bridge_realpath_sha256,
@@ -426,6 +432,7 @@ def approval_binding(spec: CleanupSpec) -> dict[str, Any]:
         "f1_run_id": spec.f1_run_id,
         "manifest_sha256": spec.manifest_sha256,
         "runner_sha256": spec.runner.sha256,
+        "transport_sha256": spec.transport.sha256,
         "connected_d0_sha256": spec.connected_d0.sha256,
         "bridge_realpath_sha256": spec.bridge_realpath_sha256,
         "usb_serial_sha256": spec.usb_serial_sha256,
@@ -817,6 +824,7 @@ def execute_cleanup(
         "before_health": before_health,
         "before_remote": before_remote,
         "host_preservation_sha256": host_sha,
+        "transport_sha256": spec.transport.sha256,
         "device_path": WORK_PATH,
         "work_sha256": WORK_SHA256,
         "dispatch_limit": 1,
@@ -948,6 +956,7 @@ def inspect(spec: CleanupSpec) -> dict[str, Any]:
         "f1_run_id": spec.f1_run_id,
         "manifest_sha256": spec.manifest_sha256,
         "runner_sha256": spec.runner.sha256,
+        "transport_sha256": spec.transport.sha256,
         "connected_d0_sha256": spec.connected_d0.sha256,
         "work_sha256": WORK_SHA256,
         "host_preservation_sha256": spec.host_copy.sha256,

@@ -229,6 +229,9 @@ def parse_proc_tcp_line(line: str) -> tuple[str, int, str, str, int] | None:
 def listen_sockets(host: str, port: int) -> list[dict[str, Any]]:
     path = Path("/proc/net/tcp")
     sockets: list[dict[str, Any]] = []
+    accepted_addresses = {host, "0.0.0.0"}
+    if host == "localhost":
+        accepted_addresses.add("127.0.0.1")
     try:
         lines = path.read_text(encoding="utf-8", errors="replace").splitlines()[1:]
     except OSError:
@@ -240,7 +243,7 @@ def listen_sockets(host: str, port: int) -> list[dict[str, Any]]:
         address, local_port, state, inode, uid = parsed
         if local_port != port or state != TCP_LISTEN_STATE:
             continue
-        if address not in {host, "0.0.0.0"}:
+        if address not in accepted_addresses:
             continue
         sockets.append({
             "address": address,
