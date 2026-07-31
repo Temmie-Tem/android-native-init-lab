@@ -15,6 +15,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 import s22plus_fyg8_p286_source_contracts as registry  # noqa: E402
 import s22plus_fyg8_p292_candidate_intent as intent  # noqa: E402
 import s22plus_fyg8_p292_identity_tiers as tiers  # noqa: E402
+import s22plus_fyg8_p292_repair_model as model  # noqa: E402
 import s22plus_fyg8_p292_source_contract as p292  # noqa: E402
 
 
@@ -33,6 +34,24 @@ class P292ContractTest(unittest.TestCase):
         self.assertEqual(len(source), 93)
         self.assertEqual(source, tiers.tier1_materials(ROOT))
         self.assertIn(b"struct s22_fyg8_e1_slot active;", source["base_patch"])
+
+    def test_candidate_patch_rebinds_without_duplicate_defconfig(self) -> None:
+        source = p292.source_bytes(ROOT)
+        run_id = bytes.fromhex("11" * 16)
+        unsat = model.unsat_record(p292.PROFILE, run_id)
+        unsat_tag = unsat[len(model.UNSAT_FAMILY) :]
+        patch = intent.build_patch(
+            source["base_patch"], run_id, unsat_tag, p292.PROFILE
+        )
+        result = intent.audit_patch(
+            intent.DEFAULT_SOURCE,
+            patch,
+            run_id,
+            unsat_tag,
+            p292.PROFILE,
+        )
+        self.assertTrue(result["verified"])
+        self.assertEqual(len(result["targets"]), 3)
 
     def test_implementation_and_sequence_closure(self) -> None:
         result = p292.implementation_result(ROOT)

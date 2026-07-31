@@ -35,6 +35,46 @@ SUPERSEDED_FOR_NEW_CANDIDATES = {
 }
 
 
+def build_patch(
+    base_patch: bytes,
+    run_id: bytes,
+    unsat_tag: bytes,
+    profile: str = PROFILE,
+) -> bytes:
+    if profile != p292.PROFILE:
+        raise IntentError(f"unsupported P2.92 candidate profile: {profile}")
+    replacements = (
+        (
+            (
+                "+CONFIG_S22PLUS_FYG8_E1_RUN_ID_HEX="
+                f'"{p292.SOURCE_CHECK_RUN_ID.hex()}"'
+            ).encode("ascii"),
+            (
+                "+CONFIG_S22PLUS_FYG8_E1_RUN_ID_HEX="
+                f'"{run_id.hex()}"'
+            ).encode("ascii"),
+        ),
+        (
+            (
+                "+CONFIG_S22PLUS_FYG8_E1_UNSAT_TAG_HEX="
+                f'"{p292.SOURCE_CHECK_UNSAT_TAG.hex()}"'
+            ).encode("ascii"),
+            (
+                "+CONFIG_S22PLUS_FYG8_E1_UNSAT_TAG_HEX="
+                f'"{unsat_tag.hex()}"'
+            ).encode("ascii"),
+        ),
+    )
+    value = base_patch
+    for old, new in replacements:
+        if value.count(old) != 1 or old == new:
+            raise IntentError(
+                "P2.92 candidate config source binding differs"
+            )
+        value = value.replace(old, new)
+    return value
+
+
 def candidate_contract_ids() -> tuple[str, ...]:
     return tuple(
         contract_id
@@ -73,6 +113,7 @@ def _base_context() -> Iterator[None]:
         "selected_source_contract_for_candidate": (
             selected_source_contract_for_candidate
         ),
+        "build_patch": build_patch,
     }
     previous = {name: getattr(base, name) for name in replacements}
     for name, value in replacements.items():
