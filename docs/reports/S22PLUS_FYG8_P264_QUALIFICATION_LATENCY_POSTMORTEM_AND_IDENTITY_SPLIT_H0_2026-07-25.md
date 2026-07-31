@@ -309,6 +309,28 @@ package/live inputs. Generate each receipt set from it. Preserve Process v2
 approval binding and require one independent review because execution-critical
 identity closure changes.
 
+#### 2026-07-31 successor activation
+
+The next checkpoint-channel repair is the first selected Stage C
+implementation. Its Tier 1 payload identity will contain the exact-active-slot
+repair, errno-preserving client/runtime, SoT schema and generator, and every
+byte-affecting generated output. Tier 2 will carry verifier, decoder, audit,
+test, and evidence receipts without changing the run ID. Tier 3 will carry
+candidate/rollback AP, manifest, runner, target, and approval binding.
+
+The SoT migration is explicitly two-phase before intent. Phase 1 must
+reproduce the current P2.90 materialized outputs byte-for-byte with no repair
+present. Phase 2 may begin only after that zero-delta proof and may introduce
+only the predeclared exact-slot and errno-preservation delta. This separates
+representation migration from behavioral repair.
+
+Stage C is therefore activated, not yet complete. The debt closes only after
+the authoritative descriptor generates three disjoint receipt sets, the
+zero-delta and repair-delta gates pass, the mutation matrix proves tier
+behavior, approval binding passes, and the required independent review closes.
+The active successor requirements are recorded in
+`S22PLUS_FYG8_P284_P290_ACCEPT_TO_RESUME_HISTORY_ERRATUM_H0_2026-07-31.md`.
+
 ### Stage D: measure
 
 Run one host-only mutation matrix and one normal candidate qualification.

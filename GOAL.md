@@ -29,8 +29,8 @@ The four formal Process-v2 verdicts remain
 unchanged, while restart-helper dispatch and every later E3 boundary remain
 unproved. This is observation-channel recovery, not E3 progress. The next
 successor must repair and exhaustively prove `ACCEPT_TO_RESUME_CLOSURE`, its
-full 107-position walk, separate checkpoint-errno observability, and
-`CHECKPOINT_SOT_COHERENCE` before Full-LTO, manifest, D0, or another F1.
+full 107-position walk, separate checkpoint-errno observability, and P2.64
+Stage C `CHECKPOINT_SOT_COHERENCE` before Full-LTO, manifest, D0, or another F1.
 
 The live transaction exercised the durable recovery design. Initial rollback
 endpoint discovery stopped on a measured USB membership race. Rollback-only
@@ -436,6 +436,7 @@ Load-bearing current reports:
 - `docs/reports/S22PLUS_FYG8_P284_POST_SUSPEND_RESTART_GAP_FOCUSED_ANALYSIS_H0_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_STOCK_OUTER_D1_V2_LIVE_NO_PROOF_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_STOCK_TRACE_PM_ORDER_CORRECTION_H0_2026-07-29.md`
+- `docs/reports/S22PLUS_FYG8_P264_QUALIFICATION_LATENCY_POSTMORTEM_AND_IDENTITY_SPLIT_H0_2026-07-25.md`
 - `docs/reports/S22PLUS_FYG8_P286_SUCCESSOR_CHANGE_CLOSURE_FREEZE_H0_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P286_FULL_LTO_PRIVATE_PATH_REPRO_FAILURE_H0_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P286_PARENT_TAIL_BOUNDED_RESTART_F1_CLOSED_2026-07-30.md`
@@ -603,12 +604,12 @@ operations before the asserted publication boundaries.
 3. Preserve the four-run historical sweep and corrected cause: committed
    nonzero-detail progress state was accepted but not resumable, so the next
    write returned pre-mutation `-ESTALE` and userspace intentionally parked.
-4. Design and fault-test exact active-slot retention, including seed
-   initialization and update after every successful commit.
-5. Bind exact-slot repair, errno preservation, and `CHECKPOINT_SOT_COHERENCE`
-   into one new identity. One machine-readable contract must generate or
-   constrain kernel state/writer/tables, userspace client, model, decoder, and
-   walk vectors; private duplicate fields or rules are forbidden.
+4. Implement P2.64 Stage C: one descriptor produces disjoint Tier 1 payload,
+   Tier 2 qualification/provenance, and Tier 3 package/live receipt sets;
+   require its mutation matrix and independent review before closing the debt.
+5. Pass `CHECKPOINT_SOT_ZERO_DELTA` by reproducing current materialized outputs
+   twice byte-for-byte with repairs forbidden; only then pass
+   `CHECKPOINT_REPAIR_DELTA_ATTRIBUTION` for exact-slot and errno changes.
 6. Prove `ACCEPT_TO_RESUME_CLOSURE` exhaustively across kernel writer,
    userspace client, model, and decoder. Then prove
    `ACCEPT_TO_RESUME_SEQUENCE_WALK` by continuously walking the exact

@@ -336,11 +336,50 @@ The same new candidate identity must include:
 3. the SoT schema, generator, and every generated kernel/userspace input that
    can change `boot.img` bytes.
 
+This is the first selected implementation of P2.64 Stage C's conservative
+three-tier identity split:
+
+- Tier 1 payload receipts determine the kernel-embedded run ID and include the
+  SoT, generator, repair, runtime client, and byte-affecting generated outputs;
+- Tier 2 qualification/provenance receipts bind pure verifiers, decoders,
+  audits, tests, and evidence into qualification and the approval bundle
+  without changing the payload run ID; and
+- Tier 3 package/live receipts bind the exact candidate and rollback APs,
+  manifest, runner, target profile, and operator approval.
+
+One authoritative descriptor must generate all three disjoint receipt sets.
+The Stage C debt is selected for repayment here, but is not closed until the
+descriptor, mutation matrix, approval binding, and required independent review
+all pass.
+
 Pure verifier/static/post-build tools, host-only model/decoder adapters,
 selectors, freeze reports, and prose documentation remain outside
 `SOURCE_KEYS`. Their exact bytes and results must instead be approval-bundle
 bound. This distinction is intentional: “same identity” binds the SoT,
 generator, and byte-affecting outputs, not evidence-only consumers.
+
+### Two-phase SoT introduction
+
+SoT introduction and the repair must not be applied as one opaque rewrite.
+They are two ordered pre-intent phases:
+
+1. **SoT zero-delta replay (`CHECKPOINT_SOT_ZERO_DELTA`).** Freeze the current
+   P2.90 materialized payload file set, modes, sizes, and SHA256 values. With
+   exact-active-slot and errno repairs forbidden, generate every current
+   materialized output twice in clean temporary trees. Both generated trees
+   must be byte-identical to each other and to the frozen current outputs. Any
+   missing, extra, reordered, or changed byte stops the unit before repair.
+2. **Attributed repair delta (`CHECKPOINT_REPAIR_DELTA_ATTRIBUTION`).** Only
+   after zero-delta passes may the SoT be changed for exact-active-slot
+   retention and errno preservation. Regenerate all outputs and require the
+   delta against the zero-delta receipt to equal a predeclared repair allowlist;
+   every unrelated output byte must remain identical.
+
+`ACCEPT_TO_RESUME_CLOSURE`, the full sequence walk, errno observability, and
+the three-tier mutation matrix run on the phase-2 outputs. No intent or
+Full-LTO A/B may begin until both phases, the Git-derived freeze, and the
+SOURCE_KEYS/evidence split pass. This makes every payload delta attributable
+to the repair rather than to representation migration.
 
 Before intent, the freeze gate must derive changed paths from Git, require an
 exact bidirectional match with the declared mutation set, print the complete
