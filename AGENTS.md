@@ -22,9 +22,10 @@ Do not add a device step when host-only work can answer the question.
   The atomic result remains no-proof because the first candidate-return frame
   lost `A90P1 END` before retained-pmsg collection. `GOAL_A90.md` owns the
   current A90 objective and next H0 bounded unit.
-- A90 resident boot-promotion v1 is H0-adopted but has no runner, manifest, or
-  authority. Ordinary F1 and S22+ still require rollback; A90 F1-RP may omit it
-  only after exact two-boot health, never after a failure or ambiguity.
+- A90 resident boot-promotion v1 has an independently reviewed H0 runner but no
+  final manifest, connected preflight, approval, or authority. Ordinary F1 and
+  S22+ still require rollback; A90 F1-RP may omit it only after exact two-boot
+  health, never after a failure or ambiguity.
 - P2.82 consumed one exact approval. Its byte-identical reads end in terminal
   failure `0x8e/detail=0xc10`; the newline-bearing comparator made exact NONE
   readback impossible. No accepted ACM endpoint appeared. Child suspend,
@@ -191,7 +192,8 @@ previously exercised A90 candidate, exact V2321 rollback, corrected rootfs,
 target, and reviewed runner. Exactly one transfer plus health, one resident
 reboot, and health again may close `PASS_A90_F1_RP_RESIDENT_PROMOTED` without
 rollback. Every post-attempt failure or ambiguity requires exact rollback; a
-rollback failure stops `RECOVERY_REQUIRED`. No live runner or manifest exists.
+rollback failure stops `RECOVERY_REQUIRED`. The H0 runner is not executable
+until a fresh connected manifest and approval exist.
 
 ## Evidence and Reporting
 

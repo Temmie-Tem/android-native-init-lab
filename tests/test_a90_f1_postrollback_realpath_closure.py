@@ -367,7 +367,7 @@ class PostRollbackRealpathClosureTests(unittest.TestCase):
             ), mock.patch.object(
                 closure.orch,
                 "ensure_event",
-                side_effect=lambda _td, events, name: events.append(
+                side_effect=lambda _td, events, name, **_kwargs: events.append(
                     {"name": name, "timestamp_utc": "2026-01-01T00:00:00Z"}
                 ),
             ), mock.patch.object(

@@ -5,8 +5,9 @@ candidate proof and rollback passed; R4W1-E E1 closed with rollback but no
 retained proof. No S22+ F1 run is currently authorized.
 
 The A90-only resident boot-promotion v1 policy is adopted as a target-specific
-extension, but it has no live runner, manifest, approval, or device authority.
-It does not alter the ordinary state machine below or any S22+ run.
+extension. Its independently reviewed H0 runner has no final connected
+manifest, approval, or device authority. It does not alter the ordinary state
+machine below or any S22+ run.
 
 This process replaces per-candidate live helpers, policy activation commits,
 per-run one-shot clauses, and repeated review ladders for ordinary boot-only
@@ -341,8 +342,9 @@ resident reboot. Any failure or ambiguity after the candidate attempt starts
 uses the ordinary rollback recovery branch.
 
 F1-RP is not selected by the generic S22+ runner, cannot be introduced after
-approval, and cannot promote an untested candidate. Its current pure state
-model has no live execution surface.
+approval, and cannot promote an untested candidate. Its A90-only runner reuses
+the existing transfer, journal, and rollback owner and remains non-executable
+without a reviewed final manifest and fresh exact approval.
 
 ## Regular-Path Transport
 

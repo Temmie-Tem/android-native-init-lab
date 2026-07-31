@@ -163,10 +163,13 @@ class ResidentPromotionV1ModelTests(unittest.TestCase):
         policy = POLICY.read_text(encoding="utf-8")
         compact = " ".join(policy.split())
         self.assertIn("A90 only", policy)
-        self.assertIn("H0_POLICY_ADOPTED_NO_LIVE_RUNNER", policy)
+        self.assertIn(
+            "H0_RUNNER_REVIEWED_NO_LIVE_MANIFEST",
+            policy,
+        )
         self.assertIn("PASS_A90_F1_RP_RESIDENT_PROMOTED", policy)
         self.assertIn("NO_PROOF_A90_F1_RP_CANDIDATE_ROLLED_BACK", policy)
-        self.assertIn("does not grant live authority", policy)
+        self.assertIn("does not grant live authority", compact)
         self.assertIn("S22+", policy)
         self.assertIn(
             "After `PROMOTED_CLOSED`, `ROLLED_BACK_CLOSED`, `ABORTED`, or `BLOCKED`",
@@ -191,9 +194,13 @@ class ResidentPromotionV1ModelTests(unittest.TestCase):
             "  mandatory rollback",
             agents,
         )
-        self.assertIn("A90 resident boot-promotion v1 is H0-adopted", agents)
-        self.assertIn("does not alter the ordinary state machine", process)
-        self.assertIn("or any S22+ run", process)
+        self.assertIn(
+            "A90 resident boot-promotion v1 has an independently reviewed H0 runner",
+            agents,
+        )
+        process_compact = " ".join(process.split())
+        self.assertIn("does not alter the ordinary state machine", process_compact)
+        self.assertIn("or any S22+ run", process_compact)
         self.assertIn("A90 alone has a target-specific resident-promotion", tiers)
         self.assertIn("This does not apply to S22+", tiers)
 

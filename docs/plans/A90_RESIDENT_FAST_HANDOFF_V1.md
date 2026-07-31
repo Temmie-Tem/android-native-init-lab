@@ -37,9 +37,18 @@ include that rollback. The A90-only F1-RP policy is now adopted in
 `docs/operations/A90_RESIDENT_BOOT_PROMOTION_V1.md`; it adds a distinct
 two-boot resident-health terminal without changing ordinary F1 or S22+.
 
-The policy has no live runner or manifest and grants no device authority.
-Until those are implemented, reviewed, and freshly approved, exact V2321
-remains the resident baseline and the daily D1 runner remains inactive.
+The H0 promotion runner is implemented and independently reviewed. It reuses
+the existing staging, candidate-transfer, journal, and rollback owner rather
+than implementing a second transfer path. It has no final connected manifest
+or device authority. Until connected preflight and fresh approval close, exact
+V2321 remains resident and the daily D1 runner remains inactive.
+
+Candidate eligibility is not inferred from an old summary. The runner reopens
+the prior approval, journal, result, timeline, raw candidate and rollback
+health, and the raw corrected Debian A/B receipt. The existing 2 GiB A/B
+validator is itself hash-bound. After candidate intent, those historical
+eligibility inputs are deliberately not recovery dependencies; exact rollback
+uses the current manifest, approval, artifacts, and durable journal only.
 
 ## One-time resident promotion
 
@@ -124,5 +133,5 @@ The corrected static presenter SHA256 is
 - Do not minimize native-init C until Debian owns the corresponding function.
 - Do not generalize NCM handling beyond the exact A90 USB parent.
 - Do not add another review ladder for an unchanged ordinary D1 profile.
-- Do not activate the live runner before the resident promotion policy and
-  exact baseline exist.
+- Do not activate the live runner before a fresh connected manifest and the
+  exact baseline both exist.

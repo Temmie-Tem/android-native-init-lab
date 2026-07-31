@@ -39,6 +39,10 @@ PROMOTION_MODEL = (
     REPO_ROOT
     / "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1_model.py"
 )
+PROMOTION_RUNNER = (
+    REPO_ROOT
+    / "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py"
+)
 
 DAILY_STATES = (
     "PREFLIGHT",
@@ -216,6 +220,7 @@ def current_host_closure() -> dict[str, dict[str, Any]]:
         ("boot_only_flash_helper", FLASH_HELPER),
         ("modemmanager_guard", MODEMMANAGER_GUARD),
         ("resident_promotion_model", PROMOTION_MODEL),
+        ("resident_promotion_runner", PROMOTION_RUNNER),
     ):
         if not path.is_file():
             raise ContractError(f"host closure file missing: {label}")
@@ -257,8 +262,7 @@ def build_host_receipt(ab_receipt: Path) -> dict[str, Any]:
             "candidate_replay": False,
         },
         "blockers": [
-            "resident-promotion-live-runner-not-yet-implemented",
-            "exact-resident-promotion-packet-not-yet-prepared",
+            "exact-resident-promotion-manifest-not-yet-prepared",
             "fresh-resident-promotion-authority-not-granted",
             "resident-native-baseline-not-yet-observed",
             "daily-d1-live-runner-not-yet-activated",

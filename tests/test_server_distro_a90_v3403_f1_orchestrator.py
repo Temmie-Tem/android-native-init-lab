@@ -5006,8 +5006,10 @@ class DisplayObservationTests(unittest.TestCase):
                 mock.patch.object(f1, "read_journal", return_value=[]),
                 mock.patch.object(f1, "ensure_event") as ensure,
             ):
-                ensure.side_effect = lambda _path, value, name: value.append(
-                    {"name": name, "timestamp_utc": f1.utc_now()}
+                ensure.side_effect = (
+                    lambda _path, value, name, **_kwargs: value.append(
+                        {"name": name, "timestamp_utc": f1.utc_now()}
+                    )
                 )
                 result = f1.close_transaction(
                     spec,

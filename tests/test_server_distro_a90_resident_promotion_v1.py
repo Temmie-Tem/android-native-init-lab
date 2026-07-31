@@ -1,0 +1,825 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import tempfile
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
+
+from _loader import load_script
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SOURCE = (
+    REPO_ROOT
+    / "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py"
+)
+promotion = load_script(SOURCE)
+base = promotion.base
+fast = __import__("a90_resident_fast_handoff_v1")
+
+
+class Guard:
+    def __init__(self, health: tuple[bool, ...] = ()) -> None:
+        self.released = False
+        self.health = list(health)
+
+    def healthy(self, *, recheck: bool) -> bool:
+        return self.health.pop(0) if self.health else recheck
+
+    def release(self):
+        self.released = True
+        return {"released": True}
+
+
+class ResidentPromotionV1Tests(unittest.TestCase):
+    def write_json(self, root: Path, name: str, value: dict) -> dict:
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8")
+        path.chmod(0o600)
+        return {
+            "path": str(path),
+            "size": path.stat().st_size,
+            "sha256": promotion.base.sha256_file(path),
+        }
+
+    def rewrite_bound(self, bound: dict, value: dict) -> None:
+        path = Path(bound["path"])
+        path.write_text(json.dumps(value, sort_keys=True) + "\n", encoding="utf-8")
+        bound["size"] = path.stat().st_size
+        bound["sha256"] = base.sha256_file(path)
+
+    def journal_bound(self, spec, action: str) -> dict:
+        prior = spec.manifest["resident_promotion"]["prior_closed_run"]
+        return next(
+            item
+            for item in prior["journal"]
+            if Path(item["path"]).name.endswith(f"-{action}.json")
+        )
+
+    def fixture(self, root: Path):
+        prior_run_id = "a90-v3406-debian-display-f1-20260801-99"
+        candidate_sha = "1" * 64
+        rollback_sha = "2" * 64
+        rootfs_sha = fast.EXPECTED_IMAGE_SHA256
+        prior_manifest_value = {
+            "schema": base.staging.FINAL_MANIFEST_SCHEMA,
+            "status": base.staging.FINAL_MANIFEST_STATUS,
+            "run_id": prior_run_id,
+            "candidate_boot": {"partition": "boot", "sha256": candidate_sha},
+            "rollback_boot": {"partition": "boot", "sha256": rollback_sha},
+            "target": {
+                "profile": base.staging.TARGET_PROFILE,
+                "bridge_device": "/dev/serial/by-id/fake-a90",
+                "bridge_selected_realpath": "/dev/ttyACM0",
+                "bridge_selected_exact": True,
+                "connected_d0_result": {
+                    "outcome": "PASS",
+                    "path": "/private/connected.json",
+                    "size": 1,
+                    "sha256": "4" * 64,
+                },
+                "connected_path_preflight": {
+                    "handoff_work_path_absent": True,
+                    "keyed_source_path_absent": True,
+                    "path": "/private/paths.json",
+                    "run_stage_path_absent": True,
+                    "size": 1,
+                    "sha256": "5" * 64,
+                },
+                "recovery_adb_serial_sha256": "6" * 64,
+            },
+            "f1_orchestrator": {
+                "sha256": "7" * 64,
+                "candidate_attempt_limit": 1,
+                "rollback_attempt_limit": 1,
+                "candidate_route_in_recovery": False,
+            },
+            "rootfs_staging": {"adapter": {"sha256": "8" * 64}},
+            "transport": {
+                "runner_sha256": "9" * 64,
+                "only_partition_payload": "boot",
+                "forbidden_partition_writes": True,
+            },
+            "debian_rootfs": {"keyed_source": {"sha256": rootfs_sha}},
+            "observation": {
+                "mode": base.UNATTENDED_OBSERVATION_MODE,
+                "attended_window_sec": 0,
+                "pre_handoff_attempt_limit": 1,
+                "handoff_attempt_limit": 1,
+            },
+        }
+        prior_manifest = self.write_json(
+            root,
+            "prior/prepared-manifest.json",
+            prior_manifest_value,
+        )
+        manifest_sha = prior_manifest["sha256"]
+        approval_binding = base.staging.canonical_f1_approval_binding(
+            run_id=prior_run_id,
+            manifest_sha256=manifest_sha,
+            orchestrator_sha256="7" * 64,
+            staging_adapter_sha256="8" * 64,
+            flash_runner_sha256="9" * 64,
+            candidate_boot_sha256=candidate_sha,
+            rollback_boot_sha256=rollback_sha,
+            rootfs_sha256=rootfs_sha,
+            connected_d0_sha256="4" * 64,
+            connected_path_preflight_sha256="5" * 64,
+            recovery_adb_serial_sha256="6" * 64,
+            observation_mode=base.UNATTENDED_OBSERVATION_MODE,
+            attended_window_sec=0,
+            pre_handoff_attempt_limit=1,
+            handoff_attempt_limit=1,
+        )
+        approval_binding_sha = base.json_sha256(approval_binding)
+        approval_token = base.APPROVAL_PREFIX + approval_binding_sha
+        approval = self.write_json(
+            root,
+            "prior/approval-prepared.json",
+            {
+                "schema": base.APPROVAL_PREPARED_SCHEMA,
+                "created_utc": "2026-08-01T00:00:00Z",
+                "run_id": prior_run_id,
+                "manifest_sha256": manifest_sha,
+                "approval_binding": approval_binding,
+                "approval_binding_sha256": approval_binding_sha,
+                "approval_token": approval_token,
+                "device_contact": False,
+                "device_write": False,
+                "f1_authorized": False,
+                "live_authorized": False,
+            },
+        )
+        actions = (
+            "preflight",
+            "approved",
+            "staging-started",
+            "rootfs-staged",
+            "rootfs-candidate-preflight",
+            "candidate-transfer-started",
+            "candidate-flashed",
+            "candidate-boot-ready",
+            "observation-no-proof",
+            "rollback-transfer-started",
+            "rollback-flashed",
+            "rollback-boot-ready",
+            "health-verified",
+            "closed",
+        )
+        states = {
+            "preflight": "PREFLIGHT",
+            "approved": "APPROVED",
+            "staging-started": "APPROVED",
+            "rootfs-staged": "APPROVED",
+            "rootfs-candidate-preflight": "APPROVED",
+            "candidate-transfer-started": "APPROVED",
+            "candidate-flashed": "CANDIDATE_FLASHED",
+            "candidate-boot-ready": "CANDIDATE_FLASHED",
+            "observation-no-proof": "OBSERVED",
+            "rollback-transfer-started": "RECOVERY_ROLLBACK",
+            "rollback-flashed": "ROLLBACK_FLASHED",
+            "rollback-boot-ready": "ROLLBACK_FLASHED",
+            "health-verified": "HEALTH_VERIFIED",
+            "closed": "CLOSED",
+        }
+        result_value = {
+            "schema": base.ORCHESTRATOR_SCHEMA,
+            "run_id": prior_run_id,
+            "status": "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
+            "manifest_sha256": manifest_sha,
+            "candidate_transfer_count": 1,
+            "candidate_transfer_uncertain": False,
+            "candidate_replay": False,
+            "debian_pid1_proven": False,
+            "display_acquisition_proven": False,
+            "rollback_transfer_count": 1,
+            "final_health_restored": True,
+            "timeline_events": list(base.CANONICAL_EVENTS),
+        }
+        journal = []
+        for sequence, action in enumerate(actions):
+            record = {
+                "schema": base.JOURNAL_SCHEMA,
+                "sequence": sequence,
+                "timestamp_utc": "2026-08-01T00:00:00Z",
+                "run_id": prior_run_id,
+                "manifest_sha256": manifest_sha,
+                "state": states[action],
+                "action": action,
+            }
+            if action == "approved":
+                record.update(
+                    approval_consumed=True,
+                    rollback_pre_authorized=True,
+                    approval_binding_sha256=approval_binding_sha,
+                    approval_token_sha256=hashlib.sha256(
+                        approval_token.encode("utf-8")
+                    ).hexdigest(),
+                )
+            elif action == "candidate-transfer-started":
+                record["candidate_sha256"] = candidate_sha
+            elif action == "candidate-flashed":
+                record.update(
+                    candidate_sha256=candidate_sha,
+                    candidate_transfer_count=1,
+                    candidate_replay=False,
+                )
+            elif action == "candidate-boot-ready":
+                record.update(
+                    candidate_version="0.10.0",
+                    candidate_build="candidate-build",
+                    selftest_fail_zero=True,
+                    health={
+                        "exact_bridge": True,
+                        "selected_realpath": "/dev/ttyACM0",
+                        "version": {
+                            "command": ["version"],
+                            "rc": 0,
+                            "status": "ok",
+                            "text": (
+                                "version: 0.10.0 "
+                                "build=candidate-build\r\n"
+                            ),
+                        },
+                        "selftest": {
+                            "command": ["selftest"],
+                            "rc": 0,
+                            "status": "ok",
+                            "text": (
+                                "selftest: pass=12 warn=1 fail=0 "
+                                "duration=47ms entries=13\r\n"
+                            ),
+                        },
+                    },
+                )
+            elif action == "rollback-transfer-started":
+                record["rollback_sha256"] = rollback_sha
+            elif action == "rollback-flashed":
+                record.update(
+                    rollback_sha256=rollback_sha,
+                    rollback_transfer_count=1,
+                    candidate_replay=False,
+                )
+            elif action == "rollback-boot-ready":
+                record.update(
+                    rollback_version="0.9.285",
+                    rollback_build="v2321",
+                    selftest_fail_zero=True,
+                )
+            elif action == "health-verified":
+                record.update(
+                    version="0.9.285",
+                    build="v2321",
+                    selftest_fail_zero=True,
+                    pstore_entries_zero=True,
+                    exact_bridge=True,
+                    selected_realpath="/dev/ttyACM0",
+                    baseline={
+                        "version": {
+                            "command": ["version"],
+                            "rc": 0,
+                            "status": "ok",
+                            "text": "version: 0.9.285 build=v2321\r\n",
+                        },
+                        "selftest": {
+                            "command": ["selftest"],
+                            "rc": 0,
+                            "status": "ok",
+                            "text": (
+                                "selftest: pass=11 warn=1 fail=0 "
+                                "duration=48ms entries=12\r\n"
+                            ),
+                        },
+                    },
+                )
+            elif action == "closed":
+                record.update(
+                    {
+                        key: value
+                        for key, value in result_value.items()
+                        if key
+                        not in {"schema", "run_id", "manifest_sha256"}
+                    }
+                )
+            journal.append(
+                self.write_json(
+                    root,
+                    f"prior/journal/{sequence:04d}-{action}.json",
+                    record,
+                )
+            )
+        result = self.write_json(root, "prior/result.json", result_value)
+        timeline = self.write_json(
+            root,
+            "prior/timeline.json",
+            {
+                "events": [
+                    {"name": name, "timestamp_utc": "2026-08-01T00:00:00Z"}
+                    for name in base.CANONICAL_EVENTS
+                ]
+            },
+        )
+        receipt = self.write_json(
+            root,
+            "debian-ab-receipt.json",
+            {"schema": fast.AB_SCHEMA},
+        )
+        runner = {
+            "path": str(SOURCE),
+            "size": SOURCE.stat().st_size,
+            "sha256": base.sha256_file(SOURCE),
+        }
+        qualification_helper = {
+            "path": str(promotion.QUALIFICATION_HELPER_PATH),
+            "size": promotion.QUALIFICATION_HELPER_PATH.stat().st_size,
+            "sha256": base.sha256_file(promotion.QUALIFICATION_HELPER_PATH),
+        }
+        resident = {
+            "mode": promotion.MODE,
+            "runner": runner,
+            "qualification_helper": qualification_helper,
+            "rootfs_preflight_disposition": "absent",
+            "resident_reboot_command": ["reboot"],
+            "resident_reboot_timeout_sec": 240,
+            "candidate_health_checks": 2,
+            "rollback_on_post_attempt_failure": True,
+            "prior_closed_run": {
+                "run_id": prior_run_id,
+                "manifest": prior_manifest,
+                "approval_prepared": approval,
+                "result": result,
+                "timeline": timeline,
+                "journal": journal,
+            },
+            "debian_ab_receipt": receipt,
+        }
+        spec = SimpleNamespace(
+            manifest={"resident_promotion": resident},
+            candidate=SimpleNamespace(sha256=candidate_sha),
+            rollback=SimpleNamespace(sha256=rollback_sha),
+            candidate_version="0.10.0",
+            candidate_build="candidate-build",
+            candidate_return_timeout=240,
+            observation_mode=base.UNATTENDED_OBSERVATION_MODE,
+            display_required=False,
+            rollback_version="0.9.285",
+            rollback_build="v2321",
+            recovery_serial_sha256="6" * 64,
+            stage=SimpleNamespace(
+                local_size=fast.EXPECTED_IMAGE_BYTES,
+                local_sha256=rootfs_sha,
+                bridge_device="/dev/serial/by-id/fake-a90",
+                bridge_realpath="/dev/ttyACM0",
+            ),
+        )
+        return spec
+
+    def ab_result(self) -> dict:
+        return {
+            "slots": {
+                slot: {
+                    "image": {
+                        "bytes": fast.EXPECTED_IMAGE_BYTES,
+                        "sha256": fast.EXPECTED_IMAGE_SHA256,
+                    }
+                }
+                for slot in ("A", "B")
+            },
+            "image_byte_identical": True,
+            "presenter_byte_identical": True,
+            "source_unchanged": True,
+            "base_unchanged": True,
+        }
+
+    def validate(self, spec, *, recovery: bool = False):
+        with mock.patch.object(
+            fast,
+            "validate_ab_receipt",
+            return_value=self.ab_result(),
+        ) as validator:
+            result = promotion.validate_promotion_manifest(
+                spec,
+                recovery=recovery,
+            )
+        if not recovery:
+            validator.assert_called_once()
+        return result
+
+    def test_exact_manifest_proves_prior_run_and_debian_receipt(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            value = self.validate(self.fixture(Path(tmp)))
+        self.assertEqual(value["mode"], promotion.MODE)
+        self.assertEqual(value["prior_closed_run"]["candidate_transfer_count"], 1)
+        self.assertEqual(value["prior_closed_run"]["rollback_transfer_count"], 1)
+        self.assertTrue(value["debian_ab_receipt"]["deterministic_ab"])
+
+    def test_prior_candidate_mismatch_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            spec = self.fixture(Path(tmp))
+            spec.candidate.sha256 = "f" * 64
+            with self.assertRaisesRegex(
+                promotion.ContractError,
+                "artifact identity or health",
+            ):
+                self.validate(spec)
+
+    def test_prior_target_identity_mismatch_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            spec = self.fixture(Path(tmp))
+            spec.recovery_serial_sha256 = "f" * 64
+            with self.assertRaises(promotion.ContractError):
+                self.validate(spec)
+
+    def test_duplicate_prior_candidate_transfer_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            spec = self.fixture(Path(tmp))
+            prior = spec.manifest["resident_promotion"]["prior_closed_run"]
+            duplicate = dict(self.journal_bound(spec, "candidate-transfer-started"))
+            path = Path(duplicate["path"])
+            value = json.loads(path.read_text(encoding="utf-8"))
+            value["sequence"] = len(prior["journal"])
+            duplicate = self.write_json(
+                Path(tmp),
+                f"prior/journal/{value['sequence']:04d}-candidate-transfer-started.json",
+                value,
+            )
+            prior["journal"].append(duplicate)
+            with self.assertRaisesRegex(
+                promotion.ContractError,
+                "contiguous and exact|state order|one candidate",
+            ):
+                self.validate(spec)
+
+    def test_forged_prior_state_result_and_final_health_are_rejected(self) -> None:
+        mutations = (
+            ("state", "candidate-flashed", lambda value: value.update(state="TEST")),
+            (
+                "result",
+                None,
+                lambda value: value.update(
+                    status="PASS_F1_V2_DEBIAN_PID1_PROVEN_AND_ROLLED_BACK"
+                ),
+            ),
+            (
+                "final-health",
+                "health-verified",
+                lambda value: value.update(pstore_entries_zero=False),
+            ),
+        )
+        for label, action, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory(
+                dir=REPO_ROOT / "workspace/private"
+            ) as tmp:
+                spec = self.fixture(Path(tmp))
+                prior = spec.manifest["resident_promotion"]["prior_closed_run"]
+                bound = prior["result"] if action is None else self.journal_bound(spec, action)
+                value = json.loads(Path(bound["path"]).read_text(encoding="utf-8"))
+                mutate(value)
+                self.rewrite_bound(bound, value)
+                with self.assertRaises(promotion.ContractError):
+                    self.validate(spec)
+
+    def test_recovery_does_not_reopen_auxiliary_eligibility_evidence(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            spec = self.fixture(Path(tmp))
+            resident = spec.manifest["resident_promotion"]
+            prior = resident["prior_closed_run"]
+            for binding in (
+                prior["manifest"],
+                prior["approval_prepared"],
+                prior["result"],
+                prior["timeline"],
+                *prior["journal"],
+                resident["debian_ab_receipt"],
+            ):
+                Path(binding["path"]).unlink()
+            value = self.validate(spec, recovery=True)
+            self.assertFalse(value["auxiliary_evidence_reopened"])
+            with self.assertRaises(promotion.ContractError):
+                self.validate(spec)
+
+    def test_base_runner_refuses_promotion_without_exact_tail(self) -> None:
+        spec = SimpleNamespace(manifest={"resident_promotion": {}})
+        with self.assertRaisesRegex(
+            base.ContractError,
+            "requires its exact promotion runner",
+        ):
+            base.execute_approved_f1(spec, SimpleNamespace())
+
+    def test_base_runner_rejects_arbitrary_tail(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            spec = self.fixture(Path(tmp))
+            with self.assertRaisesRegex(base.ContractError, "callback identity"):
+                base.execute_approved_f1(
+                    spec,
+                    SimpleNamespace(),
+                    promotion_tail=lambda *args: {},
+                )
+
+    def test_exact_tail_cannot_bypass_manifest_validator(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            spec = self.fixture(Path(tmp))
+            bound = self.journal_bound(spec, "candidate-flashed")
+            value = json.loads(Path(bound["path"]).read_text(encoding="utf-8"))
+            value["state"] = "TEST"
+            self.rewrite_bound(bound, value)
+            with (
+                mock.patch.object(
+                    fast,
+                    "validate_ab_receipt",
+                    return_value=self.ab_result(),
+                ),
+                mock.patch.object(base, "approved_bindings") as approved,
+                self.assertRaisesRegex(base.ContractError, "contiguous and exact"),
+            ):
+                base.execute_approved_f1(
+                    spec,
+                    SimpleNamespace(),
+                    promotion_tail=promotion.promotion_tail,
+                )
+            approved.assert_not_called()
+
+    def initial_events(self, transaction_dir: Path) -> list[dict[str, str]]:
+        events: list[dict[str, str]] = []
+        for name in base.PROMOTION_EVENTS[:4]:
+            base.add_event(
+                transaction_dir,
+                events,
+                name,
+                allow_promotion=True,
+            )
+        return events
+
+    def tail_spec(self):
+        return SimpleNamespace(
+            manifest={"resident_promotion": {"mode": promotion.MODE}},
+            candidate=SimpleNamespace(sha256="1" * 64),
+            candidate_version="0.10.0",
+            candidate_build="candidate-build",
+            candidate_return_timeout=240,
+            stage=SimpleNamespace(
+                run_id="a90-promotion-test",
+                manifest_sha256="a" * 64,
+                bridge_realpath="/dev/ttyACM0",
+            ),
+        )
+
+    def native_health(self, spec, *, with_epoch: bool = False) -> dict:
+        result = {
+            "exact_bridge": True,
+            "selected_realpath": spec.stage.bridge_realpath,
+            "version": {
+                "command": ["version"],
+                "rc": 0,
+                "status": "ok",
+                "text": (
+                    f"version: {spec.candidate_version} "
+                    f"build={spec.candidate_build}\r\n"
+                ),
+            },
+            "selftest": {
+                "command": ["selftest"],
+                "rc": 0,
+                "status": "ok",
+                "text": (
+                    "selftest: pass=12 warn=1 fail=0 duration=47ms "
+                    "entries=13\r\n"
+                ),
+            },
+        }
+        if with_epoch:
+            result["return_epoch"] = {"returned": {"epoch": 2}}
+        return result
+
+    def test_success_tail_closes_without_rollback(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            transaction_dir = Path(tmp)
+            journal_dir = transaction_dir / "journal"
+            events = self.initial_events(transaction_dir)
+            guard = Guard()
+            spec = self.tail_spec()
+            with (
+                mock.patch.object(
+                    promotion,
+                    "_promotion_health",
+                    side_effect=({"health": 1}, {"health": 2}),
+                ),
+                mock.patch.object(base, "settle_observation_channel", return_value={"ok": True}),
+                mock.patch.object(base, "capture_bridge_serial_epoch", return_value={"epoch": 1}),
+                mock.patch.object(base, "arm_candidate_return_modemmanager_guard", return_value=guard),
+                mock.patch.object(promotion, "_dispatch_resident_reboot", return_value={"accepted": True}),
+                mock.patch.object(
+                    base,
+                    "_verify_candidate_after_return_epoch_once",
+                    return_value=self.native_health(spec, with_epoch=True),
+                ),
+                mock.patch.object(
+                    base,
+                    "require_returned_modemmanager_guard",
+                    return_value={"exact": True},
+                ),
+                mock.patch.object(
+                    base,
+                    "release_candidate_return_modemmanager_guard",
+                    return_value={"released": True},
+                ),
+            ):
+                result = promotion.promotion_tail(
+                    spec,
+                    SimpleNamespace(),
+                    transaction_dir,
+                    journal_dir,
+                    events,
+                    self.native_health(spec),
+                )
+            records = sorted(journal_dir.glob("*.json"))
+            actions = [json.loads(path.read_text())["action"] for path in records]
+        self.assertEqual(result["status"], "PASS_A90_F1_RP_RESIDENT_PROMOTED")
+        self.assertEqual(result["rollback_transfer_count"], 0)
+        self.assertEqual(tuple(result["timeline_events"]), base.PROMOTION_EVENTS)
+        self.assertEqual(actions.count("resident-reboot-intent"), 1)
+        self.assertEqual(actions.count("resident-reboot-dispatched"), 1)
+        self.assertEqual(actions.count("closed"), 1)
+
+    def test_terminal_journal_repairs_result_publication_fault(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            transaction_dir = Path(tmp)
+            journal_dir = transaction_dir / "journal"
+            events = self.initial_events(transaction_dir)
+            for name in base.PROMOTION_EVENTS[4:-1]:
+                base.add_event(
+                    transaction_dir,
+                    events,
+                    name,
+                    allow_promotion=True,
+                )
+            spec = self.tail_spec()
+            original = base.write_private_json_exclusive
+
+            def result_fault(path, value):
+                if path.name == "result.json":
+                    raise OSError("fault after terminal journal")
+                return original(path, value)
+
+            with (
+                mock.patch.object(
+                    base,
+                    "write_private_json_exclusive",
+                    side_effect=result_fault,
+                ),
+                self.assertRaisesRegex(OSError, "after terminal journal"),
+            ):
+                promotion.close_promoted_transaction(
+                    spec,
+                    transaction_dir,
+                    journal_dir,
+                    events,
+                    first_health={"first": True},
+                    second_health={"second": True},
+                )
+            records = base.read_journal(spec, transaction_dir)
+            self.assertEqual(records[-1]["state"], "PROMOTED_CLOSED")
+            self.assertFalse((transaction_dir / "result.json").exists())
+            repaired = promotion.repair_promoted_result(
+                spec,
+                transaction_dir,
+                records,
+            )
+            repeated = promotion.repair_promoted_result(
+                spec,
+                transaction_dir,
+                records,
+            )
+        self.assertEqual(repaired, repeated)
+        self.assertEqual(repaired["status"], "PASS_A90_F1_RP_RESIDENT_PROMOTED")
+
+    def test_dispatch_failure_leaves_rollback_authority_open(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            transaction_dir = Path(tmp)
+            journal_dir = transaction_dir / "journal"
+            events = self.initial_events(transaction_dir)
+            guard = Guard()
+            spec = self.tail_spec()
+            with (
+                mock.patch.object(promotion, "_promotion_health", return_value={"health": 1}),
+                mock.patch.object(base, "settle_observation_channel", return_value={"ok": True}),
+                mock.patch.object(base, "capture_bridge_serial_epoch", return_value={"epoch": 1}),
+                mock.patch.object(base, "arm_candidate_return_modemmanager_guard", return_value=guard),
+                mock.patch.object(
+                    promotion,
+                    "_dispatch_resident_reboot",
+                    side_effect=promotion.ContractError("no marker"),
+                ),
+            ):
+                with self.assertRaisesRegex(promotion.ContractError, "no marker"):
+                    promotion.promotion_tail(
+                        spec,
+                        SimpleNamespace(),
+                        transaction_dir,
+                        journal_dir,
+                        events,
+                        self.native_health(spec),
+                    )
+            actions = [
+                json.loads(path.read_text())["action"]
+                for path in sorted(journal_dir.glob("*.json"))
+            ]
+        self.assertTrue(guard.released)
+        self.assertIn("resident-reboot-intent", actions)
+        self.assertNotIn("closed", actions)
+        self.assertNotIn("resident-health-verified", actions)
+
+    def test_guard_loss_after_second_health_prevents_promotion(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            transaction_dir = Path(tmp)
+            journal_dir = transaction_dir / "journal"
+            events = self.initial_events(transaction_dir)
+            guard = Guard((True, True, False))
+            spec = self.tail_spec()
+            with (
+                mock.patch.object(
+                    promotion,
+                    "_promotion_health",
+                    side_effect=({"health": 1}, {"health": 2}),
+                ),
+                mock.patch.object(base, "settle_observation_channel", return_value={}),
+                mock.patch.object(base, "capture_bridge_serial_epoch", return_value={}),
+                mock.patch.object(
+                    base,
+                    "arm_candidate_return_modemmanager_guard",
+                    return_value=guard,
+                ),
+                mock.patch.object(promotion, "_dispatch_resident_reboot", return_value={}),
+                mock.patch.object(
+                    base,
+                    "_verify_candidate_after_return_epoch_once",
+                    return_value=self.native_health(spec, with_epoch=True),
+                ),
+                self.assertRaisesRegex(
+                    promotion.ContractError,
+                    "lost after health checks",
+                ),
+            ):
+                promotion.promotion_tail(
+                    spec,
+                    SimpleNamespace(),
+                    transaction_dir,
+                    journal_dir,
+                    events,
+                    self.native_health(spec),
+                )
+            actions = [
+                json.loads(path.read_text())["action"]
+                for path in sorted(journal_dir.glob("*.json"))
+            ]
+        self.assertTrue(guard.released)
+        self.assertNotIn("resident-health-verified", actions)
+        self.assertNotIn("closed", actions)
+
+    def test_first_native_health_requires_exact_lines(self) -> None:
+        spec = self.tail_spec()
+        health = self.native_health(spec)
+        health["version"]["text"] += "version: forged build=forged\n"
+        with self.assertRaisesRegex(promotion.ContractError, "not exact"):
+            promotion._require_exact_native_health(spec, health)
+
+    def test_ordinary_timeline_refuses_promotion_event(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            events: list[dict[str, str]] = []
+            for name in base.PROMOTION_EVENTS[:4]:
+                base.add_event(Path(tmp), events, name)
+            with self.assertRaisesRegex(base.ContractError, "non-canonical"):
+                base.add_event(Path(tmp), events, "resident_reboot_start")
+
+    def test_recovery_refuses_promoted_closed_transaction(self) -> None:
+        spec = self.tail_spec()
+        args = SimpleNamespace(transaction_dir=Path("unused"))
+        records = [
+            {"action": "candidate-transfer-started"},
+            {"action": "closed", "state": "PROMOTED_CLOSED"},
+        ]
+        with (
+            mock.patch.object(base, "approved_bindings", return_value={}),
+            mock.patch.object(base, "verify_local_closure"),
+            mock.patch.object(base, "exact_transaction_dir", return_value=Path("unused")),
+            mock.patch.object(base, "read_journal", return_value=records),
+            self.assertRaisesRegex(base.ContractError, "already closed"),
+        ):
+            base.recover_approved_rollback(spec, args)
+
+    def test_source_reuses_base_transfer_and_recovery(self) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+        self.assertNotIn("import subprocess", source)
+        self.assertNotIn("native_init_flash.py", source)
+        self.assertNotIn("dd if=", source)
+        self.assertIn("base.execute_approved_f1(", source)
+        self.assertIn("base.recover_approved_rollback(spec, args)", source)
+        self.assertIn("promotion_tail=promotion_tail", source)
+
+
+if __name__ == "__main__":
+    unittest.main()

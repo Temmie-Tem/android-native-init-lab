@@ -95,9 +95,10 @@ class ResidentFastHandoffV1Tests(unittest.TestCase):
         self.assertFalse(value["live_ready"])
         self.assertEqual(list(self.module.DAILY_STATES), value["daily_d1_state_machine"])
         self.assertIn(
-            "resident-promotion-live-runner-not-yet-implemented",
+            "exact-resident-promotion-manifest-not-yet-prepared",
             value["blockers"],
         )
+        self.assertIn("resident_promotion_runner", value["host_closure"])
 
     def test_changed_presenter_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:

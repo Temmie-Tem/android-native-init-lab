@@ -67,6 +67,29 @@ CANONICAL_EVENTS = (
     "rollback_boot_ready",
     "live_session_end",
 )
+PROMOTION_EVENTS = (
+    "live_session_start",
+    "candidate_flash_start",
+    "candidate_flash_done",
+    "candidate_boot_ready",
+    "resident_reboot_start",
+    "resident_reboot_ready",
+    "promotion_health_verified",
+    "live_session_end",
+)
+TIMELINE_EVENT_ORDER = (
+    "live_session_start",
+    "candidate_flash_start",
+    "candidate_flash_done",
+    "candidate_boot_ready",
+    "resident_reboot_start",
+    "resident_reboot_ready",
+    "promotion_health_verified",
+    "rollback_flash_start",
+    "rollback_flash_done",
+    "rollback_boot_ready",
+    "live_session_end",
+)
 HANDOFF_COMMAND = "switch-root-to-distro"
 HANDOFF_TOKEN = "SERVER-DISTRO-D3B-SWITCHROOT"
 OBSERVER_TRANSPORT_SCOPE = "USB-local NCM only"
@@ -954,7 +977,11 @@ def write_private_json(path: Path, payload: Any) -> None:
     write_private_json_atomic(path, payload)
 
 
-def load_timeline(transaction_dir: Path) -> list[dict[str, str]]:
+def load_timeline(
+    transaction_dir: Path,
+    *,
+    allow_promotion: bool = False,
+) -> list[dict[str, str]]:
     path = transaction_dir / "timeline.json"
     if not path.exists():
         return []
@@ -971,8 +998,9 @@ def load_timeline(transaction_dir: Path) -> list[dict[str, str]]:
     ):
         raise ContractError("timeline contains an invalid event")
     names = [event["name"] for event in events]
+    order = TIMELINE_EVENT_ORDER if allow_promotion else CANONICAL_EVENTS
     try:
-        positions = [CANONICAL_EVENTS.index(str(name)) for name in names]
+        positions = [order.index(str(name)) for name in names]
     except ValueError as exc:
         raise ContractError("timeline contains a non-canonical event") from exc
     if positions != sorted(set(positions)):
@@ -984,13 +1012,16 @@ def add_event(
     transaction_dir: Path,
     events: list[dict[str, str]],
     name: str,
+    *,
+    allow_promotion: bool = False,
 ) -> None:
-    if name not in CANONICAL_EVENTS:
+    order = TIMELINE_EVENT_ORDER if allow_promotion else CANONICAL_EVENTS
+    if name not in order:
         raise ContractError(f"non-canonical timeline event: {name!r}")
     names = [event.get("name") for event in events]
     if name in names:
         raise ContractError(f"duplicate timeline event: {name!r}")
-    if names and CANONICAL_EVENTS.index(name) <= CANONICAL_EVENTS.index(str(names[-1])):
+    if names and order.index(name) <= order.index(str(names[-1])):
         raise ContractError(f"timeline event out of order: {name!r}")
     events.append({"name": name, "timestamp_utc": utc_now()})
     write_private_json(transaction_dir / "timeline.json", {"events": events})
@@ -1000,10 +1031,17 @@ def ensure_event(
     transaction_dir: Path,
     events: list[dict[str, str]],
     name: str,
+    *,
+    allow_promotion: bool = False,
 ) -> None:
     if name in [event.get("name") for event in events]:
         return
-    add_event(transaction_dir, events, name)
+    add_event(
+        transaction_dir,
+        events,
+        name,
+        allow_promotion=allow_promotion,
+    )
 
 
 JOURNAL_EVENT_ACTIONS = {
@@ -1011,6 +1049,9 @@ JOURNAL_EVENT_ACTIONS = {
     "candidate_flash_start": ("candidate-transfer-started",),
     "candidate_flash_done": ("candidate-flashed",),
     "candidate_boot_ready": ("candidate-boot-ready",),
+    "resident_reboot_start": ("resident-reboot-intent",),
+    "resident_reboot_ready": ("resident-rebooted",),
+    "promotion_health_verified": ("resident-health-verified",),
     "rollback_flash_start": ("rollback-transfer-started",),
     "rollback_flash_done": (
         "rollback-flashed",
@@ -1024,8 +1065,13 @@ JOURNAL_EVENT_ACTIONS = {
 def repair_timeline_from_journal(
     transaction_dir: Path,
     records: list[dict[str, Any]],
+    *,
+    allow_promotion: bool = False,
 ) -> list[dict[str, str]]:
-    existing = load_timeline(transaction_dir)
+    existing = load_timeline(
+        transaction_dir,
+        allow_promotion=allow_promotion,
+    )
     existing_by_name = {event["name"]: event["timestamp_utc"] for event in existing}
     timestamps: dict[str, str] = {}
     for event_name, actions in JOURNAL_EVENT_ACTIONS.items():
@@ -1034,7 +1080,8 @@ def repair_timeline_from_journal(
                 timestamps[event_name] = str(record["timestamp_utc"])
                 break
     repaired: list[dict[str, str]] = []
-    for name in CANONICAL_EVENTS:
+    order = TIMELINE_EVENT_ORDER if allow_promotion else CANONICAL_EVENTS
+    for name in order:
         if name not in timestamps:
             continue
         repaired.append(
@@ -3690,8 +3737,14 @@ def invoke_rollback(
     *,
     from_native: bool,
     pre_spawn_retry_index: int = 0,
+    allow_promotion: bool = False,
 ) -> dict[str, Any]:
-    ensure_event(transaction_dir, events, "rollback_flash_start")
+    ensure_event(
+        transaction_dir,
+        events,
+        "rollback_flash_start",
+        allow_promotion=allow_promotion,
+    )
     append_record(
         journal_dir,
         "RECOVERY_ROLLBACK",
@@ -3777,7 +3830,12 @@ def invoke_rollback(
         manifest_sha256=spec.stage.manifest_sha256,
         run_id=spec.stage.run_id,
     )
-    ensure_event(transaction_dir, events, "rollback_flash_done")
+    ensure_event(
+        transaction_dir,
+        events,
+        "rollback_flash_done",
+        allow_promotion=allow_promotion,
+    )
     health = verify_final_health(spec, args)
     append_record(
         journal_dir,
@@ -3791,7 +3849,12 @@ def invoke_rollback(
         manifest_sha256=spec.stage.manifest_sha256,
         run_id=spec.stage.run_id,
     )
-    ensure_event(transaction_dir, events, "rollback_boot_ready")
+    ensure_event(
+        transaction_dir,
+        events,
+        "rollback_boot_ready",
+        allow_promotion=allow_promotion,
+    )
     append_record(
         journal_dir,
         "HEALTH_VERIFIED",
@@ -4078,16 +4141,57 @@ def close_transaction(
     final_health: dict[str, Any],
     candidate_complete: bool,
 ) -> dict[str, Any]:
+    resident_promotion = isinstance(
+        spec.manifest.get("resident_promotion"),
+        dict,
+    )
     events[:] = repair_timeline_from_journal(
         transaction_dir,
         read_journal(spec, transaction_dir),
+        allow_promotion=resident_promotion,
     )
-    ensure_event(transaction_dir, events, "live_session_end")
+    ensure_event(
+        transaction_dir,
+        events,
+        "live_session_end",
+        allow_promotion=resident_promotion,
+    )
     names = [event["name"] for event in events]
-    if candidate_complete and names != list(CANONICAL_EVENTS):
-        raise ContractError("completed candidate transaction lacks the canonical timeline")
+    if candidate_complete:
+        allowed = {CANONICAL_EVENTS}
+        if resident_promotion:
+            promotion_prefixes = (
+                (),
+                ("resident_reboot_start",),
+                ("resident_reboot_start", "resident_reboot_ready"),
+                (
+                    "resident_reboot_start",
+                    "resident_reboot_ready",
+                    "promotion_health_verified",
+                ),
+            )
+            allowed = {
+                (
+                    "live_session_start",
+                    "candidate_flash_start",
+                    "candidate_flash_done",
+                    "candidate_boot_ready",
+                    *prefix,
+                    "rollback_flash_start",
+                    "rollback_flash_done",
+                    "rollback_boot_ready",
+                    "live_session_end",
+                )
+                for prefix in promotion_prefixes
+            }
+        if tuple(names) not in allowed:
+            raise ContractError(
+                "completed candidate transaction lacks the canonical timeline"
+            )
     if not candidate_complete:
         status = "ABORTED_F1_V2_CANDIDATE_UNCERTAIN_ROLLED_BACK"
+    elif resident_promotion:
+        status = "NO_PROOF_A90_F1_RP_CANDIDATE_ROLLED_BACK"
     elif observation_proven and spec.display_required:
         status = "PASS_F1_V2_DISPLAY_ACQUISITION_PROVEN_AND_ROLLED_BACK"
     elif observation_proven:
@@ -4155,7 +4259,86 @@ def abort_before_candidate(
     )
 
 
-def execute_approved_f1(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
+def require_exact_promotion_tail(
+    spec: F1Spec,
+    promotion_tail: Any,
+) -> None:
+    promotion = _dict(
+        spec.manifest.get("resident_promotion"),
+        "resident_promotion",
+    )
+    runner = _dict(
+        promotion.get("runner"),
+        "resident_promotion.runner",
+    )
+    if set(runner) != {"path", "size", "sha256"}:
+        raise ContractError("resident promotion runner binding keys are not exact")
+    path_value = runner.get("path")
+    size_value = runner.get("size")
+    sha_value = runner.get("sha256")
+    code = getattr(promotion_tail, "__code__", None)
+    module = sys.modules.get(getattr(promotion_tail, "__module__", ""))
+    validator = getattr(module, "validate_promotion_manifest", None)
+    validator_code = getattr(validator, "__code__", None)
+    if (
+        not isinstance(path_value, str)
+        or type(size_value) is not int
+        or not isinstance(sha_value, str)
+        or code is None
+        or module is None
+        or validator_code is None
+        or getattr(promotion_tail, "__name__", None) != "promotion_tail"
+        or getattr(promotion_tail, "__qualname__", None) != "promotion_tail"
+        or getattr(validator, "__name__", None) != "validate_promotion_manifest"
+        or getattr(validator, "__qualname__", None)
+        != "validate_promotion_manifest"
+    ):
+        raise ContractError("resident promotion callback identity is not exact")
+    try:
+        runner_path = Path(path_value).resolve(strict=True)
+        code_path = Path(code.co_filename).resolve(strict=True)
+        validator_path = Path(validator_code.co_filename).resolve(strict=True)
+        module_path = Path(str(getattr(module, "__file__", ""))).resolve(
+            strict=True
+        )
+        info = runner_path.lstat()
+    except (FileNotFoundError, OSError) as exc:
+        raise ContractError("resident promotion runner is unavailable") from exc
+    if (
+        runner_path != code_path
+        or runner_path != validator_path
+        or runner_path != module_path
+        or not stat.S_ISREG(info.st_mode)
+        or runner_path.is_symlink()
+        or info.st_size != size_value
+        or sha256_file(runner_path) != sha_value
+    ):
+        raise ContractError("resident promotion callback lost its manifest binding")
+    validated = validator(spec, recovery=False)
+    if (
+        not isinstance(validated, dict)
+        or validated.get("mode") != promotion.get("mode")
+        or validated.get("runner") != runner
+    ):
+        raise ContractError("resident promotion validator did not close the manifest")
+
+
+def execute_approved_f1(
+    spec: F1Spec,
+    args: argparse.Namespace,
+    *,
+    promotion_tail: Any = None,
+) -> dict[str, Any]:
+    promotion_manifest = isinstance(
+        spec.manifest.get("resident_promotion"),
+        dict,
+    )
+    if promotion_manifest != (promotion_tail is not None):
+        raise ContractError(
+            "resident promotion manifest requires its exact promotion runner"
+        )
+    if promotion_manifest:
+        require_exact_promotion_tail(spec, promotion_tail)
     approval_prepared = approved_bindings(spec, args, recovery=False)
     verify_local_closure(spec)
     transaction_dir = exact_transaction_dir(spec, args.transaction_dir)
@@ -4401,6 +4584,16 @@ def execute_approved_f1(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any
         run_id=spec.stage.run_id,
     )
     ensure_event(transaction_dir, events, "candidate_boot_ready")
+
+    if promotion_tail is not None:
+        return promotion_tail(
+            spec,
+            args,
+            transaction_dir,
+            journal_dir,
+            events,
+            candidate_health,
+        )
 
     observation = observe_candidate(spec, args, transaction_dir)
     append_record(
@@ -5016,6 +5209,10 @@ def action_names(records: list[dict[str, Any]]) -> list[str]:
 
 
 def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
+    resident_promotion = isinstance(
+        spec.manifest.get("resident_promotion"),
+        dict,
+    )
     approval_prepared = approved_bindings(spec, args, recovery=True)
     verify_local_closure(spec)
     transaction_dir = exact_transaction_dir(spec, args.transaction_dir)
@@ -5047,7 +5244,14 @@ def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[st
             display_observation_proven = False
         else:
             display_observation_proven = True
-    events = repair_timeline_from_journal(transaction_dir, records)
+    events = repair_timeline_from_journal(
+        transaction_dir,
+        records,
+        allow_promotion=isinstance(
+            spec.manifest.get("resident_promotion"),
+            dict,
+        ),
+    )
     journal_dir = transaction_dir / "journal"
 
     rollback_started = "rollback-transfer-started" in actions
@@ -5079,6 +5283,7 @@ def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[st
             events,
             from_native=from_native,
             pre_spawn_retry_index=rejection_count,
+            allow_promotion=resident_promotion,
         )
     elif rollback_started and not rollback_flashed:
         health = verify_final_health(spec, args)
@@ -5154,6 +5359,7 @@ def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[st
             journal_dir,
             events,
             from_native=from_native,
+            allow_promotion=resident_promotion,
         )
 
     observation_proven = (
@@ -6169,7 +6375,10 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             issues.append("flash command uses a nonexistent combined image marker")
     if "preexisting staging-live state is never reusable" not in execute:
         issues.append("execute path may reuse preexisting staging output")
-    if "repair_timeline_from_journal(transaction_dir, records)" not in recover:
+    if (
+        "events = repair_timeline_from_journal(" not in recover
+        or "allow_promotion=resident_promotion" not in recover
+    ):
         issues.append("recovery does not rebuild timeline from durable journal")
     if "approved_bindings(spec, args, recovery=True)" not in recover:
         issues.append("recovery does not reopen the consumed approval binding")

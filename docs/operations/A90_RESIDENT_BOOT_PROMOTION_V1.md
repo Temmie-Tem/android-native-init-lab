@@ -1,12 +1,12 @@
 # A90 Resident Boot Promotion v1
 
-Status: `H0_POLICY_ADOPTED_NO_LIVE_RUNNER`
+Status: `H0_RUNNER_REVIEWED_NO_LIVE_MANIFEST`
 
 This is a target-specific F1 extension for the A90 only. It defines how one
 previously exercised native-init candidate may become a known-healthy resident
 experimental baseline without immediately flashing the rollback image. It does
-not grant live authority, create a manifest or approval, activate a runner, or
-apply to S22+.
+not grant live authority, create a final manifest or approval, or apply to
+S22+.
 
 ## Purpose
 
@@ -58,6 +58,17 @@ The earlier run may be formally no-proof for a later observation boundary. It
 must still contain affirmative candidate boot-health evidence. Missing or
 ambiguous candidate health makes the image ineligible.
 
+The validator reopens the prior manifest, prepared approval, complete
+contiguous journal, result, and canonical timeline. It parses exactly one raw
+candidate version line and one exact selftest line, and repeats that strict
+parse for the final V2321 baseline. Summary booleans alone are insufficient.
+It reconstructs the prior canonical Process-v2 approval binding and requires
+the same A90 bridge and recovery identity as the promotion target; evidence
+from another target cannot qualify the candidate.
+The raw corrected Debian A/B build receipt is delegated to the existing exact
+2 GiB qualification validator; that helper's path, size, and SHA256 are also
+manifest-bound.
+
 ## Immutable Manifest and Approval
 
 The future data-only manifest must select `mode=a90-resident-promotion-v1` and
@@ -71,8 +82,8 @@ bind at least:
   expected final size and SHA256, and fresh final-source disposition
   (`absent` or `exact`);
 - exact work path and its required fresh-preflight absence;
-- runner, checked flash helper, staging adapter, bridge, observer, and
-  ModemManager-guard SHA256 values;
+- runner, Debian A/B qualification helper, checked flash helper, staging
+  adapter, bridge, observer, and ModemManager-guard SHA256 values;
 - candidate and resident health predicates;
 - one resident reboot command and timeout; and
 - physical Download recovery evidence.
@@ -143,6 +154,12 @@ candidate, substitutes an artifact, or invents another recovery path. Durable
 completion evidence is reopened before any resume, and a completed candidate
 or rollback transfer is never retransmitted.
 
+After candidate intent, recovery depends only on the current immutable
+manifest, approval, artifacts, and durable transaction journal. It does not
+reopen the historical eligibility run or Debian A/B qualification input, so a
+missing auxiliary receipt cannot preempt the already-authorized exact
+rollback.
+
 ## Promotion Health Bar
 
 The first candidate boot and the separate resident reboot must independently
@@ -156,6 +173,10 @@ from the first rather than accepting a retained endpoint:
 - stable ACM and NCM identity on the named A90;
 - the exact staged rootfs source SHA256; and
 - absent `d3-handoff-work.img`.
+
+The A90-only ModemManager exclusion is revalidated after every command in the
+second health set and again immediately before durable resident-health intent.
+Guard loss cannot close promotion.
 
 No Debian handoff occurs in the promotion transaction. The corrected Debian
 display image is exercised later by the ordinary resident D1 path. This keeps
@@ -204,15 +225,28 @@ live_session_end
 A rollback result uses the ordinary canonical rollback events. Rootfs staging,
 intent records, exact hashes, USB generations, and health details remain in
 the private structured evidence rather than expanding the public timeline.
+Promotion-only events are accepted only when the caller explicitly selects the
+manifest-bound promotion mode; ordinary F1 timelines cannot acquire them.
+`PROMOTED_CLOSED` is journaled before `result.json` publication. A publication
+fault is repaired idempotently from that exact terminal record and never turns
+into a rollback or repeated candidate transition.
 
 This policy change requires one independent review of the policy, state model,
-future manifest validator, and live execution closure. Repeated resident D1
-runs with unchanged machinery do not require another review ladder.
+manifest validator, and live execution closure. Repeated resident D1 runs with
+unchanged machinery do not require another review ladder.
 
 ## Current Activation Boundary
 
 The pure model
 `workspace/public/src/scripts/server-distro/a90_resident_promotion_v1_model.py`
-has no device, transport, flash, approval, or execute mode. No live promotion
-runner or manifest exists yet. Therefore this adopted policy remains
-non-executable and does not grant live authority.
+still has no device, transport, flash, approval, or execute mode. The separate
+runner `workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py`
+reuses the reviewed V3403 staging, candidate-transfer, journal, and rollback
+owner. Its only new live behavior is the manifest-bound resident reboot and
+second exact health closure. It parses the bound prior journal rather than
+trusting a summary receipt.
+
+Independent H0 review closed PASS with no unresolved finding. No fresh
+connected preflight, final manifest, prepared approval, or live authority
+exists. Exact V2321 therefore remains resident and this policy is
+non-executable.
