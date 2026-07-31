@@ -10,39 +10,26 @@ and authorization are isolated. `AGENTS.md` is the binding operating contract.
 ## Current Frontier
 
 **State: direct PID1, E1A/E1B, E2 through the real UDC, and E3 through exact
-configfs UDC binding are live proven. P2.88 F1 is closed healthy/no-proof.
-Candidate and exact Magisk rollback each completed one boot-only transfer.
-Two byte-identical retained reads contain one exact P2.88 progress record with
-CRC-valid generations 87 and 88. The active slot remains
-`0x8f/item=0/detail=0xc18`; no new pair-indexed generation 89 survived. Exact
-rollback, final Android/Magisk health, and the canonical eight-event timeline
-passed.**
+configfs UDC binding are live proven. P2.90 F1 is closed healthy/no-proof.
+P2.84, P2.86, P2.88, and P2.90 each ended with the same CRC-valid active
+`generation=88/stage=0x8f/outcome=PROGRESS/item=0/detail=0xc18`; each candidate
+and exact Magisk rollback completed once, with no replay and verified final
+health.**
 
-P2.88's exact CDC-ACM observer closed as `endpoint-timeout`. The operator
-observed a normal candidate boot without a boot loop. The formal verdict is
-`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: no restart-helper dispatch, return,
-later readback, configfs bind, final sampling, ACM receipt, or terminal success
-may be inferred from the missing generation 89.
+Candidate-bound native replay now proves why no later checkpoint survived.
+The inherited kernel state stores generation/stage/item but not outcome/detail.
+Before the next write it reconstructs the active slot as `PROGRESS/detail=0`,
+mismatches committed `detail=0xc18`, and returns pre-mutation `-ESTALE`.
+Userspace discards that errno and intentionally enters `quiet_park()`. There is
+no unexplained syscall hang at this boundary, and the earlier USB/PM/tracefs/
+publisher-nonreturn attributions are superseded.
 
-Post-live reset-reason H0 rejects an asynchronous candidate-time reset. The
-first firmware stream after the exact record is the operator's later physical
-Download entry: XBL reports a valid warm reset and PMIC reports
-`PS_HOLD`/S2 warm reset. There is no earlier watchdog, panic, oops, or reset
-boot, and no indexed Samsung kernel record after the candidate checkpoint.
-This does not reject a PID1 hang or evidence park that persisted until the
-operator action.
-
-The first new P2.88 symbolic marker was numbered correctly but placed on the
-far side of the unresolved corridor. Its wrapper runs all 12 sysfs bind-gate
-checks before the generation-89 checkpoint write. The static source-order
-gate checked marker-call order, not adjacency to the durable write. Missing
-generation 89 therefore still spans the generation-88 publisher return tail,
-straight-line return and `clock_gettime`, a non-returning gate syscall, and the
-next checkpoint publication. An ordinary returned gate failure calls
-`fail_at()` and attempts a generation-89 `0x800/0x900` detail, so it is not an
-independent recordless cause. No successor F1 may be requested until the
-publication-failure silence path and adjacent first-position placement are
-both handled.
+The four formal Process-v2 verdicts remain
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: rollback and health evidence are
+unchanged, while restart-helper dispatch and every later E3 boundary remain
+unproved. This is observation-channel recovery, not E3 progress. The next
+successor must repair and exhaustively prove `ACCEPT_TO_RESUME_CLOSURE` before
+identity, Full-LTO, manifest, D0, or another F1 is considered.
 
 The live transaction exercised the durable recovery design. Initial rollback
 endpoint discovery stopped on a measured USB membership race. Rollback-only
@@ -229,29 +216,12 @@ one handoff attempt, Debian PID1 unproved, and the canonical eight-event
 timeline. The run and approvals are non-reusable; no A90 live authority
 exists.**
 
-Stock D1 v2 and P2.84 selected different runtime-PM paths. Stock's first two
-outer works ended by `0.291 ms`, followed by deferred child and parent PM
-callbacks through `19.504 ms`. P2.84 `0xc18` instead proves its child callback
-ran synchronously inside the stop helper. Runtime-PM reference and child-count
-state, not the source call name alone, select synchronous versus deferred
-execution.
-
-P2.86 added exact parent-suspended wait, actual outer-work probes, bounded
-classified PERIPHERAL handling, closed post-kill reap, and publish-before-trace
-cleanup. Exact source order proves its retained `0xc18` was withheld until the
-parent gate passed. Its live result does not prove entry into the restart
-helper: the first post-`0x8f` unbounded boundary is an inherited, unmarked
-tracefs snapshot before helper dispatch. If the helper does run, another
-unbounded snapshot still precedes helper classification. The cleanup-pending
-marker is only after all restart reads and final trace capture.
-
-Follow-up data-flow H0 proves both early snapshots are classification-only.
-The first freezes only `residual_outer_open`; the second supplies only
-`restart_worker.entered/returned`. All three fields refine a helper timeout
-into `c57/c58/c59` and do not control dispatch or a successful restart. The
-cheapest successor design removes both snapshots from the early corridor,
-classifies the parent-owned bounded-helper result first, and uses one honest
-generic timeout semantic.
+Stock D1 v2 and the PM/source audits remain valid independent controls.
+P2.86's retained `0xc18` still proves its strengthened exact parent-suspended
+gate, and the source data-flow result that two early trace snapshots are only
+classification enrichment remains true. Neither result explains the missing
+successor checkpoint: the inherited active-slot state defect deterministically
+returned `-ESTALE` before any restart marker could commit.
 
 Follow-up contract H0 found that the retained slot already carries an unused
 local-stage `item_index`. P2.88 is selected to use one finite, generated
@@ -281,123 +251,43 @@ a bidirectional active-producer route gate keyed by exact
 `c57/c58/c59` details and the superseded `c5c` cleanup marker have zero active
 P2.88 routes.
 
-P2.88 intended to make silence-park prohibition an invariant, but post-live H0
-refutes that claim. Every raw park is topologically behind an exact or
-reserved-unclassified publication *attempt*, yet both wrappers discard the
-fallback return. If primary and fallback publications both fail, execution
-raw-parks without a new record. Of the 16 inherited P2.86 park sites, only two
-are dominated by a publication that already returned success; 14 are
-attempt-only or unproved. Regulator predicates remain excluded because they
-would add new sysfs/blocking failure surfaces rather than improve location
-attribution.
+P2.88's 103-position pair model and P2.90's 107-position adjacent model remain
+internally correct. Their validator, table, producer-route, and static-link
+proofs established request encodability and publication topology, not writer
+state resumability. The missing invariant is general:
 
-The pre-intent P2.88 implementation now exists as a versioned overlay. Its
-pair-aware model, generated userspace/kernel tables, runtime transformation,
-decoder, and typed-evidence selection agree on 103 exact positions. The
-runtime source-order gate rejects removal, reorder, duplication, and rename
-mutations. Its bidirectional producer audit currently reports
-`61 declared == 61 active`, with zero missing or undeclared suffix routes.
-All raw parks remain behind exact/reserved publication wrappers, but that gate
-proved only wrapper topology and publication attempt, not a successful durable
-fallback. The helper-returned marker still precedes every restart readback.
+```text
+ACCEPT_TO_RESUME_CLOSURE:
+accepted nonterminal states are a subset of resumable states
+```
 
-The planned P2.88 identity is 83 SOURCE_KEYS: all 70 P2.86 receipts unchanged,
-9 new direct payload sources, and 4 new generated keys. Nine keys in the full
-identity are generated and 74 have direct repository paths. Verifier, report,
-selector, decoder/model, typed evidence, and Process-v2 registration stay
-outside identity and are approval-bundle-bound. Intent and build remain
-forbidden until the Git-derived freeze, full focused validation, and clean
-pre-intent implementation commit pass.
+Every accepted committed slot must be represented byte-for-byte by kernel
+expected state, and every declared successor must continue without active-slot
+`-ESTALE`. The same closure applies to kernel writer, userspace client,
+decoder, and model. This supersedes treating request acceptance, decode
+success, linked table equality, or producer reachability as sufficient.
 
-That pre-intent static/fault closure now passes: 130 inherited-plus-P2.88
-focused tests, 46 typed-evidence/Process-v2 regressions, deterministic static
-AArch64 two-link output, all 206,202 reachable tuples, exact `61 == 61`
-producer routes, publication-order mutation rejection, silence-park routing,
-and the 103-position terminal bound. The freeze reports inherited `70/70`
-with no changed key, 83 planned SOURCE_KEYS, and exact equality between all 24
-Git-derived and declared change-window paths. A clean scoped implementation
-commit and post-commit freeze/source-key print remained before intent. The
-post-live finding does not invalidate those recorded checks; it corrects the
-proof scope of “silence-park routing” from durable dominance to attempted
-fallback topology.
+Both retained slots are valid, and generation 89 left no target-slot mutation.
+Candidate-bound native replay now explains this exactly: active generation 88
+was accepted and committed with `detail=0xc18`, but the writer retained no
+detail in its expected state. The next write reconstructed `detail=0`, returned
+pre-mutation `-ESTALE`, and left both retained slots unchanged. Changing only
+the active detail to zero is a positive control and advances successfully to
+generation 89.
 
-Both retained slots are valid. Generation 89 left no target-slot
-commit-CRC-clear mutation on the retained medium. Raw ring adjacency is exact:
-the byte after the record begins the next warm-reset XBL stream, with zero
-Samsung kernel timestamp prefixes in between. Retained-log `idx` therefore did
-not drift in the surviving evidence, and a torn newer slot is rejected. This
-does not statically exclude a transient post-commit `-ESTALE` before the
-writer's in-kernel state advance. The exact live blocking primitive remains
-unproved, but an asynchronous reset is no longer in the live candidate
-explanation set.
+The P2.88 and P2.90 linked-table and exhaustive-validator proofs remain valid
+local evidence: they prove declared request encodability and exact linked
+tables. They do not prove that every accepted committed state can be resumed.
+Likewise, P2.90's adjacent coordinates, checked park routes, and request
+construction were internally correct but could not overcome the inherited
+active-state defect; primary and fallback publication both returned the same
+`-ESTALE`.
 
-Commit `6fc2881e`'s register-allocation-independent post-build proof did run and
-pass formal static closure. It exhaustively checked all `6,815,744`
-generation/stage/item inputs with the production validator functions, accepted
-exactly 103, compared linked ELF table bytes, and was freshly replayed by the
-independent candidate-static checker. This strongly rejects a source/table
-validator mismatch, but does not cover runtime open/write return or retained
-writer/client state.
-
-Exact materialized source and byte-identical linked images close the writer-tail
-H0. After the final commit-CRC flush returns, the path has only a barrier,
-memory comparisons, possible pre-state `-ESTALE`, state stores, and return; no
-blocking call. The four-byte flush is one cache-line clean/invalidate plus
-`dsb sy`. Procfs has no custom flush/release, although cache-maintenance and
-generic VFS/fsnotify/close remain outside this proof. Non-return is narrowed to
-that corridor; returned post-commit `-ESTALE` plus fallback failure remains.
-
-P2.90 has no reusable child at generation 88. Every path reaching SUSPENDED has
-reaped its three possible children, and no watchdog child exists. A new child
-is rejected by the PID1-only writer, inherits stale copy-on-write generation,
-and breaks the single-writer slot protocol without a registered observer ABI.
-
-P2.90 F1 remains closed healthy/no-proof with one candidate, one rollback, and
-no replay. Its valid generations 87/88 and absent adjacent generation 89 leave
-primary non-return or returned post-commit error plus fallback error/non-return.
-
-The P2.90 runtime implementation repairs the contract before another F1. It
-inserts `(0x8f,item=1..4)` immediately after the accepted generation-88
-publisher return, suspend return, restart entry, and deadline completion,
-followed by the inherited `(0x90,item=0)` helper dispatch. The first new call
-has no gate revalidation, tracefs read, or unrelated syscall before it. A
-separate source-to-table gate proves helper-dispatch ordinal 92 constructs
-exactly `(0x90,0)` from `client->generation` and the linked step, closing the
-runtime-request half left outside the earlier exhaustive validator proof.
-
-All 16 historical park sites are mechanically accounted. Twelve surviving
-historical sites use a checked unclassified fallback, two were removed by the
-inherited P2.88 transformation, and two already follow confirmed publication.
-The materialized successor include has 14 checked generic routes and three
-confirmed-publication routes. Raw park is confined to one confirmed sink and
-one explicitly named persistent checkpoint-channel-failure sink. The latter
-cannot self-report through the same failed retained channel; its exact residual
-class is primary/fallback non-return or both returned errors. P2.90 does not
-claim the impossible stronger invariant.
-
-P2.90 keeps the 45-byte/two-slot ABI and has 107 unique position pairs with
-terminal generation 107. Its identity is frozen at 94 SOURCE_KEYS: all 83
-P2.88 receipts unchanged, eight new direct byte-affecting sources, and three
-new generated sources. Verifier, decoder/model, selector, typed evidence,
-Process-v2 support, tests, freeze logic, and report remain outside identity and
-must be bundle-bound. The host implementation passes clean patch application,
-deterministic static AArch64 two-link output, checked-publication fault paths,
-adjacency and mutation gates, direct ELF table comparison, and a
-register-independent exhaustive validator run over `7,077,888` inputs with
-exactly 107 accepts.
-
-P2.88's removal of the pre-helper and immediate post-helper trace snapshots
-was intentional, not an instrumentation-only drift. `residual_outer_open` and
-the `c57/c58/c59` timeout refinement were retired; the remaining refresh is
-later, after helper and readback boundaries. The helper actuation itself
-remains P2.86.
-
-The bound decoder's generation-87 presentation bug is closed without changing
-its approval-bound bytes. A versioned post-live renderer maps
-progress/detail-zero to `progress-no-diagnostic-detail` and terminal
-success/detail-zero to `terminal-success`. Record validity, active generation,
-nonzero details, and the closed F1 verdict are unchanged. Current and frozen
-P2.88 SOURCE_KEYS remain exact `83/83` with no changed receipt.
+P2.88's early trace-snapshot removals and P2.90's park accounting remain
+historical implementation facts, not explanations for the live silence. The
+deferred-close and child-observer proposals are withdrawn for this incident.
+The bound decoder's generation-87 presentation correction remains valid and
+does not change record validity or any closed F1 verdict.
 
 No S22+ F1 live run is currently authorized. Both P2.84 stock-D1 approvals and
 the P2.84, P2.86, P2.88, and P2.90 F1 approvals are consumed. Do not repeat
@@ -448,38 +338,27 @@ corrected A/B pair then matched.
 - P2.86 recovery resumed rollback-only after a USB inventory-membership race
   interrupted the first physical-Download endpoint snapshot. No candidate
   replay or rollback retry occurred.
-- P2.86 focused H0 proves exact parent suspended, rules out torn generation 89
-  and in-run retained-header drift, and localizes the first unbounded
-  post-`0x8f` boundary to the pre-dispatch tracefs snapshot. Helper dispatch
-  remains unproved.
-- P2.86 follow-up data-flow H0 proves both trace snapshots around helper
-  dispatch are timeout-classification enrichment only. Removing them from the
-  early corridor is cheaper and stronger than adding intent markers.
+- P2.86 retained `0xc18` proves its strengthened exact parent-suspended gate.
+  The earlier attribution of the missing successor to tracefs, USB, PM, or a
+  publisher non-return is refuted by the inherited writer-state defect.
 - P2.88 implemented the 103-position pair-aware channel, removed both early
   classification-only snapshots, passed deterministic Full-LTO/package/static
   closure, and completed one candidate plus one exact rollback. Its retained
   state still ends at inherited generation 88; generation 89 and every new
   P2.88 coordinate remain unproved.
-- P2.88 post-live H0 proves the first next-boot reason is the operator's
-  `PS_HOLD`/S2 warm reset rather than a candidate-time watchdog/panic reset,
-  and exposes the exact candidate's 12-gate revalidation before generation 89.
-- P2.88 no-silent-park H0 confirms the formal `6fc2881e` linked-validator proof
-  passed, distinguishes the historical eight-gate plan from the exact
-  twelve-gate candidate, and refutes durable publication dominance: only an
-  attempted fallback precedes 14 of the 16 inherited park sites.
 - P2.90 places adjacent `0x8f` coordinates, accounts for all historical parks,
   proves the `(0x90,0)` request construction, links byte-identical userspace,
   and exhaustively accepts exactly 107 of `7,077,888` validator inputs.
 - P2.90 completed one candidate and one exact rollback with no replay and final
-  health pass. Its retained state still ends at generation 88, proving the
-  adjacent generation-89 publication did not begin and localizing the stop to
-  the generation-88 post-commit return boundary.
-- P2.90 materialized-kernel H0 refutes using the historical runtime-checkpoint
-  patch to infer rejection: linked P2.90 tables accept `(0x8f,item=1)`, and
-  retained generation 88 is outcome `PROGRESS`, so it did not terminal-lock.
-- P2.90 post-commit/child H0 finds no blocking call after the linked writer's
-  final flush returns and no child alive at generation 88. A viable observer
-  requires a registered phase-aware kernel ABI and single-writer takeover.
+  health pass. Its formal verdict remains no-proof; generation 89 and every
+  later E3 boundary remain unproved.
+- A P2.84-through-P2.90 sweep finds exactly four affected F1 runs. All end in
+  `generation=88/stage=0x8f/PROGRESS/item=0/detail=0xc18`, and all inherited the
+  same writer/state spans. Native replay returns exact pre-mutation `-ESTALE`;
+  the detail-zero positive control advances to generation 89.
+- The successor load-bearing gate is `ACCEPT_TO_RESUME_CLOSURE`: every accepted
+  nonterminal committed state must be byte-exactly representable and resumable
+  by kernel writer, userspace client, model, and decoder.
 - Exact source rejects treating a parent-PM sign or PHY flag as electrical
   proof; swallowed clock errors remain non-proof.
 - Process v2 common D0/F1 execution, regular-path boot-only Odin transport,
@@ -568,6 +447,7 @@ Load-bearing current reports:
 - `docs/reports/S22PLUS_FYG8_P288_GEN88_TO_GEN89_CORRIDOR_AND_RESET_REASON_H0_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P288_NO_SILENT_PARK_AND_LINKED_VALIDATOR_H0_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P290_POST_COMMIT_TAIL_AND_CHILD_OBSERVER_H0_2026-07-31.md`
+- `docs/reports/S22PLUS_FYG8_P284_P290_ACCEPT_TO_RESUME_HISTORY_ERRATUM_H0_2026-07-31.md`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 
@@ -720,14 +600,17 @@ operations before the asserted publication boundaries.
    byte-identical retained reads, USBFS diagnostic, and final health.
 2. Keep P2.84, P2.86, P2.88, and P2.90 closed and immutable. Do not replay or
    rebuild them.
-3. Preserve the P2.90 live attribution: generation 88 committed, while the
-   immediately adjacent generation 89 did not begin its target-slot mutation.
-4. Design and fault-test a dedicated observer before selecting a successor:
-   pre-suspend child handshake, phase-aware IPC, registered child authority,
-   kernel-derived generation, and single-writer-safe commit takeover.
-5. Keep ordinary and observer sequences, kernel/client validators, decoder,
-   and linked exhaustive proof generated from one source of truth.
-6. Keep CDC-ACM `endpoint-timeout` as downstream corroboration only.
+3. Preserve the four-run historical sweep and corrected cause: committed
+   nonzero-detail progress state was accepted but not resumable, so the next
+   write returned pre-mutation `-ESTALE` and userspace intentionally parked.
+4. Design and fault-test exact active-slot retention, including seed
+   initialization and update after every successful commit.
+5. Prove `ACCEPT_TO_RESUME_CLOSURE` exhaustively across kernel writer,
+   userspace client, model, and decoder, including every declared successor.
+6. Prove the inherited 87-position detail-zero prefix remains byte-identical,
+   preserve valid nonzero progress detail, and retain fail-closed corruption
+   handling. Do not add deferred-close or child-observer machinery for this
+   incident.
 7. No new S22+ device action or F1 request is permitted by the closed P2.90
    unit. A successor requires fresh H0 design, identity, A/B, manifest, D0, and
    exact approval.
@@ -757,10 +640,10 @@ The A90 branch proceeds independently:
    firstboot; do not classify it as an image-payload or SELinux-init failure.
 10. Preserve the independently reviewed V3405 no-sync parent supervisor and
     exact private H0 image; its artifact-build GO is not live authority.
-11. Preserve the reviewed V3405 observer, NCM rebind, and retained-work cleanup
-    contract. Fresh D0 found the exact preserved V3404 work copy; its prepared
-    cleanup approval is the next gate. After cleanup, repeat D0/path preflight
-    and prepare a separate fresh F1 manifest/approval. No prior token is reusable.
+11. Preserve the reviewed V3405 observer, NCM rebind, and completed exact
+    retained-work cleanup. Fresh D0 now proves all three paths absent, and the
+    final V3405 F1 manifest/approval is prepared. One fresh exact F1 token is
+    the next gate; no prior cleanup or F1 token is reusable.
 
 No device step is added when H0 can answer the question.
 

@@ -1,8 +1,8 @@
-# A90 V3405 Retained Work-Copy Cleanup Approval Prepared
+# A90 V3405 Retained Work-Copy Cleanup Closure and F1 Approval Prepared
 
 Date: 2026-07-31
 
-Status: `H0_CORRECTED_CLEANUP_APPROVAL_PREPARED_AWAITING_EXACT_OPERATOR_ACK`
+Status: `CLEANUP_PASS_F1_APPROVAL_PREPARED_AWAITING_EXACT_OPERATOR_ACK`
 
 ## Scope
 
@@ -131,11 +131,59 @@ mode-`0600` approval receipt was created with `device_contact=false`,
 `device_write=false`, and `live_authorized=false`. Its exact token remains
 private until operator acknowledgement. The earlier token is not reusable.
 
+## Approved cleanup result
+
+The corrected cleanup approval was acknowledged. Before dispatch, the helper
+reopened the exact target, revalidated V2321 health, rehashed the exact 2 GiB
+work image and host preservation, rechecked both adjacent paths, and proved
+that the image was neither mounted nor used as a loop backing file.
+
+The result is:
+
+```text
+outcome=PASS_EXACT_RETAINED_WORK_COPY_UNLINKED
+dispatch_count=1
+cleanup_retransmitted=false
+response_proven=true
+effect_proven=true
+post_health_proven=true
+```
+
+No payload, flash, reboot, rootfs staging, or command to the other connected
+device occurred in the cleanup transaction. The exact host postmortem copy
+remains preserved.
+
+## Fresh F1 closure
+
+After cleanup, a separate fresh D0 proved:
+
+- exact V2321 version/build and selftest `fail=0`;
+- pstore `entries=0`;
+- the dedicated NCM profile active and reachable; and
+- the V3405 final source, fixed work image, and run-owned stage path all
+  absent, including symlink absence.
+
+The final manifest binds the exact V3404 boot candidate, V2321 rollback,
+V3405 keyed rootfs, current staging adapter and orchestrator, run-local
+observer key, same-current-ACM NCM rebind, retained-pmsg capture/cleanup,
+connected D0, path preflight, and recovery evidence.
+
+Both host-only inspectors returned zero contract issues. The final V3405 F1
+manifest SHA256 is:
+
+```text
+9db8e9870cbce47d98ac2efbdf363eb42efc1db48874bca58231b632506eff97
+```
+
+One exclusive F1 approval receipt was prepared with `device_contact=false`,
+`device_write=false`, `f1_authorized=false`, and `live_authorized=false`.
+
 ## Next gate
 
-The next action is one fresh exact acknowledgement of the prepared cleanup
-token. It authorizes only the exact hash-gated retained-work unlink and bounded
-post-health checks. It is not F1 authority.
+The next action is one fresh exact acknowledgement of the prepared F1 token.
+It authorizes one boot-only candidate attempt, its bounded attended V3405
+Debian handoff/retained-pmsg observation, and the mandatory exact V2321
+rollback after candidate execution begins.
 
-After successful cleanup, fresh D0 must prove all three paths absent. Only then
-may a separate final V3405 F1 manifest and fresh F1 approval be prepared.
+Missing Debian or retained-pmsg proof remains no-proof and cannot suppress the
+rollback. No cleanup approval or earlier F1 token is reusable.
