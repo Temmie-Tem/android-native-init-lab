@@ -4,7 +4,7 @@ Date: 2026-08-01 KST
 
 ## Verdict
 
-`PASS_P292_POST_RUN_STOP_BOUNDARY_AND_VALUE_TELEMETRY_H0`
+`PASS_P292_POST_RUN_STOP_BOUNDARY_TELEMETRY_REDESIGN_REQUIRED_H0`
 
 P2.92 is the first controlled-suspend successor to advance beyond inherited
 generation 88. It proves the complete deep-suspend, restart, PHY reinit,
@@ -163,89 +163,151 @@ root context      u:r:magisk:s0
 
 This establishes the correct connected/configured sampling condition and
 confirms that reading a mounted DWC3 register surface would not need to wake a
-suspended child. It does not yet provide the register vector.
+suspended child. It does not yet provide the register vector. That vector is
+useful corroboration for board-specific PHY tuning, but it is not a prerequisite
+for the first controller-state snapshot below: every selected field has an
+exact source-defined meaning.
 
 `CONFIG_DEBUG_FS=y`, `CONFIG_USB_DWC3=y`, and debugfs support are present, but
 debugfs is not mounted. Only tracefs is mounted. Consequently
 `/sys/kernel/debug/usb/a600000.dwc3/{regdump,link_state}` does not exist in the
 current D0 state. Mounting debugfs and later unmounting it are transient state
-changes, so the remaining baseline read is D1, not D0. It requires a separately
-designed exact command, fresh approval, bounded read, cleanup, and return-health
-check. No mount was attempted by this unit.
+changes, so an agent-executed baseline read remains D1, not D0. It requires a
+separately designed exact command, fresh approval, bounded read, cleanup, and
+return-health check. No mount was attempted by this unit. The D1 is optional
+corroboration and does not block selection of the source-defined register
+inventory.
 
-## Value Telemetry Capacity
+## High-Speed And SuperSpeed Split
 
-The current retained ABI is sufficient. It has two slots and a `u16 detail`.
-Mechanical enumeration of the P2.92 contract gives 107 positions and 15,013
-currently accepted detail values, including the three exact publication-errno
-bands `0x4001..0x4fff`, `0x5001..0x5fff`, and `0x6001..0x6fff`.
+P2.92's generated 60-module plan contains both
+`phy-msm-ssusb-qmp.ko` and `phy-msm-snps-hs.ko`. Reaching the inherited
+generation-88 prefix also follows the exact SS-PHY bind gate, so an absent QMP
+driver or bind is not the remaining explanation.
 
-The largest unused ranges include:
+The weak hypothesis that an indeterminate SuperSpeed PHY prevents high-speed
+fallback is not promoted. Exact source shows two different speed variables:
+configfs/UDC `max_speed=high-speed` reaches `dwc3_gadget_set_speed()`, stores
+`gadget_max_speed`, and makes `__dwc3_gadget_set_speed()` program DCFG for
+high-speed. Qualcomm glue decisions still call `dwc3_msm_get_max_speed()`,
+which returns the controller's hardware `maximum_speed`; the glue can therefore
+retain SuperSpeed-PHY handling even for an HS-only gadget. P2.83's stock
+high-speed rebind nevertheless enumerated under the same source behavior, so
+QMP presence by itself is not sufficient to explain the bare-PID1 failure.
 
-| Range | Free values |
-|---|---:|
-| `0x0f37..0x4000` | 12,490 |
-| `0x7000..0xffff` | 36,864 |
+A USB-2-only hub/cable path remains a strong physical discriminator: success
+there would implicate the SuperSpeed/topology side, while the same failure
+would remove that class. Under this repository's P2.83 precedent, an
+agent-directed disconnect/reconnect experiment remains D1. If the attended
+operator independently changes the cabling, a later unambiguous connected
+read is ordinary D0; any future F1 must bind the exact USB-2-only topology in
+its manifest and approval.
 
-The clean successor reservation is `0x8000..0xbfff`: a tagged 14-bit payload
-that does not overlap any current detail. This proves capacity only. The bit
-allocation must not be frozen until the stock known-good vector is captured.
-The current candidate field inventory is:
+## Detail Allowlist And Two-Slot Constraint
 
-| Payload bits | Value |
-|---|---|
-| 0 | DCTL `RUN_STOP` readback |
-| 1 | DSTS `DEVCTRLHLT` |
-| 2..5 | DSTS `USBLNKST` |
-| 6..8 | DSTS `CONNECTSPD` |
-| 9 | wrapper `UTMI_OTG_VBUS_VALID` readback |
-| 10..11 | GCTL port capability |
-| 12 | GUSB2PHYCFG `SUSPHY` |
-| 13 | DSTS `COREIDLE` |
+The first telemetry layout is rejected. `u16 detail` is not a free payload
+space. In the exact intent-bound P2.92 patch, SHA256
+`09cff962f81cc650aa5b1fbafdc9f74da8b5016a0ca6ae9e31682837a586c116`,
+`s22_fyg8_e1_detail_allowed()` is an explicit semantic allowlist. Its final
+tuple helper accepts only ordinal 105 and `0x0d00..0x0f36`. That 567-value
+range is exactly `RepairClass(3) * BindClass(3) * UDC-state(9) * speed(7)`.
+Other accepted families are likewise rule-bound errno, regression/read-error,
+exact diagnostic, or operation-aware publication-error values.
 
-The eventual tag can prove that capture completed, so no separate valid bit
-should be needed. A full raw 32-bit DCTL word does not fit; the stock vector
-must determine which fields distinguish known-good state before any subset is
-made load-bearing. Splitting raw words across records is undesirable because
-only the newest two slots survive.
+Consequently “no current model meaning” and “writer accepts it” are different
+claims. The compiled production-writer and production-client loops rejected
+all 16,384 values in `0x8000..0xbfff` at the generation-105 route before
+record mutation or a syscall. The materialized writer independently proves
+the same result from its range and exact-rule dispatch. The proposed tagged
+14-bit word was therefore structurally impossible, not merely undecoded.
 
-No new position marker is required. Capture the values at the successful
-run-stop boundary, retain the packed word in the cycle result, and publish it
-as the existing generation-105 `final_sampling_started` progress detail.
-Generation 106 can remain the terminal final tuple. The two surviving slots
-then intentionally contain exactly one value snapshot and one terminal result.
+The audit then stopped in Python because it assumed that
+`model.encode_request()` was a raw encoder and that validation occurred only
+in a later call. Actual invocation showed that `encode_request()` validates
+immediately and raises on the first forbidden value. That is the twelfth
+instance of relying on an unobserved representation or API contract. The
+standing preflight rule is now broader:
 
-`0x8000..0xbfff` is only a design reservation today. A successor must add it
-at the exact `(stage=0x92,item=0)` route across the SoT, kernel writer,
-userspace client, model, decoder, producer-route gate, and continuous
-accept-to-resume walk. Current validators must reject it until that coherent
-change exists.
+> Before code depends on an API's return, exception, or mutation behavior,
+> call that API once with an actual input outside the approval window and
+> record the observed behavior.
 
-Source-level inspection confirms that current kernel and client acceptance
-only names the generated exact rules, final tuple range, and publication errno
-ranges through `0x6fff`. The P2.92 evidence layer selects the P2.92 repair
-decoder, which delegates record validity to the same model. A compiled
-all-values cross-layer rejection audit was then attempted, but its first two
-invocations failed before testing any candidate byte: first an incorrect local
-module name was assumed, then `verify_authority()` was passed a path although
-its source requires a parsed manifest object. These are two occurrences of the
-same actual-input-shape failure class. AGENTS.md rule 7 therefore stops that
-audit without a third invocation. Full kernel/client/model/decoder/evidence
-rejection of all 16,384 proposed values remains a required pre-intent gate; it
-is not claimed complete here.
+The exploratory audit edits were not part of candidate identity and have been
+removed rather than carrying an unvalidated, obsolete 16,384-value direction.
+The observed writer/client rejection remains evidence; complete
+model/decoder/evidence enumeration is unnecessary to establish that the
+current candidate cannot publish this band.
+
+The source-decodable register inventory remains valid:
+
+| Field | Exact source bits | Raw values |
+|---|---|---:|
+| DSTS `USBLNKST` | 21..18 | 16 |
+| DCTL `RUN_STOP` | 31 | 2 |
+| DSTS `DEVCTRLHLT` | 22 | 2 |
+| DSTS `COREIDLE` | 23 | 2 |
+| GUSB2PHYCFG `SUSPHY` | 6 | 2 |
+| wrapper `UTMI_OTG_VBUS_VALID` | 20 | 2 |
+| GCTL `PRTCAP` | 13..12 | 4 |
+| DSTS `CONNECTSPD` | 2..0 | 8 |
+
+The pinned receipts remain
+`core.h=97c2a45cf624cd3e99061dec403d1c4c55a2f69798fd2768a54bddba536b711b`
+and
+`dwc3-msm-core.c=1c8a3cea43337eebaf0601e01fe3a17e1260f2f768298b16f723534eee433021`.
+
+Splitting the new fields by position is the correct direction, but the first
+cardinality estimate is not yet a safe contract. Position A needs 16 values
+for `USBLNKST`. Position B needs 1,024 raw values, not approximately 384:
+`2^5 * 4 * 8` for five booleans, all four raw `PRTCAP` encodings, and all eight
+`CONNECTSPD` encodings. The 384 figure assumes `RUN_STOP=1` and excludes raw
+`PRTCAP=0`. Those are precisely unexpected observations the diagnostic must
+still encode; rejecting either would recreate a silent unpublishable state.
+A smaller semantic mapping is acceptable only if it total-maps every raw
+combination to an explicit value, including an out-of-domain class.
+
+There is a second load-bearing constraint. The retained record has only two
+alternating slots. Publishing A, then B, then the existing terminal tuple
+leaves only B and terminal; A is overwritten. Therefore `16 + 1024` does not
+by itself produce a durable two-position answer unless the old terminal tuple
+is deliberately retired. That would discard repair, bind, UDC-state, and
+UDC-speed evidence and is not selected here.
+
+A lossless two-slot candidate exists, but it is a new SoT design rather than a
+frozen bit allocation. After the final sample is known, make A the last
+progress record and B the terminal record, and partition both old and new
+fields across them. A balanced full-raw partition is:
+
+| Surviving slot | Fields | Cardinality |
+|---|---|---:|
+| A, progress | bind(3), UDC-state(9), UDC-speed(7), USBLNKST(16) | 3,024 |
+| B, terminal | repair(3), five booleans, PRTCAP(4), CONNECTSPD(8) | 3,072 |
+
+The two position-local maps total 6,096 accepted semantic values and preserve
+the complete old terminal tuple plus every new raw register combination. They
+are about 2.7 times smaller than the rejected 16,384-value single-position
+map, and neither can become unpublishable because an observed raw field used a
+reserved encoding. This is an H0 design candidate only. It requires generated
+position-specific rules across the SoT, writer, client, model, decoder,
+producer-route gate, evidence layer, and continuous two-record sequence walk.
+It changes the acceptance model even if numeric detail values are reused; it
+does not require a record-layout or slot-count change.
 
 ## Deterministic Interpretation Requirement
 
 The successor must make both outcomes useful:
 
-1. If any sampled field differs from stock, the decoder must name the exact
-   mismatching field or mismatch bitmask.
-2. If every sampled field equals the stock vector, the decoder must emit an
-   explicit `digital-state-matches-stock` conclusion. Equality must not render
-   as an empty or generic no-proof value.
+1. If any sampled field violates its source-defined expected predicate, the
+   decoder must name the exact field or mismatch bitmask.
+2. If every sampled field is internally consistent with the proven software
+   session/run-stop path, the decoder must emit an explicit
+   `digital-control-state-nominal` conclusion. It must not claim stock equality
+   without a measured stock vector, and it must not render as an empty or
+   generic no-proof value.
 
 The second result closes the checkpoint channel's useful scope for this wall:
-register equality cannot prove D+ pull-up voltage or other analog line state.
+nominal digital predicates cannot prove D+ pull-up voltage or other analog line
+state.
 If it occurs, the next unit must change instrument class under a separate
 design and safety review rather than add another checkpoint marker or digital
 register read. This report does not authorize an electrical probe or relax the
@@ -275,14 +337,24 @@ register snapshot.
 Do not add more location markers and do not request another F1 yet. The order
 is now:
 
-1. separately design and approve one stock-active D1 that mounts debugfs,
-   captures the exact known-good DWC3 vector, unmounts it, and rechecks health;
-2. select the 14-bit field layout from that measured vector;
-3. repair and preflight the stopped all-values cross-layer audit using its
-   actual manifest fixture before one new execution;
-4. fault-validate both mismatch and exact-stock-match conclusions; and
-5. only then consider a new identity, Full-LTO A/B, manifest, D0, and fresh F1
+1. retire the impossible `0x8000..0xbfff` single-position reservation; do not
+   rerun the obsolete all-values audit merely to reconfirm the materialized
+   writer's explicit rejection;
+2. design one generated, total, two-slot semantic mapping that preserves the
+   existing repair/bind/UDC-state/speed terminal evidence and all fourteen raw
+   controller bits; prove both records are the final surviving pair;
+3. before writing each verifier lane, call its production API once with an
+   actual accepted and rejected input and record return/exception behavior;
+4. fault-validate exact field rendering, cross-slot pair coherence,
+   `ACCEPT_TO_RESUME_SEQUENCE_WALK`, and the positive
+   `digital-control-state-nominal` conclusion;
+5. optionally capture a stock-active debugfs vector under a separate D1 as
+   corroboration, not as an identity prerequisite;
+6. separately decide whether to bind a USB-2-only physical path into the next
+   experiment; and
+7. only then consider a new identity, Full-LTO A/B, manifest, D0, and fresh F1
    approval.
 
-The candidate value can still reuse generation 105 while generation 106
-remains the terminal classifier, but that layout is not selected today.
+No successor layout is selected today. In particular, A+B+the old terminal is
+not allowed to masquerade as a two-slot design, and a reduced mapping may not
+exclude unexpected raw states merely to lower its rule count.

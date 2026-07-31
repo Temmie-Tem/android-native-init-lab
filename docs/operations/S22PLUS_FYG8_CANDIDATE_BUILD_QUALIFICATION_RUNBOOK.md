@@ -499,6 +499,14 @@ fixture through the same parser and validator. If a step cannot be rehearsed on
 real inputs before approval, use a captured prior fixture; otherwise do not ask
 for approval. Do not add unexecuted preflight code inside an approval window.
 
+The same rule applies below the command level. Before a verifier depends on a
+production API's return value, exception boundary, or mutation timing, invoke
+that exact API once with an actual accepted input and once with an actual
+rejected input, and record the observed result. Reading a signature or calling
+a neighboring helper is not a substitute. If the real input cannot yet be
+created, use a captured producer-owned fixture; do not encode an assumed API
+contract and first exercise it inside an approval scope.
+
 When a candidate adds a bounded runtime control lifecycle, a later ready
 manifest must consume a versioned timing receipt produced by the exact runtime
 harness. The receipt must bind raw samples, runtime/tool hashes, a reviewed

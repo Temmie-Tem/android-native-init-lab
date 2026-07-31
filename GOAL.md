@@ -194,29 +194,52 @@ observes DSTS no longer halted. Stock Type-C/PDIC/redriver or physical-cable
 side effects can still matter, but the software session bit itself is not the
 missing predecessor.
 
-The retained `u16 detail` has ample value capacity. Current P2.92 uses 15,013
-values across 107 positions, leaving `0x8000..0xbfff` free as a proposed tagged
-14-bit snapshot band. This is a capacity result, not a frozen bit allocation.
+The proposed `0x8000..0xbfff` tagged snapshot is rejected. `u16 detail` is an
+explicit semantic allowlist, not free payload capacity. The exact P2.92 writer
+and client rejected all 16,384 values before mutation/syscall; its only packed
+tuple range is `0xd00..0xf36`, exactly 567 repair/bind/UDC-state/speed values.
+Exact pinned source still defines the desired raw register inventory: DCTL
+RUN_STOP; DSTS DEVCTRLHLT, USBLNKST, CONNECTSPD, and COREIDLE; GCTL PRTCAP;
+GUSB2PHYCFG SUSPHY; and wrapper UTMI VBUS-valid.
+
+Splitting values by position is necessary but not sufficient. USBLNKST needs
+16 values; the other raw fields need 1,024, not 384, because unexpected
+RUN_STOP=0 and raw PRTCAP=0 must remain publishable. A+B+the existing terminal
+also cannot survive a two-slot ring: A is overwritten. The current lossless H0
+candidate repartitions both old terminal evidence and all new raw fields over
+the final progress/terminal pair, with generated domains of 3,024 and 3,072
+values. It is not selected or implemented and requires coherent SoT/writer/
+client/model/decoder/evidence rules plus a continuous two-record walk.
+
 The sole attached stock FYG8 S22+ passed a read-only D0 at
 `configured/super-speed` with parent and child runtime PM both active; no A90
 was present or contacted. Debugfs support is configured but not mounted, so no
 register vector was obtained. Mount/read/unmount is D1 and requires a separate
-exact design and fresh approval. The stock vector must precede bit selection.
+exact design and fresh approval, but that vector is optional corroboration and
+does not precede selection of the source-defined bits.
 
-Source inspection shows current kernel/client rules and the selected
-model/decoder/evidence path do not name `0x8000..0xbfff`. A compiled exhaustive
-cross-layer rejection audit nevertheless remains incomplete: its first two
-invocations failed before candidate evaluation by assuming the wrong local
-module name and then the wrong `verify_authority()` input type. This is the
-same actual-input-shape failure class twice, so rule 7 stops a third execution.
-Any successor must first preflight that audit with the real manifest fixture,
-then prove all 16,384 values rejected before coherently adding the new band.
+The audit correctly consumed production manifest/generator output but assumed
+that `encode_request()` deferred validation. Actual invocation proved it
+validates immediately. The obsolete exploratory band-audit edits were removed;
+the writer/client rejection remains evidence. Before any verifier relies on an
+API contract, it must call that API once with actual accepted and rejected
+inputs outside an approval window and record return/exception behavior.
+
+The P2.92 plan already contains and binds both QMP SS PHY and FEMTO HS PHY.
+Configfs high-speed constrains DCFG through `gadget_max_speed`, while Qualcomm
+glue still keys SS-PHY handling from hardware `maximum_speed`. P2.83 stock HS
+enumerated under the same distinction, so QMP presence alone is not a root
+cause. A USB-2-only hub/cable remains a strong physical discriminator; any
+agent-directed reconnect is D1 by existing P2.83 precedent, while an
+operator-independent recable can be followed by a D0 read.
 
 The eventual decoder must make both outcomes explicit: identify every field
-that differs from the stock vector, or emit `digital-state-matches-stock` when
-all fields match. The latter exhausts checkpoint-register evidence for this
-wall and requires a separately reviewed instrument class for analog/physical
-state; it must not become another generic no-proof result.
+that violates its source-defined predicate, or emit
+`digital-control-state-nominal` when all predicates hold. It must not claim
+stock equality without a measured vector. The positive result exhausts
+checkpoint-register evidence for this wall and requires a separately reviewed
+instrument class for analog/physical state; it must not become another generic
+no-proof result.
 
 The live transaction exercised the durable recovery design. Initial rollback
 endpoint discovery stopped on a measured USB membership race. Rollback-only
@@ -389,10 +412,10 @@ corrected A/B pair then matched.
   `B_SESS_VLD`, and the UTMI VBUS-valid write before the successful DCTL
   RUN_STOP/DSTS-not-halted result. The remaining unknown is physical/link
   state after that boundary, not absence of the software session predicate.
-- The proposed next observation reuses generation 105 for one packed
-  `0x8000..0xbfff` register snapshot and generation 106 for the terminal tuple;
-  it adds values, not more location markers. It is not implemented or
-  authorized.
+- The proposed single-position `0x8000..0xbfff` snapshot is structurally
+  rejected by the exact writer. A lossless successor must repartition the old
+  terminal tuple and new raw fields across the two final surviving slots; no
+  such mapping is selected, implemented, or authorized.
 - `CHECKPOINT_ERRNO_OBSERVABILITY` preserves exact open/write/close errno,
   emits operation-aware failure details, and reaches an explicit volatile sink
   before park only when the checkpoint channel and fallback both fail.
@@ -613,16 +636,19 @@ operations before the asserted publication boundaries.
 11. Preserve generation 106 as the new live prefix baseline. Any successor
    divergence before generation 105 is a regression; do not return to generic
    code-position tracing.
-12. Before bit selection, design one bounded stock-active D1 to mount debugfs,
-   read the known-good DWC3 vector, unmount, and recheck stock health. No such
-   mount or vector capture is currently authorized.
-13. Preflight the stopped all-values audit against its actual manifest fixture,
-   then prove kernel, client, model, decoder, and evidence all reject the full
-   proposed band. Only after that proof may the stock vector select one packed
-   generation-105 value route and both mismatch/match fault outcomes.
-14. No new S22+ F1 request is permitted by the closed P2.92 unit; a successor
-   requires the stock vector, repaired H0 closure, fresh identity, A/B,
-   manifest, D0, and exact approval.
+12. Retire the impossible single-position 14-bit band. Design a generated,
+   total two-slot mapping that preserves the existing terminal evidence and
+   every raw register combination; prove the two values are the final retained
+   pair and continuously resumable.
+13. Probe every production API once with actual accepted/rejected inputs before
+   writing its verifier lane, then fault-validate exact rendering and
+   `digital-control-state-nominal`. A stock-active debugfs D1 is optional.
+14. Decide separately whether a USB-2-only physical topology is part of the
+   successor. Bind it in any future F1 manifest/approval; do not treat an
+   agent-directed reconnect as tier-free.
+15. No new S22+ F1 request is permitted by the closed P2.92 unit; a successor
+   requires repaired H0 closure, fresh identity, A/B, manifest, D0, and exact
+   approval.
 
 No device step is added when H0 can answer the question.
 
