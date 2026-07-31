@@ -273,25 +273,74 @@ by itself produce a durable two-position answer unless the old terminal tuple
 is deliberately retired. That would discard repair, bind, UDC-state, and
 UDC-speed evidence and is not selected here.
 
-A lossless two-slot candidate exists, but it is a new SoT design rather than a
-frozen bit allocation. After the final sample is known, make A the last
-progress record and B the terminal record, and partition both old and new
-fields across them. A balanced full-raw partition is:
+The lossless `3,024 + 3,072` partition is valid but is not selected. It still
+buys 6,096 generated cases before counting error routes, and the linked/static
+audit line has already stopped twice. The evidence budget must be reduced
+before a new range is allocated.
 
-| Surviving slot | Fields | Cardinality |
-|---|---|---:|
-| A, progress | bind(3), UDC-state(9), UDC-speed(7), USBLNKST(16) | 3,024 |
-| B, terminal | repair(3), five booleans, PRTCAP(4), CONNECTSPD(8) | 3,072 |
+Two proposed “already proved twice” predicates need correction. P2.80 did not
+perform the later controlled power cycle, and its successful run-stop was
+runtime-resume-nested. P2.92 alone selected the combined
+`helper-off-on-zero-direct-run-stop` class. P2.80 and P2.92 independently prove
+only the common `run_stop(on=1) == 0` plus later `not attached` boundary.
+Removing repair and bind from the final tuple is therefore a deliberate
+successor precondition, not compression of a twice-proved invariant.
 
-The two position-local maps total 6,096 accepted semantic values and preserve
-the complete old terminal tuple plus every new raw register combination. They
-are about 2.7 times smaller than the rejected 16,384-value single-position
-map, and neither can become unpublishable because an observed raw field used a
-reserved encoding. This is an H0 design candidate only. It requires generated
+That precondition can nevertheless be made lossless. Generation 104 already
+classifies the seven exact repair/bind cases as `0xc40..0xc46`. A successor may
+advance to value sampling only for canonical `0xc40`; any `0xc41..0xc46`
+result becomes terminal with its existing exact semantic. The normal path then
+spends no final-tuple dimension on repair or bind, while every unexpected path
+still leaves an exact record.
+
+The `0x800/0x900` ranges must not be reused for these predicates. They encode
+regression/read-error for the twelve existing bind gates, and the writer
+rejects an encoded index at or above twelve. Overloading them would make one
+number mean two different facts. Repair/bind can reuse the existing exact
+`0xc40..0xc46` semantics; final register predicates need a small new generated
+exact set instead.
+
+The reduced final design candidate is:
+
+1. Capture all values before publishing either surviving record.
+2. Gate DCTL `RUN_STOP=1`, DSTS `DEVCTRLHLT=0`, GCTL `PRTCAP=DEVICE`, and
+   wrapper `UTMI_OTG_VBUS_VALID=1`. On mismatch, publish A first and then a
+   terminal B carrying a four-bit mismatch mask. The fifteen nonzero masks are
+   the complete failure domain.
+3. Do not gate `COREIDLE` or `SUSPHY`; both remain sampled bits. Their exact
+   values can legitimately vary at the unconnected boundary.
+4. Publish A as exact `USBLNKST`, requiring 16 values.
+5. Publish B as the terminal conditional state. `not attached` is valid only
+   with speed `UNKNOWN`. Each of the other eight UDC states admits
+   `UNKNOWN`, low-, full-, or high-speed because the gadget is explicitly
+   capped at high speed. That is `1 + 8 * 4 = 33` state/speed categories.
+   When speed is `UNKNOWN`, DSTS `CONNECTSPD` is not interpreted. For low,
+   full, or high speed, compare it with the exact source code and emit one
+   explicit contradiction detail on mismatch rather than multiplying by all
+   eight raw codes.
+6. Retain `COREIDLE` and `SUSPHY` in B, giving `33 * 2 * 2 = 132` normal B
+   values.
+
+The normal telemetry budget is therefore `16 + 132 = 148`, plus fifteen fixed
+predicate mismatch masks and a small constant set for state/speed or
+CONNECTSPD contradictions. This is over forty times smaller than 6,096 and
+over one hundred times smaller than the rejected 16,384-value map. A is the
+last progress record and B is itself terminal; there is no third record to
+evict A. The existing 567-value table supplies useful encode/decode machinery
+but not its cardinality trick: it is a full `3 * 3 * 9 * 7` Cartesian product,
+not a conditional sum.
+
+This remains an H0 design candidate only. It requires generated
 position-specific rules across the SoT, writer, client, model, decoder,
 producer-route gate, evidence layer, and continuous two-record sequence walk.
 It changes the acceptance model even if numeric detail values are reused; it
 does not require a record-layout or slot-count change.
+
+`SLOT_COUNT=2` is now a load-bearing constraint of the entire retained
+diagnostic program, not a local implementation detail. No current ABI change
+is proposed. If another campaign is again dominated by evidence-budget
+packing, slot count is the first architectural constraint to reconsider under
+a separate identity and retained-memory safety review.
 
 ## Deterministic Interpretation Requirement
 
@@ -340,9 +389,12 @@ is now:
 1. retire the impossible `0x8000..0xbfff` single-position reservation; do not
    rerun the obsolete all-values audit merely to reconfirm the materialized
    writer's explicit rejection;
-2. design one generated, total, two-slot semantic mapping that preserves the
-   existing repair/bind/UDC-state/speed terminal evidence and all fourteen raw
-   controller bits; prove both records are the final surviving pair;
+2. formalize the reduced generated mapping: only `0xc40` advances past the
+   repair/bind precondition, `0xc41..0xc46` become exact terminals, A carries
+   16 USBLNKST values, and terminal B carries 132 conditional final states;
+   add the fifteen fixed-predicate masks and explicit state/speed or
+   CONNECTSPD contradiction routes, then prove every raw observation maps to
+   one normal or failure semantic and A/B are the final surviving pair;
 3. before writing each verifier lane, call its production API once with an
    actual accepted and rejected input and record return/exception behavior;
 4. fault-validate exact field rendering, cross-slot pair coherence,
@@ -355,6 +407,8 @@ is now:
 7. only then consider a new identity, Full-LTO A/B, manifest, D0, and fresh F1
    approval.
 
-No successor layout is selected today. In particular, A+B+the old terminal is
-not allowed to masquerade as a two-slot design, and a reduced mapping may not
-exclude unexpected raw states merely to lower its rule count.
+The 148-value normal map is selected only as the next H0 design candidate; no
+successor implementation or identity is selected or authorized today. A+B+an
+old third terminal is not allowed to masquerade as a two-slot design, and the
+reduced map must classify every excluded raw state through an explicit failure
+route rather than silently make it unpublishable.

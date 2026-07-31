@@ -202,14 +202,19 @@ Exact pinned source still defines the desired raw register inventory: DCTL
 RUN_STOP; DSTS DEVCTRLHLT, USBLNKST, CONNECTSPD, and COREIDLE; GCTL PRTCAP;
 GUSB2PHYCFG SUSPHY; and wrapper UTMI VBUS-valid.
 
-Splitting values by position is necessary but not sufficient. USBLNKST needs
-16 values; the other raw fields need 1,024, not 384, because unexpected
-RUN_STOP=0 and raw PRTCAP=0 must remain publishable. A+B+the existing terminal
-also cannot survive a two-slot ring: A is overwritten. The current lossless H0
-candidate repartitions both old terminal evidence and all new raw fields over
-the final progress/terminal pair, with generated domains of 3,024 and 3,072
-values. It is not selected or implemented and requires coherent SoT/writer/
-client/model/decoder/evidence rules plus a continuous two-record walk.
+The lossless `3,024 + 3,072` raw partition is not selected. P2.80 did not run
+the controlled power cycle and used nested run-stop; only P2.92 selected the
+combined `0xc40` helper-off/on-zero plus direct-run-stop class. A successor can
+therefore make `0xc40` a precondition and terminate exact `0xc41..0xc46`
+mismatches before final sampling. The occupied `0x800/0x900` bind-gate error
+bands must not be overloaded. The reduced two-slot H0 candidate uses A for all
+16 USBLNKST values and terminal B for 33 conditional UDC-state/speed classes
+times COREIDLE and SUSPHY, or 132 values: 148 normal values total. Fixed
+RUN_STOP, DEVCTRLHLT, PRTCAP, and VBUS-valid mismatches use fifteen exact masks;
+CONNECTSPD is ignored for UNKNOWN speed and exact-checked otherwise. This is
+not implemented or authorized. `SLOT_COUNT=2` is now a load-bearing diagnostic
+constraint and the first architectural item to revisit if packing dominates a
+later campaign again.
 
 The sole attached stock FYG8 S22+ passed a read-only D0 at
 `configured/super-speed` with parent and child runtime PM both active; no A90
@@ -413,9 +418,10 @@ corrected A/B pair then matched.
   RUN_STOP/DSTS-not-halted result. The remaining unknown is physical/link
   state after that boundary, not absence of the software session predicate.
 - The proposed single-position `0x8000..0xbfff` snapshot is structurally
-  rejected by the exact writer. A lossless successor must repartition the old
-  terminal tuple and new raw fields across the two final surviving slots; no
-  such mapping is selected, implemented, or authorized.
+  rejected. The reduced H0 successor candidate gates canonical repair/bind,
+  retains exact mismatch evidence, and maps USBLNKST plus conditional final
+  state into 16-value progress A and 132-value terminal B. It is not selected,
+  implemented, or authorized.
 - `CHECKPOINT_ERRNO_OBSERVABILITY` preserves exact open/write/close errno,
   emits operation-aware failure details, and reaches an explicit volatile sink
   before park only when the checkpoint channel and fallback both fail.
@@ -636,10 +642,10 @@ operations before the asserted publication boundaries.
 11. Preserve generation 106 as the new live prefix baseline. Any successor
    divergence before generation 105 is a regression; do not return to generic
    code-position tracing.
-12. Retire the impossible single-position 14-bit band. Design a generated,
-   total two-slot mapping that preserves the existing terminal evidence and
-   every raw register combination; prove the two values are the final retained
-   pair and continuously resumable.
+12. Retire the impossible single-position 14-bit band. Validate the exact
+   `0xc40` precondition gate, fifteen fixed-predicate mismatch masks, and the
+   conditional 16-value A plus 132-value terminal B mapping. Prove the pair is
+   the final retained evidence and continuously resumable.
 13. Probe every production API once with actual accepted/rejected inputs before
    writing its verifier lane, then fault-validate exact rendering and
    `digital-control-state-nominal`. A stock-active debugfs D1 is optional.
