@@ -547,6 +547,27 @@ class CdcAcmObserverV1Test(unittest.TestCase):
         self.assertEqual(command[10], hashlib.sha256(payload).hexdigest())
         self.assertEqual(len(command), 11)
 
+        extended = self.module._guard_command(
+            self.spec(),
+            "usb:1-1",
+            max_sec=2040,
+        )
+        self.assertEqual(len(extended), 11)
+        self.assertIn("MAX_SEC = 2040.0", extended[8])
+        self.assertNotIn("MAX_SEC = 2040.0", command[8])
+        self.assertEqual(extended[9:], command[9:])
+        compile(extended[8], "<extended-udev-guard>", "exec")
+        for invalid in (359, 3601, 360.0, True):
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(
+                self.module.ObserverError,
+                "outside the reviewed bound",
+            ):
+                self.module._guard_command(
+                    self.spec(),
+                    "usb:1-1",
+                    max_sec=invalid,
+                )
+
     def test_active_modemmanager_success_requires_line_and_live_child(self):
         read_fd, write_fd = os.pipe()
         self.addCleanup(os.close, write_fd)

@@ -17,7 +17,7 @@ strip_version = "GNU strip (GNU Binutils for Ubuntu) 2.46"
 
 [sources]
 presenter = "workspace/public/src/scripts/server-distro/phase2_display_v1/a90_debian_display_v1.c"
-presenter_sha256 = "55672214fda501a96115edec222f830bb26921ca71cea5f86faa4beb65830950"
+presenter_sha256 = "98c65eceadaa8a35b35eabdedaa9edca2c37587bd344e021b1dd6be8d4b2e871"
 launcher = "workspace/public/src/scripts/server-distro/phase2_display_v1/a90_debian_display_launcher_v1.sh"
 launcher_sha256 = "9b54d1e0e62b85a2bb74af7385c3179dbdcc30a77f6bb6e2df25662518e444b7"
 inittab = "workspace/public/src/scripts/server-distro/phase2_display_v1/inittab"

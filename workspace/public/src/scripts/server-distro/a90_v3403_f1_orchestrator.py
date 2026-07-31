@@ -19,6 +19,7 @@ import datetime as dt
 import hashlib
 import ipaddress
 import json
+import math
 import os
 import re
 import shutil
@@ -41,6 +42,7 @@ for _path in (SCRIPT_DIR, REVAL_DIR):
 import a90_v3403_absent_only_staging as staging  # noqa: E402
 import a90_phase2d_display_observer as display  # noqa: E402
 import a90ctl  # noqa: E402
+import device_action_cdc_acm_observer_v1 as cdc_guard  # noqa: E402
 import run_d1_chroot_mvp as d1  # noqa: E402
 
 
@@ -71,6 +73,11 @@ OBSERVER_TRANSPORT_SCOPE = "USB-local NCM only"
 PSTORE_ZERO_RE = staging.PSTORE_ZERO_RE
 HEX64_RE = staging.HEX64_RE
 NATIVE_FLASH_PATH = (REVAL_DIR / "native_init_flash.py").resolve()
+CDC_GUARD_PATH = (
+    REVAL_DIR / "device_action_cdc_acm_observer_v1.py"
+).resolve()
+CDC_GUARD_SIZE = 51304
+CDC_GUARD_SHA256 = "a2536c44f8585cb41e58eab97c4bb97e4f957533139c847b49f55ef729f7586a"
 STAGING_PATH = (SCRIPT_DIR / "a90_v3403_absent_only_staging.py").resolve()
 OBSERVATION_OUTPUT_MARKERS = (
     "source_sha phase=initial",
@@ -106,6 +113,8 @@ HOST_NCM_PROFILE_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,64}$")
 HOST_NCM_REBIND_TIMEOUT_SEC = 30
 HOST_NCM_REBIND_POLL_SEC = 1.0
 HOST_NCM_CONNECTION_TYPE = "802-3-ethernet"
+MODEMMANAGER_GUARD_POST_RETURN_COMMAND_COUNT = 4
+MODEMMANAGER_GUARD_MARGIN_SEC = 60
 PSTORE_MOUNT_PATH = "/sys/fs/pstore"
 PSTORE_ENTRY_RE = re.compile(
     r"^[dlcb?\-]\s+\S+\s+([A-Za-z0-9_.-]+)\r?$",
@@ -858,6 +867,13 @@ def verify_local_closure(spec: F1Spec) -> None:
         Path(__file__).resolve(),
         expected_size=spec.orchestrator_size,
         expected_sha256=spec.orchestrator_sha256,
+    )
+    if Path(cdc_guard.__file__).resolve() != CDC_GUARD_PATH:
+        raise ContractError("ModemManager guard import path lost its binding")
+    staging.require_regular_file(
+        CDC_GUARD_PATH,
+        expected_size=CDC_GUARD_SIZE,
+        expected_sha256=CDC_GUARD_SHA256,
     )
     require_private_regular(spec.observer_key)
 
@@ -1823,6 +1839,179 @@ def require_f1_baseline(args: argparse.Namespace) -> dict[str, Any]:
     )
 
 
+def _candidate_return_modemmanager_guard_inputs(
+    spec: F1Spec,
+) -> tuple[dict[str, str], str]:
+    try:
+        resolved = Path(spec.stage.bridge_realpath).resolve(strict=True)
+        info = resolved.stat()
+        identity, endpoint = cdc_guard._resolve_endpoint(  # noqa: SLF001
+            staging.SYS_CLASS_TTY / resolved.name
+        )
+    except (OSError, ValueError, cdc_guard.ObserverError) as exc:
+        raise ContractError(
+            "ModemManager guard A90 ACM identity is unavailable"
+        ) from exc
+    if not stat.S_ISCHR(info.st_mode):
+        raise ContractError(
+            "ModemManager guard bridge is not a character device"
+        )
+    if (
+        os.major(info.st_rdev) != endpoint.major
+        or os.minor(info.st_rdev) != endpoint.minor
+        or identity.get("vendor") != staging.HOST_NCM_VENDOR_ID
+        or identity.get("product") != staging.HOST_NCM_PRODUCT_ID
+        or identity.get("driver") != "cdc_acm"
+        or not identity.get("serial")
+    ):
+        raise ContractError("ModemManager guard identity is not exact A90 ACM")
+    guard_spec = {
+        "kind": cdc_guard.KIND,
+        "usb_vendor_id": identity["vendor"],
+        "usb_product_id": identity["product"],
+        "usb_serial": identity["serial"],
+        "usb_driver": identity["driver"],
+        "usb_interface_number": identity["interface"],
+        "banner_hex": "00",
+    }
+    cdc_guard.validate_spec(guard_spec)
+    return guard_spec, f"usb:{endpoint.topology}"
+
+
+def arm_candidate_return_modemmanager_guard(
+    spec: F1Spec,
+    args: argparse.Namespace,
+    transaction_dir: Path,
+) -> cdc_guard.ModemManagerGuard:
+    guard_spec, topology = _candidate_return_modemmanager_guard_inputs(spec)
+    numeric = (
+        spec.handoff_timeout,
+        spec.ssh_marker_timeout,
+        spec.candidate_return_timeout,
+        args.ssh_connect_timeout,
+        args.poll_interval,
+        args.remote_timeout,
+    )
+    if any(
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or not math.isfinite(value)
+        or value <= 0
+        for value in numeric
+    ):
+        raise ContractError("candidate-return guard timeout input is invalid")
+    max_sec = math.ceil(
+        spec.handoff_timeout
+        + spec.ssh_marker_timeout
+        + args.ssh_connect_timeout
+        + 10.0
+        + 2 * args.poll_interval
+        + spec.candidate_return_timeout
+        + MODEMMANAGER_GUARD_POST_RETURN_COMMAND_COUNT
+        * args.remote_timeout
+        + OBSERVATION_MENU_SETTLE_SEC
+        + MODEMMANAGER_GUARD_MARGIN_SEC
+    )
+    if max_sec > cdc_guard.GUARD_MAX_SEC_LIMIT:
+        raise ContractError(
+            "candidate-return corridor exceeds the reviewed ModemManager "
+            "guard lifetime"
+        )
+    try:
+        guard = cdc_guard.ModemManagerGuard.arm(
+            guard_spec,
+            topology,
+            transaction_dir,
+            max_sec=max_sec,
+        )
+    except cdc_guard.ObserverError as exc:
+        raise ContractError(
+            "candidate-return ModemManager guard did not arm"
+        ) from exc
+    if (
+        guard.arm_receipt is None
+        or guard.arm_receipt.get("child_alive") is not True
+        or guard.max_sec != max_sec
+    ):
+        guard.release()
+        raise ContractError("candidate-return ModemManager guard lacks live receipt")
+    try:
+        write_private_json_exclusive(
+            transaction_dir / "candidate-return-modemmanager-guard-arm.json",
+            {
+                "schema": "a90_candidate_return_modemmanager_guard_arm_v1",
+                "max_sec": max_sec,
+                "receipt": guard.arm_receipt,
+            },
+        )
+    except Exception:
+        guard.release()
+        raise
+    return guard
+
+
+def release_candidate_return_modemmanager_guard(
+    guard: cdc_guard.ModemManagerGuard,
+    transaction_dir: Path,
+) -> dict[str, Any]:
+    release = guard.release()
+    write_private_json_exclusive(
+        transaction_dir / "candidate-return-modemmanager-guard-release.json",
+        release,
+    )
+    return release
+
+
+def require_returned_modemmanager_guard(
+    spec: F1Spec,
+    epoch: dict[str, Any],
+    guard: cdc_guard.ModemManagerGuard,
+) -> dict[str, Any]:
+    selected = Path(epoch["returned"]["selected_realpath"])
+    try:
+        resolved = selected.resolve(strict=True)
+        info = resolved.stat()
+        identity, endpoint = cdc_guard._resolve_endpoint(  # noqa: SLF001
+            staging.SYS_CLASS_TTY / selected.name
+        )
+        cdc_guard.validate_spec(guard.spec)
+    except (OSError, ValueError, cdc_guard.ObserverError) as exc:
+        raise ContractError(
+            "returned A90 ACM guard identity is unavailable"
+        ) from exc
+    expected_topology = f"usb:{endpoint.topology}"
+    if (
+        str(selected) != spec.stage.bridge_realpath
+        or not stat.S_ISCHR(info.st_mode)
+        or os.major(info.st_rdev) != endpoint.major
+        or os.minor(info.st_rdev) != endpoint.minor
+        or endpoint.tty_name != selected.name
+        or guard.topology != expected_topology
+        or identity.get("vendor") != guard.spec["usb_vendor_id"]
+        or identity.get("product") != guard.spec["usb_product_id"]
+        or identity.get("serial") != guard.spec["usb_serial"]
+        or identity.get("driver") != guard.spec["usb_driver"]
+        or identity.get("interface")
+        != guard.spec["usb_interface_number"]
+        or identity.get("vendor") != staging.HOST_NCM_VENDOR_ID
+        or identity.get("product") != staging.HOST_NCM_PRODUCT_ID
+        or identity.get("driver") != "cdc_acm"
+        or not guard.matches_node(endpoint.device_path)
+    ):
+        raise ContractError(
+            "returned A90 ACM lacks the exact ModemManager ignore guard"
+        )
+    return {
+        "exact_a90_acm_identity": True,
+        "exact_guard_properties": True,
+        "identity_sha256": endpoint.identity_sha256,
+        "guard_spec_sha256": cdc_guard.digest(guard.spec),
+        "guard_topology_sha256": hashlib.sha256(
+            endpoint.topology.encode("ascii")
+        ).hexdigest(),
+    }
+
+
 def _bound_bridge_serial_epoch(
     spec: F1Spec,
     bridge: dict[str, Any],
@@ -2596,8 +2785,16 @@ def classify_phase2_ssh_attempt(
             schema_lines == ["A90D3_MARKER"]
             and dropbear_lines == ["dropbear_started=1"]
         )
-    pid1_comm_init = _phase2_line_state(text, "pid1_comm", "init")
-    proc1_exe_init = _phase2_line_state(text, "proc1_exe", "/usr/sbin/init")
+    pid1_comm_init = (
+        None
+        if d3_marker is None
+        else _phase2_line_state(d3_marker, "pid1_comm", "init")
+    )
+    proc1_exe_init = (
+        None
+        if d3_marker is None
+        else _phase2_line_state(d3_marker, "proc1_exe", "/usr/sbin/init")
+    )
     ready_marker = sections["ready"] or ""
     failure_marker = sections["failure"] or ""
     terminal_signal = bool(ready_marker or failure_marker) or (
@@ -2732,8 +2929,22 @@ def _verify_candidate_after_return_epoch_once(
     before_handoff: dict[str, Any],
     *,
     phase: str,
+    return_guard: cdc_guard.ModemManagerGuard | None = None,
 ) -> dict[str, Any]:
     epoch = wait_for_new_bridge_serial_epoch(spec, args, before_handoff)
+    guard_evidence: dict[str, Any] | None = None
+    if return_guard is not None:
+        if not return_guard.healthy(recheck=True):
+            raise ContractError("candidate-return ModemManager guard was lost")
+        guard_evidence = require_returned_modemmanager_guard(
+            spec,
+            epoch,
+            return_guard,
+        )
+        if not return_guard.healthy(recheck=True):
+            raise ContractError(
+                "candidate-return ModemManager guard was lost before command"
+            )
     version = run_f1_cmd(args, ["version"])
     version_text = str(version.get("text") or "")
     expected_version_line = (
@@ -2761,7 +2972,7 @@ def _verify_candidate_after_return_epoch_once(
         is None
     ):
         raise ContractError("candidate return selftest is not fail=0")
-    return {
+    result = {
         "exact_bridge": True,
         "selected_realpath": epoch["returned"]["selected_realpath"],
         "return_epoch": epoch,
@@ -2771,6 +2982,9 @@ def _verify_candidate_after_return_epoch_once(
         "selftest": selftest,
         "device_command_sequences": 1,
     }
+    if guard_evidence is not None:
+        result["candidate_return_modemmanager_guard"] = guard_evidence
+    return result
 
 
 def wait_for_candidate_return(
@@ -2910,12 +3124,14 @@ def wait_for_candidate_return_attended_once(
     spec: F1Spec,
     args: argparse.Namespace,
     before_handoff: dict[str, Any],
+    return_guard: cdc_guard.ModemManagerGuard | None = None,
 ) -> dict[str, Any]:
     return _verify_candidate_after_return_epoch_once(
         spec,
         args,
         before_handoff,
         phase="attended-candidate-return",
+        return_guard=return_guard,
     )
 
 
@@ -2924,6 +3140,7 @@ def observe_attended_after_handoff(
     args: argparse.Namespace,
     transaction_dir: Path,
     pre_handoff: dict[str, Any],
+    return_guard: cdc_guard.ModemManagerGuard | None = None,
 ) -> dict[str, Any]:
     result: dict[str, Any] = {
         "proof": False,
@@ -2981,12 +3198,8 @@ def observe_attended_after_handoff(
                     spec,
                     args,
                     pre_handoff["return_epoch_before_handoff"],
+                    return_guard=return_guard,
                 )
-            )
-            result["retained_pmsg"] = collect_and_clear_retained_pmsg(
-                spec,
-                args,
-                transaction_dir,
             )
         except Exception as exc:  # noqa: BLE001 - recovery must resume later
             result["candidate_return_error"] = {
@@ -2994,6 +3207,44 @@ def observe_attended_after_handoff(
                 "message": str(exc),
             }
             result["proof"] = False
+        finally:
+            if return_guard is not None:
+                try:
+                    release = release_candidate_return_modemmanager_guard(
+                        return_guard,
+                        transaction_dir,
+                    )
+                except Exception as exc:  # noqa: BLE001 - preserve evidence
+                    release = {
+                        "schema": cdc_guard.GUARD_SCHEMA,
+                        "status": "release-evidence-failed",
+                        "released": False,
+                        "error_type": type(exc).__name__,
+                    }
+                result["candidate_return_modemmanager_guard_release"] = release
+                if release.get("released") is not True:
+                    result.pop("candidate_return", None)
+                    result["candidate_return_error"] = {
+                        "type": "ContractError",
+                        "message": (
+                            "candidate-return ModemManager guard did not "
+                            "release exactly"
+                        ),
+                    }
+                    result["proof"] = False
+        if "candidate_return" in result:
+            try:
+                result["retained_pmsg"] = collect_and_clear_retained_pmsg(
+                    spec,
+                    args,
+                    transaction_dir,
+                )
+            except Exception as exc:  # noqa: BLE001 - recovery resumes later
+                result["candidate_return_error"] = {
+                    "type": type(exc).__name__,
+                    "message": str(exc),
+                }
+                result["proof"] = False
     write_private_json_exclusive(transaction_dir / "observation.json", result)
     return result
 
@@ -4474,50 +4725,89 @@ def continue_attended_f1(
         "channel_before_handoff": channel_before_handoff,
         "return_epoch_before_handoff": return_epoch_before_handoff,
     }
-    append_record(
-        journal_dir,
-        "CANDIDATE_FLASHED",
-        "attended-pre-handoff-ready",
-        {
-            "attempt": attempt,
-            "handoff_intent": False,
-            "handoff_sent": False,
-            "source_exact": True,
-            "candidate_health_exact": True,
-            "host_ncm_rebound": True,
-            "pstore_clean_before_handoff": True,
-            "return_epoch_captured": True,
-        },
-        manifest_sha256=spec.stage.manifest_sha256,
-        run_id=spec.stage.run_id,
-    )
-    intent_timestamp = current_utc()
-    if intent_timestamp > handoff_deadline:
-        raise RuntimeError(
-            "attended window expired before durable handoff intent; "
-            "rollback only"
+    return_guard: cdc_guard.ModemManagerGuard | None = None
+    if spec.display_required:
+        return_guard = arm_candidate_return_modemmanager_guard(
+            spec,
+            args,
+            transaction_dir,
         )
-    append_record(
-        journal_dir,
-        "CANDIDATE_FLASHED",
-        "attended-handoff-started",
-        {
-            "handoff_attempt": 1,
-            "handoff_attempt_limit": spec.handoff_attempt_limit,
-            "handoff_argv_sha256": json_sha256(list(spec.handoff_command)),
-            "journal_fsync_completed_before_dispatch": True,
-            "candidate_replay": False,
-            "rollback_required": True,
-        },
-        manifest_sha256=spec.stage.manifest_sha256,
-        run_id=spec.stage.run_id,
-        timestamp_utc=intent_timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        pre_handoff["candidate_return_modemmanager_guard_arm"] = (
+            {
+                "max_sec": return_guard.max_sec,
+                "receipt": return_guard.arm_receipt,
+            }
+        )
+    try:
+        append_record(
+            journal_dir,
+            "CANDIDATE_FLASHED",
+            "attended-pre-handoff-ready",
+            {
+                "attempt": attempt,
+                "handoff_intent": False,
+                "handoff_sent": False,
+                "source_exact": True,
+                "candidate_health_exact": True,
+                "host_ncm_rebound": True,
+                "pstore_clean_before_handoff": True,
+                "return_epoch_captured": True,
+                "candidate_return_modemmanager_guard_armed": (
+                    return_guard is not None
+                ),
+            },
+            manifest_sha256=spec.stage.manifest_sha256,
+            run_id=spec.stage.run_id,
+        )
+        intent_timestamp = current_utc()
+        if intent_timestamp > handoff_deadline:
+            raise RuntimeError(
+                "attended window expired before durable handoff intent; "
+                "rollback only"
+            )
+        if return_guard is not None and not return_guard.healthy(recheck=True):
+            raise ContractError(
+                "candidate-return ModemManager guard was lost before intent"
+            )
+        append_record(
+            journal_dir,
+            "CANDIDATE_FLASHED",
+            "attended-handoff-started",
+            {
+                "handoff_attempt": 1,
+                "handoff_attempt_limit": spec.handoff_attempt_limit,
+                "handoff_argv_sha256": json_sha256(list(spec.handoff_command)),
+                "journal_fsync_completed_before_dispatch": True,
+                "candidate_replay": False,
+                "rollback_required": True,
+            },
+            manifest_sha256=spec.stage.manifest_sha256,
+            run_id=spec.stage.run_id,
+            timestamp_utc=intent_timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )
+        if return_guard is not None and not return_guard.healthy(recheck=True):
+            raise ContractError(
+                "candidate-return ModemManager guard was lost before dispatch"
+            )
+    except Exception:
+        if return_guard is not None:
+            try:
+                release_candidate_return_modemmanager_guard(
+                    return_guard,
+                    transaction_dir,
+                )
+            except Exception:  # noqa: BLE001 - preserve original failure
+                pass
+        raise
+    observe_kwargs = (
+        {} if return_guard is None else {"return_guard": return_guard}
     )
     observation = observe_attended_after_handoff(
         spec,
         args,
         transaction_dir,
         pre_handoff,
+        **observe_kwargs,
     )
     mechanical_display_proof = (
         spec.display_required
@@ -4943,6 +5233,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         "def candidate_failure_is_definite_pre_session(",
         "def rollback_pre_spawn_retry(",
         "def validate_handoff_timeout(",
+        "def require_returned_modemmanager_guard(",
         "def capture_bridge_serial_epoch(",
         "def wait_for_new_bridge_serial_epoch(",
         "def settle_observation_channel(",
@@ -4968,6 +5259,30 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
     for token in required_functions:
         if token not in source:
             issues.append(f"missing function: {token}")
+    for token in (
+        "CDC_GUARD_SIZE = 51304",
+        'CDC_GUARD_SHA256 = "a2536c44f8585cb41e58eab97c4bb97e4f957533139c847b49f55ef729f7586a"',
+    ):
+        if token not in source:
+            issues.append(f"ModemManager guard transitive binding missing: {token}")
+    local_closure_start = source.find("def verify_local_closure(")
+    local_closure_end = source.find(
+        "def exact_transaction_dir(",
+        local_closure_start + 1,
+    )
+    if local_closure_start < 0 or local_closure_end < 0:
+        issues.append("local closure source boundary is missing")
+    else:
+        local_closure = source[local_closure_start:local_closure_end]
+        for token in (
+            "Path(cdc_guard.__file__).resolve() != CDC_GUARD_PATH",
+            "expected_size=CDC_GUARD_SIZE",
+            "expected_sha256=CDC_GUARD_SHA256",
+        ):
+            if token not in local_closure:
+                issues.append(
+                    f"ModemManager guard local closure missing: {token}"
+                )
     approval_start = source.find("def approval_binding(")
     approval_end = source.find("\ndef approval_prepared_path(", approval_start + 1)
     if approval_start < 0 or approval_end < 0:
@@ -5271,6 +5586,52 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             issues.append(f"execute contract missing or out of order: {token}")
         else:
             cursor = position
+    guard_start = source.find(
+        "def _candidate_return_modemmanager_guard_inputs("
+    )
+    guard_end = source.find("def _bound_bridge_serial_epoch(", guard_start + 1)
+    if guard_start < 0 or guard_end < 0:
+        issues.append("candidate-return ModemManager guard boundary is missing")
+    else:
+        guard_source = source[guard_start:guard_end]
+        for token in (
+            "Path(spec.stage.bridge_realpath).resolve(strict=True)",
+            "stat.S_ISCHR(info.st_mode)",
+            "cdc_guard._resolve_endpoint(",
+            "os.major(info.st_rdev) != endpoint.major",
+            "os.minor(info.st_rdev) != endpoint.minor",
+            "identity.get(\"vendor\") != staging.HOST_NCM_VENDOR_ID",
+            "identity.get(\"product\") != staging.HOST_NCM_PRODUCT_ID",
+            'identity.get("driver") != "cdc_acm"',
+            "max_sec = math.ceil(",
+            "MODEMMANAGER_GUARD_POST_RETURN_COMMAND_COUNT",
+            "+ 2 * args.poll_interval",
+            "max_sec > cdc_guard.GUARD_MAX_SEC_LIMIT",
+            "cdc_guard.ModemManagerGuard.arm(",
+            "max_sec=max_sec",
+            '"candidate-return-modemmanager-guard-arm.json"',
+            '"candidate-return-modemmanager-guard-release.json"',
+            "def require_returned_modemmanager_guard(",
+            'identity.get("serial") != guard.spec["usb_serial"]',
+            'identity.get("driver") != guard.spec["usb_driver"]',
+            "guard.topology != expected_topology",
+            "guard.matches_node(endpoint.device_path)",
+        ):
+            if token not in guard_source:
+                issues.append(
+                    f"candidate-return ModemManager guard missing: {token}"
+                )
+        for forbidden in (
+            "systemctl",
+            "/etc/udev",
+            '"04e8"',
+            '"6860"',
+        ):
+            if forbidden in guard_source:
+                issues.append(
+                    "candidate-return ModemManager guard contains "
+                    f"unbound or persistent action: {forbidden}"
+                )
     ncm_start = source.find("def rebind_host_ncm_after_reenumeration(")
     pstore_parser_start = source.find("def _pstore_entry_names(", ncm_start + 1)
     if ncm_start < 0 or pstore_parser_start < 0:
@@ -5423,6 +5784,9 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         return_verify = source[return_verify_start:return_verify_end]
         return_ordered = (
             "wait_for_new_bridge_serial_epoch(",
+            "if return_guard is not None:",
+            "not return_guard.healthy(recheck=True)",
+            "require_returned_modemmanager_guard(",
             'run_f1_cmd(args, ["version"])',
             "version_lines != [expected_version_line]",
             'raise ContractError("candidate return native epoch identity is not exact")',
@@ -5445,6 +5809,10 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         if (
             return_verify.count('run_f1_cmd(args, ["version"])') != 1
             or return_verify.count('run_f1_cmd(args, ["selftest"])') != 1
+            or return_verify.count(
+                "not return_guard.healthy(recheck=True)"
+            )
+            != 2
             or "allow_error=True" in return_verify
             or re.search(r"^\s+while\b", return_verify, re.MULTILINE)
             is not None
@@ -5524,6 +5892,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             "run_handoff(spec, args)",
             "observe_ssh(spec, args)",
             "wait_for_candidate_return_attended_once(",
+            "release_candidate_return_modemmanager_guard(",
             "collect_and_clear_retained_pmsg(",
         )
         attended_observe_cursor = -1
@@ -5581,10 +5950,14 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             '"attended observation window expired before handoff"',
             '"attended-pre-handoff-failed"',
             '"candidate-boot-ready"',
+            "arm_candidate_return_modemmanager_guard(",
             '"attended-pre-handoff-ready"',
             "intent_timestamp = current_utc()",
             '"attended window expired before durable handoff intent; "',
+            '"candidate-return ModemManager guard was lost before intent"',
             '"attended-handoff-started"',
+            '"candidate-return ModemManager guard was lost before dispatch"',
+            'observe_kwargs = (',
             "observe_attended_after_handoff(",
             "open_display_visible_confirmation(",
             "invoke_rollback(",
@@ -5609,6 +5982,11 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             or dispatch_position <= intent_position
             or attended.count('"attended-handoff-started"') != 1
             or attended.count("observe_attended_after_handoff(") != 1
+            or attended.count(
+                "if return_guard is not None and not "
+                "return_guard.healthy(recheck=True):"
+            )
+            != 2
             or '"journal_fsync_completed_before_dispatch": True'
             not in attended[intent_position:dispatch_position]
         ):

@@ -59,6 +59,8 @@ ERROR_TYPE_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,127}")
 MAX_BANNER = 4096
 SETTLE_SEC = 0.250
 GUARD_ARM_SEC = 30.0
+GUARD_DEFAULT_MAX_SEC = 360
+GUARD_MAX_SEC_LIMIT = 3600
 GUARD_EXPIRED_EXIT = 3
 GUARD_UNCOMMANDED_EXIT = 4
 PKEXEC = "/usr/bin/pkexec"
@@ -532,7 +534,33 @@ def _guard_rule(spec: dict[str, str], topology: str) -> bytes:
     ).encode("ascii")
 
 
-def _guard_command(spec: dict[str, str], topology: str) -> list[str]:
+def _validate_guard_max_sec(value: int) -> int:
+    if (
+        type(value) is not int
+        or value < GUARD_DEFAULT_MAX_SEC
+        or value > GUARD_MAX_SEC_LIMIT
+    ):
+        raise ObserverError("udev guard lifetime is outside the reviewed bound")
+    return value
+
+
+def _guard_root_code(max_sec: int) -> str:
+    lifetime = _validate_guard_max_sec(max_sec)
+    if lifetime == GUARD_DEFAULT_MAX_SEC:
+        return ROOT_UDEV_GUARD_CODE
+    old = "MAX_SEC = 360.0"
+    replacement = f"MAX_SEC = {lifetime}.0"
+    if ROOT_UDEV_GUARD_CODE.count(old) != 1:
+        raise ObserverError("udev guard lifetime template is invalid")
+    return ROOT_UDEV_GUARD_CODE.replace(old, replacement)
+
+
+def _guard_command(
+    spec: dict[str, str],
+    topology: str,
+    *,
+    max_sec: int = GUARD_DEFAULT_MAX_SEC,
+) -> list[str]:
     payload = _guard_rule(spec, topology)
     payload_sha256 = hashlib.sha256(payload).hexdigest()
     return [
@@ -544,7 +572,7 @@ def _guard_command(spec: dict[str, str], topology: str) -> list[str]:
         "-I",
         "-B",
         "-c",
-        ROOT_UDEV_GUARD_CODE,
+        _guard_root_code(max_sec),
         base64.b64encode(payload).decode("ascii"),
         payload_sha256,
     ]
@@ -625,9 +653,12 @@ class ModemManagerGuard:
         self,
         spec: dict[str, str],
         topology: str,
+        *,
+        max_sec: int = GUARD_DEFAULT_MAX_SEC,
     ):
         self.spec = dict(spec)
         self.topology = topology
+        self.max_sec = _validate_guard_max_sec(max_sec)
         self.instance_sha256 = hashlib.sha256(os.urandom(32)).hexdigest()
         self.process: subprocess.Popen[bytes] | None = None
         self.arm_receipt: dict[str, Any] | None = None
@@ -638,12 +669,14 @@ class ModemManagerGuard:
         spec: dict[str, str],
         topology: str,
         evidence_dir: Path | None = None,
+        *,
+        max_sec: int = GUARD_DEFAULT_MAX_SEC,
     ):
         validate_spec(spec)
         topology_match = TOPOLOGY_RE.fullmatch(topology)
         if topology_match is None:
             raise ObserverError("prepared physical topology is invalid")
-        guard = cls(spec, topology)
+        guard = cls(spec, topology, max_sec=max_sec)
         spec_sha256 = digest(spec)
         topology_sha256 = hashlib.sha256(
             topology_match.group(1).encode()
@@ -651,7 +684,7 @@ class ModemManagerGuard:
         rule_sha256 = hashlib.sha256(_guard_rule(spec, topology)).hexdigest()
         try:
             process = subprocess.Popen(
-                _guard_command(spec, topology),
+                _guard_command(spec, topology, max_sec=guard.max_sec),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,

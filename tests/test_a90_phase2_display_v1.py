@@ -106,6 +106,12 @@ class A90Phase2DisplayV1Tests(unittest.TestCase):
         ):
             self.assertIn(f'"{stage}"', source)
         self.assertIn("KMS init stage=%s errno=%d error=%s", source)
+        self.assertIn("connector.props_ptr = (uintptr_t)connector_props", source)
+        self.assertIn(
+            "connector.prop_values_ptr = (uintptr_t)connector_prop_values",
+            source,
+        )
+        self.assertIn("connector.count_props", source)
 
     def test_presenter_root_scan_precedes_privilege_drop(self) -> None:
         source = PRESENTER.read_text(encoding="utf-8")

@@ -509,6 +509,8 @@ static int choose_output(int fd, struct a90_display_kms *kms) {
         struct drm_mode_get_connector connector;
         struct drm_mode_modeinfo *modes = NULL;
         uint32_t *connector_encoders = NULL;
+        uint32_t *connector_props = NULL;
+        uint64_t *connector_prop_values = NULL;
         uint32_t encoder_id;
         struct drm_mode_get_encoder encoder;
         int mode_index = -1;
@@ -530,28 +532,46 @@ static int choose_output(int fd, struct a90_display_kms *kms) {
                 connector.count_encoders,
                 sizeof(*connector_encoders));
         }
+        if (connector.count_props != 0U) {
+            connector_props = calloc(
+                connector.count_props,
+                sizeof(*connector_props));
+            connector_prop_values = calloc(
+                connector.count_props,
+                sizeof(*connector_prop_values));
+        }
         if ((connector.count_modes != 0U && modes == NULL) ||
             (connector.count_encoders != 0U &&
-             connector_encoders == NULL)) {
+             connector_encoders == NULL) ||
+            (connector.count_props != 0U &&
+             (connector_props == NULL || connector_prop_values == NULL))) {
             free(modes);
             free(connector_encoders);
+            free(connector_props);
+            free(connector_prop_values);
             errno = ENOMEM;
             break;
         }
         connector.modes_ptr = (uintptr_t)modes;
         connector.encoders_ptr = (uintptr_t)connector_encoders;
+        connector.props_ptr = (uintptr_t)connector_props;
+        connector.prop_values_ptr = (uintptr_t)connector_prop_values;
         if (drm_ioctl_retry(
                 fd,
                 DRM_IOCTL_MODE_GETCONNECTOR,
                 &connector) < 0) {
             free(modes);
             free(connector_encoders);
+            free(connector_props);
+            free(connector_prop_values);
             continue;
         }
         if (connector.connection != DRM_MODE_CONNECTED ||
             connector.count_modes == 0U) {
             free(modes);
             free(connector_encoders);
+            free(connector_props);
+            free(connector_prop_values);
             continue;
         }
         for (item = 0; item < connector.count_modes; ++item) {
@@ -586,6 +606,8 @@ static int choose_output(int fd, struct a90_display_kms *kms) {
         }
         free(modes);
         free(connector_encoders);
+        free(connector_props);
+        free(connector_prop_values);
         if (rc == 0) {
             break;
         }

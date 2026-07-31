@@ -39,6 +39,7 @@ def sample_stage() -> object:
         local_size=2147483648,
         remote_final="/mnt/sdext/a90/runtime/rootfs.img",
         remote_work="/mnt/sdext/a90/runtime/work.img",
+        bridge_realpath="/dev/null",
         bound_files=(
             sample_bound(
                 "target.connected_d0_result",
@@ -101,6 +102,7 @@ def sample_spec() -> object:
         display_gid=0,
         display_max_attempts=0,
         display_visible_text=(),
+        orchestrator_size=SOURCE.resolve().stat().st_size,
         orchestrator_sha256=f1.sha256_file(SOURCE.resolve()),
         recovery_serial_sha256=hashlib.sha256(b"recovery-target").hexdigest(),
         recovery_serial="recovery-target",
@@ -204,6 +206,8 @@ def framed_display_ssh(
         (
             f"{f1.DISPLAY_D3_BEGIN}\n",
             "A90D3_MARKER\n",
+            "pid1_comm=init\n",
+            "proc1_exe=/usr/sbin/init\n",
             "dropbear_started=1\n",
             f"{f1.DISPLAY_D3_END}\n",
             f"{f1.DISPLAY_RELEASE_BEGIN}\n",
@@ -1507,6 +1511,30 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                 self.assertEqual(mode, 0o600)
             finally:
                 f1.PRIVATE_RUN_BASE = old_base
+
+    def test_local_closure_transitively_pins_modemmanager_guard(self) -> None:
+        spec = sample_spec()
+        with (
+            mock.patch.object(f1.staging, "verify_local_closure"),
+            mock.patch.object(
+                f1.staging,
+                "require_regular_file",
+            ) as require_regular,
+            mock.patch.object(f1, "require_private_regular"),
+        ):
+            f1.verify_local_closure(spec)
+        self.assertIn(
+            mock.call(
+                f1.CDC_GUARD_PATH,
+                expected_size=f1.CDC_GUARD_SIZE,
+                expected_sha256=f1.CDC_GUARD_SHA256,
+            ),
+            require_regular.call_args_list,
+        )
+        self.assertEqual(
+            f1.sha256_file(f1.CDC_GUARD_PATH),
+            f1.CDC_GUARD_SHA256,
+        )
 
     def test_rollback_recovery_reopens_binding_without_second_token(self) -> None:
         spec = sample_spec()
@@ -3352,6 +3380,307 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         self.assertEqual(result["device_command_sequences"], 1)
         self.assertTrue(result["native_epoch_version_proven"])
 
+    def test_candidate_return_guard_is_exact_to_a90_acm_identity(self) -> None:
+        spec = attended_spec()
+        resolved = Path(spec.stage.bridge_realpath).resolve(strict=True)
+        info = resolved.stat()
+        identity = {
+            "vendor": f1.staging.HOST_NCM_VENDOR_ID,
+            "product": f1.staging.HOST_NCM_PRODUCT_ID,
+            "serial": "a90-test-serial",
+            "driver": "cdc_acm",
+            "interface": "02",
+        }
+        endpoint = types.SimpleNamespace(
+            major=os.major(info.st_rdev),
+            minor=os.minor(info.st_rdev),
+            topology="1-2.3",
+        )
+        with mock.patch.object(
+            f1.cdc_guard,
+            "_resolve_endpoint",
+            return_value=(identity, endpoint),
+        ) as resolve_endpoint:
+            guard_spec, topology = (
+                f1._candidate_return_modemmanager_guard_inputs(spec)
+            )
+        resolve_endpoint.assert_called_once_with(
+            f1.staging.SYS_CLASS_TTY / resolved.name
+        )
+        self.assertEqual(guard_spec["usb_vendor_id"], "04e8")
+        self.assertEqual(guard_spec["usb_product_id"], "6861")
+        self.assertEqual(guard_spec["usb_serial"], "a90-test-serial")
+        self.assertEqual(guard_spec["usb_driver"], "cdc_acm")
+        self.assertEqual(guard_spec["usb_interface_number"], "02")
+        self.assertEqual(topology, "usb:1-2.3")
+
+    def test_candidate_return_guard_lifetime_covers_complete_corridor(
+        self,
+    ) -> None:
+        spec = display_spec()
+        args = sample_args()
+        args.poll_interval = 3.0
+        guard_spec = {
+            "kind": f1.cdc_guard.KIND,
+            "usb_vendor_id": "04e8",
+            "usb_product_id": "6861",
+            "usb_serial": "a90-test-serial",
+            "usb_driver": "cdc_acm",
+            "usb_interface_number": "02",
+            "banner_hex": "00",
+        }
+        expected_max = f1.math.ceil(
+            spec.handoff_timeout
+            + spec.ssh_marker_timeout
+            + args.ssh_connect_timeout
+            + 10.0
+            + 2 * args.poll_interval
+            + spec.candidate_return_timeout
+            + f1.MODEMMANAGER_GUARD_POST_RETURN_COMMAND_COUNT
+            * args.remote_timeout
+            + f1.OBSERVATION_MENU_SETTLE_SEC
+            + f1.MODEMMANAGER_GUARD_MARGIN_SEC
+        )
+        guard = types.SimpleNamespace(
+            max_sec=expected_max,
+            arm_receipt={"status": "armed", "child_alive": True},
+            release=mock.Mock(),
+        )
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            transaction = Path(temp_dir)
+            with (
+                mock.patch.object(
+                    f1,
+                    "_candidate_return_modemmanager_guard_inputs",
+                    return_value=(guard_spec, "usb:1-2.3"),
+                ),
+                mock.patch.object(
+                    f1.cdc_guard.ModemManagerGuard,
+                    "arm",
+                    return_value=guard,
+                ) as arm,
+            ):
+                result = f1.arm_candidate_return_modemmanager_guard(
+                    spec,
+                    args,
+                    transaction,
+                )
+            self.assertIs(result, guard)
+            arm.assert_called_once_with(
+                guard_spec,
+                "usb:1-2.3",
+                transaction,
+                max_sec=expected_max,
+            )
+            receipt = json.loads(
+                (
+                    transaction
+                    / "candidate-return-modemmanager-guard-arm.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(receipt["max_sec"], expected_max)
+            self.assertEqual(receipt["receipt"], guard.arm_receipt)
+
+        spec.handoff_timeout = f1.cdc_guard.GUARD_MAX_SEC_LIMIT
+        with (
+            mock.patch.object(
+                f1,
+                "_candidate_return_modemmanager_guard_inputs",
+                return_value=(guard_spec, "usb:1-2.3"),
+            ),
+            mock.patch.object(
+                f1.cdc_guard.ModemManagerGuard,
+                "arm",
+            ) as rejected_arm,
+            self.assertRaisesRegex(f1.ContractError, "exceeds the reviewed"),
+        ):
+            f1.arm_candidate_return_modemmanager_guard(
+                spec,
+                args,
+                Path("/private/not-written"),
+            )
+        rejected_arm.assert_not_called()
+
+    def test_attended_return_requires_live_matching_guard_before_command(
+        self,
+    ) -> None:
+        spec = attended_spec()
+        version = {
+            "text": (
+                f"version: {spec.candidate_version} "
+                f"build={spec.candidate_build}\n"
+            )
+        }
+        selftest = {
+            "text": "selftest: pass=1 warn=0 fail=0 duration=1ms entries=1\n"
+        }
+        guard = mock.Mock()
+        guard.healthy.side_effect = (True, True)
+        guard_evidence = {
+            "exact_a90_acm_identity": True,
+            "exact_guard_properties": True,
+        }
+        with (
+            mock.patch.object(
+                f1,
+                "wait_for_new_bridge_serial_epoch",
+                return_value={
+                    "returned": {"selected_realpath": "/dev/ttyACM9"},
+                    "usb_serial_epoch_changed": True,
+                },
+            ),
+            mock.patch.object(
+                f1,
+                "settle_observation_channel",
+                return_value={"settled": True},
+            ),
+            mock.patch.object(
+                f1,
+                "run_f1_cmd",
+                side_effect=(version, selftest),
+            ) as command,
+            mock.patch.object(
+                f1,
+                "require_returned_modemmanager_guard",
+                return_value=guard_evidence,
+            ) as exact_guard,
+        ):
+            result = f1.wait_for_candidate_return_attended_once(
+                spec,
+                sample_args(),
+                sample_return_epoch(),
+                return_guard=guard,
+            )
+        self.assertEqual(guard.healthy.call_count, 2)
+        guard.healthy.assert_has_calls(
+            [mock.call(recheck=True), mock.call(recheck=True)]
+        )
+        exact_guard.assert_called_once_with(
+            spec,
+            {
+                "returned": {"selected_realpath": "/dev/ttyACM9"},
+                "usb_serial_epoch_changed": True,
+            },
+            guard,
+        )
+        self.assertEqual(command.call_count, 2)
+        self.assertTrue(result["native_epoch_version_proven"])
+        self.assertEqual(
+            result["candidate_return_modemmanager_guard"],
+            guard_evidence,
+        )
+
+        guard.healthy.reset_mock(side_effect=True)
+        guard.healthy.side_effect = (True, False)
+        with (
+            mock.patch.object(
+                f1,
+                "wait_for_new_bridge_serial_epoch",
+                return_value={
+                    "returned": {"selected_realpath": "/dev/ttyACM9"},
+                    "usb_serial_epoch_changed": True,
+                },
+            ),
+            mock.patch.object(
+                f1,
+                "require_returned_modemmanager_guard",
+                return_value=guard_evidence,
+            ),
+            mock.patch.object(f1, "run_f1_cmd") as rejected_command,
+            self.assertRaisesRegex(f1.ContractError, "before command"),
+        ):
+            f1.wait_for_candidate_return_attended_once(
+                spec,
+                sample_args(),
+                sample_return_epoch(),
+                return_guard=guard,
+            )
+        rejected_command.assert_not_called()
+
+        guard.healthy.reset_mock(side_effect=True)
+        guard.healthy.return_value = False
+        with (
+            mock.patch.object(
+                f1,
+                "wait_for_new_bridge_serial_epoch",
+                return_value={
+                    "returned": {"selected_realpath": "/dev/ttyACM9"},
+                    "usb_serial_epoch_changed": True,
+                },
+            ),
+            mock.patch.object(f1, "run_f1_cmd") as rejected_command,
+            self.assertRaisesRegex(f1.ContractError, "guard was lost"),
+        ):
+            f1.wait_for_candidate_return_attended_once(
+                spec,
+                sample_args(),
+                sample_return_epoch(),
+                return_guard=guard,
+            )
+        rejected_command.assert_not_called()
+
+    def test_returned_guard_revalidates_full_usb_identity(self) -> None:
+        spec = attended_spec()
+        selected = Path(spec.stage.bridge_realpath)
+        resolved = selected.resolve(strict=True)
+        info = resolved.stat()
+        identity = {
+            "tty_name": resolved.name,
+            "topology": "1-2.3",
+            "vendor": "04e8",
+            "product": "6861",
+            "serial": "a90-test-serial",
+            "interface": "02",
+            "driver": "cdc_acm",
+        }
+        endpoint = types.SimpleNamespace(
+            tty_name=resolved.name,
+            device_path=Path("/sys/devices/test/ttyACM0"),
+            topology="1-2.3",
+            identity_sha256=f1.cdc_guard.digest(identity),
+            major=os.major(info.st_rdev),
+            minor=os.minor(info.st_rdev),
+        )
+        guard = types.SimpleNamespace(
+            spec={
+                "kind": f1.cdc_guard.KIND,
+                "usb_vendor_id": "04e8",
+                "usb_product_id": "6861",
+                "usb_serial": "a90-test-serial",
+                "usb_driver": "cdc_acm",
+                "usb_interface_number": "02",
+                "banner_hex": "00",
+            },
+            topology="usb:1-2.3",
+            matches_node=mock.Mock(return_value=True),
+        )
+        epoch = {"returned": {"selected_realpath": str(selected)}}
+        with mock.patch.object(
+            f1.cdc_guard,
+            "_resolve_endpoint",
+            return_value=(identity, endpoint),
+        ):
+            evidence = f1.require_returned_modemmanager_guard(
+                spec,
+                epoch,
+                guard,
+            )
+        guard.matches_node.assert_called_once_with(endpoint.device_path)
+        self.assertTrue(evidence["exact_a90_acm_identity"])
+        self.assertTrue(evidence["exact_guard_properties"])
+
+        mismatched = dict(identity)
+        mismatched["serial"] = "different-a90"
+        with (
+            mock.patch.object(
+                f1.cdc_guard,
+                "_resolve_endpoint",
+                return_value=(mismatched, endpoint),
+            ),
+            self.assertRaisesRegex(f1.ContractError, "lacks the exact"),
+        ):
+            f1.require_returned_modemmanager_guard(spec, epoch, guard)
+
     def test_return_epoch_rejects_version_identity_as_substring_only(self) -> None:
         spec = attended_spec()
         forged = {
@@ -3419,6 +3748,128 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         candidate_return.assert_called_once()
         self.assertFalse(result["proof"])
         self.assertEqual(result["candidate_return"], {"returned": True})
+
+    def test_attended_observer_releases_return_guard_before_pmsg(self) -> None:
+        spec = attended_spec()
+        guard = mock.Mock()
+        release = {
+            "schema": f1.cdc_guard.GUARD_SCHEMA,
+            "status": "released",
+            "released": True,
+        }
+        order: list[str] = []
+
+        def release_guard(*_args: object) -> dict[str, object]:
+            order.append("release")
+            return release
+
+        def collect_pmsg(*_args: object) -> dict[str, object]:
+            order.append("pmsg")
+            return {"proof": True}
+
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            with (
+                mock.patch.object(
+                    f1,
+                    "run_handoff",
+                    return_value={"proof": True, "text": "handoff"},
+                ),
+                mock.patch.object(
+                    f1,
+                    "observe_ssh",
+                    return_value={"proof": True},
+                ),
+                mock.patch.object(
+                    f1,
+                    "wait_for_candidate_return_attended_once",
+                    return_value={"healthy": True},
+                ) as candidate_return,
+                mock.patch.object(
+                    f1,
+                    "release_candidate_return_modemmanager_guard",
+                    side_effect=release_guard,
+                ) as release_call,
+                mock.patch.object(
+                    f1,
+                    "collect_and_clear_retained_pmsg",
+                    side_effect=collect_pmsg,
+                ),
+            ):
+                result = f1.observe_attended_after_handoff(
+                    spec,
+                    sample_args(),
+                    Path(temp_dir),
+                    {
+                        "ready": True,
+                        "return_epoch_before_handoff": sample_return_epoch(),
+                    },
+                    return_guard=guard,
+                )
+        candidate_return.assert_called_once_with(
+            spec,
+            mock.ANY,
+            sample_return_epoch(),
+            return_guard=guard,
+        )
+        release_call.assert_called_once_with(guard, mock.ANY)
+        self.assertEqual(order, ["release", "pmsg"])
+        self.assertEqual(
+            result["candidate_return_modemmanager_guard_release"],
+            release,
+        )
+        self.assertIn("candidate_return", result)
+
+    def test_guard_release_failure_refuses_candidate_return(self) -> None:
+        spec = attended_spec()
+        guard = mock.Mock()
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            with (
+                mock.patch.object(
+                    f1,
+                    "run_handoff",
+                    return_value={"proof": True, "text": "handoff"},
+                ),
+                mock.patch.object(
+                    f1,
+                    "observe_ssh",
+                    return_value={"proof": True},
+                ),
+                mock.patch.object(
+                    f1,
+                    "wait_for_candidate_return_attended_once",
+                    return_value={"healthy": True},
+                ),
+                mock.patch.object(
+                    f1,
+                    "release_candidate_return_modemmanager_guard",
+                    return_value={
+                        "schema": f1.cdc_guard.GUARD_SCHEMA,
+                        "status": "guard-expired",
+                        "released": False,
+                    },
+                ),
+                mock.patch.object(
+                    f1,
+                    "collect_and_clear_retained_pmsg",
+                ) as collect_pmsg,
+            ):
+                result = f1.observe_attended_after_handoff(
+                    spec,
+                    sample_args(),
+                    Path(temp_dir),
+                    {
+                        "ready": True,
+                        "return_epoch_before_handoff": sample_return_epoch(),
+                    },
+                    return_guard=guard,
+                )
+        self.assertNotIn("candidate_return", result)
+        self.assertEqual(
+            result["candidate_return_error"]["type"],
+            "ContractError",
+        )
+        collect_pmsg.assert_not_called()
+        self.assertFalse(result["proof"])
 
     def test_attended_success_durably_records_one_handoff_before_dispatch(self) -> None:
         spec = attended_spec()
@@ -4034,6 +4485,38 @@ class DisplayObservationTests(unittest.TestCase):
         self.assertEqual(result["display_diagnostics_text"], diagnostics)
         self.assertEqual(result["observation_errors"], {})
 
+    def test_display_ssh_pid1_identity_is_scoped_to_d3_marker(self) -> None:
+        failure = (
+            "schema=a90-debian-display-v1-failure\n"
+            f"attempt={f1.PHASE2_DISPLAY_MAX_ATTEMPTS}\n"
+            "rc=1\n"
+        )
+        live_shape = framed_display_ssh(failure=failure)
+        result, terminal = f1.classify_phase2_ssh_attempt(
+            display_spec(),
+            returncode=0,
+            text=live_shape,
+        )
+
+        self.assertTrue(terminal)
+        self.assertTrue(result["pid1_comm_init"])
+        self.assertTrue(result["proc1_exe_init"])
+        spoofed = live_shape.replace(
+            f"{f1.DISPLAY_PRESENTER_LOG_BEGIN}\n",
+            f"{f1.DISPLAY_PRESENTER_LOG_BEGIN}\n"
+            "pid1_comm=not-init\n"
+            "proc1_exe=/not-init\n",
+            1,
+        )
+        result, terminal = f1.classify_phase2_ssh_attempt(
+            display_spec(),
+            returncode=0,
+            text=spoofed,
+        )
+        self.assertTrue(terminal)
+        self.assertTrue(result["pid1_comm_init"])
+        self.assertTrue(result["proc1_exe_init"])
+
     def test_presenter_log_cannot_spoof_observer_framing(self) -> None:
         failure = (
             "schema=a90-debian-display-v1-failure\n"
@@ -4394,6 +4877,15 @@ class DisplayObservationTests(unittest.TestCase):
                     transaction, prepared, attended = (
                         write_attended_candidate_state(base, spec)
                     )
+                    return_guard = types.SimpleNamespace(
+                        max_sec=2040,
+                        healthy=mock.Mock(side_effect=(True, True)),
+                        arm_receipt={
+                            "schema": f1.cdc_guard.GUARD_SCHEMA,
+                            "status": "armed",
+                            "child_alive": True,
+                        }
+                    )
                     args.transaction_dir = transaction
                     args.attended_approval = attended["continue_token"]
                     with (
@@ -4438,9 +4930,14 @@ class DisplayObservationTests(unittest.TestCase):
                         ),
                         mock.patch.object(
                             f1,
+                            "arm_candidate_return_modemmanager_guard",
+                            return_value=return_guard,
+                        ) as arm_guard,
+                        mock.patch.object(
+                            f1,
                             "observe_attended_after_handoff",
                             return_value=observation,
-                        ),
+                        ) as observe,
                         mock.patch.object(
                             f1,
                             "invoke_rollback",
@@ -4453,6 +4950,12 @@ class DisplayObservationTests(unittest.TestCase):
                         ) as close,
                     ):
                         result = f1.continue_attended_f1(spec, args)
+                    arm_guard.assert_called_once_with(spec, args, transaction)
+                    self.assertEqual(return_guard.healthy.call_count, 2)
+                    self.assertIs(
+                        observe.call_args.kwargs["return_guard"],
+                        return_guard,
+                    )
                     actions = [
                         item["action"]
                         for item in f1.read_journal(spec, transaction)

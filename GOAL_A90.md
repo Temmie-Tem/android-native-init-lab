@@ -22,10 +22,11 @@ transfer between the two files.
   one non-retried unlink, and post-cleanup health remained exact V2321.
 - A second connected D0 proved the final, stage, and work paths all absent,
   exact V2321 version/build, selftest `fail=0`, and pstore `entries=0`.
-- The V3406 `-03` final manifest and exclusive F1 approval receipt are now
-  prepared. They grant no live authority. Only the fresh exact approval token
-  bound to manifest `18157354582565ac7a0e43d3bc4b040cd43f4214b9c2e0b7e62a9facb74ffe35`
-  can authorize the one boot-only candidate attempt and mandatory rollback.
+- The V3406 `-03` F1 and attended approvals are consumed. One candidate and one
+  exact V2321 rollback transferred, final V2321 health passed, and the closed
+  result is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`.
+- No cleanup, F1, attended continuation, resident-baseline installation, or
+  other live approval exists.
 - Do not add a device step while host-only work can answer the selected
   question.
 
@@ -130,6 +131,52 @@ the real presenter failure or bounded-return miss and cannot retroactively
 promote the F1 result.
 
 `docs/reports/A90_V3406_PHASE2_DISPLAY_NO_PROOF_F1_CLOSED_2026-07-31.md`
+
+V3406 `-03` independently reproduced the Debian handoff and isolated both
+remaining failures. The handoff and SSH text contain real Debian
+`/usr/sbin/init` PID1 and Dropbear evidence, but the observer discarded the
+PID1 facts because the same exact lines appeared once in the D3 marker and once
+in the explicit SSH tail. The classifier now scopes PID1 parsing to the framed
+D3 marker.
+
+The presenter failed three times at `choose-connected-output` with `EFAULT`.
+It omitted the property-ID and property-value arrays required by the second
+`DRM_IOCTL_MODE_GETCONNECTOR` call. Those arrays are now allocated and bound;
+the corrected presenter passes static AArch64 cross-compilation.
+
+Host logs also prove the candidate did return at the USB layer. The A90 ACM
+and NCM interfaces re-enumerated, after which ModemManager injected AT probes
+into the ACM channel while NetworkManager selected a generic DHCP profile.
+The former explains the corrupted `cmdv1 versiATATAT` return frame; the latter
+explains the unstable NCM host path. A later operator cable reconnection is
+recovery context, not candidate-return proof. The exact rollback transferred
+once, rollback-only recovery repeated no transfer, and final V2321 health
+closed successfully.
+
+The physical cable-detach notification proves that the PC controller observed
+the operator detach; it does not by itself clear the cable, xHCI endpoint
+state, autosuspend, or host service ownership. Automatic A90 re-enumeration
+makes a total controller/cable loss less likely in this run. The concurrent
+ModemManager probe remains the direct frame-corruption cause supported by
+timestamps, while the xHCI warnings remain a secondary host-path risk.
+
+The attended display path now arms an exact, transient A90-only ModemManager
+udev exclusion before durable handoff intent. It verifies the ignore properties
+and full USB identity on the returned ACM generation, then rechecks guard
+liveness immediately before issuing the first native command. Its A90-specific
+lifetime covers the complete bounded handoff/SSH/return corridor while the
+shared default remains unchanged. It releases before retained-pmsg collection;
+absence, identity mismatch, expiry, or non-exact release refuses
+candidate-return proof. The exact helper is transitively SHA-bound by the
+orchestrator. The change does not stop a host service globally, persist a rule,
+touch a device, or grant a new live run.
+
+Independent safety review returned PASS with no remaining High, Medium, or Low
+finding after correction of guard lifetime, full returned-endpoint identity,
+pre-intent/pre-dispatch liveness, first-command liveness, and transitive helper
+binding. Focused observer, presenter, and guard tests pass `155/155`.
+
+`docs/reports/A90_V3406_03_HOST_INTERFERENCE_PRESENTER_EFAULT_H0_2026-07-31.md`
 
 Follow-up H0 analysis classified this as a recurring observation-pipeline
 problem rather than one regex bug. Current A90P1 handling still accepts
@@ -502,6 +549,7 @@ approval under `AGENTS.md`.
 - `docs/reports/A90_V3405_F1_RETAINED_PMSG_NCM_REBIND_H0_2026-07-31.md`
 - `docs/reports/A90_V3405_DEBIAN_PID1_F1_CLOSED_2026-07-31.md`
 - `docs/reports/A90_V3406_PHASE2_DISPLAY_NO_PROOF_F1_CLOSED_2026-07-31.md`
+- `docs/reports/A90_V3406_03_HOST_INTERFERENCE_PRESENTER_EFAULT_H0_2026-07-31.md`
 - `docs/reports/A90_HOST_OBSERVATION_PARSER_RECURRENCE_ANALYSIS_H0_2026-07-31.md`
 - `docs/reports/A90_OBSERVATION_PIPELINE_PHASE0_H0_2026-07-31.md`
 - `docs/reports/A90_V3404_BUILD_DETERMINISM_PHASE0_H0_2026-07-31.md`
