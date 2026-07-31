@@ -310,6 +310,26 @@ the next-preparation stop, and continues native return, exact cleanup, and
 final health after a Debian observation no-proof whenever return remains
 available. This remains H0 simulation only.
 
+The next H0 unit maps that model onto the reviewed implementation without
+activating it. The resident F1 path delegates the whole transaction to the
+existing resident-promotion runner and its existing approval, journal, and
+rollback owner; no new adapter may own individual flash phases. The D1 map
+names only existing primitives and the central observation pipeline. Immutable
+source binding is explicitly deferred to the later activation manifest.
+
+The audit closes `PASS_HOST_DESIGN_ONLY_LIVE_BLOCKED`. It deliberately leaves
+the D1 journal and one-shot approval consumer unbound. The retained-work
+cleanup helper remains blocked because its legacy separate approval cannot be
+reinterpreted as the proposed approval for one handoff plus same-run cleanup,
+and because its health contract is fixed to V2321 rather than the resident.
+The schema cannot set `live_ready`, publish a manifest, prepare an approval, or
+contact a device. Focused regression passed `124/124`; independent review
+returned PASS with no remaining Critical, High, Medium, or Low finding after
+the false dynamic-hash trust anchor was removed and the design was reduced to
+an honest route/symbol inventory. No activation unit is selected.
+
+`docs/reports/A90_TRANSITION_V2_ADAPTER_BLUEPRINT_H0_2026-08-01.md`
+
 ## Completed Bounded Unit: Phase 0 Build Determinism
 
 Phase 0 closed `A90_V3404_BUILD_DETERMINISM_PHASE0_HOST_PASS`. Two clean,

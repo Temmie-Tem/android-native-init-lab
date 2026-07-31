@@ -172,3 +172,47 @@ Critical, High, Medium, or Low finding. The review fault probes are retained as
 regressions for contradictory effect results, effect and intent exceptions,
 non-enum ambiguity, malformed observation evidence, recovery-tail failure
 preceded by ambiguity, and cross-invocation approval reuse.
+
+## H0 adapter ownership blueprint
+
+The next implementation remains a non-live audit. The flat route table in
+`a90_transition_manifest_v2.py` names public source paths and required
+top-level callables. The audit reads those files without importing legacy
+execution modules and checks only that the named symbols are present and not
+shadowed by duplicate top-level definitions. This is an inventory, not source
+identity or semantic proof. Immutable size/SHA256 binding belongs in the later
+activation manifest and its consumer. Importing either new module in a
+read-only disposable namespace must produce no write.
+
+F1 is not decomposed. `a90_resident_promotion_v1.py` remains the one whole
+transaction delegate, and `a90_v3403_f1_orchestrator.py` remains the approval,
+journal, transfer, and rollback owner. The adapter owns zero F1 phases.
+
+D1 is a route map only. Existing target health, transient guard, handoff,
+return, NCM rebind, and final-health primitives are marked as needing a D1
+adapter; central framing and decision plus the static successor gate are ready
+to adapt. No route contains flash, payload transfer, or a partition write.
+
+The fixed-path cleanup primitive is intentionally not activated. Its current
+helper consumes a separate legacy cleanup approval and verifies the V2321
+baseline, while the proposed D1 contract runs on the resident candidate and
+binds one fresh approval to one handoff and its same-run exact cleanup. Until
+one durable D1 journal owns atomic approval consumption, the resident identity,
+and that exact cleanup scope, the blueprint must retain all of:
+
+- `live_ready=false`;
+- unbound exact live target;
+- unbound D1 journal owner;
+- unbound D1 approval consumer; and
+- `D1_CLEANUP_APPROVAL_SCOPE_MISMATCH`; and
+- `D1_CLEANUP_BASELINE_IDENTITY_MISMATCH`.
+
+The only CLI mode is `--audit`. It creates no manifest file, approval receipt,
+private run directory, device command, flash, reboot, handoff, or cleanup. Its
+output fixes `source_identity_bound=false` and
+`IMMUTABLE_SOURCE_BINDING_DEFERRED_TO_ACTIVATION_MANIFEST`.
+
+Focused route, fault, promotion, guard, builder, and legacy-cleanup regression
+passes `124/124`. Independent review returned PASS with no remaining Critical,
+High, Medium, or Low finding after removal of the self-generated hash claim and
+reduction to the current declarative inventory.
