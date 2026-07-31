@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from typing import Any
 
 import s22plus_fyg8_p290_postbuild_linked_audit as inherited
 import s22plus_fyg8_p292_accept_to_resume as closure
@@ -37,6 +38,16 @@ SourceContractError = AuditError
 require_gnu_aarch64_tools = linked.require_gnu_aarch64_tools
 linked_table_storage_bytes = linked.linked_table_storage_bytes
 normalize_linked_table_storage = linked.normalize_linked_table_storage
+
+
+def audit_linked_validator(
+    disassembly: dict[str, str],
+    calls: dict[str, list[str]],
+    symbol_addresses: dict[str, int],
+) -> dict[str, Any]:
+    return linked.audit_linked_validator(
+        disassembly, calls, symbol_addresses
+    )
 
 
 def _configure() -> None:
