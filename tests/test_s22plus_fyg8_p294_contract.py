@@ -17,6 +17,7 @@ import s22plus_fyg8_p294_candidate_intent as intent  # noqa: E402
 import s22plus_fyg8_p294_identity_tiers as tiers  # noqa: E402
 import s22plus_fyg8_p294_pre_lto_qualification as pre_lto  # noqa: E402
 import s22plus_fyg8_p294_source_contract as p294  # noqa: E402
+import s22plus_fyg8_p294_telemetry_decoder as telemetry_decoder  # noqa: E402
 import s22plus_fyg8_p294_telemetry_model as model  # noqa: E402
 import s22plus_fyg8_p294_telemetry_spec as spec  # noqa: E402
 
@@ -25,6 +26,7 @@ class P294ContractTest(unittest.TestCase):
     def test_selector_and_retirement(self) -> None:
         selected = registry.select(p294.CONTRACT_ID, p294.PROFILE)
         self.assertEqual(selected.contract_id, p294.CONTRACT_ID)
+        self.assertIs(selected.decoder, telemetry_decoder)
         self.assertEqual(intent.parse_args([]).profile, p294.PROFILE)
         self.assertIn(p294.CONTRACT_ID, intent.candidate_contract_ids())
         self.assertNotIn(registry.P292_CONTRACT_ID, intent.candidate_contract_ids())

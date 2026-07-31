@@ -13,6 +13,7 @@ from typing import Any
 import s22plus_fyg8_p292_source_contract as inherited
 import s22plus_fyg8_p294_identity_tiers as identity
 import s22plus_fyg8_p294_telemetry_closure as closure
+import s22plus_fyg8_p294_telemetry_decoder as decoder
 import s22plus_fyg8_p294_telemetry_generator as generator
 import s22plus_fyg8_p294_telemetry_spec as spec
 
