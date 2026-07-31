@@ -13,8 +13,10 @@ SCRIPT_DIR = ROOT / "workspace/public/src/scripts/revalidation"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import s22plus_fyg8_p286_source_contracts as registry  # noqa: E402
+import s22plus_fyg8_p253_linked_audit as cfg_audit  # noqa: E402
 import s22plus_fyg8_p292_candidate_intent as intent  # noqa: E402
 import s22plus_fyg8_p292_identity_tiers as tiers  # noqa: E402
+import s22plus_fyg8_p292_linked_audit as linked  # noqa: E402
 import s22plus_fyg8_p292_pre_lto_qualification as pre_lto  # noqa: E402
 import s22plus_fyg8_p292_repair_model as model  # noqa: E402
 import s22plus_fyg8_p292_source_contract as p292  # noqa: E402
@@ -104,6 +106,24 @@ class P292ContractTest(unittest.TestCase):
             inherited.DEFAULT_LIFECYCLE_RESULT,
             previous_lifecycle,
         )
+
+    def test_linked_cfg_prunes_stack_check_noreturn_edge(self) -> None:
+        disassembly = "\n".join(
+            (
+                "  100: 94000000 bl 200 <__stack_chk_fail>",
+                "  104: d503201f nop",
+                "  108: d65f03c0 ret",
+            )
+        )
+        instructions = cfg_audit._instructions(disassembly)
+        successors = cfg_audit._successors(instructions)
+        self.assertEqual(successors[0x100], (0x104,))
+        corrected, calls = linked._prune_noreturn_successors(
+            instructions, successors
+        )
+        self.assertEqual(calls, (0x100,))
+        self.assertEqual(corrected[0x100], ())
+        self.assertEqual(corrected[0x104], (0x108,))
 
 
 if __name__ == "__main__":
