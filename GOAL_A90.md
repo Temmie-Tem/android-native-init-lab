@@ -122,6 +122,16 @@ promote the F1 result.
 
 `docs/reports/A90_V3406_PHASE2_DISPLAY_NO_PROOF_F1_CLOSED_2026-07-31.md`
 
+Follow-up H0 analysis classified this as a recurring observation-pipeline
+problem rather than one regex bug. Current A90P1 handling still accepts
+missing BEGIN, sequence mismatch, duplicate fields, and forged END plus prompt;
+the private corpus contains 76 framed evidence files and 18 mixed-line-ending
+cases but no receive-chunk timing records. The next unit must separate raw
+capture, transport codec, protocol frame, independent fact classifiers, and
+atomic decision before another live candidate is prepared.
+
+`docs/reports/A90_HOST_OBSERVATION_PARSER_RECURRENCE_ANALYSIS_H0_2026-07-31.md`
+
 ## Completed Bounded Unit: Phase 0 Build Determinism
 
 Phase 0 closed `A90_V3404_BUILD_DETERMINISM_PHASE0_HOST_PASS`. Two clean,
@@ -393,11 +403,13 @@ device action.
 
 `docs/reports/A90_PHASE2D_V3406_EXECUTION_CLOSURE_H0_2026-07-31.md`
 
-The next bounded unit is H0 incident closure, not another F1. Fix and
-independently review the CRLF observation parser, preserve and diagnose the
-presenter attempt-3 `rc=1`, and classify the bounded-return framing/deadline
-miss. Retained-work cleanup remains separate and must not precede evidence
-preservation.
+The next bounded unit is H0 observation-pipeline Phase 0, not another F1.
+Build the private corpus catalog and redacted replay fixtures, introduce the
+byte-preserving line codec and independent fact result, unify the duplicated
+native-release validator, and reject the current A90P1 malformed/spoof matrix.
+Preserve and diagnose presenter attempt-3 `rc=1` and bounded-return timing only
+after the evidence reader has this regression closure. Retained-work cleanup
+remains separate and must not precede evidence preservation.
 
 ## Later Phases
 
@@ -432,6 +444,7 @@ approval under `AGENTS.md`.
 - `docs/reports/A90_V3405_F1_RETAINED_PMSG_NCM_REBIND_H0_2026-07-31.md`
 - `docs/reports/A90_V3405_DEBIAN_PID1_F1_CLOSED_2026-07-31.md`
 - `docs/reports/A90_V3406_PHASE2_DISPLAY_NO_PROOF_F1_CLOSED_2026-07-31.md`
+- `docs/reports/A90_HOST_OBSERVATION_PARSER_RECURRENCE_ANALYSIS_H0_2026-07-31.md`
 - `docs/reports/A90_V3404_BUILD_DETERMINISM_PHASE0_H0_2026-07-31.md`
 - `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1_STOP_H0_2026-07-31.md`
 - `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1_SUCCESSOR_REPEATED_STOP_H0_2026-07-31.md`
