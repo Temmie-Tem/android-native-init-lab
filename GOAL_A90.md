@@ -279,10 +279,33 @@ the qualified host baseline for future versions. The 171-module Python
 mutation chain remains historical evidence and is not deleted. No V3406
 identity was created.
 
-Phase 2A is selected next as H0 only: inventory the carried kernel,
-native-init, and Debian rootfs display ownership surfaces, then write the
-DRM/KMS plus VT/session handoff contract. Do not change display code, create a
-candidate, or perform a device action in this inventory unit.
+Phase 2A closed `A90_PHASE2A_DRM_VTLESS_HANDOFF_CONTRACT_PASS`. The carried
+kernel has direct MSM DRM/KMS but no Linux VT, DRM fbdev emulation, DRM lease,
+or devtmpfs. The supported steady-state model is therefore one VT-less Debian
+direct-DRM session, not a VT/logind/fbcon handoff.
+
+The inventory also found a concrete native release gap. PID 1 opens KMS for
+the boot splash before it forks autohud; the ordinary DRM descriptor is not
+close-on-exec, no primary-KMS teardown API exists, and the D3 final scan
+excludes PID 1. A zero child-owner count does not prove that PID 1 released its
+DRM descriptor. The V3405 diagnostic Debian image contains no presenter or
+display service, which explains its expected black screen. Older D-public
+evidence proves Debian can acquire and present on this panel, but that helper
+ignores `SET_MASTER` failure and is not bound into the current rootfs.
+
+The exact native-release, all-process fd audit, VT-less Debian service,
+acquisition marker, and failure contracts are recorded in:
+
+`docs/reports/A90_PHASE2A_DRM_VTLESS_HANDOFF_CONTRACT_H0_2026-07-31.md`
+
+Phase 2B is selected as H0 source implementation only. Add explicit native PID1
+KMS teardown and `CLOEXEC`, audit PID 1 plus every other DRM fd before exec,
+harden a current-source Debian presenter to require master and clean partial
+state, and wire a minimal sysvinit display launcher independent of networking.
+Cross-compile and fault-test the complete closure, build only reproducible
+private host artifacts, and obtain independent safety review before any
+candidate identity is considered. Use the host schema `phase2-display-v1`;
+do not create V3406 identity, device authority, or a live step in Phase 2B.
 
 ## Later Phases
 
