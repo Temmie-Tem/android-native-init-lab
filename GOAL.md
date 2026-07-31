@@ -339,22 +339,22 @@ independent candidate-static checker. This strongly rejects a source/table
 validator mismatch, but does not cover runtime open/write return or retained
 writer/client state.
 
-Exact VFS source also rejects a successful-write-then-close-error client
-divergence: the procfs file operations have no `.flush`, and the checkpoint
-proc entry has no custom release. The kernel may return post-commit `-ESTALE`
-before advancing its in-kernel generation, but has no error return after that
-advance. A successful fallback would have left a replacement or later failure
-record; the retained progress generation 88 proves no fallback commit, not why
-it failed or did not return.
+Exact materialized source and byte-identical linked images close the writer-tail
+H0. After the final commit-CRC flush returns, the path has only a barrier,
+memory comparisons, possible pre-state `-ESTALE`, state stores, and return; no
+blocking call. The four-byte flush is one cache-line clean/invalidate plus
+`dsb sy`. Procfs has no custom flush/release, although cache-maintenance and
+generic VFS/fsnotify/close remain outside this proof. Non-return is narrowed to
+that corridor; returned post-commit `-ESTALE` plus fallback failure remains.
 
-P2.90 F1 is closed healthy/no-proof. One exact candidate and one exact Magisk
-rollback transferred with no replay. Its exact retained record again ends at
-valid generations 87 and 88; the immediately adjacent generation-89
-`(0x8f,item=1)` publication never reached its target-slot CRC clear. This
-rejects the P2.88 explanation that the first new coordinate was merely too far
-away. The remaining class is primary non-return after the generation-88
-durable commit, or a returned post-commit error followed by fallback
-error/non-return before the adjacent publication begins.
+P2.90 has no reusable child at generation 88. Every path reaching SUSPENDED has
+reaped its three possible children, and no watchdog child exists. A new child
+is rejected by the PID1-only writer, inherits stale copy-on-write generation,
+and breaks the single-writer slot protocol without a registered observer ABI.
+
+P2.90 F1 remains closed healthy/no-proof with one candidate, one rollback, and
+no replay. Its valid generations 87/88 and absent adjacent generation 89 leave
+primary non-return or returned post-commit error plus fallback error/non-return.
 
 The P2.90 runtime implementation repairs the contract before another F1. It
 inserts `(0x8f,item=1..4)` immediately after the accepted generation-88
@@ -467,15 +467,9 @@ corrected A/B pair then matched.
   passed, distinguishes the historical eight-gate plan from the exact
   twelve-gate candidate, and refutes durable publication dominance: only an
   attempted fallback precedes 14 of the 16 inherited park sites.
-- P2.90 predesign H0 rejects a generation-89 post-commit error from the exact
-  unchanged slot-1 CRC evidence and proves runtime helper dispatch constructs
-  the declared `(0x90,0)` request.
-- P2.90 implements checked primary/fallback publication routing, explicitly
-  isolates the one-channel persistent-failure sink, and places four adjacent
-  `0x8f` coordinates before the inherited helper-dispatch position.
-- P2.90 host validation accounts for all 16 historical parks, compiles two
-  byte-identical static AArch64 userspace links, and exhaustively checks
-  `7,077,888` validator inputs with exactly 107 accepted pairs.
+- P2.90 places adjacent `0x8f` coordinates, accounts for all historical parks,
+  proves the `(0x90,0)` request construction, links byte-identical userspace,
+  and exhaustively accepts exactly 107 of `7,077,888` validator inputs.
 - P2.90 completed one candidate and one exact rollback with no replay and final
   health pass. Its retained state still ends at generation 88, proving the
   adjacent generation-89 publication did not begin and localizing the stop to
@@ -483,6 +477,9 @@ corrected A/B pair then matched.
 - P2.90 materialized-kernel H0 refutes using the historical runtime-checkpoint
   patch to infer rejection: linked P2.90 tables accept `(0x8f,item=1)`, and
   retained generation 88 is outcome `PROGRESS`, so it did not terminal-lock.
+- P2.90 post-commit/child H0 finds no blocking call after the linked writer's
+  final flush returns and no child alive at generation 88. A viable observer
+  requires a registered phase-aware kernel ABI and single-writer takeover.
 - Exact source rejects treating a parent-PM sign or PHY flag as electrical
   proof; swallowed clock errors remain non-proof.
 - Process v2 common D0/F1 execution, regular-path boot-only Odin transport,
@@ -569,6 +566,7 @@ Load-bearing current reports:
 - `docs/reports/S22PLUS_FYG8_P288_PAIR_ATTRIBUTABLE_RESTART_F1_CLOSED_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P288_GEN88_TO_GEN89_CORRIDOR_AND_RESET_REASON_H0_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P288_NO_SILENT_PARK_AND_LINKED_VALIDATOR_H0_2026-07-30.md`
+- `docs/reports/S22PLUS_FYG8_P290_POST_COMMIT_TAIL_AND_CHILD_OBSERVER_H0_2026-07-31.md`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 
@@ -723,10 +721,11 @@ operations before the asserted publication boundaries.
    rebuild them.
 3. Preserve the P2.90 live attribution: generation 88 committed, while the
    immediately adjacent generation 89 did not begin its target-slot mutation.
-4. Audit the exact post-commit tail of the generation-88 retained writer and
-   its procfs/VFS return path before selecting another successor.
-5. Distinguish primary non-return from returned errno plus fallback failure
-   without relying on the same retained channel as its sole witness.
+4. Design and fault-test a dedicated observer before selecting a successor:
+   pre-suspend child handshake, phase-aware IPC, registered child authority,
+   kernel-derived generation, and single-writer-safe commit takeover.
+5. Keep ordinary and observer sequences, kernel/client validators, decoder,
+   and linked exhaustive proof generated from one source of truth.
 6. Keep CDC-ACM `endpoint-timeout` as downstream corroboration only.
 7. No new S22+ device action or F1 request is permitted by the closed P2.90
    unit. A successor requires fresh H0 design, identity, A/B, manifest, D0, and
