@@ -80,6 +80,13 @@ its fresh userspace audit could not resolve `aarch64-linux-gnu-nm` from PATH.
 No promotion was invoked. The pinned private GNU tool exists, so this is an
 execution-environment preflight omission, not a candidate-byte failure; the
 explicit stop-on-failure condition nevertheless ends this scoped re-entry.
+An H0 static-environment guard now closes that omission without consuming a
+new attempt. It derives the nested userspace basename inventory from the
+frozen source, resolves all eight required tools from the pinned environment,
+matches GNU `nm`/`objdump`, host `cc`, and QEMU to passing baseline receipts,
+and passes a two-build byte-identical AArch64 compile/ELF/strip/QEMU smoke.
+This proof reports `static_attempt_started=false` and grants no retry,
+promotion, manifest, D0, or F1 authority.
 
 The four formal Process-v2 verdicts remain
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: rollback and health evidence are

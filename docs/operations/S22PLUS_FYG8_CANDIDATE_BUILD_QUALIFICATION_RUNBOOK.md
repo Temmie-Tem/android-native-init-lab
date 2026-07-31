@@ -175,6 +175,23 @@ qualification-file receipt before trusting its embedded implementation
 receipts. A failure is a pre-session host stop, not permission to regenerate
 the frozen qualification, weaken the comparison, or retry promotion.
 
+Before consuming any separately authorized P2.92 static-attempt budget, also
+run:
+
+```bash
+PYTHONPATH=workspace/public/src/scripts/revalidation \
+python3 workspace/public/src/scripts/revalidation/\
+s22plus_fyg8_p292_static_environment_guard.py
+```
+
+Require exact verdict `PASS_P292_STATIC_ENVIRONMENT_CLOSURE_HOST_ONLY`, the
+frozen guard's `51/50/0` counts, eight resolved tools, matching baseline
+receipts, a byte-identical AArch64 smoke with QEMU exit zero, and
+`static_attempt_started=false`. Use the exact `PATH` and `LD_LIBRARY_PATH`
+reported by this guard for the later authorized static process. Passing this
+guard is H0 preparation only; it does not create or replenish a static,
+promotion, D0, or F1 attempt budget.
+
 ## Build record before preflight
 
 Create one private run directory and record these values before build A:

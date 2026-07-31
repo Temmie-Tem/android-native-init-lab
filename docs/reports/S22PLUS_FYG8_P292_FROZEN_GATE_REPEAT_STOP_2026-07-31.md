@@ -97,3 +97,28 @@ from the attempted process PATH. A post-failure guard rerun still passes with
 zero changes, so no candidate or qualification byte moved. The policy's
 explicit stop-on-new-failure clause prohibits retrying this attempt or
 starting promotion.
+
+## Static-environment recurrence control
+
+The host-only `s22plus_fyg8_p292_static_environment_guard.py` now verifies the
+complete nested tool-resolution surface before a future bounded attempt. It
+first reruns the exact frozen-qualification guard. It then derives the six
+userspace basenames from the frozen userspace builder, adds the linked
+`aarch64-linux-gnu-objdump` and host `cc` consumers, and requires all eight
+names to resolve from one explicit pinned environment.
+
+The guard binds final GNU `nm` and `objdump` plus host `cc` to the passing
+postbuild receipt and QEMU to the passing static receipt. It executes every
+tool's version probe and a real two-build AArch64 smoke using the same
+compiler-environment stripping as the nested userspace audit. The smoke proves
+byte-identical static ELF output, `file`/`readelf`/`nm`/`objdump` acceptance,
+strip, and QEMU exit zero.
+
+Five focused tests cover the source-derived basename inventory, exact
+resolution, missing `nm`, a pinned-name escape, and a baseline-receipt
+mismatch. The actual build host passes with frozen implementation `51/51`,
+unique files `50/50`, zero changes, eight resolved tools, and a 504-byte
+byte-identical smoke binary. Its safety result explicitly records
+`static_attempt_started=false`, `promotion_started=false`, and no D0/F1
+authority. This closes the PATH recurrence mechanism but does not authorize a
+second static attempt.
