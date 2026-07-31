@@ -287,6 +287,14 @@ def _e2_authority_context(source_contract_id: str | None, closure_api: Any):
 def _latest_stage_terminal(selected_decoder, profile: str) -> int:
     terminal = getattr(selected_decoder, "TERMINAL_STAGE", None)
     if terminal is None:
+        position = getattr(selected_decoder, "TERMINAL_POSITION", None)
+        if (
+            isinstance(position, tuple)
+            and len(position) == 2
+            and type(position[0]) is int
+        ):
+            terminal = position[0]
+    if terminal is None:
         terminal = selected_decoder.model.PROFILE_TERMINALS.get(profile)
     if (
         isinstance(terminal, bool)
