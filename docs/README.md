@@ -1,9 +1,10 @@
 # Android Native Init Lab - 현재 문서 인덱스
 
 이 문서 트리는 Galaxy A90 5G와 Galaxy S22+ 타깃을 함께 다룹니다.
-현재 프론티어와 다음 bounded unit은 `../GOAL.md`, 절대 안전 경계는
-`../AGENTS.md`를 먼저 확인합니다. 이하 기기별 문서와 역사적 보고서의
-`A90`/`S22PLUS` 이름은 의도적으로 유지합니다.
+현재 프론티어와 다음 bounded unit은 S22+의 경우 `../GOAL.md`, A90의
+경우 `../GOAL_A90.md`, 절대 안전 경계는 `../AGENTS.md`를 먼저
+확인합니다. 이하 기기별 문서와 역사적 보고서의 `A90`/`S22PLUS`
+이름은 의도적으로 유지합니다.
 
 공통 연구 중심은 **Android vendor kernel 위에서 custom static `/init`를
 실행해 작은 native userspace/runtime을 만드는 작업**입니다.

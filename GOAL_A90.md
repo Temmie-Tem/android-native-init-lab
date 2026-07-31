@@ -1,0 +1,239 @@
+# Goal: A90 native bridge to Debian runtime
+
+Build the Galaxy A90 5G into a Debian-oriented system in which native-init
+performs only the vendor-kernel and hardware bridge-up that Debian cannot yet
+perform, then hands PID 1 and the runtime to the SD-backed Debian root with
+`switch_root`.
+
+`AGENTS.md` is the binding operating contract. This file is the active A90
+objective. `GOAL.md` is the separate S22+ objective. Target evidence,
+artifacts, approvals, transports, rollback identities, and health checks never
+transfer between the two files.
+
+## Current Authority
+
+- This is an H0 planning and implementation line.
+- No A90 F1 or other live-device action is currently authorized.
+- All V3402 through V3405 live approvals and attended continuations are
+  consumed and non-reusable.
+- Exact V2321 health was restored after V3405.
+- Do not add a device step while host-only work can answer the selected
+  question.
+
+## Final Architecture
+
+The intended steady-state boot is:
+
+```text
+vendor boot chain and source-matched kernel
+-> minimal native-init hardware bridge-up
+-> immutable SD work-root verification
+-> strict native display and service release
+-> switch_root
+-> Debian init as PID 1
+-> Debian-owned services, networking, display, storage, and applications
+```
+
+Native-init is not the intended long-running product environment. It is the
+early hardware-enablement and recovery bridge. Code may move out of native-init
+only after a Debian-side consumer proves that it can own the same function and
+the rollback/recovery contract remains intact.
+
+## Proven Frontier
+
+V3405 run `a90-v3405-debian-f1-20260731-01` is closed healthy/no-proof with:
+
+- one checked boot-only candidate transfer;
+- one exact V2321 rollback transfer;
+- no candidate replay;
+- one handoff;
+- final exact V2321 health;
+- no non-boot partition or internal-userdata action; and
+- no command sent to the separately connected S22+.
+
+The run directly proves this mechanism-level path:
+
+```text
+native-init strict display release
+-> immutable work-copy handoff
+-> switch_root
+-> Debian sysvinit PID 1
+-> USB-local Dropbear observation
+-> no-sync supervisor return to healthy native-init
+```
+
+The live SSH evidence includes `pid1_comm=init`, a Debian init executable,
+`dropbear_started=1`, and the Debian marker. This is a `switch_root` proof, not
+a chroot inference.
+
+Display release is also affirmative: both modeled presenter services stopped,
+two remaining owners were killed, and the authoritative scan found zero
+non-preserved owners before `switch_root`. The V3405 diagnostic Debian image
+did not start a DRM/KMS presenter. Its black screen is therefore expected;
+Debian display acquisition remains unimplemented and untested.
+
+The no-sync supervisor bypassed V3404's global-`sync` return failure and
+returned to the healthy native candidate. The original global-sync stall
+remains supported but not proven as a kernel writeback diagnosis.
+
+## Formal Result Boundary
+
+V3405 remains formally:
+
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`
+
+The first candidate-return channel check lost the `A90P1 END` frame. The
+observer collected retained pmsg only after that check, so retained-pmsg
+closure was not reached. The Debian PID1, Dropbear, display-release, and
+healthy-return subproofs remain valid, but they do not promote the atomic F1
+result to PASS.
+
+Return-channel framing and retained-pmsg collection ordering are a separate H0
+observer unit. They are not part of the selected build-determinism unit below.
+
+## Selected Bounded Unit: Phase 0 Build Determinism
+
+### Question
+
+Can the latest effective A90 native-init boot builder produce byte-identical
+artifacts twice from the same pinned inputs, without changing native-init C
+source or overwriting the accepted V3404 artifact?
+
+### Scope
+
+The selected entrypoint is:
+
+`workspace/public/src/scripts/revalidation/build_native_init_boot_v3404_d3_resolved_owner_timeout.py`
+
+The accepted V3404 boot SHA256 remains the immutable reference recorded in:
+
+`docs/reports/NATIVE_INIT_V3404_D3_RESOLVED_OWNER_TIMEOUT_SOURCE_BUILD_2026-07-31.md`
+
+This unit may change only host-side build orchestration, a versioned
+determinism helper, focused tests, and its H0 report. Native-init C, helper C,
+the accepted private boot image, live manifests, runners, rollback artifacts,
+and device state are out of scope.
+
+### Design
+
+1. Resolve and record the complete effective builder/import chain and every
+   byte-affecting input before editing.
+2. Hash the selected native-init and helper source closure and require those
+   hashes to remain unchanged throughout the unit.
+3. Audit archive order, cpio metadata, compiler timestamps/build IDs/random
+   seeds, `mkbootimg` arguments, padding, inherited absolute paths, locale, and
+   environment inputs.
+4. Add the smallest versioned host helper and focused test needed to normalize
+   only evidenced nondeterministic inputs.
+5. Build in two fresh isolated private output roots. Never reuse or overwrite
+   the canonical V3404 output path.
+6. Compare the boot image, ramdisk cpio, init ELF, helper ELF, engine ELF, and
+   normalized manifest byte-for-byte and by SHA256.
+7. Preserve two identities when normalization changes bytes:
+   - the accepted V3404 reference identity, which remains historical and
+     untouched; and
+   - the first reproducible profile identity, accepted only after two clean
+     builds match.
+8. Record toolchain versions, complete fixed arguments, input hashes, both
+   build receipts, and the resulting golden hashes in one H0 report.
+
+### Static Validation
+
+- focused determinism tests pass;
+- touched Python passes `py_compile`;
+- both isolated builds complete from the same pinned inputs;
+- all declared output pairs are byte-identical;
+- native-init and helper source hashes are unchanged;
+- the accepted V3404 private artifact is unchanged;
+- tracked diffs contain no private identifiers or compiled payloads; and
+- `git diff --check` passes.
+
+### Phase 0 Success
+
+Phase 0 closes only when an independent rerun on a qualified host can use the
+same pinned inputs and versioned procedure to obtain the documented
+reproducible profile hashes. A single successful build, equal ELF semantics,
+or a report that omits one byte-affecting input is not enough.
+
+### Phase 0 Stops
+
+Stop and report without repairing when:
+
+- a selected native-init or helper source byte changes;
+- the accepted V3404 artifact would be overwritten or rebound;
+- an input is missing, mutable, unpinned, or silently taken from a legacy
+  fallback;
+- either clean build differs and the difference cannot be fully attributed
+  within this bounded unit;
+- a fix would alter candidate runtime behavior rather than build metadata;
+- private material would enter a tracked diff; or
+- any device, network-to-device, reboot, staging, flash, or live approval step
+  becomes necessary.
+
+## Later Phases
+
+Phase 1 flattens the measured inherited builder/import chain into one
+versioned, reviewable snapshot. The flat builder must reproduce the Phase 0
+golden identity before the inherited chain can be retired.
+
+Phase 2 gives Debian explicit DRM/KMS ownership after `switch_root`: inventory
+the carried kernel interfaces, define the Debian presenter and VT/session
+contract, and prove acquisition without reintroducing a native display owner.
+
+Phase 3 moves networking, Dropbear/SSH policy, logging, health reporting,
+storage lifecycle, and application supervision to Debian one function at a
+time. Native-init retains only functions Debian has not yet proven.
+
+Phase 4 minimizes native-init to hardware bridge-up, immutable handoff,
+bounded recovery, and diagnostics. Production stability work follows the
+proved dependency order rather than deleting code by size alone.
+
+No later phase creates live authority. Each device rung still requires its own
+fresh tier classification, preflight, immutable identity, recovery path, and
+approval under `AGENTS.md`.
+
+## Evidence to Preserve
+
+- `docs/reports/A90_DEBIAN_REACTIVATION_F1_CLOSED_2026-07-30.md`
+- `docs/reports/NATIVE_INIT_V3403_D3_IMMUTABLE_HANDOFF_H0_CLOSURE_2026-07-30.md`
+- `docs/reports/NATIVE_INIT_V3404_D3_RESOLVED_OWNER_TIMEOUT_SOURCE_BUILD_2026-07-31.md`
+- `docs/reports/A90_V3404_D3_SWITCHROOT_NO_PROOF_F1_CLOSED_2026-07-31.md`
+- `docs/reports/A90_V3404_D3_WORK_COPY_POSTMORTEM_DEBIAN_PID1_PROVEN_2026-07-31.md`
+- `docs/reports/A90_V3405_D3_SYNC_DECISION_SUPERVISOR_H0_2026-07-31.md`
+- `docs/reports/A90_V3405_F1_RETAINED_PMSG_NCM_REBIND_H0_2026-07-31.md`
+- `docs/reports/A90_V3405_DEBIAN_PID1_F1_CLOSED_2026-07-31.md`
+
+Private journals, structured results, raw logs, work-image evidence, approval
+receipts, and exact rollback identity remain under `workspace/private/`.
+Tracked goal text must not copy their target identifiers, addresses,
+credentials, or device-specific private paths.
+
+## Process
+
+For each A90 bounded unit:
+
+`STATE -> SELECT -> DESIGN -> IMPLEMENT -> STATIC VALIDATE -> DEVICE -> REPORT -> COMMIT`
+
+Omit `DEVICE` for H0. Use scoped staging, preserve immutable inputs after
+intent, and never repeat a proven device transition because reporting failed.
+
+## Goal Success Conditions
+
+The A90 goal is complete only when:
+
+- Debian becomes PID 1 by `switch_root` on a reproducible immutable image;
+- Debian owns the intended steady-state services and display;
+- native-init has a small, documented hardware-bridge and recovery surface;
+- every retained native function has a named unproved Debian dependency;
+- bounded observation and exact rollback remain available; and
+- repeated boot/return and failure-injection evidence supports personal
+  production use without broadening partition authority.
+
+## Goal Stop Conditions
+
+- A permanent boundary in `AGENTS.md` would need to change.
+- A90 target, rollback, recovery, or health identity is ambiguous.
+- Work would reuse a consumed run, approval, or attended continuation.
+- A failure would require candidate replay or a non-boot write.
+- The S22+ evidence line or tooling would be treated as A90 proof.
+- Three consecutive units add only policy or review with no tested behavior.

@@ -1,8 +1,9 @@
 # AGENTS.md - active operating contract
 
 This is the binding contract for agents working in this repository. `GOAL.md`
-defines the current objective. Historical policies under `docs/archive/` are
-evidence only and grant no device authority, even if their text says `ACTIVE`.
+defines the current S22+ objective and `GOAL_A90.md` defines the current A90
+objective. Historical policies under `docs/archive/` are evidence only and
+grant no device authority, even if their text says `ACTIVE`.
 
 The default work cycle is:
 
@@ -13,40 +14,14 @@ Do not add a device step when host-only work can answer the question.
 ## Current Live Posture
 
 - No S22+ F1 live run is currently authorized.
-- No A90 F1 live run is currently authorized. V3403 run
-  `a90-v3403-debian-f1-20260731-01` staged its unique rootfs and completed one
-  candidate and one exact V2321 rollback transfer with no replay. V3403 booted,
-  but automatic-menu interleaving removed the version frame END before
-  selftest; source preflight, handoff, and `switch_root` were not attempted.
-  After one low-risk menu hide, health-only recovery closed
-  `ABORTED_F1_V2_CANDIDATE_UNCERTAIN_ROLLED_BACK` with exact V2321 health.
-- The future-only A90 successor is the H0 implementation in
-  `docs/operations/A90_F1_ATTENDED_OBSERVATION_V1.md`: a predeclared bounded
-  operator-attended pre-handoff window, at most three health/channel attempts,
-  exactly one handoff, and unchanged mandatory rollback. Runner/schema
-  implementation, focused tests, and independent review passed. Fresh run
-  `a90-v3403-debian-f1-20260731-02` consumed one exact approval but its staging
-  child rejected the receipt before NCM, bridge, or device contact because the
-  staging-side binding omitted the attended `900/3/1` fields. Candidate and
-  rollback counts are `0/0`; the run is closed and non-reusable. The H0 repair
-  now makes staging and the orchestrator share one canonical approval-binding
-  builder. Related `157/157`, `py_compile`, and independent re-review passed.
-  Fresh successor `a90-v3403-debian-f1-20260731-03` now binds a new-inode
-  rootfs/key, exact V2321 D0, three-path absence, topology-bound NCM, and a
-  zero-issue final manifest. One exact approval and attended continuation were
-  consumed. Staging, candidate boot, and the first pre-handoff attempt passed.
-  The single handoff stopped before storage or `switch_root`: one DRM-owner stop timed out `-EBUSY`, while the immediately following authoritative
-  rescan proved zero remaining owners. The source
-  stayed byte-identical. Candidate and exact rollback transfers are `1/1` with
-  no replay; health-only recovery after one corrupted post-rollback `hide`
-  frame closed `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` with exact V2321 health
-  and the canonical eight-event timeline. The run and approvals are
-  non-reusable. H0 successor V3404 defers only strict-D3 per-owner `-EBUSY` to
-  a successful zero-owner rescan; service, scan, other-owner, D4, and nonzero
-  owner results remain fatal. Focused `16/16`, cross-build/package audit, and
-  independent review pass. The reviewed reusable staging adapter accepts only
-  exact cycle-bound V3403/V3404 IDs, rejects cross-cycle final paths, and leaves
-  the orchestrator unchanged. No A90 live authority exists; neither successor applies retroactively.
+- No A90 F1 live run is currently authorized. V3405 is closed
+  `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` with candidate/rollback `1/1`, no
+  replay, one handoff, exact V2321 final health, and no reusable approval.
+  Its live subproofs establish strict native display release, `switch_root`,
+  Debian sysvinit PID 1, Dropbear, and no-sync return to healthy native-init.
+  The atomic result remains no-proof because the first candidate-return frame
+  lost `A90P1 END` before retained-pmsg collection. `GOAL_A90.md` owns the
+  current A90 objective and next H0 bounded unit.
 - P2.82 consumed one exact approval. Its byte-identical reads end in terminal
   failure `0x8e/detail=0xc10`; the newline-bearing comparator made exact NONE
   readback impossible. No accepted ACM endpoint appeared. Child suspend,
@@ -241,9 +216,12 @@ the known healthy state. Candidate boot or Odin success alone is not PASS.
 
 ## Development and Commit Discipline
 
-- Read `GOAL.md`, inspect `git status --short`, and keep edits scoped.
-- Keep `GOAL.md` near a 500-700 line working target. Review completed history
-  for archival above 800 lines; 900 lines is the hard limit.
+- Read `GOAL.md` for S22+ work and `GOAL_A90.md` for A90 work. Read both for a
+  common or cross-target change. Inspect `git status --short` and keep edits
+  scoped.
+- Keep each active goal focused on current state and the selected bounded unit.
+  Review completed history for archival above 800 lines; 900 lines is the hard
+  limit for either goal file.
 - Use canonical paths under `workspace/public/src/`, `workspace/private/`, and
   `docs/`. Do not recreate legacy root trees.
 - Validate touched Python with `py_compile` and focused tests. Cross-compile

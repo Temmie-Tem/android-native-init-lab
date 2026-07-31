@@ -144,7 +144,8 @@ A90은 이미 확보한 native-init/runtime 기반을 유지하는 안정화 대
 
 현재 상태 / 연구:
 
-- `GOAL.md` — 현재 활성 타깃, frontier, 다음 bounded unit
+- `GOAL.md` — S22+ frontier와 다음 bounded unit
+- `GOAL_A90.md` — A90 frontier와 다음 bounded unit
 - `AGENTS.md` / `CLAUDE.md` — 기기 작업 절대 안전 경계와 운영 계약
 - `docs/module-map/s22plus-fyg8/subsystem-usb.md` — S22+ 현재 frontier(USB
   gadget/UDC bring-up) 서브시스템 맵과 게이트 상태 (frontier·다음 unit 자체는

@@ -1,11 +1,12 @@
-# Goal: repeatable multi-device native PID 1
+# Goal: S22+ repeatable native PID 1
 
 Build a repeatable path from an Android vendor boot chain and source-matched
 vendor kernel to a custom static `/init` running as PID 1, then grow that entry
 point into a minimal observable and recoverable Linux-style runtime.
 
-Current targets are Galaxy A90 5G and Galaxy S22+. Target evidence, artifacts,
-and authorization are isolated. `AGENTS.md` is the binding operating contract.
+This file is the active Galaxy S22+ objective. The separate Galaxy A90 5G
+objective is `GOAL_A90.md`. Target evidence, artifacts, and authorization are
+isolated. `AGENTS.md` is the binding operating contract.
 
 ## Current Frontier
 
@@ -38,184 +39,6 @@ recovery transferred the exact rollback once, durably reached
 `ROLLBACK_FLASHED`, then met the known post-transfer USBFS departure race. A
 final recovery performed no transfer and closed final health. Candidate and
 rollback counts are exactly one each; there was no replay or retransmission.
-
-**A90 parallel state: the V3402 run remains closed healthy/no-proof and
-non-replayable. Its late display cleanup consumed the old rootfs identity.
-The host-only V3403 successor now cleans all display owners before storage,
-mounts only an absent-only work copy, and proves every modeled pre-switch
-failure leaves the source byte-identical. V3403 passes the focused `41/41`
-suite and AArch64 compile. A fresh, package-authenticated, clean 2 GiB D3
-sysvinit rootfs and the exact V2321 rollback are hash-verified. A host-only
-absent-only SD staging adapter now uses an exclusive ext4 directory and
-hard-link no-clobber publication. The first independent review correctly
-returned `NO_GO`: normal flashes did not pin recovery ADB, both boot helpers
-used a nonexistent combined marker, one journal/timeline gap blocked recovery,
-the stage-path D0 was circular and semantically weak, stale staging could be
-reused without a candidate-time remote hash, and the tracked closure contained
-a concrete device address. The host-only remediation now derives the stage
-path from stable run ID, semantically validates D0, reconstructs the exact
-private recovery target for every boot transfer, separates version/build
-checks, repairs timelines from durable journal state, refuses preexisting
-staging output, and rehashes the remote rootfs immediately before candidate
-intent. The second independent review correctly returned `NO_GO`: the draft
-manifest could self-declare authority without a fresh operator approval
-receipt, staging results could be created as mode `0664`, journal final names
-were exposed before a complete durable write, and subprocess timeout/exec
-errors escaped without structured phase evidence or a guaranteed-private raw
-log. The second host-only remediation keeps all manifest authority false,
-separates approval preparation from execution with one exact private token,
-publishes result/journal JSON only after a complete mode-`0600` write and
-`fsync`, and classifies timeout/exec failures into private raw-log records.
-The third independent review correctly returned `NO_GO`: an unmarked candidate
-helper timeout was misclassified as definite pre-session rejection and dropped
-rollback authority, while a rollback helper pre-spawn error consumed the only
-rollback attempt even though no process had started. The third host-only
-remediation treats timeout as candidate-state uncertainty with mandatory
-rollback, and records an exact `process-spawn` failure as transfer count zero
-so rollback-only recovery can resume under the consumed approval. Any
-possibly-started rollback remains non-retryable. The fourth independent review
-correctly returned `NO_GO`: a malformed process-not-started record appended
-after a started failure could satisfy the loose retry predicate. The fourth
-host-only remediation accepts only one directly adjacent latest
-intent/process-not-started pair with exact outer/nested shape, zero-transfer
-fields, recovery mode, private empty raw-log path/size/SHA, and prior rejection
-count. The fifth independent review correctly returned `NO_GO`: Python numeric
-type equivalence, arbitrary `*Error` strings, noncanonical timestamps, and a
-resolve-before-lstat raw-log check still admitted malformed evidence. The
-fifth host-only remediation requires exact integer types and canonical
-timestamps, normalizes spawn failures to exact `OSError`, and rejects the exact
-raw-log pathname as a symlink before resolution. The sixth independent review
-correctly returned `NO_GO`: resolving the expected pathname still allowed a
-symlink target to redefine the journal value, and an older possibly-started
-rollback remained hidden behind a later exact pair. The sixth host-only
-remediation keeps the expected lexical leaf unresolved through its `lstat`
-check and requires the complete rollback-history suffix to consist only of
-exact adjacent pre-spawn pairs with one recovery mode and unique ordinal log
-names. The seventh independent review correctly returned `NO_GO`: distinct
-expected names could still hardlink one empty inode, and a renamed historical
-record retaining only nested `process_started=true` escaped top-level suffix
-discovery. The seventh host-only remediation requires every retry log to have
-one link and treats any nested process-start marker as rollback-related unless
-the complete outer record is one exact known non-rollback process shape/state.
-The combined closure passes `101/101` and contains no concrete network address.
-The bounded attended-device review passed, fresh exact D0 and three-path
-absence passed, and one exact V3403 approval was consumed. The transaction
-aborted during rootfs staging before candidate intent: the USB-local payload
-connection timed out because the host NCM link had no expected IPv4 address or
-route. Candidate and rollback transfer counts are both zero. A later exact
-health read repeated the blocked command-channel timeout, so the line is
-stopped under the two-failure rule. The approval and run are non-reusable.
-A separately approved D1 released the blocked receiver, removed only the empty
-run-owned stage directory, and restored exact V2321 health. The stale
-host-profile USB-path binding was repaired and direct NCM route/CIDR/ping now
-pass. The first bounded review rejected a VID/PID-only NCM gate because another
-Samsung target could satisfy it separately from the ACM bridge. The remediation
-requires the sole NCM interface under the same USB parent as the manifest-bound
-A90 ACM endpoint and passes the `105/105` focused closure. Independent
-re-review returned `GO`. New run `a90-v3403-debian-f1-20260730-03` has a
-new-inode exact rootfs/key pair, fresh V2321/path/NCM D0, a passing final
-manifest inspection, and a host-only approval receipt. One exact approval was
-then consumed. The 2 GiB rootfs staged through the topology-bound NCM path and
-was rehashed immediately before intent. V3403 completed one checked boot
-write/readback, booted with exact version/build, and passed selftest. The first
-candidate-side remote source-preflight request was corrupted by console/menu
-interference before the handoff phase, so the switch-root command was never
-sent and Debian PID1 remains unproved. V3403 returned healthy and the exact
-V2321 rollback completed one checked
-write/readback. The initial final-health selftest lost its frame terminator
-after rollback, but durable state already proved `rollback-flashed`; the
-approved rollback-recovery path therefore performed read-only health checks
-without reinvoking rollback and closed the transaction
-`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. Candidate/rollback counts are `1/1`,
-candidate replay is false, exact V2321 final health passed, and internal
-userdata is untouched. The run and approval are non-reusable. The H0 successor
-now binds explicit slow serial pacing, two framed hide/settle/canary gates, one
-direct no-retry handoff, and first-byte deadline reservation. It rejects the
-old 45-second handoff timeout and requires at least 905 seconds to preserve a
-900-second full-path response window. Exact loader/runtime gates and mutation
-checks bind that calculation. The focused closure passes `124/124`, and final
-independent review returned `GO` with no device contact. A fresh connected-D0
-attempt then proved exact A90 binding, healthy V2321, zero selftest failures,
-zero pstore entries, and repaired the host-only topology-bound NCM profile.
-Its serial SD-path read was rejected busy. A missing host fail-fast check then
-passed an empty tcpctl token and triggered one unapproved automatic-menu
-`hide`; the following tcpctl shell failed to parse before its body or any file
-operation. Exact V2321 return health passed. The unit is stopped as
-`STOP_UNAPPROVED_D1_HIDE_RETURN_HEALTH_PASS`: SD path state is unproved and no
-new run, manifest, approval, staging, flash, or live authority exists. Resume
-requires operator direction and a no-menu-control D0 path; no old approval or
-run may be reused. The operator then directed resume. A no-menu-control
-successor produced fresh connected D0 and exact three-path absence evidence.
-The old fixed-name source remains untouched and excluded. The staging adapter
-now derives one unique final source path from the exact run ID and byte-exactly
-binds the manifest to it; legacy, cross-run, traversal, outside-root, and work
-paths are rejected while hard-link no-clobber publication is unchanged. The
-focused closure passes `125/125`, independent safety review returned `GO`, and
-commit `b59c939d` contains the change. Fresh run
-`a90-v3403-debian-f1-20260731-01` binds a new-inode keyed rootfs, observer key,
-connected evidence, candidate, exact V2321 rollback, staging adapter, and
-orchestrator. Both host inspections report zero issues. One private mode-0600
-approval receipt is prepared with all authority false. No staging, flash, or
-reboot has occurred; the next gate is one fresh exact operator acknowledgement
-of that receipt's token. That exact approval was consumed. The unique rootfs
-staged and rehashed successfully, and one candidate boot transfer completed.
-V3403 returned its exact `0.11.159` build banner, but automatic menu output
-interleaved after the version body and the required frame END was lost.
-Candidate selftest, source preflight, handoff, `switch_root`, and Debian SSH
-observation were never reached. One exact V2321 rollback then completed. Its
-first final-health read met the same frame loss without repeating the transfer.
-After one operator-approved low-risk menu hide, health-only recovery proved
-exact V2321, selftest failure count zero, and zero pstore entries. The journal
-closed `ABORTED_F1_V2_CANDIDATE_UNCERTAIN_ROLLED_BACK`; durable candidate and
-rollback start/completion records each occur once, candidate replay is false,
-final health is restored, and internal userdata is untouched. The run and
-approval are non-reusable. The selected successor is a future-only,
-predeclared operator-attended observation window with bounded pre-handoff
-channel/health retries, exactly one handoff attempt, and unchanged mandatory
-rollback. Its reusable orchestrator implementation now binds exact `900/3/1`
-limits into the manifest and original F1 approval, revalidates the exact
-one-transfer/no-replay candidate closure, re-derives stored retry failures,
-and fsyncs one handoff intent before dispatch. Focused `71/71` and independent
-related `154/154` validation passed; final independent review returned `GO`
-with no device contact. Fresh run
-`a90-v3403-debian-f1-20260731-02` now binds a new-inode keyed rootfs and key,
-fresh exact V2321 health and three-path absence, repaired topology-bound NCM,
-and the reviewed `900/3/1` machinery. Both host inspectors and the strict local
-closure report zero issues. A private mode-0600 approval receipt is prepared
-with all authority false. One exact approval was consumed, but the staging
-child rejected it before NCM, bridge, or device contact: its duplicated
-approval-binding builder omitted the new attended `900/3/1` fields. The
-durable transaction closed `ABORTED_F1_V2_BEFORE_CANDIDATE` with candidate and
-rollback counts `0/0`, no rootfs staging, no reboot, and no continuation
-receipt. The run and approval are non-reusable. The H0 repair now gives
-staging and the orchestrator one canonical approval-binding builder with exact
-run/hash and attended/unattended policy validation. Focused `111/111`, related
-`157/157`, `py_compile`, and independent re-review passed with no Critical,
-High, or Medium finding and no device contact. No new run, manifest, approval,
-or live authority existed at repair closure. Fresh successor
-`a90-v3403-debian-f1-20260731-03` now binds a new-inode rootfs/key, exact V2321
-D0, three-path absence, topology-bound NCM, and the reviewed canonical
-staging/orchestrator sources. Both host inspectors and strict local closure
-report zero issues. The final manifest SHA256 is
-`efc18c20a97d2c2a4418009d4202dc9dd85b7c61a83d563e70c3b0d225222206`.
-A private mode-0600 receipt is reopened successfully by both approval
-validators with exact `900/3/1` and all authority false. One exact F1 approval
-and one attended continuation were then consumed. Rootfs staging, one candidate
-boot transfer, candidate health, source preflight, and the first pre-handoff
-attempt passed. The single handoff stopped in strict display cleanup before
-storage or `switch_root`. A DRM owner remained alive at its one-second
-per-owner deadline and produced `-EBUSY`; the immediately following
-authoritative scan nevertheless proved zero remaining non-preserved owners.
-The stale per-owner error stayed in `final_rc`, so the source was rehashed
-unchanged and the handoff returned. Candidate native-init return passed. One
-exact rollback transfer completed; its first final-health `hide` was corrupted
-to `hidAe` by menu interleaving, after which health-only recovery performed no
-transfer and proved exact V2321, selftest failure count zero, and zero pstore
-entries. The transaction closed
-`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` with candidate/rollback `1/1`, no replay,
-one handoff attempt, Debian PID1 unproved, and the canonical eight-event
-timeline. The run and approvals are non-reusable; no A90 live authority
-exists.**
 
 Stock D1 v2 and the PM/source audits remain valid independent controls.
 P2.86's retained `0xc18` still proves its strengthened exact parent-suspended
@@ -367,71 +190,9 @@ corrected A/B pair then matched.
   proof; swallowed clock errors remain non-proof.
 - Process v2 common D0/F1 execution, regular-path boot-only Odin transport,
   journal recovery, rollback, and final health are proven.
-- A90 run `a90-debian-reactivation-f1-20260730-01` proves one exact V3402
-  checked boot transfer, one exact V2321 checked rollback, and restored final
-  health with no candidate replay. It also proves the current D3 handoff can
-  mutate the bound SD rootfs before a later display-owner failure, so Debian
-  PID1 remains unproved for this run.
-- A90 V3403 closes the selected H0 successor: strict display cleanup occurs
-  before storage, only a verified work copy can be mounted rw, every modeled
-  pre-switch failure preserves the source, and a fresh authenticated D3
-  sysvinit image is privately hash-bound.
-- A90 V3403 run `a90-v3403-debian-f1-20260730-02` consumed one exact approval
-  but aborted during SD staging before candidate intent. Candidate and rollback
-  transfer counts are zero; the run is closed and non-reusable. The host NCM
-  link lacked its expected USB-local IPv4 address/route, and the blocked
-  receiver initially left command-channel health unverified. A separately
-  approved D1 later restored exact V2321 health and removed only the empty
-  run-owned stage directory. Host NCM now passes direct-route/CIDR/ping
-  readiness; the topology-bound pre-reservation gate passes `105/105` and
-  independent re-review.
-- Fresh attended successor run `a90-v3403-debian-f1-20260731-02` passes exact
-  V2321 health, three-path absence, topology-bound NCM readiness, both
-  host-only inspectors, and strict local-closure validation. One exact approval
-  was consumed, but staging rejected the receipt before any device contact
-  because its approval-binding copy lacked `900/3/1`. Candidate/rollback are
-  `0/0`; the run is closed and non-reusable. A shared canonical builder fixes
-  the mismatch and passed independent re-review, but creates no new authority.
-- Fresh successor `a90-v3403-debian-f1-20260731-03` passes exact V2321 D0,
-  three-path absence, topology-bound NCM, both host inspectors, strict local
-  closure, and cross-validator receipt reopening. Its approval and attended
-  continuation are consumed. Staging and candidate health passed, but the one
-  handoff retained a per-owner `-EBUSY` after its final owner rescan reached
-  zero, so `switch_root` was not reached. Candidate/rollback are `1/1`, no
-  replay, exact V2321 health is restored, and the run is closed.
-- A90 V3404 run `a90-v3404-debian-f1-20260731-01` is closed healthy/no-proof
-  with candidate/rollback `1/1`, no replay, and exact V2321 final health.
-  Offline preservation of its 2 GiB work image proves Debian sysvinit PID1,
-  firstboot, `/usr/sbin/init`, and Dropbear. Its live SSH contract failed after
-  NCM profile loss, and the 120-second child entered global `sync`; reboot exec
-  remains unproved. D0 excludes a missing reboot binary and proves sysrq
-  enabled plus an active but kernel-petted hardware watchdog.
-- A90 V3405 run `a90-v3405-debian-f1-20260731-01` is closed healthy/no-proof
-  with candidate/rollback `1/1`, no replay, one handoff, and exact V2321 final
-  health. All four immutable source hashes and `exec_switch_root_now` passed.
-  Live USB-local SSH then proved `pid1_comm=init`, a distro init executable,
-  `dropbear_started=1`, and the Debian marker in two attempts. The no-sync
-  supervisor returned to the exact healthy candidate, as required before the
-  from-native rollback, so the former global-sync return failure is bypassed.
-  Formal observation remains no-proof because the first candidate-return
-  channel check lost `A90P1 END`; retained-pmsg collection was therefore not
-  reached. The first rollback health check also met menu corruption, after
-  which health-only recovery performed no transfer and closed exact V2321.
 
 Load-bearing current reports:
 
-- `docs/reports/A90_DEBIAN_REACTIVATION_F1_CLOSED_2026-07-30.md`
-- `docs/reports/A90_V3403_F1_STAGING_ABORTED_BEFORE_CANDIDATE_2026-07-30.md`
-- `docs/reports/A90_V3403_ABSENT_ONLY_STAGING_ADAPTER_H0_2026-07-30.md`
-- `docs/reports/A90_V3403_MINIMAL_F1_ORCHESTRATOR_H0_2026-07-30.md`
-- `docs/reports/NATIVE_INIT_V3403_D3_IMMUTABLE_HANDOFF_H0_CLOSURE_2026-07-30.md`
-- `docs/reports/NATIVE_INIT_V3404_D3_RESOLVED_OWNER_TIMEOUT_SOURCE_BUILD_2026-07-31.md`
-- `docs/reports/A90_V3404_REUSABLE_F1_STAGING_BINDING_H0_2026-07-31.md`
-- `docs/reports/A90_V3404_D3_SWITCHROOT_NO_PROOF_F1_CLOSED_2026-07-31.md`
-- `docs/reports/A90_V3404_D3_WORK_COPY_POSTMORTEM_DEBIAN_PID1_PROVEN_2026-07-31.md`
-- `docs/reports/A90_V3405_D3_SYNC_DECISION_SUPERVISOR_H0_2026-07-31.md`
-- `docs/reports/A90_V3405_F1_RETAINED_PMSG_NCM_REBIND_H0_2026-07-31.md`
-- `docs/reports/A90_V3405_DEBIAN_PID1_F1_CLOSED_2026-07-31.md`
 - `docs/reports/S22PLUS_FYG8_P284_CONTROLLED_SUSPEND_F1_CLOSED_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_POST_SUSPEND_RESTART_GAP_FOCUSED_ANALYSIS_H0_2026-07-29.md`
 - `docs/reports/S22PLUS_FYG8_P284_STOCK_OUTER_D1_V2_LIVE_NO_PROOF_2026-07-29.md`
@@ -628,38 +389,6 @@ operations before the asserted publication boundaries.
 11. No new S22+ device action or F1 request is permitted by the closed P2.90
    unit; a successor requires fresh H0 design, identity, A/B, manifest, D0, and exact approval.
 
-The A90 branch proceeds independently:
-
-1. Preserve the closed A90 journal, structured result, raw private evidence,
-   and exact V2321 final-health state.
-2. Do not replay V3402 or reuse the consumed approval.
-3. Preserve V3403's completed H0 source contract: display-owner cleanup before
-   storage, source recheck, absent-only work copy, and failure cleanup.
-4. Preserve the fresh D3 rootfs identity and its authenticated package,
-   clean-ext4, ownership, init, and credential-absence closure.
-5. Preserve the independently reviewed attended-orchestrator closure and its
-   exact `900/3/1`, candidate-one/no-replay, durable-intent, and rollback-only
-   recovery gates.
-6. Preserve closed run `a90-v3403-debian-f1-20260731-02`, its consumed
-   approval, `0/0` transfer counts, and before-device failure evidence.
-7. Preserve closed run `a90-v3403-debian-f1-20260731-03`, its consumed
-   approval and continuation, `1/1` transfers, one handoff, source-unchanged
-   failure, final V2321 health, and no-proof verdict.
-8. Preserve closed V3404 run `a90-v3404-debian-f1-20260731-01`, its consumed
-   approval and continuation, one handoff, candidate/rollback `1/1`, exact
-   V2321 health, no replay, and no-proof verdict.
-9. Preserve the 2026-07-03 switch-root proof and V3404's exact D0 work-image
-   preservation. V3404 now technically proves Debian sysvinit PID1 and
-   firstboot; do not classify it as an image-payload or SELinux-init failure.
-10. Preserve the independently reviewed V3405 no-sync parent supervisor and
-    exact private H0 image; its artifact-build GO is not live authority.
-11. Preserve closed V3405 run `a90-v3405-debian-f1-20260731-01`, both consumed
-    approvals, candidate/rollback `1/1`, one handoff, live SSH Debian PID1,
-    automatic healthy candidate return, and exact V2321 final health. Preserve
-    its formal no-proof distinction: the first return-channel frame failed
-    before retained-pmsg collection. No approval is reusable and no A90 live
-    authority remains.
-
 No device step is added when H0 can answer the question.
 
 ## Process
@@ -695,4 +424,4 @@ journal. No later rung may infer an earlier unproved result.
 - An unexplained device-session failure or repeated material failure occurs.
 - Three consecutive units add only policy or review with no tested behavior.
 - The S22+ branch grows to shell, NCM, Debian, or a supervisor before E4
-  closes. A90 remains a separately authorized target and evidence line.
+  closes.

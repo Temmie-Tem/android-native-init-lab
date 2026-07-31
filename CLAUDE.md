@@ -1,7 +1,8 @@
 # CLAUDE.md
 
 `AGENTS.md` is the only binding operating and device-safety contract in this
-repository. `GOAL.md` defines the current frontier. Read both before work.
+repository. `GOAL.md` defines the S22+ frontier and `GOAL_A90.md` defines the
+A90 frontier. Read the target's goal and `AGENTS.md` before work.
 
 Current posture:
 
