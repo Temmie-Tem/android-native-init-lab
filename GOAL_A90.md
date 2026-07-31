@@ -14,9 +14,9 @@ transfer between the two files.
 
 - This is an H0 planning and implementation line.
 - No A90 F1 or other live-device action is currently authorized.
-- All V3402 through V3405 live approvals and attended continuations are
+- All V3402 through V3406 live approvals and attended continuations are
   consumed and non-reusable.
-- Exact V2321 health was restored after V3405.
+- Exact V2321 health was restored after the V3406 display run.
 - Do not add a device step while host-only work can answer the selected
   question.
 
@@ -90,6 +90,37 @@ result to PASS.
 
 Return-channel framing and retained-pmsg collection ordering are a separate H0
 observer unit. They are not part of the selected build-determinism unit below.
+
+## Latest Live Result: V3406 Phase 2 Display
+
+Run `a90-v3406-debian-display-f1-20260731-02` is closed as
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`. It completed one candidate transfer,
+one handoff, one exact V2321 rollback, no candidate replay, and final V2321
+health restoration. No command was sent to the separately connected S22+.
+
+The one handoff and USB-local SSH observation prove the following subpath:
+
+```text
+native KMS release with zero remaining DRM fds
+-> switch_root
+-> Debian /usr/sbin/init as PID 1
+-> Dropbear
+-> terminal display attempt 3 rc=1
+```
+
+The operator observed a black screen. Debian display acquisition was not
+proved. The candidate also missed the bounded return contract and reappeared
+only after the observer had closed, so late recovery availability does not
+promote the result.
+
+The Phase 2D observer has a confirmed host parser defect: its native-release
+regular expression accepts LF but rejects the CRLF-terminated live ACM line.
+Normalizing the preserved transcript makes the exact native-release validator
+pass. This lost a valid subproof in the structured result but does not explain
+the real presenter failure or bounded-return miss and cannot retroactively
+promote the F1 result.
+
+`docs/reports/A90_V3406_PHASE2_DISPLAY_NO_PROOF_F1_CLOSED_2026-07-31.md`
 
 ## Completed Bounded Unit: Phase 0 Build Determinism
 
@@ -362,10 +393,11 @@ device action.
 
 `docs/reports/A90_PHASE2D_V3406_EXECUTION_CLOSURE_H0_2026-07-31.md`
 
-The next bounded unit is activation preparation, not F1: commit this reviewed
-closure, materialize one fresh private V3406 keyed image, perform one exact
-A90 D0 baseline/path-absence preflight, finalize the immutable manifest, and
-prepare the host-only approval receipt. Stop at the fresh exact F1 token.
+The next bounded unit is H0 incident closure, not another F1. Fix and
+independently review the CRLF observation parser, preserve and diagnose the
+presenter attempt-3 `rc=1`, and classify the bounded-return framing/deadline
+miss. Retained-work cleanup remains separate and must not precede evidence
+preservation.
 
 ## Later Phases
 
@@ -399,6 +431,7 @@ approval under `AGENTS.md`.
 - `docs/reports/A90_V3405_D3_SYNC_DECISION_SUPERVISOR_H0_2026-07-31.md`
 - `docs/reports/A90_V3405_F1_RETAINED_PMSG_NCM_REBIND_H0_2026-07-31.md`
 - `docs/reports/A90_V3405_DEBIAN_PID1_F1_CLOSED_2026-07-31.md`
+- `docs/reports/A90_V3406_PHASE2_DISPLAY_NO_PROOF_F1_CLOSED_2026-07-31.md`
 - `docs/reports/A90_V3404_BUILD_DETERMINISM_PHASE0_H0_2026-07-31.md`
 - `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1_STOP_H0_2026-07-31.md`
 - `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1_SUCCESSOR_REPEATED_STOP_H0_2026-07-31.md`
