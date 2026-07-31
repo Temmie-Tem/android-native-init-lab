@@ -244,6 +244,94 @@ def implementation_result(root: Path) -> dict[str, Any]:
     }
 
 
+def validate_reachable_records(run_id: bytes) -> dict[str, Any]:
+    if len(run_id) != 16 or not any(run_id):
+        raise SourceContractError("P2.94 reachable run ID is invalid")
+    inherited_result = inherited.validate_reachable_records(run_id)
+    record = decoder.model.initialize_record(PROFILE, run_id)
+    for generation, position in enumerate(spec.POSITIONS[:105], 1):
+        detail = 0xC18 if generation == 88 else 0xC40 if generation == 104 else 0
+        record = decoder.model.apply_request(
+            record,
+            decoder.model.encode_request(
+                PROFILE,
+                position.stage,
+                run_id=run_id,
+                outcome=decoder.model.OUTCOME_PROGRESS,
+                item_index=position.item_index,
+                detail=detail,
+            ),
+        )
+    link_position = spec.POSITIONS[spec.LINK_STATE_ORDINAL]
+    terminal_position = spec.POSITIONS[spec.FINAL_STATE_ORDINAL]
+    link_records: dict[int, bytes] = {}
+    checked = 0
+    for value in range(spec.LINK_STATE_VALUE_COUNT):
+        detail = spec.encode_link_state(value)
+        candidate = decoder.model.apply_request(
+            record,
+            decoder.model.encode_request(
+                PROFILE,
+                link_position.stage,
+                run_id=run_id,
+                outcome=decoder.model.OUTCOME_PROGRESS,
+                item_index=link_position.item_index,
+                detail=detail,
+            ),
+        )
+        active = decoder.decode_record(
+            candidate,
+            expected_profile=PROFILE,
+            expected_run_id=run_id,
+        )["active"]
+        if active["detail"] != detail or active["generation"] != 106:
+            raise SourceContractError("P2.94 reachable USBLNKST slot differs")
+        link_records[value] = candidate
+        checked += 1
+    terminal_details = (
+        *(spec.FINAL_STATE_DETAIL_BASE + index for index in range(132)),
+        *(spec.encode_fixed_mismatch(mask) for mask in range(1, 16)),
+        spec.STATE_SPEED_CONTRADICTION_DETAIL,
+        spec.CONNECT_SPEED_CONTRADICTION_DETAIL,
+    )
+    for detail in terminal_details:
+        outcome = spec.expected_terminal_outcome(detail)
+        candidate = decoder.model.apply_request(
+            link_records[0],
+            decoder.model.encode_request(
+                PROFILE,
+                terminal_position.stage,
+                run_id=run_id,
+                outcome=outcome,
+                item_index=terminal_position.item_index,
+                detail=detail,
+            ),
+        )
+        active = decoder.decode_record(
+            candidate,
+            expected_profile=PROFILE,
+            expected_run_id=run_id,
+        )["active"]
+        if (
+            active["detail"] != detail
+            or active["outcome"] != outcome
+            or active["generation"] != 107
+        ):
+            raise SourceContractError("P2.94 reachable terminal slot differs")
+        checked += 1
+    if checked != 165:
+        raise SourceContractError("P2.94 telemetry reachable count differs")
+    return {
+        **inherited_result,
+        "reachable_slot_variants": REACHABLE_VARIANTS,
+        "decoder_policy_id": decoder.POLICY_ID,
+        "telemetry_reachable_variants": checked,
+        "position_count": len(spec.POSITIONS),
+        "terminal_generation": spec.TERMINAL_GENERATION,
+        "verified": True,
+    }
+
+
 def linked_table_bytes() -> dict[str, bytes]:
     result = dict(inherited.linked_table_bytes())
     rules = bytearray()
