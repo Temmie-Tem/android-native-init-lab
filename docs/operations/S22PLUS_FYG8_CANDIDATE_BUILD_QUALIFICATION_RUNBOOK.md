@@ -469,6 +469,23 @@ stock-closure selector. The historical CLI defaults remain P2.34-bound and
 must not be used directly for P2.92. Require a nonexistent output directory,
 the P2.92 static schema/verdict, and `ready_manifest_created=false`.
 
+After the three promotion outputs and exact APs are copied to their final
+private regular paths, create the P2.92 ready manifest only with:
+
+```bash
+PYTHONPATH=workspace/public/src/scripts/revalidation \
+python3 workspace/public/src/scripts/revalidation/\
+prepare_s22plus_fyg8_p292_ready_manifest.py
+```
+
+The builder reopens all three promotion payloads, derives the acceptance and
+CDC-ACM observer from the selected P2.92 source contract, pins the candidate AP
+with deterministic metadata and the historical rollback AP with the Process-v2
+rollback rule, runs the full offline-contract verifier, and validates a private
+proposal through `device_action_f1_v2.verify_bundle()`. It creates the final
+manifest with `O_EXCL` only after those checks pass. The builder has no connected
+or live mode; manifest success still precedes an ordinary exact-target D0.
+
 When a candidate adds a bounded runtime control lifecycle, a later ready
 manifest must consume a versioned timing receipt produced by the exact runtime
 harness. The receipt must bind raw samples, runtime/tool hashes, a reviewed

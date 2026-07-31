@@ -143,3 +143,14 @@ Process-v2 tests pass; the frozen mutation guard remains `51/50/0`.
 This closes a future promotion-command ambiguity only. It does not execute or
 authorize the stopped formal static replay, offline promotion, manifest, D0,
 or F1.
+
+The same readiness pass removes the remaining manual ready-manifest assembly.
+`prepare_s22plus_fyg8_p292_ready_manifest.py` consumes only final private
+promotion evidence and AP paths. Before its one `O_EXCL` manifest creation it
+revalidates the P2.92 acceptance, source-derived candidate observer, candidate
+and rollback archive policies, complete offline evidence contract, and a
+private proposal through the unchanged Process-v2 bundle verifier. Seventy
+focused promotion, manifest, evidence, F1-core, and D0 tests pass. The builder
+and test are outside the 93 payload keys and frozen implementation; the guard
+remains `51/50/0`. No manifest or device action was performed during this H0
+validation.

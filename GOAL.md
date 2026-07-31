@@ -96,6 +96,14 @@ P2.92/common Process-v2 tests pass, the adapter is outside all 93 payload keys
 and the frozen implementation, and the frozen guard remains `51/50/0`. No
 stopped static or promotion attempt was replayed.
 
+Ready-manifest assembly is also prepared without creating one. A P2.92-only
+host builder reopens the three final promotion payloads, derives acceptance and
+the CDC-ACM observer from the selected source contract, applies the distinct
+candidate/rollback AP metadata rules, runs the full offline verifier, and
+requires an unchanged Process-v2 `verify_bundle()` pass before one `O_EXCL`
+manifest write. Seventy focused manifest/evidence/core/D0 tests pass; the
+builder is outside the 93 payload keys and frozen `51/50/0` implementation.
+
 The four formal Process-v2 verdicts remain
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: rollback and health evidence are
 unchanged, while restart-helper dispatch and every later E3 boundary remain
