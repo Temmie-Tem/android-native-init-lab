@@ -17,12 +17,15 @@ transfer between the two files.
 - All V3402 through V3406 live approvals and attended continuations are
   consumed and non-reusable.
 - Exact V2321 health was restored after the V3406 display run.
-- Fresh V3406 `-03` connected D0 again proved exact V2321 health. Its final and
-  stage paths are absent, while the retained work path is present and has been
-  preserved byte-for-byte on the host.
-- No cleanup approval receipt or F1 approval exists. The retained work path
-  may be unlinked only through its separately reviewed fresh exact cleanup
-  contract.
+- Fresh V3406 `-03` preserved the retained predecessor work image byte-for-byte
+  on the host. Its separately reviewed exact cleanup approval was consumed by
+  one non-retried unlink, and post-cleanup health remained exact V2321.
+- A second connected D0 proved the final, stage, and work paths all absent,
+  exact V2321 version/build, selftest `fail=0`, and pstore `entries=0`.
+- The V3406 `-03` final manifest and exclusive F1 approval receipt are now
+  prepared. They grant no live authority. Only the fresh exact approval token
+  bound to manifest `18157354582565ac7a0e43d3bc4b040cd43f4214b9c2e0b7e62a9facb74ffe35`
+  can authorize the one boot-only candidate attempt and mandatory rollback.
 - Do not add a device step while host-only work can answer the selected
   question.
 
@@ -450,8 +453,19 @@ interface, matched device and host SHA256, and remained unchanged afterward.
 The common bridge helper now rejects the earlier false listener absence caused
 by comparing `localhost` literally with `127.0.0.1`. The cleanup helper is
 pinned to the newly preserved work hash, and its private manifest passes
-host-only inspection. Independent review and one fresh cleanup approval are
-the next gates; no F1 request is valid before cleanup PASS and repeated D0.
+host-only inspection. Independent review closed GO with no unresolved finding.
+The exact cleanup approval was then consumed by one non-retried unlink; the
+result proved the work, source, and stage paths absent and restored exact V2321
+health without flash, reboot, or payload transfer. Repeated connected D0
+independently confirmed those three paths absent and the healthy baseline.
+
+Host-only finalization copied the exact candidate and canonical V2321 rollback
+to new private inodes, bound the keyed ab-07 rootfs, repeated D0 evidence,
+current execution closure, and independent review, and produced final manifest
+SHA256 `18157354582565ac7a0e43d3bc4b040cd43f4214b9c2e0b7e62a9facb74ffe35`.
+Default orchestrator inspection returned zero contract issues. An exclusive
+approval receipt is prepared but grants no authority; the next and only live
+gate is its fresh exact F1 token.
 
 `docs/reports/A90_V3406_RETAINED_WORK_CLEANUP_02_PREP_H0_D0_2026-07-31.md`
 
