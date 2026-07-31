@@ -12,9 +12,9 @@ transfer between the two files.
 
 ## Current Authority
 
-- The repeated host-preparation stop has been remediated in a new H0 design
-  unit. No A90 F1, D1, attended continuation, resident-baseline installation,
-  or other live authority exists without the fresh exact approval below.
+- This line is stopped at H0 after a repeated pre-candidate live-gate mismatch.
+  No A90 F1, D1, attended continuation, resident-baseline installation, or
+  other live authority currently exists.
 - Exact V2321 remains resident. The latest connected D0 again proved exact
   version/build, selftest `fail=0`, pstore `entries=0`, and absent final, work,
   and stage paths. No command was sent to the separately connected S22+.
@@ -42,10 +42,19 @@ transfer between the two files.
   then performs one absent-only publication. Focused tests pass `171/171`.
 - The resulting resident manifest has SHA256
   `fc3677624977fa1723754bcba842f75ff36c084eb86ac62925c87af638aa83f7`.
-  Its approval receipt is prepared with binding
-  `08790a1d48843e5c469076755abf21b05a526bd8e25c9e40f51d588d9b9f2691`.
-  Preparation granted no live authority and contacted no device; execution
-  requires that fresh exact operator token.
+  Its approval binding
+  `08790a1d48843e5c469076755abf21b05a526bd8e25c9e40f51d588d9b9f2691`
+  was supplied and consumed by one transaction. The staging subprocess then
+  rejected the resident schema before creating its live directory or sending
+  any device command. The durable result is
+  `ABORTED_F1_V2_BEFORE_CANDIDATE`: candidate and rollback transfer counts are
+  both zero, rollback is not required, and the token is non-reusable.
+- The staging live gate had the same stale `expected_manifest_schema()` call as
+  the earlier parent gate. Commit `adb930cd` changes only that call to the exact
+  resident/ordinary selector. Focused regression passes `172/172`; independent
+  review found no target, staging, approval, boot-only, or rollback bypass.
+- The current manifest and approval are stale because the bound staging adapter
+  changed. Do not retry this transaction or reinterpret its consumed token.
 - Do not add a device step while host-only work can answer the selected
   question.
 
