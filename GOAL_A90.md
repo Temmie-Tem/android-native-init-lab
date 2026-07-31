@@ -195,6 +195,17 @@ replacement and first fault-test that the canonical output cannot be opened.
 
 `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1_STOP_H0_2026-07-31.md`
 
+A successor then repeated the same material host failure twice. Direct
+write-open fault injection passed, but upper legacy post-processing continued
+after the intercepted common `main()` and replaced the canonical path through
+an unguarded operation. Content SHA stayed unchanged and no device action
+occurred, but mtime changed again. Phase 1 is stopped under the two-failure
+rule. Do not retry in-process monkey-patching or Python audit-hook containment.
+A future restart requires a new H0 design with a fully disposable repository
+clone that has no path to the canonical private tree.
+
+`docs/reports/A90_V3404_FLAT_BUILDER_PHASE1_SUCCESSOR_REPEATED_STOP_H0_2026-07-31.md`
+
 ## Later Phases
 
 Phase 1 flattens the measured inherited builder/import chain into one
@@ -229,6 +240,7 @@ approval under `AGENTS.md`.
 - `docs/reports/A90_V3405_DEBIAN_PID1_F1_CLOSED_2026-07-31.md`
 - `docs/reports/A90_V3404_BUILD_DETERMINISM_PHASE0_H0_2026-07-31.md`
 - `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1_STOP_H0_2026-07-31.md`
+- `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1_SUCCESSOR_REPEATED_STOP_H0_2026-07-31.md`
 
 Private journals, structured results, raw logs, work-image evidence, approval
 receipts, and exact rollback identity remain under `workspace/private/`.
