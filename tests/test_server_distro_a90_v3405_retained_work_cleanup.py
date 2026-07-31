@@ -1,4 +1,4 @@
-"""Host-only tests for the exact A90 V3405 retained-work cleanup."""
+"""Host-only tests for the exact A90 V3406 retained-work cleanup."""
 
 from __future__ import annotations
 
@@ -31,8 +31,8 @@ def sha256_file(path: Path) -> str:
 class Fixture:
     def __init__(self, base: Path) -> None:
         self.base = base
-        self.run_id = "a90-v3405-work-cleanup-20260731-01"
-        self.f1_run_id = "a90-v3405-debian-f1-20260731-01"
+        self.run_id = "a90-v3406-work-cleanup-20260731-01"
+        self.f1_run_id = "a90-v3406-debian-display-f1-20260731-01"
         self.run_dir = base / self.run_id
         self.run_dir.mkdir()
         self.host_copy = base / "preserved-work.img"
@@ -40,27 +40,46 @@ class Fixture:
         self.host_copy.chmod(0o600)
         self.work_sha = sha256_file(self.host_copy)
         self.work_size = self.host_copy.stat().st_size
+        self.bridge_device = (
+            "/dev/serial/by-id/usb-A90-LNX_TEST_A90TEST-if00"
+        )
+        self.bridge_realpath = "/dev/ttyACM-test"
+        self.bridge_realpath_sha256 = hashlib.sha256(
+            self.bridge_realpath.encode("utf-8")
+        ).hexdigest()
         self.connected = base / "connected-d0.json"
         self.connected.write_text(
             json.dumps(
                 {
-                    "schema": "a90_v3405_connected_d0_blocked_v1",
+                    "schema": "a90-v3403-connected-d0-v1",
+                    "run_id": f"{self.f1_run_id}-connected-d0-01",
                     "outcome": (
-                        "STOP_A90_V3405_CONNECTED_D0_FIXED_WORK_COPY_PRESENT"
+                        "PASS_A90_V3403_CONNECTED_READ_ONLY_"
+                        "AWAITING_STAGING_CONTRACT_AND_F1_MANIFEST"
                     ),
-                    "blocker": {
-                        "fixed_work_copy": {
-                            "path": cleanup.WORK_PATH,
-                            "size": self.work_size,
-                            "mode": cleanup.WORK_MODE,
-                            "sha256": self.work_sha,
-                        }
+                    "target": {
+                        "profile": "galaxy-a90-5g-native-init",
+                        "matching_a90_usb_devices": 1,
+                        "bridge_device": self.bridge_device,
+                        "bridge_selected_realpath": self.bridge_realpath,
+                        "usb_serial_sha256": "b" * 64,
                     },
                     "health": {
                         "version": cleanup.EXPECTED_VERSION,
                         "version_build": cleanup.EXPECTED_BUILD,
                         "selftest": {"fail": 0},
                         "pstore_entries": 0,
+                    },
+                    "repository": {
+                        "connected_preflight": str(
+                            cleanup.CONNECTED_PREFLIGHT.resolve(strict=True)
+                        ),
+                        "connected_preflight_size": (
+                            cleanup.CONNECTED_PREFLIGHT.stat().st_size
+                        ),
+                        "connected_preflight_sha256": sha256_file(
+                            cleanup.CONNECTED_PREFLIGHT
+                        ),
                     },
                 },
                 sort_keys=True,
@@ -88,10 +107,8 @@ class Fixture:
             },
             "target": {
                 "profile": "galaxy-a90-5g-native-init",
-                "bridge_device": (
-                    "/dev/serial/by-id/usb-A90-LNX_TEST_A90TEST-if00"
-                ),
-                "bridge_realpath_sha256": "a" * 64,
+                "bridge_device": self.bridge_device,
+                "bridge_realpath_sha256": self.bridge_realpath_sha256,
                 "usb_serial_sha256": "b" * 64,
                 "expected_vendor_product": cleanup.EXPECTED_VENDOR_PRODUCT,
                 "expected_version": cleanup.EXPECTED_VERSION,
@@ -109,9 +126,9 @@ class Fixture:
                 },
             },
             "adjacent_paths": {
-                "v3405_source": (
+                "v3406_source": (
                     "/mnt/sdext/a90/runtime/"
-                    "debian-bookworm-arm64-d3-sysvinit-v3405-keyed-"
+                    "debian-bookworm-arm64-phase2-display-v3406-keyed-"
                     f"{suffix}.img"
                 ),
                 "run_stage": (
@@ -199,10 +216,37 @@ class RetainedWorkCleanupTests(unittest.TestCase):
         )
         self.assertFalse(prepared["live_authorized"])
 
+    def test_live_profile_is_exactly_v3406_and_current_work_hash(self) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+        for token in (
+            'APPROVAL_PREFIX = "A90-V3406-WORK-CLEANUP-APPROVE:"',
+            'WORK_SHA256 = "0beb73d3fbf5989f0dba19163d91f9dae2efeb20c103fd4ec2ed83dd6d4505e1"',
+            'r"^a90-v3406-work-cleanup-[0-9]{8}-[0-9]{2}$"',
+            'r"^a90-v3406-debian-display-f1-',
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, source)
+
+    def test_connected_d0_requires_one_exact_a90_and_selected_run(self) -> None:
+        value = json.loads(self.fixture.connected.read_text(encoding="utf-8"))
+        value["target"]["matching_a90_usb_devices"] = 2
+        self.fixture.connected.write_text(
+            json.dumps(value, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        self.fixture.connected.chmod(0o600)
+        connected = self.fixture.manifest["connected_d0"]
+        connected["size"] = self.fixture.connected.stat().st_size
+        connected["sha256"] = sha256_file(self.fixture.connected)
+        self.fixture.write_manifest()
+        with self.assertRaisesRegex(cleanup.ContractError, "connected D0"):
+            self.fixture.load()
+
     def test_manifest_rejects_cross_run_adjacent_source(self) -> None:
-        self.fixture.manifest["adjacent_paths"]["v3405_source"] = (
+        self.fixture.manifest["adjacent_paths"]["v3406_source"] = (
             "/mnt/sdext/a90/runtime/"
-            "debian-bookworm-arm64-d3-sysvinit-v3405-keyed-20260731-02.img"
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260731-02.img"
         )
         self.fixture.write_manifest()
         with self.assertRaisesRegex(cleanup.ContractError, "adjacent paths"):

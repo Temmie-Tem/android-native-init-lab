@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exact one-shot cleanup for the retained A90 V3404 D3 work image.
+"""Exact one-shot cleanup for the retained A90 V3405 D3 work image.
 
 This is a separately reviewed persistent-file cleanup contract.  Its default
 mode is host-only inspection.  Live execution requires a final private
@@ -37,27 +37,36 @@ if str(REVAL_DIR) not in sys.path:
 import a90ctl  # noqa: E402
 
 
-SCHEMA = "a90_v3405_retained_work_cleanup_manifest_v1"
+SCHEMA = "a90_phase2d_retained_work_cleanup_manifest_v1"
 STATUS = "ready-for-cleanup-approval"
-APPROVAL_SCHEMA = "a90_v3405_retained_work_cleanup_approval_v1"
-APPROVAL_PREFIX = "A90-V3405-WORK-CLEANUP-APPROVE:"
-RESULT_SCHEMA = "a90_v3405_retained_work_cleanup_result_v1"
+APPROVAL_SCHEMA = "a90_phase2d_retained_work_cleanup_approval_v1"
+APPROVAL_PREFIX = "A90-V3406-WORK-CLEANUP-APPROVE:"
+RESULT_SCHEMA = "a90_phase2d_retained_work_cleanup_result_v1"
 PRIVATE_RUN_BASE = (
     REPO_ROOT / "workspace" / "private" / "runs" / "server-distro"
 ).resolve()
 PRIVATE_ROOT = (REPO_ROOT / "workspace" / "private").resolve()
+CONNECTED_PREFLIGHT = (
+    REPO_ROOT
+    / "workspace"
+    / "public"
+    / "src"
+    / "scripts"
+    / "server-distro"
+    / "a90_phase2d_connected_preflight.py"
+)
 WORK_PATH = "/mnt/sdext/a90/runtime/d3-handoff-work.img"
 WORK_SIZE = 2147483648
 WORK_MODE = "0600"
-WORK_SHA256 = "ef45a234db2b3a28ecd8bfddef5932ba87298a266247f304f288712aa6e36d02"
+WORK_SHA256 = "0beb73d3fbf5989f0dba19163d91f9dae2efeb20c103fd4ec2ed83dd6d4505e1"
 EXPECTED_VERSION = "0.9.285"
 EXPECTED_BUILD = "v2321-usb-clean-identity-rodata"
 EXPECTED_VENDOR_PRODUCT = "04e8:6861"
 READ_TIMEOUT_SEC = 15.0
 CLEANUP_TIMEOUT_SEC = 180.0
-RUN_ID_RE = re.compile(r"^a90-v3405-work-cleanup-[0-9]{8}-[0-9]{2}$")
+RUN_ID_RE = re.compile(r"^a90-v3406-work-cleanup-[0-9]{8}-[0-9]{2}$")
 F1_RUN_ID_RE = re.compile(
-    r"^a90-v3405-debian-f1-(?P<suffix>[0-9]{8}-[0-9]{2})$"
+    r"^a90-v3406-debian-display-f1-(?P<suffix>[0-9]{8}-[0-9]{2})$"
 )
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 VERSION_RE = re.compile(
@@ -284,7 +293,7 @@ def load_manifest(path: Path, expected_sha256: str) -> CleanupSpec:
         raise ContractError("cleanup run_id is not exact")
     f1_match = F1_RUN_ID_RE.fullmatch(f1_run_id)
     if f1_match is None:
-        raise ContractError("F1 run_id is not exact V3405")
+        raise ContractError("F1 run_id is not exact V3406 display")
     run_root = (PRIVATE_RUN_BASE / run_id).resolve()
     if path.parent != run_root:
         raise ContractError("manifest must be directly inside its private run directory")
@@ -295,20 +304,32 @@ def load_manifest(path: Path, expected_sha256: str) -> CleanupSpec:
     connected_d0 = load_bound(manifest.get("connected_d0"), "connected_d0")
     require_private_regular(connected_d0.path)
     d0_value = json.loads(connected_d0.path.read_text(encoding="utf-8"))
-    blocker = require_dict(d0_value.get("blocker"), "connected_d0.blocker")
-    work = require_dict(blocker.get("fixed_work_copy"), "connected_d0 fixed work")
+    d0_target = require_dict(d0_value.get("target"), "connected_d0.target")
     health = require_dict(d0_value.get("health"), "connected_d0.health")
+    d0_repository = require_dict(
+        d0_value.get("repository"),
+        "connected_d0.repository",
+    )
+    preflight_sha, preflight_stat = hash_open_regular(CONNECTED_PREFLIGHT)
     if (
-        d0_value.get("outcome")
-        != "STOP_A90_V3405_CONNECTED_D0_FIXED_WORK_COPY_PRESENT"
-        or work.get("path") != WORK_PATH
-        or work.get("size") != WORK_SIZE
-        or work.get("mode") != WORK_MODE
-        or work.get("sha256") != WORK_SHA256
+        d0_value.get("schema") != "a90-v3403-connected-d0-v1"
+        or d0_value.get("outcome")
+        != (
+            "PASS_A90_V3403_CONNECTED_READ_ONLY_"
+            "AWAITING_STAGING_CONTRACT_AND_F1_MANIFEST"
+        )
+        or d0_value.get("run_id") != f"{f1_run_id}-connected-d0-01"
+        or d0_target.get("profile") != "galaxy-a90-5g-native-init"
+        or d0_target.get("matching_a90_usb_devices") != 1
         or health.get("version") != EXPECTED_VERSION
         or health.get("version_build") != EXPECTED_BUILD
         or require_dict(health.get("selftest"), "selftest").get("fail") != 0
         or health.get("pstore_entries") != 0
+        or d0_repository.get("connected_preflight")
+        != str(CONNECTED_PREFLIGHT.resolve(strict=True))
+        or d0_repository.get("connected_preflight_size")
+        != preflight_stat.st_size
+        or d0_repository.get("connected_preflight_sha256") != preflight_sha
     ):
         raise ContractError("connected D0 does not bind the exact cleanup state")
 
@@ -336,6 +357,17 @@ def load_manifest(path: Path, expected_sha256: str) -> CleanupSpec:
         target.get("usb_serial_sha256"),
         "target.usb_serial_sha256",
     )
+    d0_realpath = require_string(
+        d0_target.get("bridge_selected_realpath"),
+        "connected_d0 target realpath",
+    )
+    if (
+        d0_target.get("bridge_device") != str(bridge_device)
+        or hashlib.sha256(d0_realpath.encode("utf-8")).hexdigest()
+        != bridge_realpath_sha256
+        or d0_target.get("usb_serial_sha256") != usb_serial_sha256
+    ):
+        raise ContractError("connected D0 and cleanup target identity differ")
 
     work_item = require_dict(manifest.get("work_image"), "work_image")
     if (
@@ -353,12 +385,12 @@ def load_manifest(path: Path, expected_sha256: str) -> CleanupSpec:
         raise ContractError("host preservation must remain outside cleanup run")
 
     adjacent = require_dict(manifest.get("adjacent_paths"), "adjacent_paths")
-    source_path = require_string(adjacent.get("v3405_source"), "v3405_source")
+    source_path = require_string(adjacent.get("v3406_source"), "v3406_source")
     stage_path = require_string(adjacent.get("run_stage"), "run_stage")
     suffix = f1_match.group("suffix")
     expected_source = (
         "/mnt/sdext/a90/runtime/"
-        f"debian-bookworm-arm64-d3-sysvinit-v3405-keyed-{suffix}.img"
+        f"debian-bookworm-arm64-phase2-display-v3406-keyed-{suffix}.img"
     )
     expected_stage = f"/mnt/sdext/a90/runtime/.a90-stage-{f1_run_id}"
     if source_path != expected_source or stage_path != expected_stage:
