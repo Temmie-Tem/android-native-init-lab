@@ -8,6 +8,7 @@ import subprocess
 import sys
 from typing import Any
 
+import s22plus_fyg8_p253_linked_audit as cfg_audit
 import s22plus_fyg8_p290_postbuild_linked_audit as inherited
 import s22plus_fyg8_p292_accept_to_resume as closure
 import s22plus_fyg8_p292_build_repro_check as repro
@@ -40,14 +41,65 @@ linked_table_storage_bytes = linked.linked_table_storage_bytes
 normalize_linked_table_storage = linked.normalize_linked_table_storage
 
 
+def _prune_noreturn_successors(
+    instructions,  # noqa: ANN001
+    successors: dict[int, tuple[int, ...]],
+) -> tuple[dict[int, tuple[int, ...]], tuple[int, ...]]:
+    result = dict(successors)
+    calls = tuple(
+        instruction.address
+        for instruction in instructions
+        if cfg_audit._call_target(instruction) == "__stack_chk_fail"  # noqa: SLF001
+    )
+    if len(calls) > 1:
+        raise AuditError(
+            "P2.92 linked writer has multiple stack-check failure calls"
+        )
+    for address in calls:
+        result[address] = ()
+    return result, calls
+
+
 def audit_linked_validator(
     disassembly: dict[str, str],
     calls: dict[str, list[str]],
     symbol_addresses: dict[str, int],
 ) -> dict[str, Any]:
-    return linked.audit_linked_validator(
-        disassembly, calls, symbol_addresses
+    writer = disassembly.get("s22_fyg8_e1_write")
+    if not isinstance(writer, str):
+        raise AuditError("P2.92 linked writer evidence is missing")
+    instructions = cfg_audit._instructions(writer)  # noqa: SLF001
+    _successors, noreturn_calls = _prune_noreturn_successors(
+        instructions,
+        cfg_audit._successors(instructions),  # noqa: SLF001
     )
+    if len(noreturn_calls) != 1:
+        raise AuditError(
+            "P2.92 linked writer stack-check failure call is missing"
+        )
+
+    original_successors = cfg_audit._successors  # noqa: SLF001
+
+    def corrected_successors(candidate_instructions):  # noqa: ANN001, ANN202
+        return _prune_noreturn_successors(
+            candidate_instructions,
+            original_successors(candidate_instructions),
+        )[0]
+
+    cfg_audit._successors = corrected_successors  # noqa: SLF001
+    try:
+        result = dict(
+            linked.audit_linked_validator(
+                disassembly, calls, symbol_addresses
+            )
+        )
+    finally:
+        cfg_audit._successors = original_successors  # noqa: SLF001
+    result["writer_guard"]["noreturn_call_fallthroughs_pruned"] = len(
+        noreturn_calls
+    )
+    result["writer_guard"]["noreturn_call_target"] = "__stack_chk_fail"
+    return result
 
 
 def _configure() -> None:
