@@ -15,6 +15,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 import s22plus_fyg8_p286_source_contracts as registry  # noqa: E402
 import s22plus_fyg8_p292_candidate_intent as intent  # noqa: E402
 import s22plus_fyg8_p292_identity_tiers as tiers  # noqa: E402
+import s22plus_fyg8_p292_pre_lto_qualification as pre_lto  # noqa: E402
 import s22plus_fyg8_p292_repair_model as model  # noqa: E402
 import s22plus_fyg8_p292_source_contract as p292  # noqa: E402
 
@@ -80,6 +81,28 @@ class P292ContractTest(unittest.TestCase):
         self.assertEqual(
             result["publication_position_checks"],
             (len(p292.spec.POSITIONS) - 1) * 3,
+        )
+
+    def test_pre_lto_defaults_are_p292_bound_and_context_local(self) -> None:
+        inherited = pre_lto.base.inherited.base.base
+        previous_userspace = inherited.DEFAULT_USERSPACE_RESULT
+        previous_lifecycle = inherited.DEFAULT_LIFECYCLE_RESULT
+        args = pre_lto.parse_args([])
+        self.assertEqual(
+            args.userspace_result,
+            pre_lto.DEFAULT_USERSPACE_RESULT,
+        )
+        self.assertEqual(
+            args.lifecycle_result,
+            pre_lto.DEFAULT_LIFECYCLE_RESULT,
+        )
+        self.assertEqual(
+            inherited.DEFAULT_USERSPACE_RESULT,
+            previous_userspace,
+        )
+        self.assertEqual(
+            inherited.DEFAULT_LIFECYCLE_RESULT,
+            previous_lifecycle,
         )
 
 

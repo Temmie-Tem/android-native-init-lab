@@ -33,6 +33,11 @@ DEFAULT_LINKED_AUDIT_RESULT = Path(
     "linked-audit-meta.json"
 )
 DEFAULT_INGESTION_RESULT = base.DEFAULT_INGESTION_RESULT
+DEFAULT_USERSPACE_RESULT = userspace.DEFAULT_OUT / "userspace-result.json"
+DEFAULT_LIFECYCLE_RESULT = Path(
+    "workspace/private/outputs/s22plus_fyg8_p292_pre_lto/"
+    "p280-trace-lifecycle-current/result.json"
+)
 DEFAULT_OUT = Path(
     "workspace/private/outputs/s22plus_fyg8_p292_pre_lto/"
     "qualification.json"
@@ -195,10 +200,18 @@ def _configure() -> None:
 @contextmanager
 def _context() -> Iterator[None]:
     _configure()
+    inherited_defaults = base.inherited.base.base
+    previous_defaults = {
+        "DEFAULT_USERSPACE_RESULT": inherited_defaults.DEFAULT_USERSPACE_RESULT,
+        "DEFAULT_LIFECYCLE_RESULT": inherited_defaults.DEFAULT_LIFECYCLE_RESULT,
+    }
+    inherited_defaults.DEFAULT_USERSPACE_RESULT = DEFAULT_USERSPACE_RESULT
+    inherited_defaults.DEFAULT_LIFECYCLE_RESULT = DEFAULT_LIFECYCLE_RESULT
     try:
         yield
     finally:
-        pass
+        for name, value in previous_defaults.items():
+            setattr(inherited_defaults, name, value)
 
 
 def create(**kwargs):  # noqa: ANN003, ANN201
