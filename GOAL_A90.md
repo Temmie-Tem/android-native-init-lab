@@ -185,6 +185,16 @@ must reproduce all five Phase 0 golden hashes in two fresh isolated builds.
 Until that equality passes, the inherited chain remains authoritative and the
 flat builder creates no candidate or live authority.
 
+The first Phase 1 audit stopped
+`STOP_HOST_ACCEPTED_PATH_REWRITE_HASH_UNCHANGED`: duplicate module identities
+defeated a `main()` interception and the host builder rewrote the canonical
+accepted path. Its bytes and all tracked sources remain unchanged, but its
+timestamp changed, so the no-overwrite contract failed. Do not retry that
+method. A successor must use a disposable module tree or pre-import entrypoint
+replacement and first fault-test that the canonical output cannot be opened.
+
+`docs/reports/A90_V3404_FLAT_BUILDER_PHASE1_STOP_H0_2026-07-31.md`
+
 ## Later Phases
 
 Phase 1 flattens the measured inherited builder/import chain into one
@@ -218,6 +228,7 @@ approval under `AGENTS.md`.
 - `docs/reports/A90_V3405_F1_RETAINED_PMSG_NCM_REBIND_H0_2026-07-31.md`
 - `docs/reports/A90_V3405_DEBIAN_PID1_F1_CLOSED_2026-07-31.md`
 - `docs/reports/A90_V3404_BUILD_DETERMINISM_PHASE0_H0_2026-07-31.md`
+- `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1_STOP_H0_2026-07-31.md`
 
 Private journals, structured results, raw logs, work-image evidence, approval
 receipts, and exact rollback identity remain under `workspace/private/`.
