@@ -11,6 +11,36 @@ import s22plus_fyg8_p292_repair_model as model
 import s22plus_fyg8_p292_repair_spec as repair
 
 
+PAIR_HELPER = "p294_publish_final_pair"
+PAIR_FIRST = (
+    b"s22_p294_checkpoint_progress_position("
+    b"&g_checkpoint, S22_P294_POSITION_USBLNKST, first_detail)"
+)
+PAIR_TERMINAL = (
+    b"s22_p294_checkpoint_terminal_position("
+    b"&g_checkpoint, S22_P294_POSITION_FINAL_STATE, terminal_detail)"
+)
+PAIR_RUNTIME = (
+    b"static long p294_publish_final_pair(\n"
+    b"    uint16_t first_detail, uint16_t terminal_detail) {\n"
+    b"    long first_rc = "
+    + PAIR_FIRST
+    + b";\n"
+    b"    if (first_rc != 0) {\n"
+    b"        return first_rc;\n"
+    b"    }\n"
+    b"    return "
+    + PAIR_TERMINAL
+    + b";\n"
+    b"}\n"
+    b"\n"
+    b"static long p294_publish_captured_values(\n"
+    b"    uint16_t link_state, uint16_t final_state) {\n"
+    b"    return p294_publish_final_pair(link_state, final_state);\n"
+    b"}\n"
+)
+
+
 class AcceptToResumeTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -33,6 +63,76 @@ class AcceptToResumeTest(unittest.TestCase):
                 "exact_old_generation_88_resumed_to_89"
             ]
         )
+
+    def test_pair_publication_adjacency_gate(self) -> None:
+        result = closure.audit_pair_publication_adjacency(
+            PAIR_RUNTIME,
+            helper_name=PAIR_HELPER,
+            first_publish_expression=PAIR_FIRST,
+            terminal_publish_expression=PAIR_TERMINAL,
+        )
+        self.assertEqual(result["verdict"], closure.PAIR_ADJACENCY_VERDICT)
+        self.assertEqual(
+            result["calls_between_first_return_and_terminal_invocation"], 0
+        )
+        self.assertTrue(
+            result["first_failure_returns_without_terminal_attempt"]
+        )
+
+    def test_pair_publication_adjacency_mutations_fail_closed(self) -> None:
+        mutations = {
+            "abort_between": PAIR_RUNTIME.replace(
+                b"    return " + PAIR_TERMINAL + b";",
+                b"    p290_fail_next(0xcffU);\n"
+                b"    return "
+                + PAIR_TERMINAL
+                + b";",
+                1,
+            ),
+            "failure_path_publishes": PAIR_RUNTIME.replace(
+                b"        return first_rc;",
+                b"        p290_fail_next(first_rc);",
+                1,
+            ),
+            "reordered": PAIR_RUNTIME.replace(
+                PAIR_FIRST, b"PAIR_PLACEHOLDER", 1
+            )
+            .replace(PAIR_TERMINAL, PAIR_FIRST, 1)
+            .replace(b"PAIR_PLACEHOLDER", PAIR_TERMINAL, 1),
+            "duplicate_first": PAIR_RUNTIME
+            + b"long p294_duplicate(uint16_t first_detail) { return "
+            + PAIR_FIRST
+            + b"; }\n",
+            "caller_missing": PAIR_RUNTIME.split(
+                b"static long p294_publish_captured_values", 1
+            )[0],
+        }
+        for name, runtime in mutations.items():
+            with self.subTest(name=name), self.assertRaises(
+                closure.ClosureError
+            ):
+                closure.audit_pair_publication_adjacency(
+                    runtime,
+                    helper_name=PAIR_HELPER,
+                    first_publish_expression=PAIR_FIRST,
+                    terminal_publish_expression=PAIR_TERMINAL,
+                )
+
+    def test_pair_publication_expression_cannot_hide_an_extra_call(
+        self,
+    ) -> None:
+        with self.assertRaisesRegex(
+            closure.ClosureError,
+            "publication expressions are not canonical",
+        ):
+            closure.audit_pair_publication_adjacency(
+                PAIR_RUNTIME,
+                helper_name=PAIR_HELPER,
+                first_publish_expression=(
+                    b"p294_hidden_publish(), " + PAIR_FIRST
+                ),
+                terminal_publish_expression=PAIR_TERMINAL,
+            )
 
     def test_publication_error_model_decoder_round_trip(self) -> None:
         run_id = bytes.fromhex("2ec2bbaeed33025c92a0831c5e82dd3b")

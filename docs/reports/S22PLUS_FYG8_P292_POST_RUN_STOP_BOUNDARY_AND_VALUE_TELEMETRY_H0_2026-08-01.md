@@ -342,6 +342,73 @@ is proposed. If another campaign is again dominated by evidence-budget
 packing, slot count is the first architectural constraint to reconsider under
 a separate identity and retained-memory safety review.
 
+## API-Probe Intervention Result
+
+The reduced-domain arithmetic check initially called a nonexistent
+`detail_spec()` API. Unlike the preceding twelve representation/API-assumption
+failures, this did not consume an approval window or become a second blind
+attempt. The unit stopped at the explained H0 exception, inspected the real
+producer module, called `detail_name(0xc40)` once with an actual accepted
+input, observed `helper-off-on-zero-direct-run-stop`, and only then ran the
+complete 148-value calculation and `0xc40..0xc46` name comparison.
+
+This is the first observed success of the standing rule “probe a production
+API once before writing or running a verifier lane that depends on its
+behavior.” It does not erase the initial mistake, but it shows that the
+intervention prevents a one-off assumption defect from escalating into a
+Rule-7 repeated failure or an approval-window loss.
+
+The later identity-separation check in this same H0 unit then made a second,
+different nonexistent-API assumption, `identity.repo_root()`. It likewise
+stopped at the first exception, inspected the module's actual public functions,
+called `path_tiers()` once, and only then ran the full Tier-1/Tier-2 separation
+check. This strengthens the evidence that the intervention works, but also
+shows that the underlying tendency to invent API shape is not yet eliminated.
+No candidate, build, approval, or device action may treat the intervention as
+a substitute for the required pre-call probe.
+
+## Two-Slot Pair Adjacency Gate
+
+The A/B adjacency was previously a design assumption. No successor runtime
+implements the 148-value map yet, so actual candidate adjacency cannot honestly
+be marked PASS. The assumption is now converted into the fail-closed
+`ACCEPT_TO_RESUME_PAIR_ADJACENCY` gate in the Tier-2 verifier closure, outside
+candidate identity.
+
+The gate accepts only one canonical helper shape:
+
+1. publish progress A from already captured values;
+2. if A returns an error, return that error without attempting B; and
+3. on A success, invoke terminal B directly and return its result.
+
+Token-normalized source comparison makes whitespace and comments irrelevant
+while forbidding any executable call, abort, park, or publication between A's
+return and B's invocation. The runtime must contain exactly one helper
+definition, one helper call, and one occurrence of each A/B publication
+expression. Thus a successful terminal B can only have A as its immediately
+preceding publication from this single-writer route. An A failure may still be
+reported by the caller, but B is not attempted, so that record cannot be
+misread as a complete pair.
+
+Focused fault validation rejects all five load-bearing mutations:
+
+- an abort/publication inserted between A and B;
+- a publication substituted into A's error path;
+- reversed A/B expressions;
+- a duplicate A route; and
+- a missing runtime caller.
+
+The gate configuration itself also rejects a purported A or B expression that
+hides more than one function call, so the checker cannot be configured to
+bless an extra publication inside either expression.
+
+The exact current P2.92 runtime was first used to probe the existing C-function
+extractor API, then tokenized successfully. `py_compile` and all nine focused
+ACCEPT_TO_RESUME tests pass. The new gate becomes an actual evidence claim only
+when a future successor feeds its materialized runtime and SoT-derived A/B
+expressions through it; until then it is a validated mandatory gate, not proof
+of nonexistent candidate code.
+
 ## Deterministic Interpretation Requirement
 
 The successor must make both outcomes useful:
@@ -394,7 +461,9 @@ is now:
    16 USBLNKST values, and terminal B carries 132 conditional final states;
    add the fifteen fixed-predicate masks and explicit state/speed or
    CONNECTSPD contradiction routes, then prove every raw observation maps to
-   one normal or failure semantic and A/B are the final surviving pair;
+   one normal or failure semantic and require the materialized runtime to pass
+   `ACCEPT_TO_RESUME_PAIR_ADJACENCY` before claiming A/B are the final
+   surviving pair;
 3. before writing each verifier lane, call its production API once with an
    actual accepted and rejected input and record return/exception behavior;
 4. fault-validate exact field rendering, cross-slot pair coherence,

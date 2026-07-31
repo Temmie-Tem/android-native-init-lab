@@ -8,11 +8,13 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
 from typing import Any, Callable
 
+import s22plus_fyg8_p288_source_contract as p288_source
 import s22plus_fyg8_p290_contract_spec as positions
 import s22plus_fyg8_p292_repair_decoder as decoder
 import s22plus_fyg8_p292_repair_generator as generator
@@ -23,6 +25,7 @@ import s22plus_fyg8_p292_sot_zero_delta as zero
 
 SCHEMA = "s22plus_fyg8_p292_accept_to_resume_result_v1"
 VERDICT = "PASS_P292_ACCEPT_TO_RESUME_AND_ERRNO_CLOSURE"
+PAIR_ADJACENCY_VERDICT = "PASS_ACCEPT_TO_RESUME_PAIR_ADJACENCY"
 CANONICAL_LIVE_DETAIL_ORDINAL = 87
 CANONICAL_LIVE_DETAIL = 0xC18
 CONSECUTIVE_DETAIL_ORDINALS = (86, 87)
@@ -35,6 +38,168 @@ class ClosureError(ValueError):
 
 
 ArtifactMutator = Callable[[dict[str, bytes]], dict[str, bytes]]
+
+
+_C_TOKEN = re.compile(
+    rb"""
+    (?P<space>\s+)
+    |(?P<line_comment>//[^\r\n]*(?:\r?\n|$))
+    |(?P<block_comment>/\*.*?\*/)
+    |(?P<string>"(?:\\.|[^"\\])*")
+    |(?P<character>'(?:\\.|[^'\\])*')
+    |(?P<identifier>[A-Za-z_][A-Za-z0-9_]*)
+    |(?P<number>0[xX][0-9A-Fa-f]+[uUlL]*|[0-9]+[uUlL]*)
+    |(?P<operator>
+        >>=|<<=|\.\.\.|->|\+\+|--|&&|\|\||==|!=|<=|>=|<<|>>|
+        \+=|-=|\*=|/=|%=|&=|\|=|\^=|[{}()\[\];,.*&=+\-/%!<>?:~^|#\\]
+    )
+    """,
+    re.DOTALL | re.VERBOSE,
+)
+
+
+def _c_tokens(source: bytes, label: str) -> tuple[bytes, ...]:
+    if not isinstance(source, bytes):
+        raise ClosureError(f"{label} is not bytes")
+    result: list[bytes] = []
+    offset = 0
+    while offset < len(source):
+        match = _C_TOKEN.match(source, offset)
+        if match is None:
+            raise ClosureError(
+                f"{label} has an unparsed C byte at offset {offset}"
+            )
+        if match.lastgroup not in {
+            "space",
+            "line_comment",
+            "block_comment",
+        }:
+            result.append(match.group(0))
+        offset = match.end()
+    return tuple(result)
+
+
+def _identifier(value: str, label: str) -> bytes:
+    if not isinstance(value, str) or re.fullmatch(
+        r"[A-Za-z_][A-Za-z0-9_]*", value
+    ) is None:
+        raise ClosureError(f"{label} is not one C identifier")
+    return value.encode("ascii")
+
+
+def _subsequence_count(
+    values: tuple[bytes, ...], expected: tuple[bytes, ...]
+) -> int:
+    if not expected or len(expected) > len(values):
+        return 0
+    return sum(
+        values[index : index + len(expected)] == expected
+        for index in range(len(values) - len(expected) + 1)
+    )
+
+
+def _call_names(values: tuple[bytes, ...]) -> tuple[bytes, ...]:
+    noncalls = {b"if", b"sizeof", b"_Alignof", b"typeof", b"__typeof__"}
+    return tuple(
+        values[index]
+        for index in range(len(values) - 1)
+        if re.fullmatch(rb"[A-Za-z_][A-Za-z0-9_]*", values[index])
+        and values[index] not in noncalls
+        and values[index + 1] == b"("
+    )
+
+
+def audit_pair_publication_adjacency(
+    runtime: bytes,
+    *,
+    helper_name: str,
+    first_publish_expression: bytes,
+    terminal_publish_expression: bytes,
+) -> dict[str, Any]:
+    """Require one canonical A-success-to-terminal-B publication helper.
+
+    The first publication failure returns without attempting B. On the only
+    path that reaches B, no call, abort, park, or publication can execute
+    between A's return and B's invocation.
+    """
+
+    helper = _identifier(helper_name, "pair helper name")
+    first_tokens = _c_tokens(
+        first_publish_expression, "first publication expression"
+    )
+    terminal_tokens = _c_tokens(
+        terminal_publish_expression, "terminal publication expression"
+    )
+    first_calls = _call_names(first_tokens)
+    terminal_calls = _call_names(terminal_tokens)
+    if (
+        not first_tokens
+        or not terminal_tokens
+        or len(first_calls) != 1
+        or len(terminal_calls) != 1
+        or first_tokens[:2] != (first_calls[0], b"(")
+        or terminal_tokens[:2] != (terminal_calls[0], b"(")
+        or first_tokens.count(b"first_detail") != 1
+        or b"terminal_detail" in first_tokens
+        or terminal_tokens.count(b"terminal_detail") != 1
+        or b"first_detail" in terminal_tokens
+        or first_tokens[-1] == b";"
+        or terminal_tokens[-1] == b";"
+    ):
+        raise ClosureError("pair publication expressions are not canonical")
+
+    expected = (
+        helper
+        + b"(\n"
+        b"    uint16_t first_detail, uint16_t terminal_detail) {\n"
+        b"    long first_rc = "
+        + first_publish_expression.strip()
+        + b";\n"
+        b"    if (first_rc != 0) {\n"
+        b"        return first_rc;\n"
+        b"    }\n"
+        b"    return "
+        + terminal_publish_expression.strip()
+        + b";\n"
+        b"}\n"
+    )
+    try:
+        actual = p288_source._c_function_body(  # noqa: SLF001
+            runtime, helper_name
+        )
+    except p288_source.SourceContractError as exc:
+        raise ClosureError(str(exc)) from exc
+    actual_tokens = _c_tokens(actual, "pair helper body")
+    expected_tokens = _c_tokens(expected, "expected pair helper body")
+    if actual_tokens != expected_tokens:
+        raise ClosureError("pair publication adjacency helper body differs")
+
+    runtime_tokens = _c_tokens(runtime, "pair runtime source")
+    helper_references = sum(
+        runtime_tokens[index : index + 2] == (helper, b"(")
+        for index in range(len(runtime_tokens) - 1)
+    )
+    if helper_references != 2:
+        raise ClosureError(
+            "pair helper must have one definition and one runtime call"
+        )
+    if (
+        _subsequence_count(runtime_tokens, first_tokens) != 1
+        or _subsequence_count(runtime_tokens, terminal_tokens) != 1
+    ):
+        raise ClosureError("pair publication route is not unique")
+
+    return {
+        "verdict": PAIR_ADJACENCY_VERDICT,
+        "helper": helper_name,
+        "first_publication_count": 1,
+        "terminal_publication_count": 1,
+        "runtime_call_count": 1,
+        "calls_between_first_return_and_terminal_invocation": 0,
+        "first_failure_returns_without_terminal_attempt": True,
+        "abort_or_park_between_publications": False,
+        "verified": True,
+    }
 
 
 def _sha256(data: bytes) -> str:

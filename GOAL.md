@@ -216,6 +216,11 @@ not implemented or authorized. `SLOT_COUNT=2` is now a load-bearing diagnostic
 constraint and the first architectural item to revisit if packing dominates a
 later campaign again.
 
+The failed `detail_spec()` probe was corrected in-unit by calling the real
+`detail_name()` API before the full audit; the production-API probe rule
+prevented a repeat. `ACCEPT_TO_RESUME_PAIR_ADJACENCY` now fault-validates the
+A-success → terminal-B shape, but proof awaits future materialized source.
+
 The sole attached stock FYG8 S22+ passed a read-only D0 at
 `configured/super-speed` with parent and child runtime PM both active; no A90
 was present or contacted. Debugfs support is configured but not mounted, so no
@@ -645,7 +650,8 @@ operations before the asserted publication boundaries.
 12. Retire the impossible single-position 14-bit band. Validate the exact
    `0xc40` precondition gate, fifteen fixed-predicate mismatch masks, and the
    conditional 16-value A plus 132-value terminal B mapping. Prove the pair is
-   the final retained evidence and continuously resumable.
+   continuously resumable and pass `ACCEPT_TO_RESUME_PAIR_ADJACENCY` on the
+   materialized runtime before calling it final retained evidence.
 13. Probe every production API once with actual accepted/rejected inputs before
    writing its verifier lane, then fault-validate exact rendering and
    `digital-control-state-nominal`. A stock-active debugfs D1 is optional.
