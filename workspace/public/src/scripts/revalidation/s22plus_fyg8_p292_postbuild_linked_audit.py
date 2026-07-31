@@ -39,6 +39,47 @@ SourceContractError = AuditError
 require_gnu_aarch64_tools = linked.require_gnu_aarch64_tools
 linked_table_storage_bytes = linked.linked_table_storage_bytes
 normalize_linked_table_storage = linked.normalize_linked_table_storage
+_INHERITED_PRODUCTION_VALIDATOR_SOURCE = inherited.production_validator_source
+_INHERITED_HOST_VALIDATOR_TU = inherited.host_validator_tu
+
+
+def production_validator_source(patch: bytes) -> bytes:
+    """Include the P2.92 exact-active-slot type in the inherited validator."""
+
+    slot = inherited._added_span(  # noqa: SLF001
+        patch,
+        b"+struct s22_fyg8_e1_slot {\n",
+        b"+struct s22_fyg8_e1_record {\n",
+    )
+    if (
+        slot.count(b"struct s22_fyg8_e1_slot {") != 1
+        or slot.count(b"u8 generation;") != 1
+        or slot.count(b"__le16 detail;") != 1
+        or slot.count(b"__le32 commit_crc;") != 1
+    ):
+        raise AuditError("P2.92 exact active-slot definition differs")
+    source = slot + _INHERITED_PRODUCTION_VALIDATOR_SOURCE(patch)
+    if source.count(b"struct s22_fyg8_e1_slot active;") != 1:
+        raise AuditError("P2.92 validator state does not retain an active slot")
+    return source
+
+
+def host_validator_tu(patch: bytes) -> bytes:
+    """Drive the production validator through P2.92's retained generation."""
+
+    source = _INHERITED_HOST_VALIDATOR_TU(patch)
+    inherited_assignment = (
+        b"s22_fyg8_e1_state.generation = (u8)generation;"
+    )
+    active_assignment = (
+        b"s22_fyg8_e1_state.active.generation = (u8)generation;"
+    )
+    if source.count(inherited_assignment) != 1:
+        raise AuditError("P2.92 host generation assignment differs")
+    source = source.replace(inherited_assignment, active_assignment)
+    if source.count(active_assignment) != 1:
+        raise AuditError("P2.92 active-slot generation assignment differs")
+    return source
 
 
 def _prune_noreturn_successors(
@@ -120,6 +161,8 @@ def _configure() -> None:
     inherited.HOST_CASE_COUNT = HOST_CASE_COUNT
     inherited.HOST_ACCEPT_COUNT = HOST_ACCEPT_COUNT
     inherited.HOST_OUTPUT = HOST_OUTPUT
+    inherited.production_validator_source = production_validator_source
+    inherited.host_validator_tu = host_validator_tu
 
 
 def check(args):  # noqa: ANN001, ANN201
