@@ -207,19 +207,21 @@ the controlled power cycle and used nested run-stop; only P2.92 selected the
 combined `0xc40` helper-off/on-zero plus direct-run-stop class. A successor can
 therefore make `0xc40` a precondition and terminate exact `0xc41..0xc46`
 mismatches before final sampling. The occupied `0x800/0x900` bind-gate error
-bands must not be overloaded. The reduced two-slot H0 candidate uses A for all
+bands must not be overloaded. The reduced two-slot P2.94 implementation uses A for all
 16 USBLNKST values and terminal B for 33 conditional UDC-state/speed classes
 times COREIDLE and SUSPHY, or 132 values: 148 normal values total. Fixed
 RUN_STOP, DEVCTRLHLT, PRTCAP, and VBUS-valid mismatches use fifteen exact masks;
 CONNECTSPD is ignored for UNKNOWN speed and exact-checked otherwise. This is
-not implemented or authorized. `SLOT_COUNT=2` is now a load-bearing diagnostic
-constraint and the first architectural item to revisit if packing dominates a
-later campaign again.
+implemented and host-validated but has no derived intent, Full-LTO build, or
+device authority. `SLOT_COUNT=2` is now a load-bearing diagnostic constraint
+and the first architectural item to revisit if packing dominates a later
+campaign again.
 
 Repository-module AST closure rejects absent `module.attr` and alias shadowing
 before execution. The mandatory tuple locks it with
-`ACCEPT_TO_RESUME_PAIR_ADJACENCY`; pair proof awaits future materialized source,
-and runtime behavior probes remain separately required.
+`ACCEPT_TO_RESUME_PAIR_ADJACENCY`; the exact materialized P2.94 runtime passes
+that pair proof with zero intervening publication calls. Runtime behavior
+probes remain separately required.
 
 The sole attached stock FYG8 S22+ passed a read-only D0 at
 `configured/super-speed` with parent and child runtime PM both active; no A90
