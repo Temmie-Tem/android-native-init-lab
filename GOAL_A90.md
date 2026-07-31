@@ -55,16 +55,26 @@ transfer between the two files.
   review found no target, staging, approval, boot-only, or rollback bypass.
 - The current manifest and approval are stale because the bound staging adapter
   changed. Do not retry this transaction or reinterpret its consumed token.
-- Fresh run `a90-v3406-debian-display-f1-20260801-03` now has a new-inode
-  keyed rootfs and a passing exact A90 D0/path preflight. Exact V2321 remains
-  healthy; final, fixed-work, and run-stage paths are absent. The separately
-  connected S22+ received no command.
+- Fresh run `a90-v3406-debian-display-f1-20260801-03` used a new-inode keyed
+  rootfs and a passing exact A90 D0/path preflight, then consumed one exact F1
+  approval. The journal records one boot-only candidate transfer, no candidate
+  replay, one exact V2321 rollback transfer, and final restored V2321 health.
+  The separately connected S22+ received no command.
 - The current F1 execution closure now binds the transition-contract dependency
   imported by the central observation pipeline. Phase 2C and finalizer H0
   audits pass, isolated focused regression passes `276/276`, and independent
-  review returned GO with no unresolved finding. No final or resident manifest,
-  approval receipt, transaction, device write, transfer, flash, or reboot has
-  yet been created for this run.
+  review returned GO with no unresolved finding.
+- The resident promotion stopped before `candidate-boot-ready`. The candidate
+  rebooted, re-enumerated ACM, and exposed a native prompt, but host AT probe
+  bytes corrupted the strict health frame. The first rollback health capture
+  also lost one frame boundary; journal-resume then verified exact V2321
+  version/build, `selftest fail=0`, and pstore `entries=0` without retransmitting
+  rollback. The closed result is
+  `ABORTED_F1_V2_CANDIDATE_UNCERTAIN_ROLLED_BACK`.
+- The exact A90 ModemManager guard is currently armed inside the resident tail,
+  after the base runner's first candidate-health exchange. Extending that guard
+  across the earlier candidate reboot/health corridor is the next H0 unit. No
+  new A90 live authority exists and this candidate must not be replayed.
 - Do not add a device step while host-only work can answer the selected
   question.
 
