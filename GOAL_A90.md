@@ -12,8 +12,9 @@ transfer between the two files.
 
 ## Current Authority
 
-- This line is stopped at H0 under AGENTS.md rule 7. No A90 F1, D1, attended
-  continuation, resident-baseline installation, or other live authority exists.
+- The repeated host-preparation stop has been remediated in a new H0 design
+  unit. No A90 F1, D1, attended continuation, resident-baseline installation,
+  or other live authority exists without the fresh exact approval below.
 - Exact V2321 remains resident. The latest connected D0 again proved exact
   version/build, selftest `fail=0`, pstore `entries=0`, and absent final, work,
   and stage paths. No command was sent to the separately connected S22+.
@@ -30,14 +31,21 @@ transfer between the two files.
   approval, and rollback boundaries remain closed.
 - Fresh run `a90-v3406-debian-display-f1-20260801-02` has a new-inode keyed
   rootfs, new observer key, exact candidate and rollback copies, and passing D0
-  evidence. It has no valid final manifest or approval.
+  evidence.
 - Two host-only manual manifest rebinding attempts then failed validation: the
   first retained the old remote-image suffix, and the second retained old D0
   evidence filenames. No approval receipt or transaction was created. This is
-  the repeated material host-preparation failure that stops the line.
-- Do not manually patch a third manifest. Resume only with a tested resident
-  manifest builder that checks all local paths and exact remote path derivation
-  before exclusive publication, then create a fresh run ID and approval.
+  the repeated material host-preparation failure that stopped the old method.
+- Commit `c0b56154` replaces that method with a host-only builder. It derives
+  every run field structurally, checks all local paths, validates a temporary
+  manifest through the production resident loader and local closure, and only
+  then performs one absent-only publication. Focused tests pass `171/171`.
+- The resulting resident manifest has SHA256
+  `fc3677624977fa1723754bcba842f75ff36c084eb86ac62925c87af638aa83f7`.
+  Its approval receipt is prepared with binding
+  `08790a1d48843e5c469076755abf21b05a526bd8e25c9e40f51d588d9b9f2691`.
+  Preparation granted no live authority and contacted no device; execution
+  requires that fresh exact operator token.
 - Do not add a device step while host-only work can answer the selected
   question.
 
