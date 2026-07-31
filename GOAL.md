@@ -126,6 +126,25 @@ verification/creation and connected D0 run on the local attended host. This is
 H0 rehearsal evidence only and grants no promotion, manifest, D0, or F1
 authority.
 
+The later exact P2.92 pre-F1 sequence is now complete. The previously passed
+formal-static receipt was reused, the single authorized offline promotion
+passed, and ready manifest `s22plus-fyg8-p292-process-v2-ready-1` was created
+once with SHA256 `8d00c3f25333215041b7ec6f72aa95180fa584c1a982734225b0bd44be86289d`.
+The first connected D0 stopped cleanly because the retained observer still
+contained one older candidate-family record. One ordinary D1 normal Android
+reboot rotated that baseline; boot identity changed and the exact S22+ FYG8
+Android/root health returned without payload, Odin, Download mode, or another
+reboot. A host-only final aggregation expression incorrectly returned failure
+because it treated the expected false safety flags as must-be-true, but every
+post-reboot health predicate passed; the reboot was not repeated. The next
+production D0 passed with zero family/exact markers, stable target/topology,
+healthy boot and supporting partitions, and no writes. Process-v2 connected
+prepare then bound the exact candidate, rollback, manifest, execution closure,
+clean D0, and private target as approval binding
+`8732587efadc21b1534d74c37727679a53778afd2ae2e1ef2ee2d6e63d2fc5e1`.
+No F1, Odin invocation, partition transfer, Download transition, or candidate
+execution has occurred. F1 still requires the fresh exact operator token.
+
 The four formal Process-v2 verdicts remain
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: rollback and health evidence are
 unchanged, while restart-helper dispatch and every later E3 boundary remain
