@@ -557,7 +557,7 @@ class CdcAcmObserverV1Test(unittest.TestCase):
         self.assertNotIn("MAX_SEC = 2040.0", command[8])
         self.assertEqual(extended[9:], command[9:])
         compile(extended[8], "<extended-udev-guard>", "exec")
-        for invalid in (359, 3601, 360.0, True):
+        for invalid in (359, 7201, 360.0, True):
             with self.subTest(invalid=invalid), self.assertRaisesRegex(
                 self.module.ObserverError,
                 "outside the reviewed bound",

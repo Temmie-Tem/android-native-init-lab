@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -660,7 +661,7 @@ class ResidentPromotionV1Tests(unittest.TestCase):
                 ),
                 mock.patch.object(base, "settle_observation_channel", return_value={"ok": True}),
                 mock.patch.object(base, "capture_bridge_serial_epoch", return_value={"epoch": 1}),
-                mock.patch.object(base, "arm_candidate_return_modemmanager_guard", return_value=guard),
+                mock.patch.object(base, "arm_candidate_return_modemmanager_guard") as arm,
                 mock.patch.object(promotion, "_dispatch_resident_reboot", return_value={"accepted": True}),
                 mock.patch.object(
                     base,
@@ -685,7 +686,9 @@ class ResidentPromotionV1Tests(unittest.TestCase):
                     journal_dir,
                     events,
                     self.native_health(spec),
+                    guard,
                 )
+            arm.assert_not_called()
             records = sorted(journal_dir.glob("*.json"))
             actions = [json.loads(path.read_text())["action"] for path in records]
         self.assertEqual(result["status"], "PASS_A90_F1_RP_RESIDENT_PROMOTED")
@@ -758,7 +761,7 @@ class ResidentPromotionV1Tests(unittest.TestCase):
                 mock.patch.object(promotion, "_promotion_health", return_value={"health": 1}),
                 mock.patch.object(base, "settle_observation_channel", return_value={"ok": True}),
                 mock.patch.object(base, "capture_bridge_serial_epoch", return_value={"epoch": 1}),
-                mock.patch.object(base, "arm_candidate_return_modemmanager_guard", return_value=guard),
+                mock.patch.object(base, "arm_candidate_return_modemmanager_guard") as arm,
                 mock.patch.object(
                     promotion,
                     "_dispatch_resident_reboot",
@@ -773,7 +776,9 @@ class ResidentPromotionV1Tests(unittest.TestCase):
                         journal_dir,
                         events,
                         self.native_health(spec),
+                        guard,
                     )
+            arm.assert_not_called()
             actions = [
                 json.loads(path.read_text())["action"]
                 for path in sorted(journal_dir.glob("*.json"))
@@ -801,8 +806,7 @@ class ResidentPromotionV1Tests(unittest.TestCase):
                 mock.patch.object(
                     base,
                     "arm_candidate_return_modemmanager_guard",
-                    return_value=guard,
-                ),
+                ) as arm,
                 mock.patch.object(promotion, "_dispatch_resident_reboot", return_value={}),
                 mock.patch.object(
                     base,
@@ -821,7 +825,9 @@ class ResidentPromotionV1Tests(unittest.TestCase):
                     journal_dir,
                     events,
                     self.native_health(spec),
+                    guard,
                 )
+            arm.assert_not_called()
             actions = [
                 json.loads(path.read_text())["action"]
                 for path in sorted(journal_dir.glob("*.json"))
@@ -861,13 +867,129 @@ class ResidentPromotionV1Tests(unittest.TestCase):
         ):
             base.recover_approved_rollback(spec, args)
 
+    def test_rollback_recovery_guard_rearm_is_bounded_and_exact(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            transaction = Path(tmp)
+            guard_spec = {
+                "kind": base.cdc_guard.KIND,
+                "usb_vendor_id": "04e8",
+                "usb_product_id": "6861",
+                "usb_serial": "a90-test-serial",
+                "usb_driver": "cdc_acm",
+                "usb_interface_number": "02",
+                "banner_hex": "00",
+            }
+
+            def arm_value(corridor: str, instance: str) -> dict:
+                return {
+                    "schema": base.MODEMMANAGER_GUARD_ARM_SCHEMA,
+                    "corridor": corridor,
+                    "max_sec": 600,
+                    "child_pid": os.getpid(),
+                    "guard_spec": guard_spec,
+                    "topology": "usb:1-2.3",
+                    "receipt": {
+                        "schema": base.cdc_guard.GUARD_SCHEMA,
+                        "status": "armed",
+                        "spec_sha256": base.cdc_guard.digest(guard_spec),
+                        "topology_sha256": hashlib.sha256(b"1-2.3").hexdigest(),
+                        "rule_sha256": "3" * 64,
+                        "instance_sha256": instance,
+                        "output_sha256": "5" * 64,
+                        "child_alive": True,
+                    },
+                }
+
+            def release_value(instance: str) -> dict:
+                return {
+                    "schema": base.cdc_guard.GUARD_SCHEMA,
+                    "status": "released",
+                    "instance_sha256": instance,
+                    "returncode": 0,
+                    "released": True,
+                }
+
+            self.assertEqual(
+                promotion._next_rollback_guard_corridor(transaction),
+                "rollback-recovery-1",
+            )
+            first_instance = "1" * 64
+            first_arm = transaction / "rollback-recovery-1-modemmanager-guard-arm.json"
+            base.write_private_json_exclusive(
+                first_arm,
+                arm_value("rollback-recovery-1", first_instance),
+            )
+            with self.assertRaisesRegex(promotion.ContractError, "still active"):
+                promotion._next_rollback_guard_corridor(transaction)
+            interrupted = arm_value("rollback-recovery-1", first_instance)
+            interrupted["child_pid"] = 99999999
+            base.write_private_json_atomic(
+                first_arm,
+                interrupted,
+            )
+            base.write_private_json_exclusive(
+                transaction
+                / "rollback-recovery-1-modemmanager-guard-release-failed.json",
+                {
+                    "schema": base.cdc_guard.GUARD_SCHEMA,
+                    "status": "guard-exited-uncommanded",
+                    "instance_sha256": first_instance,
+                    "returncode": base.cdc_guard.GUARD_UNCOMMANDED_EXIT,
+                    "released": False,
+                },
+            )
+            runtime_rule = transaction / "runtime-guard.rules"
+            runtime_rule.write_text("stale\n", encoding="utf-8")
+            with (
+                mock.patch.object(
+                    base.cdc_guard,
+                    "GUARD_RUNTIME_RULE_PATH",
+                    runtime_rule,
+                ),
+                mock.patch.object(
+                    promotion,
+                    "GUARD_CRASH_CLEANUP_WAIT_SEC",
+                    0.0,
+                ),
+                self.assertRaisesRegex(promotion.ContractError, "still present"),
+            ):
+                promotion._next_rollback_guard_corridor(transaction)
+            runtime_rule.unlink()
+            with mock.patch.object(
+                base.cdc_guard,
+                "GUARD_RUNTIME_RULE_PATH",
+                runtime_rule,
+            ):
+                self.assertEqual(
+                    promotion._next_rollback_guard_corridor(transaction),
+                    "rollback-recovery-2",
+                )
+            second_instance = "2" * 64
+            base.write_private_json_exclusive(
+                transaction / "rollback-recovery-2-modemmanager-guard-arm.json",
+                arm_value("rollback-recovery-2", second_instance),
+            )
+            base.write_private_json_exclusive(
+                transaction
+                / "rollback-recovery-2-modemmanager-guard-release.json",
+                release_value(second_instance),
+            )
+            with mock.patch.object(
+                base.cdc_guard,
+                "GUARD_RUNTIME_RULE_PATH",
+                runtime_rule,
+            ):
+                with self.assertRaisesRegex(promotion.ContractError, "exhausted"):
+                    promotion._next_rollback_guard_corridor(transaction)
+
     def test_source_reuses_base_transfer_and_recovery(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
         self.assertNotIn("import subprocess", source)
         self.assertNotIn("native_init_flash.py", source)
         self.assertNotIn("dd if=", source)
         self.assertIn("base.execute_approved_f1(", source)
-        self.assertIn("base.recover_approved_rollback(spec, args)", source)
+        self.assertIn("base.recover_approved_rollback(", source)
+        self.assertIn("return_guard=guard", source)
         self.assertIn("promotion_tail=promotion_tail", source)
         self.assertIn("RESIDENT_PROMOTION_MANIFEST_SCHEMA", source)
 

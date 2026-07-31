@@ -13,9 +13,11 @@ import argparse
 import hashlib
 import importlib
 import json
+import os
 import re
 import stat
 import sys
+import time
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -34,6 +36,8 @@ MODE = "a90-resident-promotion-v1"
 RESULT_SCHEMA = "a90_resident_boot_promotion_v1_result"
 REBOOT_COMMAND = ("reboot",)
 MAX_PRIOR_JOURNAL_RECORDS = 64
+GUARD_CRASH_CLEANUP_WAIT_SEC = 5.0
+GUARD_CRASH_CLEANUP_POLL_SEC = 0.1
 QUALIFICATION_HELPER_PATH = SCRIPT_DIR / "a90_resident_fast_handoff_v1.py"
 PROMOTED_RESULT_KEYS = {
     "schema",
@@ -904,26 +908,26 @@ def promotion_tail(
     journal_dir: Path,
     events: list[dict[str, str]],
     candidate_health: dict[str, Any],
+    guard: base.cdc_guard.ModemManagerGuard,
 ) -> dict[str, Any]:
-    first_native_exact = _require_exact_native_health(spec, candidate_health)
-    first_health = _promotion_health(spec, args, candidate_health)
-    base.append_record(
-        journal_dir,
-        "CANDIDATE_HEALTH_VERIFIED",
-        "candidate-health-verified",
-        {
-            "candidate_health_check_count": 1,
-            "native_exact": first_native_exact,
-            "health": first_health,
-        },
-        manifest_sha256=spec.stage.manifest_sha256,
-        run_id=spec.stage.run_id,
-    )
-    channel = base.settle_observation_channel(args, phase="before-resident-reboot")
-    candidate_epoch = base.capture_bridge_serial_epoch(spec, args)
-    guard = base.arm_candidate_return_modemmanager_guard(spec, args, transaction_dir)
     guard_released = False
     try:
+        first_native_exact = _require_exact_native_health(spec, candidate_health)
+        first_health = _promotion_health(spec, args, candidate_health)
+        base.append_record(
+            journal_dir,
+            "CANDIDATE_HEALTH_VERIFIED",
+            "candidate-health-verified",
+            {
+                "candidate_health_check_count": 1,
+                "native_exact": first_native_exact,
+                "health": first_health,
+            },
+            manifest_sha256=spec.stage.manifest_sha256,
+            run_id=spec.stage.run_id,
+        )
+        channel = base.settle_observation_channel(args, phase="before-resident-reboot")
+        candidate_epoch = base.capture_bridge_serial_epoch(spec, args)
         if not guard.healthy(recheck=True):
             raise ContractError("resident reboot ModemManager guard was lost")
         base.append_record(
@@ -1009,6 +1013,7 @@ def promotion_tail(
         release = base.release_candidate_return_modemmanager_guard(
             guard,
             transaction_dir,
+            corridor="resident-promotion",
         )
         guard_released = True
         if release.get("released") is not True:
@@ -1023,7 +1028,182 @@ def promotion_tail(
         )
     finally:
         if not guard_released:
-            guard.release()
+            release = base.release_candidate_return_modemmanager_guard(
+                guard,
+                transaction_dir,
+                corridor="resident-promotion",
+            )
+            if release.get("released") is not True:
+                raise ContractError("resident promotion guard did not release")
+
+
+def _consumed_rollback_guard_attempt(
+    transaction_dir: Path,
+    corridor: str,
+) -> bool:
+    arm_path = transaction_dir / f"{corridor}-modemmanager-guard-arm.json"
+    release_path = (
+        transaction_dir / f"{corridor}-modemmanager-guard-release.json"
+    )
+    failure_path = (
+        transaction_dir / f"{corridor}-modemmanager-guard-release-failed.json"
+    )
+    arm_exists = os.path.lexists(arm_path)
+    release_exists = os.path.lexists(release_path)
+    failure_exists = os.path.lexists(failure_path)
+    if not arm_exists and not release_exists and not failure_exists:
+        return False
+    if not arm_exists:
+        raise ContractError("rollback recovery guard release lacks its arm")
+    if release_exists and failure_exists:
+        raise ContractError("rollback recovery guard has conflicting releases")
+    base.require_private_regular(arm_path)
+    try:
+        arm = json.loads(arm_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ContractError("rollback recovery guard evidence is invalid") from exc
+    receipt = arm.get("receipt") if isinstance(arm, dict) else None
+    guard_spec = arm.get("guard_spec") if isinstance(arm, dict) else None
+    topology = arm.get("topology") if isinstance(arm, dict) else None
+    instance = receipt.get("instance_sha256") if isinstance(receipt, dict) else None
+    try:
+        receipt = base.require_exact_modemmanager_guard_receipt(
+            receipt,
+            guard_spec,
+            topology,
+        )
+    except base.ContractError as exc:
+        raise ContractError("rollback recovery guard receipt is invalid") from exc
+    if (
+        not isinstance(arm, dict)
+        or set(arm)
+        != {
+            "schema",
+            "corridor",
+            "max_sec",
+            "child_pid",
+            "guard_spec",
+            "topology",
+            "receipt",
+        }
+        or arm.get("schema") != base.MODEMMANAGER_GUARD_ARM_SCHEMA
+        or arm.get("corridor") != corridor
+        or type(arm.get("max_sec")) is not int
+        or not (
+            base.cdc_guard.GUARD_DEFAULT_MAX_SEC
+            <= arm.get("max_sec")
+            <= base.cdc_guard.GUARD_MAX_SEC_LIMIT
+        )
+        or type(arm.get("child_pid")) is not int
+        or arm.get("child_pid") <= 0
+    ):
+        raise ContractError("rollback recovery guard evidence lost its binding")
+    if failure_exists:
+        base.require_private_regular(failure_path)
+        try:
+            failure = json.loads(failure_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise ContractError("rollback recovery guard failure is invalid") from exc
+        failure_returncode = (
+            failure.get("returncode") if isinstance(failure, dict) else None
+        )
+        expected_status = (
+            "guard-expired"
+            if failure_returncode == base.cdc_guard.GUARD_EXPIRED_EXIT
+            else (
+                "guard-exited-uncommanded"
+                if failure_returncode
+                in {0, base.cdc_guard.GUARD_UNCOMMANDED_EXIT}
+                else "release-failed"
+            )
+        )
+        returncode_shape = (
+            isinstance(failure, dict)
+            and set(failure)
+            == {
+                "schema",
+                "status",
+                "instance_sha256",
+                "returncode",
+                "released",
+            }
+            and type(failure_returncode) is int
+            and failure.get("status") == expected_status
+        )
+        error_shape = (
+            set(failure)
+            == {
+                "schema",
+                "status",
+                "instance_sha256",
+                "error_type",
+                "released",
+            }
+            and failure.get("status") == "release-failed"
+            and isinstance(failure.get("error_type"), str)
+            and base.cdc_guard.ERROR_TYPE_RE.fullmatch(failure["error_type"])
+            is not None
+        ) if isinstance(failure, dict) else False
+        if (
+            not isinstance(failure, dict)
+            or failure.get("schema") != base.cdc_guard.GUARD_SCHEMA
+            or failure.get("instance_sha256") != instance
+            or failure.get("released") is not False
+            or not (returncode_shape or error_shape)
+        ):
+            raise ContractError(
+                "rollback recovery guard failure lost its binding"
+            )
+    if not release_exists:
+        if (Path("/proc") / str(arm["child_pid"])).exists():
+            raise ContractError("rollback recovery guard attempt is still active")
+        deadline = time.monotonic() + GUARD_CRASH_CLEANUP_WAIT_SEC
+        while os.path.lexists(base.cdc_guard.GUARD_RUNTIME_RULE_PATH):
+            if time.monotonic() >= deadline:
+                raise ContractError(
+                    "interrupted rollback recovery guard rule is still present"
+                )
+            time.sleep(GUARD_CRASH_CLEANUP_POLL_SEC)
+        return True
+    base.require_private_regular(release_path)
+    try:
+        release = json.loads(release_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ContractError("rollback recovery guard release is invalid") from exc
+    if (
+        not isinstance(release, dict)
+        or set(release)
+        != {
+            "schema",
+            "status",
+            "instance_sha256",
+            "returncode",
+            "released",
+        }
+        or release.get("schema") != base.cdc_guard.GUARD_SCHEMA
+        or release.get("status") != "released"
+        or release.get("released") is not True
+        or release.get("returncode") != 0
+        or release.get("instance_sha256") != instance
+    ):
+        raise ContractError("rollback recovery guard evidence lost its binding")
+    return True
+
+
+def _next_rollback_guard_corridor(transaction_dir: Path) -> str:
+    first = _consumed_rollback_guard_attempt(
+        transaction_dir,
+        "rollback-recovery-1",
+    )
+    second = _consumed_rollback_guard_attempt(
+        transaction_dir,
+        "rollback-recovery-2",
+    )
+    if not first and not second:
+        return "rollback-recovery-1"
+    if first and not second:
+        return "rollback-recovery-2"
+    raise ContractError("rollback recovery guard attempts are not exact or exhausted")
 
 
 def recover_promotion_or_rollback(
@@ -1032,6 +1212,7 @@ def recover_promotion_or_rollback(
 ) -> dict[str, Any]:
     transaction_dir = base.exact_transaction_dir(spec, args.transaction_dir)
     records = base.read_journal(spec, transaction_dir)
+    actions = [record.get("action") for record in records]
     if (
         records
         and records[-1].get("state") == "PROMOTED_CLOSED"
@@ -1041,7 +1222,80 @@ def recover_promotion_or_rollback(
         base.verify_local_closure(spec)
         base.require_consumed_approval(records, approval)
         return repair_promoted_result(spec, transaction_dir, records)
-    return base.recover_approved_rollback(spec, args)
+    if "candidate-transfer-started" not in actions:
+        raise ContractError("promotion recovery lacks durable candidate intent")
+    if "closed" in actions:
+        raise ContractError("promotion recovery transaction is already closed")
+    current_state = records[-1].get("state")
+    if not isinstance(current_state, str) or not current_state:
+        raise ContractError("promotion recovery journal state is not exact")
+    approval = base.approved_bindings(spec, args, recovery=True)
+    base.verify_local_closure(spec)
+    base.require_consumed_approval(records, approval)
+    corridor: str | None = None
+    guard: base.cdc_guard.ModemManagerGuard | None = None
+    try:
+        corridor = _next_rollback_guard_corridor(transaction_dir)
+        prepared_inputs = base.resident_promotion_guard_inputs(
+            transaction_dir,
+            records,
+        )
+        guard = base.arm_candidate_return_modemmanager_guard(
+            spec,
+            args,
+            transaction_dir,
+            corridor=corridor,
+            prepared_inputs=prepared_inputs,
+        )
+        base.modemmanager_guard_arm_evidence(
+            transaction_dir,
+            corridor,
+            guard,
+        )
+    except Exception:
+        if guard is not None and corridor is not None:
+            try:
+                base.release_candidate_return_modemmanager_guard(
+                    guard,
+                    transaction_dir,
+                    corridor=corridor,
+                )
+            # Observer cleanup cannot revoke the pre-authorized exact rollback.
+            except Exception:  # noqa: BLE001 - rollback authority is stronger
+                pass
+        return base.recover_approved_rollback(spec, args)
+    release_attempted = False
+
+    def release_before_close() -> None:
+        nonlocal release_attempted
+        release_attempted = True
+        assert guard is not None
+        assert corridor is not None
+        release = base.release_candidate_return_modemmanager_guard(
+            guard,
+            transaction_dir,
+            corridor=corridor,
+        )
+        if release.get("released") is not True:
+            raise ContractError("rollback recovery guard did not release")
+
+    try:
+        assert corridor is not None
+        return base.recover_approved_rollback(
+            spec,
+            args,
+            return_guard=guard,
+            before_close=release_before_close,
+        )
+    finally:
+        if not release_attempted:
+            release = base.release_candidate_return_modemmanager_guard(
+                guard,
+                transaction_dir,
+                corridor=corridor,
+            )
+            if release.get("released") is not True:
+                raise ContractError("rollback recovery guard did not release")
 
 
 def inspect_manifest(

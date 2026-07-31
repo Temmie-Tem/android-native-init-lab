@@ -29,7 +29,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -100,7 +100,7 @@ CDC_GUARD_PATH = (
     REVAL_DIR / "device_action_cdc_acm_observer_v1.py"
 ).resolve()
 CDC_GUARD_SIZE = 51304
-CDC_GUARD_SHA256 = "a2536c44f8585cb41e58eab97c4bb97e4f957533139c847b49f55ef729f7586a"
+CDC_GUARD_SHA256 = "6c8a6d2151928d2e098ca41b3c9dc24cdbbfabe9be10df19969be274744ef9a9"
 STAGING_PATH = (SCRIPT_DIR / "a90_v3403_absent_only_staging.py").resolve()
 OBSERVATION_OUTPUT_MARKERS = (
     "source_sha phase=initial",
@@ -136,8 +136,35 @@ HOST_NCM_PROFILE_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,64}$")
 HOST_NCM_REBIND_TIMEOUT_SEC = 30
 HOST_NCM_REBIND_POLL_SEC = 1.0
 HOST_NCM_CONNECTION_TYPE = "802-3-ethernet"
+HOST_NCM_REBIND_WORST_CASE_SEC = 155.0
 MODEMMANAGER_GUARD_POST_RETURN_COMMAND_COUNT = 4
+MODEMMANAGER_GUARD_PROMOTION_REMOTE_COMMAND_COUNT = 20
+MODEMMANAGER_GUARD_PROMOTION_BRIDGE_COMMAND_COUNT = 6
+MODEMMANAGER_GUARD_ROLLBACK_SOURCE_COMMAND_COUNT = 2
+MODEMMANAGER_GUARD_ROLLBACK_HEALTH_COMMAND_COUNT = 5
 MODEMMANAGER_GUARD_MARGIN_SEC = 60
+EXACT_BRIDGE_PREFLIGHT_BUDGET_SEC = 30.0
+MODEMMANAGER_GUARD_ARM_SCHEMA = "a90_modemmanager_guard_arm_v2"
+MODEMMANAGER_GUARD_RECEIPT_KEYS = frozenset(
+    {
+        "schema",
+        "status",
+        "spec_sha256",
+        "topology_sha256",
+        "rule_sha256",
+        "instance_sha256",
+        "output_sha256",
+        "child_alive",
+    }
+)
+MODEMMANAGER_GUARD_CORRIDORS = frozenset(
+    {
+        "candidate-return",
+        "resident-promotion",
+        "rollback-recovery-1",
+        "rollback-recovery-2",
+    }
+)
 PSTORE_MOUNT_PATH = "/sys/fs/pstore"
 PSTORE_ENTRY_RE = re.compile(
     r"^[dlcb?\-]\s+\S+\s+([A-Za-z0-9_.-]+)\r?$",
@@ -1932,13 +1959,31 @@ def arm_candidate_return_modemmanager_guard(
     spec: F1Spec,
     args: argparse.Namespace,
     transaction_dir: Path,
+    *,
+    corridor: str = "candidate-return",
+    prepared_inputs: tuple[dict[str, str], str] | None = None,
 ) -> cdc_guard.ModemManagerGuard:
-    guard_spec, topology = _candidate_return_modemmanager_guard_inputs(spec)
+    if corridor not in MODEMMANAGER_GUARD_CORRIDORS:
+        raise ContractError("ModemManager guard corridor is not exact")
+    if prepared_inputs is None:
+        guard_spec, topology = _candidate_return_modemmanager_guard_inputs(spec)
+    else:
+        if not corridor.startswith("rollback-recovery-"):
+            raise ContractError("prepared ModemManager guard inputs are recovery-only")
+        guard_spec, topology = prepared_inputs
+        try:
+            cdc_guard.validate_spec(guard_spec)
+        except cdc_guard.ObserverError as exc:
+            raise ContractError("prepared ModemManager guard spec is invalid") from exc
+        if cdc_guard.TOPOLOGY_RE.fullmatch(topology) is None:
+            raise ContractError("prepared ModemManager guard topology is invalid")
     numeric = (
         spec.handoff_timeout,
         spec.ssh_marker_timeout,
         spec.candidate_return_timeout,
         args.ssh_connect_timeout,
+        args.bridge_timeout,
+        args.flash_command_timeout,
         args.poll_interval,
         args.remote_timeout,
     )
@@ -1949,22 +1994,61 @@ def arm_candidate_return_modemmanager_guard(
         or value <= 0
         for value in numeric
     ):
-        raise ContractError("candidate-return guard timeout input is invalid")
-    max_sec = math.ceil(
-        spec.handoff_timeout
-        + spec.ssh_marker_timeout
-        + args.ssh_connect_timeout
-        + 10.0
-        + 2 * args.poll_interval
-        + spec.candidate_return_timeout
-        + MODEMMANAGER_GUARD_POST_RETURN_COMMAND_COUNT
-        * args.remote_timeout
-        + OBSERVATION_MENU_SETTLE_SEC
-        + MODEMMANAGER_GUARD_MARGIN_SEC
-    )
+        raise ContractError("ModemManager guard timeout input is invalid")
+    if corridor == "candidate-return":
+        budget = (
+            spec.handoff_timeout
+            + spec.ssh_marker_timeout
+            + args.ssh_connect_timeout
+            + 10.0
+            + 2 * args.poll_interval
+            + spec.candidate_return_timeout
+            + MODEMMANAGER_GUARD_POST_RETURN_COMMAND_COUNT
+            * args.remote_timeout
+            + OBSERVATION_MENU_SETTLE_SEC
+            + MODEMMANAGER_GUARD_MARGIN_SEC
+        )
+    elif corridor == "resident-promotion":
+        promotion_budget = (
+            args.flash_command_timeout
+            + MODEMMANAGER_GUARD_PROMOTION_BRIDGE_COMMAND_COUNT
+            * max(args.bridge_timeout, EXACT_BRIDGE_PREFLIGHT_BUDGET_SEC)
+            + MODEMMANAGER_GUARD_PROMOTION_REMOTE_COMMAND_COUNT
+            * args.remote_timeout
+            + 3 * OBSERVATION_MENU_SETTLE_SEC
+            + min(spec.candidate_return_timeout, 30.0)
+            + spec.candidate_return_timeout
+            + 2 * HOST_NCM_REBIND_WORST_CASE_SEC
+            + MODEMMANAGER_GUARD_MARGIN_SEC
+        )
+        inline_rollback_budget = (
+            2 * args.flash_command_timeout
+            + max(args.bridge_timeout, EXACT_BRIDGE_PREFLIGHT_BUDGET_SEC)
+            + (
+                MODEMMANAGER_GUARD_ROLLBACK_SOURCE_COMMAND_COUNT
+                + MODEMMANAGER_GUARD_ROLLBACK_HEALTH_COMMAND_COUNT
+            )
+            * args.remote_timeout
+            + OBSERVATION_MENU_SETTLE_SEC
+            + MODEMMANAGER_GUARD_MARGIN_SEC
+        )
+        budget = max(promotion_budget, inline_rollback_budget)
+    else:
+        budget = (
+            args.flash_command_timeout
+            + max(args.bridge_timeout, EXACT_BRIDGE_PREFLIGHT_BUDGET_SEC)
+            + (
+                MODEMMANAGER_GUARD_ROLLBACK_SOURCE_COMMAND_COUNT
+                + MODEMMANAGER_GUARD_ROLLBACK_HEALTH_COMMAND_COUNT
+            )
+            * args.remote_timeout
+            + OBSERVATION_MENU_SETTLE_SEC
+            + MODEMMANAGER_GUARD_MARGIN_SEC
+        )
+    max_sec = max(cdc_guard.GUARD_DEFAULT_MAX_SEC, math.ceil(budget))
     if max_sec > cdc_guard.GUARD_MAX_SEC_LIMIT:
         raise ContractError(
-            "candidate-return corridor exceeds the reviewed ModemManager "
+            f"{corridor} corridor exceeds the reviewed ModemManager "
             "guard lifetime"
         )
     try:
@@ -1976,21 +2060,28 @@ def arm_candidate_return_modemmanager_guard(
         )
     except cdc_guard.ObserverError as exc:
         raise ContractError(
-            "candidate-return ModemManager guard did not arm"
+            f"{corridor} ModemManager guard did not arm"
         ) from exc
     if (
         guard.arm_receipt is None
         or guard.arm_receipt.get("child_alive") is not True
+        or guard.process is None
+        or guard.process.pid <= 0
+        or guard.process.poll() is not None
         or guard.max_sec != max_sec
     ):
         guard.release()
-        raise ContractError("candidate-return ModemManager guard lacks live receipt")
+        raise ContractError(f"{corridor} ModemManager guard lacks live receipt")
     try:
         write_private_json_exclusive(
-            transaction_dir / "candidate-return-modemmanager-guard-arm.json",
+            transaction_dir / f"{corridor}-modemmanager-guard-arm.json",
             {
-                "schema": "a90_candidate_return_modemmanager_guard_arm_v1",
+                "schema": MODEMMANAGER_GUARD_ARM_SCHEMA,
+                "corridor": corridor,
                 "max_sec": max_sec,
+                "child_pid": guard.process.pid,
+                "guard_spec": guard_spec,
+                "topology": topology,
                 "receipt": guard.arm_receipt,
             },
         )
@@ -2003,13 +2094,191 @@ def arm_candidate_return_modemmanager_guard(
 def release_candidate_return_modemmanager_guard(
     guard: cdc_guard.ModemManagerGuard,
     transaction_dir: Path,
+    *,
+    corridor: str = "candidate-return",
 ) -> dict[str, Any]:
+    if corridor not in MODEMMANAGER_GUARD_CORRIDORS:
+        raise ContractError("ModemManager guard release corridor is not exact")
     release = guard.release()
+    suffix = "release" if release.get("released") is True else "release-failed"
     write_private_json_exclusive(
-        transaction_dir / "candidate-return-modemmanager-guard-release.json",
+        transaction_dir / f"{corridor}-modemmanager-guard-{suffix}.json",
         release,
     )
     return release
+
+
+def modemmanager_guard_arm_evidence(
+    transaction_dir: Path,
+    corridor: str,
+    guard: cdc_guard.ModemManagerGuard,
+) -> dict[str, Any]:
+    if corridor not in MODEMMANAGER_GUARD_CORRIDORS:
+        raise ContractError("ModemManager guard evidence corridor is not exact")
+    path = transaction_dir / f"{corridor}-modemmanager-guard-arm.json"
+    require_private_regular(path)
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ContractError("ModemManager guard arm evidence is invalid") from exc
+    receipt = require_exact_modemmanager_guard_receipt(
+        guard.arm_receipt,
+        guard.spec,
+        guard.topology,
+    )
+    receipt_hashes = (
+        receipt.get("instance_sha256") if isinstance(receipt, dict) else None,
+        receipt.get("spec_sha256") if isinstance(receipt, dict) else None,
+        receipt.get("topology_sha256") if isinstance(receipt, dict) else None,
+    )
+    if (
+        not isinstance(value, dict)
+        or set(value)
+        != {
+            "schema",
+            "corridor",
+            "max_sec",
+            "child_pid",
+            "guard_spec",
+            "topology",
+            "receipt",
+        }
+        or value.get("schema") != MODEMMANAGER_GUARD_ARM_SCHEMA
+        or value.get("corridor") != corridor
+        or value.get("max_sec") != guard.max_sec
+        or guard.process is None
+        or value.get("child_pid") != guard.process.pid
+        or value.get("guard_spec") != guard.spec
+        or value.get("topology") != guard.topology
+        or value.get("receipt") != receipt
+        or any(
+            not isinstance(item, str) or HEX64_RE.fullmatch(item) is None
+            for item in receipt_hashes
+        )
+    ):
+        raise ContractError("ModemManager guard arm evidence lost its binding")
+    return {
+        "corridor": corridor,
+        "arm_evidence_sha256": sha256_file(path),
+        "guard_instance_sha256": receipt_hashes[0],
+        "guard_spec_sha256": receipt_hashes[1],
+        "guard_topology_sha256": receipt_hashes[2],
+        "max_sec": guard.max_sec,
+    }
+
+
+def require_exact_modemmanager_guard_receipt(
+    receipt: Any,
+    guard_spec: Any,
+    topology: Any,
+) -> dict[str, Any]:
+    try:
+        if isinstance(guard_spec, dict):
+            cdc_guard.validate_spec(guard_spec)
+    except cdc_guard.ObserverError as exc:
+        raise ContractError("ModemManager guard receipt spec is invalid") from exc
+    topology_match = (
+        cdc_guard.TOPOLOGY_RE.fullmatch(topology)
+        if isinstance(topology, str)
+        else None
+    )
+    digest_fields = (
+        receipt.get("spec_sha256") if isinstance(receipt, dict) else None,
+        receipt.get("topology_sha256") if isinstance(receipt, dict) else None,
+        receipt.get("rule_sha256") if isinstance(receipt, dict) else None,
+        receipt.get("instance_sha256") if isinstance(receipt, dict) else None,
+        receipt.get("output_sha256") if isinstance(receipt, dict) else None,
+    )
+    if (
+        not isinstance(guard_spec, dict)
+        or topology_match is None
+        or not isinstance(receipt, dict)
+        or set(receipt) != MODEMMANAGER_GUARD_RECEIPT_KEYS
+        or receipt.get("schema") != cdc_guard.GUARD_SCHEMA
+        or receipt.get("status") != "armed"
+        or receipt.get("child_alive") is not True
+        or receipt.get("spec_sha256") != cdc_guard.digest(guard_spec)
+        or receipt.get("topology_sha256")
+        != hashlib.sha256(topology_match.group(1).encode("ascii")).hexdigest()
+        or any(
+            not isinstance(item, str) or HEX64_RE.fullmatch(item) is None
+            for item in digest_fields
+        )
+    ):
+        raise ContractError("ModemManager guard receipt is not exact")
+    return receipt
+
+
+def resident_promotion_guard_inputs(
+    transaction_dir: Path,
+    records: list[dict[str, Any]],
+) -> tuple[dict[str, str], str]:
+    path = transaction_dir / "resident-promotion-modemmanager-guard-arm.json"
+    require_private_regular(path)
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ContractError("resident promotion guard evidence is invalid") from exc
+    guard_spec = value.get("guard_spec") if isinstance(value, dict) else None
+    topology = value.get("topology") if isinstance(value, dict) else None
+    receipt = value.get("receipt") if isinstance(value, dict) else None
+    try:
+        receipt = require_exact_modemmanager_guard_receipt(
+            receipt,
+            guard_spec,
+            topology,
+        )
+    except ContractError as exc:
+        raise ContractError("resident promotion guard receipt is invalid") from exc
+    journal_records = [
+        record
+        for record in records
+        if record.get("action") == "resident-promotion-guard-armed"
+    ]
+    journal_guard = (
+        journal_records[0].get("guard")
+        if len(journal_records) == 1
+        and isinstance(journal_records[0], dict)
+        else None
+    )
+    if (
+        not isinstance(value, dict)
+        or set(value)
+        != {
+            "schema",
+            "corridor",
+            "max_sec",
+            "child_pid",
+            "guard_spec",
+            "topology",
+            "receipt",
+        }
+        or value.get("schema") != MODEMMANAGER_GUARD_ARM_SCHEMA
+        or value.get("corridor") != "resident-promotion"
+        or type(value.get("child_pid")) is not int
+        or value.get("child_pid") <= 0
+        or not isinstance(journal_guard, dict)
+        or set(journal_guard)
+        != {
+            "corridor",
+            "arm_evidence_sha256",
+            "guard_instance_sha256",
+            "guard_spec_sha256",
+            "guard_topology_sha256",
+            "max_sec",
+        }
+        or journal_guard.get("corridor") != "resident-promotion"
+        or journal_guard.get("arm_evidence_sha256") != sha256_file(path)
+        or journal_guard.get("guard_instance_sha256")
+        != receipt.get("instance_sha256")
+        or journal_guard.get("guard_spec_sha256")
+        != receipt.get("spec_sha256")
+        or journal_guard.get("guard_topology_sha256")
+        != receipt.get("topology_sha256")
+        or journal_guard.get("max_sec") != value.get("max_sec")
+    ):
+        raise ContractError("resident promotion guard evidence lost its binding")
+    return dict(guard_spec), topology
 
 
 def require_returned_modemmanager_guard(
@@ -2653,10 +2922,26 @@ def remote_source_preflight(spec: F1Spec, args: argparse.Namespace) -> dict[str,
     return run_f1_shell(args, script)
 
 
-def verify_candidate_health(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
+def verify_candidate_health(
+    spec: F1Spec,
+    args: argparse.Namespace,
+    *,
+    return_guard: cdc_guard.ModemManagerGuard | None = None,
+) -> dict[str, Any]:
     bridge = staging.require_exact_bridge(spec.stage, args)
+    guard_proof = None
+    if return_guard is not None:
+        if not return_guard.healthy(recheck=True):
+            raise ContractError("resident promotion guard was lost before first health")
+        guard_proof = require_returned_modemmanager_guard(
+            spec,
+            {"returned": {"selected_realpath": spec.stage.bridge_realpath}},
+            return_guard,
+        )
     version = run_f1_cmd(args, ["version"])
     selftest = run_f1_cmd(args, ["selftest"])
+    if return_guard is not None and not return_guard.healthy(recheck=True):
+        raise ContractError("resident promotion guard was lost during first health")
     version_text = str(version.get("text") or "")
     if (
         spec.candidate_version not in version_text
@@ -2665,12 +2950,15 @@ def verify_candidate_health(spec: F1Spec, args: argparse.Namespace) -> dict[str,
         raise ContractError("candidate boot identity lacks exact version/build")
     if "fail=0" not in str(selftest.get("text") or ""):
         raise ContractError("candidate boot selftest is not fail=0")
-    return {
+    result = {
         "exact_bridge": True,
         "selected_realpath": bridge.get("selected_realpath"),
         "version": version,
         "selftest": selftest,
     }
+    if guard_proof is not None:
+        result["candidate_boot_modemmanager_guard"] = guard_proof
+    return result
 
 
 def run_handoff(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
@@ -3697,14 +3985,30 @@ def validate_confirmed_display_proof(
     }
 
 
-def verify_final_health(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
+def verify_final_health(
+    spec: F1Spec,
+    args: argparse.Namespace,
+    *,
+    return_guard: cdc_guard.ModemManagerGuard | None = None,
+) -> dict[str, Any]:
     bridge = staging.require_exact_bridge(spec.stage, args)
+    if return_guard is not None and not return_guard.healthy(recheck=True):
+        raise ContractError("rollback recovery guard was lost before final health")
+    guard_proof = None
+    if return_guard is not None:
+        guard_proof = require_returned_modemmanager_guard(
+            spec,
+            {"returned": {"selected_realpath": spec.stage.bridge_realpath}},
+            return_guard,
+        )
     channel = settle_observation_channel(
         args,
         phase="before-final-health",
     )
     baseline = require_f1_baseline(args)
-    return {
+    if return_guard is not None and not return_guard.healthy(recheck=True):
+        raise ContractError("rollback recovery guard was lost during final health")
+    result = {
         "exact_bridge": True,
         "selected_realpath": bridge.get("selected_realpath"),
         "channel": channel,
@@ -3714,12 +4018,30 @@ def verify_final_health(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any
         "pstore_entries_zero": True,
         "baseline": baseline,
     }
+    if guard_proof is not None:
+        result["rollback_boot_modemmanager_guard"] = guard_proof
+    return result
 
 
-def require_rollback_source_native(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
+def require_rollback_source_native(
+    spec: F1Spec,
+    args: argparse.Namespace,
+    *,
+    return_guard: cdc_guard.ModemManagerGuard | None = None,
+) -> dict[str, Any]:
     staging.require_exact_bridge(spec.stage, args)
+    if return_guard is not None:
+        if not return_guard.healthy(recheck=True):
+            raise ContractError("rollback source guard is not live")
+        require_returned_modemmanager_guard(
+            spec,
+            {"returned": {"selected_realpath": spec.stage.bridge_realpath}},
+            return_guard,
+        )
     version = run_f1_cmd(args, ["version"], allow_error=True)
     selftest = run_f1_cmd(args, ["selftest"], allow_error=True)
+    if return_guard is not None and not return_guard.healthy(recheck=True):
+        raise ContractError("rollback source guard was lost during health check")
     version_text = str(version.get("text") or "")
     known = (
         spec.candidate_version in version_text and spec.candidate_build in version_text
@@ -3741,6 +4063,7 @@ def invoke_rollback(
     from_native: bool,
     pre_spawn_retry_index: int = 0,
     allow_promotion: bool = False,
+    return_guard: cdc_guard.ModemManagerGuard | None = None,
 ) -> dict[str, Any]:
     ensure_event(
         transaction_dir,
@@ -3839,7 +4162,15 @@ def invoke_rollback(
         "rollback_flash_done",
         allow_promotion=allow_promotion,
     )
-    health = verify_final_health(spec, args)
+    if allow_promotion and return_guard is None:
+        raise ContractError(
+            "rollback flashed; guarded final health requires recovery"
+        )
+    health = verify_final_health(
+        spec,
+        args,
+        return_guard=return_guard,
+    )
     append_record(
         journal_dir,
         "ROLLBACK_FLASHED",
@@ -4458,56 +4789,152 @@ def execute_approved_f1(
         abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
         raise
 
-    add_event(transaction_dir, events, "candidate_flash_start")
-    append_record(
-        journal_dir,
-        "APPROVED",
-        "candidate-transfer-started",
-        {
-            "candidate_attempted": True,
-            "candidate_sha256": spec.candidate.sha256,
-            "candidate_transfer_count_max": 1,
-            "rollback_required": True,
-            "candidate_replay": False,
-        },
-        manifest_sha256=spec.stage.manifest_sha256,
-        run_id=spec.stage.run_id,
-    )
-    candidate_record = run_logged(
-        flash_command(spec, args, rollback=False, from_native=True),
-        log_path=transaction_dir / "candidate-flash.raw.log",
-        timeout=args.flash_command_timeout,
-    )
-    candidate_record["phase_classification"] = classify_flash_log(
-        Path(str(candidate_record["raw_log"]))
-    )
-    if candidate_record["returncode"] != 0:
-        if candidate_failure_is_definite_pre_session(candidate_record):
+    promotion_guard: cdc_guard.ModemManagerGuard | None = None
+    promotion_guard_transferred = False
+
+    def release_owned_promotion_guard() -> None:
+        nonlocal promotion_guard
+        if promotion_guard is None:
+            return
+        release = release_candidate_return_modemmanager_guard(
+            promotion_guard,
+            transaction_dir,
+            corridor="resident-promotion",
+        )
+        promotion_guard = None
+        if release.get("released") is not True:
+            raise ContractError("resident promotion guard did not release")
+
+    if promotion_manifest:
+        try:
+            promotion_guard = arm_candidate_return_modemmanager_guard(
+                spec,
+                args,
+                transaction_dir,
+                corridor="resident-promotion",
+            )
+            guard_evidence = modemmanager_guard_arm_evidence(
+                transaction_dir,
+                "resident-promotion",
+                promotion_guard,
+            )
             append_record(
                 journal_dir,
-                "ABORTED",
-                "candidate-host-rejected",
+                "APPROVED",
+                "resident-promotion-guard-armed",
                 {
-                    "candidate_transfer_count": 0,
+                    "candidate_attempted": False,
                     "candidate_replay": False,
-                    "rollback_required": False,
+                    "guard": guard_evidence,
+                },
+                manifest_sha256=spec.stage.manifest_sha256,
+                run_id=spec.stage.run_id,
+            )
+        except Exception as exc:
+            release_owned_promotion_guard()
+            abort_before_candidate(
+                spec,
+                transaction_dir,
+                journal_dir,
+                events,
+                exc,
+            )
+            raise
+    try:
+        add_event(transaction_dir, events, "candidate_flash_start")
+        append_record(
+            journal_dir,
+            "APPROVED",
+            "candidate-transfer-started",
+            {
+                "candidate_attempted": True,
+                "candidate_sha256": spec.candidate.sha256,
+                "candidate_transfer_count_max": 1,
+                "rollback_required": True,
+                "candidate_replay": False,
+            },
+            manifest_sha256=spec.stage.manifest_sha256,
+            run_id=spec.stage.run_id,
+        )
+        candidate_record = run_logged(
+            flash_command(spec, args, rollback=False, from_native=True),
+            log_path=transaction_dir / "candidate-flash.raw.log",
+            timeout=args.flash_command_timeout,
+        )
+        candidate_record["phase_classification"] = classify_flash_log(
+            Path(str(candidate_record["raw_log"]))
+        )
+        if candidate_record["returncode"] != 0:
+            if candidate_failure_is_definite_pre_session(candidate_record):
+                append_record(
+                    journal_dir,
+                    "ABORTED",
+                    "candidate-host-rejected",
+                    {
+                        "candidate_transfer_count": 0,
+                        "candidate_replay": False,
+                        "rollback_required": False,
+                        "record": candidate_record,
+                    },
+                    manifest_sha256=spec.stage.manifest_sha256,
+                    run_id=spec.stage.run_id,
+                )
+                exc = RuntimeError(
+                    "candidate was definitively rejected before a device session; "
+                    "fresh approval required"
+                )
+                release_owned_promotion_guard()
+                abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
+                raise exc
+            append_record(
+                journal_dir,
+                "APPROVED",
+                "candidate-invocation-failed",
+                {
+                    "candidate_attempted": True,
+                    "candidate_replay": False,
+                    "rollback_required": True,
                     "record": candidate_record,
                 },
                 manifest_sha256=spec.stage.manifest_sha256,
                 run_id=spec.stage.run_id,
             )
-            exc = RuntimeError(
-                "candidate was definitively rejected before a device session; "
-                "fresh approval required"
+            try:
+                require_rollback_source_native(
+                    spec,
+                    args,
+                    return_guard=promotion_guard,
+                )
+            except Exception as exc:  # noqa: BLE001 - physical recovery may be required
+                raise RuntimeError(
+                    "candidate invocation failed after durable intent; recover rollback only"
+                ) from exc
+            health = invoke_rollback(
+                spec,
+                args,
+                transaction_dir,
+                journal_dir,
+                events,
+                from_native=True,
+                return_guard=promotion_guard,
             )
-            abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
-            raise exc
+            release_owned_promotion_guard()
+            return close_transaction(
+                spec,
+                transaction_dir,
+                journal_dir,
+                events,
+                observation_proven=False,
+                final_health=health,
+                candidate_complete=False,
+            )
         append_record(
             journal_dir,
-            "APPROVED",
-            "candidate-invocation-failed",
+            "CANDIDATE_FLASHED",
+            "candidate-flashed",
             {
-                "candidate_attempted": True,
+                "candidate_sha256": spec.candidate.sha256,
+                "candidate_transfer_count": 1,
                 "candidate_replay": False,
                 "rollback_required": True,
                 "record": candidate_record,
@@ -4515,88 +4942,74 @@ def execute_approved_f1(
             manifest_sha256=spec.stage.manifest_sha256,
             run_id=spec.stage.run_id,
         )
-        try:
-            require_rollback_source_native(spec, args)
-        except Exception as exc:  # noqa: BLE001 - physical recovery may be required
-            raise RuntimeError(
-                "candidate invocation failed after durable intent; recover rollback only"
-            ) from exc
-        health = invoke_rollback(
+        ensure_event(transaction_dir, events, "candidate_flash_done")
+        if promotion_guard is not None and not promotion_guard.healthy(recheck=True):
+            raise ContractError("resident promotion guard was lost after candidate flash")
+        if spec.observation_mode == ATTENDED_OBSERVATION_MODE:
+            attended_result = open_attended_window(
+                spec,
+                approval_prepared,
+                transaction_dir,
+                journal_dir,
+            )
+            validate_attended_candidate_closure(
+                spec,
+                approval_prepared,
+                transaction_dir,
+                read_journal(spec, transaction_dir),
+            )
+            return attended_result
+        if promotion_guard is not None:
+            staging.require_exact_bridge(spec.stage, args)
+            if not promotion_guard.healthy(recheck=True):
+                raise ContractError(
+                    "resident promotion guard was lost before channel settle"
+                )
+            require_returned_modemmanager_guard(
+                spec,
+                {"returned": {"selected_realpath": spec.stage.bridge_realpath}},
+                promotion_guard,
+            )
+        candidate_health_channel = settle_observation_channel(
+            args,
+            phase="before-candidate-health",
+        )
+        candidate_health = verify_candidate_health(
             spec,
             args,
-            transaction_dir,
+            return_guard=promotion_guard,
+        )
+        append_record(
             journal_dir,
-            events,
-            from_native=True,
+            "CANDIDATE_FLASHED",
+            "candidate-boot-ready",
+            {
+                "candidate_version": spec.candidate_version,
+                "candidate_build": spec.candidate_build,
+                "selftest_fail_zero": True,
+                "channel": candidate_health_channel,
+                "health": candidate_health,
+            },
+            manifest_sha256=spec.stage.manifest_sha256,
+            run_id=spec.stage.run_id,
         )
-        return close_transaction(
-            spec,
-            transaction_dir,
-            journal_dir,
-            events,
-            observation_proven=False,
-            final_health=health,
-            candidate_complete=False,
-        )
-    append_record(
-        journal_dir,
-        "CANDIDATE_FLASHED",
-        "candidate-flashed",
-        {
-            "candidate_sha256": spec.candidate.sha256,
-            "candidate_transfer_count": 1,
-            "candidate_replay": False,
-            "rollback_required": True,
-            "record": candidate_record,
-        },
-        manifest_sha256=spec.stage.manifest_sha256,
-        run_id=spec.stage.run_id,
-    )
-    ensure_event(transaction_dir, events, "candidate_flash_done")
-    if spec.observation_mode == ATTENDED_OBSERVATION_MODE:
-        attended_result = open_attended_window(
-            spec,
-            approval_prepared,
-            transaction_dir,
-            journal_dir,
-        )
-        validate_attended_candidate_closure(
-            spec,
-            approval_prepared,
-            transaction_dir,
-            read_journal(spec, transaction_dir),
-        )
-        return attended_result
-    candidate_health_channel = settle_observation_channel(
-        args,
-        phase="before-candidate-health",
-    )
-    candidate_health = verify_candidate_health(spec, args)
-    append_record(
-        journal_dir,
-        "CANDIDATE_FLASHED",
-        "candidate-boot-ready",
-        {
-            "candidate_version": spec.candidate_version,
-            "candidate_build": spec.candidate_build,
-            "selftest_fail_zero": True,
-            "channel": candidate_health_channel,
-            "health": candidate_health,
-        },
-        manifest_sha256=spec.stage.manifest_sha256,
-        run_id=spec.stage.run_id,
-    )
-    ensure_event(transaction_dir, events, "candidate_boot_ready")
+        ensure_event(transaction_dir, events, "candidate_boot_ready")
 
-    if promotion_tail is not None:
-        return promotion_tail(
-            spec,
-            args,
-            transaction_dir,
-            journal_dir,
-            events,
-            candidate_health,
-        )
+        if promotion_tail is not None:
+            assert promotion_guard is not None
+            promotion_guard_transferred = True
+            return promotion_tail(
+                spec,
+                args,
+                transaction_dir,
+                journal_dir,
+                events,
+                candidate_health,
+                promotion_guard,
+            )
+    finally:
+        if promotion_guard is not None and not promotion_guard_transferred:
+            release_owned_promotion_guard()
 
     observation = observe_candidate(spec, args, transaction_dir)
     append_record(
@@ -5211,7 +5624,13 @@ def action_names(records: list[dict[str, Any]]) -> list[str]:
     return [str(record.get("action")) for record in records]
 
 
-def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
+def recover_approved_rollback(
+    spec: F1Spec,
+    args: argparse.Namespace,
+    *,
+    return_guard: cdc_guard.ModemManagerGuard | None = None,
+    before_close: Callable[[], None] | None = None,
+) -> dict[str, Any]:
     resident_promotion = isinstance(
         spec.manifest.get("resident_promotion"),
         dict,
@@ -5277,7 +5696,15 @@ def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[st
             )
         from_native = retry_mode == "from-native"
         if from_native:
-            require_rollback_source_native(spec, args)
+            if resident_promotion and return_guard is None:
+                raise ContractError(
+                    "resident from-native rollback requires its exact guard"
+                )
+            require_rollback_source_native(
+                spec,
+                args,
+                return_guard=return_guard,
+            )
         health = invoke_rollback(
             spec,
             args,
@@ -5287,9 +5714,18 @@ def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[st
             from_native=from_native,
             pre_spawn_retry_index=rejection_count,
             allow_promotion=resident_promotion,
+            return_guard=return_guard,
         )
     elif rollback_started and not rollback_flashed:
-        health = verify_final_health(spec, args)
+        if resident_promotion and return_guard is None:
+            raise ContractError(
+                "rollback completion needs guarded final-health recovery"
+            )
+        health = verify_final_health(
+            spec,
+            args,
+            return_guard=return_guard,
+        )
         append_record(
             journal_dir,
             "ROLLBACK_FLASHED",
@@ -5323,7 +5759,15 @@ def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[st
             run_id=spec.stage.run_id,
         )
     elif rollback_flashed:
-        health = verify_final_health(spec, args)
+        if resident_promotion and return_guard is None:
+            raise ContractError(
+                "rollback is flashed; guarded final-health recovery is pending"
+            )
+        health = verify_final_health(
+            spec,
+            args,
+            return_guard=return_guard,
+        )
         if "rollback-boot-ready" not in actions:
             append_record(
                 journal_dir,
@@ -5354,7 +5798,15 @@ def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[st
             )
         from_native = args.recovery_path == "from-native"
         if from_native:
-            require_rollback_source_native(spec, args)
+            if resident_promotion and return_guard is None:
+                raise ContractError(
+                    "resident from-native rollback requires its exact guard"
+                )
+            require_rollback_source_native(
+                spec,
+                args,
+                return_guard=return_guard,
+            )
         health = invoke_rollback(
             spec,
             args,
@@ -5363,6 +5815,7 @@ def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[st
             events,
             from_native=from_native,
             allow_promotion=resident_promotion,
+            return_guard=return_guard,
         )
 
     observation_proven = (
@@ -5373,6 +5826,8 @@ def recover_approved_rollback(spec: F1Spec, args: argparse.Namespace) -> dict[st
     candidate_complete = (
         "candidate-flashed" in actions and "candidate-boot-ready" in actions
     )
+    if before_close is not None:
+        before_close()
     return close_transaction(
         spec,
         transaction_dir,
@@ -5470,7 +5925,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             issues.append(f"missing function: {token}")
     for token in (
         "CDC_GUARD_SIZE = 51304",
-        'CDC_GUARD_SHA256 = "a2536c44f8585cb41e58eab97c4bb97e4f957533139c847b49f55ef729f7586a"',
+        'CDC_GUARD_SHA256 = "6c8a6d2151928d2e098ca41b3c9dc24cdbbfabe9be10df19969be274744ef9a9"',
     ):
         if token not in source:
             issues.append(f"ModemManager guard transitive binding missing: {token}")
@@ -5532,6 +5987,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         'OBSERVATION_CHANNEL_CANARY = ("run", "/bin/busybox", "true")',
         'RETURN_EPOCH_SCHEMA = "a90_host_usb_serial_epoch_v1"',
         "HOST_NCM_REBIND_TIMEOUT_SEC = 30",
+        "HOST_NCM_REBIND_WORST_CASE_SEC = 155.0",
         'PSTORE_MOUNT_PATH = "/sys/fs/pstore"',
         'RETAINED_PMSG_MARKER = "A90D3RET_V3405"',
         'RETAINED_PMSG_REQUIRED_PHASE = "phase=armed"',
@@ -5812,14 +6268,14 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             "identity.get(\"vendor\") != staging.HOST_NCM_VENDOR_ID",
             "identity.get(\"product\") != staging.HOST_NCM_PRODUCT_ID",
             'identity.get("driver") != "cdc_acm"',
-            "max_sec = math.ceil(",
+            "max_sec = max(",
             "MODEMMANAGER_GUARD_POST_RETURN_COMMAND_COUNT",
             "+ 2 * args.poll_interval",
             "max_sec > cdc_guard.GUARD_MAX_SEC_LIMIT",
             "cdc_guard.ModemManagerGuard.arm(",
             "max_sec=max_sec",
-            '"candidate-return-modemmanager-guard-arm.json"',
-            '"candidate-return-modemmanager-guard-release.json"',
+            'f"{corridor}-modemmanager-guard-arm.json"',
+            'f"{corridor}-modemmanager-guard-{suffix}.json"',
             "def require_returned_modemmanager_guard(",
             'identity.get("serial") != guard.spec["usb_serial"]',
             'identity.get("driver") != guard.spec["usb_driver"]',

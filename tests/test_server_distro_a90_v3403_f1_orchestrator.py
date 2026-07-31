@@ -2099,6 +2099,160 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             finally:
                 f1.PRIVATE_RUN_BASE = old_base
 
+    def test_resident_promotion_guard_precedes_candidate_and_is_reused(self) -> None:
+        spec = sample_spec()
+        spec.manifest["resident_promotion"] = {}
+        args = sample_args()
+        guard = types.SimpleNamespace(
+            healthy=mock.Mock(return_value=True),
+            release=mock.Mock(return_value={"released": True}),
+        )
+        received: list[object] = []
+
+        def tail(*tail_args):
+            received.extend(tail_args)
+            return {"status": "promoted"}
+
+        def fake_run_logged(command, *, log_path, timeout):
+            del command, timeout
+            log_path.write_bytes(b"")
+            log_path.chmod(0o600)
+            return {
+                **f1.command_record(log_path, 0),
+                "process_started": True,
+            }
+
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            private_base = Path(temp_dir)
+            old_base = f1.PRIVATE_RUN_BASE
+            try:
+                f1.PRIVATE_RUN_BASE = private_base
+                transaction = private_base / spec.stage.run_id / "f1-live"
+                args.transaction_dir = transaction
+                with (
+                    mock.patch.object(f1, "require_exact_promotion_tail"),
+                    mock.patch.object(
+                        f1,
+                        "approved_bindings",
+                        return_value={"approval_binding_sha256": "9" * 64},
+                    ),
+                    mock.patch.object(f1, "verify_local_closure"),
+                    mock.patch.object(f1, "run_logged", side_effect=fake_run_logged),
+                    mock.patch.object(f1, "validate_stage_result"),
+                    mock.patch.object(f1.staging, "require_exact_bridge", return_value={}),
+                    mock.patch.object(f1, "require_f1_baseline", return_value={}),
+                    mock.patch.object(f1, "remote_source_preflight", return_value={}),
+                    mock.patch.object(
+                        f1,
+                        "arm_candidate_return_modemmanager_guard",
+                        return_value=guard,
+                    ) as arm,
+                    mock.patch.object(
+                        f1,
+                        "modemmanager_guard_arm_evidence",
+                        return_value={"corridor": "resident-promotion"},
+                    ),
+                    mock.patch.object(f1, "settle_observation_channel", return_value={}),
+                    mock.patch.object(
+                        f1,
+                        "verify_candidate_health",
+                        return_value={"healthy": True},
+                    ) as first_health,
+                    mock.patch.object(
+                        f1,
+                        "require_returned_modemmanager_guard",
+                        return_value={"exact_guard_properties": True},
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "release_candidate_return_modemmanager_guard",
+                    ) as release,
+                ):
+                    result = f1.execute_approved_f1(
+                        spec,
+                        args,
+                        promotion_tail=tail,
+                    )
+                actions = [
+                    record["action"]
+                    for record in f1.read_journal(spec, transaction)
+                ]
+            finally:
+                f1.PRIVATE_RUN_BASE = old_base
+        self.assertEqual(result["status"], "promoted")
+        arm.assert_called_once_with(
+            spec,
+            args,
+            transaction,
+            corridor="resident-promotion",
+        )
+        self.assertLess(
+            actions.index("resident-promotion-guard-armed"),
+            actions.index("candidate-transfer-started"),
+        )
+        self.assertIs(first_health.call_args.kwargs["return_guard"], guard)
+        self.assertIs(received[-1], guard)
+        release.assert_not_called()
+
+    def test_resident_promotion_guard_arm_failure_has_zero_candidate_intent(self) -> None:
+        spec = sample_spec()
+        spec.manifest["resident_promotion"] = {}
+        args = sample_args()
+        calls = 0
+
+        def stage_only(command, *, log_path, timeout):
+            del command, timeout
+            nonlocal calls
+            calls += 1
+            log_path.write_bytes(b"")
+            log_path.chmod(0o600)
+            return {
+                **f1.command_record(log_path, 0),
+                "process_started": True,
+            }
+
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            private_base = Path(temp_dir)
+            old_base = f1.PRIVATE_RUN_BASE
+            try:
+                f1.PRIVATE_RUN_BASE = private_base
+                transaction = private_base / spec.stage.run_id / "f1-live"
+                args.transaction_dir = transaction
+                with (
+                    mock.patch.object(f1, "require_exact_promotion_tail"),
+                    mock.patch.object(
+                        f1,
+                        "approved_bindings",
+                        return_value={"approval_binding_sha256": "9" * 64},
+                    ),
+                    mock.patch.object(f1, "verify_local_closure"),
+                    mock.patch.object(f1, "run_logged", side_effect=stage_only),
+                    mock.patch.object(f1, "validate_stage_result"),
+                    mock.patch.object(f1.staging, "require_exact_bridge", return_value={}),
+                    mock.patch.object(f1, "require_f1_baseline", return_value={}),
+                    mock.patch.object(f1, "remote_source_preflight", return_value={}),
+                    mock.patch.object(
+                        f1,
+                        "arm_candidate_return_modemmanager_guard",
+                        side_effect=f1.ContractError("guard arm failed"),
+                    ),
+                    self.assertRaisesRegex(f1.ContractError, "guard arm failed"),
+                ):
+                    f1.execute_approved_f1(
+                        spec,
+                        args,
+                        promotion_tail=lambda *unused: {},
+                    )
+                actions = [
+                    record["action"]
+                    for record in f1.read_journal(spec, transaction)
+                ]
+            finally:
+                f1.PRIVATE_RUN_BASE = old_base
+        self.assertEqual(calls, 1)
+        self.assertNotIn("candidate-transfer-started", actions)
+        self.assertIn("aborted-before-candidate", actions)
+
     def test_rollback_pre_spawn_error_preserves_same_approval_retry(self) -> None:
         spec = sample_spec()
         args = sample_args()
@@ -3470,6 +3624,7 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             max_sec=expected_max,
             arm_receipt={"status": "armed", "child_alive": True},
             release=mock.Mock(),
+            process=types.SimpleNamespace(pid=12345, poll=lambda: None),
         )
         with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
             transaction = Path(temp_dir)
@@ -3525,6 +3680,374 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                 Path("/private/not-written"),
             )
         rejected_arm.assert_not_called()
+
+    def test_guard_arm_evidence_binds_exact_live_receipt(self) -> None:
+        guard_spec = {
+            "kind": f1.cdc_guard.KIND,
+            "usb_vendor_id": "04e8",
+            "usb_product_id": "6861",
+            "usb_serial": "a90-test-serial",
+            "usb_driver": "cdc_acm",
+            "usb_interface_number": "02",
+            "banner_hex": "00",
+        }
+        topology = "usb:1-2.3"
+        receipt = {
+            "schema": f1.cdc_guard.GUARD_SCHEMA,
+            "status": "armed",
+            "spec_sha256": f1.cdc_guard.digest(guard_spec),
+            "topology_sha256": hashlib.sha256(b"1-2.3").hexdigest(),
+            "rule_sha256": "3" * 64,
+            "instance_sha256": "4" * 64,
+            "output_sha256": "5" * 64,
+            "child_alive": True,
+        }
+        guard = types.SimpleNamespace(
+            max_sec=600,
+            arm_receipt=receipt,
+            spec=guard_spec,
+            topology=topology,
+            process=types.SimpleNamespace(pid=12345, poll=lambda: None),
+        )
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            transaction = Path(temp_dir)
+            path = transaction / "resident-promotion-modemmanager-guard-arm.json"
+            f1.write_private_json_exclusive(
+                path,
+                {
+                    "schema": f1.MODEMMANAGER_GUARD_ARM_SCHEMA,
+                    "corridor": "resident-promotion",
+                    "max_sec": 600,
+                    "child_pid": 12345,
+                    "guard_spec": guard.spec,
+                    "topology": guard.topology,
+                    "receipt": receipt,
+                },
+            )
+            evidence = f1.modemmanager_guard_arm_evidence(
+                transaction,
+                "resident-promotion",
+                guard,
+            )
+            evidence_sha256 = f1.sha256_file(path)
+            receipt["instance_sha256"] = "not-a-hash"
+            guard.arm_receipt = receipt
+            with self.assertRaisesRegex(f1.ContractError, "receipt is not exact"):
+                f1.modemmanager_guard_arm_evidence(
+                    transaction,
+                    "resident-promotion",
+                    guard,
+                )
+        self.assertEqual(evidence["guard_instance_sha256"], "4" * 64)
+        self.assertEqual(evidence["arm_evidence_sha256"], evidence_sha256)
+
+    def test_resident_guard_lifetime_covers_full_ncm_rebind_budget(self) -> None:
+        spec = display_spec()
+        args = sample_args()
+        args.flash_command_timeout = 1.0
+        args.bridge_timeout = 1.0
+        args.remote_timeout = 1.0
+        args.poll_interval = 1.0
+        expected_max = f1.math.ceil(
+            args.flash_command_timeout
+            + f1.MODEMMANAGER_GUARD_PROMOTION_BRIDGE_COMMAND_COUNT
+            * max(
+                args.bridge_timeout,
+                f1.EXACT_BRIDGE_PREFLIGHT_BUDGET_SEC,
+            )
+            + f1.MODEMMANAGER_GUARD_PROMOTION_REMOTE_COMMAND_COUNT
+            * args.remote_timeout
+            + 3 * f1.OBSERVATION_MENU_SETTLE_SEC
+            + min(spec.candidate_return_timeout, 30.0)
+            + spec.candidate_return_timeout
+            + 2 * f1.HOST_NCM_REBIND_WORST_CASE_SEC
+            + f1.MODEMMANAGER_GUARD_MARGIN_SEC
+        )
+        guard = types.SimpleNamespace(
+            max_sec=expected_max,
+            arm_receipt={"status": "armed", "child_alive": True},
+            release=mock.Mock(),
+            process=types.SimpleNamespace(pid=12345, poll=lambda: None),
+        )
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            transaction = Path(temp_dir)
+            with (
+                mock.patch.object(
+                    f1,
+                    "_candidate_return_modemmanager_guard_inputs",
+                    return_value=({}, "usb:1-2.3"),
+                ),
+                mock.patch.object(
+                    f1.cdc_guard.ModemManagerGuard,
+                    "arm",
+                    return_value=guard,
+                ) as arm,
+            ):
+                result = f1.arm_candidate_return_modemmanager_guard(
+                    spec,
+                    args,
+                    transaction,
+                    corridor="resident-promotion",
+                )
+        self.assertIs(result, guard)
+        arm.assert_called_once_with(
+            {},
+            "usb:1-2.3",
+            transaction,
+            max_sec=expected_max,
+        )
+
+    def test_resident_guard_lifetime_covers_inline_rollback_alternative(self) -> None:
+        spec = display_spec()
+        args = sample_args()
+        args.flash_command_timeout = 1200.0
+        args.bridge_timeout = 1.0
+        args.remote_timeout = 10.0
+        args.poll_interval = 1.0
+        expected_max = f1.math.ceil(
+            2 * args.flash_command_timeout
+            + max(
+                args.bridge_timeout,
+                f1.EXACT_BRIDGE_PREFLIGHT_BUDGET_SEC,
+            )
+            + (
+                f1.MODEMMANAGER_GUARD_ROLLBACK_SOURCE_COMMAND_COUNT
+                + f1.MODEMMANAGER_GUARD_ROLLBACK_HEALTH_COMMAND_COUNT
+            )
+            * args.remote_timeout
+            + f1.OBSERVATION_MENU_SETTLE_SEC
+            + f1.MODEMMANAGER_GUARD_MARGIN_SEC
+        )
+        guard = types.SimpleNamespace(
+            max_sec=expected_max,
+            arm_receipt={"status": "armed", "child_alive": True},
+            release=mock.Mock(),
+            process=types.SimpleNamespace(pid=12345, poll=lambda: None),
+        )
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            transaction = Path(temp_dir)
+            with (
+                mock.patch.object(
+                    f1,
+                    "_candidate_return_modemmanager_guard_inputs",
+                    return_value=({}, "usb:1-2.3"),
+                ),
+                mock.patch.object(
+                    f1.cdc_guard.ModemManagerGuard,
+                    "arm",
+                    return_value=guard,
+                ) as arm,
+            ):
+                result = f1.arm_candidate_return_modemmanager_guard(
+                    spec,
+                    args,
+                    transaction,
+                    corridor="resident-promotion",
+                )
+        self.assertIs(result, guard)
+        arm.assert_called_once_with(
+            {},
+            "usb:1-2.3",
+            transaction,
+            max_sec=expected_max,
+        )
+
+    def test_recovery_guard_inputs_are_bound_to_initial_journal_receipt(self) -> None:
+        guard_spec = {
+            "kind": f1.cdc_guard.KIND,
+            "usb_vendor_id": "04e8",
+            "usb_product_id": "6861",
+            "usb_serial": "a90-test-serial",
+            "usb_driver": "cdc_acm",
+            "usb_interface_number": "02",
+            "banner_hex": "00",
+        }
+        topology = "usb:1-2.3"
+        receipt = {
+            "schema": f1.cdc_guard.GUARD_SCHEMA,
+            "status": "armed",
+            "spec_sha256": f1.cdc_guard.digest(guard_spec),
+            "topology_sha256": hashlib.sha256(b"1-2.3").hexdigest(),
+            "rule_sha256": "3" * 64,
+            "instance_sha256": "4" * 64,
+            "output_sha256": "5" * 64,
+            "child_alive": True,
+        }
+        value = {
+            "schema": f1.MODEMMANAGER_GUARD_ARM_SCHEMA,
+            "corridor": "resident-promotion",
+            "max_sec": 5400,
+            "child_pid": 12345,
+            "guard_spec": guard_spec,
+            "topology": topology,
+            "receipt": receipt,
+        }
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            transaction = Path(temp_dir)
+            path = transaction / "resident-promotion-modemmanager-guard-arm.json"
+            f1.write_private_json_exclusive(path, value)
+            evidence = {
+                "corridor": "resident-promotion",
+                "arm_evidence_sha256": f1.sha256_file(path),
+                "guard_instance_sha256": receipt["instance_sha256"],
+                "guard_spec_sha256": receipt["spec_sha256"],
+                "guard_topology_sha256": receipt["topology_sha256"],
+                "max_sec": 5400,
+            }
+            records = [
+                {
+                    "action": "resident-promotion-guard-armed",
+                    "guard": evidence,
+                }
+            ]
+            selected = f1.resident_promotion_guard_inputs(
+                transaction,
+                records,
+            )
+            forged = copy.deepcopy(value)
+            forged["guard_spec"]["usb_serial"] = "other-a90"
+            forged["receipt"]["spec_sha256"] = f1.cdc_guard.digest(
+                forged["guard_spec"]
+            )
+            f1.write_private_json_atomic(path, forged)
+            with self.assertRaisesRegex(f1.ContractError, "lost its binding"):
+                f1.resident_promotion_guard_inputs(transaction, records)
+        self.assertEqual(selected, (guard_spec, topology))
+
+    def test_recovery_guard_lifetime_covers_source_and_final_health(self) -> None:
+        spec = display_spec()
+        args = sample_args()
+        args.bridge_timeout = 1.0
+        args.remote_timeout = 10.0
+        args.poll_interval = 1.0
+        expected_max = max(
+            f1.cdc_guard.GUARD_DEFAULT_MAX_SEC,
+            f1.math.ceil(
+                args.flash_command_timeout
+                + max(
+                    args.bridge_timeout,
+                    f1.EXACT_BRIDGE_PREFLIGHT_BUDGET_SEC,
+                )
+                + (
+                    f1.MODEMMANAGER_GUARD_ROLLBACK_SOURCE_COMMAND_COUNT
+                    + f1.MODEMMANAGER_GUARD_ROLLBACK_HEALTH_COMMAND_COUNT
+                )
+                * args.remote_timeout
+                + f1.OBSERVATION_MENU_SETTLE_SEC
+                + f1.MODEMMANAGER_GUARD_MARGIN_SEC
+            ),
+        )
+        guard_spec = {
+            "kind": f1.cdc_guard.KIND,
+            "usb_vendor_id": "04e8",
+            "usb_product_id": "6861",
+            "usb_serial": "a90-test-serial",
+            "usb_driver": "cdc_acm",
+            "usb_interface_number": "02",
+            "banner_hex": "00",
+        }
+        guard = types.SimpleNamespace(
+            max_sec=expected_max,
+            arm_receipt={"status": "armed", "child_alive": True},
+            release=mock.Mock(),
+            process=types.SimpleNamespace(pid=12345, poll=lambda: None),
+        )
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            transaction = Path(temp_dir)
+            with mock.patch.object(
+                f1.cdc_guard.ModemManagerGuard,
+                "arm",
+                return_value=guard,
+            ) as arm:
+                f1.arm_candidate_return_modemmanager_guard(
+                    spec,
+                    args,
+                    transaction,
+                    corridor="rollback-recovery-1",
+                    prepared_inputs=(guard_spec, "usb:1-2.3"),
+                )
+        arm.assert_called_once_with(
+            guard_spec,
+            "usb:1-2.3",
+            transaction,
+            max_sec=expected_max,
+        )
+
+    def test_candidate_health_checks_guard_before_framed_commands(self) -> None:
+        spec = sample_spec()
+        guard = types.SimpleNamespace(healthy=mock.Mock(return_value=True))
+        order: list[str] = []
+
+        def command(_args, command):
+            order.append(command[0])
+            if command == ["version"]:
+                return {
+                    "text": (
+                        f"version: {spec.candidate_version} "
+                        f"build={spec.candidate_build}\n"
+                    )
+                }
+            return {"text": "selftest: pass=1 warn=0 fail=0\n"}
+
+        with (
+            mock.patch.object(
+                f1.staging,
+                "require_exact_bridge",
+                return_value={"selected_realpath": spec.stage.bridge_realpath},
+            ),
+            mock.patch.object(
+                f1,
+                "require_returned_modemmanager_guard",
+                side_effect=lambda *_unused: (
+                    order.append("guard") or {"exact_guard_properties": True}
+                ),
+            ),
+            mock.patch.object(f1, "run_f1_cmd", side_effect=command),
+        ):
+            health = f1.verify_candidate_health(
+                spec,
+                sample_args(),
+                return_guard=guard,
+            )
+        self.assertEqual(order, ["guard", "version", "selftest"])
+        self.assertTrue(
+            health["candidate_boot_modemmanager_guard"][
+                "exact_guard_properties"
+            ]
+        )
+
+    def test_rollback_source_checks_guard_before_framed_commands(self) -> None:
+        spec = sample_spec()
+        guard = types.SimpleNamespace(healthy=mock.Mock(return_value=True))
+        order: list[str] = []
+
+        def command(_args, command, *, allow_error):
+            self.assertTrue(allow_error)
+            order.append(command[0])
+            if command == ["version"]:
+                return {
+                    "text": (
+                        f"version: {spec.candidate_version} "
+                        f"build={spec.candidate_build}\n"
+                    )
+                }
+            return {"text": "selftest: pass=1 warn=0 fail=0\n"}
+
+        with (
+            mock.patch.object(f1.staging, "require_exact_bridge", return_value={}),
+            mock.patch.object(
+                f1,
+                "require_returned_modemmanager_guard",
+                side_effect=lambda *_unused: order.append("guard") or {},
+            ),
+            mock.patch.object(f1, "run_f1_cmd", side_effect=command),
+        ):
+            f1.require_rollback_source_native(
+                spec,
+                sample_args(),
+                return_guard=guard,
+            )
+        self.assertEqual(order, ["guard", "version", "selftest"])
 
     def test_attended_return_requires_live_matching_guard_before_command(
         self,
@@ -5140,6 +5663,146 @@ class DisplayObservationTests(unittest.TestCase):
         rollback.assert_called_once()
         self.assertTrue(rollback.call_args.kwargs["from_native"])
         self.assertFalse(close.call_args.kwargs["observation_proven"])
+
+    def test_resident_recovery_after_rollback_flash_only_rechecks_health(self) -> None:
+        spec = sample_spec()
+        spec.manifest["resident_promotion"] = {}
+        args = sample_args()
+        args.approval = None
+        args.transaction_dir = Path("/private/f1-live")
+        guard = types.SimpleNamespace(healthy=mock.Mock(return_value=True))
+        close_order: list[str] = []
+        records = [
+            {"action": "candidate-transfer-started"},
+            {"action": "candidate-flashed"},
+            {"action": "rollback-transfer-started"},
+            {"action": "rollback-flashed"},
+        ]
+        with (
+            mock.patch.object(
+                f1,
+                "approved_bindings",
+                return_value={"approval_binding_sha256": "a" * 64},
+            ),
+            mock.patch.object(f1, "verify_local_closure"),
+            mock.patch.object(
+                f1,
+                "exact_transaction_dir",
+                return_value=args.transaction_dir,
+            ),
+            mock.patch.object(f1, "read_journal", return_value=records),
+            mock.patch.object(f1, "require_consumed_approval"),
+            mock.patch.object(f1, "repair_timeline_from_journal", return_value=[]),
+            mock.patch.object(
+                f1,
+                "rollback_pre_spawn_retry",
+                return_value=(False, None, 0),
+            ),
+            mock.patch.object(
+                f1,
+                "verify_final_health",
+                return_value={"healthy": True},
+            ) as final_health,
+            mock.patch.object(f1, "append_record"),
+            mock.patch.object(f1, "invoke_rollback") as rollback,
+            mock.patch.object(
+                f1,
+                "close_transaction",
+                side_effect=lambda *_args, **_kwargs: (
+                    close_order.append("close") or {"status": "closed"}
+                ),
+            ),
+        ):
+            result = f1.recover_approved_rollback(
+                spec,
+                args,
+                return_guard=guard,
+                before_close=lambda: close_order.append("release"),
+            )
+        self.assertEqual(result["status"], "closed")
+        rollback.assert_not_called()
+        self.assertIs(final_health.call_args.kwargs["return_guard"], guard)
+        self.assertEqual(close_order, ["release", "close"])
+
+    def test_missing_guard_cannot_revoke_exact_resident_rollback_transfer(self) -> None:
+        spec = sample_spec()
+        args = sample_args()
+
+        def successful_flash(command, *, log_path, timeout):
+            del command, timeout
+            log_path.write_bytes(b"")
+            log_path.chmod(0o600)
+            return {
+                **f1.command_record(log_path, 0),
+                "process_started": True,
+            }
+
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            transaction = Path(temp_dir)
+            with (
+                mock.patch.object(f1, "ensure_event"),
+                mock.patch.object(f1, "run_logged", side_effect=successful_flash) as run,
+                mock.patch.object(f1, "verify_final_health") as health,
+                self.assertRaisesRegex(
+                    f1.ContractError,
+                    "rollback flashed; guarded final health requires recovery",
+                ),
+            ):
+                f1.invoke_rollback(
+                    spec,
+                    args,
+                    transaction,
+                    transaction / "journal",
+                    [],
+                    from_native=False,
+                    allow_promotion=True,
+                    return_guard=None,
+                )
+            actions = [
+                record["action"]
+                for record in f1.read_journal(spec, transaction)
+            ]
+        self.assertEqual(run.call_count, 1)
+        self.assertEqual(
+            actions,
+            ["rollback-transfer-started", "rollback-flashed"],
+        )
+        health.assert_not_called()
+
+    def test_resident_from_native_recovery_without_guard_sends_no_command(self) -> None:
+        spec = sample_spec()
+        spec.manifest["resident_promotion"] = {}
+        args = sample_args()
+        args.approval = None
+        args.recovery_path = "from-native"
+        args.transaction_dir = Path("/private/f1-live")
+        records = [{"action": "candidate-transfer-started"}]
+        with (
+            mock.patch.object(f1, "approved_bindings", return_value={}),
+            mock.patch.object(f1, "verify_local_closure"),
+            mock.patch.object(
+                f1,
+                "exact_transaction_dir",
+                return_value=args.transaction_dir,
+            ),
+            mock.patch.object(f1, "read_journal", return_value=records),
+            mock.patch.object(f1, "require_consumed_approval"),
+            mock.patch.object(f1, "repair_timeline_from_journal", return_value=[]),
+            mock.patch.object(
+                f1,
+                "rollback_pre_spawn_retry",
+                return_value=(False, None, 0),
+            ),
+            mock.patch.object(f1, "require_rollback_source_native") as source,
+            mock.patch.object(f1, "invoke_rollback") as rollback,
+            self.assertRaisesRegex(
+                f1.ContractError,
+                "resident from-native rollback requires its exact guard",
+            ),
+        ):
+            f1.recover_approved_rollback(spec, args)
+        source.assert_not_called()
+        rollback.assert_not_called()
 
 
 if __name__ == "__main__":

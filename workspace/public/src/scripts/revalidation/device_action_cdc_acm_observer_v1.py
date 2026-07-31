@@ -60,9 +60,12 @@ MAX_BANNER = 4096
 SETTLE_SEC = 0.250
 GUARD_ARM_SEC = 30.0
 GUARD_DEFAULT_MAX_SEC = 360
-GUARD_MAX_SEC_LIMIT = 3600
+GUARD_MAX_SEC_LIMIT = 7200
 GUARD_EXPIRED_EXIT = 3
 GUARD_UNCOMMANDED_EXIT = 4
+GUARD_RUNTIME_RULE_PATH = Path(
+    "/run/udev/rules.d/79-device-action-f1-cdc-acm-guard.rules"
+)
 PKEXEC = "/usr/bin/pkexec"
 SETPRIV = "/usr/bin/setpriv"
 PYTHON = "/usr/bin/python3"

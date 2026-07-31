@@ -71,10 +71,16 @@ transfer between the two files.
   version/build, `selftest fail=0`, and pstore `entries=0` without retransmitting
   rollback. The closed result is
   `ABORTED_F1_V2_CANDIDATE_UNCERTAIN_ROLLED_BACK`.
-- The exact A90 ModemManager guard is currently armed inside the resident tail,
-  after the base runner's first candidate-health exchange. Extending that guard
-  across the earlier candidate reboot/health corridor is the next H0 unit. No
-  new A90 live authority exists and this candidate must not be replayed.
+- The host-only guard-corridor unit now arms and journals the exact transient
+  A90 ModemManager guard before candidate intent and carries it through first
+  health, resident reboot, returned health, and bounded rollback recovery. It
+  never installs a persistent rule or stops ModemManager globally.
+- Related regression passes `332/332`; independent safety review returned GO
+  with no blocking finding. The reviewed orchestrator SHA256 is
+  `27326f21928776d1da4b38298497148c77a4193df8716824305eae0a6416ee17`.
+- No new A90 live authority exists. The changed execution closure requires a
+  fresh manifest, run directory, preflight, and exact F1 approval. The consumed
+  `-03` approval and candidate must not be replayed.
 - Do not add a device step while host-only work can answer the selected
   question.
 
@@ -718,6 +724,8 @@ approval under `AGENTS.md`.
 - `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1_STOP_H0_2026-07-31.md`
 - `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1_SUCCESSOR_REPEATED_STOP_H0_2026-07-31.md`
 - `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1A_ISOLATED_PATH_ATTRIBUTION_H0_2026-07-31.md`
+- `docs/reports/A90_RESIDENT_PROMOTION_MODEMMANAGER_GUARD_CORRIDOR_H0_2026-08-01.md`
+- `docs/reports/A90_RESIDENT_PROMOTION_GUARD_CORRIDOR_INDEPENDENT_REVIEW_2026-08-01.md`
 
 Private journals, structured results, raw logs, work-image evidence, approval
 receipts, and exact rollback identity remain under `workspace/private/`.
