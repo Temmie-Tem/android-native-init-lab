@@ -25,13 +25,28 @@ Userspace discards that errno and intentionally enters `quiet_park()`. There is
 no unexplained syscall hang at this boundary, and the earlier USB/PM/tracefs/
 publisher-nonreturn attributions are superseded.
 
+P2.92 host-only repair now passes the missing closure. Its production-writer
+harness resumes all 171 accepted nonterminal states, continuously walks the
+exact 107 positions twice, byte-matches 214 kernel snapshots against the
+model/decoder, advances the exact retained P2.90 generation-88 `0xc18` state
+to generation 89, and proves old-ring seed startup, corruption rejection, and
+operation-aware publication errno evidence. This restores observation
+capability; it is not E3 device progress.
+
+P2.64 Stage C is now implemented conservatively for the successor. One
+descriptor separates 87 Tier-1 payload receipts, 41 Tier-2
+qualification/provenance receipts, and three Tier-3 Process-v2 receipts. Its
+seven-lane mutation matrix passes, including the rule that a Tier-2-originated
+generated payload delta still changes payload identity. Stage C remains open
+pending its required independent safety review and final pre-intent source
+closure.
+
 The four formal Process-v2 verdicts remain
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: rollback and health evidence are
 unchanged, while restart-helper dispatch and every later E3 boundary remain
-unproved. This is observation-channel recovery, not E3 progress. The next
-successor must repair and exhaustively prove `ACCEPT_TO_RESUME_CLOSURE`, its
-full 107-position walk, separate checkpoint-errno observability, and P2.64
-Stage C `CHECKPOINT_SOT_COHERENCE` before Full-LTO, manifest, D0, or another F1.
+unproved. This is observation-channel recovery, not E3 progress. Full-LTO,
+manifest, D0, or another F1 remain prohibited until the final P2.92 identity,
+freeze, pre-LTO closure, and Stage C review are complete.
 
 The live transaction exercised the durable recovery design. Initial rollback
 endpoint discovery stopped on a measured USB membership race. Rollback-only
@@ -186,6 +201,18 @@ corrected A/B pair then matched.
 - The successor load-bearing gate is `ACCEPT_TO_RESUME_CLOSURE`: every accepted
   nonterminal committed state must be byte-exactly representable and resumable
   by kernel writer, userspace client, model, and decoder.
+- P2.92 passes `ACCEPT_TO_RESUME_CLOSURE` for 171 accepted nonterminal states
+  and `ACCEPT_TO_RESUME_SEQUENCE_WALK` for two continuous 107-position walks.
+  The second walk has producer-derived consecutive nonzero `0xc01` details.
+- P2.92 proves the exact old generation-87/88 retained image can seed repaired
+  writer state and commit generation 89; a separate old-ring initial-condition
+  test creates a new seed and commits generation one.
+- `CHECKPOINT_ERRNO_OBSERVABILITY` preserves exact open/write/close errno,
+  emits operation-aware failure details, and reaches an explicit volatile sink
+  before park only when the checkpoint channel and fallback both fail.
+- The conservative P2.64 Stage C mutation matrix passes with disjoint
+  `87/41/3` Tier-1/Tier-2/Tier-3 receipt sets. Independent safety review and
+  final successor input registration remain pending.
 - Exact source rejects treating a parent-PM sign or PHY flag as electrical
   proof; swallowed clock errors remain non-proof.
 - Process v2 common D0/F1 execution, regular-path boot-only Odin transport,
@@ -210,6 +237,7 @@ Load-bearing current reports:
 - `docs/reports/S22PLUS_FYG8_P288_NO_SILENT_PARK_AND_LINKED_VALIDATOR_H0_2026-07-30.md`
 - `docs/reports/S22PLUS_FYG8_P290_POST_COMMIT_TAIL_AND_CHILD_OBSERVER_H0_2026-07-31.md`
 - `docs/reports/S22PLUS_FYG8_P284_P290_ACCEPT_TO_RESUME_HISTORY_ERRATUM_H0_2026-07-31.md`
+- `docs/reports/S22PLUS_FYG8_P292_ACCEPT_TO_RESUME_AND_STAGE_C_H0_2026-07-31.md`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 
@@ -365,8 +393,9 @@ operations before the asserted publication boundaries.
 3. Preserve the four-run historical sweep and corrected cause: committed
    nonzero-detail progress state was accepted but not resumable, so the next
    write returned pre-mutation `-ESTALE` and userspace intentionally parked.
-4. Implement P2.64 Stage C with one descriptor producing disjoint Tier 1/2/3
-   receipt sets; require its mutation matrix and independent review before closure.
+4. Preserve the implemented P2.64 Stage C descriptor and passing seven-lane
+   mutation matrix. Add final successor payload inputs before intent and obtain
+   the required independent review before closure.
 5. `CHECKPOINT_SOT_ZERO_DELTA` passed over the complete 13-artifact retained
    P2.90 scope: A matched the frozen baseline first, then B matched both the
    same baseline and A. No comparison was weakened and no repair was present.
@@ -374,19 +403,18 @@ operations before the asserted publication boundaries.
    materialized artifacts changed for exact active-slot state and
    operation-aware publication errno preservation; the other eight stayed
    byte-identical and repaired A/B outputs were deterministic.
-7. Prove `ACCEPT_TO_RESUME_CLOSURE` exhaustively across kernel writer,
-   userspace client, model, and decoder. Then prove
-   `ACCEPT_TO_RESUME_SEQUENCE_WALK` by continuously walking the exact
-   runtime-derived 107-position stream from seed through terminal without
-   resetting state, including a producer-derived runtime-reachable walk with
-   consecutive nonzero-detail progress records.
-8. Separately prove `CHECKPOINT_ERRNO_OBSERVABILITY`: preserve exact returned
-   errno and produce bounded causal evidence before every park.
+7. `ACCEPT_TO_RESUME_CLOSURE` passes across kernel writer, userspace client,
+   model, and decoder for all 171 accepted nonterminal states.
+   `ACCEPT_TO_RESUME_SEQUENCE_WALK` passes two continuous 107-position walks,
+   including producer-derived consecutive nonzero progress records.
+8. `CHECKPOINT_ERRNO_OBSERVABILITY` passes for exact open/write/close errno,
+   successful operation-aware fallback, and the explicit total-channel
+   volatile evidence sink before park.
 9. Recompute SOURCE_KEYS before intent. Keep SoT/generator and byte-affecting
    outputs inside identity; keep evidence-only consumers outside and bundle-bound.
-10. Prove the inherited detail-zero prefix, nonzero detail, and corruption
-   handling. Initialize the repaired writer from the exact retained P2.90
-   gen87/88 image and prove its seed path commits generation 89.
+10. The inherited detail-zero prefix, nonzero details, two corruption controls,
+   exact retained P2.90 gen87/88 resume to generation 89, and old-ring seed
+   startup through generation one are host-proven.
 11. Treat the four-run generation-88 tuple as the live prefix baseline; any
    earlier divergence is a regression. On renewed closure-proven silence, stop
    code-position tracing and test system-state-transition coupling.
