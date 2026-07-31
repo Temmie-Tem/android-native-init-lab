@@ -73,3 +73,27 @@ current qualification passes with `51/51` logical entries, `50/50` unique
 paths, and zero changed bytes. This is a host-only recurrence-prevention guard.
 It does not erase the two prior failures, lift the rule-7 stop, authorize a
 promotion retry, or create D0/F1 authority.
+
+## Scoped host-only re-entry
+
+The operator subsequently issued a separate policy decision for run
+`029c8b1739f06242008c0a7657cef9e2`. At guard commit `55e477a3`, it authorized
+exactly one formal static closure and, only after that closure passed, exactly
+one offline promotion. Any new failure ended the re-entry. D0 and F1 remained
+unauthorized.
+
+The exact frozen guard passed before the attempt with 51 logical entries, 50
+unique files, and zero changes. The single static invocation then returned
+exit status one in 3.57 seconds and emitted exact fail-closed error
+`No such file or directory: 'aarch64-linux-gnu-nm'`. It created no static
+result. The offline promotion was therefore never invoked and no promotion
+directory, ready manifest, D0 evidence, or live authority was created.
+
+The failure is an execution-environment preflight omission. The static CLI's
+explicit GNU-tool arguments do not cover the fresh userspace sub-audit, which
+resolves `aarch64-linux-gnu-nm` by basename. The controlled GNU binary exists
+under the pinned private cross-tool directory, but that directory was absent
+from the attempted process PATH. A post-failure guard rerun still passes with
+zero changes, so no candidate or qualification byte moved. The policy's
+explicit stop-on-new-failure clause prohibits retrying this attempt or
+starting promotion.

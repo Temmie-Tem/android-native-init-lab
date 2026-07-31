@@ -69,14 +69,25 @@ ready manifest, D0, approval binding, or F1 action occurred after the stop.
 An H0 recurrence guard now pins the complete frozen qualification receipt and
 byte-verifies its 51 logical implementation entries over 50 unique files,
 including the one declared alias pair. It passes with zero changed bytes but
-does not retroactively lift the rule-7 stop or authorize a promotion retry.
+does not retroactively lift the rule-7 stop.
+
+The operator later authorized one narrowly scoped host-only re-entry at guard
+commit `55e477a3`: one formal static closure and, only after success, one
+offline promotion, with no D0/F1 authority and stop on any new failure. The
+guard passed `51/51`, `50/50`, and zero changed bytes. The single static
+attempt then failed closed in 3.57 seconds before creating a result because
+its fresh userspace audit could not resolve `aarch64-linux-gnu-nm` from PATH.
+No promotion was invoked. The pinned private GNU tool exists, so this is an
+execution-environment preflight omission, not a candidate-byte failure; the
+explicit stop-on-failure condition nevertheless ends this scoped re-entry.
 
 The four formal Process-v2 verdicts remain
 `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: rollback and health evidence are
 unchanged, while restart-helper dispatch and every later E3 boundary remain
 unproved. This is observation-channel recovery, not E3 progress. Full-LTO,
-manifest, D0, or another F1 remain prohibited until the independent Stage C
-review is complete; final freeze and pre-LTO closure now pass.
+final freeze, pre-LTO closure, and the independent Stage C review remain
+passed evidence. No manifest, D0, or another F1 receives authority from the
+failed scoped re-entry.
 
 The live transaction exercised the durable recovery design. Initial rollback
 endpoint discovery stopped on a measured USB membership race. Rollback-only
