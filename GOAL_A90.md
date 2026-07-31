@@ -222,10 +222,34 @@ bridge control but is not portable.
 
 `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1A_ISOLATED_PATH_ATTRIBUTION_H0_2026-07-31.md`
 
-Phase 1B is selected next: materialize the effective adapter/SFX sources and
-flat manifest, use a stable public virtual source prefix, and establish a new
-portable A/B golden profile. It must retain the old five hashes as the exact
-semantic bridge control and creates no candidate or live authority.
+Phase 1B closed
+`A90_V3404_FLAT_BUILDER_PHASE1B_PORTABLE_AB_PASS`. The effective state is now
+one flat manifest with 84 native-init flags, 25 inherited helper feature flags,
+60 native-init and 80 Doom translation units, three materialized generated
+sources, a read-only buildlib, and one writer. A disposable sandbox A/B
+produced the following portable golden hashes:
+
+```text
+init     beb44eea342e5a151f66b0379c3fb3872b7c29d61afaa27d3946072975606628
+helper   fa395d3ecb6944a57487f3966948a634596157e4de3fdc39575a2fc502d1ceef
+engine   5b262978867bf98239e5d7e1b112f29b0217b59f057fc48c5b6e91d90eb5eaad
+ramdisk  38e1edc8d9e8b0f396acaf366ef7d48311595a51df4ddf7849e183c8c505cbf2
+boot     5839b260ef30d7ece9566a296155f571ad62b7f90ba3499b687f3db53eb956c2
+```
+
+Init and helper retain exact Phase 0 identity. Offline ramdisk comparison
+attributes the new ramdisk and boot identities only to the engine's stable
+`/usr/src/a90/doomgeneric` source prefix. No final artifact contains the
+canonical repository or sandbox source path. The accepted V3404 artifact is
+unchanged.
+
+`docs/reports/A90_V3404_FLAT_BUILDER_PHASE1B_PORTABLE_AB_H0_2026-07-31.md`
+
+Phase 1C is selected next: commit Phase 1B, create a wholly fresh disposable
+export from that committed `HEAD`, and reproduce the five portable hashes
+without copying any working-tree file into the clone. This is the packaging
+and independent-export gate before the legacy chain can be retired for future
+versions. It remains schema work, not V3406 or live authority.
 
 ## Later Phases
 
