@@ -12,40 +12,32 @@ transfer between the two files.
 
 ## Current Authority
 
-- This is an H0 planning and implementation line.
-- No A90 F1 or other live-device action is currently authorized.
-- All V3402 through V3406 live approvals and attended continuations are
-  consumed and non-reusable.
-- Exact V2321 health was restored after the V3406 display run.
-- Fresh V3406 `-03` preserved the retained predecessor work image byte-for-byte
-  on the host. Its separately reviewed exact cleanup approval was consumed by
-  one non-retried unlink, and post-cleanup health remained exact V2321.
-- A second connected D0 proved the final, stage, and work paths all absent,
-  exact V2321 version/build, selftest `fail=0`, and pstore `entries=0`.
-- The V3406 `-03` F1 and attended approvals are consumed. One candidate and one
-  exact V2321 rollback transferred, final V2321 health passed, and the closed
-  result is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`.
-- No cleanup, F1, attended continuation, resident-baseline installation, or
-  other live approval exists.
-- A90 resident boot-promotion v1 has an independently reviewed H0 runner. It
-  has no final manifest, approval, or device authority; exact V2321 remains
-  resident. Its Debian gate now distinguishes the deterministic clean A/B
-  base from the fresh per-run keyed execution image and rejects direct staging
-  of the unkeyed base.
-- A fresh keyed V3406 input was materialized host-only. Connected D0 then
-  proved exact V2321 health, zero pstore entries, and absent new source/stage
-  paths, but stopped because the fixed predecessor work path is present. That
-  exact 2 GiB work image is preserved read-only on the host and unchanged on
-  the device. No cleanup approval exists yet.
-- The retained-work cleanup runner now takes the exact work SHA256 from its
-  manifest instead of requiring a source edit for each runtime-mutated image.
-  The manifest, preserved bytes, approval binding, remote preflight, unlink,
-  and final result still share one exact hash. Independent review passed.
-- Resident manifest composition exposed and closed one integration blocker:
-  the ordinary V3406 schema requires attended display proof while promotion
-  intentionally requires unattended native health with no Debian handoff.
-  One exact V3406-only resident schema now selects the latter without changing
-  ordinary V3406 display manifests or any boot-only/rollback boundary.
+- This line is stopped at H0 under AGENTS.md rule 7. No A90 F1, D1, attended
+  continuation, resident-baseline installation, or other live authority exists.
+- Exact V2321 remains resident. The latest connected D0 again proved exact
+  version/build, selftest `fail=0`, pstore `entries=0`, and absent final, work,
+  and stage paths. No command was sent to the separately connected S22+.
+- The exact retained-work cleanup approval was consumed once. The one retained
+  2 GiB work image was first preserved byte-for-byte on the host, then unlinked
+  without flash or reboot; post-cleanup health remained exact V2321.
+- Resident-promotion run `a90-v3406-debian-display-f1-20260801-01` received one
+  exact approval, but the runner rejected the resident schema before creating a
+  transaction or journal and before any device command, transfer, or reboot.
+  That approval bound the old runner closure and is obsolete and non-reusable.
+- The live approval gate now uses the same exact resident/ordinary schema
+  selector as the manifest loader. Commit `12f04795` passed `168/168` focused
+  tests and independent review; ordinary V3406, non-V3406, target, boot-only,
+  approval, and rollback boundaries remain closed.
+- Fresh run `a90-v3406-debian-display-f1-20260801-02` has a new-inode keyed
+  rootfs, new observer key, exact candidate and rollback copies, and passing D0
+  evidence. It has no valid final manifest or approval.
+- Two host-only manual manifest rebinding attempts then failed validation: the
+  first retained the old remote-image suffix, and the second retained old D0
+  evidence filenames. No approval receipt or transaction was created. This is
+  the repeated material host-preparation failure that stops the line.
+- Do not manually patch a third manifest. Resume only with a tested resident
+  manifest builder that checks all local paths and exact remote path derivation
+  before exclusive publication, then create a fresh run ID and approval.
 - Do not add a device step while host-only work can answer the selected
   question.
 
