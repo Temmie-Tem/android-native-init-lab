@@ -39,7 +39,7 @@ import a90_v3403_f1_orchestrator as orchestrator  # noqa: E402
 
 SCHEMA = "a90_phase2d_f1_finalizer_v1"
 PASS_DECISION = "A90_PHASE2D_V3406_FINAL_MANIFEST_HOST_PASS"
-REVIEW_DECISION = "GO_A90_OBSERVATION_PIPELINE_PHASE0"
+REVIEW_DECISION = "GO_A90_RETURN_EPOCH_PRESENTER_DIAGNOSTICS_H0"
 RUN_ID_RE = connected.RUN_ID_RE
 PRIVATE_RUN_BASE = staging.PRIVATE_RUN_BASE
 KEYED_SUMMARY_NAME = "keyed-rootfs-summary.json"
@@ -81,7 +81,11 @@ EXECUTION_REVIEW_SOURCES = (
     SCRIPT_DIR / "a90_phase2c_display_packet.py",
     SCRIPT_DIR / "a90_phase2d_display_observer.py",
     SCRIPT_DIR / "a90_v3403_absent_only_staging.py",
+    SCRIPT_DIR / "a90_phase2d_keyed_rootfs.py",
     SCRIPT_DIR / "a90_v3403_f1_orchestrator.py",
+    SCRIPT_DIR / "prepare_phase2_display_v1_rootfs.py",
+    SCRIPT_DIR / "phase2_display_v1" / "a90_debian_display_v1.c",
+    SCRIPT_DIR / "phase2_display_v1" / "manifest.toml",
     SCRIPT_DIR / "phase2c_display_packet_v1" / "contract.toml",
     Path(__file__).resolve(),
 )

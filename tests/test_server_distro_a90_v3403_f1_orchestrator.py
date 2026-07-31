@@ -197,6 +197,8 @@ def framed_display_ssh(
     *,
     ready: str = "",
     failure: str = "",
+    presenter_log: str = "",
+    diagnostics: str = "",
 ) -> str:
     return "".join(
         (
@@ -213,6 +215,12 @@ def framed_display_ssh(
             f"{f1.DISPLAY_FAILURE_BEGIN}\n",
             failure,
             f"{f1.DISPLAY_FAILURE_END}\n",
+            f"{f1.DISPLAY_PRESENTER_LOG_BEGIN}\n",
+            presenter_log,
+            f"{f1.DISPLAY_PRESENTER_LOG_END}\n",
+            f"{f1.DISPLAY_DIAGNOSTICS_BEGIN}\n",
+            diagnostics,
+            f"{f1.DISPLAY_DIAGNOSTICS_END}\n",
             "pid1_comm=init\n",
             "proc1_exe=/usr/sbin/init\n",
         )
@@ -261,6 +269,18 @@ def sample_args() -> object:
         poll_interval=0.0,
         recovery_path=None,
     )
+
+
+def sample_return_epoch() -> dict[str, object]:
+    return {
+        "schema": f1.RETURN_EPOCH_SCHEMA,
+        "selected_realpath": "/dev/ttyACM0",
+        "tty_st_dev": 1,
+        "tty_st_ino": 2,
+        "tty_st_rdev": 3,
+        "usb_busnum": 1,
+        "usb_devnum": 4,
+    }
 
 
 def write_attended_candidate_state(
@@ -1118,6 +1138,12 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                 ),
                 mock.patch.object(
                     f1,
+                    "capture_bridge_serial_epoch",
+                    side_effect=lambda spec, args: order.append("epoch")
+                    or sample_return_epoch(),
+                ),
+                mock.patch.object(
+                    f1,
                     "observe_ssh",
                     side_effect=lambda spec, args: order.append("ssh") or {},
                 ),
@@ -1147,10 +1173,158 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                 "pstore",
                 "source",
                 "before-handoff",
+                "epoch",
                 "handoff",
                 "ssh",
             ],
         )
+
+    def test_return_epoch_waits_for_stable_usb_serial_generation_change(
+        self,
+    ) -> None:
+        spec = sample_spec()
+        spec.stage.bridge_realpath = "/dev/ttyACM0"
+        before = sample_return_epoch()
+        returned = dict(before)
+        returned["tty_st_ino"] = 8
+        returned["usb_devnum"] = 9
+        with (
+            mock.patch.object(
+                f1.time,
+                "monotonic",
+                return_value=0.0,
+            ),
+            mock.patch.object(f1.time, "sleep") as sleep,
+            mock.patch.object(
+                f1.staging,
+                "require_exact_bridge",
+                return_value={"selected_realpath": "/dev/ttyACM0"},
+            ) as bridge,
+            mock.patch.object(
+                f1,
+                "_bound_bridge_serial_epoch",
+                side_effect=(before, returned, returned),
+            ),
+            mock.patch.object(f1, "run_f1_cmd") as command,
+        ):
+            result = f1.wait_for_new_bridge_serial_epoch(
+                spec,
+                sample_args(),
+                before,
+            )
+        self.assertEqual(bridge.call_count, 3)
+        self.assertEqual(
+            sleep.call_args_list,
+            [mock.call(0.0), mock.call(f1.OBSERVATION_MENU_SETTLE_SEC)],
+        )
+        command.assert_not_called()
+        self.assertEqual(result["returned"], returned)
+        self.assertTrue(result["usb_serial_epoch_changed"])
+
+    def test_return_epoch_does_not_accept_retained_debian_usb_identity(
+        self,
+    ) -> None:
+        spec = sample_spec()
+        spec.stage.bridge_realpath = "/dev/ttyACM0"
+        before = sample_return_epoch()
+        tty_only_change = dict(before)
+        tty_only_change["tty_st_ino"] = 99
+        with (
+            mock.patch.object(
+                f1.time,
+                "monotonic",
+                side_effect=(0.0, 0.0, 241.0),
+            ),
+            mock.patch.object(f1.time, "sleep"),
+            mock.patch.object(
+                f1.staging,
+                "require_exact_bridge",
+                return_value={"selected_realpath": "/dev/ttyACM0"},
+            ),
+            mock.patch.object(
+                f1,
+                "_bound_bridge_serial_epoch",
+                return_value=tty_only_change,
+            ),
+            mock.patch.object(f1, "run_f1_cmd") as command,
+            self.assertRaisesRegex(RuntimeError, "epoch did not change"),
+        ):
+            f1.wait_for_new_bridge_serial_epoch(
+                spec,
+                sample_args(),
+                before,
+            )
+        command.assert_not_called()
+
+    def test_return_epoch_never_promotes_a_deadline_crossing_generation(
+        self,
+    ) -> None:
+        spec = sample_spec()
+        spec.stage.bridge_realpath = "/dev/ttyACM0"
+        spec.candidate_return_timeout = 5
+        before = sample_return_epoch()
+        returned = dict(before)
+        returned["usb_devnum"] = 9
+
+        with self.subTest(case="insufficient-settle-budget"):
+            with (
+                mock.patch.object(
+                    f1.time,
+                    "monotonic",
+                    side_effect=(0.0, 1.0, 1.0, 3.0),
+                ),
+                mock.patch.object(f1.time, "sleep") as sleep,
+                mock.patch.object(
+                    f1.staging,
+                    "require_exact_bridge",
+                    return_value={"selected_realpath": "/dev/ttyACM0"},
+                ) as bridge,
+                mock.patch.object(
+                    f1,
+                    "_bound_bridge_serial_epoch",
+                    return_value=returned,
+                ),
+                mock.patch.object(f1, "run_f1_cmd") as command,
+                self.assertRaisesRegex(RuntimeError, "epoch did not change"),
+            ):
+                f1.wait_for_new_bridge_serial_epoch(
+                    spec,
+                    sample_args(),
+                    before,
+                )
+            bridge.assert_called_once()
+            sleep.assert_not_called()
+            command.assert_not_called()
+
+        with self.subTest(case="confirmation-crosses-deadline"):
+            with (
+                mock.patch.object(
+                    f1.time,
+                    "monotonic",
+                    side_effect=(0.0, 0.0, 0.0, 0.0, 4.0, 6.0),
+                ),
+                mock.patch.object(f1.time, "sleep") as sleep,
+                mock.patch.object(
+                    f1.staging,
+                    "require_exact_bridge",
+                    return_value={"selected_realpath": "/dev/ttyACM0"},
+                ) as bridge,
+                mock.patch.object(
+                    f1,
+                    "_bound_bridge_serial_epoch",
+                    side_effect=(returned, returned),
+                ),
+                mock.patch.object(f1, "run_f1_cmd") as command,
+                self.assertRaisesRegex(RuntimeError, "epoch did not change"),
+            ):
+                f1.wait_for_new_bridge_serial_epoch(
+                    spec,
+                    sample_args(),
+                    before,
+                )
+            self.assertEqual(bridge.call_count, 2)
+            sleep.assert_called_once_with(f1.OBSERVATION_MENU_SETTLE_SEC)
+            command.assert_not_called()
 
     def test_first_observation_settle_failure_never_sends_source_or_handoff(
         self,
@@ -3018,6 +3192,11 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                     ),
                     mock.patch.object(
                         f1,
+                        "capture_bridge_serial_epoch",
+                        return_value=sample_return_epoch(),
+                    ),
+                    mock.patch.object(
+                        f1,
                         "current_utc",
                         side_effect=(
                             deadline - dt.timedelta(seconds=1),
@@ -3097,6 +3276,11 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                     ),
                     mock.patch.object(
                         f1,
+                        "capture_bridge_serial_epoch",
+                        return_value=sample_return_epoch(),
+                    ),
+                    mock.patch.object(
+                        f1,
                         "current_utc",
                         side_effect=(
                             deadline - dt.timedelta(seconds=1),
@@ -3130,18 +3314,22 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         spec = attended_spec()
         version = {
             "text": (
-                f"{spec.candidate_version}\n"
-                f"{spec.candidate_build}\n"
+                f"version: {spec.candidate_version} "
+                f"build={spec.candidate_build}\n"
             )
         }
-        selftest = {"text": "fail=0"}
+        selftest = {
+            "text": "selftest: pass=1 warn=0 fail=0 duration=1ms entries=1\n"
+        }
         with (
             mock.patch.object(
-                f1.staging,
-                "require_exact_bridge",
-                return_value={"selected_realpath": "exact"},
-            ) as bridge,
-            mock.patch.object(f1.time, "sleep"),
+                f1,
+                "wait_for_new_bridge_serial_epoch",
+                return_value={
+                    "returned": {"selected_realpath": "exact"},
+                    "usb_serial_epoch_changed": True,
+                },
+            ) as epoch,
             mock.patch.object(
                 f1,
                 "settle_observation_channel",
@@ -3156,11 +3344,45 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             result = f1.wait_for_candidate_return_attended_once(
                 spec,
                 sample_args(),
+                sample_return_epoch(),
             )
-        bridge.assert_called_once()
+        epoch.assert_called_once()
         settle.assert_called_once()
         self.assertEqual(command.call_count, 2)
-        self.assertEqual(result["device_command_attempts"], 1)
+        self.assertEqual(result["device_command_sequences"], 1)
+        self.assertTrue(result["native_epoch_version_proven"])
+
+    def test_return_epoch_rejects_version_identity_as_substring_only(self) -> None:
+        spec = attended_spec()
+        forged = {
+            "text": (
+                f"banner mentions {spec.candidate_version} "
+                f"and {spec.candidate_build}\n"
+                "version: wrong-version build=wrong-build\n"
+            )
+        }
+        with (
+            mock.patch.object(
+                f1,
+                "wait_for_new_bridge_serial_epoch",
+                return_value={
+                    "returned": {"selected_realpath": "exact"},
+                    "usb_serial_epoch_changed": True,
+                },
+            ),
+            mock.patch.object(f1, "run_f1_cmd", return_value=forged),
+            mock.patch.object(f1, "settle_observation_channel") as settle,
+            self.assertRaisesRegex(
+                f1.ContractError,
+                "native epoch identity is not exact",
+            ),
+        ):
+            f1.wait_for_candidate_return_attended_once(
+                spec,
+                sample_args(),
+                sample_return_epoch(),
+            )
+        settle.assert_not_called()
 
     def test_attended_handoff_failure_is_not_retried(self) -> None:
         spec = attended_spec()
@@ -3187,7 +3409,10 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                     spec,
                     sample_args(),
                     Path(temp_dir),
-                    {"ready": True},
+                    {
+                        "ready": True,
+                        "return_epoch_before_handoff": sample_return_epoch(),
+                    },
                 )
         handoff.assert_called_once()
         ssh.assert_not_called()
@@ -3260,6 +3485,11 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                         f1,
                         "remote_source_preflight",
                         return_value={"source": "exact"},
+                    ),
+                    mock.patch.object(
+                        f1,
+                        "capture_bridge_serial_epoch",
+                        return_value=sample_return_epoch(),
                     ),
                     mock.patch.object(
                         f1,
@@ -3505,6 +3735,97 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             f1.source_contract_issues(mutated),
         )
 
+    def test_source_contract_rejects_epoch_transport_and_diagnostic_writes(
+        self,
+    ) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+        for function, anchor in (
+            (
+                "_bound_bridge_serial_epoch",
+                '    selected_realpath = bridge.get("selected_realpath")\n',
+            ),
+            (
+                "capture_bridge_serial_epoch",
+                "    bridge = staging.require_exact_bridge(spec.stage, args)\n",
+            ),
+            (
+                "wait_for_new_bridge_serial_epoch",
+                "    before_key = _validated_return_epoch_key(spec, before_handoff)\n",
+            ),
+        ):
+            with self.subTest(epoch_dependency=function):
+                start = source.index(f"def {function}(")
+                end = source.index("\ndef ", start + 1)
+                body = source[start:end].replace(
+                    anchor,
+                    "    a90ctl.bridge_exchange('host', 1, b'version\\n', 1)\n"
+                    + anchor,
+                    1,
+                )
+                mutated = source[:start] + body + source[end:]
+                self.assertTrue(
+                    any(
+                        "return epoch gate issues a device command: a90ctl."
+                        in issue
+                        for issue in f1.source_contract_issues(mutated)
+                    )
+                )
+
+        verify_start = source.index(
+            "def _verify_candidate_after_return_epoch_once("
+        )
+        verify_end = source.index("def observe_candidate(", verify_start)
+        verifier = source[verify_start:verify_end].replace(
+            'r"selftest: pass=[0-9]+ warn=[0-9]+ fail=0 "',
+            'r"selftest: pass=[0-9]+ warn=[0-9]+ fail=[0-9]+ "',
+            1,
+        )
+        mutated = source[:verify_start] + verifier + source[verify_end:]
+        self.assertTrue(
+            any(
+                "candidate return verifier missing or out of order"
+                in issue
+                for issue in f1.source_contract_issues(mutated)
+            )
+        )
+
+        for label, injected in (
+            ("tmp-redirection", "echo x > /tmp/a90-observer-write; "),
+            ("variable-redirection", 'printf 1 > "$p"; '),
+        ):
+            with self.subTest(ssh_write=label):
+                mutated = source.replace(
+                    '            "if [ -c /dev/dri/card0 ]; then echo drm.card0=char; "',
+                    f'            "{injected}"\n'
+                    '            "if [ -c /dev/dri/card0 ]; then echo drm.card0=char; "',
+                    1,
+                )
+                self.assertIn(
+                    "SSH diagnostic observer contains output redirection",
+                    f1.source_contract_issues(mutated),
+                )
+
+        mutated = source.replace(
+            '            "if [ -c /dev/dri/card0 ]; then echo drm.card0=char; "',
+            '            "touch /tmp/a90-observer-write; "\n'
+            '            "if [ -c /dev/dri/card0 ]; then echo drm.card0=char; "',
+            1,
+        )
+        self.assertIn(
+            "SSH diagnostic observer contains write-capable command: touch",
+            f1.source_contract_issues(mutated),
+        )
+
+        mutated = source.replace(
+            '            "cat /run/a90-display/presenter.log 2>/dev/null; "',
+            '            "cat /run/a90-display/presenter.log | tee /tmp/leak; "',
+            1,
+        )
+        self.assertIn(
+            "SSH diagnostic observer contains write-capable command: tee",
+            f1.source_contract_issues(mutated),
+        )
+
     def test_recovery_source_has_no_candidate_invocation(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
         recovery = source[
@@ -3588,7 +3909,10 @@ class DisplayObservationTests(unittest.TestCase):
                     display_spec(),
                     sample_args(),
                     Path(temp_dir),
-                    {"ready": True},
+                    {
+                        "ready": True,
+                        "return_epoch_before_handoff": sample_return_epoch(),
+                    },
                 )
         self.assertTrue(result["native_release_proven"])
         self.assertTrue(result["debian_pid1_proven"])
@@ -3679,6 +4003,58 @@ class DisplayObservationTests(unittest.TestCase):
         self.assertTrue(result["proc1_exe_init"])
         self.assertTrue(result["dropbear_started"])
 
+    def test_display_ssh_retains_presenter_and_read_only_panel_diagnostics(
+        self,
+    ) -> None:
+        failure = (
+            "schema=a90-debian-display-v1-failure\n"
+            f"attempt={f1.PHASE2_DISPLAY_MAX_ATTEMPTS}\n"
+            "rc=1\n"
+        )
+        presenter_log = "a90-debian-display-v1: KMS init: Device or resource busy\n"
+        diagnostics = (
+            "drm.card0=char\n"
+            "drm.card0-DSI-1.status=connected\n"
+            "drm.card0-DSI-1.dpms=On\n"
+            "backlight.panel0.bl_power=4\n"
+            "backlight.panel0.brightness=0\n"
+        )
+        result, terminal = f1.classify_phase2_ssh_attempt(
+            display_spec(),
+            returncode=0,
+            text=framed_display_ssh(
+                failure=failure,
+                presenter_log=presenter_log,
+                diagnostics=diagnostics,
+            ),
+        )
+        self.assertTrue(terminal)
+        self.assertEqual(result["display_status"], "bounded-failure")
+        self.assertEqual(result["presenter_log_text"], presenter_log)
+        self.assertEqual(result["display_diagnostics_text"], diagnostics)
+        self.assertEqual(result["observation_errors"], {})
+
+    def test_presenter_log_cannot_spoof_observer_framing(self) -> None:
+        failure = (
+            "schema=a90-debian-display-v1-failure\n"
+            f"attempt={f1.PHASE2_DISPLAY_MAX_ATTEMPTS}\n"
+            "rc=1\n"
+        )
+        result, terminal = f1.classify_phase2_ssh_attempt(
+            display_spec(),
+            returncode=0,
+            text=framed_display_ssh(
+                failure=failure,
+                presenter_log=f"{f1.DISPLAY_PRESENTER_LOG_BEGIN}\n",
+            ),
+        )
+        self.assertTrue(terminal)
+        self.assertEqual(result["display_status"], "bounded-failure")
+        self.assertIn("presenter_log", result["observation_errors"])
+        self.assertEqual(result["presenter_log_text"], "")
+        self.assertTrue(result["pid1_comm_init"])
+        self.assertTrue(result["proc1_exe_init"])
+
     def test_malformed_display_marker_preserves_independent_facts_end_to_end(
         self,
     ) -> None:
@@ -3732,7 +4108,10 @@ class DisplayObservationTests(unittest.TestCase):
                     spec,
                     sample_args(),
                     Path(temp_dir),
-                    {"ready": True},
+                    {
+                        "ready": True,
+                        "return_epoch_before_handoff": sample_return_epoch(),
+                    },
                 )
         self.assertTrue(result["native_release_proven"])
         self.assertTrue(result["debian_pid1_proven"])
@@ -4051,6 +4430,11 @@ class DisplayObservationTests(unittest.TestCase):
                             f1,
                             "remote_source_preflight",
                             return_value={"source": "exact"},
+                        ),
+                        mock.patch.object(
+                            f1,
+                            "capture_bridge_serial_epoch",
+                            return_value=sample_return_epoch(),
                         ),
                         mock.patch.object(
                             f1,

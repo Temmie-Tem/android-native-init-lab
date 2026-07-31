@@ -516,7 +516,14 @@ def observation_contract(contract: dict[str, Any]) -> dict[str, Any]:
             "no_global_sync": True,
             "retained_pmsg_marker": observation["return_marker"],
             "required_phase": observation["required_return_phase"],
+            "semantic_epoch": observation["return_epoch"],
             "candidate_return_required_before_rollback": True,
+        },
+        "diagnostics": {
+            "presenter_log_path": observation["presenter_log_path"],
+            "inventory": observation["display_diagnostics"],
+            "device_writes": False,
+            "mechanical_or_visible_proof": False,
         },
     }
 

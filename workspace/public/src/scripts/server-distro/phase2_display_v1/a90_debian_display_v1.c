@@ -641,28 +641,38 @@ static void cleanup_kms(struct a90_display_kms *kms) {
     }
 }
 
-static int initialize_kms(struct a90_display_kms *kms) {
+static int initialize_kms(struct a90_display_kms *kms,
+                          const char **failure_stage_out) {
     struct drm_mode_create_dumb create;
     struct drm_mode_fb_cmd2 addfb;
     struct drm_mode_map_dumb map;
     uint64_t dumb_buffer = 0;
     int fd_flags;
 
+    if (failure_stage_out == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+    *failure_stage_out = "ensure-card0-node";
     if (ensure_card0_node(&kms->drm_major, &kms->drm_minor) < 0) {
         return -1;
     }
+    *failure_stage_out = "open-card0";
     kms->fd = open(A90_CARD0_NODE, O_RDWR | O_CLOEXEC | O_NOFOLLOW);
     if (kms->fd < 0) {
         return -1;
     }
+    *failure_stage_out = "set-cloexec";
     fd_flags = fcntl(kms->fd, F_GETFD);
     if (fd_flags < 0 ||
         fcntl(kms->fd, F_SETFD, fd_flags | FD_CLOEXEC) < 0) {
         return -1;
     }
+    *failure_stage_out = "set-master";
     if (drm_ioctl_retry(kms->fd, DRM_IOCTL_SET_MASTER, NULL) < 0) {
         return -1;
     }
+    *failure_stage_out = "dumb-buffer-cap";
     if (drm_get_cap(
             kms->fd,
             DRM_CAP_DUMB_BUFFER,
@@ -671,10 +681,12 @@ static int initialize_kms(struct a90_display_kms *kms) {
         errno = ENOTSUP;
         return -1;
     }
+    *failure_stage_out = "choose-connected-output";
     if (choose_output(kms->fd, kms) < 0) {
         return -1;
     }
 
+    *failure_stage_out = "create-dumb-buffer";
     memset(&create, 0, sizeof(create));
     create.width = kms->mode.hdisplay;
     create.height = kms->mode.vdisplay;
@@ -691,6 +703,7 @@ static int initialize_kms(struct a90_display_kms *kms) {
     kms->fb.stride = create.pitch;
     kms->fb.size = create.size;
 
+    *failure_stage_out = "add-framebuffer";
     memset(&addfb, 0, sizeof(addfb));
     addfb.width = create.width;
     addfb.height = create.height;
@@ -705,6 +718,7 @@ static int initialize_kms(struct a90_display_kms *kms) {
     }
     kms->fb_id = addfb.fb_id;
 
+    *failure_stage_out = "map-dumb-buffer";
     memset(&map, 0, sizeof(map));
     map.handle = create.handle;
     if (drm_ioctl_retry(
@@ -713,6 +727,7 @@ static int initialize_kms(struct a90_display_kms *kms) {
             &map) < 0) {
         return -1;
     }
+    *failure_stage_out = "mmap-dumb-buffer";
     kms->fb.pixels = mmap(
         NULL,
         create.size,
@@ -723,6 +738,7 @@ static int initialize_kms(struct a90_display_kms *kms) {
     if (kms->fb.pixels == MAP_FAILED) {
         return -1;
     }
+    *failure_stage_out = "complete";
     return 0;
 }
 
@@ -952,6 +968,7 @@ int main(int argc, char **argv) {
     unsigned int self_drm_fds = 0;
     unsigned int other_drm_fds = 0;
     unsigned int native_init_processes = 0;
+    const char *kms_failure_stage = "not-started";
     int rc = 1;
 
     (void)argv;
@@ -988,8 +1005,15 @@ int main(int argc, char **argv) {
             native_init_processes);
         goto out;
     }
-    if (initialize_kms(&kms) < 0) {
-        fprintf(stderr, "a90-debian-display-v1: KMS init: %s\n", strerror(errno));
+    if (initialize_kms(&kms, &kms_failure_stage) < 0) {
+        int saved_errno = errno;
+
+        fprintf(
+            stderr,
+            "a90-debian-display-v1: KMS init stage=%s errno=%d error=%s\n",
+            kms_failure_stage,
+            saved_errno,
+            strerror(saved_errno));
         goto out;
     }
     if (count_process_state(
@@ -1024,7 +1048,13 @@ int main(int argc, char **argv) {
     }
     render(&kms);
     if (present(&kms) < 0) {
-        fprintf(stderr, "a90-debian-display-v1: SETCRTC: %s\n", strerror(errno));
+        int saved_errno = errno;
+
+        fprintf(
+            stderr,
+            "a90-debian-display-v1: SETCRTC errno=%d error=%s\n",
+            saved_errno,
+            strerror(saved_errno));
         goto out;
     }
     if (write_ready_marker(

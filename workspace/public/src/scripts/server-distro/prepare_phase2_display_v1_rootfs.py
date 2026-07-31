@@ -196,7 +196,14 @@ def validate_presenter_source(text: str) -> tuple[str, ...]:
     required = (
         "validate_native_release_marker()",
         "count_process_state(",
-        "initialize_kms(&kms)",
+        "initialize_kms(&kms, &kms_failure_stage)",
+        '"set-master"',
+        '"choose-connected-output"',
+        '"create-dumb-buffer"',
+        '"add-framebuffer"',
+        '"map-dumb-buffer"',
+        '"mmap-dumb-buffer"',
+        "KMS init stage=%s errno=%d error=%s",
         "ensure_card0_node(&kms->drm_major, &kms->drm_minor)",
         "O_RDWR | O_CLOEXEC | O_NOFOLLOW",
         "fcntl(kms->fd, F_SETFD, fd_flags | FD_CLOEXEC)",
@@ -244,7 +251,10 @@ def validate_presenter_source(text: str) -> tuple[str, ...]:
             issues.append(f"presenter contains forbidden token: {token}")
     marker_pos = text.find("validate_native_release_marker()")
     scan_pos = text.find("count_process_state(", marker_pos)
-    init_pos = text.find("initialize_kms(&kms)", scan_pos)
+    init_pos = text.find(
+        "initialize_kms(&kms, &kms_failure_stage)",
+        scan_pos,
+    )
     drop_pos = text.find("drop_privileges(", init_pos)
     present_pos = text.find("present(&kms)", drop_pos)
     if (

@@ -96,13 +96,26 @@ class A90Phase2DisplayV1Tests(unittest.TestCase):
                 source.replace("PR_SET_NO_NEW_PRIVS", "PR_GET_NO_NEW_PRIVS")
             )
         )
+        for stage in (
+            "set-master",
+            "choose-connected-output",
+            "create-dumb-buffer",
+            "add-framebuffer",
+            "map-dumb-buffer",
+            "mmap-dumb-buffer",
+        ):
+            self.assertIn(f'"{stage}"', source)
+        self.assertIn("KMS init stage=%s errno=%d error=%s", source)
 
     def test_presenter_root_scan_precedes_privilege_drop(self) -> None:
         source = PRESENTER.read_text(encoding="utf-8")
         main = source[source.index("int main(int argc, char **argv)") :]
         release_marker = main.index("validate_native_release_marker()")
         zero_scan = main.index("count_process_state(", release_marker)
-        kms_init = main.index("initialize_kms(&kms)", zero_scan)
+        kms_init = main.index(
+            "initialize_kms(&kms, &kms_failure_stage)",
+            zero_scan,
+        )
         owner_scan = main.index("count_process_state(", kms_init)
         pid1_read = main.index('readlink("/proc/1/exe"', owner_scan)
         privilege_drop = main.index("drop_privileges(", pid1_read)

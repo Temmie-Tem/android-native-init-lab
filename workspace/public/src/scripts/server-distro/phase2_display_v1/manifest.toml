@@ -17,7 +17,7 @@ strip_version = "GNU strip (GNU Binutils for Ubuntu) 2.46"
 
 [sources]
 presenter = "workspace/public/src/scripts/server-distro/phase2_display_v1/a90_debian_display_v1.c"
-presenter_sha256 = "1a94e36d67461830c2fb5842998a904706a2f207a8097a7daff9a2e86f13127e"
+presenter_sha256 = "55672214fda501a96115edec222f830bb26921ca71cea5f86faa4beb65830950"
 launcher = "workspace/public/src/scripts/server-distro/phase2_display_v1/a90_debian_display_launcher_v1.sh"
 launcher_sha256 = "9b54d1e0e62b85a2bb74af7385c3179dbdcc30a77f6bb6e2df25662518e444b7"
 inittab = "workspace/public/src/scripts/server-distro/phase2_display_v1/inittab"
@@ -31,7 +31,7 @@ draw_h_sha256 = "684f0118849846130e6abe4abbc8f183b48d665eaf100cb938ca1c7078a893f
 kms_h = "workspace/public/src/native-init/a90_kms.h"
 kms_h_sha256 = "d727e3823f2f59189fa56d0158b8630cfde700975b8fe2903b932c2605d1372e"
 builder = "workspace/public/src/scripts/server-distro/prepare_phase2_display_v1_rootfs.py"
-builder_sha256 = "6abc98fc1753ff2d9f7433cfd73fda502b428dee681c1b5ac6147e284b15c6a1"
+builder_sha256 = "8b44e922aba9efdf8b6877c98d6d3395c4ec34a6d6d5e47247aa3c73d7b689a1"
 
 [validation]
 filesystem_label = "PHASE2DISPLAYV1"

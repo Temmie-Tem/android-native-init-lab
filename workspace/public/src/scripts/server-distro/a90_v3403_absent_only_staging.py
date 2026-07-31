@@ -82,21 +82,21 @@ PHASE2_CONNECTED_PREFLIGHT_PATH = (
 PHASE2_CLEAN_IMAGE = (
     PRIVATE_ROOT
     / "outputs"
-    / "a90-phase2-display-v1-ab-06"
+    / "a90-phase2-display-v1-ab-07-return-epoch-diagnostics"
     / "A"
     / "phase2-display-v1.img"
 )
 PHASE2_CLEAN_RECEIPT = (
     PRIVATE_ROOT
     / "outputs"
-    / "a90-phase2-display-v1-ab-06"
+    / "a90-phase2-display-v1-ab-07-return-epoch-diagnostics"
     / "ab-receipt.json"
 )
 PHASE2_CLEAN_IMAGE_SHA256 = (
-    "cf2cf17d5c706123f85b21d4f2479fc348329cdc09e48fe6406874328e3977c8"
+    "394fc9e3db303ea41e48139a6f57b6559ddd868412d6b7b217d2765276e4d55c"
 )
 PHASE2_CLEAN_RECEIPT_SHA256 = (
-    "34b0c83ae612762287ee3ad1c7217c0031a259cb8fa745a55a1cc40964f279d2"
+    "dfd1bd121800a7e97a855c1c92af1dab21bcd77f84786d26bfaa024ce932abf7"
 )
 PHASE2_IMAGE_BYTES = 2 * 1024 * 1024 * 1024
 PHASE2_FILESYSTEM_LABEL = "PHASE2DISPLAYV1"
@@ -106,6 +106,8 @@ PHASE2_ABSENT_RUNTIME_PATHS = (
     "/run/a90-native-display-release",
     "/run/a90-display/ready",
     "/run/a90-display/failure",
+    "/run/a90-display/presenter.log",
+    "/run/a90-display/launcher.pid",
 )
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 RUN_ID_RE = re.compile(

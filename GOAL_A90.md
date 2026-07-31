@@ -419,13 +419,27 @@ or Medium finding. No device action occurred.
 
 `docs/reports/A90_OBSERVATION_PIPELINE_PHASE0_H0_2026-07-31.md`
 
-The next bounded unit is H0 return-channel and presenter diagnosis, not F1.
-The repeated 220-228 second missing-END results do not prove delayed supervisor
-return: the current observer can mistake the USB bridge retained through Debian
-for native return and spend its single attempt on a long menu command. Fix that
-semantic epoch gate and retain exact presenter.log plus read-only
-DRM/backlight/connector evidence before preparing another rootfs or approval.
-Retained-work cleanup remains separate from evidence preservation.
+Return-channel and presenter diagnostics now close
+`A90_RETURN_EPOCH_PRESENTER_DIAGNOSTICS_H0_PASS`. The repeated 220-228 second
+missing-END results were an observer ambiguity, not proof of delayed supervisor
+return. The runner now requires a changed and stable USB serial generation,
+then an exact native version line, before it sends menu or selftest commands.
+Deadline-crossing generations cannot be promoted.
+
+The SSH observer retains exact presenter.log plus read-only DRM, connector
+DPMS, and backlight state without treating them as proof. The presenter records
+stage-specific KMS errno. A fresh Debian A/B build is byte-identical, and the
+keyer, staging adapter, Phase2C packet, and finalizer all pin that same ab-07
+image; the old ab-06 image is no longer selectable. Integrated tests pass
+208/208 and independent review returned GO with no unresolved High or Medium
+finding. No device action occurred.
+
+`docs/reports/A90_RETURN_EPOCH_PRESENTER_DIAGNOSTICS_H0_2026-07-31.md`
+
+The next bounded unit is fresh single-run key materialization, then connected
+A90 D0 and final manifest preparation. Retained-work cleanup remains separate
+from evidence preservation. No F1 request is valid until those host and D0
+bindings are closed.
 
 ## Later Phases
 

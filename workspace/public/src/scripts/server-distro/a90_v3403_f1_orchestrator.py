@@ -101,6 +101,7 @@ F1_HANDOFF_MIN_TIMEOUT_SEC = (
 )
 OBSERVATION_MENU_SETTLE_SEC = 3.0
 OBSERVATION_CHANNEL_CANARY = ("run", "/bin/busybox", "true")
+RETURN_EPOCH_SCHEMA = "a90_host_usb_serial_epoch_v1"
 HOST_NCM_PROFILE_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,64}$")
 HOST_NCM_REBIND_TIMEOUT_SEC = 30
 HOST_NCM_REBIND_POLL_SEC = 1.0
@@ -143,6 +144,10 @@ DISPLAY_READY_BEGIN = "A90OBS_READY_BEGIN"
 DISPLAY_READY_END = "A90OBS_READY_END"
 DISPLAY_FAILURE_BEGIN = "A90OBS_FAILURE_BEGIN"
 DISPLAY_FAILURE_END = "A90OBS_FAILURE_END"
+DISPLAY_PRESENTER_LOG_BEGIN = "A90OBS_PRESENTER_LOG_BEGIN"
+DISPLAY_PRESENTER_LOG_END = "A90OBS_PRESENTER_LOG_END"
+DISPLAY_DIAGNOSTICS_BEGIN = "A90OBS_DISPLAY_DIAGNOSTICS_BEGIN"
+DISPLAY_DIAGNOSTICS_END = "A90OBS_DISPLAY_DIAGNOSTICS_END"
 RECOVERY_ADB_MARKER_RE = re.compile(
     r"(?:^|\] )ADB ready: ([^\s]+) recovery\r?$",
     re.MULTILINE,
@@ -1818,6 +1823,152 @@ def require_f1_baseline(args: argparse.Namespace) -> dict[str, Any]:
     )
 
 
+def _bound_bridge_serial_epoch(
+    spec: F1Spec,
+    bridge: dict[str, Any],
+) -> dict[str, Any]:
+    selected_realpath = bridge.get("selected_realpath")
+    if selected_realpath != spec.stage.bridge_realpath:
+        raise ContractError("return epoch bridge realpath is not exact")
+    device = Path(spec.stage.bridge_device)
+    try:
+        if not device.is_symlink():
+            raise ContractError("return epoch bridge device is not a symlink")
+        resolved = device.resolve(strict=True)
+        expected = Path(spec.stage.bridge_realpath).resolve(strict=True)
+        info = resolved.stat()
+    except OSError as exc:
+        raise ContractError("return epoch bridge device is unavailable") from exc
+    if resolved != expected or not stat.S_ISCHR(info.st_mode):
+        raise ContractError("return epoch bridge character device is not exact")
+
+    usb_parent = staging._usb_device_parent(  # noqa: SLF001 - same bound adapter
+        staging.SYS_CLASS_TTY / resolved.name
+    )
+    if usb_parent is None:
+        raise ContractError("return epoch USB parent is unavailable")
+    vendor = staging._read_sysfs_text(usb_parent / "idVendor").lower()  # noqa: SLF001
+    product = staging._read_sysfs_text(usb_parent / "idProduct").lower()  # noqa: SLF001
+    busnum = staging._read_sysfs_text(usb_parent / "busnum")  # noqa: SLF001
+    devnum = staging._read_sysfs_text(usb_parent / "devnum")  # noqa: SLF001
+    if (
+        vendor != staging.HOST_NCM_VENDOR_ID
+        or product != staging.HOST_NCM_PRODUCT_ID
+        or not busnum.isdecimal()
+        or not devnum.isdecimal()
+    ):
+        raise ContractError("return epoch USB identity is not exact A90")
+    return {
+        "schema": RETURN_EPOCH_SCHEMA,
+        "selected_realpath": selected_realpath,
+        "tty_st_dev": info.st_dev,
+        "tty_st_ino": info.st_ino,
+        "tty_st_rdev": info.st_rdev,
+        "usb_busnum": int(busnum, 10),
+        "usb_devnum": int(devnum, 10),
+    }
+
+
+def capture_bridge_serial_epoch(
+    spec: F1Spec,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    bridge = staging.require_exact_bridge(spec.stage, args)
+    return _bound_bridge_serial_epoch(spec, bridge)
+
+
+def _validated_return_epoch_key(
+    spec: F1Spec,
+    value: Any,
+) -> tuple[int, int, int, int, int]:
+    keys = {
+        "schema",
+        "selected_realpath",
+        "tty_st_dev",
+        "tty_st_ino",
+        "tty_st_rdev",
+        "usb_busnum",
+        "usb_devnum",
+    }
+    if (
+        not isinstance(value, dict)
+        or set(value) != keys
+        or value.get("schema") != RETURN_EPOCH_SCHEMA
+        or value.get("selected_realpath") != spec.stage.bridge_realpath
+    ):
+        raise ContractError("return epoch record is not exact")
+    numeric = tuple(
+        value[name]
+        for name in (
+            "tty_st_dev",
+            "tty_st_ino",
+            "tty_st_rdev",
+            "usb_busnum",
+            "usb_devnum",
+        )
+    )
+    if any(type(item) is not int or item < 0 for item in numeric):
+        raise ContractError("return epoch record has invalid numeric identity")
+    return numeric
+
+
+def wait_for_new_bridge_serial_epoch(
+    spec: F1Spec,
+    args: argparse.Namespace,
+    before_handoff: dict[str, Any],
+) -> dict[str, Any]:
+    before_key = _validated_return_epoch_key(spec, before_handoff)
+    deadline = time.monotonic() + spec.candidate_return_timeout
+    last = "same pre-handoff USB serial epoch"
+    while time.monotonic() < deadline:
+        try:
+            bridge = staging.require_exact_bridge(spec.stage, args)
+            current = _bound_bridge_serial_epoch(spec, bridge)
+            current_key = _validated_return_epoch_key(spec, current)
+        except Exception as exc:  # noqa: BLE001 - bounded host enumeration
+            last = f"{type(exc).__name__}: {exc}"
+            time.sleep(args.poll_interval)
+            continue
+        if time.monotonic() >= deadline:
+            last = "return USB serial epoch appeared after deadline"
+            break
+        if current_key[3:] == before_key[3:]:
+            time.sleep(args.poll_interval)
+            continue
+        if deadline - time.monotonic() <= OBSERVATION_MENU_SETTLE_SEC:
+            last = "return USB serial epoch lacks bounded settle budget"
+            break
+        time.sleep(OBSERVATION_MENU_SETTLE_SEC)
+        if time.monotonic() >= deadline:
+            last = "return USB serial epoch settle crossed deadline"
+            break
+        try:
+            bridge = staging.require_exact_bridge(spec.stage, args)
+            confirmed = _bound_bridge_serial_epoch(spec, bridge)
+            confirmed_key = _validated_return_epoch_key(spec, confirmed)
+        except Exception as exc:  # noqa: BLE001 - bounded host enumeration
+            last = f"{type(exc).__name__}: {exc}"
+            time.sleep(args.poll_interval)
+            continue
+        if time.monotonic() >= deadline:
+            last = "return USB serial epoch confirmation crossed deadline"
+            break
+        if confirmed_key != current_key:
+            last = "return USB serial epoch changed while settling"
+            time.sleep(args.poll_interval)
+            continue
+        return {
+            "proof": True,
+            "pre_handoff": before_handoff,
+            "returned": confirmed,
+            "usb_serial_epoch_changed": True,
+        }
+    raise RuntimeError(
+        "candidate USB serial epoch did not change before rollback deadline; "
+        f"last={last!r}"
+    )
+
+
 def settle_observation_channel(
     args: argparse.Namespace,
     *,
@@ -2333,8 +2484,26 @@ def ssh_command(spec: F1Spec, args: argparse.Namespace) -> list[str]:
             f"echo {DISPLAY_FAILURE_BEGIN}; "
             "cat /run/a90-display/failure 2>/dev/null; "
             f"echo {DISPLAY_FAILURE_END}; "
+            f"echo {DISPLAY_PRESENTER_LOG_BEGIN}; "
+            "cat /run/a90-display/presenter.log 2>/dev/null; "
+            f"echo {DISPLAY_PRESENTER_LOG_END}; "
+            f"echo {DISPLAY_DIAGNOSTICS_BEGIN}; "
+            "if [ -c /dev/dri/card0 ]; then echo drm.card0=char; "
+            "else echo drm.card0=absent; fi; "
+            "for p in /sys/class/drm/card0-*/status; do "
+            "[ -r \"$p\" ] || continue; d=${p%/status}; "
+            "n=${d##*/}; printf 'drm.%s.status=' \"$n\"; cat \"$p\"; done; "
+            "for p in /sys/class/drm/card0-*/dpms; do "
+            "[ -r \"$p\" ] || continue; d=${p%/dpms}; "
+            "n=${d##*/}; printf 'drm.%s.dpms=' \"$n\"; cat \"$p\"; done; "
+            "for d in /sys/class/backlight/*; do [ -d \"$d\" ] || continue; "
+            "n=${d##*/}; for f in bl_power brightness actual_brightness "
+            "max_brightness; do [ -r \"$d/$f\" ] || continue; "
+            "printf 'backlight.%s.%s=' \"$n\" \"$f\"; cat \"$d/$f\"; "
+            "done; done; "
+            f"echo {DISPLAY_DIAGNOSTICS_END}; "
             "echo pid1_comm=$(cat /proc/1/comm 2>/dev/null); "
-            "echo proc1_exe=$(readlink /proc/1/exe 2>/dev/null)"
+            "echo proc1_exe=$(readlink /proc/1/exe 2>/dev/null); true"
         )
     else:
         remote_script = (
@@ -2395,6 +2564,16 @@ def classify_phase2_ssh_attempt(
         ("release", DISPLAY_RELEASE_BEGIN, DISPLAY_RELEASE_END),
         ("ready", DISPLAY_READY_BEGIN, DISPLAY_READY_END),
         ("failure", DISPLAY_FAILURE_BEGIN, DISPLAY_FAILURE_END),
+        (
+            "presenter_log",
+            DISPLAY_PRESENTER_LOG_BEGIN,
+            DISPLAY_PRESENTER_LOG_END,
+        ),
+        (
+            "display_diagnostics",
+            DISPLAY_DIAGNOSTICS_BEGIN,
+            DISPLAY_DIAGNOSTICS_END,
+        ),
     ):
         try:
             sections[name] = exact_ssh_section(text, begin, end)
@@ -2461,6 +2640,8 @@ def classify_phase2_ssh_attempt(
             ready_marker if ready_marker else failure_marker
         ),
         "native_release_marker_text": sections["release"] or "",
+        "presenter_log_text": sections["presenter_log"] or "",
+        "display_diagnostics_text": sections["display_diagnostics"] or "",
         "observation_errors": errors,
         "text": text,
     }
@@ -2535,6 +2716,8 @@ def observe_ssh(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
                 "display_marker": {},
                 "display_marker_text": "",
                 "native_release_marker_text": "",
+                "presenter_log_text": "",
+                "display_diagnostics_text": "",
                 "observation_errors": {"timeout": str(last)},
                 "text": "",
             }
@@ -2543,26 +2726,71 @@ def observe_ssh(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
     raise RuntimeError(f"Debian PID1 marker timeout after {attempts} attempts; last={last}")
 
 
-def wait_for_candidate_return(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
-    deadline = time.monotonic() + spec.candidate_return_timeout
-    last = ""
-    while time.monotonic() < deadline:
-        try:
-            version = run_f1_cmd(args, ["version"], allow_error=True)
-            text = str(version.get("text") or "")
-            if spec.candidate_version in text and spec.candidate_build in text:
-                selftest = run_f1_cmd(args, ["selftest"], allow_error=True)
-                if "fail=0" in str(selftest.get("text") or ""):
-                    return {"version": version, "selftest": selftest}
-            last = text
-        except Exception as exc:  # noqa: BLE001 - bounded reboot polling
-            last = f"{type(exc).__name__}: {exc}"
-        time.sleep(args.poll_interval)
-    raise RuntimeError(f"candidate did not return before rollback deadline; last={last!r}")
+def _verify_candidate_after_return_epoch_once(
+    spec: F1Spec,
+    args: argparse.Namespace,
+    before_handoff: dict[str, Any],
+    *,
+    phase: str,
+) -> dict[str, Any]:
+    epoch = wait_for_new_bridge_serial_epoch(spec, args, before_handoff)
+    version = run_f1_cmd(args, ["version"])
+    version_text = str(version.get("text") or "")
+    expected_version_line = (
+        f"version: {spec.candidate_version} build={spec.candidate_build}"
+    )
+    version_lines = [
+        line for line in version_text.splitlines() if line.startswith("version: ")
+    ]
+    if version_lines != [expected_version_line]:
+        raise ContractError("candidate return native epoch identity is not exact")
+    channel = settle_observation_channel(args, phase=phase)
+    selftest = run_f1_cmd(args, ["selftest"])
+    selftest_lines = [
+        line
+        for line in str(selftest.get("text") or "").splitlines()
+        if line.startswith("selftest: ")
+    ]
+    if (
+        len(selftest_lines) != 1
+        or re.fullmatch(
+            r"selftest: pass=[0-9]+ warn=[0-9]+ fail=0 "
+            r"duration=[0-9]+ms entries=[1-9][0-9]*",
+            selftest_lines[0],
+        )
+        is None
+    ):
+        raise ContractError("candidate return selftest is not fail=0")
+    return {
+        "exact_bridge": True,
+        "selected_realpath": epoch["returned"]["selected_realpath"],
+        "return_epoch": epoch,
+        "native_epoch_version_proven": True,
+        "channel": channel,
+        "version": version,
+        "selftest": selftest,
+        "device_command_sequences": 1,
+    }
+
+
+def wait_for_candidate_return(
+    spec: F1Spec,
+    args: argparse.Namespace,
+    before_handoff: dict[str, Any],
+) -> dict[str, Any]:
+    return _verify_candidate_after_return_epoch_once(
+        spec,
+        args,
+        before_handoff,
+        phase="candidate-return",
+    )
 
 
 def observe_candidate(spec: F1Spec, args: argparse.Namespace, transaction_dir: Path) -> dict[str, Any]:
-    result: dict[str, Any] = {"proof": False}
+    result: dict[str, Any] = {
+        "proof": False,
+        "handoff_dispatch_started": False,
+    }
     try:
         result["channel_before_source"] = settle_observation_channel(
             args,
@@ -2580,6 +2808,11 @@ def observe_candidate(spec: F1Spec, args: argparse.Namespace, transaction_dir: P
             args,
             phase="before-handoff",
         )
+        result["return_epoch_before_handoff"] = capture_bridge_serial_epoch(
+            spec,
+            args,
+        )
+        result["handoff_dispatch_started"] = True
         result["handoff"] = run_handoff(spec, args)
         result["ssh"] = observe_ssh(spec, args)
         result["proof"] = True
@@ -2587,12 +2820,28 @@ def observe_candidate(spec: F1Spec, args: argparse.Namespace, transaction_dir: P
         result["error"] = {"type": type(exc).__name__, "message": str(exc)}
     finally:
         try:
-            result["candidate_return"] = wait_for_candidate_return(spec, args)
-            result["retained_pmsg"] = collect_and_clear_retained_pmsg(
-                spec,
-                args,
-                transaction_dir,
-            )
+            if result["handoff_dispatch_started"]:
+                result["candidate_return"] = wait_for_candidate_return(
+                    spec,
+                    args,
+                    result["return_epoch_before_handoff"],
+                )
+            else:
+                result["candidate_return"] = {
+                    "no_handoff_dispatched": True,
+                    "health": verify_candidate_health(spec, args),
+                }
+            if result["handoff_dispatch_started"]:
+                result["retained_pmsg"] = collect_and_clear_retained_pmsg(
+                    spec,
+                    args,
+                    transaction_dir,
+                )
+            else:
+                result["retained_pmsg"] = {
+                    "proof": False,
+                    "not_expected_without_handoff": True,
+                }
         except Exception as exc:  # noqa: BLE001 - recovery must resume later
             result["candidate_return_error"] = {
                 "type": type(exc).__name__,
@@ -2660,43 +2909,13 @@ def attended_stored_failure_retryable(
 def wait_for_candidate_return_attended_once(
     spec: F1Spec,
     args: argparse.Namespace,
+    before_handoff: dict[str, Any],
 ) -> dict[str, Any]:
-    deadline = time.monotonic() + spec.candidate_return_timeout
-    last = ""
-    while time.monotonic() < deadline:
-        try:
-            bridge = staging.require_exact_bridge(spec.stage, args)
-        except Exception as exc:  # noqa: BLE001 - bounded host-only enumeration
-            last = f"{type(exc).__name__}: {exc}"
-            time.sleep(args.poll_interval)
-            continue
-        time.sleep(OBSERVATION_MENU_SETTLE_SEC)
-        channel = settle_observation_channel(
-            args,
-            phase="attended-candidate-return",
-        )
-        version = run_f1_cmd(args, ["version"])
-        selftest = run_f1_cmd(args, ["selftest"])
-        version_text = str(version.get("text") or "")
-        if (
-            spec.candidate_version not in version_text
-            or spec.candidate_build not in version_text
-            or "fail=0" not in str(selftest.get("text") or "")
-        ):
-            raise ContractError(
-                "attended candidate return is not the exact healthy candidate"
-            )
-        return {
-            "exact_bridge": True,
-            "selected_realpath": bridge.get("selected_realpath"),
-            "channel": channel,
-            "version": version,
-            "selftest": selftest,
-            "device_command_attempts": 1,
-        }
-    raise RuntimeError(
-        "attended candidate did not re-enumerate before rollback deadline; "
-        f"last={last!r}"
+    return _verify_candidate_after_return_epoch_once(
+        spec,
+        args,
+        before_handoff,
+        phase="attended-candidate-return",
     )
 
 
@@ -2758,7 +2977,11 @@ def observe_attended_after_handoff(
     finally:
         try:
             result["candidate_return"] = (
-                wait_for_candidate_return_attended_once(spec, args)
+                wait_for_candidate_return_attended_once(
+                    spec,
+                    args,
+                    pre_handoff["return_epoch_before_handoff"],
+                )
             )
             result["retained_pmsg"] = collect_and_clear_retained_pmsg(
                 spec,
@@ -4158,6 +4381,10 @@ def continue_attended_f1(
             args,
             phase=f"attended-attempt-{attempt}-before-handoff",
         )
+        return_epoch_before_handoff = capture_bridge_serial_epoch(
+            spec,
+            args,
+        )
         handoff_deadline = parse_utc_timestamp(
             receipt["continue_binding"]["window_deadline_utc"],
             "attended window deadline",
@@ -4245,6 +4472,7 @@ def continue_attended_f1(
         "pstore_before_handoff": pstore_before_handoff,
         "source_preflight": source_preflight,
         "channel_before_handoff": channel_before_handoff,
+        "return_epoch_before_handoff": return_epoch_before_handoff,
     }
     append_record(
         journal_dir,
@@ -4258,6 +4486,7 @@ def continue_attended_f1(
             "candidate_health_exact": True,
             "host_ncm_rebound": True,
             "pstore_clean_before_handoff": True,
+            "return_epoch_captured": True,
         },
         manifest_sha256=spec.stage.manifest_sha256,
         run_id=spec.stage.run_id,
@@ -4714,6 +4943,8 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         "def candidate_failure_is_definite_pre_session(",
         "def rollback_pre_spawn_retry(",
         "def validate_handoff_timeout(",
+        "def capture_bridge_serial_epoch(",
+        "def wait_for_new_bridge_serial_epoch(",
         "def settle_observation_channel(",
         "def rebind_host_ncm_after_reenumeration(",
         "def require_clean_pstore_before_handoff(",
@@ -4775,6 +5006,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         "F1_HANDOFF_MIN_TIMEOUT_SEC = (",
         "OBSERVATION_MENU_SETTLE_SEC = 3.0",
         'OBSERVATION_CHANNEL_CANARY = ("run", "/bin/busybox", "true")',
+        'RETURN_EPOCH_SCHEMA = "a90_host_usb_serial_epoch_v1"',
         "HOST_NCM_REBIND_TIMEOUT_SEC = 30",
         'PSTORE_MOUNT_PATH = "/sys/fs/pstore"',
         'RETAINED_PMSG_MARKER = "A90D3RET_V3405"',
@@ -4799,6 +5031,10 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         'DISPLAY_VISIBLE_SCHEMA = "a90_v3406_f1_display_visible_v1"',
         'DISPLAY_VISIBLE_PREFIX = "A90-F1-DISPLAY-VISIBLE:"',
         'PHASE2_DISPLAY_PROFILE = "phase2-display-v1"',
+        'DISPLAY_PRESENTER_LOG_BEGIN = "A90OBS_PRESENTER_LOG_BEGIN"',
+        'DISPLAY_PRESENTER_LOG_END = "A90OBS_PRESENTER_LOG_END"',
+        'DISPLAY_DIAGNOSTICS_BEGIN = "A90OBS_DISPLAY_DIAGNOSTICS_BEGIN"',
+        'DISPLAY_DIAGNOSTICS_END = "A90OBS_DISPLAY_DIAGNOSTICS_END"',
     ):
         if display_constants.count(token) != 1:
             issues.append(f"missing display confirmation contract: {token}")
@@ -4849,6 +5085,39 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             not in compact_timeout_budget
         ):
             issues.append("handoff 905-second timeout formula is not exact")
+    epoch_wait_start = source.find("def _bound_bridge_serial_epoch(")
+    settle_start = source.find(
+        "def settle_observation_channel(",
+        epoch_wait_start + 1,
+    )
+    if epoch_wait_start < 0 or settle_start < 0:
+        issues.append("return epoch source boundary is missing")
+    else:
+        epoch_wait = source[epoch_wait_start:settle_start]
+        for token in (
+            "before_key = _validated_return_epoch_key(",
+            "current_key[3:] == before_key[3:]",
+            "deadline - time.monotonic() <= OBSERVATION_MENU_SETTLE_SEC",
+            "time.sleep(OBSERVATION_MENU_SETTLE_SEC)",
+            'last = "return USB serial epoch confirmation crossed deadline"',
+            "confirmed_key != current_key",
+            '"usb_serial_epoch_changed": True',
+        ):
+            if token not in epoch_wait:
+                issues.append(f"return epoch gate missing: {token}")
+        for forbidden in (
+            "run_f1_cmd(",
+            "run_f1_shell(",
+            "settle_observation_channel(",
+            "a90ctl.",
+            "d1.",
+            "subprocess.",
+            "socket.",
+        ):
+            if forbidden in epoch_wait:
+                issues.append(
+                    f"return epoch gate issues a device command: {forbidden}"
+                )
     timeout_validator_start = source.find("def validate_handoff_timeout(")
     timeout_validator_end = source.find(
         "def require_private_regular(",
@@ -5115,8 +5384,9 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             "require_clean_pstore_before_handoff(",
             "remote_source_preflight(spec, args)",
             'phase="before-handoff"',
+            "capture_bridge_serial_epoch(",
             "run_handoff(spec, args)",
-            "wait_for_candidate_return(spec, args)",
+            "wait_for_candidate_return(",
             "collect_and_clear_retained_pmsg(",
         )
         observe_cursor = -1
@@ -5133,12 +5403,53 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             or observe.count("rebind_host_ncm_after_reenumeration(") != 1
             or observe.count("require_clean_pstore_before_handoff(") != 1
             or observe.count("remote_source_preflight(spec, args)") != 1
+            or observe.count("capture_bridge_serial_epoch(") != 1
             or observe.count("run_handoff(spec, args)") != 1
             or observe.count("collect_and_clear_retained_pmsg(") != 1
             or re.search(r"^\s+(?:for|while)\b", observe, re.MULTILINE)
             is not None
         ):
             issues.append("observation corridor is not exact single-shot order")
+    return_verify_start = source.find(
+        "def _verify_candidate_after_return_epoch_once("
+    )
+    return_verify_end = source.find(
+        "def observe_candidate(",
+        return_verify_start + 1,
+    )
+    if return_verify_start < 0 or return_verify_end < 0:
+        issues.append("candidate return verifier boundary is missing")
+    else:
+        return_verify = source[return_verify_start:return_verify_end]
+        return_ordered = (
+            "wait_for_new_bridge_serial_epoch(",
+            'run_f1_cmd(args, ["version"])',
+            "version_lines != [expected_version_line]",
+            'raise ContractError("candidate return native epoch identity is not exact")',
+            "settle_observation_channel(args, phase=phase)",
+            'run_f1_cmd(args, ["selftest"])',
+            "len(selftest_lines) != 1",
+            'r"selftest: pass=[0-9]+ warn=[0-9]+ fail=0 "',
+            'r"duration=[0-9]+ms entries=[1-9][0-9]*"',
+            '"native_epoch_version_proven": True',
+        )
+        return_cursor = -1
+        for token in return_ordered:
+            position = return_verify.find(token, return_cursor + 1)
+            if position < 0:
+                issues.append(
+                    f"candidate return verifier missing or out of order: {token}"
+                )
+            else:
+                return_cursor = position
+        if (
+            return_verify.count('run_f1_cmd(args, ["version"])') != 1
+            or return_verify.count('run_f1_cmd(args, ["selftest"])') != 1
+            or "allow_error=True" in return_verify
+            or re.search(r"^\s+while\b", return_verify, re.MULTILINE)
+            is not None
+        ):
+            issues.append("candidate return verifier is not exact single-shot order")
     retry_classifier_start = source.find(
         "def attended_retryable_error_identity("
     )
@@ -5212,7 +5523,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         attended_observe_ordered = (
             "run_handoff(spec, args)",
             "observe_ssh(spec, args)",
-            "wait_for_candidate_return_attended_once(spec, args)",
+            "wait_for_candidate_return_attended_once(",
             "collect_and_clear_retained_pmsg(",
         )
         attended_observe_cursor = -1
@@ -5266,6 +5577,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             "require_clean_pstore_before_handoff(args)",
             "remote_source_preflight(spec, args)",
             'phase=f"attended-attempt-{attempt}-before-handoff"',
+            "capture_bridge_serial_epoch(",
             '"attended observation window expired before handoff"',
             '"attended-pre-handoff-failed"',
             '"candidate-boot-ready"',
@@ -5404,6 +5716,58 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         ):
             if token not in handoff:
                 issues.append(f"handoff transport contract missing: {token}")
+    ssh_end = source.find("def exact_ssh_section(", ssh_start + 1)
+    if ssh_start < 0 or ssh_end < 0:
+        issues.append("SSH diagnostic observer source boundary is missing")
+    else:
+        ssh = source[ssh_start:ssh_end]
+        for token in (
+            'cat /run/a90-display/presenter.log 2>/dev/null',
+            'if [ -c /dev/dri/card0 ]',
+            '/sys/class/drm/card0-*/status',
+            '/sys/class/drm/card0-*/dpms',
+            '/sys/class/backlight/*',
+            'DISPLAY_PRESENTER_LOG_BEGIN',
+            'DISPLAY_PRESENTER_LOG_END',
+            'DISPLAY_DIAGNOSTICS_BEGIN',
+            'DISPLAY_DIAGNOSTICS_END',
+        ):
+            if token not in ssh:
+                issues.append(f"SSH diagnostic observer missing: {token}")
+        ssh_without_stderr_null = ssh.replace("2>/dev/null", "")
+        if re.search(
+            r"(?<![-=])>{1,2}",
+            ssh_without_stderr_null,
+        ) is not None:
+            issues.append("SSH diagnostic observer contains output redirection")
+        for forbidden in (
+            "tee ",
+            "dd ",
+            "touch ",
+            "mkdir ",
+            "rmdir ",
+            "ln ",
+            "install ",
+            "mknod ",
+            "chmod ",
+            "chown ",
+            "rm ",
+            "mv ",
+            "cp ",
+            "mount ",
+            "umount ",
+            "truncate ",
+            "sed -i",
+            "sysctl ",
+            "reboot ",
+            "poweroff ",
+            "sync ",
+        ):
+            if forbidden in ssh:
+                issues.append(
+                    "SSH diagnostic observer contains write-capable command: "
+                    f"{forbidden.strip()}"
+                )
     recover = source[recover_start:simulate_start]
     if "rollback=False" in recover or "spec.candidate" in recover:
         issues.append("recovery contains a candidate execution route")

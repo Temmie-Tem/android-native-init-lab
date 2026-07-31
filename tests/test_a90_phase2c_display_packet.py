@@ -111,7 +111,7 @@ class A90Phase2CDisplayPacketTests(unittest.TestCase):
             self.assertEqual(pair["A"]["sha256"], pair["B"]["sha256"])
         self.assertEqual(
             result["debian"]["image_sha256"],
-            "cf2cf17d5c706123f85b21d4f2479fc348329cdc09e48fe6406874328e3977c8",
+            "394fc9e3db303ea41e48139a6f57b6559ddd868412d6b7b217d2765276e4d55c",
         )
         self.assertEqual(
             result["debian"]["presenters"]["A"]["sha256"],
@@ -126,6 +126,19 @@ class A90Phase2CDisplayPacketTests(unittest.TestCase):
         )
         self.assertTrue(
             result["machinery"]["phase2_profile_supported_for_live_staging"]
+        )
+        self.assertEqual(
+            result["observation_contract"]["return"]["semantic_epoch"],
+            "usb-serial-generation-change-then-native-version-v1",
+        )
+        self.assertEqual(
+            result["observation_contract"]["diagnostics"],
+            {
+                "presenter_log_path": "/run/a90-display/presenter.log",
+                "inventory": "read-only-drm-dpms-backlight-v1",
+                "device_writes": False,
+                "mechanical_or_visible_proof": False,
+            },
         )
         self.assertEqual(
             result["safety"],
