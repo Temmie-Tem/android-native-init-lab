@@ -196,12 +196,27 @@ missing predecessor.
 
 The retained `u16 detail` has ample value capacity. Current P2.92 uses 15,013
 values across 107 positions, leaving `0x8000..0xbfff` free as a proposed tagged
-14-bit snapshot band. A successor can reuse generation 105
-`stage=0x92/item=0` to retain selected DCTL, DSTS, UTMI-valid, GCTL, and
-GUSB2PHYCFG bits immediately before the generation-106 terminal result. DWC3
-debugfs reads are not load-bearing because they runtime-resume the controller;
-capture must occur inside or adjacent to run-stop. This is H0 design only, not
-a selected identity or device authorization.
+14-bit snapshot band. This is a capacity result, not a frozen bit allocation.
+The sole attached stock FYG8 S22+ passed a read-only D0 at
+`configured/super-speed` with parent and child runtime PM both active; no A90
+was present or contacted. Debugfs support is configured but not mounted, so no
+register vector was obtained. Mount/read/unmount is D1 and requires a separate
+exact design and fresh approval. The stock vector must precede bit selection.
+
+Source inspection shows current kernel/client rules and the selected
+model/decoder/evidence path do not name `0x8000..0xbfff`. A compiled exhaustive
+cross-layer rejection audit nevertheless remains incomplete: its first two
+invocations failed before candidate evaluation by assuming the wrong local
+module name and then the wrong `verify_authority()` input type. This is the
+same actual-input-shape failure class twice, so rule 7 stops a third execution.
+Any successor must first preflight that audit with the real manifest fixture,
+then prove all 16,384 values rejected before coherently adding the new band.
+
+The eventual decoder must make both outcomes explicit: identify every field
+that differs from the stock vector, or emit `digital-state-matches-stock` when
+all fields match. The latter exhausts checkpoint-register evidence for this
+wall and requires a separately reviewed instrument class for analog/physical
+state; it must not become another generic no-proof result.
 
 The live transaction exercised the durable recovery design. Initial rollback
 endpoint discovery stopped on a measured USB membership race. Rollback-only
@@ -598,13 +613,16 @@ operations before the asserted publication boundaries.
 11. Preserve generation 106 as the new live prefix baseline. Any successor
    divergence before generation 105 is a regression; do not return to generic
    code-position tracing.
-12. Design and fault-validate one exact packed post-run-stop value snapshot at
-   the existing generation-105 position. Bind its detail band coherently across
-   SoT, writer, client, model, decoder, producer routes, and the continuous
-   accept-to-resume walk. Do not use PM-perturbing debugfs as exact evidence.
-13. No new S22+ device action or F1 request is permitted by the closed P2.92
-   unit; a successor requires fresh H0 design, identity, A/B, manifest, D0, and
-   exact approval.
+12. Before bit selection, design one bounded stock-active D1 to mount debugfs,
+   read the known-good DWC3 vector, unmount, and recheck stock health. No such
+   mount or vector capture is currently authorized.
+13. Preflight the stopped all-values audit against its actual manifest fixture,
+   then prove kernel, client, model, decoder, and evidence all reject the full
+   proposed band. Only after that proof may the stock vector select one packed
+   generation-105 value route and both mismatch/match fault outcomes.
+14. No new S22+ F1 request is permitted by the closed P2.92 unit; a successor
+   requires the stock vector, repaired H0 closure, fresh identity, A/B,
+   manifest, D0, and exact approval.
 
 No device step is added when H0 can answer the question.
 

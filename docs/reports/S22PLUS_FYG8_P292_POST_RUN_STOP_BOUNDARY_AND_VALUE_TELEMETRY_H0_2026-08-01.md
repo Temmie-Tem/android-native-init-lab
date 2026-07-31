@@ -73,6 +73,13 @@ already classified `run-stop-zero-no-bus-state`; P2.92 proves that the full
 controlled power-cycle and reinitialization strategy returns to that same
 post-run-stop boundary.
 
+This is the first honest view of the functional E3 wall for the direct-PID1
+line: that line has never crossed from a running DWC3 controller to host
+enumeration. More control-flow reshaping is not a justified response. P2.80
+and P2.92 reached the same boundary through nested and direct run-stop paths,
+respectively; the next discriminator must measure state at the digital-to-
+physical boundary.
+
 The known-good comparison remains P2.83 stock Android. Both its SuperSpeed and
 high-speed physical reconnect controls completed the shared parent-resume,
 HS-PHY resume/init, `run_stop(1)`, and notify-connect suffix and then enumerated.
@@ -136,6 +143,36 @@ software DEVICE session valid
 It still does not prove D+ pull-up voltage, physical VBUS, PHY line state,
 cable continuity at the transceiver, a host reset, or descriptor traffic.
 
+## Stock Known-Good Baseline D0
+
+A connected read-only D0 addressed the sole attached S22+ FYG8 target. No A90
+was present or contacted. The stock Android preconditions were:
+
+```text
+build             S906NKSS7FYG8
+boot_completed    1
+USB state/config  mtp,conn_gadget,adb
+controller        a600000.dwc3
+UDC state         configured
+UDC speed         super-speed
+parent runtime PM active
+child runtime PM  active
+mode              peripheral
+root context      u:r:magisk:s0
+```
+
+This establishes the correct connected/configured sampling condition and
+confirms that reading a mounted DWC3 register surface would not need to wake a
+suspended child. It does not yet provide the register vector.
+
+`CONFIG_DEBUG_FS=y`, `CONFIG_USB_DWC3=y`, and debugfs support are present, but
+debugfs is not mounted. Only tracefs is mounted. Consequently
+`/sys/kernel/debug/usb/a600000.dwc3/{regdump,link_state}` does not exist in the
+current D0 state. Mounting debugfs and later unmounting it are transient state
+changes, so the remaining baseline read is D1, not D0. It requires a separately
+designed exact command, fresh approval, bounded read, cleanup, and return-health
+check. No mount was attempted by this unit.
+
 ## Value Telemetry Capacity
 
 The current retained ABI is sufficient. It has two slots and a `u16 detail`.
@@ -151,7 +188,9 @@ The largest unused ranges include:
 | `0x7000..0xffff` | 36,864 |
 
 The clean successor reservation is `0x8000..0xbfff`: a tagged 14-bit payload
-that does not overlap any current detail. One exact packed layout can carry:
+that does not overlap any current detail. This proves capacity only. The bit
+allocation must not be frozen until the stock known-good vector is captured.
+The current candidate field inventory is:
 
 | Payload bits | Value |
 |---|---|
@@ -164,10 +203,11 @@ that does not overlap any current detail. One exact packed layout can carry:
 | 12 | GUSB2PHYCFG `SUSPHY` |
 | 13 | DSTS `COREIDLE` |
 
-The tag itself proves that capture completed, so no separate valid bit is
-needed. A full raw 32-bit DCTL word does not fit; selecting the load-bearing
-fields is preferable to splitting it across records because only the newest
-two slots survive.
+The eventual tag can prove that capture completed, so no separate valid bit
+should be needed. A full raw 32-bit DCTL word does not fit; the stock vector
+must determine which fields distinguish known-good state before any subset is
+made load-bearing. Splitting raw words across records is undesirable because
+only the newest two slots survive.
 
 No new position marker is required. Capture the values at the successful
 run-stop boundary, retain the packed word in the cycle result, and publish it
@@ -180,6 +220,36 @@ at the exact `(stage=0x92,item=0)` route across the SoT, kernel writer,
 userspace client, model, decoder, producer-route gate, and continuous
 accept-to-resume walk. Current validators must reject it until that coherent
 change exists.
+
+Source-level inspection confirms that current kernel and client acceptance
+only names the generated exact rules, final tuple range, and publication errno
+ranges through `0x6fff`. The P2.92 evidence layer selects the P2.92 repair
+decoder, which delegates record validity to the same model. A compiled
+all-values cross-layer rejection audit was then attempted, but its first two
+invocations failed before testing any candidate byte: first an incorrect local
+module name was assumed, then `verify_authority()` was passed a path although
+its source requires a parsed manifest object. These are two occurrences of the
+same actual-input-shape failure class. AGENTS.md rule 7 therefore stops that
+audit without a third invocation. Full kernel/client/model/decoder/evidence
+rejection of all 16,384 proposed values remains a required pre-intent gate; it
+is not claimed complete here.
+
+## Deterministic Interpretation Requirement
+
+The successor must make both outcomes useful:
+
+1. If any sampled field differs from stock, the decoder must name the exact
+   mismatching field or mismatch bitmask.
+2. If every sampled field equals the stock vector, the decoder must emit an
+   explicit `digital-state-matches-stock` conclusion. Equality must not render
+   as an empty or generic no-proof value.
+
+The second result closes the checkpoint channel's useful scope for this wall:
+register equality cannot prove D+ pull-up voltage or other analog line state.
+If it occurs, the next unit must change instrument class under a separate
+design and safety review rather than add another checkpoint marker or digital
+register read. This report does not authorize an electrical probe or relax the
+EUD/UART and partition boundaries.
 
 ## Capture Constraint
 
@@ -202,9 +272,17 @@ register snapshot.
 
 ## Next Bound
 
-Do not add more location markers and do not request another F1 yet. The next
-bounded unit is host-only design and fault validation for one exact packed
-post-run-stop snapshot, reusing generation 105 and retaining generation 106 as
-the terminal classifier. Only after the value route passes the full SoT and
-accept-to-resume closure should a new identity, Full-LTO A/B, manifest, D0,
-and fresh F1 approval be considered.
+Do not add more location markers and do not request another F1 yet. The order
+is now:
+
+1. separately design and approve one stock-active D1 that mounts debugfs,
+   captures the exact known-good DWC3 vector, unmounts it, and rechecks health;
+2. select the 14-bit field layout from that measured vector;
+3. repair and preflight the stopped all-values cross-layer audit using its
+   actual manifest fixture before one new execution;
+4. fault-validate both mismatch and exact-stock-match conclusions; and
+5. only then consider a new identity, Full-LTO A/B, manifest, D0, and fresh F1
+   approval.
+
+The candidate value can still reuse generation 105 while generation 106
+remains the terminal classifier, but that layout is not selected today.
