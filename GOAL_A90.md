@@ -206,6 +206,13 @@ clone that has no path to the canonical private tree.
 
 `docs/reports/A90_V3404_FLAT_BUILDER_PHASE1_SUCCESSOR_REPEATED_STOP_H0_2026-07-31.md`
 
+Phase 1A is the selected new H0 design. It uses a minimal disposable tracked
+export plus exact copied inputs inside a bubblewrap namespace where the
+canonical repository path is absent. The schema is `flat-builder-v1`, not a
+new candidate version. Its binding plan is:
+
+`docs/plans/A90_V3404_FLAT_BUILDER_PHASE1A_DISPOSABLE_CLONE_PLAN_2026-07-31.md`
+
 ## Later Phases
 
 Phase 1 flattens the measured inherited builder/import chain into one
