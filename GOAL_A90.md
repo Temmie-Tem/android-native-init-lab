@@ -41,6 +41,11 @@ transfer between the two files.
   manifest instead of requiring a source edit for each runtime-mutated image.
   The manifest, preserved bytes, approval binding, remote preflight, unlink,
   and final result still share one exact hash. Independent review passed.
+- Resident manifest composition exposed and closed one integration blocker:
+  the ordinary V3406 schema requires attended display proof while promotion
+  intentionally requires unattended native health with no Debian handoff.
+  One exact V3406-only resident schema now selects the latter without changing
+  ordinary V3406 display manifests or any boot-only/rollback boundary.
 - Do not add a device step while host-only work can answer the selected
   question.
 

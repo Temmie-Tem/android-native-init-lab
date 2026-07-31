@@ -620,7 +620,9 @@ def validate_promotion_manifest(
     reboot_command = value.get("resident_reboot_command")
     reboot_timeout = value.get("resident_reboot_timeout_sec")
     if (
-        value.get("mode") != MODE
+        spec.manifest.get("schema")
+        != staging.RESIDENT_PROMOTION_MANIFEST_SCHEMA
+        or value.get("mode") != MODE
         or value.get("rootfs_preflight_disposition") != "absent"
         or not isinstance(reboot_command, list)
         or tuple(reboot_command) != REBOOT_COMMAND

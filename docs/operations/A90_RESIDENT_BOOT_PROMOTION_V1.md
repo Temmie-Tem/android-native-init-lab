@@ -79,7 +79,10 @@ the clean A/B SHA256.
 ## Immutable Manifest and Approval
 
 The future data-only manifest must select `mode=a90-resident-promotion-v1` and
-bind at least:
+use schema `a90_native_init_f1_resident_promotion_v1`. That schema is accepted
+only for a V3406 run containing an explicit resident-promotion object; ordinary
+V3406 display manifests keep their existing attended display schema. The
+promotion manifest must bind at least:
 
 - exact target profile and fresh connected target-evidence digest;
 - candidate path, size, SHA256, version, and build;

@@ -172,6 +172,23 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
             stage.expected_manifest_schema(TEST_RUN_ID_V3405),
             stage.FINAL_MANIFEST_SCHEMA,
         )
+        self.assertEqual(
+            stage.selected_manifest_schema(
+                {"resident_promotion": {}},
+                TEST_RUN_ID_V3406,
+            ),
+            stage.RESIDENT_PROMOTION_MANIFEST_SCHEMA,
+        )
+        with self.assertRaisesRegex(stage.ContractError, "restricted to V3406"):
+            stage.selected_manifest_schema(
+                {"resident_promotion": {}},
+                TEST_RUN_ID_V3405,
+            )
+        with self.assertRaisesRegex(stage.ContractError, "must be an object"):
+            stage.selected_manifest_schema(
+                {"resident_promotion": None},
+                TEST_RUN_ID_V3406,
+            )
         for unsupported in (
             "a90-v3402-debian-f1-20260731-04",
             "a90-v3406-debian-f1-20260731-04",

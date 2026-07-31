@@ -51,3 +51,21 @@ Prepare one private data-only cleanup manifest and its exact D1 approval token.
 No unlink is authorized yet. After a single approved unlink and exact V2321
 return-health check, repeat connected D0 and only then finalize the resident
 promotion manifest. No F1 approval or candidate authority exists in this unit.
+
+## Manifest integration correction
+
+Actual data-only composition found that the ordinary V3406 schema always
+requires attended display observation, while resident promotion correctly
+requires unattended native health and performs no Debian handoff. Those
+requirements made a resident manifest impossible even though the isolated
+validator tests passed.
+
+The loader now selects one exact resident schema only when a V3406 manifest
+contains an explicit resident-promotion object. Ordinary V3406 keeps the
+existing attended display schema; other cycles and non-object promotion values
+are rejected. Keyed materialization, target identity, boot-only transport,
+approval binding, rollback, and recovery checks remain shared and unchanged.
+The promotion validator independently requires the exact resident schema.
+
+Focused integration regression passed 173/173. Independent review returned
+`PASS` and found no display, target, boot-only, rollback, or approval bypass.

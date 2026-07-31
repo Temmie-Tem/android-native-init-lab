@@ -4401,6 +4401,14 @@ class DisplayObservationTests(unittest.TestCase):
                 observation,
                 f1.UNATTENDED_OBSERVATION_MODE,
             )
+        self.assertEqual(
+            f1.validate_display_observation(
+                {"schema": f1.staging.RESIDENT_PROMOTION_MANIFEST_SCHEMA},
+                {},
+                f1.UNATTENDED_OBSERVATION_MODE,
+            ),
+            (False, "", 0, 0, 0, ()),
+        )
         altered = copy.deepcopy(observation)
         altered["display"]["visible_text"][0] = "not-the-reviewed-screen"
         with self.assertRaisesRegex(f1.ContractError, "not exact"):

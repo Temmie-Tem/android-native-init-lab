@@ -370,6 +370,7 @@ class ResidentPromotionV1Tests(unittest.TestCase):
         }
         spec = SimpleNamespace(
             manifest={
+                "schema": promotion.staging.RESIDENT_PROMOTION_MANIFEST_SCHEMA,
                 "resident_promotion": resident,
                 "debian_rootfs": prior_manifest_value["debian_rootfs"],
             },
@@ -868,6 +869,7 @@ class ResidentPromotionV1Tests(unittest.TestCase):
         self.assertIn("base.execute_approved_f1(", source)
         self.assertIn("base.recover_approved_rollback(spec, args)", source)
         self.assertIn("promotion_tail=promotion_tail", source)
+        self.assertIn("RESIDENT_PROMOTION_MANIFEST_SCHEMA", source)
 
 
 if __name__ == "__main__":

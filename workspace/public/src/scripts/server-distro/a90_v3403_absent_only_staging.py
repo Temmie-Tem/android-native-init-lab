@@ -44,6 +44,7 @@ import run_d1_chroot_mvp as d1  # noqa: E402
 ADAPTER_SCHEMA = "a90_v3403_absent_only_staging_adapter_v1"
 FINAL_MANIFEST_SCHEMA = "a90_native_init_f1_prepared_v2"
 PHASE2_DISPLAY_MANIFEST_SCHEMA = "a90_native_init_f1_prepared_v3"
+RESIDENT_PROMOTION_MANIFEST_SCHEMA = "a90_native_init_f1_resident_promotion_v1"
 FINAL_MANIFEST_STATUS = "ready-for-f1-approval"
 TARGET_PROFILE = "galaxy-a90-5g-native-init"
 EXPECTED_BASELINE_VERSION = "0.9.285"
@@ -310,6 +311,21 @@ def expected_manifest_schema(run_id: str) -> str:
     if cycle == "v3406":
         return PHASE2_DISPLAY_MANIFEST_SCHEMA
     return FINAL_MANIFEST_SCHEMA
+
+
+def selected_manifest_schema(
+    manifest: dict[str, Any],
+    run_id: str,
+) -> str:
+    ordinary = expected_manifest_schema(run_id)
+    if "resident_promotion" not in manifest:
+        return ordinary
+    if not isinstance(manifest.get("resident_promotion"), dict):
+        raise ContractError("resident_promotion must be an object")
+    cycle, _ = exact_run_id_parts(run_id)
+    if cycle != "v3406":
+        raise ContractError("resident promotion is restricted to V3406")
+    return RESIDENT_PROMOTION_MANIFEST_SCHEMA
 
 
 def derive_remote_final(run_id: str) -> PurePosixPath:
@@ -969,7 +985,7 @@ def stage_spec_from_manifest(
     cycle, _ = exact_run_id_parts(run_id)
     schema = manifest.get("schema")
     status_value = manifest.get("status")
-    required_schema = expected_manifest_schema(run_id)
+    required_schema = selected_manifest_schema(manifest, run_id)
     if schema != required_schema:
         issues.append(
             f"manifest schema is {schema!r}, live requires {required_schema!r}"
@@ -1645,6 +1661,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             issues.append("stage path is not derived from the stable run_id")
         for token in (
             'if cycle == "v3406":',
+            "selected_manifest_schema(manifest, run_id)",
             "local_size != PHASE2_IMAGE_BYTES",
             "validate_phase2_keyed_materialization(",
             "elif keyed.get(\"materialization\") is not None:",
