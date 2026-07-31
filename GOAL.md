@@ -604,12 +604,11 @@ operations before the asserted publication boundaries.
 3. Preserve the four-run historical sweep and corrected cause: committed
    nonzero-detail progress state was accepted but not resumable, so the next
    write returned pre-mutation `-ESTALE` and userspace intentionally parked.
-4. Implement P2.64 Stage C: one descriptor produces disjoint Tier 1 payload,
-   Tier 2 qualification/provenance, and Tier 3 package/live receipt sets;
-   require its mutation matrix and independent review before closing the debt.
-5. Pass `CHECKPOINT_SOT_ZERO_DELTA`: freeze retained intent-bound P2.90 artifact
-   SHA256s as the baseline, require clean run A to match it, then require clean
-   run B to match both that baseline and A; repairs remain forbidden.
+4. Implement P2.64 Stage C with one descriptor producing disjoint Tier 1/2/3
+   receipt sets; require its mutation matrix and independent review before closure.
+5. Pass `CHECKPOINT_SOT_ZERO_DELTA`: A must match the retained P2.90 baseline
+   and B must match both. On mismatch, narrow SoT generation to an exact subset,
+   leave excluded artifacts untouched, and restart; never weaken equality.
 6. Prove `ACCEPT_TO_RESUME_CLOSURE` exhaustively across kernel writer,
    userspace client, model, and decoder. Then prove
    `ACCEPT_TO_RESUME_SEQUENCE_WALK` by continuously walking the exact
@@ -618,15 +617,14 @@ operations before the asserted publication boundaries.
    consecutive nonzero-detail progress records.
 7. Separately prove `CHECKPOINT_ERRNO_OBSERVABILITY`: preserve exact returned
    errno and produce bounded causal evidence before every park.
-8. Recompute SOURCE_KEYS before intent. Keep SoT/generator and every
-   byte-affecting output inside identity; keep verifier, decoder adapter,
-   selector, freeze report, and prose outside and approval-bundle-bound.
-9. Prove the inherited 87-position detail-zero prefix remains byte-identical,
-   preserve valid nonzero progress detail, and retain fail-closed corruption
-   handling. Do not add deferred-close or child-observer machinery.
+8. Recompute SOURCE_KEYS before intent. Keep SoT/generator and byte-affecting
+   outputs inside identity; keep evidence-only consumers outside and bundle-bound.
+9. Prove the inherited detail-zero prefix, nonzero detail, and corruption
+   handling. Initialize the repaired writer from the exact retained P2.90
+   gen87/88 image and prove its seed path commits generation 89.
 10. Treat the four-run generation-88 tuple as the live prefix baseline; any
-   earlier divergence is a regression. If a closure-proven successor is silent
-   again, stop code-position tracing and test coupling to the system-state transition.
+   earlier divergence is a regression. On renewed closure-proven silence, stop
+   code-position tracing and test system-state-transition coupling.
 11. No new S22+ device action or F1 request is permitted by the closed P2.90
    unit; a successor requires fresh H0 design, identity, A/B, manifest, D0, and exact approval.
 

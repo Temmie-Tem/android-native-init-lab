@@ -327,6 +327,12 @@ ordered fidelity and determinism checks pass and may introduce only the
 predeclared exact-slot and errno-preservation delta. This separates
 representation migration from behavioral repair.
 
+Phase 1 equality is never relaxed to obtain a pass. If the generator cannot
+reproduce the declared scope exactly, stop, narrow generator ownership to an
+exactly reproducible subset, leave excluded artifacts untouched, freeze the
+reduced scope, and restart the zero-delta sequence. A partial exact SoT is
+admissible; an approximate zero-delta is not.
+
 Stage C is therefore activated, not yet complete. The debt closes only after
 the authoritative descriptor generates three disjoint receipt sets, the
 zero-delta and repair-delta gates pass, the mutation matrix proves tier

@@ -375,6 +375,14 @@ They are two ordered pre-intent phases:
    comparisons additionally prove determinism. Any missing, extra, reordered,
    mode/size-mismatched, or SHA256-mismatched artifact stops the unit before
    repair.
+
+   A zero-delta mismatch must never be converted into a weaker comparison. Stop
+   and narrow generator ownership to the subset that can be reproduced exactly,
+   leave every excluded artifact byte-identical and untouched for this
+   campaign, freeze the reduced scope explicitly, and restart run A. Equality
+   remains exact inside that scope. Scope reduction does not weaken
+   `CHECKPOINT_SOT_COHERENCE`: excluded consumers must still be mechanically
+   constrained by the SoT rather than carry a private contract duplicate.
 2. **Attributed repair delta (`CHECKPOINT_REPAIR_DELTA_ATTRIBUTION`).** Only
    after zero-delta passes may the SoT be changed for exact-active-slot
    retention and errno preservation. Regenerate all outputs and require the
@@ -408,6 +416,11 @@ The repair must also prove:
   all 87 positions that preceded the live generation 88;
 - accepted nonzero progress details, including `0xc18`, remain allowed and
   resumable;
+- initialization against the byte-exact retained P2.90 final image, containing
+  valid generations 87 and 88 with generation 88 at
+  `stage=0x8f/outcome=PROGRESS/item=0/detail=0xc18`, follows the declared
+  existing-record/seed path and commits the declared generation-89 successor
+  without a generation-0 or pre-publication park;
 - corrupted active bytes and CRCs still fail closed;
 - no state update is exposed before the corresponding durable commit; and
 - publication errno is not collapsed into an unclassified `quiet_park()`
