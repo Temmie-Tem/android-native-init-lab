@@ -22,6 +22,9 @@ Do not add a device step when host-only work can answer the question.
   The atomic result remains no-proof because the first candidate-return frame
   lost `A90P1 END` before retained-pmsg collection. `GOAL_A90.md` owns the
   current A90 objective and next H0 bounded unit.
+- A90 resident boot-promotion v1 is H0-adopted but has no runner, manifest, or
+  authority. Ordinary F1 and S22+ still require rollback; A90 F1-RP may omit it
+  only after exact two-boot health, never after a failure or ambiguity.
 - P2.82 consumed one exact approval. Its byte-identical reads end in terminal
   failure `0x8e/detail=0xc10`; the newline-bearing comparator made exact NONE
   readback impossible. No accepted ACM endpoint appeared. Child suspend,
@@ -130,8 +133,10 @@ Classify every action using
   by active operator attendance and standing direction when announced, sent
   once to the exact target, and return-checked. Other D1 actions require one
   fresh approval, bounded exact command, and return-health check.
-- **F1:** one boot-only candidate transfer plus its mandatory rollback under
-  Process v2.
+- **F1:** ordinary Process v2 is one boot-only candidate transfer plus its
+  mandatory rollback. The A90-only F1-RP extension may instead close one
+  previously exercised candidate as resident only under
+  `docs/operations/A90_RESIDENT_BOOT_PROMOTION_V1.md`.
 - **X:** forbidden by the permanent boundaries.
 
 Do not split a higher-risk action into lower-tier commands. D0 and ordinary D1
@@ -178,6 +183,16 @@ regular file after Odin returns.
 F1 PASS requires both the intended bounded observation and verified rollback to
 the known healthy state. Candidate boot or Odin success alone is not PASS.
 
+### A90 Resident Promotion Extension
+
+`docs/operations/A90_RESIDENT_BOOT_PROMOTION_V1.md` preserves ordinary F1,
+S22+, boot-only, rollback, and no-replay rules. One approval may bind a
+previously exercised A90 candidate, exact V2321 rollback, corrected rootfs,
+target, and reviewed runner. Exactly one transfer plus health, one resident
+reboot, and health again may close `PASS_A90_F1_RP_RESIDENT_PROMOTED` without
+rollback. Every post-attempt failure or ambiguity requires exact rollback; a
+rollback failure stops `RECOVERY_REQUIRED`. No live runner or manifest exists.
+
 ## Evidence and Reporting
 
 - Routine H0/D0/D1 work needs only the evidence required by its tier.
@@ -188,6 +203,7 @@ the known healthy state. Candidate boot or Odin success alone is not PASS.
   `candidate_flash_start`, `candidate_flash_done`, `candidate_boot_ready`,
   `rollback_flash_start`, `rollback_flash_done`, `rollback_boot_ready`, and
   `live_session_end`.
+- A90 F1-RP uses its target-specific timeline; rollback retains ordinary events.
 - Write a prose report only for a new capability, new hazard class, incident,
   ambiguous result, recovery deviation, or policy change.
 - A reporting or parser failure after a proven transition must not cause that
@@ -213,6 +229,8 @@ the known healthy state. Candidate boot or Odin success alone is not PASS.
   and health checks. Never reuse one target's proof for the other.
 - A90's existing checked flash path remains `native_init_flash.py` until it is
   migrated deliberately. S22+ F1 uses Odin with a regular boot-only AP.
+- A90 F1-RP is non-executable until a reviewed runner, manifest, connected
+  preflight, and fresh approval exist.
 
 ## Development and Commit Discipline
 

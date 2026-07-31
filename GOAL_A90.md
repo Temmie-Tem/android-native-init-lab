@@ -27,6 +27,9 @@ transfer between the two files.
   result is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`.
 - No cleanup, F1, attended continuation, resident-baseline installation, or
   other live approval exists.
+- A90 resident boot-promotion v1 is adopted as an H0-only policy. It has no
+  live runner, manifest, approval, or device authority; exact V2321 remains
+  resident.
 - Do not add a device step while host-only work can answer the selected
   question.
 
@@ -201,11 +204,19 @@ exact resident preflight -> one handoff -> Debian observation
 -> changed USB epoch -> exact native return -> exact work cleanup -> health
 ```
 
-The current F1 Process v2 cannot perform that promotion because its terminal
-PASS requires mandatory rollback. Leaving a candidate resident therefore
-requires one explicit policy change and reviewed promotion contract; no
-existing F1 approval may be reinterpreted. Until then exact V2321 remains
-resident and the D1 live runner stays inactive.
+Ordinary F1 still requires mandatory rollback. The A90-only F1-RP policy now
+defines a separate two-boot resident-health terminal and preserves mandatory
+exact rollback after any post-attempt failure. No existing F1 approval may be
+reinterpreted. The policy has no live runner or manifest, so exact V2321
+remains resident and the D1 live runner stays inactive.
+
+`docs/operations/A90_RESIDENT_BOOT_PROMOTION_V1.md`
+
+The pure H0 policy model, focused `148/148` regression, and independent safety
+review closed PASS with no remaining finding. No device was contacted and no
+live runner or manifest was added. The bounded result is recorded in:
+
+`docs/reports/A90_RESIDENT_BOOT_PROMOTION_V1_H0_POLICY_2026-08-01.md`
 
 The corrected Phase 2 display rootfs has been rebuilt twice as an A/B pair.
 Both 2 GiB images are byte-identical at SHA256

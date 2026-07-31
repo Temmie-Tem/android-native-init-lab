@@ -74,6 +74,12 @@ Examples: one checked candidate or rollback AP containing only `boot.img.lz4`.
 - Do not create a candidate-specific helper, policy activation commit, or
   repeated review ladder when the runner and hazard class are unchanged.
 - Missing evidence is no-proof and never weakens rollback requirements.
+- A90 alone has a target-specific resident-promotion terminal defined by
+  `A90_RESIDENT_BOOT_PROMOTION_V1.md`. It remains F1 risk: the exact rollback
+  is preauthorized and mandatory after any post-attempt failure. Rollback may
+  be omitted only after the exact candidate passes two independent health
+  closures across one separate resident reboot. This does not apply to S22+
+  or authorize an untested candidate.
 
 ### X - Forbidden
 

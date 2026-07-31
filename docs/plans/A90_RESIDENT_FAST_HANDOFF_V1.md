@@ -32,14 +32,14 @@ iteration.
 
 ## Current boundary
 
-The current F1 Process v2 requires mandatory rollback and defines PASS to
-include that rollback. It therefore cannot leave a candidate resident. A
-resident installation needs one explicit policy change and its own reviewed
-one-time promotion contract. Reinterpreting an ordinary F1 approval as
-resident authority is forbidden.
+The ordinary F1 Process v2 requires mandatory rollback and defines PASS to
+include that rollback. The A90-only F1-RP policy is now adopted in
+`docs/operations/A90_RESIDENT_BOOT_PROMOTION_V1.md`; it adds a distinct
+two-boot resident-health terminal without changing ordinary F1 or S22+.
 
-Until that one-time contract is adopted, exact V2321 remains the resident
-baseline and the daily D1 runner must remain inactive.
+The policy has no live runner or manifest and grants no device authority.
+Until those are implemented, reviewed, and freshly approved, exact V2321
+remains the resident baseline and the daily D1 runner remains inactive.
 
 ## One-time resident promotion
 

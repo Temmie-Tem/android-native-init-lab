@@ -35,6 +35,10 @@ MODEMMANAGER_GUARD = (
     REPO_ROOT
     / "workspace/public/src/scripts/revalidation/device_action_cdc_acm_observer_v1.py"
 )
+PROMOTION_MODEL = (
+    REPO_ROOT
+    / "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1_model.py"
+)
 
 DAILY_STATES = (
     "PREFLIGHT",
@@ -211,6 +215,7 @@ def current_host_closure() -> dict[str, dict[str, Any]]:
         ("frozen_f1_orchestrator", FROZEN_F1),
         ("boot_only_flash_helper", FLASH_HELPER),
         ("modemmanager_guard", MODEMMANAGER_GUARD),
+        ("resident_promotion_model", PROMOTION_MODEL),
     ):
         if not path.is_file():
             raise ContractError(f"host closure file missing: {label}")
@@ -252,7 +257,7 @@ def build_host_receipt(ab_receipt: Path) -> dict[str, Any]:
             "candidate_replay": False,
         },
         "blockers": [
-            "resident-promotion-policy-not-yet-adopted",
+            "resident-promotion-live-runner-not-yet-implemented",
             "exact-resident-promotion-packet-not-yet-prepared",
             "fresh-resident-promotion-authority-not-granted",
             "resident-native-baseline-not-yet-observed",

@@ -4,6 +4,10 @@ Status: P2.1-P2.5 complete; P2.6-P2.10 host path complete; R4W1-D exact
 candidate proof and rollback passed; R4W1-E E1 closed with rollback but no
 retained proof. No S22+ F1 run is currently authorized.
 
+The A90-only resident boot-promotion v1 policy is adopted as a target-specific
+extension, but it has no live runner, manifest, approval, or device authority.
+It does not alter the ordinary state machine below or any S22+ run.
+
 This process replaces per-candidate live helpers, policy activation commits,
 per-run one-shot clauses, and repeated review ladders for ordinary boot-only
 experiments. It does not relax the permanent boundaries in `AGENTS.md`.
@@ -284,6 +288,11 @@ Any state may move to `ABORTED` when its stop condition fires. A restart reopens
 the journal and resumes only an allowed next transition. It never repeats a
 transition that has durable completion evidence.
 
+This remains the ordinary F1 state machine. The A90-only F1-RP state machine
+and its distinct `PROMOTED_CLOSED` terminal are defined in
+`A90_RESIDENT_BOOT_PROMOTION_V1.md`. F1-RP does not add an ordinary Process v2
+terminal and cannot be selected by an ordinary candidate manifest.
+
 ## Approval
 
 One fresh approval is collected after preflight and immediately before the
@@ -322,6 +331,19 @@ An attended mode cannot be created after candidate intent or applied to a
 consumed run. The selected A90 contract and its implementation closure are in
 `docs/operations/A90_F1_ATTENDED_OBSERVATION_V1.md`.
 
+### A90 Resident Boot Promotion
+
+`docs/operations/A90_RESIDENT_BOOT_PROMOTION_V1.md` defines a narrow A90-only
+F1-RP terminal for a previously exercised exact candidate. Its original fresh
+approval still preauthorizes exact rollback before candidate attempt. Success
+requires one candidate transfer and two exact health closures across a separate
+resident reboot. Any failure or ambiguity after the candidate attempt starts
+uses the ordinary rollback recovery branch.
+
+F1-RP is not selected by the generic S22+ runner, cannot be introduced after
+approval, and cannot promote an untested candidate. Its current pure state
+model has no live execution surface.
+
 ## Regular-Path Transport
 
 - Open candidate, rollback, and Odin files before Download transition.
@@ -351,6 +373,12 @@ remaining attempt within the durable two-attempt bound, using the same exact
 preapproved rollback; the failed invocation does not retransmit automatically.
 Do not launch a second candidate. A stock boot cleanup path, when a target
 profile supports one, is recovery-only and cannot produce PASS.
+
+For A90 F1-RP, a completed two-boot resident-health closure may close the
+candidate as the new experimental baseline without invoking rollback. Before
+that exact closure, every post-attempt failure follows the rollback rules
+above. After promoted closure, the consumed approval creates no standing
+future recovery authority.
 
 ## Evidence
 
