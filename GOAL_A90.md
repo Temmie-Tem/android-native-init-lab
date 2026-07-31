@@ -91,7 +91,14 @@ result to PASS.
 Return-channel framing and retained-pmsg collection ordering are a separate H0
 observer unit. They are not part of the selected build-determinism unit below.
 
-## Selected Bounded Unit: Phase 0 Build Determinism
+## Completed Bounded Unit: Phase 0 Build Determinism
+
+Phase 0 closed `A90_V3404_BUILD_DETERMINISM_PHASE0_HOST_PASS`. Two clean,
+isolated builds matched for boot, ramdisk, init, helper, and engine while the
+accepted V3404 boot remained unchanged. The effective inherited builder chain
+contains 171 modules. Golden hashes and tool versions are recorded in:
+
+`docs/reports/A90_V3404_BUILD_DETERMINISM_PHASE0_H0_2026-07-31.md`
 
 ### Question
 
@@ -170,6 +177,14 @@ Stop and report without repairing when:
 - any device, network-to-device, reboot, staging, flash, or live approval step
   becomes necessary.
 
+## Selected Bounded Unit: Phase 1 Flat Builder
+
+Flatten the measured 171-module effective builder into one versioned,
+reviewable snapshot without editing native-init or helper C. The flat builder
+must reproduce all five Phase 0 golden hashes in two fresh isolated builds.
+Until that equality passes, the inherited chain remains authoritative and the
+flat builder creates no candidate or live authority.
+
 ## Later Phases
 
 Phase 1 flattens the measured inherited builder/import chain into one
@@ -202,6 +217,7 @@ approval under `AGENTS.md`.
 - `docs/reports/A90_V3405_D3_SYNC_DECISION_SUPERVISOR_H0_2026-07-31.md`
 - `docs/reports/A90_V3405_F1_RETAINED_PMSG_NCM_REBIND_H0_2026-07-31.md`
 - `docs/reports/A90_V3405_DEBIAN_PID1_F1_CLOSED_2026-07-31.md`
+- `docs/reports/A90_V3404_BUILD_DETERMINISM_PHASE0_H0_2026-07-31.md`
 
 Private journals, structured results, raw logs, work-image evidence, approval
 receipts, and exact rollback identity remain under `workspace/private/`.
