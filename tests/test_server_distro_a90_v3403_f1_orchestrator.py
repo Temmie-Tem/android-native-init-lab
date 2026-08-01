@@ -4187,6 +4187,7 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         }
         endpoint = types.SimpleNamespace(
             tty_name=resolved.name,
+            tty_class=f1.staging.SYS_CLASS_TTY / resolved.name,
             device_path=Path("/sys/devices/test/ttyACM0"),
             topology="1-2.3",
             identity_sha256=f1.cdc_guard.digest(identity),
@@ -4217,7 +4218,8 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                 epoch,
                 guard,
             )
-        guard.matches_node.assert_called_once_with(endpoint.device_path)
+        self.assertNotEqual(endpoint.tty_class, endpoint.device_path)
+        guard.matches_node.assert_called_once_with(endpoint.tty_class)
         self.assertTrue(evidence["exact_a90_acm_identity"])
         self.assertTrue(evidence["exact_guard_properties"])
 

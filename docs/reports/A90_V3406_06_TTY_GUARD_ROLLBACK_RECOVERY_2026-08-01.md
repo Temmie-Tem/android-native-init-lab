@@ -70,17 +70,21 @@ timeline. Reporting recovery reconstructed `candidate-boot-ready` from the
 already-durable exact candidate flash log; it did not repeat a device command
 or transition.
 
-## Next H0 gate
+## H0 correction
 
-The next unit is deliberately small:
+The bounded H0 correction changes the returned guard query from
+`endpoint.device_path` to `endpoint.tty_class`, updates the source-contract
+token, and makes the existing regression distinguish and assert the tty path.
+No other execution path changed.
 
-1. validate ModemManager properties on `endpoint.tty_class`, not
-   `endpoint.device_path`;
-2. exercise the installed rule on the exact tty node before proceeding;
-3. add a regression that keeps interface properties absent while tty
-   properties are present; and
-4. independently review the changed execution-critical closure before another
-   F1 manifest is prepared.
+Python compilation and the related orchestrator, resident-promotion, and guard
+suites pass `179/179`. Independent review returned GO with no finding. The
+repaired orchestrator is 261052 bytes with SHA256:
+
+```text
+a434ee2f26d4c2bd877f6a0eeb7102d39f1f94b100d01fea0117f10304bad8b1
+```
 
 No A90 live authority remains, and this run, candidate, approval, and rollback
-transition are non-reusable.
+transition are non-reusable. A later run must bind the repaired runner in a
+fresh manifest and approval.

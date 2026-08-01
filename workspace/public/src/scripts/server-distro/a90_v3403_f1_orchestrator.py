@@ -2315,7 +2315,7 @@ def require_returned_modemmanager_guard(
         or identity.get("vendor") != staging.HOST_NCM_VENDOR_ID
         or identity.get("product") != staging.HOST_NCM_PRODUCT_ID
         or identity.get("driver") != "cdc_acm"
-        or not guard.matches_node(endpoint.device_path)
+        or not guard.matches_node(endpoint.tty_class)
     ):
         raise ContractError(
             "returned A90 ACM lacks the exact ModemManager ignore guard"
@@ -6280,7 +6280,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             'identity.get("serial") != guard.spec["usb_serial"]',
             'identity.get("driver") != guard.spec["usb_driver"]',
             "guard.topology != expected_topology",
-            "guard.matches_node(endpoint.device_path)",
+            "guard.matches_node(endpoint.tty_class)",
         ):
             if token not in guard_source:
                 issues.append(

@@ -97,8 +97,12 @@ transfer between the two files.
   pre-session with no recovery request, endpoint selection, payload transfer,
   or boot write. Recovery then used the same exact canonical `--from-native`
   path under the already-authorized rollback and restored health once.
-- No A90 live authority remains. Repair and independently review the tty-node
-  validator in H0 before preparing another resident F1 run.
+- The tty-node validator now checks `endpoint.tty_class`; its exact-path
+  regression and the related suite pass `179/179`. Independent review returned
+  GO with no finding. The repaired orchestrator SHA256 is
+  `a434ee2f26d4c2bd877f6a0eeb7102d39f1f94b100d01fea0117f10304bad8b1`.
+- No A90 live authority remains. The repaired runner requires a fresh manifest
+  and approval binding; no consumed `-06` material is reusable.
 - Do not add a device step while host-only work can answer the selected
   question.
 
