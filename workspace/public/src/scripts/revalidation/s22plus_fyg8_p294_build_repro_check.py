@@ -10,6 +10,7 @@ import s22plus_fyg8_p290_build_repro_check as base
 import s22plus_fyg8_p294_build as build
 import s22plus_fyg8_p294_candidate_contract as candidate_contract
 import s22plus_fyg8_p294_source_contract as p294
+import s22plus_fyg8_p294_tier2_reentry as tier2_reentry
 
 
 SCHEMA = "s22plus_fyg8_p294_build_repro_check_v1"
@@ -72,7 +73,14 @@ def __getattr__(name: str):
 
 def verify_p286_qualification_file(*args, **kwargs):  # noqa: ANN002, ANN003, ANN201
     _configure()
-    return base.verify_p286_qualification_file(*args, **kwargs)
+    try:
+        return tier2_reentry.verify_with_frozen_gate(
+            base.verify_p286_qualification_file,
+            *args,
+            **kwargs,
+        )
+    except tier2_reentry.ReentryError as exc:
+        raise CheckError(str(exc)) from exc
 
 
 def verify_p294_qualification_file(*args, **kwargs):  # noqa: ANN002, ANN003, ANN201
