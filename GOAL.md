@@ -218,6 +218,16 @@ qualification passed, and its corrected Full-LTO A/B pair is byte-identical
 over all nine preserved artifacts. `Image` SHA256 is
 `8161a50d0eb5acea89a0c4a3343d73236a59c1223dee55840e5c8695587bb719`.
 All 103 payload receipts still match the intent with `CHANGED_KEYS=[]`.
+
+Post-Full-LTO P2.94 downstream registration is host-validated. Versioned
+promotion and ready-manifest adapters select the P2.94 decoder/closure, while
+Process v2 binds 103 Tier-1, 66 Tier-2, and three Tier-3 receipts. The earlier
+P2.74 passive host USB sidecar will be reused during the next attended F1 to
+capture kernel, udev, and start/end lsusb evidence without changing the runner
+or manifest schema. P2.92 has no such candidate-window generic host log, so its
+endpoint timeout cannot be retrospectively split into no-device versus
+wrong-interface branches. P2.94 remains `103/103`, `CHANGED_KEYS=[]`; no
+regulator read or other Tier-1 change was added after Full-LTO.
 `SLOT_COUNT=2` is now a load-bearing diagnostic constraint and the first
 architectural item to revisit if packing dominates a later campaign again.
 

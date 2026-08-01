@@ -476,6 +476,27 @@ def execution_critical_source_receipts(
                     e1_latest_stage_sources[f"p290_support_{name}"] = (
                         candidate_intent.repo_root() / path
                     )
+            elif source_contract_id == typed_evidence.P294_SOURCE_CONTRACT_ID:
+                import s22plus_fyg8_p294_identity_tiers as p294_identity
+
+                try:
+                    tier2 = p294_identity.tier2_materials(
+                        candidate_intent.repo_root()
+                    )
+                    tier3 = p294_identity.tier3_materials(
+                        candidate_intent.repo_root()
+                    )
+                except (p294_identity.IdentityTierError, OSError) as exc:
+                    raise F1V2Error(
+                        "P2.94 Stage C receipt closure failed"
+                    ) from exc
+                for tier, materials in (("tier2", tier2), ("tier3", tier3)):
+                    for name, data in materials.items():
+                        key = name.replace(":", "_")
+                        receipts[f"p294_{tier}_{key}"] = {
+                            "size": len(data),
+                            "sha256": hashlib.sha256(data).hexdigest(),
+                        }
             elif source_contract_id == typed_evidence.P292_SOURCE_CONTRACT_ID:
                 import s22plus_fyg8_p292_identity_tiers as p292_identity
 
