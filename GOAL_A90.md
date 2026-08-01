@@ -101,8 +101,17 @@ transfer between the two files.
   regression and the related suite pass `179/179`. Independent review returned
   GO with no finding. The repaired orchestrator SHA256 is
   `a434ee2f26d4c2bd877f6a0eeb7102d39f1f94b100d01fea0117f10304bad8b1`.
-- No A90 live authority remains. The repaired runner requires a fresh manifest
-  and approval binding; no consumed `-06` material is reusable.
+- Host-only `-07` stopped before finalizer output because the new review file
+  was group-writable. It is preserved and non-reusable; no device action or
+  candidate/rollback copy occurred at that failure.
+- Fresh `a90-v3406-debian-display-f1-20260801-08` now has a new-inode keyed
+  rootfs, exact V2321 D0/path-absence PASS, current review closure, and final
+  resident manifest SHA256
+  `5490b8d18b58e679b621c6b411f68d5dca40e06307be600dcdef7d4d60e91f9c`.
+  Approval binding
+  `230c39a0a2befd0fa2d63af43bc3470148c646b5d32fec72ac6d86e30fff4a7a`
+  is prepared but grants no live authority. The only next gate is its fresh
+  exact F1 acknowledgement; consumed `-06` material remains non-reusable.
 - Do not add a device step while host-only work can answer the selected
   question.
 
