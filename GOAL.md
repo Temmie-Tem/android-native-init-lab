@@ -741,6 +741,17 @@ second time stops that host line. Once packaging or device-adjacent execution
 begins, an unexplained failure stops the sequence. F1 remains separately
 unauthorized.
 
+The first post-refactor P2.94 H0 continuation stopped before a new formal
+preflight. Candidate-contract and Tier-2 re-entry checks passed, but two
+successive ad-hoc identity diagnostics assumed repository-owned API/output
+shapes that had not been observed: first a nonexistent `source_contract()`
+function, then a nonexistent candidate-contract `.implementation` field. They
+are the same material producer/API-shape failure class, so the S22+ binding
+Rule-7 second-occurrence rule stops this H0 line. No formal result, package,
+static closure, promotion, ready manifest, D0, Odin invocation, or device
+contact followed. P2.94 run identity and Full-LTO evidence remain unchanged;
+the stale v4 packet remains evidence only.
+
 ## Process
 
 For each bounded unit:
