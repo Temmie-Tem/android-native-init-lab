@@ -12,33 +12,12 @@ transfer between the two files.
 
 ## Current Authority
 
-- This line is stopped at H0 after resident-promotion run `-09` closed no-proof.
-  No A90 F1, D1, attended continuation, resident-baseline installation, or
-  other live authority currently exists.
-- Exact V2321 is restored; final version/build, selftest `fail=0`, and pstore
-  health passed. No command was sent to the separately connected S22+.
-- The exact retained-work cleanup approval was consumed once. The one retained
-  2 GiB work image was first preserved byte-for-byte on the host, then unlinked
-  without flash or reboot; post-cleanup health remained exact V2321.
-- Resident-promotion run `a90-v3406-debian-display-f1-20260801-01` received one
-  exact approval, but the runner rejected the resident schema before creating a
-  transaction or journal and before any device command, transfer, or reboot.
-  That approval bound the old runner closure and is obsolete and non-reusable.
-- The live approval gate now uses the same exact resident/ordinary schema
-  selector as the manifest loader. Commit `12f04795` passed `168/168` focused
-  tests and independent review; ordinary V3406, non-V3406, target, boot-only,
-  approval, and rollback boundaries remain closed.
-- Fresh run `a90-v3406-debian-display-f1-20260801-02` has a new-inode keyed
-  rootfs, new observer key, exact candidate and rollback copies, and passing D0
-  evidence.
-- Two host-only manual manifest rebinding attempts then failed validation: the
-  first retained the old remote-image suffix, and the second retained old D0
-  evidence filenames. No approval receipt or transaction was created. This is
-  the repeated material host-preparation failure that stopped the old method.
-- Commit `c0b56154` replaces that method with a host-only builder. It derives
-  every run field structurally, checks all local paths, validates a temporary
-  manifest through the production resident loader and local closure, and only
-  then performs one absent-only publication. Focused tests pass `171/171`.
+- Run `a90-v3406-debian-display-f1-20260802-01` consumed its exact F1 approval
+  and closed `PASS_A90_RESIDENT_INSTALLED`. No A90 F1, D1, attended
+  continuation, or other live authority currently exists.
+- The V3406 candidate is the healthy resident baseline: exact native version,
+  selftest `fail=0`, empty pstore, immutable rootfs source preflight, and direct
+  NCM health passed. No command was sent to the separately connected S22+.
 - The resulting resident manifest has SHA256
   `fc3677624977fa1723754bcba842f75ff36c084eb86ac62925c87af638aa83f7`.
   Its approval binding
@@ -113,8 +92,17 @@ transfer between the two files.
   `74fb53df0cea3a235307afdf0c1ff3e1d492b5815838a91b42880b99a745bd6e`.
 - Resident-install v2 closes the reviewed whole-owner F1 path after one exact
   health check and zero second reboot; `331/331` pass and review returned GO.
-- Fresh `20260802-01` passed A90 D0/finalization; manifest `bba303fd...e5e4ca2`
-  and binding `fe018f08...675063` are ready. No F1 authority or D1 backend exists.
+- The run performed one boot-only candidate transfer, no candidate replay, no
+  rollback, and no second resident reboot. Its 11-record durable journal closed
+  `RESIDENT_INSTALLED_CLOSED` with `RESIDENT_HEALTHY`.
+- Final `result.json` publication exposed one host-only validator defect after
+  that terminal record: the validator omitted the real `run /bin/busybox`
+  wrapper from the exact rootfs receipt. The correction and fixture pass
+  `28/28`; independent review returned PASS/GO. It grants no reuse of the
+  consumed manifest or approval and causes no device transition.
+- The D1 switch-root backend remains unimplemented. The next unit is H0-only:
+  bind the reviewed resident baseline to the existing effects-injected engine
+  without adding another flash or reinterpreting this consumed F1 approval.
 - Do not add a device step while host-only work can answer the selected
   question.
 
@@ -762,6 +750,7 @@ approval under `AGENTS.md`.
 - `docs/reports/A90_RESIDENT_PROMOTION_GUARD_CORRIDOR_INDEPENDENT_REVIEW_2026-08-01.md`
 - `docs/reports/A90_RESIDENT_PROMOTION_V3406_05_F1_READY_H0_D0_2026-08-01.md`
 - `docs/reports/A90_V3406_06_TTY_GUARD_ROLLBACK_RECOVERY_2026-08-01.md`
+- `docs/reports/A90_RESIDENT_INSTALL_V2_F1_PASS_2026-08-02.md`
 
 Private journals, structured results, raw logs, work-image evidence, approval
 receipts, and exact rollback identity remain under `workspace/private/`.

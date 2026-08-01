@@ -725,7 +725,13 @@ class ResidentPromotionV1Tests(unittest.TestCase):
                 "unmount": self.command_receipt(["umount", base.PSTORE_MOUNT_PATH]),
             },
             "rootfs": self.command_receipt(
-                ["sh", "-c", base.remote_source_preflight_script(spec)],
+                [
+                    "run",
+                    "/bin/busybox",
+                    "sh",
+                    "-c",
+                    base.remote_source_preflight_script(spec),
+                ],
                 "A90F1_SOURCE_PRECHECK exact=1 work_absent=1\r\n",
             ),
             "ncm": {
@@ -1001,6 +1007,8 @@ class ResidentPromotionV1Tests(unittest.TestCase):
     def test_install_repair_rejects_malformed_terminal_or_prior_sequence(self) -> None:
         def forge_rootfs_echo(records):
             forged = [
+                "run",
+                "/bin/busybox",
                 "sh",
                 "-c",
                 "echo A90F1_SOURCE_PRECHECK exact=1 work_absent=1",

@@ -887,6 +887,8 @@ def _validate_installed_health(
 
     rootfs = _dict(health.get("rootfs"), "resident-install rootfs health")
     expected_rootfs_command = [
+        "run",
+        "/bin/busybox",
         "sh",
         "-c",
         base.remote_source_preflight_script(spec),
