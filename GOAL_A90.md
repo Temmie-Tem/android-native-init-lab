@@ -110,8 +110,12 @@ transfer between the two files.
   `5490b8d18b58e679b621c6b411f68d5dca40e06307be600dcdef7d4d60e91f9c`.
   Approval binding
   `230c39a0a2befd0fa2d63af43bc3470148c646b5d32fec72ac6d86e30fff4a7a`
-  is prepared but grants no live authority. The only next gate is its fresh
-  exact F1 acknowledgement; consumed `-06` material remains non-reusable.
+  was consumed, but staging stopped before candidate intent because the A90
+  NCM profile was inactive and the observer route resolved through ordinary
+  LAN instead of direct USB. Candidate and rollback transfers, rootfs staging,
+  and reboot are all zero; S22+ received no command. This repeats the `-05`
+  host-route failure class, so `-08` is non-reusable and the line is stopped at
+  H0. Move the same direct-route gate into connected D0 before another run.
 - Do not add a device step while host-only work can answer the selected
   question.
 
