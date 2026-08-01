@@ -100,9 +100,14 @@ transfer between the two files.
   wrapper from the exact rootfs receipt. The correction and fixture pass
   `28/28`; independent review returned PASS/GO. It grants no reuse of the
   consumed manifest or approval and causes no device transition.
-- The D1 switch-root backend remains unimplemented. The next unit is H0-only:
-  bind the reviewed resident baseline to the existing effects-injected engine
-  without adding another flash or reinterpreting this consumed F1 approval.
+- The resident D1 switch-root backend is now implemented host-side. It binds
+  one private session, one approval, one dispatch per intent, exact return and
+  cleanup proof, and deterministic journal replay without any flash or payload
+  path. Focused regression passes `21/21`, existing engine/adapter regression
+  passes `49/49`, the real resident evidence cross-check passed, and independent
+  review returned PASS/GO with no unresolved finding.
+- No D1 authority is active. The next unit is host-only final manifest and
+  approval preparation; live execution must wait for its fresh exact approval.
 - Do not add a device step while host-only work can answer the selected
   question.
 
@@ -751,6 +756,7 @@ approval under `AGENTS.md`.
 - `docs/reports/A90_RESIDENT_PROMOTION_V3406_05_F1_READY_H0_D0_2026-08-01.md`
 - `docs/reports/A90_V3406_06_TTY_GUARD_ROLLBACK_RECOVERY_2026-08-01.md`
 - `docs/reports/A90_RESIDENT_INSTALL_V2_F1_PASS_2026-08-02.md`
+- `docs/reports/A90_D1_RESIDENT_SWITCHROOT_BACKEND_H0_PASS_2026-08-02.md`
 
 Private journals, structured results, raw logs, work-image evidence, approval
 receipts, and exact rollback identity remain under `workspace/private/`.

@@ -81,6 +81,7 @@ class SessionActionStatus(str, Enum):
     PROVED = "PROVED"
     REFUTED = "REFUTED"
     NO_PROOF_OBSERVER = "NO_PROOF_OBSERVER"
+    EXPERIMENT_BLOCKED = "EXPERIMENT_BLOCKED"
     DEVICE_SAFETY_FAILURE = "DEVICE_SAFETY_FAILURE"
     CONTROL_AMBIGUOUS = "CONTROL_AMBIGUOUS"
 
@@ -122,7 +123,9 @@ class SessionActionResult:
                 raise ContractError("continuing session action lacks postflight")
             self.postflight.validate()
         elif self.postflight is not None:
-            raise ContractError("unsafe session action cannot claim postflight")
+            if self.status is not SessionActionStatus.EXPERIMENT_BLOCKED:
+                raise ContractError("unsafe session action cannot claim postflight")
+            self.postflight.validate()
         if (
             self.status is SessionActionStatus.NO_PROOF_OBSERVER
             and (
@@ -136,6 +139,15 @@ class SessionActionResult:
             and not str(self.failure_class).endswith("_REFUTED")
         ):
             raise ContractError("refuted action class is not exact")
+        if (
+            self.status is SessionActionStatus.EXPERIMENT_BLOCKED
+            and (
+                self.action_started is not True
+                or not str(self.failure_class).endswith("_BLOCKED")
+                or not isinstance(self.postflight, SessionPreflight)
+            )
+        ):
+            raise ContractError("blocked experiment lacks exact healthy stop")
         if (
             self.status is SessionActionStatus.CONTROL_AMBIGUOUS
             and not str(self.failure_class).endswith("_AMBIGUOUS")
@@ -507,6 +519,8 @@ class AttendedSession:
         }:
             self.device_safety_state = "RECOVERY_REQUIRED"
             return self._close("RECOVERY_REQUIRED")
+        if result.status is SessionActionStatus.EXPERIMENT_BLOCKED:
+            return self._close("SESSION_CLOSED_EXPERIMENT_BLOCKED")
         if result.status is SessionActionStatus.REFUTED:
             key = (action.value, str(result.failure_class))
             self.refutation_counts[key] = self.refutation_counts.get(key, 0) + 1
