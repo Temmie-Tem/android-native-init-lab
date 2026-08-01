@@ -127,7 +127,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertNotIn("BEGIN_S22PLUS", active_text)
         self.assertIn("Policy edits are H0 and grant no D0, D1, or F1", self.agents)
         self.assertIn(
-            "No S22+ F1 live run is currently authorized",
+            "F1 requires a fresh immutable approval token and is not pre-authorized",
             " ".join(self.goal.split()),
         )
         self.assertIn(
@@ -271,16 +271,15 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             self.p280_resume_femto_audit.split()
         )
         self.assertIn("direct PID1", normalized_goal)
-        self.assertIn("P2.58A passed terminal stage", normalized_goal)
+        self.assertIn("P2.92 is the latest closed live unit", normalized_goal)
+        self.assertIn("stable generation-106 prefix", normalized_goal)
         self.assertIn(
-            "PASS_F1_V2_CANDIDATE_PROVEN_AND_ROLLED_BACK", self.goal
+            "No minimal PID1 candidate has yet proved host enumeration",
+            normalized_goal,
         )
-        self.assertIn("P2.58A complete/closed, F1", self.goal)
-        self.assertIn("E3-E4 next", self.goal)
-        self.assertIn("P2.84-through-P2.90", normalized_goal)
-        self.assertIn("P2.82", normalized_goal)
+        self.assertIn("P2.94 therefore remains an H0 static stop", normalized_goal)
+        self.assertIn("P2.96 Built-in DWC3 Telemetry", normalized_goal)
         self.assertIn("docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md", self.agents)
-        self.assertIn("swallowed clock errors", self.goal)
         self.assertIn(
             "PASS_P280_RESUME_FEMTO_EUD_INSTRUMENTATION_AUDIT_HOST_ONLY",
             self.p280_resume_femto_audit,
@@ -312,7 +311,8 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("private exact target binding", self.process)
         self.assertIn("aborted binding is not reusable", self.process)
         self.assertIn(
-            "No S22+ F1 live run is currently authorized", normalized_goal
+            "F1 requires a fresh immutable approval token and is not pre-authorized",
+            normalized_goal,
         )
 
     def test_archived_policy_is_not_runtime_dependency(self):

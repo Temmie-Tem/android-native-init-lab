@@ -42,6 +42,7 @@ FINAL_WINDOW_CHANGED_PATHS = frozenset(
         "GOAL.md",
         "docs/archive/roadmaps/GOAL_THROUGH_P294_MODULE_DELIVERY_2026-08-02.md",
         "docs/reports/S22PLUS_FYG8_P296_BUILTIN_DWC3_TELEMETRY_IMPLEMENTATION_H0_2026-08-02.md",
+        "tests/test_device_action_process_v2_docs.py",
         "tests/test_s22plus_fyg8_p296_contract.py",
         P + "build_s22plus_fyg8_p296_candidate.py",
         P + "s22plus_fyg8_p286_source_contracts.py",
