@@ -29,6 +29,7 @@ BASE_FILES = {
     if key != "kernel_platform/msm-kernel/drivers/usb/dwc3/dwc3-msm-core.c"
 }
 IntentError = base.IntentError
+_INHERITED_BUILD_PATCH = base.build_patch
 RUN_ID_DOMAINS = {**base.RUN_ID_DOMAINS, "E2": RUN_ID_DOMAIN}
 SUPERSEDED_FOR_NEW_CANDIDATES = {
     **base.SUPERSEDED_FOR_NEW_CANDIDATES,
@@ -67,6 +68,10 @@ def build_patch(
         ),
     )
     counts = tuple(base_patch.count(old) for old, _new in replacements)
+    if counts == (0, 0):
+        return _INHERITED_BUILD_PATCH(
+            base_patch, run_id, unsat_tag, profile
+        )
     if counts != (1, 1):
         raise IntentError("P2.96 candidate config source binding differs")
     value = base_patch

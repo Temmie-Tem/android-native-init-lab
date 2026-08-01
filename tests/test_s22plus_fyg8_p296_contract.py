@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+import tempfile
 import unittest
 
 import s22plus_fyg8_p286_source_contracts as selector
+import s22plus_fyg8_p296_candidate_intent as candidate_intent
 import s22plus_fyg8_p296_identity_tiers as identity
 import s22plus_fyg8_p296_linked_audit as linked
 import s22plus_fyg8_p296_source_contract as contract
@@ -63,6 +65,23 @@ class P296ContractTests(unittest.TestCase):
         self.assertTrue(result["patch"]["driver_clean_apply"])
         self.assertEqual(result["patch"]["external_module_patch_count"], 0)
         self.assertTrue(result["telemetry_closure"]["delivery"]["verified"])
+
+    def test_candidate_intent_nested_sot_generation_uses_inherited_patch(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="p296-intent-") as temporary:
+            output = Path(temporary) / "intent"
+            args = candidate_intent.parse_args(
+                [
+                    "--source-contract-id",
+                    contract.CONTRACT_ID,
+                    "--profile",
+                    contract.PROFILE,
+                    "--out",
+                    str(output),
+                ]
+            )
+            result = candidate_intent.create(args)
+        self.assertEqual(result["verdict"], contract.INTENT_VERDICT)
+        self.assertEqual(result["source_contract_id"], contract.CONTRACT_ID)
 
 
 if __name__ == "__main__":
