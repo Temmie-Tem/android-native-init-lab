@@ -85,9 +85,20 @@ transfer between the two files.
 - Host-only `-04` stopped on a stale exact helper-size binding and is preserved
   as non-reusable evidence. Commit `e73a72a6` corrected the 51402-byte binding,
   passed `332/332`, and received independent GO.
-- The `-05` approval receipt is prepared but grants no live authority. The only
-  next gate is the operator echoing the exact fresh F1 token. The consumed
-  `-03` approval and candidate must not be replayed.
+- Run `a90-v3406-debian-display-f1-20260801-06` is closed
+  `NO_PROOF_A90_F1_RP_CANDIDATE_ROLLED_BACK`. It completed one exact candidate
+  boot transfer and one exact V2321 rollback transfer with no candidate replay;
+  final V2321 version/build and selftest `fail=0` passed. The separately
+  connected S22+ received no command.
+- The live interruption was a host guard-validator defect. The transient udev
+  rule correctly attached both ModemManager ignore properties to the exact tty
+  class node, while the runner queried its USB-interface `device_path` and
+  stopped before candidate health. The first rollback invocation was proven
+  pre-session with no recovery request, endpoint selection, payload transfer,
+  or boot write. Recovery then used the same exact canonical `--from-native`
+  path under the already-authorized rollback and restored health once.
+- No A90 live authority remains. Repair and independently review the tty-node
+  validator in H0 before preparing another resident F1 run.
 - Do not add a device step while host-only work can answer the selected
   question.
 
@@ -734,6 +745,7 @@ approval under `AGENTS.md`.
 - `docs/reports/A90_RESIDENT_PROMOTION_MODEMMANAGER_GUARD_CORRIDOR_H0_2026-08-01.md`
 - `docs/reports/A90_RESIDENT_PROMOTION_GUARD_CORRIDOR_INDEPENDENT_REVIEW_2026-08-01.md`
 - `docs/reports/A90_RESIDENT_PROMOTION_V3406_05_F1_READY_H0_D0_2026-08-01.md`
+- `docs/reports/A90_V3406_06_TTY_GUARD_ROLLBACK_RECOVERY_2026-08-01.md`
 
 Private journals, structured results, raw logs, work-image evidence, approval
 receipts, and exact rollback identity remain under `workspace/private/`.
