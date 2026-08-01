@@ -12,12 +12,11 @@ transfer between the two files.
 
 ## Current Authority
 
-- This line is stopped at H0 after a repeated pre-candidate live-gate mismatch.
+- This line is stopped at H0 after resident-promotion run `-09` closed no-proof.
   No A90 F1, D1, attended continuation, resident-baseline installation, or
   other live authority currently exists.
-- Exact V2321 remains resident. The latest connected D0 again proved exact
-  version/build, selftest `fail=0`, pstore `entries=0`, and absent final, work,
-  and stage paths. No command was sent to the separately connected S22+.
+- Exact V2321 is restored; final version/build, selftest `fail=0`, and pstore
+  health passed. No command was sent to the separately connected S22+.
 - The exact retained-work cleanup approval was consumed once. The one retained
   2 GiB work image was first preserved byte-for-byte on the host, then unlinked
   without flash or reboot; post-cleanup health remained exact V2321.
@@ -78,13 +77,6 @@ transfer between the two files.
 - Related regression passes `332/332`; independent safety review returned GO
   with no blocking finding. The reviewed orchestrator SHA256 is
   `aa0677077ddf82ed559a2b703e599ee05c3fa77f7023260d193c01c462b25b20`.
-- Fresh private run `a90-v3406-debian-display-f1-20260801-05` has a new-inode
-  keyed rootfs, exact healthy V2321 D0, and absent final/work/stage paths. Its
-  resident manifest SHA256 is
-  `58e2a0a401c2493df610a29fde9e583564f90a6e07e7cb597464dc8f54e2de9b`.
-- Host-only `-04` stopped on a stale exact helper-size binding and is preserved
-  as non-reusable evidence. Commit `e73a72a6` corrected the 51402-byte binding,
-  passed `332/332`, and received independent GO.
 - Run `a90-v3406-debian-display-f1-20260801-06` is closed
   `NO_PROOF_A90_F1_RP_CANDIDATE_ROLLED_BACK`. It completed one exact candidate
   boot transfer and one exact V2321 rollback transfer with no candidate replay;
@@ -109,13 +101,18 @@ transfer between the two files.
   baseline reads and pins A90 interface, direct route, host CIDR, and ping.
   The related suite passes `204/204`; independent review
   returned GO with no finding. Commit `7c339e8b` contains the bounded repair.
-- Fresh `a90-v3406-debian-display-f1-20260801-09` has keyed rootfs SHA256
-  `a4457aef646d3d30fe109f17a6e3730c774d545ac04d86baea5f3fab761de2b1`, exact
-  healthy V2321 D0, absent final/work/stage paths, and all four NCM proofs true.
-  Resident manifest SHA256 is `2a6755bc67a2918d37632e0ad523a9971d9baa6442a64d59261f005ad7aa363a`.
-  Approval binding
-  `1e3c99dc8900079cd9c546ea2fd059e67cbe23e2394e7ed1e85cdf3887f53cd3`
-  is prepared but grants no live authority until echoed exactly.
+- Run `a90-v3406-debian-display-f1-20260801-09` is closed
+  `NO_PROOF_A90_F1_RP_CANDIDATE_ROLLED_BACK`: one boot-only candidate, no
+  replay, one exact V2321 rollback, and final health PASS. First candidate
+  health and resident reboot dispatch passed, but the returned exact A90 USB
+  epoch's first safe `version` probe yielded only its echo and `a90:/#`; no
+  A90P1 frame, Debian PID 1, or display proof was accepted. S22+ was untouched.
+- The H0 repair retries that strict prompt/echo-only transcript only for
+  already-safe commands in slow/double mode. Arbitrary partial output and
+  unsafe commands remain terminal. Isolated related regression passes
+  `266/266`; independent review returned GO. The new `a90ctl.py` SHA256 is
+  `b8e870f628e94f35a782c99e70cf4dcfee4cc7b4824ecec38e7241e0efa77831`;
+  every older manifest is stale and no new live authority exists.
 - Do not add a device step while host-only work can answer the selected
   question.
 

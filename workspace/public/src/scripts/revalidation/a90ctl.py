@@ -252,9 +252,29 @@ def should_retry_cmdv1_exchange(
     if text.strip() == "" or BRIDGE_SERIAL_MISSING_TEXT in text or BRIDGE_BUSY_TEXT in text:
         return True
     mode = input_mode or os.environ.get(INPUT_MODE_ENV, "normal")
+    if mode in {"double", "slow"} and prompt_only_cmdv1_echo(text):
+        return True
     if mode in {"double", "slow"} and "[err] unknown command:" in text:
         return True
     return False
+
+
+def prompt_only_cmdv1_echo(text: str) -> bool:
+    lines = [
+        line.strip()
+        for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+        if line.strip()
+    ]
+    return (
+        bool(lines)
+        and "a90:/#" in lines
+        and all(
+            line == "a90:/#"
+            or line.startswith("cmdv1 ")
+            or line.startswith("cmdv1x ")
+            for line in lines
+        )
+    )
 
 
 def sleep_before_retry(deadline: float) -> None:

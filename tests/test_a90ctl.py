@@ -146,6 +146,25 @@ class A90CtlProtocolHelperTests(unittest.TestCase):
                     input_mode="slow",
                 )
             )
+        prompt_only = "cmdv1 version\r\na90:/# \r\n"
+        self.assertTrue(a90ctl.prompt_only_cmdv1_echo(prompt_only))
+        self.assertTrue(
+            a90ctl.should_retry_cmdv1_exchange(
+                prompt_only,
+                input_mode="slow",
+            )
+        )
+        self.assertFalse(
+            a90ctl.should_retry_cmdv1_exchange(
+                prompt_only,
+                input_mode="normal",
+            )
+        )
+        self.assertFalse(
+            a90ctl.prompt_only_cmdv1_echo(
+                "cmdv1 version\r\npartial body\r\na90:/# \r\n"
+            )
+        )
 
     def test_result_to_json_includes_derived_rc_and_status(self) -> None:
         result = a90ctl.ProtocolResult(
@@ -190,6 +209,61 @@ class A90CtlProtocolHelperTests(unittest.TestCase):
 
         self.assertEqual(result.status, "ok")
         self.assertEqual(calls, ["cmdv1 status", "cmdv1 status"])
+
+    def test_run_cmdv1_command_retries_safe_prompt_only_exchange(self) -> None:
+        responses = [
+            "cmdv1 version\r\na90:/# \r\n",
+            frame(1, "version"),
+        ]
+        calls: list[str] = []
+
+        def fake_bridge(
+            host,
+            port,
+            line,
+            timeout,
+            *,
+            markers,
+            input_mode,
+            input_char_delay_sec,
+            minimum_read_budget_sec,
+            require_prompt_after_end,
+            post_marker_drain_sec,
+        ):
+            calls.append(line)
+            return responses.pop(0)
+
+        with (
+            mock.patch.object(a90ctl, "bridge_exchange", side_effect=fake_bridge),
+            mock.patch.object(a90ctl, "sleep_before_retry", return_value=None),
+        ):
+            result = a90ctl.run_cmdv1_command(
+                "127.0.0.1",
+                54321,
+                2.0,
+                ["version"],
+                input_mode="slow",
+            )
+
+        self.assertEqual(result.status, "ok")
+        self.assertEqual(calls, ["cmdv1 version", "cmdv1 version"])
+
+    def test_run_cmdv1_command_does_not_retry_unsafe_prompt_only_exchange(self) -> None:
+        with mock.patch.object(
+            a90ctl,
+            "bridge_exchange",
+            return_value="cmdv1 setprop key value\r\na90:/# \r\n",
+        ) as bridge:
+            with self.assertRaisesRegex(RuntimeError, "A90P1 END marker not found"):
+                a90ctl.run_cmdv1_command(
+                    "127.0.0.1",
+                    54321,
+                    2.0,
+                    ["setprop", "key", "value"],
+                    input_mode="slow",
+                )
+
+        bridge.assert_called_once()
 
     def test_run_cmdv1_command_can_skip_prompt_and_drain_for_fast_input(self) -> None:
         calls: list[tuple[bool, float]] = []
