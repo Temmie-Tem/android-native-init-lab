@@ -15,6 +15,10 @@ POLICY = REPO_ROOT / "docs/operations/A90_RESIDENT_BOOT_PROMOTION_V1.md"
 AGENTS = REPO_ROOT / "AGENTS.md"
 PROCESS = REPO_ROOT / "docs/operations/DEVICE_ACTION_PROCESS_V2.md"
 TIERS = REPO_ROOT / "docs/operations/DEVICE_ACTION_RISK_TIERS.md"
+A90_TARGET = REPO_ROOT / "docs/operations/targets/A90_TARGET_CONTRACT.md"
+S22_TARGET = (
+    REPO_ROOT / "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md"
+)
 
 
 def load_module():
@@ -189,15 +193,19 @@ class ResidentPromotionV1ModelTests(unittest.TestCase):
         agents = AGENTS.read_text(encoding="utf-8")
         process = PROCESS.read_text(encoding="utf-8")
         tiers = TIERS.read_text(encoding="utf-8")
+        a90_target = A90_TARGET.read_text(encoding="utf-8")
+        s22_target = S22_TARGET.read_text(encoding="utf-8")
         self.assertIn(
-            "ordinary Process v2 is one boot-only candidate transfer plus its\n"
-            "  mandatory rollback",
+            "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md",
             agents,
         )
         self.assertIn(
-            "A90 resident boot-promotion v1 has an independently reviewed H0 runner",
+            "docs/operations/targets/A90_TARGET_CONTRACT.md",
             agents,
         )
+        self.assertIn("mandatory exact rollback", s22_target)
+        self.assertIn("A90_RESIDENT_BOOT_PROMOTION_V1.md", a90_target)
+        self.assertIn("do not independently grant authority", a90_target)
         process_compact = " ".join(process.split())
         self.assertIn("does not alter the ordinary state machine", process_compact)
         self.assertIn("or any S22+ run", process_compact)

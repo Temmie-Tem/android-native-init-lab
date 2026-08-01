@@ -36,11 +36,15 @@ authority.
 | Target | Current state | Binding target contract | Shared live process |
 |---|---|---|---|
 | Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` / `S906NKSS7FYG8`) | `GOAL.md` | `docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md` | `docs/operations/DEVICE_ACTION_PROCESS_V2.md` |
-| Samsung Galaxy A90 5G | `GOAL_A90.md` | common invariants plus `docs/operations/NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md`; attended observation and resident promotion are additionally bound by `docs/operations/A90_F1_ATTENDED_OBSERVATION_V1.md` and `docs/operations/A90_RESIDENT_BOOT_PROMOTION_V1.md` | existing checked A90 path until deliberately migrated |
+| Samsung Galaxy A90 5G | `GOAL_A90.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` | checked A90 path selected by that contract |
 
 Targets, profiles, rollback identities, transports, approvals, and health
 evidence never transfer between registry rows. If no binding target contract
 matches the exact target and action, remain H0.
+
+For A90 work, the required read order is this file, then
+`docs/operations/targets/A90_TARGET_CONTRACT.md`, then `GOAL_A90.md`. The goal
+records current state only and cannot grant or extend live authority.
 
 ## Permanent Safety Boundaries
 
