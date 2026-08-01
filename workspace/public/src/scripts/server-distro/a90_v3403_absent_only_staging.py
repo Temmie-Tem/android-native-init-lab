@@ -827,6 +827,7 @@ def validate_connected_d0_evidence(
     require_phase2_preflight: bool = False,
 ) -> None:
     target = _dict(value.get("target"), "connected D0 target")
+    host_ncm = _dict(value.get("host_ncm"), "connected D0 host NCM")
     health = _dict(value.get("health"), "connected D0 health")
     selftest = _dict(health.get("selftest"), "connected D0 selftest")
     safety = _dict(value.get("safety"), "connected D0 safety")
@@ -859,6 +860,13 @@ def validate_connected_d0_evidence(
         or selftest.get("fail") != 0
     ):
         raise ContractError("connected D0 baseline health mismatch")
+    if host_ncm != {
+        "verified_a90_ncm": True,
+        "direct_route": True,
+        "host_cidr_present": True,
+        "device_ping": True,
+    }:
+        raise ContractError("connected D0 host NCM readiness mismatch")
     for name in (
         "device_write",
         "flash",

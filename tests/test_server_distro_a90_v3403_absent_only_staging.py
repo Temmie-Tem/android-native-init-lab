@@ -212,6 +212,12 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
                 "matching_a90_usb_devices": 1,
                 "bridge_selected_realpath": "/dev/exact-private-binding",
             },
+            "host_ncm": {
+                "verified_a90_ncm": True,
+                "direct_route": True,
+                "host_cidr_present": True,
+                "device_ping": True,
+            },
             "health": {
                 "bridge_exact": True,
                 "bridge_running": True,
@@ -243,6 +249,16 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
         )
         value["target"]["matching_a90_usb_devices"] = 2
         with self.assertRaisesRegex(stage.ContractError, "target binding"):
+            stage.validate_connected_d0_evidence(
+                value,
+                expected_realpath="/dev/exact-private-binding",
+                candidate=candidate,
+                rollback=rollback,
+                flash_runner=runner,
+            )
+        value["target"]["matching_a90_usb_devices"] = 1
+        value["host_ncm"]["direct_route"] = False
+        with self.assertRaisesRegex(stage.ContractError, "NCM readiness"):
             stage.validate_connected_d0_evidence(
                 value,
                 expected_realpath="/dev/exact-private-binding",
@@ -283,6 +299,12 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
                     "profile": stage.TARGET_PROFILE,
                     "matching_a90_usb_devices": 1,
                     "bridge_selected_realpath": "/dev/exact-private-binding",
+                },
+                "host_ncm": {
+                    "verified_a90_ncm": True,
+                    "direct_route": True,
+                    "host_cidr_present": True,
+                    "device_ping": True,
                 },
                 "health": {
                     "bridge_exact": True,

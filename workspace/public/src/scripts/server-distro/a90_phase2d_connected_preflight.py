@@ -259,6 +259,7 @@ def write_connected_result(
     sequence: str,
     bridge_device: str,
     usb_identity: dict[str, Any],
+    host_ncm: dict[str, bool],
     health: dict[str, Any],
     candidate: Path,
     candidate_info: os.stat_result,
@@ -279,6 +280,7 @@ def write_connected_result(
             "bridge_device": bridge_device,
             **usb_identity,
         },
+        "host_ncm": host_ncm,
         "health": health,
         "artifacts": {
             "candidate_boot": {
@@ -344,6 +346,10 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
     )
     require_exact_bridge(args.bridge_device, args.expect_realpath, args)
     usb_identity = exact_usb_identity(args.expect_realpath)
+    host_ncm = staging.require_host_ncm_ready(
+        args.device_ip,
+        args.expect_realpath,
+    )
     baseline = staging.require_baseline(
         args,
         input_mode="slow",
@@ -356,6 +362,7 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
         sequence=args.evidence_sequence,
         bridge_device=args.bridge_device,
         usb_identity=usb_identity,
+        host_ncm=host_ncm,
         health=health,
         candidate=candidate,
         candidate_info=candidate_info,
@@ -490,6 +497,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
     )
     for token in (
         "staging.require_exact_bridge(spec, args)",
+        "staging.require_host_ncm_ready(",
         "staging.require_baseline(",
         "path_read_script(final, work, stage_dir)",
         '"device_write": False',
@@ -519,6 +527,10 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             issues.append(
                 f"connected D0 source contains forbidden action: {forbidden!r}"
             )
+    ncm_gate = subject.find("host_ncm = staging.require_host_ncm_ready(")
+    baseline_gate = subject.find("baseline = staging.require_baseline(")
+    if ncm_gate < 0 or baseline_gate < 0 or ncm_gate >= baseline_gate:
+        issues.append("connected D0 host NCM gate must precede baseline reads")
     return tuple(issues)
 
 
@@ -554,6 +566,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--expect-rollback-sha256")
     parser.add_argument("--bridge-device")
     parser.add_argument("--expect-realpath")
+    parser.add_argument("--device-ip")
     parser.add_argument("--bridge-host", default="localhost")
     parser.add_argument("--bridge-port", type=int, default=54321)
     parser.add_argument("--bridge-timeout", type=float, default=60.0)
@@ -572,6 +585,7 @@ def main(argv: list[str] | None = None) -> int:
             "expect_rollback_sha256",
             "bridge_device",
             "expect_realpath",
+            "device_ip",
         ):
             if getattr(args, name) is not None:
                 raise ContractError("audit mode accepts no connected inputs")
@@ -585,6 +599,7 @@ def main(argv: list[str] | None = None) -> int:
             "expect_rollback_sha256",
             "bridge_device",
             "expect_realpath",
+            "device_ip",
         ):
             if getattr(args, name) is None:
                 raise ContractError(f"connected D0 requires --{name.replace('_', '-')}")

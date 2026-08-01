@@ -160,6 +160,11 @@ class A90Phase2DConnectedPreflightTests(unittest.TestCase):
             ('"device_write": False', '"device_write": True', False),
             ("staging.require_baseline(", "removed_baseline(", False),
             (
+                "staging.require_host_ncm_ready(",
+                "removed_host_ncm_gate(",
+                False,
+            ),
+            (
                 'mode.add_argument("--audit-only"',
                 'mode.add_argument("--audit"',
                 True,
