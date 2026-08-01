@@ -83,6 +83,10 @@ SOURCE_KEYS=103 CURRENT=103 RECORDED=103 CHANGED_KEYS=[]
 - The preserved P2.74 sidecar dry run is complete, bounded, non-authoritative,
   contains kernel and udev receipts plus both lsusb snapshots, and reports no
   capture error or truncation.
+- A fresh 2026-08-01 actual-tool rehearsal also completes by its 0.5-second
+  bound. Installed journalctl and udev capture processes return zero, neither
+  truncates nor reports an error, and both current lsusb snapshots are durably
+  receipted under private storage.
 - Its five focused tests pass with `ResourceWarning` promoted to error.
 - P2.94 candidate-contract verification passes.
 - P2.94 telemetry closure, Stage-C receipt routing, ready-manifest derivation,
