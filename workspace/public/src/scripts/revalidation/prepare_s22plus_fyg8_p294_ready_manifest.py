@@ -40,6 +40,7 @@ DEFAULT_TIMEOUT_SEC = base.DEFAULT_TIMEOUT_SEC
 
 
 def _configure() -> None:
+    base.__doc__ = __doc__
     base.SCHEMA = SCHEMA
     base.VERDICT = VERDICT
     base.REHEARSAL_VERDICT = REHEARSAL_VERDICT

@@ -85,6 +85,7 @@ class P294ReadyManifestBuilderTest(unittest.TestCase):
 
     def test_defaults_are_p294_scoped_and_verify_only_is_preserved(self) -> None:
         args = builder.parse_args([])
+        self.assertIn("P2.94", builder.base.__doc__)
         for value in (
             args.candidate_static,
             args.run_manifest,
