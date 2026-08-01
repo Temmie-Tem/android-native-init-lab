@@ -106,8 +106,12 @@ transfer between the two files.
   path. Focused regression passes `21/21`, existing engine/adapter regression
   passes `49/49`, the real resident evidence cross-check passed, and independent
   review returned PASS/GO with no unresolved finding.
-- No D1 authority is active. The next unit is host-only final manifest and
-  approval preparation; live execution must wait for its fresh exact approval.
+- No D1 authority is active. Final host-only manifest and approval preparation
+  is complete; live execution must wait for its fresh exact approval.
+- Private run `a90-d1-attended-20260802-01` is now host-only prepared with
+  manifest SHA256 `62008a369193791231f3249e647df6876ddd82b80203c4c9f76c5cb67304af40`,
+  an eight-action budget, and a 2026-08-02 14:00:04 KST expiry. Its exact
+  approval remains unconsumed and no `d1-live` session directory exists.
 - Do not add a device step while host-only work can answer the selected
   question.
 
