@@ -57,6 +57,28 @@ class A90TransitionAdapterBlueprintV2Tests(unittest.TestCase):
         self.assertEqual(f1["execution_model"], "delegate_whole_transaction")
         self.assertEqual(f1["delegated_owner"], "resident_promotion.main")
         self.assertEqual(f1["phases_owned_by_adapter"], [])
+        self.assertEqual(manifest.F1_WORKFLOW, "A90_F1_RESIDENT_INSTALL_V1")
+        self.assertIn("F1_RESIDENT_TERMINAL_ADAPTER_UNIMPLEMENTED", f1["blockers"])
+        self.assertEqual(manifest.D1_WORKFLOW, "A90_D1_ATTENDED_SESSION_V1")
+        self.assertEqual(
+            d1["execution_model"],
+            "bounded_attended_session_injected_effects",
+        )
+        self.assertEqual(
+            d1["session_limits"],
+            {
+                "max_duration_sec": 8 * 60 * 60,
+                "max_actions": 32,
+            },
+        )
+        self.assertEqual(d1["action_allowlist"], ["SWITCHROOT_EXPERIMENT"])
+        self.assertEqual(d1["journal_owner"], manifest.UNBOUND)
+        self.assertEqual(d1["approval_consumer"], manifest.UNBOUND)
+        self.assertIn("D1_DURABLE_SESSION_JOURNAL_OWNER_ABSENT", d1["blockers"])
+        self.assertIn("D1_DURABLE_REFUTATION_HISTORY_ABSENT", d1["blockers"])
+        self.assertIn("D1_OBSERVER_REPAIR_RECORD_OWNER_ABSENT", d1["blockers"])
+        self.assertIn("D1_SESSION_APPROVAL_CONSUMER_ABSENT", d1["blockers"])
+        self.assertIn("D1_SESSION_EFFECTS_BACKEND_UNIMPLEMENTED", d1["blockers"])
         self.assertFalse(
             {route["effect_kind"] for route in routes.values()}
             & {"flash", "payload_transfer", "partition_write"}
@@ -117,6 +139,37 @@ class A90TransitionAdapterBlueprintV2Tests(unittest.TestCase):
         route["status"] = "READY_FOR_ADAPTER"
         with self.assertRaisesRegex(manifest.ManifestError, "exact H0 route"):
             manifest.validate_blueprint(cleanup)
+
+    def test_validator_rejects_session_limit_allowlist_and_scope_changes(self) -> None:
+        for label, mutate in (
+            (
+                "duration",
+                lambda d1: d1["session_limits"].__setitem__(
+                    "max_duration_sec",
+                    8 * 60 * 60 + 1,
+                ),
+            ),
+            (
+                "budget",
+                lambda d1: d1["session_limits"].__setitem__("max_actions", 33),
+            ),
+            (
+                "allowlist",
+                lambda d1: d1["action_allowlist"].append("ARBITRARY_SHELL"),
+            ),
+            (
+                "scope",
+                lambda d1: d1.__setitem__("approval_scope", "UNBOUNDED"),
+            ),
+        ):
+            with self.subTest(label=label):
+                value = manifest.expected_blueprint()
+                mutate(value["workflows"][manifest.D1_WORKFLOW])
+                with self.assertRaisesRegex(
+                    manifest.ManifestError,
+                    "exact H0 route",
+                ):
+                    manifest.validate_blueprint(value)
 
     def test_inventory_rejects_missing_and_duplicate_symbol(self) -> None:
         with tempfile.TemporaryDirectory(prefix="a90-route-symbol-") as raw:

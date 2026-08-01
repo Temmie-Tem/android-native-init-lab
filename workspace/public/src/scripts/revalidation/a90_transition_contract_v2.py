@@ -12,6 +12,8 @@ from typing import Iterable
 CONTRACT_SCHEMA = "a90-transition-contract-v2"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 IDENTITY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:+-]{0,127}$")
+MAX_ATTENDED_SESSION_DURATION_SEC = 8 * 60 * 60
+MAX_ATTENDED_SESSION_ACTIONS = 32
 
 
 class ContractError(RuntimeError):
@@ -27,8 +29,13 @@ class RiskTier(str, Enum):
 
 
 class Workflow(str, Enum):
-    RESIDENT_INSTALL_F1 = "RESIDENT_INSTALL_F1"
-    SWITCHROOT_EXPERIMENT_D1 = "SWITCHROOT_EXPERIMENT_D1"
+    RESIDENT_INSTALL_F1 = "A90_F1_RESIDENT_INSTALL_V1"
+    SWITCHROOT_EXPERIMENT_D1 = "A90_D1_SINGLE_SWITCHROOT_ACTION_V1"
+    ATTENDED_SESSION_D1 = "A90_D1_ATTENDED_SESSION_V1"
+
+
+class SessionAction(str, Enum):
+    SWITCHROOT_EXPERIMENT = "SWITCHROOT_EXPERIMENT"
 
 
 class LegacyStage(str, Enum):
@@ -39,6 +46,22 @@ class ProofState(str, Enum):
     PROVEN = "PROVEN"
     REFUTED = "REFUTED"
     UNAVAILABLE = "UNAVAILABLE"
+
+
+@dataclass(frozen=True)
+class ConfirmedRefutation:
+    action: SessionAction
+    failure_class: str
+
+    def validate(self) -> None:
+        if not isinstance(self.action, SessionAction):
+            raise ContractError("confirmed refutation action is not exact")
+        if (
+            not isinstance(self.failure_class, str)
+            or IDENTITY_RE.fullmatch(self.failure_class) is None
+            or not self.failure_class.endswith("_REFUTED")
+        ):
+            raise ContractError("confirmed refutation class is not exact")
 
 
 @dataclass(frozen=True)
@@ -107,9 +130,128 @@ class ApprovalBinding:
             Workflow.SWITCHROOT_EXPERIMENT_D1: (
                 RiskTier.TIER_D1_TRANSIENT_NO_PAYLOAD_CONTROL
             ),
+            Workflow.ATTENDED_SESSION_D1: (
+                RiskTier.TIER_D1_TRANSIENT_NO_PAYLOAD_CONTROL
+            ),
         }[self.workflow]
         if self.risk_tier is not expected:
             raise ContractError("workflow and risk tier are not namespaced exactly")
+
+
+@dataclass(frozen=True)
+class AttendedSessionBinding:
+    approval_id: str
+    workflow: Workflow
+    risk_tier: RiskTier
+    target_profile: str
+    manifest_sha256: str
+    resident_boot_sha256: str
+    rollback_boot_sha256: str
+    recovery_profile: str
+    device_effect_runner_sha256: str
+    observer_sha256: str
+    return_health_profile: str
+    action_allowlist: tuple[SessionAction, ...]
+    not_before_epoch_sec: int
+    expires_at_epoch_sec: int
+    max_actions: int
+
+    def validate(self) -> None:
+        if self.workflow is not Workflow.ATTENDED_SESSION_D1:
+            raise ContractError("session workflow is not namespaced exactly")
+        if self.risk_tier is not RiskTier.TIER_D1_TRANSIENT_NO_PAYLOAD_CONTROL:
+            raise ContractError("session risk tier is not namespaced exactly")
+        for label, value in (
+            ("approval", self.approval_id),
+            ("target profile", self.target_profile),
+            ("recovery profile", self.recovery_profile),
+            ("return health profile", self.return_health_profile),
+        ):
+            if not isinstance(value, str) or IDENTITY_RE.fullmatch(value) is None:
+                raise ContractError(f"session {label} identity is not exact")
+        for label, value in (
+            ("manifest", self.manifest_sha256),
+            ("resident boot", self.resident_boot_sha256),
+            ("rollback boot", self.rollback_boot_sha256),
+            ("device effect runner", self.device_effect_runner_sha256),
+            ("observer", self.observer_sha256),
+        ):
+            if not isinstance(value, str) or SHA256_RE.fullmatch(value) is None:
+                raise ContractError(f"session {label} SHA256 is not exact")
+        if (
+            not isinstance(self.action_allowlist, tuple)
+            or not self.action_allowlist
+            or any(not isinstance(item, SessionAction) for item in self.action_allowlist)
+            or len(set(self.action_allowlist)) != len(self.action_allowlist)
+        ):
+            raise ContractError("session action allowlist is not exact")
+        if (
+            type(self.not_before_epoch_sec) is not int
+            or type(self.expires_at_epoch_sec) is not int
+            or self.not_before_epoch_sec < 0
+            or self.expires_at_epoch_sec <= self.not_before_epoch_sec
+            or (
+                self.expires_at_epoch_sec - self.not_before_epoch_sec
+                > MAX_ATTENDED_SESSION_DURATION_SEC
+            )
+        ):
+            raise ContractError("session validity exceeds the eight-hour bound")
+        if (
+            type(self.max_actions) is not int
+            or not 1 <= self.max_actions <= MAX_ATTENDED_SESSION_ACTIONS
+        ):
+            raise ContractError("session action budget exceeds the 32-action bound")
+
+
+@dataclass(frozen=True)
+class ObserverRepair:
+    previous_sha256: str
+    repaired_sha256: str
+    focused_tests_passed: bool
+    host_only: bool
+
+    def validate(self) -> None:
+        if (
+            not isinstance(self.previous_sha256, str)
+            or SHA256_RE.fullmatch(self.previous_sha256) is None
+            or not isinstance(self.repaired_sha256, str)
+            or SHA256_RE.fullmatch(self.repaired_sha256) is None
+            or self.previous_sha256 == self.repaired_sha256
+        ):
+            raise ContractError("observer repair identity is not exact")
+        if self.focused_tests_passed is not True or self.host_only is not True:
+            raise ContractError("observer repair lacks host-only focused validation")
+
+
+def validate_attended_session_binding(
+    binding: AttendedSessionBinding,
+) -> AttendedSessionBinding:
+    if not isinstance(binding, AttendedSessionBinding):
+        raise ContractError("session binding type is not exact")
+    binding.validate()
+    return binding
+
+
+@dataclass(frozen=True)
+class SessionPreflight:
+    operator_attended: bool
+    target_identity_matches: bool
+    resident_identity_matches: bool
+    rollback_ready: bool
+    recovery_available: bool
+
+    def validate(self) -> None:
+        checks = (
+            self.operator_attended,
+            self.target_identity_matches,
+            self.resident_identity_matches,
+            self.rollback_ready,
+            self.recovery_available,
+        )
+        if any(type(value) is not bool for value in checks):
+            raise ContractError("session preflight value is not boolean")
+        if not all(checks):
+            raise ContractError("session preflight is not safe to continue")
 
 
 @dataclass(frozen=True)

@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 
@@ -18,6 +19,9 @@ for directory in (REVAL_DIR, SERVER_DIR):
 import a90_transition_contract_v2 as contract  # noqa: E402
 import a90_transition_engine_v2 as engine  # noqa: E402
 import a90_transition_v2 as cli  # noqa: E402
+
+
+SESSION_START_EPOCH_SEC = 2_000_000_000
 
 
 def approval(
@@ -46,6 +50,72 @@ def run_contract(
         approval=approval(workflow),
         successors=(contract.DISPLAY_SUCCESSOR,),
         **kwargs,
+    )
+
+
+def session_binding(**overrides: object) -> contract.AttendedSessionBinding:
+    values: dict[str, object] = {
+        "approval_id": "session-approval-1",
+        "workflow": contract.Workflow.ATTENDED_SESSION_D1,
+        "risk_tier": contract.RiskTier.TIER_D1_TRANSIENT_NO_PAYLOAD_CONTROL,
+        "target_profile": "A90_TEST_ONLY",
+        "manifest_sha256": "1" * 64,
+        "resident_boot_sha256": "2" * 64,
+        "rollback_boot_sha256": "3" * 64,
+        "recovery_profile": "A90_TEST_RECOVERY",
+        "device_effect_runner_sha256": "4" * 64,
+        "observer_sha256": "5" * 64,
+        "return_health_profile": "A90_TEST_HEALTH",
+        "action_allowlist": (contract.SessionAction.SWITCHROOT_EXPERIMENT,),
+        "not_before_epoch_sec": SESSION_START_EPOCH_SEC,
+        "expires_at_epoch_sec": (
+            SESSION_START_EPOCH_SEC + contract.MAX_ATTENDED_SESSION_DURATION_SEC
+        ),
+        "max_actions": 3,
+    }
+    values.update(overrides)
+    return contract.AttendedSessionBinding(**values)  # type: ignore[arg-type]
+
+
+def session_contract(
+    *,
+    previous_refutations: tuple[contract.ConfirmedRefutation, ...] = (),
+    **overrides: object,
+) -> engine.AttendedSessionContract:
+    return engine.AttendedSessionContract(
+        binding=session_binding(**overrides),
+        successors=(contract.DISPLAY_SUCCESSOR,),
+        previous_refutations=previous_refutations,
+    )
+
+
+def safe_session_preflight() -> contract.SessionPreflight:
+    return contract.SessionPreflight(
+        operator_attended=True,
+        target_identity_matches=True,
+        resident_identity_matches=True,
+        rollback_ready=True,
+        recovery_available=True,
+    )
+
+
+def proved_action() -> engine.SessionActionResult:
+    return engine.SessionActionResult(
+        engine.SessionActionStatus.PROVED,
+        action_started=True,
+        postflight=safe_session_preflight(),
+    )
+
+
+def open_session(
+    exact: engine.AttendedSessionContract,
+    effects: engine.ScriptedSessionEffects,
+) -> engine.AttendedSession:
+    return engine.open_attended_session(
+        exact,
+        effects,
+        now_epoch_sec=SESSION_START_EPOCH_SEC,
+        preflight=safe_session_preflight(),
     )
 
 
@@ -91,8 +161,10 @@ class A90TransitionV2Tests(unittest.TestCase):
             run_contract(contract.Workflow.RESIDENT_INSTALL_F1),
             effects,
         )
-        self.assertEqual(result["terminal"], "PROMOTED_CLOSED")
+        self.assertEqual(result["terminal"], "PASS_A90_RESIDENT_INSTALLED")
         self.assertEqual(result["counts"]["CANDIDATE_FLASH"], 1)
+        self.assertNotIn("RESIDENT_REBOOT", result["counts"])
+        self.assertEqual(result["device_safety_state"], "RESIDENT_HEALTHY")
         self.assertNotIn("ROLLBACK_FLASH", result["counts"])
         self.assertFalse(result["candidate_replay"])
         self.assertTrue(effects.events[0].startswith("APPROVAL_CONSUME:"))
@@ -541,6 +613,527 @@ class A90TransitionV2Tests(unittest.TestCase):
                 ),
                 engine.ScriptedEffects({}),
             )
+
+    def test_attended_session_binding_is_exact_and_bounded(self) -> None:
+        binding = session_binding()
+        self.assertIs(
+            contract.validate_attended_session_binding(binding),
+            binding,
+        )
+        for bad, message in (
+            (
+                replace(
+                    binding,
+                    expires_at_epoch_sec=(
+                        binding.not_before_epoch_sec
+                        + contract.MAX_ATTENDED_SESSION_DURATION_SEC
+                        + 1
+                    ),
+                ),
+                "eight-hour",
+            ),
+            (
+                replace(
+                    binding,
+                    max_actions=contract.MAX_ATTENDED_SESSION_ACTIONS + 1,
+                ),
+                "32-action",
+            ),
+            (replace(binding, action_allowlist=()), "allowlist"),
+            (
+                replace(
+                    binding,
+                    action_allowlist=(
+                        contract.SessionAction.SWITCHROOT_EXPERIMENT,
+                        contract.SessionAction.SWITCHROOT_EXPERIMENT,
+                    ),
+                ),
+                "allowlist",
+            ),
+            (
+                replace(binding, workflow=contract.Workflow.RESIDENT_INSTALL_F1),
+                "workflow",
+            ),
+            (replace(binding, rollback_boot_sha256="bad"), "rollback boot"),
+            (replace(binding, observer_sha256="bad"), "observer"),
+        ):
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(contract.ContractError, message):
+                    contract.validate_attended_session_binding(bad)
+
+    def test_attended_session_consumes_one_approval_for_multiple_actions(self) -> None:
+        effects = engine.ScriptedSessionEffects(
+            (
+                proved_action(),
+                engine.SessionActionResult(
+                    engine.SessionActionStatus.REFUTED,
+                    action_started=True,
+                    failure_class="DISPLAY_VISIBILITY_REFUTED",
+                    postflight=safe_session_preflight(),
+                ),
+            )
+        )
+        session = open_session(session_contract(), effects)
+        first = session.run_action(
+            contract.SessionAction.SWITCHROOT_EXPERIMENT,
+            now_epoch_sec=SESSION_START_EPOCH_SEC + 1,
+            preflight=safe_session_preflight(),
+        )
+        second = session.run_action(
+            contract.SessionAction.SWITCHROOT_EXPERIMENT,
+            now_epoch_sec=SESSION_START_EPOCH_SEC + 2,
+            preflight=safe_session_preflight(),
+        )
+        self.assertEqual(first["terminal"], "SESSION_ACTIVE")
+        self.assertEqual(second["terminal"], "SESSION_ACTIVE")
+        self.assertEqual(second["actions_used"], 2)
+        self.assertEqual(second["actions_remaining"], 1)
+        self.assertFalse(second["candidate_transfer"])
+        self.assertFalse(second["rollback_transfer"])
+        self.assertFalse(second["payload_transfer"])
+        self.assertEqual(effects.invoke_count, 2)
+        self.assertEqual(
+            sum(event.startswith("SESSION_APPROVAL_CONSUME:") for event in effects.events),
+            1,
+        )
+
+    def test_observer_no_proof_keeps_session_without_action_resend(self) -> None:
+        effects = engine.ScriptedSessionEffects(
+            (
+                engine.SessionActionResult(
+                    engine.SessionActionStatus.NO_PROOF_OBSERVER,
+                    action_started=True,
+                    failure_class="RETURN_FRAME_OBSERVER",
+                    postflight=safe_session_preflight(),
+                    independent_safety_check=True,
+                ),
+            )
+        )
+        session = open_session(session_contract(), effects)
+        result = session.run_action(
+            contract.SessionAction.SWITCHROOT_EXPERIMENT,
+            now_epoch_sec=SESSION_START_EPOCH_SEC + 1,
+            preflight=safe_session_preflight(),
+        )
+        self.assertEqual(
+            result["terminal"],
+            "SESSION_PAUSED_OBSERVER_REPAIR_REQUIRED",
+        )
+        self.assertFalse(result["session_active"])
+        self.assertTrue(result["session_open"])
+        self.assertTrue(result["observer_repair_required"])
+        self.assertEqual(
+            result["action_results"][0]["status"],
+            "NO_PROOF_OBSERVER",
+        )
+        self.assertEqual(effects.invoke_count, 1)
+        self.assertEqual(
+            sum(event.startswith("SESSION_EFFECT:") for event in effects.events),
+            1,
+        )
+        with self.assertRaisesRegex(contract.ContractError, "observer repair"):
+            session.run_action(
+                contract.SessionAction.SWITCHROOT_EXPERIMENT,
+                now_epoch_sec=SESSION_START_EPOCH_SEC + 2,
+                preflight=safe_session_preflight(),
+            )
+        self.assertEqual(effects.invoke_count, 1)
+
+    def test_validated_observer_repair_resumes_without_replaying_action(self) -> None:
+        no_proof = engine.SessionActionResult(
+            engine.SessionActionStatus.NO_PROOF_OBSERVER,
+            action_started=True,
+            failure_class="RETURN_FRAME_OBSERVER",
+            postflight=safe_session_preflight(),
+            independent_safety_check=True,
+        )
+        effects = engine.ScriptedSessionEffects((no_proof, proved_action()))
+        session = open_session(session_contract(), effects)
+        session.run_action(
+            contract.SessionAction.SWITCHROOT_EXPERIMENT,
+            now_epoch_sec=SESSION_START_EPOCH_SEC + 1,
+            preflight=safe_session_preflight(),
+        )
+        resumed = session.resume_after_observer_repair(
+            contract.ObserverRepair(
+                previous_sha256="5" * 64,
+                repaired_sha256="6" * 64,
+                focused_tests_passed=True,
+                host_only=True,
+            ),
+            now_epoch_sec=SESSION_START_EPOCH_SEC + 2,
+            preflight=safe_session_preflight(),
+        )
+        result = session.run_action(
+            contract.SessionAction.SWITCHROOT_EXPERIMENT,
+            now_epoch_sec=SESSION_START_EPOCH_SEC + 3,
+            preflight=safe_session_preflight(),
+        )
+        self.assertEqual(resumed["terminal"], "SESSION_ACTIVE")
+        self.assertFalse(resumed["observer_repair_required"])
+        self.assertEqual(resumed["active_observer_sha256"], "6" * 64)
+        self.assertEqual(result["actions_used"], 2)
+        self.assertEqual(effects.invoke_count, 2)
+        self.assertEqual(
+            sum(event.startswith("SESSION_EFFECT:") for event in effects.events),
+            2,
+        )
+        action_events = [
+            event for event in effects.events if event.startswith("SESSION_EFFECT:")
+        ]
+        self.assertTrue(action_events[0].endswith(":" + "5" * 64))
+        self.assertTrue(action_events[1].endswith(":" + "6" * 64))
+
+    def test_observer_repair_rejects_same_bytes_failed_tests_and_unsafe_state(self) -> None:
+        no_proof = engine.SessionActionResult(
+            engine.SessionActionStatus.NO_PROOF_OBSERVER,
+            action_started=True,
+            failure_class="RETURN_FRAME_OBSERVER",
+            postflight=safe_session_preflight(),
+            independent_safety_check=True,
+        )
+        for label, repair, preflight, message in (
+            (
+                "same-bytes",
+                contract.ObserverRepair("5" * 64, "5" * 64, True, True),
+                safe_session_preflight(),
+                "identity",
+            ),
+            (
+                "tests-failed",
+                contract.ObserverRepair("5" * 64, "6" * 64, False, True),
+                safe_session_preflight(),
+                "focused validation",
+            ),
+            (
+                "unsafe",
+                contract.ObserverRepair("5" * 64, "6" * 64, True, True),
+                replace(
+                    safe_session_preflight(),
+                    resident_identity_matches=False,
+                ),
+                "safe to continue",
+            ),
+        ):
+            with self.subTest(label=label):
+                effects = engine.ScriptedSessionEffects((no_proof,))
+                session = open_session(session_contract(), effects)
+                session.run_action(
+                    contract.SessionAction.SWITCHROOT_EXPERIMENT,
+                    now_epoch_sec=SESSION_START_EPOCH_SEC + 1,
+                    preflight=safe_session_preflight(),
+                )
+                with self.assertRaisesRegex(contract.ContractError, message):
+                    session.resume_after_observer_repair(
+                        repair,
+                        now_epoch_sec=SESSION_START_EPOCH_SEC + 2,
+                        preflight=preflight,
+                    )
+                self.assertTrue(session.observer_repair_required)
+                self.assertEqual(effects.invoke_count, 1)
+                self.assertFalse(
+                    any(
+                        event.startswith("SESSION_OBSERVER_REPAIR:")
+                        for event in effects.events
+                    )
+                )
+
+    def test_observer_no_proof_at_last_budget_closes_without_resume(self) -> None:
+        no_proof = engine.SessionActionResult(
+            engine.SessionActionStatus.NO_PROOF_OBSERVER,
+            action_started=True,
+            failure_class="RETURN_FRAME_OBSERVER",
+            postflight=safe_session_preflight(),
+            independent_safety_check=True,
+        )
+        effects = engine.ScriptedSessionEffects((no_proof,))
+        session = open_session(session_contract(max_actions=1), effects)
+        result = session.run_action(
+            contract.SessionAction.SWITCHROOT_EXPERIMENT,
+            now_epoch_sec=SESSION_START_EPOCH_SEC + 1,
+            preflight=safe_session_preflight(),
+        )
+        self.assertEqual(result["terminal"], "SESSION_CLOSED_BUDGET_EXHAUSTED")
+        self.assertFalse(result["observer_repair_required"])
+        self.assertFalse(result["session_open"])
+
+    def test_observer_no_proof_without_safe_postflight_requires_recovery(self) -> None:
+        malformed = engine.SessionActionResult(
+            engine.SessionActionStatus.NO_PROOF_OBSERVER,
+            action_started=True,
+            failure_class="RETURN_FRAME_OBSERVER",
+        )
+        effects = engine.ScriptedSessionEffects((malformed,))
+        session = open_session(session_contract(), effects)
+        result = session.run_action(
+            contract.SessionAction.SWITCHROOT_EXPERIMENT,
+            now_epoch_sec=SESSION_START_EPOCH_SEC + 1,
+            preflight=safe_session_preflight(),
+        )
+        self.assertEqual(result["terminal"], "RECOVERY_REQUIRED")
+        self.assertFalse(result["session_active"])
+        self.assertEqual(effects.invoke_count, 1)
+
+    def test_control_ambiguity_ends_session_for_recovery(self) -> None:
+        effects = engine.ScriptedSessionEffects(
+            (
+                engine.SessionActionResult(
+                    engine.SessionActionStatus.CONTROL_AMBIGUOUS,
+                    action_started=True,
+                    failure_class="RETURN_CONTROL_AMBIGUOUS",
+                ),
+            )
+        )
+        session = open_session(session_contract(), effects)
+        result = session.run_action(
+            contract.SessionAction.SWITCHROOT_EXPERIMENT,
+            now_epoch_sec=SESSION_START_EPOCH_SEC + 1,
+            preflight=safe_session_preflight(),
+        )
+        self.assertEqual(result["terminal"], "RECOVERY_REQUIRED")
+        self.assertEqual(result["actions_used"], 1)
+
+    def test_session_preflight_expiry_and_unallowlisted_stop_before_effect(self) -> None:
+        unsafe = replace(safe_session_preflight(), operator_attended=False)
+        for label, elapsed, action, preflight, terminal in (
+            (
+                "unsafe",
+                SESSION_START_EPOCH_SEC + 1,
+                contract.SessionAction.SWITCHROOT_EXPERIMENT,
+                unsafe,
+                "SESSION_CLOSED_OPERATOR_ABSENT",
+            ),
+            (
+                "expired",
+                SESSION_START_EPOCH_SEC + contract.MAX_ATTENDED_SESSION_DURATION_SEC,
+                contract.SessionAction.SWITCHROOT_EXPERIMENT,
+                safe_session_preflight(),
+                "SESSION_CLOSED_EXPIRED",
+            ),
+            (
+                "unallowlisted",
+                SESSION_START_EPOCH_SEC + 1,
+                "NATIVE_UI_HIDE",
+                safe_session_preflight(),
+                "SESSION_CLOSED_UNALLOWLISTED_ACTION",
+            ),
+        ):
+            with self.subTest(label=label):
+                effects = engine.ScriptedSessionEffects((proved_action(),))
+                session = open_session(session_contract(), effects)
+                result = session.run_action(
+                    action,  # type: ignore[arg-type]
+                    now_epoch_sec=elapsed,
+                    preflight=preflight,
+                )
+                self.assertEqual(result["terminal"], terminal)
+                self.assertEqual(effects.invoke_count, 0)
+                self.assertEqual(result["actions_used"], 0)
+
+    def test_session_opening_checks_window_and_health_before_approval(self) -> None:
+        for label, now, preflight, message in (
+            (
+                "too-early",
+                SESSION_START_EPOCH_SEC - 1,
+                safe_session_preflight(),
+                "window",
+            ),
+            (
+                "expired",
+                SESSION_START_EPOCH_SEC
+                + contract.MAX_ATTENDED_SESSION_DURATION_SEC,
+                safe_session_preflight(),
+                "window",
+            ),
+            (
+                "unsafe",
+                SESSION_START_EPOCH_SEC,
+                replace(safe_session_preflight(), rollback_ready=False),
+                "safe to continue",
+            ),
+        ):
+            with self.subTest(label=label):
+                effects = engine.ScriptedSessionEffects((proved_action(),))
+                with self.assertRaisesRegex(contract.ContractError, message):
+                    engine.open_attended_session(
+                        session_contract(),
+                        effects,
+                        now_epoch_sec=now,
+                        preflight=preflight,
+                    )
+                self.assertEqual(effects.events, [])
+
+    def test_session_identity_loss_before_action_requires_recovery(self) -> None:
+        effects = engine.ScriptedSessionEffects((proved_action(),))
+        session = open_session(session_contract(), effects)
+        result = session.run_action(
+            contract.SessionAction.SWITCHROOT_EXPERIMENT,
+            now_epoch_sec=SESSION_START_EPOCH_SEC + 1,
+            preflight=replace(
+                safe_session_preflight(),
+                resident_identity_matches=False,
+            ),
+        )
+        self.assertEqual(result["terminal"], "RECOVERY_REQUIRED")
+        self.assertEqual(result["device_safety_state"], "RECOVERY_REQUIRED")
+        self.assertEqual(result["actions_used"], 0)
+        self.assertEqual(effects.invoke_count, 0)
+
+    def test_session_budget_closes_after_exact_last_action(self) -> None:
+        effects = engine.ScriptedSessionEffects((proved_action(), proved_action()))
+        session = engine.open_attended_session(
+            session_contract(max_actions=2),
+            effects,
+            now_epoch_sec=SESSION_START_EPOCH_SEC,
+            preflight=safe_session_preflight(),
+        )
+        session.run_action(
+            contract.SessionAction.SWITCHROOT_EXPERIMENT,
+            now_epoch_sec=SESSION_START_EPOCH_SEC + 1,
+            preflight=safe_session_preflight(),
+        )
+        result = session.run_action(
+            contract.SessionAction.SWITCHROOT_EXPERIMENT,
+            now_epoch_sec=SESSION_START_EPOCH_SEC + 2,
+            preflight=safe_session_preflight(),
+        )
+        self.assertEqual(result["terminal"], "SESSION_CLOSED_BUDGET_EXHAUSTED")
+        self.assertEqual(result["actions_used"], 2)
+        self.assertEqual(result["actions_remaining"], 0)
+        with self.assertRaisesRegex(contract.ContractError, "already closed"):
+            session.run_action(
+                contract.SessionAction.SWITCHROOT_EXPERIMENT,
+                now_epoch_sec=SESSION_START_EPOCH_SEC + 3,
+                preflight=safe_session_preflight(),
+            )
+
+    def test_repeated_confirmed_refutation_stops_without_rollback(self) -> None:
+        refuted = engine.SessionActionResult(
+            engine.SessionActionStatus.REFUTED,
+            action_started=True,
+            failure_class="DISPLAY_VISIBILITY_REFUTED",
+            postflight=safe_session_preflight(),
+        )
+        effects = engine.ScriptedSessionEffects((refuted, refuted))
+        session = open_session(session_contract(), effects)
+        first = session.run_action(
+            contract.SessionAction.SWITCHROOT_EXPERIMENT,
+            now_epoch_sec=SESSION_START_EPOCH_SEC + 1,
+            preflight=safe_session_preflight(),
+        )
+        second = session.run_action(
+            contract.SessionAction.SWITCHROOT_EXPERIMENT,
+            now_epoch_sec=SESSION_START_EPOCH_SEC + 2,
+            preflight=safe_session_preflight(),
+        )
+        self.assertEqual(first["terminal"], "SESSION_ACTIVE")
+        self.assertEqual(second["terminal"], "SESSION_CLOSED_REPEATED_REFUTATION")
+        self.assertEqual(second["device_safety_state"], "RESIDENT_HEALTHY")
+        self.assertFalse(second["rollback_transfer"])
+        self.assertEqual(effects.invoke_count, 2)
+
+    def test_prior_session_refutation_counts_toward_live_line_stop(self) -> None:
+        signature = contract.ConfirmedRefutation(
+            contract.SessionAction.SWITCHROOT_EXPERIMENT,
+            "DISPLAY_VISIBILITY_REFUTED",
+        )
+        refuted = engine.SessionActionResult(
+            engine.SessionActionStatus.REFUTED,
+            action_started=True,
+            failure_class=signature.failure_class,
+            postflight=safe_session_preflight(),
+        )
+        effects = engine.ScriptedSessionEffects((refuted,))
+        session = open_session(
+            session_contract(previous_refutations=(signature,)),
+            effects,
+        )
+        result = session.run_action(
+            contract.SessionAction.SWITCHROOT_EXPERIMENT,
+            now_epoch_sec=SESSION_START_EPOCH_SEC + 1,
+            preflight=safe_session_preflight(),
+        )
+        self.assertEqual(result["terminal"], "SESSION_CLOSED_REPEATED_REFUTATION")
+        self.assertEqual(result["device_safety_state"], "RESIDENT_HEALTHY")
+        self.assertEqual(effects.invoke_count, 1)
+
+    def test_two_prior_refutations_stop_before_approval_consumption(self) -> None:
+        signature = contract.ConfirmedRefutation(
+            contract.SessionAction.SWITCHROOT_EXPERIMENT,
+            "DISPLAY_VISIBILITY_REFUTED",
+        )
+        effects = engine.ScriptedSessionEffects((proved_action(),))
+        with self.assertRaisesRegex(contract.ContractError, "stops the live line"):
+            open_session(
+                session_contract(previous_refutations=(signature, signature)),
+                effects,
+            )
+        self.assertEqual(effects.events, [])
+
+    def test_session_intent_failure_never_invokes_action(self) -> None:
+        class IntentFailureEffects(engine.ScriptedSessionEffects):
+            def record_action_intent(
+                self,
+                binding: contract.AttendedSessionBinding,
+                ordinal: int,
+                action: contract.SessionAction,
+                observer_sha256: str,
+            ) -> None:
+                raise OSError("journal unavailable")
+
+        effects = IntentFailureEffects((proved_action(),))
+        session = open_session(session_contract(), effects)
+        result = session.run_action(
+            contract.SessionAction.SWITCHROOT_EXPERIMENT,
+            now_epoch_sec=SESSION_START_EPOCH_SEC + 1,
+            preflight=safe_session_preflight(),
+        )
+        self.assertEqual(result["terminal"], "SESSION_CLOSED_INTENT_FAILED")
+        self.assertEqual(result["actions_used"], 0)
+        self.assertEqual(effects.invoke_count, 0)
+
+    def test_session_action_exception_is_not_retried(self) -> None:
+        effects = engine.ScriptedSessionEffects(())
+        session = open_session(session_contract(), effects)
+        result = session.run_action(
+            contract.SessionAction.SWITCHROOT_EXPERIMENT,
+            now_epoch_sec=SESSION_START_EPOCH_SEC + 1,
+            preflight=safe_session_preflight(),
+        )
+        self.assertEqual(result["terminal"], "RECOVERY_REQUIRED")
+        self.assertEqual(result["actions_used"], 1)
+        self.assertEqual(effects.invoke_count, 1)
+
+    def test_session_approval_cannot_be_consumed_twice(self) -> None:
+        effects = engine.ScriptedSessionEffects((proved_action(),))
+        exact = session_contract()
+        open_session(exact, effects)
+        with self.assertRaisesRegex(contract.ContractError, "already consumed"):
+            open_session(exact, effects)
+
+    def test_session_cli_scenarios_are_host_only_and_bounded(self) -> None:
+        two = cli.simulate("session-two-actions")
+        no_proof = cli.simulate("session-observer-no-proof")
+        ambiguous = cli.simulate("session-control-ambiguous")
+        expired = cli.simulate("session-expired")
+        unallowlisted = cli.simulate("session-unallowlisted")
+        self.assertEqual(two["result"]["terminal"], "SESSION_ACTIVE")
+        self.assertEqual(two["result"]["actions_used"], 2)
+        self.assertEqual(
+            no_proof["result"]["action_results"][0]["status"],
+            "NO_PROOF_OBSERVER",
+        )
+        self.assertEqual(
+            no_proof["result"]["terminal"],
+            "SESSION_PAUSED_OBSERVER_REPAIR_REQUIRED",
+        )
+        self.assertEqual(ambiguous["result"]["terminal"], "RECOVERY_REQUIRED")
+        self.assertEqual(expired["result"]["actions_used"], 0)
+        self.assertEqual(unallowlisted["result"]["actions_used"], 0)
+        for result in (two, no_proof, ambiguous, expired, unallowlisted):
+            self.assertTrue(result["host_only"])
+            self.assertFalse(result["device_action"])
+            self.assertFalse(result["live_backend_present"])
 
     def test_imports_have_no_write_surface_in_disposable_namespace(self) -> None:
         if shutil.which("bwrap") is None:

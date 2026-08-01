@@ -13,11 +13,14 @@ AUDIT_SCHEMA = "a90-transition-adapter-blueprint-v2-audit"
 TARGET_PROFILE = "galaxy-a90-5g-native-init"
 UNBOUND = "UNBOUND"
 
-F1_WORKFLOW = "RESIDENT_INSTALL_F1"
-D1_WORKFLOW = "SWITCHROOT_EXPERIMENT_D1"
+F1_WORKFLOW = "A90_F1_RESIDENT_INSTALL_V1"
+D1_WORKFLOW = "A90_D1_ATTENDED_SESSION_V1"
 F1_TIER = "F1_BOOT_ONLY_WITH_EXACT_ROLLBACK"
 D1_TIER = "TIER_D1_TRANSIENT_NO_PAYLOAD_CONTROL"
-D1_APPROVAL_SCOPE = "ONE_HANDOFF_AND_SAME_RUN_EXACT_WORK_CLEANUP"
+D1_APPROVAL_SCOPE = "ATTENDED_SESSION_MAX_8H_32_ACTIONS"
+D1_ACTION_ALLOWLIST = ("SWITCHROOT_EXPERIMENT",)
+D1_MAX_DURATION_SEC = 8 * 60 * 60
+D1_MAX_ACTIONS = 32
 LEGACY_CLEANUP_SCOPE = "LEGACY_SEPARATE_CLEANUP_APPROVAL"
 
 # This is a symbol inventory, not an immutable or semantic source proof.
@@ -29,14 +32,17 @@ SOURCE_INVENTORY = {
             "workspace/public/src/scripts/revalidation/"
             "a90_transition_contract_v2.py"
         ),
-        "callables": ["validate_successor_contracts"],
+        "callables": [
+            "validate_attended_session_binding",
+            "validate_successor_contracts",
+        ],
     },
     "transition_engine": {
         "path": (
             "workspace/public/src/scripts/server-distro/"
             "a90_transition_engine_v2.py"
         ),
-        "callables": ["execute_workflow"],
+        "callables": ["execute_workflow", "open_attended_session"],
     },
     "resident_promotion": {
         "path": (
@@ -77,10 +83,14 @@ SOURCE_INVENTORY = {
 F1_BLOCKERS = (
     "CONNECTED_IMMUTABLE_MANIFEST_ABSENT",
     "FRESH_F1_APPROVAL_ABSENT",
+    "F1_RESIDENT_TERMINAL_ADAPTER_UNIMPLEMENTED",
 )
 D1_BLOCKERS = (
-    "D1_DURABLE_JOURNAL_OWNER_ABSENT",
-    "D1_ONE_SHOT_APPROVAL_CONSUMER_ABSENT",
+    "D1_DURABLE_SESSION_JOURNAL_OWNER_ABSENT",
+    "D1_DURABLE_REFUTATION_HISTORY_ABSENT",
+    "D1_OBSERVER_REPAIR_RECORD_OWNER_ABSENT",
+    "D1_SESSION_APPROVAL_CONSUMER_ABSENT",
+    "D1_SESSION_EFFECTS_BACKEND_UNIMPLEMENTED",
     "D1_CLEANUP_APPROVAL_SCOPE_MISMATCH",
     "D1_CLEANUP_BASELINE_IDENTITY_MISMATCH",
 )
@@ -209,8 +219,13 @@ def expected_blueprint() -> dict[str, Any]:
             D1_WORKFLOW: {
                 "risk_tier": D1_TIER,
                 "live_ready": False,
-                "execution_model": "single_state_engine_injected_effects",
+                "execution_model": "bounded_attended_session_injected_effects",
                 "approval_scope": D1_APPROVAL_SCOPE,
+                "session_limits": {
+                    "max_duration_sec": D1_MAX_DURATION_SEC,
+                    "max_actions": D1_MAX_ACTIONS,
+                },
+                "action_allowlist": list(D1_ACTION_ALLOWLIST),
                 "journal_owner": UNBOUND,
                 "approval_consumer": UNBOUND,
                 "routes": _routes(),

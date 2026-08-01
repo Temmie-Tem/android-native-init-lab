@@ -111,10 +111,10 @@ transfer between the two files.
   A90 profile rebind and evidence `02` then passed V2321 health, direct NCM,
   and new final/work/stage absence. Its fresh keyed rootfs SHA256 is
   `74fb53df0cea3a235307afdf0c1ff3e1d492b5815838a91b42880b99a745bd6e`.
-- The per-run serial capture is rebound and the resident manifest SHA256 is
-  `6153e87f081a62ea5327b4da900a1dec215e15216d5c6ae804274a2e0b9e7c05`.
-  Approval binding `accf8770412b20c69805bee88f270bbb10fdb9bc16841d49a83949789055cf12`
-  is prepared with both F1 and live authority false until echoed exactly.
+- Transition-v2 now models resident install and bounded attended D1 at H0;
+  related regression passes `133/133` and independent review returned GO.
+- It has no live backend; v1 and old manifests remain unchanged and stale, and
+  no new A90 live authority exists.
 - Do not add a device step while host-only work can answer the selected
   question.
 
