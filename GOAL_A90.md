@@ -113,8 +113,8 @@ transfer between the two files.
   `74fb53df0cea3a235307afdf0c1ff3e1d492b5815838a91b42880b99a745bd6e`.
 - Resident-install v2 closes the reviewed whole-owner F1 path after one exact
   health check and zero second reboot; `331/331` pass and review returned GO.
-- Fresh `20260802-01` has an H0-only new-inode keyed rootfs and observer key;
-  D0, final manifest, F1 approval, and the transition-v2 D1 backend are absent.
+- Fresh `20260802-01` passed A90 D0/finalization; manifest `bba303fd...e5e4ca2`
+  and binding `fe018f08...675063` are ready. No F1 authority or D1 backend exists.
 - Do not add a device step while host-only work can answer the selected
   question.
 
