@@ -255,6 +255,20 @@ Any new formal attempt must omit the manually restated `--source`, preserve the
 first failure receipt, use a new result path, and receive a fresh exact Rule-7
 approval.
 
+That fresh v2 approval was later supplied and its `103/66/3` binding passed,
+but the one formal invocation stopped on a second host input-shape error. It
+selected preserved nine-artifact `artifacts-a/b` directories, while production
+`verify_bundle()` requires exact seven-member `repro-a/b` directories including
+`build-result.json`. The exact failure receipt is preserved; no package,
+static, promotion, manifest, D0, or device action ran. Formal was not retried.
+Because source-tree shape and build-directory shape are now two actual
+approval-window occurrences, an H0 production-parser guard is justified. Its
+four focused tests pass, and its real P2.94 run proves producer-default source,
+exact `repro-a/repro-b` inventories and embedded receipts, direct tools and
+intent/patch, distinct inputs, and an absent v3 result path while reporting
+`formal_invoked=false`. The guard is outside all 103 payload keys. Any further
+formal attempt requires another exact Rule-7 approval.
+
 Repository-module AST closure rejects absent `module.attr` and alias shadowing
 before execution. The mandatory tuple locks it with
 `ACCEPT_TO_RESUME_PAIR_ADJACENCY`; the exact materialized P2.94 runtime passes
