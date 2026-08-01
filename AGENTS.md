@@ -1,9 +1,10 @@
-# AGENTS.md - active operating contract
+# AGENTS.md - repository operating contract
 
-This is the binding contract for agents working in this repository. `GOAL.md`
-defines the current S22+ objective and `GOAL_A90.md` defines the current A90
-objective. Historical policies under `docs/archive/` are evidence only and
-grant no device authority, even if their text says `ACTIVE`.
+This file contains the repository-wide invariants and the binding target
+registry. Select exactly one target contract before target-specific work.
+`GOAL.md` and `GOAL_A90.md` describe current state and objectives; they never
+grant device authority. Historical or draft policies under `docs/archive/` or
+elsewhere are evidence only, even if their text says `ACTIVE`.
 
 The default work cycle is:
 
@@ -11,81 +12,35 @@ The default work cycle is:
 
 Do not add a device step when host-only work can answer the question.
 
-## Current Live Posture
+## Authority and Precedence
 
-- No S22+ F1 live run is currently authorized.
-- No A90 F1 live run is currently authorized. V3405 is closed
-  `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` with candidate/rollback `1/1`, no
-  replay, one handoff, exact V2321 final health, and no reusable approval.
-  Its live subproofs establish strict native display release, `switch_root`,
-  Debian sysvinit PID 1, Dropbear, and no-sync return to healthy native-init.
-  The atomic result remains no-proof because the first candidate-return frame
-  lost `A90P1 END` before retained-pmsg collection. `GOAL_A90.md` owns the
-  current A90 objective and next H0 bounded unit.
-- A90 resident boot-promotion v1 has an independently reviewed H0 runner but no
-  final manifest, connected preflight, approval, or authority. Ordinary F1 and
-  S22+ still require rollback; A90 F1-RP may omit it only after exact two-boot
-  health, never after a failure or ambiguity.
-- P2.82 consumed one exact approval. Its byte-identical reads end in terminal
-  failure `0x8e/detail=0xc10`; the newline-bearing comparator made exact NONE
-  readback impossible. No accepted ACM endpoint appeared. Child suspend,
-  DEVICE restart, child PHY reinitialization, configfs UDC bind, final bus
-  sampling, and host ACM receipt were not reached. Rollback/final health passed
-  and the transaction is `CLOSED`.
-- P2.84 supersedes P2.82 for new-candidate selection. Run
-  `023060c8dd0ab036f8547a816624356f` passed `20/20` pre-LTO, Full-LTO A/B,
-  linked/package/static closure, and offline promotion. P2.82 remains
-  historical evidence only.
-- P2.84 then consumed one exact approval. Candidate and exact rollback each
-  completed one boot-only transfer with no replay; the transaction closed
-  `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` with final health restored.
-- Retained `0x8e/detail=0` proves normalized NONE readback and inner
-  `dwc3_otg_start_peripheral(..., 0)` return. Retained `0x8f/detail=0xc18`
-  proves child suspend and the zero-return PHY power helper nested in that
-  helper; it does not prove analog change. No `0x90` or later checkpoint
-  survived, so DEVICE restart and all later E3/ACM boundaries remain unproved.
-- The restart helper has an unclosed deadline: after `SIGKILL` it blocks in
-  `wait4`. Both retained slots staying CRC-valid proves no generation-89 write
-  reached its first durable CRC clear.
-- Exact source rejects the same-queue `perf_vote_work` deadlock. Outer SM work
-  uses `k_sm_usb`; perf work uses `system_wq`.
-- Both stock-D1 approvals are consumed. V2 registered all 27 probes, executed
-  one control NONE/restore pair and no challenge, then returned healthy. Its
-  false timeout came from trace spelling and two watchdog-disarm waits.
-- Raw-trace correction: on stock, the first two outer invocations returned by
-  `0.291 ms`; child and parent suspend callbacks then ran asynchronously on
-  `kworker/0:*`, with parent `dwc3_msm_suspend` at
-  `17.873..19.504 ms`. Thus the first-outer-return window and a generic outer
-  fence are not the load-bearing PM boundary.
-- This stock ordering does not transfer unchanged to bare PID1. P2.84's
-  accepted `0xc18` required the child suspend and PHY power-off pairs to use
-  the stop-helper PID and be nested inside
-  `dwc3_otg_start_peripheral(..., 0)`. PM reference/child-count state selected
-  different stock and bare execution.
-- The selected successor gate is H0-only: after exact child `suspended`, wait
-  on the same deadline for exact parent `runtime_status=suspended` before any
-  PERIPHERAL write. Parent success implies the callback returned and
-  `suspend_resume_mutex` was released; a callback wedge must time out before
-  the write. It does not prove outer-work return: requeue bookkeeping and the
-  worker tail remain. Keep actual outer entry/return probes and a bounded,
-  classified PERIPHERAL-write helper. No kernel change is required.
-- Implement that gate only in a fresh versioned source contract and run ID.
-  P2.84 lacks the parent path and failure semantic, so this is not an in-place
-  one-line patch. Also repair the generic blocking-`wait4` helper deadline and
-  fault-test it. No new stock D1 is required before that H0 implementation.
-- P2.86 Stage A change closure is frozen before intent: 60 P2.84 SOURCE_KEYS
-  are inherited byte-for-byte and only 10 byte-affecting overlays join them
-  (`70` total). Ten verifier/evidence support files stay outside SOURCE_KEYS
-  and are later bound by `bundle.sha256`. Git-derived tracked changes since
-  the frozen base must equal their declaration in both directions. Four D1
-  repairs remain private and disjoint. Intent/build stay forbidden until all
-  frozen files exist and the pre-intent gate passes. P2.64 Stage C is deferred
-  until after P2.86.
-- Do not repeat P2.82, replay or rebuild P2.84, or seek live authority during
-  this H0 unit. `persist.adb.tcp.port` remains forbidden.
-- Every new S22+ USB trace contract must pass the attachment-name gate with
-  zero issues; frozen P2.82/P2.84 remain historical mismatches, not exceptions
-  reusable by a new candidate.
+The effective contract is, in descending order:
+
+1. the common invariants in this file;
+2. the selected binding target contract in the registry below;
+3. the shared risk-tier and execution-process documents named by that target;
+4. an immutable manifest and a fresh, exact operator approval.
+
+The more restrictive applicable rule wins. A target contract may specialize
+only behavior explicitly delegated by this file and may never relax the
+permanent safety boundaries. A manifest, approval string, goal, report,
+archived clause, helper string, or sub-goal cannot override a higher layer.
+
+No document grants standing device authority unless the selected target
+contract expressly defines that authority class and all required live inputs
+and approvals are current. Policy edits are H0 and grant no D0, D1, or F1
+authority.
+
+## Binding Target Registry
+
+| Target | Current state | Binding target contract | Shared live process |
+|---|---|---|---|
+| Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` / `S906NKSS7FYG8`) | `GOAL.md` | `docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md` | `docs/operations/DEVICE_ACTION_PROCESS_V2.md` |
+| Samsung Galaxy A90 5G | `GOAL_A90.md` | common invariants plus `docs/operations/NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md`; attended observation and resident promotion are additionally bound by `docs/operations/A90_F1_ATTENDED_OBSERVATION_V1.md` and `docs/operations/A90_RESIDENT_BOOT_PROMOTION_V1.md` | existing checked A90 path until deliberately migrated |
+
+Targets, profiles, rollback identities, transports, approvals, and health
+evidence never transfer between registry rows. If no binding target contract
+matches the exact target and action, remain H0.
 
 ## Permanent Safety Boundaries
 
@@ -105,140 +60,94 @@ Do not add a device step when host-only work can answer the question.
 6. A target ambiguity, unexpected archive member, forbidden partition signal,
    changed artifact, missing rollback, journal inconsistency, or lost physical
    recovery path is an immediate stop.
-7. An unexplained failure after an Odin/device session starts is an immediate
-   stop. The same material host-side or pre-session failure twice also stops the
-   line of work. This stops candidate experimentation; it does not cancel the
-   already-authorized exact rollback path. Rollback recovery may resume only
-   from durable journal state and must never retry the candidate. A
-   predeclared, reviewed attended contract may classify and retry only a
+7. An unexplained failure after a device or transfer session starts is an
+   immediate stop. This does not cancel the already-authorized exact rollback
+   path. Rollback may resume only from durable journal state and must never
+   retry the candidate. Before any device session starts, the selected target
+   contract may define a bounded host-only repair rule; without such an
+   explicit rule, stop on the first material failure. A binding target
+   extension may preserve a predeclared, reviewed attended retry only for a
    positively proven pre-handoff channel failure within its original deadline
    and attempt budget. It cannot be added after candidate intent, and any
-   handoff intent or ambiguity ends retry authority.
+   handoff intent or ambiguity ends that retry authority.
 8. Do not commit firmware, boot images, ramdisks, compiled payloads, raw device
    logs, credentials, device serials, PARTUUIDs, MAC/BSSID/IP values, KASLR
    slides, or tunnel URLs. Keep private inputs and run evidence under
    `workspace/private/`.
 
-Changing these boundaries is a separate policy change. An experiment manifest,
-operator acknowledgement, archived clause, helper string, or sub-goal cannot
-override them.
+Changing a permanent boundary is a separate policy change and requires an
+independent safety review. A target contract refactor must prove that these
+boundaries remain semantically unchanged.
 
 ## Proportional Device Actions
 
 Classify every action using
-`docs/operations/DEVICE_ACTION_RISK_TIERS.md`:
+`docs/operations/DEVICE_ACTION_RISK_TIERS.md` and the selected target contract:
 
 - **H0:** host-only work. No device approval.
-- **D0:** connected read-only work. Unambiguous target and bounded reads.
-- **D1:** transient no-payload control. UI-only native-init `hide` is covered
-  by active operator attendance and standing direction when announced, sent
-  once to the exact target, and return-checked. Other D1 actions require one
-  fresh approval, bounded exact command, and return-health check.
-- **F1:** ordinary Process v2 is one boot-only candidate transfer plus its
-  mandatory rollback. The A90-only F1-RP extension may instead close one
-  previously exercised candidate as resident only under
-  `docs/operations/A90_RESIDENT_BOOT_PROMOTION_V1.md`.
+- **D0:** connected read-only work. Exact target and bounded reads.
+- **D1:** transient no-payload control. Fresh approval unless the selected
+  target contract explicitly defines a narrower standing action.
+- **F1:** a boot-only transfer process defined by the selected target contract.
 - **X:** forbidden by the permanent boundaries.
 
-Do not split a higher-risk action into lower-tier commands. D0 and ordinary D1
-do not require a bespoke policy, one-shot state, model-review ladder, or prose
-report.
+Do not split a higher-risk action into lower-tier commands. A device-connected
+action is not H0 merely because it sends no partition payload.
 
-## F1 Process v2
+## Common F1 Invariants
 
-The canonical design is
-`docs/operations/DEVICE_ACTION_PROCESS_V2.md`. F1 uses one reusable runner and
-an immutable candidate manifest. Candidate-specific live helpers and policy
-activation commits are retired as an execution model.
+The reusable ordinary F1 design is
+`docs/operations/DEVICE_ACTION_PROCESS_V2.md`. Before approval, its runner must
+prove the exact target/profile, regular candidate and rollback artifacts at
+stable absolute paths, exact size and SHA256, permitted archive membership,
+known healthy starting state, demonstrated physical recovery, a new durable
+journal, and bounded observation/final-health requirements.
 
-Before approval, the runner must prove:
+One fresh approval binds the target, candidate, rollback, manifest, and runner
+closure. It authorizes one candidate attempt and its required recovery path.
+Once candidate execution begins, rollback is already authorized and never
+waits for another acknowledgement. Candidate replay is forbidden.
 
-- one exact target and target profile;
-- a regular-file candidate AP and rollback AP at stable absolute paths;
-- exact size and SHA256 for execution-critical artifacts;
-- exactly one regular AP member named `boot.img.lz4` in each AP;
-- no forbidden member or slot;
-- a known healthy starting state and demonstrated physical Download recovery;
-- an empty/new durable run journal; and
-- bounded observation and final-health requirements from the manifest.
+Keep host rejection, local parser failure, device-session start, transfer
+start/completion, observation, rollback, and final health distinct. A dry run
+or pre-session host failure is not a candidate transfer, but any changed
+execution-critical closure requires a new exact binding before live use.
 
-One fresh approval binds the target, candidate hash, rollback hash, manifest
-hash, and runner version. It authorizes one candidate attempt and the necessary
-rollback. Once candidate execution begins, rollback is already authorized and
-must never wait for another acknowledgement.
+Use ordinary absolute artifact paths. Do not pass `/proc/self/fd/*`, sealed
+memfd paths, or runtime path-rebinding adapters to a transfer tool. Revalidate
+the opened regular file after the tool returns.
 
-The durable state machine is:
-
-`PREFLIGHT -> APPROVED -> DOWNLOAD_IDENTIFIED -> CANDIDATE_FLASHED -> OBSERVED -> RECOVERY_DOWNLOAD -> ROLLBACK_FLASHED -> HEALTH_VERIFIED -> CLOSED|ABORTED`
-
-Record a journal entry before invoking Odin and after every transition. Keep
-host rejection, Odin local-parse failure, endpoint discovery, device-session
-start, transfer start/completion, rollback, and final health distinct. A dry
-run or pre-session host failure is recorded but is not a permanent one-shot
-consumption. Any later candidate attempt still requires a new approval.
-
-Use ordinary absolute `.tar.md5` paths. Do not pass `/proc/self/fd/*`, sealed
-memfd paths, or runtime path-rebinding adapters to Odin. Revalidate the opened
-regular file after Odin returns.
-
-F1 PASS requires both the intended bounded observation and verified rollback to
-the known healthy state. Candidate boot or Odin success alone is not PASS.
-
-### A90 Resident Promotion Extension
-
-`docs/operations/A90_RESIDENT_BOOT_PROMOTION_V1.md` preserves ordinary F1,
-S22+, boot-only, rollback, and no-replay rules. One approval may bind a
-previously exercised A90 candidate, exact V2321 rollback, corrected rootfs,
-target, and reviewed runner. Exactly one transfer plus health, one resident
-reboot, and health again may close `PASS_A90_F1_RP_RESIDENT_PROMOTED` without
-rollback. Every post-attempt failure or ambiguity requires exact rollback; a
-rollback failure stops `RECOVERY_REQUIRED`. The H0 runner is not executable
-until a fresh connected manifest and approval exist.
+F1 PASS requires both the intended bounded observation and the target-specific
+healthy terminal state. Candidate boot or transfer success alone is not PASS.
 
 ## Evidence and Reporting
 
-- Routine H0/D0/D1 work needs only the evidence required by its tier.
-- Routine F1 output is one structured result, one append-only journal, raw tool
-  logs in private storage, and a timeline with only:
-  `events:[{name,timestamp_utc}]`.
-- The canonical F1 event order is `live_session_start`,
-  `candidate_flash_start`, `candidate_flash_done`, `candidate_boot_ready`,
-  `rollback_flash_start`, `rollback_flash_done`, `rollback_boot_ready`, and
-  `live_session_end`.
-- A90 F1-RP uses its target-specific timeline; rollback retains ordinary events.
-- Write a prose report only for a new capability, new hazard class, incident,
+- Routine H0/D0/D1 work needs only the evidence required by its tier and target
+  contract.
+- Routine F1 output is one structured result, one append-only journal, private
+  raw logs, and the target contract's canonical timeline.
+- Write a prose report for a new capability, new hazard class, incident,
   ambiguous result, recovery deviation, or policy change.
 - A reporting or parser failure after a proven transition must not cause that
-  device transition to be repeated. Resume from the durable journal.
+  device transition to be repeated. Resume only from durable journal state.
 
 ## Review Rules
 
-- One independent safety review is required when the F1 runner, manifest
-  schema, Odin wrapper, archive verifier, recovery logic, permanent boundary,
-  or a hazard class changes.
-- Re-review only the changed execution-critical closure. Do not hash or review
-  unreachable legacy helpers.
-- A new candidate with unchanged machinery requires fresh preflight and
+- One independent safety review is required when the common contract, a
+  binding target contract, F1 runner, manifest schema, transfer wrapper,
+  archive verifier, recovery logic, permanent boundary, or hazard class
+  changes.
+- Review only the changed execution-critical closure and its interaction with
+  higher-precedence rules. Do not review unreachable legacy helpers merely
+  because they still exist.
+- A new candidate with unchanged machinery requires fresh qualification and
   approval, not another multi-review ladder.
-
-## Target Notes
-
-- S22+ FYG8 full-stock evidence is defined by
-  `docs/operations/S22PLUS_FYG8_STOCK_FIRMWARE_EVIDENCE_POLICY_2026-07-08.md`.
-  It is recovery evidence only and never authorizes full-firmware, BL, CP, CSC,
-  userdata, or non-boot flashing.
-- A90 and S22+ use separate target profiles, rollback identities, transports,
-  and health checks. Never reuse one target's proof for the other.
-- A90's existing checked flash path remains `native_init_flash.py` until it is
-  migrated deliberately. S22+ F1 uses Odin with a regular boot-only AP.
-- A90 F1-RP is non-executable until a reviewed runner, manifest, connected
-  preflight, and fresh approval exist.
 
 ## Development and Commit Discipline
 
-- Read `GOAL.md` for S22+ work and `GOAL_A90.md` for A90 work. Read both for a
-  common or cross-target change. Inspect `git status --short` and keep edits
-  scoped.
+- Read this file, the selected target contract, and the target's current goal.
+  Read both goals for a common or cross-target change. Inspect
+  `git status --short` and keep edits scoped.
 - Keep each active goal focused on current state and the selected bounded unit.
   Review completed history for archival above 800 lines; 900 lines is the hard
   limit for either goal file.
@@ -253,6 +162,7 @@ until a fresh connected manifest and approval exist.
 
 ## Stop and Escalate
 
-Stop when evidence is ambiguous, a boundary would need to bend, recovery is not
-available, or the current action is not represented by the selected tier. Do
-not widen scope or retry-loop. Fall back to H0 analysis and record the blocker.
+Stop when evidence is ambiguous, a boundary would need to bend, recovery is
+not available, or the current action is not represented by the selected tier
+and target contract. Do not widen scope or retry-loop. Fall back to H0 analysis
+and record the blocker.

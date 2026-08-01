@@ -6,7 +6,9 @@ point into a minimal observable and recoverable Linux-style runtime.
 
 This file is the active Galaxy S22+ objective. The separate Galaxy A90 5G
 objective is `GOAL_A90.md`. Target evidence, artifacts, and authorization are
-isolated. `AGENTS.md` is the binding operating contract.
+isolated. `AGENTS.md` and
+`docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md` are the binding
+operating contract layers; this file reports state and grants no authority.
 
 ## Current Frontier
 
