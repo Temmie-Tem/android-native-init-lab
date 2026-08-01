@@ -39,6 +39,7 @@ LINKED_VALIDATOR_ADAPTERS = {
     P294_SOURCE_CONTRACT_ID: "s22plus_fyg8_p294_postbuild_linked_audit",
 }
 CheckError = base.CheckError
+_INHERITED_VERIFY_QUALIFICATION = base.base.verify_p286_qualification_file
 
 
 def _configure() -> None:
@@ -64,6 +65,7 @@ def _configure() -> None:
     base.DEFAULT_SOURCE = DEFAULT_SOURCE
     base.LINKED_VALIDATOR_ADAPTERS = dict(LINKED_VALIDATOR_ADAPTERS)
     base._configure()  # noqa: SLF001
+    base.base.verify_p286_qualification_file = verify_p286_qualification_file
 
 
 def __getattr__(name: str):
@@ -75,7 +77,7 @@ def verify_p286_qualification_file(*args, **kwargs):  # noqa: ANN002, ANN003, AN
     _configure()
     try:
         return tier2_reentry.verify_with_frozen_gate(
-            base.verify_p286_qualification_file,
+            _INHERITED_VERIFY_QUALIFICATION,
             *args,
             **kwargs,
         )

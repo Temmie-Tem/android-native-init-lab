@@ -8,6 +8,7 @@ from pathlib import Path
 import unittest
 from unittest import mock
 
+import s22plus_fyg8_p294_build_repro_check as repro
 import s22plus_fyg8_p294_tier2_reentry as reentry
 
 
@@ -19,6 +20,17 @@ QUALIFICATION = (
 
 
 class Tier2ReentryTests(unittest.TestCase):
+    def test_full_checker_dispatches_through_reentry(self) -> None:
+        repro._configure()  # noqa: SLF001
+        self.assertIs(
+            repro.base.base.verify_p286_qualification_file,
+            repro.verify_p286_qualification_file,
+        )
+        self.assertIsNot(
+            repro._INHERITED_VERIFY_QUALIFICATION,  # noqa: SLF001
+            repro.verify_p286_qualification_file,
+        )
+
     def test_actual_frozen_and_current_inputs_pass(self) -> None:
         result = reentry.check(ROOT, QUALIFICATION)
         self.assertEqual(result["verdict"], reentry.VERDICT)
