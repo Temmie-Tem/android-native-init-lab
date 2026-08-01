@@ -242,6 +242,19 @@ drift, not a payload or A/B mismatch, but it is the repeated frozen-gate stale
 failure class under rule 7. No package promotion, ready manifest, D0, approval
 binding, F1, Odin invocation, or device contact followed the stop.
 
+One later exact Rule-7 host-only re-entry approval was consumed by an immediate
+input-shape failure before candidate-contract completion. The formal command
+was invoked once with the P2.94 source-contract Python file as `--source`, but
+that option requires the exact FYG8 kernel source tree. It returned exact
+`FAIL_CLOSED: FYG8 source tree is missing or indirect`; package A/B, static
+closure, promotion, manifest, D0, and all device actions remained unstarted.
+The command was not retried. Post-stop H0 now executes the production
+candidate-contract CLI with the real intent/patch and the producer-owned
+`DEFAULT_SOURCE`; it passes for run `dd20b502d5e45480b9f89c9b5e2232a2`.
+Any new formal attempt must omit the manually restated `--source`, preserve the
+first failure receipt, use a new result path, and receive a fresh exact Rule-7
+approval.
+
 Repository-module AST closure rejects absent `module.attr` and alias shadowing
 before execution. The mandatory tuple locks it with
 `ACCEPT_TO_RESUME_PAIR_ADJACENCY`; the exact materialized P2.94 runtime passes
