@@ -111,10 +111,10 @@ transfer between the two files.
   A90 profile rebind and evidence `02` then passed V2321 health, direct NCM,
   and new final/work/stage absence. Its fresh keyed rootfs SHA256 is
   `74fb53df0cea3a235307afdf0c1ff3e1d492b5815838a91b42880b99a745bd6e`.
-- Transition-v2 now models resident install and bounded attended D1 at H0;
-  related regression passes `133/133` and independent review returned GO.
-- It has no live backend; v1 and old manifests remain unchanged and stale, and
-  no new A90 live authority exists.
+- Resident-install v2 closes the reviewed whole-owner F1 path after one exact
+  health check and zero second reboot; `331/331` pass and review returned GO.
+- Fresh `20260802-01` has an H0-only new-inode keyed rootfs and observer key;
+  D0, final manifest, F1 approval, and the transition-v2 D1 backend are absent.
 - Do not add a device step while host-only work can answer the selected
   question.
 

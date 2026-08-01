@@ -45,6 +45,7 @@ ADAPTER_SCHEMA = "a90_v3403_absent_only_staging_adapter_v1"
 FINAL_MANIFEST_SCHEMA = "a90_native_init_f1_prepared_v2"
 PHASE2_DISPLAY_MANIFEST_SCHEMA = "a90_native_init_f1_prepared_v3"
 RESIDENT_PROMOTION_MANIFEST_SCHEMA = "a90_native_init_f1_resident_promotion_v1"
+RESIDENT_INSTALL_MANIFEST_SCHEMA = "a90_native_init_f1_resident_install_v2"
 FINAL_MANIFEST_STATUS = "ready-for-f1-approval"
 TARGET_PROFILE = "galaxy-a90-5g-native-init"
 EXPECTED_BASELINE_VERSION = "0.9.285"
@@ -321,12 +322,18 @@ def selected_manifest_schema(
     ordinary = expected_manifest_schema(run_id)
     if "resident_promotion" not in manifest:
         return ordinary
-    if not isinstance(manifest.get("resident_promotion"), dict):
+    resident = manifest.get("resident_promotion")
+    if not isinstance(resident, dict):
         raise ContractError("resident_promotion must be an object")
     cycle, _ = exact_run_id_parts(run_id)
     if cycle != "v3406":
         raise ContractError("resident promotion is restricted to V3406")
-    return RESIDENT_PROMOTION_MANIFEST_SCHEMA
+    mode = resident.get("mode")
+    if mode == "a90-resident-promotion-v1":
+        return RESIDENT_PROMOTION_MANIFEST_SCHEMA
+    if mode == "a90-resident-install-v2":
+        return RESIDENT_INSTALL_MANIFEST_SCHEMA
+    raise ContractError("resident promotion mode is not supported")
 
 
 def derive_remote_final(run_id: str) -> PurePosixPath:

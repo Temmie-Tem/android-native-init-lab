@@ -1475,7 +1475,9 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         spec.manifest = {
             "schema": f1.staging.RESIDENT_PROMOTION_MANIFEST_SCHEMA,
             "status": f1.FINAL_MANIFEST_STATUS,
-            "resident_promotion": {},
+            "resident_promotion": {
+                "mode": "a90-resident-promotion-v1",
+            },
         }
         args = sample_args()
         args.approval = "resident-token"
@@ -1485,6 +1487,18 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             "load_approval_prepared",
             return_value=prepared,
         ):
+            self.assertIs(
+                f1.approved_bindings(spec, args, recovery=False),
+                prepared,
+            )
+
+            spec.manifest = {
+                "schema": f1.staging.RESIDENT_INSTALL_MANIFEST_SCHEMA,
+                "status": f1.FINAL_MANIFEST_STATUS,
+                "resident_promotion": {
+                    "mode": "a90-resident-install-v2",
+                },
+            }
             self.assertIs(
                 f1.approved_bindings(spec, args, recovery=False),
                 prepared,

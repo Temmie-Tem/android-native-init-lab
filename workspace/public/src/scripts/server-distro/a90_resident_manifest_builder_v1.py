@@ -177,6 +177,7 @@ def prepare_manifest(
     paths_record: dict[str, Any],
     host_preparation_record: dict[str, Any],
     repository_commit: str,
+    resident_install_v2: bool = False,
 ) -> dict[str, Any]:
     if template.get("schema") != staging.RESIDENT_PROMOTION_MANIFEST_SCHEMA:
         raise ContractError("template is not a resident-promotion manifest")
@@ -196,6 +197,19 @@ def prepare_manifest(
         raise ContractError("keyed summary does not select the exact run")
 
     manifest = copy.deepcopy(template)
+    if resident_install_v2:
+        resident = require_dict(
+            manifest.get("resident_promotion"),
+            "resident_promotion",
+        )
+        if resident.get("mode") != promotion.MODE:
+            raise ContractError("template resident mode is not legacy promotion v1")
+        manifest["schema"] = staging.RESIDENT_INSTALL_MANIFEST_SCHEMA
+        resident["mode"] = promotion.INSTALL_MODE
+        resident.pop("resident_reboot_command", None)
+        resident.pop("resident_reboot_timeout_sec", None)
+        resident["candidate_health_checks"] = 1
+        resident["success_terminal"] = promotion.INSTALL_STATUS
     manifest["run_id"] = run_id
     manifest["candidate_boot"].update(candidate_record)
     manifest["rollback_boot"].update(rollback_record)
@@ -439,6 +453,7 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
         paths_record=paths_record,
         host_preparation_record=host_preparation_record,
         repository_commit=repository_commit,
+        resident_install_v2=args.resident_install_v2,
     )
     output, manifest_sha256, promotion_value = write_validate_publish(
         manifest,
@@ -498,12 +513,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--expect-path-preflight-sha256")
     parser.add_argument("--expect-host-preparation-sha256")
     parser.add_argument("--output-name", default="resident-prepared-manifest.json")
+    parser.add_argument("--resident-install-v2", action="store_true")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.audit_only:
+        if args.resident_install_v2:
+            raise ContractError("audit mode accepts no build profile")
         connected = (
             "run_id",
             "template_manifest",

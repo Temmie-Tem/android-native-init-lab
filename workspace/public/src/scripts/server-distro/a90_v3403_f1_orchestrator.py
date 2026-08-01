@@ -2897,10 +2897,10 @@ def collect_and_clear_retained_pmsg(
     }
 
 
-def remote_source_preflight(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
+def remote_source_preflight_script(spec: F1Spec) -> str:
     final = staging.shlex.quote(spec.stage.remote_final)
     work = staging.shlex.quote(spec.stage.remote_work)
-    script = "\n".join(
+    return "\n".join(
         (
             "set -eu",
             f"FINAL={final}",
@@ -2919,7 +2919,10 @@ def remote_source_preflight(spec: F1Spec, args: argparse.Namespace) -> dict[str,
             'echo A90F1_SOURCE_PRECHECK exact=1 work_absent=1',
         )
     )
-    return run_f1_shell(args, script)
+
+
+def remote_source_preflight(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
+    return run_f1_shell(args, remote_source_preflight_script(spec))
 
 
 def verify_candidate_health(

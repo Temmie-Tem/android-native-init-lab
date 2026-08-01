@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""A90-only resident promotion tail over the reviewed F1 orchestrator.
+"""A90-only resident install/promotion tail over the reviewed F1 orchestrator.
 
 The base orchestrator remains the sole owner of staging, candidate transfer,
 journal publication, and rollback recovery.  This module validates the extra
-promotion evidence and supplies only the second-boot health tail.  Inspection
-is the default; live modes still require a final manifest and fresh exact
-approval.
+promotion evidence and supplies either the legacy second-boot health tail or
+the resident-install terminal after first candidate health.  Inspection is the
+default; live modes still require a final manifest and fresh exact approval.
 """
 from __future__ import annotations
 
@@ -34,6 +34,43 @@ import a90_v3403_f1_orchestrator as base  # noqa: E402
 
 MODE = "a90-resident-promotion-v1"
 RESULT_SCHEMA = "a90_resident_boot_promotion_v1_result"
+INSTALL_MODE = "a90-resident-install-v2"
+INSTALL_RESULT_SCHEMA = "a90_resident_install_v2_result"
+INSTALL_STATUS = "PASS_A90_RESIDENT_INSTALLED"
+INSTALL_TERMINAL_STATE = "RESIDENT_INSTALLED_CLOSED"
+INSTALL_EVENTS = (
+    "live_session_start",
+    "candidate_flash_start",
+    "candidate_flash_done",
+    "candidate_boot_ready",
+    "live_session_end",
+)
+INSTALL_SUCCESS_ACTIONS = (
+    "preflight",
+    "approved",
+    "staging-started",
+    "rootfs-staged",
+    "rootfs-candidate-preflight",
+    "resident-promotion-guard-armed",
+    "candidate-transfer-started",
+    "candidate-flashed",
+    "candidate-boot-ready",
+    "candidate-health-verified",
+    "closed",
+)
+INSTALL_SUCCESS_STATES = (
+    "PREFLIGHT",
+    "APPROVED",
+    "APPROVED",
+    "APPROVED",
+    "APPROVED",
+    "APPROVED",
+    "APPROVED",
+    "CANDIDATE_FLASHED",
+    "CANDIDATE_FLASHED",
+    "CANDIDATE_HEALTH_VERIFIED",
+    INSTALL_TERMINAL_STATE,
+)
 REBOOT_COMMAND = ("reboot",)
 MAX_PRIOR_JOURNAL_RECORDS = 64
 GUARD_CRASH_CLEANUP_WAIT_SEC = 5.0
@@ -53,6 +90,22 @@ PROMOTED_RESULT_KEYS = {
     "rollback_required",
     "first_health",
     "second_health",
+    "timeline_events",
+}
+INSTALLED_RESULT_KEYS = {
+    "schema",
+    "run_id",
+    "status",
+    "manifest_sha256",
+    "candidate_sha256",
+    "candidate_transfer_count",
+    "candidate_replay",
+    "resident_reboot_count",
+    "candidate_health_check_count",
+    "rollback_transfer_count",
+    "rollback_required",
+    "device_safety_state",
+    "first_health",
     "timeline_events",
 }
 
@@ -607,47 +660,68 @@ def validate_promotion_manifest(
     recovery: bool = False,
 ) -> dict[str, Any]:
     value = _dict(spec.manifest.get("resident_promotion"), "resident_promotion")
-    expected_keys = {
+    common_keys = {
         "mode",
         "runner",
         "qualification_helper",
         "rootfs_preflight_disposition",
-        "resident_reboot_command",
-        "resident_reboot_timeout_sec",
         "candidate_health_checks",
         "rollback_on_post_attempt_failure",
         "prior_closed_run",
         "debian_ab_receipt",
     }
+    mode = value.get("mode")
+    if mode == MODE:
+        expected_keys = common_keys | {
+            "resident_reboot_command",
+            "resident_reboot_timeout_sec",
+        }
+        expected_schema = staging.RESIDENT_PROMOTION_MANIFEST_SCHEMA
+        expected_health_checks = 2
+    elif mode == INSTALL_MODE:
+        expected_keys = common_keys | {"success_terminal"}
+        expected_schema = staging.RESIDENT_INSTALL_MANIFEST_SCHEMA
+        expected_health_checks = 1
+    else:
+        raise ContractError("resident promotion mode is not supported")
     if set(value) != expected_keys:
         raise ContractError("resident promotion manifest key set is not exact")
-    reboot_command = value.get("resident_reboot_command")
-    reboot_timeout = value.get("resident_reboot_timeout_sec")
     if (
-        spec.manifest.get("schema")
-        != staging.RESIDENT_PROMOTION_MANIFEST_SCHEMA
-        or value.get("mode") != MODE
+        spec.manifest.get("schema") != expected_schema
         or value.get("rootfs_preflight_disposition") != "absent"
-        or not isinstance(reboot_command, list)
-        or tuple(reboot_command) != REBOOT_COMMAND
-        or type(reboot_timeout) is not int
-        or reboot_timeout != spec.candidate_return_timeout
-        or not 30 <= reboot_timeout <= 600
-        or value.get("candidate_health_checks") != 2
+        or value.get("candidate_health_checks") != expected_health_checks
         or value.get("rollback_on_post_attempt_failure") is not True
         or spec.observation_mode != base.UNATTENDED_OBSERVATION_MODE
         or spec.display_required
     ):
         raise ContractError("resident promotion execution contract is not exact")
+    if mode == MODE:
+        reboot_command = value.get("resident_reboot_command")
+        reboot_timeout = value.get("resident_reboot_timeout_sec")
+        if (
+            not isinstance(reboot_command, list)
+            or tuple(reboot_command) != REBOOT_COMMAND
+            or type(reboot_timeout) is not int
+            or reboot_timeout != spec.candidate_return_timeout
+            or not 30 <= reboot_timeout <= 600
+        ):
+            raise ContractError("resident promotion reboot contract is not exact")
+    elif value.get("success_terminal") != INSTALL_STATUS:
+        raise ContractError("resident install terminal is not exact")
     result = {
-        "mode": MODE,
+        "mode": mode,
         "runner": _validate_runner_binding(value.get("runner")),
         "rootfs_preflight_disposition": "absent",
-        "resident_reboot_command": list(REBOOT_COMMAND),
-        "resident_reboot_timeout_sec": reboot_timeout,
-        "candidate_health_checks": 2,
+        "candidate_health_checks": expected_health_checks,
         "rollback_on_post_attempt_failure": True,
     }
+    if mode == MODE:
+        result.update(
+            resident_reboot_command=list(REBOOT_COMMAND),
+            resident_reboot_timeout_sec=reboot_timeout,
+        )
+    else:
+        result["success_terminal"] = INSTALL_STATUS
     if recovery:
         _dict(
             value.get("qualification_helper"),
@@ -729,10 +803,12 @@ def _require_exact_native_health(
     if (
         health.get("exact_bridge") is not True
         or health.get("selected_realpath") != spec.stage.bridge_realpath
+        or type(version.get("rc")) is not int
         or version.get("rc") != 0
         or version.get("status") != "ok"
         or version.get("command") != ["version"]
         or version_facts != [expected_version]
+        or type(selftest.get("rc")) is not int
         or selftest.get("rc") != 0
         or selftest.get("status") != "ok"
         or selftest.get("command") != ["selftest"]
@@ -749,6 +825,158 @@ def _require_exact_native_health(
         "version_line": expected_version,
         "selftest_line": selftest_facts[0],
     }
+
+
+def _require_exact_command_receipt(
+    value: Any,
+    command: list[str],
+    label: str,
+) -> dict[str, Any]:
+    receipt = _dict(value, label)
+    if (
+        set(receipt) != {"command", "rc", "status", "trust", "begin", "end", "text"}
+        or receipt.get("command") != command
+        or type(receipt.get("rc")) is not int
+        or receipt.get("rc") != 0
+        or receipt.get("status") != "ok"
+        or not isinstance(receipt.get("text"), str)
+    ):
+        raise ContractError(f"{label} is not an exact successful receipt")
+    return receipt
+
+
+def _validate_installed_health(
+    spec: base.F1Spec,
+    value: Any,
+) -> dict[str, Any]:
+    health = _dict(value, "resident-install first health")
+    if set(health) != {"native", "pstore", "rootfs", "ncm"}:
+        raise ContractError("resident-install first health keys are not exact")
+    _require_exact_native_health(spec, health.get("native"))
+
+    pstore = _dict(health.get("pstore"), "resident-install pstore health")
+    if (
+        set(pstore)
+        != {"mounted_read_only", "entries", "mount", "listing", "summary", "unmount"}
+        or pstore.get("mounted_read_only") is not True
+        or pstore.get("entries") != []
+    ):
+        raise ContractError("resident-install pstore health is not exact")
+    _require_exact_command_receipt(
+        pstore.get("mount"),
+        ["mountfs", "pstore", base.PSTORE_MOUNT_PATH, "pstore", "ro"],
+        "resident-install pstore mount",
+    )
+    listing = _require_exact_command_receipt(
+        pstore.get("listing"),
+        ["ls", base.PSTORE_MOUNT_PATH],
+        "resident-install pstore listing",
+    )
+    if base._pstore_entry_names(listing["text"]):  # noqa: SLF001
+        raise ContractError("resident-install pstore listing is not empty")
+    _require_exact_command_receipt(
+        pstore.get("summary"),
+        ["pstore", "full"],
+        "resident-install pstore summary",
+    )
+    _require_exact_command_receipt(
+        pstore.get("unmount"),
+        ["umount", base.PSTORE_MOUNT_PATH],
+        "resident-install pstore unmount",
+    )
+
+    rootfs = _dict(health.get("rootfs"), "resident-install rootfs health")
+    expected_rootfs_command = [
+        "sh",
+        "-c",
+        base.remote_source_preflight_script(spec),
+    ]
+    if (
+        type(rootfs.get("rc")) is not int
+        or rootfs.get("rc") != 0
+        or rootfs.get("status") != "ok"
+        or rootfs.get("command") != expected_rootfs_command
+        or not isinstance(rootfs.get("text"), str)
+        or rootfs["text"].count(
+            "A90F1_SOURCE_PRECHECK exact=1 work_absent=1"
+        ) != 1
+    ):
+        raise ContractError("resident-install rootfs health is not exact")
+
+    ncm = _dict(health.get("ncm"), "resident-install NCM health")
+    common_ncm = {
+        "same_current_acm_usb_parent",
+        "exact_interface_count",
+        "profile_bound",
+        "mutated",
+        "profile_check",
+        "active_before",
+        "ready",
+    }
+    expected_ncm = common_ncm | (
+        {"modify", "activate", "active_after"}
+        if ncm.get("mutated") is True
+        else set()
+    )
+    ready = _dict(ncm.get("ready"), "resident-install NCM readiness")
+    profile_name = getattr(spec, "observer_host_ncm_profile", None)
+    profile_check = _dict(
+        ncm.get("profile_check"),
+        "resident-install NCM profile check",
+    )
+    active_before = _dict(
+        ncm.get("active_before"),
+        "resident-install NCM active-before check",
+    )
+    host_receipt_keys = {"command", "returncode", "stdout", "stderr"}
+    if (
+        set(ncm) != expected_ncm
+        or ncm.get("same_current_acm_usb_parent") is not True
+        or type(ncm.get("exact_interface_count")) is not int
+        or ncm.get("exact_interface_count") != 1
+        or ncm.get("profile_bound") is not True
+        or type(ncm.get("mutated")) is not bool
+        or not isinstance(profile_name, str)
+        or not profile_name
+        or set(profile_check) != host_receipt_keys
+        or type(profile_check.get("returncode")) is not int
+        or profile_check.get("returncode") != 0
+        or str(profile_check.get("stdout") or "").strip()
+        != base.HOST_NCM_CONNECTION_TYPE
+        or set(active_before) != host_receipt_keys
+        or ready
+        != {
+            "verified_a90_ncm": True,
+            "direct_route": True,
+            "host_cidr_present": True,
+            "device_ping": True,
+        }
+    ):
+        raise ContractError("resident-install NCM health is not exact")
+    selected_receipt = active_before
+    if ncm["mutated"]:
+        for label in ("modify", "activate"):
+            receipt = _dict(ncm.get(label), f"resident-install NCM {label}")
+            if (
+                set(receipt) != host_receipt_keys
+                or type(receipt.get("returncode")) is not int
+                or receipt.get("returncode") != 0
+            ):
+                raise ContractError(f"resident-install NCM {label} failed")
+        selected_receipt = _dict(
+            ncm.get("active_after"),
+            "resident-install NCM active-after check",
+        )
+        if set(selected_receipt) != host_receipt_keys:
+            raise ContractError("resident-install NCM active-after check is not exact")
+    if (
+        type(selected_receipt.get("returncode")) is not int
+        or selected_receipt.get("returncode") != 0
+        or str(selected_receipt.get("stdout") or "").splitlines()[:1]
+        != [profile_name]
+    ):
+        raise ContractError("resident-install NCM selected profile is not exact")
+    return health
 
 
 def _dispatch_resident_reboot(
@@ -855,6 +1083,182 @@ def repair_promoted_result(
     return result
 
 
+def _validate_installed_result(
+    spec: base.F1Spec,
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    if (
+        set(result) != INSTALLED_RESULT_KEYS
+        or spec.manifest.get("schema") != staging.RESIDENT_INSTALL_MANIFEST_SCHEMA
+        or _dict(
+            spec.manifest.get("resident_promotion"),
+            "resident_promotion",
+        ).get("mode") != INSTALL_MODE
+        or result.get("schema") != INSTALL_RESULT_SCHEMA
+        or result.get("run_id") != spec.stage.run_id
+        or result.get("status") != INSTALL_STATUS
+        or result.get("manifest_sha256") != spec.stage.manifest_sha256
+        or result.get("candidate_sha256") != spec.candidate.sha256
+        or type(result.get("candidate_transfer_count")) is not int
+        or result.get("candidate_transfer_count") != 1
+        or result.get("candidate_replay") is not False
+        or type(result.get("resident_reboot_count")) is not int
+        or result.get("resident_reboot_count") != 0
+        or type(result.get("candidate_health_check_count")) is not int
+        or result.get("candidate_health_check_count") != 1
+        or type(result.get("rollback_transfer_count")) is not int
+        or result.get("rollback_transfer_count") != 0
+        or result.get("rollback_required") is not False
+        or result.get("device_safety_state") != "RESIDENT_HEALTHY"
+        or not isinstance(result.get("first_health"), dict)
+        or tuple(result.get("timeline_events") or ()) != INSTALL_EVENTS
+    ):
+        raise ContractError("resident-install result is not exact")
+    _validate_installed_health(spec, result.get("first_health"))
+    return result
+
+
+def _publish_exact_installed_result(
+    spec: base.F1Spec,
+    transaction_dir: Path,
+    result: dict[str, Any],
+) -> None:
+    exact = _validate_installed_result(spec, result)
+    path = transaction_dir / "result.json"
+    if path.exists():
+        base.require_private_regular(path)
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            raise ContractError("existing resident-install result is invalid") from exc
+        if existing != exact:
+            raise ContractError("existing resident-install result changed")
+        return
+    base.write_private_json_exclusive(path, exact)
+
+
+def _installed_result_from_terminal(
+    spec: base.F1Spec,
+    record: dict[str, Any],
+) -> dict[str, Any]:
+    common = {
+        "schema",
+        "sequence",
+        "timestamp_utc",
+        "run_id",
+        "manifest_sha256",
+        "state",
+        "action",
+    }
+    payload = INSTALLED_RESULT_KEYS - {"schema", "run_id", "manifest_sha256"}
+    if (
+        set(record) != common | payload
+        or record.get("schema") != base.JOURNAL_SCHEMA
+        or record.get("state") != INSTALL_TERMINAL_STATE
+        or record.get("action") != "closed"
+    ):
+        raise ContractError("resident-install terminal journal is not exact")
+    result = {key: record.get(key) for key in INSTALLED_RESULT_KEYS}
+    result["schema"] = INSTALL_RESULT_SCHEMA
+    return _validate_installed_result(spec, result)
+
+
+def repair_installed_result(
+    spec: base.F1Spec,
+    transaction_dir: Path,
+    records: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if not records or records[-1].get("action") != "closed":
+        raise ContractError("resident-install result repair requires terminal journal")
+    if (
+        tuple(record.get("action") for record in records)
+        != INSTALL_SUCCESS_ACTIONS
+        or tuple(record.get("state") for record in records)
+        != INSTALL_SUCCESS_STATES
+    ):
+        raise ContractError("resident-install journal success sequence is not exact")
+    by_action = {str(record["action"]): record for record in records}
+    started = by_action["candidate-transfer-started"]
+    flashed = by_action["candidate-flashed"]
+    boot_ready = by_action["candidate-boot-ready"]
+    health_verified = by_action["candidate-health-verified"]
+    if (
+        started.get("candidate_sha256") != spec.candidate.sha256
+        or type(started.get("candidate_transfer_count_max")) is not int
+        or started.get("candidate_transfer_count_max") != 1
+        or started.get("candidate_replay") is not False
+        or started.get("rollback_required") is not True
+        or flashed.get("candidate_sha256") != spec.candidate.sha256
+        or type(flashed.get("candidate_transfer_count")) is not int
+        or flashed.get("candidate_transfer_count") != 1
+        or flashed.get("candidate_replay") is not False
+        or flashed.get("rollback_required") is not True
+        or boot_ready.get("candidate_version") != spec.candidate_version
+        or boot_ready.get("candidate_build") != spec.candidate_build
+        or boot_ready.get("selftest_fail_zero") is not True
+        or type(health_verified.get("candidate_health_check_count")) is not int
+        or health_verified.get("candidate_health_check_count") != 1
+    ):
+        raise ContractError("resident-install journal candidate proof is not exact")
+    native_exact = _require_exact_native_health(spec, boot_ready.get("health"))
+    if health_verified.get("native_exact") != native_exact:
+        raise ContractError("resident-install journal native proof changed")
+    first_health = _validate_installed_health(
+        spec,
+        health_verified.get("health"),
+    )
+    result = _installed_result_from_terminal(spec, records[-1])
+    if result.get("first_health") != first_health:
+        raise ContractError("resident-install terminal health changed")
+    _publish_exact_installed_result(spec, transaction_dir, result)
+    return result
+
+
+def close_installed_transaction(
+    spec: base.F1Spec,
+    transaction_dir: Path,
+    journal_dir: Path,
+    events: list[dict[str, str]],
+    *,
+    first_health: dict[str, Any],
+) -> dict[str, Any]:
+    base.ensure_event(
+        transaction_dir,
+        events,
+        "live_session_end",
+        allow_promotion=True,
+    )
+    names = [event["name"] for event in events]
+    if tuple(names) != INSTALL_EVENTS:
+        raise ContractError("resident-install success lacks the canonical timeline")
+    result = {
+        "schema": INSTALL_RESULT_SCHEMA,
+        "run_id": spec.stage.run_id,
+        "status": INSTALL_STATUS,
+        "manifest_sha256": spec.stage.manifest_sha256,
+        "candidate_sha256": spec.candidate.sha256,
+        "candidate_transfer_count": 1,
+        "candidate_replay": False,
+        "resident_reboot_count": 0,
+        "candidate_health_check_count": 1,
+        "rollback_transfer_count": 0,
+        "rollback_required": False,
+        "device_safety_state": "RESIDENT_HEALTHY",
+        "first_health": first_health,
+        "timeline_events": names,
+    }
+    base.append_record(
+        journal_dir,
+        INSTALL_TERMINAL_STATE,
+        "closed",
+        result,
+        manifest_sha256=spec.stage.manifest_sha256,
+        run_id=spec.stage.run_id,
+    )
+    _publish_exact_installed_result(spec, transaction_dir, result)
+    return result
+
+
 def close_promoted_transaction(
     spec: base.F1Spec,
     transaction_dir: Path,
@@ -926,6 +1330,30 @@ def promotion_tail(
             manifest_sha256=spec.stage.manifest_sha256,
             run_id=spec.stage.run_id,
         )
+        mode = _dict(
+            spec.manifest.get("resident_promotion"),
+            "resident_promotion",
+        ).get("mode")
+        if mode == INSTALL_MODE:
+            if not guard.healthy(recheck=True):
+                raise ContractError("resident-install ModemManager guard was lost")
+            release = base.release_candidate_return_modemmanager_guard(
+                guard,
+                transaction_dir,
+                corridor="resident-promotion",
+            )
+            guard_released = True
+            if release.get("released") is not True:
+                raise ContractError("resident-install ModemManager guard did not release")
+            return close_installed_transaction(
+                spec,
+                transaction_dir,
+                journal_dir,
+                events,
+                first_health=first_health,
+            )
+        if mode != MODE:
+            raise ContractError("resident promotion mode changed after validation")
         channel = base.settle_observation_channel(args, phase="before-resident-reboot")
         candidate_epoch = base.capture_bridge_serial_epoch(spec, args)
         if not guard.healthy(recheck=True):
@@ -1213,6 +1641,15 @@ def recover_promotion_or_rollback(
     transaction_dir = base.exact_transaction_dir(spec, args.transaction_dir)
     records = base.read_journal(spec, transaction_dir)
     actions = [record.get("action") for record in records]
+    if (
+        records
+        and records[-1].get("state") == INSTALL_TERMINAL_STATE
+        and records[-1].get("action") == "closed"
+    ):
+        approval = base.approved_bindings(spec, args, recovery=True)
+        base.verify_local_closure(spec)
+        base.require_consumed_approval(records, approval)
+        return repair_installed_result(spec, transaction_dir, records)
     if (
         records
         and records[-1].get("state") == "PROMOTED_CLOSED"

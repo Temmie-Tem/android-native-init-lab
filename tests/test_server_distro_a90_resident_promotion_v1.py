@@ -433,6 +433,17 @@ class ResidentPromotionV1Tests(unittest.TestCase):
             validator.assert_called_once()
         return result
 
+    def install_fixture(self, root: Path):
+        spec = self.fixture(root)
+        resident = spec.manifest["resident_promotion"]
+        spec.manifest["schema"] = promotion.staging.RESIDENT_INSTALL_MANIFEST_SCHEMA
+        resident["mode"] = promotion.INSTALL_MODE
+        resident.pop("resident_reboot_command")
+        resident.pop("resident_reboot_timeout_sec")
+        resident["candidate_health_checks"] = 1
+        resident["success_terminal"] = promotion.INSTALL_STATUS
+        return spec
+
     def test_exact_manifest_proves_prior_run_and_debian_receipt(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
             value = self.validate(self.fixture(Path(tmp)))
@@ -444,6 +455,30 @@ class ResidentPromotionV1Tests(unittest.TestCase):
             value["debian_ab_receipt"]["rootfs_sha256"],
             value["debian_ab_receipt"]["clean_rootfs_sha256"],
         )
+
+    def test_install_manifest_selects_one_health_check_and_exact_terminal(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            value = self.validate(self.install_fixture(Path(tmp)))
+        self.assertEqual(value["mode"], promotion.INSTALL_MODE)
+        self.assertEqual(value["candidate_health_checks"], 1)
+        self.assertEqual(value["success_terminal"], promotion.INSTALL_STATUS)
+        self.assertNotIn("resident_reboot_command", value)
+
+    def test_install_manifest_rejects_legacy_reboot_field(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            spec = self.install_fixture(Path(tmp))
+            spec.manifest["resident_promotion"]["resident_reboot_command"] = [
+                "reboot"
+            ]
+            with self.assertRaisesRegex(promotion.ContractError, "key set"):
+                self.validate(spec)
+
+    def test_install_manifest_rejects_schema_mode_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            spec = self.install_fixture(Path(tmp))
+            spec.manifest["schema"] = promotion.staging.RESIDENT_PROMOTION_MANIFEST_SCHEMA
+            with self.assertRaisesRegex(promotion.ContractError, "execution contract"):
+                self.validate(spec)
 
     def test_clean_unkeyed_image_is_rejected_as_resident_input(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
@@ -605,17 +640,28 @@ class ResidentPromotionV1Tests(unittest.TestCase):
             )
         return events
 
-    def tail_spec(self):
+    def tail_spec(self, *, install: bool = False):
+        mode = promotion.INSTALL_MODE if install else promotion.MODE
+        schema = (
+            promotion.staging.RESIDENT_INSTALL_MANIFEST_SCHEMA
+            if install
+            else promotion.staging.RESIDENT_PROMOTION_MANIFEST_SCHEMA
+        )
         return SimpleNamespace(
-            manifest={"resident_promotion": {"mode": promotion.MODE}},
+            manifest={"schema": schema, "resident_promotion": {"mode": mode}},
             candidate=SimpleNamespace(sha256="1" * 64),
             candidate_version="0.10.0",
             candidate_build="candidate-build",
             candidate_return_timeout=240,
+            observer_host_ncm_profile="a90-usb-local",
             stage=SimpleNamespace(
                 run_id="a90-promotion-test",
                 manifest_sha256="a" * 64,
                 bridge_realpath="/dev/ttyACM0",
+                remote_final="/mnt/sdext/a90/runtime/exact-keyed.img",
+                remote_work="/mnt/sdext/a90/runtime/d3-handoff-work.img",
+                local_size=2147483648,
+                local_sha256="3" * 64,
             ),
         )
 
@@ -645,6 +691,108 @@ class ResidentPromotionV1Tests(unittest.TestCase):
         if with_epoch:
             result["return_epoch"] = {"returned": {"epoch": 2}}
         return result
+
+    def command_receipt(self, command: list[str], text: str = "") -> dict:
+        return {
+            "command": command,
+            "rc": 0,
+            "status": "ok",
+            "trust": "framed",
+            "begin": {},
+            "end": {},
+            "text": text,
+        }
+
+    def host_receipt(self, stdout: str = "") -> dict:
+        return {
+            "command": ["host-check"],
+            "returncode": 0,
+            "stdout": stdout,
+            "stderr": "",
+        }
+
+    def installed_health(self, spec) -> dict:
+        return {
+            "native": self.native_health(spec),
+            "pstore": {
+                "mounted_read_only": True,
+                "entries": [],
+                "mount": self.command_receipt(
+                    ["mountfs", "pstore", base.PSTORE_MOUNT_PATH, "pstore", "ro"]
+                ),
+                "listing": self.command_receipt(["ls", base.PSTORE_MOUNT_PATH]),
+                "summary": self.command_receipt(["pstore", "full"]),
+                "unmount": self.command_receipt(["umount", base.PSTORE_MOUNT_PATH]),
+            },
+            "rootfs": self.command_receipt(
+                ["sh", "-c", base.remote_source_preflight_script(spec)],
+                "A90F1_SOURCE_PRECHECK exact=1 work_absent=1\r\n",
+            ),
+            "ncm": {
+                "same_current_acm_usb_parent": True,
+                "exact_interface_count": 1,
+                "profile_bound": True,
+                "mutated": False,
+                "profile_check": self.host_receipt(
+                    base.HOST_NCM_CONNECTION_TYPE + "\n"
+                ),
+                "active_before": self.host_receipt(
+                    spec.observer_host_ncm_profile + "\n"
+                ),
+                "ready": {
+                    "verified_a90_ncm": True,
+                    "direct_route": True,
+                    "host_cidr_present": True,
+                    "device_ping": True,
+                },
+            },
+        }
+
+    def append_install_prefix(self, spec, journal_dir: Path) -> dict:
+        first_health = self.installed_health(spec)
+        native_exact = promotion._require_exact_native_health(
+            spec,
+            first_health["native"],
+        )
+        payloads = {
+            "candidate-transfer-started": {
+                "candidate_sha256": spec.candidate.sha256,
+                "candidate_transfer_count_max": 1,
+                "candidate_replay": False,
+                "rollback_required": True,
+            },
+            "candidate-flashed": {
+                "candidate_sha256": spec.candidate.sha256,
+                "candidate_transfer_count": 1,
+                "candidate_replay": False,
+                "rollback_required": True,
+            },
+            "candidate-boot-ready": {
+                "candidate_version": spec.candidate_version,
+                "candidate_build": spec.candidate_build,
+                "selftest_fail_zero": True,
+                "health": first_health["native"],
+            },
+            "candidate-health-verified": {
+                "candidate_health_check_count": 1,
+                "native_exact": native_exact,
+                "health": first_health,
+            },
+        }
+        for action, state in zip(
+            promotion.INSTALL_SUCCESS_ACTIONS[:-1],
+            promotion.INSTALL_SUCCESS_STATES[:-1],
+            strict=True,
+        ):
+            base.append_record(
+                journal_dir,
+                state,
+                action,
+                payloads.get(action, {}),
+                manifest_sha256=spec.stage.manifest_sha256,
+                run_id=spec.stage.run_id,
+            )
+        return first_health
 
     def test_success_tail_closes_without_rollback(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
@@ -697,6 +845,208 @@ class ResidentPromotionV1Tests(unittest.TestCase):
         self.assertEqual(actions.count("resident-reboot-intent"), 1)
         self.assertEqual(actions.count("resident-reboot-dispatched"), 1)
         self.assertEqual(actions.count("closed"), 1)
+
+    def test_install_tail_closes_after_first_health_without_reboot(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            transaction_dir = Path(tmp)
+            journal_dir = transaction_dir / "journal"
+            events = self.initial_events(transaction_dir)
+            guard = Guard()
+            spec = self.tail_spec(install=True)
+            with (
+                mock.patch.object(
+                    promotion,
+                    "_promotion_health",
+                    return_value=self.installed_health(spec),
+                ) as health,
+                mock.patch.object(base, "settle_observation_channel") as settle,
+                mock.patch.object(promotion, "_dispatch_resident_reboot") as reboot,
+                mock.patch.object(
+                    base,
+                    "release_candidate_return_modemmanager_guard",
+                    return_value={"released": True},
+                ),
+            ):
+                result = promotion.promotion_tail(
+                    spec,
+                    SimpleNamespace(),
+                    transaction_dir,
+                    journal_dir,
+                    events,
+                    self.native_health(spec),
+                    guard,
+                )
+            actions = [
+                json.loads(path.read_text())["action"]
+                for path in sorted(journal_dir.glob("*.json"))
+            ]
+        health.assert_called_once()
+        settle.assert_not_called()
+        reboot.assert_not_called()
+        self.assertEqual(result["status"], promotion.INSTALL_STATUS)
+        self.assertEqual(result["device_safety_state"], "RESIDENT_HEALTHY")
+        self.assertEqual(result["resident_reboot_count"], 0)
+        self.assertEqual(result["candidate_health_check_count"], 1)
+        self.assertEqual(tuple(result["timeline_events"]), promotion.INSTALL_EVENTS)
+        self.assertEqual(actions.count("resident-health-verified"), 0)
+        self.assertEqual(actions.count("closed"), 1)
+
+    def test_install_health_failure_does_not_publish_success(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            transaction_dir = Path(tmp)
+            journal_dir = transaction_dir / "journal"
+            events = self.initial_events(transaction_dir)
+            guard = Guard()
+            spec = self.tail_spec(install=True)
+            with (
+                mock.patch.object(
+                    promotion,
+                    "_promotion_health",
+                    side_effect=promotion.ContractError("health failed"),
+                ),
+                mock.patch.object(
+                    base,
+                    "release_candidate_return_modemmanager_guard",
+                    side_effect=lambda selected, *_args, **_kwargs: selected.release(),
+                ),
+                self.assertRaisesRegex(promotion.ContractError, "health failed"),
+            ):
+                promotion.promotion_tail(
+                    spec,
+                    SimpleNamespace(),
+                    transaction_dir,
+                    journal_dir,
+                    events,
+                    self.native_health(spec),
+                    guard,
+                )
+            self.assertTrue(guard.released)
+            self.assertFalse((transaction_dir / "result.json").exists())
+            self.assertFalse(list(journal_dir.glob("*.json")))
+
+    def test_install_terminal_journal_repairs_result_publication_fault(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            transaction_dir = Path(tmp)
+            journal_dir = transaction_dir / "journal"
+            events = self.initial_events(transaction_dir)
+            spec = self.tail_spec(install=True)
+            original = base.write_private_json_exclusive
+            first_health = self.append_install_prefix(spec, journal_dir)
+
+            def result_fault(path, value):
+                if path.name == "result.json":
+                    raise OSError("fault after install terminal")
+                return original(path, value)
+
+            with (
+                mock.patch.object(
+                    base,
+                    "write_private_json_exclusive",
+                    side_effect=result_fault,
+                ),
+                self.assertRaisesRegex(OSError, "after install terminal"),
+            ):
+                promotion.close_installed_transaction(
+                    spec,
+                    transaction_dir,
+                    journal_dir,
+                    events,
+                    first_health=first_health,
+                )
+            records = base.read_journal(spec, transaction_dir)
+            self.assertEqual(records[-1]["state"], promotion.INSTALL_TERMINAL_STATE)
+            self.assertFalse((transaction_dir / "result.json").exists())
+            repaired = promotion.repair_installed_result(
+                spec,
+                transaction_dir,
+                records,
+            )
+            repeated = promotion.repair_installed_result(
+                spec,
+                transaction_dir,
+                records,
+            )
+        self.assertEqual(repaired, repeated)
+        self.assertEqual(repaired["status"], promotion.INSTALL_STATUS)
+
+    def test_install_terminal_recovery_repairs_only_and_never_rolls_back(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            transaction_dir = Path(tmp)
+            journal_dir = transaction_dir / "journal"
+            spec = self.tail_spec(install=True)
+            first_health = self.append_install_prefix(spec, journal_dir)
+            promotion.close_installed_transaction(
+                spec,
+                transaction_dir,
+                journal_dir,
+                self.initial_events(transaction_dir),
+                first_health=first_health,
+            )
+            args = SimpleNamespace(transaction_dir=transaction_dir)
+            with (
+                mock.patch.object(
+                    base,
+                    "exact_transaction_dir",
+                    return_value=transaction_dir,
+                ),
+                mock.patch.object(base, "approved_bindings", return_value={}),
+                mock.patch.object(base, "verify_local_closure"),
+                mock.patch.object(base, "require_consumed_approval"),
+                mock.patch.object(base, "recover_approved_rollback") as rollback,
+            ):
+                result = promotion.recover_promotion_or_rollback(spec, args)
+        rollback.assert_not_called()
+        self.assertEqual(result["status"], promotion.INSTALL_STATUS)
+
+    def test_install_repair_rejects_malformed_terminal_or_prior_sequence(self) -> None:
+        def forge_rootfs_echo(records):
+            forged = [
+                "sh",
+                "-c",
+                "echo A90F1_SOURCE_PRECHECK exact=1 work_absent=1",
+            ]
+            records[-2]["health"]["rootfs"]["command"] = forged
+            records[-1]["first_health"]["rootfs"]["command"] = forged
+
+        mutations = {
+            "boolean-count": lambda records: records[-1].update(
+                candidate_transfer_count=True
+            ),
+            "empty-health": lambda records: records[-1].update(first_health={}),
+            "terminal-only": lambda records: records.__setitem__(
+                slice(None),
+                records[-1:],
+            ),
+            "missing-health-record": lambda records: records.pop(-2),
+            "rollback-action": lambda records: records[7].update(
+                action="rollback-flashed"
+            ),
+            "forged-rootfs-echo": forge_rootfs_echo,
+        }
+        for label, mutate in mutations.items():
+            with self.subTest(label=label), tempfile.TemporaryDirectory(
+                dir=REPO_ROOT / "workspace/private"
+            ) as tmp:
+                transaction_dir = Path(tmp)
+                journal_dir = transaction_dir / "journal"
+                spec = self.tail_spec(install=True)
+                first_health = self.append_install_prefix(spec, journal_dir)
+                promotion.close_installed_transaction(
+                    spec,
+                    transaction_dir,
+                    journal_dir,
+                    self.initial_events(transaction_dir),
+                    first_health=first_health,
+                )
+                records = base.read_journal(spec, transaction_dir)
+                (transaction_dir / "result.json").unlink()
+                mutate(records)
+                with self.assertRaises(promotion.ContractError):
+                    promotion.repair_installed_result(
+                        spec,
+                        transaction_dir,
+                        records,
+                    )
 
     def test_terminal_journal_repairs_result_publication_fault(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:

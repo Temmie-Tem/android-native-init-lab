@@ -98,6 +98,98 @@ class ResidentManifestBuilderTests(unittest.TestCase):
             )
             self.assertNotIn(template["run_id"], json.dumps(manifest, sort_keys=True))
 
+    def test_prepare_manifest_can_select_resident_install_v2(self) -> None:
+        with tempfile.TemporaryDirectory(dir=builder.staging.PRIVATE_ROOT) as temp_dir:
+            run_dir = Path(temp_dir)
+            run_id = "a90-v3406-debian-display-f1-20260801-02"
+            template = {
+                "schema": builder.staging.RESIDENT_PROMOTION_MANIFEST_SCHEMA,
+                "status": builder.staging.FINAL_MANIFEST_STATUS,
+                "run_id": "a90-v3406-debian-display-f1-20260801-01",
+                "candidate_boot": {"path": "/old/candidate", "size": 1, "sha256": "1" * 64},
+                "rollback_boot": {"path": "/old/rollback", "size": 1, "sha256": "2" * 64},
+                "target": {},
+                "debian_rootfs": {
+                    "keyed_source": {"device_path": "/old/remote"},
+                    "observer": {},
+                },
+                "host_preparation": {},
+                "approval_preparation": {},
+                "f1_orchestrator": {},
+                "rootfs_staging": {"adapter": {}, "transport": {}},
+                "resident_promotion": {
+                    "mode": builder.promotion.MODE,
+                    "runner": {},
+                    "qualification_helper": {},
+                    "resident_reboot_command": ["reboot"],
+                    "resident_reboot_timeout_sec": 240,
+                    "candidate_health_checks": 2,
+                },
+                "transport": {},
+            }
+            summary = {
+                "run_id": run_id,
+                "decision": "A90_PHASE2D_KEYED_ROOTFS_HOST_PASS",
+                "keyed_image": {
+                    "path": str(run_dir / "phase2-display-v1-keyed.img"),
+                    "size": 2,
+                    "sha256": "3" * 64,
+                },
+                "observer": {
+                    "private_key_path": str(run_dir / "observer-key"),
+                    "public_key_sha256": "4" * 64,
+                },
+            }
+            records = {
+                name: {"path": str(run_dir / name), "size": 1, "sha256": char * 64}
+                for name, char in (
+                    ("summary", "5"),
+                    ("candidate", "1"),
+                    ("rollback", "2"),
+                    ("connected", "6"),
+                    ("paths", "7"),
+                    ("host", "8"),
+                )
+            }
+            with mock.patch.object(
+                builder,
+                "current_record",
+                return_value={"path": "/public/current", "size": 10, "sha256": "9" * 64},
+            ):
+                manifest = builder.prepare_manifest(
+                    template=template,
+                    run_id=run_id,
+                    run_dir=run_dir,
+                    evidence_sequence="01",
+                    summary=summary,
+                    summary_record=records["summary"],
+                    candidate_record=records["candidate"],
+                    rollback_record=records["rollback"],
+                    connected_value={
+                        "run_id": f"{run_id}-connected-d0-01",
+                        "target": {
+                            "bridge_device": "/dev/serial/by-id/exact-a90",
+                            "bridge_selected_realpath": "/dev/ttyACM0",
+                        },
+                    },
+                    connected_record=records["connected"],
+                    paths_value={"run_id": run_id},
+                    paths_record=records["paths"],
+                    host_preparation_record=records["host"],
+                    repository_commit="a" * 40,
+                    resident_install_v2=True,
+                )
+        resident = manifest["resident_promotion"]
+        self.assertEqual(
+            manifest["schema"],
+            builder.staging.RESIDENT_INSTALL_MANIFEST_SCHEMA,
+        )
+        self.assertEqual(resident["mode"], builder.promotion.INSTALL_MODE)
+        self.assertEqual(resident["candidate_health_checks"], 1)
+        self.assertEqual(resident["success_terminal"], builder.promotion.INSTALL_STATUS)
+        self.assertNotIn("resident_reboot_command", resident)
+        self.assertNotIn("resident_reboot_timeout_sec", resident)
+
     def test_validate_local_paths_allows_only_absent_approval(self) -> None:
         with tempfile.TemporaryDirectory(dir=builder.staging.PRIVATE_ROOT) as temp_dir:
             run_dir = Path(temp_dir)

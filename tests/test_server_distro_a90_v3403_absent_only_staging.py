@@ -175,19 +175,43 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
         )
         self.assertEqual(
             stage.selected_manifest_schema(
-                {"resident_promotion": {}},
+                {
+                    "resident_promotion": {
+                        "mode": "a90-resident-promotion-v1",
+                    }
+                },
                 TEST_RUN_ID_V3406,
             ),
             stage.RESIDENT_PROMOTION_MANIFEST_SCHEMA,
         )
+        self.assertEqual(
+            stage.selected_manifest_schema(
+                {
+                    "resident_promotion": {
+                        "mode": "a90-resident-install-v2",
+                    }
+                },
+                TEST_RUN_ID_V3406,
+            ),
+            stage.RESIDENT_INSTALL_MANIFEST_SCHEMA,
+        )
         with self.assertRaisesRegex(stage.ContractError, "restricted to V3406"):
             stage.selected_manifest_schema(
-                {"resident_promotion": {}},
+                {
+                    "resident_promotion": {
+                        "mode": "a90-resident-promotion-v1",
+                    }
+                },
                 TEST_RUN_ID_V3405,
             )
         with self.assertRaisesRegex(stage.ContractError, "must be an object"):
             stage.selected_manifest_schema(
                 {"resident_promotion": None},
+                TEST_RUN_ID_V3406,
+            )
+        with self.assertRaisesRegex(stage.ContractError, "not supported"):
+            stage.selected_manifest_schema(
+                {"resident_promotion": {"mode": "unknown"}},
                 TEST_RUN_ID_V3406,
             )
         for unsupported in (
@@ -1028,7 +1052,9 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
         manifest = {
             "schema": stage.RESIDENT_PROMOTION_MANIFEST_SCHEMA,
             "status": stage.FINAL_MANIFEST_STATUS,
-            "resident_promotion": {},
+            "resident_promotion": {
+                "mode": "a90-resident-promotion-v1",
+            },
         }
         args = types.SimpleNamespace(
             approved_manifest_sha256=spec.manifest_sha256,
