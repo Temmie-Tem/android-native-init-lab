@@ -9,6 +9,7 @@ from pathlib import Path
 import s22plus_fyg8_p290_build_repro_check as base
 import s22plus_fyg8_p294_build as build
 import s22plus_fyg8_p294_candidate_contract as candidate_contract
+import s22plus_fyg8_p294_linked_audit as linked_audit
 import s22plus_fyg8_p294_source_contract as p294
 import s22plus_fyg8_p294_tier2_reentry as tier2_reentry
 
@@ -113,6 +114,7 @@ def main(argv: list[str] | None = None) -> int:
         result = audit_a_path_leaks(args.build_a) if args.a_only_path_leak_gate else check(args)
     except (
         CheckError,
+        linked_audit.AuditError,
         candidate_contract.ContractError,
         candidate_contract.intent.IntentError,
         OSError,

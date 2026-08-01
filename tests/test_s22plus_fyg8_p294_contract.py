@@ -3,9 +3,14 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
+import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,8 +18,11 @@ SCRIPT_DIR = ROOT / "workspace/public/src/scripts/revalidation"
 sys.path.insert(0, str(SCRIPT_DIR))
 
 import s22plus_fyg8_p286_source_contracts as registry  # noqa: E402
+import s22plus_fyg8_p290_source_contract as p290_contract  # noqa: E402
+import s22plus_fyg8_p294_build_repro_check as repro  # noqa: E402
 import s22plus_fyg8_p294_candidate_intent as intent  # noqa: E402
 import s22plus_fyg8_p294_identity_tiers as tiers  # noqa: E402
+import s22plus_fyg8_p294_linked_audit as linked_audit  # noqa: E402
 import s22plus_fyg8_p294_pre_lto_qualification as pre_lto  # noqa: E402
 import s22plus_fyg8_p294_source_contract as p294  # noqa: E402
 import s22plus_fyg8_p294_telemetry_decoder as telemetry_decoder  # noqa: E402
@@ -77,6 +85,59 @@ class P294ContractTest(unittest.TestCase):
         self.assertEqual(len(rules), len(spec.exact_detail_rules()) * 4)
         self.assertIn(spec.LINK_STATE_DETAIL_BASE.to_bytes(2, "little"), rules)
         self.assertIn(spec.FIXED_MISMATCH_DETAIL_BASE.to_bytes(2, "little"), rules)
+
+    def test_current_declared_tables_are_the_linked_storage_sot(self) -> None:
+        logical = p294.linked_table_bytes()
+        storage = linked_audit.linked_table_storage_bytes(logical)
+        normalized, evidence = linked_audit.normalize_linked_table_storage(
+            storage, logical
+        )
+        self.assertEqual(storage, logical)
+        self.assertEqual(normalized, logical)
+        self.assertEqual(set(evidence), set(logical))
+        self.assertTrue(
+            all(row["physical_bytes_verified"] for row in evidence.values())
+        )
+
+    def test_inherited_p290_linked_tables_are_rejected(self) -> None:
+        with self.assertRaisesRegex(
+            linked_audit.AuditError,
+            "P2.94 logical linked table set is invalid",
+        ):
+            linked_audit.linked_table_storage_bytes(
+                p290_contract.linked_table_bytes()
+            )
+
+    def test_physical_linked_table_drift_is_rejected(self) -> None:
+        logical = p294.linked_table_bytes()
+        physical = dict(logical)
+        name = next(iter(physical))
+        physical[name] += b"\x00"
+        with self.assertRaisesRegex(
+            linked_audit.AuditError,
+            "P2.94 physical linked table bytes differ",
+        ):
+            linked_audit.normalize_linked_table_storage(physical, logical)
+
+    def test_formal_main_serializes_linked_audit_failure(self) -> None:
+        output = io.StringIO()
+        with (
+            mock.patch.object(
+                repro,
+                "parse_args",
+                return_value=SimpleNamespace(a_only_path_leak_gate=False),
+            ),
+            mock.patch.object(
+                repro,
+                "check",
+                side_effect=linked_audit.AuditError("linked audit sentinel"),
+            ),
+            contextlib.redirect_stdout(output),
+        ):
+            self.assertEqual(repro.main([]), 1)
+        result = json.loads(output.getvalue())
+        self.assertEqual(result["verdict"], "FAIL_CLOSED")
+        self.assertEqual(result["error"], "linked audit sentinel")
 
     def test_pre_lto_defaults_are_p294_bound_and_context_local(self) -> None:
         inherited = pre_lto.base.inherited.base.base

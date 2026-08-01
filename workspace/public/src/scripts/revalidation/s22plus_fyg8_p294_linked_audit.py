@@ -18,17 +18,42 @@ SourceContractError = AuditError
 require_gnu_aarch64_tools = inherited.require_gnu_aarch64_tools
 
 
+def _validate_tables(logical_tables: dict[str, bytes]) -> None:
+    expected = p294.linked_table_bytes()
+    if (
+        not isinstance(logical_tables, dict)
+        or logical_tables != expected
+        or any(
+            not isinstance(value, bytes)
+            for value in logical_tables.values()
+        )
+    ):
+        raise AuditError("P2.94 logical linked table set is invalid")
+
+
 def linked_table_storage_bytes(logical_tables: dict[str, bytes]) -> dict[str, bytes]:
-    return inherited.linked_table_storage_bytes(logical_tables)
+    _validate_tables(logical_tables)
+    return dict(logical_tables)
 
 
 def normalize_linked_table_storage(
     actual_storage: dict[str, bytes],
     logical_tables: dict[str, bytes],
 ) -> tuple[dict[str, bytes], dict[str, Any]]:
-    return inherited.normalize_linked_table_storage(
-        actual_storage, logical_tables
-    )
+    _validate_tables(logical_tables)
+    if actual_storage != logical_tables:
+        raise AuditError("P2.94 physical linked table bytes differ")
+    return dict(actual_storage), {
+        name: {
+            "entry_count": len(data),
+            "logical_stride": 1,
+            "physical_stride": 1,
+            "physical_equals_logical": True,
+            "zero_tail_padding_verified": True,
+            "physical_bytes_verified": True,
+        }
+        for name, data in sorted(logical_tables.items())
+    }
 
 
 def audit_linked_validator(

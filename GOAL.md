@@ -718,6 +718,27 @@ operations before the asserted publication boundaries.
 
 No device step is added when H0 can answer the question.
 
+## P2.94 formal verifier re-entry
+
+The third formal invocation ran once and stopped before packaging or device
+contact. The candidate remained valid; the P2.94 linked adapter had delegated
+storage-table validation to a historical P2.90 predicate and rejected the
+current 148-rule table. The empty failure receipt is preserved and no later
+step ran.
+
+The Tier-2 repair now validates linked storage from the current P2.94 source
+contract, rejects the historical P2.90 table as a negative control, checks
+physical bytes exactly, and serializes linked-audit errors as `FAIL_CLOSED`.
+The frozen qualification re-entry binds the exact adapter delta. Candidate
+verification still passes with `103/103` and `CHANGED_KEYS=[]`; the intent,
+run ID, and Full-LTO A/B remain unchanged.
+
+For the next approval, first material host/verifier failures before packaging
+and device contact follow AGENTS.md rule 7; only the same material failure a
+second time stops that host line. Once packaging or device-adjacent execution
+begins, an unexplained failure stops the sequence. F1 remains separately
+unauthorized.
+
 ## Process
 
 For each bounded unit:

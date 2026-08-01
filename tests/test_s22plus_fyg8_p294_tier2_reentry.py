@@ -36,11 +36,19 @@ class Tier2ReentryTests(unittest.TestCase):
         self.assertEqual(result["verdict"], reentry.VERDICT)
         self.assertEqual(result["implementation_count"], 50)
         self.assertEqual(result["unique_implementation_count"], 49)
-        self.assertEqual(result["changed_names"], ["observer", "observer_test"])
-        self.assertEqual(result["changed_count"], 2)
-        self.assertEqual(result["gate_changed_count"], 1)
+        self.assertEqual(
+            result["changed_names"],
+            [
+                "observer",
+                "linked_audit",
+                "p294_linked_audit",
+                "observer_test",
+            ],
+        )
+        self.assertEqual(result["changed_count"], 4)
+        self.assertEqual(result["gate_changed_count"], 3)
         self.assertEqual(result["evidence_changed_count"], 1)
-        self.assertEqual(result["unchanged_gate_count"], 49)
+        self.assertEqual(result["unchanged_gate_count"], 47)
         self.assertGreater(result["observer_test"]["test_count"], 0)
 
     def test_unrecognized_observer_delta_fails(self) -> None:

@@ -50,6 +50,19 @@ CURRENT_OBSERVER_TEST_RECEIPT = {
     "size": 55001,
     "sha256": "1087c8656c70ae4a4159e124f31af468d050c4a1ccece93b03227f29b8347213",
 }
+LINKED_AUDIT_NAMES = frozenset({"linked_audit", "p294_linked_audit"})
+LINKED_AUDIT_PATH = Path(
+    "workspace/public/src/scripts/revalidation/"
+    "s22plus_fyg8_p294_linked_audit.py"
+)
+FROZEN_LINKED_AUDIT_RECEIPT = {
+    "size": 1969,
+    "sha256": "c824d367e7b899ea2911aceb3332fd634fa4756963ff47300c0b302d538ed1b5",
+}
+CURRENT_LINKED_AUDIT_RECEIPT = {
+    "size": 2782,
+    "sha256": "839381148e051e6cfcd4970008e3f690c40f21bf1916de6ca32550fa0d2b81f7",
+}
 EXPECTED_IMPLEMENTATION_COUNT = 50
 EXPECTED_UNIQUE_IMPLEMENTATION_COUNT = 49
 EXPECTED_ALIASES = {
@@ -304,6 +317,30 @@ def check(root: Path, qualification_path: Path) -> dict[str, Any]:
                 "exact_declared_delta": True,
             }
             continue
+        if name in LINKED_AUDIT_NAMES:
+            if (
+                path != LINKED_AUDIT_PATH
+                or expected != FROZEN_LINKED_AUDIT_RECEIPT
+            ):
+                raise ReentryError(
+                    "P2.94 frozen linked-audit identity differs"
+                )
+            actual = _receipt(
+                _stable_read(
+                    root / path,
+                    f"P2.94 current linked audit {name}",
+                    MAX_IMPLEMENTATION_SIZE,
+                )
+            )
+            if actual != CURRENT_LINKED_AUDIT_RECEIPT:
+                raise ReentryError("P2.94 current linked-audit delta differs")
+            rows[name] = {
+                "path": path.as_posix(),
+                "frozen": expected,
+                "current": actual,
+                "exact_declared_delta": True,
+            }
+            continue
         actual = _receipt(
             _stable_read(
                 root / path,
@@ -337,11 +374,15 @@ def check(root: Path, qualification_path: Path) -> dict[str, Any]:
         "frozen_commit": FROZEN_COMMIT,
         "implementation_count": len(rows),
         "unique_implementation_count": len(path_names),
-        "changed_names": [OBSERVER_NAME, "observer_test"],
-        "changed_count": 2,
-        "gate_changed_count": 1,
+        "changed_names": [
+            OBSERVER_NAME,
+            *sorted(LINKED_AUDIT_NAMES),
+            "observer_test",
+        ],
+        "changed_count": 4,
+        "gate_changed_count": 3,
         "evidence_changed_count": 1,
-        "unchanged_gate_count": len(rows) - 1,
+        "unchanged_gate_count": len(rows) - 3,
         "observer_test": observer_test,
         "implementations": rows,
         "verified": True,
