@@ -84,6 +84,39 @@ class _QualificationSourceContractAdapter:
 QUALIFICATION_SOURCE_CONTRACT = _QualificationSourceContractAdapter()
 
 
+def _expected_safety(exact_contract: dict[str, object]) -> dict[str, object]:
+    """Require the exact P2.96 built-in-only candidate safety descriptor."""
+    if (
+        exact_contract.get("profile") != p296.PROFILE
+        or exact_contract.get("source_contract_id") != p296.CONTRACT_ID
+    ):
+        raise QualificationError("P2.96 safety contract identity mismatch")
+    expected = {
+        "host_only": True,
+        "device_contact": False,
+        "device_write": False,
+        "odin_invoked": False,
+        "flash": False,
+        "partition_write": False,
+        "live_authorized": False,
+        "boot_only_ap": True,
+        "ap_members": ["boot.img.lz4"],
+        "no_shell": True,
+        "no_block_write": True,
+        "no_reboot_syscall": True,
+        "userspace_sysfs_configfs_write_scope": spec.SAFETY_USERSPACE_WRITE_SCOPE,
+        "usb_scope": spec.SAFETY_USB_SCOPE,
+        "module_init_probe_authority": "active-live-unproved",
+        **spec.RUNTIME_AUTHORITY,
+        "candidate_module_binaries_injected": 0,
+        "built_in_telemetry_only": True,
+    }
+    actual = candidate_builder.artifact_safety(exact_contract)
+    if actual != expected:
+        raise QualificationError("P2.96 safety dictionary is not exact")
+    return actual
+
+
 def _load_linked_audit_module():
     try:
         module = importlib.import_module(LINKED_AUDIT_MODULE_NAME)
@@ -152,9 +185,11 @@ def _context() -> Iterator[None]:
     previous_defaults = {
         "DEFAULT_USERSPACE_RESULT": inherited_defaults.DEFAULT_USERSPACE_RESULT,
         "DEFAULT_LIFECYCLE_RESULT": inherited_defaults.DEFAULT_LIFECYCLE_RESULT,
+        "_expected_safety": inherited_defaults._expected_safety,  # noqa: SLF001
     }
     inherited_defaults.DEFAULT_USERSPACE_RESULT = DEFAULT_USERSPACE_RESULT
     inherited_defaults.DEFAULT_LIFECYCLE_RESULT = DEFAULT_LIFECYCLE_RESULT
+    inherited_defaults._expected_safety = _expected_safety  # noqa: SLF001
     try:
         yield
     finally:
