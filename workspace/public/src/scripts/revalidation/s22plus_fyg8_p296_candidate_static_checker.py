@@ -41,12 +41,31 @@ DEFAULT_OUT = Path(
 CheckError = base.CheckError
 
 
+def artifact_safety(exact_contract):  # noqa: ANN001, ANN201
+    """Reproduce the descriptor emitted by the frozen Tier-1 builder."""
+
+    candidate._configure()
+    return candidate.base.artifact_safety(exact_contract)
+
+
+class _CandidateStaticView:
+    """Expose the frozen producer shape without mutating its module API."""
+
+    artifact_safety = staticmethod(artifact_safety)
+
+    def __getattr__(self, name: str):
+        return getattr(candidate, name)
+
+
+_CANDIDATE_STATIC_VIEW = _CandidateStaticView()
+
+
 def _configure() -> None:
     candidate._configure()
     contract._configure()
     repro._configure()
     userspace._configure()
-    base.candidate = candidate
+    base.candidate = _CANDIDATE_STATIC_VIEW
     base.repro = repro
     base.contract = contract
     base.p286_closure = p296_closure

@@ -9,6 +9,7 @@ import subprocess
 import sys
 from typing import Any
 
+import s22plus_fyg8_p253_linked_audit as cfg_audit
 import s22plus_fyg8_p290_postbuild_linked_audit as base
 import s22plus_fyg8_p292_postbuild_linked_audit as exact_slot
 import s22plus_fyg8_p296_build_repro_check as repro
@@ -36,6 +37,8 @@ SourceContractError = AuditError
 require_gnu_aarch64_tools = linked.require_gnu_aarch64_tools
 linked_table_storage_bytes = linked.linked_table_storage_bytes
 normalize_linked_table_storage = linked.normalize_linked_table_storage
+_BASE_RUN_HOST_VALIDATOR_TU = base.run_host_validator_tu
+_BASE_VERIFY_LINKED_TABLE_DATA = base.verify_linked_table_data
 
 
 def production_validator_source(patch: bytes) -> bytes:
@@ -73,7 +76,7 @@ def run_host_validator_tu(tu: bytes) -> dict[str, Any]:
     base.HOST_ACCEPT_COUNT = HOST_ACCEPT_COUNT
     base.HOST_OUTPUT = HOST_OUTPUT
     try:
-        return base.run_host_validator_tu(tu)
+        return _BASE_RUN_HOST_VALIDATOR_TU(tu)
     finally:
         for name, value in previous.items():
             setattr(base, name, value)
@@ -97,7 +100,7 @@ def verify_linked_table_data(
     previous = base.p290
     base.p290 = p296
     try:
-        return base.verify_linked_table_data(vmlinux, expected)
+        return _BASE_VERIFY_LINKED_TABLE_DATA(vmlinux, expected)
     finally:
         base.p290 = previous
 
@@ -119,21 +122,99 @@ def linked_table_data(args, result: dict[str, Any]) -> dict[str, Any]:  # noqa: 
     return proof
 
 
+def _audit_writer_guard(writer: str) -> dict[str, Any]:
+    """Run the inherited writer proof with noreturn fallthroughs removed."""
+
+    instructions = cfg_audit._instructions(writer)  # noqa: SLF001
+    _successors, noreturn_calls = exact_slot._prune_noreturn_successors(  # noqa: SLF001
+        instructions,
+        cfg_audit._successors(instructions),  # noqa: SLF001
+    )
+    if len(noreturn_calls) != 1:
+        raise AuditError(
+            "P2.96 linked writer stack-check failure call is missing"
+        )
+
+    original_successors = cfg_audit._successors  # noqa: SLF001
+
+    def corrected_successors(candidate_instructions):  # noqa: ANN001, ANN202
+        return exact_slot._prune_noreturn_successors(  # noqa: SLF001
+            candidate_instructions,
+            original_successors(candidate_instructions),
+        )[0]
+
+    cfg_audit._successors = corrected_successors  # noqa: SLF001
+    try:
+        result = dict(cfg_audit._audit_writer_guard(writer))  # noqa: SLF001
+    finally:
+        cfg_audit._successors = original_successors  # noqa: SLF001
+    result["noreturn_call_fallthroughs_pruned"] = len(noreturn_calls)
+    result["noreturn_call_target"] = "__stack_chk_fail"
+    return result
+
+
 def audit_linked_validator(
     disassembly: dict[str, str],
     calls: dict[str, list[str]],
-    symbol_addresses: dict[str, int],
+    _symbol_addresses: dict[str, int],
 ) -> dict[str, Any]:
-    previous = exact_slot.linked
-    exact_slot.linked = linked
-    try:
-        return exact_slot.audit_linked_validator(
-            disassembly,
-            calls,
-            symbol_addresses,
-        )
-    finally:
-        exact_slot.linked = previous
+    required = (
+        "s22_fyg8_e1_expected_item",
+        "s22_fyg8_e1_request_allowed",
+        "s22_fyg8_e1_detail_allowed",
+        "s22_fyg8_p290_tuple_allowed",
+        "s22_fyg8_e1_write",
+        "s22_p294_dwc3_state_snapshot",
+    )
+    missing = sorted(
+        name
+        for name in required
+        if not isinstance(disassembly.get(name), str)
+    )
+    if missing:
+        raise AuditError(f"P2.96 linked validator symbols are missing: {missing}")
+
+    def require_call(caller: str, callee: str) -> None:
+        row = calls.get(caller)
+        if not isinstance(row, list) or row.count(callee) != 1:
+            raise AuditError(
+                f"P2.96 linked call edge is not exact: {caller}->{callee}"
+            )
+
+    require_call("s22_fyg8_e1_write", "s22_fyg8_e1_request_allowed")
+    require_call("s22_fyg8_e1_request_allowed", "s22_fyg8_e1_expected_item")
+    require_call("s22_fyg8_e1_request_allowed", "s22_fyg8_e1_detail_allowed")
+    detail_calls = calls.get("s22_fyg8_e1_detail_allowed")
+    tuple_calls = calls.get("s22_fyg8_p290_tuple_allowed")
+    if (
+        not isinstance(detail_calls, list)
+        or detail_calls.count("s22_fyg8_p290_tuple_allowed") != 0
+        or tuple_calls != []
+    ):
+        raise AuditError("P2.96 constant-false tuple fallback was not call-elided")
+    if "s22_p294_wrapper_vbus_snapshot" in disassembly:
+        raise AuditError("P2.96 external-module telemetry symbol is unexpected")
+    return {
+        "audit_adapter": ADAPTER_ID,
+        "writer_calls_request_validator": True,
+        "request_calls_item_validator": True,
+        "request_calls_detail_validator": True,
+        "detail_calls_tuple_validator": False,
+        "constant_false_tuple_fallback_call_elided": True,
+        "writer_guard": _audit_writer_guard(
+            disassembly["s22_fyg8_e1_write"]
+        ),
+        "register_specific_validator_patterns_used": False,
+        "validator_semantics_pending_host_exhaustive": True,
+        "telemetry_symbols": {
+            "symbols": ["s22_p294_dwc3_state_snapshot"],
+            "external_module_symbols": [],
+            "full_lto_retained": True,
+            "verified": True,
+        },
+        "accept_to_resume_pending_postbuild": True,
+        "verified": False,
+    }
 
 
 def _configure() -> None:

@@ -30,6 +30,25 @@ def load_module():
 
 
 class DeviceActionF1EvidenceV2Test(unittest.TestCase):
+    def test_versioned_builtin_driver_base_files_come_from_source_contract(self):
+        historical = self.module._candidate_base_files(
+            self.module.P292_SOURCE_CONTRACT_ID,
+            "E2",
+        )
+        current = self.module._candidate_base_files(
+            self.module.P296_SOURCE_CONTRACT_ID,
+            "E2",
+        )
+        driver = "kernel_platform/common/drivers/usb/dwc3/gadget.c"
+        self.assertNotIn(driver, historical)
+        self.assertEqual(
+            current[driver],
+            self.module._selected_contract(
+                self.module.P296_SOURCE_CONTRACT_ID,
+                "E2",
+            ).module.DRIVER_SOURCE_RECEIPTS[driver],
+        )
+
     @classmethod
     def setUpClass(cls):
         cls.module = load_module()

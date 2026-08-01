@@ -21,6 +21,7 @@ import s22plus_fyg8_p288_e2_stock_closure as p288_e2_closure
 import s22plus_fyg8_p290_e2_stock_closure as p290_e2_closure
 import s22plus_fyg8_p292_e2_stock_closure as p292_e2_closure
 import s22plus_fyg8_p294_e2_stock_closure as p294_e2_closure
+import s22plus_fyg8_p296_e2_stock_closure as p296_e2_closure
 
 
 MARKER_KIND = "retained_marker_after_rollback"
@@ -80,6 +81,13 @@ P294_CANDIDATE_STATIC_VERDICT = (
     "PASS_P294_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
 )
 P294_SOURCE_CONTRACT_ID = p294_e2_closure.source_contract.CONTRACT_ID
+P296_CANDIDATE_STATIC_SCHEMA = (
+    "s22plus_fyg8_p296_candidate_static_checker_v1"
+)
+P296_CANDIDATE_STATIC_VERDICT = (
+    "PASS_P296_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
+)
+P296_SOURCE_CONTRACT_ID = p296_e2_closure.source_contract.CONTRACT_ID
 E1_LATEST_STAGE_CANDIDATE_CONTRACT_SCHEMA = (
     "s22plus_fyg8_p234_candidate_contract_v1"
 )
@@ -164,6 +172,37 @@ E1_LATEST_STAGE_BASE_FILES = {
         "7d281c86ca63646083b9f489eed28281c7d2518f397f34ceccf34c223eaa663a"
     ),
 }
+
+
+def _candidate_base_files(
+    source_contract_id: str | None,
+    profile: str,
+) -> dict[str, str]:
+    expected = dict(E1_LATEST_STAGE_BASE_FILES)
+    if source_contract_id not in {
+        P294_SOURCE_CONTRACT_ID,
+        P296_SOURCE_CONTRACT_ID,
+    }:
+        return expected
+    driver_sources = getattr(
+        _selected_contract(source_contract_id, profile).module,
+        "DRIVER_SOURCE_RECEIPTS",
+        None,
+    )
+    if (
+        not isinstance(driver_sources, dict)
+        or not driver_sources
+        or any(
+            not isinstance(path, str)
+            or not isinstance(digest, str)
+            or HASH_RE.fullmatch(digest) is None
+            for path, digest in driver_sources.items()
+        )
+        or set(expected) & set(driver_sources)
+    ):
+        raise EvidenceError("versioned driver source receipts are invalid")
+    expected.update(driver_sources)
+    return expected
 E1B_MODULE_SPECS = [
     {
         "file": "smem.ko",
@@ -265,6 +304,8 @@ def _latest_stage_decoder(
 
 
 def _select_e2_closure(source_contract_id: str | None):
+    if source_contract_id == P296_SOURCE_CONTRACT_ID:
+        return p296_e2_closure.select(source_contract_id)
     if source_contract_id == P294_SOURCE_CONTRACT_ID:
         return p294_e2_closure.select(source_contract_id)
     if source_contract_id == P292_SOURCE_CONTRACT_ID:
@@ -285,6 +326,7 @@ def _e2_authority_context(source_contract_id: str | None, closure_api: Any):
         P290_SOURCE_CONTRACT_ID,
         P292_SOURCE_CONTRACT_ID,
         P294_SOURCE_CONTRACT_ID,
+        P296_SOURCE_CONTRACT_ID,
     }:
         return nullcontext()
     authority_context = getattr(closure_api, "_p286_authority_paths", None)
@@ -503,6 +545,7 @@ def _generic_rootfs_module_closure(
         P290_SOURCE_CONTRACT_ID,
         P292_SOURCE_CONTRACT_ID,
         P294_SOURCE_CONTRACT_ID,
+        P296_SOURCE_CONTRACT_ID,
     }:
         return module_closure
     adapter_api = closure_api
@@ -514,6 +557,7 @@ def _generic_rootfs_module_closure(
         P290_SOURCE_CONTRACT_ID,
         P292_SOURCE_CONTRACT_ID,
         P294_SOURCE_CONTRACT_ID,
+        P296_SOURCE_CONTRACT_ID,
     }:
         inherited_p282 = getattr(closure_api, "p282", None)
         adapter_api = getattr(inherited_p282, "p280", None)
@@ -523,6 +567,7 @@ def _generic_rootfs_module_closure(
             P290_SOURCE_CONTRACT_ID: "P2.90",
             P292_SOURCE_CONTRACT_ID: "P2.92",
             P294_SOURCE_CONTRACT_ID: "P2.94",
+            P296_SOURCE_CONTRACT_ID: "P2.96",
             e2_closure_selector.P284_CONTRACT_ID: "P2.84",
         }[source_contract_id]
     elif source_contract_id == e2_closure_selector.P282_CONTRACT_ID:
@@ -1587,42 +1632,50 @@ def _verify_e1_latest_stage_offline_contract(
         payloads["candidate_static"], "E1A candidate static result"
     )
     expected_candidate_static_schema = (
-        P294_CANDIDATE_STATIC_SCHEMA
-        if source_contract_id == P294_SOURCE_CONTRACT_ID
+        P296_CANDIDATE_STATIC_SCHEMA
+        if source_contract_id == P296_SOURCE_CONTRACT_ID
         else (
-            P292_CANDIDATE_STATIC_SCHEMA
-            if source_contract_id == P292_SOURCE_CONTRACT_ID
+            P294_CANDIDATE_STATIC_SCHEMA
+            if source_contract_id == P294_SOURCE_CONTRACT_ID
             else (
-                P290_CANDIDATE_STATIC_SCHEMA
-                if source_contract_id == P290_SOURCE_CONTRACT_ID
+                P292_CANDIDATE_STATIC_SCHEMA
+                if source_contract_id == P292_SOURCE_CONTRACT_ID
                 else (
-                    P288_CANDIDATE_STATIC_SCHEMA
-                    if source_contract_id == P288_SOURCE_CONTRACT_ID
+                    P290_CANDIDATE_STATIC_SCHEMA
+                    if source_contract_id == P290_SOURCE_CONTRACT_ID
                     else (
-                        P286_CANDIDATE_STATIC_SCHEMA
-                        if source_contract_id == P286_SOURCE_CONTRACT_ID
-                        else E1_LATEST_STAGE_CANDIDATE_STATIC_SCHEMA
+                        P288_CANDIDATE_STATIC_SCHEMA
+                        if source_contract_id == P288_SOURCE_CONTRACT_ID
+                        else (
+                            P286_CANDIDATE_STATIC_SCHEMA
+                            if source_contract_id == P286_SOURCE_CONTRACT_ID
+                            else E1_LATEST_STAGE_CANDIDATE_STATIC_SCHEMA
+                        )
                     )
                 )
             )
         )
     )
     expected_candidate_static_verdict = (
-        P294_CANDIDATE_STATIC_VERDICT
-        if source_contract_id == P294_SOURCE_CONTRACT_ID
+        P296_CANDIDATE_STATIC_VERDICT
+        if source_contract_id == P296_SOURCE_CONTRACT_ID
         else (
-            P292_CANDIDATE_STATIC_VERDICT
-            if source_contract_id == P292_SOURCE_CONTRACT_ID
+            P294_CANDIDATE_STATIC_VERDICT
+            if source_contract_id == P294_SOURCE_CONTRACT_ID
             else (
-                P290_CANDIDATE_STATIC_VERDICT
-                if source_contract_id == P290_SOURCE_CONTRACT_ID
+                P292_CANDIDATE_STATIC_VERDICT
+                if source_contract_id == P292_SOURCE_CONTRACT_ID
                 else (
-                    P288_CANDIDATE_STATIC_VERDICT
-                    if source_contract_id == P288_SOURCE_CONTRACT_ID
+                    P290_CANDIDATE_STATIC_VERDICT
+                    if source_contract_id == P290_SOURCE_CONTRACT_ID
                     else (
-                        P286_CANDIDATE_STATIC_VERDICT
-                        if source_contract_id == P286_SOURCE_CONTRACT_ID
-                        else E1_LATEST_STAGE_CANDIDATE_STATIC_VERDICT
+                        P288_CANDIDATE_STATIC_VERDICT
+                        if source_contract_id == P288_SOURCE_CONTRACT_ID
+                        else (
+                            P286_CANDIDATE_STATIC_VERDICT
+                            if source_contract_id == P286_SOURCE_CONTRACT_ID
+                            else E1_LATEST_STAGE_CANDIDATE_STATIC_VERDICT
+                        )
                     )
                 )
             )
@@ -1719,14 +1772,15 @@ def _verify_e1_latest_stage_offline_contract(
     source_intent = _binary_identity(
         source_contract["intent"], "E1A candidate intent"
     )
+    expected_base_files = _candidate_base_files(source_contract_id, profile)
     source_base_files = _exact(
         source_contract["base_files"],
-        set(E1_LATEST_STAGE_BASE_FILES),
+        set(expected_base_files),
         "E1A candidate base files",
     )
     source_patched_files = _exact(
         source_contract["patched_files"],
-        set(E1_LATEST_STAGE_BASE_FILES),
+        set(expected_base_files),
         "E1A candidate patched files",
     )
     source_patch = _exact(
@@ -1792,12 +1846,12 @@ def _verify_e1_latest_stage_offline_contract(
         or source_contract.get("decoder_id") != selected_decoder.DECODER_ID
         or source_contract.get("decoder_policy_id")
         != selected_decoder.POLICY_ID
-        or source_base_files != E1_LATEST_STAGE_BASE_FILES
+        or source_base_files != expected_base_files
         or any(
             not isinstance(value, str) or HASH_RE.fullmatch(value) is None
             for value in source_patched_files.values()
         )
-        or source_patch["targets"] != sorted(E1_LATEST_STAGE_BASE_FILES)
+        or source_patch["targets"] != sorted(expected_base_files)
         or source_patch["base_files"] != source_base_files
         or source_patch["patched_files"] != source_patched_files
         or source_patch["config_lines"] != expected_config_lines
