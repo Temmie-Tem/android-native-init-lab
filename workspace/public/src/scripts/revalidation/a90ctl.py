@@ -349,7 +349,11 @@ def run_cmdv1_command(host: str,
         try:
             markers = (b"A90P1 END ",)
             if allow_retry and selected_input_mode in {"double", "slow"}:
-                markers = (b"A90P1 END ", b"[err] unknown command:")
+                markers = (
+                    b"A90P1 END ",
+                    b"[err] unknown command:",
+                    b"a90:/#",
+                )
             text = bridge_exchange(
                 host,
                 port,

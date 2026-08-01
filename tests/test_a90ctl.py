@@ -91,6 +91,27 @@ class A90CtlProtocolHelperTests(unittest.TestCase):
             )
         )
 
+    def test_read_until_can_return_prompt_only_before_deadline(self) -> None:
+        class FakeSocket:
+            def __init__(self) -> None:
+                self.recv_calls = 0
+
+            def recv(self, _size: int) -> bytes:
+                self.recv_calls += 1
+                return b"cmdv1 version\r\na90:/# "
+
+        sock = FakeSocket()
+        data = a90ctl.read_until(
+            sock,
+            (b"A90P1 END ", b"a90:/#"),
+            30.0,
+            require_prompt_after_end=True,
+            post_marker_drain_sec=0.0,
+        )
+
+        self.assertEqual(data, b"cmdv1 version\r\na90:/# ")
+        self.assertEqual(sock.recv_calls, 1)
+
     def test_parse_protocol_output_selects_last_complete_strict_frame(self) -> None:
         text = "noise\n" + frame(1, "status") + frame(
             2,
@@ -216,6 +237,7 @@ class A90CtlProtocolHelperTests(unittest.TestCase):
             frame(1, "version"),
         ]
         calls: list[str] = []
+        observed_markers: list[tuple[bytes, ...]] = []
 
         def fake_bridge(
             host,
@@ -231,6 +253,7 @@ class A90CtlProtocolHelperTests(unittest.TestCase):
             post_marker_drain_sec,
         ):
             calls.append(line)
+            observed_markers.append(markers)
             return responses.pop(0)
 
         with (
@@ -247,6 +270,7 @@ class A90CtlProtocolHelperTests(unittest.TestCase):
 
         self.assertEqual(result.status, "ok")
         self.assertEqual(calls, ["cmdv1 version", "cmdv1 version"])
+        self.assertTrue(all(b"a90:/#" in markers for markers in observed_markers))
 
     def test_run_cmdv1_command_does_not_retry_unsafe_prompt_only_exchange(self) -> None:
         with mock.patch.object(
@@ -264,6 +288,7 @@ class A90CtlProtocolHelperTests(unittest.TestCase):
                 )
 
         bridge.assert_called_once()
+        self.assertNotIn(b"a90:/#", bridge.call_args.kwargs["markers"])
 
     def test_run_cmdv1_command_can_skip_prompt_and_drain_for_fast_input(self) -> None:
         calls: list[tuple[bool, float]] = []
