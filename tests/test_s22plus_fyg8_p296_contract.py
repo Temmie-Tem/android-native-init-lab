@@ -9,6 +9,7 @@ import unittest
 
 import s22plus_fyg8_p286_source_contracts as selector
 import s22plus_fyg8_p296_candidate_intent as candidate_intent
+import s22plus_fyg8_p296_change_freeze as change_freeze
 import s22plus_fyg8_p296_identity_tiers as identity
 import s22plus_fyg8_p296_linked_audit as linked
 import s22plus_fyg8_p296_source_contract as contract
@@ -82,6 +83,15 @@ class P296ContractTests(unittest.TestCase):
             result = candidate_intent.create(args)
         self.assertEqual(result["verdict"], contract.INTENT_VERDICT)
         self.assertEqual(result["source_contract_id"], contract.CONTRACT_ID)
+
+    def test_change_freeze_excludes_only_verified_a90_commit(self) -> None:
+        derived = change_freeze.git_derived_changed_paths(ROOT)
+        result = change_freeze.validate_declared_change_set(derived)
+        self.assertTrue(result["exact_bidirectional_match"])
+        self.assertEqual(
+            result["excluded_foreign_target_commit"],
+            change_freeze.INTERLEAVED_FOREIGN_TARGET_COMMIT,
+        )
 
 
 if __name__ == "__main__":

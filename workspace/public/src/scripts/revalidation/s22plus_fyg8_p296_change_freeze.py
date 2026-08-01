@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path, PurePosixPath
+import subprocess
 from typing import Any
 
 import s22plus_fyg8_p290_change_freeze as git_freeze
@@ -16,6 +17,21 @@ import s22plus_fyg8_p296_source_contract as p296
 SCHEMA = "s22plus_fyg8_p296_change_closure_freeze_v1"
 VERDICT = "PASS_P296_PRE_INTENT_IDENTITY_FREEZE_HOST_ONLY"
 CHANGE_WINDOW_BASE_COMMIT = "8419e59b5657d1ed0ef74bd627ef3459ed219aa9"
+INTERLEAVED_FOREIGN_TARGET_COMMIT = (
+    "f84c6f40bc6175acf35a02003ad3d5e6d56611c8"
+)
+INTERLEAVED_FOREIGN_TARGET_PARENT = (
+    "53a37309ba0a0205f83b134e73e498f0f9f15fb7"
+)
+INTERLEAVED_FOREIGN_TARGET_PATHS = frozenset(
+    {
+        "GOAL_A90.md",
+        "docs/reports/A90_RESIDENT_INSTALL_V2_F1_PASS_2026-08-02.md",
+        "tests/test_server_distro_a90_resident_promotion_v1.py",
+        "workspace/public/src/scripts/server-distro/"
+        "a90_resident_promotion_v1.py",
+    }
+)
 INTENT_DERIVED = False
 BUILD_EXECUTED = False
 DEVICE_CONTACT = False
@@ -69,11 +85,73 @@ def _pure(path: str | Path | PurePosixPath) -> PurePosixPath:
     return value
 
 
+def _run_git(root: Path, *args: str) -> bytes:
+    completed = subprocess.run(
+        ("git", *args),
+        cwd=root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if completed.returncode != 0:
+        detail = completed.stderr.decode("utf-8", "replace").strip()
+        raise FreezeError(
+            f"git {' '.join(args)} failed ({completed.returncode}): {detail}"
+        )
+    return completed.stdout
+
+
+def _verified_foreign_target_paths(root: Path) -> frozenset[str]:
+    commit = INTERLEAVED_FOREIGN_TARGET_COMMIT
+    parent = _run_git(root, "rev-parse", f"{commit}^").decode("ascii").strip()
+    if parent != INTERLEAVED_FOREIGN_TARGET_PARENT:
+        raise FreezeError("interleaved A90 commit parent differs")
+    _run_git(root, "merge-base", "--is-ancestor", commit, "HEAD")
+    committed = frozenset(
+        value.decode("utf-8", "surrogateescape")
+        for value in _run_git(
+            root,
+            "diff-tree",
+            "--no-commit-id",
+            "--name-only",
+            "-r",
+            "-z",
+            commit,
+        ).split(b"\0")
+        if value
+    )
+    if committed != INTERLEAVED_FOREIGN_TARGET_PATHS:
+        raise FreezeError("interleaved A90 commit path set differs")
+    status = _run_git(
+        root,
+        "status",
+        "--porcelain=v1",
+        "-z",
+        "--untracked-files=all",
+        "--",
+        *sorted(committed),
+    )
+    if status:
+        raise FreezeError("interleaved A90 paths have worktree changes")
+    for path in committed:
+        committed_blob = _run_git(root, "rev-parse", f"{commit}:{path}")
+        head_blob = _run_git(root, "rev-parse", f"HEAD:{path}")
+        if committed_blob != head_blob:
+            raise FreezeError(f"interleaved A90 path changed after commit: {path}")
+    return committed
+
+
 def git_derived_changed_paths(root: Path) -> tuple[str, ...]:
     try:
-        return git_freeze.git_derived_changed_paths(root, CHANGE_WINDOW_BASE_COMMIT)
+        derived = set(
+            git_freeze.git_derived_changed_paths(root, CHANGE_WINDOW_BASE_COMMIT)
+        )
     except git_freeze.FreezeError as exc:
         raise FreezeError(str(exc)) from exc
+    foreign = _verified_foreign_target_paths(root)
+    if not foreign <= derived:
+        raise FreezeError("interleaved A90 paths are absent from the change window")
+    return tuple(sorted(derived - foreign))
 
 
 def validate_declared_change_set(derived_paths: tuple[str, ...]) -> dict[str, Any]:
@@ -89,6 +167,10 @@ def validate_declared_change_set(derived_paths: tuple[str, ...]) -> dict[str, An
     exact = sorted(derived)
     return {
         "base_commit": CHANGE_WINDOW_BASE_COMMIT,
+        "excluded_foreign_target_commit": INTERLEAVED_FOREIGN_TARGET_COMMIT,
+        "excluded_foreign_target_paths": sorted(
+            INTERLEAVED_FOREIGN_TARGET_PATHS
+        ),
         "git_derived_paths": exact,
         "declared_paths": exact,
         "exact_bidirectional_match": True,
