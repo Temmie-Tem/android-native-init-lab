@@ -101,21 +101,21 @@ transfer between the two files.
   regression and the related suite pass `179/179`. Independent review returned
   GO with no finding. The repaired orchestrator SHA256 is
   `a434ee2f26d4c2bd877f6a0eeb7102d39f1f94b100d01fea0117f10304bad8b1`.
-- Host-only `-07` stopped before finalizer output because the new review file
-  was group-writable. It is preserved and non-reusable; no device action or
-  candidate/rollback copy occurred at that failure.
-- Fresh `a90-v3406-debian-display-f1-20260801-08` now has a new-inode keyed
-  rootfs, exact V2321 D0/path-absence PASS, current review closure, and final
-  resident manifest SHA256
-  `5490b8d18b58e679b621c6b411f68d5dca40e06307be600dcdef7d4d60e91f9c`.
+- Host-only `-07` stopped on review-file mode. Run `-08` then stopped
+  `ABORTED_F1_V2_BEFORE_CANDIDATE` when inactive NCM routed through ordinary
+  LAN. Both are non-reusable; `-08` performed zero staging, transfer, or
+  reboot, and S22+ received no command.
+- Connected D0 now invokes the exact live-staging NCM readiness function before
+  baseline reads and pins A90 interface, direct route, host CIDR, and ping.
+  The related suite passes `204/204`; independent review
+  returned GO with no finding. Commit `7c339e8b` contains the bounded repair.
+- Fresh `a90-v3406-debian-display-f1-20260801-09` has keyed rootfs SHA256
+  `a4457aef646d3d30fe109f17a6e3730c774d545ac04d86baea5f3fab761de2b1`, exact
+  healthy V2321 D0, absent final/work/stage paths, and all four NCM proofs true.
+  Resident manifest SHA256 is `2a6755bc67a2918d37632e0ad523a9971d9baa6442a64d59261f005ad7aa363a`.
   Approval binding
-  `230c39a0a2befd0fa2d63af43bc3470148c646b5d32fec72ac6d86e30fff4a7a`
-  was consumed, but staging stopped before candidate intent because the A90
-  NCM profile was inactive and the observer route resolved through ordinary
-  LAN instead of direct USB. Candidate and rollback transfers, rootfs staging,
-  and reboot are all zero; S22+ received no command. This repeats the `-05`
-  host-route failure class, so `-08` is non-reusable and the line is stopped at
-  H0. Move the same direct-route gate into connected D0 before another run.
+  `1e3c99dc8900079cd9c546ea2fd059e67cbe23e2394e7ed1e85cdf3887f53cd3`
+  is prepared but grants no live authority until echoed exactly.
 - Do not add a device step while host-only work can answer the selected
   question.
 
