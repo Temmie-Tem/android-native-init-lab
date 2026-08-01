@@ -82,13 +82,6 @@ transfer between the two files.
   boot transfer and one exact V2321 rollback transfer with no candidate replay;
   final V2321 version/build and selftest `fail=0` passed. The separately
   connected S22+ received no command.
-- The live interruption was a host guard-validator defect. The transient udev
-  rule correctly attached both ModemManager ignore properties to the exact tty
-  class node, while the runner queried its USB-interface `device_path` and
-  stopped before candidate health. The first rollback invocation was proven
-  pre-session with no recovery request, endpoint selection, payload transfer,
-  or boot write. Recovery then used the same exact canonical `--from-native`
-  path under the already-authorized rollback and restored health once.
 - The tty-node validator now checks `endpoint.tty_class`; its exact-path
   regression and the related suite pass `179/179`. Independent review returned
   GO with no finding. The repaired orchestrator SHA256 is
@@ -113,6 +106,15 @@ transfer between the two files.
   `266/266`; independent review returned GO. The new `a90ctl.py` SHA256 is
   `b8e870f628e94f35a782c99e70cf4dcfee4cc7b4824ecec38e7241e0efa77831`;
   every older manifest is stale and no new live authority exists.
+- Fresh `a90-v3406-debian-display-f1-20260801-10` first stopped D0 before a
+  device command when the NCM profile was detached after re-enumeration. Exact
+  A90 profile rebind and evidence `02` then passed V2321 health, direct NCM,
+  and new final/work/stage absence. Its fresh keyed rootfs SHA256 is
+  `74fb53df0cea3a235307afdf0c1ff3e1d492b5815838a91b42880b99a745bd6e`.
+- The per-run serial capture is rebound and the resident manifest SHA256 is
+  `6153e87f081a62ea5327b4da900a1dec215e15216d5c6ae804274a2e0b9e7c05`.
+  Approval binding `accf8770412b20c69805bee88f270bbb10fdb9bc16841d49a83949789055cf12`
+  is prepared with both F1 and live authority false until echoed exactly.
 - Do not add a device step while host-only work can answer the selected
   question.
 
