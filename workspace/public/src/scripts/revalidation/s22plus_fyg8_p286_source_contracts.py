@@ -13,6 +13,7 @@ SourceContractSelectionError = historical.SourceContractSelectionError
 SelectedSourceContract = historical.SelectedSourceContract
 P292_CONTRACT_ID = "s22plus-fyg8-p292-resumable-checkpoint-state-v1"
 P294_CONTRACT_ID = "s22plus-fyg8-p294-dwc3-value-telemetry-v1"
+P296_CONTRACT_ID = "s22plus-fyg8-p296-builtin-dwc3-telemetry-v1"
 
 REGISTRY = {
     **historical.REGISTRY,
@@ -23,7 +24,12 @@ REGISTRY = {
 
 
 def contract_ids() -> tuple[str, ...]:
-    return (*tuple(REGISTRY), P292_CONTRACT_ID, P294_CONTRACT_ID)
+    return (
+        *tuple(REGISTRY),
+        P292_CONTRACT_ID,
+        P294_CONTRACT_ID,
+        P296_CONTRACT_ID,
+    )
 
 
 def __getattr__(name: str):
@@ -74,6 +80,14 @@ def select(
     source_contract_id: str | None,
     profile: str,
 ) -> SelectedSourceContract:
+    if source_contract_id == P296_CONTRACT_ID:
+        import s22plus_fyg8_p296_source_contract as p296
+
+        try:
+            contract = p296.require(source_contract_id, profile)
+        except p296.SourceContractError as exc:
+            raise SourceContractSelectionError(str(exc)) from exc
+        return _p292_selection(p296, contract)
     if source_contract_id == P294_CONTRACT_ID:
         import s22plus_fyg8_p294_source_contract as p294
 
