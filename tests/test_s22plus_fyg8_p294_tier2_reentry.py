@@ -17,6 +17,11 @@ QUALIFICATION = (
     ROOT
     / "workspace/private/outputs/s22plus_fyg8_p294_pre_lto/qualification.json"
 )
+BUILD_RESULT = (
+    ROOT
+    / "workspace/private/outputs/s22plus_fyg8_p294/"
+    "full-lto-dd20b502-v1/repro-a/build-result.json"
+)
 
 
 class Tier2ReentryTests(unittest.TestCase):
@@ -42,14 +47,39 @@ class Tier2ReentryTests(unittest.TestCase):
                 "observer",
                 "linked_audit",
                 "p294_linked_audit",
+                "linked_audit_test",
                 "observer_test",
+                "process_v2_docs_test",
             ],
         )
-        self.assertEqual(result["changed_count"], 4)
+        self.assertEqual(result["changed_count"], 6)
         self.assertEqual(result["gate_changed_count"], 3)
-        self.assertEqual(result["evidence_changed_count"], 1)
+        self.assertEqual(result["evidence_changed_count"], 3)
         self.assertEqual(result["unchanged_gate_count"], 47)
         self.assertGreater(result["observer_test"]["test_count"], 0)
+        self.assertGreater(result["process_v2_docs_test"]["test_count"], 0)
+
+    def test_actual_full_lto_provenance_replays_through_formal_verifier(
+        self,
+    ) -> None:
+        build_result = json.loads(BUILD_RESULT.read_text())
+        provenance = build_result["provenance"][
+            repro.P294_QUALIFICATION_PROVENANCE_KEY
+        ]
+        exact_contract = repro.candidate_contract.verify(
+            ROOT,
+            repro.candidate_contract.DEFAULT_SOURCE,
+            repro.candidate_contract.DEFAULT_INTENT,
+            repro.candidate_contract.DEFAULT_PATCH,
+        )
+        verified = repro.verify_p294_qualification_file(
+            provenance,
+            exact_contract,
+            intent_path=repro.candidate_contract.DEFAULT_INTENT,
+            patch_path=repro.candidate_contract.DEFAULT_PATCH,
+            root=ROOT,
+        )
+        self.assertEqual(verified, provenance)
 
     def test_unrecognized_observer_delta_fails(self) -> None:
         frozen = reentry._git_blob(  # noqa: SLF001

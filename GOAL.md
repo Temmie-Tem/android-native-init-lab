@@ -752,6 +752,16 @@ static closure, promotion, ready manifest, D0, Odin invocation, or device
 contact followed. P2.94 run identity and Full-LTO evidence remain unchanged;
 the stale v4 packet remains evidence only.
 
+That API-shape stop was later found not to govern the selected formal chain.
+The bounded H0 re-entry repaired frozen qualification replay and passed the
+actual Full-LTO provenance focused test with `103/103` and `CHANGED_KEYS=[]`.
+The corrected formal replay then exposed a distinct delivery blocker:
+`s22_p294_wrapper_vbus_snapshot` belongs to external `dwc3-msm.ko`, while the
+boot-only packager injects zero modules and reuses the stock vendor ramdisk.
+The built-in DWC3 snapshot is linked, but the required wrapper is not in the
+candidate and the runtime requires both snapshots. P2.94 therefore remains H0
+static-stop; no package, manifest, D0, F1, Odin, or device contact followed.
+
 ## Process
 
 For each bounded unit:

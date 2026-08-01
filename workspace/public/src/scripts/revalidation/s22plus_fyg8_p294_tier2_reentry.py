@@ -63,6 +63,24 @@ CURRENT_LINKED_AUDIT_RECEIPT = {
     "size": 2782,
     "sha256": "839381148e051e6cfcd4970008e3f690c40f21bf1916de6ca32550fa0d2b81f7",
 }
+LINKED_AUDIT_TEST_PATH = Path("tests/test_s22plus_fyg8_p294_contract.py")
+FROZEN_LINKED_AUDIT_TEST_RECEIPT = {
+    "size": 4697,
+    "sha256": "2795d85d3871ed53d54e2f9f40e6f07448769dc33b0dd64b5dadded3b64d00e2",
+}
+CURRENT_LINKED_AUDIT_TEST_RECEIPT = {
+    "size": 7072,
+    "sha256": "e2c6713a89399ac9a0826bfd1f364bffc6c150ead6a29c35c6e0e19badf7c01d",
+}
+PROCESS_V2_DOCS_TEST_PATH = Path("tests/test_device_action_process_v2_docs.py")
+FROZEN_PROCESS_V2_DOCS_TEST_RECEIPT = {
+    "size": 9796,
+    "sha256": "3803e6050c60f70ca7438a3f0360dc8c40e239ef093768e41daf74cc695a80f9",
+}
+CURRENT_PROCESS_V2_DOCS_TEST_RECEIPT = {
+    "size": 15199,
+    "sha256": "6f971e730de247b05f4ce639c35a4a97fcb5018a359aa14a65eb198fad27211d",
+}
 EXPECTED_IMPLEMENTATION_COUNT = 50
 EXPECTED_UNIQUE_IMPLEMENTATION_COUNT = 49
 EXPECTED_ALIASES = {
@@ -239,6 +257,36 @@ def _run_current_observer_test(root: Path) -> dict[str, Any]:
     }
 
 
+def _run_current_process_v2_docs_test(root: Path) -> dict[str, Any]:
+    completed = subprocess.run(
+        [sys.executable, "-m", "unittest", "-v", str(PROCESS_V2_DOCS_TEST_PATH)],
+        cwd=root,
+        env={**os.environ, "PYTHONPYCACHEPREFIX": "/tmp/a90_pycache"},
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+        timeout=180,
+    )
+    matches = re.findall(r"Ran ([0-9]+) tests?", completed.stdout)
+    if completed.returncode != 0 or len(matches) != 1 or int(matches[0]) < 1:
+        raise ReentryError("current Process-v2 docs focused test did not pass exactly")
+    return {
+        "command": [
+            sys.executable,
+            "-m",
+            "unittest",
+            "-v",
+            str(PROCESS_V2_DOCS_TEST_PATH),
+        ],
+        "test_count": int(matches[0]),
+        "output_sha256": hashlib.sha256(
+            completed.stdout.encode("utf-8")
+        ).hexdigest(),
+        "verified": True,
+    }
+
+
 def check(root: Path, qualification_path: Path) -> dict[str, Any]:
     root = root.resolve(strict=True)
     qualification_path = (
@@ -301,6 +349,37 @@ def check(root: Path, qualification_path: Path) -> dict[str, Any]:
     ):
         raise ReentryError("P2.94 current observer test delta differs")
     observer_test = _run_current_observer_test(root)
+    frozen_linked_audit_test = _git_blob(
+        root, FROZEN_COMMIT, LINKED_AUDIT_TEST_PATH
+    )
+    if _receipt(frozen_linked_audit_test) != FROZEN_LINKED_AUDIT_TEST_RECEIPT:
+        raise ReentryError("P2.94 frozen linked-audit test Git receipt differs")
+    current_linked_audit_test = _stable_read(
+        root / LINKED_AUDIT_TEST_PATH,
+        "P2.94 current linked-audit test",
+        MAX_IMPLEMENTATION_SIZE,
+    )
+    if _receipt(current_linked_audit_test) != CURRENT_LINKED_AUDIT_TEST_RECEIPT:
+        raise ReentryError("P2.94 current linked-audit test delta differs")
+    frozen_process_v2_docs_test = _git_blob(
+        root, FROZEN_COMMIT, PROCESS_V2_DOCS_TEST_PATH
+    )
+    if (
+        _receipt(frozen_process_v2_docs_test)
+        != FROZEN_PROCESS_V2_DOCS_TEST_RECEIPT
+    ):
+        raise ReentryError("P2.94 frozen Process-v2 docs test Git receipt differs")
+    current_process_v2_docs_test = _stable_read(
+        root / PROCESS_V2_DOCS_TEST_PATH,
+        "P2.94 current Process-v2 docs test",
+        MAX_IMPLEMENTATION_SIZE,
+    )
+    if (
+        _receipt(current_process_v2_docs_test)
+        != CURRENT_PROCESS_V2_DOCS_TEST_RECEIPT
+    ):
+        raise ReentryError("P2.94 current Process-v2 docs test delta differs")
+    process_v2_docs_test = _run_current_process_v2_docs_test(root)
 
     for name, value in sorted(implementations.items()):
         if not isinstance(name, str) or not name:
@@ -377,13 +456,16 @@ def check(root: Path, qualification_path: Path) -> dict[str, Any]:
         "changed_names": [
             OBSERVER_NAME,
             *sorted(LINKED_AUDIT_NAMES),
+            "linked_audit_test",
             "observer_test",
+            "process_v2_docs_test",
         ],
-        "changed_count": 4,
+        "changed_count": 6,
         "gate_changed_count": 3,
-        "evidence_changed_count": 1,
+        "evidence_changed_count": 3,
         "unchanged_gate_count": len(rows) - 3,
         "observer_test": observer_test,
+        "process_v2_docs_test": process_v2_docs_test,
         "implementations": rows,
         "verified": True,
         "safety": {
@@ -411,6 +493,21 @@ def _frozen_gate_context(gate: dict[str, Any]) -> Iterator[None]:
             return {
                 "path": OBSERVER_TEST_PATH.as_posix(),
                 **FROZEN_OBSERVER_TEST_RECEIPT,
+            }
+        if relative == LINKED_AUDIT_PATH:
+            return {
+                "path": LINKED_AUDIT_PATH.as_posix(),
+                **FROZEN_LINKED_AUDIT_RECEIPT,
+            }
+        if relative == LINKED_AUDIT_TEST_PATH:
+            return {
+                "path": LINKED_AUDIT_TEST_PATH.as_posix(),
+                **FROZEN_LINKED_AUDIT_TEST_RECEIPT,
+            }
+        if relative == PROCESS_V2_DOCS_TEST_PATH:
+            return {
+                "path": PROCESS_V2_DOCS_TEST_PATH.as_posix(),
+                **FROZEN_PROCESS_V2_DOCS_TEST_RECEIPT,
             }
         return previous_material(root, path, label)
 
