@@ -6,15 +6,16 @@ This contract specializes `AGENTS.md` for the attended Samsung Galaxy S22+
 FYG8 target `SM-S906N` / `g0q` / `S906NKSS7FYG8`. It is not authority for any
 other model, firmware, target profile, or connected device.
 
-`GOAL.md` owns the current experimental state. This document contains stable
-operating rules only. Neither this document nor a policy refactor grants live
-device authority.
+`GOAL.md` owns the current experimental state. This file alone neither arms the
+target nor opens a D1/F1 campaign. Standing D0 and attended autonomy apply only
+through the active common trial and its current live inputs.
 
 ## Inheritance and Precedence
 
 All common invariants and permanent safety boundaries in `AGENTS.md` apply.
-This contract may specialize the delegated H0/D0/D1/F1 and pre-session failure
-rules only. Where texts differ, the more restrictive applicable rule wins.
+This contract may specialize delegated H0/D0/D1/F1 and pre-session failure
+rules only. The active common trial controls procedural conflicts; otherwise
+the more restrictive applicable rule wins.
 
 The ordinary S22+ F1 mechanism is
 `docs/operations/DEVICE_ACTION_PROCESS_V2.md`. Full-stock evidence under
@@ -52,7 +53,7 @@ them on a device.
   including a new Full-LTO A/B pair when applicable.
 - Verifiers, decoders, evidence adapters, and documents may remain outside
   candidate identity only when the selected contract says so and the approval
-  bundle binds their exact bytes. Such a repair must prove `CHANGED_KEYS=[]`
+  or live-binding bundle pins their exact bytes. Such a repair must prove `CHANGED_KEYS=[]`
   and cannot alter the candidate artifact.
 - Never repair repository files while Full-LTO is running. Stop the build and
   report the proposed edit first.
@@ -78,9 +79,9 @@ or reports a device session:
 4. Distinct novel failures receive separate signatures, but this rule never
    authorizes retry-until-pass loops, speculative repeated builds, or a device
    action.
-5. Every step intended for a later approval window must first be exercised
-   outside that window with the real existing input or, when live input cannot
-   exist yet, a captured representative fixture. Do not make approval-time
+5. Every step intended for a later live window must first be exercised outside
+   that window with the real input or, when live input cannot exist yet, a
+   captured representative fixture. Do not make attended live
    execution the first execution of host code.
 
 H0 request hashes and re-entry packets are evidence bindings, not device
@@ -109,11 +110,18 @@ D0 is bounded, connected, read-only observation of the exact S22+ target.
 
 D1 is one exact, transient, no-payload control action.
 
-- Require a fresh approval binding the exact target, command, bound, recovery
-  contingency, and return-health check.
+**Attendance predicate.** The operator must remain present and able to perform
+the action's predeclared return or recovery step. If the action can remove the
+working control channel or require a physical restart, the operator must be
+able to perform that physical step within its bound. Attendance loss freezes
+new effects; it never authorizes replay of the uncertain action.
+
+- Existing D1 helpers may still require a fresh binding of target, command,
+  recovery, and return health until aligned; that is a compatibility constraint,
+  not an additional trial-policy approval.
 - Permit no partition payload, persistent setting, security-state change, or
   cross-target command.
-- Send the approved action once. An unexplained failure after it begins stops
+- Send the bound action once. An unexplained failure after it begins stops
   D1. Do not turn it into a retry loop or an F1 substitute.
 - Predeclare any attended hardware-restart contingency and its trigger. Do not
   invent a recovery action during the session.
@@ -124,24 +132,35 @@ D1 is one exact, transient, no-payload control action.
 S22+ F1 is the ordinary Process-v2 boot-only candidate transfer followed by
 its mandatory exact rollback and verified final health.
 
+**Attendance predicate.** For S22+ F1 the operator must be able to perform a
+physical Download entry within the profile's recovery bound, not merely be
+present. A run awaiting that physical step parks, remains F1-armed, and resumes
+from durable journal state. Host-only work continues during the park.
+
+Endpoint absence or late host discovery during that interval enters
+`HEALTH_PENDING` and then `RECOVERY_PENDING_PARKED`; it is not by itself a
+candidate, device-health, or recovery failure. No next candidate may be armed
+and the uncertain candidate is never replayed. Passive host observation and
+the exact predeclared rollback continue until final FYG8 health is proved or
+the predeclared recovery path is exhausted.
+
 - Use Odin with ordinary regular `.tar.md5` paths. Each candidate and rollback
   AP must contain exactly one regular `boot.img.lz4` and no forbidden member.
-- Require a new immutable manifest, exact connected preflight/D0, and one fresh
-  approval binding the target, candidate, rollback, manifest, and runner
-  closure.
-- The approval authorizes one candidate attempt and its necessary rollback.
-  Never replay or retransmit the candidate. Once candidate execution begins,
-  rollback does not wait for another approval.
+- Existing Process-v2 runner compatibility requires a new immutable manifest,
+  exact D0, and one fresh candidate/rollback binding until aligned; the trial
+  policy adds no per-candidate approval.
+- One candidate intent covers only that attempt and its exact rollback.
+  Never replay it. Once candidate execution begins, rollback does not wait.
 - Journal before invoking Odin and after every state transition. Recover only
   from durable journal state.
 - A host rejection or local parser failure that is positively proven to occur
   before Odin begins or reports a device session is a pre-session H0 failure,
   not a candidate attempt. Apply the bounded Rule-7 rule above. Any repaired
-  execution-critical closure requires a new exact approval binding before live
-  use. Tool-process creation alone is not proof that a device session started.
+  execution-critical closure requires a new exact legacy-runner binding before
+  live use. Tool creation alone is not proof that a device session started.
 - Once Odin identifies or contacts the device, Download handoff starts, or any
   device command is sent, an unexplained failure is an immediate stop. Only the
-  already-authorized exact rollback path may continue; the candidate may not.
+  predeclared exact rollback path may continue; the candidate may not.
 - Candidate boot or Odin success alone is not PASS. PASS requires the intended
   bounded observation, exact rollback, and verified healthy stock terminal
   state.
@@ -166,7 +185,7 @@ counts, no-replay status, rollback result, and target-specific health closure.
   intact.
 - Re-review execution machinery only when its execution-critical closure or
   hazard class changes. A new candidate with unchanged machinery needs fresh
-  qualification and approval, not a new policy ladder.
+  qualification and any legacy runner binding, not a new policy ladder.
 - This target contract may be made more precise without copying current
   campaign state into it. Put changing frontier and authority state in
   `GOAL.md`.

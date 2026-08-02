@@ -25,24 +25,37 @@ ATTENDED_REQUIRED_CLAUSES = (
     "This contract cannot reactivate, extend, or reinterpret a consumed or failed run.",
 )
 A90_TARGET_REQUIRED_CLAUSES = (
-    "This policy refactor is H0 only; no A90 D0, D1, F1, approval, or standing attended session is active merely because this file exists.",
-    "Their stricter v1 state machines remain binding on the existing v1 runners until a replacement runner is implemented, tested, and independently reviewed against this contract.",
+    "This file alone neither arms A90 nor opens a D1/F1 campaign.",
+    "their stricter v1 state machines are implementation compatibility constraints on existing runners until changed and tested; they do not narrow trial policy or require a campaign-level planner.",
+    "Under the active trial, the agent selects and iterates exact allowlisted D1 effects while attendance and `HEALTHY` hold.",
+    "Policy imposes no per-action approval or action/time budget.",
     "the exact A90 target/profile and current resident boot identity;",
     "the exact ready rollback identity and recovery path;",
     "an exact command/action allowlist;",
-    "an explicit expiry no later than eight hours after opening;",
+    "an explicit positive duration no greater than eight hours;",
     "an explicit positive action budget no greater than 32;",
     "the return-health predicate and device-effect runner closure.",
     "Announce each action, send it once to the exact A90, append one compact action result, and decrement the action budget. No blind automatic loop is permitted.",
     "Forbid partition payloads, arbitrary shell expansion, persistent settings, credential changes, security-state changes, package installation, rootfs replacement, and recovery-path mutation.",
     "End the session on expiry, budget exhaustion, operator absence, target or resident identity change, lost rollback/recovery, an unallowlisted effect, explicit operator stop, or a device-safety failure.",
-    "Do not resend the uncertain device action.",
-    "continue within the same session only if target, resident, rollback, allowlist, device-effect runner, expiry, and remaining budget are unchanged.",
+    "Never automatically resend the uncertain device action.",
+    "Continue only while target, resident, rollback, allowlist, device-effect runner, expiry, and remaining budget are unchanged.",
     "If observer failure cannot be distinguished from target ambiguity, control loss, or resident-health failure, end the session and select the predeclared recovery path.",
     "The same confirmed device-effect failure twice stops live A90 experimentation; the same host parser defect twice stops only that parser implementation.",
     "Candidate replay is forbidden: the runner must never retry the candidate.",
     "once `RESIDENT_HEALTHY` is durably recorded, a later Debian experiment refutation or observer-only no-proof does not retroactively fail installation and does not require rollback.",
-    "The first live use of this new terminal requires a runner/schema update, focused tests, independent safety review, connected preflight, and a fresh exact approval; this document alone is not executable authority.",
+    "The existing v1 runner's first use of this terminal requires its schema update, focused tests, review, connected preflight, and compatibility binding; this document alone creates no active campaign.",
+)
+
+FAST_LOOP_HEALTH_REQUIRED_CLAUSES = (
+    "A missing, late, timed-out, or malformed observation is not by itself a device-health or recovery failure.",
+    "Endpoint absence is not target ambiguity; ambiguity requires multiple plausible targets or conflicting bound identity.",
+    "`HEALTH_PENDING`",
+    "`HOST_OBSERVER_FAILURE`",
+    "`RECOVERY_PENDING_PARKED`",
+    "Until exact health and recovery establish `HEALTHY`, permit only passive bounded observation",
+    "Never replay the uncertain action.",
+    "A timeout parks rather than closes;",
 )
 
 
@@ -87,6 +100,12 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             ROOT
             / "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md"
         ).read_text(encoding="utf-8")
+        cls.a90_ledger = (
+            ROOT / "docs/operations/CAMPAIGN_LEDGER_A90.md"
+        ).read_text(encoding="utf-8")
+        cls.s22_ledger = (
+            ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
+        ).read_text(encoding="utf-8")
         cls.p280_resume_femto_audit = (
             ROOT
             / "docs/reports/"
@@ -121,19 +140,65 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertLessEqual(len(self.s22_target.splitlines()), 260)
         self.assertLessEqual(len(self.claude.splitlines()), 40)
 
-    def test_no_candidate_policy_is_active(self):
+    def test_trial_does_not_reactivate_consumed_runs(self):
         active_text = "\n".join((self.agents, self.goal, self.claude))
         self.assertNotIn("POLICY_STATE=ACTIVE", active_text)
         self.assertNotIn("BEGIN_S22PLUS", active_text)
-        self.assertIn("Policy edits are H0 and grant no D0, D1, or F1", self.agents)
+        self.assertIn("Status: **ACTIVE** by operator declaration", self.agents)
         self.assertIn(
-            "F1 requires a fresh immutable approval token and is not pre-authorized",
+            "Trial policy adds no per-candidate approval, but the legacy runner still requires its fresh immutable token until aligned",
             " ".join(self.goal.split()),
         )
         self.assertIn(
-            "No A90 F1, D1, attended continuation",
+            "No A90 D1/F1 campaign is open",
             " ".join(self.goal_a90.split()),
         )
+        self.assertIn(
+            "consumed resident-install approval is not reusable",
+            normalized(self.goal_a90),
+        )
+
+    def test_trial_scopes_gates_and_assigns_campaign_planning_to_agent(self):
+        compact = normalized(self.agents)
+        for clause in (
+            "For a new device effect that already satisfies every permanent boundary",
+            "exact target identity matches its bound profile (D0/D1/F1);",
+            "the target-contract attendance predicate is true (D1/F1).",
+            "These are not the exhaustive safety checks.",
+            "The agent owns goal selection, experiment design, and iteration.",
+            "Do not require a campaign-level planner or runner.",
+            "Legacy v1 approval/time/action limits remain implementation constraints",
+            "D1/F1 experimentation stops whenever attendance ends.",
+            "F1 exclusivity belongs to target-identity gate 1, not a fifth gate.",
+            "A target becomes F1-armed when its journal durably records candidate intent",
+            "Disarm only after exact `HEALTHY` is durable;",
+        ):
+            self.assertIn(clause, compact)
+        self.assertNotIn("attendance predicate true (F1 only)", compact)
+        self.assertNotIn("Every other validator", self.agents)
+        self.assertNotIn("Only these four may refuse execution", self.agents)
+        self.assertIn("Do not require a campaign-level runner", self.claude)
+        self.assertIn(
+            "transaction executor, not a campaign planner",
+            normalized(self.goal_a90),
+        )
+        for ledger in (self.a90_ledger, self.s22_ledger):
+            self.assertIn(
+                "first `CAMPAIGN_CLOSED` action row for each distinct campaign ID",
+                normalized(ledger),
+            )
+            self.assertIn("Duplicate close", ledger)
+
+    def test_s22_trial_authority_and_d1_attendance_are_explicit(self):
+        compact = normalized(self.s22_target)
+        for clause in (
+            "This file alone neither arms the target nor opens a D1/F1 campaign.",
+            "Standing D0 and attended autonomy apply only through the active common trial",
+            "The operator must remain present and able to perform the action's predeclared return or recovery step.",
+            "the operator must be able to perform that physical step within its bound.",
+            "Attendance loss freezes new effects; it never authorizes replay of the uncertain action.",
+        ):
+            self.assertIn(clause, compact)
 
     def test_archives_are_explicitly_inert(self):
         self.assertIn("INERT HISTORICAL EVIDENCE", self.archived_agents[:600])
@@ -147,9 +212,23 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("exactly one regular `boot.img.lz4` member", combined)
 
     def test_rollback_recovery_is_separate_and_cannot_retry_candidate(self):
-        self.assertIn("must never retry the candidate", normalized(self.agents))
+        self.assertIn("candidate replay is forbidden", normalized(self.agents))
         self.assertIn("Only a separately invoked `recover` action", self.process)
         self.assertIn("does not retransmit automatically", self.process)
+
+    def test_fast_loop_separates_observation_delay_from_device_failure(self):
+        compact = normalized(self.agents)
+        for clause in FAST_LOOP_HEALTH_REQUIRED_CLAUSES:
+            self.assertIn(clause, compact)
+        self.assertIn("HEALTH_PENDING", self.a90_target)
+        self.assertIn("must never resend the uncertain action", normalized(self.a90_target))
+        self.assertIn("HEALTH_PENDING", self.s22_target)
+        self.assertIn("uncertain candidate is never replayed", normalized(self.s22_target))
+        for ledger in (self.a90_ledger, self.s22_ledger):
+            self.assertIn("Device safety is recorded independently", ledger)
+            self.assertIn("information yield", ledger)
+            self.assertIn("NO_PROOF_OBSERVER", ledger)
+            self.assertIn("structured result", ledger)
 
     def test_process_v2_state_machine_is_canonical(self):
         for state in (
@@ -166,7 +245,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             self.assertIn(state, self.process)
 
     def test_a90_attended_mode_is_predeclared_bounded_and_nonretroactive(self):
-        combined = "\n".join(
+        combined = normalized("\n".join(
             (
                 self.agents,
                 self.process,
@@ -174,7 +253,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
                 self.a90_attended,
                 self.a90_target,
             )
-        )
+        ))
         for token in (
             "operator-attended-v1",
             "attended_window_sec",
@@ -182,7 +261,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             "handoff_attempt_limit",
             "attended-window-open",
             "attended-handoff-started",
-            "cannot be added after candidate intent",
+            "cannot be applied to a candidate after candidate intent",
             "must never retry the candidate",
         ):
             self.assertIn(token, combined)
@@ -195,7 +274,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
                 mutated = source.replace(clause, f"removed-clause-{index}", 1)
                 self.assertIn(clause, attended_contract_issues(mutated))
 
-    def test_generic_d1_stays_fresh_and_a90_session_is_bounded(self):
+    def test_legacy_d1_runner_stays_bounded_until_aligned(self):
         combined = "\n".join(
             (self.agents, self.risk, self.a90_attended, self.a90_target)
         )
@@ -206,7 +285,8 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         )
         self.assertIn("service start or stop", self.a90_attended)
         self.assertIn("A90_D1_ATTENDED_SESSION_V1", self.a90_target)
-        self.assertIn("no later than eight hours", self.a90_target)
+        self.assertIn("existing v1 runner", self.a90_target)
+        self.assertIn("positive duration no greater than eight hours", self.a90_target)
         self.assertIn("no greater than 32", self.a90_target)
 
     def test_target_registry_and_a90_read_order_are_binding(self):
@@ -222,7 +302,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             "`AGENTS.md -> A90_TARGET_CONTRACT.md -> GOAL_A90.md`",
             self.a90_target,
         )
-        self.assertIn("cannot grant device authority", self.a90_target)
+        self.assertIn("neither arms A90 nor opens a D1/F1 campaign", self.a90_target)
 
     def test_a90_separates_device_safety_from_experiment_proof(self):
         for token in (
@@ -277,6 +357,10 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             "No minimal PID1 candidate has yet proved host enumeration",
             normalized_goal,
         )
+        self.assertNotIn(
+            "No minimal PID1 candidate has yet proved host enumeration",
+            normalized(self.s22_target),
+        )
         self.assertIn("P2.94 therefore remains an H0 static stop", normalized_goal)
         self.assertIn("P2.96 Built-in DWC3 Telemetry", normalized_goal)
         self.assertIn("docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md", self.agents)
@@ -311,7 +395,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("private exact target binding", self.process)
         self.assertIn("aborted binding is not reusable", self.process)
         self.assertIn(
-            "F1 requires a fresh immutable approval token and is not pre-authorized",
+            "Trial policy adds no per-candidate approval, but the legacy runner still requires its fresh immutable token until aligned",
             normalized_goal,
         )
 

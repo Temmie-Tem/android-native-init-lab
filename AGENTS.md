@@ -2,6 +2,86 @@
 
 Contract-Revision: **1** (supersedes unversioned; 2026-08-02)
 
+## Interim Fast-Loop Rules (Revision 2 trial)
+
+Status: **ACTIVE** by operator declaration, 2026-08-03. This trial overlay
+supersedes conflicting procedural text in this file, the target contracts, and
+process documents. Permanent device, repository, and evidence boundaries stay
+absolute. It grants standing D0 for a resolved exact target; D1 and F1 require
+the selected target's attendance predicate.
+
+Retirement: expire after the first `CAMPAIGN_CLOSED` row for each of two
+distinct campaign IDs across both ledgers, or on 2026-09-03, whichever comes
+first. Duplicate closes and parked campaigns do not count. Then adopt Contract
+Revision 2 or lapse to the prior procedure; never extend silently.
+
+### Procedural authority gates - closed list
+
+For a new device effect that already satisfies every permanent boundary, only
+these procedural authority gates may refuse it:
+
+1. exact target identity matches its bound profile (D0/D1/F1);
+2. an exact hash-bound rollback is ready when required (D1/F1);
+3. the target-contract recovery path is demonstrated and available (D1/F1); and
+4. the target-contract attendance predicate is true (D1/F1).
+
+These are not the exhaustive safety checks. Permanent boundaries, artifact and
+journal integrity, no-replay, and the inter-effect `HEALTHY` barrier still stop
+or park work. Other host-only schema, shape, and evidence failures are H0 bugs
+to fix and rerun, not new device-authority gates.
+
+### Autonomy
+
+| Tier | Rule |
+|---|---|
+| H0 | Unlimited. Rule 7 suspended. Fix and continue. |
+| D0 | Autonomous for a resolved exact target. No approval. |
+| D1 | Autonomous while attended. No policy action/time budget or per-action approval. |
+| F1 | Autonomous while attended. No per-candidate approval. Rollback and health verification between attempts. At most one target may be F1-armed at a time. |
+
+The agent owns goal selection, experiment design, and iteration. Do not require
+a campaign-level planner or runner. Target runners are transaction primitives
+for one device effect, durable intent, observation, recovery, and health.
+Legacy v1 approval/time/action limits remain implementation constraints until
+their runners change; they do not define the trial policy.
+
+An F1 run parked while awaiting a required physical operator step remains
+F1-armed. Host-only work continues during a park; no second candidate may be
+armed, and a park is not an abort. Resume from durable journal state.
+
+F1 exclusivity belongs to target-identity gate 1, not a fifth gate. H0/D0
+preparation may coexist. A target becomes F1-armed when its journal durably
+records candidate intent, before the first candidate effect, and remains armed
+through observation, park, rollback, and recovery. Disarm only after exact
+`HEALTHY` is durable; an uncontrolled or recovery-required close stays armed.
+
+The attendance predicate's required strength is defined by the selected target
+contract, because it depends on how that target returns.
+
+### Health, observation, and recovery
+
+A missing, late, timed-out, or malformed observation is not by itself a device-health or recovery failure.
+Endpoint absence is not target ambiguity; ambiguity requires multiple plausible targets or
+conflicting bound identity. Unresolved observation freezes new effects as
+`HEALTH_PENDING`, `HOST_OBSERVER_FAILURE`, or `RECOVERY_PENDING_PARKED`.
+
+Until exact health and recovery establish `HEALTHY`, permit only passive bounded
+observation, re-enumeration stabilization, H0 observer repair/replay, and exact
+recovery. Never replay the uncertain action. A timeout parks rather than closes;
+confirmed negative health enters recovery. Permanent stops and operator stop
+still close, and D1/F1 experimentation stops whenever attendance ends.
+
+### Evidence
+
+Append to the per-target campaign ledger:
+`docs/operations/CAMPAIGN_LEDGER_S22PLUS.md` or
+`docs/operations/CAMPAIGN_LEDGER_A90.md`. Write a separate report only for a
+new capability, a new hazard class, an incident, or a genuinely ambiguous
+device-safety result. No per-run prose, no review ladder, and no per-candidate
+policy document.
+
+---
+
 This file contains the repository-wide invariants and the binding target
 registry. Select exactly one target contract before target-specific work.
 `GOAL.md` and `GOAL_A90.md` describe current state and objectives; they never
@@ -21,17 +101,16 @@ The effective contract is, in descending order:
 1. the common invariants in this file;
 2. the selected binding target contract in the registry below;
 3. the shared risk-tier and execution-process documents named by that target;
-4. an immutable manifest and a fresh, exact operator approval.
+4. the immutable live binding required by the active policy or current runner.
 
 The more restrictive applicable rule wins. A target contract may specialize
 only behavior explicitly delegated by this file and may never relax the
 permanent safety boundaries. A manifest, approval string, goal, report,
 archived clause, helper string, or sub-goal cannot override a higher layer.
 
-No document grants standing device authority unless the selected target
-contract expressly defines that authority class and all required live inputs
-and approvals are current. Policy edits are H0 and grant no D0, D1, or F1
-authority.
+No document grants standing device authority unless this common contract or the
+selected target contract expressly activates it and all required live inputs
+are current. An unactivated policy edit remains H0 only.
 
 ## Binding Target Registry
 
@@ -90,8 +169,8 @@ Classify every action using
 
 - **H0:** host-only work. No device approval.
 - **D0:** connected read-only work. Exact target and bounded reads.
-- **D1:** transient no-payload control. Fresh approval unless the selected
-  target contract explicitly defines a narrower standing action.
+- **D1:** transient no-payload control. Use active trial autonomy; outside the
+  trial, require the selected target contract's fresh approval.
 - **F1:** a boot-only transfer process defined by the selected target contract.
 - **X:** forbidden by the permanent boundaries.
 
@@ -107,10 +186,10 @@ stable absolute paths, exact size and SHA256, permitted archive membership,
 known healthy starting state, demonstrated physical recovery, a new durable
 journal, and bounded observation/final-health requirements.
 
-One fresh approval binds the target, candidate, rollback, manifest, and runner
-closure. It authorizes one candidate attempt and its required recovery path.
-Once candidate execution begins, rollback is already authorized and never
-waits for another acknowledgement. Candidate replay is forbidden.
+Outside the active trial, one fresh approval binds one candidate and recovery.
+During the trial, policy adds no per-candidate approval, although a legacy
+runner may still require its immutable compatibility binding. Once candidate
+execution begins, rollback never waits. Candidate replay is forbidden.
 
 Keep host rejection, local parser failure, device-session start, transfer
 start/completion, observation, rollback, and final health distinct. A dry run
@@ -145,7 +224,7 @@ healthy terminal state. Candidate boot or transfer success alone is not PASS.
   higher-precedence rules. Do not review unreachable legacy helpers merely
   because they still exist.
 - A new candidate with unchanged machinery requires fresh qualification and
-  approval, not another multi-review ladder.
+  any binding still enforced by its runner, not another review ladder.
 - Every new non-permanent gate must name the hazard or incident class it
   blocks, its scope, objective retirement evidence, and an expiry or review
   trigger. A gate without a retirement condition must be explicitly designated
@@ -176,6 +255,5 @@ not available, or the current action is not represented by the selected tier
 and target contract. Do not widen scope or retry-loop. Fall back to H0 analysis
 and record the blocker.
 
-Before a device session starts, use a bounded host-only repair only when the
-selected target contract already defines it. Without that explicit rule, stop
-on the first material failure.
+Outside the active trial, pre-session host-only repair requires an explicit
+target-contract rule; otherwise stop on the first material failure.

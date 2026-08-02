@@ -18,16 +18,15 @@ transfer between the two files.
   transfer, zero replay, zero rollback, and zero second resident reboot. Exact
   version/build, `selftest fail=0`, empty pstore, immutable rootfs source, and
   direct NCM health passed. S22+ received no command.
-- No A90 F1, D1, attended continuation, or other live authority currently
-  exists. The consumed resident-install approval is not reusable.
+- Standing exact-target D0 exists only through the active common trial. No A90
+  D1/F1 campaign is open and no target is F1-armed. The consumed resident-install
+  approval is not reusable.
 - The original D1 v1 host template expired unconsumed without creating
   `d1-live` or contacting a device.
-- The selected H0 unit is A90 D1 fast-loop v2. It derives the canonical
-  resident journal from the resident manifest, binds a duration instead of a
-  pre-opening absolute expiry, reuses the opening health/source preflight for
-  the immediate action, and permits one explicitly acknowledged new ordinal
-  after an independently safe observer-only no-proof. Automatic action replay
-  remains forbidden.
+- The reviewed A90 D1 fast-loop v2 remains the current transaction executor,
+  not a campaign planner. The agent owns goal-directed iteration. The executor
+  derives the canonical resident journal, durably binds each action, and never
+  automatically replays an uncertain effect.
 - Common contract revision 1 is included in the same H0 review closure. It
   separates post-session stop/rollback semantics from pre-session host repair,
   moves repository evidence hygiene out of the device-boundary list, makes the
@@ -52,9 +51,9 @@ transfer between the two files.
   No approval receipt or `d1-live` directory exists.
 - The final combined independent safety review over the refreshed hashes
   returned `PASS_GO` with no unresolved Critical, High, Medium, or Low finding.
-  M1, L1, and M2 are closed. The exact reviewed closure may be committed and
-  pushed, but the review grants no live authority; any future D1 action still
-  requires a separate fresh exact approval and current live preflight.
+  M1, L1, and M2 are closed. The review creates no active campaign. Until the
+  runner is aligned, it still enforces its fresh v1 session binding and current
+  live preflight as implementation compatibility constraints.
 - F1 and every permanent partition, target-isolation, rollback, recovery,
   no-replay, and private-evidence boundary are unchanged and outside this
   simplification unit.
@@ -681,9 +680,9 @@ Phase 4 minimizes native-init to hardware bridge-up, immutable handoff,
 bounded recovery, and diagnostics. Production stability work follows the
 proved dependency order rather than deleting code by size alone.
 
-No later phase creates live authority. Each device rung still requires its own
-fresh tier classification, preflight, immutable identity, recovery path, and
-approval under `AGENTS.md`.
+No later phase creates live authority. Each device rung still requires current
+tier classification, immutable identity, recovery, attendance when applicable,
+and any compatibility binding still enforced by its runner under `AGENTS.md`.
 
 ## Evidence to Preserve
 

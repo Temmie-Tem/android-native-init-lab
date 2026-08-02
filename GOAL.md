@@ -81,8 +81,10 @@ observer ABI, new partition payload, or policy redesign.
    boot-only packaging, offline promotion, and one ready manifest.
 7. Run one exact connected read-only S22+ D0, explicitly leaving every other
    attached target untouched.
-8. Stop at the exact Process-v2 F1 approval handoff. F1 requires a fresh
-   immutable approval token and is not pre-authorized.
+8. Stop after the ready manifest and exact D0 at the current Process-v2 v1
+   binding handoff. Trial policy adds no per-candidate approval, but the legacy
+   runner still requires its fresh immutable token until aligned; preparation
+   alone never arms F1.
 
 ## Evidence That Remains Binding
 
