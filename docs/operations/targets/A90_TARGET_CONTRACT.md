@@ -1,16 +1,15 @@
 # A90 Binding Target Contract
 
-Contract-Revision: **1** (supersedes unversioned; 2026-08-02)
+Contract-Revision: **2** (supersedes revision 1; 2026-08-03)
 
 Status: **BINDING**
 
-This contract specializes `AGENTS.md` for the operator-owned and attended
-Samsung Galaxy A90 5G. It is not authority for S22+, another A90, or an
-ambiguous USB endpoint.
+This contract specializes `AGENTS.md` for the operator-owned Samsung Galaxy A90 5G. It is not authority for S22+, another A90, or an ambiguous USB endpoint.
 
-`GOAL_A90.md` owns the changing experimental state and next objective. This
-file alone neither arms A90 nor opens a D1/F1 campaign. Standing D0 and attended
-autonomy apply only through the active common trial and its current live inputs.
+`GOAL_A90.md` owns the changing experimental state and next objective. This file
+alone neither arms A90 nor opens a D1/F1 campaign. Standing D0 and autonomous use
+of D1 presence modes require the active trial and live inputs. The permanent A90
+exception survives retirement but grants no authority by itself.
 
 ## Inheritance and Precedence
 
@@ -53,7 +52,7 @@ require a campaign-level planner.
 
 The A90 experiment economy is:
 
-`one F1 resident install -> many attended D1 no-payload experiments`
+`one attended F1 resident install -> many D1 no-payload experiments`
 
 F1 deploys an exact boot-only native-init candidate and keeps an exact V2321
 rollback ready. D1 performs switch-root, return, reboot, display, and service
@@ -102,68 +101,81 @@ D0 is exact-target, bounded, connected read-only inspection.
 - With more than one attached device, name A90 as the selected target and
   explicitly confirm S22+ received no command.
 
-## A90 D1 Attended Session
+## A90 D1 Resident Session
 
-The namespaced risk label is `TIER_D1_TRANSIENT_NO_PAYLOAD_CONTROL`. Historical
-server-distro stage names such as `STAGE_D1_CHROOT_MVP` are not risk labels.
+The namespaced risk label is `TIER_D1_TRANSIENT_NO_PAYLOAD_CONTROL`; historical stage names such as `STAGE_D1_CHROOT_MVP` are not risk labels.
 
-Under the active trial, the agent selects and iterates exact allowlisted D1
-effects while attendance and `HEALTHY` hold. Policy imposes no per-action
-approval or action/time budget. The existing v1 runner still opens one fresh
-`A90_D1_ATTENDED_SESSION_V1` and enforces the compatibility bounds below.
+Under the active trial, the agent selects and iterates exact allowlisted D1 effects while
+the exact resident is `HEALTHY` and one presence mode below holds. Policy imposes no per-action approval or action/time budget.
 
-**Attendance predicate.** For a bound `RESIDENT_HEALTHY` A90 with a proved
-working return channel, the operator must be present and able to stop D1;
-physical Download entry is not required. A90 F1 uses the stronger predicate:
-the operator must be able to perform physical recovery entry.
+**Attended mode.** For a bound `RESIDENT_HEALTHY` A90 with a proved return channel, the
+operator is present and able to stop D1. Download entry is not required for D1. A90 F1 is always attended and requires physical recovery entry.
 
-An absent or late ACM/NCM endpoint after an announced A90 transition enters the
-common `HEALTH_PENDING` classification; it is not by itself target ambiguity or
-resident-health failure. The runner may repeat passive inventory and bounded
-health reads, stabilize a changed USB epoch, repair a host-only observer, or
-park for predeclared recovery. It must not start a new ordinal action until the
-exact resident is `HEALTHY`, and it must never resend the uncertain action.
+**Qualified unattended mode (`A90_UNATTENDED_RESIDENT_D1_V1`).** This permanent A90-only
+exception requires the exact target and resident identity from the last durable
+`RESIDENT_HEALTHY`, reconfirmed by fresh bounded D0 before every ordinal. Automatic
+native return must remain proved; physical recovery remains demonstrated and available when the operator returns. S22+ never inherits this exception.
+
+The unattended allowlist contains only an exact, previously qualified no-payload
+resident action using unchanged reviewed dispatch and return machinery;
+`SWITCHROOT_EXPERIMENT` is the currently qualified action. Its expected terminal is automatic native return. F1, payload/partition writes,
+persistent settings, credentials, security state, package/rootfs/recovery mutation,
+and actions expected to need physical entry are ineligible. Each ordinal has one
+durable intent, one dispatch, and no automatic replay. No next ordinal starts until exact `RESIDENT_HEALTHY` is durable.
+
+An absent or late ACM/NCM endpoint after an announced transition enters common
+`HEALTH_PENDING`; it is not by itself target ambiguity or resident-health failure.
+Permit passive inventory, bounded health reads, USB-epoch stabilization, H0 observer repair, or a recovery park.
+Never start a new ordinal before exact resident `HEALTHY`, and never resend the uncertain action.
+
+In unattended mode, control loss or `RECOVERY_REQUIRED` parks with no new effect;
+operator return and predeclared recovery are then required. Target ambiguity,
+resident mismatch, or lost physical recovery stops the lane under the permanent
+boundaries. Explicit operator stop also ends it. The agent may repair an H0 observer
+and start a new ordinal without acknowledgement only after independently re-establishing
+exact health; the same unresolved observer defect must not become a blind loop.
+
+The existing v1 runner implements only attended `A90_D1_ATTENDED_SESSION_V1`
+and requires `--operator-attended`. Until a reviewed runner implements the
+unattended mode, that lane is policy-ready but not executable. Never assert
+`--operator-attended` while the operator is absent or asleep.
 
 The legacy v1 session binding must contain:
 
 - the exact A90 target/profile and current resident boot identity;
 - the exact ready rollback identity and recovery path;
 - an exact command/action allowlist;
-- an explicit positive duration no greater than eight hours; the immutable
-  host template does not expire before use, and the runner durably fixes the
-  exact opening and expiry timestamps only when it consumes the fresh session
-  approval;
+- an explicit positive duration no greater than eight hours; the immutable host
+  template does not expire before use, and consumption durably fixes opening and
+  expiry;
 - an explicit positive action budget no greater than 32; and
 - the return-health predicate and device-effect runner closure.
 
 The legacy v1 runner rules are:
 
-1. Announce each action, send it once to the exact A90, append one compact
-   action result, and decrement the action budget. No blind automatic loop is
-   permitted.
+1. Announce each action, send it once, append one compact result, and decrement
+   the budget. No blind automatic loop is permitted.
 2. Allow only transient actions named in the binding, such as native-init UI
    hide/show, one switch-root handoff, one bounded native return or reboot, and
    transient start/stop of an already-installed Debian experiment service.
 3. Forbid partition payloads, arbitrary shell expansion, persistent settings,
-   credential changes, security-state changes, package installation, rootfs
-   replacement, and recovery-path mutation.
+   credential/security changes, package/rootfs changes, and recovery mutation.
 4. Expected USB disconnect/re-enumeration during an announced reboot or
    handoff is an observation, not by itself a failure.
-5. End the session on expiry, budget exhaustion, operator absence, target or
-   resident identity change, lost rollback/recovery, an unallowlisted effect,
-   explicit operator stop, or a device-safety failure.
+5. End this attended compatibility session on expiry/budget exhaustion,
+   operator absence, identity change, lost rollback/recovery, an unallowlisted
+   effect, operator stop, or device-safety failure.
 
 If framing, timeout, or parsing fails after an action but the previously
 verified resident remains operator-controlled and an independent bounded check
 can distinguish observer failure from device failure, close that experiment
 `NO_PROOF_OBSERVER`. Never automatically resend the uncertain device action.
-After exact cleanup and resident health, the operator may explicitly
-acknowledge that result and start one new ordinal action with the unchanged
-observer, or fix/replace the observer at H0. An acknowledgement is not a replay:
-it requires a new durable intent and consumes another action. A second
-observer-only no-proof after that unchanged-observer acknowledgement closes the
-session. Continue only while target, resident, rollback, allowlist,
-device-effect runner, expiry, and remaining budget are unchanged.
+After exact cleanup and health, the operator may acknowledge the result and
+start one new ordinal with the unchanged observer, or repair it at H0. This
+legacy acknowledgement is not replay: it requires new durable intent and
+consumes another action. A second observer-only no-proof with that observer
+closes the session. Continue only while target, resident, rollback, allowlist,
+effect runner, expiry, and budget are unchanged.
 
 If observer failure cannot be distinguished from target ambiguity, control
 loss, or resident-health failure, end the session and select the predeclared
@@ -214,7 +226,7 @@ retry only a positively proven channel-input failure before any handoff intent,
 inside the predeclared deadline and attempt budget. The runner must durably
 record handoff intent before dispatch. After that point, it never retries the
 handoff or candidate. This F1 exception is separate from the post-install D1
-attended session.
+resident session.
 
 ## Evidence and Reporting
 

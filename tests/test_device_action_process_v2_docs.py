@@ -27,24 +27,44 @@ ATTENDED_REQUIRED_CLAUSES = (
 A90_TARGET_REQUIRED_CLAUSES = (
     "This file alone neither arms A90 nor opens a D1/F1 campaign.",
     "their stricter v1 state machines are implementation compatibility constraints on existing runners until changed and tested; they do not narrow trial policy or require a campaign-level planner.",
-    "Under the active trial, the agent selects and iterates exact allowlisted D1 effects while attendance and `HEALTHY` hold.",
+    "Under the active trial, the agent selects and iterates exact allowlisted D1 effects while the exact resident is `HEALTHY` and one presence mode below holds.",
     "Policy imposes no per-action approval or action/time budget.",
+    "The permanent A90 exception survives retirement but grants no authority by itself.",
+    "Qualified unattended mode (`A90_UNATTENDED_RESIDENT_D1_V1`).",
+    "reconfirmed by fresh bounded D0 before every ordinal.",
+    "`SWITCHROOT_EXPERIMENT` is the currently qualified action.",
+    "that lane is policy-ready but not executable. Never assert `--operator-attended` while the operator is absent or asleep.",
     "the exact A90 target/profile and current resident boot identity;",
     "the exact ready rollback identity and recovery path;",
     "an exact command/action allowlist;",
     "an explicit positive duration no greater than eight hours;",
     "an explicit positive action budget no greater than 32;",
     "the return-health predicate and device-effect runner closure.",
-    "Announce each action, send it once to the exact A90, append one compact action result, and decrement the action budget. No blind automatic loop is permitted.",
-    "Forbid partition payloads, arbitrary shell expansion, persistent settings, credential changes, security-state changes, package installation, rootfs replacement, and recovery-path mutation.",
-    "End the session on expiry, budget exhaustion, operator absence, target or resident identity change, lost rollback/recovery, an unallowlisted effect, explicit operator stop, or a device-safety failure.",
+    "Announce each action, send it once, append one compact result, and decrement the budget. No blind automatic loop is permitted.",
+    "Forbid partition payloads, arbitrary shell expansion, persistent settings, credential/security changes, package/rootfs changes, and recovery mutation.",
+    "End this attended compatibility session on expiry/budget exhaustion, operator absence, identity change, lost rollback/recovery, an unallowlisted effect, operator stop, or device-safety failure.",
     "Never automatically resend the uncertain device action.",
-    "Continue only while target, resident, rollback, allowlist, device-effect runner, expiry, and remaining budget are unchanged.",
+    "Continue only while target, resident, rollback, allowlist, effect runner, expiry, and budget are unchanged.",
     "If observer failure cannot be distinguished from target ambiguity, control loss, or resident-health failure, end the session and select the predeclared recovery path.",
     "The same confirmed device-effect failure twice stops live A90 experimentation; the same host parser defect twice stops only that parser implementation.",
     "Candidate replay is forbidden: the runner must never retry the candidate.",
     "once `RESIDENT_HEALTHY` is durably recorded, a later Debian experiment refutation or observer-only no-proof does not retroactively fail installation and does not require rollback.",
     "The existing v1 runner's first use of this terminal requires its schema update, focused tests, review, connected preflight, and compatibility binding; this document alone creates no active campaign.",
+)
+A90_UNATTENDED_D1_REQUIRED_CLAUSES = (
+    "Automatic native return must remain proved; physical recovery remains demonstrated and available when the operator returns.",
+    "S22+ never inherits this exception.",
+    "Its expected terminal is automatic native return.",
+    "F1, payload/partition writes, persistent settings, credentials, security state, package/rootfs/recovery mutation, and actions expected to need physical entry are ineligible.",
+    "Each ordinal has one durable intent, one dispatch, and no automatic replay.",
+    "No next ordinal starts until exact `RESIDENT_HEALTHY` is durable.",
+    "An absent or late ACM/NCM endpoint after an announced transition enters common `HEALTH_PENDING`; it is not by itself target ambiguity or resident-health failure.",
+    "control loss or `RECOVERY_REQUIRED` parks with no new effect",
+    "operator return and predeclared recovery are then required.",
+    "Target ambiguity, resident mismatch, or lost physical recovery stops the lane under the permanent boundaries.",
+    "The agent may repair an H0 observer and start a new ordinal without acknowledgement only after independently re-establishing exact health",
+    "the same unresolved observer defect must not become a blind loop.",
+    "A90 F1 is always attended",
 )
 
 FAST_LOOP_HEALTH_REQUIRED_CLAUSES = (
@@ -73,7 +93,10 @@ def attended_contract_issues(text):
 def a90_target_contract_issues(text):
     value = normalized(text)
     return tuple(
-        clause for clause in A90_TARGET_REQUIRED_CLAUSES if clause not in value
+        clause
+        for clause in A90_TARGET_REQUIRED_CLAUSES
+        + A90_UNATTENDED_D1_REQUIRED_CLAUSES
+        if clause not in value
     )
 
 
@@ -95,6 +118,16 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         cls.a90_target = (
             ROOT / "docs/operations/targets/A90_TARGET_CONTRACT.md"
+        ).read_text(encoding="utf-8")
+        cls.a90_d1_runner = (
+            ROOT
+            / "workspace/public/src/scripts/server-distro/"
+            "a90_transition_d1_session_v1.py"
+        ).read_text(encoding="utf-8")
+        cls.a90_unattended_report = (
+            ROOT
+            / "docs/reports/"
+            "A90_UNATTENDED_RESIDENT_D1_POLICY_H0_2026-08-03.md"
         ).read_text(encoding="utf-8")
         cls.s22_target = (
             ROOT
@@ -154,8 +187,12 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             " ".join(self.goal_a90.split()),
         )
         self.assertIn(
-            "no D1 session is active, attendance has ended, and no target is F1-armed",
+            "no D1 session is active and no target is F1-armed. Attendance has ended",
             " ".join(self.goal_a90.split()),
+        )
+        self.assertIn(
+            "There is no unattended live authority",
+            normalized(self.goal_a90),
         )
         self.assertIn(
             "consumed resident-install approval is not reusable",
@@ -167,12 +204,14 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         for clause in (
             "For a new device effect that already satisfies every permanent boundary",
             "exact target identity matches its bound profile (D0/D1/F1);",
-            "the target-contract attendance predicate is true (D1/F1).",
+            "the target-contract presence predicate is true (D1/F1; unattended only where both contracts expressly allow it).",
             "These are not the exhaustive safety checks.",
             "The agent owns goal selection, experiment design, and iteration.",
             "Do not require a campaign-level planner or runner.",
             "Legacy v1 approval/time/action limits remain implementation constraints",
-            "D1/F1 experimentation stops whenever attendance ends.",
+            "Attendance loss stops F1 and all D1 except the qualified A90 lane.",
+            "Only its qualified A90 resident D1 lane may be unattended; every F1 and all other D1 stay attended.",
+            "Contract Revision 2 and permanent boundaries remain; adopt this autonomy or lapse only it.",
             "F1 exclusivity belongs to target-identity gate 1, not a fifth gate.",
             "A target becomes F1-armed when its journal durably records candidate intent",
             "Disarm only after exact `HEALTHY` is durable;",
@@ -193,6 +232,35 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             )
             self.assertIn("Duplicate close", ledger)
 
+    def test_a90_unattended_lane_is_policy_ready_but_not_falsely_executable(self):
+        compact = normalized(self.a90_target)
+        for clause in (
+            "Qualified unattended mode (`A90_UNATTENDED_RESIDENT_D1_V1`).",
+            "reconfirmed by fresh bounded D0 before every ordinal.",
+            "`SWITCHROOT_EXPERIMENT` is the currently qualified action.",
+            "No next ordinal starts until exact `RESIDENT_HEALTHY` is durable.",
+            "that lane is policy-ready but not executable.",
+            "Never assert `--operator-attended` while the operator is absent or asleep.",
+        ):
+            self.assertIn(clause, compact)
+        self.assertEqual(a90_target_contract_issues(self.a90_target), ())
+        self.assertIn(
+            "Device effects require attendance except the exact A90 resident D1 lane delegated below; F1 is never unattended",
+            normalized(self.agents),
+        )
+        self.assertIn(
+            'parser.add_argument("--operator-attended", action="store_true")',
+            self.a90_d1_runner,
+        )
+        self.assertNotIn(
+            "A90_UNATTENDED_RESIDENT_D1_V1",
+            self.a90_d1_runner,
+        )
+        self.assertIn(
+            "H0_PASS_GO_POLICY_READY_NO_LIVE_AUTHORITY",
+            self.a90_unattended_report,
+        )
+
     def test_s22_trial_authority_and_d1_attendance_are_explicit(self):
         compact = normalized(self.s22_target)
         for clause in (
@@ -201,6 +269,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             "The operator must remain present and able to perform the action's predeclared return or recovery step.",
             "the operator must be able to perform that physical step within its bound.",
             "Attendance loss freezes new effects; it never authorizes replay of the uncertain action.",
+            "A90 approvals, health evidence, transports, artifacts, and resident-promotion rules never apply to S22+.",
         ):
             self.assertIn(clause, compact)
 
@@ -225,7 +294,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         for clause in FAST_LOOP_HEALTH_REQUIRED_CLAUSES:
             self.assertIn(clause, compact)
         self.assertIn("HEALTH_PENDING", self.a90_target)
-        self.assertIn("must never resend the uncertain action", normalized(self.a90_target))
+        self.assertIn("never resend the uncertain action", normalized(self.a90_target))
         self.assertIn("HEALTH_PENDING", self.s22_target)
         self.assertIn("uncertain candidate is never replayed", normalized(self.s22_target))
         for ledger in (self.a90_ledger, self.s22_ledger):
@@ -344,7 +413,8 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
     def test_a90_fast_path_rejects_each_load_bearing_mutation(self):
         source = normalized(self.a90_target)
         self.assertEqual(a90_target_contract_issues(source), ())
-        for index, clause in enumerate(A90_TARGET_REQUIRED_CLAUSES):
+        required = A90_TARGET_REQUIRED_CLAUSES + A90_UNATTENDED_D1_REQUIRED_CLAUSES
+        for index, clause in enumerate(required):
             with self.subTest(clause=clause):
                 mutated = source.replace(clause, f"removed-a90-clause-{index}", 1)
                 self.assertIn(clause, a90_target_contract_issues(mutated))

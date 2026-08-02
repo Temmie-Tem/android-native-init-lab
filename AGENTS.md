@@ -1,19 +1,19 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **1** (supersedes unversioned; 2026-08-02)
+Contract-Revision: **2** (supersedes revision 1; 2026-08-03)
 
-## Interim Fast-Loop Rules (Revision 2 trial)
+## Interim Fast-Loop Rules (operational trial)
 
 Status: **ACTIVE** by operator declaration, 2026-08-03. This trial overlay
 supersedes conflicting procedural text in this file, the target contracts, and
 process documents. Permanent device, repository, and evidence boundaries stay
 absolute. It grants standing D0 for a resolved exact target; D1 and F1 require
-the selected target's attendance predicate.
+the selected target's presence predicate, and F1 always requires attendance.
 
-Retirement: expire after the first `CAMPAIGN_CLOSED` row for each of two
+Retirement: end after the first `CAMPAIGN_CLOSED` row for each of two
 distinct campaign IDs across both ledgers, or on 2026-09-03, whichever comes
-first. Duplicate closes and parked campaigns do not count. Then adopt Contract
-Revision 2 or lapse to the prior procedure; never extend silently.
+first. Duplicate closes and parked campaigns do not count. Contract Revision 2
+and permanent boundaries remain; adopt this autonomy or lapse only it. Never extend silently.
 
 ### Procedural authority gates - closed list
 
@@ -23,7 +23,7 @@ these procedural authority gates may refuse it:
 1. exact target identity matches its bound profile (D0/D1/F1);
 2. an exact hash-bound rollback is ready when required (D1/F1);
 3. the target-contract recovery path is demonstrated and available (D1/F1); and
-4. the target-contract attendance predicate is true (D1/F1).
+4. the target-contract presence predicate is true (D1/F1; unattended only where both contracts expressly allow it).
 
 These are not the exhaustive safety checks. Permanent boundaries, artifact and
 journal integrity, no-replay, and the inter-effect `HEALTHY` barrier still stop
@@ -36,7 +36,7 @@ to fix and rerun, not new device-authority gates.
 |---|---|
 | H0 | Unlimited. Rule 7 suspended. Fix and continue. |
 | D0 | Autonomous for a resolved exact target. No approval. |
-| D1 | Autonomous while attended. No policy action/time budget or per-action approval. |
+| D1 | Autonomous under the target presence mode. Only the qualified A90 resident lane may be unattended; all other D1 stays attended. |
 | F1 | Autonomous while attended. No per-candidate approval. Rollback and health verification between attempts. At most one target may be F1-armed at a time. |
 
 The agent owns goal selection, experiment design, and iteration. Do not require
@@ -55,8 +55,8 @@ records candidate intent, before the first candidate effect, and remains armed
 through observation, park, rollback, and recovery. Disarm only after exact
 `HEALTHY` is durable; an uncontrolled or recovery-required close stays armed.
 
-The attendance predicate's required strength is defined by the selected target
-contract, because it depends on how that target returns.
+Each target contract defines its presence predicate. Only its qualified A90
+resident D1 lane may be unattended; every F1 and all other D1 stay attended.
 
 ### Health, observation, and recovery
 
@@ -69,7 +69,7 @@ Until exact health and recovery establish `HEALTHY`, permit only passive bounded
 observation, re-enumeration stabilization, H0 observer repair/replay, and exact
 recovery. Never replay the uncertain action. A timeout parks rather than closes;
 confirmed negative health enters recovery. Permanent stops and operator stop
-still close, and D1/F1 experimentation stops whenever attendance ends.
+still close. Attendance loss stops F1 and all D1 except the qualified A90 lane.
 
 ### Evidence
 
@@ -117,7 +117,7 @@ are current. An unactivated policy edit remains H0 only.
 | Target | Current state | Binding target contract | Binding live process |
 |---|---|---|---|
 | Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` / `S906NKSS7FYG8`) | `GOAL.md` | `docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md` | `docs/operations/DEVICE_ACTION_PROCESS_V2.md` |
-| Samsung Galaxy A90 5G | `GOAL_A90.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` sections `A90 D1 Attended Session`, `A90 F1 Resident Install`, and `Attended F1 Pre-Handoff` |
+| Samsung Galaxy A90 5G | `GOAL_A90.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` sections `A90 D1 Resident Session`, `A90 F1 Resident Install`, and `Attended F1 Pre-Handoff` |
 
 Targets, profiles, rollback identities, transports, approvals, and health
 evidence never transfer between registry rows. If no binding target contract
@@ -129,8 +129,9 @@ records current state only and cannot grant or extend live authority.
 
 ## Permanent Device Safety Boundaries
 
-1. Work only on an explicitly identified device owned and attended by the
-   operator. Evidence and authorization never transfer between targets.
+1. Work only on an explicitly identified operator-owned device. Device effects
+   require attendance except the exact A90 resident D1 lane delegated below;
+   F1 is never unattended, and authority never transfers between targets.
 2. The only partition payload permitted by the ordinary process is **boot**.
    Never write or flash recovery, vendor_boot, DTBO, vbmeta, vbmeta_system, BL,
    CP, CSC, super, userdata, persist, EFS, sec_efs, RPMB, keymaster, modem,

@@ -20,8 +20,12 @@ transfer between the two files.
   direct NCM health passed. S22+ received no command.
 - Standing exact-target D0 exists only through the active common trial. A90
   campaign `a90-resident-switchroot-display-ssh-20260802` is open, but no D1
-  session is active, attendance has ended, and no target is F1-armed. The
-  consumed resident-install approval is not reusable.
+  session is active and no target is F1-armed. Attendance has ended. Contract
+  revision 2 permits a qualified future unattended resident D1 lane, but the
+  current v1 runner has no such mode and its `--operator-attended` flag must not
+  be asserted while the operator is absent. There is no unattended live
+  authority until reviewed machinery implements that mode. The consumed
+  resident-install approval is not reusable.
 - The original D1 v1 host template expired unconsumed without creating
   `d1-live` or contacting a device.
 - The reviewed A90 D1 fast-loop v2 remains the current transaction executor,
@@ -39,11 +43,11 @@ transfer between the two files.
   retained-pmsg collection alone fails. Focused A90 D1/F1 regression passes
   `145/145`, and the preserved ordinal-1 observation replay proves the corrected
   classification with only a retained-pmsg warning.
-- Common contract revision 1 is included in the same H0 review closure. It
-  separates post-session stop/rollback semantics from pre-session host repair,
-  moves repository evidence hygiene out of the device-boundary list, makes the
-  A90 registry path explicit, corrects the `CLAUDE.md` precedence pointer, and
-  adds retirement metadata for new non-permanent gates.
+- Common and A90 contract revision 2 delegates only the exact no-payload A90
+  resident D1 lane to a future unattended mode. S22+ D1 and every F1 remain
+  attended; one-intent/one-dispatch/no-replay, exact health between ordinals,
+  passive observation on late USB enumeration, and operator recovery after
+  control loss remain mandatory.
 - Focused D1/transition regression passes `67/67`; related adapter and
   observation regression passes `26/26`. The combined real-host regression
   passes `93/93`, and the real resident host-only build/load cross-check
@@ -74,6 +78,8 @@ transfer between the two files.
 `docs/reports/A90_D1_FAST_LOOP_V2_H0_2026-08-02.md`
 
 `docs/reports/A90_D1_FAST_LOOP_V2_COMBINED_INDEPENDENT_FINAL_REVIEW_2026-08-02.md`
+
+`docs/reports/A90_UNATTENDED_RESIDENT_D1_POLICY_H0_2026-08-03.md`
 
 ## Final Architecture
 

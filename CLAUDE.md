@@ -11,15 +11,15 @@ Current posture:
 - The **Interim Fast-Loop Rules** block at the top of `AGENTS.md` is ACTIVE and
   supersedes conflicting procedural text everywhere. Read it first. Permanent
   boundaries are unchanged and still win.
-- D0 is autonomous for a resolved exact target. D1 and F1 are autonomous while
-  the target-specific attendance predicate holds; only one target may be F1-armed.
+- D0 is autonomous for a resolved exact target. Qualified A90 resident D1 may
+  be unattended; every other D1 and all F1 remain attended.
 - For boundary-compliant effects, the only procedural gates are target identity,
-  required rollback, recovery, and D1/F1 attendance. Permanent integrity,
+  required rollback, recovery, and target-specific presence. Permanent integrity,
   no-replay, and inter-effect health checks remain mandatory.
 - The agent owns goal selection and iteration; target runners execute one durable
   effect and recovery transaction. Do not require a campaign-level runner.
-- Legacy v1 approval and budget checks are implementation compatibility limits,
-  not trial-policy gates.
+- Legacy v1 checks are implementation limits. The current A90 v1 runner is
+  attended-only; never assert `--operator-attended` while the operator is absent.
 - A missing or late endpoint, timeout, or malformed observation freezes new
   device effects and enters health classification; it does not by itself close
   the campaign. Passive reads, host-only observer repair, and the exact
