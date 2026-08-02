@@ -755,6 +755,120 @@ def _revalidate_execution_closure(spec: UnattendedSpec) -> None:
         raise ContractError("unattended D1 execution closure changed")
 
 
+def _validate_persisted_action_evidence(
+    action_dir: Path,
+    outcome: engine.SessionActionResult,
+) -> tuple[
+    attended.BoundFile,
+    attended.BoundFile | None,
+    dict[str, Any],
+    int | None,
+]:
+    outcome_path = action_dir / "engine-outcome.json"
+    outcome_evidence = _bound_file(outcome_path, private=True)
+    persisted_outcome = _read_private_json(outcome_path)
+    if persisted_outcome != attended._action_outcome_value(1, outcome):
+        raise ContractError("durable engine outcome differs from returned outcome")
+
+    result_path = action_dir / "result.json"
+    if not result_path.is_file():
+        if (
+            outcome.status is engine.SessionActionStatus.EXPERIMENT_BLOCKED
+            and outcome.failure_class
+            in {
+                "PRE_HANDOFF_EXPERIMENT_BLOCKED",
+                "PRE_DISPATCH_INTEGRITY_BLOCKED",
+            }
+        ):
+            return outcome_evidence, None, {}, 0
+        if outcome.status in {
+            engine.SessionActionStatus.DEVICE_SAFETY_FAILURE,
+            engine.SessionActionStatus.CONTROL_AMBIGUOUS,
+        }:
+            return outcome_evidence, None, {}, None
+        raise ContractError("durable action result is absent for completed effect")
+
+    result_evidence = _bound_file(result_path, private=True)
+    result = _read_private_json(result_path)
+    expected_terminal = {
+        (engine.SessionActionStatus.PROVED, None): (
+            "PASS_SWITCHROOT_RETURN_NO_PROOF_DISPLAY_VISIBILITY"
+        ),
+        (
+            engine.SessionActionStatus.REFUTED,
+            "DISPLAY_ACQUISITION_REFUTED",
+        ): "REFUTED_DISPLAY_ACQUISITION",
+        (
+            engine.SessionActionStatus.REFUTED,
+            "DISPLAY_VISIBILITY_REFUTED",
+        ): "REFUTED_DISPLAY_VISIBILITY",
+        (
+            engine.SessionActionStatus.NO_PROOF_OBSERVER,
+            "RETURN_CHANNEL_OBSERVER",
+        ): "NO_PROOF_RETURN_OBSERVER",
+        (
+            engine.SessionActionStatus.NO_PROOF_OBSERVER,
+            "DISPLAY_EVIDENCE_OBSERVER",
+        ): "NO_PROOF_DISPLAY_OBSERVER",
+        (
+            engine.SessionActionStatus.EXPERIMENT_BLOCKED,
+            "POSTFLIGHT_EXPERIMENT_BLOCKED",
+        ): "SESSION_BLOCKED_RESIDENT_HEALTHY",
+    }.get((outcome.status, outcome.failure_class))
+    detailed_status = outcome.status in {
+        engine.SessionActionStatus.PROVED,
+        engine.SessionActionStatus.REFUTED,
+        engine.SessionActionStatus.NO_PROOF_OBSERVER,
+    } or (
+        outcome.status is engine.SessionActionStatus.EXPERIMENT_BLOCKED
+        and outcome.failure_class == "POSTFLIGHT_EXPERIMENT_BLOCKED"
+    )
+    if (
+        not detailed_status
+        or result.get("schema") != attended.RESULT_SCHEMA
+        or result.get("ordinal") != 1
+        or result.get("handoff_dispatch_count") != 1
+        or result.get("resident_healthy") is not True
+        or any(
+            result.get(key) is not False
+            for key in ("payload_transfer", "partition_write", "flash")
+        )
+        or expected_terminal is None
+        or result.get("proof_terminal") != expected_terminal
+        or not isinstance(result.get("observation"), dict)
+        or not isinstance(result.get("final_health"), dict)
+    ):
+        raise ContractError("durable action result is not exact")
+    observation = result["observation"]
+    if outcome.status is engine.SessionActionStatus.PROVED and (
+        result.get("candidate_return_observed") is not True
+        or observation.get("display_mechanical_proof") is not True
+        or observation.get("bounded_display_failure") is not False
+    ):
+        raise ContractError("durable proved result lacks switch-root proof")
+    if outcome.failure_class == "DISPLAY_ACQUISITION_REFUTED" and (
+        result.get("candidate_return_observed") is not True
+        or observation.get("bounded_display_failure") is not True
+    ):
+        raise ContractError("durable display refutation is not exact")
+    if outcome.failure_class == "DISPLAY_VISIBILITY_REFUTED" and (
+        result.get("candidate_return_observed") is not True
+        or observation.get("display_mechanical_proof") is not True
+    ):
+        raise ContractError("durable visibility refutation is not exact")
+    if outcome.failure_class == "RETURN_CHANNEL_OBSERVER" and (
+        result.get("candidate_return_observed") is not False
+    ):
+        raise ContractError("durable return no-proof is not exact")
+    if outcome.failure_class == "DISPLAY_EVIDENCE_OBSERVER" and (
+        result.get("candidate_return_observed") is not True
+        or observation.get("display_mechanical_proof") is True
+        or observation.get("bounded_display_failure") is not False
+    ):
+        raise ContractError("durable display no-proof is not exact")
+    return outcome_evidence, result_evidence, result, 1
+
+
 def _execute_locked(spec: UnattendedSpec) -> dict[str, Any]:
     if spec.transaction_dir.exists():
         raise ContractError("unattended D1 transaction already exists; replay forbidden")
@@ -827,6 +941,8 @@ def _execute_locked(spec: UnattendedSpec) -> dict[str, Any]:
             "device_safety_state": "HEALTH_PENDING",
             "effect_result_available": False,
             "handoff_intent_present": handoff_intent.is_file(),
+            "handoff_dispatch_count": None,
+            "handoff_dispatch_count_max": 1,
             "exception_type": type(exc).__name__,
             "action_replay": False,
             "next_ordinal_permitted": False,
@@ -846,25 +962,19 @@ def _execute_locked(spec: UnattendedSpec) -> dict[str, Any]:
     action_dir = spec.transaction_dir / "action-001"
     try:
         outcome.validate()
-        outcome_evidence = _bound_file(
-            action_dir / "engine-outcome.json",
-            private=True,
-        )
-        action_result_path = action_dir / "result.json"
-        action_result_bound = (
-            _bound_file(action_result_path, private=True)
-            if action_result_path.is_file()
-            else None
+        (
+            outcome_evidence,
+            action_result_bound,
+            action_result_value,
+            handoff_dispatch_count,
+        ) = _validate_persisted_action_evidence(
+            action_dir,
+            outcome,
         )
         action_result = (
             _as_dict(action_result_bound)
             if action_result_bound is not None
             else None
-        )
-        action_result_value = (
-            _read_private_json(action_result_bound.path)
-            if action_result_bound is not None
-            else {}
         )
     except Exception as exc:  # noqa: BLE001 - never repeat after durable intent
         parked = {
@@ -873,6 +983,8 @@ def _execute_locked(spec: UnattendedSpec) -> dict[str, Any]:
             "device_safety_state": "HEALTH_PENDING",
             "effect_result_available": True,
             "evidence_packaging_complete": False,
+            "handoff_dispatch_count": None,
+            "handoff_dispatch_count_max": 1,
             "exception_type": type(exc).__name__,
             "action_replay": False,
             "next_ordinal_permitted": False,
@@ -910,7 +1022,10 @@ def _execute_locked(spec: UnattendedSpec) -> dict[str, Any]:
         "action_started": outcome.action_started,
         "operator_attended": False,
         "unattended_resident_d1_qualified": True,
+        "handoff_dispatch_count": handoff_dispatch_count,
         "handoff_dispatch_count_max": 1,
+        "durable_engine_outcome_validated": True,
+        "durable_action_result_validated": action_result is not None,
         "payload_transfer": False,
         "partition_write": False,
         "flash": False,

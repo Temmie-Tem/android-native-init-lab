@@ -355,6 +355,142 @@ class A90UnattendedResidentD1V1Tests(unittest.TestCase):
                     enforce_session_window=True,
                 )
 
+    def test_persisted_action_evidence_matches_and_counts_dispatch(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            preflight = SessionPreflight(
+                False,
+                True,
+                True,
+                True,
+                True,
+                unattended_resident_d1_qualified=True,
+            )
+            proved = engine.SessionActionResult(
+                engine.SessionActionStatus.PROVED,
+                True,
+                postflight=preflight,
+            )
+            detail = {
+                "schema": attended.RESULT_SCHEMA,
+                "ordinal": 1,
+                "handoff_dispatch_count": 1,
+                "resident_healthy": True,
+                "proof_terminal": (
+                    "PASS_SWITCHROOT_RETURN_NO_PROOF_DISPLAY_VISIBILITY"
+                ),
+                "candidate_return_observed": True,
+                "observation": {
+                    "proof": True,
+                    "display_mechanical_proof": True,
+                    "bounded_display_failure": False,
+                },
+                "final_health": {"exact": True},
+                "payload_transfer": False,
+                "partition_write": False,
+                "flash": False,
+            }
+            exact = root / "exact"
+            exact.mkdir()
+            write_private(
+                exact / "engine-outcome.json",
+                attended._action_outcome_value(1, proved),
+            )
+            write_private(exact / "result.json", detail)
+
+            mismatch = root / "mismatch"
+            mismatch.mkdir()
+            attended_preflight = SessionPreflight(True, True, True, True, True)
+            write_private(
+                mismatch / "engine-outcome.json",
+                attended._action_outcome_value(
+                    1,
+                    engine.SessionActionResult(
+                        engine.SessionActionStatus.PROVED,
+                        True,
+                        postflight=attended_preflight,
+                    ),
+                ),
+            )
+            write_private(mismatch / "result.json", detail)
+
+            malformed = root / "malformed"
+            malformed.mkdir()
+            write_private(
+                malformed / "engine-outcome.json",
+                attended._action_outcome_value(1, proved),
+            )
+            contradictory_detail = dict(detail)
+            contradictory_detail["proof_terminal"] = (
+                "REFUTED_DISPLAY_ACQUISITION"
+            )
+            write_private(malformed / "result.json", contradictory_detail)
+
+            pre_dispatch = root / "pre-dispatch"
+            pre_dispatch.mkdir()
+            blocked = engine.SessionActionResult(
+                engine.SessionActionStatus.EXPERIMENT_BLOCKED,
+                True,
+                failure_class="PRE_DISPATCH_INTEGRITY_BLOCKED",
+                postflight=preflight,
+            )
+            write_private(
+                pre_dispatch / "engine-outcome.json",
+                attended._action_outcome_value(1, blocked),
+            )
+
+            uncertain = root / "uncertain"
+            uncertain.mkdir()
+            safety_failure = engine.SessionActionResult(
+                engine.SessionActionStatus.DEVICE_SAFETY_FAILURE,
+                True,
+                failure_class="POSTFLIGHT_DEVICE_SAFETY_FAILURE",
+            )
+            write_private(
+                uncertain / "engine-outcome.json",
+                attended._action_outcome_value(1, safety_failure),
+            )
+
+            with mock.patch.object(unattended, "PRIVATE_ROOT", root.resolve()):
+                _, result_evidence, result, dispatch_count = (
+                    unattended._validate_persisted_action_evidence(exact, proved)
+                )
+                self.assertIsNotNone(result_evidence)
+                self.assertEqual(result, detail)
+                self.assertEqual(dispatch_count, 1)
+                with self.assertRaisesRegex(
+                    unattended.ContractError,
+                    "differs from returned outcome",
+                ):
+                    unattended._validate_persisted_action_evidence(
+                        mismatch,
+                        proved,
+                    )
+                with self.assertRaisesRegex(
+                    unattended.ContractError,
+                    "durable action result is not exact",
+                ):
+                    unattended._validate_persisted_action_evidence(
+                        malformed,
+                        proved,
+                    )
+                _, pre_result, _, pre_count = (
+                    unattended._validate_persisted_action_evidence(
+                        pre_dispatch,
+                        blocked,
+                    )
+                )
+                self.assertIsNone(pre_result)
+                self.assertEqual(pre_count, 0)
+                _, unsafe_result, _, unsafe_count = (
+                    unattended._validate_persisted_action_evidence(
+                        uncertain,
+                        safety_failure,
+                    )
+                )
+                self.assertIsNone(unsafe_result)
+                self.assertIsNone(unsafe_count)
+
     def test_manifest_binds_review_and_qualified_prior_return(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
@@ -441,7 +577,25 @@ class A90UnattendedResidentD1V1Tests(unittest.TestCase):
                     )
                     attended.write_private_json_exclusive(
                         action_dir / "result.json",
-                        {"resident_healthy": True},
+                        {
+                            "schema": attended.RESULT_SCHEMA,
+                            "ordinal": 1,
+                            "handoff_dispatch_count": 1,
+                            "resident_healthy": True,
+                            "proof_terminal": (
+                                "PASS_SWITCHROOT_RETURN_NO_PROOF_DISPLAY_VISIBILITY"
+                            ),
+                            "candidate_return_observed": True,
+                            "observation": {
+                                "proof": True,
+                                "display_mechanical_proof": True,
+                                "bounded_display_failure": False,
+                            },
+                            "final_health": {"exact": True},
+                            "payload_transfer": False,
+                            "partition_write": False,
+                            "flash": False,
+                        },
                     )
                     return result
 
@@ -477,6 +631,9 @@ class A90UnattendedResidentD1V1Tests(unittest.TestCase):
             self.assertEqual(result["device_safety_state"], "RESIDENT_HEALTHY")
             self.assertFalse(result["operator_attended"])
             self.assertTrue(result["next_ordinal_permitted"])
+            self.assertEqual(result["handoff_dispatch_count"], 1)
+            self.assertTrue(result["durable_engine_outcome_validated"])
+            self.assertTrue(result["durable_action_result_validated"])
             journal = sorted((spec.transaction_dir / "journal").glob("*.json"))
             self.assertEqual(len(journal), 2)
             joined = "\n".join(path.read_text(encoding="utf-8") for path in journal)

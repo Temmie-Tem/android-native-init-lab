@@ -28,6 +28,7 @@ current bound attended base manifest and qualification load
 -> durable ordinal intent
 -> shared handoff/SSH/DRM/return transaction
 -> second closure revalidation immediately before dispatch
+-> returned/durable outcome equivalence and detailed-result validation
 -> one compact durable result
 ```
 
@@ -97,6 +98,10 @@ the independently preserved exact native-return evidence.
 - An exception or malformed result after durable intent records
   `RECOVERY_PENDING_PARKED`, permits no next ordinal, and never invokes the
   action again.
+- A returned engine outcome that differs from its durable JSON, or a malformed
+  detailed action result, parks instead of claiming health or experiment
+  proof. Dispatch count is exact `0` before the effect, exact `1` with a valid
+  detailed result, and unknown only for an already-parked uncertain effect.
 - A healthy `PROVED`, `REFUTED`, `NO_PROOF_OBSERVER`, or host-blocked result can
   close the ordinal with `RESIDENT_HEALTHY`; a fresh exact D0 is still required
   before any later ordinal.
@@ -119,10 +124,10 @@ the independently preserved exact native-return evidence.
 
 ## Validation
 
-- new unattended runner and adversarial regression: PASS `12/12`;
+- new unattended runner and adversarial regression: PASS `13/13`;
 - existing attended D1 and transition regression: PASS `71/71`;
 - related policy, staging, orchestrator, and resident-model regression: PASS
-  `195/195` (`278/278` combined);
+  `195/195` (`279/279` combined);
 - real preserved qualification replay: PASS;
 - fresh host-only attended base manifest:
   `a90-d1-attended-20260803-04`, mode `0600`, SHA256

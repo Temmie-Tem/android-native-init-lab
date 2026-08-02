@@ -54,10 +54,13 @@ transfer between the two files.
   action budget, resume, or campaign loop. It reuses the existing
   handoff/SSH/DRM/return backend, requires fresh exact D0, revalidates its
   closure again immediately before dispatch, and parks every uncertain result
-  without replay. Real ordinal-1 evidence passes its automatic-return, Debian
-  PID1, Dropbear, mechanical-display, operator-visibility, and final-health
-  qualification. The required independent execution-machinery review receipt
-  is absent, so no unattended manifest or live authority exists.
+  without replay. It now also requires exact structured equality between the
+  returned and durable engine outcomes, validates detailed action
+  evidence, and records handoff dispatch as exact `0`, exact `1`, or unknown
+  only in a parked result. Real ordinal-1 evidence passes its automatic-return,
+  Debian PID1, Dropbear, mechanical-display, operator-visibility, and
+  final-health qualification. The required independent execution-machinery
+  review receipt is absent, so no unattended manifest or live authority exists.
 - Focused D1/transition regression passes `67/67`; related adapter and
   observation regression passes `26/26`. The combined real-host regression
   passes `93/93`, and the real resident host-only build/load cross-check
