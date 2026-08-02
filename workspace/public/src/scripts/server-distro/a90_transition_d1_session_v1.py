@@ -1108,8 +1108,19 @@ def _classify_return_observation(
 ) -> tuple[bool, dict[str, str]]:
     candidate_return = observation.get("candidate_return")
     return_error = observation.get("candidate_return_error")
+    retained_error = observation.get("retained_pmsg_error")
     release = observation.get("candidate_return_modemmanager_guard_release")
     retained = observation.get("retained_pmsg")
+    if (
+        isinstance(candidate_return, dict)
+        and return_error is not None
+        and retained_error is None
+        and retained is None
+    ):
+        # Older observers recorded a retained-pmsg collection failure in the
+        # candidate-return slot after exact return had already been captured.
+        retained_error = return_error
+        return_error = None
     errors: dict[str, str] = {}
     release_ok = isinstance(release, dict) and release.get("released") is True
     if not release_ok:
@@ -1188,8 +1199,8 @@ def _classify_return_observation(
             returned = True
         except (ContractError, base.ContractError, staging.ContractError):
             errors["return_observation"] = "candidate return proof is not exact"
-    if isinstance(candidate_return, dict) and return_error is not None:
-        errors["return_observation"] = "candidate return also carries an error"
+    if return_error is not None:
+        errors["return_observation"] = "candidate return carries an error"
     if returned and not (
         isinstance(retained, dict)
         and retained.get("proof") is True
@@ -1199,6 +1210,8 @@ def _classify_return_observation(
         and retained.get("pstore_empty_after") is True
     ):
         errors["retained_pmsg"] = "retained pmsg capture or cleanup is not exact"
+    if retained_error is not None:
+        errors["retained_pmsg"] = "retained pmsg observer reported an error"
     return returned, errors
 
 
@@ -1495,8 +1508,14 @@ class LiveSessionEffects:
                 observation,
             )
             postflight_errors: dict[str, dict[str, str]] = {}
+            observation_warnings: dict[str, dict[str, str]] = {}
             for label, message in observation_errors.items():
-                postflight_errors[label] = {
+                destination = (
+                    observation_warnings
+                    if label == "retained_pmsg"
+                    else postflight_errors
+                )
+                destination[label] = {
                     "type": "ContractError",
                     "message": message,
                 }
@@ -1557,6 +1576,7 @@ class LiveSessionEffects:
                 "final_health": final_health,
                 "final_source": final_source,
                 "postflight_errors": postflight_errors,
+                "observation_warnings": observation_warnings,
                 "resident_healthy": True,
                 "payload_transfer": False,
                 "partition_write": False,

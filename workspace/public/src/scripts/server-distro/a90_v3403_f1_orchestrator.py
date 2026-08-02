@@ -3581,7 +3581,7 @@ def observe_attended_after_handoff(
                     transaction_dir,
                 )
             except Exception as exc:  # noqa: BLE001 - recovery resumes later
-                result["candidate_return_error"] = {
+                result["retained_pmsg_error"] = {
                     "type": type(exc).__name__,
                     "message": str(exc),
                 }

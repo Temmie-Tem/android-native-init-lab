@@ -150,7 +150,11 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             " ".join(self.goal.split()),
         )
         self.assertIn(
-            "No A90 D1/F1 campaign is open",
+            "A90 campaign `a90-resident-switchroot-display-ssh-20260802` is open",
+            " ".join(self.goal_a90.split()),
+        )
+        self.assertIn(
+            "no D1 session is active, attendance has ended, and no target is F1-armed",
             " ".join(self.goal_a90.split()),
         )
         self.assertIn(

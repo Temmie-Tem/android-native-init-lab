@@ -4439,6 +4439,59 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         collect_pmsg.assert_not_called()
         self.assertFalse(result["proof"])
 
+    def test_retained_pmsg_failure_preserves_exact_candidate_return(self) -> None:
+        spec = attended_spec()
+        guard = mock.Mock()
+        with tempfile.TemporaryDirectory(dir=f1.staging.PRIVATE_ROOT) as temp_dir:
+            with (
+                mock.patch.object(
+                    f1,
+                    "run_handoff",
+                    return_value={"proof": True, "text": "handoff"},
+                ),
+                mock.patch.object(
+                    f1,
+                    "observe_ssh",
+                    return_value={"proof": True},
+                ),
+                mock.patch.object(
+                    f1,
+                    "wait_for_candidate_return_attended_once",
+                    return_value={"healthy": True},
+                ),
+                mock.patch.object(
+                    f1,
+                    "release_candidate_return_modemmanager_guard",
+                    return_value={
+                        "schema": f1.cdc_guard.GUARD_SCHEMA,
+                        "status": "released",
+                        "released": True,
+                    },
+                ),
+                mock.patch.object(
+                    f1,
+                    "collect_and_clear_retained_pmsg",
+                    side_effect=f1.ContractError("retained pmsg entry absent"),
+                ),
+            ):
+                result = f1.observe_attended_after_handoff(
+                    spec,
+                    sample_args(),
+                    Path(temp_dir),
+                    {
+                        "ready": True,
+                        "return_epoch_before_handoff": sample_return_epoch(),
+                    },
+                    return_guard=guard,
+                )
+        self.assertEqual(result["candidate_return"], {"healthy": True})
+        self.assertNotIn("candidate_return_error", result)
+        self.assertEqual(
+            result["retained_pmsg_error"]["message"],
+            "retained pmsg entry absent",
+        )
+        self.assertFalse(result["proof"])
+
     def test_attended_success_durably_records_one_handoff_before_dispatch(self) -> None:
         spec = attended_spec()
         args = sample_args()

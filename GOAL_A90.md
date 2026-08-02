@@ -18,15 +18,27 @@ transfer between the two files.
   transfer, zero replay, zero rollback, and zero second resident reboot. Exact
   version/build, `selftest fail=0`, empty pstore, immutable rootfs source, and
   direct NCM health passed. S22+ received no command.
-- Standing exact-target D0 exists only through the active common trial. No A90
-  D1/F1 campaign is open and no target is F1-armed. The consumed resident-install
-  approval is not reusable.
+- Standing exact-target D0 exists only through the active common trial. A90
+  campaign `a90-resident-switchroot-display-ssh-20260802` is open, but no D1
+  session is active, attendance has ended, and no target is F1-armed. The
+  consumed resident-install approval is not reusable.
 - The original D1 v1 host template expired unconsumed without creating
   `d1-live` or contacting a device.
 - The reviewed A90 D1 fast-loop v2 remains the current transaction executor,
   not a campaign planner. The agent owns goal-directed iteration. The executor
   derives the canonical resident journal, durably binds each action, and never
   automatically replays an uncertain effect.
+- Campaign ordinal 1 sent `SWITCHROOT_EXPERIMENT` once and proved Debian
+  `/usr/sbin/init` PID 1, Dropbear SSH, native DRM release, Debian direct-DRM
+  master, successful `SETCRTC`, and operator-visible `DISPLAY OWNER DEBIAN`.
+  Exact native return, work cleanup, immutable source, and final V3406 health
+  passed with zero payload, flash, rollback, or replay. The legacy structured
+  result closed `EXPERIMENT_BLOCKED` only because one retained-pmsg observation
+  was absent; the active trial classifies that as a host-observer warning.
+- The observer now preserves an already-proven exact native return when
+  retained-pmsg collection alone fails. Focused A90 D1/F1 regression passes
+  `145/145`, and the preserved ordinal-1 observation replay proves the corrected
+  classification with only a retained-pmsg warning.
 - Common contract revision 1 is included in the same H0 review closure. It
   separates post-session stop/rollback semantics from pre-session host repair,
   moves repository evidence hygiene out of the device-boundary list, makes the
@@ -45,10 +57,11 @@ transfer between the two files.
   revalidating the window after preflight, checking expiry again at both
   dispatch boundaries, and closing without a D1 effect if either check expires.
 - The pre-fix `-02` and pre-M2 `-03` templates are stale. Private run
-  `a90-d1-attended-20260802-04` contains only a fresh mode-`0600` v2 H0
-  template with manifest SHA256
-  `33f85cddd11777ee7f3776f8f2ecd2fb019020f4268a4645aaed768ac966cbf6`.
-  No approval receipt or `d1-live` directory exists.
+  `a90-d1-attended-20260802-04` is the closed ordinal-1 evidence line. Fresh
+  host-only run `a90-d1-attended-20260803-01` binds the corrected source closure
+  in a mode-`0600` v2 manifest with SHA256
+  `5ac62c21d239f3fe8d9b9648dffdf267c0a56c127df632d97afe308bcef409e0`.
+  It has no compatibility receipt, `d1-live`, device effect, or live authority.
 - The final combined independent safety review over the refreshed hashes
   returned `PASS_GO` with no unresolved Critical, High, Medium, or Low finding.
   M1, L1, and M2 are closed. The review creates no active campaign. Until the

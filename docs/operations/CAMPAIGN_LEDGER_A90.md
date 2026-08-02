@@ -30,3 +30,4 @@ late endpoint may be `HEALTH_PENDING`, `HOST_OBSERVER_FAILURE`, or
 ## Log
 
 <!-- append below; never edit or remove an earlier line -->
+2026-08-02T19:42:06Z | a90-resident-switchroot-display-ssh-20260802 | 1 | D1 | SWITCHROOT_EXPERIMENT | HEALTHY | PROVED | 0/0 | Debian PID1, Dropbear SSH, direct DRM master, and operator-visible DISPLAY OWNER DEBIAN proved; exact resident return and cleanup passed; retained-pmsg observer warning

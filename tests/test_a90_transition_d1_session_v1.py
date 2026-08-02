@@ -406,7 +406,7 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
         self.assertNotIn("native_init_flash", source)
         self.assertNotIn("flash_command(", source)
 
-    def test_live_effect_uses_one_handoff_and_returns_mechanical_no_visibility(self) -> None:
+    def test_live_effect_retained_pmsg_warning_keeps_mechanical_proof(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             spec = self.session_spec(root)
@@ -423,12 +423,9 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 "candidate_return_modemmanager_guard_release": {
                     "released": True,
                 },
-                "retained_pmsg": {
-                    "proof": True,
-                    "armed_positive_control": True,
-                    "capture_fsynced_before_cleanup": True,
-                    "exact_cleanup": True,
-                    "pstore_empty_after": True,
+                "retained_pmsg_error": {
+                    "type": "ContractError",
+                    "message": "retained pmsg entry absent",
                 },
                 "display_mechanical_proof": True,
                 "bounded_display_failure": False,
@@ -456,6 +453,16 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
             detail = json.loads((transaction / "action-001/result.json").read_text())
         self.assertEqual(result.status, engine.SessionActionStatus.PROVED)
         self.assertEqual(detail["proof_terminal"], "PASS_SWITCHROOT_RETURN_NO_PROOF_DISPLAY_VISIBILITY")
+        self.assertEqual(detail["postflight_errors"], {})
+        self.assertEqual(
+            detail["observation_warnings"],
+            {
+                "retained_pmsg": {
+                    "type": "ContractError",
+                    "message": "retained pmsg observer reported an error",
+                }
+            },
+        )
         self.assertEqual(calls.count("observe"), 1)
         self.assertEqual(
             calls,
@@ -954,16 +961,15 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                         expected_sequence=1,
                     )
 
-    def test_return_error_and_retained_cleanup_never_prove(self) -> None:
+    def test_candidate_return_error_never_proves(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             spec = self.session_spec(Path(raw))
             returned, errors = d1._classify_return_observation(
                 d1._f1_spec(spec),
                 {
-                    "candidate_return": self.exact_candidate_return(spec),
                     "candidate_return_error": {
                         "type": "ContractError",
-                        "message": "retained pmsg cleanup failed",
+                        "message": "candidate return identity failed",
                     },
                     "candidate_return_modemmanager_guard_release": {
                         "released": True,
@@ -973,6 +979,52 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
             )
         self.assertFalse(returned)
         self.assertIn("return_observation", errors)
+
+    def test_legacy_retained_pmsg_error_preserves_exact_return(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            spec = self.session_spec(Path(raw))
+            returned, errors = d1._classify_return_observation(
+                d1._f1_spec(spec),
+                {
+                    "candidate_return": self.exact_candidate_return(spec),
+                    "candidate_return_error": {
+                        "type": "ContractError",
+                        "message": "candidate return lacks one exact retained pmsg entry",
+                    },
+                    "candidate_return_modemmanager_guard_release": {
+                        "released": True,
+                    },
+                    "display_mechanical_proof": True,
+                },
+            )
+        self.assertTrue(returned)
+        self.assertEqual(
+            errors,
+            {"retained_pmsg": "retained pmsg observer reported an error"},
+        )
+
+    def test_retained_pmsg_error_preserves_exact_return_as_warning(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            spec = self.session_spec(Path(raw))
+            returned, errors = d1._classify_return_observation(
+                d1._f1_spec(spec),
+                {
+                    "candidate_return": self.exact_candidate_return(spec),
+                    "retained_pmsg_error": {
+                        "type": "ContractError",
+                        "message": "retained pmsg entry absent",
+                    },
+                    "candidate_return_modemmanager_guard_release": {
+                        "released": True,
+                    },
+                    "display_mechanical_proof": True,
+                },
+            )
+        self.assertTrue(returned)
+        self.assertEqual(
+            errors,
+            {"retained_pmsg": "retained pmsg observer reported an error"},
+        )
 
     def test_empty_candidate_return_never_proves(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
