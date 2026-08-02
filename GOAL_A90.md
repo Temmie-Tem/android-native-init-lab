@@ -12,108 +12,56 @@ transfer between the two files.
 
 ## Current Authority
 
-- Run `a90-v3406-debian-display-f1-20260802-01` consumed its exact F1 approval
-  and closed `PASS_A90_RESIDENT_INSTALLED`. No A90 F1, D1, attended
-  continuation, or other live authority currently exists.
-- The V3406 candidate is the healthy resident baseline: exact native version,
-  selftest `fail=0`, empty pstore, immutable rootfs source preflight, and direct
-  NCM health passed. No command was sent to the separately connected S22+.
-- The resulting resident manifest has SHA256
-  `fc3677624977fa1723754bcba842f75ff36c084eb86ac62925c87af638aa83f7`.
-  Its approval binding
-  `08790a1d48843e5c469076755abf21b05a526bd8e25c9e40f51d588d9b9f2691`
-  was supplied and consumed by one transaction. The staging subprocess then
-  rejected the resident schema before creating its live directory or sending
-  any device command. The durable result is
-  `ABORTED_F1_V2_BEFORE_CANDIDATE`: candidate and rollback transfer counts are
-  both zero, rollback is not required, and the token is non-reusable.
-- The staging live gate had the same stale `expected_manifest_schema()` call as
-  the earlier parent gate. Commit `adb930cd` changes only that call to the exact
-  resident/ordinary selector. Focused regression passes `172/172`; independent
-  review found no target, staging, approval, boot-only, or rollback bypass.
-- The current manifest and approval are stale because the bound staging adapter
-  changed. Do not retry this transaction or reinterpret its consumed token.
-- Fresh run `a90-v3406-debian-display-f1-20260801-03` used a new-inode keyed
-  rootfs and a passing exact A90 D0/path preflight, then consumed one exact F1
-  approval. The journal records one boot-only candidate transfer, no candidate
-  replay, one exact V2321 rollback transfer, and final restored V2321 health.
-  The separately connected S22+ received no command.
-- The current F1 execution closure now binds the transition-contract dependency
-  imported by the central observation pipeline. Phase 2C and finalizer H0
-  audits pass, isolated focused regression passes `276/276`, and independent
-  review returned GO with no unresolved finding.
-- The resident promotion stopped before `candidate-boot-ready`. The candidate
-  rebooted, re-enumerated ACM, and exposed a native prompt, but host AT probe
-  bytes corrupted the strict health frame. The first rollback health capture
-  also lost one frame boundary; journal-resume then verified exact V2321
-  version/build, `selftest fail=0`, and pstore `entries=0` without retransmitting
-  rollback. The closed result is
-  `ABORTED_F1_V2_CANDIDATE_UNCERTAIN_ROLLED_BACK`.
-- The host-only guard-corridor unit now arms and journals the exact transient
-  A90 ModemManager guard before candidate intent and carries it through first
-  health, resident reboot, returned health, and bounded rollback recovery. It
-  never installs a persistent rule or stops ModemManager globally.
-- Related regression passes `332/332`; independent safety review returned GO
-  with no blocking finding. The reviewed orchestrator SHA256 is
-  `aa0677077ddf82ed559a2b703e599ee05c3fa77f7023260d193c01c462b25b20`.
-- Run `a90-v3406-debian-display-f1-20260801-06` is closed
-  `NO_PROOF_A90_F1_RP_CANDIDATE_ROLLED_BACK`. It completed one exact candidate
-  boot transfer and one exact V2321 rollback transfer with no candidate replay;
-  final V2321 version/build and selftest `fail=0` passed. The separately
-  connected S22+ received no command.
-- The tty-node validator now checks `endpoint.tty_class`; its exact-path
-  regression and the related suite pass `179/179`. Independent review returned
-  GO with no finding. The repaired orchestrator SHA256 is
-  `a434ee2f26d4c2bd877f6a0eeb7102d39f1f94b100d01fea0117f10304bad8b1`.
-- Host-only `-07` stopped on review-file mode. Run `-08` then stopped
-  `ABORTED_F1_V2_BEFORE_CANDIDATE` when inactive NCM routed through ordinary
-  LAN. Both are non-reusable; `-08` performed zero staging, transfer, or
-  reboot, and S22+ received no command.
-- Connected D0 now invokes the exact live-staging NCM readiness function before
-  baseline reads and pins A90 interface, direct route, host CIDR, and ping.
-  The related suite passes `204/204`; independent review
-  returned GO with no finding. Commit `7c339e8b` contains the bounded repair.
-- Run `a90-v3406-debian-display-f1-20260801-09` is closed
-  `NO_PROOF_A90_F1_RP_CANDIDATE_ROLLED_BACK`: one boot-only candidate, no
-  replay, one exact V2321 rollback, and final health PASS. First candidate
-  health and resident reboot dispatch passed, but the returned exact A90 USB
-  epoch's first safe `version` probe yielded only its echo and `a90:/#`; no
-  A90P1 frame, Debian PID 1, or display proof was accepted. S22+ was untouched.
-- The H0 repair retries that strict prompt/echo-only transcript only for
-  already-safe commands in slow/double mode. Arbitrary partial output and
-  unsafe commands remain terminal. Isolated related regression passes
-  `266/266`; independent review returned GO. The new `a90ctl.py` SHA256 is
-  `b8e870f628e94f35a782c99e70cf4dcfee4cc7b4824ecec38e7241e0efa77831`;
-  every older manifest is stale and no new live authority exists.
-- Fresh `a90-v3406-debian-display-f1-20260801-10` first stopped D0 before a
-  device command when the NCM profile was detached after re-enumeration. Exact
-  A90 profile rebind and evidence `02` then passed V2321 health, direct NCM,
-  and new final/work/stage absence. Its fresh keyed rootfs SHA256 is
-  `74fb53df0cea3a235307afdf0c1ff3e1d492b5815838a91b42880b99a745bd6e`.
-- Resident-install v2 closes the reviewed whole-owner F1 path after one exact
-  health check and zero second reboot; `331/331` pass and review returned GO.
-- The run performed one boot-only candidate transfer, no candidate replay, no
-  rollback, and no second resident reboot. Its 11-record durable journal closed
-  `RESIDENT_INSTALLED_CLOSED` with `RESIDENT_HEALTHY`.
-- Final `result.json` publication exposed one host-only validator defect after
-  that terminal record: the validator omitted the real `run /bin/busybox`
-  wrapper from the exact rootfs receipt. The correction and fixture pass
-  `28/28`; independent review returned PASS/GO. It grants no reuse of the
-  consumed manifest or approval and causes no device transition.
-- The resident D1 switch-root backend is now implemented host-side. It binds
-  one private session, one approval, one dispatch per intent, exact return and
-  cleanup proof, and deterministic journal replay without any flash or payload
-  path. Focused regression passes `21/21`, existing engine/adapter regression
-  passes `49/49`, the real resident evidence cross-check passed, and independent
-  review returned PASS/GO with no unresolved finding.
-- No D1 authority is active. Final host-only manifest and approval preparation
-  is complete; live execution must wait for its fresh exact approval.
-- Private run `a90-d1-attended-20260802-01` is now host-only prepared with
-  manifest SHA256 `62008a369193791231f3249e647df6876ddd82b80203c4c9f76c5cb67304af40`,
-  an eight-action budget, and a 2026-08-02 14:00:04 KST expiry. Its exact
-  approval remains unconsumed and no `d1-live` session directory exists.
-- Do not add a device step while host-only work can answer the selected
-  question.
+- Run `a90-v3406-debian-display-f1-20260802-01` consumed its exact F1
+  approval and closed `PASS_A90_RESIDENT_INSTALLED`. The V3406 resident
+  baseline remains durably `RESIDENT_HEALTHY`: one boot-only candidate
+  transfer, zero replay, zero rollback, and zero second resident reboot. Exact
+  version/build, `selftest fail=0`, empty pstore, immutable rootfs source, and
+  direct NCM health passed. S22+ received no command.
+- No A90 F1, D1, attended continuation, or other live authority currently
+  exists. The consumed resident-install approval is not reusable.
+- The original D1 v1 host template expired unconsumed without creating
+  `d1-live` or contacting a device.
+- The selected H0 unit is A90 D1 fast-loop v2. It derives the canonical
+  resident journal from the resident manifest, binds a duration instead of a
+  pre-opening absolute expiry, reuses the opening health/source preflight for
+  the immediate action, and permits one explicitly acknowledged new ordinal
+  after an independently safe observer-only no-proof. Automatic action replay
+  remains forbidden.
+- Common contract revision 1 is included in the same H0 review closure. It
+  separates post-session stop/rollback semantics from pre-session host repair,
+  moves repository evidence hygiene out of the device-boundary list, makes the
+  A90 registry path explicit, corrects the `CLAUDE.md` precedence pointer, and
+  adds retirement metadata for new non-permanent gates.
+- Focused D1/transition regression passes `67/67`; related adapter and
+  observation regression passes `26/26`. The combined real-host regression
+  passes `93/93`, and the real resident host-only build/load cross-check
+  passed.
+- The first combined independent review returned `BLOCK_LIVE_USE`: resume
+  reached connected preflight before complete durable replay, and `load_spec`
+  accepted a copied non-canonical resident-journal parent. Both findings are
+  corrected at H0 with focused adversarial regressions. The second combined
+  rereview closed both but returned `BLOCK_LIVE_USE` because the runner reused
+  its preflight-entry clock at dispatch. That M2 is corrected by opening or
+  revalidating the window after preflight, checking expiry again at both
+  dispatch boundaries, and closing without a D1 effect if either check expires.
+- The pre-fix `-02` and pre-M2 `-03` templates are stale. Private run
+  `a90-d1-attended-20260802-04` contains only a fresh mode-`0600` v2 H0
+  template with manifest SHA256
+  `33f85cddd11777ee7f3776f8f2ecd2fb019020f4268a4645aaed768ac966cbf6`.
+  No approval receipt or `d1-live` directory exists.
+- The final combined independent safety review over the refreshed hashes
+  returned `PASS_GO` with no unresolved Critical, High, Medium, or Low finding.
+  M1, L1, and M2 are closed. The exact reviewed closure may be committed and
+  pushed, but the review grants no live authority; any future D1 action still
+  requires a separate fresh exact approval and current live preflight.
+- F1 and every permanent partition, target-isolation, rollback, recovery,
+  no-replay, and private-evidence boundary are unchanged and outside this
+  simplification unit.
+
+`docs/reports/A90_D1_FAST_LOOP_V2_H0_2026-08-02.md`
+
+`docs/reports/A90_D1_FAST_LOOP_V2_COMBINED_INDEPENDENT_FINAL_REVIEW_2026-08-02.md`
 
 ## Final Architecture
 

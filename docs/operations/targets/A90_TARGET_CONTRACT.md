@@ -1,5 +1,7 @@
 # A90 Binding Target Contract
 
+Contract-Revision: **1** (supersedes unversioned; 2026-08-02)
+
 Status: **BINDING_POLICY_H0_NO_LIVE_AUTHORITY**
 
 This contract specializes `AGENTS.md` for the operator-owned and attended
@@ -17,12 +19,13 @@ Read contracts in this order:
 
 `AGENTS.md -> A90_TARGET_CONTRACT.md -> GOAL_A90.md`
 
-Every common invariant and permanent safety boundary in `AGENTS.md` applies.
-This contract may specialize only the delegated A90 H0/D0/D1/F1 workflow. It
-cannot relax boot-only payload scope, the forbidden raw-action list, exact
-target isolation, rollback availability, candidate no-replay, private evidence
-handling, or the requirement for demonstrated physical recovery. Where rules
-at the same layer overlap, the more restrictive applicable rule wins.
+Every common invariant and permanent device, repository, and evidence boundary
+in `AGENTS.md` applies. This contract may specialize only the delegated A90
+H0/D0/D1/F1 workflow. It cannot relax boot-only payload scope, the forbidden
+raw-action list, exact target isolation, rollback availability, candidate
+no-replay, private evidence handling, or the requirement for demonstrated
+physical recovery. Where rules at the same layer overlap, the more restrictive
+applicable rule wins.
 
 The following documents remain implementation references beneath this target
 contract:
@@ -114,7 +117,10 @@ The session binding must contain:
 - the exact A90 target/profile and current resident boot identity;
 - the exact ready rollback identity and recovery path;
 - an exact command/action allowlist;
-- an explicit expiry no later than eight hours after opening;
+- an explicit positive duration no greater than eight hours; the immutable
+  host template does not expire before use, and the runner durably fixes the
+  exact opening and expiry timestamps only when it consumes the fresh session
+  approval;
 - an explicit positive action budget no greater than 32; and
 - the return-health predicate and device-effect runner closure.
 
@@ -138,10 +144,14 @@ The session rules are:
 If framing, timeout, or parsing fails after an action but the previously
 verified resident remains operator-controlled and an independent bounded check
 can distinguish observer failure from device failure, close that experiment
-`NO_PROOF_OBSERVER`. Do not resend the uncertain device action. Preserve the
-resident, fix or replace the observer at H0, then continue within the same
-session only if target, resident, rollback, allowlist, device-effect runner,
-expiry, and remaining budget are unchanged.
+`NO_PROOF_OBSERVER`. Never automatically resend the uncertain device action.
+After exact cleanup and resident health, the operator may explicitly
+acknowledge that result and start one new ordinal action with the unchanged
+observer, or fix/replace the observer at H0. An acknowledgement is not a replay:
+it requires a new durable intent and consumes another action. A second
+observer-only no-proof after that unchanged-observer acknowledgement closes the
+session. Continue only while target, resident, rollback, allowlist,
+device-effect runner, expiry, and remaining budget are unchanged.
 
 If observer failure cannot be distinguished from target ambiguity, control
 loss, or resident-health failure, end the session and select the predeclared
@@ -200,6 +210,10 @@ attended session.
 - Routine D1 uses one session record plus compact ordered action entries; it
   does not require one policy, manifest graph, prose report, or review ladder
   per action.
+- A resident-install terminal may be reduced once to one immutable resident
+  baseline binding. Routine D1 preparation derives its canonical journal from
+  that resident manifest; the operator must not select a second independent
+  journal path.
 - F1 uses one structured result, one append-only journal, private raw logs, and
   a compact target-specific timeline. Record exact candidate/rollback transfer
   counts and no-replay status.

@@ -21,7 +21,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -44,13 +44,13 @@ from a90_transition_contract_v2 import (  # noqa: E402
 )
 
 
-SCHEMA = "a90_d1_attended_session_manifest_v1"
-STATUS = "ready-for-d1-approval"
-APPROVAL_SCHEMA = "a90_d1_attended_session_approval_v1"
-APPROVAL_PREFIX = "A90-D1-ATTENDED-SESSION-V1-APPROVE:"
-JOURNAL_SCHEMA = "a90_d1_attended_session_journal_v1"
-RESULT_SCHEMA = "a90_d1_attended_session_action_v1"
-OUTCOME_SCHEMA = "a90_d1_attended_session_engine_outcome_v1"
+SCHEMA = "a90_d1_fast_loop_manifest_v2"
+STATUS = "ready-for-d1-fast-loop-approval"
+APPROVAL_SCHEMA = "a90_d1_fast_loop_approval_v2"
+APPROVAL_PREFIX = "A90-D1-FAST-LOOP-V2-APPROVE:"
+JOURNAL_SCHEMA = "a90_d1_fast_loop_journal_v2"
+RESULT_SCHEMA = "a90_d1_fast_loop_action_v2"
+OUTCOME_SCHEMA = "a90_d1_fast_loop_engine_outcome_v2"
 RUN_ID_RE = re.compile(r"^a90-d1-attended-[0-9]{8}-[0-9]{2}$")
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 RESIDENT_RUN_RE = re.compile(
@@ -145,8 +145,7 @@ class SessionSpec:
     source_closure: dict[str, BoundFile]
     transaction_dir: Path
     session_lock_path: Path
-    not_before_epoch_sec: int
-    expires_at_epoch_sec: int
+    session_duration_sec: int
     max_actions: int
     recovery_profile: str
 
@@ -155,6 +154,25 @@ def utc_now() -> str:
     return dt.datetime.now(dt.UTC).replace(microsecond=0).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
+
+
+def _sample_epoch_sec(
+    clock: Callable[[], float],
+    *,
+    floor_epoch_sec: int,
+) -> int:
+    if not callable(clock) or type(floor_epoch_sec) is not int or floor_epoch_sec < 0:
+        raise ContractError("D1 session clock binding is not exact")
+    try:
+        observed = clock()
+        if isinstance(observed, bool) or not isinstance(observed, (int, float)):
+            raise TypeError("clock did not return a number")
+        current = int(observed)
+    except (OverflowError, TypeError, ValueError) as exc:
+        raise ContractError("D1 session clock is not exact") from exc
+    if current < 0:
+        raise ContractError("D1 session clock is not exact")
+    return max(floor_epoch_sec, current)
 
 
 def sha256_file(path: Path) -> str:
@@ -436,20 +454,15 @@ def build_manifest(
     *,
     resident_manifest_path: Path,
     resident_manifest_sha256: str,
-    resident_journal_dir: Path,
     run_id: str,
-    not_before_epoch_sec: int,
-    expires_at_epoch_sec: int,
+    session_duration_sec: int,
     max_actions: int,
 ) -> dict[str, Any]:
     if RUN_ID_RE.fullmatch(run_id) is None:
         raise ContractError("D1 run_id is not exact")
     if (
-        type(not_before_epoch_sec) is not int
-        or type(expires_at_epoch_sec) is not int
-        or not_before_epoch_sec < 0
-        or expires_at_epoch_sec <= not_before_epoch_sec
-        or expires_at_epoch_sec - not_before_epoch_sec > MAX_DURATION_SEC
+        type(session_duration_sec) is not int
+        or not 1 <= session_duration_sec <= MAX_DURATION_SEC
         or type(max_actions) is not int
         or not 1 <= max_actions <= MAX_ACTIONS
     ):
@@ -471,7 +484,7 @@ def build_manifest(
     journal, terminal = _validate_resident_journal(
         resident_manifest.sha256,
         resident_run_id,
-        resident_journal_dir,
+        resident_manifest.path.parent / "f1-live" / "journal",
     )
     candidate_item = _require_dict(value.get("candidate_boot"), "candidate boot")
     rollback_item = _require_dict(value.get("rollback_boot"), "rollback boot")
@@ -574,8 +587,7 @@ def build_manifest(
             "workflow": Workflow.ATTENDED_SESSION_D1.value,
             "risk_tier": RiskTier.TIER_D1_TRANSIENT_NO_PAYLOAD_CONTROL.value,
             "action_allowlist": [SessionAction.SWITCHROOT_EXPERIMENT.value],
-            "not_before_epoch_sec": not_before_epoch_sec,
-            "expires_at_epoch_sec": expires_at_epoch_sec,
+            "session_duration_sec": session_duration_sec,
             "max_actions": max_actions,
             "operator_attended_each_action": True,
             "transaction_dir": str(
@@ -644,11 +656,14 @@ def load_spec(path: Path, expected_sha256: str) -> SessionSpec:
         _bound_dict(item, f"resident journal {index}", private=True)
         for index, item in enumerate(journal_values)
     )
-    _, terminal = _validate_resident_journal(
+    canonical_resident_journal, terminal = _validate_resident_journal(
         resident_manifest.sha256,
         resident_run_id,
-        resident_journal[0].path.parent,
+        resident_manifest.path.parent / "f1-live" / "journal",
     )
+    if resident_journal != canonical_resident_journal:
+        raise ContractError("resident journal path is not canonical")
+    resident_journal = canonical_resident_journal
     if (
         resident.get("terminal_journal_sha256") != resident_journal[-1].sha256
         or resident.get("terminal_status") != terminal.get("status")
@@ -714,8 +729,7 @@ def load_spec(path: Path, expected_sha256: str) -> SessionSpec:
             "workflow",
             "risk_tier",
             "action_allowlist",
-            "not_before_epoch_sec",
-            "expires_at_epoch_sec",
+            "session_duration_sec",
             "max_actions",
             "operator_attended_each_action",
             "transaction_dir",
@@ -765,8 +779,7 @@ def load_spec(path: Path, expected_sha256: str) -> SessionSpec:
         )
     ):
         raise ContractError("D1 safety or authority contract changed")
-    not_before = session.get("not_before_epoch_sec")
-    expires = session.get("expires_at_epoch_sec")
+    duration = session.get("session_duration_sec")
     max_actions = session.get("max_actions")
     transaction_dir = Path(
         _require_string(session.get("transaction_dir"), "transaction dir")
@@ -792,8 +805,8 @@ def load_spec(path: Path, expected_sha256: str) -> SessionSpec:
         observer_sha256=source_closure["observation_pipeline"].sha256,
         return_health_profile="A90_V3406_RESIDENT_HEALTH_V1",
         action_allowlist=(SessionAction.SWITCHROOT_EXPERIMENT,),
-        not_before_epoch_sec=not_before,
-        expires_at_epoch_sec=expires,
+        not_before_epoch_sec=0,
+        expires_at_epoch_sec=duration,
         max_actions=max_actions,
     )
     binding.validate()
@@ -842,8 +855,7 @@ def load_spec(path: Path, expected_sha256: str) -> SessionSpec:
         source_closure=source_closure,
         transaction_dir=transaction_dir,
         session_lock_path=session_lock_path,
-        not_before_epoch_sec=not_before,
-        expires_at_epoch_sec=expires,
+        session_duration_sec=duration,
         max_actions=max_actions,
         recovery_profile=_require_string(target.get("recovery_profile"), "recovery profile"),
     )
@@ -862,8 +874,7 @@ def approval_binding(spec: SessionSpec) -> dict[str, Any]:
         "device_effect_runner_sha256": spec.source_closure["runner"].sha256,
         "observer_sha256": spec.source_closure["observation_pipeline"].sha256,
         "action_allowlist": [SessionAction.SWITCHROOT_EXPERIMENT.value],
-        "not_before_epoch_sec": spec.not_before_epoch_sec,
-        "expires_at_epoch_sec": spec.expires_at_epoch_sec,
+        "session_duration_sec": spec.session_duration_sec,
         "max_actions": spec.max_actions,
         "payload_transfer": False,
         "partition_write": False,
@@ -911,7 +922,12 @@ def require_approval(spec: SessionSpec, supplied: str) -> dict[str, Any]:
     return value
 
 
-def _binding(spec: SessionSpec) -> AttendedSessionBinding:
+def _binding(
+    spec: SessionSpec,
+    opened_at_epoch_sec: int,
+) -> AttendedSessionBinding:
+    if type(opened_at_epoch_sec) is not int or opened_at_epoch_sec < 0:
+        raise ContractError("D1 session opening time is not exact")
     value = AttendedSessionBinding(
         approval_id=spec.run_id,
         workflow=Workflow.ATTENDED_SESSION_D1,
@@ -925,12 +941,33 @@ def _binding(spec: SessionSpec) -> AttendedSessionBinding:
         observer_sha256=spec.source_closure["observation_pipeline"].sha256,
         return_health_profile="A90_V3406_RESIDENT_HEALTH_V1",
         action_allowlist=(SessionAction.SWITCHROOT_EXPERIMENT,),
-        not_before_epoch_sec=spec.not_before_epoch_sec,
-        expires_at_epoch_sec=spec.expires_at_epoch_sec,
+        not_before_epoch_sec=opened_at_epoch_sec,
+        expires_at_epoch_sec=opened_at_epoch_sec + spec.session_duration_sec,
         max_actions=spec.max_actions,
     )
     value.validate()
     return value
+
+
+def _binding_value(binding: AttendedSessionBinding) -> dict[str, Any]:
+    binding.validate()
+    return {
+        "approval_id": binding.approval_id,
+        "workflow": binding.workflow.value,
+        "risk_tier": binding.risk_tier.value,
+        "target_profile": binding.target_profile,
+        "manifest_sha256": binding.manifest_sha256,
+        "resident_boot_sha256": binding.resident_boot_sha256,
+        "rollback_boot_sha256": binding.rollback_boot_sha256,
+        "recovery_profile": binding.recovery_profile,
+        "device_effect_runner_sha256": binding.device_effect_runner_sha256,
+        "observer_sha256": binding.observer_sha256,
+        "return_health_profile": binding.return_health_profile,
+        "action_allowlist": [item.value for item in binding.action_allowlist],
+        "not_before_epoch_sec": binding.not_before_epoch_sec,
+        "expires_at_epoch_sec": binding.expires_at_epoch_sec,
+        "max_actions": binding.max_actions,
+    }
 
 
 def _f1_spec(spec: SessionSpec) -> base.F1Spec:
@@ -1241,11 +1278,19 @@ class LiveSessionEffects:
         spec: SessionSpec,
         transaction_dir: Path,
         *,
+        binding: AttendedSessionBinding,
+        opening_preflight_evidence: dict[str, Any],
         visible_confirmed: str,
+        clock: Callable[[], float] | None = None,
     ) -> None:
         self.spec = spec
         self.transaction_dir = transaction_dir
+        self.binding = binding
+        self.opening_preflight_evidence = opening_preflight_evidence
         self.visible_confirmed = visible_confirmed
+        self.clock = time.time if clock is None else clock
+        if not callable(self.clock):
+            raise ContractError("D1 session clock is not callable")
 
     def _finish_action(
         self,
@@ -1259,8 +1304,41 @@ class LiveSessionEffects:
         )
         return result
 
+    def _expired_before_dispatch(
+        self,
+        action_dir: Path,
+        ordinal: int,
+        binding: AttendedSessionBinding,
+    ) -> engine.SessionActionResult | None:
+        checked_at_epoch_sec = _sample_epoch_sec(
+            self.clock,
+            floor_epoch_sec=binding.not_before_epoch_sec,
+        )
+        if checked_at_epoch_sec < binding.expires_at_epoch_sec:
+            return None
+        write_private_json_exclusive(
+            action_dir / "expiry-before-dispatch.json",
+            {
+                "schema": RESULT_SCHEMA,
+                "ordinal": ordinal,
+                "checked_at_epoch_sec": checked_at_epoch_sec,
+                "expires_at_epoch_sec": binding.expires_at_epoch_sec,
+                "action_started": False,
+                "handoff_dispatch_count": 0,
+            },
+        )
+        return self._finish_action(
+            action_dir,
+            ordinal,
+            engine.SessionActionResult(
+                engine.SessionActionStatus.WINDOW_EXPIRED_NO_EFFECT,
+                False,
+                failure_class="SESSION_WINDOW_EXPIRED",
+            ),
+        )
+
     def consume_session_approval_once(self, binding: AttendedSessionBinding) -> bool:
-        if binding != _binding(self.spec):
+        if binding != self.binding:
             raise ContractError("session approval binding changed")
         _append_record(
             self.spec,
@@ -1268,6 +1346,9 @@ class LiveSessionEffects:
             "session-open",
             {
                 "approval_binding_sha256": json_sha256(approval_binding(self.spec)),
+                "session_binding_sha256": json_sha256(_binding_value(binding)),
+                "opened_at_epoch_sec": binding.not_before_epoch_sec,
+                "expires_at_epoch_sec": binding.expires_at_epoch_sec,
                 "approval_consumed": True,
                 "payload_transfer": False,
                 "partition_write": False,
@@ -1283,11 +1364,13 @@ class LiveSessionEffects:
         ordinal: int,
         action: SessionAction,
         observer_sha256: str,
+        observer_no_proof_acknowledged: bool,
     ) -> None:
         if (
-            binding != _binding(self.spec)
+            binding != self.binding
             or action is not SessionAction.SWITCHROOT_EXPERIMENT
             or observer_sha256 != binding.observer_sha256
+            or type(observer_no_proof_acknowledged) is not bool
         ):
             raise ContractError("D1 action intent binding changed")
         _append_record(
@@ -1298,6 +1381,9 @@ class LiveSessionEffects:
                 "ordinal": ordinal,
                 "session_action": action.value,
                 "observer_sha256": observer_sha256,
+                "observer_no_proof_acknowledged": (
+                    observer_no_proof_acknowledged
+                ),
                 "handoff_dispatch_count_max": 1,
                 "action_replay": False,
                 "payload_transfer": False,
@@ -1314,20 +1400,37 @@ class LiveSessionEffects:
         action: SessionAction,
         observer_sha256: str,
     ) -> engine.SessionActionResult:
-        del binding, action, observer_sha256
+        if (
+            binding != self.binding
+            or action is not SessionAction.SWITCHROOT_EXPERIMENT
+            or observer_sha256 != binding.observer_sha256
+        ):
+            raise ContractError("D1 action binding changed")
         action_dir = self.transaction_dir / f"action-{ordinal:03d}"
         action_dir.mkdir(parents=False, exist_ok=False, mode=0o700)
+        expired = self._expired_before_dispatch(action_dir, ordinal, binding)
+        if expired is not None:
+            return expired
         f1_spec = _f1_spec(self.spec)
         args = _effect_args()
         guard = None
         resident_health_proven = False
         handoff_intent_written = False
         try:
-            health = base.verify_candidate_health(f1_spec, args)
+            opening = self.opening_preflight_evidence
+            self.opening_preflight_evidence = {}
+            if set(opening) != {
+                "resident_health",
+                "source_preflight",
+                "rollback_sha256",
+                "recovery_profile",
+            }:
+                raise ContractError("D1 opening preflight evidence is not exact")
+            health = opening["resident_health"]
+            source = opening["source_preflight"]
             resident_health_proven = True
             ncm = base.rebind_host_ncm_after_reenumeration(f1_spec, args)
             pstore = base.require_clean_pstore_before_handoff(args)
-            source = base.remote_source_preflight(f1_spec, args)
             channel = base.settle_observation_channel(args, phase=f"d1-action-{ordinal}-before-handoff")
             epoch = base.capture_bridge_serial_epoch(f1_spec, args)
             pre_handoff = {
@@ -1355,6 +1458,9 @@ class LiveSessionEffects:
                 },
             )
             handoff_intent_written = True
+            expired = self._expired_before_dispatch(action_dir, ordinal, binding)
+            if expired is not None:
+                return expired
             try:
                 observation = base.observe_attended_after_handoff(
                     f1_spec,
@@ -1604,8 +1710,25 @@ def _session_records(
     return records
 
 
+def _binding_from_session_open(
+    spec: SessionSpec,
+    records: tuple[dict[str, Any], ...],
+) -> AttendedSessionBinding:
+    if not records or records[0].get("action") != "session-open":
+        raise ContractError("D1 session lacks exact open record")
+    opened_at = records[0].get("opened_at_epoch_sec")
+    expires_at = records[0].get("expires_at_epoch_sec")
+    if type(opened_at) is not int or type(expires_at) is not int:
+        raise ContractError("D1 session open window is absent")
+    binding = _binding(spec, opened_at)
+    if expires_at != binding.expires_at_epoch_sec:
+        raise ContractError("D1 session open window changed")
+    return binding
+
+
 def _validate_snapshot(
     spec: SessionSpec,
+    binding: AttendedSessionBinding,
     snapshot: dict[str, Any],
     expected_actions_used: int,
 ) -> None:
@@ -1618,6 +1741,7 @@ def _validate_snapshot(
         "session_open",
         "session_active",
         "observer_repair_required",
+        "observer_no_proof_acknowledgements",
         "active_observer_sha256",
         "actions_used",
         "actions_remaining",
@@ -1636,6 +1760,9 @@ def _validate_snapshot(
     session_open = snapshot.get("session_open")
     session_active = snapshot.get("session_active")
     repair_required = snapshot.get("observer_repair_required")
+    no_proof_acknowledgements = snapshot.get(
+        "observer_no_proof_acknowledgements"
+    )
     opened_at = snapshot.get("opened_at_epoch_sec")
     last_now = snapshot.get("last_now_epoch_sec")
     history = snapshot.get("history")
@@ -1654,8 +1781,11 @@ def _validate_snapshot(
         != spec.max_actions - expected_actions_used
         or type(opened_at) is not int
         or type(last_now) is not int
-        or not spec.not_before_epoch_sec <= opened_at <= last_now
-        or snapshot.get("expires_at_epoch_sec") != spec.expires_at_epoch_sec
+        or not binding.not_before_epoch_sec <= opened_at <= last_now
+        or opened_at != binding.not_before_epoch_sec
+        or snapshot.get("expires_at_epoch_sec") != binding.expires_at_epoch_sec
+        or type(no_proof_acknowledgements) is not int
+        or not 0 <= no_proof_acknowledgements <= 1
         or snapshot.get("device_safety_state")
         not in {"RESIDENT_HEALTHY", "RECOVERY_REQUIRED"}
         or any(
@@ -1722,9 +1852,10 @@ def _result_from_outcome(value: dict[str, Any]) -> engine.SessionActionResult:
         engine.SessionActionStatus.NO_PROOF_OBSERVER,
         engine.SessionActionStatus.EXPERIMENT_BLOCKED,
     }
+    action_started = status is not engine.SessionActionStatus.WINDOW_EXPIRED_NO_EFFECT
     result = engine.SessionActionResult(
         status=status,
-        action_started=True,
+        action_started=action_started,
         failure_class=value.get("failure_class"),
         postflight=(
             SessionPreflight(True, True, True, True, True)
@@ -1758,8 +1889,13 @@ def _compact_outcome_evidence(
 class _ReplaySessionEffects:
     mode = LiveSessionEffects.mode
 
-    def __init__(self, outcomes: tuple[dict[str, Any], ...]) -> None:
+    def __init__(
+        self,
+        outcomes: tuple[dict[str, Any], ...],
+        acknowledgements: tuple[bool, ...],
+    ) -> None:
         self.results = tuple(_result_from_outcome(item) for item in outcomes)
+        self.acknowledgements = acknowledgements
         self.index = 0
 
     def consume_session_approval_once(self, binding: AttendedSessionBinding) -> bool:
@@ -1772,9 +1908,15 @@ class _ReplaySessionEffects:
         ordinal: int,
         action: SessionAction,
         observer_sha256: str,
+        observer_no_proof_acknowledged: bool,
     ) -> None:
         del binding, action, observer_sha256
-        if ordinal != self.index + 1:
+        if (
+            ordinal != self.index + 1
+            or ordinal > len(self.acknowledgements)
+            or observer_no_proof_acknowledged
+            is not self.acknowledgements[ordinal - 1]
+        ):
             raise ContractError("D1 replay ordinal changed")
 
     def invoke_action(
@@ -1798,7 +1940,7 @@ class _ReplaySessionEffects:
 
 def _restore_session(
     spec: SessionSpec,
-    effects: LiveSessionEffects,
+    binding: AttendedSessionBinding,
     records: tuple[dict[str, Any], ...],
 ) -> engine.AttendedSession:
     if not records or records[0].get("action") != "session-open":
@@ -1817,6 +1959,9 @@ def _restore_session(
         != common_keys
         | {
             "approval_binding_sha256",
+            "session_binding_sha256",
+            "opened_at_epoch_sec",
+            "expires_at_epoch_sec",
             "approval_consumed",
             "payload_transfer",
             "partition_write",
@@ -1824,6 +1969,14 @@ def _restore_session(
         }
         or session_open.get("approval_binding_sha256")
         != json_sha256(approval_binding(spec))
+        or session_open.get("session_binding_sha256")
+        != json_sha256(_binding_value(binding))
+        or session_open.get("opened_at_epoch_sec")
+        != binding.not_before_epoch_sec
+        or session_open.get("expires_at_epoch_sec")
+        != binding.expires_at_epoch_sec
+        or binding.expires_at_epoch_sec - binding.not_before_epoch_sec
+        != spec.session_duration_sec
         or session_open.get("approval_consumed") is not True
         or any(
             session_open.get(key) is not False
@@ -1837,6 +1990,7 @@ def _restore_session(
     snapshots: list[dict[str, Any]] = []
     outcomes: list[dict[str, Any]] = []
     action_times: list[int] = []
+    acknowledgements: list[bool] = []
     for index in range(0, len(action_names), 2):
         ordinal = index // 2 + 1
         if action_names[index] != f"action-{ordinal:03d}-intent" or action_names[index + 1] != f"action-{ordinal:03d}-result":
@@ -1850,6 +2004,7 @@ def _restore_session(
                 "ordinal",
                 "session_action",
                 "observer_sha256",
+                "observer_no_proof_acknowledged",
                 "handoff_dispatch_count_max",
                 "action_replay",
                 "payload_transfer",
@@ -1862,6 +2017,7 @@ def _restore_session(
             or intent.get("observer_sha256")
             != spec.source_closure["observation_pipeline"].sha256
             or intent.get("handoff_dispatch_count_max") != 1
+            or type(intent.get("observer_no_proof_acknowledged")) is not bool
             or any(
                 intent.get(key) is not False
                 for key in (
@@ -1911,30 +2067,40 @@ def _restore_session(
             != outcome
         ):
             raise ContractError("D1 action outcome evidence binding changed")
-        _validate_snapshot(spec, snapshot, ordinal)
+        _validate_snapshot(spec, binding, snapshot, ordinal)
         snapshots.append(snapshot)
         outcomes.append(outcome)
         action_times.append(action_time)
+        acknowledgements.append(intent["observer_no_proof_acknowledged"])
     last = snapshots[-1] if snapshots else None
     if last is None:
         raise ContractError("opened D1 session has no completed action")
     contract = engine.AttendedSessionContract(
-        binding=_binding(spec),
+        binding=binding,
         successors=(DISPLAY_SUCCESSOR,),
     )
-    replay_effects = _ReplaySessionEffects(tuple(outcomes))
+    replay_effects = _ReplaySessionEffects(
+        tuple(outcomes),
+        tuple(acknowledgements),
+    )
     try:
         replay = engine.open_attended_session(
             contract,
             replay_effects,
-            now_epoch_sec=action_times[0],
+            now_epoch_sec=binding.not_before_epoch_sec,
             preflight=SessionPreflight(True, True, True, True, True),
         )
-        for action_time, snapshot in zip(action_times, snapshots, strict=True):
+        for action_time, snapshot, acknowledged in zip(
+            action_times,
+            snapshots,
+            acknowledgements,
+            strict=True,
+        ):
             reproduced = replay.run_action(
                 SessionAction.SWITCHROOT_EXPERIMENT,
                 now_epoch_sec=action_time,
                 preflight=SessionPreflight(True, True, True, True, True),
+                acknowledge_observer_no_proof=acknowledged,
             )
             if reproduced != snapshot:
                 raise ContractError("D1 session snapshot replay differs")
@@ -1942,7 +2108,6 @@ def _restore_session(
         raise ContractError("D1 session transition replay failed") from exc
     if replay_effects.index != len(outcomes):
         raise ContractError("D1 session replay did not consume every outcome")
-    replay.effects = effects
     return replay
 
 
@@ -1953,45 +2118,76 @@ def _execute_switchroot_locked(
     approval: str | None,
     resume: bool,
     operator_attended: bool,
+    acknowledge_observer_no_proof: bool,
     visible_confirmed: str,
     now_epoch_sec: int,
+    clock: Callable[[], float],
 ) -> dict[str, Any]:
     if visible_confirmed not in {"yes", "no", "unavailable"}:
         raise ContractError("visible confirmation value is not exact")
-    if type(now_epoch_sec) is not int or not (
-        spec.not_before_epoch_sec <= now_epoch_sec < spec.expires_at_epoch_sec
-    ):
-        raise ContractError("D1 session approval window is not active")
-    effects = LiveSessionEffects(
-        spec,
-        transaction_dir,
-        visible_confirmed=visible_confirmed,
-    )
+    if type(now_epoch_sec) is not int or now_epoch_sec < 0:
+        raise ContractError("D1 session time is not exact")
+    if type(acknowledge_observer_no_proof) is not bool:
+        raise ContractError("observer no-proof acknowledgement is not boolean")
+    session: engine.AttendedSession | None = None
+    binding: AttendedSessionBinding | None = None
     if resume:
         if approval is not None:
             raise ContractError("resumed D1 session must not consume approval again")
         if not transaction_dir.is_dir():
             raise ContractError("resumed D1 session directory is absent")
         records = _session_records(spec, transaction_dir)
-        session = _restore_session(spec, effects, records)
+        binding = _binding_from_session_open(spec, records)
+        if now_epoch_sec >= binding.expires_at_epoch_sec:
+            raise ContractError("D1 session approval window is not active")
+        session = _restore_session(spec, binding, records)
         if session.closed_terminal is not None:
             raise ContractError("D1 session is already closed")
-        if session.observer_repair_required:
+        if now_epoch_sec < session.last_now_epoch_sec:
+            raise ContractError("session time is not monotonic")
+        paused = session.observer_repair_required
+        if paused and not acknowledge_observer_no_proof:
             raise ContractError(
-                "D1 session is paused for an unsupported observer repair"
+                "D1 session requires explicit observer no-proof acknowledgement"
             )
+        if not paused and acknowledge_observer_no_proof:
+            raise ContractError("observer no-proof acknowledgement is unexpected")
     else:
         if transaction_dir.exists():
             raise ContractError("fresh D1 session directory already exists")
         if approval is None:
             raise ContractError("fresh D1 session approval is absent")
+        if acknowledge_observer_no_proof:
+            raise ContractError("fresh D1 session cannot acknowledge prior no-proof")
         require_approval(spec, approval)
-        session = None
     preflight, preflight_evidence = _preflight(
         spec,
         operator_attended=operator_attended,
     )
-    if not resume:
+    action_now_epoch_sec = _sample_epoch_sec(
+        clock,
+        floor_epoch_sec=now_epoch_sec,
+    )
+    if resume:
+        if binding is None or action_now_epoch_sec >= binding.expires_at_epoch_sec:
+            raise ContractError("D1 session approval window is not active")
+    else:
+        binding = _binding(spec, action_now_epoch_sec)
+    if binding is None:
+        raise ContractError("D1 session binding is absent")
+    effects = LiveSessionEffects(
+        spec,
+        transaction_dir,
+        binding=binding,
+        opening_preflight_evidence=preflight_evidence,
+        visible_confirmed=visible_confirmed,
+        clock=clock,
+    )
+    if resume:
+        if session is None or effects.binding != session.contract.binding:
+            raise ContractError("D1 restored session binding changed")
+        session.effects = effects
+    else:
         transaction_dir.mkdir(parents=True, mode=0o700)
         write_private_json_exclusive(
             transaction_dir / "opening-preflight.json",
@@ -1999,11 +2195,11 @@ def _execute_switchroot_locked(
         )
         session = engine.open_attended_session(
             engine.AttendedSessionContract(
-                binding=_binding(spec),
+                binding=binding,
                 successors=(DISPLAY_SUCCESSOR,),
             ),
             effects,
-            now_epoch_sec=now_epoch_sec,
+            now_epoch_sec=action_now_epoch_sec,
             preflight=preflight,
         )
     if session is None:
@@ -2011,8 +2207,9 @@ def _execute_switchroot_locked(
     previous_actions = session.actions_used
     snapshot = session.run_action(
         SessionAction.SWITCHROOT_EXPERIMENT,
-        now_epoch_sec=now_epoch_sec,
+        now_epoch_sec=action_now_epoch_sec,
         preflight=preflight,
+        acknowledge_observer_no_proof=acknowledge_observer_no_proof,
     )
     if snapshot["actions_used"] == previous_actions:
         _append_record(
@@ -2043,7 +2240,7 @@ def _execute_switchroot_locked(
             "snapshot": snapshot,
             "outcome": anchored_outcome,
             "outcome_evidence": _as_dict(outcome_evidence),
-            "now_epoch_sec": now_epoch_sec,
+            "now_epoch_sec": action_now_epoch_sec,
         },
         expected_sequence=2 * snapshot["actions_used"],
     )
@@ -2057,8 +2254,10 @@ def execute_switchroot(
     approval: str | None,
     resume: bool,
     operator_attended: bool,
+    acknowledge_observer_no_proof: bool = False,
     visible_confirmed: str,
     now_epoch_sec: int,
+    clock: Callable[[], float] | None = None,
 ) -> dict[str, Any]:
     if transaction_dir != spec.transaction_dir:
         raise ContractError("D1 transaction path is not manifest-bound")
@@ -2085,8 +2284,10 @@ def execute_switchroot(
             approval=approval,
             resume=resume,
             operator_attended=operator_attended,
+            acknowledge_observer_no_proof=acknowledge_observer_no_proof,
             visible_confirmed=visible_confirmed,
             now_epoch_sec=now_epoch_sec,
+            clock=time.time if clock is None else clock,
         )
     finally:
         os.close(descriptor)
@@ -2119,12 +2320,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--build-manifest", action="store_true")
     parser.add_argument("--resident-manifest", type=Path)
     parser.add_argument("--expect-resident-manifest-sha256")
-    parser.add_argument("--resident-journal-dir", type=Path)
     parser.add_argument("--run-id")
     parser.add_argument("--output", type=Path)
-    parser.add_argument("--not-before-epoch-sec", type=int)
-    parser.add_argument("--expires-at-epoch-sec", type=int)
-    parser.add_argument("--max-actions", type=int, default=16)
+    parser.add_argument("--session-duration-sec", type=int, default=MAX_DURATION_SEC)
+    parser.add_argument("--max-actions", type=int, default=8)
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--prepare-approval", action="store_true")
     modes.add_argument("--execute-switchroot", action="store_true")
@@ -2132,6 +2331,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--approval")
     parser.add_argument("--resume-session", action="store_true")
     parser.add_argument("--operator-attended", action="store_true")
+    parser.add_argument("--acknowledge-observer-no-proof", action="store_true")
     parser.add_argument(
         "--visible-confirmed",
         choices=("yes", "no", "unavailable"),
@@ -2146,21 +2346,17 @@ def main(argv: list[str] | None = None) -> int:
         required = (
             args.resident_manifest,
             args.expect_resident_manifest_sha256,
-            args.resident_journal_dir,
             args.run_id,
             args.output,
-            args.not_before_epoch_sec,
-            args.expires_at_epoch_sec,
+            args.session_duration_sec,
         )
         if any(item is None for item in required):
             raise ContractError("manifest-build arguments are incomplete")
         value = build_manifest(
             resident_manifest_path=args.resident_manifest,
             resident_manifest_sha256=args.expect_resident_manifest_sha256,
-            resident_journal_dir=args.resident_journal_dir,
             run_id=args.run_id,
-            not_before_epoch_sec=args.not_before_epoch_sec,
-            expires_at_epoch_sec=args.expires_at_epoch_sec,
+            session_duration_sec=args.session_duration_sec,
             max_actions=args.max_actions,
         )
         write_private_json_exclusive(args.output, value)
@@ -2181,6 +2377,9 @@ def main(argv: list[str] | None = None) -> int:
             approval=args.approval,
             resume=args.resume_session,
             operator_attended=args.operator_attended,
+            acknowledge_observer_no_proof=(
+                args.acknowledge_observer_no_proof
+            ),
             visible_confirmed=args.visible_confirmed,
             now_epoch_sec=int(time.time()),
         )

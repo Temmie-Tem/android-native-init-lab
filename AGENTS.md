@@ -1,5 +1,7 @@
 # AGENTS.md - repository operating contract
 
+Contract-Revision: **1** (supersedes unversioned; 2026-08-02)
+
 This file contains the repository-wide invariants and the binding target
 registry. Select exactly one target contract before target-specific work.
 `GOAL.md` and `GOAL_A90.md` describe current state and objectives; they never
@@ -33,10 +35,10 @@ authority.
 
 ## Binding Target Registry
 
-| Target | Current state | Binding target contract | Shared live process |
+| Target | Current state | Binding target contract | Binding live process |
 |---|---|---|---|
 | Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` / `S906NKSS7FYG8`) | `GOAL.md` | `docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md` | `docs/operations/DEVICE_ACTION_PROCESS_V2.md` |
-| Samsung Galaxy A90 5G | `GOAL_A90.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` | checked A90 path selected by that contract |
+| Samsung Galaxy A90 5G | `GOAL_A90.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` sections `A90 D1 Attended Session`, `A90 F1 Resident Install`, and `Attended F1 Pre-Handoff` |
 
 Targets, profiles, rollback identities, transports, approvals, and health
 evidence never transfer between registry rows. If no binding target contract
@@ -46,7 +48,7 @@ For A90 work, the required read order is this file, then
 `docs/operations/targets/A90_TARGET_CONTRACT.md`, then `GOAL_A90.md`. The goal
 records current state only and cannot grant or extend live authority.
 
-## Permanent Safety Boundaries
+## Permanent Device Safety Boundaries
 
 1. Work only on an explicitly identified device owned and attended by the
    operator. Evidence and authorization never transfer between targets.
@@ -64,24 +66,22 @@ records current state only and cannot grant or extend live authority.
 6. A target ambiguity, unexpected archive member, forbidden partition signal,
    changed artifact, missing rollback, journal inconsistency, or lost physical
    recovery path is an immediate stop.
-7. An unexplained failure after a device or transfer session starts is an
-   immediate stop. This does not cancel the already-authorized exact rollback
-   path. Rollback may resume only from durable journal state and must never
-   retry the candidate. Before any device session starts, the selected target
-   contract may define a bounded host-only repair rule; without such an
-   explicit rule, stop on the first material failure. A binding target
-   extension may preserve a predeclared, reviewed attended retry only for a
-   positively proven pre-handoff channel failure within its original deadline
-   and attempt budget. It cannot be added after candidate intent, and any
-   handoff intent or ambiguity ends that retry authority.
-8. Do not commit firmware, boot images, ramdisks, compiled payloads, raw device
-   logs, credentials, device serials, PARTUUIDs, MAC/BSSID/IP values, KASLR
-   slides, or tunnel URLs. Keep private inputs and run evidence under
-   `workspace/private/`.
+7. After an unexplained failure once a device or transfer session starts, stop
+   the current experiment. The exact preauthorized rollback may resume only
+   from durable journal state; candidate replay is forbidden. Any non-rollback
+   continuation or retry must already be defined by the selected target
+   contract and satisfy its predeclared proof conditions; otherwise stop.
 
-Changing a permanent boundary is a separate policy change and requires an
-independent safety review. A target contract refactor must prove that these
-boundaries remain semantically unchanged.
+## Permanent Repository and Evidence Boundaries
+
+Do not commit firmware, boot images, ramdisks, compiled payloads, raw device
+logs, credentials, device serials, PARTUUIDs, MAC/BSSID/IP values, KASLR
+slides, or tunnel URLs. Keep private inputs and run evidence under
+`workspace/private/`.
+
+Changing a permanent device, repository, or evidence boundary is a separate
+policy change and requires an independent safety review. A target contract
+refactor must prove that these boundaries remain semantically unchanged.
 
 ## Proportional Device Actions
 
@@ -146,6 +146,11 @@ healthy terminal state. Candidate boot or transfer success alone is not PASS.
   because they still exist.
 - A new candidate with unchanged machinery requires fresh qualification and
   approval, not another multi-review ladder.
+- Every new non-permanent gate must name the hazard or incident class it
+  blocks, its scope, objective retirement evidence, and an expiry or review
+  trigger. A gate without a retirement condition must be explicitly designated
+  permanent and reviewed as a boundary; do not carry a temporary gate forward
+  by default.
 
 ## Development and Commit Discipline
 
@@ -170,3 +175,7 @@ Stop when evidence is ambiguous, a boundary would need to bend, recovery is
 not available, or the current action is not represented by the selected tier
 and target contract. Do not widen scope or retry-loop. Fall back to H0 analysis
 and record the blocker.
+
+Before a device session starts, use a bounded host-only repair only when the
+selected target contract already defines it. Without that explicit rule, stop
+on the first material failure.

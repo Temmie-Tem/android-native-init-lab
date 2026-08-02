@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest import mock
 
@@ -122,7 +123,7 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
         manifest_path = resident_dir / "manifest.json"
         write_private(manifest_path, manifest)
         manifest_sha = digest(manifest_path)
-        journal_dir = resident_dir / "journal"
+        journal_dir = resident_dir / "f1-live" / "journal"
         health = {
             "native": {
                 "exact_bridge": True,
@@ -230,8 +231,7 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
             source_closure=files,
             transaction_dir=root / d1.SESSION_DIR_NAME,
             session_lock_path=root / d1.SESSION_LOCK_NAME,
-            not_before_epoch_sec=2_000_000_000,
-            expires_at_epoch_sec=2_000_003_600,
+            session_duration_sec=3_600,
             max_actions=4,
             recovery_profile="attended physical recovery",
         )
@@ -286,6 +286,46 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
 
         return invoke
 
+    def live_effects(
+        self,
+        spec: d1.SessionSpec,
+        transaction: Path,
+        *,
+        opened_at_epoch_sec: int = 2_000_000_000,
+        visible_confirmed: str = "unavailable",
+        clock=None,
+    ) -> d1.LiveSessionEffects:
+        return d1.LiveSessionEffects(
+            spec,
+            transaction,
+            binding=d1._binding(spec, opened_at_epoch_sec),
+            opening_preflight_evidence={
+                "resident_health": {"cached": True},
+                "source_preflight": {"cached": True},
+                "rollback_sha256": spec.rollback.sha256,
+                "recovery_profile": spec.recovery_profile,
+            },
+            visible_confirmed=visible_confirmed,
+            clock=clock,
+        )
+
+    def session_open_record(self, spec: d1.SessionSpec) -> dict[str, object]:
+        binding = d1._binding(spec, 2_000_000_000)
+        return {
+            "approval_binding_sha256": d1.json_sha256(
+                d1.approval_binding(spec)
+            ),
+            "session_binding_sha256": d1.json_sha256(
+                d1._binding_value(binding)
+            ),
+            "opened_at_epoch_sec": binding.not_before_epoch_sec,
+            "expires_at_epoch_sec": binding.expires_at_epoch_sec,
+            "approval_consumed": True,
+            "payload_transfer": False,
+            "partition_write": False,
+            "flash": False,
+        }
+
     def test_build_load_and_prepare_approval_bind_resident_terminal(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
@@ -300,10 +340,8 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 value = d1.build_manifest(
                     resident_manifest_path=manifest_path,
                     resident_manifest_sha256=resident_sha,
-                    resident_journal_dir=journal_dir,
                     run_id=run_id,
-                    not_before_epoch_sec=2_000_000_000,
-                    expires_at_epoch_sec=2_000_003_600,
+                    session_duration_sec=3_600,
                     max_actions=4,
                 )
                 write_private(output, value)
@@ -313,8 +351,46 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 with self.assertRaisesRegex(d1.ContractError, "approval mismatch"):
                     d1.require_approval(spec, d1.APPROVAL_PREFIX + "0" * 64)
             self.assertEqual(accepted["approval_binding"]["max_actions"], 4)
+            self.assertEqual(
+                accepted["approval_binding"]["session_duration_sec"],
+                3_600,
+            )
+            self.assertNotIn("not_before_epoch_sec", accepted["approval_binding"])
+            self.assertNotIn("expires_at_epoch_sec", accepted["approval_binding"])
             self.assertFalse(accepted["approval_binding"]["flash"])
             self.assertEqual(value["resident"]["terminal_status"], "PASS_A90_RESIDENT_INSTALLED")
+
+    def test_load_rejects_alternate_resident_journal_parent(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            private = root / "private"
+            run_base = private / "runs/server-distro"
+            manifest_path, _, resident_sha = self.resident_fixture(private)
+            run_id = "a90-d1-attended-20260802-01"
+            output = run_base / run_id / "manifest.json"
+            alternate = private / "alternate-resident-journal"
+            with mock.patch.object(d1, "PRIVATE_ROOT", private.resolve()), mock.patch.object(
+                d1, "PRIVATE_RUN_BASE", run_base.resolve()
+            ):
+                value = d1.build_manifest(
+                    resident_manifest_path=manifest_path,
+                    resident_manifest_sha256=resident_sha,
+                    run_id=run_id,
+                    session_duration_sec=3_600,
+                    max_actions=4,
+                )
+                for item in value["resident"]["journal"]:
+                    source = Path(item["path"])
+                    copied = alternate / source.name
+                    write_private(copied, source.read_bytes())
+                    item.update(
+                        path=str(copied),
+                        size=copied.stat().st_size,
+                        sha256=digest(copied),
+                    )
+                write_private(output, value)
+                with self.assertRaisesRegex(d1.ContractError, "path is not canonical"):
+                    d1.load_spec(output, digest(output))
 
     def test_cleanup_is_fixed_path_exact_and_contains_no_flash(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -370,18 +446,31 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 mock.patch.object(d1.base, "run_f1_shell", side_effect=lambda *_a, **_k: calls.append("cleanup") or {"rc": 0, "text": "A90D1_WORK_CLEANUP exact=1 work_absent=1"}),
             )
             with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], patches[7], patches[8], patches[9]:
-                result = d1.LiveSessionEffects(
-                    spec,
-                    transaction,
-                    visible_confirmed="unavailable",
-                ).invoke_action(d1._binding(spec), 1, d1.SessionAction.SWITCHROOT_EXPERIMENT, spec.source_closure["observation_pipeline"].sha256)
+                effects = self.live_effects(spec, transaction)
+                result = effects.invoke_action(
+                    effects.binding,
+                    1,
+                    d1.SessionAction.SWITCHROOT_EXPERIMENT,
+                    spec.source_closure["observation_pipeline"].sha256,
+                )
             detail = json.loads((transaction / "action-001/result.json").read_text())
         self.assertEqual(result.status, engine.SessionActionStatus.PROVED)
         self.assertEqual(detail["proof_terminal"], "PASS_SWITCHROOT_RETURN_NO_PROOF_DISPLAY_VISIBILITY")
         self.assertEqual(calls.count("observe"), 1)
         self.assertEqual(
             calls,
-            ["health", "ncm", "pstore", "source", "settle", "epoch", "arm", "observe", "ncm", "cleanup", "health", "source"],
+            [
+                "ncm",
+                "pstore",
+                "settle",
+                "epoch",
+                "arm",
+                "observe",
+                "ncm",
+                "cleanup",
+                "health",
+                "source",
+            ],
         )
 
     def test_session_consumes_approval_once_and_resumes_without_replay(self) -> None:
@@ -437,8 +526,29 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                     item["action"]
                     for item in d1._session_records(spec, transaction)
                 ]
+            with mock.patch.object(d1, "PRIVATE_ROOT", root.resolve()), mock.patch.object(
+                d1, "_preflight"
+            ) as preflight, self.assertRaisesRegex(
+                d1.ContractError,
+                "session time is not monotonic",
+            ):
+                d1.execute_switchroot(
+                    spec,
+                    transaction_dir=transaction,
+                    approval=None,
+                    resume=True,
+                    operator_attended=True,
+                    visible_confirmed="unavailable",
+                    now_epoch_sec=2_000_000_001,
+                )
+            preflight.assert_not_called()
         self.assertEqual(first["actions_used"], 1)
         self.assertEqual(second["actions_used"], 2)
+        self.assertEqual(first["opened_at_epoch_sec"], 2_000_000_001)
+        self.assertEqual(
+            first["expires_at_epoch_sec"] - first["opened_at_epoch_sec"],
+            spec.session_duration_sec,
+        )
         self.assertEqual(
             actions,
             [
@@ -449,6 +559,75 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 "action-002-result",
             ],
         )
+
+    def test_fresh_window_opens_after_preflight_and_rechecks_before_effect(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            spec = replace(self.session_spec(root), session_duration_sec=1)
+            transaction = spec.transaction_dir
+            approval_sha = d1.json_sha256(d1.approval_binding(spec))
+            write_private(
+                d1.approval_path(spec),
+                {
+                    "schema": d1.APPROVAL_SCHEMA,
+                    "created_utc": d1.utc_now(),
+                    "run_id": spec.run_id,
+                    "approval_binding": d1.approval_binding(spec),
+                    "approval_binding_sha256": approval_sha,
+                    "approval_token": d1.APPROVAL_PREFIX + approval_sha,
+                    "device_contact": False,
+                    "device_write": False,
+                    "live_authority": False,
+                },
+            )
+            safe = SessionPreflight(True, True, True, True, True)
+            clock_values = iter((2_000_000_010, 2_000_000_011))
+            with mock.patch.object(d1, "PRIVATE_ROOT", root.resolve()), mock.patch.object(
+                d1, "_preflight", return_value=(safe, {"ok": True})
+            ), mock.patch.object(d1, "_f1_spec") as device_effect:
+                snapshot = d1.execute_switchroot(
+                    spec,
+                    transaction_dir=transaction,
+                    approval=d1.APPROVAL_PREFIX + approval_sha,
+                    resume=False,
+                    operator_attended=True,
+                    visible_confirmed="unavailable",
+                    now_epoch_sec=2_000_000_000,
+                    clock=lambda: next(clock_values),
+                )
+            with mock.patch.object(d1, "PRIVATE_ROOT", root.resolve()):
+                binding = d1._binding_from_session_open(
+                    spec,
+                    d1._session_records(spec, transaction),
+                )
+                restored = d1._restore_session(
+                    spec,
+                    binding,
+                    d1._session_records(spec, transaction),
+                )
+            device_effect.assert_not_called()
+            self.assertEqual(snapshot["opened_at_epoch_sec"], 2_000_000_010)
+            self.assertEqual(snapshot["expires_at_epoch_sec"], 2_000_000_011)
+            self.assertEqual(
+                snapshot["terminal"],
+                "SESSION_CLOSED_EXPIRED_BEFORE_DISPATCH",
+            )
+            self.assertEqual(
+                snapshot["action_results"][-1]["status"],
+                "WINDOW_EXPIRED_NO_EFFECT",
+            )
+            self.assertEqual(
+                restored.closed_terminal,
+                "SESSION_CLOSED_EXPIRED_BEFORE_DISPATCH",
+            )
+            self.assertFalse(
+                json.loads(
+                    (transaction / "action-001/engine-outcome.json").read_text(
+                        encoding="utf-8"
+                    )
+                )["action_started"]
+            )
+            self.assertFalse((transaction / "action-001/handoff-intent.json").exists())
 
     def test_dangling_action_intent_refuses_resume(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -461,15 +640,7 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                     spec,
                     transaction,
                     "session-open",
-                    {
-                        "approval_binding_sha256": d1.json_sha256(
-                            d1.approval_binding(spec)
-                        ),
-                        "approval_consumed": True,
-                        "payload_transfer": False,
-                        "partition_write": False,
-                        "flash": False,
-                    },
+                    self.session_open_record(spec),
                     expected_sequence=0,
                 )
                 d1._append_record(
@@ -479,12 +650,20 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                     {},
                     expected_sequence=1,
                 )
-                with self.assertRaisesRegex(d1.ContractError, "no durable result"):
-                    d1._restore_session(
+                with mock.patch.object(d1, "_preflight") as preflight, self.assertRaisesRegex(
+                    d1.ContractError,
+                    "no durable result",
+                ):
+                    d1.execute_switchroot(
                         spec,
-                        d1.LiveSessionEffects(spec, transaction, visible_confirmed="unavailable"),
-                        d1._session_records(spec, transaction),
+                        transaction_dir=transaction,
+                        approval=None,
+                        resume=True,
+                        operator_attended=True,
+                        visible_confirmed="unavailable",
+                        now_epoch_sec=2_000_000_001,
                     )
+                preflight.assert_not_called()
 
     def test_session_journal_rejects_cross_manifest_record(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -497,15 +676,7 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                     spec,
                     transaction,
                     "session-open",
-                    {
-                        "approval_binding_sha256": d1.json_sha256(
-                            d1.approval_binding(spec)
-                        ),
-                        "approval_consumed": True,
-                        "payload_transfer": False,
-                        "partition_write": False,
-                        "flash": False,
-                    },
+                    self.session_open_record(spec),
                     expected_sequence=0,
                 )
                 path = transaction / "journal/0000-session-open.json"
@@ -515,7 +686,7 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 with self.assertRaisesRegex(d1.ContractError, "journal sequence"):
                     d1._session_records(spec, transaction)
 
-    def test_snapshot_tamper_refuses_resume(self) -> None:
+    def test_closed_and_tampered_session_refuse_before_preflight(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             spec = self.session_spec(root)
@@ -544,11 +715,13 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
             )
             with mock.patch.object(d1, "PRIVATE_ROOT", root.resolve()), mock.patch.object(
                 d1, "_preflight", return_value=(safe, {"ok": True})
-            ), mock.patch.object(
+            ) as preflight, mock.patch.object(
                 d1.LiveSessionEffects,
                 "invoke_action",
                 autospec=True,
                 side_effect=self.anchored_invoke(blocked),
+            ), mock.patch.object(
+                d1, "utc_now", return_value="2026-08-02T00:00:00Z"
             ):
                 d1.execute_switchroot(
                     spec,
@@ -559,8 +732,38 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                     visible_confirmed="unavailable",
                     now_epoch_sec=2_000_000_001,
                 )
+                preflight.reset_mock()
+                with self.assertRaisesRegex(d1.ContractError, "already closed"):
+                    d1.execute_switchroot(
+                        spec,
+                        transaction_dir=transaction,
+                        approval=None,
+                        resume=True,
+                        operator_attended=True,
+                        visible_confirmed="unavailable",
+                        now_epoch_sec=2_000_000_002,
+                    )
+                preflight.assert_not_called()
                 path = transaction / "journal/0002-action-001-result.json"
                 record = json.loads(path.read_text(encoding="utf-8"))
+                original = json.loads(json.dumps(record))
+                snapshot = record["snapshot"]
+                snapshot["actions_remaining"] = 99
+                write_private(path, record)
+                preflight.reset_mock()
+                with self.assertRaisesRegex(d1.ContractError, "snapshot is not exact"):
+                    d1.execute_switchroot(
+                        spec,
+                        transaction_dir=transaction,
+                        approval=None,
+                        resume=True,
+                        operator_attended=True,
+                        visible_confirmed="unavailable",
+                        now_epoch_sec=2_000_000_002,
+                    )
+                preflight.assert_not_called()
+
+                record = original
                 snapshot = record["snapshot"]
                 snapshot["terminal"] = "SESSION_ACTIVE"
                 snapshot["session_open"] = True
@@ -574,18 +777,20 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 snapshot["action_results"][-1]["failure_class"] = None
                 record["outcome"] = dict(snapshot["action_results"][-1])
                 write_private(path, record)
+                preflight.reset_mock()
                 with self.assertRaisesRegex(d1.ContractError, "outcome evidence"):
-                    d1._restore_session(
+                    d1.execute_switchroot(
                         spec,
-                        d1.LiveSessionEffects(
-                            spec,
-                            transaction,
-                            visible_confirmed="unavailable",
-                        ),
-                        d1._session_records(spec, transaction),
+                        transaction_dir=transaction,
+                        approval=None,
+                        resume=True,
+                        operator_attended=True,
+                        visible_confirmed="unavailable",
+                        now_epoch_sec=2_000_000_002,
                     )
+                preflight.assert_not_called()
 
-    def test_paused_observer_session_refuses_before_connected_preflight(self) -> None:
+    def test_paused_observer_session_requires_ack_then_runs_new_ordinal(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             spec = self.session_spec(root)
@@ -638,7 +843,7 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 d1, "_preflight"
             ) as preflight, self.assertRaisesRegex(
                 d1.ContractError,
-                "unsupported observer repair",
+                "explicit observer no-proof acknowledgement",
             ):
                 d1.execute_switchroot(
                     spec,
@@ -650,6 +855,32 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                     now_epoch_sec=2_000_000_002,
                 )
             preflight.assert_not_called()
+            proved = engine.SessionActionResult(
+                engine.SessionActionStatus.PROVED,
+                True,
+                postflight=safe,
+            )
+            with mock.patch.object(d1, "PRIVATE_ROOT", root.resolve()), mock.patch.object(
+                d1, "_preflight", return_value=(safe, {"ok": True})
+            ), mock.patch.object(
+                d1.LiveSessionEffects,
+                "invoke_action",
+                autospec=True,
+                side_effect=self.anchored_invoke(proved),
+            ):
+                resumed = d1.execute_switchroot(
+                    spec,
+                    transaction_dir=transaction,
+                    approval=None,
+                    resume=True,
+                    operator_attended=True,
+                    acknowledge_observer_no_proof=True,
+                    visible_confirmed="unavailable",
+                    now_epoch_sec=2_000_000_002,
+                )
+            self.assertEqual(resumed["terminal"], "SESSION_ACTIVE")
+            self.assertEqual(resumed["actions_used"], 2)
+            self.assertEqual(resumed["observer_no_proof_acknowledgements"], 1)
 
     def test_transaction_path_and_session_lock_stop_before_preflight(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -704,15 +935,7 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                     spec,
                     transaction,
                     "session-open",
-                    {
-                        "approval_binding_sha256": d1.json_sha256(
-                            d1.approval_binding(spec)
-                        ),
-                        "approval_consumed": True,
-                        "payload_transfer": False,
-                        "partition_write": False,
-                        "flash": False,
-                    },
+                    self.session_open_record(spec),
                     expected_sequence=0,
                 )
                 d1._append_record(
@@ -842,18 +1065,19 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 "release_candidate_return_modemmanager_guard",
                 return_value={"released": True},
             ):
-                result = d1.LiveSessionEffects(
+                effects = self.live_effects(
                     spec,
                     transaction,
                     visible_confirmed="yes",
-                ).invoke_action(
-                    d1._binding(spec),
+                )
+                result = effects.invoke_action(
+                    effects.binding,
                     1,
                     d1.SessionAction.SWITCHROOT_EXPERIMENT,
                     spec.source_closure["observation_pipeline"].sha256,
                 )
         self.assertEqual(result.status, engine.SessionActionStatus.EXPERIMENT_BLOCKED)
-        self.assertEqual(calls.count("health"), 2)
+        self.assertEqual(calls.count("health"), 1)
         self.assertIn("cleanup", calls)
 
     def test_live_transitive_source_closure_is_bound(self) -> None:
@@ -932,18 +1156,15 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 d1.base,
                 "observe_attended_after_handoff",
             ) as observe:
-                result = d1.LiveSessionEffects(
-                    spec,
-                    transaction,
-                    visible_confirmed="unavailable",
-                ).invoke_action(
-                    d1._binding(spec),
+                effects = self.live_effects(spec, transaction)
+                result = effects.invoke_action(
+                    effects.binding,
                     1,
                     d1.SessionAction.SWITCHROOT_EXPERIMENT,
                     spec.source_closure["observation_pipeline"].sha256,
                 )
         self.assertEqual(result.status, engine.SessionActionStatus.EXPERIMENT_BLOCKED)
-        self.assertEqual(calls, ["health"])
+        self.assertEqual(calls, [])
         observe.assert_not_called()
 
     def test_cleanup_failure_is_safe_block_after_final_native_health(self) -> None:
@@ -987,12 +1208,9 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
             ), mock.patch.object(
                 d1.base, "run_f1_shell", side_effect=RuntimeError("cleanup failed")
             ):
-                result = d1.LiveSessionEffects(
-                    spec,
-                    transaction,
-                    visible_confirmed="unavailable",
-                ).invoke_action(
-                    d1._binding(spec),
+                effects = self.live_effects(spec, transaction)
+                result = effects.invoke_action(
+                    effects.binding,
                     1,
                     d1.SessionAction.SWITCHROOT_EXPERIMENT,
                     spec.source_closure["observation_pipeline"].sha256,
@@ -1001,23 +1219,153 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
         self.assertEqual(result.status, engine.SessionActionStatus.EXPERIMENT_BLOCKED)
         self.assertEqual(detail["proof_terminal"], "SESSION_BLOCKED_RESIDENT_HEALTHY")
         self.assertIn("cleanup", detail["postflight_errors"])
-        self.assertGreaterEqual(health.call_count, 2)
+        self.assertEqual(health.call_count, 1)
+
+    def test_handoff_dispatch_boundary_rechecks_expiry_after_durable_intent(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            spec = self.session_spec(root)
+            transaction = spec.transaction_dir
+            transaction.mkdir()
+            binding = d1._binding(spec, 2_000_000_000)
+            clock_values = iter(
+                (
+                    2_000_000_001,
+                    binding.expires_at_epoch_sec,
+                )
+            )
+            effects = self.live_effects(
+                spec,
+                transaction,
+                clock=lambda: next(clock_values),
+            )
+            ok = {"exact": True}
+            guard = object()
+            with mock.patch.object(
+                d1.base, "rebind_host_ncm_after_reenumeration", return_value=ok
+            ), mock.patch.object(
+                d1.base, "require_clean_pstore_before_handoff", return_value=ok
+            ), mock.patch.object(
+                d1.base, "settle_observation_channel", return_value=ok
+            ), mock.patch.object(
+                d1.base, "capture_bridge_serial_epoch", return_value=ok
+            ), mock.patch.object(
+                d1.base, "arm_candidate_return_modemmanager_guard", return_value=guard
+            ), mock.patch.object(
+                d1.base, "observe_attended_after_handoff"
+            ) as handoff, mock.patch.object(
+                d1.base, "release_candidate_return_modemmanager_guard"
+            ) as release:
+                result = effects.invoke_action(
+                    binding,
+                    1,
+                    d1.SessionAction.SWITCHROOT_EXPERIMENT,
+                    spec.source_closure["observation_pipeline"].sha256,
+                )
+            self.assertEqual(
+                result.status,
+                engine.SessionActionStatus.WINDOW_EXPIRED_NO_EFFECT,
+            )
+            self.assertFalse(result.action_started)
+            handoff.assert_not_called()
+            release.assert_called_once_with(guard, transaction / "action-001")
+            self.assertTrue((transaction / "action-001/handoff-intent.json").is_file())
+            self.assertTrue(
+                (transaction / "action-001/expiry-before-dispatch.json").is_file()
+            )
 
     def test_expired_session_refuses_before_connected_preflight(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
-            spec = self.session_spec(Path(raw))
-            with mock.patch.object(d1, "_preflight") as preflight, self.assertRaisesRegex(
+            root = Path(raw)
+            spec = self.session_spec(root)
+            binding_sha = d1.json_sha256(d1.approval_binding(spec))
+            token = d1.APPROVAL_PREFIX + binding_sha
+            write_private(
+                d1.approval_path(spec),
+                {
+                    "schema": d1.APPROVAL_SCHEMA,
+                    "created_utc": d1.utc_now(),
+                    "run_id": spec.run_id,
+                    "approval_binding": d1.approval_binding(spec),
+                    "approval_binding_sha256": binding_sha,
+                    "approval_token": token,
+                    "device_contact": False,
+                    "device_write": False,
+                    "live_authority": False,
+                },
+            )
+            safe = SessionPreflight(True, True, True, True, True)
+            proved = engine.SessionActionResult(
+                engine.SessionActionStatus.PROVED,
+                True,
+                postflight=safe,
+            )
+            with mock.patch.object(d1, "PRIVATE_ROOT", root.resolve()), mock.patch.object(
+                d1, "_preflight", return_value=(safe, {"ok": True})
+            ), mock.patch.object(
+                d1.LiveSessionEffects,
+                "invoke_action",
+                autospec=True,
+                side_effect=self.anchored_invoke(proved),
+            ):
+                d1.execute_switchroot(
+                    spec,
+                    transaction_dir=spec.transaction_dir,
+                    approval=token,
+                    resume=False,
+                    operator_attended=True,
+                    visible_confirmed="unavailable",
+                    now_epoch_sec=2_000_000_000,
+                )
+            with mock.patch.object(d1, "PRIVATE_ROOT", root.resolve()):
+                records_before = tuple(
+                    item["action"]
+                    for item in d1._session_records(spec, spec.transaction_dir)
+                )
+            with mock.patch.object(d1, "PRIVATE_ROOT", root.resolve()), mock.patch.object(
+                d1, "_preflight", return_value=(safe, {"ok": True})
+            ) as preflight, mock.patch.object(
+                d1.LiveSessionEffects, "invoke_action"
+            ) as device_effect, self.assertRaisesRegex(
                 d1.ContractError,
                 "window is not active",
             ):
                 d1.execute_switchroot(
                     spec,
                     transaction_dir=spec.transaction_dir,
-                    approval="unused",
-                    resume=False,
+                    approval=None,
+                    resume=True,
                     operator_attended=True,
                     visible_confirmed="unavailable",
-                    now_epoch_sec=spec.expires_at_epoch_sec,
+                    now_epoch_sec=(
+                        2_000_000_000 + spec.session_duration_sec - 1
+                    ),
+                    clock=lambda: 2_000_000_000 + spec.session_duration_sec,
+                )
+            preflight.assert_called_once()
+            device_effect.assert_not_called()
+            with mock.patch.object(d1, "PRIVATE_ROOT", root.resolve()):
+                self.assertEqual(
+                    tuple(
+                        item["action"]
+                        for item in d1._session_records(spec, spec.transaction_dir)
+                    ),
+                    records_before,
+                )
+            with mock.patch.object(d1, "PRIVATE_ROOT", root.resolve()), mock.patch.object(
+                d1, "_preflight"
+            ) as preflight, self.assertRaisesRegex(
+                d1.ContractError,
+                "window is not active",
+            ):
+                d1.execute_switchroot(
+                    spec,
+                    transaction_dir=spec.transaction_dir,
+                    approval=None,
+                    resume=True,
+                    operator_attended=True,
+                    visible_confirmed="unavailable",
+                    now_epoch_sec=2_000_000_000 + spec.session_duration_sec,
                 )
             preflight.assert_not_called()
 
@@ -1035,10 +1383,8 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 value = d1.build_manifest(
                     resident_manifest_path=resident_manifest,
                     resident_manifest_sha256=resident_sha,
-                    resident_journal_dir=journal_dir,
                     run_id=run_id,
-                    not_before_epoch_sec=2_000_000_000,
-                    expires_at_epoch_sec=2_000_003_600,
+                    session_duration_sec=3_600,
                     max_actions=2,
                 )
                 value["unexpected"] = True
@@ -1063,6 +1409,9 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(help_result.returncode, 0, help_result.stderr)
+        self.assertIn("--session-duration-sec", help_result.stdout)
+        self.assertIn("--acknowledge-observer-no-proof", help_result.stdout)
+        self.assertNotIn("--resident-journal-dir", help_result.stdout)
         self.assertIn("--execute-switchroot", help_result.stdout)
         self.assertNotIn("--flash", help_result.stdout)
 

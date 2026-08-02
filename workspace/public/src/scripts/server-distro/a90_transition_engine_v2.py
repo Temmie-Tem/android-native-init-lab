@@ -82,6 +82,7 @@ class SessionActionStatus(str, Enum):
     REFUTED = "REFUTED"
     NO_PROOF_OBSERVER = "NO_PROOF_OBSERVER"
     EXPERIMENT_BLOCKED = "EXPERIMENT_BLOCKED"
+    WINDOW_EXPIRED_NO_EFFECT = "WINDOW_EXPIRED_NO_EFFECT"
     DEVICE_SAFETY_FAILURE = "DEVICE_SAFETY_FAILURE"
     CONTROL_AMBIGUOUS = "CONTROL_AMBIGUOUS"
 
@@ -149,6 +150,16 @@ class SessionActionResult:
         ):
             raise ContractError("blocked experiment lacks exact healthy stop")
         if (
+            self.status is SessionActionStatus.WINDOW_EXPIRED_NO_EFFECT
+            and (
+                self.action_started is not False
+                or self.failure_class != "SESSION_WINDOW_EXPIRED"
+                or self.postflight is not None
+                or self.independent_safety_check is not False
+            )
+        ):
+            raise ContractError("expired session action claims a device effect")
+        if (
             self.status is SessionActionStatus.CONTROL_AMBIGUOUS
             and not str(self.failure_class).endswith("_AMBIGUOUS")
         ):
@@ -169,6 +180,7 @@ class SessionEffects(Protocol):
         ordinal: int,
         action: SessionAction,
         observer_sha256: str,
+        observer_no_proof_acknowledged: bool,
     ) -> None: ...
 
     def invoke_action(
@@ -392,6 +404,7 @@ class AttendedSession:
     refutation_counts: dict[tuple[str, str], int] = field(default_factory=dict)
     active_observer_sha256: str = ""
     observer_repair_required: bool = False
+    observer_no_proof_acknowledgements: int = 0
 
     def _snapshot(self, terminal: str) -> dict[str, Any]:
         return {
@@ -405,6 +418,9 @@ class AttendedSession:
                 self.closed_terminal is None and not self.observer_repair_required
             ),
             "observer_repair_required": self.observer_repair_required,
+            "observer_no_proof_acknowledgements": (
+                self.observer_no_proof_acknowledgements
+            ),
             "active_observer_sha256": self.active_observer_sha256,
             "actions_used": self.actions_used,
             "actions_remaining": (
@@ -433,11 +449,25 @@ class AttendedSession:
         *,
         now_epoch_sec: int,
         preflight: SessionPreflight,
+        acknowledge_observer_no_proof: bool = False,
     ) -> dict[str, Any]:
         if self.closed_terminal is not None:
             raise ContractError("attended session is already closed")
+        if type(acknowledge_observer_no_proof) is not bool:
+            raise ContractError("observer no-proof acknowledgement is not boolean")
         if self.observer_repair_required:
-            raise ContractError("observer repair is required before another action")
+            if acknowledge_observer_no_proof is not True:
+                raise ContractError(
+                    "observer no-proof acknowledgement or repair is required "
+                    "before another action"
+                )
+            if self.observer_no_proof_acknowledgements >= 1:
+                return self._close("SESSION_CLOSED_REPEATED_OBSERVER_NO_PROOF")
+            self.observer_repair_required = False
+            self.observer_no_proof_acknowledgements += 1
+            self.history.append("OBSERVER_NO_PROOF_ACKNOWLEDGED_FOR_NEW_ACTION")
+        elif acknowledge_observer_no_proof:
+            raise ContractError("observer no-proof acknowledgement is unexpected")
         if (
             type(now_epoch_sec) is not int
             or now_epoch_sec < self.last_now_epoch_sec
@@ -479,6 +509,7 @@ class AttendedSession:
                 ordinal,
                 action,
                 self.active_observer_sha256,
+                acknowledge_observer_no_proof,
             )
         except Exception:  # noqa: BLE001 - never send without durable intent
             return self._close("SESSION_CLOSED_INTENT_FAILED")
@@ -513,6 +544,8 @@ class AttendedSession:
             }
         )
         self.history.append(f"ACTION_{ordinal}_{result.status.value}")
+        if result.status is SessionActionStatus.WINDOW_EXPIRED_NO_EFFECT:
+            return self._close("SESSION_CLOSED_EXPIRED_BEFORE_DISPATCH")
         if result.status in {
             SessionActionStatus.DEVICE_SAFETY_FAILURE,
             SessionActionStatus.CONTROL_AMBIGUOUS,
@@ -529,6 +562,8 @@ class AttendedSession:
         if self.actions_used >= self.contract.binding.max_actions:
             return self._close("SESSION_CLOSED_BUDGET_EXHAUSTED")
         if result.status is SessionActionStatus.NO_PROOF_OBSERVER:
+            if self.observer_no_proof_acknowledgements >= 1:
+                return self._close("SESSION_CLOSED_REPEATED_OBSERVER_NO_PROOF")
             self.observer_repair_required = True
             self.history.append("SESSION_PAUSED_OBSERVER_REPAIR_REQUIRED")
             return self._snapshot("SESSION_PAUSED_OBSERVER_REPAIR_REQUIRED")
@@ -819,10 +854,11 @@ class ScriptedSessionEffects:
         ordinal: int,
         action: SessionAction,
         observer_sha256: str,
+        observer_no_proof_acknowledged: bool,
     ) -> None:
         self.events.append(
             f"SESSION_INTENT:{binding.workflow.value}:{ordinal}:{action.value}:"
-            f"{observer_sha256}"
+            f"{observer_sha256}:{int(observer_no_proof_acknowledged)}"
         )
 
     def invoke_action(
