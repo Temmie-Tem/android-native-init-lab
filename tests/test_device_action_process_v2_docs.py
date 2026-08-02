@@ -124,10 +124,20 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             / "workspace/public/src/scripts/server-distro/"
             "a90_transition_d1_session_v1.py"
         ).read_text(encoding="utf-8")
-        cls.a90_unattended_report = (
+        cls.a90_unattended_runner = (
+            ROOT
+            / "workspace/public/src/scripts/server-distro/"
+            "a90_unattended_resident_d1_v1.py"
+        ).read_text(encoding="utf-8")
+        cls.a90_unattended_policy_report = (
             ROOT
             / "docs/reports/"
             "A90_UNATTENDED_RESIDENT_D1_POLICY_H0_2026-08-03.md"
+        ).read_text(encoding="utf-8")
+        cls.a90_unattended_runner_report = (
+            ROOT
+            / "docs/reports/"
+            "A90_UNATTENDED_RESIDENT_D1_RUNNER_H0_2026-08-03.md"
         ).read_text(encoding="utf-8")
         cls.s22_target = (
             ROOT
@@ -252,13 +262,21 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             'parser.add_argument("--operator-attended", action="store_true")',
             self.a90_d1_runner,
         )
-        self.assertNotIn(
-            "A90_UNATTENDED_RESIDENT_D1_V1",
-            self.a90_d1_runner,
-        )
         self.assertIn(
             "H0_PASS_GO_POLICY_READY_NO_LIVE_AUTHORITY",
-            self.a90_unattended_report,
+            self.a90_unattended_policy_report,
+        )
+        self.assertIn(
+            'WORKFLOW = "A90_UNATTENDED_RESIDENT_D1_V1"',
+            self.a90_unattended_runner,
+        )
+        self.assertNotIn(
+            'parser.add_argument("--operator-attended"',
+            self.a90_unattended_runner,
+        )
+        self.assertIn(
+            "H0_IMPLEMENTED_STATIC_PASS_REVIEW_PENDING_NO_LIVE_AUTHORITY",
+            self.a90_unattended_runner_report,
         )
 
     def test_s22_trial_authority_and_d1_attendance_are_explicit(self):

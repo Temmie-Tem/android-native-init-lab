@@ -21,10 +21,11 @@ transfer between the two files.
 - Standing exact-target D0 exists only through the active common trial. A90
   campaign `a90-resident-switchroot-display-ssh-20260802` is open, but no D1
   session is active and no target is F1-armed. Attendance has ended. Contract
-  revision 2 permits a qualified future unattended resident D1 lane, but the
-  current v1 runner has no such mode and its `--operator-attended` flag must not
-  be asserted while the operator is absent. There is no unattended live
-  authority until reviewed machinery implements that mode. The consumed
+  revision 2 permits the qualified unattended resident D1 lane. The attended
+  v1 CLI still has no such mode and its `--operator-attended` flag must not be
+  asserted while the operator is absent. A separate H0 runner now implements
+  the named one-ordinal mode, but its independent execution review receipt is
+  absent. There is no unattended live authority. The consumed
   resident-install approval is not reusable.
 - The original D1 v1 host template expired unconsumed without creating
   `d1-live` or contacting a device.
@@ -44,10 +45,19 @@ transfer between the two files.
   `145/145`, and the preserved ordinal-1 observation replay proves the corrected
   classification with only a retained-pmsg warning.
 - Common and A90 contract revision 2 delegates only the exact no-payload A90
-  resident D1 lane to a future unattended mode. S22+ D1 and every F1 remain
+  resident D1 lane to its named unattended mode. S22+ D1 and every F1 remain
   attended; one-intent/one-dispatch/no-replay, exact health between ordinals,
   passive observation on late USB enumeration, and operator recovery after
   control loss remain mandatory.
+- The H0 `A90_UNATTENDED_RESIDENT_D1_V1` runner now implements one manifest-
+  bound ordinal with no attendance assertion, approval token, session window,
+  action budget, resume, or campaign loop. It reuses the existing
+  handoff/SSH/DRM/return backend, requires fresh exact D0, revalidates its
+  closure again immediately before dispatch, and parks every uncertain result
+  without replay. Real ordinal-1 evidence passes its automatic-return, Debian
+  PID1, Dropbear, mechanical-display, operator-visibility, and final-health
+  qualification. The required independent execution-machinery review receipt
+  is absent, so no unattended manifest or live authority exists.
 - Focused D1/transition regression passes `67/67`; related adapter and
   observation regression passes `26/26`. The combined real-host regression
   passes `93/93`, and the real resident host-only build/load cross-check
@@ -60,12 +70,13 @@ transfer between the two files.
   its preflight-entry clock at dispatch. That M2 is corrected by opening or
   revalidating the window after preflight, checking expiry again at both
   dispatch boundaries, and closing without a D1 effect if either check expires.
-- The pre-fix `-02` and pre-M2 `-03` templates are stale. Private run
-  `a90-d1-attended-20260802-04` is the closed ordinal-1 evidence line. Fresh
-  host-only run `a90-d1-attended-20260803-01` binds the corrected source closure
-  in a mode-`0600` v2 manifest with SHA256
-  `5ac62c21d239f3fe8d9b9648dffdf267c0a56c127df632d97afe308bcef409e0`.
-  It has no compatibility receipt, `d1-live`, device effect, or live authority.
+- All earlier attended templates, including `a90-d1-attended-20260803-03`, are
+  stale for the new source closure. Private run
+  `a90-d1-attended-20260802-04` remains the closed ordinal-1 evidence line.
+  Fresh host-only run `a90-d1-attended-20260803-04` binds the current attended
+  backend in a mode-`0600` v2 manifest with SHA256
+  `fcf4d994520742e8d210325b82a9a851f2c09478d74774fc173447b9257da6e2`.
+  It has no approval receipt, `d1-live`, device effect, or live authority.
 - The final combined independent safety review over the refreshed hashes
   returned `PASS_GO` with no unresolved Critical, High, Medium, or Low finding.
   M1, L1, and M2 are closed. The review creates no active campaign. Until the
@@ -80,6 +91,8 @@ transfer between the two files.
 `docs/reports/A90_D1_FAST_LOOP_V2_COMBINED_INDEPENDENT_FINAL_REVIEW_2026-08-02.md`
 
 `docs/reports/A90_UNATTENDED_RESIDENT_D1_POLICY_H0_2026-08-03.md`
+
+`docs/reports/A90_UNATTENDED_RESIDENT_D1_RUNNER_H0_2026-08-03.md`
 
 ## Final Architecture
 

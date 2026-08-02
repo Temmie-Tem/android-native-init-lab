@@ -239,6 +239,7 @@ class SessionPreflight:
     resident_identity_matches: bool
     rollback_ready: bool
     recovery_available: bool
+    unattended_resident_d1_qualified: bool = False
 
     def validate(self) -> None:
         checks = (
@@ -247,10 +248,15 @@ class SessionPreflight:
             self.resident_identity_matches,
             self.rollback_ready,
             self.recovery_available,
+            self.unattended_resident_d1_qualified,
         )
         if any(type(value) is not bool for value in checks):
             raise ContractError("session preflight value is not boolean")
-        if not all(checks):
+        if (
+            self.operator_attended
+            is self.unattended_resident_d1_qualified
+            or not all(checks[1:5])
+        ):
             raise ContractError("session preflight is not safe to continue")
 
 

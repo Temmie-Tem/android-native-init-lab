@@ -166,6 +166,17 @@ class SessionActionResult:
             raise ContractError("control ambiguity class is not exact")
 
 
+def _validate_attended_preflight(preflight: SessionPreflight) -> None:
+    if not isinstance(preflight, SessionPreflight):
+        raise ContractError("attended session preflight type is not exact")
+    preflight.validate()
+    if (
+        preflight.operator_attended is not True
+        or preflight.unattended_resident_d1_qualified is not False
+    ):
+        raise ContractError("attended session requires operator attendance")
+
+
 class SessionEffects(Protocol):
     mode: str
 
@@ -483,7 +494,7 @@ class AttendedSession:
         ):
             return self._close("SESSION_CLOSED_UNALLOWLISTED_ACTION")
         try:
-            preflight.validate()
+            _validate_attended_preflight(preflight)
         except Exception:  # noqa: BLE001 - no action before exact safe preflight
             if (
                 isinstance(preflight, SessionPreflight)
@@ -524,6 +535,8 @@ class AttendedSession:
                 self.active_observer_sha256,
             )
             result.validate()
+            if result.postflight is not None:
+                _validate_attended_preflight(result.postflight)
         except Exception:  # noqa: BLE001 - action result is control-ambiguous
             self.action_results.append(
                 {
@@ -598,9 +611,7 @@ class AttendedSession:
         repair.validate()
         if repair.previous_sha256 != self.active_observer_sha256:
             raise ContractError("observer repair predecessor does not match")
-        if not isinstance(preflight, SessionPreflight):
-            raise ContractError("observer repair preflight type is not exact")
-        preflight.validate()
+        _validate_attended_preflight(preflight)
         try:
             self.effects.record_observer_repair(self.contract.binding, repair)
         except Exception:  # noqa: BLE001 - no action follows an unrecorded repair
@@ -625,9 +636,7 @@ def open_attended_session(
         < contract.binding.expires_at_epoch_sec
     ):
         raise ContractError("session approval window is not active")
-    if not isinstance(preflight, SessionPreflight):
-        raise ContractError("session opening preflight type is not exact")
-    preflight.validate()
+    _validate_attended_preflight(preflight)
     try:
         consumed = effects.consume_session_approval_once(contract.binding)
     except Exception as exc:  # noqa: BLE001 - no action before durable consume

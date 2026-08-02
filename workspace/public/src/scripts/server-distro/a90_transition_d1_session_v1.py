@@ -1085,15 +1085,28 @@ def _cleanup_script(spec: SessionSpec) -> str:
     )
 
 
-def _preflight(spec: SessionSpec, *, operator_attended: bool) -> tuple[SessionPreflight, dict[str, Any]]:
-    if operator_attended is not True:
-        raise ContractError("operator attendance is required for every D1 action")
+def resident_d0_preflight(
+    spec: SessionSpec,
+    *,
+    unattended_qualified: bool = False,
+) -> tuple[SessionPreflight, dict[str, Any]]:
+    if type(unattended_qualified) is not bool:
+        raise ContractError("D1 presence qualification is not boolean")
     f1_spec = _f1_spec(spec)
     args = _effect_args()
     health = base.verify_candidate_health(f1_spec, args)
     source = base.remote_source_preflight(f1_spec, args)
+    preflight = SessionPreflight(
+        not unattended_qualified,
+        True,
+        True,
+        True,
+        True,
+        unattended_resident_d1_qualified=unattended_qualified,
+    )
+    preflight.validate()
     return (
-        SessionPreflight(True, True, True, True, True),
+        preflight,
         {
             "resident_health": health,
             "source_preflight": source,
@@ -1101,6 +1114,16 @@ def _preflight(spec: SessionSpec, *, operator_attended: bool) -> tuple[SessionPr
             "recovery_profile": spec.recovery_profile,
         },
     )
+
+
+def _preflight(
+    spec: SessionSpec,
+    *,
+    operator_attended: bool,
+) -> tuple[SessionPreflight, dict[str, Any]]:
+    if operator_attended is not True:
+        raise ContractError("operator attendance is required for every D1 action")
+    return resident_d0_preflight(spec)
 
 
 def _classify_return_observation(
@@ -1258,13 +1281,16 @@ def _append_record(
 def _preflight_value(value: SessionPreflight | None) -> dict[str, bool] | None:
     if value is None:
         return None
-    return {
+    result = {
         "operator_attended": value.operator_attended,
         "target_identity_matches": value.target_identity_matches,
         "resident_identity_matches": value.resident_identity_matches,
         "rollback_ready": value.rollback_ready,
         "recovery_available": value.recovery_available,
     }
+    if value.unattended_resident_d1_qualified:
+        result["unattended_resident_d1_qualified"] = True
+    return result
 
 
 def _action_outcome_value(
@@ -1296,6 +1322,9 @@ class LiveSessionEffects:
         opening_preflight_evidence: dict[str, Any],
         visible_confirmed: str,
         clock: Callable[[], float] | None = None,
+        presence_mode: str = "attended",
+        enforce_session_window: bool = True,
+        pre_dispatch_revalidate: Callable[[], None] | None = None,
     ) -> None:
         self.spec = spec
         self.transaction_dir = transaction_dir
@@ -1303,8 +1332,42 @@ class LiveSessionEffects:
         self.opening_preflight_evidence = opening_preflight_evidence
         self.visible_confirmed = visible_confirmed
         self.clock = time.time if clock is None else clock
+        self.presence_mode = presence_mode
+        self.enforce_session_window = enforce_session_window
+        self.pre_dispatch_revalidate = pre_dispatch_revalidate
         if not callable(self.clock):
             raise ContractError("D1 session clock is not callable")
+        if presence_mode not in {
+            "attended",
+            "A90_UNATTENDED_RESIDENT_D1_V1",
+        }:
+            raise ContractError("D1 presence mode is not exact")
+        if type(enforce_session_window) is not bool:
+            raise ContractError("D1 session-window mode is not boolean")
+        if pre_dispatch_revalidate is not None and not callable(
+            pre_dispatch_revalidate
+        ):
+            raise ContractError("D1 pre-dispatch revalidator is not callable")
+        if presence_mode == "attended" and enforce_session_window is not True:
+            raise ContractError("attended D1 cannot disable its session window")
+        if (
+            presence_mode == "A90_UNATTENDED_RESIDENT_D1_V1"
+            and enforce_session_window is not False
+        ):
+            raise ContractError("unattended one-ordinal D1 cannot inherit a session window")
+
+    def _healthy_postflight(self) -> SessionPreflight:
+        unattended = self.presence_mode == "A90_UNATTENDED_RESIDENT_D1_V1"
+        value = SessionPreflight(
+            operator_attended=not unattended,
+            target_identity_matches=True,
+            resident_identity_matches=True,
+            rollback_ready=True,
+            recovery_available=True,
+            unattended_resident_d1_qualified=unattended,
+        )
+        value.validate()
+        return value
 
     def _finish_action(
         self,
@@ -1324,6 +1387,8 @@ class LiveSessionEffects:
         ordinal: int,
         binding: AttendedSessionBinding,
     ) -> engine.SessionActionResult | None:
+        if not self.enforce_session_window:
+            return None
         checked_at_epoch_sec = _sample_epoch_sec(
             self.clock,
             floor_epoch_sec=binding.not_before_epoch_sec,
@@ -1472,6 +1537,24 @@ class LiveSessionEffects:
                 },
             )
             handoff_intent_written = True
+            if self.pre_dispatch_revalidate is not None:
+                try:
+                    self.pre_dispatch_revalidate()
+                except Exception as exc:  # noqa: BLE001 - still before dispatch
+                    write_private_json_exclusive(
+                        action_dir / "pre-dispatch-revalidation-error.json",
+                        {"type": type(exc).__name__, "message": str(exc)},
+                    )
+                    return self._finish_action(
+                        action_dir,
+                        ordinal,
+                        engine.SessionActionResult(
+                            engine.SessionActionStatus.EXPERIMENT_BLOCKED,
+                            action_started=True,
+                            failure_class="PRE_DISPATCH_INTEGRITY_BLOCKED",
+                            postflight=self._healthy_postflight(),
+                        ),
+                    )
             expired = self._expired_before_dispatch(action_dir, ordinal, binding)
             if expired is not None:
                 return expired
@@ -1593,7 +1676,7 @@ class LiveSessionEffects:
                         engine.SessionActionStatus.EXPERIMENT_BLOCKED,
                         action_started=True,
                         failure_class="POSTFLIGHT_EXPERIMENT_BLOCKED",
-                        postflight=SessionPreflight(True, True, True, True, True),
+                        postflight=self._healthy_postflight(),
                     ),
                 )
             if not returned:
@@ -1606,7 +1689,7 @@ class LiveSessionEffects:
                         engine.SessionActionStatus.NO_PROOF_OBSERVER,
                         action_started=True,
                         failure_class="RETURN_CHANNEL_OBSERVER",
-                        postflight=SessionPreflight(True, True, True, True, True),
+                        postflight=self._healthy_postflight(),
                         independent_safety_check=True,
                     ),
                 )
@@ -1620,7 +1703,7 @@ class LiveSessionEffects:
                         engine.SessionActionStatus.REFUTED,
                         action_started=True,
                         failure_class="DISPLAY_ACQUISITION_REFUTED",
-                        postflight=SessionPreflight(True, True, True, True, True),
+                        postflight=self._healthy_postflight(),
                     ),
                 )
             if observation.get("display_mechanical_proof") is not True:
@@ -1633,7 +1716,7 @@ class LiveSessionEffects:
                         engine.SessionActionStatus.NO_PROOF_OBSERVER,
                         action_started=True,
                         failure_class="DISPLAY_EVIDENCE_OBSERVER",
-                        postflight=SessionPreflight(True, True, True, True, True),
+                        postflight=self._healthy_postflight(),
                         independent_safety_check=True,
                     ),
                 )
@@ -1647,7 +1730,7 @@ class LiveSessionEffects:
                         engine.SessionActionStatus.REFUTED,
                         action_started=True,
                         failure_class="DISPLAY_VISIBILITY_REFUTED",
-                        postflight=SessionPreflight(True, True, True, True, True),
+                        postflight=self._healthy_postflight(),
                     ),
                 )
             detail["proof_terminal"] = (
@@ -1662,7 +1745,7 @@ class LiveSessionEffects:
                 engine.SessionActionResult(
                     engine.SessionActionStatus.PROVED,
                     action_started=True,
-                    postflight=SessionPreflight(True, True, True, True, True),
+                    postflight=self._healthy_postflight(),
                 ),
             )
         except Exception as exc:  # noqa: BLE001 - classify only before dispatch
@@ -1683,7 +1766,7 @@ class LiveSessionEffects:
                         engine.SessionActionStatus.EXPERIMENT_BLOCKED,
                         action_started=True,
                         failure_class="PRE_HANDOFF_EXPERIMENT_BLOCKED",
-                        postflight=SessionPreflight(True, True, True, True, True),
+                        postflight=self._healthy_postflight(),
                     ),
                 )
             return self._finish_action(

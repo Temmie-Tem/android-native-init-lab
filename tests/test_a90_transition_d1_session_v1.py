@@ -1446,6 +1446,71 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 (transaction / "action-001/expiry-before-dispatch.json").is_file()
             )
 
+    def test_pre_dispatch_revalidation_failure_sends_no_handoff(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            spec = self.session_spec(root)
+            transaction = spec.transaction_dir
+            transaction.mkdir()
+            binding = d1._binding(spec, 2_000_000_000)
+            revalidate = mock.Mock(side_effect=d1.ContractError("source changed"))
+            effects = d1.LiveSessionEffects(
+                spec,
+                transaction,
+                binding=binding,
+                opening_preflight_evidence={
+                    "resident_health": {"exact": True},
+                    "source_preflight": {"exact": True},
+                    "rollback_sha256": spec.rollback.sha256,
+                    "recovery_profile": spec.recovery_profile,
+                },
+                visible_confirmed="unavailable",
+                clock=lambda: 2_000_000_001,
+                pre_dispatch_revalidate=revalidate,
+            )
+            ok = {"exact": True}
+            guard = object()
+            with mock.patch.object(
+                d1.base, "rebind_host_ncm_after_reenumeration", return_value=ok
+            ), mock.patch.object(
+                d1.base, "require_clean_pstore_before_handoff", return_value=ok
+            ), mock.patch.object(
+                d1.base, "settle_observation_channel", return_value=ok
+            ), mock.patch.object(
+                d1.base, "capture_bridge_serial_epoch", return_value=ok
+            ), mock.patch.object(
+                d1.base, "arm_candidate_return_modemmanager_guard", return_value=guard
+            ), mock.patch.object(
+                d1.base, "observe_attended_after_handoff"
+            ) as handoff, mock.patch.object(
+                d1.base, "release_candidate_return_modemmanager_guard"
+            ) as release:
+                result = effects.invoke_action(
+                    binding,
+                    1,
+                    d1.SessionAction.SWITCHROOT_EXPERIMENT,
+                    spec.source_closure["observation_pipeline"].sha256,
+                )
+            self.assertEqual(
+                result.status,
+                engine.SessionActionStatus.EXPERIMENT_BLOCKED,
+            )
+            self.assertEqual(
+                result.failure_class,
+                "PRE_DISPATCH_INTEGRITY_BLOCKED",
+            )
+            self.assertTrue(result.postflight.operator_attended)
+            revalidate.assert_called_once_with()
+            handoff.assert_not_called()
+            release.assert_called_once_with(guard, transaction / "action-001")
+            self.assertTrue((transaction / "action-001/handoff-intent.json").is_file())
+            self.assertTrue(
+                (
+                    transaction
+                    / "action-001/pre-dispatch-revalidation-error.json"
+                ).is_file()
+            )
+
     def test_expired_session_refuses_before_connected_preflight(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
