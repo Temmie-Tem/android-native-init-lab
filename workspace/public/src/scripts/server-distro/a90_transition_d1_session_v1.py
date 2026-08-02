@@ -51,6 +51,7 @@ APPROVAL_PREFIX = "A90-D1-FAST-LOOP-V2-APPROVE:"
 JOURNAL_SCHEMA = "a90_d1_fast_loop_journal_v2"
 RESULT_SCHEMA = "a90_d1_fast_loop_action_v2"
 OUTCOME_SCHEMA = "a90_d1_fast_loop_engine_outcome_v2"
+VISIBLE_CONFIRMATION_SCHEMA = "a90_d1_display_visible_confirmation_v1"
 RUN_ID_RE = re.compile(r"^a90-d1-attended-[0-9]{8}-[0-9]{2}$")
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 RESIDENT_RUN_RE = re.compile(
@@ -2313,6 +2314,152 @@ def execute_switchroot(
         os.close(descriptor)
 
 
+def _record_visible_confirmation_locked(
+    spec: SessionSpec,
+    *,
+    transaction_dir: Path,
+    ordinal: int,
+    visible_confirmed: str,
+    operator_attended: bool,
+) -> dict[str, Any]:
+    if not transaction_dir.is_dir():
+        raise ContractError("D1 visibility transaction directory is absent")
+    if type(ordinal) is not int or ordinal <= 0:
+        raise ContractError("D1 visibility ordinal is not exact")
+    if visible_confirmed not in {"yes", "no"}:
+        raise ContractError("D1 post-action visibility must be yes or no")
+    if operator_attended is not True:
+        raise ContractError("D1 visibility requires attended operator observation")
+
+    records = _session_records(spec, transaction_dir)
+    sequence = 2 * ordinal
+    if sequence >= len(records):
+        raise ContractError("D1 visibility action result is absent")
+    record = records[sequence]
+    expected_action = f"action-{ordinal:03d}-result"
+    snapshot = record.get("snapshot")
+    if record.get("action") != expected_action or not isinstance(snapshot, dict):
+        raise ContractError("D1 visibility journal result is not exact")
+    binding = _binding_from_session_open(spec, records)
+    _validate_snapshot(spec, binding, snapshot, ordinal)
+    action_results = snapshot.get("action_results")
+    if (
+        not isinstance(action_results, list)
+        or len(action_results) != ordinal
+        or action_results[-1].get("ordinal") != ordinal
+        or action_results[-1].get("action")
+        != SessionAction.SWITCHROOT_EXPERIMENT.value
+    ):
+        raise ContractError("D1 visibility snapshot action is not exact")
+
+    action_dir = transaction_dir / f"action-{ordinal:03d}"
+    intent = _bound_file(action_dir / "handoff-intent.json", private=True)
+    observation = _bound_file(action_dir / "observation.json", private=True)
+    result = _bound_file(action_dir / "result.json", private=True)
+    outcome = _bound_file(action_dir / "engine-outcome.json", private=True)
+    journal_path = transaction_dir / "journal" / f"{sequence:04d}-{expected_action}.json"
+    journal_result = _bound_file(journal_path, private=True)
+    anchored_outcome = _bound_dict(
+        record.get("outcome_evidence"),
+        "D1 visibility outcome evidence",
+        private=True,
+    )
+    if anchored_outcome != outcome:
+        raise ContractError("D1 visibility outcome binding changed")
+
+    intent_value = _read_private_json(intent.path)
+    observation_value = _read_private_json(observation.path)
+    result_value = _read_private_json(result.path)
+    ssh = observation_value.get("ssh")
+    if (
+        intent_value.get("schema") != RESULT_SCHEMA
+        or intent_value.get("ordinal") != ordinal
+        or intent_value.get("handoff_dispatch_count_max") != 1
+        or result_value.get("schema") != RESULT_SCHEMA
+        or result_value.get("ordinal") != ordinal
+        or result_value.get("handoff_dispatch_count") != 1
+        or result_value.get("resident_healthy") is not True
+        or result_value.get("observation") != observation_value
+        or observation_value.get("native_release_proven") is not True
+        or observation_value.get("debian_pid1_proven") is not True
+        or observation_value.get("dropbear_proven") is not True
+        or observation_value.get("display_mechanical_proof") is not True
+        or not isinstance(ssh, dict)
+        or ssh.get("proof") is not True
+    ):
+        raise ContractError("D1 display mechanical proof is not exact")
+
+    proof = visible_confirmed == "yes"
+    value = {
+        "schema": VISIBLE_CONFIRMATION_SCHEMA,
+        "created_utc": utc_now(),
+        "run_id": spec.run_id,
+        "manifest_sha256": spec.manifest_sha256,
+        "ordinal": ordinal,
+        "action": SessionAction.SWITCHROOT_EXPERIMENT.value,
+        "operator_attended_at_observation": True,
+        "visible_confirmed": visible_confirmed,
+        "display_visibility_proved": proof,
+        "display_visibility_refuted": not proof,
+        "mechanical_display_proof": True,
+        "evidence": {
+            "handoff_intent": _as_dict(intent),
+            "observation": _as_dict(observation),
+            "action_result": _as_dict(result),
+            "engine_outcome": _as_dict(outcome),
+            "journal_result": _as_dict(journal_result),
+        },
+        "device_contact": False,
+        "device_effect": False,
+        "payload_transfer": False,
+        "partition_write": False,
+        "flash": False,
+    }
+    write_private_json_exclusive(
+        action_dir / "display-visible-confirmation.json",
+        value,
+    )
+    return value
+
+
+def record_visible_confirmation(
+    spec: SessionSpec,
+    *,
+    transaction_dir: Path,
+    ordinal: int,
+    visible_confirmed: str,
+    operator_attended: bool,
+) -> dict[str, Any]:
+    if transaction_dir != spec.transaction_dir:
+        raise ContractError("D1 transaction path is not manifest-bound")
+    descriptor = os.open(
+        spec.session_lock_path,
+        os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW,
+        0o600,
+    )
+    try:
+        info = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(info.st_mode)
+            or stat.S_IMODE(info.st_mode) != 0o600
+            or info.st_nlink != 1
+        ):
+            raise ContractError("D1 session lock identity is not exact")
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise ContractError("D1 session is already owned by another process") from exc
+        return _record_visible_confirmation_locked(
+            spec,
+            transaction_dir=transaction_dir,
+            ordinal=ordinal,
+            visible_confirmed=visible_confirmed,
+            operator_attended=operator_attended,
+        )
+    finally:
+        os.close(descriptor)
+
+
 def inspect(spec: SessionSpec) -> dict[str, Any]:
     return {
         "schema": SCHEMA,
@@ -2347,7 +2494,9 @@ def build_parser() -> argparse.ArgumentParser:
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--prepare-approval", action="store_true")
     modes.add_argument("--execute-switchroot", action="store_true")
+    modes.add_argument("--record-visible-confirmation", action="store_true")
     parser.add_argument("--transaction-dir", type=Path)
+    parser.add_argument("--ordinal", type=int)
     parser.add_argument("--approval")
     parser.add_argument("--resume-session", action="store_true")
     parser.add_argument("--operator-attended", action="store_true")
@@ -2402,6 +2551,20 @@ def main(argv: list[str] | None = None) -> int:
             ),
             visible_confirmed=args.visible_confirmed,
             now_epoch_sec=int(time.time()),
+        )
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
+    if args.record_visible_confirmation:
+        if args.transaction_dir is None or args.ordinal is None:
+            raise ContractError(
+                "D1 visibility transaction directory and ordinal are required"
+            )
+        result = record_visible_confirmation(
+            spec,
+            transaction_dir=args.transaction_dir,
+            ordinal=args.ordinal,
+            visible_confirmed=args.visible_confirmed,
+            operator_attended=args.operator_attended,
         )
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0

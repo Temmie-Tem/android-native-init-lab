@@ -480,6 +480,126 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
             ],
         )
 
+    def test_post_action_visibility_binds_exact_mechanical_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            spec = self.session_spec(root)
+            transaction = spec.transaction_dir
+            transaction.mkdir()
+            action_dir = transaction / "action-001"
+            action_dir.mkdir()
+            safe = SessionPreflight(True, True, True, True, True)
+            scripted = engine.ScriptedSessionEffects(
+                (engine.SessionActionResult(engine.SessionActionStatus.PROVED, True, postflight=safe),)
+            )
+            scripted.mode = d1.LiveSessionEffects.mode
+            session = engine.open_attended_session(
+                engine.AttendedSessionContract(
+                    binding=d1._binding(spec, 2_000_000_000),
+                    successors=(d1.DISPLAY_SUCCESSOR,),
+                ),
+                scripted,
+                now_epoch_sec=2_000_000_000,
+                preflight=safe,
+            )
+            snapshot = session.run_action(
+                d1.SessionAction.SWITCHROOT_EXPERIMENT,
+                now_epoch_sec=2_000_000_001,
+                preflight=safe,
+            )
+            observation = {
+                "native_release_proven": True,
+                "debian_pid1_proven": True,
+                "dropbear_proven": True,
+                "display_mechanical_proof": True,
+                "ssh": {"proof": True},
+            }
+            intent = {
+                "schema": d1.RESULT_SCHEMA,
+                "ordinal": 1,
+                "handoff_dispatch_count_max": 1,
+            }
+            detail = {
+                "schema": d1.RESULT_SCHEMA,
+                "ordinal": 1,
+                "handoff_dispatch_count": 1,
+                "resident_healthy": True,
+                "observation": observation,
+            }
+            outcome_value = d1._action_outcome_value(
+                1,
+                engine.SessionActionResult(
+                    engine.SessionActionStatus.PROVED,
+                    True,
+                    postflight=safe,
+                ),
+            )
+            write_private(action_dir / "handoff-intent.json", intent)
+            write_private(action_dir / "observation.json", observation)
+            write_private(action_dir / "result.json", detail)
+            write_private(action_dir / "engine-outcome.json", outcome_value)
+            with mock.patch.object(d1, "PRIVATE_ROOT", root.resolve()):
+                d1._append_record(
+                    spec,
+                    transaction,
+                    "session-open",
+                    self.session_open_record(spec),
+                    expected_sequence=0,
+                )
+                d1._append_record(
+                    spec,
+                    transaction,
+                    "action-001-intent",
+                    {"ordinal": 1},
+                    expected_sequence=1,
+                )
+                outcome_evidence = d1._bound_file(
+                    action_dir / "engine-outcome.json",
+                    private=True,
+                )
+                d1._append_record(
+                    spec,
+                    transaction,
+                    "action-001-result",
+                    {
+                        "snapshot": snapshot,
+                        "outcome": snapshot["action_results"][-1],
+                        "outcome_evidence": d1._as_dict(outcome_evidence),
+                        "now_epoch_sec": 2_000_000_001,
+                    },
+                    expected_sequence=2,
+                )
+                with self.assertRaisesRegex(d1.ContractError, "attended operator"):
+                    d1.record_visible_confirmation(
+                        spec,
+                        transaction_dir=transaction,
+                        ordinal=1,
+                        visible_confirmed="yes",
+                        operator_attended=False,
+                    )
+                receipt = d1.record_visible_confirmation(
+                    spec,
+                    transaction_dir=transaction,
+                    ordinal=1,
+                    visible_confirmed="yes",
+                    operator_attended=True,
+                )
+                with self.assertRaisesRegex(d1.ContractError, "already exists"):
+                    d1.record_visible_confirmation(
+                        spec,
+                        transaction_dir=transaction,
+                        ordinal=1,
+                        visible_confirmed="no",
+                        operator_attended=True,
+                    )
+            receipt_path = action_dir / "display-visible-confirmation.json"
+            self.assertTrue(receipt["display_visibility_proved"])
+            self.assertFalse(receipt["display_visibility_refuted"])
+            self.assertFalse(receipt["device_contact"])
+            self.assertFalse(receipt["device_effect"])
+            self.assertEqual(receipt_path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(receipt["evidence"]["observation"]["sha256"], digest(action_dir / "observation.json"))
+
     def test_session_consumes_approval_once_and_resumes_without_replay(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
