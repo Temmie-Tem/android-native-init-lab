@@ -1,0 +1,349 @@
+{
+  "authority": {
+    "candidate_or_rollback_transfer_authorized": false,
+    "device_contact_authorized": false,
+    "f1_armed": false,
+    "live_authority_created": false,
+    "review_qualifies_capability_not_run": true,
+    "trial_policy_adds_per_candidate_approval": false
+  },
+  "bindings": {
+    "artifacts": {
+      "allowed_partition": "boot",
+      "candidate_ap": {
+        "member": {
+          "name": "boot.img.lz4",
+          "sha256": "52ad6eb430cc0611b87343355ea03c7a8480642656c4d9497190d8b1a55ec10e",
+          "size": 27089871
+        },
+        "member_count": 1,
+        "path": "workspace/private/outputs/s22plus_fyg8_p296/candidate-a/odin4/AP.tar.md5",
+        "sha256": "6f920588d2382e3639a6a14d2d8529cc68a72e1615d8b8b0aa0b1defd7becc17",
+        "size": 27095081
+      },
+      "rollback_ap": {
+        "member": {
+          "name": "boot.img.lz4",
+          "sha256": "b33b63d9d2c56cbe10170820e88cf136be8fe9ad621a21752da19fdd9b642d31",
+          "size": 23356145
+        },
+        "member_count": 1,
+        "path": "workspace/private/outputs/s22plus_magisk_root_boot_only/AP.tar.md5",
+        "sha256": "d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56",
+        "size": 23367721
+      }
+    },
+    "commit": {
+      "full_commit_diff_sha256": "d1688045bdc321442a71b361447f81318f617f12076b558652860130b990fc17",
+      "parent": "8621db2caebc800c3b9c898330fe56f51224598f",
+      "review_request_diff_sha256": "91ef5ce940b84c1b5ec51c49fcc5809eed330df0af3a93f2068bc9610162025a",
+      "review_request_sha256": "6a8bf0c921232c8c9e9182e8e03ce0d8b26efb7182249bb6f98aeb2342320cd6",
+      "reviewed": "4a3cef32a48d1e433a29d5980404ec87b9342c7a"
+    },
+    "connected_d0_reopened_host_only": {
+      "baseline_clean": true,
+      "bundle_sha256": "02f4bef2da0670e8824cb6973fe6c632bd1d6f025d4a199c1c26bc17d74b7b5b",
+      "exact_marker_count": 0,
+      "marker_family_count": 0,
+      "observer_bytes": 2097136,
+      "private_result": {
+        "path": "workspace/private/runs/device-action-d0-v2/p296-ready1-d0-20260803-2/result.json",
+        "sha256": "b69ad08fbf04595553acb60096d08debb36a221df4c62c35c196e50971e3eb6c",
+        "size": 2931
+      },
+      "verdict": "PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY"
+    },
+    "execution_critical_sources": {
+      "bundle_execution_source_count": 207,
+      "bundle_execution_sources_canonical_sha256": "e144140717654729f63552764c0ef893fda246c635b585221872b2c4b1b792c6",
+      "changed_source_keys": [],
+      "live_closure": {
+        "normalized_source_receipts_canonical_sha256": "46dc140e21266a1d8d73754cb1572d6bd614014bbf8e0fa9379b26e599eb3bc3",
+        "runtime_sha256": "6ad86d50aa310af14706b59ac2631c4941054c369a7a3ab41b305bd988808a7d",
+        "schema": "device_action_f1_execution_closure_v2",
+        "sources": {
+          "adapter": {
+            "path": "workspace/public/src/scripts/revalidation/device_action_f1_live_v2.py",
+            "sha256": "4d7d6b6680bf26b91a100d00f1026da129180912daa51661277ba8d255217f75",
+            "size": 86834
+          },
+          "cdc_acm_observer": {
+            "path": "workspace/public/src/scripts/revalidation/device_action_cdc_acm_observer_v1.py",
+            "sha256": "6c8a6d2151928d2e098ca41b3c9dc24cdbbfabe9be10df19969be274744ef9a9",
+            "size": 51402
+          },
+          "checkpoint_decoder": {
+            "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_r4w1e_checkpoint_contract.py",
+            "sha256": "ce7d39edf248ff7b1e9d276d4d6b05b6c5f9bd3cdeca18b1c6e49215064efc6d",
+            "size": 38609
+          },
+          "d0_adapter": {
+            "path": "workspace/public/src/scripts/revalidation/device_action_d0_v2.py",
+            "sha256": "be737af0b1ca90c393dc413c63f885aa8b5d018f9aa3adbec3425296d96e0115",
+            "size": 29999
+          },
+          "f1_core": {
+            "path": "workspace/public/src/scripts/revalidation/device_action_f1_v2.py",
+            "sha256": "6907fdad3c06139a9288c52376cf1a44af34f4af246a531d0232c370cd0c1949",
+            "size": 51373
+          },
+          "live_core": {
+            "path": "workspace/public/src/scripts/revalidation/s22plus_boot_only_live_core.py",
+            "sha256": "9bcade2532e77d538112836ebe9903bab832c1f2250151d3635260b6fd013725",
+            "size": 12524
+          },
+          "odin_transition_core": {
+            "path": "workspace/public/src/scripts/revalidation/s22plus_odin_transition_core.py",
+            "sha256": "e77bd24d045ac30a8d46ab3c333b2cd544a8a2dbb883e76e4739385e6eb68919",
+            "size": 67198
+          },
+          "regular_path_transport": {
+            "path": "workspace/public/src/scripts/revalidation/s22plus_boot_only_f1_transport.py",
+            "sha256": "7cf81759bc1d01e596f86129952227c3da3c778073ae78ad07ad9318e625c52f",
+            "size": 9923
+          },
+          "typed_evidence": {
+            "path": "workspace/public/src/scripts/revalidation/device_action_f1_evidence_v2.py",
+            "sha256": "dd4e2aa7cccbd620f6e51db26ee1ff061952c6c46911b6c3eb3bb92bfd7eb6c9",
+            "size": 97078
+          },
+          "usbfs_identity": {
+            "path": "workspace/public/src/scripts/revalidation/s22plus_odin_usbfs_identity.py",
+            "sha256": "59633c4b172f051abd4d5b038412fab2126139a7060a43b5862b61ea11386378",
+            "size": 24609
+          }
+        }
+      },
+      "payload_identity": "fb80fb3d3309c570798339dd14615321e3f65e4c5a5565b219566c54c5ac6cff",
+      "qualification_identity": "b9c39c554cdfd7889d68f49caea20c590408cea94582c31532b6a30996ed6104",
+      "source_contract_id": "s22plus-fyg8-p296-builtin-dwc3-telemetry-v1",
+      "source_receipts": {
+        "count": 113,
+        "receipt_set_canonical_sha256": "efe2058a048de35533f61404e76aff448a340d07a17f8bcced97f40c7a66b2f4"
+      },
+      "tiers": {
+        "tier1": {
+          "count": 113,
+          "receipt_set_canonical_sha256": "efe2058a048de35533f61404e76aff448a340d07a17f8bcced97f40c7a66b2f4"
+        },
+        "tier2": {
+          "count": 80,
+          "receipt_set_canonical_sha256": "387781971c6bdae452083e97d3fe2998830bcc6033a80f968e35444c34604713"
+        },
+        "tier3": {
+          "count": 3,
+          "receipt_set_canonical_sha256": "5813ee3b437e5794a97a8d294b19168f01a5cb3d87fa09ba80c9915791c38839"
+        }
+      }
+    },
+    "manifest": {
+      "candidate_run_id": "f58d467d0dd3709fe61b969506496037",
+      "manifest_id": "s22plus-fyg8-p296-process-v2-ready-1",
+      "path": "workspace/public/src/device-action/manifests/s22plus_fyg8_p296_process_v2_ready_1.json",
+      "runner_version": "device-action-f1-v2-host-core-3",
+      "sha256": "9091b6ea1aaeb82e3d8044351416e553fcbac5e80d14f3174d077ca6771f9475",
+      "size": 2635,
+      "status": "ready-for-f1-approval",
+      "validated_bundle_sha256": "02f4bef2da0670e8824cb6973fe6c632bd1d6f025d4a199c1c26bc17d74b7b5b"
+    },
+    "policy_context": {
+      "common_contract": {
+        "contract_revision": 2,
+        "path": "AGENTS.md",
+        "sha256": "939792d4d9b542d334af2bc3e5f5495b7ca61d717872f3463effcdf23d3453ae",
+        "size": 13903,
+        "trial_status": "ACTIVE"
+      },
+      "current_goal": {
+        "authority_source": false,
+        "path": "GOAL.md",
+        "sha256": "bb6791ebd501b1a1837589941335e91d316e98c8a56e3a5ac67dac20e6f1a81a",
+        "size": 6485
+      },
+      "process": {
+        "path": "docs/operations/DEVICE_ACTION_PROCESS_V2.md",
+        "sha256": "9b61af3ef7ee6f82f529dc18a21946eff3e4fa92597448f11f8aa738c93523c0",
+        "size": 21280
+      },
+      "target_contract": {
+        "path": "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md",
+        "sha256": "03c9e6303fccc1d54c22ed6d03d5aa31bcbfb2032fe28bb5fd24928664a3c03a",
+        "size": 9895
+      },
+      "target_profile": {
+        "path": "workspace/public/src/device-action/profiles/s22plus_fyg8.json",
+        "sha256": "7afa7b690b71eabca14c99e83efc55bdb453256bcd40f7ccdf5d41bed78d6c28",
+        "size": 2285
+      }
+    },
+    "reviewed_commit_files": {
+      "tests/test_device_action_f1_evidence_v2.py": {
+        "sha256": "c43e38a512ec0aa94d4f18af0547edae9aeda35841b91762ebc1ff4b4e5a28f3",
+        "size": 29668
+      },
+      "tests/test_prepare_s22plus_fyg8_p296_process_v2.py": {
+        "sha256": "edba7991c8d6331cbaa1e6a13f40f14f77c99fe915b87583abf4453b6653a15e",
+        "size": 4294
+      },
+      "tests/test_prepare_s22plus_fyg8_p296_ready_manifest.py": {
+        "sha256": "131b0f0f246dc8ffa9e958c714e8ecd86b619d69e35b04810a3588b288b72d79",
+        "size": 4540
+      },
+      "workspace/public/src/device-action/manifests/s22plus_fyg8_p296_process_v2_ready_1.json": {
+        "sha256": "9091b6ea1aaeb82e3d8044351416e553fcbac5e80d14f3174d077ca6771f9475",
+        "size": 2635
+      },
+      "workspace/public/src/scripts/revalidation/device_action_f1_evidence_v2.py": {
+        "sha256": "dd4e2aa7cccbd620f6e51db26ee1ff061952c6c46911b6c3eb3bb92bfd7eb6c9",
+        "size": 97078
+      },
+      "workspace/public/src/scripts/revalidation/device_action_f1_v2.py": {
+        "sha256": "6907fdad3c06139a9288c52376cf1a44af34f4af246a531d0232c370cd0c1949",
+        "size": 51373
+      },
+      "workspace/public/src/scripts/revalidation/prepare_s22plus_fyg8_p296_process_v2.py": {
+        "sha256": "d3fa0ec4a0f1284da7078efddc36f5e1494f487df466c78be56fb13049a3f211",
+        "size": 1446
+      },
+      "workspace/public/src/scripts/revalidation/prepare_s22plus_fyg8_p296_ready_manifest.py": {
+        "sha256": "a7c952b4af977d5b994c23d2895f980ee80996462a2a78d9452a399c32af1d9f",
+        "size": 2409
+      },
+      "workspace/public/src/scripts/revalidation/s22plus_fyg8_p296_candidate_static_checker.py": {
+        "sha256": "fdaa97122c03881d9c4ed9494bdf7ee99d3642f4981364ee29369303a385a6be",
+        "size": 4980
+      },
+      "workspace/public/src/scripts/revalidation/s22plus_fyg8_p296_postbuild_linked_audit.py": {
+        "sha256": "26066e454d06df6c96e43121862408e4ac4827666fb2f1886ebfef0573269659",
+        "size": 10515
+      }
+    }
+  },
+  "independence": {
+    "implementation_authorship": false,
+    "review_scope_was_host_only": true,
+    "reviewer": "independent delegated Codex reviewer",
+    "reviewer_did_not_rely_on_implementation_verdicts_as_final_authority": true,
+    "reviewer_did_not_run_or_prepare_a_live_transaction": true
+  },
+  "non_blocking_notes": [
+    {
+      "blocking": false,
+      "classification": "historical_foreign_target_freeze_case_outside_current_execution_closure",
+      "note": "The known pre-intent foreign-target freeze test is intentionally excluded because later foreign-target history differs from its frozen HEAD. It fails closed and no foreign-target uncommitted file content was inspected or altered."
+    },
+    {
+      "blocking": false,
+      "classification": "host_test_process_global_adapter_ordering",
+      "note": "Importing the P2.96 manifest adapter and then a historical manifest builder in one shared Python interpreter leaves the inherited host-only builder configured for P2.96 and makes the historical fixture reject. Each production CLI starts a fresh process; the standalone D0 suite passes 17 of 17, and the observed cross-order behavior is fail closed rather than unsafe acceptance."
+    }
+  ],
+  "policy_interpretation": {
+    "f1_attendance_required": true,
+    "legacy_immutable_binding_remains_an_implementation_constraint": true,
+    "missing_or_late_observation_parks_or_enters_exact_recovery_without_candidate_replay": true,
+    "revision_2_fast_loop_supersedes_process_v2_per_candidate_policy_approval": true,
+    "rollback_and_final_healthy_barrier_remain_mandatory": true
+  },
+  "reviewed_at_utc": "2026-08-03T09:26:09Z",
+  "safety_findings": {
+    "boot_only_archive_membership": "PASS",
+    "changed_or_missing_rollback_rejection": "PASS",
+    "clean_baseline_and_retained_evidence_integrity": "PASS",
+    "durable_append_only_journal": "PASS",
+    "final_health_required_for_pass": "PASS",
+    "host_failure_and_device_session_separation": "PASS",
+    "no_candidate_replay_on_recovery": "PASS",
+    "p296_builtin_only_delivery_and_external_module_exclusion": "PASS",
+    "p296_source_preimage_and_stage_c_binding": "PASS",
+    "private_evidence_boundaries": "PASS",
+    "rollback_resume_without_retransmitting_durable_success": "PASS",
+    "target_identity_and_ambiguity_rejection": "PASS"
+  },
+  "schema": "s22plus_fyg8_p296_execution_critical_independent_review_v1",
+  "target": {
+    "device": "g0q",
+    "firmware": "S906NKSS7FYG8",
+    "model": "SM-S906N",
+    "target_line": "S22PLUS_FYG8"
+  },
+  "validation": {
+    "focused_tests": [
+      {
+        "count": 62,
+        "result": "PASS",
+        "scope": "P2.96 registration, core bundle, typed evidence, promotion, ready manifest, and contract except the explicitly excluded historical foreign-target freeze case"
+      },
+      {
+        "count": 17,
+        "result": "PASS",
+        "scope": "D0 exact-target, ambiguity, clean-baseline, raw-evidence reopen, and no-authority semantics"
+      },
+      {
+        "count": 45,
+        "result": "PASS",
+        "scope": "live F1 journal, observation, rollback, no-replay, resume, final-health, and verdict semantics with mock backends"
+      },
+      {
+        "count": 163,
+        "result": "PASS",
+        "scope": "regular-path boot-only transport, live core, USBFS identity, Odin transition, and CDC ACM observer"
+      }
+    ],
+    "host_only_cli_gates": [
+      "PASS_DEVICE_ACTION_F1_V2_HOST_PREFLIGHT",
+      "PASS_DEVICE_ACTION_F1_LIVE_V2_HOST_READY",
+      "PASS_DEVICE_ACTION_D0_V2_OFFLINE_READY"
+    ],
+    "independent_recomputations": [
+      "review request SHA256 matched",
+      "review-request five-file diff SHA256 matched",
+      "full ten-file commit diff SHA256 recomputed",
+      "manifest and validated bundle SHA256 matched",
+      "207-entry execution-critical source receipt map recomputed",
+      "10-source live execution closure recomputed",
+      "113 of 113 source receipts matched immutable intent with CHANGED_KEYS empty",
+      "candidate and rollback each parsed as exactly one regular boot.img.lz4 member",
+      "connected D0 result and raw observer reopened and revalidated host-only"
+    ],
+    "total_passing_tests": 287
+  },
+  "verdict": "PASS_GO",
+  "verdict_scope": "P2.96 downstream registration and unchanged Process-v2 execution-critical capability under the named hashes",
+  "zero_effect_review_flags": {
+    "adb_invoked": false,
+    "a90_uncommitted_file_content_inspected": false,
+    "a90_uncommitted_files_altered": false,
+    "device_contact": false,
+    "device_write": false,
+    "execute_invoked": false,
+    "f1_prepare_invoked": false,
+    "odin_invoked": false,
+    "partition_transfer": false,
+    "recover_invoked": false,
+    "usb_inventory_invoked": false
+  },
+  "reuse_and_retirement": {
+    "capability_reuse": "The PASS_GO capability review may be reused while the reviewed execution-critical code and policy interaction hashes remain unchanged and no new hazard or incident occurs.",
+    "exact_handoff_binding": "This ready-1 handoff remains exact only while the manifest, validated bundle, candidate, rollback, source receipt set, and connected D0 binding all match the hashes in this receipt.",
+    "fresh_live_requirements": [
+      "current exact S22+ target identity and attended presence predicate",
+      "exact hash-bound rollback and demonstrated physical Download recovery",
+      "fresh compatible prepared binding required by the current legacy runner",
+      "new durable transaction journal with no other F1-armed target",
+      "inter-effect HEALTHY barrier and final exact FYG8 Magisk health"
+    ],
+    "invalidated_by": [
+      "any named execution-critical source or policy-context hash change",
+      "manifest schema, target profile, transport, archive, journal, recovery, observer, or final-health semantic change",
+      "new execution hazard or device-safety incident",
+      "candidate, rollback, manifest, bundle, or source receipt mismatch for this exact handoff",
+      "trial retirement or contract change without re-evaluating the current authority interaction"
+    ],
+    "review_does_not_replace": [
+      "fresh artifact and manifest validation",
+      "fresh exact D0 or compatible prepared binding",
+      "attendance, target isolation, rollback availability, recovery, no-replay, or final-health checks"
+    ]
+  }
+}
