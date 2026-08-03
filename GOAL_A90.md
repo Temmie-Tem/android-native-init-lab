@@ -159,8 +159,10 @@ transfer between the two files.
   Debian PID1, key-only SSH, exact Phase3 service ownership, direct DRM master
   and `SETCRTC`, automatic native return, cleanup, immutable source, and final
   V3406 health. The same retained-pmsg warning was non-safety; physical display
-  visibility remains awaiting the attended operator answer. Handoff dispatch
-  was one and replay, payload, partition write, flash, and rollback were zero.
+  visibility was subsequently bound to ordinal 1 from the attended operator's
+  `DISPLAY OWNER DEBIAN` observation, so both mechanical and visible display
+  proof are exact. Handoff dispatch was one and replay, payload, partition
+  write, flash, and rollback were zero.
 
 `docs/reports/A90_D1_FAST_LOOP_V2_H0_2026-08-02.md`
 
