@@ -1,0 +1,250 @@
+{
+  "schema": "a90-phase3-inert-doom-boundary-independent-review-v1",
+  "status": "PASS_GO",
+  "decision": "PASS_GO",
+  "review_date": "2026-08-03",
+  "reviewed_worktree_base_commit": "aeec3b9ae4478e638493f441bd668038295b73a8",
+  "reviewed_worktree_base_tree": "2e5aa988183f51efff8942d34620f0b8f49db809",
+  "target": "Samsung Galaxy A90 5G",
+  "capability": "exact nine-entry inert Doom bridge API boundary",
+  "risk_tier": "H0",
+  "candidate_authority": false,
+  "device_authority_granted": false,
+  "device_contact": false,
+  "payload_transfer": false,
+  "partition_write": false,
+  "flash": false,
+  "network_contact": false,
+  "other_target_touched": false,
+  "scope_boundary": {
+    "qualified": [
+      "the exact nine-entry a90_doomgeneric_bridge API implementation selected by the reviewed fixture",
+      "fully initialized safe outputs for every non-null output pointer",
+      "non-null diagnostic string fields and zero or false inactive status values",
+      "deterministic -ENOTSUP from every operational integer API",
+      "zero file, socket, process, payload, partition, or device effect inside the bridge API boundary"
+    ],
+    "not_qualified": [
+      "global inertness of inherited Doom menu, HUD, doompad, video, audio, or command code",
+      "caller-side effects that occur before entering or after returning from the bridge API",
+      "a boot candidate, device qualification, live runner binding, D0, D1, or F1 authority",
+      "removal of the inherited bridge callsites or the inert object itself"
+    ]
+  },
+  "capability_execution_critical_closure": {
+    "source_keys": {
+      "inert_implementation": {
+        "path": "workspace/public/src/native-init/a90_doomgeneric_bridge_inert.c",
+        "size": 3669,
+        "sha256": "9b264b5a83150befa3d7074e01d0bff0f3a163b550e52e4563c43289921609aa"
+      },
+      "bridge_api_and_output_layout": {
+        "path": "workspace/public/src/native-init/a90_doomgeneric_bridge.h",
+        "size": 4096,
+        "sha256": "998d08b1719e97a63fd0b51c7ef91d00df5d6711ab7bd20978bd85746affb13c"
+      },
+      "run_result_layout": {
+        "path": "workspace/public/src/native-init/a90_run.h",
+        "size": 1376,
+        "sha256": "65df6cb3050d0501f2242fe021811a47bd03a2fd3fc5b623b9ac78c6dfc7b88f"
+      },
+      "cancel_result_layout": {
+        "path": "workspace/public/src/native-init/a90_console.h",
+        "size": 872,
+        "sha256": "a072462c90ad5fb404f9814bb78402467e80318a61e05410081461a36a0c6be3"
+      }
+    },
+    "api_entry_points": [
+      "a90_doomgeneric_bridge_get_status",
+      "a90_doomgeneric_bridge_probe",
+      "a90_doomgeneric_bridge_verify_wad",
+      "a90_doomgeneric_bridge_play",
+      "a90_doomgeneric_bridge_render_frame",
+      "a90_doomgeneric_bridge_read_frame_render",
+      "a90_doomgeneric_bridge_write_input_state",
+      "a90_doomgeneric_bridge_send_input_socket",
+      "a90_doomgeneric_bridge_start_frame_loop_helper"
+    ],
+    "capability_semantics": [
+      "get_status accepts a null output and otherwise zero-initializes the complete structure before assigning all thirteen string pointers to immutable non-null strings",
+      "probe, play, and render_frame accept null outputs and otherwise return pid -1, rc -ENOTSUP, saved_errno ENOTSUP, zero status and duration, timed_out false, and CANCEL_NONE",
+      "verify_wad, play, render_frame, and start_frame_loop_helper accept null outputs and otherwise return an empty non-null path, the caller expected hash or an empty non-null string, stat_errno ENOTSUP, empty arrays, zero sizes, and false validation booleans",
+      "render_frame and read_frame_render accept null outputs and otherwise return an empty non-null path, stat_errno ENOTSUP, zero geometry and timestamps, and false validation booleans",
+      "write_input_state and send_input_socket ignore both null and non-null input without writing a file or creating or sending on a socket",
+      "start_frame_loop_helper never creates a process and sets a non-null pid output to -1",
+      "every operational integer entry point returns -ENOTSUP for all argument values without changing errno",
+      "the implementation contains no file, socket, process, payload, partition, device, or raw syscall path"
+    ]
+  },
+  "reviewed_fixture": {
+    "profile": "phase3-minimal-b-inert-doom-surface",
+    "manifest": {
+      "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-b/manifest.toml",
+      "size": 5154,
+      "sha256": "106803162f66fcfaee8eae8ce9746415ec1842f98a3c65922a209736cddbe770",
+      "effective_sha256": "525927315f2d0efe06affe17a7852a4df66dba3147e1bc493319df64c97078b0"
+    },
+    "native_init_closure_sha256": "65c4d666f6e833bf15904a2844e71ec7e5842245a4b88b2d43ccd631c719339a",
+    "candidate_authority": false,
+    "engine_enabled": false,
+    "init_source_count": 60,
+    "init_cflag_count": 37,
+    "operational_bridge_selected": false,
+    "inert_bridge_selected": true,
+    "selection_delta_from_phase3_minimal_a": {
+      "removed_source": "a90_doomgeneric_bridge.c",
+      "added_source": "a90_doomgeneric_bridge_inert.c",
+      "other_source_selection_changed": false,
+      "non_identity_cflag_changed": false,
+      "engine_contract_changed": false,
+      "immutable_external_input_pins_changed": false,
+      "native_init_closure_changed": true
+    },
+    "qualification": {
+      "path": "docs/reports/A90_PHASE3_MINIMAL_B_INERT_DOOM_QUALIFICATION_2026-08-03.json",
+      "size": 4066,
+      "sha256": "54424bfce4fa6ce7ba58cd5a4ce5a598fe976314a5db7224dd862bdad28740d6",
+      "decision": "PASS_API_BOUNDARY_ONLY_NO_DEVICE_AUTHORITY"
+    },
+    "focused_test": {
+      "path": "workspace/public/src/scripts/revalidation/test_a90_flat_builder.py",
+      "size": 24408,
+      "sha256": "18dfe7c81510e9444b1e5de58b0b5bf73ff2573ecd59fdd7393ba4dc8d837b8d"
+    }
+  },
+  "effect_and_abi_review": {
+    "source_manual_review": "PASS",
+    "all_null_and_non_null_output_permutations_host_harness": "PASS",
+    "errno_preserved_by_all_operational_calls": true,
+    "cross_compiled_object": {
+      "path": "workspace/private/outputs/a90-phase3-minimal-b-ab-20260803-01/A/build/obj/init/022_a90_doomgeneric_bridge_inert.o",
+      "bytes": 3472,
+      "sha256": "68f545f215c2dafc1b3a42c017b8b52fc87ed50c6480f7e6798851758736ca46",
+      "global_defined_api_symbols": 9,
+      "undefined_symbols": 0,
+      "external_call_relocations": 0,
+      "svc_hvc_smc_instructions": 0,
+      "a_b_byte_identical": true
+    },
+    "full_init_caller_linkage": {
+      "unique_undefined_bridge_symbols": 9,
+      "bridge_call_relocations": 15,
+      "all_symbols_satisfied_by_inert_object": true
+    }
+  },
+  "current_caller_compatibility": {
+    "diagnostic_status_callers_receive_non_null_strings": true,
+    "doompad_file_and_socket_mirror_calls_receive_negative_enotsup_without_bridge_effect": true,
+    "verify_play_frame_and_probe_callers_receive_initialized failure outputs": true,
+    "frame_presentation_is_guarded_by_zero_return_and_ok": true,
+    "foreground_visible_loop_returns_on_helper_negative_enotsup_before its presenter loop": true,
+    "globally_inert_callers_qualified": false,
+    "out_of_scope_residual": {
+      "path": "video demo doom loop-start",
+      "behavior": "the inherited caller forks before the child invokes start_frame_loop_helper, and the parent can record an audio start",
+      "judgment": "this pre-API and caller-side behavior is not covered by PASS_GO and must be blocked or removed in the next H0 caller-removal slice before claiming command-level inertness"
+    }
+  },
+  "fresh_private_evidence": {
+    "root": "workspace/private/outputs/a90-phase3-minimal-b-ab-20260803-01",
+    "ab_receipt": {
+      "path": "workspace/private/outputs/a90-phase3-minimal-b-ab-20260803-01/ab-receipt.json",
+      "size": 3280,
+      "sha256": "b1314fb68c70a2ae685e868aa3dc06977c78ba31f6bbfe5a9be22bed4560db97"
+    },
+    "a_receipt": {
+      "path": "workspace/private/outputs/a90-phase3-minimal-b-ab-20260803-01/A/receipt.json",
+      "size": 3334,
+      "sha256": "46b402402ee6567c7907be30b897b0b2dfed3c13b3b91894c017fbb565ccec06"
+    },
+    "b_receipt": {
+      "path": "workspace/private/outputs/a90-phase3-minimal-b-ab-20260803-01/B/receipt.json",
+      "size": 3334,
+      "sha256": "46b402402ee6567c7907be30b897b0b2dfed3c13b3b91894c017fbb565ccec06"
+    },
+    "a_b_declared_artifacts_byte_identical": true,
+    "accepted_boot_unchanged": true,
+    "artifacts": {
+      "boot": {
+        "bytes": 61505536,
+        "sha256": "f77dd332ed1ab3c6301fc9dfb6765cb6e91ca5339611890a2621687dde82db90"
+      },
+      "ramdisk": {
+        "bytes": 11673088,
+        "sha256": "234eb7ac203cdd578f4b442f4b98ff0f7581e5a76789a87f398965127e047e57"
+      },
+      "init": {
+        "bytes": 1789712,
+        "sha256": "8d88798e6c4e359b88760b8a47293ea14c2e4868c29f86382c8ac42f3dc38646"
+      },
+      "helper": {
+        "bytes": 1649904,
+        "sha256": "fa395d3ecb6944a57487f3966948a634596157e4de3fdc39575a2fc502d1ceef"
+      }
+    },
+    "input_pins": {
+      "accepted_boot_sha256": "0a8827aeb46e2fb2cdf1e7cf7320626b4b3a43fcdbbff2024d92dcbc088e83d3",
+      "base_boot_sha256": "2b2b458b4f021825e0567c239ef86996d482a7b55baccc4e4a8cd9e670a2e2b9",
+      "helper_source_sha256": "d71446bb9073362fa75a263ce7bf20b4eea0279f12f3f494610b4a08346ab635",
+      "mkbootimg_sha256": "37d84b3d162e0bc62e36c1f4e1c63c85ea0caa9f29be023eb2f8efe006ad948c",
+      "unpack_bootimg_sha256": "a9d260978a63bd06a24b6347e7dee8a28ff96639793caea15dff6aa491316308"
+    },
+    "external_cpio_member_count_each": 33,
+    "required_entries_present_each": true,
+    "doom_engine_family_member_count_each": 0
+  },
+  "switchroot_display_ssh_recovery_interaction": {
+    "source_selection_change_is_one_for_one_bridge_replacement": true,
+    "switch_root_and_resident_return_sources_changed": false,
+    "display_kms_sources_changed": false,
+    "usb_ncm_and_ssh_service_sources_changed": false,
+    "recovery_service_sources_changed": false,
+    "key_cross_compiled_objects_identical_to_phase3_minimal_a": [
+      "a90_server_distro.o",
+      "a90_kms.o",
+      "a90_netservice.o",
+      "a90_usb_gadget.o",
+      "a90_service.o",
+      "a90_runtime.o"
+    ],
+    "required_display_and_release_markers_present_in_init": true,
+    "device_behavior_claim": "no live switch_root, display, SSH, return, or recovery claim is added by this H0 review"
+  },
+  "validation": {
+    "focused_flat_builder_tests": "24/24 PASS",
+    "focused_test_py_compile": "PASS",
+    "host_api_semantics_harness": "PASS",
+    "cross_object_symbol_and_instruction_audit": "PASS",
+    "manifest_selection_and_input_revalidation": "PASS",
+    "artifact_hash_and_a_b_comparison": "PASS",
+    "external_archive_listing": "PASS",
+    "git_diff_check": "PASS",
+    "private_artifacts_untracked_and_ignored": true
+  },
+  "unresolved_findings": {
+    "critical": [],
+    "high": [],
+    "medium": [],
+    "low": []
+  },
+  "reuse": {
+    "qualification_kind": "capability",
+    "reusable_across": [
+      "manifests",
+      "qualifications",
+      "ordinals",
+      "campaigns"
+    ],
+    "fresh_qualification_and_any_live_runner_binding_still_required": true,
+    "reviewed_manifest_artifacts_input_pins_and_callers_are_evidence_fixture_not_capability_retirement_keys": true,
+    "ordinary_manifest_input_artifact_candidate_or_campaign_change_requires_new_capability_review": false,
+    "ordinary_manifest_input_artifact_candidate_or_campaign_change_requires_fresh_qualification": true,
+    "valid_while": "The exact bound inert implementation, bridge API, output layouts, and named semantics remain unchanged and no new hazard or incident occurs.",
+    "retirement_triggers": [
+      "any bound inert implementation, bridge API, run-result layout, or cancel-result layout path, size, or SHA256 changes",
+      "any named non-null output, deterministic -ENOTSUP, errno-preservation, or zero-effect semantic changes",
+      "a new hazard or incident occurs"
+    ],
+    "caller_change_rule": "A normal caller or manifest change does not retire this API capability review by itself, but any new hazard or incident exposed at the API boundary does. Caller-side global inertness remains outside this PASS_GO."
+  }
+}

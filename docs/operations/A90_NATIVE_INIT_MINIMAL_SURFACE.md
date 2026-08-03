@@ -1,6 +1,6 @@
 # A90 native-init minimal surface
 
-Status: `H0_PHASE3_MINIMAL_A_CAPABILITY_PASS_GO`
+Status: `H0_PHASE3_MINIMAL_B_API_CAPABILITY_PASS_GO`
 
 Date: 2026-08-03
 
@@ -74,6 +74,38 @@ remains reusable across manifests, qualifications, ordinals, and campaigns only
 until a bound execution-critical closure changes or a new hazard or incident
 occurs. Any later F1 still requires fresh qualification and attended authority.
 
+## Phase3 minimal-B inert bridge API boundary
+
+The next no-authority profile replaces `a90_doomgeneric_bridge.c` in the
+selected init sources with `a90_doomgeneric_bridge_inert.c`. The inert module
+keeps the nine existing bridge ABI entry points temporarily, supplies
+non-null diagnostic strings, and returns `-ENOTSUP` for every operational
+request. The module itself opens no file, starts no process, creates no socket,
+and sends no input. This contains the bridge implementation without pretending
+the inherited menu/HUD callsites are already removed.
+
+Independent review found one essential scope limit: `video demo doom
+loop-start` can fork before its child reaches the inert helper API, and the
+parent can record an audio start. Therefore minimal-B qualifies only the exact
+bridge API boundary; it does not claim that every inherited Doom command is
+globally inert. The next slice must block or delete those entry points before
+any caller-side effect.
+
+The fresh private A/B build is byte-identical and retains all permanent input
+pins. Independent `newc` parsing again found 33 members, the three required
+entries, and zero Doom engine-family member. The full bridge object was 14,016
+bytes and had file, helper, process, and socket dependencies; the inert object
+is 3,472 bytes with zero undefined symbols. The stripped init remains
+1,789,712 bytes because the boot layout is alignment-stable, but its SHA256
+changed with the behavior boundary.
+
+This is still H0 only: `candidate_authority=false`, no device was contacted,
+and no payload, partition write, or flash occurred. The builder capability
+closure is unchanged and retains its reusable `PASS_GO`. Independent review of
+the exact nine-entry inert bridge API also returned scoped, capability-wide
+`PASS_GO`; caller-side global inertness is explicitly outside that receipt. Any
+later boot use remains attended F1 with a fresh exact qualification and binding.
+
 ## Object-symbol reachability inventory
 
 A read-only comparison of the deterministic phase2 and minimal-A unstripped
@@ -91,9 +123,20 @@ init objects found the same link-level graph in both profiles:
 Only four object sizes changed after removing the 47 Doom-only flags:
 `init_v724.o` decreased by 29,680 bytes, `a90_doomgeneric_bridge.o` by 440
 bytes, and `a90_longsoak.o` and `a90_wififeas.o` by 8 bytes each. The bridge
-still satisfies nine direct undefined references from `init_v724.o`:
+still satisfies nine direct undefined symbols from `init_v724.o`:
 status, probe, WAD verification, play, frame rendering and reading, input file
 and socket writes, and frame-loop helper launch.
+
+In minimal-B those same nine incoming references terminate at the inert
+boundary. That object has no outgoing undefined reference, so the operational
+bridge's helper, file, process, and socket dependency edges are gone. The
+remaining 15 call relocations are now the exact next deletion surface;
+removing them will allow the inert object itself to leave the profile.
+
+The repeated graph calculation keeps all 60 objects reachable but reduces
+internal object edges from 267 to 265 by removing the bridge-to-helper and
+bridge-to-run edges. The nine symbols correspond to 15 call relocations across
+the Doom menu, doompad command, video status/demo, and visible-loop functions.
 
 This is link-symbol reachability, not runtime necessity proof. It shows why
 deleting a translation unit from the manifest alone fails, but it does not
@@ -144,17 +187,20 @@ minimal profile rather than becoming permanent bridge duties.
 
 ## Next bounded H0 build unit
 
-1. The read-only inventory has frozen and printed/hashed the current
-   flat-builder source keys without editing accepted resident or rollback
-   artifacts.
-2. The no-authority successor profile and deterministic A/B build are complete.
-3. Independent review of the changed flat-builder capability closure is
-   complete with reusable `PASS_GO`.
-4. The object-symbol reachability diff is complete: all 60 units remain in one
-   root-connected graph, so file-only removal is not a valid next step.
-5. Stop at H0. A changed boot candidate requires refreshed qualification,
-   independent review of its changed closure, and attended boot-only F1.
+1. The no-authority minimal-B manifest and deterministic A/B build are
+   complete; accepted resident and rollback artifacts remain unchanged.
+2. The operational Doom bridge is no longer selected. Its inert successor
+   module has no file, socket, process, helper, payload, or device effect.
+3. The reviewed flat-builder source/schema/semantics closure is unchanged, so
+   its capability-wide `PASS_GO` remains reusable.
+4. Independent review of the exact inert bridge API capability is complete
+   with scoped, reusable `PASS_GO`; inherited caller effects are excluded.
+5. Block the inherited Doom entry points before caller-side
+   fork/audio effects, delete the 15 root call relocations, and repeat the link
+   graph so the inert object can leave the source list.
+6. Stop at H0. Any later boot candidate requires fresh qualification and
+   attended boot-only F1.
 
-Focused inventory regression passes `3/3`; flat-builder and Phase 1A regression
-passes `26/26`. `py_compile`, private pin validation, A/B byte comparison,
-archive inspection, and `git diff --check` pass. No device was contacted.
+Focused minimal-B flat-builder regression passes `24/24`. Cross-compilation,
+private pin validation, A/B byte comparison, archive inspection, and artifact
+identity checks pass. No device was contacted for minimal-B.

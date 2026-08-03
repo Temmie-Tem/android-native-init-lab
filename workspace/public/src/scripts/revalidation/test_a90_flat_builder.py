@@ -23,6 +23,9 @@ NOOP_MANIFEST = (
 MINIMAL_MANIFEST = (
     HERE / "a90_flat_builder/versions/phase3-minimal-a/manifest.toml"
 )
+MINIMAL_B_MANIFEST = (
+    HERE / "a90_flat_builder/versions/phase3-minimal-b/manifest.toml"
+)
 
 
 def newc_archive(entries: dict[str, bytes]) -> bytes:
@@ -142,6 +145,40 @@ class A90FlatBuilderTest(unittest.TestCase):
             set(minimal["ramdisk"]["required_entries"]),
         )
 
+    def test_phase3_minimal_b_replaces_operational_doom_bridge(self):
+        minimal = buildlib.resolve_manifest(MINIMAL_B_MANIFEST).data
+        buildlib.validate_component_selection(minimal)
+        self.assertEqual(
+            minimal["profile"],
+            "phase3-minimal-b-inert-doom-surface",
+        )
+        self.assertFalse(minimal["candidate_authority"])
+        self.assertFalse(minimal["engine"]["enabled"])
+        self.assertEqual(len(minimal["init"]["sources"]), 60)
+        self.assertNotIn(
+            "a90_doomgeneric_bridge.c",
+            minimal["init"]["sources"],
+        )
+        self.assertIn(
+            "a90_doomgeneric_bridge_inert.c",
+            minimal["init"]["sources"],
+        )
+        self.assertEqual(len(minimal["init"]["cflags"]), 37)
+        self.assertFalse(
+            any("DOOMGENERIC" in item for item in minimal["init"]["cflags"])
+        )
+        self.assertEqual(minimal["validation"]["engine_strings"], [])
+        self.assertNotIn("engine", build.artifact_names(minimal))
+        inputs = buildlib.validate_inputs(
+            REPO_ROOT,
+            buildlib.resolve_manifest(MINIMAL_B_MANIFEST),
+            minimal,
+        )
+        self.assertEqual(
+            inputs["init_closure_sha256"],
+            minimal["init"]["closure_sha256"],
+        )
+
     def test_disabled_engine_contract_rejects_ramdisk_reachability(self):
         minimal = buildlib.resolve_manifest(MINIMAL_MANIFEST).data
         cases = {
@@ -220,7 +257,7 @@ class A90FlatBuilderTest(unittest.TestCase):
 
         changed = copy.deepcopy(keys)
         changed["flat_builder"]["sha256"] = "0" * 64
-        resolution = buildlib.resolve_manifest(MINIMAL_MANIFEST)
+        resolution = buildlib.resolve_manifest(MINIMAL_B_MANIFEST)
         inputs = buildlib.validate_inputs(
             REPO_ROOT,
             resolution,

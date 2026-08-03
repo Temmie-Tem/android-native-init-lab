@@ -1,0 +1,102 @@
+{
+  "schema": "a90_phase3_minimal_b_inert_doom_qualification_v1",
+  "qualification_date": "2026-08-03",
+  "target": "Samsung Galaxy A90 5G",
+  "risk_tier": "H0",
+  "decision": "PASS_API_BOUNDARY_ONLY_NO_DEVICE_AUTHORITY",
+  "profile": "phase3-minimal-b-inert-doom-surface",
+  "candidate_authority": false,
+  "manifest": {
+    "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-b/manifest.toml",
+    "sha256": "106803162f66fcfaee8eae8ce9746415ec1842f98a3c65922a209736cddbe770",
+    "effective_sha256": "525927315f2d0efe06affe17a7852a4df66dba3147e1bc493319df64c97078b0"
+  },
+  "native_init_closure_sha256": "65c4d666f6e833bf15904a2844e71ec7e5842245a4b88b2d43ccd631c719339a",
+  "inert_boundary": {
+    "path": "workspace/public/src/native-init/a90_doomgeneric_bridge_inert.c",
+    "sha256": "9b264b5a83150befa3d7074e01d0bff0f3a163b550e52e4563c43289921609aa",
+    "operational_bridge_selected": false,
+    "inert_bridge_selected": true,
+    "api_entry_points": 9,
+    "object_undefined_symbols": 0,
+    "status_strings_non_null": true,
+    "unsupported_operations_return_negative_enotsup": true,
+    "file_effect": false,
+    "socket_effect": false,
+    "process_effect": false,
+    "device_effect": false,
+    "full_bridge_object_bytes_reference": 14016,
+    "inert_bridge_object_bytes": 3472
+  },
+  "capability_scope": {
+    "qualified": "The exact nine-entry inert bridge API implementation only",
+    "global_doom_command_surface_inert": false,
+    "inherited_callers_qualified": false,
+    "known_residual": "video demo doom loop-start can fork before the child calls the inert helper API and can record parent-side audio start",
+    "next_h0_slice": "Block or remove Doom menu and command entry points before any caller effect, then remove all 15 bridge call relocations"
+  },
+  "builder_capability": {
+    "receipt": "docs/reports/A90_PHASE3_MINIMAL_A_BUILDER_INDEPENDENT_REVIEW_2026-08-03.json",
+    "decision": "PASS_GO",
+    "execution_critical_capability_closure_changed": false,
+    "flat_builder_sha256": "d23a48fb560e8544305976d4fa62202064dc6c2ed558971d18a0031f5ed56bc2",
+    "flat_builder_library_sha256": "52646a471ff46520e9ece5374cac2f8a8f0239fa2fbc221c54d690f415030a5d"
+  },
+  "fresh_ab": {
+    "private_evidence_root": "workspace/private/outputs/a90-phase3-minimal-b-ab-20260803-01",
+    "byte_identical": true,
+    "accepted_boot_unchanged": true,
+    "boot": {
+      "bytes": 61505536,
+      "sha256": "f77dd332ed1ab3c6301fc9dfb6765cb6e91ca5339611890a2621687dde82db90"
+    },
+    "ramdisk": {
+      "bytes": 11673088,
+      "sha256": "234eb7ac203cdd578f4b442f4b98ff0f7581e5a76789a87f398965127e047e57"
+    },
+    "init": {
+      "bytes": 1789712,
+      "sha256": "8d88798e6c4e359b88760b8a47293ea14c2e4868c29f86382c8ac42f3dc38646"
+    },
+    "helper": {
+      "bytes": 1649904,
+      "sha256": "fa395d3ecb6944a57487f3966948a634596157e4de3fdc39575a2fc502d1ceef"
+    }
+  },
+  "packed_ramdisk": {
+    "independent_newc_parse": true,
+    "member_count": 33,
+    "required_entries_present": true,
+    "doom_engine_family_member_count": 0
+  },
+  "link_graph": {
+    "translation_units": 60,
+    "defined_global_symbols": 439,
+    "minimal_a_internal_edges": 267,
+    "minimal_b_internal_edges": 265,
+    "root_direct_objects": 52,
+    "root_reachable_objects": 60,
+    "non_root_zero_incoming_objects": 0,
+    "bridge_api_symbols": 9,
+    "bridge_call_relocations": 15,
+    "removed_internal_edges": [
+      "operational_bridge -> a90_helper",
+      "operational_bridge -> a90_run"
+    ]
+  },
+  "validation": {
+    "focused_flat_builder_tests": "24/24 PASS",
+    "cross_compile": "PASS",
+    "artifact_file_identity": "ARM aarch64 static ELF and Android bootimg PASS",
+    "manifest_audit": "PASS",
+    "source_and_input_pins": "PASS"
+  },
+  "authority": {
+    "device_contact": false,
+    "payload_transfer": false,
+    "partition_write": false,
+    "flash": false,
+    "live_authority": false,
+    "next_live_gate": "Any later use of this boot remains attended F1 with fresh exact qualification and binding"
+  }
+}
