@@ -128,9 +128,39 @@ The qualification still records `full_lto_started=false`.
 The historical P2.96 Full-LTO A/B pair passes the new read-only six-function
 audit with canonical disassembly digest
 `0e889836181ffc156e34944880b329224c9c941408d5235b06b2ff5de41fe0bc`.
-That is baseline evidence only. Fresh P2.98 Full-LTO A/B construction and its
-postbuild audit remain mandatory on a qualified host after the shared
-regression gate is current.
+That is baseline evidence only.
+
+Fresh P2.98 Full-LTO A/B construction now passes on the qualified build host.
+The final clean pair used the content-identical relocated clang repository
+under `workspace/private/work/toolchains`, inside the inherited debug-prefix
+mapping. Build A and B respectively produced result receipts at SHA-256
+`6f7c0900d656d187048af6993fff7a44fd400048b56a1c58bd9609240c037670`
+and
+`9012897753b95da8aece36885e10fa3acea2e1cd93f65702d8f53e1e2b4c7914`.
+Both produced:
+
+- 41,490,944-byte `Image`, SHA-256
+  `689d71487788777e28efbdb48eb783462dde271f5af5a8ba0d2aa6348541ce87`;
+- 476,979,440-byte `vmlinux`, SHA-256
+  `3067680949754f7c5bd418136bc8c21cc9522f55aa8394a666fa0b21e1a2968d`;
+- byte-identical `.config`, `System.map`, `vmlinux.symvers`, and `abi.xml`.
+
+The A-before-B path gate found zero random private namespace occurrences and
+zero absolute host clang-resource paths, with 138 mapped paths under
+`/private-repo`. The final verifier returned
+`PASS_P298_TWO_CLEAN_BUILD_REPRO_AND_LINKED_AUDIT_HOST_ONLY`. Its linked audit
+proves the four probe targets remain out of line, both ordered EP0-enable calls
+remain direct and checked, pullup overwrites the discarded gadget-start return
+before direct run-stop, and resume immediately tests the signed return.
+
+One earlier host-only A attempt failed closed before B because its invocation
+omitted the already-required relocated `--clang-repo` and used the equal-byte
+copy outside the mapped work-tree parent. The path gate detected the random
+private namespace in clang-resource paths. That rejected result and its seven
+evidence files remain marked `rejected-*` in private output; its reproducible
+intermediate tree was removed. SOURCE_KEYS remained 136/136 with
+`CHANGED_KEYS=[]`, no candidate was promoted, and the corrected clean pair used
+the previously qualified layout.
 
 ## Independent review
 
@@ -144,14 +174,14 @@ boot-only/no-live-authority boundaries. The structured receipt names every
 reviewed execution-critical byte. Its final current-policy and document hash
 rebinding remains a pre-build gate.
 
-This review and the passing pre-LTO receipt do not substitute the historical
-A/B replay for fresh P2.98 Full-LTO images or authorize packaging or device
-work. Capability reuse remains limited to unchanged execution-critical and
-policy-context hashes with no new hazard or incident.
+This review, the passing pre-LTO receipt, and the completed fresh A/B closure
+do not authorize packaging or device work. Capability reuse remains limited to
+unchanged execution-critical and policy-context hashes with no new hazard or
+incident.
 
 This new host capability changes no partition boundary, recovery mechanism,
 F1 runner, or target identity.
-This report records a host implementation parked before mandatory fresh
-Full-LTO closure, not an F1-ready candidate. No device was contacted, no boot
-image was packaged or transferred, no live authority was created, and the A90
-target was untouched.
+This report records completed host implementation and fresh Full-LTO closure,
+not an F1-ready candidate. No promoted boot package or rollback binding exists
+for P2.98. No device was contacted, no boot image was transferred, no live
+authority was created, and the A90 target was untouched.

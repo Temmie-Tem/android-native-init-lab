@@ -75,7 +75,7 @@ linked replay found a delivery blocker before packaging or device contact:
 P2.94 therefore remains an H0 static stop. It must not be packaged, promoted,
 manifested, or used for F1.
 
-## Selected Bounded Unit: P2.98 Host Closure and Candidate Qualification (H0)
+## Selected Bounded Unit: P2.98 Full-LTO Host Closure (H0)
 
 P2.98 is the fresh successor contract
 `s22plus-fyg8-p298-gadget-start-event-attribution-v1`. Its host implementation
@@ -86,9 +86,20 @@ and 33,662,164,992 bytes physical RAM, 12,884,893,696 bytes swap, and
 37,085,384,704 bytes free disk satisfy the mandatory resource predicates. The
 receipt has SHA-256
 `f3533d20ef3edc5c4feaf410296492820138dcd2c56861ee81be02fca78b89eb`
-and keeps `full_lto_started=false`. Independent execution-code rereview returned
-`PASS_GO` for the exact Tier-2 repair with no finding; current common-policy and
-S22+ document receipt rebinding remains mandatory before Full-LTO. No device
+and recorded `full_lto_started=false` before either build. Independent
+execution-code rereview returned `PASS_GO` for the exact Tier-2 repair with no
+finding, and the current common-policy and S22+ document receipts were rebound
+before build.
+
+Two clean Full-LTO builds now close the host unit. Both produced the same
+41,490,944-byte `Image` at SHA-256
+`689d71487788777e28efbdb48eb783462dde271f5af5a8ba0d2aa6348541ce87`
+and the same 476,979,440-byte `vmlinux` at SHA-256
+`3067680949754f7c5bd418136bc8c21cc9522f55aa8394a666fa0b21e1a2968d`.
+The official result is
+`PASS_P298_TWO_CLEAN_BUILD_REPRO_AND_LINKED_AUDIT_HOST_ONLY`: all six compared
+artifacts are byte-identical, random and absolute host clang paths are absent,
+and 138 clang-resource paths are mapped beneath `/private-repo`. No device
 action is part of this bounded unit.
 
 This continues the **Gadget-Start Return Host Implementation (H0)** lineage:
@@ -139,8 +150,10 @@ and the 720-byte child at SHA-256
 `9a57b30aa3fb08ee0aab4d045d2805dd36875bb80bcba7b0b6606f619df71639`.
 The final direct P2.98 suite passes 20/20 and the whole focused closure passes
 130/130. A read-only audit of the historical P2.96 A/B pair passes the
-new six-function call-shape checks, but it is only baseline evidence and never
-substitutes for the mandatory fresh P2.98 Full-LTO A/B pair.
+new six-function call-shape checks. The fresh P2.98 A/B pair independently
+passes the mandatory linked proof: all probe targets remain out of line, the
+ordered two-call EP0 enable chain is retained, pullup discards gadget-start
+`w0` before direct run-stop, and resume immediately tests the signed return.
 
 ## Ordered Execution
 
@@ -156,9 +169,9 @@ substitutes for the mandatory fresh P2.98 Full-LTO A/B pair.
    either gate.
 5. Retain the fresh independent `PASS_GO` for the exact reviewed
    trace/schema/parser and postbuild closure only while its named hashes remain
-   unchanged. A later unit must independently satisfy fresh Full-LTO closure,
-   package, rollback, D0, attended F1, recovery, and final-health gates. Never
-   reuse the consumed P2.96 run.
+   unchanged. Fresh Full-LTO closure is complete. A later unit must
+   independently satisfy package, exact rollback, D0, attended F1, recovery,
+   and final-health gates. Never reuse the consumed P2.96 run.
 
 Trial policy adds no per-candidate approval, but the legacy runner still
 requires its fresh immutable token until aligned. The consumed P2.96 token,
@@ -198,11 +211,11 @@ Archived text is evidence only and grants no authority.
 
 ## Success and Stop Conditions
 
-The current H0 unit succeeds only if host machinery enforces the exact PID-1
-return pair, EP-enable hit attribution, same-run downstream event discriminator,
-and direct call sites from both actual Full-LTO linked images. Symbol-only
-proof, stock-path observation, implicit success on an invalid trace, or a
-resource-gate bypass is not success.
+The current H0 unit is closed: host machinery enforces the exact PID-1 return
+pair, EP-enable hit attribution, same-run downstream event discriminator, and
+direct call sites from both actual Full-LTO linked images. Symbol-only proof,
+stock-path observation, implicit success on an invalid trace, or a
+resource-gate bypass remains insufficient for any successor.
 
 Stop on a repeated material pre-session failure, any post-device-session
 unexplained failure, target ambiguity, missing rollback, forbidden archive
