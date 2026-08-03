@@ -6,6 +6,11 @@ Date: 2026-08-03
 
 `PASS_POST_P296_GADGET_START_RETURN_SELECTED_H0`
 
+Follow-up design gates:
+
+- `PASS_P296_FULL_LTO_GADGET_START_CALLSITE_OUT_OF_LINE_H0`; and
+- `PASS_CANDIDATE_PID1_BIND_TRACE_PLACEMENT_H0`.
+
 The earliest source-level predicate not resolved by P2.96 is the signed return
 from built-in `__dwc3_gadget_start()`. The exact FYG8
 `dwc3_gadget_pullup(true)` caller ignores that return and then overwrites its
@@ -169,12 +174,125 @@ This is a pre-final gate, so it requires no third retained slot. A future
 implementation must preserve the 45-byte two-slot ABI, the P2.96 adjacent A/B
 publication rule, the full P2.92 prefix, and the Stage-C identity split.
 
+## Full-LTO call-site closure
+
+The P2.96 intent patches
+`kernel_platform/common/drivers/usb/dwc3/gadget.c`. The same checkout's
+`kernel_platform/msm-kernel/drivers/usb/dwc3/gadget.c` mirror is byte-identical;
+both have the pinned `gadget.c` SHA256 above. The machine-code conclusion below
+comes from the actually linked P2.96 `vmlinux`, so it does not depend on which
+mirror name is used when quoting the source.
+
+Both reproducible kernels have `CONFIG_LTO=y`, `CONFIG_LTO_CLANG=y`, and
+`CONFIG_LTO_CLANG_FULL=y`. Repro A and B have byte-identical `vmlinux` and
+`System.map` files. GNU AArch64 disassembly of both files produced the same
+normalized call-site excerpt, SHA256
+`a5962f0ec420039e1ee2eef5ffa90c20d2730c49a22a0f22f4b5b2b79ea65af1`.
+
+The direct pullup-on branch is:
+
+```text
+dwc3_gadget_pullup+0x100  bl  __dwc3_gadget_start
+dwc3_gadget_pullup+0x104  mov w1, #1
+dwc3_gadget_pullup+0x108  mov x0, x19
+dwc3_gadget_pullup+0x10c  bl  dwc3_gadget_run_stop
+dwc3_gadget_pullup+0x110  mov w21, w0
+```
+
+This proves the exact P2.96 call is not inlined or redirected to a clone. It is
+an actual `bl` to the out-of-line local text symbol. No instruction consumes
+the first call's `w0`; `mov x0, x19` destroys it before run-stop, and only the
+second call's `w0` is saved.
+
+The independent resume call site supplies the machine-code control:
+
+```text
+dwc3_gadget_resume+0x28  bl    __dwc3_gadget_start
+dwc3_gadget_resume+0x2c  tbnz  w0, #31, error
+```
+
+The same linked function return is checked in resume and dropped in pullup.
+The kretprobe target is therefore valid for this exact Full-LTO pair.
+
+This proof is not transferable to a future build. Every future Full-LTO A/B
+qualification must disassemble the actual linked pair and fail closed unless:
+
+1. both A and B contain exactly one direct pullup-path `bl` to the exact
+   `__dwc3_gadget_start` symbol;
+2. that call lies after event-buffer setup and before direct run-stop;
+3. no instruction consumes or branches on its return before the return is
+   overwritten; and
+4. the A/B normalized call-site excerpts are identical.
+
+An inlined, cloned, tail-called, missing, or A/B-divergent form is a host
+qualification failure. Symbol presence alone must never substitute for this
+call-site proof or silently fall back to the proposed kretprobe.
+
+## Candidate-runtime trace placement
+
+The trace controller belongs inside the boot-only candidate, not stock Android
+or the post-rollback baseline. The exact P2.96 candidate proves the reusable
+placement:
+
+- its static ramdisk `/init` is 66,384 bytes with SHA256
+  `52bccd74613cc74326e9df0edb5345fa9559000d70bcfb12ffca7d5b4068631f`;
+- the candidate builder replaces ramdisk `init`, re-extracts it from the final
+  boot image, and requires byte equality with that binary;
+- `_start()` parks unless it is PID 1, then reaches `p290_e3_run()`;
+- `p290_e3_run()` reaches `p282_phase_bind()` after the one stop, suspend, and
+  restart sequence;
+- `p282_phase_bind()` arms the isolated tracefs instance immediately before
+  the one `p260_bind_udc()` call, then disables, snapshots, profiles, and
+  removes the probes immediately after that bind returns; and
+- the bind parser rejects every trace record whose PID is not exactly 1.
+
+The current bind descriptor has seven events. The future descriptor adds only
+the `__dwc3_gadget_start` entry and signed-return events, raising that exact
+bind count to nine while remaining below the existing 16-event control bound.
+The required runtime order is:
+
+```text
+candidate static /init as PID 1
+  -> trace setup, registration readback, filters, clear, enable
+  -> pull_in(on=1)
+     -> gadget_start_in
+     -> gadget_start_out(rc=$retval:s32)
+     -> run_in(on=1)
+        -> one built-in state snapshot
+     -> run_out
+  -> pull_out
+  -> trace disable, snapshot, zero-missed-hit profile, cleanup
+  -> bind classification
+  -> only on gadget-start rc==0, enter final UDC polling
+```
+
+Exactly one start pair must be nested inside the selected direct pullup pair
+and strictly precede the selected direct run-stop pair. Any extra, missing,
+unpaired, different-PID, out-of-order, or kprobe-profile-missed record is a
+trace-source contradiction. A negative return is the selected early failure;
+zero is the only success gate; a positive return is also a source
+contradiction rather than implicit success.
+
+The P2.96 retained built-in snapshot already proves that this candidate-owned
+trace setup, bind window, readback, parser, and cleanup path executed on the
+live candidate. Stock Android does not contain this replacement PID1 or arm
+these dynamic events. A stock D0 or rollback boot therefore cannot answer the
+candidate-path return question.
+
+## Causal limit
+
+The discarded-return branch completely reconciles the observed P2.96 tuple
+with an EP0-start failure. It does not yet prove that either EP0 enable actually
+failed in that run; a zero gadget-start return followed by a later event or PHY
+failure remains source-compatible. Only the selected candidate-runtime return
+pair can promote the explanation into an observed cause.
+
 ## Next bound and authority
 
-The next unit remains H0: freeze the exact trace grammar, pairing rules,
-classifier outcomes, and linked-delivery assertions for this one return value.
-Do not name, build, package, manifest, or run a successor candidate from this
-report alone.
+The call-site and runtime-placement design is closed. The next unit remains H0:
+implement the two-event descriptor, exact PID/counter pairing, exhaustive
+classifier outcomes, and mandatory post-Full-LTO call-site audit. Do not name,
+build, package, manifest, or run a successor candidate from this report alone.
 
 Any payload-affecting implementation starts with a fresh complete
 `SOURCE_KEYS` identity, qualification, Full-LTO A/B, boot-only closure, and

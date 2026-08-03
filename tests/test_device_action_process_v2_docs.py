@@ -477,12 +477,21 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         )
         self.assertIn("P2.94 therefore remains an H0 static stop", normalized_goal)
         self.assertIn(
-            "Gadget-Start Return Observable Contract (H0)", normalized_goal
+            "Gadget-Start Return Host Implementation (H0)", normalized_goal
         )
         self.assertIn("__dwc3_gadget_start()", normalized_goal)
         self.assertIn("signed `$retval:s32`", normalized_goal)
+        self.assertIn("post-Full-LTO A/B disassembly audit", normalized_goal)
         self.assertIn(
             "PASS_POST_P296_GADGET_START_RETURN_SELECTED_H0",
+            self.post_p296_attribution,
+        )
+        self.assertIn(
+            "PASS_P296_FULL_LTO_GADGET_START_CALLSITE_OUT_OF_LINE_H0",
+            self.post_p296_attribution,
+        )
+        self.assertIn(
+            "PASS_CANDIDATE_PID1_BIND_TRACE_PLACEMENT_H0",
             self.post_p296_attribution,
         )
         self.assertIn(
@@ -495,6 +504,24 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         )
         self.assertIn(
             "Deferred until start return is zero",
+            normalized_attribution,
+        )
+        self.assertIn("dwc3_gadget_pullup+0x100", normalized_attribution)
+        self.assertIn("dwc3_gadget_resume+0x2c", normalized_attribution)
+        self.assertIn(
+            "The trace controller belongs inside the boot-only candidate",
+            normalized_attribution,
+        )
+        self.assertIn(
+            "bind parser rejects every trace record whose PID is not exactly 1",
+            normalized_attribution,
+        )
+        self.assertIn(
+            "a positive return is also a source contradiction",
+            normalized_attribution,
+        )
+        self.assertIn(
+            "does not yet prove that either EP0 enable actually failed",
             normalized_attribution,
         )
         self.assertIn("Never reuse the consumed P2.96 run", normalized_goal)

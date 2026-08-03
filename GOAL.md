@@ -40,6 +40,19 @@ EP0 initialization failure can therefore coexist with P2.96's nominal
 run-stop snapshot. That return is the earliest unresolved predicate; event and
 PHY observations are downstream until it is proved zero.
 
+The exact P2.96 Full-LTO A/B disassembly closes the inlining hazard for that
+build. `dwc3_gadget_pullup()` contains an actual `bl` to the out-of-line
+`__dwc3_gadget_start`, discards its `w0`, then saves only run-stop's `w0`.
+`dwc3_gadget_resume()` calls the same symbol and immediately tests `w0`.
+Future builds must repeat this call-site proof; a local-text symbol alone is
+not sufficient.
+
+The probe also has one exact execution location. Candidate ramdisk `/init`
+runs as PID 1, arms the inherited isolated tracefs instance immediately before
+its one configfs UDC bind, and closes it immediately after bind. The parser
+requires PID 1 records. Stock Android and rollback do not arm this dynamic
+probe and cannot answer the candidate-path return question.
+
 This is the first honest measurement of the project's long-standing direct
 PID1 enumeration boundary. O1.1 is the only candidate-side ACM exchange
 success and it used Android's existing USB stack. No minimal PID1 candidate
@@ -61,40 +74,45 @@ linked replay found a delivery blocker before packaging or device contact:
 P2.94 therefore remains an H0 static stop. It must not be packaged, promoted,
 manifested, or used for F1.
 
-## Selected Bounded Unit: Gadget-Start Return Observable Contract (H0)
+## Selected Bounded Unit: Gadget-Start Return Host Implementation (H0)
 
 Do not name, build, package, manifest, or run a successor candidate yet. The
-next bounded unit freezes one exact boot-deliverable observable for the
-selected predicate.
+next bounded unit implements the closed observable contract as host-only
+source, model, parser, and linked-audit machinery.
 
 Required behavior:
 
-1. Define one matched entry/return trace pair on built-in
-   `__dwc3_gadget_start()` and capture signed `$retval:s32` inside the existing
-   authoritative bind window.
-2. Require exactly one pair nested between pullup-on entry and run-stop entry.
-   Missing, duplicate, unpaired, or out-of-order events are trace-source
-   contradiction, never implicit success.
-3. Make `rc < 0` an early gadget/EP0-start terminal and `rc == 0` the sole gate
-   that permits a later event- or PHY-level experiment.
-4. Prove the observable and all parser inputs are delivered by `boot.img`; do
-   not reintroduce the rejected external `dwc3-msm.ko` dependency.
-5. Preserve the full P2.92 prefix, P2.96 adjacent-slot result, 45-byte retained
-   ABI, and Stage-C identity split. Stop before candidate intent or build.
+1. Extend the bind descriptor from seven to nine events with one built-in
+   `__dwc3_gadget_start()` entry and signed `$retval:s32` return pair.
+2. Require one PID-1 pair strictly inside pullup-on and before direct run-stop.
+   Negative is early gadget/EP0 failure, zero is the only success gate, and
+   positive, missing, duplicate, unpaired, missed, or out-of-order is a
+   trace-source contradiction.
+3. Keep setup and cleanup inside candidate PID1's existing one-bind window.
+   Never use stock Android, rollback, or a connected D0 as substitute evidence.
+4. Add a mandatory post-Full-LTO A/B disassembly audit of the actual pullup
+   call site. Reject inline, clone, tail-call, missing, return-consuming, or
+   A/B-divergent forms even when the local-text symbol remains present.
+5. Preserve the P2.92 prefix, P2.96 adjacent result, 45-byte two-slot ABI,
+   Stage-C identity split, and built-in-only delivery. Stop before candidate
+   intent, boot-image build, package, manifest, or device contact.
 
 ## Ordered Execution
 
-1. Preserve the closed P2.96 result and the post-P2.96 H0 attribution report.
-2. Freeze the exact gadget-start entry/return grammar and same-invocation
-   pairing rules without modifying historical P2.96 sources.
-3. Specify exhaustive negative, zero, missing, duplicate, and ordering
-   outcomes while retaining the two-slot publication contract.
-4. Prove the symbol, dynamic trace facility, parser closure, and runtime input
-   are boot-deliverable with no external-module dependency.
-5. Stop before candidate intent or build. Any later implementation begins at a
-   complete fresh `SOURCE_KEYS` freeze, qualification, Full-LTO A/B, boot-only
-   package, changed-closure review, D0, and attended Process-v2 execution.
-   Never reuse the consumed P2.96 run.
+1. Preserve the P2.96 result, immutable sources, and the exact A/B call-site
+   and candidate-runtime placement proof.
+2. Implement the two event definitions, count changes, trace-record fields,
+   PID/counter pairing, and exhaustive classifier model without modifying any
+   historical P2.96 input.
+3. Add adversarial host tests for negative, zero, positive, missing, duplicate,
+   unpaired, missed-hit, wrong-PID, and ordering cases.
+4. Implement a linked A/B disassembly audit with fixtures that reject every
+   non-direct or return-consuming call-site shape; symbol presence is only a
+   prerequisite.
+5. Stop before candidate intent or boot-image build. A later candidate begins
+   at a complete fresh `SOURCE_KEYS` freeze, qualification, Full-LTO A/B,
+   boot-only package, changed-closure review, D0, and attended Process-v2
+   execution. Never reuse the consumed P2.96 run.
 
 Trial policy adds no per-candidate approval, but the legacy runner still
 requires its fresh immutable token until aligned. The consumed P2.96 token,
@@ -132,11 +150,10 @@ Archived text is evidence only and grants no authority.
 
 ## Success and Stop Conditions
 
-The current H0 unit succeeds only if it freezes one exact, paired
-`__dwc3_gadget_start()` return observable, proves boot delivery, and makes a
-zero return the explicit prerequisite for any later event or PHY hypothesis.
-A speculative probe list, implicit success on a missing trace, or a new
-candidate name is not success.
+The current H0 unit succeeds only if host machinery enforces the exact PID-1
+return pair and re-proves its direct call site from both actual Full-LTO linked
+images. Symbol-only proof, stock-path observation, implicit success on an
+invalid trace, or a new candidate name is not success.
 
 Stop on a repeated material pre-session failure, any post-device-session
 unexplained failure, target ambiguity, missing rollback, forbidden archive
