@@ -16,18 +16,20 @@ transfer between the two files.
   `PASS_A90_RESIDENT_INSTALLED` after one exact boot-only candidate and zero
   rollback or replay. The current exact native baseline is resident V3406
   `0.11.161/phase2-display-v1-native-handoff`, `selftest fail=0`, empty
-  pstore, direct NCM, and `RESIDENT_HEALTHY`. S22+ received no command.
+  pstore, direct NCM, and `RESIDENT_HEALTHY`. Fresh attended D1 run
+  `a90-d1-attended-20260804-01` returned to that exact baseline after one
+  proved switch-root action. S22+ received no command.
 - `A90_ATTENDED_SD_ROOTFS_GC_V2` now has reusable independent `PASS_GO` over
   its exact execution-critical closure. It replaces per-file phrases and
   per-manifest review with bounded split reads plus one compact nonrecursive
   unlink dispatch for 1..32 exact host-recoverable obsolete rootfs identities;
   uncertain cleanup or restoration is never replayed.
-- Fresh D0 for cleanup ordinal `a90-sd-cleanup-20260804-03` re-proved exact
-  V3406 health, seven unchanged selectable 2 GiB rootfs identities, both
-  protected identities, work absent, and 1765444 KiB available. Immutable
-  manifest SHA256 `87f11d7ada108c45f357e2c91ed04876afcdd26f03d63b72609e3a16f0aa572c`
-  is host-ready. No unlink or SD write has occurred; live cleanup awaits a
-  current attended-presence assertion and should recover about 14 GiB.
+- Cleanup run `a90-sd-cleanup-20260804-04` consumed one exact manifest and
+  dispatched one nonrecursive unlink for seven qualified obsolete 2 GiB
+  rootfs images. All seven are absent, both protected images remain exact,
+  work remains absent, and available space rose from 1765440 KiB to
+  16445524 KiB. Final V3406 health passed; there was no retransmit, payload,
+  partition write, or flash.
 - Standing exact-target D0 exists only through the active common trial. A90
   campaign `a90-resident-switchroot-display-ssh-20260802` is open, but no D1
   session is active and no target is F1-armed. Attendance has ended for every
@@ -140,12 +142,15 @@ transfer between the two files.
   operator-visible `DISPLAY OWNER DEBIAN`, automatic native return, exact work
   cleanup, immutable source, and final V3406 health. Payload, partition write,
   flash, rollback, and replay were all zero.
-- The SD card remains capacity-constrained after exact work cleanup:
-  `61408048` KiB total, `56516584` KiB used, `1765452` KiB available,
-  and `54279768` KiB under `/mnt/sdext/a90/runtime`. No retained image has
-  been deleted. Exact obsolete-image cleanup is the next bounded unit and
-  requires its own reviewed persistent-file capability plus literal target
-  approval.
+- Fresh attended D1 run `a90-d1-attended-20260804-01` dispatched one
+  `SWITCHROOT_EXPERIMENT` and proved Debian `/usr/sbin/init` PID 1, key-only
+  SSH and exact Phase3 service ownership, direct DRM master with successful
+  `SETCRTC`, automatic native return, work cleanup, immutable source, and final
+  V3406 health. Retained-pmsg collection produced a non-safety observer
+  warning; engine outcome remained `PROVED` and `RESIDENT_HEALTHY`. Physical
+  display visibility was recorded unavailable at execution and may be bound
+  later from the attended operator observation. Payload, partition write,
+  flash, rollback, and replay were all zero.
 
 `docs/reports/A90_D1_FAST_LOOP_V2_H0_2026-08-02.md`
 
