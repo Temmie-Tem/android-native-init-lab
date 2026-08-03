@@ -11,10 +11,12 @@ implements the policy-named `A90_UNATTENDED_RESIDENT_D1_V1` as one transaction
 primitive for one ordinal of the already-qualified no-payload
 `SWITCHROOT_EXPERIMENT`.
 
-This unit did not contact a device. It created no unattended manifest, review
-receipt, live transaction, approval, payload, partition write, flash, reboot,
-or recovery action. Live use remains unavailable until an independent review
-produces the canonical machine-readable receipt bound by the runner.
+The implementation and review-fix work did not contact a device. A separate
+parallel D0 only confirmed the exact A90 resident state; it sent no D1 effect.
+This unit created no unattended manifest, review receipt, live transaction,
+approval, payload, partition write, flash, reboot, or recovery action. Live use
+remains unavailable until an independent review produces the canonical
+machine-readable receipt bound by the runner.
 
 ## Execution shape
 
@@ -67,7 +69,8 @@ Manifest construction requires all of the following:
   `DISPLAY OWNER DEBIAN`, exact cleanup, and final `RESIDENT_HEALTHY`;
 - the current common and A90 contracts and policy review;
 - the new runner, shared attended transaction, transition contract, and engine;
-  and
+  the shared backend's remaining eleven transitive source roles for target
+  selection, transport, guard, SSH/DRM observation, return, and health; and
 - a canonical independent-review JSON receipt whose reviewed source closure
   equals those exact current files and has no unresolved finding. That single
   capability qualification is reusable by every manifest, ordinal, and
@@ -95,6 +98,9 @@ the independently preserved exact native-return evidence.
 - A failed fresh D0 creates no transaction and sends no D1 effect.
 - Closure drift after D0 or immediately before dispatch stops before the
   handoff call.
+- The current attended base closure must equal every corresponding capability
+  source at manifest build, load, and pre-dispatch reload. Any transitive role
+  mismatch stops before handoff with dispatch count zero.
 - Durable intent is written and fsynced before the shared action backend.
 - A transaction directory is exclusive and can never be resumed or replayed.
 - An exception or malformed result after durable intent records
@@ -126,23 +132,34 @@ the independently preserved exact native-return evidence.
 
 ## Validation
 
-- new unattended runner and adversarial regression: PASS `14/14`;
+- new unattended runner and adversarial regression: PASS `17/17`;
 - existing attended D1 and transition regression: PASS `71/71`;
 - related policy, staging, orchestrator, and resident-model regression: PASS
-  `195/195` (`280/280` combined);
+  `195/195` (`283/283` combined);
 - real preserved qualification replay: PASS;
 - fresh host-only attended base manifest:
   `a90-d1-attended-20260803-04`, mode `0600`, SHA256
   `fcf4d994520742e8d210325b82a9a851f2c09478d74774fc173447b9257da6e2`,
   with no approval receipt, `d1-live`, device effect, or live authority;
+- parallel exact-target A90 D0 using fresh base
+  `a90-d1-attended-20260803-05`: resident version `0.11.161`, expected build,
+  selftest `fail=0`, and source precheck exact; no handoff, `switch_root`,
+  payload transfer, partition write, flash, reboot, or S22+ command;
 - unattended manifest construction without the canonical independent-review
   receipt: expected fail-closed, with no manifest created;
 - touched Python `py_compile`: PASS;
 - `git diff --check`: PASS;
 - independent execution-machinery review: pending;
-- device contact, payload transfer, partition write, flash, reboot: none.
+- D0 device contact only; payload transfer, partition write, flash, reboot:
+  none.
 
 ## Live boundary
+
+The first independent capability review returned `BLOCK_LIVE_USE` with one
+High finding: eleven transitive shared-backend sources were absent from the
+reusable receipt closure. The runner now directly binds all of them, compares
+the attended base closure at build/load/pre-dispatch, and passes role-by-role
+mutation plus zero-dispatch regression. Independent rereview remains pending.
 
 The canonical review receipt intentionally does not exist in this unit.
 Consequently no unattended manifest can be built and no unattended live action

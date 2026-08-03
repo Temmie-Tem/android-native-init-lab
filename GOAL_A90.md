@@ -65,6 +65,11 @@ transfer between the two files.
   across manifests, qualifications, ordinals, and campaigns rather than
   repeated per run. Any pre-clarification review request is stale and must be
   regenerated from the final committed closure.
+- The first independent unattended capability review returned
+  `BLOCK_LIVE_USE` with one High finding: eleven transitive shared-backend
+  sources were outside the reusable receipt closure. The runner now binds the
+  complete attended source set, compares it at build/load/pre-dispatch, and
+  rejects every role mutation before handoff with dispatch count zero.
 - Focused D1/transition regression passes `67/67`; related adapter and
   observation regression passes `26/26`. The combined real-host regression
   passes `93/93`, and the real resident host-only build/load cross-check

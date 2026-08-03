@@ -7,6 +7,7 @@ import hashlib
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest import mock
 
@@ -53,11 +54,10 @@ def bound(path: Path) -> attended.BoundFile:
 
 class A90UnattendedResidentD1V1Tests(unittest.TestCase):
     def base_spec(self, root: Path) -> attended.SessionSpec:
-        files: dict[str, attended.BoundFile] = {}
-        for role in attended.SOURCE_PATHS:
-            path = root / "sources" / f"{role}.py"
-            write_private(path, role.encode())
-            files[role] = bound(path)
+        files = {
+            role: bound(path)
+            for role, path in attended.SOURCE_PATHS.items()
+        }
         material: dict[str, Path] = {}
         for name in (
             "base-manifest.json",
@@ -355,6 +355,93 @@ class A90UnattendedResidentD1V1Tests(unittest.TestCase):
                     enforce_session_window=True,
                 )
 
+    def test_transitive_drift_before_dispatch_sends_zero_handoffs(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            spec = self.direct_spec(root)
+            transaction = spec.transaction_dir
+            transaction.mkdir()
+            changed = dict(spec.base.source_closure)
+            original = changed["f1_orchestrator"]
+            changed["f1_orchestrator"] = attended.BoundFile(
+                original.path,
+                original.size,
+                "f" * 64 if original.sha256 != "f" * 64 else "e" * 64,
+            )
+            changed_base = replace(spec.base, source_closure=changed)
+
+            def revalidate() -> None:
+                unattended._validate_attended_base_source_closure(
+                    changed_base,
+                    unattended._source_closure(),
+                )
+
+            effects = attended.LiveSessionEffects(
+                spec.base,
+                transaction,
+                binding=spec.binding,  # type: ignore[arg-type]
+                opening_preflight_evidence={
+                    "resident_health": {"exact": True},
+                    "source_preflight": {"exact": True},
+                    "rollback_sha256": spec.base.rollback.sha256,
+                    "recovery_profile": spec.base.recovery_profile,
+                },
+                visible_confirmed="unavailable",
+                presence_mode=unattended.WORKFLOW,
+                enforce_session_window=False,
+                pre_dispatch_revalidate=revalidate,
+            )
+            ok = {"exact": True}
+            guard = object()
+            with mock.patch.object(
+                attended.base,
+                "rebind_host_ncm_after_reenumeration",
+                return_value=ok,
+            ), mock.patch.object(
+                attended.base,
+                "require_clean_pstore_before_handoff",
+                return_value=ok,
+            ), mock.patch.object(
+                attended.base,
+                "settle_observation_channel",
+                return_value=ok,
+            ), mock.patch.object(
+                attended.base,
+                "capture_bridge_serial_epoch",
+                return_value=ok,
+            ), mock.patch.object(
+                attended.base,
+                "arm_candidate_return_modemmanager_guard",
+                return_value=guard,
+            ), mock.patch.object(
+                attended.base,
+                "observe_attended_after_handoff",
+            ) as handoff, mock.patch.object(
+                attended.base,
+                "release_candidate_return_modemmanager_guard",
+            ) as release:
+                outcome = effects.invoke_action(
+                    spec.binding,  # type: ignore[arg-type]
+                    1,
+                    SessionAction.SWITCHROOT_EXPERIMENT,
+                    spec.binding.observer_sha256,
+                )
+            self.assertEqual(
+                outcome.failure_class,
+                "PRE_DISPATCH_INTEGRITY_BLOCKED",
+            )
+            handoff.assert_not_called()
+            release.assert_called_once_with(guard, transaction / "action-001")
+            with mock.patch.object(unattended, "PRIVATE_ROOT", root.resolve()):
+                _, result_evidence, _, dispatch_count = (
+                    unattended._validate_persisted_action_evidence(
+                        transaction / "action-001",
+                        outcome,
+                    )
+                )
+            self.assertIsNone(result_evidence)
+            self.assertEqual(dispatch_count, 0)
+
     def test_persisted_action_evidence_matches_and_counts_dispatch(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
@@ -588,6 +675,139 @@ class A90UnattendedResidentD1V1Tests(unittest.TestCase):
             self.assertNotIn("manifest_sha256", receipt)
             self.assertNotIn("qualification", receipt)
             self.assertNotIn("campaign", receipt)
+
+    def test_transitive_attended_source_change_is_rejected_per_role(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            private = root / "private"
+            base = self.base_spec(private)
+            capability_sources = unattended._source_closure()
+            unattended._validate_attended_base_source_closure(
+                base,
+                capability_sources,
+            )
+            transitive_roles = {
+                "bridge_selector",
+                "cdc_acm_guard",
+                "cmdv1_shell_adapter",
+                "display_observer",
+                "f1_orchestrator",
+                "framed_transport",
+                "observation_pipeline",
+                "serial_lock",
+                "serial_tcp_bridge",
+                "staging_contract",
+                "workspace_bootstrap",
+            }
+            self.assertTrue(
+                transitive_roles.issubset(unattended.ATTENDED_SOURCE_ROLE_MAP)
+            )
+            for attended_role in sorted(transitive_roles):
+                with self.subTest(role=attended_role):
+                    changed = dict(base.source_closure)
+                    original = changed[attended_role]
+                    replacement_sha = (
+                        "f" * 64
+                        if original.sha256 != "f" * 64
+                        else "e" * 64
+                    )
+                    changed[attended_role] = attended.BoundFile(
+                        original.path,
+                        original.size,
+                        replacement_sha,
+                    )
+                    changed_base = replace(base, source_closure=changed)
+                    with self.assertRaisesRegex(
+                        unattended.ContractError,
+                        f"base attended source closure differs: {attended_role}",
+                    ):
+                        unattended._validate_attended_base_source_closure(
+                            changed_base,
+                            capability_sources,
+                        )
+
+    def test_manifest_load_rejects_each_transitive_base_source_change(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            private = root / "private"
+            run_base = private / "runs/server-distro"
+            base = self.base_spec(private)
+            qualification = self.qualification_fixture(private, base)
+            review = self.review_receipt(root)
+            run_id = "a90-d1-unattended-20260803-01"
+            output = run_base / run_id / "manifest.json"
+            common_patches = (
+                mock.patch.object(unattended, "PRIVATE_ROOT", private.resolve()),
+                mock.patch.object(
+                    unattended,
+                    "PRIVATE_RUN_BASE",
+                    run_base.resolve(),
+                ),
+                mock.patch.object(
+                    unattended,
+                    "REVIEW_RECEIPT_PATH",
+                    review.resolve(),
+                ),
+                mock.patch.object(
+                    attended,
+                    "_classify_return_observation",
+                    return_value=(True, {"retained_pmsg": "observer warning"}),
+                ),
+            )
+            with (
+                common_patches[0],
+                common_patches[1],
+                common_patches[2],
+                common_patches[3],
+                mock.patch.object(
+                    attended,
+                    "load_spec",
+                    return_value=base,
+                ),
+            ):
+                value = unattended.build_manifest(
+                    base_manifest_path=base.manifest_path,
+                    base_manifest_sha256=base.manifest_sha256,
+                    qualification_transaction_dir=qualification,
+                    review_receipt_path=review,
+                    run_id=run_id,
+                )
+                write_private(output, value)
+            transitive_roles = sorted(
+                set(attended.SOURCE_PATHS)
+                - {"runner", "transition_contract", "transition_engine"}
+            )
+            for attended_role in transitive_roles:
+                with self.subTest(role=attended_role):
+                    changed = dict(base.source_closure)
+                    original = changed[attended_role]
+                    changed[attended_role] = attended.BoundFile(
+                        original.path,
+                        original.size,
+                        "f" * 64 if original.sha256 != "f" * 64 else "e" * 64,
+                    )
+                    changed_base = replace(base, source_closure=changed)
+                    with mock.patch.object(
+                        unattended,
+                        "PRIVATE_ROOT",
+                        private.resolve(),
+                    ), mock.patch.object(
+                        unattended,
+                        "PRIVATE_RUN_BASE",
+                        run_base.resolve(),
+                    ), mock.patch.object(
+                        unattended,
+                        "REVIEW_RECEIPT_PATH",
+                        review.resolve(),
+                    ), mock.patch.object(
+                        attended,
+                        "load_spec",
+                        return_value=changed_base,
+                    ), self.assertRaisesRegex(
+                        unattended.ContractError,
+                        f"base attended source closure differs: {attended_role}",
+                    ):
+                        unattended.load_spec(output, digest(output))
 
     def test_execute_writes_intent_before_one_effect_and_refuses_replay(self) -> None:
         with tempfile.TemporaryDirectory() as raw:

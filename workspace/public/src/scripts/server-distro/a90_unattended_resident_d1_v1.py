@@ -66,6 +66,24 @@ SOURCE_PATHS = {
     "policy_review": REPO_ROOT
     / "docs/reports/A90_UNATTENDED_RESIDENT_D1_POLICY_H0_2026-08-03.md",
 }
+ATTENDED_SOURCE_ROLE_MAP = {
+    "runner": "attended_transaction",
+    "transition_contract": "transition_contract",
+    "transition_engine": "transition_engine",
+    **{
+        role: f"attended_{role}"
+        for role in attended.SOURCE_PATHS
+        if role not in {"runner", "transition_contract", "transition_engine"}
+    },
+}
+if set(ATTENDED_SOURCE_ROLE_MAP) != set(attended.SOURCE_PATHS):
+    raise RuntimeError("attended transitive source role map is incomplete")
+for _attended_role, _capability_role in ATTENDED_SOURCE_ROLE_MAP.items():
+    _attended_path = attended.SOURCE_PATHS[_attended_role]
+    _existing_path = SOURCE_PATHS.get(_capability_role)
+    if _existing_path is not None and _existing_path != _attended_path:
+        raise RuntimeError("attended capability source path differs")
+    SOURCE_PATHS[_capability_role] = _attended_path
 
 
 class ContractError(RuntimeError):
@@ -250,6 +268,21 @@ def _source_closure() -> dict[str, attended.BoundFile]:
         role: _bound_file(path, private=False)
         for role, path in SOURCE_PATHS.items()
     }
+
+
+def _validate_attended_base_source_closure(
+    base: attended.SessionSpec,
+    capability_sources: dict[str, attended.BoundFile],
+) -> None:
+    if set(base.source_closure) != set(ATTENDED_SOURCE_ROLE_MAP):
+        raise ContractError("base attended source role set differs")
+    for attended_role, capability_role in ATTENDED_SOURCE_ROLE_MAP.items():
+        actual = base.source_closure.get(attended_role)
+        expected = capability_sources.get(capability_role)
+        if actual != expected:
+            raise ContractError(
+                "base attended source closure differs: " + attended_role
+            )
 
 
 def _qualification_value(value: Qualification) -> dict[str, Any]:
@@ -497,8 +530,9 @@ def build_manifest(
         base = attended.load_spec(base_manifest.path, base_manifest.sha256)
     except attended.ContractError as exc:
         raise ContractError("base attended manifest is not current") from exc
-    qualification = _validate_qualification(base, qualification_transaction_dir)
     sources = _source_closure()
+    _validate_attended_base_source_closure(base, sources)
+    qualification = _validate_qualification(base, qualification_transaction_dir)
     review = _validate_review_receipt(review_receipt_path, sources)
     return {
         "schema": SCHEMA,
@@ -597,15 +631,6 @@ def load_spec(path: Path, expected_sha256: str) -> UnattendedSpec:
         base = attended.load_spec(base_manifest.path, base_manifest.sha256)
     except attended.ContractError as exc:
         raise ContractError("base attended manifest is not current") from exc
-    qualification_value = value.get("qualification")
-    if not isinstance(qualification_value, dict):
-        raise ContractError("unattended D1 qualification is absent")
-    transaction_raw = qualification_value.get("transaction_dir")
-    if not isinstance(transaction_raw, str) or not transaction_raw:
-        raise ContractError("qualification transaction path is absent")
-    qualification = _validate_qualification(base, Path(transaction_raw))
-    if qualification_value != _qualification_value(qualification):
-        raise ContractError("unattended D1 qualification binding changed")
     sources_raw = value.get("source_closure")
     if not isinstance(sources_raw, dict) or set(sources_raw) != set(SOURCE_PATHS):
         raise ContractError("unattended D1 source closure is not exact")
@@ -615,6 +640,16 @@ def load_spec(path: Path, expected_sha256: str) -> UnattendedSpec:
         if item.path != expected_path.resolve(strict=True):
             raise ContractError(f"unattended D1 source path changed: {role}")
         sources[role] = item
+    _validate_attended_base_source_closure(base, sources)
+    qualification_value = value.get("qualification")
+    if not isinstance(qualification_value, dict):
+        raise ContractError("unattended D1 qualification is absent")
+    transaction_raw = qualification_value.get("transaction_dir")
+    if not isinstance(transaction_raw, str) or not transaction_raw:
+        raise ContractError("qualification transaction path is absent")
+    qualification = _validate_qualification(base, Path(transaction_raw))
+    if qualification_value != _qualification_value(qualification):
+        raise ContractError("unattended D1 qualification binding changed")
     review = _bound_dict(
         value.get("review_receipt"),
         "review receipt",
