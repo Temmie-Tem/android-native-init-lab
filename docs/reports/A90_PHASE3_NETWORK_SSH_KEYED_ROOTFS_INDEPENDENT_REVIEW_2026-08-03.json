@@ -1,0 +1,204 @@
+{
+  "schema": "a90-phase3-network-ssh-keyed-rootfs-independent-review-v1",
+  "review_date": "2026-08-03",
+  "target": "Samsung Galaxy A90 5G only",
+  "risk_tier": "H0",
+  "capability": "A90_PHASE3_NETWORK_SSH_KEYED_ROOTFS_V1",
+  "status": "PASS_GO",
+  "decision": "The exact host-only capability independently qualifies absent-only generation of one fresh Ed25519 observer key and one new-inode private Phase 3 rootfs copy containing only that public key. It grants no device, candidate, D1, F1, staging, transfer, flash, reboot, or network authority.",
+  "reviewed_base_commit": "5b4ca6646894286f496e5458c8a2da197f63d74e",
+  "reviewed_base_tree": "5f01f228223d3c397d89edb73796f3cce2782953",
+  "governing_contracts": {
+    "AGENTS.md": {
+      "bytes": 13903,
+      "sha256": "939792d4d9b542d334af2bc3e5f5495b7ca61d717872f3463effcdf23d3453ae"
+    },
+    "docs/operations/targets/A90_TARGET_CONTRACT.md": {
+      "bytes": 14103,
+      "sha256": "ce783c3f8b20188c6977fa4d2f4e72cd1a564e31cb20e5dc4dcd62fc609227fc"
+    },
+    "GOAL_A90.md": {
+      "bytes": 42263,
+      "sha256": "ec10c0367f3e4b46e6be855cf41b2a53ef5c51acace65ab24ef0dcf46df44391"
+    }
+  },
+  "named_execution_critical_closure": {
+    "key_materializer": {
+      "path": "workspace/public/src/scripts/server-distro/a90_phase3_network_ssh_keyed_rootfs_v1.py",
+      "bytes": 23948,
+      "sha256": "44bb425533ccfd5b65b9be94056da302fa646d97b2b346ec15214cd7a5660396"
+    },
+    "phase3_manifest": {
+      "path": "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/manifest.toml",
+      "bytes": 2962,
+      "sha256": "0a0ced3d0720db7bedb4ebcc42f98162a687d2a4d5d785b8cc123cae777ef9c7"
+    },
+    "phase3_rootfs_builder": {
+      "path": "workspace/public/src/scripts/server-distro/prepare_phase3_network_ssh_v1_rootfs.py",
+      "bytes": 25978,
+      "sha256": "3c15440d30e5cd14f320c6a1bc0d1639e89b0d878a8970284b5eb7bb58f87166"
+    },
+    "transitive_phase2_ext4_helper": {
+      "path": "workspace/public/src/scripts/server-distro/prepare_phase2_display_v1_rootfs.py",
+      "bytes": 28143,
+      "sha256": "8b44e922aba9efdf8b6877c98d6d3395c4ec34a6d6d5e47247aa3c73d7b689a1"
+    },
+    "retained_phase3_service": {
+      "path": "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh",
+      "bytes": 10126,
+      "sha256": "b52b7306d928d0a7275af70f16ff44d578a8440260828343eefa2a204bdc8859"
+    },
+    "retained_return_arm_firstboot": {
+      "path": "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_return_arm_v1.sh",
+      "bytes": 1187,
+      "sha256": "e83ede7fb430de98881ff7b9d18e8127bfc8bc19e4707d9ccf78410ac555faf3"
+    }
+  },
+  "review_validation_source": {
+    "focused_tests": {
+      "path": "tests/test_a90_phase3_network_ssh_keyed_rootfs_v1.py",
+      "bytes": 7637,
+      "sha256": "9026fc290d4c6a11fd0177f3737fd7ddbcc2e56cf249af0dad5934cc7137dced"
+    }
+  },
+  "qualification_evidence": {
+    "run_id": "a90-v3406-debian-display-f1-20260803-02",
+    "summary": {
+      "path": "workspace/private/runs/server-distro/a90-v3406-debian-display-f1-20260803-02/keyed-rootfs-summary.json",
+      "bytes": 3923,
+      "sha256": "bc5956221a48deb89b3c7958fd56b5f9bb255ebebe480ae576e490b9c9f724f7",
+      "mode": "0600",
+      "schema": "a90-phase3-network-ssh-keyed-rootfs-v1",
+      "decision": "A90_PHASE3_NETWORK_SSH_KEYED_ROOTFS_HOST_PASS"
+    },
+    "clean_phase3_base": {
+      "image_path": "workspace/private/outputs/server-distro/a90-phase3-network-ssh-v1-ab-05-20260803/A/phase3-network-ssh-v1.img",
+      "image_bytes": 2147483648,
+      "image_sha256": "8c4167f66bd339d49bd31625cf419e3551930fa331e2964d544eaba96799d5bd",
+      "receipt_path": "workspace/private/outputs/server-distro/a90-phase3-network-ssh-v1-ab-05-20260803/ab-receipt.json",
+      "receipt_bytes": 3770,
+      "receipt_sha256": "93b644eaad41181bda40ad3e0a93a1c21e82447fe006ccffcbfd06bbf628a6bf",
+      "source_unchanged": true
+    },
+    "keyed_image": {
+      "path": "workspace/private/runs/server-distro/a90-v3406-debian-display-f1-20260803-02/phase3-network-ssh-v1-keyed.img",
+      "bytes": 2147483648,
+      "sha256": "168aff0345e1c6d829ece6959e637608917ca90217c1ec5fb9edfeb2f34699c4",
+      "mode": "0600",
+      "new_inode": true,
+      "non_reflink_copy_requested": true,
+      "filesystem": "ext4",
+      "filesystem_label": "PHASE3NETSSHV1",
+      "e2fsck_read_only_rc": 0
+    },
+    "observer_key_checks": {
+      "fresh_single_run_ed25519": true,
+      "empty_passphrase_and_comment_requested": true,
+      "private_key_regular_non_symlink_mode_0600": true,
+      "public_key_regular_non_symlink_one_exact_line": true,
+      "private_and_public_hashes_match_summary": true,
+      "credential_contents_recorded_in_review": false,
+      "private_key_contents_inspected": false
+    },
+    "authorized_keys": {
+      "target": "/root/.ssh/authorized_keys",
+      "root_owned_mode_0600": true,
+      "content_hash_matches_generated_public_key": true,
+      "root_ssh_directory_retained_root_owned_mode_0700": true
+    },
+    "retention": {
+      "service_hash_retained": true,
+      "firstboot_hash_retained": true,
+      "runtime_and_host_key_paths_absent": true,
+      "clean_source_hash_retained_after_keying": true
+    },
+    "authority": {
+      "candidate_authority": false,
+      "d1_authorized": false,
+      "f1_authorized": false,
+      "live_authority": false,
+      "device_contact": false,
+      "device_write": false,
+      "rootfs_staged": false,
+      "flash": false,
+      "reboot": false
+    }
+  },
+  "reviewed_semantics": {
+    "canonical_identity": "Only the exact a90-v3406-debian-display-f1-YYYYMMDD-NN run-ID form is accepted. The run directory, key paths, image path, and summary path must be absent and are never reused.",
+    "fresh_key": "One ssh-keygen invocation is fixed to quiet Ed25519 generation with an empty passphrase and empty comment. Private and public dangling symlinks are explicitly rejected before invocation; the resulting private key is exact mode 0600 and the public key is one exact Ed25519 line.",
+    "copy_and_insert": "The exact clean image is copied with reflink disabled to a different inode, remains private mode 0600, and receives only the fresh public key at root-owned mode 0600 authorized_keys.",
+    "retained_rootfs": "The ext4 label, root SSH directory metadata, exact Phase 3 service, exact return-arm firstboot, and runtime-path absence are preserved; read-only e2fsck returns zero.",
+    "source_drift": "The materializer validates its opened bytes against the on-disk hash and rechecks size and hash after keying. It also directly revalidates the exact Phase 3 manifest and builder plus the transitive Phase 2 ext4 helper against both fixed hashes and the clean A/B receipt.",
+    "durable_private_evidence": "The summary is created exclusively as mode 0600, fsynced with its directory, and records exact source, helper, output, and zero-authority identities without embedding credential bytes.",
+    "device_surface": "The capability invokes only bounded host tools for key generation, copy, ext4 inspection/update, and read-only fsck. It contains no ADB, fastboot, staging, transfer, flash, reboot, or network action path."
+  },
+  "review_findings_closed_before_decision": [
+    {
+      "finding": "The initial Phase3-specific run-ID namespace was incompatible with the canonical V3406 F1 run directory consumed by later staging.",
+      "closure": "The materializer now accepts only the exact canonical V3406 F1 run-ID form, and qualification was regenerated under sequence 02."
+    },
+    {
+      "finding": "The first validator did not close every key-generation, zero-authority, and materializer source-drift predicate.",
+      "closure": "The exact ssh-keygen form, private mode, public-key shape, all authority and device fields, and both source-stability checks are now required and mutation-tested."
+    },
+    {
+      "finding": "The transitive Phase 2 ext4 helper was used at runtime without a direct materializer-side hash and receipt check.",
+      "closure": "The exact helper path and hash are now revalidated, matched to the clean A/B receipt, emitted by audit, recorded in the summary, and included in this named execution-critical closure."
+    },
+    {
+      "finding": "The first key-path absence guard did not explicitly reject dangling private or public symlinks.",
+      "closure": "Both key paths now reject existence or symlink state, and source-mutation plus functional dangling-symlink tests cover the guards."
+    },
+    {
+      "finding": "The sequence-01 qualification was created before the final execution-critical closure settled.",
+      "closure": "It was excluded as superseded private H0 evidence, and the final unchanged closure was freshly qualified in the absent sequence-02 run directory."
+    }
+  ],
+  "superseded_private_h0_evidence_excluded": [
+    "a90-phase3-network-ssh-keyed-20260803-01",
+    "a90-v3406-debian-display-f1-20260803-01"
+  ],
+  "validation": {
+    "phase3_focused_tests": "9/9 PASS",
+    "key_materializer_focused_tests": "8/8 PASS",
+    "combined_focused_tests": "17/17 PASS",
+    "python_py_compile": "PASS",
+    "audit_only_source_contract_issues": "0 PASS",
+    "audit_only_zero_authority": "PASS",
+    "private_summary_schema_metadata_and_hash_reconciliation": "PASS",
+    "private_key_metadata_and_hash_reconciliation_without_content_output": "PASS",
+    "keyed_ext4_retained_content_and_runtime_absence": "PASS",
+    "keyed_ext4_e2fsck_read_only": "PASS",
+    "clean_source_post_keying_sha256": "PASS",
+    "git_diff_check": "PASS"
+  },
+  "scope_limits": [
+    "This review qualifies only exact A90 host-side fresh-key materialization and keyed-rootfs validation. It does not prove SSH authentication, network service, display, return, or switch_root behavior on a device.",
+    "No private key contents were inspected, printed, copied into tracked evidence, or granted authority. Private credential artifacts remain only under workspace/private.",
+    "The qualification summary and keyed-image identity prove sequence 02 only. A future fresh-key qualification must revalidate its exact private inputs and outputs but does not repeat this capability review while the named execution-critical closure and reviewed semantics remain unchanged.",
+    "No S22+ profile, artifact, evidence, command, approval, rollback, or authority was used or touched."
+  ],
+  "reuse": {
+    "capability_qualification": true,
+    "repeat_per_ordinal": false,
+    "repeat_per_manifest": false,
+    "repeat_per_qualification": false,
+    "repeat_per_campaign": false,
+    "valid_until": "Any named execution-critical hash or reviewed semantic changes, or a new hazard or incident occurs.",
+    "fresh_inputs_still_required": "Every future materialization or live binding must freshly validate the exact clean base, generated credential metadata, keyed-image identity, durable summary, current runner binding, and applicable target presence and recovery gates. PASS_GO is not live authority."
+  },
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "candidate_authority": false,
+  "device_contact": false,
+  "network_contact": false,
+  "payload_transfer": false,
+  "partition_write": false,
+  "flash": false,
+  "reboot": false,
+  "commit": false,
+  "other_target_touched": false,
+  "authority": "PASS_GO is reusable H0 capability qualification only. It grants no D0, D1, F1, credential-use, device-contact, network, candidate, staging, payload, partition-write, flash, reboot, or commit authority."
+}
