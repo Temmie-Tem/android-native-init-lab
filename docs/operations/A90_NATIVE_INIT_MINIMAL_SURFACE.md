@@ -74,6 +74,33 @@ remains reusable across manifests, qualifications, ordinals, and campaigns only
 until a bound execution-critical closure changes or a new hazard or incident
 occurs. Any later F1 still requires fresh qualification and attended authority.
 
+## Object-symbol reachability inventory
+
+A read-only comparison of the deterministic phase2 and minimal-A unstripped
+init objects found the same link-level graph in both profiles:
+
+| Measure | phase2 | minimal-A |
+|---|---:|---:|
+| init translation units | 60 | 60 |
+| defined global symbols | 439 | 439 |
+| internal object dependency edges | 267 | 267 |
+| objects referenced directly by `init_v724.o` | 52 | 52 |
+| objects reachable from `init_v724.o` | 60 | 60 |
+| non-root objects with zero incoming references | 0 | 0 |
+
+Only four object sizes changed after removing the 47 Doom-only flags:
+`init_v724.o` decreased by 29,680 bytes, `a90_doomgeneric_bridge.o` by 440
+bytes, and `a90_longsoak.o` and `a90_wififeas.o` by 8 bytes each. The bridge
+still satisfies nine direct undefined references from `init_v724.o`:
+status, probe, WAD verification, play, frame rendering and reading, input file
+and socket writes, and frame-loop helper launch.
+
+This is link-symbol reachability, not runtime necessity proof. It shows why
+deleting a translation unit from the manifest alone fails, but it does not
+justify retaining all 60 units. The next slice must first isolate or remove the
+monolithic menu/HUD/command callsites (or provide an explicitly inert boundary)
+and then repeat the link graph before dropping the bridge implementation.
+
 ## Debian ownership already proved
 
 The attended ordinal and two qualified unattended ordinals independently
@@ -123,8 +150,8 @@ minimal profile rather than becoming permanent bridge duties.
 2. The no-authority successor profile and deterministic A/B build are complete.
 3. Independent review of the changed flat-builder capability closure is
    complete with reusable `PASS_GO`.
-4. Produce a symbol/reachability diff for the 60 native translation units and
-   classify every remaining function against this map.
+4. The object-symbol reachability diff is complete: all 60 units remain in one
+   root-connected graph, so file-only removal is not a valid next step.
 5. Stop at H0. A changed boot candidate requires refreshed qualification,
    independent review of its changed closure, and attended boot-only F1.
 
