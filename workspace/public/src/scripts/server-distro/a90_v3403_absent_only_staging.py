@@ -56,6 +56,10 @@ ALLOWED_STARTING_IDENTITIES = {
     (EXPECTED_BASELINE_VERSION, EXPECTED_BASELINE_BUILD),
     (EXPECTED_RESIDENT_VERSION, EXPECTED_RESIDENT_BUILD),
 }
+PHASE2_ALLOWED_STARTING_IDENTITIES = frozenset(
+    {(EXPECTED_BASELINE_VERSION, EXPECTED_BASELINE_BUILD)}
+)
+PHASE3_ALLOWED_STARTING_IDENTITIES = frozenset(ALLOWED_STARTING_IDENTITIES)
 REMOTE_ROOT = PurePosixPath("/mnt/sdext/a90/runtime")
 REMOTE_MOUNT = PurePosixPath("/mnt/sdext")
 REMOTE_WORK = REMOTE_ROOT / "d3-handoff-work.img"
@@ -241,6 +245,16 @@ def required_support_files(rootfs_profile: str) -> tuple[Path, ...]:
     else:
         raise ContractError("unsupported keyed-rootfs profile")
     return (*COMMON_SUPPORT_FILES, keyer)
+
+
+def allowed_starting_identities_for_profile(
+    rootfs_profile: str,
+) -> frozenset[tuple[str, str]]:
+    if rootfs_profile == PHASE2_PROFILE:
+        return PHASE2_ALLOWED_STARTING_IDENTITIES
+    if rootfs_profile == PHASE3_PROFILE:
+        return PHASE3_ALLOWED_STARTING_IDENTITIES
+    raise ContractError("unsupported keyed-rootfs profile")
 
 
 class ContractError(RuntimeError):
@@ -1105,6 +1119,7 @@ def validate_connected_d0_evidence(
         raise ContractError("connected D0 outcome mismatch")
     if (
         target.get("profile") != TARGET_PROFILE
+        or type(target.get("matching_a90_usb_devices")) is not int
         or target.get("matching_a90_usb_devices") != 1
         or target.get("bridge_selected_realpath") != expected_realpath
     ):
@@ -1114,7 +1129,9 @@ def validate_connected_d0_evidence(
         or health.get("bridge_running") is not True
         or health.get("version") != expected_version
         or health.get("version_build") != expected_build
+        or type(health.get("pstore_entries")) is not int
         or health.get("pstore_entries") != 0
+        or type(selftest.get("fail")) is not int
         or selftest.get("fail") != 0
     ):
         raise ContractError("connected D0 baseline health mismatch")
@@ -1139,7 +1156,11 @@ def validate_connected_d0_evidence(
         ("candidate", candidate_value, candidate),
         ("rollback", rollback_value, rollback),
     ):
-        if item.get("size") != bound.size or item.get("sha256") != bound.sha256:
+        if (
+            type(item.get("size")) is not int
+            or item.get("size") != bound.size
+            or item.get("sha256") != bound.sha256
+        ):
             raise ContractError(f"connected D0 {label} artifact mismatch")
     if repository.get("runner_sha256") != flash_runner.sha256:
         raise ContractError("connected D0 flash runner mismatch")
@@ -1149,6 +1170,7 @@ def validate_connected_d0_evidence(
         source_sha256 = sha256_file(source)
         if (
             repository.get("connected_preflight") != str(source)
+            or type(repository.get("connected_preflight_size")) is not int
             or repository.get("connected_preflight_size") != source_info.st_size
             or repository.get("connected_preflight_sha256") != source_sha256
         ):
@@ -1184,6 +1206,7 @@ def validate_path_preflight_evidence(
     if (
         read.get("kind") != "bounded-connected-read-only"
         or read.get("framed_command") != "run"
+        or type(read.get("framed_rc")) is not int
         or read.get("framed_rc") != 0
         or read.get("framed_status") != "ok"
     ):
@@ -1312,13 +1335,12 @@ def stage_spec_from_manifest(
     rootfs_profile = keyed.get("profile", PHASE2_PROFILE)
     if rootfs_profile not in {PHASE2_PROFILE, PHASE3_PROFILE}:
         raise ContractError("keyed rootfs profile is not supported")
-    if (
-        rootfs_profile == PHASE3_PROFILE
-        and (starting_version, starting_build)
-        != (EXPECTED_RESIDENT_VERSION, EXPECTED_RESIDENT_BUILD)
-    ):
+    profile_starting_identities = allowed_starting_identities_for_profile(
+        rootfs_profile
+    )
+    if (starting_version, starting_build) not in profile_starting_identities:
         raise ContractError(
-            "Phase 3 keyed rootfs requires the exact V3406 resident start"
+            "keyed rootfs profile requires an exact canonical native start"
         )
     keyed_materialization: BoundFile | None = None
     if cycle == "v3406":
@@ -1822,6 +1844,49 @@ def simulate_stage(
 
 def source_contract_issues(source: str) -> tuple[str, ...]:
     issues: list[str] = []
+    starting_start = source.find("ALLOWED_STARTING_IDENTITIES = {")
+    starting_end = source.find("REMOTE_ROOT =", starting_start + 1)
+    if starting_start < 0 or starting_end < 0:
+        issues.append("starting identity constant boundary is missing")
+    else:
+        starting = source[starting_start:starting_end]
+        expected_starting = (
+            "ALLOWED_STARTING_IDENTITIES = {\n"
+            "    (EXPECTED_BASELINE_VERSION, EXPECTED_BASELINE_BUILD),\n"
+            "    (EXPECTED_RESIDENT_VERSION, EXPECTED_RESIDENT_BUILD),\n"
+            "}\n"
+            "PHASE2_ALLOWED_STARTING_IDENTITIES = frozenset(\n"
+            "    {(EXPECTED_BASELINE_VERSION, EXPECTED_BASELINE_BUILD)}\n"
+            ")\n"
+            "PHASE3_ALLOWED_STARTING_IDENTITIES = "
+            "frozenset(ALLOWED_STARTING_IDENTITIES)\n"
+        )
+        if starting != expected_starting:
+            issues.append("starting identity set is not exact")
+    profile_helper_start = source.find(
+        "def allowed_starting_identities_for_profile("
+    )
+    profile_helper_end = source.find(
+        "\n\nclass ContractError",
+        profile_helper_start + 1,
+    )
+    expected_profile_helper = (
+        "def allowed_starting_identities_for_profile(\n"
+        "    rootfs_profile: str,\n"
+        ") -> frozenset[tuple[str, str]]:\n"
+        "    if rootfs_profile == PHASE2_PROFILE:\n"
+        "        return PHASE2_ALLOWED_STARTING_IDENTITIES\n"
+        "    if rootfs_profile == PHASE3_PROFILE:\n"
+        "        return PHASE3_ALLOWED_STARTING_IDENTITIES\n"
+        "    raise ContractError(\"unsupported keyed-rootfs profile\")\n"
+    )
+    if (
+        profile_helper_start < 0
+        or profile_helper_end < 0
+        or source[profile_helper_start:profile_helper_end]
+        != expected_profile_helper
+    ):
+        issues.append("profile starting identity helper is not exact")
     identity_start = source.find("REMOTE_FINAL_PREFIX_BY_CYCLE = {")
     identity_end = source.find("PSTORE_ZERO_RE =", identity_start + 1)
     if identity_start < 0 or identity_end < 0:
@@ -1894,6 +1959,27 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
                 issues.append(
                     f"parent approval lacks canonical observation binding: {token}"
                 )
+        connected_d0 = source[
+            positions["connected D0 evidence"]:positions["path preflight evidence"]
+        ]
+        for token in (
+            'type(target.get("matching_a90_usb_devices")) is not int',
+            'type(health.get("pstore_entries")) is not int',
+            'type(selftest.get("fail")) is not int',
+            'type(item.get("size")) is not int',
+            'type(repository.get("connected_preflight_size")) is not int',
+        ):
+            if connected_d0.count(token) != 1:
+                issues.append(f"connected D0 exact integer gate is not exact: {token}")
+        path_preflight = source[
+            positions["path preflight evidence"]:source.find(
+                "\ndef require_below(",
+                positions["path preflight evidence"] + 1,
+            )
+        ]
+        framed_rc_type_gate = 'type(read.get("framed_rc")) is not int'
+        if path_preflight.count(framed_rc_type_gate) != 1:
+            issues.append("path preflight framed_rc integer gate is not exact")
         publish = source[positions["publish"]:positions["cleanup"]]
         for token in (
             '/bin/busybox ln "$PAYLOAD" "$FINAL"',
@@ -1956,6 +2042,26 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             issues.append("manifest remote final is not bound to its exact run_id")
         if "stage_dir = derive_stage_dir(run_id)" not in manifest_loader:
             issues.append("stage path is not derived from the stable run_id")
+        exact_general_start_gate = (
+            "        or (starting_version, starting_build) "
+            "not in ALLOWED_STARTING_IDENTITIES\n"
+        )
+        exact_profile_start_gate = (
+            "    profile_starting_identities = "
+            "allowed_starting_identities_for_profile(\n"
+            "        rootfs_profile\n"
+            "    )\n"
+            "    if (starting_version, starting_build) not in "
+            "profile_starting_identities:\n"
+            "        raise ContractError(\n"
+            "            \"keyed rootfs profile requires an exact canonical "
+            "native start\"\n"
+            "        )\n"
+        )
+        if exact_general_start_gate not in manifest_loader:
+            issues.append("general starting identity gate is not exact")
+        if exact_profile_start_gate not in manifest_loader:
+            issues.append("profile starting identity gate is not exact")
         for token in (
             'if cycle == "v3406":',
             "selected_manifest_schema(manifest, run_id)",
@@ -1964,7 +2070,6 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             "validate_phase3_keyed_materialization",
             "required_support_files(rootfs_profile)",
             "(starting_version, starting_build) not in ALLOWED_STARTING_IDENTITIES",
-            "Phase 3 keyed rootfs requires the exact V3406 resident start",
             "elif keyed.get(\"materialization\") is not None:",
             "*((keyed_materialization,) if keyed_materialization else ())",
         ):

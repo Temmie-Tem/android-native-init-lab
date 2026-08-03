@@ -4,7 +4,8 @@
   "target": "Samsung Galaxy A90 5G only",
   "risk_tier": "H0 independent capability review",
   "status": "PASS_GO",
-  "decision": "PASS_GO for the corrected A90 Phase 3 resident-refresh F1 pstore classifier and its exact resident/D1 consumers. Expected console/pmsg boot records warn and continue; crash-class, unknown, and malformed evidence fails closed. Legacy exact-empty evidence remains compatible. No device action was performed by this review.",
+  "decision": "PASS_GO for the corrected A90 Phase 3 resident-refresh F1 pstore classifier, exact Phase 2/Phase 3 starting-identity selection, and exact connected-D0 integer propagation. Phase 2 accepts only the canonical V2321 start; Phase 3 accepts only canonical V2321 or V3406 starts. Expected console/pmsg boot records warn and continue; crash-class, unknown, malformed, mixed, and boolean-imposter evidence fails closed. No device action was performed by this review.",
+  "closure_digest_sha256": "5bb2b6346e9930d50f36bf74d9aed4c461e346496f10c6cd011f4df21845ee53",
   "named_execution_critical_closure": {
     "workspace/public/src/harness/a90harness/evidence.py": {
       "bytes": 11723,
@@ -55,8 +56,8 @@
       "sha256": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744"
     },
     "workspace/public/src/scripts/server-distro/a90_phase2d_finalize_f1.py": {
-      "bytes": 37563,
-      "sha256": "7e9596106676d34369d860df415edb421dd58944984e92a1ae0db151cf66369f"
+      "bytes": 38643,
+      "sha256": "f0411c35944a53940c3aec9af32600b5d4aba08d48f3c34a14552de5546a05d8"
     },
     "workspace/public/src/scripts/server-distro/a90_phase3_network_ssh_keyed_rootfs_v1.py": {
       "bytes": 23948,
@@ -75,8 +76,8 @@
       "sha256": "4908d477c26751f29f8f000c316d862b32a34aacbf53bd20851bf8a96c4a6183"
     },
     "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {
-      "bytes": 97715,
-      "sha256": "8f8c5e311aeb7004e14e9e1f028b3f9da1d88a8b9928d75ba3d809e44d3b93b6"
+      "bytes": 102414,
+      "sha256": "fc8c5754931266541aa3815a497179af7b6a851df530c20cff6e3a464a6adeb4"
     },
     "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {
       "bytes": 269596,
@@ -108,12 +109,12 @@
     }
   },
   "reviewed_semantics": {
-    "starting_identity": "Phase 3 requires exact native 0.11.161 build phase2-display-v1-native-handoff; the retained legacy Phase 2 lane remains exact native 0.9.285 build v2321-usb-clean-identity-rodata.",
+    "starting_identity": "The retained Phase 2 lane accepts only exact native 0.9.285 build v2321-usb-clean-identity-rodata. Phase 3 accepts exactly either that canonical V2321 identity or native 0.11.161 build phase2-display-v1-native-handoff; unknown and mixed version/build identities are rejected.",
     "rollback": "The only rollback is boot_linux_v2321_usb_clean_identity_rodata.img, 60882944 bytes, SHA256 ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb, partition boot.",
     "candidate": "The only candidate is candidate-boot-phase2-display-v1.img, 66379776 bytes, SHA256 3d3e66535654a62f83c5772caba27624acc160911307190de458154acaefdabb, partition boot.",
     "attempts": "Durable candidate intent precedes dispatch, candidate_transfer_count is exactly one, candidate replay is false, and an uncertain candidate is never replayed.",
     "phase3_materialization": "The Phase 3 keyer, exact pristine source and receipt, retained service and firstboot content, filesystem label, observer key pair, runtime absence, provenance, and dynamic support-file closure are hash-bound and validated.",
-    "connected_d0": "The exact A90 bridge/realpath, single matching USB parent, host NCM readiness, exact allowed native identity facts, selftest fail=0, pstore entries=0, artifacts, flash runner, and path absence are bound read-only evidence.",
+    "connected_d0": "The exact A90 bridge/realpath, single matching USB parent, host NCM readiness, exact profile-selected native identity facts, selftest fail=0, pstore entries=0, artifacts, flash runner, and path absence are bound read-only evidence. Count, pstore, selftest, artifact size, preflight source size, and framed RC fields require exact Python int values and reject booleans.",
     "resident_install_v2": "Success requires one exact candidate health result and closes PASS_A90_RESIDENT_INSTALLED in RESIDENT_HEALTHY with zero resident reboot and zero rollback. Console/pmsg boot records are classified warnings; crash-class, unknown, or malformed records stop. Post-attempt failure or ambiguity enters exact V2321 rollback recovery and cannot replay the candidate.",
     "boundaries": "Only boot payloads are reachable; forbidden partitions and forbidden write mechanisms remain excluded; rollback and final health remain mandatory; A90 and S22+ authority and evidence remain isolated."
   },
@@ -125,11 +126,14 @@
     "The pstore parser now rejects duplicate or conflicting entries tokens, including entries=0 followed by a nonzero value.",
     "The post-reboot pstore classifier accepts only exact console/pmsg boot-record names and rejects dmesg, ftrace, unknown names, malformed nonempty lines, and mixed malformed output.",
     "One shared exact receipt validator preserves the historical six-key schema only when entries and reparsed listing are both empty, while accepting the new classified nine-key schema for install and D1 consumption.",
-    "Source self-audit and mutation tests bind the pstore allowlist, framing grammar, return schema, read-only order, and absence of cleanup or write commands."
+    "Source self-audit and mutation tests bind the pstore allowlist, framing grammar, return schema, read-only order, and absence of cleanup or write commands.",
+    "Starting-identity sets, the profile-selection helper, the staging general/profile gates, and the finalizer Phase 2/Phase 3 branch are exact-bound so widening, disabling, or unknown-identity mutations fail self-audit.",
+    "The staging loader enforces V2321-only for legacy Phase 2 and exact V2321-or-V3406 for Phase 3, closing the prior runtime path that admitted V3406 to Phase 2.",
+    "Connected D0 and path receipt validators reject boolean values masquerading as integer count, pstore, selftest, artifact-size, preflight-size, or framed-RC evidence; runtime and adversarial mutation regressions cover each gate."
   ],
   "validation": {
-    "focused_tests": "353/353 F1-related tests, 135/135 D1-related tests, and 121/121 final orchestrator tests PASS; actual legacy resident journal and new classified install/repair/D1 receipt replay PASS.",
-    "python_compile": "PASS for the changed F1 orchestrator, resident promotion, and D1 transition sources.",
+    "focused_tests": "356/356 F1-related tests and 61/61 direct staging/finalizer tests PASS; the fresh -03 D0 and path receipts reopen as exact V2321 with pstore=0, selftest fail=0, and all three paths absent.",
+    "python_compile": "PASS for the changed staging adapter, finalizer, and their tests.",
     "source_contract_audits": "PASS with contract_issues=[] for connected preflight, finalizer, staging adapter, and F1 orchestrator.",
     "diff_check": "PASS",
     "device_contact": false,

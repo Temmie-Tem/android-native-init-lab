@@ -210,6 +210,20 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
         self.assertNotIn("a90_phase2d_keyed_rootfs.py", support)
         self.assertFalse(manifest["authority"]["live_authority"])
 
+    def test_phase3_start_accepts_only_exact_canonical_identities(self) -> None:
+        self.assertEqual(
+            finalizer.allowed_starting_identities(phase3=True),
+            finalizer.staging.PHASE3_ALLOWED_STARTING_IDENTITIES,
+        )
+        self.assertEqual(
+            finalizer.allowed_starting_identities(phase3=False),
+            finalizer.staging.PHASE2_ALLOWED_STARTING_IDENTITIES,
+        )
+        self.assertNotIn(
+            ("unknown", "unknown"),
+            finalizer.allowed_starting_identities(phase3=True),
+        )
+
     def test_copy_is_new_inode_exact_hash_and_absent_only(self) -> None:
         with tempfile.TemporaryDirectory(
             dir=finalizer.staging.PRIVATE_ROOT
@@ -299,6 +313,17 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
             source.replace(
                 '"candidate_transfer_authorized": False',
                 '"candidate_transfer_authorized": True',
+                1,
+            ),
+            source.replace("    if phase3:\n", "    if phase3 or True:\n", 1),
+            source.replace(
+                "    return staging.PHASE2_ALLOWED_STARTING_IDENTITIES\n",
+                "    return staging.PHASE3_ALLOWED_STARTING_IDENTITIES\n",
+                1,
+            ),
+            source.replace(
+                "starting_identity not in allowed_starting_identities(phase3=phase3)",
+                "starting_identity not in allowed_starting_identities(phase3=phase3) and False",
                 1,
             ),
         )

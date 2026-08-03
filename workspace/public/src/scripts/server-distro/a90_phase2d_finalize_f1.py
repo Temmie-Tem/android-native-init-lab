@@ -303,6 +303,12 @@ def validate_phase3_independent_review_report(review_text: str) -> None:
         raise ContractError("Phase 3 F1 independent review is not exact PASS_GO")
 
 
+def allowed_starting_identities(*, phase3: bool) -> frozenset[tuple[str, str]]:
+    if phase3:
+        return staging.PHASE3_ALLOWED_STARTING_IDENTITIES
+    return staging.PHASE2_ALLOWED_STARTING_IDENTITIES
+
+
 def validate_template_rollback(template: dict[str, Any]) -> None:
     value = template.get("rollback_boot")
     if not isinstance(value, dict):
@@ -688,23 +694,17 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
     else:
         validate_independent_review_report(review_text)
 
-    expected_starting_version = (
-        staging.EXPECTED_RESIDENT_VERSION
-        if phase3
-        else staging.EXPECTED_BASELINE_VERSION
-    )
-    expected_starting_build = (
-        staging.EXPECTED_RESIDENT_BUILD
-        if phase3
-        else staging.EXPECTED_BASELINE_BUILD
-    )
     health = connected_value.get("health")
+    starting_identity = (
+        health.get("version") if isinstance(health, dict) else None,
+        health.get("version_build") if isinstance(health, dict) else None,
+    )
     if (
         not isinstance(health, dict)
-        or health.get("version") != expected_starting_version
-        or health.get("version_build") != expected_starting_build
+        or starting_identity not in allowed_starting_identities(phase3=phase3)
     ):
         raise ContractError("connected D0 starting native identity is not exact")
+    expected_starting_version, expected_starting_build = starting_identity
 
     candidate_source = CANDIDATE_SOURCE.resolve(strict=True)
     candidate_copy = copy_absent_private(
@@ -880,6 +880,27 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         lines[: validator_node.lineno - 1]
         + lines[validator_node.end_lineno :]
     )
+    allowed_start = subject.find("def allowed_starting_identities(")
+    allowed_end = subject.find("\ndef validate_template_rollback(", allowed_start + 1)
+    expected_allowed = (
+        "def allowed_starting_identities(*, phase3: bool) "
+        "-> frozenset[tuple[str, str]]:\n"
+        "    if phase3:\n"
+        "        return staging.PHASE3_ALLOWED_STARTING_IDENTITIES\n"
+        "    return staging.PHASE2_ALLOWED_STARTING_IDENTITIES\n\n"
+    )
+    if (
+        allowed_start < 0
+        or allowed_end < 0
+        or subject[allowed_start:allowed_end] != expected_allowed
+    ):
+        issues.append("finalizer starting identity helper is not exact")
+    exact_connected_start_gate = (
+        "        or starting_identity not in "
+        "allowed_starting_identities(phase3=phase3)\n"
+    )
+    if exact_connected_start_gate not in subject:
+        issues.append("finalizer connected starting identity gate is not exact")
     for token in (
         '"cp",\n            "--reflink=never",',
         "destination.exists() or destination.is_symlink()",
@@ -888,8 +909,8 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         "validate_connected_preflight_source(connected_value)",
         "validate_independent_review_report(review_text)",
         "validate_phase3_independent_review_report(review_text)",
-        "staging.EXPECTED_RESIDENT_VERSION",
-        "staging.EXPECTED_RESIDENT_BUILD",
+        "allowed_starting_identities(phase3=phase3)",
+        "staging.PHASE3_ALLOWED_STARTING_IDENTITIES",
         "ROLLBACK_SOURCE,",
         "expected_size=ROLLBACK_SIZE",
         "expected_sha256=ROLLBACK_SHA256",

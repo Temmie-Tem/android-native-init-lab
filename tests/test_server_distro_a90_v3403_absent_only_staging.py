@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -198,17 +199,103 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
         self.assertIn("a90_phase3_network_ssh_keyed_rootfs_v1.py", phase3)
         self.assertNotIn("a90_phase2d_keyed_rootfs.py", phase3)
 
-    def test_phase3_profile_requires_exact_resident_start(self) -> None:
+    def test_phase3_profile_accepts_only_canonical_native_starts(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
         self.assertIn("rootfs_profile == PHASE3_PROFILE", source)
-        self.assertIn(
-            "(EXPECTED_RESIDENT_VERSION, EXPECTED_RESIDENT_BUILD)",
-            source,
+        self.assertEqual(
+            stage.PHASE3_ALLOWED_STARTING_IDENTITIES,
+            frozenset(stage.ALLOWED_STARTING_IDENTITIES),
+        )
+        self.assertEqual(
+            stage.allowed_starting_identities_for_profile(stage.PHASE2_PROFILE),
+            frozenset(
+                {(stage.EXPECTED_BASELINE_VERSION, stage.EXPECTED_BASELINE_BUILD)}
+            ),
+        )
+        self.assertNotIn(
+            (stage.EXPECTED_RESIDENT_VERSION, stage.EXPECTED_RESIDENT_BUILD),
+            stage.allowed_starting_identities_for_profile(stage.PHASE2_PROFILE),
         )
         self.assertIn(
-            "Phase 3 keyed rootfs requires the exact V3406 resident start",
+            "keyed rootfs profile requires an exact canonical native start",
             source,
         )
+        widened = source.replace(
+            "PHASE3_ALLOWED_STARTING_IDENTITIES = frozenset(ALLOWED_STARTING_IDENTITIES)",
+            "PHASE3_ALLOWED_STARTING_IDENTITIES = frozenset({('any', 'any')})",
+            1,
+        )
+        self.assertTrue(
+            any(
+                "starting identity set is not exact" in issue
+                for issue in stage.source_contract_issues(widened)
+            )
+        )
+        disabled_general = source.replace(
+            "not in ALLOWED_STARTING_IDENTITIES\n",
+            "not in ALLOWED_STARTING_IDENTITIES and False\n",
+            1,
+        )
+        self.assertIn(
+            "general starting identity gate is not exact",
+            stage.source_contract_issues(disabled_general),
+        )
+        disabled_profile = source.replace(
+            "not in profile_starting_identities:\n",
+            "not in profile_starting_identities and False:\n",
+            1,
+        )
+        self.assertIn(
+            "profile starting identity gate is not exact",
+            stage.source_contract_issues(disabled_profile),
+        )
+        widened_helper = source.replace(
+            "        return PHASE2_ALLOWED_STARTING_IDENTITIES\n",
+            "        return PHASE3_ALLOWED_STARTING_IDENTITIES\n",
+            1,
+        )
+        self.assertIn(
+            "profile starting identity helper is not exact",
+            stage.source_contract_issues(widened_helper),
+        )
+
+    def test_source_contract_binds_exact_integer_receipt_gates(self) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+        mutations = (
+            source.replace(
+                'type(target.get("matching_a90_usb_devices")) is not int\n',
+                'False\n',
+                1,
+            ),
+            source.replace(
+                'type(health.get("pstore_entries")) is not int\n',
+                'False\n',
+                1,
+            ),
+            source.replace(
+                'type(selftest.get("fail")) is not int\n',
+                'False\n',
+                1,
+            ),
+            source.replace(
+                'type(item.get("size")) is not int\n',
+                'False\n',
+                1,
+            ),
+            source.replace(
+                'type(repository.get("connected_preflight_size")) is not int\n',
+                'False\n',
+                1,
+            ),
+            source.replace(
+                'type(read.get("framed_rc")) is not int\n',
+                'False\n',
+                1,
+            ),
+        )
+        for mutation in mutations:
+            with self.subTest():
+                self.assertTrue(stage.source_contract_issues(mutation))
 
     def test_run_derived_final_and_fixed_work_paths(self) -> None:
         self.assertEqual(
@@ -399,6 +486,67 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
                 flash_runner=runner,
             )
 
+    def test_connected_d0_rejects_boolean_integer_impersonation(self) -> None:
+        candidate = stage.BoundFile("candidate", Path("/private/candidate"), 4096, "a" * 64)
+        rollback = stage.BoundFile("rollback", Path("/private/rollback"), 8192, "b" * 64)
+        runner = stage.BoundFile("runner", Path("/public/runner"), 1024, "c" * 64)
+        healthy = {
+            "schema": stage.D0_RESULT_SCHEMA,
+            "outcome": stage.D0_RESULT_OUTCOME,
+            "target": {
+                "profile": stage.TARGET_PROFILE,
+                "matching_a90_usb_devices": 1,
+                "bridge_selected_realpath": "/dev/exact-private-binding",
+            },
+            "host_ncm": {
+                "verified_a90_ncm": True,
+                "direct_route": True,
+                "host_cidr_present": True,
+                "device_ping": True,
+            },
+            "health": {
+                "bridge_exact": True,
+                "bridge_running": True,
+                "version": stage.EXPECTED_BASELINE_VERSION,
+                "version_build": stage.EXPECTED_BASELINE_BUILD,
+                "pstore_entries": 0,
+                "selftest": {"fail": 0},
+            },
+            "safety": {
+                "device_write": False,
+                "flash": False,
+                "payload_sent": False,
+                "reboot_requested": False,
+                "rootfs_staged": False,
+                "userdata_touched": False,
+            },
+            "artifacts": {
+                "candidate_boot": {"size": 4096, "sha256": "a" * 64},
+                "rollback_boot": {"size": 8192, "sha256": "b" * 64},
+            },
+            "repository": {"runner_sha256": "c" * 64},
+        }
+        for path, boolean_value in (
+            (("target", "matching_a90_usb_devices"), True),
+            (("health", "pstore_entries"), False),
+            (("health", "selftest", "fail"), False),
+            (("artifacts", "candidate_boot", "size"), False),
+        ):
+            value = copy.deepcopy(healthy)
+            cursor = value
+            for name in path[:-1]:
+                cursor = cursor[name]
+            cursor[path[-1]] = boolean_value
+            with self.subTest(path=path):
+                with self.assertRaises(stage.ContractError):
+                    stage.validate_connected_d0_evidence(
+                        value,
+                        expected_realpath="/dev/exact-private-binding",
+                        candidate=candidate,
+                        rollback=rollback,
+                        flash_runner=runner,
+                    )
+
     def test_v3406_connected_evidence_binds_current_preflight_helper(
         self,
     ) -> None:
@@ -538,6 +686,17 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
             remote_work=str(stage.REMOTE_WORK),
             remote_stage_dir=stage_dir,
         )
+        value["read"]["framed_rc"] = False
+        with self.assertRaisesRegex(stage.ContractError, "read result"):
+            stage.validate_path_preflight_evidence(
+                value,
+                run_id=run_id,
+                connected_d0=connected,
+                remote_final=remote_final,
+                remote_work=str(stage.REMOTE_WORK),
+                remote_stage_dir=stage_dir,
+            )
+        value["read"]["framed_rc"] = 0
         del value["read"]["paths"][stage_dir]
         with self.assertRaisesRegex(stage.ContractError, "all exact paths"):
             stage.validate_path_preflight_evidence(
