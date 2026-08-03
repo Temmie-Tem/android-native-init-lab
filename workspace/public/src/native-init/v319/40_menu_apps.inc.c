@@ -29,7 +29,9 @@ struct auto_hud_state {
     bool menu_active;
     enum screen_app_id active_app;
     struct a90_menu_state menu_state;
+#if !A90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE
     struct a90_app_cpustress_state app_stress;
+#endif
     unsigned int display_test_page;
     size_t about_changelog_index;
     size_t about_page_index;
@@ -64,9 +66,13 @@ static void auto_hud_reset_app_context(struct auto_hud_state *state) {
 }
 
 static void auto_hud_stop_active_app(struct auto_hud_state *state) {
+#if !A90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE
     if (state->active_app == SCREEN_APP_CPU_STRESS) {
         a90_app_cpustress_stop(&state->app_stress);
     }
+#else
+    (void)state;
+#endif
 }
 
 static void auto_hud_update_controller_state(struct auto_hud_state *state) {
@@ -82,7 +88,9 @@ static void auto_hud_state_init(struct auto_hud_state *state) {
     memset(state, 0, sizeof(*state));
     state->menu_active = true;
     state->active_app = SCREEN_APP_NONE;
+#if !A90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE
     a90_app_cpustress_init(&state->app_stress);
+#endif
     a90_menu_state_init(&state->menu_state);
     auto_hud_reset_cutout_state(state);
     auto_hud_update_controller_state(state);
@@ -269,9 +277,11 @@ static void auto_hud_draw_current_screen(struct auto_hud_state *state) {
         draw_screen_about_app(state->active_app,
                               state->about_changelog_index,
                               state->about_page_index);
+#if !A90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE
     } else if (state->active_app == SCREEN_APP_CPU_STRESS) {
         a90_app_cpustress_tick(&state->app_stress);
         a90_app_cpustress_draw(&state->app_stress);
+#endif
     } else if (a90_kms_begin_frame(0x000000) == 0) {
         const struct screen_menu_page *page =
             a90_menu_state_page(&state->menu_state);
@@ -416,6 +426,7 @@ static bool auto_hud_handle_active_app_key(struct auto_hud_state *state,
     return true;
 }
 
+#if !A90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE
 static void auto_hud_start_cpu_stress_app(struct auto_hud_state *state,
                                           long stress_seconds) {
     auto_hud_enter_app(state, SCREEN_APP_CPU_STRESS);
@@ -423,6 +434,7 @@ static void auto_hud_start_cpu_stress_app(struct auto_hud_state *state,
                                   stress_seconds,
                                   state->app_stress.workers);
 }
+#endif
 
 static int auto_hud_stop_demo_audio(const char *demo_name, const char *phase) {
     char *audio_stop_argv[] = {
@@ -724,6 +736,7 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             break;
         }
 #endif
+#if !A90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE
         case SCREEN_MENU_CPU_STRESS_5:
         case SCREEN_MENU_CPU_STRESS_10:
         case SCREEN_MENU_CPU_STRESS_30:
@@ -732,6 +745,7 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
                 state,
                 a90_menu_cpu_stress_seconds(item->action));
             break;
+#endif
         case SCREEN_MENU_RECOVERY:
             a90_controller_set_menu_active(false);
             a90_controller_clear_menu_request();

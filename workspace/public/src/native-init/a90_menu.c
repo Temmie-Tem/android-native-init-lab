@@ -136,10 +136,13 @@ static const struct screen_menu_item screen_menu_tools_items[] = {
     { "INPUT MONITOR", "RAW KEY + GESTURE LOG", SCREEN_MENU_INPUT_MONITOR, SCREEN_MENU_PAGE_TOOLS },
     { "DISPLAY TEST",  "COLORS FONT GRID",      SCREEN_MENU_DISPLAY_TEST,  SCREEN_MENU_PAGE_TOOLS },
     { "CUTOUT CAL",    "ALIGN CAMERA HOLE",     SCREEN_MENU_CUTOUT_CAL,   SCREEN_MENU_PAGE_TOOLS },
+#if !A90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE
     { "CPU STRESS >", "SELECT TEST TIME", SCREEN_MENU_SUBMENU, SCREEN_MENU_PAGE_CPU_STRESS },
+#endif
     { "BACK",         "APPS",             SCREEN_MENU_BACK,    SCREEN_MENU_PAGE_APPS },
 };
 
+#if !A90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE
 static const struct screen_menu_item screen_menu_cpu_stress_items[] = {
     { "5 SECONDS",  "QUICK CHECK",     SCREEN_MENU_CPU_STRESS_5,  SCREEN_MENU_PAGE_CPU_STRESS },
     { "10 SECONDS", "DEFAULT CHECK",   SCREEN_MENU_CPU_STRESS_10, SCREEN_MENU_PAGE_CPU_STRESS },
@@ -147,6 +150,7 @@ static const struct screen_menu_item screen_menu_cpu_stress_items[] = {
     { "60 SECONDS", "LONGER SAMPLE",   SCREEN_MENU_CPU_STRESS_60, SCREEN_MENU_PAGE_CPU_STRESS },
     { "BACK",       "TOOLS",           SCREEN_MENU_BACK,          SCREEN_MENU_PAGE_TOOLS },
 };
+#endif
 
 static const struct screen_menu_item screen_menu_logs_items[] = {
     { "LOG SUMMARY", "BOOT/COMMAND LOG", SCREEN_MENU_LOG,  SCREEN_MENU_PAGE_LOGS },
@@ -208,10 +212,12 @@ static const struct screen_menu_page screen_menu_pages[SCREEN_MENU_PAGE_COUNT] =
         "APPS / TOOLS", screen_menu_tools_items,
         SCREEN_MENU_COUNT(screen_menu_tools_items), SCREEN_MENU_PAGE_APPS
     },
+#if !A90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE
     [SCREEN_MENU_PAGE_CPU_STRESS] = {
         "TOOLS / CPU STRESS", screen_menu_cpu_stress_items,
         SCREEN_MENU_COUNT(screen_menu_cpu_stress_items), SCREEN_MENU_PAGE_TOOLS
     },
+#endif
     [SCREEN_MENU_PAGE_LOGS] = {
         "APPS / LOGS", screen_menu_logs_items,
         SCREEN_MENU_COUNT(screen_menu_logs_items), SCREEN_MENU_PAGE_APPS
@@ -245,6 +251,7 @@ const struct screen_menu_page *a90_menu_page(enum screen_menu_page_id page_id) {
     return &screen_menu_pages[page_id];
 }
 
+#if !A90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE
 long a90_menu_cpu_stress_seconds(enum screen_menu_action action) {
     switch (action) {
     case SCREEN_MENU_CPU_STRESS_5:
@@ -259,6 +266,7 @@ long a90_menu_cpu_stress_seconds(enum screen_menu_action action) {
         return 0;
     }
 }
+#endif
 
 enum screen_app_id a90_menu_app_from_action(enum screen_menu_action action) {
     switch (action) {

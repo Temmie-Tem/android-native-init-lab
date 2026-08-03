@@ -564,9 +564,11 @@ static int handle_appendfile(char **argv, int argc) {
     return cmd_appendfile(argv, argc);
 }
 
+#if !A90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE
 static int handle_cpustress(char **argv, int argc) {
     return cmd_cpustress(argv, argc);
 }
+#endif
 
 static int handle_run(char **argv, int argc) {
     return cmd_run(argv, argc);
@@ -19749,7 +19751,9 @@ static const struct shell_command command_table[] = {
     { "echo", handle_echo, "echo <text>", CMD_NONE, A90_CMD_GROUP_FILESYSTEM },
     { "writefile", handle_writefile, "writefile <path> <value...>", CMD_NONE, A90_CMD_GROUP_FILESYSTEM },
     { "appendfile", handle_appendfile, "appendfile <path> <value...>", CMD_NONE, A90_CMD_GROUP_FILESYSTEM },
+#if !A90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE
     { "cpustress", handle_cpustress, "cpustress [sec] [workers]", CMD_BLOCKING, A90_CMD_GROUP_PROCESS },
+#endif
     { "run", handle_run, "run <path> [args...]", CMD_BLOCKING, A90_CMD_GROUP_PROCESS },
     { "runandroid", handle_runandroid, "runandroid <path> [args...]", CMD_BLOCKING, A90_CMD_GROUP_ANDROID },
     { "startadbd", handle_startadbd, "startadbd", CMD_BACKGROUND, A90_CMD_GROUP_ANDROID },

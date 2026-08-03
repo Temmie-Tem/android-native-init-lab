@@ -1,6 +1,6 @@
 # A90 native-init minimal surface
 
-Status: `H0_PHASE3_MINIMAL_D_CAPABILITY_PASS_GO`
+Status: `H0_PHASE3_MINIMAL_E_CAPABILITY_PASS_GO`
 
 Date: 2026-08-03
 
@@ -212,6 +212,49 @@ immutable `phase2-display-v1` baseline and is expected to reject this changed
 native-init closure. Current-profile validation is the minimal-D manifest
 audit, focused builder suite, deterministic build, and independent receipt;
 the historical baseline pin is not rewritten to make a successor pass.
+
+The Phase3-D receipt is now historical proof for commit `20546dea`; Phase3-E
+changes five of its 15 bound sources, so its current-closure retirement trigger
+has fired. The inherited no-Doom and no-boot-write/flash semantics are included
+again in the pending combined review rather than being inferred from an older
+manifest or ordinal.
+
+## Phase3 minimal-E no dedicated CPU-stress surface
+
+The H0-only minimal-E profile defines
+`A90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE=1`. It removes the dedicated
+`cpustress` handler, command-table/help/metadata entry, the CPU STRESS menu and
+its four timed actions, and the `a90_app_cpustress.c` source/object. The default
+is zero, so existing profiles retain one dedicated command and the prior menu.
+The selected root has zero undefined CPU-stress app/menu symbols and zero
+associated call/jump relocations.
+
+The name is intentionally narrow. The generic `run` command, helper inventory,
+packed `/bin/a90_cpustress`, one historical changelog string, header
+declarations, and the separate longsoak service remain. Typing `cpustress`
+uses ordinary unknown-command handling, which still writes console/result/log
+state and invokes the unknown-command reaper. This slice therefore proves the
+absence of the dedicated native-init entry points, not global CPU-stress
+non-callability or an effect-free rejected attempt.
+
+Compared with minimal-D, the graph falls from 57 to 56 objects, 419 to 412
+defined globals, 257 to 251 internal edges, and 49 to 48 root-direct objects.
+All 56 selected objects remain root-reachable. The removed app object was
+7,680 bytes and the root falls from 815,688 to 812,976 bytes. Fresh private A/B
+builds are byte-identical; independent `newc` parsing finds 33 members, the
+three required entries, zero Doom engine members, and the deliberately retained
+CPU-stress helper. The six switch_root, display, USB-local network, SSH,
+resident-return, and recovery objects remain byte-identical to minimal-D.
+
+This qualification is H0 only: `candidate_authority=false`, zero device
+contact, and no payload, partition write, or flash. The flat-builder closure is
+unchanged and keeps its reusable `PASS_GO`. Subagent review of the current
+combined 15-source closure returned `PASS_GO` with no unresolved finding. It
+independently verified default-zero compatibility against commit `20546dea`,
+the retained helper/generic-run/longsoak scope, and the inherited no-Doom and
+no-boot-write/flash semantics. The receipt is reusable across manifests,
+qualifications, ordinals, and campaigns only until a bound source or named
+semantic changes, or a new hazard or incident occurs.
 
 ## Object-symbol reachability inventory
 

@@ -103,7 +103,9 @@ static void cmd_help(void) {
     a90_console_printf("echo <text>\r\n");
     a90_console_printf("writefile <path> <value...>\r\n");
     a90_console_printf("appendfile <path> <value...>\r\n");
+#if !A90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE
     a90_console_printf("cpustress [sec] [workers]\r\n");
+#endif
     a90_console_printf("run <path> [args...]\r\n");
     a90_console_printf("runandroid <path> [args...]\r\n");
     a90_console_printf("startadbd\r\n");
@@ -269,6 +271,9 @@ static void cmd_status(void) {
 #if A90_MINIMAL_NO_BOOT_WRITE_FLASH_SURFACE
     a90_console_printf("safety.boot_write_flash_surface=removed\r\n");
 #endif
+#if A90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE
+    a90_console_printf("safety.dedicated_cpu_stress_surface=removed\r\n");
+#endif
     a90_console_printf("creator: %s\r\n", INIT_CREATOR);
     a90_console_printf("boot: %s\r\n", boot_summary);
     a90_console_printf("selftest: %s\r\n", selftest_summary);
@@ -341,6 +346,7 @@ static void cmd_status(void) {
     a90_storage_cmd_mountsd((char *[]){ "mountsd", "status" }, 2);
 }
 
+#if !A90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE
 static int cmd_cpustress(char **argv, int argc) {
     long seconds = 10;
     long workers_long = 4;
@@ -422,6 +428,7 @@ static int cmd_cpustress(char **argv, int argc) {
     }
     return -ECHILD;
 }
+#endif
 
 static int cmd_ls(const char *path) {
     DIR *dir;

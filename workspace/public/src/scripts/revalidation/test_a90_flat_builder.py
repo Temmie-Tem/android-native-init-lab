@@ -32,6 +32,9 @@ MINIMAL_C_MANIFEST = (
 MINIMAL_D_MANIFEST = (
     HERE / "a90_flat_builder/versions/phase3-minimal-d/manifest.toml"
 )
+MINIMAL_E_MANIFEST = (
+    HERE / "a90_flat_builder/versions/phase3-minimal-e/manifest.toml"
+)
 
 
 def newc_archive(entries: dict[str, bytes]) -> bytes:
@@ -214,6 +217,40 @@ class A90FlatBuilderTest(unittest.TestCase):
             "safety.boot_write_flash_surface=removed",
             minimal["validation"]["init_strings"],
         )
+        buildlib.validate_ramdisk_component_listing(
+            minimal,
+            set(minimal["ramdisk"]["required_entries"]),
+        )
+
+    def test_phase3_minimal_e_removes_dedicated_cpu_stress_surface(self):
+        resolution = buildlib.resolve_manifest(MINIMAL_E_MANIFEST)
+        minimal = resolution.data
+        buildlib.validate_component_selection(minimal)
+        self.assertEqual(
+            minimal["profile"],
+            "phase3-minimal-e-no-dedicated-cpu-stress-surface",
+        )
+        self.assertFalse(minimal["candidate_authority"])
+        self.assertFalse(minimal["engine"]["enabled"])
+        self.assertEqual(len(minimal["init"]["sources"]), 56)
+        for source in (
+            "a90_doomgeneric_bridge.c",
+            "a90_doomgeneric_bridge_inert.c",
+            "a90_boot_write_e1.c",
+            "a90_boot_write_probe.c",
+            "a90_app_cpustress.c",
+        ):
+            self.assertNotIn(source, minimal["init"]["sources"])
+        for flag in (
+            "-DA90_MINIMAL_NO_DOOM_COMMAND_SURFACE=1",
+            "-DA90_MINIMAL_NO_BOOT_WRITE_FLASH_SURFACE=1",
+            "-DA90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE=1",
+        ):
+            self.assertIn(flag, minimal["init"]["cflags"])
+        self.assertIn(
+            "safety.dedicated_cpu_stress_surface=removed",
+            minimal["validation"]["init_strings"],
+        )
         inputs = buildlib.validate_inputs(
             REPO_ROOT,
             resolution,
@@ -390,7 +427,7 @@ class A90FlatBuilderTest(unittest.TestCase):
 
         changed = copy.deepcopy(keys)
         changed["flat_builder"]["sha256"] = "0" * 64
-        resolution = buildlib.resolve_manifest(MINIMAL_D_MANIFEST)
+        resolution = buildlib.resolve_manifest(MINIMAL_E_MANIFEST)
         inputs = buildlib.validate_inputs(
             REPO_ROOT,
             resolution,
