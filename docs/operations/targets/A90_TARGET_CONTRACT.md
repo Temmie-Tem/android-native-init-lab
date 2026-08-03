@@ -248,13 +248,13 @@ resident session.
 
 ## Review and Change Control
 
-- Changes to this binding target contract require one independent safety
-  review.
+- Changes to this binding target contract require one independent safety review.
 - Review must confirm common boot-only, forbidden-action, exact rollback,
-  no-replay, target-isolation, physical-recovery, and private-evidence rules
-  remain intact.
-- Review execution machinery only when its device-effect, transfer, recovery,
-  schema, or hazard closure changes. Parser-only H0 repairs need focused tests,
-  not a new F1 review ladder.
+  no-replay, isolation, physical-recovery, and private-evidence rules remain
+  intact.
+- Review machinery only when device-effect, transfer, recovery, schema, or
+  hazard closure changes. Parser-only H0 repairs need tests, not a review ladder.
+- A90 `PASS_GO` qualifies a capability across ordinals, manifests, qualifications, and campaigns;
+  re-review only after a critical hash change or new hazard/incident.
 - Keep current candidate hashes, consumed approvals, run IDs, and experimental
   frontier in `GOAL_A90.md` or private evidence, not in this stable contract.

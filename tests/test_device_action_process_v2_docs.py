@@ -225,6 +225,9 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             "F1 exclusivity belongs to target-identity gate 1, not a fifth gate.",
             "A target becomes F1-armed when its journal durably records candidate intent",
             "Disarm only after exact `HEALTHY` is durable;",
+            "An independent `PASS_GO` qualifies a capability, not a run.",
+            "Reuse it across candidates, campaigns, manifests, qualifications, and ordinals while its named execution-critical hashes are unchanged and no new hazard or incident occurs.",
+            "Fresh qualification and any runner binding still apply.",
         ):
             self.assertIn(clause, compact)
         self.assertNotIn("attendance predicate true (F1 only)", compact)
@@ -263,8 +266,12 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             self.a90_d1_runner,
         )
         self.assertIn(
-            "H0_PASS_GO_POLICY_READY_NO_LIVE_AUTHORITY",
+            "H0_PASS_GO_POLICY_CLARIFIED_NO_LIVE_AUTHORITY",
             self.a90_unattended_policy_report,
+        )
+        self.assertIn(
+            "capability qualification, not a per-run approval",
+            normalized(self.a90_unattended_policy_report),
         )
         self.assertIn(
             'WORKFLOW = "A90_UNATTENDED_RESIDENT_D1_V1"',

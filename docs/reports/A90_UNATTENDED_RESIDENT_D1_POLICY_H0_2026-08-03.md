@@ -1,6 +1,6 @@
 # A90 qualified unattended resident D1 policy
 
-Status: `H0_PASS_GO_POLICY_READY_NO_LIVE_AUTHORITY`
+Status: `H0_PASS_GO_POLICY_CLARIFIED_NO_LIVE_AUTHORITY`
 
 Date: 2026-08-03
 
@@ -24,6 +24,12 @@ recovery-required state parks all new effects until the operator returns. Real
 target ambiguity, resident mismatch, or loss of physical recovery remains an
 immediate permanent-boundary stop.
 
+Independent `PASS_GO` is capability qualification, not a per-run approval. One
+verdict is reused across ordinals, manifests, qualifications, and campaigns
+while its exact execution-critical closure and hazard assumptions remain
+unchanged. A closure change or new hazard/incident requires the next capability
+review.
+
 ## Unchanged boundaries
 
 - S22+ D1 remains attended.
@@ -37,15 +43,14 @@ immediate permanent-boundary stop.
 
 ## Implementation boundary
 
-This is a policy and contract change only. The current v1 runner implements
-only `A90_D1_ATTENDED_SESSION_V1` and requires `--operator-attended`. It must not
-claim that flag while the operator is absent or asleep. Unattended execution
-remains blocked until a separately reviewed runner implements the named mode
-and its contract tests.
+The attended v1 runner still requires `--operator-attended` and must not claim
+it while the operator is absent or asleep. A separate H0 runner now implements
+the named unattended mode, but execution remains blocked until one independent
+`PASS_GO` receipt binds its exact execution-critical closure.
 
 ## Validation
 
 - focused contract regression: `19/19` PASS;
 - related contract, D1 runner, and resident model regression: `59/59` PASS;
-- independent safety review: `PASS_GO`, no unresolved finding;
+- independent safety review: `PASS_GO` for clarification, no unresolved finding;
 - device contact, payload transfer, partition write, flash, reboot: none.

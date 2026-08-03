@@ -533,6 +533,62 @@ class A90UnattendedResidentD1V1Tests(unittest.TestCase):
             self.assertTrue(inspected["ready_for_fresh_exact_d0"])
             self.assertFalse(inspected["live_authority"])
 
+    def test_capability_pass_go_is_reused_across_manifests(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            private = root / "private"
+            run_base = private / "runs/server-distro"
+            base = self.base_spec(private)
+            qualification = self.qualification_fixture(private, base)
+            review = self.review_receipt(root)
+            with mock.patch.object(
+                unattended,
+                "PRIVATE_ROOT",
+                private.resolve(),
+            ), mock.patch.object(
+                unattended,
+                "PRIVATE_RUN_BASE",
+                run_base.resolve(),
+            ), mock.patch.object(
+                unattended,
+                "REVIEW_RECEIPT_PATH",
+                review.resolve(),
+            ), mock.patch.object(
+                attended,
+                "load_spec",
+                return_value=base,
+            ), mock.patch.object(
+                attended,
+                "_classify_return_observation",
+                return_value=(True, {"retained_pmsg": "observer warning"}),
+            ):
+                first = unattended.build_manifest(
+                    base_manifest_path=base.manifest_path,
+                    base_manifest_sha256=base.manifest_sha256,
+                    qualification_transaction_dir=qualification,
+                    review_receipt_path=review,
+                    run_id="a90-d1-unattended-20260803-01",
+                )
+                second = unattended.build_manifest(
+                    base_manifest_path=base.manifest_path,
+                    base_manifest_sha256=base.manifest_sha256,
+                    qualification_transaction_dir=qualification,
+                    review_receipt_path=review,
+                    run_id="a90-d1-unattended-20260803-02",
+                )
+            receipt = json.loads(review.read_text(encoding="utf-8"))
+            self.assertEqual(first["review_receipt"], second["review_receipt"])
+            self.assertEqual(first["source_closure"], second["source_closure"])
+            self.assertNotEqual(first["run_id"], second["run_id"])
+            self.assertNotEqual(
+                first["transaction"]["directory"],
+                second["transaction"]["directory"],
+            )
+            self.assertNotIn("run_id", receipt)
+            self.assertNotIn("manifest_sha256", receipt)
+            self.assertNotIn("qualification", receipt)
+            self.assertNotIn("campaign", receipt)
+
     def test_execute_writes_intent_before_one_effect_and_refuses_replay(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)

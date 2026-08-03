@@ -217,15 +217,11 @@ healthy terminal state. Candidate boot or transfer success alone is not PASS.
 
 ## Review Rules
 
-- One independent safety review is required when the common contract, a
-  binding target contract, F1 runner, manifest schema, transfer wrapper,
-  archive verifier, recovery logic, permanent boundary, or hazard class
-  changes.
-- Review only the changed execution-critical closure and its interaction with
-  higher-precedence rules. Do not review unreachable legacy helpers merely
-  because they still exist.
-- A new candidate with unchanged machinery requires fresh qualification and
-  any binding still enforced by its runner, not another review ladder.
+- One independent review is required when a common/target contract, F1 runner, schema, transfer/archive/recovery machinery, boundary, or hazard changes.
+- Review changed execution-critical closure and higher-precedence interactions;
+  ignore unreachable legacy helpers.
+- An independent `PASS_GO` qualifies a capability, not a run. Reuse it across candidates,
+  campaigns, manifests, qualifications, and ordinals while its named execution-critical hashes are unchanged and no new hazard or incident occurs. Fresh qualification and any runner binding still apply.
 - Every new non-permanent gate must name the hazard or incident class it
   blocks, its scope, objective retirement evidence, and an expiry or review
   trigger. A gate without a retirement condition must be explicitly designated

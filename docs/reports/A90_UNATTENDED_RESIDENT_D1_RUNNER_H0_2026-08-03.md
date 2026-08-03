@@ -69,7 +69,9 @@ Manifest construction requires all of the following:
 - the new runner, shared attended transaction, transition contract, and engine;
   and
 - a canonical independent-review JSON receipt whose reviewed source closure
-  equals those exact current files and has no unresolved finding.
+  equals those exact current files and has no unresolved finding. That single
+  capability qualification is reusable by every manifest, ordinal, and
+  campaign using the unchanged closure; it is not regenerated per run.
 
 The real preserved ordinal-1 evidence passes the new H0 qualification loader:
 
@@ -124,10 +126,10 @@ the independently preserved exact native-return evidence.
 
 ## Validation
 
-- new unattended runner and adversarial regression: PASS `13/13`;
+- new unattended runner and adversarial regression: PASS `14/14`;
 - existing attended D1 and transition regression: PASS `71/71`;
 - related policy, staging, orchestrator, and resident-model regression: PASS
-  `195/195` (`279/279` combined);
+  `195/195` (`280/280` combined);
 - real preserved qualification replay: PASS;
 - fresh host-only attended base manifest:
   `a90-d1-attended-20260803-04`, mode `0600`, SHA256
@@ -145,6 +147,7 @@ the independently preserved exact native-return evidence.
 The canonical review receipt intentionally does not exist in this unit.
 Consequently no unattended manifest can be built and no unattended live action
 is authorized. The next unit is one independent safety review of the exact
-changed execution closure. Only a PASS receipt over the final source hashes may
-permit host-only manifest construction, followed by a fresh exact D0 before the
-single live ordinal.
+changed execution closure. One PASS receipt over the final source hashes may be
+reused until the closure changes or a new hazard/incident occurs. It may then
+permit host-only manifest construction, followed by a fresh exact D0 before
+each single live ordinal.

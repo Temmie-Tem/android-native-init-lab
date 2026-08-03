@@ -60,7 +60,11 @@ transfer between the two files.
   only in a parked result. Real ordinal-1 evidence passes its automatic-return,
   Debian PID1, Dropbear, mechanical-display, operator-visibility, and
   final-health qualification. The required independent execution-machinery
-  review receipt is absent, so no unattended manifest or live authority exists.
+  capability qualification is absent, so no unattended manifest or live
+  authority exists. Once issued for the exact closure, that `PASS_GO` is reused
+  across manifests, qualifications, ordinals, and campaigns rather than
+  repeated per run. Any pre-clarification review request is stale and must be
+  regenerated from the final committed closure.
 - Focused D1/transition regression passes `67/67`; related adapter and
   observation regression passes `26/26`. The combined real-host regression
   passes `93/93`, and the real resident host-only build/load cross-check
@@ -82,9 +86,10 @@ transfer between the two files.
   It has no approval receipt, `d1-live`, device effect, or live authority.
 - The final combined independent safety review over the refreshed hashes
   returned `PASS_GO` with no unresolved Critical, High, Medium, or Low finding.
-  M1, L1, and M2 are closed. The review creates no active campaign. Until the
-  runner is aligned, it still enforces its fresh v1 session binding and current
-  live preflight as implementation compatibility constraints.
+  M1, L1, and M2 are closed. It remains reusable for that exact historical
+  attended closure, but the common contract, A90 contract, runner, and engine
+  hashes changed for the new unattended capability, so it is not the current
+  closure's qualification. The review creates no active campaign.
 - F1 and every permanent partition, target-isolation, rollback, recovery,
   no-replay, and private-evidence boundary are unchanged and outside this
   simplification unit.
