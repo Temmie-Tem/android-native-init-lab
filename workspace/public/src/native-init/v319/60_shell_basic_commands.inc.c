@@ -274,6 +274,9 @@ static void cmd_status(void) {
 #if A90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE
     a90_console_printf("safety.dedicated_cpu_stress_surface=removed\r\n");
 #endif
+#if A90_MINIMAL_POWER_RECOVERY_UI
+    a90_console_printf("ui.power_recovery_surface=minimal\r\n");
+#endif
     a90_console_printf("creator: %s\r\n", INIT_CREATOR);
     a90_console_printf("boot: %s\r\n", boot_summary);
     a90_console_printf("selftest: %s\r\n", selftest_summary);

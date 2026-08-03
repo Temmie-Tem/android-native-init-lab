@@ -1,0 +1,172 @@
+{
+  "schema": "a90_phase3_minimal_f_power_recovery_ui_qualification_v1",
+  "qualification_date": "2026-08-04",
+  "target": "Samsung Galaxy A90 5G",
+  "risk_tier": "H0",
+  "decision": "PASS_NO_DEVICE_AUTHORITY_REVIEW_PENDING",
+  "profile": "phase3-minimal-f-power-recovery-ui",
+  "candidate_authority": false,
+  "manifest": {
+    "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-f/manifest.toml",
+    "bytes": 5438,
+    "sha256": "7877c0457cbd718e7979405964a6ac071ecd5dda85ac01cb1eb5062d0cff6e21",
+    "effective_sha256": "0720b8d9c028ddfea2c1dfb1e7eae8e711004c71209c5cf121d3f8e4121e1fec"
+  },
+  "native_init_closure_sha256": "67877b28d560f0da24a4b2609f07129c7920a48b851a48b6cccab46462ce4bd0",
+  "physical_native_ui": {
+    "compile_time_selector": "A90_MINIMAL_POWER_RECOVERY_UI=1",
+    "selector_default_for_existing_profiles": 0,
+    "default_screen": "read-only health and storage status HUD with the menu inactive",
+    "selected_main_page_title": "SERVER RECOVERY",
+    "selected_main_actions": [
+      "STATUS",
+      "POWER >",
+      "HIDE MENU"
+    ],
+    "selected_power_actions": [
+      "RECOVERY",
+      "REBOOT",
+      "POWEROFF",
+      "BACK"
+    ],
+    "recovery_action": "sync and reboot to the existing recovery target",
+    "reboot_action": "sync and RB_AUTOBOOT",
+    "poweroff_action": "sync and RB_POWER_OFF",
+    "non_main_or_power_page_request": "remapped to MAIN before lookup and state mutation",
+    "menu_app_mapping": "SCREEN_APP_NONE for every action",
+    "selected_menu_dispatch_cases": [
+      "RESUME",
+      "SUBMENU",
+      "BACK",
+      "STATUS",
+      "RECOVERY",
+      "REBOOT",
+      "POWEROFF"
+    ],
+    "selected_non_power_app_demo_menu_dispatch_cases": 0,
+    "selected_hud_log_tail_draw_calls": 0,
+    "selected_status_marker": "ui.power_recovery_surface=minimal"
+  },
+  "scope_boundary": {
+    "qualified": "The selected physical native-init display starts on a health HUD and can expose only status, the four-entry recovery/power submenu, and hide-menu control; non-power app/demo menu pages and dispatch are compiled out",
+    "not_qualified": "Global removal or non-callability of diagnostic app, demo, audio, video, network, display-test, or screenapp functionality",
+    "explicitly_retained": [
+      "USB diagnostic shell and its ordinary command bookkeeping",
+      "screenapp diagnostic drawing commands",
+      "video, audio, network, Wi-Fi, input, and display diagnostic shell surfaces",
+      "their linked modules while those retained shell diagnostics reference them",
+      "screenmenu as a request to show only the reduced physical menu",
+      "status and health HUD rendering",
+      "the existing recovery, reboot, and poweroff implementations"
+    ],
+    "debian_ui": "not changed or qualified by this native-init H0 slice"
+  },
+  "inherited_combined_capability": {
+    "selectors": [
+      "A90_MINIMAL_NO_DOOM_COMMAND_SURFACE=1",
+      "A90_MINIMAL_NO_BOOT_WRITE_FLASH_SURFACE=1",
+      "A90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE=1"
+    ],
+    "prior_receipt": "docs/reports/A90_PHASE3_NO_DEDICATED_CPU_STRESS_SURFACE_INDEPENDENT_REVIEW_2026-08-03.json",
+    "prior_receipt_current_closure_status": "RETIRED_FOR_CURRENT_SOURCE_CLOSURE",
+    "retirement_trigger": "a90_config.h, a90_menu.c, 40_menu_apps.inc.c, and 60_shell_basic_commands.inc.c changed for minimal-F",
+    "required_review_scope": "Revalidate the inherited combined semantics together with the new reduced physical UI and its exact retained shell boundary"
+  },
+  "execution_critical_source_keys": [
+    {"path": "workspace/public/src/native-init/a90_config.h", "bytes": 4619, "sha256": "973ebe07a99a413bbc826138f0e2c96794c25904e46b93887f6be3b7bb391641"},
+    {"path": "workspace/public/src/native-init/a90_controller.c", "bytes": 27277, "sha256": "e8a49351dd455ec4e2ce9a2ba50cd58e334449700fa21a90a89e967584eeb5b7"},
+    {"path": "workspace/public/src/native-init/a90_controller.h", "bytes": 2458, "sha256": "c1c0321b76b64de4834a4bf50b13ab16730b599497b800ce9a48ffb0503dd550"},
+    {"path": "workspace/public/src/native-init/a90_menu.c", "bytes": 18509, "sha256": "45e28b541d6e1bea2943da1f70eba1479bb7a595c0fcfd184ccc1f4986ed0261"},
+    {"path": "workspace/public/src/native-init/a90_menu.h", "bytes": 3983, "sha256": "902e1897c7647b12525f904693d268fc5efea18d2993456ed753a18a9cee7d45"},
+    {"path": "workspace/public/src/native-init/a90_hud.c", "bytes": 37313, "sha256": "0abe33b09a6a15a40dd1074ace13a64d0d9151ec9b328ae40658149815412768"},
+    {"path": "workspace/public/src/native-init/a90_hud.h", "bytes": 2570, "sha256": "db5aea6f4c507062e34baeb54d6ed154591fce89d3812d593f6d93c37575fff4"},
+    {"path": "workspace/public/src/native-init/a90_input.c", "bytes": 21346, "sha256": "268d5dee2abe144338ae8c3b0baafb434a879fe323ddc155fb3a6432daea4536"},
+    {"path": "workspace/public/src/native-init/a90_input.h", "bytes": 3881, "sha256": "3a0cd4d2c13333e9d401bdcc79f1346cf4708573861438b07e324d0f0f91bef3"},
+    {"path": "workspace/public/src/native-init/v319/30_status_hud.inc.c", "bytes": 331729, "sha256": "7d752e4adb120a195272db04c1d7b2899c1287b2592b3b62aab47d16c3498fb8"},
+    {"path": "workspace/public/src/native-init/v319/40_menu_apps.inc.c", "bytes": 117927, "sha256": "cd5c24104ce9be669dac254644cc8082f1c9c641dec5f846d762b99445970e1b"},
+    {"path": "workspace/public/src/native-init/v319/60_shell_basic_commands.inc.c", "bytes": 32924, "sha256": "ae3cb87fa36600d4ea0cba14507512b4b46e382c4cde1935a4a29ab77e47254b"},
+    {"path": "workspace/public/src/native-init/v319/70_storage_android_net.inc.c", "bytes": 41514, "sha256": "a29f5ca6937c9316fe9e2a1081be2799d51dc0e2c3c72a7772c9447dddc26034"},
+    {"path": "workspace/public/src/native-init/a90_shell.c", "bytes": 8220, "sha256": "39f4cf331f5201fe840b0cfce9978094ff8ff477e6889cac77503c618b02275b"},
+    {"path": "workspace/public/src/native-init/a90_shell.h", "bytes": 3042, "sha256": "7e6fccaec3e7d9dae8b027df7a32d4bf95b3cf16b425254c6a7200dd011e7ca5"},
+    {"path": "workspace/public/src/native-init/a90_cmdproto.c", "bytes": 4000, "sha256": "eba444f96d7a87a70cc852055cb22363951c4e332a950c2149bf2cf80ee53f08"},
+    {"path": "workspace/public/src/native-init/a90_cmdproto.h", "bytes": 896, "sha256": "cf75be43fe8ea16e893278dcd321f0d80202f34b06ac14c9fd332e4e3f9309f7"},
+    {"path": "workspace/public/src/native-init/a90_console.c", "bytes": 11779, "sha256": "636d4b6d2effe84daa0c5fa2962bd78edcf84eb3cde86f389ef5b102ff3a8d9b"},
+    {"path": "workspace/public/src/native-init/a90_console.h", "bytes": 872, "sha256": "a072462c90ad5fb404f9814bb78402467e80318a61e05410081461a36a0c6be3"},
+    {"path": "workspace/public/src/native-init/a90_util.c", "bytes": 2910, "sha256": "c97b8a4bed8086ceb456a928be1e52bf8f3e9bf77abb052afdfa8c9eabdfa71d"},
+    {"path": "workspace/public/src/native-init/a90_util.h", "bytes": 530, "sha256": "39433aa474ea40ae935639dcf7be7d8946fd0823883eafeb1cc8c215c13afaaa"},
+    {"path": "workspace/public/src/native-init/v319/80_shell_dispatch.inc.c", "bytes": 867884, "sha256": "5fadfa460e88c657bea626079dc5f81c217ac014f0641b5fb0d890c2b13960da"}
+  ],
+  "builder_capability": {
+    "receipt": "docs/reports/A90_PHASE3_MINIMAL_A_BUILDER_INDEPENDENT_REVIEW_2026-08-03.json",
+    "decision": "PASS_GO",
+    "execution_critical_capability_closure_changed": false,
+    "flat_builder_sha256": "d23a48fb560e8544305976d4fa62202064dc6c2ed558971d18a0031f5ed56bc2",
+    "flat_builder_library_sha256": "52646a471ff46520e9ece5374cac2f8a8f0239fa2fbc221c54d690f415030a5d"
+  },
+  "fresh_ab": {
+    "private_evidence_root": "workspace/private/outputs/a90-phase3-minimal-f-ab-20260804-02",
+    "ab_receipt_sha256": "9d029225a0e7505ca9e63c503d44013879fe785e5da49a43d711a8ef78ab4857",
+    "byte_identical": true,
+    "accepted_boot_unchanged": true,
+    "boot": {"bytes": 61440000, "sha256": "93ac207f6008959f663ec3df60e9bfd43ee855f72e57a4967c93bd0aa49d2d6f"},
+    "ramdisk": {"bytes": 11607040, "sha256": "86b7507292bf29738053b87d17273e55c63589acc46fc7be1c7660ee2e55cc50"},
+    "init": {"bytes": 1723584, "sha256": "34c0a873c1fc05160ff466f98fcac273cdb1d11af56995bcc42711bd753077e9"},
+    "helper": {"bytes": 1649904, "sha256": "fa395d3ecb6944a57487f3966948a634596157e4de3fdc39575a2fc502d1ceef"}
+  },
+  "packed_ramdisk": {
+    "independent_newc_parse": true,
+    "member_count": 33,
+    "required_entries_present": true,
+    "doom_engine_family_member_count": 0,
+    "cpu_stress_helper_present": true
+  },
+  "compiled_surface_evidence": {
+    "minimal_e_root_object_bytes": 812976,
+    "minimal_f_root_object_bytes": 801168,
+    "minimal_e_menu_object_bytes": 13312,
+    "minimal_f_menu_object_bytes": 5904,
+    "selected_menu_object_contains_required_main_and_power_labels": true,
+    "selected_menu_object_contains_apps_demo_network_wifi_audio_or_cpu_stress_labels": false,
+    "selected_preprocessed_physical_menu_case_count": 7,
+    "selected_root_log_tail_symbols_relocations_and_live_label": 0,
+    "retained_shell_screenapp_and_diagnostic_calls_present": true
+  },
+  "switchroot_display_ssh_recovery_interaction": {
+    "key_objects_byte_identical_to_minimal_e": true,
+    "objects": {
+      "a90_server_distro.o": "579e88a219c96884eb9a7e90f767c0021b4d3449e8539574a89de2aba89b5607",
+      "a90_kms.o": "e04cb2bd3e9e16fb7b8ce67c2c518ca99423d98cdfe3ccc75cbbb73ea2c82dd5",
+      "a90_netservice.o": "f25c096223e6c032d137237838cd3fcf9536042bea618f579f62313a88ff2794",
+      "a90_usb_gadget.o": "4fc0eeae87186582b7c062fda9fdf1c37aaf623f777b1f48eec43cf283a82858",
+      "a90_service.o": "afc52fc3e32b8138d8018c1a14c3f91ed721b77c4dfba9a1a8c18657de5682e9",
+      "a90_runtime.o": "5395ff9842434ca53c4c4e5a0b824a998a539256573dd132bf0b11dec085f871"
+    },
+    "device_behavior_claim": "No live switch_root, display, SSH, return, or recovery claim is added by this H0 qualification"
+  },
+  "capability_retirement_scope": {
+    "retire_on_any_bound_source_or_named_semantic_change": true,
+    "retire_on_new_hazard_or_incident": true,
+    "reuse_granularity": "capability-wide across manifests, qualifications, ordinals, and campaigns until a retirement trigger fires"
+  },
+  "validation": {
+    "focused_flat_builder_tests": "31/31 PASS",
+    "focused_test_py_compile": "PASS",
+    "changed_c_syntax_and_warning_check": "PASS",
+    "cross_compile": "PASS",
+    "artifact_file_identity": "ARM aarch64 static ELF and Android bootimg PASS",
+    "manifest_audit": "PASS",
+    "source_and_input_pins": "PASS",
+    "artifact_a_b_comparison": "PASS",
+    "selected_preprocessor_menu_case_inventory": "PASS",
+    "selected_menu_object_string_inventory": "PASS"
+  },
+  "authority": {
+    "device_contact": false,
+    "payload_transfer": false,
+    "partition_write": false,
+    "flash": false,
+    "live_authority": false,
+    "other_target_touched": false,
+    "next_live_gate": "Any later use of this boot remains a separately qualified attended boot-only F1"
+  }
+}

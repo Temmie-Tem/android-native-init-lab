@@ -86,7 +86,11 @@ static void auto_hud_update_controller_state(struct auto_hud_state *state) {
 
 static void auto_hud_state_init(struct auto_hud_state *state) {
     memset(state, 0, sizeof(*state));
+#if A90_MINIMAL_POWER_RECOVERY_UI
+    state->menu_active = false;
+#else
     state->menu_active = true;
+#endif
     state->active_app = SCREEN_APP_NONE;
 #if !A90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE
     a90_app_cpustress_init(&state->app_stress);
@@ -243,6 +247,7 @@ static void auto_hud_handle_poll_timeout(struct auto_hud_state *state) {
 }
 
 static void auto_hud_draw_current_screen(struct auto_hud_state *state) {
+#if !A90_MINIMAL_POWER_RECOVERY_UI
     if (state->active_app == SCREEN_APP_LOG) {
         a90_app_log_draw_summary();
     } else if (state->active_app == SCREEN_APP_NETWORK) {
@@ -282,7 +287,9 @@ static void auto_hud_draw_current_screen(struct auto_hud_state *state) {
         a90_app_cpustress_tick(&state->app_stress);
         a90_app_cpustress_draw(&state->app_stress);
 #endif
-    } else if (a90_kms_begin_frame(0x000000) == 0) {
+    } else
+#endif
+    if (a90_kms_begin_frame(0x000000) == 0) {
         const struct screen_menu_page *page =
             a90_menu_state_page(&state->menu_state);
         struct a90_hud_storage_status storage = current_hud_storage_status();
@@ -294,7 +301,9 @@ static void auto_hud_draw_current_screen(struct auto_hud_state *state) {
                                   a90_menu_state_selected_index(
                                       &state->menu_state));
         } else {
+#if !A90_MINIMAL_POWER_RECOVERY_UI
             a90_hud_draw_hud_log_tail(a90_kms_framebuffer());
+#endif
         }
         a90_kms_present("autohud", false);
     }
@@ -436,6 +445,7 @@ static void auto_hud_start_cpu_stress_app(struct auto_hud_state *state,
 }
 #endif
 
+#if !A90_MINIMAL_POWER_RECOVERY_UI
 static int auto_hud_stop_demo_audio(const char *demo_name, const char *phase) {
     char *audio_stop_argv[] = {
         "audio", "stop", "internal-speaker-safe", "--execute",
@@ -449,6 +459,7 @@ static int auto_hud_stop_demo_audio(const char *demo_name, const char *phase) {
                        rc);
     return rc;
 }
+#endif
 
 static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
                                      struct a90_input_context *ctx,
@@ -520,6 +531,7 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             cmd_statushud();
             auto_hud_hide_to_hud(state, false);
             break;
+#if !A90_MINIMAL_POWER_RECOVERY_UI
         case SCREEN_MENU_LOG:
             auto_hud_enter_app(state, SCREEN_APP_LOG);
             break;
@@ -745,6 +757,7 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
                 state,
                 a90_menu_cpu_stress_seconds(item->action));
             break;
+#endif
 #endif
         case SCREEN_MENU_RECOVERY:
             a90_controller_set_menu_active(false);
@@ -3035,7 +3048,9 @@ static void kms_draw_menu_section(struct a90_fb *fb,
     uint32_t menu_y;
     uint32_t item_h = scale * 14;
     uint32_t item_gap = scale * 2;
+#if !A90_MINIMAL_POWER_RECOVERY_UI
     uint32_t log_tail_y;
+#endif
     uint32_t page_scale;
     uint32_t max_items_h;
     size_t visible_count;
@@ -3105,17 +3120,22 @@ static void kms_draw_menu_section(struct a90_fb *fb,
         uint32_t summary_y = last_y + scale * 6;
         const char *summary = page->items[selected].summary;
 
+#if !A90_MINIMAL_POWER_RECOVERY_UI
         log_tail_y = summary_y;
+#endif
 
         if (summary_y + glyph_h < fb->height && summary != NULL && summary[0] != '\0') {
             a90_draw_rect(fb, x, summary_y - scale, card_w, 1, 0x282828);
             a90_draw_text(fb, x, summary_y + scale * 2,
                           summary, 0xffcc33,
                           shrink_text_scale(summary, menu_scale, card_w));
+#if !A90_MINIMAL_POWER_RECOVERY_UI
             log_tail_y = summary_y + glyph_h + scale * 8;
+#endif
         }
     }
 
+#if !A90_MINIMAL_POWER_RECOVERY_UI
     a90_hud_draw_log_tail_panel(fb,
                             x,
                             log_tail_y,
@@ -3124,6 +3144,7 @@ static void kms_draw_menu_section(struct a90_fb *fb,
                             16,
                             "LIVE LOG TAIL",
                             menu_scale > 3 ? menu_scale - 3 : menu_scale);
+#endif
 }
 
 static void print_blind_menu_selection(const struct blind_menu_item *items,

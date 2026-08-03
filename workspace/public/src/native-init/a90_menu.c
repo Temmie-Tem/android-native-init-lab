@@ -6,11 +6,17 @@
 #include "a90_changelog.h"
 
 static const struct screen_menu_item screen_menu_main_items[] = {
+#if A90_MINIMAL_POWER_RECOVERY_UI
+    { "STATUS",    "POWER STORAGE HEALTH", SCREEN_MENU_STATUS,  SCREEN_MENU_PAGE_MAIN },
+    { "POWER >",   "RECOVERY AND POWER",   SCREEN_MENU_SUBMENU, SCREEN_MENU_PAGE_POWER },
+    { "HIDE MENU", "SHOW HEALTH HUD",      SCREEN_MENU_RESUME,  SCREEN_MENU_PAGE_MAIN },
+#else
     { "APPS >",    "TOOLS AND VIEWERS", SCREEN_MENU_SUBMENU, SCREEN_MENU_PAGE_APPS },
     { "DEMO >",    "PLAYER HUD DEMOS",   SCREEN_MENU_SUBMENU, SCREEN_MENU_PAGE_DEMO },
     { "NETWORK >", "USB NCM AND TCPCTL", SCREEN_MENU_SUBMENU, SCREEN_MENU_PAGE_NETWORK },
     { "POWER >",   "REBOOT OPTIONS",    SCREEN_MENU_SUBMENU, SCREEN_MENU_PAGE_POWER },
     { "HIDE MENU", "SHOW HUD ONLY",     SCREEN_MENU_RESUME,  SCREEN_MENU_PAGE_MAIN },
+#endif
 };
 
 static const struct screen_menu_item screen_menu_apps_items[] = {
@@ -185,9 +191,11 @@ static const struct screen_menu_item screen_menu_power_items[] = {
 
 static const struct screen_menu_page screen_menu_pages[SCREEN_MENU_PAGE_COUNT] = {
     [SCREEN_MENU_PAGE_MAIN] = {
-        "MAIN MENU", screen_menu_main_items,
+        A90_MINIMAL_POWER_RECOVERY_UI ? "SERVER RECOVERY" : "MAIN MENU",
+        screen_menu_main_items,
         SCREEN_MENU_COUNT(screen_menu_main_items), SCREEN_MENU_PAGE_MAIN
     },
+#if !A90_MINIMAL_POWER_RECOVERY_UI
     [SCREEN_MENU_PAGE_APPS] = {
         "APPS", screen_menu_apps_items,
         SCREEN_MENU_COUNT(screen_menu_apps_items), SCREEN_MENU_PAGE_MAIN
@@ -230,6 +238,7 @@ static const struct screen_menu_page screen_menu_pages[SCREEN_MENU_PAGE_COUNT] =
         "NETWORK", screen_menu_network_items,
         SCREEN_MENU_COUNT(screen_menu_network_items), SCREEN_MENU_PAGE_MAIN
     },
+#endif
     [SCREEN_MENU_PAGE_POWER] = {
         "POWER", screen_menu_power_items,
         SCREEN_MENU_COUNT(screen_menu_power_items), SCREEN_MENU_PAGE_MAIN
@@ -240,6 +249,12 @@ const struct screen_menu_page *a90_menu_page(enum screen_menu_page_id page_id) {
     if ((int)page_id < 0 || page_id >= SCREEN_MENU_PAGE_COUNT) {
         page_id = SCREEN_MENU_PAGE_MAIN;
     }
+#if A90_MINIMAL_POWER_RECOVERY_UI
+    if (page_id != SCREEN_MENU_PAGE_MAIN &&
+        page_id != SCREEN_MENU_PAGE_POWER) {
+        page_id = SCREEN_MENU_PAGE_MAIN;
+    }
+#else
     if (page_id == SCREEN_MENU_PAGE_CHANGELOG_SERIES) {
         screen_menu_init_changelog_series_page();
         return &screen_menu_changelog_series_page;
@@ -248,6 +263,7 @@ const struct screen_menu_page *a90_menu_page(enum screen_menu_page_id page_id) {
         screen_menu_init_changelog_page();
         return &screen_menu_changelog_page;
     }
+#endif
     return &screen_menu_pages[page_id];
 }
 
@@ -269,6 +285,10 @@ long a90_menu_cpu_stress_seconds(enum screen_menu_action action) {
 #endif
 
 enum screen_app_id a90_menu_app_from_action(enum screen_menu_action action) {
+#if A90_MINIMAL_POWER_RECOVERY_UI
+    (void)action;
+    return SCREEN_APP_NONE;
+#else
     switch (action) {
     case SCREEN_MENU_ABOUT_VERSION:
         return SCREEN_APP_ABOUT_VERSION;
@@ -301,6 +321,7 @@ enum screen_app_id a90_menu_app_from_action(enum screen_menu_action action) {
     default:
         return SCREEN_APP_NONE;
     }
+#endif
 }
 
 bool a90_menu_action_opens_app(enum screen_menu_action action, enum screen_app_id *out) {
@@ -391,6 +412,12 @@ void a90_menu_state_set_page(struct a90_menu_state *state,
     if ((int)page_id < 0 || page_id >= SCREEN_MENU_PAGE_COUNT) {
         page_id = SCREEN_MENU_PAGE_MAIN;
     }
+#if A90_MINIMAL_POWER_RECOVERY_UI
+    if (page_id != SCREEN_MENU_PAGE_MAIN &&
+        page_id != SCREEN_MENU_PAGE_POWER) {
+        page_id = SCREEN_MENU_PAGE_MAIN;
+    }
+#endif
     state->page = page_id;
     state->selected = 0;
 }

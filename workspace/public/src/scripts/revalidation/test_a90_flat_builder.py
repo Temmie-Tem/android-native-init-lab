@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import copy
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 
@@ -34,6 +35,9 @@ MINIMAL_D_MANIFEST = (
 )
 MINIMAL_E_MANIFEST = (
     HERE / "a90_flat_builder/versions/phase3-minimal-e/manifest.toml"
+)
+MINIMAL_F_MANIFEST = (
+    HERE / "a90_flat_builder/versions/phase3-minimal-f/manifest.toml"
 )
 
 
@@ -251,6 +255,35 @@ class A90FlatBuilderTest(unittest.TestCase):
             "safety.dedicated_cpu_stress_surface=removed",
             minimal["validation"]["init_strings"],
         )
+        buildlib.validate_ramdisk_component_listing(
+            minimal,
+            set(minimal["ramdisk"]["required_entries"]),
+        )
+
+    def test_phase3_minimal_f_keeps_only_power_recovery_physical_ui(self):
+        resolution = buildlib.resolve_manifest(MINIMAL_F_MANIFEST)
+        minimal = resolution.data
+        buildlib.validate_component_selection(minimal)
+        self.assertEqual(
+            minimal["profile"],
+            "phase3-minimal-f-power-recovery-ui",
+        )
+        self.assertFalse(minimal["candidate_authority"])
+        self.assertFalse(minimal["engine"]["enabled"])
+        self.assertEqual(len(minimal["init"]["sources"]), 56)
+        for flag in (
+            "-DA90_MINIMAL_NO_DOOM_COMMAND_SURFACE=1",
+            "-DA90_MINIMAL_NO_BOOT_WRITE_FLASH_SURFACE=1",
+            "-DA90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE=1",
+            "-DA90_MINIMAL_POWER_RECOVERY_UI=1",
+        ):
+            self.assertIn(flag, minimal["init"]["cflags"])
+        for marker in (
+            "ui.power_recovery_surface=minimal",
+            "SERVER RECOVERY",
+            "POWER STORAGE HEALTH",
+        ):
+            self.assertIn(marker, minimal["validation"]["init_strings"])
         inputs = buildlib.validate_inputs(
             REPO_ROOT,
             resolution,
@@ -263,6 +296,157 @@ class A90FlatBuilderTest(unittest.TestCase):
         buildlib.validate_ramdisk_component_listing(
             minimal,
             set(minimal["ramdisk"]["required_entries"]),
+        )
+
+    def test_phase3_minimal_f_physical_menu_is_fail_closed(self):
+        config = (
+            REPO_ROOT / "workspace/public/src/native-init/a90_config.h"
+        ).read_text(encoding="utf-8")
+        menu = (
+            REPO_ROOT / "workspace/public/src/native-init/a90_menu.c"
+        ).read_text(encoding="utf-8")
+        apps = (
+            REPO_ROOT
+            / "workspace/public/src/native-init/v319/40_menu_apps.inc.c"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("#define A90_MINIMAL_POWER_RECOVERY_UI 0", config)
+        selected_start = menu.index("#if A90_MINIMAL_POWER_RECOVERY_UI")
+        selected_end = menu.index("#else", selected_start)
+        selected_main = menu[selected_start:selected_end]
+        for required in (
+            '"STATUS"',
+            '"POWER >"',
+            '"HIDE MENU"',
+        ):
+            self.assertIn(required, selected_main)
+        for forbidden in (
+            '"APPS >"',
+            '"DEMO >"',
+            '"NETWORK >"',
+            "SCREEN_MENU_DEMO_BADAPPLE",
+            "SCREEN_MENU_AUDIO_STATUS",
+            "SCREEN_MENU_WIFI_SCAN",
+        ):
+            self.assertNotIn(forbidden, selected_main)
+        power_start = menu.index(
+            "static const struct screen_menu_item screen_menu_power_items[]"
+        )
+        power_end = menu.index("\n};", power_start)
+        selected_power = menu[power_start:power_end]
+        self.assertEqual(
+            [
+                line.split("SCREEN_MENU_", 1)[1].split(",", 1)[0]
+                for line in selected_power.splitlines()
+                if "SCREEN_MENU_" in line
+            ],
+            ["RECOVERY", "REBOOT", "POWEROFF", "BACK"],
+        )
+        page_guard = (
+            "page_id != SCREEN_MENU_PAGE_MAIN &&\n"
+            "        page_id != SCREEN_MENU_PAGE_POWER"
+        )
+        self.assertEqual(menu.count(page_guard), 2)
+        app_map_start = menu.index(
+            "enum screen_app_id a90_menu_app_from_action"
+        )
+        app_map_selected = menu[
+            menu.index("#if A90_MINIMAL_POWER_RECOVERY_UI", app_map_start):
+            menu.index("#else", app_map_start)
+        ]
+        self.assertIn("return SCREEN_APP_NONE;", app_map_selected)
+        self.assertIn(
+            "#if A90_MINIMAL_POWER_RECOVERY_UI\n"
+            "    state->menu_active = false;",
+            apps,
+        )
+        self.assertIn(
+            "#if !A90_MINIMAL_POWER_RECOVERY_UI\n"
+            "            a90_hud_draw_hud_log_tail",
+            apps,
+        )
+        self.assertIn(
+            "#if !A90_MINIMAL_POWER_RECOVERY_UI\n"
+            "    a90_hud_draw_log_tail_panel",
+            apps,
+        )
+        action_start = apps.index("switch (item->action)")
+        non_power_start = apps.index(
+            "#if !A90_MINIMAL_POWER_RECOVERY_UI", action_start
+        )
+        non_power_end = apps.index("\n#endif", non_power_start)
+        non_power_dispatch = apps[non_power_start:non_power_end]
+        for guarded in (
+            "case SCREEN_MENU_LOG:",
+            "case SCREEN_MENU_NET_STATUS:",
+            "case SCREEN_MENU_INPUT_MONITOR:",
+            "case SCREEN_MENU_DISPLAY_TEST:",
+            "case SCREEN_MENU_DEMO_BADAPPLE:",
+            "case SCREEN_MENU_DEMO_NYAN:",
+        ):
+            self.assertIn(guarded, non_power_dispatch)
+        selected_tail = apps[non_power_end:]
+        for retained in (
+            "case SCREEN_MENU_RECOVERY:",
+            "case SCREEN_MENU_REBOOT:",
+            "case SCREEN_MENU_POWEROFF:",
+        ):
+            self.assertIn(retained, selected_tail)
+
+    def test_phase3_minimal_f_selected_preprocessor_has_no_physical_log_tail(self):
+        completed = subprocess.run(
+            [
+                "aarch64-linux-gnu-gcc",
+                "-E",
+                "-P",
+                "-DA90_WIFI_TEST_BOOT=1",
+                "-DA90_MINIMAL_NO_DOOM_COMMAND_SURFACE=1",
+                "-DA90_MINIMAL_NO_BOOT_WRITE_FLASH_SURFACE=1",
+                "-DA90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE=1",
+                "-DA90_MINIMAL_POWER_RECOVERY_UI=1",
+                "workspace/public/src/native-init/init_v724.c",
+            ],
+            cwd=REPO_ROOT,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        selected = completed.stdout
+        draw_start = selected.index("static void auto_hud_draw_current_screen")
+        draw_end = selected.index(
+            "static int video_demo_doom_restore_menu_after_exit", draw_start
+        )
+        hud_draw = selected[draw_start:draw_end]
+        self.assertNotIn("a90_hud_draw_hud_log_tail(", hud_draw)
+
+        menu_draw_start = selected.index("static void kms_draw_menu_section")
+        menu_draw_end = selected.index(
+            "static void print_blind_menu_selection", menu_draw_start
+        )
+        menu_draw = selected[menu_draw_start:menu_draw_end]
+        self.assertNotIn("LIVE LOG TAIL", menu_draw)
+        self.assertNotIn("a90_hud_draw_log_tail_panel(", menu_draw)
+
+        action_start = selected.index("switch (item->action)", draw_start)
+        action_end = selected.index("static void auto_hud_loop", action_start)
+        selected_action = selected[action_start:action_end]
+        action_cases = [
+            line.strip().removeprefix("case ").removesuffix(":")
+            for line in selected_action.splitlines()
+            if line.strip().startswith("case SCREEN_MENU_")
+        ]
+        self.assertEqual(
+            action_cases,
+            [
+                "SCREEN_MENU_RESUME",
+                "SCREEN_MENU_SUBMENU",
+                "SCREEN_MENU_BACK",
+                "SCREEN_MENU_STATUS",
+                "SCREEN_MENU_RECOVERY",
+                "SCREEN_MENU_REBOOT",
+                "SCREEN_MENU_POWEROFF",
+            ],
         )
 
     def test_phase3_minimal_c_rejects_doom_before_shell_effects(self):
@@ -427,7 +611,7 @@ class A90FlatBuilderTest(unittest.TestCase):
 
         changed = copy.deepcopy(keys)
         changed["flat_builder"]["sha256"] = "0" * 64
-        resolution = buildlib.resolve_manifest(MINIMAL_E_MANIFEST)
+        resolution = buildlib.resolve_manifest(MINIMAL_F_MANIFEST)
         inputs = buildlib.validate_inputs(
             REPO_ROOT,
             resolution,

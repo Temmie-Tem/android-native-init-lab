@@ -1,8 +1,8 @@
 # A90 native-init minimal surface
 
-Status: `H0_PHASE3_MINIMAL_E_CAPABILITY_PASS_GO`
+Status: `H0_PHASE3_MINIMAL_F_CAPABILITY_PASS_GO`
 
-Date: 2026-08-03
+Date: 2026-08-04
 
 ## Purpose
 
@@ -256,6 +256,46 @@ no-boot-write/flash semantics. The receipt is reusable across manifests,
 qualifications, ordinals, and campaigns only until a bound source or named
 semantic changes, or a new hazard or incident occurs.
 
+## Phase3 minimal-F power and recovery UI
+
+The H0-only minimal-F profile defines
+`A90_MINIMAL_POWER_RECOVERY_UI=1`. Its physical native-init display starts
+with the menu hidden and shows the read-only health and storage HUD. Opening
+the menu exposes exactly `STATUS`, `POWER >`, and `HIDE MENU`; the POWER page
+exposes exactly `RECOVERY`, `REBOOT`, `POWEROFF`, and `BACK`. Requests for any
+other page are remapped to MAIN before page lookup or state mutation, and every
+menu action-to-app mapping returns `SCREEN_APP_NONE` in the selected profile.
+The default remains zero, so profiles that do not select minimal-F retain the
+older physical UI.
+
+All non-power app, demo, audio, network, input, display-test, and CPU-stress
+physical menu dispatch cases are absent from the selected preprocessed root.
+Both the hidden-HUD log tail and the menu's `LIVE LOG TAIL` panel are compiled
+out. An initial independent review found that only the first path had been
+removed; the menu panel was then guarded, the stale build was discarded, and
+a new deterministic A/B build and regression proved zero selected root symbol,
+relocation, or final-init string for either log-tail call or the live-tail
+label.
+
+This is a physical native UI boundary, not a claim that every diagnostic app
+has left the binary. The USB diagnostic shell, `screenapp`, video/audio,
+network/Wi-Fi, input, and display diagnostics remain callable from the shell,
+and their referenced modules remain linked. `screenmenu` can request only the
+reduced physical menu. Those retained recovery diagnostics are a later
+dependency-removal decision; Debian-side UI is unchanged by this slice.
+
+The fixed fresh A/B build is byte-identical, keeps the accepted boot input
+unchanged, and independently parses 33 `newc` members with no Doom engine
+family member. The root object falls from 812,976 to 801,168 bytes and the menu
+object from 13,312 to 5,904 bytes. The six objects that own switch_root,
+display, USB-local networking, SSH/service state, resident return, and USB
+recovery remain byte-identical to minimal-E. This qualification is H0 only:
+`candidate_authority=false`, no device contact, and no payload, partition
+write, or flash. Final independent rereview of the fixed 22-source closure
+returned capability-wide `PASS_GO` with no unresolved finding. It is reused
+across manifests, qualifications, ordinals, and campaigns until a bound
+source, closure, named semantic, or hazard/incident changes.
+
 ## Object-symbol reachability inventory
 
 A read-only comparison of the deterministic phase2 and minimal-A unstripped
@@ -337,23 +377,22 @@ minimal profile rather than becoming permanent bridge duties.
 
 ## Next bounded H0 build unit
 
-1. The no-authority minimal-C manifest and deterministic A/B build are
-   complete; accepted resident and rollback artifacts remain unchanged.
-2. Doom menu and dedicated shell entry points are absent, and `video demo
-   doom` stops before caller-side effects. Neither bridge implementation is
-   selected.
+1. The no-authority minimal-F source and deterministic fixed A/B build are
+   complete; accepted resident and rollback inputs remain unchanged.
+2. The physical native UI now retains only the health HUD and the exact
+   status/recovery/power menu. Both HUD and menu log-tail panels are absent.
 3. The reviewed flat-builder source/schema/semantics closure is unchanged, so
    its capability-wide `PASS_GO` remains reusable.
-4. Independent review of the exact no-Doom command-surface capability returned
+4. Independent rereview of the fixed minimal-F physical UI closure returned
    reusable `PASS_GO` with no unresolved finding.
-5. The next H0 slice is the 11-command `boot-write/flash` experiment surface
-   and its two directly referenced objects (`a90_boot_write_e1.o` and
-   `a90_boot_write_probe.o`, about 104 KiB combined). Remove that surface and
-   repeat the graph while preserving the proved switch_root, display, SSH,
-   return, and recovery objects.
+5. The next H0 slice is a steady-state server profile that
+   separates shell diagnostics still needed for exact recovery from historical
+   app/demo modules. It must preserve switch_root, display release, SSH,
+   resident return, final health, and physical recovery rather than deleting
+   modules solely by size.
 6. Stop at H0. Any later boot candidate requires fresh qualification and
    attended boot-only F1.
 
-Focused minimal-C flat-builder regression passes `26/26`. Cross-compilation,
+Focused minimal-F flat-builder regression passes `31/31`. Cross-compilation,
 private pin validation, A/B byte comparison, archive inspection, and artifact
-identity checks pass. No device was contacted for minimal-C.
+identity checks pass. No device was contacted for minimal-F.

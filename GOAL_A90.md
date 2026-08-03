@@ -30,6 +30,15 @@ transfer between the two files.
   work remains absent, and available space rose from 1765440 KiB to
   16445524 KiB. Final V3406 health passed; there was no retransmit, payload,
   partition write, or flash.
+- H0 `phase3-minimal-f-power-recovery-ui` now has reusable independent
+  `PASS_GO` over its exact 22-source physical autohud/menu closure. Native-init
+  starts on the health HUD; its visible menu is limited to status and the
+  existing recovery/reboot/poweroff controls, and both hidden-HUD and open-menu
+  log tails are absent. USB shell and `screenapp` diagnostics remain explicitly
+  outside this removal claim. The fixed A/B is deterministic with
+  `candidate_authority=false`; no device or S22+ was contacted. Any later use
+  must be combined with the steady-state server candidate and separately enter
+  attended boot-only F1.
 - Standing exact-target D0 exists only through the active common trial. A90
   campaign `a90-resident-switchroot-display-ssh-20260802` is open, but no D1
   session is active and no target is F1-armed. Attendance has ended for every
