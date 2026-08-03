@@ -476,6 +476,27 @@ def execution_critical_source_receipts(
                     e1_latest_stage_sources[f"p290_support_{name}"] = (
                         candidate_intent.repo_root() / path
                     )
+            elif source_contract_id == typed_evidence.P298_SOURCE_CONTRACT_ID:
+                import s22plus_fyg8_p298_identity_tiers as p298_identity
+
+                try:
+                    tier2 = p298_identity.tier2_materials(
+                        candidate_intent.repo_root()
+                    )
+                    tier3 = p298_identity.tier3_materials(
+                        candidate_intent.repo_root()
+                    )
+                except (p298_identity.IdentityTierError, OSError) as exc:
+                    raise F1V2Error(
+                        "P2.98 Stage C receipt closure failed"
+                    ) from exc
+                for tier, materials in (("tier2", tier2), ("tier3", tier3)):
+                    for name, data in materials.items():
+                        key = name.replace(":", "_")
+                        receipts[f"p298_{tier}_{key}"] = {
+                            "size": len(data),
+                            "sha256": hashlib.sha256(data).hexdigest(),
+                        }
             elif source_contract_id == typed_evidence.P296_SOURCE_CONTRACT_ID:
                 import s22plus_fyg8_p296_identity_tiers as p296_identity
 
@@ -600,6 +621,28 @@ def verify_candidate_source_binding(
             raise F1V2Error(
                 "candidate source preimage differs from execution-critical sources"
             )
+    if source_contract_id == typed_evidence.P298_SOURCE_CONTRACT_ID:
+        import s22plus_fyg8_p298_identity_tiers as p298_identity
+
+        expected_repair = verification.get("tier2_repair_files")
+        repair_paths = {
+            p298_identity.TIER2_DIRECT_PATHS[name].as_posix(): name
+            for name in typed_evidence.P298_REPAIR_TIER2_KEYS
+        }
+        if not isinstance(expected_repair, dict) or set(expected_repair) != set(
+            repair_paths
+        ):
+            raise F1V2Error("P2.98 Tier-2 repair binding is incomplete")
+        for path, name in repair_paths.items():
+            actual = execution_sources.get(f"p298_tier2_direct_{name}")
+            if (
+                not isinstance(actual, dict)
+                or {key: actual.get(key) for key in ("size", "sha256")}
+                != expected_repair[path]
+            ):
+                raise F1V2Error(
+                    "P2.98 Tier-2 repair differs from execution-critical sources"
+                )
 
 
 def verify_candidate_observer_binding(

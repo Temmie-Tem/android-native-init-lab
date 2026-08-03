@@ -3,8 +3,10 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 import hashlib
 import sys
+from typing import Iterator
 
 from s22plus_fyg8_p286_e2_stock_closure import *  # noqa: F403
 import s22plus_fyg8_p286_e2_stock_closure as p286
@@ -16,8 +18,8 @@ SCHEMA = "s22plus_fyg8_p298_stock_closure_h0_v1"
 VERDICT = "PASS_P298_STOCK_CLOSURE_HOST_ONLY"
 REQUIRED_ABSOLUTE_PATH_STRINGS = p286.REQUIRED_ABSOLUTE_PATH_STRINGS
 ALLOWED_ABSOLUTE_PATH_STRINGS = p286.ALLOWED_ABSOLUTE_PATH_STRINGS
-_p286_authority_paths = p286._p286_authority_paths
 _entrypoints = p286._entrypoints
+_P282_VALIDATE_AUTHORITY_STRINGS = p286.p282._validate_p282_authority_strings
 
 # The canonical P2.98 init contains one four-byte printable slash sequence
 # across two AArch64 instructions.  It is not a runtime string and the whole
@@ -89,14 +91,32 @@ def _scrub_exact_incidental_opcode_path(data: bytes) -> bytes:
 
 
 def _validate_p298_authority_strings(data: bytes) -> None:
-    try:
-        p286._validate_p286_authority_strings(data)
-    except ClosureError as original:  # noqa: F405
+    with p286._p286_authority_paths():
         try:
-            scrubbed = _scrub_exact_incidental_opcode_path(data)
-            p286._validate_p286_authority_strings(scrubbed)
-        except ClosureError:  # noqa: F405
-            raise original
+            _P282_VALIDATE_AUTHORITY_STRINGS(data)
+        except ClosureError as original:  # noqa: F405
+            try:
+                scrubbed = _scrub_exact_incidental_opcode_path(data)
+                _P282_VALIDATE_AUTHORITY_STRINGS(scrubbed)
+            except ClosureError:  # noqa: F405
+                raise original
+
+
+@contextmanager
+def _p298_authority_paths() -> Iterator[None]:
+    """Route the inherited generic-rootfs audit through the P2.98 validator."""
+
+    previous = p286.p282._validate_p282_authority_strings
+    p286.p282._validate_p282_authority_strings = (
+        _validate_p298_authority_strings
+    )
+    try:
+        yield
+    finally:
+        p286.p282._validate_p282_authority_strings = previous
+
+
+_p286_authority_paths = _p298_authority_paths
 
 
 _validate_p286_authority_strings = _validate_p298_authority_strings

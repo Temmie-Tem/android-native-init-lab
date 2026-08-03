@@ -1,0 +1,105 @@
+{
+  "authority": {
+    "candidate_or_rollback_transfer_authorized": false,
+    "device_contact_authorized": false,
+    "f1_armed": false,
+    "live_authority_created": false,
+    "review_qualifies_capability_not_run": true
+  },
+  "bindings": {
+    "contract_id": "s22plus-fyg8-p298-gadget-start-event-attribution-v1",
+    "execution_critical_closure": [
+      {
+        "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p286_source_contracts.py",
+        "sha256": "7219279ddf5b82761417287ebc19534a96745d5fd683d0c31032b6e20f6add2d",
+        "size": 4800
+      },
+      {
+        "path": "workspace/public/src/scripts/revalidation/device_action_f1_evidence_v2.py",
+        "sha256": "eca5a34e5543fd82c1ca677dc3ab4d4f7f4e7411efc16b98388a22a54524cdd5",
+        "size": 102625
+      },
+      {
+        "path": "workspace/public/src/scripts/revalidation/device_action_f1_v2.py",
+        "sha256": "78abc8e83623409a03543ad3d018e4b42fa3b7c28ead5dfaccede81695a3f9c4",
+        "size": 53409
+      },
+      {
+        "path": "workspace/public/src/scripts/revalidation/prepare_s22plus_fyg8_p298_process_v2.py",
+        "sha256": "26afbdde8bbda8176f638d8c493fdeb1be5bda1f0fbcdb9c8eab1dc3ae4cab06",
+        "size": 8138
+      },
+      {
+        "path": "workspace/public/src/scripts/revalidation/prepare_s22plus_fyg8_p298_ready_manifest.py",
+        "sha256": "7980e4eecad98ef147e5d6db7e3b295be6757ac92c9863b513f3fbde1c0e60fa",
+        "size": 3393
+      },
+      {
+        "path": "tests/test_prepare_s22plus_fyg8_p298_process_v2.py",
+        "sha256": "f4a16d2add9ed608b425a87b82f89aea73f06a0d62ad35b7d7c10cac494c7527",
+        "size": 10641
+      },
+      {
+        "path": "tests/test_prepare_s22plus_fyg8_p298_ready_manifest.py",
+        "sha256": "5cb7a46ddfa97a02fe7603cfb22aa59a3a4518b92a0425b387ae3463019c441c",
+        "size": 5100
+      },
+      {
+        "path": "workspace/public/src/scripts/revalidation/prepare_s22plus_fyg8_p296_ready_manifest.py",
+        "sha256": "fd08d00639b85499601beeec9f6720132bc9e9d3a4986b5778555822e453f880",
+        "size": 3393
+      },
+      {
+        "path": "tests/test_prepare_s22plus_fyg8_p296_ready_manifest.py",
+        "sha256": "0546480c893c27409695e53e18937dd473a70f79ac3fa1e972393c0e4b72390e",
+        "size": 5100
+      }
+    ],
+    "source_identity": {
+      "changed_keys": [],
+      "p298_tier1_source_keys_matched": 136
+    }
+  },
+  "findings": {
+    "critical": [],
+    "high": [],
+    "low": [],
+    "medium": [],
+    "resolved_stop_findings": [
+      "Historical fresh=false Process-v2 evidence was initially rejected; the consumer now requires the exact seven-key repair contract, exact A/B receipts, and exact historical receipts.",
+      "P2.98 validation initially leaked indirect shared-module configuration; the adapter now restores key sets and object identities for all nine reachable modules across success, body exception, configuration exception, and nested contexts."
+    ]
+  },
+  "independence": {
+    "implementation_authorship": false,
+    "review_scope_was_host_only": true,
+    "reviewer": "independent delegated Codex reviewer",
+    "reviewer_did_not_contact_or_prepare_a_device": true
+  },
+  "reviewed_at_utc": "2026-08-03T20:06:02Z",
+  "schema": "s22plus_fyg8_p298_process_v2_independent_review_v1",
+  "target": {
+    "device": "g0q",
+    "firmware": "S906NKSS7FYG8",
+    "model": "SM-S906N",
+    "target_line": "S22PLUS_FYG8"
+  },
+  "validation": {
+    "actual_ready_verify_only": {
+      "created": false,
+      "device_contact": false,
+      "manifest_sha256": "369b9037dd394bdea36bec7d1a207ac425c416cb46a83572d2f1562c3e5a7130",
+      "manifest_size": 2691,
+      "verdict": "PASS_P298_PROCESS_V2_READY_MANIFEST_REHEARSAL_HOST_ONLY"
+    },
+    "final_parent_regression": {
+      "count": 83,
+      "verdict": "PASS"
+    },
+    "independent_regression": {
+      "count": 74,
+      "verdict": "PASS"
+    },
+    "review_verdict": "PASS_GO"
+  }
+}

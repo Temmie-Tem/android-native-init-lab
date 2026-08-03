@@ -177,6 +177,38 @@ Trial policy adds no per-candidate approval, but the legacy runner still
 requires its fresh immutable token until aligned. The consumed P2.96 token,
 prepared binding, journal, and candidate attempt are never reusable.
 
+## P2.98 F1 Execution Preparation
+
+P2.98 is now prepared through the last read-only boundary before F1. The new
+Process-v2 promotion and ready-manifest adapters passed an exact nine-file
+independent review after two fail-closed findings were repaired. The immutable
+ready manifest is
+`workspace/public/src/device-action/manifests/s22plus_fyg8_p298_process_v2_ready_1.json`
+at SHA-256
+`369b9037dd394bdea36bec7d1a207ac425c416cb46a83572d2f1562c3e5a7130`.
+
+The first connected preparation correctly stopped on one historical retained
+long-family record. One reviewed, attended D1 normal reboot then rotated that
+baseline exactly once and returned exact rooted FYG8 health with a changed
+boot ID. It issued no Download transition, Odin call, payload, partition
+transfer, or command to A90.
+
+The fresh production `--prepare` now passes with a 2,097,136-byte clean
+`/proc/last_kmsg` read, zero related-family records, and exact candidate,
+rollback, target, manifest, and execution-closure binding. The prepared run is
+private under `workspace/private/runs/device-action-f1-live-v2/`; its approval
+binding SHA-256 is
+`34df56c1527aafec28b4ef5e933661c89aa3e255a1daa4dd91c68639569d2613`.
+Production `load_prepared()` reopens it successfully. No transaction directory
+or journal exists, and `f1_authorized=false`, `live_authorized=false`, Odin and
+partition-transfer counts remain zero.
+
+The next action is the attended F1 execution of this one prepared binding.
+Immediately before it, re-establish the S22+ attendance predicate: the operator
+must be able to enter physical Download within the recovery bound. Once the
+candidate effect starts, never replay it; exact rollback and final rooted FYG8
+health remain mandatory.
+
 ## Evidence That Remains Binding
 
 - The nonzero-detail retained-state `-ESTALE` defect is repaired in P2.92;

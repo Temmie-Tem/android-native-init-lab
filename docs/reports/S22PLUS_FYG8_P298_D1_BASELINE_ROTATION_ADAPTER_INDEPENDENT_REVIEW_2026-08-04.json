@@ -1,0 +1,65 @@
+{
+  "authority": {
+    "candidate_or_rollback_transfer_authorized": false,
+    "d1_execution_authorized_by_review": false,
+    "f1_armed": false,
+    "review_qualifies_capability_not_run": true
+  },
+  "bindings": {
+    "adapter": {
+      "path": "workspace/private/outputs/s22plus_fyg8_p298/d1-baseline-rotation/s22plus_fyg8_p298_baseline_rotation_d1.py",
+      "sha256": "330de39c46accf456203ce4f012da14ce7f1875ebc648e43f2496575c8c9ac34",
+      "size": 8846
+    },
+    "historical_d0_identity_health": {
+      "path": "workspace/private/runs/device-action-d0-v2/d0-p292-ready1-2/result.json",
+      "sha256": "1699fa0253b7cfaf5e473bfa9762a7564aabf1779baeabe3c3d54cc8e8033308",
+      "size": 2922
+    },
+    "pinned_reboot_primitive": {
+      "path": "workspace/private/outputs/s22plus_fyg8_p296/d1-baseline-rotation/s22plus_fyg8_p296_baseline_rotation_d1.py",
+      "sha256": "bfec4bc9c947e098b6a18134a805524aa8fe8103edd5ddc4bc3b398895cad8ea",
+      "size": 18578
+    },
+    "ready_manifest": {
+      "path": "workspace/public/src/device-action/manifests/s22plus_fyg8_p298_process_v2_ready_1.json",
+      "sha256": "369b9037dd394bdea36bec7d1a207ac425c416cb46a83572d2f1562c3e5a7130",
+      "size": 2691
+    },
+    "target_profile": {
+      "path": "workspace/public/src/device-action/profiles/s22plus_fyg8.json",
+      "sha256": "7afa7b690b71eabca14c99e83efc55bdb453256bcd40f7ccdf5d41bed78d6c28",
+      "size": 2285
+    }
+  },
+  "findings": {
+    "open": [],
+    "resolved_stop_findings": [
+      "The first adapter did not reopen and validate the manifest or pin the historical D0 identity and health bytes.",
+      "The second adapter validated historical D0 bytes but the inherited primitive reopened their pathname, leaving a target and health TOCTOU gap."
+    ]
+  },
+  "reviewed_at_utc": "2026-08-03T20:27:47Z",
+  "schema": "s22plus_fyg8_p298_d1_baseline_rotation_adapter_independent_review_v1",
+  "target": {
+    "device": "g0q",
+    "firmware": "S906NKSS7FYG8",
+    "model": "SM-S906N",
+    "target_line": "S22PLUS_FYG8"
+  },
+  "validation": {
+    "durable_start_and_result_include_exact_four_receipts": true,
+    "fixture_device_contact": false,
+    "fixture_other_target_commands": 0,
+    "fixture_reboot_count": 1,
+    "input_open_counts": {
+      "historical_d0": 1,
+      "pinned_reboot_primitive": 1,
+      "ready_manifest": 1,
+      "target_profile": 1
+    },
+    "no_download_odin_payload_or_f1_path": true,
+    "review_verdict": "PASS_GO",
+    "shared_module_state_restored": true
+  }
+}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create one verified Process-v2 ready manifest for P2.96."""
+"""Create one verified Process-v2 ready manifest for P2.98."""
 
 from __future__ import annotations
 
@@ -10,34 +10,34 @@ from typing import Iterator
 import prepare_s22plus_fyg8_p292_ready_manifest as base
 
 
-SCHEMA = "s22plus_fyg8_p296_ready_manifest_builder_v1"
-VERDICT = "PASS_P296_PROCESS_V2_READY_MANIFEST_HOST_ONLY"
-REHEARSAL_VERDICT = "PASS_P296_PROCESS_V2_READY_MANIFEST_REHEARSAL_HOST_ONLY"
-SOURCE_CONTRACT_ID = base.evidence.P296_SOURCE_CONTRACT_ID
+SCHEMA = "s22plus_fyg8_p298_ready_manifest_builder_v1"
+VERDICT = "PASS_P298_PROCESS_V2_READY_MANIFEST_HOST_ONLY"
+REHEARSAL_VERDICT = "PASS_P298_PROCESS_V2_READY_MANIFEST_REHEARSAL_HOST_ONLY"
+SOURCE_CONTRACT_ID = base.evidence.P298_SOURCE_CONTRACT_ID
 DEFAULT_CANDIDATE_STATIC = Path(
-    "workspace/private/device-action/s22plus_fyg8_p296_ready_1/"
+    "workspace/private/device-action/s22plus_fyg8_p298_ready_1/"
     "evidence/candidate-static.json"
 )
 DEFAULT_RUN_MANIFEST = Path(
-    "workspace/private/device-action/s22plus_fyg8_p296_ready_1/"
+    "workspace/private/device-action/s22plus_fyg8_p298_ready_1/"
     "evidence/run-manifest.json"
 )
 DEFAULT_STATIC_CHECK = Path(
-    "workspace/private/device-action/s22plus_fyg8_p296_ready_1/"
+    "workspace/private/device-action/s22plus_fyg8_p298_ready_1/"
     "evidence/static-check-result.json"
 )
 DEFAULT_CANDIDATE_AP = Path(
-    "workspace/private/device-action/s22plus_fyg8_p296_ready_1/"
+    "workspace/private/device-action/s22plus_fyg8_p298_ready_1/"
     "candidate/AP.tar.md5"
 )
 DEFAULT_ROLLBACK_AP = base.DEFAULT_ROLLBACK_AP
 DEFAULT_OUT = Path(
     "workspace/public/src/device-action/manifests/"
-    "s22plus_fyg8_p296_process_v2_ready_1.json"
+    "s22plus_fyg8_p298_process_v2_ready_1.json"
 )
 DEFAULT_TARGET_PROFILE = base.DEFAULT_TARGET_PROFILE
-DEFAULT_MANIFEST_ID = "s22plus-fyg8-p296-process-v2-ready-1"
-DEFAULT_LIVE_RUN_ID = "s22plus-fyg8-p296-live-1"
+DEFAULT_MANIFEST_ID = "s22plus-fyg8-p298-process-v2-ready-1"
+DEFAULT_LIVE_RUN_ID = "s22plus-fyg8-p298-live-1"
 DEFAULT_TIMEOUT_SEC = base.DEFAULT_TIMEOUT_SEC
 ManifestError = base.ManifestError
 _CONFIGURATION_FIELDS = (

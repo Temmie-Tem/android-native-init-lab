@@ -22,6 +22,8 @@ import s22plus_fyg8_p290_e2_stock_closure as p290_e2_closure
 import s22plus_fyg8_p292_e2_stock_closure as p292_e2_closure
 import s22plus_fyg8_p294_e2_stock_closure as p294_e2_closure
 import s22plus_fyg8_p296_e2_stock_closure as p296_e2_closure
+import s22plus_fyg8_p298_e2_stock_closure as p298_e2_closure
+import s22plus_fyg8_p298_identity_tiers as p298_identity
 
 
 MARKER_KIND = "retained_marker_after_rollback"
@@ -88,6 +90,39 @@ P296_CANDIDATE_STATIC_VERDICT = (
     "PASS_P296_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
 )
 P296_SOURCE_CONTRACT_ID = p296_e2_closure.source_contract.CONTRACT_ID
+P298_CANDIDATE_STATIC_SCHEMA = (
+    "s22plus_fyg8_p298_candidate_static_checker_v1"
+)
+P298_CANDIDATE_STATIC_VERDICT = (
+    "PASS_P298_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
+)
+P298_SOURCE_CONTRACT_ID = p298_e2_closure.source_contract.CONTRACT_ID
+P298_HISTORICAL_POSTBUILD_RESULT = {
+    "sha256": "a7bfff7bdc82683999ef0d91349f20560b659ea703cb0542eeb37ca36a3ff997",
+    "size": 71342,
+}
+P298_HISTORICAL_QUALIFICATION = {
+    "sha256": "f3533d20ef3edc5c4feaf410296492820138dcd2c56861ee81be02fca78b89eb",
+    "size": 115141,
+}
+P298_REPAIR_TIER2_KEYS = frozenset(
+    {
+        "p298_e2_stock_closure",
+        "p298_candidate_static_checker",
+        "p298_contract_test",
+    }
+)
+P298_BUILD_ARTIFACTS = frozenset(
+    {
+        ".config",
+        "Image",
+        "System.map",
+        "abi.xml",
+        "build-result.json",
+        "vmlinux",
+        "vmlinux.symvers",
+    }
+)
 E1_LATEST_STAGE_CANDIDATE_CONTRACT_SCHEMA = (
     "s22plus_fyg8_p234_candidate_contract_v1"
 )
@@ -182,6 +217,7 @@ def _candidate_base_files(
     if source_contract_id not in {
         P294_SOURCE_CONTRACT_ID,
         P296_SOURCE_CONTRACT_ID,
+        P298_SOURCE_CONTRACT_ID,
     }:
         return expected
     driver_sources = getattr(
@@ -304,6 +340,8 @@ def _latest_stage_decoder(
 
 
 def _select_e2_closure(source_contract_id: str | None):
+    if source_contract_id == P298_SOURCE_CONTRACT_ID:
+        return p298_e2_closure.select(source_contract_id)
     if source_contract_id == P296_SOURCE_CONTRACT_ID:
         return p296_e2_closure.select(source_contract_id)
     if source_contract_id == P294_SOURCE_CONTRACT_ID:
@@ -327,6 +365,7 @@ def _e2_authority_context(source_contract_id: str | None, closure_api: Any):
         P292_SOURCE_CONTRACT_ID,
         P294_SOURCE_CONTRACT_ID,
         P296_SOURCE_CONTRACT_ID,
+        P298_SOURCE_CONTRACT_ID,
     }:
         return nullcontext()
     authority_context = getattr(closure_api, "_p286_authority_paths", None)
@@ -459,6 +498,80 @@ def _binary_identity(value: Any, label: str) -> dict[str, Any]:
     return item
 
 
+def _validate_p298_historical_build_repair(
+    source_build: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    repair = source_build.get("tier2_repair")
+    expected_repair_keys = {
+        "schema",
+        "historical_postbuild_result",
+        "historical_pre_lto_qualification",
+        "a_b_artifacts_reopened",
+        "a_b_artifact_inodes_distinct",
+        "byte_identical_artifacts_reverified",
+        "tier1_candidate_identity_changed",
+        "tier2_repair_files",
+        "fresh_full_lto_claimed",
+        "verified",
+    }
+    expected_equal = sorted(P298_BUILD_ARTIFACTS - {"build-result.json"})
+    if (
+        source_build.get("fresh_reverification") is not False
+        or source_build.get("immutable_build_time_proof_revalidated") is not True
+        or source_build.get("result") != P298_HISTORICAL_POSTBUILD_RESULT
+        or not isinstance(repair, dict)
+        or set(repair) != expected_repair_keys
+        or repair.get("schema")
+        != "s22plus_fyg8_p298_postbuild_tier2_repair_v1"
+        or repair.get("historical_postbuild_result")
+        != P298_HISTORICAL_POSTBUILD_RESULT
+        or repair.get("historical_pre_lto_qualification")
+        != P298_HISTORICAL_QUALIFICATION
+        or repair.get("a_b_artifact_inodes_distinct") is not True
+        or repair.get("byte_identical_artifacts_reverified") != expected_equal
+        or repair.get("tier1_candidate_identity_changed") is not False
+        or repair.get("fresh_full_lto_claimed") is not False
+        or repair.get("verified") is not True
+    ):
+        raise EvidenceError("P2.98 historical build repair contract differs")
+
+    reopened = repair.get("a_b_artifacts_reopened")
+    if not isinstance(reopened, dict) or set(reopened) != {"build_a", "build_b"}:
+        raise EvidenceError("P2.98 historical A/B artifact proof is incomplete")
+    normalized: dict[str, dict[str, dict[str, Any]]] = {}
+    for build_name in ("build_a", "build_b"):
+        artifacts = reopened.get(build_name)
+        if not isinstance(artifacts, dict) or set(artifacts) != P298_BUILD_ARTIFACTS:
+            raise EvidenceError(
+                f"P2.98 historical {build_name} artifact inventory differs"
+            )
+        normalized[build_name] = {
+            name: _binary_identity(value, f"P2.98 {build_name} {name}")
+            for name, value in artifacts.items()
+        }
+    for name in expected_equal:
+        if normalized["build_a"][name] != normalized["build_b"][name]:
+            raise EvidenceError(f"P2.98 historical A/B {name} receipt differs")
+    image = _binary_identity(source_build.get("image"), "P2.98 kernel Image")
+    if (
+        normalized["build_a"]["Image"] != image
+        or normalized["build_b"]["Image"] != image
+    ):
+        raise EvidenceError("P2.98 historical A/B Image identity differs")
+
+    expected_repair_paths = {
+        p298_identity.TIER2_DIRECT_PATHS[name].as_posix()
+        for name in P298_REPAIR_TIER2_KEYS
+    }
+    repair_files = repair.get("tier2_repair_files")
+    if not isinstance(repair_files, dict) or set(repair_files) != expected_repair_paths:
+        raise EvidenceError("P2.98 Tier-2 repair file inventory differs")
+    return {
+        path: _binary_identity(value, f"P2.98 Tier-2 repair {path}")
+        for path, value in repair_files.items()
+    }
+
+
 def validate_candidate_source_preimage(
     contract: dict[str, Any], profile: str, run_id: str
 ) -> dict[str, dict[str, Any]]:
@@ -546,6 +659,7 @@ def _generic_rootfs_module_closure(
         P292_SOURCE_CONTRACT_ID,
         P294_SOURCE_CONTRACT_ID,
         P296_SOURCE_CONTRACT_ID,
+        P298_SOURCE_CONTRACT_ID,
     }:
         return module_closure
     adapter_api = closure_api
@@ -558,6 +672,7 @@ def _generic_rootfs_module_closure(
         P292_SOURCE_CONTRACT_ID,
         P294_SOURCE_CONTRACT_ID,
         P296_SOURCE_CONTRACT_ID,
+        P298_SOURCE_CONTRACT_ID,
     }:
         inherited_p282 = getattr(closure_api, "p282", None)
         adapter_api = getattr(inherited_p282, "p280", None)
@@ -568,6 +683,7 @@ def _generic_rootfs_module_closure(
             P292_SOURCE_CONTRACT_ID: "P2.92",
             P294_SOURCE_CONTRACT_ID: "P2.94",
             P296_SOURCE_CONTRACT_ID: "P2.96",
+            P298_SOURCE_CONTRACT_ID: "P2.98",
             e2_closure_selector.P284_CONTRACT_ID: "P2.84",
         }[source_contract_id]
     elif source_contract_id == e2_closure_selector.P282_CONTRACT_ID:
@@ -1632,24 +1748,28 @@ def _verify_e1_latest_stage_offline_contract(
         payloads["candidate_static"], "E1A candidate static result"
     )
     expected_candidate_static_schema = (
-        P296_CANDIDATE_STATIC_SCHEMA
-        if source_contract_id == P296_SOURCE_CONTRACT_ID
+        P298_CANDIDATE_STATIC_SCHEMA
+        if source_contract_id == P298_SOURCE_CONTRACT_ID
         else (
-            P294_CANDIDATE_STATIC_SCHEMA
-            if source_contract_id == P294_SOURCE_CONTRACT_ID
+            P296_CANDIDATE_STATIC_SCHEMA
+            if source_contract_id == P296_SOURCE_CONTRACT_ID
             else (
-                P292_CANDIDATE_STATIC_SCHEMA
-                if source_contract_id == P292_SOURCE_CONTRACT_ID
+                P294_CANDIDATE_STATIC_SCHEMA
+                if source_contract_id == P294_SOURCE_CONTRACT_ID
                 else (
-                    P290_CANDIDATE_STATIC_SCHEMA
-                    if source_contract_id == P290_SOURCE_CONTRACT_ID
+                    P292_CANDIDATE_STATIC_SCHEMA
+                    if source_contract_id == P292_SOURCE_CONTRACT_ID
                     else (
-                        P288_CANDIDATE_STATIC_SCHEMA
-                        if source_contract_id == P288_SOURCE_CONTRACT_ID
+                        P290_CANDIDATE_STATIC_SCHEMA
+                        if source_contract_id == P290_SOURCE_CONTRACT_ID
                         else (
-                            P286_CANDIDATE_STATIC_SCHEMA
-                            if source_contract_id == P286_SOURCE_CONTRACT_ID
-                            else E1_LATEST_STAGE_CANDIDATE_STATIC_SCHEMA
+                            P288_CANDIDATE_STATIC_SCHEMA
+                            if source_contract_id == P288_SOURCE_CONTRACT_ID
+                            else (
+                                P286_CANDIDATE_STATIC_SCHEMA
+                                if source_contract_id == P286_SOURCE_CONTRACT_ID
+                                else E1_LATEST_STAGE_CANDIDATE_STATIC_SCHEMA
+                            )
                         )
                     )
                 )
@@ -1657,24 +1777,28 @@ def _verify_e1_latest_stage_offline_contract(
         )
     )
     expected_candidate_static_verdict = (
-        P296_CANDIDATE_STATIC_VERDICT
-        if source_contract_id == P296_SOURCE_CONTRACT_ID
+        P298_CANDIDATE_STATIC_VERDICT
+        if source_contract_id == P298_SOURCE_CONTRACT_ID
         else (
-            P294_CANDIDATE_STATIC_VERDICT
-            if source_contract_id == P294_SOURCE_CONTRACT_ID
+            P296_CANDIDATE_STATIC_VERDICT
+            if source_contract_id == P296_SOURCE_CONTRACT_ID
             else (
-                P292_CANDIDATE_STATIC_VERDICT
-                if source_contract_id == P292_SOURCE_CONTRACT_ID
+                P294_CANDIDATE_STATIC_VERDICT
+                if source_contract_id == P294_SOURCE_CONTRACT_ID
                 else (
-                    P290_CANDIDATE_STATIC_VERDICT
-                    if source_contract_id == P290_SOURCE_CONTRACT_ID
+                    P292_CANDIDATE_STATIC_VERDICT
+                    if source_contract_id == P292_SOURCE_CONTRACT_ID
                     else (
-                        P288_CANDIDATE_STATIC_VERDICT
-                        if source_contract_id == P288_SOURCE_CONTRACT_ID
+                        P290_CANDIDATE_STATIC_VERDICT
+                        if source_contract_id == P290_SOURCE_CONTRACT_ID
                         else (
-                            P286_CANDIDATE_STATIC_VERDICT
-                            if source_contract_id == P286_SOURCE_CONTRACT_ID
-                            else E1_LATEST_STAGE_CANDIDATE_STATIC_VERDICT
+                            P288_CANDIDATE_STATIC_VERDICT
+                            if source_contract_id == P288_SOURCE_CONTRACT_ID
+                            else (
+                                P286_CANDIDATE_STATIC_VERDICT
+                                if source_contract_id == P286_SOURCE_CONTRACT_ID
+                                else E1_LATEST_STAGE_CANDIDATE_STATIC_VERDICT
+                            )
                         )
                     )
                 )
@@ -1872,20 +1996,31 @@ def _verify_e1_latest_stage_offline_contract(
         raise EvidenceError(
             "candidate static source contract is not E1A-bound, E1B-bound, or E2-bound"
         )
+    source_build_keys = {
+        "result",
+        "image",
+        "fresh_reverification",
+        "two_clean_builds_byte_identical",
+        "linked_audit_verified",
+    }
+    if source_contract_id == P298_SOURCE_CONTRACT_ID:
+        source_build_keys.update(
+            {"immutable_build_time_proof_revalidated", "tier2_repair"}
+        )
     source_build = _exact(
         candidate_static_result.get("build_repro"),
-        {
-            "result",
-            "image",
-            "fresh_reverification",
-            "two_clean_builds_byte_identical",
-            "linked_audit_verified",
-        },
+        source_build_keys,
         "E1A candidate static build closure",
     )
+    p298_repair_files = None
+    if source_contract_id == P298_SOURCE_CONTRACT_ID:
+        p298_repair_files = _validate_p298_historical_build_repair(source_build)
     if (
         not isinstance(source_build, dict)
-        or source_build.get("fresh_reverification") is not True
+        or (
+            source_contract_id != P298_SOURCE_CONTRACT_ID
+            and source_build.get("fresh_reverification") is not True
+        )
         or source_build.get("two_clean_builds_byte_identical") is not True
         or source_build.get("linked_audit_verified") is not True
     ):
@@ -2190,6 +2325,8 @@ def _verify_e1_latest_stage_offline_contract(
     }
     if source_contract_id is not None:
         result["source_contract_id"] = source_contract_id
+    if p298_repair_files is not None:
+        result["tier2_repair_files"] = p298_repair_files
     if profile == "E2":
         result["ap_payload_closure"] = {
             "boot_img_lz4": normalized_source_artifacts["boot_img_lz4"],

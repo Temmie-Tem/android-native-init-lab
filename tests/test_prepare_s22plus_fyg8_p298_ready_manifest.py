@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Focused tests for the P2.96 Process-v2 ready-manifest adapter."""
+"""Focused tests for the P2.98 Process-v2 ready-manifest adapter."""
 
 from __future__ import annotations
 
@@ -14,12 +14,12 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 import device_action_f1_evidence_v2 as evidence  # noqa: E402
 import device_action_f1_v2 as core  # noqa: E402
-import prepare_s22plus_fyg8_p296_ready_manifest as builder  # noqa: E402
-import s22plus_fyg8_p296_telemetry_decoder as decoder  # noqa: E402
-import s22plus_fyg8_p296_telemetry_model as model  # noqa: E402
+import prepare_s22plus_fyg8_p298_ready_manifest as builder  # noqa: E402
+import s22plus_fyg8_p298_telemetry_decoder as decoder  # noqa: E402
+import s22plus_fyg8_p298_telemetry_model as model  # noqa: E402
 
 
-class P296ReadyManifestBuilderTest(unittest.TestCase):
+class P298ReadyManifestBuilderTest(unittest.TestCase):
     def fixture(self):
         run_id = "12" * 16
         run_manifest = {
@@ -54,7 +54,7 @@ class P296ReadyManifestBuilderTest(unittest.TestCase):
         }
         return run_manifest, paths, receipts, artifact
 
-    def test_derives_exact_p296_acceptance_and_observer(self) -> None:
+    def test_derives_exact_p298_acceptance_and_observer(self) -> None:
         run_manifest, paths, receipts, artifact = self.fixture()
         manifest = builder.derive_manifest(
             root=ROOT,
@@ -78,9 +78,9 @@ class P296ReadyManifestBuilderTest(unittest.TestCase):
             acceptance, manifest["observation"]["candidate_observer"]
         )
 
-    def test_defaults_are_p296_scoped_and_verify_only_is_preserved(self) -> None:
+    def test_defaults_are_p298_scoped_and_verify_only_is_preserved(self) -> None:
         args = builder.parse_args([])
-        self.assertIn("P2.96", builder.__doc__)
+        self.assertIn("P2.98", builder.__doc__)
         for value in (
             args.candidate_static,
             args.run_manifest,
@@ -88,7 +88,7 @@ class P296ReadyManifestBuilderTest(unittest.TestCase):
             args.candidate_ap,
             args.out,
         ):
-            self.assertIn("p296", value.as_posix())
+            self.assertIn("p298", value.as_posix())
         self.assertFalse(args.verify_only)
         self.assertTrue(builder.parse_args(["--verify-only"]).verify_only)
 

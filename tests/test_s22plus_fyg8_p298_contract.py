@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest import mock
 
@@ -15,6 +17,7 @@ import s22plus_fyg8_p298_build as build
 import s22plus_fyg8_p298_build_repro_check as build_repro
 import s22plus_fyg8_p298_candidate_contract as candidate_contract
 import s22plus_fyg8_p298_candidate_intent as candidate_intent
+import s22plus_fyg8_p298_candidate_static_checker as static_checker
 import s22plus_fyg8_p298_e2_stock_closure as stock_closure
 import s22plus_fyg8_p298_identity_tiers as identity
 import s22plus_fyg8_p298_linked_audit as linked
@@ -148,6 +151,229 @@ class P298ContractTests(unittest.TestCase):
                 "absolute-path authority mismatch",
             ):
                 stock_closure._validate_p298_authority_strings(mutated)
+
+    def test_stock_closure_routes_generic_rootfs_validator_and_restores(self) -> None:
+        window = stock_closure.INCIDENTAL_INSTRUCTION_WINDOW
+        data = _authority_data() + window
+        offset = len(_authority_data()) + 1
+        inherited_validator = (
+            stock_closure.p286.p282._validate_p282_authority_strings
+        )
+        with (
+            mock.patch.object(stock_closure, "INCIDENTAL_INIT_SIZE", len(data)),
+            mock.patch.object(
+                stock_closure,
+                "INCIDENTAL_INIT_SHA256",
+                hashlib.sha256(data).hexdigest(),
+            ),
+            mock.patch.object(stock_closure, "INCIDENTAL_PATH_OFFSET", offset),
+            mock.patch.object(
+                stock_closure,
+                "INCIDENTAL_TEXT_OFFSET",
+                offset - 1,
+            ),
+            mock.patch.object(
+                stock_closure,
+                "INCIDENTAL_TEXT_END",
+                offset - 1 + len(window),
+            ),
+            mock.patch.object(
+                stock_closure,
+                "INCIDENTAL_INSTRUCTION_WINDOW_OFFSET",
+                offset - 1,
+            ),
+        ):
+            with stock_closure._p298_authority_paths():
+                self.assertIs(
+                    stock_closure.p286.p282._validate_p282_authority_strings,
+                    stock_closure._validate_p298_authority_strings,
+                )
+                stock_closure.p286.p282._validate_p282_authority_strings(data)
+                with self.assertRaisesRegex(
+                    stock_closure.ClosureError,
+                    "absolute-path authority mismatch",
+                ):
+                    stock_closure.p286.p282._validate_p282_authority_strings(
+                        data + b"\0/tmp\0"
+                    )
+        self.assertIs(
+            stock_closure.p286.p282._validate_p282_authority_strings,
+            inherited_validator,
+        )
+        with self.assertRaises(RuntimeError):
+            with stock_closure._p298_authority_paths():
+                raise RuntimeError("forced context exit")
+        self.assertIs(
+            stock_closure.p286.p282._validate_p282_authority_strings,
+            inherited_validator,
+        )
+
+    def test_postbuild_tier2_repair_is_exact_and_non_payload(self) -> None:
+        static_checker._configure()
+        self.assertIs(static_checker.base.audit, static_checker.audit)
+        self.assertEqual(
+            static_checker.HISTORICAL_POSTBUILD_RESULT,
+            {
+                "sha256": (
+                    "a7bfff7bdc82683999ef0d91349f20560b659ea703cb0542eeb37ca36a3ff997"
+                ),
+                "size": 71342,
+            },
+        )
+        tiers = identity.path_tiers()
+        for path in static_checker.TIER2_REPAIR_PATHS:
+            with self.subTest(path=path):
+                self.assertIn(path.as_posix(), tiers["tier2_qualification"])
+                self.assertNotIn(path.as_posix(), tiers["tier1_payload"])
+
+    def test_postbuild_tier2_repair_receipt_and_a_b_mutations_fail_closed(self) -> None:
+        payload = b"exact historical postbuild fixture"
+        with mock.patch.object(
+            static_checker,
+            "HISTORICAL_POSTBUILD_RESULT",
+            static_checker.base.receipt(payload),
+        ):
+            self.assertTrue(static_checker._is_historical_postbuild_result(payload))
+            self.assertFalse(
+                static_checker._is_historical_postbuild_result(payload + b"x")
+            )
+
+        private = ROOT / "workspace/private"
+        private.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=private) as name:
+            temporary = Path(name)
+            build_a = temporary / "a"
+            build_b = temporary / "b"
+            build_a.mkdir()
+            build_b.mkdir()
+            args = SimpleNamespace(build_a=build_a, build_b=build_b)
+            directories = static_checker._distinct_build_directories(ROOT, args)
+            self.assertEqual(set(directories), {"build_a", "build_b"})
+            with self.assertRaisesRegex(
+                static_checker.CheckError, "not distinct"
+            ):
+                static_checker._distinct_build_directories(
+                    ROOT, SimpleNamespace(build_a=build_a, build_b=build_a)
+                )
+            alias = temporary / "alias"
+            alias.symlink_to(build_a, target_is_directory=True)
+            with self.assertRaisesRegex(
+                static_checker.CheckError, "indirect or missing|not distinct"
+            ):
+                static_checker._distinct_build_directories(
+                    ROOT, SimpleNamespace(build_a=build_a, build_b=alias)
+                )
+
+            limits = {"Image": 1024, "build-result.json": 1024}
+            exact_contract = {"source_contract_id": contract.CONTRACT_ID}
+            artifacts = {}
+            for key, directory in directories.items():
+                artifacts[key] = {}
+                for artifact in limits:
+                    data = (
+                        artifact.encode("ascii")
+                        if artifact == "Image"
+                        else f"{key}:{artifact}".encode("ascii")
+                    )
+                    (directory / artifact).write_bytes(data)
+                    artifacts[key][artifact] = static_checker.base.receipt(data)
+            result = {
+                "schema": static_checker.repro.SCHEMA,
+                "verdict": static_checker.repro.VERDICT,
+                "candidate_contract": exact_contract,
+                "pre_lto_qualification": {
+                    "qualification": {
+                        **static_checker.HISTORICAL_QUALIFICATION,
+                        "path": "/private/historical/qualification-v3.json",
+                    },
+                    "qualification_repo_path": (
+                        "workspace/private/outputs/s22plus_fyg8_p298_pre_lto/"
+                        "qualification-v3.json"
+                    ),
+                },
+                "linked_audit": {
+                    "verified": True,
+                    "postbuild_audit": {"verified": True},
+                },
+                "byte_identical_artifacts": {"Image": True},
+                "build_a": {"artifacts": artifacts["build_a"]},
+                "build_b": {"artifacts": artifacts["build_b"]},
+            }
+            with mock.patch.object(
+                static_checker.repro, "ARTIFACT_LIMITS", limits
+            ):
+                proof = static_checker._verify_historical_postbuild_repair(
+                    ROOT, args, result, exact_contract
+                )
+                self.assertTrue(proof["verified"])
+                self.assertTrue(proof["a_b_artifact_inodes_distinct"])
+                self.assertEqual(
+                    proof["byte_identical_artifacts_reverified"], ["Image"]
+                )
+                result["pre_lto_qualification"]["qualification"]["size"] += 1
+                with self.assertRaisesRegex(
+                    static_checker.CheckError, "header mismatch"
+                ):
+                    static_checker._verify_historical_postbuild_repair(
+                        ROOT, args, result, exact_contract
+                    )
+                result["pre_lto_qualification"]["qualification"]["size"] -= 1
+                result["pre_lto_qualification"]["qualification_repo_path"] += ".x"
+                with self.assertRaisesRegex(
+                    static_checker.CheckError, "header mismatch"
+                ):
+                    static_checker._verify_historical_postbuild_repair(
+                        ROOT, args, result, exact_contract
+                    )
+                result["pre_lto_qualification"]["qualification_repo_path"] = (
+                    "workspace/private/outputs/s22plus_fyg8_p298_pre_lto/"
+                    "qualification-v3.json"
+                )
+                (build_b / "Image").write_bytes(b"mutated")
+                with self.assertRaisesRegex(
+                    static_checker.CheckError, "artifact receipt mismatch"
+                ):
+                    static_checker._verify_historical_postbuild_repair(
+                        ROOT, args, result, exact_contract
+                    )
+                different = b"different but self-consistent B Image"
+                (build_b / "Image").write_bytes(different)
+                artifacts["build_b"]["Image"] = static_checker.base.receipt(
+                    different
+                )
+                with self.assertRaisesRegex(
+                    static_checker.CheckError, "bytes are not identical"
+                ):
+                    static_checker._verify_historical_postbuild_repair(
+                        ROOT, args, result, exact_contract
+                    )
+                (build_b / "Image").write_bytes((build_a / "Image").read_bytes())
+                artifacts["build_b"]["Image"] = static_checker.base.receipt(
+                    (build_b / "Image").read_bytes()
+                )
+                (build_b / "Image").unlink()
+                os.link(build_a / "Image", build_b / "Image")
+                with self.assertRaisesRegex(
+                    static_checker.CheckError, "share one inode"
+                ):
+                    static_checker._verify_historical_postbuild_repair(
+                        ROOT, args, result, exact_contract
+                    )
+
+    def test_postbuild_tier2_repair_emits_honest_audit_state(self) -> None:
+        repair = {"verified": True}
+
+        def fake_base_audit(_args):
+            static_checker._ACTIVE_TIER2_REPAIR.set(repair)
+            return {"build_repro": {"fresh_reverification": True}}
+
+        with mock.patch.object(static_checker, "_BASE_AUDIT", fake_base_audit):
+            result = static_checker.audit(SimpleNamespace())
+        self.assertFalse(result["build_repro"]["fresh_reverification"])
+        self.assertTrue(
+            result["build_repro"]["immutable_build_time_proof_revalidated"]
+        )
+        self.assertEqual(result["build_repro"]["tier2_repair"], repair)
 
     def test_identity_and_generated_patch(self) -> None:
         result = identity.validate()
