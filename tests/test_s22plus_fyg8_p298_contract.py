@@ -3,9 +3,11 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 import s22plus_fyg8_p296_candidate_intent as p296_candidate_intent
 import s22plus_fyg8_p296_source_contract as p296_contract
@@ -13,6 +15,7 @@ import s22plus_fyg8_p298_build as build
 import s22plus_fyg8_p298_build_repro_check as build_repro
 import s22plus_fyg8_p298_candidate_contract as candidate_contract
 import s22plus_fyg8_p298_candidate_intent as candidate_intent
+import s22plus_fyg8_p298_e2_stock_closure as stock_closure
 import s22plus_fyg8_p298_identity_tiers as identity
 import s22plus_fyg8_p298_linked_audit as linked
 import s22plus_fyg8_p298_postbuild_linked_audit as postbuild
@@ -53,7 +56,99 @@ def _fixture() -> dict[str, str]:
     }
 
 
+def _authority_data() -> bytes:
+    values = set(stock_closure.REQUIRED_ABSOLUTE_PATH_STRINGS)
+    values.update(
+        stock_closure.p286.p282._HISTORICAL_SPEC.E3_REQUIRED_CONTROL_STRINGS
+    )
+    return b"\0".join(value.encode("ascii") for value in sorted(values)) + b"\0"
+
+
 class P298ContractTests(unittest.TestCase):
+    def _validate_synthetic_incidental_path(self, suffix: bytes = b"") -> bytes:
+        window = stock_closure.INCIDENTAL_INSTRUCTION_WINDOW
+        data = _authority_data() + window + suffix
+        offset = len(_authority_data()) + 1
+        with (
+            mock.patch.object(stock_closure, "INCIDENTAL_INIT_SIZE", len(data)),
+            mock.patch.object(
+                stock_closure,
+                "INCIDENTAL_INIT_SHA256",
+                hashlib.sha256(data).hexdigest(),
+            ),
+            mock.patch.object(stock_closure, "INCIDENTAL_PATH_OFFSET", offset),
+            mock.patch.object(
+                stock_closure,
+                "INCIDENTAL_TEXT_OFFSET",
+                offset - 1,
+            ),
+            mock.patch.object(
+                stock_closure,
+                "INCIDENTAL_TEXT_END",
+                offset - 1 + len(window),
+            ),
+            mock.patch.object(
+                stock_closure,
+                "INCIDENTAL_INSTRUCTION_WINDOW_OFFSET",
+                offset - 1,
+            ),
+        ):
+            stock_closure._validate_p298_authority_strings(data)
+        return data
+
+    def test_stock_closure_accepts_only_exact_opcode_path_receipt(self) -> None:
+        data = self._validate_synthetic_incidental_path()
+        with self.assertRaisesRegex(
+            stock_closure.ClosureError,
+            "absolute-path authority mismatch",
+        ):
+            stock_closure._validate_p298_authority_strings(data)
+
+    def test_stock_closure_incidental_path_mutations_fail_closed(self) -> None:
+        unauthorized = (
+            b"\0/tmp\0",
+            b"\0/data/local/tmp/unauthorized\0",
+        )
+        for suffix in unauthorized:
+            with self.subTest(suffix=suffix), self.assertRaisesRegex(
+                stock_closure.ClosureError,
+                "absolute-path authority mismatch",
+            ):
+                self._validate_synthetic_incidental_path(suffix)
+
+        data = _authority_data() + stock_closure.INCIDENTAL_INSTRUCTION_WINDOW
+        offset = len(_authority_data()) + 1
+        with (
+            mock.patch.object(stock_closure, "INCIDENTAL_INIT_SIZE", len(data)),
+            mock.patch.object(
+                stock_closure,
+                "INCIDENTAL_INIT_SHA256",
+                hashlib.sha256(data).hexdigest(),
+            ),
+            mock.patch.object(stock_closure, "INCIDENTAL_PATH_OFFSET", offset),
+            mock.patch.object(
+                stock_closure,
+                "INCIDENTAL_TEXT_OFFSET",
+                offset - 1,
+            ),
+            mock.patch.object(
+                stock_closure,
+                "INCIDENTAL_TEXT_END",
+                offset - 1 + len(stock_closure.INCIDENTAL_INSTRUCTION_WINDOW),
+            ),
+            mock.patch.object(
+                stock_closure,
+                "INCIDENTAL_INSTRUCTION_WINDOW_OFFSET",
+                offset - 1,
+            ),
+        ):
+            mutated = data[:offset] + b"/tmp" + data[offset + 4:]
+            with self.assertRaisesRegex(
+                stock_closure.ClosureError,
+                "absolute-path authority mismatch",
+            ):
+                stock_closure._validate_p298_authority_strings(mutated)
+
     def test_identity_and_generated_patch(self) -> None:
         result = identity.validate()
         self.assertEqual(result["tier1_source_key_count"], len(contract.SOURCE_KEYS))

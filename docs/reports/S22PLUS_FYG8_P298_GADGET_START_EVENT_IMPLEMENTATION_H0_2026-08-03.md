@@ -81,8 +81,8 @@ P2.98 pair remains subject to the same mandatory audit.
 
 ## Validation and authority
 
-Final focused validation passed 18 of 18 P2.98 tests. The inherited
-P2.82/P2.84/P2.86 boundary plus P2.98 tests passed 128 of 128. The
+Final direct validation passed 20 of 20 P2.98 tests. The whole
+P2.82/P2.84/P2.86 boundary plus P2.98 focused closure passed 130 of 130. The
 implementation closure reports 136 Tier-1 source keys, 13 generated artifacts,
 a 45-byte two-slot ABI, 107 positions, 12 bind events, and a reproducible
 static AArch64 userspace executable. The pre-intent and post-repair freezes both
@@ -99,14 +99,31 @@ reproduced the same static AArch64 outputs: 66,384-byte `/init` at SHA-256
 and 720-byte child at SHA-256
 `9a57b30aa3fb08ee0aab4d045d2805dd36875bb80bcba7b0b6606f619df71639`.
 
-Pre-Full-LTO qualification stopped before a kernel build. The exact shared
-historical suite passed 108 of 110; the two failures are stale A90-only
-documentation expectations, while the S22+ P2.98 documentation assertion
-passes. Target isolation forbids repairing A90 state as part of this unit. The
-authoritative resource predicate also reports 16,317,992,960 bytes physical
-RAM against 32,212,254,720 required. Swap (17,179,865,088 bytes) and free disk
-(41,104,457,728 bytes) pass. The resource gate was not bypassed and Full-LTO
-was not started.
+A second bounded Tier-2 repair preserves the inherited full-binary authority
+validator while handling one compiler-generated false positive. The canonical
+66,384-byte `init` at SHA-256
+`e35e2a1d978d2c9f4af0d6b3ac254239324c6f503312107b1a5a89c91f702daa`
+contains the printable bytes `/M9@`
+across the boundary of one `ldrb` and one `cbz` instruction. The adapter first
+runs the strict inherited validator, then permits an in-memory validation-copy
+scrub only when the complete artifact hash and size, single occurrence at file
+offset `0x5a51`, allocated `.text` bounds, aligned eight-byte instruction
+window `e02f4d3940010034`, and unexpected-path set exactly `{/M9@}` all match.
+It reruns the same inherited validator after the scrub. `/tmp`,
+`/data/local/tmp/unauthorized`, path replacement, opcode mutation, another GCC
+output, or another artifact hash still fail closed. No Tier-1 byte or candidate
+intent changed.
+
+Pre-Full-LTO qualification now passes on the qualified build PC before any
+kernel build. The focused closure passes 130/130 and the exact shared
+Process-v2 regression passes 110/110. The build host reports 33,662,164,992
+bytes physical RAM, 12,884,893,696 bytes swap, and 37,085,384,704 bytes free
+disk. A first attempt correctly failed closed because the inherited P2.84
+ingestion receipt named a local GCC 15 path unavailable on the build PC. The
+oracle was rerun host-only with the installed GCC 14 and exact pinned QEMU, then
+qualification passed with 21 gates and SHA-256
+`f3533d20ef3edc5c4feaf410296492820138dcd2c56861ee81be02fca78b89eb`.
+The qualification still records `full_lto_started=false`.
 
 The historical P2.96 Full-LTO A/B pair passes the new read-only six-function
 audit with canonical disassembly digest
@@ -118,17 +135,19 @@ regression gate is current.
 ## Independent review
 
 A delegated independent reviewer found no Critical, High, Medium, or Low
-finding and returned `PASS_GO` for the exact hash-bound P2.98 H0 host
-capability. The review independently checked Tier-1 identity, the 12-event
+execution-code finding and returned `PASS_GO` for the exact hash-bound Tier-2
+repair. The review independently checked Tier-1 identity, the exact artifact
+exception and mutation rejects, the 12-event
 parser and same-run result contract, EP0 1/2-hit attribution, errno domain,
 Tier-2 selector repair, linked call-shape audit, focused regressions, and the
 boot-only/no-live-authority boundaries. The structured receipt names every
-reviewed execution-critical byte and the higher-precedence policy context.
+reviewed execution-critical byte. Its final current-policy and document hash
+rebinding remains a pre-build gate.
 
-This review does not convert the 108/110 shared regression result into PASS,
-waive the physical-RAM gate, substitute the historical A/B replay for fresh
-P2.98 Full-LTO images, or authorize packaging or device work. It is reusable
-only while its named hashes and hazard assumptions remain unchanged.
+This review and the passing pre-LTO receipt do not substitute the historical
+A/B replay for fresh P2.98 Full-LTO images or authorize packaging or device
+work. Capability reuse remains limited to unchanged execution-critical and
+policy-context hashes with no new hazard or incident.
 
 This new host capability changes no partition boundary, recovery mechanism,
 F1 runner, or target identity.

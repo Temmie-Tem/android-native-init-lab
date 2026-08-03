@@ -5,7 +5,7 @@
     "f1_armed": false,
     "fresh_full_lto_ab_complete": false,
     "live_authority_created": false,
-    "pre_full_lto_qualification_complete": false,
+    "pre_full_lto_qualification_complete": true,
     "review_qualifies_capability_not_run": true
   },
   "bindings": {
@@ -13,30 +13,31 @@
     "documents": {
       "current_goal": {
         "path": "GOAL.md",
-        "sha256": "45728ba76efdcf78c3bbb638e610daa408c9b45e252a2e23a7ab7eee9dafc74d",
-        "size": 11983
+        "sha256": "c259f67808359b66ed5d7d7cdb37436584f6d3cdb21d8cdcc37002f55ff5803b",
+        "size": 11921
       },
       "implementation_report": {
         "path": "docs/reports/S22PLUS_FYG8_P298_GADGET_START_EVENT_IMPLEMENTATION_H0_2026-08-03.md",
-        "sha256": "74595d37f7d3dbc2e56096d7d6a0695ee47be38c24dc16ca00265f291d4c597b",
-        "size": 7193
+        "sha256": "9c571d7f763e57ea2b11fa7664629981aa0c14de4db2658c82d45517f9c6388e",
+        "size": 8347
       },
       "s22plus_campaign_ledger": {
         "path": "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md",
-        "sha256": "73683d0a96b1dbc429c6163634c7ec33a6b96524571a19abb2ebf56670813b84",
-        "size": 4368
+        "sha256": "ba54f4bab6b5135fbaa1ffd59ba5d565eab157fb647d6c6a7ce3d71b66479eba",
+        "size": 4743
       }
     },
+    "document_binding_role": "review-time evidence snapshot; document-only progress updates do not retire an unchanged execution-critical capability",
     "execution_critical_closure": {
       "aggregate_method": "concatenate ordered ASCII rows <lowercase_sha256><two spaces><repo-relative-path><LF>, then SHA-256",
       "aggregate_preimage_size": 3323,
-      "aggregate_sha256": "f46e22193a614b2c0ed581d8eadbb00e6f79c9ab15ec597c694d807783445074",
+      "aggregate_sha256": "8924d3bc28a3dee8efc2dcddc55461be244fcd73e406846691d27bda0c76292b",
       "file_count": 23,
       "files": [
         {
           "path": "tests/test_s22plus_fyg8_p298_contract.py",
-          "sha256": "ba1bf466de43d2776017b434ede33a1e57c9cf043abb5c99722d75297554b3ce",
-          "size": 9365
+          "sha256": "961a23b93f183b7880a8095b06bffd4b7343d24fa9b1a49e6e06a65a3d493bd3",
+          "size": 12976
         },
         {
           "path": "workspace/public/src/scripts/revalidation/build_s22plus_fyg8_p298_candidate.py",
@@ -80,8 +81,8 @@
         },
         {
           "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p298_e2_stock_closure.py",
-          "sha256": "f1c53b0d5a3eb576e66a7727efcfa7a4285af935d74bd21d205f9b6438d951ae",
-          "size": 1475
+          "sha256": "d563b4c1d56168ebeab669ce360aa2fbca86cfe54aa027612fadc1976aba5d7c",
+          "size": 4090
         },
         {
           "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p298_identity_tiers.py",
@@ -153,13 +154,18 @@
     "policy_context": {
       "common_contract": {
         "path": "AGENTS.md",
-        "sha256": "939792d4d9b542d334af2bc3e5f5495b7ca61d717872f3463effcdf23d3453ae",
-        "size": 13903
+        "sha256": "3289aedf8b55c2d74e3252c72e7b6b9bc003ef62379fc6e7b192a845c80dd747",
+        "size": 14201
       },
       "process": {
         "path": "docs/operations/DEVICE_ACTION_PROCESS_V2.md",
         "sha256": "9b61af3ef7ee6f82f529dc18a21946eff3e4fa92597448f11f8aa738c93523c0",
         "size": 21280
+      },
+      "risk_tiers": {
+        "path": "docs/operations/DEVICE_ACTION_RISK_TIERS.md",
+        "sha256": "c2bc3b99b364ec3d08419dc83cca14f35ea9edc1d03173e237740b786ecf8a96",
+        "size": 5954
       },
       "target_contract": {
         "path": "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md",
@@ -193,23 +199,23 @@
       "required": true
     },
     "historical_process_v2_regression": {
-      "a90_only_document_assertion_failures": 2,
-      "passed": 108,
+      "a90_only_document_assertion_failures": 0,
+      "passed": 110,
       "required": 110,
       "s22plus_document_assertion_passed": true,
-      "verdict": "FAIL_CLOSED"
+      "verdict": "PASS"
     },
     "resources": {
-      "disk_bytes": 41104457728,
+      "disk_bytes": 37085384704,
       "disk_ok": true,
-      "physical_memory_bytes": 16317992960,
-      "physical_memory_ok": false,
+      "physical_memory_bytes": 33662164992,
+      "physical_memory_ok": true,
       "required_physical_memory_bytes": 32212254720,
-      "swap_bytes": 17179865088,
+      "swap_bytes": 12884893696,
       "swap_ok": true
     }
   },
-  "reviewed_at_utc": "2026-08-03T12:56:57Z",
+  "reviewed_at_utc": "2026-08-03T14:55:57Z",
   "schema": "s22plus_fyg8_p298_execution_critical_independent_review_v1",
   "scope": [
     "12-event trace descriptor and exact PID/counter/controller parser",
@@ -219,7 +225,8 @@
     "Tier-2 selector reopen repair",
     "source errno and two-call EP0 command chain",
     "Full-LTO A/B linked and postbuild fail-closed audits",
-    "identity, qualification, build, package-boundary, and target-isolation interactions"
+    "identity, qualification, build, package-boundary, and target-isolation interactions",
+    "exact hash, size, offset, text-bound, and opcode-window exception for the canonical incidental /M9@ instruction bytes"
   ],
   "target": {
     "device": "g0q",
@@ -229,15 +236,21 @@
   },
   "validation": {
     "historical_p296_ab_callshape_digest": "0e889836181ffc156e34944880b329224c9c941408d5235b06b2ff5de41fe0bc",
-    "inherited_focused_tests": {
-      "count": 128,
+    "whole_focused_tests": {
+      "count": 130,
       "result": "PASS"
     },
     "p298_focused_tests": {
-      "count": 18,
+      "count": 20,
       "result": "PASS"
     },
     "python_compile": "PASS",
+    "pre_full_lto": {
+      "build_allowed": true,
+      "gate_count": 21,
+      "qualification_sha256": "f3533d20ef3edc5c4feaf410296492820138dcd2c56861ee81be02fca78b89eb",
+      "verdict": "PASS_P298_PRE_FULL_LTO_QUALIFICATION_HOST_ONLY"
+    },
     "tier1_changed_keys": [],
     "userspace": {
       "child_sha256": "9a57b30aa3fb08ee0aab4d045d2805dd36875bb80bcba7b0b6606f619df71639",

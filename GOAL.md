@@ -80,15 +80,16 @@ manifested, or used for F1.
 P2.98 is the fresh successor contract
 `s22plus-fyg8-p298-gadget-start-event-attribution-v1`. Its host implementation
 and canonical Tier-1 intent are complete. The reproducible static userspace
-also passes. Pre-Full-LTO qualification is now parked before any kernel build:
-the shared historical regression gate is 108/110 because two A90-only document
-expectations are stale, and this host has 16,317,992,960 bytes of physical RAM
-against the mandatory 32,212,254,720-byte minimum. The S22+ assertion passes,
-swap and disk gates pass, and neither blocker authorizes a cross-target edit or
-a resource-gate bypass. Independent review returned `PASS_GO` for the exact
-hash-bound H0 host capability with no findings; it does not close either gate
-or authorize packaging, F1 preparation, or live use. No device action is part
-of this bounded unit.
+also passes. Pre-Full-LTO qualification now passes on the qualified build host:
+the focused closure is 130/130, the shared Process-v2 regression is 110/110,
+and 33,662,164,992 bytes physical RAM, 12,884,893,696 bytes swap, and
+37,085,384,704 bytes free disk satisfy the mandatory resource predicates. The
+receipt has SHA-256
+`f3533d20ef3edc5c4feaf410296492820138dcd2c56861ee81be02fca78b89eb`
+and keeps `full_lto_started=false`. Independent execution-code rereview returned
+`PASS_GO` for the exact Tier-2 repair with no finding; current common-policy and
+S22+ document receipt rebinding remains mandatory before Full-LTO. No device
+action is part of this bounded unit.
 
 This continues the **Gadget-Start Return Host Implementation (H0)** lineage:
 the entry plus signed `$retval:s32` pair remains subject to a mandatory
@@ -136,8 +137,8 @@ derived. Two independent links reproduce the 66,384-byte `/init` at SHA-256
 `e35e2a1d978d2c9f4af0d6b3ac254239324c6f503312107b1a5a89c91f702daa`
 and the 720-byte child at SHA-256
 `9a57b30aa3fb08ee0aab4d045d2805dd36875bb80bcba7b0b6606f619df71639`.
-The final focused P2.98 suite passes 18/18 and the inherited focused closure
-passes 128/128. A read-only audit of the historical P2.96 A/B pair passes the
+The final direct P2.98 suite passes 20/20 and the whole focused closure passes
+130/130. A read-only audit of the historical P2.96 A/B pair passes the
 new six-function call-shape checks, but it is only baseline evidence and never
 substitutes for the mandatory fresh P2.98 Full-LTO A/B pair.
 
@@ -150,10 +151,9 @@ substitutes for the mandatory fresh P2.98 Full-LTO A/B pair.
 3. Reproduce the static AArch64 userspace, replay inherited focused gates, and
    bind the exact linked-audit metadata into pre-Full-LTO qualification.
 4. Apply the runbook's physical-RAM, swap, disk, toolchain, source, and clean
-   worktree gates before Full-LTO A/B. The present physical-RAM gate is failed,
-   so resume only on a qualified host with at least the exact required RAM and
-   after the shared 110-test regression gate is current. Never bypass either
-   gate.
+   worktree gates before Full-LTO A/B. The qualified build host and shared
+   110-test regression now pass; retain their exact receipts and never bypass
+   either gate.
 5. Retain the fresh independent `PASS_GO` for the exact reviewed
    trace/schema/parser and postbuild closure only while its named hashes remain
    unchanged. A later unit must independently satisfy fresh Full-LTO closure,

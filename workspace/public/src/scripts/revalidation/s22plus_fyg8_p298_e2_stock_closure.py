@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import sys
 
 from s22plus_fyg8_p286_e2_stock_closure import *  # noqa: F403
@@ -18,6 +19,22 @@ ALLOWED_ABSOLUTE_PATH_STRINGS = p286.ALLOWED_ABSOLUTE_PATH_STRINGS
 _p286_authority_paths = p286._p286_authority_paths
 _entrypoints = p286._entrypoints
 
+# The canonical P2.98 init contains one four-byte printable slash sequence
+# across two AArch64 instructions.  It is not a runtime string and the whole
+# ELF is already bound by the userspace receipt.  Keep this exception pinned
+# to that exact artifact and exact instruction window; every other byte stream
+# still goes through the inherited full-binary authority validator unchanged.
+INCIDENTAL_INIT_SHA256 = (
+    "e35e2a1d978d2c9f4af0d6b3ac254239324c6f503312107b1a5a89c91f702daa"
+)
+INCIDENTAL_INIT_SIZE = 66384
+INCIDENTAL_PATH = b"/M9@"
+INCIDENTAL_PATH_OFFSET = 0x5A51
+INCIDENTAL_TEXT_OFFSET = 0x120
+INCIDENTAL_TEXT_END = 0x7C08
+INCIDENTAL_INSTRUCTION_WINDOW_OFFSET = 0x5A50
+INCIDENTAL_INSTRUCTION_WINDOW = bytes.fromhex("e02f4d3940010034")
+
 
 def select(source_contract_id: str | None):
     try:
@@ -27,8 +44,59 @@ def select(source_contract_id: str | None):
     return sys.modules[__name__]
 
 
+def _scrub_exact_incidental_opcode_path(data: bytes) -> bytes:
+    if (
+        len(data) != INCIDENTAL_INIT_SIZE
+        or hashlib.sha256(data).hexdigest() != INCIDENTAL_INIT_SHA256
+        or data.count(INCIDENTAL_PATH) != 1
+        or data.find(INCIDENTAL_PATH) != INCIDENTAL_PATH_OFFSET
+        or INCIDENTAL_PATH_OFFSET != INCIDENTAL_INSTRUCTION_WINDOW_OFFSET + 1
+        or INCIDENTAL_INSTRUCTION_WINDOW_OFFSET < INCIDENTAL_TEXT_OFFSET
+        or (
+            INCIDENTAL_INSTRUCTION_WINDOW_OFFSET
+            + len(INCIDENTAL_INSTRUCTION_WINDOW)
+            > INCIDENTAL_TEXT_END
+        )
+        or (
+            INCIDENTAL_INSTRUCTION_WINDOW_OFFSET - INCIDENTAL_TEXT_OFFSET
+        )
+        % 4
+        != 0
+        or data[
+            INCIDENTAL_INSTRUCTION_WINDOW_OFFSET:
+            INCIDENTAL_INSTRUCTION_WINDOW_OFFSET
+            + len(INCIDENTAL_INSTRUCTION_WINDOW)
+        ]
+        != INCIDENTAL_INSTRUCTION_WINDOW
+    ):
+        raise ClosureError(  # noqa: F405
+            "P2.98 incidental opcode-path receipt mismatch"
+        )
+
+    strings = p286.p282.p280.isolated_p260._printable_strings(data)
+    absolute_paths = p286.p282._absolute_path_candidates(strings)
+    unexpected = absolute_paths - ALLOWED_ABSOLUTE_PATH_STRINGS
+    if unexpected != {INCIDENTAL_PATH.decode("ascii")}:
+        raise ClosureError(  # noqa: F405
+            "P2.98 incidental opcode-path set mismatch"
+        )
+
+    return (
+        data[:INCIDENTAL_PATH_OFFSET]
+        + (b"\0" * len(INCIDENTAL_PATH))
+        + data[INCIDENTAL_PATH_OFFSET + len(INCIDENTAL_PATH):]
+    )
+
+
 def _validate_p298_authority_strings(data: bytes) -> None:
-    p286._validate_p286_authority_strings(data)
+    try:
+        p286._validate_p286_authority_strings(data)
+    except ClosureError as original:  # noqa: F405
+        try:
+            scrubbed = _scrub_exact_incidental_opcode_path(data)
+            p286._validate_p286_authority_strings(scrubbed)
+        except ClosureError:  # noqa: F405
+            raise original
 
 
 _validate_p286_authority_strings = _validate_p298_authority_strings
