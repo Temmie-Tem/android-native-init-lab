@@ -244,6 +244,54 @@ class A90FlatBuilderTest(unittest.TestCase):
         with self.assertRaisesRegex(buildlib.ManifestError, "invalid newc trailer"):
             buildlib.newc_archive_listing(bytes(changed))
 
+    def test_newc_parser_rejects_cpio_canonicalization_aliases(self):
+        aliases = (
+            "././bin/a90_doomgeneric_private_engine_v9999",
+            "bin/./a90_doomgeneric_private_engine_v9999",
+            "bin//a90_doomgeneric_private_engine_v9999",
+            "./bin/../bin/a90_doomgeneric_private_engine_v9999",
+        )
+        for alias in aliases:
+            with self.subTest(alias=alias):
+                with self.assertRaisesRegex(
+                    buildlib.ManifestError,
+                    "noncanonical",
+                ):
+                    buildlib.newc_archive_listing(
+                        newc_archive({alias: b"stale"})
+                    )
+
+    def test_newc_parser_requires_exact_eight_digit_ascii_hex_fields(self):
+        valid = newc_archive({"init": b"payload"})
+        name_size_offset = 6 + (11 * 8)
+        for encoded in (b"+0000005", b" 0000005", b"0000_005"):
+            with self.subTest(encoded=encoded):
+                changed = bytearray(valid)
+                changed[name_size_offset:name_size_offset + 8] = encoded
+                with self.assertRaisesRegex(
+                    buildlib.ManifestError,
+                    "malformed newc header",
+                ):
+                    buildlib.newc_archive_listing(bytes(changed))
+
+    def test_newc_parser_requires_zero_member_alignment_padding(self):
+        valid = newc_archive({"abc": b"x"})
+        name_padding = bytearray(valid)
+        name_padding[114] = 1
+        with self.assertRaisesRegex(
+            buildlib.ManifestError,
+            "invalid member-name padding",
+        ):
+            buildlib.newc_archive_listing(bytes(name_padding))
+
+        data_padding = bytearray(valid)
+        data_padding[117] = 1
+        with self.assertRaisesRegex(
+            buildlib.ManifestError,
+            "invalid member-data padding",
+        ):
+            buildlib.newc_archive_listing(bytes(data_padding))
+
     def test_virtual_prefixes_are_public_and_random_seed_is_fixed(self):
         self.assertEqual(
             self.manifest["init"]["virtual_source_root"],

@@ -32,7 +32,11 @@ build, and grants no candidate authority.
    entries and the exact engine family from that archive, and rejects malformed
    structure. Its receipts bind both builder source files and revalidate source,
    manifest, and input pins around execution.
-4. A fresh A/B output from that exact closure then passed byte identity,
+4. The next independent review found canonical-path aliases and permissive
+   numeric parsing. The parser now requires each member name to equal its
+   canonical POSIX form, every numeric field to contain exactly eight ASCII
+   hexadecimal digits, and all member alignment padding to be zero.
+5. A fresh A/B output from that exact closure then passed byte identity,
    source-key binding, accepted-input immutability,
    required-entry inspection, exact engine-family absence, static AArch64 ELF
    inspection, and Android boot-image inspection.

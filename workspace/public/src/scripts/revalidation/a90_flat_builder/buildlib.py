@@ -6,7 +6,7 @@ import copy
 from dataclasses import dataclass
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import tomllib
 from typing import Any, Iterable
@@ -14,6 +14,7 @@ from typing import Any, Iterable
 
 SCHEMA = "a90-flat-builder-v1"
 HEX_DIGITS = frozenset("0123456789abcdef")
+NEWC_HEX_BYTES = frozenset(b"0123456789abcdefABCDEF")
 MAX_EXTENDS_DEPTH = 1
 VERSION_NAME = re.compile(r"[a-z0-9][a-z0-9._-]*")
 TOP_LEVEL_KEYS = frozenset({
@@ -390,13 +391,17 @@ def newc_archive_listing(data: bytes) -> set[str]:
         header = data[offset:offset + header_bytes]
         if header[:6] != b"070701":
             raise ManifestError("packed ramdisk is not one newc archive")
-        try:
-            fields = [
-                int(header[index:index + 8], 16)
-                for index in range(6, header_bytes, 8)
-            ]
-        except ValueError as exc:
-            raise ManifestError("packed ramdisk has a malformed newc header") from exc
+        encoded_fields = [
+            header[index:index + 8]
+            for index in range(6, header_bytes, 8)
+        ]
+        if any(
+            len(field) != 8
+            or any(byte not in NEWC_HEX_BYTES for byte in field)
+            for field in encoded_fields
+        ):
+            raise ManifestError("packed ramdisk has a malformed newc header")
+        fields = [int(field, 16) for field in encoded_fields]
         file_size = fields[6]
         name_size = fields[11]
         if name_size < 2:
@@ -412,27 +417,41 @@ def newc_archive_listing(data: bytes) -> set[str]:
             name = encoded_name[:-1].decode("utf-8", errors="strict")
         except UnicodeDecodeError as exc:
             raise ManifestError("packed ramdisk member name is not UTF-8") from exc
-        offset = (name_end + 3) & ~3
+        aligned_name_end = (name_end + 3) & ~3
+        if (
+            aligned_name_end > len(data)
+            or any(data[name_end:aligned_name_end])
+        ):
+            raise ManifestError("packed ramdisk has invalid member-name padding")
+        offset = aligned_name_end
         data_end = offset + file_size
         if data_end > len(data):
             raise ManifestError("packed ramdisk is truncated in member data")
-        offset = (data_end + 3) & ~3
+        aligned_data_end = (data_end + 3) & ~3
+        if (
+            aligned_data_end > len(data)
+            or any(data[data_end:aligned_data_end])
+        ):
+            raise ManifestError("packed ramdisk has invalid member-data padding")
+        offset = aligned_data_end
 
         if name == "TRAILER!!!":
             if file_size != 0 or any(data[offset:]):
                 raise ManifestError("packed ramdisk has an invalid newc trailer")
             return listing
 
-        normalized = name.removeprefix("./")
-        member = Path(normalized)
+        normalized = name
+        member = PurePosixPath(name)
+        canonical = member.as_posix()
         if (
             not normalized
             or member.is_absolute()
             or ".." in member.parts
+            or canonical != normalized
             or normalized in listing
         ):
             raise ManifestError(
-                f"packed ramdisk has an unsafe or duplicate member: {name!r}"
+                f"packed ramdisk has a noncanonical or duplicate member: {name!r}"
             )
         listing.add(normalized)
 

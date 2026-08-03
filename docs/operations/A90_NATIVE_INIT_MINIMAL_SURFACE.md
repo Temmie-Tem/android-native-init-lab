@@ -46,6 +46,12 @@ Two host-only findings were fixed before accepting the deterministic output:
   than reopening the emitted CPIO. The builder now parses the emitted `newc`
   bytes independently of the external cpio tool, rejects malformed archives,
   and validates required entries and the exact engine set from those bytes.
+- The next review refused `PASS_GO` because noncanonical path aliases and
+  Python's permissive hexadecimal parser could bypass the initial parser.
+  Archive names must now equal their canonical POSIX representation, all 13
+  numeric fields must be exactly eight ASCII hexadecimal digits, and member
+  alignment padding must be zero. Focused tests cover each reported alias and
+  malformed numeric form.
 
 The fresh final private A/B build is byte-identical, keeps the accepted input
 boot unchanged, binds both builder source files by path, size, and SHA256, and
@@ -119,5 +125,5 @@ minimal profile rather than becoming permanent bridge duties.
    independent review of its changed closure, and attended boot-only F1.
 
 Focused inventory regression passes `3/3`; flat-builder and Phase 1A regression
-passes `23/23`. `py_compile`, private pin validation, A/B byte comparison,
+passes `26/26`. `py_compile`, private pin validation, A/B byte comparison,
 archive inspection, and `git diff --check` pass. No device was contacted.
