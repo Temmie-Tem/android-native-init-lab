@@ -12,12 +12,11 @@ transfer between the two files.
 
 ## Current Authority
 
-- Run `a90-v3406-debian-display-f1-20260802-01` consumed its exact F1
-  approval and closed `PASS_A90_RESIDENT_INSTALLED`. The V3406 resident
-  baseline remains durably `RESIDENT_HEALTHY`: one boot-only candidate
-  transfer, zero replay, zero rollback, and zero second resident reboot. Exact
-  version/build, `selftest fail=0`, empty pstore, immutable rootfs source, and
-  direct NCM health passed. S22+ received no command.
+- Run `a90-v3406-debian-display-f1-20260802-01` historically closed
+  `PASS_A90_RESIDENT_INSTALLED`, but the current exact native baseline is
+  V2321 after the later `-02` incident rollback. Fresh `-04` D0 re-established
+  exact V2321, `selftest fail=0`, empty pstore, direct NCM, and three absent new
+  run paths. S22+ received no command.
 - Standing exact-target D0 exists only through the active common trial. A90
   campaign `a90-resident-switchroot-display-ssh-20260802` is open, but no D1
   session is active and no target is F1-armed. The qualified unattended lane
@@ -105,6 +104,20 @@ transfer between the two files.
   fatal. The exact classifier and dual-schema consumer fix passed independent
   combined F1/D1 review; fresh manifests must bind the new canonical receipts.
   S22+ was untouched.
+- Run `a90-v3406-debian-display-f1-20260803-03` staged its exact rootfs, then
+  fail-closed before candidate intent because the host `pkexec` ModemManager
+  guard authorization did not complete. Its durable result is
+  `ABORTED_F1_V2_BEFORE_CANDIDATE` with candidate/rollback `0/0`, no replay,
+  and the staged `-03` rootfs is `PRESERVE_INERT`; the run, manifest, approval,
+  and journal are never resumed or reused. Independent incident review returned
+  `PASS_GO_NEW_CAMPAIGN_ONLY` without a source change or new device hazard.
+- Fresh run `a90-v3406-debian-display-f1-20260803-04` has a new keyed rootfs,
+  exact D0/path-absence evidence, incident-qualified resident-install manifest,
+  and compatibility approval. It grants no live authority and has no journal.
+  Live F1 is parked until the exact host-only `pkexec /usr/bin/true` probe exits
+  zero; the new campaign must still record its own armed/child-alive guard
+  receipt before candidate intent. A second zero-output guard authorization
+  failure stops new-campaign creation for host-path repair.
 
 `docs/reports/A90_D1_FAST_LOOP_V2_H0_2026-08-02.md`
 
