@@ -151,6 +151,16 @@ transfer between the two files.
   display visibility was recorded unavailable at execution and may be bound
   later from the attended operator observation. Payload, partition write,
   flash, rollback, and replay were all zero.
+- Fresh attended D1 run `a90-d1-attended-20260804-02` was created instead of
+  replaying the closed `-01` ordinal. Two opening D0 attempts stopped before
+  transaction creation while the A90 USB endpoint was absent and then while a
+  stale reconnect frame tail failed strict parsing. After bounded host bridge
+  restart and an explicit A90 pin, one new `SWITCHROOT_EXPERIMENT` again proved
+  Debian PID1, key-only SSH, exact Phase3 service ownership, direct DRM master
+  and `SETCRTC`, automatic native return, cleanup, immutable source, and final
+  V3406 health. The same retained-pmsg warning was non-safety; physical display
+  visibility remains awaiting the attended operator answer. Handoff dispatch
+  was one and replay, payload, partition write, flash, and rollback were zero.
 
 `docs/reports/A90_D1_FAST_LOOP_V2_H0_2026-08-02.md`
 
