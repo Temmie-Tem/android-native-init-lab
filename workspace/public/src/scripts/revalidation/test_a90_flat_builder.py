@@ -29,6 +29,9 @@ MINIMAL_B_MANIFEST = (
 MINIMAL_C_MANIFEST = (
     HERE / "a90_flat_builder/versions/phase3-minimal-c/manifest.toml"
 )
+MINIMAL_D_MANIFEST = (
+    HERE / "a90_flat_builder/versions/phase3-minimal-d/manifest.toml"
+)
 
 
 def newc_archive(entries: dict[str, bytes]) -> bytes:
@@ -177,6 +180,38 @@ class A90FlatBuilderTest(unittest.TestCase):
         )
         self.assertIn(
             "video.demo.doom=removed",
+            minimal["validation"]["init_strings"],
+        )
+        buildlib.validate_ramdisk_component_listing(
+            minimal,
+            set(minimal["ramdisk"]["required_entries"]),
+        )
+
+    def test_phase3_minimal_d_removes_boot_write_flash_surface(self):
+        resolution = buildlib.resolve_manifest(MINIMAL_D_MANIFEST)
+        minimal = resolution.data
+        buildlib.validate_component_selection(minimal)
+        self.assertEqual(
+            minimal["profile"],
+            "phase3-minimal-d-no-boot-write-flash-surface",
+        )
+        self.assertFalse(minimal["candidate_authority"])
+        self.assertFalse(minimal["engine"]["enabled"])
+        self.assertEqual(len(minimal["init"]["sources"]), 57)
+        for source in (
+            "a90_doomgeneric_bridge.c",
+            "a90_doomgeneric_bridge_inert.c",
+            "a90_boot_write_e1.c",
+            "a90_boot_write_probe.c",
+        ):
+            self.assertNotIn(source, minimal["init"]["sources"])
+        for flag in (
+            "-DA90_MINIMAL_NO_DOOM_COMMAND_SURFACE=1",
+            "-DA90_MINIMAL_NO_BOOT_WRITE_FLASH_SURFACE=1",
+        ):
+            self.assertIn(flag, minimal["init"]["cflags"])
+        self.assertIn(
+            "safety.boot_write_flash_surface=removed",
             minimal["validation"]["init_strings"],
         )
         inputs = buildlib.validate_inputs(
@@ -355,7 +390,7 @@ class A90FlatBuilderTest(unittest.TestCase):
 
         changed = copy.deepcopy(keys)
         changed["flat_builder"]["sha256"] = "0" * 64
-        resolution = buildlib.resolve_manifest(MINIMAL_C_MANIFEST)
+        resolution = buildlib.resolve_manifest(MINIMAL_D_MANIFEST)
         inputs = buildlib.validate_inputs(
             REPO_ROOT,
             resolution,

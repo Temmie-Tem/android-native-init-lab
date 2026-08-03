@@ -1,6 +1,6 @@
 # A90 native-init minimal surface
 
-Status: `H0_PHASE3_MINIMAL_C_CAPABILITY_PASS_GO`
+Status: `H0_PHASE3_MINIMAL_D_CAPABILITY_PASS_GO`
 
 Date: 2026-08-03
 
@@ -155,6 +155,63 @@ until one of its 14 bound source keys or named semantics changes, or a new
 hazard or incident occurs. The previously reviewed
 flat-builder closure is unchanged and its
 capability-wide `PASS_GO` remains reusable.
+
+That Phase3-C receipt is historical proof for commit `aa76b123`, but it is no
+longer a reusable current-closure receipt after Phase3-D changed three of its
+14 bound source keys: `a90_config.h`, `60_shell_basic_commands.inc.c`, and
+`80_shell_dispatch.inc.c`. Phase3-D therefore requalifies the inherited
+no-Doom behavior as part of one combined current capability instead of
+carrying the older ordinal or manifest result forward.
+
+## Phase3 minimal-D no boot-write or boot-flash command surface
+
+The next H0-only profile defines
+`A90_MINIMAL_NO_BOOT_WRITE_FLASH_SURFACE=1`. It removes all 11 legacy
+`boot-write-*` and `boot-flash-*` shell handlers and command-table entries from
+the selected preprocessed root, and removes the controller's special menu
+policy for `boot-write-open-probe`. Existing profiles retain their previous
+surface because the feature default is zero; a direct preprocessor comparison
+finds 11 entries with the default and zero with the minimal-D selector.
+
+With those callers absent, `a90_boot_write_e1.c` and
+`a90_boot_write_probe.c` leave the 57-source profile. The root has zero
+undefined `a90_boot_write_*` or `a90_boot_flash_*` symbols and zero associated
+call/jump relocations. The final init advertises none of the removed command
+names. The read-only `boot-audit` command and the permanent
+`raw-nonboot-flash` safety marker deliberately remain; the profile name and
+`safety.boot_write_flash_surface=removed` status marker are not callable
+commands. Typing a removed name follows ordinary unknown-command handling, so
+this qualification does not claim an effect-free arbitrary unknown-command
+path.
+
+Compared with minimal-C, the graph falls from 59 to 57 objects, 430 to 419
+defined globals, 264 to 257 internal edges, and 51 to 49 objects referenced
+directly by the root. All 57 selected objects remain root-reachable. The two
+removed implementation objects total 103,792 bytes, the root object falls from
+819,168 to 815,688 bytes, and the stripped init, ramdisk, and boot each cross
+one 65,536-byte layout boundary. Fresh private A/B builds are byte-identical;
+independent `newc` parsing again finds 33 members, all required entries, and no
+Doom engine-family member. The six objects that own the proved switch_root,
+display, USB-local networking, SSH, native return, and recovery paths remain
+byte-identical to minimal-C.
+
+This result remains H0 only: `candidate_authority=false`, no device was
+contacted, and no payload, partition write, or flash occurred. The unchanged
+flat-builder capability keeps its reusable `PASS_GO`. Independent review is
+complete for the combined 15-source current closure: it revalidated the
+inherited no-Doom pre-dispatch behavior, proved the absence of a callable
+boot-write/flash entry, and returned `PASS_GO` with no unresolved finding. It
+also records that ordinary unknown-command handling has console, result-state,
+log, and reaper effects and is outside the effect-free claim. The receipt is
+capability-wide and is not repeated per manifest, qualification, ordinal, or
+campaign until one of the bound sources or named semantics changes, or a new
+hazard or incident occurs.
+
+The original `a90_native_minimal_surface_v1.py` inventory remains bound to the
+immutable `phase2-display-v1` baseline and is expected to reject this changed
+native-init closure. Current-profile validation is the minimal-D manifest
+audit, focused builder suite, deterministic build, and independent receipt;
+the historical baseline pin is not rewritten to make a successor pass.
 
 ## Object-symbol reachability inventory
 

@@ -1,0 +1,235 @@
+{
+  "schema": "a90-phase3-no-boot-write-flash-surface-independent-review-v1",
+  "status": "PASS_GO",
+  "decision": "PASS_GO",
+  "review_date": "2026-08-03",
+  "reviewed_base_commit": "aa76b123ba8859d01bf1c660c36b4efa4f059d61",
+  "reviewed_base_tree": "af868e308331f2d81331f6aff9b67cb457fa2bb9",
+  "reviewed_worktree_closure": true,
+  "target": "Samsung Galaxy A90 5G",
+  "risk_tier": "H0",
+  "capability": "Combined no-Doom pre-dispatch surface and no callable legacy boot-write or boot-flash shell surface",
+  "selectors": [
+    "A90_MINIMAL_NO_DOOM_COMMAND_SURFACE=1",
+    "A90_MINIMAL_NO_BOOT_WRITE_FLASH_SURFACE=1"
+  ],
+  "candidate_authority": false,
+  "device_authority_granted": false,
+  "device_contact": false,
+  "network_contact": false,
+  "payload_transfer": false,
+  "partition_write": false,
+  "flash": false,
+  "other_target_touched": false,
+  "execution_critical_source_keys": {
+    "feature_defaults": {
+      "path": "workspace/public/src/native-init/a90_config.h",
+      "size": 4421,
+      "sha256": "01ef8051622600adf427a08838fbd3a7fb773692dccb2c35c31495a2c45a9d5d"
+    },
+    "menu_policy": {
+      "path": "workspace/public/src/native-init/a90_controller.c",
+      "size": 27277,
+      "sha256": "e8a49351dd455ec4e2ce9a2ba50cd58e334449700fa21a90a89e967584eeb5b7"
+    },
+    "menu_inventory": {
+      "path": "workspace/public/src/native-init/a90_menu.c",
+      "size": 17415,
+      "sha256": "4f392c0247756f71019f518df896d53d87cdba1d1dfab0a5fd8389c9a45d6ba1"
+    },
+    "video_status_and_demo_dispatch": {
+      "path": "workspace/public/src/native-init/v319/30_status_hud.inc.c",
+      "size": 331729,
+      "sha256": "7d752e4adb120a195272db04c1d7b2899c1287b2592b3b62aab47d16c3498fb8"
+    },
+    "menu_action_dispatch": {
+      "path": "workspace/public/src/native-init/v319/40_menu_apps.inc.c",
+      "size": 117149,
+      "sha256": "7088bdeda7f8694ebf110d5baae4dfebb4e53730f4cc9c5ecb3793ddf15734b2"
+    },
+    "general_help_and_status_surface": {
+      "path": "workspace/public/src/native-init/v319/60_shell_basic_commands.inc.c",
+      "size": 32576,
+      "sha256": "c81110b51680e83085342e9ffb2fb800588820455c7c2ed2f41c79e85c0c5f15"
+    },
+    "shell_bookkeeping_implementation": {
+      "path": "workspace/public/src/native-init/a90_shell.c",
+      "size": 8220,
+      "sha256": "39f4cf331f5201fe840b0cfce9978094ff8ff477e6889cac77503c618b02275b"
+    },
+    "shell_bookkeeping_api": {
+      "path": "workspace/public/src/native-init/a90_shell.h",
+      "size": 3042,
+      "sha256": "7e6fccaec3e7d9dae8b027df7a32d4bf95b3cf16b425254c6a7200dd011e7ca5"
+    },
+    "protocol_console_implementation": {
+      "path": "workspace/public/src/native-init/a90_cmdproto.c",
+      "size": 4000,
+      "sha256": "eba444f96d7a87a70cc852055cb22363951c4e332a950c2149bf2cf80ee53f08"
+    },
+    "protocol_console_api": {
+      "path": "workspace/public/src/native-init/a90_cmdproto.h",
+      "size": 896,
+      "sha256": "cf75be43fe8ea16e893278dcd321f0d80202f34b06ac14c9fd332e4e3f9309f7"
+    },
+    "console_implementation": {
+      "path": "workspace/public/src/native-init/a90_console.c",
+      "size": 11779,
+      "sha256": "636d4b6d2effe84daa0c5fa2962bd78edcf84eb3cde86f389ef5b102ff3a8d9b"
+    },
+    "console_api": {
+      "path": "workspace/public/src/native-init/a90_console.h",
+      "size": 872,
+      "sha256": "a072462c90ad5fb404f9814bb78402467e80318a61e05410081461a36a0c6be3"
+    },
+    "console_write_implementation": {
+      "path": "workspace/public/src/native-init/a90_util.c",
+      "size": 2910,
+      "sha256": "c97b8a4bed8086ceb456a928be1e52bf8f3e9bf77abb052afdfa8c9eabdfa71d"
+    },
+    "console_write_api": {
+      "path": "workspace/public/src/native-init/a90_util.h",
+      "size": 530,
+      "sha256": "39433aa474ea40ae935639dcf7be7d8946fd0823883eafeb1cc8c215c13afaaa"
+    },
+    "shell_command_dispatch": {
+      "path": "workspace/public/src/native-init/v319/80_shell_dispatch.inc.c",
+      "size": 867772,
+      "sha256": "41aa3b4f16fbd02cab9a8ce16a84ede9f268066253161cfb861c08a1b97db699"
+    }
+  },
+  "reviewed_semantics": {
+    "default_zero": "Both selectors default to zero; current versus HEAD Phase3-C preprocessing and objects were byte-identical for init_v724.c and a90_controller.c.",
+    "removed_commands": [
+      "boot-write-open-probe",
+      "boot-write-e1",
+      "boot-write-e2",
+      "boot-write-e3a",
+      "boot-write-e3b",
+      "boot-write-e4",
+      "boot-write-e5",
+      "boot-flash-plan",
+      "boot-flash-f1",
+      "boot-flash-f2",
+      "boot-flash-f3"
+    ],
+    "selected_counts": {
+      "handlers": 0,
+      "command_table_entries": 0,
+      "controller_exceptions": 0,
+      "final_init_command_strings": 0,
+      "implementation_sources": 0,
+      "implementation_objects": 0,
+      "root_handler_or_api_symbols": 0,
+      "root_undefined_api_symbols": 0,
+      "root_call_or_jump_relocations": 0
+    },
+    "default_zero_counts": {
+      "handlers": 11,
+      "command_table_entries": 11,
+      "controller_exceptions": 1
+    },
+    "implementation_sources_absent": [
+      "a90_boot_write_e1.c",
+      "a90_boot_write_probe.c"
+    ],
+    "unknown_command_boundary": "A removed name has no callable legacy handler, but ordinary unknown-command behavior is effectful: it prints console output, updates last-result and optional protocol sequence state, writes a command log, and invokes the unknown-command reaper. This PASS_GO does not qualify attempts as effect-free.",
+    "retained_surfaces": "boot-audit remains as the pre-existing read-only audit command; raw-nonboot-flash remains only in a permanent forbidden-action safety marker; safety.boot_write_flash_surface=removed is a status marker.",
+    "no_doom_ordering": "Exact video demo doom rejection remains immediately after pure successful command lookup and before controller busy policy, generic command log, HUD stop, handler, timing, end log, or command-end reaper for direct shell, cmdv1, and successfully decoded cmdv1x.",
+    "no_doom_allowed_effects": "Marker, non-Doom usage, result and requested protocol bytes are written to the already-bound console_fd without open or redirect, plus in-memory protocol sequence and last-result bookkeeping.",
+    "no_doom_excluded_effects": "No HUD/process/DRM/file-open-or-cleanup/menu-IPC/log/audio/socket/bridge/reaper/payload/partition/device effect occurs inside the removed-Doom command execution.",
+    "prompt_reaper_boundary": "The next shell-loop prompt reaper is future prompt housekeeping outside execute_shell_command, not triggered inside the removed-Doom execution.",
+    "doom_surface": "Doom menu/action and dedicated handlers/table entries are absent; help and metadata do not advertise them; video status performs no bridge query; operational and inert bridge sources, objects, symbols, and call or jump relocations are zero."
+  },
+  "default_zero_evidence": {
+    "init_v724": {
+      "preprocessed_sha256": "47bdbb4a508abdd69c3a31389c95ecc7c02b5cc273f656f4d27708922de4eae3",
+      "object_sha256": "d42ea94b2435adce9685edb70be8ec64e21a23caee0643dc356184c0646cf7fa",
+      "object_bytes": 819168
+    },
+    "a90_controller": {
+      "preprocessed_sha256": "96a39b5122e2e04cdff0e888fb9334dab091dd8823a76347adf23acd0ddb2cab",
+      "object_sha256": "2250269d9bafd6a089a29b63769f4678259d94012edc90d276afd8a5753dc32e",
+      "object_bytes": 40248
+    }
+  },
+  "evidence_fixture": {
+    "qualification": {
+      "path": "docs/reports/A90_PHASE3_MINIMAL_D_NO_BOOT_WRITE_FLASH_SURFACE_QUALIFICATION_2026-08-03.json",
+      "size": 11674,
+      "sha256": "5525fb6fcb4070aa79590633af6d4f65325e9d1c54d2b44bf858235588972aa8"
+    },
+    "manifest": {
+      "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-d/manifest.toml",
+      "size": 5284,
+      "sha256": "b533c12a35d76ec68907a9e61d2434f6cd765aa5237abca929bb852e7ebc8267",
+      "effective_sha256": "b5f609d41ba13a8e9cd9284ef91f053b9c94d3f7479edc545564c13d8475532d",
+      "native_init_closure_sha256": "53eab1886e2927b22b49387ab502e125c30c7d4fe7c3a043c01702587713a5d4"
+    },
+    "private_root": "workspace/private/outputs/a90-phase3-minimal-d-ab-20260803-01",
+    "ab_receipt_sha256": "8bd953cf36a78137dc5d0112c68188a6cc956460deab970b57b30c8454ee8370",
+    "a_and_b_receipt_sha256": "5ddd9af01a302948b0dbaee6672a23bf95eef83ca2a63bde72982aadd55300b9",
+    "a_b_byte_identical": true,
+    "artifacts": {
+      "boot": "61440000:e04fba895198b4151d2e6ea914e772f4d2701e46fbeddc904aa79ffac84481fa",
+      "ramdisk": "11607552:be062b39296fdb903e0642fbe7bef5d01aea53e556eed2a481d13a463af7fed5",
+      "init": "1724160:30a1c7852a8bdea232b59b1c6c2b40ee256c0ca7ac756afb940dd976db5c1538",
+      "helper": "1649904:fa395d3ecb6944a57487f3966948a634596157e4de3fdc39575a2fc502d1ceef"
+    },
+    "archive": "independent newc parse PASS; 33 members; required init/helper/audio manifest present; embedded init/helper hashes match; Doom engine-family members zero; embedded boot ramdisk byte-identical",
+    "graph_minimal_c": "objects=59 globals=430 edges=264 root_direct=51 reachable=59 nonroot_zero_incoming=0 root_bytes=819168 boot_api_symbols=11 boot_call_jump_relocs=11",
+    "graph_minimal_d": "objects=57 globals=419 edges=257 root_direct=49 reachable=57 nonroot_zero_incoming=0 root_bytes=815688 boot_api_symbols=0 boot_call_jump_relocs=0",
+    "core_objects_byte_identical_to_minimal_c": {
+      "a90_server_distro.o": "579e88a219c96884eb9a7e90f767c0021b4d3449e8539574a89de2aba89b5607",
+      "a90_kms.o": "e04cb2bd3e9e16fb7b8ce67c2c518ca99423d98cdfe3ccc75cbbb73ea2c82dd5",
+      "a90_netservice.o": "f25c096223e6c032d137237838cd3fcf9536042bea618f579f62313a88ff2794",
+      "a90_usb_gadget.o": "4fc0eeae87186582b7c062fda9fdf1c37aaf623f777b1f48eec43cf283a82858",
+      "a90_service.o": "afc52fc3e32b8138d8018c1a14c3f91ed721b77c4dfba9a1a8c18657de5682e9",
+      "a90_runtime.o": "5395ff9842434ca53c4c4e5a0b824a998a539256573dd132bf0b11dec085f871"
+    }
+  },
+  "scope_limits": [
+    "Historical boot-write sources and headers remain in the repository but are unselected and unlinked.",
+    "Unknown-command attempts are not effect-free and are not qualified as such.",
+    "boot-audit and permanent raw-nonboot-flash safety text are intentionally retained.",
+    "Profile and removal-marker text may contain boot-write or boot-flash words without creating a command entry.",
+    "Historical Doom comparison, input-role, audio-policy, HUD, monitor, and path labels outside removed entry points may remain.",
+    "No live switch_root, display, SSH, return, recovery, or device behavior is claimed."
+  ],
+  "prior_review_state": {
+    "phase3_c_receipt": "aaaafc1b5d5b6eeb2b442fa3dadba6689d39ed27c61b6b618e6895406cf51095 retired for this closure because a90_config.h, 60_shell_basic_commands.inc.c, and 80_shell_dispatch.inc.c changed; inherited semantics were re-reviewed here",
+    "initial_pin_finding": "Initial qualification menu_policy SHA256 had 65 characters; no PASS receipt was issued. It was reissued with the actual 64-character hash, the finding was recorded append-only, and all 15 pins were revalidated.",
+    "builder_receipt_reused": "f3180c269712cd7b9114787a46750cd48db9dc1c02eeb2d59b128627ab823c7b; builder execution-critical closure unchanged"
+  },
+  "validation": [
+    "15/15 source path size SHA256 PASS",
+    "27/27 focused builder tests PASS and py_compile PASS",
+    "3/3 minimal-surface tests PASS",
+    "manifest audit-only PASS",
+    "default-zero preprocessing and objects byte-identical",
+    "selected handler table controller string symbol relocation inventories PASS",
+    "no-Doom early ordering and effect closure PASS",
+    "A/B artifacts objects and receipts byte-identical",
+    "archive embedded payload graph and core-object checks PASS",
+    "git diff --check PASS"
+  ],
+  "unresolved_findings": [],
+  "reuse": {
+    "qualification_kind": "capability",
+    "reusable_across": [
+      "manifests",
+      "qualifications",
+      "ordinals",
+      "campaigns"
+    ],
+    "fresh_qualification_and_live_binding_still_required": true,
+    "fixture_manifest_qualification_artifacts_receipts_inputs_and_comparators_are_not_retirement_keys": true,
+    "valid_while": "All 15 bound source paths, sizes, hashes and named combined semantics remain exact and no new hazard or incident occurs.",
+    "retirement_triggers": [
+      "any of the 15 bound source paths, sizes, or SHA256 values changes",
+      "any named selector-default, removed-entry, controller, help, metadata, implementation-link, symbol-relocation, unknown-command-scope, retained-surface, no-Doom ordering/effect, console-fd, bridge, or prompt-reaper semantic changes",
+      "a new hazard or incident occurs"
+    ]
+  },
+  "authority": "PASS_GO is H0 capability qualification only and grants no D0, D1, F1, device-contact, payload, partition-write, or flash authority."
+}

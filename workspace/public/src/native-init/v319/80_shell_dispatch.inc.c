@@ -897,6 +897,7 @@ static int handle_boot_audit(char **argv, int argc) {
     return a90_boot_audit_cmd(argv, argc);
 }
 
+#if !A90_MINIMAL_NO_BOOT_WRITE_FLASH_SURFACE
 static int handle_boot_write_open_probe(char **argv, int argc) {
     return a90_boot_write_open_probe_cmd(argv, argc);
 }
@@ -940,6 +941,7 @@ static int handle_boot_flash_f2(char **argv, int argc) {
 static int handle_boot_flash_f3(char **argv, int argc) {
     return a90_boot_flash_f3_cmd(argv, argc);
 }
+#endif
 
 static int handle_sensormap(char **argv, int argc) {
     return a90_sensormap_cmd(argv, argc);
@@ -19656,6 +19658,7 @@ static const struct shell_command command_table[] = {
     { "usb", handle_usb, "usb [status|mass-storage add|mass-storage expose|mass-storage remove]", CMD_NONE, A90_CMD_GROUP_SERVICE },
     { "kernelinv", handle_kernelinv, "kernelinv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "boot-audit", handle_boot_audit, "boot-audit [target-path]", CMD_NONE, A90_CMD_GROUP_CORE },
+#if !A90_MINIMAL_NO_BOOT_WRITE_FLASH_SURFACE
     { "boot-write-open-probe", handle_boot_write_open_probe, "boot-write-open-probe <token>", CMD_NONE, A90_CMD_GROUP_CORE },
     { "boot-write-e1", handle_boot_write_e1, "boot-write-e1 <token>", CMD_DANGEROUS, A90_CMD_GROUP_CORE },
     { "boot-write-e2", handle_boot_write_e2, "boot-write-e2 <token>", CMD_DANGEROUS, A90_CMD_GROUP_CORE },
@@ -19667,6 +19670,7 @@ static const struct shell_command command_table[] = {
     { "boot-flash-f1", handle_boot_flash_f1, "boot-flash-f1 <token> <candidate-path> <expected-sha256> <expected-version>", CMD_DANGEROUS, A90_CMD_GROUP_CORE },
     { "boot-flash-f2", handle_boot_flash_f2, "boot-flash-f2 <token> <candidate-path> <expected-sha256> <expected-version>", CMD_DANGEROUS, A90_CMD_GROUP_CORE },
     { "boot-flash-f3", handle_boot_flash_f3, "boot-flash-f3 <token> <candidate-path> <expected-sha256> <expected-version>", CMD_DANGEROUS, A90_CMD_GROUP_CORE },
+#endif
     { "sensormap", handle_sensormap, "sensormap [summary|thermal|power|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "pstore", handle_pstore, "pstore [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "watchdoginv", handle_watchdoginv, "watchdoginv [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },

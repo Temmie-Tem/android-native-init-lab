@@ -266,6 +266,9 @@ static void cmd_status(void) {
     a90_exposure_summary(&exposure, exposure_summary, sizeof(exposure_summary));
 
     a90_console_printf("init: %s\r\n", INIT_BANNER);
+#if A90_MINIMAL_NO_BOOT_WRITE_FLASH_SURFACE
+    a90_console_printf("safety.boot_write_flash_surface=removed\r\n");
+#endif
     a90_console_printf("creator: %s\r\n", INIT_CREATOR);
     a90_console_printf("boot: %s\r\n", boot_summary);
     a90_console_printf("selftest: %s\r\n", selftest_summary);
