@@ -1,0 +1,76 @@
+{
+  "schema": "a90-d1-guard-authorization-incident-independent-review-v1",
+  "review_date": "2026-08-03",
+  "target": "Samsung Galaxy A90 5G only",
+  "status": "PASS_GO_NEW_CAMPAIGN_ONLY",
+  "incident_run": "a90-d1-attended-20260803-06",
+  "decision": "The repeated zero-output pkexec guard authorization failure is the same fail-closed host authorization incident class, not a new device hazard. Run -06 is permanently closed and must never be resumed or reused. A fresh attended campaign may use the unchanged reviewed D1 closure only after an exact /usr/bin/pkexec /usr/bin/true probe exits zero, all guard processes and rules are absent, and a new manifest, approval, transaction directory, opening preflight, and live armed child-alive guard receipt are created.",
+  "incident_evidence": {
+    "manifest": {
+      "size": 11549,
+      "sha256": "72be08f7ae7081d4d1e76f4e643f59b43eca4f2161371eb7a0e6dea27bed1fd3"
+    },
+    "guard_arm_failure": {
+      "size": 434,
+      "sha256": "b93b7cc050ea07d9867f1bc699cb40492914f2252aa072217a35231da7403d63",
+      "raw_size": 0,
+      "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "returncode": null
+    },
+    "pre_handoff_error": {
+      "size": 163,
+      "sha256": "a02f028e5422e156baaf050066761c609f95ef3219c3b8fb770e8cdd81a7be50",
+      "handoff_intent_written": false
+    },
+    "engine_outcome": {
+      "size": 445,
+      "sha256": "a667237f743747aa3570c440c60778947072dd995babcc575135bf3d07760bfd",
+      "status": "EXPERIMENT_BLOCKED",
+      "failure_class": "PRE_HANDOFF_EXPERIMENT_BLOCKED"
+    },
+    "journal_result": {
+      "size": 2029,
+      "sha256": "3539cff2421eafcbc4a1dfc96c02eb681790089711a5b8cdfaf69b96be6d0c76"
+    }
+  },
+  "reviewed_facts": {
+    "handoff_intent_count": 0,
+    "handoff_dispatch_count": 0,
+    "payload_transfer": false,
+    "partition_write": false,
+    "candidate_transfer": false,
+    "rollback_transfer": false,
+    "action_replay": false,
+    "resident_health_before_failure": "RESIDENT_HEALTHY",
+    "resident_health_after_failure": "RESIDENT_HEALTHY",
+    "source_closure_roles": 15,
+    "source_closure_paths_sizes_hashes_current": true,
+    "source_closure_value_sha256": "61d90859763883f2b57e676fa3524968f56df8545e068c78852a3d54e71d4655"
+  },
+  "new_campaign_conditions": [
+    "Run -06 manifest, approval, intent, lock, journal, and transaction directory are never resumed or reused.",
+    "The operator confirms only the exact /usr/bin/pkexec /usr/bin/true probe; it must exit zero.",
+    "No pkexec setpriv guard process and no runtime or override guard rule may remain.",
+    "The new run uses a fresh ID, manifest, compatibility approval, absent transaction directory, and empty journal.",
+    "Opening preflight re-establishes exact A90 V3406 resident health, Phase 3 rootfs, absent work path, NCM, pstore, channel, rollback, recovery, and attendance.",
+    "A durable armed and child_alive=true live guard receipt precedes handoff intent.",
+    "Another zero-output null-returncode guard failure after a successful probe blocks further campaigns for host authorization repair."
+  ],
+  "follow_on_evidence": {
+    "new_run": "a90-d1-attended-20260803-07",
+    "host_preauthorization_exit_code": 0,
+    "live_guard_armed": true,
+    "live_guard_child_alive": true,
+    "handoff_dispatch_count": 1,
+    "action_status": "PROVED",
+    "resident_final_health": "RESIDENT_HEALTHY",
+    "action_result_sha256": "8d166d5b7944a826b7cb1201a444eab4a6d63ee4c0c2bc508e57ff0755a1cc3f",
+    "visible_confirmation_sha256": "137a50b19e067b483f40bb6998283d5522d4197c0f5b56ab87ccbee160896950"
+  },
+  "re_review_trigger": "Any execution-critical closure or reviewed semantic change, another guard authorization failure after successful preauthorization, or a new device hazard or incident.",
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_contact_by_reviewer": false,
+  "other_target_touched_by_reviewer": false,
+  "device_authority_granted": false
+}

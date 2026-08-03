@@ -207,7 +207,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             " ".join(self.goal_a90.split()),
         )
         self.assertIn(
-            "There is no unattended live authority",
+            "qualified unattended lane has a current reusable capability receipt",
             normalized(self.goal_a90),
         )
         self.assertIn(
@@ -288,7 +288,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             self.a90_unattended_runner,
         )
         self.assertIn(
-            "H0_IMPLEMENTED_STATIC_PASS_REVIEW_PENDING_NO_LIVE_AUTHORITY",
+            "H0_IMPLEMENTED_STATIC_PASS_CAPABILITY_REVIEW_PASS_GO",
             self.a90_unattended_runner_report,
         )
 

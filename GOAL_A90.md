@@ -12,14 +12,17 @@ transfer between the two files.
 
 ## Current Authority
 
-- Run `a90-v3406-debian-display-f1-20260802-01` historically closed
-  `PASS_A90_RESIDENT_INSTALLED`, but the current exact native baseline is
-  V2321 after the later `-02` incident rollback. Fresh `-04` D0 re-established
-  exact V2321, `selftest fail=0`, empty pstore, direct NCM, and three absent new
-  run paths. S22+ received no command.
+- Run `a90-v3406-debian-display-f1-20260803-04` closed
+  `PASS_A90_RESIDENT_INSTALLED` after one exact boot-only candidate and zero
+  rollback or replay. The current exact native baseline is resident V3406
+  `0.11.161/phase2-display-v1-native-handoff`, `selftest fail=0`, empty
+  pstore, direct NCM, and `RESIDENT_HEALTHY`. S22+ received no command.
 - Standing exact-target D0 exists only through the active common trial. A90
   campaign `a90-resident-switchroot-display-ssh-20260802` is open, but no D1
-  session is active and no target is F1-armed. The qualified unattended lane
+  session is active and no target is F1-armed. Attendance has ended for every
+  closed live session; attended run
+  `a90-d1-attended-20260803-07` closed `PROVED` and
+  `RESIDENT_HEALTHY`. The qualified unattended lane
   has a current reusable capability receipt; two one-ordinal runs closed
   `PROVED` and `RESIDENT_HEALTHY`. The attended v1 CLI remains attended-only.
   The consumed resident-install approval is not reusable.
@@ -111,13 +114,27 @@ transfer between the two files.
   and the staged `-03` rootfs is `PRESERVE_INERT`; the run, manifest, approval,
   and journal are never resumed or reused. Independent incident review returned
   `PASS_GO_NEW_CAMPAIGN_ONLY` without a source change or new device hazard.
-- Fresh run `a90-v3406-debian-display-f1-20260803-04` has a new keyed rootfs,
-  exact D0/path-absence evidence, incident-qualified resident-install manifest,
-  and compatibility approval. It grants no live authority and has no journal.
-  Live F1 is parked until the exact host-only `pkexec /usr/bin/true` probe exits
-  zero; the new campaign must still record its own armed/child-alive guard
-  receipt before candidate intent. A second zero-output guard authorization
-  failure stops new-campaign creation for host-path repair.
+- Fresh run `a90-v3406-debian-display-f1-20260803-04` consumed its exact
+  manifest and compatibility approval, recorded an armed/child-alive guard,
+  transferred the boot candidate exactly once, and closed
+  `PASS_A90_RESIDENT_INSTALLED` / `RESIDENT_HEALTHY` with rollback zero.
+- Attended D1 run `a90-d1-attended-20260803-06` closed before handoff when
+  the host `pkexec` guard authorization timed out. It has no handoff intent
+  or dispatch and is never resumed. Independent incident review returned
+  `PASS_GO_NEW_CAMPAIGN_ONLY` for the unchanged closure after exact host
+  preauthorization and zero guard residue.
+- Fresh attended D1 run `a90-d1-attended-20260803-07` then dispatched one
+  `SWITCHROOT_EXPERIMENT` and proved Phase3 Debian PID1, exact service and
+  Dropbear listener ownership, manifest-bound key-only SSH, direct DRM master,
+  operator-visible `DISPLAY OWNER DEBIAN`, automatic native return, exact work
+  cleanup, immutable source, and final V3406 health. Payload, partition write,
+  flash, rollback, and replay were all zero.
+- The SD card remains capacity-constrained after exact work cleanup:
+  `61408048` KiB total, `56516584` KiB used, `1765452` KiB available,
+  and `54279768` KiB under `/mnt/sdext/a90/runtime`. No retained image has
+  been deleted. Exact obsolete-image cleanup is the next bounded unit and
+  requires its own reviewed persistent-file capability plus literal target
+  approval.
 
 `docs/reports/A90_D1_FAST_LOOP_V2_H0_2026-08-02.md`
 
