@@ -98,6 +98,13 @@ transfer between the two files.
 - F1 and every permanent partition, target-isolation, rollback, recovery,
   no-replay, and private-evidence boundary are unchanged and outside this
   simplification unit.
+- Phase 3 resident-refresh F1 run `a90-v3406-debian-display-f1-20260803-02`
+  closed no-proof after one candidate and one exact V2321 rollback, with no
+  replay and final health restored. Exact candidate native health passed; the
+  host observer had incorrectly treated normal console/pmsg reboot records as
+  fatal. The exact classifier and dual-schema consumer fix passed independent
+  combined F1/D1 review; fresh manifests must bind the new canonical receipts.
+  S22+ was untouched.
 
 `docs/reports/A90_D1_FAST_LOOP_V2_H0_2026-08-02.md`
 

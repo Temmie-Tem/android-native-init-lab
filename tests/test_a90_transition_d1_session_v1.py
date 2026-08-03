@@ -497,6 +497,35 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
             "flash": False,
         }
 
+    def test_resident_pstore_accepts_expected_boot_records(self) -> None:
+        pstore = {
+            "mounted_read_only": True,
+            "entries": ["pmsg-ramoops-0", "console-ramoops-0"],
+            "classification": "expected-boot-records",
+            "warning": True,
+            "unexpected_entries": [],
+            "mount": self.command_receipt(
+                ["mountfs", "pstore", d1.base.PSTORE_MOUNT_PATH, "pstore", "ro"],
+                "",
+            ),
+            "listing": self.command_receipt(
+                ["ls", d1.base.PSTORE_MOUNT_PATH],
+                "- 17870 pmsg-ramoops-0\r\n"
+                "- 65062 console-ramoops-0\r\n",
+            ),
+            "summary": self.command_receipt(["pstore", "full"], ""),
+            "unmount": self.command_receipt(
+                ["umount", d1.base.PSTORE_MOUNT_PATH],
+                "",
+            ),
+        }
+        d1._validate_resident_pstore_health(pstore)
+        legacy_nonempty = copy.deepcopy(pstore)
+        for key in ("classification", "warning", "unexpected_entries"):
+            legacy_nonempty.pop(key)
+        with self.assertRaisesRegex(d1.ContractError, "pstore health is not exact"):
+            d1._validate_resident_pstore_health(legacy_nonempty)
+
     def test_build_load_and_prepare_approval_bind_resident_terminal(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)

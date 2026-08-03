@@ -405,35 +405,13 @@ def _require_exact_command_receipt(
 
 def _validate_resident_pstore_health(value: Any) -> None:
     pstore = _require_dict(value, "resident pstore health")
-    if (
-        set(pstore)
-        != {"mounted_read_only", "entries", "mount", "listing", "summary", "unmount"}
-        or pstore.get("mounted_read_only") is not True
-        or pstore.get("entries") != []
-    ):
-        raise ContractError("resident pstore health is not exact")
-    _require_exact_command_receipt(
-        pstore.get("mount"),
-        command=["mountfs", "pstore", base.PSTORE_MOUNT_PATH, "pstore", "ro"],
-        label="resident pstore mount",
-    )
-    listing = _require_exact_command_receipt(
-        pstore.get("listing"),
-        command=["ls", base.PSTORE_MOUNT_PATH],
-        label="resident pstore listing",
-    )
-    if base._pstore_entry_names(listing["text"]):  # noqa: SLF001
-        raise ContractError("resident pstore listing is not empty")
-    _require_exact_command_receipt(
-        pstore.get("summary"),
-        command=["pstore", "full"],
-        label="resident pstore summary",
-    )
-    _require_exact_command_receipt(
-        pstore.get("unmount"),
-        command=["umount", base.PSTORE_MOUNT_PATH],
-        label="resident pstore unmount",
-    )
+    try:
+        base.validate_pstore_before_handoff_receipt(
+            pstore,
+            allow_legacy_empty=True,
+        )
+    except base.ContractError as exc:
+        raise ContractError("resident pstore health is not exact") from exc
 
 
 def _validate_resident_ncm_health(

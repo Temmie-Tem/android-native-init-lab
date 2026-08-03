@@ -4,7 +4,7 @@
   "target": "Samsung Galaxy A90 5G only",
   "risk_tier": "H0 independent capability review",
   "status": "PASS_GO",
-  "decision": "The reviewed A90 Phase 3 resident-refresh F1 capability closure is fail-closed for the exact V3406 resident start, Phase 3 keyed rootfs, one boot-only candidate, exact V2321 rollback, resident-install-v2 success, and recovery. No device action was performed by this review.",
+  "decision": "PASS_GO for the corrected A90 Phase 3 resident-refresh F1 pstore classifier and its exact resident/D1 consumers. Expected console/pmsg boot records warn and continue; crash-class, unknown, and malformed evidence fails closed. Legacy exact-empty evidence remains compatible. No device action was performed by this review.",
   "named_execution_critical_closure": {
     "workspace/public/src/harness/a90harness/evidence.py": {
       "bytes": 11723,
@@ -71,16 +71,16 @@
       "sha256": "c420e623ff56fcfdb03194465d667879b8311f0d9a1579b15736672f59bb2a1f"
     },
     "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py": {
-      "bytes": 69471,
-      "sha256": "c82b02e95fed79494bd87a35a6c7b495e3edcf4ec4965968db1501ac06d8c76a"
+      "bytes": 68636,
+      "sha256": "4908d477c26751f29f8f000c316d862b32a34aacbf53bd20851bf8a96c4a6183"
     },
     "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {
       "bytes": 97715,
       "sha256": "8f8c5e311aeb7004e14e9e1f028b3f9da1d88a8b9928d75ba3d809e44d3b93b6"
     },
     "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {
-      "bytes": 261944,
-      "sha256": "8eea6fee7b2e17eff6eafe9bbaa95f65a537347101405310686731f42e518f02"
+      "bytes": 269596,
+      "sha256": "17f630f861d94c3f48084b33a603057c6226f705c1272c5d4f5d9390e003c239"
     },
     "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh": {
       "bytes": 10126,
@@ -114,7 +114,7 @@
     "attempts": "Durable candidate intent precedes dispatch, candidate_transfer_count is exactly one, candidate replay is false, and an uncertain candidate is never replayed.",
     "phase3_materialization": "The Phase 3 keyer, exact pristine source and receipt, retained service and firstboot content, filesystem label, observer key pair, runtime absence, provenance, and dynamic support-file closure are hash-bound and validated.",
     "connected_d0": "The exact A90 bridge/realpath, single matching USB parent, host NCM readiness, exact allowed native identity facts, selftest fail=0, pstore entries=0, artifacts, flash runner, and path absence are bound read-only evidence.",
-    "resident_install_v2": "Success requires one exact candidate health result and closes PASS_A90_RESIDENT_INSTALLED in RESIDENT_HEALTHY with zero resident reboot and zero rollback; post-attempt failure or ambiguity enters exact V2321 rollback recovery and cannot replay the candidate.",
+    "resident_install_v2": "Success requires one exact candidate health result and closes PASS_A90_RESIDENT_INSTALLED in RESIDENT_HEALTHY with zero resident reboot and zero rollback. Console/pmsg boot records are classified warnings; crash-class, unknown, or malformed records stop. Post-attempt failure or ambiguity enters exact V2321 rollback recovery and cannot replay the candidate.",
     "boundaries": "Only boot payloads are reachable; forbidden partitions and forbidden write mechanisms remain excluded; rollback and final health remain mandatory; A90 and S22+ authority and evidence remain isolated."
   },
   "findings_closed_before_decision": [
@@ -122,11 +122,14 @@
     "The resident manifest builder now hard-pins the canonical candidate and V2321 rollback names, sizes, hashes, versions, builds, and boot partition.",
     "Connected and F1 starting-health parsing now requires exact framed identity, selftest, and pstore facts instead of substring matches.",
     "Phase 3 pristine provenance is always rebound from the exact Phase 3 keyed summary source and receipt rather than retaining stale Phase 2 provenance.",
-    "The pstore parser now rejects duplicate or conflicting entries tokens, including entries=0 followed by a nonzero value."
+    "The pstore parser now rejects duplicate or conflicting entries tokens, including entries=0 followed by a nonzero value.",
+    "The post-reboot pstore classifier accepts only exact console/pmsg boot-record names and rejects dmesg, ftrace, unknown names, malformed nonempty lines, and mixed malformed output.",
+    "One shared exact receipt validator preserves the historical six-key schema only when entries and reparsed listing are both empty, while accepting the new classified nine-key schema for install and D1 consumption.",
+    "Source self-audit and mutation tests bind the pstore allowlist, framing grammar, return schema, read-only order, and absence of cleanup or write commands."
   ],
   "validation": {
-    "focused_tests": "322/322 PASS across connected preflight, finalizer, resident manifest builder, staging, orchestrator, resident-install tail/recovery, Phase 3 keyer/rootfs, flash helper, transport, and CDC observer suites; final builder rerun 5/5 PASS.",
-    "python_compile": "PASS for all five changed execution Python sources.",
+    "focused_tests": "353/353 F1-related tests, 135/135 D1-related tests, and 121/121 final orchestrator tests PASS; actual legacy resident journal and new classified install/repair/D1 receipt replay PASS.",
+    "python_compile": "PASS for the changed F1 orchestrator, resident promotion, and D1 transition sources.",
     "source_contract_audits": "PASS with contract_issues=[] for connected preflight, finalizer, staging adapter, and F1 orchestrator.",
     "diff_check": "PASS",
     "device_contact": false,

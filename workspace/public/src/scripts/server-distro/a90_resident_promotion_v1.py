@@ -855,35 +855,13 @@ def _validate_installed_health(
     _require_exact_native_health(spec, health.get("native"))
 
     pstore = _dict(health.get("pstore"), "resident-install pstore health")
-    if (
-        set(pstore)
-        != {"mounted_read_only", "entries", "mount", "listing", "summary", "unmount"}
-        or pstore.get("mounted_read_only") is not True
-        or pstore.get("entries") != []
-    ):
-        raise ContractError("resident-install pstore health is not exact")
-    _require_exact_command_receipt(
-        pstore.get("mount"),
-        ["mountfs", "pstore", base.PSTORE_MOUNT_PATH, "pstore", "ro"],
-        "resident-install pstore mount",
-    )
-    listing = _require_exact_command_receipt(
-        pstore.get("listing"),
-        ["ls", base.PSTORE_MOUNT_PATH],
-        "resident-install pstore listing",
-    )
-    if base._pstore_entry_names(listing["text"]):  # noqa: SLF001
-        raise ContractError("resident-install pstore listing is not empty")
-    _require_exact_command_receipt(
-        pstore.get("summary"),
-        ["pstore", "full"],
-        "resident-install pstore summary",
-    )
-    _require_exact_command_receipt(
-        pstore.get("unmount"),
-        ["umount", base.PSTORE_MOUNT_PATH],
-        "resident-install pstore unmount",
-    )
+    try:
+        base.validate_pstore_before_handoff_receipt(
+            pstore,
+            allow_legacy_empty=True,
+        )
+    except base.ContractError as exc:
+        raise ContractError("resident-install pstore health is not exact") from exc
 
     rootfs = _dict(health.get("rootfs"), "resident-install rootfs health")
     expected_rootfs_command = [

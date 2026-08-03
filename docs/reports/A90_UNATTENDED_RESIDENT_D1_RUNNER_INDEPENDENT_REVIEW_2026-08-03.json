@@ -24,8 +24,8 @@
     },
     "attended_f1_orchestrator": {
       "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py",
-      "size": 261944,
-      "sha256": "8eea6fee7b2e17eff6eafe9bbaa95f65a537347101405310686731f42e518f02"
+      "size": 269596,
+      "sha256": "17f630f861d94c3f48084b33a603057c6226f705c1272c5d4f5d9390e003c239"
     },
     "attended_framed_transport": {
       "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90ctl.py",
@@ -59,8 +59,8 @@
     },
     "attended_transaction": {
       "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py",
-      "size": 120228,
-      "sha256": "1026766c7b1bc85ef58cd127d01a9d34a63290e3e5a7564623a1aae86e077127"
+      "size": 119377,
+      "sha256": "ae601c74dbd6777847f7566c388810b2819f24af1e8e29f9b7ce746c2009a3c5"
     },
     "attended_workspace_bootstrap": {
       "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/_workspace_bootstrap.py",

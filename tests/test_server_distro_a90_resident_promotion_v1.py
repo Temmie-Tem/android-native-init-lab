@@ -717,6 +717,9 @@ class ResidentPromotionV1Tests(unittest.TestCase):
             "pstore": {
                 "mounted_read_only": True,
                 "entries": [],
+                "classification": "empty",
+                "warning": False,
+                "unexpected_entries": [],
                 "mount": self.command_receipt(
                     ["mountfs", "pstore", base.PSTORE_MOUNT_PATH, "pstore", "ro"]
                 ),
@@ -753,6 +756,40 @@ class ResidentPromotionV1Tests(unittest.TestCase):
                 },
             },
         }
+
+    def test_install_health_accepts_expected_boot_pstore_records(self) -> None:
+        spec = self.tail_spec(install=True)
+        health = self.installed_health(spec)
+        pstore = health["pstore"]
+        pstore["entries"] = ["pmsg-ramoops-0", "console-ramoops-0"]
+        pstore["classification"] = "expected-boot-records"
+        pstore["warning"] = True
+        pstore["listing"]["text"] = (
+            "- 17870 pmsg-ramoops-0\r\n"
+            "- 65062 console-ramoops-0\r\n"
+        )
+        self.assertEqual(
+            promotion._validate_installed_health(spec, health),
+            health,
+        )
+
+    def test_install_health_preserves_exact_legacy_empty_pstore(self) -> None:
+        spec = self.tail_spec(install=True)
+        health = self.installed_health(spec)
+        pstore = health["pstore"]
+        for key in ("classification", "warning", "unexpected_entries"):
+            pstore.pop(key)
+        self.assertEqual(
+            promotion._validate_installed_health(spec, health),
+            health,
+        )
+        pstore["entries"] = ["pmsg-ramoops-0"]
+        pstore["listing"]["text"] = "- 12 pmsg-ramoops-0\n"
+        with self.assertRaisesRegex(
+            promotion.ContractError,
+            "pstore health is not exact",
+        ):
+            promotion._validate_installed_health(spec, health)
 
     def append_install_prefix(self, spec, journal_dir: Path) -> dict:
         first_health = self.installed_health(spec)

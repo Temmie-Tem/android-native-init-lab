@@ -167,10 +167,24 @@ MODEMMANAGER_GUARD_CORRIDORS = frozenset(
 )
 PSTORE_MOUNT_PATH = "/sys/fs/pstore"
 PSTORE_ENTRY_RE = re.compile(
-    r"^[dlcb?\-]\s+\S+\s+([A-Za-z0-9_.-]+)\r?$",
-    re.MULTILINE,
+    r"^[dlcb?\-]\s+\S+\s+([A-Za-z0-9_.-]+)$"
 )
 PSTORE_PMSG_ENTRY_RE = re.compile(r"^pmsg-ramoops(?:-[0-9]+)?$")
+PSTORE_EXPECTED_BOOT_ENTRY_RE = re.compile(
+    r"^(?:console|pmsg)-ramoops(?:-[0-9]+)?$"
+)
+PSTORE_LISTING_CONTROL_RES = (
+    re.compile(r"^cmdv1 ls /sys/fs/pstore$"),
+    re.compile(
+        r"^A90P1 BEGIN seq=[0-9]+ cmd=ls argc=2 flags=0x[0-9a-f]+$"
+    ),
+    re.compile(r"^\[done\] ls \([0-9]+ms\)$"),
+    re.compile(
+        r"^A90P1 END seq=[0-9]+ cmd=ls rc=0 errno=0 "
+        r"duration_ms=[0-9]+ flags=0x[0-9a-f]+ status=ok$"
+    ),
+    re.compile(r"^a90:/# ?$"),
+)
 RETAINED_PMSG_MARKER = "A90D3RET_V3405"
 RETAINED_PMSG_REQUIRED_PHASE = "phase=armed"
 RETAINED_PMSG_OBSERVER_CONTRACT = "mount-read-fsync-exact-unlink-unmount-v1"
@@ -2734,10 +2748,126 @@ def rebind_host_ncm_after_reenumeration(
 
 
 def _pstore_entry_names(text: str) -> tuple[str, ...]:
-    names = tuple(PSTORE_ENTRY_RE.findall(text))
+    names: list[str] = []
+    for raw_line in text.splitlines():
+        line = raw_line.rstrip("\r")
+        if not line:
+            continue
+        entry = PSTORE_ENTRY_RE.fullmatch(line)
+        if entry is not None:
+            names.append(entry.group(1))
+            continue
+        if any(pattern.fullmatch(line) for pattern in PSTORE_LISTING_CONTROL_RES):
+            continue
+        raise ContractError("pstore listing contains a malformed line")
     if len(names) != len(set(names)):
         raise ContractError("pstore listing contains duplicate entry names")
-    return names
+    return tuple(names)
+
+
+def _require_exact_pstore_command_receipt(
+    value: Any,
+    command: list[str],
+    label: str,
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ContractError(f"{label} is not an exact successful receipt")
+    if (
+        set(value) != {"command", "rc", "status", "trust", "begin", "end", "text"}
+        or value.get("command") != command
+        or type(value.get("rc")) is not int
+        or value.get("rc") != 0
+        or value.get("status") != "ok"
+        or type(value.get("text")) is not str
+    ):
+        raise ContractError(f"{label} is not an exact successful receipt")
+    return value
+
+
+def validate_pstore_before_handoff_receipt(
+    value: Any,
+    *,
+    allow_legacy_empty: bool = False,
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ContractError("pre-handoff pstore receipt is not exact")
+    legacy_keys = {
+        "mounted_read_only",
+        "entries",
+        "mount",
+        "listing",
+        "summary",
+        "unmount",
+    }
+    exact_keys = {
+        "mounted_read_only",
+        "entries",
+        "classification",
+        "warning",
+        "unexpected_entries",
+        "mount",
+        "listing",
+        "summary",
+        "unmount",
+    }
+    entries = value.get("entries")
+    legacy = allow_legacy_empty and set(value) == legacy_keys
+    if (
+        (set(value) != exact_keys and not legacy)
+        or value.get("mounted_read_only") is not True
+        or not isinstance(entries, list)
+        or any(type(entry) is not str for entry in entries)
+        or (not legacy and value.get("unexpected_entries") != [])
+    ):
+        raise ContractError("pre-handoff pstore receipt is not exact")
+    _require_exact_pstore_command_receipt(
+        value.get("mount"),
+        ["mountfs", "pstore", PSTORE_MOUNT_PATH, "pstore", "ro"],
+        "pre-handoff pstore mount",
+    )
+    listing = _require_exact_pstore_command_receipt(
+        value.get("listing"),
+        ["ls", PSTORE_MOUNT_PATH],
+        "pre-handoff pstore listing",
+    )
+    listing_entries = _pstore_entry_names(listing["text"])
+    if legacy:
+        if entries != [] or listing_entries != ():
+            raise ContractError("legacy pre-handoff pstore receipt is not empty")
+        _require_exact_pstore_command_receipt(
+            value.get("summary"),
+            ["pstore", "full"],
+            "pre-handoff pstore summary",
+        )
+        _require_exact_pstore_command_receipt(
+            value.get("unmount"),
+            ["umount", PSTORE_MOUNT_PATH],
+            "pre-handoff pstore unmount",
+        )
+        return value
+    expected_boot_records = bool(listing_entries)
+    if (
+        entries != list(listing_entries)
+        or any(
+            PSTORE_EXPECTED_BOOT_ENTRY_RE.fullmatch(entry) is None
+            for entry in listing_entries
+        )
+        or value.get("classification")
+        != ("expected-boot-records" if expected_boot_records else "empty")
+        or value.get("warning") is not expected_boot_records
+    ):
+        raise ContractError("pre-handoff pstore receipt is not exact")
+    _require_exact_pstore_command_receipt(
+        value.get("summary"),
+        ["pstore", "full"],
+        "pre-handoff pstore summary",
+    )
+    _require_exact_pstore_command_receipt(
+        value.get("unmount"),
+        ["umount", PSTORE_MOUNT_PATH],
+        "pre-handoff pstore unmount",
+    )
+    return value
 
 
 def require_clean_pstore_before_handoff(
@@ -2752,8 +2882,15 @@ def require_clean_pstore_before_handoff(
         listing = run_f1_cmd(args, ["ls", PSTORE_MOUNT_PATH])
         summary = run_f1_cmd(args, ["pstore", "full"])
         entries = _pstore_entry_names(str(listing.get("text") or ""))
-        if entries:
-            raise ContractError("pre-handoff pstore is not empty")
+        unexpected_entries = tuple(
+            entry
+            for entry in entries
+            if PSTORE_EXPECTED_BOOT_ENTRY_RE.fullmatch(entry) is None
+        )
+        if unexpected_entries:
+            raise ContractError(
+                "pre-handoff pstore contains crash-class or unknown entries"
+            )
         unmount = run_f1_cmd(args, ["umount", PSTORE_MOUNT_PATH])
         mounted = False
     finally:
@@ -2765,7 +2902,12 @@ def require_clean_pstore_before_handoff(
             )
     return {
         "mounted_read_only": True,
-        "entries": [],
+        "entries": list(entries),
+        "classification": (
+            "expected-boot-records" if entries else "empty"
+        ),
+        "warning": bool(entries),
+        "unexpected_entries": [],
         "mount": mount,
         "listing": listing,
         "summary": summary,
@@ -5934,6 +6076,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         "def settle_observation_channel(",
         "def rebind_host_ncm_after_reenumeration(",
         "def require_clean_pstore_before_handoff(",
+        "def validate_pstore_before_handoff_receipt(",
         "def collect_and_clear_retained_pmsg(",
         "def validate_display_observation(",
         "def open_display_visible_confirmation(",
@@ -6329,6 +6472,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
                     f"unbound or persistent action: {forbidden}"
                 )
     ncm_start = source.find("def rebind_host_ncm_after_reenumeration(")
+    pstore_constants_start = source.find("PSTORE_ENTRY_RE = re.compile(")
     pstore_parser_start = source.find("def _pstore_entry_names(", ncm_start + 1)
     if ncm_start < 0 or pstore_parser_start < 0:
         issues.append("host NCM rebind source boundary is missing")
@@ -6358,6 +6502,48 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
                     f"host NCM rebind contains unbound identity/action: {forbidden}"
                 )
     clean_start = source.find("def require_clean_pstore_before_handoff(")
+    if min(pstore_constants_start, pstore_parser_start, clean_start) < 0:
+        issues.append("pre-handoff pstore parser boundary is missing")
+    else:
+        pstore_constants = source[pstore_constants_start:pstore_parser_start]
+        pstore_parser = source[pstore_parser_start:clean_start]
+        if (
+            'r"^(?:console|pmsg)-ramoops(?:-[0-9]+)?$"'
+            not in pstore_constants
+        ):
+            issues.append("pre-handoff pstore parser allowlist is not exact")
+        for token in (
+            'r"^cmdv1 ls /sys/fs/pstore$"',
+            'r"^A90P1 BEGIN seq=[0-9]+ cmd=ls argc=2 flags=0x[0-9a-f]+$"',
+            'r"^\\[done\\] ls \\([0-9]+ms\\)$"',
+            'r"^A90P1 END seq=[0-9]+ cmd=ls rc=0 errno=0 "',
+            'r"^a90:/# ?$"',
+        ):
+            if token not in pstore_constants:
+                issues.append(
+                    f"pre-handoff pstore control grammar is not exact: {token}"
+                )
+        for token in (
+            "for raw_line in text.splitlines():",
+            "entry = PSTORE_ENTRY_RE.fullmatch(line)",
+            "pattern.fullmatch(line)",
+            'raise ContractError("pstore listing contains a malformed line")',
+            "len(names) != len(set(names))",
+            "def validate_pstore_before_handoff_receipt(",
+            "allow_legacy_empty: bool = False",
+            "legacy = allow_legacy_empty and set(value) == legacy_keys",
+            "if entries != [] or listing_entries != ():",
+            '["mountfs", "pstore", PSTORE_MOUNT_PATH, "pstore", "ro"]',
+            '"unexpected_entries",',
+            "entries != list(listing_entries)",
+            "PSTORE_EXPECTED_BOOT_ENTRY_RE.fullmatch(entry) is None",
+            '"expected-boot-records" if expected_boot_records else "empty"',
+            'value.get("warning") is not expected_boot_records',
+        ):
+            if token not in pstore_parser:
+                issues.append(
+                    f"pre-handoff pstore parser is not exact: {token}"
+                )
     classify_start = source.find(
         "def _retained_pmsg_classification(",
         clean_start + 1,
@@ -6366,11 +6552,23 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         issues.append("pre-handoff pstore gate source boundary is missing")
     else:
         clean = source[clean_start:classify_start]
+        for token in (
+            "PSTORE_EXPECTED_BOOT_ENTRY_RE.fullmatch(entry) is None",
+        ):
+            if token not in clean:
+                issues.append(
+                    f"pre-handoff pstore classifier is not exact: {token}"
+                )
         clean_ordered = (
             '["mountfs", "pstore", PSTORE_MOUNT_PATH, "pstore", "ro"]',
             '["ls", PSTORE_MOUNT_PATH]',
-            "if entries:",
+            "unexpected_entries = tuple(",
+            "if unexpected_entries:",
             '["umount", PSTORE_MOUNT_PATH]',
+            '"entries": list(entries)',
+            '"classification": (',
+            '"warning": bool(entries)',
+            '"unexpected_entries": []',
         )
         clean_cursor = -1
         for token in clean_ordered:
@@ -6381,6 +6579,17 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
                 )
             else:
                 clean_cursor = position
+        for forbidden in (
+            '["run",',
+            '/bin/busybox rm',
+            "unlink(",
+            '"pstore"]',
+        ):
+            if forbidden in clean:
+                issues.append(
+                    "pre-handoff pstore gate contains write or cleanup: "
+                    f"{forbidden}"
+                )
     collect_start = source.find("def collect_and_clear_retained_pmsg(")
     remote_source_start = source.find(
         "def remote_source_preflight(",

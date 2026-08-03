@@ -596,8 +596,45 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         )
         self.assertTrue(
             any(
-                "pre-handoff pstore gate" in issue
+                "pre-handoff pstore" in issue
                 for issue in f1.source_contract_issues(writable_precheck)
+            )
+        )
+
+        expanded_allowlist = source.replace(
+            'r"^(?:console|pmsg)-ramoops(?:-[0-9]+)?$"',
+            'r"^(?:console|pmsg|dmesg)-ramoops(?:-[0-9]+)?$"',
+            1,
+        )
+        self.assertTrue(
+            any(
+                "pre-handoff pstore parser" in issue
+                for issue in f1.source_contract_issues(expanded_allowlist)
+            )
+        )
+
+        disabled_classifier = source.replace(
+            "PSTORE_EXPECTED_BOOT_ENTRY_RE.fullmatch(entry) is None",
+            "False",
+            1,
+        )
+        self.assertTrue(
+            any(
+                "pre-handoff pstore parser is not exact" in issue
+                for issue in f1.source_contract_issues(disabled_classifier)
+            )
+        )
+
+        injected_cleanup = source.replace(
+            '        listing = run_f1_cmd(args, ["ls", PSTORE_MOUNT_PATH])\n',
+            '        listing = run_f1_cmd(args, ["ls", PSTORE_MOUNT_PATH])\n'
+            '        run_f1_cmd(args, ["run", "/bin/busybox", "rm", "x"])\n',
+            1,
+        )
+        self.assertTrue(
+            any(
+                "write or cleanup" in issue
+                for issue in f1.source_contract_issues(injected_cleanup)
             )
         )
 
@@ -935,6 +972,30 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             f1._pstore_entry_names(
                 "- 1 pmsg-ramoops-0\n- 1 pmsg-ramoops-0\n"
             )
+        for malformed in (
+            "garbled pstore listing\n",
+            "- 12 mystery@ramoops\n",
+            "- 12 console-ramoops-0\ngarbage\n",
+        ):
+            with self.subTest(malformed=malformed):
+                with self.assertRaisesRegex(f1.ContractError, "malformed line"):
+                    f1._pstore_entry_names(malformed)
+
+    def test_pstore_listing_parser_accepts_exact_framed_response(self) -> None:
+        text = (
+            "cmdv1 ls /sys/fs/pstore\r\n"
+            "A90P1 BEGIN seq=8 cmd=ls argc=2 flags=0x0\r\n"
+            "- 17870 pmsg-ramoops-0\r\n"
+            "- 65062 console-ramoops-0\r\n"
+            "[done] ls (0ms)\r\n"
+            "A90P1 END seq=8 cmd=ls rc=0 errno=0 duration_ms=0 "
+            "flags=0x0 status=ok\r\n"
+            "a90:/# "
+        )
+        self.assertEqual(
+            f1._pstore_entry_names(text),
+            ("pmsg-ramoops-0", "console-ramoops-0"),
+        )
 
     def test_clean_pstore_gate_mounts_read_only_and_always_unmounts(self) -> None:
         calls: list[list[str]] = []
@@ -953,6 +1014,9 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         with mock.patch.object(f1, "run_f1_cmd", side_effect=command):
             result = f1.require_clean_pstore_before_handoff(sample_args())
         self.assertTrue(result["mounted_read_only"])
+        self.assertEqual(result["classification"], "empty")
+        self.assertFalse(result["warning"])
+        self.assertEqual(result["entries"], [])
         self.assertEqual(
             calls,
             [
@@ -963,7 +1027,7 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             ],
         )
 
-    def test_dirty_pre_handoff_pstore_stops_and_unmounts_without_cleanup(self) -> None:
+    def test_expected_boot_pstore_warns_and_unmounts_without_cleanup(self) -> None:
         calls: list[list[str]] = []
 
         def command(
@@ -974,12 +1038,42 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         ) -> dict[str, object]:
             calls.append(argv)
             if argv[0] == "ls":
-                return {"text": "- 12 pmsg-ramoops-0\n"}
+                return {
+                    "text": (
+                        "- 12 pmsg-ramoops-0\n"
+                        "- 34 console-ramoops-0\n"
+                    )
+                }
+            return {"text": "", "allow_error": allow_error}
+
+        with mock.patch.object(f1, "run_f1_cmd", side_effect=command):
+            result = f1.require_clean_pstore_before_handoff(sample_args())
+        self.assertEqual(result["classification"], "expected-boot-records")
+        self.assertTrue(result["warning"])
+        self.assertEqual(
+            result["entries"],
+            ["pmsg-ramoops-0", "console-ramoops-0"],
+        )
+        self.assertEqual(calls[-1], ["umount", f1.PSTORE_MOUNT_PATH])
+        self.assertFalse(any(argv[0] == "run" for argv in calls))
+
+    def test_crash_class_pstore_stops_and_unmounts_without_cleanup(self) -> None:
+        calls: list[list[str]] = []
+
+        def command(
+            _args: object,
+            argv: list[str],
+            *,
+            allow_error: bool = False,
+        ) -> dict[str, object]:
+            calls.append(argv)
+            if argv[0] == "ls":
+                return {"text": "- 12 dmesg-ramoops-0\n"}
             return {"text": "", "allow_error": allow_error}
 
         with (
             mock.patch.object(f1, "run_f1_cmd", side_effect=command),
-            self.assertRaisesRegex(f1.ContractError, "not empty"),
+            self.assertRaisesRegex(f1.ContractError, "crash-class or unknown"),
         ):
             f1.require_clean_pstore_before_handoff(sample_args())
         self.assertEqual(calls[-1], ["umount", f1.PSTORE_MOUNT_PATH])
