@@ -70,6 +70,9 @@ transfer between the two files.
   sources were outside the reusable receipt closure. The runner now binds the
   complete attended source set, compares it at build/load/pre-dispatch, and
   rejects every role mutation before handoff with dispatch count zero.
+- Independent rereview returned reusable capability `PASS_GO` with no
+  unresolved finding and created the canonical receipt for the exact 18-file
+  closure. Re-review is due only on closure change or new hazard/incident.
 - Focused D1/transition regression passes `67/67`; related adapter and
   observation regression passes `26/26`. The combined real-host regression
   passes `93/93`, and the real resident host-only build/load cross-check

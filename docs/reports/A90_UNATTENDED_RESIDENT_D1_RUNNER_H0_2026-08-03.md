@@ -1,6 +1,6 @@
 # A90 unattended resident D1 runner H0 implementation
 
-Status: `H0_IMPLEMENTED_STATIC_PASS_REVIEW_PENDING_NO_LIVE_AUTHORITY`
+Status: `H0_IMPLEMENTED_STATIC_PASS_CAPABILITY_REVIEW_PASS_GO`
 
 Date: 2026-08-03
 
@@ -13,10 +13,10 @@ primitive for one ordinal of the already-qualified no-payload
 
 The implementation and review-fix work did not contact a device. A separate
 parallel D0 only confirmed the exact A90 resident state; it sent no D1 effect.
-This unit created no unattended manifest, review receipt, live transaction,
-approval, payload, partition write, flash, reboot, or recovery action. Live use
-remains unavailable until an independent review produces the canonical
-machine-readable receipt bound by the runner.
+This unit created no unattended manifest, live transaction, approval, payload,
+partition write, flash, reboot, or recovery action. Independent rereview
+produced the canonical reusable capability receipt after the transitive closure
+fix.
 
 ## Execution shape
 
@@ -149,7 +149,9 @@ the independently preserved exact native-return evidence.
   receipt: expected fail-closed, with no manifest created;
 - touched Python `py_compile`: PASS;
 - `git diff --check`: PASS;
-- independent execution-machinery review: pending;
+- independent execution-machinery rereview: `PASS_GO`, no unresolved finding;
+- canonical 18-file capability receipt SHA256:
+  `039f3f3d4ce830cf57088af02f254aad5499c05809da02d0e88637188da9a0c0`;
 - D0 device contact only; payload transfer, partition write, flash, reboot:
   none.
 
@@ -159,12 +161,12 @@ The first independent capability review returned `BLOCK_LIVE_USE` with one
 High finding: eleven transitive shared-backend sources were absent from the
 reusable receipt closure. The runner now directly binds all of them, compares
 the attended base closure at build/load/pre-dispatch, and passes role-by-role
-mutation plus zero-dispatch regression. Independent rereview remains pending.
+mutation plus zero-dispatch regression.
 
-The canonical review receipt intentionally does not exist in this unit.
-Consequently no unattended manifest can be built and no unattended live action
-is authorized. The next unit is one independent safety review of the exact
-changed execution closure. One PASS receipt over the final source hashes may be
-reused until the closure changes or a new hazard/incident occurs. It may then
-permit host-only manifest construction, followed by a fresh exact D0 before
-each single live ordinal.
+Independent rereview returned `PASS_GO` with no unresolved Critical, High,
+Medium, or Low finding. The canonical receipt binds the final 18-file closure
+and is reusable across manifests, qualifications, ordinals, and campaigns
+until a named execution-critical hash changes or a new hazard/incident occurs.
+It permits host-only manifest construction; every live ordinal still starts
+with its own fresh exact D0 and retains one-intent/one-dispatch/no-replay and
+exact final-health requirements.
