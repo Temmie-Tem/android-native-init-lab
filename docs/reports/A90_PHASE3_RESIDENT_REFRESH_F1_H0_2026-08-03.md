@@ -32,6 +32,16 @@ rollback path.  A successful resident-install-v2 terminal still requires one
 exact candidate health result, zero resident reboots, and zero rollback
 transfers.
 
+The resident inspection also retains the older Phase 2 A/B receipt under the
+legacy `debian_ab_receipt` field.  This is reachable auxiliary ancestry
+evidence, not the current Phase 3 rootfs identity: the Phase 3 manifest pins
+that exact Phase 2 image and receipt as its deterministic base, while the
+Phase 3 materialization receipt independently binds the new clean image,
+keyed image, profile, label, service content, and hashes.  The loader rejects
+the current keyed image if it equals the ancestral Phase 2 image.  Independent
+review classified the mixed-looking inspection names as non-blocking and did
+not change the canonical receipt or execution closure.
+
 ## Independent review
 
 The subagent review initially withheld PASS_GO and found five defects:
