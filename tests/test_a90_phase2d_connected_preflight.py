@@ -25,6 +25,18 @@ SOURCE = Path(
 )
 
 
+def command_receipt(command: str, text: str) -> dict[str, object]:
+    return {
+        "command": [command],
+        "rc": 0,
+        "status": "ok",
+        "trust": "A90P1_V1_STRUCTURAL_ONLY",
+        "begin": {"cmd": command},
+        "end": {"cmd": command, "status": "ok"},
+        "text": text,
+    }
+
+
 class A90Phase2DConnectedPreflightTests(unittest.TestCase):
     def test_source_contract_is_closed(self) -> None:
         self.assertEqual(
@@ -61,25 +73,36 @@ class A90Phase2DConnectedPreflightTests(unittest.TestCase):
 
     def test_health_parser_requires_zero_fail_and_pstore(self) -> None:
         baseline = {
-            "version": {"rc": 0, "text": "0.9.285"},
-            "status": {"rc": 0, "text": "pstore=ok entries=0"},
-            "selftest": {
-                "rc": 0,
-                "text": "pass=11 warn=1 fail=0 duration_ms=49",
-            },
+            "version": command_receipt(
+                "version",
+                "version: 0.9.285 build=v2321-usb-clean-identity-rodata",
+            ),
+            "status": command_receipt("status", "pstore=ok entries=0"),
+            "selftest": command_receipt(
+                "selftest",
+                "selftest: pass=11 warn=1 fail=0 duration=49ms entries=12",
+            ),
         }
-        result = preflight.parse_health(baseline)
+        result = preflight.parse_health(
+            baseline,
+            expected_version=preflight.staging.EXPECTED_BASELINE_VERSION,
+            expected_build=preflight.staging.EXPECTED_BASELINE_BUILD,
+        )
         self.assertEqual(result["selftest"]["fail"], 0)
         self.assertEqual(result["pstore_entries"], 0)
         broken = {
             **baseline,
-            "selftest": {
-                "rc": 0,
-                "text": "pass=10 warn=1 fail=1 duration_ms=49",
-            },
+            "selftest": command_receipt(
+                "selftest",
+                "selftest: pass=10 warn=1 fail=1 duration=49ms entries=12",
+            ),
         }
         with self.assertRaises(preflight.ContractError):
-            preflight.parse_health(broken)
+            preflight.parse_health(
+                broken,
+                expected_version=preflight.staging.EXPECTED_BASELINE_VERSION,
+                expected_build=preflight.staging.EXPECTED_BASELINE_BUILD,
+            )
 
     def test_exact_bridge_requires_by_id_and_expected_realpath(self) -> None:
         args = types.SimpleNamespace()
@@ -158,7 +181,11 @@ class A90Phase2DConnectedPreflightTests(unittest.TestCase):
         source = SOURCE.read_text(encoding="utf-8")
         for before, after, reverse in (
             ('"device_write": False', '"device_write": True', False),
-            ("staging.require_baseline(", "removed_baseline(", False),
+            (
+                "staging.require_native_health(",
+                "removed_native_health(",
+                False,
+            ),
             (
                 "staging.require_host_ncm_ready(",
                 "removed_host_ncm_gate(",

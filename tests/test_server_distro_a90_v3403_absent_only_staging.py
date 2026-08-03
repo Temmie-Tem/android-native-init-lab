@@ -29,6 +29,18 @@ TEST_RUN_ID_V3405 = "a90-v3405-debian-f1-20260731-05"
 TEST_RUN_ID_V3406 = "a90-v3406-debian-display-f1-20260731-01"
 
 
+def command_receipt(command: str, text: str) -> dict[str, object]:
+    return {
+        "command": [command],
+        "rc": 0,
+        "status": "ok",
+        "trust": "A90P1_V1_STRUCTURAL_ONLY",
+        "begin": {"cmd": command},
+        "end": {"cmd": command, "status": "ok"},
+        "text": text,
+    }
+
+
 def sample_spec() -> object:
     return types.SimpleNamespace(
         local_size=2147483648,
@@ -57,14 +69,20 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
             remote_timeout=180.0,
         )
         responses = (
-            {
-                "text": (
+            command_receipt(
+                "version",
+                (
                     f"{stage.EXPECTED_BASELINE_VERSION} "
-                    f"{stage.EXPECTED_BASELINE_BUILD}"
-                )
-            },
-            {"text": "pstore=ready entries=0"},
-            {"text": "selftest pass=11 warn=1 fail=0"},
+                    f"{stage.EXPECTED_BASELINE_BUILD}\n"
+                    f"version: {stage.EXPECTED_BASELINE_VERSION} "
+                    f"build={stage.EXPECTED_BASELINE_BUILD}"
+                ),
+            ),
+            command_receipt("status", "pstore=ready entries=0"),
+            command_receipt(
+                "selftest",
+                "selftest: pass=11 warn=1 fail=0 duration=45ms entries=12",
+            ),
         )
         with mock.patch.object(
             stage.d1,
@@ -83,6 +101,78 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
             self.assertEqual(call.kwargs["input_mode"], "slow")
             self.assertEqual(call.kwargs["input_char_delay_sec"], 0.02)
 
+    def test_native_health_accepts_exact_resident_and_rejects_other(self) -> None:
+        args = types.SimpleNamespace(
+            bridge_host="localhost",
+            bridge_port=54321,
+            remote_timeout=180.0,
+        )
+        healthy = (
+            command_receipt(
+                "version",
+                (
+                    f"{stage.EXPECTED_RESIDENT_VERSION} "
+                    f"{stage.EXPECTED_RESIDENT_BUILD}\n"
+                    f"version: {stage.EXPECTED_RESIDENT_VERSION} "
+                    f"build={stage.EXPECTED_RESIDENT_BUILD}"
+                ),
+            ),
+            command_receipt("status", "pstore=ready entries=0"),
+            command_receipt(
+                "selftest",
+                "selftest: pass=12 warn=1 fail=0 duration=45ms entries=13",
+            ),
+        )
+        with mock.patch.object(stage.d1, "run_cmd", side_effect=healthy):
+            result = stage.require_native_health(
+                args,
+                expected_version=stage.EXPECTED_RESIDENT_VERSION,
+                expected_build=stage.EXPECTED_RESIDENT_BUILD,
+            )
+        self.assertIn(stage.EXPECTED_RESIDENT_BUILD, result["version"]["text"])
+        with self.assertRaisesRegex(stage.ContractError, "not an exact allowed"):
+            stage.require_native_health(
+                args,
+                expected_version="arbitrary",
+                expected_build="arbitrary",
+            )
+
+    def test_native_health_rejects_mixed_or_malformed_identity_facts(self) -> None:
+        expected = (
+            f"version: {stage.EXPECTED_RESIDENT_VERSION} "
+            f"build={stage.EXPECTED_RESIDENT_BUILD}"
+        )
+        healthy = {
+            "version": command_receipt("version", expected),
+            "status": command_receipt("status", "pstore=ready entries=0"),
+            "selftest": command_receipt(
+                "selftest",
+                "selftest: pass=12 warn=1 fail=0 duration=45ms entries=13",
+            ),
+        }
+        stage.validate_native_health_receipts(
+            healthy,
+            expected_version=stage.EXPECTED_RESIDENT_VERSION,
+            expected_build=stage.EXPECTED_RESIDENT_BUILD,
+        )
+        mutations = (
+            {**healthy, "version": command_receipt("version", f"version: other build=other\n{expected}")},
+            {**healthy, "version": command_receipt("version", f"noise {expected}")},
+            {**healthy, "version": {**healthy["version"], "command": ["status"]}},
+            {**healthy, "version": {**healthy["version"], "status": "error"}},
+            {**healthy, "status": command_receipt("status", "pstore=ready entries=0\npstore=other entries=0")},
+            {**healthy, "status": command_receipt("status", "pstore=ready entries=0 entries=9")},
+            {**healthy, "selftest": command_receipt("selftest", "selftest: pass=12 warn=1 fail=0 duration=45ms entries=13\nselftest: pass=12 warn=1 fail=0 duration=45ms entries=13")},
+        )
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                with self.assertRaises(stage.ContractError):
+                    stage.validate_native_health_receipts(
+                        mutation,
+                        expected_version=stage.EXPECTED_RESIDENT_VERSION,
+                        expected_build=stage.EXPECTED_RESIDENT_BUILD,
+                    )
+
     def test_execution_support_closure_is_exact(self) -> None:
         expected = {
             "run_d1_chroot_mvp.py",
@@ -100,6 +190,24 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
         self.assertEqual(
             {path.name for path in stage.REQUIRED_SUPPORT_FILES},
             expected,
+        )
+        phase3 = {
+            path.name
+            for path in stage.required_support_files(stage.PHASE3_PROFILE)
+        }
+        self.assertIn("a90_phase3_network_ssh_keyed_rootfs_v1.py", phase3)
+        self.assertNotIn("a90_phase2d_keyed_rootfs.py", phase3)
+
+    def test_phase3_profile_requires_exact_resident_start(self) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+        self.assertIn("rootfs_profile == PHASE3_PROFILE", source)
+        self.assertIn(
+            "(EXPECTED_RESIDENT_VERSION, EXPECTED_RESIDENT_BUILD)",
+            source,
+        )
+        self.assertIn(
+            "Phase 3 keyed rootfs requires the exact V3406 resident start",
+            source,
         )
 
     def test_run_derived_final_and_fixed_work_paths(self) -> None:

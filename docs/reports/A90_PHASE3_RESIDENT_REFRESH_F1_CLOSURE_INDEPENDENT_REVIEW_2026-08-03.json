@@ -1,0 +1,147 @@
+{
+  "schema": "a90-phase3-resident-refresh-f1-independent-review-v1",
+  "review_date": "2026-08-03",
+  "target": "Samsung Galaxy A90 5G only",
+  "risk_tier": "H0 independent capability review",
+  "status": "PASS_GO",
+  "decision": "The reviewed A90 Phase 3 resident-refresh F1 capability closure is fail-closed for the exact V3406 resident start, Phase 3 keyed rootfs, one boot-only candidate, exact V2321 rollback, resident-install-v2 success, and recovery. No device action was performed by this review.",
+  "named_execution_critical_closure": {
+    "workspace/public/src/harness/a90harness/evidence.py": {
+      "bytes": 11723,
+      "sha256": "3b0aaa36a95628591e14c4c2d70ae4941230fe650b6e4d517173cee5d3019742"
+    },
+    "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py": {
+      "bytes": 1255,
+      "sha256": "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe"
+    },
+    "workspace/public/src/scripts/revalidation/a90_bridge.py": {
+      "bytes": 40294,
+      "sha256": "922c55a0afdef9d237a679203f576226583f4463eec15fb0091871c241f8be01"
+    },
+    "workspace/public/src/scripts/revalidation/a90_observation_pipeline.py": {
+      "bytes": 24478,
+      "sha256": "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb"
+    },
+    "workspace/public/src/scripts/revalidation/a90_serial_lock.py": {
+      "bytes": 2860,
+      "sha256": "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7"
+    },
+    "workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py": {
+      "bytes": 13734,
+      "sha256": "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e"
+    },
+    "workspace/public/src/scripts/revalidation/a90ctl.py": {
+      "bytes": 16380,
+      "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c"
+    },
+    "workspace/public/src/scripts/revalidation/native_init_flash.py": {
+      "bytes": 43118,
+      "sha256": "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
+    },
+    "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py": {
+      "bytes": 17944,
+      "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98"
+    },
+    "workspace/public/src/scripts/revalidation/tcpctl_host.py": {
+      "bytes": 34750,
+      "sha256": "032f3146ddc08af82f00881ae3d825066e843a41b194ee8d4c8cf09d1f3adb78"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_connected_preflight.py": {
+      "bytes": 21929,
+      "sha256": "c84f7e8d1054df6f095ce13a0bb4c3f057a6d0f4244b77f12b5c87f89edaa6d8"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_display_observer.py": {
+      "bytes": 648,
+      "sha256": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_finalize_f1.py": {
+      "bytes": 37563,
+      "sha256": "7e9596106676d34369d860df415edb421dd58944984e92a1ae0db151cf66369f"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase3_network_ssh_keyed_rootfs_v1.py": {
+      "bytes": 23948,
+      "sha256": "44bb425533ccfd5b65b9be94056da302fa646d97b2b346ec15214cd7a5660396"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_fast_handoff_v1.py": {
+      "bytes": 12037,
+      "sha256": "da695df326ac347baad2f31c4117ec564ea4cc4181605f397da8105d68e24c47"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_manifest_builder_v1.py": {
+      "bytes": 24441,
+      "sha256": "c420e623ff56fcfdb03194465d667879b8311f0d9a1579b15736672f59bb2a1f"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py": {
+      "bytes": 69471,
+      "sha256": "c82b02e95fed79494bd87a35a6c7b495e3edcf4ec4965968db1501ac06d8c76a"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {
+      "bytes": 97715,
+      "sha256": "8f8c5e311aeb7004e14e9e1f028b3f9da1d88a8b9928d75ba3d809e44d3b93b6"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {
+      "bytes": 261944,
+      "sha256": "8eea6fee7b2e17eff6eafe9bbaa95f65a537347101405310686731f42e518f02"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh": {
+      "bytes": 10126,
+      "sha256": "b52b7306d928d0a7275af70f16ff44d578a8440260828343eefa2a204bdc8859"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_return_arm_v1.sh": {
+      "bytes": 1187,
+      "sha256": "e83ede7fb430de98881ff7b9d18e8127bfc8bc19e4707d9ccf78410ac555faf3"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/manifest.toml": {
+      "bytes": 2962,
+      "sha256": "0a0ced3d0720db7bedb4ebcc42f98162a687d2a4d5d785b8cc123cae777ef9c7"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase2_display_v1_rootfs.py": {
+      "bytes": 28143,
+      "sha256": "8b44e922aba9efdf8b6877c98d6d3395c4ec34a6d6d5e47247aa3c73d7b689a1"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase3_network_ssh_v1_rootfs.py": {
+      "bytes": 25978,
+      "sha256": "3c15440d30e5cd14f320c6a1bc0d1639e89b0d878a8970284b5eb7bb58f87166"
+    },
+    "workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.py": {
+      "bytes": 13928,
+      "sha256": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933"
+    }
+  },
+  "reviewed_semantics": {
+    "starting_identity": "Phase 3 requires exact native 0.11.161 build phase2-display-v1-native-handoff; the retained legacy Phase 2 lane remains exact native 0.9.285 build v2321-usb-clean-identity-rodata.",
+    "rollback": "The only rollback is boot_linux_v2321_usb_clean_identity_rodata.img, 60882944 bytes, SHA256 ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb, partition boot.",
+    "candidate": "The only candidate is candidate-boot-phase2-display-v1.img, 66379776 bytes, SHA256 3d3e66535654a62f83c5772caba27624acc160911307190de458154acaefdabb, partition boot.",
+    "attempts": "Durable candidate intent precedes dispatch, candidate_transfer_count is exactly one, candidate replay is false, and an uncertain candidate is never replayed.",
+    "phase3_materialization": "The Phase 3 keyer, exact pristine source and receipt, retained service and firstboot content, filesystem label, observer key pair, runtime absence, provenance, and dynamic support-file closure are hash-bound and validated.",
+    "connected_d0": "The exact A90 bridge/realpath, single matching USB parent, host NCM readiness, exact allowed native identity facts, selftest fail=0, pstore entries=0, artifacts, flash runner, and path absence are bound read-only evidence.",
+    "resident_install_v2": "Success requires one exact candidate health result and closes PASS_A90_RESIDENT_INSTALLED in RESIDENT_HEALTHY with zero resident reboot and zero rollback; post-attempt failure or ambiguity enters exact V2321 rollback recovery and cannot replay the candidate.",
+    "boundaries": "Only boot payloads are reachable; forbidden partitions and forbidden write mechanisms remain excluded; rollback and final health remain mandatory; A90 and S22+ authority and evidence remain isolated."
+  },
+  "findings_closed_before_decision": [
+    "The resident manifest builder now rebinds Phase 3 profile, label, support closure, resident starting identity, and approval materialization scope instead of retaining the Phase 2 template selection.",
+    "The resident manifest builder now hard-pins the canonical candidate and V2321 rollback names, sizes, hashes, versions, builds, and boot partition.",
+    "Connected and F1 starting-health parsing now requires exact framed identity, selftest, and pstore facts instead of substring matches.",
+    "Phase 3 pristine provenance is always rebound from the exact Phase 3 keyed summary source and receipt rather than retaining stale Phase 2 provenance.",
+    "The pstore parser now rejects duplicate or conflicting entries tokens, including entries=0 followed by a nonzero value."
+  ],
+  "validation": {
+    "focused_tests": "322/322 PASS across connected preflight, finalizer, resident manifest builder, staging, orchestrator, resident-install tail/recovery, Phase 3 keyer/rootfs, flash helper, transport, and CDC observer suites; final builder rerun 5/5 PASS.",
+    "python_compile": "PASS for all five changed execution Python sources.",
+    "source_contract_audits": "PASS with contract_issues=[] for connected preflight, finalizer, staging adapter, and F1 orchestrator.",
+    "diff_check": "PASS",
+    "device_contact": false,
+    "network_contact": false,
+    "private_key_contents_read": false
+  },
+  "qualification_reuse": {
+    "scope": "capability-wide",
+    "repeat_per_manifest": false,
+    "repeat_per_ordinal": false,
+    "repeat_per_campaign": false,
+    "repeat_per_qualification": false,
+    "re_review_trigger": "Any change to the named execution-critical closure or its semantics, or any new hazard or incident."
+  },
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false
+}

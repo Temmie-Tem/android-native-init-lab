@@ -47,6 +47,18 @@ KEYED_SUMMARY_NAME = "keyed-rootfs-summary.json"
 CANDIDATE_NAME = "candidate-boot-phase2-display-v1.img"
 ROLLBACK_NAME = "rollback-boot-v2321.img"
 HOST_PREPARATION_NAME = "host-preparation.json"
+CANDIDATE_SIZE = 66379776
+CANDIDATE_SHA256 = (
+    "3d3e66535654a62f83c5772caba27624acc160911307190de458154acaefdabb"
+)
+CANDIDATE_VERSION = "0.11.161"
+CANDIDATE_BUILD = "phase2-display-v1-native-handoff"
+ROLLBACK_SIZE = 60882944
+ROLLBACK_SHA256 = (
+    "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb"
+)
+ROLLBACK_VERSION = "0.9.285"
+ROLLBACK_BUILD = "v2321-usb-clean-identity-rodata"
 
 
 class ContractError(RuntimeError):
@@ -65,6 +77,43 @@ def validate_sha256(value: Any, label: str) -> str:
     if not isinstance(value, str) or staging.HEX64_RE.fullmatch(value) is None:
         raise ContractError(f"{label} is not an exact sha256")
     return value
+
+
+def validate_canonical_boot_template(
+    candidate: dict[str, Any],
+    rollback: dict[str, Any],
+) -> None:
+    for label, value, name, size, digest, version, build in (
+        (
+            "candidate",
+            candidate,
+            CANDIDATE_NAME,
+            CANDIDATE_SIZE,
+            CANDIDATE_SHA256,
+            CANDIDATE_VERSION,
+            CANDIDATE_BUILD,
+        ),
+        (
+            "rollback",
+            rollback,
+            ROLLBACK_NAME,
+            ROLLBACK_SIZE,
+            ROLLBACK_SHA256,
+            ROLLBACK_VERSION,
+            ROLLBACK_BUILD,
+        ),
+    ):
+        path = value.get("path")
+        if (
+            not isinstance(path, str)
+            or Path(path).name != name
+            or value.get("partition") != "boot"
+            or value.get("size") != size
+            or value.get("sha256") != digest
+            or value.get("expected_version") != version
+            or value.get("expected_build") != build
+        ):
+            raise ContractError(f"template {label} boot binding is not canonical")
 
 
 def regular_record(
@@ -130,6 +179,12 @@ def update_execution_sources(manifest: dict[str, Any]) -> None:
     orchestrator.update(current_record(Path(base.__file__).resolve()))
 
     rootfs_staging = require_dict(manifest.get("rootfs_staging"), "rootfs_staging")
+    rootfs = require_dict(manifest.get("debian_rootfs"), "debian_rootfs")
+    keyed_source = require_dict(
+        rootfs.get("keyed_source"),
+        "debian_rootfs.keyed_source",
+    )
+    rootfs_profile = keyed_source.get("profile", staging.PHASE2_PROFILE)
     adapter = require_dict(rootfs_staging.get("adapter"), "rootfs_staging.adapter")
     adapter.update(current_record(Path(staging.__file__).resolve()))
     transport = require_dict(
@@ -138,7 +193,8 @@ def update_execution_sources(manifest: dict[str, Any]) -> None:
     )
     transport.update(current_record(REVAL_DIR / "tcpctl_host.py"))
     rootfs_staging["support_files"] = [
-        current_record(path.resolve()) for path in staging.REQUIRED_SUPPORT_FILES
+        current_record(path.resolve())
+        for path in staging.required_support_files(rootfs_profile)
     ]
 
     resident = require_dict(manifest.get("resident_promotion"), "resident_promotion")
@@ -189,10 +245,25 @@ def prepare_manifest(
 
     keyed = require_dict(summary.get("keyed_image"), "keyed summary image")
     observer = require_dict(summary.get("observer"), "keyed summary observer")
+    source = require_dict(summary.get("source"), "keyed summary source")
+    phase3 = (
+        summary.get("schema")
+        == "a90-phase3-network-ssh-keyed-rootfs-v1"
+    )
+    expected_decision = (
+        "A90_PHASE3_NETWORK_SSH_KEYED_ROOTFS_HOST_PASS"
+        if phase3
+        else "A90_PHASE2D_KEYED_ROOTFS_HOST_PASS"
+    )
+    expected_image = run_dir / (
+        "phase3-network-ssh-v1-keyed.img"
+        if phase3
+        else "phase2-display-v1-keyed.img"
+    )
     if (
         summary.get("run_id") != run_id
-        or summary.get("decision") != "A90_PHASE2D_KEYED_ROOTFS_HOST_PASS"
-        or keyed.get("path") != str(run_dir / "phase2-display-v1-keyed.img")
+        or summary.get("decision") != expected_decision
+        or keyed.get("path") != str(expected_image)
     ):
         raise ContractError("keyed summary does not select the exact run")
 
@@ -221,6 +292,14 @@ def prepare_manifest(
             "bridge_device": connected_target.get("bridge_device"),
             "bridge_selected_realpath": connected_target.get("bridge_selected_realpath"),
             "bridge_selected_exact": True,
+            "current_version": require_dict(
+                connected_value.get("health"),
+                "connected D0 health",
+            ).get("version"),
+            "current_build": require_dict(
+                connected_value.get("health"),
+                "connected D0 health",
+            ).get("version_build"),
             "connected_d0_result": {
                 **connected_record,
                 "outcome": staging.D0_RESULT_OUTCOME,
@@ -237,15 +316,35 @@ def prepare_manifest(
     remote_final = str(staging.derive_remote_final(run_id))
     rootfs = require_dict(manifest.get("debian_rootfs"), "debian_rootfs")
     keyed_source = require_dict(rootfs.get("keyed_source"), "debian_rootfs.keyed_source")
+    rootfs["kind"] = (
+        "bookworm-arm64-phase3-network-ssh-v1-per-run-keyed"
+        if phase3
+        else "bookworm-arm64-phase2-display-v1-per-run-keyed"
+    )
     keyed_source.update(
         {
             "local_path": keyed["path"],
             "size": keyed["size"],
             "sha256": keyed["sha256"],
+            "profile": (
+                staging.PHASE3_PROFILE if phase3 else staging.PHASE2_PROFILE
+            ),
             "device_path": remote_final,
+            "filesystem_label": (
+                staging.PHASE3_FILESYSTEM_LABEL
+                if phase3
+                else staging.PHASE2_FILESYSTEM_LABEL
+            ),
             "materialization": summary_record,
         }
     )
+    rootfs["pristine_provenance"] = {
+        "path": source.get("path"),
+        "size": source.get("size"),
+        "sha256": source.get("sha256"),
+        "receipt_path": source.get("receipt_path"),
+        "receipt_sha256": source.get("receipt_sha256"),
+    }
     rootfs["handoff_command"] = [
         base.HANDOFF_COMMAND,
         base.HANDOFF_TOKEN,
@@ -261,6 +360,16 @@ def prepare_manifest(
     )
 
     manifest["host_preparation"] = host_preparation_record
+    rootfs_staging = require_dict(
+        manifest.get("rootfs_staging"),
+        "rootfs_staging",
+    )
+    if phase3:
+        rootfs_staging["review_verdict"] = "PASS_GO"
+        approval_scope = manifest.get("approval_scope_template")
+        if isinstance(approval_scope, dict):
+            approval_scope.pop("bind_phase2_materialization_receipt", None)
+            approval_scope["bind_phase3_materialization_receipt"] = True
     approval = require_dict(manifest.get("approval_preparation"), "approval_preparation")
     approval["path"] = str(run_dir / "approval-prepared.json")
 
@@ -406,23 +515,18 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
 
     template_candidate = require_dict(template.get("candidate_boot"), "candidate_boot")
     template_rollback = require_dict(template.get("rollback_boot"), "rollback_boot")
+    validate_canonical_boot_template(template_candidate, template_rollback)
     candidate_record = regular_record(
         run_dir / CANDIDATE_NAME,
         private=True,
-        expected_size=template_candidate.get("size"),
-        expected_sha256=validate_sha256(
-            template_candidate.get("sha256"),
-            "template candidate sha256",
-        ),
+        expected_size=CANDIDATE_SIZE,
+        expected_sha256=CANDIDATE_SHA256,
     )
     rollback_record = regular_record(
         run_dir / ROLLBACK_NAME,
         private=True,
-        expected_size=template_rollback.get("size"),
-        expected_sha256=validate_sha256(
-            template_rollback.get("sha256"),
-            "template rollback sha256",
-        ),
+        expected_size=ROLLBACK_SIZE,
+        expected_sha256=ROLLBACK_SHA256,
     )
     host_preparation_record = regular_record(
         run_dir / HOST_PREPARATION_NAME,

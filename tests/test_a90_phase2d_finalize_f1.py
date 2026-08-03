@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import tempfile
 import unittest
 from contextlib import redirect_stderr
@@ -112,6 +113,102 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
                 finalizer.validate_independent_review_report(
                     review + "\n" + conflict
                 )
+
+    def test_phase3_review_binds_exact_current_execution_closure(self) -> None:
+        closure = {}
+        for record in finalizer.required_phase3_review_source_records():
+            relative = str(
+                Path(record["path"]).relative_to(
+                    finalizer.REPO_ROOT.resolve(strict=True)
+                )
+            )
+            closure[relative] = {
+                "bytes": record["size"],
+                "sha256": record["sha256"],
+            }
+        report = {
+            "schema": finalizer.PHASE3_REVIEW_SCHEMA,
+            "status": "PASS_GO",
+            "unresolved_findings": [],
+            "permanent_boundaries_unchanged": True,
+            "device_authority_granted": False,
+            "named_execution_critical_closure": closure,
+        }
+        text = json.dumps(report)
+        finalizer.validate_phase3_independent_review_report(text)
+        first = next(iter(closure))
+        report["named_execution_critical_closure"][first]["sha256"] = "0" * 64
+        with self.assertRaisesRegex(finalizer.ContractError, "not exact PASS_GO"):
+            finalizer.validate_phase3_independent_review_report(
+                json.dumps(report)
+            )
+
+    def test_phase3_manifest_selects_resident_start_and_exact_keyer(self) -> None:
+        template_path = (
+            finalizer.staging.PRIVATE_RUN_BASE
+            / "a90-v3406-debian-display-f1-20260802-01"
+            / "prepared-manifest.json"
+        )
+        run_id = "a90-v3406-debian-display-f1-20260803-02"
+        run_dir = finalizer.staging.PRIVATE_RUN_BASE / run_id
+        summary_path = run_dir / finalizer.KEYED_SUMMARY_NAME
+        if not template_path.is_file() or not summary_path.is_file():
+            self.skipTest("private Phase 3 finalizer integration inputs absent")
+        template = json.loads(template_path.read_text(encoding="utf-8"))
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        record = {"path": "/private/evidence", "size": 1, "sha256": "1" * 64}
+        manifest = finalizer.prepare_manifest(
+            template=template,
+            run_id=run_id,
+            run_dir=run_dir,
+            summary=summary,
+            summary_record=record,
+            candidate_record={
+                "path": str(run_dir / finalizer.CANDIDATE_COPY_NAME),
+                "size": finalizer.CANDIDATE_SIZE,
+                "sha256": finalizer.CANDIDATE_SHA256,
+            },
+            rollback_record={
+                "path": str(run_dir / finalizer.ROLLBACK_COPY_NAME),
+                "size": finalizer.ROLLBACK_SIZE,
+                "sha256": finalizer.ROLLBACK_SHA256,
+            },
+            connected_value={
+                "target": {
+                    "bridge_device": "/dev/serial/by-id/private-a90",
+                    "bridge_selected_realpath": "/dev/ttyACM9",
+                },
+                "health": {
+                    "version": finalizer.staging.EXPECTED_RESIDENT_VERSION,
+                    "version_build": finalizer.staging.EXPECTED_RESIDENT_BUILD,
+                },
+            },
+            connected_record=record,
+            paths_record={"path": "/private/paths", "size": 1, "sha256": "2" * 64},
+            host_preparation_record={
+                "path": "/private/host",
+                "size": 1,
+                "sha256": "3" * 64,
+            },
+            repository_commit="a" * 40,
+        )
+        keyed = manifest["debian_rootfs"]["keyed_source"]
+        self.assertEqual(keyed["profile"], finalizer.staging.PHASE3_PROFILE)
+        self.assertEqual(
+            keyed["filesystem_label"],
+            finalizer.staging.PHASE3_FILESYSTEM_LABEL,
+        )
+        self.assertEqual(
+            manifest["target"]["current_version"],
+            finalizer.staging.EXPECTED_RESIDENT_VERSION,
+        )
+        support = {
+            Path(item["path"]).name
+            for item in manifest["rootfs_staging"]["support_files"]
+        }
+        self.assertIn("a90_phase3_network_ssh_keyed_rootfs_v1.py", support)
+        self.assertNotIn("a90_phase2d_keyed_rootfs.py", support)
+        self.assertFalse(manifest["authority"]["live_authority"])
 
     def test_copy_is_new_inode_exact_hash_and_absent_only(self) -> None:
         with tempfile.TemporaryDirectory(

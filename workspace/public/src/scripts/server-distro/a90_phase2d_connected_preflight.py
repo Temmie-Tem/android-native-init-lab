@@ -2,7 +2,8 @@
 """Prepare exact read-only A90 V3406 connected evidence.
 
 The default audit mode is host-only.  The explicit connected mode performs
-bounded D0 reads against one exact by-id bridge: bridge continuity, V2321
+bounded D0 reads against one exact by-id bridge: bridge continuity, exact
+allowed native starting health,
 baseline health, and absence of the three run-derived SD paths.  It cannot
 flash, reboot, transfer a payload, stage a rootfs, or modify the device.
 """
@@ -117,10 +118,16 @@ def exact_run_dir(run_id: str) -> Path:
     ):
         raise ContractError("keyed-rootfs summary is not exact private evidence")
     value = json.loads(summary.read_text(encoding="utf-8"))
+    expected_decision = {
+        "a90-phase2d-keyed-rootfs-v1": "A90_PHASE2D_KEYED_ROOTFS_HOST_PASS",
+        "a90-phase3-network-ssh-keyed-rootfs-v1": (
+            "A90_PHASE3_NETWORK_SSH_KEYED_ROOTFS_HOST_PASS"
+        ),
+    }.get(value.get("schema")) if isinstance(value, dict) else None
     if (
         not isinstance(value, dict)
-        or value.get("schema") != "a90-phase2d-keyed-rootfs-v1"
-        or value.get("decision") != "A90_PHASE2D_KEYED_ROOTFS_HOST_PASS"
+        or expected_decision is None
+        or value.get("decision") != expected_decision
         or value.get("run_id") != run_id
         or value.get("device_contact") is not False
         or value.get("device_write") is not False
@@ -198,37 +205,36 @@ def require_exact_bridge(
     return payload
 
 
-def parse_health(baseline: dict[str, Any]) -> dict[str, Any]:
+def parse_health(
+    baseline: dict[str, Any],
+    *,
+    expected_version: str,
+    expected_build: str,
+) -> dict[str, Any]:
     version = baseline["version"]
     status = baseline["status"]
     selftest = baseline["selftest"]
-    selftest_text = str(selftest.get("text") or "")
-    status_text = str(status.get("text") or "")
-    selftest_match = SELFTEST_RE.search(selftest_text)
-    pstore_match = PSTORE_ENTRIES_RE.search(status_text)
-    if (
-        selftest_match is None
-        or int(selftest_match.group("fail")) != 0
-        or pstore_match is None
-        or int(pstore_match.group("count")) != 0
-        or version.get("rc") != 0
-        or status.get("rc") != 0
-        or selftest.get("rc") != 0
-    ):
-        raise ContractError("V2321 health framing is not exact")
+    try:
+        facts = staging.validate_native_health_receipts(
+            baseline,
+            expected_version=expected_version,
+            expected_build=expected_build,
+        )
+    except staging.ContractError as exc:
+        raise ContractError("native starting health framing is not exact") from exc
     return {
         "bridge_exact": True,
         "bridge_running": True,
-        "version": staging.EXPECTED_BASELINE_VERSION,
-        "version_build": staging.EXPECTED_BASELINE_BUILD,
+        "version": expected_version,
+        "version_build": expected_build,
         "pstore_entries": 0,
         "version_framed_rc": version["rc"],
         "status_framed_rc": status["rc"],
         "selftest": {
-            "pass": int(selftest_match.group("pass")),
-            "warn": int(selftest_match.group("warn")),
+            "pass": facts["pass"],
+            "warn": facts["warn"],
             "fail": 0,
-            "duration_ms": int(selftest_match.group("duration")),
+            "duration_ms": facts["duration_ms"],
         },
     }
 
@@ -350,12 +356,18 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
         args.device_ip,
         args.expect_realpath,
     )
-    baseline = staging.require_baseline(
+    baseline = staging.require_native_health(
         args,
+        expected_version=args.expect_current_version,
+        expected_build=args.expect_current_build,
         input_mode="slow",
         input_char_delay_sec=0.02,
     )
-    health = parse_health(baseline)
+    health = parse_health(
+        baseline,
+        expected_version=args.expect_current_version,
+        expected_build=args.expect_current_build,
+    )
     connected_path = write_connected_result(
         run_dir=run_dir,
         run_id=args.run_id,
@@ -498,7 +510,10 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
     for token in (
         "staging.require_exact_bridge(spec, args)",
         "staging.require_host_ncm_ready(",
-        "staging.require_baseline(",
+        "staging.require_native_health(",
+        "staging.validate_native_health_receipts(",
+        "expected_version=args.expect_current_version",
+        "expected_build=args.expect_current_build",
         "path_read_script(final, work, stage_dir)",
         '"device_write": False',
         '"flash": False',
@@ -528,7 +543,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
                 f"connected D0 source contains forbidden action: {forbidden!r}"
             )
     ncm_gate = subject.find("host_ncm = staging.require_host_ncm_ready(")
-    baseline_gate = subject.find("baseline = staging.require_baseline(")
+    baseline_gate = subject.find("baseline = staging.require_native_health(")
     if ncm_gate < 0 or baseline_gate < 0 or ncm_gate >= baseline_gate:
         issues.append("connected D0 host NCM gate must precede baseline reads")
     return tuple(issues)
@@ -564,6 +579,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--expect-candidate-sha256")
     parser.add_argument("--rollback", type=Path)
     parser.add_argument("--expect-rollback-sha256")
+    parser.add_argument("--expect-current-version")
+    parser.add_argument("--expect-current-build")
     parser.add_argument("--bridge-device")
     parser.add_argument("--expect-realpath")
     parser.add_argument("--device-ip")
@@ -583,6 +600,8 @@ def main(argv: list[str] | None = None) -> int:
             "expect_candidate_sha256",
             "rollback",
             "expect_rollback_sha256",
+            "expect_current_version",
+            "expect_current_build",
             "bridge_device",
             "expect_realpath",
             "device_ip",
@@ -597,6 +616,8 @@ def main(argv: list[str] | None = None) -> int:
             "expect_candidate_sha256",
             "rollback",
             "expect_rollback_sha256",
+            "expect_current_version",
+            "expect_current_build",
             "bridge_device",
             "expect_realpath",
             "device_ip",

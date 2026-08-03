@@ -31,6 +31,10 @@ class ResidentManifestBuilderTests(unittest.TestCase):
                 "target": {},
                 "debian_rootfs": {
                     "keyed_source": {"device_path": "/old/remote"},
+                    "pristine_provenance": {
+                        "path": "/old/phase2-clean.img",
+                        "sha256": "0" * 64,
+                    },
                     "observer": {},
                 },
                 "host_preparation": {},
@@ -52,12 +56,23 @@ class ResidentManifestBuilderTests(unittest.TestCase):
                     "private_key_path": str(run_dir / "observer-key"),
                     "public_key_sha256": "4" * 64,
                 },
+                "source": {
+                    "path": "/private/phase2-clean.img",
+                    "size": 2,
+                    "sha256": "a" * 64,
+                    "receipt_path": "/private/phase2-receipt.json",
+                    "receipt_sha256": "b" * 64,
+                },
             }
             connected = {
                 "run_id": f"{run_id}-connected-d0-01",
                 "target": {
                     "bridge_device": "/dev/serial/by-id/exact-a90",
                     "bridge_selected_realpath": "/dev/ttyACM0",
+                },
+                "health": {
+                    "version": builder.staging.EXPECTED_RESIDENT_VERSION,
+                    "version_build": builder.staging.EXPECTED_RESIDENT_BUILD,
                 },
             }
             paths = {"run_id": run_id}
@@ -97,6 +112,93 @@ class ResidentManifestBuilderTests(unittest.TestCase):
                 str(builder.staging.derive_remote_final(run_id)),
             )
             self.assertNotIn(template["run_id"], json.dumps(manifest, sort_keys=True))
+
+            phase3_summary = {
+                **summary,
+                "schema": "a90-phase3-network-ssh-keyed-rootfs-v1",
+                "decision": "A90_PHASE3_NETWORK_SSH_KEYED_ROOTFS_HOST_PASS",
+                "keyed_image": {
+                    **summary["keyed_image"],
+                    "path": str(run_dir / "phase3-network-ssh-v1-keyed.img"),
+                },
+                "source": {
+                    "path": "/private/phase3-clean.img",
+                    "size": 2,
+                    "sha256": "c" * 64,
+                    "receipt_path": "/private/phase3-receipt.json",
+                    "receipt_sha256": "d" * 64,
+                },
+            }
+            phase3_template = json.loads(json.dumps(template))
+            phase3_template["approval_scope_template"] = {
+                "bind_phase2_materialization_receipt": True,
+            }
+            with mock.patch.object(
+                builder,
+                "current_record",
+                return_value=fake_record,
+            ):
+                phase3_manifest = builder.prepare_manifest(
+                    template=phase3_template,
+                    run_id=run_id,
+                    run_dir=run_dir,
+                    evidence_sequence="01",
+                    summary=phase3_summary,
+                    summary_record=records["summary"],
+                    candidate_record=records["candidate"],
+                    rollback_record=records["rollback"],
+                    connected_value=connected,
+                    connected_record=records["connected"],
+                    paths_value=paths,
+                    paths_record=records["paths"],
+                    host_preparation_record=records["host"],
+                    repository_commit="a" * 40,
+                )
+            self.assertEqual(
+                phase3_manifest["debian_rootfs"]["keyed_source"]["local_path"],
+                str(run_dir / "phase3-network-ssh-v1-keyed.img"),
+            )
+            self.assertEqual(
+                phase3_manifest["debian_rootfs"]["keyed_source"]["profile"],
+                builder.staging.PHASE3_PROFILE,
+            )
+            self.assertEqual(
+                phase3_manifest["debian_rootfs"]["keyed_source"][
+                    "filesystem_label"
+                ],
+                builder.staging.PHASE3_FILESYSTEM_LABEL,
+            )
+            self.assertEqual(
+                phase3_manifest["target"]["current_version"],
+                builder.staging.EXPECTED_RESIDENT_VERSION,
+            )
+            self.assertEqual(
+                phase3_manifest["rootfs_staging"]["review_verdict"],
+                "PASS_GO",
+            )
+            self.assertNotIn(
+                "bind_phase2_materialization_receipt",
+                phase3_manifest["approval_scope_template"],
+            )
+            self.assertTrue(
+                phase3_manifest["approval_scope_template"][
+                    "bind_phase3_materialization_receipt"
+                ]
+            )
+            self.assertEqual(
+                phase3_manifest["debian_rootfs"]["pristine_provenance"],
+                {
+                    "path": "/private/phase3-clean.img",
+                    "size": 2,
+                    "sha256": "c" * 64,
+                    "receipt_path": "/private/phase3-receipt.json",
+                    "receipt_sha256": "d" * 64,
+                },
+            )
+            self.assertNotIn(
+                "/old/phase2-clean.img",
+                json.dumps(phase3_manifest, sort_keys=True),
+            )
 
     def test_prepare_manifest_can_select_resident_install_v2(self) -> None:
         with tempfile.TemporaryDirectory(dir=builder.staging.PRIVATE_ROOT) as temp_dir:
@@ -139,6 +241,13 @@ class ResidentManifestBuilderTests(unittest.TestCase):
                     "private_key_path": str(run_dir / "observer-key"),
                     "public_key_sha256": "4" * 64,
                 },
+                "source": {
+                    "path": "/private/phase2-clean.img",
+                    "size": 2,
+                    "sha256": "a" * 64,
+                    "receipt_path": "/private/phase2-receipt.json",
+                    "receipt_sha256": "b" * 64,
+                },
             }
             records = {
                 name: {"path": str(run_dir / name), "size": 1, "sha256": char * 64}
@@ -171,6 +280,10 @@ class ResidentManifestBuilderTests(unittest.TestCase):
                             "bridge_device": "/dev/serial/by-id/exact-a90",
                             "bridge_selected_realpath": "/dev/ttyACM0",
                         },
+                        "health": {
+                            "version": builder.staging.EXPECTED_BASELINE_VERSION,
+                            "version_build": builder.staging.EXPECTED_BASELINE_BUILD,
+                        },
                     },
                     connected_record=records["connected"],
                     paths_value={"run_id": run_id},
@@ -189,6 +302,57 @@ class ResidentManifestBuilderTests(unittest.TestCase):
         self.assertEqual(resident["success_terminal"], builder.promotion.INSTALL_STATUS)
         self.assertNotIn("resident_reboot_command", resident)
         self.assertNotIn("resident_reboot_timeout_sec", resident)
+
+    def test_canonical_boot_template_rejects_every_binding_mutation(self) -> None:
+        candidate = {
+            "path": f"/private/{builder.CANDIDATE_NAME}",
+            "partition": "boot",
+            "size": builder.CANDIDATE_SIZE,
+            "sha256": builder.CANDIDATE_SHA256,
+            "expected_version": builder.CANDIDATE_VERSION,
+            "expected_build": builder.CANDIDATE_BUILD,
+        }
+        rollback = {
+            "path": f"/private/{builder.ROLLBACK_NAME}",
+            "partition": "boot",
+            "size": builder.ROLLBACK_SIZE,
+            "sha256": builder.ROLLBACK_SHA256,
+            "expected_version": builder.ROLLBACK_VERSION,
+            "expected_build": builder.ROLLBACK_BUILD,
+        }
+        builder.validate_canonical_boot_template(candidate, rollback)
+        for selected, field, replacement in (
+            (candidate, "path", "/private/other.img"),
+            (candidate, "partition", "recovery"),
+            (candidate, "size", builder.CANDIDATE_SIZE + 1),
+            (candidate, "sha256", "0" * 64),
+            (candidate, "expected_version", "other"),
+            (candidate, "expected_build", "other"),
+            (rollback, "path", "/private/other.img"),
+            (rollback, "partition", "recovery"),
+            (rollback, "size", builder.ROLLBACK_SIZE + 1),
+            (rollback, "sha256", "0" * 64),
+            (rollback, "expected_version", "other"),
+            (rollback, "expected_build", "other"),
+        ):
+            mutated_candidate = json.loads(json.dumps(candidate))
+            mutated_rollback = json.loads(json.dumps(rollback))
+            target = (
+                mutated_candidate if selected is candidate else mutated_rollback
+            )
+            target[field] = replacement
+            selected_name = (
+                "candidate" if selected is candidate else "rollback"
+            )
+            with self.subTest(field=field, selected=selected_name):
+                with self.assertRaisesRegex(
+                    builder.ContractError,
+                    "boot binding is not canonical",
+                ):
+                    builder.validate_canonical_boot_template(
+                        mutated_candidate,
+                        mutated_rollback,
+                    )
 
     def test_validate_local_paths_allows_only_absent_approval(self) -> None:
         with tempfile.TemporaryDirectory(dir=builder.staging.PRIVATE_ROOT) as temp_dir:

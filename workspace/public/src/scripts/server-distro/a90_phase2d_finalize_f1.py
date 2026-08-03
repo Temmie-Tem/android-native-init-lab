@@ -90,6 +90,31 @@ EXECUTION_REVIEW_SOURCES = (
     SCRIPT_DIR / "phase2c_display_packet_v1" / "contract.toml",
     Path(__file__).resolve(),
 )
+PHASE3_REVIEW_SCHEMA = "a90-phase3-resident-refresh-f1-independent-review-v1"
+PHASE3_EXECUTION_REVIEW_SOURCES = tuple(
+    dict.fromkeys(
+        (
+            *staging.required_support_files(staging.PHASE3_PROFILE),
+            REVAL_DIR / "native_init_flash.py",
+            REVAL_DIR / "tcpctl_host.py",
+            SCRIPT_DIR / "a90_phase2d_connected_preflight.py",
+            SCRIPT_DIR / "a90_v3403_absent_only_staging.py",
+            SCRIPT_DIR / "a90_v3403_f1_orchestrator.py",
+            SCRIPT_DIR / "a90_resident_manifest_builder_v1.py",
+            SCRIPT_DIR / "a90_resident_promotion_v1.py",
+            SCRIPT_DIR / "a90_resident_fast_handoff_v1.py",
+            SCRIPT_DIR / "a90_phase3_network_ssh_keyed_rootfs_v1.py",
+            SCRIPT_DIR / "prepare_phase3_network_ssh_v1_rootfs.py",
+            SCRIPT_DIR / "prepare_phase2_display_v1_rootfs.py",
+            SCRIPT_DIR / "phase3_network_ssh_v1/manifest.toml",
+            SCRIPT_DIR
+            / "phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh",
+            SCRIPT_DIR
+            / "phase3_network_ssh_v1/a90_debian_return_arm_v1.sh",
+            Path(__file__).resolve(),
+        )
+    )
+)
 
 
 class ContractError(RuntimeError):
@@ -219,6 +244,13 @@ def required_review_source_records() -> tuple[dict[str, Any], ...]:
     return tuple(current_source_record(path.resolve()) for path in EXECUTION_REVIEW_SOURCES)
 
 
+def required_phase3_review_source_records() -> tuple[dict[str, Any], ...]:
+    return tuple(
+        current_source_record(path.resolve())
+        for path in PHASE3_EXECUTION_REVIEW_SOURCES
+    )
+
+
 def validate_independent_review_report(review_text: str) -> None:
     lines = review_text.splitlines()
     required = {
@@ -242,6 +274,33 @@ def validate_independent_review_report(review_text: str) -> None:
             raise ContractError(
                 f"independent review does not bind current source: {relative}"
             )
+
+
+def validate_phase3_independent_review_report(review_text: str) -> None:
+    try:
+        value = json.loads(review_text)
+    except json.JSONDecodeError as exc:
+        raise ContractError("Phase 3 F1 review is not valid JSON") from exc
+    if not isinstance(value, dict):
+        raise ContractError("Phase 3 F1 review is not an object")
+    expected_closure = {}
+    for record in required_phase3_review_source_records():
+        relative = str(
+            Path(record["path"]).relative_to(REPO_ROOT.resolve(strict=True))
+        )
+        expected_closure[relative] = {
+            "bytes": record["size"],
+            "sha256": record["sha256"],
+        }
+    if (
+        value.get("schema") != PHASE3_REVIEW_SCHEMA
+        or value.get("status") != "PASS_GO"
+        or value.get("unresolved_findings") != []
+        or value.get("permanent_boundaries_unchanged") is not True
+        or value.get("device_authority_granted") is not False
+        or value.get("named_execution_critical_closure") != expected_closure
+    ):
+        raise ContractError("Phase 3 F1 independent review is not exact PASS_GO")
 
 
 def validate_template_rollback(template: dict[str, Any]) -> None:
@@ -315,6 +374,18 @@ def prepare_manifest(
     repository_commit: str,
 ) -> dict[str, Any]:
     manifest = copy.deepcopy(template)
+    phase3 = (
+        summary.get("schema")
+        == "a90-phase3-network-ssh-keyed-rootfs-v1"
+    )
+    rootfs_profile = (
+        staging.PHASE3_PROFILE if phase3 else staging.PHASE2_PROFILE
+    )
+    filesystem_label = (
+        staging.PHASE3_FILESYSTEM_LABEL
+        if phase3
+        else staging.PHASE2_FILESYSTEM_LABEL
+    )
     keyed = summary["keyed_image"]
     observer_summary = summary["observer"]
     bridge = connected_value["target"]
@@ -341,8 +412,8 @@ def prepare_manifest(
             "bridge_device": bridge["bridge_device"],
             "bridge_selected_realpath": bridge["bridge_selected_realpath"],
             "bridge_selected_exact": True,
-            "current_version": staging.EXPECTED_BASELINE_VERSION,
-            "current_build": staging.EXPECTED_BASELINE_BUILD,
+            "current_version": connected_value["health"]["version"],
+            "current_build": connected_value["health"]["version_build"],
             "connected_d0_result": {
                 **connected_record,
                 "outcome": staging.D0_RESULT_OUTCOME,
@@ -359,15 +430,20 @@ def prepare_manifest(
     old_observer = rootfs["observer"]
     rootfs.update(
         {
-            "kind": "bookworm-arm64-phase2-display-v1-per-run-keyed",
+            "kind": (
+                "bookworm-arm64-phase3-network-ssh-v1-per-run-keyed"
+                if phase3
+                else "bookworm-arm64-phase2-display-v1-per-run-keyed"
+            ),
             "mount_mode": "read-write-on-work-copy-only",
             "keyed_source": {
                 "local_path": keyed["path"],
                 "size": keyed["size"],
                 "sha256": keyed["sha256"],
+                "profile": rootfs_profile,
                 "device_path": remote_final,
                 "filesystem": "ext4",
-                "filesystem_label": staging.PHASE2_FILESYSTEM_LABEL,
+                "filesystem_label": filesystem_label,
                 "authorized_keys_root_owned_mode_0600": True,
                 "e2fsck_read_only_pass": True,
                 "materialization": summary_record,
@@ -419,14 +495,14 @@ def prepare_manifest(
     )
     support = [
         current_source_record(path.resolve())
-        for path in staging.REQUIRED_SUPPORT_FILES
+        for path in staging.required_support_files(rootfs_profile)
     ]
     manifest["rootfs_staging"] = {
         "adapter": {**adapter, "status": "reviewed-ready"},
         "transport": {**tcpctl, "scope": "exclusive-payload-only"},
         "support_files": support,
         "independent_review_passed": True,
-        "review_verdict": REVIEW_DECISION,
+        "review_verdict": "PASS_GO" if phase3 else REVIEW_DECISION,
         "implementation_ready_for_review": True,
         "part_of_future_f1_transaction": True,
         "must_follow_fresh_exact_approval": True,
@@ -523,9 +599,14 @@ def prepare_manifest(
     }
     approval_scope = manifest["approval_scope_template"]
     approval_scope.pop("bind_v3405_observer_contract", None)
+    approval_scope.pop("bind_phase2_materialization_receipt", None)
     approval_scope.update(
         {
-            "bind_phase2_materialization_receipt": True,
+            (
+                "bind_phase3_materialization_receipt"
+                if phase3
+                else "bind_phase2_materialization_receipt"
+            ): True,
             "bind_display_visible_confirmation_contract": True,
             "bind_keyed_rootfs_sha256": True,
             "bind_v3406_observer_contract": True,
@@ -551,9 +632,18 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
         private=True,
         expected_sha256=args.expect_keyed_summary_sha256,
     )
+    phase3 = (
+        summary.get("schema")
+        == "a90-phase3-network-ssh-keyed-rootfs-v1"
+    )
+    expected_summary_decision = (
+        "A90_PHASE3_NETWORK_SSH_KEYED_ROOTFS_HOST_PASS"
+        if phase3
+        else "A90_PHASE2D_KEYED_ROOTFS_HOST_PASS"
+    )
     if (
         summary.get("run_id") != args.run_id
-        or summary.get("decision") != "A90_PHASE2D_KEYED_ROOTFS_HOST_PASS"
+        or summary.get("decision") != expected_summary_decision
     ):
         raise ContractError("keyed summary does not select this run")
     template, template_record = load_exact_json(
@@ -593,7 +683,28 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
             "independent review report must be under docs/reports"
         ) from exc
     review_text = Path(review_record["path"]).read_text(encoding="utf-8")
-    validate_independent_review_report(review_text)
+    if phase3:
+        validate_phase3_independent_review_report(review_text)
+    else:
+        validate_independent_review_report(review_text)
+
+    expected_starting_version = (
+        staging.EXPECTED_RESIDENT_VERSION
+        if phase3
+        else staging.EXPECTED_BASELINE_VERSION
+    )
+    expected_starting_build = (
+        staging.EXPECTED_RESIDENT_BUILD
+        if phase3
+        else staging.EXPECTED_BASELINE_BUILD
+    )
+    health = connected_value.get("health")
+    if (
+        not isinstance(health, dict)
+        or health.get("version") != expected_starting_version
+        or health.get("version_build") != expected_starting_build
+    ):
+        raise ContractError("connected D0 starting native identity is not exact")
 
     candidate_source = CANDIDATE_SOURCE.resolve(strict=True)
     candidate_copy = copy_absent_private(
@@ -634,6 +745,8 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
             runner["size"],
             runner["sha256"],
         ),
+        expected_version=expected_starting_version,
+        expected_build=expected_starting_build,
         require_phase2_preflight=True,
     )
     staging.validate_path_preflight_evidence(
@@ -658,7 +771,11 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
         check=True,
     ).stdout.strip()
     host_preparation = {
-        "schema": "a90_phase2d_v3406_host_preparation_v1",
+        "schema": (
+            "a90_phase3_v3406_resident_refresh_host_preparation_v1"
+            if phase3
+            else "a90_phase2d_v3406_host_preparation_v1"
+        ),
         "timestamp_utc": utc_now(),
         "run_id": args.run_id,
         "status": PASS_DECISION,
@@ -770,6 +887,9 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         "validate_template_rollback(template)",
         "validate_connected_preflight_source(connected_value)",
         "validate_independent_review_report(review_text)",
+        "validate_phase3_independent_review_report(review_text)",
+        "staging.EXPECTED_RESIDENT_VERSION",
+        "staging.EXPECTED_RESIDENT_BUILD",
         "ROLLBACK_SOURCE,",
         "expected_size=ROLLBACK_SIZE",
         "expected_sha256=ROLLBACK_SHA256",

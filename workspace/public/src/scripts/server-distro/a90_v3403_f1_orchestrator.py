@@ -1916,6 +1916,34 @@ def require_f1_baseline(args: argparse.Namespace) -> dict[str, Any]:
     )
 
 
+def require_f1_starting_health(
+    spec: F1Spec,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    expected_version = getattr(
+        spec.stage,
+        "starting_version",
+        staging.EXPECTED_BASELINE_VERSION,
+    )
+    expected_build = getattr(
+        spec.stage,
+        "starting_build",
+        staging.EXPECTED_BASELINE_BUILD,
+    )
+    if (
+        expected_version == staging.EXPECTED_BASELINE_VERSION
+        and expected_build == staging.EXPECTED_BASELINE_BUILD
+    ):
+        return require_f1_baseline(args)
+    return staging.require_native_health(
+        args,
+        expected_version=expected_version,
+        expected_build=expected_build,
+        input_mode=F1_SERIAL_INPUT_MODE,
+        input_char_delay_sec=F1_SERIAL_INPUT_CHAR_DELAY_SEC,
+    )
+
+
 def _candidate_return_modemmanager_guard_inputs(
     spec: F1Spec,
 ) -> tuple[dict[str, str], str]:
@@ -4770,7 +4798,7 @@ def execute_approved_f1(
             run_id=spec.stage.run_id,
         )
         staging.require_exact_bridge(spec.stage, args)
-        require_f1_baseline(args)
+        require_f1_starting_health(spec, args)
         verify_local_closure(spec)
         source_preflight = remote_source_preflight(spec, args)
         append_record(
@@ -6238,7 +6266,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         "approved_bindings(spec, args, recovery=False)",
         "verify_local_closure(spec)",
         "validate_stage_result(spec)",
-        "require_f1_baseline(args)",
+        "require_f1_starting_health(spec, args)",
         "remote_source_preflight(spec, args)",
         '"candidate-transfer-started"',
         "flash_command(spec, args, rollback=False, from_native=True)",

@@ -50,6 +50,12 @@ FINAL_MANIFEST_STATUS = "ready-for-f1-approval"
 TARGET_PROFILE = "galaxy-a90-5g-native-init"
 EXPECTED_BASELINE_VERSION = "0.9.285"
 EXPECTED_BASELINE_BUILD = "v2321-usb-clean-identity-rodata"
+EXPECTED_RESIDENT_VERSION = "0.11.161"
+EXPECTED_RESIDENT_BUILD = "phase2-display-v1-native-handoff"
+ALLOWED_STARTING_IDENTITIES = {
+    (EXPECTED_BASELINE_VERSION, EXPECTED_BASELINE_BUILD),
+    (EXPECTED_RESIDENT_VERSION, EXPECTED_RESIDENT_BUILD),
+}
 REMOTE_ROOT = PurePosixPath("/mnt/sdext/a90/runtime")
 REMOTE_MOUNT = PurePosixPath("/mnt/sdext")
 REMOTE_WORK = REMOTE_ROOT / "d3-handoff-work.img"
@@ -65,7 +71,7 @@ REQUIRED_FS_TYPE = "ext4"
 PRIVATE_ROOT = REPO_ROOT / "workspace" / "private"
 PRIVATE_RUN_BASE = PRIVATE_ROOT / "runs" / "server-distro"
 PUBLIC_ROOT = REPO_ROOT / "workspace" / "public"
-REQUIRED_SUPPORT_FILES = (
+COMMON_SUPPORT_FILES = (
     SCRIPT_DIR / "run_d1_chroot_mvp.py",
     REVAL_DIR / "a90_transition_contract_v2.py",
     REVAL_DIR / "_workspace_bootstrap.py",
@@ -74,9 +80,12 @@ REQUIRED_SUPPORT_FILES = (
     REVAL_DIR / "a90_serial_lock.py",
     REVAL_DIR / "a90ctl.py",
     REVAL_DIR / "serial_tcp_bridge.py",
-    SCRIPT_DIR / "a90_phase2d_keyed_rootfs.py",
     SCRIPT_DIR / "a90_phase2d_display_observer.py",
     REPO_ROOT / "workspace" / "public" / "src" / "harness" / "a90harness" / "evidence.py",
+)
+REQUIRED_SUPPORT_FILES = (
+    *COMMON_SUPPORT_FILES,
+    SCRIPT_DIR / "a90_phase2d_keyed_rootfs.py",
 )
 PHASE2_KEYER_PATH = SCRIPT_DIR / "a90_phase2d_keyed_rootfs.py"
 PHASE2_CONNECTED_PREFLIGHT_PATH = (
@@ -114,6 +123,68 @@ PHASE2_ABSENT_RUNTIME_PATHS = (
     "/run/a90-display/presenter.log",
     "/run/a90-display/launcher.pid",
 )
+PHASE3_PROFILE = "phase3-network-ssh-v1"
+PHASE2_PROFILE = "phase2-display-v1"
+PHASE3_KEYER_PATH = (
+    SCRIPT_DIR / "a90_phase3_network_ssh_keyed_rootfs_v1.py"
+)
+PHASE3_CLEAN_IMAGE = (
+    PRIVATE_ROOT
+    / "outputs"
+    / "server-distro"
+    / "a90-phase3-network-ssh-v1-ab-05-20260803"
+    / "A"
+    / "phase3-network-ssh-v1.img"
+)
+PHASE3_CLEAN_RECEIPT = (
+    PRIVATE_ROOT
+    / "outputs"
+    / "server-distro"
+    / "a90-phase3-network-ssh-v1-ab-05-20260803"
+    / "ab-receipt.json"
+)
+PHASE3_CLEAN_IMAGE_SHA256 = (
+    "8c4167f66bd339d49bd31625cf419e3551930fa331e2964d544eaba96799d5bd"
+)
+PHASE3_CLEAN_RECEIPT_SHA256 = (
+    "93b644eaad41181bda40ad3e0a93a1c21e82447fe006ccffcbfd06bbf628a6bf"
+)
+PHASE3_MANIFEST_PATH = SCRIPT_DIR / "phase3_network_ssh_v1/manifest.toml"
+PHASE3_MANIFEST_SHA256 = (
+    "0a0ced3d0720db7bedb4ebcc42f98162a687d2a4d5d785b8cc123cae777ef9c7"
+)
+PHASE3_BUILDER_PATH = SCRIPT_DIR / "prepare_phase3_network_ssh_v1_rootfs.py"
+PHASE3_BUILDER_SHA256 = (
+    "3c15440d30e5cd14f320c6a1bc0d1639e89b0d878a8970284b5eb7bb58f87166"
+)
+PHASE2_BUILDER_PATH = SCRIPT_DIR / "prepare_phase2_display_v1_rootfs.py"
+PHASE2_BUILDER_SHA256 = (
+    "8b44e922aba9efdf8b6877c98d6d3395c4ec34a6d6d5e47247aa3c73d7b689a1"
+)
+PHASE3_SERVICE_PATH = (
+    SCRIPT_DIR / "phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh"
+)
+PHASE3_SERVICE_SHA256 = (
+    "b52b7306d928d0a7275af70f16ff44d578a8440260828343eefa2a204bdc8859"
+)
+PHASE3_FIRSTBOOT_PATH = (
+    SCRIPT_DIR / "phase3_network_ssh_v1/a90_debian_return_arm_v1.sh"
+)
+PHASE3_FIRSTBOOT_SHA256 = (
+    "e83ede7fb430de98881ff7b9d18e8127bfc8bc19e4707d9ccf78410ac555faf3"
+)
+PHASE3_FILESYSTEM_LABEL = "PHASE3NETSSHV1"
+PHASE3_ABSENT_RUNTIME_PATHS = (
+    "/etc/dropbear/dropbear_ed25519_host_key",
+    "/run/a90-d3-return-supervisor.pid",
+    "/run/a90-services/ready",
+    "/run/a90-services/failure",
+    "/run/a90-native-display-release",
+    "/run/a90-display/ready",
+    "/run/a90-display/failure",
+    "/run/a90-display/presenter.log",
+    "/run/a90-display/launcher.pid",
+)
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 RUN_ID_RE = re.compile(
     r"^a90-(?P<cycle>v3403|v3404|v3405|v3406)-"
@@ -121,6 +192,11 @@ RUN_ID_RE = re.compile(
     r"(?P<suffix>[0-9]{8}-[0-9]{2})$"
 )
 PSTORE_ZERO_RE = re.compile(r"^pstore=[^\r\n]*\bentries=0\b", re.MULTILINE)
+SELFTEST_FACT_RE = re.compile(
+    r"^selftest: pass=(?P<pass>[0-9]+) warn=(?P<warn>[0-9]+) "
+    r"fail=0 duration=(?P<duration>[0-9]+)ms entries=(?P<entries>[1-9][0-9]*)$"
+)
+PSTORE_FACT_RE = re.compile(r"^pstore=[^\r\n]*\bentries=0\b[^\r\n]*$")
 D0_RESULT_SCHEMA = "a90-v3403-connected-d0-v1"
 D0_RESULT_OUTCOME = (
     "PASS_A90_V3403_CONNECTED_READ_ONLY_AWAITING_STAGING_CONTRACT_AND_F1_MANIFEST"
@@ -155,6 +231,16 @@ STAGE_STEPS = (
     "remove_stage_dir",
     "complete",
 )
+
+
+def required_support_files(rootfs_profile: str) -> tuple[Path, ...]:
+    if rootfs_profile == PHASE2_PROFILE:
+        keyer = PHASE2_KEYER_PATH
+    elif rootfs_profile == PHASE3_PROFILE:
+        keyer = PHASE3_KEYER_PATH
+    else:
+        raise ContractError("unsupported keyed-rootfs profile")
+    return (*COMMON_SUPPORT_FILES, keyer)
 
 
 class ContractError(RuntimeError):
@@ -244,6 +330,9 @@ class StageSpec:
     tcpctl_host_size: int
     tcpctl_host_sha256: str
     bound_files: tuple[BoundFile, ...]
+    rootfs_profile: str = PHASE2_PROFILE
+    starting_version: str = EXPECTED_BASELINE_VERSION
+    starting_build: str = EXPECTED_BASELINE_BUILD
 
 
 @dataclass
@@ -661,6 +750,166 @@ def validate_phase2_keyed_materialization(
     return materialization
 
 
+def validate_phase3_keyed_materialization(
+    *,
+    run_id: str,
+    run_root: Path,
+    keyed_value: dict[str, Any],
+    local_image: Path,
+    local_size: int,
+    local_sha256: str,
+    observer: dict[str, Any],
+) -> BoundFile:
+    materialization = _bound_file(
+        keyed_value.get("materialization"),
+        "debian_rootfs.keyed_source.materialization",
+    )
+    require_below(materialization.path, PRIVATE_ROOT, materialization.label)
+    if materialization.path.parent != run_root:
+        raise ContractError(
+            "Phase 3 materialization receipt must be inside the run directory"
+        )
+    summary = load_bound_json(materialization)
+    source = _dict(summary.get("source"), "Phase 3 keyed summary source")
+    materializer = _dict(
+        summary.get("materializer"),
+        "Phase 3 keyed summary materializer",
+    )
+    keyed = _dict(summary.get("keyed_image"), "Phase 3 keyed summary image")
+    authorized = _dict(
+        keyed.get("authorized_keys"),
+        "Phase 3 keyed summary authorized_keys",
+    )
+    summary_observer = _dict(
+        summary.get("observer"),
+        "Phase 3 keyed summary observer",
+    )
+    expected_materializer = PHASE3_KEYER_PATH.resolve(strict=True)
+    clean_image = PHASE3_CLEAN_IMAGE.resolve(strict=True)
+    clean_receipt = PHASE3_CLEAN_RECEIPT.resolve(strict=True)
+    manifest_path = PHASE3_MANIFEST_PATH.resolve(strict=True)
+    builder_path = PHASE3_BUILDER_PATH.resolve(strict=True)
+    phase2_builder_path = PHASE2_BUILDER_PATH.resolve(strict=True)
+    local_info = local_image.lstat()
+    clean_info = clean_image.lstat()
+    private_key_input = Path(observer.get("private_key_path", ""))
+    if private_key_input.is_symlink():
+        raise ContractError("Phase 3 observer private key must not be a symbolic link")
+    private_key = private_key_input.resolve(strict=True)
+    public_key = private_key.with_suffix(private_key.suffix + ".pub")
+    if (
+        summary.get("schema") != "a90-phase3-network-ssh-keyed-rootfs-v1"
+        or summary.get("decision")
+        != "A90_PHASE3_NETWORK_SSH_KEYED_ROOTFS_HOST_PASS"
+        or summary.get("run_id") != run_id
+        or materializer.get("path") != str(expected_materializer)
+        or materializer.get("size") != expected_materializer.stat().st_size
+        or materializer.get("sha256") != sha256_file(expected_materializer)
+        or source.get("path") != str(clean_image)
+        or source.get("size") != PHASE2_IMAGE_BYTES
+        or source.get("sha256") != PHASE3_CLEAN_IMAGE_SHA256
+        or source.get("inode") != clean_info.st_ino
+        or source.get("device") != clean_info.st_dev
+        or source.get("receipt_path") != str(clean_receipt)
+        or source.get("receipt_sha256") != PHASE3_CLEAN_RECEIPT_SHA256
+        or source.get("manifest_path") != str(manifest_path)
+        or source.get("manifest_sha256") != PHASE3_MANIFEST_SHA256
+        or source.get("builder_path") != str(builder_path)
+        or source.get("builder_sha256") != PHASE3_BUILDER_SHA256
+        or source.get("phase2_builder_path") != str(phase2_builder_path)
+        or source.get("phase2_builder_sha256") != PHASE2_BUILDER_SHA256
+        or source.get("unchanged") is not True
+        or keyed.get("path") != str(local_image)
+        or keyed.get("size") != PHASE2_IMAGE_BYTES
+        or keyed.get("size") != local_size
+        or keyed.get("sha256") != local_sha256
+        or keyed.get("inode") != local_info.st_ino
+        or keyed.get("device") != local_info.st_dev
+        or keyed.get("new_inode") is not True
+        or (local_info.st_dev, local_info.st_ino)
+        == (clean_info.st_dev, clean_info.st_ino)
+        or keyed.get("filesystem") != "ext4"
+        or keyed.get("filesystem_label") != PHASE3_FILESYSTEM_LABEL
+        or keyed.get("retained_service_sha256") != PHASE3_SERVICE_SHA256
+        or keyed.get("retained_firstboot_sha256") != PHASE3_FIRSTBOOT_SHA256
+        or keyed.get("e2fsck_read_only_rc") != 0
+        or keyed.get("runtime_paths_absent")
+        != list(PHASE3_ABSENT_RUNTIME_PATHS)
+        or authorized.get("target") != PHASE2_AUTHORIZED_KEYS
+        or authorized.get("mode") != 0o600
+        or authorized.get("uid") != 0
+        or authorized.get("gid") != 0
+        or authorized.get("size") != public_key.stat().st_size
+        or authorized.get("root_owned_mode_0600") is not True
+        or authorized.get("sha256") != observer.get("public_key_sha256")
+        or summary_observer.get("private_key_path") != str(private_key)
+        or summary_observer.get("private_key_sha256")
+        != sha256_file(private_key)
+        or summary_observer.get("public_key_path") != str(public_key)
+        or summary_observer.get("public_key_sha256")
+        != observer.get("public_key_sha256")
+        or summary_observer.get("algorithm") != "ssh-ed25519"
+        or summary_observer.get("single_run") is not True
+        or any(
+            summary.get(name) is not False
+            for name in (
+                "candidate_authority",
+                "d1_authorized",
+                "f1_authorized",
+                "live_authority",
+                "device_contact",
+                "device_write",
+                "rootfs_staged",
+                "flash",
+                "reboot",
+            )
+        )
+    ):
+        raise ContractError("Phase 3 keyed-rootfs summary is not exact")
+    for path, size, digest in (
+        (clean_image, PHASE2_IMAGE_BYTES, PHASE3_CLEAN_IMAGE_SHA256),
+        (clean_receipt, clean_receipt.stat().st_size, PHASE3_CLEAN_RECEIPT_SHA256),
+        (manifest_path, manifest_path.stat().st_size, PHASE3_MANIFEST_SHA256),
+        (builder_path, builder_path.stat().st_size, PHASE3_BUILDER_SHA256),
+        (
+            phase2_builder_path,
+            phase2_builder_path.stat().st_size,
+            PHASE2_BUILDER_SHA256,
+        ),
+    ):
+        require_regular_file(path, expected_size=size, expected_sha256=digest)
+    validate_phase2_key_material_pair(private_key, public_key)
+    public_bytes = public_key.read_bytes()
+    if (
+        public_bytes.count(b"\n") != 1
+        or _debugfs_cat(local_image, PHASE2_AUTHORIZED_KEYS) != public_bytes
+        or _debugfs_stat(local_image, PHASE2_AUTHORIZED_KEYS)
+        != {
+            "mode": 0o600,
+            "uid": 0,
+            "gid": 0,
+            "size": len(public_bytes),
+        }
+        or _ext4_label(local_image) != PHASE3_FILESYSTEM_LABEL
+        or hashlib.sha256(
+            _debugfs_cat(local_image, "/usr/local/sbin/a90-debian-network-ssh-v1")
+        ).hexdigest()
+        != PHASE3_SERVICE_SHA256
+        or hashlib.sha256(
+            _debugfs_cat(local_image, "/etc/a90-d3-firstboot")
+        ).hexdigest()
+        != PHASE3_FIRSTBOOT_SHA256
+        or any(
+            _debugfs_stat(local_image, path) is not None
+            for path in PHASE3_ABSENT_RUNTIME_PATHS
+        )
+    ):
+        raise ContractError(
+            "Phase 3 keyed image content does not match its exact closure"
+        )
+    return materialization
+
+
 def json_sha256(value: Any) -> str:
     encoded = json.dumps(
         value,
@@ -831,6 +1080,8 @@ def validate_connected_d0_evidence(
     candidate: BoundFile,
     rollback: BoundFile,
     flash_runner: BoundFile,
+    expected_version: str = EXPECTED_BASELINE_VERSION,
+    expected_build: str = EXPECTED_BASELINE_BUILD,
     require_phase2_preflight: bool = False,
 ) -> None:
     target = _dict(value.get("target"), "connected D0 target")
@@ -861,8 +1112,8 @@ def validate_connected_d0_evidence(
     if (
         health.get("bridge_exact") is not True
         or health.get("bridge_running") is not True
-        or health.get("version") != EXPECTED_BASELINE_VERSION
-        or health.get("version_build") != EXPECTED_BASELINE_BUILD
+        or health.get("version") != expected_version
+        or health.get("version_build") != expected_build
         or health.get("pstore_entries") != 0
         or selftest.get("fail") != 0
     ):
@@ -1019,6 +1270,14 @@ def stage_spec_from_manifest(
     target = _dict(manifest.get("target"), "target")
     if target.get("profile") != TARGET_PROFILE:
         raise ContractError("target profile mismatch")
+    starting_version = target.get("current_version")
+    starting_build = target.get("current_build")
+    if (
+        not isinstance(starting_version, str)
+        or not isinstance(starting_build, str)
+        or (starting_version, starting_build) not in ALLOWED_STARTING_IDENTITIES
+    ):
+        raise ContractError("target starting native identity is not exact")
     bridge_device = target.get("bridge_device")
     bridge_realpath = target.get("bridge_selected_realpath")
     if not isinstance(bridge_device, str) or not bridge_device.startswith(
@@ -1050,12 +1309,28 @@ def stage_spec_from_manifest(
         raise ContractError("keyed rootfs size must be positive")
     local_sha = validate_sha256(keyed.get("sha256"), "keyed rootfs sha256")
     remote_final = validate_remote_final(keyed.get("device_path"), run_id)
+    rootfs_profile = keyed.get("profile", PHASE2_PROFILE)
+    if rootfs_profile not in {PHASE2_PROFILE, PHASE3_PROFILE}:
+        raise ContractError("keyed rootfs profile is not supported")
+    if (
+        rootfs_profile == PHASE3_PROFILE
+        and (starting_version, starting_build)
+        != (EXPECTED_RESIDENT_VERSION, EXPECTED_RESIDENT_BUILD)
+    ):
+        raise ContractError(
+            "Phase 3 keyed rootfs requires the exact V3406 resident start"
+        )
     keyed_materialization: BoundFile | None = None
     if cycle == "v3406":
         if local_size != PHASE2_IMAGE_BYTES:
             raise ContractError("V3406 keyed rootfs must be exactly 2 GiB")
         try:
-            keyed_materialization = validate_phase2_keyed_materialization(
+            validator = (
+                validate_phase2_keyed_materialization
+                if rootfs_profile == PHASE2_PROFILE
+                else validate_phase3_keyed_materialization
+            )
+            keyed_materialization = validator(
                 run_id=run_id,
                 run_root=run_root,
                 keyed_value=keyed,
@@ -1068,7 +1343,7 @@ def stage_spec_from_manifest(
             if not allow_draft:
                 raise
             issues.append(
-                f"Phase 2 keyed materialization is not final: {exc}"
+                f"{rootfs_profile} keyed materialization is not final: {exc}"
             )
     elif keyed.get("materialization") is not None:
         raise ContractError(
@@ -1124,7 +1399,8 @@ def stage_spec_from_manifest(
         for index, item in enumerate(support_value)
     )
     expected_support_paths = {
-        path.resolve(strict=True) for path in REQUIRED_SUPPORT_FILES
+        path.resolve(strict=True)
+        for path in required_support_files(rootfs_profile)
     }
     actual_support_paths = {item.path for item in support_files}
     if actual_support_paths != expected_support_paths:
@@ -1192,6 +1468,8 @@ def stage_spec_from_manifest(
                 candidate=candidate,
                 rollback=rollback,
                 flash_runner=flash_runner,
+                expected_version=starting_version,
+                expected_build=starting_build,
                 require_phase2_preflight=cycle == "v3406",
             ),
         ),
@@ -1237,6 +1515,9 @@ def stage_spec_from_manifest(
         tcpctl_host=tcpctl_path,
         tcpctl_host_size=tcpctl_size_value,
         tcpctl_host_sha256=tcpctl_sha,
+        rootfs_profile=rootfs_profile,
+        starting_version=starting_version,
+        starting_build=starting_build,
         bound_files=(
             connected_d0,
             connected_paths,
@@ -1679,7 +1960,11 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             'if cycle == "v3406":',
             "selected_manifest_schema(manifest, run_id)",
             "local_size != PHASE2_IMAGE_BYTES",
-            "validate_phase2_keyed_materialization(",
+            "validate_phase2_keyed_materialization",
+            "validate_phase3_keyed_materialization",
+            "required_support_files(rootfs_profile)",
+            "(starting_version, starting_build) not in ALLOWED_STARTING_IDENTITIES",
+            "Phase 3 keyed rootfs requires the exact V3406 resident start",
             "elif keyed.get(\"materialization\") is not None:",
             "*((keyed_materialization,) if keyed_materialization else ())",
         ):
@@ -1698,7 +1983,9 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             "verify_local_closure(spec)",
             "host_ncm = require_host_ncm_ready(",
             "require_exact_bridge(spec, args)",
-            "require_baseline(args)",
+            "require_native_health(",
+            "expected_version=spec.starting_version",
+            "expected_build=spec.starting_build",
             "remote_readonly_preflight_script(spec)",
             '"stage-reserve-start"',
             "remote_reserve_script(spec)",
@@ -1774,12 +2061,16 @@ def run_remote(args: argparse.Namespace, script: str, *, allow_error: bool = Fal
     )
 
 
-def require_baseline(
+def require_native_health(
     args: argparse.Namespace,
     *,
+    expected_version: str,
+    expected_build: str,
     input_mode: str | None = None,
     input_char_delay_sec: float | None = None,
 ) -> dict[str, Any]:
+    if (expected_version, expected_build) not in ALLOWED_STARTING_IDENTITIES:
+        raise ContractError("native starting identity is not an exact allowed A90 image")
     version = d1.run_cmd(
         args.bridge_host,
         args.bridge_port,
@@ -1804,16 +2095,98 @@ def require_baseline(
         input_mode=input_mode,
         input_char_delay_sec=input_char_delay_sec,
     )
-    version_text = str(version.get("text") or "")
-    status_text = str(status_result.get("text") or "")
-    selftest_text = str(selftest.get("text") or "")
-    if EXPECTED_BASELINE_VERSION not in version_text or EXPECTED_BASELINE_BUILD not in version_text:
-        raise ContractError("resident A90 is not the exact V2321 baseline")
-    if "fail=0" not in selftest_text:
-        raise ContractError("resident A90 selftest is not fail=0")
-    if PSTORE_ZERO_RE.search(status_text) is None:
-        raise ContractError("resident A90 pstore health is not exact zero")
+    validate_native_health_receipts(
+        {"version": version, "status": status_result, "selftest": selftest},
+        expected_version=expected_version,
+        expected_build=expected_build,
+    )
     return {"version": version, "status": status_result, "selftest": selftest}
+
+
+def validate_native_health_receipts(
+    health: dict[str, Any],
+    *,
+    expected_version: str,
+    expected_build: str,
+) -> dict[str, int]:
+    receipts = (
+        ("version", health.get("version")),
+        ("status", health.get("status")),
+        ("selftest", health.get("selftest")),
+    )
+    parsed: dict[str, dict[str, Any]] = {}
+    exact_keys = {"command", "rc", "status", "trust", "begin", "end", "text"}
+    for command, value in receipts:
+        if not isinstance(value, dict):
+            raise ContractError(f"native {command} receipt is not exact")
+        if (
+            set(value) != exact_keys
+            or value.get("command") != [command]
+            or type(value.get("rc")) is not int
+            or value.get("rc") != 0
+            or value.get("status") != "ok"
+            or not isinstance(value.get("text"), str)
+        ):
+            raise ContractError(f"native {command} receipt is not exact")
+        parsed[command] = value
+
+    expected_version_line = f"version: {expected_version} build={expected_build}"
+    version_facts = [
+        line
+        for line in parsed["version"]["text"].splitlines()
+        if line.startswith("version: ")
+    ]
+    selftest_facts = [
+        line
+        for line in parsed["selftest"]["text"].splitlines()
+        if line.startswith("selftest: ")
+    ]
+    pstore_facts = [
+        line
+        for line in parsed["status"]["text"].splitlines()
+        if line.startswith("pstore=")
+    ]
+    selftest_match = (
+        SELFTEST_FACT_RE.fullmatch(selftest_facts[0])
+        if len(selftest_facts) == 1
+        else None
+    )
+    pstore_entry_values = (
+        re.findall(r"\bentries=([0-9]+)\b", pstore_facts[0])
+        if len(pstore_facts) == 1
+        else []
+    )
+    if (
+        version_facts != [expected_version_line]
+        or selftest_match is None
+        or len(pstore_facts) != 1
+        or PSTORE_FACT_RE.fullmatch(pstore_facts[0]) is None
+        or pstore_entry_values != ["0"]
+    ):
+        raise ContractError("native starting health facts are not exact")
+    return {
+        "pass": int(selftest_match.group("pass")),
+        "warn": int(selftest_match.group("warn")),
+        "fail": 0,
+        "duration_ms": int(selftest_match.group("duration")),
+        "entries": int(selftest_match.group("entries")),
+        "pstore_entries": 0,
+    }
+
+
+def require_baseline(
+    args: argparse.Namespace,
+    *,
+    input_mode: str | None = None,
+    input_char_delay_sec: float | None = None,
+) -> dict[str, Any]:
+    return require_native_health(
+        args,
+        expected_version=EXPECTED_BASELINE_VERSION,
+        expected_build=EXPECTED_BASELINE_BUILD,
+        input_mode=input_mode,
+        input_char_delay_sec=input_char_delay_sec,
+    )
 
 
 def require_exact_bridge(spec: StageSpec, args: argparse.Namespace) -> dict[str, Any]:
@@ -2059,15 +2432,19 @@ def execute_approved_stage(
         spec.bridge_realpath,
     )
     exact_bridge = require_exact_bridge(spec, args)
-    baseline = require_baseline(args)
+    baseline = require_native_health(
+        args,
+        expected_version=spec.starting_version,
+        expected_build=spec.starting_build,
+    )
     readonly = run_remote(args, remote_readonly_preflight_script(spec))
     record(
         "connected-preflight",
         {
             "exact_bridge": True,
             "bridge_selected_realpath": exact_bridge.get("selected_realpath"),
-            "baseline_version": EXPECTED_BASELINE_VERSION,
-            "baseline_build": EXPECTED_BASELINE_BUILD,
+            "baseline_version": spec.starting_version,
+            "baseline_build": spec.starting_build,
             "selftest_fail_zero": True,
             "host_ncm": host_ncm,
             "remote_preflight": readonly,
@@ -2125,7 +2502,11 @@ def execute_approved_stage(
         publish = run_remote(args, remote_publish_script(spec))
         published = True
         record("published", {"record": publish})
-        require_baseline(args)
+        require_native_health(
+            args,
+            expected_version=spec.starting_version,
+            expected_build=spec.starting_build,
+        )
         result = {
             "schema": ADAPTER_SCHEMA,
             "run_id": spec.run_id,
@@ -2150,8 +2531,8 @@ def execute_approved_stage(
                 "userdata_touched": False,
             },
             "final_health": {
-                "version": EXPECTED_BASELINE_VERSION,
-                "build": EXPECTED_BASELINE_BUILD,
+                "version": spec.starting_version,
+                "build": spec.starting_build,
                 "selftest_fail_zero": True,
             },
         }
