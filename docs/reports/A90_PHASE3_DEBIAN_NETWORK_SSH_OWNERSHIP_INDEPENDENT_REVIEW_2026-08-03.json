@@ -1,0 +1,240 @@
+{
+  "schema": "a90-phase3-debian-network-ssh-ownership-independent-review-v1",
+  "review_date": "2026-08-03",
+  "target": "Samsung Galaxy A90 5G only",
+  "risk_tier": "H0",
+  "capability": "A90_PHASE3_DEBIAN_NETWORK_SSH_OWNERSHIP_V1",
+  "status": "PASS_GO",
+  "decision": "The exact host-only Phase 3 closure qualifies Debian sysvinit ownership of the bounded NCM and key-only Dropbear bootstrap while retaining the exact automatic-return and display-ordering contracts. It does not prove live Phase 3 execution or grant device authority.",
+  "reviewed_base_commit": "ee4bef57982ea171f63bd6bcbaeb9516a8d30b58",
+  "reviewed_base_tree": "13e813b65e0f89caedecb6d2ba6282e44a73ce86",
+  "governing_contracts": {
+    "AGENTS.md": {
+      "bytes": 13903,
+      "sha256": "939792d4d9b542d334af2bc3e5f5495b7ca61d717872f3463effcdf23d3453ae"
+    },
+    "docs/operations/targets/A90_TARGET_CONTRACT.md": {
+      "bytes": 14103,
+      "sha256": "ce783c3f8b20188c6977fa4d2f4e72cd1a564e31cb20e5dc4dcd62fc609227fc"
+    },
+    "GOAL_A90.md": {
+      "bytes": 42263,
+      "sha256": "ec10c0367f3e4b46e6be855cf41b2a53ef5c51acace65ab24ef0dcf46df44391"
+    }
+  },
+  "execution_critical_source_keys": {
+    "return_arm_firstboot": {
+      "path": "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_return_arm_v1.sh",
+      "bytes": 1187,
+      "sha256": "e83ede7fb430de98881ff7b9d18e8127bfc8bc19e4707d9ccf78410ac555faf3"
+    },
+    "debian_network_ssh_service": {
+      "path": "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh",
+      "bytes": 10126,
+      "sha256": "b52b7306d928d0a7275af70f16ff44d578a8440260828343eefa2a204bdc8859"
+    },
+    "sysvinit_order": {
+      "path": "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/inittab",
+      "bytes": 253,
+      "sha256": "b5cf75145bf87bd7a96fd8d953413e0e9fb3ebaf62c2ac76e7c7050e2083a9ec"
+    },
+    "stage_contract": {
+      "path": "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90-server-distro-stage",
+      "bytes": 506,
+      "sha256": "ee008742dbe031119b9d41cae40d47291c0c75577417354cbe93a992d6e28512"
+    },
+    "phase3_manifest": {
+      "path": "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/manifest.toml",
+      "bytes": 2962,
+      "sha256": "0a0ced3d0720db7bedb4ebcc42f98162a687d2a4d5d785b8cc123cae777ef9c7"
+    },
+    "phase3_rootfs_builder": {
+      "path": "workspace/public/src/scripts/server-distro/prepare_phase3_network_ssh_v1_rootfs.py",
+      "bytes": 25978,
+      "sha256": "3c15440d30e5cd14f320c6a1bc0d1639e89b0d878a8970284b5eb7bb58f87166"
+    },
+    "retained_phase2_rootfs_builder": {
+      "path": "workspace/public/src/scripts/server-distro/prepare_phase2_display_v1_rootfs.py",
+      "bytes": 28143,
+      "sha256": "8b44e922aba9efdf8b6877c98d6d3395c4ec34a6d6d5e47247aa3c73d7b689a1"
+    },
+    "retained_return_builder": {
+      "path": "workspace/public/src/scripts/server-distro/prepare_d3_return_diagnostic_v3405.py",
+      "bytes": 33438,
+      "sha256": "fec5e2582eae5942b209c7517ebe952127e83257fe2e98e34690dc4154880d31"
+    },
+    "retained_return_supervisor_source": {
+      "path": "workspace/public/src/scripts/server-distro/a90_d3_return_supervisor_v3405.c",
+      "bytes": 21224,
+      "sha256": "dc4fae13984d458f512d9b5f88239c7e9b68cfcff29ec64d8857474a1a49e8bb"
+    },
+    "phase2_display_native_handoff_manifest": {
+      "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase2-display-v1/manifest.toml",
+      "bytes": 5486,
+      "sha256": "9dcdadc467c6a9951a072c234bccdbbd4cce427c2c6c801a31807488b60a04a0"
+    }
+  },
+  "review_validation_source_keys": {
+    "focused_tests": {
+      "path": "tests/test_a90_phase3_network_ssh_v1.py",
+      "bytes": 7168,
+      "sha256": "f23376ce0fdfc8cfc24fa160bd99b2821935fc4c7e15dfaa09358a17b8918b88"
+    },
+    "flat_builder": {
+      "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py",
+      "bytes": 23087,
+      "sha256": "d23a48fb560e8544305976d4fa62202064dc6c2ed558971d18a0031f5ed56bc2"
+    },
+    "flat_builder_library": {
+      "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/buildlib.py",
+      "bytes": 24258,
+      "sha256": "52646a471ff46520e9ece5374cac2f8a8f0239fa2fbc221c54d690f415030a5d"
+    }
+  },
+  "phase2_base_binding": {
+    "image_path": "workspace/private/outputs/server-distro/a90-phase2-display-v1-ab-08-20260801/A/phase2-display-v1.img",
+    "image_bytes": 2147483648,
+    "image_sha256": "88152ef1150fc98765eed7c3f196ab9ef8a325d4cc5f74222e45949b089950c2",
+    "receipt_path": "workspace/private/outputs/server-distro/a90-phase2-display-v1-ab-08-20260801/ab-receipt.json",
+    "receipt_bytes": 8736,
+    "receipt_sha256": "8d8a4e017e171523b3a8236ad977201bdb1c1a26458084725c302e1292b09f84",
+    "receipt_semantics": {
+      "schema": "a90-phase2-display-v1-ab-receipt",
+      "profile": "phase2-display-v1",
+      "candidate_authority": false,
+      "host_only": true,
+      "device_action": false,
+      "flash": false,
+      "image_byte_identical": true,
+      "source_unchanged": true
+    },
+    "retained_runtime_artifacts": {
+      "return_supervisor": {
+        "bytes": 785432,
+        "sha256": "d52f09dc0ed1622550d9bc1ea0b486d4e7ec874b99f9ea7cccae3d3822f2fb4c"
+      },
+      "display_presenter": {
+        "bytes": 663376,
+        "sha256": "35e6a18d50c73ef14b2309124d4dbe7f1cd0607f525afd992e6a6334c55dd583"
+      },
+      "display_launcher": {
+        "bytes": 755,
+        "sha256": "9b54d1e0e62b85a2bb74af7385c3179dbdcc30a77f6bb6e2df25662518e444b7"
+      }
+    }
+  },
+  "qualification": {
+    "receipt_path": "workspace/private/outputs/server-distro/a90-phase3-network-ssh-v1-ab-05-20260803/ab-receipt.json",
+    "receipt_bytes": 3770,
+    "receipt_sha256": "93b644eaad41181bda40ad3e0a93a1c21e82447fe006ccffcbfd06bbf628a6bf",
+    "supersedes": [
+      "a90-phase3-network-ssh-v1-ab-01-20260803",
+      "a90-phase3-network-ssh-v1-ab-02-20260803",
+      "a90-phase3-network-ssh-v1-ab-03-20260803",
+      "a90-phase3-network-ssh-v1-ab-04-20260803"
+    ],
+    "manifest_sha256": "0a0ced3d0720db7bedb4ebcc42f98162a687d2a4d5d785b8cc123cae777ef9c7",
+    "A_image": {
+      "bytes": 2147483648,
+      "sha256": "8c4167f66bd339d49bd31625cf419e3551930fa331e2964d544eaba96799d5bd",
+      "e2fsck_read_only_rc": 0
+    },
+    "B_image": {
+      "bytes": 2147483648,
+      "sha256": "8c4167f66bd339d49bd31625cf419e3551930fa331e2964d544eaba96799d5bd",
+      "e2fsck_read_only_rc": 0
+    },
+    "A_B_byte_identical": true,
+    "base_unchanged": true,
+    "source_unchanged": true,
+    "candidate_authority": false,
+    "device_action": false,
+    "flash": false
+  },
+  "reviewed_semantics": {
+    "return_before_service_effect": "The sysvinit sysinit action calls the exact retained supervisor with fixed bounded arm parameters, waits for its ready handshake, validates its numeric PID, and only then validates Debian PID1 and publishes the return marker. It contains no delegated service effect.",
+    "debian_pid1_ownership": "Both the return-arm action and service require /proc/1/exe to resolve exactly to /usr/sbin/init. Their sysvinit placement makes Debian init the service-sequencing owner.",
+    "display_order": "The exact inittab is sysinit return-arm, runlevel-2 wait network/SSH bootstrap, then one bounded retained display launcher. Display stays the exact retained Phase 2 direct-DRM component.",
+    "bounded_ncm": "Before mutation, the service permits only absent or exact manifest-bound address and peer-route state and records whether the link was down. It introduces only missing exact state, verifies exactly one address and route with bounded commands, and rejects conflicts or malformed observations.",
+    "key_only_dropbear": "Dropbear disables password login and local and remote forwarding, binds only the manifest-selected NCM listener, and runs in foreground mode as the bootstrap shell's exact background child.",
+    "listener_process_health": "Shell child PID, pidfile PID, live executable identity, one listener endpoint, and ss process-owner PID must all agree. The pidfile must equal the launched child and the listener owner must name that PID.",
+    "failure_cleanup": "After dispatch, cleanup sends TERM, performs bounded process/listener disappearance checks, escalates to guarded KILL and another bounded check, and records observer errors as failure. Listener state distinguishes exact owner present, endpoint absent, observer error, and an unowned or other-owner endpoint. Completion requires both the reviewed process absent and endpoint absent; another listener is not killed and makes cleanup fail. Cleanup then reverses only introduced route, address, and link-up effects with fail-closed readback, removes and verifies a newly generated host key, and publishes every cleanup result in the atomic failure marker.",
+    "automatic_return": "The exact retained supervisor is armed before service work and remains terminal recovery. Current source independently cross-compiled byte-identically to the retained static AArch64 binary and its focused bounded b-only fallback tests passed.",
+    "success_marking": "The ready marker is atomically published only after PID1, exact NCM state, child/pidfile/executable identity, exact listener, listener ownership, and key-only policy checks pass. Failure has a distinct atomic marker."
+  },
+  "runtime_mutation_and_credential_semantics": {
+    "clean_image": "Both exact A/B images contain no authorized_keys, Dropbear host key, service ready/failure marker, native display release marker, or display ready/failure marker.",
+    "missing_authorized_keys": "Missing, empty, symlinked, or non-root-owned/non-0600 authorized_keys fails before host-key generation and before any NCM effect.",
+    "host_key": "A symlinked host key is rejected. An absent or empty key is generated only after authorized-key and NCM-prestate checks. A newly generated key persists only after successful bootstrap; later failure removes and verifies it. A pre-existing exact-metadata key is not deleted by this action.",
+    "runtime_state": "PID, log, ready/failure, and cleanup-state records are runtime-only under the selected Debian root and are not present in the deterministic clean image.",
+    "credential_materialization": "No credential bytes are contained or qualified. Future private authorized-key materialization changes rootfs identity and requires its own exact qualification and then-current execution binding."
+  },
+  "phase2_flat_manifest_correction": {
+    "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase2-display-v1/manifest.toml",
+    "sha256": "9dcdadc467c6a9951a072c234bccdbbd4cce427c2c6c801a31807488b60a04a0",
+    "previous_stale_closure_sha256": "93bcdd4c78c004421d217acfd15ed66f9037560024d896e43c179087c9a56774",
+    "current_expanded_closure_sha256": "a348fe428484a6feec9780ce09c4f38382149d2990e3e4a818f32a76462ab9e3",
+    "independent_buildlib_expansion_match": true,
+    "candidate_authority": false,
+    "change_scope": "Only the recorded closure digest changed. No build flag, selected source list, native source byte, artifact, or authority field changed in this correction."
+  },
+  "review_findings_closed_before_decision": [
+    {
+      "finding": "The first draft checked listener and process separately.",
+      "closure": "Foreground child, pidfile, executable, endpoint, and listener-owner PID are now one exact health predicate."
+    },
+    {
+      "finding": "The first cleanup draft lacked verified process and NCM restoration, and a later draft treated cleanup observer errors as absence.",
+      "closure": "Current closure provides bounded TERM/KILL verification, reverse-order introduced-state restoration, explicit observer-error branches, malformed-link rejection, verified host-key and pidfile cleanup, and durable cleanup fields."
+    },
+    {
+      "finding": "One cleanup draft treated a nonempty endpoint owned by another process as endpoint absence.",
+      "closure": "The final four-state listener predicate completes only on actual endpoint absence; another listener is preserved but causes cleanup failure."
+    }
+  ],
+  "validation": {
+    "phase3_focused_tests": "9/9 PASS",
+    "retained_phase2_display_tests": "9/9 PASS",
+    "retained_return_supervisor_tests": "17/17 PASS",
+    "flat_builder_tests": "28/28 PASS",
+    "python_py_compile": "PASS",
+    "dash_syntax": "2/2 PASS",
+    "phase3_audit_only": "PASS",
+    "phase2_flat_expanded_closure_audit": "PASS",
+    "A_B_cmp": "PASS",
+    "A_B_e2fsck_read_only": "2/2 PASS",
+    "A_B_overlay_and_runtime_absence_audit": "PASS",
+    "retained_supervisor_source_to_binary": "byte-identical PASS",
+    "git_diff_check": "PASS"
+  },
+  "scope_limits": [
+    "This qualifies only the exact A90 host-side rootfs capability and named retained closure; it is not proof that Phase 3 ran on a device.",
+    "No credential or keyed image is included. The clean A/B rootfs cannot provide SSH until separately controlled private key materialization is qualified.",
+    "The ready marker is one bounded bootstrap-time health point; this closure adds no long-running monitor, respawn loop, or live SSH authentication proof.",
+    "The retained Phase 2 display presenter and V3405 return supervisor are not broadened beyond their exact identities.",
+    "The A/B output is private H0 evidence, not a candidate, staging packet, approval, or runner binding.",
+    "No S22+ profile, command, evidence, artifact, rollback, or authority was used or touched."
+  ],
+  "reuse": {
+    "capability_qualification": true,
+    "repeat_per_manifest": false,
+    "repeat_per_qualification": false,
+    "repeat_per_ordinal": false,
+    "repeat_per_campaign": false,
+    "valid_until": "Any named execution-critical hash or reviewed semantic changes, or a new hazard or incident occurs.",
+    "fresh_inputs_still_required": "Every future qualification must revalidate the exact manifest, base, credential or keyed-image identity, A/B evidence, and any then-current runner binding. PASS_GO does not replace those inputs or a live tier gate."
+  },
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "candidate_authority": false,
+  "device_contact": false,
+  "network_contact": false,
+  "payload_transfer": false,
+  "partition_write": false,
+  "flash": false,
+  "reboot": false,
+  "commit": false,
+  "other_target_touched": false,
+  "authority": "PASS_GO is reusable H0 capability qualification only. It grants no D0, D1, F1, device-contact, network, credential, candidate, staging, payload, partition-write, flash, reboot, or commit authority."
+}

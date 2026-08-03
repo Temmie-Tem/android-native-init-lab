@@ -6,7 +6,7 @@ decision = "phase2-display-v1-host-source-implementation"
 candidate_authority = false
 
 [init]
-closure_sha256 = "93bcdd4c78c004421d217acfd15ed66f9037560024d896e43c179087c9a56774"
+closure_sha256 = "a348fe428484a6feec9780ce09c4f38382149d2990e3e4a818f32a76462ab9e3"
 cflags = [
   "-static",
   "-Os",

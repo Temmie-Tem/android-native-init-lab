@@ -1,0 +1,15 @@
+stage=D3 Phase3 network SSH v1 host profile
+base-display=phase2-display-v1
+return-owner=debian-sysvinit-sysinit
+return-supervisor=v3405-no-sync-decision
+network-owner=debian-sysvinit-wait
+network-interface=ncm0
+ssh-owner=debian-sysvinit-bootstrap
+ssh-daemon=dropbear-public-key-only
+ssh-listen=192.168.7.2:2222
+service-health=/run/a90-services/ready
+service-failure=/run/a90-services/failure
+display-owner=debian-direct-drm
+display-session=vt-less-sysvinit-once
+candidate-authority=none
+userdata=untouched

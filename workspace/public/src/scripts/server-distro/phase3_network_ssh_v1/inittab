@@ -1,0 +1,6 @@
+# A90 Phase 3 Debian network and SSH ownership profile.
+id:2:initdefault:
+si::sysinit:/etc/a90-d3-firstboot
+ns:2:wait:/usr/local/sbin/a90-debian-network-ssh-v1
+ds:2:once:/usr/local/sbin/a90-debian-display-launcher-v1
+ca:12345:ctrlaltdel:/sbin/reboot -f
