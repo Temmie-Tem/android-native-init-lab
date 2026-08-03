@@ -20,6 +20,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -44,25 +45,67 @@ RUN_ID_RE = re.compile(
 )
 OUTPUT_NAME_RE = re.compile(r"^resident-prepared-manifest(?:-[a-z0-9-]+)?\.json$")
 KEYED_SUMMARY_NAME = "keyed-rootfs-summary.json"
-CANDIDATE_NAME = "candidate-boot-phase2-display-v1.img"
 ROLLBACK_NAME = "rollback-boot-v2321.img"
 HOST_PREPARATION_NAME = "host-preparation.json"
-CANDIDATE_SIZE = 66379776
-CANDIDATE_SHA256 = (
-    "3d3e66535654a62f83c5772caba27624acc160911307190de458154acaefdabb"
-)
-CANDIDATE_VERSION = "0.11.161"
-CANDIDATE_BUILD = "phase2-display-v1-native-handoff"
 ROLLBACK_SIZE = 60882944
 ROLLBACK_SHA256 = (
     "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb"
 )
 ROLLBACK_VERSION = "0.9.285"
 ROLLBACK_BUILD = "v2321-usb-clean-identity-rodata"
+JOURNAL_NAME_RE = re.compile(r"^(?P<sequence>[0-9]{4})-(?P<action>[a-z0-9-]+)\.json$")
+
+
+@dataclass(frozen=True)
+class CandidateSpec:
+    profile: str
+    name: str
+    size: int
+    sha256: str
+    version: str
+    build: str
+
+
+LEGACY_CANDIDATE_PROFILE = "phase2-display-v1"
+MINIMAL_F_CANDIDATE_PROFILE = "phase3-minimal-f-power-recovery-ui"
+LEGACY_CANDIDATE = CandidateSpec(
+    profile=LEGACY_CANDIDATE_PROFILE,
+    name="candidate-boot-phase2-display-v1.img",
+    size=66379776,
+    sha256="3d3e66535654a62f83c5772caba27624acc160911307190de458154acaefdabb",
+    version="0.11.161",
+    build="phase2-display-v1-native-handoff",
+)
+MINIMAL_F_CANDIDATE = CandidateSpec(
+    profile=MINIMAL_F_CANDIDATE_PROFILE,
+    name="candidate-boot-phase3-minimal-f.img",
+    size=61440000,
+    sha256="93ac207f6008959f663ec3df60e9bfd43ee855f72e57a4967c93bd0aa49d2d6f",
+    version="0.11.167",
+    build="phase3-minimal-f-power-recovery-ui",
+)
+CANDIDATE_PROFILES = {
+    item.profile: item
+    for item in (LEGACY_CANDIDATE, MINIMAL_F_CANDIDATE)
+}
+
+# Backward-compatible aliases for the original single-candidate API.
+CANDIDATE_NAME = LEGACY_CANDIDATE.name
+CANDIDATE_SIZE = LEGACY_CANDIDATE.size
+CANDIDATE_SHA256 = LEGACY_CANDIDATE.sha256
+CANDIDATE_VERSION = LEGACY_CANDIDATE.version
+CANDIDATE_BUILD = LEGACY_CANDIDATE.build
 
 
 class ContractError(RuntimeError):
     """Raised when resident manifest preparation is not exact."""
+
+
+def select_candidate_profile(profile: str) -> CandidateSpec:
+    try:
+        return CANDIDATE_PROFILES[profile]
+    except KeyError as exc:
+        raise ContractError("candidate profile is not exact") from exc
 
 
 def sha256_file(path: Path) -> str:
@@ -164,6 +207,67 @@ def load_exact_json(
     return value, record
 
 
+def bound_json_record(path: Path, label: str) -> dict[str, Any]:
+    record = regular_record(path, private=True)
+    try:
+        value = json.loads(Path(record["path"]).read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ContractError(f"{label} is not valid JSON") from exc
+    if not isinstance(value, dict):
+        raise ContractError(f"{label} is not a JSON object")
+    return record
+
+
+def bind_prior_closed_run(prior_run_id: str) -> dict[str, Any]:
+    if RUN_ID_RE.fullmatch(prior_run_id) is None:
+        raise ContractError("prior closed-run id is not exact")
+    prior_dir = (staging.PRIVATE_RUN_BASE / prior_run_id).resolve(strict=True)
+    staging.require_below(prior_dir, staging.PRIVATE_RUN_BASE, "prior run directory")
+    live_dir = prior_dir / "f1-live"
+    journal_dir = live_dir / "journal"
+    if journal_dir.is_symlink() or not journal_dir.is_dir():
+        raise ContractError("prior journal directory is not exact")
+    entries = sorted(journal_dir.iterdir())
+    if not entries or len(entries) > promotion.MAX_PRIOR_JOURNAL_RECORDS:
+        raise ContractError("prior journal record count is not bounded")
+    journal: list[dict[str, Any]] = []
+    for sequence, path in enumerate(entries):
+        match = JOURNAL_NAME_RE.fullmatch(path.name)
+        if (
+            match is None
+            or int(match.group("sequence")) != sequence
+            or path.is_symlink()
+            or not path.is_file()
+        ):
+            raise ContractError("prior journal filenames are not contiguous")
+        record = bound_json_record(path, f"prior journal[{sequence}]")
+        value = json.loads(Path(record["path"]).read_text(encoding="utf-8"))
+        if (
+            value.get("sequence") != sequence
+            or value.get("action") != match.group("action")
+            or value.get("run_id") != prior_run_id
+        ):
+            raise ContractError("prior journal filename and record differ")
+        journal.append(record)
+    return {
+        "run_id": prior_run_id,
+        "manifest": bound_json_record(
+            prior_dir / "prepared-manifest.json",
+            "prior manifest",
+        ),
+        "approval_prepared": bound_json_record(
+            prior_dir / "approval-prepared.json",
+            "prior approval",
+        ),
+        "result": bound_json_record(live_dir / "result.json", "prior result"),
+        "timeline": bound_json_record(
+            live_dir / "timeline.json",
+            "prior timeline",
+        ),
+        "journal": journal,
+    }
+
+
 def current_record(path: Path) -> dict[str, Any]:
     return regular_record(path.resolve(), private=False)
 
@@ -234,6 +338,8 @@ def prepare_manifest(
     host_preparation_record: dict[str, Any],
     repository_commit: str,
     resident_install_v2: bool = False,
+    candidate_spec: CandidateSpec = LEGACY_CANDIDATE,
+    prior_closed_run: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if template.get("schema") != staging.RESIDENT_PROMOTION_MANIFEST_SCHEMA:
         raise ContractError("template is not a resident-promotion manifest")
@@ -268,11 +374,11 @@ def prepare_manifest(
         raise ContractError("keyed summary does not select the exact run")
 
     manifest = copy.deepcopy(template)
+    resident = require_dict(
+        manifest.get("resident_promotion"),
+        "resident_promotion",
+    )
     if resident_install_v2:
-        resident = require_dict(
-            manifest.get("resident_promotion"),
-            "resident_promotion",
-        )
         if resident.get("mode") != promotion.MODE:
             raise ContractError("template resident mode is not legacy promotion v1")
         manifest["schema"] = staging.RESIDENT_INSTALL_MANIFEST_SCHEMA
@@ -282,8 +388,20 @@ def prepare_manifest(
         resident["candidate_health_checks"] = 1
         resident["success_terminal"] = promotion.INSTALL_STATUS
     manifest["run_id"] = run_id
-    manifest["candidate_boot"].update(candidate_record)
-    manifest["rollback_boot"].update(rollback_record)
+    manifest["candidate_boot"] = {
+        **candidate_record,
+        "partition": "boot",
+        "expected_version": candidate_spec.version,
+        "expected_build": candidate_spec.build,
+    }
+    manifest["rollback_boot"] = {
+        **rollback_record,
+        "partition": "boot",
+        "expected_version": ROLLBACK_VERSION,
+        "expected_build": ROLLBACK_BUILD,
+    }
+    if prior_closed_run is not None:
+        resident["prior_closed_run"] = copy.deepcopy(prior_closed_run)
 
     target = require_dict(manifest.get("target"), "target")
     connected_target = require_dict(connected_value.get("target"), "connected D0 target")
@@ -516,11 +634,12 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
     template_candidate = require_dict(template.get("candidate_boot"), "candidate_boot")
     template_rollback = require_dict(template.get("rollback_boot"), "rollback_boot")
     validate_canonical_boot_template(template_candidate, template_rollback)
+    candidate_spec = select_candidate_profile(args.candidate_profile)
     candidate_record = regular_record(
-        run_dir / CANDIDATE_NAME,
+        run_dir / candidate_spec.name,
         private=True,
-        expected_size=CANDIDATE_SIZE,
-        expected_sha256=CANDIDATE_SHA256,
+        expected_size=candidate_spec.size,
+        expected_sha256=candidate_spec.sha256,
     )
     rollback_record = regular_record(
         run_dir / ROLLBACK_NAME,
@@ -541,6 +660,11 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
         timeout=30.0,
         check=True,
     ).stdout.strip()
+    prior_closed_run = (
+        bind_prior_closed_run(args.prior_closed_run_id)
+        if args.prior_closed_run_id is not None
+        else None
+    )
 
     manifest = prepare_manifest(
         template=template,
@@ -558,6 +682,8 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
         host_preparation_record=host_preparation_record,
         repository_commit=repository_commit,
         resident_install_v2=args.resident_install_v2,
+        candidate_spec=candidate_spec,
+        prior_closed_run=prior_closed_run,
     )
     output, manifest_sha256, promotion_value = write_validate_publish(
         manifest,
@@ -568,6 +694,8 @@ def build(args: argparse.Namespace) -> dict[str, Any]:
         "schema": SCHEMA,
         "decision": PASS_DECISION,
         "run_id": args.run_id,
+        "candidate_profile": candidate_spec.profile,
+        "prior_closed_run_id": args.prior_closed_run_id,
         "manifest": {
             "path": str(output),
             "size": output.stat().st_size,
@@ -618,13 +746,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--expect-host-preparation-sha256")
     parser.add_argument("--output-name", default="resident-prepared-manifest.json")
     parser.add_argument("--resident-install-v2", action="store_true")
+    parser.add_argument(
+        "--candidate-profile",
+        choices=tuple(CANDIDATE_PROFILES),
+        default=LEGACY_CANDIDATE_PROFILE,
+    )
+    parser.add_argument("--prior-closed-run-id")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.audit_only:
-        if args.resident_install_v2:
+        if args.resident_install_v2 or args.prior_closed_run_id is not None:
             raise ContractError("audit mode accepts no build profile")
         connected = (
             "run_id",

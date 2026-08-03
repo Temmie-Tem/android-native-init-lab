@@ -34,6 +34,10 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
     def test_audit_binds_exact_candidate_without_authority(self) -> None:
         result = finalizer.audit_payload()
         self.assertTrue(result["ready_for_finalization_inputs"])
+        self.assertEqual(
+            result["candidate_profile"],
+            finalizer.LEGACY_CANDIDATE_PROFILE,
+        )
         self.assertEqual(result["candidate_sha256"], finalizer.CANDIDATE_SHA256)
         self.assertEqual(result["candidate_size"], finalizer.CANDIDATE_SIZE)
         self.assertEqual(result["rollback_sha256"], finalizer.ROLLBACK_SHA256)
@@ -55,6 +59,33 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
         self.assertFalse(result["f1_authorized"])
         self.assertFalse(result["live_authority"])
 
+    def test_minimal_f_candidate_profile_is_exact_and_auditable(self) -> None:
+        selected = finalizer.select_candidate_profile(
+            finalizer.MINIMAL_F_CANDIDATE_PROFILE
+        )
+        self.assertEqual(
+            selected.copy_name,
+            "candidate-boot-phase3-minimal-f.img",
+        )
+        self.assertEqual(selected.size, 61440000)
+        self.assertEqual(
+            selected.sha256,
+            "93ac207f6008959f663ec3df60e9bfd43ee855f72e57a4967c93bd0aa49d2d6f",
+        )
+        self.assertEqual(selected.version, "0.11.167")
+        self.assertEqual(selected.build, "phase3-minimal-f-power-recovery-ui")
+        result = finalizer.audit_payload(selected.profile)
+        self.assertTrue(result["ready_for_finalization_inputs"])
+        self.assertEqual(result["candidate_profile"], selected.profile)
+        self.assertEqual(result["candidate_sha256"], selected.sha256)
+        self.assertEqual(result["candidate_size"], selected.size)
+        self.assertEqual(result["candidate_version"], selected.version)
+        self.assertEqual(result["candidate_build"], selected.build)
+
+    def test_unknown_candidate_profile_is_rejected(self) -> None:
+        with self.assertRaisesRegex(finalizer.ContractError, "not exact"):
+            finalizer.select_candidate_profile("arbitrary")
+
     def test_parser_requires_explicit_mode(self) -> None:
         parser = finalizer.build_parser()
         with redirect_stderr(StringIO()), self.assertRaises(SystemExit):
@@ -62,6 +93,21 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
         args = parser.parse_args(["--audit-only"])
         self.assertTrue(args.audit_only)
         self.assertFalse(args.finalize)
+        self.assertEqual(
+            args.candidate_profile,
+            finalizer.LEGACY_CANDIDATE_PROFILE,
+        )
+        selected = parser.parse_args(
+            [
+                "--audit-only",
+                "--candidate-profile",
+                finalizer.MINIMAL_F_CANDIDATE_PROFILE,
+            ]
+        )
+        self.assertEqual(
+            selected.candidate_profile,
+            finalizer.MINIMAL_F_CANDIDATE_PROFILE,
+        )
 
     def test_review_report_binds_current_execution_closure(self) -> None:
         source_lines = []
@@ -308,6 +354,11 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
             source.replace(
                 "staging.validate_connected_d0_evidence(",
                 "removed_connected_gate(",
+                1,
+            ),
+            source.replace(
+                "candidate_spec = select_candidate_profile(args.candidate_profile)",
+                "candidate_spec = LEGACY_CANDIDATE",
                 1,
             ),
             source.replace(

@@ -153,7 +153,17 @@ class ResidentManifestBuilderTests(unittest.TestCase):
                     paths_record=records["paths"],
                     host_preparation_record=records["host"],
                     repository_commit="a" * 40,
+                    candidate_spec=builder.MINIMAL_F_CANDIDATE,
                 )
+            self.assertEqual(
+                phase3_manifest["candidate_boot"],
+                {
+                    **records["candidate"],
+                    "partition": "boot",
+                    "expected_version": builder.MINIMAL_F_CANDIDATE.version,
+                    "expected_build": builder.MINIMAL_F_CANDIDATE.build,
+                },
+            )
             self.assertEqual(
                 phase3_manifest["debian_rootfs"]["keyed_source"]["local_path"],
                 str(run_dir / "phase3-network-ssh-v1-keyed.img"),
@@ -353,6 +363,69 @@ class ResidentManifestBuilderTests(unittest.TestCase):
                         mutated_candidate,
                         mutated_rollback,
                     )
+
+    def test_candidate_profiles_preserve_default_and_bind_minimal_f(self) -> None:
+        self.assertIs(
+            builder.select_candidate_profile(builder.LEGACY_CANDIDATE_PROFILE),
+            builder.LEGACY_CANDIDATE,
+        )
+        selected = builder.select_candidate_profile(
+            builder.MINIMAL_F_CANDIDATE_PROFILE
+        )
+        self.assertEqual(selected.name, "candidate-boot-phase3-minimal-f.img")
+        self.assertEqual(selected.size, 61440000)
+        self.assertEqual(
+            selected.sha256,
+            "93ac207f6008959f663ec3df60e9bfd43ee855f72e57a4967c93bd0aa49d2d6f",
+        )
+        self.assertEqual(selected.version, "0.11.167")
+        self.assertEqual(selected.build, "phase3-minimal-f-power-recovery-ui")
+        with self.assertRaisesRegex(builder.ContractError, "not exact"):
+            builder.select_candidate_profile("arbitrary")
+
+    def test_prior_closed_run_binder_uses_exact_contiguous_private_json(self) -> None:
+        run_id = "a90-v3406-debian-display-f1-20260804-09"
+        with tempfile.TemporaryDirectory(dir=builder.staging.PRIVATE_ROOT) as temp_dir:
+            private_run_base = Path(temp_dir)
+            run_dir = private_run_base / run_id
+            journal_dir = run_dir / "f1-live" / "journal"
+            journal_dir.mkdir(parents=True)
+
+            def write_json(path: Path, value: dict) -> None:
+                path.write_text(json.dumps(value), encoding="utf-8")
+                path.chmod(0o600)
+
+            for name in ("prepared-manifest.json", "approval-prepared.json"):
+                write_json(run_dir / name, {"run_id": run_id})
+            for name in ("result.json", "timeline.json"):
+                write_json(run_dir / "f1-live" / name, {"run_id": run_id})
+            for sequence, action in enumerate(("preflight", "approved")):
+                write_json(
+                    journal_dir / f"{sequence:04d}-{action}.json",
+                    {"sequence": sequence, "action": action, "run_id": run_id},
+                )
+            with mock.patch.object(
+                builder.staging,
+                "PRIVATE_RUN_BASE",
+                private_run_base,
+            ):
+                bound = builder.bind_prior_closed_run(run_id)
+            self.assertEqual(bound["run_id"], run_id)
+            self.assertEqual(len(bound["journal"]), 2)
+            self.assertTrue(bound["manifest"]["path"].endswith("prepared-manifest.json"))
+
+            (journal_dir / "0001-approved.json").rename(
+                journal_dir / "0002-approved.json"
+            )
+            with (
+                mock.patch.object(
+                    builder.staging,
+                    "PRIVATE_RUN_BASE",
+                    private_run_base,
+                ),
+                self.assertRaisesRegex(builder.ContractError, "not contiguous"),
+            ):
+                builder.bind_prior_closed_run(run_id)
 
     def test_validate_local_paths_allows_only_absent_approval(self) -> None:
         with tempfile.TemporaryDirectory(dir=builder.staging.PRIVATE_ROOT) as temp_dir:

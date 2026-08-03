@@ -21,6 +21,7 @@ import re
 import stat
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -45,21 +46,7 @@ PRIVATE_RUN_BASE = staging.PRIVATE_RUN_BASE
 KEYED_SUMMARY_NAME = "keyed-rootfs-summary.json"
 FINAL_MANIFEST_NAME = "prepared-manifest.json"
 HOST_PREPARATION_NAME = "host-preparation.json"
-CANDIDATE_COPY_NAME = "candidate-boot-phase2-display-v1.img"
 ROLLBACK_COPY_NAME = "rollback-boot-v2321.img"
-CANDIDATE_SOURCE = (
-    staging.PRIVATE_ROOT
-    / "outputs"
-    / "a90-phase2-display-v1-native-ab-02"
-    / "A"
-    / "boot.img"
-)
-CANDIDATE_SHA256 = (
-    "3d3e66535654a62f83c5772caba27624acc160911307190de458154acaefdabb"
-)
-CANDIDATE_SIZE = 66379776
-CANDIDATE_VERSION = "0.11.161"
-CANDIDATE_BUILD = "phase2-display-v1-native-handoff"
 ROLLBACK_SOURCE = (
     staging.PRIVATE_ROOT
     / "inputs"
@@ -74,6 +61,72 @@ TEMPLATE_SCHEMA = staging.FINAL_MANIFEST_SCHEMA
 TEMPLATE_RUN_ID_RE = re.compile(
     r"^a90-v3405-debian-f1-[0-9]{8}-[0-9]{2}$"
 )
+
+
+@dataclass(frozen=True)
+class CandidateSpec:
+    profile: str
+    copy_name: str
+    source: Path
+    size: int
+    sha256: str
+    version: str
+    build: str
+
+
+LEGACY_CANDIDATE_PROFILE = "phase2-display-v1"
+MINIMAL_F_CANDIDATE_PROFILE = "phase3-minimal-f-power-recovery-ui"
+LEGACY_CANDIDATE = CandidateSpec(
+    profile=LEGACY_CANDIDATE_PROFILE,
+    copy_name="candidate-boot-phase2-display-v1.img",
+    source=(
+        staging.PRIVATE_ROOT
+        / "outputs"
+        / "a90-phase2-display-v1-native-ab-02"
+        / "A"
+        / "boot.img"
+    ),
+    size=66379776,
+    sha256="3d3e66535654a62f83c5772caba27624acc160911307190de458154acaefdabb",
+    version="0.11.161",
+    build="phase2-display-v1-native-handoff",
+)
+MINIMAL_F_CANDIDATE = CandidateSpec(
+    profile=MINIMAL_F_CANDIDATE_PROFILE,
+    copy_name="candidate-boot-phase3-minimal-f.img",
+    source=(
+        staging.PRIVATE_ROOT
+        / "outputs"
+        / "a90-phase3-minimal-f-ab-20260804-02"
+        / "A"
+        / "boot.img"
+    ),
+    size=61440000,
+    sha256="93ac207f6008959f663ec3df60e9bfd43ee855f72e57a4967c93bd0aa49d2d6f",
+    version="0.11.167",
+    build="phase3-minimal-f-power-recovery-ui",
+)
+CANDIDATE_PROFILES = {
+    item.profile: item
+    for item in (LEGACY_CANDIDATE, MINIMAL_F_CANDIDATE)
+}
+
+# Backward-compatible aliases for the original single-candidate API.
+CANDIDATE_COPY_NAME = LEGACY_CANDIDATE.copy_name
+CANDIDATE_SOURCE = LEGACY_CANDIDATE.source
+CANDIDATE_SIZE = LEGACY_CANDIDATE.size
+CANDIDATE_SHA256 = LEGACY_CANDIDATE.sha256
+CANDIDATE_VERSION = LEGACY_CANDIDATE.version
+CANDIDATE_BUILD = LEGACY_CANDIDATE.build
+
+
+def select_candidate_profile(profile: str) -> CandidateSpec:
+    try:
+        return CANDIDATE_PROFILES[profile]
+    except KeyError as exc:
+        raise ContractError("candidate profile is not exact") from exc
+
+
 EXECUTION_REVIEW_SOURCES = (
     REVAL_DIR / "a90_observation_pipeline.py",
     REVAL_DIR / "a90ctl.py",
@@ -378,6 +431,7 @@ def prepare_manifest(
     paths_record: dict[str, Any],
     host_preparation_record: dict[str, Any],
     repository_commit: str,
+    candidate_spec: CandidateSpec = LEGACY_CANDIDATE,
 ) -> dict[str, Any]:
     manifest = copy.deepcopy(template)
     phase3 = (
@@ -402,8 +456,8 @@ def prepare_manifest(
     manifest["candidate_boot"] = {
         **candidate_record,
         "partition": "boot",
-        "expected_version": CANDIDATE_VERSION,
-        "expected_build": CANDIDATE_BUILD,
+        "expected_version": candidate_spec.version,
+        "expected_build": candidate_spec.build,
     }
     manifest["rollback_boot"] = {
         **rollback_record,
@@ -706,12 +760,13 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
         raise ContractError("connected D0 starting native identity is not exact")
     expected_starting_version, expected_starting_build = starting_identity
 
-    candidate_source = CANDIDATE_SOURCE.resolve(strict=True)
+    candidate_spec = select_candidate_profile(args.candidate_profile)
+    candidate_source = candidate_spec.source.resolve(strict=True)
     candidate_copy = copy_absent_private(
         candidate_source,
-        run_dir / CANDIDATE_COPY_NAME,
-        expected_size=CANDIDATE_SIZE,
-        expected_sha256=CANDIDATE_SHA256,
+        run_dir / candidate_spec.copy_name,
+        expected_size=candidate_spec.size,
+        expected_sha256=candidate_spec.sha256,
     )
     rollback_copy = copy_absent_private(
         ROLLBACK_SOURCE,
@@ -781,6 +836,7 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
         "status": PASS_DECISION,
         "keyed_rootfs": summary_record,
         "candidate_boot": candidate_copy,
+        "candidate_profile": candidate_spec.profile,
         "rollback_boot": rollback_copy,
         "connected_d0": connected_record,
         "connected_path_preflight": paths_record,
@@ -824,6 +880,7 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
         paths_record=paths_record,
         host_preparation_record=host_record,
         repository_commit=repository_commit,
+        candidate_spec=candidate_spec,
     )
     manifest_path = run_dir / FINAL_MANIFEST_NAME
     staging.write_private_json_exclusive(manifest_path, manifest)
@@ -846,6 +903,7 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
             "sha256": manifest_sha256,
         },
         "host_preparation": host_record,
+        "candidate_profile": candidate_spec.profile,
         "candidate_authority": False,
         "f1_authorized": False,
         "live_authority": False,
@@ -905,6 +963,10 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         '"cp",\n            "--reflink=never",',
         "destination.exists() or destination.is_symlink()",
         "staging.validate_connected_d0_evidence(",
+        "candidate_spec = select_candidate_profile(args.candidate_profile)",
+        "run_dir / candidate_spec.copy_name",
+        "expected_size=candidate_spec.size",
+        "expected_sha256=candidate_spec.sha256",
         "validate_template_rollback(template)",
         "validate_connected_preflight_source(connected_value)",
         "validate_independent_review_report(review_text)",
@@ -941,16 +1003,19 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
     return tuple(issues)
 
 
-def audit_payload() -> dict[str, Any]:
+def audit_payload(
+    candidate_profile: str = LEGACY_CANDIDATE_PROFILE,
+) -> dict[str, Any]:
     source = Path(__file__).read_text(encoding="utf-8")
     issues = source_contract_issues(source)
+    candidate_spec = select_candidate_profile(candidate_profile)
     candidate = regular_record(
-        CANDIDATE_SOURCE,
+        candidate_spec.source,
         private=True,
-        expected_sha256=CANDIDATE_SHA256,
+        expected_sha256=candidate_spec.sha256,
     )
-    if candidate["size"] != CANDIDATE_SIZE:
-        issues = (*issues, "Phase 2 candidate size mismatch")
+    if candidate["size"] != candidate_spec.size:
+        issues = (*issues, "selected candidate size mismatch")
     rollback = regular_record(
         ROLLBACK_SOURCE,
         private=True,
@@ -962,8 +1027,11 @@ def audit_payload() -> dict[str, Any]:
         "schema": SCHEMA,
         "mode": "host-only-audit",
         "source_sha256": sha256_file(Path(__file__).resolve()),
+        "candidate_profile": candidate_spec.profile,
         "candidate_sha256": candidate["sha256"],
         "candidate_size": candidate["size"],
+        "candidate_version": candidate_spec.version,
+        "candidate_build": candidate_spec.build,
         "rollback_sha256": rollback["sha256"],
         "rollback_size": rollback["size"],
         "contract_issues": list(issues),
@@ -993,6 +1061,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--expect-path-preflight-sha256")
     parser.add_argument("--review-report", type=Path)
     parser.add_argument("--expect-review-report-sha256")
+    parser.add_argument(
+        "--candidate-profile",
+        choices=tuple(CANDIDATE_PROFILES),
+        default=LEGACY_CANDIDATE_PROFILE,
+    )
     return parser
 
 
@@ -1013,7 +1086,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         if any(getattr(args, name) is not None for name in connected_names):
             raise ContractError("audit mode accepts no finalization inputs")
-        result = audit_payload()
+        result = audit_payload(args.candidate_profile)
     else:
         required = (
             "run_id",

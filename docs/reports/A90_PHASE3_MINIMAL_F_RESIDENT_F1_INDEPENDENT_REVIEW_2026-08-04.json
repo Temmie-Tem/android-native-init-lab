@@ -1,0 +1,211 @@
+{
+  "schema": "a90-phase3-resident-refresh-f1-independent-review-v1",
+  "status": "PASS_GO",
+  "decision": "PASS_GO for exact attended boot-only ordinary F1 selection of the minimal-F candidate and fail-closed rebinding of one eligible ordinary-F1 candidate-plus-rollback closure into resident-install prior_closed_run evidence",
+  "review_date": "2026-08-04",
+  "reviewed_base_commit": "936531f4cfb929ed3f9750928b003ccd707ecff5",
+  "reviewed_base_tree": "cefa6f7e94eb3840112855563a3455f051d2205a",
+  "reviewed_worktree_closure": true,
+  "reviewer": "independent subagent a90_capability_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "risk_tier": "H0 independent review of attended boot-only F1 execution capability",
+  "reviewed_capability": "Select either the unchanged legacy Phase 2 candidate or the exact Phase 3 minimal-F candidate in the ordinary A90 F1 finalizer, then bind a separately closed eligible ordinary F1 run as resident-install prior_closed_run evidence without replaying its candidate effect",
+  "candidate_profiles": {
+    "phase2-display-v1": {
+      "default": true,
+      "copy_name": "candidate-boot-phase2-display-v1.img",
+      "bytes": 66379776,
+      "sha256": "3d3e66535654a62f83c5772caba27624acc160911307190de458154acaefdabb",
+      "expected_version": "0.11.161",
+      "expected_build": "phase2-display-v1-native-handoff"
+    },
+    "phase3-minimal-f-power-recovery-ui": {
+      "default": false,
+      "copy_name": "candidate-boot-phase3-minimal-f.img",
+      "bytes": 61440000,
+      "sha256": "93ac207f6008959f663ec3df60e9bfd43ee855f72e57a4967c93bd0aa49d2d6f",
+      "expected_version": "0.11.167",
+      "expected_build": "phase3-minimal-f-power-recovery-ui"
+    }
+  },
+  "rollback": {
+    "copy_name": "rollback-boot-v2321.img",
+    "bytes": 60882944,
+    "sha256": "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb",
+    "expected_version": "0.9.285",
+    "expected_build": "v2321-usb-clean-identity-rodata",
+    "partition": "boot"
+  },
+  "inherited_receipts": {
+    "minimal_f_physical_ui": {
+      "path": "docs/reports/A90_PHASE3_POWER_RECOVERY_UI_INDEPENDENT_REVIEW_2026-08-04.json",
+      "sha256": "13d22adebe738e723ddc00edda642e03933f9df9cd77b1d74e7b2fa7c3bf36b6",
+      "status": "PASS_GO",
+      "reuse": "The unchanged minimal-F native UI capability is inherited; this review covers only its F1 selection and resident-install interaction."
+    },
+    "minimal_f_qualification": {
+      "path": "docs/reports/A90_PHASE3_MINIMAL_F_POWER_RECOVERY_UI_QUALIFICATION_2026-08-04.json",
+      "sha256": "eb86ff3ac5e2eb5a3db465694a9a4f43e536236d922bfff0142ae72e292dec49"
+    },
+    "phase3_resident_refresh_f1": {
+      "path": "docs/reports/A90_PHASE3_RESIDENT_REFRESH_F1_CLOSURE_INDEPENDENT_REVIEW_2026-08-03.json",
+      "sha256": "3d60eac88dcdf508127ad9b5ae4414e72d1e96f49c8616890e1be55b481734c5",
+      "status": "PASS_GO",
+      "reuse": "Twenty-three of twenty-five named execution-critical sources are byte-identical; only the finalizer and resident manifest builder changed and were reviewed in combination."
+    }
+  },
+  "closure_digest_sha256": "4cd13004ce201b131383289668f20a634a0f7d81dd0cd14967c99ab9b1f2d143",
+  "named_execution_critical_closure": {
+    "workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.py": {
+      "bytes": 13928,
+      "sha256": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933"
+    },
+    "workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py": {
+      "bytes": 13734,
+      "sha256": "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e"
+    },
+    "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py": {
+      "bytes": 1255,
+      "sha256": "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe"
+    },
+    "workspace/public/src/scripts/revalidation/a90_bridge.py": {
+      "bytes": 40294,
+      "sha256": "922c55a0afdef9d237a679203f576226583f4463eec15fb0091871c241f8be01"
+    },
+    "workspace/public/src/scripts/revalidation/a90_observation_pipeline.py": {
+      "bytes": 24478,
+      "sha256": "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb"
+    },
+    "workspace/public/src/scripts/revalidation/a90_serial_lock.py": {
+      "bytes": 2860,
+      "sha256": "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7"
+    },
+    "workspace/public/src/scripts/revalidation/a90ctl.py": {
+      "bytes": 16380,
+      "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c"
+    },
+    "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py": {
+      "bytes": 17944,
+      "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_display_observer.py": {
+      "bytes": 648,
+      "sha256": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744"
+    },
+    "workspace/public/src/harness/a90harness/evidence.py": {
+      "bytes": 11723,
+      "sha256": "3b0aaa36a95628591e14c4c2d70ae4941230fe650b6e4d517173cee5d3019742"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase3_network_ssh_keyed_rootfs_v1.py": {
+      "bytes": 23948,
+      "sha256": "44bb425533ccfd5b65b9be94056da302fa646d97b2b346ec15214cd7a5660396"
+    },
+    "workspace/public/src/scripts/revalidation/native_init_flash.py": {
+      "bytes": 43118,
+      "sha256": "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
+    },
+    "workspace/public/src/scripts/revalidation/tcpctl_host.py": {
+      "bytes": 34750,
+      "sha256": "032f3146ddc08af82f00881ae3d825066e843a41b194ee8d4c8cf09d1f3adb78"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_connected_preflight.py": {
+      "bytes": 21929,
+      "sha256": "c84f7e8d1054df6f095ce13a0bb4c3f057a6d0f4244b77f12b5c87f89edaa6d8"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {
+      "bytes": 102414,
+      "sha256": "fc8c5754931266541aa3815a497179af7b6a851df530c20cff6e3a464a6adeb4"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {
+      "bytes": 269596,
+      "sha256": "17f630f861d94c3f48084b33a603057c6226f705c1272c5d4f5d9390e003c239"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_manifest_builder_v1.py": {
+      "bytes": 29436,
+      "sha256": "e488e15a3af0e92efd81820370646d8e3b8153ed5294c541b4053a4374fb8646"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py": {
+      "bytes": 68636,
+      "sha256": "4908d477c26751f29f8f000c316d862b32a34aacbf53bd20851bf8a96c4a6183"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_fast_handoff_v1.py": {
+      "bytes": 12037,
+      "sha256": "da695df326ac347baad2f31c4117ec564ea4cc4181605f397da8105d68e24c47"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase3_network_ssh_v1_rootfs.py": {
+      "bytes": 25978,
+      "sha256": "3c15440d30e5cd14f320c6a1bc0d1639e89b0d878a8970284b5eb7bb58f87166"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase2_display_v1_rootfs.py": {
+      "bytes": 28143,
+      "sha256": "8b44e922aba9efdf8b6877c98d6d3395c4ec34a6d6d5e47247aa3c73d7b689a1"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/manifest.toml": {
+      "bytes": 2962,
+      "sha256": "0a0ced3d0720db7bedb4ebcc42f98162a687d2a4d5d785b8cc123cae777ef9c7"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh": {
+      "bytes": 10126,
+      "sha256": "b52b7306d928d0a7275af70f16ff44d578a8440260828343eefa2a204bdc8859"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_return_arm_v1.sh": {
+      "bytes": 1187,
+      "sha256": "e83ede7fb430de98881ff7b9d18e8127bfc8bc19e4707d9ccf78410ac555faf3"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_finalize_f1.py": {
+      "bytes": 41085,
+      "sha256": "fb91ef496141f33c867f778b32d093a013cf8751513463de718f857336caf240"
+    }
+  },
+  "reviewed_semantics": {
+    "candidate_selection": "Both modules use the same closed two-profile table. Unknown profiles fail closed. The CLI default remains phase2-display-v1 and preserves its original path, size, SHA256, version, and build.",
+    "minimal_f_identity": "The selected minimal-F source is a private mode-0600 regular Android boot image with exact size 61440000 and SHA256 93ac207f6008959f663ec3df60e9bfd43ee855f72e57a4967c93bd0aa49d2d6f; its version/build are 0.11.167 and phase3-minimal-f-power-recovery-ui.",
+    "ordinary_f1_boundary": "The first-stage finalizer produces the ordinary a90_native_init_f1_prepared_v3 manifest without resident_promotion. Base execution calls execute_approved_f1 without a promotion callback. The orchestrator requires promotion-manifest and promotion-callback presence to agree exactly, so promotion-only guard records cannot enter an ordinary run.",
+    "prior_closed_run": "The builder binds only fixed private manifest, approval, result, timeline, and contiguous journal paths for the named prior run. The production resident loader reopens their exact bytes and accepts only an ordinary run with one candidate start/flash/boot-ready, candidate_replay false, one rollback start/flash/boot-ready, exact candidate health, exact final V2321 health, one closed result, and the canonical timeline. Promotion runs, aborted runs, duplicate candidate effects, uncertain transfer, missing rollback, result mismatch, target mismatch, or malformed evidence fail closed.",
+    "resident_install": "The rebound manifest is validated by the production resident-install loader before absent-only publication. A successful new install still permits one candidate transfer and zero replay; any post-attempt failure or ambiguity retains exact V2321 rollback recovery.",
+    "boot_only": "Candidate and rollback manifest entries are rebuilt with partition boot, the transfer runner remains native_init_flash.py, transport arguments bind the exact copied image and SHA256, and the unchanged loader rejects any non-boot partition.",
+    "rollback_and_recovery": "The only rollback remains the private exact V2321 boot image. Existing reviewed closure reopens two matching private recovery identity logs, binds the recovery target digest, requires an exact recovery target before execution, and keeps rollback independent of a second approval after candidate start.",
+    "no_replay": "Durable candidate intent, candidate attempt limit one, candidate_replay false, mandatory rollback after uncertain or failed post-attempt state, and recovery-only resume remain unchanged in the inherited execution closure.",
+    "target_isolation": "The unchanged loader and connected-D0 validation require the A90 target profile, exactly one matching A90 USB device, the selected realpath, exact starting health, and the bound recovery identity. S22+ inputs, authority, and evidence are not accepted.",
+    "private_evidence": "Candidate, rollback, prior manifest, approval, result, timeline, journal, connected evidence, host preparation, recovery logs, and raw live evidence remain private regular files under workspace/private; the tracked receipt contains no serial, IP, credential, raw log, or payload bytes."
+  },
+  "negative_controls": {
+    "unknown_candidate_profile": "REJECTED",
+    "review_status_or_closure_mutation": "REJECTED",
+    "missing_or_extra_review_source": "REJECTED",
+    "promotion_run_as_ordinary_prior": "REJECTED_BY_PRODUCTION_VALIDATOR",
+    "duplicate_or_replayed_prior_candidate": "REJECTED_BY_PRODUCTION_VALIDATOR",
+    "missing_or_inexact_prior_rollback_or_final_health": "REJECTED_BY_PRODUCTION_VALIDATOR",
+    "non_boot_candidate_or_rollback_partition": "REJECTED_BY_PRODUCTION_LOADER"
+  },
+  "validation": {
+    "focused_changed_file_tests": "21/21 PASS",
+    "resident_promotion_tests": "43/43 PASS",
+    "staging_orchestrator_connected_preflight_tests": "180/180 PASS",
+    "phase3_keyer_and_resident_qualification_tests": "21/21 PASS",
+    "combined_test_count": "265/265 PASS",
+    "python_compile": "PASS",
+    "minimal_f_finalizer_audit": "PASS with contract_issues=[] and exact candidate/V2321 identities",
+    "canonical_ordinary_prior_reopen": "PASS for one candidate, one rollback, no replay, candidate health, and final V2321 health",
+    "current_source_record_reopen": "PASS for all 25 exact path, byte, and SHA256 records",
+    "scoped_diff_check": "PASS"
+  },
+  "review_trigger": {
+    "reuse_scope": "capability-wide across candidates, manifests, campaigns, qualifications, and ordinals",
+    "retire_on_named_execution_critical_closure_change": true,
+    "retire_on_candidate_profile_identity_or_selection_semantic_change": true,
+    "retire_on_prior_closed_run_or_production_validation_semantic_change": true,
+    "retire_on_transfer_rollback_recovery_no_replay_or_target_isolation_change": true,
+    "retire_on_new_hazard_or_incident": true
+  },
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "device_contact": false,
+  "network_contact": false,
+  "payload_transfer": false,
+  "partition_write": false,
+  "flash": false,
+  "other_target_touched": false,
+  "final_judgment": "PASS_GO qualifies this exact attended boot-only F1 capability closure. It is not a live manifest, approval, target-presence proof, device-health proof, or authority grant."
+}
