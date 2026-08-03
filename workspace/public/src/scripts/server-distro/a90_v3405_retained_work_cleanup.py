@@ -7,8 +7,9 @@ manifest, an exclusively prepared approval receipt, and the exact fresh
 operator token.  It can unlink only the fixed retained work-image path after
 revalidating its type, mode, size, SHA256, host preservation, target, health,
 and the selected adjacent-path disposition.  The separately reviewed
-source-preserved recovery profile additionally proves the adjacent source is
-an exact distinct copy before and after the unlink.
+source-distinct recovery profile additionally proves the adjacent pristine
+source under its own exact SHA256 before and after unlinking the mutated work
+copy.
 
 The unlink dispatch is never retried.  A lost response permits read-only
 reconciliation only.
@@ -45,7 +46,7 @@ APPROVAL_SCHEMA = "a90_phase2d_retained_work_cleanup_approval_v1"
 APPROVAL_PREFIX = "A90-V3406-WORK-CLEANUP-APPROVE:"
 RESULT_SCHEMA = "a90_phase2d_retained_work_cleanup_result_v1"
 REVIEW_SCHEMA = (
-    "a90-retained-work-source-preserved-cleanup-independent-review-v1"
+    "a90-retained-work-source-distinct-cleanup-independent-review-v2"
 )
 PRIVATE_RUN_BASE = (
     REPO_ROOT / "workspace" / "private" / "runs" / "server-distro"
@@ -66,6 +67,7 @@ WORK_SIZE = 2147483648
 WORK_MODE = "0600"
 SOURCE_ABSENT = "absent"
 SOURCE_EXACT_PRESERVED = "exact-preserved"
+SOURCE_EXACT_DISTINCT = "exact-distinct-preserved"
 EXPECTED_VERSION = "0.9.285"
 EXPECTED_BUILD = "v2321-usb-clean-identity-rodata"
 EXPECTED_VENDOR_PRODUCT = "04e8:6861"
@@ -124,6 +126,10 @@ class ContractError(RuntimeError):
     """The exact cleanup contract was not satisfied."""
 
 
+def source_is_preserved(disposition: str) -> bool:
+    return disposition in {SOURCE_EXACT_PRESERVED, SOURCE_EXACT_DISTINCT}
+
+
 @dataclass(frozen=True)
 class BoundFile:
     path: Path
@@ -147,6 +153,7 @@ class CleanupSpec:
     work_sha256: str
     source_path: str
     source_disposition: str
+    source_sha256: str | None
     stage_path: str
     independent_review: BoundFile | None
     closed_f1_manifest: BoundFile | None
@@ -862,8 +869,27 @@ def load_manifest(path: Path, expected_sha256: str) -> CleanupSpec:
     source_path = require_string(adjacent.get("v3406_source"), "v3406_source")
     stage_path = require_string(adjacent.get("run_stage"), "run_stage")
     source_disposition = adjacent.get("source_disposition", SOURCE_ABSENT)
-    if source_disposition not in {SOURCE_ABSENT, SOURCE_EXACT_PRESERVED}:
+    if source_disposition not in {
+        SOURCE_ABSENT,
+        SOURCE_EXACT_PRESERVED,
+        SOURCE_EXACT_DISTINCT,
+    }:
         raise ContractError("adjacent source disposition is not exact")
+    if source_disposition == SOURCE_ABSENT:
+        source_sha256 = None
+        if adjacent.get("source_sha256") is not None:
+            raise ContractError("absent source has an unexpected SHA256")
+    elif source_disposition == SOURCE_EXACT_PRESERVED:
+        source_sha256 = adjacent.get("source_sha256", work_sha256)
+        if source_sha256 != work_sha256:
+            raise ContractError("same-copy source SHA256 differs from work")
+    else:
+        source_sha256 = validate_sha256(
+            adjacent.get("source_sha256"),
+            "adjacent source sha256",
+        )
+        if source_sha256 == work_sha256:
+            raise ContractError("distinct source SHA256 unexpectedly equals work")
     suffix = f1_match.group("suffix")
     expected_source = (
         "/mnt/sdext/a90/runtime/"
@@ -880,17 +906,17 @@ def load_manifest(path: Path, expected_sha256: str) -> CleanupSpec:
         or authority.get("single_unlink_dispatch") is not True
         or authority.get("unlink_retry_forbidden") is not True
         or (
-            source_disposition == SOURCE_EXACT_PRESERVED
+            source_is_preserved(source_disposition)
             and authority.get("source_preservation_required") is not True
         )
     ):
         raise ContractError("manifest authority contract mismatch")
     independent_review = (
         validate_independent_review_binding(manifest.get("independent_review"))
-        if source_disposition == SOURCE_EXACT_PRESERVED
+        if source_is_preserved(source_disposition)
         else None
     )
-    if source_disposition == SOURCE_EXACT_PRESERVED:
+    if source_is_preserved(source_disposition):
         if connected_d0.path != expected_d0_path:
             raise ContractError("source-preserved D0 path is not exact")
         closed_manifest, closed_result, closed_journal = (
@@ -926,6 +952,7 @@ def load_manifest(path: Path, expected_sha256: str) -> CleanupSpec:
         work_sha256=work_sha256,
         source_path=source_path,
         source_disposition=source_disposition,
+        source_sha256=source_sha256,
         stage_path=stage_path,
         independent_review=independent_review,
         closed_f1_manifest=closed_manifest,
@@ -949,6 +976,7 @@ def approval_binding(spec: CleanupSpec) -> dict[str, Any]:
         "mode": WORK_MODE,
         "work_sha256": spec.work_sha256,
         "source_disposition": spec.source_disposition,
+        "source_sha256": spec.source_sha256,
         "host_preservation_sha256": spec.host_copy.sha256,
         "independent_review_sha256": (
             spec.independent_review.sha256
@@ -960,18 +988,20 @@ def approval_binding(spec: CleanupSpec) -> dict[str, Any]:
         "single_unlink_dispatch": True,
         "unlink_retry_forbidden": True,
     }
-    if spec.source_disposition == SOURCE_EXACT_PRESERVED:
+    if source_is_preserved(spec.source_disposition):
         if (
             spec.independent_review is None
             or spec.closed_f1_manifest is None
             or spec.closed_f1_result is None
             or not spec.closed_f1_journal
+            or spec.source_sha256 is None
         ):
             raise ContractError("source-preserved cleanup evidence is absent")
         binding.update(
             {
-                "source_disposition": SOURCE_EXACT_PRESERVED,
+                "source_disposition": spec.source_disposition,
                 "protected_source_path": spec.source_path,
+                "protected_source_sha256": spec.source_sha256,
                 "independent_review_sha256": spec.independent_review.sha256,
                 "closed_f1_manifest_sha256": spec.closed_f1_manifest.sha256,
                 "closed_f1_result_sha256": spec.closed_f1_result.sha256,
@@ -1183,22 +1213,24 @@ def health_preflight(
 
 def preflight_script() -> str:
     return (
-        'p="$1"; src="$2"; stage="$3"; expected="$4"; disposition="$5"; '
+        'p="$1"; src="$2"; stage="$3"; work_expected="$4"; '
+        'source_expected="$5"; disposition="$6"; '
         '[ ! -L "$p" ] || exit 20; '
         '[ -f "$p" ] || exit 21; '
         'meta=$(/bin/busybox stat -c "%F|%s|%a|%h" "$p") || exit 22; '
         '[ "$meta" = "regular file|2147483648|600|1" ] || exit 23; '
         'actual=$(/bin/busybox sha256sum "$p") || exit 24; '
-        'actual=${actual%% *}; [ "$actual" = "$expected" ] || exit 25; '
+        'actual=${actual%% *}; [ "$actual" = "$work_expected" ] || exit 25; '
         'case "$disposition" in '
         'absent) [ ! -e "$src" ] && [ ! -L "$src" ] || exit 26; '
         'source_state=absent ;; '
-        'exact-preserved) '
+        'exact-preserved|exact-distinct-preserved) '
         '[ ! -L "$src" ] && [ -f "$src" ] || exit 30; '
         'srcmeta=$(/bin/busybox stat -c "%F|%s|%a|%h" "$src") || exit 31; '
         '[ "$srcmeta" = "regular file|2147483648|600|1" ] || exit 32; '
         'srcactual=$(/bin/busybox sha256sum "$src") || exit 33; '
-        'srcactual=${srcactual%% *}; [ "$srcactual" = "$expected" ] || exit 34; '
+        'srcactual=${srcactual%% *}; '
+        '[ "$srcactual" = "$source_expected" ] || exit 34; '
         '[ "$(/bin/busybox stat -c %d:%i "$src")" != '
         '"$(/bin/busybox stat -c %d:%i "$p")" ] || exit 35; '
         'source_state=exact ;; '
@@ -1217,22 +1249,24 @@ def preflight_script() -> str:
 
 def cleanup_script() -> str:
     return (
-        'p="$1"; expected="$2"; src="$3"; stage="$4"; disposition="$5"; '
+        'p="$1"; work_expected="$2"; src="$3"; stage="$4"; '
+        'source_expected="$5"; disposition="$6"; '
         '[ ! -L "$p" ] || exit 40; '
         '[ -f "$p" ] || exit 41; '
         'meta=$(/bin/busybox stat -c "%F|%s|%a|%h" "$p") || exit 42; '
         '[ "$meta" = "regular file|2147483648|600|1" ] || exit 43; '
         'actual=$(/bin/busybox sha256sum "$p") || exit 44; '
-        'actual=${actual%% *}; [ "$actual" = "$expected" ] || exit 45; '
+        'actual=${actual%% *}; [ "$actual" = "$work_expected" ] || exit 45; '
         'case "$disposition" in '
         'absent) [ ! -e "$src" ] && [ ! -L "$src" ] || exit 46; '
         'source_state=absent ;; '
-        'exact-preserved) '
+        'exact-preserved|exact-distinct-preserved) '
         '[ ! -L "$src" ] && [ -f "$src" ] || exit 60; '
         'srcmeta=$(/bin/busybox stat -c "%F|%s|%a|%h" "$src") || exit 61; '
         '[ "$srcmeta" = "regular file|2147483648|600|1" ] || exit 62; '
         'srcactual=$(/bin/busybox sha256sum "$src") || exit 63; '
-        'srcactual=${srcactual%% *}; [ "$srcactual" = "$expected" ] || exit 64; '
+        'srcactual=${srcactual%% *}; '
+        '[ "$srcactual" = "$source_expected" ] || exit 64; '
         '[ "$(/bin/busybox stat -c %d:%i "$src")" != '
         '"$(/bin/busybox stat -c %d:%i "$p")" ] || exit 65; '
         'source_state=exact ;; '
@@ -1247,9 +1281,11 @@ def cleanup_script() -> str:
         'done; '
         '/bin/busybox rm -- "$p" || exit 50; '
         '[ ! -e "$p" ] || exit 51; '
-        'if [ "$disposition" = exact-preserved ]; then '
+        'if [ "$disposition" = exact-preserved ] || '
+        '[ "$disposition" = exact-distinct-preserved ]; then '
         'srcactual=$(/bin/busybox sha256sum "$src") || exit 68; '
-        'srcactual=${srcactual%% *}; [ "$srcactual" = "$expected" ] || exit 69; '
+        'srcactual=${srcactual%% *}; '
+        '[ "$srcactual" = "$source_expected" ] || exit 69; '
         'fi; '
         'printf "work=unlinked source=%s\\n" "$source_state"'
     )
@@ -1257,14 +1293,16 @@ def cleanup_script() -> str:
 
 def presence_script() -> str:
     return (
-        'p="$1"; src="$2"; stage="$3"; expected="$4"; disposition="$5"; '
+        'p="$1"; src="$2"; stage="$3"; work_expected="$4"; '
+        'source_expected="$5"; disposition="$6"; '
         'if [ -e "$p" ] || [ -L "$p" ]; then w=present; else w=absent; fi; '
-        'if [ "$disposition" = exact-preserved ]; then '
+        'if [ "$disposition" = exact-preserved ] || '
+        '[ "$disposition" = exact-distinct-preserved ]; then '
         'if [ ! -L "$src" ] && [ -f "$src" ] && '
         '[ "$(/bin/busybox stat -c "%F|%s|%a|%h" "$src")" = '
         '"regular file|2147483648|600|1" ] && '
         '[ "$(/bin/busybox sha256sum "$src" | /bin/busybox cut -d" " -f1)" '
-        '= "$expected" ]; then s=exact; else s=invalid; fi; '
+        '= "$source_expected" ]; then s=exact; else s=invalid; fi; '
         'elif [ -e "$src" ] || [ -L "$src" ]; then s=present; else s=absent; fi; '
         'if [ -e "$stage" ] || [ -L "$stage" ]; then t=present; else t=absent; fi; '
         'printf "work=%s source=%s stage=%s\\n" "$w" "$s" "$t"'
@@ -1292,13 +1330,14 @@ def run_read_preflight(
             spec.source_path,
             spec.stage_path,
             spec.work_sha256,
+            spec.source_sha256 or "-",
             spec.source_disposition,
         ],
     )
     text = require_protocol_ok(result, "work-image preflight")
     expected_source = (
         "exact"
-        if spec.source_disposition == SOURCE_EXACT_PRESERVED
+        if source_is_preserved(spec.source_disposition)
         else "absent"
     )
     if text.count(
@@ -1329,6 +1368,7 @@ def read_presence(
             spec.source_path,
             spec.stage_path,
             spec.work_sha256,
+            spec.source_sha256 or "-",
             spec.source_disposition,
         ],
     )
@@ -1413,9 +1453,10 @@ def execute_cleanup(
         "device_path": WORK_PATH,
         "work_sha256": spec.work_sha256,
         "source_disposition": spec.source_disposition,
+        "protected_source_sha256": spec.source_sha256,
         "protected_source_path": (
             spec.source_path
-            if spec.source_disposition == SOURCE_EXACT_PRESERVED
+            if source_is_preserved(spec.source_disposition)
             else None
         ),
         "operator_attended": True,
@@ -1455,13 +1496,14 @@ def execute_cleanup(
                 spec.work_sha256,
                 spec.source_path,
                 spec.stage_path,
+                spec.source_sha256 or "-",
                 spec.source_disposition,
             ],
         )
         text = require_protocol_ok(result, "cleanup dispatch")
         expected_source = (
             "exact"
-            if spec.source_disposition == SOURCE_EXACT_PRESERVED
+            if source_is_preserved(spec.source_disposition)
             else "absent"
         )
         response_proven = (
@@ -1508,7 +1550,7 @@ def execute_cleanup(
             post_error["health_error_message"] = str(exc)
     expected_source = (
         "exact"
-        if spec.source_disposition == SOURCE_EXACT_PRESERVED
+        if source_is_preserved(spec.source_disposition)
         else "absent"
     )
     effect_proven = (
@@ -1545,9 +1587,10 @@ def execute_cleanup(
         "work_sha256": spec.work_sha256,
         "host_preservation_sha256": host_sha,
         "source_disposition": spec.source_disposition,
+        "protected_source_sha256": spec.source_sha256,
         "protected_source_preserved": (
             presence["source"] == "exact"
-            if spec.source_disposition == SOURCE_EXACT_PRESERVED
+            if source_is_preserved(spec.source_disposition)
             else None
         ),
         "operator_attended": True,
@@ -1577,8 +1620,8 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     match = F1_RUN_ID_RE.fullmatch(args.f1_run_id)
     if match is None:
         raise ContractError("F1 run_id is not exact")
-    if args.source_disposition != SOURCE_EXACT_PRESERVED:
-        raise ContractError("builder supports only source-preserved recovery")
+    if args.source_disposition != SOURCE_EXACT_DISTINCT:
+        raise ContractError("builder supports only source-distinct recovery")
     run_dir = (PRIVATE_RUN_BASE / args.run_id).resolve()
     if run_dir.exists() or run_dir.is_symlink():
         raise ContractError("cleanup run directory must be absent")
@@ -1615,6 +1658,12 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
 
     host_path = args.host_preservation.resolve(strict=True)
     host_sha = validate_sha256(args.expect_work_sha256, "work sha256")
+    source_sha = validate_sha256(
+        args.expect_source_sha256,
+        "source sha256",
+    )
+    if source_sha == host_sha:
+        raise ContractError("builder requires distinct work and source SHA256")
     host_copy = load_bound(
         {
             "path": str(host_path),
@@ -1688,7 +1737,8 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         },
         "adjacent_paths": {
             "v3406_source": source_path,
-            "source_disposition": SOURCE_EXACT_PRESERVED,
+            "source_disposition": SOURCE_EXACT_DISTINCT,
+            "source_sha256": source_sha,
             "run_stage": stage_path,
         },
         "authority": {
@@ -1726,6 +1776,8 @@ def inspect(spec: CleanupSpec) -> dict[str, Any]:
         "connected_d0_sha256": spec.connected_d0.sha256,
         "work_sha256": spec.work_sha256,
         "host_preservation_sha256": spec.host_copy.sha256,
+        "source_disposition": spec.source_disposition,
+        "source_sha256": spec.source_sha256,
         "ready_for_approval_preparation": True,
         "device_contact": False,
         "device_write": False,
@@ -1747,9 +1799,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--expect-connected-d0-sha256")
     parser.add_argument("--host-preservation", type=Path)
     parser.add_argument("--expect-work-sha256")
+    parser.add_argument("--expect-source-sha256")
     parser.add_argument(
         "--source-disposition",
-        choices=(SOURCE_EXACT_PRESERVED,),
+        choices=(SOURCE_EXACT_DISTINCT,),
     )
     parser.add_argument("--review-report", type=Path)
     parser.add_argument("--expect-review-report-sha256")
@@ -1783,6 +1836,7 @@ def main(argv: list[str] | None = None) -> int:
         "expect_connected_d0_sha256",
         "host_preservation",
         "expect_work_sha256",
+        "expect_source_sha256",
         "source_disposition",
         "review_report",
         "expect_review_report_sha256",

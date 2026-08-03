@@ -184,14 +184,16 @@ After unlink dispatch only, exact absent selected bytes may be restored while at
 Cleanup sends no payload, and recovery may transfer only the manifest-bound preserved SD-file identities; neither path writes a partition, configuration, credential, or security state, grants arbitrary path or shell authority, or applies to S22+, userdata, another removable device, another A90, or an unreviewed identity.
 
 The separately reviewed attended recovery sub-capability
-`A90_ATTENDED_RETAINED_WORK_SOURCE_PRESERVED_CLEANUP_V1` may unlink only the
+`A90_ATTENDED_RETAINED_WORK_SOURCE_DISTINCT_CLEANUP_V2` may unlink only the
 fixed `/mnt/sdext/a90/runtime/d3-handoff-work.img` after a closed ordinary F1
 has restored exact V2321 health but left that work copy behind. It requires the
 closed run's one candidate, one rollback, no-replay, and final-health evidence;
 fresh exact V2321 D0; the exact 2 GiB work bytes preserved on the host; the
 adjacent run-specific source as a distinct exact regular mode-`0600` file with
-the same hash; an absent run stage; no mount or loop use; and attended physical
-recovery. Live dispatch requires the awake operator to assert
+its separately bound SHA256; an absent run stage; no mount or loop use; and
+attended physical recovery. The source and work hashes may differ because the
+Debian session writes only the work copy; equality is neither inferred nor
+required. Live dispatch requires the awake operator to assert
 `--operator-attended` while physically able to enter Download or TWRP; never
 assert it while absent or asleep. The adjacent source is protected and never
 selected for unlink.

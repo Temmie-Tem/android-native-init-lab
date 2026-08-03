@@ -291,8 +291,12 @@ class RetainedWorkCleanupTests(unittest.TestCase):
         presence = cleanup.presence_script()
         for script in (preflight, dispatch, presence):
             self.assertIn("exact-preserved", script)
+            self.assertIn("exact-distinct-preserved", script)
             self.assertIn('sha256sum "$src"', script)
             self.assertIn("regular file|2147483648|600|1", script)
+            self.assertIn('"$source_expected"', script)
+        self.assertIn('"$actual" = "$work_expected"', preflight)
+        self.assertIn('"$actual" = "$work_expected"', dispatch)
         self.assertEqual(dispatch.count('/bin/busybox rm -- "$p"'), 1)
         self.assertNotIn('/bin/busybox rm -- "$src"', dispatch)
         self.assertLess(
@@ -303,6 +307,7 @@ class RetainedWorkCleanupTests(unittest.TestCase):
             dispatch.rindex('sha256sum "$src"'),
             dispatch.index('/bin/busybox rm -- "$p"'),
         )
+        self.assertTrue(cleanup.source_is_preserved(cleanup.SOURCE_EXACT_DISTINCT))
 
     def test_source_preserved_review_binds_exact_current_closure(self) -> None:
         review_root = self.base / "docs" / "reports"
@@ -607,6 +612,7 @@ class RetainedWorkCleanupTests(unittest.TestCase):
         spec = replace(
             base_spec,
             source_disposition=cleanup.SOURCE_EXACT_PRESERVED,
+            source_sha256=base_spec.work_sha256,
             independent_review=dummy,
             closed_f1_manifest=dummy,
             closed_f1_result=dummy,
@@ -685,6 +691,7 @@ class RetainedWorkCleanupTests(unittest.TestCase):
         spec = replace(
             base_spec,
             source_disposition=cleanup.SOURCE_EXACT_PRESERVED,
+            source_sha256=base_spec.work_sha256,
             independent_review=dummy,
             closed_f1_manifest=dummy,
             closed_f1_result=dummy,
