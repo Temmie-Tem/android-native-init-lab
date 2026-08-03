@@ -20,6 +20,9 @@ MANIFEST = (
 NOOP_MANIFEST = (
     HERE / "a90_flat_builder/versions/flat-builder-v1-noop/manifest.toml"
 )
+MINIMAL_MANIFEST = (
+    HERE / "a90_flat_builder/versions/phase3-minimal-a/manifest.toml"
+)
 
 
 class A90FlatBuilderTest(unittest.TestCase):
@@ -59,6 +62,7 @@ class A90FlatBuilderTest(unittest.TestCase):
         self.assertEqual(len(self.inputs["doom_sources"]), 80)
         self.assertEqual(len(self.manifest["init"]["cflags"]), 84)
         self.assertEqual(len(self.manifest["helper"]["cflags"]), 29)
+        self.assertTrue(self.manifest["engine"]["enabled"])
         self.assertIn(
             '-DA90_DOOMGENERIC_BRIDGE_ENGINE='
             '"doomgeneric-private-link-v3404-d3-resolved-owner-timeout"',
@@ -77,6 +81,76 @@ class A90FlatBuilderTest(unittest.TestCase):
                     "18bf8a8f46a757399bfea90f7db828534e4b579efbf2e7754c10424dcbe690cd",
             },
         )
+
+    def test_phase3_minimal_a_disables_only_doom_product_surface(self):
+        minimal = buildlib.resolve_manifest(MINIMAL_MANIFEST).data
+        buildlib.validate_component_selection(minimal)
+        self.assertEqual(
+            minimal["profile"],
+            "phase3-minimal-a-no-doom-engine",
+        )
+        self.assertFalse(minimal["candidate_authority"])
+        self.assertFalse(minimal["engine"]["enabled"])
+        self.assertEqual(len(minimal["init"]["sources"]), 60)
+        self.assertIn(
+            "a90_doomgeneric_bridge.c",
+            minimal["init"]["sources"],
+        )
+        self.assertEqual(len(minimal["init"]["cflags"]), 37)
+        self.assertFalse(
+            any("DOOMGENERIC" in item for item in minimal["init"]["cflags"])
+        )
+        engine_path = minimal["engine"]["ramdisk_path"]
+        self.assertIn(engine_path, minimal["ramdisk"]["obsolete_engines"])
+        self.assertNotIn(engine_path, minimal["ramdisk"]["required_entries"])
+        self.assertEqual(minimal["validation"]["engine_strings"], [])
+        self.assertNotIn("engine", build.artifact_names(minimal))
+        buildlib.validate_ramdisk_component_listing(
+            minimal,
+            set(minimal["ramdisk"]["required_entries"]),
+        )
+
+    def test_disabled_engine_contract_rejects_ramdisk_reachability(self):
+        minimal = buildlib.resolve_manifest(MINIMAL_MANIFEST).data
+        cases = {
+            "not-obsolete": lambda value: value["ramdisk"][
+                "obsolete_engines"
+            ].remove(value["engine"]["ramdisk_path"]),
+            "still-required": lambda value: value["ramdisk"][
+                "required_entries"
+            ].append(value["engine"]["ramdisk_path"]),
+            "marker-retained": lambda value: value["validation"][
+                "engine_strings"
+            ].append("stale engine marker"),
+        }
+        for name, mutate in cases.items():
+            with self.subTest(name=name):
+                changed = copy.deepcopy(minimal)
+                mutate(changed)
+                with self.assertRaisesRegex(
+                    buildlib.ManifestError,
+                    "disabled engine is not removed",
+                ):
+                    buildlib.validate_component_selection(changed)
+
+    def test_packed_ramdisk_rejects_stale_engine_variants(self):
+        minimal = buildlib.resolve_manifest(MINIMAL_MANIFEST).data
+        listing = set(minimal["ramdisk"]["required_entries"])
+        listing.add("bin/a90_doomgeneric_private_engine_v3368")
+        with self.assertRaisesRegex(
+            buildlib.ManifestError,
+            "packed ramdisk engine selection mismatch",
+        ):
+            buildlib.validate_ramdisk_component_listing(minimal, listing)
+
+        active = set(self.manifest["ramdisk"]["required_entries"])
+        buildlib.validate_ramdisk_component_listing(self.manifest, active)
+        active.add("bin/a90_doomgeneric_private_engine_v3383")
+        with self.assertRaisesRegex(
+            buildlib.ManifestError,
+            "packed ramdisk engine selection mismatch",
+        ):
+            buildlib.validate_ramdisk_component_listing(self.manifest, active)
 
     def test_virtual_prefixes_are_public_and_random_seed_is_fixed(self):
         self.assertEqual(

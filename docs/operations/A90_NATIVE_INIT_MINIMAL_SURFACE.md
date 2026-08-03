@@ -1,6 +1,6 @@
 # A90 native-init minimal surface
 
-Status: `H0_DEPENDENCY_MAP_V1`
+Status: `H0_PHASE3_MINIMAL_A_BUILT_REVIEW_PENDING`
 
 Date: 2026-08-03
 
@@ -20,7 +20,44 @@ item belongs in the product surface.
 `workspace/public/src/scripts/revalidation/a90_native_minimal_surface_v1.py`
 now revalidates the manifest lineage, public source keys, private input pins,
 exact counts, and `candidate_authority=false`. Its first slice changes no
-native-init source, flag, helper, artifact, or device state.
+native-init source, helper, accepted artifact, or device state. The successor
+profile removes 47 Doom-only init flags while retaining all 60 native-init
+translation units for the first reachability slice.
+
+## Phase3 minimal-A H0 build result
+
+The no-authority `phase3-minimal-a-no-doom-engine` successor now builds the
+init and helper but skips the separate 80-source Doom engine product. It also
+requires the packed ramdisk to contain exactly the selected engine set: the
+active engine only for an enabled profile, or no private Doom engine for a
+disabled profile.
+
+Two host-only findings were fixed before accepting the deterministic output:
+
+- Removing `a90_doomgeneric_bridge.c` caused an init link failure because
+  `init_v724.c` still directly references bridge entry points. The source stays
+  in this slice; the incomplete output was not reused.
+- A successful intermediate ramdisk still contained three older engine
+  variants inherited from the base boot. Those variants were added to the
+  obsolete set, and an exact engine-family listing check now rejects any stale
+  variant. That intermediate output was also not reused.
+
+The final private A/B build is byte-identical, keeps the accepted input boot
+unchanged, and has `candidate_authority=false`. Direct archive inspection found
+the init, helper, and audio manifest and no
+`bin/a90_doomgeneric_private_engine_*` member.
+
+| Artifact | v3404 reference bytes | minimal-A bytes | Difference |
+|---|---:|---:|---:|
+| boot | 66,379,776 | 61,505,536 | -4,874,240 |
+| ramdisk | 16,545,280 | 11,673,088 | -4,872,192 |
+| init | 1,855,248 | 1,789,712 | -65,536 |
+| helper | 1,649,904 | 1,649,904 | 0 |
+| separate Doom engine | 1,201,512 | absent | -1,201,512 |
+
+This result is H0 evidence only. It is not an F1 candidate, qualification, or
+device authority. The changed builder closure requires one independent
+capability review before it can support any later attended F1 workflow.
 
 ## Debian ownership already proved
 
@@ -68,16 +105,13 @@ minimal profile rather than becoming permanent bridge duties.
 1. The read-only inventory has frozen and printed/hashed the current
    flat-builder source keys without editing accepted resident or rollback
    artifacts.
-2. Add a no-authority successor profile that first removes the separate Doom
-   engine and obsolete ramdisk engines while preserving bootstrap, USB,
-   storage, release, handoff, return, and health behavior.
-3. Build the successor twice from the same pinned inputs and require identical
-   init, ramdisk, and boot hashes.
+2. The no-authority successor profile and deterministic A/B build are complete.
+3. Independently review the changed flat-builder capability closure.
 4. Produce a symbol/reachability diff for the 60 native translation units and
    classify every remaining function against this map.
 5. Stop at H0. A changed boot candidate requires refreshed qualification,
    independent review of its changed closure, and attended boot-only F1.
 
-Focused inventory regression passes `3/3`; existing flat-builder and Phase 1A
-regression passes `17/17`. `py_compile`, private pin validation, and
-`git diff --check` pass. No boot image was built.
+Focused inventory regression passes `3/3`; flat-builder and Phase 1A regression
+passes `20/20`. `py_compile`, private pin validation, A/B byte comparison,
+archive inspection, and `git diff --check` pass. No device was contacted.

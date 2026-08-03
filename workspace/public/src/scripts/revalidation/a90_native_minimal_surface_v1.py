@@ -34,7 +34,7 @@ EXPECTED_COUNTS = {
     "helper_cflags": 29,
     "doom_sources": 80,
     "materialized_engine_sources": 3,
-    "obsolete_ramdisk_engines": 22,
+    "obsolete_ramdisk_engines": 25,
 }
 
 
@@ -152,7 +152,9 @@ def build_inventory(
         "first_removal_slice": {
             "name": "separate-doom-engine-and-obsolete-ramdisk-engines",
             "native_init_sources_changed": False,
-            "native_init_cflags_changed": False,
+            "native_init_cflags_changed": True,
+            "native_init_cflags_to_remove": 47,
+            "native_init_cflags_after_removal": 37,
             "helper_changed": False,
             "active_engine_ramdisk_path": manifest["engine"]["ramdisk_path"],
             "doom_sources_to_leave_product_closure": counts["doom_sources"],
@@ -162,7 +164,7 @@ def build_inventory(
             "obsolete_ramdisk_engines_to_remove": counts[
                 "obsolete_ramdisk_engines"
             ],
-            "builder_currently_requires_helper_and_engine": True,
+            "current_profile_requires_helper_and_engine": True,
             "builder_change_requires_focused_tests": True,
         },
         "next_gate": (

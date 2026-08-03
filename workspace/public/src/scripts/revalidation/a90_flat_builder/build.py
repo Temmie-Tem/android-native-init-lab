@@ -33,6 +33,13 @@ ARTIFACT_NAMES = {
 }
 
 
+def artifact_names(manifest: dict[str, Any]) -> dict[str, str]:
+    names = dict(ARTIFACT_NAMES)
+    if manifest["engine"]["enabled"] is False:
+        del names["engine"]
+    return names
+
+
 def repo_root() -> Path:
     for parent in Path(__file__).resolve().parents:
         if (parent / "GOAL_A90.md").is_file():
@@ -310,7 +317,7 @@ def overlay_ramdisk(
     output_dir: Path,
     init: Path,
     helper: Path,
-    engine: Path,
+    engine: Path | None,
 ) -> tuple[Path, Path]:
     ramdisk_cpio = output_dir / "ramdisk.cpio"
     boot_image = output_dir.parent / "boot.img"
@@ -367,14 +374,19 @@ def overlay_ramdisk(
         for relative in manifest["ramdisk"]["obsolete_engines"]:
             obsolete = safe_ramdisk_path(ramdisk, relative, "obsolete engine")
             obsolete.unlink(missing_ok=True)
-        engine_path = safe_ramdisk_path(
-            ramdisk,
-            manifest["engine"]["ramdisk_path"],
-            "engine",
-        )
-        engine_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(engine, engine_path)
-        engine_path.chmod(0o755)
+        if manifest["engine"]["enabled"]:
+            if engine is None:
+                raise RuntimeError("enabled engine output is absent")
+            engine_path = safe_ramdisk_path(
+                ramdisk,
+                manifest["engine"]["ramdisk_path"],
+                "engine",
+            )
+            engine_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(engine, engine_path)
+            engine_path.chmod(0o755)
+        elif engine is not None:
+            raise RuntimeError("disabled engine unexpectedly has output")
 
         set_reproducible_mtime(ramdisk, int(manifest["reproducible_mtime"]))
         pack_ramdisk(manifest, ramdisk, ramdisk_cpio)
@@ -384,6 +396,7 @@ def overlay_ramdisk(
         missing = sorted(set(manifest["ramdisk"]["required_entries"]) - listing)
         if missing:
             raise RuntimeError(f"ramdisk required entries missing: {missing}")
+        buildlib.validate_ramdisk_component_listing(manifest, listing)
 
         for index, item in enumerate(mkboot_args):
             if item == "--ramdisk" and index + 1 < len(mkboot_args):
@@ -414,9 +427,12 @@ def require_markers(path: Path, markers: list[str], label: str) -> None:
         raise RuntimeError(f"{label} markers missing: {missing}")
 
 
-def artifact_info(root: Path) -> dict[str, dict[str, object]]:
+def artifact_info(
+    root: Path,
+    names: dict[str, str],
+) -> dict[str, dict[str, object]]:
     result: dict[str, dict[str, object]] = {}
-    for name, relative in ARTIFACT_NAMES.items():
+    for name, relative in names.items():
         path = root / relative
         if not path.is_file():
             raise RuntimeError(f"missing {name}: {path}")
@@ -451,17 +467,19 @@ def build_one(
     build_dir.mkdir(parents=True, mode=0o700)
     init = build_dir / "init"
     helper = build_dir / "helper"
-    engine = build_dir / "engine"
+    engine = build_dir / "engine" if manifest["engine"]["enabled"] else None
     build_init(manifest, inputs, init, build_dir / "obj/init")
     build_helper(manifest, inputs, helper)
-    build_engine(manifest, inputs, engine, build_dir / "obj/engine")
+    if engine is not None:
+        build_engine(manifest, inputs, engine, build_dir / "obj/engine")
     overlay_ramdisk(repo, manifest, inputs, build_dir, init, helper, engine)
 
     validation = manifest["validation"]
     require_markers(init, validation["init_strings"], "init")
     require_markers(helper, validation["helper_strings"], "helper")
-    require_markers(engine, validation["engine_strings"], "engine")
-    artifacts = artifact_info(root)
+    if engine is not None:
+        require_markers(engine, validation["engine_strings"], "engine")
+    artifacts = artifact_info(root, artifact_names(manifest))
     buildlib.revalidate_manifest_lineage(resolution)
     receipt = {
         "schema": "a90-flat-builder-v1-build-receipt",
@@ -594,7 +612,7 @@ def main() -> int:
                 root / "B" / relative,
                 shallow=False,
             )
-            for relative in ARTIFACT_NAMES.values()
+            for relative in artifact_names(manifest).values()
         )
         if a_receipt["artifacts"] != b_receipt["artifacts"]:
             byte_identical = False

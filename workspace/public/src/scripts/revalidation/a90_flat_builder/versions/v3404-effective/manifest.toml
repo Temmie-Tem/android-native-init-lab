@@ -218,6 +218,7 @@ cflags = [
 ]
 
 [engine]
+enabled = true
 doom_source_root = "workspace/private/demo-assets/doom/doomgeneric-v3403/doomgeneric"
 doom_source_commit = "dcb7a8dbc7a16ce3dda29382ac9aae9d77d21284"
 virtual_doom_root = "/usr/src/a90/doomgeneric"
@@ -340,6 +341,9 @@ helper_path = "bin/a90_android_execns_probe"
 obsolete_engines = [
   "bin/a90_doomgeneric_private_engine_v3334",
   "bin/a90_doomgeneric_private_engine_v3335",
+  "bin/a90_doomgeneric_private_engine_v3368",
+  "bin/a90_doomgeneric_private_engine_v3381",
+  "bin/a90_doomgeneric_private_engine_v3383",
   "bin/a90_doomgeneric_private_engine_v3384",
   "bin/a90_doomgeneric_private_engine_v3385",
   "bin/a90_doomgeneric_private_engine_v3386",

@@ -27,15 +27,17 @@ class A90NativeMinimalSurfaceV1Tests(unittest.TestCase):
         self.assertEqual(value["surface_counts"], surface.EXPECTED_COUNTS)
         first = value["first_removal_slice"]
         self.assertFalse(first["native_init_sources_changed"])
-        self.assertFalse(first["native_init_cflags_changed"])
+        self.assertTrue(first["native_init_cflags_changed"])
+        self.assertEqual(first["native_init_cflags_to_remove"], 47)
+        self.assertEqual(first["native_init_cflags_after_removal"], 37)
         self.assertFalse(first["helper_changed"])
         self.assertEqual(first["doom_sources_to_leave_product_closure"], 80)
         self.assertEqual(
             first["materialized_engine_sources_to_leave_product_closure"],
             3,
         )
-        self.assertEqual(first["obsolete_ramdisk_engines_to_remove"], 22)
-        self.assertTrue(first["builder_currently_requires_helper_and_engine"])
+        self.assertEqual(first["obsolete_ramdisk_engines_to_remove"], 25)
+        self.assertTrue(first["current_profile_requires_helper_and_engine"])
 
     def test_changed_surface_count_is_rejected(self) -> None:
         resolution = surface.buildlib.resolve_manifest(surface.DEFAULT_MANIFEST)

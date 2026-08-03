@@ -323,6 +323,61 @@ def _string_list(table: dict[str, Any], key: str) -> list[str]:
     return list(value)
 
 
+def validate_component_selection(manifest: dict[str, Any]) -> None:
+    """Validate optional build components without inspecting private inputs."""
+
+    engine = manifest.get("engine")
+    ramdisk = manifest.get("ramdisk")
+    validation = manifest.get("validation")
+    if not isinstance(engine, dict) or type(engine.get("enabled")) is not bool:
+        raise ManifestError("engine.enabled must be one boolean")
+    if not isinstance(ramdisk, dict) or not isinstance(validation, dict):
+        raise ManifestError("ramdisk or validation table is absent")
+    ramdisk_path = engine.get("ramdisk_path")
+    obsolete = ramdisk.get("obsolete_engines")
+    required = ramdisk.get("required_entries")
+    engine_strings = validation.get("engine_strings")
+    if (
+        not isinstance(ramdisk_path, str)
+        or not ramdisk_path
+        or not isinstance(obsolete, list)
+        or any(not isinstance(item, str) or not item for item in obsolete)
+        or not isinstance(required, list)
+        or any(not isinstance(item, str) or not item for item in required)
+        or not isinstance(engine_strings, list)
+        or any(not isinstance(item, str) or not item for item in engine_strings)
+    ):
+        raise ManifestError("engine ramdisk selection is malformed")
+    if engine["enabled"]:
+        if ramdisk_path not in required or not engine_strings:
+            raise ManifestError("enabled engine is not required and validated")
+        return
+    if (
+        ramdisk_path not in obsolete
+        or ramdisk_path in required
+        or engine_strings
+    ):
+        raise ManifestError("disabled engine is not removed from the ramdisk")
+
+
+def validate_ramdisk_component_listing(
+    manifest: dict[str, Any],
+    listing: set[str],
+) -> None:
+    """Require the packed ramdisk to contain exactly the selected engine set."""
+
+    validate_component_selection(manifest)
+    engine_path = manifest["engine"]["ramdisk_path"]
+    engine_prefix = "bin/a90_doomgeneric_private_engine_"
+    present = sorted(item for item in listing if item.startswith(engine_prefix))
+    expected = [engine_path] if manifest["engine"]["enabled"] else []
+    if present != expected:
+        raise ManifestError(
+            "packed ramdisk engine selection mismatch: "
+            f"expected={expected!r} present={present!r}"
+        )
+
+
 def expanded_closure(
     root: Path,
     explicit: Iterable[str],
@@ -369,6 +424,7 @@ def validate_inputs(
         manifest_path = resolution.requested_path
         if resolution.data != manifest:
             raise ManifestError("manifest data does not match its resolved source")
+    validate_component_selection(manifest)
     inputs = manifest["inputs"]
     base_boot, base_boot_sha = _pin_file(
         repo_root, inputs, "base_boot", "base_boot_sha256", "base boot"
@@ -427,6 +483,25 @@ def validate_inputs(
             f"helper source changed: got {helper_sha}, expected {expected_helper_sha}"
         )
 
+    result = {
+        "base_boot": base_boot,
+        "base_boot_sha256": base_boot_sha,
+        "accepted_boot": accepted_boot,
+        "accepted_boot_sha256": accepted_boot_sha,
+        "mkbootimg": mkbootimg,
+        "mkbootimg_sha256": mkbootimg_sha,
+        "unpack_bootimg": unpack_bootimg,
+        "unpack_bootimg_sha256": unpack_bootimg_sha,
+        "init_root": init_root,
+        "init_sources": [init_root / relative for relative in init_sources],
+        "init_closure_sha256": init_closure_sha,
+        "helper_source": helper_source,
+        "helper_source_sha256": helper_sha,
+        "engine_enabled": manifest["engine"]["enabled"],
+    }
+    if not manifest["engine"]["enabled"]:
+        return result
+
     engine = manifest["engine"]
     doom_root = require_directory(
         resolve_repo_path(repo_root, engine["doom_source_root"], "Doom source root"),
@@ -437,7 +512,7 @@ def validate_inputs(
         require_regular(doom_root / relative, f"Doom source {relative}")
     doom_closure = expanded_closure(
         doom_root,
-        [*_string_list(engine, "doom_sources"), "Makefile.soso"],
+        [*doom_sources, "Makefile.soso"],
         _string_list(engine, "doom_closure_globs"),
     )
     doom_closure_sha = closure_sha256(doom_root, doom_closure)
@@ -479,27 +554,16 @@ def validate_inputs(
             )
         materialized[name] = path
         materialized_sha[name] = actual
-
-    return {
-        "base_boot": base_boot,
-        "base_boot_sha256": base_boot_sha,
-        "accepted_boot": accepted_boot,
-        "accepted_boot_sha256": accepted_boot_sha,
-        "mkbootimg": mkbootimg,
-        "mkbootimg_sha256": mkbootimg_sha,
-        "unpack_bootimg": unpack_bootimg,
-        "unpack_bootimg_sha256": unpack_bootimg_sha,
-        "init_root": init_root,
-        "init_sources": [init_root / relative for relative in init_sources],
-        "init_closure_sha256": init_closure_sha,
-        "helper_source": helper_source,
-        "helper_source_sha256": helper_sha,
-        "doom_root": doom_root,
-        "doom_sources": [doom_root / relative for relative in doom_sources],
-        "doom_closure_sha256": doom_closure_sha,
-        "materialized": materialized,
-        "materialized_sha256": materialized_sha,
-    }
+    result.update(
+        {
+            "doom_root": doom_root,
+            "doom_sources": [doom_root / relative for relative in doom_sources],
+            "doom_closure_sha256": doom_closure_sha,
+            "materialized": materialized,
+            "materialized_sha256": materialized_sha,
+        }
+    )
+    return result
 
 
 def prefix_map_flags(actual: Path, virtual: str) -> list[str]:
