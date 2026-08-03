@@ -1,3 +1,4 @@
+#include "a90_config.h"
 #include "a90_menu.h"
 
 #include <stdio.h>
@@ -155,7 +156,9 @@ static const struct screen_menu_item screen_menu_logs_items[] = {
 static const struct screen_menu_item screen_menu_demo_items[] = {
     { "BAD APPLE HUD", "FULL A/V PLAYER HUD", SCREEN_MENU_DEMO_BADAPPLE, SCREEN_MENU_PAGE_DEMO },
     { "NYAN CAT",      "10S COLOR PLAYER",    SCREEN_MENU_DEMO_NYAN,     SCREEN_MENU_PAGE_DEMO },
+#if !A90_MINIMAL_NO_DOOM_COMMAND_SURFACE
     { "DOOM",          "WAD PLAYABLE LOOP",     SCREEN_MENU_DEMO_DOOM,   SCREEN_MENU_PAGE_DEMO },
+#endif
     { "BACK",          "MAIN MENU",             SCREEN_MENU_BACK,          SCREEN_MENU_PAGE_MAIN },
 };
 

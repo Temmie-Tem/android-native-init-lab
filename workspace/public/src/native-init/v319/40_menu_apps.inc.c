@@ -651,6 +651,7 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             auto_hud_show_menu(state, false);
             break;
         }
+#if !A90_MINIMAL_NO_DOOM_COMMAND_SURFACE
         case SCREEN_MENU_DEMO_DOOM: {
             struct a90_doomgeneric_bridge_status doomgeneric;
             char *demo_argv[9];
@@ -722,6 +723,7 @@ static bool auto_hud_handle_menu_key(struct auto_hud_state *state,
             auto_hud_show_menu(state, false);
             break;
         }
+#endif
         case SCREEN_MENU_CPU_STRESS_5:
         case SCREEN_MENU_CPU_STRESS_10:
         case SCREEN_MENU_CPU_STRESS_30:

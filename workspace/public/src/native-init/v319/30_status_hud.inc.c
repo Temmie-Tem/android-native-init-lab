@@ -151,10 +151,14 @@ static int cmd_kmsprobe(void) {
 
 static int cmd_video_status(void) {
     struct a90_kms_info info;
+#if !A90_MINIMAL_NO_DOOM_COMMAND_SURFACE
     struct a90_doomgeneric_bridge_status doomgeneric;
+#endif
 
     a90_kms_info(&info);
+#if !A90_MINIMAL_NO_DOOM_COMMAND_SURFACE
     a90_doomgeneric_bridge_get_status(&doomgeneric);
+#endif
     a90_console_printf("video.status.version=10\r\n");
     a90_console_printf("video.status.path=kms-dumb-buffer\r\n");
     a90_console_printf("video.status.display_owner=1\r\n");
@@ -196,6 +200,9 @@ static int cmd_video_status(void) {
     a90_console_printf("video.status.menu_av_tail_wait=audio-expected-duration\r\n");
     a90_console_printf("video.status.menu_av_pageflip_diagnostic=1\r\n");
     a90_console_printf("video.status.nyan_pal8_rle=1\r\n");
+#if A90_MINIMAL_NO_DOOM_COMMAND_SURFACE
+    a90_console_printf("video.status.doom_surface=removed\r\n");
+#else
     a90_console_printf("video.status.doom_stub=1\r\n");
     a90_console_printf("video.status.doom_input=serial-doompad-staged\r\n");
     a90_console_printf("video.status.doomgeneric.bridge=%s\r\n", doomgeneric.candidate);
@@ -227,6 +234,7 @@ static int cmd_video_status(void) {
     a90_console_printf("video.status.doomgeneric.frame_size=%ux%u\r\n",
                        doomgeneric.frame_width,
                        doomgeneric.frame_height);
+#endif
     a90_console_printf("video.status.venus=not-used\r\n");
     a90_console_printf("video.status.kgsl=not-used\r\n");
     a90_console_printf("video.status.raw_dsi=blocked\r\n");
@@ -255,7 +263,11 @@ static int cmd_video_status(void) {
     a90_console_printf("video.status.next_stream_pageflip=video stream --manifest PATH --video-only [--frames N] --present pageflip\r\n");
     a90_console_printf("video.status.next_stream_sync=video stream --manifest PATH --video-only [--frames N] --present pageflip --sync-audio-status /cache/a90-audio-play/status.txt\r\n");
     a90_console_printf("video.status.next_cache=video cache [status|verify|play] SHA256 [--trust-cache] [--present pageflip] [--layout full|player-hud] | video cache preset [badapple|badapple-scale|nyan] play [--trust-cache]\r\n");
+#if A90_MINIMAL_NO_DOOM_COMMAND_SURFACE
+    a90_console_printf("video.status.next_demo=video demo [badapple|badapple-scale|nyan] [status|verify|play] [--trust-cache]\r\n");
+#else
     a90_console_printf("video.status.next_demo=video demo [badapple|badapple-scale|nyan|doom] [status|verify|play] [--trust-cache]\r\n");
+#endif
     a90_console_printf("video.status.next_flipprobe=video flipprobe [frames<=120]\r\n");
     return 0;
 }
@@ -7196,12 +7208,32 @@ static int video_demo_doom_run_wad_command(const char *action,
     return -EINVAL;
 }
 
+#if A90_MINIMAL_NO_DOOM_COMMAND_SURFACE
+static const char video_demo_minimal_usage[] =
+    "usage: video demo [bars|checker|mono|0xRRGGBB|badapple|badapple-scale|nyan] [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] [--sync-start-offset-ms N]\r\n";
+
+static int video_demo_doom_removed(void) {
+    a90_console_printf("video.demo.doom=removed\r\n");
+    a90_console_printf("%s", video_demo_minimal_usage);
+    return -ENOTSUP;
+}
+#endif
+
 static int cmd_video_demo(char **argv, int argc) {
+#if A90_MINIMAL_NO_DOOM_COMMAND_SURFACE
+    const char *usage = video_demo_minimal_usage;
+#else
     const char *usage = "usage: video demo [bars|checker|mono|0xRRGGBB|badapple|badapple-scale|nyan|doom [status|verify|play|frame|loop|loop-start|loop-stop|loop-status|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED] [--trust-cache] [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status /cache/a90-audio-play/status.txt] [--sync-wait-ms N] [--sync-start-offset-ms N]]\r\n";
+#endif
     char *cache_argv[CMDV1X_MAX_ARGS];
     int cache_argc = 0;
     int index;
 
+#if A90_MINIMAL_NO_DOOM_COMMAND_SURFACE
+    if (argc >= 3 && strcmp(argv[2], "doom") == 0) {
+        return video_demo_doom_removed();
+    }
+#else
     if (argc >= 3 && strcmp(argv[2], "doom") == 0) {
         const char *action = argc >= 4 ? argv[3] : "status";
         char *doom_argv[3];
@@ -7282,6 +7314,7 @@ static int cmd_video_demo(char **argv, int argc) {
         }
         return cmd_doomplay(doom_argv, doom_argc);
     }
+#endif
 
     if (argc >= 3 &&
         (strcmp(argv[2], VIDEO_CACHE_PRESET_BADAPPLE_NAME) == 0 ||

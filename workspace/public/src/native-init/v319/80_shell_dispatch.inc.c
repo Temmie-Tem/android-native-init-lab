@@ -348,6 +348,7 @@ static int handle_readinput(char **argv, int argc) {
     return cmd_readinput(argv, argc);
 }
 
+#if !A90_MINIMAL_NO_DOOM_COMMAND_SURFACE
 static int handle_doominput(char **argv, int argc) {
     return cmd_doominput(argv, argc);
 }
@@ -359,6 +360,7 @@ static int handle_doompad(char **argv, int argc) {
 static int handle_doominputmux(char **argv, int argc) {
     return cmd_doominputmux(argv, argc);
 }
+#endif
 
 static int handle_waitkey(char **argv, int argc) {
     return a90_input_cmd_waitkey(argv, argc);
@@ -19671,7 +19673,11 @@ static const struct shell_command command_table[] = {
     { "tracefs", handle_tracefs, "tracefs [summary|full|paths]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "gpu", handle_gpu, "gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|c1-compute-invocationid-probe [--timeout-ms N] [--materialize-devnode]|c2-compute-pattern-probe [--timeout-ms N] [--materialize-devnode]|c3-compute-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|d1-texture-checkerboard-probe [--timeout-ms N] [--materialize-devnode]|d2-realframe-texture-probe [--preset badapple|--manifest PATH] [--frame-index N] [--timeout-ms N] [--materialize-devnode]|d3-video-texture-present-probe [--preset badapple] [--start-frame N] [--frames N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m0-monitor-sampler-probe [--samples N] [--interval-ms N]|m1-monitor-dashboard-probe [--samples N] [--interval-ms N] [--hold-ms N]|m2-monitor-live-graph-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|m3-monitor-extraction-probe [--frames N] [--interval-ms N] [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|z2-imported-scanout-target-probe [--timeout-ms N] [--materialize-devnode]|z3-imported-scanout-plane-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|z3-imported-scanout-primary-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]|h5-triangle-kms-probe [--timeout-ms N] [--hold-ms N] [--materialize-devnode]]", CMD_NONE, A90_CMD_GROUP_CORE },
     { "audio", handle_audio, "audio [status|profiles|profile|speaker-map|stages|prereq|app-type|setcal|route|play|chime|play-status|stop|adsp-status|snd-status]", CMD_NONE, A90_CMD_GROUP_ANDROID },
+#if A90_MINIMAL_NO_DOOM_COMMAND_SURFACE
+    { "video", handle_video, "video [status|frame [bars|checker|mono|0xRRGGBB]|demo [badapple|badapple-scale|nyan|frame-pattern]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]", CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
+#else
     { "video", handle_video, "video [status|frame [bars|checker|mono|0xRRGGBB]|demo [badapple|badapple-scale|nyan|doom [status|verify|play|frame|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED]|frame-pattern]|anim [bars|checker|pulse] [frames] [delay_ms]|blitbench [frames]|flipprobe [frames]|stream --manifest PATH --video-only [--frames N] [--present setcrtc|pageflip] [--layout full|player-hud] [--sync-audio-status PATH]|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]", CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
+#endif
     { "wifi", handle_wifi, "wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|config [status|prepare [profile]]]", CMD_NONE, A90_CMD_GROUP_NETWORK },
     { "wifiinv", handle_wifiinv, "wifiinv [summary|full|refresh|paths]", CMD_NONE, A90_CMD_GROUP_NETWORK },
     { "wififeas", handle_wififeas, "wififeas [summary|full|gate|refresh|paths]", CMD_NONE, A90_CMD_GROUP_NETWORK },
@@ -19715,9 +19721,11 @@ static const struct shell_command command_table[] = {
     { "inputscan", handle_inputscan, "inputscan [eventX]", CMD_NONE, A90_CMD_GROUP_INPUT },
     { "inputcaps", handle_inputcaps, "inputcaps <eventX>", CMD_NONE, A90_CMD_GROUP_INPUT },
     { "readinput", handle_readinput, "readinput <eventX> [count] [timeout_ms]", CMD_BLOCKING, A90_CMD_GROUP_INPUT },
+#if !A90_MINIMAL_NO_DOOM_COMMAND_SURFACE
     { "doompad", handle_doompad, "doompad [status|reset|state <seq> <mask>|key <role> <0|1>|tap <role>]", CMD_NONE, A90_CMD_GROUP_INPUT },
     { "doominput", handle_doominput, "doominput <eventX> [count] [timeout_ms]", CMD_BLOCKING, A90_CMD_GROUP_INPUT },
     { "doominputmux", handle_doominputmux, "doominputmux <eventX,eventY[,eventZ]> [count] [timeout_ms]", CMD_BLOCKING, A90_CMD_GROUP_INPUT },
+#endif
     { "waitkey", handle_waitkey, "waitkey [count]", CMD_BLOCKING, A90_CMD_GROUP_INPUT },
     { "inputlayout", handle_inputlayout, "inputlayout", CMD_NONE, A90_CMD_GROUP_INPUT },
     { "waitgesture", handle_waitgesture, "waitgesture [count]", CMD_BLOCKING, A90_CMD_GROUP_INPUT },
@@ -19913,6 +19921,44 @@ static void print_cmdv1x_error(int result) {
                      "error");
 }
 
+#if A90_MINIMAL_NO_DOOM_COMMAND_SURFACE
+static bool a90_minimal_removed_doom_command(char **argv, int argc) {
+    return argc >= 3 &&
+           strcmp(argv[0], "video") == 0 &&
+           strcmp(argv[1], "demo") == 0 &&
+           strcmp(argv[2], "doom") == 0;
+}
+
+static int a90_execute_minimal_removed_doom_command(
+        const struct shell_command *command,
+        char **argv,
+        int argc,
+        bool protocol_v1) {
+    unsigned long protocol_seq = 0;
+    int result;
+    int result_errno;
+
+    if (protocol_v1) {
+        protocol_seq = a90_shell_next_protocol_seq();
+        a90_cmdproto_begin(protocol_seq, argv[0], argc, command->flags);
+    }
+    result = video_demo_doom_removed();
+    result_errno = a90_shell_result_errno(result);
+    a90_shell_save_last_result(argv[0], result, result_errno, 0, command->flags);
+    a90_shell_print_result(command, argv[0], result, result_errno, 0);
+    if (protocol_v1) {
+        a90_cmdproto_end(protocol_seq,
+                         argv[0],
+                         result,
+                         result_errno,
+                         0,
+                         command->flags,
+                         a90_cmdproto_status(result, false, false));
+    }
+    return result;
+}
+#endif
+
 static int execute_shell_command(char **argv, int argc, bool protocol_v1) {
     const struct shell_command *command;
     enum a90_controller_busy_reason busy_reason;
@@ -19952,6 +19998,15 @@ static int execute_shell_command(char **argv, int argc, bool protocol_v1) {
         (void)a90_reaper_reap_orphans("cmd-unknown");
         return result;
     }
+
+#if A90_MINIMAL_NO_DOOM_COMMAND_SURFACE
+    if (a90_minimal_removed_doom_command(argv, argc)) {
+        return a90_execute_minimal_removed_doom_command(command,
+                                                         argv,
+                                                         argc,
+                                                         protocol_v1);
+    }
+#endif
 
     busy_reason = a90_controller_command_busy_reason_ex(argv[0],
                                                         command->flags,

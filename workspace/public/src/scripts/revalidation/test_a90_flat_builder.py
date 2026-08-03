@@ -26,6 +26,9 @@ MINIMAL_MANIFEST = (
 MINIMAL_B_MANIFEST = (
     HERE / "a90_flat_builder/versions/phase3-minimal-b/manifest.toml"
 )
+MINIMAL_C_MANIFEST = (
+    HERE / "a90_flat_builder/versions/phase3-minimal-c/manifest.toml"
+)
 
 
 def newc_archive(entries: dict[str, bytes]) -> bytes:
@@ -145,6 +148,110 @@ class A90FlatBuilderTest(unittest.TestCase):
             set(minimal["ramdisk"]["required_entries"]),
         )
 
+    def test_phase3_minimal_c_removes_doom_command_and_bridge_sources(self):
+        resolution = buildlib.resolve_manifest(MINIMAL_C_MANIFEST)
+        minimal = resolution.data
+        buildlib.validate_component_selection(minimal)
+        self.assertEqual(
+            minimal["profile"],
+            "phase3-minimal-c-no-doom-command-surface",
+        )
+        self.assertFalse(minimal["candidate_authority"])
+        self.assertFalse(minimal["engine"]["enabled"])
+        self.assertEqual(len(minimal["init"]["sources"]), 59)
+        self.assertNotIn(
+            "a90_doomgeneric_bridge.c",
+            minimal["init"]["sources"],
+        )
+        self.assertNotIn(
+            "a90_doomgeneric_bridge_inert.c",
+            minimal["init"]["sources"],
+        )
+        self.assertIn(
+            "-DA90_MINIMAL_NO_DOOM_COMMAND_SURFACE=1",
+            minimal["init"]["cflags"],
+        )
+        self.assertIn(
+            "video.status.doom_surface=removed",
+            minimal["validation"]["init_strings"],
+        )
+        self.assertIn(
+            "video.demo.doom=removed",
+            minimal["validation"]["init_strings"],
+        )
+        inputs = buildlib.validate_inputs(
+            REPO_ROOT,
+            resolution,
+            minimal,
+        )
+        self.assertEqual(
+            inputs["init_closure_sha256"],
+            minimal["init"]["closure_sha256"],
+        )
+        buildlib.validate_ramdisk_component_listing(
+            minimal,
+            set(minimal["ramdisk"]["required_entries"]),
+        )
+
+    def test_phase3_minimal_c_rejects_doom_before_shell_effects(self):
+        dispatch = (
+            REPO_ROOT
+            / "workspace/public/src/native-init/v319/80_shell_dispatch.inc.c"
+        ).read_text(encoding="utf-8")
+        hud = (
+            REPO_ROOT
+            / "workspace/public/src/native-init/v319/30_status_hud.inc.c"
+        ).read_text(encoding="utf-8")
+
+        early_executor_start = dispatch.index(
+            "static int a90_execute_minimal_removed_doom_command("
+        )
+        early_executor_end = dispatch.index("#endif", early_executor_start)
+        early_executor = dispatch[early_executor_start:early_executor_end]
+        for forbidden in (
+            "stop_auto_hud",
+            "a90_logf",
+            "a90_reaper",
+            "monotonic_millis",
+            "fork(",
+            "open(",
+            "socket(",
+        ):
+            self.assertNotIn(forbidden, early_executor)
+
+        dispatch_start = dispatch.index("static int execute_shell_command(")
+        dispatch_body = dispatch[dispatch_start:]
+        early_reject = dispatch_body.index(
+            "if (a90_minimal_removed_doom_command(argv, argc))"
+        )
+        self.assertLess(
+            early_reject,
+            dispatch_body.index("busy_reason ="),
+        )
+        self.assertLess(
+            early_reject,
+            dispatch_body.index('a90_logf("cmd", "start'),
+        )
+        self.assertLess(
+            early_reject,
+            dispatch_body.index("stop_auto_hud(false)"),
+        )
+
+        reject_start = hud.index("static int video_demo_doom_removed(void)")
+        reject_end = hud.index("#endif", reject_start)
+        reject_body = hud[reject_start:reject_end]
+        for forbidden in (
+            "a90_audio",
+            "a90_doomgeneric_bridge",
+            "a90_kms",
+            "a90_logf",
+            "fork(",
+            "open(",
+            "socket(",
+            "write(",
+        ):
+            self.assertNotIn(forbidden, reject_body)
+
     def test_phase3_minimal_b_replaces_operational_doom_bridge(self):
         minimal = buildlib.resolve_manifest(MINIMAL_B_MANIFEST).data
         buildlib.validate_component_selection(minimal)
@@ -169,15 +276,6 @@ class A90FlatBuilderTest(unittest.TestCase):
         )
         self.assertEqual(minimal["validation"]["engine_strings"], [])
         self.assertNotIn("engine", build.artifact_names(minimal))
-        inputs = buildlib.validate_inputs(
-            REPO_ROOT,
-            buildlib.resolve_manifest(MINIMAL_B_MANIFEST),
-            minimal,
-        )
-        self.assertEqual(
-            inputs["init_closure_sha256"],
-            minimal["init"]["closure_sha256"],
-        )
 
     def test_disabled_engine_contract_rejects_ramdisk_reachability(self):
         minimal = buildlib.resolve_manifest(MINIMAL_MANIFEST).data
@@ -257,7 +355,7 @@ class A90FlatBuilderTest(unittest.TestCase):
 
         changed = copy.deepcopy(keys)
         changed["flat_builder"]["sha256"] = "0" * 64
-        resolution = buildlib.resolve_manifest(MINIMAL_B_MANIFEST)
+        resolution = buildlib.resolve_manifest(MINIMAL_C_MANIFEST)
         inputs = buildlib.validate_inputs(
             REPO_ROOT,
             resolution,

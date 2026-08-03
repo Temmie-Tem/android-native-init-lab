@@ -27,7 +27,11 @@ static void cmd_help(void) {
     a90_console_printf("diag [summary|full|bundle|paths]\r\n");
     a90_console_printf("usb [status|mass-storage add|mass-storage expose|mass-storage remove]\r\n");
     a90_console_printf("audio [status|profiles|profile|speaker-map|stages|prereq|app-type|setcal|route|play|chime|play-status|stop|adsp-status|snd-status]\r\n");
+#if A90_MINIMAL_NO_DOOM_COMMAND_SURFACE
+    a90_console_printf("video [status|frame|demo badapple|demo nyan|anim|blitbench|stream --manifest PATH --video-only|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]\r\n");
+#else
     a90_console_printf("video [status|frame|demo badapple|demo nyan|demo doom [status|verify|play|frame|engine-probe] [frames] [--wad runtime-private --sha256 EXPECTED]|anim|blitbench|stream --manifest PATH --video-only|cache [status|verify|play] SHA256 [--trust-cache] [--layout full|player-hud]|cache preset [badapple|badapple-scale|nyan] [status|verify|play]]\r\n");
+#endif
     a90_console_printf("gpu [g0-status|g0-fwclass-prepare|g0-open-probe [--timeout-ms N] [--rdwr] [--materialize-devnode]|g1-context-probe [--timeout-ms N] [--materialize-devnode]|g2-gpuobj-probe [--timeout-ms N] [--materialize-devnode]|g2-mmap-probe [--timeout-ms N] [--materialize-devnode]|g3-noop-submit-probe [--timeout-ms N] [--materialize-devnode]|h1-shader-state-probe [--timeout-ms N] [--materialize-devnode]|h2-3d-state-probe [--timeout-ms N] [--materialize-devnode]|h3-draw-envelope-probe [--timeout-ms N] [--materialize-devnode]|g4-solid-fill-probe [--timeout-ms N] [--materialize-devnode]|g5-kms-blit-probe [--timeout-ms N] [--materialize-devnode]]\r\n");
     a90_console_printf("wifi [status|scan [delay_ms]|connect [profile]|dhcp [profile]|ping [gateway|internet|all]|cleanup|config [status|prepare [profile]]]\r\n");
     a90_console_printf("wifiinv [summary|full|refresh|paths]\r\n");
@@ -72,9 +76,11 @@ static void cmd_help(void) {
     a90_console_printf("inputscan [eventX]\r\n");
     a90_console_printf("inputcaps <eventX>\r\n");
     a90_console_printf("readinput <eventX> [count] [timeout_ms]\r\n");
+#if !A90_MINIMAL_NO_DOOM_COMMAND_SURFACE
     a90_console_printf("doompad [status|reset|state <seq> <mask>|key <role> <0|1>|tap <role>]\r\n");
     a90_console_printf("doominput <eventX> [count] [timeout_ms]\r\n");
     a90_console_printf("doominputmux <eventX,eventY[,eventZ]> [count] [timeout_ms]\r\n");
+#endif
     a90_console_printf("waitkey [count]\r\n");
     a90_console_printf("inputlayout\r\n");
     a90_console_printf("waitgesture [count]\r\n");

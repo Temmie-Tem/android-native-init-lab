@@ -1,6 +1,6 @@
 # A90 native-init minimal surface
 
-Status: `H0_PHASE3_MINIMAL_B_API_CAPABILITY_PASS_GO`
+Status: `H0_PHASE3_MINIMAL_C_CAPABILITY_PASS_GO`
 
 Date: 2026-08-03
 
@@ -106,6 +106,56 @@ the exact nine-entry inert bridge API also returned scoped, capability-wide
 `PASS_GO`; caller-side global inertness is explicitly outside that receipt. Any
 later boot use remains attended F1 with a fresh exact qualification and binding.
 
+## Phase3 minimal-C no-Doom command surface
+
+The no-authority minimal-C profile now defines
+`A90_MINIMAL_NO_DOOM_COMMAND_SURFACE=1`. Under that exact feature selection,
+the Doom demo menu item and menu action are absent, the dedicated `doompad`,
+`doominput`, and `doominputmux` shell commands are absent, and `video demo
+doom` takes a dedicated pre-dispatch reject before generic busy handling,
+command logging, display/HUD shutdown, or reaping. It returns `-ENOTSUP` with
+an explicit removal marker without reaching inherited fork, audio, file-open,
+file-cleanup, log, socket, bridge, DRM, or process effects. Writing the marker,
+usage, and protocol/result framing to the already-bound console descriptor and
+in-memory result bookkeeping are retained. Existing profiles keep the prior
+behavior because the feature default is zero.
+
+Both the operational and inert bridge sources leave the selected manifest.
+The root object now has zero undefined bridge symbols and zero bridge call
+relocations. The profile contains 59 translation units, 430 global symbols,
+264 internal object edges, 51 objects referenced directly by the root, and all
+59 selected objects remain reachable. The monolithic root object decreases
+from 902,248 to 819,168 bytes; the stripped init decreases by 16 bytes because
+the packed boot layout remains alignment-stable.
+
+Fresh private A/B builds are byte-identical. Independent `newc` parsing found
+33 members, all required entries, and no Doom engine-family member. The six
+objects that own the proved switch_root, KMS/display, USB-local networking,
+SSH service, resident return, and recovery paths are byte-identical to
+minimal-B.
+
+This capability is deliberately narrower than a claim that every historical
+Doom trace has left native-init. The compiled init still contains Doom input
+role labels, audio capability labels, monitor/HUD informational strings, and
+a private runtime path prefix in an audio setcal allowlist. None is a removed
+menu, shell, video-dispatch, metadata/help, or bridge entry point. They remain
+named source-removal candidates for later H0 slices.
+
+This result is H0 only: `candidate_authority=false`, no device was contacted,
+and no payload, partition write, or flash occurred. The first independent
+capability review correctly refused `PASS_GO` because generic `CMD_DISPLAY`
+dispatch stopped the HUD before the handler-level reject. The repaired closure
+moves the exact removed-Doom reject ahead of that generic effect path. Repeat
+independent review returned capability-wide `PASS_GO` with no unresolved
+finding. The capability closure also binds the unchanged shell,
+protocol-framing, console, and existing-console-fd write implementations
+because they define the only allowed console and in-memory effects. The receipt
+remains reusable across manifests, qualifications, ordinals, and campaigns
+until one of its 14 bound source keys or named semantics changes, or a new
+hazard or incident occurs. The previously reviewed
+flat-builder closure is unchanged and its
+capability-wide `PASS_GO` remains reusable.
+
 ## Object-symbol reachability inventory
 
 A read-only comparison of the deterministic phase2 and minimal-A unstripped
@@ -187,20 +237,23 @@ minimal profile rather than becoming permanent bridge duties.
 
 ## Next bounded H0 build unit
 
-1. The no-authority minimal-B manifest and deterministic A/B build are
+1. The no-authority minimal-C manifest and deterministic A/B build are
    complete; accepted resident and rollback artifacts remain unchanged.
-2. The operational Doom bridge is no longer selected. Its inert successor
-   module has no file, socket, process, helper, payload, or device effect.
+2. Doom menu and dedicated shell entry points are absent, and `video demo
+   doom` stops before caller-side effects. Neither bridge implementation is
+   selected.
 3. The reviewed flat-builder source/schema/semantics closure is unchanged, so
    its capability-wide `PASS_GO` remains reusable.
-4. Independent review of the exact inert bridge API capability is complete
-   with scoped, reusable `PASS_GO`; inherited caller effects are excluded.
-5. Block the inherited Doom entry points before caller-side
-   fork/audio effects, delete the 15 root call relocations, and repeat the link
-   graph so the inert object can leave the source list.
+4. Independent review of the exact no-Doom command-surface capability returned
+   reusable `PASS_GO` with no unresolved finding.
+5. The next H0 slice is the 11-command `boot-write/flash` experiment surface
+   and its two directly referenced objects (`a90_boot_write_e1.o` and
+   `a90_boot_write_probe.o`, about 104 KiB combined). Remove that surface and
+   repeat the graph while preserving the proved switch_root, display, SSH,
+   return, and recovery objects.
 6. Stop at H0. Any later boot candidate requires fresh qualification and
    attended boot-only F1.
 
-Focused minimal-B flat-builder regression passes `24/24`. Cross-compilation,
+Focused minimal-C flat-builder regression passes `26/26`. Cross-compilation,
 private pin validation, A/B byte comparison, archive inspection, and artifact
-identity checks pass. No device was contacted for minimal-B.
+identity checks pass. No device was contacted for minimal-C.
