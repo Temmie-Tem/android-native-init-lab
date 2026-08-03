@@ -444,14 +444,22 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
                 mutated = source.replace(clause, f"removed-a90-clause-{index}", 1)
                 self.assertIn(clause, a90_target_contract_issues(mutated))
 
-    def test_frontier_records_terminal_e2_without_live_authority(self):
+    def test_frontier_records_closed_p296_result_without_reuse(self):
         normalized_goal = " ".join(self.goal.split())
         normalized_p280_audit = " ".join(
             self.p280_resume_femto_audit.split()
         )
         self.assertIn("direct PID1", normalized_goal)
-        self.assertIn("P2.92 is the latest closed live unit", normalized_goal)
-        self.assertIn("stable generation-106 prefix", normalized_goal)
+        self.assertIn("P2.96 is the latest closed live unit", normalized_goal)
+        self.assertIn("generation 107", normalized_goal)
+        self.assertIn(
+            "digital-control-state-nominal-not attached-UNKNOWN-coreidle-1-susphy-0",
+            normalized_goal,
+        )
+        self.assertIn(
+            "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
+            normalized_goal,
+        )
         self.assertIn(
             "No minimal PID1 candidate has yet proved host enumeration",
             normalized_goal,
@@ -461,7 +469,8 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             normalized(self.s22_target),
         )
         self.assertIn("P2.94 therefore remains an H0 static stop", normalized_goal)
-        self.assertIn("P2.96 Built-in DWC3 Telemetry", normalized_goal)
+        self.assertIn("Post-P2.96 Attach-Boundary Attribution (H0)", normalized_goal)
+        self.assertIn("Never reuse the consumed P2.96 run", normalized_goal)
         self.assertIn("docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md", self.agents)
         self.assertIn(
             "PASS_P280_RESUME_FEMTO_EUD_INSTRUMENTATION_AUDIT_HOST_ONLY",

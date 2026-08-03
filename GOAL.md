@@ -11,13 +11,26 @@ shared process documents. A90 state and authorization remain separate.
 
 ## Current Frontier
 
-P2.92 is the latest closed live unit. Its boot-only candidate and exact
+P2.96 is the latest closed live unit. Its boot-only candidate and exact Magisk
 rollback each transferred once with no replay, and final FYG8 Android/root
-health passed. Retained generation 106 proves the native PID1 path completed
+health passed. The formal Process-v2 verdict is
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, while the experiment result is
+information-bearing `REFUTED`: two byte-identical post-rollback reads contain
+one exact, integrity-clean P2.96 terminal failure record.
+
+The adjacent valid slots are generation 106 `USBLNKST=0`, then generation 107
+`digital-control-state-nominal-not attached-UNKNOWN-coreidle-1-susphy-0`.
+This proves the built-in DWC3 snapshot was delivered and executed without the
+P2.94 external-module dependency. It does not prove host enumeration;
+connection speed remained `UNKNOWN`, UDC stayed `not attached`, and no host
+CDC-ACM endpoint appeared during the bounded observer window.
+
+The P2.92 prefix remains binding. It proves the native PID1 path completed
 restart helper, FEMTO power-on/init, child resume, notify-connect, exact UDC,
 configfs bind, and authoritative direct `DCTL.RUN_STOP` with
-`DEVCTRLHLT=0`. The UDC nevertheless stayed `not attached`, speed stayed
-`UNKNOWN`, and no host ACM endpoint appeared.
+`DEVCTRLHLT=0`. P2.96 now narrows the remaining boundary beyond that prefix to
+the interval where the built-in controller snapshot reports link-state zero
+but no physical attach or connection speed materializes.
 
 This is the first honest measurement of the project's long-standing direct
 PID1 enumeration boundary. O1.1 is the only candidate-side ACM exchange
@@ -40,51 +53,42 @@ linked replay found a delivery blocker before packaging or device contact:
 P2.94 therefore remains an H0 static stop. It must not be packaged, promoted,
 manifested, or used for F1.
 
-## Selected Bounded Unit: P2.96 Built-in DWC3 Telemetry
+## Selected Bounded Unit: Post-P2.96 Attach-Boundary Attribution (H0)
 
-P2.96 is a fresh boot-only successor. It removes the undeliverable external
-`dwc3-msm.ko` dependency and preserves only the built-in DWC3 snapshot, which
-is carried by `boot.img`.
+Do not name, build, package, manifest, or run a successor candidate yet. The
+next bounded unit is source-only attribution of the exact P2.96 tuple.
 
 Required behavior:
 
-1. Preserve the P2.92 path and the stable generation-106 prefix.
-2. Capture `USBLNKST`, `RUN_STOP`, `DEVCTRLHLT`, `COREIDLE`, `PRTCAP`,
-   `SUSPHY`, and `CONNECTSPD` from built-in DWC3 code.
-3. Retain adjacent A/B records: 16-value `USBLNKST`, then the conditional
-   132-value terminal state.
-4. Gate the already proven direct-bind predicates. Mismatches remain explicit
-   failure records; no wrapper-VBUS observation is claimed.
-5. Preserve `ACCEPT_TO_RESUME_CLOSURE`, continuous sequence walk,
-   publication errno observability, SoT coherence, and exact two-slot
-   adjacency.
-6. Require the linked and packaged closure to contain the built-in snapshot
-   and to require no candidate-only external-module symbol.
-7. Capture bounded host `dmesg`/udev/USB inventory during any later F1 so the
-   host-side attach observation independently cross-checks `USBLNKST`.
-
-This unit does not add a regulator predicate, external module injection,
-observer ABI, new partition payload, or policy redesign.
+1. Correlate `USBLNKST=0`, `COREIDLE=1`, `SUSPHY=0`, nominal fixed digital
+   controls, `not attached`, and `CONNECTSPD=UNKNOWN` with the source-matched
+   built-in DWC3 gadget and event paths.
+2. Identify the lowest predicate that distinguishes session/VBUS absence,
+   pullup or soft-disconnect state, missing connect events or event-buffer
+   handling, and PHY/link non-entry.
+3. Prove any proposed observable is built into `boot.img`; do not reintroduce
+   the rejected external `dwc3-msm.ko` delivery dependency.
+4. Preserve the full P2.92 prefix, P2.96 adjacent-slot result, 45-byte retained
+   ABI, and Stage-C identity split.
+5. Stop at an evidence-backed design choice. A future payload-affecting change
+   requires a fresh immutable intent and qualification.
 
 ## Ordered Execution
 
-1. Archive the prior 798-line goal byte-preservingly and keep it inert.
-2. Implement and fault-test the P2.96 telemetry/spec/model/decoder/generator,
-   built-in-only driver patch, linked audit, and package-delivery gate.
-3. Freeze the complete byte-affecting change list. Print every selected
-   `SOURCE_KEY` and compare it bidirectionally with Git-derived changes.
-4. Derive a fresh immutable intent only after the freeze is clean. Do not
-   change a selected source byte afterward.
-5. Run userspace and pre-LTO qualification, then Full-LTO A/B. After A,
-   require the private-root and clang-resource leak scans to pass before B.
-6. Require byte-identical A/B `boot.img`, linked/static closure, deterministic
-   boot-only packaging, offline promotion, and one ready manifest.
-7. Run one exact connected read-only S22+ D0, explicitly leaving every other
-   attached target untouched.
-8. Stop after the ready manifest and exact D0 at the current Process-v2 v1
-   binding handoff. Trial policy adds no per-candidate approval, but the legacy
-   runner still requires its fresh immutable token until aligned; preparation
-   alone never arms F1.
+1. Preserve and validate the closed P2.96 structured result, journal, raw
+   private evidence, campaign ledger rows, and one capability report.
+2. Replay the exact retained tuple through the P2.96 decoder and correlate it
+   with the source-matched built-in DWC3 register and event flow.
+3. Produce a bounded comparison of the remaining candidate predicates and
+   select at most one lowest discriminating observable.
+4. Prove its delivery closure statically before proposing a successor.
+5. If a successor is justified, begin again at complete `SOURCE_KEYS` freeze,
+   fresh intent, qualification, Full-LTO A/B, boot-only package, review, D0,
+   and attended Process-v2 execution. Never reuse the consumed P2.96 run.
+
+Trial policy adds no per-candidate approval, but the legacy runner still
+requires its fresh immutable token until aligned. The consumed P2.96 token,
+prepared binding, journal, and candidate attempt are never reusable.
 
 ## Evidence That Remains Binding
 
@@ -97,8 +101,8 @@ observer ABI, new partition payload, or policy redesign.
 - P2.64 Stage C separates payload identity from qualification/evidence and
   live closure. Verifiers and documents may stay outside identity only when
   the contract declares that split and the approval bundle binds exact bytes.
-- P2.84/P2.86/P2.88/P2.90/P2.92/P2.94 are historical and immutable. Do not
-  replay or silently repair them.
+- P2.84/P2.86/P2.88/P2.90/P2.92/P2.94/P2.96 are historical and immutable. Do
+  not replay or silently repair them.
 
 Load-bearing reports:
 
@@ -106,6 +110,8 @@ Load-bearing reports:
 - `docs/reports/S22PLUS_FYG8_P292_POST_RUN_STOP_BOUNDARY_AND_VALUE_TELEMETRY_H0_2026-08-01.md`
 - `docs/reports/S22PLUS_FYG8_P294_MODULE_DELIVERY_STATIC_STOP_H0_2026-08-02.md`
 - `docs/reports/S22PLUS_FYG8_P294_DWC3_VALUE_TELEMETRY_IMPLEMENTATION_H0_2026-08-01.md`
+- `docs/reports/S22PLUS_FYG8_P296_F1_BUILTIN_DWC3_REFUTED_2026-08-03.md`
+- `docs/reports/S22PLUS_FYG8_P296_EXECUTION_CRITICAL_INDEPENDENT_REVIEW_2026-08-03.json`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 
@@ -115,9 +121,10 @@ Archived text is evidence only and grants no authority.
 
 ## Success and Stop Conditions
 
-P2.96 H0 succeeds only if its source identity, complete sequence, built-in
-symbol delivery, Full-LTO determinism, static closure, package, and manifest
-all verify. D0 succeeds only with an unambiguous exact S22+ and bounded reads.
+The current H0 unit succeeds only if it explains which remaining source-level
+branch can reconcile the exact P2.96 built-in tuple with absent host attach and
+selects one boot-deliverable discriminator. A list of speculative probes or a
+new candidate name without that attribution is not success.
 
 Stop on a repeated material pre-session failure, any post-device-session
 unexplained failure, target ambiguity, missing rollback, forbidden archive
