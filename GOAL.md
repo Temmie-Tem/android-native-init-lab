@@ -32,6 +32,14 @@ configfs bind, and authoritative direct `DCTL.RUN_STOP` with
 the interval where the built-in controller snapshot reports link-state zero
 but no physical attach or connection speed materializes.
 
+Post-P2.96 H0 attribution closes the next source branch. The terminal
+`UNKNOWN` is the later sysfs UDC speed, not retained raw `DSTS.CONNECTSPD`.
+The exact `dwc3_gadget_pullup(true)` source ignores the signed return from
+`__dwc3_gadget_start()` and overwrites it with the later run-stop result. An
+EP0 initialization failure can therefore coexist with P2.96's nominal
+run-stop snapshot. That return is the earliest unresolved predicate; event and
+PHY observations are downstream until it is proved zero.
+
 This is the first honest measurement of the project's long-standing direct
 PID1 enumeration boundary. O1.1 is the only candidate-side ACM exchange
 success and it used Android's existing USB stack. No minimal PID1 candidate
@@ -53,38 +61,40 @@ linked replay found a delivery blocker before packaging or device contact:
 P2.94 therefore remains an H0 static stop. It must not be packaged, promoted,
 manifested, or used for F1.
 
-## Selected Bounded Unit: Post-P2.96 Attach-Boundary Attribution (H0)
+## Selected Bounded Unit: Gadget-Start Return Observable Contract (H0)
 
 Do not name, build, package, manifest, or run a successor candidate yet. The
-next bounded unit is source-only attribution of the exact P2.96 tuple.
+next bounded unit freezes one exact boot-deliverable observable for the
+selected predicate.
 
 Required behavior:
 
-1. Correlate `USBLNKST=0`, `COREIDLE=1`, `SUSPHY=0`, nominal fixed digital
-   controls, `not attached`, and `CONNECTSPD=UNKNOWN` with the source-matched
-   built-in DWC3 gadget and event paths.
-2. Identify the lowest predicate that distinguishes session/VBUS absence,
-   pullup or soft-disconnect state, missing connect events or event-buffer
-   handling, and PHY/link non-entry.
-3. Prove any proposed observable is built into `boot.img`; do not reintroduce
-   the rejected external `dwc3-msm.ko` delivery dependency.
-4. Preserve the full P2.92 prefix, P2.96 adjacent-slot result, 45-byte retained
-   ABI, and Stage-C identity split.
-5. Stop at an evidence-backed design choice. A future payload-affecting change
-   requires a fresh immutable intent and qualification.
+1. Define one matched entry/return trace pair on built-in
+   `__dwc3_gadget_start()` and capture signed `$retval:s32` inside the existing
+   authoritative bind window.
+2. Require exactly one pair nested between pullup-on entry and run-stop entry.
+   Missing, duplicate, unpaired, or out-of-order events are trace-source
+   contradiction, never implicit success.
+3. Make `rc < 0` an early gadget/EP0-start terminal and `rc == 0` the sole gate
+   that permits a later event- or PHY-level experiment.
+4. Prove the observable and all parser inputs are delivered by `boot.img`; do
+   not reintroduce the rejected external `dwc3-msm.ko` dependency.
+5. Preserve the full P2.92 prefix, P2.96 adjacent-slot result, 45-byte retained
+   ABI, and Stage-C identity split. Stop before candidate intent or build.
 
 ## Ordered Execution
 
-1. Preserve and validate the closed P2.96 structured result, journal, raw
-   private evidence, campaign ledger rows, and one capability report.
-2. Replay the exact retained tuple through the P2.96 decoder and correlate it
-   with the source-matched built-in DWC3 register and event flow.
-3. Produce a bounded comparison of the remaining candidate predicates and
-   select at most one lowest discriminating observable.
-4. Prove its delivery closure statically before proposing a successor.
-5. If a successor is justified, begin again at complete `SOURCE_KEYS` freeze,
-   fresh intent, qualification, Full-LTO A/B, boot-only package, review, D0,
-   and attended Process-v2 execution. Never reuse the consumed P2.96 run.
+1. Preserve the closed P2.96 result and the post-P2.96 H0 attribution report.
+2. Freeze the exact gadget-start entry/return grammar and same-invocation
+   pairing rules without modifying historical P2.96 sources.
+3. Specify exhaustive negative, zero, missing, duplicate, and ordering
+   outcomes while retaining the two-slot publication contract.
+4. Prove the symbol, dynamic trace facility, parser closure, and runtime input
+   are boot-deliverable with no external-module dependency.
+5. Stop before candidate intent or build. Any later implementation begins at a
+   complete fresh `SOURCE_KEYS` freeze, qualification, Full-LTO A/B, boot-only
+   package, changed-closure review, D0, and attended Process-v2 execution.
+   Never reuse the consumed P2.96 run.
 
 Trial policy adds no per-candidate approval, but the legacy runner still
 requires its fresh immutable token until aligned. The consumed P2.96 token,
@@ -111,6 +121,7 @@ Load-bearing reports:
 - `docs/reports/S22PLUS_FYG8_P294_MODULE_DELIVERY_STATIC_STOP_H0_2026-08-02.md`
 - `docs/reports/S22PLUS_FYG8_P294_DWC3_VALUE_TELEMETRY_IMPLEMENTATION_H0_2026-08-01.md`
 - `docs/reports/S22PLUS_FYG8_P296_F1_BUILTIN_DWC3_REFUTED_2026-08-03.md`
+- `docs/reports/S22PLUS_FYG8_POST_P296_GADGET_START_RETURN_ATTRIBUTION_H0_2026-08-03.md`
 - `docs/reports/S22PLUS_FYG8_P296_EXECUTION_CRITICAL_INDEPENDENT_REVIEW_2026-08-03.json`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
@@ -121,10 +132,11 @@ Archived text is evidence only and grants no authority.
 
 ## Success and Stop Conditions
 
-The current H0 unit succeeds only if it explains which remaining source-level
-branch can reconcile the exact P2.96 built-in tuple with absent host attach and
-selects one boot-deliverable discriminator. A list of speculative probes or a
-new candidate name without that attribution is not success.
+The current H0 unit succeeds only if it freezes one exact, paired
+`__dwc3_gadget_start()` return observable, proves boot delivery, and makes a
+zero return the explicit prerequisite for any later event or PHY hypothesis.
+A speculative probe list, implicit success on a missing trace, or a new
+candidate name is not success.
 
 Stop on a repeated material pre-session failure, any post-device-session
 unexplained failure, target ambiguity, missing rollback, forbidden archive

@@ -155,6 +155,12 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             "S22PLUS_FYG8_P280_RESUME_FEMTO_EUD_"
             "INSTRUMENTATION_AUDIT_H0_2026-07-28.md"
         ).read_text(encoding="utf-8")
+        cls.post_p296_attribution = (
+            ROOT
+            / "docs/reports/"
+            "S22PLUS_FYG8_POST_P296_GADGET_START_RETURN_"
+            "ATTRIBUTION_H0_2026-08-03.md"
+        ).read_text(encoding="utf-8")
         cls.archived_agents = (
             ROOT / "docs/archive/policy/AGENTS_PRE_PROCESS_V2_2026-07-21.md"
         ).read_text(encoding="utf-8")
@@ -449,6 +455,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         normalized_p280_audit = " ".join(
             self.p280_resume_femto_audit.split()
         )
+        normalized_attribution = normalized(self.post_p296_attribution)
         self.assertIn("direct PID1", normalized_goal)
         self.assertIn("P2.96 is the latest closed live unit", normalized_goal)
         self.assertIn("generation 107", normalized_goal)
@@ -469,7 +476,27 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             normalized(self.s22_target),
         )
         self.assertIn("P2.94 therefore remains an H0 static stop", normalized_goal)
-        self.assertIn("Post-P2.96 Attach-Boundary Attribution (H0)", normalized_goal)
+        self.assertIn(
+            "Gadget-Start Return Observable Contract (H0)", normalized_goal
+        )
+        self.assertIn("__dwc3_gadget_start()", normalized_goal)
+        self.assertIn("signed `$retval:s32`", normalized_goal)
+        self.assertIn(
+            "PASS_POST_P296_GADGET_START_RETURN_SELECTED_H0",
+            self.post_p296_attribution,
+        )
+        self.assertIn(
+            "The terminal word `UNKNOWN` is the sysfs UDC speed",
+            normalized_attribution,
+        )
+        self.assertIn(
+            "return ignored",
+            normalized_attribution,
+        )
+        self.assertIn(
+            "Deferred until start return is zero",
+            normalized_attribution,
+        )
         self.assertIn("Never reuse the consumed P2.96 run", normalized_goal)
         self.assertIn("docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md", self.agents)
         self.assertIn(
