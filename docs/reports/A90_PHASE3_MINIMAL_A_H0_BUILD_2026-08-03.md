@@ -2,7 +2,7 @@
 
 Date: 2026-08-03
 
-Status: `H0_BUILD_PASS_REVIEW_PENDING`
+Status: `H0_BUILD_PASS_CAPABILITY_PASS_GO`
 
 ## Capability
 
@@ -49,5 +49,11 @@ is unchanged; there is no separate engine artifact.
 
 All work in this report was H0. No USB or device action occurred, no accepted
 or rollback artifact was changed, and the profile remains
-`candidate_authority=false`. The A90 builder capability change requires one
-independent review before any later attended F1 use. S22+ was untouched.
+`candidate_authority=false`. Independent review returned reusable `PASS_GO`
+with no unresolved Critical, High, Medium, or Low finding. The receipt retires
+when its bound execution-critical closure changes or a new hazard or incident
+occurs. It grants no F1 authority; any later F1 remains attended and requires
+fresh qualification. S22+ was untouched.
+
+Canonical receipt:
+`docs/reports/A90_PHASE3_MINIMAL_A_BUILDER_INDEPENDENT_REVIEW_2026-08-03.json`.

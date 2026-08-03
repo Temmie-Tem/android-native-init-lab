@@ -1,6 +1,6 @@
 # A90 native-init minimal surface
 
-Status: `H0_PHASE3_MINIMAL_A_BUILT_REVIEW_PENDING`
+Status: `H0_PHASE3_MINIMAL_A_CAPABILITY_PASS_GO`
 
 Date: 2026-08-03
 
@@ -32,7 +32,7 @@ requires the packed ramdisk to contain exactly the selected engine set: the
 active engine only for an enabled profile, or no private Doom engine for a
 disabled profile.
 
-Two host-only findings were fixed before accepting the deterministic output:
+Host-only findings were fixed before accepting the deterministic output:
 
 - Removing `a90_doomgeneric_bridge.c` caused an init link failure because
   `init_v724.c` still directly references bridge entry points. The source stays
@@ -68,8 +68,11 @@ including the init, helper, and audio manifest, with no
 | separate Doom engine | 1,201,512 | absent | -1,201,512 |
 
 This result is H0 evidence only. It is not an F1 candidate, qualification, or
-device authority. The changed builder closure requires one independent
-capability review before it can support any later attended F1 workflow.
+device authority. Independent review of the exact builder and manifest closure
+returned reusable `PASS_GO` with no unresolved finding. The capability receipt
+remains reusable across manifests, qualifications, ordinals, and campaigns only
+until a bound execution-critical closure changes or a new hazard or incident
+occurs. Any later F1 still requires fresh qualification and attended authority.
 
 ## Debian ownership already proved
 
@@ -118,7 +121,8 @@ minimal profile rather than becoming permanent bridge duties.
    flat-builder source keys without editing accepted resident or rollback
    artifacts.
 2. The no-authority successor profile and deterministic A/B build are complete.
-3. Independently review the changed flat-builder capability closure.
+3. Independent review of the changed flat-builder capability closure is
+   complete with reusable `PASS_GO`.
 4. Produce a symbol/reachability diff for the 60 native translation units and
    classify every remaining function against this map.
 5. Stop at H0. A changed boot candidate requires refreshed qualification,
