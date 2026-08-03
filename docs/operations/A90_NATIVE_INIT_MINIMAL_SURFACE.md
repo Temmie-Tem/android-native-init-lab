@@ -41,10 +41,16 @@ Two host-only findings were fixed before accepting the deterministic output:
   variants inherited from the base boot. Those variants were added to the
   obsolete set, and an exact engine-family listing check now rejects any stale
   variant. That intermediate output was also not reused.
+- The first independent capability review refused `PASS_GO` because the
+  engine-family check inspected the staging directory after packing rather
+  than reopening the emitted CPIO. The builder now parses the emitted `newc`
+  bytes independently of the external cpio tool, rejects malformed archives,
+  and validates required entries and the exact engine set from those bytes.
 
-The final private A/B build is byte-identical, keeps the accepted input boot
-unchanged, and has `candidate_authority=false`. Direct archive inspection found
-the init, helper, and audio manifest and no
+The fresh final private A/B build is byte-identical, keeps the accepted input
+boot unchanged, binds both builder source files by path, size, and SHA256, and
+has `candidate_authority=false`. Independent parsing found 33 archive members,
+including the init, helper, and audio manifest, with no
 `bin/a90_doomgeneric_private_engine_*` member.
 
 | Artifact | v3404 reference bytes | minimal-A bytes | Difference |
@@ -113,5 +119,5 @@ minimal profile rather than becoming permanent bridge duties.
    independent review of its changed closure, and attended boot-only F1.
 
 Focused inventory regression passes `3/3`; flat-builder and Phase 1A regression
-passes `20/20`. `py_compile`, private pin validation, A/B byte comparison,
+passes `23/23`. `py_compile`, private pin validation, A/B byte comparison,
 archive inspection, and `git diff --check` pass. No device was contacted.

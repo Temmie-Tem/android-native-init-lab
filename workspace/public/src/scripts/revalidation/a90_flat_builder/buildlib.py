@@ -378,6 +378,65 @@ def validate_ramdisk_component_listing(
         )
 
 
+def newc_archive_listing(data: bytes) -> set[str]:
+    """Parse one GNU newc archive without trusting the external cpio tool."""
+
+    header_bytes = 110
+    offset = 0
+    listing: set[str] = set()
+    while True:
+        if offset + header_bytes > len(data):
+            raise ManifestError("packed ramdisk is truncated before its header")
+        header = data[offset:offset + header_bytes]
+        if header[:6] != b"070701":
+            raise ManifestError("packed ramdisk is not one newc archive")
+        try:
+            fields = [
+                int(header[index:index + 8], 16)
+                for index in range(6, header_bytes, 8)
+            ]
+        except ValueError as exc:
+            raise ManifestError("packed ramdisk has a malformed newc header") from exc
+        file_size = fields[6]
+        name_size = fields[11]
+        if name_size < 2:
+            raise ManifestError("packed ramdisk has an invalid member name size")
+        offset += header_bytes
+        name_end = offset + name_size
+        if name_end > len(data):
+            raise ManifestError("packed ramdisk is truncated in a member name")
+        encoded_name = data[offset:name_end]
+        if encoded_name[-1:] != b"\0" or b"\0" in encoded_name[:-1]:
+            raise ManifestError("packed ramdisk has a malformed member name")
+        try:
+            name = encoded_name[:-1].decode("utf-8", errors="strict")
+        except UnicodeDecodeError as exc:
+            raise ManifestError("packed ramdisk member name is not UTF-8") from exc
+        offset = (name_end + 3) & ~3
+        data_end = offset + file_size
+        if data_end > len(data):
+            raise ManifestError("packed ramdisk is truncated in member data")
+        offset = (data_end + 3) & ~3
+
+        if name == "TRAILER!!!":
+            if file_size != 0 or any(data[offset:]):
+                raise ManifestError("packed ramdisk has an invalid newc trailer")
+            return listing
+
+        normalized = name.removeprefix("./")
+        member = Path(normalized)
+        if (
+            not normalized
+            or member.is_absolute()
+            or ".." in member.parts
+            or normalized in listing
+        ):
+            raise ManifestError(
+                f"packed ramdisk has an unsafe or duplicate member: {name!r}"
+            )
+        listing.add(normalized)
+
+
 def expanded_closure(
     root: Path,
     explicit: Iterable[str],

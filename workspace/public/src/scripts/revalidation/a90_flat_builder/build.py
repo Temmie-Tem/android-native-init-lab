@@ -31,6 +31,10 @@ ARTIFACT_NAMES = {
     "helper": "build/helper",
     "engine": "build/engine",
 }
+BUILDER_SOURCES = {
+    "flat_builder": HERE / "build.py",
+    "flat_builder_library": HERE / "buildlib.py",
+}
 
 
 def artifact_names(manifest: dict[str, Any]) -> dict[str, str]:
@@ -45,6 +49,49 @@ def repo_root() -> Path:
         if (parent / "GOAL_A90.md").is_file():
             return parent
     raise RuntimeError("could not locate repository root")
+
+
+def builder_source_keys(repo: Path) -> dict[str, dict[str, object]]:
+    result: dict[str, dict[str, object]] = {}
+    for role, requested in BUILDER_SOURCES.items():
+        if requested.is_symlink() or not requested.is_file():
+            raise RuntimeError(f"builder source is not one regular file: {requested}")
+        path = requested.resolve()
+        try:
+            relative = path.relative_to(repo.resolve())
+        except ValueError as exc:
+            raise RuntimeError(f"builder source escapes repository: {path}") from exc
+        result[role] = {
+            "path": relative.as_posix(),
+            "size": path.stat().st_size,
+            "sha256": buildlib.sha256_file(path),
+        }
+    return result
+
+
+def revalidate_execution_closure(
+    repo: Path,
+    resolution: buildlib.ManifestResolution,
+    manifest: dict[str, Any],
+    expected_inputs: dict[str, Any],
+    expected_source_keys: dict[str, dict[str, object]],
+) -> None:
+    buildlib.revalidate_manifest_lineage(resolution)
+    if builder_source_keys(repo) != expected_source_keys:
+        raise RuntimeError("flat-builder source closure changed during execution")
+    current_inputs = buildlib.validate_inputs(repo, resolution, manifest)
+    expected_pins = {
+        key: value
+        for key, value in expected_inputs.items()
+        if key.endswith("_sha256")
+    }
+    current_pins = {
+        key: value
+        for key, value in current_inputs.items()
+        if key.endswith("_sha256")
+    }
+    if current_pins != expected_pins:
+        raise RuntimeError("flat-builder input pins changed during execution")
 
 
 def run_checked(
@@ -310,6 +357,18 @@ def pack_ramdisk(manifest: dict[str, Any], root: Path, output: Path) -> None:
     output.chmod(0o600)
 
 
+def validate_packed_ramdisk(
+    manifest: dict[str, Any],
+    archive: Path,
+) -> set[str]:
+    listing = buildlib.newc_archive_listing(archive.read_bytes())
+    missing = sorted(set(manifest["ramdisk"]["required_entries"]) - listing)
+    if missing:
+        raise RuntimeError(f"ramdisk required entries missing: {missing}")
+    buildlib.validate_ramdisk_component_listing(manifest, listing)
+    return listing
+
+
 def overlay_ramdisk(
     repo: Path,
     manifest: dict[str, Any],
@@ -390,13 +449,7 @@ def overlay_ramdisk(
 
         set_reproducible_mtime(ramdisk, int(manifest["reproducible_mtime"]))
         pack_ramdisk(manifest, ramdisk, ramdisk_cpio)
-        listing = {
-            item.removeprefix("./") for item in cpio_listing(ramdisk)
-        }
-        missing = sorted(set(manifest["ramdisk"]["required_entries"]) - listing)
-        if missing:
-            raise RuntimeError(f"ramdisk required entries missing: {missing}")
-        buildlib.validate_ramdisk_component_listing(manifest, listing)
+        validate_packed_ramdisk(manifest, ramdisk_cpio)
 
         for index, item in enumerate(mkboot_args):
             if item == "--ramdisk" and index + 1 < len(mkboot_args):
@@ -459,10 +512,18 @@ def build_one(
     manifest: dict[str, Any],
     inputs: dict[str, Any],
     versions: dict[str, str],
+    source_keys: dict[str, dict[str, object]],
     root: Path,
 ) -> dict[str, Any]:
     if root.exists() or root.is_symlink():
         raise RuntimeError(f"single build output must be absent: {root}")
+    revalidate_execution_closure(
+        repo,
+        resolution,
+        manifest,
+        inputs,
+        source_keys,
+    )
     build_dir = root / "build"
     build_dir.mkdir(parents=True, mode=0o700)
     init = build_dir / "init"
@@ -480,7 +541,13 @@ def build_one(
     if engine is not None:
         require_markers(engine, validation["engine_strings"], "engine")
     artifacts = artifact_info(root, artifact_names(manifest))
-    buildlib.revalidate_manifest_lineage(resolution)
+    revalidate_execution_closure(
+        repo,
+        resolution,
+        manifest,
+        inputs,
+        source_keys,
+    )
     receipt = {
         "schema": "a90-flat-builder-v1-build-receipt",
         "profile": manifest["profile"],
@@ -505,6 +572,7 @@ def build_one(
             if key.endswith("_sha256")
         },
         "toolchain": versions,
+        "source_keys": source_keys,
         "artifacts": artifacts,
         "legacy_bridge_reference": manifest["legacy_bridge"],
     }
@@ -520,12 +588,14 @@ def audit(
     dict[str, Any],
     dict[str, Any],
     dict[str, str],
+    dict[str, dict[str, object]],
 ]:
     resolution = buildlib.resolve_manifest(manifest_path)
     manifest = resolution.data
     inputs = buildlib.validate_inputs(repo, resolution, manifest)
     versions = validate_toolchain(manifest)
-    return resolution, manifest, inputs, versions
+    source_keys = builder_source_keys(repo)
+    return resolution, manifest, inputs, versions, source_keys
 
 
 def main() -> int:
@@ -539,7 +609,7 @@ def main() -> int:
     os.environ.update({"LC_ALL": "C", "LANG": "C", "TZ": "UTC"})
     repo = repo_root()
     manifest_path = selected_manifest(args.manifest)
-    resolution, manifest, inputs, versions = audit(repo, manifest_path)
+    resolution, manifest, inputs, versions, source_keys = audit(repo, manifest_path)
     audit_result = {
         "schema": buildlib.SCHEMA,
         "profile": manifest["profile"],
@@ -563,9 +633,16 @@ def main() -> int:
             if key.endswith("_sha256")
         },
         "toolchain": versions,
+        "source_keys": source_keys,
     }
     if args.audit_only:
-        buildlib.revalidate_manifest_lineage(resolution)
+        revalidate_execution_closure(
+            repo,
+            resolution,
+            manifest,
+            inputs,
+            source_keys,
+        )
         print(json.dumps(audit_result, indent=2, sort_keys=True))
         return 0
     if args.out_dir is None and args.ab_root is None:
@@ -583,6 +660,7 @@ def main() -> int:
             manifest,
             inputs,
             versions,
+            source_keys,
             root,
         )
         print(json.dumps(receipt, indent=2, sort_keys=True))
@@ -595,6 +673,7 @@ def main() -> int:
             manifest,
             inputs,
             versions,
+            source_keys,
             root / "A",
         )
         b_receipt = build_one(
@@ -604,6 +683,7 @@ def main() -> int:
             manifest,
             inputs,
             versions,
+            source_keys,
             root / "B",
         )
         byte_identical = all(
@@ -616,7 +696,13 @@ def main() -> int:
         )
         if a_receipt["artifacts"] != b_receipt["artifacts"]:
             byte_identical = False
-        buildlib.revalidate_manifest_lineage(resolution)
+        revalidate_execution_closure(
+            repo,
+            resolution,
+            manifest,
+            inputs,
+            source_keys,
+        )
         ab_receipt = {
             **audit_result,
             "schema": "a90-flat-builder-v1-ab-receipt",
@@ -633,7 +719,13 @@ def main() -> int:
             return 1
     if buildlib.sha256_file(inputs["accepted_boot"]) != accepted_before:
         raise RuntimeError("accepted historical boot changed during flat build")
-    buildlib.revalidate_manifest_lineage(resolution)
+    revalidate_execution_closure(
+        repo,
+        resolution,
+        manifest,
+        inputs,
+        source_keys,
+    )
     return 0
 
 

@@ -25,6 +25,38 @@ MINIMAL_MANIFEST = (
 )
 
 
+def newc_archive(entries: dict[str, bytes]) -> bytes:
+    result = bytearray()
+    for inode, (name, payload) in enumerate(
+        [*entries.items(), ("TRAILER!!!", b"")],
+        start=1,
+    ):
+        encoded_name = name.encode("utf-8") + b"\0"
+        fields = [
+            inode,
+            0o100755,
+            0,
+            0,
+            1,
+            0,
+            len(payload),
+            0,
+            0,
+            0,
+            0,
+            len(encoded_name),
+            0,
+        ]
+        result.extend(b"070701")
+        result.extend("".join(f"{value:08x}" for value in fields).encode("ascii"))
+        result.extend(encoded_name)
+        result.extend(b"\0" * (-len(result) % 4))
+        result.extend(payload)
+        result.extend(b"\0" * (-len(result) % 4))
+    result.extend(b"\0" * (-len(result) % 512))
+    return bytes(result)
+
+
 class A90FlatBuilderTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -151,6 +183,66 @@ class A90FlatBuilderTest(unittest.TestCase):
             "packed ramdisk engine selection mismatch",
         ):
             buildlib.validate_ramdisk_component_listing(self.manifest, active)
+
+    def test_actual_packed_archive_is_reopened_for_component_validation(self):
+        minimal = buildlib.resolve_manifest(MINIMAL_MANIFEST).data
+        entries = {
+            name: b"content"
+            for name in minimal["ramdisk"]["required_entries"]
+        }
+        entries["bin/a90_doomgeneric_private_engine_v9999"] = b"stale"
+        with tempfile.TemporaryDirectory() as temp_name:
+            archive = Path(temp_name) / "ramdisk.cpio"
+            archive.write_bytes(newc_archive(entries))
+            with self.assertRaisesRegex(
+                buildlib.ManifestError,
+                "packed ramdisk engine selection mismatch",
+            ):
+                build.validate_packed_ramdisk(minimal, archive)
+
+            del entries["bin/a90_doomgeneric_private_engine_v9999"]
+            archive.write_bytes(newc_archive(entries))
+            self.assertEqual(
+                build.validate_packed_ramdisk(minimal, archive),
+                set(entries),
+            )
+
+    def test_builder_source_keys_bind_both_execution_files(self):
+        keys = build.builder_source_keys(REPO_ROOT)
+        self.assertEqual(
+            set(keys),
+            {"flat_builder", "flat_builder_library"},
+        )
+        for value in keys.values():
+            path = REPO_ROOT / value["path"]
+            self.assertEqual(value["size"], path.stat().st_size)
+            self.assertEqual(value["sha256"], buildlib.sha256_file(path))
+
+        changed = copy.deepcopy(keys)
+        changed["flat_builder"]["sha256"] = "0" * 64
+        resolution = buildlib.resolve_manifest(MINIMAL_MANIFEST)
+        inputs = buildlib.validate_inputs(
+            REPO_ROOT,
+            resolution,
+            resolution.data,
+        )
+        with self.assertRaisesRegex(RuntimeError, "source closure changed"):
+            build.revalidate_execution_closure(
+                REPO_ROOT,
+                resolution,
+                resolution.data,
+                inputs,
+                changed,
+            )
+
+    def test_newc_parser_rejects_truncated_or_nonzero_trailer_padding(self):
+        valid = newc_archive({"init": b"payload"})
+        with self.assertRaisesRegex(buildlib.ManifestError, "truncated"):
+            buildlib.newc_archive_listing(valid[:100])
+        changed = bytearray(valid)
+        changed[-1] = 1
+        with self.assertRaisesRegex(buildlib.ManifestError, "invalid newc trailer"):
+            buildlib.newc_archive_listing(bytes(changed))
 
     def test_virtual_prefixes_are_public_and_random_seed_is_fixed(self):
         self.assertEqual(

@@ -26,7 +26,14 @@ build, and grants no candidate authority.
    from the base ramdisk. The obsolete set and packed-selection validation were
    extended to remove and reject every observed stale variant. That output was
    not reused.
-3. A fresh A/B output then passed byte identity, accepted-input immutability,
+3. The first independent capability review refused `PASS_GO`: the initial
+   check validated the staging directory after packing, not the emitted CPIO.
+   The builder now parses the emitted `newc` bytes itself, validates required
+   entries and the exact engine family from that archive, and rejects malformed
+   structure. Its receipts bind both builder source files and revalidate source,
+   manifest, and input pins around execution.
+4. A fresh A/B output from that exact closure then passed byte identity,
+   source-key binding, accepted-input immutability,
    required-entry inspection, exact engine-family absence, static AArch64 ELF
    inspection, and Android boot-image inspection.
 
