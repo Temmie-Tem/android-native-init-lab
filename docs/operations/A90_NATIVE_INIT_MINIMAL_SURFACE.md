@@ -17,6 +17,11 @@ flags, one Wi-Fi/firmware helper with 29 flags, and an 80-source Doom engine.
 Those counts describe the resident artifact; they are not claims that every
 item belongs in the product surface.
 
+`workspace/public/src/scripts/revalidation/a90_native_minimal_surface_v1.py`
+now revalidates the manifest lineage, public source keys, private input pins,
+exact counts, and `candidate_authority=false`. Its first slice changes no
+native-init source, flag, helper, artifact, or device state.
+
 ## Debian ownership already proved
 
 The attended ordinal and two qualified unattended ordinals independently
@@ -60,8 +65,9 @@ minimal profile rather than becoming permanent bridge duties.
 
 ## Next bounded H0 build unit
 
-1. Freeze and print/hash the current flat-builder source keys; do not edit the
-   accepted resident or rollback artifacts.
+1. The read-only inventory has frozen and printed/hashed the current
+   flat-builder source keys without editing accepted resident or rollback
+   artifacts.
 2. Add a no-authority successor profile that first removes the separate Doom
    engine and obsolete ramdisk engines while preserving bootstrap, USB,
    storage, release, handoff, return, and health behavior.
@@ -71,3 +77,7 @@ minimal profile rather than becoming permanent bridge duties.
    classify every remaining function against this map.
 5. Stop at H0. A changed boot candidate requires refreshed qualification,
    independent review of its changed closure, and attended boot-only F1.
+
+Focused inventory regression passes `3/3`; existing flat-builder and Phase 1A
+regression passes `17/17`. `py_compile`, private pin validation, and
+`git diff --check` pass. No boot image was built.
