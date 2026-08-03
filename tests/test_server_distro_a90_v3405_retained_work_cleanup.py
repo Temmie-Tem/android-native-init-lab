@@ -7,6 +7,7 @@ import json
 import subprocess
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest import mock
 
@@ -222,6 +223,30 @@ class RetainedWorkCleanupTests(unittest.TestCase):
         )
         self.assertFalse(prepared["live_authorized"])
 
+    def test_live_cleanup_refuses_missing_attendance_before_device_contact(self) -> None:
+        spec = self.fixture.load()
+        prepared = cleanup.prepare_approval(spec)
+        with mock.patch.object(
+            cleanup,
+            "require_exact_target",
+            side_effect=AssertionError("device contacted"),
+        ):
+            with self.assertRaisesRegex(
+                cleanup.ContractError,
+                "awake attended operator",
+            ):
+                cleanup.execute_cleanup(
+                    spec,
+                    prepared["approval_token"],
+                    self.fixture.run_dir / "live",
+                    operator_attended=False,
+                    host="127.0.0.1",
+                    port=cleanup.a90ctl.DEFAULT_PORT,
+                    read_timeout=cleanup.READ_TIMEOUT_SEC,
+                    cleanup_timeout=cleanup.CLEANUP_TIMEOUT_SEC,
+                )
+        self.assertFalse((self.fixture.run_dir / "live").exists())
+
     def test_live_profile_is_exactly_v3406_and_manifest_bound_work_hash(self) -> None:
         source = SOURCE.read_text(encoding="utf-8")
         for token in (
@@ -259,6 +284,465 @@ class RetainedWorkCleanupTests(unittest.TestCase):
         self.fixture.write_manifest()
         with self.assertRaisesRegex(cleanup.ContractError, "adjacent paths"):
             self.fixture.load()
+
+    def test_source_preserved_scripts_protect_exact_source(self) -> None:
+        preflight = cleanup.preflight_script()
+        dispatch = cleanup.cleanup_script()
+        presence = cleanup.presence_script()
+        for script in (preflight, dispatch, presence):
+            self.assertIn("exact-preserved", script)
+            self.assertIn('sha256sum "$src"', script)
+            self.assertIn("regular file|2147483648|600|1", script)
+        self.assertEqual(dispatch.count('/bin/busybox rm -- "$p"'), 1)
+        self.assertNotIn('/bin/busybox rm -- "$src"', dispatch)
+        self.assertLess(
+            dispatch.index('sha256sum "$src"'),
+            dispatch.index('/bin/busybox rm -- "$p"'),
+        )
+        self.assertGreater(
+            dispatch.rindex('sha256sum "$src"'),
+            dispatch.index('/bin/busybox rm -- "$p"'),
+        )
+
+    def test_source_preserved_review_binds_exact_current_closure(self) -> None:
+        review_root = self.base / "docs" / "reports"
+        review_root.mkdir(parents=True)
+        reviewed_source = self.base / "reviewed-source"
+        reviewed_source.write_text("exact\n", encoding="utf-8")
+        reviewed_source.chmod(0o644)
+        review = review_root / "review.json"
+        with (
+            mock.patch.object(cleanup, "REPO_ROOT", self.base),
+            mock.patch.object(cleanup, "REVIEW_SOURCES", (reviewed_source,)),
+        ):
+            closure = cleanup.required_review_source_records()
+            value = {
+                "schema": cleanup.REVIEW_SCHEMA,
+                "status": "PASS_GO",
+                "unresolved_findings": [],
+                "permanent_boundaries_unchanged": True,
+                "device_authority_granted": False,
+                "named_execution_critical_closure": closure,
+            }
+            review.write_text(json.dumps(value), encoding="utf-8")
+            review.chmod(0o644)
+            bound = cleanup.validate_independent_review_binding(
+                {
+                    "path": str(review),
+                    "size": review.stat().st_size,
+                    "sha256": sha256_file(review),
+                }
+            )
+            self.assertEqual(bound.sha256, sha256_file(review))
+            value["named_execution_critical_closure"][
+                next(iter(closure))
+            ]["sha256"] = "0" * 64
+            review.write_text(json.dumps(value), encoding="utf-8")
+            with self.assertRaisesRegex(cleanup.ContractError, "PASS_GO"):
+                cleanup.validate_independent_review_binding(
+                    {
+                        "path": str(review),
+                        "size": review.stat().st_size,
+                        "sha256": sha256_file(review),
+                    }
+                )
+
+    def test_closed_f1_binding_requires_one_candidate_rollback_and_no_replay(self) -> None:
+        f1_root = self.base / self.fixture.f1_run_id
+        journal_root = f1_root / "f1-live" / "journal"
+        journal_root.mkdir(parents=True)
+        candidate_sha = "1" * 64
+
+        def write_json(path: Path, value: dict) -> dict:
+            path.write_text(json.dumps(value), encoding="utf-8")
+            path.chmod(0o600)
+            return {
+                "path": str(path),
+                "size": path.stat().st_size,
+                "sha256": sha256_file(path),
+            }
+
+        def framed(command: str, text: str) -> dict:
+            return {
+                "begin": {"cmd": command},
+                "command": [command],
+                "end": {"cmd": command, "rc": "0", "status": "ok"},
+                "rc": 0,
+                "status": "ok",
+                "text": text,
+                "trust": "A90P1_V1_STRUCTURAL_ONLY",
+            }
+
+        manifest_path = f1_root / "prepared-manifest.json"
+        manifest_record = write_json(
+            manifest_path,
+            {
+                "schema": cleanup.F1_MANIFEST_SCHEMA,
+                "status": cleanup.F1_MANIFEST_STATUS,
+                "run_id": self.fixture.f1_run_id,
+                "candidate_boot": {
+                    "partition": "boot",
+                    "size": 1234,
+                    "sha256": candidate_sha,
+                    "expected_version": "0.11.167",
+                    "expected_build": "phase3-minimal-f-power-recovery-ui",
+                },
+                "rollback_boot": {
+                    "partition": "boot",
+                    "size": cleanup.EXPECTED_ROLLBACK_SIZE,
+                    "sha256": cleanup.EXPECTED_ROLLBACK_SHA256,
+                    "expected_version": cleanup.EXPECTED_VERSION,
+                    "expected_build": cleanup.EXPECTED_BUILD,
+                },
+                "target": {
+                    "profile": "galaxy-a90-5g-native-init",
+                    "bridge_selected_exact": True,
+                    "bridge_selected_realpath": self.fixture.bridge_realpath,
+                },
+            },
+        )
+        result_value = {
+            "schema": cleanup.F1_RESULT_SCHEMA,
+            "run_id": self.fixture.f1_run_id,
+            "manifest_sha256": manifest_record["sha256"],
+            "status": "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
+            "candidate_transfer_count": 1,
+            "candidate_transfer_uncertain": False,
+            "candidate_replay": False,
+            "debian_pid1_proven": False,
+            "display_acquisition_proven": False,
+            "rollback_transfer_count": 1,
+            "final_health_restored": True,
+            "timeline_events": list(cleanup.F1_TIMELINE_EVENTS),
+        }
+        actions = (
+            "preflight",
+            "approved",
+            "staging-started",
+            "rootfs-staged",
+            "rootfs-candidate-preflight",
+            "candidate-transfer-started",
+            "candidate-flashed",
+            "attended-window-open",
+            "attended-pre-handoff-attempt",
+            "candidate-boot-ready",
+            "attended-pre-handoff-ready",
+            "attended-handoff-started",
+            "observation-no-proof",
+            "rollback-transfer-started",
+            "rollback-flashed",
+            "rollback-boot-ready",
+            "health-verified",
+            "closed",
+        )
+        states = {
+            "preflight": "PREFLIGHT",
+            "approved": "APPROVED",
+            "staging-started": "APPROVED",
+            "rootfs-staged": "APPROVED",
+            "rootfs-candidate-preflight": "APPROVED",
+            "candidate-transfer-started": "APPROVED",
+            "candidate-flashed": "CANDIDATE_FLASHED",
+            "attended-window-open": "CANDIDATE_FLASHED",
+            "attended-pre-handoff-attempt": "CANDIDATE_FLASHED",
+            "candidate-boot-ready": "CANDIDATE_FLASHED",
+            "attended-pre-handoff-ready": "CANDIDATE_FLASHED",
+            "attended-handoff-started": "CANDIDATE_FLASHED",
+            "observation-no-proof": "OBSERVED",
+            "rollback-transfer-started": "RECOVERY_ROLLBACK",
+            "rollback-flashed": "ROLLBACK_FLASHED",
+            "rollback-boot-ready": "ROLLBACK_FLASHED",
+            "health-verified": "HEALTH_VERIFIED",
+            "closed": "CLOSED",
+        }
+        journal = []
+        for sequence, action in enumerate(actions):
+            value = {
+                "schema": cleanup.F1_JOURNAL_SCHEMA,
+                "sequence": sequence,
+                "timestamp_utc": f"2026-08-01T00:00:{sequence:02d}Z",
+                "state": states[action],
+                "action": action,
+                "run_id": self.fixture.f1_run_id,
+                "manifest_sha256": manifest_record["sha256"],
+            }
+            if action == "preflight":
+                value.update(
+                    candidate_sha256=candidate_sha,
+                    rollback_sha256=cleanup.EXPECTED_ROLLBACK_SHA256,
+                )
+            elif action == "candidate-transfer-started":
+                value.update(candidate_sha256=candidate_sha, candidate_replay=False)
+            elif action == "candidate-flashed":
+                value.update(
+                    candidate_sha256=candidate_sha,
+                    candidate_transfer_count=1,
+                    candidate_replay=False,
+                )
+            elif action == "candidate-boot-ready":
+                value.update(
+                    candidate_version="0.11.167",
+                    candidate_build="phase3-minimal-f-power-recovery-ui",
+                    selftest_fail_zero=True,
+                    health={
+                        "exact_bridge": True,
+                        "selected_realpath": self.fixture.bridge_realpath,
+                        "version": framed(
+                            "version",
+                            "version: 0.11.167 "
+                            "build=phase3-minimal-f-power-recovery-ui\r\n",
+                        ),
+                        "selftest": framed(
+                            "selftest",
+                            "selftest: pass=12 warn=1 fail=0 duration=53ms "
+                            "entries=13\r\n",
+                        ),
+                    },
+                )
+            elif action == "rollback-transfer-started":
+                value.update(
+                    rollback_sha256=cleanup.EXPECTED_ROLLBACK_SHA256,
+                    candidate_replay=False,
+                )
+            elif action == "rollback-flashed":
+                value.update(
+                    rollback_sha256=cleanup.EXPECTED_ROLLBACK_SHA256,
+                    rollback_transfer_count=1,
+                    candidate_replay=False,
+                )
+            elif action == "rollback-boot-ready":
+                value.update(
+                    rollback_version=cleanup.EXPECTED_VERSION,
+                    rollback_build=cleanup.EXPECTED_BUILD,
+                    selftest_fail_zero=True,
+                )
+            elif action == "health-verified":
+                value.update(
+                    version=cleanup.EXPECTED_VERSION,
+                    build=cleanup.EXPECTED_BUILD,
+                    exact_bridge=True,
+                    selected_realpath=self.fixture.bridge_realpath,
+                    selftest_fail_zero=True,
+                    pstore_entries_zero=True,
+                    baseline={
+                        "version": framed(
+                            "version",
+                            "version: 0.9.285 "
+                            "build=v2321-usb-clean-identity-rodata\r\n",
+                        ),
+                        "selftest": framed(
+                            "selftest",
+                            "selftest: pass=11 warn=1 fail=0 duration=48ms "
+                            "entries=12\r\n",
+                        ),
+                        "status": framed(
+                            "status",
+                            "pstore=fs=yes mounted=no dir=yes entries=0\r\n",
+                        ),
+                    },
+                )
+            elif action == "closed":
+                value.update(
+                    {
+                        key: item
+                        for key, item in result_value.items()
+                        if key not in {"schema", "run_id", "manifest_sha256"}
+                    }
+                )
+            journal.append(
+                write_json(
+                    journal_root / f"{sequence:04d}-{action}.json",
+                    value,
+                )
+            )
+        result_record = write_json(
+            f1_root / "f1-live" / "result.json",
+            result_value,
+        )
+        binding = {
+            "manifest": manifest_record,
+            "result": result_record,
+            "journal": journal,
+        }
+        _, result, records = cleanup.validate_closed_f1_binding(
+            binding,
+            self.fixture.f1_run_id,
+        )
+        self.assertEqual(result.sha256, result_record["sha256"])
+        self.assertEqual(len(records), len(actions))
+        boolean_count = dict(result_value)
+        boolean_count["candidate_transfer_count"] = True
+        binding["result"] = write_json(
+            Path(result_record["path"]),
+            boolean_count,
+        )
+        with self.assertRaisesRegex(cleanup.ContractError, "one candidate"):
+            cleanup.validate_closed_f1_binding(
+                binding,
+                self.fixture.f1_run_id,
+            )
+        binding["result"] = write_json(
+            Path(result_record["path"]),
+            result_value,
+        )
+        mutated_result = json.loads(
+            Path(result_record["path"]).read_text(encoding="utf-8")
+        )
+        mutated_result["candidate_replay"] = True
+        result_record = write_json(Path(result_record["path"]), mutated_result)
+        binding["result"] = result_record
+        with self.assertRaisesRegex(cleanup.ContractError, "one candidate"):
+            cleanup.validate_closed_f1_binding(
+                binding,
+                self.fixture.f1_run_id,
+            )
+
+    def test_source_preserved_execution_requires_exact_source_after_unlink(self) -> None:
+        base_spec = self.fixture.load()
+        dummy = cleanup.BoundFile(
+            path=self.fixture.manifest_path,
+            size=self.fixture.manifest_path.stat().st_size,
+            sha256=sha256_file(self.fixture.manifest_path),
+        )
+        spec = replace(
+            base_spec,
+            source_disposition=cleanup.SOURCE_EXACT_PRESERVED,
+            independent_review=dummy,
+            closed_f1_manifest=dummy,
+            closed_f1_result=dummy,
+            closed_f1_journal=(dummy,),
+        )
+        prepared = cleanup.prepare_approval(spec)
+        protocol = cleanup.a90ctl.ProtocolResult(
+            begin={"cmd": "run"},
+            end={"cmd": "run", "rc": "0", "status": "ok"},
+            text="work=unlinked source=exact\n",
+        )
+        with (
+            mock.patch.object(
+                cleanup,
+                "require_exact_target",
+                return_value={"resolved_bridge": "/dev/ttyACM-test"},
+            ),
+            mock.patch.object(
+                cleanup,
+                "require_exact_bridge_process",
+                return_value={"matching_bridge_processes": 1},
+            ),
+            mock.patch.object(
+                cleanup,
+                "health_preflight",
+                return_value={"proven": True},
+            ),
+            mock.patch.object(
+                cleanup,
+                "run_read_preflight",
+                return_value={"proof": True},
+            ),
+            mock.patch.object(
+                cleanup,
+                "read_presence",
+                return_value={
+                    "work": "absent",
+                    "source": "exact",
+                    "stage": "absent",
+                },
+            ),
+            mock.patch.object(
+                cleanup,
+                "remote_command",
+                return_value=protocol,
+            ) as dispatch,
+        ):
+            result = cleanup.execute_cleanup(
+                spec,
+                prepared["approval_token"],
+                self.fixture.run_dir / "live",
+                operator_attended=True,
+                host="127.0.0.1",
+                port=cleanup.a90ctl.DEFAULT_PORT,
+                read_timeout=cleanup.READ_TIMEOUT_SEC,
+                cleanup_timeout=cleanup.CLEANUP_TIMEOUT_SEC,
+            )
+        self.assertEqual(dispatch.call_count, 1)
+        self.assertEqual(
+            dispatch.call_args.args[3][-1],
+            cleanup.SOURCE_EXACT_PRESERVED,
+        )
+        self.assertEqual(
+            result["outcome"],
+            "PASS_EXACT_RETAINED_WORK_COPY_UNLINKED",
+        )
+        self.assertTrue(result["protected_source_preserved"])
+
+    def test_source_preserved_execution_rejects_post_unlink_source_drift(self) -> None:
+        base_spec = self.fixture.load()
+        dummy = cleanup.BoundFile(
+            path=self.fixture.manifest_path,
+            size=self.fixture.manifest_path.stat().st_size,
+            sha256=sha256_file(self.fixture.manifest_path),
+        )
+        spec = replace(
+            base_spec,
+            source_disposition=cleanup.SOURCE_EXACT_PRESERVED,
+            independent_review=dummy,
+            closed_f1_manifest=dummy,
+            closed_f1_result=dummy,
+            closed_f1_journal=(dummy,),
+        )
+        prepared = cleanup.prepare_approval(spec)
+        with (
+            mock.patch.object(
+                cleanup,
+                "require_exact_target",
+                return_value={"resolved_bridge": "/dev/ttyACM-test"},
+            ),
+            mock.patch.object(
+                cleanup,
+                "require_exact_bridge_process",
+                return_value={"matching_bridge_processes": 1},
+            ),
+            mock.patch.object(
+                cleanup,
+                "health_preflight",
+                return_value={"proven": True},
+            ),
+            mock.patch.object(
+                cleanup,
+                "run_read_preflight",
+                return_value={"proof": True},
+            ),
+            mock.patch.object(
+                cleanup,
+                "read_presence",
+                return_value={
+                    "work": "absent",
+                    "source": "invalid",
+                    "stage": "absent",
+                },
+            ),
+            mock.patch.object(
+                cleanup,
+                "remote_command",
+                side_effect=TimeoutError("response lost"),
+            ),
+        ):
+            result = cleanup.execute_cleanup(
+                spec,
+                prepared["approval_token"],
+                self.fixture.run_dir / "live",
+                operator_attended=True,
+                host="127.0.0.1",
+                port=cleanup.a90ctl.DEFAULT_PORT,
+                read_timeout=cleanup.READ_TIMEOUT_SEC,
+                cleanup_timeout=cleanup.CLEANUP_TIMEOUT_SEC,
+            )
+        self.assertFalse(result["effect_proven"])
+        self.assertFalse(result["protected_source_preserved"])
+        self.assertEqual(
+            result["outcome"],
+            "STOP_NO_RETRY_RETAINED_WORK_COPY_NOT_PROVEN_ABSENT",
+        )
 
     def test_manifest_rejects_host_preservation_hash_drift(self) -> None:
         self.fixture.manifest["work_image"]["host_preservation"]["sha256"] = (
@@ -301,7 +785,7 @@ class RetainedWorkCleanupTests(unittest.TestCase):
         protocol = cleanup.a90ctl.ProtocolResult(
             begin={"cmd": "run"},
             end={"cmd": "run", "rc": "0", "status": "ok"},
-            text="work=unlinked\n",
+            text="work=unlinked source=absent\n",
         )
         with (
             mock.patch.object(
@@ -347,6 +831,7 @@ class RetainedWorkCleanupTests(unittest.TestCase):
                 spec,
                 prepared["approval_token"],
                 self.fixture.run_dir / "live",
+                operator_attended=True,
                 host="127.0.0.1",
                 port=cleanup.a90ctl.DEFAULT_PORT,
                 read_timeout=cleanup.READ_TIMEOUT_SEC,
@@ -412,6 +897,7 @@ class RetainedWorkCleanupTests(unittest.TestCase):
                 spec,
                 prepared["approval_token"],
                 self.fixture.run_dir / "live",
+                operator_attended=True,
                 host="127.0.0.1",
                 port=cleanup.a90ctl.DEFAULT_PORT,
                 read_timeout=cleanup.READ_TIMEOUT_SEC,
@@ -474,6 +960,7 @@ class RetainedWorkCleanupTests(unittest.TestCase):
                 spec,
                 prepared["approval_token"],
                 self.fixture.run_dir / "live",
+                operator_attended=True,
                 host="127.0.0.1",
                 port=cleanup.a90ctl.DEFAULT_PORT,
                 read_timeout=cleanup.READ_TIMEOUT_SEC,
@@ -512,6 +999,7 @@ class RetainedWorkCleanupTests(unittest.TestCase):
                     spec,
                     prepared["approval_token"],
                     transaction,
+                    operator_attended=True,
                     host="127.0.0.1",
                     port=cleanup.a90ctl.DEFAULT_PORT,
                     read_timeout=cleanup.READ_TIMEOUT_SEC,
@@ -567,6 +1055,7 @@ class RetainedWorkCleanupTests(unittest.TestCase):
                 spec,
                 prepared["approval_token"],
                 self.fixture.run_dir / "live",
+                operator_attended=True,
                 host="127.0.0.1",
                 port=cleanup.a90ctl.DEFAULT_PORT,
                 read_timeout=cleanup.READ_TIMEOUT_SEC,
@@ -630,6 +1119,7 @@ class RetainedWorkCleanupTests(unittest.TestCase):
                 spec,
                 prepared["approval_token"],
                 self.fixture.run_dir / "live",
+                operator_attended=True,
                 host="127.0.0.1",
                 port=cleanup.a90ctl.DEFAULT_PORT,
                 read_timeout=cleanup.READ_TIMEOUT_SEC,

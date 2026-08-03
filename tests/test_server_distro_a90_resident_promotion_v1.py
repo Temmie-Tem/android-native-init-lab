@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 import os
 import tempfile
@@ -420,8 +421,9 @@ class ResidentPromotionV1Tests(unittest.TestCase):
         }
 
     def validate(self, spec, *, recovery: bool = False):
+        runtime_fast = importlib.import_module("a90_resident_fast_handoff_v1")
         with mock.patch.object(
-            fast,
+            runtime_fast,
             "validate_ab_receipt",
             return_value=self.ab_result(),
         ) as validator:

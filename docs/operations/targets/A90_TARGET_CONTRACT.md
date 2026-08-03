@@ -183,6 +183,27 @@ A fresh D0 inventory and immutable execution binding replace per-file phrases or
 After unlink dispatch only, exact absent selected bytes may be restored while attended through a separate sequential durable no-clobber recovery transaction; restoration is never automatic, and an uncertain reserve, transfer, or publish is never replayed. Recovery response or host-process loss after a durable restore start likewise resumes only journal-bound read-only reconciliation/health and never repeats reserve, transfer, publish, or cleanup. PASS requires all selected paths absent, all protected identities exact, work and restore staging absent, increased bounded free space, and final exact V3406 health.
 Cleanup sends no payload, and recovery may transfer only the manifest-bound preserved SD-file identities; neither path writes a partition, configuration, credential, or security state, grants arbitrary path or shell authority, or applies to S22+, userdata, another removable device, another A90, or an unreviewed identity.
 
+The separately reviewed attended recovery sub-capability
+`A90_ATTENDED_RETAINED_WORK_SOURCE_PRESERVED_CLEANUP_V1` may unlink only the
+fixed `/mnt/sdext/a90/runtime/d3-handoff-work.img` after a closed ordinary F1
+has restored exact V2321 health but left that work copy behind. It requires the
+closed run's one candidate, one rollback, no-replay, and final-health evidence;
+fresh exact V2321 D0; the exact 2 GiB work bytes preserved on the host; the
+adjacent run-specific source as a distinct exact regular mode-`0600` file with
+the same hash; an absent run stage; no mount or loop use; and attended physical
+recovery. Live dispatch requires the awake operator to assert
+`--operator-attended` while physically able to enter Download or TWRP; never
+assert it while absent or asleep. The adjacent source is protected and never
+selected for unlink.
+One durable intent permits one nonrecursive unlink dispatch for the fixed work
+path, with no retransmit after an uncertain response. Reconciliation is
+read-only. PASS requires work absent, the protected source still exact, stage
+absent, and final exact V2321 health. It sends no payload, writes no partition,
+configuration, credential, or security state, and grants no arbitrary path or
+shell authority. It does not extend rootfs GC selection and never applies to
+S22+, userdata, another removable device, another A90, or an unreviewed
+identity.
+
 ## A90 F1 Resident Install
 
 A90 F1 uses the checked `native_init_flash.py` path and may transfer only the
