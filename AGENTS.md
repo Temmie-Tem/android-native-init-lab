@@ -73,12 +73,16 @@ still close. Attendance loss stops F1 and all D1 except the qualified A90 lane.
 
 ### Evidence
 
-Append to the per-target campaign ledger:
+Routine narrative evidence is the commit body: attempt, result including no-proof, judgment, work, and a `Validation:` line.
+
+Append the structured row to the per-target campaign ledger:
 `docs/operations/CAMPAIGN_LEDGER_S22PLUS.md` or
 `docs/operations/CAMPAIGN_LEDGER_A90.md`. Write a separate report only for a
 new capability, a new hazard class, an incident, or a genuinely ambiguous
 device-safety result. No per-run prose, no review ladder, and no per-candidate
 policy document.
+
+A superseded report moves to `docs/archive/reports/`; location is the authority signal.
 
 ---
 

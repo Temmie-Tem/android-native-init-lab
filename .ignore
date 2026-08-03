@@ -3,3 +3,8 @@
 # `rg` focused on active source and avoids matching superseded/duplicate copies.
 # To search archive explicitly: `rg --no-ignore <pattern> workspace/public/archive`
 workspace/public/archive/
+
+# Superseded docs and reports. Location is the authority signal: a file under
+# docs/archive/ is historical and must not be read as current state. Excluding
+# it here stops a search from returning a stale frontier next to the live one.
+docs/archive/
