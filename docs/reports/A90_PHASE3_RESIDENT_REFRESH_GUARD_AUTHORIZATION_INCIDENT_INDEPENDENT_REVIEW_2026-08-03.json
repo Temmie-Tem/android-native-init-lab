@@ -1,0 +1,165 @@
+{
+  "schema": "a90-phase3-resident-refresh-f1-independent-review-v1",
+  "review_date": "2026-08-03",
+  "target": "Samsung Galaxy A90 5G only",
+  "risk_tier": "H0 independent incident and capability review",
+  "status": "PASS_GO",
+  "decision": "PASS_GO_NEW_CAMPAIGN_ONLY. The -03 transaction is STOP_RESUME and must never be resumed or reused. Its zero-output, null-return-code ModemManager guard arm failure is a fail-closed HOST_GUARD_AUTHORIZATION_FAILURE before candidate intent or boot transfer, not a new device hazard. Fresh -04 D0 independently re-established exact V2321 health. A new campaign may proceed only with this receipt, a fresh -04 manifest and approval, a new empty journal, exact A90 attendance and identity, exact rollback and recovery, and a successfully armed live guard receipt.",
+  "closure_digest_sha256": "5bb2b6346e9930d50f36bf74d9aed4c461e346496f10c6cd011f4df21845ee53",
+  "named_execution_critical_closure": {
+    "workspace/public/src/harness/a90harness/evidence.py": {
+      "bytes": 11723,
+      "sha256": "3b0aaa36a95628591e14c4c2d70ae4941230fe650b6e4d517173cee5d3019742"
+    },
+    "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py": {
+      "bytes": 1255,
+      "sha256": "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe"
+    },
+    "workspace/public/src/scripts/revalidation/a90_bridge.py": {
+      "bytes": 40294,
+      "sha256": "922c55a0afdef9d237a679203f576226583f4463eec15fb0091871c241f8be01"
+    },
+    "workspace/public/src/scripts/revalidation/a90_observation_pipeline.py": {
+      "bytes": 24478,
+      "sha256": "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb"
+    },
+    "workspace/public/src/scripts/revalidation/a90_serial_lock.py": {
+      "bytes": 2860,
+      "sha256": "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7"
+    },
+    "workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py": {
+      "bytes": 13734,
+      "sha256": "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e"
+    },
+    "workspace/public/src/scripts/revalidation/a90ctl.py": {
+      "bytes": 16380,
+      "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c"
+    },
+    "workspace/public/src/scripts/revalidation/native_init_flash.py": {
+      "bytes": 43118,
+      "sha256": "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
+    },
+    "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py": {
+      "bytes": 17944,
+      "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98"
+    },
+    "workspace/public/src/scripts/revalidation/tcpctl_host.py": {
+      "bytes": 34750,
+      "sha256": "032f3146ddc08af82f00881ae3d825066e843a41b194ee8d4c8cf09d1f3adb78"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_connected_preflight.py": {
+      "bytes": 21929,
+      "sha256": "c84f7e8d1054df6f095ce13a0bb4c3f057a6d0f4244b77f12b5c87f89edaa6d8"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_display_observer.py": {
+      "bytes": 648,
+      "sha256": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_finalize_f1.py": {
+      "bytes": 38643,
+      "sha256": "f0411c35944a53940c3aec9af32600b5d4aba08d48f3c34a14552de5546a05d8"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase3_network_ssh_keyed_rootfs_v1.py": {
+      "bytes": 23948,
+      "sha256": "44bb425533ccfd5b65b9be94056da302fa646d97b2b346ec15214cd7a5660396"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_fast_handoff_v1.py": {
+      "bytes": 12037,
+      "sha256": "da695df326ac347baad2f31c4117ec564ea4cc4181605f397da8105d68e24c47"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_manifest_builder_v1.py": {
+      "bytes": 24441,
+      "sha256": "c420e623ff56fcfdb03194465d667879b8311f0d9a1579b15736672f59bb2a1f"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py": {
+      "bytes": 68636,
+      "sha256": "4908d477c26751f29f8f000c316d862b32a34aacbf53bd20851bf8a96c4a6183"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {
+      "bytes": 102414,
+      "sha256": "fc8c5754931266541aa3815a497179af7b6a851df530c20cff6e3a464a6adeb4"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {
+      "bytes": 269596,
+      "sha256": "17f630f861d94c3f48084b33a603057c6226f705c1272c5d4f5d9390e003c239"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh": {
+      "bytes": 10126,
+      "sha256": "b52b7306d928d0a7275af70f16ff44d578a8440260828343eefa2a204bdc8859"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_return_arm_v1.sh": {
+      "bytes": 1187,
+      "sha256": "e83ede7fb430de98881ff7b9d18e8127bfc8bc19e4707d9ccf78410ac555faf3"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/manifest.toml": {
+      "bytes": 2962,
+      "sha256": "0a0ced3d0720db7bedb4ebcc42f98162a687d2a4d5d785b8cc123cae777ef9c7"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase2_display_v1_rootfs.py": {
+      "bytes": 28143,
+      "sha256": "8b44e922aba9efdf8b6877c98d6d3395c4ec34a6d6d5e47247aa3c73d7b689a1"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase3_network_ssh_v1_rootfs.py": {
+      "bytes": 25978,
+      "sha256": "3c15440d30e5cd14f320c6a1bc0d1639e89b0d878a8970284b5eb7bb58f87166"
+    },
+    "workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.py": {
+      "bytes": 13928,
+      "sha256": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933"
+    }
+  },
+  "incident": {
+    "classification": "HOST_GUARD_AUTHORIZATION_FAILURE",
+    "run_id": "a90-v3406-debian-display-f1-20260803-03",
+    "disposition": "STOP_RESUME",
+    "staged_rootfs_disposition": "PRESERVE_INERT",
+    "resident_manifest_sha256": "30800ecdf90db09e2488822ada57762defcf64adbdc7bd62003aa04ea24ed9a2",
+    "guard_failure_sha256": "d0976cb2e3b3848ba488ab887b29e509c7aea2615d1046966b1742f442096ee8",
+    "abort_journal_sha256": "de36a0d7b49ebdd95cfbfb8b947dd02f51672935fc77957bb7adf1bb288d6ddf",
+    "result_sha256": "d91fcb0fa52ad0dddc533a0d2ccb41b813883cee28f7501b3db5942c11086750",
+    "timeline_sha256": "e345a8bd9a5598fa7ad80a0ec6a2aad2000f8dac9a70dcce18bc714484538e10",
+    "staging_result_sha256": "2779ff3ba6d32be43b0bdbc6956e723340d8149de0dc9aedd14353aebdaa88db",
+    "candidate_transfer_count": 0,
+    "rollback_transfer_count": 0,
+    "candidate_replay": false,
+    "rollback_required": false,
+    "new_device_hazard": false,
+    "source_change_required": false
+  },
+  "fresh_campaign": {
+    "run_id": "a90-v3406-debian-display-f1-20260803-04",
+    "connected_d0_sha256": "0b5f7968733621015c9f39f2cd788412d966a24bd2ba283ed9880fc78f8d33fc",
+    "connected_path_preflight_sha256": "777d1b6806560630dd3dc19dbc5f6a20f022bcac2e5101e09ff09801f700b42d",
+    "keyed_rootfs_summary_sha256": "3cfb9402510586518894f5017be0a4582685cdc36ec395ce65c39956f059f08a",
+    "starting_health": "exact V2321, pstore entries=0, selftest fail=0",
+    "old_run_path_reuse_forbidden": true,
+    "new_empty_journal_required": true,
+    "live_guard_receipt_required": true
+  },
+  "reviewed_continuation": {
+    "pkexec_probe": "Only an exact pkexec /usr/bin/true GUI prompt may be approved as host-only pre-authorization. Any stale setpriv/python guard prompt from -03 must be rejected.",
+    "probe_success": "Requires exit 0, pkexec process disappearance, and absence of transient guard rules. It never substitutes for the new campaign live armed and child_alive receipt.",
+    "repeat_failure": "A second zero-output null-return-code arm failure stops campaign creation and requires host guard authorization repair.",
+    "staged_rootfs": "The -03 rootfs remains inert and preserved; it was never booted, work image is absent, it must not be adopted by rebinding, and any later deletion is a separate exact-path bounded cleanup."
+  },
+  "validation": {
+    "incident_focused_tests": "6/6 PASS",
+    "f1_regression": "356/356 PASS",
+    "journal_validation": "PASS",
+    "fresh_d0_reopen": "PASS",
+    "source_change": false,
+    "device_contact_by_reviewer": false,
+    "other_samsung_endpoint_touched": false,
+    "s22plus_touched": false
+  },
+  "qualification_reuse": {
+    "scope": "capability-wide after this incident review",
+    "repeat_per_manifest": false,
+    "repeat_per_ordinal": false,
+    "repeat_per_campaign": false,
+    "re_review_trigger": "Any named closure or semantics change, a repeated guard authorization failure, or any new hazard or incident."
+  },
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false
+}
