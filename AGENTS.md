@@ -174,8 +174,7 @@ Classify every action using
 
 - **H0:** host-only work. No device approval.
 - **D0:** connected read-only work. Exact target and bounded reads.
-- **D1:** transient no-payload control. Use active trial autonomy; outside the
-  trial, require the selected target contract's fresh approval.
+- **D1:** transient no-payload control. Use active trial autonomy; outside the trial, require the selected target contract's fresh approval. A selected target contract may also define one separately reviewed, exact, rollback-recoverable storage-artifact cleanup sub-capability. That exception may remove only named target-owned files with exact host preservation and must not write a partition, configuration, credential, or security state.
 - **F1:** a boot-only transfer process defined by the selected target contract.
 - **X:** forbidden by the permanent boundaries.
 

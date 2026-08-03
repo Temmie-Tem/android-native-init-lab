@@ -1,0 +1,91 @@
+{
+  "schema": "a90_independent_capability_review_v1",
+  "reviewed_utc": "2026-08-03T15:54:00Z",
+  "capability": "A90_ATTENDED_SD_ROOTFS_GC_V2",
+  "verdict": "PASS_GO",
+  "review_scope": {
+    "target": "Samsung Galaxy A90 5G",
+    "risk_tier": "TIER_D1_ATTENDED_EXACT_STORAGE_ARTIFACT_CLEANUP",
+    "selected_count_range": [
+      1,
+      32
+    ],
+    "effect": "one nonrecursive unlink dispatch over exact host-recoverable obsolete SD rootfs identities",
+    "other_targets": false,
+    "partition_write": false,
+    "flash": false
+  },
+  "reviewed_core_sha256": {
+    "AGENTS.md": "3289aedf8b55c2d74e3252c72e7b6b9bc003ef62379fc6e7b192a845c80dd747",
+    "docs/operations/DEVICE_ACTION_RISK_TIERS.md": "c2bc3b99b364ec3d08419dc83cca14f35ea9edc1d03173e237740b786ecf8a96",
+    "docs/operations/targets/A90_TARGET_CONTRACT.md": "7f6cbbf39e1895d898f0502165125f0af500c25b57d559a5da4e4c57fce16659",
+    "tests/test_server_distro_a90_obsolete_rootfs_cleanup_v1.py": "98a07dcb61eaf8e1a1d2afe6ed2d7c0d0b2cbebbe0c70633bde520fd7806a245",
+    "workspace/public/src/scripts/server-distro/a90_obsolete_rootfs_cleanup_v1.py": "3aa00d36e9ca4c9147c10a67168f0933689ed09c0d6ba833a4ff51290d1e9ee7"
+  },
+  "reviewed_transitive_unique_sha256": {
+    "a90_bridge.py": "922c55a0afdef9d237a679203f576226583f4463eec15fb0091871c241f8be01",
+    "a90_observation_pipeline.py": "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb",
+    "a90_phase2d_display_observer.py": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744",
+    "a90_phase3_d1_observer_v1.py": "fccb10170583ea3c1761cf33de7bcc40d2409c0e097af051b6585195876b1a78",
+    "a90_serial_lock.py": "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7",
+    "a90_transition_d1_session_v1.py": "ae601c74dbd6777847f7566c388810b2819f24af1e8e29f9b7ce746c2009a3c5",
+    "a90_transition_engine_v2.py": "7a6f2a3248fcf53770cf5dee27985b23e239749cf5c8eae79158c7f903686010",
+    "a90_v3403_absent_only_staging.py": "fc8c5754931266541aa3815a497179af7b6a851df530c20cff6e3a464a6adeb4",
+    "a90_v3403_f1_orchestrator.py": "17f630f861d94c3f48084b33a603057c6226f705c1272c5d4f5d9390e003c239",
+    "a90_v3405_retained_work_cleanup.py": "bb7525ec5d3fac1b74ab23dd4df9060143d9b970298c643b7b510de17867f886",
+    "a90ctl.py": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c",
+    "device_action_cdc_acm_observer_v1.py": "6c8a6d2151928d2e098ca41b3c9dc24cdbbfabe9be10df19969be274744ef9a9",
+    "evidence.py": "3b0aaa36a95628591e14c4c2d70ae4941230fe650b6e4d517173cee5d3019742",
+    "run_d1_chroot_mvp.py": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933",
+    "serial_tcp_bridge.py": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98",
+    "tcpctl_host.py": "032f3146ddc08af82f00881ae3d825066e843a41b194ee8d4c8cf09d1f3adb78"
+  },
+  "closed_findings": [
+    {
+      "finding": "monolithic cmdv1x scripts exceed the resident console envelope",
+      "closure": "all live and read-only frames are bounded at 3800 wire bytes; N=32 effect is 3559 bytes with fixed argc 8 and per-image checks are split"
+    },
+    {
+      "finding": "restore PASS accepted exact V2321 baseline health",
+      "closure": "restore PASS now requires final RESIDENT_HEALTHY; BASELINE_HEALTHY remains parked"
+    },
+    {
+      "finding": "long split preflight could outlive its exact target and bridge binding",
+      "closure": "inventory age, target, bridge generation, source closure, rollback/recovery binding, and V3406 health are rechecked immediately before durable intent"
+    }
+  ],
+  "framing_incident": {
+    "classification": "HOST_TRANSPORT_FRAMING_INCIDENT_NO_EFFECT",
+    "trigger": "a nine-image monolithic D0 script exceeded cmdv1x input framing",
+    "observed": "decode error and unknown-command tail followed by prompt return",
+    "device_effect": false,
+    "unlink": false,
+    "payload": false,
+    "flash": false,
+    "retirement_evidence": "per-image D0 frames no larger than 1024 script bytes and repeated exact successful D0 inventory"
+  },
+  "validation": {
+    "focused_tests": "50/50 PASS",
+    "combined_a90_regressions": "219/219 PASS",
+    "source_contract_issues": [],
+    "py_compile": "PASS",
+    "git_diff_check": "PASS",
+    "adversarial_max_selected_wire_bytes": 3559,
+    "maximum_split_frame_wire_bytes": 1545,
+    "wire_bound_bytes": 3800,
+    "effect_argc": 8,
+    "unlink_dispatches": 1,
+    "resume_device_effect": false
+  },
+  "reuse": {
+    "scope": "capability qualification across ordinals, manifests, qualifications, and campaigns",
+    "repeat_review_per_run": false,
+    "review_trigger": "execution-critical hash or semantic change, new target-side writer/use race, or new hazard/incident",
+    "live_authority": false
+  },
+  "review_action": {
+    "device_contact": false,
+    "files_modified_by_reviewer": false,
+    "s22plus_touched": false
+  }
+}

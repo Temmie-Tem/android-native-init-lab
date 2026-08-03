@@ -17,6 +17,17 @@ transfer between the two files.
   rollback or replay. The current exact native baseline is resident V3406
   `0.11.161/phase2-display-v1-native-handoff`, `selftest fail=0`, empty
   pstore, direct NCM, and `RESIDENT_HEALTHY`. S22+ received no command.
+- `A90_ATTENDED_SD_ROOTFS_GC_V2` now has reusable independent `PASS_GO` over
+  its exact execution-critical closure. It replaces per-file phrases and
+  per-manifest review with bounded split reads plus one compact nonrecursive
+  unlink dispatch for 1..32 exact host-recoverable obsolete rootfs identities;
+  uncertain cleanup or restoration is never replayed.
+- Fresh D0 for cleanup ordinal `a90-sd-cleanup-20260804-03` re-proved exact
+  V3406 health, seven unchanged selectable 2 GiB rootfs identities, both
+  protected identities, work absent, and 1765444 KiB available. Immutable
+  manifest SHA256 `87f11d7ada108c45f357e2c91ed04876afcdd26f03d63b72609e3a16f0aa572c`
+  is host-ready. No unlink or SD write has occurred; live cleanup awaits a
+  current attended-presence assertion and should recover about 14 GiB.
 - Standing exact-target D0 exists only through the active common trial. A90
   campaign `a90-resident-switchroot-display-ssh-20260802` is open, but no D1
   session is active and no target is F1-armed. Attendance has ended for every

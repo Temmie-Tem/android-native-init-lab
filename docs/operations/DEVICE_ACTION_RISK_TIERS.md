@@ -52,6 +52,17 @@ Examples: an attended reboot, request/exit Download mode, or exact Odin
   and verify the expected healthy return state.
 - No partition payload, persistent configuration change, or security-state
   change is permitted.
+- A binding target contract may define a separately reviewed exact
+  storage-artifact cleanup as a narrow D1 sub-capability when the only
+  persistent effect is unlinking named target-owned files, every selected byte
+  identity has an exact host-preserved recovery copy, current and protected
+  artifacts are excluded, the dispatch is one-shot with no replay, and final
+  target health is re-established. After unlink dispatch, the target contract
+  may authorize only exact restoration of an absent selected byte identity as
+  a separate durable recovery transaction; it must be attended, no-clobber,
+  nonautomatic, and never replay an uncertain transfer or publish. This does
+  not authorize arbitrary file, directory, package, credential, configuration,
+  security-state, or partition mutation.
 - Default evidence is one result plus the canonical timeline. Do not create a
   new policy exception, one-shot authority graph, or multi-review ladder merely
   for ordinary D1 recovery.
