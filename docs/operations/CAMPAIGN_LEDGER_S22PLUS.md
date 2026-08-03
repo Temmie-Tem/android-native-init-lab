@@ -30,3 +30,5 @@ late endpoint may be `HEALTH_PENDING`, `HOST_OBSERVER_FAILURE`, or
 ## Log
 
 <!-- append below; never edit or remove an earlier line -->
+2026-08-03T09:07:47Z | s22plus-fyg8-p296 | baseline-rotation-1 | D1 | NORMAL_REBOOT_BASELINE_ROTATION | HEALTHY | N/A | 0/0 | One normal reboot; the original observer timed out with ADB offline, one host transport repair restored observation, boot-id changed, and exact rooted FYG8 health passed with no replay.
+2026-08-03T09:08:44Z | s22plus-fyg8-p296 | connected-d0-1 | D0 | CONNECTED_READ_ONLY_BASELINE | HEALTHY | N/A | 0/0 | Exact S22+ clean baseline passed: 2097136-byte last_kmsg read to EOF, zero marker-family matches, exact rooted FYG8 health, and zero A90 commands.
