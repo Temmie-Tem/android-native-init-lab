@@ -1,1 +1,105 @@
-{"schema":"a90_unattended_resident_d1_independent_review_v1","status":"PASS_GO","reviewed_source_closure":{"attended_bridge_selector":{"path":"/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90_bridge.py","sha256":"922c55a0afdef9d237a679203f576226583f4463eec15fb0091871c241f8be01","size":40294},"attended_cdc_acm_guard":{"path":"/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/device_action_cdc_acm_observer_v1.py","sha256":"6c8a6d2151928d2e098ca41b3c9dc24cdbbfabe9be10df19969be274744ef9a9","size":51402},"attended_cmdv1_shell_adapter":{"path":"/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.py","sha256":"9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933","size":13928},"attended_display_observer":{"path":"/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_phase2d_display_observer.py","sha256":"6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744","size":648},"attended_f1_orchestrator":{"path":"/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py","sha256":"4b34c232ee6fc512865e0c22151f52efd8724994cdb5e3b3308c7ab985976caa","size":261136},"attended_framed_transport":{"path":"/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90ctl.py","sha256":"4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c","size":16380},"attended_observation_pipeline":{"path":"/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90_observation_pipeline.py","sha256":"6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb","size":24478},"attended_serial_lock":{"path":"/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90_serial_lock.py","sha256":"663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7","size":2860},"attended_serial_tcp_bridge":{"path":"/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/serial_tcp_bridge.py","sha256":"deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98","size":17944},"attended_staging_contract":{"path":"/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py","sha256":"d822b09110ca8aa2c73bf95e983b05d5a1511d54f44c297f2ff8fbd0ebc61221","size":83092},"attended_transaction":{"path":"/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py","sha256":"b6751e1042d0c49e7c230eda8e7e0165b32fc34143d77a89b5d5b23174264d0d","size":105631},"attended_workspace_bootstrap":{"path":"/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/_workspace_bootstrap.py","sha256":"7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe","size":1255},"common_contract":{"path":"/home/temmie/dev/android-native-init-lab/AGENTS.md","sha256":"939792d4d9b542d334af2bc3e5f5495b7ca61d717872f3463effcdf23d3453ae","size":13903},"policy_review":{"path":"/home/temmie/dev/android-native-init-lab/docs/reports/A90_UNATTENDED_RESIDENT_D1_POLICY_H0_2026-08-03.md","sha256":"55e66488a46855694c540f262ee1093873e264643e1b6c0ba0ddc23bcbc14ece","size":2588},"runner":{"path":"/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_unattended_resident_d1_v1.py","sha256":"c14a1b48a950c91168a14923c0f1ef0c628b578805379f8462e5bbf129769a20","size":45535},"target_contract":{"path":"/home/temmie/dev/android-native-init-lab/docs/operations/targets/A90_TARGET_CONTRACT.md","sha256":"ce783c3f8b20188c6977fa4d2f4e72cd1a564e31cb20e5dc4dcd62fc609227fc","size":14103},"transition_contract":{"path":"/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py","sha256":"64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e","size":13734},"transition_engine":{"path":"/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_transition_engine_v2.py","sha256":"7a6f2a3248fcf53770cf5dee27985b23e239749cf5c8eae79158c7f903686010","size":35215}},"independent_review_completed":true,"unresolved_findings":[],"permanent_boundaries_unchanged":true,"device_contact":false}
+{
+  "schema": "a90_unattended_resident_d1_independent_review_v1",
+  "status": "PASS_GO",
+  "reviewed_source_closure": {
+    "attended_bridge_selector": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90_bridge.py",
+      "size": 40294,
+      "sha256": "922c55a0afdef9d237a679203f576226583f4463eec15fb0091871c241f8be01"
+    },
+    "attended_cdc_acm_guard": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/device_action_cdc_acm_observer_v1.py",
+      "size": 51402,
+      "sha256": "6c8a6d2151928d2e098ca41b3c9dc24cdbbfabe9be10df19969be274744ef9a9"
+    },
+    "attended_cmdv1_shell_adapter": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.py",
+      "size": 13928,
+      "sha256": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933"
+    },
+    "attended_display_observer": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_phase2d_display_observer.py",
+      "size": 648,
+      "sha256": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744"
+    },
+    "attended_f1_orchestrator": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py",
+      "size": 261944,
+      "sha256": "8eea6fee7b2e17eff6eafe9bbaa95f65a537347101405310686731f42e518f02"
+    },
+    "attended_framed_transport": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90ctl.py",
+      "size": 16380,
+      "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c"
+    },
+    "attended_observation_pipeline": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90_observation_pipeline.py",
+      "size": 24478,
+      "sha256": "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb"
+    },
+    "attended_phase3_observer": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_phase3_d1_observer_v1.py",
+      "size": 13141,
+      "sha256": "fccb10170583ea3c1761cf33de7bcc40d2409c0e097af051b6585195876b1a78"
+    },
+    "attended_serial_lock": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90_serial_lock.py",
+      "size": 2860,
+      "sha256": "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7"
+    },
+    "attended_serial_tcp_bridge": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/serial_tcp_bridge.py",
+      "size": 17944,
+      "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98"
+    },
+    "attended_staging_contract": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py",
+      "size": 97715,
+      "sha256": "8f8c5e311aeb7004e14e9e1f028b3f9da1d88a8b9928d75ba3d809e44d3b93b6"
+    },
+    "attended_transaction": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py",
+      "size": 120228,
+      "sha256": "1026766c7b1bc85ef58cd127d01a9d34a63290e3e5a7564623a1aae86e077127"
+    },
+    "attended_workspace_bootstrap": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/_workspace_bootstrap.py",
+      "size": 1255,
+      "sha256": "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe"
+    },
+    "common_contract": {
+      "path": "/home/temmie/dev/android-native-init-lab/AGENTS.md",
+      "size": 13903,
+      "sha256": "939792d4d9b542d334af2bc3e5f5495b7ca61d717872f3463effcdf23d3453ae"
+    },
+    "policy_review": {
+      "path": "/home/temmie/dev/android-native-init-lab/docs/reports/A90_UNATTENDED_RESIDENT_D1_POLICY_H0_2026-08-03.md",
+      "size": 2588,
+      "sha256": "55e66488a46855694c540f262ee1093873e264643e1b6c0ba0ddc23bcbc14ece"
+    },
+    "runner": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_unattended_resident_d1_v1.py",
+      "size": 47818,
+      "sha256": "138f78c1fe95a56540a033e42ee2aa710d7ce1eed9ed8c237c200fc2745a6822"
+    },
+    "target_contract": {
+      "path": "/home/temmie/dev/android-native-init-lab/docs/operations/targets/A90_TARGET_CONTRACT.md",
+      "size": 14103,
+      "sha256": "ce783c3f8b20188c6977fa4d2f4e72cd1a564e31cb20e5dc4dcd62fc609227fc"
+    },
+    "transition_contract": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py",
+      "size": 13734,
+      "sha256": "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e"
+    },
+    "transition_engine": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_transition_engine_v2.py",
+      "size": 35215,
+      "sha256": "7a6f2a3248fcf53770cf5dee27985b23e239749cf5c8eae79158c7f903686010"
+    }
+  },
+  "independent_review_completed": true,
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_contact": false
+}

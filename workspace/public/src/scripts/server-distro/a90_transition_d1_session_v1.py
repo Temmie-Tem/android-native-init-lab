@@ -32,6 +32,7 @@ for _path in (SCRIPT_DIR, REVAL_DIR):
         sys.path.insert(0, str(_path))
 
 import a90_transition_engine_v2 as engine  # noqa: E402
+import a90_phase3_d1_observer_v1 as phase3_observer  # noqa: E402
 import a90_v3403_absent_only_staging as staging  # noqa: E402
 import a90_v3403_f1_orchestrator as base  # noqa: E402
 from a90_transition_contract_v2 import (  # noqa: E402
@@ -100,6 +101,7 @@ SOURCE_PATHS = {
     "bridge_selector": REVAL_DIR / "a90_bridge.py",
     "serial_lock": REVAL_DIR / "a90_serial_lock.py",
     "serial_tcp_bridge": REVAL_DIR / "serial_tcp_bridge.py",
+    "phase3_observer": SCRIPT_DIR / "a90_phase3_d1_observer_v1.py",
 }
 SESSION_DIR_NAME = "d1-live"
 SESSION_LOCK_NAME = "d1-live.lock"
@@ -127,6 +129,7 @@ class SessionSpec:
     candidate: BoundFile
     rollback: BoundFile
     rootfs: BoundFile
+    rootfs_profile: str
     candidate_version: str
     candidate_build: str
     remote_final: str
@@ -319,10 +322,211 @@ def _read_private_json(path: Path) -> dict[str, Any]:
     return _require_dict(value, str(path))
 
 
+def _validate_resident_native_health(
+    value: Any,
+    *,
+    expected_version: str,
+    expected_build: str,
+    expected_bridge_realpath: str,
+) -> dict[str, str]:
+    native = _require_dict(value, "resident native health")
+    version = _require_dict(native.get("version"), "resident version receipt")
+    selftest = _require_dict(
+        native.get("selftest"),
+        "resident selftest receipt",
+    )
+    receipt_keys = {"command", "rc", "status", "trust", "begin", "end", "text"}
+    if (
+        native.get("exact_bridge") is not True
+        or native.get("selected_realpath") != expected_bridge_realpath
+        or set(version) != receipt_keys
+        or version.get("command") != ["version"]
+        or type(version.get("rc")) is not int
+        or version.get("rc") != 0
+        or version.get("status") != "ok"
+        or type(version.get("text")) is not str
+        or set(selftest) != receipt_keys
+        or selftest.get("command") != ["selftest"]
+        or type(selftest.get("rc")) is not int
+        or selftest.get("rc") != 0
+        or selftest.get("status") != "ok"
+        or type(selftest.get("text")) is not str
+    ):
+        raise ContractError("resident native health receipts are not exact")
+    expected_version_line = (
+        f"version: {expected_version} build={expected_build}"
+    )
+    version_facts = [
+        line
+        for line in version["text"].splitlines()
+        if line.startswith("version: ")
+    ]
+    selftest_facts = [
+        line
+        for line in selftest["text"].splitlines()
+        if line.startswith("selftest: ")
+    ]
+    if (
+        version_facts != [expected_version_line]
+        or len(selftest_facts) != 1
+        or re.fullmatch(
+            r"selftest: pass=[0-9]+ warn=[0-9]+ fail=0 "
+            r"duration=[0-9]+ms entries=[1-9][0-9]*",
+            selftest_facts[0] if selftest_facts else "",
+        )
+        is None
+    ):
+        raise ContractError("resident native health facts are not exact")
+    return {
+        "version_line": expected_version_line,
+        "selftest_line": selftest_facts[0],
+    }
+
+
+def _require_exact_command_receipt(
+    value: Any,
+    *,
+    command: list[str],
+    label: str,
+) -> dict[str, Any]:
+    receipt = _require_dict(value, label)
+    if (
+        set(receipt)
+        != {"command", "rc", "status", "trust", "begin", "end", "text"}
+        or receipt.get("command") != command
+        or type(receipt.get("rc")) is not int
+        or receipt.get("rc") != 0
+        or receipt.get("status") != "ok"
+        or type(receipt.get("text")) is not str
+    ):
+        raise ContractError(f"{label} is not an exact successful receipt")
+    return receipt
+
+
+def _validate_resident_pstore_health(value: Any) -> None:
+    pstore = _require_dict(value, "resident pstore health")
+    if (
+        set(pstore)
+        != {"mounted_read_only", "entries", "mount", "listing", "summary", "unmount"}
+        or pstore.get("mounted_read_only") is not True
+        or pstore.get("entries") != []
+    ):
+        raise ContractError("resident pstore health is not exact")
+    _require_exact_command_receipt(
+        pstore.get("mount"),
+        command=["mountfs", "pstore", base.PSTORE_MOUNT_PATH, "pstore", "ro"],
+        label="resident pstore mount",
+    )
+    listing = _require_exact_command_receipt(
+        pstore.get("listing"),
+        command=["ls", base.PSTORE_MOUNT_PATH],
+        label="resident pstore listing",
+    )
+    if base._pstore_entry_names(listing["text"]):  # noqa: SLF001
+        raise ContractError("resident pstore listing is not empty")
+    _require_exact_command_receipt(
+        pstore.get("summary"),
+        command=["pstore", "full"],
+        label="resident pstore summary",
+    )
+    _require_exact_command_receipt(
+        pstore.get("unmount"),
+        command=["umount", base.PSTORE_MOUNT_PATH],
+        label="resident pstore unmount",
+    )
+
+
+def _validate_resident_ncm_health(
+    value: Any,
+    *,
+    expected_profile: str,
+) -> None:
+    ncm = _require_dict(value, "resident NCM health")
+    common_keys = {
+        "same_current_acm_usb_parent",
+        "exact_interface_count",
+        "profile_bound",
+        "mutated",
+        "profile_check",
+        "active_before",
+        "ready",
+    }
+    if type(ncm.get("mutated")) is not bool:
+        raise ContractError("resident NCM mutation fact is not exact")
+    expected_keys = common_keys | (
+        {"modify", "activate", "active_after"}
+        if ncm["mutated"]
+        else set()
+    )
+    ready = _require_dict(ncm.get("ready"), "resident NCM readiness")
+    host_receipt_keys = {"command", "returncode", "stdout", "stderr"}
+    profile_check = _require_dict(
+        ncm.get("profile_check"),
+        "resident NCM profile check",
+    )
+    active_before = _require_dict(
+        ncm.get("active_before"),
+        "resident NCM active-before check",
+    )
+    if (
+        set(ncm) != expected_keys
+        or ncm.get("same_current_acm_usb_parent") is not True
+        or type(ncm.get("exact_interface_count")) is not int
+        or ncm.get("exact_interface_count") != 1
+        or ncm.get("profile_bound") is not True
+        or ready
+        != {
+            "verified_a90_ncm": True,
+            "direct_route": True,
+            "host_cidr_present": True,
+            "device_ping": True,
+        }
+        or set(profile_check) != host_receipt_keys
+        or type(profile_check.get("returncode")) is not int
+        or profile_check.get("returncode") != 0
+        or str(profile_check.get("stdout") or "").strip()
+        != base.HOST_NCM_CONNECTION_TYPE
+        or set(active_before) != host_receipt_keys
+    ):
+        raise ContractError("resident NCM health is not exact")
+    selected = active_before
+    if ncm["mutated"]:
+        for label in ("modify", "activate"):
+            receipt = _require_dict(
+                ncm.get(label),
+                f"resident NCM {label}",
+            )
+            if (
+                set(receipt) != host_receipt_keys
+                or type(receipt.get("returncode")) is not int
+                or receipt.get("returncode") != 0
+            ):
+                raise ContractError(f"resident NCM {label} failed")
+        selected = _require_dict(
+            ncm.get("active_after"),
+            "resident NCM active-after check",
+        )
+        if set(selected) != host_receipt_keys:
+            raise ContractError("resident NCM active-after check is not exact")
+    if (
+        type(selected.get("returncode")) is not int
+        or selected.get("returncode") != 0
+        or str(selected.get("stdout") or "").splitlines()[:1]
+        != [expected_profile]
+    ):
+        raise ContractError("resident NCM selected profile is not exact")
+
+
 def _validate_resident_journal(
     resident_manifest_sha256: str,
     resident_run_id: str,
     journal_dir: Path,
+    *,
+    expected_version: str,
+    expected_build: str,
+    expected_bridge_realpath: str,
+    expected_ncm_profile: str,
+    expected_source_script: str,
 ) -> tuple[tuple[BoundFile, ...], dict[str, Any]]:
     try:
         paths = tuple(sorted(journal_dir.glob("*.json")))
@@ -335,7 +539,8 @@ def _validate_resident_journal(
         raise ContractError("resident journal action sequence is not exact")
     for index, item in enumerate(records):
         if (
-            item.get("sequence") != index
+            type(item.get("sequence")) is not int
+            or item.get("sequence") != index
             or item.get("run_id") != resident_run_id
             or item.get("manifest_sha256") != resident_manifest_sha256
         ):
@@ -345,36 +550,54 @@ def _validate_resident_journal(
         terminal.get("state") != "RESIDENT_INSTALLED_CLOSED"
         or terminal.get("status") != "PASS_A90_RESIDENT_INSTALLED"
         or terminal.get("device_safety_state") != "RESIDENT_HEALTHY"
+        or type(terminal.get("candidate_transfer_count")) is not int
         or terminal.get("candidate_transfer_count") != 1
         or terminal.get("candidate_replay") is not False
+        or type(terminal.get("candidate_health_check_count")) is not int
         or terminal.get("candidate_health_check_count") != 1
+        or type(terminal.get("resident_reboot_count")) is not int
         or terminal.get("resident_reboot_count") != 0
+        or type(terminal.get("rollback_transfer_count")) is not int
         or terminal.get("rollback_transfer_count") != 0
         or terminal.get("rollback_required") is not False
     ):
         raise ContractError("resident terminal is not exact")
     health_record = records[-2]
     health = _require_dict(health_record.get("health"), "resident health")
+    if (
+        set(health) != {"native", "pstore", "rootfs", "ncm"}
+        or type(health_record.get("candidate_health_check_count")) is not int
+        or health_record.get("candidate_health_check_count") != 1
+    ):
+        raise ContractError("resident health record is not exact")
     native = _require_dict(health.get("native"), "resident native health")
-    version = _require_dict(native.get("version"), "resident version")
-    selftest = _require_dict(native.get("selftest"), "resident selftest")
     rootfs = _require_dict(health.get("rootfs"), "resident rootfs health")
     ncm = _require_dict(health.get("ncm"), "resident NCM health")
     pstore = _require_dict(health.get("pstore"), "resident pstore health")
+    try:
+        native_exact = _validate_resident_native_health(
+            native,
+            expected_version=expected_version,
+            expected_build=expected_build,
+            expected_bridge_realpath=expected_bridge_realpath,
+        )
+        _require_exact_run_shell_receipt(
+            rootfs,
+            script=expected_source_script,
+            marker_pattern=re.compile(
+                r"A90F1_SOURCE_PRECHECK exact=1 work_absent=1"
+            ),
+            label="resident rootfs health",
+        )
+        _validate_resident_pstore_health(pstore)
+        _validate_resident_ncm_health(
+            ncm,
+            expected_profile=expected_ncm_profile,
+        )
+    except ContractError as exc:
+        raise ContractError("resident health proof is not exact") from exc
     if (
-        native.get("exact_bridge") is not True
-        or type(version.get("text")) is not str
-        or type(selftest.get("text")) is not str
-        or "fail=0" not in selftest["text"]
-        or rootfs.get("rc") != 0
-        or "A90F1_SOURCE_PRECHECK exact=1 work_absent=1"
-        not in str(rootfs.get("text") or "")
-        or pstore.get("mounted_read_only") is not True
-        or pstore.get("entries") != []
-        or ncm.get("same_current_acm_usb_parent") is not True
-        or ncm.get("exact_interface_count") != 1
-        or ncm.get("profile_bound") is not True
-        or not all(_require_dict(ncm.get("ready"), "NCM ready").values())
+        health_record.get("native_exact") != native_exact
     ):
         raise ContractError("resident health proof is not exact")
     return tuple(_bound_file(path, private=True) for path in paths), terminal
@@ -391,7 +614,7 @@ def _crosscheck_resident_manifest(
     observer: dict[str, Any],
     observer_key: BoundFile,
     handoff: dict[str, Any],
-) -> None:
+) -> str:
     source = _read_private_json(resident_manifest.path)
     candidate_source = _require_dict(source.get("candidate_boot"), "resident candidate")
     rollback_source = _require_dict(source.get("rollback_boot"), "resident rollback")
@@ -419,6 +642,7 @@ def _crosscheck_resident_manifest(
         or rootfs_source.get("local_path") != str(rootfs.path)
         or rootfs_source.get("size") != rootfs.size
         or rootfs_source.get("sha256") != rootfs.sha256
+        or rootfs_source.get("profile") != phase3_observer.PROFILE
         or rootfs_source.get("device_path") != resident.get("remote_final")
         or work_source.get("device_path") != resident.get("remote_work")
         or debian_source.get("handoff_command") != handoff.get("command")
@@ -449,6 +673,7 @@ def _crosscheck_resident_manifest(
         != handoff.get("candidate_return_timeout_sec")
     ):
         raise ContractError("D1 manifest reinterprets resident evidence")
+    return phase3_observer.PROFILE
 
 
 def build_manifest(
@@ -482,11 +707,6 @@ def build_manifest(
         or RESIDENT_RUN_RE.fullmatch(resident_run_id) is None
     ):
         raise ContractError("resident manifest is not the exact install schema")
-    journal, terminal = _validate_resident_journal(
-        resident_manifest.sha256,
-        resident_run_id,
-        resident_manifest.path.parent / "f1-live" / "journal",
-    )
     candidate_item = _require_dict(value.get("candidate_boot"), "candidate boot")
     rollback_item = _require_dict(value.get("rollback_boot"), "rollback boot")
     candidate = _bound_file(
@@ -512,6 +732,7 @@ def build_manifest(
     if (
         rootfs.size != keyed.get("size")
         or rootfs.sha256 != keyed.get("sha256")
+        or keyed.get("profile") != phase3_observer.PROFILE
         or keyed.get("device_path") is None
         or _require_dict(debian.get("work_copy"), "work copy").get("device_path")
         != WORK_PATH
@@ -539,6 +760,39 @@ def build_manifest(
         or observer.get("wifi_or_external_network") is not False
     ):
         raise ContractError("resident target or observation contract changed")
+    source_stage = argparse.Namespace(
+        remote_final=_require_string(
+            keyed.get("device_path"),
+            "resident rootfs device path",
+        ),
+        remote_work=WORK_PATH,
+        local_size=rootfs.size,
+        local_sha256=rootfs.sha256,
+    )
+    journal, terminal = _validate_resident_journal(
+        resident_manifest.sha256,
+        resident_run_id,
+        resident_manifest.path.parent / "f1-live" / "journal",
+        expected_version=_require_string(
+            candidate_item.get("expected_version"),
+            "candidate version",
+        ),
+        expected_build=_require_string(
+            candidate_item.get("expected_build"),
+            "candidate build",
+        ),
+        expected_bridge_realpath=_require_string(
+            target.get("bridge_selected_realpath"),
+            "resident bridge realpath",
+        ),
+        expected_ncm_profile=_require_string(
+            observer.get("host_ncm_profile"),
+            "resident NCM profile",
+        ),
+        expected_source_script=base.remote_source_preflight_script(
+            argparse.Namespace(stage=source_stage)
+        ),
+    )
     source_closure = {
         role: _bound_file(path, private=False)
         for role, path in SOURCE_PATHS.items()
@@ -657,19 +911,6 @@ def load_spec(path: Path, expected_sha256: str) -> SessionSpec:
         _bound_dict(item, f"resident journal {index}", private=True)
         for index, item in enumerate(journal_values)
     )
-    canonical_resident_journal, terminal = _validate_resident_journal(
-        resident_manifest.sha256,
-        resident_run_id,
-        resident_manifest.path.parent / "f1-live" / "journal",
-    )
-    if resident_journal != canonical_resident_journal:
-        raise ContractError("resident journal path is not canonical")
-    resident_journal = canonical_resident_journal
-    if (
-        resident.get("terminal_journal_sha256") != resident_journal[-1].sha256
-        or resident.get("terminal_status") != terminal.get("status")
-    ):
-        raise ContractError("resident terminal binding changed")
     source_values = _require_dict(value.get("source_closure"), "source closure")
     if set(source_values) != set(SOURCE_PATHS):
         raise ContractError("D1 source closure role set changed")
@@ -688,6 +929,50 @@ def load_spec(path: Path, expected_sha256: str) -> SessionSpec:
     session = _require_dict(value.get("session"), "session")
     safety = _require_dict(value.get("safety"), "safety")
     authority = _require_dict(value.get("authority"), "authority")
+    source_stage = argparse.Namespace(
+        remote_final=_require_string(
+            resident.get("remote_final"),
+            "resident rootfs device path",
+        ),
+        remote_work=_require_string(
+            resident.get("remote_work"),
+            "resident rootfs work path",
+        ),
+        local_size=rootfs.size,
+        local_sha256=rootfs.sha256,
+    )
+    canonical_resident_journal, terminal = _validate_resident_journal(
+        resident_manifest.sha256,
+        resident_run_id,
+        resident_manifest.path.parent / "f1-live" / "journal",
+        expected_version=_require_string(
+            resident.get("candidate_version"),
+            "candidate version",
+        ),
+        expected_build=_require_string(
+            resident.get("candidate_build"),
+            "candidate build",
+        ),
+        expected_bridge_realpath=_require_string(
+            target.get("bridge_realpath"),
+            "resident bridge realpath",
+        ),
+        expected_ncm_profile=_require_string(
+            observer.get("host_ncm_profile"),
+            "resident NCM profile",
+        ),
+        expected_source_script=base.remote_source_preflight_script(
+            argparse.Namespace(stage=source_stage)
+        ),
+    )
+    if resident_journal != canonical_resident_journal:
+        raise ContractError("resident journal path is not canonical")
+    resident_journal = canonical_resident_journal
+    if (
+        resident.get("terminal_journal_sha256") != resident_journal[-1].sha256
+        or resident.get("terminal_status") != terminal.get("status")
+    ):
+        raise ContractError("resident terminal binding changed")
     observer_port = observer.get("port")
     handoff_timeout = handoff.get("handoff_timeout_sec")
     ssh_marker_timeout = handoff.get("ssh_marker_timeout_sec")
@@ -812,7 +1097,7 @@ def load_spec(path: Path, expected_sha256: str) -> SessionSpec:
     )
     binding.validate()
     observer_key = _bound_dict(observer.get("key"), "observer key", private=True)
-    _crosscheck_resident_manifest(
+    rootfs_profile = _crosscheck_resident_manifest(
         resident_manifest,
         resident_run_id,
         resident,
@@ -834,6 +1119,7 @@ def load_spec(path: Path, expected_sha256: str) -> SessionSpec:
         candidate=candidate,
         rollback=rollback,
         rootfs=rootfs,
+        rootfs_profile=rootfs_profile,
         candidate_version=_require_string(resident.get("candidate_version"), "candidate version"),
         candidate_build=_require_string(resident.get("candidate_build"), "candidate build"),
         remote_final=_require_string(resident.get("remote_final"), "remote final"),
@@ -972,6 +1258,8 @@ def _binding_value(binding: AttendedSessionBinding) -> dict[str, Any]:
 
 
 def _f1_spec(spec: SessionSpec) -> base.F1Spec:
+    if spec.rootfs_profile != phase3_observer.PROFILE:
+        raise ContractError("D1 rootfs profile is not exact Phase 3")
     adapter = spec.source_closure["staging_contract"]
     transport = spec.source_closure["framed_transport"]
     stage = staging.StageSpec(
@@ -1049,6 +1337,107 @@ def _effect_args() -> argparse.Namespace:
     )
 
 
+def _require_exact_run_shell_receipt(
+    value: Any,
+    *,
+    script: str,
+    marker_pattern: re.Pattern[str],
+    label: str,
+) -> dict[str, Any]:
+    receipt = _require_dict(value, label)
+    marker_lines = (
+        [
+            line
+            for line in receipt["text"].splitlines()
+            if marker_pattern.fullmatch(line) is not None
+        ]
+        if type(receipt.get("text")) is str
+        else []
+    )
+    if (
+        set(receipt)
+        != {"command", "rc", "status", "trust", "begin", "end", "text"}
+        or receipt.get("command")
+        != ["run", "/bin/busybox", "sh", "-c", script]
+        or type(receipt.get("rc")) is not int
+        or receipt.get("rc") != 0
+        or receipt.get("status") != "ok"
+        or type(receipt.get("text")) is not str
+        or len(marker_lines) != 1
+    ):
+        raise ContractError(f"{label} is not an exact successful receipt")
+    return receipt
+
+
+def require_exact_source_preflight_receipt(
+    f1_spec: base.F1Spec,
+    value: Any,
+) -> dict[str, Any]:
+    return _require_exact_run_shell_receipt(
+        value,
+        script=base.remote_source_preflight_script(f1_spec),
+        marker_pattern=re.compile(
+            r"A90F1_SOURCE_PRECHECK exact=1 work_absent=1"
+        ),
+        label="D1 source preflight",
+    )
+
+
+def require_exact_cleanup_receipt(
+    spec: SessionSpec,
+    value: Any,
+) -> dict[str, Any]:
+    return _require_exact_run_shell_receipt(
+        value,
+        script=_cleanup_script(spec),
+        marker_pattern=re.compile(
+            r"A90D1_WORK_CLEANUP exact=1 work_absent=1 "
+            r"disposition=(?:removed|already-absent)"
+        ),
+        label="D1 work cleanup",
+    )
+
+
+def verify_resident_health_exact(
+    spec: SessionSpec,
+    f1_spec: base.F1Spec,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    """Require one exact framed resident identity, selftest, and pstore set."""
+
+    if (
+        spec.candidate_version != staging.EXPECTED_RESIDENT_VERSION
+        or spec.candidate_build != staging.EXPECTED_RESIDENT_BUILD
+    ):
+        raise ContractError("D1 resident identity is not the exact V3406 baseline")
+    bridge = staging.require_exact_bridge(f1_spec.stage, args)
+    receipts = staging.require_native_health(
+        args,
+        expected_version=spec.candidate_version,
+        expected_build=spec.candidate_build,
+        input_mode=base.F1_SERIAL_INPUT_MODE,
+        input_char_delay_sec=base.F1_SERIAL_INPUT_CHAR_DELAY_SEC,
+    )
+    try:
+        facts = staging.validate_native_health_receipts(
+            receipts,
+            expected_version=spec.candidate_version,
+            expected_build=spec.candidate_build,
+        )
+    except staging.ContractError as exc:
+        raise ContractError("D1 resident health framing is not exact") from exc
+    if bridge.get("selected_realpath") != spec.bridge_realpath:
+        raise ContractError("D1 resident health bridge changed")
+    return {
+        "exact_bridge": True,
+        "selected_realpath": spec.bridge_realpath,
+        "version": receipts["version"],
+        "status": receipts["status"],
+        "selftest": receipts["selftest"],
+        "facts": facts,
+    }
+
+
 def _cleanup_script(spec: SessionSpec) -> str:
     final = staging.shlex.quote(spec.remote_final)
     work = staging.shlex.quote(spec.remote_work)
@@ -1094,8 +1483,11 @@ def resident_d0_preflight(
         raise ContractError("D1 presence qualification is not boolean")
     f1_spec = _f1_spec(spec)
     args = _effect_args()
-    health = base.verify_candidate_health(f1_spec, args)
-    source = base.remote_source_preflight(f1_spec, args)
+    health = verify_resident_health_exact(spec, f1_spec, args)
+    source = require_exact_source_preflight_receipt(
+        f1_spec,
+        base.remote_source_preflight(f1_spec, args),
+    )
     preflight = SessionPreflight(
         not unattended_qualified,
         True,
@@ -1559,7 +1951,7 @@ class LiveSessionEffects:
             if expired is not None:
                 return expired
             try:
-                observation = base.observe_attended_after_handoff(
+                observation = phase3_observer.observe_attended_after_handoff(
                     f1_spec,
                     args,
                     action_dir,
@@ -1614,20 +2006,21 @@ class LiveSessionEffects:
                     "message": str(exc),
                 }
             try:
-                cleanup = base.run_f1_shell(args, _cleanup_script(self.spec))
-                if (
-                    cleanup.get("rc") != 0
-                    or "A90D1_WORK_CLEANUP exact=1 work_absent=1"
-                    not in str(cleanup.get("text") or "")
-                ):
-                    raise ContractError("D1 exact work cleanup failed")
+                cleanup = require_exact_cleanup_receipt(
+                    self.spec,
+                    base.run_f1_shell(args, _cleanup_script(self.spec)),
+                )
             except Exception as exc:  # noqa: BLE001 - resident health remains separable
                 postflight_errors["cleanup"] = {
                     "type": type(exc).__name__,
                     "message": str(exc),
                 }
             try:
-                final_health = base.verify_candidate_health(f1_spec, args)
+                final_health = verify_resident_health_exact(
+                    self.spec,
+                    f1_spec,
+                    args,
+                )
             except Exception as exc:  # noqa: BLE001 - current resident safety is unknown
                 write_private_json_exclusive(
                     action_dir / "postflight-error.json",
@@ -1643,7 +2036,10 @@ class LiveSessionEffects:
                     ),
                 )
             try:
-                final_source = base.remote_source_preflight(f1_spec, args)
+                final_source = require_exact_source_preflight_receipt(
+                    f1_spec,
+                    base.remote_source_preflight(f1_spec, args),
+                )
             except Exception as exc:  # noqa: BLE001 - blocks reuse but not resident safety
                 postflight_errors["source"] = {
                     "type": type(exc).__name__,
@@ -1716,6 +2112,20 @@ class LiveSessionEffects:
                         engine.SessionActionStatus.NO_PROOF_OBSERVER,
                         action_started=True,
                         failure_class="DISPLAY_EVIDENCE_OBSERVER",
+                        postflight=self._healthy_postflight(),
+                        independent_safety_check=True,
+                    ),
+                )
+            if observation.get("phase3_service_proven") is not True:
+                detail["proof_terminal"] = "NO_PROOF_PHASE3_SERVICE_OBSERVER"
+                write_private_json_exclusive(action_dir / "result.json", detail)
+                return self._finish_action(
+                    action_dir,
+                    ordinal,
+                    engine.SessionActionResult(
+                        engine.SessionActionStatus.NO_PROOF_OBSERVER,
+                        action_started=True,
+                        failure_class="PHASE3_SERVICE_EVIDENCE_OBSERVER",
                         postflight=self._healthy_postflight(),
                         independent_safety_check=True,
                     ),
@@ -2115,11 +2525,13 @@ def _restore_session(
                 "partition_write",
                 "flash",
             }
+            or type(intent.get("ordinal")) is not int
             or intent.get("ordinal") != ordinal
             or intent.get("session_action")
             != SessionAction.SWITCHROOT_EXPERIMENT.value
             or intent.get("observer_sha256")
             != spec.source_closure["observation_pipeline"].sha256
+            or type(intent.get("handoff_dispatch_count_max")) is not int
             or intent.get("handoff_dispatch_count_max") != 1
             or type(intent.get("observer_no_proof_acknowledged")) is not bool
             or any(
@@ -2429,6 +2841,7 @@ def _record_visible_confirmation_locked(
     if (
         not isinstance(action_results, list)
         or len(action_results) != ordinal
+        or type(action_results[-1].get("ordinal")) is not int
         or action_results[-1].get("ordinal") != ordinal
         or action_results[-1].get("action")
         != SessionAction.SWITCHROOT_EXPERIMENT.value
@@ -2456,10 +2869,14 @@ def _record_visible_confirmation_locked(
     ssh = observation_value.get("ssh")
     if (
         intent_value.get("schema") != RESULT_SCHEMA
+        or type(intent_value.get("ordinal")) is not int
         or intent_value.get("ordinal") != ordinal
+        or type(intent_value.get("handoff_dispatch_count_max")) is not int
         or intent_value.get("handoff_dispatch_count_max") != 1
         or result_value.get("schema") != RESULT_SCHEMA
+        or type(result_value.get("ordinal")) is not int
         or result_value.get("ordinal") != ordinal
+        or type(result_value.get("handoff_dispatch_count")) is not int
         or result_value.get("handoff_dispatch_count") != 1
         or result_value.get("resident_healthy") is not True
         or result_value.get("observation") != observation_value
@@ -2467,6 +2884,7 @@ def _record_visible_confirmation_locked(
         or observation_value.get("debian_pid1_proven") is not True
         or observation_value.get("dropbear_proven") is not True
         or observation_value.get("display_mechanical_proof") is not True
+        or observation_value.get("phase3_service_proven") is not True
         or not isinstance(ssh, dict)
         or ssh.get("proof") is not True
     ):

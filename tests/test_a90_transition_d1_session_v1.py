@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import fcntl
 import hashlib
 import json
@@ -47,6 +48,33 @@ def bound(path: Path) -> d1.BoundFile:
 
 
 class A90TransitionD1SessionV1Tests(unittest.TestCase):
+    @staticmethod
+    def command_receipt(
+        command: str | list[str],
+        text: str,
+    ) -> dict[str, object]:
+        return {
+            "command": [command] if isinstance(command, str) else command,
+            "rc": 0,
+            "status": "ok",
+            "trust": "test",
+            "begin": {},
+            "end": {},
+            "text": text,
+        }
+
+    @staticmethod
+    def shell_receipt(script: str, text: str) -> dict[str, object]:
+        return {
+            "command": ["run", "/bin/busybox", "sh", "-c", script],
+            "rc": 0,
+            "status": "ok",
+            "trust": "test",
+            "begin": {},
+            "end": {},
+            "text": text,
+        }
+
     def resident_fixture(self, root: Path) -> tuple[Path, Path, str]:
         run_id = "a90-v3406-debian-display-f1-20260802-01"
         resident_dir = root / "resident"
@@ -93,6 +121,7 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                     "device_path": "/mnt/sdext/a90/runtime/rootfs.img",
                     "size": rootfs.stat().st_size,
                     "sha256": digest(rootfs),
+                    "profile": d1.phase3_observer.PROFILE,
                 },
                 "work_copy": {"device_path": d1.WORK_PATH},
                 "observer": {
@@ -124,21 +153,65 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
         write_private(manifest_path, manifest)
         manifest_sha = digest(manifest_path)
         journal_dir = resident_dir / "f1-live" / "journal"
+        source_stage = argparse.Namespace(
+            remote_final="/mnt/sdext/a90/runtime/rootfs.img",
+            remote_work=d1.WORK_PATH,
+            local_size=rootfs.stat().st_size,
+            local_sha256=digest(rootfs),
+        )
         health = {
             "native": {
                 "exact_bridge": True,
-                "version": {"text": "version: 0.11.161 build=phase2-display-v1-native-handoff\r\n"},
-                "selftest": {"text": "selftest: pass=12 warn=1 fail=0 duration=1ms entries=13\r\n"},
+                "selected_realpath": "/dev/ttyACM0",
+                "version": self.command_receipt(
+                    "version",
+                    "version: 0.11.161 build=phase2-display-v1-native-handoff\r\n",
+                ),
+                "selftest": self.command_receipt(
+                    "selftest",
+                    "selftest: pass=12 warn=1 fail=0 duration=1ms entries=13\r\n",
+                ),
             },
-            "pstore": {"mounted_read_only": True, "entries": []},
-            "rootfs": {
-                "rc": 0,
-                "text": "A90F1_SOURCE_PRECHECK exact=1 work_absent=1\r\n",
+            "pstore": {
+                "mounted_read_only": True,
+                "entries": [],
+                "mount": self.command_receipt(
+                    ["mountfs", "pstore", d1.base.PSTORE_MOUNT_PATH, "pstore", "ro"],
+                    "",
+                ),
+                "listing": self.command_receipt(
+                    ["ls", d1.base.PSTORE_MOUNT_PATH],
+                    "",
+                ),
+                "summary": self.command_receipt(["pstore", "full"], ""),
+                "unmount": self.command_receipt(
+                    ["umount", d1.base.PSTORE_MOUNT_PATH],
+                    "",
+                ),
             },
+            "rootfs": self.shell_receipt(
+                d1.base.remote_source_preflight_script(
+                    argparse.Namespace(stage=source_stage)
+                ),
+                "A90F1_SOURCE_PRECHECK exact=1 work_absent=1\r\n",
+            ),
             "ncm": {
                 "same_current_acm_usb_parent": True,
                 "exact_interface_count": 1,
                 "profile_bound": True,
+                "mutated": False,
+                "profile_check": {
+                    "command": ["profile-check"],
+                    "returncode": 0,
+                    "stdout": d1.base.HOST_NCM_CONNECTION_TYPE + "\n",
+                    "stderr": "",
+                },
+                "active_before": {
+                    "command": ["active-before"],
+                    "returncode": 0,
+                    "stdout": "a90-test-ncm\n",
+                    "stderr": "",
+                },
                 "ready": {
                     "verified_a90_ncm": True,
                     "direct_route": True,
@@ -156,7 +229,18 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 "action": action,
             }
             if action == "candidate-health-verified":
+                record["candidate_health_check_count"] = 1
                 record["health"] = health
+                record["native_exact"] = {
+                    "version_line": (
+                        "version: 0.11.161 "
+                        "build=phase2-display-v1-native-handoff"
+                    ),
+                    "selftest_line": (
+                        "selftest: pass=12 warn=1 fail=0 "
+                        "duration=1ms entries=13"
+                    ),
+                }
             if action == "closed":
                 record.update(
                     {
@@ -207,6 +291,7 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
             candidate=bound(candidate),
             rollback=bound(rollback),
             rootfs=bound(rootfs),
+            rootfs_profile=d1.phase3_observer.PROFILE,
             candidate_version="0.11.161",
             candidate_build="phase2-display-v1-native-handoff",
             remote_final="/mnt/sdext/a90/runtime/rootfs.img",
@@ -270,6 +355,92 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 "guard_topology_sha256": "6" * 64,
             },
         }
+
+    def exact_health_receipts(
+        self,
+        spec: d1.SessionSpec,
+    ) -> dict[str, dict[str, object]]:
+        def receipt(command: str, text: str) -> dict[str, object]:
+            return {
+                "command": [command],
+                "rc": 0,
+                "status": "ok",
+                "trust": "test",
+                "begin": {},
+                "end": {},
+                "text": text,
+            }
+
+        return {
+            "version": receipt(
+                "version",
+                f"version: {spec.candidate_version} build={spec.candidate_build}\r\n",
+            ),
+            "status": receipt("status", "pstore=mounted-ro entries=0\r\n"),
+            "selftest": receipt(
+                "selftest",
+                "selftest: pass=12 warn=1 fail=0 duration=1ms entries=13\r\n",
+            ),
+        }
+
+    def test_exact_resident_health_rejects_substrings_and_conflicts(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            spec = self.session_spec(Path(raw))
+            receipts = self.exact_health_receipts(spec)
+            with mock.patch.object(
+                d1.staging,
+                "require_exact_bridge",
+                return_value={"selected_realpath": spec.bridge_realpath},
+            ), mock.patch.object(
+                d1.staging,
+                "require_native_health",
+                return_value=receipts,
+            ):
+                health = d1.verify_resident_health_exact(
+                    spec,
+                    d1._f1_spec(spec),
+                    object(),
+                )
+            self.assertEqual(health["facts"]["pstore_entries"], 0)
+
+            mutations = []
+            duplicate_version = copy.deepcopy(receipts)
+            duplicate_version["version"]["text"] += (
+                f"version: {spec.candidate_version} build={spec.candidate_build}\r\n"
+            )
+            mutations.append(duplicate_version)
+            weak_selftest = copy.deepcopy(receipts)
+            weak_selftest["selftest"]["text"] = (
+                "selftest: pass=12 warn=1 fail=01 duration=1ms entries=13\r\n"
+            )
+            mutations.append(weak_selftest)
+            conflicting_pstore = copy.deepcopy(receipts)
+            conflicting_pstore["status"]["text"] = (
+                "pstore=mounted-ro entries=0 entries=9\r\n"
+            )
+            mutations.append(conflicting_pstore)
+            boolean_rc = copy.deepcopy(receipts)
+            boolean_rc["version"]["rc"] = False
+            mutations.append(boolean_rc)
+
+            for mutation in mutations:
+                with self.subTest(mutation=mutation), mock.patch.object(
+                    d1.staging,
+                    "require_exact_bridge",
+                    return_value={"selected_realpath": spec.bridge_realpath},
+                ), mock.patch.object(
+                    d1.staging,
+                    "require_native_health",
+                    return_value=mutation,
+                ), self.assertRaises((d1.ContractError, d1.staging.ContractError)):
+                    d1.verify_resident_health_exact(
+                        spec,
+                        d1._f1_spec(spec),
+                        object(),
+                    )
+
+        source = Path(d1.__file__).read_text(encoding="utf-8")
+        self.assertNotIn("base.verify_candidate_health(f1_spec, args)", source)
 
     def anchored_invoke(self, result: engine.SessionActionResult):
         def invoke(
@@ -392,6 +563,88 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 with self.assertRaisesRegex(d1.ContractError, "path is not canonical"):
                     d1.load_spec(output, digest(output))
 
+    def test_build_rejects_forged_resident_health_receipts(self) -> None:
+        mutations = (
+            lambda health: health["rootfs"].update(
+                text="prefix A90F1_SOURCE_PRECHECK exact=1 work_absent=1\r\n"
+            ),
+            lambda health: health["native"]["version"].update(rc=True),
+            lambda health: health["native"]["selftest"].update(
+                text="selftest: pass=12 warn=1 fail=01 duration=1ms entries=13\r\n"
+            ),
+            lambda health: health["ncm"].update(exact_interface_count=True),
+            lambda health: health["ncm"]["ready"].update(device_ping="yes"),
+        )
+        for index, mutate in enumerate(mutations):
+            with self.subTest(index=index), tempfile.TemporaryDirectory() as raw:
+                root = Path(raw)
+                private = root / "private"
+                run_base = private / "runs/server-distro"
+                manifest_path, journal_dir, resident_sha = self.resident_fixture(
+                    private
+                )
+                health_path = sorted(journal_dir.glob("*.json"))[-2]
+                health_record = json.loads(health_path.read_text(encoding="utf-8"))
+                mutate(health_record["health"])
+                write_private(health_path, health_record)
+                with mock.patch.object(
+                    d1,
+                    "PRIVATE_ROOT",
+                    private.resolve(),
+                ), mock.patch.object(
+                    d1,
+                    "PRIVATE_RUN_BASE",
+                    run_base.resolve(),
+                ), self.assertRaisesRegex(
+                    d1.ContractError,
+                    "resident health proof is not exact",
+                ):
+                    d1.build_manifest(
+                        resident_manifest_path=manifest_path,
+                        resident_manifest_sha256=resident_sha,
+                        run_id="a90-d1-attended-20260802-01",
+                        session_duration_sec=3_600,
+                        max_actions=4,
+                    )
+
+    def test_build_rejects_boolean_resident_journal_counts(self) -> None:
+        mutations = (
+            (0, "sequence", False),
+            (-1, "candidate_transfer_count", True),
+            (-1, "candidate_health_check_count", True),
+            (-1, "resident_reboot_count", False),
+            (-1, "rollback_transfer_count", False),
+        )
+        for record_index, key, value in mutations:
+            with self.subTest(key=key), tempfile.TemporaryDirectory() as raw:
+                root = Path(raw)
+                private = root / "private"
+                run_base = private / "runs/server-distro"
+                manifest_path, journal_dir, resident_sha = self.resident_fixture(
+                    private
+                )
+                paths = sorted(journal_dir.glob("*.json"))
+                record_path = paths[record_index]
+                record = json.loads(record_path.read_text(encoding="utf-8"))
+                record[key] = value
+                write_private(record_path, record)
+                with mock.patch.object(
+                    d1,
+                    "PRIVATE_ROOT",
+                    private.resolve(),
+                ), mock.patch.object(
+                    d1,
+                    "PRIVATE_RUN_BASE",
+                    run_base.resolve(),
+                ), self.assertRaises(d1.ContractError):
+                    d1.build_manifest(
+                        resident_manifest_path=manifest_path,
+                        resident_manifest_sha256=resident_sha,
+                        run_id="a90-d1-attended-20260802-01",
+                        session_duration_sec=3_600,
+                        max_actions=4,
+                    )
+
     def test_cleanup_is_fixed_path_exact_and_contains_no_flash(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             spec = self.session_spec(Path(raw))
@@ -406,6 +659,36 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
         self.assertNotIn("native_init_flash", source)
         self.assertNotIn("flash_command(", source)
 
+    def test_shell_receipts_require_exact_command_and_single_marker(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            spec = self.session_spec(Path(raw))
+            f1_spec = d1._f1_spec(spec)
+            cleanup_script = d1._cleanup_script(spec)
+            source_script = d1.base.remote_source_preflight_script(f1_spec)
+            cleanup = self.shell_receipt(
+                cleanup_script,
+                "A90D1_WORK_CLEANUP exact=1 work_absent=1 disposition=removed\r\n",
+            )
+            source = self.shell_receipt(
+                source_script,
+                "A90F1_SOURCE_PRECHECK exact=1 work_absent=1\r\n",
+            )
+            self.assertIs(d1.require_exact_cleanup_receipt(spec, cleanup), cleanup)
+            self.assertIs(
+                d1.require_exact_source_preflight_receipt(f1_spec, source),
+                source,
+            )
+
+            mutations = (
+                {**cleanup, "rc": True},
+                {**cleanup, "command": ["run", "/bin/busybox", "sh", "-c", "true"]},
+                {**cleanup, "text": cleanup["text"] + cleanup["text"]},
+                {**cleanup, "text": "prefix A90D1_WORK_CLEANUP exact=1 work_absent=1 disposition=removed\n"},
+            )
+            for value in mutations:
+                with self.subTest(value=value), self.assertRaises(d1.ContractError):
+                    d1.require_exact_cleanup_receipt(spec, value)
+
     def test_live_effect_retained_pmsg_warning_keeps_mechanical_proof(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
@@ -418,6 +701,16 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 calls.append(name)
                 return {"rc": 0, "text": "ok"}
 
+            f1_spec = d1._f1_spec(spec)
+            source_receipt = self.shell_receipt(
+                d1.base.remote_source_preflight_script(f1_spec),
+                "A90F1_SOURCE_PRECHECK exact=1 work_absent=1\r\n",
+            )
+            cleanup_receipt = self.shell_receipt(
+                d1._cleanup_script(spec),
+                "A90D1_WORK_CLEANUP exact=1 work_absent=1 disposition=removed\r\n",
+            )
+
             observation = {
                 "candidate_return": self.exact_candidate_return(spec),
                 "candidate_return_modemmanager_guard_release": {
@@ -428,19 +721,20 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                     "message": "retained pmsg entry absent",
                 },
                 "display_mechanical_proof": True,
+                "phase3_service_proven": True,
                 "bounded_display_failure": False,
             }
             patches = (
                 mock.patch.object(d1, "_f1_spec", return_value=d1._f1_spec(spec)),
-                mock.patch.object(d1.base, "verify_candidate_health", side_effect=lambda *_a, **_k: receipt("health")),
+                mock.patch.object(d1, "verify_resident_health_exact", side_effect=lambda *_a, **_k: receipt("health")),
                 mock.patch.object(d1.base, "rebind_host_ncm_after_reenumeration", side_effect=lambda *_a, **_k: receipt("ncm")),
                 mock.patch.object(d1.base, "require_clean_pstore_before_handoff", side_effect=lambda *_a, **_k: receipt("pstore")),
-                mock.patch.object(d1.base, "remote_source_preflight", side_effect=lambda *_a, **_k: receipt("source")),
+                mock.patch.object(d1.base, "remote_source_preflight", side_effect=lambda *_a, **_k: calls.append("source") or source_receipt),
                 mock.patch.object(d1.base, "settle_observation_channel", side_effect=lambda *_a, **_k: receipt("settle")),
                 mock.patch.object(d1.base, "capture_bridge_serial_epoch", side_effect=lambda *_a, **_k: receipt("epoch")),
                 mock.patch.object(d1.base, "arm_candidate_return_modemmanager_guard", side_effect=lambda *_a, **_k: calls.append("arm") or object()),
-                mock.patch.object(d1.base, "observe_attended_after_handoff", side_effect=lambda *_a, **_k: calls.append("observe") or observation),
-                mock.patch.object(d1.base, "run_f1_shell", side_effect=lambda *_a, **_k: calls.append("cleanup") or {"rc": 0, "text": "A90D1_WORK_CLEANUP exact=1 work_absent=1"}),
+                mock.patch.object(d1.phase3_observer, "observe_attended_after_handoff", side_effect=lambda *_a, **_k: calls.append("observe") or observation),
+                mock.patch.object(d1.base, "run_f1_shell", side_effect=lambda *_a, **_k: calls.append("cleanup") or cleanup_receipt),
             )
             with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], patches[7], patches[8], patches[9]:
                 effects = self.live_effects(spec, transaction)
@@ -512,6 +806,7 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 "debian_pid1_proven": True,
                 "dropbear_proven": True,
                 "display_mechanical_proof": True,
+                "phase3_service_proven": True,
                 "ssh": {"proof": True},
             }
             intent = {
@@ -1204,10 +1499,20 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 calls.append("health")
                 return {"exact": True}
 
+            f1_spec = d1._f1_spec(spec)
+            source_receipt = self.shell_receipt(
+                d1.base.remote_source_preflight_script(f1_spec),
+                "A90F1_SOURCE_PRECHECK exact=1 work_absent=1\r\n",
+            )
+            cleanup_receipt = self.shell_receipt(
+                d1._cleanup_script(spec),
+                "A90D1_WORK_CLEANUP exact=1 work_absent=1 disposition=already-absent\r\n",
+            )
+
             with mock.patch.object(
                 d1, "_f1_spec", return_value=d1._f1_spec(spec)
             ), mock.patch.object(
-                d1.base, "verify_candidate_health", side_effect=health
+                d1, "verify_resident_health_exact", side_effect=health
             ), mock.patch.object(
                 d1.base,
                 "rebind_host_ncm_after_reenumeration",
@@ -1215,7 +1520,7 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
             ), mock.patch.object(
                 d1.base, "require_clean_pstore_before_handoff", return_value={"exact": True}
             ), mock.patch.object(
-                d1.base, "remote_source_preflight", return_value={"exact": True}
+                d1.base, "remote_source_preflight", return_value=source_receipt
             ), mock.patch.object(
                 d1.base, "settle_observation_channel", return_value={"exact": True}
             ), mock.patch.object(
@@ -1223,15 +1528,12 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
             ), mock.patch.object(
                 d1.base, "arm_candidate_return_modemmanager_guard", return_value=object()
             ), mock.patch.object(
-                d1.base, "observe_attended_after_handoff", return_value=None
+                d1.phase3_observer, "observe_attended_after_handoff", return_value=None
             ), mock.patch.object(
                 d1.base,
                 "run_f1_shell",
                 side_effect=lambda *_a, **_k: calls.append("cleanup")
-                or {
-                    "rc": 0,
-                    "text": "A90D1_WORK_CLEANUP exact=1 work_absent=1",
-                },
+                or cleanup_receipt,
             ), mock.patch.object(
                 d1.base,
                 "release_candidate_return_modemmanager_guard",
@@ -1317,15 +1619,15 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
             transaction.mkdir()
             calls: list[str] = []
             with mock.patch.object(d1, "_f1_spec", return_value=object()), mock.patch.object(
-                d1.base,
-                "verify_candidate_health",
+                d1,
+                "verify_resident_health_exact",
                 side_effect=lambda *_a, **_k: calls.append("health") or {"ok": True},
             ), mock.patch.object(
                 d1.base,
                 "rebind_host_ncm_after_reenumeration",
                 side_effect=RuntimeError("host NCM unavailable"),
             ), mock.patch.object(
-                d1.base,
+                d1.phase3_observer,
                 "observe_attended_after_handoff",
             ) as observe:
                 effects = self.live_effects(spec, transaction)
@@ -1358,17 +1660,23 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                     "pstore_empty_after": True,
                 },
                 "display_mechanical_proof": True,
+                "phase3_service_proven": True,
                 "bounded_display_failure": False,
             }
             ok = {"rc": 0, "text": "ok"}
+            f1_spec = d1._f1_spec(spec)
+            source_receipt = self.shell_receipt(
+                d1.base.remote_source_preflight_script(f1_spec),
+                "A90F1_SOURCE_PRECHECK exact=1 work_absent=1\r\n",
+            )
             with mock.patch.object(d1, "_f1_spec", return_value=d1._f1_spec(spec)), mock.patch.object(
-                d1.base, "verify_candidate_health", return_value=ok
+                d1, "verify_resident_health_exact", return_value=ok
             ) as health, mock.patch.object(
                 d1.base, "rebind_host_ncm_after_reenumeration", return_value=ok
             ), mock.patch.object(
                 d1.base, "require_clean_pstore_before_handoff", return_value=ok
             ), mock.patch.object(
-                d1.base, "remote_source_preflight", return_value=ok
+                d1.base, "remote_source_preflight", return_value=source_receipt
             ), mock.patch.object(
                 d1.base, "settle_observation_channel", return_value=ok
             ), mock.patch.object(
@@ -1376,7 +1684,7 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
             ), mock.patch.object(
                 d1.base, "arm_candidate_return_modemmanager_guard", return_value=object()
             ), mock.patch.object(
-                d1.base, "observe_attended_after_handoff", return_value=observation
+                d1.phase3_observer, "observe_attended_after_handoff", return_value=observation
             ), mock.patch.object(
                 d1.base, "run_f1_shell", side_effect=RuntimeError("cleanup failed")
             ):
@@ -1424,7 +1732,7 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
             ), mock.patch.object(
                 d1.base, "arm_candidate_return_modemmanager_guard", return_value=guard
             ), mock.patch.object(
-                d1.base, "observe_attended_after_handoff"
+                d1.phase3_observer, "observe_attended_after_handoff"
             ) as handoff, mock.patch.object(
                 d1.base, "release_candidate_return_modemmanager_guard"
             ) as release:
@@ -1481,7 +1789,7 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
             ), mock.patch.object(
                 d1.base, "arm_candidate_return_modemmanager_guard", return_value=guard
             ), mock.patch.object(
-                d1.base, "observe_attended_after_handoff"
+                d1.phase3_observer, "observe_attended_after_handoff"
             ) as handoff, mock.patch.object(
                 d1.base, "release_candidate_return_modemmanager_guard"
             ) as release:

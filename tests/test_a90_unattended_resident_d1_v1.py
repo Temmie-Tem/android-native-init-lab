@@ -52,6 +52,38 @@ def bound(path: Path) -> attended.BoundFile:
     return attended.BoundFile(path.resolve(), path.stat().st_size, digest(path))
 
 
+def phase3_service_proof() -> dict[str, object]:
+    observer = attended.phase3_observer
+    ready = "\n".join(
+        (
+            "schema=a90-debian-network-ssh-v1-ready",
+            "owner=debian-sysvinit",
+            "pid1_exe=/usr/sbin/init",
+            "ncm_ifname=ncm0",
+            "ncm_address=192.168.7.2/24",
+            "ncm_peer=192.168.7.1",
+            "dropbear_pid=321",
+            "dropbear_listen=192.168.7.2:2222",
+            "dropbear_auth=public-key-only",
+            "dropbear_forwarding=disabled",
+        )
+    ) + "\n"
+    text = (
+        f"{observer.READY_BEGIN}\n{ready}{observer.READY_END}\n"
+        f"{observer.FAILURE_BEGIN}\n{observer.FAILURE_END}\n"
+        f"{observer.LIVE_BEGIN}\n"
+        "pid1_exe=/usr/sbin/init\n"
+        "dropbear_pid=321\n"
+        "dropbear_exe=/usr/sbin/dropbear\n"
+        "listener_count=1\n"
+        "listener_endpoint=1\n"
+        "listener_owner=1\n"
+        "failure_absent=1\n"
+        f"{observer.LIVE_END}\n"
+    )
+    return observer._classify_phase3_service_transcript(text, 0)  # noqa: SLF001
+
+
 class A90UnattendedResidentD1V1Tests(unittest.TestCase):
     def base_spec(self, root: Path) -> attended.SessionSpec:
         files = {
@@ -81,6 +113,7 @@ class A90UnattendedResidentD1V1Tests(unittest.TestCase):
             candidate=bound(material["candidate.img"]),
             rollback=bound(material["rollback.img"]),
             rootfs=bound(material["rootfs.img"]),
+            rootfs_profile=attended.phase3_observer.PROFILE,
             candidate_version="0.11.161",
             candidate_build="phase2-display-v1-native-handoff",
             remote_final="/mnt/sdext/a90/runtime/rootfs.img",
@@ -139,8 +172,41 @@ class A90UnattendedResidentD1V1Tests(unittest.TestCase):
             "debian_pid1_proven": True,
             "dropbear_proven": True,
             "display_mechanical_proof": True,
+            "phase3_service_proven": True,
+            "phase3_service": phase3_service_proof(),
             "bounded_display_failure": False,
             "ssh": {"proof": True},
+        }
+
+        def health_receipt(command: str, text: str) -> dict[str, object]:
+            return {
+                "command": [command],
+                "rc": 0,
+                "status": "ok",
+                "trust": "test",
+                "begin": {},
+                "end": {},
+                "text": text,
+            }
+
+        def shell_receipt(script: str, text: str) -> dict[str, object]:
+            return {
+                "command": ["run", "/bin/busybox", "sh", "-c", script],
+                "rc": 0,
+                "status": "ok",
+                "trust": "test",
+                "begin": {},
+                "end": {},
+                "text": text,
+            }
+
+        health_facts = {
+            "pass": 12,
+            "warn": 1,
+            "fail": 0,
+            "duration_ms": 1,
+            "entries": 13,
+            "pstore_entries": 0,
         }
         action_result = {
             "schema": attended.RESULT_SCHEMA,
@@ -148,22 +214,34 @@ class A90UnattendedResidentD1V1Tests(unittest.TestCase):
             "handoff_dispatch_count": 1,
             "resident_healthy": True,
             "observation": observation,
-            "cleanup": {
-                "rc": 0,
-                "text": "A90D1_WORK_CLEANUP exact=1 work_absent=1",
-            },
+            "cleanup": shell_receipt(
+                attended._cleanup_script(base),
+                "A90D1_WORK_CLEANUP exact=1 work_absent=1 "
+                "disposition=removed\r\n",
+            ),
             "final_health": {
                 "exact_bridge": True,
                 "selected_realpath": base.bridge_realpath,
-                "version": {
-                    "text": f"version: {base.candidate_version} build={base.candidate_build}"
-                },
-                "selftest": {"text": "selftest: pass=12 warn=1 fail=0"},
+                "version": health_receipt(
+                    "version",
+                    f"version: {base.candidate_version} build={base.candidate_build}\r\n",
+                ),
+                "status": health_receipt(
+                    "status",
+                    "pstore=mounted-ro entries=0\r\n",
+                ),
+                "selftest": health_receipt(
+                    "selftest",
+                    "selftest: pass=12 warn=1 fail=0 duration=1ms entries=13\r\n",
+                ),
+                "facts": health_facts,
             },
-            "final_source": {
-                "rc": 0,
-                "text": "A90F1_SOURCE_PRECHECK exact=1 work_absent=1",
-            },
+            "final_source": shell_receipt(
+                attended.base.remote_source_preflight_script(
+                    attended._f1_spec(base)
+                ),
+                "A90F1_SOURCE_PRECHECK exact=1 work_absent=1\r\n",
+            ),
             "payload_transfer": False,
             "partition_write": False,
             "flash": False,
@@ -414,7 +492,7 @@ class A90UnattendedResidentD1V1Tests(unittest.TestCase):
                 "arm_candidate_return_modemmanager_guard",
                 return_value=guard,
             ), mock.patch.object(
-                attended.base,
+                attended.phase3_observer,
                 "observe_attended_after_handoff",
             ) as handoff, mock.patch.object(
                 attended.base,
@@ -470,6 +548,8 @@ class A90UnattendedResidentD1V1Tests(unittest.TestCase):
                 "observation": {
                     "proof": True,
                     "display_mechanical_proof": True,
+                    "phase3_service_proven": True,
+                    "phase3_service": phase3_service_proof(),
                     "bounded_display_failure": False,
                 },
                 "final_health": {"exact": True},
@@ -512,6 +592,16 @@ class A90UnattendedResidentD1V1Tests(unittest.TestCase):
                 "REFUTED_DISPLAY_ACQUISITION"
             )
             write_private(malformed / "result.json", contradictory_detail)
+
+            boolean_dispatch = root / "boolean-dispatch"
+            boolean_dispatch.mkdir()
+            write_private(
+                boolean_dispatch / "engine-outcome.json",
+                attended._action_outcome_value(1, proved),
+            )
+            boolean_detail = dict(detail)
+            boolean_detail["handoff_dispatch_count"] = True
+            write_private(boolean_dispatch / "result.json", boolean_detail)
 
             pre_dispatch = root / "pre-dispatch"
             pre_dispatch.mkdir()
@@ -559,6 +649,14 @@ class A90UnattendedResidentD1V1Tests(unittest.TestCase):
                 ):
                     unattended._validate_persisted_action_evidence(
                         malformed,
+                        proved,
+                    )
+                with self.assertRaisesRegex(
+                    unattended.ContractError,
+                    "durable action result is not exact",
+                ):
+                    unattended._validate_persisted_action_evidence(
+                        boolean_dispatch,
                         proved,
                     )
                 _, pre_result, _, pre_count = (
@@ -865,6 +963,8 @@ class A90UnattendedResidentD1V1Tests(unittest.TestCase):
                             "observation": {
                                 "proof": True,
                                 "display_mechanical_proof": True,
+                                "phase3_service_proven": True,
+                                "phase3_service": phase3_service_proof(),
                                 "bounded_display_failure": False,
                             },
                             "final_health": {"exact": True},
@@ -1073,6 +1173,65 @@ class A90UnattendedResidentD1V1Tests(unittest.TestCase):
                 ):
                     unattended._validate_qualification(base, qualification)
             self.assertRegex(first.binding_sha256, r"^[0-9a-f]{64}$")
+
+    def test_qualification_rejects_unparsed_phase3_service_claim(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            private = Path(raw) / "private"
+            base = self.base_spec(private)
+            qualification = self.qualification_fixture(private, base)
+            action_dir = qualification / "action-001"
+            observation_path = action_dir / "observation.json"
+            result_path = action_dir / "result.json"
+            observation = json.loads(
+                observation_path.read_text(encoding="utf-8")
+            )
+            observation["phase3_service"] = {"proof": True}
+            result = json.loads(result_path.read_text(encoding="utf-8"))
+            result["observation"] = observation
+            write_private(observation_path, observation)
+            write_private(result_path, result)
+            with mock.patch.object(
+                unattended,
+                "PRIVATE_ROOT",
+                private.resolve(),
+            ), mock.patch.object(
+                attended,
+                "_classify_return_observation",
+                return_value=(True, {}),
+            ), self.assertRaisesRegex(
+                unattended.ContractError,
+                "switch-root proof",
+            ):
+                unattended._validate_qualification(base, qualification)
+
+    def test_qualification_rejects_boolean_ordinal_and_dispatch_counts(self) -> None:
+        mutations = (
+            ("handoff-intent.json", "ordinal"),
+            ("handoff-intent.json", "handoff_dispatch_count_max"),
+            ("result.json", "ordinal"),
+            ("result.json", "handoff_dispatch_count"),
+            ("engine-outcome.json", "ordinal"),
+            ("operator-display-observation.json", "ordinal"),
+        )
+        for filename, key in mutations:
+            with self.subTest(filename=filename, key=key), tempfile.TemporaryDirectory() as raw:
+                private = Path(raw) / "private"
+                base = self.base_spec(private)
+                qualification = self.qualification_fixture(private, base)
+                path = qualification / "action-001" / filename
+                value = json.loads(path.read_text(encoding="utf-8"))
+                value[key] = True
+                write_private(path, value)
+                with mock.patch.object(
+                    unattended,
+                    "PRIVATE_ROOT",
+                    private.resolve(),
+                ), mock.patch.object(
+                    attended,
+                    "_classify_return_observation",
+                    return_value=(True, {}),
+                ), self.assertRaises(unattended.ContractError):
+                    unattended._validate_qualification(base, qualification)
 
     def test_malformed_nested_qualification_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as raw:

@@ -293,6 +293,7 @@ def _qualification_value(value: Qualification) -> dict[str, Any]:
         "automatic_native_return_proved": True,
         "debian_pid1_proved": True,
         "dropbear_ssh_proved": True,
+        "phase3_network_ssh_service_proved": True,
         "display_mechanical_proved": True,
         "operator_visibility_proved": True,
         "resident_healthy_proved": True,
@@ -356,13 +357,25 @@ def _validate_qualification(
     outcome = _read_private_json(paths["engine_outcome"])
     journal = _read_private_json(paths["journal_result"])
     visible = _read_private_json(paths["operator_visibility"])
+    phase3_service_exact = False
+    try:
+        attended.phase3_observer.validate_persisted_phase3_service(
+            observation.get("phase3_service")
+        )
+        phase3_service_exact = True
+    except attended.phase3_observer.ContractError:
+        phase3_service_exact = False
     if (
         intent.get("schema") != attended.RESULT_SCHEMA
+        or type(intent.get("ordinal")) is not int
         or intent.get("ordinal") != 1
+        or type(intent.get("handoff_dispatch_count_max")) is not int
         or intent.get("handoff_dispatch_count_max") != 1
         or intent.get("journal_fsync_completed_before_dispatch") is not True
         or result.get("schema") != attended.RESULT_SCHEMA
+        or type(result.get("ordinal")) is not int
         or result.get("ordinal") != 1
+        or type(result.get("handoff_dispatch_count")) is not int
         or result.get("handoff_dispatch_count") != 1
         or result.get("resident_healthy") is not True
         or result.get("observation") != observation
@@ -373,6 +386,8 @@ def _validate_qualification(
         or observation.get("native_release_proven") is not True
         or observation.get("debian_pid1_proven") is not True
         or observation.get("dropbear_proven") is not True
+        or observation.get("phase3_service_proven") is not True
+        or not phase3_service_exact
         or observation.get("display_mechanical_proof") is not True
         or observation.get("bounded_display_failure") is not False
         or not isinstance(observation.get("ssh"), dict)
@@ -388,35 +403,41 @@ def _validate_qualification(
     cleanup = result.get("cleanup")
     final_health = result.get("final_health")
     final_source = result.get("final_source")
-    selftest = (
-        final_health.get("selftest")
-        if isinstance(final_health, dict)
-        else None
-    )
-    version = (
-        final_health.get("version")
-        if isinstance(final_health, dict)
-        else None
-    )
+    health_facts: dict[str, int] | None = None
+    exact_cleanup: dict[str, Any] | None = None
+    exact_source: dict[str, Any] | None = None
+    try:
+        exact_cleanup = attended.require_exact_cleanup_receipt(base_spec, cleanup)
+    except attended.ContractError:
+        exact_cleanup = None
+    try:
+        exact_source = attended.require_exact_source_preflight_receipt(
+            attended._f1_spec(base_spec),
+            final_source,
+        )
+    except attended.ContractError:
+        exact_source = None
+    if isinstance(final_health, dict):
+        try:
+            health_facts = attended.staging.validate_native_health_receipts(
+                {
+                    "version": final_health.get("version"),
+                    "status": final_health.get("status"),
+                    "selftest": final_health.get("selftest"),
+                },
+                expected_version=base_spec.candidate_version,
+                expected_build=base_spec.candidate_build,
+            )
+        except attended.staging.ContractError:
+            health_facts = None
     if (
-        not isinstance(cleanup, dict)
-        or cleanup.get("rc") != 0
-        or "A90D1_WORK_CLEANUP exact=1 work_absent=1"
-        not in str(cleanup.get("text") or "")
+        exact_cleanup is None
         or not isinstance(final_health, dict)
         or final_health.get("exact_bridge") is not True
         or final_health.get("selected_realpath") != base_spec.bridge_realpath
-        or not isinstance(selftest, dict)
-        or "fail=0" not in str(selftest.get("text") or "")
-        or not isinstance(version, dict)
-        or base_spec.candidate_version
-        not in str(version.get("text") or "")
-        or base_spec.candidate_build
-        not in str(version.get("text") or "")
-        or not isinstance(final_source, dict)
-        or final_source.get("rc") != 0
-        or "A90F1_SOURCE_PRECHECK exact=1 work_absent=1"
-        not in str(final_source.get("text") or "")
+        or health_facts is None
+        or final_health.get("facts") != health_facts
+        or exact_source is None
     ):
         raise ContractError("qualification final resident health is not exact")
     compact_outcome = {
@@ -429,10 +450,12 @@ def _validate_qualification(
     snapshot = journal.get("snapshot")
     if (
         outcome.get("schema") != attended.OUTCOME_SCHEMA
+        or type(outcome.get("ordinal")) is not int
         or outcome.get("ordinal") != 1
         or outcome.get("action") != SessionAction.SWITCHROOT_EXPERIMENT.value
         or outcome.get("action_started") is not True
         or journal.get("schema") != attended.JOURNAL_SCHEMA
+        or type(journal.get("sequence")) is not int
         or journal.get("sequence") != 2
         or journal.get("action") != "action-001-result"
         or journal.get("manifest_sha256") != evidence["manifest"].sha256
@@ -447,6 +470,7 @@ def _validate_qualification(
         raise ContractError("qualification durable result binding is not exact")
     if (
         visible.get("schema") != "a90_operator_display_observation_v1"
+        or type(visible.get("ordinal")) is not int
         or visible.get("ordinal") != 1
         or visible.get("action") != SessionAction.SWITCHROOT_EXPERIMENT.value
         or visible.get("source") != "attended-operator-chat"
@@ -846,6 +870,10 @@ def _validate_persisted_action_evidence(
             "DISPLAY_EVIDENCE_OBSERVER",
         ): "NO_PROOF_DISPLAY_OBSERVER",
         (
+            engine.SessionActionStatus.NO_PROOF_OBSERVER,
+            "PHASE3_SERVICE_EVIDENCE_OBSERVER",
+        ): "NO_PROOF_PHASE3_SERVICE_OBSERVER",
+        (
             engine.SessionActionStatus.EXPERIMENT_BLOCKED,
             "POSTFLIGHT_EXPERIMENT_BLOCKED",
         ): "SESSION_BLOCKED_RESIDENT_HEALTHY",
@@ -861,7 +889,9 @@ def _validate_persisted_action_evidence(
     if (
         not detailed_status
         or result.get("schema") != attended.RESULT_SCHEMA
+        or type(result.get("ordinal")) is not int
         or result.get("ordinal") != 1
+        or type(result.get("handoff_dispatch_count")) is not int
         or result.get("handoff_dispatch_count") != 1
         or result.get("resident_healthy") is not True
         or any(
@@ -875,9 +905,19 @@ def _validate_persisted_action_evidence(
     ):
         raise ContractError("durable action result is not exact")
     observation = result["observation"]
+    if outcome.status is engine.SessionActionStatus.PROVED:
+        try:
+            attended.phase3_observer.validate_persisted_phase3_service(
+                observation.get("phase3_service")
+            )
+        except attended.phase3_observer.ContractError as exc:
+            raise ContractError(
+                "durable Phase 3 service proof is not exact"
+            ) from exc
     if outcome.status is engine.SessionActionStatus.PROVED and (
         result.get("candidate_return_observed") is not True
         or observation.get("display_mechanical_proof") is not True
+        or observation.get("phase3_service_proven") is not True
         or observation.get("bounded_display_failure") is not False
     ):
         raise ContractError("durable proved result lacks switch-root proof")
@@ -901,6 +941,13 @@ def _validate_persisted_action_evidence(
         or observation.get("bounded_display_failure") is not False
     ):
         raise ContractError("durable display no-proof is not exact")
+    if outcome.failure_class == "PHASE3_SERVICE_EVIDENCE_OBSERVER" and (
+        result.get("candidate_return_observed") is not True
+        or observation.get("display_mechanical_proof") is not True
+        or observation.get("phase3_service_proven") is True
+        or observation.get("bounded_display_failure") is not False
+    ):
+        raise ContractError("durable Phase 3 service no-proof is not exact")
     return outcome_evidence, result_evidence, result, 1
 
 
