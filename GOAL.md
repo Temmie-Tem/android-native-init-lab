@@ -11,34 +11,39 @@ shared process documents. A90 state and authorization remain separate.
 
 ## Current Frontier
 
-P2.96 is the latest closed live unit. Its boot-only candidate and exact Magisk
+P2.98 is the latest closed live unit. Its boot-only candidate and exact Magisk
 rollback each transferred once with no replay, and final FYG8 Android/root
-health passed. The formal Process-v2 verdict is
-`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, while the experiment result is
-information-bearing `REFUTED`: two byte-identical post-rollback reads contain
-one exact, integrity-clean P2.96 terminal failure record.
+health passed. The operator observed one candidate boot with no boot loop. The
+formal Process-v2 verdict is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` because no
+host CDC-ACM endpoint appeared during the bounded observer window, while the
+experiment result is information-bearing `REFUTED`: two byte-identical
+post-rollback reads contain one exact, integrity-clean P2.98 terminal failure
+record.
 
-The adjacent valid slots are generation 106 `USBLNKST=0`, then generation 107
-`digital-control-state-nominal-not attached-UNKNOWN-coreidle-1-susphy-0`.
-This proves the built-in DWC3 snapshot was delivered and executed without the
-P2.94 external-module dependency. It does not prove host enumeration;
-connection speed remained `UNKNOWN`, UDC stayed `not attached`, and no host
-CDC-ACM endpoint appeared during the bounded observer window.
+The adjacent valid slots are generation 106
+`probe-ok-start-rc0-events-0x0-link-0`, then generation 107
+`probe-ok-start-rc0-final-not attached-UNKNOWN-coreidle-1-susphy-0`. The exact
+profile proves both EP0 enable calls were reached, `__dwc3_gadget_start()`
+returned zero, trace readback and cleanup agreed, neither RESET nor
+CONNECT_DONE was observed, and the link remained zero. Connection speed stayed
+`UNKNOWN` and UDC stayed `not attached`.
 
 The P2.92 prefix remains binding. It proves the native PID1 path completed
 restart helper, FEMTO power-on/init, child resume, notify-connect, exact UDC,
 configfs bind, and authoritative direct `DCTL.RUN_STOP` with
-`DEVCTRLHLT=0`. P2.96 now narrows the remaining boundary beyond that prefix to
+`DEVCTRLHLT=0`. P2.96 narrowed the remaining boundary beyond that prefix to
 the interval where the built-in controller snapshot reports link-state zero
 but no physical attach or connection speed materializes.
 
-Post-P2.96 H0 attribution closes the next source branch. The terminal
+Post-P2.96 H0 attribution identified the tested source branch. The terminal
 `UNKNOWN` is the later sysfs UDC speed, not retained raw `DSTS.CONNECTSPD`.
 The exact `dwc3_gadget_pullup(true)` source ignores the signed return from
 `__dwc3_gadget_start()` and overwrites it with the later run-stop result. An
 EP0 initialization failure can therefore coexist with P2.96's nominal
-run-stop snapshot. That return is the earliest unresolved predicate; event and
-PHY observations are downstream until it is proved zero.
+run-stop snapshot. P2.98 now proves that failure did not occur in this run:
+both EP0 enable calls executed and gadget-start returned zero. The ignored
+return defect remains present in source, but it is not the active explanation
+for this candidate result.
 
 The exact P2.96 Full-LTO A/B disassembly closes the inlining hazard for that
 build. `dwc3_gadget_pullup()` contains an actual `bl` to the out-of-line
@@ -75,7 +80,7 @@ linked replay found a delivery blocker before packaging or device contact:
 P2.94 therefore remains an H0 static stop. It must not be packaged, promoted,
 manifested, or used for F1.
 
-## Selected Bounded Unit: P2.98 Full-LTO Host Closure (H0)
+## Selected Bounded Unit: P2.98 Closed Live Attribution
 
 P2.98 is the fresh successor contract
 `s22plus-fyg8-p298-gadget-start-event-attribution-v1`. Its host implementation
@@ -177,9 +182,9 @@ Trial policy adds no per-candidate approval, but the legacy runner still
 requires its fresh immutable token until aligned. The consumed P2.96 token,
 prepared binding, journal, and candidate attempt are never reusable.
 
-## P2.98 F1 Execution Preparation
+## P2.98 F1 Execution Result
 
-P2.98 is now prepared through the last read-only boundary before F1. The new
+P2.98 passed the last read-only boundary before F1. The new
 Process-v2 promotion and ready-manifest adapters passed an exact nine-file
 independent review after two fail-closed findings were repaired. The immutable
 ready manifest is
@@ -193,21 +198,32 @@ baseline exactly once and returned exact rooted FYG8 health with a changed
 boot ID. It issued no Download transition, Odin call, payload, partition
 transfer, or command to A90.
 
-The fresh production `--prepare` now passes with a 2,097,136-byte clean
+The fresh production `--prepare` passed with a 2,097,136-byte clean
 `/proc/last_kmsg` read, zero related-family records, and exact candidate,
 rollback, target, manifest, and execution-closure binding. The prepared run is
 private under `workspace/private/runs/device-action-f1-live-v2/`; its approval
 binding SHA-256 is
 `34df56c1527aafec28b4ef5e933661c89aa3e255a1daa4dd91c68639569d2613`.
-Production `load_prepared()` reopens it successfully. No transaction directory
-or journal exists, and `f1_authorized=false`, `live_authorized=false`, Odin and
-partition-transfer counts remain zero.
+The attended F1 consumed that binding exactly once. Candidate observation timed
+out without an ACM endpoint, then the physical Download handoff encountered a
+transient USBFS re-enumeration identity failure. Durable recovery continued
+without candidate replay. Exact rollback transferred once; a second transient
+host endpoint measurement failure occurred after the durable rollback. A final
+recovery reopen performed only the remaining health and retained-evidence
+reads, never another transfer.
 
-The next action is the attended F1 execution of this one prepared binding.
-Immediately before it, re-establish the S22+ attendance predicate: the operator
-must be able to enter physical Download within the recovery bound. Once the
-candidate effect starts, never replay it; exact rollback and final rooted FYG8
-health remain mandatory.
+The durable transaction is `CLOSED`: candidate/rollback transfer accounting is
+1/1, `recovery_required=false`, and exact rooted FYG8 final health passed. The
+two final 2,097,136-byte retained reads are byte-identical and prove
+`start_rc=0`, two EP-enable entries, event mask zero, link zero, then
+not-attached/UNKNOWN/COREIDLE=1/SUSPHY=0. A production reopen validates the
+complete journal, transfer receipts, timeline, final health, and retained
+semantics. A90 received zero commands.
+
+The next bounded unit is H0 design for the downstream interval after successful
+gadget-start and before the first RESET or CONNECT_DONE handler event. Do not
+claim a specific run/connection, PHY, or VBUS cause until host-only source and
+linked-path analysis selects the next discriminating predicate.
 
 ## Evidence That Remains Binding
 
@@ -243,11 +259,12 @@ Archived text is evidence only and grants no authority.
 
 ## Success and Stop Conditions
 
-The current H0 unit is closed: host machinery enforces the exact PID-1 return
-pair, EP-enable hit attribution, same-run downstream event discriminator, and
-direct call sites from both actual Full-LTO linked images. Symbol-only proof,
-stock-path observation, implicit success on an invalid trace, or a
-resource-gate bypass remains insufficient for any successor.
+The current live unit is closed and healthy. P2.98 refutes gadget-start or EP0
+enable failure as the active boundary in this run and moves the earliest
+unresolved predicate downstream of successful gadget-start but before RESET or
+CONNECT_DONE. Symbol-only proof, stock-path observation, implicit success on an
+invalid trace, or a resource-gate bypass remains insufficient for any
+successor.
 
 Stop on a repeated material pre-session failure, any post-device-session
 unexplained failure, target ambiguity, missing rollback, forbidden archive

@@ -450,19 +450,21 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
                 mutated = source.replace(clause, f"removed-a90-clause-{index}", 1)
                 self.assertIn(clause, a90_target_contract_issues(mutated))
 
-    def test_frontier_records_closed_p296_result_without_reuse(self):
+    def test_frontier_records_closed_p298_result_without_reuse(self):
         normalized_goal = " ".join(self.goal.split())
         normalized_p280_audit = " ".join(
             self.p280_resume_femto_audit.split()
         )
         normalized_attribution = normalized(self.post_p296_attribution)
         self.assertIn("direct PID1", normalized_goal)
-        self.assertIn("P2.96 is the latest closed live unit", normalized_goal)
+        self.assertIn("P2.98 is the latest closed live unit", normalized_goal)
         self.assertIn("generation 107", normalized_goal)
         self.assertIn(
-            "digital-control-state-nominal-not attached-UNKNOWN-coreidle-1-susphy-0",
+            "probe-ok-start-rc0-final-not attached-UNKNOWN-coreidle-1-susphy-0",
             normalized_goal,
         )
+        self.assertIn("both EP0 enable calls executed", normalized_goal)
+        self.assertIn("neither RESET nor CONNECT_DONE was observed", normalized_goal)
         self.assertIn(
             "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
             normalized_goal,
