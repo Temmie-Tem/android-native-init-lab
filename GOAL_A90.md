@@ -20,13 +20,10 @@ transfer between the two files.
   direct NCM health passed. S22+ received no command.
 - Standing exact-target D0 exists only through the active common trial. A90
   campaign `a90-resident-switchroot-display-ssh-20260802` is open, but no D1
-  session is active and no target is F1-armed. Attendance has ended. Contract
-  revision 2 permits the qualified unattended resident D1 lane. The attended
-  v1 CLI still has no such mode and its `--operator-attended` flag must not be
-  asserted while the operator is absent. A separate H0 runner now implements
-  the named one-ordinal mode, but its independent execution review receipt is
-  absent. There is no unattended live authority. The consumed
-  resident-install approval is not reusable.
+  session is active and no target is F1-armed. The qualified unattended lane
+  has a current reusable capability receipt; two one-ordinal runs closed
+  `PROVED` and `RESIDENT_HEALTHY`. The attended v1 CLI remains attended-only.
+  The consumed resident-install approval is not reusable.
 - The original D1 v1 host template expired unconsumed without creating
   `d1-live` or contacting a device.
 - The reviewed A90 D1 fast-loop v2 remains the current transaction executor,
@@ -59,12 +56,9 @@ transfer between the two files.
   evidence, and records handoff dispatch as exact `0`, exact `1`, or unknown
   only in a parked result. Real ordinal-1 evidence passes its automatic-return,
   Debian PID1, Dropbear, mechanical-display, operator-visibility, and
-  final-health qualification. The required independent execution-machinery
-  capability qualification is absent, so no unattended manifest or live
-  authority exists. Once issued for the exact closure, that `PASS_GO` is reused
-  across manifests, qualifications, ordinals, and campaigns rather than
-  repeated per run. Any pre-clarification review request is stale and must be
-  regenerated from the final committed closure.
+  final-health qualification. The current independent `PASS_GO` is reused
+  across manifests, qualifications, ordinals, and campaigns while the named
+  closure and hazard set remain unchanged.
 - The first independent unattended capability review returned
   `BLOCK_LIVE_USE` with one High finding: eleven transitive shared-backend
   sources were outside the reusable receipt closure. The runner now binds the
@@ -92,10 +86,9 @@ transfer between the two files.
 - All earlier attended templates, including `a90-d1-attended-20260803-03`, are
   stale for the new source closure. Private run
   `a90-d1-attended-20260802-04` remains the closed ordinal-1 evidence line.
-  Fresh host-only run `a90-d1-attended-20260803-04` binds the current attended
-  backend in a mode-`0600` v2 manifest with SHA256
-  `fcf4d994520742e8d210325b82a9a851f2c09478d74774fc173447b9257da6e2`.
-  It has no approval receipt, `d1-live`, device effect, or live authority.
+  Host-only base `a90-d1-attended-20260803-05` binds the current attended
+  backend and underlies the two closed unattended ordinals; it grants no
+  authority by itself.
 - The final combined independent safety review over the refreshed hashes
   returned `PASS_GO` with no unresolved Critical, High, Medium, or Low finding.
   M1, L1, and M2 are closed. It remains reusable for that exact historical
@@ -113,6 +106,8 @@ transfer between the two files.
 `docs/reports/A90_UNATTENDED_RESIDENT_D1_POLICY_H0_2026-08-03.md`
 
 `docs/reports/A90_UNATTENDED_RESIDENT_D1_RUNNER_H0_2026-08-03.md`
+
+`docs/operations/A90_NATIVE_INIT_MINIMAL_SURFACE.md`
 
 ## Final Architecture
 
