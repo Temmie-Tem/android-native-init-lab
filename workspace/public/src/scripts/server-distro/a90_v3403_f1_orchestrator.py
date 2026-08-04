@@ -1275,18 +1275,55 @@ def approval_binding(spec: F1Spec) -> dict[str, Any]:
         spec.stage,
         "target.connected_path_preflight",
     )
+    hashes = {
+        "manifest_sha256": spec.stage.manifest_sha256,
+        "orchestrator_sha256": sha256_file(Path(__file__).resolve()),
+        "staging_adapter_sha256": spec.stage.adapter_sha256,
+        "flash_runner_sha256": spec.flash_runner.sha256,
+        "candidate_boot_sha256": spec.candidate.sha256,
+        "rollback_boot_sha256": spec.rollback.sha256,
+        "rootfs_sha256": spec.stage.local_sha256,
+        "connected_d0_sha256": connected_d0.sha256,
+        "connected_path_preflight_sha256": connected_paths.sha256,
+        "recovery_adb_serial_sha256": spec.recovery_serial_sha256,
+    }
+    if staging.RUN_ID_RE.fullmatch(spec.stage.run_id) is None:
+        raise ContractError("approval binding run_id is not exact")
+    for label, value in hashes.items():
+        staging.validate_sha256(value, f"approval binding {label}")
+    if (
+        spec.manifest.get("schema")
+        == staging.PRESERVED_ROOTFS_INSTALL_MANIFEST_SCHEMA
+    ):
+        policy = (
+            spec.attended_window_sec,
+            spec.pre_handoff_attempt_limit,
+            spec.handoff_attempt_limit,
+        )
+        if (
+            spec.observation_mode != UNATTENDED_OBSERVATION_MODE
+            or any(type(value) is not int for value in policy)
+            or policy != (0, 0, 0)
+        ):
+            raise ContractError("preserved-rootfs approval requires zero handoff authority")
+        return {
+            "schema": "a90_resident_existing_rootfs_approval_binding_v1",
+            "run_id": spec.stage.run_id,
+            **hashes,
+            "observation_mode": spec.observation_mode,
+            "attended_window_sec": 0,
+            "pre_handoff_attempt_limit": 0,
+            "handoff_attempt_limit": 0,
+            "candidate_attempt_limit": 1,
+            "mandatory_rollback_preapproved_after_candidate_start": True,
+            "candidate_replay": False,
+            "only_partition_payload": "boot",
+            "rootfs_payload_forbidden": True,
+            "handoff_forbidden": True,
+        }
     return staging.canonical_f1_approval_binding(
         run_id=spec.stage.run_id,
-        manifest_sha256=spec.stage.manifest_sha256,
-        orchestrator_sha256=sha256_file(Path(__file__).resolve()),
-        staging_adapter_sha256=spec.stage.adapter_sha256,
-        flash_runner_sha256=spec.flash_runner.sha256,
-        candidate_boot_sha256=spec.candidate.sha256,
-        rollback_boot_sha256=spec.rollback.sha256,
-        rootfs_sha256=spec.stage.local_sha256,
-        connected_d0_sha256=connected_d0.sha256,
-        connected_path_preflight_sha256=connected_paths.sha256,
-        recovery_adb_serial_sha256=spec.recovery_serial_sha256,
+        **hashes,
         observation_mode=spec.observation_mode,
         attended_window_sec=spec.attended_window_sec,
         pre_handoff_attempt_limit=spec.pre_handoff_attempt_limit,
@@ -4787,6 +4824,12 @@ def require_exact_promotion_tail(
     module = sys.modules.get(getattr(promotion_tail, "__module__", ""))
     validator = getattr(module, "validate_promotion_manifest", None)
     validator_code = getattr(validator, "__code__", None)
+    preserved_mode = (
+        spec.manifest.get("schema")
+        == staging.PRESERVED_ROOTFS_INSTALL_MANIFEST_SCHEMA
+    )
+    protected_preflight = getattr(module, "protected_paths_preflight", None)
+    protected_preflight_code = getattr(protected_preflight, "__code__", None)
     if (
         not isinstance(path_value, str)
         or type(size_value) is not int
@@ -4799,12 +4842,27 @@ def require_exact_promotion_tail(
         or getattr(validator, "__name__", None) != "validate_promotion_manifest"
         or getattr(validator, "__qualname__", None)
         != "validate_promotion_manifest"
+        or (
+            preserved_mode
+            and (
+                protected_preflight_code is None
+                or getattr(protected_preflight, "__name__", None)
+                != "protected_paths_preflight"
+                or getattr(protected_preflight, "__qualname__", None)
+                != "protected_paths_preflight"
+            )
+        )
     ):
         raise ContractError("resident promotion callback identity is not exact")
     try:
         runner_path = Path(path_value).resolve(strict=True)
         code_path = Path(code.co_filename).resolve(strict=True)
         validator_path = Path(validator_code.co_filename).resolve(strict=True)
+        protected_preflight_path = (
+            Path(protected_preflight_code.co_filename).resolve(strict=True)
+            if preserved_mode
+            else runner_path
+        )
         module_path = Path(str(getattr(module, "__file__", ""))).resolve(
             strict=True
         )
@@ -4815,6 +4873,7 @@ def require_exact_promotion_tail(
         runner_path != code_path
         or runner_path != validator_path
         or runner_path != module_path
+        or runner_path != protected_preflight_path
         or not stat.S_ISREG(info.st_mode)
         or runner_path.is_symlink()
         or info.st_size != size_value
@@ -4836,6 +4895,10 @@ def execute_approved_f1(
     *,
     promotion_tail: Any = None,
 ) -> dict[str, Any]:
+    preserved_rootfs = (
+        spec.manifest.get("schema")
+        == staging.PRESERVED_ROOTFS_INSTALL_MANIFEST_SCHEMA
+    )
     promotion_manifest = isinstance(
         spec.manifest.get("resident_promotion"),
         dict,
@@ -4846,6 +4909,18 @@ def execute_approved_f1(
         )
     if promotion_manifest:
         require_exact_promotion_tail(spec, promotion_tail)
+    promotion_module = (
+        sys.modules.get(getattr(promotion_tail, "__module__", ""))
+        if promotion_tail is not None
+        else None
+    )
+    protected_preflight = (
+        getattr(promotion_module, "protected_paths_preflight", None)
+        if preserved_rootfs
+        else None
+    )
+    if preserved_rootfs and not callable(protected_preflight):
+        raise ContractError("preserved-rootfs preflight callback is unavailable")
     approval_prepared = approved_bindings(spec, args, recovery=False)
     verify_local_closure(spec)
     transaction_dir = exact_transaction_dir(spec, args.transaction_dir)
@@ -4887,80 +4962,108 @@ def execute_approved_f1(
         run_id=spec.stage.run_id,
     )
 
-    append_record(
-        journal_dir,
-        "APPROVED",
-        "staging-started",
-        {"candidate_attempted": False},
-        manifest_sha256=spec.stage.manifest_sha256,
-        run_id=spec.stage.run_id,
-    )
-    stage_live_dir = PRIVATE_RUN_BASE / spec.stage.run_id / "staging-live"
-    if stage_live_dir.exists():
-        exc = ContractError("preexisting staging-live state is never reusable")
-        abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
-        raise exc
-    try:
-        stage_record = run_logged(
-            stage_command(spec, args),
-            log_path=transaction_dir / "staging.raw.log",
-            timeout=args.staging_command_timeout,
-        )
-    except Exception as exc:
-        abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
-        raise
-    if stage_record["returncode"] != 0:
-        append_record(
-            journal_dir,
-            "ABORTED",
-            "staging-failed",
-            {
-                "candidate_attempted": False,
-                "rollback_required": False,
-                "record": stage_record,
-            },
-            manifest_sha256=spec.stage.manifest_sha256,
-            run_id=spec.stage.run_id,
-        )
-        exc = RuntimeError("rootfs staging failed before candidate attempt")
-        abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
-        raise exc
-    try:
-        validate_stage_result(spec)
+    if preserved_rootfs:
+        try:
+            staging.require_exact_bridge(spec.stage, args)
+            require_f1_starting_health(spec, args)
+            verify_local_closure(spec)
+            protected_record = protected_preflight(
+                spec,
+                args,
+                phase="pre-candidate",
+            )
+            append_record(
+                journal_dir,
+                "APPROVED",
+                "protected-paths-pre-verified",
+                {
+                    "candidate_attempted": False,
+                    "staging_attempt_count": 0,
+                    "rootfs_copy_count": 0,
+                    "cleanup_dispatch_count": 0,
+                    "record": protected_record,
+                },
+                manifest_sha256=spec.stage.manifest_sha256,
+                run_id=spec.stage.run_id,
+            )
+        except Exception as exc:
+            abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
+            raise
+    else:
         append_record(
             journal_dir,
             "APPROVED",
-            "rootfs-staged",
-            {
-                "candidate_attempted": False,
-                "rootfs_sha256": spec.stage.local_sha256,
-                "record": stage_record,
-            },
+            "staging-started",
+            {"candidate_attempted": False},
             manifest_sha256=spec.stage.manifest_sha256,
             run_id=spec.stage.run_id,
         )
-        staging.require_exact_bridge(spec.stage, args)
-        require_f1_starting_health(spec, args)
-        verify_local_closure(spec)
-        source_preflight = remote_source_preflight(spec, args)
-        append_record(
-            journal_dir,
-            "APPROVED",
-            "rootfs-candidate-preflight",
-            {
-                "candidate_attempted": False,
-                "final_regular": True,
-                "work_absent": True,
-                "rootfs_size": spec.stage.local_size,
-                "rootfs_sha256": spec.stage.local_sha256,
-                "record": source_preflight,
-            },
-            manifest_sha256=spec.stage.manifest_sha256,
-            run_id=spec.stage.run_id,
-        )
-    except Exception as exc:
-        abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
-        raise
+        stage_live_dir = PRIVATE_RUN_BASE / spec.stage.run_id / "staging-live"
+        if stage_live_dir.exists():
+            exc = ContractError("preexisting staging-live state is never reusable")
+            abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
+            raise exc
+        try:
+            stage_record = run_logged(
+                stage_command(spec, args),
+                log_path=transaction_dir / "staging.raw.log",
+                timeout=args.staging_command_timeout,
+            )
+        except Exception as exc:
+            abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
+            raise
+        if stage_record["returncode"] != 0:
+            append_record(
+                journal_dir,
+                "ABORTED",
+                "staging-failed",
+                {
+                    "candidate_attempted": False,
+                    "rollback_required": False,
+                    "record": stage_record,
+                },
+                manifest_sha256=spec.stage.manifest_sha256,
+                run_id=spec.stage.run_id,
+            )
+            exc = RuntimeError("rootfs staging failed before candidate attempt")
+            abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
+            raise exc
+        try:
+            validate_stage_result(spec)
+            append_record(
+                journal_dir,
+                "APPROVED",
+                "rootfs-staged",
+                {
+                    "candidate_attempted": False,
+                    "rootfs_sha256": spec.stage.local_sha256,
+                    "record": stage_record,
+                },
+                manifest_sha256=spec.stage.manifest_sha256,
+                run_id=spec.stage.run_id,
+            )
+            staging.require_exact_bridge(spec.stage, args)
+            require_f1_starting_health(spec, args)
+            verify_local_closure(spec)
+            source_preflight = remote_source_preflight(spec, args)
+            append_record(
+                journal_dir,
+                "APPROVED",
+                "rootfs-candidate-preflight",
+                {
+                    "candidate_attempted": False,
+                    "final_regular": True,
+                    "work_absent": True,
+                    "rootfs_size": spec.stage.local_size,
+                    "rootfs_sha256": spec.stage.local_sha256,
+                    "record": source_preflight,
+                },
+                manifest_sha256=spec.stage.manifest_sha256,
+                run_id=spec.stage.run_id,
+            )
+        except Exception as exc:
+            abort_before_candidate(spec, transaction_dir, journal_dir, events, exc)
+            raise
 
     promotion_guard: cdc_guard.ModemManagerGuard | None = None
     promotion_guard_transferred = False
@@ -5091,6 +5194,25 @@ def execute_approved_f1(
                 from_native=True,
                 return_guard=promotion_guard,
             )
+            if preserved_rootfs:
+                protected_after_rollback = protected_preflight(
+                    spec,
+                    args,
+                    phase="post-rollback",
+                )
+                append_record(
+                    journal_dir,
+                    "HEALTH_VERIFIED",
+                    "protected-paths-post-rollback-verified",
+                    {
+                        "staging_attempt_count": 0,
+                        "rootfs_copy_count": 0,
+                        "cleanup_dispatch_count": 0,
+                        "record": protected_after_rollback,
+                    },
+                    manifest_sha256=spec.stage.manifest_sha256,
+                    run_id=spec.stage.run_id,
+                )
             release_owned_promotion_guard()
             return close_transaction(
                 spec,

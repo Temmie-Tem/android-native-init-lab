@@ -289,25 +289,63 @@ class RetainedWorkCleanupTests(unittest.TestCase):
         preflight = cleanup.preflight_script()
         dispatch = cleanup.cleanup_script()
         presence = cleanup.presence_script()
-        for script in (preflight, dispatch, presence):
+        for script in (preflight, presence):
             self.assertIn("exact-preserved", script)
             self.assertIn("exact-distinct-preserved", script)
             self.assertIn('sha256sum "$src"', script)
             self.assertIn("regular file|2147483648|600|1", script)
             self.assertIn('"$source_expected"', script)
+        self.assertIn("exact-preserved", dispatch)
+        self.assertIn("exact-distinct-preserved", dispatch)
+        self.assertIn('$b sha256sum "$s"', dispatch)
+        self.assertIn("regular file|2147483648|600|1", dispatch)
+        self.assertIn('"$x"', dispatch)
         self.assertIn('"$actual" = "$work_expected"', preflight)
-        self.assertIn('"$actual" = "$work_expected"', dispatch)
-        self.assertEqual(dispatch.count('/bin/busybox rm -- "$p"'), 1)
-        self.assertNotIn('/bin/busybox rm -- "$src"', dispatch)
-        self.assertLess(
-            dispatch.index('sha256sum "$src"'),
-            dispatch.index('/bin/busybox rm -- "$p"'),
-        )
-        self.assertGreater(
-            dispatch.rindex('sha256sum "$src"'),
-            dispatch.index('/bin/busybox rm -- "$p"'),
-        )
+        self.assertIn('"$a" = "$w"', dispatch)
+        self.assertEqual(dispatch.count('$b rm -- "$p"'), 1)
+        self.assertNotIn('$b rm -- "$s"', dispatch)
+        self.assertLess(dispatch.index('sha256sum "$s"'), dispatch.index('$b rm -- "$p"'))
+        self.assertGreater(dispatch.rindex('sha256sum "$s"'), dispatch.index('$b rm -- "$p"'))
         self.assertTrue(cleanup.source_is_preserved(cleanup.SOURCE_EXACT_DISTINCT))
+
+    def test_cleanup_effect_frame_is_bounded_below_console_limit(self) -> None:
+        command = [
+            "run",
+            "/bin/busybox",
+            "sh",
+            "-c",
+            cleanup.cleanup_script(),
+            "sh",
+            cleanup.WORK_PATH,
+            "d" * 64,
+            (
+                "/mnt/sdext/a90/runtime/"
+                "debian-bookworm-arm64-phase2-display-v3406-keyed-"
+                "20260804-02.img"
+            ),
+            (
+                "/mnt/sdext/a90/runtime/.a90-stage-"
+                "a90-v3406-debian-display-f1-20260804-02"
+            ),
+            "0" * 64,
+            cleanup.SOURCE_EXACT_DISTINCT,
+        ]
+        wire_bytes = len(cleanup.a90ctl.encode_cmdv1_line(command).encode()) + 1
+        self.assertLessEqual(wire_bytes, cleanup.MAX_CMDV1X_WIRE_BYTES)
+
+    def test_remote_command_rejects_oversized_frame_without_dispatch(self) -> None:
+        with mock.patch.object(
+            cleanup.a90ctl,
+            "run_cmdv1_command",
+            side_effect=AssertionError("oversized command dispatched"),
+        ):
+            with self.assertRaisesRegex(cleanup.ContractError, "bounded cmdv1x frame"):
+                cleanup.remote_command(
+                    "127.0.0.1",
+                    cleanup.a90ctl.DEFAULT_PORT,
+                    1.0,
+                    ["run", "x" * cleanup.MAX_CMDV1X_WIRE_BYTES],
+                )
 
     def test_source_preserved_review_binds_exact_current_closure(self) -> None:
         review_root = self.base / "docs" / "reports"
@@ -847,7 +885,7 @@ class RetainedWorkCleanupTests(unittest.TestCase):
         self.assertEqual(dispatch.call_count, 1)
         command = dispatch.call_args.args[3]
         self.assertEqual(command[0:4], ["run", "/bin/busybox", "sh", "-c"])
-        self.assertIn("/bin/busybox rm --", command[4])
+        self.assertIn('$b rm -- "$p"', command[4])
         self.assertNotIn("rm -r", command[4])
         self.assertEqual(
             result["outcome"],
@@ -1210,8 +1248,8 @@ class RetainedWorkCleanupTests(unittest.TestCase):
         self.assertEqual(body.count("rm --"), 1)
         for forbidden in ("rm -r", "rm -f", "sync", "reboot", "sysrq"):
             self.assertNotIn(forbidden, body)
-        self.assertGreaterEqual(body.count('[ ! -L "$src" ]'), 1)
-        self.assertGreaterEqual(body.count('[ ! -L "$stage" ]'), 1)
+        self.assertGreaterEqual(body.count('[ ! -L "$s" ]'), 1)
+        self.assertGreaterEqual(body.count('[ ! -L "$t" ]'), 1)
         execute = source[
             source.index("def execute_cleanup(") :
             source.index("def inspect(")

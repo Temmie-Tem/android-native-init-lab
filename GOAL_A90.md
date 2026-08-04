@@ -172,6 +172,32 @@ transfer between the two files.
   `DISPLAY OWNER DEBIAN` observation, so both mechanical and visible display
   proof are exact. Handoff dispatch was one and replay, payload, partition
   write, flash, and rollback were zero.
+- Preserved-existing-rootfs F1 run
+  `a90-v3406-debian-display-f1-20260804-05` closed permanently before
+  candidate intent when the host `pkexec` ModemManager guard authorization did
+  not complete. Candidate and rollback transfer counts are `0/0`; there was no
+  payload, reboot, flash, or replay. Independent read-only review classified
+  this as the already-known host-authorization incident and returned
+  `PASS_GO_NEW_CAMPAIGN_ONLY`: run `-05` is never resumed, while an unchanged
+  fresh campaign may proceed only after an exact successful host `pkexec`
+  preauthorization and zero guard residue. S22+ was untouched.
+- Fresh run `a90-v3406-debian-display-f1-20260804-06` repeated the same
+  fail-closed host-authorization outcome before candidate intent: its initial
+  GUI probe succeeded, but host policy did not retain that authorization for
+  the distinct live guard `pkexec` prompt, which was not approved inside the
+  arm window. Candidate and rollback transfers remained `0/0`, post-abort D0
+  re-proved exact V2321 and protected source/work health, and independent
+  review returned `PASS_GO_NEW_CAMPAIGN_ONLY` for one fresh campaign with the
+  live guard prompt explicitly attended. Run `-06` is never resumed or reused;
+  no payload, reboot, flash, or replay occurred, and S22+ was untouched.
+- Fresh attended run `a90-v3406-debian-display-f1-20260804-07` bound a new D0,
+  manifest, compatibility approval, and explicitly attended live guard prompt.
+  It transferred the exact boot-only `0.11.167` candidate once and closed
+  `PASS_A90_RESIDENT_INSTALLED_WORK_RETAINED` /
+  `RESIDENT_INSTALLED_WORK_RETAINED_CLOSED` with exact resident health,
+  rollback zero, replay false, and guard release proved. The immutable source
+  and distinct work image retained their exact hashes and identities; staging,
+  rootfs copy, cleanup, and handoff counts remained zero. S22+ was untouched.
 
 `docs/reports/A90_D1_FAST_LOOP_V2_H0_2026-08-02.md`
 

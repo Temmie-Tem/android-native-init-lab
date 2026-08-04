@@ -198,13 +198,45 @@ required. Live dispatch requires the awake operator to assert
 assert it while absent or asleep. The adjacent source is protected and never
 selected for unlink.
 One durable intent permits one nonrecursive unlink dispatch for the fixed work
-path, with no retransmit after an uncertain response. Reconciliation is
+path, with no retransmit after an uncertain response. Every cleanup control
+frame is host-encoded and statically bounded to at most 3800 bytes; an
+oversized frame fails before durable intent or dispatch. Reconciliation is
 read-only. PASS requires work absent, the protected source still exact, stage
 absent, and final exact V2321 health. It sends no payload, writes no partition,
 configuration, credential, or security state, and grants no arbitrary path or
 shell authority. It does not extend rootfs GC selection and never applies to
 S22+, userdata, another removable device, another A90, or an unreviewed
 identity.
+
+The separately reviewed attended F1 incident-recovery sub-capability
+`A90_ATTENDED_RESIDENT_INSTALL_EXISTING_SOURCE_WORK_PRESERVED_V1` may install
+one exact boot-only resident candidate from exact V2321 health without
+replaying a failed cleanup. It applies only after an ordinary F1 has closed on
+one candidate, one rollback, no replay, and exact final V2321 health, and after
+the retained-work cleanup journal has closed on one non-retransmitted uncertain
+dispatch with work still reported present, the distinct source reported exact,
+and the run stage reported absent. That cleanup terminal proves the dispatch was
+not repeated; it does not prove decoder-level no-effect. A subsequent fresh
+connected D0 is the sole current-state authority and must prove the exact work
+and source bytes presently exist before the immutable manifest binds the
+predecessor and cleanup journals, candidate and rollback,
+source and work paths, sizes, modes, link counts, SHA256 values, distinct
+device/inode identities, host-preserved bytes, exact target/current realpath,
+physical recovery, execution closure, and fresh capability review.
+
+This lane sends no rootfs payload and never invokes staging, copy, unlink,
+mount, cleanup, or handoff. It verifies source, work, stage, every visible PID
+mount namespace through `/proc/[0-9]*/mountinfo`, loop backing, open file, and
+current-root state through eight separately bounded read-only frames before
+candidate intent and after candidate health. One durable candidate intent
+permits one boot transfer; candidate replay remains forbidden and any
+post-intent ambiguity permits only the exact bound V2321 rollback. Success is
+the distinct terminal `PASS_A90_RESIDENT_INSTALLED_WORK_RETAINED` with exact
+resident health, unchanged protected bytes, zero staging/copy/cleanup counts,
+and `handoff_eligible=false`. It is not a resident D1 baseline and grants no
+switch_root authority. Rollback closure likewise requires exact V2321 health
+and unchanged protected bytes. It never applies to S22+, a non-boot partition,
+another source/work identity, another A90, or an unattended operator.
 
 ## A90 F1 Resident Install
 

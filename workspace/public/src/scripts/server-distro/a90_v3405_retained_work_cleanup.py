@@ -91,6 +91,7 @@ F1_TIMELINE_EVENTS = (
 )
 READ_TIMEOUT_SEC = 15.0
 CLEANUP_TIMEOUT_SEC = 180.0
+MAX_CMDV1X_WIRE_BYTES = 3800
 RUN_ID_RE = re.compile(r"^a90-v3406-work-cleanup-[0-9]{8}-[0-9]{2}$")
 F1_RUN_ID_RE = re.compile(
     r"^a90-v3406-debian-display-f1-(?P<suffix>[0-9]{8}-[0-9]{2})$"
@@ -1161,6 +1162,12 @@ def remote_command(
     timeout: float,
     command: list[str],
 ) -> a90ctl.ProtocolResult:
+    wire_bytes = len(a90ctl.encode_cmdv1_line(command).encode("utf-8")) + 1
+    if wire_bytes > MAX_CMDV1X_WIRE_BYTES:
+        raise ContractError(
+            "cleanup command exceeds bounded cmdv1x frame: "
+            f"{wire_bytes} > {MAX_CMDV1X_WIRE_BYTES}"
+        )
     return a90ctl.run_cmdv1_command(
         host,
         port,
@@ -1249,45 +1256,30 @@ def preflight_script() -> str:
 
 def cleanup_script() -> str:
     return (
-        'p="$1"; work_expected="$2"; src="$3"; stage="$4"; '
-        'source_expected="$5"; disposition="$6"; '
-        '[ ! -L "$p" ] || exit 40; '
-        '[ -f "$p" ] || exit 41; '
-        'meta=$(/bin/busybox stat -c "%F|%s|%a|%h" "$p") || exit 42; '
-        '[ "$meta" = "regular file|2147483648|600|1" ] || exit 43; '
-        'actual=$(/bin/busybox sha256sum "$p") || exit 44; '
-        'actual=${actual%% *}; [ "$actual" = "$work_expected" ] || exit 45; '
-        'case "$disposition" in '
-        'absent) [ ! -e "$src" ] && [ ! -L "$src" ] || exit 46; '
-        'source_state=absent ;; '
-        'exact-preserved|exact-distinct-preserved) '
-        '[ ! -L "$src" ] && [ -f "$src" ] || exit 60; '
-        'srcmeta=$(/bin/busybox stat -c "%F|%s|%a|%h" "$src") || exit 61; '
-        '[ "$srcmeta" = "regular file|2147483648|600|1" ] || exit 62; '
-        'srcactual=$(/bin/busybox sha256sum "$src") || exit 63; '
-        'srcactual=${srcactual%% *}; '
-        '[ "$srcactual" = "$source_expected" ] || exit 64; '
-        '[ "$(/bin/busybox stat -c %d:%i "$src")" != '
-        '"$(/bin/busybox stat -c %d:%i "$p")" ] || exit 65; '
-        'source_state=exact ;; '
-        '*) exit 66 ;; esac; '
-        '[ ! -e "$stage" ] && [ ! -L "$stage" ] || exit 46; '
-        '! /bin/busybox grep -F "$p" /proc/mounts >/dev/null 2>&1 || exit 47; '
-        '! /bin/busybox grep -F "$src" /proc/mounts >/dev/null 2>&1 || exit 67; '
-        'for b in /sys/block/loop*/loop/backing_file; do '
-        '[ -r "$b" ] || continue; '
-        'v=$(/bin/busybox cat "$b") || exit 48; '
-        '[ "$v" != "$p" ] && [ "$v" != "$src" ] || exit 49; '
-        'done; '
-        '/bin/busybox rm -- "$p" || exit 50; '
-        '[ ! -e "$p" ] || exit 51; '
-        'if [ "$disposition" = exact-preserved ] || '
-        '[ "$disposition" = exact-distinct-preserved ]; then '
-        'srcactual=$(/bin/busybox sha256sum "$src") || exit 68; '
-        'srcactual=${srcactual%% *}; '
-        '[ "$srcactual" = "$source_expected" ] || exit 69; '
-        'fi; '
-        'printf "work=unlinked source=%s\\n" "$source_state"'
+        'b=/bin/busybox;p=$1;w=$2;s=$3;t=$4;x=$5;d=$6;z=absent;'
+        '[ ! -L "$p" ]&&[ -f "$p" ]||exit 40;'
+        '[ "$($b stat -c "%F|%s|%a|%h" "$p")" = '
+        '"regular file|2147483648|600|1" ]||exit 43;'
+        'a=$($b sha256sum "$p")||exit 44;a=${a%% *};[ "$a" = "$w" ]||exit 45;'
+        'case $d in absent)[ ! -e "$s" ]&&[ ! -L "$s" ]||exit 46;;'
+        'exact-preserved|exact-distinct-preserved)z=exact;'
+        '[ ! -L "$s" ]&&[ -f "$s" ]||exit 60;'
+        '[ "$($b stat -c "%F|%s|%a|%h" "$s")" = '
+        '"regular file|2147483648|600|1" ]||exit 62;'
+        'a=$($b sha256sum "$s")||exit 63;a=${a%% *};[ "$a" = "$x" ]||exit 64;'
+        '[ "$($b stat -c %d:%i "$s")" != "$($b stat -c %d:%i "$p")" ]||exit 65;;'
+        '*)exit 66;;esac;'
+        '[ ! -e "$t" ]&&[ ! -L "$t" ]||exit 46;'
+        '! $b grep -F "$p" /proc/mounts >/dev/null 2>&1||exit 47;'
+        '[ "$z" = absent ]||! $b grep -F "$s" /proc/mounts >/dev/null 2>&1||exit 67;'
+        'for q in /sys/block/loop*/loop/backing_file;do '
+        '[ -r "$q" ]||continue;v=$($b cat "$q")||exit 48;'
+        '[ "$v" != "$p" ]||exit 49;'
+        '[ "$z" = absent ]||[ "$v" != "$s" ]||exit 49;done;'
+        '$b rm -- "$p"||exit 50;[ ! -e "$p" ]||exit 51;'
+        'if [ "$z" = exact ];then a=$($b sha256sum "$s")||exit 68;'
+        'a=${a%% *};[ "$a" = "$x" ]||exit 69;fi;'
+        'printf "work=unlinked source=%s\\n" "$z"'
     )
 
 

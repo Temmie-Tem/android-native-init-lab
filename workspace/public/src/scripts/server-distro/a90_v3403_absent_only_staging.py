@@ -46,6 +46,12 @@ FINAL_MANIFEST_SCHEMA = "a90_native_init_f1_prepared_v2"
 PHASE2_DISPLAY_MANIFEST_SCHEMA = "a90_native_init_f1_prepared_v3"
 RESIDENT_PROMOTION_MANIFEST_SCHEMA = "a90_native_init_f1_resident_promotion_v1"
 RESIDENT_INSTALL_MANIFEST_SCHEMA = "a90_native_init_f1_resident_install_v2"
+PRESERVED_ROOTFS_INSTALL_MODE = (
+    "a90-resident-install-existing-source-work-preserved-v1"
+)
+PRESERVED_ROOTFS_INSTALL_MANIFEST_SCHEMA = (
+    "a90_native_init_f1_resident_install_existing_source_work_preserved_v1"
+)
 FINAL_MANIFEST_STATUS = "ready-for-f1-approval"
 TARGET_PROFILE = "galaxy-a90-5g-native-init"
 EXPECTED_BASELINE_VERSION = "0.9.285"
@@ -436,6 +442,8 @@ def selected_manifest_schema(
         return RESIDENT_PROMOTION_MANIFEST_SCHEMA
     if mode == "a90-resident-install-v2":
         return RESIDENT_INSTALL_MANIFEST_SCHEMA
+    if mode == PRESERVED_ROOTFS_INSTALL_MODE:
+        return PRESERVED_ROOTFS_INSTALL_MANIFEST_SCHEMA
     raise ContractError("resident promotion mode is not supported")
 
 
