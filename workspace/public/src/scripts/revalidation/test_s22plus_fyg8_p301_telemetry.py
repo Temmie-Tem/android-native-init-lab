@@ -154,6 +154,51 @@ class P301TelemetryTests(unittest.TestCase):
         self.assertEqual(
             result["active_semantics"]["telemetry"]["first_event_info"], 3
         )
+        classified = decoder.classify_observation(
+            record,
+            expected_profile=spec.PROFILE,
+            expected_run_id=RUN_ID,
+        )
+        self.assertTrue(classified["accepted"])
+        self.assertEqual(classified["classification"], "P301_TELEMETRY_ONE_OR_MORE_BOOTS")
+        self.assertEqual(classified["telemetry_count"], 1)
+        self.assertEqual(classified["contradiction_count"], 0)
+
+    def test_terminal_contradiction_is_information_but_not_accepted(self) -> None:
+        record = prefix(spec.EVENT_LINK_ORDINAL)
+        a_position = spec.POSITIONS[spec.EVENT_LINK_ORDINAL]
+        record = model.apply_request(
+            record,
+            model.encode_request(
+                spec.PROFILE,
+                a_position.stage,
+                run_id=RUN_ID,
+                outcome=spec.OUTCOME_PROGRESS,
+                item_index=a_position.item_index,
+                detail=spec.encode_ingress_link(spec.DEVICE_OTHER_ONLY_CLASS, 0),
+            ),
+        )
+        b_position = spec.POSITIONS[spec.FINAL_STATE_ORDINAL]
+        record = model.apply_request(
+            record,
+            model.encode_request(
+                spec.PROFILE,
+                b_position.stage,
+                run_id=RUN_ID,
+                outcome=spec.OUTCOME_FAILURE,
+                item_index=b_position.item_index,
+                detail=min(spec.CONTRADICTION_DETAIL_NAMES),
+            ),
+        )
+        classified = decoder.classify_observation(
+            record,
+            expected_profile=spec.PROFILE,
+            expected_run_id=RUN_ID,
+        )
+        self.assertFalse(classified["accepted"])
+        self.assertEqual(classified["classification"], "P301_TELEMETRY_CONTRADICTION")
+        self.assertEqual(classified["telemetry_count"], 0)
+        self.assertEqual(classified["contradiction_count"], 1)
 
     def test_old_p300_terminal_detail_is_rejected_at_b(self) -> None:
         record = prefix(spec.EVENT_LINK_ORDINAL)

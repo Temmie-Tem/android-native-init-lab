@@ -216,4 +216,34 @@ def classify_observation(
     )
     for record in result.get("records", ()):
         _with_semantics(record)
+    telemetry_count = 0
+    contradiction_count = 0
+    for record in result.get("records", ()):
+        active = record["active"]
+        if (
+            active["generation"] != spec.FINAL_STATE_GENERATION
+            or active["outcome"] != spec.OUTCOME_FAILURE
+        ):
+            continue
+        if active["detail"] in spec.CONTRADICTION_DETAIL_NAMES:
+            contradiction_count += 1
+        elif (
+            spec.SUBTYPE_DETAIL_BASE
+            <= active["detail"]
+            <= spec.SUBTYPE_DETAIL_MAX
+            or active["detail"] == spec.UNKNOWN_SUBTYPE_DETAIL
+            or spec.FINAL_DRIFT_DETAIL_BASE
+            <= active["detail"]
+            <= spec.FINAL_DRIFT_DETAIL_MAX
+        ):
+            telemetry_count += 1
+    result["telemetry_count"] = telemetry_count
+    result["contradiction_count"] = contradiction_count
+    if not result["integrity_issue"]:
+        if contradiction_count:
+            result["classification"] = "P301_TELEMETRY_CONTRADICTION"
+            result["accepted"] = False
+        elif telemetry_count:
+            result["classification"] = "P301_TELEMETRY_ONE_OR_MORE_BOOTS"
+            result["accepted"] = True
     return result

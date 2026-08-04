@@ -25,6 +25,7 @@ SCHEMA = "s22plus_fyg8_p292_ready_manifest_builder_v1"
 VERDICT = "PASS_P292_PROCESS_V2_READY_MANIFEST_HOST_ONLY"
 REHEARSAL_VERDICT = "PASS_P292_PROCESS_V2_READY_MANIFEST_REHEARSAL_HOST_ONLY"
 SOURCE_CONTRACT_ID = evidence.P292_SOURCE_CONTRACT_ID
+USERSPACE_OVERLAY_CONTRACT_ID = None
 DEFAULT_CANDIDATE_STATIC = Path(
     "workspace/private/device-action/s22plus_fyg8_p292_ready_1/"
     "evidence/candidate-static.json"
@@ -130,9 +131,13 @@ def derive_manifest(
     timeout_sec: int,
 ) -> dict[str, Any]:
     source_contract_id = run_manifest.get("source_contract_id")
+    userspace_overlay_contract_id = run_manifest.get(
+        "userspace_overlay_contract_id"
+    )
     run_id = run_manifest.get("run_id")
     if (
         source_contract_id != SOURCE_CONTRACT_ID
+        or userspace_overlay_contract_id != USERSPACE_OVERLAY_CONTRACT_ID
         or run_manifest.get("profile") != "E2"
         or not isinstance(run_id, str)
         or len(run_id) != 32
@@ -164,6 +169,10 @@ def derive_manifest(
         "clean_baseline_required": observation.get("clean_baseline_required"),
         "contract": contract,
     }
+    if userspace_overlay_contract_id is not None:
+        acceptance["userspace_overlay_contract_id"] = (
+            userspace_overlay_contract_id
+        )
     try:
         evidence.validate_acceptance(acceptance)
         selected = core._selected_candidate_source_contract(  # noqa: SLF001

@@ -269,9 +269,36 @@ current P3.01 overlay, decoder/model, boot-only packaging, and sidecar change
 set. Process-v2 candidate/static/live binding remains; the artifacts and
 capability review alone grant no F1 authority.
 
-The candidate and exact rollback each transferred once. The transaction is
-durably `CLOSED`, final rooted FYG8 health passed, recovery is not required,
-the sidecar left zero owned processes, and A90 received zero commands.
+One later adversarial review found that the P3.01 static checker could accept a
+self-consistent substituted P3.00 result and the same A build in both slots.
+The repaired checker now pins the exact 80,509-byte parent result and exact
+125,025-byte pre-LTO qualification, requires the canonical A/B directories,
+distinct directories and artifact inodes, and validates the complete
+byte-identical, linked-audit, adapter, build-header, and qualification
+identities. The reproduced bypass is rejected. Nine focused tests, the full
+static replay, and ready-manifest rehearsal pass; static output remains
+`de4e3b7e...` and the ready manifest remains `eb536d44...`. Independent
+rereview returned `PASS_GO` with no residual blocker.
+
+The exact firmware metadata used to derive the candidate plan was also
+rechecked against stock. The planner already pins and parses first-stage
+`modules.load` (140 rows), recovery `modules.load` (446 rows), and
+`modules.dep` (441 rows), recursively closes hard and soft dependencies, and
+uses stock order only as a tie-break. A fresh exact-device D0 found a distinct
+356-row late `/vendor` list and 482 currently loaded stock modules; every one
+of the candidate's 60 runtime names was loaded in stock. Stock also loads
+`usb_notifier_qcom`, but the inherited explicit `mode=peripheral` path already
+proves `vbus_active`, `B_SESS_VLD`, start-peripheral, and HS-PHY notify-connect
+without that automatic Type-C bridge. No module-plan change is selected.
+
+The preceding P3.00 candidate and exact rollback each transferred once. The
+transaction is durably `CLOSED`, final rooted FYG8 health passed, recovery is
+not required, the sidecar left zero owned processes, and A90 received zero
+commands.
+
+P3.01 itself has not transferred. Its exact rooted FYG8 clean-baseline D0 is
+current, the candidate and rollback artifacts remain unchanged, and F1 has not
+been armed.
 
 The full design and limitation statement is recorded in
 `docs/reports/S22PLUS_FYG8_POST_P298_EVENT_INGRESS_IRQ_ATTRIBUTION_H0_2026-08-04.md`.

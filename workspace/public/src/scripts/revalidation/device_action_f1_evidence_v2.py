@@ -6,7 +6,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
+from pathlib import Path
 from typing import Any
 
 import s22plus_fyg8_r4w1e_checkpoint_contract as checkpoint
@@ -26,6 +27,8 @@ import s22plus_fyg8_p298_e2_stock_closure as p298_e2_closure
 import s22plus_fyg8_p298_identity_tiers as p298_identity
 import s22plus_fyg8_p300_e2_stock_closure as p300_e2_closure
 import s22plus_fyg8_p300_source_contract as p300_source_contract
+import s22plus_fyg8_p301_overlay_contract as p301_overlay
+import s22plus_fyg8_p301_telemetry_decoder as p301_decoder
 
 
 MARKER_KIND = "retained_marker_after_rollback"
@@ -106,6 +109,13 @@ P300_CANDIDATE_STATIC_VERDICT = (
     "PASS_P300_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
 )
 P300_SOURCE_CONTRACT_ID = p300_e2_closure.source_contract.CONTRACT_ID
+P301_CANDIDATE_STATIC_SCHEMA = (
+    "s22plus_fyg8_p301_candidate_static_checker_v1"
+)
+P301_CANDIDATE_STATIC_VERDICT = (
+    "PASS_P301_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
+)
+P301_OVERLAY_CONTRACT_ID = p301_overlay.CONTRACT_ID
 P298_HISTORICAL_POSTBUILD_RESULT = {
     "sha256": "a7bfff7bdc82683999ef0d91349f20560b659ea703cb0542eeb37ca36a3ff997",
     "size": 71342,
@@ -361,6 +371,36 @@ def _latest_stage_decoder(
     return _selected_contract(source_contract_id, profile).decoder
 
 
+def _latest_stage_observation_decoder(
+    source_contract_id: str | None,
+    profile: str,
+    userspace_overlay_contract_id: str | None = None,
+):
+    if userspace_overlay_contract_id is None:
+        return _latest_stage_decoder(source_contract_id, profile)
+    if (
+        userspace_overlay_contract_id != P301_OVERLAY_CONTRACT_ID
+        or source_contract_id != P300_SOURCE_CONTRACT_ID
+        or profile != p301_overlay.PROFILE
+    ):
+        raise EvidenceError("userspace observation overlay is unsupported")
+    return p301_decoder
+
+
+def _validate_p301_overlay_contract(value: Any) -> dict[str, Any]:
+    root = Path(__file__).resolve().parents[5]
+    try:
+        current = p301_overlay.verify_intent(
+            root,
+            root / p301_overlay.DEFAULT_INTENT,
+        )
+    except (p301_overlay.OverlayContractError, OSError) as exc:
+        raise EvidenceError("P3.01 overlay intent verification failed") from exc
+    if value != current:
+        raise EvidenceError("P3.01 overlay contract differs from current intent")
+    return current
+
+
 def _select_e2_closure(source_contract_id: str | None):
     if source_contract_id == P300_SOURCE_CONTRACT_ID:
         return p300_e2_closure.select(source_contract_id)
@@ -399,6 +439,46 @@ def _e2_authority_context(source_contract_id: str | None, closure_api: Any):
             "versioned stock-closure authority adapter is unavailable"
         )
     return authority_context()
+
+
+@contextmanager
+def _p301_e2_authority_context(
+    closure_api: Any, expected_init: dict[str, Any]
+):
+    if closure_api is not p300_e2_closure.select(P300_SOURCE_CONTRACT_ID):
+        raise EvidenceError("P3.01 parent stock-closure adapter differs")
+    previous = p300_e2_closure.p286.p282._validate_p282_authority_strings  # noqa: SLF001
+
+    def validate(data: bytes) -> None:
+        if e2_closure.receipt(data) != expected_init:
+            raise p300_e2_closure.ClosureError(
+                "P3.01 effective init differs from bound identity"
+            )
+        printable = p300_e2_closure.p286.p282.p280.isolated_p260._printable_strings(  # noqa: SLF001
+            data
+        )
+        paths = p300_e2_closure.p286.p282._absolute_path_candidates(printable)  # noqa: SLF001
+        incidental = paths - p300_e2_closure.ALLOWED_ABSOLUTE_PATH_STRINGS
+        if (
+            p300_e2_closure.REQUIRED_ABSOLUTE_PATH_STRINGS - paths
+            or incidental != {'/E9"', "/R9@"}
+            or any(data.count(value.encode("ascii")) != 1 for value in incidental)
+        ):
+            raise p300_e2_closure.ClosureError(
+                "P3.01 effective init authority path set differs"
+            )
+        scrubbed = data
+        for value in sorted(incidental):
+            encoded = value.encode("ascii")
+            scrubbed = scrubbed.replace(encoded, b"\0" * len(encoded))
+        with p300_e2_closure._p300_authority_globals():  # noqa: SLF001
+            p300_e2_closure._P282_VALIDATE_AUTHORITY_STRINGS(scrubbed)  # noqa: SLF001
+
+    p300_e2_closure.p286.p282._validate_p282_authority_strings = validate  # noqa: SLF001
+    try:
+        yield
+    finally:
+        p300_e2_closure.p286.p282._validate_p282_authority_strings = previous  # noqa: SLF001
 
 
 def _latest_stage_terminal(selected_decoder, profile: str) -> int:
@@ -766,6 +846,11 @@ def validate_e2_ap_payload(
     source_contract_id = (
         closure.get("source_contract_id") if isinstance(closure, dict) else None
     )
+    userspace_overlay_contract_id = (
+        closure.get("userspace_overlay_contract_id")
+        if isinstance(closure, dict)
+        else None
+    )
     expected_keys = {
         "boot_img_lz4",
         "boot_image",
@@ -779,6 +864,13 @@ def validate_e2_ap_payload(
     if source_contract_id is not None:
         _selected_contract(source_contract_id, "E2")
         expected_keys.add("source_contract_id")
+    if userspace_overlay_contract_id is not None:
+        _latest_stage_observation_decoder(
+            source_contract_id,
+            "E2",
+            userspace_overlay_contract_id,
+        )
+        expected_keys.add("userspace_overlay_contract_id")
     closure_api = _select_e2_closure(source_contract_id)
     expected = _exact(
         closure,
@@ -824,7 +916,12 @@ def validate_e2_ap_payload(
         generic_module_closure = _generic_rootfs_module_closure(
             source_contract_id, closure_api, module_closure
         )
-        with _e2_authority_context(source_contract_id, closure_api):
+        authority_context = (
+            _p301_e2_authority_context(closure_api, identities["init"])
+            if userspace_overlay_contract_id == P301_OVERLAY_CONTRACT_ID
+            else _e2_authority_context(source_contract_id, closure_api)
+        )
+        with authority_context:
             generic_rootfs = closure_api.audit_candidate_generic_rootfs(
                 boot,
                 entries,
@@ -1124,6 +1221,9 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
         return item
     if kind == E1_LATEST_STAGE_KIND:
         source_contract_id = value.get("source_contract_id")
+        userspace_overlay_contract_id = value.get(
+            "userspace_overlay_contract_id"
+        )
         expected_keys = {
             "kind",
             "source",
@@ -1140,13 +1240,19 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
         }
         if source_contract_id is not None:
             expected_keys.add("source_contract_id")
+        if userspace_overlay_contract_id is not None:
+            expected_keys.add("userspace_overlay_contract_id")
         item = _exact(
             value,
             expected_keys,
             "E1 latest-stage acceptance",
         )
         profile = item["profile"]
-        selected_decoder = _latest_stage_decoder(source_contract_id, profile)
+        selected_decoder = _latest_stage_observation_decoder(
+            source_contract_id,
+            profile,
+            userspace_overlay_contract_id,
+        )
         model = selected_decoder.model
         terminal_stage = _latest_stage_terminal(selected_decoder, profile)
         model_ids = {model.model_run_id(name).hex() for name in model.PROFILE_NUMBERS}
@@ -1696,7 +1802,13 @@ def _verify_e1_latest_stage_offline_contract(
         raise EvidenceError("offline E1 latest-stage contract is not applicable")
     profile = item["profile"]
     source_contract_id = item.get("source_contract_id")
-    selected_decoder = _latest_stage_decoder(source_contract_id, profile)
+    userspace_overlay_contract_id = item.get("userspace_overlay_contract_id")
+    source_decoder = _latest_stage_decoder(source_contract_id, profile)
+    selected_decoder = _latest_stage_observation_decoder(
+        source_contract_id,
+        profile,
+        userspace_overlay_contract_id,
+    )
     if set(payloads) != {
         "candidate_static",
         "run_manifest",
@@ -1733,7 +1845,11 @@ def _verify_e1_latest_stage_offline_contract(
         "terminal_stage": item["terminal_stage"],
     }
     expected_observation = {
-        "accepted_identity": f"{profile}_TERMINAL_SUCCESS_REACHED",
+        "accepted_identity": (
+            "P301_TELEMETRY_RETAINED"
+            if userspace_overlay_contract_id == P301_OVERLAY_CONTRACT_ID
+            else f"{profile}_TERMINAL_SUCCESS_REACHED"
+        ),
         "minimum_success_count": 1,
         "clean_baseline_required": True,
     }
@@ -1751,12 +1867,16 @@ def _verify_e1_latest_stage_offline_contract(
     }
     if source_contract_id is not None:
         run_manifest_keys.add("source_contract_id")
+    if userspace_overlay_contract_id is not None:
+        run_manifest_keys.add("userspace_overlay_contract_id")
     if (
         set(run_manifest) != run_manifest_keys
         or run_manifest.get("schema") != E1_LATEST_STAGE_RUN_MANIFEST_SCHEMA
         or run_manifest.get("target") != PID1_USERSPACE_TARGET
         or run_manifest.get("profile") != item["profile"]
         or run_manifest.get("source_contract_id") != source_contract_id
+        or run_manifest.get("userspace_overlay_contract_id")
+        != userspace_overlay_contract_id
         or run_manifest.get("run_id") != item["run_id"]
         or run_manifest.get("decoder") != selected_decoder.DECODER_ID
         or run_manifest.get("policy_id") != selected_decoder.POLICY_ID
@@ -1776,30 +1896,34 @@ def _verify_e1_latest_stage_offline_contract(
         payloads["candidate_static"], "E1A candidate static result"
     )
     expected_candidate_static_schema = (
-        P300_CANDIDATE_STATIC_SCHEMA
-        if source_contract_id == P300_SOURCE_CONTRACT_ID
+        P301_CANDIDATE_STATIC_SCHEMA
+        if userspace_overlay_contract_id == P301_OVERLAY_CONTRACT_ID
         else (
-            P298_CANDIDATE_STATIC_SCHEMA
-            if source_contract_id == P298_SOURCE_CONTRACT_ID
+            P300_CANDIDATE_STATIC_SCHEMA
+            if source_contract_id == P300_SOURCE_CONTRACT_ID
             else (
-                P296_CANDIDATE_STATIC_SCHEMA
-                if source_contract_id == P296_SOURCE_CONTRACT_ID
+                P298_CANDIDATE_STATIC_SCHEMA
+                if source_contract_id == P298_SOURCE_CONTRACT_ID
                 else (
-                    P294_CANDIDATE_STATIC_SCHEMA
-                    if source_contract_id == P294_SOURCE_CONTRACT_ID
+                    P296_CANDIDATE_STATIC_SCHEMA
+                    if source_contract_id == P296_SOURCE_CONTRACT_ID
                     else (
-                        P292_CANDIDATE_STATIC_SCHEMA
-                        if source_contract_id == P292_SOURCE_CONTRACT_ID
+                        P294_CANDIDATE_STATIC_SCHEMA
+                        if source_contract_id == P294_SOURCE_CONTRACT_ID
                         else (
-                            P290_CANDIDATE_STATIC_SCHEMA
-                            if source_contract_id == P290_SOURCE_CONTRACT_ID
+                            P292_CANDIDATE_STATIC_SCHEMA
+                            if source_contract_id == P292_SOURCE_CONTRACT_ID
                             else (
-                                P288_CANDIDATE_STATIC_SCHEMA
-                                if source_contract_id == P288_SOURCE_CONTRACT_ID
+                                P290_CANDIDATE_STATIC_SCHEMA
+                                if source_contract_id == P290_SOURCE_CONTRACT_ID
                                 else (
-                                    P286_CANDIDATE_STATIC_SCHEMA
-                                    if source_contract_id == P286_SOURCE_CONTRACT_ID
-                                    else E1_LATEST_STAGE_CANDIDATE_STATIC_SCHEMA
+                                    P288_CANDIDATE_STATIC_SCHEMA
+                                    if source_contract_id == P288_SOURCE_CONTRACT_ID
+                                    else (
+                                        P286_CANDIDATE_STATIC_SCHEMA
+                                        if source_contract_id == P286_SOURCE_CONTRACT_ID
+                                        else E1_LATEST_STAGE_CANDIDATE_STATIC_SCHEMA
+                                    )
                                 )
                             )
                         )
@@ -1809,30 +1933,34 @@ def _verify_e1_latest_stage_offline_contract(
         )
     )
     expected_candidate_static_verdict = (
-        P300_CANDIDATE_STATIC_VERDICT
-        if source_contract_id == P300_SOURCE_CONTRACT_ID
+        P301_CANDIDATE_STATIC_VERDICT
+        if userspace_overlay_contract_id == P301_OVERLAY_CONTRACT_ID
         else (
-            P298_CANDIDATE_STATIC_VERDICT
-            if source_contract_id == P298_SOURCE_CONTRACT_ID
+            P300_CANDIDATE_STATIC_VERDICT
+            if source_contract_id == P300_SOURCE_CONTRACT_ID
             else (
-                P296_CANDIDATE_STATIC_VERDICT
-                if source_contract_id == P296_SOURCE_CONTRACT_ID
+                P298_CANDIDATE_STATIC_VERDICT
+                if source_contract_id == P298_SOURCE_CONTRACT_ID
                 else (
-                    P294_CANDIDATE_STATIC_VERDICT
-                    if source_contract_id == P294_SOURCE_CONTRACT_ID
+                    P296_CANDIDATE_STATIC_VERDICT
+                    if source_contract_id == P296_SOURCE_CONTRACT_ID
                     else (
-                        P292_CANDIDATE_STATIC_VERDICT
-                        if source_contract_id == P292_SOURCE_CONTRACT_ID
+                        P294_CANDIDATE_STATIC_VERDICT
+                        if source_contract_id == P294_SOURCE_CONTRACT_ID
                         else (
-                            P290_CANDIDATE_STATIC_VERDICT
-                            if source_contract_id == P290_SOURCE_CONTRACT_ID
+                            P292_CANDIDATE_STATIC_VERDICT
+                            if source_contract_id == P292_SOURCE_CONTRACT_ID
                             else (
-                                P288_CANDIDATE_STATIC_VERDICT
-                                if source_contract_id == P288_SOURCE_CONTRACT_ID
+                                P290_CANDIDATE_STATIC_VERDICT
+                                if source_contract_id == P290_SOURCE_CONTRACT_ID
                                 else (
-                                    P286_CANDIDATE_STATIC_VERDICT
-                                    if source_contract_id == P286_SOURCE_CONTRACT_ID
-                                    else E1_LATEST_STAGE_CANDIDATE_STATIC_VERDICT
+                                    P288_CANDIDATE_STATIC_VERDICT
+                                    if source_contract_id == P288_SOURCE_CONTRACT_ID
+                                    else (
+                                        P286_CANDIDATE_STATIC_VERDICT
+                                        if source_contract_id == P286_SOURCE_CONTRACT_ID
+                                        else E1_LATEST_STAGE_CANDIDATE_STATIC_VERDICT
+                                    )
                                 )
                             )
                         )
@@ -1887,8 +2015,27 @@ def _verify_e1_latest_stage_offline_contract(
         source_contract_keys.update(
             {"source_contract_id", "materialized_sources"}
         )
+    candidate_contract_value = candidate_static_result.get("candidate_contract")
+    p301_overlay_source_receipts = None
+    if userspace_overlay_contract_id == P301_OVERLAY_CONTRACT_ID:
+        p301_contract = _validate_p301_overlay_contract(candidate_contract_value)
+        if (
+            p301_contract.get("userspace_overlay_contract_id")
+            != userspace_overlay_contract_id
+            or p301_contract.get("source_contract_id") != source_contract_id
+            or p301_contract.get("profile") != profile
+            or p301_contract.get("run_id") != item["run_id"]
+            or p301_contract.get("telemetry", {}).get("decoder_id")
+            != selected_decoder.DECODER_ID
+            or p301_contract.get("telemetry", {}).get("decoder_policy_id")
+            != selected_decoder.POLICY_ID
+            or p301_contract.get("verified") is not True
+        ):
+            raise EvidenceError("P3.01 overlay candidate contract is invalid")
+        candidate_contract_value = p301_contract.get("parent_candidate_contract")
+        p301_overlay_source_receipts = p301_contract.get("source_receipts")
     source_contract = _exact(
-        candidate_static_result.get("candidate_contract"),
+        candidate_contract_value,
         source_contract_keys,
         "E1A candidate source contract",
     )
@@ -1921,11 +2068,11 @@ def _verify_e1_latest_stage_offline_contract(
                 raise EvidenceError(
                     f"versioned materialized source identity mismatch: {name}"
                 )
-    unsat_record = selected_decoder.model.unsat_record(profile, run_id)
-    unsat_tag = unsat_record[len(selected_decoder.model.UNSAT_FAMILY) :]
+    unsat_record = source_decoder.model.unsat_record(profile, run_id)
+    unsat_tag = unsat_record[len(source_decoder.model.UNSAT_FAMILY) :]
     expected_config_lines = [
         "CONFIG_S22PLUS_FYG8_E1_LATEST_STAGE=y",
-        f"CONFIG_S22PLUS_FYG8_E1_PROFILE={selected_decoder.model.PROFILE_NUMBERS[profile]}",
+        f"CONFIG_S22PLUS_FYG8_E1_PROFILE={source_decoder.model.PROFILE_NUMBERS[profile]}",
         f'CONFIG_S22PLUS_FYG8_E1_RUN_ID_HEX="{item["run_id"]}"',
         f'CONFIG_S22PLUS_FYG8_E1_UNSAT_TAG_HEX="{unsat_tag.hex()}"',
     ]
@@ -1999,13 +2146,13 @@ def _verify_e1_latest_stage_offline_contract(
         or source_contract.get("profile") != item["profile"]
         or type(source_contract.get("profile_number")) is not int
         or source_contract.get("profile_number")
-        != selected_decoder.model.PROFILE_NUMBERS[profile]
+        != source_decoder.model.PROFILE_NUMBERS[profile]
         or source_contract.get("run_id") != item["run_id"]
         or source_contract.get("unsat_record_hex") != unsat_record.hex()
         or source_contract.get("unsat_tag_hex") != unsat_tag.hex()
-        or source_contract.get("decoder_id") != selected_decoder.DECODER_ID
+        or source_contract.get("decoder_id") != source_decoder.DECODER_ID
         or source_contract.get("decoder_policy_id")
-        != selected_decoder.POLICY_ID
+        != source_decoder.POLICY_ID
         or source_base_files != expected_base_files
         or any(
             not isinstance(value, str) or HASH_RE.fullmatch(value) is None
@@ -2257,6 +2404,8 @@ def _verify_e1_latest_stage_offline_contract(
     }
     if source_contract_id is not None:
         static_result_keys.add("source_contract_id")
+    if userspace_overlay_contract_id is not None:
+        static_result_keys.add("userspace_overlay_contract_id")
     if (
         set(static_result) != static_result_keys
         or static_result.get("schema") != E1_LATEST_STAGE_STATIC_SCHEMA
@@ -2264,6 +2413,8 @@ def _verify_e1_latest_stage_offline_contract(
         or static_result.get("verdict") != E1_LATEST_STAGE_STATIC_VERDICT
         or static_result.get("profile") != item["profile"]
         or static_result.get("source_contract_id") != source_contract_id
+        or static_result.get("userspace_overlay_contract_id")
+        != userspace_overlay_contract_id
         or static_result.get("run_id") != item["run_id"]
         or static_result.get("decoder") != selected_decoder.DECODER_ID
         or static_result.get("policy_id") != selected_decoder.POLICY_ID
@@ -2361,6 +2512,9 @@ def _verify_e1_latest_stage_offline_contract(
     }
     if source_contract_id is not None:
         result["source_contract_id"] = source_contract_id
+    if userspace_overlay_contract_id is not None:
+        result["userspace_overlay_contract_id"] = userspace_overlay_contract_id
+        result["p301_overlay_source_receipts"] = p301_overlay_source_receipts
     if p298_repair_files is not None:
         result["tier2_repair_files"] = p298_repair_files
     if profile == "E2":
@@ -2378,6 +2532,10 @@ def _verify_e1_latest_stage_offline_contract(
             result["ap_payload_closure"][
                 "source_contract_id"
             ] = source_contract_id
+        if userspace_overlay_contract_id is not None:
+            result["ap_payload_closure"][
+                "userspace_overlay_contract_id"
+            ] = userspace_overlay_contract_id
     return result
 
 
@@ -2684,8 +2842,10 @@ def classify_e1_latest_stage(
     item = validate_acceptance(acceptance)
     if item["kind"] != E1_LATEST_STAGE_KIND:
         raise EvidenceError("E1 latest-stage classifier received another kind")
-    selected_decoder = _latest_stage_decoder(
-        item.get("source_contract_id"), item["profile"]
+    selected_decoder = _latest_stage_observation_decoder(
+        item.get("source_contract_id"),
+        item["profile"],
+        item.get("userspace_overlay_contract_id"),
     )
     try:
         decoded = selected_decoder.classify_observation(
@@ -2701,9 +2861,15 @@ def classify_e1_latest_stage(
     unsat_family_count = payload.count(model.UNSAT_FAMILY)
     family_count = long_family_count + unsat_family_count
     exact_record_count = decoded["long_record_count"] + decoded["unsat_count"]
+    accepted_count = (
+        decoded.get("telemetry_count", 0)
+        if item.get("userspace_overlay_contract_id")
+        == P301_OVERLAY_CONTRACT_ID
+        else decoded["success_count"]
+    )
     result = _base_classification(
         classification=decoded["classification"],
-        exact_count=decoded["success_count"],
+        exact_count=accepted_count,
         family_count=family_count,
         integrity_issue=decoded["integrity_issue"],
     )
@@ -2718,6 +2884,9 @@ def classify_e1_latest_stage(
     result["progress_count"] = decoded["progress_count"]
     result["failure_count"] = decoded["failure_count"]
     result["success_count"] = decoded["success_count"]
+    if item.get("userspace_overlay_contract_id") == P301_OVERLAY_CONTRACT_ID:
+        result["telemetry_count"] = decoded["telemetry_count"]
+        result["contradiction_count"] = decoded["contradiction_count"]
     result["fallback_record_count"] = decoded["fallback_record_count"]
     result["minimum_candidate_boots"] = decoded["minimum_candidate_boots"]
     result["records"] = decoded["records"]
@@ -2734,8 +2903,10 @@ def classify_clean_baseline(
 ) -> dict[str, Any]:
     item = validate_acceptance(acceptance)
     if item["kind"] == E1_LATEST_STAGE_KIND:
-        selected_decoder = _latest_stage_decoder(
-            item.get("source_contract_id"), item["profile"]
+        selected_decoder = _latest_stage_observation_decoder(
+            item.get("source_contract_id"),
+            item["profile"],
+            item.get("userspace_overlay_contract_id"),
         )
         baseline = selected_decoder.classify_clean_baseline(
             payload,

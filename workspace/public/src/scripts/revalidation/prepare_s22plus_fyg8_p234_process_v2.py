@@ -99,17 +99,33 @@ def validate_static(
         if isinstance(candidate_contract, dict)
         else None
     )
+    userspace_overlay_contract_id = (
+        candidate_contract.get("userspace_overlay_contract_id")
+        if isinstance(candidate_contract, dict)
+        else None
+    )
     try:
-        selected_decoder = evidence._latest_stage_decoder(
-            source_contract_id, profile
+        selected_decoder = evidence._latest_stage_observation_decoder(
+            source_contract_id,
+            profile,
+            userspace_overlay_contract_id,
         )
     except evidence.EvidenceError as exc:
         raise PromotionError(str(exc)) from exc
     if (
         not isinstance(candidate_contract, dict)
         or profile not in evidence.e1_latest_stage.model.PROFILE_NUMBERS
-        or candidate_contract.get("decoder_id") != selected_decoder.DECODER_ID
-        or candidate_contract.get("decoder_policy_id")
+        or (
+            candidate_contract.get("telemetry", {}).get("decoder_id")
+            if userspace_overlay_contract_id is not None
+            else candidate_contract.get("decoder_id")
+        )
+        != selected_decoder.DECODER_ID
+        or (
+            candidate_contract.get("telemetry", {}).get("decoder_policy_id")
+            if userspace_overlay_contract_id is not None
+            else candidate_contract.get("decoder_policy_id")
+        )
         != selected_decoder.POLICY_ID
         or candidate_contract.get("verified") is not True
     ):
@@ -118,16 +134,26 @@ def validate_static(
     if not isinstance(run_id, str) or evidence.HEX32_RE.fullmatch(run_id) is None:
         raise PromotionError("P2.34 candidate run ID is malformed")
     try:
-        source_receipts = evidence.validate_candidate_source_preimage(
-            candidate_contract, profile, run_id
-        )
-        _source_data, current_source_receipts = (
-            static_checker.contract.intent.source_receipts(
-                repo_root(),
-                profile,
-                candidate_contract.get("source_contract_id"),
+        if userspace_overlay_contract_id is not None:
+            current_overlay = evidence._validate_p301_overlay_contract(
+                candidate_contract
             )
-        )
+            parent_contract = current_overlay["parent_candidate_contract"]
+            source_receipts = evidence.validate_candidate_source_preimage(
+                parent_contract, profile, run_id
+            )
+            current_source_receipts = source_receipts
+        else:
+            source_receipts = evidence.validate_candidate_source_preimage(
+                candidate_contract, profile, run_id
+            )
+            _source_data, current_source_receipts = (
+                static_checker.contract.intent.source_receipts(
+                    repo_root(),
+                    profile,
+                    candidate_contract.get("source_contract_id"),
+                )
+            )
     except (evidence.EvidenceError, static_checker.contract.intent.IntentError) as exc:
         raise PromotionError("candidate source preimage is invalid") from exc
     if source_receipts != current_source_receipts:
@@ -248,8 +274,13 @@ def derive(
     run_id = candidate_contract["run_id"]
     profile = candidate_contract["profile"]
     source_contract_id = candidate_contract.get("source_contract_id")
-    selected_decoder = evidence._latest_stage_decoder(
-        source_contract_id, profile
+    userspace_overlay_contract_id = candidate_contract.get(
+        "userspace_overlay_contract_id"
+    )
+    selected_decoder = evidence._latest_stage_observation_decoder(
+        source_contract_id,
+        profile,
+        userspace_overlay_contract_id,
     )
     model = selected_decoder.model
     terminal_stage = evidence._latest_stage_terminal(selected_decoder, profile)
@@ -266,7 +297,12 @@ def derive(
             "terminal_stage": terminal_stage,
         },
         "observation_contract": {
-            "accepted_identity": f"{profile}_TERMINAL_SUCCESS_REACHED",
+            "accepted_identity": (
+                "P301_TELEMETRY_RETAINED"
+                if userspace_overlay_contract_id
+                == evidence.P301_OVERLAY_CONTRACT_ID
+                else f"{profile}_TERMINAL_SUCCESS_REACHED"
+            ),
             "minimum_success_count": 1,
             "clean_baseline_required": True,
         },
@@ -275,6 +311,10 @@ def derive(
     }
     if source_contract_id is not None:
         run_manifest["source_contract_id"] = source_contract_id
+    if userspace_overlay_contract_id is not None:
+        run_manifest["userspace_overlay_contract_id"] = (
+            userspace_overlay_contract_id
+        )
     run_payload = canonical(run_manifest)
     static_result = {
         "schema": evidence.E1_LATEST_STAGE_STATIC_SCHEMA,
@@ -312,6 +352,10 @@ def derive(
     }
     if source_contract_id is not None:
         static_result["source_contract_id"] = source_contract_id
+    if userspace_overlay_contract_id is not None:
+        static_result["userspace_overlay_contract_id"] = (
+            userspace_overlay_contract_id
+        )
     return run_payload, canonical(static_result)
 
 
@@ -397,6 +441,18 @@ def main(argv: list[str] | None = None) -> int:
                             ]
                         }
                         if process_static_value.get("source_contract_id")
+                        is not None
+                        else {}
+                    ),
+                    **(
+                        {
+                            "userspace_overlay_contract_id": process_static_value[
+                                "userspace_overlay_contract_id"
+                            ]
+                        }
+                        if process_static_value.get(
+                            "userspace_overlay_contract_id"
+                        )
                         is not None
                         else {}
                     ),
