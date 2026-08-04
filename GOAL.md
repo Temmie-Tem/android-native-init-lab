@@ -39,13 +39,29 @@ seen, and the final tuple remained the expected
 `not attached/UNKNOWN/COREIDLE=1/SUSPHY=0`. The subtype objective is therefore
 proved despite the non-authoritative ACM timeout.
 
-Source maps `event_info & 0xf == 3` to `DWC3_LINK_STATE_U3` (HS `SUSPEND`). On
-this DWC31 path the SUSPEND event is enabled, and before gadget state reaches
-`USB_STATE_CONFIGURED` its handler only requests 2 mA rather than calling the
-configured-gadget suspend callback. The next bounded unit is H0 attribution of
-how this lone pre-configuration U3/SUSPEND event can coexist with no RESET,
-CONNECT_DONE, or attachment, with particular attention to the wrapper
-VBUS/session-valid and role sequence. Do not replay the consumed candidate.
+The source-level interpretation is narrower than the encoded label alone.
+`core.h` maps link-state value 3 to U3/HS SUSPEND, and the configured-state
+handler would mask `event_info` into that enum. This run was not configured,
+however, so that handler never consumed the value. The actual pre-configuration
+branch explicitly treats SUSPEND as expected and only requests a 2 mA current
+budget. It is therefore a format decode, not a new cause or a runtime proof
+that the driver acted on U3.
+
+The integrity-clean same-attempt host sidecar closes the missing host axis. It
+captured the initial Android removal, Download-mode addition, candidate flash,
+and Download-mode removal. From that final removal through the complete
+300-second candidate window it recorded zero kernel lines and zero udev lines:
+no new USB device, descriptor retry/error, add, bind, change, expected-PID
+event, or exact candidate identity. The start/end snapshots retain the same
+unrelated pre-existing same-PID device, so VID/PID alone is not candidate
+identity evidence; the exact serial/topology observer also timed out.
+Thus the host did not detect an attach from this candidate. This does not yet
+distinguish an unasserted device pull-up from a blocked analog/mux/cable path or
+a host-port failure. Likewise, absence of `ERRATIC_ERROR` proves only that the
+controller emitted no such event; it does not close every analog PHY failure
+that could prevent attach detection. The next bounded unit is H0 attribution
+of the device-side pull-up/session-valid and wrapper role path before any new
+F1. Do not replay the consumed candidate.
 
 ## Selected Bounded Unit: P3.00 Event-Ingress/IRQ Attribution (Closed)
 
