@@ -206,24 +206,42 @@ not justify another F1.
 
 Post-live H0 source analysis proves that P3.00 discarded the exact subtype:
 the raw trace carried it, but the parser folded every non-RESET/non-CONNECT_DONE
-device event into one bit. After applying the exact DEVTEN mask, the unresolved
-set is DISCONNECT, WAKEUP, ERRATIC_ERROR, CMD_CMPL, OVERFLOW, and the
-revision-dependent LINK_STATUS_CHANGE and/or SUSPEND. DISCONNECT is the
-best-fitting hypothesis, not a proof. CMD_CMPL is source-disfavoured because
-the exact generic-command writer polls completion without setting CMDIOC.
-EventOverflow, if present, is separate from the already-proved zero ftrace-ring
-loss and must be reported as controller-event incompleteness.
+device event into one bit. A bounded live prerequisite then read
+`GSNPSID=0x33313130`; its high half is the exact `DWC31_IP` value `0x3331`.
+Consequently the DWC3-only pre-2.50a predicate is false, LINK_STATUS_CHANGE is
+not enabled, and the DWC3-only pre-2.30a predicate is also false so SUSPEND is
+enabled. The unresolved set is exactly DISCONNECT, WAKEUP, SUSPEND,
+ERRATIC_ERROR, CMD_CMPL, and OVERFLOW. DISCONNECT is the best-fitting
+hypothesis, not a proof. CMD_CMPL is source-disfavoured because the exact
+device-generic-command writer polls `DGCMD.CMDACT` without setting
+`DGCMD.CMDIOC`. EventOverflow, if present, is separate from the already-proved
+zero ftrace-ring loss and must be reported as controller-event incompleteness.
 
-The next bounded unit is a userspace-only subtype refinement. Reuse the exact
-qualified P3.00 kernel Image and unchanged 15-probe descriptor; retain a compact
-seven-type mask, first event-info low nibble, and multiple-record bit in the A
-detail. Preserve explicit sentinels for every non-other P3.00 branch. Repack B
-without losing its final-state domain to add the exact three-way DEVTEN class
-and the immediate hardware-count/cache-count/pending booleans; the resulting
-`132 * 3 * 8 == 3168` values fit the 12-bit field. This requires reproducible
-userspace/boot-only packaging, not another Full-LTO A/B. Bundle the future-only
-clean-zero sidecar shutdown correction into the same implementation/review
-unit so it cannot consume a separate F1.
+The next bounded unit is P3.01, a userspace-only subtype refinement over the
+exact qualified P3.00 kernel Image and unchanged 15-probe descriptor. The fixed
+Image accepts wide details only as `FAILURE`, excludes `0x4000`, `0x5000`, and
+`0x6000`, and becomes terminal after the first non-progress write. It separately
+contains all 176 exact progress rules at `0xD00-0xDAF`; the later false tuple
+stub does not make those earlier exact rules unreachable. P3.01 must therefore
+keep A as the existing 11-family/link progress detail and use B as the terminal
+wide-band detail, not the reverse.
+
+For an integrity-clean `DEVICE_OTHER_ONLY` repetition with the inherited exact
+final tuple, B uses `0x4001 + (((mask - 1) * 16 + first_info) * 4 + bucket)`.
+The six-bit nonzero mask has 63 values, `first_info` is the first other device
+event's low nibble, and `bucket` is `1`, `2-3`, `4-7`, or `8+`; all
+`63 * 16 * 4 == 4032` values occupy exactly `0x4001-0x4FC0`, leaving 63 valid
+codes in that band. This family itself implies the inherited
+not-attached/UNKNOWN/COREIDLE=1/SUSPHY=0 final tuple. A changed valid final state
+instead uses an exact 132-value `0x5001 + state_index` family and intentionally
+does not claim a subtype; observer contradictions use the `0x6001` band. This
+preserves information on drift without pretending that two retained slots can
+carry both full Cartesian products. DEVTEN is now fixed by measured DWC31, and
+the three immediate queue booleans are not retained in P3.01.
+
+This requires reproducible userspace/boot-only packaging, not another Full-LTO
+A/B. Bundle the future-only clean-zero sidecar shutdown correction into the same
+implementation/review unit so it cannot consume a separate F1.
 
 The candidate and exact rollback each transferred once. The transaction is
 durably `CLOSED`, final rooted FYG8 health passed, recovery is not required,

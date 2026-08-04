@@ -251,19 +251,39 @@ zero write clears an older count. The prior core soft reset and the exact
 immediate `GEVNTCOUNT` value were observed, but P3.00 did not publish that
 numeric value. H0 cannot place the event more narrowly than the candidate bind
 window. The exact driver enables DISCONNECT, RESET, CONNECT_DONE, WAKEUP,
-ERRATIC_ERROR, CMD_CMPL, and OVERFLOW, adds
-LINK_STATUS_CHANGE only for DWC3 revisions before 2.50a, and adds SUSPEND for
-2.30a and later. P3.00 already excludes RESET and CONNECT_DONE. HIBER_REQ, SOF,
-the reserved type, and the vendor-device-test type are not enabled by this
-path. The exact unresolved set is therefore:
+ERRATIC_ERROR, CMD_CMPL, and OVERFLOW, adds LINK_STATUS_CHANGE only for a
+DWC3-IP revision before 2.50a, and adds SUSPEND whenever that DWC3-only prior
+predicate is false for 2.30a. P3.00 already excludes RESET and CONNECT_DONE.
+HIBER_REQ, SOF, the reserved type, and the vendor-device-test type are not
+enabled by this path.
 
-- always possible from the configured mask: DISCONNECT (0), WAKEUP (4),
-  ERRATIC_ERROR (9), CMD_CMPL (10), and OVERFLOW (11);
-- revision-dependent: LINK_STATUS_CHANGE (3) and/or SUSPEND (6).
+The runtime-IP prerequisite is now measured rather than inferred. One exact
+S22+ D0 first proved `SM-S906N/g0q/S906NKSS7FYG8`, the selected USB realpath,
+completed Android boot, and active parent/child runtime-PM state. debugfs was
+not mounted. The register read therefore used one attended D1 transaction:
+mount debugfs read-only, read one `GSNPSID` line while both runtime-PM nodes
+remained active, unmount through the exact return path, and verify
+Android-complete plus controller-active health. It returned
+`GSNPSID = 0x33313130`, unmounted cleanly, and left no second attached target.
+The high half `0x3331` equals `DWC31_IP`.
+Three draft wrapper invocations had first failed closed on host predicates: one
+before device contact on ADB's `SM_S906N` inventory spelling, then two after
+read-only identity calls on noncanonical bootloader/PID1 assertions. The
+corrected D0 uses the repository's incremental-build identity field. None of
+those stops changed device state or contacted A90.
 
-CMD_CMPL is source-disfavoured: every exact generic-command call polls
-`DGCMD.CMDACT`, and the only exact DGCMD write omits `DGCMD.CMDIOC`. This is
-not promoted to a hardware proof without the runtime IP revision/databook.
+`DWC3_VER_IS_PRIOR(DWC3, 250A)` and
+`DWC3_VER_IS_PRIOR(DWC3, 230A)` both require `dwc->ip == DWC3_IP` (`0x5533`).
+They are therefore false on this measured DWC31 controller. ULSTCNGEN is not
+set, while the negated 2.30a predicate sets U3L2L1SUSPEN. The exact unresolved
+set is six types: DISCONNECT (0), WAKEUP (4), SUSPEND (6), ERRATIC_ERROR (9),
+CMD_CMPL (10), and OVERFLOW (11). LINK_STATUS_CHANGE (3) is excluded.
+
+CMD_CMPL is source-disfavoured: every exact device-generic-command call polls
+`DGCMD.CMDACT`, and the exact DGCMD write omits `DGCMD.CMDIOC`. This is the
+device-generic command layer, not endpoint `DEPCMD.CMDIOC`; the event remains
+enabled by `DEVTEN.CMDCMPLTEN`, so omission of CMDIOC is not promoted to a
+hardware impossibility proof.
 DISCONNECT is the strongest current hypothesis because its handler explicitly
 sets not-attached and UNKNOWN speed, and the supporting host capture saw no
 intended candidate ACM enumeration. It is still not proved: those values also
@@ -284,22 +304,50 @@ completeness unknown.
 The proportional successor is userspace-only telemetry refinement over the
 unchanged P3.00 probes and exact already-qualified Image SHA-256
 `01457240881b432f725b0f2d795813c38ef7cca4365633f9b0fc7c3a62744a3f`.
-It needs no new kernel probe and no new Full-LTO build. For an other-only result,
-the first retained detail can use all twelve bits as seven subtype-presence
-bits for `{0,3,4,6,9,10,11}`, the first event's `event_info & 0xf`, and one
-multiple-record bit. The low four event-info bits are exactly what the vendor
-handlers consume for LINK_STATUS_CHANGE and SUSPEND; the other candidate
-handlers ignore event-info. Values with a zero subtype mask remain available
-as explicit sentinels for every inherited non-other P3.00 branch. The count is
-closed now: `127 * 16 * 2 == 4064` other-only values plus 32 zero-mask
-sentinels equals the complete 4096-value field.
+It needs no new kernel probe and no new Full-LTO build.
 
-The second detail can preserve the complete 132-value final-state domain while
-also retaining the three valid DEVTEN revision classes and the three immediate
-queue booleans (`GEVNTCOUNT != 0`, cached `evt->count != 0`, and pending flag):
-`132 * 3 * 8 == 3168`, within the 4096-value detail field. This replaces an
-unproved timing assumption with measured same-run data and makes a changed run
-informative without expanding the probe chain.
+The fixed-Image ABI imposes four non-negotiable facts:
+
+1. a wide detail is accepted only with outcome `FAILURE`;
+2. each apparent 4K band excludes its base, so `0x4001-0x4FFF` contains 4095
+   values and `0x4000` is rejected, with the same holes at `0x5000` and
+   `0x6000`;
+3. the first non-progress write makes the checkpoint terminal, so a wide-band
+   A cannot be followed by B; and
+4. the exact compiled rule table contains every ordinal-105 progress tuple from
+   `0xD00` through `0xDAF` before the later always-false tuple stub. Those 176
+   values are reachable and are not dead text.
+
+P3.01 therefore preserves A exactly as P3.00's eleven family plus four-bit link
+state progress detail in `0xD00-0xDAF`. B is the terminal failure detail. For
+an integrity-clean `DEVICE_OTHER_ONLY` repetition whose final state equals the
+inherited not-attached/UNKNOWN/COREIDLE=1/SUSPHY=0 tuple, define mask bits in
+the fixed order `{DISCONNECT, WAKEUP, SUSPEND, ERRATIC_ERROR, CMD_CMPL,
+OVERFLOW}` and encode:
+
+```text
+index  = (((mask - 1) * 16 + (first_event_info & 0xf)) * 4) + count_bucket
+detail = 0x4001 + index
+```
+
+The nonzero mask has 63 values. `count_bucket` is `0=1`, `1=2-3`, `2=4-7`,
+or `3=8+` raw other-device records. Thus `63 * 16 * 4 == 4032` occupies exactly
+`0x4001-0x4FC0`, with no base hole and 63 valid codes left in the first band.
+An accepted subtype detail itself implies the exact inherited final tuple.
+
+If the final state changes, retaining an exact drift is more honest than
+silently attaching the old final-state meaning to a subtype code. A changed
+valid final state instead uses `0x5001 + state_index` for all 132 existing state
+indices and intentionally makes no subtype claim. Non-other P3.00 branches are
+already retained by A and can use the same exact-final-state family. Observer,
+parse, or state contradictions use named values beginning at `0x6001`.
+
+The measured DWC31 identity removes the earlier three-way DEVTEN class. The
+three immediate queue booleans are deliberately not retained: preserving them
+alongside the complete subtype mask, first info nibble, four count buckets,
+P3.00 branch/link, and exact drift state does not fit the fixed two-slot ABI.
+This is a proportional scope choice, not an implicit zero or an unproved timing
+claim.
 
 The future-only sidecar shutdown correction should travel in that same H0
 implementation unit: accept both signal termination and a monitor's clean zero
