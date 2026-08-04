@@ -11,56 +11,41 @@ shared process documents. A90 state and authorization remain separate.
 
 ## Current Frontier
 
-P3.01 is the latest closed live unit. Its boot-only candidate and exact Magisk
-rollback each transferred exactly once with no replay. The operator observed a
-normal candidate boot with no boot loop. A transient USBFS re-enumeration race
-during the physical rollback handoff stopped the first execution safely;
-durable `--recover` performed only the preapproved rollback and final checks.
-The transaction is `CLOSED`, `recovery_required=false`, and exact rooted FYG8
-Android health passed. A90 received zero commands.
+P3.01-r1 is the latest closed live unit. The narrow userspace correction
+derived the expected final detail from the canonical P3.00 encoder as `0xE02`,
+kept the fixed P3.00 Image and 15-probe descriptor unchanged, and produced
+byte-identical one-member candidate A/B packages. The static checker, 33/33
+focused regressions, immutable-source recheck, package binding, and narrow
+independent check all passed before device contact.
+
+The first connected preparation stopped on the prior retained P3.01 marker.
+One attended normal Android reboot rotated that baseline and restored exact
+rooted FYG8 health; the next connected D0 was clean and created approval binding
+`71faac9b...`. The P3.01-r1 candidate and exact Magisk rollback then each
+transferred exactly once. Candidate ACM observation timed out. After rollback
+had already transferred successfully, one final USB endpoint inventory read
+failed; durable `--recover` resumed only final observation and did not repeat
+either transfer. The transaction is `CLOSED`, `recovery_required=false`, exact
+rooted FYG8 Android health passed, and A90 received zero commands.
 
 The two byte-identical 2,097,136-byte post-rollback reads contain one exact,
-integrity-clean P3.01 pair. Generation 106 is detail `0xD70`,
-`probe-ok-start-rc0-ingress-device-other-only-link-0`: the probes armed,
-`__dwc3_gadget_start()` returned zero, both EP enable calls ran, trace/profile
-loss stayed zero, cleanup passed, one or more non-RESET/non-CONNECT_DONE device
-events reached the raw dispatch boundary, and link state remained zero.
-Generation 107 is detail `0x5003`, final-state index 2: UDC `not attached`,
-speed `UNKNOWN`, `COREIDLE=1`, and `SUSPHY=0`. The result explicitly has
-`subtype_claimed=false`; P3.01 did not retain which other event type occurred.
+integrity-clean P3.01-r1 pair. Generation 106 is detail `0xD70`, proving the
+probes armed, `__dwc3_gadget_start()` returned zero, both EP enable calls ran,
+trace/profile loss stayed zero, cleanup passed, one or more non-RESET/
+non-CONNECT_DONE device events reached raw dispatch, and sampled link state was
+zero. Generation 107 is detail `0x40CD`: exactly one recognized other-device
+event was `SUSPEND`, its first `event_info` was `3`, no unknown subtype was
+seen, and the final tuple remained the expected
+`not attached/UNKNOWN/COREIDLE=1/SUSPHY=0`. The subtype objective is therefore
+proved despite the non-authoritative ACM timeout.
 
-Immediate H0 comparison found the cause in the P3.01 userspace contract, not a
-new device-time state. The subtype path is guarded by hard-coded expected final
-detail `0xE06`, which decodes to `attached/UNKNOWN/COREIDLE=1/SUSPHY=0`.
-P3.00 retained `0xE02`, and P3.01's decoded legacy final tuple maps to that
-same `0xE02` value: the campaign's established
-`not attached/UNKNOWN/COREIDLE=1/SUSPHY=0` tuple. The mismatch therefore forces
-the designed final-drift branch before subtype encoding on the very state that
-P3.01 was intended to refine. The retained record is valid and device health
-is unambiguous, but the subtype objective is `NO_PROOF_OBSERVER`.
-
-The narrow userspace-only correction is now host-complete. The expected final
-detail is derived from the canonical P3.00 encoder as `0xE02` instead of copied
-as a literal. Generated C uses that same value at one definition site, executes
-the known/unknown subtype and all four bucket branches at `0xE02`, and retains
-the final-state and ingress-mismatch drift branches. The fixed P3.00 Image and
-15-probe descriptor are unchanged; no kernel or Full-LTO rebuild occurred.
-
-The new immutable overlay intent has semantic SHA-256 `996f0885...`; the new
-static `/init` is 66,384 bytes at SHA-256 `17eae28a...`. Independent candidate
-A/B packages are byte-identical at AP SHA-256 `d281bef8...`, each containing
-only `boot.img.lz4`, and both recover the unchanged Image SHA-256 `01457240...`.
-The static checker passes, the combined userspace/inherited/sidecar regression
-passes 33/33, and the ready-manifest rehearsal reproduces SHA-256
-`dcb9a96f...`. The contract-required narrow independent check reviewed only
-the changed selection closure and package binding and returned `PASS_GO` with
-no finding. No device command or A90 action occurred.
-
-The next step is fresh connected D0 preparation against
-`s22plus_fyg8_p301_r1_process_v2_ready_1.json`. If the closed P3.01 retained
-record is still the baseline, one attended normal Android reboot may rotate it
-before a second clean D0. Do not reuse the consumed P3.01 transaction or
-candidate.
+Source maps `event_info & 0xf == 3` to `DWC3_LINK_STATE_U3` (HS `SUSPEND`). On
+this DWC31 path the SUSPEND event is enabled, and before gadget state reaches
+`USB_STATE_CONFIGURED` its handler only requests 2 mA rather than calling the
+configured-gadget suspend callback. The next bounded unit is H0 attribution of
+how this lone pre-configuration U3/SUSPEND event can coexist with no RESET,
+CONNECT_DONE, or attachment, with particular attention to the wrapper
+VBUS/session-valid and role sequence. Do not replay the consumed candidate.
 
 ## Selected Bounded Unit: P3.00 Event-Ingress/IRQ Attribution (Closed)
 
