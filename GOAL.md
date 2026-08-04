@@ -63,7 +63,59 @@ that could prevent attach detection. The next bounded unit is H0 attribution
 of the device-side pull-up/session-valid and wrapper role path before any new
 F1. Do not replay the consumed candidate.
 
-## Selected Bounded Unit: P3.00 Event-Ingress/IRQ Attribution (Closed)
+## Selected Bounded Unit: P3.02 Passive Pull-Up Electrical Attribution (Planned)
+
+The next live electrical question is whether the candidate exposes a USB2
+device pull-up at the host-visible cable path. The selected observer is a
+passive USB-C USB2 inline breakout and high-impedance DC meters; it does not
+enable charger detection, drive D+/D-, access MMIO, or change the F1 runner or
+telemetry schema. This observer may accompany only the next distinct qualified
+candidate. It does not authorize replay of the consumed P3.01-r1 artifact.
+
+Before device contact, H0 must bind the exact male-female pass-through board
+and prove unpowered continuity for VBUS, ground, D+, D-, and CC, with no
+forbidden cross-short. A known Full-Speed or Low-Speed control device must then
+enumerate through the same board and cable at an exact host-reported `12M` or
+`1.5M`. The correct D+ or D- line must also measure High. A High-Speed or
+SuperSpeed device is not a valid voltage control; failure to prove this
+known-High result is `KNOWN_HIGH_CONTROL_INVALID` and stops before S22+ F1.
+
+All breakout leads are fixed before power is applied. No live-board probing,
+resistance/continuity mode, or current mode is allowed. A separate camera
+records the meter displays and a visible timestamp so the attended operator
+remains free for the required Download/recovery action. Raw video remains
+private and voltages are transcribed only after rollback. Record VBUS, D+, and
+D- at the earliest safe candidate point, then approximately 5, 15, and 30
+seconds, and every 30 seconds through the fixed 300-second window. If fewer
+than three meters are used, VBUS remains continuous and the prewired D+/D-
+channels are selected only away from the energized breakout.
+
+The result contract evaluates VBUS before either data line:
+
+- `VBUS_ABSENT_ALL_WINDOW`: VBUS is absent at every sample. D+/D- are not a
+  pull-up verdict; continue in the Type-C/CC/PD/session-valid branch.
+- `VBUS_TRANSITION_IN_WINDOW`: VBUS changes between absent and valid. Retain
+  direction and first-transition time; D+/D- are subordinate observations.
+- `VBUS_VALID_DP_HIGH`: VBUS remains valid and D+ is stably High with D- Low;
+  the device pull-up reaches the host-visible measurement point.
+- `VBUS_VALID_LINES_LOW`: VBUS remains valid and both data lines remain Low;
+  no candidate pull-up reaches the host-visible measurement point.
+- `ANALOG_INDETERMINATE`: intermediate, unstable, contradictory, or incomplete
+  voltages. Do not relabel this as a USB cause.
+
+The candidate-flash Download enumeration and post-candidate rollback Download
+enumeration are already mandatory parts of Process-v2. They are functional
+before/after controls for the breakout, cable, CC path, and host and add no
+device transition or separate action to the F1 procedure; their post-enumeration
+D+ voltage is not a Full-Speed voltage reference.
+
+Only `VBUS_VALID_LINES_LOW` selects a later FSVPLUS observer. That observer
+must retain `0x24`, `0x7c`, `0x40`, PHY power, clocks, and charger-detection
+state. External High with simultaneous FSVPLUS Low would prove only that
+FSVPLUS is unsuitable as a passive detector under those conditions, not why.
+External High otherwise skips that additional F1 entirely.
+
+## Closed Bounded Unit: P3.00 Event-Ingress/IRQ Attribution
 
 The source and existing Full-LTO evidence close the design question. The
 actual P2.98 A/B `vmlinux` pair is byte-identical and keeps
