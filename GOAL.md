@@ -204,6 +204,27 @@ the reviewed verifier overconstrained clean shutdown to return code `-15`.
 This host-only mismatch does not invalidate the device-retained result and does
 not justify another F1.
 
+Post-live H0 source analysis proves that P3.00 discarded the exact subtype:
+the raw trace carried it, but the parser folded every non-RESET/non-CONNECT_DONE
+device event into one bit. After applying the exact DEVTEN mask, the unresolved
+set is DISCONNECT, WAKEUP, ERRATIC_ERROR, CMD_CMPL, OVERFLOW, and the
+revision-dependent LINK_STATUS_CHANGE and/or SUSPEND. DISCONNECT is the
+best-fitting hypothesis, not a proof. CMD_CMPL is source-disfavoured because
+the exact generic-command writer polls completion without setting CMDIOC.
+EventOverflow, if present, is separate from the already-proved zero ftrace-ring
+loss and must be reported as controller-event incompleteness.
+
+The next bounded unit is a userspace-only subtype refinement. Reuse the exact
+qualified P3.00 kernel Image and unchanged 15-probe descriptor; retain a compact
+seven-type mask, first event-info low nibble, and multiple-record bit in the A
+detail. Preserve explicit sentinels for every non-other P3.00 branch. Repack B
+without losing its final-state domain to add the exact three-way DEVTEN class
+and the immediate hardware-count/cache-count/pending booleans; the resulting
+`132 * 3 * 8 == 3168` values fit the 12-bit field. This requires reproducible
+userspace/boot-only packaging, not another Full-LTO A/B. Bundle the future-only
+clean-zero sidecar shutdown correction into the same implementation/review
+unit so it cannot consume a separate F1.
+
 The candidate and exact rollback each transferred once. The transaction is
 durably `CLOSED`, final rooted FYG8 health passed, recovery is not required,
 the sidecar left zero owned processes, and A90 received zero commands.
@@ -399,11 +420,13 @@ Archived text is evidence only and grants no authority.
 The current device is healthy and the P3.00 campaign is closed at transfer
 accounting 1/1. P2.98 refuted gadget-start or EP0-enable failure; P3.00 now
 proves that the raw device-event boundary is reached but sees only another
-device event, not RESET or CONNECT_DONE. The next unit is H0 analysis of that
-exact `DEVICE_OTHER_ONLY` branch and a proportional future-only sidecar
-shutdown fix. Do not rerun P3.00 merely to repair the non-authoritative host
-axis. Symbol-only proof, stock-path observation, implicit success on an invalid
-trace, or a resource-gate bypass remains insufficient for a successor.
+device event, not RESET or CONNECT_DONE. H0 has exhausted that retained result:
+the exact subtype was compressed away and cannot be recovered statically. The
+next unit is the userspace-only subtype-retention and future-only sidecar fix
+described above. Do not rerun unchanged P3.00 merely to repair the
+non-authoritative host axis. Symbol-only proof, stock-path observation,
+implicit success on an invalid trace, or a resource-gate bypass remains
+insufficient for a successor.
 
 Stop on a repeated material pre-session failure, any post-device-session
 unexplained failure, target ambiguity, missing rollback, forbidden archive

@@ -241,6 +241,74 @@ Candidate and rollback transfers are exactly 1/1. The durable transaction is
 `CLOSED`, exact rooted FYG8 final health passed, recovery is not required, and
 zero owned sidecar processes remain.
 
+## Post-live `DEVICE_OTHER_ONLY` reduction
+
+H0 source analysis closes the interpretation limit of the live result. The
+event-buffer setup reprograms the buffer and writes zero to `GEVNTCOUNT`, but
+the driver later acknowledges consumed bytes by writing the nonzero consumed
+count to that same register. Source alone therefore does not prove that the
+zero write clears an older count. The prior core soft reset and the exact
+immediate `GEVNTCOUNT` value were observed, but P3.00 did not publish that
+numeric value. H0 cannot place the event more narrowly than the candidate bind
+window. The exact driver enables DISCONNECT, RESET, CONNECT_DONE, WAKEUP,
+ERRATIC_ERROR, CMD_CMPL, and OVERFLOW, adds
+LINK_STATUS_CHANGE only for DWC3 revisions before 2.50a, and adds SUSPEND for
+2.30a and later. P3.00 already excludes RESET and CONNECT_DONE. HIBER_REQ, SOF,
+the reserved type, and the vendor-device-test type are not enabled by this
+path. The exact unresolved set is therefore:
+
+- always possible from the configured mask: DISCONNECT (0), WAKEUP (4),
+  ERRATIC_ERROR (9), CMD_CMPL (10), and OVERFLOW (11);
+- revision-dependent: LINK_STATUS_CHANGE (3) and/or SUSPEND (6).
+
+CMD_CMPL is source-disfavoured: every exact generic-command call polls
+`DGCMD.CMDACT`, and the only exact DGCMD write omits `DGCMD.CMDIOC`. This is
+not promoted to a hardware proof without the runtime IP revision/databook.
+DISCONNECT is the strongest current hypothesis because its handler explicitly
+sets not-attached and UNKNOWN speed, and the supporting host capture saw no
+intended candidate ACM enumeration. It is still not proved: those values also
+describe the untouched initial state, and the host sidecar remains
+non-authoritative.
+
+The subtype is irrecoverable from the retained P3.00 bytes. The trace record
+contained the raw 32-bit event and exact type, but the streaming parser reduced
+all types other than RESET and CONNECT_DONE to one `other_device_seen` bit.
+The numeric DEVTEN and event records were validated in memory and then not
+published. Static source cannot choose among the remaining types.
+
+OVERFLOW must be a distinct successor result. P3.00's zero ring-loss predicate
+proves the ftrace observer ring did not lose records; it does not negate a DWC3
+hardware EventOverflow device event, which would make earlier controller-event
+completeness unknown.
+
+The proportional successor is userspace-only telemetry refinement over the
+unchanged P3.00 probes and exact already-qualified Image SHA-256
+`01457240881b432f725b0f2d795813c38ef7cca4365633f9b0fc7c3a62744a3f`.
+It needs no new kernel probe and no new Full-LTO build. For an other-only result,
+the first retained detail can use all twelve bits as seven subtype-presence
+bits for `{0,3,4,6,9,10,11}`, the first event's `event_info & 0xf`, and one
+multiple-record bit. The low four event-info bits are exactly what the vendor
+handlers consume for LINK_STATUS_CHANGE and SUSPEND; the other candidate
+handlers ignore event-info. Values with a zero subtype mask remain available
+as explicit sentinels for every inherited non-other P3.00 branch. The count is
+closed now: `127 * 16 * 2 == 4064` other-only values plus 32 zero-mask
+sentinels equals the complete 4096-value field.
+
+The second detail can preserve the complete 132-value final-state domain while
+also retaining the three valid DEVTEN revision classes and the three immediate
+queue booleans (`GEVNTCOUNT != 0`, cached `evt->count != 0`, and pending flag):
+`132 * 3 * 8 == 3168`, within the 4096-value detail field. This replaces an
+unproved timing assumption with measured same-run data and makes a changed run
+informative without expanding the probe chain.
+
+The future-only sidecar shutdown correction should travel in that same H0
+implementation unit: accept both signal termination and a monitor's clean zero
+exit after the recorded SIGTERM request, while retaining the existing
+alive-before-stop, untruncated, no-error, bounded-window, and ownership checks.
+One focused review is required for the changed telemetry/schema and host
+verifier. The unchanged kernel Image and probe machinery do not justify a new
+Full-LTO A/B or a second review ceremony.
+
 The concurrent A90 worktree paths were not read as authority, edited by this
 unit, staged, or used; A90 received zero commands.
 
