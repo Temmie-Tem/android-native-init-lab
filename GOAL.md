@@ -116,7 +116,7 @@ linked replay found a delivery blocker before packaging or device contact:
 P2.94 therefore remains an H0 static stop. It must not be packaged, promoted,
 manifested, or used for F1.
 
-## Selected Bounded Unit: P3.00 Event-Ingress/IRQ Attribution (F1 Ready)
+## Selected Bounded Unit: P3.00 Event-Ingress/IRQ Attribution (Closed)
 
 The source and existing Full-LTO evidence close the design question. The
 actual P2.98 A/B `vmlinux` pair is byte-identical and keeps
@@ -189,8 +189,24 @@ markers and created the reopened prepared binding
 `1ec284f2213a71c56de2afa1c202864cef8fa6638348f2f63a03d4dc563d8ad1`
 under
 `workspace/private/runs/device-action-f1-live-v2/p300-ready1-prepared-20260804-2`.
-No Odin session or partition transfer occurred, F1 remains unarmed, and A90
-received zero commands.
+That exact binding has now completed one attended Process-v2 transaction. The
+operator observed a normal candidate boot with no loop. Candidate ACM timed
+out, but the two retained slots are valid and byte-identical across both final
+reads. Generation 106 reports `DEVICE_OTHER_ONLY` at link state 0 with exact
+probe setup, gadget-start return zero, two EP0-enable hits, verified streaming,
+zero ring loss, zero missed return probes, and no RESET or CONNECT_DONE.
+Generation 107 remains not-attached/UNKNOWN/COREIDLE=1/SUSPHY=0.
+
+The host USB sidecar is `UNKNOWN` and is not used for a host-visibility
+conclusion. H0 replay shows that both monitors were alive before the requested
+stop, captured without truncation, and then exited zero after handling SIGTERM;
+the reviewed verifier overconstrained clean shutdown to return code `-15`.
+This host-only mismatch does not invalidate the device-retained result and does
+not justify another F1.
+
+The candidate and exact rollback each transferred once. The transaction is
+durably `CLOSED`, final rooted FYG8 health passed, recovery is not required,
+the sidecar left zero owned processes, and A90 received zero commands.
 
 The full design and limitation statement is recorded in
 `docs/reports/S22PLUS_FYG8_POST_P298_EVENT_INGRESS_IRQ_ATTRIBUTION_H0_2026-08-04.md`.
@@ -380,14 +396,14 @@ Archived text is evidence only and grants no authority.
 
 ## Success and Stop Conditions
 
-The current device is healthy and P3.00 is prepared but not F1-armed. P2.98
-refutes gadget-start or EP0 enable failure as the active boundary in that run;
-P3.00 is ready to distinguish the event-configuration, IRQ top-half,
-threaded-handler, and raw-device-event chain in one attended candidate boot.
-The next device effect is the exact prepared Process-v2 execution with one
-candidate transfer, mandatory exact rollback, no replay, and final rooted FYG8
-health. Symbol-only proof, stock-path observation, implicit success on an
-invalid trace, or a resource-gate bypass remains insufficient for a successor.
+The current device is healthy and the P3.00 campaign is closed at transfer
+accounting 1/1. P2.98 refuted gadget-start or EP0-enable failure; P3.00 now
+proves that the raw device-event boundary is reached but sees only another
+device event, not RESET or CONNECT_DONE. The next unit is H0 analysis of that
+exact `DEVICE_OTHER_ONLY` branch and a proportional future-only sidecar
+shutdown fix. Do not rerun P3.00 merely to repair the non-authoritative host
+axis. Symbol-only proof, stock-path observation, implicit success on an invalid
+trace, or a resource-gate bypass remains insufficient for a successor.
 
 Stop on a repeated material pre-session failure, any post-device-session
 unexplained failure, target ambiguity, missing rollback, forbidden archive

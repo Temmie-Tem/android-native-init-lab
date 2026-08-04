@@ -226,9 +226,20 @@ marker. One reviewed attended normal Android reboot rotated it and returned
 exact rooted FYG8 health. Fresh D0 then passed and the prepared record reopened
 under
 `workspace/private/runs/device-action-f1-live-v2/p300-ready1-prepared-20260804-2`.
-No Odin session or partition transfer occurred and F1 remains unarmed. The
-next action is the exact attended Process-v2 F1 transaction, with one candidate
-transfer, mandatory rollback, no replay, and final health verification.
+The exact attended Process-v2 transaction is now complete. The operator saw a
+normal candidate boot with no loop. Candidate ACM timed out, while the retained
+P3.00 pair passed its device-side integrity contract and reported
+`DEVICE_OTHER_ONLY`, link 0, no RESET, and no CONNECT_DONE, followed by the
+inherited not-attached/UNKNOWN/COREIDLE=1/SUSPHY=0 final state.
+
+The USB sidecar remains `UNKNOWN` and contributes no host-visibility claim.
+Both sources were alive before requested shutdown, untruncated, and returned
+zero after handling SIGTERM; the verifier required only `-15`. This is a
+future-only host verifier repair, not grounds for another candidate boot.
+
+Candidate and rollback transfers are exactly 1/1. The durable transaction is
+`CLOSED`, exact rooted FYG8 final health passed, recovery is not required, and
+zero owned sidecar processes remain.
 
 The concurrent A90 worktree paths were not read as authority, edited by this
 unit, staged, or used; A90 received zero commands.
