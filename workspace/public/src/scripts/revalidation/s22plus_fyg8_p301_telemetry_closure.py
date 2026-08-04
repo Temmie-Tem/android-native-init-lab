@@ -62,6 +62,10 @@ def _subtype_ordinal_tu(runtime: bytes) -> bytes:
             b"static long p294_publish_final_pair(\n",
         )
     )
+    expected_final_define = (
+        f"#define P301_EXPECTED_FINAL_DETAIL "
+        f"0x{spec.EXPECTED_FINAL_STATE_DETAIL:x}U\n"
+    ).encode("ascii")
     return (
         br'''
 #include <limits.h>
@@ -98,7 +102,9 @@ def _subtype_ordinal_tu(runtime: bytes) -> bytes:
 #define P301_DETAIL_CONNECT_SPEED_CONTRADICTION 0x600dU
 #define P301_DETAIL_TERMINAL_DOMAIN_CONTRADICTION 0x600eU
 #define P301_DETAIL_CHECKPOINT_ORDINAL_CONTRADICTION 0x600fU
-#define P301_EXPECTED_FINAL_DETAIL 0xe06U
+'''
+        + expected_final_define
+        + br'''
 #define P301_KNOWN_OTHER_MASK_MAX 0x3fU
 #define S22_P294_POSITION_USBLNKST 105U
 #define S22_P294_POSITION_FINAL_STATE 106U
@@ -181,13 +187,15 @@ static int known_and_unknown_types(void) {
         || result.other_device_records != 1U
         || result.unknown_subtype_seen) return 11;
     uint16_t detail = 0U;
-    if (p301_terminal_detail(&result, 7U, 0xe06U, &detail) != 0
+    if (p301_terminal_detail(
+            &result, 7U, P301_EXPECTED_FINAL_DETAIL, &detail) != 0
         || detail != 0x4029U) return 12;
     if (consume_other(&state, 11U, 2U, 2U) != 0) return 13;
     if (result.other_type_mask != 0x21U
         || result.first_other_info != 10U
         || result.other_device_records != 2U) return 14;
-    if (p301_terminal_detail(&result, 7U, 0xe06U, &detail) != 0
+    if (p301_terminal_detail(
+            &result, 7U, P301_EXPECTED_FINAL_DETAIL, &detail) != 0
         || detail != (uint16_t)(0x4001U + ((0x20U * 16U + 10U) * 4U) + 1U))
         return 15;
 
@@ -196,7 +204,8 @@ static int known_and_unknown_types(void) {
     if (consume_other(&state, 8U, 3U, 1U) != 0
         || !result.unknown_subtype_seen
         || result.other_type_mask != 0U) return 16;
-    if (p301_terminal_detail(&result, 7U, 0xe06U, &detail) != 0
+    if (p301_terminal_detail(
+            &result, 7U, P301_EXPECTED_FINAL_DETAIL, &detail) != 0
         || detail != P301_UNKNOWN_SUBTYPE_DETAIL) return 17;
 
     result = (struct p282_bind_trace_result){0};
@@ -204,7 +213,8 @@ static int known_and_unknown_types(void) {
     if (consume_other(&state, 4U, 4U, 1U) != 0
         || consume_other(&state, 12U, 5U, 2U) != 0) return 18;
     if (result.other_type_mask != 2U || !result.unknown_subtype_seen) return 19;
-    if (p301_terminal_detail(&result, 7U, 0xe06U, &detail) != 0
+    if (p301_terminal_detail(
+            &result, 7U, P301_EXPECTED_FINAL_DETAIL, &detail) != 0
         || detail != P301_UNKNOWN_SUBTYPE_DETAIL) return 20;
     return 0;
 }
@@ -219,7 +229,8 @@ static int buckets_drift_and_guard(void) {
             .other_device_records = counts[bucket],
         };
         uint16_t detail = 0U;
-        if (p301_terminal_detail(&result, 7U, 0xe06U, &detail) != 0
+        if (p301_terminal_detail(
+                &result, 7U, P301_EXPECTED_FINAL_DETAIL, &detail) != 0
             || detail != (uint16_t)(0x4001U + bucket)) return 30 + bucket;
     }
     struct p282_bind_trace_result zero_mask = {
@@ -227,12 +238,15 @@ static int buckets_drift_and_guard(void) {
         .other_device_records = 1U,
     };
     uint16_t detail = 0U;
-    if (p301_terminal_detail(&zero_mask, 7U, 0xe06U, &detail) != 0
+    if (p301_terminal_detail(
+            &zero_mask, 7U, P301_EXPECTED_FINAL_DETAIL, &detail) != 0
         || detail != P301_DETAIL_SUBTYPE_EMPTY_MASK) return 35;
-    if (p301_terminal_detail(&zero_mask, 7U, 0xe07U, &detail) != 0
-        || detail != 0x5008U) return 36;
-    if (p301_terminal_detail(&zero_mask, 0U, 0xe06U, &detail) != 0
-        || detail != 0x5007U) return 37;
+    if (p301_terminal_detail(
+            &zero_mask, 7U, P301_EXPECTED_FINAL_DETAIL + 1U, &detail) != 0
+        || detail != 0x5004U) return 36;
+    if (p301_terminal_detail(
+            &zero_mask, 0U, P301_EXPECTED_FINAL_DETAIL, &detail) != 0
+        || detail != 0x5003U) return 37;
     if (p301_terminal_detail(&zero_mask, 7U, 0xf80U, &detail) != 0
         || detail != 0x6005U) return 38;
     return 0;

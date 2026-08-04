@@ -53,7 +53,12 @@ UNKNOWN_SUBTYPE_DETAIL = 0x4FC1
 FINAL_DRIFT_DETAIL_BASE = 0x5001
 FINAL_DRIFT_VALUE_COUNT = base.FINAL_STATE_VALUE_COUNT
 FINAL_DRIFT_DETAIL_MAX = FINAL_DRIFT_DETAIL_BASE + FINAL_DRIFT_VALUE_COUNT - 1
-EXPECTED_FINAL_STATE_DETAIL = base.FINAL_STATE_DETAIL_BASE + 6
+EXPECTED_FINAL_STATE_DETAIL = base.encode_final_state(
+    base.STATE_NOT_ATTACHED,
+    base.SPEED_UNKNOWN,
+    1,
+    0,
+)
 EXPECTED_FINAL_STATE_INDEX = (
     EXPECTED_FINAL_STATE_DETAIL - base.FINAL_STATE_DETAIL_BASE
 )
@@ -315,7 +320,7 @@ def validate() -> dict[str, Any]:
         or UNKNOWN_SUBTYPE_DETAIL != 0x4FC1
         or FINAL_DRIFT_DETAIL_MAX != 0x5084
         or expected
-        != {"state": 1, "speed": 0, "coreidle": 1, "susphy": 0}
+        != {"state": 0, "speed": 0, "coreidle": 1, "susphy": 0}
         or len(exact_detail_rules()) != len(base.exact_detail_rules())
     ):
         raise ValueError("P3.01 fixed-Image telemetry contract differs")

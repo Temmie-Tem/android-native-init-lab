@@ -39,7 +39,7 @@ EXPECTED_IMAGE = {
     "size": 41490944,
     "sha256": "01457240881b432f725b0f2d795813c38ef7cca4365633f9b0fc7c3a62744a3f",
 }
-DEFAULT_OUT = Path("workspace/private/outputs/s22plus_fyg8_p301/intent")
+DEFAULT_OUT = Path("workspace/private/outputs/s22plus_fyg8_p301_r1/intent")
 DEFAULT_INTENT = DEFAULT_OUT / "overlay-intent.json"
 DEFAULT_MATERIALIZED = DEFAULT_OUT / "materialized-sources"
 

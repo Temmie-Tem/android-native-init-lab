@@ -47,6 +47,14 @@ def prefix(ordinal: int) -> bytes:
 
 
 class P301TelemetryTests(unittest.TestCase):
+    def test_expected_final_detail_is_the_exact_p300_baseline(self) -> None:
+        self.assertEqual(spec.EXPECTED_FINAL_STATE_DETAIL, 0xE02)
+        self.assertEqual(
+            spec.decode_final_state(spec.EXPECTED_FINAL_STATE_DETAIL),
+            {"state": 0, "speed": 0, "coreidle": 1, "susphy": 0},
+        )
+        self.assertNotEqual(spec.EXPECTED_FINAL_STATE_DETAIL, 0xE06)
+
     def test_complete_4032_value_subtype_space_round_trips(self) -> None:
         details = set()
         for mask in range(1, 64):

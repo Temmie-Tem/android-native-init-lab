@@ -39,14 +39,28 @@ the designed final-drift branch before subtype encoding on the very state that
 P3.01 was intended to refine. The retained record is valid and device health
 is unambiguous, but the subtype objective is `NO_PROOF_OBSERVER`.
 
-The next bounded unit is a narrow userspace-only correction: derive the
-expected final detail from the exact P3.00 baseline (`0xE02`) instead of the
-incorrect literal `0xE06`, update the matching generated-C closure and tests,
-then reproduce the boot-only package over the unchanged qualified P3.00 Image.
-No kernel or Full-LTO rebuild is indicated. Because this changes the result
-selection machinery, review only that changed userspace closure and its package
-binding before a future attended F1; do not repeat the already-qualified kernel
-review or add an unrelated control boot.
+The narrow userspace-only correction is now host-complete. The expected final
+detail is derived from the canonical P3.00 encoder as `0xE02` instead of copied
+as a literal. Generated C uses that same value at one definition site, executes
+the known/unknown subtype and all four bucket branches at `0xE02`, and retains
+the final-state and ingress-mismatch drift branches. The fixed P3.00 Image and
+15-probe descriptor are unchanged; no kernel or Full-LTO rebuild occurred.
+
+The new immutable overlay intent has semantic SHA-256 `996f0885...`; the new
+static `/init` is 66,384 bytes at SHA-256 `17eae28a...`. Independent candidate
+A/B packages are byte-identical at AP SHA-256 `d281bef8...`, each containing
+only `boot.img.lz4`, and both recover the unchanged Image SHA-256 `01457240...`.
+The static checker passes, the combined userspace/inherited/sidecar regression
+passes 33/33, and the ready-manifest rehearsal reproduces SHA-256
+`dcb9a96f...`. The contract-required narrow independent check reviewed only
+the changed selection closure and package binding and returned `PASS_GO` with
+no finding. No device command or A90 action occurred.
+
+The next step is fresh connected D0 preparation against
+`s22plus_fyg8_p301_r1_process_v2_ready_1.json`. If the closed P3.01 retained
+record is still the baseline, one attended normal Android reboot may rotate it
+before a second clean D0. Do not reuse the consumed P3.01 transaction or
+candidate.
 
 ## Selected Bounded Unit: P3.00 Event-Ingress/IRQ Attribution (Closed)
 
