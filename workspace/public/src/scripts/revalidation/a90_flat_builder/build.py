@@ -433,6 +433,9 @@ def overlay_ramdisk(
         for relative in manifest["ramdisk"]["obsolete_engines"]:
             obsolete = safe_ramdisk_path(ramdisk, relative, "obsolete engine")
             obsolete.unlink(missing_ok=True)
+        for relative in manifest["ramdisk"].get("remove_entries", []):
+            removed = safe_ramdisk_path(ramdisk, relative, "removed entry")
+            removed.unlink(missing_ok=True)
         if manifest["engine"]["enabled"]:
             if engine is None:
                 raise RuntimeError("enabled engine output is absent")

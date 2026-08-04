@@ -387,6 +387,11 @@ static void diag_emit_services(struct a90_diag_sink *sink) {
         enum a90_service_id id = a90_service_id_at(index);
         struct a90_service_info info;
 
+#if A90_MINIMAL_SERVER_CORE_SURFACE
+        if (id == A90_SERVICE_RSHELL || id == A90_SERVICE_LONGSOAK) {
+            continue;
+        }
+#endif
         if (a90_service_info(id, &info) < 0) {
             continue;
         }
@@ -430,6 +435,7 @@ static void diag_emit_network(struct a90_diag_sink *sink) {
               status.tcp_max_clients);
 }
 
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
 static void diag_emit_rshell(struct a90_diag_sink *sink) {
     struct a90_service_info info;
     struct a90_netservice_status net_status;
@@ -480,6 +486,7 @@ static void diag_emit_rshell(struct a90_diag_sink *sink) {
               diag_yesno(net_status.tcpctl_running),
               A90_RSHELL_LOG_PATH);
 }
+#endif
 
 static void diag_emit_exposure(struct a90_diag_sink *sink) {
     struct a90_exposure_snapshot exposure;
@@ -515,6 +522,7 @@ static void diag_emit_exposure(struct a90_diag_sink *sink) {
               exposure.tcpctl_token_mode,
               diag_yesno(exposure.tcpctl_token_owner_only),
               exposure.tcpctl_token_path != NULL ? exposure.tcpctl_token_path : "-");
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     diag_emit(sink,
               "rshell=%s pid=%ld bind=%s port=%s flag=%s token=%s mode=%s owner_only=%s flag_path=%s token_path=%s token_value=hidden\r\n",
               exposure.rshell_running ? "running" : "stopped",
@@ -527,6 +535,7 @@ static void diag_emit_exposure(struct a90_diag_sink *sink) {
               diag_yesno(exposure.rshell_token_owner_only),
               exposure.rshell_flag_path,
               exposure.rshell_token_path);
+#endif
 }
 
 static void diag_emit_proc_files(struct a90_diag_sink *sink, bool include_logs, size_t log_tail_bytes) {
@@ -538,7 +547,9 @@ static void diag_emit_proc_files(struct a90_diag_sink *sink, bool include_logs, 
     if (!include_logs) {
         diag_emit(sink, "path=<redacted> ready=%s tail=redacted\r\n", diag_yesno(a90_log_ready()));
         diag_emit(sink, "[helper-deploy-log]\r\npath=<redacted> tail=redacted\r\n");
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
         diag_emit(sink, "[rshell-log]\r\npath=<redacted> tail=redacted\r\n");
+#endif
         return;
     }
     diag_emit(sink, "path=%s ready=%s\r\n", a90_log_path(), diag_yesno(a90_log_ready()));
@@ -550,11 +561,13 @@ static void diag_emit_proc_files(struct a90_diag_sink *sink, bool include_logs, 
     if (include_logs) {
         diag_emit_file_tail(sink, a90_helper_deploy_log_path(), 4096);
     }
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     diag_emit(sink, "[rshell-log]\r\n");
     diag_emit(sink, "path=%s\r\n", A90_RSHELL_LOG_PATH);
     if (include_logs) {
         diag_emit_file_tail(sink, A90_RSHELL_LOG_PATH, 4096);
     }
+#endif
 }
 
 static int diag_emit_report(struct a90_diag_sink *sink, bool verbose, bool include_logs, size_t log_tail_bytes) {
@@ -572,7 +585,9 @@ static int diag_emit_report(struct a90_diag_sink *sink, bool verbose, bool inclu
     diag_emit_userland(sink, verbose);
     diag_emit_services(sink);
     diag_emit_network(sink);
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     diag_emit_rshell(sink);
+#endif
     diag_emit_exposure(sink);
     if (verbose) {
         diag_emit_proc_files(sink, include_logs, log_tail_bytes);

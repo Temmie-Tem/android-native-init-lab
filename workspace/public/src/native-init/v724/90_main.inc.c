@@ -6388,8 +6388,13 @@ int main(void) {
         if (a90_reloaded) {
             pid_t hud_pid;
 
+#if A90_MINIMAL_SERVER_CORE_SURFACE
+            a90_console_printf("# Hot-reload: adopting autohud and refreshing tcpctl.\r\n");
+            a90_logf("boot", "reloaded fast-path: adopt autohud; refresh tcpctl");
+#else
             a90_console_printf("# Hot-reload: adopting autohud, refreshing tcpctl, restarting rshell.\r\n");
             a90_logf("boot", "reloaded fast-path: adopt autohud; refresh tcpctl; restart rshell");
+#endif
             hud_pid = auto_hud_adopt_pidfile();
             if (hud_pid > 0) {
                 a90_controller_set_menu_active(true);
@@ -6439,6 +6444,7 @@ int main(void) {
                 a90_console_printf("# Hot-reload: netservice disabled; tcpctl refresh skipped.\r\n");
                 a90_logf("boot", "hot-reload tcpctl skipped: netservice disabled");
             }
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
             if (rshell_enabled()) {
                 int rshell_rc;
 
@@ -6476,6 +6482,7 @@ int main(void) {
                 a90_console_printf("# Hot-reload: rshell disabled; refresh skipped.\r\n");
                 a90_logf("boot", "hot-reload rshell skipped: disabled");
             }
+#endif
             (void)a90_selftest_run_boot(&selftest_hooks, NULL);
             {
                 char guard_summary[96];
@@ -6546,6 +6553,7 @@ int main(void) {
             } else {
                 a90_logf("boot", "netservice disabled flag=%s", NETSERVICE_FLAG_PATH);
             }
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
             if (rshell_enabled()) {
                 int rshell_rc;
 
@@ -6579,6 +6587,7 @@ int main(void) {
             } else {
                 a90_logf("boot", "rshell disabled");
             }
+#endif
             (void)a90_wifi_start_boot_autoconnect_once();
             (void)a90_audio_boot_chime_start_once();
         }  /* end !a90_reloaded live-service re-init guard */

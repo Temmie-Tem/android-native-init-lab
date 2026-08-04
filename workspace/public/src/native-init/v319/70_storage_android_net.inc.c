@@ -735,6 +735,7 @@ static int cmd_netservice(char **argv, int argc) {
 }
 
 
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
 static void rshell_state_path(char *out, size_t out_size, const char *name) {
     const char *state_dir = a90_runtime_state_dir();
 
@@ -1244,6 +1245,7 @@ static int cmd_rshell(char **argv, int argc) {
     a90_console_printf("usage: rshell [status|audit|start|stop|enable|disable|token [show]|rotate-token [value]]\r\n");
     return -EINVAL;
 }
+#endif
 
 static int cmd_reattach(void) {
     if (a90_console_reattach("command", true) < 0) {

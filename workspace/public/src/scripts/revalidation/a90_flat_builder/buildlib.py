@@ -336,19 +336,47 @@ def validate_component_selection(manifest: dict[str, Any]) -> None:
         raise ManifestError("ramdisk or validation table is absent")
     ramdisk_path = engine.get("ramdisk_path")
     obsolete = ramdisk.get("obsolete_engines")
+    remove_entries = ramdisk.get("remove_entries", [])
     required = ramdisk.get("required_entries")
+    helper_path = ramdisk.get("helper_path")
     engine_strings = validation.get("engine_strings")
     if (
         not isinstance(ramdisk_path, str)
         or not ramdisk_path
         or not isinstance(obsolete, list)
         or any(not isinstance(item, str) or not item for item in obsolete)
+        or not isinstance(remove_entries, list)
+        or any(not isinstance(item, str) or not item for item in remove_entries)
         or not isinstance(required, list)
         or any(not isinstance(item, str) or not item for item in required)
+        or not isinstance(helper_path, str)
+        or not helper_path
         or not isinstance(engine_strings, list)
         or any(not isinstance(item, str) or not item for item in engine_strings)
     ):
         raise ManifestError("engine ramdisk selection is malformed")
+    if len(remove_entries) != len(set(remove_entries)):
+        raise ManifestError("ramdisk.remove_entries contains duplicates")
+    if set(remove_entries) & set(obsolete):
+        raise ManifestError("ramdisk removal sets overlap")
+    for relative in remove_entries:
+        path = PurePosixPath(relative)
+        if (
+            path.is_absolute()
+            or relative != path.as_posix()
+            or relative in {".", "init"}
+            or ".." in path.parts
+        ):
+            raise ManifestError(f"unsafe ramdisk.remove_entries path: {relative!r}")
+    protected = set(required)
+    protected.add(helper_path)
+    if engine["enabled"]:
+        protected.add(ramdisk_path)
+    overlap = sorted(set(remove_entries) & protected)
+    if overlap:
+        raise ManifestError(
+            f"ramdisk.remove_entries overlaps protected entries: {overlap!r}"
+        )
     if engine["enabled"]:
         if ramdisk_path not in required or not engine_strings:
             raise ManifestError("enabled engine is not required and validated")
@@ -376,6 +404,11 @@ def validate_ramdisk_component_listing(
         raise ManifestError(
             "packed ramdisk engine selection mismatch: "
             f"expected={expected!r} present={present!r}"
+        )
+    retained = sorted(set(manifest["ramdisk"].get("remove_entries", [])) & listing)
+    if retained:
+        raise ManifestError(
+            f"packed ramdisk retained removed entries: {retained!r}"
         )
 
 

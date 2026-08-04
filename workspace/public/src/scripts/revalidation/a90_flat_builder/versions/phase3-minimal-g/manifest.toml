@@ -1,10 +1,10 @@
 schema = "a90-flat-builder-v1"
 extends = "v3404-effective"
-profile = "phase3-minimal-f-power-recovery-ui"
-cycle = "H0-PHASE3F"
-decision = "phase3-minimal-f-remove-nonserver-physical-ui"
+profile = "phase3-minimal-g-server-core"
+cycle = "H0-PHASE3G"
+decision = "phase3-minimal-g-retain-wifi-gpu-boot-chime"
 candidate_authority = false
-random_seed = "a90-phase3-minimal-f-power-recovery-ui"
+random_seed = "a90-phase3-minimal-g-server-core"
 
 [init]
 closure_sha256 = "6a79649df14e3948b68275ec0076b7cd60536e8becd9f8549c29b78786c0b0e4"
@@ -18,8 +18,9 @@ cflags = [
   "-DA90_MINIMAL_NO_BOOT_WRITE_FLASH_SURFACE=1",
   "-DA90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE=1",
   "-DA90_MINIMAL_POWER_RECOVERY_UI=1",
-  '-DINIT_VERSION="0.11.167"',
-  '-DINIT_BUILD="phase3-minimal-f-power-recovery-ui"',
+  "-DA90_MINIMAL_SERVER_CORE_SURFACE=1",
+  '-DINIT_VERSION="0.11.168"',
+  '-DINIT_BUILD="phase3-minimal-g-server-core"',
   '-DINIT_CREATOR="made by device owner"',
   '-DA90_WIFI_TEST_BOOT_LABEL="v2807"',
   '-DA90_WIFI_TEST_BOOT_KLOG_PREFIX="A90v2807"',
@@ -53,13 +54,8 @@ cflags = [
 ]
 sources = [
   "init_v724.c",
-  "a90_app_about.c",
-  "a90_app_audio.c",
   "a90_app_displaytest.c",
   "a90_app_inputmon.c",
-  "a90_app_log.c",
-  "a90_app_network.c",
-  "a90_app_wifi.c",
   "a90_audio.c",
   "a90_audio_profile.c",
   "a90_audio_query.c",
@@ -75,13 +71,11 @@ sources = [
   "a90_exposure.c",
   "a90_helper.c",
   "a90_hud.c",
-  "a90_init_reload.c",
   "a90_input.c",
   "a90_input_cmd.c",
   "a90_kernelinv.c",
   "a90_kms.c",
   "a90_log.c",
-  "a90_longsoak.c",
   "a90_menu.c",
   "a90_metrics.c",
   "a90_monitor.c",
@@ -142,20 +136,49 @@ obsolete_engines = [
   "bin/a90_doomgeneric_private_engine_v3403",
   "bin/a90_doomgeneric_private_engine_v3404",
 ]
+remove_entries = [
+  "bin/a90_cpustress",
+  "bin/a90_longsoak",
+  "bin/a90_rshell",
+  "bin/a90sleep",
+]
 required_entries = [
   "init",
   "bin/a90_android_execns_probe",
+  "bin/a90_tcpctl",
+  "bin/a90_usbnet",
+  "bin/busybox",
+  "bin/toybox",
   "a90/audio/manifests/audio-setcal-internal-speaker-safe.manifest",
+  "a90/audio/setcal/internal-speaker-safe/00-payload-cal39-core-custom-topologies.bin",
+  "a90/audio/setcal/internal-speaker-safe/00-set-arg-cal39-core-custom-topologies.bin",
+  "a90/audio/setcal/internal-speaker-safe/01-set-arg-cal20-realhal-01.bin",
+  "a90/audio/setcal/internal-speaker-safe/02-set-arg-cal20-realhal-02.bin",
+  "a90/audio/setcal/internal-speaker-safe/03-set-arg-cal13.bin",
+  "a90/audio/setcal/internal-speaker-safe/04-set-arg-cal09.bin",
+  "a90/audio/setcal/internal-speaker-safe/05-payload-cal11.bin",
+  "a90/audio/setcal/internal-speaker-safe/05-set-arg-cal11.bin",
+  "a90/audio/setcal/internal-speaker-safe/06-set-arg-cal12.bin",
+  "a90/audio/setcal/internal-speaker-safe/07-payload-cal15.bin",
+  "a90/audio/setcal/internal-speaker-safe/07-set-arg-cal15.bin",
+  "a90/audio/setcal/internal-speaker-safe/08-set-arg-cal23.bin",
+  "a90/audio/setcal/internal-speaker-safe/09-payload-cal16.bin",
+  "a90/audio/setcal/internal-speaker-safe/09-set-arg-cal16.bin",
+  "a90/audio/setcal/internal-speaker-safe/10-set-arg-cal21.bin",
 ]
 
 [validation]
 init_strings = [
-  "A90 Linux init 0.11.167 (phase3-minimal-f-power-recovery-ui)",
+  "A90 Linux init 0.11.168 (phase3-minimal-g-server-core)",
   "video.status.doom_surface=removed",
   "video.demo.doom=removed",
   "safety.boot_write_flash_surface=removed",
   "safety.dedicated_cpu_stress_surface=removed",
   "ui.power_recovery_surface=minimal",
+  "surface.server_core=minimal",
+  "server_core.wifi=retained",
+  "server_core.gpu=retained",
+  "server_core.audio_boot_chime=retained",
   "SERVER RECOVERY",
   "POWER STORAGE HEALTH",
   "A90D3DISPLAY",

@@ -6,7 +6,9 @@
 #include "a90_helper.h"
 #include "a90_kms.h"
 #include "a90_log.h"
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
 #include "a90_longsoak.h"
+#endif
 #include "a90_metrics.h"
 #include "a90_netservice.h"
 #include "a90_runtime.h"
@@ -412,12 +414,20 @@ static void selftest_service(void) {
     a90_netservice_status(&net_status);
     snprintf(detail,
              sizeof(detail),
+#if A90_MINIMAL_SERVER_CORE_SURFACE
+             "hud=%ld tcpctl=%ld adbd=%ld ncm=%s",
+             (long)a90_service_pid(A90_SERVICE_HUD),
+             net_status.tcpctl_running ? (long)net_status.tcpctl_pid : -1L,
+             (long)a90_service_pid(A90_SERVICE_ADBD),
+             net_status.ncm_present ? "yes" : "no");
+#else
              "hud=%ld tcpctl=%ld adbd=%ld rshell=%ld ncm=%s",
              (long)a90_service_pid(A90_SERVICE_HUD),
              net_status.tcpctl_running ? (long)net_status.tcpctl_pid : -1L,
              (long)a90_service_pid(A90_SERVICE_ADBD),
              (long)a90_service_pid(A90_SERVICE_RSHELL),
              net_status.ncm_present ? "yes" : "no");
+#endif
     selftest_record_elapsed("service",
                             A90_SELFTEST_PASS,
                             0,
@@ -458,6 +468,7 @@ static void selftest_audio(void) {
                             detail);
 }
 
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
 static void selftest_longsoak(void) {
     long started_ms = monotonic_millis();
     struct a90_longsoak_status status;
@@ -495,6 +506,7 @@ static void selftest_longsoak(void) {
                             started_ms,
                             detail);
 }
+#endif
 
 static void selftest_usb(void) {
     long started_ms = monotonic_millis();
@@ -545,7 +557,9 @@ static int selftest_run(const struct a90_selftest_boot_hooks *hooks, void *ctx, 
     selftest_input();
     selftest_service();
     selftest_audio();
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     selftest_longsoak();
+#endif
     selftest_usb();
 
     selftest_duration_ms = monotonic_millis() - started_ms;

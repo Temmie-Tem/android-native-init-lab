@@ -87,7 +87,9 @@ static void cmd_help(void) {
     a90_console_printf("inputmonitor [events]\r\n");
     a90_console_printf("displaytest [0-3|colors|font|safe|layout]\r\n");
     a90_console_printf("cutoutcal [x y size]\r\n");
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     a90_console_printf("screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|wsta|audio-status|audio-profile|audio-stages|audio-map|audio-chime|about-version|about-changelog]\r\n");
+#endif
     a90_console_printf("menu\r\n");
     a90_console_printf("screenmenu\r\n");
     a90_console_printf("hide\r\n");
@@ -111,7 +113,9 @@ static void cmd_help(void) {
     a90_console_printf("startadbd\r\n");
     a90_console_printf("stopadbd\r\n");
     a90_console_printf("netservice [status|start|stop|enable|disable]\r\n");
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     a90_console_printf("rshell [status|audit|start|stop|enable|disable|token [show]|rotate-token [value]]\r\n");
+#endif
     a90_console_printf("service [list|status|start|stop|enable|disable] [name]\r\n");
     a90_console_printf("reattach\r\n");
     a90_console_printf("usbacmreset\r\n");
@@ -244,7 +248,9 @@ static void cmd_status(void) {
     char pstore_summary[192];
     char watchdoginv_summary[192];
     char tracefs_summary[256];
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     char longsoak_summary[192];
+#endif
     struct a90_runtime_status runtime_status;
     struct a90_kms_info kms_info;
     struct a90_exposure_snapshot exposure;
@@ -257,7 +263,9 @@ static void cmd_status(void) {
     a90_reaper_summary(reaper_summary, sizeof(reaper_summary));
     a90_helper_summary(helper_summary, sizeof(helper_summary));
     a90_userland_summary(userland_summary, sizeof(userland_summary));
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     a90_longsoak_summary(longsoak_summary, sizeof(longsoak_summary));
+#endif
     a90_kernelinv_summary(kernelinv_summary, sizeof(kernelinv_summary));
     a90_sensormap_summary_text(sensormap_summary, sizeof(sensormap_summary));
     a90_pstore_summary(pstore_summary, sizeof(pstore_summary));
@@ -277,6 +285,12 @@ static void cmd_status(void) {
 #if A90_MINIMAL_POWER_RECOVERY_UI
     a90_console_printf("ui.power_recovery_surface=minimal\r\n");
 #endif
+#if A90_MINIMAL_SERVER_CORE_SURFACE
+    a90_console_printf("surface.server_core=minimal\r\n");
+    a90_console_printf("server_core.wifi=retained\r\n");
+    a90_console_printf("server_core.gpu=retained\r\n");
+    a90_console_printf("server_core.audio_boot_chime=retained\r\n");
+#endif
     a90_console_printf("creator: %s\r\n", INIT_CREATOR);
     a90_console_printf("boot: %s\r\n", boot_summary);
     a90_console_printf("selftest: %s\r\n", selftest_summary);
@@ -290,7 +304,9 @@ static void cmd_status(void) {
     a90_console_printf("%s\r\n", pstore_summary);
     a90_console_printf("%s\r\n", watchdoginv_summary);
     a90_console_printf("%s\r\n", tracefs_summary);
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     a90_console_printf("longsoak: %s\r\n", longsoak_summary);
+#endif
     a90_console_printf("runtime: backend=%s root=%s fallback=%s writable=%s\r\n",
             runtime_status.backend,
             runtime_status.root,
@@ -339,11 +355,13 @@ static void cmd_status(void) {
 #if A90_TRANSPORT_STATUS_CONTRACT
         print_transport_status_contract(&net_status);
 #endif
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
         (void)a90_service_reap(A90_SERVICE_RSHELL, NULL);
         a90_console_printf("rshell: %s pid=%ld port=%s\r\n",
                 a90_service_pid(A90_SERVICE_RSHELL) > 0 ? "running" : "stopped",
                 (long)a90_service_pid(A90_SERVICE_RSHELL),
                 A90_RSHELL_PORT);
+#endif
     }
     a90_storage_cmd_storage();
     a90_storage_cmd_mountsd((char *[]){ "mountsd", "status" }, 2);
@@ -627,7 +645,9 @@ static int cmd_bootstatus(void) {
     char pstore_summary[192];
     char watchdoginv_summary[192];
     char tracefs_summary[256];
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     char longsoak_summary[192];
+#endif
     struct a90_runtime_status runtime_status;
     struct a90_exposure_snapshot exposure;
     size_t count = a90_timeline_count();
@@ -639,7 +659,9 @@ static int cmd_bootstatus(void) {
     a90_reaper_summary(reaper_summary, sizeof(reaper_summary));
     a90_helper_summary(helper_summary, sizeof(helper_summary));
     a90_userland_summary(userland_summary, sizeof(userland_summary));
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     a90_longsoak_summary(longsoak_summary, sizeof(longsoak_summary));
+#endif
     a90_kernelinv_summary(kernelinv_summary, sizeof(kernelinv_summary));
     a90_sensormap_summary_text(sensormap_summary, sizeof(sensormap_summary));
     a90_pstore_summary(pstore_summary, sizeof(pstore_summary));
@@ -660,12 +682,14 @@ static int cmd_bootstatus(void) {
     a90_console_printf("%s\r\n", pstore_summary);
     a90_console_printf("%s\r\n", watchdoginv_summary);
     a90_console_printf("%s\r\n", tracefs_summary);
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     a90_console_printf("longsoak: %s\r\n", longsoak_summary);
     (void)a90_service_reap(A90_SERVICE_RSHELL, NULL);
     a90_console_printf("rshell: %s pid=%ld port=%s\r\n",
             a90_service_pid(A90_SERVICE_RSHELL) > 0 ? "running" : "stopped",
             (long)a90_service_pid(A90_SERVICE_RSHELL),
             A90_RSHELL_PORT);
+#endif
     a90_console_printf("runtime: backend=%s root=%s fallback=%s writable=%s\r\n",
             runtime_status.backend,
             runtime_status.root,

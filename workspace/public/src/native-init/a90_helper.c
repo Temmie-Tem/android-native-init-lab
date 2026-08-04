@@ -402,13 +402,19 @@ static struct a90_helper_entry *helper_find_mutable(const char *name) {
 }
 
 static void helper_add_defaults(void) {
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     (void)helper_add("a90_cpustress", "ramdisk-mirror", CPUSTRESS_HELPER);
+#endif
     (void)helper_add("a90_usbnet", "net-helper", NETSERVICE_USB_HELPER);
     (void)helper_add("a90_tcpctl", "tcp-control", NETSERVICE_TCPCTL_HELPER);
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     (void)helper_add("a90_rshell", "remote-shell", A90_RSHELL_RAMDISK_HELPER);
+#endif
     (void)helper_add("busybox", "userland", A90_BUSYBOX_HELPER);
     (void)helper_add("toybox", "userland", NETSERVICE_TOYBOX);
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     (void)helper_add("a90sleep", "test-helper", A90_SLEEP_HELPER);
+#endif
 }
 
 static void helper_set_manifest_path(void) {

@@ -29,14 +29,18 @@
 #include <unistd.h>
 
 #include "../a90_config.h"
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
 #include "../a90_app_about.h"
 #include "../a90_app_audio.h"
+#endif
 #include "../a90_app_cpustress.h"
 #include "../a90_app_displaytest.h"
 #include "../a90_app_inputmon.h"
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
 #include "../a90_app_log.h"
 #include "../a90_app_network.h"
 #include "../a90_app_wifi.h"
+#endif
 #include "../a90_audio.h"
 #include "../a90_console.h"
 #include "../a90_controller.h"
@@ -53,9 +57,13 @@
 #include "../a90_boot_audit.h"
 #include "../a90_boot_write_probe.h"
 #include "../a90_boot_write_e1.h"
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
 #include "../a90_init_reload.h"
+#endif
 #include "../a90_kms.h"
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
 #include "../a90_longsoak.h"
+#endif
 #include "../a90_log.h"
 #include "../a90_menu.h"
 #include "../a90_metrics.h"

@@ -1,0 +1,152 @@
+{
+  "schema": "a90_phase3_minimal_g_server_core_independent_review_v1",
+  "status": "PASS_GO",
+  "decision": "PASS_GO",
+  "review_date": "2026-08-05",
+  "reviewed_base_commit": "b19f43a56daa9c8271f0d712797d6dd675690c23",
+  "reviewed_base_tree": "4ad78c87805594486984c6ff3ba183ba056dea2b",
+  "reviewed_worktree_closure": true,
+  "reviewer": "independent subagent a90_capability_review (Bohr)",
+  "target": "Samsung Galaxy A90 5G",
+  "risk_tier": "H0",
+  "capability": "A90_PHASE3_MINIMAL_G_SERVER_CORE",
+  "candidate_authority": false,
+  "device_authority_granted": false,
+  "device_contact": false,
+  "usb_contact": false,
+  "payload_transfer": false,
+  "partition_write": false,
+  "flash": false,
+  "reboot": false,
+  "other_target_touched": false,
+  "higher_precedence_contracts": [
+    {
+      "path": "AGENTS.md",
+      "sha256": "3289aedf8b55c2d74e3252c72e7b6b9bc003ef62379fc6e7b192a845c80dd747"
+    },
+    {
+      "path": "docs/operations/targets/A90_TARGET_CONTRACT.md",
+      "sha256": "92ba236f045c240d909b02553a69b1eb13a2d7328580f969d428dbaa62131f9d"
+    },
+    {
+      "path": "docs/operations/DEVICE_ACTION_RISK_TIERS.md",
+      "sha256": "c2bc3b99b364ec3d08419dc83cca14f35ea9edc1d03173e237740b786ecf8a96"
+    }
+  ],
+  "execution_critical_binding": {
+    "native_init_closure_sha256": "6a79649df14e3948b68275ec0076b7cd60536e8becd9f8549c29b78786c0b0e4",
+    "flat_builder_sha256": "df007f92c4685a7195bb95ea35007eaec1c40e54f59ab59ba6c8a979461b24bf",
+    "flat_builder_library_sha256": "f031330fbe3fcb262a5d100157636ff731823360b6214cd2ad96a276c0a1cd3c",
+    "selector": "A90_MINIMAL_SERVER_CORE_SURFACE=1",
+    "selector_default": 0,
+    "profile": "phase3-minimal-g-server-core"
+  },
+  "qualification_instance": {
+    "qualification": {
+      "path": "docs/reports/A90_PHASE3_MINIMAL_G_SERVER_CORE_QUALIFICATION_2026-08-05.json",
+      "bytes": 6978,
+      "sha256": "2eb5a9045151e6e4379f788e3bc9dc84924f7ae6d718b17a29cb66fa01c4dfcd"
+    },
+    "manifest": {
+      "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-g/manifest.toml",
+      "bytes": 6663,
+      "sha256": "8abb0bb03719fe382b51dd232428458bb8098db340bd6d7a9098dc600c476120",
+      "effective_sha256": "eb87d73afb73cf199e089cad544b75ab0de5d6e1141d018102ba978d06f020e3"
+    },
+    "focused_tests": {
+      "path": "workspace/public/src/scripts/revalidation/test_a90_flat_builder.py",
+      "bytes": 46548,
+      "sha256": "a7132bc61c0d4d6364f1fc41bd32a4029fa419818123a505a0f1a3c85d2d30e8",
+      "result": "36/36 PASS"
+    },
+    "fresh_ab": {
+      "private_root": "workspace/private/outputs/a90-phase3-minimal-g-ab-20260805-06",
+      "receipt_sha256": "90a330fc46aa89cc666ffc000d1e8dce9ffc7025851e4e480253bbcf6aca312e",
+      "byte_identical": true,
+      "accepted_boot_unchanged": true,
+      "init_bytes": 1657840,
+      "init_sha256": "94dc78da87198970b731dff26d3bb81780fdc98dab95d8e84581a973d034c4ed",
+      "ramdisk_sha256": "a0fcefe1e6b4789b69f2f9cb31d5da217641a9992c1c371fd98f07314bbc3763",
+      "boot_sha256": "f6eccc8e8b372e957d67e64e088acea4f7fddf351873d7c297e1fa4393f4169a",
+      "helper_sha256": "fa395d3ecb6944a57487f3966948a634596157e4de3fdc39575a2fc502d1ceef"
+    },
+    "minimal_f_default_zero_regression": {
+      "private_root": "workspace/private/outputs/a90-phase3-minimal-f-regression-20260805-03",
+      "receipt_sha256": "f4d6d438ffa55aadab8ad49b8559307518f07178fdb4c1cc054430a0497f6199",
+      "all_four_artifacts_equal_prior_minimal_f": true
+    }
+  },
+  "reviewed_semantics": {
+    "retained": [
+      "audio and one-shot boot chime",
+      "GPU/KMS and display/input bring-up diagnostics",
+      "Wi-Fi and netservice",
+      "server-distro status and hardware contract",
+      "SD switch_root",
+      "health and recovery/reboot/poweroff"
+    ],
+    "removed": [
+      "screenapp and five screen-app translation units",
+      "rshell command, service resolution, boot startup, diagnostics, and helper",
+      "longsoak command, service resolution, selftest, object, and helper",
+      "init reload command and object",
+      "dedicated userdata appliance and dpublic presenter root commands",
+      "cpustress and a90sleep packed helpers"
+    ],
+    "command_table_count": 99,
+    "translation_unit_count": 49,
+    "ramdisk_required_entry_count": 22,
+    "ramdisk_removed_entry_count": 4,
+    "internal_cleanup_boundary": "Shared a90_server_distro userdata and dpublic cleanup remains for safe stale-display release, but its dedicated root commands are unreachable in minimal-G",
+    "exposure_health": "The retained netservice-enabled and tcpctl-stopped warning remains compiled in while rshell-only collection and text are absent"
+  },
+  "review_findings": [
+    {
+      "id": "H1",
+      "severity": "High",
+      "status": "CLOSED",
+      "finding": "The initial minimal-G manifest retained netservice, switch_root, and boot chime but did not require all of their packed runtime and audio dependencies",
+      "resolution": "The manifest now requires all 22 runtime and audio files, and a packed-newc negative test removes each one in turn and requires fail-closed rejection"
+    },
+    {
+      "id": "M1",
+      "severity": "Medium",
+      "status": "CLOSED",
+      "finding": "The initial rshell diagnostic guard also compiled out the retained netservice enabled-but-tcpctl-stopped warning",
+      "resolution": "The minimal-G branch retains that warning while removing rshell-only state, with an exact preprocessor regression; the default-zero branch preserves the original condition order and minimal-F artifacts"
+    }
+  ],
+  "validation": {
+    "focused_tests": "36/36 PASS",
+    "python_py_compile": "PASS",
+    "manifest_audit_minimal_g": "PASS",
+    "manifest_audit_minimal_f": "PASS",
+    "aarch64_static_link": "PASS",
+    "deterministic_a_b": "PASS",
+    "selected_command_inventory": "99 exact PASS",
+    "packed_ramdisk_inventory": "29 members and all required/remove constraints PASS",
+    "minimal_f_byte_identity": "PASS",
+    "scoped_diff_check": "PASS"
+  },
+  "retirement": {
+    "retire_on_native_init_or_builder_critical_hash_change": true,
+    "retire_on_selector_source_set_command_reachability_ramdisk_or_helper_semantic_change": true,
+    "retire_on_switch_root_or_display_cleanup_semantic_change": true,
+    "retire_on_higher_contract_or_permanent_boundary_change": true,
+    "retire_on_new_hazard_incident_or_ambiguous_device_safety_result": true,
+    "not_repeated_only_because_of": [
+      "ordinal",
+      "manifest",
+      "campaign",
+      "qualification"
+    ]
+  },
+  "scope_limits": {
+    "fresh_artifact_qualification_required": true,
+    "exact_runner_and_live_binding_required": true,
+    "a90_identity_health_rollback_recovery_and_attendance_required_for_f1": true,
+    "unattended_f1_authorized": false,
+    "live_switch_root_or_device_behavior_claim": false
+  },
+  "final_judgment": "PASS_GO for the exact A90 minimal-G server-core capability. It is reusable until a named retirement trigger, but grants no device or live authority."
+}

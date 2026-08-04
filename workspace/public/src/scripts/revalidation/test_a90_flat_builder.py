@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import copy
 from pathlib import Path
+import re
 import subprocess
 import tempfile
 import unittest
@@ -38,6 +39,9 @@ MINIMAL_E_MANIFEST = (
 )
 MINIMAL_F_MANIFEST = (
     HERE / "a90_flat_builder/versions/phase3-minimal-f/manifest.toml"
+)
+MINIMAL_G_MANIFEST = (
+    HERE / "a90_flat_builder/versions/phase3-minimal-g/manifest.toml"
 )
 
 
@@ -297,6 +301,222 @@ class A90FlatBuilderTest(unittest.TestCase):
             minimal,
             set(minimal["ramdisk"]["required_entries"]),
         )
+
+    def test_phase3_minimal_g_keeps_server_core_and_removes_legacy_helpers(self):
+        resolution = buildlib.resolve_manifest(MINIMAL_G_MANIFEST)
+        minimal = resolution.data
+        buildlib.validate_component_selection(minimal)
+        self.assertEqual(minimal["profile"], "phase3-minimal-g-server-core")
+        self.assertFalse(minimal["candidate_authority"])
+        self.assertFalse(minimal["engine"]["enabled"])
+        self.assertEqual(len(minimal["init"]["sources"]), 49)
+        self.assertIn(
+            "-DA90_MINIMAL_SERVER_CORE_SURFACE=1",
+            minimal["init"]["cflags"],
+        )
+        for retained in (
+            "a90_audio.c",
+            "a90_kms.c",
+            "a90_wifi.c",
+            "a90_server_distro.c",
+        ):
+            self.assertIn(retained, minimal["init"]["sources"])
+        for removed in (
+            "a90_app_about.c",
+            "a90_app_audio.c",
+            "a90_app_log.c",
+            "a90_app_network.c",
+            "a90_app_wifi.c",
+            "a90_init_reload.c",
+            "a90_longsoak.c",
+        ):
+            self.assertNotIn(removed, minimal["init"]["sources"])
+        self.assertEqual(
+            minimal["ramdisk"]["remove_entries"],
+            [
+                "bin/a90_cpustress",
+                "bin/a90_longsoak",
+                "bin/a90_rshell",
+                "bin/a90sleep",
+            ],
+        )
+        retained_runtime_entries = {
+            "init",
+            "bin/a90_android_execns_probe",
+            "bin/a90_tcpctl",
+            "bin/a90_usbnet",
+            "bin/busybox",
+            "bin/toybox",
+        }
+        retained_audio_entries = {
+            "a90/audio/manifests/audio-setcal-internal-speaker-safe.manifest",
+            "a90/audio/setcal/internal-speaker-safe/00-payload-cal39-core-custom-topologies.bin",
+            "a90/audio/setcal/internal-speaker-safe/00-set-arg-cal39-core-custom-topologies.bin",
+            "a90/audio/setcal/internal-speaker-safe/01-set-arg-cal20-realhal-01.bin",
+            "a90/audio/setcal/internal-speaker-safe/02-set-arg-cal20-realhal-02.bin",
+            "a90/audio/setcal/internal-speaker-safe/03-set-arg-cal13.bin",
+            "a90/audio/setcal/internal-speaker-safe/04-set-arg-cal09.bin",
+            "a90/audio/setcal/internal-speaker-safe/05-payload-cal11.bin",
+            "a90/audio/setcal/internal-speaker-safe/05-set-arg-cal11.bin",
+            "a90/audio/setcal/internal-speaker-safe/06-set-arg-cal12.bin",
+            "a90/audio/setcal/internal-speaker-safe/07-payload-cal15.bin",
+            "a90/audio/setcal/internal-speaker-safe/07-set-arg-cal15.bin",
+            "a90/audio/setcal/internal-speaker-safe/08-set-arg-cal23.bin",
+            "a90/audio/setcal/internal-speaker-safe/09-payload-cal16.bin",
+            "a90/audio/setcal/internal-speaker-safe/09-set-arg-cal16.bin",
+            "a90/audio/setcal/internal-speaker-safe/10-set-arg-cal21.bin",
+        }
+        self.assertEqual(
+            set(minimal["ramdisk"]["required_entries"]),
+            retained_runtime_entries | retained_audio_entries,
+        )
+        for marker in (
+            "surface.server_core=minimal",
+            "server_core.wifi=retained",
+            "server_core.gpu=retained",
+            "server_core.audio_boot_chime=retained",
+        ):
+            self.assertIn(marker, minimal["validation"]["init_strings"])
+        buildlib.validate_ramdisk_component_listing(
+            minimal,
+            set(minimal["ramdisk"]["required_entries"]),
+        )
+
+    def test_phase3_minimal_g_retained_runtime_and_audio_are_fail_closed(self):
+        minimal = buildlib.resolve_manifest(MINIMAL_G_MANIFEST).data
+        entries = {
+            name: b"content"
+            for name in minimal["ramdisk"]["required_entries"]
+        }
+        with tempfile.TemporaryDirectory() as temp_name:
+            archive = Path(temp_name) / "ramdisk.cpio"
+            archive.write_bytes(newc_archive(entries))
+            self.assertEqual(
+                build.validate_packed_ramdisk(minimal, archive),
+                set(entries),
+            )
+            for missing in sorted(entries):
+                with self.subTest(missing=missing):
+                    reduced = dict(entries)
+                    del reduced[missing]
+                    archive.write_bytes(newc_archive(reduced))
+                    with self.assertRaisesRegex(
+                        RuntimeError,
+                        "ramdisk required entries missing",
+                    ):
+                        build.validate_packed_ramdisk(minimal, archive)
+
+    def test_phase3_minimal_g_removed_ramdisk_entries_are_fail_closed(self):
+        minimal = buildlib.resolve_manifest(MINIMAL_G_MANIFEST).data
+        listing = set(minimal["ramdisk"]["required_entries"])
+        listing.add("bin/a90_rshell")
+        with self.assertRaisesRegex(
+            buildlib.ManifestError,
+            "packed ramdisk retained removed entries",
+        ):
+            buildlib.validate_ramdisk_component_listing(minimal, listing)
+
+        cases = {
+            "duplicate": ["bin/a90sleep", "bin/a90sleep"],
+            "overlap-obsolete": [minimal["engine"]["ramdisk_path"]],
+            "traversal": ["bin/../init"],
+            "alias": ["bin//a90sleep"],
+            "absolute": ["/bin/a90sleep"],
+            "protected-init": ["init"],
+            "protected-helper": [minimal["ramdisk"]["helper_path"]],
+        }
+        for name, entries in cases.items():
+            with self.subTest(name=name):
+                changed = copy.deepcopy(minimal)
+                changed["ramdisk"]["remove_entries"] = entries
+                with self.assertRaises(buildlib.ManifestError):
+                    buildlib.validate_component_selection(changed)
+
+    def test_phase3_minimal_g_preprocessed_command_table_is_server_scoped(self):
+        minimal = buildlib.resolve_manifest(MINIMAL_G_MANIFEST).data
+        init_root = REPO_ROOT / minimal["init"]["source_root"]
+        result = subprocess.run(
+            [
+                minimal["toolchain"]["cc"],
+                *minimal["init"]["cflags"],
+                "-E",
+                "-P",
+                init_root / "init_v724.c",
+            ],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        start = result.stdout.index(
+            "static const struct shell_command command_table[] = {"
+        )
+        end = result.stdout.index("\n};", start)
+        selected = result.stdout[start:end]
+        names = re.findall(r'^\s*\{ "([^"]+)",', selected, re.MULTILINE)
+        self.assertEqual(len(names), 99)
+        for retained in (
+            "audio",
+            "gpu",
+            "wifi",
+            "netservice",
+            "server-distro",
+            "switch-root-to-distro",
+            "recovery",
+            "reboot",
+            "poweroff",
+        ):
+            self.assertIn(retained, names)
+        for removed in (
+            "screenapp",
+            "rshell",
+            "longsoak",
+            "reload",
+            "userdata-appliance-preflight",
+            "userdata-appliance-formatter-probe",
+            "userdata-appliance-format",
+            "userdata-appliance-populate",
+            "switch-root-to-userdata",
+            "dpublic-hud-presenter",
+            "dpublic-hud-presenter-service",
+        ):
+            self.assertNotIn(removed, names)
+
+    def test_phase3_minimal_g_exposure_keeps_netservice_warning(self):
+        minimal = buildlib.resolve_manifest(MINIMAL_G_MANIFEST).data
+        init_root = REPO_ROOT / minimal["init"]["source_root"]
+        result = subprocess.run(
+            [
+                minimal["toolchain"]["cc"],
+                "-DA90_MINIMAL_SERVER_CORE_SURFACE=1",
+                "-E",
+                "-P",
+                init_root / "a90_exposure.c",
+            ],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        start = result.stdout.index(
+            "\nint a90_exposure_collect(struct a90_exposure_snapshot *out) {"
+        )
+        end = result.stdout.index(
+            "void a90_exposure_summary(",
+            start,
+        )
+        selected = result.stdout[start:end]
+        self.assertRegex(
+            selected,
+            r"if \(out->netservice_enabled && !out->tcpctl_running\)",
+        )
+        for removed in (
+            "out->rshell_enabled",
+            "out->rshell_running",
+            "out->rshell_token_present",
+            "out->rshell_token_owner_only",
+        ):
+            self.assertNotIn(removed, selected)
 
     def test_phase3_minimal_f_physical_menu_is_fail_closed(self):
         config = (

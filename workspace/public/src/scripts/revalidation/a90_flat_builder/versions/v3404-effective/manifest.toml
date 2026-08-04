@@ -365,6 +365,7 @@ obsolete_engines = [
   "bin/a90_doomgeneric_private_engine_v3402",
   "bin/a90_doomgeneric_private_engine_v3403",
 ]
+remove_entries = []
 required_entries = [
   "init",
   "bin/a90_android_execns_probe",

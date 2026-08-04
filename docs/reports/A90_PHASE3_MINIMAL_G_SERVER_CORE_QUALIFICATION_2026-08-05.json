@@ -1,0 +1,171 @@
+{
+  "schema": "a90_phase3_minimal_g_server_core_qualification_v1",
+  "qualification_date": "2026-08-05",
+  "target": "Samsung Galaxy A90 5G",
+  "risk_tier": "H0",
+  "decision": "PASS_NO_DEVICE_AUTHORITY_REVIEW_PENDING",
+  "profile": "phase3-minimal-g-server-core",
+  "version": "0.11.168",
+  "candidate_authority": false,
+  "capability": "Minimal native-init server core with Wi-Fi, GPU/display bring-up, boot chime, switch_root, health, and power/recovery retained",
+  "selector": {
+    "name": "A90_MINIMAL_SERVER_CORE_SURFACE",
+    "selected_value": 1,
+    "default_for_existing_profiles": 0
+  },
+  "retained": [
+    "Wi-Fi lifecycle, inventory, configuration, events, and external-network bring-up",
+    "KMS/DRM and display/input hardware diagnostics for later Debian device bring-up and GPU acceleration work",
+    "audio route/profile/stage/query support and one-shot boot chime",
+    "switch-root-to-distro and the read-only server-distro status/hardware-contract surface",
+    "health HUD plus recovery, reboot, and poweroff controls",
+    "USB NCM, tcpctl, key-only Debian SSH handoff dependencies, native return, and final-health dependencies"
+  ],
+  "removed_callable_surface": {
+    "screen_app_modules": [
+      "a90_app_about.c",
+      "a90_app_audio.c",
+      "a90_app_log.c",
+      "a90_app_network.c",
+      "a90_app_wifi.c"
+    ],
+    "other_translation_units": [
+      "a90_init_reload.c",
+      "a90_longsoak.c"
+    ],
+    "root_shell_commands": [
+      "screenapp",
+      "rshell",
+      "longsoak",
+      "reload",
+      "userdata-appliance-preflight",
+      "userdata-appliance-formatter-probe",
+      "userdata-appliance-format",
+      "userdata-appliance-populate",
+      "switch-root-to-userdata",
+      "dpublic-hud-presenter",
+      "dpublic-hud-presenter-service"
+    ],
+    "indirect_service_shell_names": [
+      "rshell",
+      "longsoak"
+    ],
+    "boot_or_reload_startup": [
+      "rshell"
+    ],
+    "helper_inventory_and_packed_ramdisk_entries": [
+      "bin/a90_cpustress",
+      "bin/a90_longsoak",
+      "bin/a90_rshell",
+      "bin/a90sleep"
+    ],
+    "selected_command_count": 99,
+    "selected_translation_unit_count": 49,
+    "prior_translation_unit_count": 56
+  },
+  "scope_boundary": {
+    "qualified": "The selected minimal-G build has no listed root command entry, no rshell or longsoak indirect service resolution, no rshell boot startup, no seven removed translation units, and no four removed ramdisk helpers",
+    "internal_cleanup_retained": "The server-distro implementation still contains userdata and dpublic cleanup/status machinery required to release or recover stale display ownership safely; minimal-G exposes none of their dedicated root commands",
+    "diagnostics_retained": "Display/input and ordinary hardware bring-up diagnostics remain available for Debian device validation",
+    "not_qualified": "Live boot, live switch_root, Debian PID 1, SSH, display ownership, native return, or final resident health for this new binary",
+    "debian_ui": "Not changed by this native-init H0 slice"
+  },
+  "builder_change": {
+    "capability": "Exact manifest-selected packed-ramdisk entry removal",
+    "field": "ramdisk.remove_entries",
+    "default": [],
+    "validation": [
+      "string-list shape and duplicate rejection",
+      "canonical safe relative-path enforcement",
+      "obsolete-engine-set overlap rejection",
+      "required init, helper, enabled-engine, and other protected-entry overlap rejection",
+      "post-pack archive listing rejects any retained selected removal"
+    ]
+  },
+  "fresh_ab": {
+    "private_evidence_root": "workspace/private/outputs/a90-phase3-minimal-g-ab-20260805-06",
+    "ab_receipt_sha256": "90a330fc46aa89cc666ffc000d1e8dce9ffc7025851e4e480253bbcf6aca312e",
+    "byte_identical": true,
+    "accepted_boot_unchanged": true,
+    "manifest_sha256": "8abb0bb03719fe382b51dd232428458bb8098db340bd6d7a9098dc600c476120",
+    "effective_manifest_sha256": "eb87d73afb73cf199e089cad544b75ab0de5d6e1141d018102ba978d06f020e3",
+    "native_init_closure_sha256": "6a79649df14e3948b68275ec0076b7cd60536e8becd9f8549c29b78786c0b0e4",
+    "boot": {
+      "bytes": 58306560,
+      "sha256": "f6eccc8e8b372e957d67e64e088acea4f7fddf351873d7c297e1fa4393f4169a"
+    },
+    "ramdisk": {
+      "bytes": 8471552,
+      "sha256": "a0fcefe1e6b4789b69f2f9cb31d5da217641a9992c1c371fd98f07314bbc3763"
+    },
+    "init": {
+      "bytes": 1657840,
+      "sha256": "94dc78da87198970b731dff26d3bb81780fdc98dab95d8e84581a973d034c4ed"
+    },
+    "helper": {
+      "bytes": 1649904,
+      "sha256": "fa395d3ecb6944a57487f3966948a634596157e4de3fdc39575a2fc502d1ceef"
+    }
+  },
+  "size_change_from_minimal_f": {
+    "boot_bytes": -3133440,
+    "boot_percent": -5.1,
+    "ramdisk_bytes": -3135488,
+    "ramdisk_percent": -27.0,
+    "init_bytes": -65744,
+    "init_percent": -3.8,
+    "packed_member_count": {
+      "minimal_f": 33,
+      "minimal_g": 29
+    }
+  },
+  "minimal_f_default_zero_regression": {
+    "private_evidence_root": "workspace/private/outputs/a90-phase3-minimal-f-regression-20260805-03",
+    "receipt_sha256": "f4d6d438ffa55aadab8ad49b8559307518f07178fdb4c1cc054430a0497f6199",
+    "all_four_artifacts_equal_prior_minimal_f": true,
+    "boot_sha256": "93ac207f6008959f663ec3df60e9bfd43ee855f72e57a4967c93bd0aa49d2d6f",
+    "ramdisk_sha256": "86b7507292bf29738053b87d17273e55c63589acc46fc7be1c7660ee2e55cc50",
+    "init_sha256": "34c0a873c1fc05160ff466f98fcac273cdb1d11af56995bcc42711bd753077e9",
+    "helper_sha256": "fa395d3ecb6944a57487f3966948a634596157e4de3fdc39575a2fc502d1ceef"
+  },
+  "packed_ramdisk": {
+    "independent_newc_listing": true,
+    "member_count": 29,
+    "removed_entries_present": [],
+    "retained_executables": [
+      "init",
+      "bin/a90_android_execns_probe",
+      "bin/a90_tcpctl",
+      "bin/a90_usbnet",
+      "bin/busybox",
+      "bin/toybox"
+    ],
+    "boot_chime_manifest_present": true
+  },
+  "validation": {
+    "focused_flat_builder_tests": "36/36 PASS",
+    "python_py_compile": "PASS",
+    "manifest_audit_only": "PASS",
+    "aarch64_static_cross_compile": "PASS",
+    "deterministic_a_b": "PASS",
+    "selected_preprocessor_command_inventory": "99 commands PASS",
+    "packed_newc_listing": "29 members PASS",
+    "scoped_diff_check": "PASS"
+  },
+  "review": {
+    "required_because": "The server-core selector, packed-ramdisk removal machinery, execution-critical source closure, and callable surface changed",
+    "status": "PENDING_INDEPENDENT_SUBAGENT"
+  },
+  "authority": {
+    "device_contact": false,
+    "usb_contact": false,
+    "payload_transfer": false,
+    "partition_write": false,
+    "flash": false,
+    "reboot": false,
+    "live_authority": false,
+    "other_target_touched": false,
+    "resident_device_profile": "0.11.167 phase3-minimal-f-power-recovery-ui remains unchanged",
+    "next_live_gate": "Any later minimal-G device use is a separate attended boot-only F1 with exact rollback, identity, recovery, and attendance"
+  }
+}

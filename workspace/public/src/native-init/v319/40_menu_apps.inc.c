@@ -19,11 +19,13 @@ static void input_monitor_app_tick(void);
 static bool input_monitor_app_feed_event(const struct input_event *event,
                                          int source_index);
 
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
 static int draw_screen_about_app(enum screen_app_id app_id,
                                  size_t changelog_index,
                                  size_t page_index) {
     return a90_app_about_draw_paged(app_id, changelog_index, page_index);
 }
+#endif
 
 struct auto_hud_state {
     bool menu_active;
@@ -128,7 +130,9 @@ static void auto_hud_enter_app(struct auto_hud_state *state,
                                enum screen_app_id app_id) {
     state->active_app = app_id;
     state->menu_active = false;
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     a90_app_wifi_reset(app_id);
+#endif
     auto_hud_reset_hold_timer(state);
     auto_hud_update_controller_state(state);
 }
@@ -172,6 +176,7 @@ static bool auto_hud_handle_volume_step(struct auto_hud_state *state,
     }
 
     if (state->active_app != SCREEN_APP_NONE) {
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
         if (a90_menu_app_is_about(state->active_app)) {
             size_t page_count = a90_app_about_page_count(
                 state->active_app,
@@ -188,6 +193,7 @@ static bool auto_hud_handle_volume_step(struct auto_hud_state *state,
                 return true;
             }
         }
+#endif
         return false;
     }
 

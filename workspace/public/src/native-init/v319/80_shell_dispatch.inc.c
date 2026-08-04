@@ -390,6 +390,7 @@ static int handle_screenmenu(char **argv, int argc) {
     return cmd_screenmenu();
 }
 
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
 static int handle_screenapp(char **argv, int argc) {
     const char *app;
     int rc;
@@ -454,6 +455,7 @@ static int handle_screenapp(char **argv, int argc) {
     a90_console_printf("screenapp.presented=%d\r\n", rc == 0 ? 1 : 0);
     return rc;
 }
+#endif
 
 static int handle_hide_menu(char **argv, int argc) {
     (void)argv;
@@ -594,6 +596,7 @@ static int handle_netservice(char **argv, int argc) {
     return cmd_netservice(argv, argc);
 }
 
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
 static int handle_rshell(char **argv, int argc) {
     return cmd_rshell(argv, argc);
 }
@@ -601,13 +604,18 @@ static int handle_rshell(char **argv, int argc) {
 static int handle_longsoak(char **argv, int argc) {
     return a90_longsoak_cmd(argv, argc);
 }
+#endif
 
 static void service_sync_enabled_states(void) {
     a90_service_set_enabled_state(A90_SERVICE_HUD, false);
     a90_service_set_enabled_state(A90_SERVICE_ADBD, false);
     a90_service_set_enabled_state(A90_SERVICE_LONGSOAK, false);
     a90_service_set_enabled_state(A90_SERVICE_TCPCTL, a90_netservice_enabled());
+#if A90_MINIMAL_SERVER_CORE_SURFACE
+    a90_service_set_enabled_state(A90_SERVICE_RSHELL, false);
+#else
     a90_service_set_enabled_state(A90_SERVICE_RSHELL, rshell_enabled());
+#endif
 }
 
 static void service_flags_to_text(unsigned int flags, char *out, size_t out_size) {
@@ -645,6 +653,12 @@ static void service_flags_to_text(unsigned int flags, char *out, size_t out_size
 static int service_resolve_name(const char *name, enum a90_service_id *out) {
     int rc = a90_service_id_from_name(name, out);
 
+#if A90_MINIMAL_SERVER_CORE_SURFACE
+    if (rc == 0 &&
+        (*out == A90_SERVICE_RSHELL || *out == A90_SERVICE_LONGSOAK)) {
+        rc = -ENOENT;
+    }
+#endif
     if (rc < 0) {
         a90_console_printf("service: unknown service: %s\r\n",
                 name != NULL ? name : "-");
@@ -685,6 +699,7 @@ static int service_print_one(enum a90_service_id service) {
                 status.device_ip,
                 status.tcp_port,
                 status.flag_path);
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     } else if (service == A90_SERVICE_RSHELL) {
         a90_console_printf("service: rshell bind=%s port=%s idle=%ss\r\n",
                 A90_RSHELL_BIND_ADDR,
@@ -692,6 +707,7 @@ static int service_print_one(enum a90_service_id service) {
                 A90_RSHELL_IDLE_SECONDS);
     } else if (service == A90_SERVICE_LONGSOAK) {
         (void)a90_longsoak_status();
+#endif
     }
     return 0;
 }
@@ -704,6 +720,12 @@ static int service_print_list(void) {
     service_sync_enabled_states();
     for (index = 0; index < a90_service_count(); ++index) {
         enum a90_service_id service = a90_service_id_at(index);
+#if A90_MINIMAL_SERVER_CORE_SURFACE
+        if (service == A90_SERVICE_RSHELL ||
+            service == A90_SERVICE_LONGSOAK) {
+            continue;
+        }
+#endif
         int one_rc = service_print_one(service);
 
         if (one_rc < 0 && rc == 0) {
@@ -721,10 +743,12 @@ static int service_start_one(enum a90_service_id service) {
         return a90_netservice_start();
     case A90_SERVICE_ADBD:
         return cmd_startadbd();
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     case A90_SERVICE_RSHELL:
         return rshell_start_service(true);
     case A90_SERVICE_LONGSOAK:
         return a90_longsoak_start(A90_LONGSOAK_DEFAULT_INTERVAL_SEC);
+#endif
     default:
         return -EINVAL;
     }
@@ -738,10 +762,12 @@ static int service_stop_one(enum a90_service_id service) {
         return a90_netservice_stop();
     case A90_SERVICE_ADBD:
         return cmd_stopadbd();
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     case A90_SERVICE_RSHELL:
         return rshell_stop_service();
     case A90_SERVICE_LONGSOAK:
         return a90_longsoak_stop();
+#endif
     default:
         return -EINVAL;
     }
@@ -757,12 +783,14 @@ static int service_enable_one(enum a90_service_id service) {
             return rc;
         }
         return a90_netservice_start();
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     case A90_SERVICE_RSHELL:
         rc = rshell_set_enabled(true);
         if (rc < 0) {
             return rc;
         }
         return rshell_start_service(true);
+#endif
     default:
         a90_console_printf("service: enable unsupported for %s\r\n",
                 a90_service_name(service));
@@ -779,10 +807,12 @@ static int service_disable_one(enum a90_service_id service) {
         flag_rc = a90_netservice_set_enabled(false);
         stop_rc = a90_netservice_stop();
         return flag_rc < 0 ? flag_rc : stop_rc;
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     case A90_SERVICE_RSHELL:
         flag_rc = rshell_set_enabled(false);
         stop_rc = rshell_stop_service();
         return flag_rc < 0 ? flag_rc : stop_rc;
+#endif
     default:
         a90_console_printf("service: disable unsupported for %s\r\n",
                 a90_service_name(service));
@@ -19585,12 +19615,14 @@ static int handle_recovery(char **argv, int argc) {
     return cmd_recovery();
 }
 
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
 static int handle_init_reload(char **argv, int argc) {
     /* H5 preserves the already-running auto-hud child so its existing DRM master/fb state survives
        PID1 execve. The reloaded init adopts the pidfile instead of re-running SETCRTC. */
     a90_console_printf("reload: preserving autohud for DRM-master handoff\r\n");
     return a90_init_reload_cmd(argv, argc);
 }
+#endif
 
 static int handle_switch_root_to_distro(char **argv, int argc) {
     /* D3B replaces PID1 with Debian sysvinit. Stop the display worker first so no old
@@ -19603,6 +19635,7 @@ static int handle_server_distro(char **argv, int argc) {
     return a90_server_distro_cmd(argv, argc);
 }
 
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
 static int handle_userdata_appliance_preflight(char **argv, int argc) {
     return a90_server_distro_userdata_preflight_cmd(argv, argc);
 }
@@ -19631,6 +19664,7 @@ static int handle_dpublic_hud_presenter(char **argv, int argc) {
 static int handle_dpublic_hud_presenter_service(char **argv, int argc) {
     return a90_server_distro_dpublic_hud_presenter_service_cmd(argv, argc);
 }
+#endif
 
 static int handle_poweroff(char **argv, int argc) {
     (void)argv;
@@ -19738,7 +19772,9 @@ static const struct shell_command command_table[] = {
     { "inputmonitor", handle_inputmonitor, "inputmonitor [events]", CMD_DISPLAY | CMD_BLOCKING, A90_CMD_GROUP_INPUT },
     { "screenmenu", handle_screenmenu, "screenmenu", CMD_BACKGROUND, A90_CMD_GROUP_MENU },
     { "menu", handle_screenmenu, "menu", CMD_BACKGROUND, A90_CMD_GROUP_MENU },
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     { "screenapp", handle_screenapp, "screenapp [network|wifi-status|wifi-profiles|wifi-scan|wifi-ping|wsta|audio-status|audio-profile|audio-stages|audio-map|audio-chime|about-version|about-changelog]", CMD_DISPLAY, A90_CMD_GROUP_MENU },
+#endif
     { "hide", handle_hide_menu, "hide", CMD_BACKGROUND, A90_CMD_GROUP_MENU },
     { "hidemenu", handle_hide_menu, "hidemenu", CMD_BACKGROUND, A90_CMD_GROUP_MENU },
     { "resume", handle_hide_menu, "resume", CMD_BACKGROUND, A90_CMD_GROUP_MENU },
@@ -19759,8 +19795,10 @@ static const struct shell_command command_table[] = {
     { "startadbd", handle_startadbd, "startadbd", CMD_BACKGROUND, A90_CMD_GROUP_ANDROID },
     { "stopadbd", handle_stopadbd, "stopadbd", CMD_BACKGROUND, A90_CMD_GROUP_ANDROID },
     { "netservice", handle_netservice, "netservice [status|start|stop|enable|disable|token [show|rotate]]", CMD_DANGEROUS, A90_CMD_GROUP_NETWORK },
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     { "rshell", handle_rshell, "rshell [status|audit|start|stop|enable|disable|token [show]|rotate-token [value]]", CMD_DANGEROUS, A90_CMD_GROUP_NETWORK },
     { "longsoak", handle_longsoak, "longsoak [status [verbose]|start [interval]|stop|path|tail [lines]]", CMD_BACKGROUND, A90_CMD_GROUP_SERVICE },
+#endif
     { "service", handle_service, "service [list|status|start|stop|enable|disable] [name]", CMD_DANGEROUS, A90_CMD_GROUP_SERVICE },
     { "reattach", handle_reattach, "reattach", CMD_NONE, A90_CMD_GROUP_SERVICE },
     { "usbacmreset", handle_usbacmreset, "usbacmreset", CMD_DANGEROUS, A90_CMD_GROUP_SERVICE },
@@ -19768,14 +19806,17 @@ static const struct shell_command command_table[] = {
     { "reboot", handle_reboot, "reboot", CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
     { "recovery", handle_recovery, "recovery", CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
     { "poweroff", handle_poweroff, "poweroff", CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     { "reload", handle_init_reload, "reload <token> <staged-init-path> <expected-sha256>",
       CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
+#endif
     { "server-distro", handle_server_distro,
       "server-distro [status|hardware-contract]",
       CMD_NONE, A90_CMD_GROUP_STORAGE },
     { "switch-root-to-distro", handle_switch_root_to_distro,
       "switch-root-to-distro <token> <image> <sha256>",
       CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
+#if !A90_MINIMAL_SERVER_CORE_SURFACE
     { "userdata-appliance-preflight", handle_userdata_appliance_preflight,
       "userdata-appliance-preflight <token>",
       CMD_NONE, A90_CMD_GROUP_STORAGE },
@@ -19797,6 +19838,7 @@ static const struct shell_command command_table[] = {
     { "dpublic-hud-presenter-service", handle_dpublic_hud_presenter_service,
       "dpublic-hud-presenter-service [start|status|stop] [options]",
       CMD_DANGEROUS | CMD_DISPLAY, A90_CMD_GROUP_DISPLAY },
+#endif
 };
 
 static void refresh_pid1_guard(void) {
