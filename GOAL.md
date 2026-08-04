@@ -59,6 +59,24 @@ window, and disables, reads, profiles, and removes it before publishing the
 terminal pair. Stock Android and rollback do not arm these dynamic probes and
 cannot answer the candidate-path return or downstream-event questions.
 
+Post-P2.98 H0 source and linked-binary analysis now selects P3.00,
+`s22plus-fyg8-p300-event-ingress-irq-attribution-v1`. The next observer must
+cover event-buffer/DEVTEN readback, the DWC3 top-half entry/return result,
+threaded-handler entry, and the first device-specific raw event in the same
+bind-to-final window. The result family must distinguish no top-half, an
+immediate nonzero hardware count without a top-half, top-half count zero,
+handled-without-wake, wake-without-thread, thread-without-device-event, other
+device events, RESET without CONNECT_DONE, and CONNECT_DONE.
+
+The design uses 15 bind events, within the existing capacity of 16. It keeps
+the first ten P2.98 events, replaces the RESET/CONNECT_DONE handler probes with
+one controller-attributed raw device-event probe, and adds one event-config
+snapshot plus matched `dwc3_interrupt` entry/return and threaded-handler entry.
+Hard-IRQ probes use an all-context filter because `common_pid` can be zero.
+Every accepted pair implies exact pointer agreement, zero missed probes,
+trace/profile equality, and verified cleanup. Generic debugfs regdump is not a
+load-bearing alternative because it resumes runtime PM.
+
 This is the first honest measurement of the project's long-standing direct
 PID1 enumeration boundary. O1.1 is the only candidate-side ACM exchange
 success and it used Android's existing USB stack. No minimal PID1 candidate
@@ -80,7 +98,37 @@ linked replay found a delivery blocker before packaging or device contact:
 P2.94 therefore remains an H0 static stop. It must not be packaged, promoted,
 manifested, or used for F1.
 
-## Selected Bounded Unit: P2.98 Closed Live Attribution
+## Selected Bounded Unit: P3.00 Event-Ingress/IRQ Attribution (H0)
+
+The source and existing Full-LTO evidence close the design question. The
+actual P2.98 A/B `vmlinux` pair is byte-identical and keeps
+`dwc3_interrupt`, `dwc3_thread_interrupt`, `dwc3_process_event_buf`,
+`dwc3_process_event_entry`, and `dwc3_check_event_buf` out of line. Linked
+control flow directly connects top-half return `w0`, threaded processing, raw
+event dispatch, and the RESET/CONNECT_DONE handlers. The inlined
+`dwc3_gadget_interrupt` helper is explicitly not a probe target.
+
+P3.00 will add one noinline built-in snapshot beside the existing successful
+run-stop snapshot. Its eight arguments carry the exact `dwc` and event-buffer
+pointers, DEVTEN, GEVNTSIZ, GEVNTCOUNT, and the event buffer's length, count,
+and flags. The readback is immediate rather than terminal: count zero means
+only zero at that instant, while count nonzero plus no top-half proves a
+strictly narrower IRQ-delivery boundary.
+
+The next authorized work is H0 implementation and static validation. Derive a
+fresh transform/schema/parser/decoder/source contract without changing a
+P2.98 `SOURCE_KEY`; allocate exact 12-bit details; fault-test every setup,
+ordering, pointer, raw-mask, overflow, missed-hit, readback, and cleanup
+branch; validate tracefs filters; cross-compile; then obtain a fresh independent
+review because trace/schema/parser and built-in snapshot machinery change.
+Fresh qualification and two clean Full-LTO builds must audit the actual linked
+P3.00 pair before packaging. No P3.00 candidate identity, package, manifest,
+or F1 readiness exists yet.
+
+The full design and limitation statement is recorded in
+`docs/reports/S22PLUS_FYG8_POST_P298_EVENT_INGRESS_IRQ_ATTRIBUTION_H0_2026-08-04.md`.
+
+## Closed Bounded Unit: P2.98 Live Attribution
 
 P2.98 is the fresh successor contract
 `s22plus-fyg8-p298-gadget-start-event-attribution-v1`. Its host implementation
@@ -220,10 +268,11 @@ not-attached/UNKNOWN/COREIDLE=1/SUSPHY=0. A production reopen validates the
 complete journal, transfer receipts, timeline, final health, and retained
 semantics. A90 received zero commands.
 
-The next bounded unit is H0 design for the downstream interval after successful
-gadget-start and before the first RESET or CONNECT_DONE handler event. Do not
-claim a specific run/connection, PHY, or VBUS cause until host-only source and
-linked-path analysis selects the next discriminating predicate.
+The downstream H0 design is now complete and selects P3.00 event-ingress/IRQ
+attribution. Do not claim a specific run/connection, PHY, or VBUS cause from
+that design. No device attempt follows until its new host implementation,
+fault closure, independent review, qualification, and Full-LTO A/B proof are
+complete.
 
 ## Evidence That Remains Binding
 
@@ -249,6 +298,7 @@ Load-bearing reports:
 - `docs/reports/S22PLUS_FYG8_POST_P296_GADGET_START_RETURN_ATTRIBUTION_H0_2026-08-03.md`
 - `docs/reports/S22PLUS_FYG8_P296_EXECUTION_CRITICAL_INDEPENDENT_REVIEW_2026-08-03.json`
 - `docs/reports/S22PLUS_FYG8_P298_GADGET_START_EVENT_IMPLEMENTATION_H0_2026-08-03.md`
+- `docs/reports/S22PLUS_FYG8_POST_P298_EVENT_INGRESS_IRQ_ATTRIBUTION_H0_2026-08-04.md`
 - `docs/reports/S22PLUS_FYG8_P298_EXECUTION_CRITICAL_INDEPENDENT_REVIEW_2026-08-03.json`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
@@ -260,11 +310,11 @@ Archived text is evidence only and grants no authority.
 ## Success and Stop Conditions
 
 The current live unit is closed and healthy. P2.98 refutes gadget-start or EP0
-enable failure as the active boundary in this run and moves the earliest
-unresolved predicate downstream of successful gadget-start but before RESET or
-CONNECT_DONE. Symbol-only proof, stock-path observation, implicit success on an
-invalid trace, or a resource-gate bypass remains insufficient for any
-successor.
+enable failure as the active boundary in this run. P3.00 H0 now selects the
+event-configuration, IRQ top-half, threaded-handler, and raw-device-event chain
+as the next discriminator. Its implementation is not yet complete. Symbol-only
+proof, stock-path observation, implicit success on an invalid trace, or a
+resource-gate bypass remains insufficient for any successor.
 
 Stop on a repeated material pre-session failure, any post-device-session
 unexplained failure, target ambiguity, missing rollback, forbidden archive
