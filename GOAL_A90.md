@@ -12,13 +12,17 @@ transfer between the two files.
 
 ## Current Authority
 
-- Run `a90-v3406-debian-display-f1-20260803-04` closed
-  `PASS_A90_RESIDENT_INSTALLED` after one exact boot-only candidate and zero
-  rollback or replay. The current exact native baseline is resident V3406
-  `0.11.161/phase2-display-v1-native-handoff`, `selftest fail=0`, empty
-  pstore, direct NCM, and `RESIDENT_HEALTHY`. Fresh attended D1 run
-  `a90-d1-attended-20260804-01` returned to that exact baseline after one
-  proved switch-root action. S22+ received no command.
+- Run `a90-v3406-debian-display-f1-20260804-07` installed the current exact
+  `0.11.167/phase3-minimal-f-power-recovery-ui` resident once with zero
+  rollback or replay. Cleanup run `a90-resident-work-cleanup-20260804-01`
+  then removed only the exact retained work copy, preserved the immutable
+  Debian source, restored exact health, and produced the one-use reduced D1
+  baseline. Host preservation remains available.
+- Attended run `a90-d1-attended-20260804-04` consumed that baseline and closed
+  `PROVED` after one switch-root dispatch. Debian PID 1, key-only SSH, the
+  Phase3 service, mechanical DRM output, operator-visible display, automatic
+  native return, absent work, exact source, and final `RESIDENT_HEALTHY` all
+  passed. Payload, flash, rollback, replay, and S22+ commands were zero.
 - `A90_ATTENDED_SD_ROOTFS_GC_V2` now has reusable independent `PASS_GO` over
   its exact execution-critical closure. It replaces per-file phrases and
   per-manifest review with bounded split reads plus one compact nonrecursive

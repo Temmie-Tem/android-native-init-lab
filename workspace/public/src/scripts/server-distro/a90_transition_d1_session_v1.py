@@ -33,6 +33,7 @@ for _path in (SCRIPT_DIR, REVAL_DIR):
 
 import a90_transition_engine_v2 as engine  # noqa: E402
 import a90_phase3_d1_observer_v1 as phase3_observer  # noqa: E402
+import a90_resident_preserved_d1_prep_v1 as preserved_prep  # noqa: E402
 import a90_v3403_absent_only_staging as staging  # noqa: E402
 import a90_v3403_f1_orchestrator as base  # noqa: E402
 from a90_transition_contract_v2 import (  # noqa: E402
@@ -102,6 +103,7 @@ SOURCE_PATHS = {
     "serial_lock": REVAL_DIR / "a90_serial_lock.py",
     "serial_tcp_bridge": REVAL_DIR / "serial_tcp_bridge.py",
     "phase3_observer": SCRIPT_DIR / "a90_phase3_d1_observer_v1.py",
+    "preserved_d1_prep": SCRIPT_DIR / "a90_resident_preserved_d1_prep_v1.py",
 }
 SESSION_DIR_NAME = "d1-live"
 SESSION_LOCK_NAME = "d1-live.lock"
@@ -152,6 +154,7 @@ class SessionSpec:
     session_duration_sec: int
     max_actions: int
     recovery_profile: str
+    resident_evidence_kind: str = "ordinary-resident-install-v2"
 
 
 def utc_now() -> str:
@@ -654,6 +657,199 @@ def _crosscheck_resident_manifest(
     return phase3_observer.PROFILE
 
 
+def _build_manifest_from_preserved_baseline(
+    *,
+    baseline: preserved_prep.BaselineSpec,
+    run_id: str,
+    session_duration_sec: int,
+    max_actions: int,
+) -> dict[str, Any]:
+    """Map one reviewed immutable preserved baseline into the D1 schema."""
+
+    resident_manifest = BoundFile(
+        baseline.manifest.path,
+        baseline.manifest.size,
+        baseline.manifest.sha256,
+    )
+    candidate = BoundFile(
+        baseline.candidate.path,
+        baseline.candidate.size,
+        baseline.candidate.sha256,
+    )
+    rollback = BoundFile(
+        baseline.rollback.path,
+        baseline.rollback.size,
+        baseline.rollback.sha256,
+    )
+    rootfs = BoundFile(
+        baseline.rootfs.path,
+        baseline.rootfs.size,
+        baseline.rootfs.sha256,
+    )
+    observer_key = BoundFile(
+        baseline.observer_key.path,
+        baseline.observer_key.size,
+        baseline.observer_key.sha256,
+    )
+    journal = tuple(
+        BoundFile(item.path, item.size, item.sha256)
+        for item in baseline.resident_journal
+    )
+    source_closure = {
+        role: _bound_file(path, private=False)
+        for role, path in SOURCE_PATHS.items()
+    }
+    return {
+        "schema": SCHEMA,
+        "status": STATUS,
+        "created_utc": utc_now(),
+        "run_id": run_id,
+        "resident": {
+            "evidence_kind": "preserved-install-cleanup-reduced-v1",
+            "run_id": baseline.resident_run_id,
+            "manifest": _as_dict(resident_manifest),
+            "journal": [_as_dict(item) for item in journal],
+            "terminal_journal_sha256": journal[-1].sha256,
+            "terminal_status": preserved_prep.preserved.SUCCESS_STATUS,
+            "candidate": _as_dict(candidate),
+            "candidate_version": baseline.candidate_version,
+            "candidate_build": baseline.candidate_build,
+            "rollback": _as_dict(rollback),
+            "rootfs": _as_dict(rootfs),
+            "remote_final": baseline.remote_final,
+            "remote_work": baseline.remote_work,
+        },
+        "target": {
+            "profile": staging.TARGET_PROFILE,
+            "bridge_device": baseline.bridge_device,
+            "bridge_realpath": baseline.bridge_realpath,
+            "recovery_serial_sha256": baseline.recovery_serial_sha256,
+            "recovery_profile": baseline.recovery_profile,
+        },
+        "observer": {
+            "key": _as_dict(observer_key),
+            "public_key_sha256": baseline.observer_public_key_sha256,
+            "device": baseline.observer_device,
+            "port": baseline.observer_port,
+            "host_ncm_profile": baseline.observer_host_ncm_profile,
+        },
+        "handoff": {
+            "command": list(baseline.handoff_command),
+            "handoff_timeout_sec": baseline.handoff_timeout,
+            "ssh_marker_timeout_sec": baseline.ssh_marker_timeout,
+            "candidate_return_timeout_sec": baseline.candidate_return_timeout,
+        },
+        "session": {
+            "workflow": Workflow.ATTENDED_SESSION_D1.value,
+            "risk_tier": RiskTier.TIER_D1_TRANSIENT_NO_PAYLOAD_CONTROL.value,
+            "action_allowlist": [SessionAction.SWITCHROOT_EXPERIMENT.value],
+            "session_duration_sec": session_duration_sec,
+            "max_actions": max_actions,
+            "operator_attended_each_action": True,
+            "transaction_dir": str(PRIVATE_RUN_BASE / run_id / SESSION_DIR_NAME),
+            "session_lock_path": str(PRIVATE_RUN_BASE / run_id / SESSION_LOCK_NAME),
+        },
+        "source_closure": {
+            role: _as_dict(item) for role, item in source_closure.items()
+        },
+        "safety": {
+            "payload_transfer": False,
+            "partition_write": False,
+            "flash": False,
+            "candidate_replay": False,
+            "fixed_work_path": WORK_PATH,
+            "work_cleanup_requires_regular_mode_size": True,
+            "other_targets_untouched": True,
+        },
+        "authority": {
+            "live_authority": False,
+            "manifest_grants_live_authority": False,
+            "fresh_exact_session_approval_required": True,
+            "one_approval_may_cover_bounded_actions": True,
+        },
+    }
+
+
+def _crosscheck_preserved_baseline(
+    resident_manifest: BoundFile,
+    resident: dict[str, Any],
+    candidate: BoundFile,
+    rollback: BoundFile,
+    rootfs: BoundFile,
+    target: dict[str, Any],
+    observer: dict[str, Any],
+    observer_key: BoundFile,
+    handoff: dict[str, Any],
+) -> tuple[str, tuple[BoundFile, ...], str]:
+    try:
+        baseline = preserved_prep.load_baseline(
+            resident_manifest.path,
+            resident_manifest.sha256,
+        )
+    except preserved_prep.ContractError as exc:
+        raise ContractError("preserved D1 baseline is not exact") from exc
+    journal = tuple(
+        BoundFile(item.path, item.size, item.sha256)
+        for item in baseline.resident_journal
+    )
+    if (
+        resident.get("run_id") != baseline.resident_run_id
+        or candidate
+        != BoundFile(
+            baseline.candidate.path,
+            baseline.candidate.size,
+            baseline.candidate.sha256,
+        )
+        or rollback
+        != BoundFile(
+            baseline.rollback.path,
+            baseline.rollback.size,
+            baseline.rollback.sha256,
+        )
+        or rootfs
+        != BoundFile(
+            baseline.rootfs.path,
+            baseline.rootfs.size,
+            baseline.rootfs.sha256,
+        )
+        or resident.get("candidate_version") != baseline.candidate_version
+        or resident.get("candidate_build") != baseline.candidate_build
+        or resident.get("remote_final") != baseline.remote_final
+        or resident.get("remote_work") != baseline.remote_work
+        or target
+        != {
+            "profile": staging.TARGET_PROFILE,
+            "bridge_device": baseline.bridge_device,
+            "bridge_realpath": baseline.bridge_realpath,
+            "recovery_serial_sha256": baseline.recovery_serial_sha256,
+            "recovery_profile": baseline.recovery_profile,
+        }
+        or observer_key
+        != BoundFile(
+            baseline.observer_key.path,
+            baseline.observer_key.size,
+            baseline.observer_key.sha256,
+        )
+        or observer
+        != {
+            "key": _as_dict(observer_key),
+            "public_key_sha256": baseline.observer_public_key_sha256,
+            "device": baseline.observer_device,
+            "port": baseline.observer_port,
+            "host_ncm_profile": baseline.observer_host_ncm_profile,
+        }
+        or handoff
+        != {
+            "command": list(baseline.handoff_command),
+            "handoff_timeout_sec": baseline.handoff_timeout,
+            "ssh_marker_timeout_sec": baseline.ssh_marker_timeout,
+            "candidate_return_timeout_sec": baseline.candidate_return_timeout,
+        }
+    ):
+        raise ContractError("D1 manifest reinterprets preserved baseline")
+    return phase3_observer.PROFILE, journal, preserved_prep.preserved.SUCCESS_STATUS
+
+
 def build_manifest(
     *,
     resident_manifest_path: Path,
@@ -678,6 +874,20 @@ def build_manifest(
     ):
         raise ContractError("resident manifest SHA256 mismatch")
     value = _read_private_json(resident_manifest.path)
+    if value.get("schema") == preserved_prep.BASELINE_SCHEMA:
+        try:
+            baseline = preserved_prep.load_baseline(
+                resident_manifest.path,
+                resident_manifest.sha256,
+            )
+        except preserved_prep.ContractError as exc:
+            raise ContractError("preserved D1 baseline is not exact") from exc
+        return _build_manifest_from_preserved_baseline(
+            baseline=baseline,
+            run_id=run_id,
+            session_duration_sec=session_duration_sec,
+            max_actions=max_actions,
+        )
     resident_run_id = _require_string(value.get("run_id"), "resident run_id")
     if (
         value.get("schema") != staging.RESIDENT_INSTALL_MANIFEST_SCHEMA
@@ -781,6 +991,7 @@ def build_manifest(
         "created_utc": utc_now(),
         "run_id": run_id,
         "resident": {
+            "evidence_kind": "ordinary-resident-install-v2",
             "run_id": resident_run_id,
             "manifest": _as_dict(resident_manifest),
             "journal": [_as_dict(item) for item in journal],
@@ -880,10 +1091,24 @@ def load_spec(path: Path, expected_sha256: str) -> SessionSpec:
     if RUN_ID_RE.fullmatch(run_id) is None or manifest.path.parent != PRIVATE_RUN_BASE / run_id:
         raise ContractError("D1 manifest path and run_id differ")
     resident = _require_dict(value.get("resident"), "resident")
+    evidence_kind = _require_string(
+        resident.get("evidence_kind"),
+        "resident evidence kind",
+    )
+    if evidence_kind not in {
+        "ordinary-resident-install-v2",
+        "preserved-install-cleanup-reduced-v1",
+    }:
+        raise ContractError("resident evidence kind is not allowlisted")
     resident_run_id = _require_string(resident.get("run_id"), "resident run_id")
     resident_manifest = _bound_dict(resident.get("manifest"), "resident manifest", private=True)
     journal_values = resident.get("journal")
-    if not isinstance(journal_values, list) or len(journal_values) != len(RESIDENT_ACTIONS):
+    expected_journal_count = (
+        len(RESIDENT_ACTIONS)
+        if evidence_kind == "ordinary-resident-install-v2"
+        else len(preserved_prep.preserved.INSTALL_SUCCESS_ACTIONS)
+    )
+    if not isinstance(journal_values, list) or len(journal_values) != expected_journal_count:
         raise ContractError("resident journal binding is not exact")
     resident_journal = tuple(
         _bound_dict(item, f"resident journal {index}", private=True)
@@ -919,30 +1144,48 @@ def load_spec(path: Path, expected_sha256: str) -> SessionSpec:
         local_size=rootfs.size,
         local_sha256=rootfs.sha256,
     )
-    canonical_resident_journal, terminal = _validate_resident_journal(
-        resident_manifest.sha256,
-        resident_run_id,
-        resident_manifest.path.parent / "f1-live" / "journal",
-        expected_version=_require_string(
-            resident.get("candidate_version"),
-            "candidate version",
-        ),
-        expected_build=_require_string(
-            resident.get("candidate_build"),
-            "candidate build",
-        ),
-        expected_bridge_realpath=_require_string(
-            target.get("bridge_realpath"),
-            "resident bridge realpath",
-        ),
-        expected_ncm_profile=_require_string(
-            observer.get("host_ncm_profile"),
-            "resident NCM profile",
-        ),
-        expected_source_script=base.remote_source_preflight_script(
-            argparse.Namespace(stage=source_stage)
-        ),
-    )
+    if evidence_kind == "ordinary-resident-install-v2":
+        canonical_resident_journal, terminal = _validate_resident_journal(
+            resident_manifest.sha256,
+            resident_run_id,
+            resident_manifest.path.parent / "f1-live" / "journal",
+            expected_version=_require_string(
+                resident.get("candidate_version"),
+                "candidate version",
+            ),
+            expected_build=_require_string(
+                resident.get("candidate_build"),
+                "candidate build",
+            ),
+            expected_bridge_realpath=_require_string(
+                target.get("bridge_realpath"),
+                "resident bridge realpath",
+            ),
+            expected_ncm_profile=_require_string(
+                observer.get("host_ncm_profile"),
+                "resident NCM profile",
+            ),
+            expected_source_script=base.remote_source_preflight_script(
+                argparse.Namespace(stage=source_stage)
+            ),
+        )
+    else:
+        (
+            _baseline_profile,
+            canonical_resident_journal,
+            baseline_terminal_status,
+        ) = _crosscheck_preserved_baseline(
+            resident_manifest,
+            resident,
+            candidate,
+            rollback,
+            rootfs,
+            target,
+            observer,
+            _bound_dict(observer.get("key"), "observer key", private=True),
+            handoff,
+        )
+        terminal = {"status": baseline_terminal_status}
     if resident_journal != canonical_resident_journal:
         raise ContractError("resident journal path is not canonical")
     resident_journal = canonical_resident_journal
@@ -958,6 +1201,7 @@ def load_spec(path: Path, expected_sha256: str) -> SessionSpec:
     if (
         set(resident)
         != {
+            "evidence_kind",
             "run_id",
             "manifest",
             "journal",
@@ -1075,18 +1319,36 @@ def load_spec(path: Path, expected_sha256: str) -> SessionSpec:
     )
     binding.validate()
     observer_key = _bound_dict(observer.get("key"), "observer key", private=True)
-    rootfs_profile = _crosscheck_resident_manifest(
-        resident_manifest,
-        resident_run_id,
-        resident,
-        candidate,
-        rollback,
-        rootfs,
-        target,
-        observer,
-        observer_key,
-        handoff,
-    )
+    if evidence_kind == "ordinary-resident-install-v2":
+        rootfs_profile = _crosscheck_resident_manifest(
+            resident_manifest,
+            resident_run_id,
+            resident,
+            candidate,
+            rollback,
+            rootfs,
+            target,
+            observer,
+            observer_key,
+            handoff,
+        )
+    else:
+        rootfs_profile, baseline_journal, baseline_status = _crosscheck_preserved_baseline(
+            resident_manifest,
+            resident,
+            candidate,
+            rollback,
+            rootfs,
+            target,
+            observer,
+            observer_key,
+            handoff,
+        )
+        if (
+            resident_journal != baseline_journal
+            or resident.get("terminal_status") != baseline_status
+        ):
+            raise ContractError("preserved baseline journal binding changed")
     return SessionSpec(
         manifest_path=manifest.path,
         manifest_sha256=manifest.sha256,
@@ -1123,6 +1385,7 @@ def load_spec(path: Path, expected_sha256: str) -> SessionSpec:
         session_duration_sec=duration,
         max_actions=max_actions,
         recovery_profile=_require_string(target.get("recovery_profile"), "recovery profile"),
+        resident_evidence_kind=evidence_kind,
     )
 
 
@@ -1383,19 +1646,34 @@ def verify_resident_health_exact(
 ) -> dict[str, Any]:
     """Require one exact framed resident identity, selftest, and pstore set."""
 
-    if (
-        spec.candidate_version != staging.EXPECTED_RESIDENT_VERSION
-        or spec.candidate_build != staging.EXPECTED_RESIDENT_BUILD
-    ):
+    expected_identity = (
+        (
+            preserved_prep.EXPECTED_VERSION,
+            preserved_prep.EXPECTED_BUILD,
+        )
+        if spec.resident_evidence_kind == "preserved-install-cleanup-reduced-v1"
+        else (
+            staging.EXPECTED_RESIDENT_VERSION,
+            staging.EXPECTED_RESIDENT_BUILD,
+        )
+    )
+    if (spec.candidate_version, spec.candidate_build) != expected_identity:
         raise ContractError("D1 resident identity is not the exact V3406 baseline")
     bridge = staging.require_exact_bridge(f1_spec.stage, args)
-    receipts = staging.require_native_health(
-        args,
-        expected_version=spec.candidate_version,
-        expected_build=spec.candidate_build,
-        input_mode=base.F1_SERIAL_INPUT_MODE,
-        input_char_delay_sec=base.F1_SERIAL_INPUT_CHAR_DELAY_SEC,
-    )
+    if spec.resident_evidence_kind == "preserved-install-cleanup-reduced-v1":
+        receipts = {
+            "version": base.run_f1_cmd(args, ["version"]),
+            "status": base.run_f1_cmd(args, ["status"]),
+            "selftest": base.run_f1_cmd(args, ["selftest"]),
+        }
+    else:
+        receipts = staging.require_native_health(
+            args,
+            expected_version=spec.candidate_version,
+            expected_build=spec.candidate_build,
+            input_mode=base.F1_SERIAL_INPUT_MODE,
+            input_char_delay_sec=base.F1_SERIAL_INPUT_CHAR_DELAY_SEC,
+        )
     try:
         facts = staging.validate_native_health_receipts(
             receipts,
@@ -2945,7 +3223,12 @@ def inspect(spec: SessionSpec) -> dict[str, Any]:
         "mode": "host-only-inspection",
         "run_id": spec.run_id,
         "manifest_sha256": spec.manifest_sha256,
-        "resident_terminal": "PASS_A90_RESIDENT_INSTALLED",
+        "resident_terminal": (
+            preserved_prep.preserved.SUCCESS_STATUS
+            if spec.resident_evidence_kind
+            == "preserved-install-cleanup-reduced-v1"
+            else "PASS_A90_RESIDENT_INSTALLED"
+        ),
         "resident_boot_sha256": spec.candidate.sha256,
         "rollback_boot_sha256": spec.rollback.sha256,
         "rootfs_sha256": spec.rootfs.sha256,

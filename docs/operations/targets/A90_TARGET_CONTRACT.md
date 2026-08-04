@@ -238,6 +238,28 @@ switch_root authority. Rollback closure likewise requires exact V2321 health
 and unchanged protected bytes. It never applies to S22+, a non-boot partition,
 another source/work identity, another A90, or an unattended operator.
 
+The separately reviewed capability
+`A90_RESIDENT_PRESERVED_WORK_CLEANUP_AND_D1_BASELINE_V1` may convert that one
+exact successful preserved-install terminal into a D1 baseline, but only in
+this order: fresh connected D0 proves the installed resident healthy and the
+bound source/work files exact, distinct, and unused; one attended durable
+intent authorizes one unlink dispatch for the fixed work path; passive
+reconciliation proves the work absent, source exact, and installed resident
+healthy; then a second connected D0 repeats the absent-work, exact-source, and
+resident-health proof.  The unlink is never retransmitted, even when its
+response is missing or malformed.  A non-PASS cleanup result or missing
+post-cleanup D0 cannot be reduced into a baseline.
+
+The reducer is host-only and may run once for that cleanup terminal.  Its
+immutable output binds the preserved-install manifest, result, canonical
+journal, cleanup manifest/result, post-cleanup D0, exact boot rollback,
+resident identity, source bytes, observer key, target, recovery path, reviewed
+execution closure, and the fixed absent work path.  The original
+`PASS_A90_RESIDENT_INSTALLED_WORK_RETAINED` terminal remains directly
+ineligible for D1.  Only the exact reduced baseline may feed the attended D1
+manifest builder, which must still perform a fresh opening D0 before any
+handoff and must clean up the newly created work copy after native return.
+
 ## A90 F1 Resident Install
 
 A90 F1 uses the checked `native_init_flash.py` path and may transfer only the
