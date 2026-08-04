@@ -364,7 +364,7 @@ class ResidentManifestBuilderTests(unittest.TestCase):
                         mutated_rollback,
                     )
 
-    def test_candidate_profiles_preserve_default_and_bind_minimal_f(self) -> None:
+    def test_candidate_profiles_preserve_default_and_bind_minimal_profiles(self) -> None:
         self.assertIs(
             builder.select_candidate_profile(builder.LEGACY_CANDIDATE_PROFILE),
             builder.LEGACY_CANDIDATE,
@@ -380,6 +380,17 @@ class ResidentManifestBuilderTests(unittest.TestCase):
         )
         self.assertEqual(selected.version, "0.11.167")
         self.assertEqual(selected.build, "phase3-minimal-f-power-recovery-ui")
+        selected_g = builder.select_candidate_profile(
+            builder.MINIMAL_G_CANDIDATE_PROFILE
+        )
+        self.assertEqual(selected_g.name, "candidate-boot-phase3-minimal-g.img")
+        self.assertEqual(selected_g.size, 58306560)
+        self.assertEqual(
+            selected_g.sha256,
+            "f6eccc8e8b372e957d67e64e088acea4f7fddf351873d7c297e1fa4393f4169a",
+        )
+        self.assertEqual(selected_g.version, "0.11.168")
+        self.assertEqual(selected_g.build, "phase3-minimal-g-server-core")
         with self.assertRaisesRegex(builder.ContractError, "not exact"):
             builder.select_candidate_profile("arbitrary")
 

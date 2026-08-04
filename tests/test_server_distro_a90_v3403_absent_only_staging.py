@@ -206,6 +206,20 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
             stage.PHASE3_ALLOWED_STARTING_IDENTITIES,
             frozenset(stage.ALLOWED_STARTING_IDENTITIES),
         )
+        self.assertIn(
+            (
+                stage.EXPECTED_MINIMAL_F_RESIDENT_VERSION,
+                stage.EXPECTED_MINIMAL_F_RESIDENT_BUILD,
+            ),
+            stage.PHASE3_ALLOWED_STARTING_IDENTITIES,
+        )
+        self.assertIn(
+            (
+                stage.EXPECTED_MINIMAL_G_RESIDENT_VERSION,
+                stage.EXPECTED_MINIMAL_G_RESIDENT_BUILD,
+            ),
+            stage.PHASE3_ALLOWED_STARTING_IDENTITIES,
+        )
         self.assertEqual(
             stage.allowed_starting_identities_for_profile(stage.PHASE2_PROFILE),
             frozenset(

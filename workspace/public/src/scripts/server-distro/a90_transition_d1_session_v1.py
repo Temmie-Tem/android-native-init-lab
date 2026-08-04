@@ -1646,18 +1646,18 @@ def verify_resident_health_exact(
 ) -> dict[str, Any]:
     """Require one exact framed resident identity, selftest, and pstore set."""
 
-    expected_identity = (
-        (
+    candidate_identity = (spec.candidate_version, spec.candidate_build)
+    if spec.resident_evidence_kind == "preserved-install-cleanup-reduced-v1":
+        identity_allowed = candidate_identity == (
             preserved_prep.EXPECTED_VERSION,
             preserved_prep.EXPECTED_BUILD,
         )
-        if spec.resident_evidence_kind == "preserved-install-cleanup-reduced-v1"
-        else (
-            staging.EXPECTED_RESIDENT_VERSION,
-            staging.EXPECTED_RESIDENT_BUILD,
+    else:
+        identity_allowed = candidate_identity in (
+            staging.PHASE3_ALLOWED_STARTING_IDENTITIES
+            - staging.PHASE2_ALLOWED_STARTING_IDENTITIES
         )
-    )
-    if (spec.candidate_version, spec.candidate_build) != expected_identity:
+    if not identity_allowed:
         raise ContractError("D1 resident identity is not the exact V3406 baseline")
     bridge = staging.require_exact_bridge(f1_spec.stage, args)
     if spec.resident_evidence_kind == "preserved-install-cleanup-reduced-v1":

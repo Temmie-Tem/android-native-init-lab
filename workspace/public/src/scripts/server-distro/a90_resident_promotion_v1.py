@@ -320,14 +320,46 @@ def _validate_prior_run(
     final_health = records[actions.index("health-verified")]
     approved = records[actions.index("approved")]
     closed = records[actions.index("closed")]
+    candidate_manifest = _dict(
+        prior_manifest.get("candidate_boot"),
+        "prior candidate_boot",
+    )
+    rollback_manifest = _dict(
+        prior_manifest.get("rollback_boot"),
+        "prior rollback_boot",
+    )
+    prior_candidate_sha256 = candidate_manifest.get("sha256")
+    prior_candidate_version = candidate_manifest.get("expected_version")
+    prior_candidate_build = candidate_manifest.get("expected_build")
+    prior_rollback_sha256 = rollback_manifest.get("sha256")
+    prior_rollback_version = rollback_manifest.get("expected_version")
+    prior_rollback_build = rollback_manifest.get("expected_build")
+    if (
+        candidate_manifest.get("partition") != "boot"
+        or not isinstance(prior_candidate_sha256, str)
+        or staging.HEX64_RE.fullmatch(prior_candidate_sha256) is None
+        or not isinstance(prior_candidate_version, str)
+        or not prior_candidate_version
+        or not isinstance(prior_candidate_build, str)
+        or not prior_candidate_build
+        or rollback_manifest.get("partition") != "boot"
+        or prior_rollback_sha256 != spec.rollback.sha256
+        or prior_rollback_version != spec.rollback_version
+        or prior_rollback_build != spec.rollback_build
+    ):
+        raise ContractError("prior boot identities are not exact")
     prior_native_exact = _require_exact_native_health(
-        spec,
+        SimpleNamespace(
+            candidate_version=prior_candidate_version,
+            candidate_build=prior_candidate_build,
+            stage=spec.stage,
+        ),
         _dict(candidate_health.get("health"), "prior candidate native health"),
     )
     prior_rollback_native_exact = _require_exact_native_health(
         SimpleNamespace(
-            candidate_version=spec.rollback_version,
-            candidate_build=spec.rollback_build,
+            candidate_version=prior_rollback_version,
+            candidate_build=prior_rollback_build,
             stage=spec.stage,
         ),
         {
@@ -387,8 +419,8 @@ def _validate_prior_run(
         orchestrator_sha256=orchestrator.get("sha256"),
         staging_adapter_sha256=staging_adapter.get("sha256"),
         flash_runner_sha256=transport.get("runner_sha256"),
-        candidate_boot_sha256=spec.candidate.sha256,
-        rollback_boot_sha256=spec.rollback.sha256,
+        candidate_boot_sha256=prior_candidate_sha256,
+        rollback_boot_sha256=prior_rollback_sha256,
         rootfs_sha256=keyed_source.get("sha256"),
         connected_d0_sha256=connected_d0.get("sha256"),
         connected_path_preflight_sha256=connected_paths.get("sha256"),
@@ -402,22 +434,22 @@ def _validate_prior_run(
     approval_token = base.APPROVAL_PREFIX + approval_binding_sha
     approval_token_sha = hashlib.sha256(approval_token.encode("utf-8")).hexdigest()
     if (
-        candidate_start.get("candidate_sha256") != spec.candidate.sha256
-        or candidate_flash.get("candidate_sha256") != spec.candidate.sha256
+        candidate_start.get("candidate_sha256") != prior_candidate_sha256
+        or candidate_flash.get("candidate_sha256") != prior_candidate_sha256
         or candidate_flash.get("candidate_transfer_count") != 1
         or candidate_flash.get("candidate_replay") is not False
-        or candidate_health.get("candidate_version") != spec.candidate_version
-        or candidate_health.get("candidate_build") != spec.candidate_build
+        or candidate_health.get("candidate_version") != prior_candidate_version
+        or candidate_health.get("candidate_build") != prior_candidate_build
         or candidate_health.get("selftest_fail_zero") is not True
-        or rollback_start.get("rollback_sha256") != spec.rollback.sha256
-        or rollback_flash.get("rollback_sha256") != spec.rollback.sha256
+        or rollback_start.get("rollback_sha256") != prior_rollback_sha256
+        or rollback_flash.get("rollback_sha256") != prior_rollback_sha256
         or rollback_flash.get("rollback_transfer_count") != 1
         or rollback_flash.get("candidate_replay") is not False
-        or rollback_health.get("rollback_version") != spec.rollback_version
-        or rollback_health.get("rollback_build") != spec.rollback_build
+        or rollback_health.get("rollback_version") != prior_rollback_version
+        or rollback_health.get("rollback_build") != prior_rollback_build
         or rollback_health.get("selftest_fail_zero") is not True
-        or final_health.get("version") != spec.rollback_version
-        or final_health.get("build") != spec.rollback_build
+        or final_health.get("version") != prior_rollback_version
+        or final_health.get("build") != prior_rollback_build
         or final_health.get("selftest_fail_zero") is not True
         or final_health.get("pstore_entries_zero") is not True
         or final_health.get("exact_bridge") is not True
@@ -425,8 +457,6 @@ def _validate_prior_run(
     ):
         raise ContractError("prior run artifact identity or health is not exact")
 
-    candidate_manifest = _dict(prior_manifest.get("candidate_boot"), "prior candidate_boot")
-    rollback_manifest = _dict(prior_manifest.get("rollback_boot"), "prior rollback_boot")
     allowed_status = {
         "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
         "PASS_F1_V2_DEBIAN_PID1_PROVEN_AND_ROLLED_BACK",
@@ -524,8 +554,8 @@ def _validate_prior_run(
         or transport.get("only_partition_payload") != "boot"
         or transport.get("forbidden_partition_writes") is not True
         or approval_binding != expected_approval_binding
-        or candidate_manifest.get("sha256") != spec.candidate.sha256
-        or rollback_manifest.get("sha256") != spec.rollback.sha256
+        or candidate_manifest.get("sha256") != prior_candidate_sha256
+        or rollback_manifest.get("sha256") != prior_rollback_sha256
         or approval.get("schema") != base.APPROVAL_PREPARED_SCHEMA
         or set(approval) != approval_keys
         or not base.is_canonical_utc_timestamp(approval.get("created_utc"))
@@ -538,8 +568,8 @@ def _validate_prior_run(
             for name in ("device_contact", "device_write", "f1_authorized", "live_authorized")
         )
         or approval_binding.get("manifest_sha256") != manifest_bound.sha256
-        or approval_binding.get("candidate_boot_sha256") != spec.candidate.sha256
-        or approval_binding.get("rollback_boot_sha256") != spec.rollback.sha256
+        or approval_binding.get("candidate_boot_sha256") != prior_candidate_sha256
+        or approval_binding.get("rollback_boot_sha256") != prior_rollback_sha256
         or approved.get("approval_consumed") is not True
         or approved.get("rollback_pre_authorized") is not True
         or approved.get("approval_binding_sha256") != approval_binding_sha

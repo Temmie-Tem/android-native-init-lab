@@ -12,17 +12,17 @@ transfer between the two files.
 
 ## Current Authority
 
-- Run `a90-v3406-debian-display-f1-20260804-07` installed the current exact
-  `0.11.167/phase3-minimal-f-power-recovery-ui` resident once with zero
-  rollback or replay. Cleanup run `a90-resident-work-cleanup-20260804-01`
-  then removed only the exact retained work copy, preserved the immutable
-  Debian source, restored exact health, and produced the one-use reduced D1
-  baseline. Host preservation remains available.
-- Attended run `a90-d1-attended-20260804-04` consumed that baseline and closed
-  `PROVED` after one switch-root dispatch. Debian PID 1, key-only SSH, the
-  Phase3 service, mechanical DRM output, operator-visible display, automatic
-  native return, absent work, exact source, and final `RESIDENT_HEALTHY` all
-  passed. Payload, flash, rollback, replay, and S22+ commands were zero.
+- Run `a90-v3406-debian-display-f1-20260805-02` installed the current exact
+  `0.11.168/phase3-minimal-g-server-core` resident with one boot-only
+  candidate transfer, zero rollback, and no replay. Exact candidate health,
+  immutable Debian source, V2321 rollback readiness, guard release, and final
+  `RESIDENT_HEALTHY` passed; the F1 transaction is closed and disarmed.
+- Attended run `a90-d1-attended-20260805-02` then sent one switch-root dispatch
+  and closed `PROVED`. Debian sysvinit PID 1, key-only SSH, exact Phase3
+  service/listener ownership, native DRM release, direct DRM master and
+  `SETCRTC`, operator-visible display, automatic native return, exact work
+  cleanup, immutable source, and final `0.11.168` health all passed. Payload,
+  partition write, flash, rollback, replay, and S22+ commands were zero.
 - `A90_ATTENDED_SD_ROOTFS_GC_V2` now has reusable independent `PASS_GO` over
   its exact execution-critical closure. It replaces per-file phrases and
   per-manifest review with bounded split reads plus one compact nonrecursive
@@ -41,14 +41,15 @@ transfer between the two files.
   rshell/longsoak service access, and four packed helpers. All 22 retained
   runtime/audio files are fail-closed. The deterministic A/B has
   `candidate_authority=false`, and the default-zero minimal-F boot remains byte
-  identical; resident `0.11.167` is unchanged. Any minimal-G device use remains
-  a separately qualified attended boot-only F1; S22+ was untouched.
+  identical. The exact minimal-G resident-install adapter and attended-D1
+  identity adapter have separate reusable `PASS_GO` receipts over their named
+  execution closures; the live F1 and D1 bindings are consumed and not reusable.
 - Standing exact-target D0 exists only through the active common trial. A90
   campaign `a90-resident-switchroot-display-ssh-20260802` is open, but no D1
-  session is active and no target is F1-armed. Attendance has ended for every
-  closed live session; attended run
-  `a90-d1-attended-20260803-07` closed `PROVED` and
-  `RESIDENT_HEALTHY`. The qualified unattended lane
+  session is active and no target is F1-armed. The latest attended F1 and D1
+  transactions are closed, and a post-close exact A90 D0 re-proved
+  `0.11.168`, selftest `11/1/0`, SD read/write health, and local NCM/tcpctl.
+  The qualified unattended lane
   has a current reusable capability receipt; two one-ordinal runs closed
   `PROVED` and `RESIDENT_HEALTHY`. The attended v1 CLI remains attended-only.
   The consumed resident-install approval is not reusable.

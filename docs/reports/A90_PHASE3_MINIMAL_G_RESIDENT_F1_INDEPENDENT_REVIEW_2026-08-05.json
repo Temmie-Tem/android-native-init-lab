@@ -1,0 +1,127 @@
+{
+  "schema": "a90-phase3-resident-refresh-f1-independent-review-v1",
+  "status": "PASS_GO",
+  "decision": "PASS_GO: reuse the unchanged minimal-G server-core capability PASS_GO for this exact attended A90 boot-only F1 selection, cross-candidate prior capability qualification, and resident-D1 starting-identity binding; prior and current candidates remain independently exact while no replay, exact shared V2321 rollback and recovery, and A90-only target isolation remain mandatory",
+  "review_date": "2026-08-05",
+  "target": "Samsung Galaxy A90 5G only",
+  "risk_tier": "H0 independent review of attended boot-only F1 and later resident-D1 binding capability",
+  "review_scope": {
+    "capability_receipt_reuse": "The existing phase3-minimal-g-server-core PASS_GO remains reusable because its native-init closure, flat builder, builder library, selector semantics, artifact identity, and hazard assumptions are unchanged; this review covers only the changed host-side consumers.",
+    "candidate_selection": "Both F1 finalization and resident manifest construction select minimal-G only through the same closed exact CandidateSpec: candidate-boot-phase3-minimal-g.img, 58306560 bytes, SHA256 f6eccc8e8b372e957d67e64e088acea4f7fddf351873d7c297e1fa4393f4169a, version 0.11.168, build phase3-minimal-g-server-core. Unknown profiles fail closed and the legacy default is unchanged.",
+    "starting_identity": "Minimal-F and minimal-G are added only as exact version/build tuple identities for the Phase3 keyed-rootfs lane. The Phase2 lane remains restricted to exact canonical V2321, and mixed or arbitrary version/build identities remain rejected.",
+    "cross_candidate_prior_closed_run": "The prior candidate no longer has to equal the current candidate. Its own boot-only manifest SHA, candidate SHA, expected version/build, approval binding, contiguous journal, one candidate transfer, exact boot-ready health, one rollback, no replay, closed result, and final rollback health form a self-contained qualification. The prior and current runs must still share the exact V2321 rollback SHA/version/build, A90 bridge identity, and recovery identity. Corrupt or mixed prior evidence fails closed.",
+    "f1_and_resident_interaction": "The selected candidate and canonical V2321 rollback are reopened by exact regular-file size and SHA256, rebuilt as boot-only manifest entries, rebound to exact connected-D0 evidence and current native health, and validated through the production orchestrator/resident loader before absent-only publication. Candidate replay remains forbidden; rollback, recovery, final health, attendance, and exact A90 target presence remain separate live gates.",
+    "authority": "This receipt grants no live authority, device contact, payload transfer, partition write, flash, reboot, unattended F1, or S22+ authority."
+  },
+  "named_execution_critical_closure": {
+    "workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.py": {
+      "bytes": 13928,
+      "sha256": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933"
+    },
+    "workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py": {
+      "bytes": 13734,
+      "sha256": "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e"
+    },
+    "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py": {
+      "bytes": 1255,
+      "sha256": "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe"
+    },
+    "workspace/public/src/scripts/revalidation/a90_bridge.py": {
+      "bytes": 40294,
+      "sha256": "922c55a0afdef9d237a679203f576226583f4463eec15fb0091871c241f8be01"
+    },
+    "workspace/public/src/scripts/revalidation/a90_observation_pipeline.py": {
+      "bytes": 24478,
+      "sha256": "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb"
+    },
+    "workspace/public/src/scripts/revalidation/a90_serial_lock.py": {
+      "bytes": 2860,
+      "sha256": "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7"
+    },
+    "workspace/public/src/scripts/revalidation/a90ctl.py": {
+      "bytes": 16380,
+      "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c"
+    },
+    "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py": {
+      "bytes": 17944,
+      "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_display_observer.py": {
+      "bytes": 648,
+      "sha256": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744"
+    },
+    "workspace/public/src/harness/a90harness/evidence.py": {
+      "bytes": 11723,
+      "sha256": "3b0aaa36a95628591e14c4c2d70ae4941230fe650b6e4d517173cee5d3019742"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase3_network_ssh_keyed_rootfs_v1.py": {
+      "bytes": 23948,
+      "sha256": "44bb425533ccfd5b65b9be94056da302fa646d97b2b346ec15214cd7a5660396"
+    },
+    "workspace/public/src/scripts/revalidation/native_init_flash.py": {
+      "bytes": 43118,
+      "sha256": "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
+    },
+    "workspace/public/src/scripts/revalidation/tcpctl_host.py": {
+      "bytes": 34750,
+      "sha256": "032f3146ddc08af82f00881ae3d825066e843a41b194ee8d4c8cf09d1f3adb78"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_connected_preflight.py": {
+      "bytes": 21929,
+      "sha256": "c84f7e8d1054df6f095ce13a0bb4c3f057a6d0f4244b77f12b5c87f89edaa6d8"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {
+      "bytes": 103318,
+      "sha256": "c426037452f2d84be4bc7ae6f4dee04960d35b61456d168f3b5660fbfacd95a0"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {
+      "bytes": 274585,
+      "sha256": "15c1b808a14674a569544167a461b10e5a072c684f739e1d890b3b50a6f7d03c"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_manifest_builder_v1.py": {
+      "bytes": 29810,
+      "sha256": "5d1ff5a0b57e34d3c7cc62a8e25f6eac76c0f61672f701296d80e466168102fd"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py": {
+      "bytes": 69935,
+      "sha256": "967afd64ff73586d63ee5013a3af0d2848659a9e2d44acb819c888cc172e08c3"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_fast_handoff_v1.py": {
+      "bytes": 12037,
+      "sha256": "da695df326ac347baad2f31c4117ec564ea4cc4181605f397da8105d68e24c47"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase3_network_ssh_v1_rootfs.py": {
+      "bytes": 25978,
+      "sha256": "3c15440d30e5cd14f320c6a1bc0d1639e89b0d878a8970284b5eb7bb58f87166"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase2_display_v1_rootfs.py": {
+      "bytes": 28143,
+      "sha256": "8b44e922aba9efdf8b6877c98d6d3395c4ec34a6d6d5e47247aa3c73d7b689a1"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/manifest.toml": {
+      "bytes": 2962,
+      "sha256": "0a0ced3d0720db7bedb4ebcc42f98162a687d2a4d5d785b8cc123cae777ef9c7"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh": {
+      "bytes": 10126,
+      "sha256": "b52b7306d928d0a7275af70f16ff44d578a8440260828343eefa2a204bdc8859"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_return_arm_v1.sh": {
+      "bytes": 1187,
+      "sha256": "e83ede7fb430de98881ff7b9d18e8127bfc8bc19e4707d9ccf78410ac555faf3"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_finalize_f1.py": {
+      "bytes": 41616,
+      "sha256": "66c97e83ddcc6fe74dd7920f18ad7da8d46d89ffe88668c1bb0a9c9827dad240"
+    }
+  },
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "device_contact": false,
+  "payload_transfer": false,
+  "partition_write": false,
+  "flash": false,
+  "reboot": false,
+  "other_target_touched": false
+}

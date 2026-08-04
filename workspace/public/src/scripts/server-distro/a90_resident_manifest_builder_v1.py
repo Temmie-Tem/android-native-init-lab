@@ -68,6 +68,7 @@ class CandidateSpec:
 
 LEGACY_CANDIDATE_PROFILE = "phase2-display-v1"
 MINIMAL_F_CANDIDATE_PROFILE = "phase3-minimal-f-power-recovery-ui"
+MINIMAL_G_CANDIDATE_PROFILE = "phase3-minimal-g-server-core"
 LEGACY_CANDIDATE = CandidateSpec(
     profile=LEGACY_CANDIDATE_PROFILE,
     name="candidate-boot-phase2-display-v1.img",
@@ -84,9 +85,17 @@ MINIMAL_F_CANDIDATE = CandidateSpec(
     version="0.11.167",
     build="phase3-minimal-f-power-recovery-ui",
 )
+MINIMAL_G_CANDIDATE = CandidateSpec(
+    profile=MINIMAL_G_CANDIDATE_PROFILE,
+    name="candidate-boot-phase3-minimal-g.img",
+    size=58306560,
+    sha256="f6eccc8e8b372e957d67e64e088acea4f7fddf351873d7c297e1fa4393f4169a",
+    version="0.11.168",
+    build="phase3-minimal-g-server-core",
+)
 CANDIDATE_PROFILES = {
     item.profile: item
-    for item in (LEGACY_CANDIDATE, MINIMAL_F_CANDIDATE)
+    for item in (LEGACY_CANDIDATE, MINIMAL_F_CANDIDATE, MINIMAL_G_CANDIDATE)
 }
 
 # Backward-compatible aliases for the original single-candidate API.

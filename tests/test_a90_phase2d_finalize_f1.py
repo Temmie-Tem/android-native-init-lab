@@ -82,6 +82,29 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
         self.assertEqual(result["candidate_version"], selected.version)
         self.assertEqual(result["candidate_build"], selected.build)
 
+    def test_minimal_g_candidate_profile_is_exact_and_auditable(self) -> None:
+        selected = finalizer.select_candidate_profile(
+            finalizer.MINIMAL_G_CANDIDATE_PROFILE
+        )
+        self.assertEqual(
+            selected.copy_name,
+            "candidate-boot-phase3-minimal-g.img",
+        )
+        self.assertEqual(selected.size, 58306560)
+        self.assertEqual(
+            selected.sha256,
+            "f6eccc8e8b372e957d67e64e088acea4f7fddf351873d7c297e1fa4393f4169a",
+        )
+        self.assertEqual(selected.version, "0.11.168")
+        self.assertEqual(selected.build, "phase3-minimal-g-server-core")
+        result = finalizer.audit_payload(selected.profile)
+        self.assertTrue(result["ready_for_finalization_inputs"])
+        self.assertEqual(result["candidate_profile"], selected.profile)
+        self.assertEqual(result["candidate_sha256"], selected.sha256)
+        self.assertEqual(result["candidate_size"], selected.size)
+        self.assertEqual(result["candidate_version"], selected.version)
+        self.assertEqual(result["candidate_build"], selected.build)
+
     def test_unknown_candidate_profile_is_rejected(self) -> None:
         with self.assertRaisesRegex(finalizer.ContractError, "not exact"):
             finalizer.select_candidate_profile("arbitrary")

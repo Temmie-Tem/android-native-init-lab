@@ -1,0 +1,183 @@
+{
+  "schema": "a90_phase3_minimal_g_attended_d1_identity_independent_review_v1",
+  "status": "PASS_GO",
+  "decision": "PASS_GO for the exact attended A90 D1 resident-identity adapter: ordinary resident sessions accept only the exact Phase3-native identity set with V2321 removed, preserved cleanup remains pinned to its existing exact identity, and the unchanged D1 transaction retains no-payload, no-flash, one-dispatch/no-replay, return, cleanup, health, recovery, and A90-only target boundaries",
+  "review_date": "2026-08-05",
+  "reviewer": "independent subagent a90_capability_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "risk_tier": "H0 independent review of attended D1 transient no-payload execution capability",
+  "capability": "A90_PHASE3_MINIMAL_G_ATTENDED_D1_IDENTITY",
+  "higher_precedence_contracts": {
+    "AGENTS.md": {
+      "bytes": 14201,
+      "sha256": "3289aedf8b55c2d74e3252c72e7b6b9bc003ef62379fc6e7b192a845c80dd747"
+    },
+    "docs/operations/targets/A90_TARGET_CONTRACT.md": {
+      "bytes": 22566,
+      "sha256": "92ba236f045c240d909b02553a69b1eb13a2d7328580f969d428dbaa62131f9d"
+    },
+    "docs/operations/DEVICE_ACTION_RISK_TIERS.md": {
+      "bytes": 5954,
+      "sha256": "c2bc3b99b364ec3d08419dc83cca14f35ea9edc1d03173e237740b786ecf8a96"
+    }
+  },
+  "inherited_capability_receipt": {
+    "path": "docs/reports/A90_PHASE3_MINIMAL_G_RESIDENT_F1_INDEPENDENT_REVIEW_2026-08-05.json",
+    "bytes": 7960,
+    "sha256": "15aa3e812eb8eb294100ed68af22bb5340c47bee46f0ba59cfb4a9ffedfc3b25",
+    "status": "PASS_GO",
+    "reuse": "The exact minimal-G boot candidate, resident-install-v2 evidence, rollback, recovery, and F1 capability are unchanged; this review covers only their attended-D1 identity consumption."
+  },
+  "identity_contract": {
+    "ordinary_allowed_exact_pairs": [
+      {
+        "version": "0.11.161",
+        "build": "phase2-display-v1-native-handoff"
+      },
+      {
+        "version": "0.11.167",
+        "build": "phase3-minimal-f-power-recovery-ui"
+      },
+      {
+        "version": "0.11.168",
+        "build": "phase3-minimal-g-server-core"
+      }
+    ],
+    "ordinary_derivation": "PHASE3_ALLOWED_STARTING_IDENTITIES minus PHASE2_ALLOWED_STARTING_IDENTITIES",
+    "v2321_excluded": {
+      "version": "0.9.285",
+      "build": "v2321-usb-clean-identity-rodata"
+    },
+    "preserved_cleanup_lane": "unchanged exact preserved_prep EXPECTED_VERSION and EXPECTED_BUILD pair"
+  },
+  "named_execution_critical_closure": {
+    "runner": {
+      "path": "workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py",
+      "bytes": 130022,
+      "sha256": "ae1868e8cc547b120006a1e446938084fa46e265b5ffd032f1a38dafe5ab25df"
+    },
+    "transition_contract": {
+      "path": "workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py",
+      "bytes": 13734,
+      "sha256": "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e"
+    },
+    "transition_engine": {
+      "path": "workspace/public/src/scripts/server-distro/a90_transition_engine_v2.py",
+      "bytes": 35215,
+      "sha256": "7a6f2a3248fcf53770cf5dee27985b23e239749cf5c8eae79158c7f903686010"
+    },
+    "f1_orchestrator": {
+      "path": "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py",
+      "bytes": 274585,
+      "sha256": "15c1b808a14674a569544167a461b10e5a072c684f739e1d890b3b50a6f7d03c"
+    },
+    "staging_contract": {
+      "path": "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py",
+      "bytes": 103318,
+      "sha256": "c426037452f2d84be4bc7ae6f4dee04960d35b61456d168f3b5660fbfacd95a0"
+    },
+    "observation_pipeline": {
+      "path": "workspace/public/src/scripts/revalidation/a90_observation_pipeline.py",
+      "bytes": 24478,
+      "sha256": "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb"
+    },
+    "display_observer": {
+      "path": "workspace/public/src/scripts/server-distro/a90_phase2d_display_observer.py",
+      "bytes": 648,
+      "sha256": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744"
+    },
+    "framed_transport": {
+      "path": "workspace/public/src/scripts/revalidation/a90ctl.py",
+      "bytes": 16380,
+      "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c"
+    },
+    "cdc_acm_guard": {
+      "path": "workspace/public/src/scripts/revalidation/device_action_cdc_acm_observer_v1.py",
+      "bytes": 51402,
+      "sha256": "6c8a6d2151928d2e098ca41b3c9dc24cdbbfabe9be10df19969be274744ef9a9"
+    },
+    "cmdv1_shell_adapter": {
+      "path": "workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.py",
+      "bytes": 13928,
+      "sha256": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933"
+    },
+    "workspace_bootstrap": {
+      "path": "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py",
+      "bytes": 1255,
+      "sha256": "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe"
+    },
+    "bridge_selector": {
+      "path": "workspace/public/src/scripts/revalidation/a90_bridge.py",
+      "bytes": 40294,
+      "sha256": "922c55a0afdef9d237a679203f576226583f4463eec15fb0091871c241f8be01"
+    },
+    "serial_lock": {
+      "path": "workspace/public/src/scripts/revalidation/a90_serial_lock.py",
+      "bytes": 2860,
+      "sha256": "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7"
+    },
+    "serial_tcp_bridge": {
+      "path": "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py",
+      "bytes": 17944,
+      "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98"
+    },
+    "phase3_observer": {
+      "path": "workspace/public/src/scripts/server-distro/a90_phase3_d1_observer_v1.py",
+      "bytes": 13141,
+      "sha256": "fccb10170583ea3c1761cf33de7bcc40d2409c0e097af051b6585195876b1a78"
+    },
+    "preserved_d1_prep": {
+      "path": "workspace/public/src/scripts/server-distro/a90_resident_preserved_d1_prep_v1.py",
+      "bytes": 74031,
+      "sha256": "cd7f6c84fc23770b7ee93fbfd04850d716352f50936f7652fe74f752a8dbe737"
+    }
+  },
+  "reviewed_test_source": {
+    "path": "tests/test_a90_transition_d1_session_v1.py",
+    "bytes": 87341,
+    "sha256": "fc9a39dd49eb94efd009346456d6a90dcff5f393ff13f6928392192fc4df3209"
+  },
+  "reviewed_semantics": {
+    "identity_widening": "The legacy single ordinary identity is replaced only by three named exact version/build pairs already qualified by the Phase3 staging contract. Set subtraction excludes the canonical V2321 rollback baseline. Arbitrary, mixed, empty, or future identities are not accepted without changing the hash-bound staging closure.",
+    "manifest_substitution": "SessionSpec candidate version/build are derived from the exact resident-install-v2 manifest, whose candidate path, size, SHA256, boot partition, target, recovery, rootfs, observer, and handoff bindings are reopened. The canonical eleven-record F1 journal repeats the same manifest SHA, candidate identity, exact health, one candidate transfer, zero replay, and RESIDENT_HEALTHY terminal. The D1 manifest cannot substitute another tuple without failing these cross-checks.",
+    "live_preflight": "Before handoff, the exact bridge is reopened and framed version, status, selftest, and pstore receipts are validated against the same SessionSpec tuple. The final post-return health check repeats the same gate.",
+    "device_effect": "The changed function performs only identity and health validation. The only D1 effect remains one manifest-bound SWITCHROOT_EXPERIMENT handoff after durable intent, with handoff_dispatch_count_max one and no action replay. It adds no payload, partition write, flash, reboot, candidate transfer, or rollback transfer path.",
+    "return_cleanup_health": "The unchanged runner requires exact native return evidence, NCM rebinding, exact fixed work-copy cleanup, protected source identity, and final resident health before another ordinal. Observation uncertainty never authorizes redispatch.",
+    "target_and_recovery": "The resident manifest and D1 manifest retain exact A90 profile, bridge device/realpath, recovery identity/profile, observer key, rootfs identity, and private evidence. No S22+ or other-target input is accepted.",
+    "preserved_lane": "preserved-install-cleanup-reduced-v1 continues to compare only against the existing preserved_prep exact version/build pair and is not widened by the ordinary Phase3 identity set."
+  },
+  "review_findings": [
+    {
+      "id": "I1",
+      "severity": "Medium",
+      "status": "CLOSED",
+      "finding": "Reusing the full Phase3 starting-identity set directly would also admit the V2321 rollback baseline to resident D1.",
+      "resolution": "The implementation subtracts PHASE2_ALLOWED_STARTING_IDENTITIES, and the focused negative test proves exact V2321 rejection while minimal-G passes."
+    }
+  ],
+  "validation": {
+    "focused_tests": "34/34 PASS",
+    "minimal_g_accept": "PASS",
+    "v2321_reject": "PASS",
+    "python_py_compile": "PASS",
+    "scoped_diff_check": "PASS",
+    "device_contact": false
+  },
+  "review_trigger": {
+    "reuse_scope": "capability-wide across D1 manifests, sessions, ordinals, and campaigns",
+    "retire_on_runner_or_named_source_closure_change": true,
+    "retire_on_phase2_or_phase3_identity_set_change": true,
+    "retire_on_manifest_journal_health_handoff_return_cleanup_or_recovery_semantic_change": true,
+    "retire_on_new_hazard_incident_or_ambiguous_device_safety_result": true
+  },
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "device_contact": false,
+  "payload_transfer": false,
+  "partition_write": false,
+  "flash": false,
+  "reboot": false,
+  "other_target_touched": false,
+  "final_judgment": "PASS_GO qualifies this exact attended A90 D1 identity adapter and named execution closure. It is not target-presence proof, device-health proof, approval, or live authority."
+}

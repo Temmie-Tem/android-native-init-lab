@@ -76,8 +76,18 @@ class ResidentPromotionV1Tests(unittest.TestCase):
             "schema": base.staging.FINAL_MANIFEST_SCHEMA,
             "status": base.staging.FINAL_MANIFEST_STATUS,
             "run_id": prior_run_id,
-            "candidate_boot": {"partition": "boot", "sha256": candidate_sha},
-            "rollback_boot": {"partition": "boot", "sha256": rollback_sha},
+            "candidate_boot": {
+                "partition": "boot",
+                "sha256": candidate_sha,
+                "expected_version": "0.10.0",
+                "expected_build": "candidate-build",
+            },
+            "rollback_boot": {
+                "partition": "boot",
+                "sha256": rollback_sha,
+                "expected_version": "0.9.285",
+                "expected_build": "v2321",
+            },
             "target": {
                 "profile": base.staging.TARGET_PROFILE,
                 "bridge_device": "/dev/serial/by-id/fake-a90",
@@ -458,6 +468,18 @@ class ResidentPromotionV1Tests(unittest.TestCase):
             value["debian_ab_receipt"]["clean_rootfs_sha256"],
         )
 
+    def test_prior_capability_qualification_is_reused_across_candidates(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            spec = self.fixture(Path(tmp))
+            spec.candidate.sha256 = "a" * 64
+            spec.candidate_version = "0.11.168"
+            spec.candidate_build = "phase3-minimal-g-server-core"
+            value = self.validate(spec)
+        self.assertEqual(
+            value["prior_closed_run"]["candidate_native_exact"]["version_line"],
+            "version: 0.10.0 build=candidate-build",
+        )
+
     def test_install_manifest_selects_one_health_check_and_exact_terminal(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
             value = self.validate(self.install_fixture(Path(tmp)))
@@ -505,10 +527,13 @@ class ResidentPromotionV1Tests(unittest.TestCase):
             ):
                 self.validate(spec)
 
-    def test_prior_candidate_mismatch_is_rejected(self) -> None:
+    def test_prior_candidate_evidence_mismatch_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
             spec = self.fixture(Path(tmp))
-            spec.candidate.sha256 = "f" * 64
+            bound = self.journal_bound(spec, "candidate-boot-ready")
+            value = json.loads(Path(bound["path"]).read_text(encoding="utf-8"))
+            value["candidate_version"] = "0.10.1"
+            self.rewrite_bound(bound, value)
             with self.assertRaisesRegex(
                 promotion.ContractError,
                 "artifact identity or health",

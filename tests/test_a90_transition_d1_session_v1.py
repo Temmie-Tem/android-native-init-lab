@@ -442,6 +442,46 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
         source = Path(d1.__file__).read_text(encoding="utf-8")
         self.assertNotIn("base.verify_candidate_health(f1_spec, args)", source)
 
+    def test_exact_resident_health_accepts_manifest_bound_minimal_g(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            spec = self.session_spec(Path(raw))
+            spec = replace(
+                spec,
+                candidate_version="0.11.168",
+                candidate_build="phase3-minimal-g-server-core",
+            )
+            receipts = self.exact_health_receipts(spec)
+            with mock.patch.object(
+                d1.staging,
+                "require_exact_bridge",
+                return_value={"selected_realpath": spec.bridge_realpath},
+            ), mock.patch.object(
+                d1.staging,
+                "require_native_health",
+                return_value=receipts,
+            ):
+                health = d1.verify_resident_health_exact(
+                    spec,
+                    d1._f1_spec(spec),
+                    object(),
+                )
+            self.assertIn(
+                "version: 0.11.168 build=phase3-minimal-g-server-core",
+                health["version"]["text"],
+            )
+
+            baseline = replace(
+                spec,
+                candidate_version=staging.EXPECTED_BASELINE_VERSION,
+                candidate_build=staging.EXPECTED_BASELINE_BUILD,
+            )
+            with self.assertRaisesRegex(d1.ContractError, "exact V3406 baseline"):
+                d1.verify_resident_health_exact(
+                    baseline,
+                    d1._f1_spec(baseline),
+                    object(),
+                )
+
     def anchored_invoke(self, result: engine.SessionActionResult):
         def invoke(
             effects: d1.LiveSessionEffects,
