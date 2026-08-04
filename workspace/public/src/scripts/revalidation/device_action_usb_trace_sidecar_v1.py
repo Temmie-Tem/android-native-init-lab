@@ -72,6 +72,15 @@ def owner_token_sha256() -> str | None:
     return hashlib.sha256(owner.encode("ascii", "strict")).hexdigest()
 
 
+def clean_requested_stop_returncode(value: Any) -> bool:
+    """Accept direct SIGTERM death or a monitor's clean SIGTERM handler exit."""
+    return (
+        not isinstance(value, bool)
+        and isinstance(value, int)
+        and value in {0, -int(signal.SIGTERM)}
+    )
+
+
 def canonical_json(value: Any) -> bytes:
     return (
         json.dumps(

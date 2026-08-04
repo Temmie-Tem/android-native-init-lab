@@ -144,6 +144,15 @@ class UsbTraceSidecarV1Test(unittest.TestCase):
                     ]
                 )
 
+    def test_requested_stop_accepts_signal_or_clean_handler_exit(self):
+        self.assertTrue(self.module.clean_requested_stop_returncode(-15))
+        self.assertTrue(self.module.clean_requested_stop_returncode(0))
+        for value in (-9, 1, None, True, False):
+            self.assertFalse(
+                self.module.clean_requested_stop_returncode(value),
+                value,
+            )
+
 
 def stat_mode(path: Path) -> int:
     return os.stat(path).st_mode & 0o777

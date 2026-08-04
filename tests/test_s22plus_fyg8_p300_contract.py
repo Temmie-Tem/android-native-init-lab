@@ -342,6 +342,12 @@ class P300ContractTests(unittest.TestCase):
             )
         sidecar_result["stop_reason"] = "signal:SIGTERM"
         sidecar_result["sources"]["kernel"]["returncode"] = 0
+        self.assertTrue(
+            usb_binding.verify_same_attempt(
+                binding, sidecar_result, records, observation_witness
+            )["same_attempt_verified"]
+        )
+        sidecar_result["sources"]["kernel"]["returncode"] = 1
         with self.assertRaises(usb_binding.BindingError):
             usb_binding.verify_same_attempt(
                 binding, sidecar_result, records, observation_witness
@@ -510,7 +516,7 @@ class P300ContractTests(unittest.TestCase):
                 receipt = write(f"{name}.log", payload)
                 sources[name] = {
                     "command": list(command),
-                    "returncode": -15,
+                    "returncode": 0,
                     "bytes": receipt["size"],
                     "sha256": receipt["sha256"],
                     "truncated": False,

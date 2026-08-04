@@ -243,6 +243,32 @@ This requires reproducible userspace/boot-only packaging, not another Full-LTO
 A/B. Bundle the future-only clean-zero sidecar shutdown correction into the same
 implementation/review unit so it cannot consume a separate F1.
 
+The P3.01 H0 implementation now satisfies that contract. Generated payload
+comparison changes only `p290_e3_runtime_include`; the candidate patch,
+checkpoint client, 15-probe descriptor, and exact qualified P3.00 Image remain
+byte-identical. Runtime and schema hard-bind A to ordinal 105 with outcome
+`PROGRESS`, verify the 105 -> 106 -> 107 checkpoint transition, and reserve
+`0x4FC1` for any undefined/disabled device-event subtype before the guarded
+`mask - 1` arithmetic. Types 8 and 12, a known/unknown mixture, all four count
+buckets, a synthetic zero-mask contradiction, and wrong starting generations
+104/106 execute in the generated-C closure.
+
+Nine P3.01 payload `SOURCE_KEYS` were printed and hashed before the overlay
+intent. The intent preserves the Image-bound P3.00 run ID and no key changed
+afterward. Two static userspace links and two complete candidate packages are
+byte-identical. The candidate AP SHA-256 is
+`35a1621716702ef553c2db83b8fbb075543c37a4b56507b1fa0c4ef86668c41b`;
+it contains only `boot.img.lz4`, injects zero modules, and reuses fixed Image
+SHA-256 `01457240881b432f725b0f2d795813c38ef7cca4365633f9b0fc7c3a62744a3f`.
+
+The shared sidecar verifier now accepts direct SIGTERM death or clean zero
+exit after the recorded SIGTERM request while retaining every prior
+alive-before-stop, ownership, no-error, no-truncation, receipt, and same-window
+requirement. Focused independent review returned `PASS_GO` for the exact
+current P3.01 overlay, decoder/model, boot-only packaging, and sidecar change
+set. Process-v2 candidate/static/live binding remains; the artifacts and
+capability review alone grant no F1 authority.
+
 The candidate and exact rollback each transferred once. The transaction is
 durably `CLOSED`, final rooted FYG8 health passed, recovery is not required,
 the sidecar left zero owned processes, and A90 received zero commands.

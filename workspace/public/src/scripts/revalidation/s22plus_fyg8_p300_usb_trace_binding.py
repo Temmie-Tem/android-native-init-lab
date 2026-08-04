@@ -437,7 +437,9 @@ def verify_capture_directory(
             or expected.get("command") != list(command)
             or expected.get("truncated") is not False
             or expected.get("error_type") is not None
-            or expected.get("returncode") != -15
+            or not sidecar.clean_requested_stop_returncode(
+                expected.get("returncode")
+            )
             or expected.get("alive_at_arm") is not True
             or expected.get("alive_before_stop") is not True
             or any(
@@ -534,7 +536,9 @@ def verify_same_attempt(
         source = sources[name]
         if (
             not isinstance(source, dict)
-            or source.get("returncode") != -15
+            or not sidecar.clean_requested_stop_returncode(
+                source.get("returncode")
+            )
             or source.get("alive_at_arm") is not True
             or source.get("alive_before_stop") is not True
         ):
