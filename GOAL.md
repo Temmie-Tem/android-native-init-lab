@@ -59,11 +59,41 @@ Thus the host did not detect an attach from this candidate. This does not yet
 distinguish an unasserted device pull-up from a blocked analog/mux/cable path or
 a host-port failure. Likewise, absence of `ERRATIC_ERROR` proves only that the
 controller emitted no such event; it does not close every analog PHY failure
-that could prevent attach detection. The next bounded unit is H0 attribution
-of the device-side pull-up/session-valid and wrapper role path before any new
-F1. Do not replay the consumed candidate.
+that could prevent attach detection. The P3.02-M0 measurement carrier and its
+Process-v2 evidence path are now host-qualified, but no canonical manifest was
+created and no new F1 is ready. The next prerequisite is the passive breakout
+pin/continuity check and exact FS/LS known-High control below. Do not replay the
+consumed P3.01-r1 candidate.
 
-## Selected Bounded Unit: P3.02 Passive Pull-Up Electrical Attribution (Planned)
+## Selected Bounded Unit: P3.02 Passive Pull-Up Electrical Attribution (Host Ready)
+
+The distinct P3.02-M0 carrier is complete without a kernel rebuild, module
+injection, telemetry change, or Full-LTO rebuild. It reuses the exact P3.01-r1
+behavioral bytes and fixed Image; only `/init` gains one inert, non-allocating
+`.p302_identity` section containing `P302_ELECTRICAL_CARRIER_V1`. The hardened
+verifier keeps every program header, allocated section, existing non-allocated
+section, program byte, and otherwise unclaimed ELF padding exact. It permits
+only the three section-table locator fields that necessarily change, then
+checks the identity, section-name table, section order, and final file layout
+exactly. Tampering with GNU-stack flags, section flags, `.comment`, `.bss`, or
+non-loaded padding is rejected.
+
+Two clean packages reproduce the same 100,663,296-byte boot image with SHA-256
+`dec54b94d84e42d69b3589219c5b43992cf78894f19fd4d591ab2f66ac9509c4`
+and the same one-member AP with SHA-256
+`f2c55ed945d54ce3db71bdd2e2e6cc3517557601d018a95ad1dd27cdbf48e33a`.
+Process-v2 now binds both the inherited nine-file P3.01 overlay and eight-file
+P3.02 overlay, preserves the P3.01 decoder, restores all inherited module
+globals, and passes an actual same-process P3.01-r1 promotion regression. The
+latest offline promotion and ready-manifest rehearsal passed; the rehearsal
+reported `created=false`, `manifest_created=false`, and no device contact.
+Independent review returned `PASS_GO` for this exact H0 capability after
+11/11 focused and 92/92 common regressions.
+
+This does not satisfy the physical observer prerequisite. No public P3.02
+manifest exists, F1 is not armed, and live preparation remains blocked until
+the exact pass-through board passes pin/short checks and a host-confirmed
+`12M` or `1.5M` device proves a known-High data line through that same path.
 
 The next live electrical question is whether the candidate exposes a USB2
 device pull-up at the host-visible cable path. The selected observer is a
@@ -480,6 +510,7 @@ Load-bearing reports:
 - `docs/reports/S22PLUS_FYG8_P298_GADGET_START_EVENT_IMPLEMENTATION_H0_2026-08-03.md`
 - `docs/reports/S22PLUS_FYG8_POST_P298_EVENT_INGRESS_IRQ_ATTRIBUTION_H0_2026-08-04.md`
 - `docs/reports/S22PLUS_FYG8_P298_EXECUTION_CRITICAL_INDEPENDENT_REVIEW_2026-08-03.json`
+- `docs/reports/S22PLUS_FYG8_P302_MEASUREMENT_CARRIER_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/operations/S22PLUS_FYG8_CANDIDATE_BUILD_QUALIFICATION_RUNBOOK.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
 

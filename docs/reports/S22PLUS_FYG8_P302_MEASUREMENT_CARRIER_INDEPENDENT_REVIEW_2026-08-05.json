@@ -1,0 +1,82 @@
+{
+  "authority": {
+    "canonical_manifest_created": false,
+    "device_contact": false,
+    "f1_armed": false,
+    "f1_authorized": false,
+    "live_capability_qualified": false,
+    "qualification_scope": "H0 capability only"
+  },
+  "bindings": {
+    "contract_id": "s22plus-fyg8-p302-electrical-measurement-carrier-v1",
+    "execution_receipts": {
+      "device_action_f1_evidence_v2.py": "d82ef26e78034e92bc6118c81bae544c245653ebc35df375f67290e60165841e",
+      "device_action_f1_v2.py": "1112357bc7a6e4949ca39d4c5fb9eb177180519f1dc8d6ba6438f45e4f3ac929",
+      "prepare_s22plus_fyg8_p234_process_v2.py": "9280d32e62a2504837481fcf391d5797f728c8dd90e5c803c774876927d0e4bf",
+      "prepare_s22plus_fyg8_p302_process_v2.py": "2f53c8f654f50680c04f063285b7fdc458dd4644f094991349d00edabe213494",
+      "prepare_s22plus_fyg8_p302_ready_manifest.py": "0c3fab0dac5594558a827d427124f10c9bbdb092a9206dd26f51bc4ed4bab537",
+      "s22plus_fyg8_p302_binary_carrier.py": "e7b06fddedbf1738b38b9dbe32cdd1d46c0c29819900ba187b74e2feadedb5bb",
+      "s22plus_fyg8_p302_candidate_static_checker.py": "20ec885a77ea57d8ad61dc224c619ee3a72de067c26011cf1425a5be64b24c55",
+      "s22plus_fyg8_p302_overlay_contract.py": "1b6a971fa0eecc9466e250f13ebc7b6b68a9ba0fe4a4da74d260c8f09eac980f"
+    },
+    "test_receipts": {
+      "test_prepare_s22plus_fyg8_p302_process_v2.py": "7095cb41f89feaeeb0155a06ffd09927f5f4399da03493073f32b397184e1730",
+      "test_s22plus_fyg8_p302_contract.py": "4d449fb485eab8f0d418232b8117d8d83025ebaecc71e9764ab664220e6e450c"
+    }
+  },
+  "closed_findings": [
+    "PT_GNU_STACK flags and all program headers are exact",
+    "identity section type, flags, placement, payload, and section-name delta are exact",
+    "all allocated and existing non-allocated sections remain exact",
+    "pre-identity bytes include a whole-file padding comparison with only e_shoff, e_shnum, and e_shstrndx normalized",
+    "P3.02 promotion restores inherited module globals and an actual same-process P3.01-r1 promotion remains valid"
+  ],
+  "findings": {
+    "critical": [],
+    "high": [],
+    "low": [],
+    "medium": []
+  },
+  "independence": {
+    "implementation_authorship": false,
+    "review_scope_was_host_only": true,
+    "reviewer": "independent delegated Codex reviewer",
+    "reviewer_did_not_contact_a_device_or_modify_sources": true
+  },
+  "outputs": {
+    "candidate_ap_sha256": "f2c55ed945d54ce3db71bdd2e2e6cc3517557601d018a95ad1dd27cdbf48e33a",
+    "candidate_boot_sha256": "dec54b94d84e42d69b3589219c5b43992cf78894f19fd4d591ab2f66ac9509c4",
+    "candidate_static_sha256": "3a7e3843c8d4ac1a500f3dba88495637b5922a65861b048bbb3c4cb5b3383135",
+    "fixed_image_sha256": "01457240881b432f725b0f2d795813c38ef7cca4365633f9b0fc7c3a62744a3f",
+    "init_sha256": "d4ac6cb1e3e3267c9d0cf8e003436cfb2bd8444139b617bb55135b57a44c9504",
+    "process_run_manifest_sha256": "4ad6ccee4338038bc6e9df6692a522c21df9eb896fa7abd23b473dda37499f2b",
+    "process_static_check_sha256": "0f267f804bd305bb88e81268d04d149f517a10e11b9e3235d16daae39d3f63aa"
+  },
+  "reviewed_at_utc": "2026-08-04T23:48:22Z",
+  "schema": "s22plus_fyg8_p302_measurement_carrier_independent_review_v1",
+  "scope": [
+    "fixed-Image P3.02-M0 non-allocating ELF identity carrier",
+    "deterministic userspace and one-member boot-only A/B packaging",
+    "P3.02 static audit and P3.01 telemetry-policy inheritance",
+    "Process-v2 offline evidence, source binding, and ready-manifest rehearsal",
+    "P3.01 same-process regression and common Process-v2 closure"
+  ],
+  "target": {
+    "device": "g0q",
+    "firmware": "S906NKSS7FYG8",
+    "model": "SM-S906N",
+    "target_line": "S22PLUS_FYG8"
+  },
+  "validation": {
+    "common_process_v2_tests": "92/92 PASS",
+    "p302_focused_tests": "11/11 PASS",
+    "ready_manifest_rehearsal": "PASS with created=false and manifest_created=false",
+    "static_audit_reproduced": true,
+    "tamper_matrix": "program header, identity W/A flags, .comment, .bss, and non-loaded padding rejected",
+    "verdict": "PASS_GO"
+  },
+  "live_stop": {
+    "condition": "known FS/LS High control not yet proven",
+    "effect": "canonical manifest creation and S22+ F1 remain prohibited"
+  }
+}

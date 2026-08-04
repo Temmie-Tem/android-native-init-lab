@@ -135,8 +135,8 @@ def validate_static(
         raise PromotionError("P2.34 candidate run ID is malformed")
     try:
         if userspace_overlay_contract_id is not None:
-            current_overlay = evidence._validate_p301_overlay_contract(
-                candidate_contract
+            current_overlay = evidence._validate_userspace_overlay_contract(
+                candidate_contract, userspace_overlay_contract_id
             )
             parent_contract = current_overlay["parent_candidate_contract"]
             source_receipts = evidence.validate_candidate_source_preimage(
@@ -300,7 +300,7 @@ def derive(
             "accepted_identity": (
                 "P301_TELEMETRY_RETAINED"
                 if userspace_overlay_contract_id
-                == evidence.P301_OVERLAY_CONTRACT_ID
+                in evidence.P301_TELEMETRY_OVERLAY_IDS
                 else f"{profile}_TERMINAL_SUCCESS_REACHED"
             ),
             "minimum_success_count": 1,

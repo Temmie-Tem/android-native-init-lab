@@ -477,23 +477,34 @@ def execution_critical_source_receipts(
                     "size": len(data),
                     "sha256": hashlib.sha256(data).hexdigest(),
                 }
-            if (
-                userspace_overlay_contract_id
-                == typed_evidence.P301_OVERLAY_CONTRACT_ID
+            if userspace_overlay_contract_id in (
+                typed_evidence.P301_TELEMETRY_OVERLAY_IDS
             ):
                 root = candidate_intent.repo_root()
+                overlay_module = (
+                    typed_evidence.p302_overlay
+                    if userspace_overlay_contract_id
+                    == typed_evidence.P302_OVERLAY_CONTRACT_ID
+                    else typed_evidence.p301_overlay
+                )
+                overlay_label = (
+                    "P3.02"
+                    if userspace_overlay_contract_id
+                    == typed_evidence.P302_OVERLAY_CONTRACT_ID
+                    else "P3.01"
+                )
                 try:
-                    overlay_contract = typed_evidence.p301_overlay.verify_intent(
+                    overlay_contract = overlay_module.verify_intent(
                         root,
-                        root / typed_evidence.p301_overlay.DEFAULT_INTENT,
+                        root / overlay_module.DEFAULT_INTENT,
                     )
-                    overlay_sources = typed_evidence.p301_overlay.source_bytes(root)
+                    overlay_sources = overlay_module.source_bytes(root)
                 except (
-                    typed_evidence.p301_overlay.OverlayContractError,
+                    overlay_module.OverlayContractError,
                     OSError,
                 ) as exc:
                     raise F1V2Error(
-                        "P3.01 execution overlay closure failed"
+                        f"{overlay_label} execution overlay closure failed"
                     ) from exc
                 if (
                     overlay_contract.get("userspace_overlay_contract_id")
@@ -501,15 +512,36 @@ def execution_critical_source_receipts(
                     or overlay_contract.get("source_contract_id")
                     != source_contract_id
                 ):
-                    raise F1V2Error("P3.01 execution overlay identity differs")
+                    raise F1V2Error(
+                        f"{overlay_label} execution overlay identity differs"
+                    )
+                prefix = (
+                    "p302"
+                    if userspace_overlay_contract_id
+                    == typed_evidence.P302_OVERLAY_CONTRACT_ID
+                    else "p301"
+                )
                 for name, data in overlay_sources.items():
-                    receipts[f"p301_overlay_source_{name}"] = {
+                    receipts[f"{prefix}_overlay_source_{name}"] = {
                         "size": len(data),
                         "sha256": hashlib.sha256(data).hexdigest(),
                     }
-                e1_latest_stage_sources["p301_overlay_intent"] = (
-                    root / typed_evidence.p301_overlay.DEFAULT_INTENT
+                e1_latest_stage_sources[f"{prefix}_overlay_intent"] = (
+                    root / overlay_module.DEFAULT_INTENT
                 )
+                if (
+                    userspace_overlay_contract_id
+                    == typed_evidence.P302_OVERLAY_CONTRACT_ID
+                ):
+                    parent_sources = typed_evidence.p301_overlay.source_bytes(root)
+                    for name, data in parent_sources.items():
+                        receipts[f"p301_overlay_source_{name}"] = {
+                            "size": len(data),
+                            "sha256": hashlib.sha256(data).hexdigest(),
+                        }
+                    e1_latest_stage_sources["p301_overlay_intent"] = (
+                        root / typed_evidence.p301_overlay.DEFAULT_INTENT
+                    )
             e1_latest_stage_sources["source_contract_selector"] = Path(
                 candidate_intent.source_contracts.__file__
             )
@@ -703,28 +735,41 @@ def verify_candidate_source_binding(
     if userspace_overlay_contract_id is not None:
         if (
             userspace_overlay_contract_id
-            != typed_evidence.P301_OVERLAY_CONTRACT_ID
+            not in typed_evidence.P301_TELEMETRY_OVERLAY_IDS
             or verification.get("userspace_overlay_contract_id")
             != userspace_overlay_contract_id
         ):
             raise F1V2Error("candidate userspace overlay selector changed")
-        expected_overlay = verification.get("p301_overlay_source_receipts")
+        required_overlays = [("p301", typed_evidence.p301_overlay)]
         if (
-            not isinstance(expected_overlay, dict)
-            or set(expected_overlay)
-            != typed_evidence.p301_overlay.SOURCE_KEYS
+            userspace_overlay_contract_id
+            == typed_evidence.P302_OVERLAY_CONTRACT_ID
         ):
-            raise F1V2Error("P3.01 overlay source binding is incomplete")
-        for name, source_receipt in expected_overlay.items():
-            actual = execution_sources.get(f"p301_overlay_source_{name}")
+            required_overlays.append(("p302", typed_evidence.p302_overlay))
+        for prefix, overlay_module in required_overlays:
+            expected_overlay = verification.get(
+                f"{prefix}_overlay_source_receipts"
+            )
             if (
-                not isinstance(actual, dict)
-                or {key: actual.get(key) for key in ("size", "sha256")}
-                != source_receipt
+                not isinstance(expected_overlay, dict)
+                or set(expected_overlay) != overlay_module.SOURCE_KEYS
             ):
                 raise F1V2Error(
-                    "P3.01 overlay source differs from execution-critical sources"
+                    f"{prefix.upper()} overlay source binding is incomplete"
                 )
+            for name, source_receipt in expected_overlay.items():
+                actual = execution_sources.get(
+                    f"{prefix}_overlay_source_{name}"
+                )
+                if (
+                    not isinstance(actual, dict)
+                    or {key: actual.get(key) for key in ("size", "sha256")}
+                    != source_receipt
+                ):
+                    raise F1V2Error(
+                        f"{prefix.upper()} overlay source differs from "
+                        "execution-critical sources"
+                    )
     if source_contract_id == typed_evidence.P298_SOURCE_CONTRACT_ID:
         import s22plus_fyg8_p298_identity_tiers as p298_identity
 
