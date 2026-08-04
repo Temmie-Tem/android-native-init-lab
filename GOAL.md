@@ -297,8 +297,10 @@ not required, the sidecar left zero owned processes, and A90 received zero
 commands.
 
 P3.01 itself has not transferred. Its exact rooted FYG8 clean-baseline D0 is
-current, the candidate and rollback artifacts remain unchanged, and F1 has not
-been armed.
+current, the candidate and rollback artifacts remain unchanged, and the fresh
+Process-v2 prepared binding is `3099b45202eb...`. The prepared receipt records
+`f1_authorized=false`, `odin_invoked=false`, and `partition_transfer=false`;
+F1 has not been armed.
 
 The full design and limitation statement is recorded in
 `docs/reports/S22PLUS_FYG8_POST_P298_EVENT_INGRESS_IRQ_ATTRIBUTION_H0_2026-08-04.md`.
