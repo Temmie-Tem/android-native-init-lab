@@ -9,7 +9,9 @@ import hashlib
 import json
 import os
 import re
+import signal
 import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,13 +21,15 @@ import device_action_d0_v2 as d0
 import device_action_cdc_acm_observer_v1 as cdc_acm_observer
 import device_action_f1_evidence_v2 as typed_evidence
 import device_action_f1_v2 as core
+import device_action_usb_trace_sidecar_v1 as usb_trace_sidecar
+import s22plus_fyg8_p300_usb_trace_binding as p300_usb_trace
 import s22plus_boot_only_f1_transport as transport
 import s22plus_boot_only_live_core as live_core
 import s22plus_odin_transition_core as odin_core
 import s22plus_odin_usbfs_identity as usbfs_identity
 
 
-ADAPTER_VERSION = "device-action-f1-live-v2-3"
+ADAPTER_VERSION = "device-action-f1-live-v2-4"
 PREPARED_SCHEMA = "device_action_f1_prepared_v2"
 PRIVATE_TARGET_SCHEMA = "device_action_f1_private_target_v2"
 LIVE_STATE_SCHEMA = "device_action_f1_live_state_v2"
@@ -47,6 +51,9 @@ NON_TAINTING_GUARD_WARNINGS = {
     "guard-expired",
     "guard-exited-uncommanded",
 }
+P300_PROCESS_OWNER_SCHEMA = "s22plus_fyg8_p300_usb_trace_process_owner_v1"
+P300_PROCESS_CLEANUP_SCHEMA = "s22plus_fyg8_p300_usb_trace_process_cleanup_v1"
+P300_PROCESS_WAIT_SEC = 10.0
 
 
 class F1LiveError(RuntimeError):
@@ -290,6 +297,423 @@ def _binding(
     return value, core.json_sha256(value)
 
 
+def _p300_bundle(bundle: core.Bundle) -> bool:
+    return (
+        bundle.manifest["observation"]["acceptance"].get("source_contract_id")
+        == typed_evidence.P300_SOURCE_CONTRACT_ID
+    )
+
+
+def _private_relative(root: Path, path: Path, label: str) -> str:
+    try:
+        relative = path.absolute().relative_to(root.resolve())
+    except ValueError as exc:
+        raise F1LiveError(f"{label} escaped the repository") from exc
+    if relative.parts[:2] != ("workspace", "private"):
+        raise F1LiveError(f"{label} is not private")
+    return relative.as_posix()
+
+
+def _p300_owner_token(binding: dict[str, Any]) -> str:
+    return p300_usb_trace.owner_token(binding)
+
+
+def _p300_owner_sha256(token: str) -> str:
+    return hashlib.sha256(token.encode("ascii", "strict")).hexdigest()
+
+
+def _p300_process_owner_path(prepared: PreparedRun) -> Path:
+    return prepared.run_dir / "p300-usb-trace-process.json"
+
+
+def _p300_process_owner_value(
+    prepared: PreparedRun,
+    binding: dict[str, Any],
+    identity: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    verified = p300_usb_trace.verify_binding(binding)
+    value: dict[str, Any] = {
+        "schema": P300_PROCESS_OWNER_SCHEMA,
+        "binding_sha256": verified["binding_sha256"],
+        "approval_binding_sha256": prepared.binding_sha256,
+        "owner_token_sha256": _p300_owner_sha256(_p300_owner_token(binding)),
+        "status": "launch-intent" if identity is None else "launched",
+        "leader": None,
+    }
+    if identity is not None:
+        value["leader"] = {
+            name: identity[name]
+            for name in (
+                "pid",
+                "parent_pid",
+                "process_group_id",
+                "session_id",
+                "start_ticks",
+            )
+        }
+    return value
+
+
+def _validate_p300_process_owner(
+    prepared: PreparedRun, binding: dict[str, Any], value: Any
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise F1LiveError("P3.00 observer process owner is not an object")
+    status = value.get("status")
+    expected = _p300_process_owner_value(prepared, binding)
+    if status == "launched":
+        leader = value.get("leader")
+        if (
+            not isinstance(leader, dict)
+            or set(leader)
+            != {
+                "pid",
+                "parent_pid",
+                "process_group_id",
+                "session_id",
+                "start_ticks",
+            }
+            or any(
+                isinstance(leader[name], bool)
+                or not isinstance(leader[name], int)
+                or leader[name] <= 0
+                for name in leader
+            )
+            or leader["pid"] != leader["process_group_id"]
+            or leader["pid"] != leader["session_id"]
+        ):
+            raise F1LiveError("P3.00 observer process leader differs")
+        expected = _p300_process_owner_value(prepared, binding, leader)
+    elif status != "launch-intent":
+        raise F1LiveError("P3.00 observer process owner status differs")
+    if value != expected:
+        raise F1LiveError("P3.00 observer process owner binding differs")
+    return dict(value)
+
+
+def _proc_identity(pid: int) -> dict[str, Any] | None:
+    try:
+        payload = (Path("/proc") / str(pid) / "stat").read_bytes()
+    except (FileNotFoundError, ProcessLookupError, PermissionError):
+        return None
+    marker = payload.rfind(b") ")
+    if marker < 0:
+        raise F1LiveError("P3.00 observer process stat is malformed")
+    fields = payload[marker + 2 :].split()
+    if len(fields) < 20:
+        raise F1LiveError("P3.00 observer process stat is truncated")
+    try:
+        return {
+            "pid": pid,
+            "state": fields[0].decode("ascii", "strict"),
+            "parent_pid": int(fields[1]),
+            "process_group_id": int(fields[2]),
+            "session_id": int(fields[3]),
+            "start_ticks": int(fields[19]),
+        }
+    except (UnicodeError, ValueError) as exc:
+        raise F1LiveError("P3.00 observer process stat fields differ") from exc
+
+
+def _proc_has_owner(pid: int, token: str) -> bool:
+    try:
+        payload = (Path("/proc") / str(pid) / "environ").read_bytes()
+    except (FileNotFoundError, ProcessLookupError, PermissionError):
+        return False
+    expected = (
+        usb_trace_sidecar.OWNER_ENV.encode("ascii")
+        + b"="
+        + token.encode("ascii", "strict")
+    )
+    return expected in payload.split(b"\0")
+
+
+def _proc_has_any_p300_owner(pid: int) -> bool:
+    try:
+        payload = (Path("/proc") / str(pid) / "environ").read_bytes()
+    except (FileNotFoundError, ProcessLookupError, PermissionError):
+        return False
+    prefix = usb_trace_sidecar.OWNER_ENV.encode("ascii") + b"="
+    return any(item.startswith(prefix) for item in payload.split(b"\0"))
+
+
+def _p300_any_owned_processes() -> list[dict[str, Any]]:
+    result = []
+    for path in Path("/proc").iterdir():
+        if not path.name.isdigit():
+            continue
+        pid = int(path.name)
+        if not _proc_has_any_p300_owner(pid):
+            continue
+        identity = _proc_identity(pid)
+        if identity is not None and identity["state"] != "Z":
+            result.append(identity)
+    return result
+
+
+def _p300_owned_processes(token: str) -> list[dict[str, Any]]:
+    result = []
+    for path in Path("/proc").iterdir():
+        if not path.name.isdigit():
+            continue
+        pid = int(path.name)
+        if not _proc_has_owner(pid, token):
+            continue
+        identity = _proc_identity(pid)
+        if identity is not None and identity["state"] != "Z":
+            result.append(identity)
+    return sorted(result, key=lambda value: value["pid"])
+
+
+def _p300_group_members(group_ids: set[int]) -> list[dict[str, Any]]:
+    result = []
+    for path in Path("/proc").iterdir():
+        if not path.name.isdigit():
+            continue
+        identity = _proc_identity(int(path.name))
+        if (
+            identity is not None
+            and identity["state"] != "Z"
+            and identity["process_group_id"] in group_ids
+        ):
+            result.append(identity)
+    return result
+
+
+def _p300_wait_owner_absent(token: str, timeout_sec: float) -> bool:
+    deadline = time.monotonic() + timeout_sec
+    while time.monotonic() < deadline:
+        if not _p300_owned_processes(token):
+            return True
+        time.sleep(0.05)
+    return not _p300_owned_processes(token)
+
+
+def _p300_cleanup_owned_processes(
+    binding: dict[str, Any], *, expected_group: int | None = None
+) -> dict[str, Any]:
+    token = _p300_owner_token(binding)
+    token_sha256 = _p300_owner_sha256(token)
+    members = _p300_owned_processes(token)
+    initial_count = len(members)
+    signals: list[str] = []
+    if members:
+        groups = {value["process_group_id"] for value in members}
+        sessions = {value["session_id"] for value in members}
+        if (
+            len(groups) != 1
+            or sessions != groups
+            or (expected_group is not None and groups != {expected_group})
+        ):
+            raise F1LiveError("P3.00 observer process ownership differs")
+        group_members = _p300_group_members(groups)
+        if any(
+            not _proc_has_owner(value["pid"], token)
+            for value in group_members
+        ):
+            raise F1LiveError("P3.00 observer process group has a foreign member")
+        group = next(iter(groups))
+        try:
+            os.killpg(group, signal.SIGTERM)
+            signals.append("SIGTERM")
+        except ProcessLookupError:
+            pass
+        if not _p300_wait_owner_absent(token, P300_PROCESS_WAIT_SEC):
+            remaining = _p300_owned_processes(token)
+            remaining_groups = {value["process_group_id"] for value in remaining}
+            if remaining_groups != {group}:
+                raise F1LiveError("P3.00 observer process group changed during cleanup")
+            try:
+                os.killpg(group, signal.SIGKILL)
+                signals.append("SIGKILL")
+            except ProcessLookupError:
+                pass
+            if not _p300_wait_owner_absent(token, P300_PROCESS_WAIT_SEC):
+                raise F1LiveError("P3.00 observer process group survived cleanup")
+    return {
+        "schema": P300_PROCESS_CLEANUP_SCHEMA,
+        "owner_token_sha256": token_sha256,
+        "matching_processes_before": initial_count,
+        "matching_processes_after": 0,
+        "signals": signals,
+        "checked_utc": core.utc_now(),
+        "group_absent": True,
+        "verified": True,
+        "error_type": None,
+    }
+
+
+def _p300_cleanup_failure(
+    binding: dict[str, Any], exc: Exception
+) -> dict[str, Any]:
+    token = _p300_owner_token(binding)
+    try:
+        count: int | None = len(_p300_owned_processes(token))
+    except Exception:
+        count = None
+    return {
+        "schema": P300_PROCESS_CLEANUP_SCHEMA,
+        "owner_token_sha256": _p300_owner_sha256(token),
+        "matching_processes_before": count,
+        "matching_processes_after": count,
+        "signals": [],
+        "checked_utc": core.utc_now(),
+        "group_absent": False,
+        "verified": False,
+        "error_type": type(exc).__name__,
+    }
+
+
+def _validate_p300_process_cleanup(
+    binding: dict[str, Any], value: Any, *, require_verified: bool
+) -> dict[str, Any]:
+    token = _p300_owner_token(binding)
+    if (
+        not isinstance(value, dict)
+        or set(value)
+        != {
+            "schema",
+            "owner_token_sha256",
+            "matching_processes_before",
+            "matching_processes_after",
+            "signals",
+            "checked_utc",
+            "group_absent",
+            "verified",
+            "error_type",
+        }
+        or value.get("schema") != P300_PROCESS_CLEANUP_SCHEMA
+        or value.get("owner_token_sha256") != _p300_owner_sha256(token)
+        or not isinstance(value.get("signals"), list)
+        or any(item not in {"SIGTERM", "SIGKILL"} for item in value["signals"])
+        or not isinstance(value.get("checked_utc"), str)
+        or not value["checked_utc"].endswith("Z")
+    ):
+        raise F1LiveError("P3.00 observer process cleanup proof differs")
+    if value.get("verified") is True:
+        if (
+            isinstance(value.get("matching_processes_before"), bool)
+            or not isinstance(value.get("matching_processes_before"), int)
+            or value["matching_processes_before"] < 0
+            or value.get("matching_processes_after") != 0
+            or value.get("group_absent") is not True
+            or value.get("error_type") is not None
+            or _p300_owned_processes(token)
+        ):
+            raise F1LiveError("P3.00 observer cleanup success proof differs")
+    elif (
+        value.get("verified") is not False
+        or value.get("group_absent") is not False
+        or not isinstance(value.get("error_type"), str)
+        or not value["error_type"]
+    ):
+        raise F1LiveError("P3.00 observer cleanup failure proof differs")
+    if require_verified and value.get("verified") is not True:
+        raise F1LiveError("P3.00 verified trace lacks process cleanup")
+    return dict(value)
+
+
+def _p300_usb_binding_value(
+    root: Path,
+    bundle: core.Bundle,
+    run_dir: Path,
+    approval_binding_sha256: str,
+) -> dict[str, Any] | None:
+    if not _p300_bundle(bundle):
+        return None
+    return p300_usb_trace.create_binding(
+        campaign_id=bundle.manifest["manifest_id"],
+        attempt_id=bundle.manifest["run_id"],
+        candidate_ap={
+            "size": bundle.manifest["candidate_ap"]["size"],
+            "sha256": bundle.manifest["candidate_ap"]["sha256"],
+        },
+        approval_binding_sha256=approval_binding_sha256,
+        transaction_path=_private_relative(
+            root, run_dir / "transaction", "P3.00 transaction"
+        ),
+        sidecar_result_path=_private_relative(
+            root,
+            run_dir / "p300-usb-trace/result.json",
+            "P3.00 sidecar result",
+        ),
+        observation_witness_path=_private_relative(
+            root,
+            run_dir / "p300-candidate-observation-durable.json",
+            "P3.00 observation witness",
+        ),
+    )
+
+
+def _prepare_p300_usb_binding(
+    root: Path,
+    bundle: core.Bundle,
+    run_dir: Path,
+    approval_binding_sha256: str,
+) -> dict[str, Any] | None:
+    value = _p300_usb_binding_value(
+        root, bundle, run_dir, approval_binding_sha256
+    )
+    if value is None:
+        return None
+    path = run_dir / "p300-usb-trace-binding.json"
+    _write_exclusive(path, value)
+    return _receipt(path, "P3.00 USB trace binding")
+
+
+def _p300_observation_witness_path(prepared: PreparedRun) -> Path:
+    return prepared.run_dir / "p300-candidate-observation-durable.json"
+
+
+def _write_p300_observation_witness(
+    prepared: PreparedRun, current: dict[str, Any]
+) -> dict[str, Any]:
+    binding = p300_usb_trace.verify_binding(
+        _read_json(
+            prepared.run_dir / "p300-usb-trace-binding.json",
+            "P3.00 USB trace binding",
+        )
+    )
+    durable_state = _state(prepared)
+    expected_state = {**current, "schema": LIVE_STATE_SCHEMA}
+    if durable_state != expected_state:
+        raise F1LiveError("P3.00 observation state was not durable")
+    value = {
+        "schema": p300_usb_trace.OBSERVATION_WITNESS_SCHEMA,
+        "binding_sha256": binding["binding_sha256"],
+        "approval_binding_sha256": prepared.binding_sha256,
+        "candidate_ap": binding["candidate_ap"],
+        "timestamp_utc": core.utc_now(),
+        "live_state_sha256": core.json_sha256(durable_state),
+        "durable": True,
+        "device_actions": False,
+    }
+    path = _p300_observation_witness_path(prepared)
+    expected_path = prepared.root / binding["observation_witness_path"]
+    if path.absolute() != expected_path.absolute():
+        raise F1LiveError("P3.00 observation witness path differs")
+    _write_exclusive(path, value)
+    reopened = p300_usb_trace.verify_observation_witness(
+        binding, _read_json(path, "P3.00 observation witness")
+    )
+    if reopened != value:
+        raise F1LiveError("P3.00 observation witness changed")
+    return _receipt(path, "P3.00 observation witness")
+
+
+def _read_p300_observation_witness(
+    prepared: PreparedRun, binding: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    path = _p300_observation_witness_path(prepared)
+    expected_path = prepared.root / binding["observation_witness_path"]
+    if path.absolute() != expected_path.absolute():
+        raise F1LiveError("P3.00 observation witness path differs")
+    value = p300_usb_trace.verify_observation_witness(
+        binding, _read_json(path, "P3.00 observation witness")
+    )
+    return value, _receipt(path, "P3.00 observation witness")
+
+
 def prepare_connected(
     root: Path,
     bundle: core.Bundle,
@@ -299,6 +723,8 @@ def prepare_connected(
 ) -> dict[str, Any]:
     if bundle.manifest["status"] != "ready-for-f1-approval":
         raise F1LiveError("manifest is not ready for F1 approval")
+    if _p300_bundle(bundle) and _p300_any_owned_processes():
+        raise F1LiveError("stale P3.00 USB trace process is still present")
     run_dir = _validate_private_run_dir(root, run_dir)
     preflight = run_dir / "preflight"
     preflight.mkdir(mode=0o700)
@@ -314,6 +740,9 @@ def prepare_connected(
     binding, binding_sha256 = _binding(
         bundle, result, d0_receipt, private_receipt, closure
     )
+    p300_binding = _prepare_p300_usb_binding(
+        root, bundle, run_dir, binding_sha256
+    )
     prepared = {
         "schema": PREPARED_SCHEMA,
         "adapter_version": ADAPTER_VERSION,
@@ -326,6 +755,7 @@ def prepare_connected(
         "approval_binding": binding,
         "approval_binding_sha256": binding_sha256,
         "approval_token": APPROVAL_PREFIX + binding_sha256,
+        "p300_usb_trace_binding": p300_binding,
         "device_contact": True,
         "device_writes": False,
         "reboot_requested": False,
@@ -355,6 +785,7 @@ def load_prepared(root: Path, manifest_path: Path, run_dir: Path) -> PreparedRun
         "approval_binding",
         "approval_binding_sha256",
         "approval_token",
+        "p300_usb_trace_binding",
         "device_contact",
         "device_writes",
         "reboot_requested",
@@ -424,6 +855,27 @@ def load_prepared(root: Path, manifest_path: Path, run_dir: Path) -> PreparedRun
         or prepared["approval_binding_sha256"] != binding_sha256
     ):
         raise F1LiveError("prepared approval binding mismatch")
+    expected_p300 = _p300_usb_binding_value(
+        root, bundle, run_dir, binding_sha256
+    )
+    binding_receipt = prepared["p300_usb_trace_binding"]
+    if expected_p300 is None:
+        if binding_receipt is not None:
+            raise F1LiveError("non-P3.00 run has a USB trace binding")
+    else:
+        binding_path = run_dir / "p300-usb-trace-binding.json"
+        if (
+            not isinstance(binding_receipt, dict)
+            or binding_receipt
+            != _receipt(binding_path, "prepared P3.00 USB trace binding")
+            or _read_json(binding_path, "prepared P3.00 USB trace binding")
+            != expected_p300
+        ):
+            raise F1LiveError("prepared P3.00 USB trace binding mismatch")
+        try:
+            p300_usb_trace.verify_binding(expected_p300)
+        except p300_usb_trace.BindingError as exc:
+            raise F1LiveError(str(exc)) from exc
     return PreparedRun(root, run_dir, bundle, prepared, private_target)
 
 
@@ -1404,6 +1856,7 @@ def validate_live_result(
         prepared.run_dir / "transaction", prepared.binding_sha256
     )
     state = _state(prepared)
+    _validate_p300_usb_trace_state(prepared, state, journal.records())
     if (
         result["schema"] != LIVE_RESULT_SCHEMA
         or result["adapter_version"] != ADAPTER_VERSION
@@ -1571,10 +2024,78 @@ def _events(journal: core.Journal) -> list[str]:
     ]
 
 
+def _p300_recovery_process_cleanup(
+    prepared: PreparedRun,
+) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    binding_path = prepared.run_dir / "p300-usb-trace-binding.json"
+    binding = p300_usb_trace.verify_binding(
+        _read_json(binding_path, "P3.00 USB trace binding")
+    )
+    owner_path = _p300_process_owner_path(prepared)
+    owner_receipt = None
+    expected_group = None
+    if owner_path.exists() or owner_path.is_symlink():
+        owner = _validate_p300_process_owner(
+            prepared,
+            binding,
+            _read_json(owner_path, "P3.00 USB trace process owner"),
+        )
+        owner_receipt = _receipt(owner_path, "P3.00 USB trace process owner")
+        if owner["status"] == "launched":
+            expected_group = owner["leader"]["process_group_id"]
+    cleanup = _p300_cleanup_owned_processes(
+        binding, expected_group=expected_group
+    )
+    return owner_receipt, cleanup
+
+
 def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
+    p300_lifecycle = None
+    if _p300_bundle(prepared.bundle):
+        try:
+            p300_lifecycle = _p300_recovery_process_cleanup(prepared)
+        except Exception as exc:
+            binding = p300_usb_trace.verify_binding(
+                _read_json(
+                    prepared.run_dir / "p300-usb-trace-binding.json",
+                    "P3.00 USB trace binding",
+                )
+            )
+            owner_path = _p300_process_owner_path(prepared)
+            owner_receipt = None
+            try:
+                if owner_path.is_file() and not owner_path.is_symlink():
+                    owner_receipt = _receipt(
+                        owner_path, "P3.00 USB trace process owner"
+                    )
+            except Exception:
+                pass
+            p300_lifecycle = (
+                owner_receipt,
+                _p300_cleanup_failure(binding, exc),
+            )
     attempt_count = _reconcile_transfer_attempts(
         prepared, journal, "candidate", repair_orphan_start=True
     )
+    if _p300_bundle(prepared.bundle):
+        assert p300_lifecycle is not None
+        owner_receipt, cleanup = p300_lifecycle
+        current = _state(prepared)
+        trace = current.get("p300_usb_trace")
+        if not isinstance(trace, dict) or trace.get("status") != "verified":
+            current["p300_usb_trace"] = {
+                "status": "unknown",
+                "reason": "recovery:interrupted-candidate-window",
+                "binding": prepared.prepared["p300_usb_trace_binding"],
+                "process_owner": owner_receipt,
+                "process_cleanup": cleanup,
+                "host_axis": "UNKNOWN",
+                "device_result_authoritative": True,
+            }
+            try:
+                _save_state(prepared, current)
+            except Exception:
+                pass
     events = _events(journal)
     if not attempt_count:
         if "candidate_flash_start" in events:
@@ -1919,6 +2440,477 @@ def _finish_rollback(
     raise F1LiveError(f"unsupported rollback resume state: {state}")
 
 
+class _P300UsbTraceSession:
+    def __init__(self, prepared: PreparedRun, journal: core.Journal):
+        self.prepared = prepared
+        self.journal = journal
+        self.enabled = _p300_bundle(prepared.bundle)
+        self.binding: dict[str, Any] | None = None
+        self.process: subprocess.Popen[bytes] | None = None
+        self.result: dict[str, Any] | None = None
+        self.integrity: dict[str, Any] | None = None
+        self.owner_token: str | None = None
+        self.owner_receipt: dict[str, Any] | None = None
+        self.cleanup: dict[str, Any] | None = None
+        self.failure_reason: str | None = None
+        self.closed = False
+
+    @property
+    def output_dir(self) -> Path:
+        return self.prepared.run_dir / "p300-usb-trace"
+
+    def _save(self, value: dict[str, Any]) -> None:
+        current = _state(self.prepared)
+        current["p300_usb_trace"] = value
+        _save_state(self.prepared, current)
+
+    def _unknown(self, reason: str) -> None:
+        if not self.enabled:
+            return
+        self.failure_reason = reason[:160]
+        try:
+            binding = self._binding()
+            if self.cleanup is None:
+                try:
+                    self.cleanup = _p300_cleanup_owned_processes(binding)
+                except Exception as exc:
+                    self.cleanup = _p300_cleanup_failure(binding, exc)
+            try:
+                self._refresh_owner_receipt()
+            except Exception:
+                pass
+            try:
+                self._save(
+                    {
+                        "status": "unknown",
+                        "reason": self.failure_reason,
+                        "binding": self.prepared.prepared[
+                            "p300_usb_trace_binding"
+                        ],
+                        "process_owner": self.owner_receipt,
+                        "process_cleanup": self.cleanup,
+                        "host_axis": "UNKNOWN",
+                        "device_result_authoritative": True,
+                    }
+                )
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+    def observation_durable(self, current: dict[str, Any]) -> None:
+        if not self.enabled:
+            return
+        try:
+            _write_p300_observation_witness(self.prepared, current)
+        except Exception as exc:
+            self.failure_reason = f"witness:{type(exc).__name__}"
+
+    def _binding(self) -> dict[str, Any]:
+        if self.binding is None:
+            self.binding = p300_usb_trace.verify_binding(
+                _read_json(
+                    self.prepared.run_dir / "p300-usb-trace-binding.json",
+                    "P3.00 USB trace binding",
+                )
+            )
+        return self.binding
+
+    def _refresh_owner_receipt(self) -> None:
+        path = _p300_process_owner_path(self.prepared)
+        if path.is_file() and not path.is_symlink():
+            self.owner_receipt = _receipt(
+                path, "P3.00 USB trace process owner"
+            )
+
+    def start(self) -> None:
+        if not self.enabled:
+            return
+        try:
+            binding_path = self.prepared.run_dir / "p300-usb-trace-binding.json"
+            binding = _read_json(binding_path, "P3.00 USB trace binding")
+            self.binding = p300_usb_trace.verify_binding(binding)
+            self.owner_token = _p300_owner_token(self.binding)
+            owner_path = _p300_process_owner_path(self.prepared)
+            _write_exclusive(
+                owner_path,
+                _p300_process_owner_value(self.prepared, self.binding),
+            )
+            self._refresh_owner_receipt()
+            duration = min(
+                usb_trace_sidecar.MAX_DURATION_SEC,
+                max(
+                    900,
+                    self.prepared.bundle.manifest["observation"]["timeout_sec"]
+                    + ODIN_TIMEOUT_SEC
+                    + DOWNLOAD_WAIT_SEC
+                    + 180,
+                ),
+            )
+            self.process = subprocess.Popen(
+                [
+                    sys.executable,
+                    str(Path(usb_trace_sidecar.__file__).resolve()),
+                    "--output-dir",
+                    str(self.output_dir),
+                    "--duration-sec",
+                    str(duration),
+                ],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                cwd=self.prepared.root,
+                env={
+                    "LC_ALL": "C",
+                    "PATH": "/usr/bin:/bin",
+                    usb_trace_sidecar.OWNER_ENV: self.owner_token,
+                },
+                start_new_session=True,
+            )
+            identity = _proc_identity(self.process.pid)
+            if (
+                identity is None
+                or identity["process_group_id"] != self.process.pid
+                or identity["session_id"] != self.process.pid
+                or not _proc_has_owner(self.process.pid, self.owner_token)
+            ):
+                raise F1LiveError("P3.00 USB trace process ownership did not arm")
+            owner_value = _p300_process_owner_value(
+                self.prepared, self.binding, identity
+            )
+            _write_atomic(owner_path, owner_value)
+            _validate_p300_process_owner(
+                self.prepared,
+                self.binding,
+                _read_json(owner_path, "P3.00 USB trace process owner"),
+            )
+            self._refresh_owner_receipt()
+            deadline = time.monotonic() + 20
+            required = (
+                self.output_dir / "start.json",
+                self.output_dir / "armed.json",
+                self.output_dir / "kernel.log",
+                self.output_dir / "udev.log",
+            )
+            while time.monotonic() < deadline:
+                if self.process.poll() is not None:
+                    raise F1LiveError("P3.00 USB trace sidecar exited while arming")
+                if all(path.is_file() and not path.is_symlink() for path in required):
+                    start = _read_json(required[0], "P3.00 USB trace start")
+                    armed = _read_json(required[1], "P3.00 USB trace armed")
+                    owner_sha256 = _p300_owner_sha256(self.owner_token)
+                    if (
+                        start.get("schema") != usb_trace_sidecar.SCHEMA
+                        or start.get("phase") != "start"
+                        or start.get("owner_token_sha256") != owner_sha256
+                        or start.get("device_actions") is not False
+                        or start.get("opens_candidate_acm") is not False
+                        or armed.get("schema") != usb_trace_sidecar.SCHEMA
+                        or armed.get("phase") != "armed"
+                        or armed.get("owner_token_sha256") != owner_sha256
+                        or armed.get("process_group_id") != self.process.pid
+                        or armed.get("session_id") != self.process.pid
+                        or armed.get("device_actions") is not False
+                        or armed.get("opens_candidate_acm") is not False
+                        or not isinstance(armed.get("sources"), dict)
+                        or set(armed["sources"]) != set(usb_trace_sidecar.SOURCE_COMMANDS)
+                        or any(
+                            not isinstance(value, dict)
+                            or value.get("alive") is not True
+                            or value.get("process_group_id") != self.process.pid
+                            or value.get("session_id") != self.process.pid
+                            for value in armed["sources"].values()
+                        )
+                    ):
+                        raise F1LiveError("P3.00 USB trace start receipt differs")
+                    self._save(
+                        {
+                            "status": "capturing",
+                            "binding": self.prepared.prepared[
+                                "p300_usb_trace_binding"
+                            ],
+                            "start": _receipt(
+                                required[0], "P3.00 USB trace start"
+                            ),
+                            "armed": _receipt(
+                                required[1], "P3.00 USB trace armed"
+                            ),
+                            "process_owner": self.owner_receipt,
+                            "host_axis": "PENDING",
+                            "device_result_authoritative": True,
+                        }
+                    )
+                    return
+                time.sleep(0.05)
+            raise F1LiveError("P3.00 USB trace sidecar arm timed out")
+        except Exception as exc:
+            self.close()
+            self._unknown(f"arm:{type(exc).__name__}")
+
+    def close(self) -> None:
+        if self.closed or not self.enabled:
+            return
+        self.closed = True
+        try:
+            self._close_impl()
+        except Exception as exc:
+            self._unknown(f"close:{type(exc).__name__}")
+
+    def _close_impl(self) -> None:
+        capture_error: Exception | None = None
+        stdout = b""
+        stderr = b""
+        try:
+            if self.process is not None:
+                if self.process.poll() is None:
+                    self.process.terminate()
+                try:
+                    stdout, stderr = self.process.communicate(timeout=30)
+                except subprocess.TimeoutExpired:
+                    try:
+                        os.killpg(self.process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    stdout, stderr = self.process.communicate(timeout=10)
+                    raise F1LiveError("P3.00 USB trace sidecar did not stop")
+            if self.process is not None and self.process.returncode != 0:
+                raise F1LiveError(
+                    "P3.00 USB trace sidecar process failed: "
+                    f"{self.process.returncode}"
+                )
+        except (
+            OSError,
+            ValueError,
+            F1LiveError,
+            subprocess.SubprocessError,
+        ) as exc:
+            capture_error = exc
+        try:
+            binding = self._binding()
+            try:
+                self.cleanup = _p300_cleanup_owned_processes(
+                    binding,
+                    expected_group=(
+                        self.process.pid if self.process is not None else None
+                    ),
+                )
+            except Exception as exc:
+                self.cleanup = _p300_cleanup_failure(binding, exc)
+                if capture_error is None:
+                    capture_error = exc
+            try:
+                self._refresh_owner_receipt()
+            except Exception as exc:
+                if capture_error is None:
+                    capture_error = exc
+        except Exception as exc:
+            if capture_error is None:
+                capture_error = exc
+        if capture_error is not None or self.failure_reason is not None:
+            reason = self.failure_reason or f"capture:{type(capture_error).__name__}"
+            self._unknown(reason)
+            return
+        if self.process is None:
+            return
+        try:
+            result_path = self.output_dir / "result.json"
+            self.result = _read_json(result_path, "P3.00 USB trace result")
+            assert self.binding is not None
+            self.integrity = p300_usb_trace.verify_capture_directory(
+                self.binding,
+                self.result,
+                root=self.prepared.root,
+                output_dir=self.output_dir,
+            )
+            self._save(
+                {
+                    "status": "captured",
+                    "binding": self.prepared.prepared[
+                        "p300_usb_trace_binding"
+                    ],
+                    "result": _receipt(result_path, "P3.00 USB trace result"),
+                    "capture_integrity": self.integrity,
+                    "process_owner": self.owner_receipt,
+                    "process_cleanup": self.cleanup,
+                    "process_output": {
+                        "stdout_size": len(stdout),
+                        "stdout_sha256": hashlib.sha256(stdout).hexdigest(),
+                        "stderr_size": len(stderr),
+                        "stderr_sha256": hashlib.sha256(stderr).hexdigest(),
+                    },
+                    "host_axis": "PENDING",
+                    "device_result_authoritative": True,
+                }
+            )
+        except Exception as exc:
+            self._unknown(f"capture:{type(exc).__name__}")
+
+    def finalize(self) -> None:
+        if not self.enabled:
+            return
+        try:
+            self.close()
+        except Exception as exc:
+            self._unknown(f"finalize-close:{type(exc).__name__}")
+            return
+        if self.failure_reason is not None:
+            self._unknown(self.failure_reason)
+            return
+        if self.binding is None or self.result is None or self.integrity is None:
+            return
+        try:
+            observation_witness, observation_witness_receipt = (
+                _read_p300_observation_witness(self.prepared, self.binding)
+            )
+            same_attempt = p300_usb_trace.verify_same_attempt(
+                self.binding,
+                self.result,
+                self.journal.records(),
+                observation_witness,
+            )
+            self._save(
+                {
+                    "status": "verified",
+                    "binding": self.prepared.prepared[
+                        "p300_usb_trace_binding"
+                    ],
+                    "result": _receipt(
+                        self.output_dir / "result.json",
+                        "P3.00 USB trace result",
+                    ),
+                    "capture_integrity": self.integrity,
+                    "same_attempt": same_attempt,
+                    "observation_witness": observation_witness_receipt,
+                    "process_owner": self.owner_receipt,
+                    "process_cleanup": self.cleanup,
+                    "host_axis": "AVAILABLE",
+                    "device_result_authoritative": True,
+                }
+            )
+        except Exception as exc:
+            self._unknown(f"binding:{type(exc).__name__}")
+
+
+def _validate_p300_usb_trace_state(
+    prepared: PreparedRun,
+    state: dict[str, Any],
+    records: list[dict[str, Any]],
+) -> None:
+    trace = state.get("p300_usb_trace")
+    if not _p300_bundle(prepared.bundle):
+        if trace is not None:
+            raise F1LiveError("non-P3.00 run has USB trace state")
+        return
+    events = {
+        record["action"] for record in records if record["kind"] == "event"
+    }
+    if not isinstance(trace, dict):
+        if "candidate_flash_start" in events:
+            raise F1LiveError("P3.00 candidate attempt lacks USB trace state")
+        return
+    status = trace.get("status")
+    if status in {"capturing", "captured"}:
+        if "candidate_boot_ready" in events:
+            raise F1LiveError("P3.00 completed candidate lacks final USB trace state")
+        return
+    binding = p300_usb_trace.verify_binding(
+        _read_json(
+            prepared.run_dir / "p300-usb-trace-binding.json",
+            "P3.00 USB trace binding",
+        )
+    )
+    owner_receipt = trace.get("process_owner")
+    owner_path = _p300_process_owner_path(prepared)
+    if owner_receipt is None:
+        if owner_path.exists() or owner_path.is_symlink():
+            raise F1LiveError("P3.00 observer owner receipt is missing")
+    else:
+        if owner_receipt != _receipt(
+            owner_path, "P3.00 USB trace process owner"
+        ):
+            raise F1LiveError("P3.00 observer owner receipt changed")
+        _validate_p300_process_owner(
+            prepared,
+            binding,
+            _read_json(owner_path, "P3.00 USB trace process owner"),
+        )
+    cleanup = _validate_p300_process_cleanup(
+        binding,
+        trace.get("process_cleanup"),
+        require_verified=status == "verified",
+    )
+    if status == "unknown":
+        if (
+            set(trace)
+            != {
+                "status",
+                "reason",
+                "binding",
+                "process_owner",
+                "process_cleanup",
+                "host_axis",
+                "device_result_authoritative",
+            }
+            or not isinstance(trace["reason"], str)
+            or not trace["reason"]
+            or trace["binding"]
+            != prepared.prepared["p300_usb_trace_binding"]
+            or trace["host_axis"] != "UNKNOWN"
+            or trace["device_result_authoritative"] is not True
+        ):
+            raise F1LiveError("P3.00 unknown USB trace state differs")
+        return
+    if status != "verified":
+        raise F1LiveError("P3.00 USB trace status is invalid")
+    if (
+        set(trace)
+        != {
+            "status",
+            "binding",
+            "result",
+            "capture_integrity",
+            "same_attempt",
+            "observation_witness",
+            "process_owner",
+            "process_cleanup",
+            "host_axis",
+            "device_result_authoritative",
+        }
+        or trace["binding"] != prepared.prepared["p300_usb_trace_binding"]
+        or trace["host_axis"] != "AVAILABLE"
+        or trace["device_result_authoritative"] is not True
+        or "candidate_boot_ready" not in events
+    ):
+        raise F1LiveError("P3.00 verified USB trace state differs")
+    result_path = prepared.run_dir / "p300-usb-trace/result.json"
+    result = _read_json(result_path, "P3.00 USB trace result")
+    if trace["result"] != _receipt(result_path, "P3.00 USB trace result"):
+        raise F1LiveError("P3.00 USB trace result receipt changed")
+    observation_witness, observation_witness_receipt = (
+        _read_p300_observation_witness(prepared, binding)
+    )
+    if trace["observation_witness"] != observation_witness_receipt:
+        raise F1LiveError("P3.00 observation witness receipt changed")
+    try:
+        integrity = p300_usb_trace.verify_capture_directory(
+            binding,
+            result,
+            root=prepared.root,
+            output_dir=prepared.run_dir / "p300-usb-trace",
+        )
+        same_attempt = p300_usb_trace.verify_same_attempt(
+            binding, result, records, observation_witness
+        )
+    except p300_usb_trace.BindingError as exc:
+        raise F1LiveError(str(exc)) from exc
+    if (
+        trace["capture_integrity"] != integrity
+        or trace["same_attempt"] != same_attempt
+        or trace["process_cleanup"] != cleanup
+    ):
+        raise F1LiveError("P3.00 USB trace durable verification changed")
+
+
 def _execute_prepared_locked(
     prepared: PreparedRun,
     approval: str,
@@ -1949,6 +2941,7 @@ def _execute_prepared_locked(
     endpoint_dir = prepared.run_dir / "odin-endpoints"
     with backend.endpoint_session(endpoint_dir) as lease:
         with contextlib.ExitStack() as observer_stack:
+            trace_session = _P300UsbTraceSession(prepared, journal)
             try:
                 observer_session = observer_stack.enter_context(
                     backend.candidate_observer_session(prepared)
@@ -1962,6 +2955,7 @@ def _execute_prepared_locked(
                         "candidate_attempted": False,
                     },
                 )
+                trace_session.close()
                 return _result(
                     prepared,
                     journal,
@@ -1969,6 +2963,8 @@ def _execute_prepared_locked(
                     "candidate_observer_arm_failed_before_candidate",
                     False,
                 )
+            trace_session.start()
+            observer_stack.callback(trace_session.close)
             try:
                 backend.request_download(prepared)
             except Exception as exc:
@@ -1980,6 +2976,7 @@ def _execute_prepared_locked(
                         "candidate_attempted": False,
                     },
                 )
+                trace_session.close()
                 return _result(
                     prepared,
                     journal,
@@ -2000,6 +2997,7 @@ def _execute_prepared_locked(
                         "candidate_attempted": False,
                     },
                 )
+                trace_session.close()
                 return _result(
                     prepared,
                     journal,
@@ -2024,15 +3022,16 @@ def _execute_prepared_locked(
                 attempt,
                 prefix,
             )
-            _save_state(
-                prepared,
+            current = _state(prepared)
+            current.update(
                 {
                     "candidate_classification": candidate.classification,
                     "candidate_completed": candidate.completed,
                     "rollback_completed": False,
                     "final_verified": False,
-                },
+                }
             )
+            _save_state(prepared, current)
             if candidate.classification == "odin_local_parse_failure":
                 journal.transition(
                     "ABORTED",
@@ -2042,6 +3041,7 @@ def _execute_prepared_locked(
                         "partition_transfer": False,
                     },
                 )
+                trace_session.close()
                 return _result(
                     prepared,
                     journal,
@@ -2089,6 +3089,8 @@ def _execute_prepared_locked(
                     }
                 )
             _save_state(prepared, current)
+            if _p300_bundle(prepared.bundle):
+                trace_session.observation_durable(current)
         if (
             prepared.bundle.manifest["observation"].get("candidate_observer")
             is not None
@@ -2155,6 +3157,7 @@ def _execute_prepared_locked(
             "candidate_boot_ready",
             {"proof": proof},
         )
+        trace_session.finalize()
         return _finish_rollback(
             prepared, backend, journal, endpoint_dir, lease
         )

@@ -44,6 +44,7 @@ SOURCE_COMMANDS = {
         "--subsystem-match=tty",
     ),
 }
+OWNER_ENV = "S22PLUS_P300_USB_TRACE_OWNER"
 
 
 class SidecarError(RuntimeError):
@@ -54,6 +55,21 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="microseconds").replace(
         "+00:00", "Z"
     )
+
+
+def child_environment() -> dict[str, str]:
+    value = {"LC_ALL": "C", "PATH": "/usr/bin:/bin"}
+    owner = os.environ.get(OWNER_ENV)
+    if owner:
+        value[OWNER_ENV] = owner
+    return value
+
+
+def owner_token_sha256() -> str | None:
+    owner = os.environ.get(OWNER_ENV)
+    if not owner:
+        return None
+    return hashlib.sha256(owner.encode("ascii", "strict")).hexdigest()
 
 
 def canonical_json(value: Any) -> bytes:
@@ -137,7 +153,7 @@ def bounded_snapshot(
             stderr=subprocess.PIPE,
             timeout=timeout_sec,
             check=False,
-            env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+            env=child_environment(),
         )
         stdout = completed.stdout[:maximum]
         stderr = completed.stderr[:maximum]
@@ -168,6 +184,11 @@ class SourceCapture:
     bytes_written: int = 0
     truncated: bool = False
     error_type: str | None = None
+    started_utc: str | None = None
+    ended_utc: str | None = None
+    alive_at_arm: bool = False
+    alive_before_stop: bool = False
+    stop_requested_utc: str | None = None
 
     def start(self) -> None:
         descriptor = os.open(
@@ -176,12 +197,13 @@ class SourceCapture:
             0o600,
         )
         try:
+            self.started_utc = utc_now()
             self.process = subprocess.Popen(
                 list(self.command),
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
-                env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+                env=child_environment(),
             )
         except Exception:
             os.close(descriptor)
@@ -193,6 +215,26 @@ class SourceCapture:
             daemon=False,
         )
         self.thread.start()
+
+    def arm_receipt(self) -> dict[str, Any]:
+        if self.process is None:
+            raise SidecarError(f"{self.name} capture did not start")
+        self.alive_at_arm = self.process.poll() is None
+        process_group_id = None
+        session_id = None
+        if self.alive_at_arm:
+            try:
+                process_group_id = os.getpgid(self.process.pid)
+                session_id = os.getsid(self.process.pid)
+            except ProcessLookupError:
+                self.alive_at_arm = False
+        return {
+            "pid": self.process.pid,
+            "process_group_id": process_group_id,
+            "session_id": session_id,
+            "alive": self.alive_at_arm,
+            "started_utc": self.started_utc,
+        }
 
     def _drain(self, descriptor: int) -> None:
         try:
@@ -219,12 +261,15 @@ class SourceCapture:
         except Exception as exc:
             self.error_type = type(exc).__name__
         finally:
+            self.ended_utc = utc_now()
             os.close(descriptor)
 
     def stop(self) -> None:
         if self.process is None:
             return
-        if self.process.poll() is None:
+        self.stop_requested_utc = utc_now()
+        self.alive_before_stop = self.process.poll() is None
+        if self.alive_before_stop:
             self.process.terminate()
             try:
                 self.process.wait(timeout=5)
@@ -247,6 +292,11 @@ class SourceCapture:
             "sha256": hashlib.sha256(payload).hexdigest(),
             "truncated": self.truncated,
             "error_type": self.error_type,
+            "started_utc": self.started_utc,
+            "ended_utc": self.ended_utc,
+            "alive_at_arm": self.alive_at_arm,
+            "alive_before_stop": self.alive_before_stop,
+            "stop_requested_utc": self.stop_requested_utc,
         }
 
 
@@ -274,6 +324,7 @@ def capture(
     destination = create_output_dir(output_dir, private_root)
     started_utc = utc_now()
     started = time.monotonic()
+    owner_sha256 = owner_token_sha256()
     start_value = {
         "schema": SCHEMA,
         "phase": "start",
@@ -284,6 +335,7 @@ def capture(
         "opens_candidate_acm": False,
         "contains_private_usb_identifiers": True,
         "public_raw_export_forbidden": True,
+        "owner_token_sha256": owner_sha256,
         "sources": {name: list(command) for name, command in source_commands.items()},
     }
     start_receipt = write_exclusive(
@@ -306,6 +358,23 @@ def capture(
     try:
         for source in captures:
             source.start()
+        armed_value = {
+            "schema": SCHEMA,
+            "phase": "armed",
+            "armed_utc": utc_now(),
+            "owner_token_sha256": owner_sha256,
+            "process_group_id": os.getpgrp(),
+            "session_id": os.getsid(0),
+            "non_authoritative": True,
+            "device_actions": False,
+            "opens_candidate_acm": False,
+            "sources": {
+                source.name: source.arm_receipt() for source in captures
+            },
+        }
+        armed_receipt = write_exclusive(
+            destination / "armed.json", canonical_json(armed_value)
+        )
         deadline = started + duration_sec
         while time.monotonic() < deadline and not stop.event.wait(0.2):
             pass
@@ -339,8 +408,12 @@ def capture(
         "opens_candidate_acm": False,
         "contains_private_usb_identifiers": True,
         "public_raw_export_forbidden": True,
+        "owner_token_sha256": owner_sha256,
+        "process_group_id": os.getpgrp(),
+        "session_id": os.getsid(0),
         "supporting": {
             "start": start_receipt,
+            "armed": armed_receipt,
             "lsusb_start": start_snapshot_receipt,
             "lsusb_end": end_snapshot_receipt,
         },

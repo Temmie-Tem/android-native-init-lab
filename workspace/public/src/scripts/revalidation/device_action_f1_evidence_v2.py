@@ -24,6 +24,8 @@ import s22plus_fyg8_p294_e2_stock_closure as p294_e2_closure
 import s22plus_fyg8_p296_e2_stock_closure as p296_e2_closure
 import s22plus_fyg8_p298_e2_stock_closure as p298_e2_closure
 import s22plus_fyg8_p298_identity_tiers as p298_identity
+import s22plus_fyg8_p300_e2_stock_closure as p300_e2_closure
+import s22plus_fyg8_p300_source_contract as p300_source_contract
 
 
 MARKER_KIND = "retained_marker_after_rollback"
@@ -97,6 +99,13 @@ P298_CANDIDATE_STATIC_VERDICT = (
     "PASS_P298_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
 )
 P298_SOURCE_CONTRACT_ID = p298_e2_closure.source_contract.CONTRACT_ID
+P300_CANDIDATE_STATIC_SCHEMA = (
+    "s22plus_fyg8_p300_candidate_static_checker_v1"
+)
+P300_CANDIDATE_STATIC_VERDICT = (
+    "PASS_P300_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
+)
+P300_SOURCE_CONTRACT_ID = p300_e2_closure.source_contract.CONTRACT_ID
 P298_HISTORICAL_POSTBUILD_RESULT = {
     "sha256": "a7bfff7bdc82683999ef0d91349f20560b659ea703cb0542eeb37ca36a3ff997",
     "size": 71342,
@@ -218,6 +227,7 @@ def _candidate_base_files(
         P294_SOURCE_CONTRACT_ID,
         P296_SOURCE_CONTRACT_ID,
         P298_SOURCE_CONTRACT_ID,
+        P300_SOURCE_CONTRACT_ID,
     }:
         return expected
     driver_sources = getattr(
@@ -325,6 +335,18 @@ class EvidenceError(ValueError):
 def _selected_contract(
     source_contract_id: str | None, profile: str
 ) -> source_contracts.SelectedSourceContract:
+    if source_contract_id == P300_SOURCE_CONTRACT_ID:
+        try:
+            contract = p300_source_contract.require(source_contract_id, profile)
+        except p300_source_contract.SourceContractError as exc:
+            raise EvidenceError(str(exc)) from exc
+        return source_contracts.SelectedSourceContract(
+            module=p300_source_contract,
+            contract=contract,
+            implementation_verdict=p300_source_contract.IMPLEMENTATION_VERDICT,
+            source_check_run_id=p300_source_contract.SOURCE_CHECK_RUN_ID,
+            userspace_verdict=p300_source_contract.USERSPACE_VERDICT,
+        )
     try:
         return source_contracts.select(source_contract_id, profile)
     except source_contracts.SourceContractSelectionError as exc:
@@ -340,6 +362,8 @@ def _latest_stage_decoder(
 
 
 def _select_e2_closure(source_contract_id: str | None):
+    if source_contract_id == P300_SOURCE_CONTRACT_ID:
+        return p300_e2_closure.select(source_contract_id)
     if source_contract_id == P298_SOURCE_CONTRACT_ID:
         return p298_e2_closure.select(source_contract_id)
     if source_contract_id == P296_SOURCE_CONTRACT_ID:
@@ -366,6 +390,7 @@ def _e2_authority_context(source_contract_id: str | None, closure_api: Any):
         P294_SOURCE_CONTRACT_ID,
         P296_SOURCE_CONTRACT_ID,
         P298_SOURCE_CONTRACT_ID,
+        P300_SOURCE_CONTRACT_ID,
     }:
         return nullcontext()
     authority_context = getattr(closure_api, "_p286_authority_paths", None)
@@ -660,6 +685,7 @@ def _generic_rootfs_module_closure(
         P294_SOURCE_CONTRACT_ID,
         P296_SOURCE_CONTRACT_ID,
         P298_SOURCE_CONTRACT_ID,
+        P300_SOURCE_CONTRACT_ID,
     }:
         return module_closure
     adapter_api = closure_api
@@ -673,6 +699,7 @@ def _generic_rootfs_module_closure(
         P294_SOURCE_CONTRACT_ID,
         P296_SOURCE_CONTRACT_ID,
         P298_SOURCE_CONTRACT_ID,
+        P300_SOURCE_CONTRACT_ID,
     }:
         inherited_p282 = getattr(closure_api, "p282", None)
         adapter_api = getattr(inherited_p282, "p280", None)
@@ -684,6 +711,7 @@ def _generic_rootfs_module_closure(
             P294_SOURCE_CONTRACT_ID: "P2.94",
             P296_SOURCE_CONTRACT_ID: "P2.96",
             P298_SOURCE_CONTRACT_ID: "P2.98",
+            P300_SOURCE_CONTRACT_ID: "P3.00",
             e2_closure_selector.P284_CONTRACT_ID: "P2.84",
         }[source_contract_id]
     elif source_contract_id == e2_closure_selector.P282_CONTRACT_ID:
@@ -1748,27 +1776,31 @@ def _verify_e1_latest_stage_offline_contract(
         payloads["candidate_static"], "E1A candidate static result"
     )
     expected_candidate_static_schema = (
-        P298_CANDIDATE_STATIC_SCHEMA
-        if source_contract_id == P298_SOURCE_CONTRACT_ID
+        P300_CANDIDATE_STATIC_SCHEMA
+        if source_contract_id == P300_SOURCE_CONTRACT_ID
         else (
-            P296_CANDIDATE_STATIC_SCHEMA
-            if source_contract_id == P296_SOURCE_CONTRACT_ID
+            P298_CANDIDATE_STATIC_SCHEMA
+            if source_contract_id == P298_SOURCE_CONTRACT_ID
             else (
-                P294_CANDIDATE_STATIC_SCHEMA
-                if source_contract_id == P294_SOURCE_CONTRACT_ID
+                P296_CANDIDATE_STATIC_SCHEMA
+                if source_contract_id == P296_SOURCE_CONTRACT_ID
                 else (
-                    P292_CANDIDATE_STATIC_SCHEMA
-                    if source_contract_id == P292_SOURCE_CONTRACT_ID
+                    P294_CANDIDATE_STATIC_SCHEMA
+                    if source_contract_id == P294_SOURCE_CONTRACT_ID
                     else (
-                        P290_CANDIDATE_STATIC_SCHEMA
-                        if source_contract_id == P290_SOURCE_CONTRACT_ID
+                        P292_CANDIDATE_STATIC_SCHEMA
+                        if source_contract_id == P292_SOURCE_CONTRACT_ID
                         else (
-                            P288_CANDIDATE_STATIC_SCHEMA
-                            if source_contract_id == P288_SOURCE_CONTRACT_ID
+                            P290_CANDIDATE_STATIC_SCHEMA
+                            if source_contract_id == P290_SOURCE_CONTRACT_ID
                             else (
-                                P286_CANDIDATE_STATIC_SCHEMA
-                                if source_contract_id == P286_SOURCE_CONTRACT_ID
-                                else E1_LATEST_STAGE_CANDIDATE_STATIC_SCHEMA
+                                P288_CANDIDATE_STATIC_SCHEMA
+                                if source_contract_id == P288_SOURCE_CONTRACT_ID
+                                else (
+                                    P286_CANDIDATE_STATIC_SCHEMA
+                                    if source_contract_id == P286_SOURCE_CONTRACT_ID
+                                    else E1_LATEST_STAGE_CANDIDATE_STATIC_SCHEMA
+                                )
                             )
                         )
                     )
@@ -1777,27 +1809,31 @@ def _verify_e1_latest_stage_offline_contract(
         )
     )
     expected_candidate_static_verdict = (
-        P298_CANDIDATE_STATIC_VERDICT
-        if source_contract_id == P298_SOURCE_CONTRACT_ID
+        P300_CANDIDATE_STATIC_VERDICT
+        if source_contract_id == P300_SOURCE_CONTRACT_ID
         else (
-            P296_CANDIDATE_STATIC_VERDICT
-            if source_contract_id == P296_SOURCE_CONTRACT_ID
+            P298_CANDIDATE_STATIC_VERDICT
+            if source_contract_id == P298_SOURCE_CONTRACT_ID
             else (
-                P294_CANDIDATE_STATIC_VERDICT
-                if source_contract_id == P294_SOURCE_CONTRACT_ID
+                P296_CANDIDATE_STATIC_VERDICT
+                if source_contract_id == P296_SOURCE_CONTRACT_ID
                 else (
-                    P292_CANDIDATE_STATIC_VERDICT
-                    if source_contract_id == P292_SOURCE_CONTRACT_ID
+                    P294_CANDIDATE_STATIC_VERDICT
+                    if source_contract_id == P294_SOURCE_CONTRACT_ID
                     else (
-                        P290_CANDIDATE_STATIC_VERDICT
-                        if source_contract_id == P290_SOURCE_CONTRACT_ID
+                        P292_CANDIDATE_STATIC_VERDICT
+                        if source_contract_id == P292_SOURCE_CONTRACT_ID
                         else (
-                            P288_CANDIDATE_STATIC_VERDICT
-                            if source_contract_id == P288_SOURCE_CONTRACT_ID
+                            P290_CANDIDATE_STATIC_VERDICT
+                            if source_contract_id == P290_SOURCE_CONTRACT_ID
                             else (
-                                P286_CANDIDATE_STATIC_VERDICT
-                                if source_contract_id == P286_SOURCE_CONTRACT_ID
-                                else E1_LATEST_STAGE_CANDIDATE_STATIC_VERDICT
+                                P288_CANDIDATE_STATIC_VERDICT
+                                if source_contract_id == P288_SOURCE_CONTRACT_ID
+                                else (
+                                    P286_CANDIDATE_STATIC_VERDICT
+                                    if source_contract_id == P286_SOURCE_CONTRACT_ID
+                                    else E1_LATEST_STAGE_CANDIDATE_STATIC_VERDICT
+                                )
                             )
                         )
                     )

@@ -361,6 +361,26 @@ class Bundle:
     sha256: str
 
 
+def _selected_candidate_source_contract(
+    source_contract_id: str, profile: str
+):
+    if source_contract_id == typed_evidence.P300_SOURCE_CONTRACT_ID:
+        import s22plus_fyg8_p300_candidate_intent as p300_intent
+
+        try:
+            return p300_intent.selected_source_contract_for_candidate(
+                source_contract_id, profile
+            )
+        except p300_intent.IntentError as exc:
+            raise F1V2Error(str(exc)) from exc
+    try:
+        return candidate_intent.selected_source_contract(
+            source_contract_id, profile
+        )
+    except candidate_intent.IntentError as exc:
+        raise F1V2Error(str(exc)) from exc
+
+
 def execution_critical_source_receipts(
     acceptance: dict[str, Any],
 ) -> dict[str, dict[str, Any]]:
@@ -435,13 +455,13 @@ def execution_critical_source_receipts(
         }
         if source_contract_id is not None:
             try:
-                selected = candidate_intent.selected_source_contract(
+                selected = _selected_candidate_source_contract(
                     source_contract_id, profile
                 )
                 source_data = selected.source_bytes(candidate_intent.repo_root())
             except (
-                candidate_intent.IntentError,
                 candidate_intent.p233.CheckError,
+                F1V2Error,
                 OSError,
             ) as exc:
                 raise F1V2Error(
@@ -476,6 +496,27 @@ def execution_critical_source_receipts(
                     e1_latest_stage_sources[f"p290_support_{name}"] = (
                         candidate_intent.repo_root() / path
                     )
+            elif source_contract_id == typed_evidence.P300_SOURCE_CONTRACT_ID:
+                import s22plus_fyg8_p300_identity_tiers as p300_identity
+
+                try:
+                    tier2 = p300_identity.tier2_materials(
+                        candidate_intent.repo_root()
+                    )
+                    tier3 = p300_identity.tier3_materials(
+                        candidate_intent.repo_root()
+                    )
+                except (p300_identity.IdentityTierError, OSError) as exc:
+                    raise F1V2Error(
+                        "P3.00 Stage C receipt closure failed"
+                    ) from exc
+                for tier, materials in (("tier2", tier2), ("tier3", tier3)):
+                    for name, data in materials.items():
+                        key = name.replace(":", "_")
+                        receipts[f"p300_{tier}_{key}"] = {
+                            "size": len(data),
+                            "sha256": hashlib.sha256(data).hexdigest(),
+                        }
             elif source_contract_id == typed_evidence.P298_SOURCE_CONTRACT_ID:
                 import s22plus_fyg8_p298_identity_tiers as p298_identity
 
@@ -595,12 +636,9 @@ def verify_candidate_source_binding(
     if verification.get("source_contract_id") != source_contract_id:
         raise F1V2Error("candidate source contract selector changed")
     if source_contract_id is not None:
-        try:
-            expected_keys = candidate_intent.selected_source_contract(
-                source_contract_id, acceptance.get("profile")
-            ).source_keys
-        except candidate_intent.IntentError as exc:
-            raise F1V2Error(str(exc)) from exc
+        expected_keys = _selected_candidate_source_contract(
+            source_contract_id, acceptance.get("profile")
+        ).source_keys
     else:
         expected_keys = typed_evidence.E1_LATEST_STAGE_SOURCE_KEYS.get(
             acceptance.get("profile")
@@ -655,12 +693,7 @@ def verify_candidate_observer_binding(
         if observer is not None:
             raise F1V2Error("candidate observer has no versioned source contract")
         return
-    try:
-        selected = candidate_intent.selected_source_contract(
-            source_contract_id, profile
-        )
-    except candidate_intent.IntentError as exc:
-        raise F1V2Error(str(exc)) from exc
+    selected = _selected_candidate_source_contract(source_contract_id, profile)
     derive = getattr(selected.module, "candidate_observer", None)
     if derive is None:
         if observer is not None:

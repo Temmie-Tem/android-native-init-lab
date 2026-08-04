@@ -166,7 +166,7 @@ def derive_manifest(
     }
     try:
         evidence.validate_acceptance(acceptance)
-        selected = core.candidate_intent.selected_source_contract(
+        selected = core._selected_candidate_source_contract(  # noqa: SLF001
             source_contract_id, "E2"
         )
         observer = selected.module.candidate_observer(bytes.fromhex(run_id))

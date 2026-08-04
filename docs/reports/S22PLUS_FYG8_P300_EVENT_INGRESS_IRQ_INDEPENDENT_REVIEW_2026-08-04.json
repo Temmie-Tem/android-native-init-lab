@@ -1,0 +1,96 @@
+{
+  "authority": {
+    "boot_package_created": false,
+    "candidate_or_rollback_transfer_authorized": false,
+    "device_contact_authorized": false,
+    "f1_armed": false,
+    "fresh_full_lto_ab_complete": false,
+    "live_authority_created": false,
+    "same_f1_sidecar_binding_complete": false
+  },
+  "bindings": {
+    "contract_id": "s22plus-fyg8-p300-event-ingress-irq-attribution-v1",
+    "document_binding_role": "review-time evidence snapshot; document-only status updates do not retire an unchanged execution-critical capability",
+    "review_time_receipts": {
+      "current_goal": {
+        "path": "GOAL.md",
+        "sha256": "3b006fb99a5efe3dd2234b811f6caba2c33885bafbdb171e3cf4267171363a3c",
+        "size": 21220
+      },
+      "design_report": {
+        "path": "docs/reports/S22PLUS_FYG8_POST_P298_EVENT_INGRESS_IRQ_ATTRIBUTION_H0_2026-08-04.md",
+        "sha256": "c5351d4317e49131d47613c7613b2572d2a219d32e7faf9169272f59eeab49dc",
+        "size": 22474
+      },
+      "implementation_report": {
+        "path": "docs/reports/S22PLUS_FYG8_P300_EVENT_INGRESS_IRQ_IMPLEMENTATION_H0_2026-08-04.md",
+        "sha256": "fce7ac260b2d310ffaff078e1fd466f921f7c9fa058c1cd4cb838e67d087da33",
+        "size": 10752
+      },
+      "telemetry_closure": {
+        "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p300_telemetry_closure.py",
+        "sha256": "aae09be4945741cd67008b6d6ec28dfca7a64da9f2d2952bec6e38b3eea0f064",
+        "size": 43346
+      }
+    },
+    "source_identity": {
+      "canonical_candidate_intent_created": false,
+      "identity_descriptor_sha256": "625a481fbc0dd0d3922ff24c85a9f9c6ca0c723e02c20118895ab0b9a9805953",
+      "inherited_payload_source_bytes_changed": 0,
+      "payload_source_key_count": 154,
+      "telemetry_descriptor_sha256": "5432418016c36f0ae923b99609d5e0e0a3844ef5572b7376fdc2850c299a9009"
+    }
+  },
+  "closed_findings": [
+    "probe-active and tracing-off profile window removed from the no-cutoff path",
+    "trigger close-race states and zero-residue cleanup executed by the generated-body lifecycle fixture",
+    "preliminary adapters referencing a nonexistent pre-LTO module removed from this closure",
+    "same-F1 sidecar kept as an explicit future binding rather than represented as complete",
+    "DEVICE_OTHER_ONLY family wording aligned across schema and reports",
+    "ring-stat, aggregate-count, and nmissed evidence narrowed to static-and-compiled scope"
+  ],
+  "findings": {
+    "critical": [],
+    "high": [],
+    "low": [],
+    "medium": []
+  },
+  "independence": {
+    "implementation_authorship": false,
+    "review_scope_was_host_only": true,
+    "reviewer": "independent delegated Codex reviewer",
+    "reviewer_did_not_prepare_or_run_a_live_transaction": true
+  },
+  "proportionality": {
+    "dedicated_no_probe_control_f1_required": false,
+    "per_candidate_independent_review_required": false,
+    "reason": "PASS_GO qualifies the exact observer capability and is reused until execution-critical closure or hazard assumptions change",
+    "sixteenth_probe_added": false
+  },
+  "reviewed_at_utc": "2026-08-04T11:21:58Z",
+  "schema": "s22plus_fyg8_p300_event_ingress_irq_independent_review_v1",
+  "scope": [
+    "15-event trace schema and eleven terminal families",
+    "streaming parser, retained decoder, and exact detail allocation",
+    "conditional CONNECT_DONE traceoff trigger and recording-window lifecycle",
+    "r32 top-half return probe and zero-nmissed fail-closed contract",
+    "single-controller pointer and nondevice-event semantics",
+    "built-in helper audit and deliberate unused sixteenth slot",
+    "generated patch, static AArch64 userspace, source identity, and target isolation"
+  ],
+  "target": {
+    "device": "g0q",
+    "firmware": "S906NKSS7FYG8",
+    "model": "SM-S906N",
+    "target_line": "S22PLUS_FYG8"
+  },
+  "validation": {
+    "contract_tests": "6/6 PASS",
+    "focused_sidecar_tests": "5/5 PASS",
+    "focused_telemetry_tests": "5/5 PASS",
+    "generated_patch_sha256": "8a574983e461cb66c392a40a64fb786e11b27b3fdf3cc224a83ce0a6c01c56f2",
+    "generated_runtime_include_sha256": "d60542fa1ee0c89a47df4125b3ca5854697ed2e1fc6ae005ab691dd83c00aa5a",
+    "reproducible_static_aarch64_init_sha256": "65076de96a0df47f828c6105dbc9bbae8cd8c291b1e9d9e07421b97b7bf3f64c",
+    "verdict": "PASS_GO"
+  }
+}

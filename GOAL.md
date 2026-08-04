@@ -62,20 +62,38 @@ cannot answer the candidate-path return or downstream-event questions.
 Post-P2.98 H0 source and linked-binary analysis now selects P3.00,
 `s22plus-fyg8-p300-event-ingress-irq-attribution-v1`. The next observer must
 cover event-buffer/DEVTEN readback, the DWC3 top-half entry/return result,
-threaded-handler entry, and the first device-specific raw event in the same
-bind-to-final window. The result family must distinguish no top-half, an
-immediate nonzero hardware count without a top-half, top-half count zero,
-handled-without-wake, wake-without-thread, thread-without-device-event, other
-device events, RESET without CONNECT_DONE, and CONNECT_DONE.
+threaded-handler count/flags, and the raw event-dispatch boundary in the same
+bind-to-final window. The result family now has eleven exact classes:
+no-top/count-zero, no-top/count-nonzero, top-none-only, handled-no-wake,
+wake-no-thread, thread-empty-pass, thread-nondevice-only, other device events,
+RESET without CONNECT_DONE, CONNECT_DONE without RESET, and both events.
 
 The design uses 15 bind events, within the existing capacity of 16. It keeps
 the first ten P2.98 events, replaces the RESET/CONNECT_DONE handler probes with
 one controller-attributed raw device-event probe, and adds one event-config
 snapshot plus matched `dwc3_interrupt` entry/return and threaded-handler entry.
-Hard-IRQ probes use an all-context filter because `common_pid` can be zero.
-Every accepted pair implies exact pointer agreement, zero missed probes,
-trace/profile equality, and verified cleanup. Generic debugfs regdump is not a
-load-bearing alternative because it resumes runtime PM.
+Hard-IRQ and thread probes use all-context filters because `common_pid` can be
+zero and filtered profile hits are not record counts. The IRQ return probe is
+explicitly `r32`, matching the exact `CONFIG_NR_CPUS=32` concurrency bound.
+The raw-event profile delta distinguishes non-device entries only when no
+cutoff fired. A conditional post-trigger retains the first CONNECT_DONE record
+then stops tracing. The exact recording window opens in
+`tracing_on -> group-enable -> trigger-arm` order and closes by removing the
+trigger while tracing still records, reading the post-removal tracing state,
+then disabling the group before tracing itself. Its armed count, final
+cutoff/race state, streaming parser, ring-loss checks, zero missed probes,
+exact pointer agreement, and verified cleanup are all required by every
+accepted pair.
+
+The A detail space is fixed at `0xD00-0xDAF`, eleven 16-value families with
+link state in the low nibble. CONNECT_DONE without RESET and with RESET are
+separate mandatory families. The final B family remains `0xE00-0xE83`; new
+observer contradictions occupy the free `0xF73-0xF7F` range. The existing
+private host USB trace sidecar is selected for the same later F1 window, so
+host visibility and device ingress can form one 2-by-2 diagnostic result
+without another candidate boot. Its exact campaign, attempt, candidate, and
+journal binding is still a pre-F1 H0 gate; the current core implementation
+does not claim that integration.
 
 This is the first honest measurement of the project's long-standing direct
 PID1 enumeration boundary. O1.1 is the only candidate-side ACM exchange
@@ -98,7 +116,7 @@ linked replay found a delivery blocker before packaging or device contact:
 P2.94 therefore remains an H0 static stop. It must not be packaged, promoted,
 manifested, or used for F1.
 
-## Selected Bounded Unit: P3.00 Event-Ingress/IRQ Attribution (H0)
+## Selected Bounded Unit: P3.00 Event-Ingress/IRQ Attribution (F1 Ready)
 
 The source and existing Full-LTO evidence close the design question. The
 actual P2.98 A/B `vmlinux` pair is byte-identical and keeps
@@ -115,18 +133,71 @@ and flags. The readback is immediate rather than terminal: count zero means
 only zero at that instant, while count nonzero plus no top-half proves a
 strictly narrower IRQ-delivery boundary.
 
-The next authorized work is H0 implementation and static validation. Derive a
-fresh transform/schema/parser/decoder/source contract without changing a
-P2.98 `SOURCE_KEY`; allocate exact 12-bit details; fault-test every setup,
-ordering, pointer, raw-mask, overflow, missed-hit, readback, and cleanup
-branch; validate tracefs filters; cross-compile; then obtain a fresh independent
-review because trace/schema/parser and built-in snapshot machinery change.
-Fresh qualification and two clean Full-LTO builds must audit the actual linked
-P3.00 pair before packaging. No P3.00 candidate identity, package, manifest,
-or F1 readiness exists yet.
+The exact Waipio tree has one `dwc3@a600000`, so entry/return pairing may rely
+on strict nonnesting only while every later pointer matches that one snapshot.
+The P2.98 A/B `vmlinux` contains several generic role/VBUS helpers, but the
+active S22+ `vbus_active` and notifier state lives in external `dwc3-msm.ko`.
+None is a sound 16th event in the candidate window, so one slot remains spare.
+Before a future type-C/extcon/PHY follow-up, H0 must first prove its exact target
+is built into `vmlinux`; otherwise it repeats P2.94's pre-device delivery stop.
+
+The H0 implementation and static validation now pass. The fresh
+transform/schema/streaming parser/decoder/source contract preserves every
+inherited P2.98 payload source byte. Its host C fixtures execute the generated
+setup, trigger, recording-window, cleanup, pointer, raw-mask, line/header
+parser, and profile-relation paths. Ring-stat parsing, final aggregate stream
+counts, and profile `nmissed` readback are source-order and integrated-compile
+validated but are not claimed as executed fault branches. The generated patch
+clean-applies to the exact inherited source and two static AArch64 `/init`
+links are byte-identical. The
+verdict is `PASS_P300_EVENT_INGRESS_IRQ_IMPLEMENTATION_HOST_ONLY` and the
+focused telemetry verdict is
+`PASS_P300_EVENT_INGRESS_IRQ_TELEMETRY_CLOSURE_HOST_ONLY`.
+
+The first independent pass found and stopped an unclosed profile/recording
+window plus preliminary build adapters whose qualification module did not yet
+exist. The window now opens and closes without a probe-active/tracing-off gap
+on the no-cutoff path, its cutoff-close race states are fault-tested, and the
+preliminary candidate/build/package adapters were removed from this core
+closure. The final independent review returned `PASS_GO` for the exact
+remediated core. It qualifies this unchanged observer capability rather than a
+candidate run and is reusable while its execution-critical bytes and hazard
+assumptions remain unchanged; it is not a per-candidate review gate.
+
+The candidate/build/qualification and exact same-attempt USB-sidecar closure
+are now complete. Canonical Tier-1 intent remains unchanged at 159/159 source
+keys. Two clean Full-LTO builds reproduce the exact Image and linked vmlinux,
+and two boot-only packages reproduce an AP containing only `boot.img.lz4`.
+The candidate AP SHA-256 is
+`1d80017becd5974f9c64e25ecd8b9d800d001a49e165e6949822d692b58d8d7b`;
+the exact Magisk rollback AP SHA-256 is
+`d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`.
+
+The changed Process-v2/live-sidecar capability passed independent review at
+bundle SHA-256
+`633483479729112c46fc3bee404707957868b2a482b8c3454c6c68822f6e8a8c`
+and execution-closure SHA-256
+`1edd315f40bd6148e99203cbd2f49131a65f76eb0d21827821067583b20d6166`.
+Its fault closure proves that observer witness or shutdown failure cannot block
+the mandatory rollback, and interrupted observer descendants are reaped before
+another attempt.
+
+The first connected preparation stopped before F1 arm on a historical retained
+marker. One attended normal Android reboot rotated that baseline and returned
+the exact rooted FYG8 health. A fresh D0 then passed with zero candidate-family
+markers and created the reopened prepared binding
+`1ec284f2213a71c56de2afa1c202864cef8fa6638348f2f63a03d4dc563d8ad1`
+under
+`workspace/private/runs/device-action-f1-live-v2/p300-ready1-prepared-20260804-2`.
+No Odin session or partition transfer occurred, F1 remains unarmed, and A90
+received zero commands.
 
 The full design and limitation statement is recorded in
 `docs/reports/S22PLUS_FYG8_POST_P298_EVENT_INGRESS_IRQ_ATTRIBUTION_H0_2026-08-04.md`.
+The implementation receipts and remaining gates are recorded in
+`docs/reports/S22PLUS_FYG8_P300_EVENT_INGRESS_IRQ_IMPLEMENTATION_H0_2026-08-04.md`.
+The reusable capability-review receipt is recorded in
+`docs/reports/S22PLUS_FYG8_P300_EVENT_INGRESS_IRQ_INDEPENDENT_REVIEW_2026-08-04.json`.
 
 ## Closed Bounded Unit: P2.98 Live Attribution
 
@@ -309,12 +380,14 @@ Archived text is evidence only and grants no authority.
 
 ## Success and Stop Conditions
 
-The current live unit is closed and healthy. P2.98 refutes gadget-start or EP0
-enable failure as the active boundary in this run. P3.00 H0 now selects the
-event-configuration, IRQ top-half, threaded-handler, and raw-device-event chain
-as the next discriminator. Its implementation is not yet complete. Symbol-only
-proof, stock-path observation, implicit success on an invalid trace, or a
-resource-gate bypass remains insufficient for any successor.
+The current device is healthy and P3.00 is prepared but not F1-armed. P2.98
+refutes gadget-start or EP0 enable failure as the active boundary in that run;
+P3.00 is ready to distinguish the event-configuration, IRQ top-half,
+threaded-handler, and raw-device-event chain in one attended candidate boot.
+The next device effect is the exact prepared Process-v2 execution with one
+candidate transfer, mandatory exact rollback, no replay, and final rooted FYG8
+health. Symbol-only proof, stock-path observation, implicit success on an
+invalid trace, or a resource-gate bypass remains insufficient for a successor.
 
 Stop on a repeated material pre-session failure, any post-device-session
 unexplained failure, target ambiguity, missing rollback, forbidden archive

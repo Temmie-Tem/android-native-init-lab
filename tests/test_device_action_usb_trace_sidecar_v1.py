@@ -83,7 +83,11 @@ class UsbTraceSidecarV1Test(unittest.TestCase):
         )
         self.assertEqual(
             set(result["supporting"]),
-            {"start", "lsusb_start", "lsusb_end"},
+            {"start", "armed", "lsusb_start", "lsusb_end"},
+        )
+        self.assertEqual(
+            json.loads((destination / "armed.json").read_text())["phase"],
+            "armed",
         )
         self.assertIn(
             "snapshot",
