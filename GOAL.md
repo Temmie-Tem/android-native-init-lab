@@ -11,110 +11,42 @@ shared process documents. A90 state and authorization remain separate.
 
 ## Current Frontier
 
-P2.98 is the latest closed live unit. Its boot-only candidate and exact Magisk
-rollback each transferred once with no replay, and final FYG8 Android/root
-health passed. The operator observed one candidate boot with no boot loop. The
-formal Process-v2 verdict is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` because no
-host CDC-ACM endpoint appeared during the bounded observer window, while the
-experiment result is information-bearing `REFUTED`: two byte-identical
-post-rollback reads contain one exact, integrity-clean P2.98 terminal failure
-record.
+P3.01 is the latest closed live unit. Its boot-only candidate and exact Magisk
+rollback each transferred exactly once with no replay. The operator observed a
+normal candidate boot with no boot loop. A transient USBFS re-enumeration race
+during the physical rollback handoff stopped the first execution safely;
+durable `--recover` performed only the preapproved rollback and final checks.
+The transaction is `CLOSED`, `recovery_required=false`, and exact rooted FYG8
+Android health passed. A90 received zero commands.
 
-The adjacent valid slots are generation 106
-`probe-ok-start-rc0-events-0x0-link-0`, then generation 107
-`probe-ok-start-rc0-final-not attached-UNKNOWN-coreidle-1-susphy-0`. The exact
-profile proves both EP0 enable calls were reached, `__dwc3_gadget_start()`
-returned zero, trace readback and cleanup agreed, neither RESET nor
-CONNECT_DONE was observed, and the link remained zero. Connection speed stayed
-`UNKNOWN` and UDC stayed `not attached`.
+The two byte-identical 2,097,136-byte post-rollback reads contain one exact,
+integrity-clean P3.01 pair. Generation 106 is detail `0xD70`,
+`probe-ok-start-rc0-ingress-device-other-only-link-0`: the probes armed,
+`__dwc3_gadget_start()` returned zero, both EP enable calls ran, trace/profile
+loss stayed zero, cleanup passed, one or more non-RESET/non-CONNECT_DONE device
+events reached the raw dispatch boundary, and link state remained zero.
+Generation 107 is detail `0x5003`, final-state index 2: UDC `not attached`,
+speed `UNKNOWN`, `COREIDLE=1`, and `SUSPHY=0`. The result explicitly has
+`subtype_claimed=false`; P3.01 did not retain which other event type occurred.
 
-The P2.92 prefix remains binding. It proves the native PID1 path completed
-restart helper, FEMTO power-on/init, child resume, notify-connect, exact UDC,
-configfs bind, and authoritative direct `DCTL.RUN_STOP` with
-`DEVCTRLHLT=0`. P2.96 narrowed the remaining boundary beyond that prefix to
-the interval where the built-in controller snapshot reports link-state zero
-but no physical attach or connection speed materializes.
+Immediate H0 comparison found the cause in the P3.01 userspace contract, not a
+new device-time state. The subtype path is guarded by hard-coded expected final
+detail `0xE06`, which decodes to `attached/UNKNOWN/COREIDLE=1/SUSPHY=0`.
+P3.00 retained `0xE02`, and P3.01's decoded legacy final tuple maps to that
+same `0xE02` value: the campaign's established
+`not attached/UNKNOWN/COREIDLE=1/SUSPHY=0` tuple. The mismatch therefore forces
+the designed final-drift branch before subtype encoding on the very state that
+P3.01 was intended to refine. The retained record is valid and device health
+is unambiguous, but the subtype objective is `NO_PROOF_OBSERVER`.
 
-Post-P2.96 H0 attribution identified the tested source branch. The terminal
-`UNKNOWN` is the later sysfs UDC speed, not retained raw `DSTS.CONNECTSPD`.
-The exact `dwc3_gadget_pullup(true)` source ignores the signed return from
-`__dwc3_gadget_start()` and overwrites it with the later run-stop result. An
-EP0 initialization failure can therefore coexist with P2.96's nominal
-run-stop snapshot. P2.98 now proves that failure did not occur in this run:
-both EP0 enable calls executed and gadget-start returned zero. The ignored
-return defect remains present in source, but it is not the active explanation
-for this candidate result.
-
-The exact P2.96 Full-LTO A/B disassembly closes the inlining hazard for that
-build. `dwc3_gadget_pullup()` contains an actual `bl` to the out-of-line
-`__dwc3_gadget_start`, discards its `w0`, then saves only run-stop's `w0`.
-`dwc3_gadget_resume()` calls the same symbol and immediately tests `w0`.
-Future builds must repeat this call-site proof; a local-text symbol alone is
-not sufficient.
-
-The P2.98 observer has one exact execution location. Candidate ramdisk `/init`
-runs as PID 1, arms the inherited isolated tracefs instance immediately before
-its one configfs UDC bind, keeps it active through the bounded final sampling
-window, and disables, reads, profiles, and removes it before publishing the
-terminal pair. Stock Android and rollback do not arm these dynamic probes and
-cannot answer the candidate-path return or downstream-event questions.
-
-Post-P2.98 H0 source and linked-binary analysis now selects P3.00,
-`s22plus-fyg8-p300-event-ingress-irq-attribution-v1`. The next observer must
-cover event-buffer/DEVTEN readback, the DWC3 top-half entry/return result,
-threaded-handler count/flags, and the raw event-dispatch boundary in the same
-bind-to-final window. The result family now has eleven exact classes:
-no-top/count-zero, no-top/count-nonzero, top-none-only, handled-no-wake,
-wake-no-thread, thread-empty-pass, thread-nondevice-only, other device events,
-RESET without CONNECT_DONE, CONNECT_DONE without RESET, and both events.
-
-The design uses 15 bind events, within the existing capacity of 16. It keeps
-the first ten P2.98 events, replaces the RESET/CONNECT_DONE handler probes with
-one controller-attributed raw device-event probe, and adds one event-config
-snapshot plus matched `dwc3_interrupt` entry/return and threaded-handler entry.
-Hard-IRQ and thread probes use all-context filters because `common_pid` can be
-zero and filtered profile hits are not record counts. The IRQ return probe is
-explicitly `r32`, matching the exact `CONFIG_NR_CPUS=32` concurrency bound.
-The raw-event profile delta distinguishes non-device entries only when no
-cutoff fired. A conditional post-trigger retains the first CONNECT_DONE record
-then stops tracing. The exact recording window opens in
-`tracing_on -> group-enable -> trigger-arm` order and closes by removing the
-trigger while tracing still records, reading the post-removal tracing state,
-then disabling the group before tracing itself. Its armed count, final
-cutoff/race state, streaming parser, ring-loss checks, zero missed probes,
-exact pointer agreement, and verified cleanup are all required by every
-accepted pair.
-
-The A detail space is fixed at `0xD00-0xDAF`, eleven 16-value families with
-link state in the low nibble. CONNECT_DONE without RESET and with RESET are
-separate mandatory families. The final B family remains `0xE00-0xE83`; new
-observer contradictions occupy the free `0xF73-0xF7F` range. The existing
-private host USB trace sidecar is selected for the same later F1 window, so
-host visibility and device ingress can form one 2-by-2 diagnostic result
-without another candidate boot. Its exact campaign, attempt, candidate, and
-journal binding is still a pre-F1 H0 gate; the current core implementation
-does not claim that integration.
-
-This is the first honest measurement of the project's long-standing direct
-PID1 enumeration boundary. O1.1 is the only candidate-side ACM exchange
-success and it used Android's existing USB stack. No minimal PID1 candidate
-has yet proved host enumeration.
-
-P2.94 was designed to retain two adjacent value records: DSTS `USBLNKST`,
-then a conditional terminal state containing the remaining digital-control
-classification. Its Full-LTO A/B and candidate identity are valid, but formal
-linked replay found a delivery blocker before packaging or device contact:
-
-- built-in `s22_p294_dwc3_state_snapshot` is linked into `vmlinux`;
-- `s22_p294_wrapper_vbus_snapshot` is built only into external
-  `dwc3-msm.ko`;
-- the boot-only candidate builder injects zero modules and reuses the stock
-  vendor ramdisk; and
-- the runtime requires both snapshots, so P2.94 cannot produce its intended
-  terminal telemetry on device.
-
-P2.94 therefore remains an H0 static stop. It must not be packaged, promoted,
-manifested, or used for F1.
+The next bounded unit is a narrow userspace-only correction: derive the
+expected final detail from the exact P3.00 baseline (`0xE02`) instead of the
+incorrect literal `0xE06`, update the matching generated-C closure and tests,
+then reproduce the boot-only package over the unchanged qualified P3.00 Image.
+No kernel or Full-LTO rebuild is indicated. Because this changes the result
+selection machinery, review only that changed userspace closure and its package
+binding before a future attended F1; do not repeat the already-qualified kernel
+review or add an unrelated control boot.
 
 ## Selected Bounded Unit: P3.00 Event-Ingress/IRQ Attribution (Closed)
 
@@ -217,7 +149,9 @@ device-generic-command writer polls `DGCMD.CMDACT` without setting
 `DGCMD.CMDIOC`. EventOverflow, if present, is separate from the already-proved
 zero ftrace-ring loss and must be reported as controller-event incompleteness.
 
-The next bounded unit is P3.01, a userspace-only subtype refinement over the
+## Closed Bounded Unit: P3.01 Subtype Refinement Attempt
+
+P3.01 is a userspace-only subtype refinement over the
 exact qualified P3.00 kernel Image and unchanged 15-probe descriptor. The fixed
 Image accepts wide details only as `FAILURE`, excludes `0x4000`, `0x5000`, and
 `0x6000`, and becomes terminal after the first non-progress write. It separately
@@ -291,16 +225,14 @@ of the candidate's 60 runtime names was loaded in stock. Stock also loads
 proves `vbus_active`, `B_SESS_VLD`, start-peripheral, and HS-PHY notify-connect
 without that automatic Type-C bridge. No module-plan change is selected.
 
-The preceding P3.00 candidate and exact rollback each transferred once. The
-transaction is durably `CLOSED`, final rooted FYG8 health passed, recovery is
-not required, the sidecar left zero owned processes, and A90 received zero
-commands.
-
-P3.01 itself has not transferred. Its exact rooted FYG8 clean-baseline D0 is
-current, the candidate and rollback artifacts remain unchanged, and the fresh
-Process-v2 prepared binding is `3099b45202eb...`. The prepared receipt records
-`f1_authorized=false`, `odin_invoked=false`, and `partition_transfer=false`;
-F1 has not been armed.
+The P3.01 candidate and exact rollback each transferred once. The transaction
+is durably `CLOSED`, final rooted FYG8 health passed, recovery is not required,
+the sidecar left zero owned processes, and A90 received zero commands. The
+retained pair is `0xD70/0x5003`: it repeats integrity-clean
+`DEVICE_OTHER_ONLY` at link zero, then records the established not-attached
+final tuple as drift because this implementation incorrectly selected `0xE06`
+rather than P3.00's exact `0xE02` as its subtype precondition. No exact subtype
+is claimed from this run.
 
 The full design and limitation statement is recorded in
 `docs/reports/S22PLUS_FYG8_POST_P298_EVENT_INGRESS_IRQ_ATTRIBUTION_H0_2026-08-04.md`.
