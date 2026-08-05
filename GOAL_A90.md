@@ -84,6 +84,12 @@ The pre-H2 goal history is preserved at
   Exact H5 returned with `binding=1 enable=1 latch=1`, immutable source exact,
   work absent, guard released, and resident health true. No payload, partition
   write, flash, rollback, or replay occurred.
+- H0 diagnosis identified the observer failure before NCM rebind: the runner
+  performed exact bridge validation immediately during normal post-reboot
+  by-id absence. The repaired observer now waits at most 30 seconds only while
+  that exact bound path is absent, then requires the unchanged exact bridge;
+  a present mismatch still fails immediately. Independent review returned
+  `PASS_GO` with HIGH/MEDIUM zero and 230 related tests pass.
 - Final read-only capacity is 61408048 KiB total, 54419524 KiB used, and
   3862512 KiB available at 93% use. No D1 transaction is active and no target
   is A90 F1-armed. Runs 11-13 and D1 run09 are terminal and must never be
@@ -95,12 +101,17 @@ The pre-H2 goal history is preserved at
 - The H3 exact compiled-rootfs binding and resident F1 closure has reusable
   independent `PASS_GO` for its named execution-critical hashes and E2 hazard.
 - The current auto-benchmark observer/tail closure
-  `94be39687a91938d4f82d52242ce0025b3b19e4f8c8bbfd6cf46ff729dd3a5f4`
+  `60610b2deae343892506c0e13ef88e96c6993b5121fa1c88632410db208afd89`
   has independent `PASS_GO`. It binds exact NCM-before-SSH, all 15 mandatory
-  handoff stages, and a hash-bound opening-marker prefix plus appended suffix.
-  For run09 it also permits only the already durable seven-record historical
-  journal tail to read status, source, health, and logs and finalize host
-  evidence with no arm, reboot, handoff, or cleanup replay. The earlier
+  handoff stages, a hash-bound opening-marker prefix plus appended suffix, and
+  a bounded absence-only wait for the manifest-bound by-id endpoint before
+  exact bridge, NCM, and SSH observation. A present mismatch is never retried.
+- Historical closure
+  `94be39687a91938d4f82d52242ce0025b3b19e4f8c8bbfd6cf46ff729dd3a5f4`
+  remains the exact reviewed closure that finalized run09 from its already
+  durable seven-record journal tail with no arm, reboot, handoff, or cleanup
+  replay. It is retired from future live use by the post-reboot bridge-absence
+  incident. The still earlier
   `e17d9e23e3f473d949cf264b54246ac01ec221fe133e0291a200437a0ed13959`
   receipt is superseded by the accumulated-log observer incident.
 - The pre-incident H4 replacement closure had independent `PASS_GO` for boot SHA
@@ -165,13 +176,12 @@ It is not yet a correctness baseline for compiler comparison because the host
 observer lost exact bridge continuity before it could bind Debian PID 1, SSH,
 service ownership, and display facts to the same ordinal.
 
-The next bounded work is host-only until the observer cause is closed:
+The observer diagnosis, local repair, focused tests, and independent capability
+review are complete with no device contact. The next bounded work is:
 
-1. diagnose the exact bridge-epoch continuity rejection from the immutable
-   run09 observation and bridge logs without contacting either device;
-2. repair only the observer if a deterministic host defect is established,
-   then run focused tests and independent capability review for the changed
-   execution-critical closure;
+1. preserve run09 and its H5 state namespace without replay or reset;
+2. inventory retained SD sources and qualify only the minimum obsolete-source
+   reclaim needed for a fresh source plus work copy;
 3. if full H5-equivalent correctness proof still requires another device
    transition, build a fresh marker/build identity and open a fresh D0/D1 or
    F1 campaign under exact recovery and attendance, never a run09 replay; and

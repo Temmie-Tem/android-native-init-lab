@@ -662,6 +662,38 @@ def _native_release_log(text: str) -> str:
     return "\n".join(lines) + ("\n" if lines else "")
 
 
+def wait_for_bound_bridge_after_reboot(
+    f1_spec: base.F1Spec,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    """Wait only for the bound by-id endpoint's normal reboot absence."""
+
+    device = Path(f1_spec.stage.bridge_device)
+    deadline = time.monotonic() + base.HOST_NCM_REBIND_TIMEOUT_SEC
+    last_error: Exception | None = None
+    while True:
+        if not device.exists():
+            if time.monotonic() >= deadline:
+                raise ContractError(
+                    "bound bridge did not re-enumerate before the observation deadline"
+                ) from last_error
+            time.sleep(base.HOST_NCM_REBIND_POLL_SEC)
+            continue
+        try:
+            return base.staging.require_exact_bridge(f1_spec.stage, args)
+        except base.staging.ContractError as exc:
+            last_error = exc
+        if device.exists():
+            raise ContractError(
+                "bound bridge is present but exact post-reboot continuity failed"
+            ) from last_error
+        if time.monotonic() >= deadline:
+            raise ContractError(
+                "bound bridge did not re-enumerate before the observation deadline"
+            ) from last_error
+        time.sleep(base.HOST_NCM_REBIND_POLL_SEC)
+
+
 def observe_auto_cycle(
     spec: resident.SessionSpec,
     args: argparse.Namespace,
@@ -671,6 +703,10 @@ def observe_auto_cycle(
     f1_spec = _f1_spec(spec)
     result: dict[str, Any] = {"proof": False}
     try:
+        result["bridge_reenumeration"] = wait_for_bound_bridge_after_reboot(
+            f1_spec,
+            args,
+        )
         result["host_ncm_rebind"] = base.rebind_host_ncm_after_reenumeration(
             f1_spec,
             args,
