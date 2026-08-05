@@ -481,6 +481,7 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
             for version, build in (
                 d1.H3_AUTO_BENCHMARK_RESIDENT_IDENTITY,
                 d1.H4_AUTO_BENCHMARK_RESIDENT_IDENTITY,
+                d1.H5_AUTO_BENCHMARK_RESIDENT_IDENTITY,
             ):
                 spec = replace(
                     base_spec,

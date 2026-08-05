@@ -122,6 +122,13 @@ capability-wide receipt is consumed and the capability is retired; never reuse
 it under another run ID. Host-preserved bytes remain evidence and grant no
 restore authority. The next live unit is a fresh H5, not H4 replay.
 
+H5 host preparation now has one fresh run-12 keyed rootfs, deterministic
+byte-identical A/B boot candidate `0.11.173`, fresh h5 enable/latch namespace,
+and independent `PASS_GO` over the exact 13-file F1/D1 closure. No H5 rootfs
+has been staged and no candidate, reboot, arm, or flash authority has been
+consumed. The next gate is a committed closure followed by fresh exact D0,
+immutable H5 manifests, and attended boot-only F1; H4 remains terminal.
+
 1. preserve the closed H4 journal, exact source, and rollback result as
    no-replay incident evidence;
 2. independently review the cumulative-log observer repair and bind its exact
@@ -192,6 +199,7 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_PHASE3_MINIMAL_H4_OBSERVER_COMPLETE_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H4_CUMULATIVE_UNARMED_LOG_OBSERVER_INCIDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_V2321_H3_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
+- `docs/reports/A90_PHASE3_MINIMAL_H5_FRESH_CAMPAIGN_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`
 
 Private manifests, journals, raw logs, rootfs and boot artifacts, rollback

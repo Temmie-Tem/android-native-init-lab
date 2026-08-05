@@ -558,6 +558,25 @@ class ResidentManifestBuilderTests(unittest.TestCase):
             "783a528a541e3a8edf82543d7352ed2e47f5d3393245d413ee8507df6e797e09",
         )
 
+    def test_h5_candidate_binds_fresh_campaign_receipt(self) -> None:
+        selected = builder.select_candidate_profile(
+            builder.MINIMAL_H5_CANDIDATE_PROFILE
+        )
+        contract = builder.candidate_first_boot_contract(selected)
+        self.assertEqual(selected.version, "0.11.173")
+        self.assertEqual(
+            selected.sha256,
+            "8ceda5ac0924c0fc1f8526bbd3632fd5e6f1a8cdd59b03c978efb09bbb1acd9b",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["image_path"],
+            "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-12.img",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["binding_sha256"],
+            "243c65b770393e31c34048a4ec5ffea3032022b4de1d437e4e3ef1e7637d14f0",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

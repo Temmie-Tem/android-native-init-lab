@@ -46,6 +46,9 @@ MINIMAL_G_MANIFEST = (
 MINIMAL_H_MANIFEST = (
     HERE / "a90_flat_builder/versions/phase3-minimal-h/manifest.toml"
 )
+MINIMAL_H5_MANIFEST = (
+    HERE / "a90_flat_builder/versions/phase3-minimal-h5/manifest.toml"
+)
 
 
 def newc_archive(entries: dict[str, bytes]) -> bytes:
@@ -453,6 +456,50 @@ class A90FlatBuilderTest(unittest.TestCase):
         )
         with self.assertRaisesRegex(RuntimeError, "missing or duplicated"):
             build.normalized_auto_handoff_binding(minimal)
+
+    def test_phase3_minimal_h5_binds_fresh_rootfs_and_marker_namespace(self):
+        h4 = buildlib.resolve_manifest(MINIMAL_H_MANIFEST).data
+        resolution = buildlib.resolve_manifest(MINIMAL_H5_MANIFEST)
+        h5 = resolution.data
+        buildlib.validate_component_selection(h5)
+        self.assertEqual(
+            h5["profile"],
+            "phase3-minimal-h5-fresh-campaign-auto-benchmark",
+        )
+        self.assertFalse(h5["candidate_authority"])
+        self.assertEqual(h5["init"]["sources"], h4["init"]["sources"])
+        binding = build.normalized_auto_handoff_binding(h5)
+        self.assertEqual(binding["candidate_version"], "0.11.173")
+        self.assertEqual(
+            binding["candidate_build"],
+            "phase3-minimal-h5-fresh-campaign-auto-benchmark",
+        )
+        self.assertEqual(
+            binding["image_path"],
+            "/mnt/sdext/a90/runtime/"
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-12.img",
+        )
+        self.assertEqual(
+            binding["image_sha256"],
+            "874291801573d96bf7731b2cdc27deca066221450534365eddfa2acf41ab681e",
+        )
+        self.assertEqual(
+            binding["enable_path"],
+            "/cache/a90-auto-handoff-phase3-minimal-h5.enable",
+        )
+        self.assertEqual(
+            binding["latch_path"],
+            "/cache/a90-auto-handoff-phase3-minimal-h5.done",
+        )
+        self.assertNotEqual(
+            binding["binding_sha256"],
+            build.normalized_auto_handoff_binding(h4)["binding_sha256"],
+        )
+        inputs = buildlib.validate_inputs(REPO_ROOT, resolution, h5)
+        self.assertEqual(
+            inputs["init_closure_sha256"],
+            h5["init"]["closure_sha256"],
+        )
 
     def test_phase3_minimal_g_retained_runtime_and_audio_are_fail_closed(self):
         minimal = buildlib.resolve_manifest(MINIMAL_G_MANIFEST).data

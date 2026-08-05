@@ -1,0 +1,113 @@
+{
+  "schema": "a90-phase3-minimal-h5-fresh-campaign-independent-review-v1",
+  "status": "PASS_GO",
+  "decision": "Independent review found no HIGH or MEDIUM findings. H5 binds one fresh keyed rootfs, deterministic boot candidate, build receipt, compiled binding, and marker namespace through the resident F1 and automatic D1 benchmark paths while H4 run-11 remains terminal and excluded.",
+  "review_date": "2026-08-05",
+  "reviewer": "independent subagent /root/a90_capability_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "scope": {
+    "candidate_version": "0.11.173",
+    "candidate_build": "phase3-minimal-h5-fresh-campaign-auto-benchmark",
+    "rootfs_sha256": "874291801573d96bf7731b2cdc27deca066221450534365eddfa2acf41ab681e",
+    "candidate_boot_sha256": "8ceda5ac0924c0fc1f8526bbd3632fd5e6f1a8cdd59b03c978efb09bbb1acd9b",
+    "build_receipt_sha256": "8d5423f9d109bf2ef1ac6f2aaeb5c4876885ad8a2beb4fc19fb0f01b2e105157",
+    "compiled_binding_sha256": "243c65b770393e31c34048a4ec5ffea3032022b4de1d437e4e3ef1e7637d14f0",
+    "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h5.enable",
+    "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h5.done",
+    "h4_run11_terminal_excluded": true,
+    "h4_candidate_replay_authorized": false,
+    "candidate_authority": false,
+    "live_authority": false
+  },
+  "reviewed_properties": {
+    "h5_rootfs_boot_receipt_binding_exact": true,
+    "h5_marker_namespace_distinct_from_h4": true,
+    "flat_builder_source_cflags_and_ramdisk_surface_unchanged_from_h4": true,
+    "deterministic_ab_boot_byte_identical": true,
+    "finalizer_builder_orchestrator_propagation_exact": true,
+    "absent_only_staging_h5_identity_exact": true,
+    "d1_transition_h5_identity_exact": true,
+    "benchmark_runner_h5_identity_exact": true,
+    "first_boot_requires_unarmed_state": true,
+    "candidate_replay_forbidden": true,
+    "exact_v2321_rollback_and_attended_recovery_required": true,
+    "boot_partition_only": true,
+    "s22plus_authority": false
+  },
+  "reviewed_closure": {
+    "production_seven_file_sha256": "803d4d5f5a12350806c178a450b92c734b91b9d221accd6a521a982d21cb6b7a",
+    "tests_six_file_sha256": "290cbca0757de37544d005f9124ad766c5f7f73d7b3f7c1112db3450a212b1c9",
+    "full_thirteen_file_sha256": "30acdb1f7759ee48b2bd09b1ce6a4ea93494d98d8f813d308f0bd58f4a436498",
+    "production_files": {
+      "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h5/manifest.toml": {
+        "bytes": 7577,
+        "sha256": "ae7db85dfa1d98825952338137445a14e3fc5969ca56591fb6444727fdd22527"
+      },
+      "workspace/public/src/scripts/server-distro/a90_phase2d_finalize_f1.py": {
+        "bytes": 53288,
+        "sha256": "a0b7772cf15652d6066be5b00f3f71cdc1bc905479de92042d7b7455d9b35d81"
+      },
+      "workspace/public/src/scripts/server-distro/a90_resident_manifest_builder_v1.py": {
+        "bytes": 40378,
+        "sha256": "4ad3a041f45362f346a906626abc38d3c7fadcf109bf2a481b4dda1968281f35"
+      },
+      "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {
+        "bytes": 283573,
+        "sha256": "57a50e40c19fac50359603421be4fcfce9b4eedea0d88fdba3bb0e35a809d6b5"
+      },
+      "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {
+        "bytes": 104591,
+        "sha256": "a98aef29133109a06fbb5a41721c58ecb07e6f7a31c9b2c6863965323d5b5642"
+      },
+      "workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py": {
+        "bytes": 131545,
+        "sha256": "fe8f8f16850f077b62925d2c21b369ab96c300332aec77f9d155a3deedef7947"
+      },
+      "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py": {
+        "bytes": 57558,
+        "sha256": "098e1682a4573a880f8d8efea577be6024b29b757b0ca2d0ce84637173390e12"
+      }
+    },
+    "test_sha256": {
+      "tests/test_a90_phase2d_finalize_f1.py": "e6fa3044b5b0918cdf1be5605f156545a00f7960c8ccd2efcd4e96f86d34f29c",
+      "tests/test_server_distro_a90_resident_manifest_builder_v1.py": "a4ad03d0d72ff110acd5278410ae630dd15faf5496693c06b7b51d4c3e358790",
+      "tests/test_server_distro_a90_v3403_f1_orchestrator.py": "99eb62ef88c003ed3c105f9627db956a5650e4d920694d2fb929f2a16bfe944b",
+      "tests/test_server_distro_a90_v3403_absent_only_staging.py": "e2831bc08afbdfd0128abeb0203912e59d966d3734c0907f940ddd19f2de5e13",
+      "tests/test_a90_transition_d1_session_v1.py": "86f0ad967ecf3cd1bf6f1cd258fc3bc95d1997d3fc57cd50dde6bbf0a11025e9",
+      "workspace/public/src/scripts/revalidation/test_a90_flat_builder.py": "3a1b724ed74c03963ebdecc72dfc41cfb016ad8330278ddfd7e50dc40683c29b"
+    }
+  },
+  "validation": {
+    "focused_pipeline_tests": 258,
+    "flat_builder_tests": 39,
+    "resident_promotion_tests": 34,
+    "keyed_rootfs_tests": 8,
+    "total_tests": 339,
+    "failed_tests": 0,
+    "py_compile": "PASS",
+    "git_diff_check": "PASS",
+    "finalizer_audit": "PASS",
+    "resident_manifest_builder_audit": "PASS",
+    "aarch64_static_init": "PASS",
+    "android_boot_image": "PASS"
+  },
+  "fresh_live_requirements": [
+    "committed exact reviewed closure",
+    "fresh exact A90 D0 and absent H5 remote rootfs/work/stage/marker paths",
+    "fresh private immutable F1 and resident manifests",
+    "exact V2321 rollback bytes and demonstrated attended Download or TWRP recovery",
+    "awake operator attendance through candidate return or exact recovery",
+    "one candidate transfer maximum with no replay and final exact health"
+  ],
+  "review_lifetime": "Reusable only while the named execution-critical closure and hazard assumptions remain unchanged and no new hazard or incident occurs. Fresh D0, manifest binding, attendance, rollback/recovery and live health remain separate.",
+  "unresolved_high_findings": [],
+  "unresolved_medium_findings": [],
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "reviewer_device_contact": false,
+  "reviewer_usb_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_s22plus_contact": false,
+  "reviewer_repository_edits": false
+}

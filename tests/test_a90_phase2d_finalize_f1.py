@@ -181,6 +181,25 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
             "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-11.img",
         )
 
+    def test_minimal_h5_candidate_binds_fresh_campaign_receipt(self) -> None:
+        selected = finalizer.select_candidate_profile(
+            finalizer.MINIMAL_H5_CANDIDATE_PROFILE
+        )
+        contract = finalizer.candidate_first_boot_contract(selected)
+        self.assertEqual(selected.version, "0.11.173")
+        self.assertEqual(
+            selected.sha256,
+            "8ceda5ac0924c0fc1f8526bbd3632fd5e6f1a8cdd59b03c978efb09bbb1acd9b",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["image_sha256"],
+            "874291801573d96bf7731b2cdc27deca066221450534365eddfa2acf41ab681e",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["binding_sha256"],
+            "243c65b770393e31c34048a4ec5ffea3032022b4de1d437e4e3ef1e7637d14f0",
+        )
+
     def test_unknown_candidate_profile_is_rejected(self) -> None:
         with self.assertRaisesRegex(finalizer.ContractError, "not exact"):
             finalizer.select_candidate_profile("arbitrary")

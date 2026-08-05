@@ -85,6 +85,9 @@ MINIMAL_H3_CANDIDATE_PROFILE = "phase3-minimal-h3-exact-binding-auto-benchmark"
 MINIMAL_H4_CANDIDATE_PROFILE = (
     "phase3-minimal-h4-observer-complete-auto-benchmark"
 )
+MINIMAL_H5_CANDIDATE_PROFILE = (
+    "phase3-minimal-h5-fresh-campaign-auto-benchmark"
+)
 LEGACY_CANDIDATE = CandidateSpec(
     profile=LEGACY_CANDIDATE_PROFILE,
     copy_name="candidate-boot-phase2-display-v1.img",
@@ -213,6 +216,42 @@ MINIMAL_H4_CANDIDATE = CandidateSpec(
         "binding_sha256": "783a528a541e3a8edf82543d7352ed2e47f5d3393245d413ee8507df6e797e09",
     },
 )
+MINIMAL_H5_CANDIDATE = CandidateSpec(
+    profile=MINIMAL_H5_CANDIDATE_PROFILE,
+    copy_name="candidate-boot-phase3-minimal-h5.img",
+    source=(
+        staging.PRIVATE_ROOT
+        / "outputs"
+        / "server-distro"
+        / "a90-phase3-minimal-h5-fresh-campaign-h0-20260805-01"
+        / "A"
+        / "boot.img"
+    ),
+    size=58372096,
+    sha256="8ceda5ac0924c0fc1f8526bbd3632fd5e6f1a8cdd59b03c978efb09bbb1acd9b",
+    version="0.11.173",
+    build="phase3-minimal-h5-fresh-campaign-auto-benchmark",
+    build_receipt=(
+        staging.PRIVATE_ROOT
+        / "outputs"
+        / "server-distro"
+        / "a90-phase3-minimal-h5-fresh-campaign-h0-20260805-01"
+        / "ab-receipt.json"
+    ),
+    build_receipt_sha256=(
+        "8d5423f9d109bf2ef1ac6f2aaeb5c4876885ad8a2beb4fc19fb0f01b2e105157"
+    ),
+    compiled_auto_handoff={
+        "schema": "a90-compiled-auto-handoff-binding-v1",
+        "candidate_version": "0.11.173",
+        "candidate_build": "phase3-minimal-h5-fresh-campaign-auto-benchmark",
+        "image_path": "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-12.img",
+        "image_sha256": "874291801573d96bf7731b2cdc27deca066221450534365eddfa2acf41ab681e",
+        "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h5.enable",
+        "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h5.done",
+        "binding_sha256": "243c65b770393e31c34048a4ec5ffea3032022b4de1d437e4e3ef1e7637d14f0",
+    },
+)
 CANDIDATE_PROFILES = {
     item.profile: item
     for item in (
@@ -222,6 +261,7 @@ CANDIDATE_PROFILES = {
         MINIMAL_H2_CANDIDATE,
         MINIMAL_H3_CANDIDATE,
         MINIMAL_H4_CANDIDATE,
+        MINIMAL_H5_CANDIDATE,
     )
 }
 
@@ -327,6 +367,7 @@ def candidate_first_boot_contract(candidate: CandidateSpec) -> dict[str, Any] | 
     if candidate.profile in {
         MINIMAL_H3_CANDIDATE_PROFILE,
         MINIMAL_H4_CANDIDATE_PROFILE,
+        MINIMAL_H5_CANDIDATE_PROFILE,
     }:
         assert candidate.compiled_auto_handoff is not None
         return {
