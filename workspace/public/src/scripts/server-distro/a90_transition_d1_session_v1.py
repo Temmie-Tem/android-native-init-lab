@@ -32,6 +32,7 @@ for _path in (SCRIPT_DIR, REVAL_DIR):
         sys.path.insert(0, str(_path))
 
 import a90_transition_engine_v2 as engine  # noqa: E402
+import a90_h5_existing_source_install_v1 as h5_existing  # noqa: E402
 import a90_phase3_d1_observer_v1 as phase3_observer  # noqa: E402
 import a90_resident_preserved_d1_prep_v1 as preserved_prep  # noqa: E402
 import a90_v3403_absent_only_staging as staging  # noqa: E402
@@ -108,6 +109,7 @@ RESIDENT_ACTIONS = (
     "candidate-health-verified",
     "closed",
 )
+H5_EXISTING_RESIDENT_EVIDENCE_KIND = "h5-existing-source-resident-install-v1"
 
 SOURCE_PATHS = {
     "runner": Path(__file__).resolve(),
@@ -126,6 +128,9 @@ SOURCE_PATHS = {
     "serial_tcp_bridge": REVAL_DIR / "serial_tcp_bridge.py",
     "phase3_observer": SCRIPT_DIR / "a90_phase3_d1_observer_v1.py",
     "preserved_d1_prep": SCRIPT_DIR / "a90_resident_preserved_d1_prep_v1.py",
+    "h5_existing_source_install": (
+        SCRIPT_DIR / "a90_h5_existing_source_install_v1.py"
+    ),
 }
 SESSION_DIR_NAME = "d1-live"
 SESSION_LOCK_NAME = "d1-live.lock"
@@ -891,6 +896,246 @@ def _crosscheck_preserved_baseline(
     return phase3_observer.PROFILE, journal, preserved_prep.preserved.SUCCESS_STATUS
 
 
+def _validate_h5_existing_resident(
+    resident_manifest: BoundFile,
+    resident_run_id: str,
+) -> tuple[base.F1Spec, tuple[BoundFile, ...], dict[str, Any]]:
+    """Reopen only the exact closed no-stage H5 resident terminal."""
+
+    try:
+        spec = h5_existing.load_spec(
+            resident_manifest.path,
+            resident_manifest.sha256,
+            recovery=True,
+        )
+        result = h5_existing._validate_success_journal(  # noqa: SLF001
+            spec,
+            resident_manifest.path.parent / "f1-live",
+        )
+    except (h5_existing.ContractError, base.ContractError) as exc:
+        raise ContractError("H5 existing-source resident terminal is not exact") from exc
+    journal_dir = resident_manifest.path.parent / "f1-live" / "journal"
+    try:
+        paths = tuple(sorted(journal_dir.glob("*.json")))
+    except OSError as exc:
+        raise ContractError("H5 existing-source journal is unavailable") from exc
+    if (
+        spec.stage.run_id != resident_run_id
+        or len(paths) != len(h5_existing.SUCCESS_ACTIONS)
+        or result.get("status") != "PASS_A90_RESIDENT_INSTALLED"
+        or result.get("device_safety_state") != "RESIDENT_HEALTHY"
+    ):
+        raise ContractError("H5 existing-source resident terminal changed")
+    return (
+        spec,
+        tuple(_bound_file(path, private=True) for path in paths),
+        result,
+    )
+
+
+def _build_manifest_from_h5_existing(
+    *,
+    resident_manifest: BoundFile,
+    run_id: str,
+    session_duration_sec: int,
+    max_actions: int,
+) -> dict[str, Any]:
+    if type(max_actions) is not int or max_actions != 1:
+        raise ContractError("H5 existing-source D1 permits exactly one action")
+    value = _read_private_json(resident_manifest.path)
+    resident_run_id = _require_string(value.get("run_id"), "resident run_id")
+    if RESIDENT_RUN_RE.fullmatch(resident_run_id) is None:
+        raise ContractError("H5 existing-source resident run_id is not exact")
+    spec, journal, terminal = _validate_h5_existing_resident(
+        resident_manifest,
+        resident_run_id,
+    )
+    candidate = BoundFile(spec.candidate.path, spec.candidate.size, spec.candidate.sha256)
+    rollback = BoundFile(spec.rollback.path, spec.rollback.size, spec.rollback.sha256)
+    rootfs = BoundFile(
+        spec.stage.local_image,
+        spec.stage.local_size,
+        spec.stage.local_sha256,
+    )
+    debian = _require_dict(value.get("debian_rootfs"), "H5 Debian rootfs")
+    keyed = _require_dict(debian.get("keyed_source"), "H5 keyed rootfs")
+    observer = _require_dict(debian.get("observer"), "H5 observer")
+    observer_key = _bound_dict(
+        observer.get("private_key"),
+        "H5 observer key",
+        private=True,
+    )
+    target = _require_dict(value.get("target"), "H5 target")
+    recovery = _require_dict(value.get("recovery"), "H5 recovery")
+    observation = _require_dict(value.get("observation"), "H5 observation")
+    if (
+        keyed.get("profile") != phase3_observer.PROFILE
+        or keyed.get("device_path") != spec.stage.remote_final
+        or spec.stage.remote_work != WORK_PATH
+        or observer_key.path != spec.observer_key
+        or debian.get("handoff_command") != list(spec.handoff_command)
+        or target.get("profile") != staging.TARGET_PROFILE
+        or target.get("bridge_selected_exact") is not True
+    ):
+        raise ContractError("H5 existing-source D1 projection changed")
+    source_closure = {
+        role: _bound_file(path, private=False)
+        for role, path in SOURCE_PATHS.items()
+    }
+    return {
+        "schema": SCHEMA,
+        "status": STATUS,
+        "created_utc": utc_now(),
+        "run_id": run_id,
+        "resident": {
+            "evidence_kind": H5_EXISTING_RESIDENT_EVIDENCE_KIND,
+            "run_id": resident_run_id,
+            "manifest": _as_dict(resident_manifest),
+            "journal": [_as_dict(item) for item in journal],
+            "terminal_journal_sha256": journal[-1].sha256,
+            "terminal_status": terminal["status"],
+            "candidate": _as_dict(candidate),
+            "candidate_version": spec.candidate_version,
+            "candidate_build": spec.candidate_build,
+            "rollback": _as_dict(rollback),
+            "rootfs": _as_dict(rootfs),
+            "remote_final": spec.stage.remote_final,
+            "remote_work": spec.stage.remote_work,
+        },
+        "target": {
+            "profile": target["profile"],
+            "bridge_device": target["bridge_device"],
+            "bridge_realpath": target["bridge_selected_realpath"],
+            "recovery_serial_sha256": recovery["adb_serial_sha256"],
+            "recovery_profile": recovery["physical_path"],
+        },
+        "observer": {
+            "key": _as_dict(observer_key),
+            "public_key_sha256": observer["public_key_sha256"],
+            "device": observer["device_ip"],
+            "port": observer["device_port"],
+            "host_ncm_profile": observer["host_ncm_profile"],
+        },
+        "handoff": {
+            "command": list(spec.handoff_command),
+            "handoff_timeout_sec": observation["handoff_timeout_sec"],
+            "ssh_marker_timeout_sec": observation["ssh_marker_timeout_sec"],
+            "candidate_return_timeout_sec": observation[
+                "candidate_return_timeout_sec"
+            ],
+        },
+        "session": {
+            "workflow": Workflow.ATTENDED_SESSION_D1.value,
+            "risk_tier": RiskTier.TIER_D1_TRANSIENT_NO_PAYLOAD_CONTROL.value,
+            "action_allowlist": [SessionAction.SWITCHROOT_EXPERIMENT.value],
+            "session_duration_sec": session_duration_sec,
+            "max_actions": max_actions,
+            "operator_attended_each_action": True,
+            "transaction_dir": str(PRIVATE_RUN_BASE / run_id / SESSION_DIR_NAME),
+            "session_lock_path": str(PRIVATE_RUN_BASE / run_id / SESSION_LOCK_NAME),
+        },
+        "source_closure": {
+            role: _as_dict(item) for role, item in source_closure.items()
+        },
+        "safety": {
+            "payload_transfer": False,
+            "partition_write": False,
+            "flash": False,
+            "candidate_replay": False,
+            "fixed_work_path": WORK_PATH,
+            "work_cleanup_requires_regular_mode_size": True,
+            "other_targets_untouched": True,
+        },
+        "authority": {
+            "live_authority": False,
+            "manifest_grants_live_authority": False,
+            "fresh_exact_session_approval_required": True,
+            "one_approval_may_cover_bounded_actions": True,
+        },
+    }
+
+
+def _crosscheck_h5_existing_resident(
+    resident_manifest: BoundFile,
+    resident: dict[str, Any],
+    candidate: BoundFile,
+    rollback: BoundFile,
+    rootfs: BoundFile,
+    target: dict[str, Any],
+    observer: dict[str, Any],
+    observer_key: BoundFile,
+    handoff: dict[str, Any],
+) -> tuple[str, tuple[BoundFile, ...], str]:
+    resident_run_id = _require_string(resident.get("run_id"), "resident run_id")
+    spec, journal, terminal = _validate_h5_existing_resident(
+        resident_manifest,
+        resident_run_id,
+    )
+    value = _read_private_json(resident_manifest.path)
+    source_target = _require_dict(value.get("target"), "H5 target")
+    recovery = _require_dict(value.get("recovery"), "H5 recovery")
+    debian = _require_dict(value.get("debian_rootfs"), "H5 Debian rootfs")
+    keyed = _require_dict(debian.get("keyed_source"), "H5 keyed rootfs")
+    source_observer = _require_dict(debian.get("observer"), "H5 observer")
+    expected_candidate = BoundFile(
+        spec.candidate.path,
+        spec.candidate.size,
+        spec.candidate.sha256,
+    )
+    expected_rollback = BoundFile(
+        spec.rollback.path,
+        spec.rollback.size,
+        spec.rollback.sha256,
+    )
+    expected_rootfs = BoundFile(
+        spec.stage.local_image,
+        spec.stage.local_size,
+        spec.stage.local_sha256,
+    )
+    expected_observer_key = _bound_dict(
+        source_observer.get("private_key"),
+        "H5 observer key",
+        private=True,
+    )
+    if (
+        resident_manifest.path.parent.name != resident_run_id
+        or candidate != expected_candidate
+        or rollback != expected_rollback
+        or rootfs != expected_rootfs
+        or resident.get("candidate_version") != spec.candidate_version
+        or resident.get("candidate_build") != spec.candidate_build
+        or resident.get("remote_final") != spec.stage.remote_final
+        or resident.get("remote_work") != spec.stage.remote_work
+        or target
+        != {
+            "profile": source_target["profile"],
+            "bridge_device": source_target["bridge_device"],
+            "bridge_realpath": source_target["bridge_selected_realpath"],
+            "recovery_serial_sha256": recovery["adb_serial_sha256"],
+            "recovery_profile": recovery["physical_path"],
+        }
+        or observer_key != expected_observer_key
+        or observer
+        != {
+            "key": _as_dict(expected_observer_key),
+            "public_key_sha256": source_observer["public_key_sha256"],
+            "device": source_observer["device_ip"],
+            "port": source_observer["device_port"],
+            "host_ncm_profile": source_observer["host_ncm_profile"],
+        }
+        or handoff
+        != {
+            "command": list(spec.handoff_command),
+            "handoff_timeout_sec": spec.handoff_timeout,
+            "ssh_marker_timeout_sec": spec.ssh_marker_timeout,
+            "candidate_return_timeout_sec": spec.candidate_return_timeout,
+        }
+        or keyed.get("profile") != phase3_observer.PROFILE
+    ):
+        raise ContractError("D1 manifest reinterprets H5 existing-source resident")
+    return phase3_observer.PROFILE, journal, terminal["status"]
+
+
 def build_manifest(
     *,
     resident_manifest_path: Path,
@@ -925,6 +1170,13 @@ def build_manifest(
             raise ContractError("preserved D1 baseline is not exact") from exc
         return _build_manifest_from_preserved_baseline(
             baseline=baseline,
+            run_id=run_id,
+            session_duration_sec=session_duration_sec,
+            max_actions=max_actions,
+        )
+    if value.get("schema") == h5_existing.MANIFEST_SCHEMA:
+        return _build_manifest_from_h5_existing(
+            resident_manifest=resident_manifest,
             run_id=run_id,
             session_duration_sec=session_duration_sec,
             max_actions=max_actions,
@@ -1139,16 +1391,18 @@ def load_spec(path: Path, expected_sha256: str) -> SessionSpec:
     if evidence_kind not in {
         "ordinary-resident-install-v2",
         "preserved-install-cleanup-reduced-v1",
+        H5_EXISTING_RESIDENT_EVIDENCE_KIND,
     }:
         raise ContractError("resident evidence kind is not allowlisted")
     resident_run_id = _require_string(resident.get("run_id"), "resident run_id")
     resident_manifest = _bound_dict(resident.get("manifest"), "resident manifest", private=True)
     journal_values = resident.get("journal")
-    expected_journal_count = (
-        len(RESIDENT_ACTIONS)
-        if evidence_kind == "ordinary-resident-install-v2"
-        else len(preserved_prep.preserved.INSTALL_SUCCESS_ACTIONS)
-    )
+    if evidence_kind == "ordinary-resident-install-v2":
+        expected_journal_count = len(RESIDENT_ACTIONS)
+    elif evidence_kind == H5_EXISTING_RESIDENT_EVIDENCE_KIND:
+        expected_journal_count = len(h5_existing.SUCCESS_ACTIONS)
+    else:
+        expected_journal_count = len(preserved_prep.preserved.INSTALL_SUCCESS_ACTIONS)
     if not isinstance(journal_values, list) or len(journal_values) != expected_journal_count:
         raise ContractError("resident journal binding is not exact")
     resident_journal = tuple(
@@ -1210,6 +1464,23 @@ def load_spec(path: Path, expected_sha256: str) -> SessionSpec:
                 argparse.Namespace(stage=source_stage)
             ),
         )
+    elif evidence_kind == H5_EXISTING_RESIDENT_EVIDENCE_KIND:
+        (
+            _h5_profile,
+            canonical_resident_journal,
+            h5_terminal_status,
+        ) = _crosscheck_h5_existing_resident(
+            resident_manifest,
+            resident,
+            candidate,
+            rollback,
+            rootfs,
+            target,
+            observer,
+            _bound_dict(observer.get("key"), "observer key", private=True),
+            handoff,
+        )
+        terminal = {"status": h5_terminal_status}
     else:
         (
             _baseline_profile,
@@ -1330,6 +1601,11 @@ def load_spec(path: Path, expected_sha256: str) -> SessionSpec:
         raise ContractError("D1 safety or authority contract changed")
     duration = session.get("session_duration_sec")
     max_actions = session.get("max_actions")
+    if (
+        evidence_kind == H5_EXISTING_RESIDENT_EVIDENCE_KIND
+        and (type(max_actions) is not int or max_actions != 1)
+    ):
+        raise ContractError("H5 existing-source D1 permits exactly one action")
     transaction_dir = Path(
         _require_string(session.get("transaction_dir"), "transaction dir")
     )
@@ -1373,6 +1649,23 @@ def load_spec(path: Path, expected_sha256: str) -> SessionSpec:
             observer_key,
             handoff,
         )
+    elif evidence_kind == H5_EXISTING_RESIDENT_EVIDENCE_KIND:
+        rootfs_profile, h5_journal, h5_status = _crosscheck_h5_existing_resident(
+            resident_manifest,
+            resident,
+            candidate,
+            rollback,
+            rootfs,
+            target,
+            observer,
+            observer_key,
+            handoff,
+        )
+        if (
+            resident_journal != h5_journal
+            or resident.get("terminal_status") != h5_status
+        ):
+            raise ContractError("H5 resident journal binding changed")
     else:
         rootfs_profile, baseline_journal, baseline_status = _crosscheck_preserved_baseline(
             resident_manifest,

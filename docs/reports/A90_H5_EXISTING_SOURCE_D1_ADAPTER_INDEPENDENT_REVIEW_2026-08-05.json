@@ -1,0 +1,96 @@
+{
+  "schema": "a90-h5-existing-source-d1-adapter-independent-review-v1",
+  "status": "PASS_GO",
+  "review_date": "2026-08-05",
+  "target": "Samsung Galaxy A90 5G only",
+  "capability": "A90_D1_ATTENDED_SESSION_V1_H5_EXISTING_SOURCE_ADAPTER",
+  "risk_tier": "H0 independent review of attended D1 transient no-payload execution capability",
+  "reviewer": "independent subagent /root/a90_capability_review",
+  "review_scope": [
+    "workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py",
+    "tests/test_a90_transition_d1_session_v1.py",
+    "interaction with the reviewed H5 existing-published-source resident terminal, exact one-action attended D1, automatic handoff observation, native return, cleanup, health, recovery, and no-replay boundaries"
+  ],
+  "named_execution_critical_closure": {
+    "runner": "2e4ce08226110800e318bb1d4b3315002a60f478361713ed77dec4eb844cd623",
+    "transition_contract": "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e",
+    "transition_engine": "7a6f2a3248fcf53770cf5dee27985b23e239749cf5c8eae79158c7f903686010",
+    "f1_orchestrator": "57a50e40c19fac50359603421be4fcfce9b4eedea0d88fdba3bb0e35a809d6b5",
+    "staging_contract": "a98aef29133109a06fbb5a41721c58ecb07e6f7a31c9b2c6863965323d5b5642",
+    "observation_pipeline": "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb",
+    "display_observer": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744",
+    "framed_transport": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c",
+    "cdc_acm_guard": "6c8a6d2151928d2e098ca41b3c9dc24cdbbfabe9be10df19969be274744ef9a9",
+    "cmdv1_shell_adapter": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933",
+    "workspace_bootstrap": "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe",
+    "bridge_selector": "7bacce5a61f6745d4dfb0b7f89ffffc478d4e74fd6a1559d20718793668414e9",
+    "serial_lock": "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7",
+    "serial_tcp_bridge": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98",
+    "phase3_observer": "fccb10170583ea3c1761cf33de7bcc40d2409c0e097af051b6585195876b1a78",
+    "preserved_d1_prep": "cd7f6c84fc23770b7ee93fbfd04850d716352f50936f7652fe74f752a8dbe737",
+    "h5_existing_source_install": "a30249f9c511078ef5d4121fb6cbd6e5dadf4a13708141aefdcf63b93e4e4e7d"
+  },
+  "reviewed_test_source": {
+    "path": "tests/test_a90_transition_d1_session_v1.py",
+    "bytes": 102153,
+    "sha256": "f50cd2710f5a57aa729f361b2923e7fcee0b927362f77218d33da578e2f30e51"
+  },
+  "reviewed_runner": {
+    "path": "workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py",
+    "bytes": 143369,
+    "sha256": "2e4ce08226110800e318bb1d4b3315002a60f478361713ed77dec4eb844cd623"
+  },
+  "reviewed_semantics": {
+    "resident_terminal": "The adapter first reopens the original H5 manifest through h5_existing.load_spec with freshness disabled only for historical D0 age, then requires the exact installed success journal and RESIDENT_HEALTHY terminal.",
+    "canonical_journal": "The original canonical ten-action no-stage journal is bound directly and revalidated during both manifest build and load; no synthetic journal or alternate parent is accepted.",
+    "projection": "Candidate, V2321 rollback, source, H5 version and build, target, recovery, observer, handoff, work path, and Phase3 rootfs profile are compared to the original reviewed terminal.",
+    "one_action": "The H5 branch independently requires max_actions exactly one during build and load. The existing durable intent, arm, reboot, cleanup, and no-replay machinery remains unchanged.",
+    "device_effect": "The changed adapter is host-only. The resulting live capability remains one attended D1 switch-root action with no payload transfer, partition write, flash, candidate transfer, or rollback transfer.",
+    "other_lanes": "Ordinary resident-install and preserved-cleanup-reduced evidence paths retain their previous execution semantics."
+  },
+  "review_findings": [
+    {
+      "id": "M1",
+      "severity": "MEDIUM",
+      "status": "CLOSED",
+      "finding": "The first adapter revision inherited the generic one-to-thirty-two action range and did not itself enforce the selected one-ordinal H5 unit.",
+      "resolution": "Build and load now independently require H5 max_actions exactly one, with focused over-budget build and tampered-load rejection tests."
+    }
+  ],
+  "validation": {
+    "independent_focused_tests": {
+      "passed": 40,
+      "failed": 0
+    },
+    "expanded_related_tests": {
+      "passed": 163,
+      "failed": 0
+    },
+    "python_py_compile": "PASS",
+    "ast": "PASS",
+    "trailing_whitespace": "PASS",
+    "scoped_diff_check": "PASS"
+  },
+  "permanent_boundaries": {
+    "exact_a90_target_isolation_unchanged": true,
+    "boot_only_partition_boundary_unchanged": true,
+    "rollback_and_physical_recovery_binding_unchanged": true,
+    "attendance_required": true,
+    "no_replay_unchanged": true,
+    "payload_transfer_added": false,
+    "partition_write_added": false,
+    "flash_added": false,
+    "reviewer_device_contact": false,
+    "reviewer_usb_contact": false,
+    "reviewer_private_artifact_contact": false,
+    "reviewer_s22plus_contact": false,
+    "reviewer_repository_edits": false
+  },
+  "unresolved_high_findings": 0,
+  "unresolved_medium_findings": 0,
+  "unresolved_findings": [],
+  "decision": "PASS_GO for the exact H5 existing-source resident evidence adapter into one attended D1 action. This qualification grants no device authority.",
+  "review_lifetime": "Reusable only while every named execution-critical hash, ten-action resident-terminal interpretation, exact H5 identity and source assumptions, one-action gate, handoff and recovery semantics remain unchanged and no new hazard or incident occurs.",
+  "device_authority_granted": false,
+  "live_use_authorized": false
+}

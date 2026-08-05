@@ -258,6 +258,110 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
             write_private(journal_dir / f"{sequence:04d}-{action}.json", record)
         return manifest_path, journal_dir, manifest_sha
 
+    def h5_existing_fixture(
+        self,
+        root: Path,
+    ) -> tuple[Path, argparse.Namespace, tuple[d1.BoundFile, ...], dict[str, object]]:
+        run_id = "a90-v3406-debian-display-f1-20260805-13"
+        resident_dir = root / "runs/server-distro" / run_id
+        candidate = resident_dir / "candidate.img"
+        rollback = resident_dir / "rollback.img"
+        rootfs = resident_dir / "rootfs.img"
+        observer_key = resident_dir / "observer-key"
+        for path, body in (
+            (candidate, b"h5-candidate"),
+            (rollback, b"rollback"),
+            (rootfs, b"rootfs"),
+            (observer_key, b"private-key"),
+        ):
+            write_private(path, body)
+        remote_final = "/mnt/sdext/a90/runtime/h5-rootfs.img"
+        handoff = (
+            d1.base.HANDOFF_COMMAND,
+            d1.base.HANDOFF_TOKEN,
+            remote_final,
+            digest(rootfs),
+        )
+        manifest = {
+            "schema": d1.h5_existing.MANIFEST_SCHEMA,
+            "run_id": run_id,
+            "target": {
+                "profile": d1.staging.TARGET_PROFILE,
+                "bridge_selected_exact": True,
+                "bridge_device": "/dev/serial/by-id/usb-A90-LNX_TEST-if00",
+                "bridge_selected_realpath": "/dev/ttyACM0",
+            },
+            "recovery": {
+                "adb_serial_sha256": "2" * 64,
+                "physical_path": "operator-attended Download or TWRP",
+            },
+            "debian_rootfs": {
+                "handoff_command": list(handoff),
+                "keyed_source": {
+                    "profile": d1.phase3_observer.PROFILE,
+                    "device_path": remote_final,
+                },
+                "observer": {
+                    "private_key": {
+                        "path": str(observer_key),
+                        "size": observer_key.stat().st_size,
+                        "sha256": digest(observer_key),
+                    },
+                    "public_key_sha256": "3" * 64,
+                    "device_ip": "192.0.2.2",
+                    "device_port": 2222,
+                    "host_ncm_profile": "a90-test-ncm",
+                },
+            },
+            "observation": {
+                "handoff_timeout_sec": 905,
+                "ssh_marker_timeout_sec": 30,
+                "candidate_return_timeout_sec": 180,
+            },
+        }
+        manifest_path = resident_dir / "h5-existing-source-manifest.json"
+        write_private(manifest_path, manifest)
+        journal_dir = resident_dir / "f1-live" / "journal"
+        journal: list[d1.BoundFile] = []
+        for sequence, action in enumerate(d1.h5_existing.SUCCESS_ACTIONS):
+            path = journal_dir / f"{sequence:04d}-{action}.json"
+            write_private(path, {"sequence": sequence, "action": action})
+            journal.append(bound(path))
+        spec = argparse.Namespace(
+            stage=argparse.Namespace(
+                run_id=run_id,
+                local_image=rootfs,
+                local_size=rootfs.stat().st_size,
+                local_sha256=digest(rootfs),
+                remote_final=remote_final,
+                remote_work=d1.WORK_PATH,
+            ),
+            candidate=d1.staging.BoundFile(
+                "candidate",
+                candidate,
+                candidate.stat().st_size,
+                digest(candidate),
+            ),
+            rollback=d1.staging.BoundFile(
+                "rollback",
+                rollback,
+                rollback.stat().st_size,
+                digest(rollback),
+            ),
+            candidate_version=d1.H5_AUTO_BENCHMARK_RESIDENT_IDENTITY[0],
+            candidate_build=d1.H5_AUTO_BENCHMARK_RESIDENT_IDENTITY[1],
+            observer_key=observer_key,
+            handoff_command=handoff,
+            handoff_timeout=905,
+            ssh_marker_timeout=30,
+            candidate_return_timeout=180,
+        )
+        result = {
+            "status": "PASS_A90_RESIDENT_INSTALLED",
+            "device_safety_state": "RESIDENT_HEALTHY",
+        }
+        return manifest_path, spec, tuple(journal), result
+
     def session_spec(self, root: Path) -> d1.SessionSpec:
         files: dict[str, d1.BoundFile] = {}
         for role in d1.SOURCE_PATHS:
@@ -655,6 +759,161 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
             self.assertNotIn("expires_at_epoch_sec", accepted["approval_binding"])
             self.assertFalse(accepted["approval_binding"]["flash"])
             self.assertEqual(value["resident"]["terminal_status"], "PASS_A90_RESIDENT_INSTALLED")
+
+    def test_build_load_accepts_exact_h5_no_stage_resident_terminal(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            private = root / "private"
+            run_base = private / "runs/server-distro"
+            resident_path, resident_spec, journal, terminal = (
+                self.h5_existing_fixture(private)
+            )
+            run_id = "a90-d1-attended-20260805-09"
+            output = run_base / run_id / "manifest.json"
+            with mock.patch.object(
+                d1,
+                "PRIVATE_ROOT",
+                private.resolve(),
+            ), mock.patch.object(
+                d1,
+                "PRIVATE_RUN_BASE",
+                run_base.resolve(),
+            ), mock.patch.object(
+                d1,
+                "_validate_h5_existing_resident",
+                return_value=(resident_spec, journal, terminal),
+            ):
+                value = d1.build_manifest(
+                    resident_manifest_path=resident_path,
+                    resident_manifest_sha256=digest(resident_path),
+                    run_id=run_id,
+                    session_duration_sec=3_600,
+                    max_actions=1,
+                )
+                write_private(output, value)
+                spec = d1.load_spec(output, digest(output))
+
+            self.assertEqual(
+                value["resident"]["evidence_kind"],
+                d1.H5_EXISTING_RESIDENT_EVIDENCE_KIND,
+            )
+            self.assertEqual(
+                len(spec.resident_journal),
+                len(d1.h5_existing.SUCCESS_ACTIONS),
+            )
+            self.assertEqual(
+                (spec.candidate_version, spec.candidate_build),
+                d1.H5_AUTO_BENCHMARK_RESIDENT_IDENTITY,
+            )
+            self.assertEqual(spec.max_actions, 1)
+
+    def test_h5_no_stage_projection_rejects_reinterpreted_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            private = root / "private"
+            run_base = private / "runs/server-distro"
+            resident_path, resident_spec, journal, terminal = (
+                self.h5_existing_fixture(private)
+            )
+            run_id = "a90-d1-attended-20260805-09"
+            output = run_base / run_id / "manifest.json"
+            with mock.patch.object(
+                d1,
+                "PRIVATE_ROOT",
+                private.resolve(),
+            ), mock.patch.object(
+                d1,
+                "PRIVATE_RUN_BASE",
+                run_base.resolve(),
+            ), mock.patch.object(
+                d1,
+                "_validate_h5_existing_resident",
+                return_value=(resident_spec, journal, terminal),
+            ):
+                value = d1.build_manifest(
+                    resident_manifest_path=resident_path,
+                    resident_manifest_sha256=digest(resident_path),
+                    run_id=run_id,
+                    session_duration_sec=3_600,
+                    max_actions=1,
+                )
+                value["resident"]["candidate_build"] = "forged"
+                write_private(output, value)
+                with self.assertRaisesRegex(
+                    d1.ContractError,
+                    "reinterprets H5 existing-source resident",
+                ):
+                    d1.load_spec(output, digest(output))
+
+    def test_h5_no_stage_build_rejects_multiple_actions(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            private = root / "private"
+            run_base = private / "runs/server-distro"
+            resident_path, resident_spec, journal, terminal = (
+                self.h5_existing_fixture(private)
+            )
+            with mock.patch.object(
+                d1,
+                "PRIVATE_ROOT",
+                private.resolve(),
+            ), mock.patch.object(
+                d1,
+                "PRIVATE_RUN_BASE",
+                run_base.resolve(),
+            ), mock.patch.object(
+                d1,
+                "_validate_h5_existing_resident",
+                return_value=(resident_spec, journal, terminal),
+            ), self.assertRaisesRegex(
+                d1.ContractError,
+                "permits exactly one action",
+            ):
+                d1.build_manifest(
+                    resident_manifest_path=resident_path,
+                    resident_manifest_sha256=digest(resident_path),
+                    run_id="a90-d1-attended-20260805-09",
+                    session_duration_sec=3_600,
+                    max_actions=2,
+                )
+
+    def test_h5_no_stage_load_rejects_multiple_actions(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            private = root / "private"
+            run_base = private / "runs/server-distro"
+            resident_path, resident_spec, journal, terminal = (
+                self.h5_existing_fixture(private)
+            )
+            run_id = "a90-d1-attended-20260805-09"
+            output = run_base / run_id / "manifest.json"
+            with mock.patch.object(
+                d1,
+                "PRIVATE_ROOT",
+                private.resolve(),
+            ), mock.patch.object(
+                d1,
+                "PRIVATE_RUN_BASE",
+                run_base.resolve(),
+            ), mock.patch.object(
+                d1,
+                "_validate_h5_existing_resident",
+                return_value=(resident_spec, journal, terminal),
+            ):
+                value = d1.build_manifest(
+                    resident_manifest_path=resident_path,
+                    resident_manifest_sha256=digest(resident_path),
+                    run_id=run_id,
+                    session_duration_sec=3_600,
+                    max_actions=1,
+                )
+                value["session"]["max_actions"] = 2
+                write_private(output, value)
+                with self.assertRaisesRegex(
+                    d1.ContractError,
+                    "permits exactly one action",
+                ):
+                    d1.load_spec(output, digest(output))
 
     def test_load_rejects_alternate_resident_journal_parent(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
