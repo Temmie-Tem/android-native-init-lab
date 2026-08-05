@@ -6052,6 +6052,40 @@ class DisplayObservationTests(unittest.TestCase):
         ):
             f1.validate_candidate_first_boot_contract(changed, **kwargs)
 
+    def test_first_boot_log_accepts_repeated_exact_unarmed_states(self) -> None:
+        for log_text in (
+            "A90AUTO state=unarmed-stay-native\r\n",
+            (
+                "old: A90AUTO state=unarmed-stay-native\r\n"
+                "new: A90AUTO state=unarmed-stay-native\n"
+            ),
+        ):
+            with self.subTest(log_text=log_text):
+                f1.require_auto_handoff_log_exclusively_unarmed(
+                    log_text,
+                    "first boot",
+                )
+
+    def test_first_boot_log_rejects_missing_or_unsafe_states(self) -> None:
+        for log_text in (
+            "",
+            "A90AUTO state=dispatch-once\n",
+            "A90AUTO state=armed-waiting-reboot\n",
+            "A90AUTO state=unarmed-stay-native-extra\n",
+            (
+                "A90AUTO state=unarmed-stay-native\n"
+                "A90AUTO state=dispatch-once\n"
+            ),
+        ):
+            with self.subTest(log_text=log_text), self.assertRaisesRegex(
+                f1.ContractError,
+                "not exclusively unarmed",
+            ):
+                f1.require_auto_handoff_log_exclusively_unarmed(
+                    log_text,
+                    "first boot",
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

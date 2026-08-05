@@ -2119,6 +2119,21 @@ def require_candidate_first_boot_state_absent(
     }
 
 
+def require_auto_handoff_log_exclusively_unarmed(
+    log_text: str,
+    label: str,
+) -> None:
+    state_lines: list[str] = []
+    for line in log_text.replace("\r", "\n").splitlines():
+        marker = line.find("A90AUTO state=")
+        if marker >= 0:
+            state_lines.append(line[marker:].strip())
+    if not state_lines or any(
+        line != "A90AUTO state=unarmed-stay-native" for line in state_lines
+    ):
+        raise ContractError(f"{label} is not exclusively unarmed")
+
+
 def require_candidate_first_boot_unarmed(
     spec: F1Spec,
     args: argparse.Namespace,
@@ -2145,19 +2160,18 @@ def require_candidate_first_boot_unarmed(
         "auto-handoff first-boot log receipt",
     )
     log_text = str(log_record.get("text") or "")
-    if (
-        log_text.count("A90AUTO state=unarmed-stay-native") != 1
-        or "A90AUTO state=dispatch-once" in log_text
-    ):
-        raise ContractError(
-            "auto-handoff first resident boot did not remain uniquely unarmed"
-        )
+    require_auto_handoff_log_exclusively_unarmed(
+        log_text,
+        "auto-handoff first resident boot log",
+    )
     return {
         "proof": True,
         "status": status_record,
         "log": log_record,
         "enable": 0,
         "latch": 0,
+        # Legacy journal field name: True means every observed state was the
+        # exact safe unarmed state, not that the cumulative log had one line.
         "unarmed_log_unique": True,
     }
 

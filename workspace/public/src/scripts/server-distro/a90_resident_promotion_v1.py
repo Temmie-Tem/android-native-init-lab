@@ -1241,7 +1241,6 @@ def _validate_candidate_first_boot_journal(
         ["logcat"],
         "candidate_first_boot_health.log",
     )
-    log_text = str(log_record.get("text") or "")
     if (
         set(health_proof)
         != {"proof", "status", "log", "enable", "latch", "unarmed_log_unique"}
@@ -1250,10 +1249,17 @@ def _validate_candidate_first_boot_journal(
         or health_proof.get("latch") != 0
         or health_proof.get("unarmed_log_unique") is not True
         or str(status_record.get("text") or "").count(expected_status) != 1
-        or log_text.count("A90AUTO state=unarmed-stay-native") != 1
-        or "A90AUTO state=dispatch-once" in log_text
     ):
         raise ContractError("auto-handoff first resident boot proof changed")
+    try:
+        base.require_auto_handoff_log_exclusively_unarmed(
+            str(log_record.get("text") or ""),
+            "candidate first-boot journal log",
+        )
+    except base.ContractError as exc:
+        raise ContractError(
+            "auto-handoff first resident boot proof changed"
+        ) from exc
 
 
 def repair_installed_result(

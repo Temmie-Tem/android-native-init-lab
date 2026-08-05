@@ -1,0 +1,113 @@
+{
+  "schema": "a90-h4-cumulative-unarmed-log-observer-incident-review-v1",
+  "status": "PASS_GO_NEW_CAMPAIGN_ONLY",
+  "decision": "The H4 run is terminal after one candidate transfer, no candidate replay, one exact V2321 rollback, and restored final health. The host observer repair accepts cumulative native logs only when at least one A90AUTO state line exists and every such line is the exact safe unarmed state. The repaired predicate is qualified only for a fresh campaign with fresh live gates; it does not authorize H4 resume or replay.",
+  "review_date": "2026-08-05",
+  "reviewer": "independent subagent /root/a90_capability_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "review_scope": [
+    "F1 first-boot cumulative auto-handoff log predicate",
+    "resident-install successful-journal validation of the same predicate",
+    "H4 observer incident disposition and candidate no-replay",
+    "unchanged boot-only rollback, physical recovery, private evidence, and A90-only boundaries"
+  ],
+  "incident": {
+    "classification": "HOST_OBSERVER_CUMULATIVE_UNARMED_LOG_REJECTION",
+    "run_id": "a90-v3406-debian-display-f1-20260805-11",
+    "terminal_status": "ABORTED_F1_V2_CANDIDATE_UNCERTAIN_ROLLED_BACK",
+    "device_safety_state": "HEALTHY",
+    "experiment_proof": "NO_PROOF_OBSERVER",
+    "candidate_transfer_count": 1,
+    "candidate_transfer_uncertain": true,
+    "candidate_replay": false,
+    "rollback_transfer_count": 1,
+    "rollback_identity": "exact V2321 boot-only rollback",
+    "final_health_restored": true,
+    "final_native_version": "0.9.285",
+    "final_native_build": "v2321-usb-clean-identity-rodata",
+    "selftest_fail_zero": true,
+    "pstore_entries_zero": true,
+    "rootfs_staged_once": true,
+    "staged_source_retained": true,
+    "work_path_absent": true,
+    "stage_path_absent": true,
+    "structured_result": {
+      "bytes": 708,
+      "sha256": "cfc81b65d877bef5471d40ace2c6cf51e4000f4dd4e9b96796f2da5f68054539"
+    },
+    "closed_journal_record": {
+      "bytes": 807,
+      "sha256": "6028ab6c6f1730cad76df2c014751bb705ce440b5ed12a567508afd88423607e"
+    },
+    "final_health_journal_record": {
+      "bytes": 7313,
+      "sha256": "9884b5d8984b121476f570a083e9a0ee787321a66c0c37ae127dab004a1c5595"
+    },
+    "root_cause_confidence": "inferred",
+    "root_cause_basis": "The exact thrown branch required a global count of one safe marker while native logcat is cumulative. The same failure class had already been corrected in the D1 observer. No candidate first-boot log receipt was durably appended, so candidate health is not reconstructed or claimed.",
+    "disposition": "Never resume run-11 or replay its H4 candidate. Preserve its private journal and retained source until separately qualified capacity disposition. Use a fresh build, rootfs destination, marker namespace, D0, and campaign for the next candidate."
+  },
+  "repair_contract": {
+    "minimum_state_line_count": 1,
+    "only_accepted_state_line": "A90AUTO state=unarmed-stay-native",
+    "repeated_exact_unarmed_lines_accepted": true,
+    "missing_state_lines_rejected": true,
+    "malformed_state_lines_rejected": true,
+    "dispatch_once_rejected": true,
+    "armed_waiting_reboot_rejected": true,
+    "mixed_safe_and_unsafe_lines_rejected": true,
+    "promotion_uses_same_predicate": true,
+    "legacy_unarmed_log_unique_field_retained": true,
+    "legacy_field_can_bypass_predicate": false,
+    "candidate_attempt_limit_changed": false,
+    "candidate_replay_changed": false,
+    "rollback_logic_changed": false,
+    "device_command_dispatch_changed": false
+  },
+  "reviewed_execution_closure": {
+    "production_sha256": "5120fea1eb29975cb92216d07627f68ced883c1560a4e6dce807f8839c5e8634",
+    "four_file_review_sha256": "93a1e6d823024b91350ffd51899c41669b2da92c1416a8d9333b64d4b150afa6",
+    "files": {
+      "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {
+        "bytes": 283326,
+        "sha256": "84426002f4b0d94b2512d86118a8b5249fa4928d59b296556c8bc514df16daf1"
+      },
+      "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py": {
+        "bytes": 73253,
+        "sha256": "61c9e5d085a5285cad79220e70d658f22266428395a42aeab8bf4691345895dc"
+      },
+      "tests/test_server_distro_a90_v3403_f1_orchestrator.py": {
+        "bytes": 235833,
+        "sha256": "26f780af6e456159951c891d1cdbe0ab334c403b724f1728a6f82b67535c1a02"
+      },
+      "tests/test_server_distro_a90_resident_promotion_v1.py": {
+        "bytes": 63210,
+        "sha256": "42783c64c033cb64059f3f3dde04822ecde8e508142455b115bd08958b82654f"
+      }
+    }
+  },
+  "validation": {
+    "py_compile": "PASS",
+    "scoped_diff_check": "PASS",
+    "focused_tests": {
+      "orchestrator": 125,
+      "resident_promotion": 34,
+      "resident_manifest_builder": 9,
+      "auto_handoff_benchmark_runner": 18,
+      "transition_d1_session": 36,
+      "phase2d_finalize_f1": 18,
+      "total": 240,
+      "failed": 0
+    }
+  },
+  "review_lifetime": "Reusable only for a new campaign while the production execution-critical closure and hazard assumptions remain unchanged and no new hazard or incident occurs. Fresh qualification, exact binding, exact D0, attendance, physical recovery, and live authority remain separate requirements.",
+  "unresolved_high_findings": [],
+  "unresolved_medium_findings": [],
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "live_use_authorized_by_review": false,
+  "reviewer_device_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_s22plus_contact": false
+}

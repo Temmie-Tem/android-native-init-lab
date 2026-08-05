@@ -521,6 +521,94 @@ class ResidentPromotionV1Tests(unittest.TestCase):
             with self.assertRaisesRegex(promotion.ContractError, "key set"):
                 self.validate(spec)
 
+    def test_first_boot_journal_accepts_repeated_exact_unarmed_states(self) -> None:
+        candidate_build = "phase3-minimal-h4-observer-complete-auto-benchmark"
+        first_boot = {
+            "enable_path": "/cache/a90-auto-handoff-h4.enable",
+            "latch_path": "/cache/a90-auto-handoff-h4.done",
+        }
+        spec = SimpleNamespace(
+            candidate_build=candidate_build,
+            candidate_first_boot=first_boot,
+        )
+
+        def exact_receipt(command: list[str], text: str, seq: str) -> dict:
+            flags = "0x0"
+            return {
+                "command": command,
+                "rc": 0,
+                "status": "ok",
+                "trust": "A90P1_V1_STRUCTURAL_ONLY",
+                "begin": {
+                    "argc": str(len(command)),
+                    "cmd": command[0],
+                    "flags": flags,
+                    "seq": seq,
+                },
+                "end": {
+                    "cmd": command[0],
+                    "duration_ms": "1",
+                    "errno": "0",
+                    "flags": flags,
+                    "rc": "0",
+                    "seq": seq,
+                    "status": "ok",
+                },
+                "text": text,
+            }
+
+        preflight_script = base.candidate_first_boot_state_absence_script(
+            first_boot
+        )
+        preflight_record = exact_receipt(
+            ["run", "/bin/busybox", "sh", "-c", preflight_script],
+            "A90AUTO_F1_PRE enable_absent=1 latch_absent=1\r\n",
+            "1",
+        )
+        status_record = exact_receipt(
+            ["auto-handoff-status"],
+            (
+                "A90AUTO_STATUS binding=1 enable=0 latch=0 "
+                f"build={candidate_build}\r\n"
+            ),
+            "2",
+        )
+        log_record = exact_receipt(
+            ["logcat"],
+            (
+                "old: A90AUTO state=unarmed-stay-native\r\n"
+                "new: A90AUTO state=unarmed-stay-native\r\n"
+            ),
+            "3",
+        )
+        by_action = {
+            "rootfs-candidate-preflight": {
+                "candidate_first_boot_preflight": {
+                    "proof": True,
+                    "enable_path": first_boot["enable_path"],
+                    "latch_path": first_boot["latch_path"],
+                    "record": preflight_record,
+                }
+            },
+            "candidate-boot-ready": {
+                "candidate_first_boot_health": {
+                    "proof": True,
+                    "status": status_record,
+                    "log": log_record,
+                    "enable": 0,
+                    "latch": 0,
+                    "unarmed_log_unique": True,
+                }
+            },
+        }
+        promotion._validate_candidate_first_boot_journal(spec, by_action)
+        log_record["text"] += "A90AUTO state=dispatch-once\r\n"
+        with self.assertRaisesRegex(
+            promotion.ContractError,
+            "first resident boot proof changed",
+        ):
+            promotion._validate_candidate_first_boot_journal(spec, by_action)
+
     def test_install_manifest_rejects_schema_mode_mismatch(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
             spec = self.install_fixture(Path(tmp))
