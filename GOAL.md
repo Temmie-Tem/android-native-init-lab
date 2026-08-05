@@ -11,12 +11,42 @@ shared process documents. A90 state and authorization remain separate.
 
 ## Current Frontier
 
-P3.04 is the latest closed live unit. After one pre-candidate host-observer arm
-stop with zero transfers, a new prepared run transferred the distinct
-boot-only candidate and exact Magisk rollback once each. The operator observed
-one normal candidate boot with no loop. Final rooted FYG8 Android health passed,
-the transaction is `CLOSED`, `recovery_required=false`, and A90 received zero
-commands.
+P3.05 is the latest closed live unit. After one read-only retained-baseline
+stop and one attended normal-reboot rotation, a fresh run transferred the
+distinct boot-only candidate and exact Magisk rollback once each. The operator
+observed one normal candidate boot with no loop. Final rooted FYG8 Android
+health passed, the transaction is `CLOSED`, `recovery_required=false`, and A90
+received zero commands.
+
+The two byte-identical final retained reads contain generation 106 detail
+`0xD00` followed by generation 107 detail `0x4001`. Reaching that terminal pair
+proves the repaired N-tail completed and later bind/observer execution ran;
+therefore all 61 modules, including exact stock `usb_notifier_qcom.ko` and
+`ucsi_glink.ko`, loaded and passed the cumulative `/proc/modules` prefix check.
+The pair retains the earlier clock-path-missed and complete normal-HS-PHY-log
+result with zero reset or register-readback failure records.
+
+The exact candidate ACM observer timed out after 300 seconds with zero bytes.
+The same-attempt USB sidecar is integrity-clean and contains no exact candidate
+serial, product ID, CDC ACM endpoint, descriptor error, or enumeration-error
+signature. It does contain unrelated/unattributed host USB activity, so it is
+not relabelled as an electrically silent bus. P3.05 therefore refutes only the
+sufficiency of adding those two modules in the present late-load order. It does
+not prove that `dwc_msm_vbus_event()` ran, that `vbus_active` became true, or
+that `B_SESS_VLD` was asserted; those are the next H0 questions.
+
+Raising the printk log level would not have filled that gap. The HS-PHY source
+already maps `dev_dbg` to `dev_err`, while `dwc_msm_vbus_event()` has no printk
+call and records a changed VBUS state only through Qualcomm `dbg_event()` into
+the DWC3 IPC logging context. P3.05 did not retain that private ring and it is
+gone after rollback. A successor should read that already-written IPC context
+or record direct function reach/state; it should not spend a candidate merely
+changing the dmesg log level.
+
+P3.04 is the preceding closed live unit. After one pre-candidate host-observer
+arm stop with zero transfers, a new prepared run transferred its distinct
+boot-only candidate and exact Magisk rollback once each. Final rooted FYG8
+Android health passed and its consumed candidate remains non-replayable.
 
 The two byte-identical final retained reads contain generation 68 at
 `stage=0x7B`, `item_index=59`, `PROGRESS`, followed by generation 69 at
@@ -35,38 +65,6 @@ can load in the exact candidate closure, but the stale 60-module checkpoint
 schema parked PID 1 before bind gates, trace setup, USB configuration, or the
 notifier hypothesis could be tested. The consumed P3.04 candidate must never be
 replayed.
-
-P3.05 is the prepared host-only repair. It preserves the fixed Image and all 61
-modules, retains individual checkpoints through module index 58, and folds
-every remaining module through index `N-1` into the existing index-59 module
-checkpoint only after ordered load and `/proc/modules` prefix verification.
-Tail failures retain the exact failing module index, while compile-time bounds
-prove that the folded module stage cannot overlap the first bind gate and cap
-the supported plan at 256 modules. Later ordinals and fixed-Image detail rules
-remain unchanged.
-
-The seven byte-affecting P3.05 SOURCE_KEYS remain immutable. Five focused
-transform tests and 22 common Process-v2 tests pass, the two independent
-AArch64 builds and byte-identical boot-only A/B packages are closed, and the
-2,768-byte ready manifest is created at SHA-256
-`7e1d33bb0ae2385625865878848b14afa0711d64a280bdb1cb74fbf92783b151`.
-This remains H0 preparation, not live authority. One narrow independent review
-returned `PASS_GO`: 52/52 transform/common regressions passed, the actual P3.05
-bundle bound all 61 modules and the exact P3.05-to-P3.01 source chain, and the
-actual P3.04 bundle still passed without any P3.05 receipt. A/B boot, LZ4, and
-AP artifacts were byte-identical. The next step is a fresh exact-S22 connected
-D0 preparation under Process-v2; no prior prepared run or candidate may be
-reused.
-
-The first P3.05 connected D0 stopped read-only on the retained P3.04 marker and
-created no prepared record. One attended normal Android reboot then changed the
-boot ID and restored exact rooted FYG8 boot and supporting-partition health.
-A new run directory passed the clean retained baseline and bound the reviewed
-candidate, exact rollback, USB sidecar, and execution closure as approval
-binding SHA-256
-`a725c3c30bfa56fe9e0b79c42c6919274956ac6240b7322ea1e006df4f009970`.
-P3.05 is now prepared but remains F1-unarmed. Execution requires the operator
-to remain able to perform physical Download entry within the recovery bound.
 
 P3.03 is the preceding closed live unit. After one pre-candidate host-observer arm
 stop with zero transfers, exact read-only D0 restored a durable `HEALTHY`
