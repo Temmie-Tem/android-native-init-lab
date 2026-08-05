@@ -111,10 +111,12 @@ each one-member AP is 27,105,321 bytes with SHA-256
 `f2cb42b88276dd5c2793d2583308bff60c15e6a7dcf9bb3531b4a6d33f236ad2`.
 They retain the fixed P3.00 Image, inject zero modules, and differ from the
 parent only in the static userspace observer. The 12-file source intent remains
-exact, the artifact/static closure and Process-v2 offline promotion pass, and
-the ready-manifest rehearsal leaves the canonical manifest absent. P3.03 has
-performed only attended normal-reboot rotation and bounded exact-target D0
-reads; no candidate transfer or F1 arm has occurred.
+exact, the artifact/static closure and Process-v2 offline promotion pass. After
+the optional-baseline execution closure passed focused independent review, the
+clock-only canonical manifest was created at 2,780 bytes with SHA-256
+`9188960230eecb7d85bf83c828cea55ea3563a5bd06809e680bcbc4f257b9c83`.
+P3.03 has performed only attended normal-reboot rotation and bounded
+exact-target D0 reads; no candidate transfer or F1 arm has occurred.
 
 The working-stock boot-head log proved unavailable under the healthy D0
 contract. Even when the second attended baseline rotation was chained directly

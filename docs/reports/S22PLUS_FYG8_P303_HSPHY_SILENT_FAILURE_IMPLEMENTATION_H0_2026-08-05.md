@@ -3,7 +3,7 @@
 Date: 2026-08-05
 Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` / `S906NKSS7FYG8`)
 Tier: H0 implementation with attended D1/D0 preflight evidence
-State: host-qualified; exact S22+ healthy; canonical manifest absent; no F1 arm
+State: host-qualified; exact S22+ healthy; canonical manifest created; no F1 arm
 
 ## Outcome
 
@@ -121,7 +121,10 @@ injected and no Full-LTO or kernel rebuild is needed.
   `PASS_P303_PROCESS_V2_READY_MANIFEST_REHEARSAL_HOST_ONLY`, with
   `created=false`, an exact three-artifact clock-only acceptance contract, an
   independently passing exact five-artifact optional-pair path, and no
-  manifest.
+  manifest at review time;
+- post-review canonical manifest: 2,780 bytes, SHA-256
+  `9188960230eecb7d85bf83c828cea55ea3563a5bd06809e680bcbc4f257b9c83`,
+  exact three-artifact clock-only contract, Process-v2 validation passed.
 
 The standalone private callsite-audit receipt was regenerated after an earlier
 private copy lacked the already-required A/B offset-identity field. The new
