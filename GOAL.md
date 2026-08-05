@@ -50,9 +50,13 @@ transform tests and 22 common Process-v2 tests pass, the two independent
 AArch64 builds and byte-identical boot-only A/B packages are closed, and the
 2,768-byte ready manifest is created at SHA-256
 `7e1d33bb0ae2385625865878848b14afa0711d64a280bdb1cb74fbf92783b151`.
-This is still H0 preparation, not live authority. Because common Process-v2
-overlay/evidence recognition changed, one narrow independent review of that
-changed execution-critical closure remains before connected preparation.
+This remains H0 preparation, not live authority. One narrow independent review
+returned `PASS_GO`: 52/52 transform/common regressions passed, the actual P3.05
+bundle bound all 61 modules and the exact P3.05-to-P3.01 source chain, and the
+actual P3.04 bundle still passed without any P3.05 receipt. A/B boot, LZ4, and
+AP artifacts were byte-identical. The next step is a fresh exact-S22 connected
+D0 preparation under Process-v2; no prior prepared run or candidate may be
+reused.
 
 P3.03 is the preceding closed live unit. After one pre-candidate host-observer arm
 stop with zero transfers, exact read-only D0 restored a durable `HEALTHY`
