@@ -49,31 +49,29 @@ chain with its GENI I2C transport and still produced no host-visible attach.
 That stack may still matter as part of Android coordination, but module
 presence alone is already refuted as a sufficient fix.
 
-Two exact live predicates remain unproved. First, `msm_hsphy_probe()` can call
-`msm_hsphy_enable_clocks(true)` inside module loading when bootloader EUD is set.
-A module-offset probe cannot predate its text, so probes armed after index 55
-(`phy-msm-snps-hs`) and before index 58 (`dwc3-msm`) cover only the later normal
-init. Zero hits do not measure probe-time returns; the broader claim is withdrawn.
+First, `msm_hsphy_probe()` may enable clocks inside module loading when bootloader
+EUD is set. A module-offset probe cannot predate its text, so probes armed after
+index 55 and before index 58 cover only later normal init. Zero hits do not
+measure probe-time returns; the broader claim is withdrawn.
 
-The pre-module, sequence-complete `/dev/kmsg` observer closes that gap. Parse in order
-exact `msm_hsphy_init phy_flags`, unique `csr:... eud is enabled`, exact
-`msm_hsphy_dpdm_regulator_enable dpdm_enable:<value>`, and the first pre-init
-`msm_hsphy_enable_clocks(): clocks_enabled:<value> on:<value>`. Generic EUD or
-DPDM substrings are invalid because enable/disable/is-enabled callbacks share
-them. EUD-init attributes early return; DPDM-enable without it attributes that
-caller; neither plus zero hits remains unclassified. This is not a defensible
-50-percent probability claim.
+The pre-module, sequence-complete kmsg observer instead parses ordered exact init
+entry, unique `csr:... eud is enabled`, exact DPDM-enable function and value, and
+the first pre-init `clocks_enabled/on` pair. Generic substrings are invalid because
+callbacks share them. EUD-init or DPDM-enable attributes its caller; neither plus
+zero hits remains unclassified, not a 50-percent result.
 
-Second, exact `dwc3-msm.ko` retains the wrapper readback in `w21` immediately
-before `dwc3_otg_start_peripheral+0x4cc`. One probe records
-`UTMI_OTG_VBUS_VALID` bit 20 and sidecar bit 28. The selected userspace-only
-successor combines ordered kmsg attribution, later clock callsites, and this
-wrapper probe. A negative measured clock return or cleared bit 20 localizes the
-failure; nominal measured returns plus bit 20 set close the observed gates.
+Second, exact `dwc3-msm.ko` retains the wrapper readback in `w21` before
+`dwc3_otg_start_peripheral+0x4cc`; one probe records VBUS-valid bit 20 and
+sidecar bit 28. The successor combines kmsg attribution, later clock callsites,
+and this probe. A negative return or cleared bit 20 localizes the failure.
 
-EUD attribution does not authorize `/sys/module/eud/parameters/enable=0`; that
-invokes hardware writes forbidden by the permanent contract. Any remedy remains
-H0. No role retry, EUD write, or physical-line manipulation is selected.
+Exact healthy-stock D0 found `eud.ko` loaded but its root-read parameter at `0`,
+with no EUD cmdline/bootconfig override. This is a comparator, not a prediction
+of post-Download candidate state. EUD attribution still cannot authorize its
+parameter write. An EUD-positive result first permits only H0 design of an
+attended post-transfer cable-state comparator; execute it only if recovery and
+observation remain valid, otherwise record the branch blocked by the permanent
+EUD-write boundary.
 
 P3.04 is the preceding closed live unit. After one pre-candidate host-observer
 arm stop with zero transfers, a new prepared run transferred its distinct
