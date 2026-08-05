@@ -19635,6 +19635,16 @@ static int handle_server_distro(char **argv, int argc) {
     return a90_server_distro_cmd(argv, argc);
 }
 
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+static int handle_auto_handoff_status(char **argv, int argc) {
+    return a90_auto_handoff_status_cmd(argv, argc);
+}
+
+static int handle_auto_handoff_arm(char **argv, int argc) {
+    return a90_auto_handoff_arm_cmd(argv, argc);
+}
+#endif
+
 #if !A90_MINIMAL_SERVER_CORE_SURFACE
 static int handle_userdata_appliance_preflight(char **argv, int argc) {
     return a90_server_distro_userdata_preflight_cmd(argv, argc);
@@ -19816,6 +19826,14 @@ static const struct shell_command command_table[] = {
     { "switch-root-to-distro", handle_switch_root_to_distro,
       "switch-root-to-distro <token> <image> <sha256>",
       CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    { "auto-handoff-status", handle_auto_handoff_status,
+      "auto-handoff-status",
+      CMD_NONE, A90_CMD_GROUP_POWER },
+    { "auto-handoff-arm", handle_auto_handoff_arm,
+      "auto-handoff-arm <token> <intent-sha256>",
+      CMD_DANGEROUS, A90_CMD_GROUP_POWER },
+#endif
 #if !A90_MINIMAL_SERVER_CORE_SURFACE
     { "userdata-appliance-preflight", handle_userdata_appliance_preflight,
       "userdata-appliance-preflight <token>",

@@ -57,6 +57,8 @@
 #include "../a90_boot_audit.h"
 #include "../a90_boot_write_probe.h"
 #include "../a90_boot_write_e1.h"
+#include "../a90_benchmark.h"
+#include "../a90_auto_handoff.h"
 #if !A90_MINIMAL_SERVER_CORE_SURFACE
 #include "../a90_init_reload.h"
 #endif

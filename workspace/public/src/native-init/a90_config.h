@@ -31,6 +31,21 @@
 #ifndef A90_MINIMAL_SERVER_CORE_SURFACE
 #define A90_MINIMAL_SERVER_CORE_SURFACE 0
 #endif
+#ifndef A90_AUTO_HANDOFF_BENCHMARK_V1
+#define A90_AUTO_HANDOFF_BENCHMARK_V1 0
+#endif
+#ifndef A90_AUTO_HANDOFF_IMAGE
+#define A90_AUTO_HANDOFF_IMAGE ""
+#endif
+#ifndef A90_AUTO_HANDOFF_IMAGE_SHA256
+#define A90_AUTO_HANDOFF_IMAGE_SHA256 ""
+#endif
+#ifndef A90_AUTO_HANDOFF_LATCH_PATH
+#define A90_AUTO_HANDOFF_LATCH_PATH "/cache/a90-auto-handoff-benchmark-v1.done"
+#endif
+#ifndef A90_AUTO_HANDOFF_ENABLE_PATH
+#define A90_AUTO_HANDOFF_ENABLE_PATH "/cache/a90-auto-handoff-benchmark-v1.enable"
+#endif
 #define BOOT_SPLASH_SECONDS 2
 #define BOOT_HUD_REFRESH_SECONDS 2
 #define NATIVE_LOG_PRIMARY "/cache/native-init.log"

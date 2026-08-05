@@ -69,6 +69,7 @@ class CandidateSpec:
 LEGACY_CANDIDATE_PROFILE = "phase2-display-v1"
 MINIMAL_F_CANDIDATE_PROFILE = "phase3-minimal-f-power-recovery-ui"
 MINIMAL_G_CANDIDATE_PROFILE = "phase3-minimal-g-server-core"
+MINIMAL_H2_CANDIDATE_PROFILE = "phase3-minimal-h2-two-phase-auto-benchmark"
 LEGACY_CANDIDATE = CandidateSpec(
     profile=LEGACY_CANDIDATE_PROFILE,
     name="candidate-boot-phase2-display-v1.img",
@@ -93,9 +94,22 @@ MINIMAL_G_CANDIDATE = CandidateSpec(
     version="0.11.168",
     build="phase3-minimal-g-server-core",
 )
+MINIMAL_H2_CANDIDATE = CandidateSpec(
+    profile=MINIMAL_H2_CANDIDATE_PROFILE,
+    name="candidate-boot-phase3-minimal-h2.img",
+    size=58372096,
+    sha256="97cfbb149361773e895a2a1cff0f13961c06f0a4710119159d6d2a104bc69802",
+    version="0.11.170",
+    build="phase3-minimal-h2-two-phase-auto-benchmark",
+)
 CANDIDATE_PROFILES = {
     item.profile: item
-    for item in (LEGACY_CANDIDATE, MINIMAL_F_CANDIDATE, MINIMAL_G_CANDIDATE)
+    for item in (
+        LEGACY_CANDIDATE,
+        MINIMAL_F_CANDIDATE,
+        MINIMAL_G_CANDIDATE,
+        MINIMAL_H2_CANDIDATE,
+    )
 }
 
 # Backward-compatible aliases for the original single-candidate API.
@@ -115,6 +129,19 @@ def select_candidate_profile(profile: str) -> CandidateSpec:
         return CANDIDATE_PROFILES[profile]
     except KeyError as exc:
         raise ContractError("candidate profile is not exact") from exc
+
+
+def candidate_first_boot_contract(candidate: CandidateSpec) -> dict[str, Any] | None:
+    if candidate.profile != MINIMAL_H2_CANDIDATE_PROFILE:
+        return None
+    return {
+        "schema": "a90-auto-handoff-first-boot-v1",
+        "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h2.enable",
+        "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h2.done",
+        "pre_transfer_state": "both-absent",
+        "post_boot_status": "binding=1-enable=0-latch=0",
+        "post_boot_log": "A90AUTO state=unarmed-stay-native",
+    }
 
 
 def sha256_file(path: Path) -> str:
@@ -403,6 +430,9 @@ def prepare_manifest(
         "expected_version": candidate_spec.version,
         "expected_build": candidate_spec.build,
     }
+    first_boot = candidate_first_boot_contract(candidate_spec)
+    if first_boot is not None:
+        manifest["candidate_boot"]["first_boot_contract"] = first_boot
     manifest["rollback_boot"] = {
         **rollback_record,
         "partition": "boot",

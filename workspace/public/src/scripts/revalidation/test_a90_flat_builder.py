@@ -43,6 +43,9 @@ MINIMAL_F_MANIFEST = (
 MINIMAL_G_MANIFEST = (
     HERE / "a90_flat_builder/versions/phase3-minimal-g/manifest.toml"
 )
+MINIMAL_H_MANIFEST = (
+    HERE / "a90_flat_builder/versions/phase3-minimal-h/manifest.toml"
+)
 
 
 def newc_archive(entries: dict[str, bytes]) -> bytes:
@@ -381,6 +384,51 @@ class A90FlatBuilderTest(unittest.TestCase):
             minimal,
             set(minimal["ramdisk"]["required_entries"]),
         )
+
+    def test_phase3_minimal_h_binds_one_shot_auto_handoff_and_benchmark(self):
+        resolution = buildlib.resolve_manifest(MINIMAL_H_MANIFEST)
+        minimal = resolution.data
+        buildlib.validate_component_selection(minimal)
+        self.assertEqual(
+            minimal["profile"],
+            "phase3-minimal-h2-two-phase-auto-benchmark",
+        )
+        self.assertFalse(minimal["candidate_authority"])
+        self.assertFalse(minimal["engine"]["enabled"])
+        self.assertEqual(len(minimal["init"]["sources"]), 51)
+        for source in ("a90_auto_handoff.c", "a90_benchmark.c"):
+            self.assertIn(source, minimal["init"]["sources"])
+        flags = minimal["init"]["cflags"]
+        self.assertIn("-DA90_AUTO_HANDOFF_BENCHMARK_V1=1", flags)
+        self.assertTrue(
+            any(flag.startswith('-DA90_AUTO_HANDOFF_IMAGE="') for flag in flags)
+        )
+        self.assertTrue(
+            any(
+                flag.startswith('-DA90_AUTO_HANDOFF_IMAGE_SHA256="')
+                for flag in flags
+            )
+        )
+        self.assertTrue(
+            any(flag.startswith('-DA90_AUTO_HANDOFF_LATCH_PATH="') for flag in flags)
+        )
+        self.assertTrue(
+            any(flag.startswith('-DA90_AUTO_HANDOFF_ENABLE_PATH="') for flag in flags)
+        )
+        inputs = buildlib.validate_inputs(REPO_ROOT, resolution, minimal)
+        self.assertEqual(
+            inputs["init_closure_sha256"],
+            minimal["init"]["closure_sha256"],
+        )
+        for marker in (
+            "A90BENCH schema=%s stage=%s boottime_ms=%llu clock_ok=%d telemetry_sampled=%d sample_duration_ms=%llu prior_emit_duration_ms=%llu",
+            "a90-boot-benchmark-v1",
+            "A90AUTO state=unarmed-stay-native",
+            "A90AUTO_ARM armed=1",
+            "A90AUTO state=dispatch-once",
+            "A90AUTO state=latched-stay-native",
+        ):
+            self.assertIn(marker, minimal["validation"]["init_strings"])
 
     def test_phase3_minimal_g_retained_runtime_and_audio_are_fail_closed(self):
         minimal = buildlib.resolve_manifest(MINIMAL_G_MANIFEST).data

@@ -1,10 +1,10 @@
 schema = "a90-flat-builder-v1"
 extends = "v3404-effective"
-profile = "phase3-minimal-g-server-core"
-cycle = "H0-PHASE3G"
-decision = "phase3-minimal-g-retain-wifi-gpu-boot-chime"
+profile = "phase3-minimal-h2-two-phase-auto-benchmark"
+cycle = "H0-PHASE3H2"
+decision = "phase3-minimal-h2-native-health-then-armed-one-shot-auto-handoff-benchmark"
 candidate_authority = false
-random_seed = "a90-phase3-minimal-g-server-core"
+random_seed = "a90-phase3-minimal-h2-two-phase-auto-benchmark"
 
 [init]
 closure_sha256 = "79389d4090f6326ce18c3c81e207796051225b159d7801c07f7f61d9231c1d24"
@@ -19,9 +19,14 @@ cflags = [
   "-DA90_MINIMAL_NO_DEDICATED_CPU_STRESS_SURFACE=1",
   "-DA90_MINIMAL_POWER_RECOVERY_UI=1",
   "-DA90_MINIMAL_SERVER_CORE_SURFACE=1",
-  '-DINIT_VERSION="0.11.168"',
-  '-DINIT_BUILD="phase3-minimal-g-server-core"',
+  "-DA90_AUTO_HANDOFF_BENCHMARK_V1=1",
+  '-DINIT_VERSION="0.11.170"',
+  '-DINIT_BUILD="phase3-minimal-h2-two-phase-auto-benchmark"',
   '-DINIT_CREATOR="made by device owner"',
+  '-DA90_AUTO_HANDOFF_IMAGE="/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-04.img"',
+  '-DA90_AUTO_HANDOFF_IMAGE_SHA256="e13994b9ef29c8274408367f12fdbfcb92ee8301eba045d0a9ae6f344703dc0e"',
+  '-DA90_AUTO_HANDOFF_ENABLE_PATH="/cache/a90-auto-handoff-phase3-minimal-h2.enable"',
+  '-DA90_AUTO_HANDOFF_LATCH_PATH="/cache/a90-auto-handoff-phase3-minimal-h2.done"',
   '-DA90_WIFI_TEST_BOOT_LABEL="v2807"',
   '-DA90_WIFI_TEST_BOOT_KLOG_PREFIX="A90v2807"',
   '-DA90_WIFI_TEST_BOOT_DISABLE="/cache/native-init-wifi-test-boot-v2807.disable"',
@@ -61,6 +66,8 @@ sources = [
   "a90_audio_query.c",
   "a90_audio_route.c",
   "a90_audio_stage.c",
+  "a90_auto_handoff.c",
+  "a90_benchmark.c",
   "a90_boot_audit.c",
   "a90_changelog.c",
   "a90_cmdproto.c",
@@ -169,7 +176,7 @@ required_entries = [
 
 [validation]
 init_strings = [
-  "A90 Linux init 0.11.168 (phase3-minimal-g-server-core)",
+  "A90 Linux init 0.11.170 (phase3-minimal-h2-two-phase-auto-benchmark)",
   "video.status.doom_surface=removed",
   "video.demo.doom=removed",
   "safety.boot_write_flash_surface=removed",
@@ -184,5 +191,12 @@ init_strings = [
   "A90D3DISPLAY",
   "native_pid1_drm_fd_count=0 observed=%u",
   "release_marker=ready path=%s bytes=%zu",
+  "A90BENCH schema=%s stage=%s boottime_ms=%llu clock_ok=%d telemetry_sampled=%d sample_duration_ms=%llu prior_emit_duration_ms=%llu",
+  "a90-boot-benchmark-v1",
+  "A90AUTO state=unarmed-stay-native",
+  "A90AUTO_ARM armed=1",
+  "A90AUTO state=dispatch-once",
+  "A90AUTO state=latched-stay-native",
+  "automatic-handoff-dispatched-no-replay",
 ]
 engine_strings = []

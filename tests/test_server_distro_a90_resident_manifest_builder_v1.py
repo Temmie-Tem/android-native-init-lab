@@ -391,6 +391,35 @@ class ResidentManifestBuilderTests(unittest.TestCase):
         )
         self.assertEqual(selected_g.version, "0.11.168")
         self.assertEqual(selected_g.build, "phase3-minimal-g-server-core")
+        selected_h2 = builder.select_candidate_profile(
+            builder.MINIMAL_H2_CANDIDATE_PROFILE
+        )
+        self.assertEqual(
+            selected_h2.name,
+            "candidate-boot-phase3-minimal-h2.img",
+        )
+        self.assertEqual(selected_h2.size, 58372096)
+        self.assertEqual(
+            selected_h2.sha256,
+            "97cfbb149361773e895a2a1cff0f13961c06f0a4710119159d6d2a104bc69802",
+        )
+        self.assertEqual(selected_h2.version, "0.11.170")
+        self.assertEqual(
+            selected_h2.build,
+            "phase3-minimal-h2-two-phase-auto-benchmark",
+        )
+        self.assertEqual(
+            builder.candidate_first_boot_contract(selected_h2),
+            {
+                "schema": "a90-auto-handoff-first-boot-v1",
+                "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h2.enable",
+                "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h2.done",
+                "pre_transfer_state": "both-absent",
+                "post_boot_status": "binding=1-enable=0-latch=0",
+                "post_boot_log": "A90AUTO state=unarmed-stay-native",
+            },
+        )
+        self.assertIsNone(builder.candidate_first_boot_contract(selected_g))
         with self.assertRaisesRegex(builder.ContractError, "not exact"):
             builder.select_candidate_profile("arbitrary")
 

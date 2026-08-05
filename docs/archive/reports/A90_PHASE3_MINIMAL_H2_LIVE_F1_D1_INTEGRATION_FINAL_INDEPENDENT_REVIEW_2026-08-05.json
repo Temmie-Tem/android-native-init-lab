@@ -1,0 +1,390 @@
+{
+  "schema": "a90-phase3-resident-refresh-f1-independent-review-v1",
+  "status": "PASS_GO",
+  "decision": "The exact H2 native/rootfs and fresh ordinary F1 closure remain deployable, and the frozen D1 integration now closes D1-ORDER-003, D1-PUBLISH-004, and D1-IDENTITY-005. The H2 identity addition is exact and ordinary-D1-only; it does not widen staging or F1 starting identities. No unresolved finding remains.",
+  "review_date": "2026-08-05",
+  "reviewer": "independent subagent a90_capability_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "review_scope": "Final independent capability review of the exact H2 Live F1 plus D1 integration closure",
+  "verdicts": {
+    "changed_native_artifact_and_rootfs_interaction": "PASS_GO",
+    "live_f1_resident_install": "PASS_GO",
+    "live_d1_auto_handoff_benchmark_runner_v2": "PASS_GO",
+    "overall_live_integration": "PASS_GO"
+  },
+  "named_execution_critical_closure": {
+    "workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.py": {
+      "bytes": 13928,
+      "sha256": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933"
+    },
+    "workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py": {
+      "bytes": 13734,
+      "sha256": "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e"
+    },
+    "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py": {
+      "bytes": 1255,
+      "sha256": "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe"
+    },
+    "workspace/public/src/scripts/revalidation/a90_bridge.py": {
+      "bytes": 40294,
+      "sha256": "922c55a0afdef9d237a679203f576226583f4463eec15fb0091871c241f8be01"
+    },
+    "workspace/public/src/scripts/revalidation/a90_observation_pipeline.py": {
+      "bytes": 24478,
+      "sha256": "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb"
+    },
+    "workspace/public/src/scripts/revalidation/a90_serial_lock.py": {
+      "bytes": 2860,
+      "sha256": "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7"
+    },
+    "workspace/public/src/scripts/revalidation/a90ctl.py": {
+      "bytes": 16380,
+      "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c"
+    },
+    "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py": {
+      "bytes": 17944,
+      "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_display_observer.py": {
+      "bytes": 648,
+      "sha256": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744"
+    },
+    "workspace/public/src/harness/a90harness/evidence.py": {
+      "bytes": 11723,
+      "sha256": "3b0aaa36a95628591e14c4c2d70ae4941230fe650b6e4d517173cee5d3019742"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase3_network_ssh_keyed_rootfs_v1.py": {
+      "bytes": 23948,
+      "sha256": "44bb425533ccfd5b65b9be94056da302fa646d97b2b346ec15214cd7a5660396"
+    },
+    "workspace/public/src/scripts/revalidation/native_init_flash.py": {
+      "bytes": 43118,
+      "sha256": "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
+    },
+    "workspace/public/src/scripts/revalidation/tcpctl_host.py": {
+      "bytes": 34750,
+      "sha256": "032f3146ddc08af82f00881ae3d825066e843a41b194ee8d4c8cf09d1f3adb78"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_connected_preflight.py": {
+      "bytes": 21929,
+      "sha256": "c84f7e8d1054df6f095ce13a0bb4c3f057a6d0f4244b77f12b5c87f89edaa6d8"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {
+      "bytes": 103318,
+      "sha256": "c426037452f2d84be4bc7ae6f4dee04960d35b61456d168f3b5660fbfacd95a0"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {
+      "bytes": 280981,
+      "sha256": "d3a7d650f6845386421ac9fdac15a8a227cdf638865c6a34dbd827c74d0e2b79"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_manifest_builder_v1.py": {
+      "bytes": 30970,
+      "sha256": "dba9331a0cf7c881d22c802c76bb8e2fafbe93c601fe8365938094fec3563a66"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py": {
+      "bytes": 73073,
+      "sha256": "8d37d2dda415856f75a2461108faf9e7121ac901c9333f7021be5b783284eaf7"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_fast_handoff_v1.py": {
+      "bytes": 12037,
+      "sha256": "da695df326ac347baad2f31c4117ec564ea4cc4181605f397da8105d68e24c47"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase3_network_ssh_v1_rootfs.py": {
+      "bytes": 25978,
+      "sha256": "3c15440d30e5cd14f320c6a1bc0d1639e89b0d878a8970284b5eb7bb58f87166"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase2_display_v1_rootfs.py": {
+      "bytes": 28143,
+      "sha256": "8b44e922aba9efdf8b6877c98d6d3395c4ec34a6d6d5e47247aa3c73d7b689a1"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/manifest.toml": {
+      "bytes": 2962,
+      "sha256": "0a0ced3d0720db7bedb4ebcc42f98162a687d2a4d5d785b8cc123cae777ef9c7"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh": {
+      "bytes": 10126,
+      "sha256": "b52b7306d928d0a7275af70f16ff44d578a8440260828343eefa2a204bdc8859"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_return_arm_v1.sh": {
+      "bytes": 1187,
+      "sha256": "e83ede7fb430de98881ff7b9d18e8127bfc8bc19e4707d9ccf78410ac555faf3"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_finalize_f1.py": {
+      "bytes": 42949,
+      "sha256": "e35ded4c70171fbc692481aae0bf121731e1faf99d238661dcc5f46549643937"
+    }
+  },
+  "d1_runner_execution_closure": {
+    "sha256": "fcd7f5310e1db411743e247360cdf0103499e9ef1669cb10099f4311ec80ad77",
+    "files": {
+      "runner": {
+        "path": "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py",
+        "bytes": 47789,
+        "sha256": "85e7b471c398fb9abf16b54bd351f0102c9d1be8d8563a3aa376fd39965e1e70"
+      },
+      "benchmark_parser": {
+        "path": "workspace/public/src/scripts/server-distro/a90_boot_benchmark_v1.py",
+        "bytes": 12663,
+        "sha256": "56c87f9676b7c21bd36aa3173f464a342ab40acc1f08fc9484638137f051eca3"
+      }
+    }
+  },
+  "d1_manifest_source_closure": {
+    "binding": "build_manifest hashes every current SOURCE_PATHS role; load_spec reopens each exact regular file and requires the bound path, byte count, and SHA256.",
+    "files": {
+      "runner": {
+        "path": "workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py",
+        "bytes": 130182,
+        "sha256": "1507cd393ab696c2cd898fa16cdde1f93f4f7d572e7f6bb397959cc9ad3b7136"
+      },
+      "transition_contract": {
+        "path": "workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py",
+        "bytes": 13734,
+        "sha256": "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e"
+      },
+      "transition_engine": {
+        "path": "workspace/public/src/scripts/server-distro/a90_transition_engine_v2.py",
+        "bytes": 35215,
+        "sha256": "7a6f2a3248fcf53770cf5dee27985b23e239749cf5c8eae79158c7f903686010"
+      },
+      "f1_orchestrator": {
+        "path": "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py",
+        "bytes": 280981,
+        "sha256": "d3a7d650f6845386421ac9fdac15a8a227cdf638865c6a34dbd827c74d0e2b79"
+      },
+      "staging_contract": {
+        "path": "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py",
+        "bytes": 103318,
+        "sha256": "c426037452f2d84be4bc7ae6f4dee04960d35b61456d168f3b5660fbfacd95a0"
+      },
+      "observation_pipeline": {
+        "path": "workspace/public/src/scripts/revalidation/a90_observation_pipeline.py",
+        "bytes": 24478,
+        "sha256": "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb"
+      },
+      "display_observer": {
+        "path": "workspace/public/src/scripts/server-distro/a90_phase2d_display_observer.py",
+        "bytes": 648,
+        "sha256": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744"
+      },
+      "framed_transport": {
+        "path": "workspace/public/src/scripts/revalidation/a90ctl.py",
+        "bytes": 16380,
+        "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c"
+      },
+      "cdc_acm_guard": {
+        "path": "workspace/public/src/scripts/revalidation/device_action_cdc_acm_observer_v1.py",
+        "bytes": 51402,
+        "sha256": "6c8a6d2151928d2e098ca41b3c9dc24cdbbfabe9be10df19969be274744ef9a9"
+      },
+      "cmdv1_shell_adapter": {
+        "path": "workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.py",
+        "bytes": 13928,
+        "sha256": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933"
+      },
+      "workspace_bootstrap": {
+        "path": "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py",
+        "bytes": 1255,
+        "sha256": "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe"
+      },
+      "bridge_selector": {
+        "path": "workspace/public/src/scripts/revalidation/a90_bridge.py",
+        "bytes": 40294,
+        "sha256": "922c55a0afdef9d237a679203f576226583f4463eec15fb0091871c241f8be01"
+      },
+      "serial_lock": {
+        "path": "workspace/public/src/scripts/revalidation/a90_serial_lock.py",
+        "bytes": 2860,
+        "sha256": "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7"
+      },
+      "serial_tcp_bridge": {
+        "path": "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py",
+        "bytes": 17944,
+        "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98"
+      },
+      "phase3_observer": {
+        "path": "workspace/public/src/scripts/server-distro/a90_phase3_d1_observer_v1.py",
+        "bytes": 13141,
+        "sha256": "fccb10170583ea3c1761cf33de7bcc40d2409c0e097af051b6585195876b1a78"
+      },
+      "preserved_d1_prep": {
+        "path": "workspace/public/src/scripts/server-distro/a90_resident_preserved_d1_prep_v1.py",
+        "bytes": 74031,
+        "sha256": "cd7f6c84fc23770b7ee93fbfd04850d716352f50936f7652fe74f752a8dbe737"
+      }
+    },
+    "transition_runner_exact_current_hash": "1507cd393ab696c2cd898fa16cdde1f93f4f7d572e7f6bb397959cc9ad3b7136"
+  },
+  "ordinary_d1_identity_boundary": {
+    "status": "PASS_GO",
+    "exact_added_identity": {
+      "version": "0.11.170",
+      "build": "phase3-minimal-h2-two-phase-auto-benchmark"
+    },
+    "scope": "verify_resident_health_exact ordinary-resident-install-v2 only",
+    "preserved_install_identity_path_unchanged": true,
+    "staging_source": {
+      "path": "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py",
+      "bytes": 103318,
+      "sha256": "c426037452f2d84be4bc7ae6f4dee04960d35b61456d168f3b5660fbfacd95a0"
+    },
+    "staging_phase3_allowed_starting_identities_unchanged": [
+      {
+        "version": "0.11.161",
+        "build": "phase2-display-v1-native-handoff"
+      },
+      {
+        "version": "0.11.167",
+        "build": "phase3-minimal-f-power-recovery-ui"
+      },
+      {
+        "version": "0.11.168",
+        "build": "phase3-minimal-g-server-core"
+      },
+      {
+        "version": "0.9.285",
+        "build": "v2321-usb-clean-identity-rodata"
+      }
+    ],
+    "h2_identity_absent_from_staging_f1_starting_identities": true,
+    "exact_h2_positive_and_wrong_build_negative_probe": "PASS"
+  },
+  "closed_findings": [
+    {
+      "id": "D1-ORDER-003",
+      "status": "CLOSED",
+      "evidence": "After durable observation, normal execute obtains exact returned status enable=1,latch=1 and binds the exact receipt into cleanup-intent before one cleanup dispatch; finalization then performs fresh resident D0 health."
+    },
+    {
+      "id": "D1-PUBLISH-004",
+      "status": "CLOSED",
+      "evidence": "The exact eight-record resume validates durable final-health, appends only the closed record, revalidates the nine-record journal, and returns before _effect_args or any status, health, cleanup, arm, or reboot call."
+    },
+    {
+      "id": "D1-IDENTITY-005",
+      "status": "CLOSED",
+      "evidence": "The exact H2 version/build pair is admitted only by the ordinary D1 health branch. Exact H2 receipts pass, a same-version wrong build fails, and the four-entry staging/F1 starting-identity set is byte-for-byte unchanged."
+    }
+  ],
+  "journal_and_no_replay": {
+    "status": "PASS_GO",
+    "state_machine": [
+      "open-native-healthy-unarmed",
+      "arm-intent",
+      "arm-result",
+      "reboot-intent",
+      "observation",
+      "cleanup-intent",
+      "cleanup-result",
+      "final-health",
+      "closed"
+    ],
+    "every_semantic_prefix_validated": true,
+    "arm_dispatch_count_max": 1,
+    "reboot_dispatch_count_max": 1,
+    "cleanup_dispatch_count_max": 1,
+    "candidate_replay": false,
+    "uncertain_effect_replay": false,
+    "reconcile_read_only": true
+  },
+  "permanent_execution_gates": {
+    "exact_target_identity": "UNCHANGED",
+    "exact_hash_bound_rollback_when_required": "UNCHANGED",
+    "demonstrated_available_recovery_path": "UNCHANGED",
+    "target_contract_presence_predicate": "UNCHANGED",
+    "judgment": "The transition-runner diff is limited to the exact H2 ordinary-D1 identity constant, its set union, and its focused regression. Target, rollback, recovery, attendance/presence, effect ordering, and no-replay machinery are unchanged."
+  },
+  "fresh_f1_03_and_artifacts": {
+    "status": "PASS_GO",
+    "run_id": "a90-v3406-debian-display-f1-20260805-03",
+    "rootfs": {
+      "device_path": "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-03.img",
+      "bytes": 2147483648,
+      "sha256": "e95fcbfa5eaa2bf28d21342c31ecaa68482430c84d1c4b5f6853c874fca1b09d"
+    },
+    "connected_d0_receipt": {
+      "bytes": 2565,
+      "sha256": "ebfa4d2b2f8db58f253ab548c8a280a10e885a7f68f52d9a8eb2bbb3c6cea3f8"
+    },
+    "connected_path_preflight_receipt": {
+      "bytes": 1097,
+      "sha256": "b22dd307c64eac987a86d33b9918cf4f007aa8f5231d07f6f8810f207124d4f9"
+    },
+    "keyed_rootfs_summary": {
+      "bytes": 3923,
+      "sha256": "8e83534c70f7ff96fd5bcb09f34240f2f06d4282bef7a5671ec3546d04206cdc"
+    },
+    "preflight_paths": {
+      "final": "absent",
+      "work": "absent",
+      "stage": "absent"
+    },
+    "manifest": {
+      "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h/manifest.toml",
+      "bytes": 7572,
+      "sha256": "54494d7384bc859f91d60be2c46006e9d2be9afea09a153357674c6467aeb046"
+    },
+    "provided_ab_receipt": {
+      "bytes": 3286,
+      "sha256": "740dec142cbcfe4173ca797aa30cb1b391e337ece039e8edb004a6e7483a8db7"
+    },
+    "independent_reproduction_receipt": {
+      "bytes": 3340,
+      "sha256": "ff2dead691301ffdfc898201b3d575ec112fa6cbdee9c88d946efa6fdf1030e0"
+    },
+    "boot_a": {
+      "bytes": 58372096,
+      "sha256": "bd657251a66f76b91807687191f97d1912b3dfb584003ea4f7bbba8d886d66d4"
+    },
+    "boot_b": {
+      "bytes": 58372096,
+      "sha256": "bd657251a66f76b91807687191f97d1912b3dfb584003ea4f7bbba8d886d66d4"
+    },
+    "init_a": {
+      "bytes": 1723408,
+      "sha256": "2fba7eb7206fe1c8a754f0c06e8a693a93b45228a8e6d7a19977bbd1309a62a6"
+    },
+    "init_b": {
+      "bytes": 1723408,
+      "sha256": "2fba7eb7206fe1c8a754f0c06e8a693a93b45228a8e6d7a19977bbd1309a62a6"
+    },
+    "init_file_type": "ELF 64-bit LSB executable, ARM aarch64, statically linked, stripped",
+    "finalizer_exact_review_closure_compatible": true,
+    "closed_f1_run_or_approval_reused": false
+  },
+  "validation": {
+    "transition_d1_tests": "34/34 PASS",
+    "auto_handoff_benchmark_runner_tests": "11/11 PASS",
+    "h2_live_integration_tests": "6/6 PASS",
+    "server_manifest_and_related_family": "350/350 PASS in final independent superset run",
+    "flat_builder_tests": "37/37 PASS",
+    "python_py_compile": "PASS",
+    "git_diff_check": "PASS",
+    "arm64_static_ab_init": "PASS; both SHA256 2fba7eb7206fe1c8a754f0c06e8a693a93b45228a8e6d7a19977bbd1309a62a6",
+    "ab_boot": "PASS; both SHA256 bd657251a66f76b91807687191f97d1912b3dfb584003ea4f7bbba8d886d66d4",
+    "rootfs_03": "PASS; SHA256 e95fcbfa5eaa2bf28d21342c31ecaa68482430c84d1c4b5f6853c874fca1b09d",
+    "d1_manifest_transition_hash_probe": "PASS; 1507cd393ab696c2cd898fa16cdde1f93f4f7d572e7f6bb397959cc9ad3b7136",
+    "reviewer_device_contact": false,
+    "reviewer_usb_contact": false,
+    "reviewer_adb_contact": false,
+    "reviewer_flash": false,
+    "reviewer_reboot": false,
+    "reviewer_s22plus_contact": false
+  },
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "pass_go_granted": true,
+  "live_f1_capability_pass_go": true,
+  "live_d1_capability_pass_go": true,
+  "live_use_authorized": false,
+  "device_contact": false,
+  "payload_transfer": false,
+  "partition_write": false,
+  "flash": false,
+  "reboot": false,
+  "other_target_touched": false,
+  "review_lifetime": "Reusable capability qualification while the named execution-critical closure, D1 runner closure, D1 manifest source closure, exact identity boundary, and hazard assumptions remain unchanged and no new hazard or incident occurs. Fresh live inputs and target-runner binding remain separate.",
+  "final_judgment": "PASS_GO for the exact H2 Live F1 plus D1 integration capability. D1-ORDER-003, D1-PUBLISH-004, and D1-IDENTITY-005 are closed. No device authority is granted; A90 was not contacted and S22+ was untouched."
+}
+

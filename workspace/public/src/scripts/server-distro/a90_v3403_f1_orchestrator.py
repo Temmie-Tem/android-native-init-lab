@@ -283,6 +283,7 @@ class F1Spec:
     recovery_evidence: tuple[staging.BoundFile, ...]
     orchestrator_size: int
     orchestrator_sha256: str
+    candidate_first_boot: dict[str, str] | None = None
 
 
 @dataclass
@@ -629,6 +630,34 @@ def validate_expected_boot(
     return version, build
 
 
+def validate_candidate_first_boot_contract(
+    value: Any,
+    *,
+    candidate_version: str,
+    candidate_build: str,
+) -> dict[str, str] | None:
+    expected_identity = (
+        "0.11.170",
+        "phase3-minimal-h2-two-phase-auto-benchmark",
+    )
+    expected = {
+        "schema": "a90-auto-handoff-first-boot-v1",
+        "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h2.enable",
+        "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h2.done",
+        "pre_transfer_state": "both-absent",
+        "post_boot_status": "binding=1-enable=0-latch=0",
+        "post_boot_log": "A90AUTO state=unarmed-stay-native",
+    }
+    identity = (candidate_version, candidate_build)
+    if identity == expected_identity:
+        if value != expected:
+            raise ContractError("H2 candidate first-boot contract is not exact")
+        return dict(expected)
+    if value is not None:
+        raise ContractError("non-H2 candidate has an unexpected first-boot contract")
+    return None
+
+
 def load_spec(
     manifest_path: Path,
     expected_manifest_sha256: str,
@@ -646,10 +675,16 @@ def load_spec(
     if flash_runner.path != NATIVE_FLASH_PATH:
         raise ContractError("flash runner is not native_init_flash.py")
 
+    candidate_value = _dict(manifest.get("candidate_boot"), "candidate_boot")
     candidate_version, candidate_build = validate_expected_boot(
-        manifest.get("candidate_boot"),
+        candidate_value,
         "candidate_boot",
         candidate,
+    )
+    candidate_first_boot = validate_candidate_first_boot_contract(
+        candidate_value.get("first_boot_contract"),
+        candidate_version=candidate_version,
+        candidate_build=candidate_build,
     )
     rollback_version, rollback_build = validate_expected_boot(
         manifest.get("rollback_boot"),
@@ -892,6 +927,7 @@ def load_spec(
             recovery_evidence=recovery_evidence,
             orchestrator_size=orchestrator_size,
             orchestrator_sha256=orchestrator_sha256,
+            candidate_first_boot=candidate_first_boot,
         ),
         issues,
     )
@@ -1957,6 +1993,125 @@ def run_f1_shell(
         input_char_delay_sec=F1_SERIAL_INPUT_CHAR_DELAY_SEC,
         allow_error=allow_error,
     )
+
+
+def require_exact_f1_command_receipt(
+    value: Any,
+    command: list[str],
+    label: str,
+) -> dict[str, Any]:
+    record = _dict(value, label)
+    begin = _dict(record.get("begin"), f"{label}.begin")
+    end = _dict(record.get("end"), f"{label}.end")
+    if (
+        set(record) != {"command", "rc", "status", "trust", "begin", "end", "text"}
+        or record.get("command") != command
+        or type(record.get("rc")) is not int
+        or record.get("rc") != 0
+        or record.get("status") != "ok"
+        or record.get("trust") != "A90P1_V1_STRUCTURAL_ONLY"
+        or type(record.get("text")) is not str
+        or set(begin) != {"argc", "cmd", "flags", "seq"}
+        or begin.get("cmd") != command[0]
+        or begin.get("argc") != str(len(command))
+        or re.fullmatch(r"0x[0-9a-f]+", str(begin.get("flags") or "")) is None
+        or not str(begin.get("seq") or "").isdigit()
+        or set(end)
+        != {"cmd", "duration_ms", "errno", "flags", "rc", "seq", "status"}
+        or end.get("cmd") != command[0]
+        or end.get("seq") != begin.get("seq")
+        or end.get("flags") != begin.get("flags")
+        or end.get("rc") != "0"
+        or end.get("errno") != "0"
+        or end.get("status") != "ok"
+        or not str(end.get("duration_ms") or "").isdigit()
+    ):
+        raise ContractError(f"{label} is not one exact successful framed receipt")
+    return record
+
+
+def candidate_first_boot_state_absence_script(contract: dict[str, str]) -> str:
+    enable_path = contract["enable_path"]
+    latch_path = contract["latch_path"]
+    return "\n".join(
+        (
+            "set -eu",
+            f"ENABLE={enable_path}",
+            f"LATCH={latch_path}",
+            'for STATE_PATH in "$ENABLE" "$LATCH"; do',
+            '  if [ -e "$STATE_PATH" ] || [ -L "$STATE_PATH" ]; then',
+            '    echo A90AUTO_F1_PRE state_path_absent=0 path="$STATE_PATH"',
+            "    exit 41",
+            "  fi",
+            "done",
+            "echo A90AUTO_F1_PRE enable_absent=1 latch_absent=1",
+        )
+    )
+
+
+def require_candidate_first_boot_state_absent(
+    spec: F1Spec,
+    args: argparse.Namespace,
+) -> dict[str, Any] | None:
+    contract = getattr(spec, "candidate_first_boot", None)
+    if contract is None:
+        return None
+    enable_path = contract["enable_path"]
+    latch_path = contract["latch_path"]
+    script = candidate_first_boot_state_absence_script(contract)
+    record = require_exact_f1_command_receipt(
+        run_f1_shell(args, script),
+        ["run", "/bin/busybox", "sh", "-c", script],
+        "H2 pre-transfer state receipt",
+    )
+    marker = "A90AUTO_F1_PRE enable_absent=1 latch_absent=1"
+    if str(record.get("text") or "").count(marker) != 1:
+        raise ContractError("H2 pre-transfer enable/latch absence is not exact")
+    return {
+        "proof": True,
+        "enable_path": enable_path,
+        "latch_path": latch_path,
+        "record": record,
+    }
+
+
+def require_candidate_first_boot_unarmed(
+    spec: F1Spec,
+    args: argparse.Namespace,
+) -> dict[str, Any] | None:
+    if getattr(spec, "candidate_first_boot", None) is None:
+        return None
+    status_record = require_exact_f1_command_receipt(
+        run_f1_cmd(args, ["auto-handoff-status"]),
+        ["auto-handoff-status"],
+        "H2 first-boot status receipt",
+    )
+    status_text = str(status_record.get("text") or "")
+    expected_status = (
+        "A90AUTO_STATUS binding=1 enable=0 latch=0 "
+        "build=phase3-minimal-h2-two-phase-auto-benchmark"
+    )
+    if status_text.count(expected_status) != 1:
+        raise ContractError("H2 first resident boot status is not exact unarmed 0,0")
+    log_record = require_exact_f1_command_receipt(
+        run_f1_cmd(args, ["logcat"]),
+        ["logcat"],
+        "H2 first-boot log receipt",
+    )
+    log_text = str(log_record.get("text") or "")
+    if (
+        log_text.count("A90AUTO state=unarmed-stay-native") != 1
+        or "A90AUTO state=dispatch-once" in log_text
+    ):
+        raise ContractError("H2 first resident boot did not remain uniquely unarmed")
+    return {
+        "proof": True,
+        "status": status_record,
+        "log": log_record,
+        "enable": 0,
+        "latch": 0,
+        "unarmed_log_unique": True,
+    }
 
 
 def require_f1_baseline(args: argparse.Namespace) -> dict[str, Any]:
@@ -5046,18 +5201,26 @@ def execute_approved_f1(
             require_f1_starting_health(spec, args)
             verify_local_closure(spec)
             source_preflight = remote_source_preflight(spec, args)
+            candidate_first_boot_preflight = (
+                require_candidate_first_boot_state_absent(spec, args)
+            )
+            candidate_preflight_payload: dict[str, Any] = {
+                "candidate_attempted": False,
+                "final_regular": True,
+                "work_absent": True,
+                "rootfs_size": spec.stage.local_size,
+                "rootfs_sha256": spec.stage.local_sha256,
+                "record": source_preflight,
+            }
+            if candidate_first_boot_preflight is not None:
+                candidate_preflight_payload["candidate_first_boot_preflight"] = (
+                    candidate_first_boot_preflight
+                )
             append_record(
                 journal_dir,
                 "APPROVED",
                 "rootfs-candidate-preflight",
-                {
-                    "candidate_attempted": False,
-                    "final_regular": True,
-                    "work_absent": True,
-                    "rootfs_size": spec.stage.local_size,
-                    "rootfs_sha256": spec.stage.local_sha256,
-                    "record": source_preflight,
-                },
+                candidate_preflight_payload,
                 manifest_sha256=spec.stage.manifest_sha256,
                 run_id=spec.stage.run_id,
             )
@@ -5274,17 +5437,26 @@ def execute_approved_f1(
             args,
             return_guard=promotion_guard,
         )
+        candidate_first_boot_health = require_candidate_first_boot_unarmed(
+            spec,
+            args,
+        )
+        candidate_boot_payload: dict[str, Any] = {
+            "candidate_version": spec.candidate_version,
+            "candidate_build": spec.candidate_build,
+            "selftest_fail_zero": True,
+            "channel": candidate_health_channel,
+            "health": candidate_health,
+        }
+        if candidate_first_boot_health is not None:
+            candidate_boot_payload["candidate_first_boot_health"] = (
+                candidate_first_boot_health
+            )
         append_record(
             journal_dir,
             "CANDIDATE_FLASHED",
             "candidate-boot-ready",
-            {
-                "candidate_version": spec.candidate_version,
-                "candidate_build": spec.candidate_build,
-                "selftest_fail_zero": True,
-                "channel": candidate_health_channel,
-                "health": candidate_health,
-            },
+            candidate_boot_payload,
             manifest_sha256=spec.stage.manifest_sha256,
             run_id=spec.stage.run_id,
         )

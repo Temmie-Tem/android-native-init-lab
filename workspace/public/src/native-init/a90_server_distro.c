@@ -1,5 +1,6 @@
 #include "a90_server_distro.h"
 
+#include "a90_benchmark.h"
 #include "a90_console.h"
 #include "a90_draw.h"
 #include "a90_helper.h"
@@ -2325,6 +2326,9 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     }
 
     a90_console_printf("%s begin image=%s root=%s\r\n", A90_D3_TAG, image, A90_D3_ROOT);
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_emit("handoff_begin");
+#endif
     rc = d3_regular_file_ok(image);
     if (rc < 0) {
         return rc;
@@ -2334,6 +2338,9 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
         a90_console_printf("%s stop=sha-mismatch rc=%d\r\n", A90_D3_TAG, rc);
         return rc;
     }
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_emit("source_sha_initial_done");
+#endif
 
     rc = d3_mkdir_p(A90_D3_ROOT, 0755);
     if (rc < 0) {
@@ -2353,16 +2360,25 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
         a90_console_printf("%s stop=handoff-display-owner rc=%d\r\n", A90_D3_TAG, rc);
         goto fail_immutable_source;
     }
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_mark("display_release_done");
+#endif
     rc = d3_verify_source_sha(image, expected_sha, "post-display-cleanup");
     if (rc < 0) {
         a90_console_printf("%s stop=source-changed-during-display-cleanup rc=%d\r\n",
                            A90_D3_TAG, rc);
         goto fail_immutable_source;
     }
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_emit("source_sha_post_display_done");
+#endif
     rc = d3_copy_work_image(image, expected_sha, &work_owned);
     if (rc < 0) {
         goto fail_immutable_source;
     }
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_emit("work_copy_done");
+#endif
     rc = d3_ensure_loop_node(&loop_created);
     if (rc < 0) {
         a90_console_printf("%s loop_node=fail rc=%d\r\n", A90_D3_TAG, rc);
@@ -2372,16 +2388,25 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     if (rc < 0) {
         goto fail_before_move;
     }
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_mark("loop_attached");
+#endif
     rc = d3_mount_root();
     if (rc < 0) {
         goto fail_before_move;
     }
     root_mounted = true;
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_mark("root_mounted");
+#endif
     rc = d3_check_distro_init();
     if (rc < 0) {
         a90_console_printf("%s stop=distro-init-invalid rc=%d\r\n", A90_D3_TAG, rc);
         goto fail_before_move;
     }
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_mark("distro_init_verified");
+#endif
     rc = d3_write_display_release_marker(&d3_last_display_release);
     if (rc < 0) {
         a90_console_printf(
@@ -2390,16 +2415,25 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
             rc);
         goto fail_before_move;
     }
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_mark("display_marker_ready");
+#endif
     rc = d3_move_core_mounts(&moved_proc, &moved_sys, &moved_dev, &mounted_devpts);
     if (rc < 0) {
         a90_console_printf("%s mount_move=fail rc=%d\r\n", A90_D3_TAG, rc);
         goto fail_before_move;
     }
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_mark("mount_moves_done");
+#endif
 
     a90_console_printf("%s exec_switch_root_now busybox=%s root=%s init=%s console=reuse-stdio\r\n",
                        A90_D3_TAG, A90_D3_BUSYBOX, A90_D3_ROOT, A90_D3_INIT);
     a90_logf("server-distro", "D3 switch_root exec source=%s work=%s root=%s",
              image, A90_D3_WORK_IMAGE, A90_D3_ROOT);
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_mark("switch_root_exec");
+#endif
     sync();
     usleep(200000);
     execve(A90_D3_BUSYBOX, switch_argv, newenv);
@@ -2435,6 +2469,9 @@ fail_immutable_source:
     }
     a90_console_printf("%s source_unchanged_after_failure=1\r\n",
                        A90_D3_IMMUTABLE_TAG);
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_emit("handoff_failed_native");
+#endif
     return rc;
 }
 

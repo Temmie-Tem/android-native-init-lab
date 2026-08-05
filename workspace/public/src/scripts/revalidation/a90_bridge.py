@@ -1017,11 +1017,16 @@ def command_stop(args: argparse.Namespace, root: Path) -> int:
     status = collect_status(args, root)
     targets: list[int] = []
     metadata_pid = managed_pid(metadata_path)
-    if metadata_pid is not None:
+    if metadata_pid is not None and is_bridge_process(metadata_pid):
         targets.append(metadata_pid)
-    elif args.discovered:
-        targets.extend(process["pid"] for process in status["processes"] if process["port_match"])
     else:
+        if metadata_pid is not None:
+            log(f"ignoring stale metadata pid={metadata_pid}: not a serial_tcp_bridge.py process")
+        metadata_pid = None
+
+    if metadata_pid is None and args.discovered:
+        targets.extend(process["pid"] for process in status["processes"] if process["port_match"])
+    elif metadata_pid is None:
         if status["processes"]:
             log("no managed pidfile; refusing to stop discovered bridge without --discovered")
             print_status_text(status)

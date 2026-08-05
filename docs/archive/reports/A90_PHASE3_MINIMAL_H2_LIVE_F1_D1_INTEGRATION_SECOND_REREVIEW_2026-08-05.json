@@ -1,0 +1,235 @@
+{
+  "schema": "a90_phase3_minimal_h2_live_f1_d1_integration_second_rereview_v1",
+  "status": "FAIL_STOP",
+  "decision": "D1-ORDER-003 and D1-PUBLISH-004 are closed in the frozen D1 runner closure. Live F1 remains PASS_GO. Live D1 and the combined integration remain FAIL_STOP because the ordinary resident-health identity gate rejects the exact H2 identity 0.11.170/phase3-minimal-h2-two-phase-auto-benchmark before H2 final-health qualification can succeed.",
+  "review_date": "2026-08-05",
+  "reviewer": "independent subagent a90_capability_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "fresh_second_rereview": true,
+  "prior_reports": [
+    {
+      "path": "docs/reports/A90_PHASE3_MINIMAL_H2_LIVE_F1_D1_INTEGRATION_INDEPENDENT_REVIEW_2026-08-05.json",
+      "bytes": 21507,
+      "sha256": "321a8b577b178479c834aa93389dfb9770720e3050d04d767257873ea393e3",
+      "overwritten": false
+    },
+    {
+      "path": "docs/reports/A90_PHASE3_MINIMAL_H2_LIVE_F1_D1_INTEGRATION_INDEPENDENT_REREVIEW_2026-08-05.json",
+      "bytes": 12132,
+      "sha256": "b2e4c8107311f7b14dfad8be34f14904d81babb83f5b7cfeb28a0ff1f702e75b",
+      "overwritten": false
+    }
+  ],
+  "verdicts": {
+    "changed_native_artifact_and_rootfs_interaction": "PASS_GO",
+    "live_f1_resident_install": "PASS_GO",
+    "d1_order_003": "PASS_GO_CLOSED",
+    "d1_publish_004": "PASS_GO_CLOSED",
+    "live_d1_auto_handoff_benchmark_runner_v2": "FAIL_STOP",
+    "overall_live_integration": "FAIL_STOP"
+  },
+  "higher_precedence_contracts": {
+    "AGENTS.md": {
+      "bytes": 14201,
+      "sha256": "3289aedf8b55c2d74e3252c72e7b6b9bc003ef62379fc6e7b192a845c80dd747"
+    },
+    "docs/operations/targets/A90_TARGET_CONTRACT.md": {
+      "bytes": 22566,
+      "sha256": "92ba236f045c240d909b02553a69b1eb13a2d7328580f969d428dbaa62131f9d"
+    },
+    "docs/operations/DEVICE_ACTION_RISK_TIERS.md": {
+      "bytes": 5954,
+      "sha256": "c2bc3b99b364ec3d08419dc83cca14f35ea9edc1d03173e237740b786ecf8a96"
+    },
+    "GOAL_A90.md": {
+      "bytes": 49862,
+      "sha256": "2631da33c187d564632af5477b96de59d3f39cd27eb06626c354a74c9e1baa7e"
+    }
+  },
+  "native_artifact_and_f1_closure": {
+    "status": "PASS_GO",
+    "candidate_version": "0.11.170",
+    "candidate_build": "phase3-minimal-h2-two-phase-auto-benchmark",
+    "candidate_boot_sha256": "bd657251a66f76b91807687191f97d1912b3dfb584003ea4f7bbba8d886d66d4",
+    "candidate_init_sha256": "2fba7eb7206fe1c8a754f0c06e8a693a93b45228a8e6d7a19977bbd1309a62a6",
+    "rootfs_path": "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-03.img",
+    "rootfs_bytes": 2147483648,
+    "rootfs_sha256": "e95fcbfa5eaa2bf28d21342c31ecaa68482430c84d1c4b5f6853c874fca1b09d",
+    "provided_ab_receipt_sha256": "740dec142cbcfe4173ca797aa30cb1b391e337ece039e8edb004a6e7483a8db7",
+    "independent_reproduction_receipt_sha256": "ff2dead691301ffdfc898201b3d575ec112fa6cbdee9c88d946efa6fdf1030e0",
+    "finalizer_compatible": true,
+    "device_authority_granted": false
+  },
+  "named_execution_critical_closure": {
+    "workspace/public/src/harness/a90harness/evidence.py": {
+      "bytes": 11723,
+      "sha256": "3b0aaa36a95628591e14c4c2d70ae4941230fe650b6e4d517173cee5d3019742"
+    },
+    "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py": {
+      "bytes": 1255,
+      "sha256": "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe"
+    },
+    "workspace/public/src/scripts/revalidation/a90_bridge.py": {
+      "bytes": 40294,
+      "sha256": "922c55a0afdef9d237a679203f576226583f4463eec15fb0091871c241f8be01"
+    },
+    "workspace/public/src/scripts/revalidation/a90_observation_pipeline.py": {
+      "bytes": 24478,
+      "sha256": "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb"
+    },
+    "workspace/public/src/scripts/revalidation/a90_serial_lock.py": {
+      "bytes": 2860,
+      "sha256": "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7"
+    },
+    "workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py": {
+      "bytes": 13734,
+      "sha256": "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e"
+    },
+    "workspace/public/src/scripts/revalidation/a90ctl.py": {
+      "bytes": 16380,
+      "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c"
+    },
+    "workspace/public/src/scripts/revalidation/native_init_flash.py": {
+      "bytes": 43118,
+      "sha256": "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
+    },
+    "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py": {
+      "bytes": 17944,
+      "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98"
+    },
+    "workspace/public/src/scripts/revalidation/tcpctl_host.py": {
+      "bytes": 34750,
+      "sha256": "032f3146ddc08af82f00881ae3d825066e843a41b194ee8d4c8cf09d1f3adb78"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_connected_preflight.py": {
+      "bytes": 21929,
+      "sha256": "c84f7e8d1054df6f095ce13a0bb4c3f057a6d0f4244b77f12b5c87f89edaa6d8"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_display_observer.py": {
+      "bytes": 648,
+      "sha256": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_finalize_f1.py": {
+      "bytes": 42949,
+      "sha256": "e35ded4c70171fbc692481aae0bf121731e1faf99d238661dcc5f46549643937"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase3_network_ssh_keyed_rootfs_v1.py": {
+      "bytes": 23948,
+      "sha256": "44bb425533ccfd5b65b9be94056da302fa646d97b2b346ec15214cd7a5660396"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_fast_handoff_v1.py": {
+      "bytes": 12037,
+      "sha256": "da695df326ac347baad2f31c4117ec564ea4cc4181605f397da8105d68e24c47"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_manifest_builder_v1.py": {
+      "bytes": 30970,
+      "sha256": "dba9331a0cf7c881d22c802c76bb8e2fafbe93c601fe8365938094fec3563a66"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py": {
+      "bytes": 73073,
+      "sha256": "8d37d2dda415856f75a2461108faf9e7121ac901c9333f7021be5b783284eaf7"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {
+      "bytes": 103318,
+      "sha256": "c426037452f2d84be4bc7ae6f4dee04960d35b61456d168f3b5660fbfacd95a0"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {
+      "bytes": 280981,
+      "sha256": "d3a7d650f6845386421ac9fdac15a8a227cdf638865c6a34dbd827c74d0e2b79"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh": {
+      "bytes": 10126,
+      "sha256": "b52b7306d928d0a7275af70f16ff44d578a8440260828343eefa2a204bdc8859"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_return_arm_v1.sh": {
+      "bytes": 1187,
+      "sha256": "e83ede7fb430de98881ff7b9d18e8127bfc8bc19e4707d9ccf78410ac555faf3"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/manifest.toml": {
+      "bytes": 2962,
+      "sha256": "0a0ced3d0720db7bedb4ebcc42f98162a687d2a4d5d785b8cc123cae777ef9c7"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase2_display_v1_rootfs.py": {
+      "bytes": 28143,
+      "sha256": "8b44e922aba9efdf8b6877c98d6d3395c4ec34a6d6d5e47247aa3c73d7b689a1"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase3_network_ssh_v1_rootfs.py": {
+      "bytes": 25978,
+      "sha256": "3c15440d30e5cd14f320c6a1bc0d1639e89b0d878a8970284b5eb7bb58f87166"
+    },
+    "workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.py": {
+      "bytes": 13928,
+      "sha256": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933"
+    }
+  },
+  "d1_runner_execution_closure": {
+    "sha256": "fcd7f5310e1db411743e247360cdf0103499e9ef1669cb10099f4311ec80ad77",
+    "files": {
+      "runner": {
+        "path": "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py",
+        "bytes": 47789,
+        "sha256": "85e7b471c398fb9abf16b54bd351f0102c9d1be8d8563a3aa376fd39965e1e70"
+      },
+      "benchmark_parser": {
+        "path": "workspace/public/src/scripts/server-distro/a90_boot_benchmark_v1.py",
+        "bytes": 12663,
+        "sha256": "56c87f9676b7c21bd36aa3173f464a342ab40acc1f08fc9484638137f051eca3"
+      }
+    }
+  },
+  "closed_findings": [
+    {
+      "id": "D1-ORDER-003",
+      "status": "CLOSED",
+      "evidence": "Normal execute obtains and validates exact returned status enable=1,latch=1 after the durable observation, binds the status and exact receipt into cleanup-intent, dispatches cleanup only afterward, and then performs finalization with a fresh resident D0 health preflight. Source-order regression passed."
+    },
+    {
+      "id": "D1-PUBLISH-004",
+      "status": "CLOSED",
+      "evidence": "The exact eight-record resume path validates the durable final-health result, appends only the closed record, revalidates the nine-record journal, and returns before constructing effect arguments or invoking status, health, cleanup, arm, or reboot. Host-only sentinel regression passed."
+    }
+  ],
+  "findings": [
+    {
+      "id": "D1-IDENTITY-005",
+      "severity": "High",
+      "status": "OPEN_BLOCKER",
+      "finding": "a90_transition_d1_session_v1.verify_resident_health_exact rejects the exact H2 ordinary resident identity because its ordinary identity set is derived from staging.PHASE3_ALLOWED_STARTING_IDENTITIES minus PHASE2_ALLOWED_STARTING_IDENTITIES, and the Phase3 set contains only 0.9.285, 0.11.161, 0.11.167, and 0.11.168 identities, not H2 0.11.170/phase3-minimal-h2-two-phase-auto-benchmark.",
+      "evidence": "A host-only direct invocation with resident_evidence_kind=ordinary-resident-install-v2 and the exact H2 version/build fails before bridge or device access with ContractError: D1 resident identity is not the exact V3406 baseline. The current transition and staging source hashes are ae1868e8cc547b120006a1e446938084fa46e265b5ffd032f1a38dafe5ab25df and c426037452f2d84be4bc7ae6f4dee04960d35b61456d168f3b5660fbfacd95a0.",
+      "safety_effect": "The live H2 D1 runner cannot establish opening or final exact resident health through its selected ordinary resident path. Therefore the D1 transaction cannot satisfy its required HEALTHY barrier even though the benchmark runner ordering and host-only publication repairs are correct.",
+      "required_fix": "Add the exact H2 version/build to the reviewed ordinary resident identity policy through the canonical identity source, bind the changed transitive execution closure, add positive H2 and negative wrong-identity regressions, and obtain a fresh independent rereview. Do not weaken the check to a prefix, version-only, build-only, or manifest-only match."
+    }
+  ],
+  "validation": {
+    "d1_order_source_and_regression": "PASS",
+    "d1_eight_record_host_only_publication_regression": "PASS",
+    "every_semantic_journal_prefix_regression": "PASS for all nine prefixes",
+    "auto_handoff_runner_tests": "11/11 PASS",
+    "h2_live_integration_tests": "6/6 PASS",
+    "transition_d1_regression_tests": "34/34 PASS, but no positive H2 ordinary identity case exists",
+    "exact_h2_ordinary_identity_probe": "FAIL_STOP with ContractError before bridge/device access",
+    "reviewer_device_contact": false,
+    "reviewer_usb_contact": false,
+    "reviewer_adb_contact": false,
+    "reviewer_flash": false,
+    "reviewer_reboot": false,
+    "reviewer_s22plus_contact": false
+  },
+  "unresolved_findings": [
+    "D1-IDENTITY-005"
+  ],
+  "pass_go_granted": false,
+  "live_f1_capability_pass_go": true,
+  "live_d1_capability_pass_go": false,
+  "live_use_authorized": false,
+  "device_authority_granted": false,
+  "permanent_boundaries_unchanged": true,
+  "device_contact": false,
+  "payload_transfer": false,
+  "partition_write": false,
+  "flash": false,
+  "reboot": false,
+  "other_target_touched": false,
+  "review_trigger": "Fresh rereview is required after D1-IDENTITY-005 changes the canonical ordinary identity set or any transitive execution-critical hash. D1-ORDER-003 and D1-PUBLISH-004 remain closed only for runner closure fcd7f5310e1db411743e247360cdf0103499e9ef1669cb10099f4311ec80ad77 and unchanged hazard assumptions.",
+  "final_judgment": "PASS_GO for the unchanged H2 native/rootfs and exact Live F1 capability axes. PASS_GO_CLOSED for D1-ORDER-003 and D1-PUBLISH-004. FAIL_STOP for Live D1 and the combined integration because D1-IDENTITY-005 prevents exact H2 ordinary resident health. No device authority is granted, no device was contacted, and S22+ was untouched."
+}

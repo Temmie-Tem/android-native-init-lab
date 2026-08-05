@@ -442,36 +442,42 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
         source = Path(d1.__file__).read_text(encoding="utf-8")
         self.assertNotIn("base.verify_candidate_health(f1_spec, args)", source)
 
-    def test_exact_resident_health_accepts_manifest_bound_minimal_g(self) -> None:
+    def test_exact_resident_health_accepts_manifest_bound_phase3_residents(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
-            spec = self.session_spec(Path(raw))
-            spec = replace(
-                spec,
-                candidate_version="0.11.168",
-                candidate_build="phase3-minimal-g-server-core",
+            base_spec = self.session_spec(Path(raw))
+            allowed = (
+                ("0.11.168", "phase3-minimal-g-server-core"),
+                d1.H2_AUTO_BENCHMARK_RESIDENT_IDENTITY,
             )
-            receipts = self.exact_health_receipts(spec)
-            with mock.patch.object(
-                d1.staging,
-                "require_exact_bridge",
-                return_value={"selected_realpath": spec.bridge_realpath},
-            ), mock.patch.object(
-                d1.staging,
-                "require_native_health",
-                return_value=receipts,
-            ):
-                health = d1.verify_resident_health_exact(
-                    spec,
-                    d1._f1_spec(spec),
-                    object(),
-                )
-            self.assertIn(
-                "version: 0.11.168 build=phase3-minimal-g-server-core",
-                health["version"]["text"],
-            )
+            for version, build in allowed:
+                with self.subTest(version=version, build=build):
+                    spec = replace(
+                        base_spec,
+                        candidate_version=version,
+                        candidate_build=build,
+                    )
+                    receipts = self.exact_health_receipts(spec)
+                    with mock.patch.object(
+                        d1.staging,
+                        "require_exact_bridge",
+                        return_value={"selected_realpath": spec.bridge_realpath},
+                    ), mock.patch.object(
+                        d1.staging,
+                        "require_native_health",
+                        return_value=receipts,
+                    ):
+                        health = d1.verify_resident_health_exact(
+                            spec,
+                            d1._f1_spec(spec),
+                            object(),
+                        )
+                    self.assertIn(
+                        f"version: {version} build={build}",
+                        health["version"]["text"],
+                    )
 
             baseline = replace(
-                spec,
+                base_spec,
                 candidate_version=staging.EXPECTED_BASELINE_VERSION,
                 candidate_build=staging.EXPECTED_BASELINE_BUILD,
             )

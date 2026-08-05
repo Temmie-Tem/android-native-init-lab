@@ -1,0 +1,180 @@
+{
+  "schema": "a90_phase3_minimal_h2_live_f1_d1_integration_independent_rereview_v1",
+  "status": "FAIL_STOP",
+  "decision": "The changed H2 artifact/rootfs interaction and fresh ordinary F1 resident-install capability pass this rereview, including deterministic reconstruction, fresh -03 absent-only deployability, exact first-boot proof repair, rollback, and no closed -02 reuse. Live D1 remains FAIL_STOP because normal execution dispatches cleanup before proving returned status 1,1, and the eight-record result-publication repair path contacts the device before performing its otherwise host-only close repair.",
+  "review_date": "2026-08-05",
+  "reviewer": "independent subagent a90_capability_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "fresh_rereview": true,
+  "prior_report": {
+    "path": "docs/reports/A90_PHASE3_MINIMAL_H2_LIVE_F1_D1_INTEGRATION_INDEPENDENT_REVIEW_2026-08-05.json",
+    "bytes": 21507,
+    "sha256": "321a8b577b178479c834aa93389dfb9770720e3050d04d76725787387ea393e3",
+    "status": "FAIL_STOP",
+    "overwritten": false
+  },
+  "verdicts": {
+    "changed_native_artifact_and_rootfs_interaction": "PASS_GO",
+    "live_f1_resident_install": "PASS_GO",
+    "live_d1_auto_handoff_benchmark_runner_v2": "FAIL_STOP",
+    "overall_live_integration": "FAIL_STOP"
+  },
+  "higher_precedence_contracts": {
+    "AGENTS.md": {
+      "bytes": 14201,
+      "sha256": "3289aedf8b55c2d74e3252c72e7b6b9bc003ef62379fc6e7b192a845c80dd747"
+    },
+    "docs/operations/targets/A90_TARGET_CONTRACT.md": {
+      "bytes": 22566,
+      "sha256": "92ba236f045c240d909b02553a69b1eb13a2d7328580f969d428dbaa62131f9d"
+    },
+    "docs/operations/DEVICE_ACTION_RISK_TIERS.md": {
+      "bytes": 5954,
+      "sha256": "c2bc3b99b364ec3d08419dc83cca14f35ea9edc1d03173e237740b786ecf8a96"
+    },
+    "GOAL_A90.md": {
+      "bytes": 49862,
+      "sha256": "2631da33c187d564632af5477b96de59d3f39cd27eb06626c354a74c9e1baa7e"
+    }
+  },
+  "native_artifact_interaction": {
+    "status": "PASS_GO",
+    "version": "0.11.170",
+    "build": "phase3-minimal-h2-two-phase-auto-benchmark",
+    "manifest": {
+      "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h/manifest.toml",
+      "bytes": 7572,
+      "sha256": "54494d7384bc859f91d60be2c46006e9d2be9afea09a153357674c6467aeb046"
+    },
+    "rootfs_path": "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-03.img",
+    "rootfs_bytes": 2147483648,
+    "rootfs_sha256": "e95fcbfa5eaa2bf28d21342c31ecaa68482430c84d1c4b5f6853c874fca1b09d",
+    "boot": {
+      "bytes": 58372096,
+      "sha256": "bd657251a66f76b91807687191f97d1912b3dfb584003ea4f7bbba8d886d66d4"
+    },
+    "init": {
+      "bytes": 1723408,
+      "sha256": "2fba7eb7206fe1c8a754f0c06e8a693a93b45228a8e6d7a19977bbd1309a62a6",
+      "file_type": "ELF 64-bit LSB executable, ARM aarch64, statically linked, stripped"
+    },
+    "native_init_closure_sha256": "4159e6132bee2b1e3c913a0747ae4352d1095c9472d66568da4ea40870b83034",
+    "provided_ab_receipt": {
+      "path": "workspace/private/outputs/a90-phase3-minimal-h2-auto-benchmark-h0-20260805-06/ab-receipt.json",
+      "bytes": 3286,
+      "sha256": "740dec142cbcfe4173ca797aa30cb1b391e337ece039e8edb004a6e7483a8db7",
+      "byte_identical": true
+    },
+    "independent_reproduction": {
+      "path": "workspace/private/outputs/a90-phase3-minimal-h2-independent-review-20260805-03/receipt.json",
+      "bytes": 3340,
+      "sha256": "ff2dead691301ffdfc898201b3d575ec112fa6cbdee9c88d946efa6fdf1030e0",
+      "exact_boot_match": true,
+      "exact_init_match": true
+    },
+    "judgment": "The native H2 machinery is unchanged; the execution-critical interaction change is the exact compiled rootfs path/hash and resulting boot/init artifact. Independent reconstruction reproduced the new artifact exactly and the source tests prove the manifest binds the fresh -03 path and hash."
+  },
+  "live_f1_review": {
+    "status": "PASS_GO",
+    "run_id": "a90-v3406-debian-display-f1-20260805-03",
+    "deployability": "Fresh ordinary absent-only resident-install is structurally available. The fresh run has its exact keyed rootfs and fresh D0/path-preflight evidence; final, work, and stage paths were recorded absent. Its rootfs path exactly matches the rebuilt H2 compiled binding. No staging-live, f1-live, terminal journal, or approval from closed run -02 is reused.",
+    "candidate_selector": {
+      "finalizer_sha256": "e35ded4c70171fbc692481aae0bf121731e1faf99d238661dcc5f46549643937",
+      "manifest_builder_sha256": "dba9331a0cf7c881d22c802c76bb8e2fafbe93c601fe8365938094fec3563a66",
+      "candidate_boot_sha256": "bd657251a66f76b91807687191f97d1912b3dfb584003ea4f7bbba8d886d66d4",
+      "candidate_version": "0.11.170",
+      "candidate_build": "phase3-minimal-h2-two-phase-auto-benchmark"
+    },
+    "first_boot_and_repair": "PASS. Pre-transfer state uses the exact profile enable/latch paths and a script-bound successful framed receipt. First resident boot requires exact command, rc, trust, BEGIN/END command, sequence, argc, status, unique 0,0 status, unique unarmed log, and no dispatch log. Terminal repair reconstructs and revalidates the exact shell script and status/log command receipts. Non-H2 legacy journals remain accepted only without H2 proof fields.",
+    "rollback_and_recovery": "PASS. The existing exact V2321 boot-only rollback, one candidate transfer maximum, no candidate replay, rollback-only post-attempt failure, candidate health, final resident health, and journal repair boundaries remain intact.",
+    "live_conditions_not_waived": "Fresh immediately pre-effect D0, exact USB target pin, path absence, recovery availability, attendance, guard arm, manifest binding, and all ordinary live gates remain mandatory. This capability qualification grants no device authority."
+  },
+  "d1_execution_closure": {
+    "sha256": "168a216952892f16752af8908cc04d67d20d931a6ec336405086ff8d4377807c",
+    "files": {
+      "runner": {
+        "path": "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py",
+        "bytes": 46600,
+        "sha256": "c5d7148e93c220c583694f307ee2a6cca030d5e6857489b57946ce3fcb4c4459"
+      },
+      "benchmark_parser": {
+        "path": "workspace/public/src/scripts/server-distro/a90_boot_benchmark_v1.py",
+        "bytes": 12663,
+        "sha256": "56c87f9676b7c21bd36aa3173f464a342ab40acc1f08fc9484638137f051eca3"
+      }
+    },
+    "tests": {
+      "tests/test_a90_auto_handoff_benchmark_runner_v1.py": {
+        "bytes": 14875,
+        "sha256": "076d3e3c273d859f1ffe42defec60ae7d63985a4c87c7ec1bf3a83cb99edccf6"
+      },
+      "tests/test_a90_h2_live_integration_v1.py": {
+        "bytes": 8674,
+        "sha256": "ff1088ae3f734b79242d0e119c77c3f69d882d61647fee33ac71f8874d3a69ea"
+      }
+    }
+  },
+  "d1_closed_properties": [
+    "The v2 journal is an exact nine-record state machine: open, arm intent, arm result, reboot intent, observation, cleanup intent, cleanup result, final health, and closed.",
+    "Reserved common keys cannot be replaced by payloads. Every present prefix is checked for exact filename continuity, action, key set, canonical timestamp, closure and artifact bindings, arm-intent hash, dispatch counts, no replay, cleanup disposition, final result hash, and closed equality.",
+    "Empty reconciliation returns NO_DURABLE_EFFECT_EVIDENCE without a device read. Forged or cross-bound journals return JOURNAL_INCONSISTENT_STOP. Only all nine exact records return CLOSED_EXACT_NO_REPLAY.",
+    "Arm intent precedes exactly one arm, exact post-arm state is 1,0, fresh resident D0 precedes one durable reboot intent, and uncertain arm or reboot is never resent.",
+    "A six-record uncertain cleanup intent is never resent. Exact resident D0 source/work absence and health may infer cleanup closure; work presence parks. Final health and one complete unique benchmark segment are result-bound.",
+    "Read-only reconcile contains no arm, reboot, handoff, cleanup, payload, partition, or flash dispatch."
+  ],
+  "findings": [
+    {
+      "id": "D1-ORDER-003",
+      "severity": "Critical",
+      "status": "OPEN_BLOCKER",
+      "finding": "Normal execute writes cleanup-intent and dispatches the cleanup shell before finalize_cycle performs the exact returned H2 status check for enable=1 latch=1.",
+      "evidence": "Independent source-order inspection found cleanup-intent, then base.run_f1_shell cleanup, then result = finalize_cycle; require_auto_status(enable=1,latch=1) is inside finalize_cycle.",
+      "safety_effect": "Cleanup is a D1 device effect and must not be dispatched until the exact returned native state is established. The current order can attempt cleanup while return/health is still unproven and does not satisfy returned-status -> cleanup -> final-health closure.",
+      "required_fix": "Obtain and validate exact 1,1 before durable cleanup intent and dispatch, bind that return proof to the cleanup boundary, then perform cleanup and a distinct fresh final resident health check. Preserve one cleanup maximum and no replay."
+    },
+    {
+      "id": "D1-PUBLISH-004",
+      "severity": "High",
+      "status": "OPEN_BLOCKER",
+      "finding": "resume_after_return with eight valid records, where final-health is durable and only the closed publication is missing, constructs effect arguments and calls require_auto_status before writing the ninth closed record.",
+      "evidence": "An independent host-only mocked eight-record invocation raised a sentinel from require_auto_status, proving that a device status read is attempted before result publication repair.",
+      "safety_effect": "Result-publication repair is required to be a host-only journal repair. Device contact is unnecessary, can fail after final health is already durable, and prevents deterministic publication repair despite no remaining device work.",
+      "required_fix": "Add a len(records)==8 early path that validates the durable final-health result/hash entirely from the journal, writes only the exact closed record, revalidates nine records, and returns without _effect_args, status, D0, cleanup, arm, reboot, or any device contact."
+    }
+  ],
+  "validation": {
+    "focused_live_tests": "225/225 PASS",
+    "native_source_and_parser_tests": "14/14 PASS",
+    "flat_builder_tests": "37/37 PASS",
+    "independent_native_rebuild": "PASS; exact boot/init/ramdisk/helper match to provided -06 A/B receipt",
+    "d1_adversarial_empty_and_forged_reconcile": "PASS for intended fail-closed behavior",
+    "d1_adversarial_eight_record_publication": "FAIL; device status contact attempted",
+    "d1_static_cleanup_order": "FAIL; cleanup dispatch precedes exact returned 1,1 proof",
+    "python_py_compile": "PASS",
+    "scoped_git_diff_check": "PASS",
+    "reviewer_device_contact": false,
+    "reviewer_usb_contact": false,
+    "reviewer_adb_contact": false,
+    "reviewer_flash": false,
+    "reviewer_reboot": false,
+    "reviewer_s22plus_contact": false
+  },
+  "unresolved_findings": [
+    "D1-ORDER-003",
+    "D1-PUBLISH-004"
+  ],
+  "pass_go_granted": false,
+  "live_f1_capability_pass_go": true,
+  "live_d1_capability_pass_go": false,
+  "live_use_authorized": false,
+  "device_authority_granted": false,
+  "permanent_boundaries_unchanged": true,
+  "device_contact": false,
+  "payload_transfer": false,
+  "partition_write": false,
+  "flash": false,
+  "reboot": false,
+  "other_target_touched": false,
+  "review_trigger": "Fresh rereview is required after either D1 finding changes the runner hash or journal semantics. The changed native/rootfs and Live F1 PASS_GO axes remain reusable only while their named artifacts, selectors, receipt validation, rollback/recovery machinery, and hazard assumptions remain unchanged and no new hazard or incident occurs.",
+  "final_judgment": "PASS_GO for the changed H2 native/rootfs interaction and exact Live F1 resident-install capability. FAIL_STOP for Live D1 and therefore FAIL_STOP for combined live execution until D1-ORDER-003 and D1-PUBLISH-004 are fixed and independently rereviewed. No device authority is granted; S22+ was untouched."
+}

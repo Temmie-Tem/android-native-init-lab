@@ -72,6 +72,10 @@ BRIDGE_TIMEOUT_SEC = 180.0
 FLASH_TIMEOUT_FOR_GUARD_BUDGET_SEC = 600.0
 SSH_CONNECT_TIMEOUT_SEC = 8.0
 POLL_INTERVAL_SEC = 3.0
+H2_AUTO_BENCHMARK_RESIDENT_IDENTITY = (
+    "0.11.170",
+    "phase3-minimal-h2-two-phase-auto-benchmark",
+)
 
 RESIDENT_ACTIONS = (
     "preflight",
@@ -1656,6 +1660,7 @@ def verify_resident_health_exact(
         identity_allowed = candidate_identity in (
             staging.PHASE3_ALLOWED_STARTING_IDENTITIES
             - staging.PHASE2_ALLOWED_STARTING_IDENTITIES
+            | {H2_AUTO_BENCHMARK_RESIDENT_IDENTITY}
         )
     if not identity_allowed:
         raise ContractError("D1 resident identity is not the exact V3406 baseline")

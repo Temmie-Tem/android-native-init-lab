@@ -334,6 +334,10 @@ def _validate_prior_run(
     prior_rollback_sha256 = rollback_manifest.get("sha256")
     prior_rollback_version = rollback_manifest.get("expected_version")
     prior_rollback_build = rollback_manifest.get("expected_build")
+    target = _dict(prior_manifest.get("target"), "prior target")
+    prior_stage = SimpleNamespace(
+        bridge_realpath=target.get("bridge_selected_realpath"),
+    )
     if (
         candidate_manifest.get("partition") != "boot"
         or not isinstance(prior_candidate_sha256, str)
@@ -352,7 +356,7 @@ def _validate_prior_run(
         SimpleNamespace(
             candidate_version=prior_candidate_version,
             candidate_build=prior_candidate_build,
-            stage=spec.stage,
+            stage=prior_stage,
         ),
         _dict(candidate_health.get("health"), "prior candidate native health"),
     )
@@ -360,7 +364,7 @@ def _validate_prior_run(
         SimpleNamespace(
             candidate_version=prior_rollback_version,
             candidate_build=prior_rollback_build,
-            stage=spec.stage,
+            stage=prior_stage,
         ),
         {
             "exact_bridge": final_health.get("exact_bridge"),
@@ -379,7 +383,6 @@ def _validate_prior_run(
         approval.get("approval_binding"),
         "prior approval binding",
     )
-    target = _dict(prior_manifest.get("target"), "prior target")
     connected_d0 = _dict(
         target.get("connected_d0_result"),
         "prior connected D0",
@@ -527,7 +530,6 @@ def _validate_prior_run(
         or target.get("profile") != staging.TARGET_PROFILE
         or target.get("bridge_selected_exact") is not True
         or target.get("bridge_device") != spec.stage.bridge_device
-        or target.get("bridge_selected_realpath") != spec.stage.bridge_realpath
         or target.get("recovery_adb_serial_sha256")
         != spec.recovery_serial_sha256
         or set(connected_d0) != {"outcome", "path", "size", "sha256"}
@@ -1173,6 +1175,87 @@ def _installed_result_from_terminal(
     return _validate_installed_result(spec, result)
 
 
+def _validate_candidate_first_boot_journal(
+    spec: base.F1Spec,
+    by_action: dict[str, dict[str, Any]],
+) -> None:
+    preflight = by_action["rootfs-candidate-preflight"]
+    boot_ready = by_action["candidate-boot-ready"]
+    preflight_value = preflight.get("candidate_first_boot_preflight")
+    health_value = boot_ready.get("candidate_first_boot_health")
+    candidate_first_boot = getattr(spec, "candidate_first_boot", None)
+    if candidate_first_boot is None:
+        if preflight_value is not None or health_value is not None:
+            raise ContractError("non-H2 resident journal has first-boot proof")
+        return
+    preflight_proof = _dict(
+        preflight_value,
+        "candidate_first_boot_preflight",
+    )
+    preflight_record = _dict(
+        preflight_proof.get("record"),
+        "candidate_first_boot_preflight.record",
+    )
+    preflight_script = base.candidate_first_boot_state_absence_script(
+        candidate_first_boot
+    )
+    base.require_exact_f1_command_receipt(
+        preflight_record,
+        ["run", "/bin/busybox", "sh", "-c", preflight_script],
+        "candidate_first_boot_preflight.record",
+    )
+    expected_marker = "A90AUTO_F1_PRE enable_absent=1 latch_absent=1"
+    if (
+        set(preflight_proof) != {"proof", "enable_path", "latch_path", "record"}
+        or preflight_proof.get("proof") is not True
+        or preflight_proof.get("enable_path")
+        != candidate_first_boot["enable_path"]
+        or preflight_proof.get("latch_path")
+        != candidate_first_boot["latch_path"]
+        or str(preflight_record.get("text") or "").count(expected_marker) != 1
+    ):
+        raise ContractError("H2 pre-transfer first-boot proof changed")
+    health_proof = _dict(
+        health_value,
+        "candidate_first_boot_health",
+    )
+    status_record = _dict(
+        health_proof.get("status"),
+        "candidate_first_boot_health.status",
+    )
+    log_record = _dict(
+        health_proof.get("log"),
+        "candidate_first_boot_health.log",
+    )
+    expected_status = (
+        "A90AUTO_STATUS binding=1 enable=0 latch=0 "
+        "build=phase3-minimal-h2-two-phase-auto-benchmark"
+    )
+    base.require_exact_f1_command_receipt(
+        status_record,
+        ["auto-handoff-status"],
+        "candidate_first_boot_health.status",
+    )
+    base.require_exact_f1_command_receipt(
+        log_record,
+        ["logcat"],
+        "candidate_first_boot_health.log",
+    )
+    log_text = str(log_record.get("text") or "")
+    if (
+        set(health_proof)
+        != {"proof", "status", "log", "enable", "latch", "unarmed_log_unique"}
+        or health_proof.get("proof") is not True
+        or health_proof.get("enable") != 0
+        or health_proof.get("latch") != 0
+        or health_proof.get("unarmed_log_unique") is not True
+        or str(status_record.get("text") or "").count(expected_status) != 1
+        or log_text.count("A90AUTO state=unarmed-stay-native") != 1
+        or "A90AUTO state=dispatch-once" in log_text
+    ):
+        raise ContractError("H2 first resident boot proof changed")
+
+
 def repair_installed_result(
     spec: base.F1Spec,
     transaction_dir: Path,
@@ -1192,6 +1275,7 @@ def repair_installed_result(
     flashed = by_action["candidate-flashed"]
     boot_ready = by_action["candidate-boot-ready"]
     health_verified = by_action["candidate-health-verified"]
+    _validate_candidate_first_boot_journal(spec, by_action)
     if (
         started.get("candidate_sha256") != spec.candidate.sha256
         or type(started.get("candidate_transfer_count_max")) is not int

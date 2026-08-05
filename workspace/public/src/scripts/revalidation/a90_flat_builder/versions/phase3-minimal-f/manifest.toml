@@ -7,7 +7,7 @@ candidate_authority = false
 random_seed = "a90-phase3-minimal-f-power-recovery-ui"
 
 [init]
-closure_sha256 = "6a79649df14e3948b68275ec0076b7cd60536e8becd9f8549c29b78786c0b0e4"
+closure_sha256 = "79389d4090f6326ce18c3c81e207796051225b159d7801c07f7f61d9231c1d24"
 cflags = [
   "-static",
   "-Os",

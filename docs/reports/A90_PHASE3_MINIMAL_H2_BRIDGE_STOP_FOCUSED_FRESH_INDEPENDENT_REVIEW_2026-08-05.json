@@ -1,0 +1,259 @@
+{
+  "schema": "a90-phase3-resident-refresh-f1-independent-review-v1",
+  "status": "PASS_GO",
+  "decision": "Focused fresh PASS_GO for the changed a90_bridge.py stop/restart observer closure. The repair is host-only and fail-closed: a reused stale metadata PID is ignored unless it is still a serial_tcp_bridge.py process; with --discovered, only the exact configured port-matching bridge is selected, and process identity is rechecked immediately before stop. No candidate, rootfs, rollback, target, presence, transfer, recovery, or no-replay semantic changed.",
+  "review_date": "2026-08-05",
+  "reviewer": "independent subagent a90_capability_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "review_scope": "Exact a90_bridge.py stale-metadata command_stop repair and its interaction with the current H2 post-incident F1/D1 closure",
+  "authoritative_predecessor": {
+    "path": "docs/reports/A90_PHASE3_MINIMAL_H2_POST_INCIDENT_FINAL_INDEPENDENT_REVIEW_2026-08-05.json",
+    "bytes": 19189,
+    "sha256": "81e2509c2bead3a9ff193b308461b63f5cfa4b3dc6ae92fdd46b5006d0fac0fe",
+    "status": "PASS_GO",
+    "superseded_for_current_bridge_hash_only": true,
+    "overwritten": false
+  },
+  "verdicts": {
+    "host_observer_repair": "PASS_GO",
+    "bridge_stop_process_selection": "PASS_GO",
+    "live_f1_named_closure_refresh": "PASS_GO",
+    "d1_bridge_selector_refresh": "PASS_GO",
+    "candidate_rootfs_rollback_target_no_replay_semantics": "PASS_GO_UNCHANGED",
+    "overall_focused_review": "PASS_GO"
+  },
+  "named_execution_critical_closure": {
+    "workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.py": {
+      "bytes": 13928,
+      "sha256": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933"
+    },
+    "workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py": {
+      "bytes": 13734,
+      "sha256": "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e"
+    },
+    "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py": {
+      "bytes": 1255,
+      "sha256": "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe"
+    },
+    "workspace/public/src/scripts/revalidation/a90_bridge.py": {
+      "bytes": 40549,
+      "sha256": "7bacce5a61f6745d4dfb0b7f89ffffc478d4e74fd6a1559d20718793668414e9"
+    },
+    "workspace/public/src/scripts/revalidation/a90_observation_pipeline.py": {
+      "bytes": 24478,
+      "sha256": "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb"
+    },
+    "workspace/public/src/scripts/revalidation/a90_serial_lock.py": {
+      "bytes": 2860,
+      "sha256": "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7"
+    },
+    "workspace/public/src/scripts/revalidation/a90ctl.py": {
+      "bytes": 16380,
+      "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c"
+    },
+    "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py": {
+      "bytes": 17944,
+      "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_display_observer.py": {
+      "bytes": 648,
+      "sha256": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744"
+    },
+    "workspace/public/src/harness/a90harness/evidence.py": {
+      "bytes": 11723,
+      "sha256": "3b0aaa36a95628591e14c4c2d70ae4941230fe650b6e4d517173cee5d3019742"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase3_network_ssh_keyed_rootfs_v1.py": {
+      "bytes": 23948,
+      "sha256": "44bb425533ccfd5b65b9be94056da302fa646d97b2b346ec15214cd7a5660396"
+    },
+    "workspace/public/src/scripts/revalidation/native_init_flash.py": {
+      "bytes": 43118,
+      "sha256": "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
+    },
+    "workspace/public/src/scripts/revalidation/tcpctl_host.py": {
+      "bytes": 34750,
+      "sha256": "032f3146ddc08af82f00881ae3d825066e843a41b194ee8d4c8cf09d1f3adb78"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_connected_preflight.py": {
+      "bytes": 21929,
+      "sha256": "c84f7e8d1054df6f095ce13a0bb4c3f057a6d0f4244b77f12b5c87f89edaa6d8"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {
+      "bytes": 103318,
+      "sha256": "c426037452f2d84be4bc7ae6f4dee04960d35b61456d168f3b5660fbfacd95a0"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {
+      "bytes": 280981,
+      "sha256": "d3a7d650f6845386421ac9fdac15a8a227cdf638865c6a34dbd827c74d0e2b79"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_manifest_builder_v1.py": {
+      "bytes": 30970,
+      "sha256": "302403fdeff3ffe0cb5da298ffbfae21dbede7ef6420dc1cb49100d9ec715d1d"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py": {
+      "bytes": 73073,
+      "sha256": "8d37d2dda415856f75a2461108faf9e7121ac901c9333f7021be5b783284eaf7"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_fast_handoff_v1.py": {
+      "bytes": 12037,
+      "sha256": "da695df326ac347baad2f31c4117ec564ea4cc4181605f397da8105d68e24c47"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase3_network_ssh_v1_rootfs.py": {
+      "bytes": 25978,
+      "sha256": "3c15440d30e5cd14f320c6a1bc0d1639e89b0d878a8970284b5eb7bb58f87166"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase2_display_v1_rootfs.py": {
+      "bytes": 28143,
+      "sha256": "8b44e922aba9efdf8b6877c98d6d3395c4ec34a6d6d5e47247aa3c73d7b689a1"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/manifest.toml": {
+      "bytes": 2962,
+      "sha256": "0a0ced3d0720db7bedb4ebcc42f98162a687d2a4d5d785b8cc123cae777ef9c7"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh": {
+      "bytes": 10126,
+      "sha256": "b52b7306d928d0a7275af70f16ff44d578a8440260828343eefa2a204bdc8859"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_return_arm_v1.sh": {
+      "bytes": 1187,
+      "sha256": "e83ede7fb430de98881ff7b9d18e8127bfc8bc19e4707d9ccf78410ac555faf3"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_finalize_f1.py": {
+      "bytes": 42949,
+      "sha256": "5ca12ac122f1bc1bf12c8a1621e2fcc7bbcd32359f411f9f42e37d585cf50c95"
+    }
+  },
+  "closure_delta": {
+    "changed_files": {
+      "workspace/public/src/scripts/revalidation/a90_bridge.py": {
+        "previous": {
+          "bytes": 40294,
+          "sha256": "922c55a0afdef9d237a679203f576226583f4463eec15fb0091871c241f8be01"
+        },
+        "current": {
+          "bytes": 40549,
+          "sha256": "7bacce5a61f6745d4dfb0b7f89ffffc478d4e74fd6a1559d20718793668414e9"
+        }
+      }
+    },
+    "only_named_execution_critical_change": "workspace/public/src/scripts/revalidation/a90_bridge.py",
+    "unchanged_named_file_count": 24
+  },
+  "bridge_repair": {
+    "source": {
+      "path": "workspace/public/src/scripts/revalidation/a90_bridge.py",
+      "bytes": 40549,
+      "sha256": "7bacce5a61f6745d4dfb0b7f89ffffc478d4e74fd6a1559d20718793668414e9"
+    },
+    "test": {
+      "path": "tests/test_a90_bridge.py",
+      "bytes": 14546,
+      "sha256": "a3215b630e474be73dca00352e600cc3ecbd4d59b6188a7cd4adc8d90d4ff119",
+      "result": "16/16 PASS"
+    },
+    "classification": "H0 host observer process-control repair",
+    "stale_metadata_pid_non_kill": true,
+    "discovered_exact_port_match_stop": true,
+    "pre_stop_serial_tcp_bridge_identity_recheck": true,
+    "device_command": false,
+    "payload_transfer": false,
+    "partition_write": false,
+    "flash": false,
+    "reboot": false,
+    "proof": "The focused regression supplies stale metadata pid=111, makes only pid=222 a serial_tcp_bridge.py process with port_match=true, and proves stop_pid is called exactly once with pid=222 while metadata is removed only after success. command_stop also repeats is_bridge_process(pid) before every stop_pid call."
+  },
+  "f1_unchanged_semantics": {
+    "candidate": {
+      "profile": "phase3-minimal-h2-two-phase-auto-benchmark",
+      "version": "0.11.170",
+      "build": "phase3-minimal-h2-two-phase-auto-benchmark",
+      "path": "workspace/private/outputs/a90-phase3-minimal-h2-auto-benchmark-h0-20260805-08/A/boot.img",
+      "bytes": 58372096,
+      "sha256": "97cfbb149361773e895a2a1cff0f13961c06f0a4710119159d6d2a104bc69802"
+    },
+    "rootfs": {
+      "run_id": "a90-v3406-debian-display-f1-20260805-04",
+      "device_path": "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-04.img",
+      "bytes": 2147483648,
+      "sha256": "e13994b9ef29c8274408367f12fdbfcb92ee8301eba045d0a9ae6f344703dc0e"
+    },
+    "native_manifest": {
+      "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h/manifest.toml",
+      "bytes": 7572,
+      "sha256": "9ed3d645627e0019f98b5bcf8b413ce48375c740fa1b07667484c6afa61938a2",
+      "closure_sha256": "79389d4090f6326ce18c3c81e207796051225b159d7801c07f7f61d9231c1d24"
+    },
+    "rollback": {
+      "partition": "boot",
+      "sha256": "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb",
+      "size": 60882944,
+      "identity": "exact V2321 rollback",
+      "unchanged": true
+    },
+    "target_profile": "galaxy-a90-5g-native-init",
+    "exact_target_gate": "UNCHANGED",
+    "rollback_gate": "UNCHANGED",
+    "recovery_gate": "UNCHANGED",
+    "presence_gate": "UNCHANGED",
+    "candidate_transfer_count_max": 1,
+    "candidate_replay": false,
+    "uncertain_action_replay": false,
+    "first_boot_exact_unarmed_contract": "UNCHANGED",
+    "final_health_requirement": "UNCHANGED"
+  },
+  "d1_closure_binding": {
+    "bridge_selector": {
+      "path": "workspace/public/src/scripts/revalidation/a90_bridge.py",
+      "bytes": 40549,
+      "sha256": "7bacce5a61f6745d4dfb0b7f89ffffc478d4e74fd6a1559d20718793668414e9"
+    },
+    "manifest_behavior": "Fresh D1 manifest construction hashes SOURCE_PATHS.bridge_selector; load_spec reopens the exact regular file and requires bound path, bytes, and SHA256.",
+    "prior_closed_findings_unchanged": [
+      "D1-ORDER-003",
+      "D1-PUBLISH-004",
+      "D1-IDENTITY-005"
+    ],
+    "runner_execution_closure_sha256": "fcd7f5310e1db411743e247360cdf0103499e9ef1669cb10099f4311ec80ad77",
+    "no_replay": true
+  },
+  "contract_interaction": {
+    "a90_target_contract": "Pure host observer repair is H0, but a change to an explicitly named live bridge source requires refreshed exact binding before F1. This report provides that focused fresh qualification without widening device authority.",
+    "finalizer_contract_issues": [],
+    "old_report_current_finalizer_compatible": false,
+    "this_report_expected_current_finalizer_compatible": true,
+    "new_hazard_class": false,
+    "permanent_execution_gates_changed": false
+  },
+  "validation": {
+    "bridge_tests": "16/16 PASS",
+    "stale_metadata_pid_not_stopped": "PASS",
+    "exact_port_matching_discovered_bridge_only": "PASS",
+    "pre_stop_bridge_identity_recheck": "PASS",
+    "current_named_execution_critical_records": 25,
+    "current_bridge_sha256": "7bacce5a61f6745d4dfb0b7f89ffffc478d4e74fd6a1559d20718793668414e9",
+    "finalizer_contract_issues": [],
+    "reviewer_device_contact": false,
+    "reviewer_usb_contact": false,
+    "reviewer_adb_contact": false,
+    "reviewer_flash": false,
+    "reviewer_reboot": false,
+    "reviewer_s22plus_contact": false
+  },
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "pass_go_granted": true,
+  "live_f1_capability_pass_go": true,
+  "live_d1_capability_pass_go": true,
+  "live_use_authorized": false,
+  "device_contact": false,
+  "payload_transfer": false,
+  "partition_write": false,
+  "flash": false,
+  "reboot": false,
+  "other_target_touched": false,
+  "review_lifetime": "Reusable for the current exact 25-file named closure, including a90_bridge.py 7bacce5a61f6745d4dfb0b7f89ffffc478d4e74fd6a1559d20718793668414e9, while execution-critical hashes and hazard assumptions remain unchanged and no new incident occurs. Fresh target, rollback, recovery, presence, qualification, and live manifest bindings remain separate.",
+  "final_judgment": "PASS_GO for the focused a90_bridge.py observer repair and refreshed current H2 F1/D1 execution closure. The repair prevents killing a reused stale non-bridge PID and permits stopping only the exact discovered port-matching bridge. No device authority is granted."
+}
+

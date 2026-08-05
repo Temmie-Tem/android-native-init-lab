@@ -480,6 +480,30 @@ class ResidentPromotionV1Tests(unittest.TestCase):
             "version: 0.10.0 build=candidate-build",
         )
 
+    def test_prior_capability_survives_current_acm_realpath_change(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            spec = self.fixture(Path(tmp))
+            spec.stage.bridge_realpath = "/dev/ttyACM1"
+            value = self.validate(spec)
+        self.assertTrue(
+            value["prior_closed_run"]["final_v2321_health_verified"]
+        )
+
+    def test_prior_health_must_match_its_historical_acm_realpath(self) -> None:
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
+            spec = self.fixture(Path(tmp))
+            bound = self.journal_bound(spec, "candidate-boot-ready")
+            candidate_health = json.loads(
+                Path(bound["path"]).read_text(encoding="utf-8")
+            )
+            candidate_health["health"]["selected_realpath"] = "/dev/ttyACM9"
+            self.rewrite_bound(bound, candidate_health)
+            with self.assertRaisesRegex(
+                promotion.ContractError,
+                "candidate native health is not exact",
+            ):
+                self.validate(spec)
+
     def test_install_manifest_selects_one_health_check_and_exact_terminal(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
             value = self.validate(self.install_fixture(Path(tmp)))

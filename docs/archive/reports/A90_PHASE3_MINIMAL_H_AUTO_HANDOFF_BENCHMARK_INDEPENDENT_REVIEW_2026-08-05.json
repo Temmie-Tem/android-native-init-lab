@@ -1,0 +1,178 @@
+{
+  "schema": "a90_phase3_minimal_h_auto_handoff_benchmark_independent_review_v1",
+  "status": "FAIL_STOP",
+  "decision": "FAIL_STOP: the host artifact is deterministic and the local latch implementation is fail-closed, but the capability cannot be used live because its first-boot automatic D1 dispatch can occur before the attended F1 transaction has durably proved and recorded candidate RESIDENT_HEALTHY and before the qualified unattended lane's fresh exact D0 and durable ordinal intent; the synchronous per-marker telemetry also contaminates the phase timing and mmc measurements it claims to benchmark",
+  "review_date": "2026-08-05",
+  "reviewer": "independent subagent a90_capability_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "capability": "A90_PHASE3_MINIMAL_H_AUTO_HANDOFF_BENCHMARK_V1",
+  "risk_tier": "H0 fresh independent review of a proposed attended boot-only F1 candidate whose first boot initiates an automatic D1 transient no-payload effect",
+  "fresh_review": true,
+  "prior_pass_go_reused": false,
+  "higher_precedence_contracts": {
+    "AGENTS.md": {
+      "bytes": 14201,
+      "sha256": "3289aedf8b55c2d74e3252c72e7b6b9bc003ef62379fc6e7b192a845c80dd747"
+    },
+    "docs/operations/targets/A90_TARGET_CONTRACT.md": {
+      "bytes": 22566,
+      "sha256": "92ba236f045c240d909b02553a69b1eb13a2d7328580f969d428dbaa62131f9d"
+    },
+    "docs/operations/DEVICE_ACTION_RISK_TIERS.md": {
+      "bytes": 5954,
+      "sha256": "c2bc3b99b364ec3d08419dc83cca14f35ea9edc1d03173e237740b786ecf8a96"
+    },
+    "GOAL_A90.md": {
+      "bytes": 49862,
+      "sha256": "2631da33c187d564632af5477b96de59d3f39cd27eb06626c354a74c9e1baa7e"
+    }
+  },
+  "named_execution_critical_closure": {
+    "workspace/public/src/native-init/a90_config.h": {
+      "bytes": 5074,
+      "sha256": "876a7324249912cddeab4d280d4e502c532d5a47af012fe7e59cc55d4f7f8ed2"
+    },
+    "workspace/public/src/native-init/a90_auto_handoff.h": {
+      "bytes": 407,
+      "sha256": "ff5ca83aa06ba855fa44e11a63ba6fae017835ff8326e8d6c53fb6d5363fd839"
+    },
+    "workspace/public/src/native-init/a90_auto_handoff.c": {
+      "bytes": 6617,
+      "sha256": "edcecc0dd3cc7c61fc8a90c7d3776933ef9d27b54257e18bc93bf915b66b4751"
+    },
+    "workspace/public/src/native-init/a90_benchmark.h": {
+      "bytes": 265,
+      "sha256": "15dce9c3514dee2918435e5b7e22e6b87b156c38b5b73d50a7ba1efbbe6a8d6d"
+    },
+    "workspace/public/src/native-init/a90_benchmark.c": {
+      "bytes": 8093,
+      "sha256": "07b04487982743bd0d76d86d0ccadd396d860de0ac6c31d5e646587d73aeec9b"
+    },
+    "workspace/public/src/native-init/a90_server_distro.c": {
+      "bytes": 132608,
+      "sha256": "6f75d09ddacc49f593035967cf6ae4fa2aebf1a5622c9d39d3016221cec6343c"
+    },
+    "workspace/public/src/native-init/v319/00_prelude.inc.c": {
+      "bytes": 2800,
+      "sha256": "d4dc4d85a513ad8fe918be70eb91fc00c71bc95cb114f763f21d3a5d8550619c"
+    },
+    "workspace/public/src/native-init/v724/90_main.inc.c": {
+      "bytes": 264786,
+      "sha256": "5dc0932eceb07734d4c57725548f55bb006c97be41c19fe492b71b1d122cf1a4"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h/manifest.toml": {
+      "bytes": 7284,
+      "sha256": "8513ae105ac787f918f42be96d69de9c20ca43df1fe12d339ebd9664ec03f5e4"
+    },
+    "workspace/public/src/scripts/server-distro/a90_boot_benchmark_v1.py": {
+      "bytes": 9234,
+      "sha256": "72fe8833beed6c9aef28d3ee18be5d232c370d6e0749d97136bed32a8982c8d4"
+    },
+    "tests/test_a90_auto_handoff_source_v1.py": {
+      "bytes": 3334,
+      "sha256": "7cf8789f73dbfc16c9f10c536d079eea0ae6cad612897bc254feee5e20592759"
+    },
+    "tests/test_a90_boot_benchmark_v1.py": {
+      "bytes": 3902,
+      "sha256": "0767439c7d080f688bed95eb550a548479470ba8af02520ecf30f7724140db14"
+    },
+    "workspace/public/src/scripts/revalidation/test_a90_flat_builder.py": {
+      "bytes": 48271,
+      "sha256": "922d299f6fe8bdaf6731bb6b604ef00fb9bb1cbec021d0cba7551c8a44c649bf"
+    }
+  },
+  "reviewed_semantics": {
+    "latch_order_and_no_replay": "PASS at source level. The root-owned nonsymlink regular latch is created with O_EXCL and O_NOFOLLOW, content is written, the file is fsynced and closed, and /cache is fsynced before the only switch-root dispatch. Any inspection, write, file-fsync, close, or directory-fsync failure returns before dispatch. A successful dispatch retains the latch on all returns; an existing latch stays native and does not redispatch after failure or reboot.",
+    "cache_failure": "PASS at source level. main records a90_cache_ready only after a successful cache mount and does not call a90_auto_handoff_run_once when durable /cache is unavailable.",
+    "compiled_rootfs_binding": "PASS at source and manifest level. The exact source path /mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-02.img and SHA256 7e85f8a34ee85b2c6d92fe35baaf69c0d21879300042177090af8b6fcb55ae5b are compile-time bound; malformed path prefixes and SHA forms fail before latch or dispatch. The build receipt has candidate_authority=false.",
+    "existing_d3_semantics": "PASS except for measurement overhead. Exact source hash validation before and after strict display-owner cleanup, distinct work-copy construction, loop/mount ownership cleanup, display marker, mount moves, switch_root exec, native failure cleanup, immutable source recheck, and one-call return semantics remain in place. Benchmark emits return void and do not change D3 return-code branches.",
+    "telemetry_access": "The temperature, utilization, memory, load, CPU/GPU frequency, battery, and mmc counter inputs are read-only procfs/sysfs reads. Emission also performs console output and a90_logf writes to the native log, so the overall measurement operation is not read-only with respect to cache/mmc activity.",
+    "telemetry_schema": "The host parser requires the exact 21-field A90BENCH order, schema, valid stage syntax, nonnegative monotonic CLOCK_BOOTTIME values, numeric-or-na optional integer fields, duplicate consistency, and optionally the complete 15-stage sequence. CLOCK_BOOTTIME failure currently becomes numeric zero and is not distinguished from a valid zero sample.",
+    "bounded_debian_return": "The persistent /cache latch means the next native boot after bounded Debian return remains native and does not automatically repeat the handoff. This source property lacks the required live runner observation and journal reconciliation described in finding F1.",
+    "legacy_profiles": "Minimal-F and minimal-G enable neither automatic handoff nor benchmark by default; their manifest edits only update the shared init-closure pin. Their exact prior selectors remain separate from minimal-H."
+  },
+  "host_build_evidence": {
+    "independent_build_receipt": {
+      "path": "workspace/private/outputs/a90-phase3-minimal-h-review-20260805-01/receipt.json",
+      "profile": "phase3-minimal-h-auto-benchmark",
+      "candidate_authority": false,
+      "manifest_sha256": "8513ae105ac787f918f42be96d69de9c20ca43df1fe12d339ebd9664ec03f5e4",
+      "effective_manifest_sha256": "959d077249652c9dc4b48f94449a38216136392e762c9b23241bebad9550da75",
+      "init_closure_sha256": "171aa383d4679cbbcb6001a36178eebb3374aca59c8e900b1a888559e0faa44f",
+      "boot_bytes": 58306560,
+      "boot_sha256": "eefabb77aa9986dc0a436a7a8848cb22862abdfcf9bee2e79a76c2270328e38f",
+      "init_bytes": 1657872,
+      "init_sha256": "1d4246d81f12236d08d0ce4fa95967ce7302838cb7a307360a22dcbc4e76320a",
+      "init_file_type": "ELF 64-bit LSB executable, ARM aarch64, statically linked, stripped"
+    },
+    "ab_receipt": {
+      "path": "workspace/private/outputs/a90-phase3-minimal-h-auto-benchmark-h0-20260805-02/ab-receipt.json",
+      "byte_identical": true,
+      "accepted_boot_unchanged": true,
+      "candidate_authority": false,
+      "boot_bytes": 58306560,
+      "boot_sha256": "eefabb77aa9986dc0a436a7a8848cb22862abdfcf9bee2e79a76c2270328e38f"
+    }
+  },
+  "review_findings": [
+    {
+      "id": "F1",
+      "severity": "High",
+      "status": "OPEN_BLOCKING",
+      "title": "First-boot automatic D1 effect precedes the F1 health barrier and lacks a qualifying durable live intent",
+      "finding": "The minimal-H PID1 automatically arms its local latch and dispatches switch_root as soon as native services are ready on first boot. The attended F1 resident-install closure currently ends only after the candidate has been observed and RESIDENT_HEALTHY is durable, while the only unattended A90 D1 exception requires that already-durable resident identity, fresh bounded D0 before every ordinal, one host-side durable ordinal intent, one dispatch, and no replay. The automatic effect can therefore race ahead of candidate health proof, the inter-effect HEALTHY barrier, fresh D0, host transaction intent, and presence/recovery revalidation. Existing F1 CandidateSpec tables contain minimal-G but no minimal-H exact tuple, and existing attended/unattended D1 runners do not own or reconcile this PID1-local latch.",
+      "impact": "A live install would combine one F1 boot transfer and an automatic D1 switch-root effect without the contract-required ordering and durable observation closure. The local latch prevents replay but cannot supply target identity, attendance, current recovery availability, F1 final health, or host journal reconciliation.",
+      "required_closure": [
+        "Add the exact minimal-H candidate tuple and artifact to an attended A90 boot-only F1 manifest/finalizer closure without granting candidate_authority from the flat-builder receipt.",
+        "Use a two-phase durable enable design: install and first boot must remain native with automatic dispatch disabled, prove and durably record exact candidate RESIDENT_HEALTHY, then create a separately exact enable intent only after fresh target D0, attendance/presence, rollback, recovery, rootfs identity, and observer preflight.",
+        "Bind the device-local latch identity and contents to the same host journal and enable intent; prove zero dispatch before enable, at most one dispatch after enable, and no replay after uncertain outcome, failed handoff, bounded Debian return, or reboot.",
+        "Add bounded observation and recovery states for first native boot, D1 dispatch, Debian display/SSH outcome, automatic native return, persistent latch, cleanup, and final RESIDENT_HEALTHY. Observation loss must park and may never cause candidate or D1 replay.",
+        "Run a fresh independent capability review over the changed F1 runner, D1/enable runner, observer, journal schema, latch closure, artifact hashes, recovery assumptions, and focused fault/no-replay tests before any device effect."
+      ]
+    },
+    {
+      "id": "F2",
+      "severity": "Medium",
+      "status": "OPEN_BLOCKING",
+      "title": "Synchronous telemetry sampling and logging contaminates every reported phase delta and mmc counter",
+      "finding": "a90_benchmark_emit performs the full metrics snapshot, CPU/GPU frequency reads, multiple battery reads, /proc/diskstats scan, formatting, console output, and cache-backed logging synchronously at each marker. CLOCK_BOOTTIME is captured only after the reads. Consequently the delta from marker N to marker N+1 includes marker N output/log overhead and marker N+1 sampling overhead, while the mmc write counter is affected by the benchmark's own native-log writes. Fifteen required complete-sequence markers make this material for short display, hash, mount, and exec preparation stages and contradict an unqualified low-overhead timing interpretation.",
+      "impact": "The parser can produce internally consistent but causally misleading phase timings and storage/power telemetry. The values describe an instrumented path that includes variable observer work, not the raw D3 stage durations.",
+      "required_closure": [
+        "Capture the CLOCK_BOOTTIME stage timestamp immediately on marker entry, before telemetry reads, and preserve it separately from the sample-completion timestamp or measured sampling duration.",
+        "Reduce expensive synchronous telemetry to coarse lifecycle boundaries; use lightweight timestamp-only markers for short D3 substages, or otherwise quantify and expose per-sample overhead.",
+        "Keep benchmark logging outside the timed interval and clearly label mmc counters as observer-contaminated unless self-generated log writes are excluded or separately accounted for.",
+        "Represent clock_gettime failure explicitly and make the parser reject or mark invalid timing instead of accepting zero as ordinary evidence.",
+        "Add parser/source tests proving entry-timestamp semantics, reduced sampling placement, explicit invalid-clock handling, exact field schema, and monotonic phase derivation, then request fresh review."
+      ]
+    }
+  ],
+  "validation": {
+    "tests/test_a90_auto_handoff_source_v1.py": "5/5 PASS",
+    "tests/test_a90_boot_benchmark_v1.py": "5/5 PASS",
+    "workspace/public/src/scripts/revalidation/test_a90_flat_builder.py": "37/37 PASS",
+    "tests/test_server_distro_d3_switchroot_handoff.py": "10/10 PASS",
+    "tests/test_server_distro_d3_return_supervisor_v3405.py": "17/17 PASS",
+    "tests/test_build_native_init_boot_v3403_d3_immutable_handoff.py": "9/10 PASS; the lone failure is a stale historical source-token assertion that also fails against HEAD because the production source already uses d3_handoff_stop_display_owners_strict; this is not caused by minimal-H but leaves that historical model stale",
+    "python_py_compile": "PASS for the benchmark parser, focused tests, and flat builder",
+    "flat_builder_audit": "PASS",
+    "independent_cross_compile": "PASS",
+    "ab_determinism": "PASS",
+    "scoped_diff_check": "PASS",
+    "device_contact": false
+  },
+  "unresolved_findings": [
+    "F1",
+    "F2"
+  ],
+  "pass_go_granted": false,
+  "live_use_authorized": false,
+  "permanent_boundaries_changed": false,
+  "device_authority_granted": false,
+  "device_contact": false,
+  "payload_transfer": false,
+  "partition_write": false,
+  "flash": false,
+  "reboot": false,
+  "other_target_touched": false,
+  "final_judgment": "FAIL_STOP. The exact reviewed closure is host-buildable and its local durable latch is source-level fail-closed, but no live A90 device action may use it. Close F1 and F2, revalidate the changed hashes and execution machinery, and obtain a fresh independent capability review. S22+ was not accessed or modified by this review."
+}

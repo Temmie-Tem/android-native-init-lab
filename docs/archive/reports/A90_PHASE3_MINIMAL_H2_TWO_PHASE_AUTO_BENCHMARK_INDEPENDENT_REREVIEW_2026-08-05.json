@@ -1,0 +1,231 @@
+{
+  "schema": "a90_phase3_minimal_h2_two_phase_auto_benchmark_independent_rereview_v1",
+  "status": "PASS_GO",
+  "decision": "PASS_GO qualifies only the exact hash-bound A90 H2 native two-phase handoff primitive and v2 benchmark parser: with the profile-specific enable and latch paths absent before F1, the first candidate boot remains native, an explicit exact arm creates a durable enable, a later normal boot validates that enable and durably creates the no-replay latch before one switch_root dispatch, and benchmark phase durations remove the preceding marker's measured telemetry and cache-log emission overhead. Live use remains FAIL_STOP until a separately reviewed attended F1 candidate/preflight closure and a D1 arm-reboot-journal-observer runner bind the exact state, target, health, recovery, intent, observation, return, and final health.",
+  "review_date": "2026-08-05",
+  "reviewer": "independent subagent a90_capability_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "capability": "A90_PHASE3_MINIMAL_H2_TWO_PHASE_AUTO_HANDOFF_BENCHMARK_V1",
+  "risk_tier": "H0 fresh independent re-review of native machinery intended for an attended boot-only F1 candidate and a later separately journaled D1 effect",
+  "fresh_review": true,
+  "prior_pass_go_reused": false,
+  "verdict_axes": {
+    "native_capability_and_parser": "PASS_GO",
+    "live_f1_candidate_integration": "FAIL_STOP_NOT_IMPLEMENTED",
+    "live_d1_arm_reboot_handoff_observer": "FAIL_STOP_NOT_IMPLEMENTED",
+    "device_authority": "NONE"
+  },
+  "superseded_failed_review": {
+    "path": "docs/reports/A90_PHASE3_MINIMAL_H_AUTO_HANDOFF_BENCHMARK_INDEPENDENT_REVIEW_2026-08-05.json",
+    "bytes": 14491,
+    "sha256": "ae7e5287a404d613a0863b1f4beb9a581120126133b0875bcbfeb049bbfecd9b",
+    "status": "FAIL_STOP",
+    "relationship": "The prior report remains immutable evidence for the rejected 0.11.169 closure. This re-review covers the changed 0.11.170 H2 native and parser hashes and does not overwrite or reuse the prior verdict."
+  },
+  "higher_precedence_contracts": {
+    "AGENTS.md": {
+      "bytes": 14201,
+      "sha256": "3289aedf8b55c2d74e3252c72e7b6b9bc003ef62379fc6e7b192a845c80dd747"
+    },
+    "docs/operations/targets/A90_TARGET_CONTRACT.md": {
+      "bytes": 22566,
+      "sha256": "92ba236f045c240d909b02553a69b1eb13a2d7328580f969d428dbaa62131f9d"
+    },
+    "docs/operations/DEVICE_ACTION_RISK_TIERS.md": {
+      "bytes": 5954,
+      "sha256": "c2bc3b99b364ec3d08419dc83cca14f35ea9edc1d03173e237740b786ecf8a96"
+    },
+    "GOAL_A90.md": {
+      "bytes": 49862,
+      "sha256": "2631da33c187d564632af5477b96de59d3f39cd27eb06626c354a74c9e1baa7e"
+    }
+  },
+  "named_execution_critical_closure": {
+    "workspace/public/src/native-init/a90_config.h": {
+      "bytes": 5201,
+      "sha256": "4f062bf5d5624ef07a39bd3ea9fdeefd7918ef516ac6ac417af272504561db32"
+    },
+    "workspace/public/src/native-init/a90_auto_handoff.c": {
+      "bytes": 14226,
+      "sha256": "4b02166fb252135b0ee20ac38cbb053565a7635a911675d8e5480155fccb1be0"
+    },
+    "workspace/public/src/native-init/a90_auto_handoff.h": {
+      "bytes": 597,
+      "sha256": "6969a9a930921cdf4ce8a28a6b112b2922a902dbe6dd0f40b151fa3ccb870cb5"
+    },
+    "workspace/public/src/native-init/a90_benchmark.c": {
+      "bytes": 10687,
+      "sha256": "66e6cdbc8862000c3d53c3cad7af2eaa8add490d77ca435358fe8a698898ec14"
+    },
+    "workspace/public/src/native-init/a90_benchmark.h": {
+      "bytes": 246,
+      "sha256": "490387cf121a6bffef2b0238b1df6aea09b7070f0a925acf8d6cc30f61f80032"
+    },
+    "workspace/public/src/native-init/a90_server_distro.c": {
+      "bytes": 132608,
+      "sha256": "3ca2b3fbe7019390f17c3ad444b7a1d1f758b75e20601426054c6059d1531860"
+    },
+    "workspace/public/src/native-init/v319/00_prelude.inc.c": {
+      "bytes": 2800,
+      "sha256": "d4dc4d85a513ad8fe918be70eb91fc00c71bc95cb114f763f21d3a5d8550619c"
+    },
+    "workspace/public/src/native-init/v319/80_shell_dispatch.inc.c": {
+      "bytes": 869478,
+      "sha256": "690c871d02a5282bddd0163ccd1afdcdcb514a9e3af646b9a454024caaec8cb9"
+    },
+    "workspace/public/src/native-init/v724/90_main.inc.c": {
+      "bytes": 264786,
+      "sha256": "5dc0932eceb07734d4c57725548f55bb006c97be41c19fe492b71b1d122cf1a4"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h/manifest.toml": {
+      "bytes": 7572,
+      "sha256": "bba51aa7e12271f8bee62399a0d8034202073402d3a6b2f2f5377bea90d1b3ef"
+    },
+    "workspace/public/src/scripts/server-distro/a90_boot_benchmark_v1.py": {
+      "bytes": 12663,
+      "sha256": "56c87f9676b7c21bd36aa3173f464a342ab40acc1f08fc9484638137f051eca3"
+    },
+    "tests/test_a90_auto_handoff_source_v1.py": {
+      "bytes": 4224,
+      "sha256": "a127fdff5768c5c917e4338efb66bb5fbcc48c5804c9ec4e76c2defb8ba6e2e4"
+    },
+    "tests/test_a90_boot_benchmark_v1.py": {
+      "bytes": 6345,
+      "sha256": "690b1db3cf12779b995103f9dc449268348c860a1fd6f64350d73e72e054eb16"
+    },
+    "workspace/public/src/scripts/revalidation/test_a90_flat_builder.py": {
+      "bytes": 48608,
+      "sha256": "bd1b2ebebdb285c60bd296fa009e24986f4ea5c5b17029a79cb6649ac9886a63"
+    }
+  },
+  "artifact_binding": {
+    "profile": "phase3-minimal-h2-two-phase-auto-benchmark",
+    "version": "0.11.170",
+    "candidate_authority": false,
+    "manifest_sha256": "bba51aa7e12271f8bee62399a0d8034202073402d3a6b2f2f5377bea90d1b3ef",
+    "effective_manifest_sha256": "04d3ce41a30f96b6c3c86c4c9ad9fb1bfbaa47b54801908f354295ae6046a516",
+    "native_init_closure_sha256": "4159e6132bee2b1e3c913a0747ae4352d1095c9472d66568da4ea40870b83034",
+    "rootfs_path": "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-02.img",
+    "rootfs_sha256": "7e85f8a34ee85b2c6d92fe35baaf69c0d21879300042177090af8b6fcb55ae5b",
+    "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h2.enable",
+    "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h2.done",
+    "boot": {
+      "bytes": 58372096,
+      "sha256": "02f2049ca1bcf3e9425e0d9c8e15324d8a356a86a338311e1e2485598fed3065"
+    },
+    "init": {
+      "bytes": 1723408,
+      "sha256": "e403543ba0596cb7c9b520c716691509e8e17bce8cfe6e546271eda4ed98dba5",
+      "file_type": "ELF 64-bit LSB executable, ARM aarch64, statically linked, stripped"
+    }
+  },
+  "build_evidence": {
+    "provided_ab_receipt": {
+      "path": "workspace/private/outputs/a90-phase3-minimal-h2-auto-benchmark-h0-20260805-05/ab-receipt.json",
+      "bytes": 3286,
+      "sha256": "30009d3ce196ccde72716a77236c95c0d0134fa32fbdab3b3377694968585550",
+      "byte_identical": true,
+      "accepted_boot_unchanged": true
+    },
+    "independent_reproduction": {
+      "path": "workspace/private/outputs/a90-phase3-minimal-h2-independent-review-20260805-02/receipt.json",
+      "result": "PASS; boot, init, ramdisk, and helper identities exactly match the -05 A/B receipt",
+      "boot_sha256": "02f2049ca1bcf3e9425e0d9c8e15324d8a356a86a338311e1e2485598fed3065",
+      "init_sha256": "e403543ba0596cb7c9b520c716691509e8e17bce8cfe6e546271eda4ed98dba5"
+    }
+  },
+  "reviewed_semantics": {
+    "first_boot_unarmed": "PASS with an explicit precondition. If both profile-specific state paths are absent, run_once validates the compiled rootfs binding, observes no latch and no enable, emits unarmed-stay-native, returns a positive no-effect result, and main continues to the native shell. Hot reload never invokes the automatic path. An exact stale enable with an absent latch would be accepted, so every live F1 preparation must prove both paths absent before candidate transfer; this PASS_GO does not waive that gate.",
+    "explicit_arm": "PASS as a native primitive. auto-handoff-arm is compiled only into the H2 profile, is tagged CMD_DANGEROUS, requires the exact fixed arm token plus one lowercase 64-hex host intent digest, requires a valid compiled image binding, refuses an existing latch or enable, and creates one root-owned mode-0600 single-link regular enable file with O_EXCL and O_NOFOLLOW, exact canonical content, file fsync, close, and /cache directory fsync. The command itself does not prove D0, health, attendance, recovery, or host-journal durability; those remain mandatory runner inputs.",
+    "enable_validation": "PASS. The later boot lstat/open/fstat path rejects symlinks, wrong type, owner, mode, link count, size, or changed dev/inode/size; it reads bounded exact bytes, validates the intent digest, reconstructs the complete canonical build/image/image-hash/intent/state content, and requires byte equality before continuing.",
+    "latch_before_dispatch": "PASS. After an exact enable, run_once creates a distinct canonical latch with O_EXCL/O_NOFOLLOW, exact intent and compiled artifact identity, file fsync and cache-directory fsync. Any latch creation or directory durability failure returns without calling switch_root. Only a successful durable latch reaches the single call to a90_server_distro_switch_root_cmd.",
+    "no_replay": "PASS. Any root-owned mode-0600 single-link regular object at the profile latch path suppresses all later automatic dispatch, including after a handoff error, bounded Debian return, or reboot. The latch is never removed by the automatic path and the switch_root function is called once in source. Latch presence is an enforcement fact, not by itself proof that a dispatch occurred; a live observer must correlate the arm receipt and benchmark/journal transition.",
+    "cache_failure": "PASS. main sets cache-ready only after a successful /cache mount. Cache failure never calls run_once and remains native.",
+    "d3_preservation": "PASS. Exact source path and SHA checks, strict display-owner cleanup, the second immutable-source hash, distinct work copy, loop/root ownership, display marker, mount moves, switch_root exec, failure cleanup, final immutable-source verification, and bounded native return semantics are unchanged except for void benchmark markers. Sampling calls cannot change D3 return-code branches.",
+    "benchmark_timing": "PASS for instrumented phase timing. Each marker captures CLOCK_BOOTTIME at function entry. CLOCK failure is carried as clock_ok=0 and the v2 parser rejects it. Expensive telemetry is reduced to seven coarse markers; the other complete stages use timestamp-only marks. Output is cache-log-only, eliminating the previous console duplicate. Each next chronological record carries the immediately preceding emitter's measured entry-through-completed-a90_logf duration, and phase derivation subtracts that start-marker overhead.",
+    "benchmark_parser": "PASS. The exact 25-field schema is typed and order-bound. It rejects clock failure, malformed fields, invalid stage names, nonnumeric sampling fields, and optional numeric drift. Accumulated cache logs split on CLOCK_BOOTTIME regression or conflicting repeated stages, identical duplicates deduplicate, exactly one segment containing auto_handoff_dispatched plus switch_root_exec is selected, multiple or absent handoff segments fail closed, complete-mode requires all fifteen stages in their exact declared order, and phase/comparison results use v2 schemas.",
+    "telemetry_interpretation_limit": "Temperature, load, memory, clock, battery, and mmc inputs are read-only procfs/sysfs observations. The mmc counters are absolute observer-inclusive snapshots and include storage activity from earlier benchmark/native log writes; they are not qualified as isolated workload-write attribution. This does not affect the corrected CLOCK_BOOTTIME phase durations."
+  },
+  "review_findings": [
+    {
+      "id": "PRIOR-F1",
+      "severity": "High",
+      "status": "CLOSED_FOR_NATIVE_CAPABILITY",
+      "finding": "The rejected H1 image automatically dispatched D1 during its first F1 candidate boot before resident health and durable D1 intent.",
+      "resolution": "H2 is unarmed with absent profile state, requires a separate exact durable arm after first native health, and creates the no-replay latch only on a later normal boot before dispatch. State absence and first-boot health remain mandatory host F1 gates."
+    },
+    {
+      "id": "PRIOR-F2",
+      "severity": "Medium",
+      "status": "CLOSED",
+      "finding": "The rejected instrumentation captured timestamps after synchronous telemetry and included unmeasured console/cache output in phase deltas.",
+      "resolution": "H2 captures entry timestamps, removes console emission, reduces telemetry sampling, measures full cache-log emitter duration, carries that duration in the next chronological record, subtracts it from phase time, and rejects clock failure."
+    },
+    {
+      "id": "R1",
+      "severity": "Medium",
+      "status": "CLOSED_DURING_REREVIEW",
+      "finding": "The first v2 parser patch accepted a complete marker set with inverted stage order and clamped the invalid phase to zero.",
+      "resolution": "The parser now requires complete-stage indexes to be strictly increasing in the declared sequence; the focused inversion test passes."
+    }
+  ],
+  "live_closure_blockers": [
+    {
+      "id": "LIVE-F1",
+      "status": "FAIL_STOP_NOT_IMPLEMENTED",
+      "scope": "attended boot-only F1 installation and first native boot",
+      "required_closure": [
+        "Add the exact H2 candidate profile, boot size and SHA256, version/build, and artifact path to the attended A90 F1 CandidateSpec, resident-manifest, finalizer, rollback, and observation closure; the flat-builder receipt remains candidate_authority=false.",
+        "Before candidate transfer, prove the exact H2 enable and latch paths absent on the selected A90 and bind that proof to the F1 journal; stale exact enable is a first-boot hazard.",
+        "Keep F1 attended and bind exact target, fresh D0, V2321 rollback, demonstrated recovery, artifact reopening, boot-only partition scope, candidate intent, one transfer, zero replay, and rollback-on-negative-health semantics.",
+        "After transfer, durably prove H2 version/build, unarmed-stay-native, auto-handoff-status binding=1 enable=0 latch=0, and RESIDENT_HEALTHY before closing and disarming F1. No arm command may occur inside this F1 transaction."
+      ]
+    },
+    {
+      "id": "LIVE-D1",
+      "status": "FAIL_STOP_NOT_IMPLEMENTED",
+      "scope": "later arm, reboot, automatic handoff, bounded return, and final health ordinal",
+      "required_closure": [
+        "Start only from the exact durable H2 RESIDENT_HEALTHY identity and the target contract's applicable attended or separately qualified unattended presence mode, with fresh exact D0, recovery, exact rootfs, and observer readiness.",
+        "Create one host durable intent before sending auto-handoff-arm, bind its SHA256 to the exact command and framed result, reconcile enable status, and treat the device as D1-armed until exact final RESIDENT_HEALTHY is durable.",
+        "Journal the later reboot and automatic dispatch as one no-replay ordinal. Recheck target, health, state, attendance/presence, recovery, and intent immediately before reboot. Never resend arm or reboot after an uncertain effect.",
+        "Observe the unique accumulated-log handoff segment, exact stage sequence, Debian PID1/display/SSH result, bounded automatic native return, enable/latch state, D3 cleanup and immutable source, and final H2 RESIDENT_HEALTHY. Timeout or malformed evidence parks; it never authorizes replay.",
+        "Independently review the new F1 and D1 runner, journal schema, target/USB pinning, state reconciliation, observer, recovery, and exact hashes before live use."
+      ]
+    }
+  ],
+  "validation": {
+    "direct_source_and_parser_tests": "14/14 PASS",
+    "flat_builder_tests": "37/37 PASS",
+    "d3_switchroot_handoff_tests": "10/10 PASS",
+    "d3_return_supervisor_tests": "17/17 PASS",
+    "historical_d3_immutable_model": "9/10 PASS; its only failure is the pre-existing stale assertion for d_handoff_stop_display_owners_mode while both HEAD and current production source use d3_handoff_stop_display_owners_strict; it is not an H2 regression",
+    "python_py_compile": "PASS",
+    "flat_builder_audit": "PASS",
+    "provided_ab_determinism": "PASS",
+    "independent_cross_build": "PASS and exact-match to -05",
+    "scoped_diff_check": "PASS",
+    "device_contact": false
+  },
+  "review_trigger": {
+    "reuse_scope": "native H2 two-phase primitive and v2 parser capability only; not a live candidate, manifest, run, campaign, qualification, or ordinal",
+    "retire_on_any_named_execution_critical_hash_change": true,
+    "retire_on_state_format_path_validation_arm_latch_dispatch_or_no_replay_change": true,
+    "retire_on_d3_display_source_work_copy_cleanup_return_or_health_semantic_change": true,
+    "retire_on_benchmark_marker_sampling_timing_parser_or_session_selection_change": true,
+    "retire_on_new_hazard_incident_or_ambiguous_device_safety_result": true
+  },
+  "unresolved_native_capability_findings": [],
+  "pass_go_granted": true,
+  "live_use_authorized": false,
+  "unattended_use_authorized": false,
+  "device_authority_granted": false,
+  "permanent_boundaries_changed": false,
+  "device_contact": false,
+  "payload_transfer": false,
+  "partition_write": false,
+  "flash": false,
+  "reboot": false,
+  "other_target_touched": false,
+  "final_judgment": "PASS_GO for the exact named native H2 and parser hashes, conditional on pre-F1 profile-state absence. FAIL_STOP for every live A90 F1 or D1 action until LIVE-F1 and LIVE-D1 are implemented, tested, hash-bound, and independently reviewed. S22+ was not accessed or modified."
+}

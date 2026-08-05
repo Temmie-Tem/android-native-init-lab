@@ -105,6 +105,45 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
         self.assertEqual(result["candidate_version"], selected.version)
         self.assertEqual(result["candidate_build"], selected.build)
 
+    def test_minimal_h2_candidate_profile_binds_two_phase_first_boot(self) -> None:
+        selected = finalizer.select_candidate_profile(
+            finalizer.MINIMAL_H2_CANDIDATE_PROFILE
+        )
+        self.assertEqual(
+            selected.copy_name,
+            "candidate-boot-phase3-minimal-h2.img",
+        )
+        self.assertEqual(selected.size, 58372096)
+        self.assertEqual(
+            selected.sha256,
+            "97cfbb149361773e895a2a1cff0f13961c06f0a4710119159d6d2a104bc69802",
+        )
+        self.assertEqual(selected.version, "0.11.170")
+        self.assertEqual(
+            selected.build,
+            "phase3-minimal-h2-two-phase-auto-benchmark",
+        )
+        self.assertEqual(
+            finalizer.candidate_first_boot_contract(selected),
+            {
+                "schema": "a90-auto-handoff-first-boot-v1",
+                "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h2.enable",
+                "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h2.done",
+                "pre_transfer_state": "both-absent",
+                "post_boot_status": "binding=1-enable=0-latch=0",
+                "post_boot_log": "A90AUTO state=unarmed-stay-native",
+            },
+        )
+        result = finalizer.audit_payload(selected.profile)
+        self.assertEqual(result["candidate_profile"], selected.profile)
+        self.assertEqual(result["candidate_sha256"], selected.sha256)
+        self.assertEqual(result["candidate_size"], selected.size)
+        self.assertIsNone(
+            finalizer.candidate_first_boot_contract(
+                finalizer.MINIMAL_G_CANDIDATE
+            )
+        )
+
     def test_unknown_candidate_profile_is_rejected(self) -> None:
         with self.assertRaisesRegex(finalizer.ContractError, "not exact"):
             finalizer.select_candidate_profile("arbitrary")

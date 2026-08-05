@@ -1,0 +1,269 @@
+{
+  "schema": "a90-phase3-resident-refresh-f1-independent-review-v1",
+  "status": "PASS_GO",
+  "decision": "The historical-ACM-epoch fix is safe and closes a false coupling between immutable prior-run health and the current volatile /dev/ttyACM assignment. Historical candidate and rollback health remain required to match the historical manifest's exact bound bridge_selected_realpath. The current live target remains independently constrained by the same stable /dev/serial/by-id bridge identity, current exact realpath preflight, A90 profile, and exact recovery identity. Removing historical-realpath equality to the current epoch therefore creates no target-substitution path.",
+  "review_date": "2026-08-05",
+  "reviewer": "independent subagent a90_capability_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "review_scope": "Focused review of a90_resident_promotion_v1 historical ACM epoch validation and its exact regressions",
+  "authoritative_predecessor": {
+    "path": "docs/reports/A90_PHASE3_MINIMAL_H2_BRIDGE_STOP_FOCUSED_FRESH_INDEPENDENT_REVIEW_2026-08-05.json",
+    "bytes": 12549,
+    "sha256": "df736ad47a7798f65884453d3c718bd1e7684c574e700ddf4c2d450729c983e9",
+    "status": "PASS_GO",
+    "superseded_for_current_promotion_hash_only": true,
+    "overwritten": false
+  },
+  "verdicts": {
+    "historical_health_epoch_binding": "PASS_GO",
+    "current_target_isolation": "PASS_GO",
+    "target_substitution_resistance": "PASS_GO",
+    "boot_only_and_rollback": "PASS_GO_UNCHANGED",
+    "physical_recovery": "PASS_GO_UNCHANGED",
+    "candidate_no_replay": "PASS_GO_UNCHANGED",
+    "historical_evidence_integrity": "PASS_GO",
+    "overall_focused_review": "PASS_GO"
+  },
+  "named_execution_critical_closure": {
+    "workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.py": {
+      "bytes": 13928,
+      "sha256": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933"
+    },
+    "workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py": {
+      "bytes": 13734,
+      "sha256": "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e"
+    },
+    "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py": {
+      "bytes": 1255,
+      "sha256": "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe"
+    },
+    "workspace/public/src/scripts/revalidation/a90_bridge.py": {
+      "bytes": 40549,
+      "sha256": "7bacce5a61f6745d4dfb0b7f89ffffc478d4e74fd6a1559d20718793668414e9"
+    },
+    "workspace/public/src/scripts/revalidation/a90_observation_pipeline.py": {
+      "bytes": 24478,
+      "sha256": "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb"
+    },
+    "workspace/public/src/scripts/revalidation/a90_serial_lock.py": {
+      "bytes": 2860,
+      "sha256": "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7"
+    },
+    "workspace/public/src/scripts/revalidation/a90ctl.py": {
+      "bytes": 16380,
+      "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c"
+    },
+    "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py": {
+      "bytes": 17944,
+      "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_display_observer.py": {
+      "bytes": 648,
+      "sha256": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744"
+    },
+    "workspace/public/src/harness/a90harness/evidence.py": {
+      "bytes": 11723,
+      "sha256": "3b0aaa36a95628591e14c4c2d70ae4941230fe650b6e4d517173cee5d3019742"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase3_network_ssh_keyed_rootfs_v1.py": {
+      "bytes": 23948,
+      "sha256": "44bb425533ccfd5b65b9be94056da302fa646d97b2b346ec15214cd7a5660396"
+    },
+    "workspace/public/src/scripts/revalidation/native_init_flash.py": {
+      "bytes": 43118,
+      "sha256": "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
+    },
+    "workspace/public/src/scripts/revalidation/tcpctl_host.py": {
+      "bytes": 34750,
+      "sha256": "032f3146ddc08af82f00881ae3d825066e843a41b194ee8d4c8cf09d1f3adb78"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_connected_preflight.py": {
+      "bytes": 21929,
+      "sha256": "c84f7e8d1054df6f095ce13a0bb4c3f057a6d0f4244b77f12b5c87f89edaa6d8"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {
+      "bytes": 103318,
+      "sha256": "c426037452f2d84be4bc7ae6f4dee04960d35b61456d168f3b5660fbfacd95a0"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {
+      "bytes": 280981,
+      "sha256": "d3a7d650f6845386421ac9fdac15a8a227cdf638865c6a34dbd827c74d0e2b79"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_manifest_builder_v1.py": {
+      "bytes": 30970,
+      "sha256": "302403fdeff3ffe0cb5da298ffbfae21dbede7ef6420dc1cb49100d9ec715d1d"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py": {
+      "bytes": 73100,
+      "sha256": "3dff4ecf459ba8844534990a9b740d3e3328761c3030a127b62f9caebe7463d0"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_fast_handoff_v1.py": {
+      "bytes": 12037,
+      "sha256": "da695df326ac347baad2f31c4117ec564ea4cc4181605f397da8105d68e24c47"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase3_network_ssh_v1_rootfs.py": {
+      "bytes": 25978,
+      "sha256": "3c15440d30e5cd14f320c6a1bc0d1639e89b0d878a8970284b5eb7bb58f87166"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase2_display_v1_rootfs.py": {
+      "bytes": 28143,
+      "sha256": "8b44e922aba9efdf8b6877c98d6d3395c4ec34a6d6d5e47247aa3c73d7b689a1"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/manifest.toml": {
+      "bytes": 2962,
+      "sha256": "0a0ced3d0720db7bedb4ebcc42f98162a687d2a4d5d785b8cc123cae777ef9c7"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh": {
+      "bytes": 10126,
+      "sha256": "b52b7306d928d0a7275af70f16ff44d578a8440260828343eefa2a204bdc8859"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_return_arm_v1.sh": {
+      "bytes": 1187,
+      "sha256": "e83ede7fb430de98881ff7b9d18e8127bfc8bc19e4707d9ccf78410ac555faf3"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_finalize_f1.py": {
+      "bytes": 42949,
+      "sha256": "5ca12ac122f1bc1bf12c8a1621e2fcc7bbcd32359f411f9f42e37d585cf50c95"
+    }
+  },
+  "closure_delta": {
+    "changed_files": {
+      "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py": {
+        "previous": {
+          "bytes": 73073,
+          "sha256": "8d37d2dda415856f75a2461108faf9e7121ac901c9333f7021be5b783284eaf7"
+        },
+        "current": {
+          "bytes": 73100,
+          "sha256": "3dff4ecf459ba8844534990a9b740d3e3328761c3030a127b62f9caebe7463d0"
+        }
+      }
+    },
+    "only_named_execution_critical_change": "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py",
+    "unchanged_named_file_count": 24
+  },
+  "reviewed_change": {
+    "runner": {
+      "path": "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py",
+      "bytes": 73100,
+      "sha256": "3dff4ecf459ba8844534990a9b740d3e3328761c3030a127b62f9caebe7463d0"
+    },
+    "test": {
+      "path": "tests/test_server_distro_a90_resident_promotion_v1.py",
+      "bytes": 60093,
+      "sha256": "b81c075458886f4ea0d116e24727fcff5274b33fc450b6d0d6791ef7984c1e3b"
+    },
+    "model_test": {
+      "path": "tests/test_server_distro_a90_resident_promotion_v1_model.py",
+      "bytes": 9453,
+      "sha256": "c58825b15b4aa6b351cba8e62e9d0422115cd2457ada8497fddb0ff793315fc5"
+    },
+    "bug": "_validate_prior_run used the current spec.stage.bridge_realpath when validating immutable historical candidate and rollback health, falsely requiring a volatile ttyACM number to persist across USB enumeration epochs.",
+    "fix": "_validate_prior_run derives prior_stage.bridge_realpath from the immutable prior manifest target.bridge_selected_realpath and uses it for both historical candidate health and historical final rollback health.",
+    "removed_cross_epoch_constraint": "prior target.bridge_selected_realpath == current spec.stage.bridge_realpath",
+    "retained_cross_epoch_constraints": [
+      "prior target.profile == galaxy-a90-5g-native-init",
+      "prior target.bridge_selected_exact == true",
+      "prior target.bridge_device == current spec.stage.bridge_device",
+      "prior target.recovery_adb_serial_sha256 == current spec.recovery_serial_sha256",
+      "prior rollback SHA/version/build == current exact rollback identity"
+    ]
+  },
+  "historical_evidence_integrity": {
+    "status": "PASS_GO",
+    "historical_manifest_target_realpath_required": true,
+    "candidate_health_selected_realpath_equals_historical_manifest_realpath": true,
+    "rollback_final_health_selected_realpath_equals_historical_manifest_realpath": true,
+    "historical_manifest_bound_by_path_size_sha256": true,
+    "historical_journal_records_bound_by_path_size_sha256": true,
+    "historical_manifest_sha256_in_approval_binding": true,
+    "historical_candidate_transfer_count": 1,
+    "historical_rollback_transfer_count": 1,
+    "historical_candidate_replay": false,
+    "historical_final_health_restored": true,
+    "tampered_historical_realpath_regression": "Changing historical candidate health selected_realpath to /dev/ttyACM9 is rejected with candidate native health is not exact."
+  },
+  "target_substitution_analysis": {
+    "status": "NO_SUBSTITUTION_PATH_FOUND",
+    "stable_identity_across_epochs": "/dev/serial/by-id bridge_device",
+    "volatile_identity_per_epoch": "/dev/ttyACM realpath",
+    "historical_epoch_rule": "Each historical health receipt must equal its own immutable manifest realpath.",
+    "current_epoch_rule": "Current stage manifest must carry a /dev/serial/by-id bridge_device and /dev/ttyACM realpath; require_exact_bridge requires selected_device, selected_realpath, and effective_expect_realpath to equal that current spec before live action.",
+    "recovery_identity_rule": "Historical and current recovery ADB serial digests must match, and current recovery evidence is reopened and hash-checked before live use.",
+    "judgment": "A ttyACM reassignment alone can no longer invalidate history, but a different by-id target, recovery identity, A90 profile, historical manifest realpath, or current live realpath still fails closed."
+  },
+  "permanent_a90_boundaries": {
+    "only_partition_payload": "boot",
+    "forbidden_partition_writes": true,
+    "exact_by_id_target_isolation": true,
+    "current_realpath_pin": true,
+    "exact_rollback_hash_version_build": true,
+    "physical_recovery_evidence_required": true,
+    "candidate_transfer_count_max": 1,
+    "candidate_replay": false,
+    "rollback_on_post_attempt_failure": true,
+    "final_health_required": true,
+    "permanent_execution_gates_changed": false
+  },
+  "unchanged_h2_artifacts_and_d1": {
+    "candidate": {
+      "profile": "phase3-minimal-h2-two-phase-auto-benchmark",
+      "version": "0.11.170",
+      "build": "phase3-minimal-h2-two-phase-auto-benchmark",
+      "bytes": 58372096,
+      "sha256": "97cfbb149361773e895a2a1cff0f13961c06f0a4710119159d6d2a104bc69802"
+    },
+    "rootfs": {
+      "run_id": "a90-v3406-debian-display-f1-20260805-04",
+      "sha256": "e13994b9ef29c8274408367f12fdbfcb92ee8301eba045d0a9ae6f344703dc0e",
+      "bytes": 2147483648
+    },
+    "rollback": {
+      "partition": "boot",
+      "sha256": "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb",
+      "size": 60882944,
+      "version": "0.9.285",
+      "build": "v2321-usb-clean-identity-rodata"
+    },
+    "d1_bridge_selector_sha256": "7bacce5a61f6745d4dfb0b7f89ffffc478d4e74fd6a1559d20718793668414e9",
+    "prior_d1_finding_closures_unchanged": [
+      "D1-ORDER-003",
+      "D1-PUBLISH-004",
+      "D1-IDENTITY-005"
+    ]
+  },
+  "validation": {
+    "reported_focused_suite": "40/40 PASS",
+    "independent_changed_file_suite": "33/33 PASS",
+    "independent_changed_file_plus_model_suite": "46/46 PASS",
+    "historical_acm_reassignment_positive_regression": "PASS",
+    "historical_health_wrong_realpath_negative_regression": "PASS",
+    "python_py_compile": "PASS",
+    "git_diff_check": "PASS",
+    "finalizer_contract_issues": [],
+    "current_named_execution_critical_records": 25,
+    "current_promotion_sha256": "3dff4ecf459ba8844534990a9b740d3e3328761c3030a127b62f9caebe7463d0",
+    "reviewer_device_contact": false,
+    "reviewer_usb_contact": false,
+    "reviewer_adb_contact": false,
+    "reviewer_flash": false,
+    "reviewer_reboot": false,
+    "reviewer_s22plus_contact": false
+  },
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "pass_go_granted": true,
+  "live_f1_capability_pass_go": true,
+  "live_d1_capability_pass_go": true,
+  "live_use_authorized": false,
+  "device_contact": false,
+  "payload_transfer": false,
+  "partition_write": false,
+  "flash": false,
+  "reboot": false,
+  "other_target_touched": false,
+  "review_lifetime": "Reusable for this exact 25-file named closure, including promotion runner 3dff4ecf459ba8844534990a9b740d3e3328761c3030a127b62f9caebe7463d0, while execution-critical hashes and hazard assumptions remain unchanged and no new incident occurs. Fresh current target/by-id/realpath, rollback, recovery, presence, qualification, and live manifest bindings remain separate.",
+  "final_judgment": "PASS_GO. Historical health is bound to its historical ACM epoch, while the current live target is independently pinned by exact by-id, current realpath, A90 profile, and recovery identity. Boot-only, rollback, recovery, no-replay, and evidence-integrity boundaries remain unchanged. No device authority is granted."
+}
+

@@ -6178,6 +6178,7 @@ int main(void) {
        services, going straight back to the serial control shell. A normal (kernel-spawned) boot has
        A90_RELOADED unset, so every guard below is a no-op and normal boot behavior is unchanged. */
     int a90_reloaded = (getenv("A90_RELOADED") != NULL);
+    bool a90_cache_ready = false;
     a90_timeline_record(0, 0, a90_reloaded ? "init-start-reloaded" : "init-start", "%s", INIT_BANNER);
     if (a90_reloaded) {
         klogf("<6>A90v724: hot-reload fast-path (A90_RELOADED set)\n");
@@ -6199,6 +6200,7 @@ int main(void) {
 
     if (a90_storage_mount_cache() == 0) {
         a90_storage_set_cache_ready(true);
+        a90_cache_ready = true;
         boot_splash_set_line(1, "[ CACHE  ] OK /cache");
         a90_log_select_or_fallback(NATIVE_LOG_PRIMARY);
         a90_timeline_replay_to_log("cache");
@@ -6225,6 +6227,11 @@ int main(void) {
         klogf("<6>A90v724: cache mount failed (%d)\n", saved_errno);
     }
     boot_auto_frame();
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    if (!a90_reloaded) {
+        a90_benchmark_emit("native_cache_stage_ready");
+    }
+#endif
     a90_storage_probe_boot(&storage_hooks, NULL);
     {
         struct a90_storage_status storage_status;
@@ -6253,6 +6260,11 @@ int main(void) {
         }
         boot_auto_frame();
     }
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    if (!a90_reloaded) {
+        a90_benchmark_emit("native_runtime_ready");
+    }
+#endif
 
     if (a90_helper_scan() == 0) {
         char helper_summary[96];
@@ -6591,6 +6603,35 @@ int main(void) {
             (void)a90_wifi_start_boot_autoconnect_once();
             (void)a90_audio_boot_chime_start_once();
         }  /* end !a90_reloaded live-service re-init guard */
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+        if (!a90_reloaded) {
+            int auto_handoff_rc;
+
+            a90_benchmark_emit("native_services_ready");
+            if (a90_cache_ready) {
+                auto_handoff_rc = a90_auto_handoff_run_once();
+            } else {
+                a90_console_printf(
+                    "# Automatic distro handoff refused: durable /cache unavailable.\r\n");
+                a90_logf("auto-handoff", "refused durable cache unavailable");
+                a90_timeline_record(-ENODEV,
+                                    ENODEV,
+                                    "auto-handoff",
+                                    "durable cache unavailable");
+                a90_benchmark_emit("auto_handoff_cache_refused");
+                auto_handoff_rc = -ENODEV;
+            }
+            if (auto_handoff_rc < 0) {
+                a90_console_printf(
+                    "# Automatic distro handoff returned rc=%d; staying native; no replay.\r\n",
+                    auto_handoff_rc);
+                if (start_auto_hud(BOOT_HUD_REFRESH_SECONDS, false) < 0) {
+                    a90_console_printf("# Native HUD restore after handoff failure failed.\r\n");
+                }
+                a90_benchmark_emit("native_fallback_ready");
+            }
+        }
+#endif
         a90_logf("boot", "entering shell");
         a90_timeline_record(0, 0, "shell", "interactive shell ready");
         shell_loop();

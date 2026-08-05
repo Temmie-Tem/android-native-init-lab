@@ -227,6 +227,33 @@ class StatusAndSelectionHelpers(unittest.TestCase):
 
 
 class CommandRenderingAndFilesystemHelpers(unittest.TestCase):
+    def test_stop_discovered_ignores_reused_stale_metadata_pid(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            metadata = root / "workspace" / "private" / "run" / "bridge.json"
+            metadata.parent.mkdir(parents=True)
+            metadata.write_text('{"pid": 111}\n', encoding="utf-8")
+            args = SimpleNamespace(
+                metadata=str(metadata),
+                discovered=True,
+                stop_timeout=5.0,
+            )
+            status = {
+                "processes": [
+                    {"pid": 222, "port_match": True},
+                ],
+            }
+
+            with mock.patch.object(bridge, "collect_status", return_value=status), \
+                    mock.patch.object(bridge, "is_bridge_process", side_effect=lambda pid: pid == 222), \
+                    mock.patch.object(bridge, "process_cmdline", return_value="python serial_tcp_bridge.py"), \
+                    mock.patch.object(bridge, "stop_pid", return_value=True) as stop_pid:
+                rc = bridge.command_stop(args, root)
+
+            self.assertEqual(rc, 0)
+            stop_pid.assert_called_once_with(222, 5.0)
+            self.assertFalse(metadata.exists())
+
     def test_build_bridge_command_includes_contract_flags_and_effective_expect_realpath(self) -> None:
         args = argparse.Namespace(
             python="/usr/bin/python3",
