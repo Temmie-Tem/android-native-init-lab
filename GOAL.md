@@ -49,27 +49,31 @@ chain with its GENI I2C transport and still produced no host-visible attach.
 That stack may still matter as part of Android coordination, but module
 presence alone is already refuted as a sufficient fix.
 
-Two exact live predicates remain unproved and can share one narrow successor
-without rebuilding Image or any module. First, the existing twelve
-immediate-post-call HS-PHY clock probes must arm after module index 55
-(`phy-msm-snps-hs`) and before index 58 (`dwc3-msm`), because the first PHY
-init occurs synchronously during the latter probe. The full 28-event cycle
-descriptor cannot simply move earlier because it also names not-yet-loaded
-DWC3 symbols; use a clock-only descriptor and the already-audited offsets.
-Second, the exact `dwc3-msm.ko` has the wrapper HS-PHY-control readback in
-`w21` immediately before `dwc3_otg_start_peripheral+0x4cc`; one exact
-module-offset probe can retain `UTMI_OTG_VBUS_VALID` bit 20 and, as a sidecar,
-`SW_SESSVLD_SEL` bit 28 after the write.
+Two exact live predicates remain unproved. First, `msm_hsphy_probe()` can call
+`msm_hsphy_enable_clocks(true)` inside module loading when bootloader EUD is set.
+A module-offset probe cannot predate its text, so probes armed after index 55
+(`phy-msm-snps-hs`) and before index 58 (`dwc3-msm`) cover only the later normal
+init. Zero hits do not measure probe-time returns; the broader claim is withdrawn.
 
-The selected next H0 unit is therefore a userspace-only dual observer: arm the
-clock-only set in the index-55/index-58 gap, then arm the single wrapper
-readback probe after index 58 and before the first role request. Any negative
-initial clock return or a cleared bit 20 localizes the failure. Twelve zero
-returns plus bit 20 set closes both remaining digital gates; bit 28 alone is
-not causal without a working-stock comparator. Only that nominal result moves
-the frontier to candidate-specific Type-C/CC/mux or PHY-output state. No new
-module stack, log-level change, role retry, or physical-line manipulation is
-part of this unit.
+The pre-module, sequence-complete `/dev/kmsg` observer closes that gap. Parse in order
+exact `msm_hsphy_init phy_flags`, unique `csr:... eud is enabled`, exact
+`msm_hsphy_dpdm_regulator_enable dpdm_enable:<value>`, and the first pre-init
+`msm_hsphy_enable_clocks(): clocks_enabled:<value> on:<value>`. Generic EUD or
+DPDM substrings are invalid because enable/disable/is-enabled callbacks share
+them. EUD-init attributes early return; DPDM-enable without it attributes that
+caller; neither plus zero hits remains unclassified. This is not a defensible
+50-percent probability claim.
+
+Second, exact `dwc3-msm.ko` retains the wrapper readback in `w21` immediately
+before `dwc3_otg_start_peripheral+0x4cc`. One probe records
+`UTMI_OTG_VBUS_VALID` bit 20 and sidecar bit 28. The selected userspace-only
+successor combines ordered kmsg attribution, later clock callsites, and this
+wrapper probe. A negative measured clock return or cleared bit 20 localizes the
+failure; nominal measured returns plus bit 20 set close the observed gates.
+
+EUD attribution does not authorize `/sys/module/eud/parameters/enable=0`; that
+invokes hardware writes forbidden by the permanent contract. Any remedy remains
+H0. No role retry, EUD write, or physical-line manipulation is selected.
 
 P3.04 is the preceding closed live unit. After one pre-candidate host-observer
 arm stop with zero transfers, a new prepared run transferred its distinct
