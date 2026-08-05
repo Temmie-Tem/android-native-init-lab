@@ -36,7 +36,7 @@
       "s22plus_fyg8_p303_overlay_intent.py": "250c1f65ee6dd65ff7efd4dd244449e3b1d1f0b238443ca71c8a8428e1f02a76",
       "s22plus_fyg8_p303_stock_log_baseline.py": "9689d94552dcf592e348d8e312dea3eb59bcaaf9e4f24dbb426fb38a23ec3373",
       "s22plus_fyg8_p303_stock_log_baseline_binding.py": "024bab15397cd44a967aae8b195e46028e5db0f2601a3707ed83674c0b215cd4",
-      "s22plus_fyg8_p303_stock_log_d0.py": "dae268ec6408574188241814701b9db9b1625eae0e7165b5924c3a695a7ed298",
+      "s22plus_fyg8_p303_stock_log_d0.py": "a5d48ecac9b5ab39a8a6d80921cebef5675410a1d9ce7dae14c03ffb47d62f96",
       "s22plus_fyg8_p303_telemetry_decoder.py": "1b8738852b3ffa1bd1b32b03d8f8295a34a911ed54479dd2b527650a6c795eb9",
       "s22plus_fyg8_p303_telemetry_generator.py": "ed733c4cba776b3f1fec601905d793c05c626998e03a20de395510c5bd6efbf3",
       "s22plus_fyg8_p303_telemetry_spec.py": "cb4ad72706536bc1fc21fedbdc795823647a39112fbdf6492343fc55bf66f5a7",
@@ -232,6 +232,7 @@
     "A preliminary reviewer STOP claiming all P3.03 contradiction details were unreachable was withdrawn for the same verified publication-band reason.",
     "A marker-only synthetic stock baseline gap was closed by a dedicated exact-target D0 producer, raw boot-window receipt, actual runtime module SHA-256 receipt, immutable baseline binding, and mandatory same-campaign comparison.",
     "The attended multi-target inventory bug was closed in the D0 producer: exactly one state=device model:SM_S906N device:g0q row is selected while unrelated rows are permitted; zero or duplicate S22 matches fail closed; final serial and row count are compared before any final topology or property command, and a replacement-S22 test proves zero commands reach the foreign serial.",
+    "The first connected D0 exposed a host observer-ordering bug when stock dmesg normalization rejected its timestamps before the raw input was preserved. The corrected producer durably creates the exact bounded private raw immediately after the read and only then invokes normalization, so a repeated parser failure preserves evidence without changing target selection, target commands, candidate bytes, or evidence schema.",
     "Reuse of a valid stock baseline under another manifest_id or live_run_id is fail-closed in both generic ready preparation and live verify_bundle; the current integration negative returns failure and leaves the canonical manifest absent.",
     "P3.03 adapter promotion restores inherited globals; the current P3.02 regression exercises the actual P3.01-r1 path in the same process and passes."
   ],
@@ -297,7 +298,7 @@
       "static_check_sha256": "b403d9332ed17278762c68c08fc42612cff7ac54408131560516ee6e4abba7a4"
     }
   },
-  "reviewed_at_utc": "2026-08-05T02:42:41Z",
+  "reviewed_at_utc": "2026-08-05T02:45:22Z",
   "schema": "s22plus_fyg8_p303_hsphy_silent_failure_independent_review_v1",
   "scope": [
     "exact 12 post-BL clock-return probes in unchanged FYG8 phy-msm-snps-hs.ko",
@@ -366,9 +367,9 @@
       "total": "prior full closure 16/16 plus current execution-critical D0 delta 2/2; no unrun 17/17 claim",
       "wrong_campaign_integration_negative": "returns 2 and creates no canonical manifest"
     },
-    "git_diff_check": "PASS for the corrected D0 delta before this review update",
+    "git_diff_check": "PASS for the corrected multi-target and write-before-parse D0 deltas before this review update",
     "intent_reverification": "PASS source_count=12 callsite_count=12 run_id=e324abaec60286102e4c9eb19fd80600",
-    "py_compile": "PASS including the corrected multi-target D0 producer",
+    "py_compile": "PASS including the corrected multi-target and write-before-parse D0 producer",
     "ready_manifest_rehearsal": "PASS with created=false, device_contact=false, d0_started=false, f1_authorized=false",
     "static_audit_reproduced": true,
     "test_receipts": {

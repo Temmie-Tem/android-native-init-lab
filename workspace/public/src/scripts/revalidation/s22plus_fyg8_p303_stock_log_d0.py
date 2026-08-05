@@ -217,9 +217,9 @@ def collect(root: Path, profile_path: Path, adb_path: Path, run_dir: Path) -> di
     _exact_identity(profile, first)
 
     raw = _root_command(adb_path, serial, "dmesg", binding.MAX_RAW)
-    binding.summarize_raw(raw)
     raw_path = run_dir / RAW_NAME
     _durable_bytes(raw_path, raw)
+    binding.summarize_raw(raw)
 
     module_output = _root_command(
         adb_path,
