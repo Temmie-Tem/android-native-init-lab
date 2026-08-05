@@ -339,6 +339,25 @@ def validate_manifest(manifest: dict[str, Any], profile: dict[str, Any]) -> dict
     return manifest
 
 
+def verify_p303_campaign_binding(
+    acceptance: dict[str, Any],
+    verification: dict[str, Any],
+    *,
+    manifest_id: str,
+    live_run_id: str,
+) -> None:
+    """Keep the one stock baseline pair bound to its exact P3.03 run."""
+    if (
+        acceptance.get("userspace_overlay_contract_id")
+        != typed_evidence.P303_OVERLAY_CONTRACT_ID
+    ):
+        return
+    baseline = verification.get("p303_stock_baseline")
+    expected = {"manifest_id": manifest_id, "live_run_id": live_run_id}
+    if not isinstance(baseline, dict) or baseline.get("campaign_binding") != expected:
+        raise F1V2Error("P3.03 stock baseline belongs to a different campaign")
+
+
 def _repo_path(root: Path, value: str, label: str) -> Path:
     path = Path(_text(value, label))
     if path.is_absolute() or ".." in path.parts:
@@ -481,18 +500,24 @@ def execution_critical_source_receipts(
                 typed_evidence.P301_TELEMETRY_OVERLAY_IDS
             ):
                 root = candidate_intent.repo_root()
-                overlay_module = (
-                    typed_evidence.p302_overlay
-                    if userspace_overlay_contract_id
+                if (
+                    userspace_overlay_contract_id
+                    == typed_evidence.P303_OVERLAY_CONTRACT_ID
+                ):
+                    overlay_module = typed_evidence.p303_overlay
+                    overlay_label = "P3.03"
+                    prefix = "p303"
+                elif (
+                    userspace_overlay_contract_id
                     == typed_evidence.P302_OVERLAY_CONTRACT_ID
-                    else typed_evidence.p301_overlay
-                )
-                overlay_label = (
-                    "P3.02"
-                    if userspace_overlay_contract_id
-                    == typed_evidence.P302_OVERLAY_CONTRACT_ID
-                    else "P3.01"
-                )
+                ):
+                    overlay_module = typed_evidence.p302_overlay
+                    overlay_label = "P3.02"
+                    prefix = "p302"
+                else:
+                    overlay_module = typed_evidence.p301_overlay
+                    overlay_label = "P3.01"
+                    prefix = "p301"
                 try:
                     overlay_contract = overlay_module.verify_intent(
                         root,
@@ -515,12 +540,6 @@ def execution_critical_source_receipts(
                     raise F1V2Error(
                         f"{overlay_label} execution overlay identity differs"
                     )
-                prefix = (
-                    "p302"
-                    if userspace_overlay_contract_id
-                    == typed_evidence.P302_OVERLAY_CONTRACT_ID
-                    else "p301"
-                )
                 for name, data in overlay_sources.items():
                     receipts[f"{prefix}_overlay_source_{name}"] = {
                         "size": len(data),
@@ -531,7 +550,20 @@ def execution_critical_source_receipts(
                 )
                 if (
                     userspace_overlay_contract_id
-                    == typed_evidence.P302_OVERLAY_CONTRACT_ID
+                    == typed_evidence.P303_OVERLAY_CONTRACT_ID
+                ):
+                    e1_latest_stage_sources["p303_stock_baseline_binding"] = Path(
+                        typed_evidence.p303_stock_binding.__file__
+                    )
+                    e1_latest_stage_sources["p303_stock_log_d0"] = (
+                        root / typed_evidence.p303_stock_binding.PRODUCER_PATH
+                    )
+                if (
+                    userspace_overlay_contract_id
+                    in {
+                        typed_evidence.P302_OVERLAY_CONTRACT_ID,
+                        typed_evidence.P303_OVERLAY_CONTRACT_ID,
+                    }
                 ):
                     parent_sources = typed_evidence.p301_overlay.source_bytes(root)
                     for name, data in parent_sources.items():
@@ -746,6 +778,11 @@ def verify_candidate_source_binding(
             == typed_evidence.P302_OVERLAY_CONTRACT_ID
         ):
             required_overlays.append(("p302", typed_evidence.p302_overlay))
+        if (
+            userspace_overlay_contract_id
+            == typed_evidence.P303_OVERLAY_CONTRACT_ID
+        ):
+            required_overlays.append(("p303", typed_evidence.p303_overlay))
         for prefix, overlay_module in required_overlays:
             expected_overlay = verification.get(
                 f"{prefix}_overlay_source_receipts"
@@ -892,6 +929,12 @@ def verify_bundle(root: Path, manifest_path: Path) -> Bundle:
             )
         except typed_evidence.EvidenceError as exc:
             raise F1V2Error(str(exc)) from exc
+        verify_p303_campaign_binding(
+            acceptance,
+            verification,
+            manifest_id=manifest["manifest_id"],
+            live_run_id=manifest["run_id"],
+        )
         receipts["observation_contract"] = {
             "artifacts": contract_receipts,
             "verification": verification,

@@ -59,13 +59,70 @@ Thus the host did not detect an attach from this candidate. This does not yet
 distinguish an unasserted device pull-up from a blocked analog/mux/cable path or
 a host-port failure. Likewise, absence of `ERRATIC_ERROR` proves only that the
 controller emitted no such event; it does not close every analog PHY failure
-that could prevent attach detection. The P3.02-M0 measurement carrier and its
-Process-v2 evidence path are now host-qualified, but no canonical manifest was
-created and no new F1 is ready. The next prerequisite is the passive breakout
-pin/continuity check and exact FS/LS known-High control below. Do not replay the
-consumed P3.01-r1 candidate.
+that could prevent attach detection. The external P3.02 observer is parked
+because no safe inline breakout is available. Do not replay the consumed
+P3.01-r1 candidate.
 
-## Selected Bounded Unit: P3.02 Passive Pull-Up Electrical Attribution (Host Ready)
+The selected P3.03 unit instead tests the silent HS-PHY initialization boundary
+that the vendor driver already exposes. Reset and register-readback failures
+are logged but not propagated, while all six `clk_prepare_enable()` operations
+discard both their prepare and enable returns and then mark clocks enabled.
+P3.03 combines a bounded candidate-window `/dev/kmsg` observer with twelve
+exact immediate-post-`bl` return probes in the existing vendor module. It does
+not rebuild the kernel or inject a module.
+
+## Selected Bounded Unit: P3.03 HS-PHY Silent-Failure Attribution (Host Qualified)
+
+The exact FYG8 `phy-msm-snps-hs.ko` has SHA-256
+`22a866320ba0de46619484efafaf0cf7ea3f7ba387cee7c3dd085f3a82492e94`,
+Build ID `cdb249f9a7599440ca66208f02caec0a6601bc03`, and no out-of-line
+`msm_hsphy_clocks()` helper. `msm_hsphy_init()` contains twelve ignored return
+sites: prepare and enable for `ref_clk_src`, `ref_clk`, and `cfg_ahb_clk` in the
+EUD and normal paths. Each selected offset is the instruction immediately
+after a relocation-bound `bl` to `clk_prepare` or `clk_enable`; that instruction
+is the first `cbz/cbnz w0` consumer. This is not the P3.00-rejected epilogue
+offset pattern: there is one named call edge and one ABI-defined return register,
+not several path-dependent register states converging at an epilogue.
+
+The exact callsite audit is a hard gate. All twelve offsets must retain the
+named preceding call and immediate `w0` consumer in the exact module receipt.
+The candidate must also prove the on-device module hash before F1. A missed
+callsite is never decoded as return zero. In particular, detail `0xD00` means
+that `msm_hsphy_init()` entered and returned zero while all twelve clock
+callsites were missed; it permits no clock-return conclusion and instead asks
+why `clocks_enabled` was already true. Missing init entry/return or a nonzero
+init return is a contradiction family, not the same result.
+
+Ordinal 105 uses the already compiled exact PROGRESS rules `0xD00-0xDA2` for
+clock reach and errno buckets. Ordinal 106 uses FAILURE `0x4001-0x4800` for
+the candidate-window log summary: first write-readback offset, count bucket,
+and reset-failure mask. The observer opens `/dev/kmsg` at the current end before
+module loading, requires sequence-complete collection, and requires the normal
+HS-PHY path marker. A stock baseline captured immediately after the already
+required normal baseline rotation is normalized into the same log domain. A
+candidate signature equal to working stock cannot be attributed as the cause;
+clean reset/readback logs do not prove the unlogged clock path.
+
+The two clean builds are byte-identical. Each boot image is 100,663,296 bytes
+with SHA-256
+`434a4075532ac4c35ec5068aaa56da441322f63e5e342fa22f6ee8f62ad52b68`;
+each one-member AP is 27,105,321 bytes with SHA-256
+`f2cb42b88276dd5c2793d2583308bff60c15e6a7dcf9bb3531b4a6d33f236ad2`.
+They retain the fixed P3.00 Image, inject zero modules, and differ from the
+parent only in the static userspace observer. The 12-file source intent remains
+exact, the artifact/static closure and Process-v2 offline promotion pass, and
+the ready-manifest rehearsal leaves the canonical manifest absent. No device
+contact or F1 arm has occurred for P3.03.
+
+The rehearsal now requires a real connected-D0 stock log pair before the
+canonical manifest can exist. That pair must retain the boot-start window and
+timestamped normal-path marker, bind the stable boot ID and exact on-device
+HS-PHY module hash, and match the outer P3.03 manifest/live-run IDs. This adds
+no reboot or F1: it rides the already-required normal baseline rotation. If
+the pair is incomplete, only stock/candidate log attribution is unavailable;
+independently valid clock callsite hit and return evidence remains usable.
+
+## Parked Bounded Unit: P3.02 Passive Pull-Up Electrical Attribution
 
 The distinct P3.02-M0 carrier is complete without a kernel rebuild, module
 injection, telemetry change, or Full-LTO rebuild. It reuses the exact P3.01-r1

@@ -30,6 +30,9 @@ import s22plus_fyg8_p300_source_contract as p300_source_contract
 import s22plus_fyg8_p301_overlay_contract as p301_overlay
 import s22plus_fyg8_p301_telemetry_decoder as p301_decoder
 import s22plus_fyg8_p302_overlay_contract as p302_overlay
+import s22plus_fyg8_p303_overlay_contract as p303_overlay
+import s22plus_fyg8_p303_stock_log_baseline_binding as p303_stock_binding
+import s22plus_fyg8_p303_telemetry_decoder as p303_decoder
 
 
 MARKER_KIND = "retained_marker_after_rollback"
@@ -124,8 +127,19 @@ P302_CANDIDATE_STATIC_VERDICT = (
     "PASS_P302_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
 )
 P302_OVERLAY_CONTRACT_ID = p302_overlay.CONTRACT_ID
+P303_CANDIDATE_STATIC_SCHEMA = (
+    "s22plus_fyg8_p303_candidate_static_checker_v1"
+)
+P303_CANDIDATE_STATIC_VERDICT = (
+    "PASS_P303_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
+)
+P303_OVERLAY_CONTRACT_ID = p303_overlay.CONTRACT_ID
 P301_TELEMETRY_OVERLAY_IDS = frozenset(
-    {P301_OVERLAY_CONTRACT_ID, P302_OVERLAY_CONTRACT_ID}
+    {
+        P301_OVERLAY_CONTRACT_ID,
+        P302_OVERLAY_CONTRACT_ID,
+        P303_OVERLAY_CONTRACT_ID,
+    }
 )
 P298_HISTORICAL_POSTBUILD_RESULT = {
     "sha256": "a7bfff7bdc82683999ef0d91349f20560b659ea703cb0542eeb37ca36a3ff997",
@@ -395,7 +409,11 @@ def _latest_stage_observation_decoder(
         or profile != p301_overlay.PROFILE
     ):
         raise EvidenceError("userspace observation overlay is unsupported")
-    return p301_decoder
+    return (
+        p303_decoder
+        if userspace_overlay_contract_id == P303_OVERLAY_CONTRACT_ID
+        else p301_decoder
+    )
 
 
 def _validate_p301_overlay_contract(value: Any) -> dict[str, Any]:
@@ -426,6 +444,20 @@ def _validate_p302_overlay_contract(value: Any) -> dict[str, Any]:
     return current
 
 
+def _validate_p303_overlay_contract(value: Any) -> dict[str, Any]:
+    root = Path(__file__).resolve().parents[5]
+    try:
+        current = p303_overlay.verify_intent(
+            root,
+            root / p303_overlay.DEFAULT_INTENT,
+        )
+    except (p303_overlay.OverlayContractError, OSError) as exc:
+        raise EvidenceError("P3.03 overlay intent verification failed") from exc
+    if value != current:
+        raise EvidenceError("P3.03 overlay contract differs from current intent")
+    return current
+
+
 def _validate_userspace_overlay_contract(
     value: Any, userspace_overlay_contract_id: str
 ) -> dict[str, Any]:
@@ -433,6 +465,8 @@ def _validate_userspace_overlay_contract(
         return _validate_p301_overlay_contract(value)
     if userspace_overlay_contract_id == P302_OVERLAY_CONTRACT_ID:
         return _validate_p302_overlay_contract(value)
+    if userspace_overlay_contract_id == P303_OVERLAY_CONTRACT_ID:
+        return _validate_p303_overlay_contract(value)
     raise EvidenceError("userspace observation overlay is unsupported")
 
 
@@ -516,10 +550,71 @@ def _p301_e2_authority_context(
         p300_e2_closure.p286.p282._validate_p282_authority_strings = previous  # noqa: SLF001
 
 
+@contextmanager
+def _p303_e2_authority_context(
+    closure_api: Any, expected_init: dict[str, Any]
+):
+    if closure_api is not p300_e2_closure.select(P300_SOURCE_CONTRACT_ID):
+        raise EvidenceError("P3.03 parent stock-closure adapter differs")
+    previous = p300_e2_closure.p286.p282._validate_p282_authority_strings  # noqa: SLF001
+
+    def validate(data: bytes) -> None:
+        if e2_closure.receipt(data) != expected_init:
+            raise p300_e2_closure.ClosureError(
+                "P3.03 effective init differs from bound identity"
+            )
+        required = frozenset(
+            {*p300_e2_closure.REQUIRED_ABSOLUTE_PATH_STRINGS, "/dev/kmsg"}
+        )
+        allowed = frozenset(
+            {*p300_e2_closure.ALLOWED_ABSOLUTE_PATH_STRINGS, "/dev/kmsg"}
+        )
+        printable = p300_e2_closure.p286.p282.p280.isolated_p260._printable_strings(  # noqa: SLF001
+            data
+        )
+        paths = p300_e2_closure.p286.p282._absolute_path_candidates(printable)  # noqa: SLF001
+        incidental = paths - allowed
+        if (
+            required - paths
+            or incidental != {'/E9"'}
+            or data.count(b"/dev/kmsg") != 1
+            or any(data.count(value.encode("ascii")) != 1 for value in incidental)
+        ):
+            raise p300_e2_closure.ClosureError(
+                "P3.03 effective init authority path set differs"
+            )
+        scrubbed = data
+        for value in sorted(incidental):
+            encoded = value.encode("ascii")
+            scrubbed = scrubbed.replace(encoded, b"\0" * len(encoded))
+        old_required = p300_e2_closure.REQUIRED_ABSOLUTE_PATH_STRINGS
+        old_allowed = p300_e2_closure.ALLOWED_ABSOLUTE_PATH_STRINGS
+        p300_e2_closure.REQUIRED_ABSOLUTE_PATH_STRINGS = required
+        p300_e2_closure.ALLOWED_ABSOLUTE_PATH_STRINGS = allowed
+        try:
+            with p300_e2_closure._p300_authority_globals():  # noqa: SLF001
+                p300_e2_closure._P282_VALIDATE_AUTHORITY_STRINGS(scrubbed)  # noqa: SLF001
+        finally:
+            p300_e2_closure.REQUIRED_ABSOLUTE_PATH_STRINGS = old_required
+            p300_e2_closure.ALLOWED_ABSOLUTE_PATH_STRINGS = old_allowed
+
+    p300_e2_closure.p286.p282._validate_p282_authority_strings = validate  # noqa: SLF001
+    try:
+        yield
+    finally:
+        p300_e2_closure.p286.p282._validate_p282_authority_strings = previous  # noqa: SLF001
+
+
 def _latest_stage_terminal(selected_decoder, profile: str) -> int:
     terminal = getattr(selected_decoder, "TERMINAL_STAGE", None)
     if terminal is None:
         position = getattr(selected_decoder, "TERMINAL_POSITION", None)
+        if position is None:
+            position = getattr(
+                getattr(selected_decoder, "inherited", None),
+                "TERMINAL_POSITION",
+                None,
+            )
         if (
             isinstance(position, tuple)
             and len(position) == 2
@@ -951,11 +1046,18 @@ def validate_e2_ap_payload(
         generic_module_closure = _generic_rootfs_module_closure(
             source_contract_id, closure_api, module_closure
         )
-        authority_context = (
-            _p301_e2_authority_context(closure_api, identities["init"])
-            if userspace_overlay_contract_id in P301_TELEMETRY_OVERLAY_IDS
-            else _e2_authority_context(source_contract_id, closure_api)
-        )
+        if userspace_overlay_contract_id == P303_OVERLAY_CONTRACT_ID:
+            authority_context = _p303_e2_authority_context(
+                closure_api, identities["init"]
+            )
+        elif userspace_overlay_contract_id in P301_TELEMETRY_OVERLAY_IDS:
+            authority_context = _p301_e2_authority_context(
+                closure_api, identities["init"]
+            )
+        else:
+            authority_context = _e2_authority_context(
+                source_contract_id, closure_api
+            )
         with authority_context:
             generic_rootfs = closure_api.audit_candidate_generic_rootfs(
                 boot,
@@ -1307,14 +1409,26 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
             or item["clean_baseline_required"] is not True
         ):
             raise EvidenceError("E1 latest-stage acceptance identity is invalid")
+        contract_keys = {"candidate_static", "run_manifest", "static_check"}
+        if userspace_overlay_contract_id == P303_OVERLAY_CONTRACT_ID:
+            contract_keys.update({"stock_baseline_raw", "stock_baseline_result"})
         contract = _exact(
             item["contract"],
-            {"candidate_static", "run_manifest", "static_check"},
+            contract_keys,
             "E1 latest-stage contract",
         )
         _artifact(contract["candidate_static"], "E1 latest-stage candidate_static")
         _artifact(contract["run_manifest"], "E1 latest-stage run_manifest")
         _artifact(contract["static_check"], "E1 latest-stage static_check")
+        if userspace_overlay_contract_id == P303_OVERLAY_CONTRACT_ID:
+            _artifact(
+                contract["stock_baseline_raw"],
+                "P3.03 stock baseline raw",
+            )
+            _artifact(
+                contract["stock_baseline_result"],
+                "P3.03 stock baseline result",
+            )
         return item
     if kind == PID1_USERSPACE_KIND:
         item = _exact(
@@ -1844,11 +1958,16 @@ def _verify_e1_latest_stage_offline_contract(
         profile,
         userspace_overlay_contract_id,
     )
-    if set(payloads) != {
+    expected_payloads = {
         "candidate_static",
         "run_manifest",
         "static_check",
-    } or set(receipts) != set(payloads):
+    }
+    if userspace_overlay_contract_id == P303_OVERLAY_CONTRACT_ID:
+        expected_payloads.update(
+            {"stock_baseline_raw", "stock_baseline_result"}
+        )
+    if set(payloads) != expected_payloads or set(receipts) != set(payloads):
         raise EvidenceError(
             "P2.34 E1 latest-stage evidence has no candidate-bound offline contract"
         )
@@ -1865,6 +1984,17 @@ def _verify_e1_latest_stage_offline_contract(
 
     run_manifest = _json(payloads["run_manifest"], "E1 latest-stage run manifest")
     static_result = _json(payloads["static_check"], "E1 latest-stage static result")
+    p303_stock_baseline = None
+    if userspace_overlay_contract_id == P303_OVERLAY_CONTRACT_ID:
+        try:
+            p303_stock_baseline = p303_stock_binding.verify_payloads(
+                Path(__file__).resolve().parents[5],
+                payloads["stock_baseline_raw"],
+                payloads["stock_baseline_result"],
+                expected_raw_path=item["contract"]["stock_baseline_raw"]["path"],
+            )
+        except (p303_stock_binding.BindingError, OSError) as exc:
+            raise EvidenceError("P3.03 stock baseline binding is invalid") from exc
     if (
         run_manifest.get("schema") != E1_LATEST_STAGE_RUN_MANIFEST_SCHEMA
         or static_result.get("schema") != E1_LATEST_STAGE_STATIC_SCHEMA
@@ -1931,6 +2061,9 @@ def _verify_e1_latest_stage_offline_contract(
         payloads["candidate_static"], "E1A candidate static result"
     )
     expected_candidate_static_schema = (
+        P303_CANDIDATE_STATIC_SCHEMA
+        if userspace_overlay_contract_id == P303_OVERLAY_CONTRACT_ID
+        else (
         P302_CANDIDATE_STATIC_SCHEMA
         if userspace_overlay_contract_id == P302_OVERLAY_CONTRACT_ID
         else (
@@ -1968,9 +2101,12 @@ def _verify_e1_latest_stage_offline_contract(
                     )
                 )
             )
-        ))
+        )))
     )
     expected_candidate_static_verdict = (
+        P303_CANDIDATE_STATIC_VERDICT
+        if userspace_overlay_contract_id == P303_OVERLAY_CONTRACT_ID
+        else (
         P302_CANDIDATE_STATIC_VERDICT
         if userspace_overlay_contract_id == P302_OVERLAY_CONTRACT_ID
         else (
@@ -2008,7 +2144,7 @@ def _verify_e1_latest_stage_offline_contract(
                     )
                 )
             )
-        ))
+        )))
     )
     expected_candidate_static_keys = {
         "schema",
@@ -2023,6 +2159,10 @@ def _verify_e1_latest_stage_offline_contract(
     }
     if userspace_overlay_contract_id == P302_OVERLAY_CONTRACT_ID:
         expected_candidate_static_keys.add("carrier_identity")
+    if userspace_overlay_contract_id == P303_OVERLAY_CONTRACT_ID:
+        expected_candidate_static_keys.update(
+            {"p303_callsite_audit", "p303_offset_probe_rule"}
+        )
     if (
         set(candidate_static_result) != expected_candidate_static_keys
         or candidate_static_result.get("schema")
@@ -2061,7 +2201,9 @@ def _verify_e1_latest_stage_offline_contract(
     candidate_contract_value = candidate_static_result.get("candidate_contract")
     p301_overlay_source_receipts = None
     p302_overlay_source_receipts = None
+    p303_overlay_source_receipts = None
     p302_contract = None
+    p303_contract = None
     if userspace_overlay_contract_id == P301_OVERLAY_CONTRACT_ID:
         p301_contract = _validate_p301_overlay_contract(candidate_contract_value)
         if (
@@ -2079,6 +2221,50 @@ def _verify_e1_latest_stage_offline_contract(
             raise EvidenceError("P3.01 overlay candidate contract is invalid")
         candidate_contract_value = p301_contract.get("parent_candidate_contract")
         p301_overlay_source_receipts = p301_contract.get("source_receipts")
+    elif userspace_overlay_contract_id == P303_OVERLAY_CONTRACT_ID:
+        p303_contract = _validate_p303_overlay_contract(candidate_contract_value)
+        parent_overlay = p303_contract.get("parent_overlay_contract")
+        if (
+            p303_contract.get("userspace_overlay_contract_id")
+            != userspace_overlay_contract_id
+            or p303_contract.get("parent_overlay_contract_id")
+            != P301_OVERLAY_CONTRACT_ID
+            or p303_contract.get("source_contract_id") != source_contract_id
+            or p303_contract.get("profile") != profile
+            or p303_contract.get("run_id") != item["run_id"]
+            or p303_contract.get("telemetry", {}).get("decoder_id")
+            != selected_decoder.DECODER_ID
+            or p303_contract.get("telemetry", {}).get("decoder_policy_id")
+            != selected_decoder.POLICY_ID
+            or p303_contract.get("callsite_audit", {}).get("verified") is not True
+            or p303_contract.get("callsite_audit", {}).get("callsite_count") != 12
+            or not isinstance(parent_overlay, dict)
+            or parent_overlay.get("userspace_overlay_contract_id")
+            != P301_OVERLAY_CONTRACT_ID
+            or p303_contract.get("verified") is not True
+        ):
+            raise EvidenceError("P3.03 overlay candidate contract is invalid")
+        callsites = candidate_static_result.get("p303_callsite_audit")
+        offset_rule = _exact(
+            candidate_static_result.get("p303_offset_probe_rule"),
+            {
+                "p300_epilogue_rejection_preserved",
+                "immediate_post_bl_only",
+                "w0_immediately_consumed",
+                "fixed_module_receipt_shared_by_candidate_a_b",
+                "hit_zero_distinct_from_rc_zero",
+                "verified",
+            },
+            "P3.03 post-BL offset probe rule",
+        )
+        if (
+            callsites != p303_contract.get("callsite_audit")
+            or any(value is not True for value in offset_rule.values())
+        ):
+            raise EvidenceError("P3.03 post-BL callsite proof is invalid")
+        candidate_contract_value = p303_contract.get("parent_candidate_contract")
+        p301_overlay_source_receipts = parent_overlay.get("source_receipts")
+        p303_overlay_source_receipts = p303_contract.get("source_receipts")
     elif userspace_overlay_contract_id == P302_OVERLAY_CONTRACT_ID:
         p302_contract = _validate_p302_overlay_contract(candidate_contract_value)
         parent_overlay = p302_contract.get("parent_overlay_contract")
@@ -2652,6 +2838,11 @@ def _verify_e1_latest_stage_offline_contract(
             result["p302_overlay_source_receipts"] = (
                 p302_overlay_source_receipts
             )
+        if userspace_overlay_contract_id == P303_OVERLAY_CONTRACT_ID:
+            result["p303_overlay_source_receipts"] = (
+                p303_overlay_source_receipts
+            )
+            result["p303_stock_baseline"] = p303_stock_baseline
     if p298_repair_files is not None:
         result["tier2_repair_files"] = p298_repair_files
     if profile == "E2":
@@ -2973,6 +3164,44 @@ def classify_same_ring_multiboot(
     return result
 
 
+def _p303_bound_stock_baseline(item: dict[str, Any]) -> dict[str, Any]:
+    root = Path(__file__).resolve().parents[5]
+    contract = item["contract"]
+    payloads: dict[str, bytes] = {}
+    for name in ("stock_baseline_raw", "stock_baseline_result"):
+        pin = contract[name]
+        path = (root / pin["path"]).resolve()
+        try:
+            path.relative_to(root)
+        except ValueError as exc:
+            raise EvidenceError("P3.03 stock baseline escaped the repository") from exc
+        try:
+            before = path.stat()
+            if path.is_symlink() or not path.is_file():
+                raise EvidenceError("P3.03 stock baseline artifact is indirect")
+            payload = path.read_bytes()
+            after = path.stat()
+        except OSError as exc:
+            raise EvidenceError("P3.03 stock baseline artifact is unavailable") from exc
+        if (
+            len(payload) != pin["size"]
+            or hashlib.sha256(payload).hexdigest() != pin["sha256"]
+            or (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+            != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+        ):
+            raise EvidenceError("P3.03 stock baseline artifact changed")
+        payloads[name] = payload
+    try:
+        return p303_stock_binding.verify_payloads(
+            root,
+            payloads["stock_baseline_raw"],
+            payloads["stock_baseline_result"],
+            expected_raw_path=contract["stock_baseline_raw"]["path"],
+        )
+    except (p303_stock_binding.BindingError, OSError) as exc:
+        raise EvidenceError("P3.03 stock baseline comparison input is invalid") from exc
+
+
 def classify_e1_latest_stage(
     payload: bytes, acceptance: dict[str, Any]
 ) -> dict[str, Any]:
@@ -3032,6 +3261,27 @@ def classify_e1_latest_stage(
     result["profile"] = item["profile"]
     result["run_id"] = item["run_id"]
     result["residual_zero_meanings"] = decoded["residual_zero_meanings"]
+    if item.get("userspace_overlay_contract_id") == P303_OVERLAY_CONTRACT_ID:
+        stock = _p303_bound_stock_baseline(item)
+        comparisons = []
+        for record in decoded["records"]:
+            pair = record.get("p303_pair")
+            if pair is None:
+                continue
+            try:
+                comparisons.append(
+                    p303_decoder.compare_stock_baseline(
+                        int(pair["b"]["detail"]), stock["baseline"]
+                    )
+                )
+            except p303_decoder.DecodeError as exc:
+                raise EvidenceError(str(exc)) from exc
+        result["p303_stock_baseline"] = {
+            "raw": stock["raw"],
+            "boot_window_complete": stock["boot_window_complete"],
+            "comparisons": comparisons,
+            "comparison_count": len(comparisons),
+        }
     return result
 
 

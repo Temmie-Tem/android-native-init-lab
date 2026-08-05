@@ -56,6 +56,9 @@ DEFAULT_MANIFEST_ID = "s22plus-fyg8-p292-process-v2-ready-1"
 DEFAULT_LIVE_RUN_ID = "s22plus-fyg8-p292-live-1"
 DEFAULT_TIMEOUT_SEC = 300
 MAX_EVIDENCE = 16 * 1024 * 1024
+P303_OVERLAY_CONTRACT_ID = (
+    "s22plus-fyg8-p303-hsphy-silent-failure-userspace-overlay-v1"
+)
 
 
 class ManifestError(ValueError):
@@ -147,12 +150,15 @@ def derive_manifest(
     observation = run_manifest.get("observation_contract")
     if not isinstance(records, dict) or not isinstance(observation, dict):
         raise ManifestError("P2.92 observation contract is missing")
+    contract_names = ["candidate_static", "run_manifest", "static_check"]
+    if userspace_overlay_contract_id == P303_OVERLAY_CONTRACT_ID:
+        contract_names.extend(("stock_baseline_raw", "stock_baseline_result"))
     contract = {
         name: {
             "path": repo_relative(root, evidence_paths[name], name),
             **evidence_receipts[name],
         }
-        for name in ("candidate_static", "run_manifest", "static_check")
+        for name in contract_names
     }
     acceptance = {
         "kind": evidence.E1_LATEST_STAGE_KIND,
@@ -247,6 +253,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--candidate-ap", type=Path, default=DEFAULT_CANDIDATE_AP)
     parser.add_argument("--rollback-ap", type=Path, default=DEFAULT_ROLLBACK_AP)
     parser.add_argument("--target-profile", type=Path, default=DEFAULT_TARGET_PROFILE)
+    parser.add_argument("--stock-baseline-raw", type=Path)
+    parser.add_argument("--stock-baseline-result", type=Path)
     parser.add_argument("--manifest-id", default=DEFAULT_MANIFEST_ID)
     parser.add_argument("--live-run-id", default=DEFAULT_LIVE_RUN_ID)
     parser.add_argument("--timeout-sec", type=int, default=DEFAULT_TIMEOUT_SEC)
@@ -264,6 +272,19 @@ def main(argv: list[str] | None = None) -> int:
             "run_manifest": resolve(root, args.run_manifest),
             "static_check": resolve(root, args.static_check),
         }
+        if USERSPACE_OVERLAY_CONTRACT_ID == P303_OVERLAY_CONTRACT_ID:
+            if args.stock_baseline_raw is None or args.stock_baseline_result is None:
+                raise ManifestError(
+                    "P3.03 ready manifest requires one bound stock baseline pair"
+                )
+            paths.update(
+                {
+                    "stock_baseline_raw": resolve(root, args.stock_baseline_raw),
+                    "stock_baseline_result": resolve(
+                        root, args.stock_baseline_result
+                    ),
+                }
+            )
         payloads = {
             name: stable_read(path, name, MAX_EVIDENCE)
             for name, path in paths.items()
@@ -332,6 +353,15 @@ def main(argv: list[str] | None = None) -> int:
                 candidate_ap=candidate_for_evidence,
             )
         except evidence.EvidenceError as exc:
+            raise ManifestError(str(exc)) from exc
+        try:
+            core.verify_p303_campaign_binding(
+                acceptance,
+                verification,
+                manifest_id=args.manifest_id,
+                live_run_id=args.live_run_id,
+            )
+        except core.F1V2Error as exc:
             raise ManifestError(str(exc)) from exc
         payload = (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode()
         output = resolve(root, args.out)

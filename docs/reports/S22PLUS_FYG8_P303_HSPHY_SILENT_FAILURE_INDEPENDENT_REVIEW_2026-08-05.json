@@ -1,0 +1,379 @@
+{
+  "authority": {
+    "a90_target_touched": false,
+    "canonical_manifest_created": false,
+    "device_contact": false,
+    "device_write": false,
+    "f1_armed": false,
+    "f1_authorized": false,
+    "qualification_scope": "H0 capability only; this PASS_GO qualifies only the exact execution-critical hashes in this review"
+  },
+  "bindings": {
+    "campaign_binding": {
+      "live_run_id": "s22plus-fyg8-p303-attempt-1",
+      "manifest_id": "s22plus-fyg8-p303-campaign-1",
+      "verification": "the bound stock baseline pair is exact-compared to the outer Process-v2 manifest_id and run_id in both ready rehearsal and live verify_bundle paths"
+    },
+    "contracts": {
+      "decoder": "s22plus_fyg8_p303_two_slot_hsphy_silent_failure_v1",
+      "p301_parent_overlay": "s22plus-fyg8-p301-device-event-subtype-userspace-overlay-v1",
+      "p303_overlay": "s22plus-fyg8-p303-hsphy-silent-failure-userspace-overlay-v1",
+      "policy_id": "74f585a0479e0b352997e5dad5ea2793",
+      "source_contract": "s22plus-fyg8-p300-event-ingress-irq-attribution-v1"
+    },
+    "execution_critical_receipts": {
+      "build_s22plus_fyg8_p303_candidate.py": "ec6e651011d9bbd43ac469f7890c08dd2b3524c7f0ca675cff511dd261e79ce3",
+      "device_action_f1_evidence_v2.py": "e78ed60b7bc24a4954d4c7e3322d89d7f3af248ac1a1ead603574dd04a133dde",
+      "device_action_f1_v2.py": "1babbb72b50304e425e6d9afae809fcde5219014ac1512481d116e6f132c6119",
+      "prepare_s22plus_fyg8_p292_ready_manifest.py": "ada64d5b1007c36d745b911ec4559d4d035c8ae429865af33466963f32aa107d",
+      "prepare_s22plus_fyg8_p303_process_v2.py": "3d674773660a6015bd9f58ebee18c8c7b880915cfbbc892341fc1353d62107f9",
+      "prepare_s22plus_fyg8_p303_ready_manifest.py": "753f5dfbb95429a902a25ec8c3f5fafc670ef1f1dc8430b5b497241033fe1394",
+      "s22plus_fyg8_p303_boot_only_packager.py": "b50e88a4a4d14dec668cda7bf8ea361a167359a3465ab25a8209a470f9960a4d",
+      "s22plus_fyg8_p303_callsite_audit.py": "73300f2a747fbd14b0a44d6952899b17fbc55338f3426489d96f4e4b39ac8094",
+      "s22plus_fyg8_p303_candidate_contract.py": "eda9908574ffb8ad9fab4d3a89a51152088b36302e320a3d9a4430c6331b5ef7",
+      "s22plus_fyg8_p303_candidate_static_checker.py": "3a0c6432f2ebd89e4fd3bcc0f0c78443c1f2f03cc1fa57f19401780d619e4613",
+      "s22plus_fyg8_p303_overlay_contract.py": "c3683c1bef5f7ced3ebbbcbaba55798d30a7916698e44114b9c736d39f0ba57f",
+      "s22plus_fyg8_p303_overlay_intent.py": "250c1f65ee6dd65ff7efd4dd244449e3b1d1f0b238443ca71c8a8428e1f02a76",
+      "s22plus_fyg8_p303_stock_log_baseline.py": "9689d94552dcf592e348d8e312dea3eb59bcaaf9e4f24dbb426fb38a23ec3373",
+      "s22plus_fyg8_p303_stock_log_baseline_binding.py": "024bab15397cd44a967aae8b195e46028e5db0f2601a3707ed83674c0b215cd4",
+      "s22plus_fyg8_p303_stock_log_d0.py": "f9407108c8c8c53b0690fb08fbc8ebd74b2a902aebbca1fd443b7bf0abae1ec8",
+      "s22plus_fyg8_p303_telemetry_decoder.py": "1b8738852b3ffa1bd1b32b03d8f8295a34a911ed54479dd2b527650a6c795eb9",
+      "s22plus_fyg8_p303_telemetry_generator.py": "ed733c4cba776b3f1fec601905d793c05c626998e03a20de395510c5bd6efbf3",
+      "s22plus_fyg8_p303_telemetry_spec.py": "cb4ad72706536bc1fc21fedbdc795823647a39112fbdf6492343fc55bf66f5a7",
+      "s22plus_fyg8_p303_telemetry_transform.py": "71685baf716f22d925283130019ff7b527def42edeb8126875789d19bc500ff1",
+      "s22plus_fyg8_p303_userspace_build.py": "b6ca90cf8129ac4883d0c06c530c5ad8eb9180046084a5b9772c087433cfd83a"
+    },
+    "frozen_intent": {
+      "callsite_audit_equal_to_standalone": true,
+      "callsite_count": 12,
+      "path": "workspace/private/outputs/s22plus_fyg8_p303/intent/overlay-intent.json",
+      "run_id": "e324abaec60286102e4c9eb19fd80600",
+      "sha256": "0d1e99e225cd8a08b3ec1a392b1ca3e9dd1de33300715810f030a5b3ded52bff",
+      "size": 55927,
+      "source_count": 12,
+      "verified_against_current_source_keys": true
+    },
+    "review_time_documents": {
+      "goal": {
+        "path": "GOAL.md",
+        "sha256": "77a9ebc720d5b109609d9cce9fc6dba4ea73fcc0c893cf626d708fadd219c75e",
+        "size": 36243
+      },
+      "implementation_report": {
+        "path": "docs/reports/S22PLUS_FYG8_P303_HSPHY_SILENT_FAILURE_IMPLEMENTATION_H0_2026-08-05.md",
+        "sha256": "5173b363de8299059febc71cd43204531121ddccb114568e07fe59dba33316b1",
+        "size": 6189
+      },
+      "role": "review snapshot only; document-only changes do not qualify altered execution machinery"
+    }
+  },
+  "callsite_proof": {
+    "callsite_count": 12,
+    "callsites": [
+      {
+        "bl": "0x12a4",
+        "branch": "eud",
+        "call": "clk_prepare",
+        "clock": "ref_clk_src",
+        "consumer": "cbnz w0",
+        "name": "eud_ref_src_prepare",
+        "probe": "0x12a8",
+        "symbol_relative_probe": "0x0b4",
+        "w0_unconsumed_at_probe": true
+      },
+      {
+        "bl": "0x12b0",
+        "branch": "eud",
+        "call": "clk_enable",
+        "clock": "ref_clk_src",
+        "consumer": "cbz w0",
+        "name": "eud_ref_src_enable",
+        "probe": "0x12b4",
+        "symbol_relative_probe": "0x0c0",
+        "w0_unconsumed_at_probe": true
+      },
+      {
+        "bl": "0x12cc",
+        "branch": "eud",
+        "call": "clk_prepare",
+        "clock": "ref_clk",
+        "consumer": "cbnz w0",
+        "name": "eud_ref_prepare",
+        "probe": "0x12d0",
+        "symbol_relative_probe": "0x0dc",
+        "w0_unconsumed_at_probe": true
+      },
+      {
+        "bl": "0x12d8",
+        "branch": "eud",
+        "call": "clk_enable",
+        "clock": "ref_clk",
+        "consumer": "cbz w0",
+        "name": "eud_ref_enable",
+        "probe": "0x12dc",
+        "symbol_relative_probe": "0x0e8",
+        "w0_unconsumed_at_probe": true
+      },
+      {
+        "bl": "0x12f4",
+        "branch": "eud",
+        "call": "clk_prepare",
+        "clock": "cfg_ahb_clk",
+        "consumer": "cbnz w0",
+        "name": "eud_cfg_prepare",
+        "probe": "0x12f8",
+        "symbol_relative_probe": "0x104",
+        "w0_unconsumed_at_probe": true
+      },
+      {
+        "bl": "0x1300",
+        "branch": "eud",
+        "call": "clk_enable",
+        "clock": "cfg_ahb_clk",
+        "consumer": "cbz w0",
+        "name": "eud_cfg_enable",
+        "probe": "0x1304",
+        "symbol_relative_probe": "0x110",
+        "w0_unconsumed_at_probe": true
+      },
+      {
+        "bl": "0x1764",
+        "branch": "normal",
+        "call": "clk_prepare",
+        "clock": "ref_clk_src",
+        "consumer": "cbnz w0",
+        "name": "normal_ref_src_prepare",
+        "probe": "0x1768",
+        "symbol_relative_probe": "0x574",
+        "w0_unconsumed_at_probe": true
+      },
+      {
+        "bl": "0x1770",
+        "branch": "normal",
+        "call": "clk_enable",
+        "clock": "ref_clk_src",
+        "consumer": "cbz w0",
+        "name": "normal_ref_src_enable",
+        "probe": "0x1774",
+        "symbol_relative_probe": "0x580",
+        "w0_unconsumed_at_probe": true
+      },
+      {
+        "bl": "0x178c",
+        "branch": "normal",
+        "call": "clk_prepare",
+        "clock": "ref_clk",
+        "consumer": "cbnz w0",
+        "name": "normal_ref_prepare",
+        "probe": "0x1790",
+        "symbol_relative_probe": "0x59c",
+        "w0_unconsumed_at_probe": true
+      },
+      {
+        "bl": "0x1798",
+        "branch": "normal",
+        "call": "clk_enable",
+        "clock": "ref_clk",
+        "consumer": "cbz w0",
+        "name": "normal_ref_enable",
+        "probe": "0x179c",
+        "symbol_relative_probe": "0x5a8",
+        "w0_unconsumed_at_probe": true
+      },
+      {
+        "bl": "0x17b4",
+        "branch": "normal",
+        "call": "clk_prepare",
+        "clock": "cfg_ahb_clk",
+        "consumer": "cbnz w0",
+        "name": "normal_cfg_prepare",
+        "probe": "0x17b8",
+        "symbol_relative_probe": "0x5c4",
+        "w0_unconsumed_at_probe": true
+      },
+      {
+        "bl": "0x17c0",
+        "branch": "normal",
+        "call": "clk_enable",
+        "clock": "cfg_ahb_clk",
+        "consumer": "cbz w0",
+        "name": "normal_cfg_enable",
+        "probe": "0x17c4",
+        "symbol_relative_probe": "0x5d0",
+        "w0_unconsumed_at_probe": true
+      }
+    ],
+    "distinct_from_rejected_p300_epilogue_method": "every P3.03 site is the instruction immediately after one relocation-bound named BL and immediately before the first cbz/cbnz consumer of w0; it does not infer a return value from path-dependent epilogue register allocation",
+    "module": {
+      "build_id": "cdb249f9a7599440ca66208f02caec0a6601bc03",
+      "inlined_helper_symbol_absent": true,
+      "named_call26_relocations": {
+        "clk_enable": 6,
+        "clk_prepare": 6,
+        "total": 12
+      },
+      "runtime_name": "phy_msm_snps_hs",
+      "sha256": "22a866320ba0de46619484efafaf0cf7ea3f7ba387cee7c3dd085f3a82492e94",
+      "size": 67488,
+      "symbol": "msm_hsphy_init",
+      "symbol_value": "0x11f4"
+    },
+    "standalone_audit": {
+      "a_b_offset_identity": true,
+      "path": "workspace/private/outputs/s22plus_fyg8_p303/callsite-audit.json",
+      "sha256": "703c5a174783e198dab10584faa09f00f2439bc086c4dfdaf2d271654a5d2664",
+      "size": 4494
+    },
+    "verdict": "PASS_EXACT_12_POST_BL_W0_CALLSITE_PROOF"
+  },
+  "closed_findings": [
+    "The original standalone private callsite audit omitted only the A/B offset-identity field; it was regenerated host-only and now exactly equals both the current audit and the unchanged frozen intent audit without changing any SOURCE_KEY or candidate byte.",
+    "A preliminary reviewer STOP claiming 0x4001 and 0x6001 publication details were unreachable was withdrawn: the materialized P2.88 classifier accepts the 0x4001-0x4fff and 0x6001-0x6fff FAILURE bands before exact-detail and terminal rules, and current endpoint/precedence tests cover that behavior.",
+    "A preliminary reviewer STOP claiming all P3.03 contradiction details were unreachable was withdrawn for the same verified publication-band reason.",
+    "A marker-only synthetic stock baseline gap was closed by a dedicated exact-target D0 producer, raw boot-window receipt, actual runtime module SHA-256 receipt, immutable baseline binding, and mandatory same-campaign comparison.",
+    "Reuse of a valid stock baseline under another manifest_id or live_run_id is fail-closed in both generic ready preparation and live verify_bundle; the current integration negative returns failure and leaves the canonical manifest absent.",
+    "P3.03 adapter promotion restores inherited globals; the current P3.02 regression exercises the actual P3.01-r1 path in the same process and passes."
+  ],
+  "findings": {
+    "critical": [],
+    "high": [],
+    "low": [],
+    "medium": []
+  },
+  "independence": {
+    "implementation_authorship": false,
+    "review_scope_was_host_only": true,
+    "reviewer": "independent delegated Codex reviewer",
+    "reviewer_did_not_contact_a_device_create_a_manifest_or_modify_candidate_sources": true
+  },
+  "live_prerequisites": {
+    "capability_pass_go_is_not_live_authority": true,
+    "required_before_manifest_or_f1": [
+      "capture one exact-target working-stock post-baseline-rotation D0 pair with the reviewed producer",
+      "verify the on-device phy-msm-snps-hs.ko SHA-256 equals 22a866320ba0de46619484efafaf0cf7ea3f7ba387cee7c3dd085f3a82492e94",
+      "bind that pair to manifest_id s22plus-fyg8-p303-campaign-1 and live_run_id s22plus-fyg8-p303-attempt-1",
+      "satisfy the S22+ target presence, exact rollback, demonstrated recovery, known-healthy start, attendance, and fresh live D0 gates",
+      "re-run qualification if any execution-critical receipt in this review changes or a new hazard or incident occurs"
+    ]
+  },
+  "non_blocking_observations": [
+    "tests.test_prepare_s22plus_fyg8_p301_process_v2 reports 8/9 against a superseded historical private P3.01 fixture. It is not the current P3.01-r1 closure: tests.test_prepare_s22plus_fyg8_p302_process_v2 passes 7/7 including the actual same-process P3.01-r1 regression, and an independent P3.03-to-P3.01-r1 same-process validate_static replay also passed."
+  ],
+  "outputs": {
+    "candidate_a_b": {
+      "ap_sha256": "f2cb42b88276dd5c2793d2583308bff60c15e6a7dcf9bb3531b4a6d33f236ad2",
+      "ap_size": 27105321,
+      "ap_structure": "one member: boot.img.lz4",
+      "boot_img_lz4_sha256": "a390795b74e58d2ff652509a38adbef4721f9bbb9f725766143ae01af89da45c",
+      "boot_img_lz4_size": 27100964,
+      "boot_img_sha256": "434a4075532ac4c35ec5068aaa56da441322f63e5e342fa22f6ee8f62ad52b68",
+      "boot_img_size": 100663296,
+      "byte_identical": true
+    },
+    "candidate_static": {
+      "current_audit_exactly_equals_frozen_result": true,
+      "sha256": "8602866da8e6e6b0e72c7416358c7322f59d247f1b49bca0e97331b4fe9df8e8",
+      "size": 135639,
+      "verdict": "PASS_P303_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
+    },
+    "fixed_image": {
+      "kernel_rebuilt_for_p303": false,
+      "sha256": "01457240881b432f725b0f2d795813c38ef7cca4365633f9b0fc7c3a62744a3f",
+      "size": 41490944
+    },
+    "init": {
+      "sha256": "635d714ef7eb1e16bb7b131ff3c0ae8aa0b7282c3f1671a1ff0577941991e36b",
+      "size": 66416
+    },
+    "module_policy": {
+      "candidate_module_binaries_injected": 0,
+      "runtime_module_rebuilt_for_p303": false,
+      "stock_vendor_ramdisk_modules_reused": true
+    },
+    "process_v2": {
+      "candidate_static_sha256": "8602866da8e6e6b0e72c7416358c7322f59d247f1b49bca0e97331b4fe9df8e8",
+      "run_manifest_sha256": "8ae955577d2aeb1ad1a39ab4497d16afc80c7656f38666527e795e106f575410",
+      "static_check_sha256": "b403d9332ed17278762c68c08fc42612cff7ac54408131560516ee6e4abba7a4"
+    }
+  },
+  "reviewed_at_utc": "2026-08-05T02:30:44Z",
+  "schema": "s22plus_fyg8_p303_hsphy_silent_failure_independent_review_v1",
+  "scope": [
+    "exact 12 post-BL clock-return probes in unchanged FYG8 phy-msm-snps-hs.ko",
+    "clock hit/return telemetry, all-missed separation, and HS-PHY-init contradictions",
+    "candidate /dev/kmsg completeness and same-campaign working-stock D0 comparison",
+    "deterministic fixed-Image one-member boot-only A/B candidate closure",
+    "P3.01 parent binding, P3.03 Process-v2 evidence promotion, shared runner closure, and ready rehearsal",
+    "frozen intent and exact private artifacts without canonical manifest creation"
+  ],
+  "target": {
+    "device": "g0q",
+    "firmware": "S906NKSS7FYG8",
+    "model": "SM-S906N",
+    "target_line": "S22PLUS_FYG8"
+  },
+  "telemetry_review": {
+    "candidate_kmsg": {
+      "completeness": "opens /dev/kmsg nonblocking and seeks to end before module loading; parses sequence continuity; fails closed on EPIPE, read, format, count-overflow, sequence, and required-normal-path-marker failures",
+      "log_detail_range": [
+        "0x4001",
+        "0x4800"
+      ],
+      "stock_comparison": "same-campaign bound stock and candidate signatures are compared by the shared latest-stage evidence classifier; equality is explicitly not attributed to the candidate",
+      "tracked_signature": "reset assert/deassert failures plus first readback-failure offset and count bucket"
+    },
+    "clock": {
+      "all_missed": "0x0d00",
+      "all_missed_meaning": "all 12 callsite hits are zero; no return-value conclusion",
+      "all_success_eud": "0x0d01",
+      "all_success_normal": "0x0d52",
+      "clock_detail_range": [
+        "0x0d00",
+        "0x0da2"
+      ],
+      "hit_zero_distinct_from_rc_zero": true,
+      "ordinal": 105,
+      "profile_record_exact_match_required": true,
+      "return_domain": "zero or negative errno only; positive values are contradictions",
+      "states": "prepare failure requires enable miss; prepare success requires enable hit; EUD and normal branches are exclusive"
+    },
+    "contradictions": {
+      "cfg_ahb_presence": "0x6003; cfg_ahb_clk is absent from all four exact FYG8 HS-PHY DTBs",
+      "detail_range": [
+        "0x6001",
+        "0x600f"
+      ],
+      "phy_init_not_entered_not_returned_or_nonzero": "0x600d",
+      "profile_record_mismatch": "0x600e",
+      "terminal_domain": "0x600f"
+    },
+    "log_ordinal": 106,
+    "verdict": "PASS_FAIL_CLOSED_TWO_SLOT_CLOCK_AND_LOG_ATTRIBUTION"
+  },
+  "validation": {
+    "canonical_manifest_absent_after_all_rehearsals": true,
+    "common_process_v2": {
+      "device_action_f1_evidence_v2": "25/25 PASS",
+      "device_action_f1_v2": "22/22 PASS",
+      "p302_including_actual_p301_r1_same_process": "7/7 PASS",
+      "total": "54/54 PASS"
+    },
+    "focused_current_tree": {
+      "p303_process": "7/7 PASS",
+      "p303_telemetry": "9/9 PASS",
+      "total": "16/16 PASS in 126.560s",
+      "wrong_campaign_integration_negative": "returns 2 and creates no canonical manifest"
+    },
+    "git_diff_check": "PASS before review report creation",
+    "intent_reverification": "PASS source_count=12 callsite_count=12 run_id=e324abaec60286102e4c9eb19fd80600",
+    "py_compile": "PASS for touched P3.03 and shared Python",
+    "ready_manifest_rehearsal": "PASS with created=false, device_contact=false, d0_started=false, f1_authorized=false",
+    "static_audit_reproduced": true,
+    "test_receipts": {
+      "test_prepare_s22plus_fyg8_p303_process_v2.py": "6769aa2c71a9167fd841147412aa1a5fb5ae8442d13e48fda9580dd910475794",
+      "test_s22plus_fyg8_p303_telemetry.py": "92383ad7848744afbe20bf9e8f9b26c60aacfceadfd6e0206559587e5f76e016"
+    },
+    "verdict": "PASS_GO"
+  },
+  "verdict": "PASS_GO"
+}
