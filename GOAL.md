@@ -52,8 +52,11 @@ or log level, and publishes an adjacent 105/106 IPC chain/summary pair.
 Userspace reproduced twice, boot/AP candidate A/B are byte-identical, and the
 Process-v2 verify-only rehearsal plus canonical ready manifest passed. The one
 required narrow independent review returned `PASS_GO` for commit `7631dcde`
-and the exact execution-critical hashes; F1 remains unarmed pending fresh
-connected preparation. The earlier `0xD00` proves the in-window software guard
+and the exact execution-critical hashes. The first connected preparation then
+stopped read-only on the retained P3.05 marker; one attended normal-reboot
+baseline rotation returned healthy, and a fresh D0 preparation bound the clean
+baseline and exact closure as `2c74aa64...`. F1 remains unarmed and is ready
+for attended handoff. The earlier `0xD00` proves the in-window software guard
 saw `clocks_enabled=true`; it does not retroactively prove that the discarded
 initial hardware clock returns were zero.
 
