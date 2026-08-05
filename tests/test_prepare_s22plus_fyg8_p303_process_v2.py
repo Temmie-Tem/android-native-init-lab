@@ -359,7 +359,11 @@ S22SERIAL device product:g0qksx model:SM_S906N device:g0q transport_id:2
                 json.dumps(value, indent=2, sort_keys=True) + "\n",
                 encoding="ascii",
             )
-            output = ROOT / ready.DEFAULT_OUT
+            output = (
+                ROOT
+                / ready.DEFAULT_OUT.parent
+                / f".test-{directory.name}-ready-manifest.json"
+            )
             self.assertFalse(output.exists())
             base_arguments = [
                 "--candidate-static",
@@ -370,6 +374,8 @@ S22SERIAL device product:g0qksx model:SM_S906N device:g0q transport_id:2
                 str(ROOT / adapter.DEFAULT_OUT / "static-check-result.json"),
                 "--candidate-ap",
                 str(ROOT / adapter.DEFAULT_CANDIDATE_AP),
+                "--out",
+                str(output),
                 "--verify-only",
             ]
             self.assertEqual(ready.main(base_arguments), 0)

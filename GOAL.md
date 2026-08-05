@@ -196,6 +196,29 @@ preserving the fixed Image, boot-only transfer, exact rollback, and same host
 USB sidecar. No EUD write, module rebuild, kernel rebuild, or new transfer
 machinery is selected.
 
+The H0 candidate closure is now complete. Two clean builds are byte-identical;
+each one-member AP is 27,105,321 bytes with SHA-256
+`72ab3644e4db1e1eee609e9ffa28bc39da2c8a177414f0bcf1b7f91a3e9f8258`.
+The effective rootfs contains exactly 61 stock modules, with the exact
+26,344-byte notifier once at index 59 between `dwc3-msm.ko` and
+`ucsi_glink.ko`. The seven byte-affecting P3.04 SOURCE_KEYS still match their
+frozen intent, and the inherited P3.03 telemetry and fixed Image are unchanged.
+
+Process-v2 promotion and the canonical 2,767-byte ready manifest pass at
+SHA-256
+`2ae39774786a35c7d6e5d1fee252e46aa515b55c809b6f7be220cf43eb719c7e`.
+The first independent review correctly blocked one execution-binding gap: the
+P3.04 61-module runtime closure adapter was imported by evidence validation but
+not directly receipted. The exact P3.04 branch now adds that adapter as the
+315th execution-critical receipt. Focused post-repair regressions pass 11/11,
+independent `verify_bundle()` passes, and the rereview verdict is `PASS_GO`.
+No candidate byte or ready-manifest byte changed during the repair.
+
+Live preparation has not started and F1 is not armed. The next action is one
+fresh exact-S22 D0 Process-v2 preparation using a new private run directory;
+the existing P3.03 attempt and every earlier candidate remain consumed and
+must not be replayed. A90 remains outside this campaign.
+
 ## Parked Bounded Unit: P3.02 Passive Pull-Up Electrical Attribution
 
 The distinct P3.02-M0 carrier is complete without a kernel rebuild, module

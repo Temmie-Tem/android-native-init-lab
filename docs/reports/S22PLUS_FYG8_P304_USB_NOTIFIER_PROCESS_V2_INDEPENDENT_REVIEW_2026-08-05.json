@@ -1,0 +1,50 @@
+{
+  "authority": {
+    "a90_target_touched": false,
+    "device_contact": false,
+    "f1_armed": false,
+    "qualification_scope": "H0 capability only; live preparation and attended F1 remain separate"
+  },
+  "bindings": {
+    "candidate_ap": {
+      "sha256": "72ab3644e4db1e1eee609e9ffa28bc39da2c8a177414f0bcf1b7f91a3e9f8258",
+      "size": 27105321
+    },
+    "execution_critical": {
+      "device_action_f1_evidence_v2.py": "66e7da40f91e52a484dbbaa564490ba3adecd142f0f6d8b7144b3d991045d233",
+      "device_action_f1_v2.py": "0ccb065773a8a9d8720890b0c8101c04ca6c3d1c79376ad003c44fff001a536b",
+      "s22plus_fyg8_p304_e2_stock_closure.py": "7493d6dbfaf5102074765ecb4a247f45ff5e313f22365b665c577e27714b06e2"
+    },
+    "ready_manifest": {
+      "sha256": "2ae39774786a35c7d6e5d1fee252e46aa515b55c809b6f7be220cf43eb719c7e",
+      "size": 2767
+    }
+  },
+  "closed_finding": {
+    "initial_verdict": "BLOCK",
+    "issue": "The P3.04 61-module runtime closure adapter was used by AP and rootfs validation but was absent from the execution-critical receipt set.",
+    "repair": "The exact P3.04 branch now receipts s22plus_fyg8_p304_e2_stock_closure.py; the set increased from 314 to 315 and the prepared bundle continuity therefore binds the adapter.",
+    "source_keys_changed": false
+  },
+  "review": {
+    "checks": [
+      "P304 to P303 to P301 nested contracts and source receipts are exact",
+      "the 61-module adapter is selected only for the exact P304 overlay and P300 source",
+      "usb_notifier_qcom.ko occurs once at index 59 between dwc3-msm.ko and ucsi_glink.ko with exact stock size and hash",
+      "effective rootfs validation removes the new entry and revalidates the exact parent 60-module closure",
+      "candidate, rollback, static evidence, and ready manifest receipts agree",
+      "boot-only, no-replay, rollback, and S22 target-isolation invariants are unchanged",
+      "independent core.verify_bundle passed with 315 execution-critical receipts"
+    ],
+    "reviewer_modified_files": false,
+    "verdict": "PASS_GO"
+  },
+  "schema": "s22plus_fyg8_p304_process_v2_independent_review_v1",
+  "validation": {
+    "diff_check": "PASS",
+    "focused_post_repair_tests": "11/11 PASS",
+    "p303_compatibility_before_repair": "19/19 PASS",
+    "p304_ready_rehearsal": "PASS",
+    "python_compile": "PASS"
+  }
+}
