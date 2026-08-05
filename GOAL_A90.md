@@ -16,7 +16,7 @@ The pre-H2 goal history is preserved at
 
 ## Current State
 
-- H3 remains the last successful resident and automatic-handoff line. Its
+- H3 remains the earlier automatic-handoff benchmark line. Its
   attended D1 ordinal armed once, rebooted once, displayed Debian, retained all
   15 mandatory benchmark stages, returned automatically, cleaned its work
   copy, and closed exact H3 health without replay. The missed same-ordinal SSH
@@ -66,19 +66,43 @@ The pre-H2 goal history is preserved at
   exclusive unarmed state `binding=1 enable=0 latch=0`. SD capacity remained
   61408048 KiB total, 54419496 KiB used, and 3862540 KiB available at 93% use;
   no second 2 GiB staging copy was created.
-- No D1 transaction is active and no target is A90 F1-armed. Runs 11, 12, and
-  13 are terminal and must never be resumed or replayed. No A90 command was
-  sent to S22+, and its files and device state remained untouched.
+- D1 run `a90-d1-attended-20260805-09` bound the exact installed H5 resident,
+  immutable run-12 source, absent work, rollback, recovery, and one action. It
+  armed once and rebooted once. The immediate host observation failed because
+  exact bridge continuity did not validate, so the arm or reboot was not
+  resent and Debian PID 1, SSH, and display visibility are not mechanically
+  claimed for this ordinal.
+- Read-only reconciliation found one new complete 15-stage benchmark segment
+  followed by a partial returned-native segment. The exact opening 31-marker
+  prefix and 19-marker appended suffix are now parsed independently. The
+  selected complete segment records `switch_root_exec`, total handoff
+  126444 ms, initial source SHA 37459 ms, post-display source SHA 11410 ms,
+  and work copy 76068 ms.
+- The same durable ordinal cleaned the fixed work copy exactly once and closed
+  `NO_PROOF_OBSERVER_RESIDENT_HEALTHY`. Result payload SHA256 is
+  `d1971edf46127cdc78d7cd678a42b5b071e1cbe4a6275300b607da1b05837fa3`.
+  Exact H5 returned with `binding=1 enable=1 latch=1`, immutable source exact,
+  work absent, guard released, and resident health true. No payload, partition
+  write, flash, rollback, or replay occurred.
+- Final read-only capacity is 61408048 KiB total, 54419524 KiB used, and
+  3862512 KiB available at 93% use. No D1 transaction is active and no target
+  is A90 F1-armed. Runs 11-13 and D1 run09 are terminal and must never be
+  resumed or replayed. No A90 command was sent to S22+, and its files and
+  device state remained untouched.
 
 ## Qualified Capabilities
 
 - The H3 exact compiled-rootfs binding and resident F1 closure has reusable
   independent `PASS_GO` for its named execution-critical hashes and E2 hazard.
 - The current auto-benchmark observer/tail closure
-  `e17d9e23e3f473d949cf264b54246ac01ec221fe133e0291a200437a0ed13959`
+  `94be39687a91938d4f82d52242ce0025b3b19e4f8c8bbfd6cf46ff729dd3a5f4`
   has independent `PASS_GO`. It binds exact NCM-before-SSH, all 15 mandatory
-  handoff stages, and post-cleanup-only historical journal finalization with no
-  arm, reboot, handoff, or cleanup replay.
+  handoff stages, and a hash-bound opening-marker prefix plus appended suffix.
+  For run09 it also permits only the already durable seven-record historical
+  journal tail to read status, source, health, and logs and finalize host
+  evidence with no arm, reboot, handoff, or cleanup replay. The earlier
+  `e17d9e23e3f473d949cf264b54246ac01ec221fe133e0291a200437a0ed13959`
+  receipt is superseded by the accumulated-log observer incident.
 - The pre-incident H4 replacement closure had independent `PASS_GO` for boot SHA
   `6bc133937f19482739037b67a44b1f2b5da6da9a178a3edf8a9f2e74bd097935`,
   fresh keyed-rootfs SHA
@@ -128,40 +152,35 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: Exercise One H5 Automatic Handoff
+## Selected Bounded Unit: Close the H5 Observer Gap
 
-Run-11 is terminal. Do not resume or replay its candidate, reset its state
-namespace, or reinterpret the missing candidate log receipt. Incident closure
-and bounded capacity recovery are complete; execution continues at item 4:
+H5 installation and its first automatic-handoff ordinal are terminal. Preserve
+runs 11-13 and D1 run09, their state namespaces, sources, and journals as
+no-replay evidence. Do not reset H5 enable/latch, resend run09 arm or reboot,
+or reinterpret a visible screen as missing mechanical PID1/SSH evidence.
 
-The exact V2321 H3 run-10 source reclaim capability was independently
-`PASS_GO` over its named 19-test closure and used once under a fresh D0 and
-immutable manifest. It returned `PASS_H3_SOURCE_RECLAIMED`: run-10 is absent,
-H4 run-11 remains exact, work is absent, final V2321 health is exact, and SD
-available space increased by exactly 2,097,152 KiB to 5,959,716 KiB. Its
-capability-wide receipt is consumed and the capability is retired; never reuse
-it under another run ID. Host-preserved bytes remain evidence and grant no
-restore authority. The next live unit is a fresh H5, not H4 replay.
+The run09 15-stage timing series is a usable diagnostic baseline for locating
+cost: the two full source hashes and work copy dominate its 126444 ms handoff.
+It is not yet a correctness baseline for compiler comparison because the host
+observer lost exact bridge continuity before it could bind Debian PID 1, SSH,
+service ownership, and display facts to the same ordinal.
 
-H5 host preparation, source publication, the no-stage resident-install
-capability review, one attended boot-only installation, and exclusive unarmed
-first-boot health are complete. Run-13 is a closed resident baseline, not a
-replay source. The next live unit starts from its exact post-install state:
+The next bounded work is host-only until the observer cause is closed:
 
-1. preserve runs 11-13 and their journals as terminal no-replay evidence;
-2. bind the exact installed H5 resident, immutable run-12 source, absent work,
-   fresh enable/latch state, rollback, recovery, and a fresh opening D0 into
-   one immutable attended-D1 ordinal;
-3. arm once and reboot once under that durable D1 ordinal, rebind exact A90 NCM
-   before SSH, and require Debian PID 1, key-only SSH, exact service ownership,
-   mechanical display acquisition, operator visibility, and all mandatory
-   benchmark stages; and
-4. require automatic native return, retained latch, cleanup, immutable source,
-   final resident health, and no replay before designating a baseline.
+1. diagnose the exact bridge-epoch continuity rejection from the immutable
+   run09 observation and bridge logs without contacting either device;
+2. repair only the observer if a deterministic host defect is established,
+   then run focused tests and independent capability review for the changed
+   execution-critical closure;
+3. if full H5-equivalent correctness proof still requires another device
+   transition, build a fresh marker/build identity and open a fresh D0/D1 or
+   F1 campaign under exact recovery and attendance, never a run09 replay; and
+4. start Full-LTO comparison only after one observer-complete automatic
+   handoff baseline closes Debian PID 1, SSH, display, return, cleanup, and
+   resident health together.
 
-An uncertain arm or reboot is never resent. Endpoint absence or a late
-observation parks the ordinal; it does not authorize replay. No later benchmark
-or optimization build starts until exact health is durable.
+An attended visibility confirmation may be appended as evidence for run09,
+but it cannot manufacture its missing mechanical PID1/SSH observation.
 
 ## Optimization Order
 
