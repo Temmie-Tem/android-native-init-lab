@@ -113,6 +113,10 @@ injected and no Full-LTO or kernel rebuild is needed.
   promotion in the same process;
 - focused independent re-review: `PASS_GO`; absent, exact-pair, partial, and
   direct-helper paths were reproduced over the current execution closure;
+- common D0/live exact-target selection: 64/64 passed; the validated profile
+  selects one `SM_S906N/g0q` ADB row, permits unrelated rows without commands,
+  pins serial and inventory count before later target reads, and focused
+  independent review returned `PASS_GO`;
 - static artifact closure:
   `PASS_P303_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY`;
 - Process-v2 offline evidence promotion:
@@ -144,3 +148,7 @@ stock pair; in that branch candidate log B is non-causal supplemental evidence.
 If a complete pair is ever supplied, reject it unless boot window,
 normal-path marker, target/module identity, stable boot ID, and exact P3.03
 campaign binding all hold. The consumed P3.01-r1 candidate is never replayed.
+The first multi-target preparation stopped before any target command under the
+legacy exact-one-row selector; its empty private run is closed. Retry uses a new
+run directory with D0 v2-2/live v2-5, which selects only the exact S22+ and
+leaves A90 uncommanded.

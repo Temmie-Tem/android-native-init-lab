@@ -133,6 +133,18 @@ fail-closed. The exact S22+ returned rooted FYG8 health after the second
 rotation, A90 received zero commands, and no additional baseline reboot is
 planned.
 
+The first Process-v2 connected preparation then stopped before any target
+command because the shared D0 adapter still required one total ADB row and saw
+both S22+ and A90. That empty run is closed and will not be reused. The narrow
+execution repair advances D0 to v2-2 and the live adapter to v2-5: both derive
+`SM-S906N/g0q` from the validated profile, match the ADB-normalized
+`SM_S906N/g0q` row, permit unrelated rows without commanding them, and pin the
+selected serial plus inventory row count before every subsequent target read.
+Duplicate or replacement S22+ rows stop before topology/properties. The legacy
+unscoped client keeps exact-one behavior. D0/live regressions pass 64/64 and a
+focused independent review returned `PASS_GO`; the next preparation must use a
+new private run directory and this changed execution closure.
+
 ## Parked Bounded Unit: P3.02 Passive Pull-Up Electrical Attribution
 
 The distinct P3.02-M0 carrier is complete without a kernel rebuild, module

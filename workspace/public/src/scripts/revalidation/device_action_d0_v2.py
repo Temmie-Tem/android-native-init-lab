@@ -22,7 +22,7 @@ from typing import Any, Protocol
 import device_action_f1_v2 as f1
 
 
-D0_VERSION = "device-action-d0-v2-1"
+D0_VERSION = "device-action-d0-v2-2"
 D0_RESULT_SCHEMA = "device_action_d0_result_v2"
 D0_VERDICT = "PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY"
 DEFAULT_RUN_ROOT = Path("workspace/private/runs/device-action-d0-v2")
@@ -186,12 +186,32 @@ class AdbReadOnlyClient:
         "kernel_release",
     }
 
-    def __init__(self, adb: Path):
+    def __init__(
+        self,
+        adb: Path,
+        *,
+        expected_model: str | None = None,
+        expected_device: str | None = None,
+    ):
         resolved = adb.resolve(strict=True)
         if not os.access(resolved, os.X_OK):
             raise D0Error("ADB is not executable")
+        if (expected_model is None) != (expected_device is None):
+            raise D0Error("ADB target metadata is incomplete")
+        for value in (expected_model, expected_device):
+            if value is not None and (
+                re.fullmatch(r"[A-Za-z0-9._-]+", value) is None
+            ):
+                raise D0Error("ADB target metadata has an unsafe shape")
         self.adb = resolved
         self._receipt = _hash_regular_file(resolved)
+        self._expected_metadata = None
+        if expected_model is not None and expected_device is not None:
+            self._expected_metadata = {
+                "model:" + re.sub(r"[^A-Za-z0-9._]", "_", expected_model),
+                "device:" + re.sub(r"[^A-Za-z0-9._]", "_", expected_device),
+            }
+        self._selection: tuple[str, int] | None = None
 
     def _run(self, arguments: list[str], label: str, timeout: float = 20) -> str:
         return _decode(
@@ -207,19 +227,38 @@ class AdbReadOnlyClient:
 
     def one_serial(self) -> str:
         text = self._run(["devices", "-l"], "adb devices", 10)
-        rows: list[tuple[str, str]] = []
+        rows: list[tuple[str, str, set[str]]] = []
         for line in text.splitlines():
             if not line or line.startswith("List of devices attached"):
                 continue
             fields = line.split()
             if len(fields) < 2:
                 raise D0Error("adb inventory contains a malformed row")
-            rows.append((fields[0], fields[1]))
-        if len(rows) != 1 or rows[0][1] != "device":
-            raise D0Error(f"expected exactly one authorized ADB target, found {len(rows)}")
-        serial = rows[0][0]
+            rows.append((fields[0], fields[1], set(fields[2:])))
+        if self._expected_metadata is None:
+            matches = [serial for serial, state, _ in rows if state == "device"]
+            if len(rows) != 1 or len(matches) != 1:
+                raise D0Error(
+                    f"expected exactly one authorized ADB target, found {len(rows)}"
+                )
+        else:
+            matches = [
+                serial
+                for serial, state, metadata in rows
+                if state == "device" and self._expected_metadata <= metadata
+            ]
+            if len(matches) != 1:
+                raise D0Error(
+                    f"expected exactly one matching ADB target, found {len(matches)}"
+                )
+        serial = matches[0]
         if SERIAL_RE.fullmatch(serial) is None:
             raise D0Error("ADB serial has an unsafe shape")
+        selection = (serial, len(rows))
+        if self._selection is None:
+            self._selection = selection
+        elif self._selection != selection:
+            raise D0Error("selected ADB target or inventory changed")
         return serial
 
     def topology(self, serial: str) -> str:
@@ -742,6 +781,15 @@ def default_adb() -> Path:
     return Path(value)
 
 
+def adb_client_for_bundle(adb: Path, bundle: f1.Bundle) -> AdbReadOnlyClient:
+    target = bundle.profile["target"]
+    return AdbReadOnlyClient(
+        adb,
+        expected_model=target["model"],
+        expected_device=target["device"],
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     modes = parser.add_mutually_exclusive_group(required=True)
@@ -774,7 +822,7 @@ def main(argv: list[str] | None = None) -> int:
             result = collect_connected(
                 bundle,
                 run_dir,
-                AdbReadOnlyClient(adb),
+                adb_client_for_bundle(adb, bundle),
                 DEFAULT_USB_ROOT,
             )
         print(json.dumps(result, indent=2, sort_keys=True))

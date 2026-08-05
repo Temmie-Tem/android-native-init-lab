@@ -503,6 +503,75 @@ class DeviceActionD0V2Test(unittest.TestCase):
             self.assertTrue(seen[0][4].startswith("sh -c "))
             self.assertTrue(seen[1][4].startswith("su -c "))
 
+    def test_adb_client_selects_exact_s22_without_commanding_other_target(self):
+        inventory = (
+            "List of devices attached\n"
+            "A90SERIAL device product:a90 model:SM_A908N device:a90q transport_id:1\n"
+            "S22SERIAL device product:g0qksx model:SM_S906N device:g0q transport_id:2\n"
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            adb = Path(temporary) / "adb"
+            adb.write_bytes(b"adb")
+            adb.chmod(0o700)
+            seen = []
+
+            def fake_run(argv, **_kwargs):
+                seen.append(argv)
+                return self.module.CommandResult(0, inventory.encode(), b"")
+
+            client = self.module.AdbReadOnlyClient(
+                adb, expected_model="SM-S906N", expected_device="g0q"
+            )
+            with mock.patch.object(
+                self.module, "bounded_command", side_effect=fake_run
+            ):
+                self.assertEqual(client.one_serial(), "S22SERIAL")
+                self.assertEqual(client.one_serial(), "S22SERIAL")
+            self.assertTrue(all(argv[1:] == ["devices", "-l"] for argv in seen))
+
+    def test_adb_client_rejects_duplicate_or_replacement_s22_before_target_read(self):
+        initial = (
+            "List of devices attached\n"
+            "A90SERIAL device model:SM_A908N device:a90q transport_id:1\n"
+            "S22SERIAL device model:SM_S906N device:g0q transport_id:2\n"
+        )
+        replaced = initial.replace("S22SERIAL", "S22OTHER")
+        duplicate = initial + (
+            "S22OTHER device model:SM_S906N device:g0q transport_id:3\n"
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            adb = Path(temporary) / "adb"
+            adb.write_bytes(b"adb")
+            adb.chmod(0o700)
+            client = self.module.AdbReadOnlyClient(
+                adb, expected_model="SM-S906N", expected_device="g0q"
+            )
+            inventories = iter((initial, replaced))
+            with mock.patch.object(
+                self.module,
+                "bounded_command",
+                side_effect=lambda _argv, **_kwargs: self.module.CommandResult(
+                    0, next(inventories).encode(), b""
+                ),
+            ):
+                self.assertEqual(client.one_serial(), "S22SERIAL")
+                with self.assertRaisesRegex(
+                    self.module.D0Error, "target or inventory changed"
+                ):
+                    client.one_serial()
+
+            duplicate_client = self.module.AdbReadOnlyClient(
+                adb, expected_model="SM-S906N", expected_device="g0q"
+            )
+            with mock.patch.object(
+                self.module,
+                "bounded_command",
+                return_value=self.module.CommandResult(0, duplicate.encode(), b""),
+            ), self.assertRaisesRegex(
+                self.module.D0Error, "matching ADB target, found 2"
+            ):
+                duplicate_client.one_serial()
+
     def test_run_directory_cannot_escape_private_root(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

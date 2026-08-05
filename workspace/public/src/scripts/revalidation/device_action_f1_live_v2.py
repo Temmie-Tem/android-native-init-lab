@@ -29,7 +29,7 @@ import s22plus_odin_transition_core as odin_core
 import s22plus_odin_usbfs_identity as usbfs_identity
 
 
-ADAPTER_VERSION = "device-action-f1-live-v2-4"
+ADAPTER_VERSION = "device-action-f1-live-v2-5"
 PREPARED_SCHEMA = "device_action_f1_prepared_v2"
 PRIVATE_TARGET_SCHEMA = "device_action_f1_private_target_v2"
 LIVE_STATE_SCHEMA = "device_action_f1_live_state_v2"
@@ -1115,7 +1115,7 @@ class SamsungOdinBackend:
     ):
         self.root = root.resolve()
         self.bundle = bundle
-        self.client = d0.AdbReadOnlyClient(adb)
+        self.client = d0.adb_client_for_bundle(adb, bundle)
         self.usb_root = usb_root
         self.odin = core._artifact_path(
             self.root, bundle.profile["transport"]["odin"], "odin"
@@ -3262,7 +3262,7 @@ def main(argv: list[str] | None = None) -> int:
             run_dir = allocate_run_dir(root, args.run_dir)
             adb = args.adb or d0.default_adb()
             result = prepare_connected(
-                root, bundle, run_dir, d0.AdbReadOnlyClient(adb)
+                root, bundle, run_dir, d0.adb_client_for_bundle(adb, bundle)
             )
             result = {**result, "run_dir": str(run_dir)}
         else:

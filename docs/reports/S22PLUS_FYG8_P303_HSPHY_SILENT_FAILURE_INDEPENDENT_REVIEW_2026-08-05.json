@@ -23,7 +23,9 @@
     },
     "execution_critical_receipts": {
       "build_s22plus_fyg8_p303_candidate.py": "ec6e651011d9bbd43ac469f7890c08dd2b3524c7f0ca675cff511dd261e79ce3",
+      "device_action_d0_v2.py": "42361339be827a3be6d58509796b9a32f5aceca7f5a41286ea0dbe54475f4ffa",
       "device_action_f1_evidence_v2.py": "6c7885baef0f054be1b7cd9cada9318f52094898b28721400299dffa2c0bade6",
+      "device_action_f1_live_v2.py": "b16ff5e24db6983ad10ba2a1b2cebe6a36d9db5cee3a92a36904654d351ae6c7",
       "device_action_f1_v2.py": "3666a53bf6b139b71505ae9aabc589828280b6e47337fb1dae180375c22f2bc7",
       "prepare_s22plus_fyg8_p292_ready_manifest.py": "3b0affd405bb661d6a0151a7051f4062d55411517f3b4e6cd3cc8da250b53165",
       "prepare_s22plus_fyg8_p303_process_v2.py": "3d674773660a6015bd9f58ebee18c8c7b880915cfbbc892341fc1353d62107f9",
@@ -236,6 +238,7 @@
     "The preserved Samsung toybox dmesg proved that each timestamped line may begin with an ANSI SGR prefix. The binding now accepts zero or more line-anchored ESC-[digits-or-semicolons]-m prefixes before the unchanged priority/timestamp grammar. Matching remains bounded by the existing 16 MiB raw cap and deterministic SGR terminator, while verify_payloads still hashes the exact raw and independently reruns the same boot-window and normalization checks; the mixed ANSI/plain synthetic binding fixture passes.",
     "A fresh immediately healthy stock reboot proved the stronger empirical limit: retained dmesg begins at 17.431607 seconds with no HS-PHY boot marker, while /proc/last_kmsg is tail-only. The stock pair is therefore optional side evidence rather than a manifest gate. If absent, the clock hit/return tuple remains primary and the classifier emits available=false, causal_attribution_permitted=false, an empty comparison list, and comparison_count=0.",
     "The focused reviewer STOP on the direct derive_manifest helper is closed. evidence_paths and evidence_receipts now independently require either no stock keys or the exact two-key pair and must have identical supply state; matching partial, full-path/partial-receipt, and absent-path/full-receipt cases all raise ManifestError.",
+    "The first real P3.03 prepare exposed a common D0 host-selection bug when an unrelated A90 and the exact S22 were both present; it stopped before any target command or F1 arm. D0 v2-2 now normalizes the validated SM-S906N/g0q profile to ADB model:SM_S906N/device:g0q metadata, selects exactly one matching state=device row, and pins serial plus total row count before every later target read. Duplicate or replacement S22 rows fail during inventory, unrelated A90 rows receive no command, and the legacy no-metadata constructor retains exact-one behavior. Both D0 CLI and live prepare/execute use adb_client_for_bundle; live adapter v2-5 and execution-source receipts invalidate stale prepared/result closure.",
     "Reuse of a valid stock baseline under another manifest_id or live_run_id is fail-closed in both generic ready preparation and live verify_bundle; the current integration negative returns failure and leaves the canonical manifest absent.",
     "P3.03 adapter promotion restores inherited globals; the current P3.02 regression exercises the actual P3.01-r1 path in the same process and passes."
   ],
@@ -301,7 +304,7 @@
       "static_check_sha256": "b403d9332ed17278762c68c08fc42612cff7ac54408131560516ee6e4abba7a4"
     }
   },
-  "reviewed_at_utc": "2026-08-05T03:13:54Z",
+  "reviewed_at_utc": "2026-08-05T03:28:15Z",
   "schema": "s22plus_fyg8_p303_hsphy_silent_failure_independent_review_v1",
   "scope": [
     "exact 12 post-BL clock-return probes in unchanged FYG8 phy-msm-snps-hs.ko",
@@ -309,7 +312,8 @@
     "candidate /dev/kmsg completeness and optional exact same-campaign working-stock D0 comparison",
     "deterministic fixed-Image one-member boot-only A/B candidate closure",
     "P3.01 parent binding, P3.03 Process-v2 evidence promotion, shared runner closure, and ready rehearsal",
-    "frozen intent and exact private artifacts without canonical manifest creation"
+    "common D0/live exact-target selection with unrelated ADB rows and continuity-before-command",
+    "frozen intent, exact private artifacts, and the already-created canonical manifest unchanged from commit df2bffdd"
   ],
   "target": {
     "device": "g0q",
@@ -356,7 +360,14 @@
     "verdict": "PASS_FAIL_CLOSED_TWO_SLOT_CLOCK_AND_LOG_ATTRIBUTION"
   },
   "validation": {
-    "canonical_manifest_absent_after_all_rehearsals": true,
+    "canonical_manifest_state": {
+      "creation_commit": "df2bffdd",
+      "earlier_ready_rehearsals_created_manifest": false,
+      "path": "workspace/public/src/device-action/manifests/s22plus_fyg8_p303_process_v2_ready_1.json",
+      "present_and_unchanged_during_this_rereview": true,
+      "sha256": "9188960230eecb7d85bf83c828cea55ea3563a5bd06809e680bcbc4f257b9c83",
+      "size": 2780
+    },
     "common_process_v2": {
       "device_action_f1_evidence_v2": "25/25 PASS",
       "device_action_f1_v2": "22/22 PASS",
@@ -364,6 +375,7 @@
       "total": "current shared execution closure 47/47 PASS; unchanged prior P3.02/P3.01-r1 regression 7/7 PASS"
     },
     "focused_current_tree": {
+      "common_d0_live_target_isolation": "64/64 PASS; independent adversarial selector replay 2/2 PASS",
       "p303_optional_stock_baseline": "10/10 P3.03 Process tests PASS, including absent pair, exact pair, wrong campaign, unbound verification, and direct partial path/receipt states",
       "p303_ansi_timestamp_delta": "PASS: mixed ANSI-SGR and plain timestamp lines retain exact boot-window and baseline verification",
       "p303_d0_multitarget_delta": "2/2 selected PASS: exact multi-target/no-foreign-command and execution-receipt tests",
@@ -372,13 +384,15 @@
       "total": "current optional-baseline focused re-review 57/57 PASS across shared evidence, shared runner, and P3.03 Process",
       "wrong_campaign_integration_negative": "returns 2 and creates no canonical manifest"
     },
-    "git_diff_check": "PASS for the optional-baseline shared execution/schema delta before this review update",
+    "git_diff_check": "PASS for the optional-baseline and common D0/live exact-target-selection deltas before this review update",
     "intent_reverification": "PASS source_count=12 callsite_count=12 run_id=e324abaec60286102e4c9eb19fd80600",
-    "py_compile": "PASS for the optional-baseline shared evidence, runner, ready builder, and P3.03 Process test",
+    "py_compile": "PASS for the optional-baseline closure and common D0/live target-selection sources and tests",
     "ready_manifest_rehearsal": "PASS for both absent and exact stock-pair states with created=false; partial and wrong-campaign states fail closed and create no canonical manifest",
     "static_audit_reproduced": true,
     "test_receipts": {
+      "test_device_action_d0_v2.py": "55e58a7e37994b791404b8b2a08c1a4bd9399e95812f0a86ee461c150cfbc68d",
       "test_device_action_f1_evidence_v2.py": "c43e38a512ec0aa94d4f18af0547edae9aeda35841b91762ebc1ff4b4e5a28f3",
+      "test_device_action_f1_live_v2.py": "2a70709f1c196d1cd5064c0979b27dbc105d454ebb3d52a49770b37a7f7032a8",
       "test_device_action_f1_v2.py": "6855be2386d595183f63305964b7c4582c7d23c5c44f67096cda8ac30976c9b2",
       "test_prepare_s22plus_fyg8_p303_process_v2.py": "a54fe6eafefd77e25c398edf6717727f071606b7cd0ab1277e896dc42e5d4f9c",
       "test_s22plus_fyg8_p303_telemetry.py": "ba642f86361c217dc9ad7df062b8b7191d7c1010f16cc7d5e94fb94514a8c451"
