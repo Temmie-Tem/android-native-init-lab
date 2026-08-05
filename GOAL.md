@@ -66,12 +66,13 @@ sidecar bit 28. The successor combines kmsg attribution, later clock callsites,
 and this probe. A negative return or cleared bit 20 localizes the failure.
 
 Exact healthy-stock D0 found `eud.ko` loaded but its root-read parameter at `0`,
-with no EUD cmdline/bootconfig override. This is a comparator, not a prediction
-of post-Download candidate state. EUD attribution still cannot authorize its
-parameter write. An EUD-positive result first permits only H0 design of an
-attended post-transfer cable-state comparator; execute it only if recovery and
-observation remain valid, otherwise record the branch blocked by the permanent
-EUD-write boundary.
+with no EUD cmdline/bootconfig override. Source confirms the EUD and PHY drivers
+address the same `0x088e2000` bit 0, but the parameter getter returns the cached
+SCM-synchronized probe value rather than rereading hardware. P3.07 therefore
+pairs that candidate value after EUD probe with the later PHY `csr:` direct read:
+only `(1,1)` proves init saw EUD, a mismatch is timing/reader divergence, and
+`(0,0)` kills the branch. No EUD write is authorized; an EUD-positive result
+permits only H0 review of a safe attended post-transfer cable-state comparator.
 
 P3.04 is the preceding closed live unit. After one pre-candidate host-observer
 arm stop with zero transfers, a new prepared run transferred its distinct
