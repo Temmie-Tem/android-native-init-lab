@@ -350,6 +350,7 @@ def verify_p303_campaign_binding(
     if acceptance.get("userspace_overlay_contract_id") not in {
         typed_evidence.P303_OVERLAY_CONTRACT_ID,
         typed_evidence.P304_OVERLAY_CONTRACT_ID,
+        typed_evidence.P305_OVERLAY_CONTRACT_ID,
     }:
         return
     baseline = verification.get("p303_stock_baseline")
@@ -513,6 +514,13 @@ def execution_critical_source_receipts(
                 root = candidate_intent.repo_root()
                 if (
                     userspace_overlay_contract_id
+                    == typed_evidence.P305_OVERLAY_CONTRACT_ID
+                ):
+                    overlay_module = typed_evidence.p305_overlay
+                    overlay_label = "P3.05"
+                    prefix = "p305"
+                elif (
+                    userspace_overlay_contract_id
                     == typed_evidence.P304_OVERLAY_CONTRACT_ID
                 ):
                     overlay_module = typed_evidence.p304_overlay
@@ -541,10 +549,13 @@ def execution_critical_source_receipts(
                         root,
                         root / overlay_module.DEFAULT_INTENT,
                     )
-                    if overlay_module is typed_evidence.p304_overlay:
+                    if overlay_module in {
+                        typed_evidence.p304_overlay,
+                        typed_evidence.p305_overlay,
+                    }:
                         overlay_sources = {
                             name: overlay_module._read_regular(  # noqa: SLF001
-                                root / path, f"P3.04 SOURCE_KEY {name}"
+                                root / path, f"{overlay_label} SOURCE_KEY {name}"
                             )
                             for name, path in sorted(
                                 overlay_module.SOURCE_PATHS.items()
@@ -581,6 +592,7 @@ def execution_critical_source_receipts(
                     in {
                         typed_evidence.P303_OVERLAY_CONTRACT_ID,
                         typed_evidence.P304_OVERLAY_CONTRACT_ID,
+                        typed_evidence.P305_OVERLAY_CONTRACT_ID,
                     }
                 ):
                     e1_latest_stage_sources["p303_stock_baseline_binding"] = Path(
@@ -595,6 +607,7 @@ def execution_critical_source_receipts(
                         typed_evidence.P302_OVERLAY_CONTRACT_ID,
                         typed_evidence.P303_OVERLAY_CONTRACT_ID,
                         typed_evidence.P304_OVERLAY_CONTRACT_ID,
+                        typed_evidence.P305_OVERLAY_CONTRACT_ID,
                     }
                 ):
                     parent_sources = typed_evidence.p301_overlay.source_bytes(root)
@@ -608,7 +621,10 @@ def execution_critical_source_receipts(
                     )
                 if (
                     userspace_overlay_contract_id
-                    == typed_evidence.P304_OVERLAY_CONTRACT_ID
+                    in {
+                        typed_evidence.P304_OVERLAY_CONTRACT_ID,
+                        typed_evidence.P305_OVERLAY_CONTRACT_ID,
+                    }
                 ):
                     e1_latest_stage_sources["p304_e2_stock_closure"] = Path(
                         typed_evidence.p304_e2_closure.__file__
@@ -622,6 +638,26 @@ def execution_critical_source_receipts(
                     e1_latest_stage_sources["p303_overlay_intent"] = (
                         root / typed_evidence.p303_overlay.DEFAULT_INTENT
                     )
+                    if (
+                        userspace_overlay_contract_id
+                        == typed_evidence.P305_OVERLAY_CONTRACT_ID
+                    ):
+                        parent_sources = {
+                            name: typed_evidence.p304_overlay._read_regular(  # noqa: SLF001
+                                root / path, f"P3.04 SOURCE_KEY {name}"
+                            )
+                            for name, path in sorted(
+                                typed_evidence.p304_overlay.SOURCE_PATHS.items()
+                            )
+                        }
+                        for name, data in parent_sources.items():
+                            receipts[f"p304_overlay_source_{name}"] = {
+                                "size": len(data),
+                                "sha256": hashlib.sha256(data).hexdigest(),
+                            }
+                        e1_latest_stage_sources["p304_overlay_intent"] = (
+                            root / typed_evidence.p304_overlay.DEFAULT_INTENT
+                        )
             e1_latest_stage_sources["source_contract_selector"] = Path(
                 candidate_intent.source_contracts.__file__
             )
@@ -839,6 +875,17 @@ def verify_candidate_source_binding(
                 (
                     ("p303", typed_evidence.p303_overlay),
                     ("p304", typed_evidence.p304_overlay),
+                )
+            )
+        if (
+            userspace_overlay_contract_id
+            == typed_evidence.P305_OVERLAY_CONTRACT_ID
+        ):
+            required_overlays.extend(
+                (
+                    ("p303", typed_evidence.p303_overlay),
+                    ("p304", typed_evidence.p304_overlay),
+                    ("p305", typed_evidence.p305_overlay),
                 )
             )
         for prefix, overlay_module in required_overlays:

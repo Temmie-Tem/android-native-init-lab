@@ -34,11 +34,25 @@ P3.04 is consequently `NO_PROOF_OBSERVER`: it proves the added notifier bridge
 can load in the exact candidate closure, but the stale 60-module checkpoint
 schema parked PID 1 before bind gates, trace setup, USB configuration, or the
 notifier hypothesis could be tested. The consumed P3.04 candidate must never be
-replayed. The next distinct candidate should preserve the fixed Image and all
-61 modules while representing the final two module loads in one existing
-module checkpoint slot, so later ordinals and fixed-Image detail rules do not
-shift. That repair requires focused host validation of success and both load
-failure branches before another live preparation.
+replayed.
+
+P3.05 is the prepared host-only repair. It preserves the fixed Image and all 61
+modules, retains individual checkpoints through module index 58, and folds
+every remaining module through index `N-1` into the existing index-59 module
+checkpoint only after ordered load and `/proc/modules` prefix verification.
+Tail failures retain the exact failing module index, while compile-time bounds
+prove that the folded module stage cannot overlap the first bind gate and cap
+the supported plan at 256 modules. Later ordinals and fixed-Image detail rules
+remain unchanged.
+
+The seven byte-affecting P3.05 SOURCE_KEYS remain immutable. Five focused
+transform tests and 22 common Process-v2 tests pass, the two independent
+AArch64 builds and byte-identical boot-only A/B packages are closed, and the
+2,768-byte ready manifest is created at SHA-256
+`7e1d33bb0ae2385625865878848b14afa0711d64a280bdb1cb74fbf92783b151`.
+This is still H0 preparation, not live authority. Because common Process-v2
+overlay/evidence recognition changed, one narrow independent review of that
+changed execution-critical closure remains before connected preparation.
 
 P3.03 is the preceding closed live unit. After one pre-candidate host-observer arm
 stop with zero transfers, exact read-only D0 restored a durable `HEALTHY`
