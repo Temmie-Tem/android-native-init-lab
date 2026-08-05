@@ -11,8 +11,36 @@ shared process documents. A90 state and authorization remain separate.
 
 ## Current Frontier
 
-P3.01-r1 is the latest closed live unit. The narrow userspace correction
-derived the expected final detail from the canonical P3.00 encoder as `0xE02`,
+P3.03 is the latest closed live unit. After one pre-candidate host-observer arm
+stop with zero transfers, exact read-only D0 restored a durable `HEALTHY`
+barrier. Host-only `pkexec` preauthorization then allowed a new run to arm the
+unchanged observer and execute normally. The candidate and exact Magisk
+rollback each transferred once, the operator observed one normal candidate
+boot with no loop, final rooted FYG8 Android health passed, the transaction is
+`CLOSED`, and `recovery_required=false`. A90 received zero commands.
+
+The two byte-identical final retained reads contain one exact P3.03 pair.
+Generation 106 is detail `0xD00`: `msm_hsphy_init()` entered and returned zero,
+the exact callsite probes were armed, but all twelve `clk_prepare`/`clk_enable`
+sites missed. Generation 107 is detail `0x4001`: candidate `/dev/kmsg`
+collection was sequence-complete, saw the normal HS-PHY path, and saw zero
+reset failures and zero `msm_usb_write_readback ... FAILED` records. With no
+working-stock boot-head pair, the log result is deliberately non-causal. The
+same-attempt host sidecar was integrity-clean and the exact candidate ACM
+observer timed out; no candidate identity appeared at the host.
+
+H0 source ordering explains the missed clock branch without treating it as
+return zero. The candidate loads `phy-msm-snps-hs.ko` at module index 55 and
+`dwc3-msm.ko` at index 58, while the cycle callsite probes arm only after the
+module load loop. The initial `dwc3_msm_core_init()` therefore calls
+`usb_phy_init()` before those module-offset probes exist and sets
+`clocks_enabled`; the later measured init re-entry is expected to skip the
+clock block. P3.03 consequently closes logged reset/readback failure only and
+does not decide the initial clock returns. It is closed as
+`NO_PROOF_OBSERVER`, not relabelled as a PHY success or failure.
+
+P3.01-r1 remains the preceding closed event-subtype unit. Its narrow userspace
+correction derived the expected final detail from the canonical P3.00 encoder as `0xE02`,
 kept the fixed P3.00 Image and 15-probe descriptor unchanged, and produced
 byte-identical one-member candidate A/B packages. The static checker, 33/33
 focused regressions, immutable-source recheck, package binding, and narrow
@@ -71,7 +99,7 @@ P3.03 combines a bounded candidate-window `/dev/kmsg` observer with twelve
 exact immediate-post-`bl` return probes in the existing vendor module. It does
 not rebuild the kernel or inject a module.
 
-## Selected Bounded Unit: P3.03 HS-PHY Silent-Failure Attribution (Host Qualified)
+## Closed Bounded Unit: P3.03 HS-PHY Silent-Failure Attribution
 
 The exact FYG8 `phy-msm-snps-hs.ko` has SHA-256
 `22a866320ba0de46619484efafaf0cf7ea3f7ba387cee7c3dd085f3a82492e94`,
@@ -115,8 +143,9 @@ exact, the artifact/static closure and Process-v2 offline promotion pass. After
 the optional-baseline execution closure passed focused independent review, the
 clock-only canonical manifest was created at 2,780 bytes with SHA-256
 `9188960230eecb7d85bf83c828cea55ea3563a5bd06809e680bcbc4f257b9c83`.
-P3.03 has performed only attended normal-reboot rotation and bounded
-exact-target D0 reads; no candidate transfer or F1 arm has occurred.
+P3.03 completed one distinct candidate attempt and exact rollback at transfer
+accounting 1/1. Its result is the valid `0xD00/0x4001` pair described above;
+the campaign is closed and the candidate must never be replayed.
 
 The working-stock boot-head log proved unavailable under the healthy D0
 contract. Even when the second attended baseline rotation was chained directly
@@ -143,7 +172,29 @@ selected serial plus inventory row count before every subsequent target read.
 Duplicate or replacement S22+ rows stop before topology/properties. The legacy
 unscoped client keeps exact-one behavior. D0/live regressions pass 64/64 and a
 focused independent review returned `PASS_GO`; the next preparation must use a
-new private run directory and this changed execution closure.
+new private run directory and this changed execution closure. The successful
+live run did so.
+
+## Selected Bounded Unit: P3.04 Stock USB-Notifier Bridge Restoration
+
+The exact FYG8 stock module `usb_notifier_qcom.ko` is present at 26,344 bytes
+with SHA-256
+`73f937efc9302d5fa8c2758b5e71b80f52063141d72c063bfe73b1583c781ccb`.
+Its declared direct dependencies are `vbus_notifier`, `usb_typec_manager`,
+`usb_notify_layer`, `dwc3-msm`, and `common_muic`; all are already in the
+candidate closure before the proposed insertion point. The stock recovery
+module list includes the module, while the current 60-module candidate plan
+does not.
+
+Source gives this bridge unique diagnostic weight. With
+`CONFIG_USB_NOTIFIER`, the DWC3 wrapper's extcon registration returns early.
+`usb_notifier_qcom` supplies `qcom_set_peripheral()` and calls the sole external
+`dwc_msm_vbus_event(enable)` entry, which updates `vbus_active`, queues the OTG
+resume work, and permits `B_SESS_VLD` to be set. The minimum P3.04 change is to
+add this exact stock module after `dwc3-msm.ko` and before `ucsi_glink.ko`,
+preserving the fixed Image, boot-only transfer, exact rollback, and same host
+USB sidecar. No EUD write, module rebuild, kernel rebuild, or new transfer
+machinery is selected.
 
 ## Parked Bounded Unit: P3.02 Passive Pull-Up Electrical Attribution
 
