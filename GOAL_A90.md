@@ -107,18 +107,20 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: Close H4 Incident and Recover Capacity
+## Selected Bounded Unit: Prepare Fresh H5 From Recovered Capacity
 
 Run-11 is terminal. Do not resume or replay its candidate, reset its state
-namespace, or reinterpret the missing candidate log receipt. The next bounded
-unit is host incident closure followed by separately qualified capacity work:
+namespace, or reinterpret the missing candidate log receipt. Incident closure
+and bounded capacity recovery are complete; execution continues at item 4:
 
-The exact V2321 H3 run-10 source reclaim capability is now independently
-`PASS_GO` over its named 19-test closure. This is qualification only: no unlink
-has been dispatched and the capability-wide one-use receipt remains absent.
-Live use still requires a fresh no-older-than-15-minute D0 inventory, immutable
-manifest, exact V2321 health and rollback, demonstrated attended physical
-recovery, and the unexpired capability. H4 run-11 remains exact and protected.
+The exact V2321 H3 run-10 source reclaim capability was independently
+`PASS_GO` over its named 19-test closure and used once under a fresh D0 and
+immutable manifest. It returned `PASS_H3_SOURCE_RECLAIMED`: run-10 is absent,
+H4 run-11 remains exact, work is absent, final V2321 health is exact, and SD
+available space increased by exactly 2,097,152 KiB to 5,959,716 KiB. Its
+capability-wide receipt is consumed and the capability is retired; never reuse
+it under another run ID. Host-preserved bytes remain evidence and grant no
+restore authority. The next live unit is a fresh H5, not H4 replay.
 
 1. preserve the closed H4 journal, exact source, and rollback result as
    no-replay incident evidence;
