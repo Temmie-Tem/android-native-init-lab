@@ -30,7 +30,9 @@ PREFIX = Path("workspace/public/src/scripts/revalidation")
 PRODUCER_PATH = PREFIX / "s22plus_fyg8_p303_stock_log_d0.py"
 BINDING_PATH = PREFIX / "s22plus_fyg8_p303_stock_log_baseline_binding.py"
 PARSER_PATH = PREFIX / "s22plus_fyg8_p303_stock_log_baseline.py"
-TIMESTAMP = re.compile(rb"(?m)^(?:<\d+>)?\[\s*(\d+)\.(\d{6})\]")
+TIMESTAMP = re.compile(
+    rb"(?m)^(?:\x1b\[[0-9;]*m)*(?:<\d+>)?\[\s*(\d+)\.(\d{6})\]"
+)
 
 
 class BindingError(ValueError):

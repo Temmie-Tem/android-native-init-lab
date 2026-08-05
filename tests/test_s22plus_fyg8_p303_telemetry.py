@@ -113,8 +113,8 @@ class P303TelemetryTests(unittest.TestCase):
 
     def test_bound_stock_baseline_requires_input_and_boot_window(self) -> None:
         raw = (
-            b"[    0.000000] Linux version exact-stock\n"
-            b"[    0.750000] phy-msm-snps-hs msm_hsphy_enable_clocks(): on = 1\n"
+            b"\x1b[32m[    0.000000] Linux version exact-stock\n"
+            b"\x1b[32m[    0.750000] phy-msm-snps-hs msm_hsphy_enable_clocks(): on = 1\n"
             b"[    1.000000] stock baseline complete\n"
         )
         private = ROOT / "workspace/private"
