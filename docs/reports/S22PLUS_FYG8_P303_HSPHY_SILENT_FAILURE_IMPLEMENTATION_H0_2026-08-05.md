@@ -2,8 +2,8 @@
 
 Date: 2026-08-05
 Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` / `S906NKSS7FYG8`)
-Tier: H0 only
-State: host-qualified; canonical manifest absent; no device contact or F1 arm
+Tier: H0 implementation with attended D1/D0 preflight evidence
+State: host-qualified; exact S22+ healthy; canonical manifest absent; no F1 arm
 
 ## Outcome
 
@@ -52,16 +52,36 @@ an unexpected cfg callsite also invalidates the clock conclusion.
 The log observer opens `/dev/kmsg` at its current end before module loading,
 checks sequence continuity and overflow, requires the normal HS-PHY path marker,
 and retains reset failures plus `msm_usb_write_readback ... FAILED` events.
-The stock baseline parser normalizes the immediately-post-reboot working log
-into the same domain. The ready path now requires the exact raw/result pair,
-proves that the retained timestamps cover boot start through a timestamped
-normal-path marker, binds the actual on-device module hash and stable boot ID,
-and exact-matches the pair to the outer manifest ID and live run ID. A
-candidate signature equal to stock is not causal attribution. Clean logged
-paths close only reset and register-readback errors; they do not prove the
-silent clock path. An incomplete stock log disables only this log comparison;
-it does not turn a missed clock callsite into return zero or erase a valid
-clock hit/return result.
+The stock baseline parser can normalize a complete working log into the same
+domain, but that comparison is optional. With no pair the result explicitly
+sets `available=false` and `causal_attribution_permitted=false`; candidate log B
+remains supplemental and cannot be promoted to a cause. When supplied, the
+ready path still requires the exact raw/result pair, proves that retained
+timestamps cover boot start through a timestamped normal-path marker, binds the
+actual on-device module hash and stable boot ID, and exact-matches the pair to
+the outer manifest ID and live run ID. A candidate signature equal to stock is
+not causal attribution. Clean logged paths close only reset and
+register-readback errors; they do not prove the silent clock path. Pair absence
+does not turn a missed clock callsite into return zero or erase a valid clock
+hit/return result; a one-file or unbound pair remains fail-closed.
+
+## Empirical Stock-Baseline Limit
+
+Two attended normal Android rotations each returned exact rooted FYG8 health,
+with no Download, Odin, payload, partition transfer, or F1 arm. The first
+bounded D0 preserved a 319,957-byte Samsung dmesg tail after its ANSI prefixes
+were understood, but its boot head had already rolled. A separate standard
+2,097,136-byte `/proc/last_kmsg` read began after 4434 seconds of the prior boot
+and was also only a tail.
+
+The second rotation was chained immediately into the same bounded D0 producer.
+Its 318,309-byte dmesg was monotonic from 17.431607 through 27.625407 seconds and
+contained zero normal-path, HS-PHY, QSCRATCH failure, or reset-failure markers.
+Thus Android/ADB healthy availability occurs after this kernel's boot head has
+already rolled. Another reboot would repeat the same structural limitation,
+not improve the evidence. The stock axis was therefore reduced from a live
+gate to optional auxiliary evidence; the clock-return objective is unchanged.
+The selected S22+ remained healthy and the attached A90 received zero commands.
 
 ## Artifacts
 
@@ -83,19 +103,25 @@ injected and no Full-LTO or kernel rebuild is needed.
 
 - the 12-file SOURCE_KEYS intent reverified without drift;
 - exact callsite audit: 12/12 verified;
-- P3.03 telemetry and Process-v2 tests: 16/16 passed, including truncated or
-  late stock-log rejection and outer campaign-ID mismatch rejection;
+- P3.03 telemetry and Process-v2 tests: 19/19 passed, including clock-only
+  non-causal classification, exact-pair acceptance, direct-path and CLI
+  one-file rejection, late stock-log rejection, and outer campaign-ID mismatch
+  rejection;
 - common Process-v2 evidence tests: 25/25 passed;
 - common Process-v2 runner tests: 22/22 passed;
 - P3.02 Process-v2 regressions: 7/7 passed, including actual current P3.01-r1
   promotion in the same process;
+- focused independent re-review: `PASS_GO`; absent, exact-pair, partial, and
+  direct-helper paths were reproduced over the current execution closure;
 - static artifact closure:
   `PASS_P303_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY`;
 - Process-v2 offline evidence promotion:
   `PASS_P234_PROCESS_V2_OFFLINE_EVIDENCE_PROMOTION`;
 - canonical ready-manifest rehearsal:
   `PASS_P303_PROCESS_V2_READY_MANIFEST_REHEARSAL_HOST_ONLY`, with
-  `created=false`, an exact five-artifact acceptance contract, and no manifest.
+  `created=false`, an exact three-artifact clock-only acceptance contract, an
+  independently passing exact five-artifact optional-pair path, and no
+  manifest.
 
 The standalone private callsite-audit receipt was regenerated after an earlier
 private copy lacked the already-required A/B offset-identity field. The new
@@ -109,10 +135,9 @@ was not repaired or attributed to P3.03.
 ## Live Preconditions
 
 Before a P3.03 F1 run, connected D0 must verify the exact S22+ profile and the
-on-device `phy-msm-snps-hs.ko` SHA-256 above. If the retained baseline requires
-the already-defined normal reboot rotation, capture the bounded working stock
-HS-PHY log immediately after that same reboot; no additional reboot is added.
-Reject the pair if the boot window, normal-path marker, target/module identity,
-stable boot ID, or exact P3.03 campaign binding is absent. Only that actual D0
-pair may allow Process-v2 prepare to create the canonical live binding. The
-consumed P3.01-r1 candidate is never replayed.
+on-device `phy-msm-snps-hs.ko` SHA-256 above. No further stock-baseline reboot is
+required or planned. Process-v2 may prepare the clock-only contract without a
+stock pair; in that branch candidate log B is non-causal supplemental evidence.
+If a complete pair is ever supplied, reject it unless boot window,
+normal-path marker, target/module identity, stable boot ID, and exact P3.03
+campaign binding all hold. The consumed P3.01-r1 candidate is never replayed.

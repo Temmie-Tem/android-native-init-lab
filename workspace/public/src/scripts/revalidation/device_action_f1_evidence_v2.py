@@ -1410,8 +1410,14 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
         ):
             raise EvidenceError("E1 latest-stage acceptance identity is invalid")
         contract_keys = {"candidate_static", "run_manifest", "static_check"}
+        stock_keys = {"stock_baseline_raw", "stock_baseline_result"}
         if userspace_overlay_contract_id == P303_OVERLAY_CONTRACT_ID:
-            contract_keys.update({"stock_baseline_raw", "stock_baseline_result"})
+            supplied = stock_keys & set(item["contract"])
+            if supplied not in (set(), stock_keys):
+                raise EvidenceError(
+                    "P3.03 stock baseline contract must be absent or an exact pair"
+                )
+            contract_keys.update(supplied)
         contract = _exact(
             item["contract"],
             contract_keys,
@@ -1420,7 +1426,7 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
         _artifact(contract["candidate_static"], "E1 latest-stage candidate_static")
         _artifact(contract["run_manifest"], "E1 latest-stage run_manifest")
         _artifact(contract["static_check"], "E1 latest-stage static_check")
-        if userspace_overlay_contract_id == P303_OVERLAY_CONTRACT_ID:
+        if stock_keys <= set(contract):
             _artifact(
                 contract["stock_baseline_raw"],
                 "P3.03 stock baseline raw",
@@ -1963,9 +1969,13 @@ def _verify_e1_latest_stage_offline_contract(
         "run_manifest",
         "static_check",
     }
-    if userspace_overlay_contract_id == P303_OVERLAY_CONTRACT_ID:
+    stock_keys = {"stock_baseline_raw", "stock_baseline_result"}
+    if (
+        userspace_overlay_contract_id == P303_OVERLAY_CONTRACT_ID
+        and stock_keys <= set(item["contract"])
+    ):
         expected_payloads.update(
-            {"stock_baseline_raw", "stock_baseline_result"}
+            stock_keys
         )
     if set(payloads) != expected_payloads or set(receipts) != set(payloads):
         raise EvidenceError(
@@ -1985,7 +1995,7 @@ def _verify_e1_latest_stage_offline_contract(
     run_manifest = _json(payloads["run_manifest"], "E1 latest-stage run manifest")
     static_result = _json(payloads["static_check"], "E1 latest-stage static result")
     p303_stock_baseline = None
-    if userspace_overlay_contract_id == P303_OVERLAY_CONTRACT_ID:
+    if stock_keys <= set(payloads):
         try:
             p303_stock_baseline = p303_stock_binding.verify_payloads(
                 Path(__file__).resolve().parents[5],
@@ -3164,9 +3174,17 @@ def classify_same_ring_multiboot(
     return result
 
 
-def _p303_bound_stock_baseline(item: dict[str, Any]) -> dict[str, Any]:
+def _p303_bound_stock_baseline(item: dict[str, Any]) -> dict[str, Any] | None:
     root = Path(__file__).resolve().parents[5]
     contract = item["contract"]
+    stock_keys = {"stock_baseline_raw", "stock_baseline_result"}
+    supplied = stock_keys & set(contract)
+    if not supplied:
+        return None
+    if supplied != stock_keys:
+        raise EvidenceError(
+            "P3.03 stock baseline contract must be absent or an exact pair"
+        )
     payloads: dict[str, bytes] = {}
     for name in ("stock_baseline_raw", "stock_baseline_result"):
         pin = contract[name]
@@ -3264,24 +3282,34 @@ def classify_e1_latest_stage(
     if item.get("userspace_overlay_contract_id") == P303_OVERLAY_CONTRACT_ID:
         stock = _p303_bound_stock_baseline(item)
         comparisons = []
-        for record in decoded["records"]:
-            pair = record.get("p303_pair")
-            if pair is None:
-                continue
-            try:
-                comparisons.append(
-                    p303_decoder.compare_stock_baseline(
-                        int(pair["b"]["detail"]), stock["baseline"]
+        if stock is not None:
+            for record in decoded["records"]:
+                pair = record.get("p303_pair")
+                if pair is None:
+                    continue
+                try:
+                    comparisons.append(
+                        p303_decoder.compare_stock_baseline(
+                            int(pair["b"]["detail"]), stock["baseline"]
+                        )
                     )
-                )
-            except p303_decoder.DecodeError as exc:
-                raise EvidenceError(str(exc)) from exc
-        result["p303_stock_baseline"] = {
-            "raw": stock["raw"],
-            "boot_window_complete": stock["boot_window_complete"],
-            "comparisons": comparisons,
-            "comparison_count": len(comparisons),
-        }
+                except p303_decoder.DecodeError as exc:
+                    raise EvidenceError(str(exc)) from exc
+            result["p303_stock_baseline"] = {
+                "available": True,
+                "causal_attribution_permitted": True,
+                "raw": stock["raw"],
+                "boot_window_complete": stock["boot_window_complete"],
+                "comparisons": comparisons,
+                "comparison_count": len(comparisons),
+            }
+        else:
+            result["p303_stock_baseline"] = {
+                "available": False,
+                "causal_attribution_permitted": False,
+                "comparisons": [],
+                "comparison_count": 0,
+            }
     return result
 
 

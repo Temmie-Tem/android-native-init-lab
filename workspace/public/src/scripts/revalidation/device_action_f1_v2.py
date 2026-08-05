@@ -353,6 +353,17 @@ def verify_p303_campaign_binding(
     ):
         return
     baseline = verification.get("p303_stock_baseline")
+    stock_keys = {"stock_baseline_raw", "stock_baseline_result"}
+    contract = acceptance.get("contract")
+    if not isinstance(contract, dict):
+        raise F1V2Error("P3.03 acceptance contract is invalid")
+    supplied = stock_keys & set(contract)
+    if not supplied:
+        if baseline is not None:
+            raise F1V2Error("P3.03 unbound stock baseline is present")
+        return
+    if supplied != stock_keys:
+        raise F1V2Error("P3.03 stock baseline binding is incomplete")
     expected = {"manifest_id": manifest_id, "live_run_id": live_run_id}
     if not isinstance(baseline, dict) or baseline.get("campaign_binding") != expected:
         raise F1V2Error("P3.03 stock baseline belongs to a different campaign")

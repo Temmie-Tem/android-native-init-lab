@@ -12,7 +12,7 @@
     "campaign_binding": {
       "live_run_id": "s22plus-fyg8-p303-attempt-1",
       "manifest_id": "s22plus-fyg8-p303-campaign-1",
-      "verification": "the bound stock baseline pair is exact-compared to the outer Process-v2 manifest_id and run_id in both ready rehearsal and live verify_bundle paths"
+      "verification": "the stock baseline pair is optional; when supplied it is exact-compared to the outer Process-v2 manifest_id and run_id in both ready rehearsal and live verify_bundle paths, while absence permits no stock comparison or log-causal attribution"
     },
     "contracts": {
       "decoder": "s22plus_fyg8_p303_two_slot_hsphy_silent_failure_v1",
@@ -23,9 +23,9 @@
     },
     "execution_critical_receipts": {
       "build_s22plus_fyg8_p303_candidate.py": "ec6e651011d9bbd43ac469f7890c08dd2b3524c7f0ca675cff511dd261e79ce3",
-      "device_action_f1_evidence_v2.py": "e78ed60b7bc24a4954d4c7e3322d89d7f3af248ac1a1ead603574dd04a133dde",
-      "device_action_f1_v2.py": "1babbb72b50304e425e6d9afae809fcde5219014ac1512481d116e6f132c6119",
-      "prepare_s22plus_fyg8_p292_ready_manifest.py": "ada64d5b1007c36d745b911ec4559d4d035c8ae429865af33466963f32aa107d",
+      "device_action_f1_evidence_v2.py": "6c7885baef0f054be1b7cd9cada9318f52094898b28721400299dffa2c0bade6",
+      "device_action_f1_v2.py": "3666a53bf6b139b71505ae9aabc589828280b6e47337fb1dae180375c22f2bc7",
+      "prepare_s22plus_fyg8_p292_ready_manifest.py": "3b0affd405bb661d6a0151a7051f4062d55411517f3b4e6cd3cc8da250b53165",
       "prepare_s22plus_fyg8_p303_process_v2.py": "3d674773660a6015bd9f58ebee18c8c7b880915cfbbc892341fc1353d62107f9",
       "prepare_s22plus_fyg8_p303_ready_manifest.py": "753f5dfbb95429a902a25ec8c3f5fafc670ef1f1dc8430b5b497241033fe1394",
       "s22plus_fyg8_p303_boot_only_packager.py": "b50e88a4a4d14dec668cda7bf8ea361a167359a3465ab25a8209a470f9960a4d",
@@ -230,10 +230,12 @@
     "The original standalone private callsite audit omitted only the A/B offset-identity field; it was regenerated host-only and now exactly equals both the current audit and the unchanged frozen intent audit without changing any SOURCE_KEY or candidate byte.",
     "A preliminary reviewer STOP claiming 0x4001 and 0x6001 publication details were unreachable was withdrawn: the materialized P2.88 classifier accepts the 0x4001-0x4fff and 0x6001-0x6fff FAILURE bands before exact-detail and terminal rules, and current endpoint/precedence tests cover that behavior.",
     "A preliminary reviewer STOP claiming all P3.03 contradiction details were unreachable was withdrawn for the same verified publication-band reason.",
-    "A marker-only synthetic stock baseline gap was closed by a dedicated exact-target D0 producer, raw boot-window receipt, actual runtime module SHA-256 receipt, immutable baseline binding, and mandatory same-campaign comparison.",
+    "A marker-only synthetic stock baseline gap was closed by a dedicated exact-target D0 producer, raw boot-window receipt, actual runtime module SHA-256 receipt, immutable baseline binding, and exact same-campaign comparison whenever that optional pair is supplied.",
     "The attended multi-target inventory bug was closed in the D0 producer: exactly one state=device model:SM_S906N device:g0q row is selected while unrelated rows are permitted; zero or duplicate S22 matches fail closed; final serial and row count are compared before any final topology or property command, and a replacement-S22 test proves zero commands reach the foreign serial.",
     "The first connected D0 exposed a host observer-ordering bug when stock dmesg normalization rejected its timestamps before the raw input was preserved. The corrected producer durably creates the exact bounded private raw immediately after the read and only then invokes normalization, so a repeated parser failure preserves evidence without changing target selection, target commands, candidate bytes, or evidence schema.",
     "The preserved Samsung toybox dmesg proved that each timestamped line may begin with an ANSI SGR prefix. The binding now accepts zero or more line-anchored ESC-[digits-or-semicolons]-m prefixes before the unchanged priority/timestamp grammar. Matching remains bounded by the existing 16 MiB raw cap and deterministic SGR terminator, while verify_payloads still hashes the exact raw and independently reruns the same boot-window and normalization checks; the mixed ANSI/plain synthetic binding fixture passes.",
+    "A fresh immediately healthy stock reboot proved the stronger empirical limit: retained dmesg begins at 17.431607 seconds with no HS-PHY boot marker, while /proc/last_kmsg is tail-only. The stock pair is therefore optional side evidence rather than a manifest gate. If absent, the clock hit/return tuple remains primary and the classifier emits available=false, causal_attribution_permitted=false, an empty comparison list, and comparison_count=0.",
+    "The focused reviewer STOP on the direct derive_manifest helper is closed. evidence_paths and evidence_receipts now independently require either no stock keys or the exact two-key pair and must have identical supply state; matching partial, full-path/partial-receipt, and absent-path/full-receipt cases all raise ManifestError.",
     "Reuse of a valid stock baseline under another manifest_id or live_run_id is fail-closed in both generic ready preparation and live verify_bundle; the current integration negative returns failure and leaves the canonical manifest absent.",
     "P3.03 adapter promotion restores inherited globals; the current P3.02 regression exercises the actual P3.01-r1 path in the same process and passes."
   ],
@@ -252,9 +254,9 @@
   "live_prerequisites": {
     "capability_pass_go_is_not_live_authority": true,
     "required_before_manifest_or_f1": [
-      "capture one exact-target working-stock post-baseline-rotation D0 pair with the reviewed producer",
-      "verify the on-device phy-msm-snps-hs.ko SHA-256 equals 22a866320ba0de46619484efafaf0cf7ea3f7ba387cee7c3dd085f3a82492e94",
-      "bind that pair to manifest_id s22plus-fyg8-p303-campaign-1 and live_run_id s22plus-fyg8-p303-attempt-1",
+      "treat the working-stock baseline as optional: omit both artifacts when structurally unavailable, or supply and verify the exact pair together",
+      "when the pair is supplied, bind it to manifest_id s22plus-fyg8-p303-campaign-1 and live_run_id s22plus-fyg8-p303-attempt-1; partial, unbound, or cross-campaign inputs remain fail-closed",
+      "when the pair is absent, preserve available=false and causal_attribution_permitted=false and do not claim a candidate-kmsg causal comparison",
       "satisfy the S22+ target presence, exact rollback, demonstrated recovery, known-healthy start, attendance, and fresh live D0 gates",
       "re-run qualification if any execution-critical receipt in this review changes or a new hazard or incident occurs"
     ]
@@ -299,12 +301,12 @@
       "static_check_sha256": "b403d9332ed17278762c68c08fc42612cff7ac54408131560516ee6e4abba7a4"
     }
   },
-  "reviewed_at_utc": "2026-08-05T02:51:36Z",
+  "reviewed_at_utc": "2026-08-05T03:13:54Z",
   "schema": "s22plus_fyg8_p303_hsphy_silent_failure_independent_review_v1",
   "scope": [
     "exact 12 post-BL clock-return probes in unchanged FYG8 phy-msm-snps-hs.ko",
     "clock hit/return telemetry, all-missed separation, and HS-PHY-init contradictions",
-    "candidate /dev/kmsg completeness and same-campaign working-stock D0 comparison",
+    "candidate /dev/kmsg completeness and optional exact same-campaign working-stock D0 comparison",
     "deterministic fixed-Image one-member boot-only A/B candidate closure",
     "P3.01 parent binding, P3.03 Process-v2 evidence promotion, shared runner closure, and ready rehearsal",
     "frozen intent and exact private artifacts without canonical manifest creation"
@@ -322,7 +324,7 @@
         "0x4001",
         "0x4800"
       ],
-      "stock_comparison": "same-campaign bound stock and candidate signatures are compared by the shared latest-stage evidence classifier; equality is explicitly not attributed to the candidate",
+      "stock_comparison": "optional exact same-campaign stock and candidate signatures are compared only when both bound artifacts exist; without them candidate kmsg remains supplemental, comparisons stay empty, and log-causal attribution is forbidden",
       "tracked_signature": "reset assert/deassert failures plus first readback-failure offset and count bucket"
     },
     "clock": {
@@ -359,23 +361,26 @@
       "device_action_f1_evidence_v2": "25/25 PASS",
       "device_action_f1_v2": "22/22 PASS",
       "p302_including_actual_p301_r1_same_process": "7/7 PASS",
-      "total": "54/54 PASS"
+      "total": "current shared execution closure 47/47 PASS; unchanged prior P3.02/P3.01-r1 regression 7/7 PASS"
     },
     "focused_current_tree": {
+      "p303_optional_stock_baseline": "10/10 P3.03 Process tests PASS, including absent pair, exact pair, wrong campaign, unbound verification, and direct partial path/receipt states",
       "p303_ansi_timestamp_delta": "PASS: mixed ANSI-SGR and plain timestamp lines retain exact boot-window and baseline verification",
       "p303_d0_multitarget_delta": "2/2 selected PASS: exact multi-target/no-foreign-command and execution-receipt tests",
       "p303_process_prior_full": "7/7 PASS before the focused D0 delta",
       "p303_telemetry_unchanged": "9/9 PASS",
-      "total": "prior full closure 16/16 plus current execution-critical D0 delta 2/2; no unrun 17/17 claim",
+      "total": "current optional-baseline focused re-review 57/57 PASS across shared evidence, shared runner, and P3.03 Process",
       "wrong_campaign_integration_negative": "returns 2 and creates no canonical manifest"
     },
-    "git_diff_check": "PASS for the corrected multi-target, write-before-parse, and ANSI-timestamp deltas before this review update",
+    "git_diff_check": "PASS for the optional-baseline shared execution/schema delta before this review update",
     "intent_reverification": "PASS source_count=12 callsite_count=12 run_id=e324abaec60286102e4c9eb19fd80600",
-    "py_compile": "PASS including the corrected D0 producer and ANSI-aware stock-baseline binding",
-    "ready_manifest_rehearsal": "PASS with created=false, device_contact=false, d0_started=false, f1_authorized=false",
+    "py_compile": "PASS for the optional-baseline shared evidence, runner, ready builder, and P3.03 Process test",
+    "ready_manifest_rehearsal": "PASS for both absent and exact stock-pair states with created=false; partial and wrong-campaign states fail closed and create no canonical manifest",
     "static_audit_reproduced": true,
     "test_receipts": {
-      "test_prepare_s22plus_fyg8_p303_process_v2.py": "93c92f59d80a555f7ea0e4497ef6206a6c71a318f9f38e5d713daf720970efaf",
+      "test_device_action_f1_evidence_v2.py": "c43e38a512ec0aa94d4f18af0547edae9aeda35841b91762ebc1ff4b4e5a28f3",
+      "test_device_action_f1_v2.py": "6855be2386d595183f63305964b7c4582c7d23c5c44f67096cda8ac30976c9b2",
+      "test_prepare_s22plus_fyg8_p303_process_v2.py": "a54fe6eafefd77e25c398edf6717727f071606b7cd0ab1277e896dc42e5d4f9c",
       "test_s22plus_fyg8_p303_telemetry.py": "ba642f86361c217dc9ad7df062b8b7191d7c1010f16cc7d5e94fb94514a8c451"
     },
     "verdict": "PASS_GO"

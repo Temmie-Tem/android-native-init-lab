@@ -151,8 +151,20 @@ def derive_manifest(
     if not isinstance(records, dict) or not isinstance(observation, dict):
         raise ManifestError("P2.92 observation contract is missing")
     contract_names = ["candidate_static", "run_manifest", "static_check"]
+    stock_keys = {"stock_baseline_raw", "stock_baseline_result"}
     if userspace_overlay_contract_id == P303_OVERLAY_CONTRACT_ID:
-        contract_names.extend(("stock_baseline_raw", "stock_baseline_result"))
+        path_stock = stock_keys & set(evidence_paths)
+        receipt_stock = stock_keys & set(evidence_receipts)
+        if (
+            path_stock not in (set(), stock_keys)
+            or receipt_stock not in (set(), stock_keys)
+            or path_stock != receipt_stock
+        ):
+            raise ManifestError(
+                "P3.03 stock baseline paths and receipts must be absent or an exact pair"
+            )
+        if path_stock:
+            contract_names.extend(("stock_baseline_raw", "stock_baseline_result"))
     contract = {
         name: {
             "path": repo_relative(root, evidence_paths[name], name),
@@ -273,18 +285,23 @@ def main(argv: list[str] | None = None) -> int:
             "static_check": resolve(root, args.static_check),
         }
         if USERSPACE_OVERLAY_CONTRACT_ID == P303_OVERLAY_CONTRACT_ID:
-            if args.stock_baseline_raw is None or args.stock_baseline_result is None:
+            if (args.stock_baseline_raw is None) != (
+                args.stock_baseline_result is None
+            ):
                 raise ManifestError(
-                    "P3.03 ready manifest requires one bound stock baseline pair"
+                    "P3.03 stock baseline must be supplied as an exact pair"
                 )
-            paths.update(
-                {
-                    "stock_baseline_raw": resolve(root, args.stock_baseline_raw),
-                    "stock_baseline_result": resolve(
-                        root, args.stock_baseline_result
-                    ),
-                }
-            )
+            if args.stock_baseline_raw is not None:
+                paths.update(
+                    {
+                        "stock_baseline_raw": resolve(
+                            root, args.stock_baseline_raw
+                        ),
+                        "stock_baseline_result": resolve(
+                            root, args.stock_baseline_result
+                        ),
+                    }
+                )
         payloads = {
             name: stable_read(path, name, MAX_EVIDENCE)
             for name, path in paths.items()

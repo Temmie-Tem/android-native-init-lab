@@ -25,6 +25,7 @@ import s22plus_fyg8_p303_overlay_contract as overlay  # noqa: E402
 import s22plus_fyg8_p303_stock_log_baseline_binding as stock_binding  # noqa: E402
 import s22plus_fyg8_p303_stock_log_d0 as stock_d0  # noqa: E402
 import s22plus_fyg8_p303_telemetry_decoder as decoder  # noqa: E402
+import s22plus_fyg8_p303_telemetry_spec as telemetry_spec  # noqa: E402
 
 
 class P303ProcessV2OverlayTest(unittest.TestCase):
@@ -134,6 +135,14 @@ class P303ProcessV2OverlayTest(unittest.TestCase):
                 )
 
     def test_campaign_binding_matches_outer_manifest_and_live_run(self) -> None:
+        acceptance = self.acceptance()
+        acceptance["contract"] = {
+            "candidate_static": {},
+            "run_manifest": {},
+            "static_check": {},
+            "stock_baseline_raw": {},
+            "stock_baseline_result": {},
+        }
         verification = {
             "p303_stock_baseline": {
                 "campaign_binding": {
@@ -143,7 +152,7 @@ class P303ProcessV2OverlayTest(unittest.TestCase):
             }
         }
         process_v2.verify_p303_campaign_binding(
-            self.acceptance(),
+            acceptance,
             verification,
             manifest_id=stock_binding.MANIFEST_ID,
             live_run_id=stock_binding.LIVE_RUN_ID,
@@ -156,11 +165,33 @@ class P303ProcessV2OverlayTest(unittest.TestCase):
                 process_v2.F1V2Error, "different campaign"
             ):
                 process_v2.verify_p303_campaign_binding(
-                    self.acceptance(),
+                    acceptance,
                     verification,
                     manifest_id=manifest_id,
                     live_run_id=live_run_id,
                 )
+
+        clock_only = self.acceptance()
+        clock_only["contract"] = {
+            "candidate_static": {},
+            "run_manifest": {},
+            "static_check": {},
+        }
+        process_v2.verify_p303_campaign_binding(
+            clock_only,
+            {"p303_stock_baseline": None},
+            manifest_id=stock_binding.MANIFEST_ID,
+            live_run_id=stock_binding.LIVE_RUN_ID,
+        )
+        with self.assertRaisesRegex(
+            process_v2.F1V2Error, "unbound stock baseline"
+        ):
+            process_v2.verify_p303_campaign_binding(
+                clock_only,
+                verification,
+                manifest_id=stock_binding.MANIFEST_ID,
+                live_run_id=stock_binding.LIVE_RUN_ID,
+            )
 
     def test_stock_d0_selects_only_exact_s22_from_multi_target_inventory(self) -> None:
         inventory = """List of devices attached
@@ -219,7 +250,72 @@ S22SERIAL device product:g0qksx model:SM_S906N device:g0q transport_id:2
             result["p303_offset_probe_rule"]["hit_zero_distinct_from_rc_zero"]
         )
 
-    def test_ready_rehearsal_requires_and_binds_complete_stock_baseline(self) -> None:
+    def test_clock_only_classification_disables_log_causality(self) -> None:
+        run_id = bytes.fromhex("00112233445566778899aabbccddeeff")
+        model = decoder.model
+        record = model.initialize_record(telemetry_spec.PROFILE, run_id)
+        for generation, position in enumerate(
+            decoder.inherited.spec.POSITIONS, 1
+        ):
+            if generation == telemetry_spec.CLOCK_ORDINAL + 1:
+                outcome = telemetry_spec.OUTCOME_PROGRESS
+                detail = telemetry_spec.encode_clock("normal", 0, 0)
+            elif generation == telemetry_spec.LOG_ORDINAL + 1:
+                outcome = telemetry_spec.OUTCOME_FAILURE
+                detail = telemetry_spec.encode_log(
+                    readback_count=0, first_offset=0, reset_mask=0
+                )
+            else:
+                outcome = model.OUTCOME_PROGRESS
+                detail = 0
+            request = model.encode_request(
+                telemetry_spec.PROFILE,
+                position.stage,
+                run_id=run_id,
+                outcome=outcome,
+                item_index=position.item_index,
+                detail=detail,
+            )
+            record = model.apply_request(record, request)
+
+        artifact = {
+            "path": "workspace/private/p303-evidence.json",
+            "size": 1,
+            "sha256": "1" * 64,
+        }
+        acceptance = {
+            "kind": evidence.E1_LATEST_STAGE_KIND,
+            "source": evidence.CHECKPOINT_SOURCE,
+            "decoder": decoder.DECODER_ID,
+            "policy_id": decoder.POLICY_ID,
+            "profile": telemetry_spec.PROFILE,
+            "source_contract_id": overlay.PARENT_SOURCE_CONTRACT_ID,
+            "userspace_overlay_contract_id": overlay.CONTRACT_ID,
+            "run_id": run_id.hex(),
+            "long_family_hex": model.LONG_FAMILY.hex(),
+            "unsat_family_hex": model.UNSAT_FAMILY.hex(),
+            "terminal_stage": decoder.inherited.TERMINAL_POSITION[0],
+            "minimum_success_count": 1,
+            "clean_baseline_required": True,
+            "contract": {
+                name: artifact
+                for name in ("candidate_static", "run_manifest", "static_check")
+            },
+        }
+        result = evidence.classify_e1_latest_stage(record, acceptance)
+        self.assertTrue(result["accepted"])
+        self.assertEqual(result["telemetry_count"], 1)
+        self.assertEqual(
+            result["p303_stock_baseline"],
+            {
+                "available": False,
+                "causal_attribution_permitted": False,
+                "comparisons": [],
+                "comparison_count": 0,
+            },
+        )
+
+    def test_ready_rehearsal_allows_clock_only_or_exact_stock_pair(self) -> None:
         raw = (
             b"[    0.000000] exact stock boot start\n"
             b"[    0.500000] phy-msm-snps-hs msm_hsphy_enable_clocks(): on = 1\n"
@@ -265,7 +361,7 @@ S22SERIAL device product:g0qksx model:SM_S906N device:g0q transport_id:2
             )
             output = ROOT / ready.DEFAULT_OUT
             self.assertFalse(output.exists())
-            arguments = [
+            base_arguments = [
                 "--candidate-static",
                 str(ROOT / adapter.DEFAULT_OUT / "candidate-static.json"),
                 "--run-manifest",
@@ -274,6 +370,20 @@ S22SERIAL device product:g0qksx model:SM_S906N device:g0q transport_id:2
                 str(ROOT / adapter.DEFAULT_OUT / "static-check-result.json"),
                 "--candidate-ap",
                 str(ROOT / adapter.DEFAULT_CANDIDATE_AP),
+                "--verify-only",
+            ]
+            self.assertEqual(ready.main(base_arguments), 0)
+            self.assertFalse(output.exists())
+            self.assertEqual(
+                ready.main(
+                    base_arguments
+                    + ["--stock-baseline-raw", str(raw_path)]
+                ),
+                2,
+            )
+            self.assertFalse(output.exists())
+            arguments = [
+                *base_arguments[:-1],
                 "--stock-baseline-raw",
                 str(raw_path),
                 "--stock-baseline-result",
@@ -291,6 +401,65 @@ S22SERIAL device product:g0qksx model:SM_S906N device:g0q transport_id:2
             rc = ready.main(arguments)
             self.assertEqual(rc, 0)
             self.assertFalse(output.exists())
+
+    def test_direct_manifest_derivation_rejects_partial_stock_inputs(self) -> None:
+        output = ROOT / adapter.DEFAULT_OUT
+        run_manifest_path = output / "run-manifest.json"
+        base_paths = {
+            "candidate_static": output / "candidate-static.json",
+            "run_manifest": run_manifest_path,
+            "static_check": output / "static-check-result.json",
+        }
+        base_receipts = {
+            name: ready.receipt(path.read_bytes())
+            for name, path in base_paths.items()
+        }
+        stock_paths = {
+            "stock_baseline_raw": ROOT / "workspace/private/raw.bin",
+            "stock_baseline_result": ROOT / "workspace/private/result.json",
+        }
+        stock_receipts = {
+            name: {"size": 1, "sha256": "1" * 64}
+            for name in stock_paths
+        }
+        artifact = {
+            "path": "workspace/private/p303/AP.tar.md5",
+            "size": 1,
+            "sha256": "2" * 64,
+        }
+        cases = (
+            (
+                {**base_paths, "stock_baseline_raw": stock_paths["stock_baseline_raw"]},
+                {**base_receipts, "stock_baseline_raw": stock_receipts["stock_baseline_raw"]},
+            ),
+            (
+                {**base_paths, **stock_paths},
+                {**base_receipts, "stock_baseline_raw": stock_receipts["stock_baseline_raw"]},
+            ),
+            (
+                base_paths,
+                {**base_receipts, **stock_receipts},
+            ),
+        )
+        for paths, receipts in cases:
+            with self.subTest(path_keys=sorted(paths), receipt_keys=sorted(receipts)):
+                with self.assertRaisesRegex(
+                    ready.ManifestError, "absent or an exact pair"
+                ):
+                    ready.derive_manifest(
+                        root=ROOT,
+                        run_manifest=json.loads(
+                            run_manifest_path.read_text(encoding="ascii")
+                        ),
+                        evidence_paths=paths,
+                        evidence_receipts=receipts,
+                        candidate_ap=artifact,
+                        rollback_ap={**artifact, "sha256": "3" * 64},
+                        target_profile=ROOT / ready.DEFAULT_TARGET_PROFILE,
+                        manifest_id=ready.DEFAULT_MANIFEST_ID,
+                        live_run_id=ready.DEFAULT_LIVE_RUN_ID,
+                        timeout_sec=ready.DEFAULT_TIMEOUT_SEC,
+                    )
 
 
 if __name__ == "__main__":

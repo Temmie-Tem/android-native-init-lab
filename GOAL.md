@@ -98,10 +98,11 @@ clock reach and errno buckets. Ordinal 106 uses FAILURE `0x4001-0x4800` for
 the candidate-window log summary: first write-readback offset, count bucket,
 and reset-failure mask. The observer opens `/dev/kmsg` at the current end before
 module loading, requires sequence-complete collection, and requires the normal
-HS-PHY path marker. A stock baseline captured immediately after the already
-required normal baseline rotation is normalized into the same log domain. A
-candidate signature equal to working stock cannot be attributed as the cause;
-clean reset/readback logs do not prove the unlogged clock path.
+HS-PHY path marker. When a complete working-stock log pair is available it is
+normalized into the same log domain. A candidate signature equal to working
+stock cannot be attributed as the cause; without that pair, candidate log B is
+supplemental and explicitly cannot carry causal attribution. Clean
+reset/readback logs do not prove the unlogged clock path.
 
 The two clean builds are byte-identical. Each boot image is 100,663,296 bytes
 with SHA-256
@@ -111,16 +112,24 @@ each one-member AP is 27,105,321 bytes with SHA-256
 They retain the fixed P3.00 Image, inject zero modules, and differ from the
 parent only in the static userspace observer. The 12-file source intent remains
 exact, the artifact/static closure and Process-v2 offline promotion pass, and
-the ready-manifest rehearsal leaves the canonical manifest absent. No device
-contact or F1 arm has occurred for P3.03.
+the ready-manifest rehearsal leaves the canonical manifest absent. P3.03 has
+performed only attended normal-reboot rotation and bounded exact-target D0
+reads; no candidate transfer or F1 arm has occurred.
 
-The rehearsal now requires a real connected-D0 stock log pair before the
-canonical manifest can exist. That pair must retain the boot-start window and
-timestamped normal-path marker, bind the stable boot ID and exact on-device
-HS-PHY module hash, and match the outer P3.03 manifest/live-run IDs. This adds
-no reboot or F1: it rides the already-required normal baseline rotation. If
-the pair is incomplete, only stock/candidate log attribution is unavailable;
-independently valid clock callsite hit and return evidence remains usable.
+The working-stock boot-head log proved unavailable under the healthy D0
+contract. Even when the second attended baseline rotation was chained directly
+into the read, the retained ring began at 17.431607 seconds and contained zero
+normal HS-PHY markers; `/proc/last_kmsg` retained only a prior-boot tail starting
+after 4434 seconds. Repeating reboots cannot make this observation complete, so
+it is no longer a live gate. The ready contract accepts either no stock pair or
+one exact pair. If absent, it records `available=false` and
+`causal_attribution_permitted=false`; the twelve clock callsite hit/return
+results remain the primary objective. If supplied later, both artifacts must
+still cover the boot window, bind exact target/module/campaign identity, and
+pass the original strict comparison. One-file and unbound inputs remain
+fail-closed. The exact S22+ returned rooted FYG8 health after the second
+rotation, A90 received zero commands, and no additional baseline reboot is
+planned.
 
 ## Parked Bounded Unit: P3.02 Passive Pull-Up Electrical Attribution
 
