@@ -113,6 +113,13 @@ Run-11 is terminal. Do not resume or replay its candidate, reset its state
 namespace, or reinterpret the missing candidate log receipt. The next bounded
 unit is host incident closure followed by separately qualified capacity work:
 
+The exact V2321 H3 run-10 source reclaim capability is now independently
+`PASS_GO` over its named 19-test closure. This is qualification only: no unlink
+has been dispatched and the capability-wide one-use receipt remains absent.
+Live use still requires a fresh no-older-than-15-minute D0 inventory, immutable
+manifest, exact V2321 health and rollback, demonstrated attended physical
+recovery, and the unexpired capability. H4 run-11 remains exact and protected.
+
 1. preserve the closed H4 journal, exact source, and rollback result as
    no-replay incident evidence;
 2. independently review the cumulative-log observer repair and bind its exact
@@ -182,6 +189,7 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_H3_AUTO_BENCHMARK_OBSERVER_TAIL_REPAIR_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_PHASE3_MINIMAL_H4_OBSERVER_COMPLETE_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H4_CUMULATIVE_UNARMED_LOG_OBSERVER_INCIDENT_REVIEW_2026-08-05.json`
+- `docs/reports/A90_V2321_H3_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`
 
 Private manifests, journals, raw logs, rootfs and boot artifacts, rollback

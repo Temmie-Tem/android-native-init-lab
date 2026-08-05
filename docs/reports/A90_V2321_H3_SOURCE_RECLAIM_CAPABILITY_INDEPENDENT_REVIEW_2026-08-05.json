@@ -1,0 +1,98 @@
+{
+  "schema": "a90-v2321-h3-source-reclaim-capability-independent-review-v1",
+  "review_date": "2026-08-05",
+  "reviewer": "independent subagent /root/a90_capability_review",
+  "verdict": "PASS_GO",
+  "target": "Samsung Galaxy A90 5G only",
+  "capability": "A90_ATTENDED_V2321_H3_SOURCE_RECLAIM_V1",
+  "hazard": "SD_CAPACITY_EXHAUSTION_WITH_INCIDENT_SOURCE_COLLATERAL_DELETION",
+  "scope": {
+    "selected": "exact H3 run-10 2 GiB keyed source only",
+    "protected": "exact H4 incident run-11 keyed source",
+    "starting_health": "exact V2321 native health",
+    "effect": "one host-encoded nonrecursive unlink dispatch",
+    "payload_transfer": false,
+    "partition_write": false,
+    "flash": false,
+    "restore_authority": false,
+    "s22plus_authority": false
+  },
+  "reviewed_properties": {
+    "selected_and_protected_staging_provenance_bound": true,
+    "selected_and_protected_host_bytes_exact": true,
+    "rollback_and_physical_recovery_required": true,
+    "fresh_inventory_max_age_seconds": 900,
+    "work_and_all_known_stage_paths_absent": true,
+    "mount_namespace_fd_loop_and_current_root_guards": true,
+    "capability_wide_cross_run_consumption": true,
+    "unlink_dispatch_count_max": 1,
+    "unlink_retransmit": false,
+    "ambiguous_response_resume_read_only": true,
+    "expiry_rechecked_after_long_reads_and_before_effect": true,
+    "expired_after_receipt_dispatch_count": 0,
+    "expired_after_receipt_device_write": false,
+    "expired_zero_dispatch_marker_required_on_resume": true,
+    "pass_requires_selected_absent": true,
+    "pass_requires_protected_exact": true,
+    "pass_requires_bounded_two_gib_free_gain": true,
+    "pass_requires_final_exact_v2321_health": true
+  },
+  "reviewed_execution_closure": {
+    "changed_three_file_sha256": "1b9d9ca988a59b0c613b8afc6b1d9b4cd2a4a4138bfb49b0f68b4c4fc19cf7de",
+    "production_sha256": "a92c336cb6448d5420e34bb15e218351471ce08fadff4051e30cec8ac77c6c0b",
+    "five_file_sha256": "97cfdc65ddb8bb9ad83b2de0d715e94df41b4db53d2531df01e468ad6a7164c9",
+    "full_runner_source_sha256": "f9a0783c7055e9af1abf6f05b09ecbe370d79b0e7cbfb80c1e70f0fea62d3452",
+    "files": {
+      "docs/operations/targets/A90_TARGET_CONTRACT.md": {
+        "bytes": 27678,
+        "sha256": "b25f1bcf9fb08986b5d37df79bbe33af06115e1b53e198359b45965ad400b0fa"
+      },
+      "workspace/public/src/scripts/server-distro/a90_v2321_h3_source_reclaim_v1.py": {
+        "bytes": 48216,
+        "sha256": "ffe6e6dd2126410d87e6c119a819f6668ee79a67b0d07397fd1e5bf1936b5706"
+      },
+      "tests/test_server_distro_a90_v2321_h3_source_reclaim_v1.py": {
+        "bytes": 31738,
+        "sha256": "68d4b52a1798e90036fd28dfd6f95295cbb9d4eff8006224e38c6cfb0a2fad1f"
+      },
+      "workspace/public/src/scripts/server-distro/a90_obsolete_rootfs_cleanup_v1.py": {
+        "bytes": 149731,
+        "sha256": "3aa00d36e9ca4c9147c10a67168f0933689ed09c0d6ba833a4ff51290d1e9ee7"
+      },
+      "workspace/public/src/scripts/server-distro/a90_v3405_retained_work_cleanup.py": {
+        "bytes": 71652,
+        "sha256": "e2c7d53b3441f35dc3ac88a9d410f786986fa9aca135abaf23c849c799a04ad0"
+      }
+    }
+  },
+  "validation": {
+    "py_compile": "PASS",
+    "git_diff_check": "PASS",
+    "capability_tests": 19,
+    "imported_gc_tests": 50,
+    "imported_legacy_cleanup_tests": 27,
+    "total_tests": 96,
+    "failed_tests": 0,
+    "historical_evidence_files": 12,
+    "selected_host_preservation_exact": true,
+    "protected_host_preservation_exact": true,
+    "rollback_size_and_sha256_exact": true
+  },
+  "review_lifetime": {
+    "reuse": "Only this unchanged execution-critical closure and hazard assumptions qualify.",
+    "retires_on_first_pass": true,
+    "expires_utc": "2026-08-06T00:00:00Z",
+    "fresh_review_trigger": "Any selected or protected identity, execution-critical hash, dispatch, journal, expiry, resume, health, recovery, or hazard change, or any new incident."
+  },
+  "unresolved_high_findings": [],
+  "unresolved_medium_findings": [],
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "live_use_authorized_by_review": false,
+  "reviewer_device_contact": false,
+  "reviewer_usb_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_s22plus_contact": false,
+  "reviewer_repository_edits": false
+}

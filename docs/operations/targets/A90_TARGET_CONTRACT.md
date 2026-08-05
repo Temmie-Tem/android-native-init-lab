@@ -183,6 +183,43 @@ A fresh D0 inventory and immutable execution binding replace per-file phrases or
 After unlink dispatch only, exact absent selected bytes may be restored while attended through a separate sequential durable no-clobber recovery transaction; restoration is never automatic, and an uncertain reserve, transfer, or publish is never replayed. Recovery response or host-process loss after a durable restore start likewise resumes only journal-bound read-only reconciliation/health and never repeats reserve, transfer, publish, or cleanup. PASS requires all selected paths absent, all protected identities exact, work and restore staging absent, increased bounded free space, and final exact V3406 health.
 Cleanup sends no payload, and recovery may transfer only the manifest-bound preserved SD-file identities; neither path writes a partition, configuration, credential, or security state, grants arbitrary path or shell authority, or applies to S22+, userdata, another removable device, another A90, or an unreviewed identity.
 
+The one-use attended D1 sub-capability
+`A90_ATTENDED_V2321_H3_SOURCE_RECLAIM_V1` addresses the bounded hazard
+`SD_CAPACITY_EXHAUSTION_WITH_INCIDENT_SOURCE_COLLATERAL_DELETION`. It may unlink
+only the exact host-preserved H3 run-10 keyed source after the closed H4 run-11
+incident has restored exact V2321 health. The H4 run-11 keyed source is one
+separately exact protected identity and is never selectable. Selection and
+protection are fixed by run ID, path, 2 GiB size, mode `0600`, single link,
+SHA256, filesystem device and inode, successful absent-only staging evidence,
+and exact private host-preserved bytes. The exact boot-only V2321 rollback and
+attended physical Download or TWRP path remain required.
+
+A fresh inventory no older than 15 minutes must bind the exact A90 and bridge
+generation, exact V2321 health, selected and protected identities, absent work
+and all known staging paths, and bounded filesystem capacity. Immediately
+before durable intent, the runner revalidates the complete source/evidence and
+rollback closure, target, bridge, V2321 health, both file identities, and every
+visible PID mount namespace, open file descriptor, loop backing file, and
+current-root reference for the selected source. One durable intent permits one
+nonrecursive host-encoded unlink dispatch and no retransmission. Before that
+dispatch, one capability-wide exclusive receipt consumes the capability across
+all run IDs and remains consumed after PASS, non-PASS, ambiguity, interruption,
+or later external restoration. Missing or
+malformed response permits only journal-bound read-only reconciliation with a
+fresh exact A90 bridge generation; it never resends unlink.
+
+PASS requires the selected H3 source absent, the protected H4 incident source
+exact, work absent, bounded free-space gain consistent with one 2 GiB file, and
+final exact V2321 health. A non-PASS terminal parks without retry. Host
+preservation is evidence but grants no restore authority; restoration would be
+a separate reviewed transaction. This capability sends no payload, flashes no
+partition, changes no configuration, credential, or security state, and never
+applies to S22+, userdata, another path, removable device, or A90. It retires
+after its first exact PASS, on any selected/protected identity or closure
+change, or at `2026-08-06T00:00:00Z`, whichever comes first. Capture, manifest,
+and execution fail closed at expiry; post-dispatch read-only reconciliation may
+continue. Extension requires review.
+
 An automatic-handoff resident candidate must publish one versioned compiled
 rootfs binding receipt before candidate intent. The candidate version/build,
 compiled Debian image path and SHA256, and versioned enable/latch paths in that
