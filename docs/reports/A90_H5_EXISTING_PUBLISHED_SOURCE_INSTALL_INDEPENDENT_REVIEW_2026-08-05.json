@@ -1,0 +1,131 @@
+{
+  "schema": "a90-h5-existing-published-source-install-independent-review-v1",
+  "status": "PASS_GO",
+  "review_date": "2026-08-05",
+  "reviewer": "independent subagent /root/a90_capability_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "capability": "A90_ATTENDED_H5_EXISTING_PUBLISHED_SOURCE_INSTALL_V1",
+  "decision": "No unresolved HIGH or MEDIUM findings. The exact terminal run-12 published H5 source may be reopened read-only by one fresh campaign without staging, copy, deletion, handoff, candidate replay, or cross-target authority.",
+  "scope": {
+    "predecessor": "terminal run-12 zero-candidate abort only",
+    "source_retransmission": false,
+    "rootfs_staging": false,
+    "rootfs_copy": false,
+    "rootfs_delete": false,
+    "handoff": false,
+    "candidate_version": "0.11.173",
+    "candidate_build": "phase3-minimal-h5-fresh-campaign-auto-benchmark",
+    "candidate_boot_sha256": "8ceda5ac0924c0fc1f8526bbd3632fd5e6f1a8cdd59b03c978efb09bbb1acd9b",
+    "rollback_version": "0.9.285",
+    "rollback_build": "v2321-usb-clean-identity-rodata",
+    "rollback_boot_sha256": "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb",
+    "only_partition_payload": "boot",
+    "candidate_attempt_limit": 1,
+    "candidate_replay": false,
+    "s22plus_authority": false
+  },
+  "reviewed_properties": {
+    "predecessor_terminal_zero_candidate_closure_exact": true,
+    "fresh_campaign_only": true,
+    "published_source_path_size_sha256_inode_bound": true,
+    "work_stage_enable_latch_absent": true,
+    "mount_namespace_loop_fd_and_current_root_absent": true,
+    "seven_bounded_read_only_frames": true,
+    "maximum_frame_bytes": 778,
+    "global_single_target_modemmanager_guard": true,
+    "candidate_and_rollback_boot_only": true,
+    "durable_candidate_intent_once": true,
+    "candidate_replay_forbidden": true,
+    "post_candidate_source_identity_exact": true,
+    "post_rollback_source_identity_exact": true,
+    "journal_action_state_keyset_payload_exact": true,
+    "success_close_only_result_repair": true,
+    "rollback_close_only_result_repair": true,
+    "exact_final_health_required": true
+  },
+  "named_execution_critical_closure": {
+    "a90ctl": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90ctl.py",
+      "size": 16380,
+      "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c"
+    },
+    "connected_preflight": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_phase2d_connected_preflight.py",
+      "size": 21929,
+      "sha256": "c84f7e8d1054df6f095ce13a0bb4c3f057a6d0f4244b77f12b5c87f89edaa6d8"
+    },
+    "flash_runner": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/native_init_flash.py",
+      "size": 43118,
+      "sha256": "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
+    },
+    "h5_flat_manifest": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h5/manifest.toml",
+      "size": 7577,
+      "sha256": "ae7db85dfa1d98825952338137445a14e3fc5969ca56591fb6444727fdd22527"
+    },
+    "modemmanager_guard": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/device_action_cdc_acm_observer_v1.py",
+      "size": 51402,
+      "sha256": "6c8a6d2151928d2e098ca41b3c9dc24cdbbfabe9be10df19969be274744ef9a9"
+    },
+    "orchestrator": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py",
+      "size": 283573,
+      "sha256": "57a50e40c19fac50359603421be4fcfce9b4eedea0d88fdba3bb0e35a809d6b5"
+    },
+    "preserved_recovery_helpers": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_resident_existing_rootfs_install_v1.py",
+      "size": 128843,
+      "sha256": "4be463fd7419259781f83d6ec1812d59e143f84cdb46ffdea0d9f01694f151d0"
+    },
+    "resident_promotion": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py",
+      "size": 73253,
+      "sha256": "61c9e5d085a5285cad79220e70d658f22266428395a42aeab8bf4691345895dc"
+    },
+    "runner": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_h5_existing_source_install_v1.py",
+      "size": 97302,
+      "sha256": "a30249f9c511078ef5d4121fb6cbd6e5dadf4a13708141aefdcf63b93e4e4e7d"
+    },
+    "serial_bridge": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/serial_tcp_bridge.py",
+      "size": 17944,
+      "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98"
+    },
+    "staging_contract": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py",
+      "size": 104591,
+      "sha256": "a98aef29133109a06fbb5a41721c58ecb07e6f7a31c9b2c6863965323d5b5642"
+    },
+    "tcpctl_host": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/tcpctl_host.py",
+      "size": 34750,
+      "sha256": "032f3146ddc08af82f00881ae3d825066e843a41b194ee8d4c8cf09d1f3adb78"
+    }
+  },
+  "validation": {
+    "py_compile": "PASS",
+    "git_diff_check": "PASS",
+    "host_audit": "PASS",
+    "ast_check": "PASS",
+    "capability_tests": 15,
+    "resident_promotion_tests": 34,
+    "orchestrator_tests": 126,
+    "preserved_rootfs_tests": 15,
+    "total_tests": 190,
+    "failed_tests": 0
+  },
+  "review_lifetime": "Reusable while the named execution-critical closure and hazard assumptions remain unchanged and no new hazard or incident occurs. Fresh D0, manifest, attendance, live health, rollback and recovery remain separate.",
+  "unresolved_high_findings": [],
+  "unresolved_medium_findings": [],
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "reviewer_device_contact": false,
+  "reviewer_usb_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_s22plus_contact": false,
+  "reviewer_repository_edits": false
+}
