@@ -56,9 +56,19 @@ The pre-H2 goal history is preserved at
   pstore zero, and the exact A90 bridge. It observed only the expected run-12
   final source present; work and run stage remained absent. The other-target
   guard later released without A90 intervention.
-- No D1 transaction is active and no target is A90 F1-armed. Runs 11 and 12
-  are terminal and must never be resumed or replayed. No A90 command was sent
-  to S22+ and its transient guard was not removed or modified.
+- H5 run `a90-v3406-debian-display-f1-20260805-13` reused that exact published
+  source read-only, staged and copied zero rootfs bytes, and installed boot-only
+  candidate `0.11.173` exactly once. The durable result is
+  `PASS_A90_RESIDENT_INSTALLED` / `RESIDENT_HEALTHY`, with candidate/rollback
+  counts `1/0`, candidate replay false, and the global guard released.
+- The post-install read-only D0 proved exact H5 build
+  `phase3-minimal-h5-fresh-campaign-auto-benchmark`, self-test `11/1/0`, and
+  exclusive unarmed state `binding=1 enable=0 latch=0`. SD capacity remained
+  61408048 KiB total, 54419496 KiB used, and 3862540 KiB available at 93% use;
+  no second 2 GiB staging copy was created.
+- No D1 transaction is active and no target is A90 F1-armed. Runs 11, 12, and
+  13 are terminal and must never be resumed or replayed. No A90 command was
+  sent to S22+, and its files and device state remained untouched.
 
 ## Qualified Capabilities
 
@@ -118,7 +128,7 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: Install H5 From Exact Preserved Run-12 Source
+## Selected Bounded Unit: Exercise One H5 Automatic Handoff
 
 Run-11 is terminal. Do not resume or replay its candidate, reset its state
 namespace, or reinterpret the missing candidate log receipt. Incident closure
@@ -133,37 +143,20 @@ capability-wide receipt is consumed and the capability is retired; never reuse
 it under another run ID. Host-preserved bytes remain evidence and grant no
 restore authority. The next live unit is a fresh H5, not H4 replay.
 
-H5 host preparation produced one run-12 keyed rootfs, deterministic
-byte-identical A/B boot candidate `0.11.173`, fresh H5 enable/latch namespace,
-and independent `PASS_GO` over the exact 13-file F1/D1 closure. Run-12 staged
-that exact source but closed before candidate intent because another target
-already owned the single global F1 guard. The source is exact and work/stage
-remain absent, so deleting and retransmitting the same 2 GiB would add device
-effects without improving the evidence. The next host unit is a reviewed fresh
-campaign lane that reopens the exact published source read-only, stages/copies
-nothing, and permits one boot-only H5 candidate only after the global guard is
-free. H4 and run-12 remain terminal.
+H5 host preparation, source publication, the no-stage resident-install
+capability review, one attended boot-only installation, and exclusive unarmed
+first-boot health are complete. Run-13 is a closed resident baseline, not a
+replay source. The next live unit starts from its exact post-install state:
 
-1. preserve the closed H4 journal, exact source, and rollback result as
-   no-replay incident evidence;
-2. independently review the cumulative-log observer repair and bind its exact
-   execution-critical closure;
-3. inventory obsolete A90 SD sources at H0 and design one bounded reclaim path
-   that is valid from exact V2321 health; existing V3406-only GC authority must
-   not be reused;
-4. only after adequate free-space margin exists, build and qualify a fresh H5
-   candidate with a new build identity, absent rootfs destination, and absent
-   enable/latch namespace;
-5. bind the terminal run-12 zero-candidate journal, exact published source,
-   absent work/stage and fresh V2321 D0 into a new no-stage H5 manifest;
-6. independently review the no-stage execution closure, then perform one new
-   attended boot-only F1 campaign with exact V2321 rollback;
-7. prove first-boot health and exclusive unarmed state before any D1 action;
-8. arm once and reboot once under one durable D1 ordinal, rebind exact A90 NCM
+1. preserve runs 11-13 and their journals as terminal no-replay evidence;
+2. bind the exact installed H5 resident, immutable run-12 source, absent work,
+   fresh enable/latch state, rollback, recovery, and a fresh opening D0 into
+   one immutable attended-D1 ordinal;
+3. arm once and reboot once under that durable D1 ordinal, rebind exact A90 NCM
    before SSH, and require Debian PID 1, key-only SSH, exact service ownership,
    mechanical display acquisition, operator visibility, and all mandatory
    benchmark stages; and
-9. require automatic native return, retained latch, cleanup, immutable source,
+4. require automatic native return, retained latch, cleanup, immutable source,
    final resident health, and no replay before designating a baseline.
 
 An uncertain arm or reboot is never resent. Endpoint absence or a late
