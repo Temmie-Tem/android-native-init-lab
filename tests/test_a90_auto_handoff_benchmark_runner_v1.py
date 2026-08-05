@@ -21,6 +21,46 @@ import a90_auto_handoff_benchmark_runner_v1 as runner  # noqa: E402
 
 class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
     @staticmethod
+    def _benchmark_marker(stage: str, boottime_ms: int) -> str:
+        values = {
+            "schema": runner.benchmark.SCHEMA,
+            "stage": stage,
+            "boottime_ms": str(boottime_ms),
+            "clock_ok": "1",
+            "telemetry_sampled": "1",
+            "sample_duration_ms": "5",
+            "prior_emit_duration_ms": "5",
+            "cpu_temp_c": "41.2C",
+            "gpu_temp_c": "39.0C",
+            "battery_temp_c": "31.5C",
+            "cpu_usage_pct": "12%",
+            "gpu_usage_pct": "0%",
+            "memory_mb": "512/6144MB",
+            "load1": "0.25",
+            "cpu0_khz": "1000000",
+            "cpu4_khz": "1800000",
+            "cpu7_khz": "2400000",
+            "gpu_hz": "257000000",
+            "battery_current_ua": "-450000",
+            "battery_voltage_uv": "4000000",
+            "power_now_raw": "na",
+            "power_avg_raw": "na",
+            "calculated_power_uw": "-1800000",
+            "mmc_read_sectors": "100",
+            "mmc_write_sectors": "200",
+        }
+        return runner.benchmark.MARKER + " ".join(
+            f"{key}={values[key]}" for key in runner.benchmark.FIELDS
+        )
+
+    @classmethod
+    def _complete_benchmark_segment(cls, start_ms: int) -> str:
+        return "\n".join(
+            cls._benchmark_marker(stage, start_ms + index * 10)
+            for index, stage in enumerate(runner.benchmark.COMPLETE_STAGES)
+        )
+
+    @staticmethod
     def _status(enable: int, latch: int) -> dict:
         command = ["auto-handoff-status"]
         return {
@@ -197,6 +237,71 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
         )
         with self.assertRaises(runner.ContractError):
             runner.parse_auto_status({"text": record["text"] * 2})
+
+    def test_appended_benchmark_selects_current_complete_suffix(self) -> None:
+        opening = self._complete_benchmark_segment(1_000)
+        current = self._complete_benchmark_segment(100)
+        returned = "\n".join(
+            self._benchmark_marker(stage, 50 + index * 10)
+            for index, stage in enumerate(
+                (
+                    "native_runtime_ready",
+                    "native_services_ready",
+                    "auto_handoff_check",
+                    "auto_handoff_latched_native",
+                )
+            )
+        )
+        with mock.patch.object(
+            runner.base,
+            "require_exact_f1_command_receipt",
+            side_effect=lambda value, _command, _label: value,
+        ):
+            parsed = runner.parse_appended_benchmark(
+                {"text": opening},
+                {"text": "\n".join((opening, current, returned))},
+            )
+
+        self.assertEqual(parsed["status"], "complete")
+        self.assertEqual(parsed["boot_segments_total"], 2)
+        self.assertEqual(parsed["selected_segment_index"], 0)
+        self.assertEqual(parsed["selection"]["opening_marker_count"], 15)
+        self.assertEqual(parsed["selection"]["appended_marker_count"], 19)
+
+    def test_appended_benchmark_rejects_nonprefix_or_unchanged_log(self) -> None:
+        opening = self._complete_benchmark_segment(1_000)
+        current = self._complete_benchmark_segment(100)
+        with mock.patch.object(
+            runner.base,
+            "require_exact_f1_command_receipt",
+            side_effect=lambda value, _command, _label: value,
+        ):
+            for final in (opening, current):
+                with self.subTest(final=final[:40]), self.assertRaisesRegex(
+                    runner.ContractError,
+                    "exact appended marker suffix",
+                ):
+                    runner.parse_appended_benchmark(
+                        {"text": opening},
+                        {"text": final},
+                    )
+
+    def test_appended_benchmark_rejects_two_new_handoff_segments(self) -> None:
+        opening = self._complete_benchmark_segment(1_000)
+        first = self._complete_benchmark_segment(100)
+        second = self._complete_benchmark_segment(50)
+        with mock.patch.object(
+            runner.base,
+            "require_exact_f1_command_receipt",
+            side_effect=lambda value, _command, _label: value,
+        ), self.assertRaisesRegex(
+            runner.benchmark.BenchmarkError,
+            "multiple handoff boot segments",
+        ):
+            runner.parse_appended_benchmark(
+                {"text": opening},
+                {"text": "\n".join((opening, first, second))},
+            )
 
     def test_first_boot_log_allows_only_repeated_exact_unarmed_states(self) -> None:
         record = {
@@ -530,7 +635,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             "absence_preflight": None,
         }
         records7 = [
-            {}, {}, {}, {},
+            {"first_boot_log": {}}, {}, {}, {},
             {"observation": observation, "intent_sha256": "6" * 64},
             {},
             cleanup,
@@ -613,7 +718,14 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
     def test_uncertain_cleanup_intent_is_never_replayed_by_resume(self) -> None:
         spec = self._spec()
         observation = {"reboot_record": {"command": ["reboot"], "dispatch_count": 1}}
-        records6 = [{}, {}, {}, {}, {"observation": observation, "intent_sha256": "6" * 64}, {}]
+        records6 = [
+            {"first_boot_log": {}},
+            {},
+            {},
+            {},
+            {"observation": observation, "intent_sha256": "6" * 64},
+            {},
+        ]
         cleanup = {
             "cleanup_dispatch_count": None,
             "inferred_from_absence": True,

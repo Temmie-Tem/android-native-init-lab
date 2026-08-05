@@ -721,11 +721,53 @@ def observe_auto_cycle(
     return result
 
 
+def parse_appended_benchmark(
+    opening_log_record: dict[str, Any],
+    final_log_record: dict[str, Any],
+) -> dict[str, Any]:
+    """Select only markers appended after the hash-bound pre-arm log."""
+
+    opening = base.require_exact_f1_command_receipt(
+        opening_log_record,
+        ["logcat"],
+        "benchmark opening log",
+    )
+    final = base.require_exact_f1_command_receipt(
+        final_log_record,
+        ["logcat"],
+        "benchmark final log",
+    )
+    before = list(benchmark.marker_lines([str(opening.get("text") or "")]))
+    after = list(benchmark.marker_lines([str(final.get("text") or "")]))
+    if (
+        not before
+        or len(after) <= len(before)
+        or after[: len(before)] != before
+    ):
+        raise ContractError("benchmark log is not an exact appended marker suffix")
+    appended = after[len(before) :]
+    canonical = "".join(f"{benchmark.MARKER}{line}\n" for line in appended)
+    parsed = benchmark.parse_run([canonical], require_complete=True)
+    parsed["selection"] = {
+        "contract": "opening-marker-prefix-appended-suffix-v1",
+        "opening_marker_count": len(before),
+        "appended_marker_count": len(appended),
+        "opening_markers_sha256": hashlib.sha256(
+            "".join(f"{line}\n" for line in before).encode("utf-8")
+        ).hexdigest(),
+        "appended_markers_sha256": hashlib.sha256(
+            "".join(f"{line}\n" for line in appended).encode("utf-8")
+        ).hexdigest(),
+    }
+    return parsed
+
+
 def finalize_cycle(
     spec: resident.SessionSpec,
     args: argparse.Namespace,
     observation: dict[str, Any],
     *,
+    opening_log_record: dict[str, Any],
     visible_confirmed: str,
     cleanup_evidence: dict[str, Any],
 ) -> dict[str, Any]:
@@ -735,7 +777,7 @@ def finalize_cycle(
     final_preflight.validate()
     log_record = base.run_f1_cmd(args, ["logcat"])
     log_text = str(log_record.get("text") or "")
-    parsed_benchmark = benchmark.parse_run([log_text], require_complete=True)
+    parsed_benchmark = parse_appended_benchmark(opening_log_record, log_record)
     ssh = observation.get("ssh")
     service = observation.get("phase3_service")
     facts: dict[str, Any] = {}
@@ -878,6 +920,29 @@ def validate_result(
         or type(parsed.get("selected_segment_index")) is not int
     ):
         raise ContractError("benchmark result is not one complete ordered segment")
+    selection = parsed.get("selection")
+    if (
+        not isinstance(selection, dict)
+        or set(selection)
+        != {
+            "contract",
+            "opening_marker_count",
+            "appended_marker_count",
+            "opening_markers_sha256",
+            "appended_markers_sha256",
+        }
+        or selection.get("contract")
+        != "opening-marker-prefix-appended-suffix-v1"
+        or type(selection.get("opening_marker_count")) is not int
+        or selection.get("opening_marker_count") <= 0
+        or type(selection.get("appended_marker_count")) is not int
+        or selection.get("appended_marker_count") <= 0
+        or HEX64_RE.fullmatch(str(selection.get("opening_markers_sha256") or ""))
+        is None
+        or HEX64_RE.fullmatch(str(selection.get("appended_markers_sha256") or ""))
+        is None
+    ):
+        raise ContractError("benchmark appended-marker selection changed")
     return value
 
 
@@ -1083,6 +1148,7 @@ def execute(
         spec,
         args,
         observation,
+        opening_log_record=first_log,
         visible_confirmed=visible_confirmed,
         cleanup_evidence=cleanup_evidence,
     )
@@ -1244,6 +1310,7 @@ def resume_after_return(
             spec,
             args,
             observation,
+            opening_log_record=records[0]["first_boot_log"],
             visible_confirmed=visible_confirmed,
             cleanup_evidence=cleanup_evidence,
         )

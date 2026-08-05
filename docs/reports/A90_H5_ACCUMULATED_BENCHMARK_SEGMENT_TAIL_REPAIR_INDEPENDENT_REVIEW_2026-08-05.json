@@ -1,0 +1,122 @@
+{
+  "schema": "a90-h5-accumulated-benchmark-segment-tail-repair-independent-review-v1",
+  "status": "PASS_GO",
+  "review_date": "2026-08-05",
+  "target": "Samsung Galaxy A90 5G only",
+  "capability": "A90_H5_OPENING_MARKER_PREFIX_APPENDED_SUFFIX_TAIL_REPAIR_V1",
+  "reviewer": "independent subagent /root/a90_capability_review",
+  "incident": {
+    "classification": "HOST_OBSERVER_ACCUMULATED_MULTIPLE_HANDOFF_SEGMENTS",
+    "device_safety_state": "RESIDENT_HEALTHY",
+    "experiment_proof": "NO_PROOF_OBSERVER",
+    "arm_dispatch_count": 1,
+    "reboot_dispatch_count": 1,
+    "cleanup_dispatch_count": 1,
+    "candidate_replay": false,
+    "returned_status": "binding=1 enable=1 latch=1",
+    "source_exact": true,
+    "work_absent": true,
+    "resident_version": "0.11.173",
+    "resident_build": "phase3-minimal-h5-fresh-campaign-auto-benchmark",
+    "selftest_fail_zero": true,
+    "failure_location": "post-cleanup host benchmark parsing before final-health journal publication",
+    "device_effect_replay_allowed": false
+  },
+  "changed_execution_critical_closure": {
+    "before": "cc9b1a26668fd7b7280d4caa55f4a7879e661fa2dffde38cf9b9dc6e6faf7006",
+    "after": "94be39687a91938d4f82d52242ce0025b3b19e4f8c8bbfd6cf46ff729dd3a5f4",
+    "files": {
+      "runner": {
+        "path": "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py",
+        "bytes": 60124,
+        "sha256": "d5e9ee4ceb052ba87302eef4333dd1830f6a861582f27b941874796411dbe2c0"
+      },
+      "benchmark_parser": {
+        "path": "workspace/public/src/scripts/server-distro/a90_boot_benchmark_v1.py",
+        "bytes": 12853,
+        "sha256": "f4cacdb5d847adf5c6dc8ba8931cd859ec12274bdce403b65f64aaa59bf94a0f"
+      },
+      "resident_manifest_loader": {
+        "path": "workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py",
+        "bytes": 143369,
+        "sha256": "2e4ce08226110800e318bb1d4b3315002a60f478361713ed77dec4eb844cd623"
+      },
+      "resident_f1_loader": {
+        "path": "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py",
+        "bytes": 283573,
+        "sha256": "57a50e40c19fac50359603421be4fcfce9b4eedea0d88fdba3bb0e35a809d6b5"
+      }
+    }
+  },
+  "reviewed_test_source": {
+    "path": "tests/test_a90_auto_handoff_benchmark_runner_v1.py",
+    "bytes": 34227,
+    "sha256": "e50ac443bf7824cc434439bf89a84545f85209bb432bc14d1f07f194617bd8e8"
+  },
+  "repair_contract": {
+    "selection": "opening-marker-prefix-appended-suffix-v1",
+    "opening_log": "the canonical hash-bound pre-arm 0000 first_boot_log receipt",
+    "prefix_requirement": "the nonempty opening benchmark marker sequence must be an exact prefix of the final marker sequence",
+    "suffix_requirement": "the appended suffix must be nonempty and contain exactly one complete ordered fifteen-stage handoff segment",
+    "returned_native_partial_allowed": true,
+    "second_appended_handoff_rejected": true,
+    "unchanged_or_nonprefix_log_rejected": true,
+    "recorded_selection_evidence": [
+      "opening marker count",
+      "appended marker count",
+      "canonical opening marker sequence SHA256",
+      "canonical appended marker sequence SHA256"
+    ],
+    "historical_tail_scope": "exact seven-record post-cleanup prefix only",
+    "allowed_live_tail": [
+      "read returned auto-handoff status",
+      "read exact resident, source, work-absence and recovery health",
+      "read accumulated native log",
+      "append final-health and closed host journal records"
+    ],
+    "forbidden_replays": [
+      "arm",
+      "reboot",
+      "handoff",
+      "cleanup",
+      "candidate"
+    ]
+  },
+  "incident_shape_audit": {
+    "opening_marker_count": 31,
+    "appended_marker_count": 19,
+    "appended_segment_count": 2,
+    "complete_handoff_segment_count": 1,
+    "returned_native_partial_segment_count": 1,
+    "missing_complete_stages": 0,
+    "selected_segment_index": 0,
+    "appended_markers_sha256": "0d43d24cc24c6c0a96e863cc4ea5fc0e25a924e2447def364c4d995a2d07026a"
+  },
+  "validation": {
+    "independent_focused_tests": {
+      "passed": 21,
+      "failed": 0
+    },
+    "expanded_related_tests": {
+      "passed": 259,
+      "failed": 0
+    },
+    "python_py_compile": "PASS",
+    "ast": "PASS",
+    "trailing_whitespace": "PASS",
+    "scoped_diff_check": "PASS"
+  },
+  "unresolved_high_findings": 0,
+  "unresolved_medium_findings": 0,
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "live_use_authorized": false,
+  "reviewer_device_contact": false,
+  "reviewer_usb_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_s22plus_contact": false,
+  "reviewer_repository_edits": false,
+  "decision": "PASS_GO for the exact opening-marker-prefix appended-suffix host-observer and post-cleanup tail repair. It grants no device authority.",
+  "review_lifetime": "Reusable only while the named execution closure, exact prefix and suffix semantics, single appended complete-handoff rule, historical seven-record tail scope, no-replay behavior, and hazard assumptions remain unchanged and no new hazard or incident occurs."
+}
