@@ -214,10 +214,15 @@ not directly receipted. The exact P3.04 branch now adds that adapter as the
 independent `verify_bundle()` passes, and the rereview verdict is `PASS_GO`.
 No candidate byte or ready-manifest byte changed during the repair.
 
-Live preparation has not started and F1 is not armed. The next action is one
-fresh exact-S22 D0 Process-v2 preparation using a new private run directory;
-the existing P3.03 attempt and every earlier candidate remain consumed and
-must not be replayed. A90 remains outside this campaign.
+The first fresh connected preparation stopped read-only because the retained
+baseline still contained a prior candidate marker. It created no prepared
+record and did not arm F1. One attended normal Android reboot then changed the
+boot ID and restored exact rooted FYG8 health without Download, Odin, payload,
+or transfer. A second new run directory passed exact-S22 D0 and now binds the
+clean baseline, candidate, exact rollback, host sidecar, and reviewed execution
+closure. F1 remains unarmed until execute records candidate intent. The existing
+P3.03 attempt and every earlier candidate remain consumed and must not be
+replayed; A90 remains outside this campaign.
 
 ## Parked Bounded Unit: P3.02 Passive Pull-Up Electrical Attribution
 
