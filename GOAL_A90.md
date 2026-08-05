@@ -90,7 +90,7 @@ The pre-H2 goal history is preserved at
   that exact bound path is absent, then requires the unchanged exact bridge;
   a present mismatch still fails immediately. Independent review returned
   `PASS_GO` with HIGH/MEDIUM zero and 230 related tests pass.
-- Final read-only capacity is 61408048 KiB total, 54419524 KiB used, and
+- Pre-reclaim read-only capacity was 61408048 KiB total, 54419524 KiB used, and
   3862512 KiB available at 93% use. No D1 transaction is active and no target
   is A90 F1-armed. Runs 11-13 and D1 run09 are terminal and must never be
   resumed or replayed. No A90 command was sent to S22+, and its files and
@@ -108,6 +108,15 @@ The pre-H2 goal history is preserved at
   host-preserved H4 run-11 source, protects the installed H5 run-12 source,
   requires final exact H5 health and latched state, and permits one unlink with
   no retransmit, payload, partition write, flash, restore, or S22+ authority.
+- Live run `a90-h5-h4-source-reclaim-20260806-02` used that closure once and
+  closed `PASS_H4_SOURCE_RECLAIMED_FROM_HEALTHY_H5`. One nonrecursive unlink
+  removed only the H4 run-11 device source; the H5 run-12 source remained exact
+  and work remained absent. Free space increased exactly 2097152 KiB to
+  5959660 KiB available, within the bound 2031620..2162692 KiB. Final H5 health
+  and `binding=1 enable=1 latch=1` passed. Dispatch count is one, retransmit is
+  false, and payload, partition write, flash, rollback, and S22+ command counts
+  are zero. Private result SHA256 is
+  `127d5c147452561857502f4ad3f1b5e60ad1ac31e4c0cbe37c216cd6bf5e721e`.
 
 ## Qualified Capabilities
 
@@ -152,11 +161,11 @@ The pre-H2 goal history is preserved at
   receipt alone never dispatches a device action.
 - The H5/H4 source-reclaim closure
   `2c6f7b431cb82638638b4f891daa9a56deae27d1cb48621b93cadcab97cf8842`
-  has independent `PASS_GO` for hazard
-  `SD_CAPACITY_EXHAUSTION_BLOCKING_FRESH_SOURCE_AND_WORK_COPY`. It is reusable
-  only for the unchanged fixed H4/H5 identities and machinery until first
-  PASS, expiry, closure/hazard change, or a new incident; live use still needs
-  fresh exact inventory, manifest, attendance, recovery, and health.
+  has independent `PASS_GO` evidence for hazard
+  `SD_CAPACITY_EXHAUSTION_BLOCKING_FRESH_SOURCE_AND_WORK_COPY`. The receipt
+  qualified reuse only until first PASS, expiry, closure/hazard change, or a
+  new incident. The exact run02 first PASS consumed and retired it; it must
+  never dispatch again.
 
 ## Proven Product Path
 
@@ -203,8 +212,8 @@ The observer diagnosis, local repair, focused tests, and independent capability
 review are complete with no device contact. The next bounded work is:
 
 1. preserve run09 and its H5 state namespace without replay or reset;
-2. use one fresh exact run after the qualified capability commit to unlink only
-   the selected H4 source, protect H5, and prove the bounded 2 GiB free gain;
+2. retain run02 as the consumed exact PASS that removed only H4, protected H5,
+   and proved the bounded 2 GiB free gain; never reuse its capability receipt;
 3. if full H5-equivalent correctness proof still requires another device
    transition, build a fresh marker/build identity and open a fresh D0/D1 or
    F1 campaign under exact recovery and attendance, never a run09 replay; and
