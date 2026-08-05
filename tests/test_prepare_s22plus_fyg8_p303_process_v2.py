@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,6 +23,7 @@ import prepare_s22plus_fyg8_p303_ready_manifest as ready  # noqa: E402
 import s22plus_fyg8_p301_overlay_contract as parent_overlay  # noqa: E402
 import s22plus_fyg8_p303_overlay_contract as overlay  # noqa: E402
 import s22plus_fyg8_p303_stock_log_baseline_binding as stock_binding  # noqa: E402
+import s22plus_fyg8_p303_stock_log_d0 as stock_d0  # noqa: E402
 import s22plus_fyg8_p303_telemetry_decoder as decoder  # noqa: E402
 
 
@@ -159,6 +161,45 @@ class P303ProcessV2OverlayTest(unittest.TestCase):
                     manifest_id=manifest_id,
                     live_run_id=live_run_id,
                 )
+
+    def test_stock_d0_selects_only_exact_s22_from_multi_target_inventory(self) -> None:
+        inventory = """List of devices attached
+A90SERIAL device product:a90 model:SM_A908N device:a90q transport_id:1
+S22SERIAL device product:g0qksx model:SM_S906N device:g0q transport_id:2
+"""
+        self.assertEqual(
+            stock_d0._exact_serial_from_inventory(inventory),
+            ("S22SERIAL", 2),
+        )
+        with self.assertRaisesRegex(stock_d0.CaptureError, "found 2"):
+            stock_d0._exact_serial_from_inventory(
+                inventory
+                + "S22OTHER device model:SM_S906N device:g0q transport_id:3\n"
+            )
+
+        class NoForeignCommandClient:
+            def __init__(self) -> None:
+                self.commands: list[tuple[str, str]] = []
+
+            def topology(self, serial: str) -> str:
+                self.commands.append(("topology", serial))
+                return "usb:1-1"
+
+            def properties(self, serial: str) -> dict[str, str]:
+                self.commands.append(("properties", serial))
+                return {}
+
+        client = NoForeignCommandClient()
+        with mock.patch.object(
+            stock_d0,
+            "_select_exact_serial",
+            return_value=("REPLACEMENT_S22", 2),
+        ):
+            with self.assertRaisesRegex(stock_d0.CaptureError, "selection changed"):
+                stock_d0._final_target_snapshot(
+                    client, Path("/usr/bin/adb"), "BOUND_S22", 2
+                )
+        self.assertEqual(client.commands, [])
 
     def test_static_result_binds_post_bl_and_hit_zero_contract(self) -> None:
         result = json.loads(

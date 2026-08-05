@@ -146,6 +146,61 @@ def _root_command(adb: Path, serial: str, command: str, maximum: int) -> bytes:
     return result.stdout
 
 
+def _exact_serial_from_inventory(text: str) -> tuple[str, int]:
+    rows: list[tuple[str, str, set[str]]] = []
+    for line in text.splitlines():
+        if not line or line.startswith("List of devices attached"):
+            continue
+        fields = line.split()
+        if len(fields) < 2:
+            raise CaptureError("ADB inventory contains a malformed row")
+        rows.append((fields[0], fields[1], set(fields[2:])))
+    matches = [
+        serial
+        for serial, state, metadata in rows
+        if state == "device"
+        and "model:SM_S906N" in metadata
+        and "device:g0q" in metadata
+    ]
+    if len(matches) != 1:
+        raise CaptureError(
+            f"expected exactly one connected FYG8 S22+, found {len(matches)}"
+        )
+    return matches[0], len(rows)
+
+
+def _select_exact_serial(adb: Path) -> tuple[str, int]:
+    result = d0.bounded_command(
+        [str(adb), "devices", "-l"], timeout=10, maximum=d0.MAX_TEXT_OUTPUT
+    )
+    if result.returncode != 0 or result.stderr:
+        raise CaptureError("ADB inventory failed or produced stderr")
+    try:
+        text = result.stdout.decode("utf-8", "strict")
+    except UnicodeDecodeError as exc:
+        raise CaptureError("ADB inventory is not UTF-8") from exc
+    return _exact_serial_from_inventory(text)
+
+
+def _final_target_snapshot(
+    client: d0.AdbReadOnlyClient,
+    adb: Path,
+    initial_serial: str,
+    initial_inventory_count: int,
+) -> tuple[str, str, dict[str, str]]:
+    final_serial, final_inventory_count = _select_exact_serial(adb)
+    if (
+        final_serial != initial_serial
+        or final_inventory_count != initial_inventory_count
+    ):
+        raise CaptureError("exact S22+ ADB selection changed during capture")
+    return (
+        final_serial,
+        client.topology(final_serial),
+        client.properties(final_serial),
+    )
+
+
 def collect(root: Path, profile_path: Path, adb_path: Path, run_dir: Path) -> dict[str, Any]:
     profile, _ = f1.load_json(profile_path, "P3.03 target profile")
     f1.validate_profile(profile)
@@ -156,7 +211,7 @@ def collect(root: Path, profile_path: Path, adb_path: Path, run_dir: Path) -> di
     initial_usb = d0.usb_snapshot(d0.DEFAULT_USB_ROOT, profile["target"]["download"])
     if not initial_usb["enumerated_devices"] or initial_usb["download_endpoint_count"]:
         raise CaptureError("initial USB inventory is not stable Android")
-    serial = client.one_serial()
+    serial, inventory_count = _select_exact_serial(adb_path)
     topology = client.topology(serial)
     first = client.properties(serial)
     _exact_identity(profile, first)
@@ -182,9 +237,9 @@ def collect(root: Path, profile_path: Path, adb_path: Path, run_dir: Path) -> di
 
     root_health = client.root_health(serial)
     health = d0.validate_health(_ProfileView(profile), first, root_health, True)
-    final_serial = client.one_serial()
-    final_topology = client.topology(final_serial)
-    final = client.properties(final_serial)
+    final_serial, final_topology, final = _final_target_snapshot(
+        client, adb_path, serial, inventory_count
+    )
     final_usb = d0.usb_snapshot(d0.DEFAULT_USB_ROOT, profile["target"]["download"])
     if (
         final_serial != serial
@@ -224,6 +279,7 @@ def collect(root: Path, profile_path: Path, adb_path: Path, run_dir: Path) -> di
         "raw": {"path": raw_path.relative_to(root).as_posix(), **binding.receipt(raw)},
         "result": {"path": result_path.relative_to(root).as_posix(), **binding.receipt(payload)},
         "module_sha256": binding.MODULE_SHA256,
+        "adb_inventory_count": inventory_count,
         "usb": {"initial": initial_usb, "final": final_usb},
         "device_contact": True,
         "device_write": False,
