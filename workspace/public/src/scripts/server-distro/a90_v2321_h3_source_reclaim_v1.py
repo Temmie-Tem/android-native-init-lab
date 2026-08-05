@@ -37,6 +37,12 @@ STATUS = "ready-for-attended-h3-source-reclaim"
 INVENTORY_SCHEMA = "a90_v2321_h3_source_reclaim_inventory_v1"
 RESULT_SCHEMA = "a90_v2321_h3_source_reclaim_result_v1"
 CAPABILITY = "A90_ATTENDED_V2321_H3_SOURCE_RECLAIM_V1"
+INTENT_SCHEMA = "a90_v2321_h3_source_reclaim_intent_v1"
+DISPATCH_SCHEMA = "a90_v2321_h3_source_reclaim_dispatch_v1"
+EFFECT_NOT_STARTED_SCHEMA = "a90_v2321_h3_source_reclaim_effect_not_started_v1"
+PASS_OUTCOME = "PASS_H3_SOURCE_RECLAIMED"
+PASS_AMBIGUOUS_OUTCOME = "PASS_H3_SOURCE_RECLAIM_PROVEN_AFTER_AMBIGUOUS_RESPONSE"
+DISPATCH_LABEL = "H3 source reclaim dispatch"
 RUN_ID_RE = re.compile(r"^a90-v2321-h3-source-reclaim-[0-9]{8}-[0-9]{2}$")
 PRIVATE_ROOT = (REPO_ROOT / "workspace" / "private").resolve()
 PRIVATE_BASE = (PRIVATE_ROOT / "runs" / "server-distro").resolve()
@@ -533,6 +539,40 @@ def _record(value: Any, fixed: gc.FixedImage, host: legacy.BoundFile | None) -> 
     )
 
 
+def _validate_inventory_health(value: Any) -> dict[str, Any]:
+    if (
+        not isinstance(value, dict)
+        or value.get("version") != EXPECTED_VERSION
+        or value.get("build") != EXPECTED_BUILD
+        or value.get("proven") is not True
+    ):
+        raise ContractError("inventory resident health changed")
+    return value
+
+
+def _validate_inventory_filesystem(value: Any) -> dict[str, int]:
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"blocks", "used", "available"}
+        or any(type(value.get(key)) is not int for key in value)
+        or value["blocks"] <= 0
+        or value["used"] < 0
+        or value["available"] < 0
+        or value["used"] > value["blocks"]
+        or value["available"] > value["blocks"]
+        or value["used"] + value["available"] > value["blocks"]
+    ):
+        raise ContractError("inventory filesystem capacity is not exact")
+    return value
+
+
+def _validate_inventory_target_health(
+    health: dict[str, Any],
+    target: dict[str, Any],
+) -> None:
+    del health, target
+
+
 def _load_inventory(path: Path, sha256: str) -> tuple[legacy.BoundFile, dict[str, Any]]:
     bound = _private_bound(path)
     if bound.sha256 != sha256:
@@ -540,8 +580,27 @@ def _load_inventory(path: Path, sha256: str) -> tuple[legacy.BoundFile, dict[str
     value = _load_json(bound, "inventory")
     images = value.get("images")
     if (
-        value.get("schema") != INVENTORY_SCHEMA
+        set(value)
+        != {
+            "schema",
+            "created_utc",
+            "captured_epoch_sec",
+            "run_id",
+            "target",
+            "health",
+            "images",
+            "work_absent",
+            "stage_absent",
+            "filesystem_kib",
+            "device_contact",
+            "device_write",
+            "other_target_commands",
+        }
+        or value.get("schema") != INVENTORY_SCHEMA
         or RUN_ID_RE.fullmatch(str(value.get("run_id") or "")) is None
+        or type(value.get("captured_epoch_sec")) is not int
+        or value["captured_epoch_sec"] <= 0
+        or not isinstance(value.get("created_utc"), str)
         or not isinstance(images, list)
         or len(images) != 2
         or value.get("work_absent") is not True
@@ -549,11 +608,10 @@ def _load_inventory(path: Path, sha256: str) -> tuple[legacy.BoundFile, dict[str
         or value.get("device_contact") is not True
         or value.get("device_write") is not False
         or value.get("other_target_commands") != 0
-        or value.get("health", {}).get("version") != EXPECTED_VERSION
-        or value.get("health", {}).get("build") != EXPECTED_BUILD
-        or value.get("health", {}).get("proven") is not True
     ):
         raise ContractError("inventory shape or V2321 health changed")
+    _validate_inventory_health(value.get("health"))
+    _validate_inventory_filesystem(value.get("filesystem_kib"))
     target = value.get("target")
     if (
         not isinstance(target, dict)
@@ -565,6 +623,7 @@ def _load_inventory(path: Path, sha256: str) -> tuple[legacy.BoundFile, dict[str
     _record(images[0], SELECTED_FIXED, None)
     _record(images[1], PROTECTED_FIXED, None)
     _validated_bridge_process(target.get("bridge_process"))
+    _validate_inventory_target_health(value["health"], target)
     return bound, value
 
 
@@ -816,9 +875,9 @@ def _result(
     )
     if complete:
         outcome = (
-            "PASS_H3_SOURCE_RECLAIMED"
+            PASS_OUTCOME
             if response_proven
-            else "PASS_H3_SOURCE_RECLAIM_PROVEN_AFTER_AMBIGUOUS_RESPONSE"
+            else PASS_AMBIGUOUS_OUTCOME
         )
     else:
         outcome = "RECOVERY_PENDING_PARKED_NO_RETRY"
@@ -963,7 +1022,7 @@ def execute(spec: Spec, transaction_dir: Path, operator_attended: bool) -> dict[
     legacy.write_private_json_exclusive(
         transaction_dir / "intent.json",
         {
-            "schema": "a90_v2321_h3_source_reclaim_intent_v1",
+            "schema": INTENT_SCHEMA,
             "created_utc": legacy.utc_now(),
             "run_id": spec.run_id,
             "manifest_sha256": spec.manifest_sha256,
@@ -979,7 +1038,7 @@ def execute(spec: Spec, transaction_dir: Path, operator_attended: bool) -> dict[
     )
     _require_not_expired()
     dispatch_value = {
-        "schema": "a90_v2321_h3_source_reclaim_dispatch_v1",
+        "schema": DISPATCH_SCHEMA,
         "created_utc": legacy.utc_now(),
         "run_id": spec.run_id,
         "manifest_sha256": spec.manifest_sha256,
@@ -1011,7 +1070,7 @@ def execute(spec: Spec, transaction_dir: Path, operator_attended: bool) -> dict[
         legacy.write_private_json_exclusive(
             transaction_dir / "effect-not-started.json",
             {
-                "schema": "a90_v2321_h3_source_reclaim_effect_not_started_v1",
+                "schema": EFFECT_NOT_STARTED_SCHEMA,
                 "created_utc": legacy.utc_now(),
                 "run_id": spec.run_id,
                 "manifest_sha256": spec.manifest_sha256,
@@ -1030,7 +1089,7 @@ def execute(spec: Spec, transaction_dir: Path, operator_attended: bool) -> dict[
         text = gc._run_script(  # noqa: SLF001
             cleanup_script,
             CLEANUP_TIMEOUT_SEC,
-            "H3 source reclaim dispatch",
+            DISPATCH_LABEL,
             args=cleanup_args,
         )
         response_proven = text.count(
@@ -1051,7 +1110,7 @@ def _load_effect_not_started(spec: Spec, path: Path) -> dict[str, Any]:
     value = _load_json(_private_bound(path), "effect-not-started")
     if (
         value.get("schema")
-        != "a90_v2321_h3_source_reclaim_effect_not_started_v1"
+        != EFFECT_NOT_STARTED_SCHEMA
         or value.get("run_id") != spec.run_id
         or value.get("manifest_sha256") != spec.manifest_sha256
         or value.get("reason") != "capability-expired-before-unlink"
@@ -1137,8 +1196,8 @@ def resume(spec: Spec, transaction_dir: Path) -> dict[str, Any]:
             or existing_result.get("cleanup_retransmitted") is not False
             or existing_result.get("outcome")
             not in {
-                "PASS_H3_SOURCE_RECLAIMED",
-                "PASS_H3_SOURCE_RECLAIM_PROVEN_AFTER_AMBIGUOUS_RESPONSE",
+                PASS_OUTCOME,
+                PASS_AMBIGUOUS_OUTCOME,
                 "RECOVERY_PENDING_PARKED_NO_RETRY",
             }
         ):

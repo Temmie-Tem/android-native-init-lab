@@ -230,6 +230,46 @@ device effect. Every replacement candidate uses a new build identity, absent
 rootfs destination, and absent versioned state paths; a prior enable/latch pair
 is never reused, cleared, or reinterpreted to authorize the replacement.
 
+The one-use attended D1 sub-capability
+`A90_ATTENDED_H5_H4_SOURCE_RECLAIM_V1` addresses only the bounded hazard
+`SD_CAPACITY_EXHAUSTION_BLOCKING_FRESH_SOURCE_AND_WORK_COPY`. It may unlink
+only the exact host-preserved H4 run-11 keyed source after its closed incident
+has performed one non-replayed candidate attempt, one exact V2321 rollback,
+and exact final recovery. The installed H5 run-12 keyed source is one separate
+exact protected identity and is never selectable. Both identities are fixed
+by run ID, path, 2 GiB size, mode `0600`, single link, SHA256, filesystem
+device/inode, successful absent-only staging evidence, and exact private
+host-preserved bytes. The H5 run-13 resident install terminal and D1 run-09
+terminal remain immutable no-replay evidence.
+
+A fresh inventory no older than 15 minutes must bind the exact A90 and bridge
+generation, exact H5 `0.11.173` resident health, exact H5 auto-handoff state
+`binding=1 enable=1 latch=1`, selected and protected identities, absent work
+and all known staging paths, and bounded filesystem capacity. The immutable
+manifest must additionally bind the exact H4 incident, H5 publication,
+resident-install and D1 terminal evidence, both private host-preserved byte
+identities, the exact boot-only V2321 rollback, attended physical Download or
+TWRP recovery, and the complete execution-critical source closure. Immediately
+before durable intent, the runner revalidates that manifest closure and every
+visible PID mount namespace, open file descriptor, loop backing file, and
+current-root reference for the selected source. One capability-wide exclusive
+receipt then consumes the capability across all run IDs and permits one
+nonrecursive host-encoded unlink dispatch with no retransmission. A missing or
+malformed response permits only journal-bound read-only reconciliation with a
+fresh exact A90 bridge generation; it never resends unlink.
+
+PASS requires the selected H4 source absent, the protected H5 source exact,
+work absent, free-space gain consistent with one 2 GiB file, final exact H5
+health, and the same latched auto-handoff state. A non-PASS terminal parks
+without retry. Host preservation is evidence but grants no restore authority;
+restoration is a separate reviewed transaction. The capability sends no
+payload, flashes no partition, changes no configuration, credential, security
+state, H5 state path, or H5 source, and never applies to S22+, userdata,
+another removable device, path, or A90. It retires after its first exact PASS,
+on any selected/protected identity or execution-critical closure change, on a
+new hazard or incident, or at `2026-08-07T00:00:00Z`, whichever comes first.
+Post-dispatch read-only reconciliation may continue after expiry.
+
 The separately reviewed attended D1 sub-capability
 `A90_ATTENDED_CACHE_TMP_RECLAIM_V1` may unlink only the fixed stale temporary
 file `/cache/a90-runtime/pkg/.boot_linux_v3355_boot_write_e5_full.img.tmp.2899667.1782985070`

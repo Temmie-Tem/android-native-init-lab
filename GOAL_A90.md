@@ -95,6 +95,19 @@ The pre-H2 goal history is preserved at
   is A90 F1-armed. Runs 11-13 and D1 run09 are terminal and must never be
   resumed or replayed. No A90 command was sent to S22+, and its files and
   device state remained untouched.
+- A fresh read-only reclaim inventory re-proved exact H5 `0.11.173`, selftest
+  fail zero, pstore zero, `binding=1 enable=1 latch=1`, exact H4 run-11 and H5
+  run-12 2 GiB source identities, absent work/stage, and 3862508 KiB available.
+  Its device-write and other-target-command counts are zero. The run01 draft
+  manifest was superseded by later inventory-validation closure changes and is
+  never live-eligible; the inventory itself passes the final loader.
+- The exact one-use attended H4-source reclaim capability now has independent
+  `PASS_GO` at execution closure
+  `2c6f7b431cb82638638b4f891daa9a56deae27d1cb48621b93cadcab97cf8842`
+  with HIGH/MEDIUM zero and 143 related tests passing. It selects only the
+  host-preserved H4 run-11 source, protects the installed H5 run-12 source,
+  requires final exact H5 health and latched state, and permits one unlink with
+  no retransmit, payload, partition write, flash, restore, or S22+ authority.
 
 ## Qualified Capabilities
 
@@ -137,6 +150,13 @@ The pre-H2 goal history is preserved at
 - Fresh exact target, rollback, recovery, presence, D0, immutable manifest,
   runner binding, and inter-effect health remain live requirements. A review
   receipt alone never dispatches a device action.
+- The H5/H4 source-reclaim closure
+  `2c6f7b431cb82638638b4f891daa9a56deae27d1cb48621b93cadcab97cf8842`
+  has independent `PASS_GO` for hazard
+  `SD_CAPACITY_EXHAUSTION_BLOCKING_FRESH_SOURCE_AND_WORK_COPY`. It is reusable
+  only for the unchanged fixed H4/H5 identities and machinery until first
+  PASS, expiry, closure/hazard change, or a new incident; live use still needs
+  fresh exact inventory, manifest, attendance, recovery, and health.
 
 ## Proven Product Path
 
@@ -166,9 +186,12 @@ missing same-ordinal mechanical Debian PID1/SSH evidence.
 ## Selected Bounded Unit: Close the H5 Observer Gap
 
 H5 installation and its first automatic-handoff ordinal are terminal. Preserve
-runs 11-13 and D1 run09, their state namespaces, sources, and journals as
-no-replay evidence. Do not reset H5 enable/latch, resend run09 arm or reboot,
-or reinterpret a visible screen as missing mechanical PID1/SSH evidence.
+runs 11-13 and D1 run09, their state namespaces, journals, private host bytes,
+and no-replay evidence. Protect the installed H5 run-12 device source. The H4
+run-11 device source alone is now the exact reclaim selection; its private host
+bytes and incident evidence remain preserved. Do not reset H5 enable/latch,
+resend run09 arm or reboot, or reinterpret a visible screen as missing
+mechanical PID1/SSH evidence.
 
 The run09 15-stage timing series is a usable diagnostic baseline for locating
 cost: the two full source hashes and work copy dominate its 126444 ms handoff.
@@ -180,8 +203,8 @@ The observer diagnosis, local repair, focused tests, and independent capability
 review are complete with no device contact. The next bounded work is:
 
 1. preserve run09 and its H5 state namespace without replay or reset;
-2. inventory retained SD sources and qualify only the minimum obsolete-source
-   reclaim needed for a fresh source plus work copy;
+2. use one fresh exact run after the qualified capability commit to unlink only
+   the selected H4 source, protect H5, and prove the bounded 2 GiB free gain;
 3. if full H5-equivalent correctness proof still requires another device
    transition, build a fresh marker/build identity and open a fresh D0/D1 or
    F1 campaign under exact recovery and attendance, never a run09 replay; and
@@ -239,6 +262,7 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_H4_CUMULATIVE_UNARMED_LOG_OBSERVER_INCIDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_V2321_H3_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_PHASE3_MINIMAL_H5_FRESH_CAMPAIGN_INDEPENDENT_REVIEW_2026-08-05.json`
+- `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`
 
 Private manifests, journals, raw logs, rootfs and boot artifacts, rollback
