@@ -1,0 +1,205 @@
+{
+  "schema": "a90-phase3-minimal-h2-auto-status-crlf-focused-independent-review-v1",
+  "status": "PASS_GO",
+  "review_date": "2026-08-05",
+  "target": "Samsung Galaxy A90 5G H2 attended automatic handoff benchmark",
+  "reviewer": "independent subagent /root/a90_capability_review",
+  "review_scope": [
+    "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py CRLF parser delta only",
+    "tests/test_a90_auto_handoff_benchmark_runner_v1.py exact CRLF fixture delta only",
+    "interaction with exact status identity, uniqueness, device dispatch ordering, no-replay, journal, rollback and recovery"
+  ],
+  "incident": {
+    "classification": "HOST_OBSERVER_CRLF_PARSE_REJECTED_NO_DURABLE_EFFECT",
+    "new_device_hazard": false,
+    "host_observer_bug": true,
+    "run_id": "a90-d1-attended-20260805-04",
+    "state": "HOST_OBSERVER_REJECTED_BEFORE_DURABLE_INTENT",
+    "read_only_device_commands": 5,
+    "durable_intents": 0,
+    "arm_dispatches": 0,
+    "reboot_dispatches": 0,
+    "cleanup_dispatches": 0,
+    "payload_transfers": 0,
+    "partition_writes": 0,
+    "flashes": 0,
+    "rollbacks": 0,
+    "replays": 0,
+    "other_target_commands": 0,
+    "resident_healthy_unarmed_after": true,
+    "empty_transaction_dir_removed": true
+  },
+  "root_cause": {
+    "live_serial_line_ending": "CRLF",
+    "exact_raw_status_lines": 1,
+    "old_regex_matches": 0,
+    "old_lf_fixture_matches": 1,
+    "explanation": "The old multiline end anchor accepted LF-only fixtures but not the carriage return preceding a live CRLF newline."
+  },
+  "changed_execution_critical_closure": {
+    "runner": {
+      "path": "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py",
+      "before": {
+        "bytes": 47789,
+        "sha256": "85e7b471c398fb9abf16b54bd351f0102c9d1be8d8563a3aa376fd39965e1e70"
+      },
+      "after": {
+        "bytes": 47792,
+        "sha256": "a592377a2a84bae91dc3d5fee0ef47a9267d57258b90e6ec0e5a31cb546b1452"
+      }
+    },
+    "focused_test": {
+      "path": "tests/test_a90_auto_handoff_benchmark_runner_v1.py",
+      "bytes": 17704,
+      "sha256": "bebeddea702b4f080528ab23ad55e5bbd1ad61dbabb47d1e077d21d4ae0fab0f"
+    },
+    "parser_dependency": {
+      "path": "workspace/public/src/scripts/server-distro/a90_boot_benchmark_v1.py",
+      "bytes": 12663,
+      "sha256": "56c87f9676b7c21bd36aa3173f464a342ab40acc1f08fc9484638137f051eca3",
+      "changed": false
+    },
+    "combined_benchmark_execution_closure_sha256": "be81c1aeb373ed11e03de34dbed6924ce1bb28e3daffc314d915f3733521eb25",
+    "stale_combined_closure_sha256": "fcd7f5310e1db411743e247360cdf0103499e9ef1669cb10099f4311ec80ad77"
+  },
+  "exact_parser_semantics": {
+    "regex_delta": "line ending only: $ to \\r?$",
+    "line_prefix_exact": "^A90AUTO_STATUS",
+    "binding_syntax": "[01]",
+    "enable_latch_syntax": "signed decimal",
+    "build_character_set_unchanged": true,
+    "multiline_mode_unchanged": true,
+    "post_parse_binding_must_equal_one": true,
+    "post_parse_build_must_equal_expected_h2": true,
+    "unique_match_count_must_equal_one": true,
+    "probes": {
+      "lf_single": "PASS_ACCEPT",
+      "crlf_single": "PASS_ACCEPT",
+      "crlf_duplicate": "PASS_REJECT_NOT_UNIQUE"
+    }
+  },
+  "separately_reviewed_transition_fix": {
+    "report_path": "docs/reports/A90_PHASE3_MINIMAL_H2_D1_HEALTH_HOST_FIX_INDEPENDENT_REVIEW_2026-08-05.json",
+    "report_sha256": "7e35b581f80320110aa192b3789f4bed1ad10892abde7c9f4d4408d2dfffa0ee",
+    "transition_runner": {
+      "path": "workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py",
+      "bytes": 130319,
+      "sha256": "2b2e94dc0a47148f5cb81026505921b42259f9d5e45613bea34fa16e546024aa"
+    },
+    "scope_note": "The transition health fix remains separately reviewed; its prior benchmark closure is stale and is not reused for live execution."
+  },
+  "fresh_d1_manifest": {
+    "path": "workspace/private/runs/server-distro/a90-d1-attended-20260805-05/prepared-manifest.json",
+    "sha256": "cb171b65d1e41d256e244ff52b20ebe05dfbd4cbd27814ff4f64000b1c44fcd0",
+    "source_closure": {
+      "bridge_selector": {
+        "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90_bridge.py",
+        "sha256": "7bacce5a61f6745d4dfb0b7f89ffffc478d4e74fd6a1559d20718793668414e9",
+        "size": 40549
+      },
+      "cdc_acm_guard": {
+        "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/device_action_cdc_acm_observer_v1.py",
+        "sha256": "6c8a6d2151928d2e098ca41b3c9dc24cdbbfabe9be10df19969be274744ef9a9",
+        "size": 51402
+      },
+      "cmdv1_shell_adapter": {
+        "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.py",
+        "sha256": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933",
+        "size": 13928
+      },
+      "display_observer": {
+        "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_phase2d_display_observer.py",
+        "sha256": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744",
+        "size": 648
+      },
+      "f1_orchestrator": {
+        "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py",
+        "sha256": "d3a7d650f6845386421ac9fdac15a8a227cdf638865c6a34dbd827c74d0e2b79",
+        "size": 280981
+      },
+      "framed_transport": {
+        "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90ctl.py",
+        "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c",
+        "size": 16380
+      },
+      "observation_pipeline": {
+        "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90_observation_pipeline.py",
+        "sha256": "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb",
+        "size": 24478
+      },
+      "phase3_observer": {
+        "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_phase3_d1_observer_v1.py",
+        "sha256": "fccb10170583ea3c1761cf33de7bcc40d2409c0e097af051b6585195876b1a78",
+        "size": 13141
+      },
+      "preserved_d1_prep": {
+        "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_resident_preserved_d1_prep_v1.py",
+        "sha256": "cd7f6c84fc23770b7ee93fbfd04850d716352f50936f7652fe74f752a8dbe737",
+        "size": 74031
+      },
+      "runner": {
+        "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py",
+        "sha256": "2b2e94dc0a47148f5cb81026505921b42259f9d5e45613bea34fa16e546024aa",
+        "size": 130319
+      },
+      "serial_lock": {
+        "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90_serial_lock.py",
+        "sha256": "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7",
+        "size": 2860
+      },
+      "serial_tcp_bridge": {
+        "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/serial_tcp_bridge.py",
+        "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98",
+        "size": 17944
+      },
+      "staging_contract": {
+        "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py",
+        "sha256": "c426037452f2d84be4bc7ae6f4dee04960d35b61456d168f3b5660fbfacd95a0",
+        "size": 103318
+      },
+      "transition_contract": {
+        "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py",
+        "sha256": "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e",
+        "size": 13734
+      },
+      "transition_engine": {
+        "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_transition_engine_v2.py",
+        "sha256": "7a6f2a3248fcf53770cf5dee27985b23e239749cf5c8eae79158c7f903686010",
+        "size": 35215
+      },
+      "workspace_bootstrap": {
+        "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/_workspace_bootstrap.py",
+        "sha256": "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe",
+        "size": 1255
+      }
+    }
+  },
+  "validation": {
+    "py_compile": "PASS",
+    "focused_tests": {
+      "passed": 52,
+      "failed": 0
+    },
+    "expanded_local_tests_after_review": {
+      "passed": 108,
+      "failed": 0
+    },
+    "scoped_git_diff_check": "PASS"
+  },
+  "permanent_boundaries": {
+    "permanent_boundaries_unchanged": true,
+    "exact_target_isolation_unchanged": true,
+    "rollback_recovery_unchanged": true,
+    "dispatch_retry_semantics_unchanged": true,
+    "journal_semantics_unchanged": true,
+    "no_replay_unchanged": true,
+    "device_contact_by_reviewer": false,
+    "s22plus_touched_by_reviewer": false
+  },
+  "decision": "PASS_GO for the exact CRLF status-parser fix and combined benchmark closure be81c1ae. The prior fcd7f531 closure is stale and must not be used. Fresh live use requires the regenerated D1 manifest, the separately reviewed transition receipt, this focused receipt, exact target and current realpath, rollback, recovery, attendance, and current resident health.",
+  "review_lifetime": "Reusable capability qualification only while the named runner and parser hashes, CRLF and uniqueness semantics, exact H2 build checks, dispatch and journal semantics, transition receipt, and hazard assumptions remain unchanged and no new hazard or incident occurs.",
+  "unresolved_findings": [],
+  "pass_go_granted": true,
+  "device_authority_granted": false,
+  "live_use_authorized": false
+}

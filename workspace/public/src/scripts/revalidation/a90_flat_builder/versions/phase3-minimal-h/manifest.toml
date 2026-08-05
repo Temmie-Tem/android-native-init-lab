@@ -1,10 +1,10 @@
 schema = "a90-flat-builder-v1"
 extends = "v3404-effective"
-profile = "phase3-minimal-h2-two-phase-auto-benchmark"
-cycle = "H0-PHASE3H2"
-decision = "phase3-minimal-h2-native-health-then-armed-one-shot-auto-handoff-benchmark"
+profile = "phase3-minimal-h3-exact-binding-auto-benchmark"
+cycle = "H0-PHASE3H3"
+decision = "phase3-minimal-h3-exact-candidate-rootfs-binding-auto-handoff-benchmark"
 candidate_authority = false
-random_seed = "a90-phase3-minimal-h2-two-phase-auto-benchmark"
+random_seed = "a90-phase3-minimal-h3-exact-binding-auto-benchmark"
 
 [init]
 closure_sha256 = "79389d4090f6326ce18c3c81e207796051225b159d7801c07f7f61d9231c1d24"
@@ -20,13 +20,13 @@ cflags = [
   "-DA90_MINIMAL_POWER_RECOVERY_UI=1",
   "-DA90_MINIMAL_SERVER_CORE_SURFACE=1",
   "-DA90_AUTO_HANDOFF_BENCHMARK_V1=1",
-  '-DINIT_VERSION="0.11.170"',
-  '-DINIT_BUILD="phase3-minimal-h2-two-phase-auto-benchmark"',
+  '-DINIT_VERSION="0.11.171"',
+  '-DINIT_BUILD="phase3-minimal-h3-exact-binding-auto-benchmark"',
   '-DINIT_CREATOR="made by device owner"',
-  '-DA90_AUTO_HANDOFF_IMAGE="/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-04.img"',
-  '-DA90_AUTO_HANDOFF_IMAGE_SHA256="e13994b9ef29c8274408367f12fdbfcb92ee8301eba045d0a9ae6f344703dc0e"',
-  '-DA90_AUTO_HANDOFF_ENABLE_PATH="/cache/a90-auto-handoff-phase3-minimal-h2.enable"',
-  '-DA90_AUTO_HANDOFF_LATCH_PATH="/cache/a90-auto-handoff-phase3-minimal-h2.done"',
+  '-DA90_AUTO_HANDOFF_IMAGE="/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-10.img"',
+  '-DA90_AUTO_HANDOFF_IMAGE_SHA256="34de408d868ff0651d0f6efb1d1d9cc810e3dfe23acaac178e73e2840b2979a4"',
+  '-DA90_AUTO_HANDOFF_ENABLE_PATH="/cache/a90-auto-handoff-phase3-minimal-h3.enable"',
+  '-DA90_AUTO_HANDOFF_LATCH_PATH="/cache/a90-auto-handoff-phase3-minimal-h3.done"',
   '-DA90_WIFI_TEST_BOOT_LABEL="v2807"',
   '-DA90_WIFI_TEST_BOOT_KLOG_PREFIX="A90v2807"',
   '-DA90_WIFI_TEST_BOOT_DISABLE="/cache/native-init-wifi-test-boot-v2807.disable"',
@@ -176,7 +176,7 @@ required_entries = [
 
 [validation]
 init_strings = [
-  "A90 Linux init 0.11.170 (phase3-minimal-h2-two-phase-auto-benchmark)",
+  "A90 Linux init 0.11.171 (phase3-minimal-h3-exact-binding-auto-benchmark)",
   "video.status.doom_surface=removed",
   "video.demo.doom=removed",
   "safety.boot_write_flash_surface=removed",

@@ -58,10 +58,13 @@ OPTIONAL_INTEGER_FIELDS = frozenset(
         "mmc_write_sectors",
     }
 )
-COMPLETE_STAGES = (
+OPTIONAL_EARLY_STAGES = (
     "native_cache_stage_ready",
+)
+COMPLETE_STAGES = (
     "native_runtime_ready",
     "native_services_ready",
+    "auto_handoff_check",
     "auto_handoff_dispatched",
     "handoff_begin",
     "source_sha_initial_done",
@@ -208,7 +211,12 @@ def _result_from_records(
         stage_indexes = {
             record["stage"]: index for index, record in enumerate(records)
         }
-        complete_indexes = [stage_indexes[stage] for stage in COMPLETE_STAGES]
+        ordered_stages = OPTIONAL_EARLY_STAGES + COMPLETE_STAGES
+        complete_indexes = [
+            stage_indexes[stage]
+            for stage in ordered_stages
+            if stage in stage_indexes
+        ]
         if complete_indexes != sorted(complete_indexes):
             raise BenchmarkError("complete handoff stages are out of order")
 

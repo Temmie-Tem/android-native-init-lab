@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """One-ordinal attended A90 auto-handoff benchmark runner.
 
-The runner consumes an installed-resident D1 manifest.  It proves the H2
+The runner consumes an installed-resident D1 manifest.  It proves the H3
 resident healthy and unarmed, durably binds one arm intent, arms once, proves
 the exact enable state, durably binds one reboot intent, reboots once, observes
 Debian PID1/display/SSH, automatic native return, the retained latch, final
@@ -41,19 +41,21 @@ SCHEMA = "a90-auto-handoff-benchmark-runner-v2"
 JOURNAL_SCHEMA = "a90-auto-handoff-benchmark-journal-v2"
 RESULT_SCHEMA = "a90-auto-handoff-benchmark-result-v2"
 RECONCILE_SCHEMA = "a90-auto-handoff-benchmark-reconciliation-v2"
-EXPECTED_VERSION = "0.11.170"
-EXPECTED_BUILD = "phase3-minimal-h2-two-phase-auto-benchmark"
+EXPECTED_VERSION = "0.11.171"
+EXPECTED_BUILD = "phase3-minimal-h3-exact-binding-auto-benchmark"
 ARM_TOKEN = "AUTO-HANDOFF-BENCHMARK-V1-ARM"
 STATUS_RE = re.compile(
     r"^A90AUTO_STATUS binding=(?P<binding>[01]) "
     r"enable=(?P<enable>-?[0-9]+) latch=(?P<latch>-?[0-9]+) "
-    r"build=(?P<build>[a-z0-9._-]+)$",
+    r"build=(?P<build>[a-z0-9._-]+)\r?$",
     re.MULTILINE,
 )
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 EXECUTION_SOURCES = {
     "runner": Path(__file__).resolve(),
     "benchmark_parser": SCRIPT_DIR / "a90_boot_benchmark_v1.py",
+    "resident_manifest_loader": SCRIPT_DIR / "a90_transition_d1_session_v1.py",
+    "resident_f1_loader": SCRIPT_DIR / "a90_v3403_f1_orchestrator.py",
 }
 JOURNAL_NAMES = (
     "0000-open.json",
@@ -156,6 +158,45 @@ def execution_closure() -> dict[str, Any]:
     return {"sha256": digest.hexdigest(), "files": files}
 
 
+def validate_recorded_execution_closure(
+    value: Any,
+    expected_sha256: str,
+) -> dict[str, Any]:
+    """Validate a durable historical closure without rebinding current files."""
+
+    if HEX64_RE.fullmatch(expected_sha256 or "") is None:
+        raise ContractError("historical execution closure SHA256 is not exact")
+    if not isinstance(value, dict) or set(value) != {"sha256", "files"}:
+        raise ContractError("historical execution closure is not exact")
+    files = value.get("files")
+    if not isinstance(files, dict) or set(files) != set(EXECUTION_SOURCES):
+        raise ContractError("historical execution closure roles changed")
+    digest = hashlib.sha256()
+    for role, requested in sorted(EXECUTION_SOURCES.items()):
+        record = files.get(role)
+        relative = requested.resolve().relative_to(REPO_ROOT).as_posix()
+        if (
+            not isinstance(record, dict)
+            or set(record) != {"path", "size", "sha256"}
+            or record.get("path") != relative
+            or type(record.get("size")) is not int
+            or record.get("size") < 1
+            or HEX64_RE.fullmatch(str(record.get("sha256") or "")) is None
+        ):
+            raise ContractError(f"historical execution closure role changed: {role}")
+        digest.update(role.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(str(record["size"]).encode("ascii"))
+        digest.update(b"\0")
+        digest.update(record["sha256"].encode("ascii"))
+        digest.update(b"\0")
+    if value.get("sha256") != expected_sha256 or digest.hexdigest() != expected_sha256:
+        raise ContractError("historical execution closure digest changed")
+    return value
+
+
 def require_execution_closure(expected_sha256: str) -> dict[str, Any]:
     if HEX64_RE.fullmatch(expected_sha256 or "") is None:
         raise ContractError("expected execution closure SHA256 is not exact")
@@ -239,6 +280,8 @@ def load_journal_prefix(
     spec: resident.SessionSpec,
     path: Path,
     expected_closure_sha256: str,
+    *,
+    journal_closure_sha256: str | None = None,
 ) -> list[dict[str, Any]]:
     closure = require_execution_closure(expected_closure_sha256)
     present = [name for name in JOURNAL_NAMES if (path / name).is_file()]
@@ -267,9 +310,18 @@ def load_journal_prefix(
         return records
 
     opened = records[0]
+    if journal_closure_sha256 is None:
+        opened_closure = closure
+        intent_closure_sha256 = expected_closure_sha256
+    else:
+        opened_closure = validate_recorded_execution_closure(
+            opened.get("execution_closure"),
+            journal_closure_sha256,
+        )
+        intent_closure_sha256 = journal_closure_sha256
     if (
         opened.get("manifest_sha256") != spec.manifest_sha256
-        or opened.get("execution_closure") != closure
+        or opened.get("execution_closure") != opened_closure
         or opened.get("candidate_sha256") != spec.candidate.sha256
         or opened.get("rollback_sha256") != spec.rollback.sha256
         or opened.get("rootfs_sha256") != spec.rootfs.sha256
@@ -301,7 +353,7 @@ def load_journal_prefix(
         intent = records[1]
         if (
             intent.get("manifest_sha256") != spec.manifest_sha256
-            or intent.get("execution_closure_sha256") != expected_closure_sha256
+            or intent.get("execution_closure_sha256") != intent_closure_sha256
             or intent.get("arm_dispatch_count_max") != 1
             or intent.get("reboot_dispatch_count") != 0
             or intent.get("candidate_replay") is not False
@@ -313,45 +365,56 @@ def load_journal_prefix(
 
     if len(records) >= 3:
         armed = records[2]
-        post_status_record = base.require_exact_f1_command_receipt(
-            armed.get("post_arm_status_record"),
-            ["auto-handoff-status"],
-            "journal post-arm status",
-        )
-        post_status = parse_auto_status(post_status_record)
+        post_status_value = armed.get("post_arm_status_record")
+        if isinstance(post_status_value, dict) and "command" in post_status_value:
+            post_status_record = base.require_exact_f1_command_receipt(
+                post_status_value,
+                ["auto-handoff-status"],
+                "journal post-arm status",
+            )
+            post_status: dict[str, Any] | None = parse_auto_status(post_status_record)
+        elif _is_unproved_receipt(post_status_value):
+            post_status = None
+        else:
+            raise ContractError("journal post-arm status receipt is not exact")
         if (
             armed.get("intent_sha256") != intent_sha256
             or armed.get("arm_dispatch_count") != 1
             or armed.get("post_arm_status") != post_status
-            or post_status.get("enable") != 1
-            or post_status.get("latch") != 0
         ):
             raise ContractError("arm result binding changed")
         arm_record = armed.get("arm_record")
         if isinstance(arm_record, dict) and "command" in arm_record:
-            exact_arm = base.require_exact_f1_command_receipt(
+            _, arm_outcome = require_exact_arm_dispatch_receipt(
                 arm_record,
-                ["auto-handoff-arm", ARM_TOKEN, intent_sha256],
-                "journal arm dispatch",
+                intent_sha256,
             )
-            if str(exact_arm.get("text") or "").count(
-                f"A90AUTO_ARM armed=1 intent_sha256={intent_sha256}"
-            ) != 1:
-                raise ContractError("journal arm response marker changed")
-        elif not (
-            isinstance(arm_record, dict)
-            and set(arm_record) == {"error", "response_proof"}
-            and isinstance(arm_record.get("error"), dict)
-            and arm_record.get("response_proof") is False
-        ):
+        elif _is_unproved_receipt(arm_record):
+            arm_outcome = "unproved"
+        else:
             raise ContractError("journal arm dispatch record is not exact")
+        state = None if post_status is None else (
+            post_status.get("enable"),
+            post_status.get("latch"),
+        )
+        if (
+            (arm_outcome == "armed" and state != (1, 0))
+            or (arm_outcome == "refused-unarmed" and state != (0, 0))
+            or (arm_outcome == "unproved" and state not in (None, (0, 0), (1, 0)))
+        ):
+            raise ContractError("journal arm receipt and post-arm state disagree")
     if len(records) >= 4:
         reboot = records[3]
         if (
+            records[2].get("post_arm_status") is None
+            or records[2]["post_arm_status"].get("enable") != 1
+            or records[2]["post_arm_status"].get("latch") != 0
+            or (
             reboot.get("intent_sha256") != intent_sha256
             or reboot.get("reboot_dispatch_count_max") != 1
             or reboot.get("candidate_replay") is not False
             or not isinstance(reboot.get("pre_reboot_epoch"), dict)
+            )
         ):
             raise ContractError("reboot intent binding changed")
         validate_preflight_evidence(spec, reboot.get("armed_preflight"))
@@ -438,7 +501,7 @@ def parse_auto_status(record: dict[str, Any]) -> dict[str, Any]:
         "build": match.group("build"),
     }
     if result["binding"] != 1 or result["build"] != EXPECTED_BUILD:
-        raise ContractError("auto-handoff status binding/build is not exact H2")
+        raise ContractError("auto-handoff status binding/build is not exact H3")
     return result
 
 
@@ -448,12 +511,7 @@ def require_auto_status(
     enable: int,
     latch: int,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    record = base.require_exact_f1_command_receipt(
-        base.run_f1_cmd(args, ["auto-handoff-status"]),
-        ["auto-handoff-status"],
-        "auto-handoff status receipt",
-    )
-    status = parse_auto_status(record)
+    record, status = read_auto_status(args)
     if status["enable"] != enable or status["latch"] != latch:
         raise ContractError(
             "auto-handoff state differs: "
@@ -463,6 +521,80 @@ def require_auto_status(
     return record, status
 
 
+def read_auto_status(
+    args: argparse.Namespace,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    record = base.require_exact_f1_command_receipt(
+        base.run_f1_cmd(args, ["auto-handoff-status"]),
+        ["auto-handoff-status"],
+        "auto-handoff status receipt",
+    )
+    status = parse_auto_status(record)
+    return record, status
+
+
+def require_exact_arm_dispatch_receipt(
+    value: Any,
+    intent_sha256: str,
+) -> tuple[dict[str, Any], str]:
+    command = ["auto-handoff-arm", ARM_TOKEN, intent_sha256]
+    if not isinstance(value, dict):
+        raise ContractError("auto-handoff arm receipt is not an object")
+    if value.get("rc") == 0:
+        record = base.require_exact_f1_command_receipt(
+            value,
+            command,
+            "auto-handoff arm receipt",
+        )
+        marker = f"A90AUTO_ARM armed=1 intent_sha256={intent_sha256}"
+        if str(record.get("text") or "").count(marker) != 1:
+            raise ContractError("auto-handoff arm success marker is not exact")
+        return record, "armed"
+
+    record = value
+    begin = record.get("begin")
+    end = record.get("end")
+    rc = record.get("rc")
+    if (
+        set(record) != {"command", "rc", "status", "trust", "begin", "end", "text"}
+        or record.get("command") != command
+        or type(rc) is not int
+        or rc >= 0
+        or record.get("status") != "error"
+        or record.get("trust") != "A90P1_V1_STRUCTURAL_ONLY"
+        or type(record.get("text")) is not str
+        or not isinstance(begin, dict)
+        or set(begin) != {"argc", "cmd", "flags", "seq"}
+        or begin.get("cmd") != command[0]
+        or begin.get("argc") != str(len(command))
+        or re.fullmatch(r"0x[0-9a-f]+", str(begin.get("flags") or "")) is None
+        or not str(begin.get("seq") or "").isdigit()
+        or not isinstance(end, dict)
+        or set(end) != {"cmd", "duration_ms", "errno", "flags", "rc", "seq", "status"}
+        or end.get("cmd") != command[0]
+        or end.get("seq") != begin.get("seq")
+        or end.get("flags") != begin.get("flags")
+        or end.get("rc") != str(rc)
+        or end.get("errno") != str(-rc)
+        or end.get("status") != "error"
+        or not str(end.get("duration_ms") or "").isdigit()
+    ):
+        raise ContractError("auto-handoff arm refusal receipt is not exact")
+    marker = f"A90AUTO_ARM armed=0 rc={rc}"
+    if str(record.get("text") or "").count(marker) != 1:
+        raise ContractError("auto-handoff arm refusal marker is not exact")
+    return record, "refused-unarmed"
+
+
+def _is_unproved_receipt(value: Any) -> bool:
+    return (
+        isinstance(value, dict)
+        and set(value) == {"error", "response_proof"}
+        and isinstance(value.get("error"), dict)
+        and value.get("response_proof") is False
+    )
+
+
 def require_first_boot_unarmed(log_record: dict[str, Any]) -> None:
     base.require_exact_f1_command_receipt(
         log_record,
@@ -470,10 +602,15 @@ def require_first_boot_unarmed(log_record: dict[str, Any]) -> None:
         "first H2 resident log receipt",
     )
     text = str(log_record.get("text") or "")
-    if text.count("A90AUTO state=unarmed-stay-native") != 1:
-        raise ContractError("first H2 resident boot is not uniquely proven unarmed")
-    if "A90AUTO state=dispatch-once" in text:
-        raise ContractError("first H2 resident log already contains a dispatch")
+    state_lines: list[str] = []
+    for line in text.replace("\r", "\n").splitlines():
+        marker = line.find("A90AUTO state=")
+        if marker >= 0:
+            state_lines.append(line[marker:].strip())
+    if not state_lines or any(
+        line != "A90AUTO state=unarmed-stay-native" for line in state_lines
+    ):
+        raise ContractError("H2 resident log is not exclusively unarmed")
 
 
 def _effect_args() -> argparse.Namespace:
@@ -534,6 +671,10 @@ def observe_auto_cycle(
     f1_spec = _f1_spec(spec)
     result: dict[str, Any] = {"proof": False}
     try:
+        result["host_ncm_rebind"] = base.rebind_host_ncm_after_reenumeration(
+            f1_spec,
+            args,
+        )
         result["ssh"] = base.observe_ssh(f1_spec, args)
         result["debian_return_epoch"] = base.capture_bridge_serial_epoch(
             f1_spec,
@@ -729,12 +870,78 @@ def validate_result(
         or parsed.get("status") != "complete"
         or parsed.get("missing_complete_stages") != []
         or [record.get("stage") for record in parsed.get("records", [])]
-        != list(benchmark.COMPLETE_STAGES)
+        not in (
+            list(benchmark.COMPLETE_STAGES),
+            list(benchmark.OPTIONAL_EARLY_STAGES + benchmark.COMPLETE_STAGES),
+        )
         or parsed.get("boot_segments_total") is None
         or type(parsed.get("selected_segment_index")) is not int
     ):
         raise ContractError("benchmark result is not one complete ordered segment")
     return value
+
+
+def dispatch_arm_once_and_publish(
+    args: argparse.Namespace,
+    *,
+    journal_path: Path,
+    intent_sha256: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Dispatch once, publish every outcome, and continue only from exact armed state."""
+
+    command = ["auto-handoff-arm", ARM_TOKEN, intent_sha256]
+    try:
+        arm_record: dict[str, Any] = base.run_f1_cmd(
+            args,
+            command,
+            allow_error=True,
+        )
+    except Exception as exc:  # durable unknown; never replay
+        arm_record = {
+            "error": {"type": type(exc).__name__, "message": str(exc)},
+            "response_proof": False,
+        }
+    try:
+        post_arm_record, post_arm_status = read_auto_status(args)
+    except Exception as exc:  # preserve the arm receipt before stopping observation
+        post_arm_record = {
+            "error": {"type": type(exc).__name__, "message": str(exc)},
+            "response_proof": False,
+        }
+        post_arm_status = None
+    write_record(
+        journal_path,
+        "arm-result",
+        {
+            "intent_sha256": intent_sha256,
+            "arm_dispatch_count": 1,
+            "arm_record": arm_record,
+            "post_arm_status_record": post_arm_record,
+            "post_arm_status": post_arm_status,
+        },
+    )
+
+    if "command" in arm_record:
+        _, arm_outcome = require_exact_arm_dispatch_receipt(
+            arm_record,
+            intent_sha256,
+        )
+    elif _is_unproved_receipt(arm_record):
+        arm_outcome = "unproved"
+    else:
+        raise ContractError("published arm dispatch record is not exact")
+
+    state = None if post_arm_status is None else (
+        post_arm_status.get("enable"),
+        post_arm_status.get("latch"),
+    )
+    if arm_outcome == "refused-unarmed":
+        if state == (0, 0):
+            raise ContractError("auto-handoff arm was explicitly refused with no effect")
+        raise ContractError("auto-handoff arm refusal contradicts post-arm state")
+    if state != (1, 0):
+        raise ContractError("auto-handoff arm outcome is not exact armed state")
+    return arm_record, post_arm_status
 
 
 def execute(
@@ -794,39 +1001,10 @@ def execute(
         },
     )
     intent_sha256 = sha256_file(arm_intent_path)
-    arm_record: dict[str, Any]
-    try:
-        arm_record = base.run_f1_cmd(
-            args,
-            ["auto-handoff-arm", ARM_TOKEN, intent_sha256],
-        )
-    except Exception as exc:  # never replay; exact state read decides continuation
-        arm_record = {
-            "error": {"type": type(exc).__name__, "message": str(exc)}
-        }
-    post_arm_record, post_arm_status = require_auto_status(args, enable=1, latch=0)
-    if "command" in arm_record:
-        base.require_exact_f1_command_receipt(
-            arm_record,
-            ["auto-handoff-arm", ARM_TOKEN, intent_sha256],
-            "auto-handoff arm receipt",
-        )
-        if str(arm_record.get("text") or "").count(
-            f"A90AUTO_ARM armed=1 intent_sha256={intent_sha256}"
-        ) != 1:
-            raise ContractError("auto-handoff arm response marker is not exact")
-    else:
-        arm_record["response_proof"] = False
-    write_record(
-        path / JOURNAL_NAMES[2],
-        "arm-result",
-        {
-            "intent_sha256": intent_sha256,
-            "arm_dispatch_count": 1,
-            "arm_record": arm_record,
-            "post_arm_status_record": post_arm_record,
-            "post_arm_status": post_arm_status,
-        },
+    dispatch_arm_once_and_publish(
+        args,
+        journal_path=path / JOURNAL_NAMES[2],
+        intent_sha256=intent_sha256,
     )
     require_execution_closure(expected_closure_sha256)
     armed_preflight, armed_evidence = resident.resident_d0_preflight(spec)
@@ -932,6 +1110,7 @@ def resume_after_return(
     *,
     transaction_dir: Path,
     expected_closure_sha256: str,
+    expected_journal_closure_sha256: str | None = None,
     operator_attended: bool,
     visible_confirmed: str,
 ) -> dict[str, Any]:
@@ -944,9 +1123,18 @@ def resume_after_return(
     path = exact_transaction_dir(spec, transaction_dir)
     if not path.is_dir() or path.is_symlink():
         raise ContractError("resume transaction directory is not exact")
-    records = load_journal_prefix(spec, path, expected_closure_sha256)
+    records = load_journal_prefix(
+        spec,
+        path,
+        expected_closure_sha256,
+        journal_closure_sha256=expected_journal_closure_sha256,
+    )
     if len(records) < 5:
         raise ContractError("resume lacks one durable automatic-cycle observation")
+    if expected_journal_closure_sha256 is not None and len(records) != 7:
+        raise ContractError(
+            "historical-closure tail repair requires the exact post-cleanup prefix"
+        )
     if len(records) == len(JOURNAL_NAMES):
         return validate_result(spec, records[-1]["result"])
     if len(records) == 8:
@@ -959,7 +1147,12 @@ def resume_after_return(
             "closed",
             {"result_sha256": result_sha256, "result": result},
         )
-        load_journal_prefix(spec, path, expected_closure_sha256)
+        load_journal_prefix(
+            spec,
+            path,
+            expected_closure_sha256,
+            journal_closure_sha256=expected_journal_closure_sha256,
+        )
         return result
 
     args = _effect_args()
@@ -1040,7 +1233,12 @@ def resume_after_return(
             "absence_preflight": cleanup_record["absence_preflight"],
         }
 
-    records = load_journal_prefix(spec, path, expected_closure_sha256)
+    records = load_journal_prefix(
+        spec,
+        path,
+        expected_closure_sha256,
+        journal_closure_sha256=expected_journal_closure_sha256,
+    )
     if len(records) == 7:
         result = finalize_cycle(
             spec,
@@ -1063,14 +1261,24 @@ def resume_after_return(
     else:
         result = validate_result(spec, records[7]["result"])
         result_sha256 = records[7]["result_sha256"]
-    records = load_journal_prefix(spec, path, expected_closure_sha256)
+    records = load_journal_prefix(
+        spec,
+        path,
+        expected_closure_sha256,
+        journal_closure_sha256=expected_journal_closure_sha256,
+    )
     if len(records) == 8:
         write_record(
             path / JOURNAL_NAMES[8],
             "closed",
             {"result_sha256": result_sha256, "result": result},
         )
-    load_journal_prefix(spec, path, expected_closure_sha256)
+    load_journal_prefix(
+        spec,
+        path,
+        expected_closure_sha256,
+        journal_closure_sha256=expected_journal_closure_sha256,
+    )
     return result
 
 
@@ -1093,10 +1301,10 @@ def reconcile(
             "schema": RECONCILE_SCHEMA,
             "terminal": "JOURNAL_INCONSISTENT_STOP",
             "journal_error": {"type": type(exc).__name__, "message": str(exc)},
-            "arm_dispatch_count": 0,
-            "reboot_dispatch_count": 0,
+            "arm_dispatch_count": None,
+            "reboot_dispatch_count": None,
             "candidate_replay": False,
-            "device_effect": False,
+            "device_effect": None,
         }
     present = list(JOURNAL_NAMES[: len(records)])
     if not records:
@@ -1115,10 +1323,10 @@ def reconcile(
             "terminal": "CLOSED_EXACT_NO_REPLAY",
             "journal_records_present": present,
             "result": records[-1]["result"],
-            "arm_dispatch_count": 0,
-            "reboot_dispatch_count": 0,
+            "arm_dispatch_count": 1,
+            "reboot_dispatch_count": 1,
             "candidate_replay": False,
-            "device_effect": False,
+            "device_effect": True,
         }
     args = _effect_args()
     status_record: dict[str, Any] | None = None
@@ -1139,8 +1347,16 @@ def reconcile(
         _, health = resident.resident_d0_preflight(spec)
     except Exception as exc:  # HEALTH_PENDING, never a reason to replay
         health_error = {"type": type(exc).__name__, "message": str(exc)}
+    arm_dispatch_count: int | None = 1 if len(records) >= 3 else (
+        None if len(records) >= 2 else 0
+    )
+    reboot_dispatch_count: int | None = 1 if len(records) >= 5 else (
+        None if len(records) >= 4 else 0
+    )
+    device_effect: bool | None = None
     if len(records) >= 8:
         terminal = "RESULT_PUBLICATION_PENDING_NO_REPLAY"
+        device_effect = True
     elif (
         len(records) >= 5
         and health is not None
@@ -1149,12 +1365,46 @@ def reconcile(
         and status["latch"] == 1
     ):
         terminal = "RETURNED_NATIVE_FINALIZATION_PENDING_NO_REPLAY"
+        device_effect = True
     elif len(records) >= 4:
         terminal = "RECOVERY_PENDING_PARKED_NO_REPLAY"
-    elif len(records) >= 2:
-        terminal = "D1_EFFECT_OUTCOME_PENDING_NO_REPLAY"
+        device_effect = True
+    elif len(records) == 3:
+        journal_status = records[2].get("post_arm_status")
+        journal_arm = records[2].get("arm_record")
+        if isinstance(journal_arm, dict) and "command" in journal_arm:
+            _, journal_outcome = require_exact_arm_dispatch_receipt(
+                journal_arm,
+                records[2]["intent_sha256"],
+            )
+        else:
+            journal_outcome = "unproved"
+        if (
+            journal_outcome == "refused-unarmed"
+            and isinstance(journal_status, dict)
+            and journal_status.get("enable") == 0
+            and journal_status.get("latch") == 0
+        ):
+            terminal = "ARM_REFUSED_EXACT_NO_EFFECT_NO_REPLAY"
+            device_effect = False
+        elif (
+            isinstance(journal_status, dict)
+            and journal_status.get("enable") == 1
+            and journal_status.get("latch") == 0
+        ):
+            terminal = "ARMED_REBOOT_NOT_DURABLY_INTENDED_NO_REPLAY"
+            device_effect = True
+        else:
+            terminal = "ARM_OUTCOME_PENDING_NO_REPLAY"
+    elif len(records) == 2:
+        if status is not None and status["enable"] == 0 and status["latch"] == 0:
+            terminal = "ARM_RESULT_PUBLICATION_MISSING_CURRENTLY_UNARMED_NO_REPLAY"
+            device_effect = False
+        else:
+            terminal = "ARM_RESULT_PUBLICATION_MISSING_NO_REPLAY"
     else:
         terminal = "OPENED_NO_D1_INTENT"
+        device_effect = False
     return {
         "schema": RECONCILE_SCHEMA,
         "terminal": terminal,
@@ -1164,10 +1414,10 @@ def reconcile(
         "auto_handoff_status_error": status_error,
         "resident_health": health,
         "resident_health_error": health_error,
-        "arm_dispatch_count": 0,
-        "reboot_dispatch_count": 0,
+        "arm_dispatch_count": arm_dispatch_count,
+        "reboot_dispatch_count": reboot_dispatch_count,
         "candidate_replay": False,
-        "device_effect": False,
+        "device_effect": device_effect,
     }
 
 
@@ -1177,6 +1427,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--expect-manifest-sha256")
     parser.add_argument("--expect-execution-closure-sha256")
+    parser.add_argument("--expect-journal-execution-closure-sha256")
     parser.add_argument("--transaction-dir", type=Path)
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--execute", action="store_true")
@@ -1205,6 +1456,13 @@ def main(argv: list[str] | None = None) -> int:
     if any(value is None for value in required):
         raise ContractError("manifest, closure, and transaction arguments are required")
     spec = resident.load_spec(args.manifest, args.expect_manifest_sha256)
+    if (
+        args.expect_journal_execution_closure_sha256 is not None
+        and not args.resume_after_return
+    ):
+        raise ContractError(
+            "historical journal closure is valid only for post-return tail repair"
+        )
     if args.execute:
         result = execute(
             spec,
@@ -1218,6 +1476,9 @@ def main(argv: list[str] | None = None) -> int:
             spec,
             transaction_dir=args.transaction_dir,
             expected_closure_sha256=args.expect_execution_closure_sha256,
+            expected_journal_closure_sha256=(
+                args.expect_journal_execution_closure_sha256
+            ),
             operator_attended=args.operator_attended,
             visible_confirmed=args.visible_confirmed,
         )

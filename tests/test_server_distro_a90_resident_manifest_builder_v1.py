@@ -524,5 +524,21 @@ class ResidentManifestBuilderTests(unittest.TestCase):
             self.assertFalse(failed.exists())
 
 
+    def test_h3_candidate_binds_receipt_to_compiled_rootfs(self) -> None:
+        selected = builder.select_candidate_profile(
+            builder.MINIMAL_H3_CANDIDATE_PROFILE
+        )
+        contract = builder.candidate_first_boot_contract(selected)
+        self.assertEqual(contract["schema"], "a90-auto-handoff-first-boot-v2")
+        self.assertEqual(
+            contract["compiled_binding"]["image_path"],
+            "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-10.img",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["image_sha256"],
+            "34de408d868ff0651d0f6efb1d1d9cc810e3dfe23acaac178e73e2840b2979a4",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

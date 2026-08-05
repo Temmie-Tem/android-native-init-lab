@@ -76,6 +76,14 @@ H2_AUTO_BENCHMARK_RESIDENT_IDENTITY = (
     "0.11.170",
     "phase3-minimal-h2-two-phase-auto-benchmark",
 )
+H3_AUTO_BENCHMARK_RESIDENT_IDENTITY = (
+    "0.11.171",
+    "phase3-minimal-h3-exact-binding-auto-benchmark",
+)
+AUTO_BENCHMARK_RESIDENT_IDENTITIES = {
+    H2_AUTO_BENCHMARK_RESIDENT_IDENTITY,
+    H3_AUTO_BENCHMARK_RESIDENT_IDENTITY,
+}
 
 RESIDENT_ACTIONS = (
     "preflight",
@@ -609,6 +617,25 @@ def _crosscheck_resident_manifest(
     target_source = _require_dict(source.get("target"), "resident target")
     observer_source = _require_dict(debian_source.get("observer"), "resident observer")
     observation_source = _require_dict(source.get("observation"), "resident observation")
+    base.validate_candidate_first_boot_contract(
+        candidate_source.get("first_boot_contract"),
+        candidate_version=_require_string(
+            candidate_source.get("expected_version"),
+            "resident candidate version",
+        ),
+        candidate_build=_require_string(
+            candidate_source.get("expected_build"),
+            "resident candidate build",
+        ),
+        remote_final=_require_string(
+            rootfs_source.get("device_path"),
+            "resident compiled rootfs device path",
+        ),
+        rootfs_sha256=_require_sha(
+            rootfs_source.get("sha256"),
+            "resident compiled rootfs SHA256",
+        ),
+    )
     if (
         source.get("schema") != staging.RESIDENT_INSTALL_MANIFEST_SCHEMA
         or source.get("status") != staging.FINAL_MANIFEST_STATUS
@@ -1660,12 +1687,16 @@ def verify_resident_health_exact(
         identity_allowed = candidate_identity in (
             staging.PHASE3_ALLOWED_STARTING_IDENTITIES
             - staging.PHASE2_ALLOWED_STARTING_IDENTITIES
-            | {H2_AUTO_BENCHMARK_RESIDENT_IDENTITY}
+            | AUTO_BENCHMARK_RESIDENT_IDENTITIES
         )
     if not identity_allowed:
         raise ContractError("D1 resident identity is not the exact V3406 baseline")
     bridge = staging.require_exact_bridge(f1_spec.stage, args)
-    if spec.resident_evidence_kind == "preserved-install-cleanup-reduced-v1":
+    direct_health_receipts = (
+        spec.resident_evidence_kind == "preserved-install-cleanup-reduced-v1"
+        or candidate_identity in AUTO_BENCHMARK_RESIDENT_IDENTITIES
+    )
+    if direct_health_receipts:
         receipts = {
             "version": base.run_f1_cmd(args, ["version"]),
             "status": base.run_f1_cmd(args, ["status"]),

@@ -144,6 +144,23 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
             )
         )
 
+    def test_minimal_h3_candidate_binds_build_receipt_and_exact_rootfs(self) -> None:
+        selected = finalizer.select_candidate_profile(
+            finalizer.MINIMAL_H3_CANDIDATE_PROFILE
+        )
+        contract = finalizer.candidate_first_boot_contract(selected)
+        self.assertEqual(contract["schema"], "a90-auto-handoff-first-boot-v2")
+        self.assertEqual(
+            contract["compiled_binding"],
+            selected.compiled_auto_handoff,
+        )
+        with mock.patch.object(finalizer, "sha256_file", return_value="0" * 64):
+            with self.assertRaisesRegex(
+                finalizer.ContractError,
+                "build receipt SHA256 changed",
+            ):
+                finalizer.validate_candidate_build_receipt(selected)
+
     def test_unknown_candidate_profile_is_rejected(self) -> None:
         with self.assertRaisesRegex(finalizer.ContractError, "not exact"):
             finalizer.select_candidate_profile("arbitrary")

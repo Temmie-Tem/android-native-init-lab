@@ -91,18 +91,19 @@ class A90BootBenchmarkV1Tests(unittest.TestCase):
                 marker("native_cache_stage_ready", 90),
                 marker("native_runtime_ready", 190),
                 marker("native_services_ready", 290),
-                marker("auto_handoff_dispatched", 300),
-                marker("handoff_begin", 310),
-                marker("source_sha_initial_done", 410),
-                marker("display_release_done", 420),
-                marker("source_sha_post_display_done", 520),
-                marker("work_copy_done", 620),
-                marker("loop_attached", 630),
-                marker("root_mounted", 640),
-                marker("distro_init_verified", 650),
-                marker("display_marker_ready", 660),
-                marker("mount_moves_done", 670),
-                marker("switch_root_exec", 680),
+                marker("auto_handoff_check", 300),
+                marker("auto_handoff_dispatched", 310),
+                marker("handoff_begin", 320),
+                marker("source_sha_initial_done", 420),
+                marker("display_release_done", 430),
+                marker("source_sha_post_display_done", 530),
+                marker("work_copy_done", 630),
+                marker("loop_attached", 640),
+                marker("root_mounted", 650),
+                marker("distro_init_verified", 660),
+                marker("display_marker_ready", 670),
+                marker("mount_moves_done", 680),
+                marker("switch_root_exec", 690),
             )
         )
         returned = "\n".join(
@@ -119,6 +120,36 @@ class A90BootBenchmarkV1Tests(unittest.TestCase):
         self.assertEqual(result["boot_segments_total"], 3)
         self.assertEqual(result["selected_segment_index"], 1)
         self.assertEqual(result["status"], "complete")
+
+    def test_complete_handoff_accepts_missing_pre_runtime_capture_marker(self) -> None:
+        text = "\n".join(
+            marker(stage, 100 + index * 10)
+            for index, stage in enumerate(benchmark.COMPLETE_STAGES)
+        )
+        result = benchmark.parse_run([text], require_complete=True)
+        self.assertEqual(result["status"], "complete")
+        self.assertEqual(result["missing_complete_stages"], [])
+        self.assertIsNone(result["phase_durations_ms"]["native_runtime_ms"])
+        self.assertEqual(
+            [record["stage"] for record in result["records"]],
+            list(benchmark.COMPLETE_STAGES),
+        )
+
+    def test_complete_handoff_requires_auto_handoff_check(self) -> None:
+        stages = [
+            stage
+            for stage in benchmark.COMPLETE_STAGES
+            if stage != "auto_handoff_check"
+        ]
+        text = "\n".join(
+            marker(stage, 100 + index * 10)
+            for index, stage in enumerate(stages)
+        )
+        with self.assertRaisesRegex(
+            benchmark.BenchmarkError,
+            "auto_handoff_check",
+        ):
+            benchmark.parse_run([text], require_complete=True)
 
     def test_rejects_complete_handoff_with_inverted_stage_order(self) -> None:
         stages = list(benchmark.COMPLETE_STAGES)

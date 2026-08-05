@@ -447,7 +447,6 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
             base_spec = self.session_spec(Path(raw))
             allowed = (
                 ("0.11.168", "phase3-minimal-g-server-core"),
-                d1.H2_AUTO_BENCHMARK_RESIDENT_IDENTITY,
             )
             for version, build in allowed:
                 with self.subTest(version=version, build=build):
@@ -475,6 +474,48 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                         f"version: {version} build={build}",
                         health["version"]["text"],
                     )
+
+    def test_exact_resident_health_h2_bypasses_staging_start_allowlist(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            base_spec = self.session_spec(Path(raw))
+            version, build = d1.H3_AUTO_BENCHMARK_RESIDENT_IDENTITY
+            spec = replace(
+                base_spec,
+                candidate_version=version,
+                candidate_build=build,
+            )
+            receipts = self.exact_health_receipts(spec)
+
+            def run_f1_cmd(_args: object, command: list[str]) -> dict[str, object]:
+                return receipts[command[0]]
+
+            with mock.patch.object(
+                d1.staging,
+                "require_exact_bridge",
+                return_value={"selected_realpath": spec.bridge_realpath},
+            ), mock.patch.object(
+                d1.base,
+                "run_f1_cmd",
+                side_effect=run_f1_cmd,
+            ) as direct, mock.patch.object(
+                d1.staging,
+                "require_native_health",
+                side_effect=AssertionError("H2 must not enter the staging start allowlist"),
+            ):
+                health = d1.verify_resident_health_exact(
+                    spec,
+                    d1._f1_spec(spec),
+                    object(),
+                )
+
+            self.assertEqual(
+                [call.args[1] for call in direct.call_args_list],
+                [["version"], ["status"], ["selftest"]],
+            )
+            self.assertIn(
+                f"version: {version} build={build}",
+                health["version"]["text"],
+            )
 
             baseline = replace(
                 base_spec,
@@ -2034,6 +2075,55 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
         self.assertNotIn("--resident-journal-dir", help_result.stdout)
         self.assertIn("--execute-switchroot", help_result.stdout)
         self.assertNotIn("--flash", help_result.stdout)
+
+    def test_d1_revalidates_resident_compiled_rootfs_binding(self) -> None:
+        source = {
+            "candidate_boot": {
+                "expected_version": "0.11.171",
+                "expected_build": "phase3-minimal-h3-exact-binding-auto-benchmark",
+                "first_boot_contract": {"schema": "a90-auto-handoff-first-boot-v2"},
+            },
+            "rollback_boot": {},
+            "debian_rootfs": {
+                "keyed_source": {
+                    "device_path": "/mnt/sdext/a90/runtime/rootfs-10.img",
+                    "sha256": "a" * 64,
+                },
+                "work_copy": {},
+                "observer": {},
+            },
+            "target": {},
+            "observation": {},
+        }
+        bound = lambda path, sha: d1.BoundFile(Path(path), 1, sha)
+        with mock.patch.object(d1, "_read_private_json", return_value=source), mock.patch.object(
+            d1.base,
+            "validate_candidate_first_boot_contract",
+        ) as validate, self.assertRaises(d1.ContractError):
+            d1._crosscheck_resident_manifest(
+                bound("/private/manifest", "1" * 64),
+                "a90-v3406-debian-display-f1-20260805-10",
+                {
+                    "candidate_version": "0.11.171",
+                    "candidate_build": "phase3-minimal-h3-exact-binding-auto-benchmark",
+                    "remote_final": "/mnt/sdext/a90/runtime/rootfs-10.img",
+                    "remote_work": d1.WORK_PATH,
+                },
+                bound("/private/candidate", "2" * 64),
+                bound("/private/rollback", "3" * 64),
+                bound("/private/rootfs", "a" * 64),
+                {},
+                {},
+                bound("/private/key", "4" * 64),
+                {},
+            )
+        validate.assert_called_once_with(
+            source["candidate_boot"]["first_boot_contract"],
+            candidate_version="0.11.171",
+            candidate_build="phase3-minimal-h3-exact-binding-auto-benchmark",
+            remote_final="/mnt/sdext/a90/runtime/rootfs-10.img",
+            rootfs_sha256="a" * 64,
+        )
 
 
 if __name__ == "__main__":

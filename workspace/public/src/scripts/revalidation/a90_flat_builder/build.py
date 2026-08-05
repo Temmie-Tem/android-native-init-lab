@@ -5,9 +5,11 @@ from __future__ import annotations
 
 import argparse
 import filecmp
+import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import shutil
 import subprocess
@@ -35,6 +37,68 @@ BUILDER_SOURCES = {
     "flat_builder": HERE / "build.py",
     "flat_builder_library": HERE / "buildlib.py",
 }
+
+AUTO_HANDOFF_VALUE_MACROS = (
+    "INIT_VERSION",
+    "INIT_BUILD",
+    "A90_AUTO_HANDOFF_IMAGE",
+    "A90_AUTO_HANDOFF_IMAGE_SHA256",
+    "A90_AUTO_HANDOFF_ENABLE_PATH",
+    "A90_AUTO_HANDOFF_LATCH_PATH",
+)
+
+
+def normalized_auto_handoff_binding(
+    manifest: dict[str, Any],
+) -> dict[str, str] | None:
+    """Return the exact compiled auto-handoff tuple or reject ambiguity."""
+
+    cflags = manifest["init"]["cflags"]
+    enabled = [
+        flag for flag in cflags
+        if flag == "-DA90_AUTO_HANDOFF_BENCHMARK_V1=1"
+    ]
+    if not enabled:
+        return None
+    if len(enabled) != 1:
+        raise RuntimeError("auto-handoff enable macro is duplicated")
+    values: dict[str, str] = {}
+    for macro in AUTO_HANDOFF_VALUE_MACROS:
+        pattern = re.compile(rf'^-D{re.escape(macro)}="([^"\r\n]+)"$')
+        matches = [match.group(1) for flag in cflags if (match := pattern.fullmatch(flag))]
+        if len(matches) != 1:
+            raise RuntimeError(f"auto-handoff macro is missing or duplicated: {macro}")
+        values[macro] = matches[0]
+    image = values["A90_AUTO_HANDOFF_IMAGE"]
+    image_sha256 = values["A90_AUTO_HANDOFF_IMAGE_SHA256"]
+    enable_path = values["A90_AUTO_HANDOFF_ENABLE_PATH"]
+    latch_path = values["A90_AUTO_HANDOFF_LATCH_PATH"]
+    if (
+        not image.startswith("/mnt/sdext/a90/runtime/")
+        or re.fullmatch(r"[0-9a-f]{64}", image_sha256) is None
+        or not enable_path.startswith("/cache/a90-auto-handoff-")
+        or not latch_path.startswith("/cache/a90-auto-handoff-")
+        or enable_path == latch_path
+    ):
+        raise RuntimeError("auto-handoff compiled tuple is not canonical")
+    normalized = {
+        "schema": "a90-compiled-auto-handoff-binding-v1",
+        "candidate_version": values["INIT_VERSION"],
+        "candidate_build": values["INIT_BUILD"],
+        "image_path": image,
+        "image_sha256": image_sha256,
+        "enable_path": enable_path,
+        "latch_path": latch_path,
+    }
+    encoded = json.dumps(
+        normalized,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return {
+        **normalized,
+        "binding_sha256": hashlib.sha256(encoded).hexdigest(),
+    }
 
 
 def artifact_names(manifest: dict[str, Any]) -> dict[str, str]:
@@ -613,6 +677,7 @@ def main() -> int:
     repo = repo_root()
     manifest_path = selected_manifest(args.manifest)
     resolution, manifest, inputs, versions, source_keys = audit(repo, manifest_path)
+    auto_handoff_binding = normalized_auto_handoff_binding(manifest)
     audit_result = {
         "schema": buildlib.SCHEMA,
         "profile": manifest["profile"],
@@ -638,6 +703,8 @@ def main() -> int:
         "toolchain": versions,
         "source_keys": source_keys,
     }
+    if auto_handoff_binding is not None:
+        audit_result["auto_handoff_binding"] = auto_handoff_binding
     if args.audit_only:
         revalidate_execution_closure(
             repo,

@@ -1,0 +1,63 @@
+{
+  "schema": "a90-cache-reclaim-existing-parent-focused-review-v1",
+  "review_date": "2026-08-05",
+  "reviewer": "independent-subagent-a90_capability_review",
+  "verdict": "PASS_GO",
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "classification": {
+    "error": "exact private preservation parent already exists",
+    "class": "HOST_PRESERVATION_PARENT_REJECTION",
+    "new_device_hazard": false,
+    "uncertain_device_effect": false,
+    "preserve_command_bytes": 0,
+    "host_destination_or_partial_created": false,
+    "transaction_open_intent_unlink_counts": "0/0/0/0"
+  },
+  "delta": {
+    "existing_exact_private_parent_allowed": true,
+    "parent_lstat_required": true,
+    "symlink_or_non_directory_parent_rejected": true,
+    "parent_mode": "0700",
+    "destination_mode": "0600",
+    "destination_or_partial_must_be_absent": true,
+    "exclusive_creation_preserved": true,
+    "device_path_or_restore_authority_changed": false
+  },
+  "binding": {
+    "cleanup_execution_closure_sha256": "6849e7114cf11156af8abb207475afd513a5a5d39aa3666c79e71367f1704b6c",
+    "cleanup_runner": {
+      "size": 41181,
+      "sha256": "5187104440d80386d413b640d351fb15d2bdaba1436353ccdf7014f6b3a19f0b"
+    },
+    "cleanup_test": {
+      "size": 16141,
+      "sha256": "39587c180a0d9d158d687d23a98213697735e7ea2b4eabd5488b06839c49b7a7"
+    },
+    "target_contract": {
+      "size": 24504,
+      "sha256": "0f9ca94971cc5a3c72a55dc4c60828f0342d66a590034fb0ce3dbeffb81d8beb"
+    }
+  },
+  "stale_closures_forbidden": [
+    "c41322ce64f71d853358859b2186281952fb7edc9122a12769865059ca6dae3a"
+  ],
+  "validation": {
+    "expanded_tests": "68/68 PASS",
+    "py_compile": "PASS",
+    "scoped_diff_check": "PASS",
+    "existing_parent_host_probe": "PASS",
+    "symlink_parent_host_probe": "PASS",
+    "live_d0_state_sequence_57": "PASS"
+  },
+  "host_concurrency_assumption": "The exact private manifest parent and destination are not concurrently replaced or populated by another host actor during the bounded preserve transaction.",
+  "fresh_live_requirements": [
+    "manifest binding exact 6849e711 closure and its own SHA256",
+    "canonical bridge owner and port with exact A90 realpath and ambiguity false",
+    "S22+ command count zero",
+    "fresh H2 health, status, cache state and use checks",
+    "fresh host-preservation destination, rollback/recovery, and active attendance"
+  ],
+  "review_trigger": "Parent or destination resolution, publication, permissions, preservation size or hash, peer rules, timeout, routing, retry or effect machinery, host-concurrency assumptions, or a new hazard or incident changes."
+}

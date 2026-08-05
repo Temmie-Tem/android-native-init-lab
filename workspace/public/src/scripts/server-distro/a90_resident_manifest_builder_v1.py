@@ -64,12 +64,16 @@ class CandidateSpec:
     sha256: str
     version: str
     build: str
+    build_receipt: Path | None = None
+    build_receipt_sha256: str | None = None
+    compiled_auto_handoff: dict[str, str] | None = None
 
 
 LEGACY_CANDIDATE_PROFILE = "phase2-display-v1"
 MINIMAL_F_CANDIDATE_PROFILE = "phase3-minimal-f-power-recovery-ui"
 MINIMAL_G_CANDIDATE_PROFILE = "phase3-minimal-g-server-core"
 MINIMAL_H2_CANDIDATE_PROFILE = "phase3-minimal-h2-two-phase-auto-benchmark"
+MINIMAL_H3_CANDIDATE_PROFILE = "phase3-minimal-h3-exact-binding-auto-benchmark"
 LEGACY_CANDIDATE = CandidateSpec(
     profile=LEGACY_CANDIDATE_PROFILE,
     name="candidate-boot-phase2-display-v1.img",
@@ -102,6 +106,33 @@ MINIMAL_H2_CANDIDATE = CandidateSpec(
     version="0.11.170",
     build="phase3-minimal-h2-two-phase-auto-benchmark",
 )
+MINIMAL_H3_CANDIDATE = CandidateSpec(
+    profile=MINIMAL_H3_CANDIDATE_PROFILE,
+    name="candidate-boot-phase3-minimal-h3.img",
+    size=58372096,
+    sha256="7962bf74707f8d038300795bd6918d6608eaff9ee491ed99230c95151f9f52ff",
+    version="0.11.171",
+    build="phase3-minimal-h3-exact-binding-auto-benchmark",
+    build_receipt=(
+        staging.PRIVATE_ROOT
+        / "outputs"
+        / "a90-phase3-minimal-h3-exact-binding-h0-20260805-01"
+        / "ab-receipt.json"
+    ),
+    build_receipt_sha256=(
+        "cdb352f98d95e9838d153071670df3a753a6074dd35e9914ccf2324160314101"
+    ),
+    compiled_auto_handoff={
+        "schema": "a90-compiled-auto-handoff-binding-v1",
+        "candidate_version": "0.11.171",
+        "candidate_build": "phase3-minimal-h3-exact-binding-auto-benchmark",
+        "image_path": "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-10.img",
+        "image_sha256": "34de408d868ff0651d0f6efb1d1d9cc810e3dfe23acaac178e73e2840b2979a4",
+        "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h3.enable",
+        "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h3.done",
+        "binding_sha256": "73ee6b413f2c3710c7582260cfd4fd52980dd819530beff579e8556ac0fefcfd",
+    },
+)
 CANDIDATE_PROFILES = {
     item.profile: item
     for item in (
@@ -109,6 +140,7 @@ CANDIDATE_PROFILES = {
         MINIMAL_F_CANDIDATE,
         MINIMAL_G_CANDIDATE,
         MINIMAL_H2_CANDIDATE,
+        MINIMAL_H3_CANDIDATE,
     )
 }
 
@@ -126,22 +158,130 @@ class ContractError(RuntimeError):
 
 def select_candidate_profile(profile: str) -> CandidateSpec:
     try:
-        return CANDIDATE_PROFILES[profile]
+        candidate = CANDIDATE_PROFILES[profile]
     except KeyError as exc:
         raise ContractError("candidate profile is not exact") from exc
+    validate_candidate_build_receipt(candidate)
+    return candidate
+
+
+def validate_candidate_build_receipt(candidate: CandidateSpec) -> None:
+    fields = (
+        candidate.build_receipt,
+        candidate.build_receipt_sha256,
+        candidate.compiled_auto_handoff,
+    )
+    if fields == (None, None, None):
+        return
+    if any(value is None for value in fields):
+        raise ContractError("candidate build receipt binding is incomplete")
+    assert candidate.build_receipt is not None
+    assert candidate.build_receipt_sha256 is not None
+    assert candidate.compiled_auto_handoff is not None
+    if candidate.build_receipt.is_symlink():
+        raise ContractError("candidate build receipt must not be a symbolic link")
+    receipt_path = candidate.build_receipt.resolve(strict=True)
+    staging.require_below(receipt_path, staging.PRIVATE_ROOT, "candidate build receipt")
+    receipt_info = receipt_path.lstat()
+    if (
+        not stat.S_ISREG(receipt_info.st_mode)
+        or receipt_info.st_mode & 0o077
+        or receipt_info.st_mode & 0o022
+    ):
+        raise ContractError("candidate build receipt is not exact private input")
+    if sha256_file(receipt_path) != candidate.build_receipt_sha256:
+        raise ContractError("candidate build receipt SHA256 changed")
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    artifacts = receipt.get("artifacts")
+    boot = artifacts.get("boot") if isinstance(artifacts, dict) else None
+    init = artifacts.get("init") if isinstance(artifacts, dict) else None
+    if (
+        receipt.get("schema") != "a90-flat-builder-v1-ab-receipt"
+        or receipt.get("profile") != candidate.profile
+        or receipt.get("candidate_authority") is not False
+        or receipt.get("byte_identical") is not True
+        or receipt.get("accepted_boot_unchanged") is not True
+        or receipt.get("auto_handoff_binding") != candidate.compiled_auto_handoff
+        or not isinstance(boot, dict)
+        or boot.get("path") != "boot.img"
+        or boot.get("bytes") != candidate.size
+        or boot.get("sha256") != candidate.sha256
+        or not isinstance(init, dict)
+    ):
+        raise ContractError("candidate build receipt is not exact")
+    init_path = receipt_path.parent / "A" / str(init.get("path"))
+    init_info = init_path.lstat()
+    if (
+        not stat.S_ISREG(init_info.st_mode)
+        or init_path.is_symlink()
+        or init_info.st_mode & 0o077
+        or init_info.st_size != init.get("bytes")
+        or sha256_file(init_path) != init.get("sha256")
+    ):
+        raise ContractError("candidate init artifact does not match the build receipt")
+    init_bytes = init_path.read_bytes()
+    expected_init_counts = {
+        "candidate_version": 2,
+        "candidate_build": 2,
+        "image_path": 1,
+        "image_sha256": 1,
+        "enable_path": 1,
+        "latch_path": 1,
+    }
+    for name, expected_count in expected_init_counts.items():
+        value = candidate.compiled_auto_handoff[name].encode("utf-8")
+        if init_bytes.count(value) != expected_count:
+            raise ContractError(f"compiled auto-handoff value count changed: {name}")
 
 
 def candidate_first_boot_contract(candidate: CandidateSpec) -> dict[str, Any] | None:
-    if candidate.profile != MINIMAL_H2_CANDIDATE_PROFILE:
-        return None
-    return {
-        "schema": "a90-auto-handoff-first-boot-v1",
-        "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h2.enable",
-        "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h2.done",
-        "pre_transfer_state": "both-absent",
-        "post_boot_status": "binding=1-enable=0-latch=0",
-        "post_boot_log": "A90AUTO state=unarmed-stay-native",
-    }
+    if candidate.profile == MINIMAL_H2_CANDIDATE_PROFILE:
+        return {
+            "schema": "a90-auto-handoff-first-boot-v1",
+            "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h2.enable",
+            "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h2.done",
+            "pre_transfer_state": "both-absent",
+            "post_boot_status": "binding=1-enable=0-latch=0",
+            "post_boot_log": "A90AUTO state=unarmed-stay-native",
+        }
+    if candidate.profile == MINIMAL_H3_CANDIDATE_PROFILE:
+        assert candidate.compiled_auto_handoff is not None
+        return {
+            "schema": "a90-auto-handoff-first-boot-v2",
+            "enable_path": candidate.compiled_auto_handoff["enable_path"],
+            "latch_path": candidate.compiled_auto_handoff["latch_path"],
+            "compiled_binding": dict(candidate.compiled_auto_handoff),
+            "pre_transfer_state": "both-absent",
+            "post_boot_status": "binding=1-enable=0-latch=0",
+            "post_boot_log": "A90AUTO state=unarmed-stay-native",
+        }
+    return None
+
+
+def require_compiled_rootfs_binding(manifest: dict[str, Any]) -> None:
+    candidate = manifest.get("candidate_boot")
+    rootfs = manifest.get("debian_rootfs")
+    if not isinstance(candidate, dict) or not isinstance(rootfs, dict):
+        raise ContractError("candidate/rootfs manifest binding is absent")
+    first_boot = candidate.get("first_boot_contract")
+    if not isinstance(first_boot, dict) or first_boot.get("schema") != (
+        "a90-auto-handoff-first-boot-v2"
+    ):
+        return
+    binding = first_boot.get("compiled_binding")
+    keyed = rootfs.get("keyed_source")
+    handoff = rootfs.get("handoff_command")
+    if (
+        not isinstance(binding, dict)
+        or not isinstance(keyed, dict)
+        or not isinstance(handoff, list)
+        or binding.get("candidate_version") != candidate.get("expected_version")
+        or binding.get("candidate_build") != candidate.get("expected_build")
+        or binding.get("image_path") != keyed.get("device_path")
+        or binding.get("image_sha256") != keyed.get("sha256")
+        or handoff[2:4] != [binding.get("image_path"), binding.get("image_sha256")]
+    ):
+        raise ContractError("compiled candidate/rootfs binding mismatch")
 
 
 def sha256_file(path: Path) -> str:
@@ -567,6 +707,7 @@ def prepare_manifest(
     for stale in (template_run_id, template_remote):
         if isinstance(stale, str) and stale in serialized:
             raise ContractError(f"template run-specific value survived rebinding: {stale}")
+    require_compiled_rootfs_binding(manifest)
     return manifest
 
 

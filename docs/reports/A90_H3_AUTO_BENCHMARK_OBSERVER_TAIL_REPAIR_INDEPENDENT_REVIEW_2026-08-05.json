@@ -1,0 +1,105 @@
+{
+  "schema": "a90-h3-auto-benchmark-observer-tail-repair-independent-review-v1",
+  "status": "PASS_GO",
+  "review_date": "2026-08-05",
+  "reviewer": "independent subagent /root/a90_capability_review",
+  "target": "Samsung Galaxy A90 5G H3 resident auto-handoff benchmark",
+  "review_scope": [
+    "optional pre-runtime capture marker with every switch_root-critical stage still mandatory",
+    "mandatory auto_handoff_check marker ordering",
+    "exact A90 NCM rebind before SSH observation",
+    "post-cleanup historical-closure tail repair without arm, reboot, handoff, or cleanup replay"
+  ],
+  "incident": {
+    "classification": "HOST_OBSERVER_ORDER_AND_FINAL_PARSER_CLOSURE_FAILURE",
+    "device_safety_state": "RESIDENT_HEALTHY",
+    "experiment_proof": "NO_PROOF_OBSERVER",
+    "device_effect_replayed": false,
+    "arm_dispatch_count": 1,
+    "reboot_dispatch_count": 1,
+    "cleanup_dispatch_count": 1,
+    "candidate_replay": false,
+    "operator_visible_debian_display": true,
+    "switch_root_benchmark_segment_complete": true,
+    "mechanical_debian_pid1_ssh_proof": false,
+    "host_failures": [
+      "SSH observation started before the re-enumerated exact A90 NCM interface was rebound",
+      "final parsing treated native_cache_stage_ready as mandatory although the retained primary log began at native_runtime_ready",
+      "result validation omitted the emitted auto_handoff_check stage"
+    ]
+  },
+  "current_execution_closure": {
+    "sha256": "e17d9e23e3f473d949cf264b54246ac01ec221fe133e0291a200437a0ed13959",
+    "files": {
+      "benchmark_parser": {
+        "path": "workspace/public/src/scripts/server-distro/a90_boot_benchmark_v1.py",
+        "bytes": 12853,
+        "sha256": "f4cacdb5d847adf5c6dc8ba8931cd859ec12274bdce403b65f64aaa59bf94a0f"
+      },
+      "runner": {
+        "path": "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py",
+        "bytes": 57557,
+        "sha256": "4496d6a56fb0d61b2bc5d946ff8d4415a0cc8897bfd9db88d835a0ea5c0c785c"
+      },
+      "resident_f1_loader": {
+        "path": "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py",
+        "bytes": 282372,
+        "sha256": "18f262631143ffc097eff9cac1160f428f2fb31f5957ed1606c59ae3e76cadc9"
+      },
+      "resident_manifest_loader": {
+        "path": "workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py",
+        "bytes": 131234,
+        "sha256": "2208bb776cf78aced98f26a5e0466060104e187f2600fb8bdb34574ac2bb0aed"
+      }
+    }
+  },
+  "historical_journal_closure": {
+    "sha256": "7d468cfad864db7d619cdd6c41abb84f03b33c6d7aca386d9e391751d7a54b67",
+    "validation": "exact role, path, positive size, file SHA256, and recomputed closure digest",
+    "accepted_prefix_length": 7,
+    "last_required_record": "cleanup-result"
+  },
+  "parser_contract": {
+    "optional_early_stages": [
+      "native_cache_stage_ready"
+    ],
+    "required_stages_start": "native_runtime_ready",
+    "required_stages_end": "switch_root_exec",
+    "required_stage_count": 15,
+    "auto_handoff_check_required": true,
+    "missing_required_stage_rejected": true,
+    "additional_or_reordered_stage_rejected": true
+  },
+  "tail_repair_contract": {
+    "current_closure_revalidated": true,
+    "historical_closure_revalidated": true,
+    "post_cleanup_prefix_only": true,
+    "final_device_operations": "bounded D0 status, resident health, source identity, and log reads only",
+    "journal_appends": [
+      "0007-final-health.json",
+      "0008-result.json"
+    ],
+    "arm_replay_possible": false,
+    "reboot_replay_possible": false,
+    "handoff_replay_possible": false,
+    "cleanup_replay_possible": false
+  },
+  "validation": {
+    "py_compile": "PASS",
+    "scoped_diff_check": "PASS",
+    "focused_tests": {
+      "parser": 10,
+      "runner": 18,
+      "transition": 36,
+      "orchestrator": 122,
+      "failed": 0
+    }
+  },
+  "review_lifetime": "Reusable only while the current and historical closure identities, required-stage ordering, exact NCM-before-SSH behavior, post-cleanup len=7 tail semantics, and hazard assumptions remain unchanged and no new hazard or incident occurs.",
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "live_use_authorized_by_review": false,
+  "reviewer_device_contact": false,
+  "reviewer_s22plus_contact": false
+}

@@ -1186,7 +1186,7 @@ def _validate_candidate_first_boot_journal(
     candidate_first_boot = getattr(spec, "candidate_first_boot", None)
     if candidate_first_boot is None:
         if preflight_value is not None or health_value is not None:
-            raise ContractError("non-H2 resident journal has first-boot proof")
+            raise ContractError("non-auto resident journal has first-boot proof")
         return
     preflight_proof = _dict(
         preflight_value,
@@ -1214,7 +1214,7 @@ def _validate_candidate_first_boot_journal(
         != candidate_first_boot["latch_path"]
         or str(preflight_record.get("text") or "").count(expected_marker) != 1
     ):
-        raise ContractError("H2 pre-transfer first-boot proof changed")
+        raise ContractError("auto-handoff pre-transfer first-boot proof changed")
     health_proof = _dict(
         health_value,
         "candidate_first_boot_health",
@@ -1229,7 +1229,7 @@ def _validate_candidate_first_boot_journal(
     )
     expected_status = (
         "A90AUTO_STATUS binding=1 enable=0 latch=0 "
-        "build=phase3-minimal-h2-two-phase-auto-benchmark"
+        f"build={spec.candidate_build}"
     )
     base.require_exact_f1_command_receipt(
         status_record,
@@ -1253,7 +1253,7 @@ def _validate_candidate_first_boot_journal(
         or log_text.count("A90AUTO state=unarmed-stay-native") != 1
         or "A90AUTO state=dispatch-once" in log_text
     ):
-        raise ContractError("H2 first resident boot proof changed")
+        raise ContractError("auto-handoff first resident boot proof changed")
 
 
 def repair_installed_result(

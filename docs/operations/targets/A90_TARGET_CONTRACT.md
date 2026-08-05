@@ -183,6 +183,44 @@ A fresh D0 inventory and immutable execution binding replace per-file phrases or
 After unlink dispatch only, exact absent selected bytes may be restored while attended through a separate sequential durable no-clobber recovery transaction; restoration is never automatic, and an uncertain reserve, transfer, or publish is never replayed. Recovery response or host-process loss after a durable restore start likewise resumes only journal-bound read-only reconciliation/health and never repeats reserve, transfer, publish, or cleanup. PASS requires all selected paths absent, all protected identities exact, work and restore staging absent, increased bounded free space, and final exact V3406 health.
 Cleanup sends no payload, and recovery may transfer only the manifest-bound preserved SD-file identities; neither path writes a partition, configuration, credential, or security state, grants arbitrary path or shell authority, or applies to S22+, userdata, another removable device, another A90, or an unreviewed identity.
 
+An automatic-handoff resident candidate must publish one versioned compiled
+rootfs binding receipt before candidate intent. The candidate version/build,
+compiled Debian image path and SHA256, and versioned enable/latch paths in that
+receipt must equal the immutable F1 keyed source and handoff command, the
+resident terminal manifest/journal interpretation, and the D1 remote
+path/rootfs SHA256. Missing, duplicate, stale, or unequal values stop before a
+device effect. Every replacement candidate uses a new build identity, absent
+rootfs destination, and absent versioned state paths; a prior enable/latch pair
+is never reused, cleared, or reinterpreted to authorize the replacement.
+
+The separately reviewed attended D1 sub-capability
+`A90_ATTENDED_CACHE_TMP_RECLAIM_V1` may unlink only the fixed stale temporary
+file `/cache/a90-runtime/pkg/.boot_linux_v3355_boot_write_e5_full.img.tmp.2899667.1782985070`
+to recover enough block space for the installed H2 automatic-handoff marker.
+It applies only from exact H2 `0.11.170` `RESIDENT_HEALTHY` with the exact
+V2321 rollback and demonstrated physical TWRP/Download recovery, exact
+`binding=1 enable=0 latch=0`, both H2 state paths absent, `/cache` at zero
+available blocks with free inodes, and the selected object proved to be one
+non-symlink regular single-link file with manifest-bound path, size, mode,
+owner, device/inode, block count, and SHA256. The exact bytes must first be
+preserved as a private host regular mode-`0600` file with the same size and
+SHA256. Every visible PID mount namespace, loop backing file, and open file
+descriptor must prove the selected path unused immediately before intent and
+again inside the one fixed host-encoded unlink frame, which must remain below
+the resident 3800-byte `cmdv1x` envelope.
+
+One durable intent permits one nonrecursive unlink dispatch and no retransmit.
+An uncertain response permits only read-only presence, free-space, exact H2
+state, and resident-health reconciliation; absence may prove the one dispatch
+completed but never authorizes another cleanup. PASS requires the selected
+path absent, positive `/cache` available blocks, both H2 state paths still
+absent, exact unarmed H2 status, and final `RESIDENT_HEALTHY`. The preserved
+host bytes are recovery evidence but do not grant an automatic restore; any
+restore is a separate reviewed attended transaction. This capability cannot
+select another cache object, directory, symlink, boot image, current log,
+configuration, credential, security state, recovery artifact, userdata, or
+partition, and never applies to S22+, another A90, or an unattended operator.
+
 The separately reviewed attended recovery sub-capability
 `A90_ATTENDED_RETAINED_WORK_SOURCE_DISTINCT_CLEANUP_V2` may unlink only the
 fixed `/mnt/sdext/a90/runtime/d3-handoff-work.img` after a closed ordinary F1

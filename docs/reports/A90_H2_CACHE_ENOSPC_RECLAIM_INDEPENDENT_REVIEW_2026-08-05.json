@@ -1,0 +1,114 @@
+{
+  "schema": "a90-cache-enospc-reclaim-independent-review-v1",
+  "review_date": "2026-08-05",
+  "reviewer": "independent-subagent-a90_capability_review",
+  "verdict": "PASS_GO",
+  "unresolved_findings": [],
+  "device_authority_granted": false,
+  "device_contact": false,
+  "s22plus_contact": false,
+  "hazard": {
+    "class": "H2_AUTO_HANDOFF_ARM_MARKER_CACHE_BLOCK_ENOSPC",
+    "incident": {
+      "arm_dispatch_count": 1,
+      "armed": 0,
+      "rc": -28,
+      "errno": 28,
+      "post_status": "binding=1 enable=0 latch=0",
+      "reboot_dispatch_count": 0,
+      "candidate_transfer_count": 0,
+      "rollback_transfer_count": 0,
+      "replay": false,
+      "classification": "EXACT_NO_EFFECT_RESIDENT_HEALTHY_UNARMED"
+    },
+    "incident_ordinal_may_replay": false
+  },
+  "cleanup_capability": {
+    "name": "A90_ATTENDED_CACHE_TMP_RECLAIM_V1",
+    "execution_closure_sha256": "45f7a1f8f762514b132a4d4ebf88a33d30a063d735bd53014389c80a61d2b7f3",
+    "files": {
+      "AGENTS.md": {
+        "size": 14201,
+        "sha256": "3289aedf8b55c2d74e3252c72e7b6b9bc003ef62379fc6e7b192a845c80dd747"
+      },
+      "docs/operations/targets/A90_TARGET_CONTRACT.md": {
+        "size": 24504,
+        "sha256": "0f9ca94971cc5a3c72a55dc4c60828f0342d66a590034fb0ce3dbeffb81d8beb"
+      },
+      "workspace/public/src/scripts/server-distro/a90_cache_tmp_cleanup_v1.py": {
+        "size": 40939,
+        "sha256": "ef94d6117a07af4757d64675819bef1ebec334223252246a3ac6c48e5805075e"
+      },
+      "tests/test_a90_cache_tmp_cleanup_v1.py": {
+        "size": 15220,
+        "sha256": "9061e4bbeef9bc7e7f0f40b02b332e85097ea09ffeb14a594d494a21a295442a"
+      }
+    },
+    "transitive_members": {
+      "resident": "2b2e94dc0a47148f5cb81026505921b42259f9d5e45613bea34fa16e546024aa",
+      "base": "d3a7d650f6845386421ac9fdac15a8a227cdf638865c6a34dbd827c74d0e2b79",
+      "d1_transport": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933",
+      "a90ctl": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c",
+      "a90_bridge": "7bacce5a61f6745d4dfb0b7f89ffffc478d4e74fd6a1559d20718793668414e9",
+      "target_contract": "0f9ca94971cc5a3c72a55dc4c60828f0342d66a590034fb0ce3dbeffb81d8beb"
+    },
+    "stale_closures_forbidden": [
+      "a5944ab21e83c5473da8fa2de6a8caa4e61aaf93af1e9717915009374b5dcdb6",
+      "92e4d0182e5fd7e659fa7d42baaa829bb4ac28c3aca448cf55bd0fef633d608f",
+      "520f8fe4885b1151672c66274819232629e672eb7a26e7af10181849d974d215",
+      "30079e94564f797f27c2cded80d8ecdb534f307fa49fcbe15f07800924bf10c9",
+      "e308a0cc65ef83d8fede9ea8f5ebf71df4ad83bb12c3a8be50b2414dffc23fb3",
+      "cfb49b09445e2165a53141c7f9f090658f48808592db4cdf5dd4d7691bdc671f"
+    ]
+  },
+  "arm_failure_publication": {
+    "execution_closure_sha256": "4a78290ea94117f4f45f2513a30076d3e5ad95a0531d9c705bf9855ee5c984fd",
+    "runner": {
+      "size": 53807,
+      "sha256": "23b6923361c638d43eb8a63a46564cf5e502245f13d776bc2cfea34e4409c012"
+    },
+    "benchmark_parser": {
+      "size": 12663,
+      "sha256": "56c87f9676b7c21bd36aa3173f464a342ab40acc1f08fc9484638137f051eca3"
+    },
+    "test": {
+      "size": 23595,
+      "sha256": "b9db53b36ef00c621957117972dcc6f3874a98b2689e40ad5ca6d44c255c864c"
+    }
+  },
+  "reviewed_properties": {
+    "fixed_path_only": true,
+    "private_host_preservation_before_unlink": true,
+    "preservation_size_cap": true,
+    "mount_loop_open_fd_rechecks": true,
+    "durable_intent_before_dispatch": true,
+    "unlink_dispatch_count_max": 1,
+    "nonrecursive_unlink": true,
+    "retransmit": false,
+    "reconciliation_device_read_only": true,
+    "forged_or_foreign_journal_rejected_before_device_read": true,
+    "exact_unarmed_status_required_for_pass_or_refuted": true,
+    "final_resident_health_required": true,
+    "automatic_restore_authority": false,
+    "s22plus_command_count": 0,
+    "state_frame_bytes": 3431,
+    "effect_frame_bytes": 2422,
+    "frame_limit_bytes": 3800
+  },
+  "validation": {
+    "expanded_tests": 66,
+    "py_compile": "PASS",
+    "git_diff_check": "PASS",
+    "frame_envelope": "PASS"
+  },
+  "fresh_live_requirements": [
+    "final cleanup closure and fresh private manifest",
+    "exact current resident manifest and A90 identity/realpath",
+    "exact V2321 rollback bytes and demonstrated TWRP/Download recovery",
+    "active operator attendance for unlink",
+    "fresh exact D0 health, unarmed status, full-cache state, and selected file identity",
+    "fresh private mode-0700 transaction directory",
+    "host-preserved mode-0600 bytes with exact size and SHA256"
+  ],
+  "review_trigger": "Any named execution-critical hash, fixed selection/identity rule, status/health proof, preservation cap, frame envelope, dispatch/retry/journal/reconciliation/result semantic, recovery assumption, or new incident/hazard changes."
+}

@@ -1,0 +1,75 @@
+{
+  "schema": "a90-cache-reclaim-slow-serial-timeout-focused-review-v1",
+  "review_date": "2026-08-05",
+  "reviewer": "independent-subagent-a90_capability_review",
+  "verdict": "PASS_GO",
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "classification": {
+    "error": "slow serial deadline lacks full send and read budget before first byte",
+    "class": "HOST_TRANSPORT_BUDGET_REJECTION",
+    "new_device_hazard": false,
+    "uncertain_device_effect": false,
+    "preserve_command_bytes": 0,
+    "host_destination_or_partial_created": false,
+    "transaction_open_intent_unlink_counts": "0/0/0/0"
+  },
+  "delta": {
+    "before_remote_timeout_seconds": 60.0,
+    "after_remote_timeout_seconds": 120.0,
+    "frame_line_bytes": 3431,
+    "paced_payload_characters": 3432,
+    "input_delay_seconds_per_character": 0.02,
+    "paced_send_budget_seconds": 68.64,
+    "minimum_read_budget_seconds": 0.25,
+    "structural_minimum_seconds": 68.89,
+    "bounded_remaining_seconds_at_120": 51.11,
+    "frame_or_command_changed": false,
+    "retry_or_dispatch_authority_changed": false
+  },
+  "retry_proof": {
+    "command": "run",
+    "safe_retry_allowlist_member": false,
+    "retry_unsafe_override": false,
+    "unlink_dispatch_count_max": 1,
+    "retransmit": false
+  },
+  "binding": {
+    "cleanup_execution_closure_sha256": "c41322ce64f71d853358859b2186281952fb7edc9122a12769865059ca6dae3a",
+    "cleanup_runner": {
+      "size": 40955,
+      "sha256": "e214ad60a585c6935ff46bb3fd82cbccd45405334f0ce2e1ce662ede1553e6a4"
+    },
+    "cleanup_test": {
+      "size": 15564,
+      "sha256": "b3feac33f3bb77c46ee3988b2ee3942a2d6e3817b03e1925166704619a6ca1ac"
+    },
+    "target_contract": {
+      "size": 24504,
+      "sha256": "0f9ca94971cc5a3c72a55dc4c60828f0342d66a590034fb0ce3dbeffb81d8beb"
+    },
+    "a90ctl": {
+      "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c",
+      "canonical_port": 54321
+    }
+  },
+  "stale_closures_forbidden": [
+    "c0874cd9431c14d4752daca617f3b231cda699ac3fa8ead7da99ebb852730c09"
+  ],
+  "validation": {
+    "expanded_tests": "67/67 PASS",
+    "py_compile": "PASS",
+    "scoped_diff_check": "PASS",
+    "direct_args_and_retry_probes": "PASS",
+    "live_d0_state_with_timeout_120": "PASS"
+  },
+  "fresh_live_requirements": [
+    "manifest binding exact c41322ce closure and its own SHA256",
+    "canonical bridge owner and port with exact A90 realpath and ambiguity false",
+    "S22+ command count zero",
+    "fresh H2 health, status, cache state and use checks",
+    "fresh host-preservation destination, rollback/recovery, and active attendance"
+  ],
+  "review_trigger": "Timeout, input delay, read budget, frame size, retry allowlist or override, host routing, dispatch count, or a new device hazard or incident changes."
+}

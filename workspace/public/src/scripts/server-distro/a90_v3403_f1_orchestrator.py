@@ -283,7 +283,7 @@ class F1Spec:
     recovery_evidence: tuple[staging.BoundFile, ...]
     orchestrator_size: int
     orchestrator_sha256: str
-    candidate_first_boot: dict[str, str] | None = None
+    candidate_first_boot: dict[str, Any] | None = None
 
 
 @dataclass
@@ -635,12 +635,14 @@ def validate_candidate_first_boot_contract(
     *,
     candidate_version: str,
     candidate_build: str,
-) -> dict[str, str] | None:
-    expected_identity = (
+    remote_final: str,
+    rootfs_sha256: str,
+) -> dict[str, Any] | None:
+    h2_identity = (
         "0.11.170",
         "phase3-minimal-h2-two-phase-auto-benchmark",
     )
-    expected = {
+    h2_expected = {
         "schema": "a90-auto-handoff-first-boot-v1",
         "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h2.enable",
         "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h2.done",
@@ -649,12 +651,39 @@ def validate_candidate_first_boot_contract(
         "post_boot_log": "A90AUTO state=unarmed-stay-native",
     }
     identity = (candidate_version, candidate_build)
-    if identity == expected_identity:
-        if value != expected:
+    if identity == h2_identity:
+        if value != h2_expected:
             raise ContractError("H2 candidate first-boot contract is not exact")
-        return dict(expected)
+        return dict(h2_expected)
+    h3_identity = (
+        "0.11.171",
+        "phase3-minimal-h3-exact-binding-auto-benchmark",
+    )
+    if identity == h3_identity:
+        binding = {
+            "schema": "a90-compiled-auto-handoff-binding-v1",
+            "candidate_version": candidate_version,
+            "candidate_build": candidate_build,
+            "image_path": remote_final,
+            "image_sha256": rootfs_sha256,
+            "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h3.enable",
+            "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h3.done",
+        }
+        binding["binding_sha256"] = json_sha256(binding)
+        expected = {
+            "schema": "a90-auto-handoff-first-boot-v2",
+            "enable_path": binding["enable_path"],
+            "latch_path": binding["latch_path"],
+            "compiled_binding": binding,
+            "pre_transfer_state": "both-absent",
+            "post_boot_status": "binding=1-enable=0-latch=0",
+            "post_boot_log": "A90AUTO state=unarmed-stay-native",
+        }
+        if value != expected:
+            raise ContractError("H3 compiled candidate/rootfs binding is not exact")
+        return expected
     if value is not None:
-        raise ContractError("non-H2 candidate has an unexpected first-boot contract")
+        raise ContractError("non-auto candidate has an unexpected first-boot contract")
     return None
 
 
@@ -685,6 +714,8 @@ def load_spec(
         candidate_value.get("first_boot_contract"),
         candidate_version=candidate_version,
         candidate_build=candidate_build,
+        remote_final=stage_spec.remote_final,
+        rootfs_sha256=stage_spec.local_sha256,
     )
     rollback_version, rollback_build = validate_expected_boot(
         manifest.get("rollback_boot"),
@@ -2030,7 +2061,7 @@ def require_exact_f1_command_receipt(
     return record
 
 
-def candidate_first_boot_state_absence_script(contract: dict[str, str]) -> str:
+def candidate_first_boot_state_absence_script(contract: dict[str, Any]) -> str:
     enable_path = contract["enable_path"]
     latch_path = contract["latch_path"]
     return "\n".join(
@@ -2062,11 +2093,11 @@ def require_candidate_first_boot_state_absent(
     record = require_exact_f1_command_receipt(
         run_f1_shell(args, script),
         ["run", "/bin/busybox", "sh", "-c", script],
-        "H2 pre-transfer state receipt",
+        "auto-handoff pre-transfer state receipt",
     )
     marker = "A90AUTO_F1_PRE enable_absent=1 latch_absent=1"
     if str(record.get("text") or "").count(marker) != 1:
-        raise ContractError("H2 pre-transfer enable/latch absence is not exact")
+        raise ContractError("auto-handoff pre-transfer enable/latch absence is not exact")
     return {
         "proof": True,
         "enable_path": enable_path,
@@ -2084,26 +2115,30 @@ def require_candidate_first_boot_unarmed(
     status_record = require_exact_f1_command_receipt(
         run_f1_cmd(args, ["auto-handoff-status"]),
         ["auto-handoff-status"],
-        "H2 first-boot status receipt",
+        "auto-handoff first-boot status receipt",
     )
     status_text = str(status_record.get("text") or "")
     expected_status = (
         "A90AUTO_STATUS binding=1 enable=0 latch=0 "
-        "build=phase3-minimal-h2-two-phase-auto-benchmark"
+        f"build={spec.candidate_build}"
     )
     if status_text.count(expected_status) != 1:
-        raise ContractError("H2 first resident boot status is not exact unarmed 0,0")
+        raise ContractError(
+            "auto-handoff first resident boot status is not exact unarmed 0,0"
+        )
     log_record = require_exact_f1_command_receipt(
         run_f1_cmd(args, ["logcat"]),
         ["logcat"],
-        "H2 first-boot log receipt",
+        "auto-handoff first-boot log receipt",
     )
     log_text = str(log_record.get("text") or "")
     if (
         log_text.count("A90AUTO state=unarmed-stay-native") != 1
         or "A90AUTO state=dispatch-once" in log_text
     ):
-        raise ContractError("H2 first resident boot did not remain uniquely unarmed")
+        raise ContractError(
+            "auto-handoff first resident boot did not remain uniquely unarmed"
+        )
     return {
         "proof": True,
         "status": status_record,

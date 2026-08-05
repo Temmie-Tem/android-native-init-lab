@@ -391,7 +391,7 @@ class A90FlatBuilderTest(unittest.TestCase):
         buildlib.validate_component_selection(minimal)
         self.assertEqual(
             minimal["profile"],
-            "phase3-minimal-h2-two-phase-auto-benchmark",
+            "phase3-minimal-h3-exact-binding-auto-benchmark",
         )
         self.assertFalse(minimal["candidate_authority"])
         self.assertFalse(minimal["engine"]["enabled"])
@@ -415,6 +415,20 @@ class A90FlatBuilderTest(unittest.TestCase):
         self.assertTrue(
             any(flag.startswith('-DA90_AUTO_HANDOFF_ENABLE_PATH="') for flag in flags)
         )
+        binding = build.normalized_auto_handoff_binding(minimal)
+        self.assertEqual(
+            binding,
+            {
+                "schema": "a90-compiled-auto-handoff-binding-v1",
+                "candidate_version": "0.11.171",
+                "candidate_build": "phase3-minimal-h3-exact-binding-auto-benchmark",
+                "image_path": "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-10.img",
+                "image_sha256": "34de408d868ff0651d0f6efb1d1d9cc810e3dfe23acaac178e73e2840b2979a4",
+                "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h3.enable",
+                "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h3.done",
+                "binding_sha256": binding["binding_sha256"],
+            },
+        )
         inputs = buildlib.validate_inputs(REPO_ROOT, resolution, minimal)
         self.assertEqual(
             inputs["init_closure_sha256"],
@@ -429,6 +443,16 @@ class A90FlatBuilderTest(unittest.TestCase):
             "A90AUTO state=latched-stay-native",
         ):
             self.assertIn(marker, minimal["validation"]["init_strings"])
+
+    def test_phase3_minimal_h_rejects_duplicate_compiled_binding_macro(self):
+        minimal = copy.deepcopy(
+            buildlib.resolve_manifest(MINIMAL_H_MANIFEST).data
+        )
+        minimal["init"]["cflags"].append(
+            '-DA90_AUTO_HANDOFF_IMAGE="/mnt/sdext/a90/runtime/other.img"'
+        )
+        with self.assertRaisesRegex(RuntimeError, "missing or duplicated"):
+            build.normalized_auto_handoff_binding(minimal)
 
     def test_phase3_minimal_g_retained_runtime_and_audio_are_fail_closed(self):
         minimal = buildlib.resolve_manifest(MINIMAL_G_MANIFEST).data

@@ -1,0 +1,66 @@
+{
+  "schema": "a90-cache-reclaim-canonical-bridge-focused-review-v1",
+  "review_date": "2026-08-05",
+  "reviewer": "independent-subagent-a90_capability_review",
+  "verdict": "PASS_GO",
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "delta": {
+    "classification": "EXACT_HOST_TRANSPORT_ROUTING_REPAIR",
+    "before": "bridge_port=9000",
+    "after": "bridge_port=a90ctl.DEFAULT_PORT",
+    "canonical_port": 54321,
+    "bridge_host": "127.0.0.1",
+    "remote_timeout_seconds": 60.0,
+    "command_selection_retry_and_recovery_semantics_changed": false
+  },
+  "pre_live_disposition": {
+    "cleanup_preserve_command_count": 0,
+    "cleanup_transaction_count": 0,
+    "unlink_intent_count": 0,
+    "unlink_dispatch_count": 0,
+    "uncertain_cleanup_effect": false,
+    "separate_exact_bridge_preflight": "D0_CANONICAL_A90_PINNED_AMBIGUITY_FALSE"
+  },
+  "binding": {
+    "cleanup_execution_closure_sha256": "c0874cd9431c14d4752daca617f3b231cda699ac3fa8ead7da99ebb852730c09",
+    "cleanup_runner": {
+      "size": 40954,
+      "sha256": "4ad2a54d1cfbc078c561c6c725f0a3b691cb5b8ec51e5703d687074eac519d07"
+    },
+    "cleanup_test": {
+      "size": 15563,
+      "sha256": "c39d7e1f6585f4c256fbefe0d52f946a7ac8ac24f2ca8d9cbba456a6c34859fb"
+    },
+    "target_contract": {
+      "size": 24504,
+      "sha256": "0f9ca94971cc5a3c72a55dc4c60828f0342d66a590034fb0ce3dbeffb81d8beb"
+    },
+    "a90ctl": {
+      "size": 16380,
+      "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c"
+    },
+    "resident": "2b2e94dc0a47148f5cb81026505921b42259f9d5e45613bea34fa16e546024aa",
+    "base": "d3a7d650f6845386421ac9fdac15a8a227cdf638865c6a34dbd827c74d0e2b79",
+    "d1_transport": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933",
+    "a90_bridge": "7bacce5a61f6745d4dfb0b7f89ffffc478d4e74fd6a1559d20718793668414e9"
+  },
+  "stale_closures_forbidden": [
+    "45f7a1f8f762514b132a4d4ebf88a33d30a063d735bd53014389c80a61d2b7f3"
+  ],
+  "validation": {
+    "expanded_tests": 67,
+    "py_compile": "PASS",
+    "scoped_diff_check": "PASS",
+    "direct_args_probe": "PASS"
+  },
+  "fresh_live_requirements": [
+    "fresh manifest binding the exact c0874cd9 closure and its own current SHA256",
+    "canonical managed bridge proof at localhost port 54321",
+    "exact A90 realpath and identity pin with ambiguity false",
+    "S22+ command count zero",
+    "fresh target, resident, rollback, recovery, attendance, H2 status, cache state, and use gates"
+  ],
+  "review_trigger": "Host or port selection, bridge ownership/pinning, transport framing or timeout, dispatch/retry semantics, or a new routing, target, or cache hazard changes."
+}
