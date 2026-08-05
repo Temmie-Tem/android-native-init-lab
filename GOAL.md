@@ -58,6 +58,16 @@ AP artifacts were byte-identical. The next step is a fresh exact-S22 connected
 D0 preparation under Process-v2; no prior prepared run or candidate may be
 reused.
 
+The first P3.05 connected D0 stopped read-only on the retained P3.04 marker and
+created no prepared record. One attended normal Android reboot then changed the
+boot ID and restored exact rooted FYG8 boot and supporting-partition health.
+A new run directory passed the clean retained baseline and bound the reviewed
+candidate, exact rollback, USB sidecar, and execution closure as approval
+binding SHA-256
+`a725c3c30bfa56fe9e0b79c42c6919274956ac6240b7322ea1e006df4f009970`.
+P3.05 is now prepared but remains F1-unarmed. Execution requires the operator
+to remain able to perform physical Download entry within the recovery bound.
+
 P3.03 is the preceding closed live unit. After one pre-candidate host-observer arm
 stop with zero transfers, exact read-only D0 restored a durable `HEALTHY`
 barrier. Host-only `pkexec` preauthorization then allowed a new run to arm the
