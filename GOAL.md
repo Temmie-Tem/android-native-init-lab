@@ -50,11 +50,12 @@ the exact `Q RW (vbus)`, `XCVR: BSV set`, `FF StrtGdgt gsync`, and
 after `dwc3-msm.ko` and before module index 59, changes no kernel, module plan,
 or log level, and publishes an adjacent 105/106 IPC chain/summary pair.
 Userspace reproduced twice, boot/AP candidate A/B are byte-identical, and the
-Process-v2 verify-only rehearsal plus canonical ready manifest passed. F1
-remains unarmed pending the one required narrow independent review of the new
-decoder/evidence closure. The earlier `0xD00` proves the in-window software
-guard saw `clocks_enabled=true`; it does not retroactively prove that the
-discarded initial hardware clock returns were zero.
+Process-v2 verify-only rehearsal plus canonical ready manifest passed. The one
+required narrow independent review returned `PASS_GO` for commit `7631dcde`
+and the exact execution-critical hashes; F1 remains unarmed pending fresh
+connected preparation. The earlier `0xD00` proves the in-window software guard
+saw `clocks_enabled=true`; it does not retroactively prove that the discarded
+initial hardware clock returns were zero.
 
 P3.04 is the preceding closed live unit. After one pre-candidate host-observer
 arm stop with zero transfers, a new prepared run transferred its distinct
