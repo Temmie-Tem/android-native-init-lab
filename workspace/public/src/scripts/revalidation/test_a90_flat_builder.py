@@ -391,7 +391,7 @@ class A90FlatBuilderTest(unittest.TestCase):
         buildlib.validate_component_selection(minimal)
         self.assertEqual(
             minimal["profile"],
-            "phase3-minimal-h3-exact-binding-auto-benchmark",
+            "phase3-minimal-h4-observer-complete-auto-benchmark",
         )
         self.assertFalse(minimal["candidate_authority"])
         self.assertFalse(minimal["engine"]["enabled"])
@@ -420,12 +420,12 @@ class A90FlatBuilderTest(unittest.TestCase):
             binding,
             {
                 "schema": "a90-compiled-auto-handoff-binding-v1",
-                "candidate_version": "0.11.171",
-                "candidate_build": "phase3-minimal-h3-exact-binding-auto-benchmark",
-                "image_path": "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-10.img",
-                "image_sha256": "34de408d868ff0651d0f6efb1d1d9cc810e3dfe23acaac178e73e2840b2979a4",
-                "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h3.enable",
-                "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h3.done",
+                "candidate_version": "0.11.172",
+                "candidate_build": "phase3-minimal-h4-observer-complete-auto-benchmark",
+                "image_path": "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-11.img",
+                "image_sha256": "8b4bfd99a9324c0a32e76c837e33282afa79739fa32645e3303861e8928a33fa",
+                "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h4.enable",
+                "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h4.done",
                 "binding_sha256": binding["binding_sha256"],
             },
         )

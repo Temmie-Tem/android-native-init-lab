@@ -1,4 +1,4 @@
-"""Static and pure tests for the A90 H3 automatic benchmark runner."""
+"""Static and pure tests for the A90 H4 automatic benchmark runner."""
 
 from __future__ import annotations
 

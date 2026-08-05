@@ -78,15 +78,15 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
         self.assertIn("candidate_authority = false", manifest)
         self.assertIn("-DA90_AUTO_HANDOFF_BENCHMARK_V1=1", manifest)
         self.assertIn(
-            "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-10.img",
+            "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-11.img",
             manifest,
         )
         self.assertIn(
-            "34de408d868ff0651d0f6efb1d1d9cc810e3dfe23acaac178e73e2840b2979a4",
+            "8b4bfd99a9324c0a32e76c837e33282afa79739fa32645e3303861e8928a33fa",
             manifest,
         )
-        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h3.enable", manifest)
-        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h3.done", manifest)
+        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h4.enable", manifest)
+        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h4.done", manifest)
 
 
 if __name__ == "__main__":

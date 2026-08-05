@@ -475,47 +475,55 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                         health["version"]["text"],
                     )
 
-    def test_exact_resident_health_h2_bypasses_staging_start_allowlist(self) -> None:
+    def test_exact_auto_benchmark_health_bypasses_staging_start_allowlist(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             base_spec = self.session_spec(Path(raw))
-            version, build = d1.H3_AUTO_BENCHMARK_RESIDENT_IDENTITY
-            spec = replace(
-                base_spec,
-                candidate_version=version,
-                candidate_build=build,
-            )
-            receipts = self.exact_health_receipts(spec)
-
-            def run_f1_cmd(_args: object, command: list[str]) -> dict[str, object]:
-                return receipts[command[0]]
-
-            with mock.patch.object(
-                d1.staging,
-                "require_exact_bridge",
-                return_value={"selected_realpath": spec.bridge_realpath},
-            ), mock.patch.object(
-                d1.base,
-                "run_f1_cmd",
-                side_effect=run_f1_cmd,
-            ) as direct, mock.patch.object(
-                d1.staging,
-                "require_native_health",
-                side_effect=AssertionError("H2 must not enter the staging start allowlist"),
+            for version, build in (
+                d1.H3_AUTO_BENCHMARK_RESIDENT_IDENTITY,
+                d1.H4_AUTO_BENCHMARK_RESIDENT_IDENTITY,
             ):
-                health = d1.verify_resident_health_exact(
-                    spec,
-                    d1._f1_spec(spec),
-                    object(),
+                spec = replace(
+                    base_spec,
+                    candidate_version=version,
+                    candidate_build=build,
                 )
+                receipts = self.exact_health_receipts(spec)
 
-            self.assertEqual(
-                [call.args[1] for call in direct.call_args_list],
-                [["version"], ["status"], ["selftest"]],
-            )
-            self.assertIn(
-                f"version: {version} build={build}",
-                health["version"]["text"],
-            )
+                def run_f1_cmd(
+                    _args: object,
+                    command: list[str],
+                ) -> dict[str, object]:
+                    return receipts[command[0]]
+
+                with self.subTest(version=version), mock.patch.object(
+                    d1.staging,
+                    "require_exact_bridge",
+                    return_value={"selected_realpath": spec.bridge_realpath},
+                ), mock.patch.object(
+                    d1.base,
+                    "run_f1_cmd",
+                    side_effect=run_f1_cmd,
+                ) as direct, mock.patch.object(
+                    d1.staging,
+                    "require_native_health",
+                    side_effect=AssertionError(
+                        "auto benchmark must not enter staging start allowlist"
+                    ),
+                ):
+                    health = d1.verify_resident_health_exact(
+                        spec,
+                        d1._f1_spec(spec),
+                        object(),
+                    )
+
+                self.assertEqual(
+                    [call.args[1] for call in direct.call_args_list],
+                    [["version"], ["status"], ["selftest"]],
+                )
+                self.assertIn(
+                    f"version: {version} build={build}",
+                    health["version"]["text"],
+                )
 
             baseline = replace(
                 base_spec,

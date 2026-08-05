@@ -655,19 +655,32 @@ def validate_candidate_first_boot_contract(
         if value != h2_expected:
             raise ContractError("H2 candidate first-boot contract is not exact")
         return dict(h2_expected)
-    h3_identity = (
-        "0.11.171",
-        "phase3-minimal-h3-exact-binding-auto-benchmark",
-    )
-    if identity == h3_identity:
+    compiled_identity_markers = {
+        (
+            "0.11.171",
+            "phase3-minimal-h3-exact-binding-auto-benchmark",
+        ): (
+            "/cache/a90-auto-handoff-phase3-minimal-h3.enable",
+            "/cache/a90-auto-handoff-phase3-minimal-h3.done",
+        ),
+        (
+            "0.11.172",
+            "phase3-minimal-h4-observer-complete-auto-benchmark",
+        ): (
+            "/cache/a90-auto-handoff-phase3-minimal-h4.enable",
+            "/cache/a90-auto-handoff-phase3-minimal-h4.done",
+        ),
+    }
+    if identity in compiled_identity_markers:
+        enable_path, latch_path = compiled_identity_markers[identity]
         binding = {
             "schema": "a90-compiled-auto-handoff-binding-v1",
             "candidate_version": candidate_version,
             "candidate_build": candidate_build,
             "image_path": remote_final,
             "image_sha256": rootfs_sha256,
-            "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h3.enable",
-            "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h3.done",
+            "enable_path": enable_path,
+            "latch_path": latch_path,
         }
         binding["binding_sha256"] = json_sha256(binding)
         expected = {
@@ -680,7 +693,7 @@ def validate_candidate_first_boot_contract(
             "post_boot_log": "A90AUTO state=unarmed-stay-native",
         }
         if value != expected:
-            raise ContractError("H3 compiled candidate/rootfs binding is not exact")
+            raise ContractError("compiled candidate/rootfs binding is not exact")
         return expected
     if value is not None:
         raise ContractError("non-auto candidate has an unexpected first-boot contract")

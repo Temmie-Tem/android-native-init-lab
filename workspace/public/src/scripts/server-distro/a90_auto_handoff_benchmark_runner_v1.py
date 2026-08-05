@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """One-ordinal attended A90 auto-handoff benchmark runner.
 
-The runner consumes an installed-resident D1 manifest.  It proves the H3
+The runner consumes an installed-resident D1 manifest.  It proves the H4
 resident healthy and unarmed, durably binds one arm intent, arms once, proves
 the exact enable state, durably binds one reboot intent, reboots once, observes
 Debian PID1/display/SSH, automatic native return, the retained latch, final
@@ -41,8 +41,8 @@ SCHEMA = "a90-auto-handoff-benchmark-runner-v2"
 JOURNAL_SCHEMA = "a90-auto-handoff-benchmark-journal-v2"
 RESULT_SCHEMA = "a90-auto-handoff-benchmark-result-v2"
 RECONCILE_SCHEMA = "a90-auto-handoff-benchmark-reconciliation-v2"
-EXPECTED_VERSION = "0.11.171"
-EXPECTED_BUILD = "phase3-minimal-h3-exact-binding-auto-benchmark"
+EXPECTED_VERSION = "0.11.172"
+EXPECTED_BUILD = "phase3-minimal-h4-observer-complete-auto-benchmark"
 ARM_TOKEN = "AUTO-HANDOFF-BENCHMARK-V1-ARM"
 STATUS_RE = re.compile(
     r"^A90AUTO_STATUS binding=(?P<binding>[01]) "

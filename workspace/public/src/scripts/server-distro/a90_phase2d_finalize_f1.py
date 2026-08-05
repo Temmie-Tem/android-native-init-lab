@@ -82,6 +82,9 @@ MINIMAL_F_CANDIDATE_PROFILE = "phase3-minimal-f-power-recovery-ui"
 MINIMAL_G_CANDIDATE_PROFILE = "phase3-minimal-g-server-core"
 MINIMAL_H2_CANDIDATE_PROFILE = "phase3-minimal-h2-two-phase-auto-benchmark"
 MINIMAL_H3_CANDIDATE_PROFILE = "phase3-minimal-h3-exact-binding-auto-benchmark"
+MINIMAL_H4_CANDIDATE_PROFILE = (
+    "phase3-minimal-h4-observer-complete-auto-benchmark"
+)
 LEGACY_CANDIDATE = CandidateSpec(
     profile=LEGACY_CANDIDATE_PROFILE,
     copy_name="candidate-boot-phase2-display-v1.img",
@@ -176,6 +179,40 @@ MINIMAL_H3_CANDIDATE = CandidateSpec(
         "binding_sha256": "73ee6b413f2c3710c7582260cfd4fd52980dd819530beff579e8556ac0fefcfd",
     },
 )
+MINIMAL_H4_CANDIDATE = CandidateSpec(
+    profile=MINIMAL_H4_CANDIDATE_PROFILE,
+    copy_name="candidate-boot-phase3-minimal-h4.img",
+    source=(
+        staging.PRIVATE_ROOT
+        / "outputs"
+        / "a90-phase3-minimal-h4-observer-complete-h0-20260805-02"
+        / "A"
+        / "boot.img"
+    ),
+    size=58372096,
+    sha256="6bc133937f19482739037b67a44b1f2b5da6da9a178a3edf8a9f2e74bd097935",
+    version="0.11.172",
+    build="phase3-minimal-h4-observer-complete-auto-benchmark",
+    build_receipt=(
+        staging.PRIVATE_ROOT
+        / "outputs"
+        / "a90-phase3-minimal-h4-observer-complete-h0-20260805-02"
+        / "ab-receipt.json"
+    ),
+    build_receipt_sha256=(
+        "01831ac20c55da7bc588fffef9ca3ed4922b556d2d1aef079fc8c89b021f4924"
+    ),
+    compiled_auto_handoff={
+        "schema": "a90-compiled-auto-handoff-binding-v1",
+        "candidate_version": "0.11.172",
+        "candidate_build": "phase3-minimal-h4-observer-complete-auto-benchmark",
+        "image_path": "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-11.img",
+        "image_sha256": "8b4bfd99a9324c0a32e76c837e33282afa79739fa32645e3303861e8928a33fa",
+        "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h4.enable",
+        "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h4.done",
+        "binding_sha256": "783a528a541e3a8edf82543d7352ed2e47f5d3393245d413ee8507df6e797e09",
+    },
+)
 CANDIDATE_PROFILES = {
     item.profile: item
     for item in (
@@ -184,6 +221,7 @@ CANDIDATE_PROFILES = {
         MINIMAL_G_CANDIDATE,
         MINIMAL_H2_CANDIDATE,
         MINIMAL_H3_CANDIDATE,
+        MINIMAL_H4_CANDIDATE,
     )
 }
 
@@ -286,7 +324,10 @@ def candidate_first_boot_contract(candidate: CandidateSpec) -> dict[str, Any] | 
             "post_boot_status": "binding=1-enable=0-latch=0",
             "post_boot_log": "A90AUTO state=unarmed-stay-native",
         }
-    if candidate.profile == MINIMAL_H3_CANDIDATE_PROFILE:
+    if candidate.profile in {
+        MINIMAL_H3_CANDIDATE_PROFILE,
+        MINIMAL_H4_CANDIDATE_PROFILE,
+    }:
         assert candidate.compiled_auto_handoff is not None
         return {
             "schema": "a90-auto-handoff-first-boot-v2",

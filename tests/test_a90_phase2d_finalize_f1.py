@@ -161,6 +161,26 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
             ):
                 finalizer.validate_candidate_build_receipt(selected)
 
+    def test_minimal_h4_candidate_binds_observer_complete_receipt(self) -> None:
+        selected = finalizer.select_candidate_profile(
+            finalizer.MINIMAL_H4_CANDIDATE_PROFILE
+        )
+        contract = finalizer.candidate_first_boot_contract(selected)
+        self.assertEqual(selected.version, "0.11.172")
+        self.assertEqual(
+            selected.build,
+            "phase3-minimal-h4-observer-complete-auto-benchmark",
+        )
+        self.assertEqual(contract["schema"], "a90-auto-handoff-first-boot-v2")
+        self.assertEqual(
+            contract["compiled_binding"],
+            selected.compiled_auto_handoff,
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["image_path"],
+            "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-11.img",
+        )
+
     def test_unknown_candidate_profile_is_rejected(self) -> None:
         with self.assertRaisesRegex(finalizer.ContractError, "not exact"):
             finalizer.select_candidate_profile("arbitrary")

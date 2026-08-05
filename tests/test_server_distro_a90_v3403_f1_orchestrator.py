@@ -6014,6 +6014,44 @@ class DisplayObservationTests(unittest.TestCase):
             ):
                 f1.validate_candidate_first_boot_contract(changed, **kwargs)
 
+    def test_h4_first_boot_contract_binds_new_markers_and_rootfs(self) -> None:
+        binding = {
+            "schema": "a90-compiled-auto-handoff-binding-v1",
+            "candidate_version": "0.11.172",
+            "candidate_build": "phase3-minimal-h4-observer-complete-auto-benchmark",
+            "image_path": "/mnt/sdext/a90/runtime/rootfs-11.img",
+            "image_sha256": "c" * 64,
+            "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h4.enable",
+            "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h4.done",
+        }
+        binding["binding_sha256"] = f1.json_sha256(binding)
+        contract = {
+            "schema": "a90-auto-handoff-first-boot-v2",
+            "enable_path": binding["enable_path"],
+            "latch_path": binding["latch_path"],
+            "compiled_binding": binding,
+            "pre_transfer_state": "both-absent",
+            "post_boot_status": "binding=1-enable=0-latch=0",
+            "post_boot_log": "A90AUTO state=unarmed-stay-native",
+        }
+        kwargs = {
+            "candidate_version": binding["candidate_version"],
+            "candidate_build": binding["candidate_build"],
+            "remote_final": binding["image_path"],
+            "rootfs_sha256": binding["image_sha256"],
+        }
+        self.assertEqual(
+            f1.validate_candidate_first_boot_contract(contract, **kwargs),
+            contract,
+        )
+        changed = copy.deepcopy(contract)
+        changed["latch_path"] = "/cache/a90-auto-handoff-phase3-minimal-h3.done"
+        with self.assertRaisesRegex(
+            f1.ContractError,
+            "compiled candidate/rootfs binding",
+        ):
+            f1.validate_candidate_first_boot_contract(changed, **kwargs)
+
 
 if __name__ == "__main__":
     unittest.main()
