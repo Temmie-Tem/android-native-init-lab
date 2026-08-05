@@ -112,21 +112,35 @@ def validate_static(
         )
     except evidence.EvidenceError as exc:
         raise PromotionError(str(exc)) from exc
+    telemetry_bound = False
+    if isinstance(candidate_contract, dict):
+        if userspace_overlay_contract_id == evidence.P306_OVERLAY_CONTRACT_ID:
+            telemetry_bound = (
+                candidate_contract.get("ipc_telemetry", {}).get("schema")
+                == "s22plus_fyg8_p306_ipc_state_telemetry_spec_v1"
+                and candidate_contract.get("ipc_telemetry", {}).get("verified")
+                is True
+                and selected_decoder is evidence.p306_decoder
+            )
+        elif userspace_overlay_contract_id is not None:
+            telemetry_bound = (
+                candidate_contract.get("telemetry", {}).get("decoder_id")
+                == selected_decoder.DECODER_ID
+                and candidate_contract.get("telemetry", {}).get(
+                    "decoder_policy_id"
+                )
+                == selected_decoder.POLICY_ID
+            )
+        else:
+            telemetry_bound = (
+                candidate_contract.get("decoder_id") == selected_decoder.DECODER_ID
+                and candidate_contract.get("decoder_policy_id")
+                == selected_decoder.POLICY_ID
+            )
     if (
         not isinstance(candidate_contract, dict)
         or profile not in evidence.e1_latest_stage.model.PROFILE_NUMBERS
-        or (
-            candidate_contract.get("telemetry", {}).get("decoder_id")
-            if userspace_overlay_contract_id is not None
-            else candidate_contract.get("decoder_id")
-        )
-        != selected_decoder.DECODER_ID
-        or (
-            candidate_contract.get("telemetry", {}).get("decoder_policy_id")
-            if userspace_overlay_contract_id is not None
-            else candidate_contract.get("decoder_policy_id")
-        )
-        != selected_decoder.POLICY_ID
+        or not telemetry_bound
         or candidate_contract.get("verified") is not True
     ):
         raise PromotionError("candidate contract is not supported-profile-bound")

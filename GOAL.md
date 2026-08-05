@@ -43,6 +43,19 @@ gone after rollback. A successor should read that already-written IPC context
 or record direct function reach/state; it should not spend a candidate merely
 changing the dmesg log level.
 
+P3.06 is now host-built and remains unarmed. An attended transient debugfs
+read on the exact healthy S22+ proved the stock `a600000_ssusb` IPC context and
+the exact `Q RW (vbus)`, `XCVR: BSV set`, `FF StrtGdgt gsync`, and
+`FF peripheral` spellings. The fixed-Image successor opens that existing ring
+after `dwc3-msm.ko` and before module index 59, changes no kernel, module plan,
+or log level, and publishes an adjacent 105/106 IPC chain/summary pair.
+Userspace reproduced twice, boot/AP candidate A/B are byte-identical, and the
+Process-v2 verify-only rehearsal plus canonical ready manifest passed. F1
+remains unarmed pending the one required narrow independent review of the new
+decoder/evidence closure. The earlier `0xD00` proves the in-window software
+guard saw `clocks_enabled=true`; it does not retroactively prove that the
+discarded initial hardware clock returns were zero.
+
 P3.04 is the preceding closed live unit. After one pre-candidate host-observer
 arm stop with zero transfers, a new prepared run transferred its distinct
 boot-only candidate and exact Magisk rollback once each. Final rooted FYG8
