@@ -11,41 +11,14 @@ shared process documents. A90 state and authorization remain separate.
 
 ## Current Frontier
 
-P3.05 is the latest closed live unit. After one read-only retained-baseline
-stop and one attended normal-reboot rotation, a fresh run transferred the
-distinct boot-only candidate and exact Magisk rollback once each. The operator
-observed one normal candidate boot with no loop. Final rooted FYG8 Android
-health passed, the transaction is `CLOSED`, `recovery_required=false`, and A90
-received zero commands.
-
-The two byte-identical final retained reads contain generation 106 detail
-`0xD00` followed by generation 107 detail `0x4001`. Reaching that terminal pair
-proves the repaired N-tail completed and later bind/observer execution ran;
-therefore all 61 modules, including exact stock `usb_notifier_qcom.ko` and
-`ucsi_glink.ko`, loaded and passed the cumulative `/proc/modules` prefix check.
-The pair retains the earlier clock-path-missed and complete normal-HS-PHY-log
-result with zero reset or register-readback failure records.
-
-The exact candidate ACM observer timed out after 300 seconds with zero bytes.
-The same-attempt USB sidecar is integrity-clean and contains no exact candidate
-serial, product ID, CDC ACM endpoint, descriptor error, or enumeration-error
-signature. It does contain unrelated/unattributed host USB activity, so it is
-not relabelled as an electrically silent bus. P3.05 therefore refutes only the
-sufficiency of adding those two modules in the present late-load order. It does
-not prove that `dwc_msm_vbus_event()` ran, that `vbus_active` became true, or
-that `B_SESS_VLD` was asserted; those are the next H0 questions.
-
-Raising the printk log level would not have filled that gap. The HS-PHY source
-already maps `dev_dbg` to `dev_err`, while `dwc_msm_vbus_event()` has no printk
-call and records a changed VBUS state only through Qualcomm `dbg_event()` into
-the DWC3 IPC logging context. P3.05 did not retain that private ring and it is
-gone after rollback. A successor should read that already-written IPC context
-or record direct function reach/state; it should not spend a candidate merely
-changing the dmesg log level.
-
-P3.06 is closed healthy after one candidate and one exact rollback. Its
-integrity-clean adjacent generations 106/107 are `0xD79` then `0x42D6`: the
-candidate saw B-session-valid set, inputs BSV, start-gadget, and peripheral in
+P3.06 is the latest closed live unit. After one retained-baseline stop and one
+attended normal-reboot rotation, its distinct boot-only candidate and exact
+Magisk rollback each transferred once. The operator observed one normal
+candidate boot with no loop. Final rooted FYG8 Android health passed, the
+transaction is `CLOSED`, `recovery_required=false`, and A90 received zero
+commands. Its integrity-clean adjacent generations 106/107 are `0xD79` then
+`0x42D6`. The candidate saw B-session-valid set, inputs BSV, start-gadget,
+and peripheral in
 the required order, with each count in the 2--3 bucket. It also saw BSV clear
 and undefined-without-BSV, but no core-init-failed or no-pullup marker. The
 expected candidate ACM endpoint still timed out and the same-attempt host
@@ -55,6 +28,48 @@ is after that sequence and before candidate enumeration reaches the host. The
 earlier `0xD00` proves only the in-window software guard saw
 `clocks_enabled=true`; it does not retroactively prove that the discarded
 initial hardware clock returns were zero.
+
+Post-P3.06 H0 narrows the boundary further. The `peripheral` IPC marker is the
+state-machine name emitted on its next invocation; it is not an aggregate
+success receipt. `dwc3_otg_start_peripheral()` discards several returns and
+always returns zero. Nevertheless, P2.98 separately proves the later configfs
+bind path reached `__dwc3_gadget_start()==0`, both EP0 enable calls, and
+`dwc3_gadget_run_stop(true)==0` with RUN_STOP set, DEVCTRLHLT clear, and PRTCAP
+DEVICE. P2.80 and P2.92 reached the same not-attached boundary through nested
+and direct run-stop paths, so another role-cycle reshaping is not selected.
+P3.01-r1 then saw only one pre-configuration SUSPEND device event and no RESET
+or CONNECT_DONE. The remaining frontier is the digital-to-physical handoff,
+not wrapper-state or generic gadget control flow.
+
+Repeating the full Type-C producer stack is also not selected. The exact
+`usb_notifier_qcom` peripheral callback only calls `dwc_msm_vbus_event()`, while
+the explicit mode path already creates the same wrapper BSV/start-peripheral
+state. More importantly, historical S7A2 already loaded the Max77705 producer
+chain with its GENI I2C transport and still produced no host-visible attach.
+That stack may still matter as part of Android coordination, but module
+presence alone is already refuted as a sufficient fix.
+
+Two exact live predicates remain unproved and can share one narrow successor
+without rebuilding Image or any module. First, the existing twelve
+immediate-post-call HS-PHY clock probes must arm after module index 55
+(`phy-msm-snps-hs`) and before index 58 (`dwc3-msm`), because the first PHY
+init occurs synchronously during the latter probe. The full 28-event cycle
+descriptor cannot simply move earlier because it also names not-yet-loaded
+DWC3 symbols; use a clock-only descriptor and the already-audited offsets.
+Second, the exact `dwc3-msm.ko` has the wrapper HS-PHY-control readback in
+`w21` immediately before `dwc3_otg_start_peripheral+0x4cc`; one exact
+module-offset probe can retain `UTMI_OTG_VBUS_VALID` bit 20 and, as a sidecar,
+`SW_SESSVLD_SEL` bit 28 after the write.
+
+The selected next H0 unit is therefore a userspace-only dual observer: arm the
+clock-only set in the index-55/index-58 gap, then arm the single wrapper
+readback probe after index 58 and before the first role request. Any negative
+initial clock return or a cleared bit 20 localizes the failure. Twelve zero
+returns plus bit 20 set closes both remaining digital gates; bit 28 alone is
+not causal without a working-stock comparator. Only that nominal result moves
+the frontier to candidate-specific Type-C/CC/mux or PHY-output state. No new
+module stack, log-level change, role retry, or physical-line manipulation is
+part of this unit.
 
 P3.04 is the preceding closed live unit. After one pre-candidate host-observer
 arm stop with zero transfers, a new prepared run transferred its distinct
