@@ -43,21 +43,17 @@ gone after rollback. A successor should read that already-written IPC context
 or record direct function reach/state; it should not spend a candidate merely
 changing the dmesg log level.
 
-P3.06 is now host-built and remains unarmed. An attended transient debugfs
-read on the exact healthy S22+ proved the stock `a600000_ssusb` IPC context and
-the exact `Q RW (vbus)`, `XCVR: BSV set`, `FF StrtGdgt gsync`, and
-`FF peripheral` spellings. The fixed-Image successor opens that existing ring
-after `dwc3-msm.ko` and before module index 59, changes no kernel, module plan,
-or log level, and publishes an adjacent 105/106 IPC chain/summary pair.
-Userspace reproduced twice, boot/AP candidate A/B are byte-identical, and the
-Process-v2 verify-only rehearsal plus canonical ready manifest passed. The one
-required narrow independent review returned `PASS_GO` for commit `7631dcde`
-and the exact execution-critical hashes. The first connected preparation then
-stopped read-only on the retained P3.05 marker; one attended normal-reboot
-baseline rotation returned healthy, and a fresh D0 preparation bound the clean
-baseline and exact closure as `2c74aa64...`. F1 remains unarmed and is ready
-for attended handoff. The earlier `0xD00` proves the in-window software guard
-saw `clocks_enabled=true`; it does not retroactively prove that the discarded
+P3.06 is closed healthy after one candidate and one exact rollback. Its
+integrity-clean adjacent generations 106/107 are `0xD79` then `0x42D6`: the
+candidate saw B-session-valid set, inputs BSV, start-gadget, and peripheral in
+the required order, with each count in the 2--3 bucket. It also saw BSV clear
+and undefined-without-BSV, but no core-init-failed or no-pullup marker. The
+expected candidate ACM endpoint still timed out and the same-attempt host
+sidecar was integrity-clean. This refutes absence of the wrapper BSV and
+start-gadget/peripheral sequence as the current stop; the remaining boundary
+is after that sequence and before candidate enumeration reaches the host. The
+earlier `0xD00` proves only the in-window software guard saw
+`clocks_enabled=true`; it does not retroactively prove that the discarded
 initial hardware clock returns were zero.
 
 P3.04 is the preceding closed live unit. After one pre-candidate host-observer
