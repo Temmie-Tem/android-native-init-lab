@@ -11,7 +11,36 @@ shared process documents. A90 state and authorization remain separate.
 
 ## Current Frontier
 
-P3.03 is the latest closed live unit. After one pre-candidate host-observer arm
+P3.04 is the latest closed live unit. After one pre-candidate host-observer arm
+stop with zero transfers, a new prepared run transferred the distinct
+boot-only candidate and exact Magisk rollback once each. The operator observed
+one normal candidate boot with no loop. Final rooted FYG8 Android health passed,
+the transaction is `CLOSED`, `recovery_required=false`, and A90 received zero
+commands.
+
+The two byte-identical final retained reads contain generation 68 at
+`stage=0x7B`, `item_index=59`, `PROGRESS`, followed by generation 69 at
+`stage=0x7C`, `item_index=0`, `FAILURE`, detail `0xC5E`. Post-live H0 source
+reconciliation proves that this does not report a notifier-module load failure.
+The progress record was published only after exact stock
+`usb_notifier_qcom.ko` loaded and the 60-module `/proc/modules` prefix verified.
+The next `ucsi_glink.ko` load and 61-module prefix verification also returned
+zero. Its subsequent progress publication requested `stage=0x7C/item=60`, but
+the inherited position table still expects `stage=0x7C/item=0` as the first
+bind gate. The publication therefore returned `-EINVAL`; `quiet_park()` then
+published the allowed fail-closed `0xC5E` at that expected gate position.
+
+P3.04 is consequently `NO_PROOF_OBSERVER`: it proves the added notifier bridge
+can load in the exact candidate closure, but the stale 60-module checkpoint
+schema parked PID 1 before bind gates, trace setup, USB configuration, or the
+notifier hypothesis could be tested. The consumed P3.04 candidate must never be
+replayed. The next distinct candidate should preserve the fixed Image and all
+61 modules while representing the final two module loads in one existing
+module checkpoint slot, so later ordinals and fixed-Image detail rules do not
+shift. That repair requires focused host validation of success and both load
+failure branches before another live preparation.
+
+P3.03 is the preceding closed live unit. After one pre-candidate host-observer arm
 stop with zero transfers, exact read-only D0 restored a durable `HEALTHY`
 barrier. Host-only `pkexec` preauthorization then allowed a new run to arm the
 unchanged observer and execute normally. The candidate and exact Magisk
@@ -175,7 +204,7 @@ focused independent review returned `PASS_GO`; the next preparation must use a
 new private run directory and this changed execution closure. The successful
 live run did so.
 
-## Selected Bounded Unit: P3.04 Stock USB-Notifier Bridge Restoration
+## Closed Bounded Unit: P3.04 Stock USB-Notifier Bridge Attempt
 
 The exact FYG8 stock module `usb_notifier_qcom.ko` is present at 26,344 bytes
 with SHA-256
@@ -218,11 +247,27 @@ The first fresh connected preparation stopped read-only because the retained
 baseline still contained a prior candidate marker. It created no prepared
 record and did not arm F1. One attended normal Android reboot then changed the
 boot ID and restored exact rooted FYG8 health without Download, Odin, payload,
-or transfer. A second new run directory passed exact-S22 D0 and now binds the
-clean baseline, candidate, exact rollback, host sidecar, and reviewed execution
-closure. F1 remains unarmed until execute records candidate intent. The existing
-P3.03 attempt and every earlier candidate remain consumed and must not be
-replayed; A90 remains outside this campaign.
+or transfer. A second prepared run stopped before candidate intent when its
+host guard did not arm; transfer accounting remained 0/0 and the run was not
+reused. Host preauthorization and a fresh exact-S22 D0 then produced a third
+prepared run binding the same candidate, exact rollback, sidecar, and reviewed
+execution closure.
+
+That third run completed candidate and rollback transfer accounting 1/1. The
+candidate observer timed out and the physical recovery transition caused one
+transient measured-USB inventory failure, but durable recovery sent the exact
+rollback only once and resumed final observation without replay. Final rooted
+FYG8 health passed and the transaction closed with recovery not required.
+
+The retained `0x7B/0xC5E` pair exposes an H0 contract defect in this candidate,
+not a rejected USB-notifier hypothesis. The runtime loop was expanded to 61
+modules, but `k_p248_e2_steps[]` retained only module indices 0-59 before the
+first gate. Index 59 `usb_notifier_qcom` loaded and verified successfully.
+Index 60 `ucsi_glink` then also loaded and verified, after which its
+`stage=0x7C/item=60` progress publication conflicted with the inherited
+`stage=0x7C/item=0` gate entry and fell into `0xC5E`. No bind gate or later USB
+observer ran. P3.04 is closed as `NO_PROOF_OBSERVER`, its candidate is consumed,
+and a distinct corrected candidate is required.
 
 ## Parked Bounded Unit: P3.02 Passive Pull-Up Electrical Attribution
 
