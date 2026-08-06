@@ -70,6 +70,13 @@ legacy decoding, and `foreign_count`: raw excerpts copied from the 2 MiB ring
 must escape the retained family signature or the scanner must exclude the
 carrier region, otherwise the excerpt can reject its own record as foreign.
 
+A host-only cumulative-write audit now counts 159 legacy and 64 Process-v2
+durably documented completed `boot` writes, for a confirmed documented total
+of 223. Seven Odin setup/`rc=1` attempts are excluded because completion is not
+proved, as are all non-boot payloads. This is a documentation lower bound, not
+a device-wear failure or a new authority gate. The private audit is
+`workspace/private/evidence/s22plus_fyg8/p308_boot_write_audit_20260807.json`.
+
 P3.06 remains the preceding successful telemetry unit. Its exact `0xD79` then
 `0x42D6` pair proves B-session-valid set, inputs BSV, start-gadget, and
 peripheral occurred in order, while the exact ACM endpoint still timed out.
