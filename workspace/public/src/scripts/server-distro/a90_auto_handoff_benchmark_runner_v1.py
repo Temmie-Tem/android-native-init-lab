@@ -662,17 +662,50 @@ def _native_release_log(text: str) -> str:
     return "\n".join(lines) + ("\n" if lines else "")
 
 
+def _bound_bridge_candidate_exists(
+    payload: dict[str, Any],
+    bridge_device: str,
+) -> bool:
+    candidates = payload.get("serial_candidates")
+    if not isinstance(candidates, list):
+        raise ContractError("exact bridge preflight omitted serial candidates")
+    matches = [
+        candidate
+        for candidate in candidates
+        if isinstance(candidate, dict)
+        and candidate.get("path") == bridge_device
+    ]
+    if (
+        len(matches) != 1
+        or type(matches[0].get("exists")) is not bool
+    ):
+        raise ContractError("exact bridge preflight has no unique bound candidate")
+    return matches[0]["exists"]
+
+
 def wait_for_bound_bridge_after_reboot(
     f1_spec: base.F1Spec,
     args: argparse.Namespace,
 ) -> dict[str, Any]:
-    """Wait only for the bound by-id endpoint's normal reboot absence."""
+    """Require the bound by-id endpoint to disappear and then return exactly."""
 
     device = Path(f1_spec.stage.bridge_device)
     deadline = time.monotonic() + base.HOST_NCM_REBIND_TIMEOUT_SEC
     last_error: Exception | None = None
+    observed_absence = False
     while True:
-        if not device.exists():
+        present = device.exists()
+        if not observed_absence:
+            if not present:
+                observed_absence = True
+            else:
+                if time.monotonic() >= deadline:
+                    raise ContractError(
+                        "bound bridge did not disconnect before the observation deadline"
+                    )
+                time.sleep(base.HOST_NCM_REBIND_POLL_SEC)
+                continue
+        if not present:
             if time.monotonic() >= deadline:
                 raise ContractError(
                     "bound bridge did not re-enumerate before the observation deadline"
@@ -680,13 +713,25 @@ def wait_for_bound_bridge_after_reboot(
             time.sleep(base.HOST_NCM_REBIND_POLL_SEC)
             continue
         try:
-            return base.staging.require_exact_bridge(f1_spec.stage, args)
+            bridge = base.staging.require_exact_bridge(f1_spec.stage, args)
         except base.staging.ContractError as exc:
             last_error = exc
-        if device.exists():
-            raise ContractError(
-                "bound bridge is present but exact post-reboot continuity failed"
-            ) from last_error
+            if device.exists():
+                raise ContractError(
+                    "bound bridge is present but exact post-reboot continuity failed"
+                ) from last_error
+        else:
+            if (
+                _bound_bridge_candidate_exists(
+                    bridge,
+                    f1_spec.stage.bridge_device,
+                )
+                and device.exists()
+            ):
+                return bridge
+            last_error = ContractError(
+                "exact bridge preflight observed the bound endpoint absent"
+            )
         if time.monotonic() >= deadline:
             raise ContractError(
                 "bound bridge did not re-enumerate before the observation deadline"

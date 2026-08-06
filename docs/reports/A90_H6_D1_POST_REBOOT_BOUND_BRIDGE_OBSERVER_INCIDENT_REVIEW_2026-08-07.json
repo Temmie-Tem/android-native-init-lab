@@ -1,0 +1,172 @@
+{
+  "schema": "a90-h6-d1-post-reboot-bound-bridge-observer-incident-independent-review-v1",
+  "status": "PASS_GO",
+  "review_date": "2026-08-07",
+  "reviewer": "independent subagent /root/a90_capability_review",
+  "target": "Samsung Galaxy A90 5G H6 resident D1 auto-handoff observer only",
+  "capability": "A90_H6_D1_POST_REBOOT_BOUND_BRIDGE_ABSENCE_AND_RETURN_V2",
+  "decision": "No unresolved HIGH or MEDIUM finding. The observer now proves one bound by-id endpoint absence before accepting its exact return, rejects stale or malformed serial-candidate metadata, retries only an absence-race snapshot within the existing bounded deadline, and still fails a present exact-continuity mismatch immediately. No device-effect dispatch, retry, replay, transfer, recovery, or cleanup machinery changed.",
+  "incident": {
+    "classification": "HOST_OBSERVER_STALE_BOUND_ENDPOINT_AND_ABSENT_SERIAL_SNAPSHOT",
+    "public_state_source": "GOAL_A90.md",
+    "root_cause": [
+      "The old bound by-id endpoint could remain present immediately after reboot dispatch, so the observer could accept pre-disconnect wrapper continuity.",
+      "The exact-bridge wrapper could return otherwise matching metadata while its bound serial-candidate snapshot recorded exists=false, after which NCM rebind failed."
+    ],
+    "closed_ordinal_effects": {
+      "arm_dispatch_count": 1,
+      "reboot_dispatch_count": 1,
+      "candidate_replay": false,
+      "payload_transfer": false,
+      "partition_write": false,
+      "flash": false,
+      "final_resident_healthy": true,
+      "mechanical_pid1_ssh_display_proof": false
+    },
+    "repair_scope": "H0 observer execution-critical closure only",
+    "superseded_qualified_observer_closure": "60610b2deae343892506c0e13ef88e96c6993b5121fa1c88632410db208afd89",
+    "old_ordinal_resume_or_replay_authorized": false,
+    "new_hazard_class": false,
+    "hazard_assumption_changed": true
+  },
+  "reviewed_behavior": {
+    "bound_endpoint_absence_required_before_exact_return": true,
+    "continuously_present_pre_reboot_endpoint_rejected_on_deadline": true,
+    "bound_serial_candidate_required_unique": true,
+    "bound_serial_candidate_exists_required_exact_boolean": true,
+    "bound_serial_candidate_exists_true_required_for_return": true,
+    "malformed_or_missing_candidate_metadata_rejected": true,
+    "absent_snapshot_retry_bounded_by_existing_30_second_deadline": true,
+    "present_exact_continuity_mismatch_rejected_without_retry": true,
+    "exact_bridge_realpath_and_wrapper_process_checks_retained": true,
+    "ncm_rebind_still_precedes_ssh": true,
+    "observer_exception_still_becomes_no_proof_and_never_resends_effect": true,
+    "final_health_and_cleanup_tail_semantics_unchanged": true,
+    "exact_target_isolation_unchanged": true,
+    "permanent_no_replay_boundary_unchanged": true
+  },
+  "device_effect_dispatch_audit": {
+    "method": "AST comparison of HEAD and current source plus exact call-site counts",
+    "unchanged_function_ast_sha256": {
+      "send_reboot_once": "6d2322106409e7dd8ba3172b5bf822b6081956c2b491c0e167cd9ac1954db77f",
+      "observe_auto_cycle": "fadd54aeb18bd7d2545258ca9e710af98d5a6cd67a9284a3c96a0cfeb7b86e6d",
+      "dispatch_arm_once_and_publish": "715070cdd828ea95d88b92253889e4d0686eae23161ee0eff0df23b29a9653bd",
+      "execute": "229a8ca33eded701ca8dab7d6893725f6c22237bb93282d98ce3ea5fd45bea4b",
+      "reconcile": "42883772ea3a50a6bf925d5b67f5e4eabe6cb77edb57741fd432e76cfa24ea1b"
+    },
+    "call_counts_head_and_current": {
+      "base.run_f1_cmd": [5, 5],
+      "base.run_f1_shell": [2, 2],
+      "base.a90ctl.bridge_exchange": [1, 1],
+      "send_reboot_once": [1, 1],
+      "dispatch_arm_once_and_publish": [1, 1]
+    },
+    "device_effect_dispatch_added": false,
+    "device_effect_retry_added": false,
+    "device_effect_replay_added": false,
+    "reconciliation_write_added": false
+  },
+  "governing_public_inputs": {
+    "aggregate_algorithm": "sha256 of canonical JSON path-to-bytes-and-sha256 map",
+    "aggregate_sha256": "6b89c3f94cbbf4398f988af891597efb06ce9f18d552ac773142397390413bef",
+    "files": {
+      "AGENTS.md": {"bytes": 14201, "sha256": "3289aedf8b55c2d74e3252c72e7b6b9bc003ef62379fc6e7b192a845c80dd747"},
+      "GOAL_A90.md": {"bytes": 26770, "sha256": "e8f2a898d86177132330c5e5bf7dec9b83647a3eb1a841eb17b5dfbf26ac50bc"},
+      "docs/operations/targets/A90_TARGET_CONTRACT.md": {"bytes": 33279, "sha256": "11d4653c880ce7642729a03c607d4bd320263632236a893d88b0dfcd4179e77e"}
+    }
+  },
+  "changed_two_file_closure": {
+    "aggregate_algorithm": "sha256 of canonical JSON path-to-bytes-and-sha256 map",
+    "head_aggregate_sha256": "97b1baa2649956c76cd6d66c77adcc89a8eefa4fde4df64918c33e8246f5e88a",
+    "current_aggregate_sha256": "58ec073f08344848a0f762f91be1a92e7fe6c568a1e9d12235a5b5c898f8d89e",
+    "head_files": {
+      "tests/test_a90_auto_handoff_benchmark_runner_v1.py": {"bytes": 36729, "sha256": "21839a455bba3bef4a2771d041aabe1e47a3449ec274f96df033f9d4336b8f9d"},
+      "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py": {"bytes": 61514, "sha256": "71d4b312808c4376aa995758cfa4c120fc04feaef432c43683ca2802012d4d64"}
+    },
+    "current_files": {
+      "tests/test_a90_auto_handoff_benchmark_runner_v1.py": {"bytes": 39958, "sha256": "abe880bf5847e02d39468b5d3409c6b79008ed59438fc53ddf23a719c3f08a22"},
+      "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py": {"bytes": 63034, "sha256": "dc0d98d98f952c79a71d02871f20df84b2665d36fbe8764c23d1c8a64f360b8a"}
+    }
+  },
+  "durable_runtime_execution_closure": {
+    "superseded_sha256": "026eaaa9f6dc2a3adf77b66df6e7075f50767f994ea89315960ebe9f2d5d05b5",
+    "current_sha256": "406028e6c9cef5ba381ddcae4c204c5ccf2fa728cb10f99d68174c59f6a72c04",
+    "files": {
+      "benchmark_parser": {"path": "workspace/public/src/scripts/server-distro/a90_boot_benchmark_v1.py", "size": 12853, "sha256": "f4cacdb5d847adf5c6dc8ba8931cd859ec12274bdce403b65f64aaa59bf94a0f"},
+      "resident_f1_loader": {"path": "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py", "size": 283832, "sha256": "08b77b2d24d347fd23f988627a23e9ea7b251525aac03611370203090dcc3ee4"},
+      "resident_manifest_loader": {"path": "workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py", "size": 143535, "sha256": "851c89c8d39f134465cfc735c08772d66543694ef157d42c046e88365051c256"},
+      "runner": {"path": "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py", "size": 63034, "sha256": "dc0d98d98f952c79a71d02871f20df84b2665d36fbe8764c23d1c8a64f360b8a"}
+    }
+  },
+  "reviewed_public_transitive_closure": {
+    "aggregate_algorithm": "sha256 of canonical JSON path-to-bytes-and-sha256 map",
+    "production_seven_file_sha256": "8b00bea660212881c625378ec4fe57ef007ab4cfa4710e7bb9431477d47dedee",
+    "tests_seven_file_sha256": "6a6d8de341f038ac951a43a7ec5107da5e8f5bab83d46855556a56f437f18e30",
+    "full_fourteen_file_sha256": "938b24b04cf33ec5265906e7e443b04611807ea3260d92c9ef219c51aaa7ca6e",
+    "production_files": {
+      "workspace/public/src/scripts/revalidation/a90_bridge.py": {"bytes": 40549, "sha256": "7bacce5a61f6745d4dfb0b7f89ffffc478d4e74fd6a1559d20718793668414e9"},
+      "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py": {"bytes": 63034, "sha256": "dc0d98d98f952c79a71d02871f20df84b2665d36fbe8764c23d1c8a64f360b8a"},
+      "workspace/public/src/scripts/server-distro/a90_boot_benchmark_v1.py": {"bytes": 12853, "sha256": "f4cacdb5d847adf5c6dc8ba8931cd859ec12274bdce403b65f64aaa59bf94a0f"},
+      "workspace/public/src/scripts/server-distro/a90_phase3_d1_observer_v1.py": {"bytes": 13141, "sha256": "fccb10170583ea3c1761cf33de7bcc40d2409c0e097af051b6585195876b1a78"},
+      "workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py": {"bytes": 143535, "sha256": "851c89c8d39f134465cfc735c08772d66543694ef157d42c046e88365051c256"},
+      "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {"bytes": 104924, "sha256": "7de5bd04a88ee0537d498c0dbde21b13b861bd093bef8b99353e34362fc033be"},
+      "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {"bytes": 283832, "sha256": "08b77b2d24d347fd23f988627a23e9ea7b251525aac03611370203090dcc3ee4"}
+    },
+    "test_files": {
+      "tests/test_a90_auto_handoff_benchmark_runner_v1.py": {"bytes": 39958, "sha256": "abe880bf5847e02d39468b5d3409c6b79008ed59438fc53ddf23a719c3f08a22"},
+      "tests/test_a90_boot_benchmark_v1.py": {"bytes": 7572, "sha256": "c54842ca3e8112e94a55c4a82f9e053eb7b5e5d447220f8250af90d7f5c78902"},
+      "tests/test_a90_bridge.py": {"bytes": 14546, "sha256": "a3215b630e474be73dca00352e600cc3ecbd4d59b6188a7cd4adc8d90d4ff119"},
+      "tests/test_a90_phase3_d1_observer_v1.py": {"bytes": 9658, "sha256": "daf7d60b77e42b00d4e843e3b3dabe5b01d67ca330d12a1e481361ade170705a"},
+      "tests/test_a90_transition_d1_session_v1.py": {"bytes": 102209, "sha256": "79078970cf118754cb9f7b6b8e0bc9df9932c7665ac32d08d5ab01c6a153645c"},
+      "tests/test_server_distro_a90_v3403_absent_only_staging.py": {"bytes": 64656, "sha256": "4b24211bcde6b7b33d769040be95997181d1e74dd5184f5b2f816cfb2d28c75c"},
+      "tests/test_server_distro_a90_v3403_f1_orchestrator.py": {"bytes": 239380, "sha256": "d9333a45f49455ba31e40ed017b71d3d8b40551672f3eea00e04d73a54de2a4b"}
+    }
+  },
+  "validation": {
+    "focused_public_tests": {
+      "test_a90_auto_handoff_benchmark_runner_v1": 25,
+      "test_a90_bridge": 16,
+      "test_server_distro_a90_v3403_absent_only_staging": 49,
+      "test_server_distro_a90_v3403_f1_orchestrator": 127,
+      "test_a90_transition_d1_session_v1": 40,
+      "test_a90_phase3_d1_observer_v1": 6,
+      "test_a90_boot_benchmark_v1": 10,
+      "total": 273,
+      "failed": 0
+    },
+    "adversarial_bound_candidate_schema_cases": 7,
+    "adversarial_wait_state_machine_cases": 2,
+    "python_in_memory_compile_files": 8,
+    "python_in_memory_compile": "PASS",
+    "effect_dispatch_ast_comparison": "PASS_UNCHANGED",
+    "git_diff_check": "PASS"
+  },
+  "findings": {
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "unresolved": []
+  },
+  "fresh_live_requirements": [
+    "Never resume or replay terminal H6 D1 run a90-d1-attended-20260807-01.",
+    "Use one fresh ordinal with a new durable intent only after fresh exact A90 health and all target-contract live gates pass.",
+    "Bind the current durable runtime closure 406028e6c9cef5ba381ddcae4c204c5ccf2fa728cb10f99d68174c59f6a72c04 before live use.",
+    "Keep the existing one-arm and one-reboot limits, exact rollback and recovery, attendance, final health, and A90-only isolation."
+  ],
+  "review_lifetime": {
+    "reuse": "PASS_GO qualifies this observer capability across later ordinals, manifests, qualifications, and campaigns only while the durable runtime and reviewed transitive closure hashes and hazard assumptions remain unchanged.",
+    "fresh_review_trigger": "Any observer state-machine, exact-bridge candidate schema, dispatch, retry, replay, cleanup, return, recovery, no-replay, exact-target, hazard, or incident change.",
+    "fresh_ordinal_and_live_binding_still_required": true,
+    "live_authority_from_review": false
+  },
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "live_authority_consumed": false,
+  "reviewer_device_contact": false,
+  "reviewer_usb_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_s22plus_contact": false,
+  "reviewer_implementation_edits": false,
+  "reviewer_goal_or_ledger_edits": false,
+  "reviewer_report_written": true
+}

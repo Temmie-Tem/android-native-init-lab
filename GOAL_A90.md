@@ -217,6 +217,25 @@ The pre-H2 goal history is preserved at
   observer still evaluated bridge continuity while the bound A90 by-id was
   absent; read-only reconciliation and the journal-bound cleanup tail restored
   exact final health without another arm or reboot.
+- H0 incident diagnosis proved the observer accepted the still-present
+  pre-disconnect ACM epoch and could then accept wrapper metadata whose exact
+  bound serial-candidate snapshot was already absent. The repair now requires
+  bound-path absence before exact return, rejects malformed candidate metadata,
+  retries only an absence snapshot within the existing deadline, and still
+  rejects a present mismatch without retry. Independent capability review is
+  `PASS_GO` with HIGH/MEDIUM/LOW zero, 273 proportional tests plus 9 adversarial
+  cases passing, runtime closure
+  `406028e6c9cef5ba381ddcae4c204c5ccf2fa728cb10f99d68174c59f6a72c04`,
+  and full public closure
+  `938b24b04cf33ec5265906e7e443b04611807ea3260d92c9ef219c51aaa7ca6e`.
+  Arm, reboot, execute, reconcile, dispatch, retry, and replay behavior is
+  unchanged; the reviewer contacted no device, USB, private artifact, or S22+.
+- The H6 timing diagnosis separates publication from handoff cost. D1 sent no
+  rootfs payload, but native handoff currently performs an initial source hash,
+  a post-display source hash, a full source-to-work copy, a work hash, and a
+  post-copy source hash. These three measured groups consumed 126900 of 127738
+  ms (99.34%), representing about 10 GiB of logical reads and 2 GiB of writes
+  for one 2 GiB image. Full-LTO cannot materially remove this storage cost.
 
 ## Qualified Capabilities
 
@@ -275,12 +294,18 @@ The pre-H2 goal history is preserved at
   recovery bytes remain evidence and grant no automatic restore authority.
 - The corrected H6 observer-complete non-LTO baseline closure
   `b9f4ddb19d177506bd2d271b50b1e7c305ebe74d1647d0dacbe3dd711a373c70`
-  has independent `PASS_GO`. It binds the fresh run-specific keyed rootfs,
-  deterministic boot, compiled H6 markers, resident F1 interpretation, H6 D1
-  identity, and the repaired absence-only post-reboot bridge observer. Reuse
-  lasts only while those named hashes and hazard assumptions are unchanged and
-  no new incident occurs; fresh D0, rollback/recovery, attendance, manifest,
-  and inter-effect health remain mandatory live inputs.
+  had independent `PASS_GO` for the run03 install. It binds the fresh
+  run-specific keyed rootfs, deterministic boot, compiled H6 markers, resident
+  F1 interpretation, H6 D1 identity, and the then-reviewed post-reboot
+  observer. The terminal D1 incident changed that observer hazard assumption,
+  so this receipt no longer authorizes another ordinal.
+- The repaired H6 observer capability has fresh independent `PASS_GO` at
+  runtime closure
+  `406028e6c9cef5ba381ddcae4c204c5ccf2fa728cb10f99d68174c59f6a72c04`
+  and reviewed full public closure
+  `938b24b04cf33ec5265906e7e443b04611807ea3260d92c9ef219c51aaa7ca6e`.
+  Reuse lasts only while those closures and hazard assumptions remain unchanged;
+  it grants no live authority and never permits replay of H6 D1 run01.
 
 ## Proven Product Path
 
@@ -307,7 +332,7 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: Install and Close the H6 Observer-Complete Baseline
+## Selected Bounded Unit: Prepare an I/O-Reduced Observer-Complete Baseline
 
 H5 installation and its first automatic-handoff ordinal are terminal. Preserve
 runs 11-13 and D1 run09, their state namespaces, journals, private host bytes,
@@ -343,10 +368,18 @@ bounded work is:
    one boot-only candidate with rollback zero and exact final resident health;
 6. retain terminal H6 D1 run01 with arm/reboot exactly one and no replay; use
    its complete timing baseline for performance diagnosis, but do not claim
-   Debian PID 1/SSH/display correctness from the failed observer; diagnose and
-   independently review the remaining bound-bridge observer defect in H0
-   before designing another candidate/marker namespace; and
-7. start Full-LTO comparison only after one observer-complete automatic
+   Debian PID 1/SSH/display correctness from the failed observer;
+7. retain the repaired observer `PASS_GO` and design the next candidate/marker
+   namespace at H0. Before publishing another 2 GiB run-specific copy, evaluate
+   a separately reviewed exact existing-source binding so a new boot candidate
+   can reuse the already published immutable rootfs without payload transfer;
+   the current target-contract absent-destination rule remains binding until an
+   explicit reviewed change closes this design;
+8. keep local handoff I/O reduction separate: first prove a read-only rootfs
+   plus narrowly writable bind-mount layout or another equally exact mechanism
+   can replace the full work copy without weakening source integrity, cleanup,
+   automatic return, or recovery; and
+9. start Full-LTO comparison only after one observer-complete automatic
    handoff baseline closes Debian PID 1, SSH, display, return, cleanup, and
    resident health together.
 
@@ -402,6 +435,7 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_PHASE3_MINIMAL_H5_FRESH_CAMPAIGN_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_PHASE3_MINIMAL_H6_OBSERVER_COMPLETE_BASELINE_INDEPENDENT_REVIEW_2026-08-07.json`
 - `docs/reports/A90_PHASE3_MINIMAL_H6_RUN03_REBIND_INDEPENDENT_REVIEW_2026-08-07.json`
+- `docs/reports/A90_H6_D1_POST_REBOOT_BOUND_BRIDGE_OBSERVER_INCIDENT_REVIEW_2026-08-07.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`

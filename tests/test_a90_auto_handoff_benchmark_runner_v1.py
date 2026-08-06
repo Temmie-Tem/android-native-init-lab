@@ -428,7 +428,12 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             f1_spec = SimpleNamespace(
                 stage=SimpleNamespace(bridge_device=str(device)),
             )
-            expected = {"selected_realpath": "/dev/ttyACM-test"}
+            expected = {
+                "selected_realpath": "/dev/ttyACM-test",
+                "serial_candidates": [
+                    {"path": str(device), "exists": True},
+                ],
+            }
             with (
                 mock.patch.object(
                     runner.base.staging,
@@ -449,10 +454,86 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             exact.assert_called_once()
             sleep.assert_called_once_with(runner.base.HOST_NCM_REBIND_POLL_SEC)
 
-    def test_post_reboot_bridge_wait_rejects_present_mismatch_without_polling(self) -> None:
+    def test_post_reboot_bridge_wait_observes_disconnect_before_return(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             device = Path(temp_dir) / "a90-by-id"
             device.write_bytes(b"present")
+            f1_spec = SimpleNamespace(
+                stage=SimpleNamespace(bridge_device=str(device)),
+            )
+            expected = {
+                "selected_realpath": "/dev/ttyACM-test",
+                "serial_candidates": [
+                    {"path": str(device), "exists": True},
+                ],
+            }
+            sleeps = 0
+
+            def transition(_seconds: float) -> None:
+                nonlocal sleeps
+                sleeps += 1
+                if sleeps == 1:
+                    device.unlink()
+                elif sleeps == 2:
+                    device.write_bytes(b"returned")
+
+            with (
+                mock.patch.object(
+                    runner.base.staging,
+                    "require_exact_bridge",
+                    return_value=expected,
+                ) as exact,
+                mock.patch.object(runner.time, "sleep", side_effect=transition) as sleep,
+            ):
+                result = runner.wait_for_bound_bridge_after_reboot(
+                    f1_spec,
+                    SimpleNamespace(),
+                )
+            self.assertEqual(result, expected)
+            exact.assert_called_once()
+            self.assertEqual(sleep.call_count, 2)
+
+    def test_post_reboot_bridge_wait_retries_absent_preflight_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            device = Path(temp_dir) / "a90-by-id"
+            f1_spec = SimpleNamespace(
+                stage=SimpleNamespace(bridge_device=str(device)),
+            )
+            stale = {
+                "selected_realpath": "/dev/ttyACM-test",
+                "serial_candidates": [
+                    {"path": str(device), "exists": False},
+                ],
+            }
+            expected = {
+                "selected_realpath": "/dev/ttyACM-test",
+                "serial_candidates": [
+                    {"path": str(device), "exists": True},
+                ],
+            }
+            with (
+                mock.patch.object(
+                    runner.base.staging,
+                    "require_exact_bridge",
+                    side_effect=[stale, expected],
+                ) as exact,
+                mock.patch.object(
+                    runner.time,
+                    "sleep",
+                    side_effect=lambda _seconds: device.write_bytes(b"returned"),
+                ) as sleep,
+            ):
+                result = runner.wait_for_bound_bridge_after_reboot(
+                    f1_spec,
+                    SimpleNamespace(),
+                )
+            self.assertEqual(result, expected)
+            self.assertEqual(exact.call_count, 2)
+            self.assertEqual(sleep.call_count, 2)
+
+    def test_post_reboot_bridge_wait_rejects_returned_mismatch_without_retry(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            device = Path(temp_dir) / "a90-by-id"
             f1_spec = SimpleNamespace(
                 stage=SimpleNamespace(bridge_device=str(device)),
             )
@@ -462,7 +543,11 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                     "require_exact_bridge",
                     side_effect=runner.base.staging.ContractError("wrong realpath"),
                 ) as exact,
-                mock.patch.object(runner.time, "sleep") as sleep,
+                mock.patch.object(
+                    runner.time,
+                    "sleep",
+                    side_effect=lambda _seconds: device.write_bytes(b"returned"),
+                ) as sleep,
                 self.assertRaisesRegex(
                     runner.ContractError,
                     "present but exact post-reboot continuity failed",
@@ -473,7 +558,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                     SimpleNamespace(),
                 )
             exact.assert_called_once()
-            sleep.assert_not_called()
+            sleep.assert_called_once_with(runner.base.HOST_NCM_REBIND_POLL_SEC)
 
     def test_intents_precede_one_arm_and_one_reboot(self) -> None:
         source = Path(runner.__file__).read_text(encoding="utf-8")
