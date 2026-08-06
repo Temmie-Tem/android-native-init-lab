@@ -117,6 +117,23 @@ The pre-H2 goal history is preserved at
   false, and payload, partition write, flash, rollback, and S22+ command counts
   are zero. Private result SHA256 is
   `127d5c147452561857502f4ad3f1b5e60ad1ac31e4c0cbe37c216cd6bf5e721e`.
+- Historical-image GC run `a90-h5-historical-image-gc-20260806-01` bound a
+  fixed set of twenty obsolete rootfs, clean-image, and WSTA snapshot files.
+  All twenty exact byte identities have private mode-`0600` host recovery
+  copies. The initial host aggregate validator rejected expected
+  post-staging manifest enrichment before deletion intent or dispatch; the
+  narrow validator repair passed independent incident rereview at closure
+  `6046591ba7172eaecaf6c664f08520e0c4f271194038d788cc62a41bcd619401`
+  with 70 tests and HIGH/MEDIUM zero.
+- The same run then dispatched one nonrecursive unlink and closed
+  `PASS_HISTORICAL_IMAGES_AND_SNAPSHOTS_RECLAIMED_H5_HEALTHY`. All twenty
+  selected paths are absent, protected H5 run-12 is exact, work/stage are
+  absent, and available SD space increased by 40370236 KiB from 5959648 to
+  46329884 KiB. Final H5 `0.11.173`, self-test `11/1/0`, pstore zero, and
+  `binding=1 enable=1 latch=1` passed. Dispatch count is one, retransmit is
+  false, and payload, partition write, flash, rollback, and S22+ command
+  counts are zero. Private result SHA256 is
+  `2c83dfbdfd362082bed2bfec313c7665afd1621e06714a6da0c168fc91d715ff`.
 
 ## Qualified Capabilities
 
@@ -166,6 +183,13 @@ The pre-H2 goal history is preserved at
   qualified reuse only until first PASS, expiry, closure/hazard change, or a
   new incident. The exact run02 first PASS consumed and retired it; it must
   never dispatch again.
+- The historical-image GC closure
+  `6046591ba7172eaecaf6c664f08520e0c4f271194038d788cc62a41bcd619401`
+  has independent incident-rereview `PASS_GO` for the fixed twenty-file set,
+  exact host recovery bytes, protected H5, target-bound health, final use
+  guards, and one nonrecursive unlink. Run01's durable dispatch consumed and
+  retired the capability; it must never unlink or dispatch again. Its private
+  recovery bytes remain evidence and grant no automatic restore authority.
 
 ## Proven Product Path
 
@@ -197,10 +221,11 @@ missing same-ordinal mechanical Debian PID1/SSH evidence.
 H5 installation and its first automatic-handoff ordinal are terminal. Preserve
 runs 11-13 and D1 run09, their state namespaces, journals, private host bytes,
 and no-replay evidence. Protect the installed H5 run-12 device source. The H4
-run-11 device source alone is now the exact reclaim selection; its private host
-bytes and incident evidence remain preserved. Do not reset H5 enable/latch,
-resend run09 arm or reboot, or reinterpret a visible screen as missing
-mechanical PID1/SSH evidence.
+source and the fixed historical-image/snapshot set have been reclaimed from SD;
+their exact private host bytes and incident evidence remain preserved. Do not
+reset H5 enable/latch, resend run09 arm or reboot, reuse either consumed reclaim
+capability, or reinterpret a visible screen as missing mechanical PID1/SSH
+evidence.
 
 The run09 15-stage timing series is a usable diagnostic baseline for locating
 cost: the two full source hashes and work copy dominate its 126444 ms handoff.
@@ -214,10 +239,14 @@ review are complete with no device contact. The next bounded work is:
 1. preserve run09 and its H5 state namespace without replay or reset;
 2. retain run02 as the consumed exact PASS that removed only H4, protected H5,
    and proved the bounded 2 GiB free gain; never reuse its capability receipt;
-3. if full H5-equivalent correctness proof still requires another device
+3. retain historical-GC run01 as the consumed exact PASS that removed its
+   fixed twenty-file set, reclaimed 40370236 KiB, and preserved exact H5;
+   never reuse its capability receipt or infer restore authority from host
+   recovery bytes;
+4. if full H5-equivalent correctness proof still requires another device
    transition, build a fresh marker/build identity and open a fresh D0/D1 or
    F1 campaign under exact recovery and attendance, never a run09 replay; and
-4. start Full-LTO comparison only after one observer-complete automatic
+5. start Full-LTO comparison only after one observer-complete automatic
    handoff baseline closes Debian PID 1, SSH, display, return, cleanup, and
    resident health together.
 
@@ -272,6 +301,7 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_V2321_H3_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_PHASE3_MINIMAL_H5_FRESH_CAMPAIGN_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
+- `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`
 
 Private manifests, journals, raw logs, rootfs and boot artifacts, rollback
