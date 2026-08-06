@@ -11,51 +11,39 @@ shared process documents. A90 state and authorization remain separate.
 
 ## Current Frontier
 
-P3.06 is the latest closed live unit. After one retained-baseline stop and one
-attended normal-reboot rotation, its distinct boot-only candidate and exact
-Magisk rollback each transferred once. The operator observed one normal
-candidate boot with no loop. Final rooted FYG8 Android health passed, the
-transaction is `CLOSED`, `recovery_required=false`, and A90 received zero
-commands. Its integrity-clean adjacent generations 106/107 are `0xD79` then
-`0x42D6`. The candidate saw B-session-valid set, inputs BSV, start-gadget,
-and peripheral in
-the required order, with each count in the 2--3 bucket. It also saw BSV clear
-and undefined-without-BSV, but no core-init-failed or no-pullup marker. The
-expected candidate ACM endpoint still timed out and the same-attempt host
-sidecar was integrity-clean. This refutes absence of the wrapper BSV and
-start-gadget/peripheral sequence as the current stop; the remaining boundary
-is after that sequence and before candidate enumeration reaches the host. The
-earlier `0xD00` proves only the in-window software guard saw
-`clocks_enabled=true`; it does not retroactively prove that the discarded
-initial hardware clock returns were zero.
+P3.07 is the latest closed live unit. After one retained-baseline read-only
+stop and one attended normal-reboot rotation, its distinct boot-only candidate
+and exact Magisk rollback each transferred once. The operator observed one
+normal candidate boot with no loop. The first rollback wait ended in a host
+`measured USB endpoint evidence failed` error after candidate observation; the
+durable `--recover` path resumed only the preapproved rollback and did not
+repeat the candidate. Final rooted FYG8 Android health passed, the transaction
+is `CLOSED`, `recovery_required=false`, and A90 received zero commands.
 
-Post-P3.06 H0 leaves the digital-to-physical handoff as the current boundary.
-P2.98 already proves the later configfs bind reached gadget-start, both EP0
-enable calls, and run-stop success, while P3.01-r1 saw one pre-configuration
-SUSPEND but no RESET or CONNECT_DONE. P3.06 proves the wrapper BSV,
-start-gadget, and peripheral sequence occurred. Another role-cycle reshape or
-module-presence-only Type-C stack change is therefore not selected.
+The two byte-identical final retained reads contain generation 68 at
+`stage=0x7B`, `item_index=59`, `PROGRESS`, detail zero, followed by generation
+69 at `stage=0x7C`, `item_index=0`, `FAILURE`, detail `0x6013`. The fixed P3.07
+decoder classifies this as `kmsg-attribution-format-contradiction`: the ordered
+HS-PHY kmsg parser rejected an observed line format before it could publish the
+EUD/cache, init, DPDM, pre-init-clock, late-clock, or QSCRATCH tuple. It is an
+observer contradiction, not a USB/PHY conclusion. The exact candidate ACM
+observer timed out; the same-attempt host sidecar was integrity-clean and did
+not contain the exact candidate identity. The consumed P3.07 candidate must
+never be replayed.
 
-P3.07 is host-built and remains unarmed. Its pre-module `/dev/kmsg` observer
-orders the first HS-PHY init, unique `csr:` EUD branch, exact DPDM callback and
-value, and first pre-init clock pair. It reads the cached
-`/sys/module/eud/parameters/enable` exactly once after `eud.ko`; only cache/direct
-`(1,1)` proves init saw EUD, `(0,0)` at reached init refutes that branch, and a
-mismatch has no causal meaning. The later 12 audited clock callsites remain a
-separate domain. One linked `dwc3_otg_start_peripheral+0x4cc` probe records the
-QSCRATCH readback retained in `w21`, including VBUS-valid bit 20 and session
-select bit 28. No EUD write, kernel rebuild, module-plan change, or log-level
-change is present.
+The immediate H0 frontier is therefore narrow source-to-live log-format
+reconciliation for the four P3.07 attribution domains. P3.07 did not decide
+whether EUD was active, what the initial clock returns were, or which QSCRATCH
+bits were retained. No new F1 candidate should be selected until the exact
+`0x6013` trigger can be identified or the observer can retain a bounded
+discriminator without weakening fail-closed parsing.
 
-The 10 frozen P3.07 SOURCE_KEYS still match their intent. Userspace reproduced
-twice; boot/AP candidate A/B are byte-identical, with boot SHA256
-`d9eec352...` and AP SHA256 `ca70e692...`. The independent artifact checker,
-linked QSCRATCH audit, Process-v2 promotion, canonical 2,761-byte ready manifest
-`754c1ab7...`, and runner host preflight bundle `d9385e82...` pass. Focused
-P3.07/Process-v2 tests are 12/12 and the touched common evidence/runner suites
-are 53/53. F1 remains unarmed pending the one required focused review of the
-new telemetry and Process-v2 recognition; no connected command or A90 action
-occurred during this H0 preparation.
+P3.06 remains the preceding successful telemetry unit. Its exact `0xD79` then
+`0x42D6` pair proves B-session-valid set, inputs BSV, start-gadget, and
+peripheral occurred in order, while the exact ACM endpoint still timed out.
+Together with P2.98 gadget-start/EP0/run-stop and P3.01-r1 SUSPEND evidence,
+the current device boundary remains after the wrapper sequence and before
+candidate enumeration reaches the host.
 
 P3.04 is the preceding closed live unit. After one pre-candidate host-observer
 arm stop with zero transfers, a new prepared run transferred its distinct
