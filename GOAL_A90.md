@@ -150,7 +150,21 @@ The pre-H2 goal history is preserved at
 - Independent review returned `PASS_GO` for corrected H6 full thirteen-file
   closure `b9f4ddb19d177506bd2d271b50b1e7c305ebe74d1647d0dacbe3dd711a373c70`
   with HIGH/MEDIUM zero and 367 tests passing. No device, USB, private, or
-  S22+ reviewer contact occurred. No H6 connected D0, staging, candidate
+  S22+ reviewer contact occurred.
+- Fresh connected D0 for run `a90-v3406-debian-display-f1-20260807-01` passed
+  after an H0-only direct-USB observer-route repair. It re-proved exact H5
+  `0.11.173`, self-test `11/1/0`, pstore zero, exact H6 candidate and rollback,
+  and absent H6 rootfs/work/stage destinations. D0 and path-preflight receipt
+  SHA256 values are `50fcd36ecb6dc7fb421eed7b2a821b7bea9680f64b59f603930b56de3a1d8848`
+  and `6493244c0ab1dbc0351750ac1e1bc29b913e3a4eaacab4e3425d798feec12ffd`.
+  The failed route check issued no device command; the successful D0 issued
+  reads only. S22+ was untouched.
+- H6 immutable host preparation and resident-install compatibility binding are
+  complete. The resident manifest SHA256 is
+  `ef65322de1aa5d45b83a71b134b5cd5ea01aefd5cde706a58d1d20f2323b2091`
+  and the approval-binding SHA256 is
+  `6f5edde21ac92feb6bade8a67173c6a5b251994bec8d30288a16ba21252aa915`.
+  This H0 preparation grants no live authority. No H6 staging, candidate
   transfer, flash, reboot, or D1 action has occurred yet; H5 remains exact and
   terminal.
 
@@ -271,11 +285,11 @@ bounded work is:
    fixed twenty-file set, reclaimed 40370236 KiB, and preserved exact H5;
    never reuse its capability receipt or infer restore authority from host
    recovery bytes;
-4. commit the corrected H6 closure, then use fresh connected D0 to prove exact
-   H5 health, exact candidate and rollback, and absent H6 rootfs/work/stage and
-   enable/latch paths;
-5. while the operator is attended with Download or TWRP recovery available,
-   prepare one fresh immutable H6 resident binding and permit at most one
+4. retain the committed corrected H6 closure and fresh connected D0 proof of
+   exact H5 health, exact candidate and rollback, and absent H6
+   rootfs/work/stage and enable/latch paths;
+5. retain the fresh immutable H6 resident binding, then while the operator is
+   attended with Download or TWRP recovery available permit at most one
    boot-only candidate transfer with no replay and exact rollback on failure;
 6. from exact unarmed H6 resident health, run one new D1 automatic-handoff
    ordinal through the repaired observer and close Debian PID 1, SSH, service
