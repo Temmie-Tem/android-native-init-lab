@@ -95,7 +95,7 @@ REQUIRED_FIELDS = ("schema", "phase", "uptime_ms", "run")
 # so each mandatory phase names the facts it has to assert and the values that
 # count as asserted.
 PHASE_REQUIRED_FACTS = {
-    "debian_pid1": {"pid1_comm": ("init",), "proc1_exe": None},
+    "debian_pid1": {"pid1_comm": ("init",), "proc1_exe": ("/usr/sbin/init",)},
     "debian_sshd": {"dropbear": ("1",)},
     "debian_drm_master": {"drm_card0": ("char",), "display_ready": ("1",)},
 }
@@ -219,8 +219,10 @@ def evaluate(text: str, run: str) -> dict[str, Any]:
     identity is self-consistent, phase order is monotonic on the boottime axis,
     and nothing recorded a bad state.
     """
-    if not RUN_RE.match(run):
-        raise EvidenceError(f"run identity is not exact: {run!r}")
+    if not INTENT_RE.match(run):
+        raise EvidenceError(
+            f"run identity is not one arming intent_sha256: {run!r}"
+        )
     all_records = parse(text)
     records = select_run(all_records, run)
     phases = {record["phase"]: record for record in records}

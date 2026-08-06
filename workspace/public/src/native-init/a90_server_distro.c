@@ -2148,20 +2148,51 @@ static int d3_write_display_release_marker(
  */
 static int d3_bind_evidence_dir(bool *bound_out) {
     char dst[PATH_MAX];
+    struct stat st;
     int rc;
 
     if (bound_out != NULL) {
         *bound_out = false;
     }
-    rc = d3_mkdir_p(A90_D3_EVIDENCE_DIR, 0755);
-    if (rc < 0) {
-        a90_console_printf("%s evidence_bind=mkdir-fail rc=%d path=%s\r\n",
-                           A90_D3_IMMUTABLE_TAG, rc, A90_D3_EVIDENCE_DIR);
-        return rc;
+    /*
+     * Both ends must be real directories, not symlinks. d3_mkdir_p accepts an
+     * existing entry without checking its type, so a planted symlink at either
+     * end could redirect the bind to a wider runtime directory and carry it
+     * across the switch. Refuse rather than widen what crosses.
+     */
+    if (lstat(A90_D3_EVIDENCE_DIR, &st) == 0) {
+        if (!S_ISDIR(st.st_mode)) {
+            a90_console_printf("%s evidence_bind=src-not-directory path=%s\r\n",
+                               A90_D3_IMMUTABLE_TAG, A90_D3_EVIDENCE_DIR);
+            return -ENOTDIR;
+        }
+    } else if (errno != ENOENT) {
+        return -errno;
+    } else {
+        rc = d3_mkdir_p(A90_D3_EVIDENCE_DIR, 0755);
+        if (rc < 0) {
+            a90_console_printf("%s evidence_bind=mkdir-fail rc=%d path=%s\r\n",
+                               A90_D3_IMMUTABLE_TAG, rc, A90_D3_EVIDENCE_DIR);
+            return rc;
+        }
     }
     rc = d3_join(dst, sizeof(dst), A90_D3_ROOT, A90_D3_EVIDENCE_LEAF);
     if (rc < 0) {
         return rc;
+    }
+    if (lstat(dst, &st) < 0 || !S_ISDIR(st.st_mode)) {
+        a90_console_printf("%s evidence_bind=dst-not-directory path=%s\r\n",
+                           A90_D3_IMMUTABLE_TAG, dst);
+        return -ENOTDIR;
+    }
+    /*
+     * Make the source private before the new mount event so the bind cannot
+     * propagate anywhere the review could not account for.
+     */
+    if (mount(NULL, A90_D3_EVIDENCE_DIR, NULL, MS_PRIVATE, NULL) < 0
+        && errno != EINVAL) {
+        a90_console_printf("%s evidence_bind=private-fail errno=%d\r\n",
+                           A90_D3_IMMUTABLE_TAG, errno);
     }
     if (mount(A90_D3_EVIDENCE_DIR, dst, NULL, MS_BIND, NULL) < 0) {
         a90_console_printf("%s evidence_bind=fail errno=%d src=%s dst=%s\r\n",

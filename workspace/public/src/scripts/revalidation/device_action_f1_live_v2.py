@@ -300,7 +300,10 @@ def _binding(
 def _p300_bundle(bundle: core.Bundle) -> bool:
     return (
         bundle.manifest["observation"]["acceptance"].get("source_contract_id")
-        == typed_evidence.P300_SOURCE_CONTRACT_ID
+        in {
+            typed_evidence.P300_SOURCE_CONTRACT_ID,
+            typed_evidence.P310_SOURCE_CONTRACT_ID,
+        }
     )
 
 

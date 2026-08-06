@@ -60,7 +60,7 @@ PHASE2_BUILDER_SHA256 = (
 )
 SERVICE_TARGET = "/usr/local/sbin/a90-debian-network-ssh-v1"
 SERVICE_SHA256 = (
-    "6aa2825913f4abd4cf85ae7b68d37fda9dfa35f5dc21461ce4258f54e59fa260"
+    "288c2f752418eab7890974d40ad9ba745c1f26cfbfa6f644454a1b50ba04c57a"
 )
 FIRSTBOOT_TARGET = "/etc/a90-d3-firstboot"
 FIRSTBOOT_SHA256 = (

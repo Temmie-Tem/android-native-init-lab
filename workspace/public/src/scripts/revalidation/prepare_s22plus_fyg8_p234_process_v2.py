@@ -329,8 +329,11 @@ def derive(
         "observation_contract": {
             "accepted_identity": (
                 "P301_TELEMETRY_RETAINED"
-                if userspace_overlay_contract_id
-                in evidence.P301_TELEMETRY_OVERLAY_IDS
+                if (
+                    userspace_overlay_contract_id
+                    in evidence.P301_TELEMETRY_OVERLAY_IDS
+                    or source_contract_id == evidence.P310_SOURCE_CONTRACT_ID
+                )
                 else f"{profile}_TERMINAL_SUCCESS_REACHED"
             ),
             "minimum_success_count": 1,

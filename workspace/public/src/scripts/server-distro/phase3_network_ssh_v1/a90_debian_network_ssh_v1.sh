@@ -328,156 +328,8 @@ if [ -x /run/a90-debian-ondevice-evidence-hook-v1 ]; then
   /run/a90-debian-ondevice-evidence-hook-v1 >/dev/null 2>&1 &
 fi
 
-# On-device same-ordinal evidence, unpacked to tmpfs and backgrounded.
-# Generated from a90_ondevice_evidence_v1.service_block(); do not edit here.
-# Never gating: every failure path leaves the boot alone, because the
-# instrument must not become one more way for a defect to kill an ordinal.
-cat > /run/a90-ondevice-evidence-v1 <<'A90_ONDEV_EOF' || true
-#!/bin/sh
-# a90-ondevice-evidence-v1 -- append one durable evidence line and exit.
-# Generated from a90_ondevice_evidence_v1.writer_script(); do not edit in place.
-set -u
-
-RECORD=/mnt/sdext/a90/runtime/a90-ondevice-evidence-v1.log
-RUN_FILE=/mnt/sdext/a90/runtime/a90-ondevice-evidence-run
-PHASE=${1:-}
-RUN=${2:-}
-
-[ -n "$PHASE" ] || exit 2
-
-# The rootfs hook only has to know the phase. native-init published the run
-# identity beside the record before it dispatched this handoff.
-if [ -z "$RUN" ] && [ -r "$RUN_FILE" ]; then
-    RUN=$(tr -d '\r\n\t ' < "$RUN_FILE" 2>/dev/null)
-fi
-[ -n "$RUN" ] || exit 2
-
-# /proc/uptime is centisecond CLOCK_BOOTTIME, the same axis native-init stamps
-# its benchmark markers on. Leading zeros are stripped by hand because bash's
-# 10# base prefix is not POSIX and silently yields an empty stamp under dash --
-# which is what Debian's /bin/sh actually is.
-uptime_ms() {
-    read -r _up _idle < /proc/uptime 2>/dev/null || { echo na; return; }
-    case "$_up" in
-        *.*) _sec=${_up%%.*}; _cs=${_up#*.}; _cs=${_cs%%[!0-9]*} ;;
-        *) _sec=$_up; _cs=0 ;;
-    esac
-    case "$_sec" in ''|*[!0-9]*) echo na; return ;; esac
-    [ -n "$_cs" ] || _cs=0
-    while [ ${#_cs} -gt 1 ]; do
-        case "$_cs" in 0*) _cs=${_cs#0} ;; *) break ;; esac
-    done
-    echo $(( _sec * 1000 + _cs * 10 ))
-}
-
-# Values become key=value tokens, so any whitespace inside one would split the
-# record. Strip it here rather than trusting every source path.
-read_or_na() {
-    _v=""
-    if [ -r "$1" ]; then
-        _v=$(tr -d '\r\n\t ' < "$1" 2>/dev/null)
-    fi
-    [ -n "$_v" ] || _v=na
-    printf '%s\n' "$_v"
-}
-
-exists_flag() {
-    if [ -e "$1" ]; then echo 1; else echo 0; fi
-}
-
-dropbear_listening() {
-    for _f in /proc/net/tcp /proc/net/tcp6; do
-        [ -r "$_f" ] || continue
-        # local_address is field 2 as ADDR:PORT, state 0A is LISTEN.
-        if awk -v p=":08AE" '$2 ~ p"$" && $4 == "0A" { found = 1 }
-                 END { exit !found }' "$_f" 2>/dev/null; then
-            echo 1
-            return
-        fi
-    done
-    echo 0
-}
-
-drm_card0() {
-    if [ -c /dev/dri/card0 ]; then echo char; else echo absent; fi
-}
-
-PID1_COMM=$(read_or_na /proc/1/comm)
-PROC1_EXE=$(readlink /proc/1/exe 2>/dev/null | tr -d '\r\n\t ')
-[ -n "$PROC1_EXE" ] || PROC1_EXE=na
-
-LINE="A90OBSREC schema=a90-ondevice-evidence-v1"
-LINE="$LINE phase=$PHASE"
-LINE="$LINE uptime_ms=$(uptime_ms)"
-LINE="$LINE run=$RUN"
-LINE="$LINE pid1_comm=$PID1_COMM"
-LINE="$LINE proc1_exe=$PROC1_EXE"
-LINE="$LINE drm_card0=$(drm_card0)"
-LINE="$LINE drm_master=$(exists_flag /run/a90-display/ready)"
-LINE="$LINE dropbear=$(dropbear_listening)"
-LINE="$LINE display_ready=$(exists_flag /run/a90-display/ready)"
-LINE="$LINE display_failure=$(exists_flag /run/a90-display/failure)"
-
-mkdir -p "$(dirname "$RECORD")" 2>/dev/null || true
-# One append, one line, then sync. A truncated tail from power loss is a
-# discarded line on the read side, never a rejected record.
-printf '%s\n' "$LINE" >> "$RECORD" 2>/dev/null || exit 1
-sync 2>/dev/null || true
-exit 0
-A90_ONDEV_EOF
-chmod 0755 /run/a90-ondevice-evidence-v1 2>/dev/null || true
-cat > /run/a90-debian-ondevice-evidence-hook-v1 <<'A90_ONDEV_EOF' || true
-#!/bin/sh
-# a90-debian-ondevice-evidence-hook-v1 -- record same-ordinal Debian facts.
-# Generated from a90_ondevice_evidence_v1.hook_script(); do not edit in place.
-set -u
-PATH=/usr/sbin:/usr/bin:/sbin:/bin
-
-COLLECT=/run/a90-ondevice-evidence-v1
-[ -x "$COLLECT" ] || exit 0
-
-record() { "$COLLECT" "$1" >/dev/null 2>&1 || true; }
-
-wait_for_any() {
-    _limit=$1
-    shift
-    _waited=0
-    while [ "$_waited" -lt "$_limit" ]; do
-        for _p in "$@"; do
-            [ -e "$_p" ] && return 0
-        done
-        _waited=$(( _waited + 1 ))
-        sleep 1
-    done
-    return 1
-}
-
-# PID 1 is Debian by the time sysinit runs this, so the first stamp needs no
-# wait.
-record debian_pid1
-
-# Each phase is stamped when its own signal arrives, in the order inittab
-# actually produces them: the network/SSH service is a blocking entry and the
-# display launcher runs after it. Waiting for the later signal first would
-# stamp the earlier phase at the wrong time and report a boot slower than it
-# was. Either outcome ends a wait -- a recorded failure is evidence, not a
-# reason to keep polling. The collector independently reads /proc/net/tcp for
-# the listener, so it and this signal do not share a failure mode.
-wait_for_any 90 /run/a90-services/ready /run/a90-services/failure || true
-record debian_sshd
-
-wait_for_any 90 /run/a90-display/ready /run/a90-display/failure || true
-record debian_drm_master
-
-exit 0
-A90_ONDEV_EOF
-chmod 0755 /run/a90-debian-ondevice-evidence-hook-v1 2>/dev/null || true
-if [ -x /run/a90-debian-ondevice-evidence-hook-v1 ]; then
-  /run/a90-debian-ondevice-evidence-hook-v1 >/dev/null 2>&1 &
-fi
-
-mkdir -p "$RUN_DIR" /root/.ssh /etc/dropbear || fail 81 runtime-directory
-chmod 0700 "$RUN_DIR" /root/.ssh || fail 81 runtime-directory-mode
+mkdir -p "$RUN_DIR" /etc/dropbear || fail 81 runtime-directory
+chmod 0700 "$RUN_DIR" || fail 81 runtime-directory-mode
 rm -f "$READY" "$READY_TMP" "$FAILURE" "$FAILURE_TMP"
 
 for tool in "$TIMEOUT" "$IP" "$SS" "$STAT" /usr/bin/dropbearkey /usr/sbin/dropbear; do
@@ -485,6 +337,10 @@ for tool in "$TIMEOUT" "$IP" "$SS" "$STAT" /usr/bin/dropbearkey /usr/sbin/dropbe
 done
 [ -e "/sys/class/net/$IFACE" ] || fail 83 ncm-interface-absent
 
+SSH_DIR_META=$("$STAT" -c '%u:%g:%a' /root/.ssh 2>/dev/null) || fail 89 ssh-dir-stat
+if [ "$SSH_DIR_META" != 0:0:700 ]; then
+  fail 89 ssh-dir-metadata
+fi
 [ ! -L "$AUTHORIZED_KEYS" ] || fail 89 authorized-keys-symlink
 [ -s "$AUTHORIZED_KEYS" ] || fail 89 authorized-keys-absent
 AUTH_META=$("$STAT" -c '%u:%g:%a' "$AUTHORIZED_KEYS" 2>/dev/null) || fail 89 authorized-keys-stat

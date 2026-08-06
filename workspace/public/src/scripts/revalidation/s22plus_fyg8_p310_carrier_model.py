@@ -27,7 +27,7 @@ LONG_RECORD_SIZE = 192
 LONG_HEADER_SIZE = 32
 SLOT_SIZE = 80
 SLOT_COUNT = 2
-SLOT_PAYLOAD_SIZE = 66
+SLOT_PAYLOAD_SIZE = 67
 REQUEST_PAYLOAD_SIZE = 64
 UNSAT_SIZE = 24
 RUN_ID_SIZE = 16
@@ -43,7 +43,7 @@ PROFILE_BY_NUMBER = {value: key for key, value in PROFILE_NUMBERS.items()}
 
 HEADER_PREFIX_STRUCT = struct.Struct("<8sBBH16s")
 HEADER_STRUCT = struct.Struct("<8sBBH16sI")
-SLOT_BODY_STRUCT = struct.Struct("<HBBBBBBH66s")
+SLOT_BODY_STRUCT = struct.Struct("<BBBBBBBH67s")
 REQUEST_V2_STRUCT = struct.Struct("<4sBBBBHBB16sI")
 REQUEST_V3_STRUCT = struct.Struct("<4sBBBBHBBB3s16s64sI")
 
@@ -119,7 +119,7 @@ def _validate_semantics(request: Request, generation: int) -> None:
 
 
 def model_run_id(profile: str = spec.PROFILE) -> bytes:
-    if profile != spec.PROFILE:
+    if profile not in PROFILE_NUMBERS:
         raise DesignError("unsupported model profile")
     return hashlib.sha256(b"S22PLUS-FYG8-P310-CARRIER-MODEL-V2\0" + profile.encode()).digest()[:16]
 
@@ -171,7 +171,7 @@ def _slot_crc(header: bytes, slot_id: int, body: bytes) -> int:
 
 
 def _slot_body(slot: Slot) -> bytes:
-    if slot.slot_id not in {0, 1} or not 0 <= slot.generation <= 0xFFFF:
+    if slot.slot_id not in {0, 1} or not 0 <= slot.generation <= 0xFF:
         raise DesignError("slot identity or generation is invalid")
     if (slot.generation & 1) != slot.slot_id:
         raise DesignError("slot parity differs from its generation")
@@ -382,12 +382,34 @@ def _inside(position: int, spans: Iterable[tuple[int, int]], *, allow_start: boo
     return any(start <= position < end and (allow_start or position != start) for start, end in spans)
 
 
+def _edge_family_partial(payload: bytes, families: tuple[bytes, ...]) -> bool:
+    """Reject a family cut by either edge of the bounded retained snapshot."""
+
+    for family in families:
+        for length in range(4, len(family)):
+            if (
+                not payload.startswith(family)
+                and payload.startswith(family[-length:])
+            ) or (
+                not payload.endswith(family)
+                and payload.endswith(family[:length])
+            ):
+                return True
+    return False
+
+
 def classify_clean_baseline(payload: bytes, *, expected_profile: str, expected_run_id: bytes) -> dict[str, Any]:
     del expected_profile, expected_run_id
     hits = {family.decode("ascii", "replace"): len(_positions(payload, family)) for family in ALL_FAMILIES}
-    if any(hits.values()):
-        raise DesignError("baseline contains a current or legacy evidence family")
-    return {"classification": "CLEAN_BASELINE", "family_hits": hits, "verified": True}
+    if any(hits.values()) or _edge_family_partial(payload, ALL_FAMILIES):
+        raise DesignError("baseline contains a current, legacy, or partial evidence family")
+    return {
+        "classification": "CLEAN_BASELINE",
+        "family_hits": hits,
+        "baseline_clean": True,
+        "integrity_issue": False,
+        "verified": True,
+    }
 
 
 def classify_observation(payload: bytes, *, expected_profile: str, expected_run_id: bytes) -> dict[str, Any]:
@@ -421,6 +443,8 @@ def classify_observation(payload: bytes, *, expected_profile: str, expected_run_
     }
     if any(legacy_outside.values()):
         integrity.append("legacy-or-foreign-evidence-family")
+    if _edge_family_partial(payload, ALL_FAMILIES):
+        integrity.append("partial-family-at-snapshot-edge")
     records = [row for _position, row in candidates]
     success_count = sum(row["terminal_success"] for row in records)
     failure_count = sum(row["active"]["outcome"] == OUTCOME_FAILURE for row in records)
@@ -466,6 +490,17 @@ def classify_observation(payload: bytes, *, expected_profile: str, expected_run_
             for start, end in spans for family in ALL_FAMILIES
         ),
         "records": records,
+        "residual_zero_meanings": (
+            [
+                "candidate or post-exec hook not reached",
+                "path, PID, target, layout, family, or CRC guard rejected",
+                "valid family with retained index below 24",
+                "entry initialization, flush, readback, or header check failed",
+                "later overwrite, loss, or observer failure",
+            ]
+            if classification == "ZERO_AMBIGUOUS"
+            else []
+        ),
     }
 
 

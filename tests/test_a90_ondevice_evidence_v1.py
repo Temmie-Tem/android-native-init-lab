@@ -24,7 +24,8 @@ if str(SCRIPT_DIR) not in sys.path:
 import a90_ondevice_evidence_v1 as evidence  # noqa: E402
 
 
-RUN = "a90-d1-attended-20260807-02"
+# The run identity is the arming intent_sha256, nothing looser.
+RUN = "0123456789abcdef" * 4
 
 
 def line(phase: str, uptime_ms: int, *, run: str = RUN, **overrides: str) -> str:
@@ -34,7 +35,7 @@ def line(phase: str, uptime_ms: int, *, run: str = RUN, **overrides: str) -> str
         "uptime_ms": str(uptime_ms),
         "run": run,
         "pid1_comm": "init",
-        "proc1_exe": "/sbin/init",
+        "proc1_exe": "/usr/sbin/init",
         "drm_card0": "char",
         "drm_master": "1",
         "dropbear": "1",
@@ -88,7 +89,7 @@ class PermissiveAboutShapeTest(unittest.TestCase):
     def test_cumulative_earlier_boots_are_not_contamination(self) -> None:
         # An exactly-one global rule once rejected legitimate cumulative
         # unarmed-boot logs, and that rejection burned an F1 candidate flash.
-        text = complete_record("a90-d1-attended-20260806-01") + complete_record()
+        text = complete_record("f" * 64) + complete_record()
         result = evidence.evaluate(text, RUN)
         self.assertTrue(result["proof"], result["reason"])
         self.assertEqual(result["records_total"], 6)
@@ -140,13 +141,17 @@ class StrictAboutStateTest(unittest.TestCase):
         self.assertIn("debian_drm_master", result["reason"])
 
     def test_recorded_display_failure_fails(self) -> None:
-        text = complete_record().replace(
-            "phase=debian_drm_master uptime_ms=133400 run=" + RUN
-            + " pid1_comm=init proc1_exe=/sbin/init drm_card0=char"
-            " drm_master=1 dropbear=1 display_ready=1 display_failure=0",
-            "phase=debian_drm_master uptime_ms=133400 run=" + RUN
-            + " pid1_comm=init proc1_exe=/sbin/init drm_card0=char"
-            " drm_master=1 dropbear=1 display_ready=0 display_failure=1",
+        text = "\n".join(
+            [
+                line("debian_pid1", 132_100),
+                line(
+                    "debian_drm_master",
+                    133_400,
+                    display_ready="0",
+                    display_failure="1",
+                ),
+                line("debian_sshd", 134_900),
+            ]
         )
         result = evidence.evaluate(text, RUN)
         self.assertFalse(result["proof"])
@@ -231,15 +236,37 @@ class StrictAboutStateTest(unittest.TestCase):
         self.assertIn("proc1_exe", result["reason"])
 
     def test_other_run_does_not_satisfy_this_run(self) -> None:
-        result = evidence.evaluate(complete_record("some-other-run"), RUN)
+        result = evidence.evaluate(complete_record("e" * 64), RUN)
         self.assertFalse(result["proof"])
         self.assertEqual(result["records_selected"], 0)
         self.assertEqual(list(result["missing_phases"]),
                          list(evidence.MANDATORY_PHASES))
 
     def test_malformed_run_identity_is_refused(self) -> None:
-        with self.assertRaises(evidence.EvidenceError):
-            evidence.evaluate(complete_record(), "run with spaces")
+        # The grading entry point must enforce the same strict identity the
+        # run file does; a permissive check here would let a loose --run
+        # select records it should never have matched.
+        for bad in ("run with spaces", "a90-d1-attended-20260807-02", "A" * 64):
+            with self.assertRaises(evidence.EvidenceError):
+                evidence.evaluate(complete_record(), bad)
+
+    def test_a_phase_line_with_no_health_fields_is_not_proof(self) -> None:
+        bare = "\n".join(
+            f"{evidence.MARKER}schema={evidence.SCHEMA} phase={phase} "
+            f"uptime_ms={100 + index} run={RUN}"
+            for index, phase in enumerate(evidence.MANDATORY_PHASES)
+        )
+        result = evidence.evaluate(bare, RUN)
+        self.assertFalse(result["proof"])
+        self.assertIn("carries no", result["reason"])
+
+    def test_a_wrong_pid1_executable_is_not_proof(self) -> None:
+        text = complete_record().replace(
+            "proc1_exe=/usr/sbin/init", "proc1_exe=/bin/sh", 1
+        )
+        result = evidence.evaluate(text, RUN)
+        self.assertFalse(result["proof"])
+        self.assertIn("proc1_exe=/bin/sh", result["reason"])
 
 
 class RunIdentityTest(unittest.TestCase):
@@ -477,9 +504,31 @@ class RootfsCarrierTest(unittest.TestCase):
     PROFILE = SCRIPT_DIR / "phase3_network_ssh_v1"
     SERVICE = PROFILE / "a90_debian_network_ssh_v1.sh"
 
-    def test_service_carries_the_generated_block_verbatim(self) -> None:
+    def test_service_carries_the_generated_block_exactly_once(self) -> None:
+        """A second copy silently defeats the first.
+
+        Restoring the service from git and re-inserting once left two blocks,
+        the later one still pointing at the old unreachable path, and it
+        overwrote the collector the earlier block had just unpacked.
+        """
         text = self.SERVICE.read_text(encoding="utf-8")
-        self.assertIn(evidence.service_block(), text)
+        block = evidence.service_block()
+        self.assertIn(block, text)
+        self.assertEqual(text.count(block), 1)
+        self.assertEqual(text.count("A90_ONDEV_EOF"), 4)
+        self.assertEqual(text.count(f"RECORD={evidence.DEFAULT_RECORD_PATH}"), 1)
+        self.assertNotIn("RECORD=/mnt/sdext/", text)
+
+    def test_service_does_not_chmod_the_read_only_root(self) -> None:
+        """chmod on /root/.ssh returns EROFS and the fatal handler kills it.
+
+        No writable-set probe can predict that: the path is not in the set and
+        must not be, since a tmpfs over /root/.ssh would hide authorized_keys.
+        """
+        text = self.SERVICE.read_text(encoding="utf-8")
+        self.assertNotIn('chmod 0700 "$RUN_DIR" /root/.ssh', text)
+        self.assertIn("SSH_DIR_META=", text)
+        self.assertIn("ssh-dir-metadata", text)
 
     def test_service_pin_matches_the_manifest(self) -> None:
         import hashlib

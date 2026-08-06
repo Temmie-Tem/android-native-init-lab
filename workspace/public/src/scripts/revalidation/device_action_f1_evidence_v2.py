@@ -44,6 +44,9 @@ import s22plus_fyg8_p307_telemetry_spec as p307_spec
 import s22plus_fyg8_p308_overlay_contract as p308_overlay
 import s22plus_fyg8_p308_telemetry_decoder as p308_decoder
 import s22plus_fyg8_p308_telemetry_spec as p308_spec
+import s22plus_fyg8_p310_e2_stock_closure as p310_e2_closure
+import s22plus_fyg8_p310_source_contract as p310_source_contract
+import s22plus_fyg8_p310_telemetry_decoder as p310_decoder
 
 
 MARKER_KIND = "retained_marker_after_rollback"
@@ -124,6 +127,13 @@ P300_CANDIDATE_STATIC_VERDICT = (
     "PASS_P300_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
 )
 P300_SOURCE_CONTRACT_ID = p300_e2_closure.source_contract.CONTRACT_ID
+P310_CANDIDATE_STATIC_SCHEMA = (
+    "s22plus_fyg8_p310_candidate_static_checker_v1"
+)
+P310_CANDIDATE_STATIC_VERDICT = (
+    "PASS_P310_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
+)
+P310_SOURCE_CONTRACT_ID = p310_source_contract.CONTRACT_ID
 P301_CANDIDATE_STATIC_SCHEMA = (
     "s22plus_fyg8_p301_candidate_static_checker_v1"
 )
@@ -314,6 +324,7 @@ def _candidate_base_files(
         P296_SOURCE_CONTRACT_ID,
         P298_SOURCE_CONTRACT_ID,
         P300_SOURCE_CONTRACT_ID,
+        P310_SOURCE_CONTRACT_ID,
     }:
         return expected
     driver_sources = getattr(
@@ -421,6 +432,18 @@ class EvidenceError(ValueError):
 def _selected_contract(
     source_contract_id: str | None, profile: str
 ) -> source_contracts.SelectedSourceContract:
+    if source_contract_id == P310_SOURCE_CONTRACT_ID:
+        try:
+            contract = p310_source_contract.require(source_contract_id, profile)
+        except p310_source_contract.SourceContractError as exc:
+            raise EvidenceError(str(exc)) from exc
+        return source_contracts.SelectedSourceContract(
+            module=p310_source_contract,
+            contract=contract,
+            implementation_verdict=p310_source_contract.IMPLEMENTATION_VERDICT,
+            source_check_run_id=p310_source_contract.SOURCE_CHECK_RUN_ID,
+            userspace_verdict=p310_source_contract.USERSPACE_VERDICT,
+        )
     if source_contract_id == P300_SOURCE_CONTRACT_ID:
         try:
             contract = p300_source_contract.require(source_contract_id, profile)
@@ -613,6 +636,8 @@ def _select_e2_closure(
         return p304_e2_closure
     if source_contract_id == P300_SOURCE_CONTRACT_ID:
         return p300_e2_closure.select(source_contract_id)
+    if source_contract_id == P310_SOURCE_CONTRACT_ID:
+        return p310_e2_closure.select(source_contract_id)
     if source_contract_id == P298_SOURCE_CONTRACT_ID:
         return p298_e2_closure.select(source_contract_id)
     if source_contract_id == P296_SOURCE_CONTRACT_ID:
@@ -640,6 +665,7 @@ def _e2_authority_context(source_contract_id: str | None, closure_api: Any):
         P296_SOURCE_CONTRACT_ID,
         P298_SOURCE_CONTRACT_ID,
         P300_SOURCE_CONTRACT_ID,
+        P310_SOURCE_CONTRACT_ID,
     }:
         return nullcontext()
     authority_context = getattr(closure_api, "_p286_authority_paths", None)
@@ -1131,7 +1157,12 @@ def validate_candidate_source_preimage(
         or nonce == "0" * 32
         or preimage.get("decoder_id") != selected_decoder.DECODER_ID
         or preimage.get("decoder_policy_id") != selected_decoder.POLICY_ID
-        or preimage.get("record_layout") != "S22E1L1-45-ab-crc32"
+        or preimage.get("record_layout")
+        != (
+            "S22E1L2-192-ab-header-slot-crc-payload64"
+            if source_contract_id == P310_SOURCE_CONTRACT_ID
+            else "S22E1L1-45-ab-crc32"
+        )
         or contract.get("identity_preimage_sha256") != preimage_sha256
         or hashlib.sha256(
             run_id_domain + _canonical(preimage)
@@ -1161,6 +1192,7 @@ def _generic_rootfs_module_closure(
         P296_SOURCE_CONTRACT_ID,
         P298_SOURCE_CONTRACT_ID,
         P300_SOURCE_CONTRACT_ID,
+        P310_SOURCE_CONTRACT_ID,
     }:
         return module_closure
     adapter_api = closure_api
@@ -1175,6 +1207,7 @@ def _generic_rootfs_module_closure(
         P296_SOURCE_CONTRACT_ID,
         P298_SOURCE_CONTRACT_ID,
         P300_SOURCE_CONTRACT_ID,
+        P310_SOURCE_CONTRACT_ID,
     }:
         inherited_p282 = getattr(closure_api, "p282", None)
         adapter_api = getattr(inherited_p282, "p280", None)
@@ -1187,6 +1220,7 @@ def _generic_rootfs_module_closure(
             P296_SOURCE_CONTRACT_ID: "P2.96",
             P298_SOURCE_CONTRACT_ID: "P2.98",
             P300_SOURCE_CONTRACT_ID: "P3.00",
+            P310_SOURCE_CONTRACT_ID: "P3.10",
             e2_closure_selector.P284_CONTRACT_ID: "P2.84",
         }[source_contract_id]
     elif source_contract_id == e2_closure_selector.P282_CONTRACT_ID:
@@ -2411,6 +2445,9 @@ def _verify_e1_latest_stage_offline_contract(
         ),
         P300_SOURCE_CONTRACT_ID: (
             P300_CANDIDATE_STATIC_SCHEMA, P300_CANDIDATE_STATIC_VERDICT
+        ),
+        P310_SOURCE_CONTRACT_ID: (
+            P310_CANDIDATE_STATIC_SCHEMA, P310_CANDIDATE_STATIC_VERDICT
         ),
     }
     expected_candidate_static_schema, expected_candidate_static_verdict = (
@@ -3956,12 +3993,20 @@ def classify_e1_latest_stage(
     model = selected_decoder.model
     long_family_count = payload.count(model.LONG_FAMILY)
     unsat_family_count = payload.count(model.UNSAT_FAMILY)
-    family_count = long_family_count + unsat_family_count
+    carrier_v2 = item.get("source_contract_id") == P310_SOURCE_CONTRACT_ID
+    family_count = (
+        decoded["family_count"]
+        if carrier_v2
+        else long_family_count + unsat_family_count
+    )
     exact_record_count = decoded["long_record_count"] + decoded["unsat_count"]
     accepted_count = (
         decoded.get("telemetry_count", 0)
-        if item.get("userspace_overlay_contract_id")
-        in P301_TELEMETRY_OVERLAY_IDS
+        if (
+            item.get("userspace_overlay_contract_id")
+            in P301_TELEMETRY_OVERLAY_IDS
+            or carrier_v2
+        )
         else decoded["success_count"]
     )
     result = _base_classification(
@@ -3971,7 +4016,11 @@ def classify_e1_latest_stage(
         integrity_issue=decoded["integrity_issue"],
     )
     result["exact_record_count"] = exact_record_count
-    result["foreign_count"] = max(0, family_count - exact_record_count)
+    result["foreign_count"] = (
+        decoded["foreign_count"]
+        if carrier_v2
+        else max(0, family_count - exact_record_count)
+    )
     result["baseline_absent"] = decoded["classification"] == "ZERO_AMBIGUOUS"
     result["acceptance_present"] = decoded["accepted"]
     result["accepted"] = decoded["accepted"]
@@ -3981,7 +4030,10 @@ def classify_e1_latest_stage(
     result["progress_count"] = decoded["progress_count"]
     result["failure_count"] = decoded["failure_count"]
     result["success_count"] = decoded["success_count"]
-    if item.get("userspace_overlay_contract_id") in P301_TELEMETRY_OVERLAY_IDS:
+    if (
+        item.get("userspace_overlay_contract_id") in P301_TELEMETRY_OVERLAY_IDS
+        or carrier_v2
+    ):
         result["telemetry_count"] = decoded["telemetry_count"]
         result["contradiction_count"] = decoded["contradiction_count"]
         if "degraded_count" in decoded:

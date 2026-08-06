@@ -40,6 +40,9 @@
 #define A90_AUTO_HANDOFF_EVIDENCE_PATH \
     "/mnt/sdext/a90/runtime/evidence/a90-ondevice-evidence-v1.log"
 #endif
+#ifndef A90_AUTO_HANDOFF_EVIDENCE_DIR
+#define A90_AUTO_HANDOFF_EVIDENCE_DIR "/mnt/sdext/a90/runtime/evidence"
+#endif
 #ifndef A90_AUTO_HANDOFF_EVIDENCE_RUN_PATH
 #define A90_AUTO_HANDOFF_EVIDENCE_RUN_PATH \
     "/mnt/sdext/a90/runtime/evidence/a90-ondevice-evidence-run"
@@ -346,11 +349,40 @@ int a90_auto_handoff_arm_cmd(char **argv, int argc) {
  * not become one more way for a host-side defect to kill an ordinal -- that is
  * the disease being cured, not a tool to reach for.
  */
+/* mkdir -p for the one fixed evidence directory, symlink-hostile. */
+static int a90_auto_handoff_mkdir_evidence_dir(void) {
+    static const char *const parts[] = {
+        "/mnt/sdext", "/mnt/sdext/a90", "/mnt/sdext/a90/runtime",
+        A90_AUTO_HANDOFF_EVIDENCE_DIR,
+    };
+    size_t index;
+
+    for (index = 0; index < sizeof(parts) / sizeof(parts[0]); ++index) {
+        struct stat st;
+
+        if (mkdir(parts[index], 0755) == 0) {
+            continue;
+        }
+        if (errno != EEXIST) {
+            return -errno;
+        }
+        if (lstat(parts[index], &st) < 0) {
+            return -errno;
+        }
+        /* A symlink here would redirect both the record and the later bind. */
+        if (!S_ISDIR(st.st_mode)) {
+            return -ENOTDIR;
+        }
+    }
+    return 0;
+}
+
 static int a90_auto_handoff_publish_evidence_run(const char *intent_sha256) {
     char line[66];
     int fd;
     int length;
     ssize_t written;
+    int rc;
 
     if (!a90_auto_handoff_hex64_valid(intent_sha256)) {
         return -EINVAL;
@@ -358,6 +390,10 @@ static int a90_auto_handoff_publish_evidence_run(const char *intent_sha256) {
     length = snprintf(line, sizeof(line), "%s\n", intent_sha256);
     if (length < 0 || (size_t)length >= sizeof(line)) {
         return -EINVAL;
+    }
+    rc = a90_auto_handoff_mkdir_evidence_dir();
+    if (rc < 0) {
+        return rc;
     }
     fd = open(A90_AUTO_HANDOFF_EVIDENCE_RUN_PATH,
               O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
@@ -420,7 +456,12 @@ static int a90_auto_handoff_replay_ondevice_evidence(void) {
         return -EINVAL;
     }
     if (st.st_size > (off_t)A90_ONDEV_EVIDENCE_TAIL_MAX) {
-        start = st.st_size - (off_t)A90_ONDEV_EVIDENCE_TAIL_MAX;
+        /* One byte earlier so the preceding newline is visible: without it a
+         * tail landing exactly on a line boundary discards a whole record. */
+        start = st.st_size - (off_t)A90_ONDEV_EVIDENCE_TAIL_MAX - 1;
+        if (start < 0) {
+            start = 0;
+        }
     }
     if (lseek(fd, start, SEEK_SET) == (off_t)-1) {
         close(fd);
@@ -448,12 +489,16 @@ static int a90_auto_handoff_replay_ondevice_evidence(void) {
 
     cursor = buffer;
     /* A tail read starts mid-line; that leading fragment is not a record. */
-    if (start > 0 && buffer[0] != '\n') {
-        char *first = strchr(cursor, '\n');
+    if (start > 0) {
+        /* buffer[0] is the byte before the tail. A newline there means the
+         * next character already begins a complete line. */
+        if (buffer[0] == '\n') {
+            ++cursor;
+        } else {
+            char *first = strchr(cursor, '\n');
 
-        cursor = (first == NULL) ? buffer + consumed : first + 1;
-    } else if (start > 0) {
-        ++cursor;
+            cursor = (first == NULL) ? buffer + consumed : first + 1;
+        }
     }
     while (*cursor != '\0' && emitted < A90_ONDEV_EVIDENCE_LINES_MAX) {
         char *end = strchr(cursor, '\n');

@@ -23,7 +23,7 @@ def _replace_between(value: bytes, start: bytes, end: bytes, replacement: bytes)
 DEFINITIONS = b'''+#define S22_FYG8_E1_LONG_SIZE\t\t192U
 +#define S22_FYG8_E1_HEADER_SIZE\t\t32U
 +#define S22_FYG8_E1_SLOT_SIZE\t\t80U
-+#define S22_FYG8_E1_SLOT_PAYLOAD_SIZE\t66U
++#define S22_FYG8_E1_SLOT_PAYLOAD_SIZE\t67U
 +#define S22_FYG8_E1_REQUEST_PAYLOAD_SIZE 64U
 +#define S22_FYG8_E1_UNSAT_SIZE\t\t24U
 +#define S22_FYG8_E1_REQUEST_V2_SIZE\t32U
@@ -52,7 +52,7 @@ DEFINITIONS = b'''+#define S22_FYG8_E1_LONG_SIZE\t\t192U
 +};
 +
 +struct s22_fyg8_e1_slot {
-+\t__le16 generation;
++\tu8 generation;
 +\tu8 stage;
 +\tu8 outcome;
 +\tu8 item_index;
@@ -98,12 +98,12 @@ DEFINITIONS = b'''+#define S22_FYG8_E1_LONG_SIZE\t\t192U
 +\t__le32 crc32;
 +} __packed;
 +
-+struct s22_fyg8_e1_request_view {
++struct s22_fyg8_e1_request {
 +\tu8 profile;
 +\tu8 stage;
 +\tu8 outcome;
 +\tu8 item_index;
-+\tu16 detail;
++\t__le16 detail;
 +\tu8 payload_kind;
 +\tu8 payload_len;
 +\tu8 run_id[16];
@@ -142,7 +142,7 @@ FAMILY_VALIDATION = b'''+static u32 s22_fyg8_e1_header_crc(const u8 header[32]);
 +
 +static bool s22_fyg8_e1_header_valid(const u8 header[32])
 +{
-+\tu32 recorded;
++\t__le32 recorded;
 +\tu32 expected;
 +
 +\tif (memcmp(header, s22_fyg8_e1_long_family,
@@ -154,7 +154,7 @@ FAMILY_VALIDATION = b'''+static u32 s22_fyg8_e1_header_crc(const u8 header[32]);
 +\t\treturn false;
 +\tmemcpy(&recorded, &header[28], sizeof(recorded));
 +\texpected = s22_fyg8_e1_header_crc(header);
-+\treturn recorded && recorded == expected;
++\treturn recorded && le32_to_cpu(recorded) == expected;
 +}
 +
 +static bool s22_fyg8_e1_record_families_allowed(const u8 record[192])
@@ -221,7 +221,7 @@ CRC_AND_SLOT = b'''+static u32 s22_fyg8_e1_crc32(const void *data, size_t size)
 +}
 +
 +static bool s22_fyg8_e1_build_slot(struct s22_fyg8_e1_slot *slot,
-+\t\tu8 slot_id, u16 generation, u8 stage, u8 outcome,
++\t\tu8 slot_id, u8 generation, u8 stage, u8 outcome,
 +\t\tu8 item_index, u16 detail, u8 payload_kind, u8 payload_len,
 +\t\tconst u8 *payload, const u8 header[32])
 +{
@@ -234,7 +234,7 @@ CRC_AND_SLOT = b'''+static u32 s22_fyg8_e1_crc32(const void *data, size_t size)
 +\t\t\t payload_kind != S22_FYG8_E1_PAYLOAD_RAW_EXCERPT))
 +\t\treturn false;
 +\tmemset(slot, 0, sizeof(*slot));
-+\tslot->generation = cpu_to_le16(generation);
++\tslot->generation = generation;
 +\tslot->stage = stage;
 +\tslot->outcome = outcome;
 +\tslot->item_index = item_index;
@@ -254,11 +254,11 @@ CRC_AND_SLOT = b'''+static u32 s22_fyg8_e1_crc32(const void *data, size_t size)
 
 
 REQUEST_ALLOWED = b'''+static noinline __used bool s22_fyg8_e1_request_allowed(
-+\t\tconst struct s22_fyg8_e1_request_view *request)
++\t\tconst struct s22_fyg8_e1_request *request)
 +{
 +\tconst u8 *sequence;
 +\tsize_t count;
-+\tsize_t ordinal = le16_to_cpu(s22_fyg8_e1_state.active.generation);
++\tsize_t ordinal = s22_fyg8_e1_state.active.generation;
 +\tu8 expected_item;
 +
 +\tsequence = s22_fyg8_e1_sequence(request->profile, &count);
@@ -270,7 +270,7 @@ REQUEST_ALLOWED = b'''+static noinline __used bool s22_fyg8_e1_request_allowed(
 +\t\treturn false;
 +\treturn s22_fyg8_e1_detail_allowed(
 +\t\trequest->profile, ordinal, count, request->outcome,
-+\t\trequest->detail);
++\t\tle16_to_cpu(request->detail));
 +}
 +
 '''
@@ -374,7 +374,7 @@ RECORD_AND_WRITE = b'''+static void s22_fyg8_e1_record_entry(const char *init_fi
 +}
 +
 +static int s22_fyg8_e1_read_request(const char __user *buffer,
-+\t\tsize_t count, struct s22_fyg8_e1_request_view *view)
++\t\tsize_t count, struct s22_fyg8_e1_request *view)
 +{
 +\tu32 expected;
 +
@@ -394,7 +394,7 @@ RECORD_AND_WRITE = b'''+static void s22_fyg8_e1_record_entry(const char *init_fi
 +\t\tview->stage = request.stage;
 +\t\tview->outcome = request.outcome;
 +\t\tview->item_index = request.item_index;
-+\t\tview->detail = le16_to_cpu(request.detail);
++\t\tview->detail = request.detail;
 +\t\tmemcpy(view->run_id, request.run_id, sizeof(view->run_id));
 +\t\treturn 0;
 +\t}
@@ -419,7 +419,7 @@ RECORD_AND_WRITE = b'''+static void s22_fyg8_e1_record_entry(const char *init_fi
 +\t\tview->stage = request.stage;
 +\t\tview->outcome = request.outcome;
 +\t\tview->item_index = request.item_index;
-+\t\tview->detail = le16_to_cpu(request.detail);
++\t\tview->detail = request.detail;
 +\t\tview->payload_kind = request.payload_kind;
 +\t\tview->payload_len = request.payload_len;
 +\t\tmemcpy(view->run_id, request.run_id, sizeof(view->run_id));
@@ -439,12 +439,12 @@ RECORD_AND_WRITE = b'''+static void s22_fyg8_e1_record_entry(const char *init_fi
 +static ssize_t s22_fyg8_e1_write(struct file *file,
 +\t\tconst char __user *buffer, size_t count, loff_t *position)
 +{
-+\tstruct s22_fyg8_e1_request_view request;
++\tstruct s22_fyg8_e1_request request;
 +\tstruct s22_fyg8_e1_log_head *head;
 +\tstruct s22_fyg8_e1_record *record;
 +\tstruct s22_fyg8_e1_slot next;
 +\tstruct s22_fyg8_e1_record prospective;
-+\tu16 generation;
++\tu8 generation;
 +\tu8 next_slot;
 +\tint ret;
 +
@@ -479,10 +479,13 @@ RECORD_AND_WRITE = b'''+static void s22_fyg8_e1_record_entry(const char *init_fi
 +\t\treturn -ESTALE;
 +
 +\tnext_slot = s22_fyg8_e1_state.active_slot ^ 1U;
-+\tgeneration = le16_to_cpu(s22_fyg8_e1_state.active.generation) + 1U;
-+\tif (!generation || !s22_fyg8_e1_build_slot(&next, next_slot,
++\tif (s22_fyg8_e1_state.active.generation == 0xff)
++\t\treturn -EOVERFLOW;
++\tgeneration = s22_fyg8_e1_state.active.generation + 1U;
++\tif (!s22_fyg8_e1_build_slot(&next, next_slot,
 +\t\t\tgeneration, request.stage, request.outcome, request.item_index,
-+\t\t\trequest.detail, request.payload_kind, request.payload_len,
++\t\t\tle16_to_cpu(request.detail), request.payload_kind,
++\t\t\trequest.payload_len,
 +\t\t\trequest.payload, s22_fyg8_e1_state.header))
 +\t\treturn -EKEYREJECTED;
 +\tmemcpy(&prospective, record, sizeof(prospective));
@@ -594,7 +597,6 @@ def transform(patch: bytes) -> bytes:
     )
     forbidden = (
         b'#define S22_FYG8_E1_LONG_SIZE\t\t45U',
-        b'struct s22_fyg8_e1_request {',
         b'S22PLUS-FYG8-P232-SLOT-V1',
     )
     if any(value.count(token) != 1 for token in required):

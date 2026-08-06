@@ -395,6 +395,15 @@ class Bundle:
 def _selected_candidate_source_contract(
     source_contract_id: str, profile: str
 ):
+    if source_contract_id == typed_evidence.P310_SOURCE_CONTRACT_ID:
+        import s22plus_fyg8_p310_candidate_intent as p310_intent
+
+        try:
+            return p310_intent.selected_source_contract_for_candidate(
+                source_contract_id, profile
+            )
+        except p310_intent.IntentError as exc:
+            raise F1V2Error(str(exc)) from exc
     if source_contract_id == typed_evidence.P300_SOURCE_CONTRACT_ID:
         import s22plus_fyg8_p300_candidate_intent as p300_intent
 
@@ -755,7 +764,10 @@ def execution_critical_source_receipts(
                     e1_latest_stage_sources[f"p290_support_{name}"] = (
                         candidate_intent.repo_root() / path
                     )
-            elif source_contract_id == typed_evidence.P300_SOURCE_CONTRACT_ID:
+            elif source_contract_id in {
+                typed_evidence.P300_SOURCE_CONTRACT_ID,
+                typed_evidence.P310_SOURCE_CONTRACT_ID,
+            }:
                 import s22plus_fyg8_p300_identity_tiers as p300_identity
 
                 try:
