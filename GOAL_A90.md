@@ -204,6 +204,19 @@ The pre-H2 goal history is preserved at
   self-test `11/1/0`, exact source, absent work, candidate count one, rollback
   count zero, and replay false. The ModemManager guard released without
   residue. S22+ was untouched. Run03 F1 is terminal and must never replay.
+- D1 run `a90-d1-attended-20260807-01` consumed the installed H6 ordinal with
+  one arm and one reboot. The exact automatic handoff completed and returned
+  H6 at `binding=1 enable=1 latch=1`; one post-return cleanup removed the work
+  copy and final resident health passed. Result SHA256
+  `921bfa253300d099b8df8e92506592e2fc306e95a90b20e44f674264c990d9a5`
+  is terminal `NO_PROOF_OBSERVER_RESIDENT_HEALTHY`, with no replay, payload,
+  partition write, flash, or S22+ command. Its complete 15-stage benchmark has
+  `handoff_total_ms=127738`: initial source SHA 37841 ms, post-display source
+  SHA 11432 ms, and work copy 77627 ms dominate. Debian PID 1, SSH, service
+  ownership, and display were not mechanically captured because the repaired
+  observer still evaluated bridge continuity while the bound A90 by-id was
+  absent; read-only reconciliation and the journal-bound cleanup tail restored
+  exact final health without another arm or reboot.
 
 ## Qualified Capabilities
 
@@ -328,10 +341,11 @@ bounded work is:
 5. retain terminal run01, host-rejected run02, and the terminal run03 resident
    PASS without replay or reuse; run03 installed H6 from one staged source and
    one boot-only candidate with rollback zero and exact final resident health;
-6. from exact unarmed H6 resident health, run one new D1 automatic-handoff
-   ordinal through the repaired observer and close Debian PID 1, SSH, service
-   ownership, display, native return, cleanup, latch, telemetry, and final
-   resident health together; and
+6. retain terminal H6 D1 run01 with arm/reboot exactly one and no replay; use
+   its complete timing baseline for performance diagnosis, but do not claim
+   Debian PID 1/SSH/display correctness from the failed observer; diagnose and
+   independently review the remaining bound-bridge observer defect in H0
+   before designing another candidate/marker namespace; and
 7. start Full-LTO comparison only after one observer-complete automatic
    handoff baseline closes Debian PID 1, SSH, display, return, cleanup, and
    resident health together.
