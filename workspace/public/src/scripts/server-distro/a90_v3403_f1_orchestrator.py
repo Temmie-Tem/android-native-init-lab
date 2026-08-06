@@ -105,16 +105,26 @@ STAGING_PATH = (SCRIPT_DIR / "a90_v3403_absent_only_staging.py").resolve()
 OBSERVATION_OUTPUT_MARKERS = (
     "source_sha phase=initial",
     "source_sha phase=post-display-cleanup",
-    "source_sha phase=work-copy",
-    "source_sha phase=post-copy-source",
-    "work_copy=ready",
+    # The work copy is gone: the source is mounted read-only and a fixed
+    # writable set is mounted over it, so there is no copy to hash and no
+    # copy to announce. These markers replace work-copy/post-copy-source and
+    # work_copy=ready, and they assert more than those did -- the probe has
+    # proved the root read-only and every writable path writable before the
+    # switch.
+    "writable_set=mounted",
+    "writable_set=verified root=read-only",
+    "evidence_bind=ok",
     "exec_switch_root_now",
 )
 F1_SERIAL_INPUT_MODE = "slow"
 F1_SERIAL_INPUT_CHAR_DELAY_SEC = 0.02
 F1_HANDOFF_MAX_PRE_READ_SEC = 5.0
-F1_HANDOFF_COPY_BOUND_SEC = 300
-F1_HANDOFF_SHA_PASS_COUNT = 4
+# The 2 GiB copy no longer happens, so its 300 s allowance would be pure
+# slack, and slack is not free: an over-provisioned budget cannot detect the
+# regression it exists to bound. Two full source hashes remain -- initial and
+# post-display -- instead of four passes.
+F1_HANDOFF_COPY_BOUND_SEC = 0
+F1_HANDOFF_SHA_PASS_COUNT = 2
 F1_HANDOFF_SHA_ALLOWANCE_PER_PASS_SEC = 90
 F1_HANDOFF_SWITCH_HELPER_BOUND_COUNT = 2
 F1_HANDOFF_SWITCH_HELPER_BOUND_SEC = 30

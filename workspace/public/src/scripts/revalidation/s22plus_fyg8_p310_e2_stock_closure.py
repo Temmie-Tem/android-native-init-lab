@@ -14,6 +14,8 @@ import s22plus_fyg8_p310_source_contract as source_contract
 SCHEMA = "s22plus_fyg8_p310_stock_closure_h0_v1"
 VERDICT = "PASS_P310_STOCK_CLOSURE_HOST_ONLY"
 ClosureError = parent.ClosureError
+_entrypoints = parent._entrypoints  # noqa: SLF001
+_validate_p282_authority_strings = parent._validate_p282_authority_strings  # noqa: SLF001
 
 
 @contextmanager

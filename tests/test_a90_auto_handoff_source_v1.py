@@ -8,9 +8,13 @@ import unittest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 NATIVE = REPO_ROOT / "workspace/public/src/native-init"
+# The current generation, not a historical one. Pinned to phase3-minimal-h
+# this test kept asserting H4's image, hash and latch, so the focused suite
+# could pass without ever validating the generation actually being built.
 MANIFEST = (
     REPO_ROOT
-    / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h/manifest.toml"
+    / "workspace/public/src/scripts/revalidation/a90_flat_builder"
+    / "versions/phase3-minimal-h7/manifest.toml"
 )
 
 
@@ -78,15 +82,32 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
         self.assertIn("candidate_authority = false", manifest)
         self.assertIn("-DA90_AUTO_HANDOFF_BENCHMARK_V1=1", manifest)
         self.assertIn(
-            "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260805-11.img",
+            "/mnt/sdext/a90/runtime/"
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260807-05.img",
             manifest,
         )
         self.assertIn(
-            "8b4bfd99a9324c0a32e76c837e33282afa79739fa32645e3303861e8928a33fa",
+            "b92a5437d3854b0f01e4b2acc4a241ad9c8ad8f0b17d7cc36e246d2fbb01d10a",
             manifest,
         )
-        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h4.enable", manifest)
-        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h4.done", manifest)
+        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h7.enable", manifest)
+        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h7.done", manifest)
+        self.assertIn('-DINIT_VERSION="0.11.175"', manifest)
+
+    def test_manifest_pins_the_read_only_source_and_evidence_strings(self) -> None:
+        """The builder verifies pinned strings against the built init.
+
+        So pinning them here is what makes "the mechanism is compiled in" a
+        checked fact rather than an assumption about the source tree.
+        """
+        manifest = MANIFEST.read_text(encoding="utf-8")
+        for pinned in (
+            "writable_set=verified root=read-only count=%u",
+            "writable_set=mounted count=%u",
+            "replayed lines=%d path=%s",
+            "run published intent_sha256=%s path=%s",
+        ):
+            self.assertIn(pinned, manifest)
 
 
 if __name__ == "__main__":

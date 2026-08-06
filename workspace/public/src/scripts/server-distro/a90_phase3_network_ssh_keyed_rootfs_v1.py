@@ -36,19 +36,19 @@ PRIVATE_ROOT = REPO_ROOT / "workspace/private"
 PRIVATE_RUN_BASE = PRIVATE_ROOT / "runs/server-distro"
 CLEAN_ROOT = (
     PRIVATE_ROOT
-    / "outputs/server-distro/a90-phase3-network-ssh-v1-ab-06-20260807"
+    / "outputs/server-distro/a90-phase3-network-ssh-v1-ab-07-20260807"
 )
 CLEAN_IMAGE = CLEAN_ROOT / "A/phase3-network-ssh-v1.img"
 CLEAN_RECEIPT = CLEAN_ROOT / "ab-receipt.json"
 CLEAN_IMAGE_SHA256 = (
-    "cffc2867c58b196a5f0a87fdef4d97515e3d492195b6ec939c33d0fa5aa7678c"
+    "481a899e8946ff65729f717a0acb5200474a8efe454ced1437426de7bf6b44ab"
 )
 CLEAN_RECEIPT_SHA256 = (
-    "318f29daeba9f453b3d5b1266ce6043be37ad9a4820fce3b1533a08a320e9432"
+    "64c13cb2b940a26529461a7050295035b6db6958956a47e6a232ef40d7f799c0"
 )
 PHASE3_MANIFEST = SCRIPT_DIR / "phase3_network_ssh_v1/manifest.toml"
 PHASE3_MANIFEST_SHA256 = (
-    "535093ed09548c62ad55c45a1f32bbbb18e9b4346ca3c25972303d3e39631059"
+    "b6a8eec9e0c5783c66c2ad777edbe3e67923edd5115560358ce55dfa2fbeef91"
 )
 PHASE3_BUILDER = SCRIPT_DIR / "prepare_phase3_network_ssh_v1_rootfs.py"
 PHASE3_BUILDER_SHA256 = (

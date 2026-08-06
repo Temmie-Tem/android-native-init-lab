@@ -23,6 +23,8 @@ import s22plus_fyg8_p308_telemetry_spec as spec  # noqa: E402
 import s22plus_fyg8_p309_generator as p309_generator  # noqa: E402
 import s22plus_fyg8_p310_candidate_contract as candidate_contract  # noqa: E402
 import s22plus_fyg8_p310_candidate_intent as intent  # noqa: E402
+import s22plus_fyg8_p310_build as kernel_build  # noqa: E402
+import s22plus_fyg8_p310_e2_stock_closure as stock_closure  # noqa: E402
 import s22plus_fyg8_p310_carrier_model as carrier  # noqa: E402
 import s22plus_fyg8_p310_generator as generator  # noqa: E402
 import s22plus_fyg8_p310_identity_tiers as identity  # noqa: E402
@@ -84,6 +86,18 @@ class P310IntegrationTests(unittest.TestCase):
             "s22plus-fyg8-p280-linked-audit-v1",
         )
         self.assertTrue(known_good["verified"])
+
+    def test_kernel_output_gate_is_bound_to_carrier_v2_families(self) -> None:
+        kernel_build._configure()  # noqa: SLF001
+        self.assertEqual(kernel_build.base.LONG_FAMILY, carrier.LONG_FAMILY)
+        self.assertEqual(kernel_build.base.UNSAT_FAMILY, carrier.UNSAT_FAMILY)
+
+    def test_pre_lto_private_stock_closure_entrypoints_are_forwarded(self) -> None:
+        self.assertIs(stock_closure._entrypoints, stock_closure.parent._entrypoints)  # noqa: SLF001
+        self.assertIs(
+            stock_closure._validate_p282_authority_strings,  # noqa: SLF001
+            stock_closure.parent._validate_p282_authority_strings,  # noqa: SLF001
+        )
 
     def test_generated_delta_is_carrier_only_and_keeps_corrected_descriptor(self) -> None:
         baseline = p309_generator.generate_bytes(

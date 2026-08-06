@@ -2465,6 +2465,7 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     bool work_owned = false;
     unsigned writable_mounted = 0;
     bool evidence_bound = false;
+    bool cleanup_clean = true;
     bool root_mounted = false;
     bool moved_proc = false;
     bool moved_sys = false;
@@ -2637,18 +2638,46 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     mounted_devpts = false;
 
 fail_before_move:
+    /*
+     * Cleanup outcomes were discarded here, so a leaked loop attachment or a
+     * surviving mount could poison the next ordinal while the run still
+     * reported source_unchanged. The image hash proves the source bytes; it
+     * says nothing about mount state, so record that separately.
+     */
     if (root_mounted) {
         if (umount2(A90_D3_ROOT, MNT_DETACH) == 0) {
             a90_console_printf("%s rootfs=unmounted-after-fail root=%s\r\n",
                                A90_D3_TAG, A90_D3_ROOT);
+            root_mounted = false;
+        } else {
+            cleanup_clean = false;
+            a90_console_printf("%s rootfs=unmount-fail root=%s errno=%d\r\n",
+                               A90_D3_TAG, A90_D3_ROOT, errno);
         }
     }
     if (loop_attached) {
-        (void)d3_detach_loop();
+        int detach_rc = d3_detach_loop();
+
+        if (detach_rc == 0) {
+            loop_attached = false;
+        } else {
+            cleanup_clean = false;
+            a90_console_printf("%s loop=detach-fail node=%s rc=%d\r\n",
+                               A90_D3_TAG, A90_D3_LOOP, detach_rc);
+        }
     }
     if (loop_created) {
-        (void)unlink(A90_D3_LOOP);
+        /* Only remove the node this run created, and only once it is free. */
+        if (loop_attached) {
+            cleanup_clean = false;
+        } else if (unlink(A90_D3_LOOP) < 0 && errno != ENOENT) {
+            cleanup_clean = false;
+            a90_console_printf("%s loop_node=unlink-fail node=%s errno=%d\r\n",
+                               A90_D3_TAG, A90_D3_LOOP, errno);
+        }
     }
+    a90_console_printf("%s mount_state_clean_after_failure=%d\r\n",
+                       A90_D3_IMMUTABLE_TAG, cleanup_clean ? 1 : 0);
 fail_immutable_source:
     (void)d3_remove_work_image(work_owned);
     if (d3_verify_source_sha(image, expected_sha, "after-failure") < 0) {

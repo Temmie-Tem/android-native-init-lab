@@ -7,7 +7,7 @@ candidate_authority = false
 random_seed = "a90-phase3-minimal-h7-readonly-source-ondevice-evidence-auto-benchmark"
 
 [init]
-closure_sha256 = "009d00662611b308fed51795b9e301ab78100738c0aed914a4424f31a16e9da3"
+closure_sha256 = "9d7fd5f7a433697dd8475bf6ba9664487a53b2ade8f063ae3c1937992585695d"
 cflags = [
   "-static",
   "-Os",
@@ -23,8 +23,8 @@ cflags = [
   '-DINIT_VERSION="0.11.175"',
   '-DINIT_BUILD="phase3-minimal-h7-readonly-source-ondevice-evidence-auto-benchmark"',
   '-DINIT_CREATOR="made by device owner"',
-  '-DA90_AUTO_HANDOFF_IMAGE="/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260807-04.img"',
-  '-DA90_AUTO_HANDOFF_IMAGE_SHA256="a27c2c6961263894ef0e30688d4e838fb2ac61dcb2a86d01085a0fc963ec27f0"',
+  '-DA90_AUTO_HANDOFF_IMAGE="/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260807-05.img"',
+  '-DA90_AUTO_HANDOFF_IMAGE_SHA256="b92a5437d3854b0f01e4b2acc4a241ad9c8ad8f0b17d7cc36e246d2fbb01d10a"',
   '-DA90_AUTO_HANDOFF_ENABLE_PATH="/cache/a90-auto-handoff-phase3-minimal-h7.enable"',
   '-DA90_AUTO_HANDOFF_LATCH_PATH="/cache/a90-auto-handoff-phase3-minimal-h7.done"',
   '-DA90_WIFI_TEST_BOOT_LABEL="v2807"',
