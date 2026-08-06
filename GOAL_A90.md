@@ -375,13 +375,36 @@ bounded work is:
    can reuse the already published immutable rootfs without payload transfer;
    the current target-contract absent-destination rule remains binding until an
    explicit reviewed change closes this design;
-8. keep local handoff I/O reduction separate: first prove a read-only rootfs
+8. bind the same-ordinal Debian facts to on-device durable evidence before the
+   next mount-architecture change. Three consecutive automatic-handoff ordinals
+   completed the handoff and returned exact resident health while the host lost
+   the proof to a different live-observation defect each time. The recurring
+   cause is not any single predicate: device-internal facts are being confirmed
+   through the host bridge, in real time, inside a timeout window, which turns a
+   durable fact into a transient race. The next rootfs generation must record
+   Debian PID 1 entry, DRM master acquisition, and Dropbear listen together with
+   `/proc/uptime` into an append-only durable record on the shared source medium.
+   After automatic return, native-init reads that record and folds it into the
+   benchmark log on the same `CLOCK_BOOTTIME` axis, which is continuous across
+   `switch_root` because the kernel is unchanged. The host role then reduces to
+   one dispatched intent, a wait for return, and a deadline-free read of durable
+   evidence. Live SSH observation is demoted to optional corroboration; its
+   failure alone must not make an ordinal `NO_PROOF_OBSERVER`. Debian writes and
+   native-init reads, so no component grades its own work, and the host still
+   proves resident identity and health independently after return. Facts about
+   the host-device link — bridge identity, USB enumeration, NCM binding — remain
+   host-observed, because there the host is the only possible observer. This
+   extends the existing journal, enable/latch, and benchmark evidence lane and
+   grants no partition, flash, or recovery authority. Land this instrument
+   before or with the work-copy replacement, never after it: a mount-architecture
+   change cannot be evaluated by an observer that has failed three times;
+9. keep local handoff I/O reduction separate: first prove a read-only rootfs
    plus narrowly writable bind-mount layout or another equally exact mechanism
    can replace the full work copy without weakening source integrity, cleanup,
    automatic return, or recovery; and
-9. start Full-LTO comparison only after one observer-complete automatic
-   handoff baseline closes Debian PID 1, SSH, display, return, cleanup, and
-   resident health together.
+10. start Full-LTO comparison only after one observer-complete automatic
+    handoff baseline closes Debian PID 1, SSH, display, return, cleanup, and
+    resident health together.
 
 An attended visibility confirmation may be appended as evidence for run09,
 but it cannot manufacture its missing mechanical PID1/SSH observation.
@@ -392,7 +415,8 @@ Do not start Full-LTO or other compiler optimization from an unmeasured state.
 The order is:
 
 ```text
-fresh automatic-handoff correctness
+on-device same-ordinal evidence
+-> fresh automatic-handoff correctness
 -> repeatable baseline benchmark
 -> workload and thermal/power interpretation
 -> one bounded build optimization such as Full-LTO
