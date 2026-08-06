@@ -1,0 +1,381 @@
+#!/usr/bin/env python3
+"""On-device durable evidence for same-ordinal Debian facts.
+
+Three consecutive automatic-handoff ordinals completed the handoff and returned
+exact resident health while the host lost the proof to a different
+live-observation defect each time. The recurring cause is not any single
+predicate: device-internal facts (Debian PID 1 identity, DRM/display, Dropbear)
+were confirmed *through the host bridge, in real time, inside a timeout window*,
+which turns a durable fact into a transient race.
+
+This module defines the replacement contract. Debian records those facts on the
+device, into an append-only durable record on the shared source medium. After
+automatic return, native-init reads the record back and folds it onto the same
+``CLOCK_BOOTTIME`` axis the benchmark markers already use -- the axis is
+continuous across ``switch_root`` because the kernel is unchanged. The host then
+dispatches one intent, waits for return, and reads durable evidence with no
+deadline.
+
+Producer and consumer live in this one module on purpose. ``writer_script()``
+emits the POSIX-sh collector that the rootfs profile installs, and ``parse``/
+``evaluate`` consume what it wrote. Keeping both here means the record format
+cannot drift between the side that writes it and the side that grades it.
+
+Line format mirrors the existing ``A90BENCH`` convention so the durable native
+log stays one uniform, line-oriented, key=value stream::
+
+    A90OBSREC schema=a90-ondevice-evidence-v1 phase=debian_pid1 uptime_ms=... ...
+
+Parsing is deliberately permissive about *shape* and strict about *state*. Every
+host-side observer defect that cost this campaign an ordinal was an
+over-specification of what normal device output looks like: an LF-only parser
+counting one exact CRLF line as zero, an exactly-one rule rejecting legitimate
+cumulative boot logs, an equality check rejecting intentional manifest
+enrichment. The rule adopted here is the inverse, and the tests pin it: a
+record may only fail on evidence of a bad state, never on the absence of an
+expected cosmetic shape.
+
+Host-only module. Touches no device and holds no device authority.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+import re
+import sys
+from typing import Any, Iterable
+
+
+MARKER = "A90OBSREC "
+SCHEMA = "a90-ondevice-evidence-v1"
+RESULT_SCHEMA = "a90-ondevice-evidence-result-v1"
+
+# Ordered. A record is complete only when all three are present for one run.
+MANDATORY_PHASES = (
+    "debian_pid1",
+    "debian_drm_master",
+    "debian_sshd",
+)
+
+# Written to the shared SD medium, deliberately *beside* the rootfs image and
+# never inside it. The work-copy replacement unit makes the rootfs read-only
+# with a narrow writable bind; an evidence path inside the image would go
+# read-only with it and silently kill the instrument exactly when the
+# mount-architecture change most needs grading.
+DEFAULT_RECORD_PATH = "/mnt/sdext/a90/runtime/a90-ondevice-evidence-v1.log"
+
+PHASE_RE = re.compile(r"^[a-z0-9_]+$")
+RUN_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
+IDENTITY_FIELDS = ("run", "pid1_comm", "proc1_exe")
+
+# Fields every well-formed line carries. Unknown extra keys are kept, never
+# rejected: forward compatibility is what "reject enrichment" got wrong.
+REQUIRED_FIELDS = ("schema", "phase", "uptime_ms", "run")
+TRISTATE_FIELDS = ("drm_card0", "drm_master", "dropbear", "display_ready",
+                   "display_failure")
+
+
+class EvidenceError(RuntimeError):
+    """The on-device evidence record is not exact."""
+
+
+def _iter_marker_payloads(text: str) -> Iterable[str]:
+    """Yield the payload of every marker line, CR/LF/CRLF alike.
+
+    Non-marker lines are skipped rather than rejected: the durable native log
+    is a cumulative, interleaved stream and always will be.
+    """
+    for line in text.replace("\r", "\n").splitlines():
+        marker_at = line.find(MARKER)
+        if marker_at >= 0:
+            yield line[marker_at + len(MARKER):].strip()
+
+
+def parse_line(payload: str) -> dict[str, str] | None:
+    """Parse one marker payload, or return ``None`` if it is not usable.
+
+    Returning ``None`` instead of raising is the power-loss contract: a record
+    truncated mid-write leaves a partial final line, and that must never
+    invalidate the complete lines in front of it.
+    """
+    if not payload:
+        return None
+    fields: dict[str, str] = {}
+    for token in payload.split():
+        if "=" not in token:
+            return None
+        key, value = token.split("=", 1)
+        if not key:
+            return None
+        fields[key] = value
+    if any(field not in fields for field in REQUIRED_FIELDS):
+        return None
+    if fields["schema"] != SCHEMA:
+        return None
+    if not PHASE_RE.match(fields["phase"]):
+        return None
+    if not RUN_RE.match(fields["run"]):
+        return None
+    try:
+        uptime_ms = int(fields["uptime_ms"], 10)
+    except ValueError:
+        return None
+    if uptime_ms < 0:
+        return None
+    fields["uptime_ms"] = str(uptime_ms)
+    return fields
+
+
+def parse(text: str) -> list[dict[str, str]]:
+    """Return every usable record line, in file order."""
+    records = []
+    for payload in _iter_marker_payloads(text):
+        parsed = parse_line(payload)
+        if parsed is not None:
+            records.append(parsed)
+    return records
+
+
+def _bad_state(records: list[dict[str, str]]) -> str | None:
+    """Return the first positively-recorded bad state, if any.
+
+    This is the only place a record is allowed to fail on content.
+    """
+    for record in records:
+        if record.get("display_failure") == "1":
+            return f"{record['phase']} recorded display_failure=1"
+        if record["phase"] == "debian_pid1" and record.get("pid1_comm") not in (
+            None,
+            "na",
+            "init",
+        ):
+            return f"debian_pid1 recorded pid1_comm={record['pid1_comm']}"
+        if record["phase"] == "debian_sshd" and record.get("dropbear") == "0":
+            return "debian_sshd recorded dropbear=0"
+        if record["phase"] == "debian_drm_master" and record.get(
+            "drm_card0"
+        ) == "absent":
+            return "debian_drm_master recorded drm_card0=absent"
+    return None
+
+
+def select_run(records: list[dict[str, str]], run: str) -> list[dict[str, str]]:
+    """Every record belonging to one run, in file order.
+
+    Cumulative records from earlier boots are expected and ignored here, not
+    treated as contamination.
+    """
+    return [record for record in records if record["run"] == run]
+
+
+def evaluate(text: str, run: str) -> dict[str, Any]:
+    """Grade the durable record for one run.
+
+    ``proof`` is true only when all mandatory phases are present for that run,
+    identity is self-consistent, phase order is monotonic on the boottime axis,
+    and nothing recorded a bad state.
+    """
+    if not RUN_RE.match(run):
+        raise EvidenceError(f"run identity is not exact: {run!r}")
+    all_records = parse(text)
+    records = select_run(all_records, run)
+    phases = {record["phase"]: record for record in records}
+
+    missing = [phase for phase in MANDATORY_PHASES if phase not in phases]
+    result: dict[str, Any] = {
+        "schema": RESULT_SCHEMA,
+        "run": run,
+        "records_total": len(all_records),
+        "records_selected": len(records),
+        "missing_phases": missing,
+        "phases": {
+            phase: dict(record)
+            for phase, record in sorted(phases.items())
+        },
+        "uptime_ms": {
+            phase: int(record["uptime_ms"])
+            for phase, record in sorted(phases.items())
+        },
+        "proof": False,
+        "reason": None,
+    }
+
+    if missing:
+        result["reason"] = "missing phases: " + ", ".join(missing)
+        return result
+
+    # Positive bad-state evidence is graded first so the reason names the
+    # actual device fact rather than a downstream inconsistency it implies.
+    bad = _bad_state(records)
+    if bad is not None:
+        result["reason"] = bad
+        return result
+
+    for field in IDENTITY_FIELDS:
+        values = {
+            record[field] for record in records
+            if field in record and record[field] != "na"
+        }
+        if len(values) > 1:
+            result["reason"] = (
+                f"{field} is inconsistent within run: {sorted(values)}"
+            )
+            return result
+
+    ordered = [phases[phase] for phase in MANDATORY_PHASES]
+    stamps = [int(record["uptime_ms"]) for record in ordered]
+    if stamps != sorted(stamps):
+        result["reason"] = f"phase order is not monotonic: {stamps}"
+        return result
+
+    result["proof"] = True
+    result["handoff_to_sshd_ms"] = stamps[-1] - stamps[0]
+    return result
+
+
+def writer_script(
+    *,
+    record_path: str = DEFAULT_RECORD_PATH,
+    dropbear_port: int = 2222,
+) -> str:
+    """The POSIX-sh collector Debian installs and runs on the device.
+
+    Invoked once per phase, it appends exactly one line and exits. It reads the
+    same device-internal paths the host's SSH probe reads today -- the SSH
+    connection only ever contributed transport -- but stamps them with
+    ``/proc/uptime`` and lands them somewhere that survives the return reboot.
+    Today those facts live under ``/run``, which is tmpfs, which is precisely
+    why they had to be read live.
+
+    Dropbear liveness comes from ``/proc/net/tcp[6]`` rather than ``ss`` or
+    ``netstat`` so the collector adds no package dependency to the rootfs.
+    """
+    if not isinstance(dropbear_port, int) or not 0 < dropbear_port < 65536:
+        raise EvidenceError(f"dropbear port is not exact: {dropbear_port!r}")
+    port_hex = f"{dropbear_port:04X}"
+    return f"""#!/bin/sh
+# a90-ondevice-evidence-v1 -- append one durable evidence line and exit.
+# Generated from a90_ondevice_evidence_v1.writer_script(); do not edit in place.
+set -u
+
+RECORD={record_path}
+PHASE=${{1:-}}
+RUN=${{2:-}}
+
+[ -n "$PHASE" ] || exit 2
+[ -n "$RUN" ] || exit 2
+
+# /proc/uptime is centisecond CLOCK_BOOTTIME, the same axis native-init stamps
+# its benchmark markers on. Leading zeros are stripped by hand because bash's
+# 10# base prefix is not POSIX and silently yields an empty stamp under dash --
+# which is what Debian's /bin/sh actually is.
+uptime_ms() {{
+    read -r _up _idle < /proc/uptime 2>/dev/null || {{ echo na; return; }}
+    case "$_up" in
+        *.*) _sec=${{_up%%.*}}; _cs=${{_up#*.}}; _cs=${{_cs%%[!0-9]*}} ;;
+        *) _sec=$_up; _cs=0 ;;
+    esac
+    case "$_sec" in ''|*[!0-9]*) echo na; return ;; esac
+    [ -n "$_cs" ] || _cs=0
+    while [ ${{#_cs}} -gt 1 ]; do
+        case "$_cs" in 0*) _cs=${{_cs#0}} ;; *) break ;; esac
+    done
+    echo $(( _sec * 1000 + _cs * 10 ))
+}}
+
+# Values become key=value tokens, so any whitespace inside one would split the
+# record. Strip it here rather than trusting every source path.
+read_or_na() {{
+    _v=""
+    if [ -r "$1" ]; then
+        _v=$(tr -d '\\r\\n\\t ' < "$1" 2>/dev/null)
+    fi
+    [ -n "$_v" ] || _v=na
+    printf '%s\\n' "$_v"
+}}
+
+exists_flag() {{
+    if [ -e "$1" ]; then echo 1; else echo 0; fi
+}}
+
+dropbear_listening() {{
+    for _f in /proc/net/tcp /proc/net/tcp6; do
+        [ -r "$_f" ] || continue
+        # local_address is field 2 as ADDR:PORT, state 0A is LISTEN.
+        if awk -v p=":{port_hex}" '$2 ~ p"$" && $4 == "0A" {{ found = 1 }}
+                 END {{ exit !found }}' "$_f" 2>/dev/null; then
+            echo 1
+            return
+        fi
+    done
+    echo 0
+}}
+
+drm_card0() {{
+    if [ -c /dev/dri/card0 ]; then echo char; else echo absent; fi
+}}
+
+PID1_COMM=$(read_or_na /proc/1/comm)
+PROC1_EXE=$(readlink /proc/1/exe 2>/dev/null | tr -d '\\r\\n\\t ')
+[ -n "$PROC1_EXE" ] || PROC1_EXE=na
+
+LINE="{MARKER.strip()} schema={SCHEMA}"
+LINE="$LINE phase=$PHASE"
+LINE="$LINE uptime_ms=$(uptime_ms)"
+LINE="$LINE run=$RUN"
+LINE="$LINE pid1_comm=$PID1_COMM"
+LINE="$LINE proc1_exe=$PROC1_EXE"
+LINE="$LINE drm_card0=$(drm_card0)"
+LINE="$LINE drm_master=$(exists_flag /run/a90-display/ready)"
+LINE="$LINE dropbear=$(dropbear_listening)"
+LINE="$LINE display_ready=$(exists_flag /run/a90-display/ready)"
+LINE="$LINE display_failure=$(exists_flag /run/a90-display/failure)"
+
+mkdir -p "$(dirname "$RECORD")" 2>/dev/null || true
+# One append, one line, then sync. A truncated tail from power loss is a
+# discarded line on the read side, never a rejected record.
+printf '%s\\n' "$LINE" >> "$RECORD" 2>/dev/null || exit 1
+sync 2>/dev/null || true
+exit 0
+"""
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Grade the A90 on-device durable evidence record.",
+    )
+    parser.add_argument("--record", type=Path, help="durable record read back "
+                        "from the device")
+    parser.add_argument("--run", help="run identity to select")
+    parser.add_argument("--emit-writer", action="store_true",
+                        help="print the POSIX-sh collector and exit")
+    parser.add_argument("--record-path", default=DEFAULT_RECORD_PATH)
+    parser.add_argument("--dropbear-port", type=int, default=2222)
+    args = parser.parse_args(argv)
+
+    if args.emit_writer:
+        sys.stdout.write(
+            writer_script(
+                record_path=args.record_path,
+                dropbear_port=args.dropbear_port,
+            )
+        )
+        return 0
+
+    if args.record is None or args.run is None:
+        parser.error("--record and --run are required without --emit-writer")
+
+    text = args.record.read_text(encoding="utf-8", errors="replace")
+    try:
+        result = evaluate(text, args.run)
+    except EvidenceError as error:
+        print(json.dumps({"schema": RESULT_SCHEMA, "error": str(error)}))
+        return 2
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0 if result["proof"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
