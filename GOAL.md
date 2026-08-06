@@ -34,6 +34,29 @@ contradiction rather than a USB, EUD, PHY, clock, or QSCRATCH conclusion. The
 exact candidate ACM observer timed out and the same-attempt host sidecar was
 integrity-clean. The consumed P3.08 candidate must never be replayed.
 
+Post-live H0 now attributes that observer loss to the tracefs register-name
+ABI. The 29th descriptor requested `rc=%w21:s32`, but the exact arm64
+`regoffset_table` accepts `x0..x30`, `lr`, `sp`, `pc`, and `pstate`; it has no
+`w*` names. Registration therefore failed before the clock/QSCRATCH/kmsg
+tuple. The following `0x600D` is only the expected secondary consequence of an
+unarmed trace window, not independent PHY evidence. Classify the incident as
+`TRACEFS_ABI_CROSS_AUTHORITY_FAILURE`, not a USB or PHY result.
+
+The host-only P3.09 prerequisite corrects only the successor-generated trace
+descriptor to `rc=%x21:s32`. It leaves every frozen P3.08 source and output
+unchanged and forbids both P3.08 replay and candidate execution. Its validator
+enumerates the authoritative source initializers through their sentinels,
+decodes the actual P3.00 A/B linked tables, and proves source=A=B for 35 arm64
+register names and 15 fetch types. It then validates all 48 generated
+descriptor rows, including the source-derived group/event grammar and limits.
+The linked callsite audit separately proves that machine `w21` remains live at
+`+0x4cc`; tracefs must name the containing register `x21` and `:s32` selects
+its lower 32 bits. This correction is qualified only as an input to Carrier
+v2; it does not reopen the telemetry-rich v1 lane. Focused independent review
+first rejected three fail-open descriptor cases (`%21`, out-of-range bitfield,
+and duplicate trace event); the corrected validator rejects all three and the
+re-review returned `PASS_GO`.
+
 P3.08 kept the P3.00 Image, 61-module plan, log
 level, 45-byte carrier, rollback path, and live runner unchanged. Its
 userspace parser now applies the `/dev/kmsg` extended-text ABI: the first
