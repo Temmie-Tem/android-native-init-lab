@@ -33,6 +33,25 @@ import s22plus_fyg8_p310_source_contract as source  # noqa: E402
 
 
 class P310IntegrationTests(unittest.TestCase):
+    def test_stock_closure_carries_current_runtime_delta(self) -> None:
+        self.assertEqual(
+            stock_closure.ADDITIONAL_ABSOLUTE_PATH_STRINGS,
+            {"/dev/kmsg", "/sys/module/eud/parameters/enable"},
+        )
+        self.assertEqual(stock_closure.module_parent.EXPECTED_MODULE_COUNT, 61)
+        self.assertIs(
+            stock_closure.rootfs_audit,
+            stock_closure.module_parent.rootfs_audit,
+        )
+        self.assertEqual(stock_closure.INCIDENTAL_INIT_SIZE, 66416)
+        self.assertEqual(stock_closure.INCIDENTAL_PATH_OFFSET, 0x41C1)
+        self.assertEqual(stock_closure.INCIDENTAL_TEXT_OFFSET, 0x120)
+        self.assertEqual(stock_closure.INCIDENTAL_TEXT_END, 0x8FB0)
+        self.assertEqual(
+            stock_closure.INCIDENTAL_INSTRUCTION_WINDOW,
+            bytes.fromhex("e02f453922000090"),
+        )
+
     def test_transitive_decoder_semantics_are_bound_and_drift_changes_identity(self) -> None:
         materials = identity.tier1_materials(ROOT)
         semantic_keys = set(identity.SEMANTIC_DEPENDENCY_PATHS)
@@ -92,9 +111,13 @@ class P310IntegrationTests(unittest.TestCase):
         self.assertEqual(kernel_build.base.LONG_FAMILY, carrier.LONG_FAMILY)
         self.assertEqual(kernel_build.base.UNSAT_FAMILY, carrier.UNSAT_FAMILY)
 
-    def test_pre_lto_private_stock_closure_entrypoints_are_forwarded(self) -> None:
+    def test_pre_lto_private_stock_closure_entrypoints_are_explicit(self) -> None:
         self.assertIs(stock_closure._entrypoints, stock_closure.parent._entrypoints)  # noqa: SLF001
         self.assertIs(
+            stock_closure._validate_p282_authority_strings,  # noqa: SLF001
+            stock_closure._validate_p310_authority_strings,  # noqa: SLF001
+        )
+        self.assertIsNot(
             stock_closure._validate_p282_authority_strings,  # noqa: SLF001
             stock_closure.parent._validate_p282_authority_strings,  # noqa: SLF001
         )

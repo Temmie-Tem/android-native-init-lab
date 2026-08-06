@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Iterator
 
 import build_s22plus_fyg8_p310_candidate as candidate
 import s22plus_fyg8_p286_candidate_static_checker as base
@@ -56,6 +58,14 @@ class _CandidateStaticView:
 _CANDIDATE_STATIC_VIEW = _CandidateStaticView()
 
 
+@contextmanager
+def rootfs_entrypoint_context(
+    _closure_api, _exact_contract, userspace_payloads  # noqa: ANN001
+) -> Iterator[None]:
+    with p310_closure.exact_init_authority(userspace_payloads["init"]):
+        yield
+
+
 def _configure() -> None:
     candidate._configure()  # noqa: SLF001
     contract._configure()  # noqa: SLF001
@@ -65,6 +75,7 @@ def _configure() -> None:
     base.repro = repro
     base.contract = contract
     base.p286_closure = p310_closure
+    base.rootfs_entrypoint_context = rootfs_entrypoint_context
     base.userspace = userspace
     base.SCHEMA = SCHEMA
     base.VERDICT = VERDICT
