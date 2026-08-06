@@ -197,6 +197,13 @@ The pre-H2 goal history is preserved at
   `20314ba25b75a2202b6e814d48275ec6e7c530dbc9c0b0c2e88551d1f42276e3`.
   The reviewer made no implementation edit and contacted no device, USB,
   private artifact, or S22+ endpoint.
+- Run03 then staged and verified the fresh 2 GiB source once and installed the
+  exact boot-only H6 candidate once. Durable result SHA256
+  `784114e680ea91ee029cdad383f09b1b306972870670803d7c1d4592ea9ee45a`
+  is `PASS_A90_RESIDENT_INSTALLED` and `RESIDENT_HEALTHY`: H6 `0.11.174`,
+  self-test `11/1/0`, exact source, absent work, candidate count one, rollback
+  count zero, and replay false. The ModemManager guard released without
+  residue. S22+ was untouched. Run03 F1 is terminal and must never replay.
 
 ## Qualified Capabilities
 
@@ -318,11 +325,9 @@ bounded work is:
 4. retain the committed corrected H6 closure and fresh connected D0 proof of
    exact H5 health, exact candidate and rollback, and absent H6
    rootfs/work/stage and enable/latch paths;
-5. retain terminal run01 and host-rejected run02 without replay or reuse;
-   independently review and commit the run03 execution-critical rebind, prepare
-   one fresh immutable run03 resident binding, then while the operator is
-   attended with Download or TWRP recovery available permit at most one
-   boot-only candidate transfer with no replay and exact rollback on failure;
+5. retain terminal run01, host-rejected run02, and the terminal run03 resident
+   PASS without replay or reuse; run03 installed H6 from one staged source and
+   one boot-only candidate with rollback zero and exact final resident health;
 6. from exact unarmed H6 resident health, run one new D1 automatic-handoff
    ordinal through the repaired observer and close Debian PID 1, SSH, service
    ownership, display, native return, cleanup, latch, telemetry, and final
