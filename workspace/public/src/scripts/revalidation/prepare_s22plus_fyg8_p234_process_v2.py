@@ -114,7 +114,15 @@ def validate_static(
         raise PromotionError(str(exc)) from exc
     telemetry_bound = False
     if isinstance(candidate_contract, dict):
-        if userspace_overlay_contract_id == evidence.P307_OVERLAY_CONTRACT_ID:
+        if userspace_overlay_contract_id == evidence.P308_OVERLAY_CONTRACT_ID:
+            telemetry_bound = (
+                candidate_contract.get("telemetry", {}).get("schema")
+                == evidence.p308_spec.SCHEMA
+                and candidate_contract.get("telemetry", {}).get("verified")
+                is True
+                and selected_decoder is evidence.p308_decoder
+            )
+        elif userspace_overlay_contract_id == evidence.P307_OVERLAY_CONTRACT_ID:
             telemetry_bound = (
                 candidate_contract.get("telemetry", {}).get("schema")
                 == evidence.p307_spec.SCHEMA

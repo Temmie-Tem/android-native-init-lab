@@ -514,6 +514,13 @@ def execution_critical_source_receipts(
                 root = candidate_intent.repo_root()
                 if (
                     userspace_overlay_contract_id
+                    == typed_evidence.P308_OVERLAY_CONTRACT_ID
+                ):
+                    overlay_module = typed_evidence.p308_overlay
+                    overlay_label = "P3.08"
+                    prefix = "p308"
+                elif (
+                    userspace_overlay_contract_id
                     == typed_evidence.P307_OVERLAY_CONTRACT_ID
                 ):
                     overlay_module = typed_evidence.p307_overlay
@@ -568,6 +575,7 @@ def execution_critical_source_receipts(
                         typed_evidence.p305_overlay,
                         typed_evidence.p306_overlay,
                         typed_evidence.p307_overlay,
+                        typed_evidence.p308_overlay,
                     }:
                         overlay_sources = {
                             name: overlay_module._read_regular(  # noqa: SLF001
@@ -626,6 +634,7 @@ def execution_critical_source_receipts(
                         typed_evidence.P305_OVERLAY_CONTRACT_ID,
                         typed_evidence.P306_OVERLAY_CONTRACT_ID,
                         typed_evidence.P307_OVERLAY_CONTRACT_ID,
+                        typed_evidence.P308_OVERLAY_CONTRACT_ID,
                     }
                 ):
                     parent_sources = typed_evidence.p301_overlay.source_bytes(root)
@@ -644,6 +653,7 @@ def execution_critical_source_receipts(
                         typed_evidence.P305_OVERLAY_CONTRACT_ID,
                         typed_evidence.P306_OVERLAY_CONTRACT_ID,
                         typed_evidence.P307_OVERLAY_CONTRACT_ID,
+                        typed_evidence.P308_OVERLAY_CONTRACT_ID,
                     }
                 ):
                     e1_latest_stage_sources["p304_e2_stock_closure"] = Path(
@@ -662,6 +672,7 @@ def execution_critical_source_receipts(
                         typed_evidence.P305_OVERLAY_CONTRACT_ID,
                         typed_evidence.P306_OVERLAY_CONTRACT_ID,
                         typed_evidence.P307_OVERLAY_CONTRACT_ID,
+                        typed_evidence.P308_OVERLAY_CONTRACT_ID,
                     }:
                         parent_sources = {
                             name: typed_evidence.p304_overlay._read_regular(  # noqa: SLF001
@@ -682,6 +693,7 @@ def execution_critical_source_receipts(
                     if userspace_overlay_contract_id in {
                         typed_evidence.P306_OVERLAY_CONTRACT_ID,
                         typed_evidence.P307_OVERLAY_CONTRACT_ID,
+                        typed_evidence.P308_OVERLAY_CONTRACT_ID,
                     }:
                         parent_sources = {
                             name: typed_evidence.p305_overlay._read_regular(  # noqa: SLF001
@@ -698,6 +710,26 @@ def execution_critical_source_receipts(
                             }
                         e1_latest_stage_sources["p305_overlay_intent"] = (
                             root / typed_evidence.p305_overlay.DEFAULT_INTENT
+                        )
+                    if (
+                        userspace_overlay_contract_id
+                        == typed_evidence.P308_OVERLAY_CONTRACT_ID
+                    ):
+                        parent_sources = {
+                            name: typed_evidence.p307_overlay._read_regular(  # noqa: SLF001
+                                root / path, f"P3.07 SOURCE_KEY {name}"
+                            )
+                            for name, path in sorted(
+                                typed_evidence.p307_overlay.SOURCE_PATHS.items()
+                            )
+                        }
+                        for name, data in parent_sources.items():
+                            receipts[f"p307_overlay_source_{name}"] = {
+                                "size": len(data),
+                                "sha256": hashlib.sha256(data).hexdigest(),
+                            }
+                        e1_latest_stage_sources["p307_overlay_intent"] = (
+                            root / typed_evidence.p307_overlay.DEFAULT_INTENT
                         )
             e1_latest_stage_sources["source_contract_selector"] = Path(
                 candidate_intent.source_contracts.__file__
@@ -951,6 +983,19 @@ def verify_candidate_source_binding(
                     ("p304", typed_evidence.p304_overlay),
                     ("p305", typed_evidence.p305_overlay),
                     ("p307", typed_evidence.p307_overlay),
+                )
+            )
+        if (
+            userspace_overlay_contract_id
+            == typed_evidence.P308_OVERLAY_CONTRACT_ID
+        ):
+            required_overlays.extend(
+                (
+                    ("p303", typed_evidence.p303_overlay),
+                    ("p304", typed_evidence.p304_overlay),
+                    ("p305", typed_evidence.p305_overlay),
+                    ("p307", typed_evidence.p307_overlay),
+                    ("p308", typed_evidence.p308_overlay),
                 )
             )
         for prefix, overlay_module in required_overlays:

@@ -31,12 +31,44 @@ observer timed out; the same-attempt host sidecar was integrity-clean and did
 not contain the exact candidate identity. The consumed P3.07 candidate must
 never be replayed.
 
-The immediate H0 frontier is therefore narrow source-to-live log-format
-reconciliation for the four P3.07 attribution domains. P3.07 did not decide
-whether EUD was active, what the initial clock returns were, or which QSCRATCH
-bits were retained. No new F1 candidate should be selected until the exact
-`0x6013` trigger can be identified or the observer can retain a bounded
-discriminator without weakening fail-closed parsing.
+P3.08 is the current host-ready successor and remains F1-unarmed pending one
+focused independent review. It keeps the P3.00 Image, 61-module plan, log
+level, 45-byte carrier, rollback path, and live runner unchanged. Its
+userspace parser now applies the `/dev/kmsg` extended-text ABI: the first
+literal LF ends the escaped message body and excludes the dictionary suffix.
+It latches the first local parse failure, accumulates a four-domain prefix
+mask, continues draining so `kmsg_complete` and the later measurements
+survive, and preserves parent sequence/ring/read/readback errors as immediate
+fail-closed results.
+
+The normal P3.08 pair is attribution `0xD00..0xD95` followed by the complete
+clock/QSCRATCH summary `0x4001..0x4FEB`. The degraded pair is the clock witness
+`0xD00..0xDA2` followed by failure-site, prefix-mask, and QSCRATCH state in
+`0x6100..0x673F`; it is evidence-bearing but never accepted as a USB result.
+Pair context disambiguates overlapping legacy values including `0xD00` and
+`0x4FC1`. The candidate-specific runtime gate and model accept these exact
+ranges without changing shared P3.01 semantics.
+
+Eleven frozen SOURCE_KEYS, 5,988 actual encoder outputs, the materialized C
+runtime/checkpoint/fixed-Image gates, LF fixtures, normal and degraded retained
+record round trips, reproducible AArch64 userspace, byte-identical A/B boot and
+AP artifacts, independent artifact closure, Process-v2 promotion, canonical
+ready manifest, and host preflight all pass. The candidate AP SHA256 is
+`aaa2803d0ac2f232810069ead3e3ac4002089917f1f7cd4472cdda7fc45c939e`;
+the ready manifest SHA256 is
+`15b6d060daff7dbde591bdef89a8f579d799e51a4568e412421a7e1a5b470720`.
+No device contact occurred during this preparation.
+
+P3.08 is the last telemetry-rich experiment planned on the v1 carrier. Carrier
+v2 is selected only if at least one objective trigger occurs: a valid P3.08
+normal tuple still leaves the cause split; a post-cross-gate observer loss
+recurs; a required A family exceeds the fixed 176 exact-rule values; a next
+measurement cannot fit two 16-bit slots without lossy Cartesian packing; or a
+bounded raw excerpt becomes necessary. Its design must bind fixed size,
+corruption/log-overwrite bounds, wrap semantics, CRC, double-slot recovery,
+legacy decoding, and `foreign_count`: raw excerpts copied from the 2 MiB ring
+must escape the retained family signature or the scanner must exclude the
+carrier region, otherwise the excerpt can reject its own record as foreign.
 
 P3.06 remains the preceding successful telemetry unit. Its exact `0xD79` then
 `0x42D6` pair proves B-session-valid set, inputs BSV, start-gadget, and
