@@ -36,15 +36,15 @@ PRIVATE_ROOT = REPO_ROOT / "workspace/private"
 PRIVATE_RUN_BASE = PRIVATE_ROOT / "runs/server-distro"
 CLEAN_ROOT = (
     PRIVATE_ROOT
-    / "outputs/server-distro/a90-phase3-network-ssh-v1-ab-05-20260803"
+    / "outputs/server-distro/a90-phase3-network-ssh-v1-ab-06-20260807"
 )
 CLEAN_IMAGE = CLEAN_ROOT / "A/phase3-network-ssh-v1.img"
 CLEAN_RECEIPT = CLEAN_ROOT / "ab-receipt.json"
 CLEAN_IMAGE_SHA256 = (
-    "8c4167f66bd339d49bd31625cf419e3551930fa331e2964d544eaba96799d5bd"
+    "cffc2867c58b196a5f0a87fdef4d97515e3d492195b6ec939c33d0fa5aa7678c"
 )
 CLEAN_RECEIPT_SHA256 = (
-    "93b644eaad41181bda40ad3e0a93a1c21e82447fe006ccffcbfd06bbf628a6bf"
+    "318f29daeba9f453b3d5b1266ce6043be37ad9a4820fce3b1533a08a320e9432"
 )
 PHASE3_MANIFEST = SCRIPT_DIR / "phase3_network_ssh_v1/manifest.toml"
 PHASE3_MANIFEST_SHA256 = (
@@ -60,7 +60,7 @@ PHASE2_BUILDER_SHA256 = (
 )
 SERVICE_TARGET = "/usr/local/sbin/a90-debian-network-ssh-v1"
 SERVICE_SHA256 = (
-    "b52b7306d928d0a7275af70f16ff44d578a8440260828343eefa2a204bdc8859"
+    "3c79fbe42438660e1292ce359ca0e5a46b5aca3abc00536135c3bf036c49535c"
 )
 FIRSTBOOT_TARGET = "/etc/a90-d3-firstboot"
 FIRSTBOOT_SHA256 = (
