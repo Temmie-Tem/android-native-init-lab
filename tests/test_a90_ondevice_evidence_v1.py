@@ -223,6 +223,20 @@ class StrictAboutStateTest(unittest.TestCase):
             evidence.evaluate(complete_record(), "run with spaces")
 
 
+class RunIdentityTest(unittest.TestCase):
+    def test_published_intent_is_accepted(self) -> None:
+        intent = "a" * 64
+        self.assertEqual(evidence.read_run_identity(intent + "\n"), intent)
+        self.assertEqual(evidence.read_run_identity(f"  {intent}\r\n"), intent)
+
+    def test_malformed_published_identity_is_refused(self) -> None:
+        # This one field decides which boot's evidence gets graded, so a
+        # malformed identity must never silently select the wrong records.
+        for bad in ("", "\n", "not a run", "a" * 129):
+            with self.assertRaises(evidence.EvidenceError):
+                evidence.read_run_identity(bad)
+
+
 class WriterScriptTest(unittest.TestCase):
     def setUp(self) -> None:
         self.shell = shutil.which("sh")
@@ -319,6 +333,74 @@ class WriterScriptTest(unittest.TestCase):
             evidence.DEFAULT_RECORD_PATH.startswith("/mnt/sdext/a90/runtime/")
         )
         self.assertFalse(evidence.DEFAULT_RECORD_PATH.endswith(".img"))
+
+    def test_collector_reads_the_published_run_when_none_is_passed(self) -> None:
+        """The rootfs hook only has to know the phase.
+
+        native-init publishes the arming intent_sha256 beside the record before
+        it dispatches, because Debian cannot see the /cache enable or latch.
+        """
+        intent = "b" * 64
+        with tempfile.TemporaryDirectory() as tmp:
+            record = Path(tmp) / "evidence.log"
+            run_file = Path(tmp) / "evidence-run"
+            run_file.write_text(intent + "\n", encoding="utf-8")
+            script = Path(tmp) / "collector"
+            script.write_text(
+                evidence.writer_script(
+                    record_path=str(record), run_path=str(run_file)
+                ),
+                encoding="utf-8",
+            )
+            done = subprocess.run(
+                [self.shell, str(script), "debian_pid1"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(done.returncode, 0, done.stderr)
+            records = evidence.parse(record.read_text(encoding="utf-8"))
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]["run"], intent)
+
+    def test_explicit_run_argument_wins_over_the_published_one(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            record = Path(tmp) / "evidence.log"
+            run_file = Path(tmp) / "evidence-run"
+            run_file.write_text("c" * 64 + "\n", encoding="utf-8")
+            script = Path(tmp) / "collector"
+            script.write_text(
+                evidence.writer_script(
+                    record_path=str(record), run_path=str(run_file)
+                ),
+                encoding="utf-8",
+            )
+            subprocess.run(
+                [self.shell, str(script), "debian_pid1", RUN],
+                capture_output=True,
+                check=True,
+            )
+            records = evidence.parse(record.read_text(encoding="utf-8"))
+        self.assertEqual(records[0]["run"], RUN)
+
+    def test_collector_refuses_when_no_run_is_available(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            record = Path(tmp) / "evidence.log"
+            script = Path(tmp) / "collector"
+            script.write_text(
+                evidence.writer_script(
+                    record_path=str(record),
+                    run_path=str(Path(tmp) / "absent"),
+                ),
+                encoding="utf-8",
+            )
+            done = subprocess.run(
+                [self.shell, str(script), "debian_pid1"],
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(done.returncode, 2)
+            self.assertFalse(record.exists())
 
     def test_dropbear_port_is_validated(self) -> None:
         for port in (0, -1, 65536, "2222"):

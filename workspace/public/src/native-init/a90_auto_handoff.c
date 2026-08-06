@@ -30,6 +30,24 @@
 #define A90_AUTO_HANDOFF_SCHEMA "a90-auto-handoff-benchmark-v1"
 #define A90_AUTO_HANDOFF_STATE_MAX 768U
 
+/*
+ * Debian's durable evidence record. It sits beside the rootfs image on the
+ * shared medium and never inside it: the work-copy replacement makes the
+ * rootfs read-only, and a record inside the image would go read-only with it,
+ * killing the instrument exactly when that change most needs grading.
+ */
+#ifndef A90_AUTO_HANDOFF_EVIDENCE_PATH
+#define A90_AUTO_HANDOFF_EVIDENCE_PATH \
+    "/mnt/sdext/a90/runtime/a90-ondevice-evidence-v1.log"
+#endif
+#ifndef A90_AUTO_HANDOFF_EVIDENCE_RUN_PATH
+#define A90_AUTO_HANDOFF_EVIDENCE_RUN_PATH \
+    "/mnt/sdext/a90/runtime/a90-ondevice-evidence-run"
+#endif
+#define A90_ONDEV_EVIDENCE_MARKER "A90OBSREC "
+#define A90_ONDEV_EVIDENCE_TAIL_MAX 65536U
+#define A90_ONDEV_EVIDENCE_LINES_MAX 64U
+
 static int a90_auto_handoff_hex64_valid(const char *value) {
     size_t index;
 
@@ -315,6 +333,145 @@ int a90_auto_handoff_arm_cmd(char **argv, int argc) {
     return 0;
 }
 
+/*
+ * Publish the run identity Debian stamps its evidence with.
+ *
+ * Debian cannot see the enable or latch file: those live under /cache, and
+ * after switch_root its root is the SD image. So the identity has to be handed
+ * across on the shared medium. Using the arming intent_sha256 binds the record
+ * to the exact intent that armed this ordinal, which is stronger than any run
+ * string invented for the purpose.
+ *
+ * A failure here is logged and never refuses the dispatch. The instrument must
+ * not become one more way for a host-side defect to kill an ordinal -- that is
+ * the disease being cured, not a tool to reach for.
+ */
+static int a90_auto_handoff_publish_evidence_run(const char *intent_sha256) {
+    char line[66];
+    int fd;
+    int length;
+    ssize_t written;
+
+    if (!a90_auto_handoff_hex64_valid(intent_sha256)) {
+        return -EINVAL;
+    }
+    length = snprintf(line, sizeof(line), "%s\n", intent_sha256);
+    if (length < 0 || (size_t)length >= sizeof(line)) {
+        return -EINVAL;
+    }
+    fd = open(A90_AUTO_HANDOFF_EVIDENCE_RUN_PATH,
+              O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
+              0644);
+    if (fd < 0) {
+        return -errno;
+    }
+    written = write(fd, line, (size_t)length);
+    if (written != (ssize_t)length) {
+        int saved = (written < 0) ? errno : EIO;
+
+        close(fd);
+        return -saved;
+    }
+    if (close(fd) < 0) {
+        return -errno;
+    }
+    return 0;
+}
+
+/*
+ * Replay Debian's durable on-device evidence into the native log.
+ *
+ * Debian records PID 1 entry, DRM/display, and Dropbear liveness on the device
+ * while it owns the machine, stamped from /proc/uptime. Those are all
+ * device-internal facts; confirming them live over the host bridge inside a
+ * timeout window is what turned a durable fact into a transient race and cost
+ * three automatic-handoff ordinals their proof.
+ *
+ * This side only transports. It never grades. Selection by run identity and
+ * every semantic judgement belong to the host parser, which is tested against
+ * the exact defect classes that burned those ordinals. Keeping C to "read the
+ * tail, emit the marker lines" keeps the parsing surface where the tests are.
+ *
+ * Absence is not a failure here: a first boot, or a handoff that never reached
+ * Debian, legitimately has no record. The host decides what that means.
+ */
+static int a90_auto_handoff_replay_ondevice_evidence(void) {
+    static char buffer[A90_ONDEV_EVIDENCE_TAIL_MAX + 1U];
+    struct stat st;
+    off_t start = 0;
+    size_t consumed = 0;
+    unsigned emitted = 0;
+    char *cursor;
+    int fd;
+
+    fd = open(A90_AUTO_HANDOFF_EVIDENCE_PATH,
+              O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return -errno;
+    }
+    if (fstat(fd, &st) < 0 || !S_ISREG(st.st_mode)) {
+        close(fd);
+        return -EINVAL;
+    }
+    if (st.st_size > (off_t)A90_ONDEV_EVIDENCE_TAIL_MAX) {
+        start = st.st_size - (off_t)A90_ONDEV_EVIDENCE_TAIL_MAX;
+    }
+    if (lseek(fd, start, SEEK_SET) == (off_t)-1) {
+        close(fd);
+        return -errno;
+    }
+    while (consumed < A90_ONDEV_EVIDENCE_TAIL_MAX) {
+        ssize_t got = read(fd,
+                           buffer + consumed,
+                           A90_ONDEV_EVIDENCE_TAIL_MAX - consumed);
+
+        if (got < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            close(fd);
+            return -errno;
+        }
+        if (got == 0) {
+            break;
+        }
+        consumed += (size_t)got;
+    }
+    close(fd);
+    buffer[consumed] = '\0';
+
+    cursor = buffer;
+    /* A tail read starts mid-line; that leading fragment is not a record. */
+    if (start > 0) {
+        char *first = strchr(cursor, '\n');
+
+        cursor = (first == NULL) ? buffer + consumed : first + 1;
+    }
+    while (*cursor != '\0' && emitted < A90_ONDEV_EVIDENCE_LINES_MAX) {
+        char *end = strchr(cursor, '\n');
+        char *marker;
+        size_t length;
+
+        if (end == NULL) {
+            /* No terminator: a write truncated by power loss. Drop it rather
+             * than emitting half a record. */
+            break;
+        }
+        *end = '\0';
+        length = strlen(cursor);
+        while (length > 0 && cursor[length - 1] == '\r') {
+            cursor[--length] = '\0';
+        }
+        marker = strstr(cursor, A90_ONDEV_EVIDENCE_MARKER);
+        if (marker != NULL) {
+            a90_logf("ondev-evidence", "%s", marker);
+            ++emitted;
+        }
+        cursor = end + 1;
+    }
+    return (int)emitted;
+}
+
 int a90_auto_handoff_run_once(void) {
     char *argv[] = {
         (char *)"switch-root-to-distro",
@@ -341,11 +498,27 @@ int a90_auto_handoff_run_once(void) {
     }
     latch_state = a90_auto_handoff_state_path(A90_AUTO_HANDOFF_LATCH_PATH);
     if (latch_state > 0) {
+        int replayed;
+
         a90_console_printf("A90AUTO state=latched-stay-native latch=%s\r\n",
                            A90_AUTO_HANDOFF_LATCH_PATH);
         a90_logf("auto-handoff", "latched stay native path=%s",
                  A90_AUTO_HANDOFF_LATCH_PATH);
         a90_timeline_record(0, 0, "auto-handoff", "latched stay native");
+        /*
+         * This is the boot after Debian handed the machine back, so it is the
+         * first moment the durable record is readable from native. Replay it
+         * before the latched mark so the evidence and the stage marker land in
+         * the same log segment the host reads back.
+         */
+        replayed = a90_auto_handoff_replay_ondevice_evidence();
+        if (replayed >= 0) {
+            a90_logf("ondev-evidence", "replayed lines=%d path=%s",
+                     replayed, A90_AUTO_HANDOFF_EVIDENCE_PATH);
+        } else {
+            a90_logf("ondev-evidence", "absent rc=%d path=%s",
+                     replayed, A90_AUTO_HANDOFF_EVIDENCE_PATH);
+        }
         a90_benchmark_mark("auto_handoff_latched_native");
         return 1;
     }
@@ -403,6 +576,14 @@ int a90_auto_handoff_run_once(void) {
                         0,
                         "auto-handoff",
                         "durable enable and latch exact; dispatch once");
+    rc = a90_auto_handoff_publish_evidence_run(intent_sha256);
+    if (rc < 0) {
+        a90_logf("ondev-evidence", "run publish failed rc=%d path=%s", rc,
+                 A90_AUTO_HANDOFF_EVIDENCE_RUN_PATH);
+    } else {
+        a90_logf("ondev-evidence", "run published intent_sha256=%s path=%s",
+                 intent_sha256, A90_AUTO_HANDOFF_EVIDENCE_RUN_PATH);
+    }
     a90_benchmark_mark("auto_handoff_dispatched");
     rc = a90_server_distro_switch_root_cmd(argv, 4);
 

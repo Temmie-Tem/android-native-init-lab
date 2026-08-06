@@ -66,6 +66,13 @@ MANDATORY_PHASES = (
 # mount-architecture change most needs grading.
 DEFAULT_RECORD_PATH = "/mnt/sdext/a90/runtime/a90-ondevice-evidence-v1.log"
 
+# native-init publishes the arming intent_sha256 here just before dispatch.
+# Debian cannot see the enable or latch file -- those live under /cache, and
+# after switch_root its root is the SD image -- so the identity is handed across
+# on the shared medium. Binding evidence to the arming intent is stronger than
+# any run string invented for the purpose.
+DEFAULT_RUN_PATH = "/mnt/sdext/a90/runtime/a90-ondevice-evidence-run"
+
 PHASE_RE = re.compile(r"^[a-z0-9_]+$")
 RUN_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 IDENTITY_FIELDS = ("run", "pid1_comm", "proc1_exe")
@@ -235,9 +242,23 @@ def evaluate(text: str, run: str) -> dict[str, Any]:
     return result
 
 
+def read_run_identity(text: str) -> str:
+    """The run identity native-init published for this ordinal.
+
+    Kept strict: this is the one field that decides which records belong to the
+    ordinal being graded, so a malformed identity must not silently select the
+    wrong boot's evidence.
+    """
+    candidate = text.strip()
+    if not RUN_RE.match(candidate):
+        raise EvidenceError(f"published run identity is not exact: {text!r}")
+    return candidate
+
+
 def writer_script(
     *,
     record_path: str = DEFAULT_RECORD_PATH,
+    run_path: str = DEFAULT_RUN_PATH,
     dropbear_port: int = 2222,
 ) -> str:
     """The POSIX-sh collector Debian installs and runs on the device.
@@ -261,10 +282,17 @@ def writer_script(
 set -u
 
 RECORD={record_path}
+RUN_FILE={run_path}
 PHASE=${{1:-}}
 RUN=${{2:-}}
 
 [ -n "$PHASE" ] || exit 2
+
+# The rootfs hook only has to know the phase. native-init published the run
+# identity beside the record before it dispatched this handoff.
+if [ -z "$RUN" ] && [ -r "$RUN_FILE" ]; then
+    RUN=$(tr -d '\\r\\n\\t ' < "$RUN_FILE" 2>/dev/null)
+fi
 [ -n "$RUN" ] || exit 2
 
 # /proc/uptime is centisecond CLOCK_BOOTTIME, the same axis native-init stamps
@@ -352,6 +380,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--emit-writer", action="store_true",
                         help="print the POSIX-sh collector and exit")
     parser.add_argument("--record-path", default=DEFAULT_RECORD_PATH)
+    parser.add_argument("--run-path", default=DEFAULT_RUN_PATH)
     parser.add_argument("--dropbear-port", type=int, default=2222)
     args = parser.parse_args(argv)
 
@@ -359,6 +388,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write(
             writer_script(
                 record_path=args.record_path,
+                run_path=args.run_path,
                 dropbear_port=args.dropbear_port,
             )
         )
