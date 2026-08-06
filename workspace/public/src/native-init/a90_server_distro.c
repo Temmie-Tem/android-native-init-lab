@@ -63,12 +63,35 @@
  */
 #define A90_D3_WRITABLE_SET_MAX 4U
 
-static const char *const a90_d3_writable_set[A90_D3_WRITABLE_SET_MAX] = {
-    "/run",
-    "/tmp",
-    "/etc/dropbear",
-    "/var/log",
+struct a90_d3_writable_entry {
+    const char *path;
+    const char *options;
 };
+
+/*
+ * /tmp keeps the image's 01777 sticky semantics. Mounting it 0755 would leave
+ * every non-root process unable to write there, which is a behaviour change
+ * the work copy never made.
+ */
+static const struct a90_d3_writable_entry
+a90_d3_writable_set[A90_D3_WRITABLE_SET_MAX] = {
+    {"/run", "mode=0755"},
+    {"/tmp", "mode=1777"},
+    {"/etc/dropbear", "mode=0755"},
+    {"/var/log", "mode=0755"},
+};
+
+/*
+ * Debian cannot see the native namespace after switch_root: only /proc, /sys
+ * and /dev are moved into the new root. So the durable evidence directory is
+ * bind-mounted onto the image's empty /mnt before the switch, and Debian
+ * addresses it as /mnt while native addresses the same bytes as
+ * A90_D3_EVIDENCE_DIR. Only this directory crosses over -- never the SD as a
+ * whole and never the source image, which stays reachable only through the
+ * read-only loop.
+ */
+#define A90_D3_EVIDENCE_DIR "/mnt/sdext/a90/runtime/evidence"
+#define A90_D3_EVIDENCE_LEAF "mnt"
 #define A90_D3_DISPLAY_RELEASE_TAG "A90D3DISPLAY"
 #define A90_D3_DISPLAY_RELEASE_MARKER "run/a90-native-display-release"
 #define A90_D_HANDOFF_HUD_TIMEOUT_MS 3000
@@ -1902,7 +1925,7 @@ static int d3_mount_writable_set(unsigned *mounted_out) {
                                sizeof(target),
                                "%s%s",
                                A90_D3_ROOT,
-                               a90_d3_writable_set[index]);
+                               a90_d3_writable_set[index].path);
 
         if (written < 0 || (size_t)written >= sizeof(target)) {
             return -ENAMETOOLONG;
@@ -1911,10 +1934,10 @@ static int d3_mount_writable_set(unsigned *mounted_out) {
                   target,
                   "tmpfs",
                   MS_NOSUID | MS_NODEV,
-                  "mode=0755") < 0) {
+                  a90_d3_writable_set[index].options) < 0) {
             a90_console_printf("%s writable_set=mount-fail path=%s errno=%d\r\n",
                                A90_D3_IMMUTABLE_TAG,
-                               a90_d3_writable_set[index],
+                               a90_d3_writable_set[index].path,
                                errno);
             return -errno;
         }
@@ -1962,7 +1985,7 @@ static int d3_verify_writable_set(void) {
                            sizeof(probe),
                            "%s%s/.a90-d3-rw-probe",
                            A90_D3_ROOT,
-                           a90_d3_writable_set[index]);
+                           a90_d3_writable_set[index].path);
         if (written < 0 || (size_t)written >= sizeof(probe)) {
             return -ENAMETOOLONG;
         }
@@ -1972,7 +1995,7 @@ static int d3_verify_writable_set(void) {
         if (fd < 0) {
             a90_console_printf("%s writable_set=not-writable path=%s errno=%d\r\n",
                                A90_D3_IMMUTABLE_TAG,
-                               a90_d3_writable_set[index],
+                               a90_d3_writable_set[index].path,
                                errno);
             return -errno;
         }
@@ -2111,6 +2134,49 @@ static int d3_write_display_release_marker(
         A90_D3_DISPLAY_RELEASE_TAG,
         marker_path,
         marker_size);
+    return 0;
+}
+
+/*
+ * Bind the durable evidence directory onto the new root's /mnt.
+ *
+ * Without this the collector Debian runs cannot reach the record at all: only
+ * /proc, /sys and /dev cross the switch, so a path under the native /mnt/sdext
+ * resolves inside the read-only image after switch_root and every write fails
+ * silently. A bind is used rather than a move so the SD stays mounted for
+ * native, and only this directory is exposed -- not the source image.
+ */
+static int d3_bind_evidence_dir(bool *bound_out) {
+    char dst[PATH_MAX];
+    int rc;
+
+    if (bound_out != NULL) {
+        *bound_out = false;
+    }
+    rc = d3_mkdir_p(A90_D3_EVIDENCE_DIR, 0755);
+    if (rc < 0) {
+        a90_console_printf("%s evidence_bind=mkdir-fail rc=%d path=%s\r\n",
+                           A90_D3_IMMUTABLE_TAG, rc, A90_D3_EVIDENCE_DIR);
+        return rc;
+    }
+    rc = d3_join(dst, sizeof(dst), A90_D3_ROOT, A90_D3_EVIDENCE_LEAF);
+    if (rc < 0) {
+        return rc;
+    }
+    if (mount(A90_D3_EVIDENCE_DIR, dst, NULL, MS_BIND, NULL) < 0) {
+        a90_console_printf("%s evidence_bind=fail errno=%d src=%s dst=%s\r\n",
+                           A90_D3_IMMUTABLE_TAG, errno, A90_D3_EVIDENCE_DIR, dst);
+        return -errno;
+    }
+    /* Best effort: the bind is what matters, hardening flags are a bonus. */
+    (void)mount(NULL, dst, NULL,
+                MS_REMOUNT | MS_BIND | MS_NOSUID | MS_NODEV, NULL);
+    if (bound_out != NULL) {
+        *bound_out = true;
+    }
+    a90_console_printf("%s evidence_bind=ok src=%s dst=%s debian_view=/%s\r\n",
+                       A90_D3_IMMUTABLE_TAG, A90_D3_EVIDENCE_DIR, dst,
+                       A90_D3_EVIDENCE_LEAF);
     return 0;
 }
 
@@ -2367,6 +2433,7 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     bool loop_attached = false;
     bool work_owned = false;
     unsigned writable_mounted = 0;
+    bool evidence_bound = false;
     bool root_mounted = false;
     bool moved_proc = false;
     bool moved_sys = false;
@@ -2481,6 +2548,10 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     if (rc < 0) {
         goto fail_before_move;
     }
+    rc = d3_bind_evidence_dir(&evidence_bound);
+    if (rc < 0) {
+        goto fail_before_move;
+    }
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_emit("writable_set_ready");
 #endif
@@ -2515,8 +2586,9 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     a90_console_printf("%s exec_switch_root_now busybox=%s root=%s init=%s console=reuse-stdio\r\n",
                        A90_D3_TAG, A90_D3_BUSYBOX, A90_D3_ROOT, A90_D3_INIT);
     a90_logf("server-distro",
-             "D3 switch_root exec source=%s root=%s mode=ro writable_set=%u",
-             image, A90_D3_ROOT, writable_mounted);
+             "D3 switch_root exec source=%s root=%s mode=ro writable_set=%u"
+             " evidence_bound=%d",
+             image, A90_D3_ROOT, writable_mounted, evidence_bound ? 1 : 0);
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_mark("switch_root_exec");
 #endif

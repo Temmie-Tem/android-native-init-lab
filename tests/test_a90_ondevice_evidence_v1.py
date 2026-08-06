@@ -244,14 +244,15 @@ class StrictAboutStateTest(unittest.TestCase):
 
 class RunIdentityTest(unittest.TestCase):
     def test_published_intent_is_accepted(self) -> None:
-        intent = "a" * 64
+        intent = "0123456789abcdef" * 4
         self.assertEqual(evidence.read_run_identity(intent + "\n"), intent)
         self.assertEqual(evidence.read_run_identity(f"  {intent}\r\n"), intent)
 
     def test_malformed_published_identity_is_refused(self) -> None:
         # This one field decides which boot's evidence gets graded, so a
         # malformed identity must never silently select the wrong records.
-        for bad in ("", "\n", "not a run", "a" * 129):
+        for bad in ("", "\n", "not a run", "a" * 129,
+                    "a90-d1-attended-20260807-02", "A" * 64, "0" * 63):
             with self.assertRaises(evidence.EvidenceError):
                 evidence.read_run_identity(bad)
 
@@ -342,16 +343,28 @@ class WriterScriptTest(unittest.TestCase):
                 self.assertEqual(done.returncode, 2)
             self.assertFalse(record.exists())
 
-    def test_evidence_path_is_beside_the_image_not_inside_it(self) -> None:
-        """The work-copy replacement makes the rootfs read-only.
+    def test_the_two_views_address_the_same_bytes(self) -> None:
+        """Debian and native see the record under different absolute paths.
 
-        An evidence path inside the image would go read-only with it and kill
-        the instrument exactly when the mount change most needs grading.
+        Only /proc, /sys and /dev cross switch_root, so a native-namespace path
+        would resolve inside the read-only image on the Debian side and every
+        write would fail silently. native-init bind-mounts its evidence
+        directory onto the image's empty /mnt, so Debian writes /mnt/... while
+        native reads /mnt/sdext/a90/runtime/evidence/... -- the same bytes.
         """
-        self.assertTrue(
-            evidence.DEFAULT_RECORD_PATH.startswith("/mnt/sdext/a90/runtime/")
-        )
-        self.assertFalse(evidence.DEFAULT_RECORD_PATH.endswith(".img"))
+        for debian, native in (
+            (evidence.DEFAULT_RECORD_PATH, evidence.NATIVE_RECORD_PATH),
+            (evidence.DEFAULT_RUN_PATH, evidence.NATIVE_RUN_PATH),
+        ):
+            self.assertTrue(debian.startswith("/mnt/"))
+            self.assertFalse(debian.startswith("/mnt/sdext/"))
+            self.assertTrue(
+                native.startswith("/mnt/sdext/a90/runtime/evidence/")
+            )
+            self.assertEqual(
+                debian.rsplit("/", 1)[-1], native.rsplit("/", 1)[-1]
+            )
+            self.assertFalse(debian.endswith(".img"))
 
     def test_collector_reads_the_published_run_when_none_is_passed(self) -> None:
         """The rootfs hook only has to know the phase.

@@ -64,14 +64,23 @@ MANDATORY_PHASES = (
 # with a narrow writable bind; an evidence path inside the image would go
 # read-only with it and silently kill the instrument exactly when the
 # mount-architecture change most needs grading.
-DEFAULT_RECORD_PATH = "/mnt/sdext/a90/runtime/a90-ondevice-evidence-v1.log"
+# Debian's view. native-init bind-mounts its evidence directory onto the
+# image's empty /mnt before switch_root, because only /proc, /sys and /dev
+# cross over: a native-namespace path would resolve inside the read-only image
+# after the switch and every write would fail silently.
+DEFAULT_RECORD_PATH = "/mnt/a90-ondevice-evidence-v1.log"
+# The same bytes as native addresses them, for the read-back side.
+NATIVE_RECORD_PATH = (
+    "/mnt/sdext/a90/runtime/evidence/a90-ondevice-evidence-v1.log"
+)
 
 # native-init publishes the arming intent_sha256 here just before dispatch.
 # Debian cannot see the enable or latch file -- those live under /cache, and
 # after switch_root its root is the SD image -- so the identity is handed across
 # on the shared medium. Binding evidence to the arming intent is stronger than
 # any run string invented for the purpose.
-DEFAULT_RUN_PATH = "/mnt/sdext/a90/runtime/a90-ondevice-evidence-run"
+DEFAULT_RUN_PATH = "/mnt/a90-ondevice-evidence-run"
+NATIVE_RUN_PATH = "/mnt/sdext/a90/runtime/evidence/a90-ondevice-evidence-run"
 
 PHASE_RE = re.compile(r"^[a-z0-9_]+$")
 RUN_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
@@ -80,6 +89,17 @@ IDENTITY_FIELDS = ("run", "pid1_comm", "proc1_exe")
 # Fields every well-formed line carries. Unknown extra keys are kept, never
 # rejected: forward compatibility is what "reject enrichment" got wrong.
 REQUIRED_FIELDS = ("schema", "phase", "uptime_ms", "run")
+
+# Being permissive about shape must not become permissive about substance. A
+# phase line that carries no health field at all is not evidence of anything,
+# so each mandatory phase names the facts it has to assert and the values that
+# count as asserted.
+PHASE_REQUIRED_FACTS = {
+    "debian_pid1": {"pid1_comm": ("init",), "proc1_exe": None},
+    "debian_sshd": {"dropbear": ("1",)},
+    "debian_drm_master": {"drm_card0": ("char",), "display_ready": ("1",)},
+}
+INTENT_RE = re.compile(r"^[0-9a-f]{64}$")
 TRISTATE_FIELDS = ("drm_card0", "drm_master", "dropbear", "display_ready",
                    "display_failure")
 
@@ -143,6 +163,21 @@ def parse(text: str) -> list[dict[str, str]]:
         if parsed is not None:
             records.append(parsed)
     return records
+
+
+def _missing_facts(records: list[dict[str, str]]) -> str | None:
+    """Return the first phase that failed to assert a fact it must carry."""
+    for record in records:
+        wanted = PHASE_REQUIRED_FACTS.get(record["phase"])
+        if wanted is None:
+            continue
+        for field, accepted in wanted.items():
+            value = record.get(field)
+            if value is None or value == "" or value == "na":
+                return f"{record['phase']} carries no {field}"
+            if accepted is not None and value not in accepted:
+                return f"{record['phase']} recorded {field}={value}"
+    return None
 
 
 def _bad_state(records: list[dict[str, str]]) -> str | None:
@@ -220,6 +255,11 @@ def evaluate(text: str, run: str) -> dict[str, Any]:
         result["reason"] = bad
         return result
 
+    missing = _missing_facts(records)
+    if missing is not None:
+        result["reason"] = missing
+        return result
+
     for field in IDENTITY_FIELDS:
         values = {
             record[field] for record in records
@@ -265,8 +305,10 @@ def read_run_identity(text: str) -> str:
     wrong boot's evidence.
     """
     candidate = text.strip()
-    if not RUN_RE.match(candidate):
-        raise EvidenceError(f"published run identity is not exact: {text!r}")
+    if not INTENT_RE.match(candidate):
+        raise EvidenceError(
+            f"published run identity is not one arming intent_sha256: {text!r}"
+        )
     return candidate
 
 

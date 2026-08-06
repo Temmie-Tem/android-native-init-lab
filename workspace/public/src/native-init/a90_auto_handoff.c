@@ -38,11 +38,11 @@
  */
 #ifndef A90_AUTO_HANDOFF_EVIDENCE_PATH
 #define A90_AUTO_HANDOFF_EVIDENCE_PATH \
-    "/mnt/sdext/a90/runtime/a90-ondevice-evidence-v1.log"
+    "/mnt/sdext/a90/runtime/evidence/a90-ondevice-evidence-v1.log"
 #endif
 #ifndef A90_AUTO_HANDOFF_EVIDENCE_RUN_PATH
 #define A90_AUTO_HANDOFF_EVIDENCE_RUN_PATH \
-    "/mnt/sdext/a90/runtime/a90-ondevice-evidence-run"
+    "/mnt/sdext/a90/runtime/evidence/a90-ondevice-evidence-run"
 #endif
 #define A90_ONDEV_EVIDENCE_MARKER "A90OBSREC "
 #define A90_ONDEV_EVIDENCE_TAIL_MAX 65536U
@@ -372,6 +372,12 @@ static int a90_auto_handoff_publish_evidence_run(const char *intent_sha256) {
         close(fd);
         return -saved;
     }
+    if (fsync(fd) < 0) {
+        int saved = errno;
+
+        close(fd);
+        return -saved;
+    }
     if (close(fd) < 0) {
         return -errno;
     }
@@ -442,10 +448,12 @@ static int a90_auto_handoff_replay_ondevice_evidence(void) {
 
     cursor = buffer;
     /* A tail read starts mid-line; that leading fragment is not a record. */
-    if (start > 0) {
+    if (start > 0 && buffer[0] != '\n') {
         char *first = strchr(cursor, '\n');
 
         cursor = (first == NULL) ? buffer + consumed : first + 1;
+    } else if (start > 0) {
+        ++cursor;
     }
     while (*cursor != '\0' && emitted < A90_ONDEV_EVIDENCE_LINES_MAX) {
         char *end = strchr(cursor, '\n');
