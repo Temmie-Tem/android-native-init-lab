@@ -46,6 +46,29 @@
 #define A90_D3_SWITCH_TIMEOUT_MS 30000
 #define A90_D3_COPY_TIMEOUT_MS 300000
 #define A90_D3_IMMUTABLE_TAG "A90D3H0"
+
+/*
+ * The writable set that replaces the full work copy.
+ *
+ * The copy existed to give Debian a writable root while the source stayed
+ * pristine, and native-init deleted it on return -- so every Debian write was
+ * already discarded each boot. Mounting the source read-only and covering the
+ * few paths Debian actually writes keeps that behaviour exactly and stops
+ * writing 2 GiB to the SD card on every handoff.
+ *
+ * The set is fixed and audited against the built rootfs rather than general:
+ * /var/run and /var/lock are symlinks into /run, so /run covers them; the
+ * network service generates its Dropbear host key under /etc/dropbear on every
+ * boot; /tmp and /var/log are the remaining real directories Debian writes.
+ */
+#define A90_D3_WRITABLE_SET_MAX 4U
+
+static const char *const a90_d3_writable_set[A90_D3_WRITABLE_SET_MAX] = {
+    "/run",
+    "/tmp",
+    "/etc/dropbear",
+    "/var/log",
+};
 #define A90_D3_DISPLAY_RELEASE_TAG "A90D3DISPLAY"
 #define A90_D3_DISPLAY_RELEASE_MARKER "run/a90-native-display-release"
 #define A90_D_HANDOFF_HUD_TIMEOUT_MS 3000
@@ -1776,9 +1799,16 @@ static int d3_run_busybox(char *const argv[], int timeout_ms) {
 }
 
 static int d3_attach_loop(const char *image, bool *attached_out) {
+    /*
+     * -r attaches read-only, so the kernel refuses a write to the source
+     * through this loop device even if a later mount asked for one. The
+     * source's immutability stops being a convention held up by copying it
+     * and becomes a property the kernel enforces.
+     */
     char *const argv[] = {
         (char *)A90_D3_BUSYBOX,
         (char *)"losetup",
+        (char *)"-r",
         (char *)A90_D3_LOOP,
         (char *)image,
         NULL,
@@ -1817,7 +1847,7 @@ static int d3_mount_root(void) {
         (char *)"-t",
         (char *)"ext4",
         (char *)"-o",
-        (char *)"rw",
+        (char *)"ro",
         (char *)A90_D3_LOOP,
         (char *)A90_D3_ROOT,
         NULL,
@@ -1853,59 +1883,109 @@ static int d3_verify_source_sha(const char *image,
     return 0;
 }
 
-static int d3_copy_work_image(const char *image,
-                              const char *expected_sha,
-                              bool *owned_out) {
-    struct stat st;
-    char *const argv[] = {
-        (char *)A90_D3_BUSYBOX,
-        (char *)"cp",
-        (char *)image,
-        (char *)A90_D3_WORK_IMAGE,
-        NULL,
-    };
-    int rc;
+/*
+ * Cover each writable path with its own tmpfs over the read-only root.
+ *
+ * Mounted after the root so each tmpfs shadows the image's directory rather
+ * than the other way round. Every mount is inside A90_D3_ROOT, so a failure
+ * leaves the read-only root and the source untouched.
+ */
+static int d3_mount_writable_set(unsigned *mounted_out) {
+    unsigned index;
 
-    if (owned_out == NULL) {
+    if (mounted_out == NULL) {
         return -EINVAL;
     }
-    *owned_out = false;
-    if (strcmp(image, A90_D3_WORK_IMAGE) == 0) {
-        a90_console_printf("%s work_copy=refused reason=source-is-work-image\r\n",
-                           A90_D3_IMMUTABLE_TAG);
+    for (index = 0; index < A90_D3_WRITABLE_SET_MAX; ++index) {
+        char target[256];
+        int written = snprintf(target,
+                               sizeof(target),
+                               "%s%s",
+                               A90_D3_ROOT,
+                               a90_d3_writable_set[index]);
+
+        if (written < 0 || (size_t)written >= sizeof(target)) {
+            return -ENAMETOOLONG;
+        }
+        if (mount("a90-d3-writable",
+                  target,
+                  "tmpfs",
+                  MS_NOSUID | MS_NODEV,
+                  "mode=0755") < 0) {
+            a90_console_printf("%s writable_set=mount-fail path=%s errno=%d\r\n",
+                               A90_D3_IMMUTABLE_TAG,
+                               a90_d3_writable_set[index],
+                               errno);
+            return -errno;
+        }
+        *mounted_out = index + 1U;
+    }
+    a90_console_printf("%s writable_set=mounted count=%u\r\n",
+                       A90_D3_IMMUTABLE_TAG, *mounted_out);
+    return 0;
+}
+
+/*
+ * Prove every writable path really is writable, and the root really is not,
+ * before the irreversible step.
+ *
+ * A missed path would otherwise surface as Debian failing somewhere after
+ * switch_root, which costs an ordinal and is hard to attribute. Failing here
+ * costs nothing: native-init stays native and names the path.
+ */
+static int d3_verify_writable_set(void) {
+    char probe[256];
+    unsigned index;
+    int written;
+    int fd;
+
+    written = snprintf(probe, sizeof(probe), "%s/.a90-d3-ro-probe", A90_D3_ROOT);
+    if (written < 0 || (size_t)written >= sizeof(probe)) {
+        return -ENAMETOOLONG;
+    }
+    fd = open(probe, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, 0600);
+    if (fd >= 0) {
+        close(fd);
+        (void)unlink(probe);
+        a90_console_printf("%s writable_set=root-not-read-only path=%s\r\n",
+                           A90_D3_IMMUTABLE_TAG, A90_D3_ROOT);
         return -EPERM;
     }
-    if (lstat(A90_D3_WORK_IMAGE, &st) == 0) {
-        a90_console_printf("%s work_copy=refused reason=preexisting path=%s\r\n",
-                           A90_D3_IMMUTABLE_TAG, A90_D3_WORK_IMAGE);
-        return -EEXIST;
-    }
-    if (errno != ENOENT) {
+    if (errno != EROFS) {
+        a90_console_printf("%s writable_set=root-probe-errno errno=%d\r\n",
+                           A90_D3_IMMUTABLE_TAG, errno);
         return -errno;
     }
 
-    *owned_out = true;
-    rc = d3_run_busybox(argv, A90_D3_COPY_TIMEOUT_MS);
-    if (rc != 0) {
-        a90_console_printf("%s work_copy=fail rc=%d\r\n", A90_D3_IMMUTABLE_TAG, rc);
-        return rc > 0 ? -EIO : rc;
+    for (index = 0; index < A90_D3_WRITABLE_SET_MAX; ++index) {
+        written = snprintf(probe,
+                           sizeof(probe),
+                           "%s%s/.a90-d3-rw-probe",
+                           A90_D3_ROOT,
+                           a90_d3_writable_set[index]);
+        if (written < 0 || (size_t)written >= sizeof(probe)) {
+            return -ENAMETOOLONG;
+        }
+        fd = open(probe,
+                  O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
+                  0600);
+        if (fd < 0) {
+            a90_console_printf("%s writable_set=not-writable path=%s errno=%d\r\n",
+                               A90_D3_IMMUTABLE_TAG,
+                               a90_d3_writable_set[index],
+                               errno);
+            return -errno;
+        }
+        close(fd);
+        if (unlink(probe) < 0) {
+            return -errno;
+        }
     }
-    rc = d3_regular_file_ok(A90_D3_WORK_IMAGE);
-    if (rc < 0) {
-        return rc;
-    }
-    rc = d3_verify_source_sha(A90_D3_WORK_IMAGE, expected_sha, "work-copy");
-    if (rc < 0) {
-        return rc;
-    }
-    rc = d3_verify_source_sha(image, expected_sha, "post-copy-source");
-    if (rc < 0) {
-        return rc;
-    }
-    a90_console_printf("%s work_copy=ready source=%s work=%s\r\n",
-                       A90_D3_IMMUTABLE_TAG, image, A90_D3_WORK_IMAGE);
+    a90_console_printf("%s writable_set=verified root=read-only count=%u\r\n",
+                       A90_D3_IMMUTABLE_TAG, A90_D3_WRITABLE_SET_MAX);
     return 0;
 }
+
 
 static int d3_remove_work_image(bool owned) {
     if (!owned) {
@@ -2286,6 +2366,7 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     bool loop_created = false;
     bool loop_attached = false;
     bool work_owned = false;
+    unsigned writable_mounted = 0;
     bool root_mounted = false;
     bool moved_proc = false;
     bool moved_sys = false;
@@ -2372,19 +2453,12 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_emit("source_sha_post_display_done");
 #endif
-    rc = d3_copy_work_image(image, expected_sha, &work_owned);
-    if (rc < 0) {
-        goto fail_immutable_source;
-    }
-#if A90_AUTO_HANDOFF_BENCHMARK_V1
-    a90_benchmark_emit("work_copy_done");
-#endif
     rc = d3_ensure_loop_node(&loop_created);
     if (rc < 0) {
         a90_console_printf("%s loop_node=fail rc=%d\r\n", A90_D3_TAG, rc);
         goto fail_immutable_source;
     }
-    rc = d3_attach_loop(A90_D3_WORK_IMAGE, &loop_attached);
+    rc = d3_attach_loop(image, &loop_attached);
     if (rc < 0) {
         goto fail_before_move;
     }
@@ -2398,6 +2472,17 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     root_mounted = true;
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_mark("root_mounted");
+#endif
+    rc = d3_mount_writable_set(&writable_mounted);
+    if (rc < 0) {
+        goto fail_before_move;
+    }
+    rc = d3_verify_writable_set();
+    if (rc < 0) {
+        goto fail_before_move;
+    }
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_emit("writable_set_ready");
 #endif
     rc = d3_check_distro_init();
     if (rc < 0) {
@@ -2429,8 +2514,9 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
 
     a90_console_printf("%s exec_switch_root_now busybox=%s root=%s init=%s console=reuse-stdio\r\n",
                        A90_D3_TAG, A90_D3_BUSYBOX, A90_D3_ROOT, A90_D3_INIT);
-    a90_logf("server-distro", "D3 switch_root exec source=%s work=%s root=%s",
-             image, A90_D3_WORK_IMAGE, A90_D3_ROOT);
+    a90_logf("server-distro",
+             "D3 switch_root exec source=%s root=%s mode=ro writable_set=%u",
+             image, A90_D3_ROOT, writable_mounted);
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_mark("switch_root_exec");
 #endif
