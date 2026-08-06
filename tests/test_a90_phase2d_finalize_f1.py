@@ -208,15 +208,15 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
         self.assertEqual(selected.version, "0.11.174")
         self.assertEqual(
             selected.sha256,
-            "5e6774018d7e4601bde766521a78d58d90a7ec5851297d8f5c32bf13b7fa07fa",
+            "aa7cba7f730e12b08f6498a3307493eed033674d51c968b4ea4d2d3280ea98bb",
         )
         self.assertEqual(
             contract["compiled_binding"]["image_path"],
-            "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260807-01.img",
+            "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260807-03.img",
         )
         self.assertEqual(
             contract["compiled_binding"]["binding_sha256"],
-            "75c0f131e814ab27a123961c17a8082034425e371c9412284a7b78bc17f42231",
+            "238a1ae3aa1f4a2a1a8c46d8368fa4e025d0a0be7fb4ed77e7ccd80b410d1483",
         )
 
     def test_unknown_candidate_profile_is_rejected(self) -> None:

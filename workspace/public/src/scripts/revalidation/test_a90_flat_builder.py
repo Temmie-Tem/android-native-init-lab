@@ -527,11 +527,11 @@ class A90FlatBuilderTest(unittest.TestCase):
         self.assertEqual(
             binding["image_path"],
             "/mnt/sdext/a90/runtime/"
-            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260807-01.img",
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260807-03.img",
         )
         self.assertEqual(
             binding["image_sha256"],
-            "b242fa73ee926d150ef8b8887734210bc4fd41f71597730647932c578fb1fd64",
+            "feea09dd81fc342032c94629f47d06e743788efc9dc7bba9ca0067f346d4d490",
         )
         self.assertEqual(
             binding["enable_path"],

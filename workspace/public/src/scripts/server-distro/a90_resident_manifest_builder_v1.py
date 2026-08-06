@@ -201,28 +201,28 @@ MINIMAL_H6_CANDIDATE = CandidateSpec(
     profile=MINIMAL_H6_CANDIDATE_PROFILE,
     name="candidate-boot-phase3-minimal-h6.img",
     size=58372096,
-    sha256="5e6774018d7e4601bde766521a78d58d90a7ec5851297d8f5c32bf13b7fa07fa",
+    sha256="aa7cba7f730e12b08f6498a3307493eed033674d51c968b4ea4d2d3280ea98bb",
     version="0.11.174",
     build="phase3-minimal-h6-observer-complete-baseline-auto-benchmark",
     build_receipt=(
         staging.PRIVATE_ROOT
         / "outputs"
         / "server-distro"
-        / "a90-phase3-minimal-h6-observer-complete-baseline-h0-20260807-02"
+        / "a90-phase3-minimal-h6-observer-complete-baseline-h0-20260807-03"
         / "ab-receipt.json"
     ),
     build_receipt_sha256=(
-        "3b1fe24cf593ca91f157f3a5a6a3ec37b46bcff245cee2d3545ff11d06334450"
+        "e0e2544770d1538ddc566d41e1a878db687a4da61a1926d994544f657d43cfd3"
     ),
     compiled_auto_handoff={
         "schema": "a90-compiled-auto-handoff-binding-v1",
         "candidate_version": "0.11.174",
         "candidate_build": "phase3-minimal-h6-observer-complete-baseline-auto-benchmark",
-        "image_path": "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260807-01.img",
-        "image_sha256": "b242fa73ee926d150ef8b8887734210bc4fd41f71597730647932c578fb1fd64",
+        "image_path": "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260807-03.img",
+        "image_sha256": "feea09dd81fc342032c94629f47d06e743788efc9dc7bba9ca0067f346d4d490",
         "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h6.enable",
         "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h6.done",
-        "binding_sha256": "75c0f131e814ab27a123961c17a8082034425e371c9412284a7b78bc17f42231",
+        "binding_sha256": "238a1ae3aa1f4a2a1a8c46d8368fa4e025d0a0be7fb4ed77e7ccd80b410d1483",
     },
 )
 CANDIDATE_PROFILES = {

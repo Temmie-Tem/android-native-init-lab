@@ -1,0 +1,173 @@
+{
+  "schema": "a90-phase3-resident-refresh-f1-independent-review-v1",
+  "status": "PASS_GO",
+  "review_date": "2026-08-07",
+  "reviewer": "independent subagent /root/a90_capability_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "capability": "A90_PHASE3_MINIMAL_H6_RUN03_REBIND",
+  "decision": "No unresolved HIGH or MEDIUM finding. Run03 changes only the exact H6 run-specific rootfs, compiled binding, deterministic boot, build receipt, and their public tests. F1/D1 execution machinery is unchanged, and tracked state records run01 and run02 closing before any H6 candidate intent, transfer, staging write, reboot, or marker effect.",
+  "scope": {
+    "candidate_version": "0.11.174",
+    "candidate_build": "phase3-minimal-h6-observer-complete-baseline-auto-benchmark",
+    "rootfs_remote_path": "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260807-03.img",
+    "rootfs_sha256": "feea09dd81fc342032c94629f47d06e743788efc9dc7bba9ca0067f346d4d490",
+    "compiled_binding_sha256": "238a1ae3aa1f4a2a1a8c46d8368fa4e025d0a0be7fb4ed77e7ccd80b410d1483",
+    "candidate_boot_size": 58372096,
+    "candidate_boot_sha256": "aa7cba7f730e12b08f6498a3307493eed033674d51c968b4ea4d2d3280ea98bb",
+    "build_receipt_sha256": "e0e2544770d1538ddc566d41e1a878db687a4da61a1926d994544f657d43cfd3",
+    "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h6.enable",
+    "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h6.done",
+    "candidate_authority": false,
+    "live_authority": false
+  },
+  "incident_assessment": {
+    "run01": "Tracked GOAL and A90 ledger record exact bridge-host CLI misuse rejected before the first device command and before candidate intent, with candidate and rollback transfer counts 0/0 and no staging, write, flash, or reboot.",
+    "run02": "Tracked GOAL and A90 ledger record exact compiled-binding rejection during host finalization before final-manifest publication, with D0 reads only and no live authority or candidate effect.",
+    "execution_machinery_changed_by_incidents": false,
+    "new_hazard_class": false,
+    "candidate_replay": false,
+    "same_h6_marker_namespace_safe_basis": "Neither earlier run reached an H6 candidate intent or device state effect; run03 remains the first possible H6 candidate effect and fresh D0 must prove the H6 state paths absent.",
+    "private_incident_evidence_inspected_by_reviewer": false
+  },
+  "reviewed_properties": {
+    "run03_compiled_binding_recalculated_exact": true,
+    "manifest_finalizer_and_resident_builder_equal": true,
+    "rootfs_destination_is_fresh_run03_identity": true,
+    "non_lto_source_cflags_and_ramdisk_semantics_unchanged": true,
+    "f1_and_d1_consumers_unchanged": true,
+    "benchmark_execution_closure_unchanged": true,
+    "repaired_observer_behavior_unchanged": true,
+    "one_boot_candidate_transfer_maximum": 1,
+    "candidate_replay_authorized": false,
+    "exact_v2321_rollback_required": true,
+    "attended_download_or_twrp_recovery_required": true,
+    "boot_partition_only": true,
+    "non_boot_partition_authority": false,
+    "fresh_exact_a90_d0_required": true,
+    "operator_attendance_required": true,
+    "h5_run09_replay_authorized": false,
+    "private_evidence_boundary_unchanged": true,
+    "s22plus_authority": false
+  },
+  "governing_public_inputs": {
+    "aggregate_sha256": "2c36fb834f0295dc8db1b33d55eefcc95dabfeafa21ccb15f5755b96ccd3e04b",
+    "files": {
+      "AGENTS.md": {
+        "bytes": 14201,
+        "sha256": "3289aedf8b55c2d74e3252c72e7b6b9bc003ef62379fc6e7b192a845c80dd747"
+      },
+      "GOAL_A90.md": {
+        "bytes": 25010,
+        "sha256": "d320295ee328b245b1d18a09697d1c17df31e1f3b75db0180b105f4921bb7f9b"
+      },
+      "docs/operations/CAMPAIGN_LEDGER_A90.md": {
+        "bytes": 51110,
+        "sha256": "3c86af61dc1ff9ab80e9fba023f144f7cf07f365a9df25d53e0ec8e55c3d29a5"
+      },
+      "docs/operations/targets/A90_TARGET_CONTRACT.md": {
+        "bytes": 33279,
+        "sha256": "11d4653c880ce7642729a03c607d4bd320263632236a893d88b0dfcd4179e77e"
+      }
+    }
+  },
+  "named_execution_critical_closure_sha256": "20314ba25b75a2202b6e814d48275ec6e7c530dbc9c0b0c2e88551d1f42276e3",
+  "named_execution_critical_closure": {
+    "workspace/public/src/harness/a90harness/evidence.py": {"bytes": 11723, "sha256": "3b0aaa36a95628591e14c4c2d70ae4941230fe650b6e4d517173cee5d3019742"},
+    "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py": {"bytes": 1255, "sha256": "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe"},
+    "workspace/public/src/scripts/revalidation/a90_bridge.py": {"bytes": 40549, "sha256": "7bacce5a61f6745d4dfb0b7f89ffffc478d4e74fd6a1559d20718793668414e9"},
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py": {"bytes": 25684, "sha256": "75d89da8817e9d9d1135730a7717d85be5f37d7d4d75c78762f09f0d39a15791"},
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/buildlib.py": {"bytes": 25644, "sha256": "f031330fbe3fcb262a5d100157636ff731823360b6214cd2ad96a276c0a1cd3c"},
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h/manifest.toml": {"bytes": 7594, "sha256": "274ba48788296439c79fe8d17ae67f65e586300039455985d22e2f334c1b3487"},
+    "workspace/public/src/scripts/revalidation/a90_observation_pipeline.py": {"bytes": 24478, "sha256": "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb"},
+    "workspace/public/src/scripts/revalidation/a90_serial_lock.py": {"bytes": 2860, "sha256": "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7"},
+    "workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py": {"bytes": 13734, "sha256": "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e"},
+    "workspace/public/src/scripts/revalidation/a90ctl.py": {"bytes": 16380, "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c"},
+    "workspace/public/src/scripts/revalidation/native_init_flash.py": {"bytes": 43118, "sha256": "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"},
+    "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py": {"bytes": 17944, "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98"},
+    "workspace/public/src/scripts/revalidation/tcpctl_host.py": {"bytes": 34750, "sha256": "032f3146ddc08af82f00881ae3d825066e843a41b194ee8d4c8cf09d1f3adb78"},
+    "workspace/public/src/scripts/server-distro/a90_phase2d_connected_preflight.py": {"bytes": 21929, "sha256": "c84f7e8d1054df6f095ce13a0bb4c3f057a6d0f4244b77f12b5c87f89edaa6d8"},
+    "workspace/public/src/scripts/server-distro/a90_phase2d_display_observer.py": {"bytes": 648, "sha256": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744"},
+    "workspace/public/src/scripts/server-distro/a90_phase2d_finalize_f1.py": {"bytes": 54979, "sha256": "1bc79925a319e85afbd5605c1a6b951efd8242e584c438a8b4f933cdad66ce82"},
+    "workspace/public/src/scripts/server-distro/a90_phase3_network_ssh_keyed_rootfs_v1.py": {"bytes": 23948, "sha256": "44bb425533ccfd5b65b9be94056da302fa646d97b2b346ec15214cd7a5660396"},
+    "workspace/public/src/scripts/server-distro/a90_resident_fast_handoff_v1.py": {"bytes": 12037, "sha256": "da695df326ac347baad2f31c4117ec564ea4cc4181605f397da8105d68e24c47"},
+    "workspace/public/src/scripts/server-distro/a90_resident_manifest_builder_v1.py": {"bytes": 41858, "sha256": "89da5821194dd0f630104e3d9a0189d579a60fa9d6ed5b62314ac14046e2ff1a"},
+    "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py": {"bytes": 73253, "sha256": "61c9e5d085a5285cad79220e70d658f22266428395a42aeab8bf4691345895dc"},
+    "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {"bytes": 104924, "sha256": "7de5bd04a88ee0537d498c0dbde21b13b861bd093bef8b99353e34362fc033be"},
+    "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {"bytes": 283832, "sha256": "08b77b2d24d347fd23f988627a23e9ea7b251525aac03611370203090dcc3ee4"},
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh": {"bytes": 10126, "sha256": "b52b7306d928d0a7275af70f16ff44d578a8440260828343eefa2a204bdc8859"},
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_return_arm_v1.sh": {"bytes": 1187, "sha256": "e83ede7fb430de98881ff7b9d18e8127bfc8bc19e4707d9ccf78410ac555faf3"},
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/manifest.toml": {"bytes": 2962, "sha256": "0a0ced3d0720db7bedb4ebcc42f98162a687d2a4d5d785b8cc123cae777ef9c7"},
+    "workspace/public/src/scripts/server-distro/prepare_phase2_display_v1_rootfs.py": {"bytes": 28143, "sha256": "8b44e922aba9efdf8b6877c98d6d3395c4ec34a6d6d5e47247aa3c73d7b689a1"},
+    "workspace/public/src/scripts/server-distro/prepare_phase3_network_ssh_v1_rootfs.py": {"bytes": 25978, "sha256": "3c15440d30e5cd14f320c6a1bc0d1639e89b0d878a8970284b5eb7bb58f87166"},
+    "workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.py": {"bytes": 13928, "sha256": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933"}
+  },
+  "reviewed_h6_closure": {
+    "aggregate_algorithm": "sha256 of canonical JSON path-to-bytes-and-sha256 map",
+    "superseded_full_thirteen_file_sha256": "b9f4ddb19d177506bd2d271b50b1e7c305ebe74d1647d0dacbe3dd711a373c70",
+    "production_seven_file_sha256": "a708ee11fa1975dc8df9b7b3a8092502ace2368a4d84f7354fbf64e159b0c9d5",
+    "tests_six_file_sha256": "5e6dc0107f46c149713536bcb25be067ca54392286cf6ad55eacfe98580d2265",
+    "full_thirteen_file_sha256": "ad61b8debc38ff2c5bf95aaa07da58e1d9dc9d71906cf1ba8765900dde4b0bf9",
+    "run03_delta_six_file_sha256": "1c5822d2cd160869c45759a499063f1ab5bb0fef5b1b1081cbc3d14cbd7e4324",
+    "production_files": {
+      "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h6/manifest.toml": {"bytes": 7618, "sha256": "388ad520592263aba1942993a1d03a6939586fce267274e320b7d126da9213ec"},
+      "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py": {"bytes": 61514, "sha256": "71d4b312808c4376aa995758cfa4c120fc04feaef432c43683ca2802012d4d64"},
+      "workspace/public/src/scripts/server-distro/a90_phase2d_finalize_f1.py": {"bytes": 54979, "sha256": "1bc79925a319e85afbd5605c1a6b951efd8242e584c438a8b4f933cdad66ce82"},
+      "workspace/public/src/scripts/server-distro/a90_resident_manifest_builder_v1.py": {"bytes": 41858, "sha256": "89da5821194dd0f630104e3d9a0189d579a60fa9d6ed5b62314ac14046e2ff1a"},
+      "workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py": {"bytes": 143535, "sha256": "851c89c8d39f134465cfc735c08772d66543694ef157d42c046e88365051c256"},
+      "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {"bytes": 104924, "sha256": "7de5bd04a88ee0537d498c0dbde21b13b861bd093bef8b99353e34362fc033be"},
+      "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {"bytes": 283832, "sha256": "08b77b2d24d347fd23f988627a23e9ea7b251525aac03611370203090dcc3ee4"}
+    },
+    "test_files": {
+      "tests/test_a90_phase2d_finalize_f1.py": {"bytes": 21629, "sha256": "5aaa4e9da3d37953dd1041a3723febd639998196207fa8226f413183d8c2d17e"},
+      "tests/test_a90_transition_d1_session_v1.py": {"bytes": 102209, "sha256": "79078970cf118754cb9f7b6b8e0bc9df9932c7665ac32d08d5ab01c6a153645c"},
+      "tests/test_server_distro_a90_resident_manifest_builder_v1.py": {"bytes": 26501, "sha256": "ca16f047272a8dba41e40778129b29ac297936089ebae32c7a55f464344615ff"},
+      "tests/test_server_distro_a90_v3403_absent_only_staging.py": {"bytes": 64656, "sha256": "4b24211bcde6b7b33d769040be95997181d1e74dd5184f5b2f816cfb2d28c75c"},
+      "tests/test_server_distro_a90_v3403_f1_orchestrator.py": {"bytes": 239380, "sha256": "d9333a45f49455ba31e40ed017b71d3d8b40551672f3eea00e04d73a54de2a4b"},
+      "workspace/public/src/scripts/revalidation/test_a90_flat_builder.py": {"bytes": 53704, "sha256": "6df16455df12af4895168e05742cda99308f9f1e9022a8dc8840ab3faa8d54f0"}
+    }
+  },
+  "benchmark_execution_closure": {
+    "sha256": "026eaaa9f6dc2a3adf77b66df6e7075f50767f994ea89315960ebe9f2d5d05b5",
+    "unchanged_from_prior_h6_review": true
+  },
+  "validation": {
+    "focused_public_tests": 374,
+    "failed_tests": 0,
+    "changed_python_files_compiled": 5,
+    "finalizer_host_only_audit": "PASS",
+    "resident_manifest_builder_host_only_audit": "PASS",
+    "run03_compiled_binding_recalculation": "PASS",
+    "git_diff_check": "PASS",
+    "main_agent_private_build_evidence": {
+      "reviewer_private_files_inspected": false,
+      "deterministic_a_b_boot_byte_identical": "PASS_REPORTED",
+      "aarch64_static_init": "PASS_REPORTED",
+      "android_boot_image": "PASS_REPORTED"
+    }
+  },
+  "fresh_live_requirements": [
+    "fresh exact A90 D0 and absent run03 rootfs, work, stage, enable, and latch paths",
+    "fresh immutable run03 F1 and resident bindings against this exact review",
+    "exact V2321 rollback and attended physical Download or TWRP recovery",
+    "one boot-only candidate transfer maximum with no candidate replay",
+    "exact rollback on candidate ambiguity or failure and exact final target health",
+    "never resume run01 or reuse run02 partial host artifacts"
+  ],
+  "review_lifetime": {
+    "reuse": "PASS_GO qualifies only this unchanged run03 capability closure and hazard assumptions; manifest, campaign, qualification, or ordinal changes alone do not require another review.",
+    "fresh_review_trigger": "Any named execution-critical hash, thirteen-file closure, run03 rootfs, boot, receipt, compiled binding, marker namespace, observer, no-replay, rollback, recovery, hazard, or incident change.",
+    "fresh_live_binding_still_required": true,
+    "live_authority_from_review": false
+  },
+  "unresolved_high_findings": [],
+  "unresolved_medium_findings": [],
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "reviewer_device_contact": false,
+  "reviewer_usb_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_s22plus_contact": false,
+  "reviewer_implementation_edits": false,
+  "reviewer_report_written": true
+}

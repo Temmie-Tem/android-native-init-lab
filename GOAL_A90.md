@@ -175,6 +175,28 @@ The pre-H2 goal history is preserved at
   all zero. No staging bytes reached A90, H5 remains unchanged, and S22+ was
   untouched. The immutable manifest and transaction must never be replayed;
   the unchanged reviewed capability may be rebound to one fresh campaign.
+- Run02 generated a fresh keyed rootfs and passed a fresh read-only D0, but its
+  host finalizer correctly rejected the new rootfs SHA against the run01-bound
+  compiled candidate before publishing a final manifest. It has no live
+  authority and must not be reused. Device effects were D0 reads only; no
+  staging, transfer, flash, reboot, or S22+ command occurred.
+- Run03 now supplies the corrected rootfs-first rebind. Its fresh keyed rootfs
+  SHA256 is `feea09dd81fc342032c94629f47d06e743788efc9dc7bba9ca0067f346d4d490`
+  at the compiled `20260807-03` destination. The deterministic non-LTO A/B
+  candidate is byte-identical at boot SHA256
+  `aa7cba7f730e12b08f6498a3307493eed033674d51c968b4ea4d2d3280ea98bb`,
+  build receipt SHA256
+  `e0e2544770d1538ddc566d41e1a878db687a4da61a1926d994544f657d43cfd3`,
+  and compiled binding
+  `238a1ae3aa1f4a2a1a8c46d8368fa4e025d0a0be7fb4ed77e7ccd80b410d1483`.
+  All 374 focused tests, both host-only audits, static AArch64 inspection, and
+  Android boot-image inspection pass. Fresh run03 D0 re-proved exact H5 health,
+  the new candidate and rollback, and absent run03 rootfs/work/stage with no
+  write, payload, flash, or reboot. Fresh independent review returned
+  `PASS_GO` with HIGH/MEDIUM zero for exact named execution-critical closure
+  `20314ba25b75a2202b6e814d48275ec6e7c530dbc9c0b0c2e88551d1f42276e3`.
+  The reviewer made no implementation edit and contacted no device, USB,
+  private artifact, or S22+ endpoint.
 
 ## Qualified Capabilities
 
@@ -296,11 +318,11 @@ bounded work is:
 4. retain the committed corrected H6 closure and fresh connected D0 proof of
    exact H5 health, exact candidate and rollback, and absent H6
    rootfs/work/stage and enable/latch paths;
-5. retain the terminal run01 binding and no-effect journal without replay;
-   bind the unchanged reviewed H6 capability to one fresh campaign, then while
-   the operator is attended with Download or TWRP recovery available permit at
-   most one boot-only candidate transfer with no replay and exact rollback on
-   failure;
+5. retain terminal run01 and host-rejected run02 without replay or reuse;
+   independently review and commit the run03 execution-critical rebind, prepare
+   one fresh immutable run03 resident binding, then while the operator is
+   attended with Download or TWRP recovery available permit at most one
+   boot-only candidate transfer with no replay and exact rollback on failure;
 6. from exact unarmed H6 resident health, run one new D1 automatic-handoff
    ordinal through the repaired observer and close Debian PID 1, SSH, service
    ownership, display, native return, cleanup, latch, telemetry, and final
@@ -360,6 +382,7 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_V2321_H3_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_PHASE3_MINIMAL_H5_FRESH_CAMPAIGN_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_PHASE3_MINIMAL_H6_OBSERVER_COMPLETE_BASELINE_INDEPENDENT_REVIEW_2026-08-07.json`
+- `docs/reports/A90_PHASE3_MINIMAL_H6_RUN03_REBIND_INDEPENDENT_REVIEW_2026-08-07.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`
