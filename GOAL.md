@@ -11,28 +11,30 @@ shared process documents. A90 state and authorization remain separate.
 
 ## Current Frontier
 
-P3.07 is the latest closed live unit. After one retained-baseline read-only
-stop and one attended normal-reboot rotation, its distinct boot-only candidate
-and exact Magisk rollback each transferred once. The operator observed one
-normal candidate boot with no loop. The first rollback wait ended in a host
-`measured USB endpoint evidence failed` error after candidate observation; the
-durable `--recover` path resumed only the preapproved rollback and did not
-repeat the candidate. Final rooted FYG8 Android health passed, the transaction
-is `CLOSED`, `recovery_required=false`, and A90 received zero commands.
+P3.08 is the latest closed live unit. Focused independent review returned
+`PASS_GO` for the exact loss-resistant observer and Process-v2 closure. The
+first connected preparation stopped read-only on the retained P3.07 marker.
+One attended normal reboot was then issued; its D1 helper lost the post-reboot
+read-only shell observation and was not retried. A passive fresh D0 proved the
+boot ID changed, exact rooted FYG8 Android health returned, and the complete
+retained baseline was clean. A new preparation bound the reviewed candidate,
+exact rollback, and current execution closure.
 
-The two byte-identical final retained reads contain generation 68 at
-`stage=0x7B`, `item_index=59`, `PROGRESS`, detail zero, followed by generation
-69 at `stage=0x7C`, `item_index=0`, `FAILURE`, detail `0x6013`. The fixed P3.07
-decoder classifies this as `kmsg-attribution-format-contradiction`: the ordered
-HS-PHY kmsg parser rejected an observed line format before it could publish the
-EUD/cache, init, DPDM, pre-init-clock, late-clock, or QSCRATCH tuple. It is an
-observer contradiction, not a USB/PHY conclusion. The exact candidate ACM
-observer timed out; the same-attempt host sidecar was integrity-clean and did
-not contain the exact candidate identity. The consumed P3.07 candidate must
-never be replayed.
+The distinct P3.08 candidate and exact Magisk rollback each transferred once.
+The operator observed one normal candidate boot with no loop. Final rooted
+FYG8 Android health passed, the transaction is `CLOSED`, rollback is verified,
+and `recovery_required=false`. The two byte-identical retained reads contain
+generation 98 at `stage=0x90`, `item_index=5`, PROGRESS detail `0xC02`
+(`cycle-trace-registration-unavailable`), followed by generation 99 at the
+same stage, `item_index=6`, FAILURE detail `0x600D`
+(`hsphy-init-path-contradiction`). `foreign_count=0` and retained integrity is
+clean. The trace acquisition was unavailable before the clock/QSCRATCH and
+kmsg attribution tuple could be published, so this is an observer
+contradiction rather than a USB, EUD, PHY, clock, or QSCRATCH conclusion. The
+exact candidate ACM observer timed out and the same-attempt host sidecar was
+integrity-clean. The consumed P3.08 candidate must never be replayed.
 
-P3.08 is the current host-ready successor and remains F1-unarmed pending one
-focused independent review. It keeps the P3.00 Image, 61-module plan, log
+P3.08 kept the P3.00 Image, 61-module plan, log
 level, 45-byte carrier, rollback path, and live runner unchanged. Its
 userspace parser now applies the `/dev/kmsg` extended-text ABI: the first
 literal LF ends the escaped message body and excludes the dictionary suffix.
@@ -57,10 +59,12 @@ ready manifest, and host preflight all pass. The candidate AP SHA256 is
 `aaa2803d0ac2f232810069ead3e3ac4002089917f1f7cd4472cdda7fc45c939e`;
 the ready manifest SHA256 is
 `15b6d060daff7dbde591bdef89a8f579d799e51a4568e412421a7e1a5b470720`.
-No device contact occurred during this preparation.
+No device contact occurred during the host preparation.
 
-P3.08 is the last telemetry-rich experiment planned on the v1 carrier. Carrier
-v2 is selected only if at least one objective trigger occurs: a valid P3.08
+P3.08 is the last telemetry-rich experiment on the v1 carrier. Its
+post-cross-gate observer loss satisfies an objective Carrier v2 trigger; do not
+run another telemetry-rich v1 candidate. The remaining trigger definition is:
+a valid P3.08
 normal tuple still leaves the cause split; a post-cross-gate observer loss
 recurs; a required A family exceeds the fixed 176 exact-rule values; a next
 measurement cannot fit two 16-bit slots without lossy Cartesian packing; or a
