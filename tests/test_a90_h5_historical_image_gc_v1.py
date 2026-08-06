@@ -85,6 +85,92 @@ class HistoricalImageGcTests(unittest.TestCase):
             with self.assertRaises(gc.ContractError):
                 gc._validate_health_for_target(drifted, spec)
 
+    def test_staged_host_bytes_survive_expected_manifest_enrichment(self):
+        fixed = gc.SELECTED_FIXED[5]
+        record = self.records()[5]
+        run_id, filename = gc.STAGED_HOST_RUNS[fixed.token]
+        with tempfile.TemporaryDirectory() as temporary:
+            private_base = Path(temporary)
+            run_dir = private_base / run_id
+            run_dir.mkdir()
+            prepared_path = run_dir / "prepared-manifest.json"
+            result_path = run_dir / "staging-live/result.json"
+            result_path.parent.mkdir()
+            host_path = (run_dir / filename).resolve()
+            prepared_path.write_text(
+                gc.json.dumps(
+                    {
+                        "run_id": run_id,
+                        "debian_rootfs": {
+                            "keyed_source": {
+                                "local_path": str(host_path),
+                                "device_path": fixed.path,
+                                "size": fixed.size,
+                                "sha256": record.sha256,
+                            }
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result_path.write_text(
+                gc.json.dumps(
+                    {
+                        "schema": "a90_v3403_absent_only_staging_adapter_v1",
+                        "status": "PASS_ABSENT_ONLY_ROOTFS_STAGED",
+                        "run_id": run_id,
+                        "manifest_sha256": "b" * 64,
+                        "rootfs": {
+                            "device_path": fixed.path,
+                            "size": fixed.size,
+                            "sha256": record.sha256,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            bindings = {
+                prepared_path.resolve(): gc.legacy.BoundFile(
+                    prepared_path.resolve(), prepared_path.stat().st_size, "a" * 64
+                ),
+                result_path.resolve(): gc.legacy.BoundFile(
+                    result_path.resolve(), result_path.stat().st_size, "c" * 64
+                ),
+                host_path: gc.legacy.BoundFile(
+                    host_path, fixed.size, record.sha256
+                ),
+            }
+            with (
+                mock.patch.object(gc, "PRIVATE_BASE", private_base),
+                mock.patch.object(
+                    gc,
+                    "_bound",
+                    side_effect=lambda path, **_kwargs: bindings[path.resolve()],
+                ),
+            ):
+                self.assertEqual(
+                    gc._staged_host_preservation(fixed, record),
+                    bindings[host_path],
+                )
+                result_path.write_text(
+                    gc.json.dumps(
+                        {
+                            "schema": "a90_v3403_absent_only_staging_adapter_v1",
+                            "status": "PASS_ABSENT_ONLY_ROOTFS_STAGED",
+                            "run_id": run_id,
+                            "manifest_sha256": int("1" * 64),
+                            "rootfs": {
+                                "device_path": fixed.path,
+                                "size": fixed.size,
+                                "sha256": record.sha256,
+                            },
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                with self.assertRaises(gc.ContractError):
+                    gc._staged_host_preservation(fixed, record)
+
     def test_single_effect_frame_is_bounded_and_nonrecursive(self):
         spec = SimpleNamespace(selected=self.records())
         command = gc.effect_command(spec)

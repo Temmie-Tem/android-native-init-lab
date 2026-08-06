@@ -1,6 +1,7 @@
 {
   "schema": "a90-h5-historical-image-gc-capability-independent-review-v1",
   "review_date": "2026-08-06",
+  "review_revision": 2,
   "reviewer": "independent subagent /root/a90_capability_review",
   "verdict": "PASS_GO",
   "target": "Samsung Galaxy A90 5G only",
@@ -27,6 +28,9 @@
     "selected_and_protected_metadata_and_sha256_bound": true,
     "selected_host_recovery_bytes_exact": true,
     "host_preservation_mode_0600_and_single_link": true,
+    "historical_staging_result_manifest_sha256_exact_string_shape": true,
+    "staged_host_identity_survives_prepared_manifest_enrichment": true,
+    "current_prepared_full_file_hash_must_equal_historical_staging_manifest_hash": false,
     "fresh_inventory_max_age_seconds": 3600,
     "inventory_target_health_cross_binding": true,
     "live_target_health_cross_binding": true,
@@ -51,7 +55,8 @@
     "other_target_commands": 0
   },
   "reviewed_execution_closure": {
-    "aggregate_sha256": "84c54f4ea5f5024117046cbea27e1733f648d4760119a832b860820f89585242",
+    "aggregate_sha256": "6046591ba7172eaecaf6c664f08520e0c4f271194038d788cc62a41bcd619401",
+    "supersedes_aggregate_sha256": "84c54f4ea5f5024117046cbea27e1733f648d4760119a832b860820f89585242",
     "role_bindings": {
       "common_contract": "AGENTS.md",
       "h5_common_contract": "AGENTS.md",
@@ -100,8 +105,8 @@
         "sha256": "01059d90a5fb88eee3350d6fd2e142e23e479acaffaf22badd1c1d46b237bb56"
       },
       "workspace/public/src/scripts/server-distro/a90_h5_historical_image_gc_v1.py": {
-        "bytes": 75658,
-        "sha256": "c151e7d1b15154a9f57108a3a895a808e4b44553f76ca283e67101fb3e9394a1"
+        "bytes": 75788,
+        "sha256": "ee79b88eb8e61ed756de40ea1edac328d742aa8895a0f49f77712c2ca8094164"
       },
       "workspace/public/src/scripts/server-distro/a90_obsolete_rootfs_cleanup_v1.py": {
         "bytes": 149731,
@@ -131,16 +136,16 @@
   },
   "reviewed_test_source": {
     "path": "tests/test_a90_h5_historical_image_gc_v1.py",
-    "bytes": 11725,
-    "sha256": "f6b9b51a4d601739ea08ce87a305ec64717767b7de76cdd369adc82813c9e3c4"
+    "bytes": 15328,
+    "sha256": "93e02915f52164b582b3759de8779425106836fc006d2d4384eb04c8cc598da0"
   },
   "validation": {
     "python_in_memory_compile": "PASS",
     "git_diff_check": "PASS",
     "rootfs_gc_primitive_tests": 50,
     "h5_h4_source_reclaim_tests": 11,
-    "new_capability_tests": 8,
-    "total_tests": 69,
+    "new_capability_tests": 9,
+    "total_tests": 70,
     "failed_tests": 0
   },
   "closed_during_review": [
@@ -148,8 +153,34 @@
     "preservation, intent, dispatch, result, and resume receipts are strictly shape and hash bound",
     "expiry is checked across preparation and before the one unlink dispatch",
     "expensive host revalidation now precedes the final selected/protected/use-guard preflight",
-    "opening and final H5 health are cross-bound to the exact selected A90 bridge realpath"
+    "opening and final H5 health are cross-bound to the exact selected A90 bridge realpath",
+    "prepared-manifest enrichment no longer falsely rejects historical staging receipts while every byte-bearing identity remains exact",
+    "historical staging manifest SHA remains an exact lowercase 64-hex JSON string and rejects numeric coercion"
   ],
+  "incident_review": {
+    "incident_class": "HOST_VALIDATOR_FALSE_REJECTION_AFTER_PREPARED_MANIFEST_ENRICHMENT",
+    "trigger": "historical staging result manifest_sha256 differed from the later enriched current prepared-manifest full-file SHA256",
+    "scope": "host-only preservation validator before cleanup manifest, durable cleanup intent, or unlink dispatch",
+    "operator_reported_pre_review_state": {
+      "device_to_host_read_only_preservations_completed": 8,
+      "cleanup_deletion_count": 0,
+      "cleanup_dispatch_count": 0,
+      "device_write_count": 0
+    },
+    "reviewer_private_evidence_inspected": false,
+    "removed_requirement": "equality between the current enriched prepared-manifest full-file SHA256 and the historical staging result recorded manifest SHA256",
+    "retained_requirements": [
+      "exact fixed run and host filename mapping",
+      "current prepared keyed_source exact local path, device path, size, and SHA256",
+      "historical PASS staging result exact run, rootfs device path, size, and SHA256",
+      "historical manifest_sha256 exact lowercase 64-hex JSON string shape",
+      "actual private host recovery file regular, mode 0600, single-link, exact size, and exact SHA256",
+      "host SHA256 equals the selected device inventory SHA256"
+    ],
+    "identity_or_recovery_semantics_relaxed": false,
+    "device_effect_semantics_changed": false,
+    "incident_closed": true
+  },
   "review_lifetime": {
     "reuse": "Only this unchanged execution-critical closure and hazard assumptions qualify; ordinal, manifest, qualification, and campaign changes alone do not require another capability review.",
     "consumed_by_first_durable_dispatch": true,

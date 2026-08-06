@@ -399,6 +399,7 @@ def _staged_host_preservation(
     result_value = json.loads(result.path.read_text(encoding="utf-8"))
     keyed = prepared_value.get("debian_rootfs", {}).get("keyed_source", {})
     rootfs = result_value.get("rootfs", {})
+    historical_manifest_sha = result_value.get("manifest_sha256")
     host_path = (run_dir / filename).resolve()
     host = _bound(host_path, private=True)
     if (
@@ -407,7 +408,8 @@ def _staged_host_preservation(
         != "a90_v3403_absent_only_staging_adapter_v1"
         or result_value.get("status") != "PASS_ABSENT_ONLY_ROOTFS_STAGED"
         or result_value.get("run_id") != run_id
-        or result_value.get("manifest_sha256") != prepared.sha256
+        or not isinstance(historical_manifest_sha, str)
+        or re.fullmatch(r"[0-9a-f]{64}", historical_manifest_sha) is None
         or keyed.get("local_path") != str(host_path)
         or keyed.get("device_path") != fixed.path
         or keyed.get("size") != fixed.size
