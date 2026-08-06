@@ -6090,6 +6090,48 @@ class DisplayObservationTests(unittest.TestCase):
         ):
             f1.validate_candidate_first_boot_contract(changed, **kwargs)
 
+    def test_h6_first_boot_contract_binds_fresh_markers_and_rootfs(self) -> None:
+        binding = {
+            "schema": "a90-compiled-auto-handoff-binding-v1",
+            "candidate_version": "0.11.174",
+            "candidate_build": (
+                "phase3-minimal-h6-observer-complete-baseline-auto-benchmark"
+            ),
+            "image_path": "/mnt/sdext/a90/runtime/rootfs-14.img",
+            "image_sha256": "e" * 64,
+            "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h6.enable",
+            "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h6.done",
+        }
+        binding["binding_sha256"] = f1.json_sha256(binding)
+        contract = {
+            "schema": "a90-auto-handoff-first-boot-v2",
+            "enable_path": binding["enable_path"],
+            "latch_path": binding["latch_path"],
+            "compiled_binding": binding,
+            "pre_transfer_state": "both-absent",
+            "post_boot_status": "binding=1-enable=0-latch=0",
+            "post_boot_log": "A90AUTO state=unarmed-stay-native",
+        }
+        kwargs = {
+            "candidate_version": binding["candidate_version"],
+            "candidate_build": binding["candidate_build"],
+            "remote_final": binding["image_path"],
+            "rootfs_sha256": binding["image_sha256"],
+        }
+        self.assertEqual(
+            f1.validate_candidate_first_boot_contract(contract, **kwargs),
+            contract,
+        )
+        changed = copy.deepcopy(contract)
+        changed["enable_path"] = (
+            "/cache/a90-auto-handoff-phase3-minimal-h5.enable"
+        )
+        with self.assertRaisesRegex(
+            f1.ContractError,
+            "compiled candidate/rootfs binding",
+        ):
+            f1.validate_candidate_first_boot_contract(changed, **kwargs)
+
     def test_first_boot_log_accepts_repeated_exact_unarmed_states(self) -> None:
         for log_text in (
             "A90AUTO state=unarmed-stay-native\r\n",

@@ -677,6 +677,13 @@ def validate_candidate_first_boot_contract(
             "/cache/a90-auto-handoff-phase3-minimal-h5.enable",
             "/cache/a90-auto-handoff-phase3-minimal-h5.done",
         ),
+        (
+            "0.11.174",
+            "phase3-minimal-h6-observer-complete-baseline-auto-benchmark",
+        ): (
+            "/cache/a90-auto-handoff-phase3-minimal-h6.enable",
+            "/cache/a90-auto-handoff-phase3-minimal-h6.done",
+        ),
     }
     if identity in compiled_identity_markers:
         enable_path, latch_path = compiled_identity_markers[identity]

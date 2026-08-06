@@ -134,6 +134,25 @@ The pre-H2 goal history is preserved at
   false, and payload, partition write, flash, rollback, and S22+ command
   counts are zero. Private result SHA256 is
   `2c83dfbdfd362082bed2bfec313c7665afd1621e06714a6da0c168fc91d715ff`.
+- H6 host preparation now follows the required rootfs-first order. Run
+  `a90-v3406-debian-display-f1-20260807-01` has one fresh private observer-keyed
+  2 GiB rootfs with SHA256
+  `b242fa73ee926d150ef8b8887734210bc4fd41f71597730647932c578fb1fd64`.
+  Its absent remote destination is
+  `/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260807-01.img`.
+- The corrected non-LTO H6 A/B build is byte-identical at boot SHA256
+  `5e6774018d7e4601bde766521a78d58d90a7ec5851297d8f5c32bf13b7fa07fa`,
+  version `0.11.174`, build
+  `phase3-minimal-h6-observer-complete-baseline-auto-benchmark`, compiled
+  binding `75c0f131e814ab27a123961c17a8082034425e371c9412284a7b78bc17f42231`,
+  and fresh H6 enable/latch namespace. The superseded pre-rootfs H0 draft is
+  not selected by any public manifest and has no live authority.
+- Independent review returned `PASS_GO` for corrected H6 full thirteen-file
+  closure `b9f4ddb19d177506bd2d271b50b1e7c305ebe74d1647d0dacbe3dd711a373c70`
+  with HIGH/MEDIUM zero and 367 tests passing. No device, USB, private, or
+  S22+ reviewer contact occurred. No H6 connected D0, staging, candidate
+  transfer, flash, reboot, or D1 action has occurred yet; H5 remains exact and
+  terminal.
 
 ## Qualified Capabilities
 
@@ -190,6 +209,14 @@ The pre-H2 goal history is preserved at
   guards, and one nonrecursive unlink. Run01's durable dispatch consumed and
   retired the capability; it must never unlink or dispatch again. Its private
   recovery bytes remain evidence and grant no automatic restore authority.
+- The corrected H6 observer-complete non-LTO baseline closure
+  `b9f4ddb19d177506bd2d271b50b1e7c305ebe74d1647d0dacbe3dd711a373c70`
+  has independent `PASS_GO`. It binds the fresh run-specific keyed rootfs,
+  deterministic boot, compiled H6 markers, resident F1 interpretation, H6 D1
+  identity, and the repaired absence-only post-reboot bridge observer. Reuse
+  lasts only while those named hashes and hazard assumptions are unchanged and
+  no new incident occurs; fresh D0, rollback/recovery, attendance, manifest,
+  and inter-effect health remain mandatory live inputs.
 
 ## Proven Product Path
 
@@ -216,7 +243,7 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: Close the H5 Observer Gap
+## Selected Bounded Unit: Install and Close the H6 Observer-Complete Baseline
 
 H5 installation and its first automatic-handoff ordinal are terminal. Preserve
 runs 11-13 and D1 run09, their state namespaces, journals, private host bytes,
@@ -233,8 +260,9 @@ It is not yet a correctness baseline for compiler comparison because the host
 observer lost exact bridge continuity before it could bind Debian PID 1, SSH,
 service ownership, and display facts to the same ordinal.
 
-The observer diagnosis, local repair, focused tests, and independent capability
-review are complete with no device contact. The next bounded work is:
+The observer diagnosis, corrected rootfs-first H6 build, focused tests, and
+independent capability review are complete with no device contact. The next
+bounded work is:
 
 1. preserve run09 and its H5 state namespace without replay or reset;
 2. retain run02 as the consumed exact PASS that removed only H4, protected H5,
@@ -243,10 +271,17 @@ review are complete with no device contact. The next bounded work is:
    fixed twenty-file set, reclaimed 40370236 KiB, and preserved exact H5;
    never reuse its capability receipt or infer restore authority from host
    recovery bytes;
-4. if full H5-equivalent correctness proof still requires another device
-   transition, build a fresh marker/build identity and open a fresh D0/D1 or
-   F1 campaign under exact recovery and attendance, never a run09 replay; and
-5. start Full-LTO comparison only after one observer-complete automatic
+4. commit the corrected H6 closure, then use fresh connected D0 to prove exact
+   H5 health, exact candidate and rollback, and absent H6 rootfs/work/stage and
+   enable/latch paths;
+5. while the operator is attended with Download or TWRP recovery available,
+   prepare one fresh immutable H6 resident binding and permit at most one
+   boot-only candidate transfer with no replay and exact rollback on failure;
+6. from exact unarmed H6 resident health, run one new D1 automatic-handoff
+   ordinal through the repaired observer and close Debian PID 1, SSH, service
+   ownership, display, native return, cleanup, latch, telemetry, and final
+   resident health together; and
+7. start Full-LTO comparison only after one observer-complete automatic
    handoff baseline closes Debian PID 1, SSH, display, return, cleanup, and
    resident health together.
 
@@ -300,6 +335,7 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_H4_CUMULATIVE_UNARMED_LOG_OBSERVER_INCIDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_V2321_H3_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_PHASE3_MINIMAL_H5_FRESH_CAMPAIGN_INDEPENDENT_REVIEW_2026-08-05.json`
+- `docs/reports/A90_PHASE3_MINIMAL_H6_OBSERVER_COMPLETE_BASELINE_INDEPENDENT_REVIEW_2026-08-07.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`

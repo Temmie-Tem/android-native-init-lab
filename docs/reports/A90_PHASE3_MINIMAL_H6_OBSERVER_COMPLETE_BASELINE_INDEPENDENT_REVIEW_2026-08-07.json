@@ -1,0 +1,316 @@
+{
+  "schema": "a90-phase3-resident-refresh-f1-independent-review-v1",
+  "status": "PASS_GO",
+  "review_date": "2026-08-07",
+  "reviewer": "independent subagent /root/a90_capability_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "capability": "A90_PHASE3_MINIMAL_H6_OBSERVER_COMPLETE_NON_LTO_BASELINE",
+  "decision": "No unresolved HIGH or MEDIUM finding. The corrected H6 public closure binds a fresh run-specific keyed rootfs, fresh H6 state namespace, deterministic boot candidate identity, compiled binding, resident F1 interpretation, and repaired observer-complete D1 benchmark path without replaying or mutating H5.",
+  "scope": {
+    "candidate_version": "0.11.174",
+    "candidate_build": "phase3-minimal-h6-observer-complete-baseline-auto-benchmark",
+    "rootfs_run_id": "a90-v3406-debian-display-f1-20260807-01",
+    "rootfs_remote_path": "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260807-01.img",
+    "rootfs_sha256": "b242fa73ee926d150ef8b8887734210bc4fd41f71597730647932c578fb1fd64",
+    "candidate_boot_size": 58372096,
+    "candidate_boot_sha256": "5e6774018d7e4601bde766521a78d58d90a7ec5851297d8f5c32bf13b7fa07fa",
+    "build_receipt_sha256": "3b1fe24cf593ca91f157f3a5a6a3ec37b46bcff245cee2d3545ff11d06334450",
+    "compiled_binding_sha256": "75c0f131e814ab27a123961c17a8082034425e371c9412284a7b78bc17f42231",
+    "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h6.enable",
+    "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h6.done",
+    "candidate_authority": false,
+    "live_authority": false
+  },
+  "reviewed_properties": {
+    "corrected_run_specific_rootfs_binding_exact": true,
+    "obsolete_draft_1da89b_384890_20260807_14_absent": true,
+    "manifest_compiled_binding_recalculated_exact": true,
+    "finalizer_and_resident_builder_identity_equal": true,
+    "staging_and_f1_orchestrator_h6_identity_exact": true,
+    "transition_d1_h6_identity_exact": true,
+    "benchmark_runner_h6_identity_exact": true,
+    "h6_markers_fresh_and_distinct_from_h5": true,
+    "h5_manifest_source_and_marker_identity_unchanged": true,
+    "h5_run09_replay_authorized": false,
+    "h6_flat_builder_source_cflags_and_ramdisk_equal_to_h5_except_identity": true,
+    "full_lto_enabled": false,
+    "repaired_post_reboot_absence_only_bridge_wait_unchanged": true,
+    "present_bridge_mismatch_still_fails_without_polling": true,
+    "ncm_rebind_precedes_ssh_observation": true,
+    "debian_pid1_ssh_service_display_return_cleanup_and_health_observation_retained": true,
+    "one_candidate_transfer_maximum_and_candidate_replay_false": true,
+    "exact_v2321_rollback_and_attended_download_or_twrp_recovery_required": true,
+    "boot_partition_only": true,
+    "non_boot_partition_authority": false,
+    "operator_attendance_required_for_f1": true,
+    "private_evidence_remains_private": true,
+    "s22plus_authority": false
+  },
+  "governing_public_inputs": {
+    "aggregate_sha256": "55a8d79e806587522cdd2f5778702b204efa1aaeba10a639dadaf378ac1365f1",
+    "files": {
+      "AGENTS.md": {
+        "bytes": 14201,
+        "sha256": "3289aedf8b55c2d74e3252c72e7b6b9bc003ef62379fc6e7b192a845c80dd747"
+      },
+      "GOAL_A90.md": {
+        "bytes": 19726,
+        "sha256": "90098de3651618b796d692e1bfaf2bb01591e9e0948b84b61202d86319d718f5"
+      },
+      "docs/operations/targets/A90_TARGET_CONTRACT.md": {
+        "bytes": 33279,
+        "sha256": "11d4653c880ce7642729a03c607d4bd320263632236a893d88b0dfcd4179e77e"
+      }
+    }
+  },
+  "named_execution_critical_closure_sha256": "fc0903b46aff1db8ad60ae82f4fd35e68f046ce16a1807e8d2ecb0123656a81e",
+  "named_execution_critical_closure": {
+    "workspace/public/src/harness/a90harness/evidence.py": {
+      "bytes": 11723,
+      "sha256": "3b0aaa36a95628591e14c4c2d70ae4941230fe650b6e4d517173cee5d3019742"
+    },
+    "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py": {
+      "bytes": 1255,
+      "sha256": "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe"
+    },
+    "workspace/public/src/scripts/revalidation/a90_bridge.py": {
+      "bytes": 40549,
+      "sha256": "7bacce5a61f6745d4dfb0b7f89ffffc478d4e74fd6a1559d20718793668414e9"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py": {
+      "bytes": 25684,
+      "sha256": "75d89da8817e9d9d1135730a7717d85be5f37d7d4d75c78762f09f0d39a15791"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/buildlib.py": {
+      "bytes": 25644,
+      "sha256": "f031330fbe3fcb262a5d100157636ff731823360b6214cd2ad96a276c0a1cd3c"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h/manifest.toml": {
+      "bytes": 7594,
+      "sha256": "274ba48788296439c79fe8d17ae67f65e586300039455985d22e2f334c1b3487"
+    },
+    "workspace/public/src/scripts/revalidation/a90_observation_pipeline.py": {
+      "bytes": 24478,
+      "sha256": "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb"
+    },
+    "workspace/public/src/scripts/revalidation/a90_serial_lock.py": {
+      "bytes": 2860,
+      "sha256": "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7"
+    },
+    "workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py": {
+      "bytes": 13734,
+      "sha256": "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e"
+    },
+    "workspace/public/src/scripts/revalidation/a90ctl.py": {
+      "bytes": 16380,
+      "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c"
+    },
+    "workspace/public/src/scripts/revalidation/native_init_flash.py": {
+      "bytes": 43118,
+      "sha256": "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
+    },
+    "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py": {
+      "bytes": 17944,
+      "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98"
+    },
+    "workspace/public/src/scripts/revalidation/tcpctl_host.py": {
+      "bytes": 34750,
+      "sha256": "032f3146ddc08af82f00881ae3d825066e843a41b194ee8d4c8cf09d1f3adb78"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_connected_preflight.py": {
+      "bytes": 21929,
+      "sha256": "c84f7e8d1054df6f095ce13a0bb4c3f057a6d0f4244b77f12b5c87f89edaa6d8"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_display_observer.py": {
+      "bytes": 648,
+      "sha256": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_finalize_f1.py": {
+      "bytes": 54979,
+      "sha256": "2671e2f80bc55ed7f47ea79977c908a6d3b57d2bb0e2a15187a9c4f34a630ace"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase3_network_ssh_keyed_rootfs_v1.py": {
+      "bytes": 23948,
+      "sha256": "44bb425533ccfd5b65b9be94056da302fa646d97b2b346ec15214cd7a5660396"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_fast_handoff_v1.py": {
+      "bytes": 12037,
+      "sha256": "da695df326ac347baad2f31c4117ec564ea4cc4181605f397da8105d68e24c47"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_manifest_builder_v1.py": {
+      "bytes": 41858,
+      "sha256": "b764f2ac81c19b3e57f28fa092350ee1aa9115c86c9e22a895c0b1bf21fd5458"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py": {
+      "bytes": 73253,
+      "sha256": "61c9e5d085a5285cad79220e70d658f22266428395a42aeab8bf4691345895dc"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {
+      "bytes": 104924,
+      "sha256": "7de5bd04a88ee0537d498c0dbde21b13b861bd093bef8b99353e34362fc033be"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {
+      "bytes": 283832,
+      "sha256": "08b77b2d24d347fd23f988627a23e9ea7b251525aac03611370203090dcc3ee4"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh": {
+      "bytes": 10126,
+      "sha256": "b52b7306d928d0a7275af70f16ff44d578a8440260828343eefa2a204bdc8859"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_return_arm_v1.sh": {
+      "bytes": 1187,
+      "sha256": "e83ede7fb430de98881ff7b9d18e8127bfc8bc19e4707d9ccf78410ac555faf3"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/manifest.toml": {
+      "bytes": 2962,
+      "sha256": "0a0ced3d0720db7bedb4ebcc42f98162a687d2a4d5d785b8cc123cae777ef9c7"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase2_display_v1_rootfs.py": {
+      "bytes": 28143,
+      "sha256": "8b44e922aba9efdf8b6877c98d6d3395c4ec34a6d6d5e47247aa3c73d7b689a1"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase3_network_ssh_v1_rootfs.py": {
+      "bytes": 25978,
+      "sha256": "3c15440d30e5cd14f320c6a1bc0d1639e89b0d878a8970284b5eb7bb58f87166"
+    },
+    "workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.py": {
+      "bytes": 13928,
+      "sha256": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933"
+    }
+  },
+  "reviewed_closure": {
+    "aggregate_algorithm": "sha256 of canonical JSON path-to-bytes-and-sha256 map",
+    "production_seven_file_sha256": "5463b11339c848f76fd18f1ec5a7e37fcc9b9d2d1ccb0f9f135ecd667681fa66",
+    "tests_six_file_sha256": "292713a42b9dbe42e3e0805b588b87e1e96f686a9169a8a25248debaa1bd5e8d",
+    "full_thirteen_file_sha256": "b9f4ddb19d177506bd2d271b50b1e7c305ebe74d1647d0dacbe3dd711a373c70",
+    "production_files": {
+      "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h6/manifest.toml": {
+        "bytes": 7618,
+        "sha256": "ecb40baddd2bd535c85bd645b38b33ec2be47dbff9021853cfbda9d4a8483421"
+      },
+      "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py": {
+        "bytes": 61514,
+        "sha256": "71d4b312808c4376aa995758cfa4c120fc04feaef432c43683ca2802012d4d64"
+      },
+      "workspace/public/src/scripts/server-distro/a90_phase2d_finalize_f1.py": {
+        "bytes": 54979,
+        "sha256": "2671e2f80bc55ed7f47ea79977c908a6d3b57d2bb0e2a15187a9c4f34a630ace"
+      },
+      "workspace/public/src/scripts/server-distro/a90_resident_manifest_builder_v1.py": {
+        "bytes": 41858,
+        "sha256": "b764f2ac81c19b3e57f28fa092350ee1aa9115c86c9e22a895c0b1bf21fd5458"
+      },
+      "workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py": {
+        "bytes": 143535,
+        "sha256": "851c89c8d39f134465cfc735c08772d66543694ef157d42c046e88365051c256"
+      },
+      "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {
+        "bytes": 104924,
+        "sha256": "7de5bd04a88ee0537d498c0dbde21b13b861bd093bef8b99353e34362fc033be"
+      },
+      "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {
+        "bytes": 283832,
+        "sha256": "08b77b2d24d347fd23f988627a23e9ea7b251525aac03611370203090dcc3ee4"
+      }
+    },
+    "test_files": {
+      "tests/test_a90_phase2d_finalize_f1.py": {
+        "bytes": 21629,
+        "sha256": "71848ac0765f547e10097ac34430f923e8e036054a1b3138619fd065408d30df"
+      },
+      "tests/test_a90_transition_d1_session_v1.py": {
+        "bytes": 102209,
+        "sha256": "79078970cf118754cb9f7b6b8e0bc9df9932c7665ac32d08d5ab01c6a153645c"
+      },
+      "tests/test_server_distro_a90_resident_manifest_builder_v1.py": {
+        "bytes": 26501,
+        "sha256": "2cf1d12bcd5e5cfd2e18b81853faa16b900391fbca76a907f313aed97004d509"
+      },
+      "tests/test_server_distro_a90_v3403_absent_only_staging.py": {
+        "bytes": 64656,
+        "sha256": "4b24211bcde6b7b33d769040be95997181d1e74dd5184f5b2f816cfb2d28c75c"
+      },
+      "tests/test_server_distro_a90_v3403_f1_orchestrator.py": {
+        "bytes": 239380,
+        "sha256": "d9333a45f49455ba31e40ed017b71d3d8b40551672f3eea00e04d73a54de2a4b"
+      },
+      "workspace/public/src/scripts/revalidation/test_a90_flat_builder.py": {
+        "bytes": 53704,
+        "sha256": "447e10ea5b71cd08276328500776dfb457c32d3eb835dd1e259cdc4fa7bad7ba"
+      }
+    }
+  },
+  "benchmark_execution_closure": {
+    "sha256": "026eaaa9f6dc2a3adf77b66df6e7075f50767f994ea89315960ebe9f2d5d05b5",
+    "files": {
+      "benchmark_parser": {
+        "path": "workspace/public/src/scripts/server-distro/a90_boot_benchmark_v1.py",
+        "size": 12853,
+        "sha256": "f4cacdb5d847adf5c6dc8ba8931cd859ec12274bdce403b65f64aaa59bf94a0f"
+      },
+      "resident_f1_loader": {
+        "path": "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py",
+        "size": 283832,
+        "sha256": "08b77b2d24d347fd23f988627a23e9ea7b251525aac03611370203090dcc3ee4"
+      },
+      "resident_manifest_loader": {
+        "path": "workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py",
+        "size": 143535,
+        "sha256": "851c89c8d39f134465cfc735c08772d66543694ef157d42c046e88365051c256"
+      },
+      "runner": {
+        "path": "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py",
+        "size": 61514,
+        "sha256": "71d4b312808c4376aa995758cfa4c120fc04feaef432c43683ca2802012d4d64"
+      }
+    }
+  },
+  "validation": {
+    "core_f1_d1_observer_and_flat_builder_tests": 316,
+    "resident_promotion_tests": 34,
+    "keyed_rootfs_tests": 8,
+    "auto_handoff_source_tests": 6,
+    "minimal_native_surface_tests": 3,
+    "total_tests": 367,
+    "failed_tests": 0,
+    "python_in_memory_compile_files": 12,
+    "python_in_memory_compile": "PASS",
+    "flat_manifest_resolution_and_component_validation": "PASS",
+    "compiled_binding_recalculation": "PASS",
+    "finalizer_host_only_audit": "PASS",
+    "resident_manifest_builder_host_only_audit": "PASS",
+    "git_diff_check": "PASS",
+    "main_agent_private_build_evidence": {
+      "reviewer_private_files_inspected": false,
+      "deterministic_a_b_boot_byte_identical": "PASS_REPORTED",
+      "aarch64_static_init": "PASS_REPORTED",
+      "android_boot_image": "PASS_REPORTED"
+    }
+  },
+  "fresh_live_requirements": [
+    "commit the exact reviewed closure before use",
+    "fresh exact A90 D0 proving H5 healthy and H6 rootfs destination, work, stage, enable, and latch paths absent",
+    "fresh immutable private F1 and resident manifests bound to this review and exact artifacts",
+    "exact V2321 rollback bytes and demonstrated attended Download or TWRP recovery",
+    "awake operator attendance throughout F1 candidate observation or exact recovery",
+    "one candidate transfer maximum with no replay and final exact target health",
+    "fresh H6 D1 intent and journal; never resume or reinterpret H5 run09"
+  ],
+  "review_lifetime": {
+    "reuse": "PASS_GO qualifies this capability across ordinals, manifests, qualifications, and campaigns only while the named execution-critical closure, full thirteen-file closure, exact H6 identities, and hazard assumptions are unchanged.",
+    "fresh_review_trigger": "Any execution-critical hash, H6 rootfs, boot, receipt, compiled binding, marker namespace, observer, transfer, rollback, recovery, no-replay behavior, hazard, or incident change.",
+    "fresh_live_binding_still_required": true,
+    "live_authority_from_review": false
+  },
+  "unresolved_high_findings": [],
+  "unresolved_medium_findings": [],
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "reviewer_device_contact": false,
+  "reviewer_usb_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_s22plus_contact": false,
+  "reviewer_implementation_edits": false,
+  "reviewer_report_written": true
+}

@@ -49,6 +49,9 @@ MINIMAL_H_MANIFEST = (
 MINIMAL_H5_MANIFEST = (
     HERE / "a90_flat_builder/versions/phase3-minimal-h5/manifest.toml"
 )
+MINIMAL_H6_MANIFEST = (
+    HERE / "a90_flat_builder/versions/phase3-minimal-h6/manifest.toml"
+)
 
 
 def newc_archive(entries: dict[str, bytes]) -> bytes:
@@ -499,6 +502,53 @@ class A90FlatBuilderTest(unittest.TestCase):
         self.assertEqual(
             inputs["init_closure_sha256"],
             h5["init"]["closure_sha256"],
+        )
+
+    def test_phase3_minimal_h6_binds_non_lto_observer_complete_baseline(self):
+        h5 = buildlib.resolve_manifest(MINIMAL_H5_MANIFEST).data
+        resolution = buildlib.resolve_manifest(MINIMAL_H6_MANIFEST)
+        h6 = resolution.data
+        buildlib.validate_component_selection(h6)
+        self.assertEqual(
+            h6["profile"],
+            "phase3-minimal-h6-observer-complete-baseline-auto-benchmark",
+        )
+        self.assertFalse(h6["candidate_authority"])
+        self.assertEqual(h6["init"]["sources"], h5["init"]["sources"])
+        self.assertFalse(
+            any("lto" in flag.lower() for flag in h6["init"]["cflags"])
+        )
+        binding = build.normalized_auto_handoff_binding(h6)
+        self.assertEqual(binding["candidate_version"], "0.11.174")
+        self.assertEqual(
+            binding["candidate_build"],
+            "phase3-minimal-h6-observer-complete-baseline-auto-benchmark",
+        )
+        self.assertEqual(
+            binding["image_path"],
+            "/mnt/sdext/a90/runtime/"
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260807-01.img",
+        )
+        self.assertEqual(
+            binding["image_sha256"],
+            "b242fa73ee926d150ef8b8887734210bc4fd41f71597730647932c578fb1fd64",
+        )
+        self.assertEqual(
+            binding["enable_path"],
+            "/cache/a90-auto-handoff-phase3-minimal-h6.enable",
+        )
+        self.assertEqual(
+            binding["latch_path"],
+            "/cache/a90-auto-handoff-phase3-minimal-h6.done",
+        )
+        self.assertNotEqual(
+            binding["binding_sha256"],
+            build.normalized_auto_handoff_binding(h5)["binding_sha256"],
+        )
+        inputs = buildlib.validate_inputs(REPO_ROOT, resolution, h6)
+        self.assertEqual(
+            inputs["init_closure_sha256"],
+            h6["init"]["closure_sha256"],
         )
 
     def test_phase3_minimal_g_retained_runtime_and_audio_are_fail_closed(self):
