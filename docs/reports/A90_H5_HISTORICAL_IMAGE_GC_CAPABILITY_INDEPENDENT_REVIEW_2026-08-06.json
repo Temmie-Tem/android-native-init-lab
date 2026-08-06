@@ -1,0 +1,171 @@
+{
+  "schema": "a90-h5-historical-image-gc-capability-independent-review-v1",
+  "review_date": "2026-08-06",
+  "reviewer": "independent subagent /root/a90_capability_review",
+  "verdict": "PASS_GO",
+  "target": "Samsung Galaxy A90 5G only",
+  "capability": "A90_ATTENDED_H5_HISTORICAL_IMAGE_GC_V1",
+  "hazard": "SD_CAPACITY_EXHAUSTION_FROM_SUPERSEDED_EXPERIMENT_IMAGES",
+  "scope": {
+    "selected_count": 20,
+    "selected_bytes": 41339060224,
+    "selected_composition": "twelve superseded V3406 images, five legacy or clean images, and three 1.5 GiB WSTA snapshots",
+    "protected": "exact installed H5 run-12 source",
+    "starting_health": "exact H5 0.11.173 resident health and binding-enable-latch 1-1-1",
+    "host_preserved_count": 20,
+    "fresh_device_to_host_read_only_preservation_count": 8,
+    "effect": "one host-encoded nonrecursive unlink dispatch for the closed fixed set",
+    "payload_transfer": false,
+    "partition_write": false,
+    "flash": false,
+    "restore_authority": false,
+    "s22plus_authority": false
+  },
+  "reviewed_properties": {
+    "fixed_selection_count_exact": 20,
+    "protected_h5_run12_not_selectable": true,
+    "selected_and_protected_metadata_and_sha256_bound": true,
+    "selected_host_recovery_bytes_exact": true,
+    "host_preservation_mode_0600_and_single_link": true,
+    "fresh_inventory_max_age_seconds": 3600,
+    "inventory_target_health_cross_binding": true,
+    "live_target_health_cross_binding": true,
+    "h5_resident_install_d1_and_rollback_evidence_bound": true,
+    "attended_download_or_twrp_recovery_bound": true,
+    "work_and_all_known_stage_paths_absent": true,
+    "mount_namespace_fd_loop_and_current_root_guards": true,
+    "expensive_host_revalidation_precedes_final_live_preflight": true,
+    "capability_wide_durable_dispatch_receipt": true,
+    "unlink_dispatch_count_max": 1,
+    "unlink_retransmit": false,
+    "ambiguous_response_resume_read_only": true,
+    "pass_requires_all_selected_absent": true,
+    "pass_requires_protected_h5_exact": true,
+    "pass_requires_bounded_free_space_gain": true,
+    "pass_requires_final_exact_target_bound_h5_health_and_latch": true,
+    "host_preservation_grants_automatic_restore": false,
+    "effect_wire_bytes": 3046,
+    "effect_wire_bound_bytes": 3800,
+    "effect_nonrecursive_rm_count": 1,
+    "effect_recursive_rm_count": 0,
+    "other_target_commands": 0
+  },
+  "reviewed_execution_closure": {
+    "aggregate_sha256": "84c54f4ea5f5024117046cbea27e1733f648d4760119a832b860820f89585242",
+    "role_bindings": {
+      "common_contract": "AGENTS.md",
+      "h5_common_contract": "AGENTS.md",
+      "h5_h5_auto_status": "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py",
+      "h5_h5_resident_health": "workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py",
+      "h5_one_shot_reclaim_engine": "workspace/public/src/scripts/server-distro/a90_v2321_h3_source_reclaim_v1.py",
+      "h5_rootfs_gc_primitives": "workspace/public/src/scripts/server-distro/a90_obsolete_rootfs_cleanup_v1.py",
+      "h5_runner": "workspace/public/src/scripts/server-distro/a90_h5_h4_source_reclaim_v1.py",
+      "h5_serial_tcp_bridge": "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py",
+      "h5_target_contract": "docs/operations/targets/A90_TARGET_CONTRACT.md",
+      "h5_transport": "workspace/public/src/scripts/revalidation/a90ctl.py",
+      "h5_v2321_health_and_evidence_primitives": "workspace/public/src/scripts/server-distro/a90_v3405_retained_work_cleanup.py",
+      "host_ncm_identity": "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py",
+      "host_ncm_rebind": "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py",
+      "risk_tiers": "docs/operations/DEVICE_ACTION_RISK_TIERS.md",
+      "runner": "workspace/public/src/scripts/server-distro/a90_h5_historical_image_gc_v1.py",
+      "target_contract": "docs/operations/targets/A90_TARGET_CONTRACT.md"
+    },
+    "files": {
+      "AGENTS.md": {
+        "bytes": 14201,
+        "sha256": "3289aedf8b55c2d74e3252c72e7b6b9bc003ef62379fc6e7b192a845c80dd747"
+      },
+      "docs/operations/DEVICE_ACTION_RISK_TIERS.md": {
+        "bytes": 5954,
+        "sha256": "c2bc3b99b364ec3d08419dc83cca14f35ea9edc1d03173e237740b786ecf8a96"
+      },
+      "docs/operations/targets/A90_TARGET_CONTRACT.md": {
+        "bytes": 33279,
+        "sha256": "11d4653c880ce7642729a03c607d4bd320263632236a893d88b0dfcd4179e77e"
+      },
+      "workspace/public/src/scripts/revalidation/a90ctl.py": {
+        "bytes": 16380,
+        "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c"
+      },
+      "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py": {
+        "bytes": 17944,
+        "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98"
+      },
+      "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py": {
+        "bytes": 61502,
+        "sha256": "e9d5bf407954dda75b0fac84d8019d99434504ff6114725c235caf3365162183"
+      },
+      "workspace/public/src/scripts/server-distro/a90_h5_h4_source_reclaim_v1.py": {
+        "bytes": 20094,
+        "sha256": "01059d90a5fb88eee3350d6fd2e142e23e479acaffaf22badd1c1d46b237bb56"
+      },
+      "workspace/public/src/scripts/server-distro/a90_h5_historical_image_gc_v1.py": {
+        "bytes": 75658,
+        "sha256": "c151e7d1b15154a9f57108a3a895a808e4b44553f76ca283e67101fb3e9394a1"
+      },
+      "workspace/public/src/scripts/server-distro/a90_obsolete_rootfs_cleanup_v1.py": {
+        "bytes": 149731,
+        "sha256": "3aa00d36e9ca4c9147c10a67168f0933689ed09c0d6ba833a4ff51290d1e9ee7"
+      },
+      "workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py": {
+        "bytes": 143369,
+        "sha256": "2e4ce08226110800e318bb1d4b3315002a60f478361713ed77dec4eb844cd623"
+      },
+      "workspace/public/src/scripts/server-distro/a90_v2321_h3_source_reclaim_v1.py": {
+        "bytes": 49962,
+        "sha256": "fef23e1c9bd7ea6b4e05f6b532fcad3971c9b45abd73dbfb1183b00e8a9e1a64"
+      },
+      "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {
+        "bytes": 104591,
+        "sha256": "a98aef29133109a06fbb5a41721c58ecb07e6f7a31c9b2c6863965323d5b5642"
+      },
+      "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {
+        "bytes": 283573,
+        "sha256": "57a50e40c19fac50359603421be4fcfce9b4eedea0d88fdba3bb0e35a809d6b5"
+      },
+      "workspace/public/src/scripts/server-distro/a90_v3405_retained_work_cleanup.py": {
+        "bytes": 71652,
+        "sha256": "e2c7d53b3441f35dc3ac88a9d410f786986fa9aca135abaf23c849c799a04ad0"
+      }
+    }
+  },
+  "reviewed_test_source": {
+    "path": "tests/test_a90_h5_historical_image_gc_v1.py",
+    "bytes": 11725,
+    "sha256": "f6b9b51a4d601739ea08ce87a305ec64717767b7de76cdd369adc82813c9e3c4"
+  },
+  "validation": {
+    "python_in_memory_compile": "PASS",
+    "git_diff_check": "PASS",
+    "rootfs_gc_primitive_tests": 50,
+    "h5_h4_source_reclaim_tests": 11,
+    "new_capability_tests": 8,
+    "total_tests": 69,
+    "failed_tests": 0
+  },
+  "closed_during_review": [
+    "all twenty selected byte identities now require exact host-preserved recovery copies",
+    "preservation, intent, dispatch, result, and resume receipts are strictly shape and hash bound",
+    "expiry is checked across preparation and before the one unlink dispatch",
+    "expensive host revalidation now precedes the final selected/protected/use-guard preflight",
+    "opening and final H5 health are cross-bound to the exact selected A90 bridge realpath"
+  ],
+  "review_lifetime": {
+    "reuse": "Only this unchanged execution-critical closure and hazard assumptions qualify; ordinal, manifest, qualification, and campaign changes alone do not require another capability review.",
+    "consumed_by_first_durable_dispatch": true,
+    "expires_utc": "2026-08-08T00:00:00Z",
+    "fresh_review_trigger": "Any selected or protected identity, execution-critical hash, preservation, dispatch, journal, expiry, resume, target-health, recovery, or hazard change, or any new incident."
+  },
+  "unresolved_high_findings": [],
+  "unresolved_medium_findings": [],
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "live_use_authorized_by_review": false,
+  "reviewer_device_contact": false,
+  "reviewer_usb_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_s22plus_contact": false,
+  "reviewer_implementation_or_policy_edits": false,
+  "reviewer_report_written": true
+}

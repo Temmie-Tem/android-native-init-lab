@@ -298,6 +298,48 @@ select another cache object, directory, symlink, boot image, current log,
 configuration, credential, security state, recovery artifact, userdata, or
 partition, and never applies to S22+, another A90, or an unattended operator.
 
+The one-use attended D1 sub-capability
+`A90_ATTENDED_H5_HISTORICAL_IMAGE_GC_V1` addresses only the bounded hazard
+`SD_CAPACITY_EXHAUSTION_FROM_SUPERSEDED_EXPERIMENT_IMAGES`. It may unlink the
+fixed set of twenty obsolete files under `/mnt/sdext/a90/runtime`: twelve
+superseded V3406 rootfs images, five older rootfs or clean-image copies, and
+three WSTA 1.5 GiB snapshots. The installed H5 run-12 source is a separate
+exact protected identity and is never selectable. A fresh inventory binds
+every selected and protected object by fixed allowlisted path, expected size
+and mode, single link, filesystem device/inode, allocated blocks, and SHA256;
+the protected source SHA256 must remain the installed H5 binding. Every
+selected byte identity must have an exact private mode-`0600` host-preserved
+regular recovery copy with the same size and SHA256. Existing absent-only
+publication bytes cover the twelve V3406 images; the eight legacy or snapshot
+objects require a fresh bounded device-to-host read-only preservation receipt
+before a cleanup manifest may be built.
+
+The immutable manifest binds exact H5 `0.11.173` resident health and
+`binding=1 enable=1 latch=1`, the closed H5 resident/D1 evidence, exact V2321
+boot-only rollback and attended Download or TWRP recovery, exact target and
+bridge generation, bounded filesystem capacity, absent work/staging paths,
+and the complete execution-critical source closure. Immediately before durable
+intent, the runner rechecks every selected metadata identity, rehashes the
+protected H5 source, proves every selected inode absent from visible mount
+namespaces, open file descriptors, loop backing files, and current roots, then
+rechecks target, closure, health, rollback, and inventory age.
+
+One capability-wide durable receipt permits one nonrecursive unlink dispatch
+for the entire fixed set with no retransmission. A missing or malformed
+response permits only journal-bound read-only reconciliation and H5 health
+observation; it never resends cleanup. PASS requires all twenty selected paths
+absent, the protected H5 source exact, work and staging absent, bounded free
+space gain consistent with the selected allocated blocks, and final exact H5
+health with the same latched auto-handoff state. Host preservation is recovery
+evidence but grants no automatic restore; any restoration is a separate
+reviewed attended no-clobber transaction. Cleanup sends no payload and flashes
+no partition, changes no H5 state, configuration, credential, security state,
+recovery artifact, userdata, or other path, and never applies to S22+, another
+removable device, or another A90. It retires after its first durable dispatch, on selected/protected or
+execution-critical closure drift, on a new incident or hazard, or at
+`2026-08-08T00:00:00Z`, whichever comes first. Post-dispatch read-only
+reconciliation may continue after retirement.
+
 The separately reviewed attended recovery sub-capability
 `A90_ATTENDED_RETAINED_WORK_SOURCE_DISTINCT_CLEANUP_V2` may unlink only the
 fixed `/mnt/sdext/a90/runtime/d3-handoff-work.img` after a closed ordinary F1
