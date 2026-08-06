@@ -167,6 +167,14 @@ The pre-H2 goal history is preserved at
   This H0 preparation grants no live authority. No H6 staging, candidate
   transfer, flash, reboot, or D1 action has occurred yet; H5 remains exact and
   terminal.
+- The first H6 live transaction consumed that compatibility approval and is
+  terminal `ABORTED_F1_V2_BEFORE_CANDIDATE`. An operator invocation supplied
+  the Debian NCM endpoint as the host serial-bridge endpoint, so the staging
+  child rejected exact bridge continuity before its first device command.
+  Candidate and rollback transfer, device write, flash, and reboot counts are
+  all zero. No staging bytes reached A90, H5 remains unchanged, and S22+ was
+  untouched. The immutable manifest and transaction must never be replayed;
+  the unchanged reviewed capability may be rebound to one fresh campaign.
 
 ## Qualified Capabilities
 
@@ -288,9 +296,11 @@ bounded work is:
 4. retain the committed corrected H6 closure and fresh connected D0 proof of
    exact H5 health, exact candidate and rollback, and absent H6
    rootfs/work/stage and enable/latch paths;
-5. retain the fresh immutable H6 resident binding, then while the operator is
-   attended with Download or TWRP recovery available permit at most one
-   boot-only candidate transfer with no replay and exact rollback on failure;
+5. retain the terminal run01 binding and no-effect journal without replay;
+   bind the unchanged reviewed H6 capability to one fresh campaign, then while
+   the operator is attended with Download or TWRP recovery available permit at
+   most one boot-only candidate transfer with no replay and exact rollback on
+   failure;
 6. from exact unarmed H6 resident health, run one new D1 automatic-handoff
    ordinal through the repaired observer and close Debian PID 1, SSH, service
    ownership, display, native return, cleanup, latch, telemetry, and final
