@@ -62,7 +62,8 @@ class CompleteRecordTest(unittest.TestCase):
         self.assertTrue(result["proof"], result["reason"])
         self.assertEqual(result["missing_phases"], [])
         self.assertEqual(result["records_selected"], 3)
-        self.assertEqual(result["handoff_to_sshd_ms"], 2800)
+        self.assertEqual(result["pid1_to_sshd_ms"], 2800)
+        self.assertEqual(result["pid1_to_debian_ready_ms"], 2800)
 
     def test_uptime_lands_on_the_native_boottime_axis(self) -> None:
         result = evidence.evaluate(complete_record(), RUN)
@@ -187,7 +188,7 @@ class StrictAboutStateTest(unittest.TestCase):
         self.assertFalse(result["proof"])
         self.assertIn("drm_card0=absent", result["reason"])
 
-    def test_non_monotonic_phase_order_fails(self) -> None:
+    def test_pid1_must_be_the_earliest_stamp(self) -> None:
         text = "\n".join(
             [
                 line("debian_pid1", 134_900),
@@ -197,7 +198,25 @@ class StrictAboutStateTest(unittest.TestCase):
         )
         result = evidence.evaluate(text, RUN)
         self.assertFalse(result["proof"])
-        self.assertIn("monotonic", result["reason"])
+        self.assertIn("earliest", result["reason"])
+
+    def test_sshd_before_drm_is_a_normal_boot_not_a_failure(self) -> None:
+        """The network service signals before the display launcher.
+
+        inittab runs the network/SSH service as a blocking entry and the
+        display launcher after it, so Dropbear is listening first on a healthy
+        boot. Demanding a fixed order between the two would be exactly the
+        over-specification that has been failing normal boots.
+        """
+        text = "\n".join(
+            [
+                line("debian_pid1", 132_100),
+                line("debian_sshd", 133_400),
+                line("debian_drm_master", 134_900),
+            ]
+        )
+        result = evidence.evaluate(text, RUN)
+        self.assertTrue(result["proof"], result["reason"])
 
     def test_inconsistent_identity_within_a_run_fails(self) -> None:
         text = "\n".join(
@@ -402,10 +421,95 @@ class WriterScriptTest(unittest.TestCase):
             self.assertEqual(done.returncode, 2)
             self.assertFalse(record.exists())
 
+    def test_hook_is_valid_posix_sh(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            script = Path(tmp) / "hook"
+            script.write_text(evidence.hook_script(), encoding="utf-8")
+            done = subprocess.run(
+                [self.shell, "-n", str(script)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        self.assertEqual(done.returncode, 0, done.stderr)
+
+    def test_hook_stamps_sshd_before_drm_matching_inittab_order(self) -> None:
+        text = evidence.hook_script()
+        self.assertLess(
+            text.index("record debian_sshd"),
+            text.index("record debian_drm_master"),
+        )
+        self.assertLess(
+            text.index("record debian_pid1"), text.index("record debian_sshd")
+        )
+
+    def test_hook_waits_are_validated(self) -> None:
+        for kwargs in ({"display_wait_sec": 0}, {"sshd_wait_sec": -1}):
+            with self.assertRaises(evidence.EvidenceError):
+                evidence.hook_script(**kwargs)  # type: ignore[arg-type]
+
     def test_dropbear_port_is_validated(self) -> None:
         for port in (0, -1, 65536, "2222"):
             with self.assertRaises(evidence.EvidenceError):
                 evidence.writer_script(dropbear_port=port)  # type: ignore[arg-type]
+
+
+class RootfsCarrierTest(unittest.TestCase):
+    """The rootfs profile must carry exactly what this module generates.
+
+    The module is the single source for the collector and the hook; a copy
+    embedded in the firstboot script is only useful if it cannot drift from it.
+    """
+
+    PROFILE = SCRIPT_DIR / "phase3_network_ssh_v1"
+    SERVICE = PROFILE / "a90_debian_network_ssh_v1.sh"
+
+    def test_service_carries_the_generated_block_verbatim(self) -> None:
+        text = self.SERVICE.read_text(encoding="utf-8")
+        self.assertIn(evidence.service_block(), text)
+
+    def test_service_pin_matches_the_manifest(self) -> None:
+        import hashlib
+        import tomllib
+
+        manifest = tomllib.loads(
+            (self.PROFILE / "manifest.toml").read_text(encoding="utf-8")
+        )
+        digest = hashlib.sha256(self.SERVICE.read_bytes()).hexdigest()
+        self.assertEqual(manifest["sources"]["service_sha256"], digest)
+
+    def test_service_is_valid_posix_sh(self) -> None:
+        shell = shutil.which("sh")
+        if shell is None:
+            self.skipTest("no POSIX sh on this host")
+        done = subprocess.run(
+            [shell, "-n", str(self.SERVICE)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(done.returncode, 0, done.stderr)
+
+    def test_evidence_is_backgrounded_and_never_gates_the_boot(self) -> None:
+        block = evidence.service_block()
+        self.assertIn(f"{evidence.HOOK_RUN_PATH} >/dev/null 2>&1 &", block)
+        # Nothing in the block may abort the boot on failure.
+        for row in block.splitlines():
+            if row.startswith(("cat > ", "chmod ")):
+                self.assertTrue(row.endswith("|| true"), row)
+
+    def test_unpack_targets_are_tmpfs_not_the_image(self) -> None:
+        """The builder only replaces files already in its pinned base image.
+
+        Unpacking to /run also survives the read-only rootfs that the work-copy
+        replacement will introduce.
+        """
+        self.assertTrue(evidence.COLLECTOR_RUN_PATH.startswith("/run/"))
+        self.assertTrue(evidence.HOOK_RUN_PATH.startswith("/run/"))
+
+    def test_heredoc_delimiter_collision_is_refused(self) -> None:
+        with self.assertRaises(evidence.EvidenceError):
+            evidence.service_block(record_path="x\nA90_ONDEV_EOF\ny")
 
 
 if __name__ == "__main__":

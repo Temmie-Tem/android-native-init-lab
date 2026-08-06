@@ -231,14 +231,29 @@ def evaluate(text: str, run: str) -> dict[str, Any]:
             )
             return result
 
-    ordered = [phases[phase] for phase in MANDATORY_PHASES]
-    stamps = [int(record["uptime_ms"]) for record in ordered]
-    if stamps != sorted(stamps):
-        result["reason"] = f"phase order is not monotonic: {stamps}"
+    # The only real ordering invariant is that Debian was PID 1 before it could
+    # own DRM or a listener. The relative order of the other two is a boot
+    # sequencing detail -- today the network service signals before the display
+    # launcher -- and making it a proof criterion would be exactly the
+    # over-specification that has been failing normal boots all along.
+    stamps = {
+        phase: int(phases[phase]["uptime_ms"]) for phase in MANDATORY_PHASES
+    }
+    first = stamps[MANDATORY_PHASES[0]]
+    later = [phase for phase in MANDATORY_PHASES[1:] if stamps[phase] < first]
+    if later:
+        result["reason"] = (
+            f"{MANDATORY_PHASES[0]} is not the earliest stamp: "
+            f"{sorted(stamps.items())}"
+        )
         return result
 
     result["proof"] = True
-    result["handoff_to_sshd_ms"] = stamps[-1] - stamps[0]
+    # Both are measured on the device's own CLOCK_BOOTTIME, so they join the
+    # native benchmark series directly rather than through host wall clock,
+    # which carries USB enumeration latency the host cannot subtract out.
+    result["pid1_to_sshd_ms"] = stamps["debian_sshd"] - first
+    result["pid1_to_debian_ready_ms"] = max(stamps.values()) - first
     return result
 
 
@@ -367,6 +382,119 @@ mkdir -p "$(dirname "$RECORD")" 2>/dev/null || true
 printf '%s\\n' "$LINE" >> "$RECORD" 2>/dev/null || exit 1
 sync 2>/dev/null || true
 exit 0
+"""
+
+
+COLLECTOR_RUN_PATH = "/run/a90-ondevice-evidence-v1"
+HOOK_RUN_PATH = "/run/a90-debian-ondevice-evidence-hook-v1"
+
+
+def hook_script(
+    *,
+    collector_path: str = COLLECTOR_RUN_PATH,
+    display_wait_sec: int = 90,
+    sshd_wait_sec: int = 90,
+) -> str:
+    """The one-pass recorder Debian backgrounds at sysinit.
+
+    It grades nothing and gates nothing: bounded waits expire into a recorded
+    observation and every exit is success. A missing record and a recorded
+    absence are different findings, and only the second tells the host what
+    actually happened.
+    """
+    for name, value in (("display", display_wait_sec), ("sshd", sshd_wait_sec)):
+        if not isinstance(value, int) or value <= 0:
+            raise EvidenceError(f"{name} wait is not exact: {value!r}")
+    return f"""#!/bin/sh
+# a90-debian-ondevice-evidence-hook-v1 -- record same-ordinal Debian facts.
+# Generated from a90_ondevice_evidence_v1.hook_script(); do not edit in place.
+set -u
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+COLLECT={collector_path}
+[ -x "$COLLECT" ] || exit 0
+
+record() {{ "$COLLECT" "$1" >/dev/null 2>&1 || true; }}
+
+wait_for_any() {{
+    _limit=$1
+    shift
+    _waited=0
+    while [ "$_waited" -lt "$_limit" ]; do
+        for _p in "$@"; do
+            [ -e "$_p" ] && return 0
+        done
+        _waited=$(( _waited + 1 ))
+        sleep 1
+    done
+    return 1
+}}
+
+# PID 1 is Debian by the time sysinit runs this, so the first stamp needs no
+# wait.
+record debian_pid1
+
+# Each phase is stamped when its own signal arrives, in the order inittab
+# actually produces them: the network/SSH service is a blocking entry and the
+# display launcher runs after it. Waiting for the later signal first would
+# stamp the earlier phase at the wrong time and report a boot slower than it
+# was. Either outcome ends a wait -- a recorded failure is evidence, not a
+# reason to keep polling. The collector independently reads /proc/net/tcp for
+# the listener, so it and this signal do not share a failure mode.
+wait_for_any {sshd_wait_sec} /run/a90-services/ready /run/a90-services/failure || true
+record debian_sshd
+
+wait_for_any {display_wait_sec} /run/a90-display/ready /run/a90-display/failure || true
+record debian_drm_master
+
+exit 0
+"""
+
+
+def service_block(
+    *,
+    record_path: str = DEFAULT_RECORD_PATH,
+    run_path: str = DEFAULT_RUN_PATH,
+    dropbear_port: int = 2222,
+) -> str:
+    """The shell block the rootfs network/SSH service carries verbatim.
+
+    It rides the service rather than the firstboot script on purpose. The
+    firstboot contract is deliberately narrow -- return-arm and marker only,
+    with network and SSH concerns delegated away and enforced by a forbidden
+    token list that a listener probe would trip. The service is the file
+    already entitled to know about Dropbear, and it runs first among the
+    inittab entries that do.
+
+    The collector and hook are unpacked to /run rather than installed into the
+    image. The builder only replaces files that already exist in its SHA-pinned
+    base image, so adding new ones would mean reopening that pinned artifact
+    chain; and the work-copy replacement will make the rootfs read-only, which
+    tmpfs survives. Neither script needs to be durable -- only what they write
+    does.
+    """
+    collector = writer_script(
+        record_path=record_path,
+        run_path=run_path,
+        dropbear_port=dropbear_port,
+    )
+    hook = hook_script()
+    for name, text in (("collector", collector), ("hook", hook)):
+        if "\nA90_ONDEV_EOF\n" in text:
+            raise EvidenceError(f"{name} collides with the heredoc delimiter")
+    return f"""# On-device same-ordinal evidence, unpacked to tmpfs and backgrounded.
+# Generated from a90_ondevice_evidence_v1.service_block(); do not edit here.
+# Never gating: every failure path leaves the boot alone, because the
+# instrument must not become one more way for a defect to kill an ordinal.
+cat > {COLLECTOR_RUN_PATH} <<'A90_ONDEV_EOF' || true
+{collector}A90_ONDEV_EOF
+chmod 0755 {COLLECTOR_RUN_PATH} 2>/dev/null || true
+cat > {HOOK_RUN_PATH} <<'A90_ONDEV_EOF' || true
+{hook}A90_ONDEV_EOF
+chmod 0755 {HOOK_RUN_PATH} 2>/dev/null || true
+if [ -x {HOOK_RUN_PATH} ]; then
+  {HOOK_RUN_PATH} >/dev/null 2>&1 &
+fi
 """
 
 
