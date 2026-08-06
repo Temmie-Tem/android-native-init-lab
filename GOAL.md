@@ -29,50 +29,33 @@ earlier `0xD00` proves only the in-window software guard saw
 `clocks_enabled=true`; it does not retroactively prove that the discarded
 initial hardware clock returns were zero.
 
-Post-P3.06 H0 narrows the boundary further. The `peripheral` IPC marker is the
-state-machine name emitted on its next invocation; it is not an aggregate
-success receipt. `dwc3_otg_start_peripheral()` discards several returns and
-always returns zero. Nevertheless, P2.98 separately proves the later configfs
-bind path reached `__dwc3_gadget_start()==0`, both EP0 enable calls, and
-`dwc3_gadget_run_stop(true)==0` with RUN_STOP set, DEVCTRLHLT clear, and PRTCAP
-DEVICE. P2.80 and P2.92 reached the same not-attached boundary through nested
-and direct run-stop paths, so another role-cycle reshaping is not selected.
-P3.01-r1 then saw only one pre-configuration SUSPEND device event and no RESET
-or CONNECT_DONE. The remaining frontier is the digital-to-physical handoff,
-not wrapper-state or generic gadget control flow.
+Post-P3.06 H0 leaves the digital-to-physical handoff as the current boundary.
+P2.98 already proves the later configfs bind reached gadget-start, both EP0
+enable calls, and run-stop success, while P3.01-r1 saw one pre-configuration
+SUSPEND but no RESET or CONNECT_DONE. P3.06 proves the wrapper BSV,
+start-gadget, and peripheral sequence occurred. Another role-cycle reshape or
+module-presence-only Type-C stack change is therefore not selected.
 
-Repeating the full Type-C producer stack is also not selected. The exact
-`usb_notifier_qcom` peripheral callback only calls `dwc_msm_vbus_event()`, while
-the explicit mode path already creates the same wrapper BSV/start-peripheral
-state. More importantly, historical S7A2 already loaded the Max77705 producer
-chain with its GENI I2C transport and still produced no host-visible attach.
-That stack may still matter as part of Android coordination, but module
-presence alone is already refuted as a sufficient fix.
+P3.07 is host-built and remains unarmed. Its pre-module `/dev/kmsg` observer
+orders the first HS-PHY init, unique `csr:` EUD branch, exact DPDM callback and
+value, and first pre-init clock pair. It reads the cached
+`/sys/module/eud/parameters/enable` exactly once after `eud.ko`; only cache/direct
+`(1,1)` proves init saw EUD, `(0,0)` at reached init refutes that branch, and a
+mismatch has no causal meaning. The later 12 audited clock callsites remain a
+separate domain. One linked `dwc3_otg_start_peripheral+0x4cc` probe records the
+QSCRATCH readback retained in `w21`, including VBUS-valid bit 20 and session
+select bit 28. No EUD write, kernel rebuild, module-plan change, or log-level
+change is present.
 
-First, `msm_hsphy_probe()` may enable clocks inside module loading when bootloader
-EUD is set. A module-offset probe cannot predate its text, so probes armed after
-index 55 and before index 58 cover only later normal init. Zero hits do not
-measure probe-time returns; the broader claim is withdrawn.
-
-The pre-module, sequence-complete kmsg observer instead parses ordered exact init
-entry, unique `csr:... eud is enabled`, exact DPDM-enable function and value, and
-the first pre-init `clocks_enabled/on` pair. Generic substrings are invalid because
-callbacks share them. EUD-init or DPDM-enable attributes its caller; neither plus
-zero hits remains unclassified, not a 50-percent result.
-
-Second, exact `dwc3-msm.ko` retains the wrapper readback in `w21` before
-`dwc3_otg_start_peripheral+0x4cc`; one probe records VBUS-valid bit 20 and
-sidecar bit 28. The successor combines kmsg attribution, later clock callsites,
-and this probe. A negative return or cleared bit 20 localizes the failure.
-
-Exact healthy-stock D0 found `eud.ko` loaded but its root-read parameter at `0`,
-with no EUD cmdline/bootconfig override. Source confirms the EUD and PHY drivers
-address the same `0x088e2000` bit 0, but the parameter getter returns the cached
-SCM-synchronized probe value rather than rereading hardware. P3.07 therefore
-pairs that candidate value after EUD probe with the later PHY `csr:` direct read:
-only `(1,1)` proves init saw EUD, a mismatch is timing/reader divergence, and
-`(0,0)` kills the branch. No EUD write is authorized; an EUD-positive result
-permits only H0 review of a safe attended post-transfer cable-state comparator.
+The 10 frozen P3.07 SOURCE_KEYS still match their intent. Userspace reproduced
+twice; boot/AP candidate A/B are byte-identical, with boot SHA256
+`d9eec352...` and AP SHA256 `ca70e692...`. The independent artifact checker,
+linked QSCRATCH audit, Process-v2 promotion, canonical 2,761-byte ready manifest
+`754c1ab7...`, and runner host preflight bundle `d9385e82...` pass. Focused
+P3.07/Process-v2 tests are 12/12 and the touched common evidence/runner suites
+are 53/53. F1 remains unarmed pending the one required focused review of the
+new telemetry and Process-v2 recognition; no connected command or A90 action
+occurred during this H0 preparation.
 
 P3.04 is the preceding closed live unit. After one pre-candidate host-observer
 arm stop with zero transfers, a new prepared run transferred its distinct
