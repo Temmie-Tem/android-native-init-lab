@@ -28,15 +28,25 @@ it refers to material the reader must obtain through their own lawful channel.
 Third-party licensed files in the published tree
 ------------------------------------------------
 
-The published source is MIT except for the following, which carry their own
-SPDX identifier and are licensed accordingly:
+The published source is MIT except for the following:
+
+  workspace/public/src/third_party/mkbootimg/
+      Apache License 2.0.
+      Copyright The Android Open Source Project. Vendored from AOSP and used to
+      analyse and repack boot, recovery, and vendor_boot images. The license
+      text is included at
+      `workspace/public/src/third_party/mkbootimg/LICENSE`.
 
   workspace/public/src/openocd/target/qualcomm/sm8450_s22plus_romtable.cfg
       SPDX-License-Identifier: GPL-2.0-or-later OR BSD-3-Clause-Clear
       An OpenOCD target configuration, following OpenOCD's licensing.
 
-Individual files elsewhere in the tree may carry an SPDX identifier of their
-own. Where a file declares one, that declaration governs the file.
+  workspace/public/archive/scripts/archive/legacy/aosp_build/05_configure_minimal.sh
+      SPDX-License-Identifier: Apache-2.0
+
+Individual files elsewhere in the tree may carry an SPDX identifier or a license
+header of their own. Where a file declares one, that declaration governs the
+file, and the MIT grant in `LICENSE` does not apply to it.
 
 
 Device identifiers
