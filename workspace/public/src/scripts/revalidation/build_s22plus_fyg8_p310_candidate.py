@@ -33,6 +33,7 @@ KERNEL_START = base.KERNEL_START
 KERNEL_END = base.KERNEL_END
 BuildError = base.BuildError
 receipt = base.receipt
+_BASE_ARTIFACT_SAFETY = base.artifact_safety
 
 
 def _configure() -> None:
@@ -55,6 +56,7 @@ def _configure() -> None:
     base.DEFAULT_USERSPACE = DEFAULT_USERSPACE
     base.DEFAULT_OUT = DEFAULT_OUT
     base.verify_repro_result = verify_repro_result
+    base.artifact_safety = artifact_safety
 
 
 def __getattr__(name: str):
@@ -110,7 +112,7 @@ def verify_repro_result(
 
 def artifact_safety(exact_contract: dict[str, Any]) -> dict[str, Any]:
     _configure()
-    result = base.artifact_safety(exact_contract)
+    result = _BASE_ARTIFACT_SAFETY(exact_contract)
     result["candidate_module_binaries_injected"] = 0
     result["built_in_telemetry_only"] = True
     result["carrier_v2"] = True
