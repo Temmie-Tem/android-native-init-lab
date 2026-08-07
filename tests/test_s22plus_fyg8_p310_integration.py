@@ -147,6 +147,41 @@ class P310IntegrationTests(unittest.TestCase):
             bytes.fromhex("e02f453922000090"),
         )
 
+    def test_stock_closure_compares_materialized_plan_path_and_content_separately(self) -> None:
+        supplied = b"exact materialized plan\n"
+        with tempfile.TemporaryDirectory(prefix="p310-plan-receipt-") as temporary:
+            intent_dir = Path(temporary) / "intent"
+            plan_header = intent_dir / "materialized-sources" / "plan.h"
+            intent_path = intent_dir / "candidate-intent.json"
+            expected = {
+                "path": "materialized-sources/plan.h",
+                **stock_closure.module_parent.receipt(supplied),
+            }
+            exact = {"materialized_sources": {"plan_header": expected}}
+            self.assertEqual(
+                stock_closure._materialized_plan_receipt(  # noqa: SLF001
+                    plan_header, intent_path, exact, supplied
+                ),
+                stock_closure.module_parent.receipt(supplied),
+            )
+
+            wrong_path = {
+                "materialized_sources": {
+                    "plan_header": {
+                        **expected,
+                        "path": "materialized-sources/other.h",
+                    }
+                }
+            }
+            with self.assertRaisesRegex(stock_closure.ClosureError, "plan path"):
+                stock_closure._materialized_plan_receipt(  # noqa: SLF001
+                    plan_header, intent_path, wrong_path, supplied
+                )
+            with self.assertRaisesRegex(stock_closure.ClosureError, "plan identity"):
+                stock_closure._materialized_plan_receipt(  # noqa: SLF001
+                    plan_header, intent_path, exact, supplied + b"drift"
+                )
+
     def test_transitive_decoder_semantics_are_bound_and_drift_changes_identity(self) -> None:
         materials = identity.tier1_materials(ROOT)
         semantic_keys = set(identity.SEMANTIC_DEPENDENCY_PATHS)

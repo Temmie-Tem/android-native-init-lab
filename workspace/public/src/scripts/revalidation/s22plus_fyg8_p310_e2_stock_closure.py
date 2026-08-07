@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 import hashlib
+import os
 from pathlib import Path
 from typing import Iterator
 
@@ -122,6 +123,40 @@ def _validate_p310_authority_strings(data: bytes) -> None:
 _validate_p282_authority_strings = _validate_p310_authority_strings
 
 
+def _materialized_plan_receipt(
+    plan_header: Path,
+    intent_path: Path,
+    exact: dict,
+    supplied: bytes,
+) -> dict:
+    materialized = exact.get("materialized_sources")
+    expected = (
+        materialized.get("plan_header")
+        if isinstance(materialized, dict)
+        else None
+    )
+    if not isinstance(expected, dict) or set(expected) != {
+        "path",
+        "size",
+        "sha256",
+    }:
+        raise ClosureError("P3.10 materialized plan contract differs")
+    relative = expected.get("path")
+    if (
+        not isinstance(relative, str)
+        or not relative
+        or Path(relative).is_absolute()
+        or ".." in Path(relative).parts
+        or Path(os.path.abspath(intent_path.parent / relative))
+        != Path(os.path.abspath(plan_header))
+    ):
+        raise ClosureError("P3.10 supplied plan path differs")
+    observed = module_parent.receipt(supplied)
+    if observed != {key: expected[key] for key in ("size", "sha256")}:
+        raise ClosureError("P3.10 supplied plan identity differs")
+    return observed
+
+
 @contextmanager
 def exact_init_authority(expected: bytes) -> Iterator[None]:
     def validate(data: bytes) -> None:
@@ -158,8 +193,9 @@ def derive_module_closure(
     supplied = module_parent.p241.stable_read(
         plan_header, "P3.10 materialized plan", 1024 * 1024
     )
-    if module_parent.receipt(supplied) != exact["materialized_sources"]["plan_header"]:
-        raise ClosureError("P3.10 supplied plan identity differs")
+    plan_receipt = _materialized_plan_receipt(
+        plan_header, intent_path, exact, supplied
+    )
     names = module_parent.plan_spec.module_names(supplied)
     _metadata, expanded, insertion = module_parent._expanded_plan(root)  # noqa: SLF001
     if names != expanded.modules:
@@ -189,7 +225,7 @@ def derive_module_closure(
         "count": audit["module_count"],
         "modules": audit["modules"],
         "insertion_index": insertion,
-        "plan_header": module_parent.receipt(supplied),
+        "plan_header": plan_receipt,
         "parent_closure": parent_closure,
         "parent_closure_sha256": parent.closure_sha256(parent_closure),
         "vendor_ramdisk": audit["vendor_ramdisk"],
