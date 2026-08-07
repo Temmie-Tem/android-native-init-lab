@@ -1,0 +1,56 @@
+NOTICE
+======
+
+Scope of the MIT license
+------------------------
+
+The MIT License in `LICENSE` applies to the original documentation, scripts,
+and source code in this repository for which the project owns the rights.
+
+Samsung firmware, vendor kernel sources, proprietary binaries, boot and
+recovery images, and other third-party components are NOT covered by that
+license. They remain subject to their own licenses and distribution terms and
+must not be redistributed without proper authorization.
+
+
+What this repository does and does not contain
+----------------------------------------------
+
+This repository does not distribute firmware, vendor binaries, boot images, or
+raw device logs. Such material is kept outside the published tree, under
+`workspace/private/`, and is retained by the repository owner solely for
+recovery and research on devices they personally own.
+
+Where documentation refers to a vendor image, a partition, or a stock binary,
+it refers to material the reader must obtain through their own lawful channel.
+
+
+Third-party licensed files in the published tree
+------------------------------------------------
+
+The published source is MIT except for the following, which carry their own
+SPDX identifier and are licensed accordingly:
+
+  workspace/public/src/openocd/target/qualcomm/sm8450_s22plus_romtable.cfg
+      SPDX-License-Identifier: GPL-2.0-or-later OR BSD-3-Clause-Clear
+      An OpenOCD target configuration, following OpenOCD's licensing.
+
+Individual files elsewhere in the tree may carry an SPDX identifier of their
+own. Where a file declares one, that declaration governs the file.
+
+
+Device identifiers
+------------------
+
+Device serials and other private identifiers are not published. Historical
+documentation and archived sources in this tree use public device aliases or an
+explicit redaction token in their place. See
+`docs/operations/PUBLIC_TREE_SANITIZATION_POLICY.md`.
+
+
+Trademarks
+----------
+
+Samsung, Galaxy, Qualcomm, Snapdragon, Android, and other product names are
+trademarks of their respective owners. Their use here is descriptive only and
+does not imply affiliation with or endorsement by those owners.

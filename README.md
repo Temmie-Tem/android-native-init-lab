@@ -196,6 +196,6 @@ A90은 이미 확보한 native-init/runtime 기반을 유지하는 안정화 대
 
 단, **Samsung 전용 펌웨어·커널 소스·patched AP/TWRP 이미지 등 proprietary 구성요소는
 MIT 적용 대상이 아니며**, 각자의 라이선스를 따르고 정당한 권한 없이 재배포하지 않는다
-(`LICENSE`의 NOTICE 절). `workspace/private/inputs/firmware/`,
+(루트 `NOTICE` 참고). `workspace/private/inputs/firmware/`,
 `workspace/private/backups/`, `workspace/private/inputs/boot_images/*.img` 등에 포함된
 벤더 바이너리는 저장소 소유자가 소유·관리하는 로컬 기기 복구/연구 용도로만 보관한다.
