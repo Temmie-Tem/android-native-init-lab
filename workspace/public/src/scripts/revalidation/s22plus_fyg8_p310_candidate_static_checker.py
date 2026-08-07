@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
+import json
 from pathlib import Path
 from typing import Iterator
 
@@ -41,6 +42,21 @@ DEFAULT_NM = repro.DEFAULT_NM
 DEFAULT_OBJDUMP = repro.DEFAULT_OBJDUMP
 DEFAULT_OUT = Path("workspace/private/outputs/s22plus_fyg8_p310/static-check-result.json")
 CheckError = base.CheckError
+
+
+def _json_document(value):  # noqa: ANN001, ANN201
+    """Normalize an in-memory audit result to its persisted JSON shape."""
+    try:
+        return json.loads(
+            json.dumps(
+                value,
+                allow_nan=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        )
+    except (TypeError, ValueError) as exc:
+        raise CheckError("P3.10 fresh reproducibility result is not JSON") from exc
 
 
 def artifact_safety(exact_contract):  # noqa: ANN001, ANN201
@@ -122,7 +138,7 @@ def verify_repro(root: Path, args, exact_contract):  # noqa: ANN001, ANN201
         objdump=args.objdump,
     )
     try:
-        fresh = postbuild_audit.check(check_args)
+        fresh = _json_document(postbuild_audit.check(check_args))
     except (postbuild_audit.AuditError, repro.CheckError) as exc:
         raise CheckError(str(exc)) from exc
     linked = result.get("linked_audit", {}).get("postbuild_audit", {})

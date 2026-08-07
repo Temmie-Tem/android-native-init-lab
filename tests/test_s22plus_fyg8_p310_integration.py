@@ -23,6 +23,7 @@ import prepare_s22plus_fyg8_p310_ready_manifest as ready_manifest  # noqa: E402
 import s22plus_fyg8_p308_telemetry_spec as spec  # noqa: E402
 import s22plus_fyg8_p309_generator as p309_generator  # noqa: E402
 import s22plus_fyg8_p310_candidate_contract as candidate_contract  # noqa: E402
+import s22plus_fyg8_p310_candidate_static_checker as static_checker  # noqa: E402
 import s22plus_fyg8_p310_candidate_intent as intent  # noqa: E402
 import s22plus_fyg8_p310_build as kernel_build  # noqa: E402
 import s22plus_fyg8_p310_e2_stock_closure as stock_closure  # noqa: E402
@@ -35,6 +36,36 @@ import s22plus_fyg8_p310_source_contract as source  # noqa: E402
 
 
 class P310IntegrationTests(unittest.TestCase):
+    def test_static_checker_compares_the_persisted_json_shape(self) -> None:
+        fresh = {
+            "linked_audit": {
+                "postbuild_audit": {
+                    "carrier_v2_linked_pair": {
+                        "boundary_matrix": {0: "ZERO_AMBIGUOUS", 24: "UNSAT"}
+                    }
+                }
+            }
+        }
+        self.assertEqual(
+            static_checker._json_document(fresh),  # noqa: SLF001
+            {
+                "linked_audit": {
+                    "postbuild_audit": {
+                        "carrier_v2_linked_pair": {
+                            "boundary_matrix": {
+                                "0": "ZERO_AMBIGUOUS",
+                                "24": "UNSAT",
+                            }
+                        }
+                    }
+                }
+            },
+        )
+        with self.assertRaises(static_checker.CheckError):
+            static_checker._json_document(  # noqa: SLF001
+                {"non_json_number": float("inf")}
+            )
+
     def test_postbuild_host_validator_accepts_parent_pre_and_post_configure_shapes(self) -> None:
         patch = generator.generate_bytes(
             ROOT,
