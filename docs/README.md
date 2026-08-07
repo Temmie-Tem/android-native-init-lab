@@ -433,6 +433,7 @@ hygiene를 기준으로 한다.
 - `operations/CLAUDE_NATIVE_INIT_RUNBOOK.md` – 에이전트용 bridge/TWRP/custom init 작업 런북
 - `operations/NATIVE_INIT_FLASH_AND_BRIDGE_GUIDE.md` – 사람이 직접 따라 하는 flash/bridge 운영 절차서
 - `operations/CLAUDE_HANDOFF_PROMPT.md` – Claude에게 그대로 붙여 넣는 안전 작업 프롬프트
+- `operations/PUBLIC_TREE_SANITIZATION_POLICY.md` – 공개 트리 기기 식별자 정리 규칙, 파일 역할별 치환 클래스, boundary check 불변식
 
 ### 3. Plans
 
