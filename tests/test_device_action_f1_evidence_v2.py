@@ -716,6 +716,20 @@ class DeviceActionF1EvidenceV2Test(unittest.TestCase):
         finally:
             closure.exact_init_authority = previous
 
+    def test_p310_latest_stage_identity_is_telemetry_retained(self):
+        self.assertEqual(
+            self.module._latest_stage_accepted_identity(
+                "E2", self.module.P310_SOURCE_CONTRACT_ID, None
+            ),
+            "P301_TELEMETRY_RETAINED",
+        )
+        self.assertEqual(
+            self.module._latest_stage_accepted_identity(
+                "E2", "historical-contract", None
+            ),
+            "E2_TERMINAL_SUCCESS_REACHED",
+        )
+
     def test_p280_generic_rootfs_rejects_missing_adapter(self):
         with self.assertRaisesRegex(
             self.module.EvidenceError, "adapter is unavailable"

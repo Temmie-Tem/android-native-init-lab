@@ -1293,6 +1293,19 @@ def _generic_rootfs_module_closure(
     return adapted
 
 
+def _latest_stage_accepted_identity(
+    profile: str,
+    source_contract_id: str | None,
+    userspace_overlay_contract_id: str | None,
+) -> str:
+    if (
+        userspace_overlay_contract_id in P301_TELEMETRY_OVERLAY_IDS
+        or source_contract_id == P310_SOURCE_CONTRACT_ID
+    ):
+        return "P301_TELEMETRY_RETAINED"
+    return f"{profile}_TERMINAL_SUCCESS_REACHED"
+
+
 def validate_e2_ap_payload(
     frame: bytes, closure: Any
 ) -> dict[str, Any]:
@@ -2373,10 +2386,10 @@ def _verify_e1_latest_stage_offline_contract(
         "terminal_stage": item["terminal_stage"],
     }
     expected_observation = {
-        "accepted_identity": (
-            "P301_TELEMETRY_RETAINED"
-            if userspace_overlay_contract_id in P301_TELEMETRY_OVERLAY_IDS
-            else f"{profile}_TERMINAL_SUCCESS_REACHED"
+        "accepted_identity": _latest_stage_accepted_identity(
+            profile,
+            source_contract_id,
+            userspace_overlay_contract_id,
         ),
         "minimum_success_count": 1,
         "clean_baseline_required": True,

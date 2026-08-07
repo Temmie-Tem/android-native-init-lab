@@ -327,14 +327,10 @@ def derive(
             "terminal_stage": terminal_stage,
         },
         "observation_contract": {
-            "accepted_identity": (
-                "P301_TELEMETRY_RETAINED"
-                if (
-                    userspace_overlay_contract_id
-                    in evidence.P301_TELEMETRY_OVERLAY_IDS
-                    or source_contract_id == evidence.P310_SOURCE_CONTRACT_ID
-                )
-                else f"{profile}_TERMINAL_SUCCESS_REACHED"
+            "accepted_identity": evidence._latest_stage_accepted_identity(  # noqa: SLF001
+                profile,
+                source_contract_id,
+                userspace_overlay_contract_id,
             ),
             "minimum_success_count": 1,
             "clean_baseline_required": True,
