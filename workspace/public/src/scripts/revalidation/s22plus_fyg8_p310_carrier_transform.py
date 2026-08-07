@@ -157,7 +157,7 @@ FAMILY_VALIDATION = b'''+static u32 s22_fyg8_e1_header_crc(const u8 header[32]);
 +\treturn recorded && le32_to_cpu(recorded) == expected;
 +}
 +
-+static bool s22_fyg8_e1_record_families_allowed(const u8 record[192])
++static noinline __used bool s22_fyg8_e1_record_families_allowed(const u8 record[192])
 +{
 +\treturn s22_fyg8_e1_header_valid(record);
 +}

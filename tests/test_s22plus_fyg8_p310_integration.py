@@ -142,6 +142,13 @@ class P310IntegrationTests(unittest.TestCase):
         self.assertEqual(generated["trace_descriptor_header"].count(b"rc=%x21:s32"), 1)
         self.assertNotIn(b"rc=%w21:s32", generated["trace_descriptor_header"])
         self.assertIn(b"S22E1L2|", generated["candidate_patch"])
+        self.assertEqual(
+            generated["candidate_patch"].count(
+                b"static noinline __used bool "
+                b"s22_fyg8_e1_record_families_allowed"
+            ),
+            1,
+        )
 
     def test_intent_uses_new_layout_and_distinct_run_identity(self) -> None:
         with tempfile.TemporaryDirectory(prefix="p310-intent-") as temporary:
