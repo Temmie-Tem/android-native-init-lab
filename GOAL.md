@@ -11,6 +11,25 @@ shared process documents. A90 state and authorization remain separate.
 
 ## Current Frontier
 
+P3.10 Carrier v2 is the current prepared live unit. Its successor-only
+tracefs descriptor uses `%x21:s32`; source initializers and linked P3.00 A/B
+tables agree on the accepted register and fetch-type ABIs, and all 48
+descriptors pass the cross-authority validator. Carrier v2 keeps legacy
+decoding while adding bounded integrity and recovery semantics without
+reopening consumed P3.08. Full-LTO A/B artifacts are byte-identical, the
+61-module closure and actual rootfs consumer are bound, focused tests and
+independent review pass, and the canonical Process-v2 manifest is
+`s22plus-fyg8-p310-process-v2-ready-1`.
+
+The first connected P3.10 preparation stopped read-only on the consumed P3.08
+retained family. One attended exact-S22 normal reboot then changed the boot ID
+and returned rooted completed Android with boot and supporting-partition
+identities unchanged. A fresh D0 preparation now binds the clean retained
+baseline, exact P3.10 candidate, exact rollback, USB sidecar, and unchanged
+execution closure as approval binding `2d2cb0ee`. F1 remains unarmed:
+`device_writes=false`, `odin_invoked=false`, and `partition_transfer=false`.
+A90 received zero commands.
+
 P3.08 is the latest closed live unit. Focused independent review returned
 `PASS_GO` for the exact loss-resistant observer and Process-v2 closure. The
 first connected preparation stopped read-only on the retained P3.07 marker.
