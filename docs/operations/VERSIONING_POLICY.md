@@ -180,6 +180,14 @@ Device flash: no
 Host commit: <git-sha-or-uncommitted>
 ```
 
+## 6.1 Identifier Sanitization
+
+Public-tree identifier sanitization is governed by
+`docs/operations/PUBLIC_TREE_SANITIZATION_POLICY.md`.
+
+Historical commit identities referenced by run evidence must not be rewritten
+for identifier hygiene; remediation is applied prospectively to the active tree.
+
 ## 7. Practical Reading Rule
 
 Read versions in this order:
