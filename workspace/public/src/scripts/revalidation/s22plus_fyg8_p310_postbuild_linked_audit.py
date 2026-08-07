@@ -46,15 +46,25 @@ def production_validator_source(patch: bytes) -> bytes:
 
 def host_validator_tu(patch: bytes) -> bytes:
     source = parent.host_validator_tu(patch)
-    old = b"#define S22_FYG8_E1_HEADER_SIZE 25\n"
+    header_prefix = b"#define S22_FYG8_E1_HEADER_SIZE "
+    header_defines = (
+        b"#define S22_FYG8_E1_HEADER_SIZE 25\n",
+        b"#define S22_FYG8_E1_HEADER_SIZE 32\n",
+    )
+    present = [define for define in header_defines if source.count(define) == 1]
     new = (
         b"#define S22_FYG8_E1_HEADER_SIZE 32\n"
         b"#define S22_FYG8_E1_SLOT_PAYLOAD_SIZE 67\n"
         b"#define S22_FYG8_E1_REQUEST_PAYLOAD_SIZE 64\n"
     )
-    if source.count(old) != 1:
+    if (
+        source.count(header_prefix) != 1
+        or len(present) != 1
+        or b"#define S22_FYG8_E1_SLOT_PAYLOAD_SIZE " in source
+        or b"#define S22_FYG8_E1_REQUEST_PAYLOAD_SIZE " in source
+    ):
         raise AuditError("P3.10 host validator Carrier v2 constants differ")
-    return source.replace(old, new)
+    return source.replace(present[0], new)
 
 
 def run_host_validator_tu(tu: bytes) -> dict[str, Any]:

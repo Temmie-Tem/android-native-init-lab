@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,11 +29,94 @@ import s22plus_fyg8_p310_e2_stock_closure as stock_closure  # noqa: E402
 import s22plus_fyg8_p310_carrier_model as carrier  # noqa: E402
 import s22plus_fyg8_p310_generator as generator  # noqa: E402
 import s22plus_fyg8_p310_identity_tiers as identity  # noqa: E402
+import s22plus_fyg8_p310_postbuild_linked_audit as postbuild  # noqa: E402
 import s22plus_fyg8_p310_pre_lto_qualification as qualification  # noqa: E402
 import s22plus_fyg8_p310_source_contract as source  # noqa: E402
 
 
 class P310IntegrationTests(unittest.TestCase):
+    def test_postbuild_host_validator_accepts_parent_pre_and_post_configure_shapes(self) -> None:
+        patch = generator.generate_bytes(
+            ROOT,
+            run_id=source.SOURCE_CHECK_RUN_ID,
+            unsat_tag=source.SOURCE_CHECK_UNSAT_TAG,
+            profile=source.PROFILE,
+        )["candidate_patch"]
+        previous = postbuild.base.p290
+        try:
+            for active_contract in (postbuild.parent.p300, source):
+                postbuild.base.p290 = active_contract
+                translation_unit = postbuild.host_validator_tu(patch)
+                self.assertEqual(
+                    translation_unit.count(b"#define S22_FYG8_E1_HEADER_SIZE 32\n"),
+                    1,
+                )
+                self.assertNotIn(
+                    b"#define S22_FYG8_E1_HEADER_SIZE 25\n",
+                    translation_unit,
+                )
+                self.assertEqual(
+                    translation_unit.count(b"#define S22_FYG8_E1_HEADER_SIZE "),
+                    1,
+                )
+                self.assertEqual(
+                    translation_unit.count(
+                        b"#define S22_FYG8_E1_SLOT_PAYLOAD_SIZE 67\n"
+                    ),
+                    1,
+                )
+                self.assertEqual(
+                    translation_unit.count(
+                        b"#define S22_FYG8_E1_REQUEST_PAYLOAD_SIZE 64\n"
+                    ),
+                    1,
+                )
+                self.assertEqual(
+                    translation_unit.count(
+                        b"#define S22_FYG8_E1_SLOT_PAYLOAD_SIZE "
+                    ),
+                    1,
+                )
+                self.assertEqual(
+                    translation_unit.count(
+                        b"#define S22_FYG8_E1_REQUEST_PAYLOAD_SIZE "
+                    ),
+                    1,
+                )
+        finally:
+            postbuild.base.p290 = previous
+
+    def test_postbuild_host_validator_rejects_conflicting_carrier_defines(self) -> None:
+        invalid_sources = (
+            (
+                b"#define S22_FYG8_E1_HEADER_SIZE 25\n"
+                b"#define S22_FYG8_E1_HEADER_SIZE 32\n"
+            ),
+            (
+                b"#define S22_FYG8_E1_HEADER_SIZE 25\n"
+                b"#define S22_FYG8_E1_HEADER_SIZE 32\n"
+                b"#define S22_FYG8_E1_HEADER_SIZE 32\n"
+            ),
+            b"#define S22_FYG8_E1_HEADER_SIZE 31\n",
+            (
+                b"#define S22_FYG8_E1_HEADER_SIZE 25\n"
+                b"#define S22_FYG8_E1_SLOT_PAYLOAD_SIZE 67\n"
+            ),
+            (
+                b"#define S22_FYG8_E1_HEADER_SIZE 32\n"
+                b"#define S22_FYG8_E1_REQUEST_PAYLOAD_SIZE 64\n"
+            ),
+        )
+        for invalid_source in invalid_sources:
+            with self.subTest(invalid_source=invalid_source):
+                with mock.patch.object(
+                    postbuild.parent,
+                    "host_validator_tu",
+                    return_value=invalid_source,
+                ):
+                    with self.assertRaises(postbuild.AuditError):
+                        postbuild.host_validator_tu(b"unused")
+
     def test_source_contract_delegates_linked_table_audit(self) -> None:
         expected = source.linked_table_bytes()
         result = source.audit_linked_tables(expected)
