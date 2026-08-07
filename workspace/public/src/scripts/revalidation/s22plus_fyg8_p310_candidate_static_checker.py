@@ -94,14 +94,10 @@ def rootfs_entrypoint_context(
         for value in entrypoints.values()
     ):
         raise CheckError("P3.10 exact userspace entrypoint is malformed")
-    legacy = p310_closure.module_parent.p257.p253.isolated_legacy
-    previous = legacy.EXPECTED_ELF_ENTRYPOINTS
-    legacy.EXPECTED_ELF_ENTRYPOINTS = dict(entrypoints)
-    try:
+    entrypoint_api = p310_closure.parent.p286.p282.p280
+    with entrypoint_api._expected_entrypoints(entrypoints):  # noqa: SLF001
         with p310_closure.exact_init_authority(userspace_payloads["init"]):
             yield
-    finally:
-        legacy.EXPECTED_ELF_ENTRYPOINTS = previous
 
 
 def _configure() -> None:

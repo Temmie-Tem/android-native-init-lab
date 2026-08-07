@@ -17,12 +17,24 @@ import s22plus_fyg8_p310_candidate_static_checker as static_checker  # noqa: E40
 
 
 class P310StaticCheckerTests(unittest.TestCase):
-    def test_rootfs_context_binds_and_restores_the_isolated_legacy_entrypoints(
+    def test_rootfs_context_binds_the_actual_p260_consumer_and_restores_it(
         self,
     ) -> None:
-        legacy = static_checker.p310_closure.module_parent.p257.p253.isolated_legacy
-        previous = legacy.EXPECTED_ELF_ENTRYPOINTS
+        entrypoint_api = static_checker.p310_closure.parent.p286.p282.p280
+        p260 = entrypoint_api.isolated_p260
+        previous_adapter = p260.EXPECTED_ELF_ENTRYPOINTS
+        previous_legacy = p260.isolated_legacy.EXPECTED_ELF_ENTRYPOINTS
+        previous_p253_legacy = p260.p253.isolated_legacy
         values = {"init": 0x408488, "child": 0x4000CC}
+
+        def fail_after_actual_swap(*_args, **_kwargs) -> None:
+            self.assertEqual(p260.EXPECTED_ELF_ENTRYPOINTS, values)
+            self.assertIs(p260.p253.isolated_legacy, p260.isolated_legacy)
+            self.assertEqual(
+                p260.isolated_legacy.EXPECTED_ELF_ENTRYPOINTS, values
+            )
+            raise RuntimeError("actual P2.60 consumer reached")
+
         with mock.patch.object(
             static_checker.base.e1_static,
             "inspect_static_elf",
@@ -31,12 +43,31 @@ class P310StaticCheckerTests(unittest.TestCase):
                 {"entrypoint": values["child"]},
             ),
         ):
-            with static_checker.rootfs_entrypoint_context(
-                None, None, {"init": b"init", "child": b"child"}
+            with self.assertRaisesRegex(
+                RuntimeError, "actual P2.60 consumer reached"
             ):
-                self.assertEqual(legacy.EXPECTED_ELF_ENTRYPOINTS, values)
-                self.assertIsNot(legacy.EXPECTED_ELF_ENTRYPOINTS, previous)
-        self.assertIs(legacy.EXPECTED_ELF_ENTRYPOINTS, previous)
+                with static_checker.rootfs_entrypoint_context(
+                    None, None, {"init": b"init", "child": b"child"}
+                ):
+                    with mock.patch.object(
+                        p260.p257,
+                        "rootfs_audit",
+                        side_effect=fail_after_actual_swap,
+                    ):
+                        p260.rootfs_audit(
+                            b"boot",
+                            b"vendor_boot",
+                            Path("lz4"),
+                            expected_init={},
+                            expected_child={},
+                            run_id=b"run-id",
+                            module_closure={},
+                        )
+        self.assertIs(p260.EXPECTED_ELF_ENTRYPOINTS, previous_adapter)
+        self.assertIs(
+            p260.isolated_legacy.EXPECTED_ELF_ENTRYPOINTS, previous_legacy
+        )
+        self.assertIs(p260.p253.isolated_legacy, previous_p253_legacy)
 
     def test_repro_comparison_uses_strict_persisted_json_shape(self) -> None:
         fresh = {
