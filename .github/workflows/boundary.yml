@@ -1,0 +1,31 @@
+name: Repository boundary
+
+# Enforces docs/operations/PUBLIC_TREE_SANITIZATION_POLICY.md against the tracked
+# tree from an independent checkout.
+#
+# Scope: this workflow asserts one thing — the public Git tree satisfies the
+# repository identifier boundary. It is not a test-suite status. The full suite
+# needs maintainer-private fixtures and is not run here.
+#
+# This is detection, not a merge gate: commits reach main directly, so a failure
+# is reported after the fact. Making it a gate would need a branch ruleset with a
+# required status check.
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Repository boundary check
+        run: python3 workspace/public/src/scripts/security/repository_boundary_check.py
+
+      - name: Boundary check regression tests
+        run: python3 -m unittest discover -s tests -p "test_repository_boundary_check.py"

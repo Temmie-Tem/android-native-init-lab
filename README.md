@@ -1,6 +1,7 @@
 # Android Native Init Lab
 
 [![license](https://img.shields.io/github/license/Temmie-Tem/android-native-init-lab)](LICENSE)
+[![repository boundary](https://github.com/Temmie-Tem/android-native-init-lab/actions/workflows/boundary.yml/badge.svg)](../../actions/workflows/boundary.yml)
 [![last commit](https://img.shields.io/github/last-commit/Temmie-Tem/android-native-init-lab)](../../commits)
 
 **English** · [한국어](README.ko.md)
@@ -103,6 +104,12 @@ The test suite is host-only and touches no device:
 ```bash
 python3 -m unittest discover -s tests -p "test_*.py"
 ```
+
+One check runs continuously. The **Repository boundary** badge asserts exactly one
+thing: the public tree satisfies the identifier boundary in
+[`docs/operations/PUBLIC_TREE_SANITIZATION_POLICY.md`](docs/operations/PUBLIC_TREE_SANITIZATION_POLICY.md).
+It is not a test-suite status — the full suite depends on maintainer-private
+fixtures and is not run in CI.
 
 ## Repository layout
 

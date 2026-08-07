@@ -72,7 +72,10 @@ SKIP_SUFFIXES = (
 def repo_root() -> Path:
     current = Path(__file__).resolve()
     for parent in current.parents:
-        if (parent / ".git").is_dir():
+        # `.git` is a directory in a normal clone and a file in a worktree or a
+        # submodule. The rest of the repository tests for a directory; this check
+        # has to run from anywhere, so it accepts both.
+        if (parent / ".git").exists():
             return parent
     raise RuntimeError(f"could not locate repo root from {current}")
 

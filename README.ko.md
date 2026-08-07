@@ -204,7 +204,9 @@ A90은 이미 확보한 native-init/runtime 기반을 유지하는 안정화 대
 - 원본 로그와 실험 산출물은 `/cache`, `tmp/wifi/{runs,cache,bench,scratch,archive}`, `workspace/private/`에 남기고, 공개 가능한 redacted 요약만 `docs/reports`, `docs/artifacts`, `workspace/public/`에 남긴다.
 - 실제 기기 serial은 공개 트리에 쓰지 않는다. 공개 별칭이나 명시적 redaction
   토큰을 쓰고, 런북 명령은 `$A90_SERIAL` 같은 런타임 변수를 쓴다
-  (`docs/operations/PUBLIC_TREE_SANITIZATION_POLICY.md`).
+  (`docs/operations/PUBLIC_TREE_SANITIZATION_POLICY.md`). 이 경계는 매 push마다
+  `Repository boundary` 워크플로가 독립 checkout에서 검사한다. 이 배지는 **공개
+  트리가 식별자 경계를 만족한다**는 것만 주장하며, 테스트 스위트 상태가 아니다.
 - (A90 한정) ADB 안정화는 후순위로 두고 serial/HUD/log/menu 안정화를 먼저
   진행한다. S22+는 시리얼 콘솔이 없어 이 규칙이 적용되지 않으며, 관측은
   타깃별 검증 채널(S22+는 retained-log/USB gate)을 따른다.
