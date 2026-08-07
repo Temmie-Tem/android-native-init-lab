@@ -34,7 +34,7 @@ python3 scripts/revalidation/native_init_flash.py \
 | --- | --- |
 | V773 local image sha256 | `0fcde6e76fd0de3d2b974aad20dcbbba714e5a81b9fccf5ea2b6a67bdc06f400` |
 | V773 local image size | `53972992` bytes |
-| adb recovery reached | yes, `RFCM90CFWXA recovery` |
+| adb recovery reached | yes, `DEVICE-A90-01 recovery` |
 | adb push to TWRP | pass |
 | remote V773 image sha256 | matched local |
 | boot partition prefix sha256 | matched V773 image |

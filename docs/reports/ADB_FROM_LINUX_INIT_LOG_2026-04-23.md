@@ -265,7 +265,7 @@ adb shell "dd if=/data/local/tmp/boot.img of=/dev/block/by-name/boot bs=4096 && 
 - 현재 실측 결과:
   - `twrp reboot system` 후 host `lsusb`에 `04e8:6861` (`SAMSUNG_Android`)로 재열거
   - `adb devices -l`는 빈 목록
-  - host에 `/dev/ttyACM0` 및 `/dev/serial/by-id/usb-SAMSUNG_SAMSUNG_Android_RFCM90CFWXA-if00` 생성
+  - host에 `/dev/ttyACM0` 및 `/dev/serial/by-id/usb-SAMSUNG_SAMSUNG_Android_DEVICE-A90-01-if00` 생성
   - 즉, **ADB-less native init → USB ACM gadget 활성화** 까지는 성공
 - 호스트 측 접속 예상:
   - `screen /dev/ttyACM0 115200`

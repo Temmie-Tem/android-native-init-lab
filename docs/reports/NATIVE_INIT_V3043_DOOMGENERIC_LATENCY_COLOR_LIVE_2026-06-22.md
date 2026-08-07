@@ -19,7 +19,7 @@
 - Final fallback present and SHA256 recorded: `boot_linux_v48.img` = `1c87fa59712395027c5c2e489b15c4f6ddefabc3c50f78d3c235c4508a63e042`
 - Managed serial bridge was running on `127.0.0.1:54321` with selected device `/dev/ttyACM0`.
 - Pre-flash installed baseline was healthy: `0.10.79 (v3040-doomgeneric-large-dashboard-quiet)`, `selftest pass=12 warn=1 fail=0`.
-- Recovery/TWRP was available: flash helper reached `RFCM90CFWXA recovery` and `twrp reboot` returned through the system reboot path.
+- Recovery/TWRP was available: flash helper reached `DEVICE-A90-01 recovery` and `twrp reboot` returned through the system reboot path.
 
 ## Flash
 

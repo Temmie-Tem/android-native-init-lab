@@ -23,7 +23,7 @@
 | Item | Value | Status |
 | --- | --- | --- |
 | capture label | `baseline_a_20260423_030309` | captured |
-| capture serial | `RFCM90CFWXA` | captured |
+| capture serial | `DEVICE-A90-01` | captured |
 | by-name path | `/dev/block/by-name` | captured |
 | boot backup path | `backups/baseline_a_20260423_030309/boot.img` (sha256 `c15ce425…3057b`) | captured |
 | recovery backup path | `backups/baseline_a_20260423_030309/recovery.img` (sha256 `8f91ce25…2bb68`) | captured |

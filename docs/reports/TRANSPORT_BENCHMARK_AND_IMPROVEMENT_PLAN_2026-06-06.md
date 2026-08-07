@@ -102,7 +102,7 @@
   `idVendor`, `idProduct`, manufacturer, product, serial, interface number,
   interface class/subclass/protocol, `ID_NET_DRIVER`, and `ID_USB_INTERFACES`.
 - On this host, the ASIX adapter `0b95:1790` is correctly excluded while the
-  A90 endpoint `04e8:6861`, `SAMSUNG_Android`, serial `RFCM90CFWXA`,
+  A90 endpoint `04e8:6861`, `SAMSUNG_Android`, serial `DEVICE-A90-01`,
   interface `02`, driver `cdc_ncm` is selected.
 - If the A90 NCM interface exists without host `fe80::`, or if the
   device-to-host TCP probe fails, the runner attempts one NetworkManager repair:

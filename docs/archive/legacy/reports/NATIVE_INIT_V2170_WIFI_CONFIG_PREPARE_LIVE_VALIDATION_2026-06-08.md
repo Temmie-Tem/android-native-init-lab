@@ -6,7 +6,7 @@
 - Parent baseline: `v2169-transport-contract`
 - Decision: `v2170-wifi-config-prepare-live-pass`
 - Result: PASS
-- Device under test: `RFCM90CFWXA`
+- Device under test: `DEVICE-A90-01`
 - Test boot image: `workspace/private/inputs/boot_images/boot_linux_v2170_wifi_config_prepare.img`
 - Test boot SHA256: `e774812a0b29b8255d374d756f851a53eccfd1eb9d1ebd304d91c0ee839ff035`
 - Rollback image: `workspace/private/inputs/boot_images/boot_linux_v2169_transport_contract.img`

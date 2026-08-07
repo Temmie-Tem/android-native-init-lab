@@ -125,7 +125,7 @@ known boot SHA256        2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f12
 stock vendor_boot       096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7
 stock DTBO              97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c
 stock recovery          93fac06ca79bf4b365b25a8d49902bc41aba112ea253c30880c90e314d7895d4
-Android serial          RFCT519XWGK
+Android serial          DEVICE-S22P-01
 USB topology            2-1.3
 ```
 

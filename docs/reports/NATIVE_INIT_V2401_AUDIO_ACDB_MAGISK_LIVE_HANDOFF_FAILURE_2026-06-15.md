@@ -49,7 +49,7 @@ Failure point:
 Runner rollback behavior:
 
 - `adb reboot recovery` immediately after the stage failure returned `error: no devices/emulators found`;
-- checked `rollback-v2321` then waited for recovery and timed out with last ADB state `RFCM90CFWXA:device`;
+- checked `rollback-v2321` then waited for recovery and timed out with last ADB state `DEVICE-A90-01:device`;
 - fallback `--from-native` was inappropriate while Android was still resident and timed out on the native serial bridge.
 
 Manual recovery performed after runner exit:

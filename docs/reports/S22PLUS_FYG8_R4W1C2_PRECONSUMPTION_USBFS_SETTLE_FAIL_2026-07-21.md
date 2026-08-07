@@ -29,7 +29,7 @@ The connected preflight proved exact `SM-S906N` / `g0q` /
 `S906NKSS7FYG8`, completed boot, stopped boot animation, orange state, Magisk
 root, known Magisk boot, stock vendor_boot/DTBO/recovery, live retained-log
 binding, clean duplicate observers, absent pstore consoles, and no Odin
-endpoint. The Android USB binding was exact serial `RFCT519XWGK`, topology
+endpoint. The Android USB binding was exact serial `DEVICE-S22P-01`, topology
 `2-1.3`, and required absent Download serial state.
 
 ## Failure Mechanism

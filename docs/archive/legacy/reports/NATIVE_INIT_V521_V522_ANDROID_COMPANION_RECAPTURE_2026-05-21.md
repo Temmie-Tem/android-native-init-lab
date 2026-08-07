@@ -56,7 +56,7 @@ wifi_bringup_executed: False
 | native precheck | `A90 Linux init 0.9.61 (v319)` and status OK |
 | recovery transition | native `recovery` command succeeded |
 | Android boot flash | baseline Android boot image `c15ce425abb8da41...` written and read back |
-| Android boot | ADB reported `RFCM90CFWXA device`; `sys.boot_completed=1` observed |
+| Android boot | ADB reported `DEVICE-A90-01 device`; `sys.boot_completed=1` observed |
 | Android recapture | V521 completed in read-only mode |
 | rollback | native boot image `98cc57153bcc4c23...` restored |
 | post-rollback verify | `cmdv1 version` and `cmdv1 status` passed |

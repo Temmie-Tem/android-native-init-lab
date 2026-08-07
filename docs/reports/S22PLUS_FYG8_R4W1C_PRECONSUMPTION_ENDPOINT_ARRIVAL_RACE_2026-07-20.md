@@ -53,7 +53,7 @@ After each failure the device remained in normal Samsung Download. The operator
 physically exited Download. Final read-only verification after the second exit
 proved:
 
-- Android serial `RFCT519XWGK`, completed boot, and stopped boot animation;
+- Android serial `DEVICE-S22P-01`, completed boot, and stopped boot animation;
 - Magisk `uid=0(root)`;
 - boot SHA256
   `2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c29967e`;

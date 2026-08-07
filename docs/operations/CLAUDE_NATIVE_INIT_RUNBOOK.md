@@ -8,9 +8,20 @@ Date: `2026-06-12`
 
 ## 0. 현재 기준점
 
+이 문서의 `adb` 예시는 `$A90_SERIAL`을 사용한다. 세션 시작 시 자기 기기의 실제
+serial을 한 번 넣어두면 아래 명령을 그대로 쓸 수 있다.
+
+```bash
+adb devices              # 목록에서 대상 serial 확인
+export A90_SERIAL="<your-device-serial>"
+```
+
+공개 트리에는 실제 serial을 쓰지 않는다
+(`docs/operations/PUBLIC_TREE_SANITIZATION_POLICY.md`).
+
 현재 기준:
 
-- device: `Samsung Galaxy A90 5G SM-A908N`
+- device: `Samsung Galaxy A90 5G SM-A908N` (public device ID `DEVICE-A90-01`)
 - recovery: TWRP 사용 가능
 - latest verified build / rollback checkpoint: `A90 Linux init 0.9.285 (v2321-usb-clean-identity-rodata)`
 - latest verified source: `workspace/public/src/native-init/` + 빌더 `workspace/public/src/scripts/revalidation/build_native_init_boot_v2321_usb_clean_identity_rodata.py`
@@ -269,7 +280,7 @@ TWRP에 들어간 뒤:
 adb devices
 ```
 
-`RFCM90CFWXA recovery`가 보여야 한다.
+`<your-device-serial> recovery`가 보여야 한다.
 
 ## 4. TWRP에서 system/native init으로 부팅
 
@@ -278,7 +289,7 @@ adb devices
 system/native init으로 나갈 때는 `twrp reboot` 무인자를 사용한다.
 
 ```bash
-adb -s RFCM90CFWXA shell 'twrp reboot'
+adb -s "$A90_SERIAL" shell 'twrp reboot'
 ```
 
 그 후 bridge로 확인:
@@ -441,9 +452,9 @@ workspace/public/src/scripts/revalidation/build_static_toybox.sh
 TWRP에서 배치:
 
 ```bash
-adb -s RFCM90CFWXA shell 'mkdir -p /cache/bin && chmod 755 /cache/bin'
-adb -s RFCM90CFWXA push workspace/private/inputs/external_tools/userland/bin/toybox-aarch64-static-0.8.13 /cache/bin/toybox
-adb -s RFCM90CFWXA shell 'chmod 755 /cache/bin/toybox && sync && sha256sum /cache/bin/toybox'
+adb -s "$A90_SERIAL" shell 'mkdir -p /cache/bin && chmod 755 /cache/bin'
+adb -s "$A90_SERIAL" push workspace/private/inputs/external_tools/userland/bin/toybox-aarch64-static-0.8.13 /cache/bin/toybox
+adb -s "$A90_SERIAL" shell 'chmod 755 /cache/bin/toybox && sync && sha256sum /cache/bin/toybox'
 ```
 
 native init에서 사용:
@@ -471,8 +482,8 @@ workspace/public/src/scripts/revalidation/build_usbnet_helper.sh
 TWRP에서 배치:
 
 ```bash
-adb -s RFCM90CFWXA push workspace/private/inputs/external_tools/userland/bin/a90_usbnet-aarch64-static /cache/bin/a90_usbnet
-adb -s RFCM90CFWXA shell 'chmod 755 /cache/bin/a90_usbnet && sync && sha256sum /cache/bin/a90_usbnet'
+adb -s "$A90_SERIAL" push workspace/private/inputs/external_tools/userland/bin/a90_usbnet-aarch64-static /cache/bin/a90_usbnet
+adb -s "$A90_SERIAL" shell 'chmod 755 /cache/bin/a90_usbnet && sync && sha256sum /cache/bin/a90_usbnet'
 ```
 
 native init에서 상태 확인:
@@ -645,9 +656,9 @@ printf 'cat /cache/native-init-netservice.log\n' | nc -w 8 127.0.0.1 54321
 TWRP에서 직접:
 
 ```bash
-adb -s RFCM90CFWXA shell 'tail -160 /cache/native-init.log 2>/dev/null || true'
-adb -s RFCM90CFWXA shell 'tail -160 /cache/usbnet.log 2>/dev/null || true'
-adb -s RFCM90CFWXA shell 'tail -160 /cache/native-init-netservice.log 2>/dev/null || true'
+adb -s "$A90_SERIAL" shell 'tail -160 /cache/native-init.log 2>/dev/null || true'
+adb -s "$A90_SERIAL" shell 'tail -160 /cache/usbnet.log 2>/dev/null || true'
+adb -s "$A90_SERIAL" shell 'tail -160 /cache/native-init-netservice.log 2>/dev/null || true'
 ```
 
 ## 15. 커밋 전 확인

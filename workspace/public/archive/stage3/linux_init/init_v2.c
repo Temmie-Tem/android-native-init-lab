@@ -90,7 +90,7 @@ int main(void) {
     wf("/config/usb_gadget/g1/idVendor",                     "0x04e8");
     wf("/config/usb_gadget/g1/idProduct",                    "0x6860");
     wf("/config/usb_gadget/g1/bcdUSB",                       "0x0200");
-    wf("/config/usb_gadget/g1/strings/0x409/serialnumber",   "RFCM90CFWXA");
+    wf("/config/usb_gadget/g1/strings/0x409/serialnumber",   "REDACTED-DEVICE-SERIAL");
     wf("/config/usb_gadget/g1/strings/0x409/manufacturer",   "samsung");
     wf("/config/usb_gadget/g1/strings/0x409/product",        "SM8150-ADB");
 

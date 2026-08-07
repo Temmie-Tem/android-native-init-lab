@@ -12,7 +12,7 @@ native Linux init을 pid 1로 실행하는 데 성공한 과정을 기록한다.
 
 | 항목 | 값 |
 |---|---|
-| 디바이스 | SM-A908N, RFCM90CFWXA |
+| 디바이스 | SM-A908N, DEVICE-A90-01 |
 | 빌드 | A908NKSU5EWA3 / Android 12 |
 | AP | Magisk 30.7 패치 boot.img |
 | Recovery | stock (이후 TWRP로 교체) |

@@ -24,7 +24,7 @@
 - Local image size: `61046784` bytes.
 - Local image SHA256: `2dbfbc86158d06f3459f359022d41b10f189805e478542722cd715f14bb1fddd`.
 - Recovery handoff: native bridge requested recovery successfully.
-- ADB recovery ready: `RFCM90CFWXA recovery`.
+- ADB recovery ready: `DEVICE-A90-01 recovery`.
 - ADB push speed: `83.3 MB/s`.
 - Remote `/tmp/native_init_boot.img` SHA256 matched local.
 - Boot partition write completed via checked helper only.

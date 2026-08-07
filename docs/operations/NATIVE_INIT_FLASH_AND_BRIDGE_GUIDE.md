@@ -261,7 +261,7 @@ adb devices -l
 정상 예:
 
 ```text
-RFCM90CFWXA    recovery ...
+<your-device-serial>    recovery ...
 ```
 
 `recovery`가 아니면 아직 이 절차를 진행하지 않는다.
@@ -357,7 +357,7 @@ local SHA256과 remote SHA256이 같을 때만 `dd`를 실행한다.
 
 - 기기가 native init이 아니라 Android로 부팅됨
 - TWRP는 정상 진입 가능
-- TWRP ADB serial: `RFCM90CFWXA`
+- TWRP ADB serial: `<your-device-serial>`
 
 확인한 값:
 

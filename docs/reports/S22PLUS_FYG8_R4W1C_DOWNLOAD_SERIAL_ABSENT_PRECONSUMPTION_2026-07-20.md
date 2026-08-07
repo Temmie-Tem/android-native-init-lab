@@ -80,7 +80,7 @@ character node is present and stable.
 
 The correction that closed the earlier enumeration-arrival race was sound for
 node stabilization, but it added an unsupported identity assumption: Android
-ADB mode exposes serial `RFCT519XWGK`; normal Samsung Download mode on this FYG8
+ADB mode exposes serial `DEVICE-S22P-01`; normal Samsung Download mode on this FYG8
 target does not expose any serial descriptor through sysfs. Requiring the same
 serial digest across those USB personalities makes the gate unsatisfiable.
 
@@ -98,7 +98,7 @@ boot SHA256           2e541703951dc725bad35850faf7028c2d910dd5f21166449b63f1248c
 vendor_boot SHA256    096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7
 DTBO SHA256           97a4864fee4e61892d733962d1ec76f8d14b52bc19e6f47440bc27d9dfc4bd0c
 recovery SHA256       93fac06ca79bf4b365b25a8d49902bc41aba112ea253c30880c90e314d7895d4
-Android USB           2-1.3 04e8:6860 RFCT519XWGK
+Android USB           2-1.3 04e8:6860 DEVICE-S22P-01
 Odin endpoint         absent
 ```
 

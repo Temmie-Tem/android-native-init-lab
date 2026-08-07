@@ -317,7 +317,7 @@ find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../initramfs.cpio.gz
 #### 시도 내용
 ```bash
 # 디바이스 연결 확인
-adb devices  # RFCM90CFWXA device
+adb devices  # DEVICE-A90-01 device
 
 # 커널 및 initramfs 전송
 adb push kernel_build/linux/arch/arm64/boot/Image /data/local/tmp/
@@ -656,7 +656,7 @@ command line args: console=ttyMSM0,115200 androidboot.hardware=qcom androidboot.
 adb reboot recovery
 # 대기 후 TWRP 부팅 확인
 adb devices
-# RFCM90CFWXA	recovery
+# DEVICE-A90-01	recovery
 ```
 
 **2. boot.img 전송**
@@ -800,7 +800,7 @@ python3 mkbootimg.py \
 ```bash
 $ adb devices
 List of devices attached
-RFCM90CFWXA	device
+DEVICE-A90-01	device
 ```
 
 ### 현재 부팅 상태
@@ -1191,7 +1191,7 @@ sha256sum -c checksums.sha256
 ```bash
 # 재부팅 후 상태 확인
 adb devices
-# RFCM90CFWXA	recovery (다시 recovery로 복귀)
+# DEVICE-A90-01	recovery (다시 recovery로 복귀)
 ```
 
 #### pstore 로그 분석
@@ -1469,7 +1469,7 @@ python3 mkbootimg.py \
 #### 플래싱 과정
 ```bash
 # TWRP 확인
-adb devices  # RFCM90CFWXA recovery
+adb devices  # DEVICE-A90-01 recovery
 
 # boot.img 전송
 adb push boot_image/boot_samsung_busybox.img /tmp/
@@ -1487,7 +1487,7 @@ adb reboot
 ```bash
 # 30초 대기 후
 adb devices
-# RFCM90CFWXA	recovery (다시 recovery로 복귀)
+# DEVICE-A90-01	recovery (다시 recovery로 복귀)
 ```
 
 **결과**: 부팅 실패 → recovery 자동 복구
@@ -1708,7 +1708,7 @@ adb devices
 ```
 ```
 List of devices attached
-RFCM90CFWXA     recovery
+DEVICE-A90-01     recovery
 ```
 
 #### 파일 전송
@@ -1993,7 +1993,7 @@ AP 슬롯: recovery_twrp_odin.tar
 #### 결과
 ```bash
 adb devices
-# RFCM90CFWXA     recovery
+# DEVICE-A90-01     recovery
 ```
 
 ✅ TWRP recovery 정상 설치 및 부팅

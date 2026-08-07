@@ -134,7 +134,7 @@ report authorizes no retry or new device contact.
 After physical Download exit, a read-only verification proved:
 
 ```text
-serial/model/device    RFCT519XWGK / SM-S906N / g0q
+serial/model/device    DEVICE-S22P-01 / SM-S906N / g0q
 incremental            S906NKSS7FYG8
 boot complete          1
 boot animation         stopped

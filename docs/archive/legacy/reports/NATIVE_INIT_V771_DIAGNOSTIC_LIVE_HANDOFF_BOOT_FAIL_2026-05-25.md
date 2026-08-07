@@ -22,7 +22,7 @@ python3 scripts/revalidation/native_init_flash.py \
 | Signal | Value |
 | --- | --- |
 | local image sha256 | `bcf0721df68c5de56c09e737397392fd06189b5ca4b0a40761b4a71a3327fcbb` |
-| adb recovery reached | yes, `RFCM90CFWXA recovery` |
+| adb recovery reached | yes, `DEVICE-A90-01 recovery` |
 | adb push to TWRP | pass |
 | remote image sha256 | matched local |
 | boot partition prefix sha256 | matched local |

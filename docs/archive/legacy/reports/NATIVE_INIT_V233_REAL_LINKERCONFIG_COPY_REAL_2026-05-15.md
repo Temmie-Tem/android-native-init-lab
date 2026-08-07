@@ -23,7 +23,7 @@ Capture tool:
 
 ```bash
 python3 scripts/revalidation/android_linkerconfig_capture.py \
-  --serial RFCM90CFWXA \
+  --serial DEVICE-A90-01 \
   --out-dir tmp/wifi/v233-android-linkerconfig-source-live
 ```
 

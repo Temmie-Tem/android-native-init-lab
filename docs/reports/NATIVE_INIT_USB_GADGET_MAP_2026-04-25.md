@@ -26,7 +26,7 @@ ADB와 USB networking 후보를 어디서부터 봐야 하는지 분리하는 �
         ├── bcdUSB                    0x0200
         ├── bcdDevice                 0x0100
         ├── strings/0x409
-        │   ├── serialnumber          RFCM90CFWXA
+        │   ├── serialnumber          DEVICE-A90-01
         │   ├── manufacturer          samsung
         │   └── product               SM8150-ACM
         ├── configs/b.1
@@ -78,7 +78,7 @@ device descriptor:
 | VID:PID | `04e8:6861` |
 | Manufacturer | `SAMSUNG` |
 | Product | `SAMSUNG_Android` |
-| Serial | `RFCM90CFWXA` |
+| Serial | `DEVICE-A90-01` |
 | Speed | `5000` |
 | bDeviceClass | `00` |
 | bDeviceSubClass | `00` |

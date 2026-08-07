@@ -75,7 +75,7 @@ class ServerDistroD3SwitchrootHandoffTests(unittest.TestCase):
             rendered = [str(item) for item in command]
             calls.append(rendered)
             if rendered[:2] == ["adb", "devices"]:
-                return {"returncode": 0, "stdout": "RFCM90CFWXA\trecovery usb:3-1\n", "stderr": ""}
+                return {"returncode": 0, "stdout": "RFCM0000000\trecovery usb:3-1\n", "stderr": ""}
             if "--from-native" in rendered:
                 return {"returncode": 1, "stdout": "native recovery failed", "stderr": ""}
             return {"returncode": 0, "stdout": "rollback ok", "stderr": ""}

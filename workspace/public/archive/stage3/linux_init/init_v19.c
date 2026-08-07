@@ -1594,7 +1594,7 @@ static int setup_acm_gadget(void) {
     wf("/config/usb_gadget/g1/idProduct", "0x6861");
     wf("/config/usb_gadget/g1/bcdUSB", "0x0200");
     wf("/config/usb_gadget/g1/bcdDevice", "0x0100");
-    wf("/config/usb_gadget/g1/strings/0x409/serialnumber", "RFCM90CFWXA");
+    wf("/config/usb_gadget/g1/strings/0x409/serialnumber", "REDACTED-DEVICE-SERIAL");
     wf("/config/usb_gadget/g1/strings/0x409/manufacturer", "samsung");
     wf("/config/usb_gadget/g1/strings/0x409/product", "SM8150-ACM");
     wf("/config/usb_gadget/g1/configs/b.1/strings/0x409/configuration", "serial");
