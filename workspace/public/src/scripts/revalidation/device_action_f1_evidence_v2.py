@@ -676,6 +676,26 @@ def _e2_authority_context(source_contract_id: str | None, closure_api: Any):
     return authority_context()
 
 
+def _p310_e2_authority_context(
+    closure_api: Any,
+    entries: list[Any],
+    expected_init: dict[str, Any],
+):
+    if closure_api is not p310_e2_closure.select(P310_SOURCE_CONTRACT_ID):
+        raise EvidenceError("P3.10 stock-closure authority adapter differs")
+    matching = [
+        entry
+        for entry in entries
+        if entry.name == "init" and entry.file_type == "regular"
+    ]
+    if (
+        len(matching) != 1
+        or e2_closure.receipt(matching[0].data) != expected_init
+    ):
+        raise EvidenceError("P3.10 exact init authority is unavailable")
+    return closure_api.exact_init_authority(matching[0].data)
+
+
 @contextmanager
 def _p301_e2_authority_context(
     closure_api: Any, expected_init: dict[str, Any]
@@ -1180,6 +1200,10 @@ def _generic_rootfs_module_closure(
 ) -> dict[str, Any]:
     if closure_api is p304_e2_closure:
         return module_closure
+    if source_contract_id == P310_SOURCE_CONTRACT_ID:
+        if closure_api is not p310_e2_closure.select(P310_SOURCE_CONTRACT_ID):
+            raise EvidenceError("P3.10 generic-rootfs closure adapter differs")
+        return module_closure
     if source_contract_id not in {
         e2_closure_selector.P280_CONTRACT_ID,
         e2_closure_selector.P282_CONTRACT_ID,
@@ -1347,7 +1371,11 @@ def validate_e2_ap_payload(
         generic_module_closure = _generic_rootfs_module_closure(
             source_contract_id, closure_api, module_closure
         )
-        if userspace_overlay_contract_id in {
+        if source_contract_id == P310_SOURCE_CONTRACT_ID:
+            authority_context = _p310_e2_authority_context(
+                closure_api, entries, identities["init"]
+            )
+        elif userspace_overlay_contract_id in {
             P307_OVERLAY_CONTRACT_ID,
             P308_OVERLAY_CONTRACT_ID,
         }:

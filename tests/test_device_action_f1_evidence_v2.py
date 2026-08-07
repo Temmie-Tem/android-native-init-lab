@@ -1,4 +1,5 @@
 import copy
+from contextlib import contextmanager
 import hashlib
 import importlib.util
 import json
@@ -671,6 +672,49 @@ class DeviceActionF1EvidenceV2Test(unittest.TestCase):
             ),
             full,
         )
+
+    def test_p310_generic_rootfs_keeps_full_p304_module_closure(self):
+        full = {"count": 61}
+        closure = self.module.p310_e2_closure.select(
+            self.module.P310_SOURCE_CONTRACT_ID
+        )
+        self.assertIs(
+            self.module._generic_rootfs_module_closure(
+                self.module.P310_SOURCE_CONTRACT_ID,
+                closure,
+                full,
+            ),
+            full,
+        )
+
+    def test_p310_authority_context_binds_the_exact_init_payload(self):
+        payload = b"P3.10 exact init"
+        identity = self.module.e2_closure.receipt(payload)
+        closure = self.module.p310_e2_closure.select(
+            self.module.P310_SOURCE_CONTRACT_ID
+        )
+        observed = []
+
+        @contextmanager
+        def authority(expected):
+            observed.append(expected)
+            yield
+
+        previous = closure.exact_init_authority
+        closure.exact_init_authority = authority
+        try:
+            with self.module._p310_e2_authority_context(
+                closure,
+                [
+                    types.SimpleNamespace(
+                        name="init", file_type="regular", data=payload
+                    )
+                ],
+                identity,
+            ):
+                self.assertEqual(observed, [payload])
+        finally:
+            closure.exact_init_authority = previous
 
     def test_p280_generic_rootfs_rejects_missing_adapter(self):
         with self.assertRaisesRegex(
