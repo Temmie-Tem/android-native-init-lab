@@ -78,8 +78,30 @@ _CANDIDATE_STATIC_VIEW = _CandidateStaticView()
 def rootfs_entrypoint_context(
     _closure_api, _exact_contract, userspace_payloads  # noqa: ANN001
 ) -> Iterator[None]:
-    with p310_closure.exact_init_authority(userspace_payloads["init"]):
-        yield
+    try:
+        entrypoints = {
+            "init": base.e1_static.inspect_static_elf(
+                userspace_payloads["init"], "P3.10 exact /init"
+            )["entrypoint"],
+            "child": base.e1_static.inspect_static_elf(
+                userspace_payloads["child"], "P3.10 exact child"
+            )["entrypoint"],
+        }
+    except (KeyError, base.e1_static.CheckError) as exc:
+        raise CheckError("P3.10 exact userspace entrypoint is invalid") from exc
+    if any(
+        isinstance(value, bool) or not isinstance(value, int)
+        for value in entrypoints.values()
+    ):
+        raise CheckError("P3.10 exact userspace entrypoint is malformed")
+    legacy = p310_closure.module_parent.p257.p253.isolated_legacy
+    previous = legacy.EXPECTED_ELF_ENTRYPOINTS
+    legacy.EXPECTED_ELF_ENTRYPOINTS = dict(entrypoints)
+    try:
+        with p310_closure.exact_init_authority(userspace_payloads["init"]):
+            yield
+    finally:
+        legacy.EXPECTED_ELF_ENTRYPOINTS = previous
 
 
 def _configure() -> None:
