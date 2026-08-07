@@ -119,6 +119,13 @@ def source_receipts(root: Path) -> tuple[dict[str, bytes], dict[str, Any]]:
     return data, {name: receipt(value) for name, value in sorted(data.items())}
 
 
+def audit_linked_tables(actual: dict[str, bytes]) -> dict[str, Any]:
+    try:
+        return inherited.audit_linked_tables(actual)
+    except inherited.SourceContractError as exc:
+        raise SourceContractError(str(exc)) from exc
+
+
 def generate(root: Path | None = None) -> dict[str, bytes]:
     repository = inherited.inherited.inherited.inherited.inherited.p290.p288.p243.repo_root() if root is None else root
     source = source_bytes(repository)

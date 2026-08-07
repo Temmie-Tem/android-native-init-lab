@@ -33,6 +33,17 @@ import s22plus_fyg8_p310_source_contract as source  # noqa: E402
 
 
 class P310IntegrationTests(unittest.TestCase):
+    def test_source_contract_delegates_linked_table_audit(self) -> None:
+        expected = source.linked_table_bytes()
+        result = source.audit_linked_tables(expected)
+        self.assertTrue(result["verified"])
+
+        corrupted = dict(expected)
+        name = next(iter(corrupted))
+        corrupted[name] = corrupted[name] + b"\x00"
+        with self.assertRaises(source.SourceContractError):
+            source.audit_linked_tables(corrupted)
+
     def test_stock_closure_carries_current_runtime_delta(self) -> None:
         self.assertEqual(
             stock_closure.ADDITIONAL_ABSOLUTE_PATH_STRINGS,
