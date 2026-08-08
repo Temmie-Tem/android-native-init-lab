@@ -277,6 +277,15 @@ The pre-H2 goal history is preserved at
   Device write, payload, flash, reboot, and S22+ command counts are zero. The
   next gate is immutable H7 host-manifest publication; review and D0 grant no
   live authority.
+- Run `a90-v3406-debian-display-f1-20260807-05` then staged the exact original
+  2 GiB H7 source once and transferred boot-only candidate `0.11.175` exactly
+  once. Durable result SHA256
+  `a999966b424705985efe4b1a34edaf2e12efecc21b919832e61b895ba64e8990`
+  is `PASS_A90_RESIDENT_INSTALLED` / `RESIDENT_HEALTHY`: self-test `11/1/0`,
+  pstore zero, exact source, absent work, candidate count one, rollback count
+  zero, resident reboot zero, and replay false. The ModemManager guard released
+  with no rule residue. S22+ received no command. This F1 is terminal and must
+  never replay; H7 is now the installed resident.
 
 ## Qualified Capabilities
 
@@ -387,7 +396,7 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: Install and Measure the Qualified H7 Baseline
+## Selected Bounded Unit: Measure the Installed H7 Baseline
 
 H5 installation and its first automatic-handoff ordinal are terminal. Preserve
 runs 11-13 and D1 run09, their state namespaces, journals, private host bytes,
@@ -404,30 +413,19 @@ It is not yet a correctness baseline for compiler comparison because the host
 observer lost exact bridge continuity before it could bind Debian PID 1, SSH,
 service ownership, and display facts to the same ordinal.
 
-The H7 host closure completes the durable-evidence and work-copy-replacement
-design items. It does not prove the new layout on A90 and does not authorize a
-device effect. The next bounded work is:
+The H7 host closure and exact attended resident install now complete the
+durable-evidence and work-copy-replacement deployment. The next bounded work is:
 
-1. preserve every terminal H5/H6 F1 and D1 transaction without replay, reset,
-   or reinterpretation; H6 remains the installed exact resident until a fresh
-   inter-effect health barrier proves otherwise;
-2. retain the H7 `PASS_GO` by its named native and benchmark closures instead
-   of repeating review for a new manifest, campaign, qualification, or ordinal;
-   require fresh review only after a closure change or new hazard/incident;
-3. before any new effect, run a fresh exact A90 D0 that proves current H6
-   resident health, exact rollback and recovery, the compiled H7 rootfs
-   identity at its selected SD path or its exact absence, work/stage state, and
-   fresh H7 enable/latch namespace. An absent or changed source returns work to
-   H0; it is never inferred or repaired live;
-4. prepare one fresh attended boot-only H7 resident-install binding. Reuse an
-   already published source only through the target contract's exact reviewed
-   existing-source lane; otherwise use the ordinary absent-destination staging
-   rule. The current no-authority build is not itself live authorization;
-5. after exact H7 `RESIDENT_HEALTHY`, bind one attended D1 automatic-handoff
-   ordinal with one arm and one reboot, no replay, exact bridge/NCM host proof,
-   durable same-ordinal Debian PID 1/Dropbear/DRM proof, operator visibility,
-   automatic native return, latch, final health, and benchmark telemetry; and
-6. require at least one observer-complete repeatable non-LTO baseline before a
+1. preserve every terminal H5/H6 transaction and run05 F1 without replay,
+   reset, or reinterpretation; H7 is the installed exact resident;
+2. run a fresh exact A90 D0 before the next effect, proving H7 health, exact
+   rollback and recovery, exact source, absent work/stage, and first-boot
+   `binding=1 enable=0 latch=0` state;
+3. bind one attended D1 automatic-handoff ordinal with one arm and one reboot,
+   no replay, exact bridge/NCM host proof, durable same-ordinal Debian PID 1,
+   Dropbear, DRM/display proof, operator visibility, automatic native return,
+   retained latch, final H7 health, and benchmark telemetry; and
+4. require at least one observer-complete repeatable non-LTO baseline before a
    Full-LTO build or performance comparison.
 
 An attended visibility confirmation may be appended as evidence for run09,
