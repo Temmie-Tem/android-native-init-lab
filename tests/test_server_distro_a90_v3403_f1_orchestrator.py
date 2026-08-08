@@ -1552,41 +1552,41 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
             f1.run_handoff(spec, sample_args())
         failed.assert_called_once()
 
-    def test_h9_handoff_accepts_only_fast_receipt_markers(self) -> None:
-        spec = sample_spec()
-        spec.candidate_version, spec.candidate_build = (
-            f1.H9_FAST_SOURCE_RECEIPT_IDENTITY
-        )
-        text = "\n".join(f1.FAST_OBSERVATION_OUTPUT_MARKERS)
-        with mock.patch.object(
-            f1.a90ctl,
-            "bridge_exchange",
-            return_value=text,
-        ) as exchange:
-            result = f1.run_handoff(spec, sample_args())
-
-        self.assertTrue(result["proof"])
-        exchange.assert_called_once()
-
-        hybrid = "\n".join(
-            (
-                text,
-                "source_sha phase=initial "
-                f"sha={spec.stage.local_sha256} expected_sha_match=1",
-            )
-        )
-        with (
-            mock.patch.object(
+    def test_fast_receipt_handoff_accepts_only_fast_receipt_markers(self) -> None:
+        for identity in f1.FAST_SOURCE_RECEIPT_IDENTITIES:
+            spec = sample_spec()
+            spec.candidate_version, spec.candidate_build = identity
+            text = "\n".join(f1.FAST_OBSERVATION_OUTPUT_MARKERS)
+            with self.subTest(identity=identity), mock.patch.object(
                 f1.a90ctl,
                 "bridge_exchange",
-                return_value=hybrid,
-            ),
-            self.assertRaisesRegex(
-                RuntimeError,
-                "unexpected integrity marker family",
-            ),
-        ):
-            f1.run_handoff(spec, sample_args())
+                return_value=text,
+            ) as exchange:
+                result = f1.run_handoff(spec, sample_args())
+
+                self.assertTrue(result["proof"])
+                exchange.assert_called_once()
+
+            hybrid = "\n".join(
+                (
+                    text,
+                    "source_sha phase=initial "
+                    f"sha={spec.stage.local_sha256} expected_sha_match=1",
+                )
+            )
+            with (
+                self.subTest(identity=identity),
+                mock.patch.object(
+                    f1.a90ctl,
+                    "bridge_exchange",
+                    return_value=hybrid,
+                ),
+                self.assertRaisesRegex(
+                    RuntimeError,
+                    "unexpected integrity marker family",
+                ),
+            ):
+                f1.run_handoff(spec, sample_args())
 
     def test_legacy_handoff_rejects_fast_or_wrong_sha_markers(self) -> None:
         spec = sample_spec()
@@ -6275,56 +6275,59 @@ class DisplayObservationTests(unittest.TestCase):
         ):
             f1.validate_candidate_first_boot_contract(changed, **kwargs)
 
-    def test_h9_first_boot_contract_binds_fast_receipt_namespace(self) -> None:
-        binding = {
-            "schema": "a90-compiled-auto-handoff-binding-v2",
-            "candidate_version": "0.11.177",
-            "candidate_build": (
-                "phase3-minimal-h9-fast-source-receipt-auto-benchmark"
-            ),
-            "image_path": "/mnt/sdext/a90/runtime/rootfs-h9.img",
-            "image_sha256": "9" * 64,
-            "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h9.enable",
-            "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h9.done",
-            "receipt_path": "/cache/a90-source-receipt-phase3-minimal-h9",
-        }
-        binding["binding_sha256"] = f1.json_sha256(binding)
-        contract = {
-            "schema": "a90-auto-handoff-first-boot-v3",
-            "enable_path": binding["enable_path"],
-            "latch_path": binding["latch_path"],
-            "receipt_path": binding["receipt_path"],
-            "compiled_binding": binding,
-            "pre_transfer_state": "enable-latch-receipt-absent",
-            "post_boot_status": "binding=1-enable=0-latch=0",
-            "post_boot_log": "A90AUTO state=unarmed-stay-native",
-        }
-        kwargs = {
-            "candidate_version": binding["candidate_version"],
-            "candidate_build": binding["candidate_build"],
-            "remote_final": binding["image_path"],
-            "rootfs_sha256": binding["image_sha256"],
-        }
-        self.assertEqual(
-            f1.validate_candidate_first_boot_contract(contract, **kwargs),
-            contract,
-        )
-        changed = copy.deepcopy(contract)
-        changed["receipt_path"] = (
-            "/cache/a90-source-receipt-phase3-minimal-h8"
-        )
-        with self.assertRaisesRegex(
-            f1.ContractError,
-            "compiled candidate/rootfs binding",
-        ):
-            f1.validate_candidate_first_boot_contract(changed, **kwargs)
+    def test_fast_receipt_first_boot_contract_binds_exact_namespace(self) -> None:
+        for version, build in f1.FAST_SOURCE_RECEIPT_IDENTITIES:
+            identity = (version, build)
+            receipt_path = f1.FAST_SOURCE_RECEIPT_PATHS[identity]
+            generation = "h9" if identity == f1.H9_FAST_SOURCE_RECEIPT_IDENTITY else "h10"
+            binding = {
+                "schema": "a90-compiled-auto-handoff-binding-v2",
+                "candidate_version": version,
+                "candidate_build": build,
+                "image_path": f"/mnt/sdext/a90/runtime/rootfs-{generation}.img",
+                "image_sha256": "9" * 64,
+                "enable_path": f"/cache/a90-auto-handoff-phase3-minimal-{generation}.enable",
+                "latch_path": f"/cache/a90-auto-handoff-phase3-minimal-{generation}.done",
+                "receipt_path": receipt_path,
+            }
+            binding["binding_sha256"] = f1.json_sha256(binding)
+            contract = {
+                "schema": "a90-auto-handoff-first-boot-v3",
+                "enable_path": binding["enable_path"],
+                "latch_path": binding["latch_path"],
+                "receipt_path": binding["receipt_path"],
+                "compiled_binding": binding,
+                "pre_transfer_state": "enable-latch-receipt-absent",
+                "post_boot_status": "binding=1-enable=0-latch=0",
+                "post_boot_log": "A90AUTO state=unarmed-stay-native",
+            }
+            kwargs = {
+                "candidate_version": binding["candidate_version"],
+                "candidate_build": binding["candidate_build"],
+                "remote_final": binding["image_path"],
+                "rootfs_sha256": binding["image_sha256"],
+            }
+            with self.subTest(identity=identity):
+                self.assertEqual(
+                    f1.validate_candidate_first_boot_contract(contract, **kwargs),
+                    contract,
+                )
+                changed = copy.deepcopy(contract)
+                changed["receipt_path"] = (
+                    "/cache/a90-source-receipt-phase3-minimal-h8"
+                )
+                with self.assertRaisesRegex(
+                    f1.ContractError,
+                    "compiled candidate/rootfs binding",
+                ):
+                    f1.validate_candidate_first_boot_contract(changed, **kwargs)
 
-        script = f1.candidate_first_boot_state_absence_script(contract)
-        self.assertIn(f'RECEIPT={binding["receipt_path"]}', script)
-        self.assertIn(
-            'for STATE_PATH in "$ENABLE" "$LATCH" "$RECEIPT"; do',
-            script,
-        )
+                script = f1.candidate_first_boot_state_absence_script(contract)
+                self.assertIn(f'RECEIPT={binding["receipt_path"]}', script)
+                self.assertIn(
+                    'for STATE_PATH in "$ENABLE" "$LATCH" "$RECEIPT"; do',
+                    script,
+                )
         self.assertIn(
             "enable_absent=1 latch_absent=1 receipt_absent=1",
             script,

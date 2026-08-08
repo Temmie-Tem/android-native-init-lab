@@ -590,6 +590,7 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 d1.H7_AUTO_BENCHMARK_RESIDENT_IDENTITY,
                 d1.H8_AUTO_BENCHMARK_RESIDENT_IDENTITY,
                 d1.H9_AUTO_BENCHMARK_RESIDENT_IDENTITY,
+                d1.H10_AUTO_BENCHMARK_RESIDENT_IDENTITY,
             ):
                 spec = replace(
                     base_spec,
@@ -646,32 +647,32 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                     object(),
                 )
 
-    def test_h9_generic_direct_lane_is_rejected_before_preflight(self) -> None:
+    def test_fast_receipt_generic_direct_lane_is_rejected_before_preflight(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
-            version, build = d1.H9_AUTO_BENCHMARK_RESIDENT_IDENTITY
-            spec = replace(
-                self.session_spec(Path(raw)),
-                candidate_version=version,
-                candidate_build=build,
-            )
-            with mock.patch.object(
-                d1,
-                "_preflight",
-            ) as preflight, self.assertRaisesRegex(
-                d1.ContractError, "requires the auto-benchmark arm lane"
-            ):
-                d1._execute_switchroot_locked(
-                    spec,
-                    transaction_dir=Path(raw) / "direct-h9",
-                    approval="unused",
-                    resume=False,
-                    operator_attended=True,
-                    acknowledge_observer_no_proof=False,
-                    visible_confirmed="yes",
-                    now_epoch_sec=1,
-                    clock=lambda: 1.0,
+            for version, build in d1.FAST_SOURCE_RECEIPT_RESIDENT_IDENTITIES:
+                spec = replace(
+                    self.session_spec(Path(raw)),
+                    candidate_version=version,
+                    candidate_build=build,
                 )
-            preflight.assert_not_called()
+                with self.subTest(version=version), mock.patch.object(
+                    d1,
+                    "_preflight",
+                ) as preflight, self.assertRaisesRegex(
+                    d1.ContractError, "requires the auto-benchmark arm lane"
+                ):
+                    d1._execute_switchroot_locked(
+                        spec,
+                        transaction_dir=Path(raw) / f"direct-{version}",
+                        approval="unused",
+                        resume=False,
+                        operator_attended=True,
+                        acknowledge_observer_no_proof=False,
+                        visible_confirmed="yes",
+                        now_epoch_sec=1,
+                        clock=lambda: 1.0,
+                    )
+                preflight.assert_not_called()
 
     def anchored_invoke(self, result: engine.SessionActionResult):
         def invoke(

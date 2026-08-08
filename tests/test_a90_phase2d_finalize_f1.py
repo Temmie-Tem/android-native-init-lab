@@ -351,6 +351,65 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
         with self.assertRaisesRegex(finalizer.ContractError, "binding mismatch"):
             finalizer.require_compiled_rootfs_binding(changed)
 
+    def test_minimal_h10_candidate_binds_new_keyed_rootfs_and_namespace(self) -> None:
+        selected = finalizer.select_candidate_profile(
+            finalizer.MINIMAL_H10_CANDIDATE_PROFILE
+        )
+        contract = finalizer.candidate_first_boot_contract(selected)
+        self.assertEqual(selected.version, "0.11.178")
+        self.assertEqual(
+            selected.sha256,
+            "145ab5d0d2eff02e20d75149e62bd929084a9a1014a13f9b79e9dbd3269655f1",
+        )
+        self.assertEqual(
+            selected.build_receipt_sha256,
+            "a8323448364a3bfbc4edc0661b61493574bd7302c92699c07a5aa53d0465653a",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["image_sha256"],
+            "38d9ce41503483996d14a18fb51275fbbe47e898ce51aee37f9f88b61295018e",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["image_path"],
+            "/mnt/sdext/a90/runtime/"
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260809-03.img",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["binding_sha256"],
+            "decc69954c2f57067d56062b1a1dd61a394b0587ab86d17905eae070e5b71d2d",
+        )
+        self.assertEqual(contract["schema"], "a90-auto-handoff-first-boot-v3")
+        self.assertEqual(
+            contract["receipt_path"],
+            "/cache/a90-source-receipt-phase3-minimal-h10",
+        )
+        self.assertNotEqual(
+            contract["receipt_path"],
+            finalizer.candidate_first_boot_contract(
+                finalizer.MINIMAL_H9_CANDIDATE
+            )["receipt_path"],
+        )
+        manifest = {
+            "candidate_boot": {
+                "expected_version": selected.version,
+                "expected_build": selected.build,
+                "first_boot_contract": contract,
+            },
+            "debian_rootfs": {
+                "keyed_source": {
+                    "device_path": contract["compiled_binding"]["image_path"],
+                    "sha256": contract["compiled_binding"]["image_sha256"],
+                },
+                "handoff_command": [
+                    "switch-root-to-distro",
+                    "SERVER-DISTRO-D3B-SWITCHROOT",
+                    contract["compiled_binding"]["image_path"],
+                    contract["compiled_binding"]["image_sha256"],
+                ],
+            },
+        }
+        finalizer.require_compiled_rootfs_binding(manifest)
+
     def test_unknown_candidate_profile_is_rejected(self) -> None:
         with self.assertRaisesRegex(finalizer.ContractError, "not exact"):
             finalizer.select_candidate_profile("arbitrary")

@@ -17,8 +17,9 @@ NATIVE = REPO_ROOT / "workspace/public/src/native-init"
 MANIFEST = (
     REPO_ROOT
     / "workspace/public/src/scripts/revalidation/a90_flat_builder"
-    / "versions/phase3-minimal-h9/manifest.toml"
+    / "versions/phase3-minimal-h10/manifest.toml"
 )
+H9_MANIFEST = MANIFEST.parents[1] / "phase3-minimal-h9/manifest.toml"
 H8_MANIFEST = MANIFEST.parents[1] / "phase3-minimal-h8/manifest.toml"
 FLAT_BUILDER = load_script(
     "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py"
@@ -26,19 +27,19 @@ FLAT_BUILDER = load_script(
 
 
 class A90AutoHandoffSourceV1Tests(unittest.TestCase):
-    def test_h9_build_binding_includes_receipt_while_h8_stays_v1(self) -> None:
+    def test_h10_build_binding_includes_receipt_while_h8_stays_v1(self) -> None:
         with MANIFEST.open("rb") as stream:
-            h9 = FLAT_BUILDER.normalized_auto_handoff_binding(
+            h10 = FLAT_BUILDER.normalized_auto_handoff_binding(
                 tomllib.load(stream)
             )
         with H8_MANIFEST.open("rb") as stream:
             h8 = FLAT_BUILDER.normalized_auto_handoff_binding(
                 tomllib.load(stream)
             )
-        self.assertEqual(h9["schema"], "a90-compiled-auto-handoff-binding-v2")
+        self.assertEqual(h10["schema"], "a90-compiled-auto-handoff-binding-v2")
         self.assertEqual(
-            h9["receipt_path"],
-            "/cache/a90-source-receipt-phase3-minimal-h9",
+            h10["receipt_path"],
+            "/cache/a90-source-receipt-phase3-minimal-h10",
         )
         self.assertEqual(h8["schema"], "a90-compiled-auto-handoff-binding-v1")
         self.assertNotIn("receipt_path", h8)
@@ -301,6 +302,22 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
         self.assertIn("-DA90_AUTO_HANDOFF_BENCHMARK_V1=1", manifest)
         self.assertIn(
             "/mnt/sdext/a90/runtime/"
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260809-03.img",
+            manifest,
+        )
+        self.assertIn(
+            "38d9ce41503483996d14a18fb51275fbbe47e898ce51aee37f9f88b61295018e",
+            manifest,
+        )
+        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h10.enable", manifest)
+        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h10.done", manifest)
+        self.assertIn("/cache/a90-source-receipt-phase3-minimal-h10", manifest)
+        self.assertIn('-DINIT_VERSION="0.11.178"', manifest)
+
+    def test_superseded_h9_manifest_keeps_its_original_identity(self) -> None:
+        manifest = H9_MANIFEST.read_text(encoding="utf-8")
+        self.assertIn('-DINIT_VERSION="0.11.177"', manifest)
+        self.assertIn(
             "debian-bookworm-arm64-phase2-display-v3406-keyed-20260809-02.img",
             manifest,
         )
@@ -308,10 +325,7 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
             "e2028b021cd67ebf16ad3cb917e9b548e1fcc434d5e42f10117854f202d01b24",
             manifest,
         )
-        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h9.enable", manifest)
-        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h9.done", manifest)
         self.assertIn("/cache/a90-source-receipt-phase3-minimal-h9", manifest)
-        self.assertIn('-DINIT_VERSION="0.11.177"', manifest)
 
     def test_manifest_pins_the_read_only_source_and_evidence_strings(self) -> None:
         """The builder verifies pinned strings against the built init.

@@ -42,9 +42,9 @@ SCHEMA = "a90-auto-handoff-benchmark-runner-v2"
 JOURNAL_SCHEMA = "a90-auto-handoff-benchmark-journal-v2"
 RESULT_SCHEMA = "a90-auto-handoff-benchmark-result-v2"
 RECONCILE_SCHEMA = "a90-auto-handoff-benchmark-reconciliation-v2"
-EXPECTED_VERSION = "0.11.177"
+EXPECTED_VERSION = "0.11.178"
 EXPECTED_BUILD = (
-    "phase3-minimal-h9-fast-source-receipt-auto-benchmark"
+    "phase3-minimal-h10-fast-source-receipt-auto-benchmark"
 )
 ARM_TOKEN = "AUTO-HANDOFF-BENCHMARK-V1-ARM"
 STATUS_RE = re.compile(

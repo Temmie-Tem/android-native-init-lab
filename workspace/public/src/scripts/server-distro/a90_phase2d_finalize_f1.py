@@ -100,6 +100,9 @@ MINIMAL_H8_CANDIDATE_PROFILE = (
 MINIMAL_H9_CANDIDATE_PROFILE = (
     "phase3-minimal-h9-fast-source-receipt-auto-benchmark"
 )
+MINIMAL_H10_CANDIDATE_PROFILE = (
+    "phase3-minimal-h10-fast-source-receipt-auto-benchmark"
+)
 LEGACY_CANDIDATE = CandidateSpec(
     profile=LEGACY_CANDIDATE_PROFILE,
     copy_name="candidate-boot-phase2-display-v1.img",
@@ -428,6 +431,48 @@ MINIMAL_H9_CANDIDATE = CandidateSpec(
         ),
     },
 )
+MINIMAL_H10_CANDIDATE = CandidateSpec(
+    profile=MINIMAL_H10_CANDIDATE_PROFILE,
+    copy_name="candidate-boot-phase3-minimal-h10.img",
+    source=(
+        staging.PRIVATE_ROOT
+        / "outputs"
+        / "a90-h10-fast-source-receipt-ab-20260809-02"
+        / "A"
+        / "boot.img"
+    ),
+    size=58372096,
+    sha256="145ab5d0d2eff02e20d75149e62bd929084a9a1014a13f9b79e9dbd3269655f1",
+    version="0.11.178",
+    build="phase3-minimal-h10-fast-source-receipt-auto-benchmark",
+    build_receipt=(
+        staging.PRIVATE_ROOT
+        / "outputs"
+        / "a90-h10-fast-source-receipt-ab-20260809-02"
+        / "ab-receipt.json"
+    ),
+    build_receipt_sha256=(
+        "a8323448364a3bfbc4edc0661b61493574bd7302c92699c07a5aa53d0465653a"
+    ),
+    compiled_auto_handoff={
+        "schema": "a90-compiled-auto-handoff-binding-v2",
+        "candidate_version": "0.11.178",
+        "candidate_build": "phase3-minimal-h10-fast-source-receipt-auto-benchmark",
+        "image_path": (
+            "/mnt/sdext/a90/runtime/"
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260809-03.img"
+        ),
+        "image_sha256": (
+            "38d9ce41503483996d14a18fb51275fbbe47e898ce51aee37f9f88b61295018e"
+        ),
+        "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h10.enable",
+        "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h10.done",
+        "receipt_path": "/cache/a90-source-receipt-phase3-minimal-h10",
+        "binding_sha256": (
+            "decc69954c2f57067d56062b1a1dd61a394b0587ab86d17905eae070e5b71d2d"
+        ),
+    },
+)
 CANDIDATE_PROFILES = {
     item.profile: item
     for item in (
@@ -442,6 +487,7 @@ CANDIDATE_PROFILES = {
         MINIMAL_H7_CANDIDATE,
         MINIMAL_H8_CANDIDATE,
         MINIMAL_H9_CANDIDATE,
+        MINIMAL_H10_CANDIDATE,
     )
 }
 
@@ -564,7 +610,10 @@ def candidate_first_boot_contract(candidate: CandidateSpec) -> dict[str, Any] | 
             "post_boot_status": "binding=1-enable=0-latch=0",
             "post_boot_log": "A90AUTO state=unarmed-stay-native",
         }
-    if candidate.profile == MINIMAL_H9_CANDIDATE_PROFILE:
+    if candidate.profile in {
+        MINIMAL_H9_CANDIDATE_PROFILE,
+        MINIMAL_H10_CANDIDATE_PROFILE,
+    }:
         assert candidate.compiled_auto_handoff is not None
         return {
             "schema": "a90-auto-handoff-first-boot-v3",
@@ -621,6 +670,8 @@ PHASE3_EXECUTION_REVIEW_SOURCES = tuple(
             / "a90_flat_builder/versions/phase3-minimal-h8/manifest.toml",
             REVAL_DIR
             / "a90_flat_builder/versions/phase3-minimal-h9/manifest.toml",
+            REVAL_DIR
+            / "a90_flat_builder/versions/phase3-minimal-h10/manifest.toml",
             SCRIPT_DIR / "phase3_network_ssh_v1/manifest.toml",
             SCRIPT_DIR
             / "phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh",

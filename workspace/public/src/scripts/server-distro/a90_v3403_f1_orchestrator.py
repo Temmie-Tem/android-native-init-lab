@@ -106,6 +106,22 @@ H9_FAST_SOURCE_RECEIPT_IDENTITY = (
     "0.11.177",
     "phase3-minimal-h9-fast-source-receipt-auto-benchmark",
 )
+H10_FAST_SOURCE_RECEIPT_IDENTITY = (
+    "0.11.178",
+    "phase3-minimal-h10-fast-source-receipt-auto-benchmark",
+)
+FAST_SOURCE_RECEIPT_IDENTITIES = {
+    H9_FAST_SOURCE_RECEIPT_IDENTITY,
+    H10_FAST_SOURCE_RECEIPT_IDENTITY,
+}
+FAST_SOURCE_RECEIPT_PATHS = {
+    H9_FAST_SOURCE_RECEIPT_IDENTITY: (
+        "/cache/a90-source-receipt-phase3-minimal-h9"
+    ),
+    H10_FAST_SOURCE_RECEIPT_IDENTITY: (
+        "/cache/a90-source-receipt-phase3-minimal-h10"
+    ),
+}
 HANDOFF_COMMON_OUTPUT_MARKERS = (
     # The work copy is gone: the source is mounted read-only and a fixed
     # writable set is mounted over it, so there is no copy to hash and no
@@ -139,7 +155,8 @@ F1_HANDOFF_MAX_PRE_READ_SEC = 5.0
 F1_HANDOFF_SOURCE_SHA_PHASES = ("initial", "post-display-cleanup")
 F1_HANDOFF_FAST_SOURCE_SHA_PHASES = ()
 # The 2 GiB copy no longer happens. H2-H8 still perform two source SHA passes;
-# H9 instead verifies one durable receipt and rechecks the same open-source
+# H9 and later fast-receipt identities instead verify one durable receipt and
+# recheck the same open-source
 # identity. The shared runner reserves the larger reachable integrity bound.
 F1_HANDOFF_COPY_BOUND_SEC = 0
 F1_HANDOFF_SHA_PASS_COUNT = len(F1_HANDOFF_SOURCE_SHA_PHASES)
@@ -755,14 +772,17 @@ def validate_candidate_first_boot_contract(
             "/cache/a90-auto-handoff-phase3-minimal-h9.enable",
             "/cache/a90-auto-handoff-phase3-minimal-h9.done",
         ),
+        (
+            "0.11.178",
+            "phase3-minimal-h10-fast-source-receipt-auto-benchmark",
+        ): (
+            "/cache/a90-auto-handoff-phase3-minimal-h10.enable",
+            "/cache/a90-auto-handoff-phase3-minimal-h10.done",
+        ),
     }
     if identity in compiled_identity_markers:
         enable_path, latch_path = compiled_identity_markers[identity]
-        receipt_path = (
-            "/cache/a90-source-receipt-phase3-minimal-h9"
-            if identity == H9_FAST_SOURCE_RECEIPT_IDENTITY
-            else None
-        )
+        receipt_path = FAST_SOURCE_RECEIPT_PATHS.get(identity)
         binding = {
             "schema": (
                 "a90-compiled-auto-handoff-binding-v2"
@@ -3519,7 +3539,7 @@ def handoff_observation_contract(
     spec: F1Spec,
 ) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
     identity = (spec.candidate_version, spec.candidate_build)
-    if identity == H9_FAST_SOURCE_RECEIPT_IDENTITY:
+    if identity in FAST_SOURCE_RECEIPT_IDENTITIES:
         return (
             FAST_OBSERVATION_OUTPUT_MARKERS,
             F1_HANDOFF_FAST_SOURCE_SHA_PHASES,
@@ -7486,7 +7506,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         observation_contract = source[contract_start:handoff_start]
         handoff = source[handoff_start:ssh_start]
         for token in (
-            "identity == H9_FAST_SOURCE_RECEIPT_IDENTITY",
+            "identity in FAST_SOURCE_RECEIPT_IDENTITIES",
             "FAST_OBSERVATION_OUTPUT_MARKERS",
             "OBSERVATION_OUTPUT_MARKERS",
             "F1_HANDOFF_FAST_SOURCE_SHA_PHASES",

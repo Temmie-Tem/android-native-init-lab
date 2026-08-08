@@ -105,6 +105,14 @@ H9_AUTO_BENCHMARK_RESIDENT_IDENTITY = (
     "0.11.177",
     "phase3-minimal-h9-fast-source-receipt-auto-benchmark",
 )
+H10_AUTO_BENCHMARK_RESIDENT_IDENTITY = (
+    "0.11.178",
+    "phase3-minimal-h10-fast-source-receipt-auto-benchmark",
+)
+FAST_SOURCE_RECEIPT_RESIDENT_IDENTITIES = {
+    H9_AUTO_BENCHMARK_RESIDENT_IDENTITY,
+    H10_AUTO_BENCHMARK_RESIDENT_IDENTITY,
+}
 AUTO_BENCHMARK_RESIDENT_IDENTITIES = {
     H2_AUTO_BENCHMARK_RESIDENT_IDENTITY,
     H3_AUTO_BENCHMARK_RESIDENT_IDENTITY,
@@ -114,6 +122,7 @@ AUTO_BENCHMARK_RESIDENT_IDENTITIES = {
     H7_AUTO_BENCHMARK_RESIDENT_IDENTITY,
     H8_AUTO_BENCHMARK_RESIDENT_IDENTITY,
     H9_AUTO_BENCHMARK_RESIDENT_IDENTITY,
+    H10_AUTO_BENCHMARK_RESIDENT_IDENTITY,
 }
 
 RESIDENT_ACTIONS = (
@@ -3257,9 +3266,9 @@ def _execute_switchroot_locked(
     if (
         spec.candidate_version,
         spec.candidate_build,
-    ) == H9_AUTO_BENCHMARK_RESIDENT_IDENTITY:
+    ) in FAST_SOURCE_RECEIPT_RESIDENT_IDENTITIES:
         raise ContractError(
-            "H9 fast-source-receipt handoff requires the auto-benchmark arm lane"
+            "fast-source-receipt handoff requires the auto-benchmark arm lane"
         )
     if visible_confirmed not in {"yes", "no", "unavailable"}:
         raise ContractError("visible confirmation value is not exact")

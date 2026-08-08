@@ -1,0 +1,206 @@
+{
+  "capability": "A90_PHASE3_MINIMAL_H10_FAST_SOURCE_INTEGRITY_RECEIPT",
+  "decision": "No unresolved HIGH, MEDIUM, or LOW finding. H10 gives the standard per-run observer-keyed rootfs a fresh replacement identity and preserves the reviewed one-time full-SHA receipt, routine exact source-identity checks, legacy SHA behavior, no-replay, rollback, and final-health boundaries.",
+  "device_authority_granted": false,
+  "findings": {
+    "high": 0,
+    "low": 0,
+    "medium": 0,
+    "resolved_before_final_review": [
+      "Rejected rebinding the per-run keyed rootfs under the existing H9 version, build, and state namespace.",
+      "Created the distinct H10 version, build, rootfs destination, and enable, latch, and receipt namespace.",
+      "Mapped each fast-receipt identity to its exact generation-specific F1 receipt path."
+    ]
+  },
+  "named_execution_critical_closure": {
+    "workspace/public/src/harness/a90harness/evidence.py": {
+      "bytes": 11723,
+      "sha256": "3b0aaa36a95628591e14c4c2d70ae4941230fe650b6e4d517173cee5d3019742"
+    },
+    "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py": {
+      "bytes": 1255,
+      "sha256": "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe"
+    },
+    "workspace/public/src/scripts/revalidation/a90_bridge.py": {
+      "bytes": 40549,
+      "sha256": "7bacce5a61f6745d4dfb0b7f89ffffc478d4e74fd6a1559d20718793668414e9"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py": {
+      "bytes": 26556,
+      "sha256": "11176f7ce017b8f03e0adb0891e4396082ba543c015775ed39a8f33bd1ad8b37"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/buildlib.py": {
+      "bytes": 25644,
+      "sha256": "f031330fbe3fcb262a5d100157636ff731823360b6214cd2ad96a276c0a1cd3c"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h/manifest.toml": {
+      "bytes": 7594,
+      "sha256": "274ba48788296439c79fe8d17ae67f65e586300039455985d22e2f334c1b3487"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h10/manifest.toml": {
+      "bytes": 8631,
+      "sha256": "57ffe40e9c85b86833db254b14cb05eddbf5feb3e83e1b7fb25aaf056066c4f7"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h7/manifest.toml": {
+      "bytes": 8210,
+      "sha256": "12b0f4e818e4de2c2f83e2f4d4d42466d3924f0124082c812eb65f68d7acca65"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h8/manifest.toml": {
+      "bytes": 8149,
+      "sha256": "dbdc006a71873a7baddf9bc2ee70dd49c49d1293819d767b24be7e943ef35f37"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h9/manifest.toml": {
+      "bytes": 8621,
+      "sha256": "8054fb53fa047f6357be464582971bc4d87e22581650c4ef6465cd44a6043341"
+    },
+    "workspace/public/src/scripts/revalidation/a90_observation_pipeline.py": {
+      "bytes": 24478,
+      "sha256": "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb"
+    },
+    "workspace/public/src/scripts/revalidation/a90_serial_lock.py": {
+      "bytes": 2860,
+      "sha256": "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7"
+    },
+    "workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py": {
+      "bytes": 13734,
+      "sha256": "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e"
+    },
+    "workspace/public/src/scripts/revalidation/a90ctl.py": {
+      "bytes": 16380,
+      "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c"
+    },
+    "workspace/public/src/scripts/revalidation/native_init_flash.py": {
+      "bytes": 43118,
+      "sha256": "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
+    },
+    "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py": {
+      "bytes": 17944,
+      "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98"
+    },
+    "workspace/public/src/scripts/revalidation/tcpctl_host.py": {
+      "bytes": 34750,
+      "sha256": "032f3146ddc08af82f00881ae3d825066e843a41b194ee8d4c8cf09d1f3adb78"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_connected_preflight.py": {
+      "bytes": 21929,
+      "sha256": "c84f7e8d1054df6f095ce13a0bb4c3f057a6d0f4244b77f12b5c87f89edaa6d8"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_display_observer.py": {
+      "bytes": 648,
+      "sha256": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_finalize_f1.py": {
+      "bytes": 63700,
+      "sha256": "86a82698f6512f3e121566e074f34969c7e971be2d0a6d2f582528264b21c188"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase3_network_ssh_keyed_rootfs_v1.py": {
+      "bytes": 23948,
+      "sha256": "6a0969f415645e785222cea14803c5b761869b62de9361ef7a020c8828833d90"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_fast_handoff_v1.py": {
+      "bytes": 12037,
+      "sha256": "da695df326ac347baad2f31c4117ec564ea4cc4181605f397da8105d68e24c47"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_manifest_builder_v1.py": {
+      "bytes": 49561,
+      "sha256": "77c2106148ae5d290e82d30a34b4996c2dc322c25a59d409b5e5b856bb12a33b"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py": {
+      "bytes": 73253,
+      "sha256": "61c9e5d085a5285cad79220e70d658f22266428395a42aeab8bf4691345895dc"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {
+      "bytes": 106254,
+      "sha256": "f41404fd94f2f8e17c28fa56c0d0001ae3b1fd251a75e92348c942701938ae67"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {
+      "bytes": 291674,
+      "sha256": "125789dd63acbc5cf0f809ba8a69b721cf10a0c5522751db2214894e764ee4f6"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh": {
+      "bytes": 15395,
+      "sha256": "288c2f752418eab7890974d40ad9ba745c1f26cfbfa6f644454a1b50ba04c57a"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_return_arm_v1.sh": {
+      "bytes": 1187,
+      "sha256": "e83ede7fb430de98881ff7b9d18e8127bfc8bc19e4707d9ccf78410ac555faf3"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/manifest.toml": {
+      "bytes": 2962,
+      "sha256": "b6a8eec9e0c5783c66c2ad777edbe3e67923edd5115560358ce55dfa2fbeef91"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase2_display_v1_rootfs.py": {
+      "bytes": 28143,
+      "sha256": "8b44e922aba9efdf8b6877c98d6d3395c4ec34a6d6d5e47247aa3c73d7b689a1"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase3_network_ssh_v1_rootfs.py": {
+      "bytes": 25978,
+      "sha256": "3c15440d30e5cd14f320c6a1bc0d1639e89b0d878a8970284b5eb7bb58f87166"
+    },
+    "workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.py": {
+      "bytes": 13928,
+      "sha256": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933"
+    }
+  },
+  "named_execution_critical_closure_sha256": "226f914ebe9838fec434d9b3a960880733eb5d3c4e4dce0fad9ce4c214018d11",
+  "permanent_boundaries_unchanged": true,
+  "review_date": "2026-08-09",
+  "review_lifetime": {
+    "fresh_exact_d0_and_live_binding_required": true,
+    "live_authority_from_review": false,
+    "reuse": "PASS_GO qualifies this H10 capability only while the named execution-critical closures and reviewed hazard assumptions remain unchanged and no new hazard or incident occurs."
+  },
+  "reviewed_properties": {
+    "benchmark_runner_identity_exact": true,
+    "candidate_authority_false": true,
+    "compiled_receipt_binding_v2_exact": true,
+    "d1_auto_benchmark_only_lane_exact": true,
+    "f1_first_boot_contract_v3_exact": true,
+    "f1_pretransfer_enable_latch_receipt_absent": true,
+    "f1_pretransfer_mixed_output_rejected": true,
+    "h10_identity_distinct_from_h9": true,
+    "h10_rootfs_destination_and_state_namespace_fresh": true,
+    "h2_h8_two_sha_behavior_preserved": true,
+    "h9_original_identity_preserved": true,
+    "no_replay_and_health_barriers_preserved": true,
+    "routine_source_fd_path_loop_identity_exact": true,
+    "s22plus_authority": false
+  },
+  "reviewer": "independent subagent /root/a90_h7_closure_review",
+  "reviewer_device_contact": false,
+  "reviewer_implementation_edits": false,
+  "reviewer_network_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_s22plus_contact": false,
+  "reviewer_usb_contact": false,
+  "schema": "a90-phase3-resident-refresh-f1-independent-review-v1",
+  "scope": {
+    "benchmark_execution_closure_sha256": "194bbb07ab516be4b636dd77bfd7734d916cf38699b7ecdee9370c531f4a0374",
+    "build_receipt_sha256": "a8323448364a3bfbc4edc0661b61493574bd7302c92699c07a5aa53d0465653a",
+    "candidate_authority": false,
+    "candidate_boot_sha256": "145ab5d0d2eff02e20d75149e62bd929084a9a1014a13f9b79e9dbd3269655f1",
+    "candidate_boot_size": 58372096,
+    "candidate_build": "phase3-minimal-h10-fast-source-receipt-auto-benchmark",
+    "candidate_version": "0.11.178",
+    "compiled_binding_sha256": "decc69954c2f57067d56062b1a1dd61a394b0587ab86d17905eae070e5b71d2d",
+    "effective_manifest_sha256": "81da1c2fe82fff02ae078bb5970f39d15cf6b2cb1ff7398da2fea46386c6316d",
+    "live_authority": false,
+    "manifest_sha256": "57ffe40e9c85b86833db254b14cb05eddbf5feb3e83e1b7fb25aaf056066c4f7",
+    "native_init_closure_sha256": "3359e10f72f6bc4dac6405c182dfeee0df40573d0852323c81608bf46076dabc",
+    "rootfs_sha256": "38d9ce41503483996d14a18fb51275fbbe47e898ce51aee37f9f88b61295018e"
+  },
+  "status": "PASS_GO",
+  "target": "Samsung Galaxy A90 5G only",
+  "unresolved_findings": [],
+  "validation": {
+    "aarch64_static_link_strip": "PASS",
+    "deterministic_a_b_boot_byte_identical": "PASS",
+    "finalizer_host_only_audit": "PASS",
+    "flat_builder_host_only_audit": "PASS",
+    "git_diff_check": "PASS",
+    "main_public_mocked_tests_passed": 371,
+    "python_py_compile": "PASS",
+    "resident_builder_host_only_audit": "PASS",
+    "reviewer_public_mocked_tests_passed": 126
+  }
+}
