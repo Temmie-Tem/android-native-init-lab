@@ -17,6 +17,15 @@
 int a90_server_distro_switch_root_cmd(char **argv, int argc);
 
 /*
+ * Qualify or verify the exact SD source before an automatic handoff is armed.
+ * A profile with no compiled receipt path keeps the historical SHA path.
+ */
+int a90_server_distro_source_receipt_ensure(const char *image,
+                                            const char *expected_sha);
+int a90_server_distro_source_receipt_preflight(const char *image,
+                                               const char *expected_sha);
+
+/*
  * Server-distro D4 userdata appliance surfaces.
  *
  * D4 mutates Android userdata, so every command is token gated.  Mutating

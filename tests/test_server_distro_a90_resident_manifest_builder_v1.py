@@ -650,6 +650,80 @@ class ResidentManifestBuilderTests(unittest.TestCase):
             "4221d365c10a86a85c2ebaeb64cdbe1d1ea8c240226ce5868b6c20afeb6b51a3",
         )
 
+    def test_h9_candidate_binds_fresh_rootfs_with_fast_receipt_identity(self) -> None:
+        selected = builder.select_candidate_profile(
+            builder.MINIMAL_H9_CANDIDATE_PROFILE
+        )
+        contract = builder.candidate_first_boot_contract(selected)
+        self.assertEqual(selected.version, "0.11.177")
+        self.assertEqual(
+            selected.sha256,
+            "c78cd6b4eee5b44c6249ad20729f0379a97cd83db67cab2287271813cd91439f",
+        )
+        self.assertEqual(
+            selected.build_receipt_sha256,
+            "2c8e45edcb9a1604c5b905b6dc956446d38ef94504ab44a2bb3dc5a16b06bd1e",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["image_sha256"],
+            "e2028b021cd67ebf16ad3cb917e9b548e1fcc434d5e42f10117854f202d01b24",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["image_path"],
+            "/mnt/sdext/a90/runtime/"
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260809-02.img",
+        )
+        h8_contract = builder.candidate_first_boot_contract(
+            builder.select_candidate_profile(
+                builder.MINIMAL_H8_CANDIDATE_PROFILE
+            )
+        )
+        self.assertNotEqual(
+            contract["compiled_binding"]["image_path"],
+            h8_contract["compiled_binding"]["image_path"],
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["binding_sha256"],
+            "02f441da4ccb982e52ce8b75438df38a68eb6b3f3e4de0cd6f7616e250876a88",
+        )
+        self.assertEqual(contract["schema"], "a90-auto-handoff-first-boot-v3")
+        self.assertEqual(
+            contract["receipt_path"],
+            "/cache/a90-source-receipt-phase3-minimal-h9",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["receipt_path"],
+            contract["receipt_path"],
+        )
+        self.assertEqual(
+            contract["pre_transfer_state"],
+            "enable-latch-receipt-absent",
+        )
+        manifest = {
+            "candidate_boot": {
+                "expected_version": selected.version,
+                "expected_build": selected.build,
+                "first_boot_contract": contract,
+            },
+            "debian_rootfs": {
+                "keyed_source": {
+                    "device_path": contract["compiled_binding"]["image_path"],
+                    "sha256": contract["compiled_binding"]["image_sha256"],
+                },
+                "handoff_command": [
+                    "switch-root-to-distro",
+                    "SERVER-DISTRO-D3B-SWITCHROOT",
+                    contract["compiled_binding"]["image_path"],
+                    contract["compiled_binding"]["image_sha256"],
+                ],
+            },
+        }
+        builder.require_compiled_rootfs_binding(manifest)
+        changed = json.loads(json.dumps(manifest))
+        changed["candidate_boot"]["first_boot_contract"]["receipt_path"] += ".old"
+        with self.assertRaisesRegex(builder.ContractError, "binding mismatch"):
+            builder.require_compiled_rootfs_binding(changed)
+
 
 if __name__ == "__main__":
     unittest.main()

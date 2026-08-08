@@ -154,13 +154,30 @@ class A90BootBenchmarkV1Tests(unittest.TestCase):
     def test_rejects_complete_handoff_with_inverted_stage_order(self) -> None:
         stages = list(benchmark.COMPLETE_STAGES)
         first = stages.index("handoff_begin")
-        second = stages.index("source_sha_initial_done")
+        second = stages.index("source_receipt_initial_done")
         stages[first], stages[second] = stages[second], stages[first]
         text = "\n".join(
             marker(stage, 100 + index * 10)
             for index, stage in enumerate(stages)
         )
         with self.assertRaisesRegex(benchmark.BenchmarkError, "out of order"):
+            benchmark.parse_run([text], require_complete=True)
+
+    def test_rejects_hybrid_legacy_and_fast_integrity_stage_families(self) -> None:
+        stages = list(benchmark.LEGACY_COMPLETE_STAGES)
+        stages.insert(
+            stages.index("source_sha_initial_done") + 1,
+            "source_receipt_initial_done",
+        )
+        stages.insert(
+            stages.index("source_sha_post_display_done") + 1,
+            "source_identity_post_display_done",
+        )
+        text = "\n".join(
+            marker(stage, 100 + index * 10)
+            for index, stage in enumerate(stages)
+        )
+        with self.assertRaisesRegex(benchmark.BenchmarkError, "mixes legacy and fast"):
             benchmark.parse_run([text], require_complete=True)
 
     def test_deduplicates_identical_marker_and_splits_conflict(self) -> None:
@@ -184,6 +201,23 @@ class A90BootBenchmarkV1Tests(unittest.TestCase):
         self.assertEqual(
             comparison["phase_comparison"]["handoff_total_ms"]["delta_ms"],
             -60,
+        )
+
+    def test_compares_legacy_sha_to_fast_receipt_as_source_integrity(self) -> None:
+        legacy = benchmark.parse_run([
+            marker("handoff_begin", 100)
+            + "\n"
+            + marker("source_sha_initial_done", 200)
+        ])
+        fast = benchmark.parse_run([
+            marker("handoff_begin", 100)
+            + "\n"
+            + marker("source_receipt_initial_done", 110)
+        ])
+        comparison = benchmark.compare_runs(legacy, fast)
+        self.assertEqual(
+            comparison["phase_comparison"]["source_integrity_initial_ms"]["delta_ms"],
+            -90,
         )
 
 

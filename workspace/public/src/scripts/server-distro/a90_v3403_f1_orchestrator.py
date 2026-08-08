@@ -102,9 +102,11 @@ CDC_GUARD_PATH = (
 CDC_GUARD_SIZE = 51402
 CDC_GUARD_SHA256 = "6c8a6d2151928d2e098ca41b3c9dc24cdbbfabe9be10df19969be274744ef9a9"
 STAGING_PATH = (SCRIPT_DIR / "a90_v3403_absent_only_staging.py").resolve()
-OBSERVATION_OUTPUT_MARKERS = (
-    "source_sha phase=initial",
-    "source_sha phase=post-display-cleanup",
+H9_FAST_SOURCE_RECEIPT_IDENTITY = (
+    "0.11.177",
+    "phase3-minimal-h9-fast-source-receipt-auto-benchmark",
+)
+HANDOFF_COMMON_OUTPUT_MARKERS = (
     # The work copy is gone: the source is mounted read-only and a fixed
     # writable set is mounted over it, so there is no copy to hash and no
     # copy to announce. These markers replace work-copy/post-copy-source and
@@ -116,20 +118,37 @@ OBSERVATION_OUTPUT_MARKERS = (
     "evidence_bind=ok",
     "exec_switch_root_now",
 )
+LEGACY_HANDOFF_INTEGRITY_MARKERS = (
+    "source_sha phase=initial",
+    "source_sha phase=post-display-cleanup",
+)
+FAST_HANDOFF_INTEGRITY_MARKERS = (
+    "source_integrity phase=initial mode=receipt metadata=exact full_sha=skipped",
+    "source_integrity phase=post-display-cleanup mode=identity metadata=exact full_sha=skipped",
+)
+# Preserve the reachable H2-H8 contract under the historic public name.
+OBSERVATION_OUTPUT_MARKERS = (
+    LEGACY_HANDOFF_INTEGRITY_MARKERS + HANDOFF_COMMON_OUTPUT_MARKERS
+)
+FAST_OBSERVATION_OUTPUT_MARKERS = (
+    FAST_HANDOFF_INTEGRITY_MARKERS + HANDOFF_COMMON_OUTPUT_MARKERS
+)
 F1_SERIAL_INPUT_MODE = "slow"
 F1_SERIAL_INPUT_CHAR_DELAY_SEC = 0.02
 F1_HANDOFF_MAX_PRE_READ_SEC = 5.0
-F1_HANDOFF_SOURCE_SHA_PHASES = (
-    "initial",
-    "post-display-cleanup",
-)
-# The 2 GiB copy no longer happens, so its 300 s allowance would be pure
-# slack, and slack is not free: an over-provisioned budget cannot detect the
-# regression it exists to bound. Two full source hashes remain -- initial and
-# post-display -- instead of four passes.
+F1_HANDOFF_SOURCE_SHA_PHASES = ("initial", "post-display-cleanup")
+F1_HANDOFF_FAST_SOURCE_SHA_PHASES = ()
+# The 2 GiB copy no longer happens. H2-H8 still perform two source SHA passes;
+# H9 instead verifies one durable receipt and rechecks the same open-source
+# identity. The shared runner reserves the larger reachable integrity bound.
 F1_HANDOFF_COPY_BOUND_SEC = 0
 F1_HANDOFF_SHA_PASS_COUNT = len(F1_HANDOFF_SOURCE_SHA_PHASES)
 F1_HANDOFF_SHA_ALLOWANCE_PER_PASS_SEC = 90
+F1_HANDOFF_RECEIPT_IDENTITY_BOUND_SEC = 5
+F1_HANDOFF_INTEGRITY_BOUND_SEC = max(
+    F1_HANDOFF_SHA_PASS_COUNT * F1_HANDOFF_SHA_ALLOWANCE_PER_PASS_SEC,
+    F1_HANDOFF_RECEIPT_IDENTITY_BOUND_SEC,
+)
 F1_HANDOFF_SWITCH_HELPER_BOUND_COUNT = 2
 F1_HANDOFF_SWITCH_HELPER_BOUND_SEC = 30
 # Native display cleanup stops autohud once, the dpublic presenter once, then
@@ -151,7 +170,7 @@ F1_HANDOFF_DISPLAY_BOUND_SEC = F1_HANDOFF_DISPLAY_TOTAL_BOUND_SEC
 F1_HANDOFF_MISC_ALLOWANCE_SEC = 90
 F1_HANDOFF_MIN_READ_BUDGET_SEC = (
     F1_HANDOFF_COPY_BOUND_SEC
-    + F1_HANDOFF_SHA_PASS_COUNT * F1_HANDOFF_SHA_ALLOWANCE_PER_PASS_SEC
+    + F1_HANDOFF_INTEGRITY_BOUND_SEC
     + F1_HANDOFF_SWITCH_HELPER_BOUND_COUNT
     * F1_HANDOFF_SWITCH_HELPER_BOUND_SEC
     + F1_HANDOFF_DISPLAY_BOUND_SEC
@@ -729,11 +748,27 @@ def validate_candidate_first_boot_contract(
             "/cache/a90-auto-handoff-phase3-minimal-h8.enable",
             "/cache/a90-auto-handoff-phase3-minimal-h8.done",
         ),
+        (
+            "0.11.177",
+            "phase3-minimal-h9-fast-source-receipt-auto-benchmark",
+        ): (
+            "/cache/a90-auto-handoff-phase3-minimal-h9.enable",
+            "/cache/a90-auto-handoff-phase3-minimal-h9.done",
+        ),
     }
     if identity in compiled_identity_markers:
         enable_path, latch_path = compiled_identity_markers[identity]
+        receipt_path = (
+            "/cache/a90-source-receipt-phase3-minimal-h9"
+            if identity == H9_FAST_SOURCE_RECEIPT_IDENTITY
+            else None
+        )
         binding = {
-            "schema": "a90-compiled-auto-handoff-binding-v1",
+            "schema": (
+                "a90-compiled-auto-handoff-binding-v2"
+                if receipt_path is not None
+                else "a90-compiled-auto-handoff-binding-v1"
+            ),
             "candidate_version": candidate_version,
             "candidate_build": candidate_build,
             "image_path": remote_final,
@@ -741,16 +776,28 @@ def validate_candidate_first_boot_contract(
             "enable_path": enable_path,
             "latch_path": latch_path,
         }
+        if receipt_path is not None:
+            binding["receipt_path"] = receipt_path
         binding["binding_sha256"] = json_sha256(binding)
         expected = {
-            "schema": "a90-auto-handoff-first-boot-v2",
+            "schema": (
+                "a90-auto-handoff-first-boot-v3"
+                if receipt_path is not None
+                else "a90-auto-handoff-first-boot-v2"
+            ),
             "enable_path": binding["enable_path"],
             "latch_path": binding["latch_path"],
             "compiled_binding": binding,
-            "pre_transfer_state": "both-absent",
+            "pre_transfer_state": (
+                "enable-latch-receipt-absent"
+                if receipt_path is not None
+                else "both-absent"
+            ),
             "post_boot_status": "binding=1-enable=0-latch=0",
             "post_boot_log": "A90AUTO state=unarmed-stay-native",
         }
+        if receipt_path is not None:
+            expected["receipt_path"] = receipt_path
         if value != expected:
             raise ContractError("compiled candidate/rootfs binding is not exact")
         return expected
@@ -2136,20 +2183,30 @@ def require_exact_f1_command_receipt(
 def candidate_first_boot_state_absence_script(contract: dict[str, Any]) -> str:
     enable_path = contract["enable_path"]
     latch_path = contract["latch_path"]
-    return "\n".join(
+    receipt_path = contract.get("receipt_path")
+    lines = [
+        "set -eu",
+        f"ENABLE={enable_path}",
+        f"LATCH={latch_path}",
+    ]
+    state_args = '"$ENABLE" "$LATCH"'
+    marker = "A90AUTO_F1_PRE enable_absent=1 latch_absent=1"
+    if receipt_path is not None:
+        lines.append(f"RECEIPT={receipt_path}")
+        state_args += ' "$RECEIPT"'
+        marker += " receipt_absent=1"
+    lines.extend(
         (
-            "set -eu",
-            f"ENABLE={enable_path}",
-            f"LATCH={latch_path}",
-            'for STATE_PATH in "$ENABLE" "$LATCH"; do',
+            f"for STATE_PATH in {state_args}; do",
             '  if [ -e "$STATE_PATH" ] || [ -L "$STATE_PATH" ]; then',
             '    echo A90AUTO_F1_PRE state_path_absent=0 path="$STATE_PATH"',
             "    exit 41",
             "  fi",
             "done",
-            "echo A90AUTO_F1_PRE enable_absent=1 latch_absent=1",
+            f"echo {marker}",
         )
     )
+    return "\n".join(lines)
 
 
 def require_candidate_first_boot_state_absent(
@@ -2161,6 +2218,7 @@ def require_candidate_first_boot_state_absent(
         return None
     enable_path = contract["enable_path"]
     latch_path = contract["latch_path"]
+    receipt_path = contract.get("receipt_path")
     script = candidate_first_boot_state_absence_script(contract)
     record = require_exact_f1_command_receipt(
         run_f1_shell(args, script),
@@ -2168,14 +2226,24 @@ def require_candidate_first_boot_state_absent(
         "auto-handoff pre-transfer state receipt",
     )
     marker = "A90AUTO_F1_PRE enable_absent=1 latch_absent=1"
-    if str(record.get("text") or "").count(marker) != 1:
-        raise ContractError("auto-handoff pre-transfer enable/latch absence is not exact")
-    return {
+    if receipt_path is not None:
+        marker += " receipt_absent=1"
+    state_lines: list[str] = []
+    for line in str(record.get("text") or "").replace("\r", "\n").splitlines():
+        marker_start = line.find("A90AUTO_F1_PRE ")
+        if marker_start >= 0:
+            state_lines.append(line[marker_start:].strip())
+    if state_lines != [marker]:
+        raise ContractError("auto-handoff pre-transfer state absence is not exact")
+    result = {
         "proof": True,
         "enable_path": enable_path,
         "latch_path": latch_path,
         "record": record,
     }
+    if receipt_path is not None:
+        result["receipt_path"] = receipt_path
+    return result
 
 
 def require_auto_handoff_log_exclusively_unarmed(
@@ -3447,8 +3515,28 @@ def verify_candidate_health(
     return result
 
 
+def handoff_observation_contract(
+    spec: F1Spec,
+) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    identity = (spec.candidate_version, spec.candidate_build)
+    if identity == H9_FAST_SOURCE_RECEIPT_IDENTITY:
+        return (
+            FAST_OBSERVATION_OUTPUT_MARKERS,
+            F1_HANDOFF_FAST_SOURCE_SHA_PHASES,
+            LEGACY_HANDOFF_INTEGRITY_MARKERS,
+        )
+    return (
+        OBSERVATION_OUTPUT_MARKERS,
+        F1_HANDOFF_SOURCE_SHA_PHASES,
+        FAST_HANDOFF_INTEGRITY_MARKERS,
+    )
+
+
 def run_handoff(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
     validate_handoff_timeout(spec.handoff_timeout)
+    markers, source_sha_phases, forbidden_integrity_markers = (
+        handoff_observation_contract(spec)
+    )
     line = a90ctl.encode_cmdv1_line(list(spec.handoff_command))
     minimum_read_budget = (
         float(spec.handoff_timeout) - F1_HANDOFF_MAX_PRE_READ_SEC
@@ -3467,14 +3555,16 @@ def run_handoff(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
         require_prompt_after_end=False,
         post_marker_drain_sec=0.3,
     )
-    missing = [marker for marker in OBSERVATION_OUTPUT_MARKERS if marker not in text]
-    for phase in F1_HANDOFF_SOURCE_SHA_PHASES:
-        exact = (
+    missing = [marker for marker in markers if marker not in text]
+    for phase in source_sha_phases:
+        exact_sha_marker = (
             f"source_sha phase={phase} sha={spec.stage.local_sha256} "
             "expected_sha_match=1"
         )
-        if exact not in text:
-            missing.append(exact)
+        if exact_sha_marker not in text:
+            missing.append(exact_sha_marker)
+    if any(marker in text for marker in forbidden_integrity_markers):
+        missing.append("unexpected integrity marker family")
     if "A90P1 END " in text and "exec_switch_root_now" not in text:
         missing.append("handoff returned before exec")
     if missing:
@@ -6564,12 +6654,13 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         'F1_SERIAL_INPUT_MODE = "slow"',
         "F1_SERIAL_INPUT_CHAR_DELAY_SEC = 0.02",
         "F1_HANDOFF_MAX_PRE_READ_SEC = 5.0",
-        "F1_HANDOFF_SOURCE_SHA_PHASES = (",
-        '    "initial",',
-        '    "post-display-cleanup",',
+        'F1_HANDOFF_SOURCE_SHA_PHASES = ("initial", "post-display-cleanup")',
+        "F1_HANDOFF_FAST_SOURCE_SHA_PHASES = ()",
         "F1_HANDOFF_COPY_BOUND_SEC = 0",
         "F1_HANDOFF_SHA_PASS_COUNT = len(F1_HANDOFF_SOURCE_SHA_PHASES)",
         "F1_HANDOFF_SHA_ALLOWANCE_PER_PASS_SEC = 90",
+        "F1_HANDOFF_RECEIPT_IDENTITY_BOUND_SEC = 5",
+        "F1_HANDOFF_INTEGRITY_BOUND_SEC = max(",
         "F1_HANDOFF_SWITCH_HELPER_BOUND_COUNT = 2",
         "F1_HANDOFF_SWITCH_HELPER_BOUND_SEC = 30",
         "F1_HANDOFF_DISPLAY_HUD_STOP_BOUND_SEC = 3",
@@ -6647,8 +6738,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         ]
         for operand in (
             "F1_HANDOFF_COPY_BOUND_SEC",
-            "F1_HANDOFF_SHA_PASS_COUNT",
-            "F1_HANDOFF_SHA_ALLOWANCE_PER_PASS_SEC",
+            "F1_HANDOFF_INTEGRITY_BOUND_SEC",
             "F1_HANDOFF_SWITCH_HELPER_BOUND_COUNT",
             "F1_HANDOFF_SWITCH_HELPER_BOUND_SEC",
             "F1_HANDOFF_DISPLAY_BOUND_SEC",
@@ -7387,12 +7477,27 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
                     "display visible confirmation contains candidate route: "
                     f"{forbidden}"
                 )
+    contract_start = source.find("def handoff_observation_contract(")
     handoff_start = source.find("def run_handoff(")
     ssh_start = source.find("def ssh_command(", handoff_start + 1)
-    if handoff_start < 0 or ssh_start < 0:
+    if contract_start < 0 or handoff_start < 0 or ssh_start < 0:
         issues.append("handoff source boundary is missing")
     else:
+        observation_contract = source[contract_start:handoff_start]
         handoff = source[handoff_start:ssh_start]
+        for token in (
+            "identity == H9_FAST_SOURCE_RECEIPT_IDENTITY",
+            "FAST_OBSERVATION_OUTPUT_MARKERS",
+            "OBSERVATION_OUTPUT_MARKERS",
+            "F1_HANDOFF_FAST_SOURCE_SHA_PHASES",
+            "F1_HANDOFF_SOURCE_SHA_PHASES",
+            "LEGACY_HANDOFF_INTEGRITY_MARKERS",
+            "FAST_HANDOFF_INTEGRITY_MARKERS",
+        ):
+            if token not in observation_contract:
+                issues.append(
+                    f"handoff observation selection missing: {token}"
+                )
         if handoff.count("a90ctl.bridge_exchange(") != 1:
             issues.append("handoff must contain one direct bridge exchange")
         bridge_position = handoff.find("a90ctl.bridge_exchange(")
@@ -7420,6 +7525,11 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         ):
             issues.append("handoff bridge exchange is not direct single-shot")
         for token in (
+            "handoff_observation_contract(spec)",
+            "for phase in source_sha_phases",
+            "sha={spec.stage.local_sha256}",
+            '"expected_sha_match=1"',
+            "for marker in forbidden_integrity_markers",
             "input_mode=F1_SERIAL_INPUT_MODE",
             "input_char_delay_sec=F1_SERIAL_INPUT_CHAR_DELAY_SEC",
             "minimum_read_budget_sec=minimum_read_budget",

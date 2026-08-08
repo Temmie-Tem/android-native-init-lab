@@ -101,6 +101,10 @@ H8_AUTO_BENCHMARK_RESIDENT_IDENTITY = (
     "0.11.176",
     "phase3-minimal-h8-dev-tmpfs-handoff-repair-auto-benchmark",
 )
+H9_AUTO_BENCHMARK_RESIDENT_IDENTITY = (
+    "0.11.177",
+    "phase3-minimal-h9-fast-source-receipt-auto-benchmark",
+)
 AUTO_BENCHMARK_RESIDENT_IDENTITIES = {
     H2_AUTO_BENCHMARK_RESIDENT_IDENTITY,
     H3_AUTO_BENCHMARK_RESIDENT_IDENTITY,
@@ -109,6 +113,7 @@ AUTO_BENCHMARK_RESIDENT_IDENTITIES = {
     H6_AUTO_BENCHMARK_RESIDENT_IDENTITY,
     H7_AUTO_BENCHMARK_RESIDENT_IDENTITY,
     H8_AUTO_BENCHMARK_RESIDENT_IDENTITY,
+    H9_AUTO_BENCHMARK_RESIDENT_IDENTITY,
 }
 
 RESIDENT_ACTIONS = (
@@ -3249,6 +3254,13 @@ def _execute_switchroot_locked(
     now_epoch_sec: int,
     clock: Callable[[], float],
 ) -> dict[str, Any]:
+    if (
+        spec.candidate_version,
+        spec.candidate_build,
+    ) == H9_AUTO_BENCHMARK_RESIDENT_IDENTITY:
+        raise ContractError(
+            "H9 fast-source-receipt handoff requires the auto-benchmark arm lane"
+        )
     if visible_confirmed not in {"yes", "no", "unavailable"}:
         raise ContractError("visible confirmation value is not exact")
     if type(now_epoch_sec) is not int or now_epoch_sec < 0:

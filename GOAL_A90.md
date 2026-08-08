@@ -312,6 +312,34 @@ The pre-H2 goal history is preserved at
   `23bdeb0f7c82aa5abb3d68d2d1856e01ebe306adc0d21993a06b74f54b601a0e`.
   The old H7 manifest still binds the refusing implementation; deployment of
   this C repair requires a new candidate identity and state namespace.
+- H8 `0.11.176` is the exact installed resident and remains healthy after its
+  terminal D1 ordinal. That ordinal completed all 15 handoff stages in 43501
+  ms and produced durable same-intent Debian PID 1, Dropbear, DRM-master, and
+  display-ready evidence before automatic native return. Its latch is consumed
+  and the ordinal must never be replayed.
+- H9 `0.11.177` implements a fast source-integrity receipt over the same exact
+  rootfs bytes at a fresh H9-only destination. A missing or changed receipt
+  requires one full source SHA before arm; routine boot verifies the durable
+  receipt and exact source metadata, and the post-display phase revalidates the
+  same open source identity and loop backing without another 2 GiB hash. Legacy
+  profiles retain their two full SHA passes.
+- The deterministic H9 A/B boot is byte-identical at SHA256
+  `c78cd6b4eee5b44c6249ad20729f0379a97cd83db67cab2287271813cd91439f`,
+  native closure `3359e10f...`, manifest `8054fb53...`, compiled binding
+  `02f441da...`, and benchmark execution closure `4a49b236...`. The fresh H9
+  rootfs destination is distinct from H8 and must be absent before its one-time
+  F1 publication.
+- Independent H9 review initially found three host regressions: legacy H2-H8
+  proof rejection, an unqualified generic H9 D1 route, and hybrid benchmark
+  acceptance. All three were repaired. A later main-agent precedence check
+  invalidated the first rereview because its same-path design violated the A90
+  replacement-candidate rule. The next review found the receipt path missing
+  from the operational binding; after that repair, adversarial rereview found
+  mixed contradictory pre-transfer state output could pass a substring check.
+  Both are repaired. Final independent rereview returned `PASS_GO` with
+  HIGH/MEDIUM/LOW zero at the four exact H9 closure identities above. H9
+  remains H0-only: no D0, flash, arm, reboot, or live authority has been
+  consumed.
 
 ## Qualified Capabilities
 
@@ -354,6 +382,13 @@ The pre-H2 goal history is preserved at
 - Fresh exact target, rollback, recovery, presence, D0, immutable manifest,
   runner binding, and inter-effect health remain live requirements. A review
   receipt alone never dispatches a device action.
+- The H9 fast source-integrity receipt capability has independent `PASS_GO` at
+  manifest `8054fb53...`, native closure `3359e10f...`, compiled binding
+  `02f441da...`, and benchmark execution closure `4a49b236...`. Reuse lasts
+  only while those four identities and the reviewed hazard assumptions remain
+  unchanged and no new hazard or incident occurs. It grants no live authority;
+  fresh exact D0, an immutable runner binding, attendance, rollback, recovery,
+  first-publication absence, no-replay, and final health remain required.
 - The H5/H4 source-reclaim closure
   `2c6f7b431cb82638638b4f891daa9a56deae27d1cb48621b93cadcab97cf8842`
   has independent `PASS_GO` evidence for hazard
@@ -461,45 +496,34 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: Build the H8 E19 Repair Candidate
+## Selected Bounded Unit: Install and Measure H9 Fast Source Integrity
 
-H5 installation and its first automatic-handoff ordinal are terminal. Preserve
-runs 11-13 and D1 run09, their state namespaces, journals, private host bytes,
-and no-replay evidence. Protect the installed H5 run-12 device source. The H4
-source and the fixed historical-image/snapshot set have been reclaimed from SD;
-their exact private host bytes and incident evidence remain preserved. Do not
-reset H5 enable/latch, resend run09 arm or reboot, reuse either consumed reclaim
-capability, or reinterpret a visible screen as missing mechanical PID1/SSH
-evidence.
+Preserve H7 and H8 F1/D1 runs, consumed enable/latch namespaces, journals,
+private evidence, and no-replay conclusions. H8 remains the exact installed
+healthy resident until an attended H9 boot-only install closes. Do not reset or
+reuse the H8 latch, replay its arm/reboot, or treat its missing host-link proof
+as absent on-device mechanical proof.
 
-The run09 15-stage timing series is a usable diagnostic baseline for locating
-cost: the two full source hashes and work copy dominate its 126444 ms handoff.
-It is not yet a correctness baseline for compiler comparison because the host
-observer lost exact bridge continuity before it could bind Debian PID 1, SSH,
-service ownership, and display facts to the same ordinal.
+The next bounded work is:
 
-The installed H7 remains exact and healthy but its one D1 ordinal is terminally
-refuted. It is not an observer-complete baseline and must not be replayed. The
-next bounded work is:
+1. obtain final independent review for the fresh-destination H9 closure, commit
+   only on `PASS_GO`, and keep candidate/live authority false;
+2. run fresh exact A90 D0 to re-prove H8 resident health, the existing immutable
+   rootfs, H9 boot candidate, exact rollback, recovery path, free F1 guard, and
+   the required H9 pre-install state;
+3. while attended, publish the exact rootfs bytes once to the fresh H9
+   destination and install H9 with one boot-only candidate effect;
+4. after exact H9 resident health, bind one new attended D1 ordinal whose arm
+   performs the one-time full-SHA receipt qualification, then dispatch exactly
+   one reboot with no replay; and
+5. require the fast receipt and identity benchmark stages, `switch_root_exec`,
+   same-intent Debian PID 1, Dropbear, DRM/display evidence, automatic native
+   return, exact H9 health, and a direct H8-to-H9 source-integrity timing
+   comparison before considering Full-LTO.
 
-1. preserve H7, its consumed enable/latch namespace, run05 F1, and D1 run01
-   without replay, reset, or reinterpretation;
-2. define H8 with a new version/build, rootfs destination, enable/latch paths,
-   and immutable manifest that binds the reviewed tmpfs lifecycle and exact
-   failed-handoff parser closure;
-3. produce a deterministic non-LTO A/B boot build, complete static and archive
-   validation, and obtain fresh independent review for all changed F1/D1
-   identity and execution machinery;
-4. run fresh exact A90 D0, then one attended boot-only H8 resident install with
-   exact rollback and recovery ready; and
-5. bind one new attended D1 ordinal with one arm and one reboot, no replay,
-   exact `mount_moves_done` and `switch_root_exec`, durable same-ordinal Debian
-   PID 1, Dropbear, DRM/display proof, automatic native return, cleanup, final
-   H8 health, and benchmark telemetry. Require at least one observer-complete
-   repeatable non-LTO baseline before Full-LTO comparison.
-
-An attended visibility confirmation may be appended as evidence for run09,
-but it cannot manufacture its missing mechanical PID1/SSH observation.
+Receipt qualification removes repeated routine hashes; it does not replace the
+fresh D0, rollback, recovery, attendance, immutable manifest, no-replay, or
+final-health gates.
 
 ## Optimization Order
 
@@ -555,6 +579,7 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_PHASE3_MINIMAL_H7_READONLY_SOURCE_ONDEVICE_EVIDENCE_INDEPENDENT_REVIEW_2026-08-08.json`
 - `docs/reports/A90_PHASE3_MINIMAL_H8_E19_REPAIR_INDEPENDENT_REVIEW_2026-08-09.json`
 - `docs/reports/A90_H8_PMSG_WINDOW_REPLACEMENT_TAIL_REPAIR_INDEPENDENT_REVIEW_2026-08-09.json`
+- `docs/reports/A90_PHASE3_MINIMAL_H9_FAST_SOURCE_RECEIPT_INDEPENDENT_REVIEW_2026-08-09.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`

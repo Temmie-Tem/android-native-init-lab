@@ -46,6 +46,7 @@ AUTO_HANDOFF_VALUE_MACROS = (
     "A90_AUTO_HANDOFF_ENABLE_PATH",
     "A90_AUTO_HANDOFF_LATCH_PATH",
 )
+AUTO_HANDOFF_RECEIPT_MACRO = "A90_D3_SOURCE_RECEIPT_PATH"
 
 
 def normalized_auto_handoff_binding(
@@ -73,16 +74,38 @@ def normalized_auto_handoff_binding(
     image_sha256 = values["A90_AUTO_HANDOFF_IMAGE_SHA256"]
     enable_path = values["A90_AUTO_HANDOFF_ENABLE_PATH"]
     latch_path = values["A90_AUTO_HANDOFF_LATCH_PATH"]
+    receipt_pattern = re.compile(
+        rf'^-D{re.escape(AUTO_HANDOFF_RECEIPT_MACRO)}="([^"\r\n]+)"$'
+    )
+    receipt_matches = [
+        match.group(1)
+        for flag in cflags
+        if (match := receipt_pattern.fullmatch(flag))
+    ]
+    if len(receipt_matches) > 1:
+        raise RuntimeError("auto-handoff source receipt macro is duplicated")
+    receipt_path = receipt_matches[0] if receipt_matches else ""
     if (
         not image.startswith("/mnt/sdext/a90/runtime/")
         or re.fullmatch(r"[0-9a-f]{64}", image_sha256) is None
         or not enable_path.startswith("/cache/a90-auto-handoff-")
         or not latch_path.startswith("/cache/a90-auto-handoff-")
         or enable_path == latch_path
+        or (
+            receipt_path
+            and (
+                not receipt_path.startswith("/cache/a90-source-receipt-")
+                or receipt_path in {enable_path, latch_path}
+            )
+        )
     ):
         raise RuntimeError("auto-handoff compiled tuple is not canonical")
     normalized = {
-        "schema": "a90-compiled-auto-handoff-binding-v1",
+        "schema": (
+            "a90-compiled-auto-handoff-binding-v2"
+            if receipt_path
+            else "a90-compiled-auto-handoff-binding-v1"
+        ),
         "candidate_version": values["INIT_VERSION"],
         "candidate_build": values["INIT_BUILD"],
         "image_path": image,
@@ -90,6 +113,8 @@ def normalized_auto_handoff_binding(
         "enable_path": enable_path,
         "latch_path": latch_path,
     }
+    if receipt_path:
+        normalized["receipt_path"] = receipt_path
     encoded = json.dumps(
         normalized,
         sort_keys=True,

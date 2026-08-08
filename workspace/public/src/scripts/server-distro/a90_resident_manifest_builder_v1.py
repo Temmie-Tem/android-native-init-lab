@@ -89,6 +89,9 @@ MINIMAL_H7_CANDIDATE_PROFILE = (
 MINIMAL_H8_CANDIDATE_PROFILE = (
     "phase3-minimal-h8-dev-tmpfs-handoff-repair-auto-benchmark"
 )
+MINIMAL_H9_CANDIDATE_PROFILE = (
+    "phase3-minimal-h9-fast-source-receipt-auto-benchmark"
+)
 LEGACY_CANDIDATE = CandidateSpec(
     profile=LEGACY_CANDIDATE_PROFILE,
     name="candidate-boot-phase2-display-v1.img",
@@ -303,6 +306,41 @@ MINIMAL_H8_CANDIDATE = CandidateSpec(
         ),
     },
 )
+MINIMAL_H9_CANDIDATE = CandidateSpec(
+    profile=MINIMAL_H9_CANDIDATE_PROFILE,
+    name="candidate-boot-phase3-minimal-h9.img",
+    size=58372096,
+    sha256="c78cd6b4eee5b44c6249ad20729f0379a97cd83db67cab2287271813cd91439f",
+    version="0.11.177",
+    build="phase3-minimal-h9-fast-source-receipt-auto-benchmark",
+    build_receipt=(
+        staging.PRIVATE_ROOT
+        / "outputs"
+        / "a90-h9-fast-source-receipt-ab-20260809-04"
+        / "ab-receipt.json"
+    ),
+    build_receipt_sha256=(
+        "2c8e45edcb9a1604c5b905b6dc956446d38ef94504ab44a2bb3dc5a16b06bd1e"
+    ),
+    compiled_auto_handoff={
+        "schema": "a90-compiled-auto-handoff-binding-v2",
+        "candidate_version": "0.11.177",
+        "candidate_build": "phase3-minimal-h9-fast-source-receipt-auto-benchmark",
+        "image_path": (
+            "/mnt/sdext/a90/runtime/"
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260809-02.img"
+        ),
+        "image_sha256": (
+            "e2028b021cd67ebf16ad3cb917e9b548e1fcc434d5e42f10117854f202d01b24"
+        ),
+        "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h9.enable",
+        "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h9.done",
+        "receipt_path": "/cache/a90-source-receipt-phase3-minimal-h9",
+        "binding_sha256": (
+            "02f441da4ccb982e52ce8b75438df38a68eb6b3f3e4de0cd6f7616e250876a88"
+        ),
+    },
+)
 CANDIDATE_PROFILES = {
     item.profile: item
     for item in (
@@ -316,6 +354,7 @@ CANDIDATE_PROFILES = {
         MINIMAL_H6_CANDIDATE,
         MINIMAL_H7_CANDIDATE,
         MINIMAL_H8_CANDIDATE,
+        MINIMAL_H9_CANDIDATE,
     )
 }
 
@@ -403,6 +442,8 @@ def validate_candidate_build_receipt(candidate: CandidateSpec) -> None:
         "enable_path": 1,
         "latch_path": 1,
     }
+    if "receipt_path" in candidate.compiled_auto_handoff:
+        expected_init_counts["receipt_path"] = 1
     for name, expected_count in expected_init_counts.items():
         value = candidate.compiled_auto_handoff[name].encode("utf-8")
         if init_bytes.count(value) != expected_count:
@@ -437,6 +478,18 @@ def candidate_first_boot_contract(candidate: CandidateSpec) -> dict[str, Any] | 
             "post_boot_status": "binding=1-enable=0-latch=0",
             "post_boot_log": "A90AUTO state=unarmed-stay-native",
         }
+    if candidate.profile == MINIMAL_H9_CANDIDATE_PROFILE:
+        assert candidate.compiled_auto_handoff is not None
+        return {
+            "schema": "a90-auto-handoff-first-boot-v3",
+            "enable_path": candidate.compiled_auto_handoff["enable_path"],
+            "latch_path": candidate.compiled_auto_handoff["latch_path"],
+            "receipt_path": candidate.compiled_auto_handoff["receipt_path"],
+            "compiled_binding": dict(candidate.compiled_auto_handoff),
+            "pre_transfer_state": "enable-latch-receipt-absent",
+            "post_boot_status": "binding=1-enable=0-latch=0",
+            "post_boot_log": "A90AUTO state=unarmed-stay-native",
+        }
     return None
 
 
@@ -446,13 +499,19 @@ def require_compiled_rootfs_binding(manifest: dict[str, Any]) -> None:
     if not isinstance(candidate, dict) or not isinstance(rootfs, dict):
         raise ContractError("candidate/rootfs manifest binding is absent")
     first_boot = candidate.get("first_boot_contract")
-    if not isinstance(first_boot, dict) or first_boot.get("schema") != (
-        "a90-auto-handoff-first-boot-v2"
+    if (
+        not isinstance(first_boot, dict)
+        or first_boot.get("schema")
+        not in {
+            "a90-auto-handoff-first-boot-v2",
+            "a90-auto-handoff-first-boot-v3",
+        }
     ):
         return
     binding = first_boot.get("compiled_binding")
     keyed = rootfs.get("keyed_source")
     handoff = rootfs.get("handoff_command")
+    first_boot_schema = first_boot.get("schema")
     if (
         not isinstance(binding, dict)
         or not isinstance(keyed, dict)
@@ -462,6 +521,20 @@ def require_compiled_rootfs_binding(manifest: dict[str, Any]) -> None:
         or binding.get("image_path") != keyed.get("device_path")
         or binding.get("image_sha256") != keyed.get("sha256")
         or handoff[2:4] != [binding.get("image_path"), binding.get("image_sha256")]
+        or (
+            first_boot_schema == "a90-auto-handoff-first-boot-v3"
+            and (
+                binding.get("schema")
+                != "a90-compiled-auto-handoff-binding-v2"
+                or first_boot.get("receipt_path")
+                != binding.get("receipt_path")
+                or not str(binding.get("receipt_path") or "").startswith(
+                    "/cache/a90-source-receipt-"
+                )
+                or first_boot.get("pre_transfer_state")
+                != "enable-latch-receipt-absent"
+            )
+        )
     ):
         raise ContractError("compiled candidate/rootfs binding mismatch")
 

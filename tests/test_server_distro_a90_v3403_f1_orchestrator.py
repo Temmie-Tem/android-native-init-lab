@@ -719,6 +719,7 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
 
     def test_short_handoff_timeout_is_rejected_before_transport(self) -> None:
         self.assertEqual(f1.F1_HANDOFF_DISPLAY_BOUND_SEC, 127)
+        self.assertEqual(f1.F1_HANDOFF_INTEGRITY_BOUND_SEC, 180)
         self.assertEqual(f1.F1_HANDOFF_MIN_READ_BUDGET_SEC, 457)
         self.assertEqual(f1.F1_HANDOFF_MIN_TIMEOUT_SEC, 462)
         with self.assertRaisesRegex(
@@ -1509,21 +1510,17 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
 
     def test_handoff_uses_slow_lane_once_and_never_retries(self) -> None:
         spec = sample_spec()
-        phase_lines = [
-            (
-                f"source_sha phase={phase} sha={spec.stage.local_sha256} "
-                "expected_sha_match=1"
-            )
-            for phase in f1.F1_HANDOFF_SOURCE_SHA_PHASES
-        ]
         text = "\n".join(
-            phase_lines
-            + [
-                "writable_set=mounted",
-                "writable_set=verified root=read-only",
-                "evidence_bind=ok",
-                "exec_switch_root_now",
-            ]
+            (
+                *f1.OBSERVATION_OUTPUT_MARKERS,
+                *(
+                    (
+                        f"source_sha phase={phase} "
+                        f"sha={spec.stage.local_sha256} expected_sha_match=1"
+                    )
+                    for phase in f1.F1_HANDOFF_SOURCE_SHA_PHASES
+                ),
+            )
         )
         with mock.patch.object(
             f1.a90ctl,
@@ -1554,6 +1551,72 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         ):
             f1.run_handoff(spec, sample_args())
         failed.assert_called_once()
+
+    def test_h9_handoff_accepts_only_fast_receipt_markers(self) -> None:
+        spec = sample_spec()
+        spec.candidate_version, spec.candidate_build = (
+            f1.H9_FAST_SOURCE_RECEIPT_IDENTITY
+        )
+        text = "\n".join(f1.FAST_OBSERVATION_OUTPUT_MARKERS)
+        with mock.patch.object(
+            f1.a90ctl,
+            "bridge_exchange",
+            return_value=text,
+        ) as exchange:
+            result = f1.run_handoff(spec, sample_args())
+
+        self.assertTrue(result["proof"])
+        exchange.assert_called_once()
+
+        hybrid = "\n".join(
+            (
+                text,
+                "source_sha phase=initial "
+                f"sha={spec.stage.local_sha256} expected_sha_match=1",
+            )
+        )
+        with (
+            mock.patch.object(
+                f1.a90ctl,
+                "bridge_exchange",
+                return_value=hybrid,
+            ),
+            self.assertRaisesRegex(
+                RuntimeError,
+                "unexpected integrity marker family",
+            ),
+        ):
+            f1.run_handoff(spec, sample_args())
+
+    def test_legacy_handoff_rejects_fast_or_wrong_sha_markers(self) -> None:
+        spec = sample_spec()
+        common = "\n".join(f1.HANDOFF_COMMON_OUTPUT_MARKERS)
+        wrong_sha = "\n".join(
+            (
+                common,
+                *(f1.LEGACY_HANDOFF_INTEGRITY_MARKERS),
+            )
+        )
+        with (
+            mock.patch.object(
+                f1.a90ctl,
+                "bridge_exchange",
+                return_value=wrong_sha,
+            ),
+            self.assertRaisesRegex(RuntimeError, "expected_sha_match=1"),
+        ):
+            f1.run_handoff(spec, sample_args())
+
+        fast = "\n".join(f1.FAST_OBSERVATION_OUTPUT_MARKERS)
+        with (
+            mock.patch.object(
+                f1.a90ctl,
+                "bridge_exchange",
+                return_value=fast,
+            ),
+            self.assertRaisesRegex(RuntimeError, "handoff proof missing"),
+        ):
+            f1.run_handoff(spec, sample_args())
 
     def test_approved_binding_rejects_draft_before_live_work(self) -> None:
         spec = sample_spec()
@@ -6211,6 +6274,144 @@ class DisplayObservationTests(unittest.TestCase):
             "compiled candidate/rootfs binding",
         ):
             f1.validate_candidate_first_boot_contract(changed, **kwargs)
+
+    def test_h9_first_boot_contract_binds_fast_receipt_namespace(self) -> None:
+        binding = {
+            "schema": "a90-compiled-auto-handoff-binding-v2",
+            "candidate_version": "0.11.177",
+            "candidate_build": (
+                "phase3-minimal-h9-fast-source-receipt-auto-benchmark"
+            ),
+            "image_path": "/mnt/sdext/a90/runtime/rootfs-h9.img",
+            "image_sha256": "9" * 64,
+            "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h9.enable",
+            "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h9.done",
+            "receipt_path": "/cache/a90-source-receipt-phase3-minimal-h9",
+        }
+        binding["binding_sha256"] = f1.json_sha256(binding)
+        contract = {
+            "schema": "a90-auto-handoff-first-boot-v3",
+            "enable_path": binding["enable_path"],
+            "latch_path": binding["latch_path"],
+            "receipt_path": binding["receipt_path"],
+            "compiled_binding": binding,
+            "pre_transfer_state": "enable-latch-receipt-absent",
+            "post_boot_status": "binding=1-enable=0-latch=0",
+            "post_boot_log": "A90AUTO state=unarmed-stay-native",
+        }
+        kwargs = {
+            "candidate_version": binding["candidate_version"],
+            "candidate_build": binding["candidate_build"],
+            "remote_final": binding["image_path"],
+            "rootfs_sha256": binding["image_sha256"],
+        }
+        self.assertEqual(
+            f1.validate_candidate_first_boot_contract(contract, **kwargs),
+            contract,
+        )
+        changed = copy.deepcopy(contract)
+        changed["receipt_path"] = (
+            "/cache/a90-source-receipt-phase3-minimal-h8"
+        )
+        with self.assertRaisesRegex(
+            f1.ContractError,
+            "compiled candidate/rootfs binding",
+        ):
+            f1.validate_candidate_first_boot_contract(changed, **kwargs)
+
+        script = f1.candidate_first_boot_state_absence_script(contract)
+        self.assertIn(f'RECEIPT={binding["receipt_path"]}', script)
+        self.assertIn(
+            'for STATE_PATH in "$ENABLE" "$LATCH" "$RECEIPT"; do',
+            script,
+        )
+        self.assertIn(
+            "enable_absent=1 latch_absent=1 receipt_absent=1",
+            script,
+        )
+        command = ["run", "/bin/busybox", "sh", "-c", script]
+        record = {
+            "command": command,
+            "rc": 0,
+            "status": "ok",
+            "trust": "A90P1_V1_STRUCTURAL_ONLY",
+            "begin": {
+                "argc": str(len(command)),
+                "cmd": "run",
+                "flags": "0x0",
+                "seq": "1",
+            },
+            "end": {
+                "cmd": "run",
+                "duration_ms": "1",
+                "errno": "0",
+                "flags": "0x0",
+                "rc": "0",
+                "seq": "1",
+                "status": "ok",
+            },
+            "text": "A90AUTO_F1_PRE enable_absent=1 latch_absent=1 receipt_absent=1",
+        }
+        spec = sample_spec()
+        spec.candidate_first_boot = contract
+        with mock.patch.object(f1, "run_f1_shell", return_value=record):
+            result = f1.require_candidate_first_boot_state_absent(
+                spec,
+                sample_args(),
+            )
+        self.assertEqual(result["receipt_path"], binding["receipt_path"])
+
+        missing_receipt = copy.deepcopy(record)
+        missing_receipt["text"] = (
+            "A90AUTO_F1_PRE enable_absent=1 latch_absent=1"
+        )
+        with (
+            mock.patch.object(
+                f1,
+                "run_f1_shell",
+                return_value=missing_receipt,
+            ),
+            self.assertRaisesRegex(
+                f1.ContractError,
+                "state absence is not exact",
+            ),
+        ):
+            f1.require_candidate_first_boot_state_absent(spec, sample_args())
+
+        contradictory_or_duplicate = (
+            (
+                "A90AUTO_F1_PRE state_path_absent=0 "
+                f"path={binding['receipt_path']}\n"
+                "A90AUTO_F1_PRE enable_absent=1 latch_absent=1 "
+                "receipt_absent=1"
+            ),
+            (
+                "A90AUTO_F1_PRE enable_absent=1 latch_absent=1 "
+                "receipt_absent=1\n"
+                "A90AUTO_F1_PRE enable_absent=1 latch_absent=1 "
+                "receipt_absent=1"
+            ),
+            (
+                "A90AUTO_F1_PRE enable_absent=1 latch_absent=1\n"
+                "A90AUTO_F1_PRE enable_absent=1 latch_absent=1 "
+                "receipt_absent=1"
+            ),
+        )
+        for text in contradictory_or_duplicate:
+            unsafe = copy.deepcopy(record)
+            unsafe["text"] = text
+            with (
+                self.subTest(text=text),
+                mock.patch.object(f1, "run_f1_shell", return_value=unsafe),
+                self.assertRaisesRegex(
+                    f1.ContractError,
+                    "state absence is not exact",
+                ),
+            ):
+                f1.require_candidate_first_boot_state_absent(
+                    spec,
+                    sample_args(),
+                )
 
     def test_first_boot_log_accepts_repeated_exact_unarmed_states(self) -> None:
         for log_text in (

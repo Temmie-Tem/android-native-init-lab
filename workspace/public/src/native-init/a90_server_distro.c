@@ -1,6 +1,7 @@
 #include "a90_server_distro.h"
 
 #include "a90_benchmark.h"
+#include "a90_config.h"
 #include "a90_console.h"
 #include "a90_draw.h"
 #include "a90_helper.h"
@@ -13,6 +14,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <linux/loop.h>
 #include <stdbool.h>
@@ -48,6 +50,9 @@
 #define A90_D3_SWITCH_TIMEOUT_MS 30000
 #define A90_D3_COPY_TIMEOUT_MS 300000
 #define A90_D3_IMMUTABLE_TAG "A90D3H0"
+#define A90_D3_SOURCE_RECEIPT_SCHEMA "a90-d3-source-receipt-v1"
+#define A90_D3_SOURCE_RECEIPT_MAX 2048U
+#define A90_D3_SOURCE_RECEIPT_CACHE_ROOT "/cache/"
 
 /*
  * The writable set that replaces the full work copy.
@@ -1899,7 +1904,32 @@ struct d3_source_identity {
     dev_t dev;
     ino_t ino;
     off_t size;
+    mode_t mode;
+    uid_t uid;
+    gid_t gid;
+    nlink_t nlink;
+    struct timespec mtime;
+    struct timespec ctime;
 };
+
+static int d3_source_stat_matches(const struct d3_source_identity *source,
+                                  const struct stat *st) {
+    if (source == NULL || st == NULL) {
+        return 0;
+    }
+    return S_ISREG(st->st_mode) &&
+           st->st_dev == source->dev &&
+           st->st_ino == source->ino &&
+           st->st_size == source->size &&
+           st->st_mode == source->mode &&
+           st->st_uid == source->uid &&
+           st->st_gid == source->gid &&
+           st->st_nlink == source->nlink &&
+           st->st_mtim.tv_sec == source->mtime.tv_sec &&
+           st->st_mtim.tv_nsec == source->mtime.tv_nsec &&
+           st->st_ctim.tv_sec == source->ctime.tv_sec &&
+           st->st_ctim.tv_nsec == source->ctime.tv_nsec;
+}
 
 static int d3_open_source(const char *path, struct d3_source_identity *source) {
     int fd;
@@ -1932,6 +1962,12 @@ static int d3_open_source(const char *path, struct d3_source_identity *source) {
     source->dev = st.st_dev;
     source->ino = st.st_ino;
     source->size = st.st_size;
+    source->mode = st.st_mode;
+    source->uid = st.st_uid;
+    source->gid = st.st_gid;
+    source->nlink = st.st_nlink;
+    source->mtime = st.st_mtim;
+    source->ctime = st.st_ctim;
     return 0;
 }
 
@@ -1945,13 +1981,267 @@ static int d3_source_path_matches(const char *path,
     if (lstat(path, &st) < 0) {
         return -errno;
     }
-    if (!S_ISREG(st.st_mode) ||
-        st.st_dev != source->dev ||
-        st.st_ino != source->ino ||
-        st.st_size != source->size) {
+    if (!d3_source_stat_matches(source, &st)) {
         return -ESTALE;
     }
     return 0;
+}
+
+static int d3_source_fd_matches(const struct d3_source_identity *source) {
+    struct stat st;
+
+    if (source == NULL || source->fd < 0) {
+        return -EINVAL;
+    }
+    if (fstat(source->fd, &st) < 0) {
+        return -errno;
+    }
+    return d3_source_stat_matches(source, &st) ? 0 : -ESTALE;
+}
+
+static int d3_source_receipt_enabled(void) {
+    const char *leaf;
+
+    if (strncmp(A90_D3_SOURCE_RECEIPT_PATH,
+                A90_D3_SOURCE_RECEIPT_CACHE_ROOT,
+                strlen(A90_D3_SOURCE_RECEIPT_CACHE_ROOT)) != 0) {
+        return 0;
+    }
+    leaf = A90_D3_SOURCE_RECEIPT_PATH +
+           strlen(A90_D3_SOURCE_RECEIPT_CACHE_ROOT);
+    return leaf[0] != '\0' && strchr(leaf, '/') == NULL &&
+           strstr(leaf, "..") == NULL &&
+           strchr(leaf, '\n') == NULL && strchr(leaf, '\r') == NULL &&
+           strlen(A90_D3_SOURCE_RECEIPT_PATH) + strlen(".tmp") < PATH_MAX;
+}
+
+static int d3_normalize_sha(char out[65], const char *sha) {
+    unsigned int index;
+
+    if (out == NULL || !d3_hex64_valid(sha)) {
+        return -EINVAL;
+    }
+    for (index = 0; index < 64U; ++index) {
+        char c = sha[index];
+
+        out[index] = (c >= 'A' && c <= 'Z') ? (char)(c + 32) : c;
+    }
+    out[64] = '\0';
+    return 0;
+}
+
+static int d3_format_source_receipt(
+    char *out,
+    size_t out_size,
+    const char *image,
+    const char *expected_sha,
+    const struct d3_source_identity *source) {
+    char normalized_sha[65];
+    int length;
+
+    if (out == NULL || source == NULL || !d3_path_clean(image) ||
+        d3_normalize_sha(normalized_sha, expected_sha) < 0) {
+        return -EINVAL;
+    }
+    length = snprintf(
+        out,
+        out_size,
+        "schema=%s\n"
+        "image=%s\n"
+        "sha256=%s\n"
+        "dev=%" PRIuMAX "\n"
+        "ino=%" PRIuMAX "\n"
+        "size=%" PRIdMAX "\n"
+        "mode=%" PRIuMAX "\n"
+        "uid=%" PRIuMAX "\n"
+        "gid=%" PRIuMAX "\n"
+        "nlink=%" PRIuMAX "\n"
+        "mtime_sec=%" PRIdMAX "\n"
+        "mtime_nsec=%" PRIdMAX "\n"
+        "ctime_sec=%" PRIdMAX "\n"
+        "ctime_nsec=%" PRIdMAX "\n",
+        A90_D3_SOURCE_RECEIPT_SCHEMA,
+        image,
+        normalized_sha,
+        (uintmax_t)source->dev,
+        (uintmax_t)source->ino,
+        (intmax_t)source->size,
+        (uintmax_t)source->mode,
+        (uintmax_t)source->uid,
+        (uintmax_t)source->gid,
+        (uintmax_t)source->nlink,
+        (intmax_t)source->mtime.tv_sec,
+        (intmax_t)source->mtime.tv_nsec,
+        (intmax_t)source->ctime.tv_sec,
+        (intmax_t)source->ctime.tv_nsec);
+    if (length < 0 || (size_t)length >= out_size) {
+        return -EOVERFLOW;
+    }
+    return length;
+}
+
+static int d3_fsync_cache_dir(void) {
+    int fd;
+    int rc = 0;
+
+    fd = open("/cache", O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return -errno;
+    }
+    if (fsync(fd) < 0) {
+        rc = -errno;
+    }
+    if (close(fd) < 0 && rc == 0) {
+        rc = -errno;
+    }
+    return rc;
+}
+
+static int d3_verify_source_receipt_open(
+    const char *image,
+    const char *expected_sha,
+    const struct d3_source_identity *source) {
+    char expected[A90_D3_SOURCE_RECEIPT_MAX];
+    char observed[A90_D3_SOURCE_RECEIPT_MAX];
+    struct stat before;
+    struct stat opened;
+    size_t consumed = 0;
+    ssize_t extra;
+    int expected_size;
+    int fd;
+
+    if (!d3_source_receipt_enabled()) {
+        return -ENOTSUP;
+    }
+    if (d3_source_fd_matches(source) < 0 ||
+        d3_source_path_matches(image, source) < 0) {
+        return -ESTALE;
+    }
+    expected_size = d3_format_source_receipt(
+        expected, sizeof(expected), image, expected_sha, source);
+    if (expected_size < 0) {
+        return expected_size;
+    }
+    if (lstat(A90_D3_SOURCE_RECEIPT_PATH, &before) < 0) {
+        return -errno;
+    }
+    if (!S_ISREG(before.st_mode) || S_ISLNK(before.st_mode) ||
+        before.st_uid != 0 || before.st_gid != 0 || before.st_nlink != 1 ||
+        (before.st_mode & 0777) != 0600 ||
+        before.st_size != (off_t)expected_size) {
+        return -EPERM;
+    }
+    fd = open(A90_D3_SOURCE_RECEIPT_PATH,
+              O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return -errno;
+    }
+    if (fstat(fd, &opened) < 0 ||
+        opened.st_dev != before.st_dev || opened.st_ino != before.st_ino ||
+        opened.st_size != before.st_size || opened.st_mode != before.st_mode ||
+        opened.st_uid != before.st_uid || opened.st_gid != before.st_gid ||
+        opened.st_nlink != before.st_nlink || !S_ISREG(opened.st_mode)) {
+        int saved = errno != 0 ? errno : ESTALE;
+
+        close(fd);
+        return -saved;
+    }
+    while (consumed < (size_t)expected_size) {
+        ssize_t count = read(fd,
+                             observed + consumed,
+                             (size_t)expected_size - consumed);
+
+        if (count < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            close(fd);
+            return -errno;
+        }
+        if (count == 0) {
+            close(fd);
+            return -ESTALE;
+        }
+        consumed += (size_t)count;
+    }
+    do {
+        extra = read(fd, observed, 1U);
+    } while (extra < 0 && errno == EINTR);
+    if (close(fd) < 0 && extra == 0) {
+        return -errno;
+    }
+    if (extra != 0 ||
+        memcmp(observed, expected, (size_t)expected_size) != 0) {
+        return -ESTALE;
+    }
+    return 0;
+}
+
+static int d3_write_source_receipt(
+    const char *image,
+    const char *expected_sha,
+    const struct d3_source_identity *source) {
+    char content[A90_D3_SOURCE_RECEIPT_MAX];
+    char temporary[PATH_MAX];
+    struct stat st;
+    int content_size;
+    int fd;
+    int rc = 0;
+
+    if (!d3_source_receipt_enabled()) {
+        return -ENOTSUP;
+    }
+    content_size = d3_format_source_receipt(
+        content, sizeof(content), image, expected_sha, source);
+    if (content_size < 0) {
+        return content_size;
+    }
+    snprintf(temporary, sizeof(temporary), "%s.tmp", A90_D3_SOURCE_RECEIPT_PATH);
+    if (lstat(temporary, &st) == 0) {
+        if (!S_ISREG(st.st_mode) || st.st_uid != 0 || st.st_gid != 0 ||
+            st.st_nlink != 1 || (st.st_mode & 0777) != 0600) {
+            return -EPERM;
+        }
+        if (unlink(temporary) < 0) {
+            return -errno;
+        }
+    } else if (errno != ENOENT) {
+        return -errno;
+    }
+    if (lstat(A90_D3_SOURCE_RECEIPT_PATH, &st) == 0) {
+        if (!S_ISREG(st.st_mode) || st.st_uid != 0 || st.st_gid != 0 ||
+            st.st_nlink != 1 || (st.st_mode & 0777) != 0600) {
+            return -EPERM;
+        }
+    } else if (errno != ENOENT) {
+        return -errno;
+    }
+    fd = open(temporary,
+              O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
+              0600);
+    if (fd < 0) {
+        return -errno;
+    }
+    if (fchown(fd, 0, 0) < 0 || fchmod(fd, 0600) < 0 ||
+        write_all_checked(fd, content, (size_t)content_size) < 0 ||
+        fsync(fd) < 0) {
+        rc = errno != 0 ? -errno : -EIO;
+    }
+    if (close(fd) < 0 && rc == 0) {
+        rc = -errno;
+    }
+    if (rc == 0 && rename(temporary, A90_D3_SOURCE_RECEIPT_PATH) < 0) {
+        rc = -errno;
+    }
+    if (rc == 0) {
+        rc = d3_fsync_cache_dir();
+    }
+    if (rc < 0) {
+        (void)unlink(temporary);
+        (void)d3_fsync_cache_dir();
+        return rc;
+    }
+    return d3_verify_source_receipt_open(image, expected_sha, source);
 }
 
 static int d3_path_is_mounted(const char *mountpoint) {
@@ -2189,9 +2479,7 @@ static int d3_verify_source_sha_fd(const struct d3_source_identity *source,
 
     if (source == NULL || source->fd < 0 ||
         fstat(source->fd, &before) < 0 ||
-        before.st_dev != source->dev ||
-        before.st_ino != source->ino ||
-        before.st_size != source->size) {
+        !d3_source_stat_matches(source, &before)) {
         a90_console_printf("%s source_sha phase=%s compute=fail\r\n",
                            A90_D3_IMMUTABLE_TAG, phase);
         return -ESTALE;
@@ -2218,9 +2506,7 @@ static int d3_verify_source_sha_fd(const struct d3_source_identity *source,
         offset += got;
     }
     if (fstat(source->fd, &after) < 0 ||
-        after.st_dev != source->dev ||
-        after.st_ino != source->ino ||
-        after.st_size != source->size) {
+        !d3_source_stat_matches(source, &after)) {
         return -ESTALE;
     }
     a90_helper_sha256_final(&context, digest);
@@ -2236,6 +2522,82 @@ static int d3_verify_source_sha_fd(const struct d3_source_identity *source,
     }
     a90_console_printf("%s source_sha phase=%s sha=%s expected_sha_match=1\r\n",
                        A90_D3_IMMUTABLE_TAG, phase, actual_sha);
+    return 0;
+}
+
+int a90_server_distro_source_receipt_preflight(const char *image,
+                                               const char *expected_sha) {
+    struct d3_source_identity source;
+    int rc;
+
+    if (!d3_source_receipt_enabled()) {
+        return 0;
+    }
+    if (!d3_path_clean(image) || !d3_hex64_valid(expected_sha)) {
+        return -EINVAL;
+    }
+    rc = d3_open_source(image, &source);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d3_verify_source_receipt_open(image, expected_sha, &source);
+    close(source.fd);
+    if (rc == 0) {
+        a90_console_printf(
+            "%s source_receipt=verified path=%s metadata=exact full_sha=skipped\r\n",
+            A90_D3_IMMUTABLE_TAG,
+            A90_D3_SOURCE_RECEIPT_PATH);
+    }
+    return rc;
+}
+
+int a90_server_distro_source_receipt_ensure(const char *image,
+                                            const char *expected_sha) {
+    struct d3_source_identity source;
+    int rc;
+
+    if (!d3_source_receipt_enabled()) {
+        return 0;
+    }
+    if (!d3_path_clean(image) || !d3_hex64_valid(expected_sha)) {
+        return -EINVAL;
+    }
+    rc = d3_open_source(image, &source);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d3_verify_source_receipt_open(image, expected_sha, &source);
+    if (rc == 0) {
+        rc = d3_fsync_cache_dir();
+    }
+    if (rc == 0) {
+        a90_console_printf(
+            "%s source_receipt=retained path=%s metadata=exact full_sha=skipped\r\n",
+            A90_D3_IMMUTABLE_TAG,
+            A90_D3_SOURCE_RECEIPT_PATH);
+        close(source.fd);
+        return 0;
+    }
+    a90_console_printf(
+        "%s source_receipt=qualifying path=%s prior_rc=%d full_sha=required\r\n",
+        A90_D3_IMMUTABLE_TAG,
+        A90_D3_SOURCE_RECEIPT_PATH,
+        rc);
+    rc = d3_verify_source_sha_fd(&source, expected_sha, "receipt-qualification");
+    if (rc == 0) {
+        rc = d3_write_source_receipt(image, expected_sha, &source);
+    }
+    close(source.fd);
+    if (rc < 0) {
+        a90_console_printf("%s source_receipt=qualification-failed rc=%d\r\n",
+                           A90_D3_IMMUTABLE_TAG,
+                           rc);
+        return rc;
+    }
+    a90_console_printf(
+        "%s source_receipt=qualified path=%s metadata=exact full_sha=verified\r\n",
+        A90_D3_IMMUTABLE_TAG,
+        A90_D3_SOURCE_RECEIPT_PATH);
     return 0;
 }
 
@@ -2884,6 +3246,7 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     bool mounted_new_dev = false;
     bool mounted_devpts = false;
     int mounted;
+    bool source_receipt_fast;
     char *const newenv[] = {
         (char *)"HOME=/root",
         (char *)"PATH=/sbin:/bin:/usr/sbin:/usr/bin",
@@ -2925,14 +3288,27 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     if (rc < 0) {
         return rc;
     }
-    rc = d3_verify_source_sha_fd(&source, expected_sha, "initial");
+    source_receipt_fast = d3_source_receipt_enabled() != 0;
+    rc = source_receipt_fast
+             ? d3_verify_source_receipt_open(image, expected_sha, &source)
+             : d3_verify_source_sha_fd(&source, expected_sha, "initial");
     if (rc < 0) {
-        a90_console_printf("%s stop=sha-mismatch rc=%d\r\n", A90_D3_TAG, rc);
+        a90_console_printf("%s stop=source-integrity-initial rc=%d mode=%s\r\n",
+                           A90_D3_TAG,
+                           rc,
+                           source_receipt_fast ? "receipt" : "full-sha");
         close(source.fd);
         return rc;
     }
+    if (source_receipt_fast) {
+        a90_console_printf(
+            "%s source_integrity phase=initial mode=receipt metadata=exact full_sha=skipped\r\n",
+            A90_D3_IMMUTABLE_TAG);
+    }
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
-    a90_benchmark_emit("source_sha_initial_done");
+    a90_benchmark_emit(source_receipt_fast
+                           ? "source_receipt_initial_done"
+                           : "source_sha_initial_done");
 #endif
 
     rc = d3_mkdir_p(A90_D3_ROOT, 0755);
@@ -2958,17 +3334,29 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_mark("display_release_done");
 #endif
-    rc = d3_verify_source_sha_fd(
-        &source,
-        expected_sha,
-        "post-display-cleanup");
+    rc = source_receipt_fast
+             ? d3_source_fd_matches(&source)
+             : d3_verify_source_sha_fd(
+                   &source,
+                   expected_sha,
+                   "post-display-cleanup");
+    if (rc == 0 && source_receipt_fast) {
+        rc = d3_source_path_matches(image, &source);
+    }
     if (rc < 0) {
         a90_console_printf("%s stop=source-changed-during-display-cleanup rc=%d\r\n",
                            A90_D3_TAG, rc);
         goto fail_immutable_source;
     }
+    if (source_receipt_fast) {
+        a90_console_printf(
+            "%s source_integrity phase=post-display-cleanup mode=identity metadata=exact full_sha=skipped\r\n",
+            A90_D3_IMMUTABLE_TAG);
+    }
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
-    a90_benchmark_emit("source_sha_post_display_done");
+    a90_benchmark_emit(source_receipt_fast
+                           ? "source_identity_post_display_done"
+                           : "source_sha_post_display_done");
 #endif
     if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) < 0) {
         rc = -errno;

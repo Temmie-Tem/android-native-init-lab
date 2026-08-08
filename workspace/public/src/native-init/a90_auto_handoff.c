@@ -319,6 +319,13 @@ int a90_auto_handoff_arm_cmd(char **argv, int argc) {
     if (enable_state != 0) {
         return enable_state > 0 ? -EEXIST : enable_state;
     }
+    rc = a90_server_distro_source_receipt_ensure(
+        A90_AUTO_HANDOFF_IMAGE,
+        A90_AUTO_HANDOFF_IMAGE_SHA256);
+    if (rc < 0) {
+        a90_console_printf("A90AUTO_ARM armed=0 rc=%d source_receipt=refused\r\n", rc);
+        return rc;
+    }
     rc = a90_auto_handoff_create_enable(intent_sha256);
     if (rc < 0) {
         a90_console_printf("A90AUTO_ARM armed=0 rc=%d\r\n", rc);
@@ -639,6 +646,19 @@ int a90_auto_handoff_run_once(void) {
                             "enable invalid");
         a90_benchmark_mark("auto_handoff_enable_refused");
         return enable_state;
+    }
+    rc = a90_server_distro_source_receipt_preflight(
+        A90_AUTO_HANDOFF_IMAGE,
+        A90_AUTO_HANDOFF_IMAGE_SHA256);
+    if (rc < 0) {
+        a90_console_printf("A90AUTO refused=source-receipt-preflight rc=%d\r\n", rc);
+        a90_logf("auto-handoff", "source receipt preflight failed rc=%d", rc);
+        a90_timeline_record(rc,
+                            -rc,
+                            "auto-handoff",
+                            "source receipt preflight failed before latch");
+        a90_benchmark_mark("auto_handoff_source_receipt_refused");
+        return rc;
     }
     rc = a90_auto_handoff_create_latch(intent_sha256);
     if (rc < 0) {

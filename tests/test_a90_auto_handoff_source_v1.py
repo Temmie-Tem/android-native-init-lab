@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+import tomllib
 import unittest
+
+from _loader import load_script
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -14,11 +17,32 @@ NATIVE = REPO_ROOT / "workspace/public/src/native-init"
 MANIFEST = (
     REPO_ROOT
     / "workspace/public/src/scripts/revalidation/a90_flat_builder"
-    / "versions/phase3-minimal-h8/manifest.toml"
+    / "versions/phase3-minimal-h9/manifest.toml"
+)
+H8_MANIFEST = MANIFEST.parents[1] / "phase3-minimal-h8/manifest.toml"
+FLAT_BUILDER = load_script(
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py"
 )
 
 
 class A90AutoHandoffSourceV1Tests(unittest.TestCase):
+    def test_h9_build_binding_includes_receipt_while_h8_stays_v1(self) -> None:
+        with MANIFEST.open("rb") as stream:
+            h9 = FLAT_BUILDER.normalized_auto_handoff_binding(
+                tomllib.load(stream)
+            )
+        with H8_MANIFEST.open("rb") as stream:
+            h8 = FLAT_BUILDER.normalized_auto_handoff_binding(
+                tomllib.load(stream)
+            )
+        self.assertEqual(h9["schema"], "a90-compiled-auto-handoff-binding-v2")
+        self.assertEqual(
+            h9["receipt_path"],
+            "/cache/a90-source-receipt-phase3-minimal-h9",
+        )
+        self.assertEqual(h8["schema"], "a90-compiled-auto-handoff-binding-v1")
+        self.assertNotIn("receipt_path", h8)
+
     def test_evidence_run_fsyncs_file_and_parent_directory(self) -> None:
         source = (NATIVE / "a90_auto_handoff.c").read_text(encoding="utf-8")
         publish = source[
@@ -102,6 +126,68 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
         self.assertIn("observed.lo_device != (uint64_t)source->dev", attach)
         self.assertIn("observed.lo_inode != (uint64_t)source->ino", attach)
         self.assertNotIn('"losetup"', attach)
+
+    def test_h9_fast_receipt_binds_full_source_metadata_and_is_durable(self) -> None:
+        source = (NATIVE / "a90_server_distro.c").read_text(encoding="utf-8")
+        identity = source[
+            source.index("struct d3_source_identity {"):
+            source.index("static int d3_open_source(")
+        ]
+        verify = source[
+            source.index("static int d3_verify_source_receipt_open("):
+            source.index("static int d3_write_source_receipt(")
+        ]
+        publish_at = source.index("static int d3_write_source_receipt(")
+        publish = source[
+            publish_at:
+            source.index("static int d3_path_is_mounted(", publish_at)
+        ]
+        for field in (
+            "dev", "ino", "size", "mode", "uid", "gid", "nlink",
+            "mtime", "ctime",
+        ):
+            self.assertIn(field, identity)
+        self.assertIn("d3_source_fd_matches(source)", verify)
+        self.assertIn("d3_source_path_matches(image, source)", verify)
+        self.assertIn("memcmp(observed, expected", verify)
+        self.assertIn("O_RDONLY | O_CLOEXEC | O_NOFOLLOW", verify)
+        self.assertIn("O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW", publish)
+        self.assertIn("fsync(fd)", publish)
+        self.assertIn("rename(temporary, A90_D3_SOURCE_RECEIPT_PATH)", publish)
+        self.assertIn("d3_fsync_cache_dir()", publish)
+
+    def test_h9_arm_qualifies_once_and_boot_only_verifies_before_latch(self) -> None:
+        source = (NATIVE / "a90_auto_handoff.c").read_text(encoding="utf-8")
+        arm = source[
+            source.index("int a90_auto_handoff_arm_cmd("):
+            source.index("static int a90_auto_handoff_mkdir_evidence_dir(")
+        ]
+        run = source[
+            source.index("int a90_auto_handoff_run_once(void)"):
+            source.index("#else", source.index("int a90_auto_handoff_run_once(void)"))
+        ]
+        self.assertLess(
+            arm.index("a90_server_distro_source_receipt_ensure("),
+            arm.index("a90_auto_handoff_create_enable("),
+        )
+        self.assertLess(
+            run.index("a90_server_distro_source_receipt_preflight("),
+            run.index("a90_auto_handoff_create_latch("),
+        )
+        self.assertNotIn("a90_server_distro_source_receipt_ensure(", run)
+
+    def test_h9_routine_handoff_skips_full_sha_but_revalidates_same_fd(self) -> None:
+        source = (NATIVE / "a90_server_distro.c").read_text(encoding="utf-8")
+        handoff = source[
+            source.index("int a90_server_distro_switch_root_cmd("):
+            source.index("#define A90_D4_TAG")
+        ]
+        self.assertIn("source_receipt_fast = d3_source_receipt_enabled() != 0", handoff)
+        self.assertIn("? d3_verify_source_receipt_open(image, expected_sha, &source)", handoff)
+        self.assertIn("? d3_source_fd_matches(&source)", handoff)
+        self.assertIn("d3_source_path_matches(image, &source)", handoff)
+        self.assertIn('"source_receipt_initial_done"', handoff)
+        self.assertIn('"source_identity_post_display_done"', handoff)
 
     def test_read_only_root_mounts_private_dev_tmpfs_before_node_creation(self) -> None:
         source = (NATIVE / "a90_server_distro.c").read_text(encoding="utf-8")
@@ -195,9 +281,9 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
         source = (NATIVE / "a90_server_distro.c").read_text(encoding="utf-8")
         stages = (
             "handoff_begin",
-            "source_sha_initial_done",
+            "source_receipt_initial_done",
             "display_release_done",
-            "source_sha_post_display_done",
+            "source_identity_post_display_done",
             "loop_attached",
             "root_mounted",
             "writable_set_ready",
@@ -206,7 +292,7 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
             "mount_moves_done",
             "switch_root_exec",
         )
-        positions = [source.index(f'("{stage}")') for stage in stages]
+        positions = [source.index(f'"{stage}"') for stage in stages]
         self.assertEqual(positions, sorted(positions))
 
     def test_manifest_binds_profile_specific_latch_and_exact_rootfs(self) -> None:
@@ -215,16 +301,17 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
         self.assertIn("-DA90_AUTO_HANDOFF_BENCHMARK_V1=1", manifest)
         self.assertIn(
             "/mnt/sdext/a90/runtime/"
-            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260809-01.img",
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260809-02.img",
             manifest,
         )
         self.assertIn(
             "e2028b021cd67ebf16ad3cb917e9b548e1fcc434d5e42f10117854f202d01b24",
             manifest,
         )
-        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h8.enable", manifest)
-        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h8.done", manifest)
-        self.assertIn('-DINIT_VERSION="0.11.176"', manifest)
+        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h9.enable", manifest)
+        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h9.done", manifest)
+        self.assertIn("/cache/a90-source-receipt-phase3-minimal-h9", manifest)
+        self.assertIn('-DINIT_VERSION="0.11.177"', manifest)
 
     def test_manifest_pins_the_read_only_source_and_evidence_strings(self) -> None:
         """The builder verifies pinned strings against the built init.
@@ -242,6 +329,8 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
             "handoff_display process_limit=%u scanned=%u stop=refused",
             "evidence_bind=source-private",
             "dev_mountpoint=0 dev_tmpfs=mounted image_write=0",
+            "source_receipt=qualified path=%s metadata=exact full_sha=verified",
+            "source_receipt=verified path=%s metadata=exact full_sha=skipped",
         ):
             self.assertIn(pinned, manifest)
 

@@ -1,0 +1,83 @@
+{
+  "capability": "A90_PHASE3_MINIMAL_H9_FAST_SOURCE_INTEGRITY_RECEIPT",
+  "decision": "No unresolved HIGH, MEDIUM, or LOW finding. H9 performs one full source SHA256 qualification before its first arm, durably binds the exact receipt state, and uses exact metadata, file-descriptor, path, and loop identity checks on routine automatic handoff without weakening legacy H2-H8 SHA behavior, no-replay, rollback, or final-health requirements.",
+  "device_authority_granted": false,
+  "findings": {
+    "high": 0,
+    "low": 0,
+    "medium": 0,
+    "resolved_during_review": [
+      "Restored exact legacy H2-H8 SHA marker selection after the initial H9 marker family replaced it globally.",
+      "Rejected generic H9 D1 dispatch so only the receipt-qualifying auto-benchmark arm lane can start H9 handoff.",
+      "Rejected mixed legacy and fast benchmark marker families.",
+      "Rebound H9 from the installed H8 rootfs path to a fresh absent H9-only destination under the higher-precedence target contract.",
+      "Added the versioned receipt path to compiled binding v2, first-boot contract v3, and the three-path pre-transfer absence proof.",
+      "Changed pre-transfer state parsing from a substring count to an exact singleton A90AUTO_F1_PRE line set, rejecting contradictory, duplicate, and stale mixed output."
+    ]
+  },
+  "named_execution_critical_closure": {
+    "benchmark_execution_closure_sha256": "4a49b236cadeb656f83c039c417190b2d70446231ca729e7bd29bb1b5b752d78",
+    "compiled_binding_sha256": "02f441da4ccb982e52ce8b75438df38a68eb6b3f3e4de0cd6f7616e250876a88",
+    "manifest_sha256": "8054fb53fa047f6357be464582971bc4d87e22581650c4ef6465cd44a6043341",
+    "native_init_closure_sha256": "3359e10f72f6bc4dac6405c182dfeee0df40573d0852323c81608bf46076dabc"
+  },
+  "permanent_boundaries_unchanged": true,
+  "review_date": "2026-08-09",
+  "review_lifetime": {
+    "fresh_exact_d0_and_live_binding_required": true,
+    "live_authority_from_review": false,
+    "reuse": "PASS_GO qualifies this H9 capability while the four named execution-critical identities and reviewed hazard assumptions remain unchanged and no new hazard or incident occurs."
+  },
+  "reviewed_properties": {
+    "arm_full_sha_before_receipt_and_enable": true,
+    "benchmark_hybrid_and_duplicate_evidence_rejected": true,
+    "candidate_authority_false": true,
+    "compiled_receipt_binding_v2_exact": true,
+    "drm_master_required": true,
+    "f1_first_boot_contract_v3_exact": true,
+    "f1_pretransfer_enable_latch_receipt_absent": true,
+    "f1_pretransfer_mixed_output_rejected": true,
+    "fresh_h9_rootfs_destination_distinct_from_h8": true,
+    "generic_h9_d1_bypass_rejected": true,
+    "h2_h8_two_sha_behavior_preserved": true,
+    "no_replay_and_health_barriers_preserved": true,
+    "receipt_durability_and_exact_metadata": true,
+    "routine_source_fd_path_loop_identity_exact": true,
+    "s22plus_authority": false,
+    "tail_final_record_preserved": true,
+    "timeout_and_cleanup_bounds_enforced": true
+  },
+  "reviewer": "independent subagent /root/a90_h7_closure_review",
+  "reviewer_device_contact": false,
+  "reviewer_implementation_edits": false,
+  "reviewer_network_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_s22plus_contact": false,
+  "reviewer_usb_contact": false,
+  "schema": "a90-phase3-resident-refresh-f1-independent-review-v1",
+  "scope": {
+    "build_receipt_sha256": "2c8e45edcb9a1604c5b905b6dc956446d38ef94504ab44a2bb3dc5a16b06bd1e",
+    "candidate_authority": false,
+    "candidate_boot_sha256": "c78cd6b4eee5b44c6249ad20729f0379a97cd83db67cab2287271813cd91439f",
+    "candidate_boot_size": 58372096,
+    "candidate_build": "phase3-minimal-h9-fast-source-receipt-auto-benchmark",
+    "candidate_version": "0.11.177",
+    "effective_manifest_sha256": "1fa72998b42e68517fe2648d04cc3724b5c15c70182ca558c8f9deb8ce8e36a6",
+    "live_authority": false,
+    "rootfs_sha256": "e2028b021cd67ebf16ad3cb917e9b548e1fcc434d5e42f10117854f202d01b24"
+  },
+  "status": "PASS_GO",
+  "target": "Samsung Galaxy A90 5G only",
+  "unresolved_findings": [],
+  "validation": {
+    "aarch64_static_link_strip": "PASS",
+    "deterministic_a_b_boot_byte_identical": "PASS",
+    "finalizer_host_only_audit": "PASS",
+    "flat_builder_host_only_audit": "PASS",
+    "git_diff_check": "PASS",
+    "main_a90_tests_passed": 325,
+    "python_py_compile": "PASS",
+    "resident_builder_host_only_audit": "PASS",
+    "reviewer_focused_tests_passed": 294
+  }
+}

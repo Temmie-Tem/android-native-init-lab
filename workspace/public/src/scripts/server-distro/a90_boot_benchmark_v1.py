@@ -61,7 +61,7 @@ OPTIONAL_INTEGER_FIELDS = frozenset(
 OPTIONAL_EARLY_STAGES = (
     "native_cache_stage_ready",
 )
-COMPLETE_STAGES = (
+LEGACY_COMPLETE_STAGES = (
     "native_runtime_ready",
     "native_services_ready",
     "auto_handoff_check",
@@ -70,6 +70,23 @@ COMPLETE_STAGES = (
     "source_sha_initial_done",
     "display_release_done",
     "source_sha_post_display_done",
+    "loop_attached",
+    "root_mounted",
+    "writable_set_ready",
+    "distro_init_verified",
+    "display_marker_ready",
+    "mount_moves_done",
+    "switch_root_exec",
+)
+COMPLETE_STAGES = (
+    "native_runtime_ready",
+    "native_services_ready",
+    "auto_handoff_check",
+    "auto_handoff_dispatched",
+    "handoff_begin",
+    "source_receipt_initial_done",
+    "display_release_done",
+    "source_identity_post_display_done",
     "loop_attached",
     "root_mounted",
     "writable_set_ready",
@@ -88,7 +105,16 @@ PHASES = {
         "display_release_done",
         "source_sha_post_display_done",
     ),
-    "loop_attach_ms": ("source_sha_post_display_done", "loop_attached"),
+    "source_receipt_initial_ms": (
+        "handoff_begin",
+        "source_receipt_initial_done",
+    ),
+    "source_identity_post_display_ms": (
+        "display_release_done",
+        "source_identity_post_display_done",
+    ),
+    "loop_attach_ms": ("source_identity_post_display_done", "loop_attached"),
+    "legacy_loop_attach_ms": ("source_sha_post_display_done", "loop_attached"),
     "root_mount_ms": ("loop_attached", "root_mounted"),
     "writable_set_ms": ("root_mounted", "writable_set_ready"),
     "distro_init_check_ms": ("writable_set_ready", "distro_init_verified"),
@@ -96,6 +122,10 @@ PHASES = {
     "mount_moves_ms": ("display_marker_ready", "mount_moves_done"),
     "switch_root_exec_prep_ms": ("mount_moves_done", "switch_root_exec"),
 }
+DERIVED_COMPARISON_PHASES = (
+    "source_integrity_initial_ms",
+    "source_integrity_post_display_ms",
+)
 
 
 class BenchmarkError(RuntimeError):
@@ -204,14 +234,32 @@ def _result_from_records(
     if not records:
         raise BenchmarkError("benchmark boot segment is empty")
     by_stage = {record["stage"]: record for record in records}
-    missing = [stage for stage in COMPLETE_STAGES if stage not in by_stage]
+    legacy_integrity_stages = {
+        "source_sha_initial_done",
+        "source_sha_post_display_done",
+    }
+    fast_integrity_stages = {
+        "source_receipt_initial_done",
+        "source_identity_post_display_done",
+    }
+    if (
+        legacy_integrity_stages & set(by_stage)
+        and fast_integrity_stages & set(by_stage)
+    ):
+        raise BenchmarkError("benchmark segment mixes legacy and fast integrity stages")
+    complete_stages = (
+        LEGACY_COMPLETE_STAGES
+        if legacy_integrity_stages & set(by_stage)
+        else COMPLETE_STAGES
+    )
+    missing = [stage for stage in complete_stages if stage not in by_stage]
     if require_complete and missing:
         raise BenchmarkError(f"complete handoff markers missing: {missing!r}")
     if not missing:
         stage_indexes = {
             record["stage"]: index for index, record in enumerate(records)
         }
-        ordered_stages = OPTIONAL_EARLY_STAGES + COMPLETE_STAGES
+        ordered_stages = OPTIONAL_EARLY_STAGES + complete_stages
         complete_indexes = [
             stage_indexes[stage]
             for stage in ordered_stages
@@ -247,6 +295,20 @@ def _result_from_records(
             )
         else:
             phase_durations[name] = None
+    if phase_durations["loop_attach_ms"] is None:
+        phase_durations["loop_attach_ms"] = phase_durations[
+            "legacy_loop_attach_ms"
+        ]
+    phase_durations["source_integrity_initial_ms"] = (
+        phase_durations["source_receipt_initial_ms"]
+        if phase_durations["source_receipt_initial_ms"] is not None
+        else phase_durations["source_sha_initial_ms"]
+    )
+    phase_durations["source_integrity_post_display_ms"] = (
+        phase_durations["source_identity_post_display_ms"]
+        if phase_durations["source_identity_post_display_ms"] is not None
+        else phase_durations["source_sha_post_display_ms"]
+    )
 
     return {
         "schema": RESULT_SCHEMA,
@@ -325,7 +387,7 @@ def compare_runs(baseline: dict[str, Any], candidate: dict[str, Any]) -> dict[st
     baseline_phases = baseline["phase_durations_ms"]
     candidate_phases = candidate["phase_durations_ms"]
     phases: dict[str, dict[str, int | None]] = {}
-    for name in PHASES:
+    for name in (*PHASES, *DERIVED_COMPARISON_PHASES):
         before = baseline_phases[name]
         after = candidate_phases[name]
         phases[name] = {

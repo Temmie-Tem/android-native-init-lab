@@ -46,6 +46,9 @@
 #ifndef A90_AUTO_HANDOFF_ENABLE_PATH
 #define A90_AUTO_HANDOFF_ENABLE_PATH "/cache/a90-auto-handoff-benchmark-v1.enable"
 #endif
+#ifndef A90_D3_SOURCE_RECEIPT_PATH
+#define A90_D3_SOURCE_RECEIPT_PATH ""
+#endif
 #define BOOT_SPLASH_SECONDS 2
 #define BOOT_HUD_REFRESH_SECONDS 2
 #define NATIVE_LOG_PRIMARY "/cache/native-init.log"
