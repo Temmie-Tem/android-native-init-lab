@@ -262,6 +262,21 @@ The pre-H2 goal history is preserved at
   `9edcbf8821c5fb5069576ca403ed04e873e9dfcf79dedb59e2d976d6981af4a2`.
   This was H0 only: no A90 or S22+ command, D0, D1, F1, payload, flash, reboot,
   or live authority occurred.
+- The H7 F1 integration now binds the original host-preserved run05 rootfs,
+  a fresh byte-identical A/B rebuild at the same boot SHA256 `9edcbf88...`,
+  build receipt `5786bc0a...`, and compiled binding `12fd4ad7...`. Adding the
+  exact H7 identity to the F1 orchestrator changed the benchmark execution
+  closure, so the earlier `c040331e...` receipt is not reused. Fresh independent
+  review is `PASS_GO` at Phase3 closure `15d2012f...` and benchmark closure
+  `5cc93e91...`, with HIGH/MEDIUM zero and no new hazard or incident.
+- Fresh run05 connected D0 re-proved exact installed H6 `0.11.174`, self-test
+  `11/1/0`, exact V2321 rollback, direct A90 NCM reachability, and absent H7
+  source/work/stage paths. D0 and path-preflight SHA256 values are
+  `3ca9d90cc5ed092eb8fe9e5ca200b78e39643aab6ae5328ef58e485ad07abd55`
+  and `9186cbf7b75f3f011de6b866c522945e7a0c3d02826460053c84d55254ac9553`.
+  Device write, payload, flash, reboot, and S22+ command counts are zero. The
+  next gate is immutable H7 host-manifest publication; review and D0 grant no
+  live authority.
 
 ## Qualified Capabilities
 
@@ -336,7 +351,11 @@ The pre-H2 goal history is preserved at
   independent `PASS_GO` at native closure
   `f17aac71d21701a9e7a4db62f825029fd73aea7f281759061ec47d8ef8a37a03`
   and benchmark execution closure
-  `c040331e0a67c1be1876d4a18a630378786cdb0f722ec5b1de1e66350c0fed70`.
+  `5cc93e91103a7aad4fa11af71d56570960e132e21259deeba695e466447ff8d3`,
+  with its exact F1 integration bound by Phase3 closure
+  `15d2012f2fad35bc794b33cc88a762c82c827ec28d50f8002a5dc258dae2dd9d`.
+  The prior benchmark closure `c040331e...` is superseded because the F1
+  orchestrator hash changed.
   It is reusable across manifests, campaigns, qualifications, and ordinals
   only while those named closures and the reviewed hazards remain unchanged
   and no new hazard or incident occurs. It grants no device or live authority;

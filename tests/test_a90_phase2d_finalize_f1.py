@@ -219,6 +219,37 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
             "238a1ae3aa1f4a2a1a8c46d8368fa4e025d0a0be7fb4ed77e7ccd80b410d1483",
         )
 
+    def test_minimal_h7_candidate_binds_readonly_source_evidence(self) -> None:
+        selected = finalizer.select_candidate_profile(
+            finalizer.MINIMAL_H7_CANDIDATE_PROFILE
+        )
+        contract = finalizer.candidate_first_boot_contract(selected)
+        self.assertEqual(selected.version, "0.11.175")
+        self.assertEqual(
+            selected.sha256,
+            "9edcbf8821c5fb5069576ca403ed04e873e9dfcf79dedb59e2d976d6981af4a2",
+        )
+        self.assertEqual(
+            selected.build_receipt.name,
+            "ab-receipt.json",
+        )
+        self.assertEqual(
+            selected.build_receipt_sha256,
+            "5786bc0a5a9999a158647203afe5d51d60569d42c6fc76bb3a063e7bdd483773",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["image_path"],
+            "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260807-05.img",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["image_sha256"],
+            "b92a5437d3854b0f01e4b2acc4a241ad9c8ad8f0b17d7cc36e246d2fbb01d10a",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["binding_sha256"],
+            "12fd4ad71f9e976455737d2671006cab77c8da916fad87d6e09eaae8f6253f7c",
+        )
+
     def test_unknown_candidate_profile_is_rejected(self) -> None:
         with self.assertRaisesRegex(finalizer.ContractError, "not exact"):
             finalizer.select_candidate_profile("arbitrary")
