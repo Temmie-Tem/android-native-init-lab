@@ -623,6 +623,33 @@ class ResidentManifestBuilderTests(unittest.TestCase):
             "12fd4ad71f9e976455737d2671006cab77c8da916fad87d6e09eaae8f6253f7c",
         )
 
+    def test_h8_candidate_binds_dev_tmpfs_repair(self) -> None:
+        selected = builder.select_candidate_profile(
+            builder.MINIMAL_H8_CANDIDATE_PROFILE
+        )
+        contract = builder.candidate_first_boot_contract(selected)
+        self.assertEqual(selected.version, "0.11.176")
+        self.assertEqual(
+            selected.sha256,
+            "cfffb68a4d47f8ae1a76cee7faef8085e1681f1c53155cd6d03d7d87c15f7409",
+        )
+        self.assertEqual(
+            selected.build_receipt_sha256,
+            "5285e0e6c1119151aa98d7cd5ee27b320939901a68408aa4a3c45defe5408ac6",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["image_path"],
+            "/mnt/sdext/a90/runtime/debian-bookworm-arm64-phase2-display-v3406-keyed-20260809-01.img",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["image_sha256"],
+            "e2028b021cd67ebf16ad3cb917e9b548e1fcc434d5e42f10117854f202d01b24",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["binding_sha256"],
+            "4221d365c10a86a85c2ebaeb64cdbe1d1ea8c240226ce5868b6c20afeb6b51a3",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -407,6 +407,17 @@ The pre-H2 goal history is preserved at
   under H7 identity. A replacement requires a fresh version/build, rootfs
   destination, enable/latch namespace, manifest, qualification, exact D0, and
   attended boot-only installation.
+- H8 now supplies that replacement identity at version `0.11.176` and build
+  `phase3-minimal-h8-dev-tmpfs-handoff-repair-auto-benchmark`. Its deterministic
+  non-LTO A/B boot SHA256 is
+  `cfffb68a4d47f8ae1a76cee7faef8085e1681f1c53155cd6d03d7d87c15f7409`,
+  compiled binding is `4221d365...`, native closure remains the reviewed
+  `0682012c...`, and the H8 F1/D1 execution closure has independent `PASS_GO`
+  at `1a23d1f0...` with benchmark closure `c2a8f666...`. Fresh exact connected
+  D0 proves installed H7 healthy, exact H8 candidate and V2321 rollback, and
+  the H8 final/work/stage paths absent. No H8 staging, candidate transfer,
+  flash, or reboot has occurred; exact resident binding and attended F1 are
+  next.
 
 ## Proven Product Path
 
@@ -525,6 +536,7 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_PHASE3_MINIMAL_H6_RUN03_REBIND_INDEPENDENT_REVIEW_2026-08-07.json`
 - `docs/reports/A90_H6_D1_POST_REBOOT_BOUND_BRIDGE_OBSERVER_INCIDENT_REVIEW_2026-08-07.json`
 - `docs/reports/A90_PHASE3_MINIMAL_H7_READONLY_SOURCE_ONDEVICE_EVIDENCE_INDEPENDENT_REVIEW_2026-08-08.json`
+- `docs/reports/A90_PHASE3_MINIMAL_H8_E19_REPAIR_INDEPENDENT_REVIEW_2026-08-09.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`

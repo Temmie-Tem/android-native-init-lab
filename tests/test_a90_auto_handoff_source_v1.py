@@ -14,7 +14,7 @@ NATIVE = REPO_ROOT / "workspace/public/src/native-init"
 MANIFEST = (
     REPO_ROOT
     / "workspace/public/src/scripts/revalidation/a90_flat_builder"
-    / "versions/phase3-minimal-h7/manifest.toml"
+    / "versions/phase3-minimal-h8/manifest.toml"
 )
 
 
@@ -215,16 +215,16 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
         self.assertIn("-DA90_AUTO_HANDOFF_BENCHMARK_V1=1", manifest)
         self.assertIn(
             "/mnt/sdext/a90/runtime/"
-            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260807-05.img",
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260809-01.img",
             manifest,
         )
         self.assertIn(
-            "b92a5437d3854b0f01e4b2acc4a241ad9c8ad8f0b17d7cc36e246d2fbb01d10a",
+            "e2028b021cd67ebf16ad3cb917e9b548e1fcc434d5e42f10117854f202d01b24",
             manifest,
         )
-        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h7.enable", manifest)
-        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h7.done", manifest)
-        self.assertIn('-DINIT_VERSION="0.11.175"', manifest)
+        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h8.enable", manifest)
+        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h8.done", manifest)
+        self.assertIn('-DINIT_VERSION="0.11.176"', manifest)
 
     def test_manifest_pins_the_read_only_source_and_evidence_strings(self) -> None:
         """The builder verifies pinned strings against the built init.
@@ -241,7 +241,7 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
             "handoff_display owner_limit=%u attempted=%u stop=refused",
             "handoff_display process_limit=%u scanned=%u stop=refused",
             "evidence_bind=source-private",
-            "dev_mountpoint=0 refused=read-only-root-requires-mounted-dev",
+            "dev_mountpoint=0 dev_tmpfs=mounted image_write=0",
         ):
             self.assertIn(pinned, manifest)
 
