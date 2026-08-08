@@ -103,18 +103,26 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
         self.assertIn("observed.lo_inode != (uint64_t)source->ino", attach)
         self.assertNotIn('"losetup"', attach)
 
-    def test_h7_read_only_root_refuses_unmounted_dev_fallback(self) -> None:
+    def test_read_only_root_mounts_private_dev_tmpfs_before_node_creation(self) -> None:
         source = (NATIVE / "a90_server_distro.c").read_text(encoding="utf-8")
+        prepare = source[
+            source.index("static int d3_prepare_new_dev("):
+            source.index("static void d3_restore_mount_one(")
+        ]
         move = source[
             source.index("static int d3_move_core_mounts("):
             source.index("static void d3_restore_core_mounts(")
         ]
-        self.assertIn(
-            "dev_mountpoint=0 refused=read-only-root-requires-mounted-dev",
-            move,
+        self.assertIn('lstat(dev_dir, &st)', prepare)
+        self.assertNotIn("d3_mkdir_p(dev_dir", prepare)
+        self.assertLess(
+            prepare.index('mount("tmpfs", dev_dir, "tmpfs"'),
+            prepare.index('d3_prepare_dev_node("dev/console"'),
         )
-        self.assertNotIn("d3_prepare_new_dev", move)
-        self.assertIn("return -ENODEV;", move)
+        self.assertIn("dev_tmpfs=mounted image_write=0", prepare)
+        self.assertIn("umount2(dev_dir, MNT_DETACH)", prepare)
+        self.assertIn("d3_prepare_new_dev(mounted_devpts)", move)
+        self.assertNotIn("read-only-root-requires-mounted-dev", move)
 
     def test_ondevice_evidence_tail_keeps_preceding_and_final_bytes(self) -> None:
         source = (NATIVE / "a90_auto_handoff.c").read_text(encoding="utf-8")

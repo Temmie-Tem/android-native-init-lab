@@ -2643,6 +2643,9 @@ static int d3_prepare_optional_ttygs0(void) {
 static int d3_prepare_new_dev(bool *mounted_devpts) {
     char dev_dir[PATH_MAX];
     char pts_dir[PATH_MAX];
+    struct stat st;
+    bool dev_tmpfs_mounted = false;
+    bool devpts_mounted = false;
     int rc;
 
     if (mounted_devpts != NULL) {
@@ -2652,51 +2655,70 @@ static int d3_prepare_new_dev(bool *mounted_devpts) {
     if (rc < 0) {
         return rc;
     }
-    rc = d3_mkdir_p(dev_dir, 0755);
-    if (rc < 0) {
+    if (lstat(dev_dir, &st) < 0) {
+        rc = -errno;
+        a90_console_printf("%s dev_tmpfs=refused missing-root-dir rc=%d path=%s\r\n",
+                           A90_D3_IMMUTABLE_TAG, rc, dev_dir);
         return rc;
     }
+    if (!S_ISDIR(st.st_mode)) {
+        a90_console_printf("%s dev_tmpfs=refused root-not-directory path=%s\r\n",
+                           A90_D3_IMMUTABLE_TAG, dev_dir);
+        return -ENOTDIR;
+    }
+    if (mount("tmpfs", dev_dir, "tmpfs", MS_NOSUID | MS_NOEXEC, "mode=0755") < 0) {
+        rc = -errno;
+        a90_console_printf("%s dev_tmpfs=mount-fail rc=%d path=%s\r\n",
+                           A90_D3_IMMUTABLE_TAG, rc, dev_dir);
+        return rc;
+    }
+    dev_tmpfs_mounted = true;
+    a90_console_printf(
+        "%s dev_mountpoint=0 dev_tmpfs=mounted image_write=0 root=%s\r\n",
+        A90_D3_IMMUTABLE_TAG,
+        dev_dir);
     rc = d3_prepare_dev_node("dev/console", 0600, 5, 1);
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     rc = d3_prepare_dev_node("dev/tty", 0666, 5, 0);
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     rc = d3_prepare_dev_node("dev/ptmx", 0666, 5, 2);
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     rc = d3_prepare_dev_node("dev/null", 0666, 1, 3);
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     rc = d3_prepare_dev_node("dev/zero", 0666, 1, 5);
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     rc = d3_prepare_dev_node("dev/random", 0666, 1, 8);
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     rc = d3_prepare_dev_node("dev/urandom", 0666, 1, 9);
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     rc = d3_prepare_optional_ttygs0();
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     rc = d3_join(pts_dir, sizeof(pts_dir), A90_D3_ROOT, "dev/pts");
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     rc = d3_mkdir_p(pts_dir, 0755);
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     if (mount("devpts", pts_dir, "devpts", 0, "mode=620,ptmxmode=666") == 0) {
+        devpts_mounted = true;
         if (mounted_devpts != NULL) {
             *mounted_devpts = true;
         }
@@ -2708,6 +2730,20 @@ static int d3_prepare_new_dev(bool *mounted_devpts) {
     a90_console_printf("%s dev_mountpoint=0 dev_nodes=prepared root=%s\r\n",
                        A90_D3_TAG, dev_dir);
     return 0;
+
+fail_new_dev:
+    if (devpts_mounted) {
+        (void)umount2(pts_dir, MNT_DETACH);
+    }
+    if (mounted_devpts != NULL) {
+        *mounted_devpts = false;
+    }
+    if (dev_tmpfs_mounted && umount2(dev_dir, MNT_DETACH) < 0) {
+        a90_console_printf("%s dev_tmpfs=cleanup-fail errno=%d path=%s\r\n",
+                           A90_D3_IMMUTABLE_TAG, errno, dev_dir);
+        return -EBUSY;
+    }
+    return rc;
 }
 
 static void d3_restore_mount_one(const char *leaf, const char *dst) {
@@ -2731,6 +2767,7 @@ static void d3_unmount_leaf(const char *leaf) {
 static int d3_move_core_mounts(bool *moved_proc,
                                bool *moved_sys,
                                bool *moved_dev,
+                               bool *mounted_new_dev,
                                bool *mounted_devpts) {
     int dev_mounted;
     int rc;
@@ -2743,6 +2780,9 @@ static int d3_move_core_mounts(bool *moved_proc,
     }
     if (moved_dev != NULL) {
         *moved_dev = false;
+    }
+    if (mounted_new_dev != NULL) {
+        *mounted_new_dev = false;
     }
     if (mounted_devpts != NULL) {
         *mounted_devpts = false;
@@ -2786,28 +2826,37 @@ static int d3_move_core_mounts(bool *moved_proc,
             *moved_dev = true;
         }
     } else {
-        a90_console_printf(
-            "%s dev_mountpoint=0 refused=read-only-root-requires-mounted-dev\r\n",
-            A90_D3_IMMUTABLE_TAG);
-        d3_restore_mount_one("sys", "/sys");
-        d3_restore_mount_one("proc", "/proc");
-        if (moved_sys != NULL) {
-            *moved_sys = false;
+        rc = d3_prepare_new_dev(mounted_devpts);
+        if (rc < 0) {
+            d3_restore_mount_one("sys", "/sys");
+            d3_restore_mount_one("proc", "/proc");
+            if (moved_sys != NULL) {
+                *moved_sys = false;
+            }
+            if (moved_proc != NULL) {
+                *moved_proc = false;
+            }
+            return rc;
         }
-        if (moved_proc != NULL) {
-            *moved_proc = false;
+        if (mounted_new_dev != NULL) {
+            *mounted_new_dev = true;
         }
-        return -ENODEV;
     }
     return 0;
 }
 
-static void d3_restore_core_mounts(bool moved_proc, bool moved_sys, bool moved_dev, bool mounted_devpts) {
+static void d3_restore_core_mounts(bool moved_proc,
+                                   bool moved_sys,
+                                   bool moved_dev,
+                                   bool mounted_new_dev,
+                                   bool mounted_devpts) {
     if (mounted_devpts) {
         d3_unmount_leaf("dev/pts");
     }
     if (moved_dev) {
         d3_restore_mount_one("dev", "/dev");
+    } else if (mounted_new_dev) {
+        d3_unmount_leaf("dev");
     }
     if (moved_sys) {
         d3_restore_mount_one("sys", "/sys");
@@ -2832,6 +2881,7 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     bool moved_proc = false;
     bool moved_sys = false;
     bool moved_dev = false;
+    bool mounted_new_dev = false;
     bool mounted_devpts = false;
     int mounted;
     char *const newenv[] = {
@@ -2982,7 +3032,12 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_mark("display_marker_ready");
 #endif
-    rc = d3_move_core_mounts(&moved_proc, &moved_sys, &moved_dev, &mounted_devpts);
+    rc = d3_move_core_mounts(
+        &moved_proc,
+        &moved_sys,
+        &moved_dev,
+        &mounted_new_dev,
+        &mounted_devpts);
     if (rc < 0) {
         a90_console_printf("%s mount_move=fail rc=%d\r\n", A90_D3_TAG, rc);
         goto fail_before_move;
@@ -3007,10 +3062,16 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     rc = -errno;
     a90_console_printf("%s execve_switch_root=fail rc=%d errno=%d (%s)\r\n",
                        A90_D3_TAG, rc, -rc, strerror(-rc));
-    d3_restore_core_mounts(moved_proc, moved_sys, moved_dev, mounted_devpts);
+    d3_restore_core_mounts(
+        moved_proc,
+        moved_sys,
+        moved_dev,
+        mounted_new_dev,
+        mounted_devpts);
     moved_proc = false;
     moved_sys = false;
     moved_dev = false;
+    mounted_new_dev = false;
     mounted_devpts = false;
 
 fail_before_move:

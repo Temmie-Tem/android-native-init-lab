@@ -286,6 +286,32 @@ The pre-H2 goal history is preserved at
   zero, resident reboot zero, and replay false. The ModemManager guard released
   with no rule residue. S22+ received no command. This F1 is terminal and must
   never replay; H7 is now the installed resident.
+- Attended D1 run `a90-d1-attended-20260809-01` armed H7 once and rebooted
+  once. Automatic handoff reached the read-only root mount, writable tmpfs set,
+  Debian init verification, and display marker, then returned native with
+  `E19` before `mount_moves_done` or `switch_root_exec`. The exact cause is
+  `ENODEV`: native `/dev` was not a mountpoint, and H7 deliberately refused to
+  create the fallback `/dev` in the immutable rootfs. Debian PID 1, SSH, and
+  DRM/display ownership are therefore not claimed.
+- Read-only reconciliation and the exact historical seven-record tail closed
+  the same ordinal without another arm, reboot, handoff, or cleanup dispatch.
+  Result SHA256
+  `098b0a50ea1f9cdb210d92fc9faf8a797b33eca27d172e7529adf2fd73805ea1`
+  is `REFUTED_AUTO_HANDOFF_NATIVE_HANDOFF_RESIDENT_HEALTHY`: exact H7
+  `0.11.175`, self-test `11/1/0`, `binding=1 enable=1 latch=1`, immutable
+  source exact, work absent, replay false, and payload, partition write, flash,
+  and rollback zero. S22+ received no command.
+- The E19 repair mounts private `tmpfs` on the existing new-root `/dev` before
+  bounded node creation, never writes the immutable image, and tracks devpts
+  and `/dev` cleanup through failure and returned `execve`. The final host
+  parser evaluates every appended segment and rejects complete/failed mixtures
+  in either order. Independent review returned `PASS_GO` with HIGH/MEDIUM/LOW
+  zero, 267 A90 tests, full AArch64 static inspection, native closure
+  `0682012c0ef3607e33e3382eb45903828493d33a3033f30b2c22278cfd47d8a2`,
+  and benchmark closure
+  `23bdeb0f7c82aa5abb3d68d2d1856e01ebe306adc0d21993a06b74f54b601a0e`.
+  The old H7 manifest still binds the refusing implementation; deployment of
+  this C repair requires a new candidate identity and state namespace.
 
 ## Qualified Capabilities
 
@@ -370,6 +396,17 @@ The pre-H2 goal history is preserved at
   and no new hazard or incident occurs. It grants no device or live authority;
   fresh target, rollback, recovery, presence, D0, runner binding, and
   inter-effect health remain required.
+- The H7 D1 E19 incident changes that capability's native mountpoint hazard
+  assumption, so its prior receipt is not reusable for another handoff
+  ordinal. The exact failed-handoff finalizer and read-only-root `/dev` tmpfs
+  repair have new independent `PASS_GO` at native closure
+  `0682012c0ef3607e33e3382eb45903828493d33a3033f30b2c22278cfd47d8a2`
+  and benchmark closure
+  `23bdeb0f7c82aa5abb3d68d2d1856e01ebe306adc0d21993a06b74f54b601a0e`.
+  This qualification permits neither H7 replay nor rebuilding the changed C
+  under H7 identity. A replacement requires a fresh version/build, rootfs
+  destination, enable/latch namespace, manifest, qualification, exact D0, and
+  attended boot-only installation.
 
 ## Proven Product Path
 
@@ -396,7 +433,7 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: Measure the Installed H7 Baseline
+## Selected Bounded Unit: Build the H8 E19 Repair Candidate
 
 H5 installation and its first automatic-handoff ordinal are terminal. Preserve
 runs 11-13 and D1 run09, their state namespaces, journals, private host bytes,
@@ -413,20 +450,25 @@ It is not yet a correctness baseline for compiler comparison because the host
 observer lost exact bridge continuity before it could bind Debian PID 1, SSH,
 service ownership, and display facts to the same ordinal.
 
-The H7 host closure and exact attended resident install now complete the
-durable-evidence and work-copy-replacement deployment. The next bounded work is:
+The installed H7 remains exact and healthy but its one D1 ordinal is terminally
+refuted. It is not an observer-complete baseline and must not be replayed. The
+next bounded work is:
 
-1. preserve every terminal H5/H6 transaction and run05 F1 without replay,
-   reset, or reinterpretation; H7 is the installed exact resident;
-2. run a fresh exact A90 D0 before the next effect, proving H7 health, exact
-   rollback and recovery, exact source, absent work/stage, and first-boot
-   `binding=1 enable=0 latch=0` state;
-3. bind one attended D1 automatic-handoff ordinal with one arm and one reboot,
-   no replay, exact bridge/NCM host proof, durable same-ordinal Debian PID 1,
-   Dropbear, DRM/display proof, operator visibility, automatic native return,
-   retained latch, final H7 health, and benchmark telemetry; and
-4. require at least one observer-complete repeatable non-LTO baseline before a
-   Full-LTO build or performance comparison.
+1. preserve H7, its consumed enable/latch namespace, run05 F1, and D1 run01
+   without replay, reset, or reinterpretation;
+2. define H8 with a new version/build, rootfs destination, enable/latch paths,
+   and immutable manifest that binds the reviewed tmpfs lifecycle and exact
+   failed-handoff parser closure;
+3. produce a deterministic non-LTO A/B boot build, complete static and archive
+   validation, and obtain fresh independent review for all changed F1/D1
+   identity and execution machinery;
+4. run fresh exact A90 D0, then one attended boot-only H8 resident install with
+   exact rollback and recovery ready; and
+5. bind one new attended D1 ordinal with one arm and one reboot, no replay,
+   exact `mount_moves_done` and `switch_root_exec`, durable same-ordinal Debian
+   PID 1, Dropbear, DRM/display proof, automatic native return, cleanup, final
+   H8 health, and benchmark telemetry. Require at least one observer-complete
+   repeatable non-LTO baseline before Full-LTO comparison.
 
 An attended visibility confirmation may be appended as evidence for run09,
 but it cannot manufacture its missing mechanical PID1/SSH observation.

@@ -60,6 +60,18 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             for index, stage in enumerate(runner.benchmark.COMPLETE_STAGES)
         )
 
+    @classmethod
+    def _failed_benchmark_segment(cls, start_ms: int) -> str:
+        stages = runner.benchmark.COMPLETE_STAGES[:-2] + (
+            "handoff_failed_native",
+            "auto_handoff_returned_native",
+            "native_fallback_ready",
+        )
+        return "\n".join(
+            cls._benchmark_marker(stage, start_ms + index * 10)
+            for index, stage in enumerate(stages)
+        )
+
     @staticmethod
     def _ondevice_record(phase: str, uptime_ms: int, run: str) -> str:
         return (
@@ -342,11 +354,93 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             side_effect=lambda value, _command, _label: value,
         ), self.assertRaisesRegex(
             runner.benchmark.BenchmarkError,
-            "multiple handoff boot segments",
+            "exactly one terminal handoff segment",
         ):
             runner.parse_appended_benchmark(
                 {"text": opening},
                 {"text": "\n".join((opening, first, second))},
+            )
+
+    def test_appended_benchmark_rejects_complete_then_failed_segments(self) -> None:
+        opening = self._complete_benchmark_segment(1_000)
+        complete = self._complete_benchmark_segment(100)
+        failed = self._failed_benchmark_segment(50)
+        with mock.patch.object(
+            runner.base,
+            "require_exact_f1_command_receipt",
+            side_effect=lambda value, _command, _label: value,
+        ), self.assertRaisesRegex(
+            runner.benchmark.BenchmarkError,
+            "exactly one terminal handoff segment",
+        ):
+            runner.parse_appended_benchmark(
+                {"text": opening},
+                {"text": "\n".join((opening, complete, failed))},
+            )
+
+    def test_appended_benchmark_rejects_failed_then_complete_segments(self) -> None:
+        opening = self._complete_benchmark_segment(1_000)
+        failed = self._failed_benchmark_segment(100)
+        complete = self._complete_benchmark_segment(50)
+        with mock.patch.object(
+            runner.base,
+            "require_exact_f1_command_receipt",
+            side_effect=lambda value, _command, _label: value,
+        ), self.assertRaisesRegex(
+            runner.benchmark.BenchmarkError,
+            "exactly one terminal handoff segment",
+        ):
+            runner.parse_appended_benchmark(
+                {"text": opening},
+                {"text": "\n".join((opening, failed, complete))},
+            )
+
+    def test_appended_benchmark_accepts_exact_returned_native_failure(self) -> None:
+        opening = self._complete_benchmark_segment(1_000)
+        failed = self._failed_benchmark_segment(100)
+        with mock.patch.object(
+            runner.base,
+            "require_exact_f1_command_receipt",
+            side_effect=lambda value, _command, _label: value,
+        ):
+            parsed = runner.parse_appended_benchmark(
+                {"text": opening},
+                {"text": "\n".join((opening, failed))},
+            )
+
+        self.assertEqual(parsed["status"], "partial")
+        self.assertTrue(parsed["native_handoff_failed"])
+        self.assertEqual(
+            parsed["missing_complete_stages"],
+            ["mount_moves_done", "switch_root_exec"],
+        )
+
+    def test_appended_benchmark_rejects_nonprefix_failed_handoff(self) -> None:
+        opening = self._complete_benchmark_segment(1_000)
+        stages = (
+            "native_runtime_ready",
+            "native_services_ready",
+            "auto_handoff_check",
+            "auto_handoff_dispatched",
+            "handoff_begin",
+            "root_mounted",
+            *runner.FAILED_HANDOFF_TAIL,
+        )
+        malformed = "\n".join(
+            self._benchmark_marker(stage, 100 + index * 10)
+            for index, stage in enumerate(stages)
+        )
+        with mock.patch.object(
+            runner.base,
+            "require_exact_f1_command_receipt",
+            side_effect=lambda value, _command, _label: value,
+        ), self.assertRaisesRegex(
+            runner.benchmark.BenchmarkError,
+            "failed-handoff benchmark segment is not exact",
+        ):
+            runner.parse_appended_benchmark(
+                {"text": opening},
+                {"text": "\n".join((opening, malformed))},
             )
 
     def test_first_boot_log_allows_only_repeated_exact_unarmed_states(self) -> None:
@@ -447,6 +541,53 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
         self.assertEqual(result["terminal"], "PASS_AUTO_HANDOFF_BENCHMARK_VISIBLE")
         self.assertTrue(result["ondevice_evidence"]["proof"])
         self.assertNotIn("candidate_return", observation)
+
+    def test_native_failed_handoff_is_refuted_not_observer_no_proof(self) -> None:
+        intent_sha256 = "c" * 64
+        opening = self._complete_benchmark_segment(1_000)
+        failed = self._failed_benchmark_segment(100)
+        log_record = {"command": ["logcat"], "text": "\n".join((opening, failed))}
+        status_record = self._status(1, 1)
+        preflight = SimpleNamespace(validate=lambda: None)
+        observation = {
+            "proof": False,
+            "observer_error": {"type": "RuntimeError", "message": "SSH absent"},
+            "guard_release": {"released": True},
+        }
+        with (
+            mock.patch.object(
+                runner,
+                "require_auto_status",
+                return_value=(status_record, runner.parse_auto_status(status_record)),
+            ),
+            mock.patch.object(
+                runner.resident,
+                "resident_d0_preflight",
+                return_value=(preflight, {"resident_healthy": True}),
+            ),
+            mock.patch.object(runner.base, "run_f1_cmd", return_value=log_record),
+            mock.patch.object(
+                runner.base,
+                "require_exact_f1_command_receipt",
+                side_effect=lambda value, _command, _label: value,
+            ),
+        ):
+            result = runner.finalize_cycle(
+                self._spec(),
+                SimpleNamespace(),
+                observation,
+                intent_sha256=intent_sha256,
+                opening_log_record={"command": ["logcat"], "text": opening},
+                visible_confirmed="unavailable",
+                cleanup_evidence={"proof": True},
+            )
+
+        self.assertEqual(
+            result["terminal"],
+            "REFUTED_AUTO_HANDOFF_NATIVE_HANDOFF_RESIDENT_HEALTHY",
+        )
+        self.assertTrue(result["benchmark"]["native_handoff_failed"])
+        self.assertFalse(result["ondevice_evidence"]["proof"])
 
     def test_durable_evidence_cannot_replace_exact_host_link_facts(self) -> None:
         observation = self._host_link()

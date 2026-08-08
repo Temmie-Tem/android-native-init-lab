@@ -806,6 +806,51 @@ def observe_auto_cycle(
     return result
 
 
+FAILED_HANDOFF_TAIL = (
+    "handoff_failed_native",
+    "auto_handoff_returned_native",
+    "native_fallback_ready",
+)
+RETURNED_NATIVE_TAIL = (
+    "native_runtime_ready",
+    "native_services_ready",
+    "auto_handoff_check",
+    "auto_handoff_latched_native",
+)
+
+
+def failed_handoff_stages_exact(stages: list[Any]) -> bool:
+    """Accept one ordered complete-stage prefix followed by the native failure tail."""
+
+    if len(stages) < len(FAILED_HANDOFF_TAIL) or tuple(
+        stages[-len(FAILED_HANDOFF_TAIL) :]
+    ) != FAILED_HANDOFF_TAIL:
+        return False
+    prefix = stages[: -len(FAILED_HANDOFF_TAIL)]
+    optional = list(benchmark.OPTIONAL_EARLY_STAGES)
+    if prefix[: len(optional)] == optional:
+        complete_prefix = prefix[len(optional) :]
+    else:
+        complete_prefix = prefix
+    if complete_prefix != list(benchmark.COMPLETE_STAGES[: len(complete_prefix)]):
+        return False
+    return {"auto_handoff_dispatched", "handoff_begin"}.issubset(complete_prefix)
+
+
+def complete_handoff_stages_exact(stages: list[Any]) -> bool:
+    return stages in (
+        list(benchmark.COMPLETE_STAGES),
+        list(benchmark.OPTIONAL_EARLY_STAGES + benchmark.COMPLETE_STAGES),
+    )
+
+
+def returned_native_stages_exact(stages: list[Any]) -> bool:
+    return stages in (
+        list(RETURNED_NATIVE_TAIL),
+        list(benchmark.OPTIONAL_EARLY_STAGES + RETURNED_NATIVE_TAIL),
+    )
+
+
 def parse_appended_benchmark(
     opening_log_record: dict[str, Any],
     final_log_record: dict[str, Any],
@@ -832,7 +877,50 @@ def parse_appended_benchmark(
         raise ContractError("benchmark log is not an exact appended marker suffix")
     appended = after[len(before) :]
     canonical = "".join(f"{benchmark.MARKER}{line}\n" for line in appended)
-    parsed = benchmark.parse_run([canonical], require_complete=True)
+    segments = benchmark.parse_runs([canonical])
+    segment_stages = [
+        [record.get("stage") for record in segment.get("records", [])]
+        for segment in segments
+    ]
+    for stages in segment_stages:
+        if (
+            any(stage in stages for stage in FAILED_HANDOFF_TAIL)
+            and not failed_handoff_stages_exact(stages)
+        ):
+            raise benchmark.BenchmarkError(
+                "native failed-handoff benchmark segment is not exact"
+            )
+    eligible = [
+        (index, failed_handoff_stages_exact(stages))
+        for index, stages in enumerate(segment_stages)
+        if complete_handoff_stages_exact(stages)
+        or failed_handoff_stages_exact(stages)
+    ]
+    if len(eligible) != 1:
+        raise benchmark.BenchmarkError(
+            "appended log does not contain exactly one terminal handoff segment"
+        )
+    selected_index, native_handoff_failed = eligible[0]
+    if selected_index != 0:
+        raise benchmark.BenchmarkError(
+            "terminal handoff segment is not the first appended boot segment"
+        )
+    trailing_stages = segment_stages[1:]
+    if native_handoff_failed:
+        if trailing_stages:
+            raise benchmark.BenchmarkError(
+                "native failed-handoff segment has an unexpected boot tail"
+            )
+    elif len(trailing_stages) > 1 or (
+        trailing_stages and not returned_native_stages_exact(trailing_stages[0])
+    ):
+        raise benchmark.BenchmarkError(
+            "complete handoff has an unexpected returned-native boot tail"
+        )
+    parsed = segments[selected_index]
+    parsed["boot_segments_total"] = len(segments)
+    parsed["selected_segment_index"] = selected_index
+    parsed["native_handoff_failed"] = native_handoff_failed
     parsed["selection"] = {
         "contract": "opening-marker-prefix-appended-suffix-v1",
         "opening_marker_count": len(before),
@@ -934,7 +1022,10 @@ def finalize_cycle(
     returned = status.get("enable") == 1 and status.get("latch") == 1
     guard_released = observation.get("guard_release", {}).get("released") is True
     host_link = host_link_proven(spec, observation)
-    if returned and mechanical and host_link and guard_released:
+    native_handoff_failed = parsed_benchmark.get("native_handoff_failed") is True
+    if returned and native_handoff_failed:
+        terminal = "REFUTED_AUTO_HANDOFF_NATIVE_HANDOFF_RESIDENT_HEALTHY"
+    elif returned and mechanical and host_link and guard_released:
         terminal = (
             "PASS_AUTO_HANDOFF_BENCHMARK_VISIBLE"
             if visible_confirmed == "yes"
@@ -990,6 +1081,7 @@ def validate_result(
     allowed_terminal = {
         "PASS_AUTO_HANDOFF_BENCHMARK_VISIBLE",
         "REFUTED_AUTO_HANDOFF_DISPLAY_VISIBILITY",
+        "REFUTED_AUTO_HANDOFF_NATIVE_HANDOFF_RESIDENT_HEALTHY",
         "PASS_AUTO_HANDOFF_BENCHMARK_NO_PROOF_VISIBILITY",
         "NO_PROOF_OBSERVER_RESIDENT_HEALTHY",
     }
@@ -1030,7 +1122,14 @@ def validate_result(
         "released"
     ) is True
     host_link = host_link_proven(spec, value["observation"])
-    if durable_evidence["proof"] is True and host_link and guard_released:
+    parsed = value.get("benchmark")
+    native_handoff_failed = (
+        isinstance(parsed, dict)
+        and parsed.get("native_handoff_failed") is True
+    )
+    if native_handoff_failed:
+        expected_terminal = "REFUTED_AUTO_HANDOFF_NATIVE_HANDOFF_RESIDENT_HEALTHY"
+    elif durable_evidence["proof"] is True and host_link and guard_released:
         expected_terminal = (
             "PASS_AUTO_HANDOFF_BENCHMARK_VISIBLE"
             if value.get("visible_confirmed") == "yes"
@@ -1070,21 +1169,40 @@ def validate_result(
         validate_preflight_evidence(spec, cleanup.get("absence_preflight"))
     else:
         raise ContractError("benchmark result cleanup disposition changed")
-    parsed = value.get("benchmark")
-    if (
-        not isinstance(parsed, dict)
-        or parsed.get("schema") != benchmark.RESULT_SCHEMA
-        or parsed.get("status") != "complete"
-        or parsed.get("missing_complete_stages") != []
-        or [record.get("stage") for record in parsed.get("records", [])]
-        not in (
-            list(benchmark.COMPLETE_STAGES),
-            list(benchmark.OPTIONAL_EARLY_STAGES + benchmark.COMPLETE_STAGES),
+    if not isinstance(parsed, dict):
+        raise ContractError("benchmark result is not an object")
+    parsed_stages = [record.get("stage") for record in parsed.get("records", [])]
+    if parsed.get("native_handoff_failed") is True:
+        expected_missing = [
+            stage for stage in benchmark.COMPLETE_STAGES
+            if stage not in parsed_stages
+        ]
+        benchmark_shape_ok = (
+            len(parsed_stages) == len(set(parsed_stages))
+            and failed_handoff_stages_exact(parsed_stages)
+            and parsed.get("missing_complete_stages") == expected_missing
+            and parsed.get("status")
+            == ("partial" if expected_missing else "complete")
         )
+    elif parsed.get("native_handoff_failed") is False:
+        benchmark_shape_ok = (
+            parsed.get("status") == "complete"
+            and parsed.get("missing_complete_stages") == []
+            and parsed_stages
+            in (
+                list(benchmark.COMPLETE_STAGES),
+                list(benchmark.OPTIONAL_EARLY_STAGES + benchmark.COMPLETE_STAGES),
+            )
+        )
+    else:
+        benchmark_shape_ok = False
+    if (
+        parsed.get("schema") != benchmark.RESULT_SCHEMA
+        or not benchmark_shape_ok
         or parsed.get("boot_segments_total") is None
         or type(parsed.get("selected_segment_index")) is not int
     ):
-        raise ContractError("benchmark result is not one complete ordered segment")
+        raise ContractError("benchmark result is not one exact terminal segment")
     selection = parsed.get("selection")
     if (
         not isinstance(selection, dict)
