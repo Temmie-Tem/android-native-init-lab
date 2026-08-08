@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 import sys
@@ -394,6 +395,22 @@ class P310IntegrationTests(unittest.TestCase):
         self.assertEqual(result["classification"], "P310_TELEMETRY_ONE_OR_MORE_BOOTS")
         self.assertEqual(result["foreign_count"], 0)
         self.assertGreaterEqual(result["records"][0]["active"]["generation"], 107)
+        self.assertEqual(
+            result["records"][0]["active"]["payload"],
+            {"encoding": "hex", "value": ""},
+        )
+        self.assertEqual(
+            result["records"][0]["valid_slots"][0]["payload"],
+            {
+                "encoding": "hex",
+                "value": (
+                    b"raw:"
+                    + carrier.LONG_FAMILY
+                    + carrier.LEGACY_FAMILIES[0]
+                ).hex(),
+            },
+        )
+        json.dumps(result, allow_nan=False, sort_keys=True)
         clean = evidence.classify_clean_baseline(b"clean", acceptance)
         self.assertTrue(clean["baseline_clean"])
 

@@ -11,7 +11,7 @@ shared process documents. A90 state and authorization remain separate.
 
 ## Current Frontier
 
-P3.10 Carrier v2 is the current prepared live unit. Its successor-only
+P3.10 Carrier v2 is the latest closed live unit. Its successor-only
 tracefs descriptor uses `%x21:s32`; source initializers and linked P3.00 A/B
 tables agree on the accepted register and fetch-type ABIs, and all 48
 descriptors pass the cross-authority validator. Carrier v2 keeps legacy
@@ -21,14 +21,36 @@ reopening consumed P3.08. Full-LTO A/B artifacts are byte-identical, the
 independent review pass, and the canonical Process-v2 manifest is
 `s22plus-fyg8-p310-process-v2-ready-1`.
 
-The first connected P3.10 preparation stopped read-only on the consumed P3.08
-retained family. One attended exact-S22 normal reboot then changed the boot ID
-and returned rooted completed Android with boot and supporting-partition
-identities unchanged. A fresh D0 preparation now binds the clean retained
-baseline, exact P3.10 candidate, exact rollback, USB sidecar, and unchanged
-execution closure as approval binding `2d2cb0ee`. F1 remains unarmed:
-`device_writes=false`, `odin_invoked=false`, and `partition_transfer=false`.
-A90 received zero commands.
+The distinct P3.10 candidate and exact Magisk rollback each transferred once.
+The operator observed one normal candidate boot without a loop. The exact ACM
+observer timed out, and the integrity-clean host sidecar saw the prepared
+Android/Download departure but no candidate enumeration. Exact rollback,
+rooted completed FYG8 Android, boot identity, and supporting-partition health
+passed; the journal is `CLOSED`, `recovery_required=false`, and A90 received
+zero commands.
+
+The two byte-identical retained reads contain one integrity-clean normal pair:
+generation 106 at `stage=0x92`, `item_index=1`, detail `0xD1B`, followed by
+generation 107 at `stage=0x93`, `item_index=0`, detail `0x4005`. The first
+record proves the EUD cache and PHY init CSR samples were both clear, no DPDM
+callback preceded init, and a pre-init clock request observed
+`clocks_enabled=0,on=1`. The second proves the init-local clock callsites were
+not reached and QSCRATCH was sampled once with both VBUS-valid and software
+session-select set. Together these refute EUD ownership, a missing clock-enable
+request, and missing QSCRATCH VBUS/session programming; they do not prove why
+the candidate pull-up still never enumerated. In particular, the pre-init
+clock call ran outside the 12 return probes, so its discarded prepare/enable
+return values remain unmeasured.
+
+After rollback and both final retained reads had completed, host state
+persistence rejected nested Carrier v2 `bytes` payloads as non-JSON values.
+No device action was repeated. A hash-pinned, independently reviewed
+recovery-only adapter prohibited Download and all transfers, reused the two
+durable reads, encoded bytes as deterministic hex, revalidated exact S22+
+health, and closed the original journal. The permanent H0 correction makes
+only P3.10 telemetry-decoder output JSON-safe and adds a real record
+serialization regression; carrier bytes and P3.08/P3.01 semantics stay
+unchanged.
 
 P3.08 is the latest closed live unit. Focused independent review returned
 `PASS_GO` for the exact loss-resistant observer and Process-v2 closure. The

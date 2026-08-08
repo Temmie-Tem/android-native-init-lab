@@ -24,6 +24,18 @@ POLICY_ID = POLICY_SHA256[:32]
 DecodeError = model.DesignError
 
 
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, bytes):
+        return {"encoding": "hex", "value": value.hex()}
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, tuple):
+        return [_json_safe(item) for item in value]
+    return value
+
+
 def decode_detail(*args, **kwargs):  # noqa: ANN002, ANN003, ANN201
     return inherited.decode_detail(*args, **kwargs)
 
@@ -95,4 +107,4 @@ def classify_observation(
         elif normal:
             result["classification"] = "P310_TELEMETRY_ONE_OR_MORE_BOOTS"
             result["accepted"] = True
-    return result
+    return _json_safe(result)
