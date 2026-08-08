@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Runs before anything reaches a remote.
+#
+# Two checks, deliberately of different strength:
+#
+#   identifier boundary   BLOCKS. A device serial must not become public, and
+#                         once it does, history is not rewritten (see
+#                         docs/operations/PUBLIC_TREE_SANITIZATION_POLICY.md).
+#   review scope          REPORTS. AGENTS.md decides when an independent review
+#                         is required; a hook cannot know whether one happened.
+#                         Blocking here would only teach --no-verify, which
+#                         would skip the boundary check too.
+#
+# Enable with:  git config core.hooksPath .githooks
+#
+# Git passes "<local ref> <local sha> <remote ref> <remote sha>" per ref on
+# stdin. Using that range is what makes this honest: pushing an explicit SHA
+# still carries its ancestors, and this reports what actually goes out.
+
+set -uo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+zero='0000000000000000000000000000000000000000'
+
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+    [ "$local_sha" = "$zero" ] && continue          # branch deletion
+
+    if [ "$remote_sha" = "$zero" ]; then
+        range="$local_sha"                          # new branch on the remote
+    else
+        range="$remote_sha..$local_sha"
+    fi
+
+    echo "pre-push: $range"
+    python3 "$root/workspace/public/src/scripts/security/push_scope_check.py" "$range"
+    echo
+done
+
+echo "pre-push: repository boundary check"
+if ! python3 "$root/workspace/public/src/scripts/security/repository_boundary_check.py"; then
+    echo
+    echo "pre-push BLOCKED: a private identifier would become public." >&2
+    echo "See docs/operations/PUBLIC_TREE_SANITIZATION_POLICY.md." >&2
+    exit 1
+fi
+
+exit 0
