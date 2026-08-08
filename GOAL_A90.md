@@ -415,9 +415,12 @@ The pre-H2 goal history is preserved at
   `0682012c...`, and the H8 F1/D1 execution closure has independent `PASS_GO`
   at `1a23d1f0...` with benchmark closure `c2a8f666...`. Fresh exact connected
   D0 proves installed H7 healthy, exact H8 candidate and V2321 rollback, and
-  the H8 final/work/stage paths absent. No H8 staging, candidate transfer,
-  flash, or reboot has occurred; exact resident binding and attended F1 are
-  next.
+  the H8 final/work/stage paths absent. An immutable committed-closure resident
+  manifest and compatibility binding then selected one attended boot-only
+  attempt. The exact 2 GiB source was staged once and H8 installed with one
+  candidate transfer, no replay, no rollback, and durable `RESIDENT_HEALTHY`;
+  the guard released without residue. One fresh H8 D1 automatic-handoff
+  ordinal is next.
 
 ## Proven Product Path
 
