@@ -425,9 +425,16 @@ The pre-H2 goal history is preserved at
   `mount_moves_done` and `switch_root_exec`, plus same-intent Debian PID 1,
   Dropbear, and DRM master evidence. The host observer timed out before the
   later ACM return, and its final parser then rejected a valid bounded pmsg
-  window replacement. The reviewed parser repair is committed next and may
-  append only final-health and close to the existing seven-record prefix; the
-  arm, reboot, and cleanup must not be replayed.
+  window replacement. The independently reviewed historical-closure tail has
+  now appended only final-health and close. Result `8a677580...` records a
+  complete 43501 ms handoff, all three same-intent on-device evidence phases,
+  automatic native return, exact source, absent work, final H8 health, one arm,
+  one reboot, and no replay. Its terminal remains
+  `NO_PROOF_OBSERVER_RESIDENT_HEALTHY` because the 30-second host bridge wait
+  missed the later return; neither durable mechanical evidence nor final
+  health is reinterpreted as host-link proof. H8 is consumed and must not be
+  replayed. A repeatable baseline requires a fresh successor identity after
+  repairing the host observation order/budget.
 
 ## Proven Product Path
 
