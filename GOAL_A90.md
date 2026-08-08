@@ -236,6 +236,32 @@ The pre-H2 goal history is preserved at
   post-copy source hash. These three measured groups consumed 126900 of 127738
   ms (99.34%), representing about 10 GiB of logical reads and 2 GiB of writes
   for one 2 GiB image. Full-LTO cannot materially remove this storage cost.
+- H7 host qualification now removes that fixed work-copy lane without claiming
+  a device result. Native-init opens the exact source once with `O_NOFOLLOW`,
+  hashes the same FD before and after bounded display cleanup, attaches that FD
+  read-only to loop0, revalidates backing device/inode, mounts only the fixed
+  `/run`, `/tmp`, `/etc/dropbear`, and `/var/log` writable tmpfs set, and binds
+  only the private shared evidence directory into Debian. No 2 GiB work copy or
+  copy hash remains in the handoff corridor.
+- H7 also closes the recurring observer race at the correct boundary. Debian
+  durably records same-ordinal PID 1, Dropbear listen, and DRM/display-ready
+  facts; native-init replays the latest complete records after return; the host
+  runner grades the raw log against the exact durable intent. Exact USB bridge
+  re-enumeration and NCM binding remain host-observed PASS gates, while live
+  SSH/service/candidate-return observations are corroboration only.
+- Final independent review is `PASS_GO` with HIGH/MEDIUM zero. The native
+  252-member closure is
+  `f17aac71d21701a9e7a4db62f825029fd73aea7f281759061ec47d8ef8a37a03`,
+  the host benchmark execution closure is
+  `c040331e0a67c1be1876d4a18a630378786cdb0f722ec5b1de1e66350c0fed70`,
+  and the H7 manifest SHA256 is
+  `12b0f4e818e4de2c2f83e2f4d4d42466d3924f0124082c812eb65f68d7acca65`.
+  Related 278-test independent validation, 270-test main validation, 40 D1
+  transition tests, H7 audit, and the full AArch64 static build pass. The
+  no-authority boot SHA256 is
+  `9edcbf8821c5fb5069576ca403ed04e873e9dfcf79dedb59e2d976d6981af4a2`.
+  This was H0 only: no A90 or S22+ command, D0, D1, F1, payload, flash, reboot,
+  or live authority occurred.
 
 ## Qualified Capabilities
 
@@ -306,6 +332,16 @@ The pre-H2 goal history is preserved at
   `938b24b04cf33ec5265906e7e443b04611807ea3260d92c9ef219c51aaa7ca6e`.
   Reuse lasts only while those closures and hazard assumptions remain unchanged;
   it grants no live authority and never permits replay of H6 D1 run01.
+- The H7 read-only-source and durable same-ordinal-evidence capability has
+  independent `PASS_GO` at native closure
+  `f17aac71d21701a9e7a4db62f825029fd73aea7f281759061ec47d8ef8a37a03`
+  and benchmark execution closure
+  `c040331e0a67c1be1876d4a18a630378786cdb0f722ec5b1de1e66350c0fed70`.
+  It is reusable across manifests, campaigns, qualifications, and ordinals
+  only while those named closures and the reviewed hazards remain unchanged
+  and no new hazard or incident occurs. It grants no device or live authority;
+  fresh target, rollback, recovery, presence, D0, runner binding, and
+  inter-effect health remain required.
 
 ## Proven Product Path
 
@@ -332,7 +368,7 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: Prepare an I/O-Reduced Observer-Complete Baseline
+## Selected Bounded Unit: Install and Measure the Qualified H7 Baseline
 
 H5 installation and its first automatic-handoff ordinal are terminal. Preserve
 runs 11-13 and D1 run09, their state namespaces, journals, private host bytes,
@@ -349,62 +385,31 @@ It is not yet a correctness baseline for compiler comparison because the host
 observer lost exact bridge continuity before it could bind Debian PID 1, SSH,
 service ownership, and display facts to the same ordinal.
 
-The observer diagnosis, corrected rootfs-first H6 build, focused tests, and
-independent capability review are complete with no device contact. The next
-bounded work is:
+The H7 host closure completes the durable-evidence and work-copy-replacement
+design items. It does not prove the new layout on A90 and does not authorize a
+device effect. The next bounded work is:
 
-1. preserve run09 and its H5 state namespace without replay or reset;
-2. retain run02 as the consumed exact PASS that removed only H4, protected H5,
-   and proved the bounded 2 GiB free gain; never reuse its capability receipt;
-3. retain historical-GC run01 as the consumed exact PASS that removed its
-   fixed twenty-file set, reclaimed 40370236 KiB, and preserved exact H5;
-   never reuse its capability receipt or infer restore authority from host
-   recovery bytes;
-4. retain the committed corrected H6 closure and fresh connected D0 proof of
-   exact H5 health, exact candidate and rollback, and absent H6
-   rootfs/work/stage and enable/latch paths;
-5. retain terminal run01, host-rejected run02, and the terminal run03 resident
-   PASS without replay or reuse; run03 installed H6 from one staged source and
-   one boot-only candidate with rollback zero and exact final resident health;
-6. retain terminal H6 D1 run01 with arm/reboot exactly one and no replay; use
-   its complete timing baseline for performance diagnosis, but do not claim
-   Debian PID 1/SSH/display correctness from the failed observer;
-7. retain the repaired observer `PASS_GO` and design the next candidate/marker
-   namespace at H0. Before publishing another 2 GiB run-specific copy, evaluate
-   a separately reviewed exact existing-source binding so a new boot candidate
-   can reuse the already published immutable rootfs without payload transfer;
-   the current target-contract absent-destination rule remains binding until an
-   explicit reviewed change closes this design;
-8. bind the same-ordinal Debian facts to on-device durable evidence before the
-   next mount-architecture change. Three consecutive automatic-handoff ordinals
-   completed the handoff and returned exact resident health while the host lost
-   the proof to a different live-observation defect each time. The recurring
-   cause is not any single predicate: device-internal facts are being confirmed
-   through the host bridge, in real time, inside a timeout window, which turns a
-   durable fact into a transient race. The next rootfs generation must record
-   Debian PID 1 entry, DRM master acquisition, and Dropbear listen together with
-   `/proc/uptime` into an append-only durable record on the shared source medium.
-   After automatic return, native-init reads that record and folds it into the
-   benchmark log on the same `CLOCK_BOOTTIME` axis, which is continuous across
-   `switch_root` because the kernel is unchanged. The host role then reduces to
-   one dispatched intent, a wait for return, and a deadline-free read of durable
-   evidence. Live SSH observation is demoted to optional corroboration; its
-   failure alone must not make an ordinal `NO_PROOF_OBSERVER`. Debian writes and
-   native-init reads, so no component grades its own work, and the host still
-   proves resident identity and health independently after return. Facts about
-   the host-device link — bridge identity, USB enumeration, NCM binding — remain
-   host-observed, because there the host is the only possible observer. This
-   extends the existing journal, enable/latch, and benchmark evidence lane and
-   grants no partition, flash, or recovery authority. Land this instrument
-   before or with the work-copy replacement, never after it: a mount-architecture
-   change cannot be evaluated by an observer that has failed three times;
-9. keep local handoff I/O reduction separate: first prove a read-only rootfs
-   plus narrowly writable bind-mount layout or another equally exact mechanism
-   can replace the full work copy without weakening source integrity, cleanup,
-   automatic return, or recovery; and
-10. start Full-LTO comparison only after one observer-complete automatic
-    handoff baseline closes Debian PID 1, SSH, display, return, cleanup, and
-    resident health together.
+1. preserve every terminal H5/H6 F1 and D1 transaction without replay, reset,
+   or reinterpretation; H6 remains the installed exact resident until a fresh
+   inter-effect health barrier proves otherwise;
+2. retain the H7 `PASS_GO` by its named native and benchmark closures instead
+   of repeating review for a new manifest, campaign, qualification, or ordinal;
+   require fresh review only after a closure change or new hazard/incident;
+3. before any new effect, run a fresh exact A90 D0 that proves current H6
+   resident health, exact rollback and recovery, the compiled H7 rootfs
+   identity at its selected SD path or its exact absence, work/stage state, and
+   fresh H7 enable/latch namespace. An absent or changed source returns work to
+   H0; it is never inferred or repaired live;
+4. prepare one fresh attended boot-only H7 resident-install binding. Reuse an
+   already published source only through the target contract's exact reviewed
+   existing-source lane; otherwise use the ordinary absent-destination staging
+   rule. The current no-authority build is not itself live authorization;
+5. after exact H7 `RESIDENT_HEALTHY`, bind one attended D1 automatic-handoff
+   ordinal with one arm and one reboot, no replay, exact bridge/NCM host proof,
+   durable same-ordinal Debian PID 1/Dropbear/DRM proof, operator visibility,
+   automatic native return, latch, final health, and benchmark telemetry; and
+6. require at least one observer-complete repeatable non-LTO baseline before a
+   Full-LTO build or performance comparison.
 
 An attended visibility confirmation may be appended as evidence for run09,
 but it cannot manufacture its missing mechanical PID1/SSH observation.
@@ -460,6 +465,7 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_PHASE3_MINIMAL_H6_OBSERVER_COMPLETE_BASELINE_INDEPENDENT_REVIEW_2026-08-07.json`
 - `docs/reports/A90_PHASE3_MINIMAL_H6_RUN03_REBIND_INDEPENDENT_REVIEW_2026-08-07.json`
 - `docs/reports/A90_H6_D1_POST_REBOOT_BOUND_BRIDGE_OBSERVER_INCIDENT_REVIEW_2026-08-07.json`
+- `docs/reports/A90_PHASE3_MINIMAL_H7_READONLY_SOURCE_ONDEVICE_EVIDENCE_INDEPENDENT_REVIEW_2026-08-08.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`

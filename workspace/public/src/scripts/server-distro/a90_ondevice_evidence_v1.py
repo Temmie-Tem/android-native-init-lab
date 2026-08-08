@@ -97,7 +97,11 @@ REQUIRED_FIELDS = ("schema", "phase", "uptime_ms", "run")
 PHASE_REQUIRED_FACTS = {
     "debian_pid1": {"pid1_comm": ("init",), "proc1_exe": ("/usr/sbin/init",)},
     "debian_sshd": {"dropbear": ("1",)},
-    "debian_drm_master": {"drm_card0": ("char",), "display_ready": ("1",)},
+    "debian_drm_master": {
+        "drm_card0": ("char",),
+        "drm_master": ("1",),
+        "display_ready": ("1",),
+    },
 }
 INTENT_RE = re.compile(r"^[0-9a-f]{64}$")
 TRISTATE_FIELDS = ("drm_card0", "drm_master", "dropbear", "display_ready",
@@ -134,7 +138,7 @@ def parse_line(payload: str) -> dict[str, str] | None:
         if "=" not in token:
             return None
         key, value = token.split("=", 1)
-        if not key:
+        if not key or key in fields:
             return None
         fields[key] = value
     if any(field not in fields for field in REQUIRED_FIELDS):
@@ -200,6 +204,10 @@ def _bad_state(records: list[dict[str, str]]) -> str | None:
             "drm_card0"
         ) == "absent":
             return "debian_drm_master recorded drm_card0=absent"
+        if record["phase"] == "debian_drm_master" and record.get(
+            "drm_master"
+        ) == "0":
+            return "debian_drm_master recorded drm_master=0"
     return None
 
 

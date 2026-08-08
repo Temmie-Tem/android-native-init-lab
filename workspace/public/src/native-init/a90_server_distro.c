@@ -14,6 +14,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <linux/loop.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <signal.h>
@@ -21,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mount.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <sys/wait.h>
@@ -96,6 +98,9 @@ a90_d3_writable_set[A90_D3_WRITABLE_SET_MAX] = {
 #define A90_D3_DISPLAY_RELEASE_MARKER "run/a90-native-display-release"
 #define A90_D_HANDOFF_HUD_TIMEOUT_MS 3000
 #define A90_D_HANDOFF_DRM_OWNER_TIMEOUT_MS 1000
+#define A90_D_HANDOFF_DRM_OWNER_MAX 16U
+#define A90_D_HANDOFF_PROC_ENTRY_MAX 8192U
+#define A90_D_HANDOFF_DISPLAY_TOTAL_TIMEOUT_MS 127000
 #define A90_D_HW_TAG "A90DHW"
 #define A90_DPUBLIC_HUD_TAG "A90WSTA136"
 #define A90_DPUBLIC_HUD_SERVICE_TAG "A90WSTA140"
@@ -780,7 +785,29 @@ static bool d_handoff_pid_is_native_init(pid_t pid) {
     return strcmp(target, "/init") == 0;
 }
 
-static int d_handoff_count_pid_drm_fds(pid_t pid, unsigned int *count_out) {
+static bool d_handoff_deadline_expired(long deadline_ms) {
+    return deadline_ms > 0 && monotonic_millis() >= deadline_ms;
+}
+
+static int d_handoff_deadline_remaining_ms(long deadline_ms, int cap_ms) {
+    long remaining;
+
+    if (cap_ms <= 0) {
+        return 0;
+    }
+    if (deadline_ms <= 0) {
+        return cap_ms;
+    }
+    remaining = deadline_ms - monotonic_millis();
+    if (remaining <= 0) {
+        return 0;
+    }
+    return remaining < cap_ms ? (int)remaining : cap_ms;
+}
+
+static int d_handoff_count_pid_drm_fds(pid_t pid,
+                                       unsigned int *count_out,
+                                       long deadline_ms) {
     char dir_path[64];
     DIR *dir;
     struct dirent *entry;
@@ -790,6 +817,9 @@ static int d_handoff_count_pid_drm_fds(pid_t pid, unsigned int *count_out) {
         return -EINVAL;
     }
     *count_out = 0;
+    if (d_handoff_deadline_expired(deadline_ms)) {
+        return -ETIMEDOUT;
+    }
 
     snprintf(dir_path, sizeof(dir_path), "/proc/%ld/fd", (long)pid);
     dir = opendir(dir_path);
@@ -804,6 +834,10 @@ static int d_handoff_count_pid_drm_fds(pid_t pid, unsigned int *count_out) {
         char target[PATH_MAX];
         int rc;
 
+        if (d_handoff_deadline_expired(deadline_ms)) {
+            closedir(dir);
+            return -ETIMEDOUT;
+        }
         if (entry->d_name[0] == '.') {
             continue;
         }
@@ -820,6 +854,10 @@ static int d_handoff_count_pid_drm_fds(pid_t pid, unsigned int *count_out) {
             count++;
         }
     }
+    if (d_handoff_deadline_expired(deadline_ms)) {
+        closedir(dir);
+        return -ETIMEDOUT;
+    }
     closedir(dir);
     *count_out = count;
     return 0;
@@ -828,16 +866,35 @@ static int d_handoff_count_pid_drm_fds(pid_t pid, unsigned int *count_out) {
 static bool d_handoff_pid_has_drm_fd(pid_t pid) {
     unsigned int count = 0;
 
-    return d_handoff_count_pid_drm_fds(pid, &count) == 0 && count != 0U;
+    return d_handoff_count_pid_drm_fds(pid, &count, 0) == 0 && count != 0U;
+}
+
+static int d_handoff_pid_has_drm_fd_until(pid_t pid,
+                                          long deadline_ms,
+                                          bool *has_drm_out) {
+    unsigned int count = 0;
+    int rc;
+
+    if (has_drm_out == NULL) {
+        return -EINVAL;
+    }
+    rc = d_handoff_count_pid_drm_fds(pid, &count, deadline_ms);
+    if (rc < 0) {
+        return rc;
+    }
+    *has_drm_out = count != 0U;
+    return 0;
 }
 
 static int d_handoff_count_all_drm_fds(pid_t native_pid1,
                                        unsigned int *native_pid1_count_out,
-                                       unsigned int *other_count_out) {
+                                       unsigned int *other_count_out,
+                                       long deadline_ms) {
     DIR *proc;
     struct dirent *entry;
     unsigned int native_pid1_count = 0;
     unsigned int other_count = 0;
+    unsigned int process_entries = 0;
 
     if (native_pid1 <= 0 ||
         native_pid1_count_out == NULL ||
@@ -853,10 +910,18 @@ static int d_handoff_count_all_drm_fds(pid_t native_pid1,
         unsigned int count = 0;
         int rc;
 
+        if (d_handoff_deadline_expired(deadline_ms)) {
+            closedir(proc);
+            return -ETIMEDOUT;
+        }
         if (d_handoff_parse_pid(entry->d_name, &pid) < 0) {
             continue;
         }
-        rc = d_handoff_count_pid_drm_fds(pid, &count);
+        if (++process_entries > A90_D_HANDOFF_PROC_ENTRY_MAX) {
+            closedir(proc);
+            return -E2BIG;
+        }
+        rc = d_handoff_count_pid_drm_fds(pid, &count, deadline_ms);
         if (rc < 0) {
             closedir(proc);
             return rc;
@@ -901,6 +966,9 @@ static int d_handoff_wait_pid_gone(pid_t pid, int timeout_ms) {
     return d_handoff_pid_alive(pid) ? -EBUSY : 0;
 }
 
+static int d_handoff_stop_drm_owner_until(const char *tag,
+                                          pid_t pid,
+                                          long deadline_ms);
 static int d_handoff_stop_drm_owner(const char *tag, pid_t pid);
 
 struct dpublic_hud_service_opts {
@@ -1266,9 +1334,16 @@ static int dpublic_hud_service_status(const struct dpublic_hud_service_opts *opt
     return running ? 0 : -ESRCH;
 }
 
-static int dpublic_hud_service_stop(const struct dpublic_hud_service_opts *opts) {
+static int dpublic_hud_service_stop_until(
+        const struct dpublic_hud_service_opts *opts,
+        long deadline_ms) {
     pid_t pid;
-    int rc = dpublic_hud_service_read_pid(opts->pid_path, &pid);
+    int rc;
+
+    if (d_handoff_deadline_expired(deadline_ms)) {
+        return -ETIMEDOUT;
+    }
+    rc = dpublic_hud_service_read_pid(opts->pid_path, &pid);
 
     if (rc < 0) {
         a90_console_printf("%s stop.not_running=1 rc=%d\r\n",
@@ -1278,7 +1353,10 @@ static int dpublic_hud_service_stop(const struct dpublic_hud_service_opts *opts)
     }
     a90_console_printf("%s stop.pid=%ld release_drm=%d\r\n",
                        A90_DPUBLIC_HUD_SERVICE_TAG, (long)pid, opts->release_drm ? 1 : 0);
-    rc = d_handoff_stop_drm_owner(A90_DPUBLIC_HUD_SERVICE_TAG, pid);
+    rc = d_handoff_stop_drm_owner_until(
+        A90_DPUBLIC_HUD_SERVICE_TAG,
+        pid,
+        deadline_ms);
     (void)unlink(opts->pid_path);
     if (rc == 0) {
         (void)dpublic_hud_service_write_status(opts->status_path, "stopped", pid, 0, 0);
@@ -1287,6 +1365,10 @@ static int dpublic_hud_service_stop(const struct dpublic_hud_service_opts *opts)
         a90_console_printf("%s stop.done=0 rc=%d\r\n", A90_DPUBLIC_HUD_SERVICE_TAG, rc);
     }
     return rc;
+}
+
+static int dpublic_hud_service_stop(const struct dpublic_hud_service_opts *opts) {
+    return dpublic_hud_service_stop_until(opts, 0);
 }
 
 static int dpublic_hud_service_restart(const struct dpublic_hud_service_opts *opts) {
@@ -1365,8 +1447,15 @@ int a90_server_distro_dpublic_hud_presenter_service_cmd(char **argv, int argc) {
     return -EINVAL;
 }
 
-static int d_handoff_stop_drm_owner(const char *tag, pid_t pid) {
+static int d_handoff_stop_drm_owner_until(const char *tag,
+                                          pid_t pid,
+                                          long deadline_ms) {
     int rc;
+    int wait_ms;
+
+    if (d_handoff_deadline_expired(deadline_ms)) {
+        return -ETIMEDOUT;
+    }
 
     a90_console_printf("%s handoff_display drm_owner_pid=%ld action=term\r\n", tag, (long)pid);
     if (kill(pid, SIGTERM) < 0 && errno != ESRCH) {
@@ -1375,7 +1464,13 @@ static int d_handoff_stop_drm_owner(const char *tag, pid_t pid) {
                            tag, (long)pid, rc);
         return rc;
     }
-    rc = d_handoff_wait_pid_gone(pid, A90_D_HANDOFF_DRM_OWNER_TIMEOUT_MS);
+    wait_ms = d_handoff_deadline_remaining_ms(
+        deadline_ms,
+        A90_D_HANDOFF_DRM_OWNER_TIMEOUT_MS);
+    if (wait_ms == 0) {
+        return -ETIMEDOUT;
+    }
+    rc = d_handoff_wait_pid_gone(pid, wait_ms);
     if (rc == 0) {
         return 0;
     }
@@ -1387,7 +1482,13 @@ static int d_handoff_stop_drm_owner(const char *tag, pid_t pid) {
                            tag, (long)pid, rc);
         return rc;
     }
-    rc = d_handoff_wait_pid_gone(pid, A90_D_HANDOFF_DRM_OWNER_TIMEOUT_MS);
+    wait_ms = d_handoff_deadline_remaining_ms(
+        deadline_ms,
+        A90_D_HANDOFF_DRM_OWNER_TIMEOUT_MS);
+    if (wait_ms == 0) {
+        return -ETIMEDOUT;
+    }
+    rc = d_handoff_wait_pid_gone(pid, wait_ms);
     if (rc < 0) {
         a90_console_printf("%s handoff_display drm_owner_pid=%ld stop_rc=%d\r\n",
                            tag, (long)pid, rc);
@@ -1395,10 +1496,17 @@ static int d_handoff_stop_drm_owner(const char *tag, pid_t pid) {
     return rc;
 }
 
-static int d_handoff_count_display_owners(bool preserve_dpublic, unsigned int *count_out) {
+static int d_handoff_stop_drm_owner(const char *tag, pid_t pid) {
+    return d_handoff_stop_drm_owner_until(tag, pid, 0);
+}
+
+static int d_handoff_count_display_owners(bool preserve_dpublic,
+                                          unsigned int *count_out,
+                                          long deadline_ms) {
     DIR *proc;
     struct dirent *entry;
     unsigned int count = 0;
+    unsigned int process_entries = 0;
 
     if (count_out == NULL) {
         return -EINVAL;
@@ -1409,11 +1517,29 @@ static int d_handoff_count_display_owners(bool preserve_dpublic, unsigned int *c
     }
     while ((entry = readdir(proc)) != NULL) {
         pid_t pid;
+        bool has_drm = false;
+        int rc;
 
+        if (d_handoff_deadline_expired(deadline_ms)) {
+            closedir(proc);
+            return -ETIMEDOUT;
+        }
         if (d_handoff_parse_pid(entry->d_name, &pid) < 0) {
             continue;
         }
-        if (!d_handoff_pid_is_native_init(pid) || !d_handoff_pid_has_drm_fd(pid)) {
+        if (++process_entries > A90_D_HANDOFF_PROC_ENTRY_MAX) {
+            closedir(proc);
+            return -E2BIG;
+        }
+        if (!d_handoff_pid_is_native_init(pid)) {
+            continue;
+        }
+        rc = d_handoff_pid_has_drm_fd_until(pid, deadline_ms, &has_drm);
+        if (rc < 0) {
+            closedir(proc);
+            return rc;
+        }
+        if (!has_drm) {
             continue;
         }
         if (preserve_dpublic && dpublic_hud_service_pid_is_default(pid)) {
@@ -1436,10 +1562,14 @@ static int d_handoff_stop_display_owners_mode(
     struct a90_kms_release_result kms_release;
     struct a90_kms_info kms_info;
     unsigned int killed = 0;
+    unsigned int owner_attempts = 0;
     unsigned int owner_timeouts = 0;
+    unsigned int process_entries = 0;
     unsigned int remaining = 0;
     unsigned int native_pid1_drm_fd_count = 0;
     unsigned int other_drm_fd_count = 0;
+    long display_deadline =
+        monotonic_millis() + A90_D_HANDOFF_DISPLAY_TOTAL_TIMEOUT_MS;
     int final_rc = 0;
     int scan_rc;
     int service_rc;
@@ -1449,21 +1579,42 @@ static int d_handoff_stop_display_owners_mode(
     if (proof != NULL) {
         memset(proof, 0, sizeof(*proof));
     }
+    a90_console_printf(
+        "%s handoff_display total_timeout_ms=%u\r\n",
+        tag,
+        A90_D_HANDOFF_DISPLAY_TOTAL_TIMEOUT_MS);
 
-    service_rc = a90_service_stop(A90_SERVICE_HUD, A90_D_HANDOFF_HUD_TIMEOUT_MS);
+    service_rc = d_handoff_deadline_remaining_ms(
+        display_deadline,
+        A90_D_HANDOFF_HUD_TIMEOUT_MS);
+    if (service_rc == 0) {
+        final_rc = -ETIMEDOUT;
+        goto display_done;
+    }
+    service_rc = a90_service_stop(A90_SERVICE_HUD, service_rc);
     a90_console_printf("%s handoff_display service=autohud stop_rc=%d\r\n", tag, service_rc);
     if (service_rc < 0) {
         final_rc = service_rc;
+    }
+    if (d_handoff_deadline_expired(display_deadline)) {
+        final_rc = -ETIMEDOUT;
+        goto display_done;
     }
 
     if (!preserve_dpublic) {
         dpublic_hud_service_default_opts(&dpublic_opts);
         dpublic_opts.release_drm = true;
-        service_rc = dpublic_hud_service_stop(&dpublic_opts);
+        service_rc = dpublic_hud_service_stop_until(
+            &dpublic_opts,
+            display_deadline);
         a90_console_printf("%s handoff_display service=dpublic-hud-presenter stop_rc=%d\r\n",
                            tag, service_rc);
         if (service_rc < 0) {
             final_rc = service_rc;
+        }
+        if (d_handoff_deadline_expired(display_deadline)) {
+            final_rc = -ETIMEDOUT;
+            goto display_done;
         }
     }
 
@@ -1475,12 +1626,37 @@ static int d_handoff_stop_display_owners_mode(
     }
     while ((entry = readdir(proc)) != NULL) {
         pid_t pid;
+        bool has_drm = false;
         int rc;
 
+        if (d_handoff_deadline_expired(display_deadline)) {
+            final_rc = -ETIMEDOUT;
+            break;
+        }
         if (d_handoff_parse_pid(entry->d_name, &pid) < 0) {
             continue;
         }
-        if (!d_handoff_pid_is_native_init(pid) || !d_handoff_pid_has_drm_fd(pid)) {
+        if (++process_entries > A90_D_HANDOFF_PROC_ENTRY_MAX) {
+            final_rc = -E2BIG;
+            a90_console_printf(
+                "%s handoff_display process_limit=%u scanned=%u stop=refused\r\n",
+                tag,
+                A90_D_HANDOFF_PROC_ENTRY_MAX,
+                process_entries);
+            break;
+        }
+        if (!d_handoff_pid_is_native_init(pid)) {
+            continue;
+        }
+        rc = d_handoff_pid_has_drm_fd_until(
+            pid,
+            display_deadline,
+            &has_drm);
+        if (rc < 0) {
+            final_rc = rc;
+            break;
+        }
+        if (!has_drm) {
             continue;
         }
         if (preserve_dpublic && dpublic_hud_service_pid_is_default(pid)) {
@@ -1488,7 +1664,17 @@ static int d_handoff_stop_display_owners_mode(
                                tag, (long)pid);
             continue;
         }
-        rc = d_handoff_stop_drm_owner(tag, pid);
+        if (owner_attempts >= A90_D_HANDOFF_DRM_OWNER_MAX) {
+            final_rc = -E2BIG;
+            a90_console_printf(
+                "%s handoff_display owner_limit=%u attempted=%u stop=refused\r\n",
+                tag,
+                A90_D_HANDOFF_DRM_OWNER_MAX,
+                owner_attempts);
+            break;
+        }
+        owner_attempts++;
+        rc = d_handoff_stop_drm_owner_until(tag, pid, display_deadline);
         if (!preserve_dpublic && rc == -EBUSY) {
             owner_timeouts++;
         } else if (rc < 0) {
@@ -1498,6 +1684,9 @@ static int d_handoff_stop_display_owners_mode(
         }
     }
     closedir(proc);
+    if (final_rc == -ETIMEDOUT) {
+        goto display_done;
+    }
 
     if (!preserve_dpublic) {
         int release_rc = a90_kms_release_for_handoff(&kms_release);
@@ -1522,9 +1711,16 @@ static int d_handoff_stop_display_owners_mode(
         if (release_rc < 0) {
             final_rc = kms_release.rc < 0 ? kms_release.rc : -EIO;
         }
+        if (d_handoff_deadline_expired(display_deadline)) {
+            final_rc = -ETIMEDOUT;
+            goto display_done;
+        }
     }
 
-    scan_rc = d_handoff_count_display_owners(preserve_dpublic, &remaining);
+    scan_rc = d_handoff_count_display_owners(
+        preserve_dpublic,
+        &remaining,
+        display_deadline);
     if (scan_rc < 0) {
         final_rc = final_rc < 0 ? final_rc : scan_rc;
     } else if (remaining != 0U) {
@@ -1533,11 +1729,12 @@ static int d_handoff_stop_display_owners_mode(
         a90_console_printf("%s handoff_display owner_timeouts=%u resolved_by_zero_owner_scan=1\r\n",
                            tag, owner_timeouts);
     }
-    if (!preserve_dpublic) {
+    if (!preserve_dpublic && final_rc != -ETIMEDOUT) {
         scan_rc = d_handoff_count_all_drm_fds(
             getpid(),
             &native_pid1_drm_fd_count,
-            &other_drm_fd_count);
+            &other_drm_fd_count,
+            display_deadline);
         a90_kms_info(&kms_info);
         if (scan_rc < 0) {
             final_rc = final_rc < 0 ? final_rc : scan_rc;
@@ -1576,6 +1773,13 @@ static int d_handoff_stop_display_owners_mode(
             proof->display_services_restart_blocked = true;
             proof->kms_release = kms_release;
         }
+    }
+display_done:
+    if (final_rc == -ETIMEDOUT) {
+        a90_console_printf(
+            "%s handoff_display deadline=expired timeout_ms=%u stop=refused\r\n",
+            tag,
+            A90_D_HANDOFF_DISPLAY_TOTAL_TIMEOUT_MS);
     }
     a90_console_printf("%s handoff_display required_nonpreserved_owner_count=0 observed=%u\r\n",
                        tag, remaining);
@@ -1690,11 +1894,23 @@ static int d3_mkdir_p(const char *path, mode_t mode) {
     return 0;
 }
 
-static int d3_regular_file_ok(const char *path) {
+struct d3_source_identity {
+    int fd;
+    dev_t dev;
+    ino_t ino;
+    off_t size;
+};
+
+static int d3_open_source(const char *path, struct d3_source_identity *source) {
     int fd;
     struct stat st;
     int saved_errno;
 
+    if (source == NULL) {
+        return -EINVAL;
+    }
+    memset(source, 0, sizeof(*source));
+    source->fd = -1;
     fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
     if (fd < 0) {
         saved_errno = errno;
@@ -1707,10 +1923,33 @@ static int d3_regular_file_ok(const char *path) {
         close(fd);
         return -saved_errno;
     }
-    close(fd);
     if (!S_ISREG(st.st_mode) || st.st_size <= 0) {
+        close(fd);
         a90_console_printf("%s stop=not-regular-or-empty path=%s\r\n", A90_D3_TAG, path);
         return -EINVAL;
+    }
+    source->fd = fd;
+    source->dev = st.st_dev;
+    source->ino = st.st_ino;
+    source->size = st.st_size;
+    return 0;
+}
+
+static int d3_source_path_matches(const char *path,
+                                  const struct d3_source_identity *source) {
+    struct stat st;
+
+    if (source == NULL || source->fd < 0) {
+        return -EINVAL;
+    }
+    if (lstat(path, &st) < 0) {
+        return -errno;
+    }
+    if (!S_ISREG(st.st_mode) ||
+        st.st_dev != source->dev ||
+        st.st_ino != source->ino ||
+        st.st_size != source->size) {
+        return -ESTALE;
     }
     return 0;
 }
@@ -1821,30 +2060,79 @@ static int d3_run_busybox(char *const argv[], int timeout_ms) {
     return a90_run_result_to_rc(&result);
 }
 
-static int d3_attach_loop(const char *image, bool *attached_out) {
+static int d3_attach_loop(const char *image,
+                          const struct d3_source_identity *source,
+                          bool *attached_out) {
     /*
      * -r attaches read-only, so the kernel refuses a write to the source
      * through this loop device even if a later mount asked for one. The
      * source's immutability stops being a convention held up by copying it
      * and becomes a property the kernel enforces.
      */
-    char *const argv[] = {
-        (char *)A90_D3_BUSYBOX,
-        (char *)"losetup",
-        (char *)"-r",
-        (char *)A90_D3_LOOP,
-        (char *)image,
-        NULL,
-    };
-    int rc = d3_run_busybox(argv, A90_D3_SWITCH_TIMEOUT_MS);
+    struct loop_info64 requested;
+    struct loop_info64 observed;
+    struct stat loop_st;
+    int loop_fd;
+    int rc;
 
-    if (rc != 0) {
-        a90_console_printf("%s losetup=fail rc=%d\r\n", A90_D3_TAG, rc);
-        return rc > 0 ? -EIO : rc;
+    if (source == NULL || source->fd < 0) {
+        return -EINVAL;
     }
+    rc = d3_source_path_matches(image, source);
+    if (rc < 0) {
+        return rc;
+    }
+    loop_fd = open(A90_D3_LOOP, O_RDWR | O_CLOEXEC | O_NOFOLLOW);
+    if (loop_fd < 0) {
+        return -errno;
+    }
+    if (fstat(loop_fd, &loop_st) < 0) {
+        rc = -errno;
+        close(loop_fd);
+        return rc;
+    }
+    if (!S_ISBLK(loop_st.st_mode)) {
+        close(loop_fd);
+        return -EINVAL;
+    }
+    if (ioctl(loop_fd, LOOP_SET_FD, source->fd) < 0) {
+        rc = -errno;
+        close(loop_fd);
+        return rc;
+    }
+    memset(&requested, 0, sizeof(requested));
+    requested.lo_flags = LO_FLAGS_READ_ONLY;
+    snprintf((char *)requested.lo_file_name,
+             sizeof(requested.lo_file_name),
+             "%s",
+             image);
+    if (ioctl(loop_fd, LOOP_SET_STATUS64, &requested) < 0) {
+        rc = -errno;
+        (void)ioctl(loop_fd, LOOP_CLR_FD, 0);
+        close(loop_fd);
+        return rc;
+    }
+    memset(&observed, 0, sizeof(observed));
+    if (ioctl(loop_fd, LOOP_GET_STATUS64, &observed) < 0) {
+        rc = -errno;
+        (void)ioctl(loop_fd, LOOP_CLR_FD, 0);
+        close(loop_fd);
+        return rc;
+    }
+    if (observed.lo_device != (uint64_t)source->dev ||
+        observed.lo_inode != (uint64_t)source->ino ||
+        (observed.lo_flags & LO_FLAGS_READ_ONLY) == 0) {
+        (void)ioctl(loop_fd, LOOP_CLR_FD, 0);
+        close(loop_fd);
+        return -ESTALE;
+    }
+    close(loop_fd);
     if (attached_out != NULL) {
         *attached_out = true;
     }
+    a90_console_printf(
+        "%s loop_backing_identity=verified dev_ino=match read_only=1\r\n",
+        A90_D3_IMMUTABLE_TAG);
     a90_console_printf("%s loop=attached node=%s image=%s\r\n",
                        A90_D3_TAG, A90_D3_LOOP, image);
     return 0;
@@ -1886,16 +2174,61 @@ static int d3_mount_root(void) {
     return 0;
 }
 
-static int d3_verify_source_sha(const char *image,
-                                const char *expected_sha,
-                                const char *phase) {
+static int d3_verify_source_sha_fd(const struct d3_source_identity *source,
+                                   const char *expected_sha,
+                                   const char *phase) {
+    static unsigned char buffer[32768];
+    static const char hex[] = "0123456789abcdef";
+    struct a90_sha256_ctx context;
+    struct stat before;
+    struct stat after;
+    unsigned char digest[32];
     char actual_sha[65];
+    off_t offset = 0;
+    unsigned int index;
 
-    if (a90_helper_sha256_file(image, actual_sha, sizeof(actual_sha)) != 0) {
+    if (source == NULL || source->fd < 0 ||
+        fstat(source->fd, &before) < 0 ||
+        before.st_dev != source->dev ||
+        before.st_ino != source->ino ||
+        before.st_size != source->size) {
         a90_console_printf("%s source_sha phase=%s compute=fail\r\n",
                            A90_D3_IMMUTABLE_TAG, phase);
-        return -EIO;
+        return -ESTALE;
     }
+    a90_helper_sha256_init(&context);
+    while (offset < source->size) {
+        size_t want = (size_t)(source->size - offset);
+        ssize_t got;
+
+        if (want > sizeof(buffer)) {
+            want = sizeof(buffer);
+        }
+        got = pread(source->fd, buffer, want, offset);
+        if (got < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            return -errno;
+        }
+        if (got == 0) {
+            return -ESTALE;
+        }
+        a90_helper_sha256_update(&context, buffer, (size_t)got);
+        offset += got;
+    }
+    if (fstat(source->fd, &after) < 0 ||
+        after.st_dev != source->dev ||
+        after.st_ino != source->ino ||
+        after.st_size != source->size) {
+        return -ESTALE;
+    }
+    a90_helper_sha256_final(&context, digest);
+    for (index = 0; index < sizeof(digest); ++index) {
+        actual_sha[index * 2U] = hex[digest[index] >> 4U];
+        actual_sha[index * 2U + 1U] = hex[digest[index] & 0x0fU];
+    }
+    actual_sha[64] = '\0';
     if (!d3_sha_equal_ci(actual_sha, expected_sha)) {
         a90_console_printf("%s source_sha phase=%s sha=%s expected_sha_match=0\r\n",
                            A90_D3_IMMUTABLE_TAG, phase, actual_sha);
@@ -2186,22 +2519,53 @@ static int d3_bind_evidence_dir(bool *bound_out) {
         return -ENOTDIR;
     }
     /*
-     * Make the source private before the new mount event so the bind cannot
-     * propagate anywhere the review could not account for.
+     * A normal directory is not a mountpoint, so MS_PRIVATE on it returns
+     * EINVAL. Make a temporary self-bind first, require the propagation
+     * change to succeed, clone that private mount to Debian, then remove only
+     * the temporary source mount. The namespace was made recursively private
+     * before any H7 mount, so even the self-bind event cannot escape it.
      */
-    if (mount(NULL, A90_D3_EVIDENCE_DIR, NULL, MS_PRIVATE, NULL) < 0
-        && errno != EINVAL) {
-        a90_console_printf("%s evidence_bind=private-fail errno=%d\r\n",
-                           A90_D3_IMMUTABLE_TAG, errno);
+    if (mount(A90_D3_EVIDENCE_DIR,
+              A90_D3_EVIDENCE_DIR,
+              NULL,
+              MS_BIND,
+              NULL) < 0) {
+        rc = -errno;
+        a90_console_printf("%s evidence_bind=source-self-bind-fail rc=%d\r\n",
+                           A90_D3_IMMUTABLE_TAG, rc);
+        return rc;
     }
+    if (mount(NULL, A90_D3_EVIDENCE_DIR, NULL, MS_PRIVATE, NULL) < 0) {
+        rc = -errno;
+        a90_console_printf("%s evidence_bind=source-private-fail rc=%d\r\n",
+                           A90_D3_IMMUTABLE_TAG, rc);
+        (void)umount2(A90_D3_EVIDENCE_DIR, MNT_DETACH);
+        return rc;
+    }
+    a90_console_printf("%s evidence_bind=source-private\r\n",
+                       A90_D3_IMMUTABLE_TAG);
     if (mount(A90_D3_EVIDENCE_DIR, dst, NULL, MS_BIND, NULL) < 0) {
-        a90_console_printf("%s evidence_bind=fail errno=%d src=%s dst=%s\r\n",
-                           A90_D3_IMMUTABLE_TAG, errno, A90_D3_EVIDENCE_DIR, dst);
-        return -errno;
+        rc = -errno;
+        a90_console_printf("%s evidence_bind=fail rc=%d src=%s dst=%s\r\n",
+                           A90_D3_IMMUTABLE_TAG, rc, A90_D3_EVIDENCE_DIR, dst);
+        (void)umount2(A90_D3_EVIDENCE_DIR, MNT_DETACH);
+        return rc;
     }
-    /* Best effort: the bind is what matters, hardening flags are a bonus. */
-    (void)mount(NULL, dst, NULL,
-                MS_REMOUNT | MS_BIND | MS_NOSUID | MS_NODEV, NULL);
+    if (umount2(A90_D3_EVIDENCE_DIR, MNT_DETACH) < 0) {
+        rc = -errno;
+        a90_console_printf("%s evidence_bind=source-self-unmount-fail rc=%d\r\n",
+                           A90_D3_IMMUTABLE_TAG, rc);
+        (void)umount2(dst, MNT_DETACH);
+        return rc;
+    }
+    if (mount(NULL, dst, NULL,
+              MS_REMOUNT | MS_BIND | MS_NOSUID | MS_NODEV, NULL) < 0) {
+        rc = -errno;
+        a90_console_printf("%s evidence_bind=harden-fail rc=%d dst=%s\r\n",
+                           A90_D3_IMMUTABLE_TAG, rc, dst);
+        (void)umount2(dst, MNT_DETACH);
+        return rc;
+    }
     if (bound_out != NULL) {
         *bound_out = true;
     }
@@ -2387,9 +2751,6 @@ static int d3_move_core_mounts(bool *moved_proc,
     if (dev_mounted < 0) {
         return dev_mounted;
     }
-    if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) < 0) {
-        return -errno;
-    }
     rc = d3_move_mount_one("/proc", "proc");
     if (rc < 0) {
         return rc;
@@ -2425,18 +2786,18 @@ static int d3_move_core_mounts(bool *moved_proc,
             *moved_dev = true;
         }
     } else {
-        rc = d3_prepare_new_dev(mounted_devpts);
-        if (rc < 0) {
-            d3_restore_mount_one("sys", "/sys");
-            d3_restore_mount_one("proc", "/proc");
-            if (moved_sys != NULL) {
-                *moved_sys = false;
-            }
-            if (moved_proc != NULL) {
-                *moved_proc = false;
-            }
-            return rc;
+        a90_console_printf(
+            "%s dev_mountpoint=0 refused=read-only-root-requires-mounted-dev\r\n",
+            A90_D3_IMMUTABLE_TAG);
+        d3_restore_mount_one("sys", "/sys");
+        d3_restore_mount_one("proc", "/proc");
+        if (moved_sys != NULL) {
+            *moved_sys = false;
         }
+        if (moved_proc != NULL) {
+            *moved_proc = false;
+        }
+        return -ENODEV;
     }
     return 0;
 }
@@ -2460,6 +2821,7 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     const char *image;
     const char *expected_sha;
     int rc;
+    struct d3_source_identity source;
     bool loop_created = false;
     bool loop_attached = false;
     bool work_owned = false;
@@ -2509,13 +2871,14 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_emit("handoff_begin");
 #endif
-    rc = d3_regular_file_ok(image);
+    rc = d3_open_source(image, &source);
     if (rc < 0) {
         return rc;
     }
-    rc = d3_verify_source_sha(image, expected_sha, "initial");
+    rc = d3_verify_source_sha_fd(&source, expected_sha, "initial");
     if (rc < 0) {
         a90_console_printf("%s stop=sha-mismatch rc=%d\r\n", A90_D3_TAG, rc);
+        close(source.fd);
         return rc;
     }
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
@@ -2525,15 +2888,17 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     rc = d3_mkdir_p(A90_D3_ROOT, 0755);
     if (rc < 0) {
         a90_console_printf("%s mkdir_root=fail rc=%d root=%s\r\n", A90_D3_TAG, rc, A90_D3_ROOT);
-        return rc;
+        goto fail_immutable_source;
     }
     mounted = d3_path_is_mounted(A90_D3_ROOT);
     if (mounted < 0) {
-        return mounted;
+        rc = mounted;
+        goto fail_immutable_source;
     }
     if (mounted) {
         a90_console_printf("%s stop=root-already-mounted root=%s\r\n", A90_D3_TAG, A90_D3_ROOT);
-        return -EBUSY;
+        rc = -EBUSY;
+        goto fail_immutable_source;
     }
     rc = d3_handoff_stop_display_owners_strict();
     if (rc < 0) {
@@ -2543,7 +2908,10 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_mark("display_release_done");
 #endif
-    rc = d3_verify_source_sha(image, expected_sha, "post-display-cleanup");
+    rc = d3_verify_source_sha_fd(
+        &source,
+        expected_sha,
+        "post-display-cleanup");
     if (rc < 0) {
         a90_console_printf("%s stop=source-changed-during-display-cleanup rc=%d\r\n",
                            A90_D3_TAG, rc);
@@ -2552,12 +2920,20 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_emit("source_sha_post_display_done");
 #endif
+    if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) < 0) {
+        rc = -errno;
+        a90_console_printf("%s mount_namespace=private-fail rc=%d\r\n",
+                           A90_D3_IMMUTABLE_TAG, rc);
+        goto fail_immutable_source;
+    }
+    a90_console_printf("%s mount_namespace=private\r\n",
+                       A90_D3_IMMUTABLE_TAG);
     rc = d3_ensure_loop_node(&loop_created);
     if (rc < 0) {
         a90_console_printf("%s loop_node=fail rc=%d\r\n", A90_D3_TAG, rc);
         goto fail_immutable_source;
     }
-    rc = d3_attach_loop(image, &loop_attached);
+    rc = d3_attach_loop(image, &source, &loop_attached);
     if (rc < 0) {
         goto fail_before_move;
     }
@@ -2680,13 +3056,16 @@ fail_before_move:
                        A90_D3_IMMUTABLE_TAG, cleanup_clean ? 1 : 0);
 fail_immutable_source:
     (void)d3_remove_work_image(work_owned);
-    if (d3_verify_source_sha(image, expected_sha, "after-failure") < 0) {
+    if (d3_source_path_matches(image, &source) < 0 ||
+        d3_verify_source_sha_fd(&source, expected_sha, "after-failure") < 0) {
         a90_console_printf("%s source_unchanged_after_failure=0 stop=source-identity-lost\r\n",
                            A90_D3_IMMUTABLE_TAG);
+        close(source.fd);
         return -ESTALE;
     }
     a90_console_printf("%s source_unchanged_after_failure=1\r\n",
                        A90_D3_IMMUTABLE_TAG);
+    close(source.fd);
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_emit("handoff_failed_native");
 #endif

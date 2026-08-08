@@ -7,7 +7,7 @@ candidate_authority = false
 random_seed = "a90-phase3-minimal-h7-readonly-source-ondevice-evidence-auto-benchmark"
 
 [init]
-closure_sha256 = "9d7fd5f7a433697dd8475bf6ba9664487a53b2ade8f063ae3c1937992585695d"
+closure_sha256 = "f17aac71d21701a9e7a4db62f825029fd73aea7f281759061ec47d8ef8a37a03"
 cflags = [
   "-static",
   "-Os",
@@ -202,5 +202,12 @@ init_strings = [
   "writable_set=mounted count=%u",
   "replayed lines=%d path=%s",
   "run published intent_sha256=%s path=%s",
+  "handoff_display owner_limit=%u attempted=%u stop=refused",
+  "handoff_display process_limit=%u scanned=%u stop=refused",
+  "handoff_display total_timeout_ms=%u",
+  "handoff_display deadline=expired timeout_ms=%u stop=refused",
+  "loop_backing_identity=verified dev_ino=match read_only=1",
+  "evidence_bind=source-private",
+  "dev_mountpoint=0 refused=read-only-root-requires-mounted-dev",
 ]
 engine_strings = []

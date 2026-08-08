@@ -193,6 +193,34 @@ class StrictAboutStateTest(unittest.TestCase):
         self.assertFalse(result["proof"])
         self.assertIn("drm_card0=absent", result["reason"])
 
+    def test_absent_drm_master_fails(self) -> None:
+        text = "\n".join(
+            [
+                line("debian_pid1", 132_100),
+                line("debian_drm_master", 133_400, drm_master="0"),
+                line("debian_sshd", 134_900),
+            ]
+        )
+        result = evidence.evaluate(text, RUN)
+        self.assertFalse(result["proof"])
+        self.assertIn("drm_master=0", result["reason"])
+
+    def test_duplicate_key_cannot_overwrite_a_contradiction(self) -> None:
+        drm = line("debian_drm_master", 133_400).replace(
+            "drm_master=1",
+            "drm_master=0 drm_master=1",
+        )
+        text = "\n".join(
+            [
+                line("debian_pid1", 132_100),
+                drm,
+                line("debian_sshd", 134_900),
+            ]
+        )
+        result = evidence.evaluate(text, RUN)
+        self.assertFalse(result["proof"])
+        self.assertEqual(result["missing_phases"], ["debian_drm_master"])
+
     def test_pid1_must_be_the_earliest_stamp(self) -> None:
         text = "\n".join(
             [

@@ -705,21 +705,22 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         )
 
         reduced_read_budget = source.replace(
-            "    + F1_HANDOFF_MISC_ALLOWANCE_SEC\n",
+            "    + F1_HANDOFF_DISPLAY_BOUND_SEC\n",
             "",
             1,
         )
         self.assertIn(
             (
-                "handoff 900-second read budget lacks exact operand: "
-                "F1_HANDOFF_MISC_ALLOWANCE_SEC"
+                "handoff read budget lacks exact operand: "
+                "F1_HANDOFF_DISPLAY_BOUND_SEC"
             ),
             f1.source_contract_issues(reduced_read_budget),
         )
 
     def test_short_handoff_timeout_is_rejected_before_transport(self) -> None:
-        self.assertEqual(f1.F1_HANDOFF_MIN_READ_BUDGET_SEC, 900)
-        self.assertEqual(f1.F1_HANDOFF_MIN_TIMEOUT_SEC, 905)
+        self.assertEqual(f1.F1_HANDOFF_DISPLAY_BOUND_SEC, 127)
+        self.assertEqual(f1.F1_HANDOFF_MIN_READ_BUDGET_SEC, 457)
+        self.assertEqual(f1.F1_HANDOFF_MIN_TIMEOUT_SEC, 462)
         with self.assertRaisesRegex(
             f1.ContractError,
             "must reserve the complete V3403 handoff corridor",
@@ -1513,17 +1514,14 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
                 f"source_sha phase={phase} sha={spec.stage.local_sha256} "
                 "expected_sha_match=1"
             )
-            for phase in (
-                "initial",
-                "post-display-cleanup",
-                "work-copy",
-                "post-copy-source",
-            )
+            for phase in f1.F1_HANDOFF_SOURCE_SHA_PHASES
         ]
         text = "\n".join(
             phase_lines
             + [
-                "work_copy=ready",
+                "writable_set=mounted",
+                "writable_set=verified root=read-only",
+                "evidence_bind=ok",
                 "exec_switch_root_now",
             ]
         )
@@ -1543,7 +1541,7 @@ class A90V3403F1OrchestratorTests(unittest.TestCase):
         )
         self.assertEqual(
             exchange.call_args.kwargs["minimum_read_budget_sec"],
-            900.0,
+            float(f1.F1_HANDOFF_MIN_READ_BUDGET_SEC),
         )
 
         with (

@@ -377,6 +377,24 @@ static int a90_auto_handoff_mkdir_evidence_dir(void) {
     return 0;
 }
 
+static int a90_auto_handoff_fsync_evidence_dir(void) {
+    int fd;
+    int rc = 0;
+
+    fd = open(A90_AUTO_HANDOFF_EVIDENCE_DIR,
+              O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return -errno;
+    }
+    if (fsync(fd) < 0) {
+        rc = -errno;
+    }
+    if (close(fd) < 0 && rc == 0) {
+        rc = -errno;
+    }
+    return rc;
+}
+
 static int a90_auto_handoff_publish_evidence_run(const char *intent_sha256) {
     char line[66];
     int fd;
@@ -417,7 +435,7 @@ static int a90_auto_handoff_publish_evidence_run(const char *intent_sha256) {
     if (close(fd) < 0) {
         return -errno;
     }
-    return 0;
+    return a90_auto_handoff_fsync_evidence_dir();
 }
 
 /*
@@ -438,10 +456,13 @@ static int a90_auto_handoff_publish_evidence_run(const char *intent_sha256) {
  * Debian, legitimately has no record. The host decides what that means.
  */
 static int a90_auto_handoff_replay_ondevice_evidence(void) {
-    static char buffer[A90_ONDEV_EVIDENCE_TAIL_MAX + 1U];
+    static char buffer[A90_ONDEV_EVIDENCE_TAIL_MAX + 2U];
     struct stat st;
     off_t start = 0;
     size_t consumed = 0;
+    size_t read_limit = A90_ONDEV_EVIDENCE_TAIL_MAX;
+    char *records[A90_ONDEV_EVIDENCE_LINES_MAX];
+    unsigned records_seen = 0;
     unsigned emitted = 0;
     char *cursor;
     int fd;
@@ -462,15 +483,16 @@ static int a90_auto_handoff_replay_ondevice_evidence(void) {
         if (start < 0) {
             start = 0;
         }
+        read_limit += 1U;
     }
     if (lseek(fd, start, SEEK_SET) == (off_t)-1) {
         close(fd);
         return -errno;
     }
-    while (consumed < A90_ONDEV_EVIDENCE_TAIL_MAX) {
+    while (consumed < read_limit) {
         ssize_t got = read(fd,
                            buffer + consumed,
-                           A90_ONDEV_EVIDENCE_TAIL_MAX - consumed);
+                           read_limit - consumed);
 
         if (got < 0) {
             if (errno == EINTR) {
@@ -500,7 +522,7 @@ static int a90_auto_handoff_replay_ondevice_evidence(void) {
             cursor = (first == NULL) ? buffer + consumed : first + 1;
         }
     }
-    while (*cursor != '\0' && emitted < A90_ONDEV_EVIDENCE_LINES_MAX) {
+    while (*cursor != '\0') {
         char *end = strchr(cursor, '\n');
         char *marker;
         size_t length;
@@ -517,10 +539,21 @@ static int a90_auto_handoff_replay_ondevice_evidence(void) {
         }
         marker = strstr(cursor, A90_ONDEV_EVIDENCE_MARKER);
         if (marker != NULL) {
-            a90_logf("ondev-evidence", "%s", marker);
-            ++emitted;
+            records[records_seen % A90_ONDEV_EVIDENCE_LINES_MAX] = marker;
+            ++records_seen;
         }
         cursor = end + 1;
+    }
+    emitted = records_seen < A90_ONDEV_EVIDENCE_LINES_MAX
+                  ? records_seen
+                  : A90_ONDEV_EVIDENCE_LINES_MAX;
+    for (unsigned index = 0; index < emitted; ++index) {
+        unsigned first = records_seen - emitted;
+        char *marker = records[
+            (first + index) % A90_ONDEV_EVIDENCE_LINES_MAX
+        ];
+
+        a90_logf("ondev-evidence", "%s", marker);
     }
     return (int)emitted;
 }

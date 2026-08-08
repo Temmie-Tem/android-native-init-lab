@@ -1,0 +1,137 @@
+{
+  "schema": "a90-phase3-minimal-h7-independent-review-v1",
+  "status": "PASS_GO",
+  "review_date": "2026-08-08",
+  "reviewer": "independent subagent /root/a90_h7_closure_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "capability": "A90_PHASE3_MINIMAL_H7_READONLY_SOURCE_ONDEVICE_EVIDENCE_BASELINE",
+  "decision": "No unresolved HIGH or MEDIUM finding. H7 removes the per-handoff 2 GiB work copy, preserves an exact read-only source with a fixed writable tmpfs set, records same-ordinal Debian facts durably, and grades them only after exact native return while retaining exact host bridge and NCM proof.",
+  "qualification_lifetime": "Reusable across manifests, campaigns, qualifications, and ordinals while the named execution-critical closures and hazard assumptions remain unchanged and no new hazard or incident occurs. Fresh target, rollback, recovery, presence, D0, runner binding, and live authority remain separate.",
+  "scope": {
+    "candidate_version": "0.11.175",
+    "candidate_build": "phase3-minimal-h7-readonly-source-ondevice-evidence-auto-benchmark",
+    "native_closure_sha256": "f17aac71d21701a9e7a4db62f825029fd73aea7f281759061ec47d8ef8a37a03",
+    "native_closure_member_count": 252,
+    "manifest_sha256": "12b0f4e818e4de2c2f83e2f4d4d42466d3924f0124082c812eb65f68d7acca65",
+    "effective_manifest_sha256": "3fc82268dc948c59561631d4b7e4fe86d1d58d09fd4b4e1a69a76db31ec7caf0",
+    "benchmark_execution_closure_sha256": "c040331e0a67c1be1876d4a18a630378786cdb0f722ec5b1de1e66350c0fed70",
+    "compiled_binding_sha256": "12fd4ad71f9e976455737d2671006cab77c8da916fad87d6e09eaae8f6253f7c",
+    "candidate_boot_size": 58306560,
+    "candidate_boot_sha256": "9edcbf8821c5fb5069576ca403ed04e873e9dfcf79dedb59e2d976d6981af4a2",
+    "candidate_init_size": 1657872,
+    "candidate_init_sha256": "df1c7b0acfa73ac2087fb8c0db3063d7bd226f4834866ec0e855a7e6d51db01f",
+    "candidate_authority": false,
+    "live_authority": false
+  },
+  "review_history": {
+    "initial_verdict": "FAIL",
+    "initial_confirmed_regressions": [
+      "stale four-phase F1 source-hash expectation",
+      "self-check requiring obsolete copy and hash counts",
+      "tail reader dropping the final complete record",
+      "evaluator accepting drm_master=0 and duplicate-key overwrite",
+      "display cleanup lacking a code-enforced total deadline",
+      "evidence bind treating MS_PRIVATE EINVAL as success",
+      "read-only root attempting dev-node creation when dev was not mounted",
+      "evidence run publication omitting parent-directory fsync",
+      "durable evaluator disconnected from the production D1 terminal",
+      "durable device facts incorrectly replacing host bridge and NCM facts",
+      "tail replay selecting the first rather than latest 64 records",
+      "path-based source hash to loop-attach TOCTOU"
+    ],
+    "final_verdict": "PASS_GO"
+  },
+  "reviewed_properties": {
+    "two_source_hash_phases_and_self_check_agree": true,
+    "latest_64_complete_evidence_records_replayed_in_order": true,
+    "drm_master_one_required_and_duplicate_keys_rejected": true,
+    "durable_evaluator_in_production_execute_resume_and_journal_validation": true,
+    "exact_bridge_reenumeration_and_host_ncm_remain_terminal_gates": true,
+    "live_ssh_service_and_candidate_return_are_corroboration_only": true,
+    "display_cleanup_total_monotonic_timeout_ms": 127000,
+    "display_cleanup_process_cap": 8192,
+    "display_cleanup_owner_cap": 16,
+    "single_nofollow_source_fd_hashed_twice_and_attached_directly": true,
+    "loop_backing_dev_inode_and_read_only_revalidated": true,
+    "evidence_bind_source_private_and_destination_hardened": true,
+    "unmounted_dev_fails_without_writing_read_only_root": true,
+    "evidence_run_file_and_parent_directory_fsynced": true,
+    "one_arm_one_reboot_and_candidate_replay_false_retained": true,
+    "boot_partition_only": true,
+    "non_boot_partition_authority": false,
+    "device_contact": false,
+    "s22plus_change_or_command": false
+  },
+  "benchmark_execution_closure": {
+    "sha256": "c040331e0a67c1be1876d4a18a630378786cdb0f722ec5b1de1e66350c0fed70",
+    "files": {
+      "benchmark_parser": {
+        "path": "workspace/public/src/scripts/server-distro/a90_boot_benchmark_v1.py",
+        "bytes": 12868,
+        "sha256": "ba66e2680cc425d584ae8754a5ca1afebc7cb69b2223f398f21a56af72ccd55c"
+      },
+      "ondevice_evidence": {
+        "path": "workspace/public/src/scripts/server-distro/a90_ondevice_evidence_v1.py",
+        "bytes": 22337,
+        "sha256": "7ceab9017eeb383cef51c52fd4d00dd936e4bb64aee6ba5f83d7a9d51d3b3423"
+      },
+      "resident_f1_loader": {
+        "path": "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py",
+        "bytes": 286199,
+        "sha256": "8929896e0fb96d627289b23c1f8f82c12847ec5eef437b6bd0514bb3fdd6c80a"
+      },
+      "resident_manifest_loader": {
+        "path": "workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py",
+        "bytes": 143708,
+        "sha256": "84b6e618ba7c54cffaeb469aa7f3a5df5b9ddf728961751addff9c97b3bd9fb3"
+      },
+      "runner": {
+        "path": "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py",
+        "bytes": 66975,
+        "sha256": "190181dec1b47e65ea451f8e86561b8fa968337e166cfca903074b750c66972d"
+      }
+    }
+  },
+  "additional_execution_inputs": {
+    "workspace/public/src/native-init/a90_auto_handoff.c": {
+      "bytes": 23150,
+      "sha256": "923b245de0e441f625ae8d79af30d53a135715fcee7df663c1208166902336ee"
+    },
+    "workspace/public/src/native-init/a90_server_distro.c": {
+      "bytes": 153138,
+      "sha256": "109af63d01b4183f5bf61dabca58d824b469bda0aa89a1df091c15eb70c4dc49"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h7/manifest.toml": {
+      "bytes": 8210,
+      "sha256": "12b0f4e818e4de2c2f83e2f4d4d42466d3924f0124082c812eb65f68d7acca65"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh": {
+      "bytes": 15395,
+      "sha256": "288c2f752418eab7890974d40ad9ba745c1f26cfbfa6f644454a1b50ba04c57a"
+    }
+  },
+  "validation": {
+    "independent_related_tests_passed": 278,
+    "main_related_tests_passed": 270,
+    "transition_tests_passed": 40,
+    "changed_python_py_compile": "PASS",
+    "git_diff_check": "PASS",
+    "h7_audit": "PASS",
+    "full_aarch64_cross_build": "PASS",
+    "init_file_type": "ELF 64-bit LSB ARM aarch64 statically linked stripped",
+    "boot_file_type": "Android bootimg"
+  },
+  "authority": {
+    "host_only_qualification": true,
+    "device_action_performed": false,
+    "d0_performed": false,
+    "d1_performed": false,
+    "f1_performed": false,
+    "payload_transfer": false,
+    "partition_write": false,
+    "flash": false,
+    "reboot": false,
+    "candidate_replay": false,
+    "s22plus_touched": false
+  }
+}

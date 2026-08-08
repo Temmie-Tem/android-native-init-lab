@@ -61,6 +61,16 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
         )
 
     @staticmethod
+    def _ondevice_record(phase: str, uptime_ms: int, run: str) -> str:
+        return (
+            f"{runner.ondevice_evidence.MARKER}"
+            f"schema={runner.ondevice_evidence.SCHEMA} "
+            f"phase={phase} uptime_ms={uptime_ms} run={run} "
+            "pid1_comm=init proc1_exe=/usr/sbin/init drm_card0=char "
+            "drm_master=1 dropbear=1 display_ready=1 display_failure=0"
+        )
+
+    @staticmethod
     def _status(enable: int, latch: int) -> dict:
         command = ["auto-handoff-status"]
         return {
@@ -119,10 +129,46 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             rollback=SimpleNamespace(sha256="3" * 64),
             rootfs=SimpleNamespace(sha256="4" * 64),
             recovery_profile="A90_ATTENDED_PHYSICAL_RECOVERY_V1",
+            bridge_device="/dev/a90-test",
             bridge_realpath="/dev/ttyACM-test",
+            observer_host_ncm_profile="a90-test-ncm",
             candidate_version=runner.EXPECTED_VERSION,
             candidate_build=runner.EXPECTED_BUILD,
         )
+
+    @classmethod
+    def _host_link(cls) -> dict:
+        spec = cls._spec()
+        return {
+            "bridge_reenumeration": {
+                "ok": True,
+                "selected_device": spec.bridge_device,
+                "selected_realpath": spec.bridge_realpath,
+                "metadata": {"effective_expect_realpath": spec.bridge_realpath},
+                "bridge_process": "running",
+                "port_listening": True,
+            },
+            "host_ncm_rebind": {
+                "same_current_acm_usb_parent": True,
+                "exact_interface_count": 1,
+                "profile_bound": True,
+                "mutated": False,
+                "profile_check": {
+                    "command": [
+                        "nmcli", "-g", "connection.type", "connection",
+                        "show", spec.observer_host_ncm_profile,
+                    ],
+                    "returncode": 0,
+                    "stdout": runner.base.HOST_NCM_CONNECTION_TYPE + "\n",
+                },
+                "ready": {
+                    "verified_a90_ncm": True,
+                    "direct_route": True,
+                    "host_cidr_present": True,
+                    "device_ping": True,
+                },
+            },
+        }
 
     def _write_semantic_prefix(
         self,
@@ -343,11 +389,122 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             {
                 "runner",
                 "benchmark_parser",
+                "ondevice_evidence",
                 "resident_manifest_loader",
                 "resident_f1_loader",
             },
         )
         self.assertRegex(closure["sha256"], r"^[0-9a-f]{64}$")
+
+    def test_durable_same_ordinal_evidence_drives_terminal_without_live_ssh(self) -> None:
+        intent_sha256 = "a" * 64
+        opening = self._complete_benchmark_segment(1_000)
+        current = self._complete_benchmark_segment(100)
+        durable = "\n".join(
+            (
+                self._ondevice_record("debian_pid1", 1_000, intent_sha256),
+                self._ondevice_record("debian_sshd", 2_000, intent_sha256),
+                self._ondevice_record("debian_drm_master", 3_000, intent_sha256),
+            )
+        )
+        log_record = {"command": ["logcat"], "text": "\n".join((opening, current, durable))}
+        status_record = self._status(1, 1)
+        preflight = SimpleNamespace(validate=lambda: None)
+        observation = {
+            "proof": False,
+            "observer_error": {"type": "RuntimeError", "message": "live SSH missed"},
+            "guard_release": {"released": True},
+            **self._host_link(),
+        }
+        with (
+            mock.patch.object(
+                runner,
+                "require_auto_status",
+                return_value=(status_record, runner.parse_auto_status(status_record)),
+            ),
+            mock.patch.object(
+                runner.resident,
+                "resident_d0_preflight",
+                return_value=(preflight, {"resident_healthy": True}),
+            ),
+            mock.patch.object(runner.base, "run_f1_cmd", return_value=log_record),
+            mock.patch.object(
+                runner.base,
+                "require_exact_f1_command_receipt",
+                side_effect=lambda value, _command, _label: value,
+            ),
+        ):
+            result = runner.finalize_cycle(
+                self._spec(),
+                SimpleNamespace(),
+                observation,
+                intent_sha256=intent_sha256,
+                opening_log_record={"command": ["logcat"], "text": opening},
+                visible_confirmed="yes",
+                cleanup_evidence={"proof": True},
+            )
+
+        self.assertEqual(result["terminal"], "PASS_AUTO_HANDOFF_BENCHMARK_VISIBLE")
+        self.assertTrue(result["ondevice_evidence"]["proof"])
+        self.assertNotIn("candidate_return", observation)
+
+    def test_durable_evidence_cannot_replace_exact_host_link_facts(self) -> None:
+        observation = self._host_link()
+        self.assertTrue(runner.host_link_proven(self._spec(), observation))
+        observation["host_ncm_rebind"] = dict(observation["host_ncm_rebind"])
+        observation["host_ncm_rebind"]["exact_interface_count"] = 0
+        self.assertFalse(runner.host_link_proven(self._spec(), observation))
+
+    def test_durable_evidence_result_is_recomputed_from_bound_log(self) -> None:
+        intent_sha256 = "b" * 64
+        opening = self._complete_benchmark_segment(1_000)
+        current = self._complete_benchmark_segment(100)
+        durable = "\n".join(
+            self._ondevice_record(phase, stamp, intent_sha256)
+            for phase, stamp in (
+                ("debian_pid1", 1_000),
+                ("debian_sshd", 2_000),
+                ("debian_drm_master", 3_000),
+            )
+        )
+        log_record = {"command": ["logcat"], "text": "\n".join((opening, current, durable))}
+        status_record = self._status(1, 1)
+        preflight = SimpleNamespace(validate=lambda: None)
+        observation = {
+            "guard_release": {"released": True},
+            **self._host_link(),
+        }
+        with (
+            mock.patch.object(
+                runner,
+                "require_auto_status",
+                return_value=(status_record, runner.parse_auto_status(status_record)),
+            ),
+            mock.patch.object(
+                runner.resident,
+                "resident_d0_preflight",
+                return_value=(preflight, {}),
+            ),
+            mock.patch.object(runner.base, "run_f1_cmd", return_value=log_record),
+            mock.patch.object(
+                runner.base,
+                "require_exact_f1_command_receipt",
+                side_effect=lambda value, _command, _label: value,
+            ),
+        ):
+            result = runner.finalize_cycle(
+                self._spec(),
+                SimpleNamespace(),
+                observation,
+                intent_sha256=intent_sha256,
+                opening_log_record={"command": ["logcat"], "text": opening},
+                visible_confirmed="unavailable",
+                cleanup_evidence={"proof": True},
+            )
+            result["ondevice_evidence"] = dict(result["ondevice_evidence"])
+            result["ondevice_evidence"]["proof"] = False
+            with self.assertRaisesRegex(runner.ContractError, "durable evidence changed"):
+                runner.validate_result(self._spec(), result, intent_sha256)
 
     def test_recorded_historical_closure_is_digest_and_role_bound(self) -> None:
         closure = runner.execution_closure()

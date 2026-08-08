@@ -32,6 +32,7 @@ for _path in (SCRIPT_DIR, REVAL_DIR):
         sys.path.insert(0, str(_path))
 
 import a90_boot_benchmark_v1 as benchmark  # noqa: E402
+import a90_ondevice_evidence_v1 as ondevice_evidence  # noqa: E402
 import a90_phase3_d1_observer_v1 as phase3_observer  # noqa: E402
 import a90_transition_d1_session_v1 as resident  # noqa: E402
 import a90_v3403_f1_orchestrator as base  # noqa: E402
@@ -56,6 +57,7 @@ HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 EXECUTION_SOURCES = {
     "runner": Path(__file__).resolve(),
     "benchmark_parser": SCRIPT_DIR / "a90_boot_benchmark_v1.py",
+    "ondevice_evidence": SCRIPT_DIR / "a90_ondevice_evidence_v1.py",
     "resident_manifest_loader": SCRIPT_DIR / "a90_transition_d1_session_v1.py",
     "resident_f1_loader": SCRIPT_DIR / "a90_v3403_f1_orchestrator.py",
 }
@@ -473,7 +475,7 @@ def load_journal_prefix(
             raise ContractError("cleanup result disposition is not exact")
     if len(records) >= 8:
         final = records[7]
-        result = validate_result(spec, final.get("result"))
+        result = validate_result(spec, final.get("result"), intent_sha256)
         if (
             final.get("intent_sha256") != intent_sha256
             or final.get("result_sha256") != base.json_sha256(result)
@@ -481,7 +483,7 @@ def load_journal_prefix(
             raise ContractError("final-health result binding changed")
     if len(records) >= 9:
         closed = records[8]
-        result = validate_result(spec, closed.get("result"))
+        result = validate_result(spec, closed.get("result"), intent_sha256)
         if (
             closed.get("result_sha256") != base.json_sha256(result)
             or result != records[7].get("result")
@@ -845,16 +847,66 @@ def parse_appended_benchmark(
     return parsed
 
 
+def host_link_proven(spec: resident.SessionSpec, observation: Any) -> bool:
+    """Keep USB identity and NCM reachability as host-observed facts."""
+
+    if not isinstance(observation, dict):
+        return False
+    bridge = observation.get("bridge_reenumeration")
+    metadata = bridge.get("metadata") if isinstance(bridge, dict) else None
+    if (
+        not isinstance(bridge, dict)
+        or bridge.get("ok") is not True
+        or bridge.get("selected_device") != spec.bridge_device
+        or bridge.get("selected_realpath") != spec.bridge_realpath
+        or not isinstance(metadata, dict)
+        or metadata.get("effective_expect_realpath") != spec.bridge_realpath
+        or bridge.get("bridge_process") != "running"
+        or bridge.get("port_listening") is not True
+    ):
+        return False
+    ncm = observation.get("host_ncm_rebind")
+    ready = ncm.get("ready") if isinstance(ncm, dict) else None
+    profile = ncm.get("profile_check") if isinstance(ncm, dict) else None
+    return (
+        isinstance(ncm, dict)
+        and ncm.get("same_current_acm_usb_parent") is True
+        and ncm.get("exact_interface_count") == 1
+        and ncm.get("profile_bound") is True
+        and type(ncm.get("mutated")) is bool
+        and ready
+        == {
+            "verified_a90_ncm": True,
+            "direct_route": True,
+            "host_cidr_present": True,
+            "device_ping": True,
+        }
+        and isinstance(profile, dict)
+        and profile.get("command")
+        == [
+            "nmcli",
+            "-g",
+            "connection.type",
+            "connection",
+            "show",
+            spec.observer_host_ncm_profile,
+        ]
+        and profile.get("returncode") == 0
+        and str(profile.get("stdout") or "").strip()
+        == base.HOST_NCM_CONNECTION_TYPE
+    )
+
+
 def finalize_cycle(
     spec: resident.SessionSpec,
     args: argparse.Namespace,
     observation: dict[str, Any],
     *,
+    intent_sha256: str,
     opening_log_record: dict[str, Any],
     visible_confirmed: str,
     cleanup_evidence: dict[str, Any],
 ) -> dict[str, Any]:
-    f1_spec = _f1_spec(spec)
     status_record, status = require_auto_status(args, enable=1, latch=1)
     final_preflight, final_evidence = resident.resident_d0_preflight(spec)
     final_preflight.validate()
@@ -874,18 +926,15 @@ def finalize_cycle(
             display_status=str(ssh.get("display_status")),
         )
         facts = base.display.facts_to_dict(classified)
-    mechanical = bool(facts) and all(
-        facts[name]["state"] == "PROVEN"
-        for name in (
-            "native_release",
-            "debian_pid1",
-            "dropbear",
-            "display_acquisition",
-        )
-    )
-    returned = isinstance(observation.get("candidate_return"), dict)
+    durable_evidence = ondevice_evidence.evaluate(log_text, intent_sha256)
+    mechanical = durable_evidence["proof"] is True
+    # Exact returned enable/latch and final resident D0 were proved above.
+    # candidate_return is live corroboration only: requiring it here would
+    # recreate the host timing race the durable evidence lane replaces.
+    returned = status.get("enable") == 1 and status.get("latch") == 1
     guard_released = observation.get("guard_release", {}).get("released") is True
-    if returned and mechanical and guard_released:
+    host_link = host_link_proven(spec, observation)
+    if returned and mechanical and host_link and guard_released:
         terminal = (
             "PASS_AUTO_HANDOFF_BENCHMARK_VISIBLE"
             if visible_confirmed == "yes"
@@ -897,6 +946,7 @@ def finalize_cycle(
         terminal = "NO_PROOF_OBSERVER_RESIDENT_HEALTHY"
     return {
         "schema": RESULT_SCHEMA,
+        "intent_sha256": intent_sha256,
         "terminal": terminal,
         "resident_healthy": True,
         "candidate_replay": False,
@@ -908,6 +958,8 @@ def finalize_cycle(
         "work_cleanup": cleanup_evidence,
         "observation": observation,
         "display_facts": facts,
+        "ondevice_evidence": durable_evidence,
+        "durable_evidence_log_record": log_record,
         "visible_confirmed": visible_confirmed,
         "benchmark": parsed_benchmark,
         "telemetry_scope": (
@@ -923,14 +975,16 @@ def finalize_cycle(
 def validate_result(
     spec: resident.SessionSpec,
     value: Any,
+    intent_sha256: str,
 ) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ContractError("benchmark result is not an object")
     expected_keys = {
-        "schema", "terminal", "resident_healthy", "candidate_replay",
+        "schema", "intent_sha256", "terminal", "resident_healthy", "candidate_replay",
         "arm_dispatch_count", "reboot_dispatch_count", "auto_handoff_status",
         "auto_handoff_status_record", "final_preflight", "work_cleanup",
-        "observation", "display_facts", "visible_confirmed", "benchmark",
+        "observation", "display_facts", "ondevice_evidence",
+        "durable_evidence_log_record", "visible_confirmed", "benchmark",
         "telemetry_scope", "payload_transfer", "partition_write", "flash",
     }
     allowed_terminal = {
@@ -942,6 +996,7 @@ def validate_result(
     if (
         set(value) != expected_keys
         or value.get("schema") != RESULT_SCHEMA
+        or value.get("intent_sha256") != intent_sha256
         or value.get("terminal") not in allowed_terminal
         or value.get("resident_healthy") is not True
         or value.get("candidate_replay") is not False
@@ -960,6 +1015,33 @@ def validate_result(
         or not isinstance(value.get("display_facts"), dict)
     ):
         raise ContractError("benchmark result terminal contract changed")
+    durable_log = base.require_exact_f1_command_receipt(
+        value.get("durable_evidence_log_record"),
+        ["logcat"],
+        "result durable evidence log",
+    )
+    durable_evidence = ondevice_evidence.evaluate(
+        str(durable_log.get("text") or ""),
+        intent_sha256,
+    )
+    if value.get("ondevice_evidence") != durable_evidence:
+        raise ContractError("benchmark result durable evidence changed")
+    guard_released = value["observation"].get("guard_release", {}).get(
+        "released"
+    ) is True
+    host_link = host_link_proven(spec, value["observation"])
+    if durable_evidence["proof"] is True and host_link and guard_released:
+        expected_terminal = (
+            "PASS_AUTO_HANDOFF_BENCHMARK_VISIBLE"
+            if value.get("visible_confirmed") == "yes"
+            else "REFUTED_AUTO_HANDOFF_DISPLAY_VISIBILITY"
+            if value.get("visible_confirmed") == "no"
+            else "PASS_AUTO_HANDOFF_BENCHMARK_NO_PROOF_VISIBILITY"
+        )
+    else:
+        expected_terminal = "NO_PROOF_OBSERVER_RESIDENT_HEALTHY"
+    if value.get("terminal") != expected_terminal:
+        raise ContractError("benchmark result durable terminal changed")
     status_record = base.require_exact_f1_command_receipt(
         value.get("auto_handoff_status_record"),
         ["auto-handoff-status"],
@@ -1231,11 +1313,12 @@ def execute(
         spec,
         args,
         observation,
+        intent_sha256=intent_sha256,
         opening_log_record=first_log,
         visible_confirmed=visible_confirmed,
         cleanup_evidence=cleanup_evidence,
     )
-    result = validate_result(spec, result)
+    result = validate_result(spec, result, intent_sha256)
     result_sha256 = base.json_sha256(result)
     write_record(
         path / JOURNAL_NAMES[7],
@@ -1285,11 +1368,19 @@ def resume_after_return(
             "historical-closure tail repair requires the exact post-cleanup prefix"
         )
     if len(records) == len(JOURNAL_NAMES):
-        return validate_result(spec, records[-1]["result"])
+        return validate_result(
+            spec,
+            records[-1]["result"],
+            records[4]["intent_sha256"],
+        )
     if len(records) == 8:
         # Only the host-side publication record is absent.  Never turn this
         # append-only repair into a new device observation or D1 effect.
-        result = validate_result(spec, records[7]["result"])
+        result = validate_result(
+            spec,
+            records[7]["result"],
+            records[4]["intent_sha256"],
+        )
         result_sha256 = records[7]["result_sha256"]
         write_record(
             path / JOURNAL_NAMES[8],
@@ -1393,11 +1484,12 @@ def resume_after_return(
             spec,
             args,
             observation,
+            intent_sha256=intent_sha256,
             opening_log_record=records[0]["first_boot_log"],
             visible_confirmed=visible_confirmed,
             cleanup_evidence=cleanup_evidence,
         )
-        result = validate_result(spec, result)
+        result = validate_result(spec, result, intent_sha256)
         result_sha256 = base.json_sha256(result)
         write_record(
             path / JOURNAL_NAMES[7],
@@ -1409,7 +1501,7 @@ def resume_after_return(
             },
         )
     else:
-        result = validate_result(spec, records[7]["result"])
+        result = validate_result(spec, records[7]["result"], intent_sha256)
         result_sha256 = records[7]["result_sha256"]
     records = load_journal_prefix(
         spec,

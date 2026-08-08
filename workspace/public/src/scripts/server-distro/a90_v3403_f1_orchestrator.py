@@ -119,21 +119,42 @@ OBSERVATION_OUTPUT_MARKERS = (
 F1_SERIAL_INPUT_MODE = "slow"
 F1_SERIAL_INPUT_CHAR_DELAY_SEC = 0.02
 F1_HANDOFF_MAX_PRE_READ_SEC = 5.0
+F1_HANDOFF_SOURCE_SHA_PHASES = (
+    "initial",
+    "post-display-cleanup",
+)
 # The 2 GiB copy no longer happens, so its 300 s allowance would be pure
 # slack, and slack is not free: an over-provisioned budget cannot detect the
 # regression it exists to bound. Two full source hashes remain -- initial and
 # post-display -- instead of four passes.
 F1_HANDOFF_COPY_BOUND_SEC = 0
-F1_HANDOFF_SHA_PASS_COUNT = 2
+F1_HANDOFF_SHA_PASS_COUNT = len(F1_HANDOFF_SOURCE_SHA_PHASES)
 F1_HANDOFF_SHA_ALLOWANCE_PER_PASS_SEC = 90
 F1_HANDOFF_SWITCH_HELPER_BOUND_COUNT = 2
 F1_HANDOFF_SWITCH_HELPER_BOUND_SEC = 30
-F1_HANDOFF_MISC_ALLOWANCE_SEC = 180
+# Native display cleanup stops autohud once, the dpublic presenter once, then
+# at most 16 additional native DRM owners. Each DRM owner gets one bounded
+# TERM wait and one bounded KILL wait. These values are mirrored by
+# A90_D_HANDOFF_* in a90_server_distro.c and source-closure tests bind them.
+F1_HANDOFF_DISPLAY_HUD_STOP_BOUND_SEC = 3
+F1_HANDOFF_DISPLAY_DPRESENT_OWNER_BOUND_COUNT = 1
+F1_HANDOFF_DISPLAY_OWNER_BOUND_COUNT = 16
+F1_HANDOFF_DISPLAY_OWNER_WAIT_COUNT = 2
+F1_HANDOFF_DISPLAY_OWNER_WAIT_SEC = 1
+F1_HANDOFF_DISPLAY_PROC_SCAN_COUNT = 3
+F1_HANDOFF_DISPLAY_PROC_ENTRY_BOUND_COUNT = 8192
+# Native enforces this total with one monotonic deadline threaded through every
+# /proc and per-fd scan as well as both bounded owner waits. The host budget is
+# therefore the code-enforced ceiling, not an estimated per-scan allowance.
+F1_HANDOFF_DISPLAY_TOTAL_BOUND_SEC = 127
+F1_HANDOFF_DISPLAY_BOUND_SEC = F1_HANDOFF_DISPLAY_TOTAL_BOUND_SEC
+F1_HANDOFF_MISC_ALLOWANCE_SEC = 90
 F1_HANDOFF_MIN_READ_BUDGET_SEC = (
     F1_HANDOFF_COPY_BOUND_SEC
     + F1_HANDOFF_SHA_PASS_COUNT * F1_HANDOFF_SHA_ALLOWANCE_PER_PASS_SEC
     + F1_HANDOFF_SWITCH_HELPER_BOUND_COUNT
     * F1_HANDOFF_SWITCH_HELPER_BOUND_SEC
+    + F1_HANDOFF_DISPLAY_BOUND_SEC
     + F1_HANDOFF_MISC_ALLOWANCE_SEC
 )
 F1_HANDOFF_MIN_TIMEOUT_SEC = (
@@ -3433,7 +3454,7 @@ def run_handoff(spec: F1Spec, args: argparse.Namespace) -> dict[str, Any]:
         post_marker_drain_sec=0.3,
     )
     missing = [marker for marker in OBSERVATION_OUTPUT_MARKERS if marker not in text]
-    for phase in ("initial", "post-display-cleanup", "work-copy", "post-copy-source"):
+    for phase in F1_HANDOFF_SOURCE_SHA_PHASES:
         exact = (
             f"source_sha phase={phase} sha={spec.stage.local_sha256} "
             "expected_sha_match=1"
@@ -6529,12 +6550,24 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         'F1_SERIAL_INPUT_MODE = "slow"',
         "F1_SERIAL_INPUT_CHAR_DELAY_SEC = 0.02",
         "F1_HANDOFF_MAX_PRE_READ_SEC = 5.0",
-        "F1_HANDOFF_COPY_BOUND_SEC = 300",
-        "F1_HANDOFF_SHA_PASS_COUNT = 4",
+        "F1_HANDOFF_SOURCE_SHA_PHASES = (",
+        '    "initial",',
+        '    "post-display-cleanup",',
+        "F1_HANDOFF_COPY_BOUND_SEC = 0",
+        "F1_HANDOFF_SHA_PASS_COUNT = len(F1_HANDOFF_SOURCE_SHA_PHASES)",
         "F1_HANDOFF_SHA_ALLOWANCE_PER_PASS_SEC = 90",
         "F1_HANDOFF_SWITCH_HELPER_BOUND_COUNT = 2",
         "F1_HANDOFF_SWITCH_HELPER_BOUND_SEC = 30",
-        "F1_HANDOFF_MISC_ALLOWANCE_SEC = 180",
+        "F1_HANDOFF_DISPLAY_HUD_STOP_BOUND_SEC = 3",
+        "F1_HANDOFF_DISPLAY_DPRESENT_OWNER_BOUND_COUNT = 1",
+        "F1_HANDOFF_DISPLAY_OWNER_BOUND_COUNT = 16",
+        "F1_HANDOFF_DISPLAY_OWNER_WAIT_COUNT = 2",
+        "F1_HANDOFF_DISPLAY_OWNER_WAIT_SEC = 1",
+        "F1_HANDOFF_DISPLAY_PROC_SCAN_COUNT = 3",
+        "F1_HANDOFF_DISPLAY_PROC_ENTRY_BOUND_COUNT = 8192",
+        "F1_HANDOFF_DISPLAY_TOTAL_BOUND_SEC = 127",
+        "F1_HANDOFF_DISPLAY_BOUND_SEC = F1_HANDOFF_DISPLAY_TOTAL_BOUND_SEC",
+        "F1_HANDOFF_MISC_ALLOWANCE_SEC = 90",
         "F1_HANDOFF_MIN_READ_BUDGET_SEC = (",
         "F1_HANDOFF_MIN_TIMEOUT_SEC = (",
         "OBSERVATION_MENU_SETTLE_SEC = 3.0",
@@ -6604,11 +6637,12 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             "F1_HANDOFF_SHA_ALLOWANCE_PER_PASS_SEC",
             "F1_HANDOFF_SWITCH_HELPER_BOUND_COUNT",
             "F1_HANDOFF_SWITCH_HELPER_BOUND_SEC",
+            "F1_HANDOFF_DISPLAY_BOUND_SEC",
             "F1_HANDOFF_MISC_ALLOWANCE_SEC",
         ):
             if read_budget.count(operand) != 1:
                 issues.append(
-                    f"handoff 900-second read budget lacks exact operand: {operand}"
+                    f"handoff read budget lacks exact operand: {operand}"
                 )
         compact_timeout_budget = "".join(
             observation_constants[timeout_budget_start:menu_start].split()
@@ -6618,7 +6652,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
             "+int(F1_HANDOFF_MAX_PRE_READ_SEC)"
             not in compact_timeout_budget
         ):
-            issues.append("handoff 905-second timeout formula is not exact")
+            issues.append("handoff timeout formula is not exact")
     epoch_wait_start = source.find("def _bound_bridge_serial_epoch(")
     settle_start = source.find(
         "def settle_observation_channel(",
