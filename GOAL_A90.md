@@ -349,6 +349,29 @@ The pre-H2 goal history is preserved at
   HIGH/MEDIUM/LOW zero and 126 reviewer tests. Reviewer private, device, USB,
   network, and S22+ contact was zero. H10 has no live authority and no A90 or
   S22+ command was sent.
+- Fresh run03 connected D0 then re-proved exact H8 `0.11.176`, self-test fail
+  zero, pstore zero, direct A90 USB-NCM, exact H10 candidate and V2321 rollback,
+  and absent H10 final/work/stage paths. The standard resident-install manifest
+  and compatibility binding were prepared from committed H10 closure with no
+  live authority. Device write, payload, flash, reboot, and S22+ command counts
+  remained zero.
+- The first run03 F1 transaction published and verified the exact 2 GiB H10
+  source once, then stopped terminally before candidate intent because the
+  host ModemManager guard's `pkexec` process did not arm. Its raw receipt is
+  empty with no return code, candidate and rollback transfer counts are zero,
+  candidate replay is false, and no guard residue remains. The transaction is
+  `ABORTED_F1_V2_BEFORE_CANDIDATE`, must never resume, and H8 remains installed
+  and healthy. S22+ was untouched.
+- The incident successor reuses only that exact published H10 source in a fresh
+  campaign. It performs no rootfs staging, copy, unlink, mount, or handoff;
+  binds H8 starting health, absent work/new-stage/enable/latch/receipt, one
+  boot-only H10 candidate, exact V2321 rollback, attendance, guard, no replay,
+  and final `RESIDENT_HEALTHY`. Independent rereview first rejected substring
+  receipt validation and mutable profile poisoning; both were repaired.
+  Final `PASS_GO` has HIGH/MEDIUM/LOW zero at closure `cb54905e...`, runner
+  `47f55ebd...`, and resident promotion `1fae5f20...`; 334 main and 23 reviewer
+  public/mocked tests pass. Reviewer edits and device, USB, private, network,
+  and S22+ contacts are zero.
 
 ## Qualified Capabilities
 
@@ -397,12 +420,14 @@ The pre-H2 goal history is preserved at
   requirement. The attempted same-H9-identity rebind at `aad3ed6d...` /
   `e5bb6528...` was rejected `NO_GO` and is never live-eligible. H10 at manifest
   `57ffe40e...`, native closure `3359e10f...`, Phase3 closure `226f914e...`,
-  compiled binding `decc6995...`, and benchmark closure `194bbb07...` now has
-  independent `PASS_GO`. Reuse lasts only while these exact closures and hazard
-  assumptions remain unchanged and no new hazard or incident occurs. It grants
-  no live authority; fresh exact D0, immutable binding, attendance, rollback,
-  recovery, first-publication absence, no-replay, and final health remain
-  required.
+  compiled binding `decc6995...`, and benchmark closure `194bbb07...` had
+  independent `PASS_GO`; the subsequent guard-arm incident and changed
+  resident validator retire that receipt from live reuse. The fresh no-stage
+  successor has independent `PASS_GO` at closure `cb54905e...` and may be
+  reused only while that exact closure and its hazard assumptions remain
+  unchanged and no new incident occurs. It grants no live authority; fresh
+  exact D0, immutable binding, attendance, rollback, recovery, no-replay, and
+  final health remain required.
 - The H5/H4 source-reclaim closure
   `2c6f7b431cb82638638b4f891daa9a56deae27d1cb48621b93cadcab97cf8842`
   has independent `PASS_GO` evidence for hazard
@@ -520,13 +545,13 @@ as absent on-device mechanical proof.
 
 The next bounded work is:
 
-1. preserve the final independent `PASS_GO` for the fresh-identity H10 closure,
-   commit it, and keep candidate/live authority false;
-2. run fresh exact A90 D0 to re-prove H8 resident health, the existing immutable
-   H10 rootfs, boot candidate, exact rollback, recovery path, free F1 guard, and
-   the required H10 pre-install state;
-3. while attended, publish the exact rootfs bytes once to the fresh H10
-   destination and install H10 with one boot-only candidate effect;
+1. preserve and commit the incident successor's final independent `PASS_GO`,
+   while keeping candidate and live authority false;
+2. run one fresh exact A90 D0 for a new campaign to re-prove H8 resident health,
+   the already-published immutable H10 source, absent work/new-stage and H10
+   state paths, boot candidate, rollback, recovery, and free F1 guard;
+3. after a successful just-in-time `pkexec` guard preflight and while attended,
+   install H10 with one boot-only candidate effect and zero rootfs transfer;
 4. after exact H10 resident health, bind one new attended D1 ordinal whose arm
    performs the one-time full-SHA receipt qualification, then dispatch exactly
    one reboot with no replay; and
@@ -594,7 +619,8 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_PHASE3_MINIMAL_H8_E19_REPAIR_INDEPENDENT_REVIEW_2026-08-09.json`
 - `docs/reports/A90_H8_PMSG_WINDOW_REPLACEMENT_TAIL_REPAIR_INDEPENDENT_REVIEW_2026-08-09.json`
 - `docs/archive/reports/A90_PHASE3_MINIMAL_H9_FAST_SOURCE_RECEIPT_INDEPENDENT_REVIEW_2026-08-09.json`
-- `docs/reports/A90_PHASE3_MINIMAL_H10_FAST_SOURCE_RECEIPT_INDEPENDENT_REVIEW_2026-08-09.json`
+- `docs/archive/reports/A90_PHASE3_MINIMAL_H10_FAST_SOURCE_RECEIPT_INDEPENDENT_REVIEW_2026-08-09.json`
+- `docs/reports/A90_H10_EXISTING_PUBLISHED_SOURCE_INSTALL_INDEPENDENT_REVIEW_2026-08-09.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`

@@ -1204,15 +1204,28 @@ def _validate_candidate_first_boot_journal(
         ["run", "/bin/busybox", "sh", "-c", preflight_script],
         "candidate_first_boot_preflight.record",
     )
+    receipt_path = candidate_first_boot.get("receipt_path")
+    expected_preflight_keys = {"proof", "enable_path", "latch_path", "record"}
     expected_marker = "A90AUTO_F1_PRE enable_absent=1 latch_absent=1"
+    if receipt_path is not None:
+        expected_preflight_keys.add("receipt_path")
+        expected_marker += " receipt_absent=1"
+    preflight_markers: list[str] = []
+    for line in str(preflight_record.get("text") or "").replace(
+        "\r", "\n"
+    ).splitlines():
+        marker_start = line.find("A90AUTO_F1_PRE ")
+        if marker_start >= 0:
+            preflight_markers.append(line[marker_start:].strip())
     if (
-        set(preflight_proof) != {"proof", "enable_path", "latch_path", "record"}
+        set(preflight_proof) != expected_preflight_keys
         or preflight_proof.get("proof") is not True
         or preflight_proof.get("enable_path")
         != candidate_first_boot["enable_path"]
         or preflight_proof.get("latch_path")
         != candidate_first_boot["latch_path"]
-        or str(preflight_record.get("text") or "").count(expected_marker) != 1
+        or preflight_proof.get("receipt_path") != receipt_path
+        or preflight_markers != [expected_marker]
     ):
         raise ContractError("auto-handoff pre-transfer first-boot proof changed")
     health_proof = _dict(

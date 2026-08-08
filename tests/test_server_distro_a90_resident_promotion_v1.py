@@ -609,6 +609,114 @@ class ResidentPromotionV1Tests(unittest.TestCase):
         ):
             promotion._validate_candidate_first_boot_journal(spec, by_action)
 
+    def test_first_boot_journal_accepts_bound_fast_receipt_absence(self) -> None:
+        candidate_build = "phase3-minimal-h10-fast-source-receipt-auto-benchmark"
+        first_boot = {
+            "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h10.enable",
+            "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h10.done",
+            "receipt_path": "/cache/a90-source-receipt-phase3-minimal-h10",
+        }
+        spec = SimpleNamespace(
+            candidate_build=candidate_build,
+            candidate_first_boot=first_boot,
+        )
+
+        def exact_receipt(command: list[str], output: str, seq: str) -> dict:
+            return {
+                "command": command,
+                "rc": 0,
+                "status": "ok",
+                "trust": "A90P1_V1_STRUCTURAL_ONLY",
+                "begin": {
+                    "argc": str(len(command)),
+                    "cmd": command[0],
+                    "flags": "0x0",
+                    "seq": seq,
+                },
+                "end": {
+                    "cmd": command[0],
+                    "duration_ms": "1",
+                    "errno": "0",
+                    "flags": "0x0",
+                    "rc": "0",
+                    "seq": seq,
+                    "status": "ok",
+                },
+                "text": output,
+            }
+
+        preflight_script = base.candidate_first_boot_state_absence_script(
+            first_boot
+        )
+        by_action = {
+            "rootfs-candidate-preflight": {
+                "candidate_first_boot_preflight": {
+                    "proof": True,
+                    "enable_path": first_boot["enable_path"],
+                    "latch_path": first_boot["latch_path"],
+                    "receipt_path": first_boot["receipt_path"],
+                    "record": exact_receipt(
+                        ["run", "/bin/busybox", "sh", "-c", preflight_script],
+                        (
+                            "A90AUTO_F1_PRE enable_absent=1 latch_absent=1 "
+                            "receipt_absent=1\r\n"
+                        ),
+                        "1",
+                    ),
+                }
+            },
+            "candidate-boot-ready": {
+                "candidate_first_boot_health": {
+                    "proof": True,
+                    "status": exact_receipt(
+                        ["auto-handoff-status"],
+                        (
+                            "A90AUTO_STATUS binding=1 enable=0 latch=0 "
+                            f"build={candidate_build}\r\n"
+                        ),
+                        "2",
+                    ),
+                    "log": exact_receipt(
+                        ["logcat"],
+                        "A90AUTO state=unarmed-stay-native\r\n",
+                        "3",
+                    ),
+                    "enable": 0,
+                    "latch": 0,
+                    "unarmed_log_unique": True,
+                }
+            },
+        }
+        promotion._validate_candidate_first_boot_journal(spec, by_action)
+        exact_text = by_action["rootfs-candidate-preflight"][
+            "candidate_first_boot_preflight"
+        ]["record"]["text"]
+        for malformed in (
+            exact_text.replace("receipt_absent=1", "receipt_absent=1 trailing=1"),
+            (
+                "A90AUTO_F1_PRE state_path_absent=0 path=/cache/bad\r\n"
+                + exact_text
+            ),
+            exact_text + exact_text,
+        ):
+            changed = json.loads(json.dumps(by_action))
+            changed["rootfs-candidate-preflight"][
+                "candidate_first_boot_preflight"
+            ]["record"]["text"] = malformed
+            with self.subTest(malformed=malformed), self.assertRaisesRegex(
+                promotion.ContractError,
+                "pre-transfer first-boot proof changed",
+            ):
+                promotion._validate_candidate_first_boot_journal(spec, changed)
+        del by_action["rootfs-candidate-preflight"][
+            "candidate_first_boot_preflight"
+        ]["receipt_path"]
+        with self.assertRaisesRegex(
+            promotion.ContractError,
+            "pre-transfer first-boot proof changed",
+        ):
+            promotion._validate_candidate_first_boot_journal(spec, by_action)
+
     def test_install_manifest_rejects_schema_mode_mismatch(self) -> None:
         with tempfile.TemporaryDirectory(dir=REPO_ROOT / "workspace/private") as tmp:
             spec = self.install_fixture(Path(tmp))

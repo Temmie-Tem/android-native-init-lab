@@ -1,0 +1,130 @@
+{
+  "schema": "a90-h10-existing-published-source-install-independent-review-v1",
+  "status": "PASS_GO",
+  "decision": "PASS_GO",
+  "review_date": "2026-08-09",
+  "target": "Samsung Galaxy A90 5G",
+  "capability": "A90_ATTENDED_H10_EXISTING_PUBLISHED_SOURCE_INSTALL_V1",
+  "scope": "Host-only independent review of the fresh-campaign, no-stage reuse of the exact H10 source published by the terminal zero-candidate predecessor after its ModemManager guard-arm failure.",
+  "incident": {
+    "class": "HOST_PKEXEC_MODEMMANAGER_GUARD_ARM_FAILURE_BEFORE_CANDIDATE",
+    "predecessor_run_id": "a90-v3406-debian-display-f1-20260809-03",
+    "terminal_status": "ABORTED_F1_V2_BEFORE_CANDIDATE",
+    "candidate_transfer_count": 0,
+    "rollback_transfer_count": 0,
+    "candidate_replay": false,
+    "rootfs_published_exact": true,
+    "guard_runtime_residue": false,
+    "predecessor_resume_forbidden": true
+  },
+  "named_execution_critical_closure": {
+    "a90ctl": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90ctl.py",
+      "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c",
+      "size": 16380
+    },
+    "connected_preflight": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_phase2d_connected_preflight.py",
+      "sha256": "c84f7e8d1054df6f095ce13a0bb4c3f057a6d0f4244b77f12b5c87f89edaa6d8",
+      "size": 21929
+    },
+    "flash_runner": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/native_init_flash.py",
+      "sha256": "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53",
+      "size": 43118
+    },
+    "flat_manifest": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h10/manifest.toml",
+      "sha256": "57ffe40e9c85b86833db254b14cb05eddbf5feb3e83e1b7fb25aaf056066c4f7",
+      "size": 8631
+    },
+    "modemmanager_guard": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/device_action_cdc_acm_observer_v1.py",
+      "sha256": "6c8a6d2151928d2e098ca41b3c9dc24cdbbfabe9be10df19969be274744ef9a9",
+      "size": 51402
+    },
+    "orchestrator": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py",
+      "sha256": "125789dd63acbc5cf0f809ba8a69b721cf10a0c5522751db2214894e764ee4f6",
+      "size": 291674
+    },
+    "preserved_recovery_helpers": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_resident_existing_rootfs_install_v1.py",
+      "sha256": "4be463fd7419259781f83d6ec1812d59e143f84cdb46ffdea0d9f01694f151d0",
+      "size": 128843
+    },
+    "resident_promotion": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py",
+      "sha256": "1fae5f200c7d0e0c0b5035440f5caf048b3b669b1c7d0d7802629fe72dfe6d3c",
+      "size": 73823
+    },
+    "runner": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_h5_existing_source_install_v1.py",
+      "sha256": "47f55ebd69f2a3197559e5800c1bace9bb9f44030c89c8869f4800186c2ec82b",
+      "size": 106013
+    },
+    "serial_bridge": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/serial_tcp_bridge.py",
+      "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98",
+      "size": 17944
+    },
+    "staging_contract": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py",
+      "sha256": "f41404fd94f2f8e17c28fa56c0d0001ae3b1fd251a75e92348c942701938ae67",
+      "size": 106254
+    },
+    "tcpctl_host": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/tcpctl_host.py",
+      "sha256": "032f3146ddc08af82f00881ae3d825066e843a41b194ee8d4c8cf09d1f3adb78",
+      "size": 34750
+    }
+  },
+  "named_execution_critical_closure_sha256": "cb54905e45f88cf78e6321b99e265d2154c41fbe504a84f236e3a477cec5ba32",
+  "reviewed_properties": [
+    "The predecessor is the exact terminal zero-candidate H10 transaction and is never resumed or replayed.",
+    "The already-published 2 GiB H10 source is reopened read-only and no staging, copy, unlink, mount, or handoff route exists.",
+    "Fresh D0 and pre-candidate proof require exact H8 starting health, source identity and SHA256, absent work and new stage, and absent H10 enable, latch, and receipt paths.",
+    "Only one exact boot candidate may be transferred; exact V2321 rollback activates only after durable candidate intent.",
+    "Receipt-bearing first-boot durable evidence rejects suffix, duplicate, and contradictory marker records.",
+    "Explicit profile mismatch fails before selection, and a failed manifest load restores the previous profile.",
+    "PASS requires exact H10 resident health, unchanged protected source, zero rootfs effect counters, guard release, and no candidate replay.",
+    "A90 and S22+ target identity, evidence, transport, recovery, and command authority remain isolated."
+  ],
+  "findings": {
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "resolved_before_final_review": [
+      "Replaced substring first-boot marker checks with exact normalized singleton validation in both durable journal consumers.",
+      "Bound explicit CLI profile selection to the manifest capability and restored profile state after failed loads.",
+      "Revalidated the bound connected-D0 protected proof against the constructed execution spec."
+    ]
+  },
+  "unresolved_findings": [],
+  "ordinal_cost": {
+    "rootfs_payload_bytes": 0,
+    "rootfs_copy_bytes": 0,
+    "rootfs_sha_read_bytes_success": 6442450944,
+    "bounded_sha_passes_success": 3,
+    "assessment": "Accepted one-time install qualification cost; routine H10 D1 uses the separately qualified fast receipt path."
+  },
+  "validation": {
+    "main_public_mocked_tests": 334,
+    "reviewer_public_mocked_tests": 23,
+    "reviewer_in_memory_compiles": 4,
+    "python_compile": "PASS",
+    "host_audit": "PASS",
+    "git_diff_check": "PASS",
+    "reviewer_patch_sha256": "3521eb603ab7db3366c1e0de4de25b47185dfbd0b3c03e4e875b2bdd8a706a32"
+  },
+  "review_lifetime": "Capability-level PASS_GO reusable only while this exact named closure and hazard assumptions are unchanged and no new incident occurs.",
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "reviewer": "independent-subagent",
+  "reviewer_implementation_edits": false,
+  "reviewer_device_contact": false,
+  "reviewer_usb_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_network_contact": false,
+  "reviewer_s22plus_contact": false
+}

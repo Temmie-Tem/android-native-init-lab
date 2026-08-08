@@ -715,5 +715,220 @@ class H5ExistingSourceInstallTests(unittest.TestCase):
             install.execute_connected_d0(args)
 
 
+class H10ExistingSourceProfileTests(unittest.TestCase):
+    def setUp(self) -> None:
+        install.configure_profile("h10")
+
+    def tearDown(self) -> None:
+        install.configure_profile("h5")
+
+    def spec(self) -> SimpleNamespace:
+        stage = str(
+            install.staging.derive_stage_dir(
+                "a90-v3406-debian-display-f1-20991231-99"
+            )
+        )
+        first_boot = {
+            "enable_path": install.H5_ENABLE,
+            "latch_path": install.H5_LATCH,
+            "receipt_path": install.FAST_RECEIPT_PATH,
+        }
+        return SimpleNamespace(
+            manifest={
+                "protected_rootfs": {
+                    "disposition": install.DISPOSITION,
+                    "source": {
+                        "device_path": install.H5_SOURCE_PATH,
+                        "size": install.IMAGE_SIZE,
+                        "sha256": install.H5_SOURCE_SHA256,
+                        "mode": install.FILE_MODE,
+                        "nlink": install.FILE_NLINK,
+                        "device_identity": "45825:1054074",
+                    },
+                    "work_path": install.WORK_PATH,
+                    "stage_path": stage,
+                    "enable_path": install.H5_ENABLE,
+                    "latch_path": install.H5_LATCH,
+                    "receipt_path": install.FAST_RECEIPT_PATH,
+                }
+            },
+            stage=SimpleNamespace(remote_stage_dir=stage),
+            candidate_first_boot=first_boot,
+        )
+
+    def receipt(self, command: list[str], line: str) -> dict:
+        return {
+            "command": command,
+            "rc": 0,
+            "status": "ok",
+            "trust": "A90P1_V1_STRUCTURAL_ONLY",
+            "begin": {
+                "argc": str(len(command)),
+                "cmd": command[0],
+                "flags": "0x2",
+                "seq": "1",
+            },
+            "end": {
+                "cmd": command[0],
+                "duration_ms": "1",
+                "errno": "0",
+                "flags": "0x2",
+                "rc": "0",
+                "seq": "1",
+                "status": "ok",
+            },
+            "text": line + "\n",
+            "wire_bytes": install._wire_bytes(command),
+        }
+
+    def proof(self) -> dict:
+        spec = self.spec()
+        commands = install._protected_commands(spec)
+        lines = {
+            "source_stat": (
+                f"regular file|{install.IMAGE_SIZE}|{install.FILE_MODE}|"
+                f"{install.FILE_NLINK}|45825:1054074"
+            ),
+            "source_hash": (
+                f"{install.H5_SOURCE_SHA256}  {install.H5_SOURCE_PATH}"
+            ),
+            "absences": (
+                "work=absent stage=absent enable=absent latch=absent "
+                "receipt=absent"
+            ),
+            "mounts": "mount_namespace_use=none",
+            "loops": "loop_use=none",
+            "opens": "open_fd_use=none current_root_use=none",
+        }
+        receipts = [
+            self.receipt(command, lines[label])
+            for label, command in commands.items()
+        ]
+        first_boot_script = install.base.candidate_first_boot_state_absence_script(
+            spec.candidate_first_boot
+        )
+        first_boot_record = self.receipt(
+            ["run", "/bin/busybox", "sh", "-c", first_boot_script],
+            (
+                "A90AUTO_F1_PRE enable_absent=1 latch_absent=1 "
+                "receipt_absent=1"
+            ),
+        )
+        first_boot_record.pop("wire_bytes")
+        first_boot = {
+            "proof": True,
+            "enable_path": install.H5_ENABLE,
+            "latch_path": install.H5_LATCH,
+            "receipt_path": install.FAST_RECEIPT_PATH,
+            "record": first_boot_record,
+        }
+        with (
+            mock.patch.object(install, "_remote", side_effect=receipts),
+            mock.patch.object(
+                install.base,
+                "require_candidate_first_boot_state_absent",
+                return_value=first_boot,
+            ),
+        ):
+            return install.protected_paths_preflight(
+                spec,
+                SimpleNamespace(),
+                phase="pre-candidate",
+            )
+
+    def test_h10_audit_binds_receipt_and_h10_flat_manifest(self) -> None:
+        result = install.audit()
+        self.assertTrue(result["ready_for_review"])
+        self.assertEqual(result["contract_issues"], [])
+        self.assertEqual(result["protected_read_frame_count"], 7)
+        self.assertIn(
+            "phase3-minimal-h10/manifest.toml",
+            result["review_closure"]["flat_manifest"]["path"],
+        )
+        commands = install._protected_commands(self.spec())
+        self.assertIn(install.FAST_RECEIPT_PATH, commands["absences"])
+        self.assertIn("receipt=absent", commands["absences"][4])
+
+    def test_h10_profile_is_exact_and_capability_selected(self) -> None:
+        self.assertEqual(install.PROFILE_LABEL, "H10")
+        self.assertEqual(install.STARTING_VERSION, "0.11.176")
+        self.assertEqual(install.H5_VERSION, "0.11.178")
+        self.assertEqual(
+            install.FAST_RECEIPT_PATH,
+            "/cache/a90-source-receipt-phase3-minimal-h10",
+        )
+        install.configure_profile_for_capability(install.CAPABILITY)
+        self.assertEqual(install.ACTIVE_PROFILE, "h10")
+        with self.assertRaises(install.ContractError):
+            install.configure_profile_for_capability("unknown")
+
+    def test_h10_proof_rejects_malformed_or_contradictory_receipt_marker(self) -> None:
+        proof = self.proof()
+        record = proof["candidate_first_boot_preflight"]["record"]
+        exact_text = record["text"]
+        for malformed in (
+            exact_text.replace("receipt_absent=1", "receipt_absent=1 trailing=1"),
+            "A90AUTO_F1_PRE state_path_absent=0 path=/cache/bad\n" + exact_text,
+            exact_text + exact_text,
+        ):
+            changed = dict(proof)
+            changed_first_boot = dict(proof["candidate_first_boot_preflight"])
+            changed_record = dict(record)
+            changed_record["text"] = malformed
+            changed_first_boot["record"] = changed_record
+            changed["candidate_first_boot_preflight"] = changed_first_boot
+            with self.subTest(malformed=malformed), self.assertRaisesRegex(
+                install.ContractError,
+                "candidate first-boot preflight changed",
+            ):
+                install._validate_proof(
+                    self.spec(),
+                    changed,
+                    phase="pre-candidate",
+                )
+
+    def test_failed_h10_load_restores_profile_and_explicit_mismatch_is_stable(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory(dir=install.staging.PRIVATE_ROOT) as raw:
+            manifest = Path(raw) / "manifest.json"
+            manifest.write_text(
+                '{"capability":"A90_ATTENDED_H10_EXISTING_PUBLISHED_SOURCE_INSTALL_V1"}\n',
+                encoding="utf-8",
+            )
+            manifest.chmod(0o600)
+            digest = install.legacy.sha256_file(manifest)
+            install.configure_profile("h5")
+            with self.assertRaises(install.ContractError):
+                install.load_spec(manifest, digest)
+            self.assertEqual(install.ACTIVE_PROFILE, "h5")
+            with self.assertRaisesRegex(
+                install.ContractError,
+                "explicit profile differs",
+            ):
+                install.load_spec(manifest, digest, expected_profile="h5")
+            self.assertEqual(install.ACTIVE_PROFILE, "h5")
+
+    def test_main_passes_explicit_profile_to_manifest_loader(self) -> None:
+        with mock.patch.object(
+            install,
+            "load_spec",
+            side_effect=install.ContractError("stop"),
+        ) as load:
+            with self.assertRaisesRegex(install.ContractError, "stop"):
+                install.main(
+                    [
+                        "--prepare-approval",
+                        "--profile",
+                        "h5",
+                        "--manifest",
+                        "/private/manifest.json",
+                        "--expect-manifest-sha256",
+                        "0" * 64,
+                    ]
+                )
+        self.assertEqual(load.call_args.kwargs["expected_profile"], "h5")
+
+
 if __name__ == "__main__":
     unittest.main()

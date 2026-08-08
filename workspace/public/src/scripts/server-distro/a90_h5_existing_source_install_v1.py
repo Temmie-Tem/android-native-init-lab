@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Install H5 once from the exact run-12 source without staging it again.
+"""Install an exact reviewed resident from an already published source.
 
-This A90-only lane consumes the terminal zero-candidate run-12 journal as
-predecessor evidence.  A fresh campaign reopens the already published source
-read-only, proves work/stage/H5 state paths absent, and permits one boot-only
-candidate.  It never resumes run-12 and never stages, copies, unlinks, mounts,
-or hands off the rootfs.
+This A90-only lane consumes one profile-bound terminal zero-candidate journal
+as predecessor evidence.  A fresh campaign reopens the already published
+source read-only, proves work/stage/first-boot state paths absent, and permits
+one boot-only candidate.  It never resumes the predecessor and never stages,
+copies, unlinks, mounts, or hands off the rootfs.
 """
 
 from __future__ import annotations
@@ -79,6 +79,124 @@ ROLLBACK_SHA256 = (
 )
 ROLLBACK_VERSION = "0.9.285"
 ROLLBACK_BUILD = "v2321-usb-clean-identity-rodata"
+STARTING_VERSION = ROLLBACK_VERSION
+STARTING_BUILD = ROLLBACK_BUILD
+PREDECESSOR_RUN_ID = "a90-v3406-debian-display-f1-20260805-12"
+FLAT_MANIFEST_VERSION = "phase3-minimal-h5"
+OUTPUT_NAME = "h5-existing-source-manifest.json"
+FAST_RECEIPT_PATH: str | None = None
+PROFILE_LABEL = "H5"
+ACTIVE_PROFILE = "h5"
+
+H5_PROFILE = {
+    "capability": CAPABILITY,
+    "review_schema": REVIEW_SCHEMA,
+    "d0_schema": D0_SCHEMA,
+    "proof_schema": PROOF_SCHEMA,
+    "source_path": H5_SOURCE_PATH,
+    "source_sha256": H5_SOURCE_SHA256,
+    "candidate_size": H5_CANDIDATE_SIZE,
+    "candidate_sha256": H5_CANDIDATE_SHA256,
+    "version": H5_VERSION,
+    "build": H5_BUILD,
+    "enable": H5_ENABLE,
+    "latch": H5_LATCH,
+    "binding_sha256": H5_BINDING_SHA256,
+    "starting_version": STARTING_VERSION,
+    "starting_build": STARTING_BUILD,
+    "predecessor_run_id": PREDECESSOR_RUN_ID,
+    "flat_manifest_version": FLAT_MANIFEST_VERSION,
+    "output_name": OUTPUT_NAME,
+    "receipt_path": FAST_RECEIPT_PATH,
+    "label": PROFILE_LABEL,
+}
+
+H10_PROFILE = {
+    "capability": "A90_ATTENDED_H10_EXISTING_PUBLISHED_SOURCE_INSTALL_V1",
+    "review_schema": (
+        "a90-h10-existing-published-source-install-independent-review-v1"
+    ),
+    "d0_schema": "a90-h10-existing-published-source-connected-d0-v1",
+    "proof_schema": "a90-h10-existing-published-source-proof-v1",
+    "source_path": (
+        "/mnt/sdext/a90/runtime/"
+        "debian-bookworm-arm64-phase2-display-v3406-keyed-20260809-03.img"
+    ),
+    "source_sha256": (
+        "38d9ce41503483996d14a18fb51275fbbe47e898ce51aee37f9f88b61295018e"
+    ),
+    "candidate_size": 58372096,
+    "candidate_sha256": (
+        "145ab5d0d2eff02e20d75149e62bd929084a9a1014a13f9b79e9dbd3269655f1"
+    ),
+    "version": "0.11.178",
+    "build": "phase3-minimal-h10-fast-source-receipt-auto-benchmark",
+    "enable": "/cache/a90-auto-handoff-phase3-minimal-h10.enable",
+    "latch": "/cache/a90-auto-handoff-phase3-minimal-h10.done",
+    "binding_sha256": (
+        "decc69954c2f57067d56062b1a1dd61a394b0587ab86d17905eae070e5b71d2d"
+    ),
+    "starting_version": "0.11.176",
+    "starting_build": "phase3-minimal-h8-dev-tmpfs-handoff-repair-auto-benchmark",
+    "predecessor_run_id": "a90-v3406-debian-display-f1-20260809-03",
+    "flat_manifest_version": "phase3-minimal-h10",
+    "output_name": "h10-existing-source-manifest.json",
+    "receipt_path": "/cache/a90-source-receipt-phase3-minimal-h10",
+    "label": "H10",
+}
+
+PROFILES = {"h5": H5_PROFILE, "h10": H10_PROFILE}
+
+
+def configure_profile(name: str) -> None:
+    """Select one exact immutable profile before parsing its private evidence."""
+
+    if name not in PROFILES:
+        raise ContractError("existing-source profile is not supported")
+    profile = PROFILES[name]
+    global ACTIVE_PROFILE, CAPABILITY, REVIEW_SCHEMA, D0_SCHEMA, PROOF_SCHEMA
+    global H5_SOURCE_PATH, H5_SOURCE_SHA256, H5_CANDIDATE_SIZE
+    global H5_CANDIDATE_SHA256, H5_VERSION, H5_BUILD, H5_ENABLE, H5_LATCH
+    global H5_BINDING_SHA256, STARTING_VERSION, STARTING_BUILD
+    global PREDECESSOR_RUN_ID, FLAT_MANIFEST_VERSION, OUTPUT_NAME
+    global FAST_RECEIPT_PATH, PROFILE_LABEL
+    ACTIVE_PROFILE = name
+    CAPABILITY = str(profile["capability"])
+    REVIEW_SCHEMA = str(profile["review_schema"])
+    D0_SCHEMA = str(profile["d0_schema"])
+    PROOF_SCHEMA = str(profile["proof_schema"])
+    H5_SOURCE_PATH = str(profile["source_path"])
+    H5_SOURCE_SHA256 = str(profile["source_sha256"])
+    H5_CANDIDATE_SIZE = int(profile["candidate_size"])
+    H5_CANDIDATE_SHA256 = str(profile["candidate_sha256"])
+    H5_VERSION = str(profile["version"])
+    H5_BUILD = str(profile["build"])
+    H5_ENABLE = str(profile["enable"])
+    H5_LATCH = str(profile["latch"])
+    H5_BINDING_SHA256 = str(profile["binding_sha256"])
+    STARTING_VERSION = str(profile["starting_version"])
+    STARTING_BUILD = str(profile["starting_build"])
+    PREDECESSOR_RUN_ID = str(profile["predecessor_run_id"])
+    FLAT_MANIFEST_VERSION = str(profile["flat_manifest_version"])
+    OUTPUT_NAME = str(profile["output_name"])
+    receipt_path = profile["receipt_path"]
+    FAST_RECEIPT_PATH = str(receipt_path) if receipt_path is not None else None
+    PROFILE_LABEL = str(profile["label"])
+
+
+def profile_name_for_capability(capability: Any) -> str:
+    matches = [
+        name
+        for name, profile in PROFILES.items()
+        if profile["capability"] == capability
+    ]
+    if len(matches) != 1:
+        raise ContractError("existing-source capability is not exact")
+    return matches[0]
+
+
+def configure_profile_for_capability(capability: Any) -> None:
+    configure_profile(profile_name_for_capability(capability))
 PREDECESSOR_STATUS = "ABORTED_F1_V2_BEFORE_CANDIDATE"
 PREDECESSOR_ACTIONS = (
     "preflight",
@@ -212,9 +330,9 @@ def review_source_paths() -> dict[str, Path]:
             REVAL_DIR / "device_action_cdc_acm_observer_v1.py"
         ).resolve(),
         "tcpctl_host": (REVAL_DIR / "tcpctl_host.py").resolve(),
-        "h5_flat_manifest": (
+        "flat_manifest": (
             REVAL_DIR
-            / "a90_flat_builder/versions/phase3-minimal-h5/manifest.toml"
+            / f"a90_flat_builder/versions/{FLAT_MANIFEST_VERSION}/manifest.toml"
         ).resolve(),
     }
 
@@ -291,7 +409,7 @@ def _validate_predecessor(
         manifest.get("schema") != staging.RESIDENT_INSTALL_MANIFEST_SCHEMA
         or manifest.get("status") != staging.FINAL_MANIFEST_STATUS
         or RUN_RE.fullmatch(run_id) is None
-        or run_id != "a90-v3406-debian-display-f1-20260805-12"
+        or run_id != PREDECESSOR_RUN_ID
     ):
         raise ContractError("predecessor manifest identity changed")
     bounds = _predecessor_bindings(manifest_bound.path)
@@ -322,6 +440,26 @@ def _validate_predecessor(
         preflight.get("candidate_first_boot_preflight"),
         "predecessor marker preflight",
     )
+    marker_record = _dict(
+        marker_proof.get("record"),
+        "predecessor marker preflight record",
+    )
+    marker_script = base.candidate_first_boot_state_absence_script(first_boot)
+    base.require_exact_f1_command_receipt(
+        marker_record,
+        ["run", "/bin/busybox", "sh", "-c", marker_script],
+        "predecessor marker preflight record",
+    )
+    expected_marker = "A90AUTO_F1_PRE enable_absent=1 latch_absent=1"
+    if FAST_RECEIPT_PATH is not None:
+        expected_marker += " receipt_absent=1"
+    marker_lines: list[str] = []
+    for line in str(marker_record.get("text") or "").replace(
+        "\r", "\n"
+    ).splitlines():
+        marker_start = line.find("A90AUTO_F1_PRE ")
+        if marker_start >= 0:
+            marker_lines.append(line[marker_start:].strip())
     if (
         candidate.get("size") != H5_CANDIDATE_SIZE
         or candidate.get("sha256") != H5_CANDIDATE_SHA256
@@ -338,10 +476,15 @@ def _validate_predecessor(
         or keyed.get("sha256") != H5_SOURCE_SHA256
         or first_boot.get("enable_path") != H5_ENABLE
         or first_boot.get("latch_path") != H5_LATCH
+        or first_boot.get("receipt_path") != FAST_RECEIPT_PATH
         or _dict(first_boot.get("compiled_binding"), "compiled binding").get(
             "binding_sha256"
         )
         != H5_BINDING_SHA256
+        or _dict(first_boot.get("compiled_binding"), "compiled binding").get(
+            "receipt_path"
+        )
+        != FAST_RECEIPT_PATH
         or result.get("status") != PREDECESSOR_STATUS
         or result.get("candidate_transfer_count") != 0
         or result.get("candidate_replay") is not False
@@ -362,6 +505,8 @@ def _validate_predecessor(
         or marker_proof.get("proof") is not True
         or marker_proof.get("enable_path") != H5_ENABLE
         or marker_proof.get("latch_path") != H5_LATCH
+        or marker_proof.get("receipt_path") != FAST_RECEIPT_PATH
+        or marker_lines != [expected_marker]
     ):
         raise ContractError("predecessor zero-candidate source closure changed")
     candidate_bound = _bound(Path(_string(candidate.get("path"), "candidate path")))
@@ -404,6 +549,7 @@ def _source_binding(spec: base.F1Spec) -> tuple[dict[str, Any], str, str]:
         or protected.get("work_path") != WORK_PATH
         or protected.get("enable_path") != H5_ENABLE
         or protected.get("latch_path") != H5_LATCH
+        or protected.get("receipt_path") != FAST_RECEIPT_PATH
         or stage_path != spec.stage.remote_stage_dir
     ):
         raise ContractError("protected H5 source binding changed")
@@ -413,10 +559,17 @@ def _source_binding(spec: base.F1Spec) -> tuple[dict[str, Any], str, str]:
 def _protected_commands(spec: base.F1Spec) -> dict[str, list[str]]:
     _source, source_path, stage_path = _source_binding(spec)
     stat_format = "%F|%s|%a|%h|%d:%i"
+    absent_paths = [WORK_PATH, stage_path, H5_ENABLE, H5_LATCH]
+    absent_names = ["work", "stage", "enable", "latch"]
+    if FAST_RECEIPT_PATH is not None:
+        absent_paths.append(FAST_RECEIPT_PATH)
+        absent_names.append("receipt")
+    positional = " ".join(f'"${index}"' for index in range(1, len(absent_paths) + 1))
+    absent_marker = " ".join(f"{name}=absent" for name in absent_names)
     absent_script = (
-        'for p in "$1" "$2" "$3" "$4";do '
+        f"for p in {positional};do "
         '[ ! -e "$p" ]&&[ ! -L "$p" ]||exit 72;done;'
-        'printf "work=absent stage=absent enable=absent latch=absent\\n"'
+        f'printf "{absent_marker}\\n"'
     )
     mount_script = (
         'for f in /proc/[0-9]*/mountinfo;do [ -r "$f" ]||continue;'
@@ -441,7 +594,7 @@ def _protected_commands(spec: base.F1Spec) -> dict[str, list[str]]:
         "source_hash": ["run", "/bin/busybox", "sha256sum", source_path],
         "absences": [
             "run", "/bin/busybox", "sh", "-c", absent_script, "sh",
-            WORK_PATH, stage_path, H5_ENABLE, H5_LATCH,
+            *absent_paths,
         ],
         "mounts": [
             "run", "/bin/busybox", "sh", "-c", mount_script, "sh", source_path,
@@ -490,14 +643,16 @@ def _validate_proof(
         "staging_attempt_count", "rootfs_copy_count", "cleanup_dispatch_count",
         "handoff_attempt_count", "candidate_first_boot_preflight", "receipts",
     }
+    absence_names = ["work", "stage", "enable", "latch"]
+    if FAST_RECEIPT_PATH is not None:
+        expected_keys.add("receipt_absent")
+        absence_names.append("receipt")
     if (
         set(proof) != expected_keys
         or proof.get("schema") != PROOF_SCHEMA
         or proof.get("phase") != phase
         or proof.get("source_sha256") != H5_SOURCE_SHA256
-        or any(proof.get(name) is not True for name in (
-            "work_absent", "stage_absent", "enable_absent", "latch_absent"
-        ))
+        or any(proof.get(f"{name}_absent") is not True for name in absence_names)
         or any(proof.get(name) is not False for name in (
             "mount_namespace_use", "loop_use", "open_fd_use", "current_root_use"
         ))
@@ -514,7 +669,7 @@ def _validate_proof(
     lines = {
         "source_stat": f"regular file|{IMAGE_SIZE}|{FILE_MODE}|{FILE_NLINK}|{identity}",
         "source_hash": f"{H5_SOURCE_SHA256}  {source_path}",
-        "absences": "work=absent stage=absent enable=absent latch=absent",
+        "absences": " ".join(f"{name}=absent" for name in absence_names),
         "mounts": "mount_namespace_use=none",
         "loops": "loop_use=none",
         "opens": "open_fd_use=none current_root_use=none",
@@ -537,15 +692,25 @@ def _validate_proof(
         ["run", "/bin/busybox", "sh", "-c", first_boot_script],
         "candidate first-boot preflight record",
     )
+    first_boot_keys = {"proof", "enable_path", "latch_path", "record"}
+    first_boot_marker = "A90AUTO_F1_PRE enable_absent=1 latch_absent=1"
+    if FAST_RECEIPT_PATH is not None:
+        first_boot_keys.add("receipt_path")
+        first_boot_marker += " receipt_absent=1"
+    first_boot_markers: list[str] = []
+    for line in str(first_boot_record.get("text") or "").replace(
+        "\r", "\n"
+    ).splitlines():
+        marker_start = line.find("A90AUTO_F1_PRE ")
+        if marker_start >= 0:
+            first_boot_markers.append(line[marker_start:].strip())
     if (
-        set(first_boot) != {"proof", "enable_path", "latch_path", "record"}
+        set(first_boot) != first_boot_keys
         or first_boot.get("proof") is not True
         or first_boot.get("enable_path") != H5_ENABLE
         or first_boot.get("latch_path") != H5_LATCH
-        or str(first_boot_record.get("text") or "").count(
-            "A90AUTO_F1_PRE enable_absent=1 latch_absent=1"
-        )
-        != 1
+        or first_boot.get("receipt_path") != FAST_RECEIPT_PATH
+        or first_boot_markers != [first_boot_marker]
     ):
         raise ContractError("candidate first-boot preflight changed")
     return proof
@@ -602,6 +767,8 @@ def protected_paths_preflight(
         "candidate_first_boot_preflight": first_boot,
         "receipts": receipts,
     }
+    if FAST_RECEIPT_PATH is not None:
+        proof["receipt_absent"] = True
     return _validate_proof(
         spec,
         proof,
@@ -636,8 +803,8 @@ def _validate_d0(
         or target.get("profile") != staging.TARGET_PROFILE
         or target.get("bridge_selected_exact") is not True
         or target.get("matching_a90_usb_devices") != 1
-        or health.get("version") != ROLLBACK_VERSION
-        or health.get("version_build") != ROLLBACK_BUILD
+        or health.get("version") != STARTING_VERSION
+        or health.get("version_build") != STARTING_BUILD
         or health.get("pstore_entries") != 0
         or _dict(health.get("selftest"), "D0 selftest").get("fail") != 0
         or value.get("global_f1_guard_absent") is not True
@@ -682,7 +849,7 @@ def validate_promotion_manifest(
     return {"mode": MODE, "runner": runner, "recovery": recovery}
 
 
-def load_spec(
+def _load_spec_for_active_profile(
     manifest_path: Path,
     expected_manifest_sha256: str,
     *,
@@ -769,8 +936,8 @@ def load_spec(
         or target.get("bridge_device") != d0_target.get("bridge_device")
         or target.get("bridge_selected_realpath")
         != d0_target.get("bridge_selected_realpath")
-        or target.get("current_version") != ROLLBACK_VERSION
-        or target.get("current_build") != ROLLBACK_BUILD
+        or target.get("current_version") != STARTING_VERSION
+        or target.get("current_build") != STARTING_BUILD
     ):
         raise ContractError("target differs from fresh D0")
     predecessor = _dict(manifest.get("predecessor_abort"), "predecessor_abort")
@@ -892,10 +1059,10 @@ def load_spec(
         tcpctl_host_sha256=closure["tcpctl_host"].sha256,
         bound_files=tuple(bound_files),
         rootfs_profile=staging.PHASE3_PROFILE,
-        starting_version=ROLLBACK_VERSION,
-        starting_build=ROLLBACK_BUILD,
+        starting_version=STARTING_VERSION,
+        starting_build=STARTING_BUILD,
     )
-    return base.F1Spec(
+    spec = base.F1Spec(
         stage=stage_spec,
         manifest=manifest,
         candidate=staging.BoundFile(
@@ -956,6 +1123,41 @@ def load_spec(
         orchestrator_sha256=closure["orchestrator"].sha256,
         candidate_first_boot=first_boot,
     )
+    _validate_proof(
+        spec,
+        d0.get("protected_source"),
+        phase="connected-d0",
+    )
+    return spec
+
+
+def load_spec(
+    manifest_path: Path,
+    expected_manifest_sha256: str,
+    *,
+    recovery: bool = False,
+    expected_profile: str | None = None,
+) -> base.F1Spec:
+    """Select the manifest-bound profile without leaking failed-load state."""
+
+    manifest_bound = _bound(manifest_path)
+    if manifest_bound.sha256 != _sha(expected_manifest_sha256, "manifest SHA256"):
+        raise ContractError("manifest SHA256 changed")
+    manifest = _read_json(manifest_bound, "manifest profile selector")
+    selected_profile = profile_name_for_capability(manifest.get("capability"))
+    if expected_profile is not None and selected_profile != expected_profile:
+        raise ContractError("explicit profile differs from manifest capability")
+    previous_profile = ACTIVE_PROFILE
+    configure_profile(selected_profile)
+    try:
+        return _load_spec_for_active_profile(
+            manifest_path,
+            expected_manifest_sha256,
+            recovery=recovery,
+        )
+    except Exception:
+        configure_profile(previous_profile)
+        raise
 
 
 def _validate_installed_result(
@@ -1913,8 +2115,8 @@ def _d0_spec(
         tcpctl_host_sha256=closure["tcpctl_host"]["sha256"],
         bound_files=(),
         rootfs_profile=staging.PHASE3_PROFILE,
-        starting_version=ROLLBACK_VERSION,
-        starting_build=ROLLBACK_BUILD,
+        starting_version=STARTING_VERSION,
+        starting_build=STARTING_BUILD,
     )
     first_boot = _dict(
         _dict(manifest.get("candidate_boot"), "candidate").get(
@@ -1938,6 +2140,8 @@ def _d0_spec(
             "latch_path": H5_LATCH,
         }
     }
+    if FAST_RECEIPT_PATH is not None:
+        synthetic["protected_rootfs"]["receipt_path"] = FAST_RECEIPT_PATH
     return base.F1Spec(
         stage=stage_spec,
         manifest=synthetic,
@@ -2005,15 +2209,15 @@ def execute_connected_d0(args: argparse.Namespace) -> dict[str, Any]:
         ncm = staging.require_host_ncm_ready(args.device_ip, args.expect_realpath)
         baseline = staging.require_native_health(
             args,
-            expected_version=ROLLBACK_VERSION,
-            expected_build=ROLLBACK_BUILD,
+            expected_version=STARTING_VERSION,
+            expected_build=STARTING_BUILD,
             input_mode="slow",
             input_char_delay_sec=0.02,
         )
         health = connected.parse_health(
             baseline,
-            expected_version=ROLLBACK_VERSION,
-            expected_build=ROLLBACK_BUILD,
+            expected_version=STARTING_VERSION,
+            expected_build=STARTING_BUILD,
         )
         spec = _d0_spec(
             run_id=args.run_id,
@@ -2059,7 +2263,7 @@ def execute_connected_d0(args: argparse.Namespace) -> dict[str, Any]:
         staging.write_private_json_exclusive(output, result)
         return {
             "schema": D0_SCHEMA,
-            "decision": "PASS_H5_EXISTING_SOURCE_CONNECTED_D0",
+            "decision": f"PASS_{PROFILE_LABEL}_EXISTING_SOURCE_CONNECTED_D0",
             "run_id": args.run_id,
             "connected_d0": _bound_dict(_bound(output)),
             "device_write": False,
@@ -2128,8 +2332,8 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "capability": CAPABILITY,
         "target": {
             "profile": staging.TARGET_PROFILE,
-            "current_version": ROLLBACK_VERSION,
-            "current_build": ROLLBACK_BUILD,
+            "current_version": STARTING_VERSION,
+            "current_build": STARTING_BUILD,
             "bridge_device": d0["target"]["bridge_device"],
             "bridge_selected_realpath": d0["target"]["bridge_selected_realpath"],
             "bridge_selected_exact": True,
@@ -2233,7 +2437,9 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
             "operator_attendance_required": True,
         },
     }
-    output = run_dir / "h5-existing-source-manifest.json"
+    if FAST_RECEIPT_PATH is not None:
+        manifest["protected_rootfs"]["receipt_path"] = FAST_RECEIPT_PATH
+    output = run_dir / OUTPUT_NAME
     if output.exists() or output.is_symlink():
         raise ContractError("manifest output must be absent")
     staging.write_private_json_exclusive(output, manifest)
@@ -2241,7 +2447,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     load_spec(output, output_bound.sha256)
     return {
         "schema": MANIFEST_SCHEMA,
-        "decision": "PASS_H5_EXISTING_SOURCE_MANIFEST",
+        "decision": f"PASS_{PROFILE_LABEL}_EXISTING_SOURCE_MANIFEST",
         "run_id": args.run_id,
         "manifest": _bound_dict(output_bound),
         "candidate_authority": False,
@@ -2253,34 +2459,39 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def audit() -> dict[str, Any]:
+    protected_rootfs = {
+        "disposition": DISPOSITION,
+        "source": {
+            "device_path": H5_SOURCE_PATH,
+            "size": IMAGE_SIZE,
+            "sha256": H5_SOURCE_SHA256,
+            "mode": FILE_MODE,
+            "nlink": FILE_NLINK,
+        },
+        "work_path": WORK_PATH,
+        "stage_path": str(staging.derive_stage_dir(
+            "a90-v3406-debian-display-f1-20991231-99"
+        )),
+        "enable_path": H5_ENABLE,
+        "latch_path": H5_LATCH,
+    }
+    candidate_first_boot = {
+        "enable_path": H5_ENABLE,
+        "latch_path": H5_LATCH,
+    }
+    if FAST_RECEIPT_PATH is not None:
+        protected_rootfs["receipt_path"] = FAST_RECEIPT_PATH
+        candidate_first_boot["receipt_path"] = FAST_RECEIPT_PATH
     audit_spec = SimpleNamespace(
             manifest={
-                "protected_rootfs": {
-                    "disposition": DISPOSITION,
-                    "source": {
-                        "device_path": H5_SOURCE_PATH,
-                        "size": IMAGE_SIZE,
-                        "sha256": H5_SOURCE_SHA256,
-                        "mode": FILE_MODE,
-                        "nlink": FILE_NLINK,
-                    },
-                    "work_path": WORK_PATH,
-                    "stage_path": str(staging.derive_stage_dir(
-                        "a90-v3406-debian-display-f1-20991231-99"
-                    )),
-                    "enable_path": H5_ENABLE,
-                    "latch_path": H5_LATCH,
-                }
+                "protected_rootfs": protected_rootfs,
             },
             stage=SimpleNamespace(
                 remote_stage_dir=str(staging.derive_stage_dir(
                     "a90-v3406-debian-display-f1-20991231-99"
                 ))
             ),
-            candidate_first_boot={
-                "enable_path": H5_ENABLE,
-                "latch_path": H5_LATCH,
-            },
+            candidate_first_boot=candidate_first_boot,
     )
     commands = _protected_commands(audit_spec)
     first_boot_command = [
@@ -2329,6 +2540,7 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument("--prepare-approval", action="store_true")
     mode.add_argument("--execute-approved-install", action="store_true")
     mode.add_argument("--recover-approved-rollback", action="store_true")
+    parser.add_argument("--profile", choices=tuple(PROFILES))
     parser.add_argument("--run-id")
     parser.add_argument("--evidence-sequence", default="01")
     parser.add_argument("--predecessor-manifest", type=Path)
@@ -2367,6 +2579,10 @@ def _require(args: argparse.Namespace, names: tuple[str, ...]) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    if args.profile is not None:
+        configure_profile(args.profile)
+    elif args.audit_only or args.execute_connected_d0 or args.build_manifest:
+        configure_profile("h5")
     if args.audit_only:
         result = audit()
     elif args.execute_connected_d0:
@@ -2390,6 +2606,7 @@ def main(argv: list[str] | None = None) -> int:
             args.manifest,
             args.expect_manifest_sha256,
             recovery=args.recover_approved_rollback,
+            expected_profile=args.profile,
         )
         if args.prepare_approval:
             if args.approval is not None or args.transaction_dir is not None:
@@ -2397,7 +2614,9 @@ def main(argv: list[str] | None = None) -> int:
             result = base.prepare_approval(spec)
         elif args.execute_approved_install:
             if not args.operator_attended:
-                raise ContractError("live H5 install requires awake attendance")
+                raise ContractError(
+                    f"live {PROFILE_LABEL} install requires awake attendance"
+                )
             _require(args, ("approval", "transaction_dir"))
             result = base.execute_approved_f1(
                 spec,
