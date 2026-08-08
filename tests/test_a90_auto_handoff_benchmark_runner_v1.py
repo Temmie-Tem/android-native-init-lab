@@ -325,8 +325,114 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
         self.assertEqual(parsed["selected_segment_index"], 0)
         self.assertEqual(parsed["selection"]["opening_marker_count"], 15)
         self.assertEqual(parsed["selection"]["appended_marker_count"], 19)
+        self.assertEqual(
+            parsed["selection"]["log_relation"],
+            "opening-prefix-appended-suffix",
+        )
 
-    def test_appended_benchmark_rejects_nonprefix_or_unchanged_log(self) -> None:
+    def test_appended_benchmark_accepts_disjoint_current_boot_window(self) -> None:
+        opening = self._complete_benchmark_segment(1_000)
+        current = self._complete_benchmark_segment(100)
+        returned = "\n".join(
+            self._benchmark_marker(stage, 50 + index * 10)
+            for index, stage in enumerate(runner.RETURNED_NATIVE_TAIL)
+        )
+        with mock.patch.object(
+            runner.base,
+            "require_exact_f1_command_receipt",
+            side_effect=lambda value, _command, _label: value,
+        ):
+            parsed = runner.parse_appended_benchmark(
+                {"text": opening},
+                {"text": "\n".join((current, returned))},
+            )
+
+        self.assertEqual(parsed["status"], "complete")
+        self.assertEqual(parsed["boot_segments_total"], 2)
+        self.assertEqual(parsed["selected_segment_index"], 0)
+        self.assertEqual(parsed["selection"]["opening_marker_count"], 15)
+        self.assertEqual(parsed["selection"]["appended_marker_count"], 19)
+        self.assertEqual(
+            parsed["selection"]["log_relation"],
+            "disjoint-current-window",
+        )
+        runner.validate_benchmark_selection(parsed)
+        for field, replacement in (
+            ("contract", "opening-marker-prefix-appended-suffix-v1"),
+            ("log_relation", "other"),
+            ("appended_marker_count", 18),
+        ):
+            changed = json.loads(json.dumps(parsed))
+            changed["selection"][field] = replacement
+            with self.subTest(field=field), self.assertRaisesRegex(
+                runner.ContractError,
+                "benchmark appended-marker selection changed",
+            ):
+                runner.validate_benchmark_selection(changed)
+        for label, field, replacement in (
+            ("segment-count", "boot_segments_total", 1),
+            ("segment-count-bool", "boot_segments_total", True),
+            ("selected-index", "selected_segment_index", 1),
+            ("selected-index-bool", "selected_segment_index", False),
+        ):
+            changed = json.loads(json.dumps(parsed))
+            changed[field] = replacement
+            with self.subTest(label=label), self.assertRaisesRegex(
+                runner.ContractError,
+                "benchmark appended-marker selection changed",
+            ):
+                runner.validate_benchmark_selection(changed)
+
+    def test_prefix_window_keeps_optional_returned_native_early_stage(self) -> None:
+        opening = self._complete_benchmark_segment(1_000)
+        current = self._complete_benchmark_segment(100)
+        returned = "\n".join(
+            self._benchmark_marker(stage, 50 + index * 10)
+            for index, stage in enumerate(
+                runner.benchmark.OPTIONAL_EARLY_STAGES
+                + runner.RETURNED_NATIVE_TAIL
+            )
+        )
+        with mock.patch.object(
+            runner.base,
+            "require_exact_f1_command_receipt",
+            side_effect=lambda value, _command, _label: value,
+        ):
+            parsed = runner.parse_appended_benchmark(
+                {"text": opening},
+                {"text": "\n".join((opening, current, returned))},
+            )
+        self.assertEqual(parsed["selection"]["appended_marker_count"], 20)
+        self.assertEqual(
+            parsed["selection"]["log_relation"],
+            "opening-prefix-appended-suffix",
+        )
+        runner.validate_benchmark_selection(parsed)
+
+    def test_disjoint_window_rejects_optional_returned_native_early_stage(self) -> None:
+        opening = self._complete_benchmark_segment(1_000)
+        current = self._complete_benchmark_segment(100)
+        returned = "\n".join(
+            self._benchmark_marker(stage, 50 + index * 10)
+            for index, stage in enumerate(
+                runner.benchmark.OPTIONAL_EARLY_STAGES
+                + runner.RETURNED_NATIVE_TAIL
+            )
+        )
+        with mock.patch.object(
+            runner.base,
+            "require_exact_f1_command_receipt",
+            side_effect=lambda value, _command, _label: value,
+        ), self.assertRaisesRegex(
+            runner.benchmark.BenchmarkError,
+            "noncanonical returned-native boot tail",
+        ):
+            runner.parse_appended_benchmark(
+                {"text": opening},
+                {"text": "\n".join((current, returned))},
+            )
+
+    def test_appended_benchmark_rejects_unchanged_or_incomplete_fresh_log(self) -> None:
         opening = self._complete_benchmark_segment(1_000)
         current = self._complete_benchmark_segment(100)
         with mock.patch.object(
@@ -334,15 +440,50 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             "require_exact_f1_command_receipt",
             side_effect=lambda value, _command, _label: value,
         ):
-            for final in (opening, current):
-                with self.subTest(final=final[:40]), self.assertRaisesRegex(
-                    runner.ContractError,
-                    "exact appended marker suffix",
-                ):
-                    runner.parse_appended_benchmark(
-                        {"text": opening},
-                        {"text": final},
-                    )
+            with self.assertRaisesRegex(
+                runner.ContractError,
+                "exact appended marker suffix",
+            ):
+                runner.parse_appended_benchmark(
+                    {"text": opening},
+                    {"text": opening},
+                )
+            with self.assertRaisesRegex(
+                runner.benchmark.BenchmarkError,
+                "lacks the exact returned-native boot tail",
+            ):
+                runner.parse_appended_benchmark(
+                    {"text": opening},
+                    {"text": current},
+                )
+
+    def test_appended_benchmark_rejects_mixed_rotated_window(self) -> None:
+        opening = self._complete_benchmark_segment(1_000)
+        current = self._complete_benchmark_segment(100)
+        returned = "\n".join(
+            self._benchmark_marker(stage, 50 + index * 10)
+            for index, stage in enumerate(runner.RETURNED_NATIVE_TAIL)
+        )
+        opening_first = next(runner.benchmark.marker_lines([opening]))
+        mixed = "\n".join(
+            (
+                f"{runner.benchmark.MARKER}{opening_first}",
+                current,
+                returned,
+            )
+        )
+        with mock.patch.object(
+            runner.base,
+            "require_exact_f1_command_receipt",
+            side_effect=lambda value, _command, _label: value,
+        ), self.assertRaisesRegex(
+            runner.ContractError,
+            "exact appended marker suffix",
+        ):
+            runner.parse_appended_benchmark(
+                {"text": opening},
+                {"text": mixed},
+            )
 
     def test_appended_benchmark_rejects_two_new_handoff_segments(self) -> None:
         opening = self._complete_benchmark_segment(1_000)

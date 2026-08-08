@@ -419,8 +419,15 @@ The pre-H2 goal history is preserved at
   manifest and compatibility binding then selected one attended boot-only
   attempt. The exact 2 GiB source was staged once and H8 installed with one
   candidate transfer, no replay, no rollback, and durable `RESIDENT_HEALTHY`;
-  the guard released without residue. One fresh H8 D1 automatic-handoff
-  ordinal is next.
+  the guard released without residue. The first H8 D1 ordinal has consumed one
+  arm and one reboot and returned exact H8 healthy at `binding=1 enable=1
+  latch=1`. Its durable current window proves all 15 handoff stages including
+  `mount_moves_done` and `switch_root_exec`, plus same-intent Debian PID 1,
+  Dropbear, and DRM master evidence. The host observer timed out before the
+  later ACM return, and its final parser then rejected a valid bounded pmsg
+  window replacement. The reviewed parser repair is committed next and may
+  append only final-health and close to the existing seven-record prefix; the
+  arm, reboot, and cleanup must not be replayed.
 
 ## Proven Product Path
 
@@ -540,6 +547,7 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_H6_D1_POST_REBOOT_BOUND_BRIDGE_OBSERVER_INCIDENT_REVIEW_2026-08-07.json`
 - `docs/reports/A90_PHASE3_MINIMAL_H7_READONLY_SOURCE_ONDEVICE_EVIDENCE_INDEPENDENT_REVIEW_2026-08-08.json`
 - `docs/reports/A90_PHASE3_MINIMAL_H8_E19_REPAIR_INDEPENDENT_REVIEW_2026-08-09.json`
+- `docs/reports/A90_H8_PMSG_WINDOW_REPLACEMENT_TAIL_REPAIR_INDEPENDENT_REVIEW_2026-08-09.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`

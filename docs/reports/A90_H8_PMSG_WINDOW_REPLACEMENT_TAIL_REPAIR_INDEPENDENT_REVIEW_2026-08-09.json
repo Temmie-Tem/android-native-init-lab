@@ -1,0 +1,74 @@
+{
+  "capability": "A90_H8_PMSG_WINDOW_REPLACEMENT_HISTORICAL_TAIL_REPAIR",
+  "decision": "PASS_GO",
+  "device_authority_granted": false,
+  "findings": {
+    "high": 0,
+    "low": 0,
+    "medium": 0,
+    "resolved_during_review": [
+      "The v2 parser selection schema is now validated exactly by validate_result.",
+      "Legacy prefix windows retain exact four- or five-marker returned-native compatibility while disjoint windows require the exact four-marker tail.",
+      "Boolean segment counts and selected indexes are rejected as non-integers."
+    ]
+  },
+  "incident": {
+    "candidate_replay": false,
+    "cleanup_records_durable": 7,
+    "current_window_marker_count": 19,
+    "current_window_shape": "one exact 15-stage complete handoff followed by one exact 4-stage returned-native tail",
+    "device_health": "H8 resident healthy with enable=1 and latch=1",
+    "effect_counts": {
+      "arm": 1,
+      "flash": 0,
+      "reboot": 1
+    },
+    "opening_window_marker_count": 97,
+    "original_execution_closure_sha256": "c2a8f666c5e65ffdfbf3d1bff097c6a06206219012831b952bfb0fbb68cf015c",
+    "root_cause": "The bounded pmsg window was replaced across reboot, but the host parser accepted only an opening-prefix plus appended-suffix relation.",
+    "run_id": "a90-d1-attended-20260809-02"
+  },
+  "permanent_boundaries_unchanged": true,
+  "review_date": "2026-08-09",
+  "review_lifetime": {
+    "fresh_device_authority_from_review": false,
+    "reuse": "PASS_GO qualifies only the named parser and seven-record historical tail capability while this execution closure and hazard model remain unchanged and no new incident occurs."
+  },
+  "reviewed_properties": {
+    "complete_disjoint_window_requires_exact_returned_native_tail": true,
+    "disjoint_failed_handoff_requires_one_exact_segment": true,
+    "duplicate_or_multiple_terminal_segments_rejected": true,
+    "historical_seven_record_tail_replays_no_arm_reboot_or_cleanup": true,
+    "host_link_requirement_unchanged": true,
+    "legacy_prefix_compatibility_retained": true,
+    "mixed_or_partial_window_rejected": true,
+    "selection_contract_and_relation_exact": true
+  },
+  "reviewer": "independent subagent /root/a90_h7_closure_review",
+  "reviewer_device_contact": false,
+  "reviewer_implementation_edits": false,
+  "reviewer_network_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_s22plus_contact": false,
+  "reviewer_usb_contact": false,
+  "schema": "a90-h8-pmsg-window-tail-repair-independent-review-v1",
+  "scope": {
+    "execution_closure_sha256": "a9eb87c073b0687395eedb7c2f441727e581ef105865d818650e32c3d3c82e07",
+    "runner_sha256": "ddf8eb7a5b2b56dc388f723139c99a6d104a399a0bc0afe618167847aa16096c",
+    "runner_size": 74456,
+    "target": "Samsung Galaxy A90 5G only"
+  },
+  "status": "PASS_GO",
+  "unresolved_findings": [],
+  "validation": {
+    "adversarial_shapes": "PASS",
+    "benchmark_parser_tests_passed": 10,
+    "finalize_to_validate_end_to_end": "PASS",
+    "git_diff_check": "PASS",
+    "main_a90_focused_tests_passed": 303,
+    "python_py_compile": "PASS",
+    "reviewer_focused_tests_passed": 50,
+    "runner_tests_passed": 37,
+    "source_tests_passed": 13
+  }
+}

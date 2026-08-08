@@ -869,13 +869,20 @@ def parse_appended_benchmark(
     )
     before = list(benchmark.marker_lines([str(opening.get("text") or "")]))
     after = list(benchmark.marker_lines([str(final.get("text") or "")]))
-    if (
-        not before
-        or len(after) <= len(before)
-        or after[: len(before)] != before
-    ):
+    if not before or not after or after == before:
         raise ContractError("benchmark log is not an exact appended marker suffix")
-    appended = after[len(before) :]
+    if len(after) > len(before) and after[: len(before)] == before:
+        appended = after[len(before) :]
+        log_relation = "opening-prefix-appended-suffix"
+    elif set(before).isdisjoint(after):
+        # A reboot may replace the bounded pmsg window instead of retaining
+        # its pre-arm prefix. Accept only a wholly disjoint current window;
+        # the exact one-terminal-segment and returned-native checks below
+        # still reject a partial, mixed, duplicated, or stale-prefix tail.
+        appended = after
+        log_relation = "disjoint-current-window"
+    else:
+        raise ContractError("benchmark log is not an exact appended marker suffix")
     canonical = "".join(f"{benchmark.MARKER}{line}\n" for line in appended)
     segments = benchmark.parse_runs([canonical])
     segment_stages = [
@@ -917,12 +924,24 @@ def parse_appended_benchmark(
         raise benchmark.BenchmarkError(
             "complete handoff has an unexpected returned-native boot tail"
         )
+    elif log_relation == "disjoint-current-window" and not trailing_stages:
+        raise benchmark.BenchmarkError(
+            "fresh benchmark window lacks the exact returned-native boot tail"
+        )
+    elif (
+        log_relation == "disjoint-current-window"
+        and trailing_stages[0] != list(RETURNED_NATIVE_TAIL)
+    ):
+        raise benchmark.BenchmarkError(
+            "fresh benchmark window has a noncanonical returned-native boot tail"
+        )
     parsed = segments[selected_index]
     parsed["boot_segments_total"] = len(segments)
     parsed["selected_segment_index"] = selected_index
     parsed["native_handoff_failed"] = native_handoff_failed
     parsed["selection"] = {
-        "contract": "opening-marker-prefix-appended-suffix-v1",
+        "contract": "opening-prefix-or-disjoint-current-window-v2",
+        "log_relation": log_relation,
         "opening_marker_count": len(before),
         "appended_marker_count": len(appended),
         "opening_markers_sha256": hashlib.sha256(
@@ -983,6 +1002,73 @@ def host_link_proven(spec: resident.SessionSpec, observation: Any) -> bool:
         and str(profile.get("stdout") or "").strip()
         == base.HOST_NCM_CONNECTION_TYPE
     )
+
+
+def validate_benchmark_selection(parsed: dict[str, Any]) -> None:
+    selection = parsed.get("selection")
+    if (
+        not isinstance(selection, dict)
+        or set(selection)
+        != {
+            "contract",
+            "log_relation",
+            "opening_marker_count",
+            "appended_marker_count",
+            "opening_markers_sha256",
+            "appended_markers_sha256",
+        }
+        or selection.get("contract")
+        != "opening-prefix-or-disjoint-current-window-v2"
+        or selection.get("log_relation")
+        not in {
+            "opening-prefix-appended-suffix",
+            "disjoint-current-window",
+        }
+        or type(selection.get("opening_marker_count")) is not int
+        or selection.get("opening_marker_count") <= 0
+        or type(selection.get("appended_marker_count")) is not int
+        or selection.get("appended_marker_count") <= 0
+        or HEX64_RE.fullmatch(str(selection.get("opening_markers_sha256") or ""))
+        is None
+        or HEX64_RE.fullmatch(str(selection.get("appended_markers_sha256") or ""))
+        is None
+        or type(parsed.get("selected_segment_index")) is not int
+        or parsed.get("selected_segment_index") != 0
+    ):
+        raise ContractError("benchmark appended-marker selection changed")
+    records = parsed.get("records")
+    if not isinstance(records, list) or not records:
+        raise ContractError("benchmark appended-marker selection changed")
+    native_failed = parsed.get("native_handoff_failed")
+    boot_segments_total = parsed.get("boot_segments_total")
+    if type(boot_segments_total) is not int:
+        raise ContractError("benchmark appended-marker selection changed")
+    if native_failed is True:
+        expected_segments = 1
+        expected_marker_counts = {len(records)}
+    elif native_failed is False:
+        if selection["log_relation"] == "disjoint-current-window":
+            expected_segments = 2
+            expected_marker_counts = {len(records) + len(RETURNED_NATIVE_TAIL)}
+        elif boot_segments_total in {1, 2}:
+            expected_segments = boot_segments_total
+            expected_marker_counts = {len(records)}
+            if expected_segments == 2:
+                expected_marker_counts = {
+                    len(records) + len(RETURNED_NATIVE_TAIL),
+                    len(records)
+                    + len(benchmark.OPTIONAL_EARLY_STAGES)
+                    + len(RETURNED_NATIVE_TAIL),
+                }
+        else:
+            raise ContractError("benchmark appended-marker selection changed")
+    else:
+        raise ContractError("benchmark appended-marker selection changed")
+    if (
+        boot_segments_total != expected_segments
+        or selection.get("appended_marker_count") not in expected_marker_counts
+    ):
+        raise ContractError("benchmark appended-marker selection changed")
 
 
 def finalize_cycle(
@@ -1203,29 +1289,7 @@ def validate_result(
         or type(parsed.get("selected_segment_index")) is not int
     ):
         raise ContractError("benchmark result is not one exact terminal segment")
-    selection = parsed.get("selection")
-    if (
-        not isinstance(selection, dict)
-        or set(selection)
-        != {
-            "contract",
-            "opening_marker_count",
-            "appended_marker_count",
-            "opening_markers_sha256",
-            "appended_markers_sha256",
-        }
-        or selection.get("contract")
-        != "opening-marker-prefix-appended-suffix-v1"
-        or type(selection.get("opening_marker_count")) is not int
-        or selection.get("opening_marker_count") <= 0
-        or type(selection.get("appended_marker_count")) is not int
-        or selection.get("appended_marker_count") <= 0
-        or HEX64_RE.fullmatch(str(selection.get("opening_markers_sha256") or ""))
-        is None
-        or HEX64_RE.fullmatch(str(selection.get("appended_markers_sha256") or ""))
-        is None
-    ):
-        raise ContractError("benchmark appended-marker selection changed")
+    validate_benchmark_selection(parsed)
     return value
 
 
