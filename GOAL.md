@@ -33,10 +33,13 @@ VBUS/session-valid programming at the measured boundary. It does not prove
 that the USB2 pull-up reached the connector or explain the host-silent,
 pre-configuration suspend state.
 
-P3.13 is the next H0 implementation unit. Its frozen design is
+P3.13 H0 implementation and qualification are complete. Its frozen design and
+realized capability are recorded in
 `docs/reports/S22PLUS_FYG8_P313_POST_BIND_RESUME_CYCLE_DESIGN_H0_2026-08-10.md`.
-No P3.13 candidate exists, no F1 is armed, and no device action follows from
-this goal.
+The canonical manifest `s22plus-fyg8-p313-process-v2-ready-1` is
+`ready-for-f1-approval`; it is not an approval or prepared live run. No F1 is
+armed, no device command was issued, and no device action follows from this
+goal.
 
 ## P3.13 Bounded Unit
 
@@ -110,7 +113,7 @@ reused.
 
 ## Implementation and Qualification
 
-Before packaging:
+The materialized implementation passed all of the following:
 
 1. freeze and print the complete P3.13 `SOURCE_KEYS` closure;
 2. materialize the 5-event role, 15-event direct, and 25-event cycle phases;
@@ -130,7 +133,14 @@ Before packaging:
 The hazard artifact must mechanically close the prior P3.04 stale-position,
 P3.08 tracefs-ABI, P3.10 Carrier-v2 JSON, and P3.11 profile-equality incidents,
 plus the P3.13 PM race, record, timeout, guard, banner, and tuple contracts.
-Prose assertion is insufficient.
+Prose assertion is insufficient. The realized closure contains 68 frozen
+`SOURCE_KEYS`; role/direct/cycle contain 5/15/25 events; all 126 A and 1,200 B
+outputs passed the actual gates; and the P3.13 guard lifetime is exactly 1,200
+seconds while the inherited default remains 360 seconds. Two userspace builds
+and two boot-only packages were byte-identical. Static artifact closure,
+Process-v2 promotion, canonical manifest verification, focused tests, and the
+independent changed-closure review all passed. The fixed P3.10 Image remained
+byte-identical, so no kernel rebuild or Full-LTO was performed.
 
 ## Authority and Target State
 
@@ -153,9 +163,9 @@ decision.
 
 ## Success and Stop Conditions
 
-P3.13 implementation is complete only when every materialized qualification
-gate and the focused independent review pass with the fixed kernel/artifact
-inputs unchanged. A later live result is positive only with exact host
+P3.13 implementation is complete with every materialized qualification gate
+and the focused independent review passed against unchanged fixed
+kernel/artifact inputs. A later live result is positive only with exact host
 observation, retained pair integrity, exact rollback, and final FYG8 health.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden

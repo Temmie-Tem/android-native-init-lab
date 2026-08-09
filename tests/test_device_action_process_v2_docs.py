@@ -457,15 +457,25 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
                 mutated = source.replace(clause, f"removed-a90-clause-{index}", 1)
                 self.assertIn(clause, a90_target_contract_issues(mutated))
 
-    def test_frontier_records_closed_p312_and_frozen_p313_without_reuse(self):
+    def test_frontier_records_closed_p312_and_qualified_p313_without_reuse(self):
         normalized_goal = " ".join(self.goal.split())
         self.assertIn("P3.12 is the latest closed live unit", normalized_goal)
         self.assertIn("`0xD00` then `0x4244`", normalized_goal)
         self.assertIn("`msm_hsphy_set_suspend(..., 0)`", normalized_goal)
         self.assertIn("both `ref_clk_src` and `ref_clk` prepare/enable returns were zero", normalized_goal)
         self.assertIn("`UTMI_OTG_VBUS_VALID` and `SW_SESSVLD_SEL` were both set", normalized_goal)
-        self.assertIn("P3.13 is the next H0 implementation unit", normalized_goal)
-        self.assertIn("No P3.13 candidate exists, no F1 is armed", normalized_goal)
+        self.assertIn(
+            "P3.13 H0 implementation and qualification are complete",
+            normalized_goal,
+        )
+        self.assertIn(
+            "`s22plus-fyg8-p313-process-v2-ready-1` is `ready-for-f1-approval`",
+            normalized_goal,
+        )
+        self.assertIn(
+            "it is not an approval or prepared live run", normalized_goal
+        )
+        self.assertIn("No F1 is armed", normalized_goal)
         self.assertIn("role: strict five events, `5/64`", normalized_goal)
         self.assertIn("cycle: a dedicated 25-event set, 37 records clean", normalized_goal)
         self.assertIn("Configured host waits total 880 seconds", normalized_goal)
@@ -473,6 +483,8 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("exact live `approval_binding_sha256`", normalized_goal)
         self.assertIn("Existing v2 evidence remains readable under its original meaning", normalized_goal)
         self.assertIn("Unknown or mixed versions fail closed", normalized_goal)
+        self.assertIn("68 frozen `SOURCE_KEYS`", normalized_goal)
+        self.assertIn("no kernel rebuild or Full-LTO was performed", normalized_goal)
         self.assertIn("The consumed candidate is not replayable", normalized_goal)
         self.assertIn("Archived Goal: S22+ Through P3.12 and P3.13 Design", self.archived_goal_through_p313)
         self.assertIn("P3.12 is the latest closed live unit", self.archived_goal_through_p313)

@@ -427,6 +427,7 @@ def _overridden_candidate_sources(
     if userspace_overlay_contract_id in {
         typed_evidence.P311_OVERLAY_CONTRACT_ID,
         typed_evidence.P312_OVERLAY_CONTRACT_ID,
+        typed_evidence.P313_OVERLAY_CONTRACT_ID,
     }:
         return frozenset({"p310_telemetry_decoder"})
     return frozenset()
@@ -541,6 +542,13 @@ def execution_critical_source_receipts(
                 root = candidate_intent.repo_root()
                 if (
                     userspace_overlay_contract_id
+                    == typed_evidence.P313_OVERLAY_CONTRACT_ID
+                ):
+                    overlay_module = typed_evidence.p313_overlay
+                    overlay_label = "P3.13"
+                    prefix = "p313"
+                elif (
+                    userspace_overlay_contract_id
                     == typed_evidence.P312_OVERLAY_CONTRACT_ID
                 ):
                     overlay_module = typed_evidence.p312_overlay
@@ -619,6 +627,7 @@ def execution_critical_source_receipts(
                         typed_evidence.p308_overlay,
                         typed_evidence.p311_overlay,
                         typed_evidence.p312_overlay,
+                        typed_evidence.p313_overlay,
                     }:
                         overlay_sources = {
                             name: overlay_module._read_regular(  # noqa: SLF001
@@ -649,6 +658,16 @@ def execution_critical_source_receipts(
                         ):
                             raise F1V2Error(
                                 "P3.12 P3.10 decoder replacement differs"
+                            )
+                    if overlay_module is typed_evidence.p313_overlay:
+                        replacement = overlay_sources.get(
+                            "p310_telemetry_decoder"
+                        )
+                        if replacement != source_data.get(
+                            "p310_telemetry_decoder"
+                        ):
+                            raise F1V2Error(
+                                "P3.13 P3.10 decoder replacement differs"
                             )
                 except (
                     overlay_module.OverlayContractError,
@@ -1003,6 +1022,11 @@ def verify_candidate_source_binding(
         ):
             raise F1V2Error("candidate userspace overlay selector changed")
         if (
+            userspace_overlay_contract_id
+            == typed_evidence.P313_OVERLAY_CONTRACT_ID
+        ):
+            required_overlays = [("p313", typed_evidence.p313_overlay)]
+        elif (
             userspace_overlay_contract_id
             == typed_evidence.P312_OVERLAY_CONTRACT_ID
         ):

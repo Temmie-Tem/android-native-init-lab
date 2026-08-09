@@ -677,9 +677,57 @@ checkpoint ABI, carrier size, transfer machinery, rollback, or recovery
 closure changes beyond that observer change, recompute the source contract and
 apply the review/Full-LTO requirements of the changed layer.
 
+## Implemented Capability and Qualification
+
+The design was realized as a host-only P3.13 userspace overlay without a
+kernel change. The exact qualification closure is:
+
+- 68 frozen `SOURCE_KEYS` and overlay-intent SHA-256
+  `22d6224956cc160233f92e214bd193d16b1181001cec5c8f117673eba02b89bb`;
+- the unchanged P3.10 Image SHA-256
+  `71f573eb77e67c82b9191bfe0926153f6c8dd5fefe3bba01f884c9beb0c4bae8`;
+- role/direct/cycle event counts `5/15/25`, cycle record contract `37/45/65`,
+  and direct streaming prefix capacity 32;
+- all 126 A outputs and 1,200 B outputs through materialized runtime,
+  checkpoint, fixed-Image, decoder, and Process-v2 gates;
+- a canonical 1,200-second P3.13 guard derivation from the 880-second host
+  subtotal plus the reviewed 320-second overhead bound, while preserving the
+  common 360-second default and immutable v2 receipt meaning;
+- byte-identical userspace builds with static AArch64 `/init` SHA-256
+  `2bf82a062c4f60b4f3838f9b7de1fc8e7a5f94c41e21af8d796b144c395920a8`
+  and child SHA-256
+  `9a57b30aa3fb08ee0aab4d045d2805dd36875bb80bcba7b0b6606f619df71639`;
+- byte-identical boot-only A/B packages with AP SHA-256
+  `0bf6848bdd8006aacf971bdd80e243411877fef2cb64d2b627802b73a4fafea7`
+  and boot-image SHA-256
+  `5348f17ae88caa35eddcebd0fbee10c889cd7803c0acc6314b25dab29211d551`;
+- independent artifact closure and Process-v2 promotion, including candidate
+  static SHA-256
+  `941fd0633a5fb02501a477c0a44dc3ea64f11ace785f0ab626df925388b162f3`;
+  and
+- canonical ready manifest
+  `s22plus-fyg8-p313-process-v2-ready-1`, SHA-256
+  `8ca23fff2af4e5ca8f4946c3e4baaf7609fb2b0b9c38a1f2a445ca4fe6db9e5d`.
+
+The host validations passed the materialized telemetry, tracefs ABI,
+cross-gate, runtime, guard-lifetime, hazard-closure, and real Process-v2
+adapter fixtures. Focused local regression ran 111 tests; the independent
+review reran the exact ready manifest, rootfs/AP authority, common observer,
+core, evidence, and live closure with 139 tests and returned `PASS_GO` with no
+HIGH, MEDIUM, or LOW findings. Python compilation, static AArch64 inspection,
+and scoped `git diff --check` also passed.
+
+During implementation, H0 caught and repaired four host-only closure defects
+before any live use: stale dynamic verification of the frozen P3.12 parent,
+an omitted inherited callsite identity, a stale incidental opcode-path
+offset, and missing P3.13 generic-rootfs adapter authority. The final intent,
+artifacts, promotion, manifest, and independent review all use the corrected
+closure.
+
 ## Authority State
 
-This is H0 design evidence for the exact S22+ FYG8 target only. It performed
-no device command, D0, D1, F1, build, packaging, transfer, reboot, or flash.
-It grants no approval, does not arm P3.13, and does not transfer authority or
-evidence to A90.
+This is H0 design and implemented-capability evidence for the exact S22+ FYG8
+target only. Implementation built and packaged host artifacts but performed
+no device command, D0, D1, F1, transfer, reboot, or flash. The ready manifest
+grants no approval and does not arm P3.13. No authority, artifact, evidence,
+or command transferred to A90.

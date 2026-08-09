@@ -1053,14 +1053,16 @@ def observer_session(
     class_tty: Path = Path("/sys/class/tty"),
     dev_root: Path = Path("/dev"),
     usb_root: Path = Path("/sys/bus/usb/devices"),
+    max_sec: int = GUARD_DEFAULT_MAX_SEC,
 ) -> Iterator[ObserverSession]:
     validate_spec(spec)
+    max_sec = _validate_guard_max_sec(max_sec)
     release_path = run_dir / "candidate-observer-guard-release.json"
     if release_path.exists() or release_path.is_symlink():
         raise ObserverError("candidate observer guard release already exists")
     baseline = capture_baseline(spec, topology, class_tty=class_tty)
     baseline_receipt = persist_json(run_dir / "candidate-observer-baseline.json", baseline)
-    guard = ModemManagerGuard.arm(spec, topology, run_dir)
+    guard = ModemManagerGuard.arm(spec, topology, run_dir, max_sec=max_sec)
     try:
         guard_receipt = persist_json(
             run_dir / "candidate-observer-guard.json", guard.arm_receipt

@@ -23,6 +23,7 @@ import device_action_f1_evidence_v2 as typed_evidence
 import device_action_f1_v2 as core
 import device_action_usb_trace_sidecar_v1 as usb_trace_sidecar
 import s22plus_fyg8_p300_usb_trace_binding as p300_usb_trace
+import s22plus_fyg8_p313_guard_lifetime as p313_guard_lifetime
 import s22plus_boot_only_f1_transport as transport
 import s22plus_boot_only_live_core as live_core
 import s22plus_odin_transition_core as odin_core
@@ -41,6 +42,7 @@ MAX_PRIVATE_JSON = 1024 * 1024
 MAX_ODIN_OUTPUT = 8 * 1024 * 1024
 MAX_OBSERVER_BYTES = 64 * 1024 * 1024
 MAX_ATTEMPTS = 2
+DOWNLOAD_REQUEST_TIMEOUT_SEC = 20
 DOWNLOAD_WAIT_SEC = 180
 ROLLBACK_WAIT_SEC = 600
 ANDROID_WAIT_SEC = 420
@@ -183,6 +185,7 @@ def _closure(root: Path) -> dict[str, Any]:
         "live_core": scripts / "s22plus_boot_only_live_core.py",
         "odin_transition_core": scripts / "s22plus_odin_transition_core.py",
         "usbfs_identity": scripts / "s22plus_odin_usbfs_identity.py",
+        "p313_guard_lifetime": scripts / "s22plus_fyg8_p313_guard_lifetime.py",
     }
     values = {
         name: _receipt(path.resolve(), f"execution source {name}")
@@ -294,7 +297,47 @@ def _binding(
         "mandatory_rollback_preapproved": True,
         "recovery_requires_second_approval": False,
     }
+    derivation = _p313_guard_derivation(bundle)
+    if derivation is not None:
+        value["candidate_observer_guard_lifetime"] = {
+            "derivation": derivation,
+            "derivation_sha256": p313_guard_lifetime.digest(derivation),
+        }
     return value, core.json_sha256(value)
+
+
+def _userspace_overlay_contract_id(bundle: core.Bundle) -> Any:
+    return bundle.manifest["observation"]["acceptance"].get(
+        "userspace_overlay_contract_id"
+    )
+
+
+def _p313_bundle(bundle: core.Bundle) -> bool:
+    return (
+        _userspace_overlay_contract_id(bundle)
+        == p313_guard_lifetime.OVERLAY_CONTRACT_ID
+    )
+
+
+def _p313_guard_derivation(bundle: core.Bundle) -> dict[str, Any] | None:
+    if not _p313_bundle(bundle):
+        return None
+    observation = bundle.manifest["observation"]
+    if observation.get("candidate_observer") is None:
+        raise F1LiveError("P3.13 requires the exact CDC ACM observer")
+    try:
+        return p313_guard_lifetime.derive(
+            download_request_sec=DOWNLOAD_REQUEST_TIMEOUT_SEC,
+            download_wait_sec=DOWNLOAD_WAIT_SEC,
+            endpoint_revalidate_sec=ENDPOINT_REVALIDATE_SEC,
+            odin_timeout_sec=ODIN_TIMEOUT_SEC,
+            download_departure_wait_sec=DISCONNECT_WAIT_SEC,
+            candidate_observation_sec=observation["timeout_sec"],
+            guard_default_sec=cdc_acm_observer.GUARD_DEFAULT_MAX_SEC,
+            guard_limit_sec=cdc_acm_observer.GUARD_MAX_SEC_LIMIT,
+        )
+    except (KeyError, p313_guard_lifetime.GuardLifetimeError) as exc:
+        raise F1LiveError("P3.13 guard lifetime derivation failed") from exc
 
 
 def _p300_bundle(bundle: core.Bundle) -> bool:
@@ -1159,7 +1202,7 @@ class SamsungOdinBackend:
                 "reboot",
                 "download",
             ],
-            timeout=20,
+            timeout=DOWNLOAD_REQUEST_TIMEOUT_SEC,
         )
         if result.returncode != 0 or result.stderr:
             raise F1LiveError("Android Download request failed")
@@ -1175,6 +1218,12 @@ class SamsungOdinBackend:
         )
         if spec is None:
             return contextlib.nullcontext(None)
+        if _p313_bundle(prepared.bundle):
+            return _p313_candidate_observer_session(
+                prepared,
+                spec,
+                usb_root=self.usb_root,
+            )
         return cdc_acm_observer.observer_session(
             spec,
             prepared.private_target["topology"],
@@ -1494,6 +1543,87 @@ def _candidate_observer_binding(prepared: PreparedRun) -> dict[str, str]:
     }
 
 
+P313_GUARD_LIFETIME_ARM = "candidate-observer-guard-lifetime-arm.json"
+P313_GUARD_LIFETIME_RELEASE = "candidate-observer-guard-lifetime-release.json"
+
+
+def _p313_bound_guard_derivation(prepared: PreparedRun) -> dict[str, Any]:
+    derivation = _p313_guard_derivation(prepared.bundle)
+    if derivation is None:
+        raise F1LiveError("P3.13 guard lifetime requested for another overlay")
+    expected = {
+        "derivation": derivation,
+        "derivation_sha256": p313_guard_lifetime.digest(derivation),
+    }
+    approval = prepared.prepared.get("approval_binding")
+    if (
+        not isinstance(approval, dict)
+        or approval.get("candidate_observer_guard_lifetime") != expected
+    ):
+        raise F1LiveError("P3.13 guard lifetime is not approval-bound")
+    return derivation
+
+
+@contextlib.contextmanager
+def _p313_candidate_observer_session(
+    prepared: PreparedRun,
+    spec: dict[str, str],
+    *,
+    usb_root: Path,
+):
+    derivation = _p313_bound_guard_derivation(prepared)
+    started_ns = time.monotonic_ns()
+    lifetime_arm_path = prepared.run_dir / P313_GUARD_LIFETIME_ARM
+    lifetime_release_path = prepared.run_dir / P313_GUARD_LIFETIME_RELEASE
+    arm_receipt: dict[str, Any] | None = None
+    try:
+        with cdc_acm_observer.observer_session(
+            spec,
+            prepared.private_target["topology"],
+            prepared.run_dir,
+            _candidate_observer_binding(prepared),
+            usb_root=usb_root,
+            max_sec=derivation["max_sec"],
+        ) as session:
+            v2_arm = _receipt(
+                prepared.run_dir / "candidate-observer-guard.json",
+                "candidate observer v2 guard arm",
+            )
+            arm_value = p313_guard_lifetime.arm_value(
+                approval_binding_sha256=prepared.binding_sha256,
+                derivation=derivation,
+                v2_arm_receipt_sha256=v2_arm["sha256"],
+            )
+            _write_exclusive(lifetime_arm_path, arm_value)
+            arm_receipt = _receipt(
+                lifetime_arm_path, "P3.13 guard lifetime arm"
+            )
+            yield session
+    finally:
+        # Candidate-side exceptions must never suppress mandatory rollback.
+        # Missing or malformed lifetime release evidence is detected by reopen.
+        if arm_receipt is not None:
+            try:
+                v2_release = _receipt(
+                    prepared.run_dir / "candidate-observer-guard-release.json",
+                    "candidate observer v2 guard release",
+                )
+                elapsed_upper_millis = (
+                    time.monotonic_ns() - started_ns + 999_999
+                ) // 1_000_000
+                _write_exclusive(
+                    lifetime_release_path,
+                    p313_guard_lifetime.release_value(
+                        lifetime_arm_sha256=arm_receipt["sha256"],
+                        v2_release_receipt_sha256=v2_release["sha256"],
+                        elapsed_upper_millis=elapsed_upper_millis,
+                        max_sec=derivation["max_sec"],
+                    ),
+                )
+            except Exception:
+                pass
+
+
 def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
     spec = prepared.bundle.manifest["observation"].get("candidate_observer")
     if spec is None:
@@ -1569,7 +1699,51 @@ def _reopen_candidate_guard_release(prepared: PreparedRun) -> dict[str, Any]:
     try:
         value = cdc_acm_observer.read_guard_release(path, arm_path)
         receipt = _receipt(path, "candidate observer guard release")
-    except (cdc_acm_observer.ObserverError, F1LiveError, core.F1V2Error):
+        lifetime_paths = (
+            prepared.run_dir / P313_GUARD_LIFETIME_ARM,
+            prepared.run_dir / P313_GUARD_LIFETIME_RELEASE,
+        )
+        if _p313_bundle(prepared.bundle):
+            derivation = _p313_bound_guard_derivation(prepared)
+            v2_arm = _receipt(arm_path, "candidate observer v2 guard arm")
+            lifetime_arm_value = _read_json(
+                lifetime_paths[0], "P3.13 guard lifetime arm"
+            )
+            p313_guard_lifetime.validate_arm(
+                lifetime_arm_value,
+                approval_binding_sha256=prepared.binding_sha256,
+                derivation=derivation,
+                v2_arm_receipt_sha256=v2_arm["sha256"],
+            )
+            lifetime_arm = _receipt(
+                lifetime_paths[0], "P3.13 guard lifetime arm"
+            )
+            lifetime_release_value = _read_json(
+                lifetime_paths[1], "P3.13 guard lifetime release"
+            )
+            elapsed = lifetime_release_value.get("elapsed_upper_millis")
+            p313_guard_lifetime.validate_release(
+                lifetime_release_value,
+                lifetime_arm_sha256=lifetime_arm["sha256"],
+                v2_release_receipt_sha256=receipt["sha256"],
+                elapsed_upper_millis=elapsed,
+                max_sec=derivation["max_sec"],
+            )
+            if value["released"] is True and (
+                lifetime_release_value["released_within_lifetime"] is not True
+            ):
+                raise F1LiveError("P3.13 normal guard release exceeded lifetime")
+        elif any(path.exists() or path.is_symlink() for path in lifetime_paths):
+            raise F1LiveError("non-P3.13 run has lifetime guard receipts")
+    except (
+        cdc_acm_observer.ObserverError,
+        p313_guard_lifetime.GuardLifetimeError,
+        F1LiveError,
+        core.F1V2Error,
+        KeyError,
+        TypeError,
+        OSError,
+    ):
         return {
             "status": "invalid-or-failed",
             "released": False,
