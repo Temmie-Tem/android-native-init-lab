@@ -43,36 +43,31 @@ unit must start with H0 source analysis of the remaining post-clock,
 post-session-valid PHY/pull-up handoff; it must not repeat P3.12 or reopen the
 closed clock and wrapper-state branches without contradictory evidence.
 
-P3.13 is the next H0 design unit; no candidate exists and F1 is unarmed. It
-tests a post-bind `mode none -> peripheral` cycle, the remaining lever that
-moves RUN_STOP from the measured direct pullup path into runtime resume while preserving the bound gadget. Evidence must use the existing
-`dwc3_runtime_resume` outer pair with nested `__dwc3_gadget_start` and
-`dwc3_gadget_run_stop(true)` pairs; retain the stop-side false result, prove
-child and parent suspension, and remeasure QSCRATCH after restart. No extra
-`dwc3_resume_common` probe is justified because the relevant gadget-resume body
-is inlined in the fixed Image. Direct pullup re-entry, force-disconnect, unbind,
-or late visibility of the original bind path is path drift, not cycle-caused
-success.
+P3.13 is the next H0 implementation unit; its detailed contract is frozen in
+`docs/reports/S22PLUS_FYG8_P313_POST_BIND_RESUME_CYCLE_DESIGN_H0_2026-08-10.md`.
+No candidate exists and F1 is unarmed. One same-boot direct-path fence precedes
+a post-bind `mode none -> peripheral` cycle. The cycle must preserve the bound
+UDC, prove child and parent suspended then active, retain stop/start inner
+returns, and compare direct and post-cycle QSCRATCH, DWC3 state, and event
+configuration. Direct pullup re-entry, unbind, force path, or late direct
+activity prevents cycle attribution.
 
-Stop and restart have independent 30-second deadlines. The two RUN_STOP polls
-are nominally bounded near four seconds each and the applicable DWC31 resume
-soft reset at 200 ms; the DRD role-switch sleep is not on this path. An outer
-deadline or unreaped helper is `NO_PROOF_OBSERVER`, while a measured inner
-RUN_STOP `-ETIMEDOUT` is a controller result. Deadline growth is permitted only
-if the transitive stage audit proves the existing headroom insufficient.
+The cycle uses a dedicated 25-event set, not the inherited 29-event set. Its
+source-derived clean ceiling is 37 records and one bounded path-drift ceiling
+is 45, below both the 64-record and 64-KiB trace limits. Stop and restart keep
+independent 30-second deadlines; the complete bounded userspace waits total
+160 seconds inside the 300-second Process-v2 observation window. An outer
+deadline is `NO_PROOF_OBSERVER`, while a measured inner RUN_STOP
+`-ETIMEDOUT` is a controller result.
 
-Two implementation blockers are now explicit. The cycle set has 29 events
-under a hard cap of 30; adding six required start/run-stop/pullup events would
-fail at 35. P3.13 must replace the 12 closed clock-site events with a dedicated
-23-event set rather than widen the shared cap. The runtime queues the ACM banner
-before bind; the host observer rolls back on an exact banner, so the final pair must be
-published before that banner can escape, or successful enumeration could erase
-the intended evidence. Qualification must exhaustively pass every encoder
-output through runtime, checkpoint, fixed-Image, pair decoder, position-table,
-and real Process-v2 Carrier-v2 gates, prove the 64-record budget for every
-terminal branch, and receive one narrow independent review of the changed
-runtime/schema. The fixed Image and kernel remain unchanged; a userspace-only
-implementation does not require Full-LTO.
+The adjacent final pair must be durable before the exact ACM banner can be
+written. Qualification must enumerate every encoder output through the actual
+runtime, checkpoint, fixed-Image, model, decoder, position, and Process-v2
+gates and emit a hash-bound hazard-closure artifact covering prior observer
+failures plus the new record, timing, banner-order, PM-fence, and tuple-delta
+contracts. One focused independent review is required for the changed
+runtime/schema. The fixed Image and kernel remain unchanged, so this
+userspace-only implementation does not require Full-LTO.
 
 P3.08 was an earlier closed live unit. Focused independent review returned
 `PASS_GO` for the exact loss-resistant observer and Process-v2 closure. The
