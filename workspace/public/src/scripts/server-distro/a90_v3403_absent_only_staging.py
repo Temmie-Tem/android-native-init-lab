@@ -201,7 +201,7 @@ PHASE3_CLEAN_IMAGE = (
     PRIVATE_ROOT
     / "outputs"
     / "server-distro"
-    / "a90-phase3-network-ssh-v1-ab-07-20260807"
+    / "a90-phase3-network-ssh-v1-h12-ab-04-20260810"
     / "A"
     / "phase3-network-ssh-v1.img"
 )
@@ -209,22 +209,22 @@ PHASE3_CLEAN_RECEIPT = (
     PRIVATE_ROOT
     / "outputs"
     / "server-distro"
-    / "a90-phase3-network-ssh-v1-ab-07-20260807"
+    / "a90-phase3-network-ssh-v1-h12-ab-04-20260810"
     / "ab-receipt.json"
 )
 PHASE3_CLEAN_IMAGE_SHA256 = (
-    "481a899e8946ff65729f717a0acb5200474a8efe454ced1437426de7bf6b44ab"
+    "7e1abe5049e413f145733bf7e3781162aa25528e6da500779d788a705461f3de"
 )
 PHASE3_CLEAN_RECEIPT_SHA256 = (
-    "64c13cb2b940a26529461a7050295035b6db6958956a47e6a232ef40d7f799c0"
+    "16ac4b0a11906616af1eb2b47f03609fa8390351e8cee8354a5547ecf1da24ed"
 )
 PHASE3_MANIFEST_PATH = SCRIPT_DIR / "phase3_network_ssh_v1/manifest.toml"
 PHASE3_MANIFEST_SHA256 = (
-    "b6a8eec9e0c5783c66c2ad777edbe3e67923edd5115560358ce55dfa2fbeef91"
+    "125d802abf51cda20b8427090bb89761c8ffd7818655318590586f9a3f826ead"
 )
 PHASE3_BUILDER_PATH = SCRIPT_DIR / "prepare_phase3_network_ssh_v1_rootfs.py"
 PHASE3_BUILDER_SHA256 = (
-    "3c15440d30e5cd14f320c6a1bc0d1639e89b0d878a8970284b5eb7bb58f87166"
+    "75272618da295bdafdaa823f70dd9d660c29a866a0431cbc6e849afb3115df09"
 )
 PHASE2_BUILDER_PATH = SCRIPT_DIR / "prepare_phase2_display_v1_rootfs.py"
 PHASE2_BUILDER_SHA256 = (
@@ -234,7 +234,7 @@ PHASE3_SERVICE_PATH = (
     SCRIPT_DIR / "phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh"
 )
 PHASE3_SERVICE_SHA256 = (
-    "288c2f752418eab7890974d40ad9ba745c1f26cfbfa6f644454a1b50ba04c57a"
+    "02b3623091c21c272e19a630c6bc8b6949ffaacf60770577185161b7ffa283f8"
 )
 PHASE3_FIRSTBOOT_PATH = (
     SCRIPT_DIR / "phase3_network_ssh_v1/a90_debian_return_arm_v1.sh"
