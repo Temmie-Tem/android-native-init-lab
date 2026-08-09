@@ -6,8 +6,9 @@ resident healthy and unarmed, durably binds one arm intent, arms once, proves
 the exact enable state, durably binds one reboot intent, reboots once, observes
 Debian PID1/display/SSH, automatic native return, the retained latch, final
 resident health, and one complete benchmark boot segment.  An uncertain arm or
-reboot is never resent.  ``--reconcile`` is read-only; ``--resume-after-return``
-can complete only a durably observed return's absence/final-health tail.
+reboot is never resent.  ``--reconcile`` is read-only; an exact historical-
+closure resume can continue only from one proved armed result or a durably
+observed return.
 """
 
 from __future__ import annotations
@@ -72,6 +73,9 @@ FAST_SOURCE_IDENTITY_KEYS = (
     "mtime_sec", "mtime_nsec", "ctime_sec", "ctime_nsec",
 )
 CMDV1X_BUFFER_BYTES = 4096
+ARMED_RESUME_PREDECESSOR_CLOSURE_SHA256 = (
+    "85dc18125032f8d0cf3bcdd1117261dd5a6d0af2bf95afd56904135341aa95ce"
+)
 STATUS_RE = re.compile(
     r"^A90AUTO_STATUS binding=(?P<binding>[01]) "
     r"enable=(?P<enable>-?[0-9]+) latch=(?P<latch>-?[0-9]+) "
@@ -125,7 +129,7 @@ PAYLOAD_KEYS = (
         "post_arm_status_record", "post_arm_status",
     },
     {
-        "intent_sha256", "armed_preflight", "pre_reboot_epoch",
+        "intent_sha256", "execution_closure_sha256", "armed_preflight", "pre_reboot_epoch",
         "reboot_dispatch_count_max", "candidate_replay",
     },
     {
@@ -156,6 +160,10 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def exact_int(value: Any, expected: int) -> bool:
+    return type(value) is int and value == expected
 
 
 def execution_closure() -> dict[str, Any]:
@@ -681,8 +689,8 @@ def load_journal_prefix(
         if (
             intent.get("manifest_sha256") != spec.manifest_sha256
             or intent.get("execution_closure_sha256") != intent_closure_sha256
-            or intent.get("arm_dispatch_count_max") != 1
-            or intent.get("reboot_dispatch_count") != 0
+            or not exact_int(intent.get("arm_dispatch_count_max"), 1)
+            or not exact_int(intent.get("reboot_dispatch_count"), 0)
             or intent.get("candidate_replay") is not False
         ):
             raise ContractError("arm intent binding changed")
@@ -706,7 +714,7 @@ def load_journal_prefix(
             raise ContractError("journal post-arm status receipt is not exact")
         if (
             armed.get("intent_sha256") != intent_sha256
-            or armed.get("arm_dispatch_count") != 1
+            or not exact_int(armed.get("arm_dispatch_count"), 1)
             or armed.get("post_arm_status") != post_status
         ):
             raise ContractError("arm result binding changed")
@@ -739,7 +747,9 @@ def load_journal_prefix(
             or records[2]["post_arm_status"].get("latch") != 0
             or (
                 reboot.get("intent_sha256") != intent_sha256
-                or reboot.get("reboot_dispatch_count_max") != 1
+                or reboot.get("execution_closure_sha256")
+                != expected_closure_sha256
+                or not exact_int(reboot.get("reboot_dispatch_count_max"), 1)
                 or reboot.get("candidate_replay") is not False
                 or not isinstance(reboot.get("pre_reboot_epoch"), dict)
             )
@@ -756,13 +766,15 @@ def load_journal_prefix(
         observation = observed.get("observation")
         if (
             observed.get("intent_sha256") != intent_sha256
-            or observed.get("arm_dispatch_count") != 1
-            or observed.get("reboot_dispatch_count") != 1
+            or not exact_int(observed.get("arm_dispatch_count"), 1)
+            or not exact_int(observed.get("reboot_dispatch_count"), 1)
             or observed.get("candidate_replay") is not False
             or not isinstance(observation, dict)
             or not isinstance(observation.get("reboot_record"), dict)
             or observation["reboot_record"].get("command") != ["reboot"]
-            or observation["reboot_record"].get("dispatch_count") != 1
+            or not exact_int(
+                observation["reboot_record"].get("dispatch_count"), 1
+            )
         ):
             raise ContractError("observation journal binding changed")
     if len(records) >= 6:
@@ -776,9 +788,9 @@ def load_journal_prefix(
         if (
             cleanup_intent.get("intent_sha256") != intent_sha256
             or cleanup_intent.get("manifest_sha256") != spec.manifest_sha256
-            or cleanup_intent.get("cleanup_dispatch_count_max") != 0
-            or cleanup_intent.get("arm_dispatch_count") != 1
-            or cleanup_intent.get("reboot_dispatch_count") != 1
+            or not exact_int(cleanup_intent.get("cleanup_dispatch_count_max"), 0)
+            or not exact_int(cleanup_intent.get("arm_dispatch_count"), 1)
+            or not exact_int(cleanup_intent.get("reboot_dispatch_count"), 1)
             or cleanup_intent.get("candidate_replay") is not False
             or cleanup_intent.get("returned_status") != returned_status
             or returned_status.get("enable") != 1
@@ -794,7 +806,10 @@ def load_journal_prefix(
             raise ContractError("absence-close result binding changed")
         if cleanup.get("inferred_from_absence") is not True:
             raise ContractError("absence-close result disposition is not exact")
-        if cleanup.get("cleanup_dispatch_count") != 0 or cleanup.get("cleanup_record") is not None:
+        if (
+            not exact_int(cleanup.get("cleanup_dispatch_count"), 0)
+            or cleanup.get("cleanup_record") is not None
+        ):
             raise ContractError("H10 absence close dispatched cleanup")
         validate_preflight_evidence(
             spec,
@@ -833,8 +848,13 @@ def load_journal_prefix(
 
 def parse_auto_status(record: dict[str, Any]) -> dict[str, Any]:
     text = str(record.get("text") or "")
-    matches = list(STATUS_RE.finditer(text))
-    if len(matches) != 1:
+    tag_lines = [
+        line.strip()
+        for line in text.replace("\r", "").splitlines()
+        if line.strip().startswith("A90AUTO_STATUS")
+    ]
+    matches = [STATUS_RE.fullmatch(line) for line in tag_lines]
+    if len(tag_lines) != 1 or len(matches) != 1 or matches[0] is None:
         raise ContractError("auto-handoff status response is not unique")
     match = matches[0]
     result = {
@@ -892,7 +912,7 @@ def require_exact_arm_dispatch_receipt(
         lines = [
             line.strip()
             for line in str(record.get("text") or "").replace("\r", "").splitlines()
-            if line.strip()
+            if line.strip().startswith(("A90D3H0", "A90AUTO_ARM"))
         ]
         expected_lines = [
             "A90D3H0 source_receipt=qualifying "
@@ -940,7 +960,12 @@ def require_exact_arm_dispatch_receipt(
     ):
         raise ContractError("auto-handoff arm refusal receipt is not exact")
     marker = f"A90AUTO_ARM armed=0 rc={rc}"
-    if str(record.get("text") or "").count(marker) != 1:
+    tag_lines = [
+        line.strip()
+        for line in str(record.get("text") or "").replace("\r", "").splitlines()
+        if line.strip().startswith(("A90D3H0", "A90AUTO_ARM"))
+    ]
+    if tag_lines != [marker]:
         raise ContractError("auto-handoff arm refusal marker is not exact")
     return record, "refused-unarmed"
 
@@ -1333,7 +1358,7 @@ def host_link_proven(spec: resident.SessionSpec, observation: Any) -> bool:
     return (
         isinstance(ncm, dict)
         and ncm.get("same_current_acm_usb_parent") is True
-        and ncm.get("exact_interface_count") == 1
+        and exact_int(ncm.get("exact_interface_count"), 1)
         and ncm.get("profile_bound") is True
         and type(ncm.get("mutated")) is bool
         and ready
@@ -1541,8 +1566,8 @@ def validate_result(
         or value.get("terminal") not in allowed_terminal
         or value.get("resident_healthy") is not True
         or value.get("candidate_replay") is not False
-        or value.get("arm_dispatch_count") != 1
-        or value.get("reboot_dispatch_count") != 1
+        or not exact_int(value.get("arm_dispatch_count"), 1)
+        or not exact_int(value.get("reboot_dispatch_count"), 1)
         or value.get("visible_confirmed") not in {"yes", "no", "unavailable"}
         or value.get("telemetry_scope")
         != (
@@ -1615,7 +1640,10 @@ def validate_result(
         raise ContractError("benchmark result cleanup evidence changed")
     if cleanup.get("inferred_from_absence") is not True:
         raise ContractError("benchmark result cleanup disposition changed")
-    if cleanup.get("dispatch_count") != 0 or cleanup.get("receipt") is not None:
+    if (
+        not exact_int(cleanup.get("dispatch_count"), 0)
+        or cleanup.get("receipt") is not None
+    ):
         raise ContractError("benchmark result H10 absence close dispatched cleanup")
     validate_preflight_evidence(
         spec,
@@ -1726,6 +1754,149 @@ def dispatch_arm_once_and_publish(
     return arm_record, post_arm_status
 
 
+def _continue_after_proved_arm(
+    spec: resident.SessionSpec,
+    args: argparse.Namespace,
+    path: Path,
+    *,
+    expected_closure_sha256: str,
+    source_identity: dict[str, int],
+    intent_sha256: str,
+    opening_log_record: dict[str, Any],
+    visible_confirmed: str,
+) -> dict[str, Any]:
+    """Continue one journal-bound ordinal without ever dispatching arm again."""
+
+    require_execution_closure(expected_closure_sha256)
+    require_auto_status(args, enable=1, latch=0)
+    armed_preflight, armed_evidence, _ = fast_resident_preflight(
+        spec,
+        args,
+        expected_state="receipt-verified",
+        expected_identity=source_identity,
+    )
+    armed_preflight.validate()
+    f1_spec = _f1_spec(spec)
+    guard = base.arm_candidate_return_modemmanager_guard(f1_spec, args, path)
+    try:
+        pre_reboot_epoch = base.capture_bridge_serial_epoch(f1_spec, args)
+        require_auto_status(args, enable=1, latch=0)
+        if not guard.healthy(recheck=True):
+            raise ContractError("candidate-return guard was lost before reboot intent")
+        write_record(
+            path / JOURNAL_NAMES[3],
+            "reboot-intent",
+            {
+                "intent_sha256": intent_sha256,
+                "execution_closure_sha256": expected_closure_sha256,
+                "armed_preflight": armed_evidence,
+                "pre_reboot_epoch": pre_reboot_epoch,
+                "reboot_dispatch_count_max": 1,
+                "candidate_replay": False,
+            },
+        )
+        require_execution_closure(expected_closure_sha256)
+        require_auto_status(args, enable=1, latch=0)
+        if not guard.healthy(recheck=True):
+            raise ContractError("candidate-return guard was lost before reboot dispatch")
+        reboot_record = send_reboot_once(args)
+    except Exception:
+        try:
+            base.release_candidate_return_modemmanager_guard(guard, path)
+        except Exception:  # preserve the pre-dispatch failure
+            pass
+        raise
+    observation = observe_auto_cycle(spec, args, path, guard)
+    observation["reboot_record"] = reboot_record
+    write_record(
+        path / JOURNAL_NAMES[4],
+        "observation",
+        {
+            "intent_sha256": intent_sha256,
+            "arm_dispatch_count": 1,
+            "reboot_dispatch_count": 1,
+            "candidate_replay": False,
+            "observation": observation,
+        },
+    )
+    returned_status_record, returned_status = require_auto_status(
+        args,
+        enable=1,
+        latch=1,
+    )
+    write_record(
+        path / JOURNAL_NAMES[5],
+        "absence-close-intent",
+        {
+            "intent_sha256": intent_sha256,
+            "manifest_sha256": spec.manifest_sha256,
+            "cleanup_dispatch_count_max": 0,
+            "arm_dispatch_count": 1,
+            "reboot_dispatch_count": 1,
+            "candidate_replay": False,
+            "returned_status": returned_status,
+            "returned_status_record": returned_status_record,
+        },
+    )
+    absence_preflight, absence_evidence, _ = fast_resident_preflight(
+        spec,
+        args,
+        expected_state="receipt-verified",
+        expected_identity=source_identity,
+    )
+    absence_preflight.validate()
+    cleanup_evidence = {
+        "dispatch_count": 0,
+        "inferred_from_absence": True,
+        "receipt": None,
+        "absence_preflight": absence_evidence,
+    }
+    write_record(
+        path / JOURNAL_NAMES[6],
+        "absence-close-result",
+        {
+            "intent_sha256": intent_sha256,
+            "cleanup_dispatch_count": 0,
+            "cleanup_record": None,
+            "absence_preflight": absence_evidence,
+            "inferred_from_absence": True,
+            "candidate_replay": False,
+        },
+    )
+    result = finalize_cycle(
+        spec,
+        args,
+        observation,
+        intent_sha256=intent_sha256,
+        opening_log_record=opening_log_record,
+        visible_confirmed=visible_confirmed,
+        cleanup_evidence=cleanup_evidence,
+        source_identity=source_identity,
+    )
+    result = validate_result(
+        spec,
+        result,
+        intent_sha256,
+        expected_source_identity=source_identity,
+    )
+    result_sha256 = base.json_sha256(result)
+    write_record(
+        path / JOURNAL_NAMES[7],
+        "final-health",
+        {
+            "intent_sha256": intent_sha256,
+            "result_sha256": result_sha256,
+            "result": result,
+        },
+    )
+    write_record(
+        path / JOURNAL_NAMES[8],
+        "closed",
+        {"result_sha256": result_sha256, "result": result},
+    )
+    return result
+
+
 def execute(
     spec: resident.SessionSpec,
     *,
@@ -1792,119 +1963,78 @@ def execute(
         journal_path=path / JOURNAL_NAMES[2],
         intent_sha256=intent_sha256,
     )
-    require_execution_closure(expected_closure_sha256)
-    armed_preflight, armed_evidence, _ = fast_resident_preflight(
+    return _continue_after_proved_arm(
         spec,
         args,
-        expected_state="receipt-verified",
-        expected_identity=source_identity,
-    )
-    armed_preflight.validate()
-    f1_spec = _f1_spec(spec)
-    guard = base.arm_candidate_return_modemmanager_guard(f1_spec, args, path)
-    pre_reboot_epoch = base.capture_bridge_serial_epoch(f1_spec, args)
-    write_record(
-        path / JOURNAL_NAMES[3],
-        "reboot-intent",
-        {
-            "intent_sha256": intent_sha256,
-            "armed_preflight": armed_evidence,
-            "pre_reboot_epoch": pre_reboot_epoch,
-            "reboot_dispatch_count_max": 1,
-            "candidate_replay": False,
-        },
-    )
-    require_execution_closure(expected_closure_sha256)
-    reboot_record = send_reboot_once(args)
-    observation = observe_auto_cycle(spec, args, path, guard)
-    observation["reboot_record"] = reboot_record
-    write_record(
-        path / JOURNAL_NAMES[4],
-        "observation",
-        {
-            "intent_sha256": intent_sha256,
-            "arm_dispatch_count": 1,
-            "reboot_dispatch_count": 1,
-            "candidate_replay": False,
-            "observation": observation,
-        },
-    )
-    returned_status_record, returned_status = require_auto_status(
-        args,
-        enable=1,
-        latch=1,
-    )
-    write_record(
-        path / JOURNAL_NAMES[5],
-        "absence-close-intent",
-        {
-            "intent_sha256": intent_sha256,
-            "manifest_sha256": spec.manifest_sha256,
-            "cleanup_dispatch_count_max": 0,
-            "arm_dispatch_count": 1,
-            "reboot_dispatch_count": 1,
-            "candidate_replay": False,
-            "returned_status": returned_status,
-            "returned_status_record": returned_status_record,
-        },
-    )
-    absence_preflight, absence_evidence, _ = fast_resident_preflight(
-        spec,
-        args,
-        expected_state="receipt-verified",
-        expected_identity=source_identity,
-    )
-    absence_preflight.validate()
-    cleanup_evidence = {
-        "dispatch_count": 0,
-        "inferred_from_absence": True,
-        "receipt": None,
-        "absence_preflight": absence_evidence,
-    }
-    write_record(
-        path / JOURNAL_NAMES[6],
-        "absence-close-result",
-        {
-            "intent_sha256": intent_sha256,
-            "cleanup_dispatch_count": 0,
-            "cleanup_record": None,
-            "absence_preflight": absence_evidence,
-            "inferred_from_absence": True,
-            "candidate_replay": False,
-        },
-    )
-    result = finalize_cycle(
-        spec,
-        args,
-        observation,
+        path,
+        expected_closure_sha256=expected_closure_sha256,
+        source_identity=source_identity,
         intent_sha256=intent_sha256,
         opening_log_record=first_log,
         visible_confirmed=visible_confirmed,
-        cleanup_evidence=cleanup_evidence,
-        source_identity=source_identity,
     )
-    result = validate_result(
+
+
+def resume_after_proved_arm(
+    spec: resident.SessionSpec,
+    *,
+    transaction_dir: Path,
+    expected_closure_sha256: str,
+    expected_journal_closure_sha256: str,
+    operator_attended: bool,
+    visible_confirmed: str,
+) -> dict[str, Any]:
+    """Resume at reboot intent from exactly one durable, proved arm result."""
+
+    if operator_attended is not True:
+        raise ContractError("operator attendance is required for armed D1 resume")
+    if (
+        expected_journal_closure_sha256
+        != ARMED_RESUME_PREDECESSOR_CLOSURE_SHA256
+    ):
+        raise ContractError("armed resume predecessor closure is not exact")
+    if spec.candidate_version != EXPECTED_VERSION or spec.candidate_build != EXPECTED_BUILD:
+        raise ContractError("installed resident is not the exact H10 benchmark candidate")
+    path = exact_transaction_dir(spec, transaction_dir)
+    if not path.is_dir() or path.is_symlink():
+        raise ContractError("armed-resume transaction directory is not exact")
+    records = load_journal_prefix(
         spec,
-        result,
+        path,
+        expected_closure_sha256,
+        journal_closure_sha256=expected_journal_closure_sha256,
+    )
+    if len(records) != 3:
+        raise ContractError("armed resume requires the exact three-record prefix")
+    source_identity = validate_preflight_evidence(
+        spec,
+        records[0]["opening_preflight"],
+        expected_state="receipt-absent",
+    )
+    intent_sha256 = sha256_file(path / JOURNAL_NAMES[1])
+    _, arm_outcome = require_exact_arm_dispatch_receipt(
+        records[2]["arm_record"],
         intent_sha256,
-        expected_source_identity=source_identity,
     )
-    result_sha256 = base.json_sha256(result)
-    write_record(
-        path / JOURNAL_NAMES[7],
-        "final-health",
-        {
-            "intent_sha256": intent_sha256,
-            "result_sha256": result_sha256,
-            "result": result,
-        },
+    post_status = records[2]["post_arm_status"]
+    if (
+        arm_outcome != "armed"
+        or not isinstance(post_status, dict)
+        or post_status.get("enable") != 1
+        or post_status.get("latch") != 0
+    ):
+        raise ContractError("armed resume lacks one exact durable armed result")
+    args = _effect_args()
+    return _continue_after_proved_arm(
+        spec,
+        args,
+        path,
+        expected_closure_sha256=expected_closure_sha256,
+        source_identity=source_identity,
+        intent_sha256=intent_sha256,
+        opening_log_record=records[0]["first_boot_log"],
+        visible_confirmed=visible_confirmed,
     )
-    write_record(
-        path / JOURNAL_NAMES[8],
-        "closed",
-        {"result_sha256": result_sha256, "result": result},
-    )
-    return result
 
 
 def resume_after_return(
@@ -1933,10 +2063,19 @@ def resume_after_return(
     )
     if len(records) < 5:
         raise ContractError("resume lacks one durable automatic-cycle observation")
-    if expected_journal_closure_sha256 is not None and len(records) != 7:
-        raise ContractError(
-            "historical-closure tail repair requires the exact post-absence prefix"
-        )
+    if expected_journal_closure_sha256 is not None:
+        if (
+            expected_journal_closure_sha256
+            == ARMED_RESUME_PREDECESSOR_CLOSURE_SHA256
+        ):
+            if not 5 <= len(records) <= len(JOURNAL_NAMES):
+                raise ContractError(
+                    "armed-successor historical tail requires prefix 5 through 9"
+                )
+        elif len(records) != 7:
+            raise ContractError(
+                "historical-closure tail repair requires the exact post-absence prefix"
+            )
     if len(records) == len(JOURNAL_NAMES):
         return validate_result(
             spec,
@@ -2123,6 +2262,7 @@ def reconcile(
     *,
     transaction_dir: Path,
     expected_closure_sha256: str,
+    expected_journal_closure_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Read-only device reconciliation; never arm, reboot, hand off, or replay."""
 
@@ -2131,7 +2271,12 @@ def reconcile(
     if not path.is_dir() or path.is_symlink():
         raise ContractError("reconciliation transaction directory is not exact")
     try:
-        records = load_journal_prefix(spec, path, expected_closure_sha256)
+        records = load_journal_prefix(
+            spec,
+            path,
+            expected_closure_sha256,
+            journal_closure_sha256=expected_journal_closure_sha256,
+        )
     except Exception as exc:
         return {
             "schema": RECONCILE_SCHEMA,
@@ -2267,6 +2412,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--transaction-dir", type=Path)
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--execute", action="store_true")
+    modes.add_argument("--resume-after-proved-arm", action="store_true")
     modes.add_argument("--resume-after-return", action="store_true")
     modes.add_argument("--reconcile", action="store_true")
     parser.add_argument("--operator-attended", action="store_true")
@@ -2294,16 +2440,33 @@ def main(argv: list[str] | None = None) -> int:
     spec = resident.load_spec(args.manifest, args.expect_manifest_sha256)
     if (
         args.expect_journal_execution_closure_sha256 is not None
-        and not args.resume_after_return
+        and not (
+            args.resume_after_proved_arm
+            or args.resume_after_return
+            or args.reconcile
+        )
     ):
         raise ContractError(
-            "historical journal closure is valid only for post-return tail repair"
+            "historical journal closure is valid only for exact no-replay resume"
         )
     if args.execute:
         result = execute(
             spec,
             transaction_dir=args.transaction_dir,
             expected_closure_sha256=args.expect_execution_closure_sha256,
+            operator_attended=args.operator_attended,
+            visible_confirmed=args.visible_confirmed,
+        )
+    elif args.resume_after_proved_arm:
+        if args.expect_journal_execution_closure_sha256 is None:
+            raise ContractError("armed resume requires the exact journal closure")
+        result = resume_after_proved_arm(
+            spec,
+            transaction_dir=args.transaction_dir,
+            expected_closure_sha256=args.expect_execution_closure_sha256,
+            expected_journal_closure_sha256=(
+                args.expect_journal_execution_closure_sha256
+            ),
             operator_attended=args.operator_attended,
             visible_confirmed=args.visible_confirmed,
         )
@@ -2323,6 +2486,9 @@ def main(argv: list[str] | None = None) -> int:
             spec,
             transaction_dir=args.transaction_dir,
             expected_closure_sha256=args.expect_execution_closure_sha256,
+            expected_journal_closure_sha256=(
+                args.expect_journal_execution_closure_sha256
+            ),
         )
     else:
         result = {

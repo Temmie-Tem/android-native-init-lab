@@ -1,0 +1,74 @@
+{
+  "schema": "a90-h10-run02-proved-arm-no-replay-resume-independent-review-v1",
+  "status": "PASS_GO",
+  "decision": "PASS_GO",
+  "review_date": "2026-08-10",
+  "target": "Samsung Galaxy A90 5G only",
+  "capability": "A90_H10_RUN02_PROVED_ARM_NO_REPLAY_RESUME_V1",
+  "scope": "Resume the exact attended H10 run02 only after its one durable proved arm result, without re-arming, then bind and dispatch at most one reboot before normal observation and finalization.",
+  "incident_state": {
+    "journal_prefix": [
+      "0000-open.json",
+      "0001-arm-intent.json",
+      "0002-arm-result.json"
+    ],
+    "arm_dispatch_count": 1,
+    "reboot_dispatch_count": 0,
+    "auto_handoff_enable": 1,
+    "auto_handoff_latch": 0,
+    "resident_healthy": true,
+    "candidate_replay": false
+  },
+  "named_execution_critical_closure": {
+    "exact_predecessor_journal_closure_sha256": "85dc18125032f8d0cf3bcdd1117261dd5a6d0af2bf95afd56904135341aa95ce",
+    "successor_code_native_closure_sha256": "1562ffe1b7a6577ee28bba5bdba21bbc6734eaa427764982c068d2ab70751919",
+    "runner": {
+      "path": "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py",
+      "sha256": "03a82b0a18b7e7a938cee29d2df6003cde3bc35db6f9b37b68c964aa5acd09f4"
+    },
+    "test_sha256": "9359a5ad9308751c2a28a8fe8d440ea9cd4f42e32d4c1bef11fca64438524543"
+  },
+  "reviewed_properties": [
+    "The live effect entry accepts only the exact predecessor closure and exact attended three-record prefix, before path or device access.",
+    "The stored arm receipt tolerates native serial wrapper lines but requires the exact ordered qualifying, source-SHA, qualified, and armed tag set; every other same-family tag line is rejected.",
+    "The resume path contains no arm token or arm dispatch and revalidates the stored arm intent hash, exact post-arm 1/0 state, same source metadata, exact receipt, and H10 resident health.",
+    "The successor closure is written into the durable reboot intent, which precedes the sole reboot dispatch.",
+    "Exact auto-handoff state and ModemManager guard health are rechecked before reboot intent and immediately before dispatch; every proved pre-dispatch or exact non-dispatch failure releases the guard.",
+    "Historical-closure reconcile remains read-only, and exact run02 successor prefixes five through nine remain eligible for no-replay tail recovery while unrelated historical closure handling stays narrow.",
+    "Journal arm, reboot, and cleanup counts require exact integers and reject booleans.",
+    "Normal status framing is accepted only with one exact A90AUTO_STATUS tag-family line; malformed, duplicate, suffixed, or contradictory lines fail closed.",
+    "No path can replay the arm or reboot after an uncertain dispatch."
+  ],
+  "findings": {
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "resolved_before_final_review": [
+      "Added historical-closure support to read-only reconcile.",
+      "Opened historical tail recovery for only the exact run02 predecessor and prefixes five through nine.",
+      "Bound the live resume entry to the exact predecessor closure before path or device contact.",
+      "Added successor execution closure to the durable reboot intent.",
+      "Added guard and status rechecks at both reboot boundaries plus release on every exact pre-dispatch or non-dispatch failure.",
+      "Rejected malformed same-family auto-handoff status lines.",
+      "Rejected boolean values in every journal dispatch-count field."
+    ]
+  },
+  "unresolved_findings": [],
+  "validation": {
+    "focused_tests": 279,
+    "in_memory_compiles": 2,
+    "python_compile": "PASS",
+    "git_diff_check": "PASS"
+  },
+  "review_lifetime": "Valid only for the exact predecessor and successor closures above while the incident journal prefix, installed H10 identity, recovery assumptions, and hazard assumptions remain unchanged.",
+  "device_authority_granted": false,
+  "permanent_boundaries_unchanged": true,
+  "reviewer": "independent subagent /root/a90_h7_closure_review",
+  "reviewer_implementation_edits": false,
+  "reviewer_device_contact": false,
+  "reviewer_usb_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_network_contact": false,
+  "reviewer_s22plus_contact": false
+}

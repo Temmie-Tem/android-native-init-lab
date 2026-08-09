@@ -399,16 +399,27 @@ The pre-H2 goal history is preserved at
   accepts the normal wrapper but rejects every malformed same-tag line, and a
   fresh read-only D0 passed exact H10 health, the 11-field source identity,
   receipt/work absence, `enable=0/latch=0`, and the exclusively unarmed log.
+- Fresh attended run `a90-d1-attended-20260810-02` opened against that closure
+  and dispatched arm exactly once. Native returned the exact fresh one-full-SHA
+  qualification and armed receipt, and read-only reconciliation proves H10 is
+  healthy at `enable=1/latch=0`; however, the arm parser repeated the normal
+  serial-wrapper assumption and stopped before reboot intent. The durable
+  prefix is exactly `0000` through `0002`: arm count one, reboot count zero,
+  replay false. Never restart this ordinal or resend arm.
+- The exact run02 incident successor has independent `PASS_GO` for predecessor
+  closure `85dc1812...` and successor closure `1562ffe1...` with 279 tests and
+  no open finding. It permits only an attended continuation from that exact
+  three-record prefix, binds successor code in `0003`, rechecks exact armed
+  state and guard health at both reboot boundaries, sends at most one reboot,
+  and preserves historical read-only reconcile plus no-replay tail recovery.
 
 ## Qualified Capabilities
 
 - The H10 one-ordinal receipt-aware auto-handoff D1 v3 capability has reusable
-  independent `PASS_GO` at code-native closure `85dc1812...` only while its
-  manifest-validated public closure, installed H10 artifact identity, and
-  hazard assumptions remain unchanged. It permits one attended arm and one
-  reboot, requires one native full-SHA qualification, bounds every cmdv1x
-  script below 4096 bytes, never unlinks work, and preserves no-replay and final
-  health.
+  predecessor evidence at closure `85dc1812...`; its live parser incident ends
+  direct reuse. The separately reviewed exact run02 no-replay successor at
+  closure `1562ffe1...` may continue only the already armed three-record
+  journal. It cannot arm a new ordinal.
 
 - The H3 exact compiled-rootfs binding and resident F1 closure has reusable
   independent `PASS_GO` for its named execution-critical hashes and E2 hazard.
@@ -651,7 +662,8 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/archive/reports/A90_PHASE3_MINIMAL_H9_FAST_SOURCE_RECEIPT_INDEPENDENT_REVIEW_2026-08-09.json`
 - `docs/archive/reports/A90_PHASE3_MINIMAL_H10_FAST_SOURCE_RECEIPT_INDEPENDENT_REVIEW_2026-08-09.json`
 - `docs/reports/A90_H10_EXISTING_PUBLISHED_SOURCE_INSTALL_INDEPENDENT_REVIEW_2026-08-09.json`
-- `docs/reports/A90_H10_RECEIPT_AWARE_D1_ADAPTER_INDEPENDENT_REVIEW_2026-08-10.json`
+- `docs/archive/reports/A90_H10_RECEIPT_AWARE_D1_ADAPTER_INDEPENDENT_REVIEW_2026-08-10.json`
+- `docs/reports/A90_H10_RUN02_PROVED_ARM_NO_REPLAY_RESUME_INDEPENDENT_REVIEW_2026-08-10.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`

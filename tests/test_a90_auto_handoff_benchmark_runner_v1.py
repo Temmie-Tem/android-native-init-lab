@@ -232,6 +232,8 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
         path: Path,
         count: int,
         closure: dict,
+        intent_closure_sha256: str = "0" * 64,
+        reboot_closure_sha256: str = "0" * 64,
     ) -> None:
         spec = self._spec()
         opened = {
@@ -254,7 +256,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             payloads.append(
                 {
                     "manifest_sha256": spec.manifest_sha256,
-                    "execution_closure_sha256": "0" * 64,
+                    "execution_closure_sha256": intent_closure_sha256,
                     "arm_dispatch_count_max": 1,
                     "reboot_dispatch_count": 0,
                     "candidate_replay": False,
@@ -278,6 +280,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             },
             {
                 "intent_sha256": intent_sha256,
+                "execution_closure_sha256": reboot_closure_sha256,
                 "armed_preflight": {},
                 "pre_reboot_epoch": {},
                 "reboot_dispatch_count_max": 1,
@@ -340,6 +343,28 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
         )
         with self.assertRaises(runner.ContractError):
             runner.parse_auto_status({"text": record["text"] * 2})
+        framed = {
+            "text": (
+                "cmdv1 auto-handoff-status\nA90P1 BEGIN\n"
+                + record["text"]
+                + "[done]\nA90P1 END\na90:/#\n"
+            )
+        }
+        self.assertEqual(
+            runner.parse_auto_status(framed),
+            runner.parse_auto_status(record),
+        )
+        for malformed in (
+            "A90AUTO_STATUS\n",
+            "A90AUTO_STATUS\tmalformed=1\n",
+            "A90AUTO_STATUS binding=1 enable=1 latch=1 "
+            f"build={runner.EXPECTED_BUILD} extra=1\n",
+            "A90AUTO_STATUS_UNRECOGNIZED=1\n",
+        ):
+            with self.subTest(malformed=malformed), self.assertRaises(
+                runner.ContractError
+            ):
+                runner.parse_auto_status({"text": record["text"] + malformed})
 
     def test_fast_source_preflights_never_hash_or_remove_work(self) -> None:
         spec = self._spec()
@@ -532,6 +557,16 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             runner.require_exact_arm_dispatch_receipt(record, intent_sha256)[1],
             "armed",
         )
+        framed = json.loads(json.dumps(record))
+        framed["text"] = (
+            "cmdv1x accepted\nA90P1 BEGIN\nrun: started\n"
+            + record["text"]
+            + "[exit 0]\n[done]\nA90P1 END\na90:/#\n"
+        )
+        self.assertEqual(
+            runner.require_exact_arm_dispatch_receipt(framed, intent_sha256)[1],
+            "armed",
+        )
         for replacement in (
             "source_receipt=retained",
             "full_sha=skipped",
@@ -565,6 +600,25 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             "one fresh full-SHA qualification",
         ):
             runner.require_exact_arm_dispatch_receipt(duplicated, intent_sha256)
+        for malformed in (
+            "A90D3H0\n",
+            "A90D3H0\tmalformed=1\n",
+            "A90D3H0_UNRECOGNIZED=1\n",
+            "A90AUTO_ARM\n",
+            "A90AUTO_ARM\tmalformed=1\n",
+            "A90AUTO_ARM_UNRECOGNIZED=1\n",
+        ):
+            with self.subTest(malformed=malformed):
+                changed = json.loads(json.dumps(record))
+                changed["text"] += malformed
+                with self.assertRaisesRegex(
+                    runner.ContractError,
+                    "one fresh full-SHA qualification",
+                ):
+                    runner.require_exact_arm_dispatch_receipt(
+                        changed,
+                        intent_sha256,
+                    )
 
     def test_appended_benchmark_selects_current_complete_suffix(self) -> None:
         opening = self._complete_benchmark_segment(1_000)
@@ -1276,34 +1330,261 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
         source = Path(runner.__file__).read_text(encoding="utf-8")
         execute = source[source.index("def execute(") : source.index("def reconcile(")]
         arm_helper = source[
-            source.index("def dispatch_arm_once_and_publish(") : source.index("def execute(")
+            source.index("def dispatch_arm_once_and_publish(")
+            : source.index("def _continue_after_proved_arm(")
+        ]
+        reboot_helper = source[
+            source.index("def _continue_after_proved_arm(")
+            : source.index("def execute(")
         ]
         arm_intent = execute.index('"arm-intent"')
         arm_dispatch = execute.index("dispatch_arm_once_and_publish(")
-        reboot_intent = execute.index('"reboot-intent"')
-        reboot_dispatch = execute.index("send_reboot_once(args)")
-        observation = execute.index("observe_auto_cycle(spec, args, path, guard)")
-        returned_status = execute.index(
+        continuation = execute.index("_continue_after_proved_arm(")
+        reboot_intent = reboot_helper.index('"reboot-intent"')
+        reboot_dispatch = reboot_helper.index("send_reboot_once(args)")
+        observation = reboot_helper.index("observe_auto_cycle(spec, args, path, guard)")
+        returned_status = reboot_helper.index(
             "returned_status_record, returned_status = require_auto_status("
         )
-        absence_intent = execute.index('"absence-close-intent"')
-        absence_check = execute.index("fast_resident_preflight(", absence_intent)
+        absence_intent = reboot_helper.index('"absence-close-intent"')
+        absence_check = reboot_helper.index("fast_resident_preflight(", absence_intent)
         self.assertLess(arm_intent, arm_dispatch)
-        self.assertLess(arm_dispatch, reboot_intent)
+        self.assertLess(arm_dispatch, continuation)
         self.assertLess(reboot_intent, reboot_dispatch)
         self.assertLess(reboot_dispatch, observation)
         self.assertLess(observation, returned_status)
         self.assertLess(returned_status, absence_intent)
         self.assertLess(absence_intent, absence_check)
-        self.assertEqual(execute.count("send_reboot_once(args)"), 1)
-        self.assertNotIn("resident._cleanup_script", execute)
-        self.assertNotIn("resident.resident_d0_preflight", execute)
+        self.assertEqual(reboot_helper.count("send_reboot_once(args)"), 1)
+        self.assertNotIn("dispatch_arm_once_and_publish", reboot_helper)
+        self.assertNotIn("resident._cleanup_script", reboot_helper)
+        self.assertNotIn("resident.resident_d0_preflight", reboot_helper)
         self.assertEqual(arm_helper.count("base.run_f1_cmd("), 1)
         self.assertIn("allow_error=True", arm_helper)
         self.assertLess(
             arm_helper.index('"arm-result"'),
             arm_helper.index("auto-handoff arm was explicitly refused with no effect"),
         )
+
+    def test_armed_resume_uses_exact_prefix_without_rearming(self) -> None:
+        intent_sha256 = "a" * 64
+        records = [
+            {"opening_preflight": {}, "first_boot_log": {}},
+            {},
+            {
+                "arm_record": self._arm_receipt(intent_sha256, 0),
+                "post_arm_status": {
+                    "binding": 1,
+                    "enable": 1,
+                    "latch": 0,
+                    "build": runner.EXPECTED_BUILD,
+                },
+            },
+        ]
+        identity = {
+            "dev": 1,
+            "ino": 2,
+            "size": self._spec().rootfs.size,
+            "mode": 33152,
+            "uid": 0,
+            "gid": 0,
+            "nlink": 1,
+            "mtime_sec": 3,
+            "mtime_nsec": 4,
+            "ctime_sec": 5,
+            "ctime_nsec": 6,
+        }
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            mock.patch.object(
+                runner,
+                "exact_transaction_dir",
+                return_value=Path(temp_dir),
+            ),
+            mock.patch.object(runner, "load_journal_prefix", return_value=records),
+            mock.patch.object(
+                runner,
+                "validate_preflight_evidence",
+                return_value=identity,
+            ),
+            mock.patch.object(runner, "sha256_file", return_value=intent_sha256),
+            mock.patch.object(runner, "_effect_args", return_value=SimpleNamespace()),
+            mock.patch.object(
+                runner,
+                "_continue_after_proved_arm",
+                return_value={"terminal": "continued"},
+            ) as continuation,
+            mock.patch.object(
+                runner,
+                "dispatch_arm_once_and_publish",
+                side_effect=AssertionError("armed resume must never re-arm"),
+            ),
+        ):
+            result = runner.resume_after_proved_arm(
+                self._spec(),
+                transaction_dir=Path(temp_dir),
+                expected_closure_sha256="1" * 64,
+                expected_journal_closure_sha256=(
+                    runner.ARMED_RESUME_PREDECESSOR_CLOSURE_SHA256
+                ),
+                operator_attended=True,
+                visible_confirmed="unavailable",
+            )
+        self.assertEqual(result, {"terminal": "continued"})
+        continuation.assert_called_once()
+        self.assertEqual(continuation.call_args.kwargs["intent_sha256"], intent_sha256)
+
+    def test_armed_resume_rejects_other_predecessor_before_path_or_device(self) -> None:
+        with (
+            mock.patch.object(
+                runner,
+                "exact_transaction_dir",
+                side_effect=AssertionError("mismatch must stop before path access"),
+            ),
+            mock.patch.object(
+                runner,
+                "_effect_args",
+                side_effect=AssertionError("mismatch must stop before device access"),
+            ),
+            self.assertRaisesRegex(
+                runner.ContractError,
+                "predecessor closure is not exact",
+            ),
+        ):
+            runner.resume_after_proved_arm(
+                self._spec(),
+                transaction_dir=Path("/not/reached"),
+                expected_closure_sha256="1" * 64,
+                expected_journal_closure_sha256="2" * 64,
+                operator_attended=True,
+                visible_confirmed="unavailable",
+            )
+
+    def test_armed_resume_source_contains_no_arm_dispatch(self) -> None:
+        source = Path(runner.__file__).read_text(encoding="utf-8")
+        resume = source[
+            source.index("def resume_after_proved_arm(")
+            : source.index("def resume_after_return(")
+        ]
+        self.assertNotIn("dispatch_arm_once_and_publish", resume)
+        self.assertNotIn("auto-handoff-arm", resume)
+        self.assertIn("if len(records) != 3:", resume)
+        self.assertIn("_continue_after_proved_arm(", resume)
+
+    def test_proved_arm_continuation_rechecks_guard_and_status_before_reboot(
+        self,
+    ) -> None:
+        preflight = SimpleNamespace(validate=lambda: None)
+        for healthy, expected_intent_writes in (([False], 0), ([True, False], 1)):
+            guard = mock.Mock()
+            guard.healthy.side_effect = healthy
+            with (
+                self.subTest(healthy=healthy),
+                tempfile.TemporaryDirectory() as temp_dir,
+                mock.patch.object(runner, "require_execution_closure", return_value={}),
+                mock.patch.object(runner, "require_auto_status") as status,
+                mock.patch.object(
+                    runner,
+                    "fast_resident_preflight",
+                    return_value=(preflight, {}, {}),
+                ),
+                mock.patch.object(runner, "_f1_spec", return_value=SimpleNamespace()),
+                mock.patch.object(
+                    runner.base,
+                    "arm_candidate_return_modemmanager_guard",
+                    return_value=guard,
+                ),
+                mock.patch.object(
+                    runner.base,
+                    "capture_bridge_serial_epoch",
+                    return_value={},
+                ),
+                mock.patch.object(runner, "write_record") as write,
+                mock.patch.object(
+                    runner.base,
+                    "release_candidate_return_modemmanager_guard",
+                ) as release,
+                mock.patch.object(
+                    runner,
+                    "send_reboot_once",
+                    side_effect=AssertionError("guard failure must stop before reboot"),
+                ) as reboot,
+                self.assertRaisesRegex(runner.ContractError, "guard was lost"),
+            ):
+                runner._continue_after_proved_arm(
+                    self._spec(),
+                    SimpleNamespace(),
+                    Path(temp_dir),
+                    expected_closure_sha256="1" * 64,
+                    source_identity={"size": self._spec().rootfs.size},
+                    intent_sha256="2" * 64,
+                    opening_log_record={},
+                    visible_confirmed="unavailable",
+                )
+            self.assertEqual(
+                sum(
+                    call.args[1] == "reboot-intent"
+                    for call in write.call_args_list
+                ),
+                expected_intent_writes,
+            )
+            self.assertEqual(status.call_count, 2 + expected_intent_writes)
+            self.assertEqual(guard.healthy.call_count, len(healthy))
+            release.assert_called_once_with(guard, Path(temp_dir))
+            reboot.assert_not_called()
+
+    def test_exact_reboot_nondispatch_releases_guard_without_observation(self) -> None:
+        guard = mock.Mock()
+        guard.healthy.side_effect = [True, True]
+        preflight = SimpleNamespace(validate=lambda: None)
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            mock.patch.object(runner, "require_execution_closure", return_value={}),
+            mock.patch.object(runner, "require_auto_status") as status,
+            mock.patch.object(
+                runner,
+                "fast_resident_preflight",
+                return_value=(preflight, {}, {}),
+            ),
+            mock.patch.object(runner, "_f1_spec", return_value=SimpleNamespace()),
+            mock.patch.object(
+                runner.base,
+                "arm_candidate_return_modemmanager_guard",
+                return_value=guard,
+            ),
+            mock.patch.object(
+                runner.base,
+                "capture_bridge_serial_epoch",
+                return_value={},
+            ),
+            mock.patch.object(runner, "write_record"),
+            mock.patch.object(
+                runner.base,
+                "release_candidate_return_modemmanager_guard",
+            ) as release,
+            mock.patch.object(
+                runner,
+                "send_reboot_once",
+                side_effect=runner.ContractError("exact reboot non-dispatch"),
+            ) as reboot,
+            mock.patch.object(runner, "observe_auto_cycle") as observe,
+            self.assertRaisesRegex(runner.ContractError, "exact reboot non-dispatch"),
+        ):
+            runner._continue_after_proved_arm(
+                self._spec(),
+                SimpleNamespace(),
+                Path(temp_dir),
+                expected_closure_sha256="1" * 64,
+                source_identity={"size": self._spec().rootfs.size},
+                intent_sha256="2" * 64,
+                opening_log_record={},
+                visible_confirmed="unavailable",
+            )
+        self.assertEqual(status.call_count, 3)
+        self.assertEqual(guard.healthy.call_count, 2)
+        reboot.assert_called_once()
+        release.assert_called_once_with(guard, Path(temp_dir))
+        observe.assert_not_called()
 
     def test_enospc_arm_refusal_is_published_before_stop(self) -> None:
         intent_sha256 = "a" * 64
@@ -1415,6 +1696,29 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
         self.assertIn('"device_effect": False', reconcile)
         self.assertIn('"candidate_replay": False', reconcile)
 
+    def test_reconcile_forwards_historical_opening_closure(self) -> None:
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            mock.patch.object(runner, "require_execution_closure", return_value={}),
+            mock.patch.object(
+                runner,
+                "exact_transaction_dir",
+                return_value=Path(temp_dir),
+            ),
+            mock.patch.object(runner, "load_journal_prefix", return_value=[]) as load,
+        ):
+            result = runner.reconcile(
+                self._spec(),
+                transaction_dir=Path(temp_dir),
+                expected_closure_sha256="1" * 64,
+                expected_journal_closure_sha256="2" * 64,
+            )
+        self.assertEqual(result["terminal"], "NO_DURABLE_EFFECT_EVIDENCE")
+        self.assertEqual(
+            load.call_args.kwargs["journal_closure_sha256"],
+            "2" * 64,
+        )
+
     def test_reconcile_empty_journal_never_claims_returned(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir)
@@ -1512,6 +1816,62 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 visible_confirmed="yes",
             )
 
+    def test_armed_successor_historical_tail_accepts_prefixes_five_through_nine(
+        self,
+    ) -> None:
+        for count in range(5, 10):
+            records = [{} for _ in range(count)]
+            records[0] = {"first_boot_log": {}, "opening_preflight": {}}
+            records[4] = {"observation": {}, "intent_sha256": "6" * 64}
+            if count >= 8:
+                records[7] = {"result": {}, "result_sha256": "7" * 64}
+            if count == 9:
+                records[8] = {"result": {}, "result_sha256": "7" * 64}
+            with self.subTest(count=count), tempfile.TemporaryDirectory() as temp_dir:
+                patches = (
+                    mock.patch.object(
+                        runner,
+                        "exact_transaction_dir",
+                        return_value=Path(temp_dir),
+                    ),
+                    mock.patch.object(
+                        runner,
+                        "load_journal_prefix",
+                        return_value=records,
+                    ),
+                    mock.patch.object(runner, "validate_result", return_value={}),
+                    mock.patch.object(runner, "write_record"),
+                )
+                with patches[0], patches[1], patches[2], patches[3]:
+                    if count <= 7:
+                        with mock.patch.object(
+                            runner,
+                            "_effect_args",
+                            side_effect=RuntimeError("TAIL_REACHED"),
+                        ), self.assertRaisesRegex(RuntimeError, "TAIL_REACHED"):
+                            runner.resume_after_return(
+                                self._spec(),
+                                transaction_dir=Path(temp_dir),
+                                expected_closure_sha256="2" * 64,
+                                expected_journal_closure_sha256=(
+                                    runner.ARMED_RESUME_PREDECESSOR_CLOSURE_SHA256
+                                ),
+                                operator_attended=True,
+                                visible_confirmed="unavailable",
+                            )
+                    else:
+                        result = runner.resume_after_return(
+                            self._spec(),
+                            transaction_dir=Path(temp_dir),
+                            expected_closure_sha256="2" * 64,
+                            expected_journal_closure_sha256=(
+                                runner.ARMED_RESUME_PREDECESSOR_CLOSURE_SHA256
+                            ),
+                            operator_attended=True,
+                            visible_confirmed="unavailable",
+                        )
+                        self.assertEqual(result, {})
+
     def test_historical_closure_tail_repair_never_repeats_absence_close(self) -> None:
         observation = {"reboot_record": {"command": ["reboot"], "dispatch_count": 1}}
         cleanup = {
@@ -1601,6 +1961,111 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 ):
                     records = runner.load_journal_prefix(spec, path, "0" * 64)
                 self.assertEqual(len(records), count)
+
+    def test_historical_closure_loads_armed_reboot_intent_and_closed_prefixes(self) -> None:
+        closure = {"sha256": "1" * 64, "files": {}}
+        spec = self._spec()
+        for count in (3, 4, 9):
+            with self.subTest(count=count), tempfile.TemporaryDirectory() as temp_dir:
+                path = Path(temp_dir)
+                self._write_semantic_prefix(
+                    path,
+                    count,
+                    closure,
+                    intent_closure_sha256="1" * 64,
+                    reboot_closure_sha256="2" * 64,
+                )
+                with (
+                    mock.patch.object(
+                        runner,
+                        "require_execution_closure",
+                        return_value={"sha256": "2" * 64, "files": {}},
+                    ),
+                    mock.patch.object(
+                        runner,
+                        "validate_recorded_execution_closure",
+                        return_value=closure,
+                    ) as historical,
+                    mock.patch.object(
+                        runner,
+                        "validate_preflight_evidence",
+                        return_value={},
+                    ),
+                    mock.patch.object(
+                        runner.base,
+                        "require_exact_f1_command_receipt",
+                        side_effect=lambda value, *_: value,
+                    ),
+                    mock.patch.object(runner, "require_first_boot_unarmed"),
+                    mock.patch.object(runner, "validate_result", return_value={}),
+                    mock.patch.object(
+                        runner.base,
+                        "json_sha256",
+                        return_value="5" * 64,
+                    ),
+                ):
+                    records = runner.load_journal_prefix(
+                        spec,
+                        path,
+                        "2" * 64,
+                        journal_closure_sha256="1" * 64,
+                    )
+                self.assertEqual(len(records), count)
+                historical.assert_called_once_with(closure, "1" * 64)
+
+    def test_journal_dispatch_counts_reject_booleans(self) -> None:
+        cases = (
+            (1, ("arm_dispatch_count_max",), True),
+            (1, ("reboot_dispatch_count",), False),
+            (2, ("arm_dispatch_count",), True),
+            (3, ("reboot_dispatch_count_max",), True),
+            (4, ("arm_dispatch_count",), True),
+            (4, ("reboot_dispatch_count",), True),
+            (4, ("observation", "reboot_record", "dispatch_count"), True),
+            (5, ("cleanup_dispatch_count_max",), False),
+            (5, ("arm_dispatch_count",), True),
+            (5, ("reboot_dispatch_count",), True),
+            (6, ("cleanup_dispatch_count",), False),
+        )
+        closure = {"sha256": "0" * 64, "files": {}}
+        for index, keys, value in cases:
+            with self.subTest(index=index, keys=keys), tempfile.TemporaryDirectory() as temp_dir:
+                path = Path(temp_dir)
+                self._write_semantic_prefix(path, index + 1, closure)
+                record_path = path / runner.JOURNAL_NAMES[index]
+                record = json.loads(record_path.read_text(encoding="utf-8"))
+                selected = record
+                for key in keys[:-1]:
+                    selected = selected[key]
+                selected[keys[-1]] = value
+                record_path.write_text(
+                    json.dumps(record, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                with (
+                    mock.patch.object(
+                        runner,
+                        "require_execution_closure",
+                        return_value=closure,
+                    ),
+                    mock.patch.object(
+                        runner,
+                        "validate_preflight_evidence",
+                        return_value={},
+                    ),
+                    mock.patch.object(
+                        runner.base,
+                        "require_exact_f1_command_receipt",
+                        side_effect=lambda item, *_: item,
+                    ),
+                    mock.patch.object(runner, "require_first_boot_unarmed"),
+                    self.assertRaises(runner.ContractError),
+                ):
+                    runner.load_journal_prefix(
+                        spec=self._spec(),
+                        path=path,
+                        expected_closure_sha256="0" * 64,
+                    )
 
     def test_zero_dispatch_absence_intent_resumes_with_read_only_check(self) -> None:
         spec = self._spec()
