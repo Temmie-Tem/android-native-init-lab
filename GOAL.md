@@ -11,58 +11,39 @@ shared process documents. A90 state and authorization remain separate.
 
 ## Current Frontier
 
-P3.11 is the latest closed live unit. Its distinct candidate and exact Magisk
-rollback each transferred once, and the operator observed one normal candidate
-boot without a loop. Two byte-identical integrity-clean retained reads contain
-generations 68/69 at stages `0x7B`/`0x7C`, ending in `0x6805`
-(`early-profile-record-mismatch`) before any of the 24-callsite clock-return
-tuples was published. Exact rollback, rooted completed FYG8 Android, boot and
-supporting-partition identities, and journal close passed;
-`recovery_required=false`, the candidate is consumed without replay, and A90
-received zero commands.
+P3.12 is the latest closed live unit. Its distinct candidate and exact Magisk
+rollback each transferred exactly once, and the operator observed one normal
+candidate boot without a loop. The candidate ACM endpoint timed out under an
+integrity-clean same-attempt USB sidecar. After automatic rollback, the exact
+S22+ remained enumerated with a transient stale ADB `offline` transport; one
+bounded reconnect restored `device` state, and recovery resumed from durable
+`ROLLBACK_FLASHED` without another transfer. Rooted completed FYG8 Android,
+boot and supporting-partition identities, retained evidence, and journal close
+all passed; `recovery_required=false`, the candidate is consumed without
+replay, and A90 received zero commands.
 
-Post-live H0 proves `0x6805` is an observer-contract failure. The materialized
-runtime required each kprobe profile-hit count to equal its trace-record count,
-but trace-kprobe increments `nhit` before the trace-enabled and soft-disable
-recording path. Profile hits therefore cover a wider lifetime. P3.11 yields no
-HS-PHY clock-return conclusion and cannot identify which callsite differed.
-The successor contract is `profile_hits >= records`, with profile deficit,
-nonzero `nmissed`, dirty ring statistics, or incomplete semantic pairs still
-fail-closed.
+Two byte-identical integrity-clean retained reads contain a normal adjacent
+Carrier-v2 pair: generation 106 at stage `0x92`, detail `0xD00`, followed by
+generation 107 at stage `0x93`, detail `0x4244`. The first actual HS-PHY clock
+path was `msm_hsphy_set_suspend(..., 0)` and both `ref_clk_src` and `ref_clk`
+prepare/enable returns were zero. Reach mask `0x7` proves probe, init, and the
+resume-direction set-suspend call all ran; `multi_path=0` proves only that
+set-suspend path executed clock callsites. The probe EUD-retention and both
+init-local clock blocks therefore did not supply the first clock operation.
+The QSCRATCH witness was reached once with `UTMI_OTG_VBUS_VALID` and
+`SW_SESSVLD_SEL` both set. Profile deficit, `nmissed`, ring loss, semantic-pair
+contradiction, degraded carrier use, foreign records, and retained integrity
+issues were all absent.
 
-The same run exposed a host-only Carrier-v2 decoder/JSON-persistence incident
-after rollback and both retained reads. No device action was repeated. A
-hash-pinned independently reviewed recovery-only adapter prohibited Download
-and all transfers, reused only durable evidence, encoded byte payloads as hex,
-revalidated final health, and closed the original journal. The incident and
-repair boundary are recorded in
-`docs/reports/S22PLUS_FYG8_P311_PROFILE_WINDOW_AND_CARRIER_DECODER_INCIDENT_2026-08-09.md`.
+P3.12 therefore refutes the silent initial HS-PHY clock-failure hypothesis and
+also refutes absent wrapper VBUS/session-valid programming at the measured
+start-peripheral boundary. It does not prove that the USB2 pull-up reached the
+connector or explain the host-silent, pre-configuration suspend state. The next
+unit must start with H0 source analysis of the remaining post-clock,
+post-session-valid PHY/pull-up handoff; it must not repeat P3.12 or reopen the
+closed clock and wrapper-state branches without contradictory evidence.
 
-P3.12 is host-qualified and ready for a fresh connected Process-v2 preparation.
-It keeps the fixed P3.10 Image, 61-module plan, 24 linked callsites, trace
-descriptors, and Carrier-v2 layout. The materialized runtime now accepts
-`profile_hits >= records` while retaining fail-closed profile deficit,
-`nmissed`, ring-statistic, and semantic-pair checks. The shared evidence path
-cross-authorizes carrier family, record size, and format version before decoder
-JSON persistence; the runner binds the complete P3.12 overlay source set and
-its inherited P3.10 decoder override instead of falling through to P3.01.
-
-Forty-five frozen SOURCE_KEYS, nine materialized runtime fixtures, actual
-encoder-to-gate enumeration, source-generated Carrier-v2 round trips, two-build
-userspace reproducibility, byte-identical A/B boot and AP artifacts, independent
-artifact closure, Process-v2 promotion, ready-manifest rehearsal, and actual
-canonical verification pass. Focused independent review returned `PASS_GO`.
-The candidate AP SHA256 is `9a1cf343f77f0ecedfbcf8a79e4162bf75f2e7e6f541077a9841574a53b0fd9e`;
-the 2,779-byte ready manifest SHA256 is
-`4c40c5f5adc95b7f0b825730f073ce7b8f9f9d03052e781ad162a313cc660340`.
-Full-LTO was not required. The first connected D0 stopped read-only on the
-retained P3.11 family. One attended normal Android reboot then rotated that
-baseline, changed the boot ID, and preserved rooted FYG8 and exact
-boot/supporting-partition health. A fresh D0 bound the clean baseline,
-candidate, rollback, USB sidecar, and execution closure as `d79f80cc`; F1
-remains unarmed and awaits the exact fresh approval token.
-
-P3.08 is the latest closed live unit. Focused independent review returned
+P3.08 was an earlier closed live unit. Focused independent review returned
 `PASS_GO` for the exact loss-resistant observer and Process-v2 closure. The
 first connected preparation stopped read-only on the retained P3.07 marker.
 One attended normal reboot was then issued; its D1 helper lost the post-reboot
