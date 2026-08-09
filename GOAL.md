@@ -55,7 +55,12 @@ canonical verification pass. Focused independent review returned `PASS_GO`.
 The candidate AP SHA256 is `9a1cf343f77f0ecedfbcf8a79e4162bf75f2e7e6f541077a9841574a53b0fd9e`;
 the 2,779-byte ready manifest SHA256 is
 `4c40c5f5adc95b7f0b825730f073ce7b8f9f9d03052e781ad162a313cc660340`.
-Full-LTO was not required. No device contact occurred and F1 remains unarmed.
+Full-LTO was not required. The first connected D0 stopped read-only on the
+retained P3.11 family. One attended normal Android reboot then rotated that
+baseline, changed the boot ID, and preserved rooted FYG8 and exact
+boot/supporting-partition health. A fresh D0 bound the clean baseline,
+candidate, rollback, USB sidecar, and execution closure as `d79f80cc`; F1
+remains unarmed and awaits the exact fresh approval token.
 
 P3.08 is the latest closed live unit. Focused independent review returned
 `PASS_GO` for the exact loss-resistant observer and Process-v2 closure. The
