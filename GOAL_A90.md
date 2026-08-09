@@ -412,14 +412,28 @@ The pre-H2 goal history is preserved at
   three-record prefix, binds successor code in `0003`, rechecks exact armed
   state and guard health at both reboot boundaries, sends at most one reboot,
   and preserves historical read-only reconcile plus no-replay tail recovery.
+- That exact successor is now consumed and terminal. It wrote reboot intent
+  once, rebooted once, completed all 15 handoff stages, and returned H10 at
+  `enable=1/latch=1`. The measured native handoff from `handoff_begin` through
+  `switch_root_exec` was 990 ms: loop attach 57 ms, root mount 100 ms, writable
+  set 17 ms, distro-init check 9 ms, and mount moves 1 ms. Same-intent durable
+  evidence proves Debian PID1 at 6660 ms uptime, SSH at 8750 ms, and DRM master
+  at 8780 ms; PID1-to-SSH was 2090 ms. Final H10 health, exact source/receipt,
+  absent work, zero cleanup dispatch, and guard release all passed. The terminal
+  is `NO_PROOF_OBSERVER_RESIDENT_HEALTHY`, not full PASS, because the live host
+  observer did not prove its path and visible confirmation was unavailable;
+  mechanical on-device proof is true and device health is unambiguous. Result
+  SHA256 is `547ff237852a7b16a24cd1c7646a389285d50cf50034a8055b588e7043bc1368`.
+  Arm and reboot counts are one each, replay is false, and this ordinal must
+  never resume or replay.
 
 ## Qualified Capabilities
 
 - The H10 one-ordinal receipt-aware auto-handoff D1 v3 capability has reusable
   predecessor evidence at closure `85dc1812...`; its live parser incident ends
   direct reuse. The separately reviewed exact run02 no-replay successor at
-  closure `1562ffe1...` may continue only the already armed three-record
-  journal. It cannot arm a new ordinal.
+  closure `1562ffe1...` consumed only the already armed three-record journal and
+  is now terminal. It cannot arm a new ordinal or resume this one.
 
 - The H3 exact compiled-rootfs binding and resident F1 closure has reusable
   independent `PASS_GO` for its named execution-critical hashes and E2 hazard.
