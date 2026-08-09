@@ -315,7 +315,10 @@ def _userspace_overlay_contract_id(bundle: core.Bundle) -> Any:
 def _p313_bundle(bundle: core.Bundle) -> bool:
     return (
         _userspace_overlay_contract_id(bundle)
-        == p313_guard_lifetime.OVERLAY_CONTRACT_ID
+        in {
+            p313_guard_lifetime.OVERLAY_CONTRACT_ID,
+            typed_evidence.P314_OVERLAY_CONTRACT_ID,
+        }
     )
 
 

@@ -12,9 +12,9 @@ import s22plus_fyg8_p314_design_contract as design
 import test_s22plus_fyg8_p313_successor_hazard_contract as predecessor_test
 
 
-def compliant_fixture() -> dict[str, object]:
+def compliant_prepackaging_fixture() -> dict[str, object]:
     return {
-        "schema": design.ARTIFACT_SCHEMA,
+        "schema": design.PREPACKAGING_ARTIFACT_SCHEMA,
         "design_requirements_sha256": design.requirements_sha256(),
         "successor_hazard_closure": predecessor_test.compliant_fixture(),
         "runtime": {
@@ -56,7 +56,29 @@ def compliant_fixture() -> dict[str, object]:
             "verified": True,
         },
         "packaging_wiring": {
-            **{key: True for key in design.PACKAGING_WIRING_PROOFS},
+            **{key: True for key in design.PREPACKAGING_WIRING_PROOFS},
+            "verified": True,
+        },
+        "artifacts": {
+            "fixed_image_unchanged": True,
+            "kernel_hooks_unchanged": True,
+            "module_plan_unchanged": True,
+            "carrier_size_unchanged": True,
+            "rollback_unchanged": True,
+            "full_lto_performed": False,
+            "verified": True,
+        },
+        "verified": True,
+    }
+
+
+def compliant_fixture() -> dict[str, object]:
+    return {
+        "schema": design.ARTIFACT_SCHEMA,
+        "design_requirements_sha256": design.requirements_sha256(),
+        "prepackaging_closure": compliant_prepackaging_fixture(),
+        "packaging_wiring": {
+            **{key: True for key in design.FINAL_QUALIFICATION_PROOFS},
             "verified": True,
         },
         "artifacts": {
@@ -86,9 +108,14 @@ class P314DesignContractTests(unittest.TestCase):
             value["packaging_wiring"]["status"], "required-not-satisfied"
         )
         self.assertEqual(
-            tuple(value["packaging_wiring"]["required_proofs"]),
-            design.PACKAGING_WIRING_PROOFS,
+            tuple(value["packaging_wiring"]["prepackaging_required_proofs"]),
+            design.PREPACKAGING_WIRING_PROOFS,
         )
+        self.assertEqual(
+            tuple(value["packaging_wiring"]["final_required_proofs"]),
+            design.FINAL_QUALIFICATION_PROOFS,
+        )
+        self.assertTrue(value["packaging_wiring"]["two_phase_validation_required"])
         self.assertEqual(len(design.requirements_sha256()), 64)
         json.dumps(value, sort_keys=True, allow_nan=False)
 
@@ -109,13 +136,23 @@ class P314DesignContractTests(unittest.TestCase):
         self.assertEqual(carrier["pair_mask_detail_max"], 0x6FFF)
 
     def test_compliant_future_qualification_passes_structural_gate(self) -> None:
+        prepackaging = design.validate_prepackaging_artifact(
+            compliant_prepackaging_fixture()
+        )
+        self.assertTrue(prepackaging["verified"])
         result = design.validate_qualification_artifact(compliant_fixture())
         self.assertTrue(result["verified"])
         self.assertFalse(result["diagnostic_continue_enabled"])
         self.assertEqual(result["matrix_cells"], 251_450)
 
     def test_future_packaging_wiring_is_not_self_attesting(self) -> None:
-        for key in design.PACKAGING_WIRING_PROOFS:
+        for key in design.PREPACKAGING_WIRING_PROOFS:
+            with self.subTest(key=key):
+                value = deepcopy(compliant_prepackaging_fixture())
+                value["packaging_wiring"][key] = False  # type: ignore[index]
+                with self.assertRaises(design.P314DesignError):
+                    design.validate_prepackaging_artifact(value)
+        for key in design.FINAL_QUALIFICATION_PROOFS:
             with self.subTest(key=key):
                 value = deepcopy(compliant_fixture())
                 value["packaging_wiring"][key] = False  # type: ignore[index]
@@ -135,15 +172,20 @@ class P314DesignContractTests(unittest.TestCase):
         )
         for section, key, replacement in mutations:
             with self.subTest(section=section, key=key):
-                value = deepcopy(compliant_fixture())
+                value = deepcopy(compliant_prepackaging_fixture())
                 value[section][key] = replacement  # type: ignore[index]
                 with self.assertRaises(design.P314DesignError):
-                    design.validate_qualification_artifact(value)
+                    design.validate_prepackaging_artifact(value)
 
-        value = deepcopy(compliant_fixture())
+        value = deepcopy(compliant_prepackaging_fixture())
         del value["successor_hazard_closure"]["hazards"][  # type: ignore[index]
             "qualification_wiring"
         ]
+        with self.assertRaises(design.P314DesignError):
+            design.validate_prepackaging_artifact(value)
+
+        value = deepcopy(compliant_fixture())
+        value["artifacts"]["packages_reproducible"] = False  # type: ignore[index]
         with self.assertRaises(design.P314DesignError):
             design.validate_qualification_artifact(value)
 

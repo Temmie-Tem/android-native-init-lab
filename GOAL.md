@@ -131,13 +131,20 @@ while historical `0x6712` makes the qualification union 2,223 and the full
 value-by-position matrix at least 251,450 cells. The real Process-v2 adapter
 and persistence path must execute that matrix.
 
-The deferred packaging obligation is separate from declaration. Future
-qualification must prove the real packaging entrypoint transitively calls
-`validate_successor_artifact()`, its return controls package creation, a
-missing/mutated closure produces no qualified package, and the validated
-artifact plus both requirements hashes are receipted. A source call-graph
-inspection is required after implementation exists. Current status is
-`design-complete-implementation-not-started`.
+The deferred packaging obligation is separate from declaration. It uses two
+phases so the gate is not circular: the real packaging entrypoint must first
+pass `validate_prepackaging_artifact()`, which transitively calls
+`validate_successor_artifact()`, before creating package bytes. A
+missing/mutated closure must produce no package. Only after two userspace
+builds and two packages prove reproducible may
+`validate_qualification_artifact()` accept the final receipt binding the
+validated prepackaging artifact and both requirements hashes. A source
+call-graph inspection is required after implementation exists. The final H0
+qualification now satisfies that obligation: the validator precedes the
+parent packager, both missing and invalid closures create zero package output,
+two userspace builds and two boot-only packages are byte-identical, and the
+same prepackaging receipt is bound into both package results and the final
+qualification. Current status is `host-qualified-independent-review-pending`.
 
 ## P3.13 Closed Bounded Unit
 

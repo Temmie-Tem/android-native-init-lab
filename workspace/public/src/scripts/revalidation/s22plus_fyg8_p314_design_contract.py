@@ -12,8 +12,11 @@ import s22plus_fyg8_p313_successor_hazard_contract as predecessor
 
 SCHEMA = "s22plus_fyg8_p314_design_requirements_v1"
 ARTIFACT_SCHEMA = "s22plus_fyg8_p314_qualification_closure_v1"
+PREPACKAGING_ARTIFACT_SCHEMA = (
+    "s22plus_fyg8_p314_prepackaging_closure_v1"
+)
 VERDICT = "DESIGN_COMPLETE_P314_SOURCE_NORMALIZED_CYCLE_HOST_ONLY"
-STATUS = "design-complete-implementation-not-started"
+STATUS = "implementation-contract-active"
 
 STOP_CLEAN_RECORDS = 14
 FINAL_CLEAN_RECORDS = 41
@@ -29,15 +32,21 @@ MATRIX_CELLS = predecessor.MINIMUM_MATRIX_CELL_COUNT
 
 DIAGNOSTIC_CONTINUE_ENABLED = False
 
-PACKAGING_WIRING_PROOFS = (
+PREPACKAGING_WIRING_PROOFS = (
     "requirements_hash_in_source_closure",
     "validator_called_before_packaging",
     "validator_return_controls_package_creation",
     "missing_or_failed_artifact_blocks_packaging",
     "validator_failure_negative_fixture",
+    "source_call_graph_reviewed",
+)
+FINAL_QUALIFICATION_PROOFS = (
     "validated_artifact_receipted_by_qualification",
     "receipt_binds_requirements_and_artifact_sha256",
-    "source_call_graph_reviewed",
+)
+PACKAGING_WIRING_PROOFS = (
+    *PREPACKAGING_WIRING_PROOFS,
+    *FINAL_QUALIFICATION_PROOFS,
 )
 
 
@@ -86,7 +95,11 @@ def requirements() -> dict[str, Any]:
         },
         "packaging_wiring": {
             "status": "required-not-satisfied",
-            "required_proofs": list(PACKAGING_WIRING_PROOFS),
+            "prepackaging_required_proofs": list(
+                PREPACKAGING_WIRING_PROOFS
+            ),
+            "final_required_proofs": list(FINAL_QUALIFICATION_PROOFS),
+            "two_phase_validation_required": True,
         },
         "artifacts": {
             "fixed_image_unchanged": True,
@@ -112,10 +125,14 @@ def _require_equal(actual: Any, expected: Any, label: str) -> None:
         raise P314DesignError(f"{label} differs")
 
 
-def validate_qualification_artifact(value: dict[str, Any]) -> dict[str, Any]:
-    """Reject a future P3.14 qualification missing design or wiring proof."""
+def validate_prepackaging_artifact(value: dict[str, Any]) -> dict[str, Any]:
+    """Reject packaging unless all source/runtime/wiring proofs already pass."""
 
-    _require_equal(value.get("schema"), ARTIFACT_SCHEMA, "artifact schema")
+    _require_equal(
+        value.get("schema"),
+        PREPACKAGING_ARTIFACT_SCHEMA,
+        "prepackaging artifact schema",
+    )
     _require_equal(
         value.get("design_requirements_sha256"),
         requirements_sha256(),
@@ -182,9 +199,11 @@ def validate_qualification_artifact(value: dict[str, Any]) -> dict[str, Any]:
     packaging = value.get("packaging_wiring")
     if not isinstance(packaging, dict):
         raise P314DesignError("packaging wiring proof missing")
-    for key in PACKAGING_WIRING_PROOFS:
+    for key in PREPACKAGING_WIRING_PROOFS:
         _require_equal(packaging.get(key), True, f"packaging wiring {key}")
-    _require_equal(packaging.get("verified"), True, "packaging wiring verdict")
+    _require_equal(
+        packaging.get("verified"), True, "prepackaging wiring verdict"
+    )
 
     artifacts = value.get("artifacts")
     if not isinstance(artifacts, dict):
@@ -196,21 +215,72 @@ def validate_qualification_artifact(value: dict[str, Any]) -> dict[str, Any]:
         ("carrier_size_unchanged", True),
         ("rollback_unchanged", True),
         ("full_lto_performed", False),
-        ("userspace_builds_reproducible", True),
-        ("packages_reproducible", True),
         ("verified", True),
     ):
         _require_equal(artifacts.get(key), expected, f"artifact proof {key}")
 
-    _require_equal(value.get("verified"), True, "qualification verdict")
+    _require_equal(value.get("verified"), True, "prepackaging verdict")
     return {
-        "schema": ARTIFACT_SCHEMA,
+        "schema": PREPACKAGING_ARTIFACT_SCHEMA,
         "design_requirements_sha256": requirements_sha256(),
         "predecessor_requirements_sha256": predecessor_result[
             "requirements_sha256"
         ],
         "matrix_cells": MATRIX_CELLS,
         "diagnostic_continue_enabled": False,
+        "verified": True,
+    }
+
+
+def validate_qualification_artifact(value: dict[str, Any]) -> dict[str, Any]:
+    """Reject final qualification unless prepackaging and repro both pass."""
+
+    _require_equal(value.get("schema"), ARTIFACT_SCHEMA, "artifact schema")
+    _require_equal(
+        value.get("design_requirements_sha256"),
+        requirements_sha256(),
+        "design requirements receipt",
+    )
+    prepackaging = value.get("prepackaging_closure")
+    if not isinstance(prepackaging, dict):
+        raise P314DesignError("prepackaging closure missing")
+    prepackaging_result = validate_prepackaging_artifact(prepackaging)
+
+    packaging = value.get("packaging_wiring")
+    if not isinstance(packaging, dict):
+        raise P314DesignError("final packaging wiring proof missing")
+    for key in FINAL_QUALIFICATION_PROOFS:
+        _require_equal(packaging.get(key), True, f"final packaging wiring {key}")
+    _require_equal(
+        packaging.get("verified"), True, "final packaging wiring verdict"
+    )
+
+    artifacts = value.get("artifacts")
+    if not isinstance(artifacts, dict):
+        raise P314DesignError("final artifact identity proof missing")
+    for key, expected in (
+        ("fixed_image_unchanged", True),
+        ("kernel_hooks_unchanged", True),
+        ("module_plan_unchanged", True),
+        ("carrier_size_unchanged", True),
+        ("rollback_unchanged", True),
+        ("full_lto_performed", False),
+        ("userspace_builds_reproducible", True),
+        ("packages_reproducible", True),
+        ("verified", True),
+    ):
+        _require_equal(artifacts.get(key), expected, f"final artifact proof {key}")
+
+    _require_equal(value.get("verified"), True, "qualification verdict")
+    return {
+        "schema": ARTIFACT_SCHEMA,
+        "design_requirements_sha256": requirements_sha256(),
+        "predecessor_requirements_sha256": prepackaging_result[
+            "predecessor_requirements_sha256"
+        ],
+        "matrix_cells": prepackaging_result["matrix_cells"],
+        "diagnostic_continue_enabled": False,
+        "prepackaging_verified": True,
         "verified": True,
     }
 

@@ -7,7 +7,7 @@ Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` /
 
 Verdict: `DESIGN_COMPLETE_P314_SOURCE_NORMALIZED_CYCLE_HOST_ONLY`
 
-Status: design complete; implementation and qualification have not started
+Status: implementation and host qualification complete; independent review pending
 
 ## Outcome
 
@@ -197,20 +197,24 @@ proofs:
 
 1. include both predecessor and P3.14 requirements hashes in `SOURCE_KEYS`;
 2. show the real packaging entrypoint calls
-   `validate_qualification_artifact()`, which transitively calls
-   `validate_successor_artifact()`;
+   `validate_prepackaging_artifact()`, which transitively calls
+   `validate_successor_artifact()`, before it creates any package bytes;
 3. show the validator's return controls package creation rather than merely
    logging a result;
 4. execute negative fixtures where a missing or mutated closure produces no
    qualified package;
-5. bind the validated closure SHA-256 and both requirements hashes into the
-   qualification receipt; and
+5. after two builds and two packages prove reproducible, bind the validated
+   prepackaging closure SHA-256 and both requirements hashes into the final
+   qualification receipt accepted by `validate_qualification_artifact()`; and
 6. perform a source call-graph inspection of this exact wiring after the
    implementation exists.
 
 Declaration and wiring are intentionally checked at different times. The
-current design records the obligation; only the future materialized builder,
-negative packaging fixture, and receipt can satisfy it.
+materialized P3.14 builder now satisfies the wiring obligation: its
+prepackaging validator precedes the inherited package call, missing and
+invalid closures reach neither the parent packager nor a package output, and
+the same validated prepackaging receipt is present in both package results and
+the final qualification.
 
 ## Implementation boundary
 
@@ -242,8 +246,10 @@ Before packaging or device preparation, P3.14 must:
    model, decoder, and adapter gates;
 5. execute the complete 251,450-cell value-by-position matrix through the
    real Process-v2 adapter and persistence path;
-6. produce a P3.14 qualification artifact accepted by
-   `validate_qualification_artifact()` and the predecessor validator;
+6. produce a P3.14 prepackaging artifact accepted by
+   `validate_prepackaging_artifact()` and the predecessor validator before
+   package creation, then a final reproducibility artifact accepted by
+   `validate_qualification_artifact()` after both packages exist;
 7. prove the validator-to-packager call graph and both positive and negative
    packaging behavior described above;
 8. run role/direct/cycle, timeout, tuple, profile, ring, cleanup, banner,
@@ -253,9 +259,12 @@ Before packaging or device preparation, P3.14 must:
 11. obtain one focused independent review of the changed runtime, schema,
     adapter, packaging wiring, and hazard closure.
 
-Passing the structural design-contract tests is not qualification. The future
-artifact status remains unsatisfied until the real implementation and package
-path supply every proof.
+The completed H0 qualification supplies all gates above except item 11. It
+binds 94 `SOURCE_KEYS`, runs the 251,450-cell real-adapter matrix, validates
+all 1,023 pair masks, proves the stop-14/clean-41/drift-49/overflow-65 runtime
+geometry, builds userspace and packages twice byte-identically, and passes the
+independent static artifact checker. A focused independent review of the exact
+implementation commit remains required before device preparation.
 
 ## Authority and stop conditions
 
