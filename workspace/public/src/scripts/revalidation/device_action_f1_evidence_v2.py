@@ -51,6 +51,10 @@ import s22plus_fyg8_p311_overlay_contract as p311_overlay
 import s22plus_fyg8_p311_e2_stock_closure as p311_e2_closure
 import s22plus_fyg8_p311_telemetry_decoder as p311_decoder
 import s22plus_fyg8_p311_telemetry_spec as p311_spec
+import s22plus_fyg8_p312_overlay_contract as p312_overlay
+import s22plus_fyg8_p312_e2_stock_closure as p312_e2_closure
+import s22plus_fyg8_p312_telemetry_decoder as p312_decoder
+import s22plus_fyg8_p312_telemetry_spec as p312_spec
 
 
 MARKER_KIND = "retained_marker_after_rollback"
@@ -201,6 +205,13 @@ P311_CANDIDATE_STATIC_VERDICT = (
     "PASS_P311_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
 )
 P311_OVERLAY_CONTRACT_ID = p311_overlay.CONTRACT_ID
+P312_CANDIDATE_STATIC_SCHEMA = (
+    "s22plus_fyg8_p312_candidate_static_checker_v1"
+)
+P312_CANDIDATE_STATIC_VERDICT = (
+    "PASS_P312_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
+)
+P312_OVERLAY_CONTRACT_ID = p312_overlay.CONTRACT_ID
 P301_TELEMETRY_OVERLAY_IDS = frozenset(
     {
         P301_OVERLAY_CONTRACT_ID,
@@ -212,6 +223,7 @@ P301_TELEMETRY_OVERLAY_IDS = frozenset(
         P307_OVERLAY_CONTRACT_ID,
         P308_OVERLAY_CONTRACT_ID,
         P311_OVERLAY_CONTRACT_ID,
+        P312_OVERLAY_CONTRACT_ID,
     }
 )
 P298_HISTORICAL_POSTBUILD_RESULT = {
@@ -495,29 +507,77 @@ def _latest_stage_observation_decoder(
             or profile != p311_overlay.PROFILE
         ):
             raise EvidenceError("P3.11 userspace observation overlay is unsupported")
-        return p311_decoder
-    if (
-        userspace_overlay_contract_id not in P301_TELEMETRY_OVERLAY_IDS
-        or source_contract_id != P300_SOURCE_CONTRACT_ID
-        or profile != p301_overlay.PROFILE
-    ):
-        raise EvidenceError("userspace observation overlay is unsupported")
-    if userspace_overlay_contract_id == P307_OVERLAY_CONTRACT_ID:
-        return p307_decoder
-    if userspace_overlay_contract_id == P308_OVERLAY_CONTRACT_ID:
-        return p308_decoder
-    if userspace_overlay_contract_id == P306_OVERLAY_CONTRACT_ID:
-        return p306_decoder
-    return (
-        p303_decoder
-        if userspace_overlay_contract_id
-        in {
+        selected = p311_decoder
+    elif userspace_overlay_contract_id == P312_OVERLAY_CONTRACT_ID:
+        if (
+            source_contract_id != P310_SOURCE_CONTRACT_ID
+            or profile != p312_overlay.PROFILE
+        ):
+            raise EvidenceError("P3.12 userspace observation overlay is unsupported")
+        selected = p312_decoder
+    else:
+        if (
+            userspace_overlay_contract_id not in P301_TELEMETRY_OVERLAY_IDS
+            or source_contract_id != P300_SOURCE_CONTRACT_ID
+            or profile != p301_overlay.PROFILE
+        ):
+            raise EvidenceError("userspace observation overlay is unsupported")
+        if userspace_overlay_contract_id == P307_OVERLAY_CONTRACT_ID:
+            selected = p307_decoder
+        elif userspace_overlay_contract_id == P308_OVERLAY_CONTRACT_ID:
+            selected = p308_decoder
+        elif userspace_overlay_contract_id == P306_OVERLAY_CONTRACT_ID:
+            selected = p306_decoder
+        elif userspace_overlay_contract_id in {
             P303_OVERLAY_CONTRACT_ID,
             P304_OVERLAY_CONTRACT_ID,
             P305_OVERLAY_CONTRACT_ID,
-        }
-        else p301_decoder
+        }:
+            selected = p303_decoder
+        else:
+            selected = p301_decoder
+    return _validate_decoder_carrier_authority(
+        selected, source_contract_id=source_contract_id, profile=profile
     )
+
+
+def _validate_decoder_carrier_authority(
+    selected_decoder: Any,
+    *,
+    source_contract_id: str | None,
+    profile: str,
+):
+    """Bind overlay semantics to the source contract's retained-record ABI."""
+
+    source_decoder = _latest_stage_decoder(source_contract_id, profile)
+    attributes = (
+        "LONG_FAMILY",
+        "UNSAT_FAMILY",
+        "LONG_RECORD_SIZE",
+        "FORMAT_VERSION",
+    )
+    if any(
+        getattr(selected_decoder.model, name, None)
+        != getattr(source_decoder.model, name, None)
+        for name in attributes
+    ):
+        raise EvidenceError(
+            "userspace observation decoder carrier differs from source contract"
+        )
+    try:
+        run_id = bytes.fromhex("00112233445566778899aabbccddeeff")
+        record = source_decoder.model.initialize_record(profile, run_id)
+        decoded = selected_decoder.decode_record(
+            record,
+            expected_profile=profile,
+            expected_run_id=run_id,
+        )
+        json.dumps(decoded, sort_keys=True, allow_nan=False)
+    except (AttributeError, TypeError, ValueError, selected_decoder.DecodeError) as exc:
+        raise EvidenceError(
+            "userspace observation decoder is not JSON-safe for its carrier"
+        ) from exc
+    return selected_decoder
 
 
 def _validate_p301_overlay_contract(value: Any) -> dict[str, Any]:
@@ -628,6 +688,17 @@ def _validate_p311_overlay_contract(value: Any) -> dict[str, Any]:
     return current
 
 
+def _validate_p312_overlay_contract(value: Any) -> dict[str, Any]:
+    root = Path(__file__).resolve().parents[5]
+    try:
+        current = p312_overlay.verify_intent(root, root / p312_overlay.DEFAULT_INTENT)
+    except (p312_overlay.OverlayContractError, OSError) as exc:
+        raise EvidenceError("P3.12 overlay intent verification failed") from exc
+    if value != current:
+        raise EvidenceError("P3.12 overlay contract differs from current intent")
+    return current
+
+
 def _validate_userspace_overlay_contract(
     value: Any, userspace_overlay_contract_id: str
 ) -> dict[str, Any]:
@@ -649,6 +720,8 @@ def _validate_userspace_overlay_contract(
         return _validate_p308_overlay_contract(value)
     if userspace_overlay_contract_id == P311_OVERLAY_CONTRACT_ID:
         return _validate_p311_overlay_contract(value)
+    if userspace_overlay_contract_id == P312_OVERLAY_CONTRACT_ID:
+        return _validate_p312_overlay_contract(value)
     raise EvidenceError("userspace observation overlay is unsupported")
 
 
@@ -670,6 +743,10 @@ def _select_e2_closure(
         if source_contract_id != P310_SOURCE_CONTRACT_ID:
             raise EvidenceError("P3.11 parent source contract differs")
         return p311_e2_closure.select(source_contract_id)
+    if userspace_overlay_contract_id == P312_OVERLAY_CONTRACT_ID:
+        if source_contract_id != P310_SOURCE_CONTRACT_ID:
+            raise EvidenceError("P3.12 parent source contract differs")
+        return p312_e2_closure.select(source_contract_id)
     if source_contract_id == P300_SOURCE_CONTRACT_ID:
         return p300_e2_closure.select(source_contract_id)
     if source_contract_id == P310_SOURCE_CONTRACT_ID:
@@ -749,6 +826,26 @@ def _p311_e2_authority_context(
         or e2_closure.receipt(matching[0].data) != expected_init
     ):
         raise EvidenceError("P3.11 exact init authority is unavailable")
+    return closure_api.exact_init_authority(matching[0].data)
+
+
+def _p312_e2_authority_context(
+    closure_api: Any,
+    entries: list[Any],
+    expected_init: dict[str, Any],
+):
+    if closure_api is not p312_e2_closure.select(P310_SOURCE_CONTRACT_ID):
+        raise EvidenceError("P3.12 stock-closure authority adapter differs")
+    matching = [
+        entry
+        for entry in entries
+        if entry.name == "init" and entry.file_type == "regular"
+    ]
+    if (
+        len(matching) != 1
+        or e2_closure.receipt(matching[0].data) != expected_init
+    ):
+        raise EvidenceError("P3.12 exact init authority is unavailable")
     return closure_api.exact_init_authority(matching[0].data)
 
 
@@ -1260,6 +1357,7 @@ def _generic_rootfs_module_closure(
         if closure_api not in {
             p310_e2_closure.select(P310_SOURCE_CONTRACT_ID),
             p311_e2_closure.select(P310_SOURCE_CONTRACT_ID),
+            p312_e2_closure.select(P310_SOURCE_CONTRACT_ID),
         }:
             raise EvidenceError("P3.10 generic-rootfs closure adapter differs")
         return module_closure
@@ -1443,7 +1541,11 @@ def validate_e2_ap_payload(
         generic_module_closure = _generic_rootfs_module_closure(
             source_contract_id, closure_api, module_closure
         )
-        if userspace_overlay_contract_id == P311_OVERLAY_CONTRACT_ID:
+        if userspace_overlay_contract_id == P312_OVERLAY_CONTRACT_ID:
+            authority_context = _p312_e2_authority_context(
+                closure_api, entries, identities["init"]
+            )
+        elif userspace_overlay_contract_id == P311_OVERLAY_CONTRACT_ID:
             authority_context = _p311_e2_authority_context(
                 closure_api, entries, identities["init"]
             )
@@ -2527,6 +2629,9 @@ def _verify_e1_latest_stage_offline_contract(
         P311_OVERLAY_CONTRACT_ID: (
             P311_CANDIDATE_STATIC_SCHEMA, P311_CANDIDATE_STATIC_VERDICT
         ),
+        P312_OVERLAY_CONTRACT_ID: (
+            P312_CANDIDATE_STATIC_SCHEMA, P312_CANDIDATE_STATIC_VERDICT
+        ),
     }
     source_static_contracts = {
         P286_SOURCE_CONTRACT_ID: (
@@ -2578,7 +2683,20 @@ def _verify_e1_latest_stage_offline_contract(
     }
     if userspace_overlay_contract_id == P302_OVERLAY_CONTRACT_ID:
         expected_candidate_static_keys.add("carrier_identity")
-    if userspace_overlay_contract_id == P311_OVERLAY_CONTRACT_ID:
+    if userspace_overlay_contract_id == P312_OVERLAY_CONTRACT_ID:
+        expected_candidate_static_keys.update(
+            {
+                "p312_callsite_audit",
+                "p312_delayed_arm_qemu",
+                "p312_tracefs_abi",
+                "p312_cross_gate_audit",
+                "p312_carrier_decoder_authority",
+                "p312_runtime_fixture",
+                "p312_telemetry",
+                "p312_observer",
+            }
+        )
+    elif userspace_overlay_contract_id == P311_OVERLAY_CONTRACT_ID:
         expected_candidate_static_keys.update(
             {
                 "p311_callsite_audit",
@@ -2668,6 +2786,7 @@ def _verify_e1_latest_stage_offline_contract(
     p307_overlay_source_receipts = None
     p308_overlay_source_receipts = None
     p311_overlay_source_receipts = None
+    p312_overlay_source_receipts = None
     p302_contract = None
     p303_contract = None
     if userspace_overlay_contract_id == P301_OVERLAY_CONTRACT_ID:
@@ -2687,6 +2806,84 @@ def _verify_e1_latest_stage_offline_contract(
             raise EvidenceError("P3.01 overlay candidate contract is invalid")
         candidate_contract_value = p301_contract.get("parent_candidate_contract")
         p301_overlay_source_receipts = p301_contract.get("source_receipts")
+    elif userspace_overlay_contract_id == P312_OVERLAY_CONTRACT_ID:
+        p312_contract = _validate_p312_overlay_contract(candidate_contract_value)
+        telemetry = p312_contract.get("telemetry")
+        cross_gate = p312_contract.get("cross_gate_audit")
+        carrier_authority = p312_contract.get("carrier_decoder_authority")
+        callsites = p312_contract.get("callsite_audit", {}).get("result", {})
+        delayed = p312_contract.get("delayed_arm_qemu", {}).get("result", {})
+        abi = p312_contract.get("tracefs_abi")
+        observer = p312_contract.get("observer")
+        fixture = candidate_static_result.get("p312_runtime_fixture")
+        if (
+            p312_contract.get("userspace_overlay_contract_id")
+            != userspace_overlay_contract_id
+            or p312_contract.get("source_contract_id") != source_contract_id
+            or p312_contract.get("profile") != profile
+            or p312_contract.get("run_id") != item["run_id"]
+            or selected_decoder is not p312_decoder
+            or not isinstance(telemetry, dict)
+            or telemetry.get("schema") != "s22plus_fyg8_p312_telemetry_spec_v1"
+            or telemetry.get("early_event_count") != 30
+            or telemetry.get("callsite_count") != 24
+            or telemetry.get("first_detail_range") != [0xD00, 0xD51]
+            or telemetry.get("summary_detail_range") != [0x4001, 0x4640]
+            or telemetry.get("profile_hits_may_exceed_records_outside_recording_window")
+            is not True
+            or telemetry.get("decoder_id") != selected_decoder.DECODER_ID
+            or telemetry.get("decoder_policy_id") != selected_decoder.POLICY_ID
+            or telemetry.get("verified") is not True
+            or not isinstance(cross_gate, dict)
+            or cross_gate.get("verified") is not True
+            or cross_gate.get("retained_pair_round_trip") is not True
+            or cross_gate.get("foreign_count_zero") is not True
+            or not isinstance(carrier_authority, dict)
+            or carrier_authority.get("verdict")
+            != "PASS_P312_CARRIER_DECODER_CROSS_AUTHORITY_HOST_ONLY"
+            or carrier_authority.get("p311_historical_mismatch_rejected") is not True
+            or carrier_authority.get("p312_carrier_v2_json_safe") is not True
+            or carrier_authority.get("records_generated_by_source_carrier") is not True
+            or carrier_authority.get("verified") is not True
+            or callsites.get("verdict")
+            != "PASS_P311_24_EXACT_POST_BL_CALLSITES_HOST_ONLY"
+            or callsites.get("callsite_count") != 24
+            or delayed.get("verdict")
+            != "PASS_P311_DELAYED_MODULE_KPROBE_QEMU_HOST_ONLY"
+            or not isinstance(abi, dict)
+            or abi.get("verified") is not True
+            or not isinstance(observer, dict)
+            or observer.get("pending_module_local_probes") is not True
+            or observer.get("global_clock_probe") is not False
+            or observer.get("event_count") != 30
+            or observer.get("profile_hits_lower_bound_records") is not True
+            or observer.get("profile_missed_must_be_zero") is not True
+            or observer.get("semantic_call_pairs_complete") is not True
+            or observer.get("ring_loss_must_be_zero") is not True
+            or observer.get("carrier_v2_family") != "S22E1L2|"
+            or observer.get("verified") is not True
+            or candidate_static_result.get("p312_callsite_audit")
+            != p312_contract.get("callsite_audit")
+            or candidate_static_result.get("p312_delayed_arm_qemu")
+            != p312_contract.get("delayed_arm_qemu")
+            or candidate_static_result.get("p312_tracefs_abi") != abi
+            or candidate_static_result.get("p312_cross_gate_audit") != cross_gate
+            or candidate_static_result.get("p312_carrier_decoder_authority")
+            != carrier_authority
+            or candidate_static_result.get("p312_telemetry") != telemetry
+            or candidate_static_result.get("p312_observer") != observer
+            or not isinstance(fixture, dict)
+            or fixture.get("verdict")
+            != "PASS_P312_MATERIALIZED_RUNTIME_FIXTURES_HOST_ONLY"
+            or fixture.get("fixture_count") != 9
+            or fixture.get("profile_excess_accepted") is not True
+            or fixture.get("profile_below_records_rejected") is not True
+            or fixture.get("verified") is not True
+            or p312_contract.get("verified") is not True
+        ):
+            raise EvidenceError("P3.12 overlay candidate contract is invalid")
+        candidate_contract_value = p312_contract.get("parent_candidate_contract")
+        p312_overlay_source_receipts = p312_contract.get("source_receipts")
     elif userspace_overlay_contract_id == P311_OVERLAY_CONTRACT_ID:
         p311_contract = _validate_p311_overlay_contract(candidate_contract_value)
         telemetry = p311_contract.get("telemetry")
@@ -3783,6 +3980,10 @@ def _verify_e1_latest_stage_offline_contract(
         if userspace_overlay_contract_id == P311_OVERLAY_CONTRACT_ID:
             result["p311_overlay_source_receipts"] = (
                 p311_overlay_source_receipts
+            )
+        if userspace_overlay_contract_id == P312_OVERLAY_CONTRACT_ID:
+            result["p312_overlay_source_receipts"] = (
+                p312_overlay_source_receipts
             )
     if p298_repair_files is not None:
         result["tier2_repair_files"] = p298_repair_files

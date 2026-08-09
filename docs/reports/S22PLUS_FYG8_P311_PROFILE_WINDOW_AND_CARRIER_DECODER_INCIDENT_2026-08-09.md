@@ -42,6 +42,29 @@ prohibited Download mode and all transfers, reused only the two durable reads,
 encoded byte payloads as deterministic hex, revalidated exact final health,
 and closed the original journal.
 
+## Why prior review did not prevent recurrence
+
+Both failures crossed an authority seam that the final qualification did not
+exercise. Review had already established that kprobe `nhit` increments before
+the trace-recording decision, but the materialized P3.11 runtime and its
+fixtures still encoded exact profile/record equality. The reviewed source fact
+was not converted into an executable lower-bound invariant.
+
+Carrier-v2 JSON safety had also been repaired after P3.10, but that repair was
+limited to the P3.10 decoder. The shared evidence selector did not require a
+new overlay decoder's carrier family, record size, and format version to equal
+the source contract's retained-record ABI. P3.11 therefore reintroduced a
+Carrier-v1 decoder on a Carrier-v2 source while its own internal checks still
+agreed.
+
+P3.12 closes both seams mechanically: materialized fixtures execute profile
+excess and deficit, while a shared decoder/carrier cross-authority check rejects
+P3.11's historical mismatch and requires every supported overlay decoder to be
+JSON-serializable for the source carrier before live persistence. Its canonical
+bundle rehearsal also requires the Process-v2 runner to select the exact P3.12
+overlay source set and to bind the inherited P3.10 decoder override; an unknown
+overlay cannot silently fall through to P3.01 semantics.
+
 ## Successor boundary
 
 P3.12 is a userspace-only observer repair. It keeps the fixed P3.10 Image,

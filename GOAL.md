@@ -38,13 +38,24 @@ revalidated final health, and closed the original journal. The incident and
 repair boundary are recorded in
 `docs/reports/S22PLUS_FYG8_P311_PROFILE_WINDOW_AND_CARRIER_DECODER_INCIDENT_2026-08-09.md`.
 
-P3.12 is the next bounded H0 unit under construction. It keeps the fixed P3.10
-Image, module plan, 24 linked callsites, trace descriptors, and Carrier-v2
-layout; only `/init` observer semantics and permanent Process-v2 P3.12 decoder
-selection change. Before qualification it must pass materialized profile-window
-fixtures, actual encoder-to-gate enumeration, Carrier-v2 evidence round trips,
-two-build userspace/candidate reproducibility, and one focused independent
-review. Full-LTO is not required. F1 remains unarmed.
+P3.12 is host-qualified and ready for a fresh connected Process-v2 preparation.
+It keeps the fixed P3.10 Image, 61-module plan, 24 linked callsites, trace
+descriptors, and Carrier-v2 layout. The materialized runtime now accepts
+`profile_hits >= records` while retaining fail-closed profile deficit,
+`nmissed`, ring-statistic, and semantic-pair checks. The shared evidence path
+cross-authorizes carrier family, record size, and format version before decoder
+JSON persistence; the runner binds the complete P3.12 overlay source set and
+its inherited P3.10 decoder override instead of falling through to P3.01.
+
+Forty-five frozen SOURCE_KEYS, nine materialized runtime fixtures, actual
+encoder-to-gate enumeration, source-generated Carrier-v2 round trips, two-build
+userspace reproducibility, byte-identical A/B boot and AP artifacts, independent
+artifact closure, Process-v2 promotion, ready-manifest rehearsal, and actual
+canonical verification pass. Focused independent review returned `PASS_GO`.
+The candidate AP SHA256 is `9a1cf343f77f0ecedfbcf8a79e4162bf75f2e7e6f541077a9841574a53b0fd9e`;
+the 2,779-byte ready manifest SHA256 is
+`4c40c5f5adc95b7f0b825730f073ce7b8f9f9d03052e781ad162a313cc660340`.
+Full-LTO was not required. No device contact occurred and F1 remains unarmed.
 
 P3.08 is the latest closed live unit. Focused independent review returned
 `PASS_GO` for the exact loss-resistant observer and Process-v2 closure. The
