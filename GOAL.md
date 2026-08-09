@@ -104,6 +104,41 @@ call its validator before packaging; missing or failed closure blocks the
 package. Status is `registered-not-satisfied`, not a claim that a successor is
 implemented or qualified.
 
+## P3.14 Detailed Successor Design
+
+P3.14 is the selected minimal successor. It preserves the fixed Image, kernel
+hooks, 25-event cycle inventory, all 107 positions, 61-module plan, Carrier
+size, rollback, transfer, recovery, and 1,200-second guard. It changes only
+userspace parser/schema/adapter/qualification and therefore needs a
+userspace rebuild and boot-only repackaging, not Full-LTO, while those inputs
+remain exact.
+
+The parser first validates every complete pair return and normalizes the exact
+stop/final vectors, including two `phy_suspend_off` and two
+`phy_suspend_on` pairs. The clean stop is 14 records, the clean final cycle is
+41, bounded path drift is 49, and 65 remains overflow against capacity 64.
+Zero excess proceeds through the existing restart. Every genuine remaining
+contradiction stops; P3.14 does not activate the optional diagnostic-only
+continuation. A complete count above expectation emits the pair-specific
+`0x6c01..0x6fff` mask at its current position and stops.
+The stop snapshot also rejects pullup/force activity, UDC/binding drift,
+unexpected on-side pairs, and any other non-clean topology before restart.
+Every P3.14 runtime emit site for generic `0x6712` must be removed; it remains
+historical decode-only.
+
+The A emitter remains 126 values. The B emitter has at least 2,222 values,
+while historical `0x6712` makes the qualification union 2,223 and the full
+value-by-position matrix at least 251,450 cells. The real Process-v2 adapter
+and persistence path must execute that matrix.
+
+The deferred packaging obligation is separate from declaration. Future
+qualification must prove the real packaging entrypoint transitively calls
+`validate_successor_artifact()`, its return controls package creation, a
+missing/mutated closure produces no qualified package, and the validated
+artifact plus both requirements hashes are receipted. A source call-graph
+inspection is required after implementation exists. Current status is
+`design-complete-implementation-not-started`.
+
 ## P3.13 Closed Bounded Unit
 
 P3.13 compares the existing direct bind with one same-boot, post-bind wrapper
