@@ -11,57 +11,40 @@ shared process documents. A90 state and authorization remain separate.
 
 ## Current Frontier
 
-P3.10 Carrier v2 is the latest closed live unit. Its successor-only
-tracefs descriptor uses `%x21:s32`; source initializers and linked P3.00 A/B
-tables agree on the accepted register and fetch-type ABIs, and all 48
-descriptors pass the cross-authority validator. Carrier v2 keeps legacy
-decoding while adding bounded integrity and recovery semantics without
-reopening consumed P3.08. Full-LTO A/B artifacts are byte-identical, the
-61-module closure and actual rootfs consumer are bound, focused tests and
-independent review pass, and the canonical Process-v2 manifest is
-`s22plus-fyg8-p310-process-v2-ready-1`.
+P3.11 is the latest closed live unit. Its distinct candidate and exact Magisk
+rollback each transferred once, and the operator observed one normal candidate
+boot without a loop. Two byte-identical integrity-clean retained reads contain
+generations 68/69 at stages `0x7B`/`0x7C`, ending in `0x6805`
+(`early-profile-record-mismatch`) before any of the 24-callsite clock-return
+tuples was published. Exact rollback, rooted completed FYG8 Android, boot and
+supporting-partition identities, and journal close passed;
+`recovery_required=false`, the candidate is consumed without replay, and A90
+received zero commands.
 
-The distinct P3.10 candidate and exact Magisk rollback each transferred once.
-The operator observed one normal candidate boot without a loop. The exact ACM
-observer timed out, and the integrity-clean host sidecar saw the prepared
-Android/Download departure but no candidate enumeration. Exact rollback,
-rooted completed FYG8 Android, boot identity, and supporting-partition health
-passed; the journal is `CLOSED`, `recovery_required=false`, and A90 received
-zero commands.
+Post-live H0 proves `0x6805` is an observer-contract failure. The materialized
+runtime required each kprobe profile-hit count to equal its trace-record count,
+but trace-kprobe increments `nhit` before the trace-enabled and soft-disable
+recording path. Profile hits therefore cover a wider lifetime. P3.11 yields no
+HS-PHY clock-return conclusion and cannot identify which callsite differed.
+The successor contract is `profile_hits >= records`, with profile deficit,
+nonzero `nmissed`, dirty ring statistics, or incomplete semantic pairs still
+fail-closed.
 
-The two byte-identical retained reads contain one integrity-clean normal pair:
-generation 106 at `stage=0x92`, `item_index=1`, detail `0xD1B`, followed by
-generation 107 at `stage=0x93`, `item_index=0`, detail `0x4005`. The first
-record proves the EUD cache and PHY init CSR samples were both clear, no DPDM
-callback preceded init, and a pre-init clock request observed
-`clocks_enabled=0,on=1`. The second proves the init-local clock callsites were
-not reached and QSCRATCH was sampled once with both VBUS-valid and software
-session-select set. Together these refute EUD ownership, a missing clock-enable
-request, and missing QSCRATCH VBUS/session programming; they do not prove why
-the candidate pull-up still never enumerated. In particular, the pre-init
-clock call ran outside the 12 return probes, so its discarded prepare/enable
-return values remain unmeasured.
+The same run exposed a host-only Carrier-v2 decoder/JSON-persistence incident
+after rollback and both retained reads. No device action was repeated. A
+hash-pinned independently reviewed recovery-only adapter prohibited Download
+and all transfers, reused only durable evidence, encoded byte payloads as hex,
+revalidated final health, and closed the original journal. The incident and
+repair boundary are recorded in
+`docs/reports/S22PLUS_FYG8_P311_PROFILE_WINDOW_AND_CARRIER_DECODER_INCIDENT_2026-08-09.md`.
 
-P3.11 is the next qualified unit. It keeps the fixed P3.10 Image and records
-the discarded HS-PHY clock returns through 24 exact module-local post-call
-sites across probe (6), init (12), and set-suspend (6). A pinned arm64 QEMU
-control proves enabled pending symbol-plus-offset kprobes arm during module
-`COMING` before module init, and linked A/B, tracefs ABI, actual-encoder gate,
-materialized-runtime, artifact, Process-v2, and focused independent checks all
-pass. The canonical manifest is `s22plus-fyg8-p311-process-v2-ready-1`; fresh
-exact-S22 D0 preparation bound its candidate, rollback, clean retained
-baseline, and execution closure without reboot, Odin, transfer, or write. F1
-remains unarmed pending the fresh exact legacy-runner approval.
-
-After rollback and both final retained reads had completed, host state
-persistence rejected nested Carrier v2 `bytes` payloads as non-JSON values.
-No device action was repeated. A hash-pinned, independently reviewed
-recovery-only adapter prohibited Download and all transfers, reused the two
-durable reads, encoded bytes as deterministic hex, revalidated exact S22+
-health, and closed the original journal. The permanent H0 correction makes
-only P3.10 telemetry-decoder output JSON-safe and adds a real record
-serialization regression; carrier bytes and P3.08/P3.01 semantics stay
-unchanged.
+P3.12 is the next bounded H0 unit under construction. It keeps the fixed P3.10
+Image, module plan, 24 linked callsites, trace descriptors, and Carrier-v2
+layout; only `/init` observer semantics and permanent Process-v2 P3.12 decoder
+selection change. Before qualification it must pass materialized profile-window
+fixtures, actual encoder-to-gate enumeration, Carrier-v2 evidence round trips,
+two-build userspace/candidate reproducibility, and one focused independent
+review. Full-LTO is not required. F1 remains unarmed.
 
 P3.08 is the latest closed live unit. Focused independent review returned
 `PASS_GO` for the exact loss-resistant observer and Process-v2 closure. The
