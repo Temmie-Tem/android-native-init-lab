@@ -12,38 +12,38 @@ authority, evidence, transports, and commands remain separate.
 
 ## Current Frontier
 
-P3.12 is the latest closed live unit. Its distinct boot-only candidate and
-exact Magisk rollback each transferred exactly once. Final rooted FYG8 Android,
-boot and supporting-partition identities, retained evidence, and the complete
-Process-v2 journal passed; `recovery_required=false`. The consumed candidate is
-not replayable.
+P3.13 is the latest closed live unit. Its distinct boot-only candidate and
+exact Magisk rollback each transferred exactly once. The Process-v2 journal is
+`CLOSED`; rooted boot-completed FYG8 Android, boot and supporting-partition
+identities, and absence of Download mode passed with
+`recovery_required=false`. The operator also observed a normal Android boot
+without a loop. The consumed candidate is never replayable.
 
-The integrity-clean adjacent Carrier-v2 pair retained `0xD00` then `0x4244`.
-It proves:
+The exact ACM observer timed out. Two full-length, byte-identical retained
+reads contain one Carrier-v2 record. Post-live H0 recovered two CRC-committed
+adjacent slots:
 
-- the first executed HS-PHY clock path was
-  `msm_hsphy_set_suspend(..., 0)`;
-- both `ref_clk_src` and `ref_clk` prepare/enable returns were zero;
-- probe, init, and resume-direction set-suspend paths were reached, while only
-  the set-suspend path executed clock callsites; and
-- QSCRATCH `UTMI_OTG_VBUS_VALID` and `SW_SESSVLD_SEL` were both set.
+- generation 96, stage `0x90`, item 3 is the completed
+  `PARENT_SUSPENDED` progress boundary; and
+- generation 97, stage `0x90`, item 4 is terminal failure `0x6712`,
+  `cycle-event-multiplicity`, emitted while classifying the stop-side trace.
 
-P3.12 therefore refutes silent initial HS-PHY clock failure and absent wrapper
-VBUS/session-valid programming at the measured boundary. It does not prove
-that the USB2 pull-up reached the connector or explain the host-silent,
-pre-configuration suspend state.
+Thus P3.13 proves that the direct path stayed silent long enough to select the
+cycle, the stop helper returned, the UDC binding survived, and both child and
+parent reached suspended state. At least one of the bounded stop-side
+functional event pairs occurred more than once. The runtime terminated before
+the restart helper, so P3.13 provides no restart/resume, post-cycle QSCRATCH,
+state-delta, or connector/pull-up conclusion.
 
-P3.13 H0 implementation and qualification are complete. Its frozen design and
-realized capability are recorded in
-`docs/reports/S22PLUS_FYG8_P313_POST_BIND_RESUME_CYCLE_DESIGN_H0_2026-08-10.md`.
-The canonical manifest `s22plus-fyg8-p313-process-v2-ready-1` is
-`ready-for-f1-approval`. One fresh exact-S22 D0 preparation now binds the
-clean retained baseline, candidate, rollback, USB sidecar, 1,200-second guard,
-and current execution closure. The prepared record reopens successfully but
-is not an approval: `f1_authorized=false` and `live_authorized=false`. No F1 is
-armed and no candidate transfer has begun.
+The frozen live decoder had inherited P3.12 Carrier semantics. It rejected the
+otherwise valid P3.13 intermediate contradiction as `bad-body`, fell back to
+generation 96, and reported only `E2_PROGRESS_OBSERVED`. A separate post-live
+H0 decoder now reproduces that historical failure and recovers the committed
+P3.13 terminal without changing the frozen candidate, Image, manifest, live
+journal, or any device state. This is an observer-decoder incident, not grounds
+to replay P3.13.
 
-## P3.13 Bounded Unit
+## P3.13 Closed Bounded Unit
 
 P3.13 compares the existing direct bind with one same-boot, post-bind wrapper
 cycle:
@@ -162,17 +162,25 @@ No candidate may be written over an unhealthy or unverified device; rollback
 never waits after candidate execution begins, and a consumed candidate is
 never replayed.
 
+P3.13 is now consumed and closed. Its candidate and rollback each completed
+once; a transient post-rollback host endpoint-evidence failure was recovered
+from the durable rollback state without retransmission, and final health
+passed. No live authority remains from its approval or prepared record.
+
 P3.02 passive electrical attribution remains parked because no reviewed safe
-inline breakout is available. A clean P3.13 digital refutation does not prove
-an analog pull-up and may return the frontier to that external measurement
-decision.
+inline breakout is available. P3.13 did not produce the clean digital
+refutation that would return the frontier to external measurement: its
+stop-side multiplicity must be localized first.
 
 ## Success and Stop Conditions
 
-P3.13 implementation is complete with every materialized qualification gate
-and the focused independent review passed against unchanged fixed
-kernel/artifact inputs. A later live result is positive only with exact host
-observation, retained pair integrity, exact rollback, and final FYG8 health.
+P3.13 implementation and its one live attempt are complete. The live result is
+`NO_PROOF_OBSERVER`: the device published an information-bearing stop-side
+multiplicity contradiction, but no final P3.13 pair or ACM banner. A successor
+may not inherit a claim that restart was attempted. It must first distinguish
+which stop-side event pair multiplied and must exercise intermediate terminal
+contradictions through the actual Carrier semantic authority and Process-v2
+evidence path before any new device action.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden
 archive member, an unreviewed common receipt/schema change, an observer result
