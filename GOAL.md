@@ -30,10 +30,15 @@ adjacent slots:
 
 Thus P3.13 proves that the direct path stayed silent long enough to select the
 cycle, the stop helper returned, the UDC binding survived, and both child and
-parent reached suspended state. At least one of the bounded stop-side
-functional event pairs occurred more than once. The runtime terminated before
-the restart helper, so P3.13 provides no restart/resume, post-cycle QSCRATCH,
-state-delta, or connector/pull-up conclusion.
+parent reached suspended state. Fixed-source H0 now proves that this path
+necessarily invokes the same HS PHY's `set_suspend(1)` callback once from the
+child core-exit path and once from the parent wrapper-suspend path. Those two
+complete `phy_suspend_off` pairs alone reproduce `0x6712` in the actual
+materialized parser. The retained detail does not preserve the raw pair
+vector, so this is a source-forced sufficient trigger, not proof that no other
+pair multiplied. The runtime terminated before the restart helper, so P3.13
+provides no restart/resume, post-cycle QSCRATCH, state-delta, or
+connector/pull-up conclusion.
 
 The frozen live decoder had inherited P3.12 Carrier semantics. It rejected the
 otherwise valid P3.13 intermediate contradiction as `bad-body`, fell back to
@@ -42,6 +47,37 @@ H0 decoder now reproduces that historical failure and recovers the committed
 P3.13 terminal without changing the frozen candidate, Image, manifest, live
 journal, or any device state. This is an observer-decoder incident, not grounds
 to replay P3.13.
+
+## Post-live H0 Localization and Successor Boundary
+
+The frozen record model expected one `phy_suspend_off` pair and one
+`phy_suspend_on` pair. Source order forces two of each: child plus parent on
+stop, and parent plus child on restart. The corrected successor budget is
+therefore 41 clean records and 49 for one bounded drift under the existing
+64-record cap, leaving headroom 23 and 15 respectively. The clean contract
+must encode the exact two-off/two-on geometry; an unexplained third call or an
+incomplete pair remains a contradiction.
+
+The frozen Result Contract said multiplicity removes cycle causality but did
+not unambiguously require termination before restart. The materialized runtime
+used the stricter rule and called its terminal failure path immediately after
+the stop snapshot. A successor must not inherit that ambiguity. Malformed or
+incomplete records, profile deficit, `nmissed`, ring loss, capacity overflow,
+cleanup failure, timeout/unreaped helper, target or UDC loss, unbind, pullup,
+and force-path activity stop immediately. A complete, bounded,
+integrity-clean multiplicity may continue through exactly one restorative
+restart only under proved stop, binding, and child/parent-suspended fences; it
+must retain a pair-specific diagnostic and revoke every cycle-causal claim.
+Downstream data from that branch is diagnostic only.
+
+Host H0 now exercises all 63 contradiction values at all 107 generations:
+6,741 failure round trips pass and 6,741 progress-outcome variants fail closed.
+This closes the exact P3.13 incident family at the standalone model/decoder
+layer, not the entire Carrier seam. Successor qualification must derive an
+expected accept/reject matrix from actual runtime emit sites for all 126 A
+outputs, all 1,200 B outputs, ordinary progress zero, and all 107 positions,
+then round-trip that matrix through the real Process-v2 evidence adapter and
+persistence path.
 
 ## P3.13 Closed Bounded Unit
 
@@ -67,7 +103,7 @@ force-path activity, trace loss, multiplicity, or cleanup-gap activity also
 prevents a cycle claim. A negative inner RUN_STOP is a controller result;
 outer deadline expiry is `NO_PROOF_OBSERVER`.
 
-The trace contracts are:
+The frozen P3.13 trace contracts were:
 
 - role: strict five events, `5/64`, with the inherited four-event behavior kept
   only as a differential fixture;
@@ -144,6 +180,13 @@ Process-v2 promotion, canonical manifest verification, focused tests, and the
 independent changed-closure review all passed. The fixed P3.10 Image remained
 byte-identical, so no kernel rebuild or Full-LTO was performed.
 
+Those statements describe the frozen qualification result, not a continuing
+claim that its source model was complete. Post-live H0 proved that the
+37/45-record fixtures omitted the source-forced second stop and restart PHY
+suspend pairs, and that the 126/1,200 numeric enumeration did not cross values
+with intermediate generation positions. These are successor inputs and do not
+rewrite the consumed P3.13 evidence.
+
 ## Authority and Target State
 
 The Interim Fast-Loop trial retired at 2026-08-03T20:46:02Z after the first
@@ -169,8 +212,10 @@ passed. No live authority remains from its approval or prepared record.
 
 P3.02 passive electrical attribution remains parked because no reviewed safe
 inline breakout is available. P3.13 did not produce the clean digital
-refutation that would return the frontier to external measurement: its
-stop-side multiplicity must be localized first.
+refutation that would return the frontier to external measurement. Its
+stop-side multiplicity is now localized to a source-forced sufficient trigger,
+but the next bounded unit remains H0 detailed successor design and observer
+qualification; it is not another live attempt and P3.02 remains parked.
 
 ## Success and Stop Conditions
 
@@ -178,9 +223,11 @@ P3.13 implementation and its one live attempt are complete. The live result is
 `NO_PROOF_OBSERVER`: the device published an information-bearing stop-side
 multiplicity contradiction, but no final P3.13 pair or ACM banner. A successor
 may not inherit a claim that restart was attempted. It must first distinguish
-which stop-side event pair multiplied and must exercise intermediate terminal
-contradictions through the actual Carrier semantic authority and Process-v2
-evidence path before any new device action.
+source-required pair geometry from unexpected multiplicity, define explicit
+continue-versus-stop semantics, and exercise the complete runtime-authorized
+value-by-position matrix through the actual Carrier semantic authority and
+Process-v2 evidence path before any new device action. The consumed run cannot
+identify the exclusive live pair vector and must not be presented as doing so.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden
 archive member, an unreviewed common receipt/schema change, an observer result
