@@ -41,9 +41,11 @@ The pre-H2 goal history is preserved at
   rebooted once, visibly reached Debian, completed the direct handoff, and
   automatically returned exact H11 at `binding=1 enable=1 latch=1`. The host
   NCM observer missed its deadline, and the original host parser rejected the
-  exact H11-only direct marker before final-health publication. Its journal is
-  parked at the exact seven-record post-absence prefix; arm, reboot, cleanup,
-  handoff, and candidate replay are forbidden.
+  exact H11-only direct marker before final-health publication. The reviewed
+  no-replay tail subsequently validated the exact seven-record prefix and
+  appended only final-health and closed records. The nine-record journal is
+  terminal and must never be resumed; arm, reboot, cleanup, handoff, and
+  candidate replay remain forbidden.
 - Exact replay of that immutable opening log and the returned native log proves
   boot-to-dispatch at 2403 ms, boot-to-`switch_root` at 2839 ms, and the
   dispatch-to-`switch_root` handoff at 436 ms. The operator confirmed visible
@@ -56,9 +58,14 @@ The pre-H2 goal history is preserved at
   the exact historical seven-record no-replay tail. Independent review returned
   reusable `PASS_GO` at execution closure
   `21a7a7921d50b71cfff7d4db61c7de57544711d8576a60e9d64ed8913b83677e`
-  with HIGH/MEDIUM/LOW zero and 79 combined tests passing. The next step is the
-  read-only final-health tail and host journal publication; it sends no arm,
-  reboot, cleanup, handoff, payload, partition write, or flash.
+  with HIGH/MEDIUM/LOW zero and 79 combined tests passing. The exact tail
+  closed `NO_PROOF_OBSERVER_RESIDENT_HEALTHY`: final H11 health is `11/1/0`
+  with pstore empty, exact source and receipt, absent work, cleanup dispatch
+  zero, payload/partition/flash zero, and result SHA256
+  `82b42da6f9a2dd9f892ec2085f280411054fff675a62f4ecb10d6cea41d82950`.
+  The speed and visible-display claim is proved, but full personal-server
+  readiness is not: the next bounded unit is H0 diagnosis of the direct path's
+  missing Debian NCM/Dropbear readiness before designing one fresh D1 ordinal.
 - H10 resident install and D1 run `a90-d1-attended-20260810-02` are terminal.
   The exact no-rearm continuation dispatched one reboot, completed all 15
   handoff stages, returned exact H10 health, and closed
