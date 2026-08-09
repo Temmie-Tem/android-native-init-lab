@@ -341,7 +341,9 @@
 #define A90_WIFI_TEST_BOOT_ANDROID_TFTP_SERVER_IDENTITY A90_WIFI_TEST_BOOT_ANDROID_RMT_TFTP_IDENTITY
 #endif
 
-#if A90_WIFI_TEST_BOOT_WORKQUEUE_EXEC_WIDE_SAMPLER && A90_WIFI_TEST_BOOT_TAIL_PERF_REGS_CODEWORD_SAMPLER
+#if A90_WIFI_PERSISTENT_HANDOFF_V1
+#define EXECNS_VERSION "a90_android_execns_probe v437"
+#elif A90_WIFI_TEST_BOOT_WORKQUEUE_EXEC_WIDE_SAMPLER && A90_WIFI_TEST_BOOT_TAIL_PERF_REGS_CODEWORD_SAMPLER
 #define EXECNS_VERSION "a90_android_execns_probe v434"
 #elif A90_WIFI_TEST_BOOT_WORKQUEUE_EXEC_STACK_SAMPLER && A90_WIFI_TEST_BOOT_TAIL_PERF_REGS_CODEWORD_SAMPLER
 #define EXECNS_VERSION "a90_android_execns_probe v433"
@@ -608,6 +610,7 @@ struct config {
     const char *subsys_trigger_gate;
     const char *private_cnss_daemon_path;
     const char *result_output_path;
+    const char *handoff_ready_output_path;
     int timeout_sec;
     int connect_hold_sec;
     int connect_hold_interval_sec;
@@ -682,6 +685,7 @@ struct config {
     bool allow_wlan_pd_service_window_trigger; /* v307 */
     bool allow_wlan_pd_pm_service_window_trigger; /* v308 */
     bool allow_wlan_pd_service_object_visible_trigger; /* v330 */
+    bool persistent_handoff; /* H12: retain exact Wi-Fi companion after switch_root */
     bool allow_wlan_pd_cnss_output_visibility; /* v309 */
     bool require_android_selinux_exec_match;
     bool pm_observer_zero_delay_per_mgr_probe;
@@ -1001,6 +1005,8 @@ static void usage(FILE *out) {
             "[--allow-wlan-pd-service-window-trigger] "
             "[--allow-wlan-pd-pm-service-window-trigger] "
             "[--allow-wlan-pd-service-object-visible-trigger] "
+            "[--persistent-handoff] "
+            "[--handoff-ready-output-path <path>] "
             "[--result-output-path <path>] "
             "[--pm-observer-continue-after-provider] "
             "[--pm-observer-start-cnss-after-provider] "
@@ -2099,6 +2105,10 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->allow_wlan_pd_service_object_visible_trigger = true;
             continue;
         }
+        if (strcmp(argv[i], "--persistent-handoff") == 0) {
+            cfg->persistent_handoff = true;
+            continue;
+        }
         if (strcmp(argv[i], "--allow-wlan-pd-cnss-output-visibility") == 0) {
             cfg->allow_wlan_pd_cnss_output_visibility = true;
             continue;
@@ -2183,6 +2193,8 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
             cfg->private_cnss_daemon_path = argv[++i];
         } else if (strcmp(argv[i], "--result-output-path") == 0) {
             cfg->result_output_path = argv[++i];
+        } else if (strcmp(argv[i], "--handoff-ready-output-path") == 0) {
+            cfg->handoff_ready_output_path = argv[++i];
         } else if (strcmp(argv[i], "--timeout-sec") == 0) {
             if (!parse_int_range(argv[++i], 1, 120, &cfg->timeout_sec)) {
                 fprintf(stderr, "invalid --timeout-sec\n");
@@ -3551,6 +3563,30 @@ static int parse_args(int argc, char **argv, struct config *cfg) {
         if (!is_wifi_companion_wlan_pd_service_object_visible_trigger_mode(cfg->mode) &&
             cfg->allow_wlan_pd_service_object_visible_trigger) {
             fprintf(stderr, "--allow-wlan-pd-service-object-visible-trigger requires wifi-companion-wlan-pd-service-object-visible-trigger-start-only mode\n");
+            return 2;
+        }
+        if (cfg->persistent_handoff &&
+            !is_wifi_companion_wlan_pd_service_object_visible_trigger_mode(cfg->mode)) {
+            fprintf(stderr, "--persistent-handoff requires wifi-companion-wlan-pd-service-object-visible-trigger-start-only mode\n");
+            return 2;
+        }
+        if (cfg->persistent_handoff &&
+            (cfg->result_output_path == NULL || cfg->result_output_path[0] == '\0')) {
+            fprintf(stderr, "--persistent-handoff requires --result-output-path\n");
+            return 2;
+        }
+        if (cfg->persistent_handoff &&
+            (cfg->handoff_ready_output_path == NULL ||
+             strncmp(cfg->handoff_ready_output_path, "/cache/", 7) != 0 ||
+             cfg->handoff_ready_output_path[7] == '\0' ||
+             strstr(cfg->handoff_ready_output_path, "..") != NULL ||
+             strchr(cfg->handoff_ready_output_path, '\n') != NULL ||
+             strchr(cfg->handoff_ready_output_path, '\r') != NULL)) {
+            fprintf(stderr, "--persistent-handoff requires one clean /cache handoff-ready output path\n");
+            return 2;
+        }
+        if (!cfg->persistent_handoff && cfg->handoff_ready_output_path != NULL) {
+            fprintf(stderr, "--handoff-ready-output-path requires --persistent-handoff\n");
             return 2;
         }
         if (!is_wifi_companion_wlan_pd_cnss_output_visibility_mode(cfg->mode) &&
@@ -57987,6 +58023,412 @@ static int run_cnss_userspace_readiness_guarded(const struct config *cfg,
 static int load_precompiled_policy_for_pm_observer(const struct paths *paths,
                                                    struct buffer *stdout_buf);
 
+static int write_result_output_file(const char *path,
+                                    int run_rc,
+                                    int child_exit_code,
+                                    int child_signal,
+                                    bool timed_out,
+                                    const struct buffer *stdout_buf,
+                                    const struct buffer *stderr_buf);
+static int write_persistent_handoff_ready_output_file(const char *path);
+
+#define A90_PERSISTENT_HANDOFF_HEALTH_DIR "/cache/a90-wifi-handoff"
+#define A90_PERSISTENT_HANDOFF_HEALTH_PATH \
+    A90_PERSISTENT_HANDOFF_HEALTH_DIR "/companion"
+#define A90_PERSISTENT_HANDOFF_HEALTH_TMP \
+    "/cache/a90-wifi-handoff-companion.tmp"
+
+static volatile sig_atomic_t persistent_handoff_stop_requested;
+
+static void persistent_handoff_stop_handler(int signo) {
+    (void)signo;
+    persistent_handoff_stop_requested = 1;
+}
+
+static bool persistent_handoff_child_required(const struct composite_child *child) {
+    return child != NULL && child->identity != COMPOSITE_ID_MACLOADER;
+}
+
+static int persistent_handoff_children_ready(struct composite_child *children,
+                                             size_t child_count,
+                                             const char **failed_child) {
+    size_t required_count = 0;
+
+    if (failed_child != NULL) {
+        *failed_child = NULL;
+    }
+    for (size_t i = 0; i < child_count; i++) {
+        if (!persistent_handoff_child_required(&children[i])) {
+            continue;
+        }
+        required_count++;
+        if (children[i].pid <= 1 || children[i].child_done ||
+            !children[i].observable ||
+            (kill(children[i].pid, 0) < 0 && errno != EPERM)) {
+            if (failed_child != NULL) {
+                *failed_child = children[i].name;
+            }
+            return 0;
+        }
+    }
+    return required_count > 0 ? 1 : 0;
+}
+
+static bool persistent_handoff_modem_holder_ready(
+    struct wlan_pd_modem_holder *holder) {
+    int status = 0;
+    pid_t wait_rc;
+
+    if (holder == NULL || !holder->started || holder->pid <= 1 ||
+        holder->reaped) {
+        return false;
+    }
+    wait_rc = waitpid(holder->pid, &status, WNOHANG);
+    if (wait_rc == holder->pid) {
+        holder->reaped = true;
+        if (WIFEXITED(status)) {
+            holder->exit_code = WEXITSTATUS(status);
+        } else if (WIFSIGNALED(status)) {
+            holder->signal = WTERMSIG(status);
+        }
+        return false;
+    }
+    if (wait_rc < 0 && errno != EINTR) {
+        return false;
+    }
+    return kill(holder->pid, 0) == 0 || errno == EPERM;
+}
+
+static int persistent_handoff_fsync_dir(const char *path) {
+    int fd;
+    int rc = 0;
+
+    fd = open(path, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return -errno;
+    }
+    if (fsync(fd) < 0) {
+        rc = -errno;
+    }
+    if (close(fd) < 0 && rc == 0) {
+        rc = -errno;
+    }
+    return rc;
+}
+
+static int persistent_handoff_health_prepare(void) {
+    struct stat st;
+    bool created = false;
+    int rc;
+
+    if (mkdir(A90_PERSISTENT_HANDOFF_HEALTH_DIR, 0700) == 0) {
+        created = true;
+    } else if (errno != EEXIST) {
+        return -errno;
+    }
+    if (lstat(A90_PERSISTENT_HANDOFF_HEALTH_DIR, &st) < 0) {
+        return -errno;
+    }
+    if (!S_ISDIR(st.st_mode) || st.st_uid != 0 || st.st_gid != 0 ||
+        (st.st_mode & (S_IWGRP | S_IWOTH)) != 0) {
+        return -EPERM;
+    }
+    if (chmod(A90_PERSISTENT_HANDOFF_HEALTH_DIR, 0700) < 0) {
+        return -errno;
+    }
+    if (unlink(A90_PERSISTENT_HANDOFF_HEALTH_TMP) < 0 && errno != ENOENT) {
+        return -errno;
+    }
+    if (unlink(A90_PERSISTENT_HANDOFF_HEALTH_PATH) < 0 && errno != ENOENT) {
+        return -errno;
+    }
+    rc = persistent_handoff_fsync_dir(A90_PERSISTENT_HANDOFF_HEALTH_DIR);
+    if (rc < 0) {
+        return rc;
+    }
+    if (created) {
+        return persistent_handoff_fsync_dir("/cache");
+    }
+    return 0;
+}
+
+static void persistent_handoff_health_remove(void) {
+    (void)unlink(A90_PERSISTENT_HANDOFF_HEALTH_TMP);
+    (void)unlink(A90_PERSISTENT_HANDOFF_HEALTH_PATH);
+    (void)persistent_handoff_fsync_dir(A90_PERSISTENT_HANDOFF_HEALTH_DIR);
+}
+
+static int persistent_handoff_health_publish(unsigned long long sequence) {
+    int fd;
+    int rc = 0;
+
+    fd = open(A90_PERSISTENT_HANDOFF_HEALTH_TMP,
+              O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
+              0600);
+    if (fd < 0) {
+        return -errno;
+    }
+    if (dprintf(fd,
+                "schema=a90-wifi-companion-health-v1\n"
+                "state=healthy\n"
+                "pid=%ld\n"
+                "sequence=%llu\n"
+                "required_children=alive\n"
+                "modem_holder=alive\n"
+                "wlan0=present\n",
+                (long)getpid(),
+                sequence) < 0) {
+        rc = -errno;
+    }
+    if (rc == 0 && fchown(fd, 0, 0) < 0) {
+        rc = -errno;
+    }
+    if (rc == 0 && fchmod(fd, 0600) < 0) {
+        rc = -errno;
+    }
+    if (rc == 0 && fsync(fd) < 0) {
+        rc = -errno;
+    }
+    if (close(fd) < 0 && rc == 0) {
+        rc = -errno;
+    }
+    if (rc == 0 &&
+        rename(A90_PERSISTENT_HANDOFF_HEALTH_TMP,
+               A90_PERSISTENT_HANDOFF_HEALTH_PATH) < 0) {
+        rc = -errno;
+    }
+    if (rc == 0) {
+        rc = persistent_handoff_fsync_dir(A90_PERSISTENT_HANDOFF_HEALTH_DIR);
+    }
+    if (rc < 0) {
+        (void)unlink(A90_PERSISTENT_HANDOFF_HEALTH_TMP);
+    }
+    return rc;
+}
+
+static int persistent_handoff_wait_wlan0(
+    struct composite_child *children,
+    size_t child_count,
+    struct wlan_pd_modem_holder *modem_holder,
+    struct property_service_shim *property_shim,
+    struct buffer *stdout_buf) {
+    const long started = monotonic_ms();
+    const long deadline = started + 5000L;
+    const char *failed_child = NULL;
+
+    while (monotonic_ms() < deadline) {
+        if (access("/sys/class/net/wlan0", F_OK) == 0) {
+            return append_format(stdout_buf,
+                                 "persistent_handoff.fast_wlan0=ready\n"
+                                 "persistent_handoff.fast_wlan0_wait_ms=%ld\n",
+                                 monotonic_ms() - started);
+        }
+        composite_capture_observable_children(children,
+                                              child_count,
+                                              stdout_buf);
+        if (!persistent_handoff_children_ready(children,
+                                               child_count,
+                                               &failed_child) ||
+            !persistent_handoff_modem_holder_ready(modem_holder)) {
+            append_format(stdout_buf,
+                          "persistent_handoff.fast_wlan0=failed\n"
+                          "persistent_handoff.reason=child-exited-during-wlan0-wait\n"
+                          "persistent_handoff.failed_child=%s\n",
+                          failed_child != NULL ? failed_child : "modem-holder");
+            return -ECHILD;
+        }
+        if (drain_property_service_shim_records(property_shim, stdout_buf) < 0) {
+            return -EIO;
+        }
+        usleep(50000);
+    }
+    append_format(stdout_buf,
+                  "persistent_handoff.fast_wlan0=timeout\n"
+                  "persistent_handoff.fast_wlan0_wait_ms=%ld\n",
+                  monotonic_ms() - started);
+    return -ETIMEDOUT;
+}
+
+static int run_persistent_wifi_handoff(const struct config *cfg,
+                                       struct composite_child *children,
+                                       size_t child_count,
+                                       struct wlan_pd_modem_holder *modem_holder,
+                                       struct property_service_shim *property_shim,
+                                       struct buffer *stdout_buf,
+                                       struct buffer *stderr_buf,
+                                       int *child_exit_code,
+                                       int *child_signal) {
+    struct sigaction action;
+    const char *failed_child = NULL;
+    unsigned long long health_sequence = 0;
+    int result_rc;
+
+    if (!cfg->persistent_handoff) {
+        return 0;
+    }
+    if (access("/sys/class/net/wlan0", F_OK) < 0) {
+        append_literal(stdout_buf,
+                       "persistent_handoff.state=refused\n"
+                       "persistent_handoff.reason=wlan0-absent\n");
+        *child_exit_code = 125;
+        return -1;
+    }
+    if (!persistent_handoff_children_ready(children, child_count, &failed_child)) {
+        append_format(stdout_buf,
+                      "persistent_handoff.state=refused\n"
+                      "persistent_handoff.reason=required-child-not-ready\n"
+                      "persistent_handoff.failed_child=%s\n",
+                      failed_child != NULL ? failed_child : "none");
+        *child_exit_code = 125;
+        return -1;
+    }
+    if (!persistent_handoff_modem_holder_ready(modem_holder)) {
+        append_literal(stdout_buf,
+                       "persistent_handoff.state=refused\n"
+                       "persistent_handoff.reason=modem-holder-not-ready\n");
+        *child_exit_code = 125;
+        return -1;
+    }
+    if (append_literal(stdout_buf,
+                       "persistent_handoff.schema=a90-wifi-companion-persistent-handoff-v1\n"
+                       "persistent_handoff.state=ready\n"
+                       "persistent_handoff.mount_namespace=private\n"
+                       "persistent_handoff.network_namespace=shared\n"
+                       "persistent_handoff.wlan0=present\n"
+                       "persistent_handoff.credentials=0\n") < 0) {
+        return -1;
+    }
+    result_rc = persistent_handoff_health_prepare();
+    if (result_rc == 0) {
+        result_rc = persistent_handoff_health_publish(health_sequence);
+    }
+    if (result_rc < 0) {
+        append_format(stdout_buf,
+                      "persistent_handoff.state=refused\n"
+                      "persistent_handoff.reason=health-publication-failed\n"
+                      "persistent_handoff.health_output_rc=%d\n",
+                      result_rc);
+        *child_exit_code = 125;
+        persistent_handoff_health_remove();
+        return -1;
+    }
+    if (append_literal(stdout_buf,
+                       "persistent_handoff.health_schema=a90-wifi-companion-health-v1\n"
+                       "persistent_handoff.health_sequence=0\n") < 0) {
+        persistent_handoff_health_remove();
+        return -1;
+    }
+    result_rc = write_result_output_file(cfg->result_output_path,
+                                         0,
+                                         0,
+                                         0,
+                                         false,
+                                         stdout_buf,
+                                         stderr_buf);
+    if (result_rc < 0) {
+        append_format(stdout_buf,
+                      "persistent_handoff.state=refused\n"
+                      "persistent_handoff.reason=ready-publication-failed\n"
+                      "persistent_handoff.result_output_rc=%d\n",
+                      result_rc);
+        *child_exit_code = 125;
+        persistent_handoff_health_remove();
+        return -1;
+    }
+    result_rc = write_persistent_handoff_ready_output_file(
+        cfg->handoff_ready_output_path);
+    if (result_rc < 0) {
+        append_format(stdout_buf,
+                      "persistent_handoff.state=refused\n"
+                      "persistent_handoff.reason=handoff-ready-publication-failed\n"
+                      "persistent_handoff.ready_output_rc=%d\n",
+                      result_rc);
+        *child_exit_code = 125;
+        (void)write_result_output_file(cfg->result_output_path,
+                                       125,
+                                       125,
+                                       0,
+                                       false,
+                                       stdout_buf,
+                                       stderr_buf);
+        persistent_handoff_health_remove();
+        return -1;
+    }
+
+    memset(&action, 0, sizeof(action));
+    action.sa_handler = persistent_handoff_stop_handler;
+    sigemptyset(&action.sa_mask);
+    persistent_handoff_stop_requested = 0;
+    (void)sigaction(SIGTERM, &action, NULL);
+    (void)sigaction(SIGINT, &action, NULL);
+
+    while (!persistent_handoff_stop_requested) {
+        bool poll_timed_out = false;
+        long deadline = monotonic_ms() + 2000L;
+
+        if (composite_poll_children(children,
+                                    child_count,
+                                    stdout_buf,
+                                    stderr_buf,
+                                    deadline,
+                                    &poll_timed_out) < 0 ||
+            drain_property_service_shim_records(property_shim, stdout_buf) < 0) {
+            append_literal(stdout_buf,
+                           "persistent_handoff.state=failed\n"
+                           "persistent_handoff.reason=observer-failed\n");
+            *child_exit_code = 125;
+            persistent_handoff_health_remove();
+            return -1;
+        }
+        if (drain_wlan_pd_modem_holder(modem_holder, stdout_buf, 0) < 0 ||
+            !persistent_handoff_modem_holder_ready(modem_holder)) {
+            append_literal(stdout_buf,
+                           "persistent_handoff.state=failed\n"
+                           "persistent_handoff.reason=modem-holder-exited\n");
+            *child_exit_code = 125;
+            persistent_handoff_health_remove();
+            return -1;
+        }
+        if (access("/sys/class/net/wlan0", F_OK) < 0) {
+            append_literal(stdout_buf,
+                           "persistent_handoff.state=failed\n"
+                           "persistent_handoff.reason=wlan0-disappeared\n");
+            *child_exit_code = 125;
+            persistent_handoff_health_remove();
+            return -1;
+        }
+        if (!persistent_handoff_children_ready(children, child_count, &failed_child)) {
+            append_format(stdout_buf,
+                          "persistent_handoff.state=failed\n"
+                          "persistent_handoff.reason=required-child-exited\n"
+                          "persistent_handoff.failed_child=%s\n",
+                          failed_child != NULL ? failed_child : "none");
+            *child_exit_code = 125;
+            persistent_handoff_health_remove();
+            return -1;
+        }
+        health_sequence++;
+        result_rc = persistent_handoff_health_publish(health_sequence);
+        if (result_rc < 0) {
+            append_format(stdout_buf,
+                          "persistent_handoff.state=failed\n"
+                          "persistent_handoff.reason=health-publication-failed\n"
+                          "persistent_handoff.health_output_rc=%d\n",
+                          result_rc);
+            *child_exit_code = 125;
+            persistent_handoff_health_remove();
+            return -1;
+        }
+    }
+    append_literal(stdout_buf,
+                   "persistent_handoff.state=stopping\n"
+                   "persistent_handoff.reason=signal\n");
+    *child_exit_code = 0;
+    *child_signal = 0;
+    persistent_handoff_health_remove();
+    return 0;
+}
+
 static int run_wifi_companion_start_only_guarded(const struct config *cfg,
                                                  const struct paths *paths,
                                                  struct buffer *stdout_buf,
@@ -59321,6 +59763,88 @@ static int run_wifi_companion_start_only_guarded(const struct config *cfg,
         composite_cleanup_children(children, active_child_count, stdout_buf, stderr_buf);
         stop_property_service_shim(&property_shim, paths, stdout_buf);
         return -1;
+    }
+    if (cfg->persistent_handoff) {
+        int persistent_rc;
+        int wlan0_rc = 0;
+
+        if (!wlan_pd_service_object_visible_trigger ||
+            active_child_count != child_count ||
+            !wlan_pd_service_object_vnd_ready ||
+            !wlan_pd_service_object_pm_proxy_helper_ready ||
+            !wlan_pd_service_object_per_mgr_ready ||
+            !wlan_pd_service_object_provider_seen) {
+            append_format(stdout_buf,
+                          "persistent_handoff.state=refused\n"
+                          "persistent_handoff.reason=fast-readiness-incomplete\n"
+                          "persistent_handoff.children=%zu/%zu\n"
+                          "persistent_handoff.vnd_ready=%d\n"
+                          "persistent_handoff.pm_proxy_helper_ready=%d\n"
+                          "persistent_handoff.per_mgr_ready=%d\n"
+                          "persistent_handoff.provider_seen=%d\n",
+                          active_child_count,
+                          child_count,
+                          wlan_pd_service_object_vnd_ready ? 1 : 0,
+                          wlan_pd_service_object_pm_proxy_helper_ready ? 1 : 0,
+                          wlan_pd_service_object_per_mgr_ready ? 1 : 0,
+                          wlan_pd_service_object_provider_seen ? 1 : 0);
+            *child_exit_code = 125;
+            stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+            composite_cleanup_children(children,
+                                       active_child_count,
+                                       stdout_buf,
+                                       stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+#if A90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_TRIGGER
+        if (access("/sys/class/net/wlan0", F_OK) < 0 &&
+            append_post_fw_ready_boot_wlan_trigger(stdout_buf) < 0) {
+            wlan0_rc = -EIO;
+        }
+#else
+        if (access("/sys/class/net/wlan0", F_OK) < 0) {
+            wlan0_rc = -ENOTSUP;
+        }
+#endif
+        if (wlan0_rc == 0) {
+            wlan0_rc = persistent_handoff_wait_wlan0(children,
+                                                     active_child_count,
+                                                     &wlan_pd_holder,
+                                                     &property_shim,
+                                                     stdout_buf);
+        }
+        if (wlan0_rc < 0) {
+            append_format(stdout_buf,
+                          "persistent_handoff.state=refused\n"
+                          "persistent_handoff.reason=fast-wlan0-not-ready\n"
+                          "persistent_handoff.fast_wlan0_rc=%d\n",
+                          wlan0_rc);
+            *child_exit_code = 125;
+            stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+            composite_cleanup_children(children,
+                                       active_child_count,
+                                       stdout_buf,
+                                       stderr_buf);
+            stop_property_service_shim(&property_shim, paths, stdout_buf);
+            return -1;
+        }
+        persistent_rc = run_persistent_wifi_handoff(cfg,
+                                                    children,
+                                                    active_child_count,
+                                                    &wlan_pd_holder,
+                                                    &property_shim,
+                                                    stdout_buf,
+                                                    stderr_buf,
+                                                    child_exit_code,
+                                                    child_signal);
+        stop_wlan_pd_modem_holder(paths, stdout_buf, &wlan_pd_holder);
+        composite_cleanup_children(children,
+                                   active_child_count,
+                                   stdout_buf,
+                                   stderr_buf);
+        stop_property_service_shim(&property_shim, paths, stdout_buf);
+        return persistent_rc < 0 ? -1 : 0;
     }
 #if defined(A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE) && \
     defined(A90_WIFI_TEST_BOOT_WLAN_PD_PRODUCER_TFTP_SERVER_TRACE_EARLY)
@@ -60676,7 +61200,9 @@ static void property_service_shim_child(int listen_fd,
                                         int record_fd,
                                         int timeout_sec,
                                         bool allow_peripheral_shutdown_list) {
-    long deadline = monotonic_ms() + ((long)timeout_sec + 3L) * 1000L;
+    const bool persistent = timeout_sec < 0;
+    long deadline = persistent ? LONG_MAX :
+        monotonic_ms() + ((long)timeout_sec + 3L) * 1000L;
     int request_count = 0;
 
     signal(SIGPIPE, SIG_IGN);
@@ -60692,8 +61218,9 @@ static void property_service_shim_child(int listen_fd,
             allow_peripheral_shutdown_list
                 ? ",vendor.peripheral.shutdown_critical_list:SDX50M_|SDX50M_modem_"
                 : "");
-    while (monotonic_ms() < deadline && request_count < 16) {
-        int timeout_ms = (int)(deadline - monotonic_ms());
+    while ((persistent || monotonic_ms() < deadline) &&
+           request_count < (persistent ? 4096 : 16)) {
+        int timeout_ms = persistent ? 2000 : (int)(deadline - monotonic_ms());
         struct pollfd pfd;
         int client_fd;
 
@@ -60705,6 +61232,9 @@ static void property_service_shim_child(int listen_fd,
         pfd.events = POLLIN;
         if (poll(&pfd, 1, timeout_ms) <= 0) {
             if (errno == EINTR) {
+                continue;
+            }
+            if (persistent) {
                 continue;
             }
             break;
@@ -60841,7 +61371,7 @@ static int start_property_service_shim(const struct config *cfg,
         close(pipe_fds[0]);
         property_service_shim_child(listen_fd,
                                     pipe_fds[1],
-                                    cfg->timeout_sec,
+                                    cfg->persistent_handoff ? -1 : cfg->timeout_sec,
                                     allow_peripheral_shutdown_list);
         close(pipe_fds[1]);
         close(listen_fd);
@@ -68717,6 +69247,41 @@ static void print_section(const char *name, const struct buffer *buf) {
     printf("A90_EXECNS_%s_END truncated=%d bytes=%zu\n", name, buf->truncated ? 1 : 0, buf->len);
 }
 
+static int write_persistent_handoff_ready_output_file(const char *path) {
+    int fd;
+    int rc = 0;
+
+    if (path == NULL || path[0] == '\0') {
+        return -EINVAL;
+    }
+    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0600);
+    if (fd < 0) {
+        return -errno;
+    }
+    if (dprintf(fd,
+                "schema=a90-execns-persistent-handoff-ready-v1\n"
+                "state=ready\n"
+                "pid=%ld\n"
+                "mount_namespace=private\n"
+                "network_namespace=shared\n"
+                "companions=qualified\n"
+                "wlan0=present\n"
+                "result=published\n",
+                (long)getpid()) < 0) {
+        rc = -errno;
+    }
+    if (rc == 0 && fchmod(fd, 0600) < 0) {
+        rc = -errno;
+    }
+    if (rc == 0 && fsync(fd) < 0) {
+        rc = -errno;
+    }
+    if (close(fd) < 0 && rc == 0) {
+        rc = -errno;
+    }
+    return rc;
+}
+
 static int write_result_output_file(const char *path,
                                     int run_rc,
                                     int child_exit_code,
@@ -68781,6 +69346,9 @@ static int write_result_output_file(const char *path,
                 "A90_EXECNS_RESULT_FILE_END\n",
                 stderr_buf != NULL && stderr_buf->truncated ? 1 : 0,
                 stderr_buf != NULL ? stderr_buf->len : 0) < 0) {
+        rc = -errno;
+    }
+    if (rc == 0 && fsync(fd) < 0) {
         rc = -errno;
     }
     if (close(fd) < 0 && rc == 0) {
@@ -68925,6 +69493,7 @@ int main(int argc, char **argv) {
            cfg.allow_wlan_pd_pm_service_window_trigger ? 1 : 0);
     printf("allow_wlan_pd_cnss_output_visibility=%d\n",
            cfg.allow_wlan_pd_cnss_output_visibility ? 1 : 0);
+    printf("persistent_handoff=%d\n", cfg.persistent_handoff ? 1 : 0);
     printf("connect_config=%s\n", cfg.connect_config != NULL ? cfg.connect_config : "<none>");
     printf("connect_iface=%s\n", cfg.connect_iface != NULL ? cfg.connect_iface : "<none>");
     printf("ping_target=%s\n", cfg.ping_target != NULL ? cfg.ping_target : "<none>");
@@ -68937,6 +69506,9 @@ int main(int argc, char **argv) {
            cfg.private_cnss_daemon_path != NULL ? cfg.private_cnss_daemon_path : "<none>");
     printf("result_output_path=%s\n",
            cfg.result_output_path != NULL ? cfg.result_output_path : "<none>");
+    printf("handoff_ready_output_path=%s\n",
+           cfg.handoff_ready_output_path != NULL ?
+               cfg.handoff_ready_output_path : "<none>");
     printf("pm_observer_private_cnss_daemon_sdx50m=%d\n",
            cfg.pm_observer_private_cnss_daemon_sdx50m ? 1 : 0);
     printf("pm_observer_mdm_helper_only_syscall_trace=%d\n",

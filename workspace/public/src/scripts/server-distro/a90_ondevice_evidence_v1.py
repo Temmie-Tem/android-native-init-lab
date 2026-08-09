@@ -102,10 +102,19 @@ PHASE_REQUIRED_FACTS = {
         "drm_master": ("1",),
         "display_ready": ("1",),
     },
+    # Optional for historical records, mandatory at the H12 runner layer.
+    # Keeping it out of MANDATORY_PHASES preserves the already-qualified H11
+    # evidence contract while still grading any Wi-Fi record fail closed.
+    "debian_wifi": {
+        "wifi_ready": ("1",),
+        "wifi_failure": ("0",),
+        "wifi_companion": ("1",),
+    },
 }
 INTENT_RE = re.compile(r"^[0-9a-f]{64}$")
 TRISTATE_FIELDS = ("drm_card0", "drm_master", "dropbear", "display_ready",
-                   "display_failure")
+                   "display_failure", "wifi_ready", "wifi_failure",
+                   "wifi_companion")
 
 
 class EvidenceError(RuntimeError):
@@ -192,6 +201,8 @@ def _bad_state(records: list[dict[str, str]]) -> str | None:
     for record in records:
         if record.get("display_failure") == "1":
             return f"{record['phase']} recorded display_failure=1"
+        if record.get("wifi_failure") == "1":
+            return f"{record['phase']} recorded wifi_failure=1"
         if record["phase"] == "debian_pid1" and record.get("pid1_comm") not in (
             None,
             "na",
@@ -412,6 +423,16 @@ drm_card0() {{
     if [ -c /dev/dri/card0 ]; then echo char; else echo absent; fi
 }}
 
+wifi_companion_health() {{
+    if [ -r /run/a90-wifi/ready ] &&
+       grep -qx 'companion_health=1' /run/a90-wifi/ready 2>/dev/null &&
+       grep -qx 'companion_sequence_advanced=1' /run/a90-wifi/ready 2>/dev/null; then
+        echo 1
+    else
+        echo 0
+    fi
+}}
+
 PID1_COMM=$(read_or_na /proc/1/comm)
 PROC1_EXE=$(readlink /proc/1/exe 2>/dev/null | tr -d '\\r\\n\\t ')
 [ -n "$PROC1_EXE" ] || PROC1_EXE=na
@@ -427,6 +448,9 @@ LINE="$LINE drm_master=$(exists_flag /run/a90-display/ready)"
 LINE="$LINE dropbear=$(dropbear_listening)"
 LINE="$LINE display_ready=$(exists_flag /run/a90-display/ready)"
 LINE="$LINE display_failure=$(exists_flag /run/a90-display/failure)"
+LINE="$LINE wifi_ready=$(exists_flag /run/a90-wifi/ready)"
+LINE="$LINE wifi_failure=$(exists_flag /run/a90-wifi/failure)"
+LINE="$LINE wifi_companion=$(wifi_companion_health)"
 
 mkdir -p "$(dirname "$RECORD")" 2>/dev/null || true
 # One append, one line, then sync. A truncated tail from power loss is a
@@ -446,6 +470,7 @@ def hook_script(
     collector_path: str = COLLECTOR_RUN_PATH,
     display_wait_sec: int = 90,
     sshd_wait_sec: int = 90,
+    wifi_wait_sec: int = 100,
 ) -> str:
     """The one-pass recorder Debian backgrounds at sysinit.
 
@@ -454,7 +479,11 @@ def hook_script(
     absence are different findings, and only the second tells the host what
     actually happened.
     """
-    for name, value in (("display", display_wait_sec), ("sshd", sshd_wait_sec)):
+    for name, value in (
+        ("display", display_wait_sec),
+        ("sshd", sshd_wait_sec),
+        ("wifi", wifi_wait_sec),
+    ):
         if not isinstance(value, int) or value <= 0:
             raise EvidenceError(f"{name} wait is not exact: {value!r}")
     return f"""#!/bin/sh
@@ -498,6 +527,12 @@ record debian_sshd
 
 wait_for_any {display_wait_sec} /run/a90-display/ready /run/a90-display/failure || true
 record debian_drm_master
+
+# H12 starts the Wi-Fi observer in parallel from the network/SSH service. It
+# is deliberately stamped after DRM so the established PID1-to-display and
+# PID1-to-SSH measurements do not inherit Wi-Fi association latency.
+wait_for_any {wifi_wait_sec} /run/a90-wifi/ready /run/a90-wifi/failure || true
+record debian_wifi
 
 exit 0
 """

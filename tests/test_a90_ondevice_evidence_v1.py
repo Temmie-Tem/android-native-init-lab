@@ -41,6 +41,9 @@ def line(phase: str, uptime_ms: int, *, run: str = RUN, **overrides: str) -> str
         "dropbear": "1",
         "display_ready": "1",
         "display_failure": "0",
+        "wifi_ready": "1",
+        "wifi_failure": "0",
+        "wifi_companion": "1",
     }
     fields.update(overrides)
     body = " ".join(f"{key}={value}" for key, value in fields.items())
@@ -76,6 +79,22 @@ class CompleteRecordTest(unittest.TestCase):
                 "debian_sshd": 134_900,
             },
         )
+
+    def test_historical_three_phase_record_remains_qualified(self) -> None:
+        text = complete_record().replace(
+            " wifi_ready=1 wifi_failure=0 wifi_companion=1",
+            "",
+        )
+        result = evidence.evaluate(text, RUN)
+        self.assertTrue(result["proof"], result["reason"])
+        self.assertNotIn("debian_wifi", result["phases"])
+
+    def test_optional_wifi_phase_is_graded_when_present(self) -> None:
+        text = complete_record() + line("debian_wifi", 135_100) + "\n"
+        result = evidence.evaluate(text, RUN)
+        self.assertTrue(result["proof"], result["reason"])
+        self.assertEqual(result["phases"]["debian_wifi"]["wifi_ready"], "1")
+        self.assertEqual(result["phases"]["debian_wifi"]["wifi_companion"], "1")
 
 
 class PermissiveAboutShapeTest(unittest.TestCase):
@@ -204,6 +223,38 @@ class StrictAboutStateTest(unittest.TestCase):
         result = evidence.evaluate(text, RUN)
         self.assertFalse(result["proof"])
         self.assertIn("drm_master=0", result["reason"])
+
+    def test_wifi_failure_record_fails(self) -> None:
+        text = complete_record() + line(
+            "debian_wifi",
+            135_100,
+            wifi_ready="0",
+            wifi_failure="1",
+        ) + "\n"
+        result = evidence.evaluate(text, RUN)
+        self.assertFalse(result["proof"])
+        self.assertIn("wifi_failure=1", result["reason"])
+
+    def test_wifi_phase_without_ready_fact_fails(self) -> None:
+        text = complete_record() + line(
+            "debian_wifi",
+            135_100,
+            wifi_ready="0",
+            wifi_failure="0",
+        ) + "\n"
+        result = evidence.evaluate(text, RUN)
+        self.assertFalse(result["proof"])
+        self.assertIn("wifi_ready=0", result["reason"])
+
+    def test_wifi_phase_without_live_companion_fails(self) -> None:
+        text = complete_record() + line(
+            "debian_wifi",
+            135_100,
+            wifi_companion="0",
+        ) + "\n"
+        result = evidence.evaluate(text, RUN)
+        self.assertFalse(result["proof"])
+        self.assertIn("wifi_companion=0", result["reason"])
 
     def test_duplicate_key_cannot_overwrite_a_contradiction(self) -> None:
         drm = line("debian_drm_master", 133_400).replace(
@@ -510,9 +561,21 @@ class WriterScriptTest(unittest.TestCase):
         self.assertLess(
             text.index("record debian_pid1"), text.index("record debian_sshd")
         )
+        self.assertLess(
+            text.index("record debian_drm_master"),
+            text.index("record debian_wifi"),
+        )
 
     def test_hook_waits_are_validated(self) -> None:
-        for kwargs in ({"display_wait_sec": 0}, {"sshd_wait_sec": -1}):
+        self.assertIn(
+            "wait_for_any 100 /run/a90-wifi/ready /run/a90-wifi/failure",
+            evidence.hook_script(),
+        )
+        for kwargs in (
+            {"display_wait_sec": 0},
+            {"sshd_wait_sec": -1},
+            {"wifi_wait_sec": 0},
+        ):
             with self.assertRaises(evidence.EvidenceError):
                 evidence.hook_script(**kwargs)  # type: ignore[arg-type]
 

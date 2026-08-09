@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """One-ordinal attended A90 auto-handoff benchmark runner.
 
-The runner consumes an installed-resident D1 manifest.  It proves the H11
+The runner consumes an installed-resident D1 manifest.  It proves the H12
 resident healthy and unarmed, durably binds one arm intent, arms once, proves
 the exact enable state, durably binds one reboot intent, reboots once, observes
 Debian PID1/display/SSH, automatic native return, the retained latch, final
@@ -46,16 +46,16 @@ SCHEMA = "a90-auto-handoff-benchmark-runner-v3"
 JOURNAL_SCHEMA = "a90-auto-handoff-benchmark-journal-v3"
 RESULT_SCHEMA = "a90-auto-handoff-benchmark-result-v3"
 RECONCILE_SCHEMA = "a90-auto-handoff-benchmark-reconciliation-v3"
-EXPECTED_VERSION = "0.11.179"
+EXPECTED_VERSION = "0.11.180"
 EXPECTED_BUILD = (
-    "phase3-minimal-h11-direct-debian-boot-auto-benchmark"
+    "phase3-minimal-h12-direct-min-network-wifi-auto-benchmark"
 )
 EXPECTED_ROOTFS_SHA256 = (
-    "9e9b11aa80e2c83f54990e9b286dcdd89535438d6f0a248fe89557c75a763931"
+    "edce00561a5526a27b7cb6017e0933b0b891093c812d2f8bb9d6944ec8a79765"
 )
 ARM_TOKEN = "AUTO-HANDOFF-BENCHMARK-V1-ARM"
 SOURCE_RECEIPT_SCHEMA = "a90-d3-source-receipt-v1"
-SOURCE_RECEIPT_PATH = "/cache/a90-source-receipt-phase3-minimal-h11"
+SOURCE_RECEIPT_PATH = "/cache/a90-source-receipt-phase3-minimal-h12"
 FAST_SOURCE_STATES = {"receipt-absent", "receipt-verified"}
 FAST_SOURCE_MARKER_RE = re.compile(
     r"^A90D1_FAST_SOURCE state=(?P<state>receipt-(?:absent|verified)) "
@@ -122,6 +122,22 @@ JOURNAL_ACTIONS = (
     "final-health",
     "closed",
 )
+
+
+def h12_wifi_proven(durable_evidence: Any) -> bool:
+    """H12 adds one exact Wi-Fi phase without rewriting historical H11 proof."""
+    if not isinstance(durable_evidence, dict):
+        return False
+    phases = durable_evidence.get("phases")
+    if not isinstance(phases, dict):
+        return False
+    wifi = phases.get("debian_wifi")
+    return (
+        isinstance(wifi, dict)
+        and wifi.get("phase") == "debian_wifi"
+        and wifi.get("wifi_ready") == "1"
+        and wifi.get("wifi_failure") == "0"
+    )
 COMMON_RECORD_KEYS = {"schema", "action", "timestamp_utc"}
 PAYLOAD_KEYS = (
     {
@@ -1764,10 +1780,54 @@ RETURNED_NATIVE_TAIL = (
     "auto_handoff_latched_native",
 )
 DIRECT_HANDOFF_STAGE = "native_direct_handoff_ready"
+H12_WIFI_COMPANION_STAGE = "native_wifi_companion_ready"
+H12_WIFI_AUTOCONNECT_STAGES = (
+    "native_wifi_autoconnect_dispatched",
+    "native_wifi_autoconnect_inactive",
+)
+H12_NCM_HANDOFF_STAGE = "native_ncm_handoff_ready"
+H12_DIRECT_AUX_STAGES = {
+    H12_WIFI_COMPANION_STAGE,
+    *H12_WIFI_AUTOCONNECT_STAGES,
+    H12_NCM_HANDOFF_STAGE,
+}
+BENCHMARK_SELECTION_CONTRACT = (
+    "opening-prefix-or-disjoint-current-window-v4-h12-direct-prelude"
+)
 
 
 def normalize_direct_handoff_stage(stages: list[Any]) -> list[Any] | None:
-    """Remove one exact H11 direct marker while rejecting every other placement."""
+    """Remove one exact H11/H12 direct prelude, rejecting partial or reordered forms."""
+
+    if any(stage in H12_DIRECT_AUX_STAGES for stage in stages):
+        if (
+            stages.count("native_runtime_ready") != 1
+            or stages.count("native_services_ready") != 1
+            or stages.count(H12_WIFI_COMPANION_STAGE) != 1
+            or stages.count(H12_NCM_HANDOFF_STAGE) != 1
+            or stages.count(DIRECT_HANDOFF_STAGE) != 1
+            or sum(stages.count(stage) for stage in H12_WIFI_AUTOCONNECT_STAGES)
+            != 1
+        ):
+            return None
+        runtime_index = stages.index("native_runtime_ready")
+        autoconnect_stage = next(
+            stage for stage in H12_WIFI_AUTOCONNECT_STAGES if stage in stages
+        )
+        exact_prelude = [
+            "native_runtime_ready",
+            H12_WIFI_COMPANION_STAGE,
+            autoconnect_stage,
+            H12_NCM_HANDOFF_STAGE,
+            DIRECT_HANDOFF_STAGE,
+            "native_services_ready",
+        ]
+        if stages[runtime_index : runtime_index + len(exact_prelude)] != exact_prelude:
+            return None
+        return (
+            stages[: runtime_index + 1]
+            + stages[runtime_index + len(exact_prelude) - 1 :]
+        )
 
     positions = [
         index for index, stage in enumerate(stages) if stage == DIRECT_HANDOFF_STAGE
@@ -1915,7 +1975,7 @@ def parse_appended_benchmark(
     parsed["selected_segment_index"] = selected_index
     parsed["native_handoff_failed"] = native_handoff_failed
     parsed["selection"] = {
-        "contract": "opening-prefix-or-disjoint-current-window-v3-direct-stage",
+        "contract": BENCHMARK_SELECTION_CONTRACT,
         "log_relation": log_relation,
         "opening_marker_count": len(before),
         "appended_marker_count": len(appended),
@@ -2100,7 +2160,7 @@ def validate_benchmark_selection(parsed: dict[str, Any]) -> None:
             "appended_markers_sha256",
         }
         or selection.get("contract")
-        != "opening-prefix-or-disjoint-current-window-v3-direct-stage"
+        != BENCHMARK_SELECTION_CONTRACT
         or selection.get("log_relation")
         not in {
             "opening-prefix-appended-suffix",
@@ -2206,7 +2266,10 @@ def finalize_cycle(
         )
         facts = base.display.facts_to_dict(classified)
     durable_evidence = ondevice_evidence.evaluate(log_text, intent_sha256)
-    mechanical = durable_evidence["proof"] is True
+    mechanical = (
+        durable_evidence["proof"] is True
+        and h12_wifi_proven(durable_evidence)
+    )
     # Exact returned enable/latch and final resident D0 were proved above.
     # The returned latch and final resident D0 remain authoritative for health;
     # the later exact ACM epoch is independently retained in host_link proof.
@@ -2329,7 +2392,12 @@ def validate_result(
     )
     if native_handoff_failed:
         expected_terminal = "REFUTED_AUTO_HANDOFF_NATIVE_HANDOFF_RESIDENT_HEALTHY"
-    elif durable_evidence["proof"] is True and host_link and guard_released:
+    elif (
+        durable_evidence["proof"] is True
+        and h12_wifi_proven(durable_evidence)
+        and host_link
+        and guard_released
+    ):
         expected_terminal = (
             "PASS_AUTO_HANDOFF_BENCHMARK_VISIBLE"
             if value.get("visible_confirmed") == "yes"
@@ -2352,7 +2420,7 @@ def validate_result(
         or status.get("enable") != 1
         or status.get("latch") != 1
     ):
-        raise ContractError("benchmark result does not prove returned H11 latch")
+        raise ContractError("benchmark result does not prove returned H12 latch")
     validate_preflight_evidence(
         spec,
         value.get("final_preflight"),
@@ -2370,7 +2438,7 @@ def validate_result(
         not exact_int(cleanup.get("dispatch_count"), 0)
         or cleanup.get("receipt") is not None
     ):
-        raise ContractError("benchmark result H11 absence close dispatched cleanup")
+        raise ContractError("benchmark result H12 absence close dispatched cleanup")
     validate_preflight_evidence(
         spec,
         cleanup.get("absence_preflight"),

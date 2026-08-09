@@ -100,6 +100,12 @@ static int v641_prepare_firmware_mounts(void);
 #ifndef A90_WIFI_TEST_BOOT_SUPERVISE_HELPER
 #define A90_WIFI_TEST_BOOT_SUPERVISE_HELPER 0
 #endif
+#ifndef A90_WIFI_PERSISTENT_HANDOFF_V1
+#define A90_WIFI_PERSISTENT_HANDOFF_V1 0
+#endif
+#ifndef A90_WIFI_PERSISTENT_HANDOFF_READY
+#define A90_WIFI_PERSISTENT_HANDOFF_READY "/cache/native-init-wifi-persistent-handoff.ready"
+#endif
 #ifndef A90_WIFI_TEST_BOOT_SUPERVISOR_TIMEOUT_SEC
 #define A90_WIFI_TEST_BOOT_SUPERVISOR_TIMEOUT_SEC 40
 #endif
@@ -887,7 +893,9 @@ static int v1393_reset_wifi_test_log(void) {
     int fd;
     int rc;
 
-    (void)unlink(A90_V1393_WIFI_TEST_HELPER_RESULT);
+    if (unlink(A90_V1393_WIFI_TEST_HELPER_RESULT) < 0 && errno != ENOENT) {
+        return -errno;
+    }
     fd = open(A90_V1393_WIFI_TEST_LOG,
               O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW,
               0600);
@@ -4857,6 +4865,9 @@ static int v726_start_wifi_runtime_summary_once(void) {
 }
 
 #if !A90_WIFI_TEST_BOOT_SUPERVISE_HELPER
+static pid_t v1393_wifi_test_helper_pid = -1;
+
+#if !A90_WIFI_PERSISTENT_HANDOFF_V1
 static int v1393_spawn_wifi_test_summary_watcher(pid_t helper_pid, long spawn_ms, pid_t *watcher_out) {
     pid_t pid;
 
@@ -4877,6 +4888,67 @@ static int v1393_spawn_wifi_test_summary_watcher(pid_t helper_pid, long spawn_ms
     }
     return 0;
 }
+#endif
+
+#if A90_WIFI_PERSISTENT_HANDOFF_V1
+static int v1393_wait_persistent_handoff_ready(void) {
+    char expected[256];
+    char actual[256];
+    long deadline_ms;
+    int expected_len;
+
+    if (v1393_wifi_test_helper_pid <= 1) {
+        return -ESRCH;
+    }
+    expected_len = snprintf(
+        expected,
+        sizeof(expected),
+        "schema=a90-execns-persistent-handoff-ready-v1\n"
+        "state=ready\n"
+        "pid=%ld\n"
+        "mount_namespace=private\n"
+        "network_namespace=shared\n"
+        "companions=qualified\n"
+        "wlan0=present\n"
+        "result=published\n",
+        (long)v1393_wifi_test_helper_pid);
+    if (expected_len < 0 || (size_t)expected_len >= sizeof(expected)) {
+        return -EOVERFLOW;
+    }
+    deadline_ms = monotonic_millis() + 20000L;
+    while (monotonic_millis() < deadline_ms) {
+        if (kill(v1393_wifi_test_helper_pid, 0) < 0 && errno != EPERM) {
+            return -ESRCH;
+        }
+        if (read_text_file(A90_WIFI_PERSISTENT_HANDOFF_READY,
+                           actual,
+                           sizeof(actual)) == 0 &&
+            strcmp(actual, expected) == 0) {
+            a90_logf("wifi-v1393",
+                     "persistent handoff ready pid=%ld companions=qualified",
+                     (long)v1393_wifi_test_helper_pid);
+            return 0;
+        }
+        usleep(50000);
+    }
+    return -ETIMEDOUT;
+}
+
+static void v1393_stop_unready_persistent_helper(void) {
+    if (v1393_wifi_test_helper_pid <= 1) {
+        return;
+    }
+    (void)kill(-v1393_wifi_test_helper_pid, SIGTERM);
+    (void)kill(v1393_wifi_test_helper_pid, SIGTERM);
+    usleep(200000);
+    if (waitpid(v1393_wifi_test_helper_pid, NULL, WNOHANG) == 0) {
+        (void)kill(-v1393_wifi_test_helper_pid, SIGKILL);
+        (void)kill(v1393_wifi_test_helper_pid, SIGKILL);
+        (void)waitpid(v1393_wifi_test_helper_pid, NULL, 0);
+    }
+    v1393_wifi_test_helper_pid = -1;
+}
+#endif
 #endif
 
 static int v1393_wait_for_wifi_test_helper(pid_t helper_pid, int *status_out, int *timed_out_out) {
@@ -5102,6 +5174,11 @@ static int v1393_spawn_wifi_test_boot_helper(pid_t *pid_out) {
         "--private-cnss-daemon-path",
         A90_V1393_WIFI_TEST_PRIVATE_CNSS,
 #endif
+#if A90_WIFI_PERSISTENT_HANDOFF_V1
+        "--persistent-handoff",
+        "--handoff-ready-output-path",
+        A90_WIFI_PERSISTENT_HANDOFF_READY,
+#endif
         NULL
     };
     struct a90_run_config config = {
@@ -5215,12 +5292,12 @@ static int v1393_spawn_wifi_test_supervisor(pid_t *pid_out) {
 static void v1393_run_wifi_test_boot_once(void) {
     struct stat st;
     pid_t pid = -1;
-#if !A90_WIFI_TEST_BOOT_SUPERVISE_HELPER
+#if !A90_WIFI_TEST_BOOT_SUPERVISE_HELPER && !A90_WIFI_PERSISTENT_HANDOFF_V1
     pid_t watcher_pid = -1;
 #endif
     int rc;
     char pid_text[32];
-#if !A90_WIFI_TEST_BOOT_SUPERVISE_HELPER
+#if !A90_WIFI_TEST_BOOT_SUPERVISE_HELPER && !A90_WIFI_PERSISTENT_HANDOFF_V1
     long spawn_ms;
 #endif
 
@@ -5231,6 +5308,19 @@ static void v1393_run_wifi_test_boot_once(void) {
         return;
     }
 
+#if A90_WIFI_PERSISTENT_HANDOFF_V1 && !A90_WIFI_TEST_BOOT_SUPERVISE_HELPER
+    if (unlink(A90_WIFI_PERSISTENT_HANDOFF_READY) < 0 && errno != ENOENT) {
+        int saved_errno = errno;
+
+        a90_logf("wifi-v1393",
+                 "persistent handoff marker reset failed errno=%d error=%s",
+                 saved_errno,
+                 strerror(saved_errno));
+        return;
+    }
+    v1393_wifi_test_helper_pid = -1;
+#endif
+
     rc = v1393_reset_wifi_test_log();
     if (rc < 0) {
         a90_logf("wifi-v1393", "log reset failed rc=%d errno=%d error=%s",
@@ -5240,6 +5330,9 @@ static void v1393_run_wifi_test_boot_once(void) {
         klogf("<6>%s: wifi test boot log reset failed rc=%d\n",
               A90_WIFI_TEST_BOOT_KLOG_PREFIX,
               rc);
+#if A90_WIFI_PERSISTENT_HANDOFF_V1
+        return;
+#endif
     }
     (void)v724_write_private_file(A90_V1393_WIFI_TEST_SUMMARY, "state=armed\n");
 
@@ -5530,7 +5623,9 @@ static void v1393_run_wifi_test_boot_once(void) {
                                     A90_WIFI_TEST_BOOT_LABEL,
                                     A90_V1393_WIFI_TEST_MODE);
 #else
+#if !A90_WIFI_PERSISTENT_HANDOFF_V1
     spawn_ms = monotonic_millis();
+#endif
     rc = v1393_spawn_wifi_test_boot_helper(&pid);
     if (rc < 0) {
         int saved_errno = -rc;
@@ -5555,6 +5650,9 @@ static void v1393_run_wifi_test_boot_once(void) {
 
     snprintf(pid_text, sizeof(pid_text), "%ld\n", (long)pid);
     (void)v724_write_private_file(A90_V1393_WIFI_TEST_PID, pid_text);
+#if A90_WIFI_PERSISTENT_HANDOFF_V1
+    v1393_wifi_test_helper_pid = pid;
+#endif
     a90_logf("wifi-v1393", "helper spawned pid=%ld mode=%s",
              (long)pid,
              A90_V1393_WIFI_TEST_MODE);
@@ -5571,6 +5669,7 @@ static void v1393_run_wifi_test_boot_once(void) {
                                     A90_WIFI_TEST_BOOT_LABEL,
                                     A90_V1393_WIFI_TEST_MODE);
 
+#if !A90_WIFI_PERSISTENT_HANDOFF_V1
     rc = v1393_spawn_wifi_test_summary_watcher(pid, spawn_ms, &watcher_pid);
     if (rc == 0) {
         snprintf(pid_text, sizeof(pid_text), "%ld\n", (long)watcher_pid);
@@ -5585,6 +5684,7 @@ static void v1393_run_wifi_test_boot_once(void) {
                                         -rc,
                                         strerror(-rc));
     }
+#endif
 #endif
 }
 #endif
@@ -6181,6 +6281,8 @@ int main(void) {
     bool a90_cache_ready = false;
 #if A90_AUTO_HANDOFF_BENCHMARK_V1 && A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT
     bool direct_handoff_checked = false;
+    bool direct_wifi_boot_started = false;
+    bool direct_wifi_autoconnect_started = false;
     int direct_handoff_rc = 2;
 #endif
     a90_timeline_record(0, 0, a90_reloaded ? "init-start-reloaded" : "init-start", "%s", INIT_BANNER);
@@ -6430,20 +6532,68 @@ int main(void) {
         a90_console_printf("# USB ACM serial console ready.\r\n");
 #if A90_AUTO_HANDOFF_BENCHMARK_V1 && A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT
         if (!a90_reloaded) {
+            int direct_prep_rc = 0;
+            int wifi_autoconnect_rc = 0;
+
             a90_console_printf(
-                "A90DIRECT_BOOT mode=pre-service-check hud=skipped native_aux=deferred\r\n");
+                "A90DIRECT_BOOT mode=min-network-wifi hud=skipped native_aux=wifi-companion+ncm\r\n");
             a90_logf(
                 "auto-handoff",
-                "A90DIRECT_BOOT mode=pre-service-check hud=skipped native_aux=deferred");
+                "A90DIRECT_BOOT mode=min-network-wifi hud=skipped native_aux=wifi-companion+ncm");
             a90_timeline_record(
                 0,
                 0,
                 "direct-debian-boot",
-                "pre-service handoff check; HUD and auxiliary services deferred");
-            a90_benchmark_emit("native_direct_handoff_ready");
-            a90_benchmark_emit("native_services_ready");
+                "minimal native Wi-Fi companion and NCM before handoff; HUD skipped");
+#if defined(A90_WIFI_LIFECYCLE_MODEM_OWNER) && !A90_WIFI_PERSISTENT_HANDOFF_V1
+            v726_start_wifi_lifecycle_modem_owner_once();
+#endif
+#ifdef A90_WIFI_TEST_BOOT
+            v1393_run_wifi_test_boot_once();
+            direct_wifi_boot_started = true;
+#if A90_WIFI_PERSISTENT_HANDOFF_V1 && !A90_WIFI_TEST_BOOT_SUPERVISE_HELPER
+            direct_prep_rc = v1393_wait_persistent_handoff_ready();
+            if (direct_prep_rc < 0) {
+                a90_logf("auto-handoff",
+                         "persistent Wi-Fi handoff not ready rc=%d",
+                         direct_prep_rc);
+                v1393_stop_unready_persistent_helper();
+            } else {
+                a90_benchmark_emit("native_wifi_companion_ready");
+            }
+#endif
+#endif
+            if (direct_prep_rc == 0) {
+                wifi_autoconnect_rc = a90_wifi_start_boot_autoconnect_once();
+                if (wifi_autoconnect_rc < 0) {
+                    direct_prep_rc = wifi_autoconnect_rc;
+                    a90_logf("auto-handoff",
+                             "Wi-Fi autoconnect namespace preparation failed rc=%d",
+                             wifi_autoconnect_rc);
+                } else {
+                    direct_wifi_autoconnect_started = wifi_autoconnect_rc > 0;
+                    a90_benchmark_emit(
+                        wifi_autoconnect_rc > 0 ?
+                            "native_wifi_autoconnect_dispatched" :
+                            "native_wifi_autoconnect_inactive");
+                }
+            }
+            if (direct_prep_rc == 0) {
+                direct_prep_rc = a90_netservice_prepare_handoff();
+                if (direct_prep_rc == 0) {
+                    a90_benchmark_emit("native_ncm_handoff_ready");
+                } else {
+                    a90_logf("auto-handoff",
+                             "Debian NCM preparation failed rc=%d",
+                             direct_prep_rc);
+                }
+            }
             direct_handoff_checked = true;
-            if (a90_cache_ready) {
+            if (direct_prep_rc < 0) {
+                direct_handoff_rc = direct_prep_rc;
+            } else if (a90_cache_ready) {
+                a90_benchmark_emit("native_direct_handoff_ready");
+                a90_benchmark_emit("native_services_ready");
                 direct_handoff_rc = a90_auto_handoff_run_once();
             } else {
                 a90_console_printf(
@@ -6578,12 +6728,14 @@ int main(void) {
             }
         } else {
 #if A90_AUTO_HANDOFF_BENCHMARK_V1 && A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT
-#ifdef A90_WIFI_LIFECYCLE_MODEM_OWNER
+#if defined(A90_WIFI_LIFECYCLE_MODEM_OWNER) && !A90_WIFI_PERSISTENT_HANDOFF_V1
             v726_start_wifi_lifecycle_modem_owner_once();
             boot_auto_frame();
 #endif
 #ifdef A90_WIFI_TEST_BOOT
-            v1393_run_wifi_test_boot_once();
+            if (!direct_wifi_boot_started) {
+                v1393_run_wifi_test_boot_once();
+            }
             (void)v726_start_wifi_runtime_summary_once();
             boot_auto_frame();
 #endif
@@ -6677,7 +6829,13 @@ int main(void) {
                 a90_logf("boot", "rshell disabled");
             }
 #endif
+#if A90_AUTO_HANDOFF_BENCHMARK_V1 && A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT
+            if (!direct_wifi_autoconnect_started) {
+                (void)a90_wifi_start_boot_autoconnect_once();
+            }
+#else
             (void)a90_wifi_start_boot_autoconnect_once();
+#endif
             (void)a90_audio_boot_chime_start_once();
         }  /* end !a90_reloaded live-service re-init guard */
 #if A90_AUTO_HANDOFF_BENCHMARK_V1 && A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT

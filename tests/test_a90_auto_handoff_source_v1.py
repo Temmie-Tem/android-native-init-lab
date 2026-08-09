@@ -15,8 +15,9 @@ NATIVE = REPO_ROOT / "workspace/public/src/native-init"
 MANIFEST = (
     REPO_ROOT
     / "workspace/public/src/scripts/revalidation/a90_flat_builder"
-    / "versions/phase3-minimal-h11/manifest.toml"
+    / "versions/phase3-minimal-h12/manifest.toml"
 )
+H11_MANIFEST = MANIFEST.parents[1] / "phase3-minimal-h11/manifest.toml"
 H10_MANIFEST = MANIFEST.parents[1] / "phase3-minimal-h10/manifest.toml"
 H9_MANIFEST = MANIFEST.parents[1] / "phase3-minimal-h9/manifest.toml"
 H8_MANIFEST = MANIFEST.parents[1] / "phase3-minimal-h8/manifest.toml"
@@ -26,19 +27,19 @@ FLAT_BUILDER = load_script(
 
 
 class A90AutoHandoffSourceV1Tests(unittest.TestCase):
-    def test_h11_build_binding_includes_receipt_while_h8_stays_v1(self) -> None:
+    def test_h12_build_binding_includes_receipt_while_h8_stays_v1(self) -> None:
         with MANIFEST.open("rb") as stream:
-            h11 = FLAT_BUILDER.normalized_auto_handoff_binding(
+            h12 = FLAT_BUILDER.normalized_auto_handoff_binding(
                 tomllib.load(stream)
             )
         with H8_MANIFEST.open("rb") as stream:
             h8 = FLAT_BUILDER.normalized_auto_handoff_binding(
                 tomllib.load(stream)
             )
-        self.assertEqual(h11["schema"], "a90-compiled-auto-handoff-binding-v2")
+        self.assertEqual(h12["schema"], "a90-compiled-auto-handoff-binding-v2")
         self.assertEqual(
-            h11["receipt_path"],
-            "/cache/a90-source-receipt-phase3-minimal-h11",
+            h12["receipt_path"],
+            "/cache/a90-source-receipt-phase3-minimal-h12",
         )
         self.assertEqual(h8["schema"], "a90-compiled-auto-handoff-binding-v1")
         self.assertNotIn("receipt_path", h8)
@@ -301,6 +302,25 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
         self.assertIn("-DA90_AUTO_HANDOFF_BENCHMARK_V1=1", manifest)
         self.assertIn(
             "/mnt/sdext/a90/runtime/"
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260810-07.img",
+            manifest,
+        )
+        self.assertIn(
+            "edce00561a5526a27b7cb6017e0933b0b891093c812d2f8bb9d6944ec8a79765",
+            manifest,
+        )
+        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h12.enable", manifest)
+        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h12.done", manifest)
+        self.assertIn("/cache/a90-source-receipt-phase3-minimal-h12", manifest)
+        self.assertIn('-DINIT_VERSION="0.11.180"', manifest)
+        self.assertIn("-DA90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT=1", manifest)
+        self.assertIn("-DA90_WIFI_PERSISTENT_HANDOFF_V1=1", manifest)
+        self.assertIn("-DA90_WIFI_AUTOCONNECT_PRIVATE_MOUNT_NS=1", manifest)
+
+    def test_superseded_h11_manifest_keeps_its_original_identity(self) -> None:
+        manifest = H11_MANIFEST.read_text(encoding="utf-8")
+        self.assertIn('-DINIT_VERSION="0.11.179"', manifest)
+        self.assertIn(
             "debian-bookworm-arm64-phase2-display-v3406-keyed-20260810-03.img",
             manifest,
         )
@@ -308,11 +328,8 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
             "9e9b11aa80e2c83f54990e9b286dcdd89535438d6f0a248fe89557c75a763931",
             manifest,
         )
-        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h11.enable", manifest)
-        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h11.done", manifest)
         self.assertIn("/cache/a90-source-receipt-phase3-minimal-h11", manifest)
-        self.assertIn('-DINIT_VERSION="0.11.179"', manifest)
-        self.assertIn("-DA90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT=1", manifest)
+        self.assertNotIn("A90_WIFI_PERSISTENT_HANDOFF_V1", manifest)
 
     def test_superseded_h10_manifest_keeps_its_original_identity(self) -> None:
         manifest = H10_MANIFEST.read_text(encoding="utf-8")
@@ -328,10 +345,11 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
         self.assertIn("/cache/a90-source-receipt-phase3-minimal-h10", manifest)
         self.assertNotIn("A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT", manifest)
 
-    def test_direct_boot_checks_handoff_before_hud_and_aux_services(self) -> None:
+    def test_direct_boot_prepares_only_minimal_network_before_handoff(self) -> None:
         source = (NATIVE / "v724/90_main.inc.c").read_text(encoding="utf-8")
         marker = source.index(
-            "A90DIRECT_BOOT mode=pre-service-check hud=skipped native_aux=deferred"
+            "A90DIRECT_BOOT mode=min-network-wifi hud=skipped "
+            "native_aux=wifi-companion+ncm"
         )
         branch_end = source.index("        if (a90_reloaded) {", marker)
         direct = source[marker:branch_end]
@@ -339,21 +357,115 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
         self.assertIn("a90_auto_handoff_run_once()", direct)
         self.assertNotIn("start_auto_hud", direct)
         self.assertNotIn("a90_netservice_start", direct)
-        self.assertNotIn("a90_wifi_start_boot_autoconnect_once", direct)
+        self.assertIn("a90_netservice_prepare_handoff", direct)
+        self.assertIn("a90_wifi_start_boot_autoconnect_once", direct)
         self.assertNotIn("a90_audio_boot_chime_start_once", direct)
-        self.assertNotIn("v726_start_wifi_lifecycle_modem_owner_once", direct)
-        self.assertNotIn("v1393_run_wifi_test_boot_once", direct)
+        self.assertIn("v726_start_wifi_lifecycle_modem_owner_once", direct)
+        self.assertIn("v1393_run_wifi_test_boot_once", direct)
+        self.assertIn("v1393_wait_persistent_handoff_ready", direct)
+        self.assertLess(
+            direct.index("v1393_wait_persistent_handoff_ready"),
+            direct.index("a90_auto_handoff_run_once"),
+        )
+        self.assertIn(
+            "#if defined(A90_WIFI_LIFECYCLE_MODEM_OWNER) && "
+            "!A90_WIFI_PERSISTENT_HANDOFF_V1",
+            direct,
+        )
         fallback = source[branch_end:source.index(
             "            v724_run_qrtr_servloc_boot_once();",
             branch_end,
         )]
         self.assertIn("v726_start_wifi_lifecycle_modem_owner_once", fallback)
+        self.assertIn(
+            "#if defined(A90_WIFI_LIFECYCLE_MODEM_OWNER) && "
+            "!A90_WIFI_PERSISTENT_HANDOFF_V1",
+            fallback,
+        )
         self.assertIn("v1393_run_wifi_test_boot_once", fallback)
         self.assertIn(
             "#if A90_AUTO_HANDOFF_BENCHMARK_V1 && "
             "!A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT",
             source,
         )
+
+    def test_wifi_handoff_bind_exposes_only_redacted_read_only_surface(self) -> None:
+        source = (NATIVE / "a90_server_distro.c").read_text(encoding="utf-8")
+        bind = source[
+            source.index("static int d3_bind_wifi_handoff_dir("):
+            source.index("static int d3_move_mount_one(")
+        ]
+        self.assertIn('#define A90_D3_WIFI_HANDOFF_DIR "/cache/a90-wifi-handoff"', source)
+        self.assertNotIn('"/cache/a90-wifi"', bind)
+        self.assertIn("MS_REMOUNT | MS_BIND | MS_RDONLY", bind)
+        self.assertIn("MS_NOSUID | MS_NODEV | MS_NOEXEC", bind)
+        self.assertIn("wifi_handoff_bind=ok", bind)
+
+    def test_persistent_wifi_companion_is_fail_closed_and_observed(self) -> None:
+        helper = (NATIVE / "helpers/a90_android_execns_probe.c").read_text(
+            encoding="utf-8"
+        )
+        wifi = (NATIVE / "a90_wifi.c").read_text(encoding="utf-8")
+        direct = (NATIVE / "v724/90_main.inc.c").read_text(encoding="utf-8")
+        server = (NATIVE / "a90_server_distro.c").read_text(encoding="utf-8")
+        self.assertIn('strcmp(argv[i], "--persistent-handoff")', helper)
+        self.assertIn(
+            "--persistent-handoff requires "
+            "wifi-companion-wlan-pd-service-object-visible-trigger-start-only mode",
+            helper,
+        )
+        self.assertIn("persistent_handoff_children_ready", helper)
+        self.assertIn("persistent_handoff.reason=required-child-exited", helper)
+        self.assertIn("persistent_handoff.reason=wlan0-disappeared", helper)
+        self.assertIn("write_persistent_handoff_ready_output_file", helper)
+        self.assertIn("persistent_handoff.reason=fast-readiness-incomplete", helper)
+        self.assertIn("persistent_handoff.reason=fast-wlan0-not-ready", helper)
+        self.assertIn("persistent_handoff.fast_wlan0=ready", helper)
+        self.assertLess(
+            helper.index("persistent_handoff.reason=fast-readiness-incomplete"),
+            helper.index("usleep(8000000)"),
+        )
+        self.assertIn("persistent_handoff_modem_holder_ready", helper)
+        self.assertIn("persistent_handoff_health_publish", helper)
+        self.assertIn("a90-wifi-companion-health-v1", helper)
+        self.assertIn(
+            '#define A90_PERSISTENT_HANDOFF_HEALTH_DIR "/cache/a90-wifi-handoff"',
+            helper,
+        )
+        self.assertIn(
+            'A90_PERSISTENT_HANDOFF_HEALTH_DIR "/companion"',
+            helper,
+        )
+        self.assertIn("--handoff-ready-output-path", helper)
+        self.assertIn("schema=a90-execns-persistent-handoff-ready-v1", helper)
+        self.assertIn("write_result_output_file(cfg->result_output_path", helper)
+        self.assertIn("#if !A90_WIFI_PERSISTENT_HANDOFF_V1", direct)
+        self.assertIn("unshare(CLONE_NEWNS)", wifi)
+        self.assertIn("MS_REC | MS_PRIVATE", wifi)
+        self.assertIn("poll(&pfd, 1, 2000)", wifi)
+        self.assertIn("/cache/a90-wifi-handoff", wifi)
+        self.assertIn(
+            'A90_WIFI_RUNTIME_ROOT "/handoff-status.tmp"',
+            wifi,
+        )
+        self.assertIn("wifi_reset_handoff_export", wifi)
+        self.assertNotIn(
+            '#define A90_WIFI_HANDOFF_ROOT "/cache/a90-wifi"',
+            wifi,
+        )
+        self.assertIn("d3_validate_wifi_handoff_members", server)
+        self.assertIn('strcmp(entry->d_name, "companion")', server)
+
+        manifest = MANIFEST.read_text(encoding="utf-8")
+        self.assertIn(
+            '"-DA90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_WAIT_MS=5000"',
+            manifest,
+        )
+        self.assertIn(
+            '"-DA90_WIFI_TEST_BOOT_POST_FW_READY_BOOT_WLAN_POLL_MS=50"',
+            manifest,
+        )
+        self.assertIn("wifi_handoff_bind=unexpected-member", server)
 
     def test_superseded_h9_manifest_keeps_its_original_identity(self) -> None:
         manifest = H9_MANIFEST.read_text(encoding="utf-8")

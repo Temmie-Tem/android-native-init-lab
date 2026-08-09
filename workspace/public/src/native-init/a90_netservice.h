@@ -30,6 +30,7 @@ bool a90_netservice_enabled(void);
 int a90_netservice_set_enabled(bool enabled);
 int a90_netservice_token(char *out, size_t out_size);
 int a90_netservice_rotate_token(char *out, size_t out_size);
+int a90_netservice_prepare_handoff(void);
 int a90_netservice_start(void);
 int a90_netservice_stop(void);
 void a90_netservice_reap(void);

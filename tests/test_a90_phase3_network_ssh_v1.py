@@ -18,6 +18,8 @@ builder = importlib.import_module("prepare_phase3_network_ssh_v1_rootfs")
 PROFILE_DIR = SERVER_DISTRO / "phase3_network_ssh_v1"
 FIRSTBOOT = PROFILE_DIR / "a90_debian_return_arm_v1.sh"
 SERVICE = PROFILE_DIR / "a90_debian_network_ssh_v1.sh"
+WIFI_HANDOFF = PROFILE_DIR / "a90_debian_wifi_handoff_v1.sh"
+RESOLVER_MOUNTPOINT = PROFILE_DIR / "resolv.conf.mountpoint"
 INITTAB = PROFILE_DIR / "inittab"
 STAGE = PROFILE_DIR / "a90-server-distro-stage"
 
@@ -42,6 +44,8 @@ class A90Phase3NetworkSshV1Tests(unittest.TestCase):
         expected = {
             "firstboot",
             "service",
+            "wifi_handoff",
+            "resolver_mountpoint",
             "inittab",
             "stage",
             "builder",
@@ -121,8 +125,30 @@ class A90Phase3NetworkSshV1Tests(unittest.TestCase):
             with self.subTest(mutation=mutation[:80]):
                 self.assertTrue(builder.validate_service(mutation))
 
+    def test_wifi_handoff_is_bounded_observation_not_control(self) -> None:
+        source = WIFI_HANDOFF.read_text(encoding="utf-8")
+        self.assertEqual(builder.validate_wifi_handoff(source), ())
+        self.assertIn("COMPANION=$BRIDGE/companion", source)
+        self.assertIn("companion-health-not-advancing", source)
+        self.assertIn("companion_health=1", source)
+        mutations = (
+            source.replace('while [ "$poll" -lt "$MAX_POLLS" ]', "while true", 1),
+            source.replace("MAX_POLLS=90", "MAX_POLLS=", 1),
+            source.replace("decision=wifi-autoconnect-pass", "decision=unchecked", 1),
+            source.replace("remount,bind,ro,nosuid,nodev,noexec", "remount,bind,rw", 1),
+            source + "\nwpa_supplicant -iwlan0\n",
+            source + "\nudhcpc -i wlan0\n",
+        )
+        for mutation in mutations:
+            with self.subTest(mutation=mutation[:80]):
+                self.assertTrue(builder.validate_wifi_handoff(mutation))
+        self.assertEqual(
+            RESOLVER_MOUNTPOINT.read_text(encoding="utf-8"),
+            "# populated from the native DHCP handoff at boot\n",
+        )
+
     def test_shell_sources_parse_with_dash(self) -> None:
-        for path in (FIRSTBOOT, SERVICE):
+        for path in (FIRSTBOOT, SERVICE, WIFI_HANDOFF):
             with self.subTest(path=path.name):
                 result = subprocess.run(
                     ["/bin/sh", "-n", str(path)],

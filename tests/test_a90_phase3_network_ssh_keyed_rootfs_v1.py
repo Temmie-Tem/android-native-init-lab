@@ -62,7 +62,7 @@ class A90Phase3NetworkSshKeyedRootfsV1Tests(unittest.TestCase):
             with self.subTest(value=invalid):
                 self.assertIsNone(keyer.PUBLIC_KEY_RE.fullmatch(invalid))
 
-    def test_copy_is_new_inode_no_reflink_and_refuses_existing(self) -> None:
+    def test_copy_is_new_inode_cow_capable_and_refuses_existing(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source = root / "source.img"
@@ -135,7 +135,7 @@ class A90Phase3NetworkSshKeyedRootfsV1Tests(unittest.TestCase):
                 "if False:",
                 1,
             ),
-            source.replace("--reflink=never", "--reflink=auto", 1),
+            source.replace("--reflink=auto", "--reflink=never", 1),
             source.replace(
                 'if output.exists() or output.is_symlink():',
                 "if False:",

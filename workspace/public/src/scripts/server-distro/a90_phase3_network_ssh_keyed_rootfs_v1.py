@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Materialize one fresh observer-keyed A90 Phase 3 network/SSH rootfs.
 
-The input is the exact independently reviewed deterministic ab-05 ext4 image.
+The input is the exact deterministic H12 A/B ext4 image.
 The output is one new-inode private copy containing exactly one fresh per-run
 SSH public key.  This host-only tool cannot contact a device, stage a rootfs,
 flash, reboot, or grant candidate, D1, or F1 authority.  A failed run directory
@@ -36,23 +36,23 @@ PRIVATE_ROOT = REPO_ROOT / "workspace/private"
 PRIVATE_RUN_BASE = PRIVATE_ROOT / "runs/server-distro"
 CLEAN_ROOT = (
     PRIVATE_ROOT
-    / "outputs/server-distro/a90-phase3-network-ssh-v1-ab-07-20260807"
+    / "outputs/server-distro/a90-phase3-network-ssh-v1-h12-ab-04-20260810"
 )
 CLEAN_IMAGE = CLEAN_ROOT / "A/phase3-network-ssh-v1.img"
 CLEAN_RECEIPT = CLEAN_ROOT / "ab-receipt.json"
 CLEAN_IMAGE_SHA256 = (
-    "481a899e8946ff65729f717a0acb5200474a8efe454ced1437426de7bf6b44ab"
+    "7e1abe5049e413f145733bf7e3781162aa25528e6da500779d788a705461f3de"
 )
 CLEAN_RECEIPT_SHA256 = (
-    "64c13cb2b940a26529461a7050295035b6db6958956a47e6a232ef40d7f799c0"
+    "16ac4b0a11906616af1eb2b47f03609fa8390351e8cee8354a5547ecf1da24ed"
 )
 PHASE3_MANIFEST = SCRIPT_DIR / "phase3_network_ssh_v1/manifest.toml"
 PHASE3_MANIFEST_SHA256 = (
-    "b6a8eec9e0c5783c66c2ad777edbe3e67923edd5115560358ce55dfa2fbeef91"
+    "125d802abf51cda20b8427090bb89761c8ffd7818655318590586f9a3f826ead"
 )
 PHASE3_BUILDER = SCRIPT_DIR / "prepare_phase3_network_ssh_v1_rootfs.py"
 PHASE3_BUILDER_SHA256 = (
-    "3c15440d30e5cd14f320c6a1bc0d1639e89b0d878a8970284b5eb7bb58f87166"
+    "75272618da295bdafdaa823f70dd9d660c29a866a0431cbc6e849afb3115df09"
 )
 PHASE2_BUILDER = SCRIPT_DIR / "prepare_phase2_display_v1_rootfs.py"
 PHASE2_BUILDER_SHA256 = (
@@ -60,7 +60,15 @@ PHASE2_BUILDER_SHA256 = (
 )
 SERVICE_TARGET = "/usr/local/sbin/a90-debian-network-ssh-v1"
 SERVICE_SHA256 = (
-    "288c2f752418eab7890974d40ad9ba745c1f26cfbfa6f644454a1b50ba04c57a"
+    "02b3623091c21c272e19a630c6bc8b6949ffaacf60770577185161b7ffa283f8"
+)
+WIFI_HANDOFF_TARGET = "/usr/local/sbin/a90-debian-wifi-handoff-v1"
+WIFI_HANDOFF_SHA256 = (
+    "4b1f7320b6b09080635a0ce3616fae860d74a1e9b8bee13f64a8deeed55b27f9"
+)
+RESOLVER_MOUNTPOINT_TARGET = "/etc/resolv.conf"
+RESOLVER_MOUNTPOINT_SHA256 = (
+    "7852755aff8cef07e89cb0411a0410f75eb583b96bee8a13e44a4a48b22b5d90"
 )
 FIRSTBOOT_TARGET = "/etc/a90-d3-firstboot"
 FIRSTBOOT_SHA256 = (
@@ -89,6 +97,8 @@ ABSENT_RUNTIME_PATHS = (
     "/run/a90-display/failure",
     "/run/a90-display/presenter.log",
     "/run/a90-display/launcher.pid",
+    "/run/a90-wifi/ready",
+    "/run/a90-wifi/failure",
 )
 SCHEMA = "a90-phase3-network-ssh-keyed-rootfs-v1"
 PASS_DECISION = "A90_PHASE3_NETWORK_SSH_KEYED_ROOTFS_HOST_PASS"
@@ -145,11 +155,21 @@ def read_ext4_label(image: Path) -> str:
     return phase3.read_ext4_label(image)
 
 
-def require_image_content(image: Path, target: str, expected_sha256: str) -> None:
+def require_image_content(
+    image: Path,
+    target: str,
+    expected_sha256: str,
+    *,
+    expected_mode: int = 0o755,
+) -> None:
     metadata = phase3.phase2.debugfs_stat(image, target)
     if metadata is None:
         raise ContractError(f"clean image lacks {target}")
-    if (metadata["mode"], metadata["uid"], metadata["gid"]) != (0o755, 0, 0):
+    if (metadata["mode"], metadata["uid"], metadata["gid"]) != (
+        expected_mode,
+        0,
+        0,
+    ):
         raise ContractError(f"clean image metadata changed for {target}")
     actual = hashlib.sha256(
         phase3.phase2.debugfs_cat(image, target)
@@ -196,6 +216,10 @@ def audit_clean_base() -> dict[str, Any]:
         or receipt.get("source_sha256", {}).get("phase2_builder")
         != PHASE2_BUILDER_SHA256
         or receipt.get("source_sha256", {}).get("service") != SERVICE_SHA256
+        or receipt.get("source_sha256", {}).get("wifi_handoff")
+        != WIFI_HANDOFF_SHA256
+        or receipt.get("source_sha256", {}).get("resolver_mountpoint")
+        != RESOLVER_MOUNTPOINT_SHA256
         or receipt.get("A", {}).get("image", {}).get("sha256")
         != CLEAN_IMAGE_SHA256
         or receipt.get("B", {}).get("image", {}).get("sha256")
@@ -213,6 +237,17 @@ def audit_clean_base() -> dict[str, Any]:
     if root_ssh != {"mode": 0o700, "uid": 0, "gid": 0, "size": 4096}:
         raise ContractError("clean root SSH directory metadata mismatch")
     require_image_content(CLEAN_IMAGE, SERVICE_TARGET, SERVICE_SHA256)
+    require_image_content(
+        CLEAN_IMAGE,
+        WIFI_HANDOFF_TARGET,
+        WIFI_HANDOFF_SHA256,
+    )
+    require_image_content(
+        CLEAN_IMAGE,
+        RESOLVER_MOUNTPOINT_TARGET,
+        RESOLVER_MOUNTPOINT_SHA256,
+        expected_mode=0o644,
+    )
     require_image_content(CLEAN_IMAGE, FIRSTBOOT_TARGET, FIRSTBOOT_SHA256)
     for target in (AUTHORIZED_KEYS, *ABSENT_RUNTIME_PATHS):
         if not debugfs_path_absent(CLEAN_IMAGE, target):
@@ -310,7 +345,7 @@ def copy_clean_image(base: dict[str, Any], run_dir: Path) -> Path:
     run(
         [
             "cp",
-            "--reflink=never",
+            "--reflink=auto",
             "--sparse=always",
             "--preserve=mode",
             str(base["image"]),
@@ -417,6 +452,13 @@ def validate_keyed_image(
     if read_ext4_label(image) != FILESYSTEM_LABEL:
         raise ContractError("keying changed the ext4 label")
     require_image_content(image, SERVICE_TARGET, SERVICE_SHA256)
+    require_image_content(image, WIFI_HANDOFF_TARGET, WIFI_HANDOFF_SHA256)
+    require_image_content(
+        image,
+        RESOLVER_MOUNTPOINT_TARGET,
+        RESOLVER_MOUNTPOINT_SHA256,
+        expected_mode=0o644,
+    )
     require_image_content(image, FIRSTBOOT_TARGET, FIRSTBOOT_SHA256)
     for target in ABSENT_RUNTIME_PATHS:
         if not debugfs_path_absent(image, target):
@@ -444,6 +486,8 @@ def validate_keyed_image(
         "filesystem_label": FILESYSTEM_LABEL,
         "authorized_keys": record_for_authorized_key(auth, public_sha),
         "retained_service_sha256": SERVICE_SHA256,
+        "retained_wifi_handoff_sha256": WIFI_HANDOFF_SHA256,
+        "retained_resolver_mountpoint_sha256": RESOLVER_MOUNTPOINT_SHA256,
         "retained_firstboot_sha256": FIRSTBOOT_SHA256,
         "e2fsck_read_only_rc": fsck.returncode,
         "runtime_paths_absent": list(ABSENT_RUNTIME_PATHS),
@@ -489,7 +533,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         '"-N",\n            "",\n            "-C",\n            "",',
         "if private_info.st_mode & 0o777 != 0o600:",
         "if PUBLIC_KEY_RE.fullmatch(public_bytes) is None:",
-        '"cp",\n            "--reflink=never",\n            "--sparse=always"',
+        '"cp",\n            "--reflink=auto",\n            "--sparse=always"',
         'if output.exists() or output.is_symlink():',
         'raise ContractError("keyed image path is not absent")',
         "private_key.exists()\n        or private_key.is_symlink()",
@@ -514,7 +558,7 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         if token not in subject:
             issues.append(f"keying source contract missing: {token!r}")
     for forbidden in (
-        "--reflink=auto",
+        "--reflink=never",
         "adb ",
         "fastboot",
         "native_init_flash",

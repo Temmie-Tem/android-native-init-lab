@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include "a90_wifi.h"
 
 #include <arpa/inet.h>
@@ -10,6 +12,7 @@
 #include <linux/netlink.h>
 #include <linux/nl80211.h>
 #include <linux/rtnetlink.h>
+#include <limits.h>
 #include <net/if.h>
 #include <poll.h>
 #include <stdarg.h>
@@ -19,12 +22,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <sched.h>
 #include <stddef.h>
 #include <sys/ioctl.h>
+#include <sys/mount.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/un.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "a90_console.h"
@@ -75,6 +81,11 @@
 #define A90_WIFI_AUTOCONNECT_LOG "/cache/a90-wifi/autoconnect.log"
 #define A90_WIFI_AUTOCONNECT_RESULT "/cache/a90-wifi/autoconnect.result"
 #define A90_WIFI_AUTOCONNECT_PID "/cache/a90-wifi/autoconnect.pid"
+#define A90_WIFI_HANDOFF_ROOT "/cache/a90-wifi-handoff"
+#define A90_WIFI_HANDOFF_RESOLV A90_WIFI_HANDOFF_ROOT "/resolv.conf"
+#define A90_WIFI_HANDOFF_RESOLV_TMP A90_WIFI_RUNTIME_ROOT "/handoff-resolv.conf.tmp"
+#define A90_WIFI_HANDOFF_STATUS A90_WIFI_HANDOFF_ROOT "/status"
+#define A90_WIFI_HANDOFF_STATUS_TMP A90_WIFI_RUNTIME_ROOT "/handoff-status.tmp"
 #define A90_WIFI_SCAN_RECV_SIZE 65536
 #define A90_WIFI_SCAN_VERSION "a90-native-wifi-scan-v1"
 #define A90_WIFI_CONNECT_VERSION "a90-native-wifi-connect-v1"
@@ -143,6 +154,9 @@
 #define A90_WIFI_SERVICE_MAX_REQUEST 1024
 #define A90_WIFI_SERVICE_DEFAULT_SCAN_DELAY_MS 5000
 #define A90_WIFI_SERVICE_DEFAULT_LIFETIME_MS 120000
+
+static bool wifi_carrier_up(void);
+static bool wifi_default_route_present(void);
 #define A90_WIFI_SERVICE_MAX_LIFETIME_MS 600000
 #define A90_WIFI_SERVICE_DEFAULT_POLL_MS 250
 #define A90_WIFI_SERVICE_MIN_POLL_MS 50
@@ -472,6 +486,163 @@ static int wifi_write_text_file(const char *path, const char *text, mode_t mode)
         rc = -errno;
     }
     return rc;
+}
+
+static int wifi_fsync_parent_dir(const char *path) {
+    char parent[PATH_MAX];
+    char *slash;
+    int fd;
+    int rc = 0;
+
+    if (path == NULL || strlen(path) >= sizeof(parent)) {
+        return -EINVAL;
+    }
+    memcpy(parent, path, strlen(path) + 1);
+    slash = strrchr(parent, '/');
+    if (slash == NULL || slash == parent) {
+        return -EINVAL;
+    }
+    *slash = '\0';
+    fd = open(parent, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return -errno;
+    }
+    if (fsync(fd) < 0) {
+        rc = -errno;
+    }
+    if (close(fd) < 0 && rc == 0) {
+        rc = -errno;
+    }
+    return rc;
+}
+
+static int wifi_write_handoff_atomic(const char *tmp_path,
+                                     const char *path,
+                                     const char *text,
+                                     size_t text_len) {
+    int fd;
+    int rc;
+
+    if (tmp_path == NULL || path == NULL || text == NULL) {
+        return -EINVAL;
+    }
+    (void)unlink(tmp_path);
+    fd = open(tmp_path,
+              O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
+              0600);
+    if (fd < 0) {
+        return -errno;
+    }
+    rc = write_all_checked(fd, text, text_len);
+    if (rc == 0 && fchown(fd, 0, 0) < 0) {
+        rc = -errno;
+    }
+    if (rc == 0 && fchmod(fd, 0600) < 0) {
+        rc = -errno;
+    }
+    if (rc == 0 && fsync(fd) < 0) {
+        rc = -errno;
+    }
+    if (close(fd) < 0 && rc == 0) {
+        rc = -errno;
+    }
+    if (rc == 0 && rename(tmp_path, path) < 0) {
+        rc = -errno;
+    }
+    if (rc == 0) {
+        rc = wifi_fsync_parent_dir(path);
+    }
+    if (rc < 0) {
+        (void)unlink(tmp_path);
+    }
+    return rc;
+}
+
+static int wifi_publish_handoff_state(const char *decision, int final_rc) {
+    char status[512];
+    char resolv[4096];
+    struct stat st;
+    ssize_t nread;
+    int carrier_up = wifi_carrier_up() ? 1 : 0;
+    int default_route = wifi_default_route_present() ? 1 : 0;
+    int resolv_present = 0;
+    int status_len;
+    int fd;
+    int rc;
+
+    rc = wifi_prepare_dir_owned(A90_WIFI_HANDOFF_ROOT, 0700, 0, 0);
+    if (rc < 0) {
+        return rc;
+    }
+    fd = open(A90_WIFI_RESOLV_CONF, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd >= 0) {
+        if (fstat(fd, &st) == 0 && S_ISREG(st.st_mode) && st.st_size > 0 &&
+            st.st_size < (off_t)sizeof(resolv)) {
+            nread = read(fd, resolv, sizeof(resolv));
+            if (nread == st.st_size &&
+                wifi_write_handoff_atomic(A90_WIFI_HANDOFF_RESOLV_TMP,
+                                          A90_WIFI_HANDOFF_RESOLV,
+                                          resolv,
+                                          (size_t)nread) == 0) {
+                resolv_present = 1;
+            }
+        }
+        (void)close(fd);
+    }
+    if (!resolv_present) {
+        (void)unlink(A90_WIFI_HANDOFF_RESOLV_TMP);
+        (void)unlink(A90_WIFI_HANDOFF_RESOLV);
+    }
+    status_len = snprintf(status,
+                          sizeof(status),
+                          "schema=a90-native-wifi-handoff-v1\n"
+                          "decision=%s\n"
+                          "final_rc=%d\n"
+                          "carrier_up=%d\n"
+                          "default_route_present=%d\n"
+                          "resolv_conf_present=%d\n"
+                          "secret_values_logged=0\n",
+                          decision != NULL ? decision : "wifi-autoconnect-unknown",
+                          final_rc,
+                          carrier_up,
+                          default_route,
+                          resolv_present);
+    if (status_len < 0 || (size_t)status_len >= sizeof(status)) {
+        return -ENOSPC;
+    }
+    return wifi_write_handoff_atomic(A90_WIFI_HANDOFF_STATUS_TMP,
+                                     A90_WIFI_HANDOFF_STATUS,
+                                     status,
+                                     (size_t)status_len);
+}
+
+static int wifi_reset_handoff_export(void) {
+    static const char *const paths[] = {
+        A90_WIFI_HANDOFF_STATUS,
+        A90_WIFI_HANDOFF_RESOLV,
+        A90_WIFI_HANDOFF_STATUS_TMP,
+        A90_WIFI_HANDOFF_RESOLV_TMP,
+    };
+    int rc;
+
+    rc = wifi_prepare_dir_owned(A90_WIFI_RUNTIME_ROOT, 0755, 0, 0);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = wifi_prepare_dir_owned(A90_WIFI_HANDOFF_ROOT, 0700, 0, 0);
+    if (rc < 0) {
+        return rc;
+    }
+    for (size_t i = 0; i < sizeof(paths) / sizeof(paths[0]); i++) {
+        if (unlink(paths[i]) < 0 && errno != ENOENT) {
+            return -errno;
+        }
+    }
+    rc = wifi_fsync_parent_dir(A90_WIFI_HANDOFF_STATUS);
+    if (rc < 0) {
+        return rc;
+    }
+    return wifi_fsync_parent_dir(A90_WIFI_HANDOFF_STATUS_TMP);
 }
 
 static void wifi_append_text_file(const char *path, const char *format, ...) {
@@ -4418,6 +4589,7 @@ static void wifi_write_autoconnect_inactive_state(const char *decision,
     wifi_reset_autoconnect_log(profile, boot_background);
     (void)wifi_write_autoconnect_result(selected_decision, profile, 0, 0, final_rc);
     (void)wifi_write_runtime_summary(selected_decision);
+    (void)wifi_publish_handoff_state(selected_decision, final_rc);
 }
 
 static int wifi_autoconnect_recover_scan_state(int failed_scan_rc,
@@ -4533,6 +4705,7 @@ static int wifi_run_autoconnect_sequence(const char *profile_name, bool boot_bac
     if (config_rc < 0) {
         (void)wifi_write_autoconnect_result(config.decision, selected_profile, config_rc, 0, config_rc);
         (void)wifi_write_runtime_summary(config.decision);
+        (void)wifi_publish_handoff_state(config.decision, config_rc);
         if (!boot_background) {
             a90_console_printf("decision=%s\r\n", config.decision);
         }
@@ -4545,6 +4718,8 @@ static int wifi_run_autoconnect_sequence(const char *profile_name, bool boot_bac
                                             0,
                                             -EACCES);
         (void)wifi_write_runtime_summary("wifi-autoconnect-external-ping-blocked");
+        (void)wifi_publish_handoff_state("wifi-autoconnect-external-ping-blocked",
+                                         -EACCES);
         if (!boot_background) {
             a90_console_printf("decision=wifi-autoconnect-external-ping-blocked\r\n");
         }
@@ -4575,6 +4750,8 @@ static int wifi_run_autoconnect_sequence(const char *profile_name, bool boot_bac
                                                 0,
                                                 -ETIMEDOUT);
             (void)wifi_write_runtime_summary("wifi-autoconnect-wlan0-timeout");
+            (void)wifi_publish_handoff_state("wifi-autoconnect-wlan0-timeout",
+                                             -ETIMEDOUT);
             if (!boot_background) {
                 a90_console_printf("autoconnect.wlan0_wait_timeout_ms=%d\r\n",
                                    A90_WIFI_CONNECT_WLAN0_WAIT_MS);
@@ -4638,6 +4815,8 @@ static int wifi_run_autoconnect_sequence(const char *profile_name, bool boot_bac
                                                     0,
                                                     scan_rc);
                 (void)wifi_write_runtime_summary("wifi-autoconnect-scan-failed");
+                (void)wifi_publish_handoff_state("wifi-autoconnect-scan-failed",
+                                                 scan_rc);
                 if (!boot_background) {
                     a90_console_printf("decision=wifi-autoconnect-scan-failed\r\n");
                 }
@@ -4664,6 +4843,8 @@ static int wifi_run_autoconnect_sequence(const char *profile_name, bool boot_bac
                                             0,
                                             connect_rc);
         (void)wifi_write_runtime_summary("wifi-autoconnect-connect-failed");
+        (void)wifi_publish_handoff_state("wifi-autoconnect-connect-failed",
+                                         connect_rc);
         if (!boot_background) {
             a90_console_printf("decision=wifi-autoconnect-connect-failed\r\n");
         }
@@ -4680,6 +4861,8 @@ static int wifi_run_autoconnect_sequence(const char *profile_name, bool boot_bac
                                         dhcp_rc,
                                         final_rc);
     (void)wifi_write_runtime_summary(final_rc == 0 ? "wifi-autoconnect-pass" : "wifi-autoconnect-dhcp-failed");
+    (void)wifi_publish_handoff_state(final_rc == 0 ? "wifi-autoconnect-pass" : "wifi-autoconnect-dhcp-failed",
+                                     final_rc);
     if (!boot_background) {
         a90_console_printf("autoconnect.connect_rc=%d\r\n", connect_rc);
         a90_console_printf("autoconnect.dhcp_rc=%d\r\n", dhcp_rc);
@@ -4733,8 +4916,17 @@ int a90_wifi_start_boot_autoconnect_once(void) {
     struct a90_wificfg_autoconnect config;
     char pid_text[64];
     int config_rc;
+    int reset_rc;
     pid_t pid;
+#if A90_WIFI_AUTOCONNECT_PRIVATE_MOUNT_NS
+    int ready_pipe[2] = {-1, -1};
+#endif
 
+    reset_rc = wifi_reset_handoff_export();
+    if (reset_rc < 0) {
+        a90_logf("wifi", "boot autoconnect handoff reset failed rc=%d", reset_rc);
+        return reset_rc;
+    }
     config_rc = a90_wificfg_get_autoconnect(&config, NULL);
     if (config_rc < 0) {
         wifi_write_autoconnect_inactive_state(config.decision,
@@ -4756,30 +4948,90 @@ int a90_wifi_start_boot_autoconnect_once(void) {
     if (wifi_prepare_runtime_dirs() < 0) {
         return negative_errno_or(EIO);
     }
+#if A90_WIFI_AUTOCONNECT_PRIVATE_MOUNT_NS
+    if (pipe2(ready_pipe, O_CLOEXEC) < 0) {
+        return -errno;
+    }
+#endif
     pid = fork();
     if (pid < 0) {
         int saved_errno = errno;
+
+#if A90_WIFI_AUTOCONNECT_PRIVATE_MOUNT_NS
+        close(ready_pipe[0]);
+        close(ready_pipe[1]);
+#endif
 
         (void)wifi_write_autoconnect_result("wifi-autoconnect-fork-failed",
                                             config.profile,
                                             -saved_errno,
                                             0,
                                             -saved_errno);
+        (void)wifi_publish_handoff_state("wifi-autoconnect-fork-failed",
+                                         -saved_errno);
         return -saved_errno;
     }
     if (pid == 0) {
         int rc;
 
+#if A90_WIFI_AUTOCONNECT_PRIVATE_MOUNT_NS
+        int namespace_rc = 0;
+
+        close(ready_pipe[0]);
+        if (unshare(CLONE_NEWNS) < 0 ||
+            mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) < 0) {
+            namespace_rc = -errno;
+        }
+        if (write_all_checked(ready_pipe[1],
+                              (const char *)&namespace_rc,
+                              sizeof(namespace_rc)) < 0) {
+            close(ready_pipe[1]);
+            _exit(1);
+        }
+        close(ready_pipe[1]);
+        if (namespace_rc < 0) {
+            (void)wifi_publish_handoff_state("wifi-autoconnect-namespace-failed",
+                                             namespace_rc);
+            _exit(1);
+        }
+#endif
         a90_console_silence_child();
         (void)setsid();
         rc = wifi_run_autoconnect_sequence(config.profile, true);
         _exit(rc == 0 ? 0 : 1);
     }
 
+#if A90_WIFI_AUTOCONNECT_PRIVATE_MOUNT_NS
+    {
+        struct pollfd pfd;
+        int namespace_rc = -ETIMEDOUT;
+        ssize_t got;
+
+        close(ready_pipe[1]);
+        memset(&pfd, 0, sizeof(pfd));
+        pfd.fd = ready_pipe[0];
+        pfd.events = POLLIN | POLLHUP;
+        if (poll(&pfd, 1, 2000) > 0) {
+            got = read(ready_pipe[0], &namespace_rc, sizeof(namespace_rc));
+            if (got != (ssize_t)sizeof(namespace_rc)) {
+                namespace_rc = -EIO;
+            }
+        }
+        close(ready_pipe[0]);
+        if (namespace_rc < 0) {
+            (void)kill(pid, SIGKILL);
+            (void)waitpid(pid, NULL, 0);
+            (void)wifi_publish_handoff_state("wifi-autoconnect-namespace-failed",
+                                             namespace_rc);
+            return namespace_rc;
+        }
+    }
+#endif
+
     snprintf(pid_text, sizeof(pid_text), "%ld\n", (long)pid);
     (void)wifi_write_text_file(A90_WIFI_AUTOCONNECT_PID, pid_text, 0600);
     a90_logf("wifi", "boot autoconnect started pid=%ld profile=%s", (long)pid, config.profile);
-    return 0;
+    return 1;
 }
 
 static int wifi_parse_delay_ms_max(const char *text, int *delay_ms, long max_ms) {

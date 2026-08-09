@@ -17,6 +17,8 @@ HOST_KEY=/etc/dropbear/dropbear_ed25519_host_key
 DROPBEAR_PIDFILE=/run/a90-d3-dropbear.pid
 DROPBEAR_LOG=/run/a90-d3-dropbear.log
 DROPBEARKEY_LOG=/run/a90-d3-dropbearkey.log
+WIFI_HANDOFF=/usr/local/sbin/a90-debian-wifi-handoff-v1
+WIFI_HANDOFF_LOG=/run/a90-wifi-handoff.log
 TIMEOUT=/usr/bin/timeout
 IP=/usr/bin/ip
 SS=/usr/bin/ss
@@ -254,6 +256,16 @@ drm_card0() {
     if [ -c /dev/dri/card0 ]; then echo char; else echo absent; fi
 }
 
+wifi_companion_health() {
+    if [ -r /run/a90-wifi/ready ] &&
+       grep -qx 'companion_health=1' /run/a90-wifi/ready 2>/dev/null &&
+       grep -qx 'companion_sequence_advanced=1' /run/a90-wifi/ready 2>/dev/null; then
+        echo 1
+    else
+        echo 0
+    fi
+}
+
 PID1_COMM=$(read_or_na /proc/1/comm)
 PROC1_EXE=$(readlink /proc/1/exe 2>/dev/null | tr -d '\r\n\t ')
 [ -n "$PROC1_EXE" ] || PROC1_EXE=na
@@ -269,6 +281,9 @@ LINE="$LINE drm_master=$(exists_flag /run/a90-display/ready)"
 LINE="$LINE dropbear=$(dropbear_listening)"
 LINE="$LINE display_ready=$(exists_flag /run/a90-display/ready)"
 LINE="$LINE display_failure=$(exists_flag /run/a90-display/failure)"
+LINE="$LINE wifi_ready=$(exists_flag /run/a90-wifi/ready)"
+LINE="$LINE wifi_failure=$(exists_flag /run/a90-wifi/failure)"
+LINE="$LINE wifi_companion=$(wifi_companion_health)"
 
 mkdir -p "$(dirname "$RECORD")" 2>/dev/null || true
 # One append, one line, then sync. A truncated tail from power loss is a
@@ -320,6 +335,12 @@ record debian_sshd
 
 wait_for_any 90 /run/a90-display/ready /run/a90-display/failure || true
 record debian_drm_master
+
+# H12 starts the Wi-Fi observer in parallel from the network/SSH service. It
+# is deliberately stamped after DRM so the established PID1-to-display and
+# PID1-to-SSH measurements do not inherit Wi-Fi association latency.
+wait_for_any 100 /run/a90-wifi/ready /run/a90-wifi/failure || true
+record debian_wifi
 
 exit 0
 A90_ONDEV_EOF
@@ -483,5 +504,9 @@ esac
 } > "$READY_TMP"
 mv "$READY_TMP" "$READY"
 rm -f "$FAILURE" "$FAILURE_TMP"
+
+if [ -x "$WIFI_HANDOFF" ]; then
+  "$WIFI_HANDOFF" >>"$WIFI_HANDOFF_LOG" 2>&1 &
+fi
 
 exit 0

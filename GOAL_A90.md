@@ -63,9 +63,13 @@ The pre-H2 goal history is preserved at
   with pstore empty, exact source and receipt, absent work, cleanup dispatch
   zero, payload/partition/flash zero, and result SHA256
   `82b42da6f9a2dd9f892ec2085f280411054fff675a62f4ecb10d6cea41d82950`.
-  The speed and visible-display claim is proved, but full personal-server
-  readiness is not: the next bounded unit is H0 diagnosis of the direct path's
-  missing Debian NCM/Dropbear readiness before designing one fresh D1 ordinal.
+  The speed and visible-display claim is proved, but H11 did not prove full
+  personal-server readiness. H12 `0.11.180` now has host-only independent
+  `PASS_GO` for direct Debian boot with Debian-owned NCM/Dropbear/DRM and a
+  minimal native Wi-Fi companion in a private mount namespace, shared network
+  namespace, redacted read-only export, and durable heartbeat. Deterministic
+  run07 rootfs and boot artifacts are exact, but H11 remains installed: H12
+  grants no live authority and still needs fresh exact D0 and live binding.
 - H10 resident install and D1 run `a90-d1-attended-20260810-02` are terminal.
   The exact no-rearm continuation dispatched one reboot, completed all 15
   handoff stages, returned exact H10 health, and closed

@@ -1,0 +1,104 @@
+{
+  "capability": "A90_PHASE3_MINIMAL_H12_DIRECT_MIN_NETWORK_WIFI",
+  "decision": "No unresolved HIGH, MEDIUM, or LOW finding. H12 preserves the direct Debian handoff and native fallback while carrying a minimal native Wi-Fi control plane across switch_root through a private mount namespace, shared network namespace, redacted read-only export, and advancing companion heartbeat.",
+  "device_authority_granted": false,
+  "findings": {
+    "high": 0,
+    "low": 0,
+    "medium": 0,
+    "resolved_before_final_review": [
+      "Moved helper readiness after exact child, modem-holder, and wlan0 qualification and added a durable advancing heartbeat that disappears on failure.",
+      "Restricted the Debian Wi-Fi export to status, resolv.conf, and companion regular files with exact metadata, size, and read-only mount checks.",
+      "Moved the fast companion path ahead of legacy diagnostics, guarded duplicate modem ownership, and retained complete no-replay native fallback.",
+      "Made the H12 benchmark prelude exact and required durable Wi-Fi ready, no-failure, and live-companion evidence.",
+      "Rebuilt and rebound the final run07 rootfs and deterministic H12 A/B boot after the Wi-Fi evidence wait changed to 100 seconds.",
+      "Updated the A90 F1 full-file CDC guard pin after the independently committed common guard changed, eliminating the deterministic host pre-session failure."
+    ]
+  },
+  "named_execution_critical_closure": {
+    "common_cdc_guard_sha256": "764d9852824d88f182983dd85efd2c7ec09531e3be23213ab7daea091675e2b6",
+    "common_cdc_guard_size": 51508,
+    "effective_manifest_sha256": "abf6d91b519a10f8a9a15607fa47de6358e8a00b8f5399d5ccedd1d3e3505ec1",
+    "f1_orchestrator_sha256": "075e876e3e7ce3c3de94601c4a9b6dbc5651c446946816a29821334a5d6c8cc9",
+    "h12_manifest_sha256": "d5d8d4a8eb930828b6258f1b1f27ce241ef8d6369eb7e12b8da80da76716d9bf",
+    "helper_source_sha256": "4e68735fa2acc06fa4c101d8dbab6380d7785c4d9c7edfe47448ab26031b57e2",
+    "native_init_closure_sha256": "40aed6c03557a71ded1038a9ea503782598b45bfb4556e35e3c08942ba803e8a",
+    "server_distro": {
+      "absent_only_staging_sha256": "a6de60e25b1585310549a9e7393764b2ce8d8d141e6d930f3d0e01ecbe9e4e9c",
+      "benchmark_execution_closure": {
+        "benchmark_parser_sha256": "dc8dc57697660ebae57516679d7a2bac97a22e640ae89c5efb808f9861806ce7",
+        "closure_sha256": "cbcef984268b5d9174c8ebad24f2e660e1ad42ccb700290f7983f24e57cc0089",
+        "ondevice_evaluator_sha256": "f57d7612c915d46b4190ab208f7b6320099576dc440c0999c6328fd756d11e2c",
+        "resident_f1_loader_sha256": "075e876e3e7ce3c3de94601c4a9b6dbc5651c446946816a29821334a5d6c8cc9",
+        "resident_manifest_loader_sha256": "309d688ed46d128866c9ad3ea88c7cd19f6d27ab1daa0f9a92167b81f6aebd0f",
+        "runner_sha256": "35c319006ad47718af16bb6060743e9a0cd4e2339072841c26d6368a93da3db4"
+      },
+      "benchmark_runner_sha256": "35c319006ad47718af16bb6060743e9a0cd4e2339072841c26d6368a93da3db4",
+      "inherited_transition_d1_source_paths": "The existing exact 17-role SOURCE_PATHS runtime manifest binding remains in force and unchanged; H12 does not reduce or replace it.",
+      "keyed_rootfs_sha256": "178b038eecc220e393e6d40718fe56e882cee55978f6228ee25cc1bbd3fb2f53",
+      "ondevice_evidence_sha256": "f57d7612c915d46b4190ab208f7b6320099576dc440c0999c6328fd756d11e2c",
+      "phase3_observer_sha256": "fccb10170583ea3c1761cf33de7bcc40d2409c0e097af051b6585195876b1a78",
+      "phase2d_finalizer_sha256": "0a6ea3bada9f5b367810dc29903545648b4b7f480751ea74dde438bcea51d8e2",
+      "resident_manifest_builder_sha256": "d0a7f6309f37bbfc900e1757a63924f74226e9ff7a35ff7bee3966c0407e5d40",
+      "rootfs_builder_sha256": "75272618da295bdafdaa823f70dd9d660c29a866a0431cbc6e849afb3115df09",
+      "rootfs_profile_manifest_sha256": "125d802abf51cda20b8427090bb89761c8ffd7818655318590586f9a3f826ead",
+      "rootfs_service_sha256": "02b3623091c21c272e19a630c6bc8b6949ffaacf60770577185161b7ffa283f8",
+      "transition_d1_sha256": "309d688ed46d128866c9ad3ea88c7cd19f6d27ab1daa0f9a92167b81f6aebd0f",
+      "wifi_handoff_sha256": "4b1f7320b6b09080635a0ce3616fae860d74a1e9b8bee13f64a8deeed55b27f9"
+    }
+  },
+  "permanent_boundaries_unchanged": true,
+  "review_date": "2026-08-10",
+  "review_lifetime": {
+    "fresh_exact_d0_and_live_binding_required": true,
+    "live_authority_from_review": false,
+    "reuse": "PASS_GO qualifies this H12 capability only while every named execution-critical identity and reviewed hazard assumption remains unchanged and no new hazard or incident occurs."
+  },
+  "reviewed_properties": {
+    "candidate_authority_false": true,
+    "complete_native_fallback_on_return": true,
+    "debian_owns_ncm_dropbear_and_drm": true,
+    "direct_success_skips_hud": true,
+    "exact_h12_benchmark_prelude": true,
+    "minimal_native_wifi_control_plane": true,
+    "native_wifi_private_mount_namespace": true,
+    "network_namespace_shared": true,
+    "no_replay_and_health_barriers_preserved": true,
+    "redacted_three_file_export_read_only": true,
+    "s22plus_authority": false,
+    "wifi_companion_heartbeat_required": true
+  },
+  "reviewer": "independent subagent /root/a90_h7_closure_review",
+  "reviewer_device_contact": false,
+  "reviewer_implementation_edits": false,
+  "reviewer_network_contact": false,
+  "reviewer_private_artifact_contact": "Two accidental read-only private test audits occurred. They performed no write, device, USB, or network action and emitted no private value. Their results are excluded from the verdict.",
+  "reviewer_s22plus_contact": false,
+  "reviewer_usb_contact": false,
+  "schema": "a90-phase3-minimal-h12-independent-review-v1",
+  "scope": {
+    "candidate_authority": false,
+    "candidate_boot_sha256_supplied": "fecd7e58014d00a449a99939f31a9b674b0dc0c6143697142c097c79e33f8ccf",
+    "candidate_boot_size": 58372096,
+    "candidate_build": "phase3-minimal-h12-direct-min-network-wifi-auto-benchmark",
+    "candidate_version": "0.11.180",
+    "compiled_binding_sha256_supplied": "e7fd180187ad8f600bb07d80bb3889f7d85d59690f7a7123a307eb093afd31a1",
+    "deterministic_ab_receipt_sha256_supplied": "5fc52f63d4c2b8e794151dec34278b7b99acc0c8fefb6361f07260fff25c8d42",
+    "deterministic_ab_supplied": true,
+    "live_authority": false,
+    "rootfs_sha256_supplied": "edce00561a5526a27b7cb6017e0933b0b891093c812d2f8bb9d6944ec8a79765"
+  },
+  "status": "PASS_GO",
+  "target": "Samsung Galaxy A90 5G only",
+  "unresolved_findings": [],
+  "validation": {
+    "aarch64_static_link_strip": "PASS",
+    "deterministic_a_b_boot_byte_identical": "PASS",
+    "flat_builder_h12_host_only_audit": "PASS",
+    "git_diff_check": "PASS",
+    "main_public_tests_passed": 420,
+    "python_py_compile": "PASS",
+    "rootfs_a_b_byte_identical_and_read_only_fsck": "PASS",
+    "shell_syntax": "PASS"
+  }
+}

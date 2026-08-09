@@ -6283,6 +6283,7 @@ class DisplayObservationTests(unittest.TestCase):
                 f1.H9_FAST_SOURCE_RECEIPT_IDENTITY: "h9",
                 f1.H10_FAST_SOURCE_RECEIPT_IDENTITY: "h10",
                 f1.H11_FAST_SOURCE_RECEIPT_IDENTITY: "h11",
+                f1.H12_FAST_SOURCE_RECEIPT_IDENTITY: "h12",
             }[identity]
             binding = {
                 "schema": "a90-compiled-auto-handoff-binding-v2",

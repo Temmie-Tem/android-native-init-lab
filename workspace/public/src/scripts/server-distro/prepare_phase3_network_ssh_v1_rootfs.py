@@ -2,9 +2,10 @@
 """Build an A/B-reproducible A90 Phase 3 Debian network/SSH profile.
 
 The builder clones the exact Phase 2 display ext4 image and replaces only the
-return-arm firstboot, a bounded Debian-owned NCM/Dropbear bootstrap, inittab,
-and the stage description.  It is host-only, writes only below the private
-output root, and grants no candidate or device authority.
+return-arm firstboot, a bounded Debian-owned NCM/Dropbear bootstrap, a bounded
+observer for the native Wi-Fi handoff, inittab, and the stage description. It
+is host-only, writes only below the private output root, and grants no candidate
+or device authority.
 """
 
 from __future__ import annotations
@@ -42,6 +43,8 @@ FILESYSTEM_LABEL = "PHASE3NETSSHV1"
 TARGETS = {
     "firstboot": "/etc/a90-d3-firstboot",
     "service": "/usr/local/sbin/a90-debian-network-ssh-v1",
+    "wifi_handoff": "/usr/local/sbin/a90-debian-wifi-handoff-v1",
+    "resolver_mountpoint": "/etc/resolv.conf",
     "inittab": "/etc/inittab",
     "stage": "/etc/a90-server-distro-stage",
 }
@@ -53,6 +56,8 @@ RUNTIME_ABSENT = (
     "/run/a90-native-display-release",
     "/run/a90-display/ready",
     "/run/a90-display/failure",
+    "/run/a90-wifi/ready",
+    "/run/a90-wifi/failure",
 )
 HEX_DIGITS = frozenset("0123456789abcdef")
 
@@ -254,6 +259,8 @@ def validate_service(text: str) -> tuple[str, ...]:
         "dropbear_auth=public-key-only",
         "dropbear_forwarding=disabled",
         'mv "$READY_TMP" "$READY"',
+        "WIFI_HANDOFF=/usr/local/sbin/a90-debian-wifi-handoff-v1",
+        '"$WIFI_HANDOFF" >>"$WIFI_HANDOFF_LOG" 2>&1 &',
     )
     for token in required:
         if token not in text:
@@ -280,6 +287,8 @@ def validate_service(text: str) -> tuple[str, ...]:
         "LISTENER_OWNER=",
         "schema=a90-debian-network-ssh-v1-ready",
         'mv "$READY_TMP" "$READY"',
+        'if [ -x "$WIFI_HANDOFF" ]',
+        '"$WIFI_HANDOFF" >>"$WIFI_HANDOFF_LOG" 2>&1 &',
     )
     positions = tuple(text.find(token) for token in ordered)
     if any(position < 0 for position in positions) or positions != tuple(
@@ -302,6 +311,67 @@ def validate_service(text: str) -> tuple[str, ...]:
     ):
         if forbidden in text:
             issues.append(f"service contains unsafe or out-of-scope token: {forbidden!r}")
+    return tuple(issues)
+
+
+def validate_wifi_handoff(text: str) -> tuple[str, ...]:
+    issues: list[str] = []
+    required = (
+        "set -u",
+        "RUN_DIR=/run/a90-wifi",
+        "BRIDGE=/run/a90-native-wifi",
+        "STATUS=$BRIDGE/status",
+        "RESOLV=$BRIDGE/resolv.conf",
+        "COMPANION=$BRIDGE/companion",
+        "IFACE=wlan0",
+        "MAX_POLLS=90",
+        'while [ "$poll" -lt "$MAX_POLLS" ]',
+        "schema=a90-native-wifi-handoff-v1",
+        "decision=wifi-autoconnect-pass",
+        "final_rc=0",
+        "carrier_up=1",
+        "default_route_present=1",
+        "resolv_conf_present=1",
+        "schema=a90-wifi-companion-health-v1",
+        "required_children=alive",
+        "modem_holder=alive",
+        "companion-health-not-advancing",
+        'route show default dev "$IFACE"',
+        "RESOLV_META=$(\"$STAT\" -c '%u:%g:%a'",
+        '[ "$RESOLV_META" = 0:0:600 ]',
+        '"$MOUNT" --bind "$RESOLV" /etc/resolv.conf',
+        'remount,bind,ro,nosuid,nodev,noexec',
+        '"$FINDMNT" -n -o OPTIONS --target /etc/resolv.conf',
+        "schema=a90-debian-wifi-handoff-v1-ready",
+        "owner=debian-observer-native-control-plane",
+        "control_plane=native-private-mount-namespace",
+        "network_namespace=shared",
+        "resolver_read_only=1",
+        "companion_health=1",
+        "companion_sequence_advanced=1",
+        "ncm_ssh_affected=0",
+        'mv "$READY_TMP" "$READY"',
+    )
+    for token in required:
+        if token not in text:
+            issues.append(f"wifi handoff missing token: {token}")
+    for forbidden in (
+        "while true",
+        "wpa_supplicant",
+        "wificond",
+        "dhclient",
+        "udhcpc",
+        "iw ",
+        "iwconfig",
+        "ping ",
+        "curl ",
+        "wget ",
+        "/cache/a90-wifi/",
+        "/proc/sysrq-trigger",
+        "/sbin/reboot",
+    ):
+        if forbidden in text:
+            issues.append(f"wifi handoff contains delegated or unsafe token: {forbidden!r}")
     return tuple(issues)
 
 
@@ -434,6 +504,8 @@ def validate_base(manifest: dict[str, Any]) -> tuple[Path, Path]:
             raise ContractError(f"base content changed for {target}")
     if phase2.debugfs_stat(image, TARGETS["service"]) is not None:
         raise ContractError("base image already contains the Phase 3 service")
+    if phase2.debugfs_stat(image, TARGETS["wifi_handoff"]) is not None:
+        raise ContractError("base image already contains the Wi-Fi handoff service")
     for target in RUNTIME_ABSENT:
         if phase2.debugfs_stat(image, target) is not None:
             raise ContractError(f"base image contains runtime/private path: {target}")
@@ -448,6 +520,8 @@ def audit() -> dict[str, Any]:
         for key in (
             "firstboot",
             "service",
+            "wifi_handoff",
+            "resolver_mountpoint",
             "inittab",
             "stage",
             "builder",
@@ -459,6 +533,9 @@ def audit() -> dict[str, Any]:
     issues = [
         *validate_firstboot(source_paths["firstboot"].read_text(encoding="utf-8")),
         *validate_service(source_paths["service"].read_text(encoding="utf-8")),
+        *validate_wifi_handoff(
+            source_paths["wifi_handoff"].read_text(encoding="utf-8")
+        ),
         *validate_inittab(source_paths["inittab"].read_text(encoding="utf-8")),
         *validate_stage(source_paths["stage"].read_text(encoding="utf-8")),
     ]
@@ -522,10 +599,19 @@ def build_image(state: dict[str, Any], root: Path) -> dict[str, Any]:
     overlay = root / "overlay"
     overlay.mkdir(mode=0o700)
     overlay_paths: dict[str, Path] = {}
-    for key in ("firstboot", "service", "inittab", "stage"):
+    for key in (
+        "firstboot",
+        "service",
+        "wifi_handoff",
+        "resolver_mountpoint",
+        "inittab",
+        "stage",
+    ):
         target = overlay / Path(TARGETS[key]).name
         shutil.copyfile(state["sources"][key], target)
-        target.chmod(0o700 if key in {"firstboot", "service"} else 0o600)
+        target.chmod(
+            0o700 if key in {"firstboot", "service", "wifi_handoff"} else 0o600
+        )
         overlay_paths[key] = target
 
     image = root / "phase3-network-ssh-v1.img"
@@ -548,9 +634,16 @@ def build_image(state: dict[str, Any], root: Path) -> dict[str, Any]:
             image,
             overlay_paths[key],
             TARGETS[key],
-            mode=0o755 if key in {"firstboot", "service"} else 0o644,
+            mode=0o755 if key in {"firstboot", "service", "wifi_handoff"} else 0o644,
         )
-        for key in ("firstboot", "service", "inittab", "stage")
+        for key in (
+            "firstboot",
+            "service",
+            "wifi_handoff",
+            "resolver_mountpoint",
+            "inittab",
+            "stage",
+        )
     ]
     normalize_ext4_metadata(image)
     fsck = phase2.run(["e2fsck", "-fn", image], timeout=300.0, check=False)
@@ -563,7 +656,14 @@ def build_image(state: dict[str, Any], root: Path) -> dict[str, Any]:
         raise ContractError("output image size changed")
     if read_ext4_label(image) != FILESYSTEM_LABEL:
         raise ContractError("output filesystem label mismatch")
-    for key in ("firstboot", "service", "inittab", "stage"):
+    for key in (
+        "firstboot",
+        "service",
+        "wifi_handoff",
+        "resolver_mountpoint",
+        "inittab",
+        "stage",
+    ):
         expected = sha256_file(state["sources"][key])
         actual = sha256_bytes(phase2.debugfs_cat(image, TARGETS[key]))
         if actual != expected:

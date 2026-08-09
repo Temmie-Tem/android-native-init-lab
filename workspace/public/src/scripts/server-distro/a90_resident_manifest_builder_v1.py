@@ -98,6 +98,9 @@ MINIMAL_H10_CANDIDATE_PROFILE = (
 MINIMAL_H11_CANDIDATE_PROFILE = (
     "phase3-minimal-h11-direct-debian-boot-auto-benchmark"
 )
+MINIMAL_H12_CANDIDATE_PROFILE = (
+    "phase3-minimal-h12-direct-min-network-wifi-auto-benchmark"
+)
 LEGACY_CANDIDATE = CandidateSpec(
     profile=LEGACY_CANDIDATE_PROFILE,
     name="candidate-boot-phase2-display-v1.img",
@@ -417,6 +420,43 @@ MINIMAL_H11_CANDIDATE = CandidateSpec(
         ),
     },
 )
+MINIMAL_H12_CANDIDATE = CandidateSpec(
+    profile=MINIMAL_H12_CANDIDATE_PROFILE,
+    name="candidate-boot-phase3-minimal-h12.img",
+    size=58372096,
+    sha256="fecd7e58014d00a449a99939f31a9b674b0dc0c6143697142c097c79e33f8ccf",
+    version="0.11.180",
+    build="phase3-minimal-h12-direct-min-network-wifi-auto-benchmark",
+    build_receipt=(
+        staging.PRIVATE_ROOT
+        / "outputs"
+        / "a90-h12-direct-min-network-wifi-ab-20260810-04"
+        / "ab-receipt.json"
+    ),
+    build_receipt_sha256=(
+        "5fc52f63d4c2b8e794151dec34278b7b99acc0c8fefb6361f07260fff25c8d42"
+    ),
+    compiled_auto_handoff={
+        "schema": "a90-compiled-auto-handoff-binding-v2",
+        "candidate_version": "0.11.180",
+        "candidate_build": (
+            "phase3-minimal-h12-direct-min-network-wifi-auto-benchmark"
+        ),
+        "image_path": (
+            "/mnt/sdext/a90/runtime/"
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260810-07.img"
+        ),
+        "image_sha256": (
+            "edce00561a5526a27b7cb6017e0933b0b891093c812d2f8bb9d6944ec8a79765"
+        ),
+        "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h12.enable",
+        "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h12.done",
+        "receipt_path": "/cache/a90-source-receipt-phase3-minimal-h12",
+        "binding_sha256": (
+            "e7fd180187ad8f600bb07d80bb3889f7d85d59690f7a7123a307eb093afd31a1"
+        ),
+    },
+)
 CANDIDATE_PROFILES = {
     item.profile: item
     for item in (
@@ -433,6 +473,7 @@ CANDIDATE_PROFILES = {
         MINIMAL_H9_CANDIDATE,
         MINIMAL_H10_CANDIDATE,
         MINIMAL_H11_CANDIDATE,
+        MINIMAL_H12_CANDIDATE,
     )
 }
 
@@ -560,6 +601,7 @@ def candidate_first_boot_contract(candidate: CandidateSpec) -> dict[str, Any] | 
         MINIMAL_H9_CANDIDATE_PROFILE,
         MINIMAL_H10_CANDIDATE_PROFILE,
         MINIMAL_H11_CANDIDATE_PROFILE,
+        MINIMAL_H12_CANDIDATE_PROFILE,
     }:
         assert candidate.compiled_auto_handoff is not None
         return {

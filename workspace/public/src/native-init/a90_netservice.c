@@ -527,6 +527,48 @@ int a90_netservice_start(void) {
     return 0;
 }
 
+int a90_netservice_prepare_handoff(void) {
+    char *const usbnet_argv[] = {
+        NETSERVICE_USB_HELPER,
+        "ncm",
+        NULL
+    };
+    int rc;
+
+    a90_logf("netservice", "handoff preparation requested owner=debian");
+    if (access(NETSERVICE_USB_HELPER, X_OK) < 0) {
+        int saved_errno = errno;
+
+        a90_logf("netservice",
+                 "handoff usb helper missing errno=%d error=%s",
+                 saved_errno,
+                 strerror(saved_errno));
+        return -ENOENT;
+    }
+    if (access("/sys/class/net/" NETSERVICE_IFNAME, F_OK) != 0) {
+        rc = netservice_run_wait(usbnet_argv, "a90_usbnet ncm handoff", 15000);
+        a90_console_reattach("netservice-ncm-handoff", false);
+        if (rc < 0) {
+            return rc;
+        }
+    } else {
+        a90_logf("netservice", "handoff ncm already present; reconfigure skipped");
+    }
+    rc = netservice_wait_for_ifname(NETSERVICE_IFNAME, 5000);
+    if (rc < 0) {
+        return rc;
+    }
+    a90_timeline_record(0,
+                        0,
+                        "netservice-handoff",
+                        "ncm=%s owner=debian native_ip=0 native_tcp=0",
+                        NETSERVICE_IFNAME);
+    a90_logf("netservice",
+             "handoff ready if=%s owner=debian native_ip=0 native_tcp=0",
+             NETSERVICE_IFNAME);
+    return 0;
+}
+
 int a90_netservice_stop(void) {
     char *const usbnet_argv[] = {
         NETSERVICE_USB_HELPER,

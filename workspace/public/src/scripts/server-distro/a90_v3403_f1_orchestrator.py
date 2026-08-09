@@ -99,8 +99,8 @@ NATIVE_FLASH_PATH = (REVAL_DIR / "native_init_flash.py").resolve()
 CDC_GUARD_PATH = (
     REVAL_DIR / "device_action_cdc_acm_observer_v1.py"
 ).resolve()
-CDC_GUARD_SIZE = 51402
-CDC_GUARD_SHA256 = "6c8a6d2151928d2e098ca41b3c9dc24cdbbfabe9be10df19969be274744ef9a9"
+CDC_GUARD_SIZE = 51508
+CDC_GUARD_SHA256 = "764d9852824d88f182983dd85efd2c7ec09531e3be23213ab7daea091675e2b6"
 STAGING_PATH = (SCRIPT_DIR / "a90_v3403_absent_only_staging.py").resolve()
 H9_FAST_SOURCE_RECEIPT_IDENTITY = (
     "0.11.177",
@@ -114,10 +114,15 @@ H11_FAST_SOURCE_RECEIPT_IDENTITY = (
     "0.11.179",
     "phase3-minimal-h11-direct-debian-boot-auto-benchmark",
 )
+H12_FAST_SOURCE_RECEIPT_IDENTITY = (
+    "0.11.180",
+    "phase3-minimal-h12-direct-min-network-wifi-auto-benchmark",
+)
 FAST_SOURCE_RECEIPT_IDENTITIES = {
     H9_FAST_SOURCE_RECEIPT_IDENTITY,
     H10_FAST_SOURCE_RECEIPT_IDENTITY,
     H11_FAST_SOURCE_RECEIPT_IDENTITY,
+    H12_FAST_SOURCE_RECEIPT_IDENTITY,
 }
 FAST_SOURCE_RECEIPT_PATHS = {
     H9_FAST_SOURCE_RECEIPT_IDENTITY: (
@@ -128,6 +133,9 @@ FAST_SOURCE_RECEIPT_PATHS = {
     ),
     H11_FAST_SOURCE_RECEIPT_IDENTITY: (
         "/cache/a90-source-receipt-phase3-minimal-h11"
+    ),
+    H12_FAST_SOURCE_RECEIPT_IDENTITY: (
+        "/cache/a90-source-receipt-phase3-minimal-h12"
     ),
 }
 HANDOFF_COMMON_OUTPUT_MARKERS = (
@@ -793,6 +801,13 @@ def validate_candidate_first_boot_contract(
         ): (
             "/cache/a90-auto-handoff-phase3-minimal-h11.enable",
             "/cache/a90-auto-handoff-phase3-minimal-h11.done",
+        ),
+        (
+            "0.11.180",
+            "phase3-minimal-h12-direct-min-network-wifi-auto-benchmark",
+        ): (
+            "/cache/a90-auto-handoff-phase3-minimal-h12.enable",
+            "/cache/a90-auto-handoff-phase3-minimal-h12.done",
         ),
     }
     if identity in compiled_identity_markers:
@@ -6638,8 +6653,8 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
         if token not in source:
             issues.append(f"missing function: {token}")
     for token in (
-        "CDC_GUARD_SIZE = 51402",
-        'CDC_GUARD_SHA256 = "6c8a6d2151928d2e098ca41b3c9dc24cdbbfabe9be10df19969be274744ef9a9"',
+        "CDC_GUARD_SIZE = 51508",
+        'CDC_GUARD_SHA256 = "764d9852824d88f182983dd85efd2c7ec09531e3be23213ab7daea091675e2b6"',
     ):
         if token not in source:
             issues.append(f"ModemManager guard transitive binding missing: {token}")

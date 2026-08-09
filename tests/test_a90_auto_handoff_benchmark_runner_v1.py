@@ -22,6 +22,21 @@ import a90_auto_handoff_benchmark_runner_v1 as runner  # noqa: E402
 
 
 class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
+    def test_current_runner_is_exact_h12_wifi_identity(self) -> None:
+        self.assertEqual(runner.EXPECTED_VERSION, "0.11.180")
+        self.assertEqual(
+            runner.EXPECTED_BUILD,
+            "phase3-minimal-h12-direct-min-network-wifi-auto-benchmark",
+        )
+        self.assertEqual(
+            runner.EXPECTED_ROOTFS_SHA256,
+            "edce00561a5526a27b7cb6017e0933b0b891093c812d2f8bb9d6944ec8a79765",
+        )
+        self.assertEqual(
+            runner.SOURCE_RECEIPT_PATH,
+            "/cache/a90-source-receipt-phase3-minimal-h12",
+        )
+
     @staticmethod
     def _benchmark_marker(stage: str, boottime_ms: int) -> str:
         values = {
@@ -71,6 +86,22 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
         )
         return tuple(values)
 
+    @staticmethod
+    def _with_h12_direct_stages(
+        stages: tuple[str, ...],
+        *,
+        autoconnect: str = "native_wifi_autoconnect_dispatched",
+    ) -> tuple[str, ...]:
+        values = list(stages)
+        index = values.index("native_runtime_ready") + 1
+        values[index:index] = [
+            runner.H12_WIFI_COMPANION_STAGE,
+            autoconnect,
+            runner.H12_NCM_HANDOFF_STAGE,
+            runner.DIRECT_HANDOFF_STAGE,
+        ]
+        return tuple(values)
+
     @classmethod
     def _direct_complete_benchmark_segment(cls, start_ms: int) -> str:
         return "\n".join(
@@ -99,7 +130,8 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             f"schema={runner.ondevice_evidence.SCHEMA} "
             f"phase={phase} uptime_ms={uptime_ms} run={run} "
             "pid1_comm=init proc1_exe=/usr/sbin/init drm_card0=char "
-            "drm_master=1 dropbear=1 display_ready=1 display_failure=0"
+            "drm_master=1 dropbear=1 display_ready=1 display_failure=0 "
+            "wifi_ready=1 wifi_failure=0 wifi_companion=1"
         )
 
     @staticmethod
@@ -200,7 +232,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             ),
             remote_final=(
                 "/mnt/sdext/a90/runtime/"
-                "debian-bookworm-arm64-phase2-display-v3406-keyed-20260809-03.img"
+                "debian-bookworm-arm64-phase2-display-v3406-keyed-20260810-07.img"
             ),
             remote_work="/mnt/sdext/a90/runtime/d3-handoff-work.img",
             recovery_profile="A90_ATTENDED_PHYSICAL_RECOVERY_V1",
@@ -949,6 +981,90 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                     {"text": current},
                 )
 
+    def test_h12_direct_prelude_is_exact_for_handoff_and_return(self) -> None:
+        for autoconnect in runner.H12_WIFI_AUTOCONNECT_STAGES:
+            with self.subTest(autoconnect=autoconnect):
+                complete = list(
+                    self._with_h12_direct_stages(
+                        runner.benchmark.COMPLETE_STAGES,
+                        autoconnect=autoconnect,
+                    )
+                )
+                returned = list(
+                    self._with_h12_direct_stages(
+                        runner.RETURNED_NATIVE_TAIL,
+                        autoconnect=autoconnect,
+                    )
+                )
+                self.assertTrue(runner.complete_handoff_stages_exact(complete))
+                self.assertTrue(runner.returned_native_stages_exact(returned))
+                self.assertEqual(
+                    runner.normalize_direct_handoff_stage(complete),
+                    list(runner.benchmark.COMPLETE_STAGES),
+                )
+
+    def test_h12_direct_prelude_parses_as_one_terminal_and_one_return(self) -> None:
+        opening = self._complete_benchmark_segment(1_000)
+        current = "\n".join(
+            self._benchmark_marker(stage, 100 + index * 10)
+            for index, stage in enumerate(
+                self._with_h12_direct_stages(runner.benchmark.COMPLETE_STAGES)
+            )
+        )
+        returned = "\n".join(
+            self._benchmark_marker(stage, 50 + index * 10)
+            for index, stage in enumerate(
+                self._with_h12_direct_stages(runner.RETURNED_NATIVE_TAIL)
+            )
+        )
+        with mock.patch.object(
+            runner.base,
+            "require_exact_f1_command_receipt",
+            side_effect=lambda value, _command, _label: value,
+        ):
+            parsed = runner.parse_appended_benchmark(
+                {"text": opening},
+                {"text": "\n".join((opening, current, returned))},
+            )
+        self.assertEqual(parsed["status"], "complete")
+        self.assertEqual(parsed["boot_segments_total"], 2)
+        self.assertEqual(parsed["selection"]["appended_marker_count"], 27)
+        self.assertEqual(
+            parsed["selection"]["contract"],
+            runner.BENCHMARK_SELECTION_CONTRACT,
+        )
+        runner.validate_benchmark_selection(parsed)
+
+    def test_h12_direct_prelude_rejects_partial_duplicate_or_reordered(self) -> None:
+        exact = list(
+            self._with_h12_direct_stages(runner.benchmark.COMPLETE_STAGES)
+        )
+        malformed = []
+        missing = list(exact)
+        missing.remove(runner.H12_NCM_HANDOFF_STAGE)
+        malformed.append(missing)
+        duplicate = list(exact)
+        duplicate.insert(
+            duplicate.index(runner.H12_NCM_HANDOFF_STAGE),
+            runner.H12_WIFI_COMPANION_STAGE,
+        )
+        malformed.append(duplicate)
+        reordered = list(exact)
+        left = reordered.index(runner.H12_WIFI_COMPANION_STAGE)
+        right = reordered.index(runner.H12_NCM_HANDOFF_STAGE)
+        reordered[left], reordered[right] = reordered[right], reordered[left]
+        malformed.append(reordered)
+        both = list(exact)
+        both.insert(
+            both.index(runner.H12_NCM_HANDOFF_STAGE),
+            "native_wifi_autoconnect_inactive",
+        )
+        malformed.append(both)
+        for stages in malformed:
+            with self.subTest(stages=stages):
+                self.assertIsNone(runner.normalize_direct_handoff_stage(stages))
+                self.assertFalse(runner.complete_handoff_stages_exact(stages))
+
     def test_appended_benchmark_rejects_mixed_rotated_window(self) -> None:
         opening = self._complete_benchmark_segment(1_000)
         current = self._complete_benchmark_segment(100)
@@ -1132,6 +1248,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 self._ondevice_record("debian_pid1", 1_000, intent_sha256),
                 self._ondevice_record("debian_sshd", 2_000, intent_sha256),
                 self._ondevice_record("debian_drm_master", 3_000, intent_sha256),
+                self._ondevice_record("debian_wifi", 4_000, intent_sha256),
             )
         )
         log_record = {"command": ["logcat"], "text": "\n".join((opening, current, durable))}
@@ -1173,7 +1290,22 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
 
         self.assertEqual(result["terminal"], "PASS_AUTO_HANDOFF_BENCHMARK_VISIBLE")
         self.assertTrue(result["ondevice_evidence"]["proof"])
+        self.assertTrue(runner.h12_wifi_proven(result["ondevice_evidence"]))
         self.assertIn("candidate_return", observation)
+
+    def test_historical_evidence_without_wifi_cannot_pass_h12(self) -> None:
+        intent_sha256 = "d" * 64
+        durable = "\n".join(
+            self._ondevice_record(phase, stamp, intent_sha256)
+            for phase, stamp in (
+                ("debian_pid1", 1_000),
+                ("debian_sshd", 2_000),
+                ("debian_drm_master", 3_000),
+            )
+        )
+        evaluated = runner.ondevice_evidence.evaluate(durable, intent_sha256)
+        self.assertTrue(evaluated["proof"], evaluated["reason"])
+        self.assertFalse(runner.h12_wifi_proven(evaluated))
 
     def test_native_failed_handoff_is_refuted_not_observer_no_proof(self) -> None:
         intent_sha256 = "c" * 64
@@ -1256,6 +1388,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 ("debian_pid1", 1_000),
                 ("debian_sshd", 2_000),
                 ("debian_drm_master", 3_000),
+                ("debian_wifi", 4_000),
             )
         )
         log_record = {"command": ["logcat"], "text": "\n".join((opening, current, durable))}
@@ -1319,6 +1452,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 ("debian_pid1", 1_000),
                 ("debian_sshd", 2_000),
                 ("debian_drm_master", 3_000),
+                ("debian_wifi", 4_000),
             )
         )
         opening_record = {"command": ["logcat"], "text": opening}

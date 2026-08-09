@@ -99,6 +99,8 @@ a90_d3_writable_set[A90_D3_WRITABLE_SET_MAX] = {
  */
 #define A90_D3_EVIDENCE_DIR "/mnt/sdext/a90/runtime/evidence"
 #define A90_D3_EVIDENCE_LEAF "mnt"
+#define A90_D3_WIFI_HANDOFF_DIR "/cache/a90-wifi-handoff"
+#define A90_D3_WIFI_HANDOFF_LEAF "run/a90-native-wifi"
 #define A90_D3_DISPLAY_RELEASE_TAG "A90D3DISPLAY"
 #define A90_D3_DISPLAY_RELEASE_MARKER "run/a90-native-display-release"
 #define A90_D_HANDOFF_HUD_TIMEOUT_MS 3000
@@ -2937,6 +2939,166 @@ static int d3_bind_evidence_dir(bool *bound_out) {
     return 0;
 }
 
+/*
+ * Expose only the redacted native Wi-Fi handoff surface to Debian. Credentials,
+ * supplicant control sockets, and native logs remain below /cache/a90-wifi and
+ * never cross switch_root. The bind is read-only from Debian while native may
+ * continue publishing carrier/DNS state through the source directory.
+ */
+static int d3_validate_wifi_handoff_members(void) {
+    DIR *dir;
+    struct dirent *entry;
+    int rc = 0;
+
+    dir = opendir(A90_D3_WIFI_HANDOFF_DIR);
+    if (dir == NULL) {
+        return -errno;
+    }
+    errno = 0;
+    while ((entry = readdir(dir)) != NULL) {
+        char path[PATH_MAX];
+        struct stat st;
+        off_t max_size;
+
+        if (strcmp(entry->d_name, ".") == 0 ||
+            strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        if (strcmp(entry->d_name, "status") == 0) {
+            max_size = 512;
+        } else if (strcmp(entry->d_name, "resolv.conf") == 0) {
+            max_size = 4096;
+        } else if (strcmp(entry->d_name, "companion") == 0) {
+            max_size = 512;
+        } else {
+            a90_console_printf(
+                "%s wifi_handoff_bind=unexpected-member name=%s\r\n",
+                A90_D3_IMMUTABLE_TAG,
+                entry->d_name);
+            rc = -EPERM;
+            break;
+        }
+        if (snprintf(path,
+                     sizeof(path),
+                     "%s/%s",
+                     A90_D3_WIFI_HANDOFF_DIR,
+                     entry->d_name) >= (int)sizeof(path)) {
+            rc = -ENAMETOOLONG;
+            break;
+        }
+        if (lstat(path, &st) < 0) {
+            rc = -errno;
+            break;
+        }
+        if (!S_ISREG(st.st_mode) || st.st_uid != 0 || st.st_gid != 0 ||
+            (st.st_mode & 0777) != 0600 || st.st_nlink != 1 ||
+            st.st_size <= 0 || st.st_size > max_size) {
+            a90_console_printf(
+                "%s wifi_handoff_bind=member-unsafe name=%s\r\n",
+                A90_D3_IMMUTABLE_TAG,
+                entry->d_name);
+            rc = -EPERM;
+            break;
+        }
+        errno = 0;
+    }
+    if (rc == 0 && errno != 0) {
+        rc = -errno;
+    }
+    if (closedir(dir) < 0 && rc == 0) {
+        rc = -errno;
+    }
+    return rc;
+}
+
+static int d3_bind_wifi_handoff_dir(bool *bound_out) {
+    char dst[PATH_MAX];
+    struct stat st;
+    int rc;
+
+    if (bound_out != NULL) {
+        *bound_out = false;
+    }
+    if (lstat(A90_D3_WIFI_HANDOFF_DIR, &st) == 0) {
+        if (!S_ISDIR(st.st_mode) || st.st_uid != 0 ||
+            (st.st_mode & (S_IWGRP | S_IWOTH)) != 0) {
+            a90_console_printf("%s wifi_handoff_bind=src-unsafe path=%s\r\n",
+                               A90_D3_IMMUTABLE_TAG,
+                               A90_D3_WIFI_HANDOFF_DIR);
+            return -EPERM;
+        }
+    } else if (errno != ENOENT) {
+        return -errno;
+    } else {
+        rc = d3_mkdir_p(A90_D3_WIFI_HANDOFF_DIR, 0700);
+        if (rc < 0) {
+            return rc;
+        }
+        if (chmod(A90_D3_WIFI_HANDOFF_DIR, 0700) < 0) {
+            return -errno;
+        }
+    }
+    rc = d3_validate_wifi_handoff_members();
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d3_join(dst, sizeof(dst), A90_D3_ROOT, A90_D3_WIFI_HANDOFF_LEAF);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d3_mkdir_p(dst, 0755);
+    if (rc < 0) {
+        return rc;
+    }
+    if (lstat(dst, &st) < 0 || !S_ISDIR(st.st_mode)) {
+        a90_console_printf("%s wifi_handoff_bind=dst-not-directory path=%s\r\n",
+                           A90_D3_IMMUTABLE_TAG,
+                           dst);
+        return -ENOTDIR;
+    }
+    if (mount(A90_D3_WIFI_HANDOFF_DIR,
+              A90_D3_WIFI_HANDOFF_DIR,
+              NULL,
+              MS_BIND,
+              NULL) < 0) {
+        return -errno;
+    }
+    if (mount(NULL, A90_D3_WIFI_HANDOFF_DIR, NULL, MS_PRIVATE, NULL) < 0) {
+        rc = -errno;
+        (void)umount2(A90_D3_WIFI_HANDOFF_DIR, MNT_DETACH);
+        return rc;
+    }
+    if (mount(A90_D3_WIFI_HANDOFF_DIR, dst, NULL, MS_BIND, NULL) < 0) {
+        rc = -errno;
+        (void)umount2(A90_D3_WIFI_HANDOFF_DIR, MNT_DETACH);
+        return rc;
+    }
+    if (umount2(A90_D3_WIFI_HANDOFF_DIR, MNT_DETACH) < 0) {
+        rc = -errno;
+        (void)umount2(dst, MNT_DETACH);
+        return rc;
+    }
+    if (mount(NULL,
+              dst,
+              NULL,
+              MS_REMOUNT | MS_BIND | MS_RDONLY | MS_NOSUID | MS_NODEV | MS_NOEXEC,
+              NULL) < 0) {
+        rc = -errno;
+        (void)umount2(dst, MNT_DETACH);
+        return rc;
+    }
+    if (bound_out != NULL) {
+        *bound_out = true;
+    }
+    a90_console_printf(
+        "%s wifi_handoff_bind=ok src=%s dst=%s debian_view=/%s mode=ro redacted=1\r\n",
+        A90_D3_IMMUTABLE_TAG,
+        A90_D3_WIFI_HANDOFF_DIR,
+        dst,
+        A90_D3_WIFI_HANDOFF_LEAF);
+    return 0;
+}
+
 static int d3_move_mount_one(const char *src, const char *leaf) {
     char dst[PATH_MAX];
     int rc = d3_join(dst, sizeof(dst), A90_D3_ROOT, leaf);
@@ -3239,6 +3401,7 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     unsigned writable_mounted = 0;
     bool evidence_bound = false;
     bool cleanup_clean = true;
+    bool wifi_handoff_bound = false;
     bool root_mounted = false;
     bool moved_proc = false;
     bool moved_sys = false;
@@ -3398,6 +3561,11 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     if (rc < 0) {
         goto fail_before_move;
     }
+    rc = d3_bind_wifi_handoff_dir(&wifi_handoff_bound);
+    if (rc < 0) {
+        a90_console_printf("%s stop=wifi-handoff-bind rc=%d\r\n", A90_D3_TAG, rc);
+        goto fail_before_move;
+    }
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_emit("writable_set_ready");
 #endif
@@ -3438,8 +3606,12 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
                        A90_D3_TAG, A90_D3_BUSYBOX, A90_D3_ROOT, A90_D3_INIT);
     a90_logf("server-distro",
              "D3 switch_root exec source=%s root=%s mode=ro writable_set=%u"
-             " evidence_bound=%d",
-             image, A90_D3_ROOT, writable_mounted, evidence_bound ? 1 : 0);
+             " evidence_bound=%d wifi_handoff_bound=%d",
+             image,
+             A90_D3_ROOT,
+             writable_mounted,
+             evidence_bound ? 1 : 0,
+             wifi_handoff_bound ? 1 : 0);
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_mark("switch_root_exec");
 #endif
