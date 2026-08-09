@@ -198,7 +198,7 @@ is unset. Any host-mode design must treat a silent no-op as an expected
 failure mode and witness it explicitly rather than inferring success from the
 absence of an error.
 
-## Finding 6 — VBUS sourcing is a separate subsystem, and it works on this unit
+## Finding 6 — VBUS sourcing is a separate subsystem; it works on this unit under stock Android only
 
 `dwc3-msm-core.c` contains no VBUS regulator. Every `vbus_active` reference is
 a *sense* flag; sourcing 5 V outward in host mode is done by the PMIC/Type-C
