@@ -382,8 +382,28 @@ The pre-H2 goal history is preserved at
   count is zero, the guard released without residue, result SHA256 is
   `c2c603b986425d0691572de8b8a8a4a05a42957a9f61cef9fb683ca01c210e2b`,
   and S22+ was untouched. This F1 transaction is terminal and must never replay.
+- The successor D1 adapter is now H10 receipt-aware. Its opening D0 proves the
+  exact unarmed resident, source metadata, absent work, and absent receipt;
+  native arm alone performs one full SHA and must publish the exact fresh
+  qualification sequence. Later checks use the same source metadata and exact
+  14-line receipt without another full SHA. Unexpected work is never removed,
+  and the absence close has cleanup dispatch count zero. Two review-found
+  blockers, native receipt nanosecond formatting and the 4096-byte cmdv1x
+  decoder bound, are closed. Final independent `PASS_GO` binds code-native
+  closure `2569e791...`, the manifest-validated 17-file public closure, and the
+  exact installed H10 artifact identity with 156 reviewer tests and no open
+  finding. A fresh read-only D0 passed with receipt/work absent and
+  `enable=0/latch=0`; no D1 transaction or durable arm intent exists yet.
 
 ## Qualified Capabilities
+
+- The H10 one-ordinal receipt-aware auto-handoff D1 v3 capability has reusable
+  independent `PASS_GO` at code-native closure `2569e791...` only while its
+  manifest-validated public closure, installed H10 artifact identity, and
+  hazard assumptions remain unchanged. It permits one attended arm and one
+  reboot, requires one native full-SHA qualification, bounds every cmdv1x
+  script below 4096 bytes, never unlinks work, and preserves no-replay and final
+  health.
 
 - The H3 exact compiled-rootfs binding and resident F1 closure has reusable
   independent `PASS_GO` for its named execution-critical hashes and E2 hazard.
@@ -626,6 +646,7 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/archive/reports/A90_PHASE3_MINIMAL_H9_FAST_SOURCE_RECEIPT_INDEPENDENT_REVIEW_2026-08-09.json`
 - `docs/archive/reports/A90_PHASE3_MINIMAL_H10_FAST_SOURCE_RECEIPT_INDEPENDENT_REVIEW_2026-08-09.json`
 - `docs/reports/A90_H10_EXISTING_PUBLISHED_SOURCE_INSTALL_INDEPENDENT_REVIEW_2026-08-09.json`
+- `docs/reports/A90_H10_RECEIPT_AWARE_D1_ADAPTER_INDEPENDENT_REVIEW_2026-08-10.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`

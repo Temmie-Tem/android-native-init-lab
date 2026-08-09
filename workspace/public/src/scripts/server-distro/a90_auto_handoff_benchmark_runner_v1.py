@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """One-ordinal attended A90 auto-handoff benchmark runner.
 
-The runner consumes an installed-resident D1 manifest.  It proves the H6
+The runner consumes an installed-resident D1 manifest.  It proves the H10
 resident healthy and unarmed, durably binds one arm intent, arms once, proves
 the exact enable state, durably binds one reboot intent, reboots once, observes
 Debian PID1/display/SSH, automatic native return, the retained latch, final
 resident health, and one complete benchmark boot segment.  An uncertain arm or
 reboot is never resent.  ``--reconcile`` is read-only; ``--resume-after-return``
-can complete only a durably observed return's cleanup/final-health tail.
+can complete only a durably observed return's absence/final-health tail.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import stat
 import sys
 import time
@@ -38,15 +39,39 @@ import a90_transition_d1_session_v1 as resident  # noqa: E402
 import a90_v3403_f1_orchestrator as base  # noqa: E402
 
 
-SCHEMA = "a90-auto-handoff-benchmark-runner-v2"
-JOURNAL_SCHEMA = "a90-auto-handoff-benchmark-journal-v2"
-RESULT_SCHEMA = "a90-auto-handoff-benchmark-result-v2"
-RECONCILE_SCHEMA = "a90-auto-handoff-benchmark-reconciliation-v2"
+SCHEMA = "a90-auto-handoff-benchmark-runner-v3"
+JOURNAL_SCHEMA = "a90-auto-handoff-benchmark-journal-v3"
+RESULT_SCHEMA = "a90-auto-handoff-benchmark-result-v3"
+RECONCILE_SCHEMA = "a90-auto-handoff-benchmark-reconciliation-v3"
 EXPECTED_VERSION = "0.11.178"
 EXPECTED_BUILD = (
     "phase3-minimal-h10-fast-source-receipt-auto-benchmark"
 )
+EXPECTED_ROOTFS_SHA256 = (
+    "38d9ce41503483996d14a18fb51275fbbe47e898ce51aee37f9f88b61295018e"
+)
 ARM_TOKEN = "AUTO-HANDOFF-BENCHMARK-V1-ARM"
+SOURCE_RECEIPT_SCHEMA = "a90-d3-source-receipt-v1"
+SOURCE_RECEIPT_PATH = "/cache/a90-source-receipt-phase3-minimal-h10"
+FAST_SOURCE_STATES = {"receipt-absent", "receipt-verified"}
+FAST_SOURCE_MARKER_RE = re.compile(
+    r"^A90D1_FAST_SOURCE state=(?P<state>receipt-(?:absent|verified)) "
+    r"work_absent=1 temp_absent=1 "
+    r"dev=(?P<dev>[0-9]+) ino=(?P<ino>[0-9]+) "
+    r"size=(?P<size>[0-9]+) mode=(?P<mode>[0-9]+) "
+    r"uid=(?P<uid>[0-9]+) gid=(?P<gid>[0-9]+) "
+    r"nlink=(?P<nlink>[0-9]+) "
+    r"mtime_sec=(?P<mtime_sec>[0-9]+) "
+    r"mtime_nsec=(?P<mtime_nsec>[0-9]+) "
+    r"ctime_sec=(?P<ctime_sec>[0-9]+) "
+    r"ctime_nsec=(?P<ctime_nsec>[0-9]+)$"
+)
+FAST_RECEIPT_MARKER_RE = re.compile(r"^A90D1_FAST_RECEIPT exact=1$")
+FAST_SOURCE_IDENTITY_KEYS = (
+    "dev", "ino", "size", "mode", "uid", "gid", "nlink",
+    "mtime_sec", "mtime_nsec", "ctime_sec", "ctime_nsec",
+)
+CMDV1X_BUFFER_BYTES = 4096
 STATUS_RE = re.compile(
     r"^A90AUTO_STATUS binding=(?P<binding>[01]) "
     r"enable=(?P<enable>-?[0-9]+) latch=(?P<latch>-?[0-9]+) "
@@ -67,8 +92,8 @@ JOURNAL_NAMES = (
     "0002-arm-result.json",
     "0003-reboot-intent.json",
     "0004-observation.json",
-    "0005-cleanup-intent.json",
-    "0006-cleanup-result.json",
+    "0005-absence-intent.json",
+    "0006-absence-result.json",
     "0007-final-health.json",
     "0008-result.json",
 )
@@ -78,8 +103,8 @@ JOURNAL_ACTIONS = (
     "arm-result",
     "reboot-intent",
     "observation",
-    "cleanup-intent",
-    "cleanup-result",
+    "absence-close-intent",
+    "absence-close-result",
     "final-health",
     "closed",
 )
@@ -238,10 +263,287 @@ def exact_transaction_dir(spec: resident.SessionSpec, requested: Path) -> Path:
     return path
 
 
+def require_bounded_run_script(script: str) -> str:
+    command = ["run", "/bin/busybox", "sh", "-c", script]
+    wire = base.a90ctl.encode_cmdv1_line(command)
+    if len(wire.encode("utf-8")) >= CMDV1X_BUFFER_BYTES:
+        raise ContractError("H10 read-only cmdv1x script exceeds native buffer")
+    return script
+
+
+def fast_source_preflight_script(
+    spec: resident.SessionSpec,
+    *,
+    expected_state: str,
+) -> str:
+    """Inspect the H10 source/receipt identity without hashing source data."""
+
+    if expected_state not in FAST_SOURCE_STATES:
+        raise ContractError("fast source preflight state is not exact")
+    if (
+        spec.candidate_version != EXPECTED_VERSION
+        or spec.candidate_build != EXPECTED_BUILD
+        or spec.rootfs.sha256 != EXPECTED_ROOTFS_SHA256
+        or base.FAST_SOURCE_RECEIPT_PATHS.get(
+            (spec.candidate_version, spec.candidate_build)
+        ) != SOURCE_RECEIPT_PATH
+    ):
+        raise ContractError("fast source receipt binding is not exact H10")
+    final = shlex.quote(spec.remote_final)
+    work = shlex.quote(spec.remote_work)
+    receipt = shlex.quote(SOURCE_RECEIPT_PATH)
+    expected_size = shlex.quote(str(spec.rootfs.size))
+    state_checks = (
+        (
+            '[ ! -e "$RECEIPT" ]',
+            '[ ! -L "$RECEIPT" ]',
+        )
+        if expected_state == "receipt-absent"
+        else (
+            '[ -f "$RECEIPT" ]',
+            '[ ! -L "$RECEIPT" ]',
+        )
+    )
+    script = "\n".join(
+        (
+            "set -eu",
+            f"FINAL={final}",
+            f"WORK={work}",
+            f"RECEIPT={receipt}",
+            'RECEIPT_TMP="$RECEIPT.tmp"',
+            f"EXPECTED_SIZE={expected_size}",
+            '[ -f "$FINAL" ]',
+            '[ ! -L "$FINAL" ]',
+            '[ ! -e "$WORK" ]',
+            '[ ! -L "$WORK" ]',
+            '[ ! -e "$RECEIPT_TMP" ]',
+            '[ ! -L "$RECEIPT_TMP" ]',
+            'SOURCE_DEV=$(/bin/busybox stat -c %d "$FINAL")',
+            'SOURCE_INO=$(/bin/busybox stat -c %i "$FINAL")',
+            'SOURCE_SIZE=$(/bin/busybox stat -c %s "$FINAL")',
+            '[ "$SOURCE_SIZE" = "$EXPECTED_SIZE" ]',
+            'SOURCE_MODE_HEX=$(/bin/busybox stat -c %f "$FINAL")',
+            'SOURCE_MODE=$((0x$SOURCE_MODE_HEX))',
+            'SOURCE_UID=$(/bin/busybox stat -c %u "$FINAL")',
+            'SOURCE_GID=$(/bin/busybox stat -c %g "$FINAL")',
+            'SOURCE_NLINK=$(/bin/busybox stat -c %h "$FINAL")',
+            'SOURCE_MTIME_SEC=$(/bin/busybox stat -c %Y "$FINAL")',
+            'SOURCE_MTIME_TEXT=$(/bin/busybox stat -c %y "$FINAL")',
+            'SOURCE_MTIME_NSEC=${SOURCE_MTIME_TEXT#*.}',
+            '[ "$SOURCE_MTIME_NSEC" != "$SOURCE_MTIME_TEXT" ]',
+            'SOURCE_MTIME_NSEC=${SOURCE_MTIME_NSEC%% *}',
+            'SOURCE_CTIME_SEC=$(/bin/busybox stat -c %Z "$FINAL")',
+            'SOURCE_CTIME_TEXT=$(/bin/busybox stat -c %z "$FINAL")',
+            'SOURCE_CTIME_NSEC=${SOURCE_CTIME_TEXT#*.}',
+            '[ "$SOURCE_CTIME_NSEC" != "$SOURCE_CTIME_TEXT" ]',
+            'SOURCE_CTIME_NSEC=${SOURCE_CTIME_NSEC%% *}',
+            'case "$SOURCE_MTIME_NSEC" in ""|*[!0-9]*) exit 1 ;; esac',
+            'case "$SOURCE_CTIME_NSEC" in ""|*[!0-9]*) exit 1 ;; esac',
+            'SOURCE_MTIME_NSEC=$((10#$SOURCE_MTIME_NSEC))',
+            'SOURCE_CTIME_NSEC=$((10#$SOURCE_CTIME_NSEC))',
+            *state_checks,
+            f"echo A90D1_FAST_SOURCE state={expected_state} "
+            'work_absent=1 temp_absent=1 '
+            'dev=$SOURCE_DEV ino=$SOURCE_INO size=$SOURCE_SIZE '
+            'mode=$SOURCE_MODE uid=$SOURCE_UID gid=$SOURCE_GID '
+            'nlink=$SOURCE_NLINK mtime_sec=$SOURCE_MTIME_SEC '
+            'mtime_nsec=$SOURCE_MTIME_NSEC ctime_sec=$SOURCE_CTIME_SEC '
+            'ctime_nsec=$SOURCE_CTIME_NSEC',
+        )
+    )
+    return require_bounded_run_script(script)
+
+
+def fast_receipt_content_script(
+    spec: resident.SessionSpec,
+    source_identity: dict[str, int],
+) -> str:
+    """Verify the exact native receipt in a separate bounded cmdv1x call."""
+
+    if (
+        set(source_identity) != set(FAST_SOURCE_IDENTITY_KEYS)
+        or any(type(source_identity[key]) is not int or source_identity[key] < 0
+               for key in FAST_SOURCE_IDENTITY_KEYS)
+        or source_identity["size"] != spec.rootfs.size
+    ):
+        raise ContractError("fast receipt source identity is not exact")
+    receipt_text = "\n".join(
+        (
+            f"schema={SOURCE_RECEIPT_SCHEMA}",
+            f"image={spec.remote_final}",
+            f"sha256={spec.rootfs.sha256}",
+            *(f"{key}={source_identity[key]}" for key in FAST_SOURCE_IDENTITY_KEYS),
+        )
+    )
+    receipt = shlex.quote(SOURCE_RECEIPT_PATH)
+    final = shlex.quote(spec.remote_final)
+    work = shlex.quote(spec.remote_work)
+    expected = shlex.quote(receipt_text)
+    script = "\n".join(
+        (
+            "set -eu",
+            f"R={receipt}",
+            f"F={final}",
+            f"W={work}",
+            'T="$R.tmp"',
+            '[ -f "$F" ]',
+            '[ ! -L "$F" ]',
+            '[ ! -e "$W" ]',
+            '[ ! -L "$W" ]',
+            f'[ "$(/bin/busybox stat -c %d "$F")" = {source_identity["dev"]} ]',
+            f'[ "$(/bin/busybox stat -c %i "$F")" = {source_identity["ino"]} ]',
+            f'[ "$(/bin/busybox stat -c %s "$F")" = {source_identity["size"]} ]',
+            'MF=$(/bin/busybox stat -c %f "$F")',
+            f'[ "$((0x$MF))" = {source_identity["mode"]} ]',
+            f'[ "$(/bin/busybox stat -c %u "$F")" = {source_identity["uid"]} ]',
+            f'[ "$(/bin/busybox stat -c %g "$F")" = {source_identity["gid"]} ]',
+            f'[ "$(/bin/busybox stat -c %h "$F")" = {source_identity["nlink"]} ]',
+            f'[ "$(/bin/busybox stat -c %Y "$F")" = {source_identity["mtime_sec"]} ]',
+            'MT=$(/bin/busybox stat -c %y "$F"); MN=${MT#*.}; MN=${MN%% *}',
+            'case "$MN" in ""|*[!0-9]*) exit 1 ;; esac',
+            f'[ "$((10#$MN))" = {source_identity["mtime_nsec"]} ]',
+            f'[ "$(/bin/busybox stat -c %Z "$F")" = {source_identity["ctime_sec"]} ]',
+            'CT=$(/bin/busybox stat -c %z "$F"); CN=${CT#*.}; CN=${CN%% *}',
+            'case "$CN" in ""|*[!0-9]*) exit 1 ;; esac',
+            f'[ "$((10#$CN))" = {source_identity["ctime_nsec"]} ]',
+            '[ -f "$R" ]',
+            '[ ! -L "$R" ]',
+            '[ ! -e "$T" ]',
+            '[ ! -L "$T" ]',
+            '[ "$(/bin/busybox stat -c %u "$R")" = 0 ]',
+            '[ "$(/bin/busybox stat -c %g "$R")" = 0 ]',
+            '[ "$(/bin/busybox stat -c %h "$R")" = 1 ]',
+            '[ "$(/bin/busybox stat -c %a "$R")" = 600 ]',
+            '[ "$(/bin/busybox wc -l < "$R")" = 14 ]',
+            f"E={expected}",
+            'A="$(/bin/busybox cat "$R")"',
+            '[ "$A" = "$E" ]',
+            "echo A90D1_FAST_RECEIPT exact=1",
+        )
+    )
+    return require_bounded_run_script(script)
+
+
+def require_fast_source_preflight_receipt(
+    spec: resident.SessionSpec,
+    value: Any,
+    *,
+    expected_state: str,
+    expected_identity: dict[str, int] | None = None,
+) -> dict[str, int]:
+    script = fast_source_preflight_script(spec, expected_state=expected_state)
+    try:
+        record = resident._require_exact_run_shell_receipt(  # noqa: SLF001
+            value,
+            script=script,
+            marker_pattern=FAST_SOURCE_MARKER_RE,
+            label=f"H10 {expected_state} source preflight",
+        )
+    except resident.ContractError as exc:
+        raise ContractError("fast source preflight receipt is not exact") from exc
+    lines = [
+        line.strip()
+        for line in str(record.get("text") or "").replace("\r", "").splitlines()
+        if line.strip()
+    ]
+    matches = [FAST_SOURCE_MARKER_RE.fullmatch(line) for line in lines]
+    matches = [match for match in matches if match is not None]
+    if (
+        len(lines) != 1
+        or len(matches) != 1
+        or matches[0].group("state") != expected_state
+    ):
+        raise ContractError("fast source preflight marker is not exact")
+    identity = {
+        key: int(matches[0].group(key), 10)
+        for key in FAST_SOURCE_IDENTITY_KEYS
+    }
+    if identity["size"] != spec.rootfs.size:
+        raise ContractError("fast source preflight size changed")
+    if expected_identity is not None and identity != expected_identity:
+        raise ContractError("fast source identity changed across qualification")
+    return identity
+
+
+def require_fast_receipt_content_receipt(
+    spec: resident.SessionSpec,
+    source_identity: dict[str, int],
+    value: Any,
+) -> dict[str, Any]:
+    script = fast_receipt_content_script(spec, source_identity)
+    try:
+        record = resident._require_exact_run_shell_receipt(  # noqa: SLF001
+            value,
+            script=script,
+            marker_pattern=FAST_RECEIPT_MARKER_RE,
+            label="H10 exact receipt content",
+        )
+    except resident.ContractError as exc:
+        raise ContractError("fast receipt content record is not exact") from exc
+    lines = [
+        line.strip()
+        for line in str(record.get("text") or "").replace("\r", "").splitlines()
+        if line.strip()
+    ]
+    if lines != ["A90D1_FAST_RECEIPT exact=1"]:
+        raise ContractError("fast receipt content marker is not exact")
+    return record
+
+
+def fast_resident_preflight(
+    spec: resident.SessionSpec,
+    args: argparse.Namespace,
+    *,
+    expected_state: str,
+    expected_identity: dict[str, int] | None = None,
+) -> tuple[resident.SessionPreflight, dict[str, Any], dict[str, int]]:
+    f1_spec = _f1_spec(spec)
+    health = resident.verify_resident_health_exact(spec, f1_spec, args)
+    identity_record = base.run_f1_shell(
+        args,
+        fast_source_preflight_script(spec, expected_state=expected_state),
+    )
+    source_identity = require_fast_source_preflight_receipt(
+        spec,
+        identity_record,
+        expected_state=expected_state,
+        expected_identity=expected_identity,
+    )
+    receipt_record = None
+    if expected_state == "receipt-verified":
+        receipt_record = base.run_f1_shell(
+            args,
+            fast_receipt_content_script(spec, source_identity),
+        )
+        require_fast_receipt_content_receipt(
+            spec,
+            source_identity,
+            receipt_record,
+        )
+    preflight = resident.SessionPreflight(True, True, True, True, True)
+    preflight.validate()
+    return (
+        preflight,
+        {
+            "resident_health": health,
+            "source_preflight": {
+                "identity_record": identity_record,
+                "receipt_record": receipt_record,
+            },
+            "rollback_sha256": spec.rollback.sha256,
+            "recovery_profile": spec.recovery_profile,
+        },
+        source_identity,
+    )
+
+
 def validate_preflight_evidence(
     spec: resident.SessionSpec,
     value: Any,
-) -> dict[str, Any]:
+    *,
+    expected_state: str,
+    expected_identity: dict[str, int] | None = None,
+) -> dict[str, int]:
     if not isinstance(value, dict) or set(value) != {
         "resident_health",
         "source_preflight",
@@ -260,11 +562,28 @@ def validate_preflight_evidence(
         expected_build=spec.candidate_build,
         expected_bridge_realpath=spec.bridge_realpath,
     )
-    resident.require_exact_source_preflight_receipt(
-        _f1_spec(spec),
-        value.get("source_preflight"),
+    source = value.get("source_preflight")
+    if not isinstance(source, dict) or set(source) != {
+        "identity_record",
+        "receipt_record",
+    }:
+        raise ContractError("fast source preflight evidence is not exact")
+    source_identity = require_fast_source_preflight_receipt(
+        spec,
+        source.get("identity_record"),
+        expected_state=expected_state,
+        expected_identity=expected_identity,
     )
-    return value
+    if expected_state == "receipt-absent":
+        if source.get("receipt_record") is not None:
+            raise ContractError("receipt-absent preflight has a receipt record")
+    else:
+        require_fast_receipt_content_receipt(
+            spec,
+            source_identity,
+            source.get("receipt_record"),
+        )
+    return source_identity
 
 
 def _read_record(path: Path) -> dict[str, Any]:
@@ -332,7 +651,11 @@ def load_journal_prefix(
         or opened.get("first_boot_unarmed") is not True
     ):
         raise ContractError("journal opening binding changed")
-    validate_preflight_evidence(spec, opened.get("opening_preflight"))
+    opening_source_identity = validate_preflight_evidence(
+        spec,
+        opened.get("opening_preflight"),
+        expected_state="receipt-absent",
+    )
     status_record = base.require_exact_f1_command_receipt(
         opened.get("auto_status_record"),
         ["auto-handoff-status"],
@@ -410,18 +733,24 @@ def load_journal_prefix(
     if len(records) >= 4:
         reboot = records[3]
         if (
-            records[2].get("post_arm_status") is None
+            arm_outcome != "armed"
+            or records[2].get("post_arm_status") is None
             or records[2]["post_arm_status"].get("enable") != 1
             or records[2]["post_arm_status"].get("latch") != 0
             or (
-            reboot.get("intent_sha256") != intent_sha256
-            or reboot.get("reboot_dispatch_count_max") != 1
-            or reboot.get("candidate_replay") is not False
-            or not isinstance(reboot.get("pre_reboot_epoch"), dict)
+                reboot.get("intent_sha256") != intent_sha256
+                or reboot.get("reboot_dispatch_count_max") != 1
+                or reboot.get("candidate_replay") is not False
+                or not isinstance(reboot.get("pre_reboot_epoch"), dict)
             )
         ):
             raise ContractError("reboot intent binding changed")
-        validate_preflight_evidence(spec, reboot.get("armed_preflight"))
+        validate_preflight_evidence(
+            spec,
+            reboot.get("armed_preflight"),
+            expected_state="receipt-verified",
+            expected_identity=opening_source_identity,
+        )
     if len(records) >= 5:
         observed = records[4]
         observation = observed.get("observation")
@@ -441,13 +770,13 @@ def load_journal_prefix(
         returned_status_record = base.require_exact_f1_command_receipt(
             cleanup_intent.get("returned_status_record"),
             ["auto-handoff-status"],
-            "journal pre-cleanup returned status",
+            "journal pre-absence returned status",
         )
         returned_status = parse_auto_status(returned_status_record)
         if (
             cleanup_intent.get("intent_sha256") != intent_sha256
             or cleanup_intent.get("manifest_sha256") != spec.manifest_sha256
-            or cleanup_intent.get("cleanup_dispatch_count_max") != 1
+            or cleanup_intent.get("cleanup_dispatch_count_max") != 0
             or cleanup_intent.get("arm_dispatch_count") != 1
             or cleanup_intent.get("reboot_dispatch_count") != 1
             or cleanup_intent.get("candidate_replay") is not False
@@ -455,27 +784,32 @@ def load_journal_prefix(
             or returned_status.get("enable") != 1
             or returned_status.get("latch") != 1
         ):
-            raise ContractError("cleanup intent binding changed")
+            raise ContractError("absence-close intent binding changed")
     if len(records) >= 7:
         cleanup = records[6]
         if (
             cleanup.get("intent_sha256") != intent_sha256
             or cleanup.get("candidate_replay") is not False
         ):
-            raise ContractError("cleanup result binding changed")
-        if cleanup.get("inferred_from_absence") is False:
-            if cleanup.get("cleanup_dispatch_count") != 1 or cleanup.get("absence_preflight") is not None:
-                raise ContractError("cleanup dispatch result is not exact")
-            resident.require_exact_cleanup_receipt(spec, cleanup.get("cleanup_record"))
-        elif cleanup.get("inferred_from_absence") is True:
-            if cleanup.get("cleanup_dispatch_count") is not None or cleanup.get("cleanup_record") is not None:
-                raise ContractError("cleanup absence reconciliation is not exact")
-            validate_preflight_evidence(spec, cleanup.get("absence_preflight"))
-        else:
-            raise ContractError("cleanup result disposition is not exact")
+            raise ContractError("absence-close result binding changed")
+        if cleanup.get("inferred_from_absence") is not True:
+            raise ContractError("absence-close result disposition is not exact")
+        if cleanup.get("cleanup_dispatch_count") != 0 or cleanup.get("cleanup_record") is not None:
+            raise ContractError("H10 absence close dispatched cleanup")
+        validate_preflight_evidence(
+            spec,
+            cleanup.get("absence_preflight"),
+            expected_state="receipt-verified",
+            expected_identity=opening_source_identity,
+        )
     if len(records) >= 8:
         final = records[7]
-        result = validate_result(spec, final.get("result"), intent_sha256)
+        result = validate_result(
+            spec,
+            final.get("result"),
+            intent_sha256,
+            expected_source_identity=opening_source_identity,
+        )
         if (
             final.get("intent_sha256") != intent_sha256
             or final.get("result_sha256") != base.json_sha256(result)
@@ -483,7 +817,12 @@ def load_journal_prefix(
             raise ContractError("final-health result binding changed")
     if len(records) >= 9:
         closed = records[8]
-        result = validate_result(spec, closed.get("result"), intent_sha256)
+        result = validate_result(
+            spec,
+            closed.get("result"),
+            intent_sha256,
+            expected_source_identity=opening_source_identity,
+        )
         if (
             closed.get("result_sha256") != base.json_sha256(result)
             or result != records[7].get("result")
@@ -505,7 +844,7 @@ def parse_auto_status(record: dict[str, Any]) -> dict[str, Any]:
         "build": match.group("build"),
     }
     if result["binding"] != 1 or result["build"] != EXPECTED_BUILD:
-        raise ContractError("auto-handoff status binding/build is not exact H3")
+        raise ContractError("auto-handoff status binding/build is not exact H10")
     return result
 
 
@@ -550,9 +889,25 @@ def require_exact_arm_dispatch_receipt(
             command,
             "auto-handoff arm receipt",
         )
-        marker = f"A90AUTO_ARM armed=1 intent_sha256={intent_sha256}"
-        if str(record.get("text") or "").count(marker) != 1:
-            raise ContractError("auto-handoff arm success marker is not exact")
+        lines = [
+            line.strip()
+            for line in str(record.get("text") or "").replace("\r", "").splitlines()
+            if line.strip()
+        ]
+        expected_lines = [
+            "A90D3H0 source_receipt=qualifying "
+            f"path={SOURCE_RECEIPT_PATH} prior_rc=-2 full_sha=required",
+            "A90D3H0 source_sha phase=receipt-qualification "
+            f"sha={EXPECTED_ROOTFS_SHA256} expected_sha_match=1",
+            "A90D3H0 source_receipt=qualified "
+            f"path={SOURCE_RECEIPT_PATH} metadata=exact full_sha=verified",
+            "A90AUTO_ARM armed=1 "
+            f"intent_sha256={intent_sha256} build={EXPECTED_BUILD}",
+        ]
+        if lines != expected_lines:
+            raise ContractError(
+                "auto-handoff arm did not prove one fresh full-SHA qualification"
+            )
         return record, "armed"
 
     record = value
@@ -603,7 +958,7 @@ def require_first_boot_unarmed(log_record: dict[str, Any]) -> None:
     base.require_exact_f1_command_receipt(
         log_record,
         ["logcat"],
-        "first H2 resident log receipt",
+        "first H10 resident log receipt",
     )
     text = str(log_record.get("text") or "")
     state_lines: list[str] = []
@@ -614,7 +969,7 @@ def require_first_boot_unarmed(log_record: dict[str, Any]) -> None:
     if not state_lines or any(
         line != "A90AUTO state=unarmed-stay-native" for line in state_lines
     ):
-        raise ContractError("H2 resident log is not exclusively unarmed")
+        raise ContractError("H10 resident log is not exclusively unarmed")
 
 
 def _effect_args() -> argparse.Namespace:
@@ -1080,9 +1435,15 @@ def finalize_cycle(
     opening_log_record: dict[str, Any],
     visible_confirmed: str,
     cleanup_evidence: dict[str, Any],
+    source_identity: dict[str, int],
 ) -> dict[str, Any]:
     status_record, status = require_auto_status(args, enable=1, latch=1)
-    final_preflight, final_evidence = resident.resident_d0_preflight(spec)
+    final_preflight, final_evidence, _ = fast_resident_preflight(
+        spec,
+        args,
+        expected_state="receipt-verified",
+        expected_identity=source_identity,
+    )
     final_preflight.validate()
     log_record = base.run_f1_cmd(args, ["logcat"])
     log_text = str(log_record.get("text") or "")
@@ -1153,6 +1514,8 @@ def validate_result(
     spec: resident.SessionSpec,
     value: Any,
     intent_sha256: str,
+    *,
+    expected_source_identity: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ContractError("benchmark result is not an object")
@@ -1238,23 +1601,28 @@ def validate_result(
         or status.get("enable") != 1
         or status.get("latch") != 1
     ):
-        raise ContractError("benchmark result does not prove returned H2 latch")
-    validate_preflight_evidence(spec, value.get("final_preflight"))
+        raise ContractError("benchmark result does not prove returned H10 latch")
+    validate_preflight_evidence(
+        spec,
+        value.get("final_preflight"),
+        expected_state="receipt-verified",
+        expected_identity=expected_source_identity,
+    )
     cleanup = value.get("work_cleanup")
     if not isinstance(cleanup, dict) or set(cleanup) != {
         "dispatch_count", "inferred_from_absence", "receipt", "absence_preflight"
     }:
         raise ContractError("benchmark result cleanup evidence changed")
-    if cleanup.get("inferred_from_absence") is False:
-        if cleanup.get("dispatch_count") != 1 or cleanup.get("absence_preflight") is not None:
-            raise ContractError("benchmark result cleanup dispatch changed")
-        resident.require_exact_cleanup_receipt(spec, cleanup.get("receipt"))
-    elif cleanup.get("inferred_from_absence") is True:
-        if cleanup.get("dispatch_count") is not None or cleanup.get("receipt") is not None:
-            raise ContractError("benchmark result cleanup inference changed")
-        validate_preflight_evidence(spec, cleanup.get("absence_preflight"))
-    else:
+    if cleanup.get("inferred_from_absence") is not True:
         raise ContractError("benchmark result cleanup disposition changed")
+    if cleanup.get("dispatch_count") != 0 or cleanup.get("receipt") is not None:
+        raise ContractError("benchmark result H10 absence close dispatched cleanup")
+    validate_preflight_evidence(
+        spec,
+        cleanup.get("absence_preflight"),
+        expected_state="receipt-verified",
+        expected_identity=expected_source_identity,
+    )
     if not isinstance(parsed, dict):
         raise ContractError("benchmark result is not an object")
     parsed_stages = [record.get("stage") for record in parsed.get("records", [])]
@@ -1351,6 +1719,8 @@ def dispatch_arm_once_and_publish(
         if state == (0, 0):
             raise ContractError("auto-handoff arm was explicitly refused with no effect")
         raise ContractError("auto-handoff arm refusal contradicts post-arm state")
+    if arm_outcome != "armed":
+        raise ContractError("auto-handoff arm outcome is unproved; no replay or reboot")
     if state != (1, 0):
         raise ContractError("auto-handoff arm outcome is not exact armed state")
     return arm_record, post_arm_status
@@ -1367,7 +1737,7 @@ def execute(
     if operator_attended is not True:
         raise ContractError("operator attendance is required for this D1 ordinal")
     if spec.candidate_version != EXPECTED_VERSION or spec.candidate_build != EXPECTED_BUILD:
-        raise ContractError("installed resident is not the exact H2 benchmark candidate")
+        raise ContractError("installed resident is not the exact H10 benchmark candidate")
     closure = require_execution_closure(expected_closure_sha256)
     path = exact_transaction_dir(spec, transaction_dir)
     if path.exists() or path.is_symlink():
@@ -1375,7 +1745,11 @@ def execute(
     path.mkdir(parents=True, mode=0o700)
     os.chmod(path, 0o700)
     args = _effect_args()
-    opening_preflight, opening_evidence = resident.resident_d0_preflight(spec)
+    opening_preflight, opening_evidence, source_identity = fast_resident_preflight(
+        spec,
+        args,
+        expected_state="receipt-absent",
+    )
     opening_preflight.validate()
     status_record, status = require_auto_status(args, enable=0, latch=0)
     first_log = base.run_f1_cmd(args, ["logcat"])
@@ -1419,7 +1793,12 @@ def execute(
         intent_sha256=intent_sha256,
     )
     require_execution_closure(expected_closure_sha256)
-    armed_preflight, armed_evidence = resident.resident_d0_preflight(spec)
+    armed_preflight, armed_evidence, _ = fast_resident_preflight(
+        spec,
+        args,
+        expected_state="receipt-verified",
+        expected_identity=source_identity,
+    )
     armed_preflight.validate()
     f1_spec = _f1_spec(spec)
     guard = base.arm_candidate_return_modemmanager_guard(f1_spec, args, path)
@@ -1457,11 +1836,11 @@ def execute(
     )
     write_record(
         path / JOURNAL_NAMES[5],
-        "cleanup-intent",
+        "absence-close-intent",
         {
             "intent_sha256": intent_sha256,
             "manifest_sha256": spec.manifest_sha256,
-            "cleanup_dispatch_count_max": 1,
+            "cleanup_dispatch_count_max": 0,
             "arm_dispatch_count": 1,
             "reboot_dispatch_count": 1,
             "candidate_replay": False,
@@ -1469,25 +1848,28 @@ def execute(
             "returned_status_record": returned_status_record,
         },
     )
-    cleanup_record = resident.require_exact_cleanup_receipt(
+    absence_preflight, absence_evidence, _ = fast_resident_preflight(
         spec,
-        base.run_f1_shell(args, resident._cleanup_script(spec)),  # noqa: SLF001
+        args,
+        expected_state="receipt-verified",
+        expected_identity=source_identity,
     )
+    absence_preflight.validate()
     cleanup_evidence = {
-        "dispatch_count": 1,
-        "inferred_from_absence": False,
-        "receipt": cleanup_record,
-        "absence_preflight": None,
+        "dispatch_count": 0,
+        "inferred_from_absence": True,
+        "receipt": None,
+        "absence_preflight": absence_evidence,
     }
     write_record(
         path / JOURNAL_NAMES[6],
-        "cleanup-result",
+        "absence-close-result",
         {
             "intent_sha256": intent_sha256,
-            "cleanup_dispatch_count": 1,
-            "cleanup_record": cleanup_record,
-            "absence_preflight": None,
-            "inferred_from_absence": False,
+            "cleanup_dispatch_count": 0,
+            "cleanup_record": None,
+            "absence_preflight": absence_evidence,
+            "inferred_from_absence": True,
             "candidate_replay": False,
         },
     )
@@ -1499,8 +1881,14 @@ def execute(
         opening_log_record=first_log,
         visible_confirmed=visible_confirmed,
         cleanup_evidence=cleanup_evidence,
+        source_identity=source_identity,
     )
-    result = validate_result(spec, result, intent_sha256)
+    result = validate_result(
+        spec,
+        result,
+        intent_sha256,
+        expected_source_identity=source_identity,
+    )
     result_sha256 = base.json_sha256(result)
     write_record(
         path / JOURNAL_NAMES[7],
@@ -1528,12 +1916,12 @@ def resume_after_return(
     operator_attended: bool,
     visible_confirmed: str,
 ) -> dict[str, Any]:
-    """Finish only cleanup/final health after a durably observed return."""
+    """Finish only absence/final health after a durably observed return."""
 
     if operator_attended is not True:
         raise ContractError("operator attendance is required for D1 finalization")
     if spec.candidate_version != EXPECTED_VERSION or spec.candidate_build != EXPECTED_BUILD:
-        raise ContractError("installed resident is not the exact H2 benchmark candidate")
+        raise ContractError("installed resident is not the exact H10 benchmark candidate")
     path = exact_transaction_dir(spec, transaction_dir)
     if not path.is_dir() or path.is_symlink():
         raise ContractError("resume transaction directory is not exact")
@@ -1547,7 +1935,7 @@ def resume_after_return(
         raise ContractError("resume lacks one durable automatic-cycle observation")
     if expected_journal_closure_sha256 is not None and len(records) != 7:
         raise ContractError(
-            "historical-closure tail repair requires the exact post-cleanup prefix"
+            "historical-closure tail repair requires the exact post-absence prefix"
         )
     if len(records) == len(JOURNAL_NAMES):
         return validate_result(
@@ -1580,6 +1968,11 @@ def resume_after_return(
     args = _effect_args()
     observation = records[4]["observation"]
     intent_sha256 = records[4]["intent_sha256"]
+    source_identity = validate_preflight_evidence(
+        spec,
+        records[0]["opening_preflight"],
+        expected_state="receipt-absent",
+    )
 
     if len(records) == 5:
         returned_status_record, returned_status = require_auto_status(
@@ -1589,11 +1982,11 @@ def resume_after_return(
         )
         write_record(
             path / JOURNAL_NAMES[5],
-            "cleanup-intent",
+            "absence-close-intent",
             {
                 "intent_sha256": intent_sha256,
                 "manifest_sha256": spec.manifest_sha256,
-                "cleanup_dispatch_count_max": 1,
+                "cleanup_dispatch_count_max": 0,
                 "arm_dispatch_count": 1,
                 "reboot_dispatch_count": 1,
                 "candidate_replay": False,
@@ -1601,39 +1994,19 @@ def resume_after_return(
                 "returned_status_record": returned_status_record,
             },
         )
-        cleanup_record = resident.require_exact_cleanup_receipt(
+        absence_preflight, absence_evidence, _ = fast_resident_preflight(
             spec,
-            base.run_f1_shell(args, resident._cleanup_script(spec)),  # noqa: SLF001
+            args,
+            expected_state="receipt-verified",
+            expected_identity=source_identity,
         )
+        absence_preflight.validate()
         write_record(
             path / JOURNAL_NAMES[6],
-            "cleanup-result",
+            "absence-close-result",
             {
                 "intent_sha256": intent_sha256,
-                "cleanup_dispatch_count": 1,
-                "cleanup_record": cleanup_record,
-                "absence_preflight": None,
-                "inferred_from_absence": False,
-                "candidate_replay": False,
-            },
-        )
-        cleanup_evidence = {
-            "dispatch_count": 1,
-            "inferred_from_absence": False,
-            "receipt": cleanup_record,
-            "absence_preflight": None,
-        }
-    elif len(records) == 6:
-        # The cleanup intent may already have been dispatched.  Never resend it;
-        # exact source/work-absence plus resident health can close the outcome.
-        preflight, absence_evidence = resident.resident_d0_preflight(spec)
-        preflight.validate()
-        write_record(
-            path / JOURNAL_NAMES[6],
-            "cleanup-result",
-            {
-                "intent_sha256": intent_sha256,
-                "cleanup_dispatch_count": None,
+                "cleanup_dispatch_count": 0,
                 "cleanup_record": None,
                 "absence_preflight": absence_evidence,
                 "inferred_from_absence": True,
@@ -1641,7 +2014,35 @@ def resume_after_return(
             },
         )
         cleanup_evidence = {
-            "dispatch_count": None,
+            "dispatch_count": 0,
+            "inferred_from_absence": True,
+            "receipt": None,
+            "absence_preflight": absence_evidence,
+        }
+    elif len(records) == 6:
+        # The zero-dispatch close intent is durable. Re-read exact absence and
+        # receipt metadata; never create or remove a work file.
+        preflight, absence_evidence, _ = fast_resident_preflight(
+            spec,
+            args,
+            expected_state="receipt-verified",
+            expected_identity=source_identity,
+        )
+        preflight.validate()
+        write_record(
+            path / JOURNAL_NAMES[6],
+            "absence-close-result",
+            {
+                "intent_sha256": intent_sha256,
+                "cleanup_dispatch_count": 0,
+                "cleanup_record": None,
+                "absence_preflight": absence_evidence,
+                "inferred_from_absence": True,
+                "candidate_replay": False,
+            },
+        )
+        cleanup_evidence = {
+            "dispatch_count": 0,
             "inferred_from_absence": True,
             "receipt": None,
             "absence_preflight": absence_evidence,
@@ -1670,8 +2071,14 @@ def resume_after_return(
             opening_log_record=records[0]["first_boot_log"],
             visible_confirmed=visible_confirmed,
             cleanup_evidence=cleanup_evidence,
+            source_identity=source_identity,
         )
-        result = validate_result(spec, result, intent_sha256)
+        result = validate_result(
+            spec,
+            result,
+            intent_sha256,
+            expected_source_identity=source_identity,
+        )
         result_sha256 = base.json_sha256(result)
         write_record(
             path / JOURNAL_NAMES[7],
@@ -1683,7 +2090,12 @@ def resume_after_return(
             },
         )
     else:
-        result = validate_result(spec, records[7]["result"], intent_sha256)
+        result = validate_result(
+            spec,
+            records[7]["result"],
+            intent_sha256,
+            expected_source_identity=source_identity,
+        )
         result_sha256 = records[7]["result_sha256"]
     records = load_journal_prefix(
         spec,
@@ -1768,7 +2180,7 @@ def reconcile(
     health: dict[str, Any] | None = None
     health_error: dict[str, str] | None = None
     try:
-        _, health = resident.resident_d0_preflight(spec)
+        health = resident.verify_resident_health_exact(spec, _f1_spec(spec), args)
     except Exception as exc:  # HEALTH_PENDING, never a reason to replay
         health_error = {"type": type(exc).__name__, "message": str(exc)}
     arm_dispatch_count: int | None = 1 if len(records) >= 3 else (

@@ -1,0 +1,79 @@
+{
+  "schema": "a90-h10-receipt-aware-d1-adapter-independent-review-v1",
+  "status": "PASS_GO",
+  "decision": "PASS_GO",
+  "review_date": "2026-08-10",
+  "target": "Samsung Galaxy A90 5G only",
+  "capability": "A90_H10_RECEIPT_AWARE_ONE_ORDINAL_AUTO_HANDOFF_D1_V3",
+  "scope": "Host-only independent review of the exact installed H10 resident to one attended automatic Debian handoff, benchmark, automatic native return, zero-dispatch absence close, and final resident health.",
+  "named_execution_critical_closure": {
+    "auto_handoff_code_native": {
+      "sha256": "2569e791ef36644966d9e168d291fce82dc0654d2ad688dfe6189e6262735024",
+      "runner": {
+        "path": "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py",
+        "sha256": "47963253e8545128e3fdc6d7f025a2ed272654c6055890bd4c8b586215f6494c",
+        "size": 89204
+      },
+      "benchmark_parser_sha256": "c527926e494406156cd61b9474553e4ef2ab0b220dd35c7e61c0beafe5aac5b2",
+      "ondevice_evidence_sha256": "7ceab9017eeb383cef51c52fd4d00dd936e4bb64aee6ba5f83d7a9d51d3b3423",
+      "resident_manifest_loader_sha256": "ee5992a63b7ea526cc70c394888c68d26f384d799fbef95a3a03bd9dbd5a1783",
+      "resident_f1_loader_sha256": "125789dd63acbc5cf0f809ba8a69b721cf10a0c5522751db2214894e764ee4f6"
+    },
+    "d1_manifest_validated_public_source_closure": {
+      "role_count": 17,
+      "reviewer_derived_aggregate_sha256": "3b5dadb5cc61bfea0ff940e3ce90162631f1c5518bfd9199fd49661a11a18de3"
+    },
+    "installed_h10_artifact_identity": {
+      "candidate_version": "0.11.178",
+      "candidate_build": "phase3-minimal-h10-fast-source-receipt-auto-benchmark",
+      "candidate_boot_sha256": "145ab5d0d2eff02e20d75149e62bd929084a9a1014a13f9b79e9dbd3269655f1",
+      "candidate_boot_size": 58372096,
+      "rootfs_sha256": "38d9ce41503483996d14a18fb51275fbbe47e898ce51aee37f9f88b61295018e",
+      "rootfs_size": 2147483648,
+      "compiled_binding_sha256": "decc69954c2f57067d56062b1a1dd61a394b0587ab86d17905eae070e5b71d2d"
+    }
+  },
+  "reviewed_properties": [
+    "The opening read proves exact H10 resident health, unarmed enable and latch state, absent receipt and receipt temporary path, absent work, and one exact source metadata identity without hashing source data.",
+    "The single arm response must be the exact ordered qualifying, source-SHA-match, qualified, and armed singleton output; retained, skipped, mixed, duplicate, contradictory, or unproved output never reaches reboot intent.",
+    "Only the native arm performs one full 2 GiB SHA qualification. Armed, absence-close, final-health, reconcile, and resume paths perform metadata and exact receipt checks without another full SHA.",
+    "Receipt nanoseconds are normalized from BusyBox fixed-width fractions to the native unpadded decimal representation before comparison.",
+    "Each read-only cmdv1x script is host-rejected unless its encoded line is below the native 4096-byte decoder buffer; independent H10 sizes were 3693, 3693, and 3361 bytes.",
+    "The receipt-content call rechecks the same full source metadata and work absence before accepting the exact 14-line root-owned mode-0600 single-link receipt.",
+    "Unexpected work is fail-closed and never removed. The absence close has cleanup dispatch count zero and no generic cleanup or rm path.",
+    "Durable arm and reboot intents precede their single dispatches; journal, reconcile, and resume paths never replay arm or reboot.",
+    "PASS still requires exact automatic return, final H10 resident health, benchmark evidence, guard release, and the existing host-link and display disposition rules.",
+    "A90 and S22+ identity, transport, evidence, recovery, and command authority remain isolated."
+  ],
+  "findings": {
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "resolved_before_final_review": [
+      "Removed five-success-path full-SHA passes by replacing generic D0 and cleanup calls with H10 receipt-aware metadata checks.",
+      "Required receipt absence before arm and exact fresh one-full-SHA qualification output after arm.",
+      "Replaced the generic unlinking cleanup with a zero-dispatch absence-only close.",
+      "Normalized leading-zero nanosecond fields to the native receipt's decimal representation.",
+      "Split the oversized verified preflight into bounded read-only identity and receipt calls and enforced the 4096-byte native wire limit at runtime."
+    ]
+  },
+  "unresolved_findings": [],
+  "validation": {
+    "reviewer_public_mocked_tests": 156,
+    "reviewer_in_memory_compiles": 6,
+    "python_compile": "PASS",
+    "git_diff_check": "PASS",
+    "cmdv1x_wire_bound": "PASS"
+  },
+  "review_lifetime": "Capability-level PASS_GO reusable only while the union of the named code-native closure, manifest-validated public closure, installed H10 artifact identity, and reviewed hazard assumptions is unchanged and no new hazard or incident occurs.",
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "reviewer": "independent subagent /root/a90_h7_closure_review",
+  "reviewer_implementation_edits": false,
+  "reviewer_device_contact": false,
+  "reviewer_usb_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_network_contact": false,
+  "reviewer_s22plus_contact": false
+}

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 import tempfile
@@ -111,7 +113,21 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
         command = ["auto-handoff-arm", runner.ARM_TOKEN, intent_sha256]
         status = "ok" if rc == 0 else "error"
         marker = (
-            f"A90AUTO_ARM armed=1 intent_sha256={intent_sha256}"
+            "\n".join(
+                (
+                    "A90D3H0 source_receipt=qualifying "
+                    f"path={runner.SOURCE_RECEIPT_PATH} prior_rc=-2 "
+                    "full_sha=required",
+                    "A90D3H0 source_sha phase=receipt-qualification "
+                    f"sha={runner.EXPECTED_ROOTFS_SHA256} "
+                    "expected_sha_match=1",
+                    "A90D3H0 source_receipt=qualified "
+                    f"path={runner.SOURCE_RECEIPT_PATH} metadata=exact "
+                    "full_sha=verified",
+                    "A90AUTO_ARM armed=1 "
+                    f"intent_sha256={intent_sha256} build={runner.EXPECTED_BUILD}",
+                )
+            )
             if rc == 0
             else f"A90AUTO_ARM armed=0 rc={rc}"
         )
@@ -134,12 +150,41 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
         }
 
     @staticmethod
+    def _shell_receipt(script: str, text: str) -> dict:
+        command = ["run", "/bin/busybox", "sh", "-c", script]
+        return {
+            "command": command,
+            "rc": 0,
+            "status": "ok",
+            "trust": "A90P1_V1_STRUCTURAL_ONLY",
+            "begin": {"argc": "5", "cmd": "run", "flags": "0x4", "seq": "41"},
+            "end": {
+                "cmd": "run",
+                "duration_ms": "5",
+                "errno": "0",
+                "flags": "0x4",
+                "rc": "0",
+                "seq": "41",
+                "status": "ok",
+            },
+            "text": text,
+        }
+
+    @staticmethod
     def _spec() -> SimpleNamespace:
         return SimpleNamespace(
             manifest_sha256="1" * 64,
             candidate=SimpleNamespace(sha256="2" * 64),
             rollback=SimpleNamespace(sha256="3" * 64),
-            rootfs=SimpleNamespace(sha256="4" * 64),
+            rootfs=SimpleNamespace(
+                sha256=runner.EXPECTED_ROOTFS_SHA256,
+                size=2 * 1024 * 1024 * 1024,
+            ),
+            remote_final=(
+                "/mnt/sdext/a90/runtime/"
+                "debian-bookworm-arm64-phase2-display-v3406-keyed-20260809-03.img"
+            ),
+            remote_work="/mnt/sdext/a90/runtime/d3-handoff-work.img",
             recovery_profile="A90_ATTENDED_PHYSICAL_RECOVERY_V1",
             bridge_device="/dev/a90-test",
             bridge_realpath="/dev/ttyACM-test",
@@ -227,7 +272,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             {
                 "intent_sha256": intent_sha256,
                 "arm_dispatch_count": 1,
-                "arm_record": {"error": {}, "response_proof": False},
+                "arm_record": self._arm_receipt(intent_sha256, 0),
                 "post_arm_status_record": self._status(1, 0),
                 "post_arm_status": runner.parse_auto_status(self._status(1, 0)),
             },
@@ -250,7 +295,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             {
                 "intent_sha256": intent_sha256,
                 "manifest_sha256": spec.manifest_sha256,
-                "cleanup_dispatch_count_max": 1,
+                "cleanup_dispatch_count_max": 0,
                 "arm_dispatch_count": 1,
                 "reboot_dispatch_count": 1,
                 "candidate_replay": False,
@@ -259,10 +304,10 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             },
             {
                 "intent_sha256": intent_sha256,
-                "cleanup_dispatch_count": 1,
-                "cleanup_record": {},
-                "absence_preflight": None,
-                "inferred_from_absence": False,
+                "cleanup_dispatch_count": 0,
+                "cleanup_record": None,
+                "absence_preflight": {},
+                "inferred_from_absence": True,
                 "candidate_replay": False,
             },
             {"intent_sha256": intent_sha256, "result_sha256": "5" * 64, "result": {}},
@@ -295,6 +340,171 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
         )
         with self.assertRaises(runner.ContractError):
             runner.parse_auto_status({"text": record["text"] * 2})
+
+    def test_fast_source_preflights_never_hash_or_remove_work(self) -> None:
+        spec = self._spec()
+        identity = {
+            "dev": 2049,
+            "ino": 77,
+            "size": spec.rootfs.size,
+            "mode": 33188,
+            "uid": 0,
+            "gid": 0,
+            "nlink": 1,
+            "mtime_sec": 1_700_000_000,
+            "mtime_nsec": 1_104_086,
+            "ctime_sec": 1_700_000_001,
+            "ctime_nsec": 456,
+        }
+        absent = runner.fast_source_preflight_script(
+            spec,
+            expected_state="receipt-absent",
+        )
+        verified = runner.fast_source_preflight_script(
+            spec,
+            expected_state="receipt-verified",
+        )
+        receipt = runner.fast_receipt_content_script(spec, identity)
+        for script in (absent, verified, receipt):
+            self.assertNotIn("sha256sum", script)
+            self.assertNotIn("/bin/busybox rm", script)
+            wire = runner.base.a90ctl.encode_cmdv1_line(
+                ["run", "/bin/busybox", "sh", "-c", script]
+            )
+            self.assertLess(len(wire.encode("utf-8")), runner.CMDV1X_BUFFER_BYTES)
+        for script in (absent, verified):
+            self.assertIn('[ ! -e "$WORK" ]', script)
+            self.assertIn('[ ! -e "$RECEIPT_TMP" ]', script)
+        self.assertIn('[ ! -e "$RECEIPT" ]', absent)
+        self.assertNotIn("ACTUAL_RECEIPT=", absent)
+        self.assertIn('[ -f "$RECEIPT" ]', verified)
+        self.assertNotIn("/bin/busybox cat", verified)
+        self.assertIn('A="$(/bin/busybox cat "$R")"', receipt)
+        self.assertIn(f"ctime_nsec={identity['ctime_nsec']}", receipt)
+        self.assertIn('SOURCE_MTIME_NSEC=$((10#$SOURCE_MTIME_NSEC))', verified)
+        self.assertIn('SOURCE_CTIME_NSEC=$((10#$SOURCE_CTIME_NSEC))', verified)
+
+    def test_busybox_nsec_normalization_matches_native_decimal_receipt(self) -> None:
+        busybox = shutil.which("busybox")
+        if busybox is None:
+            self.skipTest("BusyBox shell is unavailable")
+        command = (
+            "for x in 001104086 000000000 123456789; do "
+            "printf '%s\\n' $((10#$x)); done"
+        )
+        completed = subprocess.run(
+            [busybox, "sh", "-c", command],
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+        self.assertEqual(completed.stdout.splitlines(), ["1104086", "0", "123456789"])
+
+    def test_fast_source_receipt_binds_exact_identity_across_phases(self) -> None:
+        spec = self._spec()
+        identity = {
+            "dev": 2049,
+            "ino": 77,
+            "size": spec.rootfs.size,
+            "mode": 33188,
+            "uid": 0,
+            "gid": 0,
+            "nlink": 1,
+            "mtime_sec": 1_700_000_000,
+            "mtime_nsec": 123,
+            "ctime_sec": 1_700_000_001,
+            "ctime_nsec": 456,
+        }
+        marker = (
+            "A90D1_FAST_SOURCE state=receipt-verified "
+            "work_absent=1 temp_absent=1 "
+            + " ".join(f"{key}={identity[key]}" for key in runner.FAST_SOURCE_IDENTITY_KEYS)
+            + "\n"
+        )
+        script = runner.fast_source_preflight_script(
+            spec,
+            expected_state="receipt-verified",
+        )
+        record = self._shell_receipt(script, marker)
+        self.assertEqual(
+            runner.require_fast_source_preflight_receipt(
+                spec,
+                record,
+                expected_state="receipt-verified",
+                expected_identity=identity,
+            ),
+            identity,
+        )
+        changed = dict(identity)
+        changed["ctime_nsec"] += 1
+        with self.assertRaisesRegex(runner.ContractError, "identity changed"):
+            runner.require_fast_source_preflight_receipt(
+                spec,
+                record,
+                expected_state="receipt-verified",
+                expected_identity=changed,
+            )
+        duplicated = self._shell_receipt(script, marker + marker)
+        with self.assertRaisesRegex(runner.ContractError, "not exact"):
+            runner.require_fast_source_preflight_receipt(
+                spec,
+                duplicated,
+                expected_state="receipt-verified",
+            )
+        receipt_script = runner.fast_receipt_content_script(spec, identity)
+        receipt_record = self._shell_receipt(
+            receipt_script,
+            "A90D1_FAST_RECEIPT exact=1\n",
+        )
+        self.assertEqual(
+            runner.require_fast_receipt_content_receipt(
+                spec,
+                identity,
+                receipt_record,
+            ),
+            receipt_record,
+        )
+
+    def test_arm_success_requires_fresh_single_full_sha_qualification(self) -> None:
+        intent_sha256 = "a" * 64
+        record = self._arm_receipt(intent_sha256, 0)
+        self.assertEqual(
+            runner.require_exact_arm_dispatch_receipt(record, intent_sha256)[1],
+            "armed",
+        )
+        for replacement in (
+            "source_receipt=retained",
+            "full_sha=skipped",
+            "expected_sha_match=0",
+        ):
+            changed = json.loads(json.dumps(record))
+            if replacement.startswith("source_receipt"):
+                changed["text"] = changed["text"].replace(
+                    "source_receipt=qualified",
+                    replacement,
+                )
+            elif replacement.startswith("full_sha"):
+                changed["text"] = changed["text"].replace(
+                    "full_sha=verified",
+                    replacement,
+                )
+            else:
+                changed["text"] = changed["text"].replace(
+                    "expected_sha_match=1",
+                    replacement,
+                )
+            with self.subTest(replacement=replacement), self.assertRaisesRegex(
+                runner.ContractError,
+                "one fresh full-SHA qualification",
+            ):
+                runner.require_exact_arm_dispatch_receipt(changed, intent_sha256)
+        duplicated = json.loads(json.dumps(record))
+        duplicated["text"] += record["text"]
+        with self.assertRaisesRegex(
+            runner.ContractError,
+            "one fresh full-SHA qualification",
+        ):
+            runner.require_exact_arm_dispatch_receipt(duplicated, intent_sha256)
 
     def test_appended_benchmark_selects_current_complete_suffix(self) -> None:
         opening = self._complete_benchmark_segment(1_000)
@@ -658,9 +868,9 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 return_value=(status_record, runner.parse_auto_status(status_record)),
             ),
             mock.patch.object(
-                runner.resident,
-                "resident_d0_preflight",
-                return_value=(preflight, {"resident_healthy": True}),
+                runner,
+                "fast_resident_preflight",
+                return_value=(preflight, {"resident_healthy": True}, {"size": 1}),
             ),
             mock.patch.object(runner.base, "run_f1_cmd", return_value=log_record),
             mock.patch.object(
@@ -677,6 +887,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 opening_log_record={"command": ["logcat"], "text": opening},
                 visible_confirmed="yes",
                 cleanup_evidence={"proof": True},
+                source_identity={"size": 1},
             )
 
         self.assertEqual(result["terminal"], "PASS_AUTO_HANDOFF_BENCHMARK_VISIBLE")
@@ -702,9 +913,9 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 return_value=(status_record, runner.parse_auto_status(status_record)),
             ),
             mock.patch.object(
-                runner.resident,
-                "resident_d0_preflight",
-                return_value=(preflight, {"resident_healthy": True}),
+                runner,
+                "fast_resident_preflight",
+                return_value=(preflight, {"resident_healthy": True}, {"size": 1}),
             ),
             mock.patch.object(runner.base, "run_f1_cmd", return_value=log_record),
             mock.patch.object(
@@ -721,6 +932,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 opening_log_record={"command": ["logcat"], "text": opening},
                 visible_confirmed="unavailable",
                 cleanup_evidence={"proof": True},
+                source_identity={"size": 1},
             )
 
         self.assertEqual(
@@ -763,9 +975,9 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 return_value=(status_record, runner.parse_auto_status(status_record)),
             ),
             mock.patch.object(
-                runner.resident,
-                "resident_d0_preflight",
-                return_value=(preflight, {}),
+                runner,
+                "fast_resident_preflight",
+                return_value=(preflight, {}, {"size": 1}),
             ),
             mock.patch.object(runner.base, "run_f1_cmd", return_value=log_record),
             mock.patch.object(
@@ -782,6 +994,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 opening_log_record={"command": ["logcat"], "text": opening},
                 visible_confirmed="unavailable",
                 cleanup_evidence={"proof": True},
+                source_identity={"size": 1},
             )
             result["ondevice_evidence"] = dict(result["ondevice_evidence"])
             result["ondevice_evidence"]["proof"] = False
@@ -1013,16 +1226,18 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
         returned_status = execute.index(
             "returned_status_record, returned_status = require_auto_status("
         )
-        cleanup_intent = execute.index('"cleanup-intent"')
-        cleanup_dispatch = execute.index("base.run_f1_shell")
+        absence_intent = execute.index('"absence-close-intent"')
+        absence_check = execute.index("fast_resident_preflight(", absence_intent)
         self.assertLess(arm_intent, arm_dispatch)
         self.assertLess(arm_dispatch, reboot_intent)
         self.assertLess(reboot_intent, reboot_dispatch)
         self.assertLess(reboot_dispatch, observation)
         self.assertLess(observation, returned_status)
-        self.assertLess(returned_status, cleanup_intent)
-        self.assertLess(cleanup_intent, cleanup_dispatch)
+        self.assertLess(returned_status, absence_intent)
+        self.assertLess(absence_intent, absence_check)
         self.assertEqual(execute.count("send_reboot_once(args)"), 1)
+        self.assertNotIn("resident._cleanup_script", execute)
+        self.assertNotIn("resident.resident_d0_preflight", execute)
         self.assertEqual(arm_helper.count("base.run_f1_cmd("), 1)
         self.assertIn("allow_error=True", arm_helper)
         self.assertLess(
@@ -1062,6 +1277,34 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
         self.assertEqual(published["arm_record"]["rc"], -28)
         self.assertEqual(published["post_arm_status"], status)
 
+    def test_unproved_arm_never_advances_from_armed_status(self) -> None:
+        intent_sha256 = "d" * 64
+        status_record = self._status(1, 0)
+        status = runner.parse_auto_status(status_record)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            journal_path = Path(temp_dir) / runner.JOURNAL_NAMES[2]
+            with (
+                mock.patch.object(
+                    runner.base,
+                    "run_f1_cmd",
+                    side_effect=RuntimeError("response lost"),
+                ),
+                mock.patch.object(
+                    runner,
+                    "read_auto_status",
+                    return_value=(status_record, status),
+                ),
+                self.assertRaisesRegex(runner.ContractError, "outcome is unproved"),
+            ):
+                runner.dispatch_arm_once_and_publish(
+                    SimpleNamespace(),
+                    journal_path=journal_path,
+                    intent_sha256=intent_sha256,
+                )
+            published = json.loads(journal_path.read_text(encoding="utf-8"))
+        self.assertFalse(published["arm_record"]["response_proof"])
+        self.assertEqual(published["post_arm_status"], status)
+
     def test_reconcile_classifies_published_refusal_as_exact_no_effect(self) -> None:
         intent_sha256 = "b" * 64
         status_record = self._status(0, 0)
@@ -1089,8 +1332,8 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             ),
             mock.patch.object(
                 runner.resident,
-                "resident_d0_preflight",
-                return_value=(preflight, {}),
+                "verify_resident_health_exact",
+                return_value={},
             ),
         ):
             result = runner.reconcile(
@@ -1176,7 +1419,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
         self.assertIn('path / JOURNAL_NAMES[7]', resume)
         self.assertIn('path / JOURNAL_NAMES[8]', resume)
 
-    def test_historical_closure_tail_repair_rejects_pre_cleanup_prefix(self) -> None:
+    def test_historical_closure_tail_repair_rejects_pre_absence_prefix(self) -> None:
         records6 = [{}, {}, {}, {}, {}, {}]
         with (
             tempfile.TemporaryDirectory() as temp_dir,
@@ -1197,7 +1440,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             ),
             self.assertRaisesRegex(
                 runner.ContractError,
-                "exact post-cleanup prefix",
+                "exact post-absence prefix",
             ),
         ):
             runner.resume_after_return(
@@ -1209,16 +1452,16 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 visible_confirmed="yes",
             )
 
-    def test_historical_closure_tail_repair_never_repeats_cleanup(self) -> None:
+    def test_historical_closure_tail_repair_never_repeats_absence_close(self) -> None:
         observation = {"reboot_record": {"command": ["reboot"], "dispatch_count": 1}}
         cleanup = {
-            "cleanup_dispatch_count": 1,
-            "inferred_from_absence": False,
-            "cleanup_record": {},
-            "absence_preflight": None,
+            "cleanup_dispatch_count": 0,
+            "inferred_from_absence": True,
+            "cleanup_record": None,
+            "absence_preflight": {},
         }
         records7 = [
-            {"first_boot_log": {}}, {}, {}, {},
+            {"first_boot_log": {}, "opening_preflight": {}}, {}, {}, {},
             {"observation": observation, "intent_sha256": "6" * 64},
             {},
             cleanup,
@@ -1239,6 +1482,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 side_effect=[records7, records7, records8, records9],
             ) as load,
             mock.patch.object(runner, "_effect_args", return_value=SimpleNamespace()),
+            mock.patch.object(runner, "validate_preflight_evidence", return_value={}),
             mock.patch.object(runner, "finalize_cycle", return_value={}),
             mock.patch.object(runner, "validate_result", return_value={}),
             mock.patch.object(runner.base, "json_sha256", return_value="7" * 64),
@@ -1250,7 +1494,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             mock.patch.object(
                 runner.base,
                 "run_f1_shell",
-                side_effect=AssertionError("completed cleanup must never replay"),
+                side_effect=AssertionError("absence close must never dispatch cleanup"),
             ),
         ):
             result = runner.resume_after_return(
@@ -1298,11 +1542,11 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                     records = runner.load_journal_prefix(spec, path, "0" * 64)
                 self.assertEqual(len(records), count)
 
-    def test_uncertain_cleanup_intent_is_never_replayed_by_resume(self) -> None:
+    def test_zero_dispatch_absence_intent_resumes_with_read_only_check(self) -> None:
         spec = self._spec()
         observation = {"reboot_record": {"command": ["reboot"], "dispatch_count": 1}}
         records6 = [
-            {"first_boot_log": {}},
+            {"first_boot_log": {}, "opening_preflight": {}},
             {},
             {},
             {},
@@ -1310,7 +1554,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             {},
         ]
         cleanup = {
-            "cleanup_dispatch_count": None,
+            "cleanup_dispatch_count": 0,
             "inferred_from_absence": True,
             "cleanup_record": None,
             "absence_preflight": {},
@@ -1334,14 +1578,15 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 return_value=(self._status(1, 1), runner.parse_auto_status(self._status(1, 1))),
             ),
             mock.patch.object(
-                runner.resident,
-                "resident_d0_preflight",
-                return_value=(preflight, {}),
+                runner,
+                "fast_resident_preflight",
+                return_value=(preflight, {}, {}),
             ),
+            mock.patch.object(runner, "validate_preflight_evidence", return_value={}),
             mock.patch.object(
                 runner.base,
                 "run_f1_shell",
-                side_effect=AssertionError("uncertain cleanup must not replay"),
+                side_effect=AssertionError("absence close must not dispatch cleanup"),
             ),
             mock.patch.object(runner, "finalize_cycle", return_value={}),
             mock.patch.object(runner, "validate_result", return_value={}),
@@ -1360,7 +1605,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 visible_confirmed="unavailable",
             )
         self.assertEqual(result, {})
-        self.assertEqual(writes, ["cleanup-result", "final-health", "closed"])
+        self.assertEqual(writes, ["absence-close-result", "final-health", "closed"])
 
     def test_result_publication_only_resume_never_contacts_device(self) -> None:
         spec = self._spec()
