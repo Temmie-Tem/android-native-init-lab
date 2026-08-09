@@ -4,16 +4,24 @@ Contract-Revision: **2** (supersedes revision 1; 2026-08-03)
 
 ## Interim Fast-Loop Rules (operational trial)
 
-Status: **ACTIVE** by operator declaration, 2026-08-03. This trial overlay
-supersedes conflicting procedural text in this file, the target contracts, and
-process documents. Permanent device, repository, and evidence boundaries stay
-absolute. It grants standing D0 for a resolved exact target; D1 and F1 require
-the selected target's presence predicate, and F1 always requires attendance.
+Status: **RETIRED**. The trial was activated by operator declaration on
+2026-08-03 and retired at 2026-08-03T20:46:02Z, when the first
+`CAMPAIGN_CLOSED` rows for the two distinct campaign IDs
+`s22plus-fyg8-p296` and `s22plus-fyg8-p298` had both been recorded. The terms
+below are retained as the historical trial contract only. They no longer
+grant standing D0, procedural autonomy, or an override of the ordinary target
+contracts and process documents. Permanent device, repository, and evidence
+boundaries remained absolute throughout.
 
 Retirement: end after the first `CAMPAIGN_CLOSED` row for each of two
 distinct campaign IDs across both ledgers, or on 2026-09-03, whichever comes
 first. Duplicate closes and parked campaigns do not count. Contract Revision 2
 and permanent boundaries remain; adopt this autonomy or lapse only it. Never extend silently.
+
+The retirement condition above is satisfied. The following trial-only
+procedural authority, autonomy, health, and evidence terms are non-operative
+and remain here only to preserve the contract record for the interval in which
+the trial was active.
 
 ### Procedural authority gates - closed list
 

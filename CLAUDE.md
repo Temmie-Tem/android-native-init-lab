@@ -8,24 +8,24 @@ neither goal grants device authority.
 
 Current posture:
 
-- The **Interim Fast-Loop Rules** block at the top of `AGENTS.md` is ACTIVE and
-  supersedes conflicting procedural text everywhere. Read it first. Permanent
-  boundaries are unchanged and still win.
-- D0 is autonomous for a resolved exact target. Qualified A90 resident D1 may
-  be unattended; every other D1 and all F1 remain attended.
-- For boundary-compliant effects, the only procedural gates are target identity,
-  required rollback, recovery, and target-specific presence. Permanent integrity,
-  no-replay, and inter-effect health checks remain mandatory.
-- The agent owns goal selection and iteration; target runners execute one durable
-  effect and recovery transaction. Do not require a campaign-level runner.
+- The **Interim Fast-Loop Rules** block at the top of `AGENTS.md` is RETIRED.
+  Its retirement condition was met at 2026-08-03T20:46:02Z by the first close
+  rows for two distinct campaign IDs. The retained trial text is historical
+  and grants no current standing D0, procedural autonomy, or override.
+- Apply the ordinary common contract, the selected binding target contract,
+  and its current process. Any D0, D1, or F1 authority must come from those
+  current layers and live inputs; do not infer it from the retired trial.
+- Permanent integrity, no-replay, target isolation, recovery, and inter-effect
+  health requirements remain mandatory.
 - Legacy v1 checks are implementation limits. The current A90 v1 runner is
   attended-only; never assert `--operator-attended` while the operator is absent.
 - A missing or late endpoint, timeout, or malformed observation freezes new
   device effects and enters health classification; it does not by itself close
   the campaign. Passive reads, host-only observer repair, and the exact
   predeclared recovery may continue without replaying the uncertain action.
-- Routine evidence goes to the per-target campaign ledger under
-  `docs/operations/`, not to a new report file.
+- Record evidence according to the ordinary `AGENTS.md` evidence rules and the
+  selected target contract. The trial ledgers remain append-only historical
+  evidence but no longer grant authority.
 - Files under `docs/archive/` are historical and grant no authority, even when
   they contain `ACTIVE`, acknowledgement, or exception text.
 

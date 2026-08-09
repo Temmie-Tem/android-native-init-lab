@@ -42,6 +42,16 @@ the candidate pull-up still never enumerated. In particular, the pre-init
 clock call ran outside the 12 return probes, so its discarded prepare/enable
 return values remain unmeasured.
 
+Post-P3.10 H0 now proves the proposed P3.11 observation can stay module-local.
+The fixed FYG8 HS-PHY module has no out-of-line clock helper; exact linked
+auditing closes 24 post-call return sites across probe (6), init (12), and
+set-suspend (6). A pinned arm64 QEMU control proves that enabled pending
+symbol-plus-offset kprobes arm during module `COMING` before module init and
+record the probe call. Existing private stock rollback logs already show the
+same DWC3-worker `clocks_enabled=0,on=1` then init `1,1` order, so P3.11's
+remaining value is the discarded clock return codes, not another caller-order
+experiment. No device contact or Full-LTO rebuild was used for this H0 unit.
+
 After rollback and both final retained reads had completed, host state
 persistence rejected nested Carrier v2 `bytes` payloads as non-JSON values.
 No device action was repeated. A hash-pinned, independently reviewed
