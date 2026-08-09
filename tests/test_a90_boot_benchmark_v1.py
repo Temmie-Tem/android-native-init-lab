@@ -204,6 +204,31 @@ class A90BootBenchmarkV1Tests(unittest.TestCase):
             comparison["phase_comparison"]["handoff_total_ms"]["delta_ms"],
             -60,
         )
+        self.assertEqual(
+            comparison["phase_comparison"]["boot_to_switch_root_ms"],
+            {"baseline_ms": 600, "candidate_ms": 540, "delta_ms": -60},
+        )
+
+    def test_direct_gate_phase_is_optional_and_records_boot_absolute_time(self) -> None:
+        result = benchmark.parse_run(
+            [
+                marker("native_runtime_ready", 100)
+                + "\n"
+                + marker("native_direct_handoff_ready", 130)
+                + "\n"
+                + marker("native_services_ready", 131)
+                + "\n"
+                + marker("auto_handoff_dispatched", 150)
+                + "\n"
+                + marker("switch_root_exec", 500)
+            ]
+        )
+        self.assertEqual(result["phase_durations_ms"]["native_direct_gate_ms"], 25)
+        self.assertEqual(
+            result["phase_durations_ms"]["boot_to_handoff_dispatch_ms"],
+            150,
+        )
+        self.assertEqual(result["phase_durations_ms"]["boot_to_switch_root_ms"], 500)
 
     def test_compares_legacy_sha_to_fast_receipt_as_source_integrity(self) -> None:
         legacy = benchmark.parse_run([

@@ -6179,6 +6179,10 @@ int main(void) {
        A90_RELOADED unset, so every guard below is a no-op and normal boot behavior is unchanged. */
     int a90_reloaded = (getenv("A90_RELOADED") != NULL);
     bool a90_cache_ready = false;
+#if A90_AUTO_HANDOFF_BENCHMARK_V1 && A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT
+    bool direct_handoff_checked = false;
+    int direct_handoff_rc = 2;
+#endif
     a90_timeline_record(0, 0, a90_reloaded ? "init-start-reloaded" : "init-start", "%s", INIT_BANNER);
     if (a90_reloaded) {
         klogf("<6>A90v724: hot-reload fast-path (A90_RELOADED set)\n");
@@ -6301,14 +6305,29 @@ int main(void) {
     boot_auto_frame();
 
 #ifdef A90_WIFI_LIFECYCLE_MODEM_OWNER
+#if A90_AUTO_HANDOFF_BENCHMARK_V1 && A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT
+    if (a90_reloaded) {
+        v726_start_wifi_lifecycle_modem_owner_once();
+        boot_auto_frame();
+    }
+#else
     v726_start_wifi_lifecycle_modem_owner_once();
     boot_auto_frame();
 #endif
+#endif
 
 #ifdef A90_WIFI_TEST_BOOT
+#if A90_AUTO_HANDOFF_BENCHMARK_V1 && A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT
+    if (a90_reloaded) {
+        v1393_run_wifi_test_boot_once();
+        (void)v726_start_wifi_runtime_summary_once();
+        boot_auto_frame();
+    }
+#else
     v1393_run_wifi_test_boot_once();
     (void)v726_start_wifi_runtime_summary_once();
     boot_auto_frame();
+#endif
 #endif
 
     if (a90_usb_gadget_setup_acm() == 0) {
@@ -6363,13 +6382,25 @@ int main(void) {
     if (a90_console_wait_tty() == 0) {
         mark_step("3_tty_ready_v724\n");
         boot_splash_set_line(4, "[ SERIAL ] TTYGS0 READY");
+#if A90_AUTO_HANDOFF_BENCHMARK_V1 && A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT
+        boot_splash_set_line(5, "[ RUNTIME] DEBIAN HANDOFF READY");
+#else
         boot_splash_set_line(5, "[ RUNTIME] HUD MENU LOADING");
+#endif
         a90_logf("boot", "ttyGS0 ready");
         a90_timeline_record(0, 0, "ttyGS0", "/dev/ttyGS0 ready");
         klogf("<6>A90v724: ttyGS0 ready\n");
         boot_auto_frame();
         if (!a90_reloaded) {
+#if A90_AUTO_HANDOFF_BENCHMARK_V1 && A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT
+            a90_logf("boot", "direct Debian boot skips fixed splash delay");
+            a90_timeline_record(0,
+                                0,
+                                "direct-debian-boot",
+                                "fixed splash delay skipped");
+#else
             sleep(BOOT_SPLASH_SECONDS);
+#endif
         }
     } else {
         int saved_errno = errno;
@@ -6397,6 +6428,41 @@ int main(void) {
         a90_console_drain_input(250, 1500);
         a90_console_printf("\r\n# %s\r\n", INIT_BANNER);
         a90_console_printf("# USB ACM serial console ready.\r\n");
+#if A90_AUTO_HANDOFF_BENCHMARK_V1 && A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT
+        if (!a90_reloaded) {
+            a90_console_printf(
+                "A90DIRECT_BOOT mode=pre-service-check hud=skipped native_aux=deferred\r\n");
+            a90_logf(
+                "auto-handoff",
+                "A90DIRECT_BOOT mode=pre-service-check hud=skipped native_aux=deferred");
+            a90_timeline_record(
+                0,
+                0,
+                "direct-debian-boot",
+                "pre-service handoff check; HUD and auxiliary services deferred");
+            a90_benchmark_emit("native_direct_handoff_ready");
+            a90_benchmark_emit("native_services_ready");
+            direct_handoff_checked = true;
+            if (a90_cache_ready) {
+                direct_handoff_rc = a90_auto_handoff_run_once();
+            } else {
+                a90_console_printf(
+                    "# Direct Debian handoff refused: durable /cache unavailable.\r\n");
+                a90_logf("auto-handoff", "refused durable cache unavailable");
+                a90_timeline_record(-ENODEV,
+                                    ENODEV,
+                                    "auto-handoff",
+                                    "durable cache unavailable");
+                a90_benchmark_emit("auto_handoff_cache_refused");
+                direct_handoff_rc = -ENODEV;
+            }
+            if (direct_handoff_rc < 0) {
+                a90_console_printf(
+                    "# Direct Debian handoff returned rc=%d; starting native fallback; no replay.\r\n",
+                    direct_handoff_rc);
+            }
+        }
+#endif
         if (a90_reloaded) {
             pid_t hud_pid;
 
@@ -6511,6 +6577,17 @@ int main(void) {
                 a90_logf("boot", "hot-reload selftest/guard refreshed %s", guard_summary);
             }
         } else {
+#if A90_AUTO_HANDOFF_BENCHMARK_V1 && A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT
+#ifdef A90_WIFI_LIFECYCLE_MODEM_OWNER
+            v726_start_wifi_lifecycle_modem_owner_once();
+            boot_auto_frame();
+#endif
+#ifdef A90_WIFI_TEST_BOOT
+            v1393_run_wifi_test_boot_once();
+            (void)v726_start_wifi_runtime_summary_once();
+            boot_auto_frame();
+#endif
+#endif
             v724_run_qrtr_servloc_boot_once();
             v641_run_sibling_ssctl_once();
             if (start_auto_hud(BOOT_HUD_REFRESH_SECONDS, false) == 0) {
@@ -6603,7 +6680,12 @@ int main(void) {
             (void)a90_wifi_start_boot_autoconnect_once();
             (void)a90_audio_boot_chime_start_once();
         }  /* end !a90_reloaded live-service re-init guard */
-#if A90_AUTO_HANDOFF_BENCHMARK_V1
+#if A90_AUTO_HANDOFF_BENCHMARK_V1 && A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT
+        if (!a90_reloaded && direct_handoff_checked && direct_handoff_rc < 0) {
+            a90_benchmark_emit("native_fallback_ready");
+        }
+#endif
+#if A90_AUTO_HANDOFF_BENCHMARK_V1 && !A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT
         if (!a90_reloaded) {
             int auto_handoff_rc;
 

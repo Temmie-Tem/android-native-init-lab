@@ -103,6 +103,9 @@ MINIMAL_H9_CANDIDATE_PROFILE = (
 MINIMAL_H10_CANDIDATE_PROFILE = (
     "phase3-minimal-h10-fast-source-receipt-auto-benchmark"
 )
+MINIMAL_H11_CANDIDATE_PROFILE = (
+    "phase3-minimal-h11-direct-debian-boot-auto-benchmark"
+)
 LEGACY_CANDIDATE = CandidateSpec(
     profile=LEGACY_CANDIDATE_PROFILE,
     copy_name="candidate-boot-phase2-display-v1.img",
@@ -473,6 +476,48 @@ MINIMAL_H10_CANDIDATE = CandidateSpec(
         ),
     },
 )
+MINIMAL_H11_CANDIDATE = CandidateSpec(
+    profile=MINIMAL_H11_CANDIDATE_PROFILE,
+    copy_name="candidate-boot-phase3-minimal-h11.img",
+    source=(
+        staging.PRIVATE_ROOT
+        / "outputs"
+        / "a90-h11-direct-debian-boot-ab-20260810-04"
+        / "A"
+        / "boot.img"
+    ),
+    size=58372096,
+    sha256="b5b3391af4d0842150fcce38ef22e3f7c9b15cc771b14589571d56c1de72f637",
+    version="0.11.179",
+    build="phase3-minimal-h11-direct-debian-boot-auto-benchmark",
+    build_receipt=(
+        staging.PRIVATE_ROOT
+        / "outputs"
+        / "a90-h11-direct-debian-boot-ab-20260810-04"
+        / "ab-receipt.json"
+    ),
+    build_receipt_sha256=(
+        "6aafa2598587885e0e9e1b6cd229ef89055e9687c0cbe330988ef82ddf5b2eae"
+    ),
+    compiled_auto_handoff={
+        "schema": "a90-compiled-auto-handoff-binding-v2",
+        "candidate_version": "0.11.179",
+        "candidate_build": "phase3-minimal-h11-direct-debian-boot-auto-benchmark",
+        "image_path": (
+            "/mnt/sdext/a90/runtime/"
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260810-03.img"
+        ),
+        "image_sha256": (
+            "9e9b11aa80e2c83f54990e9b286dcdd89535438d6f0a248fe89557c75a763931"
+        ),
+        "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h11.enable",
+        "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h11.done",
+        "receipt_path": "/cache/a90-source-receipt-phase3-minimal-h11",
+        "binding_sha256": (
+            "801773b373a10380387603aa0a91f8a1b1456f4fb5eedfb5257debc1812c259a"
+        ),
+    },
+)
 CANDIDATE_PROFILES = {
     item.profile: item
     for item in (
@@ -488,6 +533,7 @@ CANDIDATE_PROFILES = {
         MINIMAL_H8_CANDIDATE,
         MINIMAL_H9_CANDIDATE,
         MINIMAL_H10_CANDIDATE,
+        MINIMAL_H11_CANDIDATE,
     )
 }
 
@@ -613,6 +659,7 @@ def candidate_first_boot_contract(candidate: CandidateSpec) -> dict[str, Any] | 
     if candidate.profile in {
         MINIMAL_H9_CANDIDATE_PROFILE,
         MINIMAL_H10_CANDIDATE_PROFILE,
+        MINIMAL_H11_CANDIDATE_PROFILE,
     }:
         assert candidate.compiled_auto_handoff is not None
         return {
@@ -672,6 +719,8 @@ PHASE3_EXECUTION_REVIEW_SOURCES = tuple(
             / "a90_flat_builder/versions/phase3-minimal-h9/manifest.toml",
             REVAL_DIR
             / "a90_flat_builder/versions/phase3-minimal-h10/manifest.toml",
+            REVAL_DIR
+            / "a90_flat_builder/versions/phase3-minimal-h11/manifest.toml",
             SCRIPT_DIR / "phase3_network_ssh_v1/manifest.toml",
             SCRIPT_DIR
             / "phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh",
@@ -680,6 +729,17 @@ PHASE3_EXECUTION_REVIEW_SOURCES = tuple(
             Path(__file__).resolve(),
         )
     )
+)
+PHASE3_REVIEW_HASH_ONLY_SOURCES = (
+    REPO_ROOT / "workspace/public/src/native-init/a90_auto_handoff.c",
+    REPO_ROOT / "workspace/public/src/native-init/a90_benchmark.c",
+    REPO_ROOT / "workspace/public/src/native-init/a90_config.h",
+    REPO_ROOT / "workspace/public/src/native-init/a90_server_distro.c",
+    REPO_ROOT / "workspace/public/src/native-init/v724/90_main.inc.c",
+    SCRIPT_DIR / "a90_auto_handoff_benchmark_runner_v1.py",
+    SCRIPT_DIR / "a90_boot_benchmark_v1.py",
+    SCRIPT_DIR / "a90_ondevice_evidence_v1.py",
+    SCRIPT_DIR / "a90_transition_d1_session_v1.py",
 )
 
 
@@ -811,10 +871,27 @@ def required_review_source_records() -> tuple[dict[str, Any], ...]:
 
 
 def required_phase3_review_source_records() -> tuple[dict[str, Any], ...]:
-    return tuple(
+    immutable_records = tuple(
         current_source_record(path.resolve())
         for path in PHASE3_EXECUTION_REVIEW_SOURCES
     )
+    hash_only_records = []
+    for path in PHASE3_REVIEW_HASH_ONLY_SOURCES:
+        lexical = path.lstat()
+        if stat.S_ISLNK(lexical.st_mode):
+            raise ContractError(f"review source must not be a symlink: {path}")
+        resolved = path.resolve(strict=True)
+        info = resolved.lstat()
+        if not stat.S_ISREG(info.st_mode):
+            raise ContractError(f"review source is not a regular file: {resolved}")
+        hash_only_records.append(
+            {
+                "path": str(resolved),
+                "size": info.st_size,
+                "sha256": sha256_file(resolved),
+            }
+        )
+    return immutable_records + tuple(hash_only_records)
 
 
 def validate_independent_review_report(review_text: str) -> None:

@@ -6279,7 +6279,11 @@ class DisplayObservationTests(unittest.TestCase):
         for version, build in f1.FAST_SOURCE_RECEIPT_IDENTITIES:
             identity = (version, build)
             receipt_path = f1.FAST_SOURCE_RECEIPT_PATHS[identity]
-            generation = "h9" if identity == f1.H9_FAST_SOURCE_RECEIPT_IDENTITY else "h10"
+            generation = {
+                f1.H9_FAST_SOURCE_RECEIPT_IDENTITY: "h9",
+                f1.H10_FAST_SOURCE_RECEIPT_IDENTITY: "h10",
+                f1.H11_FAST_SOURCE_RECEIPT_IDENTITY: "h11",
+            }[identity]
             binding = {
                 "schema": "a90-compiled-auto-handoff-binding-v2",
                 "candidate_version": version,

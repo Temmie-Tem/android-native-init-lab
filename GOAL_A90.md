@@ -16,6 +16,24 @@ The pre-H2 goal history is preserved at
 
 ## Current State
 
+- H11 host preparation is complete for `0.11.179`, build
+  `phase3-minimal-h11-direct-debian-boot-auto-benchmark`. On an armed boot it
+  keeps the boot splash and serial recovery path, skips the fixed splash wait,
+  HUD, QRTR, netservice, early WiFi lifecycle/test, WiFi autoconnect, and boot
+  chime, then dispatches the existing one-shot handoff. Any unarmed, latched,
+  cache-refused, or failed return restores the full native service path without
+  replay.
+- The fresh Phase3 network/SSH rootfs, H11 marker namespace, deterministic A/B
+  boot, exact compiled binding, and benchmark execution closure are bound by a
+  42-path independent review. `PASS_GO` has HIGH/MEDIUM/LOW zero and grants no
+  device authority. The final host manifest is private and immutable; its
+  candidate and rollback copies are exact.
+- Fresh run03 D0 re-proved installed H10 `0.11.178` health, self-test fail zero,
+  exact H11 candidate and V2321 rollback, direct NCM, and absent remote
+  rootfs/work/stage destinations. Device write, payload, reboot, flash, and
+  S22+ command counts are zero. The next gate is one attended boot-only H11
+  resident install, followed by an unarmed fallback boot and one attended
+  direct-handoff benchmark ordinal; neither effect has started.
 - H10 resident install and D1 run `a90-d1-attended-20260810-02` are terminal.
   The exact no-rearm continuation dispatched one reboot, completed all 15
   handoff stages, returned exact H10 health, and closed
@@ -698,6 +716,7 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/archive/reports/A90_H10_RECEIPT_AWARE_D1_ADAPTER_INDEPENDENT_REVIEW_2026-08-10.json`
 - `docs/reports/A90_H10_RUN02_PROVED_ARM_NO_REPLAY_RESUME_INDEPENDENT_REVIEW_2026-08-10.json`
 - `docs/reports/A90_H10_NCM_FIRST_OBSERVER_AND_BENCHMARK_RECEIPT_INDEPENDENT_REVIEW_2026-08-10.json`
+- `docs/reports/A90_PHASE3_MINIMAL_H11_DIRECT_DEBIAN_BOOT_INDEPENDENT_REVIEW_2026-08-10.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`

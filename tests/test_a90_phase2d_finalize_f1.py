@@ -410,6 +410,45 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
         }
         finalizer.require_compiled_rootfs_binding(manifest)
 
+    def test_minimal_h11_candidate_binds_direct_boot_rootfs_and_namespace(self) -> None:
+        selected = finalizer.select_candidate_profile(
+            finalizer.MINIMAL_H11_CANDIDATE_PROFILE
+        )
+        contract = finalizer.candidate_first_boot_contract(selected)
+        self.assertEqual(selected.version, "0.11.179")
+        self.assertEqual(
+            selected.sha256,
+            "b5b3391af4d0842150fcce38ef22e3f7c9b15cc771b14589571d56c1de72f637",
+        )
+        self.assertEqual(
+            selected.build_receipt_sha256,
+            "6aafa2598587885e0e9e1b6cd229ef89055e9687c0cbe330988ef82ddf5b2eae",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["image_sha256"],
+            "9e9b11aa80e2c83f54990e9b286dcdd89535438d6f0a248fe89557c75a763931",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["image_path"],
+            "/mnt/sdext/a90/runtime/"
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260810-03.img",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["binding_sha256"],
+            "801773b373a10380387603aa0a91f8a1b1456f4fb5eedfb5257debc1812c259a",
+        )
+        self.assertEqual(contract["schema"], "a90-auto-handoff-first-boot-v3")
+        self.assertEqual(
+            contract["receipt_path"],
+            "/cache/a90-source-receipt-phase3-minimal-h11",
+        )
+        self.assertNotEqual(
+            contract["receipt_path"],
+            finalizer.candidate_first_boot_contract(
+                finalizer.MINIMAL_H10_CANDIDATE
+            )["receipt_path"],
+        )
+
     def test_unknown_candidate_profile_is_rejected(self) -> None:
         with self.assertRaisesRegex(finalizer.ContractError, "not exact"):
             finalizer.select_candidate_profile("arbitrary")

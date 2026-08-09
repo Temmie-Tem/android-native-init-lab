@@ -110,9 +110,14 @@ H10_FAST_SOURCE_RECEIPT_IDENTITY = (
     "0.11.178",
     "phase3-minimal-h10-fast-source-receipt-auto-benchmark",
 )
+H11_FAST_SOURCE_RECEIPT_IDENTITY = (
+    "0.11.179",
+    "phase3-minimal-h11-direct-debian-boot-auto-benchmark",
+)
 FAST_SOURCE_RECEIPT_IDENTITIES = {
     H9_FAST_SOURCE_RECEIPT_IDENTITY,
     H10_FAST_SOURCE_RECEIPT_IDENTITY,
+    H11_FAST_SOURCE_RECEIPT_IDENTITY,
 }
 FAST_SOURCE_RECEIPT_PATHS = {
     H9_FAST_SOURCE_RECEIPT_IDENTITY: (
@@ -120,6 +125,9 @@ FAST_SOURCE_RECEIPT_PATHS = {
     ),
     H10_FAST_SOURCE_RECEIPT_IDENTITY: (
         "/cache/a90-source-receipt-phase3-minimal-h10"
+    ),
+    H11_FAST_SOURCE_RECEIPT_IDENTITY: (
+        "/cache/a90-source-receipt-phase3-minimal-h11"
     ),
 }
 HANDOFF_COMMON_OUTPUT_MARKERS = (
@@ -778,6 +786,13 @@ def validate_candidate_first_boot_contract(
         ): (
             "/cache/a90-auto-handoff-phase3-minimal-h10.enable",
             "/cache/a90-auto-handoff-phase3-minimal-h10.done",
+        ),
+        (
+            "0.11.179",
+            "phase3-minimal-h11-direct-debian-boot-auto-benchmark",
+        ): (
+            "/cache/a90-auto-handoff-phase3-minimal-h11.enable",
+            "/cache/a90-auto-handoff-phase3-minimal-h11.done",
         ),
     }
     if identity in compiled_identity_markers:

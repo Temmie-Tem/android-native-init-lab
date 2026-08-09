@@ -11,14 +11,13 @@ from _loader import load_script
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 NATIVE = REPO_ROOT / "workspace/public/src/native-init"
-# The current generation, not a historical one. Pinned to phase3-minimal-h
-# this test kept asserting H4's image, hash and latch, so the focused suite
-# could pass without ever validating the generation actually being built.
+# The current generation, not a historical one.
 MANIFEST = (
     REPO_ROOT
     / "workspace/public/src/scripts/revalidation/a90_flat_builder"
-    / "versions/phase3-minimal-h10/manifest.toml"
+    / "versions/phase3-minimal-h11/manifest.toml"
 )
+H10_MANIFEST = MANIFEST.parents[1] / "phase3-minimal-h10/manifest.toml"
 H9_MANIFEST = MANIFEST.parents[1] / "phase3-minimal-h9/manifest.toml"
 H8_MANIFEST = MANIFEST.parents[1] / "phase3-minimal-h8/manifest.toml"
 FLAT_BUILDER = load_script(
@@ -27,19 +26,19 @@ FLAT_BUILDER = load_script(
 
 
 class A90AutoHandoffSourceV1Tests(unittest.TestCase):
-    def test_h10_build_binding_includes_receipt_while_h8_stays_v1(self) -> None:
+    def test_h11_build_binding_includes_receipt_while_h8_stays_v1(self) -> None:
         with MANIFEST.open("rb") as stream:
-            h10 = FLAT_BUILDER.normalized_auto_handoff_binding(
+            h11 = FLAT_BUILDER.normalized_auto_handoff_binding(
                 tomllib.load(stream)
             )
         with H8_MANIFEST.open("rb") as stream:
             h8 = FLAT_BUILDER.normalized_auto_handoff_binding(
                 tomllib.load(stream)
             )
-        self.assertEqual(h10["schema"], "a90-compiled-auto-handoff-binding-v2")
+        self.assertEqual(h11["schema"], "a90-compiled-auto-handoff-binding-v2")
         self.assertEqual(
-            h10["receipt_path"],
-            "/cache/a90-source-receipt-phase3-minimal-h10",
+            h11["receipt_path"],
+            "/cache/a90-source-receipt-phase3-minimal-h11",
         )
         self.assertEqual(h8["schema"], "a90-compiled-auto-handoff-binding-v1")
         self.assertNotIn("receipt_path", h8)
@@ -302,6 +301,23 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
         self.assertIn("-DA90_AUTO_HANDOFF_BENCHMARK_V1=1", manifest)
         self.assertIn(
             "/mnt/sdext/a90/runtime/"
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260810-03.img",
+            manifest,
+        )
+        self.assertIn(
+            "9e9b11aa80e2c83f54990e9b286dcdd89535438d6f0a248fe89557c75a763931",
+            manifest,
+        )
+        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h11.enable", manifest)
+        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h11.done", manifest)
+        self.assertIn("/cache/a90-source-receipt-phase3-minimal-h11", manifest)
+        self.assertIn('-DINIT_VERSION="0.11.179"', manifest)
+        self.assertIn("-DA90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT=1", manifest)
+
+    def test_superseded_h10_manifest_keeps_its_original_identity(self) -> None:
+        manifest = H10_MANIFEST.read_text(encoding="utf-8")
+        self.assertIn('-DINIT_VERSION="0.11.178"', manifest)
+        self.assertIn(
             "debian-bookworm-arm64-phase2-display-v3406-keyed-20260809-03.img",
             manifest,
         )
@@ -309,10 +325,35 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
             "38d9ce41503483996d14a18fb51275fbbe47e898ce51aee37f9f88b61295018e",
             manifest,
         )
-        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h10.enable", manifest)
-        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h10.done", manifest)
         self.assertIn("/cache/a90-source-receipt-phase3-minimal-h10", manifest)
-        self.assertIn('-DINIT_VERSION="0.11.178"', manifest)
+        self.assertNotIn("A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT", manifest)
+
+    def test_direct_boot_checks_handoff_before_hud_and_aux_services(self) -> None:
+        source = (NATIVE / "v724/90_main.inc.c").read_text(encoding="utf-8")
+        marker = source.index(
+            "A90DIRECT_BOOT mode=pre-service-check hud=skipped native_aux=deferred"
+        )
+        branch_end = source.index("        if (a90_reloaded) {", marker)
+        direct = source[marker:branch_end]
+        self.assertIn('a90_benchmark_emit("native_direct_handoff_ready")', direct)
+        self.assertIn("a90_auto_handoff_run_once()", direct)
+        self.assertNotIn("start_auto_hud", direct)
+        self.assertNotIn("a90_netservice_start", direct)
+        self.assertNotIn("a90_wifi_start_boot_autoconnect_once", direct)
+        self.assertNotIn("a90_audio_boot_chime_start_once", direct)
+        self.assertNotIn("v726_start_wifi_lifecycle_modem_owner_once", direct)
+        self.assertNotIn("v1393_run_wifi_test_boot_once", direct)
+        fallback = source[branch_end:source.index(
+            "            v724_run_qrtr_servloc_boot_once();",
+            branch_end,
+        )]
+        self.assertIn("v726_start_wifi_lifecycle_modem_owner_once", fallback)
+        self.assertIn("v1393_run_wifi_test_boot_once", fallback)
+        self.assertIn(
+            "#if A90_AUTO_HANDOFF_BENCHMARK_V1 && "
+            "!A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT",
+            source,
+        )
 
     def test_superseded_h9_manifest_keeps_its_original_identity(self) -> None:
         manifest = H9_MANIFEST.read_text(encoding="utf-8")

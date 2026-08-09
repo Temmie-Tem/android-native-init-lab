@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """One-ordinal attended A90 auto-handoff benchmark runner.
 
-The runner consumes an installed-resident D1 manifest.  It proves the H10
+The runner consumes an installed-resident D1 manifest.  It proves the H11
 resident healthy and unarmed, durably binds one arm intent, arms once, proves
 the exact enable state, durably binds one reboot intent, reboots once, observes
 Debian PID1/display/SSH, automatic native return, the retained latch, final
@@ -46,16 +46,16 @@ SCHEMA = "a90-auto-handoff-benchmark-runner-v3"
 JOURNAL_SCHEMA = "a90-auto-handoff-benchmark-journal-v3"
 RESULT_SCHEMA = "a90-auto-handoff-benchmark-result-v3"
 RECONCILE_SCHEMA = "a90-auto-handoff-benchmark-reconciliation-v3"
-EXPECTED_VERSION = "0.11.178"
+EXPECTED_VERSION = "0.11.179"
 EXPECTED_BUILD = (
-    "phase3-minimal-h10-fast-source-receipt-auto-benchmark"
+    "phase3-minimal-h11-direct-debian-boot-auto-benchmark"
 )
 EXPECTED_ROOTFS_SHA256 = (
-    "38d9ce41503483996d14a18fb51275fbbe47e898ce51aee37f9f88b61295018e"
+    "9e9b11aa80e2c83f54990e9b286dcdd89535438d6f0a248fe89557c75a763931"
 )
 ARM_TOKEN = "AUTO-HANDOFF-BENCHMARK-V1-ARM"
 SOURCE_RECEIPT_SCHEMA = "a90-d3-source-receipt-v1"
-SOURCE_RECEIPT_PATH = "/cache/a90-source-receipt-phase3-minimal-h10"
+SOURCE_RECEIPT_PATH = "/cache/a90-source-receipt-phase3-minimal-h11"
 FAST_SOURCE_STATES = {"receipt-absent", "receipt-verified"}
 FAST_SOURCE_MARKER_RE = re.compile(
     r"^A90D1_FAST_SOURCE state=(?P<state>receipt-(?:absent|verified)) "
@@ -285,7 +285,7 @@ def require_bounded_run_script(script: str) -> str:
     command = ["run", "/bin/busybox", "sh", "-c", script]
     wire = base.a90ctl.encode_cmdv1_line(command)
     if len(wire.encode("utf-8")) >= CMDV1X_BUFFER_BYTES:
-        raise ContractError("H10 read-only cmdv1x script exceeds native buffer")
+        raise ContractError("H11 read-only cmdv1x script exceeds native buffer")
     return script
 
 
@@ -294,7 +294,7 @@ def fast_source_preflight_script(
     *,
     expected_state: str,
 ) -> str:
-    """Inspect the H10 source/receipt identity without hashing source data."""
+    """Inspect the H11 source/receipt identity without hashing source data."""
 
     if expected_state not in FAST_SOURCE_STATES:
         raise ContractError("fast source preflight state is not exact")
@@ -306,7 +306,7 @@ def fast_source_preflight_script(
             (spec.candidate_version, spec.candidate_build)
         ) != SOURCE_RECEIPT_PATH
     ):
-        raise ContractError("fast source receipt binding is not exact H10")
+        raise ContractError("fast source receipt binding is not exact H11")
     final = shlex.quote(spec.remote_final)
     work = shlex.quote(spec.remote_work)
     receipt = shlex.quote(SOURCE_RECEIPT_PATH)
@@ -455,7 +455,7 @@ def require_fast_source_preflight_receipt(
             value,
             script=script,
             marker_pattern=FAST_SOURCE_MARKER_RE,
-            label=f"H10 {expected_state} source preflight",
+            label=f"H11 {expected_state} source preflight",
         )
     except resident.ContractError as exc:
         raise ContractError("fast source preflight receipt is not exact") from exc
@@ -494,7 +494,7 @@ def require_fast_receipt_content_receipt(
             value,
             script=script,
             marker_pattern=FAST_RECEIPT_MARKER_RE,
-            label="H10 exact receipt content",
+            label="H11 exact receipt content",
         )
     except resident.ContractError as exc:
         raise ContractError("fast receipt content record is not exact") from exc
@@ -828,7 +828,7 @@ def load_journal_prefix(
             not exact_int(cleanup.get("cleanup_dispatch_count"), 0)
             or cleanup.get("cleanup_record") is not None
         ):
-            raise ContractError("H10 absence close dispatched cleanup")
+            raise ContractError("H11 absence close dispatched cleanup")
         validate_preflight_evidence(
             spec,
             cleanup.get("absence_preflight"),
@@ -882,7 +882,7 @@ def parse_auto_status(record: dict[str, Any]) -> dict[str, Any]:
         "build": match.group("build"),
     }
     if result["binding"] != 1 or result["build"] != EXPECTED_BUILD:
-        raise ContractError("auto-handoff status binding/build is not exact H10")
+        raise ContractError("auto-handoff status binding/build is not exact H11")
     return result
 
 
@@ -1001,7 +1001,7 @@ def require_first_boot_unarmed(log_record: dict[str, Any]) -> None:
     base.require_exact_f1_command_receipt(
         log_record,
         ["logcat"],
-        "first H10 resident log receipt",
+        "first H11 resident log receipt",
     )
     text = str(log_record.get("text") or "")
     state_lines: list[str] = []
@@ -1012,7 +1012,7 @@ def require_first_boot_unarmed(log_record: dict[str, Any]) -> None:
     if not state_lines or any(
         line != "A90AUTO state=unarmed-stay-native" for line in state_lines
     ):
-        raise ContractError("H10 resident log is not exclusively unarmed")
+        raise ContractError("H11 resident log is not exclusively unarmed")
 
 
 def _effect_args() -> argparse.Namespace:
@@ -2283,7 +2283,7 @@ def validate_result(
         or status.get("enable") != 1
         or status.get("latch") != 1
     ):
-        raise ContractError("benchmark result does not prove returned H10 latch")
+        raise ContractError("benchmark result does not prove returned H11 latch")
     validate_preflight_evidence(
         spec,
         value.get("final_preflight"),
@@ -2301,7 +2301,7 @@ def validate_result(
         not exact_int(cleanup.get("dispatch_count"), 0)
         or cleanup.get("receipt") is not None
     ):
-        raise ContractError("benchmark result H10 absence close dispatched cleanup")
+        raise ContractError("benchmark result H11 absence close dispatched cleanup")
     validate_preflight_evidence(
         spec,
         cleanup.get("absence_preflight"),
@@ -2575,7 +2575,7 @@ def execute(
     if operator_attended is not True:
         raise ContractError("operator attendance is required for this D1 ordinal")
     if spec.candidate_version != EXPECTED_VERSION or spec.candidate_build != EXPECTED_BUILD:
-        raise ContractError("installed resident is not the exact H10 benchmark candidate")
+        raise ContractError("installed resident is not the exact H11 benchmark candidate")
     closure = require_execution_closure(expected_closure_sha256)
     path = exact_transaction_dir(spec, transaction_dir)
     if path.exists() or path.is_symlink():
@@ -2661,7 +2661,7 @@ def resume_after_proved_arm(
     ):
         raise ContractError("armed resume predecessor closure is not exact")
     if spec.candidate_version != EXPECTED_VERSION or spec.candidate_build != EXPECTED_BUILD:
-        raise ContractError("installed resident is not the exact H10 benchmark candidate")
+        raise ContractError("installed resident is not the exact H11 benchmark candidate")
     path = exact_transaction_dir(spec, transaction_dir)
     if not path.is_dir() or path.is_symlink():
         raise ContractError("armed-resume transaction directory is not exact")
@@ -2718,7 +2718,7 @@ def resume_after_return(
     if operator_attended is not True:
         raise ContractError("operator attendance is required for D1 finalization")
     if spec.candidate_version != EXPECTED_VERSION or spec.candidate_build != EXPECTED_BUILD:
-        raise ContractError("installed resident is not the exact H10 benchmark candidate")
+        raise ContractError("installed resident is not the exact H11 benchmark candidate")
     path = exact_transaction_dir(spec, transaction_dir)
     if not path.is_dir() or path.is_symlink():
         raise ContractError("resume transaction directory is not exact")

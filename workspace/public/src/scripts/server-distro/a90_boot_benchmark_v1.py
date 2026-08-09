@@ -98,6 +98,10 @@ COMPLETE_STAGES = (
 PHASES = {
     "native_runtime_ms": ("native_cache_stage_ready", "native_runtime_ready"),
     "native_services_ms": ("native_runtime_ready", "native_services_ready"),
+    "native_direct_gate_ms": (
+        "native_runtime_ready",
+        "native_direct_handoff_ready",
+    ),
     "handoff_total_ms": ("auto_handoff_dispatched", "switch_root_exec"),
     "source_sha_initial_ms": ("handoff_begin", "source_sha_initial_done"),
     "display_release_ms": ("source_sha_initial_done", "display_release_done"),
@@ -125,6 +129,8 @@ PHASES = {
 DERIVED_COMPARISON_PHASES = (
     "source_integrity_initial_ms",
     "source_integrity_post_display_ms",
+    "boot_to_handoff_dispatch_ms",
+    "boot_to_switch_root_ms",
 )
 
 
@@ -442,6 +448,16 @@ def _result_from_records(
         phase_durations["source_identity_post_display_ms"]
         if phase_durations["source_identity_post_display_ms"] is not None
         else phase_durations["source_sha_post_display_ms"]
+    )
+    phase_durations["boot_to_handoff_dispatch_ms"] = (
+        by_stage["auto_handoff_dispatched"]["boottime_ms"]
+        if "auto_handoff_dispatched" in by_stage
+        else None
+    )
+    phase_durations["boot_to_switch_root_ms"] = (
+        by_stage["switch_root_exec"]["boottime_ms"]
+        if "switch_root_exec" in by_stage
+        else None
     )
 
     return {
