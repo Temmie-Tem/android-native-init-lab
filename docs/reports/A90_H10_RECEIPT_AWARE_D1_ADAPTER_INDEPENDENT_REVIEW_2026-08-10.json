@@ -8,11 +8,11 @@
   "scope": "Host-only independent review of the exact installed H10 resident to one attended automatic Debian handoff, benchmark, automatic native return, zero-dispatch absence close, and final resident health.",
   "named_execution_critical_closure": {
     "auto_handoff_code_native": {
-      "sha256": "2569e791ef36644966d9e168d291fce82dc0654d2ad688dfe6189e6262735024",
+      "sha256": "85dc18125032f8d0cf3bcdd1117261dd5a6d0af2bf95afd56904135341aa95ce",
       "runner": {
         "path": "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py",
-        "sha256": "47963253e8545128e3fdc6d7f025a2ed272654c6055890bd4c8b586215f6494c",
-        "size": 89204
+        "sha256": "5c18693e27afb583d36e07f1cd0185b2115ad2e77622e501b8082c66350918f0",
+        "size": 89304
       },
       "benchmark_parser_sha256": "c527926e494406156cd61b9474553e4ef2ab0b220dd35c7e61c0beafe5aac5b2",
       "ondevice_evidence_sha256": "7ceab9017eeb383cef51c52fd4d00dd936e4bb64aee6ba5f83d7a9d51d3b3423",
@@ -40,6 +40,7 @@
     "Receipt nanoseconds are normalized from BusyBox fixed-width fractions to the native unpadded decimal representation before comparison.",
     "Each read-only cmdv1x script is host-rejected unless its encoded line is below the native 4096-byte decoder buffer; independent H10 sizes were 3693, 3693, and 3361 bytes.",
     "The receipt-content call rechecks the same full source metadata and work absence before accepting the exact 14-line root-owned mode-0600 single-link receipt.",
+    "Normal native serial wrapper lines are tolerated around each exact singleton marker, while every bare, whitespace-delimited, suffixed, duplicate, contradictory, or malformed capability-tag line is rejected.",
     "Unexpected work is fail-closed and never removed. The absence close has cleanup dispatch count zero and no generic cleanup or rm path.",
     "Durable arm and reboot intents precede their single dispatches; journal, reconcile, and resume paths never replay arm or reboot.",
     "PASS still requires exact automatic return, final H10 resident health, benchmark evidence, guard release, and the existing host-link and display disposition rules.",
@@ -55,16 +56,18 @@
       "Required receipt absence before arm and exact fresh one-full-SHA qualification output after arm.",
       "Replaced the generic unlinking cleanup with a zero-dispatch absence-only close.",
       "Normalized leading-zero nanosecond fields to the native receipt's decimal representation.",
-      "Split the oversized verified preflight into bounded read-only identity and receipt calls and enforced the 4096-byte native wire limit at runtime."
+      "Split the oversized verified preflight into bounded read-only identity and receipt calls and enforced the 4096-byte native wire limit at runtime.",
+      "Replaced the mock-only one-line marker assumption after a live read-only preflight rejected the normal eight-line native serial wrapper, then closed bare, tab, suffix, leading-whitespace, duplicate, and malformed tag-family bypasses."
     ]
   },
   "unresolved_findings": [],
   "validation": {
-    "reviewer_public_mocked_tests": 156,
-    "reviewer_in_memory_compiles": 6,
+    "reviewer_public_mocked_tests": 270,
+    "reviewer_in_memory_compiles": 2,
     "python_compile": "PASS",
     "git_diff_check": "PASS",
-    "cmdv1x_wire_bound": "PASS"
+    "cmdv1x_wire_bound": "PASS",
+    "live_read_only_d0_after_repair": "PASS exact H10 health, 11-field source identity, enable=0 latch=0, exclusively unarmed log"
   },
   "review_lifetime": "Capability-level PASS_GO reusable only while the union of the named code-native closure, manifest-validated public closure, installed H10 artifact identity, and reviewed hazard assumptions is unchanged and no new hazard or incident occurs.",
   "permanent_boundaries_unchanged": true,

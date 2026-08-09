@@ -441,15 +441,15 @@ def require_fast_source_preflight_receipt(
         )
     except resident.ContractError as exc:
         raise ContractError("fast source preflight receipt is not exact") from exc
-    lines = [
+    marker_lines = [
         line.strip()
         for line in str(record.get("text") or "").replace("\r", "").splitlines()
-        if line.strip()
+        if line.strip().startswith("A90D1_FAST_SOURCE")
     ]
-    matches = [FAST_SOURCE_MARKER_RE.fullmatch(line) for line in lines]
+    matches = [FAST_SOURCE_MARKER_RE.fullmatch(line) for line in marker_lines]
     matches = [match for match in matches if match is not None]
     if (
-        len(lines) != 1
+        len(marker_lines) != 1
         or len(matches) != 1
         or matches[0].group("state") != expected_state
     ):
@@ -480,12 +480,12 @@ def require_fast_receipt_content_receipt(
         )
     except resident.ContractError as exc:
         raise ContractError("fast receipt content record is not exact") from exc
-    lines = [
+    marker_lines = [
         line.strip()
         for line in str(record.get("text") or "").replace("\r", "").splitlines()
-        if line.strip()
+        if line.strip().startswith("A90D1_FAST_RECEIPT")
     ]
-    if lines != ["A90D1_FAST_RECEIPT exact=1"]:
+    if marker_lines != ["A90D1_FAST_RECEIPT exact=1"]:
         raise ContractError("fast receipt content marker is not exact")
     return record
 

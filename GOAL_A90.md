@@ -390,15 +390,20 @@ The pre-H2 goal history is preserved at
   and the absence close has cleanup dispatch count zero. Two review-found
   blockers, native receipt nanosecond formatting and the 4096-byte cmdv1x
   decoder bound, are closed. Final independent `PASS_GO` binds code-native
-  closure `2569e791...`, the manifest-validated 17-file public closure, and the
-  exact installed H10 artifact identity with 156 reviewer tests and no open
-  finding. A fresh read-only D0 passed with receipt/work absent and
-  `enable=0/latch=0`; no D1 transaction or durable arm intent exists yet.
+  closure `85dc1812...`, the manifest-validated 17-file public closure, and the
+  exact installed H10 artifact identity with 270 reviewer tests and no open
+  finding. The first live opening attempt stopped before journal publication
+  because its parser rejected the normal eight-line serial wrapper around one
+  exact successful marker. It created only an empty host transaction directory:
+  no arm intent, arm, reboot, or device effect occurred. The repaired parser
+  accepts the normal wrapper but rejects every malformed same-tag line, and a
+  fresh read-only D0 passed exact H10 health, the 11-field source identity,
+  receipt/work absence, `enable=0/latch=0`, and the exclusively unarmed log.
 
 ## Qualified Capabilities
 
 - The H10 one-ordinal receipt-aware auto-handoff D1 v3 capability has reusable
-  independent `PASS_GO` at code-native closure `2569e791...` only while its
+  independent `PASS_GO` at code-native closure `85dc1812...` only while its
   manifest-validated public closure, installed H10 artifact identity, and
   hazard assumptions remain unchanged. It permits one attended arm and one
   reboot, requires one native full-SHA qualification, bounds every cmdv1x

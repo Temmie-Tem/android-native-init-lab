@@ -435,6 +435,35 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             ),
             identity,
         )
+        framed = self._shell_receipt(
+            script,
+            "cmdv1x accepted\nA90P1 BEGIN\nrun: started\n"
+            + marker
+            + "[exit 0]\n[done]\nA90P1 END\na90:/#\n",
+        )
+        self.assertEqual(
+            runner.require_fast_source_preflight_receipt(
+                spec,
+                framed,
+                expected_state="receipt-verified",
+                expected_identity=identity,
+            ),
+            identity,
+        )
+        for malformed in (
+            "A90D1_FAST_SOURCE malformed=1\n",
+            "A90D1_FAST_SOURCE\n",
+            "A90D1_FAST_SOURCE\tmalformed=1\n",
+            "A90D1_FAST_SOURCE_UNRECOGNIZED=1\n",
+        ):
+            with self.subTest(malformed=malformed):
+                foreign_marker = self._shell_receipt(script, marker + malformed)
+                with self.assertRaisesRegex(runner.ContractError, "not exact"):
+                    runner.require_fast_source_preflight_receipt(
+                        spec,
+                        foreign_marker,
+                        expected_state="receipt-verified",
+                    )
         changed = dict(identity)
         changed["ctime_nsec"] += 1
         with self.assertRaisesRegex(runner.ContractError, "identity changed"):
@@ -464,6 +493,37 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             ),
             receipt_record,
         )
+        framed_receipt = self._shell_receipt(
+            receipt_script,
+            "cmdv1x accepted\nA90P1 BEGIN\nrun: started\n"
+            "A90D1_FAST_RECEIPT exact=1\n"
+            "[exit 0]\n[done]\nA90P1 END\na90:/#\n",
+        )
+        self.assertEqual(
+            runner.require_fast_receipt_content_receipt(
+                spec,
+                identity,
+                framed_receipt,
+            ),
+            framed_receipt,
+        )
+        for malformed in (
+            "A90D1_FAST_RECEIPT malformed=1\n",
+            "A90D1_FAST_RECEIPT\n",
+            "A90D1_FAST_RECEIPT\tmalformed=1\n",
+            "A90D1_FAST_RECEIPT_UNRECOGNIZED=1\n",
+        ):
+            with self.subTest(malformed=malformed):
+                malformed_receipt = self._shell_receipt(
+                    receipt_script,
+                    "A90D1_FAST_RECEIPT exact=1\n" + malformed,
+                )
+                with self.assertRaisesRegex(runner.ContractError, "not exact"):
+                    runner.require_fast_receipt_content_receipt(
+                        spec,
+                        identity,
+                        malformed_receipt,
+                    )
 
     def test_arm_success_requires_fresh_single_full_sha_qualification(self) -> None:
         intent_sha256 = "a" * 64
