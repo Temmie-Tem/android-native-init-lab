@@ -253,6 +253,8 @@ PHASE3_ABSENT_RUNTIME_PATHS = (
     "/run/a90-display/failure",
     "/run/a90-display/presenter.log",
     "/run/a90-display/launcher.pid",
+    "/run/a90-wifi/ready",
+    "/run/a90-wifi/failure",
 )
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 RUN_ID_RE = re.compile(
