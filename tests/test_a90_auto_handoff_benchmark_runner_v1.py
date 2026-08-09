@@ -22,19 +22,19 @@ import a90_auto_handoff_benchmark_runner_v1 as runner  # noqa: E402
 
 
 class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
-    def test_current_runner_is_exact_h12_wifi_identity(self) -> None:
-        self.assertEqual(runner.EXPECTED_VERSION, "0.11.180")
+    def test_current_runner_is_exact_h13_wifi_identity(self) -> None:
+        self.assertEqual(runner.EXPECTED_VERSION, "0.11.181")
         self.assertEqual(
             runner.EXPECTED_BUILD,
-            "phase3-minimal-h12-direct-min-network-wifi-auto-benchmark",
+            "phase3-minimal-h13-direct-min-network-wifi-auto-benchmark",
         )
         self.assertEqual(
             runner.EXPECTED_ROOTFS_SHA256,
-            "edce00561a5526a27b7cb6017e0933b0b891093c812d2f8bb9d6944ec8a79765",
+            "8a87cd547cfd7cfee7ec4af7ee266fd4da0b91e508099950df50a272ab19952e",
         )
         self.assertEqual(
             runner.SOURCE_RECEIPT_PATH,
-            "/cache/a90-source-receipt-phase3-minimal-h12",
+            "/cache/a90-source-receipt-phase3-minimal-h13",
         )
 
     @staticmethod
@@ -232,7 +232,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             ),
             remote_final=(
                 "/mnt/sdext/a90/runtime/"
-                "debian-bookworm-arm64-phase2-display-v3406-keyed-20260810-07.img"
+                "debian-bookworm-arm64-phase2-display-v3406-keyed-20260810-08.img"
             ),
             remote_work="/mnt/sdext/a90/runtime/d3-handoff-work.img",
             recovery_profile="A90_ATTENDED_PHYSICAL_RECOVERY_V1",

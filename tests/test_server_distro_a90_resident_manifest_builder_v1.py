@@ -861,6 +861,45 @@ class ResidentManifestBuilderTests(unittest.TestCase):
             )["receipt_path"],
         )
 
+    def test_h13_candidate_binds_run08_rootfs_and_fresh_identity(self) -> None:
+        selected = builder.select_candidate_profile(
+            builder.MINIMAL_H13_CANDIDATE_PROFILE
+        )
+        contract = builder.candidate_first_boot_contract(selected)
+        self.assertEqual(selected.version, "0.11.181")
+        self.assertEqual(
+            selected.sha256,
+            "e507116083e4614ddca277384bf4d8a51708249f8406a9800e774519f966e4a5",
+        )
+        self.assertEqual(
+            selected.build_receipt_sha256,
+            "9011f4bf9e8d21e85010fe4f008fa406d86233f429d994206ce2aaf69ef6b8a6",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["image_sha256"],
+            "8a87cd547cfd7cfee7ec4af7ee266fd4da0b91e508099950df50a272ab19952e",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["image_path"],
+            "/mnt/sdext/a90/runtime/"
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260810-08.img",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["binding_sha256"],
+            "64adc72c9cb6ea8e99979b1ede691f3e1f69d7136f5741252d955264dc833aba",
+        )
+        self.assertEqual(contract["schema"], "a90-auto-handoff-first-boot-v3")
+        self.assertEqual(
+            contract["receipt_path"],
+            "/cache/a90-source-receipt-phase3-minimal-h13",
+        )
+        self.assertNotEqual(
+            contract["receipt_path"],
+            builder.candidate_first_boot_contract(
+                builder.MINIMAL_H12_CANDIDATE
+            )["receipt_path"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

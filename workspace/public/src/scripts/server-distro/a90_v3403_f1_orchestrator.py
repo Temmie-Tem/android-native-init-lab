@@ -118,11 +118,16 @@ H12_FAST_SOURCE_RECEIPT_IDENTITY = (
     "0.11.180",
     "phase3-minimal-h12-direct-min-network-wifi-auto-benchmark",
 )
+H13_FAST_SOURCE_RECEIPT_IDENTITY = (
+    "0.11.181",
+    "phase3-minimal-h13-direct-min-network-wifi-auto-benchmark",
+)
 FAST_SOURCE_RECEIPT_IDENTITIES = {
     H9_FAST_SOURCE_RECEIPT_IDENTITY,
     H10_FAST_SOURCE_RECEIPT_IDENTITY,
     H11_FAST_SOURCE_RECEIPT_IDENTITY,
     H12_FAST_SOURCE_RECEIPT_IDENTITY,
+    H13_FAST_SOURCE_RECEIPT_IDENTITY,
 }
 FAST_SOURCE_RECEIPT_PATHS = {
     H9_FAST_SOURCE_RECEIPT_IDENTITY: (
@@ -136,6 +141,9 @@ FAST_SOURCE_RECEIPT_PATHS = {
     ),
     H12_FAST_SOURCE_RECEIPT_IDENTITY: (
         "/cache/a90-source-receipt-phase3-minimal-h12"
+    ),
+    H13_FAST_SOURCE_RECEIPT_IDENTITY: (
+        "/cache/a90-source-receipt-phase3-minimal-h13"
     ),
 }
 HANDOFF_COMMON_OUTPUT_MARKERS = (
@@ -808,6 +816,13 @@ def validate_candidate_first_boot_contract(
         ): (
             "/cache/a90-auto-handoff-phase3-minimal-h12.enable",
             "/cache/a90-auto-handoff-phase3-minimal-h12.done",
+        ),
+        (
+            "0.11.181",
+            "phase3-minimal-h13-direct-min-network-wifi-auto-benchmark",
+        ): (
+            "/cache/a90-auto-handoff-phase3-minimal-h13.enable",
+            "/cache/a90-auto-handoff-phase3-minimal-h13.done",
         ),
     }
     if identity in compiled_identity_markers:

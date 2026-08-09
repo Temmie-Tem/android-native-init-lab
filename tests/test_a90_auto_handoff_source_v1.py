@@ -15,8 +15,9 @@ NATIVE = REPO_ROOT / "workspace/public/src/native-init"
 MANIFEST = (
     REPO_ROOT
     / "workspace/public/src/scripts/revalidation/a90_flat_builder"
-    / "versions/phase3-minimal-h12/manifest.toml"
+    / "versions/phase3-minimal-h13/manifest.toml"
 )
+H12_MANIFEST = MANIFEST.parents[1] / "phase3-minimal-h12/manifest.toml"
 H11_MANIFEST = MANIFEST.parents[1] / "phase3-minimal-h11/manifest.toml"
 H10_MANIFEST = MANIFEST.parents[1] / "phase3-minimal-h10/manifest.toml"
 H9_MANIFEST = MANIFEST.parents[1] / "phase3-minimal-h9/manifest.toml"
@@ -27,19 +28,19 @@ FLAT_BUILDER = load_script(
 
 
 class A90AutoHandoffSourceV1Tests(unittest.TestCase):
-    def test_h12_build_binding_includes_receipt_while_h8_stays_v1(self) -> None:
+    def test_h13_build_binding_includes_receipt_while_h8_stays_v1(self) -> None:
         with MANIFEST.open("rb") as stream:
-            h12 = FLAT_BUILDER.normalized_auto_handoff_binding(
+            h13 = FLAT_BUILDER.normalized_auto_handoff_binding(
                 tomllib.load(stream)
             )
         with H8_MANIFEST.open("rb") as stream:
             h8 = FLAT_BUILDER.normalized_auto_handoff_binding(
                 tomllib.load(stream)
             )
-        self.assertEqual(h12["schema"], "a90-compiled-auto-handoff-binding-v2")
+        self.assertEqual(h13["schema"], "a90-compiled-auto-handoff-binding-v2")
         self.assertEqual(
-            h12["receipt_path"],
-            "/cache/a90-source-receipt-phase3-minimal-h12",
+            h13["receipt_path"],
+            "/cache/a90-source-receipt-phase3-minimal-h13",
         )
         self.assertEqual(h8["schema"], "a90-compiled-auto-handoff-binding-v1")
         self.assertNotIn("receipt_path", h8)
@@ -302,20 +303,28 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
         self.assertIn("-DA90_AUTO_HANDOFF_BENCHMARK_V1=1", manifest)
         self.assertIn(
             "/mnt/sdext/a90/runtime/"
-            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260810-07.img",
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260810-08.img",
             manifest,
         )
         self.assertIn(
-            "edce00561a5526a27b7cb6017e0933b0b891093c812d2f8bb9d6944ec8a79765",
+            "8a87cd547cfd7cfee7ec4af7ee266fd4da0b91e508099950df50a272ab19952e",
             manifest,
         )
-        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h12.enable", manifest)
-        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h12.done", manifest)
-        self.assertIn("/cache/a90-source-receipt-phase3-minimal-h12", manifest)
-        self.assertIn('-DINIT_VERSION="0.11.180"', manifest)
+        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h13.enable", manifest)
+        self.assertIn("/cache/a90-auto-handoff-phase3-minimal-h13.done", manifest)
+        self.assertIn("/cache/a90-source-receipt-phase3-minimal-h13", manifest)
+        self.assertIn('-DINIT_VERSION="0.11.181"', manifest)
         self.assertIn("-DA90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT=1", manifest)
         self.assertIn("-DA90_WIFI_PERSISTENT_HANDOFF_V1=1", manifest)
         self.assertIn("-DA90_WIFI_AUTOCONNECT_PRIVATE_MOUNT_NS=1", manifest)
+
+    def test_superseded_h12_manifest_keeps_its_original_identity(self) -> None:
+        manifest = H12_MANIFEST.read_text(encoding="utf-8")
+        self.assertIn('-DINIT_VERSION="0.11.180"', manifest)
+        self.assertIn(
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260810-07.img",
+            manifest,
+        )
 
     def test_superseded_h11_manifest_keeps_its_original_identity(self) -> None:
         manifest = H11_MANIFEST.read_text(encoding="utf-8")

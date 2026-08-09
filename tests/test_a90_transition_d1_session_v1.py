@@ -593,6 +593,7 @@ class A90TransitionD1SessionV1Tests(unittest.TestCase):
                 d1.H10_AUTO_BENCHMARK_RESIDENT_IDENTITY,
                 d1.H11_AUTO_BENCHMARK_RESIDENT_IDENTITY,
                 d1.H12_AUTO_BENCHMARK_RESIDENT_IDENTITY,
+                d1.H13_AUTO_BENCHMARK_RESIDENT_IDENTITY,
             ):
                 spec = replace(
                     base_spec,

@@ -30,6 +30,18 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
             ),
             (),
         )
+        self.assertEqual(finalizer.prepublication_source_contract_issues(), ())
+
+    def test_prepublication_contract_failure_is_fail_closed(self) -> None:
+        with mock.patch.object(
+            finalizer.staging,
+            "source_contract_issues",
+            return_value=("runtime absence tuple drift",),
+        ), self.assertRaisesRegex(
+            finalizer.ContractError,
+            "prepublication source contract failed.*runtime absence tuple drift",
+        ):
+            finalizer.validate_prepublication_source_contracts()
 
     def test_audit_binds_exact_candidate_without_authority(self) -> None:
         result = finalizer.audit_payload()
@@ -496,6 +508,48 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
             )["receipt_path"],
         )
 
+    def test_minimal_h13_candidate_binds_run08_and_fresh_identity(self) -> None:
+        selected = finalizer.select_candidate_profile(
+            finalizer.MINIMAL_H13_CANDIDATE_PROFILE
+        )
+        contract = finalizer.candidate_first_boot_contract(selected)
+        self.assertEqual(selected.version, "0.11.181")
+        self.assertEqual(
+            selected.sha256,
+            "e507116083e4614ddca277384bf4d8a51708249f8406a9800e774519f966e4a5",
+        )
+        self.assertEqual(
+            selected.build_receipt_sha256,
+            "9011f4bf9e8d21e85010fe4f008fa406d86233f429d994206ce2aaf69ef6b8a6",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["image_sha256"],
+            "8a87cd547cfd7cfee7ec4af7ee266fd4da0b91e508099950df50a272ab19952e",
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["image_path"],
+            str(
+                finalizer.staging.derive_remote_final(
+                    "a90-v3406-debian-display-f1-20260810-08"
+                )
+            ),
+        )
+        self.assertEqual(
+            contract["compiled_binding"]["binding_sha256"],
+            "64adc72c9cb6ea8e99979b1ede691f3e1f69d7136f5741252d955264dc833aba",
+        )
+        self.assertEqual(contract["schema"], "a90-auto-handoff-first-boot-v3")
+        self.assertEqual(
+            contract["receipt_path"],
+            "/cache/a90-source-receipt-phase3-minimal-h13",
+        )
+        self.assertNotEqual(
+            contract["receipt_path"],
+            finalizer.candidate_first_boot_contract(
+                finalizer.MINIMAL_H12_CANDIDATE
+            )["receipt_path"],
+        )
+
     def test_unknown_candidate_profile_is_rejected(self) -> None:
         with self.assertRaisesRegex(finalizer.ContractError, "not exact"):
             finalizer.select_candidate_profile("arbitrary")
@@ -773,6 +827,13 @@ class A90Phase2DFinalizerTests(unittest.TestCase):
             source.replace(
                 "candidate_spec = select_candidate_profile(args.candidate_profile)",
                 "candidate_spec = LEGACY_CANDIDATE",
+                1,
+            ),
+            source.replace(
+                "    validate_prepublication_source_contracts()\n"
+                "    candidate_source = candidate_spec.source.resolve(strict=True)\n",
+                "    removed_prepublication_source_contracts()\n"
+                "    candidate_source = candidate_spec.source.resolve(strict=True)\n",
                 1,
             ),
             source.replace(

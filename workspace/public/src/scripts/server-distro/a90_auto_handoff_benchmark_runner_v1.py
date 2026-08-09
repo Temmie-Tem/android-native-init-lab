@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """One-ordinal attended A90 auto-handoff benchmark runner.
 
-The runner consumes an installed-resident D1 manifest.  It proves the H12
+The runner consumes an installed-resident D1 manifest.  It proves the H13
 resident healthy and unarmed, durably binds one arm intent, arms once, proves
 the exact enable state, durably binds one reboot intent, reboots once, observes
 Debian PID1/display/SSH, automatic native return, the retained latch, final
@@ -46,16 +46,16 @@ SCHEMA = "a90-auto-handoff-benchmark-runner-v3"
 JOURNAL_SCHEMA = "a90-auto-handoff-benchmark-journal-v3"
 RESULT_SCHEMA = "a90-auto-handoff-benchmark-result-v3"
 RECONCILE_SCHEMA = "a90-auto-handoff-benchmark-reconciliation-v3"
-EXPECTED_VERSION = "0.11.180"
+EXPECTED_VERSION = "0.11.181"
 EXPECTED_BUILD = (
-    "phase3-minimal-h12-direct-min-network-wifi-auto-benchmark"
+    "phase3-minimal-h13-direct-min-network-wifi-auto-benchmark"
 )
 EXPECTED_ROOTFS_SHA256 = (
-    "edce00561a5526a27b7cb6017e0933b0b891093c812d2f8bb9d6944ec8a79765"
+    "8a87cd547cfd7cfee7ec4af7ee266fd4da0b91e508099950df50a272ab19952e"
 )
 ARM_TOKEN = "AUTO-HANDOFF-BENCHMARK-V1-ARM"
 SOURCE_RECEIPT_SCHEMA = "a90-d3-source-receipt-v1"
-SOURCE_RECEIPT_PATH = "/cache/a90-source-receipt-phase3-minimal-h12"
+SOURCE_RECEIPT_PATH = "/cache/a90-source-receipt-phase3-minimal-h13"
 FAST_SOURCE_STATES = {"receipt-absent", "receipt-verified"}
 FAST_SOURCE_MARKER_RE = re.compile(
     r"^A90D1_FAST_SOURCE state=(?P<state>receipt-(?:absent|verified)) "

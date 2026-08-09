@@ -109,6 +109,9 @@ MINIMAL_H11_CANDIDATE_PROFILE = (
 MINIMAL_H12_CANDIDATE_PROFILE = (
     "phase3-minimal-h12-direct-min-network-wifi-auto-benchmark"
 )
+MINIMAL_H13_CANDIDATE_PROFILE = (
+    "phase3-minimal-h13-direct-min-network-wifi-auto-benchmark"
+)
 LEGACY_CANDIDATE = CandidateSpec(
     profile=LEGACY_CANDIDATE_PROFILE,
     copy_name="candidate-boot-phase2-display-v1.img",
@@ -565,6 +568,50 @@ MINIMAL_H12_CANDIDATE = CandidateSpec(
         ),
     },
 )
+MINIMAL_H13_CANDIDATE = CandidateSpec(
+    profile=MINIMAL_H13_CANDIDATE_PROFILE,
+    copy_name="candidate-boot-phase3-minimal-h13.img",
+    source=(
+        staging.PRIVATE_ROOT
+        / "outputs"
+        / "a90-h13-direct-min-network-wifi-ab-20260810-01"
+        / "A"
+        / "boot.img"
+    ),
+    size=58372096,
+    sha256="e507116083e4614ddca277384bf4d8a51708249f8406a9800e774519f966e4a5",
+    version="0.11.181",
+    build="phase3-minimal-h13-direct-min-network-wifi-auto-benchmark",
+    build_receipt=(
+        staging.PRIVATE_ROOT
+        / "outputs"
+        / "a90-h13-direct-min-network-wifi-ab-20260810-01"
+        / "ab-receipt.json"
+    ),
+    build_receipt_sha256=(
+        "9011f4bf9e8d21e85010fe4f008fa406d86233f429d994206ce2aaf69ef6b8a6"
+    ),
+    compiled_auto_handoff={
+        "schema": "a90-compiled-auto-handoff-binding-v2",
+        "candidate_version": "0.11.181",
+        "candidate_build": (
+            "phase3-minimal-h13-direct-min-network-wifi-auto-benchmark"
+        ),
+        "image_path": (
+            "/mnt/sdext/a90/runtime/"
+            "debian-bookworm-arm64-phase2-display-v3406-keyed-20260810-08.img"
+        ),
+        "image_sha256": (
+            "8a87cd547cfd7cfee7ec4af7ee266fd4da0b91e508099950df50a272ab19952e"
+        ),
+        "enable_path": "/cache/a90-auto-handoff-phase3-minimal-h13.enable",
+        "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h13.done",
+        "receipt_path": "/cache/a90-source-receipt-phase3-minimal-h13",
+        "binding_sha256": (
+            "64adc72c9cb6ea8e99979b1ede691f3e1f69d7136f5741252d955264dc833aba"
+        ),
+    },
+)
 CANDIDATE_PROFILES = {
     item.profile: item
     for item in (
@@ -582,6 +629,7 @@ CANDIDATE_PROFILES = {
         MINIMAL_H10_CANDIDATE,
         MINIMAL_H11_CANDIDATE,
         MINIMAL_H12_CANDIDATE,
+        MINIMAL_H13_CANDIDATE,
     )
 }
 
@@ -709,6 +757,7 @@ def candidate_first_boot_contract(candidate: CandidateSpec) -> dict[str, Any] | 
         MINIMAL_H10_CANDIDATE_PROFILE,
         MINIMAL_H11_CANDIDATE_PROFILE,
         MINIMAL_H12_CANDIDATE_PROFILE,
+        MINIMAL_H13_CANDIDATE_PROFILE,
     }:
         assert candidate.compiled_auto_handoff is not None
         return {
@@ -993,6 +1042,35 @@ def validate_phase3_independent_review_report(review_text: str) -> None:
         or value.get("named_execution_critical_closure") != expected_closure
     ):
         raise ContractError("Phase 3 F1 independent review is not exact PASS_GO")
+
+
+def prepublication_source_contract_issues() -> tuple[str, ...]:
+    checks = (
+        ("finalizer", Path(__file__).resolve(), source_contract_issues),
+        (
+            "staging adapter",
+            Path(staging.__file__).resolve(),
+            staging.source_contract_issues,
+        ),
+        (
+            "F1 orchestrator",
+            Path(orchestrator.__file__).resolve(),
+            orchestrator.source_contract_issues,
+        ),
+    )
+    issues: list[str] = []
+    for label, path, validator in checks:
+        source = path.read_text(encoding="utf-8")
+        issues.extend(f"{label}: {issue}" for issue in validator(source))
+    return tuple(issues)
+
+
+def validate_prepublication_source_contracts() -> None:
+    issues = prepublication_source_contract_issues()
+    if issues:
+        raise ContractError(
+            "prepublication source contract failed: " + "; ".join(issues)
+        )
 
 
 def allowed_starting_identities(*, phase3: bool) -> frozenset[tuple[str, str]]:
@@ -1450,6 +1528,7 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
     expected_starting_version, expected_starting_build = starting_identity
 
     candidate_spec = select_candidate_profile(args.candidate_profile)
+    validate_prepublication_source_contracts()
     candidate_source = candidate_spec.source.resolve(strict=True)
     candidate_copy = copy_absent_private(
         candidate_source,
@@ -1648,6 +1727,22 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
     )
     if exact_connected_start_gate not in subject:
         issues.append("finalizer connected starting identity gate is not exact")
+    candidate_select = subject.find(
+        "    candidate_spec = select_candidate_profile(args.candidate_profile)\n"
+    )
+    prepublication_gate = subject.find(
+        "    validate_prepublication_source_contracts()\n",
+        candidate_select + 1,
+    )
+    first_copy = subject.find(
+        "    candidate_copy = copy_absent_private(\n",
+        candidate_select + 1,
+    )
+    if not (
+        candidate_select >= 0
+        and candidate_select < prepublication_gate < first_copy
+    ):
+        issues.append("prepublication source contract gate is not before artifact copy")
     for token in (
         '"cp",\n            "--reflink=never",',
         "destination.exists() or destination.is_symlink()",
@@ -1696,7 +1791,10 @@ def audit_payload(
     candidate_profile: str = LEGACY_CANDIDATE_PROFILE,
 ) -> dict[str, Any]:
     source = Path(__file__).read_text(encoding="utf-8")
-    issues = source_contract_issues(source)
+    issues = (
+        *source_contract_issues(source),
+        *prepublication_source_contract_issues(),
+    )
     candidate_spec = select_candidate_profile(candidate_profile)
     candidate = regular_record(
         candidate_spec.source,
