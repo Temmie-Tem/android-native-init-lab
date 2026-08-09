@@ -37,9 +37,28 @@ The pre-H2 goal history is preserved at
   global guard released.
 - H11's first boot proved the fresh binding and unarmed
   `binding=1 enable=0 latch=0` state while staying on the complete native
-  fallback path. The next gate is one fresh attended D1 ordinal: arm once,
-  reboot once, observe direct Debian PID1/SSH/DRM through NCM, wait for native
-  return, and compare absolute H11 timing with the terminal H10 baseline.
+  fallback path. Attended D1 run `a90-d1-attended-20260810-03` then armed once,
+  rebooted once, visibly reached Debian, completed the direct handoff, and
+  automatically returned exact H11 at `binding=1 enable=1 latch=1`. The host
+  NCM observer missed its deadline, and the original host parser rejected the
+  exact H11-only direct marker before final-health publication. Its journal is
+  parked at the exact seven-record post-absence prefix; arm, reboot, cleanup,
+  handoff, and candidate replay are forbidden.
+- Exact replay of that immutable opening log and the returned native log proves
+  boot-to-dispatch at 2403 ms, boot-to-`switch_root` at 2839 ms, and the
+  dispatch-to-`switch_root` handoff at 436 ms. The operator confirmed visible
+  Debian. Same-intent durable evidence also records Debian PID1 at 3260 ms and
+  DRM master at 4350 ms, but its SSH phase recorded `dropbear=0`; final proof
+  must therefore remain separate from the speed and visibility result.
+- The H0 incident repair admits `native_direct_handoff_ready` only zero or one
+  time at the exact runtime/services boundary, reparses persisted benchmark
+  output from its two exact raw logs with type-exact comparison, and opens only
+  the exact historical seven-record no-replay tail. Independent review returned
+  reusable `PASS_GO` at execution closure
+  `21a7a7921d50b71cfff7d4db61c7de57544711d8576a60e9d64ed8913b83677e`
+  with HIGH/MEDIUM/LOW zero and 79 combined tests passing. The next step is the
+  read-only final-health tail and host journal publication; it sends no arm,
+  reboot, cleanup, handoff, payload, partition write, or flash.
 - H10 resident install and D1 run `a90-d1-attended-20260810-02` are terminal.
   The exact no-rearm continuation dispatched one reboot, completed all 15
   handoff stages, returned exact H10 health, and closed

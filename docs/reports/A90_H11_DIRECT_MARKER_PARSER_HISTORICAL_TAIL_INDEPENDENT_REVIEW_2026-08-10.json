@@ -1,0 +1,111 @@
+{
+  "schema": "a90-h11-direct-marker-parser-historical-tail-independent-review-v1",
+  "status": "PASS_GO",
+  "review_date": "2026-08-10",
+  "target": "Samsung Galaxy A90 5G only",
+  "capability": "A90_H11_DIRECT_MARKER_EXACT_PARSER_AND_SEVEN_RECORD_NO_REPLAY_TAIL_V1",
+  "reviewer": "independent subagent /root/a90_h7_closure_review",
+  "incident": {
+    "classification": "HOST_OBSERVER_H11_DIRECT_MARKER_SCHEMA_DRIFT",
+    "device_safety_state": "RESIDENT_HEALTHY_RETURNED_NATIVE",
+    "experiment_proof": "PENDING_EXACT_HOST_FINALIZATION",
+    "failure_location": "host benchmark parser before final-health journal publication",
+    "durable_journal_records": 7,
+    "arm_dispatch_count": 1,
+    "reboot_dispatch_count": 1,
+    "cleanup_dispatch_count": 0,
+    "candidate_replay": false,
+    "device_effect_replay_allowed": false,
+    "visible_debian_confirmed": true
+  },
+  "changed_execution_critical_closure": {
+    "before": "9a9b0980c18099cf5e52289467ce12d6cbca3e9fda05eb5ce33360a48786c0ab",
+    "after": "21a7a7921d50b71cfff7d4db61c7de57544711d8576a60e9d64ed8913b83677e",
+    "files": {
+      "runner": {
+        "path": "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py",
+        "bytes": 123016,
+        "sha256": "dffaf53bfd1dc27f5248c1aef05ed9f63737a6cffee219227c404561c8bf5371"
+      },
+      "benchmark_parser": {
+        "path": "workspace/public/src/scripts/server-distro/a90_boot_benchmark_v1.py",
+        "bytes": 20877,
+        "sha256": "dc8dc57697660ebae57516679d7a2bac97a22e640ae89c5efb808f9861806ce7"
+      }
+    }
+  },
+  "reviewed_test_source": {
+    "path": "tests/test_a90_auto_handoff_benchmark_runner_v1.py",
+    "bytes": 112763,
+    "sha256": "1926790417250563e4827dc9e64e0ccb0978e18346ca07bb05f44d5f6e6504bd"
+  },
+  "repair_contract": {
+    "direct_marker": "zero or one native_direct_handoff_ready per segment; when present it is exactly between native_runtime_ready and native_services_ready",
+    "covered_segment_shapes": [
+      "complete handoff",
+      "failed handoff",
+      "returned native tail",
+      "opening-prefix appended suffix",
+      "disjoint current window"
+    ],
+    "persisted_result_binding": "reparse exact journal opening log and exact durable final log, then compare the complete benchmark objects through canonical type-exact JSON SHA256",
+    "historical_tail_entry": "one exact seven-record post-absence journal prefix",
+    "historical_reboot_binding": "0003 names either the exact current successor closure or the exact recorded journal closure, and the historical alternative is unavailable before record seven",
+    "allowed_tail_operations": [
+      "read returned auto-handoff status",
+      "read exact resident, source, work-absence and recovery health",
+      "read accumulated native log",
+      "append final-health and closed host journal records"
+    ],
+    "forbidden_replays": [
+      "arm",
+      "reboot",
+      "handoff",
+      "cleanup",
+      "candidate"
+    ]
+  },
+  "live_log_replay": {
+    "journal_records_validated": 7,
+    "benchmark_status": "complete",
+    "boot_segments_total": 2,
+    "boot_to_handoff_dispatch_ms": 2403,
+    "boot_to_switch_root_ms": 2839,
+    "handoff_total_ms": 436
+  },
+  "review_findings_closed": [
+    "coordinated returned-tail, marker-count, opening-count, and hash changes are rejected by exact raw-log reparse",
+    "coordinated record and direct-stage insertion is rejected by exact raw-log reparse",
+    "integer-to-boolean type confusion is rejected by canonical JSON SHA256 comparison",
+    "armed-successor and parser-repair reboot closure histories remain distinct before the seven-record boundary"
+  ],
+  "validation": {
+    "main_combined_public_parser_runner_tests": {
+      "passed": 79,
+      "failed": 0
+    },
+    "independent_direct_marker_matrix": {
+      "expected_accepts": 6,
+      "expected_rejects": 9,
+      "mismatches": 0
+    },
+    "python_py_compile": "PASS",
+    "git_diff_check": "PASS",
+    "exact_private_journal_host_replay": "PASS"
+  },
+  "unresolved_high_findings": 0,
+  "unresolved_medium_findings": 0,
+  "unresolved_low_findings": 0,
+  "unresolved_findings": [],
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "live_use_authorized": false,
+  "reviewer_device_contact": false,
+  "reviewer_usb_contact": false,
+  "reviewer_network_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_s22plus_contact": false,
+  "reviewer_repository_edits": false,
+  "decision": "PASS_GO for the exact H11 direct-marker host parser and exact historical seven-record no-replay tail repair. It grants no device authority.",
+  "review_lifetime": "Reusable only while execution closure 21a7a7921d50b71cfff7d4db61c7de57544711d8576a60e9d64ed8913b83677e, exact direct-marker placement, raw-log reparse, seven-record entry, no-replay behavior, and hazard assumptions remain unchanged and no new hazard or incident occurs."
+}

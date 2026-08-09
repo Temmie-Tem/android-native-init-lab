@@ -750,6 +750,18 @@ def load_journal_prefix(
             raise ContractError("journal arm receipt and post-arm state disagree")
     if len(records) >= 4:
         reboot = records[3]
+        expected_reboot_closure_sha256 = {expected_closure_sha256}
+        if (
+            journal_closure_sha256 is not None
+            and len(records) >= 7
+        ):
+            # A parser-only repair can begin only from the exact durable
+            # post-absence prefix.  Its reboot intent necessarily names the
+            # historical closure that actually dispatched that one reboot.
+            # An armed-successor lane instead records the new closure in 0003.
+            # Both histories converge only after the exact seven-record
+            # no-replay boundary, so no earlier prefix gets this alternative.
+            expected_reboot_closure_sha256.add(journal_closure_sha256)
         if (
             arm_outcome != "armed"
             or records[2].get("post_arm_status") is None
@@ -758,7 +770,7 @@ def load_journal_prefix(
             or (
                 reboot.get("intent_sha256") != intent_sha256
                 or reboot.get("execution_closure_sha256")
-                != expected_closure_sha256
+                not in expected_reboot_closure_sha256
                 or not exact_int(reboot.get("reboot_dispatch_count_max"), 1)
                 or reboot.get("candidate_replay") is not False
                 or not isinstance(reboot.get("pre_reboot_epoch"), dict)
@@ -841,6 +853,7 @@ def load_journal_prefix(
             spec,
             final.get("result"),
             intent_sha256,
+            opening_log_record=opened["first_boot_log"],
             expected_source_identity=opening_source_identity,
         )
         if (
@@ -854,6 +867,7 @@ def load_journal_prefix(
             spec,
             closed.get("result"),
             intent_sha256,
+            opening_log_record=opened["first_boot_log"],
             expected_source_identity=opening_source_identity,
         )
         if (
@@ -1749,11 +1763,37 @@ RETURNED_NATIVE_TAIL = (
     "auto_handoff_check",
     "auto_handoff_latched_native",
 )
+DIRECT_HANDOFF_STAGE = "native_direct_handoff_ready"
+
+
+def normalize_direct_handoff_stage(stages: list[Any]) -> list[Any] | None:
+    """Remove one exact H11 direct marker while rejecting every other placement."""
+
+    positions = [
+        index for index, stage in enumerate(stages) if stage == DIRECT_HANDOFF_STAGE
+    ]
+    if not positions:
+        return list(stages)
+    if len(positions) != 1:
+        return None
+    index = positions[0]
+    if (
+        index == 0
+        or index + 1 >= len(stages)
+        or stages[index - 1] != "native_runtime_ready"
+        or stages[index + 1] != "native_services_ready"
+    ):
+        return None
+    return stages[:index] + stages[index + 1 :]
 
 
 def failed_handoff_stages_exact(stages: list[Any]) -> bool:
     """Accept one ordered complete-stage prefix followed by the native failure tail."""
 
+    normalized = normalize_direct_handoff_stage(stages)
+    if normalized is None:
+        return False
+    stages = normalized
     if len(stages) < len(FAILED_HANDOFF_TAIL) or tuple(
         stages[-len(FAILED_HANDOFF_TAIL) :]
     ) != FAILED_HANDOFF_TAIL:
@@ -1770,14 +1810,16 @@ def failed_handoff_stages_exact(stages: list[Any]) -> bool:
 
 
 def complete_handoff_stages_exact(stages: list[Any]) -> bool:
-    return stages in (
+    normalized = normalize_direct_handoff_stage(stages)
+    return normalized in (
         list(benchmark.COMPLETE_STAGES),
         list(benchmark.OPTIONAL_EARLY_STAGES + benchmark.COMPLETE_STAGES),
     )
 
 
 def returned_native_stages_exact(stages: list[Any]) -> bool:
-    return stages in (
+    normalized = normalize_direct_handoff_stage(stages)
+    return normalized in (
         list(RETURNED_NATIVE_TAIL),
         list(benchmark.OPTIONAL_EARLY_STAGES + RETURNED_NATIVE_TAIL),
     )
@@ -1862,7 +1904,8 @@ def parse_appended_benchmark(
         )
     elif (
         log_relation == "disjoint-current-window"
-        and trailing_stages[0] != list(RETURNED_NATIVE_TAIL)
+        and normalize_direct_handoff_stage(trailing_stages[0])
+        != list(RETURNED_NATIVE_TAIL)
     ):
         raise benchmark.BenchmarkError(
             "fresh benchmark window has a noncanonical returned-native boot tail"
@@ -1872,10 +1915,11 @@ def parse_appended_benchmark(
     parsed["selected_segment_index"] = selected_index
     parsed["native_handoff_failed"] = native_handoff_failed
     parsed["selection"] = {
-        "contract": "opening-prefix-or-disjoint-current-window-v2",
+        "contract": "opening-prefix-or-disjoint-current-window-v3-direct-stage",
         "log_relation": log_relation,
         "opening_marker_count": len(before),
         "appended_marker_count": len(appended),
+        "segment_stages": segment_stages,
         "opening_markers_sha256": hashlib.sha256(
             "".join(f"{line}\n" for line in before).encode("utf-8")
         ).hexdigest(),
@@ -2051,11 +2095,12 @@ def validate_benchmark_selection(parsed: dict[str, Any]) -> None:
             "log_relation",
             "opening_marker_count",
             "appended_marker_count",
+            "segment_stages",
             "opening_markers_sha256",
             "appended_markers_sha256",
         }
         or selection.get("contract")
-        != "opening-prefix-or-disjoint-current-window-v2"
+        != "opening-prefix-or-disjoint-current-window-v3-direct-stage"
         or selection.get("log_relation")
         not in {
             "opening-prefix-appended-suffix",
@@ -2078,32 +2123,49 @@ def validate_benchmark_selection(parsed: dict[str, Any]) -> None:
         raise ContractError("benchmark appended-marker selection changed")
     native_failed = parsed.get("native_handoff_failed")
     boot_segments_total = parsed.get("boot_segments_total")
-    if type(boot_segments_total) is not int:
+    segment_stages = selection.get("segment_stages")
+    parsed_stages = [record.get("stage") for record in records]
+    if (
+        type(boot_segments_total) is not int
+        or not isinstance(segment_stages, list)
+        or len(segment_stages) != boot_segments_total
+        or not segment_stages
+        or any(
+            not isinstance(stages, list)
+            or not stages
+            or any(not isinstance(stage, str) for stage in stages)
+            for stages in segment_stages
+        )
+        or segment_stages[0] != parsed_stages
+    ):
         raise ContractError("benchmark appended-marker selection changed")
     if native_failed is True:
         expected_segments = 1
-        expected_marker_counts = {len(records)}
+        shape_ok = failed_handoff_stages_exact(segment_stages[0])
     elif native_failed is False:
         if selection["log_relation"] == "disjoint-current-window":
             expected_segments = 2
-            expected_marker_counts = {len(records) + len(RETURNED_NATIVE_TAIL)}
+            shape_ok = (
+                complete_handoff_stages_exact(segment_stages[0])
+                and len(segment_stages) == 2
+                and normalize_direct_handoff_stage(segment_stages[1])
+                == list(RETURNED_NATIVE_TAIL)
+            )
         elif boot_segments_total in {1, 2}:
             expected_segments = boot_segments_total
-            expected_marker_counts = {len(records)}
-            if expected_segments == 2:
-                expected_marker_counts = {
-                    len(records) + len(RETURNED_NATIVE_TAIL),
-                    len(records)
-                    + len(benchmark.OPTIONAL_EARLY_STAGES)
-                    + len(RETURNED_NATIVE_TAIL),
-                }
+            shape_ok = complete_handoff_stages_exact(segment_stages[0]) and (
+                expected_segments == 1
+                or returned_native_stages_exact(segment_stages[1])
+            )
         else:
             raise ContractError("benchmark appended-marker selection changed")
     else:
         raise ContractError("benchmark appended-marker selection changed")
     if (
         boot_segments_total != expected_segments
-        or selection.get("appended_marker_count") not in expected_marker_counts
+        or not shape_ok
+        or selection.get("appended_marker_count")
+        != sum(len(stages) for stages in segment_stages)
     ):
         raise ContractError("benchmark appended-marker selection changed")
 
@@ -2197,6 +2259,7 @@ def validate_result(
     value: Any,
     intent_sha256: str,
     *,
+    opening_log_record: dict[str, Any],
     expected_source_identity: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     if not isinstance(value, dict):
@@ -2249,11 +2312,17 @@ def validate_result(
     )
     if value.get("ondevice_evidence") != durable_evidence:
         raise ContractError("benchmark result durable evidence changed")
+    parsed = value.get("benchmark")
+    reparsed = parse_appended_benchmark(opening_log_record, durable_log)
+    if (
+        not isinstance(parsed, dict)
+        or base.json_sha256(parsed) != base.json_sha256(reparsed)
+    ):
+        raise ContractError("benchmark result does not match its exact raw logs")
     guard_released = value["observation"].get("guard_release", {}).get(
         "released"
     ) is True
     host_link = host_link_proven(spec, value["observation"])
-    parsed = value.get("benchmark")
     native_handoff_failed = (
         isinstance(parsed, dict)
         and parsed.get("native_handoff_failed") is True
@@ -2327,11 +2396,7 @@ def validate_result(
         benchmark_shape_ok = (
             parsed.get("status") == "complete"
             and parsed.get("missing_complete_stages") == []
-            and parsed_stages
-            in (
-                list(benchmark.COMPLETE_STAGES),
-                list(benchmark.OPTIONAL_EARLY_STAGES + benchmark.COMPLETE_STAGES),
-            )
+            and complete_handoff_stages_exact(parsed_stages)
         )
     else:
         benchmark_shape_ok = False
@@ -2544,6 +2609,7 @@ def _continue_after_proved_arm(
         spec,
         result,
         intent_sha256,
+        opening_log_record=opening_log_record,
         expected_source_identity=source_identity,
     )
     result_sha256 = base.json_sha256(result)
@@ -2748,6 +2814,7 @@ def resume_after_return(
             spec,
             records[-1]["result"],
             records[4]["intent_sha256"],
+            opening_log_record=records[0]["first_boot_log"],
         )
     if len(records) == 8:
         # Only the host-side publication record is absent.  Never turn this
@@ -2756,6 +2823,7 @@ def resume_after_return(
             spec,
             records[7]["result"],
             records[4]["intent_sha256"],
+            opening_log_record=records[0]["first_boot_log"],
         )
         result_sha256 = records[7]["result_sha256"]
         write_record(
@@ -2883,6 +2951,7 @@ def resume_after_return(
             spec,
             result,
             intent_sha256,
+            opening_log_record=records[0]["first_boot_log"],
             expected_source_identity=source_identity,
         )
         result_sha256 = base.json_sha256(result)
@@ -2900,6 +2969,7 @@ def resume_after_return(
             spec,
             records[7]["result"],
             intent_sha256,
+            opening_log_record=records[0]["first_boot_log"],
             expected_source_identity=source_identity,
         )
         result_sha256 = records[7]["result_sha256"]

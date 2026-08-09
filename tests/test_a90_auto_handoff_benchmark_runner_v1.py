@@ -62,6 +62,24 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             for index, stage in enumerate(runner.benchmark.COMPLETE_STAGES)
         )
 
+    @staticmethod
+    def _with_direct_stage(stages: tuple[str, ...]) -> tuple[str, ...]:
+        values = list(stages)
+        values.insert(
+            values.index("native_runtime_ready") + 1,
+            runner.DIRECT_HANDOFF_STAGE,
+        )
+        return tuple(values)
+
+    @classmethod
+    def _direct_complete_benchmark_segment(cls, start_ms: int) -> str:
+        return "\n".join(
+            cls._benchmark_marker(stage, start_ms + index * 10)
+            for index, stage in enumerate(
+                cls._with_direct_stage(runner.benchmark.COMPLETE_STAGES)
+            )
+        )
+
     @classmethod
     def _failed_benchmark_segment(cls, start_ms: int) -> str:
         stages = runner.benchmark.COMPLETE_STAGES[:-2] + (
@@ -778,6 +796,85 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             ):
                 runner.validate_benchmark_selection(changed)
 
+    def test_appended_benchmark_accepts_exact_h11_direct_segments(self) -> None:
+        opening = self._complete_benchmark_segment(1_000)
+        current = self._direct_complete_benchmark_segment(100)
+        returned = "\n".join(
+            self._benchmark_marker(stage, 50 + index * 10)
+            for index, stage in enumerate(
+                self._with_direct_stage(runner.RETURNED_NATIVE_TAIL)
+            )
+        )
+        with mock.patch.object(
+            runner.base,
+            "require_exact_f1_command_receipt",
+            side_effect=lambda value, _command, _label: value,
+        ):
+            parsed = runner.parse_appended_benchmark(
+                {"text": opening},
+                {"text": "\n".join((current, returned))},
+            )
+
+        self.assertEqual(parsed["status"], "complete")
+        self.assertEqual(parsed["boot_segments_total"], 2)
+        self.assertEqual(parsed["selection"]["appended_marker_count"], 21)
+        self.assertEqual(
+            parsed["selection"]["segment_stages"],
+            [
+                list(self._with_direct_stage(runner.benchmark.COMPLETE_STAGES)),
+                list(self._with_direct_stage(runner.RETURNED_NATIVE_TAIL)),
+            ],
+        )
+        runner.validate_benchmark_selection(parsed)
+
+        changed = json.loads(json.dumps(parsed))
+        changed["selection"]["segment_stages"][1].remove(
+            runner.DIRECT_HANDOFF_STAGE
+        )
+        with self.assertRaisesRegex(
+            runner.ContractError,
+            "benchmark appended-marker selection changed",
+        ):
+            runner.validate_benchmark_selection(changed)
+
+    def test_appended_benchmark_rejects_misplaced_or_duplicate_direct_stage(self) -> None:
+        opening = self._complete_benchmark_segment(1_000)
+        returned = "\n".join(
+            self._benchmark_marker(stage, 50 + index * 10)
+            for index, stage in enumerate(
+                self._with_direct_stage(runner.RETURNED_NATIVE_TAIL)
+            )
+        )
+        complete = list(runner.benchmark.COMPLETE_STAGES)
+        malformed_variants = []
+        misplaced = list(complete)
+        misplaced.insert(0, runner.DIRECT_HANDOFF_STAGE)
+        malformed_variants.append(misplaced)
+        duplicated = list(self._with_direct_stage(runner.benchmark.COMPLETE_STAGES))
+        duplicated.insert(
+            duplicated.index("native_services_ready"),
+            runner.DIRECT_HANDOFF_STAGE,
+        )
+        malformed_variants.append(duplicated)
+
+        for stages in malformed_variants:
+            current = "\n".join(
+                self._benchmark_marker(stage, 100 + index * 10)
+                for index, stage in enumerate(stages)
+            )
+            with self.subTest(stages=stages), mock.patch.object(
+                runner.base,
+                "require_exact_f1_command_receipt",
+                side_effect=lambda value, _command, _label: value,
+            ), self.assertRaisesRegex(
+                runner.benchmark.BenchmarkError,
+                "exactly one terminal handoff segment",
+            ):
+                runner.parse_appended_benchmark(
+                    {"text": opening},
+                    {"text": "\n".join((current, returned))},
+                )
+
     def test_prefix_window_keeps_optional_returned_native_early_stage(self) -> None:
         opening = self._complete_benchmark_segment(1_000)
         current = self._complete_benchmark_segment(100)
@@ -1199,7 +1296,123 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             result["ondevice_evidence"] = dict(result["ondevice_evidence"])
             result["ondevice_evidence"]["proof"] = False
             with self.assertRaisesRegex(runner.ContractError, "durable evidence changed"):
-                runner.validate_result(self._spec(), result, intent_sha256)
+                runner.validate_result(
+                    self._spec(),
+                    result,
+                    intent_sha256,
+                    opening_log_record={"command": ["logcat"], "text": opening},
+                )
+
+    def test_persisted_benchmark_is_reparsed_from_exact_raw_logs(self) -> None:
+        intent_sha256 = "c" * 64
+        opening = self._complete_benchmark_segment(1_000)
+        current = self._direct_complete_benchmark_segment(100)
+        returned = "\n".join(
+            self._benchmark_marker(stage, 50 + index * 10)
+            for index, stage in enumerate(
+                self._with_direct_stage(runner.RETURNED_NATIVE_TAIL)
+            )
+        )
+        durable = "\n".join(
+            self._ondevice_record(phase, stamp, intent_sha256)
+            for phase, stamp in (
+                ("debian_pid1", 1_000),
+                ("debian_sshd", 2_000),
+                ("debian_drm_master", 3_000),
+            )
+        )
+        opening_record = {"command": ["logcat"], "text": opening}
+        log_record = {
+            "command": ["logcat"],
+            "text": "\n".join((opening, current, returned, durable)),
+        }
+        status_record = self._status(1, 1)
+        preflight = SimpleNamespace(validate=lambda: None)
+        cleanup = {
+            "dispatch_count": 0,
+            "inferred_from_absence": True,
+            "receipt": None,
+            "absence_preflight": {},
+        }
+        observation = {"guard_release": {"released": True}, **self._host_link()}
+        with (
+            mock.patch.object(
+                runner,
+                "require_auto_status",
+                return_value=(status_record, runner.parse_auto_status(status_record)),
+            ),
+            mock.patch.object(
+                runner,
+                "fast_resident_preflight",
+                return_value=(preflight, {}, {"size": 1}),
+            ),
+            mock.patch.object(runner.base, "run_f1_cmd", return_value=log_record),
+            mock.patch.object(
+                runner.base,
+                "require_exact_f1_command_receipt",
+                side_effect=lambda value, _command, _label: value,
+            ),
+            mock.patch.object(runner, "validate_preflight_evidence", return_value={}),
+        ):
+            result = runner.finalize_cycle(
+                self._spec(),
+                SimpleNamespace(),
+                observation,
+                intent_sha256=intent_sha256,
+                opening_log_record=opening_record,
+                visible_confirmed="yes",
+                cleanup_evidence=cleanup,
+                source_identity={"size": 1},
+            )
+            runner.validate_result(
+                self._spec(),
+                result,
+                intent_sha256,
+                opening_log_record=opening_record,
+                expected_source_identity={"size": 1},
+            )
+
+            tampered = []
+            changed = json.loads(json.dumps(result))
+            changed["benchmark"]["selection"]["segment_stages"][1].remove(
+                runner.DIRECT_HANDOFF_STAGE
+            )
+            changed["benchmark"]["selection"]["appended_marker_count"] -= 1
+            tampered.append(changed)
+            changed = json.loads(json.dumps(result))
+            changed["benchmark"]["selection"]["opening_marker_count"] = 999
+            changed["benchmark"]["selection"]["opening_markers_sha256"] = "f" * 64
+            tampered.append(changed)
+            changed = json.loads(json.dumps(result))
+            direct = next(
+                record
+                for record in changed["benchmark"]["records"]
+                if record["stage"] == runner.DIRECT_HANDOFF_STAGE
+            )
+            changed["benchmark"]["records"].insert(2, dict(direct))
+            changed["benchmark"]["selection"]["segment_stages"][0].insert(
+                2,
+                runner.DIRECT_HANDOFF_STAGE,
+            )
+            changed["benchmark"]["selection"]["appended_marker_count"] += 1
+            tampered.append(changed)
+            changed = json.loads(json.dumps(result))
+            changed["benchmark"]["records"][0]["clock_ok"] = True
+            changed["benchmark"]["records"][0]["telemetry_sampled"] = True
+            tampered.append(changed)
+
+            for value in tampered:
+                with self.subTest(value=value), self.assertRaisesRegex(
+                    runner.ContractError,
+                    "does not match its exact raw logs",
+                ):
+                    runner.validate_result(
+                        self._spec(),
+                        value,
+                        intent_sha256,
+                        opening_log_record=opening_record,
+                        expected_source_identity={"size": 1},
+                    )
 
     def test_recorded_historical_closure_is_digest_and_role_bound(self) -> None:
         closure = runner.execution_closure()
@@ -2248,6 +2461,101 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 self.assertEqual(len(records), count)
                 historical.assert_called_once_with(closure, "1" * 64)
 
+    def test_historical_parser_tail_keeps_recorded_reboot_closure(self) -> None:
+        closure = {"sha256": "1" * 64, "files": {}}
+        spec = self._spec()
+        for count in (7, 8, 9):
+            with self.subTest(count=count), tempfile.TemporaryDirectory() as temp_dir:
+                path = Path(temp_dir)
+                self._write_semantic_prefix(
+                    path,
+                    count,
+                    closure,
+                    intent_closure_sha256="1" * 64,
+                    reboot_closure_sha256="1" * 64,
+                )
+                with (
+                    mock.patch.object(
+                        runner,
+                        "require_execution_closure",
+                        return_value={"sha256": "2" * 64, "files": {}},
+                    ),
+                    mock.patch.object(
+                        runner,
+                        "validate_recorded_execution_closure",
+                        return_value=closure,
+                    ),
+                    mock.patch.object(
+                        runner,
+                        "validate_preflight_evidence",
+                        return_value={},
+                    ),
+                    mock.patch.object(
+                        runner.base,
+                        "require_exact_f1_command_receipt",
+                        side_effect=lambda value, *_: value,
+                    ),
+                    mock.patch.object(runner, "require_first_boot_unarmed"),
+                    mock.patch.object(runner, "validate_result", return_value={}),
+                    mock.patch.object(
+                        runner.base,
+                        "json_sha256",
+                        return_value="5" * 64,
+                    ),
+                ):
+                    records = runner.load_journal_prefix(
+                        spec,
+                        path,
+                        "2" * 64,
+                        journal_closure_sha256="1" * 64,
+                    )
+                self.assertEqual(len(records), count)
+
+    def test_historical_parser_tail_rejects_old_reboot_before_post_absence(self) -> None:
+        closure = {"sha256": "1" * 64, "files": {}}
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir)
+            self._write_semantic_prefix(
+                path,
+                6,
+                closure,
+                intent_closure_sha256="1" * 64,
+                reboot_closure_sha256="1" * 64,
+            )
+            with (
+                mock.patch.object(
+                    runner,
+                    "require_execution_closure",
+                    return_value={"sha256": "2" * 64, "files": {}},
+                ),
+                mock.patch.object(
+                    runner,
+                    "validate_recorded_execution_closure",
+                    return_value=closure,
+                ),
+                mock.patch.object(
+                    runner,
+                    "validate_preflight_evidence",
+                    return_value={},
+                ),
+                mock.patch.object(
+                    runner.base,
+                    "require_exact_f1_command_receipt",
+                    side_effect=lambda value, *_: value,
+                ),
+                mock.patch.object(runner, "require_first_boot_unarmed"),
+                self.assertRaisesRegex(
+                    runner.ContractError,
+                    "reboot intent binding changed",
+                ),
+            ):
+                runner.load_journal_prefix(
+                    self._spec(),
+                    path,
+                    "2" * 64,
+                    journal_closure_sha256="1" * 64,
+                )
+
     def test_exact_h10_terminal_closure_alone_accepts_legacy_serial_epoch(self) -> None:
         closure = {"sha256": "1" * 64, "files": {}}
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -2422,7 +2730,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
         spec = self._spec()
         result = {"terminal": "PASS_AUTO_HANDOFF_BENCHMARK_VISIBLE"}
         records8 = [
-            {}, {}, {}, {},
+            {"first_boot_log": {}}, {}, {}, {},
             {"observation": {}, "intent_sha256": "6" * 64},
             {}, {},
             {"result": result, "result_sha256": "7" * 64},
