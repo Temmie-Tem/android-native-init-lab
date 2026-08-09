@@ -15,13 +15,13 @@ runtime을 구성·검증하는 다기기 로컬 연구/문서화 작업 공간�
 프로젝트는 해당 진입점을 안정화하고 반복 운용 가능한 임베디드 콘솔과
 서버형 userspace로 확장합니다.
 
-> **Note on repository name**
+> **저장소 이름에 관하여**
 >
-> This repository was originally named `A90_5G_rooting` when the Galaxy A90 5G
-> was its only target. It was renamed to `android-native-init-lab` after the
-> research expanded to the Galaxy S22+ and to a reusable, device-independent
-> native PID 1 method. Historical paths and target-specific `a90_*` identifiers
-> are retained where they remain technically or historically meaningful.
+> 이 저장소는 Galaxy A90 5G가 유일한 대상이던 시절 `A90_5G_rooting`이라는
+> 이름이었다. 연구 범위가 Galaxy S22+와, 기기에 의존하지 않는 재사용 가능한
+> native PID 1 방법론으로 확장되면서 `android-native-init-lab`으로 이름을 바꿨다.
+> 과거 경로와 대상 전용 `a90_*` 식별자는 기술적·역사적으로 의미가 남아 있는
+> 곳에 한해 그대로 둔다.
 
 ## 왜 이 접근인가
 
@@ -39,7 +39,7 @@ runtime을 구성·검증하는 다기기 로컬 연구/문서화 작업 공간�
 userspace**. 벤더 드라이버는 계속 동작하고, Android 프레임워크는 사라지며,
 제어는 PID 1부터 시작합니다.
 
-## Safety, Scope, and Ethics
+## 안전, 범위, 윤리
 
 이 작업은 저장소 소유자가 직접 소유하고 복구 경로를 관리하는 로컬 기기에서만
 진행합니다. README와 관련 문서는 제3자 기기, 서비스, 계정, 네트워크를 대상으로 한
@@ -47,44 +47,44 @@ userspace**. 벤더 드라이버는 계속 동작하고, Android 프레임워크
 
 허용 범위는 다음으로 제한합니다.
 
-- local device research
-- documentation
-- build troubleshooting
-- native init/runtime development
-- read-only diagnostics
-- recovery-safe validation
+- 로컬 기기 연구
+- 문서화
+- 빌드 문제 해결
+- native init/runtime 개발
+- 읽기 전용 진단
+- 복구 안전성 검증
 
 금지/비목표 범위는 다음을 명확히 포함합니다.
 
-- unauthorized access
-- third-party targeting
-- exploit deployment
-- persistence
-- malware
-- credential theft
-- stealth/evasion
+- 무단 접근
+- 제3자 대상 공격
+- exploit 배포
+- 지속성 확보(persistence)
+- 악성코드
+- 자격 증명 탈취
+- 은닉 및 탐지 회피
 - 타인 소유 기기 조작
 
 실험 전에는 항상 해당 타깃의 검증된 recovery/Download 경로,
 known-good boot/recovery/vbmeta, 로그 보존 경로를 확인하고, 복구 가능성을
 해치거나 소유권이 불명확한 대상에는 적용하지 않습니다.
 
-## Active Targets
+## 활성 대상
 
 - **Galaxy A90 5G (`SM-A908N`, 공개 식별자 `DEVICE-A90-01`)**: custom native
-  init, USB ACM/NCM, KMS/HUD, input, storage, network, and minimal userspace
-  work has an established recovery-safe baseline. Detailed version history
-  remains in `docs/overview/PROJECT_STATUS.md` and `CHANGELOG.md`.
+  init, USB ACM/NCM, KMS/HUD, 입력, 스토리지, 네트워크, 최소 userspace 작업이
+  복구 안전한 베이스라인을 확보한 상태입니다. 상세 버전 이력은
+  `docs/overview/PROJECT_STATUS.md`와 `CHANGELOG.md`에 있습니다.
 - **Galaxy S22+ (`SM-S906N`, FYG8, 공개 식별자 `DEVICE-S22P-01`)**:
-  source-matched vendor-kernel rebuild and retained PID 1 witness work is the
-  active frontier. The current exact state, next host-only unit, and live
-  authorization status are maintained at the top of `GOAL.md`.
+  source-matched vendor-kernel 재빌드와 retained PID 1 witness 작업이 현재
+  활성 프론티어입니다. 정확한 현재 상태, 다음 host-only unit, live
+  authorization 여부는 `GOAL.md` 최상단에서 관리합니다.
 
-Shared source lives under `workspace/public/src/`; target-specific source,
-helpers, reports, rollback identities, and safety gates remain explicitly
-separated. A result on one target never authorizes a device action on another.
+공용 소스는 `workspace/public/src/` 아래에 둡니다. 대상 전용 소스, 헬퍼,
+리포트, rollback identity, 안전 게이트는 명시적으로 분리합니다. 한 대상의
+결과가 다른 대상의 기기 작업을 승인하는 일은 없습니다.
 
-## Current Objective
+## 현재 목표
 
 현재 메인 목표는 `Android vendor kernel 위의 자체 native userspace`를
 반복 가능한 방법으로 만드는 것입니다.
@@ -114,7 +114,7 @@ vendor bootloader
 - `metrics/kms/draw/hud/input/menu`: 센서 snapshot, 화면, 버튼 입력, device UI 계층
 - `usb_gadget/netservice`: USB ACM/NCM, TCP control, 서버형 접근 계층
 
-## What This Is
+## 이 프로젝트가 하는 것
 
 - Android vendor kernel과 기기 전용 driver를 활용하는 native userspace 실험
 - boot ramdisk의 `/init`를 교체해 PID 1부터 직접 구성하는 작업
@@ -122,43 +122,46 @@ vendor bootloader
 - 필요한 관측 능력을 추가하는 source-matched vendor-kernel rebuild 및 검증
 - 장기적으로 BusyBox, USB network, dropbear SSH 같은 서버형 구성으로 확장할 수 있는 기반
 
-## What This Is Not
+## 이 프로젝트가 아닌 것
 
 - 일반 Debian/Ubuntu/Red Hat 배포판 포팅 완료 상태가 아님
 - Android framework, 앱, SurfaceFlinger, Zygote를 복구하는 프로젝트가 아님
 - 메인라인 커널 포팅 또는 범용 Android 커스텀 ROM 프로젝트가 아님
 - 카메라, 모뎀, GPU 가속 등 vendor userspace 의존 기능을 즉시 지원하는 환경이 아님
 
-## Near-Term Roadmap
+## 단기 로드맵
 
-S22+ FYG8에서 custom PID 1과 최소 native userspace runtime은 이미 검증됐고,
-현재 활성 프론티어는 그 위에서 USB device-controller/gadget 경로(UDC
-bring-up)를 boot-only F1로 관측·확보하는 작업이다. 공용 F1 실행 구조인
-Device Action Process v2는 완료돼 재사용 어댑터로 쓰인다. 정확한 상태와
-다음 bounded unit은 `GOAL.md`, 절대 실행 규칙은 `AGENTS.md`, 공용 F1 설계는
-`docs/operations/DEVICE_ACTION_PROCESS_V2.md`를 기준으로 한다. 현재 live
-authorization은 없다.
+S22+ FYG8에서 custom PID 1과 최소 native userspace runtime은 이미 검증됐습니다.
+공용 F1 실행 구조인 Device Action Process v2도 완료돼 재사용 어댑터로 쓰입니다.
+A90은 확보한 native-init/runtime 기반 위에서 별도의 프론티어를 진행합니다.
 
-A90은 이미 확보한 native-init/runtime 기반을 유지하는 안정화 대상이며,
+**현재 프론티어, 다음 bounded unit, live authorization 여부는 이 문서에 적지
+않습니다.** 자주 바뀌는 값이라 README에 두면 낡습니다. 다음을 정본으로 봅니다.
+
+- `GOAL.md` — S22+ 현재 상태와 다음 bounded unit
+- `GOAL_A90.md` — A90 현재 상태와 다음 bounded unit
+- `AGENTS.md` — 절대 실행 규칙
+- `docs/operations/DEVICE_ACTION_PROCESS_V2.md` — 공용 F1 설계
+
 기기별 다음 작업은 각각의 rollback identity와 `AGENTS.md` 승인 경계를
-독립적으로 만족해야 한다.
+독립적으로 만족해야 합니다.
 
-## Repository Layout
+## 저장소 구조
 
 - `docs/`
   현재 문서 인덱스, 프로젝트 상태, 사이클별 리포트(`docs/reports/`), 다음 작업 목록
 - `workspace/public/src/native-init/`
-  current native init source closure
+  현재 native init 소스 클로저
 - `workspace/public/src/scripts/revalidation/`
-  current serial bridge, console, revalidation, build helper entrypoints
+  현재 serial bridge, 콘솔, 재검증, 빌드 헬퍼 엔트리포인트
 - `workspace/public/archive/`
-  historical script and native-init provenance moved out of root paths
+  루트 경로에서 옮겨온 과거 스크립트와 native-init provenance
 - `workspace/private/`
-  ignored private inputs, boot images, build outputs, raw logs, and secrets
+  git에서 제외되는 private 입력, boot image, 빌드 산출물, raw 로그, 시크릿
 - `workspace/public/src/third_party/mkbootimg/`
   boot/recovery/vendor_boot 분석과 repack에 쓰는 도구 (AOSP, Apache-2.0)
 
-## Active Documents
+## 주요 문서
 
 전체 문서 목록과 읽는 순서, 사이클별 리포트는 `docs/README.md`를 정식
 인덱스로 한다. 여기서는 자주 여는 진입점만 추린다.
@@ -189,7 +192,7 @@ A90은 이미 확보한 native-init/runtime 기반을 유지하는 안정화 대
 `docs/plans/NATIVE_LINUX_RECHALLENGE_PLAN.md`와 `docs/plans/REVALIDATION_PLAN.md`는
 진입점 확보 이전의 부트체인 재검증 기록으로 보존한다.
 
-## Working Rules
+## 작업 규칙
 
 - 각 타깃의 known-good boot image와 검증된 복구 경로를 항상 유지한다.
 - 한 번에 하나의 boot/init 변수만 바꾼다.
@@ -218,13 +221,13 @@ A90은 이미 확보한 native-init/runtime 기반을 유지하는 안정화 대
 기기가 필요한 작업의 경계는 [`CONTRIBUTING.md`](CONTRIBUTING.md)를,
 보안 관련 제보는 [`SECURITY.md`](SECURITY.md)를 참고하세요.
 
-## Safety Note
+## 안전 유의사항
 
 이 저장소에는 실제 플래시 대상 바이너리와 Samsung 전용 이미지가 포함될 수 있습니다.
 실험 전에는 항상 현재 boot/recovery/vbmeta 상태와 복구 가능한 known-good 이미지를
 확인한 뒤 진행합니다.
 
-## License
+## 라이선스
 
 이 저장소의 **문서와 스크립트**는 MIT License를 따른다 (루트 `LICENSE` 참고).
 
