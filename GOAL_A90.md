@@ -16,7 +16,7 @@ The pre-H2 goal history is preserved at
 
 ## Current State
 
-- H11 host preparation is complete for `0.11.179`, build
+- H11 is the exact installed healthy resident at `0.11.179`, build
   `phase3-minimal-h11-direct-debian-boot-auto-benchmark`. On an armed boot it
   keeps the boot splash and serial recovery path, skips the fixed splash wait,
   HUD, QRTR, netservice, early WiFi lifecycle/test, WiFi autoconnect, and boot
@@ -28,12 +28,18 @@ The pre-H2 goal history is preserved at
   42-path independent review. `PASS_GO` has HIGH/MEDIUM/LOW zero and grants no
   device authority. The final host manifest is private and immutable; its
   candidate and rollback copies are exact.
-- Fresh run03 D0 re-proved installed H10 `0.11.178` health, self-test fail zero,
-  exact H11 candidate and V2321 rollback, direct NCM, and absent remote
-  rootfs/work/stage destinations. Device write, payload, reboot, flash, and
-  S22+ command counts are zero. The next gate is one attended boot-only H11
-  resident install, followed by an unarmed fallback boot and one attended
-  direct-handoff benchmark ordinal; neither effect has started.
+- Fresh run03 D0 re-proved installed H10 `0.11.178` health, exact H11 candidate
+  and V2321 rollback, direct NCM, and absent remote rootfs/work/stage
+  destinations. The attended F1 then staged the exact rootfs once, transferred
+  and flashed the boot-only H11 candidate once, and closed
+  `PASS_A90_RESIDENT_INSTALLED` / `RESIDENT_HEALTHY` with self-test `11/1/0`,
+  candidate replay false, rollback zero, source exact, work absent, and the
+  global guard released.
+- H11's first boot proved the fresh binding and unarmed
+  `binding=1 enable=0 latch=0` state while staying on the complete native
+  fallback path. The next gate is one fresh attended D1 ordinal: arm once,
+  reboot once, observe direct Debian PID1/SSH/DRM through NCM, wait for native
+  return, and compare absolute H11 timing with the terminal H10 baseline.
 - H10 resident install and D1 run `a90-d1-attended-20260810-02` are terminal.
   The exact no-rearm continuation dispatched one reboot, completed all 15
   handoff stages, returned exact H10 health, and closed
