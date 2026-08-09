@@ -1,0 +1,73 @@
+{
+  "authority": {
+    "candidate_or_rollback_transfer_authorized": false,
+    "device_contact_authorized": false,
+    "f1_armed": false,
+    "live_authority_created": false,
+    "review_qualifies_design_and_contract_closure_only": true
+  },
+  "findings": {
+    "critical": [],
+    "high": [],
+    "low": [],
+    "medium": []
+  },
+  "independence": {
+    "implementation_authorship": false,
+    "review_scope_was_host_only": true,
+    "reviewer": "independent delegated Codex reviewer",
+    "reviewer_did_not_access_private_evidence": true,
+    "reviewer_did_not_contact_or_prepare_a_device": true,
+    "reviewer_modified_files": false
+  },
+  "reviewed_at_utc": "2026-08-09T19:03:24Z",
+  "reviewed_closure": [
+    {
+      "path": "AGENTS.md",
+      "sha256": "c07f670424fa7920f5b02e44d0f2b4f8a87030aac6f9d0ae268bf1339e51790e"
+    },
+    {
+      "path": "GOAL.md",
+      "sha256": "3417c1f00f0801e06cfbb47a4d918574490f848365ea6a8372a663f76152cfce"
+    },
+    {
+      "path": "docs/archive/roadmaps/GOAL_THROUGH_P312_AND_P313_DESIGN_2026-08-10.md",
+      "sha256": "64cd3848e798943f0f3a62b1caa7707e805ce4bbcacd73a27ae137ead846fca5"
+    },
+    {
+      "path": "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md",
+      "sha256": "582f42906d9de2bfd8b7035fd1d281515bf82799206bb7d90b648f9c6005b379"
+    },
+    {
+      "path": "docs/reports/S22PLUS_FYG8_P313_POST_BIND_RESUME_CYCLE_DESIGN_H0_2026-08-10.md",
+      "sha256": "cc03d61e365c6b2491cd6c079529665de928ea457458f33501288c97f29cc540"
+    },
+    {
+      "path": "tests/test_device_action_process_v2_docs.py",
+      "sha256": "61179ff84a34e760bfa229b0c023c06f44d0d1035ec80ee803552754291e4e86"
+    }
+  ],
+  "reviewed_invariants": {
+    "a90_authority_or_campaign_changed": false,
+    "existing_guard_v2_schema_or_default_reinterpreted": false,
+    "fast_loop_retirement_is_historical_only": true,
+    "permanent_device_repository_and_evidence_boundaries_unchanged": true,
+    "s22_guard_lifetime_evidence_is_explicitly_opt_in_and_versioned": true,
+    "s22_ordinary_fresh_authority_requirements_restored": true
+  },
+  "schema": "s22plus_fyg8_p313_guard_retirement_contract_independent_review_v1",
+  "target": {
+    "device": "g0q",
+    "firmware": "S906NKSS7FYG8",
+    "model": "SM-S906N",
+    "target_line": "S22PLUS_FYG8"
+  },
+  "validation": {
+    "archive_body_matches_previous_goal": true,
+    "docs_test_count": 19,
+    "docs_tests": "PASS",
+    "git_diff_check": "PASS",
+    "retired_block_matches_head_after_whitespace_normalization": true,
+    "verdict": "PASS"
+  }
+}

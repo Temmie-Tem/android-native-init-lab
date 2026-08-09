@@ -473,10 +473,39 @@ startup/cleanup, and release-command overhead. A 900-second value is valid
 only if qualification proves that the overhead outside the 880-second
 subtotal is at most 20 seconds; otherwise it must select a larger value within
 the already reviewed 7200-second ceiling. `observer_session()` must pass the
-derived value to `ModemManagerGuard.arm()`. The exact value and actual
-arm-to-release elapsed time must be approval-bound: the selected `max_sec`
-must be persisted in the arm receipt and the measured elapsed time in the
-release receipt.
+derived value to `ModemManagerGuard.arm()`.
+
+The derivation has one authority. A single execution-closure-bound function
+must consume the real Process-v2 timeout constants and the approval-bound
+manifest observation timeout, add one named reviewed overhead bound, and
+return `max_sec`. The literal 20-second Download-request timeout must first
+become a named constant used by both the live path and this derivation. No
+builder, validator, fixture, or receipt writer may independently reconstruct
+the 880-second subtotal. Reopen must recompute the value from the same bound
+inputs and reject a recorded value that differs. Persisting a value only after
+arm does not by itself make that value approval-bound.
+
+The existing `device_action_modemmanager_guard_v2` arm and release shapes are
+immutable shared semantics. They are exact-key inputs to non-S22 host runners,
+so P3.13 must not append `max_sec` or elapsed fields to that schema and must not
+change the default 360-second behavior of an unqualified caller. The common
+observer may gain an optional `max_sec` argument whose default preserves v2
+byte/shape behavior. P3.13 must opt into separately versioned S22 lifetime
+evidence, either an explicit v3 mode or these equivalent S22 wrapper receipts:
+
+- a lifetime-arm receipt binding the exact live `approval_binding_sha256`,
+  derived `max_sec`, derivation inputs/hash, and the immutable v2 arm-receipt
+  hash; and
+- a lifetime-release receipt binding the lifetime-arm hash, immutable v2
+  release-receipt hash, and a conservatively measured launch-to-release elapsed
+  upper bound whose clock starts before guard process creation.
+
+Unknown, mixed, or partially upgraded receipt versions fail closed. Existing
+v2 evidence remains readable under its original exact schema; it is never
+reinterpreted as lifetime-bound evidence. This isolates P3.13 from shared A90
+receipt consumers without transferring S22 authority, evidence, or commands
+to A90. Qualification must prove that the canonical derived value, S22
+lifetime receipts, immutable v2 receipts, and Process-v2 reopen all agree.
 
 The existing asymmetric expiry semantics remain invariant:
 
@@ -487,11 +516,15 @@ The existing asymmetric expiry semantics remain invariant:
 - normal release remains the preferred success path.
 
 This common observer change requires its own fake-clock and receipt-round-trip
-fixture, independent of P3.13 device-runtime fixtures. It must cover a banner
-accepted immediately before expiry, expiry before any banner, and acceptance
-followed by cleanup-time expiry. P3.13 additionally requires an end-to-end
-timing fixture proving its final-pair-before-banner path fits inside the exact
-300-second endpoint window.
+fixture, independent of P3.13 device-runtime fixtures. It must prove unchanged
+v2/default behavior, explicit S22 lifetime opt-in, v2/v3 or wrapper separation,
+canonical max derivation and reopen, and rejection of mixed versions. It must
+cover a banner accepted immediately before expiry, expiry before any banner,
+and acceptance followed by cleanup-time expiry. Shared host-only regression
+tests must prove that existing exact v2 consumers retain their prior shape;
+this is not A90 device or campaign work. P3.13 additionally requires an
+end-to-end timing fixture proving its final-pair-before-banner path fits inside
+the exact 300-second endpoint window.
 
 ## Same-Boot Digital Tuple
 
@@ -601,7 +634,7 @@ It must map each named prior or current hazard to an executable proof:
 | direct capacity confusion | streaming trigger, 10/22/23 prefix, and ring-loss fixtures |
 | record undercount | role 5, cycle 37/45/65, and per-event ceilings |
 | timeout collapse | independent stop/restart deadlines, internal/outer split, and total-overhead proof |
-| host guard underbound | source-derived lifetime, bound receipts, and three-way expiry fixture |
+| host guard underbound | one canonical source-derived lifetime, immutable v2 plus versioned S22 receipts, reopen agreement, and three-way expiry fixture |
 | early banner | no exact banner call before final publication; exactly one bounded call after |
 | tuple hand-join | same-boot direct/post-cycle tuple comparison and pointer contradiction |
 
@@ -628,9 +661,11 @@ sources rather than an ancestor runtime:
 7. prove trace/profile/ring cleanup on success and every error branch;
 8. prove the 160-second waits plus bounded non-wait overhead remain below the
    exact 300-second observer; the 140-second remainder is not itself proof;
-9. derive and bind a guard lifetime covering the 880-second configured host
-   subtotal plus proved overhead, pass it through the real Process-v2 path,
-   round-trip its receipts, and execute the three independent expiry fixtures;
+9. derive and bind a guard lifetime through one execution-closure authority,
+   cover the 880-second configured host subtotal plus proved overhead, preserve
+   exact v2/default behavior, pass explicit S22 lifetime evidence through the
+   real Process-v2 path, round-trip old/new receipt versions, and execute the
+   three independent expiry fixtures;
 10. emit and validate the hazard-closure artifact;
 11. cross-compile touched C and run focused Python validation; and
 12. receive one focused independent review of the changed runtime/schema and

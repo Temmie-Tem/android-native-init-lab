@@ -7,15 +7,15 @@ FYG8 target `SM-S906N` / `g0q` / `S906NKSS7FYG8`. It is not authority for any
 other model, firmware, target profile, or connected device.
 
 `GOAL.md` owns the current experimental state. This file alone neither arms the
-target nor opens a D1/F1 campaign. Standing D0 and attended autonomy apply only
-through the active common trial and its current live inputs.
+target nor opens a D0/D1/F1 action. The common Fast-Loop trial is retired; it
+grants no standing D0, attended autonomy, or per-candidate approval waiver.
 
 ## Inheritance and Precedence
 
 All common invariants and permanent safety boundaries in `AGENTS.md` apply.
 This contract may specialize delegated H0/D0/D1/F1 and pre-session failure
-rules only. The active common trial controls procedural conflicts; otherwise
-the more restrictive applicable rule wins.
+rules only. The retired common trial is historical evidence and resolves no
+procedural conflict; the more restrictive applicable live rule wins.
 
 The ordinary S22+ F1 mechanism is
 `docs/operations/DEVICE_ACTION_PROCESS_V2.md`. Full-stock evidence under
@@ -116,9 +116,9 @@ working control channel or require a physical restart, the operator must be
 able to perform that physical step within its bound. Attendance loss freezes
 new effects; it never authorizes replay of the uncertain action.
 
-- Existing D1 helpers may still require a fresh binding of target, command,
-  recovery, and return health until aligned; that is a compatibility constraint,
-  not an additional trial-policy approval.
+- D1 requires the fresh exact authority specified by the live common and target
+  rules. Any helper binding of target, command, recovery, and return health is
+  an additional compatibility constraint and never substitutes for authority.
 - Permit no partition payload, persistent setting, security-state change, or
   cross-target command.
 - Send the bound action once. An unexplained failure after it begins stops
@@ -146,9 +146,9 @@ the predeclared recovery path is exhausted.
 
 - Use Odin with ordinary regular `.tar.md5` paths. Each candidate and rollback
   AP must contain exactly one regular `boot.img.lz4` and no forbidden member.
-- Existing Process-v2 runner compatibility requires a new immutable manifest,
-  exact D0, and one fresh candidate/rollback binding until aligned; the trial
-  policy adds no per-candidate approval.
+- Process-v2 requires a new immutable manifest, exact D0, one fresh
+  candidate/rollback binding, and the fresh exact approval required after
+  Fast-Loop retirement. No retired trial clause waives per-candidate approval.
 - One candidate intent covers only that attempt and its exact rollback.
   Never replay it. Once candidate execution begins, rollback does not wait.
 - Journal before invoking Odin and after every state transition. Recover only

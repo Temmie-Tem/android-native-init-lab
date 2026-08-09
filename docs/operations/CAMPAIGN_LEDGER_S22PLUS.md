@@ -1,14 +1,17 @@
 # S22+ FYG8 Campaign Ledger
 
 Append-only. One line per experiment action or material health/recovery state
-transition under the Interim Fast-Loop Rules in `AGENTS.md`. This replaces
-per-run prose reports for routine work only. It does not replace the private
-structured result, append-only journal, raw logs, or transfer accounting
-required by the selected tier and target contract.
+transition. Rows through 2026-08-03T20:46:02Z include the historical Interim
+Fast-Loop interval; later rows use the ordinary live authority in `AGENTS.md`
+and the target contract. This replaces per-run prose reports for routine work
+only. It does not replace the private structured result, append-only journal,
+raw logs, or transfer accounting required by the selected tier and target
+contract.
 
-For trial retirement, count only the first `CAMPAIGN_CLOSED` action row for
-each distinct campaign ID across both ledgers. Duplicate close, parked, and
-per-action health rows do not count.
+The trial retirement calculation is closed: the first `CAMPAIGN_CLOSED` rows
+for `s22plus-fyg8-p296` and `s22plus-fyg8-p298` retired it at
+2026-08-03T20:46:02Z. Duplicate close, parked, and per-action health rows never
+alter that historical result.
 
 Write a separate report only for a new capability, a new hazard class, an
 incident, or a genuinely ambiguous device-safety result.
@@ -153,3 +156,4 @@ late endpoint may be `HEALTH_PENDING`, `HOST_OBSERVER_FAILURE`, or
 2026-08-09T17:41:59Z | s22plus-fyg8-p313 | h0-design-2 | H0 | POST_BIND_RESUME_CYCLE_DESIGN_FROZEN | HEALTHY | PROVED | 0/0 | Detailed H0 superseded the earlier 23-event estimate with a dedicated 25-event cycle set, source-derived clean/drift ceilings of 37/45 records, a 160-second total wait bound, same-boot direct/post-cycle DWC3 and event-config delta measurement, final-pair-before-banner ordering, actual-gate encoder ranges, and one hash-bound hazard-closure qualification artifact. The fixed Image, kernel, Carrier-v2, module plan, rollback, and transfer machinery remain unchanged; no candidate was built, no F1 was armed, no device command occurred, and A90 was untouched.
 2026-08-09T18:04:55Z | s22plus-fyg8-p313 | h0-design-3 | H0 | DIRECT_STREAM_AND_ROLE_QSCRATCH_CONTRACT_CORRECTED | HEALTHY | PROVED | 0/0 | Materialized P3.12 source disproved a generic 64-record direct-parser assumption: direct retains its CONNECT_DONE traceoff streaming contract, while role/cycle alone use the generic cap. P3.13 now requires strict one-record role QSCRATCH with parent four-event differential coverage, role 5/64, direct prefix 10/22/23 and ring-loss fixtures, positive evidence rather than overflow for direct success, cycle suppression on observer loss, and proof that non-wait overhead fits the 140-second arithmetic remainder. No candidate was built, no F1 was armed, no device command occurred, and A90 was untouched.
 2026-08-09T18:33:53Z | s22plus-fyg8-p313 | h0-design-4 | H0 | HOST_GUARD_LIFETIME_CONTRACT_CORRECTED | HEALTHY | PROVED | 0/0 | Exact Process-v2 source separates the 300-second post-departure endpoint window from the pre-Download CDC guard and proves the unreachable 360-second default cannot cover the configured 880-second host subtotal plus overhead. P3.13 now requires a source-derived, passed, approval-bound, and receipted guard lifetime; preserves accepted-before-cleanup-expiry versus pre-acceptance-expiry semantics; and adds an independent three-case common-observer fixture plus the P3.13 end-to-end timing fixture. The fixed Image and kernel remain unchanged, no candidate was built, no F1 was armed, no device command occurred, and A90 was untouched.
+2026-08-09T19:03:24Z | s22plus-fyg8-p313 | h0-design-5 | H0 | GUARD_AUTHORITY_AND_RETIREMENT_DOC_CLOSURE | HEALTHY | PROVED | 0/0 | H0 froze one canonical source-derived guard-lifetime derivation and a separately versioned S22 lifetime arm/release evidence contract bound to the exact approval, immutable guard-v2 receipts, and conservative launch-to-release elapsed time while preserving guard-v2 defaults and legacy interpretation. GOAL was compressed to 178 current lines after exact preservation of the prior 898-line body in an evidence-only archive; retired Fast-Loop language and ordinary S22 authority requirements were aligned without changing permanent boundaries or A90 authority. Focused document tests passed 19/19 and independent review returned PASS with no findings. No candidate was built, no F1 was armed, no device command occurred, and A90 was untouched.

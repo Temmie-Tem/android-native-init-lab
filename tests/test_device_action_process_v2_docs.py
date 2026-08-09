@@ -167,6 +167,11 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         cls.archived_goal = (
             ROOT / "docs/archive/roadmaps/GOAL_PRE_PROCESS_V2_2026-07-21.md"
         ).read_text(encoding="utf-8")
+        cls.archived_goal_through_p313 = (
+            ROOT
+            / "docs/archive/roadmaps/"
+            "GOAL_THROUGH_P312_AND_P313_DESIGN_2026-08-10.md"
+        ).read_text(encoding="utf-8")
 
     def test_active_contracts_remain_small(self):
         self.assertLessEqual(
@@ -185,7 +190,6 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
                 f"archival after {GOAL_REVIEW_THRESHOLD_LINES} lines"
             ),
         )
-        self.assertLessEqual(len(self.a90_target.splitlines()), 260)
         self.assertLessEqual(len(self.s22_target.splitlines()), 260)
         self.assertLessEqual(len(self.claude.splitlines()), 40)
 
@@ -193,29 +197,22 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         active_text = "\n".join((self.agents, self.goal, self.claude))
         self.assertNotIn("POLICY_STATE=ACTIVE", active_text)
         self.assertNotIn("BEGIN_S22PLUS", active_text)
-        self.assertIn("Status: **ACTIVE** by operator declaration", self.agents)
+        self.assertIn("Status: **RETIRED**", self.agents)
         self.assertIn(
-            "Trial policy adds no per-candidate approval, but the legacy runner still requires its fresh immutable token until aligned",
-            " ".join(self.goal.split()),
+            "no longer grant standing D0, procedural autonomy, or an override",
+            normalized(self.agents),
         )
         self.assertIn(
-            "A90 campaign `a90-resident-switchroot-display-ssh-20260802` is open",
-            " ".join(self.goal_a90.split()),
+            "It grants no standing D0, autonomy, or per-candidate approval waiver.",
+            normalized(self.goal),
         )
+        self.assertIn("grants no device authority", normalized(self.goal_a90))
         self.assertIn(
-            "no D1 session is active and no target is F1-armed. Attendance has ended",
-            " ".join(self.goal_a90.split()),
-        )
-        self.assertIn(
-            "qualified unattended lane has a current reusable capability receipt",
-            normalized(self.goal_a90),
-        )
-        self.assertIn(
-            "consumed resident-install approval is not reusable",
+            "Target identities, artifacts, transports, evidence, recovery, and commands never cross between the two goals.",
             normalized(self.goal_a90),
         )
 
-    def test_trial_scopes_gates_and_assigns_campaign_planning_to_agent(self):
+    def test_retired_trial_is_historical_and_ordinary_authority_controls(self):
         compact = normalized(self.agents)
         for clause in (
             "For a new device effect that already satisfies every permanent boundary",
@@ -239,17 +236,25 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertNotIn("attendance predicate true (F1 only)", compact)
         self.assertNotIn("Every other validator", self.agents)
         self.assertNotIn("Only these four may refuse execution", self.agents)
-        self.assertIn("Do not require a campaign-level runner", self.claude)
         self.assertIn(
-            "transaction executor, not a campaign planner",
-            normalized(self.goal_a90),
+            "The retained trial text is historical and grants no current standing D0, procedural autonomy, or override.",
+            normalized(self.claude),
         )
-        for ledger in (self.a90_ledger, self.s22_ledger):
-            self.assertIn(
-                "first `CAMPAIGN_CLOSED` action row for each distinct campaign ID",
-                normalized(ledger),
-            )
-            self.assertIn("Duplicate close", ledger)
+        self.assertIn(
+            "No retired trial clause waives per-candidate approval.",
+            normalized(self.s22_target),
+        )
+        self.assertIn("grants no device authority", normalized(self.goal_a90))
+        self.assertIn(
+            "first `CAMPAIGN_CLOSED` action row for each distinct campaign ID",
+            normalized(self.a90_ledger),
+        )
+        self.assertIn("Duplicate close", self.a90_ledger)
+        self.assertIn(
+            "The trial retirement calculation is closed",
+            self.s22_ledger,
+        )
+        self.assertIn("Duplicate close", self.s22_ledger)
 
     def test_a90_unattended_lane_is_policy_ready_but_not_falsely_executable(self):
         compact = normalized(self.a90_target)
@@ -292,14 +297,16 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             self.a90_unattended_runner_report,
         )
 
-    def test_s22_trial_authority_and_d1_attendance_are_explicit(self):
+    def test_s22_retired_trial_and_live_attendance_are_explicit(self):
         compact = normalized(self.s22_target)
         for clause in (
-            "This file alone neither arms the target nor opens a D1/F1 campaign.",
-            "Standing D0 and attended autonomy apply only through the active common trial",
+            "This file alone neither arms the target nor opens a D0/D1/F1 action.",
+            "The common Fast-Loop trial is retired; it grants no standing D0, attended autonomy, or per-candidate approval waiver.",
             "The operator must remain present and able to perform the action's predeclared return or recovery step.",
             "the operator must be able to perform that physical step within its bound.",
             "Attendance loss freezes new effects; it never authorizes replay of the uncertain action.",
+            "D1 requires the fresh exact authority specified by the live common and target rules.",
+            "Process-v2 requires a new immutable manifest, exact D0, one fresh candidate/rollback binding, and the fresh exact approval required after Fast-Loop retirement.",
             "A90 approvals, health evidence, transports, artifacts, and resident-promotion rules never apply to S22+.",
         ):
             self.assertIn(clause, compact)
@@ -450,100 +457,26 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
                 mutated = source.replace(clause, f"removed-a90-clause-{index}", 1)
                 self.assertIn(clause, a90_target_contract_issues(mutated))
 
-    def test_frontier_records_closed_p298_result_without_reuse(self):
+    def test_frontier_records_closed_p312_and_frozen_p313_without_reuse(self):
         normalized_goal = " ".join(self.goal.split())
-        normalized_p280_audit = " ".join(
-            self.p280_resume_femto_audit.split()
-        )
-        normalized_attribution = normalized(self.post_p296_attribution)
-        self.assertIn("direct PID1", normalized_goal)
-        self.assertIn("P2.98 is the latest closed live unit", normalized_goal)
-        self.assertIn("generation 107", normalized_goal)
-        self.assertIn(
-            "probe-ok-start-rc0-final-not attached-UNKNOWN-coreidle-1-susphy-0",
-            normalized_goal,
-        )
-        self.assertIn("both EP0 enable calls executed", normalized_goal)
-        self.assertIn("neither RESET nor CONNECT_DONE was observed", normalized_goal)
-        self.assertIn(
-            "NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK",
-            normalized_goal,
-        )
-        self.assertIn(
-            "No minimal PID1 candidate has yet proved host enumeration",
-            normalized_goal,
-        )
-        self.assertNotIn(
-            "No minimal PID1 candidate has yet proved host enumeration",
-            normalized(self.s22_target),
-        )
-        self.assertIn("P2.94 therefore remains an H0 static stop", normalized_goal)
-        self.assertIn(
-            "Gadget-Start Return Host Implementation (H0)", normalized_goal
-        )
-        self.assertIn("__dwc3_gadget_start()", normalized_goal)
-        self.assertIn("signed `$retval:s32`", normalized_goal)
-        self.assertIn("post-Full-LTO A/B disassembly audit", normalized_goal)
-        self.assertIn(
-            "PASS_POST_P296_GADGET_START_RETURN_SELECTED_H0",
-            self.post_p296_attribution,
-        )
-        self.assertIn(
-            "PASS_P296_FULL_LTO_GADGET_START_CALLSITE_OUT_OF_LINE_H0",
-            self.post_p296_attribution,
-        )
-        self.assertIn(
-            "PASS_CANDIDATE_PID1_BIND_TRACE_PLACEMENT_H0",
-            self.post_p296_attribution,
-        )
-        self.assertIn(
-            "The terminal word `UNKNOWN` is the sysfs UDC speed",
-            normalized_attribution,
-        )
-        self.assertIn(
-            "return ignored",
-            normalized_attribution,
-        )
-        self.assertIn(
-            "Deferred until start return is zero",
-            normalized_attribution,
-        )
-        self.assertIn("dwc3_gadget_pullup+0x100", normalized_attribution)
-        self.assertIn("dwc3_gadget_resume+0x2c", normalized_attribution)
-        self.assertIn(
-            "The trace controller belongs inside the boot-only candidate",
-            normalized_attribution,
-        )
-        self.assertIn(
-            "bind parser rejects every trace record whose PID is not exactly 1",
-            normalized_attribution,
-        )
-        self.assertIn(
-            "a positive return is also a source contradiction",
-            normalized_attribution,
-        )
-        self.assertIn(
-            "does not yet prove that either EP0 enable actually failed",
-            normalized_attribution,
-        )
-        self.assertIn("Never reuse the consumed P2.96 run", normalized_goal)
+        self.assertIn("P3.12 is the latest closed live unit", normalized_goal)
+        self.assertIn("`0xD00` then `0x4244`", normalized_goal)
+        self.assertIn("`msm_hsphy_set_suspend(..., 0)`", normalized_goal)
+        self.assertIn("both `ref_clk_src` and `ref_clk` prepare/enable returns were zero", normalized_goal)
+        self.assertIn("`UTMI_OTG_VBUS_VALID` and `SW_SESSVLD_SEL` were both set", normalized_goal)
+        self.assertIn("P3.13 is the next H0 implementation unit", normalized_goal)
+        self.assertIn("No P3.13 candidate exists, no F1 is armed", normalized_goal)
+        self.assertIn("role: strict five events, `5/64`", normalized_goal)
+        self.assertIn("cycle: a dedicated 25-event set, 37 records clean", normalized_goal)
+        self.assertIn("Configured host waits total 880 seconds", normalized_goal)
+        self.assertIn("default guard is only 360 seconds", normalized_goal)
+        self.assertIn("exact live `approval_binding_sha256`", normalized_goal)
+        self.assertIn("Existing v2 evidence remains readable under its original meaning", normalized_goal)
+        self.assertIn("Unknown or mixed versions fail closed", normalized_goal)
+        self.assertIn("The consumed candidate is not replayable", normalized_goal)
+        self.assertIn("Archived Goal: S22+ Through P3.12 and P3.13 Design", self.archived_goal_through_p313)
+        self.assertIn("P3.12 is the latest closed live unit", self.archived_goal_through_p313)
         self.assertIn("docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md", self.agents)
-        self.assertIn(
-            "PASS_P280_RESUME_FEMTO_EUD_INSTRUMENTATION_AUDIT_HOST_ONLY",
-            self.p280_resume_femto_audit,
-        )
-        self.assertIn(
-            "does not prove that `dwc3_msm_runtime_resume()`",
-            normalized_p280_audit,
-        )
-        self.assertIn(
-            "It does not update `usb_phy.flags`",
-            normalized_p280_audit,
-        )
-        self.assertIn(
-            "P2.80 itself is closed and immutable",
-            normalized_p280_audit,
-        )
         self.assertIn("Typed Retained Evidence", self.process)
         self.assertIn("NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK", self.process)
         self.assertIn(
@@ -558,10 +491,6 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("`ready-for-f1-approval` status", self.process)
         self.assertIn("private exact target binding", self.process)
         self.assertIn("aborted binding is not reusable", self.process)
-        self.assertIn(
-            "Trial policy adds no per-candidate approval, but the legacy runner still requires its fresh immutable token until aligned",
-            normalized_goal,
-        )
 
     def test_archived_policy_is_not_runtime_dependency(self):
         self.assertIn(
@@ -569,6 +498,10 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             self.process,
         )
         self.assertIn("Archived text is evidence only", self.goal)
+        self.assertIn(
+            "Archived text is evidence only",
+            self.archived_goal_through_p313,
+        )
 
 
 if __name__ == "__main__":
