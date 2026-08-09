@@ -372,6 +372,16 @@ The pre-H2 goal history is preserved at
   `47f55ebd...`, and resident promotion `1fae5f20...`; 334 main and 23 reviewer
   public/mocked tests pass. Reviewer edits and device, USB, private, network,
   and S22+ contacts are zero.
+- Fresh run `a90-v3406-debian-display-f1-20260810-01` passed exact D0 from
+  installed H8, then consumed the unchanged no-stage capability while attended.
+  It transferred and flashed the exact boot-only H10 candidate once, booted
+  H10 `0.11.178`, and closed `PASS_A90_RESIDENT_INSTALLED` /
+  `RESIDENT_HEALTHY`. Self-test is `11/1/0`, pstore is empty, the published
+  source and inode/use guards are exact before and after candidate, and rootfs
+  staging/copy/cleanup counts remain zero. Candidate replay is false, rollback
+  count is zero, the guard released without residue, result SHA256 is
+  `c2c603b986425d0691572de8b8a8a4a05a42957a9f61cef9fb683ca01c210e2b`,
+  and S22+ was untouched. This F1 transaction is terminal and must never replay.
 
 ## Qualified Capabilities
 
@@ -537,25 +547,20 @@ missing same-ordinal mechanical Debian PID1/SSH evidence.
 
 ## Selected Bounded Unit: Qualify, Install, and Measure H10 Fast Source Integrity
 
-Preserve H7 and H8 F1/D1 runs, consumed enable/latch namespaces, journals,
-private evidence, and no-replay conclusions. H8 remains the exact installed
-healthy resident until an attended H10 boot-only install closes. Do not reset or
-reuse the H8 latch, replay its arm/reboot, or treat its missing host-link proof
-as absent on-device mechanical proof.
+Preserve H7, H8, and H10 F1/D1 runs, consumed state namespaces, journals,
+private evidence, and no-replay conclusions. H10 is now the exact installed
+healthy resident. Do not replay the terminal H10 F1, reset or reuse the H8
+latch, replay its arm/reboot, or treat its missing host-link proof as absent
+on-device mechanical proof.
 
 The next bounded work is:
 
-1. preserve and commit the incident successor's final independent `PASS_GO`,
-   while keeping candidate and live authority false;
-2. run one fresh exact A90 D0 for a new campaign to re-prove H8 resident health,
-   the already-published immutable H10 source, absent work/new-stage and H10
-   state paths, boot candidate, rollback, recovery, and free F1 guard;
-3. after a successful just-in-time `pkexec` guard preflight and while attended,
-   install H10 with one boot-only candidate effect and zero rootfs transfer;
-4. after exact H10 resident health, bind one new attended D1 ordinal whose arm
+1. preserve and commit the terminal H10 resident-install result and its exact
+   no-stage, one-candidate, no-replay proof;
+2. bind one new attended D1 ordinal whose arm
    performs the one-time full-SHA receipt qualification, then dispatch exactly
    one reboot with no replay; and
-5. require the fast receipt and identity benchmark stages, `switch_root_exec`,
+3. require the fast receipt and identity benchmark stages, `switch_root_exec`,
    same-intent Debian PID 1, Dropbear, DRM/display evidence, automatic native
    return, exact H10 health, and a direct H8-to-H10 source-integrity timing
    comparison before considering Full-LTO.
