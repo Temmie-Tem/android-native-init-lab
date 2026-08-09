@@ -16,6 +16,29 @@ The pre-H2 goal history is preserved at
 
 ## Current State
 
+- H10 resident install and D1 run `a90-d1-attended-20260810-02` are terminal.
+  The exact no-rearm continuation dispatched one reboot, completed all 15
+  handoff stages, returned exact H10 health, and closed
+  `CLOSED_EXACT_NO_REPLAY`; neither terminal transaction may be resumed.
+- The records-derived comparison proves H8 `handoff_begin` to
+  `switch_root_exec` at 43501 ms versus H10 at 990 ms: -42511 ms, 43.94x
+  faster, and 97.72% lower elapsed time. H10 loop attach was 57 ms, root mount
+  100 ms, writable setup 17 ms, init check 9 ms, and mount moves 1 ms.
+- H8 and H10 both retained exact same-intent Debian PID1, Dropbear, DRM, native
+  return, and final health evidence, but their host observers required ACM
+  before using Debian NCM and reached the same 30-second bridge deadline.
+  Their `NO_PROOF_OBSERVER_RESIDENT_HEALTHY` terminals remain unchanged.
+- The repaired observer binds the exact same A90 NCM at a new USB epoch before
+  SSH without requiring ACM, rechecks that epoch through SSH and service proof,
+  then requires a later exact native ACM epoch, version, self-test, guard
+  continuity, and final health. Arm and reboot dispatch primitives are
+  unchanged and no terminal action was replayed.
+- The persisted benchmark loader now re-enters the canonical segment parser
+  and rejects duplicate completed handoffs, multiple persisted-result
+  locations, type-confused receipts, and stale USB epochs. Independent review
+  returned reusable `PASS_GO` at execution closure
+  `2cb8f48f17337ead623bdd7caddb6f62bdc554e4c926c722c0c67295fe020e64`
+  with HIGH/MEDIUM/LOW zero; 317 main A90 tests and 295 reviewer tests pass.
 - H3 remains the earlier automatic-handoff benchmark line. Its
   attended D1 ordinal armed once, rebooted once, displayed Debian, retained all
   15 mandatory benchmark stages, returned automatically, cleaned its work
@@ -595,29 +618,25 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: Qualify, Install, and Measure H10 Fast Source Integrity
+## Selected Bounded Unit: Fresh Non-LTO Control with NCM-First Observation
 
-Preserve H7, H8, and H10 F1/D1 runs, consumed state namespaces, journals,
-private evidence, and no-replay conclusions. H10 is now the exact installed
-healthy resident. Do not replay the terminal H10 F1, reset or reuse the H8
-latch, replay its arm/reboot, or treat its missing host-link proof as absent
-on-device mechanical proof.
+Preserve H7, H8, and H10 F1/D1 runs, consumed namespaces, journals, private
+evidence, and no-replay conclusions. H10 is the exact installed healthy
+resident. Never resume its terminal F1 or D1 transaction, reset or reuse an old
+latch, or reinterpret missing historical host-link proof as a failed device
+handoff.
 
-The next bounded work is:
+The next bounded work is host preparation for one fresh replacement identity
+and fresh rootfs destination that keeps the same non-LTO source-integrity
+optimization. After its immutable closure and fresh binding are ready, one
+attended control cycle may exercise the reviewed NCM-first observer. It must
+prove exact Debian NCM continuity through SSH and service, same-intent PID1 and
+DRM evidence, later native ACM return, cleanup, and final resident health.
 
-1. preserve and commit the terminal H10 resident-install result and its exact
-   no-stage, one-candidate, no-replay proof;
-2. bind one new attended D1 ordinal whose arm
-   performs the one-time full-SHA receipt qualification, then dispatch exactly
-   one reboot with no replay; and
-3. require the fast receipt and identity benchmark stages, `switch_root_exec`,
-   same-intent Debian PID 1, Dropbear, DRM/display evidence, automatic native
-   return, exact H10 health, and a direct H8-to-H10 source-integrity timing
-   comparison before considering Full-LTO.
-
-Receipt qualification removes repeated routine hashes; it does not replace the
-fresh D0, rollback, recovery, attendance, immutable manifest, no-replay, or
-final-health gates.
+Only after that fresh control produces full host-link proof and a comparable
+benchmark may Full-LTO become the following bounded candidate. Receipt
+qualification does not replace fresh D0, rollback, recovery, attendance,
+immutable manifest, one-shot journals, no-replay, or final-health gates.
 
 ## Optimization Order
 
@@ -678,6 +697,7 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_H10_EXISTING_PUBLISHED_SOURCE_INSTALL_INDEPENDENT_REVIEW_2026-08-09.json`
 - `docs/archive/reports/A90_H10_RECEIPT_AWARE_D1_ADAPTER_INDEPENDENT_REVIEW_2026-08-10.json`
 - `docs/reports/A90_H10_RUN02_PROVED_ARM_NO_REPLAY_RESUME_INDEPENDENT_REVIEW_2026-08-10.json`
+- `docs/reports/A90_H10_NCM_FIRST_OBSERVER_AND_BENCHMARK_RECEIPT_INDEPENDENT_REVIEW_2026-08-10.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`

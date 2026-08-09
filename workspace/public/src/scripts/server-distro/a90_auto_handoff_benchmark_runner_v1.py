@@ -15,10 +15,12 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import ipaddress
 import json
 import os
 import re
 import shlex
+import shutil
 import stat
 import sys
 import time
@@ -76,6 +78,9 @@ CMDV1X_BUFFER_BYTES = 4096
 ARMED_RESUME_PREDECESSOR_CLOSURE_SHA256 = (
     "85dc18125032f8d0cf3bcdd1117261dd5a6d0af2bf95afd56904135341aa95ce"
 )
+HISTORICAL_H10_TERMINAL_CLOSURE_SHA256 = (
+    "1562ffe1b7a6577ee28bba5bdba21bbc6734eaa427764982c068d2ab70751919"
+)
 STATUS_RE = re.compile(
     r"^A90AUTO_STATUS binding=(?P<binding>[01]) "
     r"enable=(?P<enable>-?[0-9]+) latch=(?P<latch>-?[0-9]+) "
@@ -83,6 +88,11 @@ STATUS_RE = re.compile(
     re.MULTILINE,
 )
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
+USB_TOPOLOGY_RE = re.compile(r"^[0-9]+-[0-9]+(?:\.[0-9]+)*$")
+PRE_REBOOT_OBSERVER_BINDING_SCHEMA = "a90-pre-reboot-observer-binding-v1"
+POST_REBOOT_NCM_IDENTITY_SCHEMA = "a90-post-reboot-ncm-identity-v1"
+SYS_CLASS_TTY = Path("/sys/class/tty")
+SYS_CLASS_NET = Path("/sys/class/net")
 EXECUTION_SOURCES = {
     "runner": Path(__file__).resolve(),
     "benchmark_parser": SCRIPT_DIR / "a90_boot_benchmark_v1.py",
@@ -761,6 +771,14 @@ def load_journal_prefix(
             expected_state="receipt-verified",
             expected_identity=opening_source_identity,
         )
+        pre_reboot_binding = reboot["pre_reboot_epoch"]
+        if pre_reboot_binding.get("schema") == PRE_REBOOT_OBSERVER_BINDING_SCHEMA:
+            validate_pre_reboot_observer_binding(
+                pre_reboot_binding,
+                expected_realpath=spec.bridge_realpath,
+            )
+        elif expected_closure_sha256 != HISTORICAL_H10_TERMINAL_CLOSURE_SHA256:
+            raise ContractError("reboot intent lacks the exact observer binding")
     if len(records) >= 5:
         observed = records[4]
         observation = observed.get("observation")
@@ -1046,81 +1064,592 @@ def _native_release_log(text: str) -> str:
     return "\n".join(lines) + ("\n" if lines else "")
 
 
-def _bound_bridge_candidate_exists(
-    payload: dict[str, Any],
-    bridge_device: str,
-) -> bool:
-    candidates = payload.get("serial_candidates")
-    if not isinstance(candidates, list):
-        raise ContractError("exact bridge preflight omitted serial candidates")
-    matches = [
-        candidate
-        for candidate in candidates
-        if isinstance(candidate, dict)
-        and candidate.get("path") == bridge_device
-    ]
+def _usb_parent_snapshot(parent: Path) -> dict[str, Any]:
+    topology = parent.name
+    vendor = base.staging._read_sysfs_text(parent / "idVendor").lower()  # noqa: SLF001
+    product = base.staging._read_sysfs_text(parent / "idProduct").lower()  # noqa: SLF001
+    serial = base.staging._read_sysfs_text(parent / "serial")  # noqa: SLF001
+    busnum = base.staging._read_sysfs_text(parent / "busnum")  # noqa: SLF001
+    devnum = base.staging._read_sysfs_text(parent / "devnum")  # noqa: SLF001
     if (
-        len(matches) != 1
-        or type(matches[0].get("exists")) is not bool
+        USB_TOPOLOGY_RE.fullmatch(topology) is None
+        or vendor != base.staging.HOST_NCM_VENDOR_ID
+        or product != base.staging.HOST_NCM_PRODUCT_ID
+        or not serial
+        or not busnum.isdecimal()
+        or not devnum.isdecimal()
     ):
-        raise ContractError("exact bridge preflight has no unique bound candidate")
-    return matches[0]["exists"]
+        raise ContractError("A90 USB parent identity is not exact")
+    return {
+        "usb_topology": topology,
+        "usb_serial_sha256": hashlib.sha256(serial.encode("utf-8")).hexdigest(),
+        "usb_vendor": vendor,
+        "usb_product": product,
+        "usb_busnum": int(busnum, 10),
+        "usb_devnum": int(devnum, 10),
+    }
 
 
-def wait_for_bound_bridge_after_reboot(
+def capture_pre_reboot_observer_binding(
     f1_spec: base.F1Spec,
     args: argparse.Namespace,
 ) -> dict[str, Any]:
-    """Require the bound by-id endpoint to disappear and then return exactly."""
+    bridge = base.staging.require_exact_bridge(f1_spec.stage, args)
+    selected_realpath = bridge.get("selected_realpath")
+    if selected_realpath != f1_spec.stage.bridge_realpath:
+        raise ContractError("pre-reboot bridge realpath is not exact")
+    parent = base.staging._usb_device_parent(  # noqa: SLF001
+        SYS_CLASS_TTY / Path(selected_realpath).name
+    )
+    if parent is None:
+        raise ContractError("pre-reboot A90 USB parent is unavailable")
+    interfaces = base.staging.exact_a90_ncm_interfaces(selected_realpath)
+    if len(interfaces) != 1:
+        raise ContractError("pre-reboot A90 USB parent lacks one exact NCM interface")
+    return {
+        "schema": PRE_REBOOT_OBSERVER_BINDING_SCHEMA,
+        "serial_epoch": base._bound_bridge_serial_epoch(f1_spec, bridge),  # noqa: SLF001
+        "usb_identity": _usb_parent_snapshot(parent),
+        "pre_reboot_interface": interfaces[0],
+    }
 
-    device = Path(f1_spec.stage.bridge_device)
-    deadline = time.monotonic() + base.HOST_NCM_REBIND_TIMEOUT_SEC
-    last_error: Exception | None = None
-    observed_absence = False
-    while True:
-        present = device.exists()
-        if not observed_absence:
-            if not present:
-                observed_absence = True
-            else:
-                if time.monotonic() >= deadline:
-                    raise ContractError(
-                        "bound bridge did not disconnect before the observation deadline"
-                    )
-                time.sleep(base.HOST_NCM_REBIND_POLL_SEC)
-                continue
-        if not present:
-            if time.monotonic() >= deadline:
-                raise ContractError(
-                    "bound bridge did not re-enumerate before the observation deadline"
-                ) from last_error
-            time.sleep(base.HOST_NCM_REBIND_POLL_SEC)
+
+def require_pre_reboot_observer_binding_current(
+    f1_spec: base.F1Spec,
+    args: argparse.Namespace,
+    binding: dict[str, Any],
+) -> dict[str, Any]:
+    """Require the captured ACM/NCM epoch to remain live before reboot."""
+
+    binding = validate_pre_reboot_observer_binding(
+        binding,
+        expected_realpath=f1_spec.stage.bridge_realpath,
+    )
+    if capture_pre_reboot_observer_binding(f1_spec, args) != binding:
+        raise ContractError("pre-reboot A90 observer binding changed")
+    return binding
+
+
+def validate_pre_reboot_observer_binding(
+    value: Any,
+    *,
+    expected_realpath: str | None = None,
+) -> dict[str, Any]:
+    if (
+        not isinstance(value, dict)
+        or set(value)
+        != {"schema", "serial_epoch", "usb_identity", "pre_reboot_interface"}
+        or value.get("schema") != PRE_REBOOT_OBSERVER_BINDING_SCHEMA
+        or not isinstance(value.get("serial_epoch"), dict)
+        or not isinstance(value.get("usb_identity"), dict)
+        or base.staging.HOST_IFACE_RE.fullmatch(
+            str(value.get("pre_reboot_interface") or "")
+        )
+        is None
+    ):
+        raise ContractError("pre-reboot observer binding is not exact")
+    serial_epoch = value["serial_epoch"]
+    if (
+        set(serial_epoch)
+        != {
+            "schema",
+            "selected_realpath",
+            "tty_st_dev",
+            "tty_st_ino",
+            "tty_st_rdev",
+            "usb_busnum",
+            "usb_devnum",
+        }
+        or serial_epoch.get("schema") != base.RETURN_EPOCH_SCHEMA
+        or base.staging.BRIDGE_REALPATH_RE.fullmatch(
+            str(serial_epoch.get("selected_realpath") or "")
+        )
+        is None
+        or (
+            expected_realpath is not None
+            and serial_epoch.get("selected_realpath") != expected_realpath
+        )
+        or any(
+            type(serial_epoch.get(key)) is not int or serial_epoch[key] < 0
+            for key in (
+                "tty_st_dev",
+                "tty_st_ino",
+                "tty_st_rdev",
+                "usb_busnum",
+                "usb_devnum",
+            )
+        )
+        or serial_epoch["usb_busnum"] < 1
+        or serial_epoch["usb_devnum"] < 1
+    ):
+        raise ContractError("pre-reboot serial epoch is not exact")
+    identity = value["usb_identity"]
+    if (
+        set(identity)
+        != {
+            "usb_topology",
+            "usb_serial_sha256",
+            "usb_vendor",
+            "usb_product",
+            "usb_busnum",
+            "usb_devnum",
+        }
+        or USB_TOPOLOGY_RE.fullmatch(str(identity.get("usb_topology") or ""))
+        is None
+        or HEX64_RE.fullmatch(str(identity.get("usb_serial_sha256") or "")) is None
+        or identity.get("usb_vendor") != base.staging.HOST_NCM_VENDOR_ID
+        or identity.get("usb_product") != base.staging.HOST_NCM_PRODUCT_ID
+        or type(identity.get("usb_busnum")) is not int
+        or identity["usb_busnum"] < 1
+        or type(identity.get("usb_devnum")) is not int
+        or identity["usb_devnum"] < 1
+    ):
+        raise ContractError("pre-reboot USB identity is not exact")
+    if (
+        serial_epoch["usb_busnum"],
+        serial_epoch["usb_devnum"],
+    ) != (identity["usb_busnum"], identity["usb_devnum"]):
+        raise ContractError("pre-reboot serial and NCM USB epochs differ")
+    return value
+
+
+def _matching_bound_ncm_interfaces(
+    binding: dict[str, Any],
+) -> list[dict[str, Any]]:
+    binding = validate_pre_reboot_observer_binding(binding)
+    expected = binding["usb_identity"]
+    try:
+        netdevs = tuple(SYS_CLASS_NET.iterdir())
+    except OSError:
+        return []
+    matches: list[dict[str, Any]] = []
+    for netdev in netdevs:
+        if base.staging.HOST_IFACE_RE.fullmatch(netdev.name) is None:
             continue
         try:
-            bridge = base.staging.require_exact_bridge(f1_spec.stage, args)
-        except base.staging.ContractError as exc:
-            last_error = exc
-            if device.exists():
-                raise ContractError(
-                    "bound bridge is present but exact post-reboot continuity failed"
-                ) from last_error
-        else:
+            driver = (netdev / "device" / "driver").resolve(strict=True).name
+        except OSError:
+            continue
+        if driver != base.staging.HOST_NCM_DRIVER:
+            continue
+        parent = base.staging._usb_device_parent(netdev)  # noqa: SLF001
+        if parent is None:
+            continue
+        try:
+            current = _usb_parent_snapshot(parent)
+        except ContractError:
+            continue
+        if (
+            current["usb_topology"] == expected["usb_topology"]
+            and current["usb_serial_sha256"] == expected["usb_serial_sha256"]
+            and current["usb_vendor"] == expected["usb_vendor"]
+            and current["usb_product"] == expected["usb_product"]
+        ):
+            matches.append({"interface": netdev.name, **current})
+    return matches
+
+
+def wait_for_bound_ncm_after_reboot(
+    binding: dict[str, Any],
+) -> dict[str, Any]:
+    """Find the same A90 NCM at a new USB epoch without requiring ACM."""
+
+    binding = validate_pre_reboot_observer_binding(binding)
+    before = binding["usb_identity"]
+    deadline = time.monotonic() + base.HOST_NCM_REBIND_TIMEOUT_SEC
+    while True:
+        matches = _matching_bound_ncm_interfaces(binding)
+        if len(matches) > 1:
+            raise ContractError("multiple NCM interfaces match the bound A90 identity")
+        if len(matches) == 1:
+            current = matches[0]
             if (
-                _bound_bridge_candidate_exists(
-                    bridge,
-                    f1_spec.stage.bridge_device,
-                )
-                and device.exists()
-            ):
-                return bridge
-            last_error = ContractError(
-                "exact bridge preflight observed the bound endpoint absent"
-            )
+                current["usb_busnum"],
+                current["usb_devnum"],
+            ) != (before["usb_busnum"], before["usb_devnum"]):
+                return {
+                    "schema": POST_REBOOT_NCM_IDENTITY_SCHEMA,
+                    **current,
+                    "same_usb_topology": True,
+                    "same_usb_serial_sha256": True,
+                    "new_usb_epoch": True,
+                }
         if time.monotonic() >= deadline:
             raise ContractError(
-                "bound bridge did not re-enumerate before the observation deadline"
-            ) from last_error
+                "bound A90 NCM did not appear at a new USB epoch before deadline"
+            )
         time.sleep(base.HOST_NCM_REBIND_POLL_SEC)
+
+
+def validate_post_reboot_ncm_identity(
+    binding: dict[str, Any],
+    value: Any,
+    *,
+    require_live: bool,
+) -> dict[str, Any]:
+    binding = validate_pre_reboot_observer_binding(binding)
+    keys = {
+        "schema",
+        "interface",
+        "usb_topology",
+        "usb_serial_sha256",
+        "usb_vendor",
+        "usb_product",
+        "usb_busnum",
+        "usb_devnum",
+        "same_usb_topology",
+        "same_usb_serial_sha256",
+        "new_usb_epoch",
+    }
+    if (
+        not isinstance(value, dict)
+        or set(value) != keys
+        or value.get("schema") != POST_REBOOT_NCM_IDENTITY_SCHEMA
+        or base.staging.HOST_IFACE_RE.fullmatch(str(value.get("interface") or ""))
+        is None
+        or value.get("same_usb_topology") is not True
+        or value.get("same_usb_serial_sha256") is not True
+        or value.get("new_usb_epoch") is not True
+    ):
+        raise ContractError("post-reboot NCM identity is not exact")
+    expected = binding["usb_identity"]
+    if (
+        value.get("usb_topology") != expected["usb_topology"]
+        or value.get("usb_serial_sha256") != expected["usb_serial_sha256"]
+        or value.get("usb_vendor") != expected["usb_vendor"]
+        or value.get("usb_product") != expected["usb_product"]
+        or type(value.get("usb_busnum")) is not int
+        or value["usb_busnum"] < 1
+        or type(value.get("usb_devnum")) is not int
+        or value["usb_devnum"] < 1
+        or (value["usb_busnum"], value["usb_devnum"])
+        == (expected["usb_busnum"], expected["usb_devnum"])
+    ):
+        raise ContractError("post-reboot NCM does not match the bound A90")
+    if require_live:
+        matches = _matching_bound_ncm_interfaces(binding)
+        if matches != [
+            {
+                key: value[key]
+                for key in (
+                    "interface",
+                    "usb_topology",
+                    "usb_serial_sha256",
+                    "usb_vendor",
+                    "usb_product",
+                    "usb_busnum",
+                    "usb_devnum",
+                )
+            }
+        ]:
+            raise ContractError("bound A90 NCM identity is no longer current")
+    return value
+
+
+def _require_bound_host_ncm_ready(
+    spec: base.F1Spec,
+    binding: dict[str, Any],
+    ncm_identity: dict[str, Any],
+) -> dict[str, bool]:
+    ncm_identity = validate_post_reboot_ncm_identity(
+        binding,
+        ncm_identity,
+        require_live=True,
+    )
+    interface = ncm_identity["interface"]
+    device = ipaddress.IPv4Address(
+        base.staging.validate_observer_device(spec.observer_device)
+    )
+    host_cidr = base._host_ncm_peer_cidr(spec.observer_device)  # noqa: SLF001
+    host = host_cidr.split("/", 1)[0]
+    route = base._host_command(  # noqa: SLF001
+        ["ip", "-4", "route", "get", str(device)],
+        timeout=5.0,
+    )
+    route_lines = [line for line in str(route["stdout"]).splitlines() if line.strip()]
+    if (
+        route["returncode"] != 0
+        or not route_lines
+        or any(line.strip() != "cache" for line in route_lines[1:])
+    ):
+        raise ContractError("bound A90 NCM direct route is unavailable")
+    tokens = route_lines[0].split()
+    if (
+        not tokens
+        or tokens[0] != str(device)
+        or "via" in tokens
+        or base.staging._route_token(tokens, "dev") != interface  # noqa: SLF001
+        or base.staging._route_token(tokens, "src") != host  # noqa: SLF001
+    ):
+        raise ContractError("observer route is not on the bound A90 NCM")
+    address = base._host_command(  # noqa: SLF001
+        ["ip", "-4", "-o", "addr", "show", "dev", interface],
+        timeout=5.0,
+    )
+    ping = base._host_command(  # noqa: SLF001
+        ["ping", "-n", "-c", "1", "-W", "2", str(device)],
+        timeout=5.0,
+    )
+    if address["returncode"] != 0 or host_cidr not in str(address["stdout"]).split():
+        raise ContractError("bound A90 NCM lacks the expected host CIDR")
+    if ping["returncode"] != 0:
+        raise ContractError("Debian is not reachable on the bound A90 NCM")
+    validate_post_reboot_ncm_identity(binding, ncm_identity, require_live=True)
+    return {
+        "verified_a90_ncm": True,
+        "direct_route": True,
+        "host_cidr_present": True,
+        "device_ping": True,
+    }
+
+
+def rebind_host_ncm_for_bound_identity(
+    spec: base.F1Spec,
+    binding: dict[str, Any],
+    ncm_identity: dict[str, Any],
+) -> dict[str, Any]:
+    if shutil.which("nmcli") is None:
+        raise ContractError("nmcli is unavailable for bound A90 NCM rebind")
+    ncm_identity = validate_post_reboot_ncm_identity(
+        binding,
+        ncm_identity,
+        require_live=True,
+    )
+    interface = ncm_identity["interface"]
+    profile = base._host_command(  # noqa: SLF001
+        [
+            "nmcli",
+            "-g",
+            "connection.type",
+            "connection",
+            "show",
+            spec.observer_host_ncm_profile,
+        ],
+        timeout=10.0,
+    )
+    if (
+        profile["returncode"] != 0
+        or str(profile["stdout"]).strip() != base.HOST_NCM_CONNECTION_TYPE
+    ):
+        raise ContractError("manifest-bound host NCM profile is absent or not Ethernet")
+    active_before, active_before_receipt = base._nmcli_active_connection(  # noqa: SLF001
+        interface
+    )
+    try:
+        ready_before = _require_bound_host_ncm_ready(spec, binding, ncm_identity)
+    except ContractError:
+        ready_before = None
+    if ready_before is not None and active_before == spec.observer_host_ncm_profile:
+        return {
+            "same_bound_usb_identity": True,
+            "acm_required": False,
+            "exact_interface_count": 1,
+            "profile_bound": True,
+            "mutated": False,
+            "profile_check": profile,
+            "active_before": active_before_receipt,
+            "ready": ready_before,
+        }
+    validate_post_reboot_ncm_identity(binding, ncm_identity, require_live=True)
+    host_cidr = base._host_ncm_peer_cidr(spec.observer_device)  # noqa: SLF001
+    modify = base._host_command(  # noqa: SLF001
+        [
+            "nmcli",
+            "--wait",
+            "10",
+            "connection",
+            "modify",
+            spec.observer_host_ncm_profile,
+            "connection.interface-name",
+            interface,
+            "ipv4.method",
+            "manual",
+            "ipv4.addresses",
+            host_cidr,
+            "ipv4.gateway",
+            "",
+            "ipv4.never-default",
+            "yes",
+            "ipv4.dns",
+            "",
+            "ipv6.method",
+            "disabled",
+            "connection.autoconnect",
+            "no",
+        ],
+        timeout=15.0,
+    )
+    if modify["returncode"] != 0:
+        raise ContractError("manifest-bound host NCM profile modification failed")
+    validate_post_reboot_ncm_identity(binding, ncm_identity, require_live=True)
+    activate = base._host_command(  # noqa: SLF001
+        [
+            "nmcli",
+            "--wait",
+            "15",
+            "connection",
+            "up",
+            spec.observer_host_ncm_profile,
+            "ifname",
+            interface,
+        ],
+        timeout=20.0,
+    )
+    if activate["returncode"] != 0:
+        raise ContractError("manifest-bound host NCM profile activation failed")
+    active_after, active_after_receipt = base._nmcli_active_connection(  # noqa: SLF001
+        interface
+    )
+    if active_after != spec.observer_host_ncm_profile:
+        raise ContractError("bound A90 NCM did not select the manifest profile")
+    ready: dict[str, bool] | None = None
+    deadline = time.monotonic() + base.HOST_NCM_REBIND_TIMEOUT_SEC
+    while time.monotonic() < deadline:
+        try:
+            ready = _require_bound_host_ncm_ready(spec, binding, ncm_identity)
+            break
+        except ContractError:
+            validate_post_reboot_ncm_identity(
+                binding,
+                ncm_identity,
+                require_live=True,
+            )
+            time.sleep(base.HOST_NCM_REBIND_POLL_SEC)
+    if ready is None:
+        raise ContractError("rebound A90 NCM did not become USB-local ready")
+    return {
+        "same_bound_usb_identity": True,
+        "acm_required": False,
+        "exact_interface_count": 1,
+        "profile_bound": True,
+        "mutated": True,
+        "profile_check": profile,
+        "active_before": active_before_receipt,
+        "modify": modify,
+        "activate": activate,
+        "active_after": active_after_receipt,
+        "ready": ready,
+    }
+
+
+def wait_for_native_return_after_bound_ncm(
+    spec: base.F1Spec,
+    args: argparse.Namespace,
+    binding: dict[str, Any],
+    ncm_identity: dict[str, Any],
+    guard: Any,
+) -> dict[str, Any]:
+    """Prove a later native ACM epoch, then perform the existing health reads."""
+
+    binding = validate_pre_reboot_observer_binding(binding)
+    ncm_identity = validate_post_reboot_ncm_identity(
+        binding,
+        ncm_identity,
+        require_live=False,
+    )
+    deadline = time.monotonic() + spec.candidate_return_timeout
+    returned_epoch: dict[str, Any] | None = None
+    last_error: Exception | None = None
+    while time.monotonic() < deadline:
+        try:
+            bridge = base.staging.require_exact_bridge(spec.stage, args)
+            epoch = base._bound_bridge_serial_epoch(spec, bridge)  # noqa: SLF001
+        except (base.ContractError, base.staging.ContractError) as exc:
+            last_error = exc
+            if Path(spec.stage.bridge_device).exists():
+                raise ContractError(
+                    "present native-return bridge failed exact continuity"
+                ) from exc
+            time.sleep(base.HOST_NCM_REBIND_POLL_SEC)
+            continue
+        if (epoch["usb_busnum"], epoch["usb_devnum"]) == (
+            ncm_identity["usb_busnum"],
+            ncm_identity["usb_devnum"],
+        ):
+            time.sleep(base.HOST_NCM_REBIND_POLL_SEC)
+            continue
+        parent = base.staging._usb_device_parent(  # noqa: SLF001
+            SYS_CLASS_TTY / Path(epoch["selected_realpath"]).name
+        )
+        if parent is None:
+            raise ContractError("native-return USB parent is unavailable")
+        returned_identity = _usb_parent_snapshot(parent)
+        before = binding["usb_identity"]
+        if (
+            returned_identity["usb_topology"] != before["usb_topology"]
+            or returned_identity["usb_serial_sha256"]
+            != before["usb_serial_sha256"]
+            or returned_identity["usb_vendor"] != before["usb_vendor"]
+            or returned_identity["usb_product"] != before["usb_product"]
+            or (
+                returned_identity["usb_busnum"],
+                returned_identity["usb_devnum"],
+            )
+            != (epoch["usb_busnum"], epoch["usb_devnum"])
+            or (epoch["usb_busnum"], epoch["usb_devnum"])
+            == (before["usb_busnum"], before["usb_devnum"])
+        ):
+            raise ContractError("native-return USB identity changed")
+        returned_epoch = epoch
+        break
+    if returned_epoch is None:
+        raise ContractError("native return did not reach a later exact ACM epoch") from last_error
+    return_epoch = {
+        "before_ncm": {
+            "usb_busnum": ncm_identity["usb_busnum"],
+            "usb_devnum": ncm_identity["usb_devnum"],
+        },
+        "returned": returned_epoch,
+        "returned_usb_identity": returned_identity,
+        "changed": True,
+    }
+    if not guard.healthy(recheck=True):
+        raise ContractError("candidate-return ModemManager guard was lost")
+    guard_evidence = base.require_returned_modemmanager_guard(
+        spec,
+        return_epoch,
+        guard,
+    )
+    if not guard.healthy(recheck=True):
+        raise ContractError("candidate-return guard was lost before command")
+    version = base.run_f1_cmd(args, ["version"])
+    version_text = str(version.get("text") or "")
+    expected_version_line = (
+        f"version: {spec.candidate_version} build={spec.candidate_build}"
+    )
+    version_lines = [
+        line for line in version_text.splitlines() if line.startswith("version: ")
+    ]
+    if version_lines != [expected_version_line]:
+        raise ContractError("candidate return native identity is not exact")
+    channel = base.settle_observation_channel(args, phase="attended-candidate-return")
+    selftest = base.run_f1_cmd(args, ["selftest"])
+    selftest_lines = [
+        line
+        for line in str(selftest.get("text") or "").splitlines()
+        if line.startswith("selftest: ")
+    ]
+    if (
+        len(selftest_lines) != 1
+        or re.fullmatch(
+            r"selftest: pass=[0-9]+ warn=[0-9]+ fail=0 "
+            r"duration=[0-9]+ms entries=[1-9][0-9]*",
+            selftest_lines[0],
+        )
+        is None
+    ):
+        raise ContractError("candidate return selftest is not fail=0")
+    return {
+        "exact_bridge": True,
+        "selected_realpath": returned_epoch["selected_realpath"],
+        "return_epoch": return_epoch,
+        "native_epoch_version_proven": True,
+        "channel": channel,
+        "version": version,
+        "selftest": selftest,
+        "device_command_sequences": 1,
+        "candidate_return_modemmanager_guard": guard_evidence,
+    }
 
 
 def observe_auto_cycle(
@@ -1128,33 +1657,56 @@ def observe_auto_cycle(
     args: argparse.Namespace,
     transaction_dir: Path,
     guard: Any,
+    pre_reboot_binding: dict[str, Any],
 ) -> dict[str, Any]:
     f1_spec = _f1_spec(spec)
     result: dict[str, Any] = {"proof": False}
     try:
-        result["bridge_reenumeration"] = wait_for_bound_bridge_after_reboot(
-            f1_spec,
-            args,
+        pre_reboot_binding = validate_pre_reboot_observer_binding(
+            pre_reboot_binding,
+            expected_realpath=f1_spec.stage.bridge_realpath,
         )
-        result["host_ncm_rebind"] = base.rebind_host_ncm_after_reenumeration(
-            f1_spec,
-            args,
+        result["pre_reboot_binding"] = pre_reboot_binding
+        result["debian_ncm_identity"] = wait_for_bound_ncm_after_reboot(
+            pre_reboot_binding
         )
+        result["host_ncm_rebind"] = rebind_host_ncm_for_bound_identity(
+            f1_spec,
+            pre_reboot_binding,
+            result["debian_ncm_identity"],
+        )
+        result["debian_ncm_continuity"] = {}
+        validate_post_reboot_ncm_identity(
+            pre_reboot_binding,
+            result["debian_ncm_identity"],
+            require_live=True,
+        )
+        result["debian_ncm_continuity"]["before_ssh"] = True
         result["ssh"] = base.observe_ssh(f1_spec, args)
-        result["debian_return_epoch"] = base.capture_bridge_serial_epoch(
-            f1_spec,
-            args,
+        validate_post_reboot_ncm_identity(
+            pre_reboot_binding,
+            result["debian_ncm_identity"],
+            require_live=True,
         )
+        result["debian_ncm_continuity"]["after_ssh"] = True
         result["phase3_service"] = phase3_observer.observe_phase3_service(
             f1_spec,
             args,
         )
-        result["candidate_return"] = base.wait_for_candidate_return_attended_once(
+        validate_post_reboot_ncm_identity(
+            pre_reboot_binding,
+            result["debian_ncm_identity"],
+            require_live=True,
+        )
+        result["debian_ncm_continuity"]["after_service"] = True
+        result["candidate_return"] = wait_for_native_return_after_bound_ncm(
             f1_spec,
             args,
-            result["debian_return_epoch"],
-            return_guard=guard,
+            pre_reboot_binding,
+            result["debian_ncm_identity"],
+            guard,
         )
+        result["proof"] = True
     except Exception as exc:  # effect is never replayed; final D0 decides health
         result["observer_error"] = {
             "type": type(exc).__name__,
@@ -1339,35 +1891,131 @@ def host_link_proven(spec: resident.SessionSpec, observation: Any) -> bool:
 
     if not isinstance(observation, dict):
         return False
-    bridge = observation.get("bridge_reenumeration")
-    metadata = bridge.get("metadata") if isinstance(bridge, dict) else None
-    if (
-        not isinstance(bridge, dict)
-        or bridge.get("ok") is not True
-        or bridge.get("selected_device") != spec.bridge_device
-        or bridge.get("selected_realpath") != spec.bridge_realpath
-        or not isinstance(metadata, dict)
-        or metadata.get("effective_expect_realpath") != spec.bridge_realpath
-        or bridge.get("bridge_process") != "running"
-        or bridge.get("port_listening") is not True
-    ):
+    binding = observation.get("pre_reboot_binding")
+    ncm_identity = observation.get("debian_ncm_identity")
+    try:
+        binding = validate_pre_reboot_observer_binding(
+            binding,
+            expected_realpath=spec.bridge_realpath,
+        )
+        ncm_identity = validate_post_reboot_ncm_identity(
+            binding,
+            ncm_identity,
+            require_live=False,
+        )
+    except ContractError:
         return False
     ncm = observation.get("host_ncm_rebind")
+    continuity = observation.get("debian_ncm_continuity")
     ready = ncm.get("ready") if isinstance(ncm, dict) else None
     profile = ncm.get("profile_check") if isinstance(ncm, dict) else None
+    ssh = observation.get("ssh")
+    service = observation.get("phase3_service")
+    returned = observation.get("candidate_return")
+    return_epoch = returned.get("return_epoch") if isinstance(returned, dict) else None
+    returned_serial = (
+        return_epoch.get("returned") if isinstance(return_epoch, dict) else None
+    )
+    returned_usb_identity = (
+        return_epoch.get("returned_usb_identity")
+        if isinstance(return_epoch, dict)
+        else None
+    )
+    before_ncm = (
+        return_epoch.get("before_ncm") if isinstance(return_epoch, dict) else None
+    )
+    returned_epoch_exact = (
+        isinstance(return_epoch, dict)
+        and set(return_epoch)
+        == {"before_ncm", "returned", "returned_usb_identity", "changed"}
+        and return_epoch.get("changed") is True
+        and isinstance(before_ncm, dict)
+        and set(before_ncm) == {"usb_busnum", "usb_devnum"}
+        and exact_int(before_ncm.get("usb_busnum"), ncm_identity["usb_busnum"])
+        and exact_int(before_ncm.get("usb_devnum"), ncm_identity["usb_devnum"])
+        and isinstance(returned_serial, dict)
+        and set(returned_serial)
+        == {
+            "schema",
+            "selected_realpath",
+            "tty_st_dev",
+            "tty_st_ino",
+            "tty_st_rdev",
+            "usb_busnum",
+            "usb_devnum",
+        }
+        and returned_serial.get("schema") == base.RETURN_EPOCH_SCHEMA
+        and returned_serial.get("selected_realpath") == spec.bridge_realpath
+        and all(
+            type(returned_serial.get(key)) is int and returned_serial[key] >= 0
+            for key in (
+                "tty_st_dev",
+                "tty_st_ino",
+                "tty_st_rdev",
+                "usb_busnum",
+                "usb_devnum",
+            )
+        )
+        and returned_serial.get("usb_busnum", 0) >= 1
+        and returned_serial.get("usb_devnum", 0) >= 1
+        and isinstance(returned_usb_identity, dict)
+        and set(returned_usb_identity)
+        == {
+            "usb_topology",
+            "usb_serial_sha256",
+            "usb_vendor",
+            "usb_product",
+            "usb_busnum",
+            "usb_devnum",
+        }
+        and returned_usb_identity.get("usb_topology")
+        == binding["usb_identity"]["usb_topology"]
+        and returned_usb_identity.get("usb_serial_sha256")
+        == binding["usb_identity"]["usb_serial_sha256"]
+        and returned_usb_identity.get("usb_vendor")
+        == binding["usb_identity"]["usb_vendor"]
+        and returned_usb_identity.get("usb_product")
+        == binding["usb_identity"]["usb_product"]
+        and exact_int(
+            returned_usb_identity.get("usb_busnum"),
+            returned_serial["usb_busnum"],
+        )
+        and exact_int(
+            returned_usb_identity.get("usb_devnum"),
+            returned_serial["usb_devnum"],
+        )
+        and (
+            returned_serial["usb_busnum"],
+            returned_serial["usb_devnum"],
+        )
+        not in {
+            (
+                binding["usb_identity"]["usb_busnum"],
+                binding["usb_identity"]["usb_devnum"],
+            ),
+            (ncm_identity["usb_busnum"], ncm_identity["usb_devnum"]),
+        }
+    )
     return (
-        isinstance(ncm, dict)
-        and ncm.get("same_current_acm_usb_parent") is True
+        observation.get("proof") is True
+        and isinstance(ncm, dict)
+        and ncm.get("same_bound_usb_identity") is True
+        and ncm.get("acm_required") is False
         and exact_int(ncm.get("exact_interface_count"), 1)
         and ncm.get("profile_bound") is True
         and type(ncm.get("mutated")) is bool
-        and ready
+        and isinstance(continuity, dict)
+        and set(continuity) == {"before_ssh", "after_ssh", "after_service"}
+        and all(value is True for value in continuity.values())
+        and isinstance(ready, dict)
+        and set(ready)
         == {
-            "verified_a90_ncm": True,
-            "direct_route": True,
-            "host_cidr_present": True,
-            "device_ping": True,
+            "verified_a90_ncm",
+            "direct_route",
+            "host_cidr_present",
+            "device_ping",
         }
+        and all(value is True for value in ready.values())
         and isinstance(profile, dict)
         and profile.get("command")
         == [
@@ -1378,9 +2026,18 @@ def host_link_proven(spec: resident.SessionSpec, observation: Any) -> bool:
             "show",
             spec.observer_host_ncm_profile,
         ]
-        and profile.get("returncode") == 0
+        and exact_int(profile.get("returncode"), 0)
         and str(profile.get("stdout") or "").strip()
         == base.HOST_NCM_CONNECTION_TYPE
+        and isinstance(ssh, dict)
+        and ssh.get("proof") is True
+        and isinstance(service, dict)
+        and service.get("proof") is True
+        and isinstance(returned, dict)
+        and returned.get("exact_bridge") is True
+        and returned.get("native_epoch_version_proven") is True
+        and exact_int(returned.get("device_command_sequences"), 1)
+        and returned_epoch_exact
     )
 
 
@@ -1489,8 +2146,8 @@ def finalize_cycle(
     durable_evidence = ondevice_evidence.evaluate(log_text, intent_sha256)
     mechanical = durable_evidence["proof"] is True
     # Exact returned enable/latch and final resident D0 were proved above.
-    # candidate_return is live corroboration only: requiring it here would
-    # recreate the host timing race the durable evidence lane replaces.
+    # The returned latch and final resident D0 remain authoritative for health;
+    # the later exact ACM epoch is independently retained in host_link proof.
     returned = status.get("enable") == 1 and status.get("latch") == 1
     guard_released = observation.get("guard_release", {}).get("released") is True
     host_link = host_link_proven(spec, observation)
@@ -1779,10 +2436,15 @@ def _continue_after_proved_arm(
     f1_spec = _f1_spec(spec)
     guard = base.arm_candidate_return_modemmanager_guard(f1_spec, args, path)
     try:
-        pre_reboot_epoch = base.capture_bridge_serial_epoch(f1_spec, args)
+        pre_reboot_epoch = capture_pre_reboot_observer_binding(f1_spec, args)
         require_auto_status(args, enable=1, latch=0)
         if not guard.healthy(recheck=True):
             raise ContractError("candidate-return guard was lost before reboot intent")
+        require_pre_reboot_observer_binding_current(
+            f1_spec,
+            args,
+            pre_reboot_epoch,
+        )
         write_record(
             path / JOURNAL_NAMES[3],
             "reboot-intent",
@@ -1799,6 +2461,11 @@ def _continue_after_proved_arm(
         require_auto_status(args, enable=1, latch=0)
         if not guard.healthy(recheck=True):
             raise ContractError("candidate-return guard was lost before reboot dispatch")
+        require_pre_reboot_observer_binding_current(
+            f1_spec,
+            args,
+            pre_reboot_epoch,
+        )
         reboot_record = send_reboot_once(args)
     except Exception:
         try:
@@ -1806,7 +2473,7 @@ def _continue_after_proved_arm(
         except Exception:  # preserve the pre-dispatch failure
             pass
         raise
-    observation = observe_auto_cycle(spec, args, path, guard)
+    observation = observe_auto_cycle(spec, args, path, guard, pre_reboot_epoch)
     observation["reboot_record"] = reboot_record
     write_record(
         path / JOURNAL_NAMES[4],

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import sys
+import json
 from pathlib import Path
+import tempfile
 import unittest
 
 
@@ -219,6 +221,117 @@ class A90BootBenchmarkV1Tests(unittest.TestCase):
             comparison["phase_comparison"]["source_integrity_initial_ms"]["delta_ms"],
             -90,
         )
+
+    def test_load_run_prefers_exact_persisted_result_over_cumulative_logs(self) -> None:
+        handoff = "\n".join(
+            marker(stage, 100 + index * 10)
+            for index, stage in enumerate(benchmark.COMPLETE_STAGES)
+        )
+        parsed = benchmark.parse_run([handoff], require_complete=True)
+        receipt = {
+            "result": {
+                "benchmark": parsed,
+                "durable_log": handoff + "\n" + handoff,
+            }
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "result.json"
+            path.write_text(json.dumps(receipt), encoding="utf-8")
+            loaded = benchmark.load_run(path, require_complete=True)
+        self.assertEqual(loaded, parsed)
+
+    def test_load_run_rejects_tampered_persisted_phase(self) -> None:
+        parsed = benchmark.parse_run(
+            [
+                marker("auto_handoff_dispatched", 100)
+                + "\n"
+                + marker("switch_root_exec", 600)
+            ]
+        )
+        parsed["phase_durations_ms"]["handoff_total_ms"] += 1
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "result.json"
+            path.write_text(
+                json.dumps({"result": {"benchmark": parsed}}),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(
+                benchmark.BenchmarkError,
+                "phase_durations_ms differs",
+            ):
+                benchmark.load_run(path)
+
+    def test_load_run_rejects_bool_for_integer_phase(self) -> None:
+        parsed = benchmark.parse_run(
+            [
+                marker("auto_handoff_dispatched", 100)
+                + "\n"
+                + marker("switch_root_exec", 101)
+            ]
+        )
+        parsed["phase_durations_ms"]["handoff_total_ms"] = True
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "result.json"
+            path.write_text(json.dumps(parsed), encoding="utf-8")
+            with self.assertRaisesRegex(
+                benchmark.BenchmarkError,
+                "phase_durations_ms differs",
+            ):
+                benchmark.load_run(path)
+
+    def test_load_run_rejects_two_persisted_complete_handoffs(self) -> None:
+        handoff = "\n".join(
+            marker(stage, 100 + index * 10)
+            for index, stage in enumerate(benchmark.COMPLETE_STAGES)
+        )
+        first = benchmark.parse_run([handoff], require_complete=True)
+        second = benchmark.parse_run(
+            [
+                "\n".join(
+                    marker(stage, 1000 + index * 10)
+                    for index, stage in enumerate(benchmark.COMPLETE_STAGES)
+                )
+            ],
+            require_complete=True,
+        )
+        persisted = dict(first)
+        persisted["records"] = first["records"] + second["records"]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "result.json"
+            path.write_text(
+                json.dumps({"result": {"benchmark": persisted}}),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(
+                benchmark.BenchmarkError,
+                "multiple handoff boot segments",
+            ):
+                benchmark.load_run(path, require_complete=True)
+
+    def test_load_run_rejects_multiple_persisted_result_locations(self) -> None:
+        parsed = benchmark.parse_run(
+            [
+                marker("auto_handoff_dispatched", 100)
+                + "\n"
+                + marker("switch_root_exec", 600)
+            ]
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "result.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "benchmark": parsed,
+                        "result": {"benchmark": dict(parsed)},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(
+                benchmark.BenchmarkError,
+                "multiple persisted result locations",
+            ):
+                benchmark.load_run(path)
 
 
 if __name__ == "__main__":

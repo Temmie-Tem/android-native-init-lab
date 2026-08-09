@@ -1,0 +1,83 @@
+{
+  "capability": "A90_H10_NCM_FIRST_PRE_SSH_OBSERVER_AND_PERSISTED_BENCHMARK_RECEIPT",
+  "decision": "PASS_GO",
+  "device_authority_granted": false,
+  "findings": {
+    "high": 0,
+    "low": 0,
+    "medium": 0,
+    "resolved_during_review": [
+      "The Debian NCM epoch is now checked live immediately before SSH, immediately after SSH, and after the Phase3 service observation.",
+      "The captured pre-reboot ACM and NCM epoch is rechecked before reboot intent and again before the single reboot dispatch.",
+      "Persisted benchmark records re-enter the canonical segment parser, so two completed handoffs cannot collapse into one result.",
+      "More than one persisted benchmark result location is rejected as ambiguous.",
+      "Receipt and USB epoch comparisons reject Python bool or float values where exact integers or booleans are required."
+    ]
+  },
+  "incident": {
+    "candidate_replay": false,
+    "h10_handoff_total_ms": 990,
+    "h10_run_id": "a90-d1-attended-20260810-02",
+    "h8_handoff_total_ms": 43501,
+    "h8_run_id": "a90-d1-attended-20260809-02",
+    "observer_error_shared": "bound bridge did not re-enumerate before the observation deadline",
+    "root_cause": "The host observer required the native ACM bridge before binding the already available Debian NCM path, while bounded automatic native return occurred after the ACM deadline.",
+    "terminal_state_shared": "NO_PROOF_OBSERVER_RESIDENT_HEALTHY",
+    "terminal_runs_replayed": false
+  },
+  "permanent_boundaries_unchanged": true,
+  "review_date": "2026-08-10",
+  "review_lifetime": {
+    "fresh_device_authority_from_review": false,
+    "reuse": "PASS_GO qualifies this capability while the named execution closure and reviewed hazards remain unchanged and no new hazard or incident occurs. It does not replace fresh D0, presence, rollback, recovery, runner binding, or attendance requirements."
+  },
+  "reviewed_properties": {
+    "acm_not_required_before_debian_ncm_or_ssh": true,
+    "ambiguous_or_duplicate_persisted_handoff_rejected": true,
+    "automatic_return_requires_later_exact_native_acm_epoch": true,
+    "exact_ncm_profile_route_source_cidr_and_ping": true,
+    "host_link_requires_same_debian_ncm_epoch_through_service": true,
+    "observer_failure_adds_no_arm_reboot_cleanup_or_candidate_replay": true,
+    "pre_reboot_acm_ncm_binding_rechecked_before_dispatch": true,
+    "returned_native_version_and_selftest_exact": true
+  },
+  "reviewer": "independent subagent /root/a90_h7_closure_review",
+  "reviewer_base_head": "9037a8876c9c3ff1eaf0a3570564dd8623b5365b",
+  "reviewer_device_contact": false,
+  "reviewer_implementation_edits": false,
+  "reviewer_network_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_s22plus_contact": false,
+  "reviewer_usb_contact": false,
+  "schema": "a90-h10-ncm-first-observer-independent-review-v1",
+  "scope": {
+    "benchmark_parser": {
+      "path": "workspace/public/src/scripts/server-distro/a90_boot_benchmark_v1.py",
+      "sha256": "562209b06404155e1ba721d504c97979f7c4218cef96db9992864982ae44ad7b",
+      "size": 20348
+    },
+    "execution_closure_sha256": "2cb8f48f17337ead623bdd7caddb6f62bdc554e4c926c722c0c67295fe020e64",
+    "runner": {
+      "path": "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py",
+      "sha256": "937542874d878aec2fc017779203e101a8094a491d8cb65878fac390d7090a1f",
+      "size": 120031
+    },
+    "target": "Samsung Galaxy A90 5G only"
+  },
+  "status": "PASS_GO",
+  "unresolved_findings": [],
+  "validation": {
+    "direct_h8_to_h10_comparison": {
+      "delta_ms": -42511,
+      "speedup": 43.94,
+      "time_reduction_percent": 97.72
+    },
+    "duplicate_complete_handoff_attack": "REJECTED",
+    "git_diff_check": "PASS",
+    "main_a90_focused_tests_passed": 317,
+    "multiple_persisted_result_locations_attack": "REJECTED",
+    "python_py_compile": "PASS",
+    "reviewer_host_only_tests_passed": 295,
+    "stale_ncm_and_usb_epoch_attacks": "REJECTED"
+  }
+}

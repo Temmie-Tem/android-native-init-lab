@@ -187,7 +187,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             remote_work="/mnt/sdext/a90/runtime/d3-handoff-work.img",
             recovery_profile="A90_ATTENDED_PHYSICAL_RECOVERY_V1",
             bridge_device="/dev/a90-test",
-            bridge_realpath="/dev/ttyACM-test",
+            bridge_realpath="/dev/ttyACM0",
             observer_host_ncm_profile="a90-test-ncm",
             candidate_version=runner.EXPECTED_VERSION,
             candidate_build=runner.EXPECTED_BUILD,
@@ -197,16 +197,24 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
     def _host_link(cls) -> dict:
         spec = cls._spec()
         return {
-            "bridge_reenumeration": {
-                "ok": True,
-                "selected_device": spec.bridge_device,
-                "selected_realpath": spec.bridge_realpath,
-                "metadata": {"effective_expect_realpath": spec.bridge_realpath},
-                "bridge_process": "running",
-                "port_listening": True,
+            "proof": True,
+            "pre_reboot_binding": cls._pre_reboot_binding(),
+            "debian_ncm_identity": {
+                "schema": runner.POST_REBOOT_NCM_IDENTITY_SCHEMA,
+                "interface": "enx001122334455",
+                "usb_topology": "2-2",
+                "usb_serial_sha256": "9" * 64,
+                "usb_vendor": runner.base.staging.HOST_NCM_VENDOR_ID,
+                "usb_product": runner.base.staging.HOST_NCM_PRODUCT_ID,
+                "usb_busnum": 2,
+                "usb_devnum": 9,
+                "same_usb_topology": True,
+                "same_usb_serial_sha256": True,
+                "new_usb_epoch": True,
             },
             "host_ncm_rebind": {
-                "same_current_acm_usb_parent": True,
+                "same_bound_usb_identity": True,
+                "acm_required": False,
                 "exact_interface_count": 1,
                 "profile_bound": True,
                 "mutated": False,
@@ -225,7 +233,70 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                     "device_ping": True,
                 },
             },
+            "debian_ncm_continuity": {
+                "before_ssh": True,
+                "after_ssh": True,
+                "after_service": True,
+            },
+            "ssh": {"proof": True},
+            "phase3_service": {"proof": True},
+            "candidate_return": {
+                "exact_bridge": True,
+                "native_epoch_version_proven": True,
+                "device_command_sequences": 1,
+                "return_epoch": {
+                    "before_ncm": {"usb_busnum": 2, "usb_devnum": 9},
+                    "returned": {
+                        "schema": runner.base.RETURN_EPOCH_SCHEMA,
+                        "selected_realpath": spec.bridge_realpath,
+                        "tty_st_dev": 7,
+                        "tty_st_ino": 101,
+                        "tty_st_rdev": 42496,
+                        "usb_busnum": 2,
+                        "usb_devnum": 10,
+                    },
+                    "returned_usb_identity": {
+                        "usb_topology": "2-2",
+                        "usb_serial_sha256": "9" * 64,
+                        "usb_vendor": runner.base.staging.HOST_NCM_VENDOR_ID,
+                        "usb_product": runner.base.staging.HOST_NCM_PRODUCT_ID,
+                        "usb_busnum": 2,
+                        "usb_devnum": 10,
+                    },
+                    "changed": True,
+                },
+            },
         }
+
+    @staticmethod
+    def _pre_reboot_binding() -> dict:
+        return {
+            "schema": runner.PRE_REBOOT_OBSERVER_BINDING_SCHEMA,
+            "serial_epoch": {
+                "schema": runner.base.RETURN_EPOCH_SCHEMA,
+                "selected_realpath": "/dev/ttyACM0",
+                "tty_st_dev": 7,
+                "tty_st_ino": 100,
+                "tty_st_rdev": 42496,
+                "usb_busnum": 2,
+                "usb_devnum": 8,
+            },
+            "usb_identity": {
+                "usb_topology": "2-2",
+                "usb_serial_sha256": "9" * 64,
+                "usb_vendor": runner.base.staging.HOST_NCM_VENDOR_ID,
+                "usb_product": runner.base.staging.HOST_NCM_PRODUCT_ID,
+                "usb_busnum": 2,
+                "usb_devnum": 8,
+            },
+            "pre_reboot_interface": "enx001122334455",
+        }
+
+    @classmethod
+    def _post_reboot_ncm(cls, *, devnum: int = 9) -> dict:
+        value = dict(cls._host_link()["debian_ncm_identity"])
+        value["usb_devnum"] = devnum
+        return value
 
     def _write_semantic_prefix(
         self,
@@ -282,7 +353,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 "intent_sha256": intent_sha256,
                 "execution_closure_sha256": reboot_closure_sha256,
                 "armed_preflight": {},
-                "pre_reboot_epoch": {},
+                "pre_reboot_epoch": self._pre_reboot_binding(),
                 "reboot_dispatch_count_max": 1,
                 "candidate_replay": False,
             },
@@ -955,7 +1026,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
         )
         self.assertRegex(closure["sha256"], r"^[0-9a-f]{64}$")
 
-    def test_durable_same_ordinal_evidence_drives_terminal_without_live_ssh(self) -> None:
+    def test_durable_same_ordinal_and_live_host_evidence_drive_pass(self) -> None:
         intent_sha256 = "a" * 64
         opening = self._complete_benchmark_segment(1_000)
         current = self._complete_benchmark_segment(100)
@@ -971,7 +1042,6 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
         preflight = SimpleNamespace(validate=lambda: None)
         observation = {
             "proof": False,
-            "observer_error": {"type": "RuntimeError", "message": "live SSH missed"},
             "guard_release": {"released": True},
             **self._host_link(),
         }
@@ -1006,7 +1076,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
 
         self.assertEqual(result["terminal"], "PASS_AUTO_HANDOFF_BENCHMARK_VISIBLE")
         self.assertTrue(result["ondevice_evidence"]["proof"])
-        self.assertNotIn("candidate_return", observation)
+        self.assertIn("candidate_return", observation)
 
     def test_native_failed_handoff_is_refuted_not_observer_no_proof(self) -> None:
         intent_sha256 = "c" * 64
@@ -1059,6 +1129,22 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
     def test_durable_evidence_cannot_replace_exact_host_link_facts(self) -> None:
         observation = self._host_link()
         self.assertTrue(runner.host_link_proven(self._spec(), observation))
+        observation["debian_ncm_continuity"] = dict(
+            observation["debian_ncm_continuity"]
+        )
+        observation["debian_ncm_continuity"]["after_service"] = False
+        self.assertFalse(runner.host_link_proven(self._spec(), observation))
+        observation["debian_ncm_continuity"]["after_service"] = 1
+        self.assertFalse(runner.host_link_proven(self._spec(), observation))
+        observation["debian_ncm_continuity"]["after_service"] = True
+        observation["candidate_return"]["return_epoch"]["returned"][
+            "usb_devnum"
+        ] = 1
+        observation["candidate_return"]["return_epoch"][
+            "returned_usb_identity"
+        ]["usb_devnum"] = True
+        self.assertFalse(runner.host_link_proven(self._spec(), observation))
+        observation = self._host_link()
         observation["host_ncm_rebind"] = dict(observation["host_ncm_rebind"])
         observation["host_ncm_rebind"]["exact_interface_count"] = 0
         self.assertFalse(runner.host_link_proven(self._spec(), observation))
@@ -1134,18 +1220,31 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
 
     def test_auto_observer_rebinds_exact_ncm_before_ssh(self) -> None:
         order: list[str] = []
+        binding = self._pre_reboot_binding()
+        post_ncm = self._post_reboot_ncm()
         with (
             tempfile.TemporaryDirectory() as temp_dir,
-            mock.patch.object(runner, "_f1_spec", return_value=SimpleNamespace()),
             mock.patch.object(
                 runner,
-                "wait_for_bound_bridge_after_reboot",
-                side_effect=lambda *_a: order.append("bridge") or {"ok": True},
+                "_f1_spec",
+                return_value=SimpleNamespace(
+                    stage=SimpleNamespace(bridge_realpath="/dev/ttyACM0")
+                ),
             ),
             mock.patch.object(
-                runner.base,
-                "rebind_host_ncm_after_reenumeration",
+                runner,
+                "wait_for_bound_ncm_after_reboot",
+                side_effect=lambda *_a: order.append("identity") or post_ncm,
+            ),
+            mock.patch.object(
+                runner,
+                "rebind_host_ncm_for_bound_identity",
                 side_effect=lambda *_a: order.append("ncm") or {"ready": True},
+            ),
+            mock.patch.object(
+                runner,
+                "validate_post_reboot_ncm_identity",
+                side_effect=lambda *_a, **_k: order.append("live") or post_ncm,
             ),
             mock.patch.object(
                 runner.base,
@@ -1153,18 +1252,13 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 side_effect=lambda *_a: order.append("ssh") or {"proof": True},
             ),
             mock.patch.object(
-                runner.base,
-                "capture_bridge_serial_epoch",
-                side_effect=lambda *_a: order.append("epoch") or {"epoch": 1},
-            ),
-            mock.patch.object(
                 runner.phase3_observer,
                 "observe_phase3_service",
                 side_effect=lambda *_a: order.append("service") or {"proof": True},
             ),
             mock.patch.object(
-                runner.base,
-                "wait_for_candidate_return_attended_once",
+                runner,
+                "wait_for_native_return_after_bound_ncm",
                 side_effect=lambda *_a, **_k: order.append("return") or {},
             ),
             mock.patch.object(
@@ -1183,148 +1277,277 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 SimpleNamespace(),
                 Path(temp_dir),
                 object(),
+                binding,
             )
-        self.assertEqual(order[:3], ["bridge", "ncm", "ssh"])
-        self.assertEqual(result["bridge_reenumeration"], {"ok": True})
+        self.assertEqual(
+            order,
+            [
+                "identity", "ncm", "live", "ssh", "live", "service",
+                "live", "return", "release", "pmsg",
+            ],
+        )
+        self.assertEqual(result["debian_ncm_identity"], post_ncm)
         self.assertEqual(result["host_ncm_rebind"], {"ready": True})
+        self.assertEqual(
+            result["debian_ncm_continuity"],
+            {"before_ssh": True, "after_ssh": True, "after_service": True},
+        )
 
-    def test_post_reboot_bridge_wait_accepts_only_temporary_bound_absence(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            device = Path(temp_dir) / "a90-by-id"
-            f1_spec = SimpleNamespace(
-                stage=SimpleNamespace(bridge_device=str(device)),
-            )
-            expected = {
-                "selected_realpath": "/dev/ttyACM-test",
-                "serial_candidates": [
-                    {"path": str(device), "exists": True},
-                ],
-            }
-            with (
-                mock.patch.object(
-                    runner.base.staging,
-                    "require_exact_bridge",
-                    return_value=expected,
-                ) as exact,
-                mock.patch.object(
-                    runner.time,
-                    "sleep",
-                    side_effect=lambda _seconds: device.write_bytes(b"returned"),
-                ) as sleep,
-            ):
-                result = runner.wait_for_bound_bridge_after_reboot(
-                    f1_spec,
-                    SimpleNamespace(),
-            )
-            self.assertEqual(result, expected)
-            exact.assert_called_once()
-            sleep.assert_called_once_with(runner.base.HOST_NCM_REBIND_POLL_SEC)
-
-    def test_post_reboot_bridge_wait_observes_disconnect_before_return(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            device = Path(temp_dir) / "a90-by-id"
-            device.write_bytes(b"present")
-            f1_spec = SimpleNamespace(
-                stage=SimpleNamespace(bridge_device=str(device)),
-            )
-            expected = {
-                "selected_realpath": "/dev/ttyACM-test",
-                "serial_candidates": [
-                    {"path": str(device), "exists": True},
-                ],
-            }
-            sleeps = 0
-
-            def transition(_seconds: float) -> None:
-                nonlocal sleeps
-                sleeps += 1
-                if sleeps == 1:
-                    device.unlink()
-                elif sleeps == 2:
-                    device.write_bytes(b"returned")
-
-            with (
-                mock.patch.object(
-                    runner.base.staging,
-                    "require_exact_bridge",
-                    return_value=expected,
-                ) as exact,
-                mock.patch.object(runner.time, "sleep", side_effect=transition) as sleep,
-            ):
-                result = runner.wait_for_bound_bridge_after_reboot(
-                    f1_spec,
-                    SimpleNamespace(),
-                )
-            self.assertEqual(result, expected)
-            exact.assert_called_once()
-            self.assertEqual(sleep.call_count, 2)
-
-    def test_post_reboot_bridge_wait_retries_absent_preflight_snapshot(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            device = Path(temp_dir) / "a90-by-id"
-            f1_spec = SimpleNamespace(
-                stage=SimpleNamespace(bridge_device=str(device)),
-            )
-            stale = {
-                "selected_realpath": "/dev/ttyACM-test",
-                "serial_candidates": [
-                    {"path": str(device), "exists": False},
-                ],
-            }
-            expected = {
-                "selected_realpath": "/dev/ttyACM-test",
-                "serial_candidates": [
-                    {"path": str(device), "exists": True},
-                ],
-            }
-            with (
-                mock.patch.object(
-                    runner.base.staging,
-                    "require_exact_bridge",
-                    side_effect=[stale, expected],
-                ) as exact,
-                mock.patch.object(
-                    runner.time,
-                    "sleep",
-                    side_effect=lambda _seconds: device.write_bytes(b"returned"),
-                ) as sleep,
-            ):
-                result = runner.wait_for_bound_bridge_after_reboot(
-                    f1_spec,
-                    SimpleNamespace(),
-                )
-            self.assertEqual(result, expected)
-            self.assertEqual(exact.call_count, 2)
-            self.assertEqual(sleep.call_count, 2)
-
-    def test_post_reboot_bridge_wait_rejects_returned_mismatch_without_retry(self) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            device = Path(temp_dir) / "a90-by-id"
-            f1_spec = SimpleNamespace(
-                stage=SimpleNamespace(bridge_device=str(device)),
-            )
-            with (
-                mock.patch.object(
-                    runner.base.staging,
-                    "require_exact_bridge",
-                    side_effect=runner.base.staging.ContractError("wrong realpath"),
-                ) as exact,
-                mock.patch.object(
-                    runner.time,
-                    "sleep",
-                    side_effect=lambda _seconds: device.write_bytes(b"returned"),
-                ) as sleep,
-                self.assertRaisesRegex(
-                    runner.ContractError,
-                    "present but exact post-reboot continuity failed",
+    def test_pre_reboot_binding_current_rejects_epoch_change(self) -> None:
+        binding = self._pre_reboot_binding()
+        changed = json.loads(json.dumps(binding))
+        changed["usb_identity"]["usb_devnum"] = 9
+        changed["serial_epoch"]["usb_devnum"] = 9
+        with (
+            mock.patch.object(
+                runner,
+                "capture_pre_reboot_observer_binding",
+                return_value=changed,
+            ),
+            self.assertRaisesRegex(runner.ContractError, "binding changed"),
+        ):
+            runner.require_pre_reboot_observer_binding_current(
+                SimpleNamespace(
+                    stage=SimpleNamespace(bridge_realpath="/dev/ttyACM0")
                 ),
-            ):
-                runner.wait_for_bound_bridge_after_reboot(
-                    f1_spec,
-                    SimpleNamespace(),
-                )
-            exact.assert_called_once()
-            sleep.assert_called_once_with(runner.base.HOST_NCM_REBIND_POLL_SEC)
+                SimpleNamespace(),
+                binding,
+            )
+
+    def test_post_reboot_ncm_wait_requires_a_new_usb_epoch(self) -> None:
+        binding = self._pre_reboot_binding()
+        old = {
+            key: value
+            for key, value in self._post_reboot_ncm(devnum=8).items()
+            if key
+            in {
+                "interface",
+                "usb_topology",
+                "usb_serial_sha256",
+                "usb_vendor",
+                "usb_product",
+                "usb_busnum",
+                "usb_devnum",
+            }
+        }
+        new = dict(old, usb_devnum=9)
+        with (
+            mock.patch.object(
+                runner,
+                "_matching_bound_ncm_interfaces",
+                side_effect=[[old], [new]],
+            ),
+            mock.patch.object(runner.time, "sleep") as sleep,
+        ):
+            result = runner.wait_for_bound_ncm_after_reboot(binding)
+        self.assertEqual(result, self._post_reboot_ncm())
+        sleep.assert_called_once_with(runner.base.HOST_NCM_REBIND_POLL_SEC)
+
+    def test_post_reboot_ncm_wait_rejects_ambiguous_match(self) -> None:
+        match = {
+            key: value
+            for key, value in self._post_reboot_ncm().items()
+            if key
+            in {
+                "interface",
+                "usb_topology",
+                "usb_serial_sha256",
+                "usb_vendor",
+                "usb_product",
+                "usb_busnum",
+                "usb_devnum",
+            }
+        }
+        with (
+            mock.patch.object(
+                runner,
+                "_matching_bound_ncm_interfaces",
+                return_value=[match, dict(match, interface="enx667788990011")],
+            ),
+            self.assertRaisesRegex(runner.ContractError, "multiple NCM interfaces"),
+        ):
+            runner.wait_for_bound_ncm_after_reboot(self._pre_reboot_binding())
+
+    def test_post_reboot_ncm_wait_is_bounded_when_absent(self) -> None:
+        with (
+            mock.patch.object(
+                runner,
+                "_matching_bound_ncm_interfaces",
+                return_value=[],
+            ),
+            mock.patch.object(runner.time, "monotonic", side_effect=[0.0, 31.0]),
+            mock.patch.object(runner.time, "sleep") as sleep,
+            self.assertRaisesRegex(runner.ContractError, "did not appear"),
+        ):
+            runner.wait_for_bound_ncm_after_reboot(self._pre_reboot_binding())
+        sleep.assert_not_called()
+
+    def test_post_reboot_ncm_live_validation_rejects_identity_loss(self) -> None:
+        with (
+            mock.patch.object(
+                runner,
+                "_matching_bound_ncm_interfaces",
+                return_value=[],
+            ),
+            self.assertRaisesRegex(runner.ContractError, "no longer current"),
+        ):
+            runner.validate_post_reboot_ncm_identity(
+                self._pre_reboot_binding(),
+                self._post_reboot_ncm(),
+                require_live=True,
+            )
+
+    def test_bound_ncm_ready_requires_exact_interface_route_and_cidr(self) -> None:
+        spec = SimpleNamespace(observer_device="192.168.7.2")
+        commands = [
+            {
+                "returncode": 0,
+                "stdout": (
+                    "192.168.7.2 dev enx001122334455 src 192.168.7.1 uid 1000\n"
+                    "    cache\n"
+                ),
+            },
+            {"returncode": 0, "stdout": "2: x inet 192.168.7.1/24 scope global\n"},
+            {"returncode": 0, "stdout": "1 packets transmitted, 1 received\n"},
+        ]
+        with (
+            mock.patch.object(
+                runner,
+                "validate_post_reboot_ncm_identity",
+                side_effect=lambda _binding, value, **_kwargs: value,
+            ) as validate,
+            mock.patch.object(
+                runner.base,
+                "_host_command",
+                side_effect=commands,
+            ) as host,
+        ):
+            result = runner._require_bound_host_ncm_ready(
+                spec,
+                self._pre_reboot_binding(),
+                self._post_reboot_ncm(),
+            )
+        self.assertEqual(
+            result,
+            {
+                "verified_a90_ncm": True,
+                "direct_route": True,
+                "host_cidr_present": True,
+                "device_ping": True,
+            },
+        )
+        self.assertEqual(validate.call_count, 2)
+        self.assertEqual(host.call_count, 3)
+
+    def test_bound_ncm_ready_rejects_route_on_other_interface(self) -> None:
+        with (
+            mock.patch.object(
+                runner,
+                "validate_post_reboot_ncm_identity",
+                side_effect=lambda _binding, value, **_kwargs: value,
+            ),
+            mock.patch.object(
+                runner.base,
+                "_host_command",
+                return_value={
+                    "returncode": 0,
+                    "stdout": (
+                        "192.168.7.2 dev enx667788990011 src 192.168.7.1\n"
+                        "    cache\n"
+                    ),
+                },
+            ),
+            self.assertRaisesRegex(runner.ContractError, "bound A90 NCM"),
+        ):
+            runner._require_bound_host_ncm_ready(
+                SimpleNamespace(observer_device="192.168.7.2"),
+                self._pre_reboot_binding(),
+                self._post_reboot_ncm(),
+            )
+
+    def test_native_return_wait_rejects_debian_epoch_then_accepts_later_acm(self) -> None:
+        binding = self._pre_reboot_binding()
+        ncm = self._post_reboot_ncm(devnum=9)
+        spec = SimpleNamespace(
+            stage=SimpleNamespace(bridge_device="/dev/a90-test"),
+            candidate_return_timeout=180,
+            candidate_version=runner.EXPECTED_VERSION,
+            candidate_build=runner.EXPECTED_BUILD,
+        )
+        bridge = {"selected_realpath": "/dev/ttyACM0"}
+        same_epoch = {
+            "selected_realpath": "/dev/ttyACM0",
+            "usb_busnum": 2,
+            "usb_devnum": 9,
+        }
+        returned_epoch = dict(same_epoch, usb_devnum=10)
+        guard = mock.Mock()
+        guard.healthy.side_effect = [True, True]
+        version = {
+            "text": (
+                f"version: {runner.EXPECTED_VERSION} "
+                f"build={runner.EXPECTED_BUILD}\n"
+            )
+        }
+        selftest = {"text": "selftest: pass=11 warn=1 fail=0 duration=35ms entries=12\n"}
+        with (
+            mock.patch.object(runner.time, "monotonic", return_value=0.0),
+            mock.patch.object(runner.time, "sleep") as sleep,
+            mock.patch.object(
+                runner.base.staging,
+                "require_exact_bridge",
+                side_effect=[bridge, bridge],
+            ) as exact,
+            mock.patch.object(
+                runner.base,
+                "_bound_bridge_serial_epoch",
+                side_effect=[same_epoch, returned_epoch],
+            ),
+            mock.patch.object(
+                runner.base.staging,
+                "_usb_device_parent",
+                return_value=Path("/sys/devices/2-2"),
+            ),
+            mock.patch.object(
+                runner,
+                "_usb_parent_snapshot",
+                return_value={**binding["usb_identity"], "usb_devnum": 10},
+            ),
+            mock.patch.object(
+                runner.base,
+                "require_returned_modemmanager_guard",
+                return_value={"guard": True},
+            ) as returned_guard,
+            mock.patch.object(
+                runner.base,
+                "run_f1_cmd",
+                side_effect=[version, selftest],
+            ) as command,
+            mock.patch.object(
+                runner.base,
+                "settle_observation_channel",
+                return_value={"settled": True},
+            ),
+        ):
+            result = runner.wait_for_native_return_after_bound_ncm(
+                spec,
+                SimpleNamespace(),
+                binding,
+                ncm,
+                guard,
+            )
+        self.assertTrue(result["native_epoch_version_proven"])
+        self.assertEqual(result["return_epoch"]["returned"], returned_epoch)
+        self.assertEqual(exact.call_count, 2)
+        sleep.assert_called_once_with(runner.base.HOST_NCM_REBIND_POLL_SEC)
+        self.assertEqual(
+            returned_guard.call_args.args[1]["returned"],
+            returned_epoch,
+        )
+        self.assertEqual(
+            [call.args[1] for call in command.call_args_list],
+            [["version"], ["selftest"]],
+        )
 
     def test_intents_precede_one_arm_and_one_reboot(self) -> None:
         source = Path(runner.__file__).read_text(encoding="utf-8")
@@ -1342,7 +1565,9 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
         continuation = execute.index("_continue_after_proved_arm(")
         reboot_intent = reboot_helper.index('"reboot-intent"')
         reboot_dispatch = reboot_helper.index("send_reboot_once(args)")
-        observation = reboot_helper.index("observe_auto_cycle(spec, args, path, guard)")
+        observation = reboot_helper.index(
+            "observe_auto_cycle(spec, args, path, guard, pre_reboot_epoch)"
+        )
         returned_status = reboot_helper.index(
             "returned_status_record, returned_status = require_auto_status("
         )
@@ -1495,10 +1720,14 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                     return_value=guard,
                 ),
                 mock.patch.object(
-                    runner.base,
-                    "capture_bridge_serial_epoch",
-                    return_value={},
+                    runner,
+                    "capture_pre_reboot_observer_binding",
+                    return_value=self._pre_reboot_binding(),
                 ),
+                mock.patch.object(
+                    runner,
+                    "require_pre_reboot_observer_binding_current",
+                ) as binding_current,
                 mock.patch.object(runner, "write_record") as write,
                 mock.patch.object(
                     runner.base,
@@ -1530,6 +1759,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             )
             self.assertEqual(status.call_count, 2 + expected_intent_writes)
             self.assertEqual(guard.healthy.call_count, len(healthy))
+            self.assertEqual(binding_current.call_count, expected_intent_writes)
             release.assert_called_once_with(guard, Path(temp_dir))
             reboot.assert_not_called()
 
@@ -1553,10 +1783,14 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                 return_value=guard,
             ),
             mock.patch.object(
-                runner.base,
-                "capture_bridge_serial_epoch",
-                return_value={},
+                runner,
+                "capture_pre_reboot_observer_binding",
+                return_value=self._pre_reboot_binding(),
             ),
+            mock.patch.object(
+                runner,
+                "require_pre_reboot_observer_binding_current",
+            ) as binding_current,
             mock.patch.object(runner, "write_record"),
             mock.patch.object(
                 runner.base,
@@ -1582,6 +1816,7 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
             )
         self.assertEqual(status.call_count, 3)
         self.assertEqual(guard.healthy.call_count, 2)
+        self.assertEqual(binding_current.call_count, 2)
         reboot.assert_called_once()
         release.assert_called_once_with(guard, Path(temp_dir))
         observe.assert_not_called()
@@ -2012,6 +2247,57 @@ class A90AutoHandoffBenchmarkRunnerV1Tests(unittest.TestCase):
                     )
                 self.assertEqual(len(records), count)
                 historical.assert_called_once_with(closure, "1" * 64)
+
+    def test_exact_h10_terminal_closure_alone_accepts_legacy_serial_epoch(self) -> None:
+        closure = {"sha256": "1" * 64, "files": {}}
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir)
+            self._write_semantic_prefix(
+                path,
+                4,
+                closure,
+                intent_closure_sha256="1" * 64,
+                reboot_closure_sha256=(
+                    runner.HISTORICAL_H10_TERMINAL_CLOSURE_SHA256
+                ),
+            )
+            reboot_path = path / runner.JOURNAL_NAMES[3]
+            reboot = json.loads(reboot_path.read_text(encoding="utf-8"))
+            reboot["pre_reboot_epoch"] = self._pre_reboot_binding()["serial_epoch"]
+            reboot_path.write_text(json.dumps(reboot), encoding="utf-8")
+            with (
+                mock.patch.object(
+                    runner,
+                    "require_execution_closure",
+                    return_value={
+                        "sha256": runner.HISTORICAL_H10_TERMINAL_CLOSURE_SHA256,
+                        "files": {},
+                    },
+                ),
+                mock.patch.object(
+                    runner,
+                    "validate_recorded_execution_closure",
+                    return_value=closure,
+                ),
+                mock.patch.object(
+                    runner,
+                    "validate_preflight_evidence",
+                    return_value={},
+                ),
+                mock.patch.object(
+                    runner.base,
+                    "require_exact_f1_command_receipt",
+                    side_effect=lambda value, *_: value,
+                ),
+                mock.patch.object(runner, "require_first_boot_unarmed"),
+            ):
+                records = runner.load_journal_prefix(
+                    self._spec(),
+                    path,
+                    runner.HISTORICAL_H10_TERMINAL_CLOSURE_SHA256,
+                    journal_closure_sha256="1" * 64,
+                )
+        self.assertEqual(len(records), 4)
 
     def test_journal_dispatch_counts_reject_booleans(self) -> None:
         cases = (

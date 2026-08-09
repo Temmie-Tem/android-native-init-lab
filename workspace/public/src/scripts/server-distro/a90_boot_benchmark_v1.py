@@ -156,6 +156,140 @@ def load_texts(path: Path) -> list[str]:
     return texts if texts else [body]
 
 
+def _persisted_benchmark(value: Any) -> dict[str, Any] | None:
+    """Select only an explicitly nested parsed benchmark result.
+
+    Durable runner receipts also retain cumulative raw logs.  Walking every
+    string in those receipts can rediscover historical handoff segments and
+    make an already-selected result appear ambiguous.  Prefer the runner's
+    exact parsed benchmark object when it is present at one of the two public
+    receipt locations; malformed objects are rejected by ``validate_result``.
+    """
+
+    if not isinstance(value, dict):
+        return None
+    candidates: list[dict[str, Any]] = []
+    if value.get("schema") == RESULT_SCHEMA:
+        candidates.append(value)
+    result = value.get("result")
+    if isinstance(result, dict):
+        benchmark_value = result.get("benchmark")
+        if isinstance(benchmark_value, dict):
+            candidates.append(benchmark_value)
+    benchmark_value = value.get("benchmark")
+    if isinstance(benchmark_value, dict):
+        candidates.append(benchmark_value)
+    if len(candidates) > 1:
+        raise BenchmarkError("benchmark receipt has multiple persisted result locations")
+    return candidates[0] if candidates else None
+
+
+def _marker_line_from_persisted_record(value: Any) -> str:
+    expected = {*FIELDS, "since_first_ms", "since_previous_ms"}
+    if not isinstance(value, dict) or set(value) != expected:
+        raise BenchmarkError("persisted benchmark record fields changed")
+    tokens: list[str] = []
+    for field in FIELDS:
+        item = value[field]
+        if field in OPTIONAL_INTEGER_FIELDS:
+            rendered = "na" if item is None else str(item)
+        else:
+            rendered = str(item)
+        tokens.append(f"{field}={rendered}")
+    marker_body = " ".join(tokens)
+    parse_marker(marker_body)
+    return f"{MARKER} {marker_body}"
+
+
+def _exact_json_equal(left: Any, right: Any) -> bool:
+    """Compare JSON-like values without Python's bool/int equivalence."""
+
+    if type(left) is not type(right):
+        return False
+    if isinstance(left, dict):
+        return set(left) == set(right) and all(
+            _exact_json_equal(left[key], right[key]) for key in left
+        )
+    if isinstance(left, list):
+        return len(left) == len(right) and all(
+            _exact_json_equal(left_item, right_item)
+            for left_item, right_item in zip(left, right, strict=True)
+        )
+    return left == right
+
+
+def validate_result(
+    value: Any,
+    *,
+    require_complete: bool = False,
+) -> dict[str, Any]:
+    """Re-derive a persisted parsed result and reject any semantic drift."""
+
+    required = {
+        "schema",
+        "status",
+        "missing_complete_stages",
+        "phase_durations_ms",
+        "records",
+    }
+    if not isinstance(value, dict) or not required.issubset(value):
+        raise BenchmarkError("persisted benchmark result shape changed")
+    if value.get("schema") != RESULT_SCHEMA:
+        raise BenchmarkError("persisted benchmark result schema changed")
+    records_value = value.get("records")
+    if not isinstance(records_value, list):
+        raise BenchmarkError("persisted benchmark records are not a list")
+    marker_text = "\n".join(
+        _marker_line_from_persisted_record(record) for record in records_value
+    )
+    # Re-enter through the canonical segment parser.  Calling
+    # ``_result_from_records`` directly would silently collapse duplicate stage
+    # names through its stage maps and could accept two completed handoffs as
+    # one persisted result.
+    derived = parse_run([marker_text], require_complete=require_complete)
+    for key in ("schema", "status", "missing_complete_stages", "records"):
+        if not _exact_json_equal(value.get(key), derived[key]):
+            raise BenchmarkError(f"persisted benchmark {key} differs from records")
+    persisted_phases = value.get("phase_durations_ms")
+    if (
+        not isinstance(persisted_phases, dict)
+        or not set(persisted_phases).issubset(derived["phase_durations_ms"])
+        or any(
+            not _exact_json_equal(
+                persisted_phases[name],
+                derived["phase_durations_ms"][name],
+            )
+            for name in persisted_phases
+        )
+    ):
+        raise BenchmarkError(
+            "persisted benchmark phase_durations_ms differs from records"
+        )
+    normalized = dict(value)
+    normalized["phase_durations_ms"] = derived["phase_durations_ms"]
+    normalized["boot_segments_total"] = derived["boot_segments_total"]
+    normalized["selected_segment_index"] = derived["selected_segment_index"]
+    return normalized
+
+
+def load_run(path: Path, *, require_complete: bool = False) -> dict[str, Any]:
+    """Load one raw log or one durable receipt with an exact parsed result."""
+
+    try:
+        body = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise BenchmarkError(f"cannot read benchmark input {path}: {exc}") from exc
+    try:
+        parsed = json.loads(body)
+    except json.JSONDecodeError:
+        return parse_run([body], require_complete=require_complete)
+    persisted = _persisted_benchmark(parsed)
+    if persisted is not None:
+        return validate_result(persisted, require_complete=require_complete)
+    texts = list(_walk_strings(parsed))
+    return parse_run(texts if texts else [body], require_complete=require_complete)
+
+
 def marker_lines(texts: Iterable[str]) -> Iterable[str]:
     for text in texts:
         for line in text.replace("\r", "\n").splitlines():
@@ -422,14 +556,13 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        baseline = parse_run(
-            load_texts(args.input), require_complete=args.require_complete
-        )
+        baseline = load_run(args.input, require_complete=args.require_complete)
         if args.compare is None:
             result = baseline
         else:
-            candidate = parse_run(
-                load_texts(args.compare), require_complete=args.require_complete
+            candidate = load_run(
+                args.compare,
+                require_complete=args.require_complete,
             )
             result = compare_runs(baseline, candidate)
     except BenchmarkError as exc:
