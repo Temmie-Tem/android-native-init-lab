@@ -1,0 +1,84 @@
+{
+  "capability": "A90_H13_BRIDGE_ROOTFS_TRANSFER_DEADLINE_AND_RECEIVER_CANCEL",
+  "decision": "PASS_GO",
+  "device_authority_granted": false,
+  "findings": {
+    "high": 0,
+    "low": 0,
+    "medium": 0
+  },
+  "incident": {
+    "candidate_intent_recorded": false,
+    "candidate_replay_allowed": false,
+    "classification": "F1 staging incident before candidate intent",
+    "run_id": "a90-v3406-debian-display-f1-20260810-08",
+    "terminal": "ABORTED_F1_V2_BEFORE_CANDIDATE"
+  },
+  "permanent_boundaries_unchanged": true,
+  "review_date": "2026-08-10",
+  "review_lifetime": {
+    "fresh_device_authority_from_review": false,
+    "reuse": "PASS_GO qualifies only the named reachable H13 bridge-transfer recovery capability while both execution hashes and the native q cancellation and terminal-tag semantics remain unchanged and no new hazard or incident occurs."
+  },
+  "reviewed_properties": {
+    "candidate_failure_path_remains_closed": true,
+    "cleanup_requires_receiver_terminal_ack": true,
+    "connect_timeout_is_not_send_timeout": true,
+    "h13_control_channel_is_bridge": true,
+    "host_subprocess_timeout_evidence_is_json_safe": true,
+    "parent_cleanup_suppressed_when_receiver_unknown": true,
+    "receiver_cancel_at_most_once": true,
+    "send_has_no_retry_or_reconnect": true,
+    "single_overall_transfer_deadline": true
+  },
+  "reviewer": "independent subagent /root/a90_h7_closure_review",
+  "reviewer_base_head": "229f82a5739bc076e2f9178be58ab4d286a9324c",
+  "reviewer_device_contact": false,
+  "reviewer_implementation_edits": false,
+  "reviewer_network_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_s22plus_contact": false,
+  "reviewer_usb_contact": false,
+  "schema": "a90-h13-transfer-deadline-receiver-cancel-independent-review-v1",
+  "scope": {
+    "execution_closure_sha256": "e66c3e9d4b23b8848a18b7a329ad31668fa06dcab03ffbdbdd297a44ca95c380",
+    "staging_adapter": {
+      "path": "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py",
+      "sha256": "8d3f6a86a67bd555f1488192e0c7074175a63b88c65006916440fc1d04e63c41",
+      "size": 109435
+    },
+    "target": "Samsung Galaxy A90 5G only",
+    "tcpctl_host": {
+      "path": "workspace/public/src/scripts/revalidation/tcpctl_host.py",
+      "sha256": "381b1a89fefeda531df9f98535a6c3ed4f6d59ac270c88496af75371f823804a",
+      "size": 38235
+    }
+  },
+  "status": "PASS_GO",
+  "unresolved_findings": [],
+  "validation": {
+    "git_diff_check": "PASS",
+    "main_focused_tests_passed": 230,
+    "python_py_compile": "PASS",
+    "reviewer_focused_tests_passed": 230,
+    "source_contract_issues": [],
+    "tests": {
+      "staging": {
+        "path": "tests/test_server_distro_a90_v3403_absent_only_staging.py",
+        "sha256": "fe8e0d278ae1f1d4ee910da5a3c06b71496c6daa1ffc9fcfc499a300e0fb8692",
+        "size": 67769
+      },
+      "tcpctl_host": {
+        "path": "tests/test_tcpctl_host.py",
+        "sha256": "bd6612f0798657289781c1e91853f0c9bd998081f7e5f7d2f63f185fde942de5",
+        "size": 17344
+      }
+    }
+  },
+  "residual_limitations": [
+    "The generic command_install_via_tcpctl path shares the deadline sender but not the bridge cancel and terminal-ack cleanup protocol. H13 staging hard-pins the bridge control channel, so that generic path is outside this qualification.",
+    "The review did not perform a real 2 GiB slow-backpressure device transfer; that property is proved by code inspection and unit tests.",
+    "The run08 device-state and effect-count facts were checked for public consistency but were not independently reread from private evidence.",
+    "The later UFS direct-root design is outside this qualification."
+  ]
+}

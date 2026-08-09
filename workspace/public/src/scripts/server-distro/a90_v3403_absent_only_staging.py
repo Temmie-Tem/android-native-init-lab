@@ -141,6 +141,7 @@ REMOTE_FINAL_PREFIX_BY_CYCLE = {
 }
 STAGE_PREFIX = ".a90-stage-"
 STAGE_PAYLOAD_NAME = "payload.img"
+TRANSFER_RECEIVER_UNCONFIRMED_MARKER = "A90_TRANSFER_RECEIVER_UNCONFIRMED"
 REQUIRED_FS_TYPE = "ext4"
 PRIVATE_ROOT = REPO_ROOT / "workspace" / "private"
 PRIVATE_RUN_BASE = PRIVATE_ROOT / "runs" / "server-distro"
@@ -1843,6 +1844,26 @@ def transfer_command(spec: StageSpec, args: argparse.Namespace) -> list[str]:
     ]
 
 
+def transfer_receiver_unconfirmed(result: dict[str, Any] | None) -> bool:
+    if result is None:
+        return False
+    if result.get("host_subprocess_timeout") is True:
+        return True
+    stderr = result.get("stderr")
+    return (
+        isinstance(stderr, str)
+        and TRANSFER_RECEIVER_UNCONFIRMED_MARKER in stderr
+    )
+
+
+def subprocess_timeout_stream(value: str | bytes | None) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value
+
+
 def simulate_stage(
     *,
     fail_step: str | None = None,
@@ -2200,6 +2221,17 @@ def source_contract_issues(source: str) -> tuple[str, ...]:
                 issues.append(f"execute contract missing or out of order: {token}")
                 continue
             cursor = position
+        for token in (
+            '"host_subprocess_timeout": True',
+            "receiver_unconfirmed = transfer_receiver_unconfirmed(transfer_result)",
+            "if stage_reserved and not receiver_unconfirmed:",
+            '"reason": "transfer-receiver-terminal-unconfirmed"',
+            '"transfer_receiver_terminal_unconfirmed": receiver_unconfirmed',
+        ):
+            if token not in execute:
+                issues.append(
+                    f"execute transfer-receiver recovery gate missing: {token}"
+                )
     append_start = source.find("\ndef append_record(")
     exact_dir_start = source.find("\ndef exact_live_run_dir(", append_start + 1)
     if append_start < 0 or exact_dir_start < 0:
@@ -2667,14 +2699,27 @@ def execute_approved_stage(
                 "sha256": spec.local_sha256,
             },
         )
-        completed = subprocess.run(
-            command,
-            cwd=REPO_ROOT,
-            text=True,
-            capture_output=True,
-            timeout=args.transfer_timeout + args.bridge_timeout + 120.0,
-            check=False,
-        )
+        try:
+            completed = subprocess.run(
+                command,
+                cwd=REPO_ROOT,
+                text=True,
+                capture_output=True,
+                timeout=args.transfer_timeout + args.bridge_timeout + 120.0,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as timeout_exc:
+            transfer_result = {
+                "command": command,
+                "returncode": None,
+                "stdout": subprocess_timeout_stream(timeout_exc.stdout),
+                "stderr": subprocess_timeout_stream(timeout_exc.stderr),
+                "host_subprocess_timeout": True,
+            }
+            raise RuntimeError(
+                "payload transfer host subprocess timed out; "
+                "receiver terminal is unconfirmed"
+            ) from timeout_exc
         transfer_result = {
             "command": command,
             "returncode": completed.returncode,
@@ -2734,7 +2779,8 @@ def execute_approved_stage(
         return result
     except Exception as exc:
         cleanup: dict[str, Any] | None = None
-        if stage_reserved:
+        receiver_unconfirmed = transfer_receiver_unconfirmed(transfer_result)
+        if stage_reserved and not receiver_unconfirmed:
             try:
                 cleanup = run_remote(
                     args,
@@ -2746,6 +2792,11 @@ def execute_approved_stage(
                     "error": type(cleanup_exc).__name__,
                     "message": str(cleanup_exc),
                 }
+        elif stage_reserved:
+            cleanup = {
+                "skipped": True,
+                "reason": "transfer-receiver-terminal-unconfirmed",
+            }
         record(
             "aborted",
             {
@@ -2754,6 +2805,7 @@ def execute_approved_stage(
                 "published_may_exist": publish_attempted,
                 "publish_completed": published,
                 "candidate_allowed": False,
+                "transfer_receiver_terminal_unconfirmed": receiver_unconfirmed,
                 "cleanup": cleanup,
                 "transfer": transfer_result,
             },

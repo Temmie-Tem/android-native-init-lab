@@ -12,6 +12,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from typing import BinaryIO
 
 from _workspace_bootstrap import add_legacy_revalidation_path, repo_root
 
@@ -38,6 +39,8 @@ DEFAULT_SOAK_MAX_CLIENTS = 0
 DEFAULT_TCPCTL_TOKEN_PATH = "/cache/native-init-tcpctl.token"
 DEFAULT_TOKEN_COMMAND = "netservice token show"
 CMDV1_END_MISSING_TEXT = "A90P1 END marker not found"
+TRANSFER_CHUNK_BYTES = 1024 * 1024
+RECEIVER_UNCONFIRMED_MARKER = "A90_TRANSFER_RECEIVER_UNCONFIRMED"
 TOKEN_RE = re.compile(r"tcpctl_token=([0-9A-Fa-f]{32})")
 SAFE_DEVICE_PATH_RE = re.compile(r"^[A-Za-z0-9_./-]+$")
 INSTALL_ALLOWED_PREFIXES = (
@@ -247,6 +250,8 @@ class BridgeRunThread(threading.Thread):
         self.ready = threading.Event()
         self.done = threading.Event()
         self.error: Exception | None = None
+        self._socket_lock = threading.Lock()
+        self._socket: socket.socket | None = None
 
     def run(self) -> None:
         try:
@@ -254,6 +259,8 @@ class BridgeRunThread(threading.Thread):
                 (self.args.bridge_host, self.args.bridge_port),
                 timeout=self.args.connect_timeout,
             ) as sock:
+                with self._socket_lock:
+                    self._socket = sock
                 sock.settimeout(0.25)
                 sock.sendall(("\n" + self.command + "\n").encode())
                 while True:
@@ -276,10 +283,81 @@ class BridgeRunThread(threading.Thread):
         except Exception as exc:
             self.error = exc
         finally:
+            with self._socket_lock:
+                self._socket = None
             self.done.set()
 
     def text(self) -> str:
         return self.buffer.decode("utf-8", errors="replace")
+
+    def request_cancel(self) -> bool:
+        """Send the native foreground-run cancel byte on the owning bridge socket."""
+        with self._socket_lock:
+            if self._socket is None:
+                return False
+            self._socket.sendall(b"q")
+            return True
+
+
+def bridge_runner_has_terminal_ack(runner: BridgeRunThread) -> bool:
+    text = runner.text()
+    return any(marker in text for marker in ("[done] run", "[err] run", "[busy]"))
+
+
+def cancel_bridge_receiver(runner: BridgeRunThread, timeout_sec: float) -> bool:
+    """Cancel once and require a terminal bridge acknowledgement before cleanup."""
+    if bridge_runner_has_terminal_ack(runner):
+        return True
+    if not runner.is_alive():
+        return False
+    try:
+        requested = runner.request_cancel()
+    except OSError as exc:
+        log(f"receiver cancel send failed: {exc}")
+        return False
+    if not requested:
+        return False
+    runner.join(timeout_sec)
+    return bridge_runner_has_terminal_ack(runner)
+
+
+def transfer_deadline(timeout_sec: float) -> float:
+    if not isinstance(timeout_sec, (int, float)) or not (0.0 < timeout_sec < float("inf")):
+        raise RuntimeError(f"invalid transfer timeout: {timeout_sec!r}")
+    return time.monotonic() + float(timeout_sec)
+
+
+def remaining_transfer_time(deadline: float) -> float:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0.0:
+        raise TimeoutError("payload transfer deadline expired")
+    return remaining
+
+
+def send_file_until_deadline(
+    sock: socket.socket,
+    fp: BinaryIO,
+    deadline: float,
+    *,
+    chunk_bytes: int = TRANSFER_CHUNK_BYTES,
+) -> int:
+    """Send a file under one overall deadline, independent of connect timeout."""
+    if chunk_bytes <= 0:
+        raise RuntimeError("transfer chunk size must be positive")
+    completed_bytes = 0
+    while True:
+        chunk = fp.read(chunk_bytes)
+        if not chunk:
+            return completed_bytes
+        sock.settimeout(remaining_transfer_time(deadline))
+        try:
+            sock.sendall(chunk)
+        except OSError as exc:
+            raise RuntimeError(
+                "payload send failed "
+                f"completed_bytes={completed_bytes} next_chunk_bytes={len(chunk)}: {exc}"
+            ) from exc
+        completed_bytes += len(chunk)
 
 
 def tcpctl_request(args: argparse.Namespace, command: str, *, timeout: float | None = None) -> str:
@@ -456,6 +534,7 @@ def command_install(args: argparse.Namespace) -> int:
         f"{args.toybox} dd of={tmp_target} bs=4096"
     )
     log(f"device receive command: {receive_command}")
+    runner: BridgeRunThread | None = None
 
     try:
         mkdir_output = device_command(
@@ -480,18 +559,20 @@ def command_install(args: argparse.Namespace) -> int:
         runner.start()
         time.sleep(args.transfer_delay)
 
-        with socket.create_connection((args.device_ip, args.transfer_port), timeout=args.connect_timeout) as sock:
+        deadline = transfer_deadline(args.transfer_timeout)
+        connect_timeout = min(args.connect_timeout, remaining_transfer_time(deadline))
+        with socket.create_connection(
+            (args.device_ip, args.transfer_port),
+            timeout=connect_timeout,
+        ) as sock:
             with local_binary.open("rb") as fp:
-                while True:
-                    chunk = fp.read(1024 * 1024)
-                    if not chunk:
-                        break
-                    sock.sendall(chunk)
+                sent_bytes = send_file_until_deadline(sock, fp, deadline)
             sock.shutdown(socket.SHUT_WR)
+        log(f"payload send completed bytes={sent_bytes}")
 
-        runner.join(args.transfer_timeout)
+        runner.join(remaining_transfer_time(deadline))
         if runner.is_alive():
-            raise RuntimeError("device transfer did not finish")
+            raise RuntimeError("device transfer did not finish before transfer deadline")
         if runner.error is not None:
             raise RuntimeError(f"bridge transfer failed: {runner.error}")
         if "[done] run" not in runner.text():
@@ -519,15 +600,24 @@ def command_install(args: argparse.Namespace) -> int:
         )
         print(mv_output, end="" if mv_output.endswith("\n") else "\n")
     except Exception:
-        try:
-            device_command(
-                args,
-                f"run {args.toybox} rm -f {tmp_target}",
-                timeout=args.bridge_timeout,
-                allow_error=True,
+        receiver_terminal = runner is None or bridge_runner_has_terminal_ack(runner)
+        if runner is not None and not receiver_terminal:
+            receiver_terminal = cancel_bridge_receiver(runner, args.bridge_timeout)
+        if receiver_terminal:
+            try:
+                device_command(
+                    args,
+                    f"run {args.toybox} rm -f {tmp_target}",
+                    timeout=args.bridge_timeout,
+                    allow_error=True,
+                )
+            except Exception as cleanup_exc:
+                log(f"cleanup failed for {tmp_target}: {cleanup_exc}")
+        else:
+            log(
+                f"{RECEIVER_UNCONFIRMED_MARKER} "
+                f"cleanup_skipped=1 remote_tmp={tmp_target}"
             )
-        except Exception as cleanup_exc:
-            log(f"cleanup failed for {tmp_target}: {cleanup_exc}")
         raise
 
     log(f"installed {target} sha256={local_hash}")
@@ -590,18 +680,20 @@ def command_install_via_tcpctl(args: argparse.Namespace) -> int:
     thread.start()
     time.sleep(args.transfer_delay)
 
-    with socket.create_connection((args.device_ip, args.transfer_port), timeout=args.connect_timeout) as sock:
+    deadline = transfer_deadline(args.transfer_timeout)
+    connect_timeout = min(args.connect_timeout, remaining_transfer_time(deadline))
+    with socket.create_connection(
+        (args.device_ip, args.transfer_port),
+        timeout=connect_timeout,
+    ) as sock:
         with local_binary.open("rb") as fp:
-            while True:
-                chunk = fp.read(1024 * 1024)
-                if not chunk:
-                    break
-                sock.sendall(chunk)
+            sent_bytes = send_file_until_deadline(sock, fp, deadline)
         sock.shutdown(socket.SHUT_WR)
+    log(f"payload send completed bytes={sent_bytes}")
 
-    thread.join(args.transfer_timeout + args.transfer_delay + 15.0)
+    thread.join(remaining_transfer_time(deadline))
     if thread.is_alive():
-        raise RuntimeError("device transfer did not finish")
+        raise RuntimeError("device transfer did not finish before transfer deadline")
     if transfer_error:
         raise RuntimeError(f"tcpctl transfer failed: {transfer_error['error']}")
     output = transfer_output.get("text", "")

@@ -1218,6 +1218,46 @@ class A90V3403AbsentOnlyStagingTests(unittest.TestCase):
         self.assertNotIn(spec.remote_final, command)
         self.assertNotIn(spec.remote_work, command)
 
+    def test_receiver_unconfirmed_marker_blocks_followup_remote_cleanup(self) -> None:
+        self.assertFalse(stage.transfer_receiver_unconfirmed(None))
+        self.assertTrue(
+            stage.transfer_receiver_unconfirmed({"host_subprocess_timeout": True})
+        )
+        self.assertFalse(
+            stage.transfer_receiver_unconfirmed(
+                {"stdout": stage.TRANSFER_RECEIVER_UNCONFIRMED_MARKER, "stderr": ""}
+            )
+        )
+        self.assertTrue(
+            stage.transfer_receiver_unconfirmed(
+                {
+                    "stderr": (
+                        stage.TRANSFER_RECEIVER_UNCONFIRMED_MARKER
+                        + " cleanup_skipped=1"
+                    )
+                }
+            )
+        )
+
+    def test_subprocess_timeout_stream_is_json_safe_text(self) -> None:
+        self.assertEqual(stage.subprocess_timeout_stream(None), "")
+        self.assertEqual(stage.subprocess_timeout_stream("text"), "text")
+        self.assertEqual(
+            stage.subprocess_timeout_stream(b"partial\xff"),
+            "partial\ufffd",
+        )
+        self.assertEqual(
+            json.loads(
+                json.dumps(
+                    {
+                        "stdout": stage.subprocess_timeout_stream(b"partial"),
+                        "stderr": stage.subprocess_timeout_stream(None),
+                    }
+                )
+            ),
+            {"stdout": "partial", "stderr": ""},
+        )
+
     def test_every_prepublication_fault_leaves_final_absent(self) -> None:
         publish_index = stage.STAGE_STEPS.index("publish_link")
         for fail_step in stage.STAGE_STEPS[:publish_index]:

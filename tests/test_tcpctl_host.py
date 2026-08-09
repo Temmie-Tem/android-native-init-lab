@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import shlex
 import tempfile
 import unittest
@@ -194,6 +195,157 @@ class TcpRequestHelpers(unittest.TestCase):
                 mock.patch.object(tcpctl.time, "sleep"):
             with self.assertRaisesRegex(RuntimeError, "still down"):
                 tcpctl.wait_for_tcpctl(args, 1.0)
+
+
+class TransferDeadlineAndCancellationHelpers(unittest.TestCase):
+    def test_file_send_uses_overall_transfer_deadline_not_connect_timeout(self) -> None:
+        fake = FakeSocket()
+        payload = io.BytesIO(b"abcdef")
+        with mock.patch.object(
+            tcpctl.time,
+            "monotonic",
+            side_effect=[100.0, 101.0, 102.0],
+        ):
+            deadline = tcpctl.transfer_deadline(30.0)
+            sent = tcpctl.send_file_until_deadline(
+                fake,
+                payload,
+                deadline,
+                chunk_bytes=3,
+            )
+
+        self.assertEqual(sent, 6)
+        self.assertEqual(fake.timeouts, [29.0, 28.0])
+        self.assertEqual(fake.sent, b"abcdef")
+
+    def test_cancel_requires_terminal_ack(self) -> None:
+        acknowledged = mock.Mock()
+        acknowledged.text.side_effect = ["", "[err] run\n"]
+        acknowledged.is_alive.return_value = True
+        acknowledged.request_cancel.return_value = True
+        self.assertTrue(tcpctl.cancel_bridge_receiver(acknowledged, 7.0))
+        acknowledged.request_cancel.assert_called_once_with()
+        acknowledged.join.assert_called_once_with(7.0)
+
+        unacknowledged = mock.Mock()
+        unacknowledged.text.side_effect = ["", "still running"]
+        unacknowledged.is_alive.return_value = True
+        unacknowledged.request_cancel.return_value = True
+        self.assertFalse(tcpctl.cancel_bridge_receiver(unacknowledged, 7.0))
+
+    def _install_args(self, local: Path) -> SimpleNamespace:
+        return SimpleNamespace(
+            install_control_channel="bridge",
+            local_binary=str(local),
+            device_binary="/mnt/sdext/a90/runtime/test/payload.img",
+            toybox="/bin/toybox",
+            transfer_port=18083,
+            transfer_delay=0.0,
+            transfer_timeout=1200.0,
+            connect_timeout=10.0,
+            bridge_timeout=5.0,
+            device_ip="192.0.2.2",
+            verbose=False,
+        )
+
+    def test_send_failure_cancels_receiver_before_cleanup(self) -> None:
+        events: list[str] = []
+
+        class Runner:
+            terminal = False
+            error = None
+
+            def start(self) -> None:
+                events.append("receiver-start")
+
+            def is_alive(self) -> bool:
+                return not self.terminal
+
+            def text(self) -> str:
+                return "[err] run\n" if self.terminal else "run: pid=7\n"
+
+            def request_cancel(self) -> bool:
+                events.append("receiver-cancel")
+                return True
+
+            def join(self, _timeout: float) -> None:
+                events.append("receiver-join")
+                self.terminal = True
+
+        def device(_args: object, command: str, **_kwargs: object) -> str:
+            events.append(f"device:{command}")
+            return ""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            local = Path(tmp) / "payload"
+            local.write_bytes(b"payload")
+            args = self._install_args(local)
+            with mock.patch.object(tcpctl, "device_command", side_effect=device), \
+                    mock.patch.object(tcpctl, "best_effort_hide_menu"), \
+                    mock.patch.object(tcpctl, "BridgeRunThread", return_value=Runner()), \
+                    mock.patch.object(tcpctl.socket, "create_connection", return_value=FakeSocket()), \
+                    mock.patch.object(tcpctl, "send_file_until_deadline", side_effect=RuntimeError("blocked")), \
+                    mock.patch.object(tcpctl.time, "sleep"):
+                with self.assertRaisesRegex(RuntimeError, "blocked"):
+                    tcpctl.command_install(args)
+
+        cancel_index = events.index("receiver-cancel")
+        cleanup_indices = [
+            index
+            for index, event in enumerate(events)
+            if event.startswith("device:run /bin/toybox rm -f")
+        ]
+        self.assertEqual(len(cleanup_indices), 2)
+        self.assertLess(cancel_index, cleanup_indices[-1])
+
+    def test_unacknowledged_receiver_skips_cleanup(self) -> None:
+        events: list[str] = []
+        logs: list[str] = []
+
+        class Runner:
+            error = None
+
+            def start(self) -> None:
+                return None
+
+            def is_alive(self) -> bool:
+                return True
+
+            def text(self) -> str:
+                return "run: pid=7\n"
+
+            def request_cancel(self) -> bool:
+                events.append("receiver-cancel")
+                return True
+
+            def join(self, _timeout: float) -> None:
+                return None
+
+        def device(_args: object, command: str, **_kwargs: object) -> str:
+            events.append(f"device:{command}")
+            return ""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            local = Path(tmp) / "payload"
+            local.write_bytes(b"payload")
+            args = self._install_args(local)
+            with mock.patch.object(tcpctl, "device_command", side_effect=device), \
+                    mock.patch.object(tcpctl, "best_effort_hide_menu"), \
+                    mock.patch.object(tcpctl, "BridgeRunThread", return_value=Runner()), \
+                    mock.patch.object(tcpctl.socket, "create_connection", return_value=FakeSocket()), \
+                    mock.patch.object(tcpctl, "send_file_until_deadline", side_effect=RuntimeError("blocked")), \
+                    mock.patch.object(tcpctl.time, "sleep"), \
+                    mock.patch.object(tcpctl, "log", side_effect=logs.append):
+                with self.assertRaisesRegex(RuntimeError, "blocked"):
+                    tcpctl.command_install(args)
+
+        cleanup_calls = [
+            event for event in events if event.startswith("device:run /bin/toybox rm -f")
+        ]
+        self.assertEqual(len(cleanup_calls), 1)
+        self.assertTrue(
+            any(tcpctl.RECEIVER_UNCONFIRMED_MARKER in message for message in logs)
+        )
 
 
 class DeviceCommandHelpers(unittest.TestCase):

@@ -3,7 +3,9 @@
 Build the operator-owned Galaxy A90 5G into a Debian-oriented personal server
 where native-init performs only the vendor-kernel and hardware bridge-up that
 Debian cannot yet perform, then transfers PID 1 and the steady-state runtime to
-the immutable SD-backed Debian root with `switch_root`.
+the existing UFS-backed Debian appliance root with `switch_root`. The current
+SD-backed resident remains the controlled fallback until that UFS path is
+requalified under the current contract and execution closure.
 
 `AGENTS.md` and `docs/operations/targets/A90_TARGET_CONTRACT.md` are binding.
 This file records current state and the next bounded unit; it grants no device
@@ -23,6 +25,26 @@ The pre-H2 goal history is preserved at
   chime, then dispatches the existing one-shot handoff. Any unarmed, latched,
   cache-refused, or failed return restores the full native service path without
   replay.
+- H13 run08 reached attended rootfs staging but stopped before candidate intent.
+  The host payload socket incorrectly retained its 10-second connection timeout
+  during the 2 GiB send, timed out under SD backpressure, and then queued cleanup
+  behind the still-active receiver. The F1 journal is terminal
+  `ABORTED_F1_V2_BEFORE_CANDIDATE`; candidate/rollback boot transfers, flash,
+  and runner reboot are all zero, and run08 must not be retried or reused.
+- After operator physical reboot, fresh exact-target reads re-proved H11
+  `0.11.179`, self-test `11/1/0`, responsive serial/TCP control, mounted SD,
+  and 96.9 percent CPU idle. The run08 final and work paths are absent. Its
+  private stage directory retains one 486,818,512-byte partial temporary file;
+  that exact residue stays preserved until a represented cleanup is selected.
+- The host repair gives file sending one overall transfer deadline independent
+  of connect timeout, cancels a bridge receiver once before cleanup, requires a
+  terminal receiver acknowledgement, and makes the staging parent suppress a
+  second cleanup when receiver state is unknown. Independent `PASS_GO` at
+  execution closure `e66c3e9d` has HIGH/MEDIUM/LOW zero and 230 main plus 230
+  reviewer tests. It qualifies only this repair and grants no run08 retry,
+  staging/F1, UFS, or device authority. Because this is a new transfer incident,
+  the prior H13 `PASS_GO`, manifest, D0, and compatibility approval are not
+  reusable.
 - The fresh Phase3 network/SSH rootfs, H11 marker namespace, deterministic A/B
   boot, exact compiled binding, and benchmark execution closure are bound by a
   42-path independent review. `PASS_GO` has HIGH/MEDIUM/LOW zero and grants no
@@ -672,20 +694,35 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: Fresh Non-LTO Control with NCM-First Observation
+## Selected Bounded Unit: H13 Transfer-Incident Closure, Then UFS Direct Root
 
-Preserve H7, H8, and H10 F1/D1 runs, consumed namespaces, journals, private
-evidence, and no-replay conclusions. H10 is the exact installed healthy
-resident. Never resume its terminal F1 or D1 transaction, reset or reuse an old
-latch, or reinterpret missing historical host-link proof as a failed device
-handoff.
+Preserve every terminal H7-H13 F1/D1 run, consumed namespace, journal, private
+evidence item, and no-replay conclusion. H11 remains the exact installed
+healthy resident. Never resume run08 staging or its F1 transaction, reuse its
+approval, or treat its partial temporary file as a published rootfs.
 
-The next bounded work is host preparation for one fresh replacement identity
-and fresh rootfs destination that keeps the same non-LTO source-integrity
-optimization. After its immutable closure and fresh binding are ready, one
-attended control cycle may exercise the reviewed NCM-first observer. It must
-prove exact Debian NCM continuity through SSH and service, same-intent PID1 and
-DRM evidence, later native ACM return, cleanup, and final resident health.
+First close the SD transfer incident as a separate bounded repair. Its transfer
+deadline, single cancel, terminal acknowledgement, parent cleanup suppression,
+and host-timeout evidence passed independent review at closure `e66c3e9d`; record
+and commit that exact closure. This repair does not authorize another run08
+attempt or a fresh SD-root campaign.
+
+The following separate bounded unit is host design and read-only revalidation
+for the existing ext4 `A90D4ROOT` appliance on `/dev/block/a90-userdata`, which
+already has historical Debian PID1, root mount, SSH, and display proof. Preserve
+its bytes: do not format, populate, repair, or otherwise mutate userdata. Bind
+its current filesystem identity, appliance marker, `/sbin/init`, and required
+runtime files; then qualify the exact direct-UFS handoff, fallback, observer,
+and recovery closure under the current target contract. Amend the contract only
+if that analysis proves the existing D1/F1 lanes do not represent the effect.
+
+Only after that closure passes independent review may a fresh boot-only resident
+candidate be prepared. It must reuse the existing UFS appliance rather than
+stage or copy another 2 GiB rootfs through SD. Fresh D0, rollback/recovery proof,
+immutable manifest, and attended live binding remain required. One attended
+control cycle must then prove exact Debian NCM continuity through SSH and
+service, same-intent UFS root/PID1/DRM evidence, later native ACM return,
+cleanup, and final resident health.
 
 Only after that fresh control produces full host-link proof and a comparable
 benchmark may Full-LTO become the following bounded candidate. Receipt
