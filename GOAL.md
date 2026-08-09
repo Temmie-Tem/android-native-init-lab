@@ -64,14 +64,14 @@ waits, while the remaining 140 seconds must be proved as actual non-wait
 overhead rather than assumed. Outer deadline is `NO_PROOF_OBSERVER`; measured
 inner RUN_STOP `-ETIMEDOUT` is a controller result.
 
-The adjacent final pair must be durable before the exact ACM banner can be
-written. Qualification must enumerate every encoder output through the actual
-runtime, checkpoint, fixed-Image, model, decoder, position, and Process-v2
-gates and emit a hash-bound hazard-closure artifact covering prior observer
-failures plus the new record, timing, banner-order, PM-fence, and tuple-delta
-contracts. One focused independent review is required for the changed
-runtime/schema. The fixed Image and kernel remain unchanged, so this
-userspace-only implementation does not require Full-LTO.
+The Process-v2 endpoint window and CDC guard use different clocks: the former starts after Download departure and remains exactly 300 seconds, while the latter arms before Download but cannot exceed its 360-second default on the current path.
+Host bounds total 580 seconds before observation and 880 seconds including it. P3.13 must derive, pass, bind, and receipt a longer lifetime plus proved overhead, preserve pre/post-acceptance expiry semantics,
+and qualify the common machinery with an independent three-case fake-clock fixture.
+
+The adjacent final pair must be durable before the exact ACM banner can be written. Qualification must enumerate every encoder output through the actual runtime, checkpoint, fixed-Image, model, decoder,
+position, and Process-v2 gates and emit a hash-bound hazard-closure artifact covering prior observer failures plus the new record, timing, banner-order, PM-fence, and tuple-delta contracts.
+One focused independent review covers the changed runtime/schema and common observer lifetime/receipt closure. The fixed Image and kernel stay unchanged, so the candidate/host userspace implementation
+needs no Full-LTO; the changed execution closure still requires a fresh exact binding.
 
 P3.08 was an earlier closed live unit. Focused independent review returned
 `PASS_GO` for the exact loss-resistant observer and Process-v2 closure. The

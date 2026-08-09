@@ -7,13 +7,13 @@ Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` /
 
 Verdict: `DESIGN_COMPLETE_P313_POST_BIND_RESUME_CYCLE_HOST_ONLY`
 
-Revision: direct-stream capacity and strict role-QSCRATCH correction,
-2026-08-10 KST
+Revision: host-guard lifetime and independent-fixture correction following the
+direct-stream and strict role-QSCRATCH corrections, 2026-08-10 KST
 
 ## Outcome
 
-P3.13 is frozen as a userspace-only successor design. It tests one post-bind
-parent-role cycle:
+P3.13 is frozen as a kernel-artifact-invariant successor design. It tests one
+post-bind parent-role cycle:
 
 ```text
 bound peripheral
@@ -30,10 +30,13 @@ state or host visibility. The cycle is attempted only after a same-boot direct
 path fence proves that the original bind did not enumerate late.
 
 P3.13 does not alter the fixed Image, kernel patch, module plan, rollback,
-transfer machinery, or Carrier-v2 size. Implementation is limited to the
-native-init runtime, generated trace descriptor, candidate-specific telemetry
-model/decoder, and host qualification. Full-LTO is not required while those
-kernel and artifact inputs remain byte-identical.
+transfer machinery, or Carrier-v2 size. Implementation covers the native-init
+runtime, generated trace descriptor, candidate-specific telemetry
+model/decoder, host qualification, and the common Process-v2 CDC guard
+lifetime/receipt plumbing named below. Full-LTO is not required while the
+kernel and artifact inputs remain byte-identical, but the changed common host
+observer is execution-critical closure and requires focused independent
+review and a fresh exact binding.
 
 This document freezes design only. No candidate has been built, no F1 is
 armed, and it grants no device authority. The consumed P3.12 candidate is not
@@ -436,6 +439,60 @@ Qualification must distinguish:
 Any future timeout change must recompute the complete runtime, Process-v2
 observer, and transient guard lifetimes together.
 
+### Host ACM Guard Lifetime
+
+The candidate endpoint window and the transient CDC ACM guard use different
+clocks. The 300-second endpoint window begins only after Download departure.
+The guard deadline begins after the udev rule is armed, before the Download
+request, and must remain live through endpoint observation and the release
+command. Device-side direct and cycle waits consume the 300-second endpoint
+window; they are not added after it.
+
+The current Process-v2 host bounds from guard arm to the start and completion
+of endpoint observation are:
+
+| Host step | Bound |
+|---|---:|
+| Download request | 20 s |
+| Download endpoint wait | 180 s |
+| endpoint revalidation | 20 s |
+| Odin candidate transfer | 240 s |
+| Download departure wait | 120 s |
+| candidate endpoint observation | 300 s |
+| **configured subtotal** | **880 s** |
+
+The current guard child has `MAX_SEC=360`, and `observer_session()` does not
+pass the lower-level `max_sec` argument, so the reviewed Process-v2 path cannot
+reach the existing lifetime-rewrite support. P3.12 happened to release its
+guard after 313.573 seconds, leaving 46.427 seconds, but that measurement does
+not bound the allowed host path above.
+
+P3.13 implementation must derive the guard lifetime from the exact host
+timeouts plus a proved bound for scheduling, receipt persistence, trace
+startup/cleanup, and release-command overhead. A 900-second value is valid
+only if qualification proves that the overhead outside the 880-second
+subtotal is at most 20 seconds; otherwise it must select a larger value within
+the already reviewed 7200-second ceiling. `observer_session()` must pass the
+derived value to `ModemManagerGuard.arm()`. The exact value and actual
+arm-to-release elapsed time must be approval-bound: the selected `max_sec`
+must be persisted in the arm receipt and the measured elapsed time in the
+release receipt.
+
+The existing asymmetric expiry semantics remain invariant:
+
+- acceptance while the guard is healthy remains valid if the guard expires
+  only during later cleanup, with a non-tainting warning;
+- expiry before acceptance cannot support proof and retains the exact
+  `candidate_observer_guard_expired_rollback_verified` outcome; and
+- normal release remains the preferred success path.
+
+This common observer change requires its own fake-clock and receipt-round-trip
+fixture, independent of P3.13 device-runtime fixtures. It must cover a banner
+accepted immediately before expiry, expiry before any banner, and acceptance
+followed by cleanup-time expiry. P3.13 additionally requires an end-to-end
+timing fixture proving its final-pair-before-banner path fits inside the exact
+300-second endpoint window.
+
 ## Same-Boot Digital Tuple
 
 P3.13 compares the direct bind baseline with the post-cycle start in the same
@@ -544,6 +601,7 @@ It must map each named prior or current hazard to an executable proof:
 | direct capacity confusion | streaming trigger, 10/22/23 prefix, and ring-loss fixtures |
 | record undercount | role 5, cycle 37/45/65, and per-event ceilings |
 | timeout collapse | independent stop/restart deadlines, internal/outer split, and total-overhead proof |
+| host guard underbound | source-derived lifetime, bound receipts, and three-way expiry fixture |
 | early banner | no exact banner call before final publication; exactly one bounded call after |
 | tuple hand-join | same-boot direct/post-cycle tuple comparison and pointer contradiction |
 
@@ -570,14 +628,19 @@ sources rather than an ancestor runtime:
 7. prove trace/profile/ring cleanup on success and every error branch;
 8. prove the 160-second waits plus bounded non-wait overhead remain below the
    exact 300-second observer; the 140-second remainder is not itself proof;
-9. emit and validate the hazard-closure artifact;
-10. cross-compile touched C and run focused Python validation; and
-11. receive one focused independent review of the changed runtime/schema.
+9. derive and bind a guard lifetime covering the 880-second configured host
+   subtotal plus proved overhead, pass it through the real Process-v2 path,
+   round-trip its receipts, and execute the three independent expiry fixtures;
+10. emit and validate the hazard-closure artifact;
+11. cross-compile touched C and run focused Python validation; and
+12. receive one focused independent review of the changed runtime/schema and
+    common observer lifecycle/receipt closure.
 
-If any fixed-Image hook, kernel source, module plan, checkpoint ABI, carrier
-size, transfer machinery, rollback, or recovery closure changes, this design's
-userspace-only conclusion is invalid. Recompute the source contract and apply
-the review/Full-LTO requirements of the changed layer.
+The common host-observer change above is part of this design and must be
+exact-bound and reviewed. If any fixed-Image hook, kernel source, module plan,
+checkpoint ABI, carrier size, transfer machinery, rollback, or recovery
+closure changes beyond that observer change, recompute the source contract and
+apply the review/Full-LTO requirements of the changed layer.
 
 ## Authority State
 
