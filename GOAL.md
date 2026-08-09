@@ -52,13 +52,17 @@ returns, and compare direct and post-cycle QSCRATCH, DWC3 state, and event
 configuration. Direct pullup re-entry, unbind, force path, or late direct
 activity prevents cycle attribution.
 
-The cycle uses a dedicated 25-event set, not the inherited 29-event set. Its
-source-derived clean ceiling is 37 records and one bounded path-drift ceiling
-is 45, below both the 64-record and 64-KiB trace limits. Stop and restart keep
-independent 30-second deadlines; the complete bounded userspace waits total
-160 seconds inside the 300-second Process-v2 observation window. An outer
-deadline is `NO_PROOF_OBSERVER`, while a measured inner RUN_STOP
-`-ETIMEDOUT` is a controller result.
+The cycle uses a dedicated 25-event set, not the inherited 29-event set. Role
+strictly consumes one fifth QSCRATCH record (`5/64`) while preserving the
+parent four-event semantics only as a differential fixture. Direct remains a
+CONNECT_DONE-triggered streaming observer, not a 64-record parser: clean
+prefix 10, one bounded drift through 22, and 23-or-more multiplicity are
+distinct. Overflow alone never proves direct success and always prevents the
+cycle. The generic cycle ceilings remain 37 clean and 45 bounded drift. Stop
+and restart have independent 30-second deadlines; 160 seconds covers bounded
+waits, while the remaining 140 seconds must be proved as actual non-wait
+overhead rather than assumed. Outer deadline is `NO_PROOF_OBSERVER`; measured
+inner RUN_STOP `-ETIMEDOUT` is a controller result.
 
 The adjacent final pair must be durable before the exact ACM banner can be
 written. Qualification must enumerate every encoder output through the actual

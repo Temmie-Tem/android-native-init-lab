@@ -7,6 +7,9 @@ Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` /
 
 Verdict: `DESIGN_COMPLETE_P313_POST_BIND_RESUME_CYCLE_HOST_ONLY`
 
+Revision: direct-stream capacity and strict role-QSCRATCH correction,
+2026-08-10 KST
+
 ## Outcome
 
 P3.13 is frozen as a userspace-only successor design. It tests one post-bind
@@ -88,9 +91,11 @@ The exact FYG8 source and fixed Image establish the following facts.
    `s22_p300_dwc3_event_config_snapshot()` after every successful
    `dwc3_gadget_run_stop(..., true)`. No kernel change is needed to compare
    direct and post-cycle state.
-8. The runtime trace text buffer is 65,536 bytes, the parsed-record cap is 64,
-   the per-line bound is 1,024 bytes, and a phase may register at most 30
-   events.
+8. Role and cycle use the generic 65,536-byte snapshot parser with a 64-record
+   cap and 1,024-byte line bound. Direct bind uses the P3.00 streaming parser,
+   a separate prefix array, a 65,536-byte trace ring, and a first-CONNECT_DONE
+   `traceoff:1` trigger. A phase may register at most 30 events. The generic
+   64-record cap must not be applied to the direct stream.
 9. The fixed checkpoint geometry provides ordinal 105 PROGRESS exact rules
    for all `0xD00..0xDAF` values and broad FAILURE bands in
    `(0x4000,0x4FFF]`, `(0x5000,0x5FFF]`, and `(0x6000,0x6FFF]`.
@@ -140,11 +145,17 @@ same bounded opportunity to enumerate. P3.13 therefore uses this order:
 3. Retain the direct-path state and event-config snapshots.
 4. Hold a 30-second direct fence while sampling canonical UDC state and speed
    every 100 ms and retaining the existing CONNECT_DONE observer.
-5. If configured/high-speed or CONNECT_DONE appears, classify
-   `DIRECT_LATE_SUCCESS`, publish the final pair, and do not cycle.
+5. If canonical configured/high-speed appears, classify
+   `DIRECT_LATE_SUCCESS`, publish the final pair, and do not cycle. A retained
+   CONNECT_DONE is also sufficient only when its trigger, stream, pointer,
+   pairing, and ring-integrity contracts are clean. Exact host enumeration is
+   correlated later by Process-v2; it is not an input available to the device
+   runtime's branch decision.
 6. If any other non-baseline direct activity appears, classify direct-path
    activity and do not attribute a later result to the cycle.
-7. Close, parse, validate, and clean the direct observer.
+7. Close, parse, validate, and clean the direct observer. Capacity or ring loss
+   without an independent positive witness is `NO_PROOF_DIRECT_OBSERVER`; it
+   never becomes `DIRECT_LATE_SUCCESS`, and the cycle is not attempted.
 8. Arm the dedicated cycle observer and immediately re-read UDC state/speed.
    Any change in the cleanup/setup gap is direct-path drift and prevents cycle
    attribution.
@@ -281,12 +292,74 @@ The role phase separately expands from four to five events by adding the same
 QSCRATCH descriptor. The direct bind phase retains its existing 15-event set.
 Each phase owns setup, readback, profile, ring, parse, and cleanup separately.
 
+P3.13 must not merely append role event index 4 to the descriptor. The parent
+role parser rejects every event index above 3. A P3.13-specific strict role
+path must consume one QSCRATCH record from the same start-peripheral PID after
+the child-PM callsite witness and before `start_peripheral_out`. Missing,
+duplicate, foreign-PID, malformed, or misordered QSCRATCH is fail-closed.
+Legacy P3.12 four-event behavior remains a differential regression target; it
+does not authorize a P3.13 run to omit the required fifth record.
+
 `__dwc3_gadget_ep_enable`, endpoint disable, and disconnect callbacks are not
 in the P3.13 cycle set. They can execute on the source path, but execution does
 not create a trace record without an enabled descriptor. They remain part of
 the timing/state audit and consume zero entries in the record budget.
 
 ## Record and Text Budget
+
+The three phases have different storage contracts and are budgeted
+independently.
+
+### Role phase
+
+One clean role transition emits exactly five records:
+
+| Role source | Records |
+|---|---:|
+| `start_peripheral_in/out` | 2 |
+| parent- and child-PM callsite returns | 2 |
+| QSCRATCH witness | 1 |
+| **clean total** | **5** |
+
+The generic parser therefore uses `5 / 64`, with at most 5,120 bytes under the
+1,024-byte line bound. Qualification must run the parent four-event fixture
+unchanged, the exact P3.13 five-event fixture, and missing, duplicate,
+foreign-PID, malformed, and misordered index-4 fixtures. The four-event fixture
+proves legacy semantic preservation only; P3.13 strict mode must reject it as
+missing QSCRATCH.
+
+### Direct phase
+
+Direct bind does not use the generic 64-record array. Its non-IRQ prefix is
+streamed into a dedicated array. The exact clean direct branch has ten prefix
+records:
+
+| Direct prefix source | Records |
+|---|---:|
+| pullup entry/return | 2 |
+| gadget-start entry/return | 2 |
+| EP0 OUT/IN enable entries | 2 |
+| RUN_STOP entry/return | 2 |
+| state and event-config snapshots | 2 |
+| **clean prefix** | **10** |
+
+The inherited prefix capacity of 16 is not sufficient to retain a complete
+second bounded path. P3.13 expands the direct prefix capacity to 32. One
+bounded re-entry can add at most twelve prefix records: the clean ten plus an
+outer runtime-resume entry/return pair. A prefix count of 11--22 is direct-path
+drift and prevents the cycle; 23 or more is multiplicity/source contradiction.
+The clean branch remains exactly 10.
+
+IRQ, thread, and raw device-event records remain a data-dependent stream. The
+existing `traceoff:1 if type == 2` action freezes the first CONNECT_DONE before
+post-connect EP0 traffic can grow the trace. P3.13 claims no success from ring
+pressure. A pre-trigger storm, overwrite, dropped event,
+`entries_in_buffer != entries_written`, pointer disagreement, or incomplete
+IRQ pair is observer/path failure and prevents the cycle. Qualification must
+exercise clean prefix 10, bounded drift 22, multiplicity 23, a clean
+RESET-to-CONNECT_DONE trigger, and ring-loss/entries-mismatch fixtures.
+
+### Cycle phase
 
 The budget is derived from the new post-bind source path and enabled
 descriptors, not from P3.12 measurements.
@@ -319,7 +392,8 @@ text at drift ceiling: 45 * 1024 = 46,080 / 65,536
 text headroom: 19,456 bytes
 ```
 
-More multiplicity is a path/observer contradiction. A 65th parsed record is
+More multiplicity is a path/observer contradiction. In the generic cycle
+parser, a 65th parsed record is
 `-P260_EOVERFLOW` and `NO_PROOF_OBSERVER`, never a USB conclusion.
 Qualification must execute 37-, 45-, and 65-record fixtures and per-event
 ceiling fixtures against the materialized parser.
@@ -340,9 +414,19 @@ The bounded userspace waits are:
 | post-pair banner attempt | 5 s |
 | **total bounded waits** | **160 s** |
 
-The Process-v2 candidate endpoint window is 300 seconds, leaving 140 seconds
-for boot, module load, trace setup/cleanup, and host transition overhead. No
-deadline increase is justified by the current transitive audit.
+The Process-v2 candidate endpoint window is 300 seconds. The 160-second sum
+therefore leaves an arithmetic remainder of 140 seconds for boot, module load,
+trace setup/cleanup, and host transition overhead. That subtraction is not a
+measured overhead bound. P3.12 retained no native-init monotonic milestones
+that can prove this remainder by inheritance.
+
+Before packaging, qualification must account for materialized-runtime entry,
+the complete module loop, every role/direct/cycle trace setup and cleanup, and
+final-pair durability. It must prove bounded waits plus non-wait overhead fit
+inside the exact 300-second observer. If the non-wait overhead cannot be
+bounded within 140 seconds, implementation must add a global absolute guard
+and recompute the Process-v2 observer and recovery lifetimes; residual
+arithmetic alone is insufficient.
 
 Qualification must distinguish:
 
@@ -423,18 +507,21 @@ generic or inherited decoder must fail closed.
 
 | Observation | Result |
 |---|---|
-| direct configured/high or CONNECT_DONE before cycle | direct late success; no cycle attribution |
+| direct configured/high before cycle | direct late success; no cycle attribution |
+| integrity-clean direct CONNECT_DONE before cycle | direct late success; no cycle attribution |
 | other direct or cleanup-gap activity | direct/path result; no cycle attribution |
 | post-cycle configured/high plus exact host evidence | cycle effect proved |
 | post-cycle silence and delta mask zero | cycle refuted with digital tuple equality; analog remains open |
 | post-cycle silence and nonzero delta | changed digital boundary; follow the mask |
 | measured inner negative return | exact controller/device boundary |
 | pullup, unbind, force path, multiplicity, or nesting drift | no cycle causal claim |
-| unavailable/lost/malformed observer or capacity overflow | `NO_PROOF_OBSERVER` |
+| direct observer loss without configured/high | `NO_PROOF_DIRECT_OBSERVER`; no cycle |
+| cycle observer unavailable/lost/malformed or capacity overflow | `NO_PROOF_OBSERVER` |
 
 No terminal register tuple alone proves enumeration. Positive proof still
-requires the target contract's exact host observation, rollback, and final
-health.
+requires Process-v2 to correlate the target contract's exact host observation,
+rollback, and final health. Host evidence cannot retroactively authorize the
+device runtime to continue into the cycle after a direct-observer loss.
 
 ## Hazard-Closure Qualification Artifact
 
@@ -453,8 +540,10 @@ It must map each named prior or current hazard to an executable proof:
 | P3.08 tracefs ABI | every generated descriptor passes source-derived ABI audit |
 | swallowed inner return | outer zero plus inner negative remains a device result |
 | child/parent PM race | both suspended and both active fences exercised |
-| record undercount | source-derived 37/45/65 fixtures and per-event ceilings |
-| timeout collapse | independent stop/restart deadlines and internal/outer split |
+| role-parser extension | parent four-event differential plus strict index-4 success/failure matrix |
+| direct capacity confusion | streaming trigger, 10/22/23 prefix, and ring-loss fixtures |
+| record undercount | role 5, cycle 37/45/65, and per-event ceilings |
+| timeout collapse | independent stop/restart deadlines, internal/outer split, and total-overhead proof |
 | early banner | no exact banner call before final publication; exactly one bounded call after |
 | tuple hand-join | same-boot direct/post-cycle tuple comparison and pointer contradiction |
 
@@ -471,14 +560,16 @@ sources rather than an ancestor runtime:
    cycle descriptors;
 3. validate descriptor group, event, probe-kind/`$retval`, register, type,
    symbol, and parser-table authority;
-4. execute all role, direct, stop, restart, timeout, path-drift, record-budget,
-   banner-order, and tuple-delta fixtures;
+4. execute the legacy four-event and strict five-event role fixtures, direct
+   10/22/23-prefix and trigger/ring fixtures, and all stop, restart, timeout,
+   path-drift, cycle 37/45/65-record, banner-order, and tuple-delta fixtures;
 5. enumerate every actual A/B encoder output through runtime publication,
    checkpoint client, fixed Image gate, model, decoder, and Process-v2
    evidence adapter;
 6. validate all 107 position calls and adjacent final-pair geometry;
 7. prove trace/profile/ring cleanup on success and every error branch;
-8. prove the 160-second bound remains below the exact 300-second observer;
+8. prove the 160-second waits plus bounded non-wait overhead remain below the
+   exact 300-second observer; the 140-second remainder is not itself proof;
 9. emit and validate the hazard-closure artifact;
 10. cross-compile touched C and run focused Python validation; and
 11. receive one focused independent review of the changed runtime/schema.
