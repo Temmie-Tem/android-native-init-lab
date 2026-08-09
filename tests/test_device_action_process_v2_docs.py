@@ -473,7 +473,14 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             normalized_goal,
         )
         self.assertIn(
-            "it is not an approval or prepared live run", normalized_goal
+            "One fresh exact-S22 D0 preparation now binds", normalized_goal
+        )
+        self.assertIn(
+            "The prepared record reopens successfully but is not an approval",
+            normalized_goal,
+        )
+        self.assertIn(
+            "`f1_authorized=false` and `live_authorized=false`", normalized_goal
         )
         self.assertIn("No F1 is armed", normalized_goal)
         self.assertIn("role: strict five events, `5/64`", normalized_goal)

@@ -37,9 +37,11 @@ P3.13 H0 implementation and qualification are complete. Its frozen design and
 realized capability are recorded in
 `docs/reports/S22PLUS_FYG8_P313_POST_BIND_RESUME_CYCLE_DESIGN_H0_2026-08-10.md`.
 The canonical manifest `s22plus-fyg8-p313-process-v2-ready-1` is
-`ready-for-f1-approval`; it is not an approval or prepared live run. No F1 is
-armed, no device command was issued, and no device action follows from this
-goal.
+`ready-for-f1-approval`. One fresh exact-S22 D0 preparation now binds the
+clean retained baseline, candidate, rollback, USB sidecar, 1,200-second guard,
+and current execution closure. The prepared record reopens successfully but
+is not an approval: `f1_authorized=false` and `live_authorized=false`. No F1 is
+armed and no candidate transfer has begun.
 
 ## P3.13 Bounded Unit
 
@@ -151,10 +153,14 @@ approval waiver. H0 implementation may proceed without device contact; any
 future D0, D1, or F1 must satisfy the ordinary live common/target authority and
 fresh exact binding requirements.
 
-The exact S22+ was healthy at the P3.12 close. Physical Download recovery and
-the exact Magisk rollback remain the required F1 recovery path. No candidate
-may be written over an unhealthy or unverified device; rollback never waits
-after candidate execution begins, and a consumed candidate is never replayed.
+The exact S22+ was healthy at the P3.12 close. Before P3.13 preparation, one
+approved normal-Android baseline-rotation reboot changed the boot ID and
+returned rooted completed FYG8 Android with boot, vendor_boot, recovery, and
+dtbo identities unchanged. The subsequent fresh D0 passed. Physical Download
+recovery and the exact Magisk rollback remain the required F1 recovery path.
+No candidate may be written over an unhealthy or unverified device; rollback
+never waits after candidate execution begins, and a consumed candidate is
+never replayed.
 
 P3.02 passive electrical attribution remains parked because no reviewed safe
 inline breakout is available. A clean P3.13 digital refutation does not prove
