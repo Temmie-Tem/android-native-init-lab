@@ -16,6 +16,176 @@
     ]
   },
   "named_execution_critical_closure": {
+    "workspace/public/src/harness/a90harness/evidence.py": {
+      "bytes": 11723,
+      "sha256": "3b0aaa36a95628591e14c4c2d70ae4941230fe650b6e4d517173cee5d3019742"
+    },
+    "workspace/public/src/native-init/a90_auto_handoff.c": {
+      "bytes": 23989,
+      "sha256": "c629b4725757a956e9ab566cc4343ce23ca72ac469801351a44d4ebc682d32af"
+    },
+    "workspace/public/src/native-init/a90_benchmark.c": {
+      "bytes": 10687,
+      "sha256": "66e6cdbc8862000c3d53c3cad7af2eaa8add490d77ca435358fe8a698898ec14"
+    },
+    "workspace/public/src/native-init/a90_config.h": {
+      "bytes": 5378,
+      "sha256": "cb9ec34fbdff39007afe90ca7f2c5184b37952b73e8421f22e4ea6ef6ee76df2"
+    },
+    "workspace/public/src/native-init/a90_server_distro.c": {
+      "bytes": 172431,
+      "sha256": "00b4f21ff2e86c9d17150f78d8c4a5a429a1ced61d6b4a64b0ce675d15c722eb"
+    },
+    "workspace/public/src/native-init/v724/90_main.inc.c": {
+      "bytes": 273923,
+      "sha256": "0ef2e2bf067ce7659c90b248c77d1d8d0c5e998d3c3d1702d6e28fc302397c88"
+    },
+    "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py": {
+      "bytes": 1255,
+      "sha256": "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe"
+    },
+    "workspace/public/src/scripts/revalidation/a90_bridge.py": {
+      "bytes": 40549,
+      "sha256": "7bacce5a61f6745d4dfb0b7f89ffffc478d4e74fd6a1559d20718793668414e9"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py": {
+      "bytes": 26556,
+      "sha256": "11176f7ce017b8f03e0adb0891e4396082ba543c015775ed39a8f33bd1ad8b37"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/buildlib.py": {
+      "bytes": 25644,
+      "sha256": "f031330fbe3fcb262a5d100157636ff731823360b6214cd2ad96a276c0a1cd3c"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h/manifest.toml": {
+      "bytes": 7594,
+      "sha256": "274ba48788296439c79fe8d17ae67f65e586300039455985d22e2f334c1b3487"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h10/manifest.toml": {
+      "bytes": 8631,
+      "sha256": "57ffe40e9c85b86833db254b14cb05eddbf5feb3e83e1b7fb25aaf056066c4f7"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h11/manifest.toml": {
+      "bytes": 8828,
+      "sha256": "3c74d41fe7578c454a50fb4148371786fb2727d4f9e02086e6ac9f0fe291cada"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h7/manifest.toml": {
+      "bytes": 8210,
+      "sha256": "12b0f4e818e4de2c2f83e2f4d4d42466d3924f0124082c812eb65f68d7acca65"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h8/manifest.toml": {
+      "bytes": 8149,
+      "sha256": "dbdc006a71873a7baddf9bc2ee70dd49c49d1293819d767b24be7e943ef35f37"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h9/manifest.toml": {
+      "bytes": 8621,
+      "sha256": "8054fb53fa047f6357be464582971bc4d87e22581650c4ef6465cd44a6043341"
+    },
+    "workspace/public/src/scripts/revalidation/a90_observation_pipeline.py": {
+      "bytes": 24478,
+      "sha256": "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb"
+    },
+    "workspace/public/src/scripts/revalidation/a90_serial_lock.py": {
+      "bytes": 2860,
+      "sha256": "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7"
+    },
+    "workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py": {
+      "bytes": 13734,
+      "sha256": "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e"
+    },
+    "workspace/public/src/scripts/revalidation/a90ctl.py": {
+      "bytes": 16380,
+      "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c"
+    },
+    "workspace/public/src/scripts/revalidation/native_init_flash.py": {
+      "bytes": 43118,
+      "sha256": "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
+    },
+    "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py": {
+      "bytes": 17944,
+      "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98"
+    },
+    "workspace/public/src/scripts/revalidation/tcpctl_host.py": {
+      "bytes": 34750,
+      "sha256": "032f3146ddc08af82f00881ae3d825066e843a41b194ee8d4c8cf09d1f3adb78"
+    },
+    "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py": {
+      "bytes": 125242,
+      "sha256": "35c319006ad47718af16bb6060743e9a0cd4e2339072841c26d6368a93da3db4"
+    },
+    "workspace/public/src/scripts/server-distro/a90_boot_benchmark_v1.py": {
+      "bytes": 20877,
+      "sha256": "dc8dc57697660ebae57516679d7a2bac97a22e640ae89c5efb808f9861806ce7"
+    },
+    "workspace/public/src/scripts/server-distro/a90_ondevice_evidence_v1.py": {
+      "bytes": 23716,
+      "sha256": "f57d7612c915d46b4190ab208f7b6320099576dc440c0999c6328fd756d11e2c"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_connected_preflight.py": {
+      "bytes": 21929,
+      "sha256": "c84f7e8d1054df6f095ce13a0bb4c3f057a6d0f4244b77f12b5c87f89edaa6d8"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_display_observer.py": {
+      "bytes": 648,
+      "sha256": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_finalize_f1.py": {
+      "bytes": 68619,
+      "sha256": "0a6ea3bada9f5b367810dc29903545648b4b7f480751ea74dde438bcea51d8e2"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase3_network_ssh_keyed_rootfs_v1.py": {
+      "bytes": 25226,
+      "sha256": "178b038eecc220e393e6d40718fe56e882cee55978f6228ee25cc1bbd3fb2f53"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_fast_handoff_v1.py": {
+      "bytes": 12037,
+      "sha256": "da695df326ac347baad2f31c4117ec564ea4cc4181605f397da8105d68e24c47"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_manifest_builder_v1.py": {
+      "bytes": 52761,
+      "sha256": "d0a7f6309f37bbfc900e1757a63924f74226e9ff7a35ff7bee3966c0407e5d40"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py": {
+      "bytes": 73823,
+      "sha256": "1fae5f200c7d0e0c0b5035440f5caf048b3b669b1c7d0d7802629fe72dfe6d3c"
+    },
+    "workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py": {
+      "bytes": 144972,
+      "sha256": "309d688ed46d128866c9ad3ea88c7cd19f6d27ab1daa0f9a92167b81f6aebd0f"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {
+      "bytes": 106923,
+      "sha256": "a6de60e25b1585310549a9e7393764b2ce8d8d141e6d930f3d0e01ecbe9e4e9c"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {
+      "bytes": 292702,
+      "sha256": "075e876e3e7ce3c3de94601c4a9b6dbc5651c446946816a29821334a5d6c8cc9"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_network_ssh_v1.sh": {
+      "bytes": 16330,
+      "sha256": "02b3623091c21c272e19a630c6bc8b6949ffaacf60770577185161b7ffa283f8"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/a90_debian_return_arm_v1.sh": {
+      "bytes": 1187,
+      "sha256": "e83ede7fb430de98881ff7b9d18e8127bfc8bc19e4707d9ccf78410ac555faf3"
+    },
+    "workspace/public/src/scripts/server-distro/phase3_network_ssh_v1/manifest.toml": {
+      "bytes": 3486,
+      "sha256": "125d802abf51cda20b8427090bb89761c8ffd7818655318590586f9a3f826ead"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase2_display_v1_rootfs.py": {
+      "bytes": 28143,
+      "sha256": "8b44e922aba9efdf8b6877c98d6d3395c4ec34a6d6d5e47247aa3c73d7b689a1"
+    },
+    "workspace/public/src/scripts/server-distro/prepare_phase3_network_ssh_v1_rootfs.py": {
+      "bytes": 29101,
+      "sha256": "75272618da295bdafdaa823f70dd9d660c29a866a0431cbc6e849afb3115df09"
+    },
+    "workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.py": {
+      "bytes": 13928,
+      "sha256": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933"
+    }
+  },
+  "review_lifetime_closure_summary": {
     "common_cdc_guard_sha256": "764d9852824d88f182983dd85efd2c7ec09531e3be23213ab7daea091675e2b6",
     "common_cdc_guard_size": 51508,
     "effective_manifest_sha256": "abf6d91b519a10f8a9a15607fa47de6358e8a00b8f5399d5ccedd1d3e3505ec1",
@@ -75,7 +245,7 @@
   "reviewer_private_artifact_contact": "Two accidental read-only private test audits occurred. They performed no write, device, USB, or network action and emitted no private value. Their results are excluded from the verdict.",
   "reviewer_s22plus_contact": false,
   "reviewer_usb_contact": false,
-  "schema": "a90-phase3-minimal-h12-independent-review-v1",
+  "schema": "a90-phase3-resident-refresh-f1-independent-review-v1",
   "scope": {
     "candidate_authority": false,
     "candidate_boot_sha256_supplied": "fecd7e58014d00a449a99939f31a9b674b0dc0c6143697142c097c79e33f8ccf",
