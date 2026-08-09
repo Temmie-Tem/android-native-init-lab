@@ -61,23 +61,48 @@ incomplete pair remains a contradiction.
 The frozen Result Contract said multiplicity removes cycle causality but did
 not unambiguously require termination before restart. The materialized runtime
 used the stricter rule and called its terminal failure path immediately after
-the stop snapshot. A successor must not inherit that ambiguity. Malformed or
-incomplete records, profile deficit, `nmissed`, ring loss, capacity overflow,
-cleanup failure, timeout/unreaped helper, target or UDC loss, unbind, pullup,
-and force-path activity stop immediately. A complete, bounded,
-integrity-clean multiplicity may continue through exactly one restorative
-restart only under proved stop, binding, and child/parent-suspended fences; it
-must retain a pair-specific diagnostic and revoke every cycle-causal claim.
-Downstream data from that branch is diagnostic only.
+the stop snapshot. The successor must first normalize the source-required two
+off/two on pairs as clean geometry; this count-model correction does not relax
+fail-closed behavior. Only genuine contradictions remaining after that step
+are partitioned. Malformed/incomplete records, profile deficit, `nmissed`, ring
+loss, capacity or cleanup failure, timeout/unreaped helper, target/UDC loss,
+unbind, pullup, force activity, and every unclassified contradiction stop.
+Only a separately enumerated complete, bounded, integrity-clean excess-mask
+branch may qualify for exactly one diagnostic restorative restart under proved
+stop, binding, child/parent-suspended, per-pair ceiling, and no-stop-condition
+fences. It retains a pair-specific diagnostic and revokes every cycle-causal
+claim; downstream data is diagnostic only.
+
+The ten functional pair classes formerly collapsed into `0x6712` use a 10-bit
+excess-over-expected mask. `0x6c00 + mask` occupies `0x6c01..0x6fff` for all
+1,023 nonzero masks and identifies simultaneous offending pair classes with
+zero new trace records, so the 41/49 budget is unchanged. The current
+userspace terminal guard requires expansion; the inherited checkpoint client
+and fixed Image already accept all 109,461 mask-by-position failure cells. The
+range also avoids P3.11's historical `0x6801..0x680c` details.
+The generic `0x6712` stays historical-readable but is not a successor output
+for these pairs. This is userspace-only and requires no Full-LTO while the
+fixed Image remains unchanged.
 
 Host H0 now exercises all 63 contradiction values at all 107 generations:
 6,741 failure round trips pass and 6,741 progress-outcome variants fail closed.
 This closes the exact P3.13 incident family at the standalone model/decoder
 layer, not the entire Carrier seam. Successor qualification must derive an
-expected accept/reject matrix from actual runtime emit sites for all 126 A
-outputs, all 1,200 B outputs, ordinary progress zero, and all 107 positions,
-then round-trip that matrix through the real Process-v2 evidence adapter and
-persistence path.
+expected accept/reject matrix from actual runtime emit sites for all inherited
+126 A outputs, inherited 1,200 B outputs, every new successor output, ordinary
+progress zero, and all 107 positions, then round-trip that matrix through the
+real Process-v2 evidence adapter and persistence path.
+The minimum successor emitter has 2,222 B outputs, while the matrix retains
+historical `0x6712` for a 2,223-value B union and at least 251,450 cells.
+
+These obligations are registered in the machine-enforced
+`s22plus_fyg8_p313_successor_hazard_requirements_v1` contract. Its five
+mandatory entries cover source pair geometry, continuation partition, the
+full runtime-authorized Carrier matrix, pair-specific multiplicity detail, and
+qualification wiring. The future overlay must bind the requirements hash and
+call its validator before packaging; missing or failed closure blocks the
+package. Status is `registered-not-satisfied`, not a claim that a successor is
+implemented or qualified.
 
 ## P3.13 Closed Bounded Unit
 

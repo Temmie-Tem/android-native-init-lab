@@ -77,6 +77,31 @@ the exact two-off/two-on call geometry and still reject an unaccounted third
 call, an incomplete pair, counter/order disagreement, profile deficit,
 `nmissed`, or ring loss.
 
+### Pair-specific excess detail
+
+Correcting the expected geometry comes before classifying multiplicity. For
+the ten functional pair classes currently collapsed into `0x6712`, the
+successor can compute a 10-bit **excess-over-expected** mask from counters the
+parser already holds. Bit order is:
+
+`start_off`, `start_on`, `child_suspend`, `child_resume`,
+`phy_suspend_off`, `phy_suspend_on`, `power_off`, `power_on`, `phy_init`, and
+`notify_connect`.
+
+Mask zero is not emitted. `detail = 0x6c00 + mask` assigns all 1,023 nonzero
+masks to `0x6c01..0x6fff`, so simultaneous excesses retain every affected pair
+class rather than only the first. This costs no new trace event and no record;
+the 41/49 budget is unchanged.
+
+An executed H0 gate audit proves the current userspace terminal guard rejects
+this new range and therefore must change. The inherited checkpoint client and
+fixed Image accept all 1,023 values at all 107 positions with failure outcome,
+109,461 combinations each. The range is disjoint from P3.13's
+`0x6701..0x673f` and P3.11's historical `0x6801..0x680c`, and lies inside the
+existing fixed-Image `(0x6000,0x6fff]` band. The generic `0x6712`
+must remain readable for P3.13 history but must not be emitted by the
+successor for these ten pair classes. No Full-LTO is required.
+
 ## Design/runtime continuation gap
 
 The frozen Result Contract assigns pullup, unbind, force-path, multiplicity,
@@ -94,26 +119,58 @@ not collect restart/resume, RUN_STOP-on, post-cycle QSCRATCH, or final tuple
 data even though the retained bytes were well formed and the specific
 multiplicity was source-normal.
 
-This is a design/implementation semantic gap, not evidence that continuing
-would have supported a cycle-causal claim. A successor must state its policy
-explicitly:
+This is a design/implementation semantic gap, not evidence that fail-closed
+should be relaxed. The successor ordering is mandatory:
+
+1. derive and enforce the source-required expected geometry, including two
+   off and two on pairs;
+2. only after that normalization, compute missing, incomplete, or excess pair
+   conditions; and
+3. classify the remaining genuine contradiction under an explicit policy.
+
+The P3.13 count-model bug is not itself authority to continue through a real
+contradiction. A successor must state that policy explicitly:
 
 - malformed records, incomplete pairs, profile deficit, `nmissed`, ring loss,
   capacity overflow, cleanup failure, timeout or unreaped helper, target/UDC
   loss, unbind, pullup, or force-path activity remain immediate stop/no-proof
   conditions;
-- the source-forced two-off/two-on geometry is the clean path;
-- another complete, bounded, integrity-clean pair multiplicity may be retained
-  under a pair-specific diagnostic and may continue through exactly one
-  already planned restorative restart only when the stop helper, UDC binding,
-  child/parent suspended fences, and absence of the immediate-stop conditions
-  are all proved; and
+- the source-forced two-off/two-on geometry is the clean path, not a
+  contradiction and not a diagnostic-continuation case;
+- every unclassified contradiction stops by default;
+- only a separately enumerated complete, bounded, integrity-clean excess-mask
+  branch may be admitted for diagnostic continuation, and only when its pair
+  ceilings, stop-helper return, UDC binding, child/parent suspended fences, and
+  absence of every immediate-stop condition are mechanically proved; and
 - any such continued observation is diagnostic only. The drift revokes cycle
   causality and cannot be relabelled as cycle success or refutation.
 
-This split prevents a third run from discarding the downstream measurement for
-a benign, source-accounted duplicate while also avoiding the unsafe rule that
-all multiplicity or all overflow implies useful USB activity.
+This split fixes the count model without weakening fail-closed behavior. Any
+diagnostic-continuation exception is a separately proved successor feature,
+not a consequence inferred from the P3.13 false contradiction.
+
+## Machine-enforced successor hazard registration
+
+The successor requirements are registered in
+`s22plus_fyg8_p313_successor_hazard_contract.py`, not only in GOAL prose. The
+canonical JSON requirements and their SHA-256 name five mandatory closure
+entries:
+
+1. source-derived stop/final pair geometry and 41/49/64 records;
+2. expected-geometry-first continuation partition with fail-closed default;
+3. actual-encoder value-by-position accept/reject coverage through the real
+   Process-v2 adapter and persistence path;
+4. all 1,023 pair-mask details through runtime, checkpoint, fixed Image,
+   model, decoder, and adapter; and
+5. qualification wiring that binds the requirements hash, calls the validator
+   before packaging, blocks missing/failed closure, and receipts the validated
+   artifact.
+
+The validator rejects omission or mutation of any entry. Its present status is
+`registered-not-satisfied`: the contract gate exists, but no successor
+implementation or qualifying artifact is claimed. The future overlay and
+package qualification must consume this validator; merely producing a JSON
+file does not satisfy the wiring entry.
 
 ## Carrier value-position coverage
 
@@ -131,7 +188,8 @@ That is not yet the complete successor gate. Before another device action, the
 successor must generate the expected accept/reject matrix from actual runtime
 emission authority for:
 
-- all 126 A outputs, all 1,200 B outputs, and ordinary progress zero;
+- all inherited 126 A outputs, all inherited 1,200 B outputs, every new
+  successor output including the pair-mask family, and ordinary progress zero;
 - all 107 generation positions; and
 - the real Process-v2 evidence adapter and persistence path, not only the
   standalone Carrier model and decoder.
@@ -139,6 +197,13 @@ emission authority for:
 The matrix must not simply accept every Cartesian-product cell. Values that
 the runtime cannot emit at a position must be rejected. This tests the actual
 value-by-position authority without weakening fail-closed semantics.
+
+Replacing emitted generic `0x6712` with 1,023 pair-mask values gives at least
+2,222 successor B outputs (`1,200 - 1 + 1,023`). Qualification must still
+decode historical `0x6712`, so the B-value matrix union contains at least
+2,223 values. With 126 A values, progress zero, and 107 positions, the minimum
+full matrix is therefore 251,450 cells. These minima are part of the hashed
+machine requirements rather than prose-only arithmetic.
 
 ## Validation
 
@@ -148,9 +213,17 @@ value-by-position authority without weakening fail-closed semantics.
   kernel source;
 - compile and execute the actual materialized parser to reproduce `0x6712`;
 - prove the corrected 41/49/64 record arithmetic;
+- prove all 1,023 pair-mask values cost zero records, identify every affected
+  functional pair class, require a userspace guard change, and already fit the
+  checkpoint and fixed-Image gates at all positions;
 - retain the raw-vector and exclusive-identity limitations as machine-readable
   false values; and
 - execute the 6,741 positive and 6,741 negative contradiction-position cases.
+
+Five additional contract regressions prove the future hazard artifact's
+required keys, load-bearing values, requirements receipt, matrix arithmetic,
+pair-mask round trip, and packaging-wiring flags fail closed when absent or
+mutated.
 
 This H0 result authorizes no device action. If the fixed Image, hooks, module
 plan, rollback, and recovery machinery remain byte-identical, the successor

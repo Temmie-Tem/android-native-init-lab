@@ -9,9 +9,11 @@ from pathlib import Path
 from typing import Any
 
 import s22plus_fyg8_p308_cross_gate_audit as support
+import s22plus_fyg8_p313_cross_gate_audit as cross_gate
 import s22plus_fyg8_p313_postlive_carrier_model as carrier
 import s22plus_fyg8_p313_postlive_decoder as decoder
 import s22plus_fyg8_p313_runtime_fixture as runtime_fixture
+import s22plus_fyg8_p313_successor_hazard_contract as successor
 import s22plus_fyg8_p313_telemetry_spec as spec
 
 
@@ -330,6 +332,126 @@ def _position_cross_product() -> dict[str, int]:
     }
 
 
+def _pair_detail_gate_contract(root: Path) -> dict[str, Any]:
+    materialized = root / MATERIALIZED_ROOT
+    runtime = (materialized / "s22plus_fyg8_p290_e3_runtime.inc.c").read_bytes()
+    checkpoint = (materialized / "s22plus_fyg8_p290_checkpoint.c").read_bytes()
+    header = (materialized / "s22plus_r4w1e_checkpoint.h").read_bytes()
+    patch = (root / "workspace/private/outputs/s22plus_fyg8_p313/intent/candidate.patch").read_bytes()
+    details = tuple(
+        successor.encode_pair_mask(mask)
+        for mask in range(1, successor.PAIR_MASK_MAX + 1)
+    )
+    array = support._array("pair_mask_details", details)  # noqa: SLF001
+
+    runtime_tu = cross_gate._runtime_gate_tu(runtime)  # noqa: SLF001
+    runtime_main = br'''
+int main(void) {
+    (void)check_a;
+    (void)check_b;
+    for (size_t index = 0;
+         index < sizeof(pair_mask_details) / sizeof(pair_mask_details[0]);
+         ++index) {
+        if (p301_terminal_detail_allowed(pair_mask_details[index])) return 10;
+    }
+    printf("runtime-current-reject=1023\n");
+    return 0;
+}
+'''
+    runtime_tu = (
+        runtime_tu[: runtime_tu.index(b"int main(void) {")]
+        + array
+        + runtime_main
+    )
+
+    checkpoint_tu = cross_gate._checkpoint_gate_tu(  # noqa: SLF001
+        checkpoint, header
+    )
+    checkpoint_main = br'''
+int main(void) {
+    (void)check_values;
+    (void)p313_a_outputs;
+    (void)p313_b_outputs;
+    for (size_t ordinal = 0; ordinal < 107U; ++ordinal) {
+        for (size_t index = 0;
+             index < sizeof(pair_mask_details) / sizeof(pair_mask_details[0]);
+             ++index) {
+            if (!p288_detail_allowed(
+                    ordinal, S22_P233_OUTCOME_FAILURE,
+                    pair_mask_details[index])) return 20;
+        }
+    }
+    printf("checkpoint-accept=109461\n");
+    return 0;
+}
+'''
+    checkpoint_tu = (
+        checkpoint_tu[: checkpoint_tu.index(b"int main(void) {")]
+        + array
+        + checkpoint_main
+    )
+
+    kernel_tu = cross_gate._kernel_gate_tu(patch)  # noqa: SLF001
+    kernel_main = br'''
+int main(void) {
+    (void)check_values;
+    (void)p313_a_outputs;
+    (void)p313_b_outputs;
+    for (size_t ordinal = 0; ordinal < 107U; ++ordinal) {
+        for (size_t index = 0;
+             index < sizeof(pair_mask_details) / sizeof(pair_mask_details[0]);
+             ++index) {
+            if (!s22_fyg8_e1_detail_allowed(
+                    3U, ordinal, 107U, 2U,
+                    pair_mask_details[index])) return 30;
+        }
+    }
+    printf("fixed-image-accept=109461\n");
+    return 0;
+}
+'''
+    kernel_tu = (
+        kernel_tu[: kernel_tu.index(b"int main(void) {")]
+        + array
+        + kernel_main
+    )
+
+    actual = {
+        "current_runtime": support._compile(  # noqa: SLF001
+            runtime_tu, "p313-successor-pair-runtime-gate"
+        ),
+        "checkpoint": support._compile(  # noqa: SLF001
+            checkpoint_tu, "p313-successor-pair-checkpoint-gate"
+        ),
+        "fixed_image": support._compile(  # noqa: SLF001
+            kernel_tu, "p313-successor-pair-fixed-image-gate"
+        ),
+    }
+    expected = {
+        "current_runtime": "runtime-current-reject=1023\n",
+        "checkpoint": "checkpoint-accept=109461\n",
+        "fixed_image": "fixed-image-accept=109461\n",
+    }
+    if actual != expected:
+        raise AuditError(f"P3.13 successor pair detail gates differ: {actual!r}")
+    return {
+        "pair_names": list(successor.PAIR_NAMES),
+        "detail_min": successor.PAIR_MASK_DETAIL_MIN,
+        "detail_max": successor.PAIR_MASK_DETAIL_MAX,
+        "output_count": len(details),
+        "trace_record_cost": 0,
+        "historical_p311_range_disjoint": not any(
+            0x6801 <= detail <= 0x680C for detail in details
+        ),
+        "current_runtime_guard_accepts": False,
+        "successor_runtime_guard_change_required": True,
+        "checkpoint_value_position_acceptances": 109_461,
+        "fixed_image_value_position_acceptances": 109_461,
+        "full_lto_required": False,
+        "verified": True,
+    }
+
+
 def audit(root: Path) -> dict[str, Any]:
     return {
         "schema": SCHEMA,
@@ -342,6 +464,12 @@ def audit(root: Path) -> dict[str, Any]:
             "the successor still requires the runtime-authorized 1200-B-value "
             "accept-reject matrix through the real Process-v2 adapter"
         ),
+        "pair_specific_multiplicity_detail": _pair_detail_gate_contract(root),
+        "successor_hazard_registration": {
+            "requirements_sha256": successor.requirements_sha256(),
+            "requirements": successor.requirements(),
+            "qualification_status": "registered-not-satisfied",
+        },
         "device_contact": False,
         "fixed_candidate_changed": False,
         "full_lto_required_for_successor": False,

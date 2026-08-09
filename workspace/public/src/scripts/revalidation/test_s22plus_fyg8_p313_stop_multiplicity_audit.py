@@ -54,6 +54,42 @@ class P313StopMultiplicityAuditTests(unittest.TestCase):
         )
         json.dumps(self.result, sort_keys=True, allow_nan=False)
 
+    def test_pair_specific_detail_costs_no_trace_records_and_fits_fixed_gates(
+        self,
+    ) -> None:
+        detail = self.result["pair_specific_multiplicity_detail"]
+        self.assertEqual(detail["output_count"], 1_023)
+        self.assertEqual(detail["detail_min"], 0x6C01)
+        self.assertEqual(detail["detail_max"], 0x6FFF)
+        self.assertEqual(detail["trace_record_cost"], 0)
+        self.assertTrue(detail["historical_p311_range_disjoint"])
+        self.assertFalse(detail["current_runtime_guard_accepts"])
+        self.assertTrue(detail["successor_runtime_guard_change_required"])
+        self.assertEqual(
+            detail["checkpoint_value_position_acceptances"], 109_461
+        )
+        self.assertEqual(
+            detail["fixed_image_value_position_acceptances"], 109_461
+        )
+        self.assertFalse(detail["full_lto_required"])
+
+    def test_successor_hazards_are_registered_but_not_claimed_complete(self) -> None:
+        registration = self.result["successor_hazard_registration"]
+        self.assertEqual(
+            registration["qualification_status"], "registered-not-satisfied"
+        )
+        self.assertEqual(len(registration["requirements_sha256"]), 64)
+        self.assertEqual(
+            set(registration["requirements"]["hazards"]),
+            {
+                "source_derived_pair_geometry",
+                "continuation_partition",
+                "carrier_value_position_matrix",
+                "pair_specific_multiplicity_detail",
+                "qualification_wiring",
+            },
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
