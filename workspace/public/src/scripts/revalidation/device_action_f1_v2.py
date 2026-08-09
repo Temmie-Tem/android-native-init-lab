@@ -421,6 +421,14 @@ def _selected_candidate_source_contract(
         raise F1V2Error(str(exc)) from exc
 
 
+def _overridden_candidate_sources(
+    userspace_overlay_contract_id: str | None,
+) -> frozenset[str]:
+    if userspace_overlay_contract_id == typed_evidence.P311_OVERLAY_CONTRACT_ID:
+        return frozenset({"p310_telemetry_decoder"})
+    return frozenset()
+
+
 def execution_critical_source_receipts(
     acceptance: dict[str, Any],
 ) -> dict[str, dict[str, Any]]:
@@ -512,7 +520,14 @@ def execution_critical_source_receipts(
                 raise F1V2Error(
                     "versioned execution-critical source closure failed"
                 ) from exc
+            overridden_sources = _overridden_candidate_sources(
+                userspace_overlay_contract_id
+            )
+            if not overridden_sources <= set(source_data):
+                raise F1V2Error("userspace overlay source override differs")
             for name, data in source_data.items():
+                if name in overridden_sources:
+                    continue
                 receipts[f"candidate_source_{name}"] = {
                     "size": len(data),
                     "sha256": hashlib.sha256(data).hexdigest(),
@@ -522,6 +537,13 @@ def execution_critical_source_receipts(
             ):
                 root = candidate_intent.repo_root()
                 if (
+                    userspace_overlay_contract_id
+                    == typed_evidence.P311_OVERLAY_CONTRACT_ID
+                ):
+                    overlay_module = typed_evidence.p311_overlay
+                    overlay_label = "P3.11"
+                    prefix = "p311"
+                elif (
                     userspace_overlay_contract_id
                     == typed_evidence.P308_OVERLAY_CONTRACT_ID
                 ):
@@ -585,6 +607,7 @@ def execution_critical_source_receipts(
                         typed_evidence.p306_overlay,
                         typed_evidence.p307_overlay,
                         typed_evidence.p308_overlay,
+                        typed_evidence.p311_overlay,
                     }:
                         overlay_sources = {
                             name: overlay_module._read_regular(  # noqa: SLF001
@@ -596,6 +619,16 @@ def execution_critical_source_receipts(
                         }
                     else:
                         overlay_sources = overlay_module.source_bytes(root)
+                    if overlay_module is typed_evidence.p311_overlay:
+                        replacement = overlay_sources.get(
+                            "p310_telemetry_decoder_replacement"
+                        )
+                        if replacement != source_data.get(
+                            "p310_telemetry_decoder"
+                        ):
+                            raise F1V2Error(
+                                "P3.11 P3.10 decoder replacement differs"
+                            )
                 except (
                     overlay_module.OverlayContractError,
                     OSError,
@@ -923,7 +956,14 @@ def verify_candidate_source_binding(
         or set(expected_sources) != expected_keys
     ):
         raise F1V2Error("candidate source preimage is incomplete")
+    overridden_sources = _overridden_candidate_sources(
+        userspace_overlay_contract_id
+    )
+    if not overridden_sources <= set(expected_sources):
+        raise F1V2Error("candidate source override preimage differs")
     for name, source_receipt in expected_sources.items():
+        if name in overridden_sources:
+            continue
         actual = execution_sources.get(f"candidate_source_{name}")
         if (
             not isinstance(actual, dict)
@@ -941,7 +981,13 @@ def verify_candidate_source_binding(
             != userspace_overlay_contract_id
         ):
             raise F1V2Error("candidate userspace overlay selector changed")
-        required_overlays = [("p301", typed_evidence.p301_overlay)]
+        if (
+            userspace_overlay_contract_id
+            == typed_evidence.P311_OVERLAY_CONTRACT_ID
+        ):
+            required_overlays = [("p311", typed_evidence.p311_overlay)]
+        else:
+            required_overlays = [("p301", typed_evidence.p301_overlay)]
         if (
             userspace_overlay_contract_id
             == typed_evidence.P302_OVERLAY_CONTRACT_ID
