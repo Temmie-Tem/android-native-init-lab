@@ -34,10 +34,11 @@ The pre-H2 goal history is preserved at
   host-qualified at capability closure `45aa74c1` and native closure
   `ab5ce09b`; deterministic A/B boot `a8602673` binds a private build-time
   observer key, read-only firstboot overlay, and persistent native DRM HUD.
-  H17 F1/D1 execution closure `b7bc0000...e23905` now has reusable independent
+  H17 F1/D1 execution closure `d95ceb7f...55e7e` now has reusable independent
   `PASS_GO` with HIGH/MEDIUM/LOW zero after closing the same-intent physical-
-  return finding. H16 remains installed. Fresh exact D0, immutable bindings,
-  approvals, attendance, rollback, and recovery are still required for live H17.
+  return finding and the stale shared H15 health-allowlist stop. H16 remains
+  installed. Fresh immutable bindings, approvals, attendance, rollback, and
+  recovery are still required for live H17.
 - H16 `0.11.184`, build
   `phase3-minimal-h16-direct-ufs-ro-async-wifi-auto-benchmark`, is the exact
   installed healthy resident. Attended run03 wrote and read back boot-only
@@ -757,7 +758,7 @@ child that survives `switch_root`.
 The host capability has reusable independent `PASS_GO` at capability closure
 `45aa74c1...076ee` and native closure `ab5ce09b...42016`; its A/B boot is
 byte-identical at `a8602673...db814`. The F1 and D1 runners have independent
-`PASS_GO` at 41-file execution closure `b7bc0000...e23905`. They bind the exact
+`PASS_GO` at 41-file execution closure `d95ceb7f...55e7e`. They bind the exact
 H16 predecessor, private H17 receipts, V2321 rollback, fresh approvals,
 durable one-shot intent, same-intent physical return, and no replay.
 

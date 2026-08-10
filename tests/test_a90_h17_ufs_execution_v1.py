@@ -185,6 +185,35 @@ class A90H17UfsExecutionV1Tests(unittest.TestCase):
         with self.assertRaisesRegex(self.f1.ContractError, "H16 resident"):
             self.f1._baseline_inputs(manifest, result)
 
+    def test_h16_live_health_does_not_use_stale_shared_allowlist(self) -> None:
+        receipts = {
+            command: {"command": [command], "receipt": command}
+            for command in ("version", "status", "selftest")
+        }
+        with mock.patch.object(
+            self.f1.base,
+            "run_f1_cmd",
+            side_effect=lambda _args, command: receipts[command[0]],
+        ) as run_cmd, mock.patch.object(
+            self.f1.staging,
+            "validate_native_health_receipts",
+        ) as validate, mock.patch.object(
+            self.f1.staging,
+            "require_native_health",
+        ) as stale_allowlist:
+            result = self.f1.require_current_native_health(SimpleNamespace())
+        self.assertEqual(result, receipts)
+        self.assertEqual(
+            [call.args[1] for call in run_cmd.call_args_list],
+            [["version"], ["status"], ["selftest"]],
+        )
+        validate.assert_called_once_with(
+            receipts,
+            expected_version=self.f1.CURRENT_VERSION,
+            expected_build=self.f1.CURRENT_BUILD,
+        )
+        stale_allowlist.assert_not_called()
+
     def test_host_capability_qualification_remains_exact(self) -> None:
         value = self.f1.validate_host_capability_qualification()
         self.assertEqual(value["verdict"], "PASS_GO")

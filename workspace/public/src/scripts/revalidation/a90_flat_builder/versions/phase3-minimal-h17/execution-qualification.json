@@ -3,7 +3,7 @@
   "capability": "A90_H17_PERSISTENT_UFS_SERVER_V1",
   "verdict": "PASS_GO",
   "predecessor_capability_closure_sha256": "45aa74c13ca8a11b4bb06b192436b8416fa294f5c200fa0d2326cec6bca076ee",
-  "execution_closure_sha256": "b7bc0000f427e596668812e3bbc42722a8ccd3be432a1ce59a82de9a77e23905",
+  "execution_closure_sha256": "d95ceb7fc7423ccce208086f43e38998691ca83186d42ceab13b09ffd4155e7e",
   "execution_hashes": {
     "AGENTS.md": {
       "size": 14600,
@@ -110,8 +110,8 @@
       "sha256": "0ec40f3b4ca169777d962b0c98b5426198c89b33a2b61e65dd3ea4d9b6f2a7a0"
     },
     "workspace/public/src/scripts/server-distro/a90_h17_ufs_f1_runner_v1.py": {
-      "size": 106979,
-      "sha256": "c2ba9cc73236bebd95b3ce8c117c4e14a1b99d24b75652fb24e2e9f9aa791988"
+      "size": 106334,
+      "sha256": "7556161bdc65b5c5c799032b86d4ddda6e35008708a7a36101fd6669554bc51e"
     },
     "workspace/public/src/scripts/server-distro/a90_h5_existing_source_install_v1.py": {
       "size": 106013,
@@ -176,6 +176,6 @@
   "f1_runner_qualified": true,
   "d1_runner_qualified": true,
   "review_report": "docs/reports/A90_H17_UFS_F1_D1_EXECUTION_INDEPENDENT_REVIEW_2026-08-10.json",
-  "review_report_sha256": "a2d078036023bb6fbacd8b2753c0c48b27fb996778deaa3298338fff423f0eef",
+  "review_report_sha256": "90dce2773b9615749173829967ab72c44440ff5ef05286b7cbb9d836570b91c6",
   "live_authority": false
 }

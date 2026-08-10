@@ -1247,19 +1247,27 @@ def validate_live_args(args: argparse.Namespace) -> None:
             raise ContractError(f"H17 live argument {name} changed")
 
 
+def require_current_native_health(args: argparse.Namespace) -> dict[str, Any]:
+    """Read and validate the exact H16 predecessor without a legacy allowlist."""
+    health = {
+        command: base.run_f1_cmd(args, [command])
+        for command in ("version", "status", "selftest")
+    }
+    staging.validate_native_health_receipts(
+        health,
+        expected_version=CURRENT_VERSION,
+        expected_build=CURRENT_BUILD,
+    )
+    return health
+
+
 def exact_preflight(
     manifest: dict[str, Any],
     spec: Any,
     args: argparse.Namespace,
 ) -> dict[str, Any]:
     bridge = staging.require_exact_bridge(spec.stage, args)
-    health = staging.require_native_health(
-        args,
-        expected_version=CURRENT_VERSION,
-        expected_build=CURRENT_BUILD,
-        input_mode=INPUT_MODE,
-        input_char_delay_sec=INPUT_CHAR_DELAY_SEC,
-    )
+    health = require_current_native_health(args)
     script = "\n".join(
         (
             "set -eu",
@@ -2143,13 +2151,7 @@ def reconcile_health(
     ]
     if not candidate_results:
         if actions.count("candidate-launch") == 0:
-            health = staging.require_native_health(
-                args,
-                expected_version=CURRENT_VERSION,
-                expected_build=CURRENT_BUILD,
-                input_mode=INPUT_MODE,
-                input_char_delay_sec=INPUT_CHAR_DELAY_SEC,
-            )
+            health = require_current_native_health(args)
             record = {
                 "process_started": False,
                 "release_count": 0,
@@ -2202,13 +2204,7 @@ def reconcile_health(
             candidate_health = exact_candidate_health(spec, args, None)
         except Exception as candidate_exc:  # read-only alternate health follows
             try:
-                starting_health = staging.require_native_health(
-                    args,
-                    expected_version=CURRENT_VERSION,
-                    expected_build=CURRENT_BUILD,
-                    input_mode=INPUT_MODE,
-                    input_char_delay_sec=INPUT_CHAR_DELAY_SEC,
-                )
+                starting_health = require_current_native_health(args)
             except Exception:
                 append_journal(
                     journal,
@@ -2359,13 +2355,7 @@ def reconcile_health(
     elif base.candidate_failure_is_definite_pre_session(candidate_record):
         if "rollback-intent" in actions or candidate_count != 0:
             raise ContractError("pre-session abort evidence is inconsistent")
-        health = staging.require_native_health(
-            args,
-            expected_version=CURRENT_VERSION,
-            expected_build=CURRENT_BUILD,
-            input_mode=INPUT_MODE,
-            input_char_delay_sec=INPUT_CHAR_DELAY_SEC,
-        )
+        health = require_current_native_health(args)
         result = {
             "schema": RESULT_SCHEMA,
             "status": "ABORTED_BEFORE_CANDIDATE_SESSION",
@@ -2498,13 +2488,7 @@ def execute(manifest_path: Path, manifest_sha: str, args: argparse.Namespace) ->
         )
         if record["returncode"] != 0:
             if base.candidate_failure_is_definite_pre_session(record):
-                starting_health = staging.require_native_health(
-                    args,
-                    expected_version=CURRENT_VERSION,
-                    expected_build=CURRENT_BUILD,
-                    input_mode=INPUT_MODE,
-                    input_char_delay_sec=INPUT_CHAR_DELAY_SEC,
-                )
+                starting_health = require_current_native_health(args)
                 result = {
                     "schema": RESULT_SCHEMA,
                     "status": "ABORTED_BEFORE_CANDIDATE_SESSION",

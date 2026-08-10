@@ -5,18 +5,24 @@
   "review_date": "2026-08-10",
   "review_scope": "h17-boot-only-f1-and-persistent-ufs-d1-execution-critical-closure",
   "predecessor_capability_closure_sha256": "45aa74c13ca8a11b4bb06b192436b8416fa294f5c200fa0d2326cec6bca076ee",
-  "execution_closure_sha256": "b7bc0000f427e596668812e3bbc42722a8ccd3be432a1ce59a82de9a77e23905",
+  "execution_closure_sha256": "d95ceb7fc7423ccce208086f43e38998691ca83186d42ceab13b09ffd4155e7e",
   "execution_file_count": 41,
   "reviewed_source_sha256": {
-    "workspace/public/src/scripts/server-distro/a90_h17_ufs_f1_runner_v1.py": "c2ba9cc73236bebd95b3ce8c117c4e14a1b99d24b75652fb24e2e9f9aa791988",
+    "workspace/public/src/scripts/server-distro/a90_h17_ufs_f1_runner_v1.py": "7556161bdc65b5c5c799032b86d4ddda6e35008708a7a36101fd6669554bc51e",
     "workspace/public/src/scripts/server-distro/a90_h17_ufs_d1_runner_v1.py": "0ec40f3b4ca169777d962b0c98b5426198c89b33a2b61e65dd3ea4d9b6f2a7a0",
-    "tests/test_a90_h17_ufs_execution_v1.py": "aa243f4120051282d45e3aab81dc7f37e44d311fb4732db69f8c8af5de1bec85"
+    "tests/test_a90_h17_ufs_execution_v1.py": "3646f031a4ba8d774e63c5d52aefcf3e2a67d1bfd10f9ad8113a328003a0eb92"
   },
   "initial_finding": {
     "severity": "MEDIUM",
     "status": "CLOSED",
     "summary": "Physical-return finalization originally accepted generic H17 1,1 state without proving that enable, latch, and evidence-run belonged to the current journal intent.",
     "closure": "The finalizer now reads only the exact enable, latch, and evidence-run identities; requires one shared 64-hex intent; compares all three exact expected byte hashes to the current record-1 SHA256; and performs this proof before crash-prefix reconstruction or final health."
+  },
+  "followup_finding": {
+    "severity": "HIGH",
+    "status": "CLOSED",
+    "summary": "Fresh connected preflight stopped before native reads because the shared health helper's legacy allowlist ended at H15 and rejected the exact H16 predecessor.",
+    "closure": "The H17 runner now issues only fixed framed version, status, and selftest reads and applies the existing exact receipt validator to the pinned H16 version and build; all five H16-current-health paths use this local check without widening the shared identity allowlist."
   },
   "findings": {
     "high": [],
@@ -36,7 +42,7 @@
     "A90-only target, rollback, recovery, private evidence, and S22+ isolation"
   ],
   "validation": {
-    "focused_execution_tests": 23,
+    "focused_execution_tests": 24,
     "focused_execution_tests_status": "PASS",
     "python_compile": "PASS",
     "scoped_diff_check": "PASS",
