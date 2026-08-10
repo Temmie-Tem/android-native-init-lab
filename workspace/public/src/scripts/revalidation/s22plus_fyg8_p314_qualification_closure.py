@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import argparse
-import ast
+from copy import deepcopy
 import hashlib
 import json
 import os
@@ -20,8 +20,8 @@ import s22plus_fyg8_p314_overlay_contract as overlay
 
 SCHEMA = design.ARTIFACT_SCHEMA
 PREPACKAGING_SCHEMA = design.PREPACKAGING_ARTIFACT_SCHEMA
-PREPACKAGING_VERDICT = "PASS_P314_PREPACKAGING_GATE_HOST_ONLY"
-VERDICT = "PASS_P314_FINAL_QUALIFICATION_HOST_ONLY"
+PREPACKAGING_VERDICT = design.PREPACKAGING_VERDICT
+VERDICT = design.QUALIFICATION_VERDICT
 DEFAULT_INTENT = overlay.DEFAULT_INTENT
 DEFAULT_PREPACKAGING = builder.DEFAULT_PREPACKAGING
 DEFAULT_USERSPACE = Path("workspace/private/outputs/s22plus_fyg8_p314/userspace")
@@ -88,49 +88,7 @@ def _write_new(path: Path, value: dict[str, Any]) -> None:
 
 
 def _builder_call_graph(root: Path) -> dict[str, Any]:
-    path = root / "workspace/public/src/scripts/revalidation/build_s22plus_fyg8_p314_candidate.py"
-    source = path.read_text(encoding="utf-8")
-    tree = ast.parse(source, filename=path.as_posix())
-    function = next(
-        (
-            node
-            for node in tree.body
-            if isinstance(node, ast.FunctionDef) and node.name == "build_candidate"
-        ),
-        None,
-    )
-    if function is None:
-        raise QualificationError("P3.14 builder entrypoint is missing")
-    calls: dict[str, list[int]] = {}
-    for node in ast.walk(function):
-        if not isinstance(node, ast.Call):
-            continue
-        parts: list[str] = []
-        target: ast.expr = node.func
-        while isinstance(target, ast.Attribute):
-            parts.append(target.attr)
-            target = target.value
-        if isinstance(target, ast.Name):
-            parts.append(target.id)
-        name = ".".join(reversed(parts))
-        calls.setdefault(name, []).append(node.lineno)
-    validation = calls.get("design.validate_prepackaging_artifact", [])
-    package = calls.get("parent.parent.base.build_candidate", [])
-    if (
-        len(validation) != 1
-        or len(package) != 1
-        or validation[0] >= package[0]
-        or source.count("design.validate_prepackaging_artifact") != 1
-    ):
-        raise QualificationError("P3.14 validator-to-packager call graph differs")
-    return {
-        "builder": path.relative_to(root).as_posix(),
-        "validator_line": validation[0],
-        "package_line": package[0],
-        "validator_precedes_package": True,
-        "validator_return_controls_package_creation": True,
-        "verified": True,
-    }
+    return design.builder_call_graph(root)
 
 
 def _negative_packaging_fixture(root: Path) -> dict[str, Any]:
@@ -175,6 +133,100 @@ def _negative_packaging_fixture(root: Path) -> dict[str, Any]:
     return {
         "missing_closure_blocks_package": True,
         "invalid_closure_blocks_package": True,
+        "parent_packager_call_count": calls,
+        "package_output_count": 0,
+        "verified": True,
+    }
+
+
+def _semantic_packaging_fixture(
+    root: Path, value: dict[str, Any]
+) -> dict[str, Any]:
+    parent_build = builder.parent.parent.base.build_candidate
+    calls = 0
+
+    def forbidden_parent_build(_args: argparse.Namespace) -> dict[str, Any]:
+        nonlocal calls
+        calls += 1
+        raise AssertionError("parent packager ran after mutated P3.14 gate")
+
+    def mutate_verdict(candidate: dict[str, Any]) -> None:
+        candidate["verdict"] = "PASS_P314_MUTATED"
+
+    def mutate_source(candidate: dict[str, Any]) -> None:
+        candidate["source_receipts"]["p314_candidate_builder"][  # type: ignore[index]
+            "sha256"
+        ] = "0" * 64
+
+    def mutate_call_graph(candidate: dict[str, Any]) -> None:
+        candidate["packaging_wiring"]["call_graph"][  # type: ignore[index]
+            "validator_line"
+        ] += 1
+
+    def mutate_matrix(candidate: dict[str, Any]) -> None:
+        candidate["carrier"]["matrix_sha256"] = "0" * 64  # type: ignore[index]
+
+    mutations = (
+        ("verdict", mutate_verdict),
+        ("source_receipt", mutate_source),
+        ("call_graph", mutate_call_graph),
+        ("matrix_sha256", mutate_matrix),
+    )
+    outcomes: dict[str, bool] = {}
+    builder.parent.parent.base.build_candidate = forbidden_parent_build
+    try:
+        private = root / "workspace/private"
+        private.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(
+            prefix="p314-prepack-semantic-", dir=private
+        ) as name:
+            directory = Path(name)
+            for label, mutate in mutations:
+                closure = directory / f"{label}.json"
+                output = directory / f"candidate-{label}"
+                candidate = deepcopy(value)
+                mutate(candidate)
+                closure.write_text(
+                    json.dumps(
+                        candidate, indent=2, sort_keys=True, allow_nan=False
+                    )
+                    + "\n",
+                    encoding="ascii",
+                )
+                args = builder.parse_args(
+                    [
+                        "--prepackaging",
+                        closure.relative_to(root).as_posix(),
+                        "--out",
+                        output.relative_to(root).as_posix(),
+                    ]
+                )
+                try:
+                    builder.build_candidate(args)
+                except (
+                    builder.BuildError,
+                    design.P314DesignError,
+                    OSError,
+                    ValueError,
+                ):
+                    outcomes[label] = not output.exists() and not output.is_symlink()
+                else:
+                    outcomes[label] = False
+    finally:
+        builder.parent.parent.base.build_candidate = parent_build
+    expected = {
+        "verdict": True,
+        "source_receipt": True,
+        "call_graph": True,
+        "matrix_sha256": True,
+    }
+    if calls != 0 or outcomes != expected:
+        raise QualificationError("P3.14 semantic packaging fixture differs")
+    return {
+        "verdict_mutation_blocks_package": True,
+        "source_receipt_mutation_blocks_package": True,
+        "call_graph_mutation_blocks_package": True,
+        "matrix_sha256_mutation_blocks_package": True,
         "parent_packager_call_count": calls,
         "package_output_count": 0,
         "verified": True,
@@ -261,7 +313,8 @@ def _successor_hazard_closure(exact: dict[str, Any]) -> dict[str, Any]:
 
 def create_prepackaging_value(root: Path, intent_path: Path) -> dict[str, Any]:
     exact = overlay.verify_intent(root, intent_path)
-    call_graph = _builder_call_graph(root)
+    authority = design.prepackaging_authority(root, exact)
+    call_graph = authority["call_graph"]
     negative = _negative_packaging_fixture(root)
     required_keys = {
         "p313_successor_hazard_contract",
@@ -322,9 +375,11 @@ def create_prepackaging_value(root: Path, intent_path: Path) -> dict[str, Any]:
             "validator_return_controls_package_creation": True,
             "missing_or_failed_artifact_blocks_packaging": True,
             "validator_failure_negative_fixture": True,
+            "semantic_mutation_fixture_passed": True,
             "source_call_graph_reviewed": True,
             "call_graph": call_graph,
             "negative_fixture": negative,
+            "semantic_mutation_fixture": design.SEMANTIC_MUTATION_FIXTURE,
             "verified": True,
         },
         "artifacts": {
@@ -336,12 +391,14 @@ def create_prepackaging_value(root: Path, intent_path: Path) -> dict[str, Any]:
             "full_lto_performed": False,
             "verified": True,
         },
-        "source_receipts": {
-            key: exact["source_receipts"][key] for key in sorted(required_keys)
-        },
+        "source_receipts": exact["source_receipts"],
         "verified": True,
     }
-    design.validate_prepackaging_artifact(value)
+    semantic = _semantic_packaging_fixture(root, value)
+    if semantic != design.SEMANTIC_MUTATION_FIXTURE:
+        raise QualificationError("P3.14 semantic mutation receipt differs")
+    value["packaging_wiring"]["semantic_mutation_fixture"] = semantic
+    design.validate_prepackaging_artifact(value, authority=authority)
     return value
 
 
@@ -359,13 +416,20 @@ def _tree_receipts(directory: Path) -> dict[str, dict[str, Any]]:
 
 def create_final_value(
     root: Path,
+    intent_path: Path,
     prepackaging_path: Path,
     userspace_path: Path,
     candidate_a: Path,
     candidate_b: Path,
 ) -> dict[str, Any]:
+    exact = overlay.verify_intent(root, intent_path)
+    authority = design.prepackaging_authority(root, exact)
     prepack_payload, prepack = _read_json(prepackaging_path, "P3.14 prepackaging closure")
-    design.validate_prepackaging_artifact(prepack)
+    prepack_validation = design.validate_prepackaging_artifact(
+        prepack, authority=authority
+    )
+    if _receipt(prepack_payload) != design.artifact_receipt(prepack):
+        raise QualificationError("P3.14 prepackaging canonical receipt differs")
     _, userspace = _read_json(
         userspace_path / "userspace-result.json", "P3.14 userspace result"
     )
@@ -379,15 +443,19 @@ def create_final_value(
         safety = result.get("safety", {})
         if safety.get("p314_prepackaging_closure") != _receipt(prepack_payload):
             raise QualificationError("P3.14 package omitted prepackaging receipt")
+        if safety.get("p314_prepackaging_validation") != prepack_validation:
+            raise QualificationError("P3.14 package omitted prepackaging validation")
     value = {
         "schema": SCHEMA,
         "verdict": VERDICT,
         "design_requirements_sha256": design.requirements_sha256(),
         "prepackaging_closure": prepack,
-        "prepackaging_receipt": _receipt(prepack_payload),
+        "prepackaging_receipt": design.artifact_receipt(prepack),
         "packaging_wiring": {
             "validated_artifact_receipted_by_qualification": True,
             "receipt_binds_requirements_and_artifact_sha256": True,
+            "embedded_prepack_receipt_rebound": True,
+            "receipt_rebind_fixture": design.RECEIPT_REBIND_FIXTURE,
             "verified": True,
         },
         "artifacts": {
@@ -404,7 +472,24 @@ def create_final_value(
         },
         "verified": True,
     }
-    design.validate_qualification_artifact(value)
+    for label, mutated in (
+        ("embedded", deepcopy(value)),
+        ("declared", deepcopy(value)),
+    ):
+        if label == "embedded":
+            mutated["prepackaging_closure"]["verified"] = False
+        else:
+            mutated["prepackaging_receipt"]["sha256"] = "0" * 64
+        try:
+            design.validate_qualification_artifact(
+                mutated, authority=authority, candidate_tree=trees[0]
+            )
+        except design.P314DesignError:
+            continue
+        raise QualificationError(f"P3.14 {label} receipt mutation was accepted")
+    design.validate_qualification_artifact(
+        value, authority=authority, candidate_tree=trees[0]
+    )
     return value
 
 
@@ -431,6 +516,7 @@ def main(argv: list[str] | None = None) -> int:
             output = args.out or DEFAULT_OUT
             value = create_final_value(
                 root,
+                root / args.intent,
                 root / args.prepackaging,
                 root / args.userspace,
                 root / args.candidate_a,

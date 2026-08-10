@@ -9,6 +9,7 @@ import unittest
 
 import build_s22plus_fyg8_p314_candidate as candidate_builder
 import device_action_f1_evidence_v2 as evidence
+import prepare_s22plus_fyg8_p314_process_v2 as promotion
 import s22plus_fyg8_p314_carrier_model as model
 import s22plus_fyg8_p314_design_contract as design
 import s22plus_fyg8_p314_e2_stock_closure as stock_closure
@@ -94,6 +95,15 @@ class P314ProcessV2Tests(unittest.TestCase):
         semantics = result["active_semantics"]["telemetry"]
         self.assertEqual(semantics["pairs"], ["start_off", "start_on"])
         self.assertFalse(semantics["cycle_causal_claim"])
+        classified = evidence.classify_e1_latest_stage(
+            payload, matrix._acceptance(run_id)  # noqa: SLF001
+        )
+        self.assertEqual(
+            classified["classification"], "P314_OBSERVER_CONTRADICTION"
+        )
+        self.assertFalse(classified["accepted"])
+        self.assertEqual(classified["contradiction_count"], 1)
+        self.assertEqual(classified["pair_excess_count"], 1)
 
     def test_packaging_gate_is_before_parent_packager(self) -> None:
         call_graph = qualification._builder_call_graph(ROOT)  # noqa: SLF001
@@ -136,6 +146,24 @@ class P314ProcessV2Tests(unittest.TestCase):
             candidate_builder.packager.SCHEMA,
             candidate_builder.parent.parent.base.packager.SCHEMA,
         )
+
+    def test_process_v2_uses_exact_p314_stock_closure(self) -> None:
+        self.assertIs(promotion.e2_closure_selector, stock_closure)
+        sentinel = {"verified": True}
+        self.assertIs(
+            evidence._generic_rootfs_module_closure(  # noqa: SLF001
+                evidence.P310_SOURCE_CONTRACT_ID,
+                stock_closure,
+                sentinel,
+            ),
+            sentinel,
+        )
+        with self.assertRaisesRegex(
+            evidence.EvidenceError, "P3.14 exact init authority is unavailable"
+        ):
+            evidence._p314_e2_authority_context(  # noqa: SLF001
+                stock_closure, [], {}
+            )
 
 
 if __name__ == "__main__":

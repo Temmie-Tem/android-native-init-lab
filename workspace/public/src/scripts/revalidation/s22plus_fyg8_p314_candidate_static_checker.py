@@ -96,7 +96,21 @@ def audit(args):  # noqa: ANN001, ANN201
         raise CheckError("P3.14 final qualification is not ASCII JSON") from exc
     if not isinstance(qualified, dict):
         raise CheckError("P3.14 final qualification root differs")
-    design.validate_qualification_artifact(qualified)
+    exact = overlay.verify_intent(root, base.resolve(root, args.intent))
+    authority = design.prepackaging_authority(root, exact)
+    candidate_trees = (
+        qualification._tree_receipts(  # noqa: SLF001
+            base.resolve(root, args.candidate)
+        ),
+        qualification._tree_receipts(  # noqa: SLF001
+            base.resolve(root, args.candidate_b)
+        ),
+    )
+    if candidate_trees[0] != candidate_trees[1]:
+        raise CheckError("P3.14 candidate tree receipts differ")
+    design.validate_qualification_artifact(
+        qualified, authority=authority, candidate_tree=candidate_trees[0]
+    )
     prepackaging = qualified.get("prepackaging_closure")
     prepackaging_receipt = qualified.get("prepackaging_receipt")
     if (
@@ -108,14 +122,15 @@ def audit(args):  # noqa: ANN001, ANN201
         raise CheckError("P3.14 prepackaging receipt differs")
     candidate._PREPACKAGING_RECEIPT = prepackaging_receipt  # noqa: SLF001
     candidate._PREPACKAGING_VALIDATION = (  # noqa: SLF001
-        design.validate_prepackaging_artifact(prepackaging)
+        design.validate_prepackaging_artifact(
+            prepackaging, authority=authority
+        )
     )
     try:
         result = base.audit(args)
     finally:
         candidate._PREPACKAGING_RECEIPT = None  # noqa: SLF001
         candidate._PREPACKAGING_VALIDATION = None  # noqa: SLF001
-    exact = overlay.verify_intent(root, base.resolve(root, args.intent))
     fixture = runtime_fixture.audit(root)
     adapter = adapter_fixture.audit(root)
     if (

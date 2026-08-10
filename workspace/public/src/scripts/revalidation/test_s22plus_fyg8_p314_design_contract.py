@@ -12,9 +12,33 @@ import s22plus_fyg8_p314_design_contract as design
 import test_s22plus_fyg8_p313_successor_hazard_contract as predecessor_test
 
 
+TEST_SOURCE_RECEIPTS = {
+    "p314_candidate_builder": {"size": 1, "sha256": "1" * 64},
+    "p314_design_contract": {"size": 2, "sha256": "2" * 64},
+}
+TEST_MATRIX_SHA256 = "3" * 64
+TEST_CALL_GRAPH = {
+    "builder": design.BUILDER_PATH.as_posix(),
+    "validator_line": 10,
+    "package_line": 20,
+    "validator_precedes_package": True,
+    "validator_return_controls_package_creation": True,
+    "verified": True,
+}
+
+
+def compliant_authority() -> dict[str, object]:
+    return {
+        "source_receipts": deepcopy(TEST_SOURCE_RECEIPTS),
+        "matrix_sha256": TEST_MATRIX_SHA256,
+        "call_graph": deepcopy(TEST_CALL_GRAPH),
+    }
+
+
 def compliant_prepackaging_fixture() -> dict[str, object]:
     return {
         "schema": design.PREPACKAGING_ARTIFACT_SCHEMA,
+        "verdict": design.PREPACKAGING_VERDICT,
         "design_requirements_sha256": design.requirements_sha256(),
         "successor_hazard_closure": predecessor_test.compliant_fixture(),
         "runtime": {
@@ -53,10 +77,16 @@ def compliant_prepackaging_fixture() -> dict[str, object]:
             "real_process_v2_adapter_round_trip": True,
             "persistence_round_trip": True,
             "legacy_0x6712_decode_only": True,
+            "matrix_sha256": TEST_MATRIX_SHA256,
             "verified": True,
         },
         "packaging_wiring": {
             **{key: True for key in design.PREPACKAGING_WIRING_PROOFS},
+            "call_graph": deepcopy(TEST_CALL_GRAPH),
+            "negative_fixture": deepcopy(design.NEGATIVE_PACKAGING_FIXTURE),
+            "semantic_mutation_fixture": deepcopy(
+                design.SEMANTIC_MUTATION_FIXTURE
+            ),
             "verified": True,
         },
         "artifacts": {
@@ -68,17 +98,22 @@ def compliant_prepackaging_fixture() -> dict[str, object]:
             "full_lto_performed": False,
             "verified": True,
         },
+        "source_receipts": deepcopy(TEST_SOURCE_RECEIPTS),
         "verified": True,
     }
 
 
 def compliant_fixture() -> dict[str, object]:
+    prepackaging = compliant_prepackaging_fixture()
     return {
         "schema": design.ARTIFACT_SCHEMA,
+        "verdict": design.QUALIFICATION_VERDICT,
         "design_requirements_sha256": design.requirements_sha256(),
-        "prepackaging_closure": compliant_prepackaging_fixture(),
+        "prepackaging_closure": prepackaging,
+        "prepackaging_receipt": design.artifact_receipt(prepackaging),
         "packaging_wiring": {
             **{key: True for key in design.FINAL_QUALIFICATION_PROOFS},
+            "receipt_rebind_fixture": deepcopy(design.RECEIPT_REBIND_FIXTURE),
             "verified": True,
         },
         "artifacts": {
@@ -90,6 +125,7 @@ def compliant_fixture() -> dict[str, object]:
             "full_lto_performed": False,
             "userspace_builds_reproducible": True,
             "packages_reproducible": True,
+            "candidate_tree": {},
             "verified": True,
         },
         "verified": True,
@@ -137,10 +173,12 @@ class P314DesignContractTests(unittest.TestCase):
 
     def test_compliant_future_qualification_passes_structural_gate(self) -> None:
         prepackaging = design.validate_prepackaging_artifact(
-            compliant_prepackaging_fixture()
+            compliant_prepackaging_fixture(), authority=compliant_authority()
         )
         self.assertTrue(prepackaging["verified"])
-        result = design.validate_qualification_artifact(compliant_fixture())
+        result = design.validate_qualification_artifact(
+            compliant_fixture(), authority=compliant_authority(), candidate_tree={}
+        )
         self.assertTrue(result["verified"])
         self.assertFalse(result["diagnostic_continue_enabled"])
         self.assertEqual(result["matrix_cells"], 251_450)
@@ -151,13 +189,17 @@ class P314DesignContractTests(unittest.TestCase):
                 value = deepcopy(compliant_prepackaging_fixture())
                 value["packaging_wiring"][key] = False  # type: ignore[index]
                 with self.assertRaises(design.P314DesignError):
-                    design.validate_prepackaging_artifact(value)
+                    design.validate_prepackaging_artifact(
+                        value, authority=compliant_authority()
+                    )
         for key in design.FINAL_QUALIFICATION_PROOFS:
             with self.subTest(key=key):
                 value = deepcopy(compliant_fixture())
                 value["packaging_wiring"][key] = False  # type: ignore[index]
                 with self.assertRaises(design.P314DesignError):
-                    design.validate_qualification_artifact(value)
+                    design.validate_qualification_artifact(
+                        value, authority=compliant_authority(), candidate_tree={}
+                    )
 
     def test_missing_or_mutated_load_bearing_proof_fails_closed(self) -> None:
         mutations = (
@@ -175,19 +217,70 @@ class P314DesignContractTests(unittest.TestCase):
                 value = deepcopy(compliant_prepackaging_fixture())
                 value[section][key] = replacement  # type: ignore[index]
                 with self.assertRaises(design.P314DesignError):
-                    design.validate_prepackaging_artifact(value)
+                    design.validate_prepackaging_artifact(
+                        value, authority=compliant_authority()
+                    )
 
         value = deepcopy(compliant_prepackaging_fixture())
         del value["successor_hazard_closure"]["hazards"][  # type: ignore[index]
             "qualification_wiring"
         ]
         with self.assertRaises(design.P314DesignError):
-            design.validate_prepackaging_artifact(value)
+            design.validate_prepackaging_artifact(
+                value, authority=compliant_authority()
+            )
 
         value = deepcopy(compliant_fixture())
         value["artifacts"]["packages_reproducible"] = False  # type: ignore[index]
         with self.assertRaises(design.P314DesignError):
-            design.validate_qualification_artifact(value)
+            design.validate_qualification_artifact(
+                value, authority=compliant_authority(), candidate_tree={}
+            )
+
+    def test_semantic_receipts_and_embedded_prepack_are_rebound(self) -> None:
+        mutations = []
+        value = compliant_prepackaging_fixture()
+        value["verdict"] = "PASS_P314_MUTATED"
+        mutations.append(value)
+        value = compliant_prepackaging_fixture()
+        value["source_receipts"]["p314_candidate_builder"][  # type: ignore[index]
+            "sha256"
+        ] = "0" * 64
+        mutations.append(value)
+        value = compliant_prepackaging_fixture()
+        value["packaging_wiring"]["call_graph"][  # type: ignore[index]
+            "validator_line"
+        ] = 11
+        mutations.append(value)
+        value = compliant_prepackaging_fixture()
+        value["carrier"]["matrix_sha256"] = "0" * 64  # type: ignore[index]
+        mutations.append(value)
+        for value in mutations:
+            with self.assertRaises(design.P314DesignError):
+                design.validate_prepackaging_artifact(
+                    value, authority=compliant_authority()
+                )
+
+        value = compliant_fixture()
+        value["prepackaging_closure"]["verified"] = False  # type: ignore[index]
+        with self.assertRaises(design.P314DesignError):
+            design.validate_qualification_artifact(
+                value, authority=compliant_authority(), candidate_tree={}
+            )
+        value = compliant_fixture()
+        value["prepackaging_receipt"]["sha256"] = "0" * 64  # type: ignore[index]
+        with self.assertRaises(design.P314DesignError):
+            design.validate_qualification_artifact(
+                value, authority=compliant_authority(), candidate_tree={}
+            )
+        value = compliant_fixture()
+        value["artifacts"]["candidate_tree"] = {  # type: ignore[index]
+            "boot.img": {"size": 1, "sha256": "4" * 64}
+        }
+        with self.assertRaises(design.P314DesignError):
+            design.validate_qualification_artifact(
+                value, authority=compliant_authority(), candidate_tree={}
+            )
 
 
 if __name__ == "__main__":

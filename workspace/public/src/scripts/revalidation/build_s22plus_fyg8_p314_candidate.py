@@ -60,6 +60,19 @@ def _read_prepackaging(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     }
 
 
+def _read_intent_authority(root: Path, path: Path) -> dict[str, Any]:
+    payload = candidate_contract.stable_read(
+        path, "P3.14 overlay intent authority", 64 * 1024 * 1024
+    )
+    try:
+        value = json.loads(payload.decode("ascii"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise BuildError("P3.14 overlay intent authority is not ASCII JSON") from exc
+    if not isinstance(value, dict):
+        raise BuildError("P3.14 overlay intent authority root differs")
+    return design.prepackaging_authority(root, value)
+
+
 def verify_repro_result(
     result_path: Path,
     image_receipt: dict[str, Any],
@@ -120,7 +133,12 @@ def build_candidate(args: argparse.Namespace) -> dict[str, Any]:
     value, closure_receipt = _read_prepackaging(
         candidate_contract.intent.resolve(root, args.prepackaging)
     )
-    validation = design.validate_prepackaging_artifact(value)
+    authority = _read_intent_authority(
+        root, candidate_contract.intent.resolve(root, args.intent)
+    )
+    validation = design.validate_prepackaging_artifact(
+        value, authority=authority
+    )
     _PREPACKAGING_RECEIPT = closure_receipt
     _PREPACKAGING_VALIDATION = validation
     try:

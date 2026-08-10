@@ -164,6 +164,14 @@ def _round_trip(
             semantics = records[0].get("active_semantics", {})
             if not str(semantics.get("detail_kind", "")).startswith("p314-"):
                 raise MatrixError("P3.14 B semantics differ")
+            if spec.PAIR_MASK_DETAIL_MIN <= detail <= spec.PAIR_MASK_DETAIL_MAX and (
+                persisted.get("classification") != "P314_OBSERVER_CONTRADICTION"
+                or persisted.get("accepted") is not False
+                or persisted.get("contradiction_count") != 1
+                or persisted.get("pair_excess_count") != 1
+                or semantics.get("detail_kind") != "p314-pair-excess"
+            ):
+                raise MatrixError("P3.14 pair-mask classifier semantics differ")
         classification = str(persisted.get("classification"))
     if observed is not expected:
         raise MatrixError(

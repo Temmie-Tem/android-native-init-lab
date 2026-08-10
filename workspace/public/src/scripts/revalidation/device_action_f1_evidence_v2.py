@@ -942,6 +942,26 @@ def _p313_e2_authority_context(
     return closure_api.exact_init_authority(matching[0].data)
 
 
+def _p314_e2_authority_context(
+    closure_api: Any,
+    entries: list[Any],
+    expected_init: dict[str, Any],
+):
+    if closure_api is not p314_e2_closure.select(P310_SOURCE_CONTRACT_ID):
+        raise EvidenceError("P3.14 stock-closure authority adapter differs")
+    matching = [
+        entry
+        for entry in entries
+        if entry.name == "init" and entry.file_type == "regular"
+    ]
+    if (
+        len(matching) != 1
+        or e2_closure.receipt(matching[0].data) != expected_init
+    ):
+        raise EvidenceError("P3.14 exact init authority is unavailable")
+    return closure_api.exact_init_authority(matching[0].data)
+
+
 @contextmanager
 def _p301_e2_authority_context(
     closure_api: Any, expected_init: dict[str, Any]
@@ -1452,6 +1472,7 @@ def _generic_rootfs_module_closure(
             p311_e2_closure.select(P310_SOURCE_CONTRACT_ID),
             p312_e2_closure.select(P310_SOURCE_CONTRACT_ID),
             p313_e2_closure.select(P310_SOURCE_CONTRACT_ID),
+            p314_e2_closure.select(P310_SOURCE_CONTRACT_ID),
         }:
             raise EvidenceError("P3.10 generic-rootfs closure adapter differs")
         return module_closure
@@ -1635,10 +1656,11 @@ def validate_e2_ap_payload(
         generic_module_closure = _generic_rootfs_module_closure(
             source_contract_id, closure_api, module_closure
         )
-        if userspace_overlay_contract_id in {
-            P313_OVERLAY_CONTRACT_ID,
-            P314_OVERLAY_CONTRACT_ID,
-        }:
+        if userspace_overlay_contract_id == P314_OVERLAY_CONTRACT_ID:
+            authority_context = _p314_e2_authority_context(
+                closure_api, entries, identities["init"]
+            )
+        elif userspace_overlay_contract_id == P313_OVERLAY_CONTRACT_ID:
             authority_context = _p313_e2_authority_context(
                 closure_api, entries, identities["init"]
             )
@@ -2957,7 +2979,16 @@ def _verify_e1_latest_stage_offline_contract(
         if not isinstance(qualification, dict):
             raise EvidenceError("P3.14 qualification closure is absent")
         try:
-            p314_design.validate_qualification_artifact(qualification)
+            qualification_authority = p314_design.prepackaging_authority(
+                Path(__file__).resolve().parents[5], p314_contract
+            )
+            p314_design.validate_qualification_artifact(
+                qualification,
+                authority=qualification_authority,
+                candidate_tree=qualification.get("artifacts", {}).get(
+                    "candidate_tree"
+                ),
+            )
         except p314_design.P314DesignError as exc:
             raise EvidenceError("P3.14 qualification closure is invalid") from exc
         if (

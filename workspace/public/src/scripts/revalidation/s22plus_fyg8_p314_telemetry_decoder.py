@@ -176,14 +176,22 @@ def classify_observation(
     for record in result.get("records", ()):
         _with_semantics(record)
         pair = record.get("p314_pair")
-        if pair is None:
-            continue
-        if pair["kind"] == "source-normalized-pair-excess":
+        active = record.get("active_semantics", {})
+        if pair is not None and pair["kind"] == "source-normalized-pair-excess":
             pair_excess += 1
             contradictions += 1
-        elif pair["observer_complete"]:
+        elif pair is not None and pair["observer_complete"]:
             complete += 1
-        else:
+        elif pair is not None:
+            contradictions += 1
+        elif (
+            active.get("outcome") == model.OUTCOME_FAILURE
+            and active.get("detail_kind") == "p314-pair-excess"
+        ):
+            # Stop-side excess may terminate at any retained generation before
+            # the final A/B pair exists.  Its active failure is still a P3.14
+            # observer contradiction and must not fall back to generic E2.
+            pair_excess += 1
             contradictions += 1
     result["telemetry_count"] = complete
     result["contradiction_count"] = contradictions

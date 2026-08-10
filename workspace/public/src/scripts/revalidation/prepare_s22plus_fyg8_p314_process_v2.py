@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import prepare_s22plus_fyg8_p234_process_v2 as base
-import s22plus_fyg8_p313_e2_stock_closure as e2_closure_selector
+import s22plus_fyg8_p314_e2_stock_closure as e2_closure_selector
 import s22plus_fyg8_p314_candidate_static_checker as static_checker
 
 
