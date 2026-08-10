@@ -3,9 +3,10 @@
 Build the operator-owned Galaxy A90 5G into a Debian-oriented personal server
 where native-init performs only the vendor-kernel and hardware bridge-up that
 Debian cannot yet perform, then transfers PID 1 and the steady-state runtime to
-the existing UFS-backed Debian appliance root with `switch_root`. The exact H16
-native resident is the current healthy terminal, with V2321 retained as the
-bound rollback for the next server-readiness candidate.
+the existing UFS-backed Debian appliance root with `switch_root`. H17 is the
+installed resident and is operationally back in native after a clean failed
+handoff; its D1 journal remains health-pending until the exact no-replay
+incident finalizer closes it. V2321 remains the bound rollback.
 
 `AGENTS.md` and `docs/operations/targets/A90_TARGET_CONTRACT.md` are binding.
 This file records current state and the next bounded unit; it grants no device
@@ -20,13 +21,20 @@ The pre-H2 goal history is preserved at
 
 - H17 `0.11.185`, build
   `phase3-minimal-h17-ufs-ro-observer-auth-persistent-hud`, is the exact
-  installed healthy resident. Attended F1 run01 wrote and read back the
+  installed resident. Attended F1 run01 wrote and read back the
   byte-identical boot-only candidate `a8602673...db814` once and closed
   `PASS_A90_H17_UFS_RESIDENT_INSTALLED` / `RESIDENT_HEALTHY` with self-test
   `11/1/0`, exact unarmed `binding=1 enable=0 latch=0`, candidate replay false,
-  rollback zero, and guard released. Rootfs payload, SD stage, userdata write,
-  and S22+ command counts are zero. The separately approved persistent D1
-  ordinal has not started; exact V2321 and physical Download/TWRP remain ready.
+  rollback zero, and guard released. Its separately approved D1 run01 then
+  consumed one arm and one reboot. The automatic handoff released display,
+  revalidated userdata, and mounted the UFS root read-only, but failed after
+  `root_mounted` and before `writable_set_ready`. Native cleanup proved
+  `cleanup_clean=1 root_mounted=0 recovery_required=0 userdata_unchanged=1
+  userdata_write=0`, and exact native H17 returned with `binding=1 enable=1
+  latch=1`, self-test `11/1/0`, PID 1 guard `12/0/0`, HUD and USB-local control
+  restored. Candidate replay, payload, partition, userdata, and S22+ command
+  counts remain zero. The journal is still `HEALTH_PENDING`; no new ordinal,
+  reboot, arm, handoff, or candidate is allowed before exact finalization.
 - H16 `0.11.184`, build
   `phase3-minimal-h16-direct-ufs-ro-async-wifi-auto-benchmark`, is the consumed
   healthy predecessor. Attended run03 wrote and read back boot-only
@@ -737,28 +745,32 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: H17 Persistent D1 Live Preparation
+## Selected Bounded Unit: H17 Native-Fallback No-Replay Closure
 
-Preserve every terminal H7-H16 transaction and no-replay conclusion. H17 is the
-exact installed healthy resident; exact V2321 remains the rollback. H17
-retains H16 same-session userdata resolution and read-only UFS policy while
-adding only boot-contained auth and firstboot overlays plus one native DRM HUD
-child that survives `switch_root`.
+Preserve every terminal H7-H16 transaction and the consumed H17 run01
+arm/reboot/handoff. Do not reuse the physical-return finalizer: the operator did
+not physically return the device, and native-init itself performed a clean
+failure fallback. The next unit is one incident-specific read-only finalizer
+bound to the exact five-record H17 journal, private diagnosis, consumed intent,
+and a fresh independently reviewed execution closure.
 
-The host capability has reusable independent `PASS_GO` at capability closure
-`45aa74c1...076ee` and native closure `ab5ce09b...42016`; its A/B boot is
-byte-identical at `a8602673...db814`. The F1 and D1 runners have independent
-`PASS_GO` at 41-file execution closure `d95ceb7f...55e7e`. They bind the exact
-H16 predecessor, private H17 receipts, V2321 rollback, fresh approvals,
-durable one-shot intent, same-intent physical return, and no replay.
+The finalizer may append only `final-health` and `closed` after fresh exact H17
+health, `1,1` same-intent state, the unique failed-handoff/native-fallback
+segment, clean restoration, and current userdata-unmounted proof all agree. It
+must close
+`REFUTED_H17_PERSISTENT_SERVER_NATIVE_FALLBACK_HEALTHY` while restoring exact
+native `RESIDENT_HEALTHY`; it must not claim physical return, successful
+`switch_root`, Debian PID 1, SSH, persistent HUD, display, or final Wi-Fi.
+The adapter binds the exact five predecessor records and private diagnosis by
+SHA256, excludes the mutable predecessor D1 runner from its new execution
+closure, requires one fresh attended read-only approval, and has no arm,
+reboot, handoff, mount, service-control, payload, flash, state-clear, or
+userdata-write mode. A crash after `final-health` may add only the identical
+`closed` record without device contact.
 
-Attended F1 run01 is terminal `PASS_A90_H17_UFS_RESIDENT_INSTALLED` with one
-candidate transfer, zero rollback, and exact unarmed resident health. Next,
-derive one immutable D1 binding from that terminal result and obtain a separate
-fresh approval for one attended combined arm-plus-reboot. A live H17 server
-PASS remains
-`HEALTH_PENDING_PERSISTENT_DEBIAN` until a later operator physical return and
-exact native resident-health terminal.
+Only after this health barrier is durable may a separate successor candidate
+persist exact post-root-mount stage/errno attribution. The current leading
+persistent-HUD hypothesis remains unproved and must not be repaired by guess.
 
 Only a full comparable H15 control benchmark can open a later Full-LTO unit.
 Qualification never substitutes for fresh manifest, D0, approval, attendance,

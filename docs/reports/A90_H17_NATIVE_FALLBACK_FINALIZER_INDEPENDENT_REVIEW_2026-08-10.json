@@ -1,0 +1,63 @@
+{
+  "schema": "a90-h17-native-fallback-finalizer-independent-review-v1",
+  "capability": "A90_H17_NATIVE_FALLBACK_NO_REPLAY_FINALIZER_V1",
+  "verdict": "PASS_GO",
+  "review_date": "2026-08-10",
+  "reviewer": "/root/h17_fallback_finalizer_review",
+  "execution_closure_sha256": "baa2bccbef61d30ea0a37baddfdeaa2c32d1a1a6d1136c0dc6604d22dd78f487",
+  "execution_file_count": 42,
+  "review_scope": "exact-h17-run01-native-fallback-read-only-no-replay-close",
+  "new_hazard_or_incident": true,
+  "findings": {
+    "high": [],
+    "medium": [],
+    "low": []
+  },
+  "closed_during_review": [
+    {
+      "severity": "high",
+      "class": "SHALLOW_SIX_TO_SEVEN_TERMINAL_REVALIDATION",
+      "resolution": "Persist and rederive the exact approval binding, then deeply reparse every saved health, state, same-intent, log, unmounted-userdata, diagnosis, observation, and bridge receipt before the host-only closed append."
+    },
+    {
+      "severity": "high",
+      "class": "LATEST_BOOT_SAME_INTENT_LINKAGE_GAP",
+      "resolution": "Require the unique arm and reboot before the selected last H17 boot, all post-boot markers inside that segment, and exactly one exact failed-handoff benchmark run."
+    },
+    {
+      "severity": "medium",
+      "class": "POST_READ_STATIC_INPUT_TOCTOU",
+      "resolution": "Reload and hash-validate manifest, install result, diagnosis, qualification, closure, and the exact five-record prefix immediately before the first terminal write; reject drift without writing."
+    }
+  ],
+  "validated_invariants": [
+    "exact H17 run01 manifest install diagnosis predecessor and five-record prefix binding",
+    "fresh approval validation before the bounded device-read sequence",
+    "bounded read-only A90 commands with no arm reboot handoff mount service payload flash state-clear or userdata-write surface",
+    "unique same-intent arm reboot selected-last-H17-boot and failed-handoff segment",
+    "runtime-resolved sole PARTNAME userdata identity with mount count zero",
+    "post-read static revalidation before any terminal journal write",
+    "deep six-to-seven stored receipt and approval revalidation without device contact or TTL renewal",
+    "persistent Debian switch_root SSH HUD display Wi-Fi and physical return remain false or unproved",
+    "mutable predecessor D1 runner excluded from the incident finalizer closure"
+  ],
+  "validation": {
+    "finalizer_tests": "16/16 passed",
+    "h17_execution_tests": "24/24 passed",
+    "h17_source_tests": "15/15 passed",
+    "h16_source_regression_tests": "38/38 passed",
+    "py_compile": "passed",
+    "path_scoped_diff_check": "passed",
+    "private_diagnosis_static_binding": "passed with five predecessor records"
+  },
+  "review_contacts": {
+    "device": 0,
+    "dev": 0,
+    "usb": 0,
+    "network": 0,
+    "workspace_private": 1,
+    "s22plus_paths": 0,
+    "file_modifications": 0
+  },
+  "live_authority": false
+}

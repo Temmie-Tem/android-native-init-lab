@@ -402,6 +402,45 @@ writable UFS mount, an unattended D1/F1 action, or a non-boot partition. Its
 independent qualification is reusable only while the execution-critical
 closure and these hazard assumptions are unchanged and no new incident occurs.
 
+H17 D1 run01 exposed the separate
+`H17_POST_ROOT_MOUNT_NATIVE_FALLBACK` incident. The one arm-plus-reboot action
+is consumed and is never replayed. The armed boot durably created the matching
+latch, released native display ownership, revalidated the same userdata
+identity, mounted the exact UFS appliance read-only, and then returned native
+before `writable_set_ready`. Its retained log records
+`cleanup_clean=1 root_mounted=0 recovery_required=0 userdata_unchanged=1
+userdata_write=0`, followed by `handoff_failed_native`,
+`auto_handoff_returned_native`, and `native_fallback_ready`. This proves a
+failed attempted handoff with clean native restoration; it does not prove
+Debian PID 1, authenticated SSH, persistent HUD, display, Wi-Fi, or successful
+`switch_root`. The generic visible `E1` is only the outer `EPERM` and does not
+identify the inner post-root-mount stop point.
+
+One incident-specific attended no-replay finalizer may close only that exact
+H17 run01 five-record journal. It binds the immutable consumed prefix, exact
+manifest/install/predecessor closure, exact private read-only diagnosis, and a
+separately reviewed finalizer closure. After one fresh exact read-only approval
+it may send only the bounded commands needed to prove exact H17 health,
+`binding=1 enable=1 latch=1`, same-intent enable/latch/evidence bytes, the
+unique failed-handoff benchmark and clean-restoration markers, and the sole
+runtime-resolved userdata identity unmounted. It appends only `final-health`
+and `closed` host records. It never arms, reboots, hands off, mounts, starts or
+stops a service, transfers a payload, flashes, writes userdata, clears the
+latch, or asserts an operator physical return. Its terminal keeps persistent
+server, Debian PID 1, authenticated SSH, persistent HUD, display, and final
+Wi-Fi false or unproved while establishing exact native `RESIDENT_HEALTHY`.
+The terminal is
+`REFUTED_H17_PERSISTENT_SERVER_NATIVE_FALLBACK_HEALTHY`: the persistent-server
+claim is refuted by the unique same-intent failed-handoff segment, while the
+separate device-health result is exact native health. The finalizer is a new
+incident adapter and never modifies or recomputes the consumed H17 D1 runner's
+predecessor execution closure. It binds the five predecessor journal files by
+byte hash. If `final-health` is durable but `closed` is absent, a later
+host-only resume may append only the identical `closed` record without another
+device read or approval; every other incomplete state remains open.
+It retires after the exact journal closes, on target/source/evidence drift, or
+on any new incident, whichever comes first.
+
 The H15 run01 pre-latch incident activates one attended recovery primitive for
 the exact `1,0` state only. It binds the consumed D1 journal prefix, its exact
 intent, current H15 identity and health, the sole H15 enable path, and the
