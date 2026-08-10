@@ -148,13 +148,26 @@ two userspace builds and two boot-only packages are byte-identical, and the
 same prepackaging receipt is bound into both package results and the final
 qualification. The pre-review status was
 `host-qualified-independent-review-pending`. Exact commit
-`578482a0396353c5d13eb43b29156695b926348f` now has focused independent
-`PASS_GO`: 94/94 SOURCE_KEYS and 13/13 materialized receipts match, all
-251,450 value-position cells round-trip, four semantic package mutations stop
-before the parent packager with zero output, candidate A/B are byte-identical,
-and final qualification, candidate-tree rebinding, and actual Process-v2
-promotion pass. P3.14 is host-qualified; this capability approval is not a
-run approval and grants no D0/D1/F1 or live authority.
+`578482a0396353c5d13eb43b29156695b926348f` received focused independent
+`PASS_GO`: 94/94 SOURCE_KEYS and 13/13 materialized receipts matched, all
+251,450 value-position cells round-tripped, four semantic package mutations
+stopped before the parent packager with zero output, candidate A/B were
+byte-identical, and final qualification, candidate-tree rebinding, and actual
+Process-v2 promotion passed.
+
+The first actual ready-manifest rehearsal then found a host-only integration
+gap: the common Process-v2 runner did not select the P3.14 execution overlay
+and fell back to P3.01 semantics. Because that runner is a P3.14 SOURCE_KEY,
+the earlier capability approval was superseded before device contact. Exact
+commit `ba713cc64d8d33c9f403cfa0f511f02c60aa8b6a` repairs the dispatch and now
+has focused independent `PASS_GO`: all 94 execution-overlay receipts are
+bound, a mutated receipt fails closed, the P3.10 decoder replacement is
+byte-exact, and both ready-manifest rehearsal and creation pass through the
+real Process-v2 path. Candidate boot `ccd9c76a...44ec9` and AP
+`f1251098...fc2f3` remain byte-identical to the prior qualification. The
+canonical manifest is `ready-for-f1-approval`, but that is a host artifact
+state only. P3.14 is host-qualified; neither capability approval nor the
+manifest grants D0/D1/F1 or live authority.
 
 ## P3.13 Closed Bounded Unit
 
@@ -288,11 +301,12 @@ from the durable rollback state without retransmission, and final health
 passed. No live authority remains from its approval or prepared record.
 
 P3.02 passive electrical attribution remains parked because no reviewed safe
-inline breakout is available. P3.13 did not produce the clean digital
-refutation that would return the frontier to external measurement. Its
-stop-side multiplicity is now localized to a source-forced sufficient trigger,
-but the next bounded unit remains H0 detailed successor design and observer
-qualification; it is not another live attempt and P3.02 remains parked.
+inline breakout is available. P3.14 is now the host-qualified digital
+successor to P3.13, with a canonical manifest in
+`ready-for-f1-approval` state. The next possible device step is a fresh exact
+P3.14 D0 under ordinary authority, followed only on success by a new immutable
+candidate/rollback binding and fresh exact F1 approval. None of those live
+inputs exists yet, and P3.02 remains parked.
 
 ## Success and Stop Conditions
 
@@ -303,8 +317,11 @@ may not inherit a claim that restart was attempted. It must first distinguish
 source-required pair geometry from unexpected multiplicity, define explicit
 continue-versus-stop semantics, and exercise the complete runtime-authorized
 value-by-position matrix through the actual Carrier semantic authority and
-Process-v2 evidence path before any new device action. The consumed run cannot
-identify the exclusive live pair vector and must not be presented as doing so.
+Process-v2 evidence path before any new device action. P3.14 satisfies those
+host-side prerequisites without changing the fixed Image or candidate kernel;
+it does not retroactively add restart evidence to P3.13. The consumed run
+cannot identify the exclusive live pair vector and must not be presented as
+doing so.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden
 archive member, an unreviewed common receipt/schema change, an observer result
