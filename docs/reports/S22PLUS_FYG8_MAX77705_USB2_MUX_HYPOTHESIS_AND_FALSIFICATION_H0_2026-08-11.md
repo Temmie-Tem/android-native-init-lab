@@ -7,7 +7,7 @@ Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` /
 
 Draft verdict: `PRIORITY_RESIDUAL_HYPOTHESIS_NOT_CAUSALLY_PROVEN`
 
-Review state: `DRAFT_UNCOMMITTED_INDEPENDENT_SOURCE_REVIEW_PENDING`
+Review state: `INDEPENDENT_SOURCE_REVIEW_PASS_1_APPLIED_STILL_NOT_PROMOTED`
 
 S22+ analysis base while drafting:
 `3d04ca11ed3374530a3b611d8760075a1888a706`
@@ -157,6 +157,24 @@ detect does not read CONTROL1 before or after its COM_USB command. A future
 pre/post-state claim therefore needs an explicit, reviewed readback mechanism;
 it cannot be inferred from the cached VPS state or a successful queue call.
 
+Independent-review addition (2026-08-11): the readback is cheaper than the
+paragraph above implies, and the exact scope should be recorded now.
+
+- `COMMAND_CONTROL1_READ = 0x05` is defined at
+  `include/linux/usb/typec/maxim/max77705-muic.h:70`.
+- `COMMAND_CONTROL1_WRITE` is the *only* CONTROL1 opcode actually issued
+  anywhere in the tree (`max77705-muic.c:343`). CONTROL1 is never read on any
+  path, not merely "not before initial detect".
+- However the opcode-**read** machinery is already exercised on this exact IC
+  for sibling registers: `COMMAND_BC_CTRL2_READ` at `max77705-muic.c:546` and
+  `COMMAND_BC_CTRL1_READ` at `:561` and `:577`.
+
+Adding a CONTROL1 read therefore reuses a proven in-driver request/response
+pattern with a different opcode number. It is not a new interface class and
+not an unexercised transport. The bounded design, opcode-response contract,
+and fixture are still required; the risk estimate should be lowered
+accordingly, and the "post-read only" fallback below may prove unnecessary.
+
 ## Required corrections to the originating claim
 
 ### Correction 1: PDIC appeared in historical candidates
@@ -302,6 +320,43 @@ pdic_max77705.ko
 This is dependency arithmetic only. It is not a qualified module plan or live
 authority.
 
+### The delta omits the charger siblings, and this IC is the power IC
+
+Independent-review addition (2026-08-11). The stock load order is:
+
+```text
+359 max77705_charger.ko
+391 max77705-fuelgauge.ko
+401 mfd_max77705.ko
+405 pdic_max77705.ko
+```
+
+Stock brings the charger and fuel-gauge children up **before** the MFD and
+PDIC. The delta above brings up neither, so it produces a partially
+instantiated MFD — a configuration production never ships.
+
+That matters more here than for a normal module addition, because
+`994000.i2c / max77705@66` is not a USB peripheral. It is the combined
+**charger / fuel-gauge / MUIC / PDIC** device on a target whose entire recovery
+model assumes a charged, healthy battery. This would be the first time the
+campaign drives a power-management IC.
+
+The successor must therefore either:
+
+- derive from the exact source that partial child instantiation is safe and
+  that no charger/fuel-gauge path is required for MUIC detect and CONTROL1
+  command/response; or
+- follow the stock order and include the charger siblings, accepting the larger
+  surface in exchange for a configuration the vendor actually ships.
+
+Either way, the successor's independent review must classify this as its own
+hazard — **power-management IC control**, not "adding USB modules". The
+campaign has already spent a month on a component dropped because it "looked
+unnecessary"; that judgement should not be repeated on the battery path.
+
+Note that this hazard is about *driver instantiation and IC command traffic*,
+not firmware: probe issues no firmware update (see above).
+
 The minimum witness chain is:
 
 1. exact modules loaded in the qualified order;
@@ -325,6 +380,20 @@ pair. Introducing it changes observer/execution behavior and requires its own
 bounded design, exact opcode-response contract, fixture, and proportional
 independent review. It must not be improvised through the `fw_update` sysfs
 surface during a live run.
+
+That last sentence is now a verified fact rather than a caution.
+`max77705_usbc_probe()` (`max77705_usbc.c:3663-3836`) contains **no** firmware
+update call. Its only firmware-related statement is
+`INIT_WORK(&usbc_data->fw_update_work, max77705_firmware_update_sysfs_work)`,
+itself inside `#if defined(MAX77705_SYS_FW_UPDATE)`. The compiled-in
+`BOOT_FLASH_FW_PASS2` reference is in the sysfs **read** handler
+(`max77705_sysfs_get_local_prop`), used only to report a version string.
+
+Therefore the sysfs surface is the sole firmware path on this part, and a
+candidate that never touches it cannot trigger an IC firmware update by loading
+the driver. This also explains `spu_verify.ko` in the module delta: it is the
+link dependency of `#include <linux/spu-verify.h>` at `max77705_usbc.c:43`, not
+evidence of update intent.
 
 If pre-read implementation is disproportionate, a first successor may retain
 bind/detect/write/response plus post-read. That is still informative, but it
@@ -402,3 +471,25 @@ The second reviewer should independently verify:
 The review should return claim-level `KEEP`, `REWRITE`, or `DELETE` findings.
 Only after that review should this draft be corrected, promoted into
 `GOAL.md`/the S22+ ledger, and committed.
+
+## Independent review pass 1 (2026-08-11)
+
+Verified against the exact tree, not restated from this document:
+
+| Checklist item | Result |
+|---|---|
+| header SHA-256 `3f7f2b97…`, `max77705-muic.c` SHA-256 `bfdb034d…` | `KEEP` — both match exactly |
+| CONTROL1 is the connector-side D+/D- switch with an Open state | `KEEP` |
+| USB/CDP/OTG explicitly issues `COMMAND_CONTROL1_WRITE` | `KEEP` (`max77705-muic.c:343`) |
+| any other driver or stage programs the same MUX | `KEEP` — none. Every `max77705_switch_path()` caller is inside `max77705-muic.c` |
+| any normal boot path reads CONTROL1 before initial detect | `KEEP`, and **stronger**: CONTROL1 is never read on any path |
+| stronger existing positive acknowledgment than identified | `REWRITE` — the opcode-read machinery *is* exercised on this IC (`BC_CTRL1_READ`, `BC_CTRL2_READ`); a CONTROL1 read reuses a proven pattern |
+| readback obtainable without an unsafe or overly broad mechanism | `REWRITE` — yes, and probe issues no firmware update, so driver load alone cannot trigger one |
+| six-module delta and order exact against the P3.15 plan | `REWRITE` — arithmetic holds, but the delta omits the charger siblings that stock loads first; see the power-IC section |
+| retained S7A2/S8/S9 artifact proving PDIC bind or COM_USB execution | `KEEP` — none available; the S7A2 private run directory is gone |
+| all seven "delete" claims | `KEEP` — all seven are correctly unsupported, including the reviewer's own originating error (claim 1) |
+
+No `DELETE` findings. The three `REWRITE` results are applied above.
+
+Still not promoted: `GOAL.md`, the S22+ ledger, and any execution contract
+remain unchanged, and this document confers no device authority.
