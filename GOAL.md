@@ -54,6 +54,41 @@ materialized trace contract and fixed-source work-queue transitions. P3.02
 passive electrical attribution remains parked because no reviewed safe inline
 breakout is available.
 
+Post-live H0 localization closes the timing and state-machine half of that
+question. `p315_wait_restart_completion()` accepted exactly four complete
+outer pairs plus the single nested start-on pair before the authoritative
+RESTART snapshot. The terminal eight-pair result therefore places the four
+extra complete invocations after that snapshot, inside the final 30-second
+state window. Since every functional pair count remained exact, those late
+turns did not take a start, stop, PHY, power, gadget-start, or RUN_STOP branch.
+They were functionally inert turns of an already stable peripheral state.
+
+The fixed wrapper source leaves no source-required self-loop in that state:
+`dwc3_otg_sm_work()` requeues itself only when `work` is true. Probe startup,
+the undefined-state DPDM callback, a late WAIT_FOR_LPM completion, and a real
+role transition are also inconsistent with the observed timing or exact
+functional counts. The remaining source boundary is an external kick through
+`dwc3_ext_event_notify()` directly or through `dwc3_resume_work()`. The exact
+G0Q overlay connects the UCSI connector endpoint to the wrapper USB role
+switch, and the candidate loads both `ucsi_glink.ko` and the Samsung notifier
+stack whose qcom callbacks reach `dwc_msm_vbus_event()` and
+`dwc_msm_id_event()`. These are concurrent, source-real control planes, but
+same-role and same-VBUS guards mean their mere presence does not identify the
+four live kicks. PM-complete and power-IRQ resume sources also exist in the
+wrapper. P3.15 retained only the terminal summary, not the destroyed trace
+ordering, so exact provenance is not recoverable from the consumed run.
+
+Any P3.16 proposal must therefore be a reduced provenance-only observer. It
+must distinguish wrapper role-set, qcom VBUS/ID notification, UCSI-triggered
+role setting, resume-work, PM/power/restart sources, ext-event notification,
+and the resulting outer work across the RESTART-to-FINAL boundary while
+preserving bounded record and profile integrity. Repeating P3.15's functional
+tuple has no information value. A userspace-only overlay may continue to reuse
+the fixed Image, but any new module-local symbol or instruction offset still
+requires linked-artifact and tracefs-ABI proof before packaging. This H0
+localization does not authorize a device action or establish that another F1
+is preferable to the parked electrical boundary.
+
 ## P3.15 Detailed Successor Design
 
 P3.15 extends rather than rewrites the consumed P3.14 contract. The exact
