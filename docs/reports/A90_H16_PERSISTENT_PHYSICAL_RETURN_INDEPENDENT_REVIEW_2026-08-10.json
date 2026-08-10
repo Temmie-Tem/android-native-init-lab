@@ -1,0 +1,52 @@
+{
+  "schema": "a90-h16-persistent-physical-return-independent-review-v1",
+  "capability": "A90_H16_PERSISTENT_DEBIAN_PHYSICAL_RETURN_V1",
+  "verdict": "PASS_GO",
+  "review_date": "2026-08-10",
+  "reviewer": "independent-subagent",
+  "execution_closure_sha256": "51f99862d5ed69ec9e43c80b5a9bff6deb694de8804dc011e4fa36b886264bc8",
+  "execution_file_count": 40,
+  "review_scope": "exact-h16-run01-persistent-debian-physical-return-no-replay-close",
+  "new_hazard_or_incident": true,
+  "findings": {
+    "high": [],
+    "medium": [],
+    "low": []
+  },
+  "closed_during_review": [
+    {
+      "severity": "medium",
+      "class": "UFS_MOUNT_ALIAS_GAP",
+      "resolution": "Count proc self mountinfo field 3 by the unique sysfs userdata major and minor tuple instead of source path aliases."
+    }
+  ],
+  "validated_invariants": [
+    "exact run manifest install predecessor and target binding",
+    "immutable four-record prefix and one consumed dispatch",
+    "released observer guard and exact no-proof observation",
+    "bounded read-only device observation only",
+    "unique same-intent H16 handoff and physical-return benchmark segments",
+    "runtime dev_t based userdata unmounted proof across all aliases",
+    "automatic return SSH PID1 DRM display Wi-Fi and full server claims remain unproved",
+    "only original journal records 0004 and 0005 may be appended",
+    "five-record crash resumes by appending only 0005",
+    "six-record terminal is validation-only",
+    "qualification and review output are excluded from the execution closure"
+  ],
+  "validation": {
+    "capability_tests": "9/9 passed",
+    "h16_source_tests": "38/38 passed",
+    "py_compile": "passed",
+    "path_scoped_diff_check": "passed"
+  },
+  "review_contacts": {
+    "device": 0,
+    "dev": 0,
+    "usb": 0,
+    "network": 0,
+    "workspace_private": 0,
+    "s22plus_paths": 0,
+    "file_modifications": 0
+  },
+  "live_authority": false
+}

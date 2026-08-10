@@ -323,6 +323,33 @@ replacement lane and implements the V2 same-session runtime-`dev_t` rule above
 with fresh versioned enable/latch paths. Its exact V2321 boot rollback remains
 mandatory.
 
+H16 run01 exposed the separate
+`PERSISTENT_DEBIAN_RETURN_AND_OBSERVER_BINDING_MISMATCH` incident. The exact
+armed boot reached the read-only UFS `switch_root` marker and a live A90 NCM
+endpoint, but the appliance intentionally has no automatic-return timer and
+its installed root authorized key did not match the manifest observer key.
+The original observer therefore could not prove authenticated SSH, PID 1,
+DRM, display ownership, or the final Wi-Fi state, and the operator returned the
+device physically. Neither that return nor later exact resident health may be
+reported as an automatic return or as full personal-server PASS.
+
+One incident-specific attended no-replay finalizer may close only that exact
+H16 run01 journal. It accepts the immutable four-record prefix after the one
+arm-plus-reboot dispatch, the released host guard, the exact predecessor
+manifest/install/closure hashes, and a separately reviewed finalizer closure.
+It sends only bounded read-only resident commands. Before appending the two
+terminal host records it requires exact H16 identity and self-test, exact
+`binding=1 enable=1 latch=1`, a same-intent unique H16 UFS handoff benchmark
+ending at `switch_root_exec`, and a fresh read-only proof that userdata is not
+mounted after the operator-confirmed physical return. Its terminal must keep
+automatic return, authenticated SSH, PID 1, DRM/display, final Wi-Fi, and full
+server readiness false or unproved. It never arms, reboots, mounts, hands off,
+transfers a payload, flashes, writes userdata, or replays the consumed action.
+Because the finalizer has no device effect, it needs attendance and independent
+incident qualification but no new live-effect approval. It retires after the
+exact journal has both terminal records, on target or source drift, or on any
+new incident, whichever comes first.
+
 The H15 run01 pre-latch incident activates one attended recovery primitive for
 the exact `1,0` state only. It binds the consumed D1 journal prefix, its exact
 intent, current H15 identity and health, the sole H15 enable path, and the
