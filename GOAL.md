@@ -35,13 +35,101 @@ reproduces `rc=0x6705 records=14 profile0=0 record0=1` in a host TU. No USB,
 PM, restart/resume, post-cycle QSCRATCH, state-delta, connector, or pull-up
 conclusion follows.
 
-The minimal successor is a userspace-only live-profile snapshot repair. It
-must execute the actual intermediate wrapper with nonzero records and prove
-that every profile relation follows a successful profile read, while retaining
-the existing final/partial close, ring, pair, capacity, Carrier, and
+P3.15 is the selected userspace-only live-profile snapshot repair. Its H0
+design is registered but its implementation and qualification are not yet
+complete. It must execute the actual intermediate wrapper with nonzero records
+and prove that every profile relation follows a successful profile read, while
+retaining the existing final/partial close, ring, pair, capacity, Carrier, and
 Process-v2 checks. The fixed Image and kernel remain unchanged, so Full-LTO is
-not required under the exact inherited inputs. No successor is yet qualified
-or authorized.
+not required under the exact inherited inputs. No P3.15 candidate is yet
+qualified or authorized. No successor is yet qualified or authorized; P3.15
+has only an H0 design contract.
+
+## P3.15 Detailed Successor Design
+
+P3.15 extends rather than rewrites the consumed P3.14 contract. The exact
+P3.14 incident and design-requirements receipts remain historical authority.
+The new `s22plus_fyg8_p315_design_requirements_v1` contract registers the
+additional obligations below with status `registered-not-satisfied`; a future
+prepackaging closure must carry its exact requirements hash and pass the real
+validator before any package bytes are created.
+
+### Explicit phase geometry
+
+The ten ordered pair classes are `start_off`, `start_on`, `child_suspend`,
+`child_resume`, `phy_suspend_off`, `phy_suspend_on`, `power_off`, `power_on`,
+`phy_init`, and `notify_connect`. P3.15 freezes three separate semantic
+vectors:
+
+- STOP: `[1,0,1,0,2,0,1,0,0,0]`, 14 clean records;
+- RESTART: `[1,1,1,1,2,2,1,1,1,1]`, 41 clean records; and
+- FINAL: `[1,1,1,1,2,2,1,1,1,1]`, 41 clean records, with 49 retained as the
+  inherited bounded-drift ceiling.
+
+RESTART and FINAL are equal values but distinct semantic contracts. The
+materialized parser must select STOP, RESTART, and FINAL explicitly rather
+than allowing RESTART to fall through an `else` branch. PARTIAL retains its
+existing non-terminal behavior. Every unknown phase fails closed with the
+already registered `0x6707`, `record-format-contradiction`; no raw or new
+detail is introduced. Qualification must execute a real 41-record RESTART
+fixture, reject each missing pair, and map each complete excess pair class to
+the existing `0x6c01..0x6fff` mask.
+
+### Live snapshot invariant
+
+One new helper, `p315_read_live_snapshot()`, owns both intermediate callsites.
+It accepts only STOP or RESTART, calls
+`p282_trace_read_snapshot(control, 1)`, maps every trace or profile read error
+to the established `0x6704`, `trace-snapshot-read-failed`, and invokes
+`p314_parse_live_snapshot()` only after that read succeeds. Parsing populates
+`record_hits[]` before the valid `profile_hits >= record_hits` relation, and
+ring statistics follow the profile relation. No raw errno may reach
+`p313_cycle_fail()` from these callsites.
+
+This restores an existing invariant rather than inventing one. The inherited
+final and partial close paths already disable tracing, read trace plus profile,
+parse, compare profile counts, check ring statistics, and map negative read
+results to `0x6704`. They remain unchanged in P3.15. The three implementations
+-- stop/restart helper, final inline, and partial inline -- are recorded as one
+review set; changing one requires checking all three.
+
+The six inherited `require_profile=0` sites are classified rather than
+globally rewritten. STOP and RESTART leave that set and use the new helper.
+Role retains its role-source contradiction normalization, legacy cycle refresh
+retains its trace-incomplete warning, and bind plus direct remain intentional
+bind-event-count no-ops that perform no file read. Any new zero-profile site or
+any downstream profile comparison after those four sites blocks packaging.
+
+### Coverage and timing closure
+
+The prepackaging artifact must bind each observer seam to the immediate caller
+that establishes its inputs. This includes snapshot-to-helper,
+parser-to-helper, profile-relation-to-parser, ring-check-to-parser, the two
+live callers, and the inherited final/partial callers. The unverified
+difference for changed functions and those immediate callers must be zero.
+
+Function-symbol `(void)` references are not execution proof. The P3.14 runtime
+fixture must actually execute `profile_from_result()` and
+`p313_cycle_profile_relations()`. The older stop-localization audit may retain
+its nine compile-only symbols only with the machine-recorded, scope-specific
+reasons in the P3.15 contract. This is a bounded one-time sweep, not a global
+call-graph coverage requirement.
+
+The existing bounded waits remain 160 seconds inside the 300-second candidate
+window and no new wait is added. P3.15 adds exactly two bounded profile reads;
+each uses the existing 65,536-byte buffer, for at most 131,072 bytes of added
+read extent. Qualification must recalculate materialized non-wait overhead
+with those reads and wrapper parsing included. The nominal 140-second
+subtraction is not itself proof. The reviewed 1,200-second host guard remains
+unchanged.
+
+P3.15 changes only generated userspace runtime and its host
+design/fixture/closure/packaging validation. The fixed Image, kernel hooks,
+5/15/25-event descriptors, module plan, 107 checkpoint positions, Carrier-v2
+layout, rollback, transfer, recovery, and guard remain exact. It therefore
+requires a userspace rebuild, boot-only repackaging, fresh qualification, and
+one focused independent review of the changed closure, but no Full-LTO. This
+H0 design grants no D0, D1, or F1 authority.
 
 ## P3.13 Predecessor Evidence
 
