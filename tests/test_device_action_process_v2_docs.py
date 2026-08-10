@@ -457,36 +457,25 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
                 mutated = source.replace(clause, f"removed-a90-clause-{index}", 1)
                 self.assertIn(clause, a90_target_contract_issues(mutated))
 
-    def test_frontier_records_closed_p314_and_h0_qualified_p315(self):
+    def test_frontier_records_closed_p315_outer_work_drift(self):
         normalized_goal = " ".join(self.goal.split())
-        self.assertIn("P3.14 is the latest closed live unit", normalized_goal)
-        self.assertIn("terminal `0x6705`", normalized_goal)
-        self.assertIn("`profile-record-deficit`", normalized_goal)
-        self.assertIn("did not construct or execute the restart helper", normalized_goal)
-        self.assertIn("deterministic observer self-failure", normalized_goal)
-        self.assertIn("`p282_trace_read_snapshot(..., 0)`", normalized_goal)
-        self.assertIn("`profile_hits[]` untouched", normalized_goal)
-        self.assertIn("`rc=0x6705 records=14 profile0=0 record0=1`", normalized_goal)
+        self.assertIn("P3.15 is the latest closed live unit", normalized_goal)
+        self.assertIn("A=`0x0d3f`", normalized_goal)
+        self.assertIn("B=`0x5064`", normalized_goal)
+        self.assertIn("path-drift mask `0x04`", normalized_goal)
+        self.assertIn("sole `OUTER_WORK` bit", normalized_goal)
+        self.assertIn("pullup pairs were zero", normalized_goal)
+        self.assertIn("RUN_STOP pairs were two", normalized_goal)
+        self.assertIn("gadget-start was one pair", normalized_goal)
+        self.assertIn("eight complete `dwc3_otg_sm_work` pairs", normalized_goal)
+        self.assertIn("expectation of four", normalized_goal)
+        self.assertIn("refutes the clean four-outer-work cycle model", normalized_goal)
+        self.assertIn("revokes a cycle-causal claim", normalized_goal)
+        self.assertIn("none of this proves whether a USB2 pull-up reached", normalized_goal)
+        self.assertIn("`cycle_causal_claim=true`", normalized_goal)
         self.assertIn("P3.14 is now consumed and closed", normalized_goal)
-        self.assertIn(
-            "P3.15 closes the H0 live-profile snapshot ordering repair",
-            normalized_goal,
-        )
-        self.assertIn(
-            "first freshly authorized connected D0 selected the exact S22+",
-            normalized_goal,
-        )
-        self.assertIn(
-            "created the new exact Process-v2 prepared binding", normalized_goal
-        )
-        self.assertIn(
-            "`40f1047f54c1a90c7e17a526b01992b220d82369b4ba81ed953f997f3ce88618`",
-            normalized_goal,
-        )
-        self.assertIn("No transaction exists", normalized_goal)
-        self.assertIn("`f1_authorized`", normalized_goal)
-        self.assertIn("`live_authorized`", normalized_goal)
-        self.assertIn("are all false", normalized_goal)
+        self.assertIn("P3.15 is also consumed and closed", normalized_goal)
+        self.assertIn("historical evidence only and grant no authority", normalized_goal)
         self.assertIn("generation 96, stage `0x90`, item 3", normalized_goal)
         self.assertIn("generation 97, stage `0x90`, item 4", normalized_goal)
         self.assertIn("terminal failure `0x6712`", normalized_goal)

@@ -12,66 +12,47 @@ authority, evidence, transports, and commands remain separate.
 
 ## Current Frontier
 
-P3.14 is the latest closed live unit. Its distinct boot-only candidate and
+P3.15 is the latest closed live unit. Its distinct boot-only candidate and
 exact Magisk rollback each transferred exactly once. The Process-v2 journal is
 `CLOSED`; rooted boot-completed FYG8 Android, boot and supporting-partition
 identities, stopped boot animation, and absence of Download mode passed with
 `recovery_required=false`. The operator observed a normal candidate boot
-without a loop. The consumed candidate is never replayable.
+without a loop. The consumed candidate is never replayable, and its prepared
+binding grants no remaining authority.
 
-The exact ACM observer timed out at zero bytes. Two full-length,
-byte-identical retained reads contain CRC-clean adjacent generations 96/97:
-parent-suspended progress followed by terminal `0x6705`,
-`profile-record-deficit`, while classifying the live stop snapshot. P3.14
-therefore reached the same proved stop boundary as P3.13 but did not construct
-or execute the restart helper.
+The exact ACM observer timed out at zero bytes, but this was not an observer
+no-proof. Two full-length, byte-identical retained reads contain one
+integrity-clean, foreign-count-zero Carrier-v2 record with adjacent generations
+106/107: A=`0x0d3f` records cycle-attempted, not-attached, speed UNKNOWN, and
+B=`0x5064` records path-drift mask `0x04`. The candidate-side USB sidecar was
+integrity-clean and observed no new candidate USB connection after Download
+departure.
 
-Post-live H0 proves that this is deterministic observer self-failure. The
-materialized stop path reads trace text with
-`p282_trace_read_snapshot(..., 0)`, which leaves the zero-initialized
-`profile_hits[]` untouched, and then `p314_parse_live_snapshot()` compares
-those zeros with 14 valid stop records. The actual materialized parser
-reproduces `rc=0x6705 records=14 profile0=0 record0=1` in a host TU. No USB,
-PM, restart/resume, post-cycle QSCRATCH, state-delta, connector, or pull-up
-conclusion follows.
+The exact materialized parser and frozen encoding make `0x04` the sole
+`OUTER_WORK` bit. All ten functional pair counts were exact; pullup pairs were
+zero; RUN_STOP pairs were two; gadget-start was one pair; QSCRATCH, state, and
+event-config each appeared once; and the required resume nesting held. These
+fixed contributions account for 33 records. Since the final parser accepts
+only 41 clean or 49 bounded-drift records, the nonzero outer-work bit forces
+the 49-record case and therefore eight complete `dwc3_otg_sm_work` pairs,
+twice the source-derived expectation of four.
 
-P3.15 is now the selected and fully H0-qualified userspace-only repair. The
-actual intermediate STOP and RESTART wrappers execute only after successful
-profile-bearing snapshots, the restart-completion fence and explicit
-STOP/RESTART/FINAL geometries passed, and the inherited final/partial close,
-ring, pair, capacity, Carrier, and Process-v2 checks remain intact. The actual
-251,450-cell Process-v2 adapter/persistence matrix, root-bound prepackaging
-validator, two reproducible userspace/package builds, independent static
-closure, ready-manifest rehearsal, and focused independent changed-closure
-review all passed. The fixed Image and kernel are unchanged, so no Full-LTO
-was required.
+P3.15 therefore refutes the clean four-outer-work cycle model while proving
+that the restart-side functional path, nested gadget-start/RUN_STOP, and
+postcycle digital witnesses executed. The frozen Result Contract revokes a
+cycle-causal claim on multiplicity/path drift, so neither the host silence nor
+the not-attached/UNKNOWN result may be attributed to a clean cycle, and none
+of this proves whether a USB2 pull-up reached the connector. The live decoder's
+generic `cycle_causal_claim=true` default is not used to override that explicit
+contract.
 
-The canonical ready manifest is
-`workspace/public/src/device-action/manifests/s22plus_fyg8_p315_process_v2_ready_1.json`
-with SHA-256 `a7f37b4fa9eb8783f90130e1a7eeb3ecc2053515527ed1f61046f111ba227c5f`.
-The first freshly authorized connected D0 selected the exact S22+ and read the
-retained observer, then stopped because it contained the consumed P3.14
-generation-97 `0x6705` `profile-record-deficit` family. Offline
-reclassification proved one integrity-clean, foreign-count-zero P3.14 record;
-that D0 remains closed and non-reusable.
-
-One separately approved attended normal-Android D1 then rebooted the exact
-S22+ once. The original helper exhausted its 240-second return-health bound
-while the target remained ADB `offline`; the reboot was not replayed. One
-bounded host ADB-server restart and one exact offline-transport reconnect
-restored passive observation. The boot ID changed and rooted boot-completed
-FYG8 Android, boot and supporting-partition identities, stopped boot
-animation, and absence of Download mode all passed.
-
-A subsequent fresh connected D0 read 2,097,136 retained bytes to EOF with
-empty stderr and zero marker-family matches, then created the new exact
-Process-v2 prepared binding
-`40f1047f54c1a90c7e17a526b01992b220d82369b4ba81ed953f997f3ce88618`.
-It binds the qualified P3.15 candidate, exact rollback, clean baseline,
-USB sidecar, reviewed 1,200-second guard, and current execution closure.
-`device_writes`, `reboot_requested`, `odin_invoked`, `partition_transfer`,
-`f1_authorized`, and `live_authorized` are all false. No transaction exists;
-fresh exact F1 approval and attended execution remain separate.
+The next bounded unit is H0-only localization of why the same cycle produced
+eight rather than four complete outer state-machine invocations and whether
+the extra turns are source-required or a new device-path boundary. No new
+candidate may be designed until that sequence is derived from the exact
+materialized trace contract and fixed-source work-queue transitions. P3.02
+passive electrical attribution remains parked because no reviewed safe inline
+breakout is available.
 
 ## P3.15 Detailed Successor Design
 
@@ -575,14 +556,10 @@ approval waiver. H0 implementation may proceed without device contact; any
 future D0, D1, or F1 must satisfy the ordinary live common/target authority and
 fresh exact binding requirements.
 
-The exact S22+ was healthy at the P3.14 close. Before P3.13 preparation, one
-approved normal-Android baseline-rotation reboot changed the boot ID and
-returned rooted completed FYG8 Android with boot, vendor_boot, recovery, and
-dtbo identities unchanged. The subsequent fresh D0 passed. Physical Download
-recovery and the exact Magisk rollback remain the required F1 recovery path.
-No candidate may be written over an unhealthy or unverified device; rollback
-never waits after candidate execution begins, and a consumed candidate is
-never replayed.
+The exact S22+ is healthy at the P3.15 close. Physical Download recovery and
+the exact Magisk rollback remain the required F1 recovery path. No candidate
+may be written over an unhealthy or unverified device; rollback never waits
+after candidate execution begins, and a consumed candidate is never replayed.
 
 P3.13 is now consumed and closed. Its candidate and rollback each completed
 once; a transient post-rollback host endpoint-evidence failure was recovered
@@ -593,15 +570,11 @@ P3.02 passive electrical attribution remains parked because no reviewed safe
 inline breakout is available. P3.14 is now consumed and closed. Its candidate
 and rollback each completed once; the retained observer contradiction was
 recovered from two byte-identical post-rollback reads, and final health passed.
-No live authority remains from its approval or prepared record. P3.15 closes
-the H0 live-profile snapshot ordering repair. Its first connected D0 stopped
-on the expected consumed P3.14 retained family and is not reusable. The
-separately approved attended D1 baseline rotation then rebooted once and
-returned healthy after bounded host-only ADB transport repair without replay.
-The subsequent fresh D0 passed with a clean retained baseline and created the
-exact prepared binding `40f1047f...8618`. No transaction or F1 arm exists;
-only a separate fresh exact F1 approval may authorize its one attended
-candidate attempt and mandatory rollback. P3.02 remains parked.
+No live authority remains from its approval or prepared record. P3.15 is also
+consumed and closed. Its candidate and rollback each completed once, its
+integrity-clean retained pair proved outer-work-only path drift, and final
+health passed. Its journal, approval, and prepared binding are historical
+evidence only and grant no authority. P3.02 remains parked.
 
 ## Success and Stop Conditions
 
@@ -626,12 +599,16 @@ restart or refuted any remaining digital mechanism. It must close the actual
 intermediate snapshot call sequence, not merely the lower-level parser or the
 post-emission value-position matrix, before a new candidate is packaged.
 
-P3.15 satisfies that successor boundary in H0. It does not retroactively show
-that P3.14 entered restart, and it has no live USB result of its own. Its fresh
-exact S22+ connected D0 and prepared record now exist. Candidate execution
-remains forbidden until the exact approval token for binding
-`40f1047f...8618` is freshly supplied while the operator is attended and able
-to perform physical Download recovery.
+P3.15 satisfies that successor boundary and its one live attempt is complete.
+It produced a valid, information-bearing `REFUTED` result rather than an
+observer no-proof: restart executed, but eight complete outer-work pairs
+violated the source-derived clean expectation of four. All other encoded path
+classes were exact and the sidecar remained candidate-silent. Because the
+frozen Result Contract revokes cycle causality on multiplicity, this result
+does not prove that the cycle caused the host silence or that a pull-up did or
+did not reach the connector. The immediate successor question is the exact
+source/runtime origin of the four extra outer-work invocations; no P3.15
+candidate replay or inherited clean-cycle claim is permitted.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden
 archive member, an unreviewed common receipt/schema change, an observer result
