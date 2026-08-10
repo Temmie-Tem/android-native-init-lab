@@ -354,6 +354,29 @@ int a90_auto_handoff_status_cmd(char **argv, int argc) {
     return enable_state < 0 ? enable_state : (latch_state < 0 ? latch_state : 0);
 }
 
+int a90_auto_handoff_dispatch_state(void) {
+    char intent_sha256[65];
+    int enable_state;
+    int latch_state;
+
+    if (!a90_auto_handoff_binding_valid()) {
+        return -EINVAL;
+    }
+    latch_state = a90_auto_handoff_state_path(A90_AUTO_HANDOFF_LATCH_PATH);
+    if (latch_state < 0) {
+        return latch_state;
+    }
+    if (latch_state > 0) {
+        return 0;
+    }
+    enable_state = a90_auto_handoff_read_enable(intent_sha256,
+                                                 sizeof(intent_sha256));
+    if (enable_state < 0) {
+        return enable_state;
+    }
+    return enable_state == 1 ? 1 : 0;
+}
+
 int a90_auto_handoff_arm_cmd(char **argv, int argc) {
     const char *intent_sha256;
     int enable_state;
@@ -886,6 +909,10 @@ int a90_auto_handoff_run_once(void) {
 int a90_auto_handoff_status_cmd(char **argv, int argc) {
     (void)argv;
     (void)argc;
+    return -ENOTSUP;
+}
+
+int a90_auto_handoff_dispatch_state(void) {
     return -ENOTSUP;
 }
 

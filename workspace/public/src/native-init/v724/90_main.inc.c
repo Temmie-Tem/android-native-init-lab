@@ -4891,50 +4891,153 @@ static int v1393_spawn_wifi_test_summary_watcher(pid_t helper_pid, long spawn_ms
 #endif
 
 #if A90_WIFI_PERSISTENT_HANDOFF_V1
-static int v1393_wait_persistent_handoff_ready(void) {
-    char expected[256];
-    char actual[256];
-    long deadline_ms;
-    int expected_len;
+static int v1393_persistent_handoff_mounts_private(pid_t helper_pid) {
+    char path[64];
+    char buffer[65536];
+    size_t used = 0;
+    int fd;
+
+    if (snprintf(path,
+                 sizeof(path),
+                 "/proc/%ld/mountinfo",
+                 (long)helper_pid) >= (int)sizeof(path)) {
+        return -ENAMETOOLONG;
+    }
+    fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        return errno == ENOENT ? 0 : -errno;
+    }
+    while (used < sizeof(buffer) - 1U) {
+        ssize_t got = read(fd, buffer + used, sizeof(buffer) - 1U - used);
+
+        if (got == 0) {
+            break;
+        }
+        if (got < 0) {
+            int saved_errno = errno;
+
+            close(fd);
+            return saved_errno == EINTR ? 0 : -saved_errno;
+        }
+        used += (size_t)got;
+    }
+    if (used == sizeof(buffer) - 1U) {
+        char extra;
+        ssize_t got = read(fd, &extra, 1U);
+
+        if (got != 0) {
+            close(fd);
+            return got < 0 ? -errno : -EOVERFLOW;
+        }
+    }
+    if (close(fd) < 0) {
+        return -errno;
+    }
+    buffer[used] = '\0';
+    if (used == 0 || strstr(buffer, " shared:") != NULL ||
+        strstr(buffer, " master:") != NULL ||
+        strstr(buffer, " propagate_from:") != NULL) {
+        return 0;
+    }
+    return 1;
+}
+
+static int v1393_persistent_handoff_namespace_ready(pid_t helper_pid) {
+    char path[64];
+    char exe[PATH_MAX];
+    struct stat self_mnt;
+    struct stat helper_mnt;
+    struct stat self_net;
+    struct stat helper_net;
+    int status = 0;
+    pid_t waited;
+    ssize_t exe_len;
+    int mounts_private;
+
+    waited = waitpid(helper_pid, &status, WNOHANG);
+    if (waited == helper_pid) {
+        v1393_wifi_test_helper_pid = -1;
+        return -ECHILD;
+    }
+    if (waited < 0) {
+        return errno == EINTR ? 0 : -errno;
+    }
+    if (snprintf(path, sizeof(path), "/proc/%ld/exe", (long)helper_pid) >=
+        (int)sizeof(path)) {
+        return -ENAMETOOLONG;
+    }
+    exe_len = readlink(path, exe, sizeof(exe) - 1U);
+    if (exe_len < 0) {
+        return errno == ENOENT ? 0 : -errno;
+    }
+    exe[exe_len] = '\0';
+    if (strcmp(exe, A90_V1393_WIFI_TEST_HELPER) != 0) {
+        return 0;
+    }
+    if (stat("/proc/self/ns/mnt", &self_mnt) < 0 ||
+        stat("/proc/self/ns/net", &self_net) < 0) {
+        return -errno;
+    }
+    if (snprintf(path, sizeof(path), "/proc/%ld/ns/mnt", (long)helper_pid) >=
+        (int)sizeof(path)) {
+        return -ENAMETOOLONG;
+    }
+    if (stat(path, &helper_mnt) < 0) {
+        return errno == ENOENT ? 0 : -errno;
+    }
+    if (snprintf(path, sizeof(path), "/proc/%ld/ns/net", (long)helper_pid) >=
+        (int)sizeof(path)) {
+        return -ENAMETOOLONG;
+    }
+    if (stat(path, &helper_net) < 0) {
+        return errno == ENOENT ? 0 : -errno;
+    }
+    if ((self_mnt.st_dev == helper_mnt.st_dev &&
+         self_mnt.st_ino == helper_mnt.st_ino) ||
+        self_net.st_dev != helper_net.st_dev ||
+        self_net.st_ino != helper_net.st_ino) {
+        return 0;
+    }
+    mounts_private = v1393_persistent_handoff_mounts_private(helper_pid);
+    if (mounts_private <= 0) {
+        return mounts_private;
+    }
+    waited = waitpid(helper_pid, &status, WNOHANG);
+    if (waited == helper_pid) {
+        v1393_wifi_test_helper_pid = -1;
+        return -ECHILD;
+    }
+    return waited < 0 ? (errno == EINTR ? 0 : -errno) : 1;
+}
+
+static int v1393_require_persistent_handoff_started(void) {
+    long started_ms = monotonic_millis();
+    long deadline_ms = started_ms + 5000L;
 
     if (v1393_wifi_test_helper_pid <= 1) {
         return -ESRCH;
     }
-    expected_len = snprintf(
-        expected,
-        sizeof(expected),
-        "schema=a90-execns-persistent-handoff-ready-v1\n"
-        "state=ready\n"
-        "pid=%ld\n"
-        "mount_namespace=private\n"
-        "network_namespace=shared\n"
-        "companions=qualified\n"
-        "wlan0=present\n"
-        "result=published\n",
-        (long)v1393_wifi_test_helper_pid);
-    if (expected_len < 0 || (size_t)expected_len >= sizeof(expected)) {
-        return -EOVERFLOW;
-    }
-    deadline_ms = monotonic_millis() + 20000L;
     while (monotonic_millis() < deadline_ms) {
-        if (kill(v1393_wifi_test_helper_pid, 0) < 0 && errno != EPERM) {
-            return -ESRCH;
-        }
-        if (read_text_file(A90_WIFI_PERSISTENT_HANDOFF_READY,
-                           actual,
-                           sizeof(actual)) == 0 &&
-            strcmp(actual, expected) == 0) {
-            a90_logf("wifi-v1393",
-                     "persistent handoff ready pid=%ld companions=qualified",
-                     (long)v1393_wifi_test_helper_pid);
+        int ready = v1393_persistent_handoff_namespace_ready(
+            v1393_wifi_test_helper_pid);
+
+        if (ready > 0) {
+            a90_logf(
+                "wifi-v1393",
+                "persistent handoff asynchronous pid=%ld mount_namespace=private network_namespace=shared namespace_wait_ms=%ld final-proof=deferred",
+                (long)v1393_wifi_test_helper_pid,
+                monotonic_millis() - started_ms);
             return 0;
         }
-        usleep(50000);
+        if (ready < 0) {
+            return ready;
+        }
+        usleep(10000);
     }
     return -ETIMEDOUT;
 }
 
-static void v1393_stop_unready_persistent_helper(void) {
+static void v1393_stop_persistent_handoff_helper(void) {
     if (v1393_wifi_test_helper_pid <= 1) {
         return;
     }
@@ -6533,78 +6636,94 @@ int main(void) {
 #if A90_AUTO_HANDOFF_BENCHMARK_V1 && A90_AUTO_HANDOFF_DIRECT_DEBIAN_BOOT
         if (!a90_reloaded) {
             int direct_prep_rc = 0;
+            int direct_dispatch_state;
             int wifi_autoconnect_rc = 0;
 
-            a90_console_printf(
-                "A90DIRECT_BOOT mode=min-network-wifi hud=skipped native_aux=wifi-companion+ncm\r\n");
-            a90_logf(
-                "auto-handoff",
-                "A90DIRECT_BOOT mode=min-network-wifi hud=skipped native_aux=wifi-companion+ncm");
-            a90_timeline_record(
-                0,
-                0,
-                "direct-debian-boot",
-                "minimal native Wi-Fi companion and NCM before handoff; HUD skipped");
-#if defined(A90_WIFI_LIFECYCLE_MODEM_OWNER) && !A90_WIFI_PERSISTENT_HANDOFF_V1
-            v726_start_wifi_lifecycle_modem_owner_once();
-#endif
-#ifdef A90_WIFI_TEST_BOOT
-            v1393_run_wifi_test_boot_once();
-            direct_wifi_boot_started = true;
-#if A90_WIFI_PERSISTENT_HANDOFF_V1 && !A90_WIFI_TEST_BOOT_SUPERVISE_HELPER
-            direct_prep_rc = v1393_wait_persistent_handoff_ready();
-            if (direct_prep_rc < 0) {
-                a90_logf("auto-handoff",
-                         "persistent Wi-Fi handoff not ready rc=%d",
-                         direct_prep_rc);
-                v1393_stop_unready_persistent_helper();
-            } else {
-                a90_benchmark_emit("native_wifi_companion_ready");
-            }
-#endif
-#endif
-            if (direct_prep_rc == 0) {
-                wifi_autoconnect_rc = a90_wifi_start_boot_autoconnect_once();
-                if (wifi_autoconnect_rc < 0) {
-                    direct_prep_rc = wifi_autoconnect_rc;
-                    a90_logf("auto-handoff",
-                             "Wi-Fi autoconnect namespace preparation failed rc=%d",
-                             wifi_autoconnect_rc);
-                } else {
-                    direct_wifi_autoconnect_started = wifi_autoconnect_rc > 0;
-                    a90_benchmark_emit(
-                        wifi_autoconnect_rc > 0 ?
-                            "native_wifi_autoconnect_dispatched" :
-                            "native_wifi_autoconnect_inactive");
-                }
-            }
-            if (direct_prep_rc == 0) {
-                direct_prep_rc = a90_netservice_prepare_handoff();
-                if (direct_prep_rc == 0) {
-                    a90_benchmark_emit("native_ncm_handoff_ready");
-                } else {
-                    a90_logf("auto-handoff",
-                             "Debian NCM preparation failed rc=%d",
-                             direct_prep_rc);
-                }
-            }
-            direct_handoff_checked = true;
-            if (direct_prep_rc < 0) {
-                direct_handoff_rc = direct_prep_rc;
-            } else if (a90_cache_ready) {
-                a90_benchmark_emit("native_direct_handoff_ready");
-                a90_benchmark_emit("native_services_ready");
-                direct_handoff_rc = a90_auto_handoff_run_once();
-            } else {
+            if (!a90_cache_ready) {
+                direct_handoff_checked = true;
+                direct_handoff_rc = -ENODEV;
                 a90_console_printf(
-                    "# Direct Debian handoff refused: durable /cache unavailable.\r\n");
+                    "# Direct Debian handoff refused: durable /cache unavailable; staying native; no replay.\r\n");
                 a90_logf("auto-handoff", "refused durable cache unavailable");
                 a90_timeline_record(-ENODEV,
                                     ENODEV,
                                     "auto-handoff",
                                     "durable cache unavailable");
                 a90_benchmark_emit("auto_handoff_cache_refused");
-                direct_handoff_rc = -ENODEV;
+            } else {
+                direct_dispatch_state = a90_auto_handoff_dispatch_state();
+                if (direct_dispatch_state <= 0) {
+                    direct_handoff_checked = true;
+                    direct_handoff_rc = direct_dispatch_state < 0 ?
+                        direct_dispatch_state : a90_auto_handoff_run_once();
+                a90_logf(
+                    "auto-handoff",
+                    "direct preparation skipped dispatch_state=%d rc=%d",
+                    direct_dispatch_state,
+                    direct_handoff_rc);
+                } else {
+                a90_console_printf(
+                    "A90DIRECT_BOOT mode=min-network-wifi hud=skipped native_aux=wifi-companion+ncm\r\n");
+                a90_logf(
+                    "auto-handoff",
+                    "A90DIRECT_BOOT mode=min-network-wifi hud=skipped native_aux=wifi-companion+ncm");
+                a90_timeline_record(
+                    0,
+                    0,
+                    "direct-debian-boot",
+                    "minimal native Wi-Fi companion and NCM before handoff; HUD skipped");
+#if defined(A90_WIFI_LIFECYCLE_MODEM_OWNER) && !A90_WIFI_PERSISTENT_HANDOFF_V1
+                v726_start_wifi_lifecycle_modem_owner_once();
+#endif
+#ifdef A90_WIFI_TEST_BOOT
+                v1393_run_wifi_test_boot_once();
+                direct_wifi_boot_started = true;
+#if A90_WIFI_PERSISTENT_HANDOFF_V1 && !A90_WIFI_TEST_BOOT_SUPERVISE_HELPER
+                direct_prep_rc = v1393_require_persistent_handoff_started();
+                if (direct_prep_rc < 0) {
+                    a90_logf("auto-handoff",
+                             "persistent Wi-Fi helper namespace not ready rc=%d",
+                             direct_prep_rc);
+                    v1393_stop_persistent_handoff_helper();
+                } else {
+                    a90_benchmark_emit("native_wifi_companion_async_started");
+                }
+#endif
+#endif
+                if (direct_prep_rc == 0) {
+                    wifi_autoconnect_rc = a90_wifi_start_boot_autoconnect_once();
+                    if (wifi_autoconnect_rc < 0) {
+                        direct_prep_rc = wifi_autoconnect_rc;
+                        a90_logf("auto-handoff",
+                                 "Wi-Fi autoconnect namespace preparation failed rc=%d",
+                                 wifi_autoconnect_rc);
+                    } else {
+                        direct_wifi_autoconnect_started = wifi_autoconnect_rc > 0;
+                        a90_benchmark_emit(
+                            wifi_autoconnect_rc > 0 ?
+                                "native_wifi_autoconnect_dispatched" :
+                                "native_wifi_autoconnect_inactive");
+                    }
+                }
+                if (direct_prep_rc == 0) {
+                    direct_prep_rc = a90_netservice_prepare_handoff();
+                    if (direct_prep_rc == 0) {
+                        a90_benchmark_emit("native_ncm_handoff_ready");
+                    } else {
+                        a90_logf("auto-handoff",
+                                 "Debian NCM preparation failed rc=%d",
+                                 direct_prep_rc);
+                    }
+                }
+                direct_handoff_checked = true;
+                if (direct_prep_rc < 0) {
+                    direct_handoff_rc = direct_prep_rc;
+                } else {
+                    a90_benchmark_emit("native_direct_handoff_ready");
+                    a90_benchmark_emit("native_services_ready");
+                    direct_handoff_rc = a90_auto_handoff_run_once();
+                }
+                }
             }
             if (direct_handoff_rc < 0) {
                 a90_console_printf(

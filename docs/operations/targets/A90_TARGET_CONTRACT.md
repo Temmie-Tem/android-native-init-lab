@@ -252,6 +252,21 @@ reviewed evidence and Wi-Fi handoff binds. A failed pre-exec path must either
 restore every moved mount and unmount userdata or retain control in an explicit
 recovery-required state; it never retries switch-root.
 
+H14 is a consumed incident candidate and is never replayed. Its exact boot
+write and readback succeeded, but native preparation synchronously waited 20
+seconds for the persistent Wi-Fi ready publication before consulting the
+unarmed handoff state. That publication had not arrived, so H14 returned
+`-ETIMEDOUT` before any UFS mount and closed only after the exact V2321 rollback
+was written, read back, and proved healthy. H15 is the only replacement lane.
+On an unarmed or latched boot it consults the durable handoff state before
+starting Wi-Fi or NCM preparation and stays native. On an armed boot it requires
+the private-mount/shared-network Wi-Fi companion process to be alive, but does
+not make its eventual readiness publication a pre-switch-root timing gate. The
+companion continues asynchronously across switch-root through the reviewed
+read-only handoff bind. This changes no final PASS requirement: same-intent
+Wi-Fi readiness and health remain mandatory, and absent or failed Wi-Fi proof
+closes only as no-proof/refuted while exact resident recovery is established.
+
 Its F1 transaction transfers only one exact boot candidate and, when needed,
 the exact V2321 boot rollback. It has no rootfs payload, SD source, work copy,
 stage, publish, copy, cleanup, or rootfs SHA pass. Before either transfer, a
@@ -259,8 +274,8 @@ fresh attended approval binds the current common-contract authority mode,
 exact target, candidate, rollback, recovery evidence, action limits, manifest,
 and complete execution closure. Its token is durably consumed before candidate
 intent. The later D1 ordinal likewise consumes one fresh attended approval
-bound to the installed H14 terminal, exact target/recovery, one combined
-arm-plus-reboot action, transaction directory, expiry, and execution closure.
+bound to the installed current capability terminal, exact target/recovery, one
+combined arm-plus-reboot action, transaction directory, expiry, and execution closure.
 Capability qualification is not either run approval. The flash process group
 waits behind a one-byte release gate; its exact launch is
 durable before release, and rollback is forbidden until that group and every

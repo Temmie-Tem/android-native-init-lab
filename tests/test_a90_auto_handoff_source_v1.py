@@ -272,11 +272,13 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
 
     def test_main_refuses_auto_dispatch_without_durable_cache(self) -> None:
         source = (NATIVE / "v724/90_main.inc.c").read_text(encoding="utf-8")
-        cache_guard = source.index("if (a90_cache_ready) {")
-        dispatch = source.index("a90_auto_handoff_run_once();")
-        refused = source.index("durable /cache unavailable")
+        branch = source[source.index("int direct_dispatch_state;") :]
+        cache_guard = branch.index("if (!a90_cache_ready) {")
+        refused = branch.index("durable /cache unavailable")
+        dispatch = branch.index("a90_auto_handoff_run_once();")
         self.assertLess(cache_guard, dispatch)
-        self.assertLess(dispatch, refused)
+        self.assertLess(cache_guard, refused)
+        self.assertLess(refused, dispatch)
         self.assertIn("staying native; no replay", source)
 
     def test_handoff_stage_markers_are_ordered(self) -> None:
@@ -371,11 +373,13 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
         self.assertNotIn("a90_audio_boot_chime_start_once", direct)
         self.assertIn("v726_start_wifi_lifecycle_modem_owner_once", direct)
         self.assertIn("v1393_run_wifi_test_boot_once", direct)
-        self.assertIn("v1393_wait_persistent_handoff_ready", direct)
+        self.assertIn("v1393_require_persistent_handoff_started", direct)
         self.assertLess(
-            direct.index("v1393_wait_persistent_handoff_ready"),
+            direct.index("v1393_require_persistent_handoff_started"),
             direct.index("a90_auto_handoff_run_once"),
         )
+        self.assertNotIn("v1393_wait_persistent_handoff_ready", direct)
+        self.assertIn("native_wifi_companion_async_started", direct)
         self.assertIn(
             "#if defined(A90_WIFI_LIFECYCLE_MODEM_OWNER) && "
             "!A90_WIFI_PERSISTENT_HANDOFF_V1",

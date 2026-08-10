@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Exact boot-only A90 H14 resident installer for the existing read-only UFS root.
+"""Exact boot-only A90 H15 resident installer for the existing read-only UFS root.
 
-This runner deliberately has no SD-rootfs staging mode.  It binds one H14 boot
-candidate, the exact V2321 boot rollback, the already-proved H11 resident, and
-the exact read-only userdata inventory.  Live mode records durable candidate
+This runner deliberately has no SD-rootfs staging mode.  It binds one H15 boot
+candidate, the exact V2321 boot rollback, the H14 incident's proved V2321
+recovery terminal, and the exact read-only userdata inventory.  Live mode
+records durable candidate
 intent before invoking the reviewed native boot flash helper once.  A candidate
 is never replayed; an uncertain post-start result permits only the bound
 rollback or a recovery-required park.
@@ -41,24 +42,24 @@ import a90_v3403_f1_orchestrator as base  # noqa: E402
 import buildlib as flat_buildlib  # noqa: E402
 
 
-SCHEMA = "a90-h14-ufs-f1-manifest-v1"
-RESULT_SCHEMA = "a90-h14-ufs-f1-result-v1"
-JOURNAL_SCHEMA = "a90-h14-ufs-f1-journal-v1"
-QUALIFICATION_SCHEMA = "a90-h14-ufs-capability-qualification-v1"
-INVENTORY_SCHEMA = "a90-h14-ufs-readonly-inventory-v1"
-APPROVAL_SCHEMA = "a90-h14-ufs-f1-approval-prepared-v1"
-APPROVAL_BINDING_SCHEMA = "a90-h14-ufs-f1-approval-binding-v1"
-APPROVAL_PREFIX = "A90-H14-F1-APPROVE:"
+SCHEMA = "a90-h15-ufs-f1-manifest-v1"
+RESULT_SCHEMA = "a90-h15-ufs-f1-result-v1"
+JOURNAL_SCHEMA = "a90-h15-ufs-f1-journal-v1"
+QUALIFICATION_SCHEMA = "a90-h15-ufs-capability-qualification-v1"
+INVENTORY_SCHEMA = "a90-h15-ufs-readonly-inventory-v1"
+APPROVAL_SCHEMA = "a90-h15-ufs-f1-approval-prepared-v1"
+APPROVAL_BINDING_SCHEMA = "a90-h15-ufs-f1-approval-binding-v1"
+APPROVAL_PREFIX = "A90-H15-F1-APPROVE:"
 APPROVAL_TTL_SEC = 1800
 CAPABILITY = "A90_DIRECT_UFS_READONLY_ROOT_V1"
-RUN_ID_RE = re.compile(r"^a90-h14-ufs-f1-[0-9]{8}-[0-9]{2}$")
+RUN_ID_RE = re.compile(r"^a90-h15-ufs-f1-[0-9]{8}-[0-9]{2}$")
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 
-CURRENT_VERSION = "0.11.179"
-CURRENT_BUILD = "phase3-minimal-h11-direct-debian-boot-auto-benchmark"
-CANDIDATE_VERSION = "0.11.182"
+CURRENT_VERSION = "0.9.285"
+CURRENT_BUILD = "v2321-usb-clean-identity-rodata"
+CANDIDATE_VERSION = "0.11.183"
 CANDIDATE_BUILD = (
-    "phase3-minimal-h14-direct-ufs-ro-min-network-wifi-auto-benchmark"
+    "phase3-minimal-h15-direct-ufs-ro-async-wifi-auto-benchmark"
 )
 ROLLBACK_VERSION = "0.9.285"
 ROLLBACK_BUILD = "v2321-usb-clean-identity-rodata"
@@ -77,15 +78,15 @@ UFS_IDENTITY = {
     "marker": "userdata=appliance-root",
     "mount_policy": "ro,noload,nosuid,nodev",
 }
-ENABLE_PATH = "/cache/a90-auto-handoff-phase3-minimal-h14.enable"
-LATCH_PATH = "/cache/a90-auto-handoff-phase3-minimal-h14.done"
+ENABLE_PATH = "/cache/a90-auto-handoff-phase3-minimal-h15.enable"
+LATCH_PATH = "/cache/a90-auto-handoff-phase3-minimal-h15.done"
 CONTENT_REL = (
     "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/"
     "phase3-minimal-h14/userdata-content-manifest.json"
 )
 VERSION_MANIFEST_REL = (
     "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/"
-    "phase3-minimal-h14/manifest.toml"
+    "phase3-minimal-h15/manifest.toml"
 )
 TARGET_CONTRACT_REL = "docs/operations/targets/A90_TARGET_CONTRACT.md"
 NATIVE_FLASH = (REVAL_DIR / "native_init_flash.py").resolve()
@@ -96,13 +97,13 @@ EXACT_BRIDGE_DEVICE = (
     "/dev/serial/by-id/usb-A90-LNX_A90_Linux_ARM64_A90NATIVE001-if00"
 )
 NATIVE_CLOSURE_SHA256 = (
-    "0a226bbc812a4c05b026fd9ca59ac91afb66db232a1b9b558450cae5b9fe49f8"
+    "d51069d187c78f1f4e7e2e39cf913c02fedbbdf71055e3934b4cc910464767ca"
 )
 
 EXECUTION_SOURCE_RELS = (
     "AGENTS.md",
-    "workspace/public/src/scripts/server-distro/a90_h14_ufs_f1_runner_v1.py",
-    "workspace/public/src/scripts/server-distro/a90_h14_ufs_d1_runner_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_h15_ufs_f1_runner_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_h15_ufs_d1_runner_v1.py",
     "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py",
     "workspace/public/src/scripts/server-distro/a90_boot_benchmark_v1.py",
     "workspace/public/src/scripts/server-distro/a90_ondevice_evidence_v1.py",
@@ -130,6 +131,8 @@ EXECUTION_SOURCE_RELS = (
     "workspace/public/src/scripts/revalidation/native_init_flash.py",
     TARGET_CONTRACT_REL,
     VERSION_MANIFEST_REL,
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/"
+    "v3404-effective/manifest.toml",
     CONTENT_REL,
     "workspace/public/src/native-init/a90_config.h",
     "workspace/public/src/native-init/a90_auto_handoff.c",
@@ -141,7 +144,7 @@ EXECUTION_SOURCE_RELS = (
 
 
 class ContractError(RuntimeError):
-    """Raised before widening, replaying, or misclassifying an H14 effect."""
+    """Raised before widening, replaying, or misclassifying an H15 effect."""
 
 
 def utc_now() -> str:
@@ -294,7 +297,7 @@ def execution_closure() -> dict[str, Any]:
     resolution = flat_buildlib.resolve_manifest(version_manifest)
     init = resolution.data.get("init")
     if not isinstance(init, dict):
-        raise ContractError("H14 native manifest init binding is absent")
+        raise ContractError("H15 native manifest init binding is absent")
     source_root = (REPO_ROOT / str(init.get("source_root") or "")).resolve(
         strict=True
     )
@@ -311,7 +314,7 @@ def execution_closure() -> dict[str, Any]:
         init.get("closure_sha256") != NATIVE_CLOSURE_SHA256
         or actual_native_closure != NATIVE_CLOSURE_SHA256
     ):
-        raise ContractError("H14 native transitive closure changed")
+        raise ContractError("H15 native transitive closure changed")
     files: dict[str, dict[str, Any]] = {}
     digest = hashlib.sha256()
     for relative in sorted(EXECUTION_SOURCE_RELS):
@@ -405,7 +408,15 @@ def validate_ab_receipt(value: dict[str, Any], candidate: Path) -> dict[str, Any
     boot = artifacts.get("boot") if isinstance(artifacts, dict) else None
     binding = value.get("auto_handoff_binding")
     expected_binding = expected_compiled_binding()
+    resolution = flat_buildlib.resolve_manifest(REPO_ROOT / VERSION_MANIFEST_REL)
     manifest_sha = sha256_file(REPO_ROOT / VERSION_MANIFEST_REL)
+    expected_lineage = [
+        {
+            "path": path.relative_to(REPO_ROOT).as_posix(),
+            "sha256": sha256_file(path),
+        }
+        for path in resolution.lineage
+    ]
     input_pins = value.get("input_pins")
     source_keys = value.get("source_keys")
     expected_source_keys = {
@@ -440,10 +451,7 @@ def validate_ab_receipt(value: dict[str, Any], candidate: Path) -> dict[str, Any
         or value.get("candidate_authority") is not False
         or value.get("accepted_boot_unchanged") is not True
         or value.get("manifest_sha256") != manifest_sha
-        or not isinstance(lineage, list)
-        or not lineage
-        or lineage[0]
-        != {"path": VERSION_MANIFEST_REL, "sha256": manifest_sha}
+        or lineage != expected_lineage
         or not isinstance(input_pins, dict)
         or input_pins.get("init_closure_sha256") != NATIVE_CLOSURE_SHA256
         or source_keys != expected_source_keys
@@ -455,57 +463,70 @@ def validate_ab_receipt(value: dict[str, Any], candidate: Path) -> dict[str, Any
         or set(binding) != set(expected_binding)
         or any(binding.get(key) != item for key, item in expected_binding.items())
     ):
-        raise ContractError("H14 deterministic build receipt is not exact")
+        raise ContractError("H15 deterministic build receipt is not exact")
     return binding
 
 
 def _baseline_inputs(manifest: dict[str, Any], result: dict[str, Any]) -> None:
     candidate = manifest.get("candidate_boot")
     rollback = manifest.get("rollback_boot")
+    final_health = result.get("final_health")
     if (
-        manifest.get("schema") != "a90_native_init_f1_resident_install_v2"
+        manifest.get("schema") != "a90-h14-ufs-f1-manifest-v1"
         or not isinstance(candidate, dict)
-        or candidate.get("expected_version") != CURRENT_VERSION
-        or candidate.get("expected_build") != CURRENT_BUILD
-        or candidate.get("sha256") != result.get("candidate_sha256")
+        or candidate.get("expected_version") != "0.11.182"
+        or candidate.get("expected_build")
+        != "phase3-minimal-h14-direct-ufs-ro-min-network-wifi-auto-benchmark"
         or not isinstance(rollback, dict)
         or rollback.get("expected_version") != ROLLBACK_VERSION
         or rollback.get("expected_build") != ROLLBACK_BUILD
         or rollback.get("size") != ROLLBACK_SIZE
         or rollback.get("sha256") != ROLLBACK_SHA256
-        or result.get("schema") != "a90_resident_install_v2_result"
-        or result.get("status") != "PASS_A90_RESIDENT_INSTALLED"
-        or result.get("device_safety_state") != "RESIDENT_HEALTHY"
-        or result.get("candidate_transfer_count") != 1
-        or result.get("rollback_transfer_count") != 0
+        or result.get("schema") != "a90-h14-ufs-f1-result-v1"
+        or result.get("status")
+        != "FAILED_CANDIDATE_RECOVERY_ROLLBACK_COMPLETE"
+        or result.get("device_safety_state") != "BASELINE_HEALTHY"
+        or result.get("candidate_attempt_count") != 1
+        or result.get("candidate_transfer_count") is not None
+        or result.get("rollback_transfer_count") != 1
         or result.get("candidate_replay") is not False
+        or result.get("rootfs_payload_count") != 0
+        or result.get("sd_stage_count") != 0
+        or result.get("userdata_write_count") != 0
+        or not isinstance(final_health, dict)
+        or final_health.get("version") != CURRENT_VERSION
+        or final_health.get("build") != CURRENT_BUILD
     ):
-        raise ContractError("H11 resident predecessor is not exact and healthy")
+        raise ContractError("H14 rollback terminal is not exact V2321 health")
 
 
 def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     if RUN_ID_RE.fullmatch(args.run_id) is None:
-        raise ContractError("H14 run id is not exact")
+        raise ContractError("H15 run id is not exact")
     run_dir = (PRIVATE_RUN_BASE / args.run_id).resolve()
     if run_dir.parent != PRIVATE_RUN_BASE:
-        raise ContractError("H14 run directory escapes private run base")
+        raise ContractError("H15 run directory escapes private run base")
     baseline_manifest_path = Path(args.baseline_manifest).resolve(strict=True)
     baseline_result_path = Path(args.baseline_result).resolve(strict=True)
     baseline_manifest = json.loads(baseline_manifest_path.read_text(encoding="utf-8"))
     baseline_result = json.loads(baseline_result_path.read_text(encoding="utf-8"))
     if not isinstance(baseline_manifest, dict) or not isinstance(baseline_result, dict):
-        raise ContractError("H11 predecessor JSON shape changed")
+        raise ContractError("H14 rollback predecessor JSON shape changed")
     _baseline_inputs(baseline_manifest, baseline_result)
+    if baseline_result.get("manifest_sha256") != sha256_file(
+        baseline_manifest_path
+    ):
+        raise ContractError("H14 rollback terminal manifest binding changed")
 
     target = baseline_manifest.get("target")
     rollback_value = baseline_manifest.get("rollback_boot")
     if not isinstance(target, dict) or not isinstance(rollback_value, dict):
-        raise ContractError("H11 target/rollback binding is absent")
+        raise ContractError("H14 target/rollback binding is absent")
     rollback_path = Path(str(rollback_value.get("path") or ""))
     require_regular(rollback_path, size=ROLLBACK_SIZE, sha256=ROLLBACK_SHA256)
     bridge_device = target.get("bridge_device")
     if bridge_device != EXACT_BRIDGE_DEVICE:
-        raise ContractError("H11 exact A90 bridge path is absent")
+        raise ContractError("H14 exact A90 bridge path is absent")
     bridge_path = Path(bridge_device)
     bridge_realpath = str(bridge_path.resolve(strict=True))
     if re.fullmatch(r"/dev/ttyACM[0-9]+", bridge_realpath) is None:
@@ -515,7 +536,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     receipt_path = Path(args.ab_receipt).resolve(strict=True)
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     if not isinstance(receipt, dict):
-        raise ContractError("H14 AB receipt is not an object")
+        raise ContractError("H15 AB receipt is not an object")
     compiled_binding = validate_ab_receipt(receipt, candidate)
 
     inventory_path = Path(args.ufs_inventory).resolve(strict=True)
@@ -532,20 +553,19 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         raise ContractError("recovery identity evidence is not bound")
     for name in ("candidate_recovery_log", "rollback_recovery_log"):
         reopen_bound(recovery.get(name), f"recovery.{name}")
-    debian_rootfs = baseline_manifest.get("debian_rootfs")
-    observer = (
-        debian_rootfs.get("observer") if isinstance(debian_rootfs, dict) else None
-    )
+    observer = baseline_manifest.get("observer")
     if not isinstance(observer, dict):
-        raise ContractError("H11 observer binding is absent")
-    observer_key = Path(str(observer.get("private_key_path") or ""))
-    observer_public_key = observer_key.with_suffix(observer_key.suffix + ".pub")
+        raise ContractError("H14 observer binding is absent")
+    observer_key = reopen_bound(observer.get("private_key"), "observer.private_key")
+    observer_public_key = reopen_bound(
+        observer.get("public_key"), "observer.public_key"
+    )
     observer_public_key_sha256 = require_sha(
         observer.get("public_key_sha256"),
         "observer.public_key_sha256",
     )
     if sha256_file(observer_public_key.resolve(strict=True)) != observer_public_key_sha256:
-        raise ContractError("H11 observer public key changed")
+        raise ContractError("H14 observer public key changed")
 
     return {
         "schema": SCHEMA,
@@ -636,7 +656,7 @@ def load_manifest(path: Path, expected_sha256: str) -> dict[str, Any]:
         or value.get("capability") != CAPABILITY
         or RUN_ID_RE.fullmatch(str(value.get("run_id") or "")) is None
     ):
-        raise ContractError("H14 F1 manifest header changed")
+        raise ContractError("H15 F1 manifest header changed")
     authority = value.get("authority")
     if (
         not isinstance(authority, dict)
@@ -650,11 +670,11 @@ def load_manifest(path: Path, expected_sha256: str) -> dict[str, Any]:
         or authority.get("userdata_write_count") != 0
         or authority.get("manifest_grants_live_authority") is not False
     ):
-        raise ContractError("H14 authority widened")
+        raise ContractError("H15 authority widened")
 
     closure = execution_closure()
     if value.get("execution_closure") != closure:
-        raise ContractError("H14 execution-critical closure changed")
+        raise ContractError("H15 execution-critical closure changed")
     validate_qualification(value.get("capability_qualification"), closure)
     _, inventory = load_json_bound(
         value.get("ufs_root", {}).get("inventory"),
@@ -671,11 +691,11 @@ def load_manifest(path: Path, expected_sha256: str) -> dict[str, Any]:
         or value.get("ufs_root", {}).get("write_allowed") is not False
         or any(value.get("ufs_root", {}).get(key) != item for key, item in UFS_IDENTITY.items())
     ):
-        raise ContractError("H14 UFS binding changed")
+        raise ContractError("H15 UFS binding changed")
 
     predecessor = value.get("predecessor")
     if not isinstance(predecessor, dict):
-        raise ContractError("H11 predecessor binding is absent")
+        raise ContractError("H14 rollback predecessor binding is absent")
     _, predecessor_manifest = load_json_bound(
         predecessor.get("manifest"), "predecessor.manifest"
     )
@@ -686,7 +706,7 @@ def load_manifest(path: Path, expected_sha256: str) -> dict[str, Any]:
     predecessor_target = predecessor_manifest.get("target")
     target = value.get("target")
     if not isinstance(predecessor_target, dict) or not isinstance(target, dict):
-        raise ContractError("H14 exact target predecessor binding is absent")
+        raise ContractError("H15 exact target predecessor binding is absent")
     expected_target_keys = {
         "profile",
         "bridge_device",
@@ -714,7 +734,7 @@ def load_manifest(path: Path, expected_sha256: str) -> dict[str, Any]:
         or target.get("recovery_adb_identity_evidence")
         != predecessor_target.get("recovery_adb_identity_evidence")
     ):
-        raise ContractError("H14 exact target or recovery binding changed")
+        raise ContractError("H15 exact target or recovery binding changed")
 
     candidate = value.get("candidate_boot")
     rollback = value.get("rollback_boot")
@@ -753,7 +773,7 @@ def load_manifest(path: Path, expected_sha256: str) -> dict[str, Any]:
         raise ContractError("flash runner changed")
     observer = value.get("observer")
     if not isinstance(observer, dict):
-        raise ContractError("H14 observer binding is absent")
+        raise ContractError("H15 observer binding is absent")
     observer_key = reopen_bound(observer.get("private_key"), "observer.private_key")
     public_key = reopen_bound(observer.get("public_key"), "observer.public_key")
     if (
@@ -766,15 +786,15 @@ def load_manifest(path: Path, expected_sha256: str) -> dict[str, Any]:
         or observer.get("wifi_required") is not True
         or observer.get("public_tunnel_allowed") is not False
     ):
-        raise ContractError("H14 observer or network scope changed")
+        raise ContractError("H15 observer or network scope changed")
     return value
 
 
 def _approval_path(manifest: dict[str, Any]) -> Path:
     run_dir = (PRIVATE_RUN_BASE / manifest["run_id"]).resolve()
     if run_dir.parent != PRIVATE_RUN_BASE:
-        raise ContractError("H14 approval path escapes private run base")
-    return run_dir / "h14-f1-approval-prepared.json"
+        raise ContractError("H15 approval path escapes private run base")
+    return run_dir / "h15-f1-approval-prepared.json"
 
 
 def approval_binding(
@@ -850,11 +870,11 @@ def validate_approval(
     path = _approval_path(manifest)
     info = path.lstat()
     if not stat.S_ISREG(info.st_mode) or path.is_symlink() or info.st_mode & 0o077:
-        raise ContractError("H14 F1 approval is not a private regular file")
+        raise ContractError("H15 F1 approval is not a private regular file")
     value = json.loads(path.read_text(encoding="utf-8"))
     binding = value.get("approval_binding") if isinstance(value, dict) else None
     if not isinstance(binding, dict):
-        raise ContractError("H14 F1 approval binding is absent")
+        raise ContractError("H15 F1 approval binding is absent")
     binding_sha = json_sha256(binding)
     expected = approval_binding(
         manifest,
@@ -892,7 +912,7 @@ def validate_approval(
         or now < created
         or now > expires
     ):
-        raise ContractError("H14 F1 approval is not fresh and exact")
+        raise ContractError("H15 F1 approval is not fresh and exact")
     return value
 
 
@@ -903,11 +923,11 @@ def require_consumed_approval(
 ) -> dict[str, Any]:
     matches = [item for item in records if item.get("action") == "approval-consumed"]
     if len(matches) != 1:
-        raise ContractError("H14 F1 approval consumption is not durable and unique")
+        raise ContractError("H15 F1 approval consumption is not durable and unique")
     record = matches[0]
     binding = record.get("approval_binding")
     if not isinstance(binding, dict):
-        raise ContractError("H14 F1 consumed approval binding is absent")
+        raise ContractError("H15 F1 consumed approval binding is absent")
     expected = approval_binding(
         manifest,
         manifest_sha,
@@ -923,7 +943,7 @@ def require_consumed_approval(
             (APPROVAL_PREFIX + json_sha256(binding)).encode("utf-8")
         ).hexdigest()
     ):
-        raise ContractError("H14 F1 consumed approval changed")
+        raise ContractError("H15 F1 consumed approval changed")
     return record
 
 
@@ -1031,7 +1051,7 @@ def _journal_dir(manifest: dict[str, Any]) -> Path:
     run_dir = (PRIVATE_RUN_BASE / manifest["run_id"]).resolve()
     if run_dir.parent != PRIVATE_RUN_BASE:
         raise ContractError("transaction directory escapes private run base")
-    return run_dir / "h14-f1-live" / "journal"
+    return run_dir / "h15-f1-live" / "journal"
 
 
 def read_journal(path: Path, manifest: dict[str, Any], manifest_sha: str) -> list[dict[str, Any]]:
@@ -1048,7 +1068,7 @@ def read_journal(path: Path, manifest: dict[str, Any], manifest_sha: str) -> lis
             or value.get("manifest_sha256") != manifest_sha
             or item.name != f"{index:04d}-{value.get('action')}.json"
         ):
-            raise ContractError("durable H14 journal is inconsistent")
+            raise ContractError("durable H15 journal is inconsistent")
         records.append(value)
     return records
 
@@ -1098,7 +1118,7 @@ def validate_live_args(args: argparse.Namespace) -> None:
             or isinstance(value, bool)
             or (isinstance(value, float) and not math.isfinite(value))
         ):
-            raise ContractError(f"H14 live argument {name} changed")
+            raise ContractError(f"H15 live argument {name} changed")
 
 
 def exact_preflight(
@@ -1125,16 +1145,16 @@ def exact_preflight(
             'if /bin/busybox grep -q "^/dev/block/a90-userdata " /proc/mounts; then exit 41; fi',
             f'[ ! -e "{ENABLE_PATH}" ] && [ ! -L "{ENABLE_PATH}" ]',
             f'[ ! -e "{LATCH_PATH}" ] && [ ! -L "{LATCH_PATH}" ]',
-            "echo A90H14_F1_PRE exact=1 ufs_mounted=0 enable_absent=1 latch_absent=1 userdata_write=0",
+            "echo A90H15_F1_PRE exact=1 ufs_mounted=0 enable_absent=1 latch_absent=1 userdata_write=0",
         )
     )
     record = base.run_f1_shell(args, script)
     marker = (
-        "A90H14_F1_PRE exact=1 ufs_mounted=0 enable_absent=1 "
+        "A90H15_F1_PRE exact=1 ufs_mounted=0 enable_absent=1 "
         "latch_absent=1 userdata_write=0"
     )
     if str(record.get("text") or "").count(marker) != 1:
-        raise ContractError("fresh H14 connected preflight is not exact")
+        raise ContractError("fresh H15 connected preflight is not exact")
     return {"bridge": bridge, "health": health, "ufs": record}
 
 
@@ -1142,7 +1162,7 @@ def exact_candidate_health(spec: Any, args: argparse.Namespace, guard: Any) -> d
     health = base.verify_candidate_health(spec, args, return_guard=guard)
     first_boot = base.require_candidate_first_boot_unarmed(spec, args)
     if not isinstance(first_boot, dict) or first_boot.get("proof") is not True:
-        raise ContractError("H14 first boot is not exact unarmed resident health")
+        raise ContractError("H15 first boot is not exact unarmed resident health")
     return {"native": health, "first_boot": first_boot}
 
 
@@ -1223,7 +1243,7 @@ def _require_launch_quiesced(
             "release_count_max",
             "descendant_quiescence_required_before_recovery",
         }
-        or value.get("schema") != "a90-h14-flash-process-group-v1"
+        or value.get("schema") != "a90-h15-flash-process-group-v1"
         or value.get("kind") != kind
         or type(value.get("leader_pid")) is not int
         or value.get("leader_pid") <= 0
@@ -1374,7 +1394,7 @@ def _flash_record(
         if pgid != pid:
             raise ContractError("flash child process group is not isolated")
         launch = {
-            "schema": "a90-h14-flash-process-group-v1",
+            "schema": "a90-h15-flash-process-group-v1",
             "kind": kind,
             "leader_pid": pid,
             "pgid": pgid,
@@ -1636,7 +1656,7 @@ def recover(
     args: argparse.Namespace,
 ) -> dict[str, Any]:
     if args.operator_attended is not True:
-        raise ContractError("A90 H14 recovery is attended-only")
+        raise ContractError("A90 H15 recovery is attended-only")
     validate_live_args(args)
     manifest = load_manifest(manifest_path, manifest_sha)
     spec = _spec(manifest, manifest_path, manifest_sha)
@@ -1782,7 +1802,7 @@ def _publish_reconciled_result(
     if result_path.exists():
         existing = json.loads(result_path.read_text(encoding="utf-8"))
         if existing != result:
-            raise ContractError("existing H14 result differs from durable closure")
+            raise ContractError("existing H15 result differs from durable closure")
     else:
         write_json_exclusive(result_path, result)
     return result
@@ -1795,7 +1815,7 @@ def reconcile_health(
 ) -> dict[str, Any]:
     """Finish only host publication or exact live health; never flash again."""
     if args.operator_attended is not True:
-        raise ContractError("A90 H14 F1 health reconciliation is attended-only")
+        raise ContractError("A90 H15 F1 health reconciliation is attended-only")
     validate_live_args(args)
     manifest = load_manifest(manifest_path, manifest_sha)
     spec = _spec(manifest, manifest_path, manifest_sha)
@@ -1807,7 +1827,7 @@ def reconcile_health(
     if actions.count("candidate-intent") != 1:
         raise ContractError("health reconciliation lacks one candidate intent")
     if actions.count("closed") > 1 or ("closed" in actions and actions[-1] != "closed"):
-        raise ContractError("H14 closed record is not terminal")
+        raise ContractError("H15 closed record is not terminal")
     if "closed" in actions:
         result = records[-1].get("result")
         if (
@@ -1819,7 +1839,7 @@ def reconcile_health(
             or result.get("sd_stage_count") != 0
             or result.get("userdata_write_count") != 0
         ):
-            raise ContractError("durable H14 closed result is invalid")
+            raise ContractError("durable H15 closed result is invalid")
         return _publish_reconciled_result(
             manifest, manifest_sha, journal, transaction_dir, result
         )
@@ -2110,7 +2130,7 @@ def reconcile_health(
                 )
                 _park_recovery(manifest, manifest_sha, journal, pending)
                 raise ContractError(
-                    "candidate boot bytes are ambiguous; running H11 health cannot "
+                    "candidate boot bytes are ambiguous; running V2321 health cannot "
                     "replace the bound rollback"
                 ) from pending
             result = {
@@ -2194,7 +2214,7 @@ def reconcile_health(
             )
         result = {
             "schema": RESULT_SCHEMA,
-            "status": "PASS_A90_H14_UFS_RESIDENT_INSTALLED",
+            "status": "PASS_A90_H15_UFS_RESIDENT_INSTALLED",
             "run_id": manifest["run_id"],
             "manifest_sha256": manifest_sha,
             "device_safety_state": "RESIDENT_HEALTHY",
@@ -2249,7 +2269,7 @@ def reconcile_health(
 
 def execute(manifest_path: Path, manifest_sha: str, args: argparse.Namespace) -> dict[str, Any]:
     if args.operator_attended is not True:
-        raise ContractError("A90 H14 F1 is attended-only")
+        raise ContractError("A90 H15 F1 is attended-only")
     validate_live_args(args)
     manifest = load_manifest(manifest_path, manifest_sha)
     spec = _spec(manifest, manifest_path, manifest_sha)
@@ -2257,7 +2277,7 @@ def execute(manifest_path: Path, manifest_sha: str, args: argparse.Namespace) ->
     transaction_dir = journal.parent
     records = read_journal(journal, manifest, manifest_sha)
     if records:
-        raise ContractError("fresh H14 execution requires an empty durable journal")
+        raise ContractError("fresh H15 execution requires an empty durable journal")
     preflight = exact_preflight(manifest, spec, args)
     approval = validate_approval(manifest, manifest_sha, args.approval)
     approval_binding_value = approval["approval_binding"]
@@ -2466,7 +2486,7 @@ def execute(manifest_path: Path, manifest_sha: str, args: argparse.Namespace) ->
                 )
                 result = {
                     "schema": RESULT_SCHEMA,
-                    "status": "PASS_A90_H14_UFS_RESIDENT_INSTALLED",
+                    "status": "PASS_A90_H15_UFS_RESIDENT_INSTALLED",
                     "run_id": manifest["run_id"],
                     "manifest_sha256": manifest_sha,
                     "device_safety_state": "RESIDENT_HEALTHY",
@@ -2496,7 +2516,7 @@ def execute(manifest_path: Path, manifest_sha: str, args: argparse.Namespace) ->
 def audit(manifest_path: Path, manifest_sha: str) -> dict[str, Any]:
     manifest = load_manifest(manifest_path, manifest_sha)
     return {
-        "schema": "a90-h14-ufs-f1-audit-v1",
+        "schema": "a90-h15-ufs-f1-audit-v1",
         "status": "PASS_HOST_CLOSURE",
         "run_id": manifest["run_id"],
         "manifest_sha256": manifest_sha,
@@ -2586,7 +2606,7 @@ def main(argv: list[str] | None = None) -> int:
                 args,
             )
     except (ContractError, OSError, ValueError, json.JSONDecodeError) as exc:
-        print(f"H14_UFS_F1_ERROR {type(exc).__name__}: {exc}", file=sys.stderr)
+        print(f"H15_UFS_F1_ERROR {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
     print(json.dumps(value, indent=2, sort_keys=True))
     return 0

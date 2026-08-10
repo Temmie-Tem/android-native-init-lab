@@ -1,4 +1,4 @@
-"""Static closure tests for the A90 H14 read-only UFS handoff."""
+"""Static closure tests for the A90 H15 read-only UFS handoff."""
 
 from __future__ import annotations
 
@@ -23,16 +23,16 @@ VERSIONS = (
     REPO_ROOT
     / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions"
 )
-H14_MANIFEST = VERSIONS / "phase3-minimal-h14/manifest.toml"
+H15_MANIFEST = VERSIONS / "phase3-minimal-h15/manifest.toml"
 H13_MANIFEST = VERSIONS / "phase3-minimal-h13/manifest.toml"
-H14_CONTENT = VERSIONS / "phase3-minimal-h14/userdata-content-manifest.json"
-H14_F1_RUNNER = (
+H15_CONTENT = VERSIONS / "phase3-minimal-h14/userdata-content-manifest.json"
+H15_F1_RUNNER = (
     REPO_ROOT
-    / "workspace/public/src/scripts/server-distro/a90_h14_ufs_f1_runner_v1.py"
+    / "workspace/public/src/scripts/server-distro/a90_h15_ufs_f1_runner_v1.py"
 )
-H14_D1_RUNNER = (
+H15_D1_RUNNER = (
     REPO_ROOT
-    / "workspace/public/src/scripts/server-distro/a90_h14_ufs_d1_runner_v1.py"
+    / "workspace/public/src/scripts/server-distro/a90_h15_ufs_d1_runner_v1.py"
 )
 TARGET_CONTRACT = REPO_ROOT / "docs/operations/targets/A90_TARGET_CONTRACT.md"
 FLAT_BUILDER = load_script(
@@ -41,11 +41,11 @@ FLAT_BUILDER = load_script(
 BUILDLIB = load_script(
     "workspace/public/src/scripts/revalidation/a90_flat_builder/buildlib.py"
 )
-H14_F1 = load_script(
-    "workspace/public/src/scripts/server-distro/a90_h14_ufs_f1_runner_v1.py"
+H15_F1 = load_script(
+    "workspace/public/src/scripts/server-distro/a90_h15_ufs_f1_runner_v1.py"
 )
-H14_D1 = load_script(
-    "workspace/public/src/scripts/server-distro/a90_h14_ufs_d1_runner_v1.py"
+H15_D1 = load_script(
+    "workspace/public/src/scripts/server-distro/a90_h15_ufs_d1_runner_v1.py"
 )
 
 
@@ -74,7 +74,7 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
         starting_health: object = None,
         reconstructed: dict[str, object] | None = None,
     ) -> tuple[list[str], BaseException | None]:
-        manifest = {"run_id": "a90-h14-ufs-f1-20260810-99"}
+        manifest = {"run_id": "a90-h15-ufs-f1-20260810-99"}
         appended: list[str] = []
 
         def append_record(
@@ -98,7 +98,7 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
         else:
             starting_effect = starting_health or {"starting": "healthy"}
         with tempfile.TemporaryDirectory() as raw, mock.patch.multiple(
-            H14_F1,
+            H15_F1,
             load_manifest=mock.DEFAULT,
             _spec=mock.DEFAULT,
             _journal_dir=mock.DEFAULT,
@@ -108,7 +108,7 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
             exact_candidate_health=mock.DEFAULT,
             _reconstructed_flash_record=mock.DEFAULT,
         ) as patched, mock.patch.object(
-            H14_F1.staging,
+            H15_F1.staging,
             "require_native_health",
             side_effect=starting_effect
             if isinstance(starting_effect, BaseException)
@@ -132,31 +132,30 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
                 "phase_classification": {"boot_write_started": True},
             }
             try:
-                H14_F1.reconcile_health(
+                H15_F1.reconcile_health(
                     Path(raw) / "manifest.json",
                     "a" * 64,
                     self._f1_live_args(),
                 )
-            except H14_F1.ContractError as exc:
+            except H15_F1.ContractError as exc:
                 return appended, exc
         return appended, None
 
-    def test_h14_compiled_binding_is_userdata_v3_without_sd_image(self) -> None:
-        h14 = self._manifest(H14_MANIFEST)
-        binding = FLAT_BUILDER.normalized_auto_handoff_binding(h14)
+    def test_h15_compiled_binding_is_userdata_v3_without_sd_image(self) -> None:
+        h15 = self._manifest(H15_MANIFEST)
+        binding = FLAT_BUILDER.normalized_auto_handoff_binding(h15)
 
         self.assertEqual(
             binding,
             {
-                "candidate_version": "0.11.182",
+                "candidate_version": "0.11.183",
                 "candidate_build": (
-                    "phase3-minimal-h14-direct-ufs-ro-min-network-wifi-"
-                    "auto-benchmark"
+                    "phase3-minimal-h15-direct-ufs-ro-async-wifi-auto-benchmark"
                 ),
                 "enable_path": (
-                    "/cache/a90-auto-handoff-phase3-minimal-h14.enable"
+                    "/cache/a90-auto-handoff-phase3-minimal-h15.enable"
                 ),
-                "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h14.done",
+                "latch_path": "/cache/a90-auto-handoff-phase3-minimal-h15.done",
                 "schema": "a90-compiled-auto-handoff-binding-v3",
                 "root_kind": "userdata-ext4-ro-noload",
                 "userdata_devname": "sda33",
@@ -178,39 +177,114 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
                 "binding_sha256": binding["binding_sha256"],
             },
         )
-        flags = h14["init"]["cflags"]
+        flags = h15["init"]["cflags"]
         self.assertFalse(any("AUTO_HANDOFF_IMAGE" in flag for flag in flags))
         self.assertFalse(any("SOURCE_RECEIPT_PATH" in flag for flag in flags))
 
-    def test_h14_retains_h13_minimal_and_wifi_components(self) -> None:
-        h14 = self._manifest(H14_MANIFEST)
+    def test_h15_retains_h13_minimal_and_wifi_components(self) -> None:
+        h15 = self._manifest(H15_MANIFEST)
         h13 = self._manifest(H13_MANIFEST)
 
-        self.assertEqual(h14["init"]["sources"], h13["init"]["sources"])
-        self.assertEqual(h14["helper"], h13["helper"])
-        self.assertEqual(h14["ramdisk"], h13["ramdisk"])
-        self.assertFalse(h14["candidate_authority"])
-        init_root = REPO_ROOT / h14["init"]["source_root"]
+        self.assertEqual(h15["init"]["sources"], h13["init"]["sources"])
+        self.assertEqual(h15["helper"], h13["helper"])
+        self.assertEqual(h15["ramdisk"], h13["ramdisk"])
+        self.assertFalse(h15["candidate_authority"])
+        init_root = REPO_ROOT / h15["init"]["source_root"]
         closure = BUILDLIB.expanded_closure(
             init_root,
-            h14["init"]["sources"],
-            h14["init"]["closure_globs"],
+            h15["init"]["sources"],
+            h15["init"]["closure_globs"],
         )
         self.assertEqual(
             BUILDLIB.closure_sha256(init_root, closure),
-            h14["init"]["closure_sha256"],
+            h15["init"]["closure_sha256"],
         )
 
+    def test_h15_unarmed_boot_skips_wifi_and_armed_wifi_is_asynchronous(self) -> None:
+        main = (NATIVE / "v724/90_main.inc.c").read_text(encoding="utf-8")
+        direct = main[
+            main.index("int direct_dispatch_state;"):
+            main.index("if (a90_reloaded) {", main.index("int direct_dispatch_state;"))
+        ]
+        self.assertLess(
+            direct.index("a90_auto_handoff_dispatch_state()"),
+            direct.index("v1393_run_wifi_test_boot_once()"),
+        )
+        self.assertIn("if (direct_dispatch_state <= 0)", direct)
+        self.assertIn("a90_auto_handoff_run_once()", direct)
+        self.assertIn("v1393_require_persistent_handoff_started()", direct)
+        self.assertIn("v1393_stop_persistent_handoff_helper()", direct)
+        self.assertIn('"native_wifi_companion_async_started"', direct)
+        self.assertNotIn("v1393_wait_persistent_handoff_ready", main)
+        self.assertNotIn("v1393_stop_unready_persistent_helper", main)
+
+        namespace = main[
+            main.index("static int v1393_persistent_handoff_mounts_private("):
+            main.index("static int v1393_require_persistent_handoff_started(")
+        ]
+        for required in (
+            "waitpid(helper_pid, &status, WNOHANG)",
+            '"/proc/%ld/exe"',
+            "A90_V1393_WIFI_TEST_HELPER",
+            '"/proc/self/ns/mnt"',
+            '"/proc/%ld/ns/mnt"',
+            '"/proc/self/ns/net"',
+            '"/proc/%ld/ns/net"',
+            '"/proc/%ld/mountinfo"',
+            'strstr(buffer, " shared:")',
+            'strstr(buffer, " master:")',
+        ):
+            self.assertIn(required, namespace)
+        require = main[
+            main.index("static int v1393_require_persistent_handoff_started("):
+            main.index("static void v1393_stop_persistent_handoff_helper(")
+        ]
+        self.assertIn("started_ms + 5000L", require)
+        self.assertIn("v1393_persistent_handoff_namespace_ready(", require)
+
+        auto = (NATIVE / "a90_auto_handoff.c").read_text(encoding="utf-8")
+        state = auto[
+            auto.index("int a90_auto_handoff_dispatch_state(void)"):
+            auto.index("int a90_auto_handoff_arm_cmd(")
+        ]
+        self.assertLess(
+            state.index("a90_auto_handoff_state_path(A90_AUTO_HANDOFF_LATCH_PATH)"),
+            state.index("a90_auto_handoff_read_enable("),
+        )
+        self.assertIn("return enable_state == 1 ? 1 : 0", state)
+
+    def test_h15_replacement_identity_and_h14_rollback_predecessor_are_exact(self) -> None:
+        h15 = self._manifest(H15_MANIFEST)
+        flags = h15["init"]["cflags"]
+        for required in (
+            '-DINIT_VERSION="0.11.183"',
+            '-DINIT_BUILD="phase3-minimal-h15-direct-ufs-ro-async-wifi-auto-benchmark"',
+            '-DA90_AUTO_HANDOFF_ENABLE_PATH="/cache/a90-auto-handoff-phase3-minimal-h15.enable"',
+            '-DA90_AUTO_HANDOFF_LATCH_PATH="/cache/a90-auto-handoff-phase3-minimal-h15.done"',
+            '-DA90_WIFI_TEST_BOOT_LABEL="v2810"',
+        ):
+            self.assertIn(required, flags)
+        source = H15_F1_RUNNER.read_text(encoding="utf-8")
+        for required in (
+            'CURRENT_VERSION = "0.9.285"',
+            'CURRENT_BUILD = "v2321-usb-clean-identity-rodata"',
+            'result.get("schema") != "a90-h14-ufs-f1-result-v1"',
+            '"FAILED_CANDIDATE_RECOVERY_ROLLBACK_COMPLETE"',
+            'result.get("rollback_transfer_count") != 1',
+            'result.get("candidate_transfer_count") is not None',
+        ):
+            self.assertIn(required, source)
+
     def test_userdata_binding_rejects_sd_fields_and_identity_drift(self) -> None:
-        h14 = self._manifest(H14_MANIFEST)
-        with_image = copy.deepcopy(h14)
+        h15 = self._manifest(H15_MANIFEST)
+        with_image = copy.deepcopy(h15)
         with_image["init"]["cflags"].append(
             '-DA90_AUTO_HANDOFF_IMAGE="/mnt/sdext/a90/runtime/forbidden.img"'
         )
         with self.assertRaisesRegex(RuntimeError, "userdata tuple"):
             FLAT_BUILDER.normalized_auto_handoff_binding(with_image)
 
-        drifted = copy.deepcopy(h14)
+        drifted = copy.deepcopy(h15)
         flags = drifted["init"]["cflags"]
         index = flags.index('-DA90_AUTO_HANDOFF_USERDATA_DEV="259:17"')
         flags[index] = '-DA90_AUTO_HANDOFF_USERDATA_DEV="259:18"'
@@ -225,7 +299,7 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
             '-DA90_AUTO_HANDOFF_USERDATA_UUID="00000000-0000-0000-0000-000000000000"',
             '-DA90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_SHA256="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"',
         ):
-            ambiguous = copy.deepcopy(h14)
+            ambiguous = copy.deepcopy(h15)
             ambiguous["init"]["cflags"].append(conflicting)
             with self.subTest(conflicting=conflicting):
                 with self.assertRaisesRegex(RuntimeError, "conflicting"):
@@ -333,7 +407,7 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
 
     def test_marker_and_content_checks_are_exact_and_secret_safe(self) -> None:
         source = (NATIVE / "a90_server_distro.c").read_text(encoding="utf-8")
-        content = json.loads(H14_CONTENT.read_text(encoding="utf-8"))
+        content = json.loads(H15_CONTENT.read_text(encoding="utf-8"))
         encoded = json.dumps(
             content,
             sort_keys=True,
@@ -342,7 +416,7 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
             allow_nan=False,
         ).encode("utf-8")
         self.assertEqual(
-            hashlib.sha256(H14_CONTENT.read_bytes()).hexdigest(),
+            hashlib.sha256(H15_CONTENT.read_bytes()).hexdigest(),
             "a878f6dec82bf799c3d2cd43beeda3c5494a8882ce116327f497d822b707d5ce",
         )
         self.assertEqual(
@@ -376,7 +450,7 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
             self.assertIn(path.lstrip("/"), checker)
 
     def test_builder_proves_compiled_content_table_equals_json_semantics(self) -> None:
-        content = json.loads(H14_CONTENT.read_text(encoding="utf-8"))
+        content = json.loads(H15_CONTENT.read_text(encoding="utf-8"))
         self.assertEqual(
             FLAT_BUILDER._userdata_runtime_records(REPO_ROOT),
             content["files"],
@@ -429,8 +503,8 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
         self.assertNotIn("userdata-appliance-format", handoff)
         self.assertNotIn("userdata-appliance-populate", handoff)
 
-    def test_h14_f1_runner_has_no_sd_rootfs_effect_lane(self) -> None:
-        source = H14_F1_RUNNER.read_text(encoding="utf-8")
+    def test_h15_f1_runner_has_no_sd_rootfs_effect_lane(self) -> None:
+        source = H15_F1_RUNNER.read_text(encoding="utf-8")
         execute = source[
             source.index("def execute("):
             source.index("def audit(")
@@ -460,8 +534,8 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
         self.assertNotIn("record = _flash_record(", reconciliation)
         self.assertNotIn("_rollback(", reconciliation)
 
-    def test_h14_f1_runner_binds_reusable_capability_review(self) -> None:
-        source = H14_F1_RUNNER.read_text(encoding="utf-8")
+    def test_h15_f1_runner_binds_reusable_capability_review(self) -> None:
+        source = H15_F1_RUNNER.read_text(encoding="utf-8")
         qualification = source[
             source.index("def validate_qualification("):
             source.index("def validate_ufs_inventory(")
@@ -477,8 +551,8 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
             qualification,
         )
 
-    def test_h14_f1_closure_covers_transitive_local_imports(self) -> None:
-        closure = set(H14_F1.EXECUTION_SOURCE_RELS)
+    def test_h15_f1_closure_covers_transitive_local_imports(self) -> None:
+        closure = set(H15_F1.EXECUTION_SOURCE_RELS)
         local_roots = (
             REPO_ROOT / "workspace/public/src/scripts/server-distro",
             REPO_ROOT / "workspace/public/src/scripts/revalidation",
@@ -505,9 +579,20 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
                     missing.append((relative, candidates[0]))
         self.assertEqual(missing, [])
 
-    def test_h14_flash_timeout_quiesces_descendant_process_group(self) -> None:
+    def test_h15_receipt_and_execution_closure_bind_full_manifest_lineage(self) -> None:
+        closure = H15_F1.execution_closure()
+        parent = (
+            "workspace/public/src/scripts/revalidation/a90_flat_builder/"
+            "versions/v3404-effective/manifest.toml"
+        )
+        self.assertIn(parent, closure["files"])
+        source = H15_F1_RUNNER.read_text(encoding="utf-8")
+        self.assertIn("lineage != expected_lineage", source)
+        self.assertIn("for path in resolution.lineage", source)
+
+    def test_h15_flash_timeout_quiesces_descendant_process_group(self) -> None:
         manifest = {
-            "run_id": "a90-h14-ufs-f1-20260810-99",
+            "run_id": "a90-h15-ufs-f1-20260810-99",
             "candidate_boot": {"size": 1, "sha256": "1" * 64},
             "rollback_boot": {"size": 1, "sha256": "2" * 64},
             "flash_runner": {"sha256": "3" * 64},
@@ -526,11 +611,11 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
             transaction = Path(raw)
             journal = transaction / "journal"
             with mock.patch.object(
-                H14_F1.base,
+                H15_F1.base,
                 "flash_command",
                 return_value=command,
             ):
-                record = H14_F1._flash_record(  # noqa: SLF001
+                record = H15_F1._flash_record(  # noqa: SLF001
                     manifest,
                     manifest_sha,
                     None,
@@ -544,8 +629,8 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
             self.assertTrue(record["process_group"]["timed_out"])
             self.assertTrue(record["process_group"]["quiesced"])
             pgid = record["process_group"]["pgid"]
-            self.assertEqual(H14_F1._process_group_members(pgid), [])  # noqa: SLF001
-            records = H14_F1.read_journal(journal, manifest, manifest_sha)
+            self.assertEqual(H15_F1._process_group_members(pgid), [])  # noqa: SLF001
+            records = H15_F1.read_journal(journal, manifest, manifest_sha)
             self.assertEqual([item["action"] for item in records], ["candidate-launch"])
             self.assertEqual(
                 records[0]["launch"],
@@ -556,8 +641,8 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
                 ),
             )
 
-    def test_h14_f1_load_binds_exact_target_and_recovery_predecessor(self) -> None:
-        source = H14_F1_RUNNER.read_text(encoding="utf-8")
+    def test_h15_f1_load_binds_exact_target_and_recovery_predecessor(self) -> None:
+        source = H15_F1_RUNNER.read_text(encoding="utf-8")
         loader = source[
             source.index("def load_manifest("):
             source.index("def _stage_view(")
@@ -572,8 +657,8 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
         ):
             self.assertIn(token, loader)
 
-    def test_h14_d1_runner_is_one_arm_one_reboot_no_payload(self) -> None:
-        source = H14_D1_RUNNER.read_text(encoding="utf-8")
+    def test_h15_d1_runner_is_one_arm_one_reboot_no_payload(self) -> None:
+        source = H15_D1_RUNNER.read_text(encoding="utf-8")
         execute = source[source.index("def execute("):source.index("def finalize_return(")]
         dispatch = source[
             source.index("def _dispatch_and_observe("):
@@ -597,8 +682,8 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
         self.assertNotIn("send_reboot_once", source)
         self.assertIn("no replay; final native health decides safety", source)
 
-    def test_h14_d1_finalize_paths_never_repeat_effects(self) -> None:
-        source = H14_D1_RUNNER.read_text(encoding="utf-8")
+    def test_h15_d1_finalize_paths_never_repeat_effects(self) -> None:
+        source = H15_D1_RUNNER.read_text(encoding="utf-8")
         finalize = source[
             source.index("def finalize_return("):
             source.index("def reconcile(")
@@ -611,7 +696,7 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
         self.assertNotIn("send_reboot_once", finalize)
         self.assertNotIn("_dispatch_and_observe(", finalize)
 
-    def test_h14_native_combined_arm_reboot_cancels_every_syscall_return(self) -> None:
+    def test_h15_native_combined_arm_reboot_cancels_every_syscall_return(self) -> None:
         source = (NATIVE / "a90_auto_handoff.c").read_text(encoding="utf-8")
         command = source[
             source.index("int a90_auto_handoff_arm_reboot_cmd("):
@@ -631,13 +716,13 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
         self.assertIn('"auto-handoff-arm-reboot"', dispatch)
         self.assertIn("CMD_DANGEROUS | CMD_NO_DONE", dispatch)
 
-    def test_h14_authority_binds_agents_and_requires_fresh_approval(self) -> None:
-        self.assertIn("AGENTS.md", H14_F1.EXECUTION_SOURCE_RELS)
-        f1_source = H14_F1_RUNNER.read_text(encoding="utf-8")
-        d1_source = H14_D1_RUNNER.read_text(encoding="utf-8")
+    def test_h15_authority_binds_agents_and_requires_fresh_approval(self) -> None:
+        self.assertIn("AGENTS.md", H15_F1.EXECUTION_SOURCE_RELS)
+        f1_source = H15_F1_RUNNER.read_text(encoding="utf-8")
+        d1_source = H15_D1_RUNNER.read_text(encoding="utf-8")
         for source, workflow, prefix in (
-            (f1_source, "A90_F1_RESIDENT_INSTALL_V1", "A90-H14-F1-APPROVE:"),
-            (d1_source, "A90_D1_ATTENDED_SESSION_V1", "A90-H14-D1-APPROVE:"),
+            (f1_source, "A90_F1_RESIDENT_INSTALL_V1", "A90-H15-F1-APPROVE:"),
+            (d1_source, "A90_D1_ATTENDED_SESSION_V1", "A90-H15-D1-APPROVE:"),
         ):
             self.assertIn(workflow, source)
             self.assertIn(prefix, source)
@@ -645,19 +730,19 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
             self.assertIn("approval_consumed", source)
             self.assertIn("agents_contract_sha256", source)
         self.assertIn('item.add_argument("--approval", required=True)', f1_source)
-        self.assertIn("H14 D1 execute requires fresh exact approval", d1_source)
+        self.assertIn("H15 D1 execute requires fresh exact approval", d1_source)
 
-    def test_h14_f1_and_d1_approval_tokens_round_trip_exact_bindings(self) -> None:
-        created = H14_F1.dt.datetime.now(H14_F1.dt.UTC).replace(microsecond=0)
-        expires = created + H14_F1.dt.timedelta(seconds=H14_F1.APPROVAL_TTL_SEC)
+    def test_h15_f1_and_d1_approval_tokens_round_trip_exact_bindings(self) -> None:
+        created = H15_F1.dt.datetime.now(H15_F1.dt.UTC).replace(microsecond=0)
+        expires = created + H15_F1.dt.timedelta(seconds=H15_F1.APPROVAL_TTL_SEC)
         created_text = created.strftime("%Y-%m-%dT%H:%M:%SZ")
         expires_text = expires.strftime("%Y-%m-%dT%H:%M:%SZ")
         manifest = {
-            "run_id": "a90-h14-ufs-f1-20260810-99",
+            "run_id": "a90-h15-ufs-f1-20260810-99",
             "execution_closure": {"sha256": "1" * 64},
             "target": {
                 "profile": "galaxy-a90-5g-native-init",
-                "bridge_device": H14_F1.EXACT_BRIDGE_DEVICE,
+                "bridge_device": H15_F1.EXACT_BRIDGE_DEVICE,
                 "bridge_realpath": "/dev/ttyACM0",
                 "recovery_adb_identity_evidence": {"exact": True},
             },
@@ -665,16 +750,16 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
             "rollback_boot": {"sha256": "3" * 64, "size": 200},
         }
         manifest_sha = "4" * 64
-        f1_binding = H14_F1.approval_binding(
+        f1_binding = H15_F1.approval_binding(
             manifest,
             manifest_sha,
             created_utc=created_text,
             expires_utc=expires_text,
         )
-        f1_binding_sha = H14_F1.json_sha256(f1_binding)
-        f1_token = H14_F1.APPROVAL_PREFIX + f1_binding_sha
+        f1_binding_sha = H15_F1.json_sha256(f1_binding)
+        f1_token = H15_F1.APPROVAL_PREFIX + f1_binding_sha
         f1_value = {
-            "schema": H14_F1.APPROVAL_SCHEMA,
+            "schema": H15_F1.APPROVAL_SCHEMA,
             "run_id": manifest["run_id"],
             "manifest_sha256": manifest_sha,
             "approval_binding": f1_binding,
@@ -686,9 +771,9 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
         }
         with tempfile.TemporaryDirectory() as raw:
             f1_path = Path(raw) / "f1-approval.json"
-            H14_F1.write_json_exclusive(f1_path, f1_value)
-            with mock.patch.object(H14_F1, "_approval_path", return_value=f1_path):
-                approved = H14_F1.validate_approval(
+            H15_F1.write_json_exclusive(f1_path, f1_value)
+            with mock.patch.object(H15_F1, "_approval_path", return_value=f1_path):
+                approved = H15_F1.validate_approval(
                     manifest,
                     manifest_sha,
                     f1_token,
@@ -704,7 +789,7 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
                 "approval_consumed": True,
             }
             self.assertEqual(
-                H14_F1.require_consumed_approval(
+                H15_F1.require_consumed_approval(
                     [consumed],
                     manifest,
                     manifest_sha,
@@ -719,18 +804,18 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
                 approval=None,
             )
             transaction = Path(raw) / "ordinal-01"
-            d1_binding = H14_D1.approval_binding(
+            d1_binding = H15_D1.approval_binding(
                 manifest,
                 d1_args,
                 transaction,
                 created_utc=created_text,
                 expires_utc=expires_text,
             )
-            d1_binding_sha = H14_F1.json_sha256(d1_binding)
-            d1_token = H14_D1.APPROVAL_PREFIX + d1_binding_sha
+            d1_binding_sha = H15_F1.json_sha256(d1_binding)
+            d1_token = H15_D1.APPROVAL_PREFIX + d1_binding_sha
             d1_args.approval = d1_token
             d1_value = {
-                "schema": H14_D1.APPROVAL_SCHEMA,
+                "schema": H15_D1.APPROVAL_SCHEMA,
                 "approval_binding": d1_binding,
                 "approval_binding_sha256": d1_binding_sha,
                 "approval_token": d1_token,
@@ -738,10 +823,10 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
                 "device_write": False,
                 "live_authority_from_preparation": False,
             }
-            d1_path = H14_D1._approval_path(transaction)  # noqa: SLF001
-            H14_F1.write_json_exclusive(d1_path, d1_value)
+            d1_path = H15_D1._approval_path(transaction)  # noqa: SLF001
+            H15_F1.write_json_exclusive(d1_path, d1_value)
             self.assertEqual(
-                H14_D1.validate_approval(manifest, d1_args, transaction),
+                H15_D1.validate_approval(manifest, d1_args, transaction),
                 d1_value,
             )
 
@@ -753,14 +838,14 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
         ]
         appended, error = self._run_reconcile_fault(
             records,
-            candidate_health=H14_F1.ContractError("candidate unavailable"),
+            candidate_health=H15_F1.ContractError("candidate unavailable"),
             starting_health={"starting": "H11"},
             reconstructed={
                 "returncode": -1,
                 "phase_classification": {"boot_write_started": True},
             },
         )
-        self.assertIsInstance(error, H14_F1.ContractError)
+        self.assertIsInstance(error, H15_F1.ContractError)
         self.assertEqual(appended, ["candidate-result", "recovery-required"])
         self.assertNotIn("closed", appended)
 
@@ -779,7 +864,7 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
             },
         ]
         appended, error = self._run_reconcile_fault(records)
-        self.assertIsInstance(error, H14_F1.ContractError)
+        self.assertIsInstance(error, H15_F1.ContractError)
         self.assertEqual(appended, ["recovery-required"])
         self.assertNotIn("closed", appended)
 
@@ -796,9 +881,9 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
         ]
         appended, error = self._run_reconcile_fault(
             records,
-            candidate_health=H14_F1.ContractError("health unavailable"),
+            candidate_health=H15_F1.ContractError("health unavailable"),
         )
-        self.assertIsInstance(error, H14_F1.ContractError)
+        self.assertIsInstance(error, H15_F1.ContractError)
         self.assertEqual(appended, ["recovery-required"])
         self.assertNotIn("closed", appended)
 
@@ -819,7 +904,7 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
             {"action": "rollback-intent"},
         ]
         appended, error = self._run_reconcile_fault(records)
-        self.assertIsInstance(error, H14_F1.ContractError)
+        self.assertIsInstance(error, H15_F1.ContractError)
         self.assertEqual(appended, [])
         self.assertNotIn("rollback-result", [item["action"] for item in records])
 
@@ -847,7 +932,7 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
                 "phase_classification": {"boot_write_started": True},
             },
         )
-        self.assertIsInstance(error, H14_F1.ContractError)
+        self.assertIsInstance(error, H15_F1.ContractError)
         self.assertEqual(appended, ["rollback-result"])
         self.assertNotIn("rollback-health", appended)
         self.assertNotIn("closed", appended)
@@ -863,21 +948,21 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
             )
         }
         with mock.patch.object(
-            H14_D1.base,
+            H15_D1.base,
             "require_exact_f1_command_receipt",
             side_effect=lambda record, *_args: record,
         ):
-            proof = H14_D1.require_cancellation_fsync_proof(
+            proof = H15_D1.require_cancellation_fsync_proof(
                 opening,
                 final,
                 intent,
             )
             self.assertTrue(proof["proof"])
             with self.assertRaisesRegex(
-                H14_D1.ContractError,
+                H15_D1.ContractError,
                 "cancellation fsync proof",
             ):
-                H14_D1.require_cancellation_fsync_proof(
+                H15_D1.require_cancellation_fsync_proof(
                     opening,
                     {"text": final["text"].replace("cancel_rc=0", "cancel_rc=-5")},
                     intent,
@@ -900,21 +985,21 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
             )
         }
         with mock.patch.object(
-            H14_D1.base,
+            H15_D1.base,
             "require_exact_f1_command_receipt",
             side_effect=lambda record, *_args: record,
         ):
-            proof = H14_D1.native_failure_cleanup_disposition(
+            proof = H15_D1.native_failure_cleanup_disposition(
                 opening,
                 safe,
                 native_handoff_failed=True,
             )
             self.assertTrue(proof["root_unmounted"])
             with self.assertRaisesRegex(
-                H14_D1.ContractError,
+                H15_D1.ContractError,
                 "recovery-pending",
             ):
-                H14_D1.native_failure_cleanup_disposition(
+                H15_D1.native_failure_cleanup_disposition(
                     opening,
                     unsafe,
                     native_handoff_failed=True,
@@ -931,7 +1016,7 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
             visible_confirmed="unavailable",
         )
         with mock.patch.multiple(
-            H14_D1,
+            H15_D1,
             load_inputs=mock.DEFAULT,
             _require_transaction_dir=mock.DEFAULT,
             _read_records=mock.DEFAULT,
@@ -943,11 +1028,11 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
             patched["_require_transaction_dir"].return_value = Path("/private/ordinal")
             patched["_read_records"].return_value = records
             patched["_validate_records"].return_value = "1" * 64
-            patched["require_status"].side_effect = H14_D1.ContractError(
+            patched["require_status"].side_effect = H15_D1.ContractError(
                 "not latched"
             )
-            with self.assertRaisesRegex(H14_D1.ContractError, "not latched"):
-                H14_D1.finalize_return(args)
+            with self.assertRaisesRegex(H15_D1.ContractError, "not latched"):
+                H15_D1.finalize_return(args)
             patched["_write_record"].assert_not_called()
 
     def test_d1_durable_opening_requires_exact_log_receipt(self) -> None:
@@ -963,7 +1048,7 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
             "execution_closure_sha256": args.expect_execution_closure_sha256,
             "approval_consumed": True,
             "approval_binding": binding,
-            "approval_binding_sha256": H14_F1.json_sha256(binding),
+            "approval_binding_sha256": H15_F1.json_sha256(binding),
             "approval_token_sha256": "4" * 64,
             "candidate_replay": False,
             "payload_transfer_count": 0,
@@ -971,10 +1056,10 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
             "userdata_write_count": 0,
         }
         with self.assertRaisesRegex(
-            H14_D1.ContractError,
+            H15_D1.ContractError,
             "opening log is absent",
         ):
-            H14_D1._validate_records(  # noqa: SLF001
+            H15_D1._validate_records(  # noqa: SLF001
                 [opening],
                 Path("/private/ordinal"),
                 args,
@@ -988,7 +1073,7 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
         ]
         args = argparse.Namespace(transaction_dir=Path("/private/ordinal"))
         with mock.patch.multiple(
-            H14_D1,
+            H15_D1,
             load_inputs=mock.DEFAULT,
             _require_transaction_dir=mock.DEFAULT,
             _read_records=mock.DEFAULT,
@@ -996,15 +1081,15 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
             parse_status=mock.DEFAULT,
             require_cancellation_fsync_proof=mock.DEFAULT,
         ) as patched, mock.patch.object(
-            H14_D1.base,
+            H15_D1.base,
             "run_f1_cmd",
             return_value={"text": "record"},
         ), mock.patch.object(
-            H14_D1.base,
+            H15_D1.base,
             "verify_candidate_health",
             return_value={"healthy": True},
         ), mock.patch.object(
-            H14_D1.f1,
+            H15_D1.f1,
             "sha256_file",
             return_value="1" * 64,
         ):
@@ -1015,12 +1100,12 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
                 "binding": 1,
                 "enable": 0,
                 "latch": 0,
-                "build": H14_F1.CANDIDATE_BUILD,
+                "build": H15_F1.CANDIDATE_BUILD,
             }
             patched["require_cancellation_fsync_proof"].side_effect = (
-                H14_D1.ContractError("proof absent")
+                H15_D1.ContractError("proof absent")
             )
-            result = H14_D1.reconcile(args)
+            result = H15_D1.reconcile(args)
         self.assertEqual(
             result["terminal"],
             "ARM_REBOOT_DISPATCH_UNKNOWN_NO_REPLAY",
@@ -1033,24 +1118,24 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
         ]
         args = argparse.Namespace(transaction_dir=Path("/private/ordinal"))
         with mock.patch.multiple(
-            H14_D1,
+            H15_D1,
             load_inputs=mock.DEFAULT,
             _require_transaction_dir=mock.DEFAULT,
             _read_records=mock.DEFAULT,
             _validate_records=mock.DEFAULT,
             parse_status=mock.DEFAULT,
         ) as patched, mock.patch.object(
-            H14_D1.base,
+            H15_D1.base,
             "run_f1_cmd",
             return_value={"text": "record"},
         ), mock.patch.object(
-            H14_D1.base,
+            H15_D1.base,
             "verify_candidate_health",
             return_value={"healthy": True},
         ), mock.patch.object(
-            H14_D1.legacy,
+            H15_D1.legacy,
             "parse_appended_benchmark",
-            side_effect=H14_D1.ContractError("cleanup marker absent"),
+            side_effect=H15_D1.ContractError("cleanup marker absent"),
         ):
             patched["load_inputs"].return_value = ({"run_id": "r"}, object(), {})
             patched["_require_transaction_dir"].return_value = Path("/private/ordinal")
@@ -1059,9 +1144,9 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
                 "binding": 1,
                 "enable": 1,
                 "latch": 1,
-                "build": H14_F1.CANDIDATE_BUILD,
+                "build": H15_F1.CANDIDATE_BUILD,
             }
-            result = H14_D1.reconcile(args)
+            result = H15_D1.reconcile(args)
         self.assertEqual(
             result["terminal"],
             "RECOVERY_PENDING_MOUNT_CLEANUP_NO_REPLAY",

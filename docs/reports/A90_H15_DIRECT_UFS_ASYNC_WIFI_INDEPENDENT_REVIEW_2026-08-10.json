@@ -1,0 +1,72 @@
+{
+  "schema": "a90-h15-direct-ufs-async-wifi-independent-review-v1",
+  "status": "PASS_GO",
+  "review_date": "2026-08-10",
+  "reviewer": "independent subagent /root/a90_h7_closure_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "capability": "A90_DIRECT_UFS_READONLY_ROOT_V1",
+  "decision": "The exact H15 boot-only F1 and attended read-only-UFS D1 execution closure has no unresolved HIGH, MEDIUM, or LOW finding. Durable state is consulted before Wi-Fi/NCM, and an armed boot requires a live exact helper in a private mount namespace and the shared network namespace before asynchronous handoff.",
+  "frozen_scope": {
+    "execution_closure_sha256": "1f4f5332e687ad783c9cf072ed3779918781c31079012565e61bb243c4e8dba4",
+    "execution_closure_members": 38,
+    "native_init_closure_sha256": "d51069d187c78f1f4e7e2e39cf913c02fedbbdf71055e3934b4cc910464767ca",
+    "native_init_closure_members": 253,
+    "agents_contract_sha256": "c07f670424fa7920f5b02e44d0f2b4f8a87030aac6f9d0ae268bf1339e51790e",
+    "manifest_sha256": "21525dd6a4c708e8fba143f8b268cf46ef4303d0ec999521e8b006ffa47df295",
+    "candidate_boot_sha256": "b285d5f48402b88583adff55b2423870f481e0f0169ffca127b490a567d4d6cd",
+    "candidate_boot_bytes": 58372096,
+    "ab_receipt_sha256": "9a28fcd4b9ea6c72d2c19733ef756b52e4f708054a730625c78893f32aa55536",
+    "ab_byte_identical": true
+  },
+  "reviewed_behavior": {
+    "durable_state_before_wifi_and_ncm": true,
+    "unarmed_and_latched_stay_native": true,
+    "armed_helper_exact_exec_required": true,
+    "armed_helper_non_zombie_required": true,
+    "armed_helper_private_mount_namespace_required": true,
+    "armed_helper_shared_network_namespace_required": true,
+    "armed_helper_start_gate_timeout_sec": 5,
+    "armed_helper_stop_and_reap_before_failed_handoff": true,
+    "same_intent_final_wifi_proof_required": true,
+    "fresh_f1_approval_required": true,
+    "fresh_d1_approval_required": true,
+    "candidate_replay": false,
+    "userdata_mount": "ro,noload,nosuid,nodev",
+    "userdata_write_allowed": false,
+    "sd_rootfs_payload_or_stage": false,
+    "d1_combined_arm_reboot_dispatch_limit": 1,
+    "s22plus_authority": false
+  },
+  "findings": {
+    "final_high": 0,
+    "final_medium": 0,
+    "final_low": 0,
+    "resolved_high": 0,
+    "resolved_medium": 2,
+    "resolved_low": 1,
+    "unresolved": []
+  },
+  "validation": {
+    "focused_tests_passed": 60,
+    "wifi_generated_shell_syntax": "PASS",
+    "python_py_compile": "PASS",
+    "git_diff_check": "PASS",
+    "aarch64_static_link": "PASS",
+    "deterministic_ab_build": "PASS"
+  },
+  "review_lifetime": {
+    "reuse": "PASS_GO qualifies this capability across ordinals, manifests, and campaigns only while the named 38-file execution closure, native closure, and reviewed hazard assumptions remain unchanged and no new hazard or incident occurs.",
+    "fresh_manifest_d0_attendance_and_run_approval_required": true,
+    "live_authority_from_review": false
+  },
+  "private_candidate_bytes_opened_by_reviewer": false,
+  "private_receipt_bytes_opened_by_reviewer": false,
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "reviewer_device_contact": false,
+  "reviewer_usb_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_network_contact": false,
+  "reviewer_s22plus_contact": false,
+  "reviewer_implementation_edits": false
+}

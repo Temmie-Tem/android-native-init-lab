@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""One-shot attended A90 H14 direct-UFS automatic handoff and benchmark.
+"""One-shot attended A90 H15 direct-UFS automatic handoff and benchmark.
 
-The runner arms one already-installed H14 resident, reboots once, observes the
+The runner arms one already-installed H15 resident, reboots once, observes the
 existing UFS appliance as Debian PID 1 over the same A90 USB/NCM identity, and
-requires a later exact H14 native return.  It transfers no payload, flashes no
+requires a later exact H15 native return.  It transfers no payload, flashes no
 partition, sends no rootfs bytes, and never replays an uncertain arm or reboot.
 """
 
@@ -28,18 +28,18 @@ for _path in (SCRIPT_DIR, REVAL_DIR):
         sys.path.insert(0, str(_path))
 
 import a90_auto_handoff_benchmark_runner_v1 as legacy  # noqa: E402
-import a90_h14_ufs_f1_runner_v1 as f1  # noqa: E402
+import a90_h15_ufs_f1_runner_v1 as f1  # noqa: E402
 import a90_ondevice_evidence_v1 as ondevice  # noqa: E402
 import a90_phase3_d1_observer_v1 as phase3_observer  # noqa: E402
 import a90_v3403_f1_orchestrator as base  # noqa: E402
 
 
-SCHEMA = "a90-h14-ufs-d1-journal-v1"
-RESULT_SCHEMA = "a90-h14-ufs-d1-result-v1"
-RECONCILE_SCHEMA = "a90-h14-ufs-d1-reconciliation-v1"
-APPROVAL_SCHEMA = "a90-h14-ufs-d1-approval-prepared-v1"
-APPROVAL_BINDING_SCHEMA = "a90-h14-ufs-d1-approval-binding-v1"
-APPROVAL_PREFIX = "A90-H14-D1-APPROVE:"
+SCHEMA = "a90-h15-ufs-d1-journal-v1"
+RESULT_SCHEMA = "a90-h15-ufs-d1-result-v1"
+RECONCILE_SCHEMA = "a90-h15-ufs-d1-reconciliation-v1"
+APPROVAL_SCHEMA = "a90-h15-ufs-d1-approval-prepared-v1"
+APPROVAL_BINDING_SCHEMA = "a90-h15-ufs-d1-approval-binding-v1"
+APPROVAL_PREFIX = "A90-H15-D1-APPROVE:"
 APPROVAL_TTL_SEC = 1800
 ARM_TOKEN = "AUTO-HANDOFF-BENCHMARK-V1-ARM"
 STATUS_RE = re.compile(
@@ -67,7 +67,7 @@ JOURNAL_ACTIONS = (
 
 
 class ContractError(RuntimeError):
-    """Raised before replaying or widening the exact H14 D1 ordinal."""
+    """Raised before replaying or widening the exact H15 D1 ordinal."""
 
 
 def _effect_args() -> argparse.Namespace:
@@ -90,12 +90,12 @@ def _load_install_result(
 ) -> dict[str, Any]:
     path = f1.reopen_bound(value, "install_result")
     if f1.sha256_file(path) != expected_sha256:
-        raise ContractError("H14 install result SHA256 changed")
+        raise ContractError("H15 install result SHA256 changed")
     result = json.loads(path.read_text(encoding="utf-8"))
     if (
         not isinstance(result, dict)
         or result.get("schema") != f1.RESULT_SCHEMA
-        or result.get("status") != "PASS_A90_H14_UFS_RESIDENT_INSTALLED"
+        or result.get("status") != "PASS_A90_H15_UFS_RESIDENT_INSTALLED"
         or result.get("manifest_sha256") != manifest["_manifest_sha256"]
         or result.get("device_safety_state") != "RESIDENT_HEALTHY"
         or result.get("candidate_transfer_count") != 1
@@ -105,7 +105,7 @@ def _load_install_result(
         or result.get("sd_stage_count") != 0
         or result.get("userdata_write_count") != 0
     ):
-        raise ContractError("H14 resident install terminal is not exact")
+        raise ContractError("H15 resident install terminal is not exact")
     return result
 
 
@@ -125,7 +125,7 @@ def load_inputs(args: argparse.Namespace) -> tuple[dict[str, Any], Any, dict[str
     )
     closure = f1.execution_closure()
     if args.expect_execution_closure_sha256 != closure["sha256"]:
-        raise ContractError("H14 capability execution closure changed")
+        raise ContractError("H15 capability execution closure changed")
     f1.validate_qualification(manifest["capability_qualification"], closure)
     spec = f1._spec(manifest, args.manifest, args.expect_manifest_sha256)  # noqa: SLF001
     spec.bridge_realpath = spec.stage.bridge_realpath
@@ -136,7 +136,7 @@ def parse_status(record: dict[str, Any]) -> dict[str, Any]:
     exact = base.require_exact_f1_command_receipt(
         record,
         ["auto-handoff-status"],
-        "H14 auto-handoff status",
+        "H15 auto-handoff status",
     )
     lines = [
         line.strip()
@@ -144,10 +144,10 @@ def parse_status(record: dict[str, Any]) -> dict[str, Any]:
         if line.strip().startswith("A90AUTO_STATUS")
     ]
     if len(lines) != 1:
-        raise ContractError("H14 auto-handoff status is not unique")
+        raise ContractError("H15 auto-handoff status is not unique")
     match = STATUS_RE.fullmatch(lines[0])
     if match is None:
-        raise ContractError("H14 auto-handoff status shape changed")
+        raise ContractError("H15 auto-handoff status shape changed")
     value = {
         "binding": int(match.group("binding"), 10),
         "enable": int(match.group("enable"), 10),
@@ -155,7 +155,7 @@ def parse_status(record: dict[str, Any]) -> dict[str, Any]:
         "build": match.group("build"),
     }
     if value["binding"] != 1 or value["build"] != f1.CANDIDATE_BUILD:
-        raise ContractError("auto-handoff status is not the exact H14 binding")
+        raise ContractError("auto-handoff status is not the exact H15 binding")
     return value
 
 
@@ -169,7 +169,7 @@ def require_status(
     status = parse_status(record)
     if (status["enable"], status["latch"]) != (enable, latch):
         raise ContractError(
-            f"H14 state is {status['enable']},{status['latch']}; "
+            f"H15 state is {status['enable']},{status['latch']}; "
             f"expected {enable},{latch}"
         )
     return record, status
@@ -185,8 +185,8 @@ def require_cancellation_fsync_proof(
     final_log: dict[str, Any],
     intent_sha256: str,
 ) -> dict[str, Any]:
-    before = _exact_log_text(opening_log, "H14 cancellation opening log")
-    after = _exact_log_text(final_log, "H14 cancellation final log")
+    before = _exact_log_text(opening_log, "H15 cancellation opening log")
+    after = _exact_log_text(final_log, "H15 cancellation final log")
     pattern = re.compile(
         rf"^\[[0-9]+ms\] auto-handoff: reboot returned cancellation "
         rf"intent_sha256={re.escape(intent_sha256)} reboot_errno=[1-9][0-9]* "
@@ -197,7 +197,7 @@ def require_cancellation_fsync_proof(
     after_matches = pattern.findall(after)
     if before_matches or len(after_matches) != 1:
         raise ContractError(
-            "H14 no-effect close lacks one post-intent cancellation fsync proof"
+            "H15 no-effect close lacks one post-intent cancellation fsync proof"
         )
     return {
         "proof": True,
@@ -214,8 +214,8 @@ def native_failure_cleanup_disposition(
     *,
     native_handoff_failed: bool,
 ) -> dict[str, Any]:
-    before = _exact_log_text(opening_log, "H14 cleanup opening log")
-    after = _exact_log_text(final_log, "H14 cleanup final log")
+    before = _exact_log_text(opening_log, "H15 cleanup opening log")
+    after = _exact_log_text(final_log, "H15 cleanup final log")
     pattern = re.compile(
         r"^\[[0-9]+ms\] server-distro: D4 handoff failure "
         r"cleanup_clean=(?P<clean>[01]) root_mounted=(?P<mounted>[01]) "
@@ -260,7 +260,7 @@ def _write_record(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     if index >= len(JOURNAL_NAMES):
-        raise ContractError("H14 D1 journal overflow")
+        raise ContractError("H15 D1 journal overflow")
     value = {
         "schema": SCHEMA,
         "sequence": index,
@@ -277,7 +277,7 @@ def _read_records(transaction_dir: Path) -> list[dict[str, Any]]:
         path = transaction_dir / name
         if not path.exists():
             if any((transaction_dir / later).exists() for later in JOURNAL_NAMES[index + 1 :]):
-                raise ContractError("H14 D1 journal has a gap")
+                raise ContractError("H15 D1 journal has a gap")
             break
         value = json.loads(path.read_text(encoding="utf-8"))
         if (
@@ -286,7 +286,7 @@ def _read_records(transaction_dir: Path) -> list[dict[str, Any]]:
             or value.get("sequence") != index
             or value.get("action") != JOURNAL_ACTIONS[index]
         ):
-            raise ContractError("H14 D1 journal record changed")
+            raise ContractError("H15 D1 journal record changed")
         records.append(value)
     return records
 
@@ -299,11 +299,11 @@ def _require_transaction_dir(
 ) -> Path:
     resolved = transaction_dir.resolve(strict=not must_be_absent)
     expected_parent = (
-        f1.PRIVATE_RUN_BASE / manifest["run_id"] / "h14-d1"
+        f1.PRIVATE_RUN_BASE / manifest["run_id"] / "h15-d1"
     ).resolve()
     if resolved.parent != expected_parent or resolved.exists() == must_be_absent:
         state = "absent" if must_be_absent else "existing"
-        raise ContractError(f"H14 D1 transaction path is not exact and {state}")
+        raise ContractError(f"H15 D1 transaction path is not exact and {state}")
     return resolved
 
 
@@ -391,11 +391,11 @@ def validate_approval(
     path = _approval_path(transaction_dir)
     info = path.lstat()
     if not path.is_file() or path.is_symlink() or info.st_mode & 0o077:
-        raise ContractError("H14 D1 approval is not a private regular file")
+        raise ContractError("H15 D1 approval is not a private regular file")
     value = json.loads(path.read_text(encoding="utf-8"))
     binding = value.get("approval_binding") if isinstance(value, dict) else None
     if not isinstance(binding, dict):
-        raise ContractError("H14 D1 approval binding is absent")
+        raise ContractError("H15 D1 approval binding is absent")
     expected = approval_binding(
         manifest,
         args,
@@ -430,7 +430,7 @@ def validate_approval(
         or now < created
         or now > expires
     ):
-        raise ContractError("H14 D1 approval is not fresh and exact")
+        raise ContractError("H15 D1 approval is not fresh and exact")
     return value
 
 
@@ -460,11 +460,11 @@ def _validate_records(
         or opening.get("partition_write_count") != 0
         or opening.get("userdata_write_count") != 0
     ):
-        raise ContractError("H14 D1 opening binding changed")
+        raise ContractError("H15 D1 opening binding changed")
     opening_log = opening.get("opening_log")
     if not isinstance(opening_log, dict):
-        raise ContractError("H14 D1 opening log is absent")
-    _exact_log_text(opening_log, "H14 D1 durable opening log")
+        raise ContractError("H15 D1 opening log is absent")
+    _exact_log_text(opening_log, "H15 D1 durable opening log")
     approval_value = opening["approval_binding"]
     expected_approval = approval_binding(
         manifest,
@@ -474,7 +474,7 @@ def _validate_records(
         expires_utc=str(approval_value.get("expires_utc") or ""),
     )
     if approval_value != expected_approval:
-        raise ContractError("H14 D1 consumed approval binding changed")
+        raise ContractError("H15 D1 consumed approval binding changed")
     if len(records) == 1:
         return None
     intent = records[1]
@@ -488,25 +488,25 @@ def _validate_records(
         or not isinstance(intent.get("pre_reboot_binding"), dict)
         or not isinstance(intent.get("guard"), dict)
     ):
-        raise ContractError("H14 D1 arm-reboot intent changed")
+        raise ContractError("H15 D1 arm-reboot intent changed")
     intent_sha256 = f1.sha256_file(transaction_dir / JOURNAL_NAMES[1])
     if any(
         record.get("intent_sha256") != intent_sha256
         for record in records[2:4]
     ):
-        raise ContractError("H14 D1 continuation intent binding changed")
+        raise ContractError("H15 D1 continuation intent binding changed")
     if len(records) >= 3 and (
         records[2].get("arm_reboot_command_dispatch_count") != 1
         or records[2].get("candidate_replay") is not False
         or not isinstance(records[2].get("dispatch_record"), dict)
     ):
-        raise ContractError("H14 D1 dispatch result changed")
+        raise ContractError("H15 D1 dispatch result changed")
     if len(records) >= 4 and (
         records[3].get("arm_reboot_command_dispatch_count") != 1
         or records[3].get("candidate_replay") is not False
         or not isinstance(records[3].get("observation"), dict)
     ):
-        raise ContractError("H14 D1 observation changed")
+        raise ContractError("H15 D1 observation changed")
     if len(records) >= 5:
         result = records[4].get("result")
         if (
@@ -516,12 +516,12 @@ def _validate_records(
             or result.get("candidate_replay") is not False
             or records[4].get("result_sha256") != f1.json_sha256(result)
         ):
-            raise ContractError("H14 D1 final health changed")
+            raise ContractError("H15 D1 final health changed")
     if len(records) == 6 and (
         records[5].get("result") != records[4].get("result")
         or records[5].get("result_sha256") != records[4].get("result_sha256")
     ):
-        raise ContractError("H14 D1 closed result changed")
+        raise ContractError("H15 D1 closed result changed")
     return intent_sha256
 
 
@@ -639,17 +639,17 @@ def _finalize(
     host_link = legacy.host_link_proven(spec, observation)
     guard_released = observation.get("guard_release", {}).get("released") is True
     if benchmark.get("native_handoff_failed") is True:
-        terminal = "REFUTED_H14_NATIVE_HANDOFF_FAILED_RESIDENT_HEALTHY"
+        terminal = "REFUTED_H15_NATIVE_HANDOFF_FAILED_RESIDENT_HEALTHY"
     elif durable.get("proof") is True and wifi and host_link and guard_released:
         terminal = (
-            "PASS_H14_UFS_AUTO_HANDOFF_VISIBLE"
+            "PASS_H15_UFS_AUTO_HANDOFF_VISIBLE"
             if visible_confirmed == "yes"
-            else "REFUTED_H14_UFS_DISPLAY_VISIBILITY"
+            else "REFUTED_H15_UFS_DISPLAY_VISIBILITY"
             if visible_confirmed == "no"
-            else "PASS_H14_UFS_AUTO_HANDOFF_NO_PROOF_VISIBILITY"
+            else "PASS_H15_UFS_AUTO_HANDOFF_NO_PROOF_VISIBILITY"
         )
     else:
-        terminal = "NO_PROOF_H14_UFS_OBSERVER_RESIDENT_HEALTHY"
+        terminal = "NO_PROOF_H15_UFS_OBSERVER_RESIDENT_HEALTHY"
     return {
         "schema": RESULT_SCHEMA,
         "terminal": terminal,
@@ -742,7 +742,7 @@ def _dispatch_and_observe(
 
 def execute(args: argparse.Namespace) -> dict[str, Any]:
     if args.operator_attended is not True:
-        raise ContractError("H14 automatic UFS handoff is attended-only")
+        raise ContractError("H15 automatic UFS handoff is attended-only")
     manifest, spec, install_result = load_inputs(args)
     transaction_dir = _require_transaction_dir(
         manifest,
@@ -756,7 +756,7 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
     opening_log = base.run_f1_cmd(effect_args, ["logcat"])
     base.require_auto_handoff_log_exclusively_unarmed(
         str(opening_log.get("text") or ""),
-        "H14 first resident boot log",
+        "H15 first resident boot log",
     )
     approval = validate_approval(manifest, args, transaction_dir)
     transaction_dir.mkdir(parents=True, mode=0o700)
@@ -841,7 +841,7 @@ def execute(args: argparse.Namespace) -> dict[str, Any]:
 def finalize_return(args: argparse.Namespace) -> dict[str, Any]:
     """Close only the read-only native-return health after one observed reboot."""
     if args.operator_attended is not True:
-        raise ContractError("H14 return finalization is attended-only")
+        raise ContractError("H15 return finalization is attended-only")
     manifest, spec, _ = load_inputs(args)
     transaction_dir = _require_transaction_dir(
         manifest,
@@ -932,7 +932,7 @@ def finalize_return(args: argparse.Namespace) -> dict[str, Any]:
 
 def finalize_no_effect(args: argparse.Namespace) -> dict[str, Any]:
     if args.operator_attended is not True:
-        raise ContractError("H14 no-effect finalization is attended-only")
+        raise ContractError("H15 no-effect finalization is attended-only")
     manifest, spec, _ = load_inputs(args)
     transaction_dir = _require_transaction_dir(
         manifest,
@@ -956,7 +956,7 @@ def finalize_no_effect(args: argparse.Namespace) -> dict[str, Any]:
         raise ContractError("no-effect finalization contradicts a proved observation")
     opening_log = records[0].get("opening_log")
     if not isinstance(opening_log, dict):
-        raise ContractError("H14 D1 opening log is absent")
+        raise ContractError("H15 D1 opening log is absent")
     final_log = base.run_f1_cmd(effect_args, ["logcat"])
     cancellation = require_cancellation_fsync_proof(
         opening_log,
@@ -999,7 +999,7 @@ def finalize_no_effect(args: argparse.Namespace) -> dict[str, Any]:
         )
     result = {
         "schema": RESULT_SCHEMA,
-        "terminal": "ABORTED_H14_ARM_REBOOT_NO_PERSISTENT_EFFECT",
+        "terminal": "ABORTED_H15_ARM_REBOOT_NO_PERSISTENT_EFFECT",
         "intent_sha256": intent_sha256,
         "resident_healthy": True,
         "candidate_replay": False,
@@ -1191,7 +1191,7 @@ def main(argv: list[str] | None = None) -> int:
             value = prepare_approval(args)
         elif args.execute:
             if args.approval is None:
-                raise ContractError("H14 D1 execute requires fresh exact approval")
+                raise ContractError("H15 D1 execute requires fresh exact approval")
             value = execute(args)
         elif args.finalize_return:
             if args.approval is not None:
@@ -1206,7 +1206,7 @@ def main(argv: list[str] | None = None) -> int:
                 raise ContractError("D1 reconciliation accepts no new approval")
             value = reconcile(args)
     except (ContractError, f1.ContractError, OSError, ValueError, json.JSONDecodeError) as exc:
-        print(f"H14_UFS_D1_ERROR {type(exc).__name__}: {exc}", file=sys.stderr)
+        print(f"H15_UFS_D1_ERROR {type(exc).__name__}: {exc}", file=sys.stderr)
         return 2
     print(json.dumps(value, indent=2, sort_keys=True))
     return 0

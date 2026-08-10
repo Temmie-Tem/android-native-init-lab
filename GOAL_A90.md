@@ -3,9 +3,9 @@
 Build the operator-owned Galaxy A90 5G into a Debian-oriented personal server
 where native-init performs only the vendor-kernel and hardware bridge-up that
 Debian cannot yet perform, then transfers PID 1 and the steady-state runtime to
-the existing UFS-backed Debian appliance root with `switch_root`. The current
-SD-backed resident remains the controlled fallback until that UFS path is
-requalified under the current contract and execution closure.
+the existing UFS-backed Debian appliance root with `switch_root`. The exact
+V2321 native resident is the current healthy rollback terminal until that UFS
+path is requalified under the current contract and execution closure.
 
 `AGENTS.md` and `docs/operations/targets/A90_TARGET_CONTRACT.md` are binding.
 This file records current state and the next bounded unit; it grants no device
@@ -18,13 +18,10 @@ The pre-H2 goal history is preserved at
 
 ## Current State
 
-- H11 is the exact installed healthy resident at `0.11.179`, build
-  `phase3-minimal-h11-direct-debian-boot-auto-benchmark`. On an armed boot it
-  keeps the boot splash and serial recovery path, skips the fixed splash wait,
-  HUD, QRTR, netservice, early WiFi lifecycle/test, WiFi autoconnect, and boot
-  chime, then dispatches the existing one-shot handoff. Any unarmed, latched,
-  cache-refused, or failed return restores the full native service path without
-  replay.
+- V2321 `0.9.285`, build `v2321-usb-clean-identity-rodata`, is the exact
+  installed healthy resident after the H14 recovery rollback. Final health
+  proves self-test `11/1/0`, responsive local control, released guard, and
+  `BASELINE_HEALTHY`. Physical Download and TWRP recovery remain available.
 - H13 run08 reached attended rootfs staging but stopped before candidate intent.
   The host payload socket incorrectly retained its 10-second connection timeout
   during the 2 GiB send, timed out under SD backpressure, and then queued cleanup
@@ -51,13 +48,25 @@ The pre-H2 goal history is preserved at
   userdata preflight command, so current filesystem label, marker, and init
   remain unproved rather than inferred. No UFS mount, node creation, filesystem
   read/write, payload, reboot, flash, or S22+ command occurred.
-- H14 `0.11.182` now has a deterministic boot-only candidate for the existing
-  UFS appliance: A/B SHA256 `4245ec2b`, no SD/rootfs payload, and a read-only
-  `ro,noload,nosuid,nodev` handoff with Wi-Fi retained. Independent `PASS_GO`
-  covers the 37-file execution closure `9f12ed7f` and native closure `0a226bbc`;
-  33 focused and 607 related tests pass with no unresolved HIGH or MEDIUM.
-  Because the fast-loop trial is retired, this qualification grants no live
-  authority: F1 and D1 each still require a fresh exact attended approval.
+- H14 `0.11.182` is a consumed incident candidate and is never replayed. Its
+  exact boot write and readback succeeded once, but the resident verifier
+  failed before UFS handoff. The same transaction wrote the exact V2321
+  rollback once and closed
+  `FAILED_CANDIDATE_RECOVERY_ROLLBACK_COMPLETE` / `BASELINE_HEALTHY`, with
+  rootfs payload, SD stage, userdata write, and candidate replay all zero.
+- Bounded read-only diagnosis proved H14 synchronously waited 20 seconds for
+  final Wi-Fi readiness before consulting the unarmed state. The helper had
+  started but was not yet ready, so native returned `-ETIMEDOUT`; UFS was never
+  mounted or attempted. UFS speed and capacity were not causal.
+- H15 `0.11.183` is the only replacement lane. It checks durable handoff state
+  before Wi-Fi/NCM, keeps unarmed and latched boots native, and on an armed boot
+  requires an exact live helper with a private mount namespace and shared
+  network namespace before continuing asynchronously. Final same-intent Wi-Fi
+  proof remains mandatory. Independent `PASS_GO` closes the 38-file execution
+  closure `1f4f5332` and 253-file native closure `d51069d1` with
+  HIGH/MEDIUM/LOW zero. Deterministic A/B boot SHA is `b285d5f4`; qualification
+  grants no live authority and fresh attended F1 and D1 approvals remain
+  mandatory.
 - The fresh Phase3 network/SSH rootfs, H11 marker namespace, deterministic A/B
   boot, exact compiled binding, and benchmark execution closure are bound by a
   42-path independent review. `PASS_GO` has HIGH/MEDIUM/LOW zero and grants no
@@ -707,24 +716,25 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: H14 Direct-UFS Resident Install and Control
+## Selected Bounded Unit: H15 Namespace-Proved Direct-UFS Control
 
-Preserve every terminal H7-H13 run and no-replay conclusion. H11 remains the
-exact installed healthy resident; run08 and its partial SD-stage residue are
-not reusable. The H13 transfer repair is separately qualified and closed.
+Preserve every terminal H7-H14 run and no-replay conclusion. V2321 remains the
+exact installed healthy resident; H14 and run08 are not reusable. The H13
+transfer repair is separately qualified and closed.
 
-The H14 host closure is now qualified. Next, create one fresh immutable F1
-manifest, revalidate exact A90 health plus V2321 rollback/recovery, consume one
-fresh attended approval, and install the boot-only H14 resident. The transaction
-must transfer no rootfs and must close only on exact H14 resident health.
+The H15 namespace-ready asynchronous Wi-Fi correction is independently
+qualified. Next create one fresh immutable F1 manifest, revalidate exact A90
+health plus V2321 rollback/recovery, consume one fresh attended approval, and
+install only the boot-only H15 resident. The transaction transfers no rootfs
+and closes only on exact H15 resident health.
 
 After that healthy close, create a new D1 ordinal and consume its own fresh
 attended approval. Dispatch exactly one combined arm-plus-reboot operation and
 prove the existing UFS identity and content, read-only root, Debian PID 1,
-DRM/display, SSH/NCM/Wi-Fi service, clean automatic native return, and final H14
+DRM/display, SSH/NCM/Wi-Fi service, clean automatic native return, and final H15
 resident health. An uncertain transition is never replayed.
 
-Only a full comparable H14 control benchmark can open a later Full-LTO unit.
+Only a full comparable H15 control benchmark can open a later Full-LTO unit.
 Qualification never substitutes for fresh manifest, D0, approval, attendance,
 one-shot journal, recovery, or final-health gates.
 
@@ -752,7 +762,7 @@ atomic PID1, SSH, display, return, cleanup, and final-health result.
 ```text
 vendor boot chain and source-matched kernel
 -> minimal native-init hardware bridge-up
--> immutable SD work-root verification
+-> exact read-only UFS appliance-root verification
 -> strict native display and service release
 -> switch_root
 -> Debian init as PID 1
@@ -789,7 +799,9 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_H10_RUN02_PROVED_ARM_NO_REPLAY_RESUME_INDEPENDENT_REVIEW_2026-08-10.json`
 - `docs/reports/A90_H10_NCM_FIRST_OBSERVER_AND_BENCHMARK_RECEIPT_INDEPENDENT_REVIEW_2026-08-10.json`
 - `docs/reports/A90_PHASE3_MINIMAL_H11_DIRECT_DEBIAN_BOOT_INDEPENDENT_REVIEW_2026-08-10.json`
-- `docs/reports/A90_H14_DIRECT_UFS_READONLY_ROOT_INDEPENDENT_REVIEW_2026-08-10.json`
+- `docs/archive/reports/A90_H14_DIRECT_UFS_READONLY_ROOT_INDEPENDENT_REVIEW_2026-08-10.json`
+- `docs/reports/A90_H14_UNARMED_WIFI_READY_GATE_INCIDENT_2026-08-10.md`
+- `docs/reports/A90_H15_DIRECT_UFS_ASYNC_WIFI_INDEPENDENT_REVIEW_2026-08-10.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`
