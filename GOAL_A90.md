@@ -3,9 +3,9 @@
 Build the operator-owned Galaxy A90 5G into a Debian-oriented personal server
 where native-init performs only the vendor-kernel and hardware bridge-up that
 Debian cannot yet perform, then transfers PID 1 and the steady-state runtime to
-the existing UFS-backed Debian appliance root with `switch_root`. The exact
-V2321 native resident is the current healthy rollback terminal until that UFS
-path is requalified under the current contract and execution closure.
+the existing UFS-backed Debian appliance root with `switch_root`. The exact H15
+native resident is the current healthy terminal, with V2321 retained as the
+bound rollback until the UFS control run closes under the current contract.
 
 `AGENTS.md` and `docs/operations/targets/A90_TARGET_CONTRACT.md` are binding.
 This file records current state and the next bounded unit; it grants no device
@@ -18,10 +18,13 @@ The pre-H2 goal history is preserved at
 
 ## Current State
 
-- V2321 `0.9.285`, build `v2321-usb-clean-identity-rodata`, is the exact
-  installed healthy resident after the H14 recovery rollback. Final health
-  proves self-test `11/1/0`, responsive local control, released guard, and
-  `BASELINE_HEALTHY`. Physical Download and TWRP recovery remain available.
+- H15 `0.11.183`, build
+  `phase3-minimal-h15-direct-ufs-ro-async-wifi-auto-benchmark`, is the exact
+  installed healthy resident. Its attended boot-only F1 wrote the candidate
+  once and closed `PASS_A90_H15_UFS_RESIDENT_INSTALLED` / `RESIDENT_HEALTHY`
+  with self-test `11/1/0`, unarmed `enable=0/latch=0`, released guard, rollback
+  zero, and candidate replay false. Exact V2321 and physical Download/TWRP
+  remain the bound recovery path.
 - H13 run08 reached attended rootfs staging but stopped before candidate intent.
   The host payload socket incorrectly retained its 10-second connection timeout
   during the 2 GiB send, timed out under SD backpressure, and then queued cleanup
@@ -718,19 +721,18 @@ missing same-ordinal mechanical Debian PID1/SSH evidence.
 
 ## Selected Bounded Unit: H15 Namespace-Proved Direct-UFS Control
 
-Preserve every terminal H7-H14 run and no-replay conclusion. V2321 remains the
-exact installed healthy resident; H14 and run08 are not reusable. The H13
-transfer repair is separately qualified and closed.
+Preserve every terminal H7-H15 F1 run and no-replay conclusion. H15 is the
+exact installed healthy resident; H14 and run08 are not reusable. Exact V2321
+remains the rollback, and the H13 transfer repair is separately qualified and
+closed.
 
 The H15 namespace-ready asynchronous Wi-Fi correction is independently
-qualified. Next create one fresh immutable F1 manifest, revalidate exact A90
-health plus V2321 rollback/recovery, consume one fresh attended approval, and
-install only the boot-only H15 resident. The transaction transfers no rootfs
-and closes only on exact H15 resident health.
+qualified and its boot-only resident install is terminal healthy. Next create
+a new attended D1 ordinal bound to that exact terminal and the existing UFS
+inventory. Do not repeat the F1 candidate.
 
-After that healthy close, create a new D1 ordinal and consume its own fresh
-attended approval. Dispatch exactly one combined arm-plus-reboot operation and
-prove the existing UFS identity and content, read-only root, Debian PID 1,
+Consume a fresh D1 approval, dispatch exactly one combined arm-plus-reboot
+operation, and prove the existing UFS identity and content, read-only root, Debian PID 1,
 DRM/display, SSH/NCM/Wi-Fi service, clean automatic native return, and final H15
 resident health. An uncertain transition is never replayed.
 
