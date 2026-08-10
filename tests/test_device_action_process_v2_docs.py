@@ -472,8 +472,13 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             "P3.15 closes the H0 live-profile snapshot ordering repair",
             normalized_goal,
         )
-        self.assertIn("no connected D0 has been run", normalized_goal)
-        self.assertIn("no prepared live binding exists", normalized_goal)
+        self.assertIn(
+            "first freshly authorized connected D0 selected the exact S22+",
+            normalized_goal,
+        )
+        self.assertIn(
+            "No prepared live binding or transaction exists", normalized_goal
+        )
         self.assertIn("generation 96, stage `0x90`, item 3", normalized_goal)
         self.assertIn("generation 97, stage `0x90`, item 4", normalized_goal)
         self.assertIn("terminal failure `0x6712`", normalized_goal)

@@ -49,8 +49,12 @@ was required.
 The canonical ready manifest is
 `workspace/public/src/device-action/manifests/s22plus_fyg8_p315_process_v2_ready_1.json`
 with SHA-256 `a7f37b4fa9eb8783f90130e1a7eeb3ecc2053515527ed1f61046f111ba227c5f`.
-It remains `ready-for-f1-approval` only: no connected D0 has been run, no
-prepared live binding exists, and no D0, D1, F1, Odin, reboot, Download, or
+It remains `ready-for-f1-approval` only. The first freshly authorized connected
+D0 selected the exact S22+ and read the retained observer, then stopped because
+it contained the consumed P3.14 generation-97 `0x6705`
+`profile-record-deficit` family. Offline reclassification proved one
+integrity-clean, foreign-count-zero P3.14 record. No prepared live binding or
+transaction exists, and no D1, F1, Odin, reboot, Download, or
 partition-transfer authority is active.
 
 ## P3.15 Detailed Successor Design
@@ -574,11 +578,13 @@ inline breakout is available. P3.14 is now consumed and closed. Its candidate
 and rollback each completed once; the retained observer contradiction was
 recovered from two byte-identical post-rollback reads, and final health passed.
 No live authority remains from its approval or prepared record. P3.15 closes
-the H0 live-profile snapshot ordering repair and is ready only for a freshly
-authorized connected D0 preparation. That D0 must bind the exact healthy S22+,
-qualified candidate, rollback, sidecar, guard, and current execution closure
-before a separate fresh F1 approval can authorize one attempt. P3.02 remains
-parked.
+the H0 live-profile snapshot ordering repair, but its first connected D0
+preparation stopped on the expected consumed P3.14 retained family and is not
+reusable. The next device effect is one separately authorized, attended D1
+normal-Android baseline-rotation reboot. Only after that returns healthy may a
+new connected D0 bind the exact S22+, qualified candidate, rollback, sidecar,
+guard, and current execution closure before a separate fresh F1 approval can
+authorize one attempt. P3.02 remains parked.
 
 ## Success and Stop Conditions
 
