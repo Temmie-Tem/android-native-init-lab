@@ -1,0 +1,52 @@
+{
+  "schema": "a90-h17-ufs-f1-d1-execution-independent-review-v1",
+  "capability": "A90_H17_PERSISTENT_UFS_SERVER_V1",
+  "verdict": "PASS_GO",
+  "review_date": "2026-08-10",
+  "review_scope": "h17-boot-only-f1-and-persistent-ufs-d1-execution-critical-closure",
+  "predecessor_capability_closure_sha256": "45aa74c13ca8a11b4bb06b192436b8416fa294f5c200fa0d2326cec6bca076ee",
+  "execution_closure_sha256": "b7bc0000f427e596668812e3bbc42722a8ccd3be432a1ce59a82de9a77e23905",
+  "execution_file_count": 41,
+  "reviewed_source_sha256": {
+    "workspace/public/src/scripts/server-distro/a90_h17_ufs_f1_runner_v1.py": "c2ba9cc73236bebd95b3ce8c117c4e14a1b99d24b75652fb24e2e9f9aa791988",
+    "workspace/public/src/scripts/server-distro/a90_h17_ufs_d1_runner_v1.py": "0ec40f3b4ca169777d962b0c98b5426198c89b33a2b61e65dd3ea4d9b6f2a7a0",
+    "tests/test_a90_h17_ufs_execution_v1.py": "aa243f4120051282d45e3aab81dc7f37e44d311fb4732db69f8c8af5de1bec85"
+  },
+  "initial_finding": {
+    "severity": "MEDIUM",
+    "status": "CLOSED",
+    "summary": "Physical-return finalization originally accepted generic H17 1,1 state without proving that enable, latch, and evidence-run belonged to the current journal intent.",
+    "closure": "The finalizer now reads only the exact enable, latch, and evidence-run identities; requires one shared 64-hex intent; compares all three exact expected byte hashes to the current record-1 SHA256; and performs this proof before crash-prefix reconstruction or final health."
+  },
+  "findings": {
+    "high": [],
+    "medium": [],
+    "low": []
+  },
+  "validated_properties": [
+    "exact H16 installed predecessor boot and execution closure",
+    "H17 A/B receipt binds observer public key, firstboot, native closure, and compiled v5 binding",
+    "F1 transfers only one exact boot candidate or the exact V2321 boot rollback",
+    "fresh retired-trial F1 and D1 approvals do not derive authority from qualification",
+    "one attended combined arm-plus-reboot dispatch with no replay",
+    "persistent Debian PASS remains HEALTH_PENDING_PERSISTENT_DEBIAN and leaves the ordinal open",
+    "no-effect cancellation requires the same-intent post-fsync record",
+    "physical-return closure sends no reboot and requires exact same-intent enable, latch, and evidence-run bytes",
+    "closed resident health satisfies the inter-effect barrier but grants no new device-effect authority",
+    "A90-only target, rollback, recovery, private evidence, and S22+ isolation"
+  ],
+  "validation": {
+    "focused_execution_tests": 23,
+    "focused_execution_tests_status": "PASS",
+    "python_compile": "PASS",
+    "scoped_diff_check": "PASS",
+    "device_contact": false,
+    "private_file_contact": false,
+    "s22plus_contact": false
+  },
+  "new_hazard_or_incident": true,
+  "ordinal_requalification_required": false,
+  "f1_runner_qualified": true,
+  "d1_runner_qualified": true,
+  "live_authority": false
+}

@@ -31,13 +31,13 @@ The pre-H2 goal history is preserved at
   `259:17` mount count zero, candidate replay false, and payload, partition,
   flash, SD stage, userdata write, physical-return reboot, and S22+ command
   counts zero. The transaction must never be resumed. H17 `0.11.185` is now
-  host-qualified at public execution closure `45aa74c1` and native closure
+  host-qualified at capability closure `45aa74c1` and native closure
   `ab5ce09b`; deterministic A/B boot `a8602673` binds a private build-time
   observer key, read-only firstboot overlay, and persistent native DRM HUD.
-  Independent review closed one shared-run mount-identity finding and returned
-  `PASS_GO` with HIGH/MEDIUM/LOW zero. This is capability-only: H16 remains
-  installed, and fresh reviewed H17 F1/D1 runners, exact bindings, D0,
-  approvals, attendance, rollback, and recovery remain required.
+  H17 F1/D1 execution closure `b7bc0000...e23905` now has reusable independent
+  `PASS_GO` with HIGH/MEDIUM/LOW zero after closing the same-intent physical-
+  return finding. H16 remains installed. Fresh exact D0, immutable bindings,
+  approvals, attendance, rollback, and recovery are still required for live H17.
 - H16 `0.11.184`, build
   `phase3-minimal-h16-direct-ufs-ro-async-wifi-auto-benchmark`, is the exact
   installed healthy resident. Attended run03 wrote and read back boot-only
@@ -746,7 +746,7 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: H17 Persistent UFS Server Runner Preparation
+## Selected Bounded Unit: H17 Attended F1 and Persistent D1 Live Preparation
 
 Preserve every terminal H7-H16 transaction and no-replay conclusion. H16 is the
 exact installed healthy predecessor; exact V2321 remains the rollback. H17
@@ -754,17 +754,19 @@ retains H16 same-session userdata resolution and read-only UFS policy while
 adding only boot-contained auth and firstboot overlays plus one native DRM HUD
 child that survives `switch_root`.
 
-The host capability has reusable independent `PASS_GO` at execution closure
-`45aa74c1...076ee` and native closure `ab5ce09b...42016`. Its A/B boot is
-byte-identical at `a8602673...db814`. This qualification does not qualify an F1
-or D1 runner and grants no live authority.
+The host capability has reusable independent `PASS_GO` at capability closure
+`45aa74c1...076ee` and native closure `ab5ce09b...42016`; its A/B boot is
+byte-identical at `a8602673...db814`. The F1 and D1 runners have independent
+`PASS_GO` at 41-file execution closure `b7bc0000...e23905`. They bind the exact
+H16 predecessor, private H17 receipts, V2321 rollback, fresh approvals,
+durable one-shot intent, same-intent physical return, and no replay.
 
-Next, implement one exact attended H17 boot-only F1 runner from H16 health and
-one separately approved attended persistent-server D1 runner. Both must bind
-the qualified public closure, private artifact/key receipts, exact target and
-V2321 rollback, physical recovery, durable one-shot intent, and no replay. A
-live H17 server PASS remains `HEALTH_PENDING_PERSISTENT_DEBIAN` until a later
-operator physical return and exact native resident-health terminal.
+Next, obtain fresh connected read-only D0 and generate the immutable F1
+manifest and exact approval for one attended boot-only H17 install. Only after
+exact H17 resident health may a separate fresh D1 approval arm the one-shot
+persistent-server handoff. A live H17 server PASS remains
+`HEALTH_PENDING_PERSISTENT_DEBIAN` until a later operator physical return and
+exact native resident-health terminal.
 
 Only a full comparable H15 control benchmark can open a later Full-LTO unit.
 Qualification never substitutes for fresh manifest, D0, approval, attendance,

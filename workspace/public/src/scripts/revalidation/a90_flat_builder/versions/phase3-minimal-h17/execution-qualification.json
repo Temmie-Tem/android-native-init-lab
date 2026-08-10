@@ -1,0 +1,181 @@
+{
+  "schema": "a90-h17-ufs-execution-qualification-v1",
+  "capability": "A90_H17_PERSISTENT_UFS_SERVER_V1",
+  "verdict": "PASS_GO",
+  "predecessor_capability_closure_sha256": "45aa74c13ca8a11b4bb06b192436b8416fa294f5c200fa0d2326cec6bca076ee",
+  "execution_closure_sha256": "b7bc0000f427e596668812e3bbc42722a8ccd3be432a1ce59a82de9a77e23905",
+  "execution_hashes": {
+    "AGENTS.md": {
+      "size": 14600,
+      "sha256": "c07f670424fa7920f5b02e44d0f2b4f8a87030aac6f9d0ae268bf1339e51790e"
+    },
+    "docs/operations/targets/A90_TARGET_CONTRACT.md": {
+      "size": 46515,
+      "sha256": "38f4c3534e96301db4ffe5ad83f1e07ecd6321586d372f212acd504cf55930f0"
+    },
+    "workspace/public/src/native-init/a90_auto_handoff.c": {
+      "size": 33086,
+      "sha256": "d8697da63a093eaaed73339a158b2992ad3121a2a2ebc01597a10f8b05363ec6"
+    },
+    "workspace/public/src/native-init/a90_config.h": {
+      "size": 6945,
+      "sha256": "b353093f49fd2ea5b1146320bbf364335f27b04f6a2b871651c5b990395f53c3"
+    },
+    "workspace/public/src/native-init/a90_server_distro.c": {
+      "size": 239355,
+      "sha256": "32f3dbd7d39b0e5cbf852640c9c4588b8495b1d048309555b8b818d945519e33"
+    },
+    "workspace/public/src/native-init/a90_server_distro.h": {
+      "size": 3583,
+      "sha256": "ab5cad49b708ce0037494a1e001779000073cdcd480c9ada305ed5a1506fc99a"
+    },
+    "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py": {
+      "size": 1255,
+      "sha256": "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe"
+    },
+    "workspace/public/src/scripts/revalidation/a90_bridge.py": {
+      "size": 40549,
+      "sha256": "7bacce5a61f6745d4dfb0b7f89ffffc478d4e74fd6a1559d20718793668414e9"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py": {
+      "size": 45052,
+      "sha256": "229eb78567c3e2900fc683ad17a780595658fff826487aa9a5781e2251fd690c"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/buildlib.py": {
+      "size": 25644,
+      "sha256": "b44df71c70273cdc0341c52162a0e89e1d70951a1a2388ab5c97e1458d60367d"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h14/userdata-content-manifest.json": {
+      "size": 5507,
+      "sha256": "a878f6dec82bf799c3d2cd43beeda3c5494a8882ce116327f497d822b707d5ce"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h17/capability-qualification.json": {
+      "size": 3278,
+      "sha256": "656a466508a8dca1728786f6ecacdf92764b1b60203a88997f52a58ac2f4e154"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h17/manifest.toml": {
+      "size": 7016,
+      "sha256": "396c0cb284d130212acc558ba84b9905a90c4b9e7cd83f7a1ceed6edc02e27f7"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/v3404-effective/manifest.toml": {
+      "size": 14156,
+      "sha256": "b5edf8b0a30b76ef48dc8ec71f0f1dc23b76698e0b1154c6ccb66106b69834da"
+    },
+    "workspace/public/src/scripts/revalidation/a90_observation_pipeline.py": {
+      "size": 24478,
+      "sha256": "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb"
+    },
+    "workspace/public/src/scripts/revalidation/a90_serial_lock.py": {
+      "size": 2860,
+      "sha256": "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7"
+    },
+    "workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py": {
+      "size": 13734,
+      "sha256": "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e"
+    },
+    "workspace/public/src/scripts/revalidation/a90ctl.py": {
+      "size": 16380,
+      "sha256": "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c"
+    },
+    "workspace/public/src/scripts/revalidation/device_action_cdc_acm_observer_v1.py": {
+      "size": 51508,
+      "sha256": "764d9852824d88f182983dd85efd2c7ec09531e3be23213ab7daea091675e2b6"
+    },
+    "workspace/public/src/scripts/revalidation/native_init_flash.py": {
+      "size": 43118,
+      "sha256": "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
+    },
+    "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py": {
+      "size": 17944,
+      "sha256": "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98"
+    },
+    "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py": {
+      "size": 125242,
+      "sha256": "ae032b96eb4d3921e3fb7d5f12ebb19528e4a333fc61a28bc88e80ccdd96249d"
+    },
+    "workspace/public/src/scripts/server-distro/a90_boot_benchmark_v1.py": {
+      "size": 20877,
+      "sha256": "dc8dc57697660ebae57516679d7a2bac97a22e640ae89c5efb808f9861806ce7"
+    },
+    "workspace/public/src/scripts/server-distro/a90_dpublic_firstboot.sh": {
+      "size": 13515,
+      "sha256": "6ffba1fb45a98b6d9861d112caed3643bf062f6bea6ef9748fec489656008d86"
+    },
+    "workspace/public/src/scripts/server-distro/a90_h17_persistent_server_observer_v1.py": {
+      "size": 15002,
+      "sha256": "ea24d636db6a954b1f95cb376ff57bb366e28c1c9c0be58b9a86c7ad5d55a302"
+    },
+    "workspace/public/src/scripts/server-distro/a90_h17_ufs_d1_runner_v1.py": {
+      "size": 56090,
+      "sha256": "0ec40f3b4ca169777d962b0c98b5426198c89b33a2b61e65dd3ea4d9b6f2a7a0"
+    },
+    "workspace/public/src/scripts/server-distro/a90_h17_ufs_f1_runner_v1.py": {
+      "size": 106979,
+      "sha256": "c2ba9cc73236bebd95b3ce8c117c4e14a1b99d24b75652fb24e2e9f9aa791988"
+    },
+    "workspace/public/src/scripts/server-distro/a90_h5_existing_source_install_v1.py": {
+      "size": 106013,
+      "sha256": "47f55ebd69f2a3197559e5800c1bace9bb9f44030c89c8869f4800186c2ec82b"
+    },
+    "workspace/public/src/scripts/server-distro/a90_ondevice_evidence_v1.py": {
+      "size": 23716,
+      "sha256": "f57d7612c915d46b4190ab208f7b6320099576dc440c0999c6328fd756d11e2c"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_connected_preflight.py": {
+      "size": 21929,
+      "sha256": "c84f7e8d1054df6f095ce13a0bb4c3f057a6d0f4244b77f12b5c87f89edaa6d8"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase2d_display_observer.py": {
+      "size": 648,
+      "sha256": "6b9720ca2e53f0fbed6efe9208b54739fa7f57df84c7a72ab61940f104ff7744"
+    },
+    "workspace/public/src/scripts/server-distro/a90_phase3_d1_observer_v1.py": {
+      "size": 13141,
+      "sha256": "fccb10170583ea3c1761cf33de7bcc40d2409c0e097af051b6585195876b1a78"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_existing_rootfs_install_v1.py": {
+      "size": 128843,
+      "sha256": "4be463fd7419259781f83d6ec1812d59e143f84cdb46ffdea0d9f01694f151d0"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_preserved_d1_prep_v1.py": {
+      "size": 74031,
+      "sha256": "cd7f6c84fc23770b7ee93fbfd04850d716352f50936f7652fe74f752a8dbe737"
+    },
+    "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py": {
+      "size": 73823,
+      "sha256": "1fae5f200c7d0e0c0b5035440f5caf048b3b669b1c7d0d7802629fe72dfe6d3c"
+    },
+    "workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py": {
+      "size": 145180,
+      "sha256": "1c2f1240b98bb32eba326a49f25a2098837e382671aa5cb0b49d471fae7e358c"
+    },
+    "workspace/public/src/scripts/server-distro/a90_transition_engine_v2.py": {
+      "size": 35215,
+      "sha256": "7a6f2a3248fcf53770cf5dee27985b23e239749cf5c8eae79158c7f903686010"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {
+      "size": 109773,
+      "sha256": "d26fabf2ca6895afb76ae66c4d5dc9e0ee778f3d741ef0d9d2ee9f7cf7258dc9"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {
+      "size": 293221,
+      "sha256": "5bdde0d5051a2521d97fc920d0755557958de20f1a2636066c894a8ca3bdc288"
+    },
+    "workspace/public/src/scripts/server-distro/a90_v3405_retained_work_cleanup.py": {
+      "size": 71652,
+      "sha256": "e2c7d53b3441f35dc3ac88a9d410f786986fa9aca135abaf23c849c799a04ad0"
+    },
+    "workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.py": {
+      "size": 13928,
+      "sha256": "9cc66229526217b162cb4be112a13f708b7ffb6ea435d008c77c777f011de933"
+    }
+  },
+  "review_scope": "h17-boot-only-f1-and-persistent-ufs-d1-execution-critical-closure",
+  "new_hazard_or_incident": true,
+  "ordinal_requalification_required": false,
+  "f1_runner_qualified": true,
+  "d1_runner_qualified": true,
+  "review_report": "docs/reports/A90_H17_UFS_F1_D1_EXECUTION_INDEPENDENT_REVIEW_2026-08-10.json",
+  "review_report_sha256": "a2d078036023bb6fbacd8b2753c0c48b27fb996778deaa3298338fff423f0eef",
+  "live_authority": false
+}
