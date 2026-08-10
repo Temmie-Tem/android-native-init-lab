@@ -477,8 +477,16 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             normalized_goal,
         )
         self.assertIn(
-            "No prepared live binding or transaction exists", normalized_goal
+            "created the new exact Process-v2 prepared binding", normalized_goal
         )
+        self.assertIn(
+            "`40f1047f54c1a90c7e17a526b01992b220d82369b4ba81ed953f997f3ce88618`",
+            normalized_goal,
+        )
+        self.assertIn("No transaction exists", normalized_goal)
+        self.assertIn("`f1_authorized`", normalized_goal)
+        self.assertIn("`live_authorized`", normalized_goal)
+        self.assertIn("are all false", normalized_goal)
         self.assertIn("generation 96, stage `0x90`, item 3", normalized_goal)
         self.assertIn("generation 97, stage `0x90`, item 4", normalized_goal)
         self.assertIn("terminal failure `0x6712`", normalized_goal)

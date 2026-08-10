@@ -49,13 +49,29 @@ was required.
 The canonical ready manifest is
 `workspace/public/src/device-action/manifests/s22plus_fyg8_p315_process_v2_ready_1.json`
 with SHA-256 `a7f37b4fa9eb8783f90130e1a7eeb3ecc2053515527ed1f61046f111ba227c5f`.
-It remains `ready-for-f1-approval` only. The first freshly authorized connected
-D0 selected the exact S22+ and read the retained observer, then stopped because
-it contained the consumed P3.14 generation-97 `0x6705`
-`profile-record-deficit` family. Offline reclassification proved one
-integrity-clean, foreign-count-zero P3.14 record. No prepared live binding or
-transaction exists, and no D1, F1, Odin, reboot, Download, or
-partition-transfer authority is active.
+The first freshly authorized connected D0 selected the exact S22+ and read the
+retained observer, then stopped because it contained the consumed P3.14
+generation-97 `0x6705` `profile-record-deficit` family. Offline
+reclassification proved one integrity-clean, foreign-count-zero P3.14 record;
+that D0 remains closed and non-reusable.
+
+One separately approved attended normal-Android D1 then rebooted the exact
+S22+ once. The original helper exhausted its 240-second return-health bound
+while the target remained ADB `offline`; the reboot was not replayed. One
+bounded host ADB-server restart and one exact offline-transport reconnect
+restored passive observation. The boot ID changed and rooted boot-completed
+FYG8 Android, boot and supporting-partition identities, stopped boot
+animation, and absence of Download mode all passed.
+
+A subsequent fresh connected D0 read 2,097,136 retained bytes to EOF with
+empty stderr and zero marker-family matches, then created the new exact
+Process-v2 prepared binding
+`40f1047f54c1a90c7e17a526b01992b220d82369b4ba81ed953f997f3ce88618`.
+It binds the qualified P3.15 candidate, exact rollback, clean baseline,
+USB sidecar, reviewed 1,200-second guard, and current execution closure.
+`device_writes`, `reboot_requested`, `odin_invoked`, `partition_transfer`,
+`f1_authorized`, and `live_authorized` are all false. No transaction exists;
+fresh exact F1 approval and attended execution remain separate.
 
 ## P3.15 Detailed Successor Design
 
@@ -578,13 +594,14 @@ inline breakout is available. P3.14 is now consumed and closed. Its candidate
 and rollback each completed once; the retained observer contradiction was
 recovered from two byte-identical post-rollback reads, and final health passed.
 No live authority remains from its approval or prepared record. P3.15 closes
-the H0 live-profile snapshot ordering repair, but its first connected D0
-preparation stopped on the expected consumed P3.14 retained family and is not
-reusable. The next device effect is one separately authorized, attended D1
-normal-Android baseline-rotation reboot. Only after that returns healthy may a
-new connected D0 bind the exact S22+, qualified candidate, rollback, sidecar,
-guard, and current execution closure before a separate fresh F1 approval can
-authorize one attempt. P3.02 remains parked.
+the H0 live-profile snapshot ordering repair. Its first connected D0 stopped
+on the expected consumed P3.14 retained family and is not reusable. The
+separately approved attended D1 baseline rotation then rebooted once and
+returned healthy after bounded host-only ADB transport repair without replay.
+The subsequent fresh D0 passed with a clean retained baseline and created the
+exact prepared binding `40f1047f...8618`. No transaction or F1 arm exists;
+only a separate fresh exact F1 approval may authorize its one attended
+candidate attempt and mandatory rollback. P3.02 remains parked.
 
 ## Success and Stop Conditions
 
@@ -610,11 +627,11 @@ intermediate snapshot call sequence, not merely the lower-level parser or the
 post-emission value-position matrix, before a new candidate is packaged.
 
 P3.15 satisfies that successor boundary in H0. It does not retroactively show
-that P3.14 entered restart, and it has no live USB result of its own. The next
-permitted device step is only a fresh exact S22+ connected D0 preparation under
-the ordinary post-Fast-Loop authority rules. Candidate execution remains
-forbidden until that prepared record exists and its exact approval token is
-freshly supplied.
+that P3.14 entered restart, and it has no live USB result of its own. Its fresh
+exact S22+ connected D0 and prepared record now exist. Candidate execution
+remains forbidden until the exact approval token for binding
+`40f1047f...8618` is freshly supplied while the operator is attended and able
+to perform physical Download recovery.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden
 archive member, an unreviewed common receipt/schema change, an observer result
