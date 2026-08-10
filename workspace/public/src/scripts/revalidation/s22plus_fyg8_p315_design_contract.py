@@ -11,8 +11,8 @@ from typing import Any
 import s22plus_fyg8_p314_design_contract as predecessor
 
 
-SCHEMA = "s22plus_fyg8_p315_design_requirements_v2"
-ARTIFACT_SCHEMA = "s22plus_fyg8_p315_prepackaging_closure_v2"
+SCHEMA = "s22plus_fyg8_p315_design_requirements_v3"
+ARTIFACT_SCHEMA = "s22plus_fyg8_p315_prepackaging_closure_v3"
 STATUS = "registered-not-satisfied"
 VERDICT = "PASS_P315_RESTART_COMPLETE_SNAPSHOT_PREPACKAGING_HOST_ONLY"
 
@@ -622,7 +622,18 @@ def requirements() -> dict[str, Any]:
             ),
             "resume_precondition_absence_pairs": ["gadget_start", "run_on"],
             "resume_precondition_requires_both_pair_records_zero": True,
-            "resume_precondition_requires_both_pair_profile_hits_zero": True,
+            "profile_counter_granularity": "trace-event-not-decoded-argument",
+            "run_off_and_run_on_share_profile_indices": [19, 20],
+            "gadget_start_profile_indices": [21, 22],
+            "absence_requires_no_relevant_profile_excess": True,
+            "gadget_start_absence_requires_profile_equals_record_equals_zero": (
+                True
+            ),
+            "run_on_absence_requires_decoded_pair_records_zero": True,
+            "run_on_absence_requires_profile_equals_total_run_event_records": (
+                True
+            ),
+            "run_on_absolute_profile_zero_forbidden": True,
             "resume_precondition_detail": RESTART_RESUME_PRECONDITION_DETAIL,
             "retained_branch_details": RETAINED_RESTART_BRANCH_DETAILS,
             "retained_branch_details_are_pairwise_distinct": True,
@@ -677,8 +688,9 @@ def requirements() -> dict[str, Any]:
                 "strict-restart-geometry",
             ],
             "runtime_fixture_cases": [
-                "both-gadget-start-and-run-on-absent-0x671d",
-                "profile-only-nested-hit-0x6721",
+                "both-gadget-start-and-run-on-absent-with-run-off-profile-baseline-0x671d",
+                "run-event-profile-excess-over-run-off-record-baseline-0x6721",
+                "absolute-zero-run-profile-is-not-an-absence-contract",
                 "incomplete-nested-pair-0x6713",
                 "gadget-start-negative-run-on-absent-controller-detail",
                 "gadget-start-zero-run-on-absent-0x6722",
@@ -698,7 +710,8 @@ def requirements() -> dict[str, Any]:
             "profile_relation_only_after_parse": True,
             "ring_stats_only_after_profile_relation": True,
             "profile_hits_relation": "profile_hits>=record_hits",
-            "absence_claim_additionally_requires_zero_records_and_profile": True,
+            "absence_claim_requires_no_relevant_profile_excess": True,
+            "pair_specific_zero_uses_decoded_records_not_profile_counters": True,
             "raw_errno_terminal_forbidden": True,
             "final_partial_behavior_unchanged": True,
         },
@@ -762,7 +775,11 @@ def requirements() -> dict[str, Any]:
             "module_plan_unchanged": True,
             "checkpoint_positions_unchanged": True,
             "carrier_layout_unchanged": True,
-            "new_details_within_inherited_terminal_gate": [0x6721, 0x6723],
+            "new_details_within_inherited_terminal_gate": [
+                0x6721,
+                0x6722,
+                0x6723,
+            ],
             "rollback_unchanged": True,
             "full_lto_required": False,
             "userspace_rebuild_and_repackage_required": True,

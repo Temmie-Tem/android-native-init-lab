@@ -160,9 +160,34 @@ class P315DesignContractTests(unittest.TestCase):
         self.assertTrue(
             classification["resume_precondition_requires_both_pair_records_zero"]
         )
-        self.assertTrue(
-            classification["resume_precondition_requires_both_pair_profile_hits_zero"]
+        self.assertNotIn(
+            "resume_precondition_requires_both_pair_profile_hits_zero",
+            classification,
         )
+        self.assertEqual(
+            classification["profile_counter_granularity"],
+            "trace-event-not-decoded-argument",
+        )
+        self.assertEqual(
+            classification["run_off_and_run_on_share_profile_indices"], [19, 20]
+        )
+        self.assertEqual(
+            classification["gadget_start_profile_indices"], [21, 22]
+        )
+        self.assertTrue(
+            classification["absence_requires_no_relevant_profile_excess"]
+        )
+        self.assertTrue(
+            classification[
+                "gadget_start_absence_requires_profile_equals_record_equals_zero"
+            ]
+        )
+        self.assertTrue(
+            classification[
+                "run_on_absence_requires_profile_equals_total_run_event_records"
+            ]
+        )
+        self.assertTrue(classification["run_on_absolute_profile_zero_forbidden"])
         self.assertEqual(classification["resume_precondition_detail"], 0x671D)
         retained = classification["retained_branch_details"]
         self.assertEqual(
@@ -233,6 +258,14 @@ class P315DesignContractTests(unittest.TestCase):
             "gadget-start-positive-run-on-present-0x6714",
             classification["runtime_fixture_cases"],
         )
+        self.assertIn(
+            "both-gadget-start-and-run-on-absent-with-run-off-profile-baseline-0x671d",
+            classification["runtime_fixture_cases"],
+        )
+        self.assertIn(
+            "run-event-profile-excess-over-run-off-record-baseline-0x6721",
+            classification["runtime_fixture_cases"],
+        )
         precedence = classification["classification_precedence"]
         self.assertLess(
             precedence.index("gadget-start-positive-0x6714"),
@@ -248,6 +281,12 @@ class P315DesignContractTests(unittest.TestCase):
             decoded = inherited_telemetry.decode_b(detail)
             self.assertEqual(decoded["kind"], "observer-contradiction")
             self.assertTrue(decoded["name"].startswith("reserved-observer-"))
+        self.assertEqual(
+            design.requirements()["artifacts"][
+                "new_details_within_inherited_terminal_gate"
+            ],
+            [0x6721, 0x6722, 0x6723],
+        )
 
     def test_snapshot_inventory_names_readiness_as_profile_free(self) -> None:
         sites = design.requirements()["coverage"]["snapshot_sites"]
@@ -373,6 +412,11 @@ class P315DesignContractTests(unittest.TestCase):
             (
                 "restart_result_classification",
                 "gadget_start_zero_branch_requires_rc_equal_zero",
+                False,
+            ),
+            (
+                "restart_result_classification",
+                "run_on_absolute_profile_zero_forbidden",
                 False,
             ),
             (

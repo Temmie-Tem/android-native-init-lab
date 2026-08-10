@@ -49,7 +49,7 @@ has only an H0 design contract.
 
 P3.15 extends rather than rewrites the consumed P3.14 contract. The exact
 P3.14 incident and design-requirements receipts remain historical authority.
-The revised `s22plus_fyg8_p315_design_requirements_v2` contract registers the
+The revised `s22plus_fyg8_p315_design_requirements_v3` contract registers the
 additional obligations below with status `registered-not-satisfied`; a future
 prepackaging closure must carry its exact requirements hash and pass the real
 validator before any package bytes are created.
@@ -112,13 +112,21 @@ deadline expiry, or attempt exhaustion maps to the registered `0x6718`. Only
 after this fence may the profile-bearing authoritative RESTART snapshot run.
 
 The authoritative snapshot first proves structural, profile, and ring
-integrity, then classifies the nested resume path. `0x671d` retains its P3.13
-meaning only when both gadget-start and `run_on` entry/return records are zero
-and both corresponding profile counts are also zero: the DEVICE resume
-precondition or path was not established. It is a terminal information result,
-not an observer timeout, and does not continue to FINAL because the containing
-outer invocation has already returned. A profile hit without its record maps
-to dedicated `0x6721`, `profile-only-nested-hit`, and cannot support an
+integrity, then classifies the nested resume path. Trace profile counters are
+per event, not per decoded argument: `run_off` and `run_on` share event indices
+19/20, while gadget-start uses indices 21/22. The clean stop prefix therefore
+leaves one recorded/profiled `run_off` entry and return even when `run_on` is
+absent. Absolute-zero run profile counts are forbidden as an absence test.
+
+`0x671d` retains its P3.13 meaning only when gadget-start and decoded `run_on`
+entry/return records are both absent and there is no relevant profile excess:
+gadget-start profile and record totals are both zero, while each run profile
+total exactly equals its cumulative recorded run total (the existing
+`run_off` baseline). The DEVICE resume precondition or path was not
+established. It is a terminal information result, not an observer timeout, and
+does not continue to FINAL because the containing outer invocation has already
+returned. A relevant profile count greater than its cumulative record count
+maps to dedicated `0x6721`, `profile-only-nested-hit`, and cannot support an
 absence claim; it is an attribution contradiction, not ring-loss proof. An
 incomplete entry/return pair maps to `0x6713`.
 
