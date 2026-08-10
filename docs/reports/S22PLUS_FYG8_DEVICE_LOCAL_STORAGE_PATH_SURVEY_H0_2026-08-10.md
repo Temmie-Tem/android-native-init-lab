@@ -14,6 +14,17 @@ This report records facts and options only; it grants no device authority and
 changes no binding layer. The frozen P3.13 design is untouched by this
 document.
 
+### 2026-08-11 OTG execution correction
+
+The storage inventory, kernel capability inventory, and stock-Android positive
+control below remain valid. The earlier execution proposal did not. The
+current generated-runtime contract rejects a generated `"host\\n"` role, and
+`dwc3_msm_set_role(USB_ROLE_HOST)` changes ID/role state but does not source
+VBUS. Therefore direct `mode=host` is neither an admissible candidate path nor
+a complete OTG transition. The current authority for OTG execution mechanics
+and result interpretation is
+`S22PLUS_FYG8_NATURAL_ATTACH_OTG_DISCRIMINATOR_FEASIBILITY_H0_2026-08-11.md`.
+
 The question surveyed: which device-local read/write storage can a custom
 native PID 1 use **while stock Android remains installed and required**. This
 matters because the A90 method assumed an external microSD slot for coexisting
@@ -168,13 +179,15 @@ From
 present. The complete `usb-storage -> SCSI -> sd -> vfat/ext4` chain is
 built in; `dwc3-msm` is a **module** and must be loaded by the candidate.
 
-## Finding 5 — runtime levers for role, speed, and orientation
+## Finding 5 — exposed runtime levers do not form an admissible OTG path
 
-`drivers/usb/dwc3/dwc3-msm-core.c` exposes three sysfs attributes relevant to
-a host-mode attempt, alongside the `mode` node P3.13 already drives:
+`drivers/usb/dwc3/dwc3-msm-core.c` exposes three sysfs attributes alongside the
+`mode` node P3.13 drove:
 
-- `:4868` `DEVICE_ATTR_RW(mode)` — the role lever P3.13 writes
-  `none`/`peripheral` to; it also accepts host.
+- `:4868` `DEVICE_ATTR_RW(mode)` accepts host in the driver, but the P2.82
+  generated-source contract raises `SourceContractError` if a generated header
+  contains `"host\\n"`. This is a machine-enforced prohibition for the current
+  candidate family, not an advisory rule.
 - `:4923` `DEVICE_ATTR_RW(speed)` — accepts `full`, `high`, `super`, `ssp`;
   sets `override_usb_speed`. Writing `high` keeps the SuperSpeed path out of
   the attempt entirely, so a USB 3.x device negotiates down to high speed and
@@ -183,6 +196,12 @@ a host-mode attempt, alongside the `mode` node P3.13 already drives:
   `orientation_override`. This removes any dependence on CC detection for
   lane selection if SuperSpeed is ever wanted.
 
+These exposed attributes do not establish the missing power role. In the host
+case `dwc3_msm_set_role()` clears `vbus_active`, grounds `id_state`, and queues
+the wrapper event; it does not call the Samsung `vbus_drive` callback or set the
+PMIC `otg` power supply online. Consequently, even a hypothetical direct role
+write would not by itself power a passive OTG device.
+
 An ordering constraint is stated in the driver at `:4907`:
 
 ```text
@@ -190,8 +209,9 @@ An ordering constraint is stated in the driver at `:4907`:
  * plug in/out for host mode restart. */
 ```
 
-Speed must therefore be selected **before** the role switch to host; changing
-it afterwards requires a physical re-plug.
+This remains a driver fact, but it is not an execution recommendation. A
+natural-attach successor must leave orientation, speed, role, and VBUS
+unforced, then observe the physical attach policy path.
 
 `dwc3_otg_start_host` (`:6438`) returns `0` silently when `mdwc->xhci_pm_ops`
 is unset. Any host-mode design must treat a silent no-op as an expected
@@ -220,16 +240,13 @@ authority. Its value is as an interpretation baseline: on this unit, host role
 entry, PMIC VBUS sourcing, xhci, `usb-storage`, `sd`, and filesystem mount are
 all demonstrably functional under the full Android stack.
 
-The consequence for a later OTG unit is that failure becomes single-valued —
-"native init does not do something Android does" — which is the same shape as
-the existing P3.x question. An externally powered hub is no longer needed to
-disambiguate a negative.
-
-Care is still required in the other direction: a negative host-mode result
-would be *suggestive* against the gadget-specific P3.13 hypothesis family but
-not conclusive, because host mode has its own prerequisites — `dwc3-msm`
-module load, `dwc3_host_init`, and `xhci_pm_ops` — that can fail
-independently. Those must be witnessed before any such inference.
+The consequence for a later OTG unit is not a single-valued negative. The
+stock result is a positive control proving that this unit and the exact passive
+accessory topology can traverse CC/PD role policy, PMIC VBUS sourcing, xHCI,
+USB storage, `sd`, and mount under Android. A native-init negative must be
+split by the first missing witness across those stages. It identifies what the
+native runtime omitted; it does not by itself prove a shared PHY, connector, or
+peripheral-pullup fault.
 
 ## Option comparison
 
@@ -257,13 +274,16 @@ and the PC link cannot coexist. They can be sequenced, because the F1 evidence
 channel is the DRAM retained carrier rather than USB:
 
 ```text
-PC attached      -> Odin candidate flash
-dongle attached  -> candidate boot, result written to retained carrier, park
-PC attached      -> rollback flash, Android boot, carrier read
+PC attached      -> Odin candidate flash and candidate boot to READY
+PC detached      -> attach the exact passive adapter and storage device
+device retained  -> write the bounded stage result, then park
+accessory removed -> reconnect PC, enter Download, exact rollback
 ```
 
-F1 is already attended, so the swap costs nothing procedurally. What it costs
-is **host observation during the candidate window** — no CDC ACM observer, no
+The physical swap does not create a higher device-action tier because F1 is
+already attended. It does create a new physical-role/VBUS hazard class that
+requires its own independent review before packaging. It also costs **host
+observation during the candidate window** — no CDC ACM observer, no
 ModemManager guard, no host event record. That must be a declared design
 choice, not a `NO_PROOF_OBSERVER` outcome.
 
@@ -275,34 +295,35 @@ already PROVED at row 75 of `docs/operations/CAMPAIGN_LEDGER_S22PLUS.md`
 ## Secondary value of an OTG attempt
 
 Every closed campaign tested a hypothesis inside the peripheral/gadget path. A
-host-mode attempt is the first test of a **different controller role**, and
-both outcomes are informative:
+natural-attach host attempt is the first test of a **different controller
+role**:
 
-- **Enumerates** — controller, PHY, clocks, VBUS supply, and the connector data
-  path are functional under native init; the fault is confined to the gadget
-  side.
-- **Does not enumerate** — native init is failing to establish something the
-  stock Android stack establishes, at or below the role split, subject to the
-  host-specific prerequisites in Finding 6. This points toward shared setup
-  and, if those prerequisites are witnessed as reached, toward the parked
-  P3.02 external-measurement decision.
+- **Enumerates** — controller, host-side PHY/clocks, usable VBUS, and the
+  connector data path are functional under native init. This strongly narrows
+  the remaining boundary toward the peripheral/gadget-specific path, but does
+  not by itself identify the failed pull-up mechanism.
+- **Does not enumerate** — classify the first absent stage: DFP/role
+  notification, VBUS-source control, host/xHCI start, USB-core attach, or
+  storage/block appearance. No aggregate negative is a shared-hardware claim.
 
 A host-mode success would also narrow P3.02's remaining question. It would not
 prove the device-side USB2 pull-up, but data flowing through the connector
 removes connector, trace, and joint faults from the candidate set without an
 inline breakout.
 
-Role selection does not need CC detection: the same `mode` sysfs node P3.13
-writes `none`/`peripheral` to can be driven to `host` (Finding 5).
+The corrected design deliberately depends on CC/PD natural attach. It does not
+write `mode=host`, drive VBUS manually, or override speed/orientation.
 
 ## Open questions
 
-1. Whether USB **host** mode operates under native init. Unverified, and it is
-   the only remaining question in this chain — Finding 6 establishes that the
-   whole path works on this unit under stock Android, so the uncertainty is
-   confined to what native init does or omits. Host-specific prerequisites
-   (`dwc3-msm` module load, `dwc3_host_init`, `xhci_pm_ops`) must be witnessed
-   separately so that a negative result is interpretable.
+1. Whether a physical OTG attach naturally traverses the exact
+   UCSI or PDIC/Type-C/notifier path under native init. Unverified. P3.15 loads
+   the UCSI route but omits the stock route's `pdic_max77705.ko`, so detailed
+   design must first prove the UCSI role producer or add and qualify the exact
+   Max77705 dependency closure. The stage result must separately witness role
+   notification, VBUS-source control, `dwc3_otg_start_host` past the
+   `xhci_pm_ops` guard, USB-core attach, and the known storage device/block
+   node.
 2. Whether a second-stage `/vendor/etc/fstab.qcom` exists in `super` and which
    copy governs the `/data` `latemount`.
 3. Whether Android 15 / One UI on this target tolerates a plaintext `/data`
@@ -313,17 +334,17 @@ writes `none`/`peripheral` to can be driven to `host` (Finding 5).
 
 ## Sequencing
 
-1. P3.13 proceeds unchanged. Do not attach an OTG probe to it; it is a frozen
-   bounded unit.
-2. After the USB frontier closes, evaluate the OTG storage path as its own
-   candidate unit. It is the only shared-storage option that contacts no
-   permanent boundary, and its design cost is one declared observer-absence.
-3. The cheapest input to that unit's design is a read-only capture of what the
-   stock Android stack does while the OTG stick is attached — `mode`, `speed`,
-   `orientation`, xhci appearance, and the power path — giving native init an
-   explicit target state to reproduce. That capture is a connected read-only
-   observation and requires the ordinary D0 authority; it is not authorized
-   here.
+1. P3.13 through P3.15 remain consumed historical units. An OTG successor does
+   not reuse or reinterpret their `none -> peripheral` cycle.
+2. Evaluate natural-attach OTG as its own candidate family only after its
+   physical role-transition/VBUS-source hazard and single-port recovery flow
+   receive independent review.
+3. The cheapest remaining input to detailed design is a read-only capture of
+   what the stock Android stack does while the OTG stick is attached — `mode`,
+   `speed`, Type-C data/power role, xHCI appearance, and the power-supply path
+   — giving native init exact witness coordinates. That capture is D0 and is
+   not authorized here; the operator's existing functional baseline is
+   sufficient only as hardware/accessory positive control.
 4. Plaintext `/data` is the fallback if host mode does not work, with the
    `vendor_boot`/`super` write cost understood and decided explicitly.
 5. Resolve open question 2 only when option 4 is actually selected.
@@ -334,6 +355,6 @@ This survey does not authorize any device action, does not modify the P3.13
 design or its qualification gates, does not change any binding contract, and
 does not establish that USB host mode works under native init. The stock
 Android observation in Finding 6 is an interpretation baseline only; it is not
-Process-v2 evidence and does not transfer to the native-init boot. The permanent forbidden partition
-and primitive lists in `AGENTS.md` remain absolute and are not amended by this
-document.
+Process-v2 evidence and does not transfer to the native-init boot. The
+permanent forbidden partition and primitive lists in `AGENTS.md` remain
+absolute and are not amended by this document.

@@ -46,48 +46,51 @@ of this proves whether a USB2 pull-up reached the connector. The live decoder's
 generic `cycle_causal_claim=true` default is not used to override that explicit
 contract.
 
-The next bounded unit is H0-only localization of why the same cycle produced
-eight rather than four complete outer state-machine invocations and whether
-the extra turns are source-required or a new device-path boundary. No new
-candidate may be designed until that sequence is derived from the exact
-materialized trace contract and fixed-source work-queue transitions. P3.02
-passive electrical attribution remains parked because no reviewed safe inline
-breakout is available.
+Post-live H0 corrects rather than upgrades the P3.15 result.
+`p315_wait_restart_completion()` read one completion snapshot and accepted
+exactly four complete outer pairs plus the single nested start-on pair. The
+runtime then performed a distinct profile-bearing RESTART read. Its strict
+parser accepted either 41 clean records or 49 bounded-drift records, but that
+second snapshot's record count was not retained. The terminal eight-pair
+result therefore proves only that four additional outer invocations completed
+after the completion read and before the final snapshot. It does not place
+their execution after the RESTART read, and their enqueue provenance may even
+predate the completion read.
 
-Post-live H0 localization closes the timing and state-machine half of that
-question. `p315_wait_restart_completion()` accepted exactly four complete
-outer pairs plus the single nested start-on pair before the authoritative
-RESTART snapshot. The terminal eight-pair result therefore places the four
-extra complete invocations after that snapshot, inside the final 30-second
-state window. Since every functional pair count remained exact, those late
-turns did not take a start, stop, PHY, power, gadget-start, or RUN_STOP branch.
-They were functionally inert turns of an already stable peripheral state.
+The reusable derived fact is correspondingly narrower: the restart completion
+causal prefix reached the exact four outer pairs and one nested start-on pair,
+and the final functional tuple proves the expected restart-side PHY, power,
+gadget-start, RUN_STOP, QSCRATCH, state, and event-configuration witnesses.
+Because every functional count stayed exact, the four additional completed
+outer turns took none of those functional branches. The frozen P3.15 label
+remains `REFUTED` and the multiplicity rule continues to forbid a clean-cycle,
+connector, or pull-up claim.
 
-The fixed wrapper source leaves no source-required self-loop in that state:
-`dwc3_otg_sm_work()` requeues itself only when `work` is true. Probe startup,
-the undefined-state DPDM callback, a late WAIT_FOR_LPM completion, and a real
-role transition are also inconsistent with the observed timing or exact
-functional counts. The remaining source boundary is an external kick through
-`dwc3_ext_event_notify()` directly or through `dwc3_resume_work()`. The exact
-G0Q overlay connects the UCSI connector endpoint to the wrapper USB role
-switch, and the candidate loads both `ucsi_glink.ko` and the Samsung notifier
-stack whose qcom callbacks reach `dwc_msm_vbus_event()` and
-`dwc_msm_id_event()`. These are concurrent, source-real control planes, but
-same-role and same-VBUS guards mean their mere presence does not identify the
-four live kicks. PM-complete and power-IRQ resume sources also exist in the
-wrapper. P3.15 retained only the terminal summary, not the destroyed trace
-ordering, so exact provenance is not recoverable from the consumed run.
+The fixed wrapper has no inert-state self-loop: `dwc3_otg_sm_work()` requeues
+itself only when `work` is true. Source-real external queue sources include
+wrapper role/VBUS/ID notification, UCSI and Samsung notifier control planes,
+resume work, PM completion, and power events. P3.15 retained neither the
+completion-to-RESTART delta nor raw ordering, so the consumed run cannot
+identify which source queued the four later completions. Provenance closure is
+mandatory only for a successor that reuses the `none -> peripheral` cycle or
+claims causality from it; it is not a prerequisite for an independent path
+that does not inherit that cycle.
 
-Any P3.16 proposal must therefore be a reduced provenance-only observer. It
-must distinguish wrapper role-set, qcom VBUS/ID notification, UCSI-triggered
-role setting, resume-work, PM/power/restart sources, ext-event notification,
-and the resulting outer work across the RESTART-to-FINAL boundary while
-preserving bounded record and profile integrity. Repeating P3.15's functional
-tuple has no information value. A userspace-only overlay may continue to reuse
-the fixed Image, but any new module-local symbol or instruction offset still
-requires linked-artifact and tracefs-ABI proof before packaging. This H0
-localization does not authorize a device action or establish that another F1
-is preferable to the parked electrical boundary.
+The next H0 frontier is therefore the natural-attach OTG discriminator in
+`docs/reports/S22PLUS_FYG8_NATURAL_ATTACH_OTG_DISCRIMINATOR_FEASIBILITY_H0_2026-08-11.md`,
+in parallel with availability of the parked P3.02 passive electrical setup.
+The H0 feasibility result is conditional and creates no candidate. Source and
+DT contain both a UCSI role-switch route and the stock Samsung
+PDIC/manager/notifier route, while host/storage kernel support exists. The
+P3.15 module plan includes `pmic_glink.ko` and `ucsi_glink.ko` but omits the
+stock route's `pdic_max77705.ko`; exact role-producer closure is therefore the
+first remaining H0 gate. The generated-runtime contract also mechanically
+rejects a forced `host` mode, and the wrapper role setter does not source VBUS.
+Any OTG successor must wait for a physical natural attach and classify
+UCSI/PDIC attach, VBUS source state, host/xHCI, USB-device, and storage
+witnesses separately. The physical role transition and VBUS-source response
+are a new reviewed hazard class. No device action or live authority follows
+from this feasibility result.
 
 ## P3.15 Detailed Successor Design
 
@@ -641,9 +644,11 @@ violated the source-derived clean expectation of four. All other encoded path
 classes were exact and the sidecar remained candidate-silent. Because the
 frozen Result Contract revokes cycle causality on multiplicity, this result
 does not prove that the cycle caused the host silence or that a pull-up did or
-did not reach the connector. The immediate successor question is the exact
-source/runtime origin of the four extra outer-work invocations; no P3.15
-candidate replay or inherited clean-cycle claim is permitted.
+did not reach the connector. A future cycle-reusing unit must first close the
+unretained queue provenance; an independent natural-attach OTG unit does not
+inherit that cycle and may instead proceed from its dedicated H0 design and
+hazard review. No P3.15 candidate replay or inherited clean-cycle claim is
+permitted.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden
 archive member, an unreviewed common receipt/schema change, an observer result
