@@ -18,36 +18,26 @@ The pre-H2 goal history is preserved at
 
 ## Current State
 
-- H16 D1 run01 is consumed, recovered, and terminal. Its one combined arm and
-  reboot reached the exact same-intent read-only UFS handoff and
-  `switch_root_exec` at 11,760 ms, then exposed the persistent Debian appliance
-  over A90 NCM. The appliance intentionally has no automatic-return timer and
-  rejected the manifest observer key, so authenticated SSH, Debian PID 1,
-  DRM/display, final Wi-Fi, and full personal-server readiness remain unproved.
-  After the operator's physical return, the reviewed no-replay finalizer at
-  execution closure `51f99862` appended only the two terminal journal records
-  and closed `NO_PROOF_H16_PERSISTENT_DEBIAN_PHYSICAL_RETURN_HEALTHY`. Current
-  H16 is exact at `binding=1 enable=1 latch=1`, self-test `11/1/0`, userdata
-  `259:17` mount count zero, candidate replay false, and payload, partition,
-  flash, SD stage, userdata write, physical-return reboot, and S22+ command
-  counts zero. The transaction must never be resumed. H17 `0.11.185` is now
-  host-qualified at capability closure `45aa74c1` and native closure
-  `ab5ce09b`; deterministic A/B boot `a8602673` binds a private build-time
-  observer key, read-only firstboot overlay, and persistent native DRM HUD.
-  H17 F1/D1 execution closure `d95ceb7f...55e7e` now has reusable independent
-  `PASS_GO` with HIGH/MEDIUM/LOW zero after closing the same-intent physical-
-  return finding and the stale shared H15 health-allowlist stop. H16 remains
-  installed. Fresh immutable bindings, approvals, attendance, rollback, and
-  recovery are still required for live H17.
+- H17 `0.11.185`, build
+  `phase3-minimal-h17-ufs-ro-observer-auth-persistent-hud`, is the exact
+  installed healthy resident. Attended F1 run01 wrote and read back the
+  byte-identical boot-only candidate `a8602673...db814` once and closed
+  `PASS_A90_H17_UFS_RESIDENT_INSTALLED` / `RESIDENT_HEALTHY` with self-test
+  `11/1/0`, exact unarmed `binding=1 enable=0 latch=0`, candidate replay false,
+  rollback zero, and guard released. Rootfs payload, SD stage, userdata write,
+  and S22+ command counts are zero. The separately approved persistent D1
+  ordinal has not started; exact V2321 and physical Download/TWRP remain ready.
 - H16 `0.11.184`, build
-  `phase3-minimal-h16-direct-ufs-ro-async-wifi-auto-benchmark`, is the exact
-  installed healthy resident. Attended run03 wrote and read back boot-only
+  `phase3-minimal-h16-direct-ufs-ro-async-wifi-auto-benchmark`, is the consumed
+  healthy predecessor. Attended run03 wrote and read back boot-only
   candidate `d545082e...e1451b88` once and closed
   `PASS_A90_H16_UFS_RESIDENT_INSTALLED` / `RESIDENT_HEALTHY` with self-test
   `11/1/0`, exact unarmed `binding=1 enable=0 latch=0`, candidate replay false,
   rollback zero, and guard released. Rootfs payload, SD stage, userdata write,
-  and S22+ command counts are zero. Exact V2321 and physical Download/TWRP
-  remain the bound recovery path.
+  and S22+ command counts are zero. Its D1 run01 reached same-intent read-only
+  UFS `switch_root_exec` at 11,760 ms but rejected the old observer key; after
+  operator physical return the no-replay finalizer closed exact H16 health.
+  Both H16 transactions are terminal and must never be resumed.
 - H15 D1 run01 remains consumed and never replayed. It stopped before latch,
   UFS mount, or `switch_root` at visible E1 because numeric userdata `dev_t`
   drifted across reboot. Its reviewed one-shot marker recovery closed exact
@@ -747,10 +737,10 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: H17 Attended F1 and Persistent D1 Live Preparation
+## Selected Bounded Unit: H17 Persistent D1 Live Preparation
 
-Preserve every terminal H7-H16 transaction and no-replay conclusion. H16 is the
-exact installed healthy predecessor; exact V2321 remains the rollback. H17
+Preserve every terminal H7-H16 transaction and no-replay conclusion. H17 is the
+exact installed healthy resident; exact V2321 remains the rollback. H17
 retains H16 same-session userdata resolution and read-only UFS policy while
 adding only boot-contained auth and firstboot overlays plus one native DRM HUD
 child that survives `switch_root`.
@@ -762,10 +752,11 @@ byte-identical at `a8602673...db814`. The F1 and D1 runners have independent
 H16 predecessor, private H17 receipts, V2321 rollback, fresh approvals,
 durable one-shot intent, same-intent physical return, and no replay.
 
-Next, obtain fresh connected read-only D0 and generate the immutable F1
-manifest and exact approval for one attended boot-only H17 install. Only after
-exact H17 resident health may a separate fresh D1 approval arm the one-shot
-persistent-server handoff. A live H17 server PASS remains
+Attended F1 run01 is terminal `PASS_A90_H17_UFS_RESIDENT_INSTALLED` with one
+candidate transfer, zero rollback, and exact unarmed resident health. Next,
+derive one immutable D1 binding from that terminal result and obtain a separate
+fresh approval for one attended combined arm-plus-reboot. A live H17 server
+PASS remains
 `HEALTH_PENDING_PERSISTENT_DEBIAN` until a later operator physical return and
 exact native resident-health terminal.
 
