@@ -3,12 +3,14 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 import unittest
 
 import build_s22plus_fyg8_p314_candidate as candidate_builder
 import device_action_f1_evidence_v2 as evidence
+import device_action_f1_v2 as process_v2
 import prepare_s22plus_fyg8_p314_process_v2 as promotion
 import s22plus_fyg8_p314_carrier_model as model
 import s22plus_fyg8_p314_design_contract as design
@@ -131,6 +133,45 @@ class P314ProcessV2Tests(unittest.TestCase):
             overlay.CONTRACT_ID,
         )
         self.assertIs(selected, decoder)
+
+    def test_execution_receipts_bind_the_exact_p314_overlay(self) -> None:
+        contract = json.loads(
+            (ROOT / overlay.DEFAULT_INTENT).read_text(encoding="ascii")
+        )
+        acceptance = {
+            "kind": evidence.E1_LATEST_STAGE_KIND,
+            "profile": overlay.PROFILE,
+            "source_contract_id": overlay.PARENT_SOURCE_CONTRACT_ID,
+            "userspace_overlay_contract_id": overlay.CONTRACT_ID,
+        }
+        execution = process_v2.execution_critical_source_receipts(acceptance)
+        selected = {
+            name: value
+            for name, value in execution.items()
+            if name.startswith("p314_overlay_source_")
+        }
+        self.assertEqual(len(selected), len(overlay.SOURCE_KEYS))
+        self.assertIn("p314_overlay_intent", execution)
+        verification = {
+            "source_contract_id": overlay.PARENT_SOURCE_CONTRACT_ID,
+            "userspace_overlay_contract_id": overlay.CONTRACT_ID,
+            "candidate_source_receipts": evidence.validate_candidate_source_preimage(
+                contract["parent_contract"]["parent_candidate_contract"],
+                overlay.PROFILE,
+                contract["run_id"],
+            ),
+            "p314_overlay_source_receipts": contract["source_receipts"],
+        }
+        process_v2.verify_candidate_source_binding(
+            acceptance, verification, execution
+        )
+        changed = copy.deepcopy(execution)
+        first = sorted(overlay.SOURCE_KEYS)[0]
+        changed[f"p314_overlay_source_{first}"]["sha256"] = "0" * 64
+        with self.assertRaisesRegex(process_v2.F1V2Error, "overlay source differs"):
+            process_v2.verify_candidate_source_binding(
+                acceptance, verification, changed
+            )
 
     def test_stock_closure_uses_p314_intent_authority(self) -> None:
         self.assertIs(stock_closure.overlay, overlay)
