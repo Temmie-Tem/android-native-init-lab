@@ -7,6 +7,21 @@ Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` /
 
 Verdict: `CONDITIONALLY_FEASIBLE_ROLE_PRODUCER_CLOSURE_REQUIRED`
 
+## Corrective authority notice
+
+The later host-only closure report
+`S22PLUS_FYG8_NATURAL_ATTACH_ROLE_PRODUCER_CLOSURE_H0_2026-08-11.md`
+supersedes this report's alternative-producer and execution proposal. Exact
+P3.15 UCSI is structurally non-operational, and the sole producer selected for
+future design is the stock Max77705 chain. Its role event still cannot be used
+by bare PID1 until the Samsung `usb_sl` initialization policy and the separate
+`otg` power-supply/VBUS closure are designed and reviewed.
+
+The source/DT inventory, forced-host rejection, stock Android positive
+control, witness taxonomy, result meanings, and physical-attach hazard
+inventory below remain evidence. They do not make the old candidate shape
+executable and grant no device authority.
+
 ## Scope and authority
 
 This is host-only source, artifact, and existing-evidence analysis. No device

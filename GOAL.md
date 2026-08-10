@@ -76,21 +76,27 @@ mandatory only for a successor that reuses the `none -> peripheral` cycle or
 claims causality from it; it is not a prerequisite for an independent path
 that does not inherit that cycle.
 
-The next H0 frontier is therefore the natural-attach OTG discriminator in
-`docs/reports/S22PLUS_FYG8_NATURAL_ATTACH_OTG_DISCRIMINATOR_FEASIBILITY_H0_2026-08-11.md`,
-in parallel with availability of the parked P3.02 passive electrical setup.
-The H0 feasibility result is conditional and creates no candidate. Source and
-DT contain both a UCSI role-switch route and the stock Samsung
-PDIC/manager/notifier route, while host/storage kernel support exists. The
-P3.15 module plan includes `pmic_glink.ko` and `ucsi_glink.ko` but omits the
-stock route's `pdic_max77705.ko`; exact role-producer closure is therefore the
-first remaining H0 gate. The generated-runtime contract also mechanically
-rejects a forced `host` mode, and the wrapper role setter does not source VBUS.
-Any OTG successor must wait for a physical natural attach and classify
-UCSI/PDIC attach, VBUS source state, host/xHCI, USB-device, and storage
-witnesses separately. The physical role transition and VBUS-source response
-are a new reviewed hazard class. No device action or live authority follows
-from this feasibility result.
+The next H0 frontier remains a natural-attach OTG discriminator, in parallel
+with availability of the parked P3.02 passive electrical setup. The corrective
+producer authority is
+`docs/reports/S22PLUS_FYG8_NATURAL_ATTACH_ROLE_PRODUCER_CLOSURE_H0_2026-08-11.md`.
+It proves that exact P3.15 UCSI cannot become operational without the absent
+ADSP remoteproc/firmware transport, while the stock Max77705 notifier chain is
+the sole source-supported producer. P3.15 omitted its GENI-I2C/MFD/PDIC
+closure, so neither producer explains the consumed run's extra work turns.
+
+The provisional role-only replacement removes `ucsi_glink.ko` and adds six
+modules, taking the 61-module plan to 66 before capacity/order qualification.
+That still cannot execute OTG: bare PID1 leaves Samsung `usb_sl` in its initial
+state, which holds the delayed HOST event, and the exact `otg` VBUS provider
+requires `sec-battery.ko`, `max77705_charger.ko`, and their large symbol
+closure. The exact missing-name arithmetic is 26 additions and one UCSI
+removal, or 86 provisional modules; `max77705-fuelgauge.ko` is not required for
+the narrow OTG proxy/backend bridge. Detailed design must decide whether that
+power closure and the policy-release write are admissible before any candidate
+is implemented. The generated-runtime contract still rejects forced `host`
+mode, and no manual VBUS action is allowed. No device action or live authority
+follows from this H0 result.
 
 ## P3.15 Detailed Successor Design
 
