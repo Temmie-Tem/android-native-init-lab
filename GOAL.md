@@ -303,10 +303,15 @@ passed. No live authority remains from its approval or prepared record.
 P3.02 passive electrical attribution remains parked because no reviewed safe
 inline breakout is available. P3.14 is now the host-qualified digital
 successor to P3.13, with a canonical manifest in
-`ready-for-f1-approval` state. The next possible device step is a fresh exact
-P3.14 D0 under ordinary authority, followed only on success by a new immutable
-candidate/rollback binding and fresh exact F1 approval. None of those live
-inputs exists yet, and P3.02 remains parked.
+`ready-for-f1-approval` state. The first fresh D0 stopped read-only on the
+consumed P3.13 retained family. One approved attended normal reboot then
+rotated that baseline and returned rooted, boot-completed FYG8 health with
+boot and supporting-partition identities unchanged. A second fresh D0 passed
+with a clean baseline and prepared binding `e9a5d77c`; reopening the prepared
+record against the current execution closure passed. Device writes, Odin,
+partition transfer, F1 authority, and live authority remain false. The next
+possible device step is the exact P3.14 F1 attempt under its fresh approval;
+P3.02 remains parked.
 
 ## Success and Stop Conditions
 
