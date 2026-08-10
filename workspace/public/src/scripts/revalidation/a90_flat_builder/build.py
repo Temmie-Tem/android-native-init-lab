@@ -38,15 +38,172 @@ BUILDER_SOURCES = {
     "flat_builder_library": HERE / "buildlib.py",
 }
 
-AUTO_HANDOFF_VALUE_MACROS = (
+AUTO_HANDOFF_COMMON_VALUE_MACROS = (
     "INIT_VERSION",
     "INIT_BUILD",
-    "A90_AUTO_HANDOFF_IMAGE",
-    "A90_AUTO_HANDOFF_IMAGE_SHA256",
     "A90_AUTO_HANDOFF_ENABLE_PATH",
     "A90_AUTO_HANDOFF_LATCH_PATH",
 )
+AUTO_HANDOFF_IMAGE_VALUE_MACROS = (
+    "A90_AUTO_HANDOFF_IMAGE",
+    "A90_AUTO_HANDOFF_IMAGE_SHA256",
+)
+AUTO_HANDOFF_USERDATA_ENABLE = "A90_AUTO_HANDOFF_USERDATA_ROOT_V1"
+AUTO_HANDOFF_USERDATA_VALUE_MACROS = (
+    "A90_AUTO_HANDOFF_USERDATA_DEVNAME",
+    "A90_AUTO_HANDOFF_USERDATA_DEV",
+    "A90_AUTO_HANDOFF_USERDATA_SECTORS",
+    "A90_AUTO_HANDOFF_USERDATA_LABEL",
+    "A90_AUTO_HANDOFF_USERDATA_MARKER",
+    "A90_AUTO_HANDOFF_USERDATA_UUID",
+    "A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_SHA256",
+    "A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_PATH",
+    "A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_FILE_SHA256",
+)
 AUTO_HANDOFF_RECEIPT_MACRO = "A90_D3_SOURCE_RECEIPT_PATH"
+USERDATA_RUNTIME_SOURCE = Path("workspace/public/src/native-init/a90_server_distro.c")
+
+
+def _userdata_runtime_records(repo: Path) -> list[dict[str, object]]:
+    """Parse the compiled H14 table so its semantic hash is not a mere tag."""
+
+    source_path = (repo / USERDATA_RUNTIME_SOURCE).resolve(strict=True)
+    source = source_path.read_text(encoding="utf-8")
+    start_marker = (
+        "static const struct d4_ro_content_identity d4_h14_content[] = {"
+    )
+    try:
+        start = source.index(start_marker) + len(start_marker)
+        end = source.index("\n};", start)
+    except ValueError as exc:
+        raise RuntimeError("H14 compiled userdata table is absent") from exc
+    body = source[start:end]
+    entry = re.compile(
+        r'''\{\s*"(?P<leaf>[^"\\\r\n]+)",\s*
+            (?P<kind>D4_RO_CONTENT_(?:REGULAR|SYMLINK)),\s*
+            (?P<mode>0[0-7]{3}),\s*(?P<uid>[0-9]+),\s*
+            (?P<gid>[0-9]+),\s*(?P<size>[0-9]+),\s*
+            "(?P<sha>[0-9a-f]{64})",\s*
+            (?P<link>NULL|"[^"\\\r\n]+")\s*\}''',
+        re.VERBOSE,
+    )
+    records: list[dict[str, object]] = []
+    cursor = 0
+    for match in entry.finditer(body):
+        if body[cursor:match.start()].strip(" \t\r\n,"):
+            raise RuntimeError("H14 compiled userdata table has unparsed content")
+        link_token = match.group("link")
+        record: dict[str, object] = {
+            "path": "/" + match.group("leaf"),
+            "kind": (
+                "file"
+                if match.group("kind") == "D4_RO_CONTENT_REGULAR"
+                else "symlink"
+            ),
+            "mode": match.group("mode"),
+            "uid": int(match.group("uid"), 10),
+            "gid": int(match.group("gid"), 10),
+            "size": int(match.group("size"), 10),
+            "sha256": match.group("sha"),
+        }
+        if link_token != "NULL":
+            record["link_target"] = link_token[1:-1]
+        records.append(record)
+        cursor = match.end()
+    if body[cursor:].strip(" \t\r\n,") or len(records) != 19:
+        raise RuntimeError("H14 compiled userdata table is not exactly 19 records")
+    return records
+
+
+def _macro_directives(cflags: list[str], macro: str) -> list[str]:
+    """Return every compiler directive that can define or undefine macro."""
+
+    pattern = re.compile(rf"^(?:-D{re.escape(macro)}(?:=.*)?|-U{re.escape(macro)})$")
+    return [flag for flag in cflags if pattern.fullmatch(flag)]
+
+
+def _quoted_macro_value(cflags: list[str], macro: str) -> str:
+    directives = _macro_directives(cflags, macro)
+    pattern = re.compile(rf'^-D{re.escape(macro)}="([^"\r\n]+)"$')
+    matches = [
+        match.group(1)
+        for flag in directives
+        if (match := pattern.fullmatch(flag))
+    ]
+    if len(directives) != 1 or len(matches) != 1:
+        raise RuntimeError(
+            f"auto-handoff macro is missing, duplicated, or conflicting: {macro}"
+        )
+    return matches[0]
+
+
+def _userdata_content_binding(values: dict[str, str]) -> dict[str, str]:
+    relative = values["A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_PATH"]
+    file_sha256 = values[
+        "A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_FILE_SHA256"
+    ]
+    content_sha256 = values["A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_SHA256"]
+    filesystem_uuid = values["A90_AUTO_HANDOFF_USERDATA_UUID"]
+    if (
+        not isinstance(relative, str)
+        or not relative.startswith("workspace/public/")
+        or ".." in Path(relative).parts
+        or not isinstance(file_sha256, str)
+        or re.fullmatch(r"[0-9a-f]{64}", file_sha256) is None
+        or not isinstance(content_sha256, str)
+        or re.fullmatch(r"[0-9a-f]{64}", content_sha256) is None
+        or not isinstance(filesystem_uuid, str)
+        or re.fullmatch(
+            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+            filesystem_uuid,
+        )
+        is None
+    ):
+        raise RuntimeError("auto-handoff userdata content tuple is malformed")
+    repo = repo_root().resolve()
+    path = (repo / relative).resolve()
+    try:
+        path.relative_to(repo)
+    except ValueError as exc:
+        raise RuntimeError("auto-handoff userdata content manifest escapes repo") from exc
+    if path.is_symlink() or not path.is_file():
+        raise RuntimeError("auto-handoff userdata content manifest is not regular")
+    if buildlib.sha256_file(path) != file_sha256:
+        raise RuntimeError("auto-handoff userdata content manifest file changed")
+    try:
+        content = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError("auto-handoff userdata content manifest is invalid") from exc
+    encoded = json.dumps(
+        content,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+    filesystem = content.get("filesystem") if isinstance(content, dict) else None
+    if (
+        hashlib.sha256(encoded).hexdigest() != content_sha256
+        or not isinstance(filesystem, dict)
+        or filesystem
+        != {
+            "type": "ext4",
+            "uuid": filesystem_uuid,
+            "label": "A90D4ROOT",
+            "marker": "userdata=appliance-root",
+        }
+        or content.get("schema") != "a90-h14-ufs-content-manifest-v1"
+        or not isinstance(content.get("files"), list)
+        or len(content["files"]) != 19
+        or content["files"] != _userdata_runtime_records(repo)
+    ):
+        raise RuntimeError("auto-handoff userdata content manifest semantics changed")
+    return {
+        "userdata_uuid": filesystem_uuid,
+        "userdata_content_manifest": relative,
+        "userdata_content_manifest_file_sha256": file_sha256,
+        "userdata_content_manifest_sha256": content_sha256,
+    }
 
 
 def normalized_auto_handoff_binding(
@@ -55,66 +212,133 @@ def normalized_auto_handoff_binding(
     """Return the exact compiled auto-handoff tuple or reject ambiguity."""
 
     cflags = manifest["init"]["cflags"]
-    enabled = [
-        flag for flag in cflags
-        if flag == "-DA90_AUTO_HANDOFF_BENCHMARK_V1=1"
-    ]
+    enabled = _macro_directives(cflags, "A90_AUTO_HANDOFF_BENCHMARK_V1")
     if not enabled:
         return None
-    if len(enabled) != 1:
-        raise RuntimeError("auto-handoff enable macro is duplicated")
+    if enabled != ["-DA90_AUTO_HANDOFF_BENCHMARK_V1=1"]:
+        raise RuntimeError("auto-handoff enable macro is duplicated or conflicting")
+    userdata_flags = _macro_directives(cflags, AUTO_HANDOFF_USERDATA_ENABLE)
+    if userdata_flags not in ([], [f"-D{AUTO_HANDOFF_USERDATA_ENABLE}=1"]):
+        raise RuntimeError(
+            "auto-handoff userdata enable macro is duplicated or conflicting"
+        )
+    userdata_root = bool(userdata_flags)
     values: dict[str, str] = {}
-    for macro in AUTO_HANDOFF_VALUE_MACROS:
-        pattern = re.compile(rf'^-D{re.escape(macro)}="([^"\r\n]+)"$')
-        matches = [match.group(1) for flag in cflags if (match := pattern.fullmatch(flag))]
-        if len(matches) != 1:
-            raise RuntimeError(f"auto-handoff macro is missing or duplicated: {macro}")
-        values[macro] = matches[0]
-    image = values["A90_AUTO_HANDOFF_IMAGE"]
-    image_sha256 = values["A90_AUTO_HANDOFF_IMAGE_SHA256"]
+    selected_value_macros = (
+        *AUTO_HANDOFF_COMMON_VALUE_MACROS,
+        *(
+            AUTO_HANDOFF_USERDATA_VALUE_MACROS
+            if userdata_root
+            else AUTO_HANDOFF_IMAGE_VALUE_MACROS
+        ),
+    )
+    for macro in selected_value_macros:
+        values[macro] = _quoted_macro_value(cflags, macro)
     enable_path = values["A90_AUTO_HANDOFF_ENABLE_PATH"]
     latch_path = values["A90_AUTO_HANDOFF_LATCH_PATH"]
     receipt_pattern = re.compile(
         rf'^-D{re.escape(AUTO_HANDOFF_RECEIPT_MACRO)}="([^"\r\n]+)"$'
     )
+    receipt_directives = _macro_directives(cflags, AUTO_HANDOFF_RECEIPT_MACRO)
     receipt_matches = [
         match.group(1)
-        for flag in cflags
+        for flag in receipt_directives
         if (match := receipt_pattern.fullmatch(flag))
     ]
-    if len(receipt_matches) > 1:
-        raise RuntimeError("auto-handoff source receipt macro is duplicated")
+    if len(receipt_directives) != len(receipt_matches) or len(receipt_matches) > 1:
+        raise RuntimeError(
+            "auto-handoff source receipt macro is duplicated or conflicting"
+        )
     receipt_path = receipt_matches[0] if receipt_matches else ""
     if (
-        not image.startswith("/mnt/sdext/a90/runtime/")
-        or re.fullmatch(r"[0-9a-f]{64}", image_sha256) is None
-        or not enable_path.startswith("/cache/a90-auto-handoff-")
+        not enable_path.startswith("/cache/a90-auto-handoff-")
         or not latch_path.startswith("/cache/a90-auto-handoff-")
         or enable_path == latch_path
-        or (
-            receipt_path
-            and (
-                not receipt_path.startswith("/cache/a90-source-receipt-")
-                or receipt_path in {enable_path, latch_path}
-            )
-        )
     ):
         raise RuntimeError("auto-handoff compiled tuple is not canonical")
-    normalized = {
-        "schema": (
-            "a90-compiled-auto-handoff-binding-v2"
-            if receipt_path
-            else "a90-compiled-auto-handoff-binding-v1"
-        ),
+    normalized: dict[str, str] = {
         "candidate_version": values["INIT_VERSION"],
         "candidate_build": values["INIT_BUILD"],
-        "image_path": image,
-        "image_sha256": image_sha256,
         "enable_path": enable_path,
         "latch_path": latch_path,
     }
-    if receipt_path:
-        normalized["receipt_path"] = receipt_path
+    if userdata_root:
+        forbidden_image_flags = [
+            flag
+            for macro in AUTO_HANDOFF_IMAGE_VALUE_MACROS
+            for flag in _macro_directives(cflags, macro)
+        ]
+        userdata = {
+            "userdata_devname": values["A90_AUTO_HANDOFF_USERDATA_DEVNAME"],
+            "userdata_dev": values["A90_AUTO_HANDOFF_USERDATA_DEV"],
+            "userdata_sectors": values["A90_AUTO_HANDOFF_USERDATA_SECTORS"],
+            "userdata_label": values["A90_AUTO_HANDOFF_USERDATA_LABEL"],
+            "userdata_marker": values["A90_AUTO_HANDOFF_USERDATA_MARKER"],
+            "userdata_uuid": values["A90_AUTO_HANDOFF_USERDATA_UUID"],
+            "userdata_content_manifest_sha256": values[
+                "A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_SHA256"
+            ],
+        }
+        content_binding = _userdata_content_binding(values)
+        if forbidden_image_flags or receipt_path or userdata != {
+            "userdata_devname": "sda33",
+            "userdata_dev": "259:17",
+            "userdata_sectors": "231577432",
+            "userdata_label": "A90D4ROOT",
+            "userdata_marker": "userdata=appliance-root",
+            "userdata_uuid": content_binding["userdata_uuid"],
+            "userdata_content_manifest_sha256": content_binding[
+                "userdata_content_manifest_sha256"
+            ],
+        }:
+            raise RuntimeError("auto-handoff userdata tuple is not canonical")
+        normalized.update(
+            {
+                "schema": "a90-compiled-auto-handoff-binding-v3",
+                "root_kind": "userdata-ext4-ro-noload",
+                **userdata,
+                "userdata_content_manifest": content_binding[
+                    "userdata_content_manifest"
+                ],
+                "userdata_content_manifest_file_sha256": content_binding[
+                    "userdata_content_manifest_file_sha256"
+                ],
+            }
+        )
+    else:
+        forbidden_userdata_flags = [
+            flag
+            for macro in AUTO_HANDOFF_USERDATA_VALUE_MACROS
+            for flag in _macro_directives(cflags, macro)
+        ]
+        image = values["A90_AUTO_HANDOFF_IMAGE"]
+        image_sha256 = values["A90_AUTO_HANDOFF_IMAGE_SHA256"]
+        if (
+            forbidden_userdata_flags
+            or not image.startswith("/mnt/sdext/a90/runtime/")
+            or re.fullmatch(r"[0-9a-f]{64}", image_sha256) is None
+            or (
+                receipt_path
+                and (
+                    not receipt_path.startswith("/cache/a90-source-receipt-")
+                    or receipt_path in {enable_path, latch_path}
+                )
+            )
+        ):
+            raise RuntimeError("auto-handoff compiled tuple is not canonical")
+        normalized.update(
+            {
+                "schema": (
+                    "a90-compiled-auto-handoff-binding-v2"
+                    if receipt_path
+                    else "a90-compiled-auto-handoff-binding-v1"
+                ),
+                "image_path": image,
+                "image_sha256": image_sha256,
+            }
+        )
+        if receipt_path:
+            normalized["receipt_path"] = receipt_path
     encoded = json.dumps(
         normalized,
         sort_keys=True,
@@ -181,6 +405,7 @@ def revalidate_execution_closure(
     }
     if current_pins != expected_pins:
         raise RuntimeError("flat-builder input pins changed during execution")
+    normalized_auto_handoff_binding(manifest)
 
 
 def run_checked(

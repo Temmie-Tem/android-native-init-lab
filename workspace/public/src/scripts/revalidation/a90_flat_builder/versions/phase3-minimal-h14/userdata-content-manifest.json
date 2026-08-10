@@ -1,0 +1,212 @@
+{
+  "absent": [
+    "/etc/a90-dpublic/cloudflared-quick-enable",
+    "/etc/a90-dpublic/native-uplink-enable",
+    "/etc/a90-dpublic/wpa_supplicant-wlan0.conf"
+  ],
+  "files": [
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0755",
+      "path": "/usr/sbin/init",
+      "sha256": "402c5e6daeae7f19f01040ba17657f43c14ef6570316ec34a06c6bb87ab923f2",
+      "size": 68448,
+      "uid": 0
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0644",
+      "path": "/etc/inittab",
+      "sha256": "fb98929887e704aeba715458aa9226ceffa7fdd6f3f53590c367727a51fc96c1",
+      "size": 123,
+      "uid": 0
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0755",
+      "path": "/etc/a90-d3-firstboot",
+      "sha256": "fd8625402c76b2ee0cc4a2aff07eed3b182c6dd12eba1a022a445ea428c8c84a",
+      "size": 12092,
+      "uid": 0
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0644",
+      "path": "/etc/a90-appliance-stage",
+      "sha256": "3b8effc761c3662f3cc60059c5918e6388106d260f03a110a00f84e06a601a73",
+      "size": 24,
+      "uid": 0
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0644",
+      "path": "/etc/a90-server-distro-stage",
+      "sha256": "68752627d9eae6d372c37f8dd545fb3ac93144b056cfae2cdff1c8a13160421a",
+      "size": 1570,
+      "uid": 0
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0644",
+      "path": "/etc/debian_version",
+      "sha256": "f4366c3f4617e36754fdb11f429f7e7f73998db823ee7d3c7145070e7472339d",
+      "size": 6,
+      "uid": 0
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0755",
+      "path": "/usr/bin/ip",
+      "sha256": "2c9d712b497ee2d6c436da1dd09fb88f3a7ff535bbece9bab0e9a03c5e6cb835",
+      "size": 746760,
+      "uid": 0
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0755",
+      "path": "/usr/bin/dropbearkey",
+      "sha256": "3404bb0a376b7853802fa31e187b9ea60b615977c3b2dde7ed86ea181b0e7eee",
+      "size": 133472,
+      "uid": 0
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0755",
+      "path": "/usr/sbin/dropbear",
+      "sha256": "6fb0b5da8a4b903d075b9fd5fd735d09a58173018be83d8ab2d8f54f0e9b78c7",
+      "size": 200560,
+      "uid": 0
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0755",
+      "path": "/usr/local/bin/a90-dpublic-wifi-sta",
+      "sha256": "5b23ec2f6284aa3e010594307e9a0aaa064b316c171b663584232ef49bac09b9",
+      "size": 35289,
+      "uid": 0
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0755",
+      "path": "/usr/local/bin/a90-dpublic-smoke-httpd",
+      "sha256": "8492bf77de7293b1a42ac9b321262974045992cbc5149c8937b0a24f83fd8e56",
+      "size": 711136,
+      "uid": 0
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0755",
+      "path": "/usr/local/bin/a90-dpublic-hud-intent",
+      "sha256": "f09d1eb6b57de50ed14fdf17d4d77751fc86ff41782ab51c90bb40ea070334f3",
+      "size": 71480,
+      "uid": 0
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0755",
+      "path": "/usr/local/bin/a90-dpublic-hud-presenter",
+      "sha256": "055588a9c9ce61afa47ed532b2a7f62dbbef2a319d0b07fda1cd9b8d0fa2a76d",
+      "size": 71504,
+      "uid": 0
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0755",
+      "path": "/usr/local/bin/a90-service-launch",
+      "sha256": "31093fd314f1ccfb072d19678739fd92f198990171d3713194b3faacfe771912",
+      "size": 1328,
+      "uid": 0
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0755",
+      "path": "/usr/sbin/iw",
+      "sha256": "a244c8cc1740d8e3e92589dfd1b9527dbbfc97692cc23e8cfb96cd9d10d8d7da",
+      "size": 342952,
+      "uid": 0
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0644",
+      "path": "/lib/aarch64-linux-gnu/libselinux.so.1",
+      "sha256": "6f51339a6f92f88785dfcfdb13194c3d10cb10ccee1d0ddb5b3e3445145c761c",
+      "size": 198800,
+      "uid": 0
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0755",
+      "path": "/lib/aarch64-linux-gnu/libc.so.6",
+      "sha256": "e4ac8ae1d81e4865e3aadedb962879cf9415903b3f2ba81ec75e9962b86ab8b0",
+      "size": 1651408,
+      "uid": 0
+    },
+    {
+      "gid": 0,
+      "kind": "symlink",
+      "link_target": "aarch64-linux-gnu/ld-linux-aarch64.so.1",
+      "mode": "0777",
+      "path": "/lib/ld-linux-aarch64.so.1",
+      "sha256": "17538b8f9889a470c061f69a8fea8124da89627311cd16546c133a89f09056df",
+      "size": 39,
+      "uid": 0
+    },
+    {
+      "gid": 0,
+      "kind": "symlink",
+      "link_target": "libpcre2-8.so.0.11.2",
+      "mode": "0777",
+      "path": "/lib/aarch64-linux-gnu/libpcre2-8.so.0",
+      "sha256": "cabf859fab34e77fba3ab3485878cc19014327246a7c6aa21ac0d2d1a32dcc81",
+      "size": 20,
+      "uid": 0
+    }
+  ],
+  "filesystem": {
+    "label": "A90D4ROOT",
+    "marker": "userdata=appliance-root",
+    "type": "ext4",
+    "uuid": "300aaf21-412c-4238-9106-56414eaab105"
+  },
+  "schema": "a90-h14-ufs-content-manifest-v1",
+  "structural": {
+    "/etc/a90-dpublic/wifi-sta-enable": {
+      "kind": "file",
+      "nonempty": true
+    },
+    "/etc/a90-dpublic/wifi-sta-immediate-snapshot-only": {
+      "kind": "file",
+      "nonempty": true
+    },
+    "/root/.ssh/authorized_keys": {
+      "content": "redacted-unbound",
+      "gid": 0,
+      "kind": "file",
+      "mode": "0600",
+      "nonempty": true,
+      "uid": 0
+    }
+  },
+  "usrmerge_symlinks": {
+    "/bin": "usr/bin",
+    "/lib": "usr/lib",
+    "/sbin": "usr/sbin"
+  }
+}

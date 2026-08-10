@@ -10,6 +10,7 @@
  */
 int a90_auto_handoff_status_cmd(char **argv, int argc);
 int a90_auto_handoff_arm_cmd(char **argv, int argc);
+int a90_auto_handoff_arm_reboot_cmd(char **argv, int argc);
 int a90_auto_handoff_run_once(void);
 
 #endif /* A90_AUTO_HANDOFF_H */

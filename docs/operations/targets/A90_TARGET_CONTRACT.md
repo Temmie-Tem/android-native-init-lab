@@ -230,6 +230,70 @@ device effect. Every replacement candidate uses a new build identity, absent
 rootfs destination, and absent versioned state paths; a prior enable/latch pair
 is never reused, cleared, or reinterpreted to authorize the replacement.
 
+The separately reviewed `A90_DIRECT_UFS_READONLY_ROOT_V1` capability is the
+only alternative to that SD-image binding. It applies solely to the existing
+A90-owned ext4 appliance selected by the exact userdata `PARTNAME`, block
+device tuple, sector count, filesystem UUID, label, appliance marker, and one
+versioned public content-manifest semantic SHA256. The manifest binds the
+exact mode, owner, size, and SHA256 of every executable or library required for
+PID 1, SSH, display, NCM, and Wi-Fi startup; private authorized-key and Wi-Fi
+enable files are checked only for exact safe structure and are never hashed or
+logged. Public-tunnel enablement and every unreviewed network configuration
+must be absent.
+
+This capability never formats, repairs, replays, populates, copies, stages,
+hashes as a whole, or otherwise writes userdata. Qualification and handoff
+open the exact block node read-only, require an ext4 clean state with no
+recovery-needed flag, mount only with `ro,noload,nosuid,nodev`, and prove the
+mounted filesystem is read-only. Any disagreement or mount/cleanup ambiguity
+stops before handoff. The Debian namespace receives a private minimal `/dev`
+with no userdata block node, the reviewed writable tmpfs set, and only the
+reviewed evidence and Wi-Fi handoff binds. A failed pre-exec path must either
+restore every moved mount and unmount userdata or retain control in an explicit
+recovery-required state; it never retries switch-root.
+
+Its F1 transaction transfers only one exact boot candidate and, when needed,
+the exact V2321 boot rollback. It has no rootfs payload, SD source, work copy,
+stage, publish, copy, cleanup, or rootfs SHA pass. Before either transfer, a
+fresh attended approval binds the current common-contract authority mode,
+exact target, candidate, rollback, recovery evidence, action limits, manifest,
+and complete execution closure. Its token is durably consumed before candidate
+intent. The later D1 ordinal likewise consumes one fresh attended approval
+bound to the installed H14 terminal, exact target/recovery, one combined
+arm-plus-reboot action, transaction directory, expiry, and execution closure.
+Capability qualification is not either run approval. The flash process group
+waits behind a one-byte release gate; its exact launch is
+durable before release, and rollback is forbidden until that group and every
+descendant are proved quiescent. An intent without a launch proves no release;
+a launch without a result is reconciled only from its bound log and
+process-group evidence. A session/write marker or uncertain transfer count
+always parks for the exact bound rollback; current running health never proves
+the on-disk boot bytes unchanged. A rollback intent without a launch resumes
+only that same bound rollback. An uncertain released rollback is never replayed
+or closed from running baseline health; it remains explicitly recovery-pending.
+Every intent, launch, result, and health publication crash boundary has a
+no-candidate-replay continuation or an explicit recovery park. F1 success
+requires the new resident healthy and its fresh
+versioned enable/latch paths absent; candidate replay is forbidden. A later
+attended D1 ordinal durably records one intent and dispatches one combined
+native arm-plus-reboot command. If the reboot syscall returns, native code
+cancels only that exact enable intent and fsyncs the cache directory. Exact
+`0,0` state closes as no persistent effect only with the same-intent post-fsync
+cancellation log; an intent-only host prefix otherwise preserves the dispatch
+count as unknown and does not close. Exact `1,1` may finalize the native return
+only after the benchmark and native failure log prove either successful handoff
+or clean restoration with userdata unmounted. Any `recovery_required=1`, dirty
+mount restoration, or retained root parks recovery rather than claiming healthy
+closure. Exact `1,0` also parks recovery without replay. The successful lane proves the
+same-intent UFS root/PID1/display/SSH/NCM/Wi-Fi evidence and returns once to
+exact resident health. It never replays an uncertain arm, reboot, or handoff.
+The capability never
+applies to S22+, another A90, another userdata identity, a writable UFS mount,
+or any non-boot partition transfer. Its independent `PASS_GO` is reusable
+across ordinals, manifests, and campaigns only while the named
+execution-critical hashes and these hazard assumptions are unchanged and no
+new incident occurs.
+
 The one-use attended D1 sub-capability
 `A90_ATTENDED_H5_H4_SOURCE_RECLAIM_V1` addresses only the bounded hazard
 `SD_CAPACITY_EXHAUSTION_BLOCKING_FRESH_SOURCE_AND_WORK_COPY`. It may unlink

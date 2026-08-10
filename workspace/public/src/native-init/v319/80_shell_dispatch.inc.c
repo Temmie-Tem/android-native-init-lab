@@ -19643,6 +19643,11 @@ static int handle_auto_handoff_status(char **argv, int argc) {
 static int handle_auto_handoff_arm(char **argv, int argc) {
     return a90_auto_handoff_arm_cmd(argv, argc);
 }
+
+static int handle_auto_handoff_arm_reboot(char **argv, int argc) {
+    stop_auto_hud(false);
+    return a90_auto_handoff_arm_reboot_cmd(argv, argc);
+}
 #endif
 
 #if !A90_MINIMAL_SERVER_CORE_SURFACE
@@ -19833,6 +19838,9 @@ static const struct shell_command command_table[] = {
     { "auto-handoff-arm", handle_auto_handoff_arm,
       "auto-handoff-arm <token> <intent-sha256>",
       CMD_DANGEROUS, A90_CMD_GROUP_POWER },
+    { "auto-handoff-arm-reboot", handle_auto_handoff_arm_reboot,
+      "auto-handoff-arm-reboot <token> <intent-sha256>",
+      CMD_DANGEROUS | CMD_NO_DONE, A90_CMD_GROUP_POWER },
 #endif
 #if !A90_MINIMAL_SERVER_CORE_SURFACE
     { "userdata-appliance-preflight", handle_userdata_appliance_preflight,

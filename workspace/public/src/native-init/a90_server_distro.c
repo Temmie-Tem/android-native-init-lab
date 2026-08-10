@@ -26,6 +26,7 @@
 #include <sys/mount.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/sysmacros.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -3270,25 +3271,60 @@ fail_new_dev:
     return rc;
 }
 
-static void d3_restore_mount_one(const char *leaf, const char *dst) {
+static int d3_restore_mount_one(const char *leaf, const char *dst) {
     char src[PATH_MAX];
+    int rc;
 
-    if (d3_join(src, sizeof(src), A90_D3_ROOT, leaf) < 0) {
-        return;
+    rc = d3_join(src, sizeof(src), A90_D3_ROOT, leaf);
+    if (rc < 0) {
+        return rc;
     }
-    (void)mount(src, dst, NULL, MS_MOVE, NULL);
+    if (mount(src, dst, NULL, MS_MOVE, NULL) < 0) {
+        rc = -errno;
+        a90_console_printf(
+            "%s mount_restore=%s->%s fail=1 rc=%d errno=%d (%s)\r\n",
+            A90_D3_IMMUTABLE_TAG,
+            src,
+            dst,
+            rc,
+            -rc,
+            strerror(-rc));
+        return rc;
+    }
+    a90_console_printf("%s mount_restore=%s->%s ok=1\r\n",
+                       A90_D3_IMMUTABLE_TAG,
+                       src,
+                       dst);
+    return 0;
 }
 
-static void d3_unmount_leaf(const char *leaf) {
+static int d3_unmount_leaf(const char *leaf) {
     char path[PATH_MAX];
+    int rc;
 
-    if (d3_join(path, sizeof(path), A90_D3_ROOT, leaf) < 0) {
-        return;
+    rc = d3_join(path, sizeof(path), A90_D3_ROOT, leaf);
+    if (rc < 0) {
+        return rc;
     }
-    (void)umount2(path, MNT_DETACH);
+    if (umount2(path, MNT_DETACH) < 0) {
+        rc = -errno;
+        a90_console_printf(
+            "%s mount_restore_unmount=%s fail=1 rc=%d errno=%d (%s)\r\n",
+            A90_D3_IMMUTABLE_TAG,
+            path,
+            rc,
+            -rc,
+            strerror(-rc));
+        return rc;
+    }
+    a90_console_printf("%s mount_restore_unmount=%s ok=1\r\n",
+                       A90_D3_IMMUTABLE_TAG,
+                       path);
+    return 0;
 }
 
-static int d3_move_core_mounts(bool *moved_proc,
+static int d3_move_core_mounts(bool force_private_dev,
+                               bool *moved_proc,
                                bool *moved_sys,
                                bool *moved_dev,
                                bool *mounted_new_dev,
@@ -3324,70 +3360,95 @@ static int d3_move_core_mounts(bool *moved_proc,
     }
     rc = d3_move_mount_one("/sys", "sys");
     if (rc < 0) {
-        d3_restore_mount_one("proc", "/proc");
-        if (moved_proc != NULL) {
-            *moved_proc = false;
-        }
         return rc;
     }
     if (moved_sys != NULL) {
         *moved_sys = true;
     }
-    if (dev_mounted) {
+    if (dev_mounted && !force_private_dev) {
         rc = d3_move_mount_one("/dev", "dev");
         if (rc < 0) {
-            d3_restore_mount_one("sys", "/sys");
-            d3_restore_mount_one("proc", "/proc");
-            if (moved_sys != NULL) {
-                *moved_sys = false;
-            }
-            if (moved_proc != NULL) {
-                *moved_proc = false;
-            }
             return rc;
         }
         if (moved_dev != NULL) {
             *moved_dev = true;
         }
     } else {
+        char userdata_node[PATH_MAX];
+
         rc = d3_prepare_new_dev(mounted_devpts);
         if (rc < 0) {
-            d3_restore_mount_one("sys", "/sys");
-            d3_restore_mount_one("proc", "/proc");
-            if (moved_sys != NULL) {
-                *moved_sys = false;
-            }
-            if (moved_proc != NULL) {
-                *moved_proc = false;
-            }
             return rc;
         }
         if (mounted_new_dev != NULL) {
             *mounted_new_dev = true;
         }
+        if (force_private_dev) {
+            rc = d3_join(userdata_node,
+                         sizeof(userdata_node),
+                         A90_D3_ROOT,
+                         "dev/block/a90-userdata");
+            if (rc < 0) {
+                return rc;
+            }
+            if (lstat(userdata_node, &(struct stat){0}) == 0 || errno != ENOENT) {
+                a90_console_printf(
+                    "%s private_dev=fail userdata_node_exposed=1 path=%s\r\n",
+                    A90_D3_IMMUTABLE_TAG,
+                    userdata_node);
+                return -EPERM;
+            }
+            a90_console_printf(
+                "%s private_dev=ok userdata_node_exposed=0 path=%s\r\n",
+                A90_D3_IMMUTABLE_TAG,
+                userdata_node);
+        }
     }
     return 0;
 }
 
-static void d3_restore_core_mounts(bool moved_proc,
-                                   bool moved_sys,
-                                   bool moved_dev,
-                                   bool mounted_new_dev,
-                                   bool mounted_devpts) {
+static int d3_restore_core_mounts(bool moved_proc,
+                                  bool moved_sys,
+                                  bool moved_dev,
+                                  bool mounted_new_dev,
+                                  bool mounted_devpts) {
+    int first_rc = 0;
+    int rc;
+
     if (mounted_devpts) {
-        d3_unmount_leaf("dev/pts");
+        rc = d3_unmount_leaf("dev/pts");
+        if (rc < 0 && first_rc == 0) {
+            first_rc = rc;
+        }
     }
     if (moved_dev) {
-        d3_restore_mount_one("dev", "/dev");
+        rc = d3_restore_mount_one("dev", "/dev");
+        if (rc < 0 && first_rc == 0) {
+            first_rc = rc;
+        }
     } else if (mounted_new_dev) {
-        d3_unmount_leaf("dev");
+        rc = d3_unmount_leaf("dev");
+        if (rc < 0 && first_rc == 0) {
+            first_rc = rc;
+        }
     }
     if (moved_sys) {
-        d3_restore_mount_one("sys", "/sys");
+        rc = d3_restore_mount_one("sys", "/sys");
+        if (rc < 0 && first_rc == 0) {
+            first_rc = rc;
+        }
     }
     if (moved_proc) {
-        d3_restore_mount_one("proc", "/proc");
+        rc = d3_restore_mount_one("proc", "/proc");
+        if (rc < 0 && first_rc == 0) {
+            first_rc = rc;
+        }
     }
+    a90_console_printf("%s mount_restore_complete=%d rc=%d\r\n",
+                       A90_D3_IMMUTABLE_TAG,
+                       first_rc == 0 ? 1 : 0,
+                       first_rc);
+    return first_rc;
 }
 
 int a90_server_distro_switch_root_cmd(char **argv, int argc) {
@@ -3589,13 +3650,31 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     a90_benchmark_mark("display_marker_ready");
 #endif
     rc = d3_move_core_mounts(
+        false,
         &moved_proc,
         &moved_sys,
         &moved_dev,
         &mounted_new_dev,
         &mounted_devpts);
     if (rc < 0) {
+        int restore_rc = d3_restore_core_mounts(
+            moved_proc,
+            moved_sys,
+            moved_dev,
+            mounted_new_dev,
+            mounted_devpts);
+
         a90_console_printf("%s mount_move=fail rc=%d\r\n", A90_D3_TAG, rc);
+        if (restore_rc < 0) {
+            cleanup_clean = false;
+            rc = restore_rc;
+        } else {
+            moved_proc = false;
+            moved_sys = false;
+            moved_dev = false;
+            mounted_new_dev = false;
+            mounted_devpts = false;
+        }
         goto fail_before_move;
     }
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
@@ -3622,17 +3701,25 @@ int a90_server_distro_switch_root_cmd(char **argv, int argc) {
     rc = -errno;
     a90_console_printf("%s execve_switch_root=fail rc=%d errno=%d (%s)\r\n",
                        A90_D3_TAG, rc, -rc, strerror(-rc));
-    d3_restore_core_mounts(
-        moved_proc,
-        moved_sys,
-        moved_dev,
-        mounted_new_dev,
-        mounted_devpts);
-    moved_proc = false;
-    moved_sys = false;
-    moved_dev = false;
-    mounted_new_dev = false;
-    mounted_devpts = false;
+    {
+        int restore_rc = d3_restore_core_mounts(
+            moved_proc,
+            moved_sys,
+            moved_dev,
+            mounted_new_dev,
+            mounted_devpts);
+
+        if (restore_rc < 0) {
+            cleanup_clean = false;
+            rc = restore_rc;
+        } else {
+            moved_proc = false;
+            moved_sys = false;
+            moved_dev = false;
+            mounted_new_dev = false;
+            mounted_devpts = false;
+        }
+    }
 
 fail_before_move:
     /*
@@ -3641,7 +3728,7 @@ fail_before_move:
      * reported source_unchanged. The image hash proves the source bytes; it
      * says nothing about mount state, so record that separately.
      */
-    if (root_mounted) {
+    if (root_mounted && cleanup_clean) {
         if (umount2(A90_D3_ROOT, MNT_DETACH) == 0) {
             a90_console_printf("%s rootfs=unmounted-after-fail root=%s\r\n",
                                A90_D3_TAG, A90_D3_ROOT);
@@ -3651,8 +3738,13 @@ fail_before_move:
             a90_console_printf("%s rootfs=unmount-fail root=%s errno=%d\r\n",
                                A90_D3_TAG, A90_D3_ROOT, errno);
         }
+    } else if (root_mounted) {
+        a90_console_printf(
+            "%s rootfs=retained-after-restore-fail root=%s recovery_required=1\r\n",
+            A90_D3_TAG,
+            A90_D3_ROOT);
     }
-    if (loop_attached) {
+    if (loop_attached && !root_mounted) {
         int detach_rc = d3_detach_loop();
 
         if (detach_rc == 0) {
@@ -3662,6 +3754,12 @@ fail_before_move:
             a90_console_printf("%s loop=detach-fail node=%s rc=%d\r\n",
                                A90_D3_TAG, A90_D3_LOOP, detach_rc);
         }
+    } else if (loop_attached) {
+        cleanup_clean = false;
+        a90_console_printf(
+            "%s loop=retained-with-root node=%s recovery_required=1\r\n",
+            A90_D3_TAG,
+            A90_D3_LOOP);
     }
     if (loop_created) {
         /* Only remove the node this run created, and only once it is free. */
@@ -3721,8 +3819,79 @@ fail_immutable_source:
 #define A90_D4_FORMATTER_PROBE_MIN_BYTES 4194304ULL
 #define A90_D4_FORMATTER_PROBE_MAX_BYTES 67108864ULL
 #define A90_D4_EXT4_MAGIC_OFFSET 1080
+#define A90_D4_EXT_STATE_OFFSET 1082
 #define A90_D4_EXT_FEATURE_COMPAT_OFFSET 1116
+#define A90_D4_EXT_FEATURE_INCOMPAT_OFFSET 1120
+#define A90_D4_EXT_UUID_OFFSET 1128
+#define A90_D4_EXT_LABEL_OFFSET 1144
+#define A90_D4_EXT_UUID_BYTES 16U
+#define A90_D4_EXT_LABEL_BYTES 16U
 #define A90_D4_EXT_COMPAT_HAS_JOURNAL 0x00000004U
+#define A90_D4_EXT_INCOMPAT_RECOVER 0x00000004U
+#define A90_D4_EXT_VALID_FS 0x0001U
+#define A90_D4_EXPECTED_INIT_SIZE 68448
+#define A90_D4_H14_UUID "300aaf21-412c-4238-9106-56414eaab105"
+#define A90_D4_H14_CONTENT_MANIFEST_SHA256 \
+    "e1950058627446d6bbd487d6a17b80f5766be4956b54cb56659b541dab09f8f6"
+
+enum d4_ro_content_kind {
+    D4_RO_CONTENT_REGULAR = 1,
+    D4_RO_CONTENT_SYMLINK = 2,
+};
+
+struct d4_ro_content_identity {
+    const char *leaf;
+    enum d4_ro_content_kind kind;
+    unsigned int mode;
+    unsigned int uid;
+    unsigned int gid;
+    long long size;
+    const char *sha256;
+    const char *link_target;
+};
+
+static const struct d4_ro_content_identity d4_h14_content[] = {
+    { "usr/sbin/init", D4_RO_CONTENT_REGULAR, 0755, 0, 0, 68448,
+      "402c5e6daeae7f19f01040ba17657f43c14ef6570316ec34a06c6bb87ab923f2", NULL },
+    { "etc/inittab", D4_RO_CONTENT_REGULAR, 0644, 0, 0, 123,
+      "fb98929887e704aeba715458aa9226ceffa7fdd6f3f53590c367727a51fc96c1", NULL },
+    { "etc/a90-d3-firstboot", D4_RO_CONTENT_REGULAR, 0755, 0, 0, 12092,
+      "fd8625402c76b2ee0cc4a2aff07eed3b182c6dd12eba1a022a445ea428c8c84a", NULL },
+    { "etc/a90-appliance-stage", D4_RO_CONTENT_REGULAR, 0644, 0, 0, 24,
+      "3b8effc761c3662f3cc60059c5918e6388106d260f03a110a00f84e06a601a73", NULL },
+    { "etc/a90-server-distro-stage", D4_RO_CONTENT_REGULAR, 0644, 0, 0, 1570,
+      "68752627d9eae6d372c37f8dd545fb3ac93144b056cfae2cdff1c8a13160421a", NULL },
+    { "etc/debian_version", D4_RO_CONTENT_REGULAR, 0644, 0, 0, 6,
+      "f4366c3f4617e36754fdb11f429f7e7f73998db823ee7d3c7145070e7472339d", NULL },
+    { "usr/bin/ip", D4_RO_CONTENT_REGULAR, 0755, 0, 0, 746760,
+      "2c9d712b497ee2d6c436da1dd09fb88f3a7ff535bbece9bab0e9a03c5e6cb835", NULL },
+    { "usr/bin/dropbearkey", D4_RO_CONTENT_REGULAR, 0755, 0, 0, 133472,
+      "3404bb0a376b7853802fa31e187b9ea60b615977c3b2dde7ed86ea181b0e7eee", NULL },
+    { "usr/sbin/dropbear", D4_RO_CONTENT_REGULAR, 0755, 0, 0, 200560,
+      "6fb0b5da8a4b903d075b9fd5fd735d09a58173018be83d8ab2d8f54f0e9b78c7", NULL },
+    { "usr/local/bin/a90-dpublic-wifi-sta", D4_RO_CONTENT_REGULAR, 0755, 0, 0, 35289,
+      "5b23ec2f6284aa3e010594307e9a0aaa064b316c171b663584232ef49bac09b9", NULL },
+    { "usr/local/bin/a90-dpublic-smoke-httpd", D4_RO_CONTENT_REGULAR, 0755, 0, 0, 711136,
+      "8492bf77de7293b1a42ac9b321262974045992cbc5149c8937b0a24f83fd8e56", NULL },
+    { "usr/local/bin/a90-dpublic-hud-intent", D4_RO_CONTENT_REGULAR, 0755, 0, 0, 71480,
+      "f09d1eb6b57de50ed14fdf17d4d77751fc86ff41782ab51c90bb40ea070334f3", NULL },
+    { "usr/local/bin/a90-dpublic-hud-presenter", D4_RO_CONTENT_REGULAR, 0755, 0, 0, 71504,
+      "055588a9c9ce61afa47ed532b2a7f62dbbef2a319d0b07fda1cd9b8d0fa2a76d", NULL },
+    { "usr/local/bin/a90-service-launch", D4_RO_CONTENT_REGULAR, 0755, 0, 0, 1328,
+      "31093fd314f1ccfb072d19678739fd92f198990171d3713194b3faacfe771912", NULL },
+    { "usr/sbin/iw", D4_RO_CONTENT_REGULAR, 0755, 0, 0, 342952,
+      "a244c8cc1740d8e3e92589dfd1b9527dbbfc97692cc23e8cfb96cd9d10d8d7da", NULL },
+    { "lib/aarch64-linux-gnu/libselinux.so.1", D4_RO_CONTENT_REGULAR, 0644, 0, 0, 198800,
+      "6f51339a6f92f88785dfcfdb13194c3d10cb10ccee1d0ddb5b3e3445145c761c", NULL },
+    { "lib/aarch64-linux-gnu/libc.so.6", D4_RO_CONTENT_REGULAR, 0755, 0, 0, 1651408,
+      "e4ac8ae1d81e4865e3aadedb962879cf9415903b3f2ba81ec75e9962b86ab8b0", NULL },
+    { "lib/ld-linux-aarch64.so.1", D4_RO_CONTENT_SYMLINK, 0777, 0, 0, 39,
+      "17538b8f9889a470c061f69a8fea8124da89627311cd16546c133a89f09056df",
+      "aarch64-linux-gnu/ld-linux-aarch64.so.1" },
+    { "lib/aarch64-linux-gnu/libpcre2-8.so.0", D4_RO_CONTENT_SYMLINK, 0777, 0, 0, 20,
+      "cabf859fab34e77fba3ab3485878cc19014327246a7c6aa21ac0d2d1a32dcc81",
+      "libpcre2-8.so.0.11.2" },
+};
 
 struct d4_userdata_target {
     char sysname[64];
@@ -4116,6 +4285,191 @@ static int d4_check_ext_has_journal(const char *path, const char *phase) {
     }
     a90_console_printf("%s %s=has-journal-ok feature_compat=0x%08x has_journal=1\r\n",
                        A90_D4_TAG, phase != NULL ? phase : "journal-check", features);
+    return 0;
+}
+
+static int d4_check_ext4_clean_no_recovery(const char *path,
+                                            const char *phase) {
+    unsigned char state_raw[2] = { 0, 0 };
+    unsigned char incompat_raw[4] = { 0, 0, 0, 0 };
+    unsigned int state;
+    unsigned int incompat;
+    int fd;
+    int saved_errno;
+    ssize_t n;
+
+    fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return -errno;
+    }
+    n = pread(fd, state_raw, sizeof(state_raw), A90_D4_EXT_STATE_OFFSET);
+    if (n != (ssize_t)sizeof(state_raw)) {
+        saved_errno = n < 0 ? errno : EIO;
+        close(fd);
+        return -saved_errno;
+    }
+    n = pread(fd,
+              incompat_raw,
+              sizeof(incompat_raw),
+              A90_D4_EXT_FEATURE_INCOMPAT_OFFSET);
+    if (n != (ssize_t)sizeof(incompat_raw)) {
+        saved_errno = n < 0 ? errno : EIO;
+        close(fd);
+        return -saved_errno;
+    }
+    if (close(fd) < 0) {
+        return -errno;
+    }
+    state = ((unsigned int)state_raw[0]) |
+            ((unsigned int)state_raw[1] << 8);
+    incompat = ((unsigned int)incompat_raw[0]) |
+               ((unsigned int)incompat_raw[1] << 8) |
+               ((unsigned int)incompat_raw[2] << 16) |
+               ((unsigned int)incompat_raw[3] << 24);
+    if (state != A90_D4_EXT_VALID_FS ||
+        (incompat & A90_D4_EXT_INCOMPAT_RECOVER) != 0U) {
+        a90_console_printf(
+            "%s %s=unclean-or-needs-recovery state=0x%04x "
+            "feature_incompat=0x%08x stop=refused\r\n",
+            A90_D4_TAG,
+            phase != NULL ? phase : "clean-state-check",
+            state,
+            incompat);
+        return -EUCLEAN;
+    }
+    a90_console_printf(
+        "%s %s=clean-no-recovery state=0x%04x feature_incompat=0x%08x\r\n",
+        A90_D4_TAG,
+        phase != NULL ? phase : "clean-state-check",
+        state,
+        incompat);
+    return 0;
+}
+
+static int d4_check_ext4_label(const char *path,
+                               const char *expected_label,
+                               const char *phase) {
+    unsigned char observed[A90_D4_EXT_LABEL_BYTES];
+    unsigned char expected[A90_D4_EXT_LABEL_BYTES];
+    size_t expected_size;
+    int fd;
+    int saved_errno;
+    ssize_t n;
+
+    if (expected_label == NULL) {
+        return -EINVAL;
+    }
+    expected_size = strlen(expected_label);
+    if (expected_size == 0 || expected_size > sizeof(expected)) {
+        return -EINVAL;
+    }
+    memset(expected, 0, sizeof(expected));
+    memcpy(expected, expected_label, expected_size);
+    fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return -errno;
+    }
+    n = pread(fd, observed, sizeof(observed), A90_D4_EXT_LABEL_OFFSET);
+    if (n < 0) {
+        saved_errno = errno;
+        close(fd);
+        return -saved_errno;
+    }
+    if (close(fd) < 0) {
+        return -errno;
+    }
+    if (n != (ssize_t)sizeof(observed) ||
+        memcmp(observed, expected, sizeof(observed)) != 0) {
+        a90_console_printf("%s %s=label-mismatch expected=%s\r\n",
+                           A90_D4_TAG,
+                           phase != NULL ? phase : "label-check",
+                           expected_label);
+        return -EPERM;
+    }
+    a90_console_printf("%s %s=label-ok label=%s\r\n",
+                       A90_D4_TAG,
+                       phase != NULL ? phase : "label-check",
+                       expected_label);
+    return 0;
+}
+
+static int d4_uuid_hex_nibble(char value) {
+    if (value >= '0' && value <= '9') {
+        return value - '0';
+    }
+    if (value >= 'a' && value <= 'f') {
+        return value - 'a' + 10;
+    }
+    return -1;
+}
+
+static int d4_parse_uuid(const char *value,
+                         unsigned char out[A90_D4_EXT_UUID_BYTES]) {
+    size_t input = 0;
+    size_t output = 0;
+
+    if (value == NULL || strlen(value) != 36U) {
+        return -EINVAL;
+    }
+    while (input < 36U) {
+        int high;
+        int low;
+
+        if (input == 8U || input == 13U || input == 18U || input == 23U) {
+            if (value[input++] != '-') {
+                return -EINVAL;
+            }
+            continue;
+        }
+        if (input + 1U >= 36U || output >= A90_D4_EXT_UUID_BYTES) {
+            return -EINVAL;
+        }
+        high = d4_uuid_hex_nibble(value[input]);
+        low = d4_uuid_hex_nibble(value[input + 1U]);
+        if (high < 0 || low < 0) {
+            return -EINVAL;
+        }
+        out[output++] = (unsigned char)((high << 4) | low);
+        input += 2U;
+    }
+    return output == A90_D4_EXT_UUID_BYTES ? 0 : -EINVAL;
+}
+
+static int d4_check_ext4_uuid(const char *path,
+                              const char *expected_uuid,
+                              const char *phase) {
+    unsigned char observed[A90_D4_EXT_UUID_BYTES];
+    unsigned char expected[A90_D4_EXT_UUID_BYTES];
+    int fd;
+    int saved_errno;
+    ssize_t n;
+
+    if (d4_parse_uuid(expected_uuid, expected) < 0) {
+        return -EINVAL;
+    }
+    fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return -errno;
+    }
+    n = pread(fd, observed, sizeof(observed), A90_D4_EXT_UUID_OFFSET);
+    if (n != (ssize_t)sizeof(observed)) {
+        saved_errno = n < 0 ? errno : EIO;
+        close(fd);
+        return -saved_errno;
+    }
+    if (close(fd) < 0) {
+        return -errno;
+    }
+    if (memcmp(observed, expected, sizeof(observed)) != 0) {
+        a90_console_printf("%s %s=uuid-mismatch stop=refused\r\n",
+                           A90_D4_TAG,
+                           phase != NULL ? phase : "uuid-check");
+        return -EPERM;
+    }
+    a90_console_printf("%s %s=uuid-ok uuid=%s\r\n",
+                       A90_D4_TAG,
+                       phase != NULL ? phase : "uuid-check",
+                       expected_uuid);
     return 0;
 }
 
@@ -4777,6 +5131,863 @@ static int d4_read_marker(char *out, size_t out_size) {
         return rc;
     }
     return d4_read_trimmed_file(marker_path, out, out_size);
+}
+
+static int d4_userdata_ro_expected_values_valid(const char *expected_devname,
+                                                const char *expected_dev,
+                                                const char *expected_sectors,
+                                                const char *expected_label,
+                                                const char *expected_marker,
+                                                const char *expected_uuid,
+                                                const char *expected_content_manifest_sha256) {
+    unsigned int major_num = 0;
+    unsigned int minor_num = 0;
+    unsigned long long sectors = 0;
+
+    if (expected_devname == NULL || strcmp(expected_devname, "sda33") != 0 ||
+        d4_parse_expected_dev(expected_dev, &major_num, &minor_num) < 0 ||
+        d4_parse_u64(expected_sectors, &sectors) < 0 ||
+        strcmp(expected_label != NULL ? expected_label : "", "A90D4ROOT") != 0 ||
+        strcmp(expected_marker != NULL ? expected_marker : "",
+               A90_D4_MARKER_VALUE) != 0 ||
+        strcmp(expected_uuid != NULL ? expected_uuid : "",
+               A90_D4_H14_UUID) != 0 ||
+        strcmp(expected_content_manifest_sha256 != NULL
+                   ? expected_content_manifest_sha256
+                   : "",
+               A90_D4_H14_CONTENT_MANIFEST_SHA256) != 0) {
+        return -EINVAL;
+    }
+    if (major_num != 259U || minor_num != 17U || sectors != 231577432ULL) {
+        return -EPERM;
+    }
+    return 0;
+}
+
+static int d4_userdata_ro_static_preflight(
+    const char *expected_devname,
+    const char *expected_dev,
+    const char *expected_sectors,
+    const char *expected_label,
+    const char *expected_uuid,
+    const char *phase,
+    struct d4_userdata_target *target_out) {
+    struct d4_userdata_target target;
+    int rc;
+
+    if (target_out == NULL) {
+        return -EINVAL;
+    }
+    rc = d4_resolve_userdata(&target);
+    if (rc < 0) {
+        return rc;
+    }
+    d4_print_target(&target, phase);
+    rc = d4_compare_expected(&target,
+                             expected_devname,
+                             expected_dev,
+                             expected_sectors);
+    if (rc < 0) {
+        return rc;
+    }
+    if (target.mounted) {
+        a90_console_printf("%s stop=userdata-already-mounted phase=%s\r\n",
+                           A90_D4_TAG,
+                           phase != NULL ? phase : "read-only-preflight");
+        return -EBUSY;
+    }
+    rc = d4_ensure_userdata_node(&target);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d4_check_ext4_magic_phase(A90_D4_NODE, phase);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d4_check_ext_has_journal(A90_D4_NODE, phase);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d4_check_ext4_clean_no_recovery(A90_D4_NODE, phase);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d4_check_ext4_label(A90_D4_NODE, expected_label, phase);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d4_check_ext4_uuid(A90_D4_NODE, expected_uuid, phase);
+    if (rc < 0) {
+        return rc;
+    }
+    *target_out = target;
+    return 0;
+}
+
+static int d4_mount_userdata_readonly_no_replay(void) {
+    struct statvfs fs;
+    int mounted;
+    int rc;
+
+    rc = d3_mkdir_p(A90_D3_ROOT, 0755);
+    if (rc < 0) {
+        return rc;
+    }
+    mounted = d3_path_is_mounted(A90_D3_ROOT);
+    if (mounted < 0) {
+        return mounted;
+    }
+    if (mounted) {
+        a90_console_printf("%s stop=root-already-mounted root=%s\r\n",
+                           A90_D4_TAG,
+                           A90_D3_ROOT);
+        return -EBUSY;
+    }
+    if (mount(A90_D4_NODE,
+              A90_D3_ROOT,
+              "ext4",
+              MS_RDONLY | MS_NOSUID | MS_NODEV,
+              "noload") < 0) {
+        rc = -errno;
+        a90_console_printf("%s rootfs=mount-ro-noload-fail root=%s rc=%d\r\n",
+                           A90_D4_TAG,
+                           A90_D3_ROOT,
+                           rc);
+        return rc;
+    }
+    if (statvfs(A90_D3_ROOT, &fs) < 0 || (fs.f_flag & ST_RDONLY) == 0) {
+        rc = errno != 0 ? -errno : -EPERM;
+        (void)umount2(A90_D3_ROOT, MNT_DETACH);
+        a90_console_printf("%s rootfs=read-only-proof-fail root=%s rc=%d\r\n",
+                           A90_D4_TAG,
+                           A90_D3_ROOT,
+                           rc);
+        return rc;
+    }
+    a90_console_printf(
+        "%s rootfs=mounted-ro-noload root=%s node=%s userdata_write=0\r\n",
+        A90_D4_TAG,
+        A90_D3_ROOT,
+        A90_D4_NODE);
+    return 0;
+}
+
+static int d4_userdata_ro_check_marker(const char *expected_marker) {
+    char path[PATH_MAX];
+    char content[128];
+    char expected[128];
+    struct stat before;
+    struct stat opened;
+    size_t expected_size;
+    ssize_t count;
+    ssize_t extra;
+    int fd;
+    int rc;
+
+    if (expected_marker == NULL ||
+        strcmp(expected_marker, A90_D4_MARKER_VALUE) != 0) {
+        return -EINVAL;
+    }
+    expected_size = strlen(expected_marker) + 1U;
+    if (expected_size >= sizeof(expected)) {
+        return -EOVERFLOW;
+    }
+    rc = d3_join(path, sizeof(path), A90_D3_ROOT, A90_D4_MARKER_LEAF);
+    if (rc < 0) {
+        return rc;
+    }
+    if (lstat(path, &before) < 0 ||
+        !S_ISREG(before.st_mode) ||
+        S_ISLNK(before.st_mode) ||
+        before.st_uid != 0 ||
+        before.st_gid != 0 ||
+        before.st_nlink != 1 ||
+        (before.st_mode & 0022) != 0 ||
+        before.st_size != (off_t)expected_size) {
+        return -EPERM;
+    }
+    fd = open(path, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) {
+        return -errno;
+    }
+    if (fstat(fd, &opened) < 0 ||
+        opened.st_dev != before.st_dev ||
+        opened.st_ino != before.st_ino ||
+        opened.st_size != before.st_size) {
+        int saved_errno = errno != 0 ? errno : ESTALE;
+
+        close(fd);
+        return -saved_errno;
+    }
+    count = read(fd, content, sizeof(content) - 1U);
+    extra = count >= 0 ? read(fd, content + count, 1U) : -1;
+    if (close(fd) < 0 && count >= 0 && extra == 0) {
+        return -errno;
+    }
+    if (count != (ssize_t)expected_size || extra != 0) {
+        return count < 0 ? -errno : -EOVERFLOW;
+    }
+    memcpy(expected, expected_marker, expected_size - 1U);
+    expected[expected_size - 1U] = '\n';
+    if (memcmp(content, expected, expected_size) != 0) {
+        return -EPERM;
+    }
+    a90_console_printf("%s appliance_marker=ok value=%s immutable=1\r\n",
+                       A90_D4_TAG,
+                       expected_marker);
+    return 0;
+}
+
+static int d4_userdata_ro_hash_fd(int fd,
+                                  off_t expected_size,
+                                  const char *expected_sha256) {
+    static const char hex[] = "0123456789abcdef";
+    unsigned char buffer[32768];
+    struct a90_sha256_ctx context;
+    unsigned char digest[32];
+    char actual[65];
+    off_t offset = 0;
+    unsigned int index;
+
+    if (fd < 0 || expected_size <= 0 ||
+        expected_size > 64LL * 1024LL * 1024LL || expected_sha256 == NULL ||
+        strlen(expected_sha256) != 64U) {
+        return -EINVAL;
+    }
+    a90_helper_sha256_init(&context);
+    while (offset < expected_size) {
+        size_t want = (size_t)(expected_size - offset);
+        ssize_t got;
+
+        if (want > sizeof(buffer)) {
+            want = sizeof(buffer);
+        }
+        got = pread(fd, buffer, want, offset);
+        if (got < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            return -errno;
+        }
+        if (got == 0) {
+            return -ESTALE;
+        }
+        a90_helper_sha256_update(&context, buffer, (size_t)got);
+        offset += got;
+    }
+    if (pread(fd, buffer, 1U, expected_size) != 0) {
+        return -ESTALE;
+    }
+    a90_helper_sha256_final(&context, digest);
+    for (index = 0; index < sizeof(digest); ++index) {
+        actual[index * 2U] = hex[digest[index] >> 4U];
+        actual[index * 2U + 1U] = hex[digest[index] & 0x0fU];
+    }
+    actual[64] = '\0';
+    return d3_sha_equal_ci(actual, expected_sha256) ? 0 : -ESTALE;
+}
+
+static int d4_userdata_ro_check_content_one(
+    const struct d4_ro_content_identity *expected) {
+    char path[PATH_MAX];
+    char target[PATH_MAX];
+    struct stat before;
+    struct stat after;
+    struct stat opened;
+    struct stat opened_after;
+    int open_flags = O_RDONLY | O_CLOEXEC;
+    ssize_t target_size;
+    int fd;
+    int rc;
+
+    if (expected == NULL || expected->leaf == NULL ||
+        expected->sha256 == NULL || expected->size <= 0) {
+        return -EINVAL;
+    }
+    rc = d3_join(path, sizeof(path), A90_D3_ROOT, expected->leaf);
+    if (rc < 0) {
+        return rc;
+    }
+    if (lstat(path, &before) < 0 ||
+        before.st_uid != (uid_t)expected->uid ||
+        before.st_gid != (gid_t)expected->gid ||
+        (before.st_mode & 0777) != (mode_t)expected->mode ||
+        before.st_size != (off_t)expected->size) {
+        return -EPERM;
+    }
+    if (expected->kind == D4_RO_CONTENT_REGULAR) {
+        if (!S_ISREG(before.st_mode) || S_ISLNK(before.st_mode)) {
+            return -EPERM;
+        }
+        open_flags |= O_NOFOLLOW;
+    } else if (expected->kind == D4_RO_CONTENT_SYMLINK) {
+        if (!S_ISLNK(before.st_mode) || expected->link_target == NULL) {
+            return -EPERM;
+        }
+        target_size = readlink(path, target, sizeof(target) - 1U);
+        if (target_size < 0 || (size_t)target_size >= sizeof(target)) {
+            return target_size < 0 ? -errno : -EOVERFLOW;
+        }
+        target[target_size] = '\0';
+        if (strcmp(target, expected->link_target) != 0) {
+            return -EPERM;
+        }
+    } else {
+        return -EINVAL;
+    }
+    fd = open(path, open_flags);
+    if (fd < 0) {
+        return -errno;
+    }
+    if (fstat(fd, &opened) < 0 || !S_ISREG(opened.st_mode) ||
+        opened.st_uid != 0 || opened.st_gid != 0 || opened.st_size <= 0 ||
+        opened.st_size > 64LL * 1024LL * 1024LL ||
+        (expected->kind == D4_RO_CONTENT_REGULAR &&
+         (opened.st_dev != before.st_dev ||
+          opened.st_ino != before.st_ino ||
+          opened.st_mode != before.st_mode ||
+          opened.st_size != before.st_size))) {
+        int saved_errno = errno != 0 ? errno : ESTALE;
+
+        close(fd);
+        return -saved_errno;
+    }
+    rc = d4_userdata_ro_hash_fd(fd, opened.st_size, expected->sha256);
+    if (fstat(fd, &opened_after) < 0) {
+        if (rc == 0) {
+            rc = -errno;
+        }
+    } else if (opened_after.st_dev != opened.st_dev ||
+               opened_after.st_ino != opened.st_ino ||
+               opened_after.st_mode != opened.st_mode ||
+               opened_after.st_uid != opened.st_uid ||
+               opened_after.st_gid != opened.st_gid ||
+               opened_after.st_size != opened.st_size) {
+        if (rc == 0) {
+            rc = -ESTALE;
+        }
+    }
+    if (close(fd) < 0 && rc == 0) {
+        rc = -errno;
+    }
+    if (rc < 0 || lstat(path, &after) < 0 ||
+        after.st_dev != before.st_dev ||
+        after.st_ino != before.st_ino ||
+        after.st_mode != before.st_mode ||
+        after.st_size != before.st_size) {
+        return rc < 0 ? rc : -ESTALE;
+    }
+    a90_console_printf("%s content=ok path=/%s kind=%s bytes=%lld\r\n",
+                       A90_D4_TAG,
+                       expected->leaf,
+                       expected->kind == D4_RO_CONTENT_REGULAR ? "file" : "symlink",
+                       expected->size);
+    return 0;
+}
+
+static int d4_userdata_ro_check_nonempty(const char *leaf,
+                                         unsigned int expected_mode,
+                                         bool exact_mode) {
+    char path[PATH_MAX];
+    struct stat st;
+    int rc = d3_join(path, sizeof(path), A90_D3_ROOT, leaf);
+
+    if (rc < 0) {
+        return rc;
+    }
+    if (lstat(path, &st) < 0 || !S_ISREG(st.st_mode) || S_ISLNK(st.st_mode) ||
+        st.st_uid != 0 || st.st_gid != 0 || st.st_nlink != 1 || st.st_size <= 0 ||
+        (exact_mode && (st.st_mode & 0777) != (mode_t)expected_mode) ||
+        (!exact_mode && (st.st_mode & 0022) != 0)) {
+        return -EPERM;
+    }
+    return 0;
+}
+
+static int d4_userdata_ro_require_absent(const char *leaf) {
+    char path[PATH_MAX];
+    struct stat st;
+    int rc = d3_join(path, sizeof(path), A90_D3_ROOT, leaf);
+
+    if (rc < 0) {
+        return rc;
+    }
+    if (lstat(path, &st) == 0) {
+        return -EPERM;
+    }
+    return errno == ENOENT ? 0 : -errno;
+}
+
+static int d4_userdata_ro_check_usrmerge(void) {
+    static const struct {
+        const char *leaf;
+        const char *target;
+    } links[] = {
+        { "bin", "usr/bin" },
+        { "lib", "usr/lib" },
+        { "sbin", "usr/sbin" },
+    };
+    size_t index;
+
+    for (index = 0; index < sizeof(links) / sizeof(links[0]); ++index) {
+        char path[PATH_MAX];
+        int rc = d3_join(path, sizeof(path), A90_D3_ROOT, links[index].leaf);
+
+        if (rc < 0) {
+            return rc;
+        }
+        rc = d4_symlink_target_ok(path, links[index].target);
+        if (rc < 0) {
+            return rc;
+        }
+    }
+    return 0;
+}
+
+static int d4_userdata_ro_check_content(
+    const char *expected_content_manifest_sha256) {
+    static const char *const absent[] = {
+        "etc/a90-dpublic/cloudflared-quick-enable",
+        "etc/a90-dpublic/native-uplink-enable",
+        "etc/a90-dpublic/wpa_supplicant-wlan0.conf",
+    };
+    size_t index;
+    int rc;
+
+    if (expected_content_manifest_sha256 == NULL ||
+        strcmp(expected_content_manifest_sha256,
+               A90_D4_H14_CONTENT_MANIFEST_SHA256) != 0) {
+        return -EINVAL;
+    }
+    rc = d4_userdata_ro_check_usrmerge();
+    if (rc < 0) {
+        return rc;
+    }
+    for (index = 0; index < sizeof(d4_h14_content) / sizeof(d4_h14_content[0]); ++index) {
+        rc = d4_userdata_ro_check_content_one(&d4_h14_content[index]);
+        if (rc < 0) {
+            a90_console_printf("%s content=invalid index=%zu path=/%s rc=%d\r\n",
+                               A90_D4_TAG,
+                               index,
+                               d4_h14_content[index].leaf,
+                               rc);
+            return rc;
+        }
+    }
+    rc = d4_userdata_ro_check_nonempty("root/.ssh/authorized_keys", 0600, true);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d4_userdata_ro_check_nonempty("etc/a90-dpublic/wifi-sta-enable", 0, false);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d4_userdata_ro_check_nonempty(
+        "etc/a90-dpublic/wifi-sta-immediate-snapshot-only", 0, false);
+    if (rc < 0) {
+        return rc;
+    }
+    for (index = 0; index < sizeof(absent) / sizeof(absent[0]); ++index) {
+        rc = d4_userdata_ro_require_absent(absent[index]);
+        if (rc < 0) {
+            return rc;
+        }
+    }
+    a90_console_printf(
+        "%s content_manifest=ok sha256=%s files=%zu secrets_hashed=0 public_tunnel=disabled\r\n",
+        A90_D4_TAG,
+        expected_content_manifest_sha256,
+        sizeof(d4_h14_content) / sizeof(d4_h14_content[0]));
+    return 0;
+}
+
+static int d4_userdata_ro_check_root(
+    const char *expected_marker,
+    const char *expected_content_manifest_sha256) {
+    int rc = d4_userdata_ro_check_marker(expected_marker);
+
+    return rc < 0
+               ? rc
+               : d4_userdata_ro_check_content(expected_content_manifest_sha256);
+}
+
+int a90_server_distro_userdata_ro_qualify(const char *expected_devname,
+                                          const char *expected_dev,
+                                          const char *expected_sectors,
+                                          const char *expected_label,
+                                          const char *expected_marker,
+                                          const char *expected_uuid,
+                                          const char *expected_content_manifest_sha256) {
+    struct d4_userdata_target target;
+    struct d4_userdata_target final_target;
+    int cleanup_rc;
+    int rc;
+
+    rc = d4_userdata_ro_expected_values_valid(expected_devname,
+                                               expected_dev,
+                                               expected_sectors,
+                                               expected_label,
+                                               expected_marker,
+                                               expected_uuid,
+                                               expected_content_manifest_sha256);
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d4_userdata_ro_static_preflight(expected_devname,
+                                          expected_dev,
+                                          expected_sectors,
+                                          expected_label,
+                                          expected_uuid,
+                                          "userdata-ro-qualification-initial",
+                                          &target);
+    if (rc < 0) {
+        return rc;
+    }
+    if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) < 0) {
+        return -errno;
+    }
+    rc = d4_mount_userdata_readonly_no_replay();
+    if (rc < 0) {
+        return rc;
+    }
+    rc = d4_userdata_ro_check_root(expected_marker,
+                                   expected_content_manifest_sha256);
+    cleanup_rc = umount2(A90_D3_ROOT, MNT_DETACH) < 0 ? -errno : 0;
+    if (cleanup_rc < 0) {
+        a90_console_printf("%s qualification=unmount-fail root=%s rc=%d\r\n",
+                           A90_D4_TAG,
+                           A90_D3_ROOT,
+                           cleanup_rc);
+        return cleanup_rc;
+    }
+    if (rc < 0) {
+        a90_console_printf("%s qualification=root-content-fail rc=%d\r\n",
+                           A90_D4_TAG,
+                           rc);
+        return rc;
+    }
+    rc = d4_userdata_ro_static_preflight(expected_devname,
+                                          expected_dev,
+                                          expected_sectors,
+                                          expected_label,
+                                          expected_uuid,
+                                          "userdata-ro-qualification-final",
+                                          &final_target);
+    if (rc < 0) {
+        return rc;
+    }
+    if (target.major_num != final_target.major_num ||
+        target.minor_num != final_target.minor_num ||
+        target.sectors != final_target.sectors ||
+        strcmp(target.devname, final_target.devname) != 0) {
+        return -ESTALE;
+    }
+    a90_console_printf(
+        "%s qualification=ok root_kind=userdata-ext4-ro-noload "
+        "device=%s sectors=%s label=%s marker=%s uuid=%s "
+        "content_manifest_sha256=%s userdata_write=0\r\n",
+        A90_D4_TAG,
+        expected_dev,
+        expected_sectors,
+        expected_label,
+        expected_marker,
+        expected_uuid,
+        expected_content_manifest_sha256);
+    return 0;
+}
+
+int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
+                                              const char *expected_dev,
+                                              const char *expected_sectors,
+                                              const char *expected_label,
+                                              const char *expected_marker,
+                                              const char *expected_uuid,
+                                              const char *expected_content_manifest_sha256) {
+    struct d4_userdata_target target;
+    struct d4_userdata_target final_target;
+    unsigned writable_mounted = 0;
+    bool evidence_bound = false;
+    bool wifi_handoff_bound = false;
+    bool root_mounted = false;
+    bool moved_proc = false;
+    bool moved_sys = false;
+    bool moved_dev = false;
+    bool mounted_new_dev = false;
+    bool mounted_devpts = false;
+    bool cleanup_clean = true;
+    int rc;
+    char *const newenv[] = {
+        (char *)"HOME=/root",
+        (char *)"PATH=/sbin:/bin:/usr/sbin:/usr/bin",
+        (char *)"TERM=linux",
+        NULL,
+    };
+    char *const switch_argv[] = {
+        (char *)A90_D3_BUSYBOX,
+        (char *)"switch_root",
+        (char *)A90_D3_ROOT,
+        (char *)A90_D3_INIT,
+        NULL,
+    };
+
+    rc = d4_userdata_ro_expected_values_valid(expected_devname,
+                                               expected_dev,
+                                               expected_sectors,
+                                               expected_label,
+                                               expected_marker,
+                                               expected_uuid,
+                                               expected_content_manifest_sha256);
+    if (rc < 0) {
+        return rc;
+    }
+    a90_console_printf(
+        "%s begin root_kind=userdata-ext4-ro-noload node=%s root=%s "
+        "userdata_write=0\r\n",
+        A90_D4_TAG,
+        A90_D4_NODE,
+        A90_D3_ROOT);
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_emit("handoff_begin");
+#endif
+    rc = d4_userdata_ro_static_preflight(expected_devname,
+                                          expected_dev,
+                                          expected_sectors,
+                                          expected_label,
+                                          expected_uuid,
+                                          "userdata-ro-initial",
+                                          &target);
+    if (rc < 0) {
+        return rc;
+    }
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_emit("userdata_identity_initial_done");
+#endif
+    rc = d3_mkdir_p(A90_D3_ROOT, 0755);
+    if (rc < 0) {
+        goto fail_userdata_identity;
+    }
+    rc = d3_handoff_stop_display_owners_strict();
+    if (rc < 0) {
+        a90_console_printf("%s stop=handoff-display-owner rc=%d\r\n",
+                           A90_D4_TAG,
+                           rc);
+        goto fail_userdata_identity;
+    }
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_mark("display_release_done");
+#endif
+    rc = d4_userdata_ro_static_preflight(expected_devname,
+                                          expected_dev,
+                                          expected_sectors,
+                                          expected_label,
+                                          expected_uuid,
+                                          "userdata-ro-post-display",
+                                          &final_target);
+    if (rc < 0 ||
+        target.major_num != final_target.major_num ||
+        target.minor_num != final_target.minor_num ||
+        target.sectors != final_target.sectors ||
+        strcmp(target.devname, final_target.devname) != 0) {
+        rc = rc < 0 ? rc : -ESTALE;
+        a90_console_printf("%s stop=userdata-changed-during-display-cleanup rc=%d\r\n",
+                           A90_D4_TAG,
+                           rc);
+        goto fail_userdata_identity;
+    }
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_emit("userdata_identity_post_display_done");
+#endif
+    if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) < 0) {
+        rc = -errno;
+        a90_console_printf("%s mount_namespace=private-fail rc=%d\r\n",
+                           A90_D4_TAG,
+                           rc);
+        goto fail_userdata_identity;
+    }
+    a90_console_printf("%s mount_namespace=private\r\n", A90_D4_TAG);
+    rc = d4_mount_userdata_readonly_no_replay();
+    if (rc < 0) {
+        goto fail_before_move;
+    }
+    root_mounted = true;
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_mark("root_mounted");
+#endif
+    rc = d4_userdata_ro_check_root(expected_marker,
+                                   expected_content_manifest_sha256);
+    if (rc < 0) {
+        a90_console_printf("%s stop=userdata-root-content-invalid rc=%d\r\n",
+                           A90_D4_TAG,
+                           rc);
+        goto fail_before_move;
+    }
+    rc = d3_mount_writable_set(&writable_mounted);
+    if (rc < 0) {
+        goto fail_before_move;
+    }
+    rc = d3_verify_writable_set();
+    if (rc < 0) {
+        goto fail_before_move;
+    }
+    rc = d3_bind_evidence_dir(&evidence_bound);
+    if (rc < 0) {
+        goto fail_before_move;
+    }
+    rc = d3_bind_wifi_handoff_dir(&wifi_handoff_bound);
+    if (rc < 0) {
+        a90_console_printf("%s stop=wifi-handoff-bind rc=%d\r\n",
+                           A90_D4_TAG,
+                           rc);
+        goto fail_before_move;
+    }
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_emit("writable_set_ready");
+#endif
+    rc = d3_check_distro_init();
+    if (rc < 0) {
+        a90_console_printf("%s stop=distro-init-invalid rc=%d\r\n",
+                           A90_D4_TAG,
+                           rc);
+        goto fail_before_move;
+    }
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_mark("distro_init_verified");
+#endif
+    rc = d3_write_display_release_marker(&d3_last_display_release);
+    if (rc < 0) {
+        a90_console_printf("%s stop=display-release-marker rc=%d\r\n",
+                           A90_D4_TAG,
+                           rc);
+        goto fail_before_move;
+    }
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_mark("display_marker_ready");
+#endif
+    rc = d3_move_core_mounts(true,
+                             &moved_proc,
+                             &moved_sys,
+                             &moved_dev,
+                             &mounted_new_dev,
+                             &mounted_devpts);
+    if (rc < 0) {
+        int restore_rc = d3_restore_core_mounts(moved_proc,
+                                                moved_sys,
+                                                moved_dev,
+                                                mounted_new_dev,
+                                                mounted_devpts);
+
+        a90_console_printf("%s mount_move=fail rc=%d\r\n", A90_D4_TAG, rc);
+        if (restore_rc < 0) {
+            cleanup_clean = false;
+            rc = restore_rc;
+        } else {
+            moved_proc = false;
+            moved_sys = false;
+            moved_dev = false;
+            mounted_new_dev = false;
+            mounted_devpts = false;
+        }
+        goto fail_before_move;
+    }
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_mark("mount_moves_done");
+#endif
+    a90_console_printf(
+        "%s exec_switch_root_now busybox=%s root=%s init=%s "
+        "source=ufs-userdata-ro-noload console=reuse-stdio\r\n",
+        A90_D4_TAG,
+        A90_D3_BUSYBOX,
+        A90_D3_ROOT,
+        A90_D3_INIT);
+    a90_logf("server-distro",
+             "D4 read-only switch_root exec source=%s root=%s "
+             "writable_set=%u evidence_bound=%d wifi_handoff_bound=%d",
+             A90_D4_NODE,
+             A90_D3_ROOT,
+             writable_mounted,
+             evidence_bound ? 1 : 0,
+             wifi_handoff_bound ? 1 : 0);
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_mark("switch_root_exec");
+#endif
+    sync();
+    usleep(200000);
+    execve(A90_D3_BUSYBOX, switch_argv, newenv);
+
+    rc = -errno;
+    a90_console_printf("%s execve_switch_root=fail rc=%d errno=%d (%s)\r\n",
+                       A90_D4_TAG,
+                       rc,
+                       -rc,
+                       strerror(-rc));
+    {
+        int restore_rc = d3_restore_core_mounts(moved_proc,
+                                                moved_sys,
+                                                moved_dev,
+                                                mounted_new_dev,
+                                                mounted_devpts);
+
+        if (restore_rc < 0) {
+            cleanup_clean = false;
+            rc = restore_rc;
+        } else {
+            moved_proc = false;
+            moved_sys = false;
+            moved_dev = false;
+            mounted_new_dev = false;
+            mounted_devpts = false;
+        }
+    }
+
+fail_before_move:
+    if (root_mounted && cleanup_clean) {
+        if (umount2(A90_D3_ROOT, MNT_DETACH) == 0) {
+            a90_console_printf("%s rootfs=unmounted-after-fail root=%s\r\n",
+                               A90_D4_TAG,
+                               A90_D3_ROOT);
+            root_mounted = false;
+        } else {
+            cleanup_clean = false;
+            a90_console_printf("%s rootfs=unmount-fail root=%s errno=%d\r\n",
+                               A90_D4_TAG,
+                               A90_D3_ROOT,
+                               errno);
+        }
+    } else if (root_mounted) {
+        a90_console_printf(
+            "%s rootfs=retained-after-restore-fail root=%s recovery_required=1\r\n",
+            A90_D4_TAG,
+            A90_D3_ROOT);
+    }
+    a90_console_printf("%s mount_state_clean_after_failure=%d\r\n",
+                       A90_D4_TAG,
+                       cleanup_clean ? 1 : 0);
+
+fail_userdata_identity:
+    if (d4_userdata_ro_static_preflight(expected_devname,
+                                         expected_dev,
+                                         expected_sectors,
+                                         expected_label,
+                                         expected_uuid,
+                                         "userdata-ro-after-failure",
+                                         &final_target) < 0) {
+        a90_console_printf(
+            "%s userdata_unchanged_after_failure=0 stop=identity-lost\r\n",
+            A90_D4_TAG);
+        return -ESTALE;
+    }
+    a90_console_printf("%s userdata_unchanged_after_failure=1 userdata_write=0\r\n",
+                       A90_D4_TAG);
+    a90_logf("server-distro",
+             "D4 handoff failure cleanup_clean=%d root_mounted=%d "
+             "recovery_required=%d userdata_unchanged=1 userdata_write=0",
+             cleanup_clean ? 1 : 0,
+             root_mounted ? 1 : 0,
+             (cleanup_clean && !root_mounted) ? 0 : 1);
+#if A90_AUTO_HANDOFF_BENCHMARK_V1
+    a90_benchmark_emit("handoff_failed_native");
+#endif
+    return rc;
 }
 
 static int d4_dpublic_hud_bind_target(char *out, size_t out_size) {

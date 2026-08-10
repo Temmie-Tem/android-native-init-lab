@@ -45,6 +45,19 @@ The pre-H2 goal history is preserved at
   staging/F1, UFS, or device authority. Because this is a new transfer incident,
   the prior H13 `PASS_GO`, manifest, D0, and compatibility approval are not
   reusable.
+- Fresh exact-target D0 revalidated the existing UFS appliance partition as the
+  same unmounted `sda33`, `259:17`, 231577432-sector, `PARTNAME=userdata`
+  identity recorded by D4. H11's minimal shell deliberately omits the old
+  userdata preflight command, so current filesystem label, marker, and init
+  remain unproved rather than inferred. No UFS mount, node creation, filesystem
+  read/write, payload, reboot, flash, or S22+ command occurred.
+- H14 `0.11.182` now has a deterministic boot-only candidate for the existing
+  UFS appliance: A/B SHA256 `4245ec2b`, no SD/rootfs payload, and a read-only
+  `ro,noload,nosuid,nodev` handoff with Wi-Fi retained. Independent `PASS_GO`
+  covers the 37-file execution closure `9f12ed7f` and native closure `0a226bbc`;
+  33 focused and 607 related tests pass with no unresolved HIGH or MEDIUM.
+  Because the fast-loop trial is retired, this qualification grants no live
+  authority: F1 and D1 each still require a fresh exact attended approval.
 - The fresh Phase3 network/SSH rootfs, H11 marker namespace, deterministic A/B
   boot, exact compiled binding, and benchmark execution closure are bound by a
   42-path independent review. `PASS_GO` has HIGH/MEDIUM/LOW zero and grants no
@@ -694,40 +707,26 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: H13 Transfer-Incident Closure, Then UFS Direct Root
+## Selected Bounded Unit: H14 Direct-UFS Resident Install and Control
 
-Preserve every terminal H7-H13 F1/D1 run, consumed namespace, journal, private
-evidence item, and no-replay conclusion. H11 remains the exact installed
-healthy resident. Never resume run08 staging or its F1 transaction, reuse its
-approval, or treat its partial temporary file as a published rootfs.
+Preserve every terminal H7-H13 run and no-replay conclusion. H11 remains the
+exact installed healthy resident; run08 and its partial SD-stage residue are
+not reusable. The H13 transfer repair is separately qualified and closed.
 
-First close the SD transfer incident as a separate bounded repair. Its transfer
-deadline, single cancel, terminal acknowledgement, parent cleanup suppression,
-and host-timeout evidence passed independent review at closure `e66c3e9d`; record
-and commit that exact closure. This repair does not authorize another run08
-attempt or a fresh SD-root campaign.
+The H14 host closure is now qualified. Next, create one fresh immutable F1
+manifest, revalidate exact A90 health plus V2321 rollback/recovery, consume one
+fresh attended approval, and install the boot-only H14 resident. The transaction
+must transfer no rootfs and must close only on exact H14 resident health.
 
-The following separate bounded unit is host design and read-only revalidation
-for the existing ext4 `A90D4ROOT` appliance on `/dev/block/a90-userdata`, which
-already has historical Debian PID1, root mount, SSH, and display proof. Preserve
-its bytes: do not format, populate, repair, or otherwise mutate userdata. Bind
-its current filesystem identity, appliance marker, `/sbin/init`, and required
-runtime files; then qualify the exact direct-UFS handoff, fallback, observer,
-and recovery closure under the current target contract. Amend the contract only
-if that analysis proves the existing D1/F1 lanes do not represent the effect.
+After that healthy close, create a new D1 ordinal and consume its own fresh
+attended approval. Dispatch exactly one combined arm-plus-reboot operation and
+prove the existing UFS identity and content, read-only root, Debian PID 1,
+DRM/display, SSH/NCM/Wi-Fi service, clean automatic native return, and final H14
+resident health. An uncertain transition is never replayed.
 
-Only after that closure passes independent review may a fresh boot-only resident
-candidate be prepared. It must reuse the existing UFS appliance rather than
-stage or copy another 2 GiB rootfs through SD. Fresh D0, rollback/recovery proof,
-immutable manifest, and attended live binding remain required. One attended
-control cycle must then prove exact Debian NCM continuity through SSH and
-service, same-intent UFS root/PID1/DRM evidence, later native ACM return,
-cleanup, and final resident health.
-
-Only after that fresh control produces full host-link proof and a comparable
-benchmark may Full-LTO become the following bounded candidate. Receipt
-qualification does not replace fresh D0, rollback, recovery, attendance,
-immutable manifest, one-shot journals, no-replay, or final-health gates.
+Only a full comparable H14 control benchmark can open a later Full-LTO unit.
+Qualification never substitutes for fresh manifest, D0, approval, attendance,
+one-shot journal, recovery, or final-health gates.
 
 ## Optimization Order
 
@@ -790,6 +789,7 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_H10_RUN02_PROVED_ARM_NO_REPLAY_RESUME_INDEPENDENT_REVIEW_2026-08-10.json`
 - `docs/reports/A90_H10_NCM_FIRST_OBSERVER_AND_BENCHMARK_RECEIPT_INDEPENDENT_REVIEW_2026-08-10.json`
 - `docs/reports/A90_PHASE3_MINIMAL_H11_DIRECT_DEBIAN_BOOT_INDEPENDENT_REVIEW_2026-08-10.json`
+- `docs/reports/A90_H14_DIRECT_UFS_READONLY_ROOT_INDEPENDENT_REVIEW_2026-08-10.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`

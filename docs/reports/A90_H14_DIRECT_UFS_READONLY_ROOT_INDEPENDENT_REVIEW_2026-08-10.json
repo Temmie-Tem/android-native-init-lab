@@ -1,0 +1,64 @@
+{
+  "schema": "a90-h14-direct-ufs-readonly-root-independent-review-v1",
+  "status": "PASS_GO",
+  "review_date": "2026-08-10",
+  "reviewer": "independent subagent /root/a90_h7_closure_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "capability": "A90_DIRECT_UFS_READONLY_ROOT_V1",
+  "decision": "The exact boot-only F1 and attended read-only-UFS D1 execution closure has no unresolved HIGH or MEDIUM finding. Fresh run approvals are exact and durably consumed, candidate and rollback crash boundaries never infer disk bytes from running health, and D1 cannot close without exact cancellation or mount-cleanup evidence.",
+  "frozen_scope": {
+    "execution_closure_sha256": "9f12ed7fb8fa5030b3dd26ab411b3d661533b32e29b2ccf6bca011e089794569",
+    "execution_closure_members": 37,
+    "native_init_closure_sha256": "0a226bbc812a4c05b026fd9ca59ac91afb66db232a1b9b558450cae5b9fe49f8",
+    "agents_contract_sha256": "c07f670424fa7920f5b02e44d0f2b4f8a87030aac6f9d0ae268bf1339e51790e",
+    "manifest_sha256": "8281879157556fcaa2e8556b02579bc7d4378c6b050c8909a6e05de94773176d",
+    "candidate_boot_sha256": "4245ec2be2949b6c404535195557a4c8d5178285960452a00a0d05349808f653",
+    "candidate_boot_bytes": 58372096,
+    "ab_receipt_sha256": "a28dde86006e760cc1f341b161e95039650bba3a22afe9ce02d036eb9f56768c",
+    "ab_byte_identical": true
+  },
+  "reviewed_behavior": {
+    "fresh_f1_approval_required": true,
+    "fresh_d1_approval_required": true,
+    "approval_consumed_before_effect": true,
+    "candidate_replay": false,
+    "ambiguous_candidate_requires_bound_rollback": true,
+    "ambiguous_rollback_health_inference_forbidden": true,
+    "process_group_descendant_quiescence_required": true,
+    "userdata_mount": "ro,noload,nosuid,nodev",
+    "userdata_write_allowed": false,
+    "sd_rootfs_payload_or_stage": false,
+    "d1_combined_arm_reboot_dispatch_limit": 1,
+    "d1_no_effect_requires_same_intent_cancel_fsync": true,
+    "d1_native_failure_requires_clean_restore_and_root_unmount": true,
+    "s22plus_authority": false
+  },
+  "findings": {
+    "final_high": 0,
+    "final_medium": 0,
+    "resolved_high": 5,
+    "resolved_medium": 5,
+    "unresolved": []
+  },
+  "validation": {
+    "focused_tests_passed": 33,
+    "related_tests_passed": 607,
+    "python_py_compile": "PASS",
+    "git_diff_check": "PASS",
+    "aarch64_static_link": "PASS",
+    "deterministic_ab_build": "PASS"
+  },
+  "review_lifetime": {
+    "reuse": "PASS_GO qualifies this capability across ordinals, manifests, and campaigns only while the named 37-file execution closure, native closure, and reviewed hazard assumptions remain unchanged and no new hazard or incident occurs.",
+    "fresh_manifest_and_run_approval_required": true,
+    "live_authority_from_review": false
+  },
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "reviewer_device_contact": false,
+  "reviewer_usb_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_network_contact": false,
+  "reviewer_s22plus_contact": false,
+  "reviewer_implementation_edits": false
+}

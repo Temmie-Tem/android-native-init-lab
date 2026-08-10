@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/reboot.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -27,7 +28,11 @@
 
 #define A90_AUTO_HANDOFF_TOKEN "SERVER-DISTRO-D3B-SWITCHROOT"
 #define A90_AUTO_HANDOFF_ARM_TOKEN "AUTO-HANDOFF-BENCHMARK-V1-ARM"
+#if A90_AUTO_HANDOFF_USERDATA_ROOT_V1
+#define A90_AUTO_HANDOFF_SCHEMA "a90-auto-handoff-userdata-ro-v1"
+#else
 #define A90_AUTO_HANDOFF_SCHEMA "a90-auto-handoff-benchmark-v1"
+#endif
 #define A90_AUTO_HANDOFF_STATE_MAX 768U
 
 /*
@@ -67,10 +72,36 @@ static int a90_auto_handoff_hex64_valid(const char *value) {
 }
 
 static int a90_auto_handoff_binding_valid(void) {
+#if A90_AUTO_HANDOFF_USERDATA_ROOT_V1
+    return strcmp(A90_AUTO_HANDOFF_USERDATA_DEVNAME, "sda33") == 0 &&
+           strcmp(A90_AUTO_HANDOFF_USERDATA_DEV, "259:17") == 0 &&
+           strcmp(A90_AUTO_HANDOFF_USERDATA_SECTORS, "231577432") == 0 &&
+           strcmp(A90_AUTO_HANDOFF_USERDATA_LABEL, "A90D4ROOT") == 0 &&
+           strcmp(A90_AUTO_HANDOFF_USERDATA_MARKER,
+                  "userdata=appliance-root") == 0 &&
+           strcmp(A90_AUTO_HANDOFF_USERDATA_UUID,
+                  "300aaf21-412c-4238-9106-56414eaab105") == 0 &&
+           strcmp(A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_PATH,
+                  "workspace/public/src/scripts/revalidation/a90_flat_builder/"
+                  "versions/phase3-minimal-h14/userdata-content-manifest.json") == 0 &&
+           a90_auto_handoff_hex64_valid(
+               A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_FILE_SHA256) &&
+           a90_auto_handoff_hex64_valid(
+               A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_SHA256);
+#else
     return strncmp(A90_AUTO_HANDOFF_IMAGE,
                    "/mnt/sdext/a90/runtime/",
                    strlen("/mnt/sdext/a90/runtime/")) == 0 &&
            a90_auto_handoff_hex64_valid(A90_AUTO_HANDOFF_IMAGE_SHA256);
+#endif
+}
+
+static const char *a90_auto_handoff_root_description(void) {
+#if A90_AUTO_HANDOFF_USERDATA_ROOT_V1
+    return "/dev/block/a90-userdata";
+#else
+    return A90_AUTO_HANDOFF_IMAGE;
+#endif
 }
 
 static int a90_auto_handoff_state_path(const char *path) {
@@ -144,6 +175,33 @@ static int a90_auto_handoff_format_state(char *out,
                                          const char *state) {
     int length;
 
+#if A90_AUTO_HANDOFF_USERDATA_ROOT_V1
+    length = snprintf(out,
+                      out_size,
+                      "schema=%s\n"
+                      "build=%s\n"
+                      "root_kind=userdata-ext4-ro-noload\n"
+                      "userdata_devname=%s\n"
+                      "userdata_dev=%s\n"
+                      "userdata_sectors=%s\n"
+                      "userdata_label=%s\n"
+                      "userdata_marker=%s\n"
+                      "userdata_uuid=%s\n"
+                      "userdata_content_manifest_sha256=%s\n"
+                      "intent_sha256=%s\n"
+                      "state=%s\n",
+                      A90_AUTO_HANDOFF_SCHEMA,
+                      INIT_BUILD,
+                      A90_AUTO_HANDOFF_USERDATA_DEVNAME,
+                      A90_AUTO_HANDOFF_USERDATA_DEV,
+                      A90_AUTO_HANDOFF_USERDATA_SECTORS,
+                      A90_AUTO_HANDOFF_USERDATA_LABEL,
+                      A90_AUTO_HANDOFF_USERDATA_MARKER,
+                      A90_AUTO_HANDOFF_USERDATA_UUID,
+                      A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_SHA256,
+                      intent_sha256,
+                      state);
+#else
     length = snprintf(out,
                       out_size,
                       "schema=%s\n"
@@ -158,6 +216,7 @@ static int a90_auto_handoff_format_state(char *out,
                       A90_AUTO_HANDOFF_IMAGE_SHA256,
                       intent_sha256,
                       state);
+#endif
     if (length < 0 || (size_t)length >= out_size) {
         return -EOVERFLOW;
     }
@@ -319,11 +378,27 @@ int a90_auto_handoff_arm_cmd(char **argv, int argc) {
     if (enable_state != 0) {
         return enable_state > 0 ? -EEXIST : enable_state;
     }
+#if A90_AUTO_HANDOFF_USERDATA_ROOT_V1
+    rc = a90_server_distro_userdata_ro_qualify(
+        A90_AUTO_HANDOFF_USERDATA_DEVNAME,
+        A90_AUTO_HANDOFF_USERDATA_DEV,
+        A90_AUTO_HANDOFF_USERDATA_SECTORS,
+        A90_AUTO_HANDOFF_USERDATA_LABEL,
+        A90_AUTO_HANDOFF_USERDATA_MARKER,
+        A90_AUTO_HANDOFF_USERDATA_UUID,
+        A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_SHA256);
+#else
     rc = a90_server_distro_source_receipt_ensure(
         A90_AUTO_HANDOFF_IMAGE,
         A90_AUTO_HANDOFF_IMAGE_SHA256);
+#endif
     if (rc < 0) {
+#if A90_AUTO_HANDOFF_USERDATA_ROOT_V1
+        a90_console_printf("A90AUTO_ARM armed=0 rc=%d userdata_ro=refused\r\n",
+                           rc);
+#else
         a90_console_printf("A90AUTO_ARM armed=0 rc=%d source_receipt=refused\r\n", rc);
+#endif
         return rc;
     }
     rc = a90_auto_handoff_create_enable(intent_sha256);
@@ -341,6 +416,66 @@ int a90_auto_handoff_arm_cmd(char **argv, int argc) {
                         "auto-handoff-arm",
                         "durable enable created after native health");
     return 0;
+}
+
+static int a90_auto_handoff_cancel_enable(const char *intent_sha256) {
+    char observed[65];
+    int state;
+    int rc;
+
+    state = a90_auto_handoff_read_enable(observed, sizeof(observed));
+    if (state != 1 || strcmp(observed, intent_sha256) != 0) {
+        return state < 0 ? state : -ESTALE;
+    }
+    if (unlink(A90_AUTO_HANDOFF_ENABLE_PATH) < 0) {
+        return -errno;
+    }
+    rc = a90_auto_handoff_fsync_cache_dir();
+    return rc < 0 ? rc : 0;
+}
+
+int a90_auto_handoff_arm_reboot_cmd(char **argv, int argc) {
+    int cancel_rc;
+    int reboot_errno;
+    int reboot_rc;
+    int rc;
+
+    rc = a90_auto_handoff_arm_cmd(argv, argc);
+    if (rc < 0) {
+        return rc;
+    }
+    a90_console_printf(
+        "A90AUTO_ARM_REBOOT armed=1 reboot_dispatch=1 intent_sha256=%s build=%s\r\n",
+        argv[2],
+        INIT_BUILD);
+    a90_logf("auto-handoff",
+             "armed reboot dispatch intent_sha256=%s",
+             argv[2]);
+    a90_timeline_record(0,
+                        0,
+                        "auto-handoff-arm-reboot",
+                        "durable enable followed by same-command reboot");
+    sync();
+    errno = 0;
+    reboot_rc = reboot(RB_AUTOBOOT);
+    reboot_errno = reboot_rc < 0 && errno != 0 ? errno : EIO;
+    cancel_rc = a90_auto_handoff_cancel_enable(argv[2]);
+    sync();
+    a90_logf("auto-handoff",
+             "reboot returned cancellation intent_sha256=%s "
+             "reboot_errno=%d cancel_rc=%d",
+             argv[2],
+             reboot_errno,
+             cancel_rc);
+    a90_console_printf(
+        "A90AUTO_ARM_REBOOT armed=%d reboot_dispatch=0 reboot_errno=%d cancel_rc=%d\r\n",
+        cancel_rc < 0 ? 1 : 0,
+        reboot_errno,
+        cancel_rc);
+    if (cancel_rc < 0) {
+        return cancel_rc;
+    }
+    return -reboot_errno;
 }
 
 /*
@@ -566,6 +701,7 @@ static int a90_auto_handoff_replay_ondevice_evidence(void) {
 }
 
 int a90_auto_handoff_run_once(void) {
+#if !A90_AUTO_HANDOFF_USERDATA_ROOT_V1
     char *argv[] = {
         (char *)"switch-root-to-distro",
         (char *)A90_AUTO_HANDOFF_TOKEN,
@@ -573,6 +709,7 @@ int a90_auto_handoff_run_once(void) {
         (char *)A90_AUTO_HANDOFF_IMAGE_SHA256,
         NULL,
     };
+#endif
     char intent_sha256[65];
     int enable_state;
     int latch_state;
@@ -647,10 +784,30 @@ int a90_auto_handoff_run_once(void) {
         a90_benchmark_mark("auto_handoff_enable_refused");
         return enable_state;
     }
+#if A90_AUTO_HANDOFF_USERDATA_ROOT_V1
+    rc = a90_server_distro_userdata_ro_qualify(
+        A90_AUTO_HANDOFF_USERDATA_DEVNAME,
+        A90_AUTO_HANDOFF_USERDATA_DEV,
+        A90_AUTO_HANDOFF_USERDATA_SECTORS,
+        A90_AUTO_HANDOFF_USERDATA_LABEL,
+        A90_AUTO_HANDOFF_USERDATA_MARKER,
+        A90_AUTO_HANDOFF_USERDATA_UUID,
+        A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_SHA256);
+#else
     rc = a90_server_distro_source_receipt_preflight(
         A90_AUTO_HANDOFF_IMAGE,
         A90_AUTO_HANDOFF_IMAGE_SHA256);
+#endif
     if (rc < 0) {
+#if A90_AUTO_HANDOFF_USERDATA_ROOT_V1
+        a90_console_printf("A90AUTO refused=userdata-ro-preflight rc=%d\r\n", rc);
+        a90_logf("auto-handoff", "userdata read-only preflight failed rc=%d", rc);
+        a90_timeline_record(rc,
+                            -rc,
+                            "auto-handoff",
+                            "userdata read-only preflight failed before latch");
+        a90_benchmark_mark("auto_handoff_userdata_refused");
+#else
         a90_console_printf("A90AUTO refused=source-receipt-preflight rc=%d\r\n", rc);
         a90_logf("auto-handoff", "source receipt preflight failed rc=%d", rc);
         a90_timeline_record(rc,
@@ -658,6 +815,7 @@ int a90_auto_handoff_run_once(void) {
                             "auto-handoff",
                             "source receipt preflight failed before latch");
         a90_benchmark_mark("auto_handoff_source_receipt_refused");
+#endif
         return rc;
     }
     rc = a90_auto_handoff_create_latch(intent_sha256);
@@ -672,12 +830,21 @@ int a90_auto_handoff_run_once(void) {
         return rc;
     }
 
+#if A90_AUTO_HANDOFF_USERDATA_ROOT_V1
+    a90_console_printf("A90AUTO state=dispatch-once latch=%s root=%s\r\n",
+                       A90_AUTO_HANDOFF_LATCH_PATH,
+                       a90_auto_handoff_root_description());
+    a90_logf("auto-handoff", "dispatch once latch=%s root=%s",
+             A90_AUTO_HANDOFF_LATCH_PATH,
+             a90_auto_handoff_root_description());
+#else
     a90_console_printf("A90AUTO state=dispatch-once latch=%s image=%s\r\n",
                        A90_AUTO_HANDOFF_LATCH_PATH,
                        A90_AUTO_HANDOFF_IMAGE);
     a90_logf("auto-handoff", "dispatch once latch=%s image=%s",
              A90_AUTO_HANDOFF_LATCH_PATH,
              A90_AUTO_HANDOFF_IMAGE);
+#endif
     a90_timeline_record(0,
                         0,
                         "auto-handoff",
@@ -691,7 +858,18 @@ int a90_auto_handoff_run_once(void) {
                  intent_sha256, A90_AUTO_HANDOFF_EVIDENCE_RUN_PATH);
     }
     a90_benchmark_mark("auto_handoff_dispatched");
+#if A90_AUTO_HANDOFF_USERDATA_ROOT_V1
+    rc = a90_server_distro_switch_root_userdata_ro(
+        A90_AUTO_HANDOFF_USERDATA_DEVNAME,
+        A90_AUTO_HANDOFF_USERDATA_DEV,
+        A90_AUTO_HANDOFF_USERDATA_SECTORS,
+        A90_AUTO_HANDOFF_USERDATA_LABEL,
+        A90_AUTO_HANDOFF_USERDATA_MARKER,
+        A90_AUTO_HANDOFF_USERDATA_UUID,
+        A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_SHA256);
+#else
     rc = a90_server_distro_switch_root_cmd(argv, 4);
+#endif
 
     a90_console_printf("A90AUTO state=handoff-returned-no-replay rc=%d\r\n", rc);
     a90_logf("auto-handoff", "handoff returned no replay rc=%d", rc);

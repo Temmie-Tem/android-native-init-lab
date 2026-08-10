@@ -166,7 +166,7 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
         ]
         run = source[
             source.index("int a90_auto_handoff_run_once(void)"):
-            source.index("#else", source.index("int a90_auto_handoff_run_once(void)"))
+            source.index("\n#else\n\nint a90_auto_handoff_status_cmd", source.index("int a90_auto_handoff_run_once(void)"))
         ]
         self.assertLess(
             arm.index("a90_server_distro_source_receipt_ensure("),
@@ -195,11 +195,11 @@ class A90AutoHandoffSourceV1Tests(unittest.TestCase):
         source = (NATIVE / "a90_server_distro.c").read_text(encoding="utf-8")
         prepare = source[
             source.index("static int d3_prepare_new_dev("):
-            source.index("static void d3_restore_mount_one(")
+            source.index("static int d3_restore_mount_one(")
         ]
         move = source[
             source.index("static int d3_move_core_mounts("):
-            source.index("static void d3_restore_core_mounts(")
+            source.index("static int d3_restore_core_mounts(")
         ]
         self.assertIn('lstat(dev_dir, &st)', prepare)
         self.assertNotIn("d3_mkdir_p(dev_dir", prepare)
