@@ -7,7 +7,8 @@ Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` /
 
 Draft verdict: `PRIORITY_RESIDUAL_HYPOTHESIS_NOT_CAUSALLY_PROVEN`
 
-Review state: `INDEPENDENT_SOURCE_REVIEW_PASS_1_APPLIED_STILL_NOT_PROMOTED`
+Review state:
+`INDEPENDENT_SOURCE_REVIEW_PASS_1_REJECTED_BY_SOURCE_RECHECK_CORRECTED_STILL_NOT_PROMOTED`
 
 S22+ analysis base while drafting:
 `3d04ca11ed3374530a3b611d8760075a1888a706`
@@ -157,23 +158,35 @@ detect does not read CONTROL1 before or after its COM_USB command. A future
 pre/post-state claim therefore needs an explicit, reviewed readback mechanism;
 it cannot be inferred from the cached VPS state or a successful queue call.
 
-Independent-review addition (2026-08-11): the readback is cheaper than the
-paragraph above implies, and the exact scope should be recorded now.
+Source-recheck correction (2026-08-11): the first independent pass correctly
+found an exercised opcode-read transport, but incorrectly claimed that
+CONTROL1 is never read anywhere in the tree.
 
 - `COMMAND_CONTROL1_READ = 0x05` is defined at
   `include/linux/usb/typec/maxim/max77705-muic.h:70`.
-- `COMMAND_CONTROL1_WRITE` is the *only* CONTROL1 opcode actually issued
-  anywhere in the tree (`max77705-muic.c:343`). CONTROL1 is never read on any
-  path, not merely "not before initial detect".
-- However the opcode-**read** machinery is already exercised on this exact IC
-  for sibling registers: `COMMAND_BC_CTRL2_READ` at `max77705-muic.c:546` and
+- The normal MUIC initial-detect path issues only
+  `COMMAND_CONTROL1_WRITE` at `max77705-muic.c:343`; it does not read
+  CONTROL1 before or after that write.
+- The separate sysfs store handler named `max77705_fw_update()` does issue the
+  same read opcode under the alias `OPCODE_CTRL1_R = 0x05`, unconditionally at
+  `max77705_usbc.c:1571-1587`; case 2 adds another read at `:1593-1595` after
+  that unconditional read/write request. This is not a normal initial-detect
+  read or a passive read-only interface, but it refutes the global never-read
+  claim.
+- Opcode-read/update transport is also exercised for sibling registers:
+  `COMMAND_BC_CTRL2_READ` at `max77705-muic.c:546` and
   `COMMAND_BC_CTRL1_READ` at `:561` and `:577`.
 
-Adding a CONTROL1 read therefore reuses a proven in-driver request/response
-pattern with a different opcode number. It is not a new interface class and
-not an unexercised transport. The bounded design, opcode-response contract,
-and fixture are still required; the risk estimate should be lowered
-accordingly, and the "post-read only" fallback below may prove unnecessary.
+Adding a normal-path CONTROL1 read therefore reuses an already issued opcode
+and an exercised in-driver request/response transport. It is not a new
+interface class. That does not make retained readback automatic. The response
+dispatcher handles `OPCODE_CTRL1_R` semantically only for
+`OPCODE_UPDATE_SEQ`, which performs an active read-modify-write; an ordinary
+read otherwise leaves the byte in the local response buffer and low-level
+hex-dump path (`max77705_usbc.c:1934-1963,2086-2102`). A future passive
+pre/post witness still needs bounded issuance, response attribution, retained
+capture, and a fixture. The transport risk is lower than a new interface, but
+neither pre-read nor post-read may be assumed from existing normal behavior.
 
 ## Required corrections to the originating claim
 
@@ -297,10 +310,12 @@ The exact Linux flow reads hardware status, classifies the cable, and then
 issues an explicit COM_USB command. Until CONTROL1 is read before initial
 detect, autonomy remains possible but unproven.
 
-## What the next bounded experiment must prove
+## What a later bounded experiment must prove
 
-The useful successor is not "add six modules and see whether USB appears."
-It is a 66-module, PC-powered, natural-UFP attach discriminator with explicit
+The next work is H0 closure of the MFD parent probe, not candidate
+implementation. If that power/firmware-setting hazard closes, the useful live
+successor is not "add six modules and see whether USB appears." It is a
+66-module, PC-powered, natural-UFP attach discriminator with explicit
 control-plane witnesses. It is distinct from the previously proposed OTG-host
 test: the connected PC supplies VBUS, so the provisional 86-module phone-VBUS
 source closure is not required for this question.
@@ -320,9 +335,10 @@ pdic_max77705.ko
 This is dependency arithmetic only. It is not a qualified module plan or live
 authority.
 
-### The delta omits the charger siblings, and this IC is the power IC
+### MFD load is active power-IC and firmware-setting behavior
 
-Independent-review addition (2026-08-11). The stock load order is:
+The first independent pass cited these textual positions in
+`modules.load.recovery`:
 
 ```text
 359 max77705_charger.ko
@@ -331,31 +347,69 @@ Independent-review addition (2026-08-11). The stock load order is:
 405 pdic_max77705.ko
 ```
 
-Stock brings the charger and fuel-gauge children up **before** the MFD and
-PDIC. The delta above brings up neither, so it produces a partially
-instantiated MFD — a configuration production never ships.
+Those positions are not initialization order. The exact stock `modules.dep`
+instead records:
+
+```text
+max77705_charger.ko   -> pdic_max77705.ko, mfd_max77705.ko, ...
+max77705-fuelgauge.ko -> mfd_max77705.ko, ...
+pdic_max77705.ko      -> mfd_max77705.ko, ...
+```
+
+Artifact authority:
+`workspace/private/inputs/s22plus_firmware/S906NKSS7FYG8_SKC/extracted-images/ramdisk-list/vendor/extract/lib/modules/modules.dep:6,91,176,390`.
+
+A dependency-aware loader must therefore bring up the parent dependencies
+before the charger child can initialize. Text position, dependency load,
+platform probe completion, and notifier registration are distinct orders.
+The earlier claim that stock initializes charger/fuel-gauge before MFD/PDIC,
+and that production never passes through a partially bound child set, is not
+supported.
+
+The module graph does show that `pdic_max77705.ko` has no hard dependency on
+the charger or fuel-gauge child drivers. The MFD parent nevertheless creates
+dummy I2C clients for MUIC, charger, and fuel-gauge, then registers every
+compiled MFD cell (`drivers/mfd/maxim/max77705.c:1311-1347`). A 66-module
+closure can therefore be link-complete while leaving charger/fuel-gauge child
+drivers unbound. That is a mechanical fact, not yet a safety proof.
+
+The real hazard is stronger and arises earlier than child binding. Under the
+exact `CONFIG_CCIC_MAX77705=m` configuration, the MFD parent probe calls
+`max77705_usbc_fw_setting(max77705, 0)` before `mfd_add_devices()`
+(`drivers/mfd/maxim/max77705.c:1301-1347`). For a PASS5 device that calls
+`max77705_usbc_fw_update()` with `BOOT_FLASH_FW_PASS2`
+(`max77705.c:1157-1178`). The updater masks MUIC interrupts, reads charger and
+fuel-gauge address spaces, changes charger configuration when its conditions
+require it, and can enter the firmware-write sequence
+(`max77705.c:826-1155`). The selected target's exact silicon/version branch
+has not been established by this H0 report.
+
+Configuration authority:
+`arch/arm64/configs/vendor/waipio-gki_defconfig:1201`, relative to the exact
+FYG8-matched kernel tree named above.
 
 That matters more here than for a normal module addition, because
 `994000.i2c / max77705@66` is not a USB peripheral. It is the combined
 **charger / fuel-gauge / MUIC / PDIC** device on a target whose entire recovery
-model assumes a charged, healthy battery. This would be the first time the
-campaign drives a power-management IC.
+model assumes a charged, healthy battery. The earlier S7A2 recipe did not
+retain enough evidence to prove or safely characterize MFD-parent execution,
+so it cannot serve as safety evidence for a deliberate future load.
 
-The successor must therefore either:
+Before a successor is implemented, H0 must therefore:
 
-- derive from the exact source that partial child instantiation is safe and
-  that no charger/fuel-gauge path is required for MUIC detect and CONTROL1
-  command/response; or
-- follow the stock order and include the charger siblings, accepting the larger
-  surface in exchange for a configuration the vendor actually ships.
+- establish the exact target revision/version branch and every MFD-probe
+  write reachable during candidate load;
+- prove whether the stock updater returns after version comparison or can
+  perform firmware/charger changes in the candidate conditions;
+- classify the resulting recovery and health implications; and
+- separately decide whether unbound charger/fuel-gauge child drivers are safe.
 
-Either way, the successor's independent review must classify this as its own
-hazard — **power-management IC control**, not "adding USB modules". The
-campaign has already spent a month on a component dropped because it "looked
-unnecessary"; that judgement should not be repeated on the battery path.
-
-Note that this hazard is about *driver instantiation and IC command traffic*,
-not firmware: probe issues no firmware update (see above).
+Blindly adding the charger siblings is not a safety closure: it adds more
+power-management execution surface and does not remove the parent's boot-time
+firmware-setting call. The successor's independent review must classify this
+as its own **power-management IC and firmware-setting** hazard, not as a
+routine USB-module addition. Until that review passes, the 66-module plan is a
+provisional dependency calculation only.
 
 The minimum witness chain is:
 
@@ -381,19 +435,17 @@ bounded design, exact opcode-response contract, fixture, and proportional
 independent review. It must not be improvised through the `fw_update` sysfs
 surface during a live run.
 
-That last sentence is now a verified fact rather than a caution.
-`max77705_usbc_probe()` (`max77705_usbc.c:3663-3836`) contains **no** firmware
-update call. Its only firmware-related statement is
-`INIT_WORK(&usbc_data->fw_update_work, max77705_firmware_update_sysfs_work)`,
-itself inside `#if defined(MAX77705_SYS_FW_UPDATE)`. The compiled-in
-`BOOT_FLASH_FW_PASS2` reference is in the sysfs **read** handler
-(`max77705_sysfs_get_local_prop`), used only to report a version string.
-
-Therefore the sysfs surface is the sole firmware path on this part, and a
-candidate that never touches it cannot trigger an IC firmware update by loading
-the driver. This also explains `spu_verify.ko` in the module delta: it is the
-link dependency of `#include <linux/spu-verify.h>` at `max77705_usbc.c:43`, not
-evidence of update intent.
+The similarly named functions must not be conflated. The USBC child's
+`max77705_fw_update()` is an active sysfs CONTROL1 test handler that always
+queues a read/write request; the MFD parent's `max77705_usbc_fw_update()` is
+the boot firmware updater. It is true that
+`max77705_usbc_probe()` (`max77705_usbc.c:3663-3836`) does not call the latter.
+It is false that this proves module loading cannot reach it: loading and
+binding `mfd_max77705.ko` executes the parent probe first, and that probe calls
+`max77705_usbc_fw_setting()` before it creates the USBC child. Likewise,
+`spu_verify.ko` being a link dependency does not establish either the presence
+or absence of boot-time update behavior; the actual parent call graph is the
+authority.
 
 If pre-read implementation is disproportionate, a first successor may retain
 bind/detect/write/response plus post-read. That is still informative, but it
@@ -403,6 +455,7 @@ cannot claim that the driver changed an inherited Open state.
 
 | Observation | Permitted conclusion |
 |---|---|
+| MFD revision/update branch or load-safety closure unresolved | no candidate is admissible from this report; no MUX claim |
 | module or bind failure | producer closure failed; no MUX claim |
 | bind succeeds, initial detect absent | scheduling/probe-completion boundary; no MUX claim |
 | detect runs but does not classify USB/CDP | exact status-classification result; COM_USB hypothesis not exercised |
@@ -445,8 +498,13 @@ successor contract:
 5. An open or non-USB MUX is compatible with the complete host silence.
 6. S-Boot inheritance and IC autonomy remain unresolved counter-hypotheses.
 7. A 66-module PC-VBUS natural-UFP discriminator can avoid the provisional
-   86-module phone-VBUS closure, provided it measures execution rather than
-   assuming it from module presence.
+   86-module phone-VBUS closure in dependency arithmetic, but it is not an
+   admissible candidate until the MFD parent probe's power/firmware behavior is
+   closed and it measures execution rather than assuming it from module
+   presence.
+8. The exact Linux tree has no caller of `max77705_switch_path()` outside
+   `max77705-muic.c`; this does not establish that S-Boot or another unavailable
+   boot stage leaves CONTROL1 untouched.
 
 ## Independent review checklist
 
@@ -472,24 +530,29 @@ The review should return claim-level `KEEP`, `REWRITE`, or `DELETE` findings.
 Only after that review should this draft be corrected, promoted into
 `GOAL.md`/the S22+ ledger, and committed.
 
-## Independent review pass 1 (2026-08-11)
+## Independent review pass 1 and source recheck (2026-08-11)
 
-Verified against the exact tree, not restated from this document:
+Pass 1 found useful transport and power-IC questions, but its claimed source
+closure was rejected after exact alias, parent-probe, and module-dependency
+rechecks. The corrected claim-level results are:
 
 | Checklist item | Result |
 |---|---|
 | header SHA-256 `3f7f2b97…`, `max77705-muic.c` SHA-256 `bfdb034d…` | `KEEP` — both match exactly |
 | CONTROL1 is the connector-side D+/D- switch with an Open state | `KEEP` |
 | USB/CDP/OTG explicitly issues `COMMAND_CONTROL1_WRITE` | `KEEP` (`max77705-muic.c:343`) |
-| any other driver or stage programs the same MUX | `KEEP` — none. Every `max77705_switch_path()` caller is inside `max77705-muic.c` |
-| any normal boot path reads CONTROL1 before initial detect | `KEEP`, and **stronger**: CONTROL1 is never read on any path |
-| stronger existing positive acknowledgment than identified | `REWRITE` — the opcode-read machinery *is* exercised on this IC (`BC_CTRL1_READ`, `BC_CTRL2_READ`); a CONTROL1 read reuses a proven pattern |
-| readback obtainable without an unsafe or overly broad mechanism | `REWRITE` — yes, and probe issues no firmware update, so driver load alone cannot trigger one |
-| six-module delta and order exact against the P3.15 plan | `REWRITE` — arithmetic holds, but the delta omits the charger siblings that stock loads first; see the power-IC section |
+| any other driver or stage programs the same MUX | `REWRITE` — every Linux `max77705_switch_path()` caller is inside `max77705-muic.c`; unavailable S-Boot/boot-stage behavior remains unresolved |
+| any normal boot path reads CONTROL1 before initial detect | `KEEP` only at that narrow scope; `max77705_fw_update()` separately issues `OPCODE_CTRL1_R`, so the global never-read claim is `DELETE` |
+| stronger existing positive acknowledgment than identified | `REWRITE` — read transport and raw response logging exist, but normal retained CONTROL1 state does not; a bounded capture contract remains necessary |
+| readback obtainable without an unsafe or overly broad mechanism | `OPEN` — the transport is reusable, but the proposed candidate also loads an MFD parent with boot-time firmware-setting behavior that requires separate closure |
+| six-module delta and order exact against the P3.15 plan | `REWRITE` — arithmetic holds; `modules.load.recovery` text order is not initialization order, and exact `modules.dep` places MFD/PDIC before charger initialization |
 | retained S7A2/S8/S9 artifact proving PDIC bind or COM_USB execution | `KEEP` — none available; the S7A2 private run directory is gone |
 | all seven "delete" claims | `KEEP` — all seven are correctly unsupported, including the reviewer's own originating error (claim 1) |
 
-No `DELETE` findings. The three `REWRITE` results are applied above.
+The first pass's global CONTROL1-read, firmware-path, stock-order, and
+all-boot-stage claims were not accepted. The useful read-transport observation,
+the absence of retained S7A2 bind/COM_USB proof, and the need for a dedicated
+power-IC hazard review survive under the narrower evidence above.
 
 Still not promoted: `GOAL.md`, the S22+ ledger, and any execution contract
 remain unchanged, and this document confers no device authority.
