@@ -95,14 +95,16 @@ real Process-v2 evidence adapter and persistence path.
 The minimum successor emitter has 2,222 B outputs, while the matrix retains
 historical `0x6712` for a 2,223-value B union and at least 251,450 cells.
 
-These obligations are registered in the machine-enforced
+These obligations were registered in the machine-enforced
 `s22plus_fyg8_p313_successor_hazard_requirements_v1` contract. Its five
 mandatory entries cover source pair geometry, continuation partition, the
 full runtime-authorized Carrier matrix, pair-specific multiplicity detail, and
-qualification wiring. The future overlay must bind the requirements hash and
-call its validator before packaging; missing or failed closure blocks the
-package. Status is `registered-not-satisfied`, not a claim that a successor is
-implemented or qualified.
+qualification wiring. At registration its status was
+`registered-not-satisfied`, not a claim that a successor was implemented or
+qualified. A missing or failed closure blocks the package. P3.14 now satisfies
+the registered requirements through the actual
+runtime, matrix, Process-v2 adapter, package gate, and final qualification
+paths described below.
 
 ## P3.14 Detailed Successor Design
 
@@ -144,7 +146,15 @@ qualification now satisfies that obligation: the validator precedes the
 parent packager, both missing and invalid closures create zero package output,
 two userspace builds and two boot-only packages are byte-identical, and the
 same prepackaging receipt is bound into both package results and the final
-qualification. Current status is `host-qualified-independent-review-pending`.
+qualification. The pre-review status was
+`host-qualified-independent-review-pending`. Exact commit
+`578482a0396353c5d13eb43b29156695b926348f` now has focused independent
+`PASS_GO`: 94/94 SOURCE_KEYS and 13/13 materialized receipts match, all
+251,450 value-position cells round-trip, four semantic package mutations stop
+before the parent packager with zero output, candidate A/B are byte-identical,
+and final qualification, candidate-tree rebinding, and actual Process-v2
+promotion pass. P3.14 is host-qualified; this capability approval is not a
+run approval and grants no D0/D1/F1 or live authority.
 
 ## P3.13 Closed Bounded Unit
 
