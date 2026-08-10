@@ -457,7 +457,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
                 mutated = source.replace(clause, f"removed-a90-clause-{index}", 1)
                 self.assertIn(clause, a90_target_contract_issues(mutated))
 
-    def test_frontier_records_closed_p314_without_reuse(self):
+    def test_frontier_records_closed_p314_and_h0_qualified_p315(self):
         normalized_goal = " ".join(self.goal.split())
         self.assertIn("P3.14 is the latest closed live unit", normalized_goal)
         self.assertIn("terminal `0x6705`", normalized_goal)
@@ -468,7 +468,12 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("`profile_hits[]` untouched", normalized_goal)
         self.assertIn("`rc=0x6705 records=14 profile0=0 record0=1`", normalized_goal)
         self.assertIn("P3.14 is now consumed and closed", normalized_goal)
-        self.assertIn("No successor is yet qualified or authorized", normalized_goal)
+        self.assertIn(
+            "P3.15 closes the H0 live-profile snapshot ordering repair",
+            normalized_goal,
+        )
+        self.assertIn("no connected D0 has been run", normalized_goal)
+        self.assertIn("no prepared live binding exists", normalized_goal)
         self.assertIn("generation 96, stage `0x90`, item 3", normalized_goal)
         self.assertIn("generation 97, stage `0x90`, item 4", normalized_goal)
         self.assertIn("terminal failure `0x6712`", normalized_goal)

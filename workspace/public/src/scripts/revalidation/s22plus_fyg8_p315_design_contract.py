@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib
 import json
 from pathlib import Path
 from typing import Any
@@ -13,8 +14,12 @@ import s22plus_fyg8_p314_design_contract as predecessor
 
 SCHEMA = "s22plus_fyg8_p315_design_requirements_v3"
 ARTIFACT_SCHEMA = "s22plus_fyg8_p315_prepackaging_closure_v3"
+QUALIFICATION_SCHEMA = "s22plus_fyg8_p315_final_qualification_closure_v1"
 STATUS = "registered-not-satisfied"
 VERDICT = "PASS_P315_RESTART_COMPLETE_SNAPSHOT_PREPACKAGING_HOST_ONLY"
+QUALIFICATION_VERDICT = (
+    "PASS_P315_FINAL_QUALIFICATION_AND_READY_REHEARSAL_HOST_ONLY"
+)
 
 INCIDENT_PATH = Path(
     "docs/reports/"
@@ -458,6 +463,63 @@ def _require_sha256(value: Any, label: str) -> None:
         raise P315DesignError(f"{label} is not a sha256")
 
 
+def _proof_sha256(value: dict[str, Any]) -> str:
+    payload = json.dumps(
+        value, sort_keys=True, separators=(",", ":"), allow_nan=False
+    ).encode("ascii")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def artifact_receipt(value: dict[str, Any]) -> dict[str, Any]:
+    payload = json.dumps(
+        value, indent=2, sort_keys=True, allow_nan=False
+    ).encode("ascii") + b"\n"
+    return {"size": len(payload), "sha256": hashlib.sha256(payload).hexdigest()}
+
+
+def proof_receipt(
+    root: Path, name: str, result: dict[str, Any]
+) -> dict[str, Any]:
+    specification = PROOF_ARTIFACT_SPECS.get(name)
+    if specification is None:
+        raise P315DesignError(f"unknown proof artifact: {name}")
+    producer = root / "workspace/public/src/scripts/revalidation" / specification[
+        "producer"
+    ]
+    payload = producer.read_bytes()
+    return {
+        "schema": specification["schema"],
+        "verdict": specification["verdict"],
+        "requirements_sha256": requirements_sha256(),
+        "artifact_sha256": _proof_sha256(result),
+        "producer": specification["producer"],
+        "producer_sha256": hashlib.sha256(payload).hexdigest(),
+        "verified": True,
+    }
+
+
+def _recompute_proof_artifacts(root: Path) -> dict[str, dict[str, Any]]:
+    rows: dict[str, dict[str, Any]] = {}
+    for name, specification in PROOF_ARTIFACT_SPECS.items():
+        module_name = Path(specification["producer"]).stem
+        module = importlib.import_module(module_name)
+        result = module.audit(root)
+        if not isinstance(result, dict):
+            raise P315DesignError(f"{name} proof result differs")
+        _require_equal(result.get("schema"), specification["schema"], f"{name} schema")
+        _require_equal(
+            result.get("verdict"), specification["verdict"], f"{name} verdict"
+        )
+        _require_equal(
+            result.get("requirements_sha256"),
+            requirements_sha256(),
+            f"{name} requirements receipt",
+        )
+        _require_equal(result.get("verified"), True, f"{name} verified")
+        rows[name] = proof_receipt(root, name, result)
+    return rows
+
+
 def verify_source_authority(root: Path) -> dict[str, Any]:
     receipts: dict[str, dict[str, Any]] = {}
     for name, expected in PREDECESSOR_SOURCE_RECEIPTS.items():
@@ -813,8 +875,10 @@ def requirements_sha256() -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
-def validate_successor_artifact(value: dict[str, Any]) -> dict[str, Any]:
-    """Validate future closure shape; this registration is not execution proof."""
+def validate_successor_artifact(
+    value: dict[str, Any], *, root: Path | None = None
+) -> dict[str, Any]:
+    """Validate shape, and when root-bound, execute every registered proof."""
 
     _require_exact_keys(
         value,
@@ -864,6 +928,15 @@ def validate_successor_artifact(value: dict[str, Any]) -> dict[str, Any]:
             _require_equal(proof.get(key), required, f"{section} {key}")
         _require_equal(proof.get("verified"), True, f"{section} verified")
     _validate_proof_receipts(value.get("proof_artifacts"))
+    if root is not None:
+        root = root.resolve()
+        verify_historical_authority(root)
+        verify_source_authority(root)
+        _require_equal(
+            value.get("proof_artifacts"),
+            _recompute_proof_artifacts(root),
+            "executed proof artifact receipts",
+        )
     _require_equal(value.get("verified"), True, "closure verified")
     return {
         "verdict": VERDICT,
@@ -877,6 +950,115 @@ def validate_successor_artifact(value: dict[str, Any]) -> dict[str, Any]:
         "snapshot_failure_detail": SNAPSHOT_FAILURE_DETAIL,
         "unknown_phase_detail": UNKNOWN_PHASE_DETAIL,
         "design_shape_valid": True,
-        "execution_authority": False,
+        "execution_authority": root is not None,
+        "verified": True,
+    }
+
+
+def validate_qualification_artifact(
+    value: dict[str, Any], *, root: Path, candidate_tree: dict[str, Any]
+) -> dict[str, Any]:
+    """Bind the executed prepackaging proofs to reproducible package bytes."""
+
+    _require_exact_keys(
+        value,
+        {
+            "schema",
+            "verdict",
+            "requirements_sha256",
+            "prepackaging_closure",
+            "prepackaging_receipt",
+            "packaging_wiring",
+            "artifacts",
+            "verified",
+        },
+        "P3.15 qualification closure",
+    )
+    _require_equal(value.get("schema"), QUALIFICATION_SCHEMA, "qualification schema")
+    _require_equal(
+        value.get("verdict"), QUALIFICATION_VERDICT, "qualification verdict"
+    )
+    _require_equal(
+        value.get("requirements_sha256"),
+        requirements_sha256(),
+        "qualification requirements receipt",
+    )
+    closure = value.get("prepackaging_closure")
+    if not isinstance(closure, dict):
+        raise P315DesignError("qualification prepackaging closure missing")
+    proof = validate_successor_artifact(closure, root=root)
+    _require_equal(
+        value.get("prepackaging_receipt"),
+        artifact_receipt(closure),
+        "qualification prepackaging receipt",
+    )
+    wiring = value.get("packaging_wiring")
+    if not isinstance(wiring, dict):
+        raise P315DesignError("qualification packaging wiring missing")
+    _require_exact_keys(
+        wiring,
+        {
+            "validated_artifact_receipted_by_qualification",
+            "receipt_binds_requirements_and_artifact_sha256",
+            "ready_manifest_rehearsal_after_reproducible_packaging",
+            "ready_manifest_rehearsal",
+            "verified",
+        },
+        "qualification packaging wiring",
+    )
+    for key in (
+        "validated_artifact_receipted_by_qualification",
+        "receipt_binds_requirements_and_artifact_sha256",
+        "ready_manifest_rehearsal_after_reproducible_packaging",
+        "verified",
+    ):
+        _require_equal(wiring.get(key), True, f"qualification wiring {key}")
+    rehearsal = wiring.get("ready_manifest_rehearsal")
+    if not isinstance(rehearsal, dict) or rehearsal.get("verified") is not True:
+        raise P315DesignError("ready-manifest rehearsal proof missing")
+    artifacts = value.get("artifacts")
+    if not isinstance(artifacts, dict):
+        raise P315DesignError("qualification artifact identity missing")
+    _require_exact_keys(
+        artifacts,
+        {
+            "fixed_image_unchanged",
+            "kernel_hooks_unchanged",
+            "trace_descriptor_unchanged",
+            "module_plan_unchanged",
+            "carrier_layout_unchanged",
+            "rollback_unchanged",
+            "full_lto_performed",
+            "userspace_builds_reproducible",
+            "packages_reproducible",
+            "candidate_tree",
+            "verified",
+        },
+        "qualification artifact identity",
+    )
+    for key, expected in (
+        ("fixed_image_unchanged", True),
+        ("kernel_hooks_unchanged", True),
+        ("trace_descriptor_unchanged", True),
+        ("module_plan_unchanged", True),
+        ("carrier_layout_unchanged", True),
+        ("rollback_unchanged", True),
+        ("full_lto_performed", False),
+        ("userspace_builds_reproducible", True),
+        ("packages_reproducible", True),
+        ("verified", True),
+    ):
+        _require_equal(artifacts.get(key), expected, f"qualification artifact {key}")
+    _require_equal(
+        artifacts.get("candidate_tree"), candidate_tree, "qualification tree receipt"
+    )
+    _require_equal(value.get("verified"), True, "qualification verified")
+    return {
+        "schema": QUALIFICATION_SCHEMA,
+        "requirements_sha256": requirements_sha256(),
+        "prepackaging_requirements_sha256": proof["requirements_sha256"],
+        "prepackaging_execution_authority": proof["execution_authority"],
+        "packages_reproducible": True,
+        "ready_manifest_rehearsed": True,
         "verified": True,
     }

@@ -35,24 +35,31 @@ reproduces `rc=0x6705 records=14 profile0=0 record0=1` in a host TU. No USB,
 PM, restart/resume, post-cycle QSCRATCH, state-delta, connector, or pull-up
 conclusion follows.
 
-P3.15 is the selected userspace-only live-profile snapshot repair. Its H0
-design is registered but its implementation and qualification are not yet
-complete. It must execute the actual intermediate wrapper with nonzero records
-and prove that every profile relation follows a successful profile read, while
-retaining the existing final/partial close, ring, pair, capacity, Carrier, and
-Process-v2 checks. The fixed Image and kernel remain unchanged, so Full-LTO is
-not required under the exact inherited inputs. No P3.15 candidate is yet
-qualified or authorized. No successor is yet qualified or authorized; P3.15
-has only an H0 design contract.
+P3.15 is now the selected and fully H0-qualified userspace-only repair. The
+actual intermediate STOP and RESTART wrappers execute only after successful
+profile-bearing snapshots, the restart-completion fence and explicit
+STOP/RESTART/FINAL geometries passed, and the inherited final/partial close,
+ring, pair, capacity, Carrier, and Process-v2 checks remain intact. The actual
+251,450-cell Process-v2 adapter/persistence matrix, root-bound prepackaging
+validator, two reproducible userspace/package builds, independent static
+closure, ready-manifest rehearsal, and focused independent changed-closure
+review all passed. The fixed Image and kernel are unchanged, so no Full-LTO
+was required.
+
+The canonical ready manifest is
+`workspace/public/src/device-action/manifests/s22plus_fyg8_p315_process_v2_ready_1.json`
+with SHA-256 `a7f37b4fa9eb8783f90130e1a7eeb3ecc2053515527ed1f61046f111ba227c5f`.
+It remains `ready-for-f1-approval` only: no connected D0 has been run, no
+prepared live binding exists, and no D0, D1, F1, Odin, reboot, Download, or
+partition-transfer authority is active.
 
 ## P3.15 Detailed Successor Design
 
 P3.15 extends rather than rewrites the consumed P3.14 contract. The exact
 P3.14 incident and design-requirements receipts remain historical authority.
-The revised `s22plus_fyg8_p315_design_requirements_v3` contract registers the
-additional obligations below with status `registered-not-satisfied`; a future
-prepackaging closure must carry its exact requirements hash and pass the real
-validator before any package bytes are created.
+The revised `s22plus_fyg8_p315_design_requirements_v3` contract registered the
+additional obligations below. The realized prepackaging closure carries its
+exact requirements hash and passes the real validator before package creation.
 
 ### Explicit phase geometry
 
@@ -229,21 +236,48 @@ proof artifacts below; prose closure is insufficient.
 Four named prepackaging proof artifacts are mandatory: restart source geometry,
 the actual runtime wrapper fixture, the real Process-v2 adapter/persistence
 fixture, and packaging wiring. Each binds the v2 requirements hash plus its
-producer and artifact hashes. The future parent packager must call the real
+producer and artifact hashes. The realized parent packager calls the real
 prepackaging validator first; missing or mutated proof must yield zero
 parent-packager calls and zero package output. A separate final-qualification
-artifact then binds reproducible packaging and the real ready rehearsal. The
-current design-contract unit test checks only this registered two-phase shape
-and explicitly grants no execution authority; the actual builder call graph and
-receipts remain future, blocking obligations.
+artifact binds reproducible packaging and the real ready rehearsal. The actual
+builder call graph, negative package-blocking fixtures, and qualification
+receipts satisfy the registered two-phase shape. None grants device authority.
 
 P3.15 changes only generated userspace runtime and its host
 design/fixture/closure/packaging validation. The fixed Image, kernel hooks,
 5/15/25-event descriptors, module plan, 107 checkpoint positions, Carrier-v2
 layout, rollback, transfer, recovery, and guard remain exact. It therefore
-requires a userspace rebuild, boot-only repackaging, fresh qualification, and
-one focused independent review of the changed closure, but no Full-LTO. This
-H0 design grants no D0, D1, or F1 authority.
+required a userspace rebuild, boot-only repackaging, fresh qualification, and
+one focused independent review of the changed closure, but no Full-LTO. Those
+H0 obligations passed and still grant no D0, D1, or F1 authority.
+
+## P3.15 Implementation and Qualification
+
+The frozen P3.15 intent contains 119 `SOURCE_KEYS` and run ID
+`b9cc424d0d184f5accbce94a844e817d`. The prepackaging validator is invoked by
+the actual builder before the parent packager and blocks missing or mutated
+proof with zero package output. The restart source geometry, actual runtime
+wrapper, Process-v2 adapter/persistence, packaging wiring, and final
+qualification artifacts all passed. The 251,450-cell matrix covers all actual
+A/B/pair-mask outputs at every retained generation position.
+
+Two userspace builds and candidate A/B packages are byte-identical. The
+qualified AP SHA-256 is
+`11f77fa0225126749b471d1552dc8cedeb35ec9c18158f7c6096ab4bb2e078c7`
+and its boot image SHA-256 is
+`836eeb460030a5955bd4d99883ba80e81967823ff841aa0a5476e09c3572cc1a`.
+Static artifact closure, Process-v2 promotion, the real offline bundle, and
+ready-manifest creation all passed with `device_contact=false`.
+
+The first two direct H0 executions exposed separate qualification incidents:
+Python direct-script/canonical-import module duplication separated validated
+prepackaging state from the late safety callback, and the P3.15 userspace
+result initially omitted one inherited callsite-identity field required by the
+static checker. Both failed before any device action; their private evidence
+was preserved. The bounded repairs canonicalize direct-script module identity,
+make the wiring audit enforce that ordering, restore the exact inherited field,
+and add focused regressions. Independent review returned `PASS_GO` for the full
+changed closure and each narrow repair.
 
 ## P3.13 Predecessor Evidence
 
@@ -521,7 +555,7 @@ approval waiver. H0 implementation may proceed without device contact; any
 future D0, D1, or F1 must satisfy the ordinary live common/target authority and
 fresh exact binding requirements.
 
-The exact S22+ was healthy at the P3.12 close. Before P3.13 preparation, one
+The exact S22+ was healthy at the P3.14 close. Before P3.13 preparation, one
 approved normal-Android baseline-rotation reboot changed the boot ID and
 returned rooted completed FYG8 Android with boot, vendor_boot, recovery, and
 dtbo identities unchanged. The subsequent fresh D0 passed. Physical Download
@@ -539,9 +573,12 @@ P3.02 passive electrical attribution remains parked because no reviewed safe
 inline breakout is available. P3.14 is now consumed and closed. Its candidate
 and rollback each completed once; the retained observer contradiction was
 recovered from two byte-identical post-rollback reads, and final health passed.
-No live authority remains from its approval or prepared record. The next work
-is H0-only successor design and qualification for the live-profile snapshot
-ordering incident. P3.02 remains parked.
+No live authority remains from its approval or prepared record. P3.15 closes
+the H0 live-profile snapshot ordering repair and is ready only for a freshly
+authorized connected D0 preparation. That D0 must bind the exact healthy S22+,
+qualified candidate, rollback, sidecar, guard, and current execution closure
+before a separate fresh F1 approval can authorize one attempt. P3.02 remains
+parked.
 
 ## Success and Stop Conditions
 
@@ -565,6 +602,13 @@ before restart. A successor may not inherit a claim that P3.14 attempted the
 restart or refuted any remaining digital mechanism. It must close the actual
 intermediate snapshot call sequence, not merely the lower-level parser or the
 post-emission value-position matrix, before a new candidate is packaged.
+
+P3.15 satisfies that successor boundary in H0. It does not retroactively show
+that P3.14 entered restart, and it has no live USB result of its own. The next
+permitted device step is only a fresh exact S22+ connected D0 preparation under
+the ordinary post-Fast-Loop authority rules. Candidate execution remains
+forbidden until that prepared record exists and its exact approval token is
+freshly supplied.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden
 archive member, an unreviewed common receipt/schema change, an observer result
