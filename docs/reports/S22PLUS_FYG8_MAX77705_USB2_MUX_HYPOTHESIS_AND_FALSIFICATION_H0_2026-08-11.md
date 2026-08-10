@@ -8,7 +8,13 @@ Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` /
 Draft verdict: `PRIORITY_RESIDUAL_HYPOTHESIS_NOT_CAUSALLY_PROVEN`
 
 Review state:
-`INDEPENDENT_SOURCE_REVIEW_PASS_1_REJECTED_BY_SOURCE_RECHECK_CORRECTED_STILL_NOT_PROMOTED`
+`INDEPENDENT_SOURCE_REVIEW_PASS_2_CORRECTED_DISCUSSION_CLOSED_STILL_NOT_PROMOTED`
+
+Closure meaning: the evidence, the unresolved premises, and the 66/86 module
+boundary are documented well enough to stop the discussion. It does **not**
+mean the MUX hypothesis is established. Open: S-Boot inheritance, IC autonomy,
+the MAX77705 MFD power/firmware-setting H0, and the deferred 26-module
+probe-side-effect audit.
 
 S22+ analysis base while drafting:
 `3d04ca11ed3374530a3b611d8760075a1888a706`
@@ -411,53 +417,66 @@ as its own **power-management IC and firmware-setting** hazard, not as a
 routine USB-module addition. Until that review passes, the 66-module plan is a
 provisional dependency calculation only.
 
-### The 86-module closure contains a probe-time write to a non-boot partition
+### The 86-module closure re-imports a known-forbidden partition writer
 
-Independent review pass 2 (2026-08-11). The provisional 86-module VBUS closure
-in
+Independent review pass 2 (2026-08-11), corrected after source recheck.
+
+**This is not a new discovery.** `sec_qc_dbg_partition.ko` was already recorded
+as a risk module of the stock charger/fuel-gauge dependency closure at
+`docs/reports/S22PLUS_NATIVE_INIT_M34_S7A_SESSION_PRODUCER_HOST_BUILD_2026-07-09.md:95`
+and `:118`, and the debug partition was already classified
+"persistent but **forbidden as a candidate writer**" at
+`docs/reports/S22PLUS_FYG8_SNAPSHOT_AND_INDEPENDENT_WITNESS_H0_2026-07-22.md:208`.
+The finding here is only that the provisional 86-module VBUS closure in
 `S22PLUS_FYG8_NATURAL_ATTACH_ROLE_PRODUCER_CLOSURE_H0_2026-08-11.md`
-was derived as `modules.dep` arithmetic. That report correctly stated that
-"every added module, stage position, probe side effect ... still requires
-proportional review", but the added names have not yet been audited for what
-they *do*. At least one of them is disqualifying as written.
+re-imports that module through `sec-battery.ko`, without those prior records
+having been consulted during the derivation.
 
-`sec_qc_dbg_partition.ko` is in that closure, reached through `sec-battery.ko`.
-In
+What the source shows, stated at the strength actually proved. In
 `drivers/samsung/debug/qcom/dbg_partition/sec_qc_dbg_partition.c`:
 
 - `__qc_dbg_part_probe_prolog()` opens the debug block device with
   `blkdev_get_by_path(drvdata->bdev_path, FMODE_READ | FMODE_WRITE, NULL)`
-  at `:361-377`;
+  at `:356-377`; and
 - `__qc_dbg_part_init_reset_header()` at `:404-430` reads the reset-summary
-  header and, when `magic != DEBUG_PARTITION_MAGIC`, memsets a fresh header and
-  calls `__qc_dbg_part_write()`; and
-- `sec_qc_dbg_part_write()` is `EXPORT_SYMBOL`ed at `:286`, so sibling `sec_*`
-  modules inside the same closure can reach the same write path.
+  header and, **only when** `magic != DEBUG_PARTITION_MAGIC`, memsets a fresh
+  header and calls `__qc_dbg_part_write()`.
 
-This is a **probe-time write to a partition that is not `boot`**, gated only on
-content the candidate cannot inspect beforehand. `AGENTS.md:140-142` forbids
-writing any partition other than `boot` absolutely, with no exception for
-"conditional" or "vendor driver did it". On a normally booted stock device the
-magic will already match and the write will be skipped, but that is an
-empirical expectation about partition content, not a guarantee the design may
-rely on.
+So a **conditional probe-time write path exists**. This H0 did **not** prove
+that a write occurs on this device; on a normally booted stock unit the magic
+is expected to already match and the branch is skipped. That expectation is
+about partition content the candidate cannot inspect beforehand, so it is not a
+property the design may rely on.
 
-Consequences:
+The write helper is additionally reachable from siblings inside the same
+closure — not inferred from `EXPORT_SYMBOL` alone, but from actual callers:
+`drivers/samsung/debug/qcom/user_reset/sec_qc_ap_health.c:40`, `:97`, `:111`;
+`user_reset/sec_qc_reset_rwc.c:109`; `debug/sec_qc_debug_reboot.c:136`, `:280`;
+and `debug/sec_qc_debug_lpm_log.c:70`.
 
-- the 86-module closure must not be carried into a candidate on dependency
+`AGENTS.md:140-143` permits `boot` payload only and forbids "any other
+partition" with no exception for conditional paths or vendor-driver authorship.
+
+Consequences, scoped:
+
+- the 86-module closure must not be carried into a candidate on `modules.dep`
   arithmetic alone;
-- before any 86-module path, all 26 added names require a probe-side-effect
-  audit covering partition, NVM, firmware, and power writes — not only
-  dependency correctness; and
-- this is an additional, independent reason to keep the 86-module VBUS closure
-  held, separate from the MFD firmware-setting hazard above. The 66-module plan
-  does not include these names.
+- before any 86-module path, the 26 added names require a probe-side-effect
+  audit covering partition, NVM, firmware, and power writes. That audit is
+  deferred until the 86-module plan is actually revived, and **when it resumes
+  it must take the existing risk-module records above as inputs rather than
+  starting from a blank source read**; and
+- this blocks only the 86-module closure. It does **not** newly block the
+  66-module plan, which contains neither `sec_qc_dbg_partition.ko` nor
+  `sec-battery.ko`. The 66-module plan is held separately, for the MAX77705
+  MFD power/firmware-setting hazard above.
 
-Generalization worth recording: the campaign has now twice been bitten by a
-module set treated as arithmetic rather than as behaviour — once by an omitted
-producer, once by an included partition writer. A module plan is a claim about
-execution, and it needs the same derivation discipline as expected geometry or
-record budgets.
+Generalization worth recording, restated: the problem is not that a module plan
+was computed as arithmetic. It is that the derivation did not consult the
+project's own existing risk records. This is the same shape as the stock
+`modules.load.recovery` order being extracted and left unread — the information
+was present and did not propagate. A module-plan derivation should take prior
+risk-module and forbidden-writer records as explicit inputs.
 
 The minimum witness chain is:
 
