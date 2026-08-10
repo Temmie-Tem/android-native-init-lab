@@ -411,6 +411,54 @@ as its own **power-management IC and firmware-setting** hazard, not as a
 routine USB-module addition. Until that review passes, the 66-module plan is a
 provisional dependency calculation only.
 
+### The 86-module closure contains a probe-time write to a non-boot partition
+
+Independent review pass 2 (2026-08-11). The provisional 86-module VBUS closure
+in
+`S22PLUS_FYG8_NATURAL_ATTACH_ROLE_PRODUCER_CLOSURE_H0_2026-08-11.md`
+was derived as `modules.dep` arithmetic. That report correctly stated that
+"every added module, stage position, probe side effect ... still requires
+proportional review", but the added names have not yet been audited for what
+they *do*. At least one of them is disqualifying as written.
+
+`sec_qc_dbg_partition.ko` is in that closure, reached through `sec-battery.ko`.
+In
+`drivers/samsung/debug/qcom/dbg_partition/sec_qc_dbg_partition.c`:
+
+- `__qc_dbg_part_probe_prolog()` opens the debug block device with
+  `blkdev_get_by_path(drvdata->bdev_path, FMODE_READ | FMODE_WRITE, NULL)`
+  at `:361-377`;
+- `__qc_dbg_part_init_reset_header()` at `:404-430` reads the reset-summary
+  header and, when `magic != DEBUG_PARTITION_MAGIC`, memsets a fresh header and
+  calls `__qc_dbg_part_write()`; and
+- `sec_qc_dbg_part_write()` is `EXPORT_SYMBOL`ed at `:286`, so sibling `sec_*`
+  modules inside the same closure can reach the same write path.
+
+This is a **probe-time write to a partition that is not `boot`**, gated only on
+content the candidate cannot inspect beforehand. `AGENTS.md:140-142` forbids
+writing any partition other than `boot` absolutely, with no exception for
+"conditional" or "vendor driver did it". On a normally booted stock device the
+magic will already match and the write will be skipped, but that is an
+empirical expectation about partition content, not a guarantee the design may
+rely on.
+
+Consequences:
+
+- the 86-module closure must not be carried into a candidate on dependency
+  arithmetic alone;
+- before any 86-module path, all 26 added names require a probe-side-effect
+  audit covering partition, NVM, firmware, and power writes — not only
+  dependency correctness; and
+- this is an additional, independent reason to keep the 86-module VBUS closure
+  held, separate from the MFD firmware-setting hazard above. The 66-module plan
+  does not include these names.
+
+Generalization worth recording: the campaign has now twice been bitten by a
+module set treated as arithmetic rather than as behaviour — once by an omitted
+producer, once by an included partition writer. A module plan is a claim about
+execution, and it needs the same derivation discipline as expected geometry or
+record budgets.
+
 The minimum witness chain is:
 
 1. exact modules loaded in the qualified order;
