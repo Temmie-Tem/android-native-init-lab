@@ -29,7 +29,15 @@
 #define A90_AUTO_HANDOFF_TOKEN "SERVER-DISTRO-D3B-SWITCHROOT"
 #define A90_AUTO_HANDOFF_ARM_TOKEN "AUTO-HANDOFF-BENCHMARK-V1-ARM"
 #if A90_AUTO_HANDOFF_USERDATA_ROOT_V1
+#if A90_AUTO_HANDOFF_USERDATA_DYNAMIC_DEVT
+#define A90_AUTO_HANDOFF_SCHEMA "a90-auto-handoff-userdata-ro-v2"
+#define A90_AUTO_HANDOFF_USERDATA_DEVT_BINDING \
+    A90_AUTO_HANDOFF_USERDATA_DEVT_POLICY
+#else
 #define A90_AUTO_HANDOFF_SCHEMA "a90-auto-handoff-userdata-ro-v1"
+#define A90_AUTO_HANDOFF_USERDATA_DEVT_BINDING \
+    A90_AUTO_HANDOFF_USERDATA_DEV
+#endif
 #else
 #define A90_AUTO_HANDOFF_SCHEMA "a90-auto-handoff-benchmark-v1"
 #endif
@@ -74,7 +82,13 @@ static int a90_auto_handoff_hex64_valid(const char *value) {
 static int a90_auto_handoff_binding_valid(void) {
 #if A90_AUTO_HANDOFF_USERDATA_ROOT_V1
     return strcmp(A90_AUTO_HANDOFF_USERDATA_DEVNAME, "sda33") == 0 &&
+#if A90_AUTO_HANDOFF_USERDATA_DYNAMIC_DEVT
+           A90_AUTO_HANDOFF_USERDATA_DEV[0] == '\0' &&
+           strcmp(A90_AUTO_HANDOFF_USERDATA_DEVT_POLICY,
+                  "runtime-resolved-same-session") == 0 &&
+#else
            strcmp(A90_AUTO_HANDOFF_USERDATA_DEV, "259:17") == 0 &&
+#endif
            strcmp(A90_AUTO_HANDOFF_USERDATA_SECTORS, "231577432") == 0 &&
            strcmp(A90_AUTO_HANDOFF_USERDATA_LABEL, "A90D4ROOT") == 0 &&
            strcmp(A90_AUTO_HANDOFF_USERDATA_MARKER,
@@ -176,6 +190,33 @@ static int a90_auto_handoff_format_state(char *out,
     int length;
 
 #if A90_AUTO_HANDOFF_USERDATA_ROOT_V1
+#if A90_AUTO_HANDOFF_USERDATA_DYNAMIC_DEVT
+    length = snprintf(out,
+                      out_size,
+                      "schema=%s\n"
+                      "build=%s\n"
+                      "root_kind=userdata-ext4-ro-noload\n"
+                      "userdata_devname=%s\n"
+                      "userdata_devt_policy=%s\n"
+                      "userdata_sectors=%s\n"
+                      "userdata_label=%s\n"
+                      "userdata_marker=%s\n"
+                      "userdata_uuid=%s\n"
+                      "userdata_content_manifest_sha256=%s\n"
+                      "intent_sha256=%s\n"
+                      "state=%s\n",
+                      A90_AUTO_HANDOFF_SCHEMA,
+                      INIT_BUILD,
+                      A90_AUTO_HANDOFF_USERDATA_DEVNAME,
+                      A90_AUTO_HANDOFF_USERDATA_DEVT_POLICY,
+                      A90_AUTO_HANDOFF_USERDATA_SECTORS,
+                      A90_AUTO_HANDOFF_USERDATA_LABEL,
+                      A90_AUTO_HANDOFF_USERDATA_MARKER,
+                      A90_AUTO_HANDOFF_USERDATA_UUID,
+                      A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_SHA256,
+                      intent_sha256,
+                      state);
+#else
     length = snprintf(out,
                       out_size,
                       "schema=%s\n"
@@ -201,6 +242,7 @@ static int a90_auto_handoff_format_state(char *out,
                       A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_SHA256,
                       intent_sha256,
                       state);
+#endif
 #else
     length = snprintf(out,
                       out_size,
@@ -404,7 +446,7 @@ int a90_auto_handoff_arm_cmd(char **argv, int argc) {
 #if A90_AUTO_HANDOFF_USERDATA_ROOT_V1
     rc = a90_server_distro_userdata_ro_qualify(
         A90_AUTO_HANDOFF_USERDATA_DEVNAME,
-        A90_AUTO_HANDOFF_USERDATA_DEV,
+        A90_AUTO_HANDOFF_USERDATA_DEVT_BINDING,
         A90_AUTO_HANDOFF_USERDATA_SECTORS,
         A90_AUTO_HANDOFF_USERDATA_LABEL,
         A90_AUTO_HANDOFF_USERDATA_MARKER,
@@ -810,7 +852,7 @@ int a90_auto_handoff_run_once(void) {
 #if A90_AUTO_HANDOFF_USERDATA_ROOT_V1
     rc = a90_server_distro_userdata_ro_qualify(
         A90_AUTO_HANDOFF_USERDATA_DEVNAME,
-        A90_AUTO_HANDOFF_USERDATA_DEV,
+        A90_AUTO_HANDOFF_USERDATA_DEVT_BINDING,
         A90_AUTO_HANDOFF_USERDATA_SECTORS,
         A90_AUTO_HANDOFF_USERDATA_LABEL,
         A90_AUTO_HANDOFF_USERDATA_MARKER,
@@ -884,7 +926,7 @@ int a90_auto_handoff_run_once(void) {
 #if A90_AUTO_HANDOFF_USERDATA_ROOT_V1
     rc = a90_server_distro_switch_root_userdata_ro(
         A90_AUTO_HANDOFF_USERDATA_DEVNAME,
-        A90_AUTO_HANDOFF_USERDATA_DEV,
+        A90_AUTO_HANDOFF_USERDATA_DEVT_BINDING,
         A90_AUTO_HANDOFF_USERDATA_SECTORS,
         A90_AUTO_HANDOFF_USERDATA_LABEL,
         A90_AUTO_HANDOFF_USERDATA_MARKER,

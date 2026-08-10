@@ -49,9 +49,11 @@ AUTO_HANDOFF_IMAGE_VALUE_MACROS = (
     "A90_AUTO_HANDOFF_IMAGE_SHA256",
 )
 AUTO_HANDOFF_USERDATA_ENABLE = "A90_AUTO_HANDOFF_USERDATA_ROOT_V1"
-AUTO_HANDOFF_USERDATA_VALUE_MACROS = (
+AUTO_HANDOFF_USERDATA_DYNAMIC_DEVT_ENABLE = (
+    "A90_AUTO_HANDOFF_USERDATA_DYNAMIC_DEVT"
+)
+AUTO_HANDOFF_USERDATA_STABLE_VALUE_MACROS = (
     "A90_AUTO_HANDOFF_USERDATA_DEVNAME",
-    "A90_AUTO_HANDOFF_USERDATA_DEV",
     "A90_AUTO_HANDOFF_USERDATA_SECTORS",
     "A90_AUTO_HANDOFF_USERDATA_LABEL",
     "A90_AUTO_HANDOFF_USERDATA_MARKER",
@@ -59,6 +61,15 @@ AUTO_HANDOFF_USERDATA_VALUE_MACROS = (
     "A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_SHA256",
     "A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_PATH",
     "A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_FILE_SHA256",
+)
+AUTO_HANDOFF_USERDATA_LEGACY_DEVT_MACRO = "A90_AUTO_HANDOFF_USERDATA_DEV"
+AUTO_HANDOFF_USERDATA_DYNAMIC_DEVT_POLICY_MACRO = (
+    "A90_AUTO_HANDOFF_USERDATA_DEVT_POLICY"
+)
+AUTO_HANDOFF_USERDATA_VALUE_MACROS = (
+    *AUTO_HANDOFF_USERDATA_STABLE_VALUE_MACROS,
+    AUTO_HANDOFF_USERDATA_LEGACY_DEVT_MACRO,
+    AUTO_HANDOFF_USERDATA_DYNAMIC_DEVT_POLICY_MACRO,
 )
 AUTO_HANDOFF_RECEIPT_MACRO = "A90_D3_SOURCE_RECEIPT_PATH"
 USERDATA_RUNTIME_SOURCE = Path("workspace/public/src/native-init/a90_server_distro.c")
@@ -223,11 +234,30 @@ def normalized_auto_handoff_binding(
             "auto-handoff userdata enable macro is duplicated or conflicting"
         )
     userdata_root = bool(userdata_flags)
+    dynamic_devt_flags = _macro_directives(
+        cflags,
+        AUTO_HANDOFF_USERDATA_DYNAMIC_DEVT_ENABLE,
+    )
+    if dynamic_devt_flags not in (
+        [],
+        [f"-D{AUTO_HANDOFF_USERDATA_DYNAMIC_DEVT_ENABLE}=1"],
+    ):
+        raise RuntimeError(
+            "auto-handoff dynamic dev_t macro is duplicated or conflicting"
+        )
+    dynamic_devt = bool(dynamic_devt_flags)
+    if dynamic_devt and not userdata_root:
+        raise RuntimeError("auto-handoff dynamic dev_t requires userdata root")
     values: dict[str, str] = {}
     selected_value_macros = (
         *AUTO_HANDOFF_COMMON_VALUE_MACROS,
         *(
-            AUTO_HANDOFF_USERDATA_VALUE_MACROS
+            (
+                *AUTO_HANDOFF_USERDATA_STABLE_VALUE_MACROS,
+                AUTO_HANDOFF_USERDATA_DYNAMIC_DEVT_POLICY_MACRO
+                if dynamic_devt
+                else AUTO_HANDOFF_USERDATA_LEGACY_DEVT_MACRO,
+            )
             if userdata_root
             else AUTO_HANDOFF_IMAGE_VALUE_MACROS
         ),
@@ -270,7 +300,6 @@ def normalized_auto_handoff_binding(
         ]
         userdata = {
             "userdata_devname": values["A90_AUTO_HANDOFF_USERDATA_DEVNAME"],
-            "userdata_dev": values["A90_AUTO_HANDOFF_USERDATA_DEV"],
             "userdata_sectors": values["A90_AUTO_HANDOFF_USERDATA_SECTORS"],
             "userdata_label": values["A90_AUTO_HANDOFF_USERDATA_LABEL"],
             "userdata_marker": values["A90_AUTO_HANDOFF_USERDATA_MARKER"],
@@ -279,10 +308,31 @@ def normalized_auto_handoff_binding(
                 "A90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_SHA256"
             ],
         }
+        if dynamic_devt:
+            if _macro_directives(
+                cflags,
+                AUTO_HANDOFF_USERDATA_LEGACY_DEVT_MACRO,
+            ):
+                raise RuntimeError(
+                    "auto-handoff userdata dev_t policy is conflicting"
+                )
+            userdata["userdata_devt_policy"] = values[
+                AUTO_HANDOFF_USERDATA_DYNAMIC_DEVT_POLICY_MACRO
+            ]
+        else:
+            if _macro_directives(
+                cflags,
+                AUTO_HANDOFF_USERDATA_DYNAMIC_DEVT_POLICY_MACRO,
+            ):
+                raise RuntimeError(
+                    "auto-handoff userdata dev_t policy is conflicting"
+                )
+            userdata["userdata_dev"] = values[
+                AUTO_HANDOFF_USERDATA_LEGACY_DEVT_MACRO
+            ]
         content_binding = _userdata_content_binding(values)
-        if forbidden_image_flags or receipt_path or userdata != {
+        expected_userdata = {
             "userdata_devname": "sda33",
-            "userdata_dev": "259:17",
             "userdata_sectors": "231577432",
             "userdata_label": "A90D4ROOT",
             "userdata_marker": "userdata=appliance-root",
@@ -290,11 +340,21 @@ def normalized_auto_handoff_binding(
             "userdata_content_manifest_sha256": content_binding[
                 "userdata_content_manifest_sha256"
             ],
-        }:
+        }
+        expected_userdata[
+            "userdata_devt_policy" if dynamic_devt else "userdata_dev"
+        ] = (
+            "runtime-resolved-same-session" if dynamic_devt else "259:17"
+        )
+        if forbidden_image_flags or receipt_path or userdata != expected_userdata:
             raise RuntimeError("auto-handoff userdata tuple is not canonical")
         normalized.update(
             {
-                "schema": "a90-compiled-auto-handoff-binding-v3",
+                "schema": (
+                    "a90-compiled-auto-handoff-binding-v4"
+                    if dynamic_devt
+                    else "a90-compiled-auto-handoff-binding-v3"
+                ),
                 "root_kind": "userdata-ext4-ro-noload",
                 **userdata,
                 "userdata_content_manifest": content_binding[
@@ -311,6 +371,7 @@ def normalized_auto_handoff_binding(
             for macro in AUTO_HANDOFF_USERDATA_VALUE_MACROS
             for flag in _macro_directives(cflags, macro)
         ]
+        forbidden_userdata_flags.extend(dynamic_devt_flags)
         image = values["A90_AUTO_HANDOFF_IMAGE"]
         image_sha256 = values["A90_AUTO_HANDOFF_IMAGE_SHA256"]
         if (

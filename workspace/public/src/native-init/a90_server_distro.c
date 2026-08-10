@@ -4957,6 +4957,41 @@ static int d4_compare_expected(const struct d4_userdata_target *target,
     return 0;
 }
 
+static int d4_compare_ro_expected(const struct d4_userdata_target *target,
+                                  const char *expected_devname,
+                                  const char *expected_devt_binding,
+                                  const char *expected_sectors) {
+#if A90_AUTO_HANDOFF_USERDATA_DYNAMIC_DEVT
+    unsigned long long sectors = 0;
+
+    if (target == NULL || expected_devname == NULL ||
+        expected_devt_binding == NULL || expected_sectors == NULL ||
+        strcmp(expected_devt_binding,
+               "runtime-resolved-same-session") != 0 ||
+        d4_parse_u64(expected_sectors, &sectors) < 0) {
+        return -EINVAL;
+    }
+    if (strcmp(target->devname, expected_devname) != 0 ||
+        target->sectors != sectors) {
+        a90_console_printf(
+            "%s stop=expected-stable-identity-mismatch "
+            "expected_devname=%s expected_sectors=%s devt_policy=%s\r\n",
+            A90_D4_TAG,
+            expected_devname,
+            expected_sectors,
+            expected_devt_binding);
+        d4_print_target(target, "actual");
+        return -EPERM;
+    }
+    return 0;
+#else
+    return d4_compare_expected(target,
+                               expected_devname,
+                               expected_devt_binding,
+                               expected_sectors);
+#endif
+}
+
 static int d4_ensure_userdata_node(const struct d4_userdata_target *target) {
     struct stat st;
     dev_t wanted = makedev(target->major_num, target->minor_num);
@@ -5134,18 +5169,15 @@ static int d4_read_marker(char *out, size_t out_size) {
 }
 
 static int d4_userdata_ro_expected_values_valid(const char *expected_devname,
-                                                const char *expected_dev,
+                                                const char *expected_devt_binding,
                                                 const char *expected_sectors,
                                                 const char *expected_label,
                                                 const char *expected_marker,
                                                 const char *expected_uuid,
                                                 const char *expected_content_manifest_sha256) {
-    unsigned int major_num = 0;
-    unsigned int minor_num = 0;
     unsigned long long sectors = 0;
 
     if (expected_devname == NULL || strcmp(expected_devname, "sda33") != 0 ||
-        d4_parse_expected_dev(expected_dev, &major_num, &minor_num) < 0 ||
         d4_parse_u64(expected_sectors, &sectors) < 0 ||
         strcmp(expected_label != NULL ? expected_label : "", "A90D4ROOT") != 0 ||
         strcmp(expected_marker != NULL ? expected_marker : "",
@@ -5158,7 +5190,28 @@ static int d4_userdata_ro_expected_values_valid(const char *expected_devname,
                A90_D4_H14_CONTENT_MANIFEST_SHA256) != 0) {
         return -EINVAL;
     }
-    if (major_num != 259U || minor_num != 17U || sectors != 231577432ULL) {
+#if A90_AUTO_HANDOFF_USERDATA_DYNAMIC_DEVT
+    if (expected_devt_binding == NULL ||
+        strcmp(expected_devt_binding,
+               "runtime-resolved-same-session") != 0) {
+        return -EINVAL;
+    }
+#else
+    {
+        unsigned int major_num = 0;
+        unsigned int minor_num = 0;
+
+        if (d4_parse_expected_dev(expected_devt_binding,
+                                  &major_num,
+                                  &minor_num) < 0) {
+            return -EINVAL;
+        }
+        if (major_num != 259U || minor_num != 17U) {
+            return -EPERM;
+        }
+    }
+#endif
+    if (sectors != 231577432ULL) {
         return -EPERM;
     }
     return 0;
@@ -5166,7 +5219,7 @@ static int d4_userdata_ro_expected_values_valid(const char *expected_devname,
 
 static int d4_userdata_ro_static_preflight(
     const char *expected_devname,
-    const char *expected_dev,
+    const char *expected_devt_binding,
     const char *expected_sectors,
     const char *expected_label,
     const char *expected_uuid,
@@ -5183,10 +5236,10 @@ static int d4_userdata_ro_static_preflight(
         return rc;
     }
     d4_print_target(&target, phase);
-    rc = d4_compare_expected(&target,
-                             expected_devname,
-                             expected_dev,
-                             expected_sectors);
+    rc = d4_compare_ro_expected(&target,
+                                expected_devname,
+                                expected_devt_binding,
+                                expected_sectors);
     if (rc < 0) {
         return rc;
     }
@@ -5612,7 +5665,7 @@ static int d4_userdata_ro_check_root(
 }
 
 int a90_server_distro_userdata_ro_qualify(const char *expected_devname,
-                                          const char *expected_dev,
+                                          const char *expected_devt_binding,
                                           const char *expected_sectors,
                                           const char *expected_label,
                                           const char *expected_marker,
@@ -5624,17 +5677,24 @@ int a90_server_distro_userdata_ro_qualify(const char *expected_devname,
     int rc;
 
     rc = d4_userdata_ro_expected_values_valid(expected_devname,
-                                               expected_dev,
+                                               expected_devt_binding,
                                                expected_sectors,
                                                expected_label,
                                                expected_marker,
                                                expected_uuid,
                                                expected_content_manifest_sha256);
     if (rc < 0) {
+        a90_console_printf(
+            "%s stop=compiled-readonly-identity-invalid rc=%d\r\n",
+            A90_D4_TAG,
+            rc);
+        a90_logf("server-distro",
+                 "D4 compiled read-only identity invalid rc=%d",
+                 rc);
         return rc;
     }
     rc = d4_userdata_ro_static_preflight(expected_devname,
-                                          expected_dev,
+                                          expected_devt_binding,
                                           expected_sectors,
                                           expected_label,
                                           expected_uuid,
@@ -5667,7 +5727,7 @@ int a90_server_distro_userdata_ro_qualify(const char *expected_devname,
         return rc;
     }
     rc = d4_userdata_ro_static_preflight(expected_devname,
-                                          expected_dev,
+                                          expected_devt_binding,
                                           expected_sectors,
                                           expected_label,
                                           expected_uuid,
@@ -5684,10 +5744,12 @@ int a90_server_distro_userdata_ro_qualify(const char *expected_devname,
     }
     a90_console_printf(
         "%s qualification=ok root_kind=userdata-ext4-ro-noload "
-        "device=%s sectors=%s label=%s marker=%s uuid=%s "
+        "device=%u:%u devt_binding=%s sectors=%s label=%s marker=%s uuid=%s "
         "content_manifest_sha256=%s userdata_write=0\r\n",
         A90_D4_TAG,
-        expected_dev,
+        final_target.major_num,
+        final_target.minor_num,
+        expected_devt_binding,
         expected_sectors,
         expected_label,
         expected_marker,
@@ -5697,7 +5759,7 @@ int a90_server_distro_userdata_ro_qualify(const char *expected_devname,
 }
 
 int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
-                                              const char *expected_dev,
+                                              const char *expected_devt_binding,
                                               const char *expected_sectors,
                                               const char *expected_label,
                                               const char *expected_marker,
@@ -5731,13 +5793,20 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
     };
 
     rc = d4_userdata_ro_expected_values_valid(expected_devname,
-                                               expected_dev,
+                                               expected_devt_binding,
                                                expected_sectors,
                                                expected_label,
                                                expected_marker,
                                                expected_uuid,
                                                expected_content_manifest_sha256);
     if (rc < 0) {
+        a90_console_printf(
+            "%s stop=compiled-readonly-identity-invalid rc=%d\r\n",
+            A90_D4_TAG,
+            rc);
+        a90_logf("server-distro",
+                 "D4 compiled read-only identity invalid rc=%d",
+                 rc);
         return rc;
     }
     a90_console_printf(
@@ -5750,7 +5819,7 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
     a90_benchmark_emit("handoff_begin");
 #endif
     rc = d4_userdata_ro_static_preflight(expected_devname,
-                                          expected_dev,
+                                          expected_devt_binding,
                                           expected_sectors,
                                           expected_label,
                                           expected_uuid,
@@ -5777,7 +5846,7 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
     a90_benchmark_mark("display_release_done");
 #endif
     rc = d4_userdata_ro_static_preflight(expected_devname,
-                                          expected_dev,
+                                          expected_devt_binding,
                                           expected_sectors,
                                           expected_label,
                                           expected_uuid,
@@ -5965,7 +6034,7 @@ fail_before_move:
 
 fail_userdata_identity:
     if (d4_userdata_ro_static_preflight(expected_devname,
-                                         expected_dev,
+                                         expected_devt_binding,
                                          expected_sectors,
                                          expected_label,
                                          expected_uuid,

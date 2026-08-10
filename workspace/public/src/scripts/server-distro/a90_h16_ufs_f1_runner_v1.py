@@ -1,0 +1,2648 @@
+#!/usr/bin/env python3
+"""Exact boot-only A90 H16 resident installer for the existing read-only UFS root.
+
+This runner deliberately has no SD-rootfs staging mode.  It binds one H16 boot
+candidate, the exact V2321 boot rollback, the H14 incident's proved V2321
+recovery terminal, and the exact read-only userdata inventory.  Live mode
+records durable candidate
+intent before invoking the reviewed native boot flash helper once.  A candidate
+is never replayed; an uncertain post-start result permits only the bound
+rollback or a recovery-required park.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import hashlib
+import json
+import math
+import os
+import re
+import select
+import signal
+import stat
+import sys
+import time
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
+
+
+REPO_ROOT = Path(__file__).resolve().parents[5]
+SCRIPT_DIR = Path(__file__).resolve().parent
+REVAL_DIR = REPO_ROOT / "workspace/public/src/scripts/revalidation"
+FLAT_BUILDER_DIR = REVAL_DIR / "a90_flat_builder"
+for _path in (SCRIPT_DIR, REVAL_DIR, FLAT_BUILDER_DIR):
+    if str(_path) not in sys.path:
+        sys.path.insert(0, str(_path))
+
+import a90_v3403_absent_only_staging as staging  # noqa: E402
+import a90_v3403_f1_orchestrator as base  # noqa: E402
+import buildlib as flat_buildlib  # noqa: E402
+
+
+SCHEMA = "a90-h16-ufs-f1-manifest-v1"
+RESULT_SCHEMA = "a90-h16-ufs-f1-result-v1"
+JOURNAL_SCHEMA = "a90-h16-ufs-f1-journal-v1"
+QUALIFICATION_SCHEMA = "a90-h16-ufs-capability-qualification-v1"
+INVENTORY_SCHEMA = "a90-h16-ufs-readonly-inventory-v1"
+APPROVAL_SCHEMA = "a90-h16-ufs-f1-approval-prepared-v1"
+APPROVAL_BINDING_SCHEMA = "a90-h16-ufs-f1-approval-binding-v1"
+APPROVAL_PREFIX = "A90-H16-F1-APPROVE:"
+APPROVAL_TTL_SEC = 1800
+CAPABILITY = "A90_DIRECT_UFS_READONLY_ROOT_V2"
+RUN_ID_RE = re.compile(r"^a90-h16-ufs-f1-[0-9]{8}-[0-9]{2}$")
+HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
+
+CURRENT_VERSION = "0.11.183"
+CURRENT_BUILD = "phase3-minimal-h15-direct-ufs-ro-async-wifi-auto-benchmark"
+CANDIDATE_VERSION = "0.11.184"
+CANDIDATE_BUILD = (
+    "phase3-minimal-h16-direct-ufs-ro-async-wifi-auto-benchmark"
+)
+ROLLBACK_VERSION = "0.9.285"
+ROLLBACK_BUILD = "v2321-usb-clean-identity-rodata"
+ROLLBACK_SIZE = 60882944
+ROLLBACK_SHA256 = (
+    "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb"
+)
+UFS_IDENTITY = {
+    "devname": "sda33",
+    "devt_policy": "runtime-resolved-same-session",
+    "sectors": "231577432",
+    "partname": "userdata",
+    "filesystem": "ext4",
+    "uuid": "300aaf21-412c-4238-9106-56414eaab105",
+    "label": "A90D4ROOT",
+    "marker": "userdata=appliance-root",
+    "mount_policy": "ro,noload,nosuid,nodev",
+}
+ENABLE_PATH = "/cache/a90-auto-handoff-phase3-minimal-h16.enable"
+LATCH_PATH = "/cache/a90-auto-handoff-phase3-minimal-h16.done"
+CONTENT_REL = (
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/"
+    "phase3-minimal-h14/userdata-content-manifest.json"
+)
+VERSION_MANIFEST_REL = (
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/"
+    "phase3-minimal-h16/manifest.toml"
+)
+TARGET_CONTRACT_REL = "docs/operations/targets/A90_TARGET_CONTRACT.md"
+NATIVE_FLASH = (REVAL_DIR / "native_init_flash.py").resolve()
+PRIVATE_RUN_BASE = (REPO_ROOT / "workspace/private/runs/server-distro").resolve()
+INPUT_MODE = "slow"
+INPUT_CHAR_DELAY_SEC = 0.02
+EXACT_BRIDGE_DEVICE = (
+    "/dev/serial/by-id/usb-A90-LNX_A90_Linux_ARM64_A90NATIVE001-if00"
+)
+NATIVE_CLOSURE_SHA256 = (
+    "56c74c2fa4e26e5b2a0de8dc7bebc6ca5e41ac1ed32ee60cbd5e8e61b0d0d1c9"
+)
+
+EXECUTION_SOURCE_RELS = (
+    "AGENTS.md",
+    "workspace/public/src/scripts/server-distro/a90_h16_ufs_f1_runner_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_h16_ufs_d1_runner_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_boot_benchmark_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_ondevice_evidence_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_phase3_d1_observer_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_phase2d_connected_preflight.py",
+    "workspace/public/src/scripts/server-distro/a90_phase2d_display_observer.py",
+    "workspace/public/src/scripts/server-distro/a90_h5_existing_source_install_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_resident_existing_rootfs_install_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_resident_preserved_d1_prep_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_resident_promotion_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_transition_d1_session_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_transition_engine_v2.py",
+    "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py",
+    "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py",
+    "workspace/public/src/scripts/server-distro/a90_v3405_retained_work_cleanup.py",
+    "workspace/public/src/scripts/server-distro/run_d1_chroot_mvp.py",
+    "workspace/public/src/scripts/revalidation/a90ctl.py",
+    "workspace/public/src/scripts/revalidation/a90_bridge.py",
+    "workspace/public/src/scripts/revalidation/a90_observation_pipeline.py",
+    "workspace/public/src/scripts/revalidation/a90_serial_lock.py",
+    "workspace/public/src/scripts/revalidation/a90_transition_contract_v2.py",
+    "workspace/public/src/scripts/revalidation/_workspace_bootstrap.py",
+    "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py",
+    "workspace/public/src/scripts/revalidation/device_action_cdc_acm_observer_v1.py",
+    "workspace/public/src/scripts/revalidation/native_init_flash.py",
+    TARGET_CONTRACT_REL,
+    VERSION_MANIFEST_REL,
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/"
+    "v3404-effective/manifest.toml",
+    CONTENT_REL,
+    "workspace/public/src/native-init/a90_config.h",
+    "workspace/public/src/native-init/a90_auto_handoff.c",
+    "workspace/public/src/native-init/a90_server_distro.h",
+    "workspace/public/src/native-init/a90_server_distro.c",
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py",
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/buildlib.py",
+)
+
+
+class ContractError(RuntimeError):
+    """Raised before widening, replaying, or misclassifying an H16 effect."""
+
+
+def utc_now() -> str:
+    return dt.datetime.now(dt.UTC).replace(microsecond=0).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+
+
+def parse_utc(value: Any, label: str) -> dt.datetime:
+    if not isinstance(value, str):
+        raise ContractError(f"{label} is not an exact UTC timestamp")
+    try:
+        parsed = dt.datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=dt.UTC
+        )
+    except ValueError as exc:
+        raise ContractError(f"{label} is not an exact UTC timestamp") from exc
+    return parsed
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def json_sha256(value: Any) -> str:
+    body = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(body).hexdigest()
+
+
+def _json_bytes(value: Any) -> bytes:
+    return (
+        json.dumps(
+            value,
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+        + "\n"
+    ).encode("utf-8")
+
+
+def _fsync_dir(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def write_json_exclusive(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    temporary = path.with_name(f".{path.name}.tmp-{os.getpid()}-{time.time_ns()}")
+    descriptor = os.open(
+        temporary,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+        0o600,
+    )
+    try:
+        payload = _json_bytes(value)
+        offset = 0
+        while offset < len(payload):
+            written = os.write(descriptor, payload[offset:])
+            if written <= 0:
+                raise ContractError("short private JSON write")
+            offset += written
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    try:
+        os.link(temporary, path, follow_symlinks=False)
+        _fsync_dir(path.parent)
+    except FileExistsError as exc:
+        raise ContractError(f"refusing to replace durable file: {path}") from exc
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def require_sha(value: Any, label: str) -> str:
+    if not isinstance(value, str) or HEX64_RE.fullmatch(value) is None:
+        raise ContractError(f"{label} is not one lowercase SHA256")
+    return value
+
+
+def require_regular(path: Path, *, size: int, sha256: str) -> None:
+    lexical = path.absolute()
+    if lexical.is_symlink():
+        raise ContractError(f"bound path is a symlink: {path}")
+    resolved = lexical.resolve(strict=True)
+    info = resolved.stat()
+    if (
+        not stat.S_ISREG(info.st_mode)
+        or info.st_size != size
+        or sha256_file(resolved) != sha256
+    ):
+        raise ContractError(f"bound regular file changed: {path}")
+
+
+def bound_file(path: Path) -> dict[str, Any]:
+    lexical = path.absolute()
+    if lexical.is_symlink():
+        raise ContractError(f"bound path is a symlink: {path}")
+    resolved = lexical.resolve(strict=True)
+    info = resolved.stat()
+    if not stat.S_ISREG(info.st_mode):
+        raise ContractError(f"bound path is not regular: {path}")
+    return {
+        "path": str(resolved),
+        "size": info.st_size,
+        "sha256": sha256_file(resolved),
+    }
+
+
+def reopen_bound(value: Any, label: str) -> Path:
+    if not isinstance(value, dict) or set(value) != {"path", "size", "sha256"}:
+        raise ContractError(f"{label} binding shape changed")
+    path_value = value.get("path")
+    size = value.get("size")
+    sha = require_sha(value.get("sha256"), f"{label}.sha256")
+    if not isinstance(path_value, str) or type(size) is not int or size <= 0:
+        raise ContractError(f"{label} binding is not exact")
+    path = Path(path_value)
+    require_regular(path, size=size, sha256=sha)
+    return path.resolve(strict=True)
+
+
+def load_json_bound(value: Any, label: str) -> tuple[Path, dict[str, Any]]:
+    path = reopen_bound(value, label)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ContractError(f"{label} is not exact JSON") from exc
+    if not isinstance(data, dict):
+        raise ContractError(f"{label} JSON root is not an object")
+    return path, data
+
+
+def execution_closure() -> dict[str, Any]:
+    version_manifest = (REPO_ROOT / VERSION_MANIFEST_REL).resolve(strict=True)
+    resolution = flat_buildlib.resolve_manifest(version_manifest)
+    init = resolution.data.get("init")
+    if not isinstance(init, dict):
+        raise ContractError("H16 native manifest init binding is absent")
+    source_root = (REPO_ROOT / str(init.get("source_root") or "")).resolve(
+        strict=True
+    )
+    native_files = flat_buildlib.expanded_closure(
+        source_root,
+        init.get("sources"),
+        init.get("closure_globs"),
+    )
+    actual_native_closure = flat_buildlib.closure_sha256(
+        source_root,
+        native_files,
+    )
+    if (
+        init.get("closure_sha256") != NATIVE_CLOSURE_SHA256
+        or actual_native_closure != NATIVE_CLOSURE_SHA256
+    ):
+        raise ContractError("H16 native transitive closure changed")
+    files: dict[str, dict[str, Any]] = {}
+    digest = hashlib.sha256()
+    for relative in sorted(EXECUTION_SOURCE_RELS):
+        path = (REPO_ROOT / relative).resolve(strict=True)
+        info = path.stat()
+        if not stat.S_ISREG(info.st_mode):
+            raise ContractError(f"execution source is not regular: {relative}")
+        sha = sha256_file(path)
+        files[relative] = {"size": info.st_size, "sha256": sha}
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(str(info.st_size).encode("ascii"))
+        digest.update(b"\0")
+        digest.update(sha.encode("ascii"))
+        digest.update(b"\0")
+    return {"sha256": digest.hexdigest(), "files": files}
+
+
+def validate_qualification(
+    binding: Any,
+    closure: dict[str, Any],
+) -> dict[str, Any]:
+    _, value = load_json_bound(binding, "capability_qualification")
+    if (
+        value.get("schema") != QUALIFICATION_SCHEMA
+        or value.get("capability") != CAPABILITY
+        or value.get("verdict") != "PASS_GO"
+        or value.get("execution_closure_sha256") != closure["sha256"]
+        or value.get("execution_hashes") != closure["files"]
+        or value.get("review_scope")
+        != "boot-only-f1-and-readonly-ufs-d1-execution-critical-closure"
+        or value.get("new_hazard_or_incident") is not False
+        or value.get("ordinal_requalification_required") is not False
+    ):
+        raise ContractError("independent capability qualification is not current")
+    return value
+
+
+def validate_ufs_inventory(value: dict[str, Any]) -> None:
+    observed_devt = value.get("observed_devt")
+    if (
+        value.get("schema") != INVENTORY_SCHEMA
+        or value.get("status") != "PASS"
+        or value.get("target") != "Samsung Galaxy A90 5G"
+        or value.get("identity") != UFS_IDENTITY
+        or not isinstance(observed_devt, str)
+        or re.fullmatch(r"[0-9]+:[0-9]+", observed_devt) is None
+        or value.get("devt_stability") != "same-session-only"
+        or value.get("content_manifest_sha256")
+        != "e1950058627446d6bbd487d6a17b80f5766be4956b54cb56659b541dab09f8f6"
+        or value.get("content_file_count") != 19
+        or value.get("secrets_hashed") is not False
+        or value.get("public_tunnel") != "disabled"
+        or value.get("mounted_read_only") is not True
+        or value.get("mounted_norecovery") is not True
+        or value.get("mounted_after") is not False
+        or value.get("userdata_write_count") != 0
+        or value.get("format_count") != 0
+        or value.get("repair_count") != 0
+        or value.get("s22plus_command_count") != 0
+    ):
+        raise ContractError("read-only UFS inventory is not exact")
+
+
+def expected_compiled_binding() -> dict[str, Any]:
+    expected_binding = {
+        "candidate_version": CANDIDATE_VERSION,
+        "candidate_build": CANDIDATE_BUILD,
+        "enable_path": ENABLE_PATH,
+        "latch_path": LATCH_PATH,
+        "schema": "a90-compiled-auto-handoff-binding-v4",
+        "root_kind": "userdata-ext4-ro-noload",
+        "userdata_devname": UFS_IDENTITY["devname"],
+        "userdata_devt_policy": UFS_IDENTITY["devt_policy"],
+        "userdata_sectors": UFS_IDENTITY["sectors"],
+        "userdata_label": UFS_IDENTITY["label"],
+        "userdata_marker": UFS_IDENTITY["marker"],
+        "userdata_uuid": UFS_IDENTITY["uuid"],
+        "userdata_content_manifest": CONTENT_REL,
+        "userdata_content_manifest_file_sha256": (
+            "a878f6dec82bf799c3d2cd43beeda3c5494a8882ce116327f497d822b707d5ce"
+        ),
+        "userdata_content_manifest_sha256": (
+            "e1950058627446d6bbd487d6a17b80f5766be4956b54cb56659b541dab09f8f6"
+        ),
+    }
+    return {
+        **expected_binding,
+        "binding_sha256": json_sha256(expected_binding),
+    }
+
+
+def validate_ab_receipt(value: dict[str, Any], candidate: Path) -> dict[str, Any]:
+    artifacts = value.get("artifacts")
+    boot = artifacts.get("boot") if isinstance(artifacts, dict) else None
+    binding = value.get("auto_handoff_binding")
+    expected_binding = expected_compiled_binding()
+    resolution = flat_buildlib.resolve_manifest(REPO_ROOT / VERSION_MANIFEST_REL)
+    manifest_sha = sha256_file(REPO_ROOT / VERSION_MANIFEST_REL)
+    expected_lineage = [
+        {
+            "path": path.relative_to(REPO_ROOT).as_posix(),
+            "sha256": sha256_file(path),
+        }
+        for path in resolution.lineage
+    ]
+    input_pins = value.get("input_pins")
+    source_keys = value.get("source_keys")
+    expected_source_keys = {
+        "flat_builder": {
+            "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py",
+            **{
+                key: item
+                for key, item in bound_file(
+                    REPO_ROOT
+                    / "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py"
+                ).items()
+                if key != "path"
+            },
+        },
+        "flat_builder_library": {
+            "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/buildlib.py",
+            **{
+                key: item
+                for key, item in bound_file(
+                    REPO_ROOT
+                    / "workspace/public/src/scripts/revalidation/a90_flat_builder/buildlib.py"
+                ).items()
+                if key != "path"
+            },
+        },
+    }
+    lineage = value.get("manifest_lineage")
+    if (
+        value.get("schema") != "a90-flat-builder-v1-ab-receipt"
+        or value.get("profile") != CANDIDATE_BUILD
+        or value.get("byte_identical") is not True
+        or value.get("candidate_authority") is not False
+        or value.get("accepted_boot_unchanged") is not True
+        or value.get("manifest_sha256") != manifest_sha
+        or lineage != expected_lineage
+        or not isinstance(input_pins, dict)
+        or input_pins.get("init_closure_sha256") != NATIVE_CLOSURE_SHA256
+        or source_keys != expected_source_keys
+        or not isinstance(boot, dict)
+        or boot.get("path") != "boot.img"
+        or boot.get("bytes") != candidate.stat().st_size
+        or boot.get("sha256") != sha256_file(candidate)
+        or not isinstance(binding, dict)
+        or set(binding) != set(expected_binding)
+        or any(binding.get(key) != item for key, item in expected_binding.items())
+    ):
+        raise ContractError("H16 deterministic build receipt is not exact")
+    return binding
+
+
+def _baseline_inputs(manifest: dict[str, Any], result: dict[str, Any]) -> None:
+    candidate = manifest.get("candidate_boot")
+    rollback = manifest.get("rollback_boot")
+    final_health = result.get("final_health")
+    native = final_health.get("native") if isinstance(final_health, dict) else None
+    first_boot = (
+        final_health.get("first_boot") if isinstance(final_health, dict) else None
+    )
+    version = native.get("version") if isinstance(native, dict) else None
+    selftest = native.get("selftest") if isinstance(native, dict) else None
+    first_status = (
+        first_boot.get("status") if isinstance(first_boot, dict) else None
+    )
+    if (
+        manifest.get("schema") != "a90-h15-ufs-f1-manifest-v1"
+        or not isinstance(candidate, dict)
+        or candidate.get("expected_version") != CURRENT_VERSION
+        or candidate.get("expected_build")
+        != CURRENT_BUILD
+        or not isinstance(rollback, dict)
+        or rollback.get("expected_version") != ROLLBACK_VERSION
+        or rollback.get("expected_build") != ROLLBACK_BUILD
+        or rollback.get("size") != ROLLBACK_SIZE
+        or rollback.get("sha256") != ROLLBACK_SHA256
+        or result.get("schema") != "a90-h15-ufs-f1-result-v1"
+        or result.get("status") != "PASS_A90_H15_UFS_RESIDENT_INSTALLED"
+        or result.get("device_safety_state") != "RESIDENT_HEALTHY"
+        or result.get("candidate_attempt_count") != 1
+        or result.get("candidate_transfer_count") != 1
+        or result.get("rollback_transfer_count") != 0
+        or result.get("candidate_replay") is not False
+        or result.get("rootfs_payload_count") != 0
+        or result.get("sd_stage_count") != 0
+        or result.get("userdata_write_count") != 0
+        or not isinstance(native, dict)
+        or native.get("exact_bridge") is not True
+        or not isinstance(version, dict)
+        or version.get("command") != ["version"]
+        or version.get("rc") != 0
+        or CURRENT_VERSION not in str(version.get("text") or "")
+        or CURRENT_BUILD not in str(version.get("text") or "")
+        or not isinstance(selftest, dict)
+        or selftest.get("command") != ["selftest"]
+        or selftest.get("rc") != 0
+        or "fail=0" not in str(selftest.get("text") or "")
+        or not isinstance(first_boot, dict)
+        or first_boot.get("proof") is not True
+        or first_boot.get("enable") != 0
+        or first_boot.get("latch") != 0
+        or not isinstance(first_status, dict)
+        or first_status.get("command") != ["auto-handoff-status"]
+        or first_status.get("rc") != 0
+        or "binding=1 enable=0 latch=0" not in str(
+            first_status.get("text") or ""
+        )
+    ):
+        raise ContractError("H15 resident predecessor is not exact healthy 0,0")
+
+
+def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
+    if RUN_ID_RE.fullmatch(args.run_id) is None:
+        raise ContractError("H16 run id is not exact")
+    run_dir = (PRIVATE_RUN_BASE / args.run_id).resolve()
+    if run_dir.parent != PRIVATE_RUN_BASE:
+        raise ContractError("H16 run directory escapes private run base")
+    baseline_manifest_path = Path(args.baseline_manifest).resolve(strict=True)
+    baseline_result_path = Path(args.baseline_result).resolve(strict=True)
+    baseline_manifest = json.loads(baseline_manifest_path.read_text(encoding="utf-8"))
+    baseline_result = json.loads(baseline_result_path.read_text(encoding="utf-8"))
+    if not isinstance(baseline_manifest, dict) or not isinstance(baseline_result, dict):
+        raise ContractError("H15 resident predecessor JSON shape changed")
+    _baseline_inputs(baseline_manifest, baseline_result)
+    if baseline_result.get("manifest_sha256") != sha256_file(
+        baseline_manifest_path
+    ):
+        raise ContractError("H15 resident predecessor manifest binding changed")
+
+    target = baseline_manifest.get("target")
+    rollback_value = baseline_manifest.get("rollback_boot")
+    if not isinstance(target, dict) or not isinstance(rollback_value, dict):
+        raise ContractError("H15 target/rollback binding is absent")
+    rollback_path = Path(str(rollback_value.get("path") or ""))
+    require_regular(rollback_path, size=ROLLBACK_SIZE, sha256=ROLLBACK_SHA256)
+    bridge_device = target.get("bridge_device")
+    if bridge_device != EXACT_BRIDGE_DEVICE:
+        raise ContractError("H15 exact A90 bridge path is absent")
+    bridge_path = Path(bridge_device)
+    bridge_realpath = str(bridge_path.resolve(strict=True))
+    if re.fullmatch(r"/dev/ttyACM[0-9]+", bridge_realpath) is None:
+        raise ContractError("current A90 bridge realpath is not exact")
+
+    candidate = Path(args.candidate).resolve(strict=True)
+    receipt_path = Path(args.ab_receipt).resolve(strict=True)
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    if not isinstance(receipt, dict):
+        raise ContractError("H16 AB receipt is not an object")
+    compiled_binding = validate_ab_receipt(receipt, candidate)
+
+    inventory_path = Path(args.ufs_inventory).resolve(strict=True)
+    inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+    if not isinstance(inventory, dict):
+        raise ContractError("UFS inventory is not an object")
+    validate_ufs_inventory(inventory)
+
+    closure = execution_closure()
+    qualification = bound_file(Path(args.qualification))
+    validate_qualification(qualification, closure)
+    recovery = target.get("recovery_adb_identity_evidence")
+    if not isinstance(recovery, dict):
+        raise ContractError("recovery identity evidence is not bound")
+    for name in ("candidate_recovery_log", "rollback_recovery_log"):
+        reopen_bound(recovery.get(name), f"recovery.{name}")
+    observer = baseline_manifest.get("observer")
+    if not isinstance(observer, dict):
+        raise ContractError("H15 observer binding is absent")
+    observer_key = reopen_bound(observer.get("private_key"), "observer.private_key")
+    observer_public_key = reopen_bound(
+        observer.get("public_key"), "observer.public_key"
+    )
+    observer_public_key_sha256 = require_sha(
+        observer.get("public_key_sha256"),
+        "observer.public_key_sha256",
+    )
+    if sha256_file(observer_public_key.resolve(strict=True)) != observer_public_key_sha256:
+        raise ContractError("H15 observer public key changed")
+
+    return {
+        "schema": SCHEMA,
+        "status": "ready-for-attended-f1",
+        "run_id": args.run_id,
+        "capability": CAPABILITY,
+        "created_utc": utc_now(),
+        "authority": {
+            "operator_attendance_required": True,
+            "candidate_attempt_limit": 1,
+            "rollback_attempt_limit": 1,
+            "candidate_replay": False,
+            "partition_allowlist": ["boot"],
+            "rootfs_payload_count": 0,
+            "sd_stage_count": 0,
+            "userdata_write_count": 0,
+            "manifest_grants_live_authority": False,
+        },
+        "target": {
+            "profile": "galaxy-a90-5g-native-init",
+            "bridge_device": bridge_device,
+            "bridge_realpath": bridge_realpath,
+            "current_version": CURRENT_VERSION,
+            "current_build": CURRENT_BUILD,
+            "recovery": target.get("recovery"),
+            "recovery_adb_serial_sha256": target.get(
+                "recovery_adb_serial_sha256"
+            ),
+            "recovery_adb_identity_evidence": recovery,
+        },
+        "candidate_boot": {
+            **bound_file(candidate),
+            "partition": "boot",
+            "expected_version": CANDIDATE_VERSION,
+            "expected_build": CANDIDATE_BUILD,
+            "compiled_binding": compiled_binding,
+            "ab_receipt": bound_file(receipt_path),
+            "enable_path": ENABLE_PATH,
+            "latch_path": LATCH_PATH,
+        },
+        "rollback_boot": {
+            **bound_file(rollback_path),
+            "partition": "boot",
+            "expected_version": ROLLBACK_VERSION,
+            "expected_build": ROLLBACK_BUILD,
+        },
+        "ufs_root": {
+            **UFS_IDENTITY,
+            "content_manifest": bound_file(REPO_ROOT / CONTENT_REL),
+            "content_manifest_semantic_sha256": (
+                "e1950058627446d6bbd487d6a17b80f5766be4956b54cb56659b541dab09f8f6"
+            ),
+            "inventory": bound_file(inventory_path),
+            "whole_filesystem_sha256": None,
+            "write_allowed": False,
+        },
+        "predecessor": {
+            "manifest": bound_file(baseline_manifest_path),
+            "result": bound_file(baseline_result_path),
+        },
+        "flash_runner": bound_file(NATIVE_FLASH),
+        "observer": {
+            "private_key": bound_file(observer_key),
+            "public_key": bound_file(observer_public_key),
+            "public_key_sha256": observer_public_key_sha256,
+            "device_ip": observer.get("device_ip"),
+            "device_port": observer.get("device_port"),
+            "host_ncm_profile": observer.get("host_ncm_profile"),
+            "transport_scope": "USB-local NCM only",
+            "wifi_required": True,
+            "public_tunnel_allowed": False,
+        },
+        "capability_qualification": qualification,
+        "execution_closure": closure,
+    }
+
+
+def load_manifest(path: Path, expected_sha256: str) -> dict[str, Any]:
+    require_sha(expected_sha256, "expected manifest SHA256")
+    resolved = path.resolve(strict=True)
+    if sha256_file(resolved) != expected_sha256:
+        raise ContractError("manifest SHA256 changed")
+    value = json.loads(resolved.read_text(encoding="utf-8"))
+    if (
+        not isinstance(value, dict)
+        or value.get("schema") != SCHEMA
+        or value.get("status") != "ready-for-attended-f1"
+        or value.get("capability") != CAPABILITY
+        or RUN_ID_RE.fullmatch(str(value.get("run_id") or "")) is None
+    ):
+        raise ContractError("H16 F1 manifest header changed")
+    authority = value.get("authority")
+    if (
+        not isinstance(authority, dict)
+        or authority.get("operator_attendance_required") is not True
+        or authority.get("candidate_attempt_limit") != 1
+        or authority.get("rollback_attempt_limit") != 1
+        or authority.get("candidate_replay") is not False
+        or authority.get("partition_allowlist") != ["boot"]
+        or authority.get("rootfs_payload_count") != 0
+        or authority.get("sd_stage_count") != 0
+        or authority.get("userdata_write_count") != 0
+        or authority.get("manifest_grants_live_authority") is not False
+    ):
+        raise ContractError("H16 authority widened")
+
+    closure = execution_closure()
+    if value.get("execution_closure") != closure:
+        raise ContractError("H16 execution-critical closure changed")
+    validate_qualification(value.get("capability_qualification"), closure)
+    _, inventory = load_json_bound(
+        value.get("ufs_root", {}).get("inventory"),
+        "ufs_root.inventory",
+    )
+    validate_ufs_inventory(inventory)
+    content = value.get("ufs_root", {}).get("content_manifest")
+    content_path = reopen_bound(content, "ufs_root.content_manifest")
+    if (
+        content_path != (REPO_ROOT / CONTENT_REL).resolve(strict=True)
+        or value.get("ufs_root", {}).get("content_manifest_semantic_sha256")
+        != "e1950058627446d6bbd487d6a17b80f5766be4956b54cb56659b541dab09f8f6"
+        or value.get("ufs_root", {}).get("whole_filesystem_sha256") is not None
+        or value.get("ufs_root", {}).get("write_allowed") is not False
+        or any(value.get("ufs_root", {}).get(key) != item for key, item in UFS_IDENTITY.items())
+    ):
+        raise ContractError("H16 UFS binding changed")
+
+    predecessor = value.get("predecessor")
+    if not isinstance(predecessor, dict):
+        raise ContractError("H15 resident predecessor binding is absent")
+    _, predecessor_manifest = load_json_bound(
+        predecessor.get("manifest"), "predecessor.manifest"
+    )
+    _, predecessor_result = load_json_bound(
+        predecessor.get("result"), "predecessor.result"
+    )
+    _baseline_inputs(predecessor_manifest, predecessor_result)
+    predecessor_target = predecessor_manifest.get("target")
+    target = value.get("target")
+    if not isinstance(predecessor_target, dict) or not isinstance(target, dict):
+        raise ContractError("H16 exact target predecessor binding is absent")
+    expected_target_keys = {
+        "profile",
+        "bridge_device",
+        "bridge_realpath",
+        "current_version",
+        "current_build",
+        "recovery",
+        "recovery_adb_serial_sha256",
+        "recovery_adb_identity_evidence",
+    }
+    bridge_realpath = target.get("bridge_realpath")
+    if (
+        set(target) != expected_target_keys
+        or target.get("profile") != "galaxy-a90-5g-native-init"
+        or target.get("profile") != predecessor_target.get("profile")
+        or target.get("bridge_device") != EXACT_BRIDGE_DEVICE
+        or target.get("bridge_device") != predecessor_target.get("bridge_device")
+        or not isinstance(bridge_realpath, str)
+        or re.fullmatch(r"/dev/ttyACM[0-9]+", bridge_realpath) is None
+        or target.get("current_version") != CURRENT_VERSION
+        or target.get("current_build") != CURRENT_BUILD
+        or target.get("recovery") != predecessor_target.get("recovery")
+        or target.get("recovery_adb_serial_sha256")
+        != predecessor_target.get("recovery_adb_serial_sha256")
+        or target.get("recovery_adb_identity_evidence")
+        != predecessor_target.get("recovery_adb_identity_evidence")
+    ):
+        raise ContractError("H16 exact target or recovery binding changed")
+
+    candidate = value.get("candidate_boot")
+    rollback = value.get("rollback_boot")
+    if not isinstance(candidate, dict) or not isinstance(rollback, dict):
+        raise ContractError("candidate or rollback binding is absent")
+    candidate_path = reopen_bound(
+        {key: candidate.get(key) for key in ("path", "size", "sha256")},
+        "candidate_boot",
+    )
+    _, ab_receipt = load_json_bound(
+        candidate.get("ab_receipt"),
+        "candidate_boot.ab_receipt",
+    )
+    compiled_binding = validate_ab_receipt(ab_receipt, candidate_path)
+    reopen_bound(
+        {key: rollback.get(key) for key in ("path", "size", "sha256")},
+        "rollback_boot",
+    )
+    if (
+        candidate.get("partition") != "boot"
+        or candidate.get("expected_version") != CANDIDATE_VERSION
+        or candidate.get("expected_build") != CANDIDATE_BUILD
+        or candidate.get("compiled_binding") != compiled_binding
+        or compiled_binding != expected_compiled_binding()
+        or candidate.get("enable_path") != ENABLE_PATH
+        or candidate.get("latch_path") != LATCH_PATH
+        or rollback.get("partition") != "boot"
+        or rollback.get("expected_version") != ROLLBACK_VERSION
+        or rollback.get("expected_build") != ROLLBACK_BUILD
+        or rollback.get("size") != ROLLBACK_SIZE
+        or rollback.get("sha256") != ROLLBACK_SHA256
+    ):
+        raise ContractError("boot-only candidate or rollback binding changed")
+    flash_path = reopen_bound(value.get("flash_runner"), "flash_runner")
+    if flash_path != NATIVE_FLASH:
+        raise ContractError("flash runner changed")
+    observer = value.get("observer")
+    if not isinstance(observer, dict):
+        raise ContractError("H16 observer binding is absent")
+    observer_key = reopen_bound(observer.get("private_key"), "observer.private_key")
+    public_key = reopen_bound(observer.get("public_key"), "observer.public_key")
+    if (
+        public_key != observer_key.with_suffix(observer_key.suffix + ".pub")
+        or observer.get("public_key_sha256") != sha256_file(public_key)
+        or observer.get("device_ip") != "192.168.7.2"
+        or observer.get("device_port") != 2222
+        or observer.get("host_ncm_profile") != "a90-v3406-ncm"
+        or observer.get("transport_scope") != "USB-local NCM only"
+        or observer.get("wifi_required") is not True
+        or observer.get("public_tunnel_allowed") is not False
+    ):
+        raise ContractError("H16 observer or network scope changed")
+    return value
+
+
+def _approval_path(manifest: dict[str, Any]) -> Path:
+    run_dir = (PRIVATE_RUN_BASE / manifest["run_id"]).resolve()
+    if run_dir.parent != PRIVATE_RUN_BASE:
+        raise ContractError("H16 approval path escapes private run base")
+    return run_dir / "h16-f1-approval-prepared.json"
+
+
+def approval_binding(
+    manifest: dict[str, Any],
+    manifest_sha: str,
+    *,
+    created_utc: str,
+    expires_utc: str,
+) -> dict[str, Any]:
+    target = manifest["target"]
+    candidate = manifest["candidate_boot"]
+    rollback = manifest["rollback_boot"]
+    return {
+        "schema": APPROVAL_BINDING_SCHEMA,
+        "workflow": "A90_F1_RESIDENT_INSTALL_V1",
+        "authority_mode": "trial-retired-fresh-approval-required",
+        "run_id": manifest["run_id"],
+        "manifest_sha256": manifest_sha,
+        "execution_closure_sha256": manifest["execution_closure"]["sha256"],
+        "agents_contract_sha256": sha256_file(REPO_ROOT / "AGENTS.md"),
+        "target_profile": target["profile"],
+        "bridge_device": target["bridge_device"],
+        "bridge_realpath": target["bridge_realpath"],
+        "recovery_binding_sha256": json_sha256(
+            target["recovery_adb_identity_evidence"]
+        ),
+        "candidate_boot_sha256": candidate["sha256"],
+        "candidate_boot_size": candidate["size"],
+        "rollback_boot_sha256": rollback["sha256"],
+        "rollback_boot_size": rollback["size"],
+        "partition_allowlist": ["boot"],
+        "candidate_attempt_limit": 1,
+        "rollback_transfer_attempt_limit": 1,
+        "candidate_replay": False,
+        "rollback_on_candidate_ambiguity": True,
+        "operator_attendance_required": True,
+        "created_utc": created_utc,
+        "expires_utc": expires_utc,
+    }
+
+
+def prepare_approval(manifest_path: Path, manifest_sha: str) -> dict[str, Any]:
+    manifest = load_manifest(manifest_path, manifest_sha)
+    created = dt.datetime.now(dt.UTC).replace(microsecond=0)
+    expires = created + dt.timedelta(seconds=APPROVAL_TTL_SEC)
+    binding = approval_binding(
+        manifest,
+        manifest_sha,
+        created_utc=created.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        expires_utc=expires.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    )
+    binding_sha = json_sha256(binding)
+    value = {
+        "schema": APPROVAL_SCHEMA,
+        "run_id": manifest["run_id"],
+        "manifest_sha256": manifest_sha,
+        "approval_binding": binding,
+        "approval_binding_sha256": binding_sha,
+        "approval_token": APPROVAL_PREFIX + binding_sha,
+        "device_contact": False,
+        "device_write": False,
+        "live_authority_from_preparation": False,
+    }
+    write_json_exclusive(_approval_path(manifest), value)
+    return value
+
+
+def validate_approval(
+    manifest: dict[str, Any],
+    manifest_sha: str,
+    approval: str | None,
+) -> dict[str, Any]:
+    path = _approval_path(manifest)
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or path.is_symlink() or info.st_mode & 0o077:
+        raise ContractError("H16 F1 approval is not a private regular file")
+    value = json.loads(path.read_text(encoding="utf-8"))
+    binding = value.get("approval_binding") if isinstance(value, dict) else None
+    if not isinstance(binding, dict):
+        raise ContractError("H16 F1 approval binding is absent")
+    binding_sha = json_sha256(binding)
+    expected = approval_binding(
+        manifest,
+        manifest_sha,
+        created_utc=str(binding.get("created_utc") or ""),
+        expires_utc=str(binding.get("expires_utc") or ""),
+    )
+    now = dt.datetime.now(dt.UTC)
+    created = parse_utc(binding.get("created_utc"), "approval created_utc")
+    expires = parse_utc(binding.get("expires_utc"), "approval expires_utc")
+    if (
+        set(value)
+        != {
+            "schema",
+            "run_id",
+            "manifest_sha256",
+            "approval_binding",
+            "approval_binding_sha256",
+            "approval_token",
+            "device_contact",
+            "device_write",
+            "live_authority_from_preparation",
+        }
+        or value.get("schema") != APPROVAL_SCHEMA
+        or value.get("run_id") != manifest["run_id"]
+        or value.get("manifest_sha256") != manifest_sha
+        or binding != expected
+        or value.get("approval_binding_sha256") != binding_sha
+        or value.get("approval_token") != APPROVAL_PREFIX + binding_sha
+        or approval != value.get("approval_token")
+        or value.get("device_contact") is not False
+        or value.get("device_write") is not False
+        or value.get("live_authority_from_preparation") is not False
+        or expires - created != dt.timedelta(seconds=APPROVAL_TTL_SEC)
+        or now < created
+        or now > expires
+    ):
+        raise ContractError("H16 F1 approval is not fresh and exact")
+    return value
+
+
+def require_consumed_approval(
+    records: list[dict[str, Any]],
+    manifest: dict[str, Any],
+    manifest_sha: str,
+) -> dict[str, Any]:
+    matches = [item for item in records if item.get("action") == "approval-consumed"]
+    if len(matches) != 1:
+        raise ContractError("H16 F1 approval consumption is not durable and unique")
+    record = matches[0]
+    binding = record.get("approval_binding")
+    if not isinstance(binding, dict):
+        raise ContractError("H16 F1 consumed approval binding is absent")
+    expected = approval_binding(
+        manifest,
+        manifest_sha,
+        created_utc=str(binding.get("created_utc") or ""),
+        expires_utc=str(binding.get("expires_utc") or ""),
+    )
+    if (
+        binding != expected
+        or record.get("approval_binding_sha256") != json_sha256(binding)
+        or record.get("approval_consumed") is not True
+        or record.get("approval_token_sha256")
+        != hashlib.sha256(
+            (APPROVAL_PREFIX + json_sha256(binding)).encode("utf-8")
+        ).hexdigest()
+    ):
+        raise ContractError("H16 F1 consumed approval changed")
+    return record
+
+
+def _stage_view(manifest: dict[str, Any], manifest_path: Path, manifest_sha: str) -> Any:
+    target = manifest["target"]
+    candidate = manifest["candidate_boot"]
+    return SimpleNamespace(
+        run_id=manifest["run_id"],
+        manifest_path=manifest_path.resolve(strict=True),
+        manifest_sha256=manifest_sha,
+        local_image=Path(candidate["path"]),
+        local_size=candidate["size"],
+        local_sha256=candidate["sha256"],
+        remote_final="",
+        remote_work="",
+        remote_stage_dir="",
+        remote_payload="",
+        bridge_device=target["bridge_device"],
+        bridge_realpath=target["bridge_realpath"],
+        observer_device="192.168.7.2",
+        starting_version=CURRENT_VERSION,
+        starting_build=CURRENT_BUILD,
+    )
+
+
+def _spec(manifest: dict[str, Any], manifest_path: Path, manifest_sha: str) -> Any:
+    candidate = manifest["candidate_boot"]
+    rollback = manifest["rollback_boot"]
+    recovery = manifest["target"]["recovery_adb_identity_evidence"]
+    evidence = []
+    for name in ("candidate_recovery_log", "rollback_recovery_log"):
+        item = recovery[name]
+        path = reopen_bound(item, f"recovery.{name}")
+        evidence.append(
+            staging.BoundFile(
+                label=name,
+                path=path,
+                size=item["size"],
+                sha256=item["sha256"],
+            )
+        )
+    serial_sha = require_sha(
+        manifest["target"].get("recovery_adb_serial_sha256"),
+        "recovery_adb_serial_sha256",
+    )
+    recovery_serial = base.recovery_serial_from_evidence(
+        tuple(evidence), serial_sha
+    )
+    observer = manifest["observer"]
+    return SimpleNamespace(
+        stage=_stage_view(manifest, manifest_path, manifest_sha),
+        candidate=staging.BoundFile(
+            label="candidate_boot",
+            path=Path(candidate["path"]),
+            size=candidate["size"],
+            sha256=candidate["sha256"],
+        ),
+        rollback=staging.BoundFile(
+            label="rollback_boot",
+            path=Path(rollback["path"]),
+            size=rollback["size"],
+            sha256=rollback["sha256"],
+        ),
+        flash_runner=staging.BoundFile(
+            label="flash_runner",
+            path=NATIVE_FLASH,
+            size=manifest["flash_runner"]["size"],
+            sha256=manifest["flash_runner"]["sha256"],
+        ),
+        candidate_version=CANDIDATE_VERSION,
+        candidate_build=CANDIDATE_BUILD,
+        rollback_version=ROLLBACK_VERSION,
+        rollback_build=ROLLBACK_BUILD,
+        candidate_boot_timeout=300,
+        rollback_boot_timeout=300,
+        handoff_timeout=1,
+        ssh_marker_timeout=1,
+        candidate_return_timeout=300,
+        observer_key=Path(observer["private_key"]["path"]),
+        observer_public_key_sha256=observer["public_key_sha256"],
+        observer_device=observer["device_ip"],
+        observer_port=observer["device_port"],
+        observer_host_ncm_profile=observer["host_ncm_profile"],
+        display_required=True,
+        display_profile="phase2-display-v1",
+        display_uid=3904,
+        display_gid=3904,
+        display_max_attempts=3,
+        display_visible_text=(
+            "A90 DEBIAN",
+            "DIRECT DRM SESSION",
+            "PID 1: SYSVINIT / VT: NONE",
+            "DISPLAY OWNER: DEBIAN",
+        ),
+        recovery_serial_sha256=serial_sha,
+        recovery_serial=recovery_serial,
+        candidate_first_boot={
+            "enable_path": ENABLE_PATH,
+            "latch_path": LATCH_PATH,
+        },
+    )
+
+
+def _journal_dir(manifest: dict[str, Any]) -> Path:
+    run_dir = (PRIVATE_RUN_BASE / manifest["run_id"]).resolve()
+    if run_dir.parent != PRIVATE_RUN_BASE:
+        raise ContractError("transaction directory escapes private run base")
+    return run_dir / "h16-f1-live" / "journal"
+
+
+def read_journal(path: Path, manifest: dict[str, Any], manifest_sha: str) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    records: list[dict[str, Any]] = []
+    for index, item in enumerate(sorted(path.glob("*.json"))):
+        value = json.loads(item.read_text(encoding="utf-8"))
+        if (
+            not isinstance(value, dict)
+            or value.get("schema") != JOURNAL_SCHEMA
+            or value.get("sequence") != index
+            or value.get("run_id") != manifest["run_id"]
+            or value.get("manifest_sha256") != manifest_sha
+            or item.name != f"{index:04d}-{value.get('action')}.json"
+        ):
+            raise ContractError("durable H16 journal is inconsistent")
+        records.append(value)
+    return records
+
+
+def append_journal(
+    path: Path,
+    manifest: dict[str, Any],
+    manifest_sha: str,
+    action: str,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    if re.fullmatch(r"[a-z0-9-]+", action) is None:
+        raise ContractError("journal action name is not exact")
+    records = read_journal(path, manifest, manifest_sha)
+    value = {
+        "schema": JOURNAL_SCHEMA,
+        "sequence": len(records),
+        "timestamp_utc": utc_now(),
+        "run_id": manifest["run_id"],
+        "manifest_sha256": manifest_sha,
+        "action": action,
+        **payload,
+    }
+    write_json_exclusive(path / f"{len(records):04d}-{action}.json", value)
+    return value
+
+
+def run_cmd(args: argparse.Namespace, command: list[str], *, allow_error: bool = False) -> dict[str, Any]:
+    return base.run_f1_cmd(args, command, allow_error=allow_error)
+
+
+def validate_live_args(args: argparse.Namespace) -> None:
+    exact = {
+        "bridge_host": "127.0.0.1",
+        "bridge_port": 54321,
+        "bridge_timeout": 180.0,
+        "remote_timeout": 180.0,
+        "flash_command_timeout": 900.0,
+        "ssh_connect_timeout": 8.0,
+        "poll_interval": 3.0,
+        "transfer_timeout": 1200.0,
+    }
+    for name, expected in exact.items():
+        value = getattr(args, name, None)
+        if (
+            value != expected
+            or isinstance(value, bool)
+            or (isinstance(value, float) and not math.isfinite(value))
+        ):
+            raise ContractError(f"H16 live argument {name} changed")
+
+
+def exact_preflight(
+    manifest: dict[str, Any],
+    spec: Any,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    bridge = staging.require_exact_bridge(spec.stage, args)
+    health = staging.require_native_health(
+        args,
+        expected_version=CURRENT_VERSION,
+        expected_build=CURRENT_BUILD,
+        input_mode=INPUT_MODE,
+        input_char_delay_sec=INPUT_CHAR_DELAY_SEC,
+    )
+    script = "\n".join(
+        (
+            "set -eu",
+            '[ "$(/bin/busybox cat /sys/class/block/sda33/size)" = "231577432" ]',
+            '/bin/busybox grep -qx "DEVNAME=sda33" /sys/class/block/sda33/uevent',
+            '/bin/busybox grep -qx "PARTNAME=userdata" /sys/class/block/sda33/uevent',
+            'DEVT=$(/bin/busybox cat /sys/class/block/sda33/dev)',
+            'printf "%s\\n" "$DEVT" | /bin/busybox grep -Eq "^[0-9]+:[0-9]+$"',
+            'if /bin/busybox grep -Eq "^/dev/block/(a90-userdata|sda33|by-name/userdata) | /mnt/a90-userdata-root " /proc/mounts; then exit 41; fi',
+            f'[ ! -e "{ENABLE_PATH}" ] && [ ! -L "{ENABLE_PATH}" ]',
+            f'[ ! -e "{LATCH_PATH}" ] && [ ! -L "{LATCH_PATH}" ]',
+            "echo A90H16_F1_PRE exact=1 devt=$DEVT devt_policy=same-session-only ufs_mounted=0 enable_absent=1 latch_absent=1 userdata_write=0",
+        )
+    )
+    record = base.run_f1_shell(args, script)
+    marker = re.compile(
+        r"^A90H16_F1_PRE exact=1 devt=[0-9]+:[0-9]+ "
+        r"devt_policy=same-session-only ufs_mounted=0 enable_absent=1 "
+        r"latch_absent=1 userdata_write=0$",
+        re.MULTILINE,
+    )
+    if len(marker.findall(str(record.get("text") or "").replace("\r", ""))) != 1:
+        raise ContractError("fresh H16 connected preflight is not exact")
+    return {"bridge": bridge, "health": health, "ufs": record}
+
+
+def exact_candidate_health(spec: Any, args: argparse.Namespace, guard: Any) -> dict[str, Any]:
+    health = base.verify_candidate_health(spec, args, return_guard=guard)
+    first_boot = base.require_candidate_first_boot_unarmed(spec, args)
+    if not isinstance(first_boot, dict) or first_boot.get("proof") is not True:
+        raise ContractError("H16 first boot is not exact unarmed resident health")
+    return {"native": health, "first_boot": first_boot}
+
+
+def _release_guard(guard: Any, transaction_dir: Path) -> dict[str, Any]:
+    release = base.release_candidate_return_modemmanager_guard(
+        guard,
+        transaction_dir,
+        corridor="resident-promotion",
+    )
+    if release.get("released") is not True:
+        raise ContractError("resident-promotion ModemManager guard did not release")
+    return release
+
+
+def _proc_stat(pid: int) -> tuple[str, int, int]:
+    text = Path(f"/proc/{pid}/stat").read_text(encoding="ascii")
+    end = text.rfind(")")
+    if end < 0:
+        raise ContractError("flash process stat is malformed")
+    fields = text[end + 2 :].split()
+    if len(fields) < 20:
+        raise ContractError("flash process stat is truncated")
+    return fields[0], int(fields[2], 10), int(fields[19], 10)
+
+
+def _process_group_members(pgid: int) -> list[dict[str, int]]:
+    members: list[dict[str, int]] = []
+    for item in Path("/proc").iterdir():
+        if not item.name.isdigit():
+            continue
+        try:
+            state, observed_pgid, start_ticks = _proc_stat(int(item.name, 10))
+        except (OSError, ValueError, ContractError):
+            continue
+        if observed_pgid == pgid and state != "Z":
+            members.append({"pid": int(item.name, 10), "start_ticks": start_ticks})
+    return sorted(members, key=lambda value: value["pid"])
+
+
+def _launch_path(transaction_dir: Path, rollback: bool) -> Path:
+    kind = "rollback" if rollback else "candidate"
+    return transaction_dir / f"{kind}-flash-launch.json"
+
+
+def _require_launch_quiesced(
+    transaction_dir: Path,
+    journal: Path,
+    manifest: dict[str, Any],
+    manifest_sha: str,
+    spec: Any,
+    args: argparse.Namespace,
+    rollback: bool,
+) -> dict[str, Any]:
+    kind = "rollback" if rollback else "candidate"
+    path = _launch_path(transaction_dir, rollback)
+    _, value = load_json_bound(bound_file(path), f"{kind}_flash_launch")
+    records = read_journal(journal, manifest, manifest_sha)
+    matches = [
+        item for item in records if item.get("action") == f"{kind}-launch"
+    ]
+    artifact = manifest["rollback_boot" if rollback else "candidate_boot"]
+    if (
+        len(matches) != 1
+        or matches[0].get("launch") != value
+        or set(value)
+        != {
+            "schema",
+            "kind",
+            "leader_pid",
+            "pgid",
+            "leader_start_ticks",
+            "command_sha256",
+            "manifest_sha256",
+            "artifact_sha256",
+            "artifact_size",
+            "flash_runner_sha256",
+            "from_native",
+            "release_count_max",
+            "descendant_quiescence_required_before_recovery",
+        }
+        or value.get("schema") != "a90-h16-flash-process-group-v1"
+        or value.get("kind") != kind
+        or type(value.get("leader_pid")) is not int
+        or value.get("leader_pid") <= 0
+        or value.get("pgid") != value.get("leader_pid")
+        or type(value.get("leader_start_ticks")) is not int
+        or value.get("leader_start_ticks") <= 0
+        or require_sha(value.get("command_sha256"), "launch.command_sha256")
+        != value.get("command_sha256")
+        or value.get("manifest_sha256") != manifest_sha
+        or value.get("artifact_sha256") != artifact.get("sha256")
+        or value.get("artifact_size") != artifact.get("size")
+        or value.get("flash_runner_sha256")
+        != manifest.get("flash_runner", {}).get("sha256")
+        or type(value.get("from_native")) is not bool
+        or (not rollback and value.get("from_native") is not True)
+        or value.get("command_sha256")
+        != json_sha256(
+            base.flash_command(
+                spec,
+                args,
+                rollback=rollback,
+                from_native=value.get("from_native"),
+            )
+        )
+        or value.get("release_count_max") != 1
+        or value.get("descendant_quiescence_required_before_recovery") is not True
+    ):
+        raise ContractError(f"{kind} flash launch evidence is invalid")
+    members = _process_group_members(value["pgid"])
+    if members:
+        raise ContractError(
+            f"{kind} flash process group is still active; observe only and do not rollback"
+        )
+    return {"proof": True, "members": [], "launch": value}
+
+
+def _terminate_flash_group(pid: int, *, leader_reaped: bool) -> None:
+    try:
+        os.killpg(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    term_deadline = time.monotonic() + 5.0
+    while time.monotonic() < term_deadline:
+        if not leader_reaped:
+            try:
+                waited, _ = os.waitpid(pid, os.WNOHANG)
+            except ChildProcessError:
+                leader_reaped = True
+            else:
+                leader_reaped = waited == pid
+        if leader_reaped and not _process_group_members(pid):
+            return
+        time.sleep(0.05)
+    try:
+        os.killpg(pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    if not leader_reaped:
+        try:
+            os.waitpid(pid, 0)
+        except ChildProcessError:
+            pass
+    kill_deadline = time.monotonic() + 5.0
+    while _process_group_members(pid):
+        if time.monotonic() >= kill_deadline:
+            raise ContractError(
+                "flash process cleanup left a live descendant; rollback forbidden"
+            )
+        time.sleep(0.05)
+
+
+def _wait_flash_group(pid: int, timeout: float) -> tuple[int, bool]:
+    deadline = time.monotonic() + timeout
+    while True:
+        waited, status_value = os.waitpid(pid, os.WNOHANG)
+        if waited == pid:
+            returncode = os.waitstatus_to_exitcode(status_value)
+            if _process_group_members(pid):
+                _terminate_flash_group(pid, leader_reaped=True)
+                return 124, True
+            return returncode, False
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(0.1)
+    _terminate_flash_group(pid, leader_reaped=False)
+    return 124, True
+
+
+def _flash_record(
+    manifest: dict[str, Any],
+    manifest_sha: str,
+    spec: Any,
+    args: argparse.Namespace,
+    journal: Path,
+    transaction_dir: Path,
+    *,
+    rollback: bool,
+    from_native: bool,
+) -> dict[str, Any]:
+    kind = "rollback" if rollback else "candidate"
+    name = f"{kind}-flash.raw.log"
+    log_path = transaction_dir / name
+    descriptor = os.open(
+        log_path,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+        0o600,
+    )
+    gate_read, gate_write = os.pipe()
+    ready_read, ready_write = os.pipe()
+    command = base.flash_command(
+        spec, args, rollback=rollback, from_native=from_native
+    )
+    command_sha256 = json_sha256(command)
+    pid = os.fork()
+    if pid == 0:  # child waits for a durable parent release before any flash code
+        try:
+            os.close(gate_write)
+            os.close(ready_read)
+            os.setsid()
+            os.write(ready_write, b"R")
+            os.close(ready_write)
+            if os.read(gate_read, 1) != b"G":
+                os._exit(126)
+            os.close(gate_read)
+            os.dup2(descriptor, 1)
+            os.dup2(descriptor, 2)
+            if descriptor > 2:
+                os.close(descriptor)
+            os.chdir(REPO_ROOT)
+            os.execv(command[0], command)
+        except BaseException:
+            os._exit(125)
+    os.close(gate_read)
+    os.close(ready_write)
+    child_reaped = False
+    try:
+        readable, _, _ = select.select([ready_read], [], [], 10.0)
+        if not readable or os.read(ready_read, 1) != b"R":
+            os.close(gate_write)
+            gate_write = -1
+            _, status_value = os.waitpid(pid, 0)
+            child_reaped = True
+            raise ContractError(
+                "flash child did not enter the no-effect launch gate "
+                f"rc={os.waitstatus_to_exitcode(status_value)}"
+            )
+        _, pgid, start_ticks = _proc_stat(pid)
+        if pgid != pid:
+            raise ContractError("flash child process group is not isolated")
+        launch = {
+            "schema": "a90-h16-flash-process-group-v1",
+            "kind": kind,
+            "leader_pid": pid,
+            "pgid": pgid,
+            "leader_start_ticks": start_ticks,
+            "command_sha256": command_sha256,
+            "manifest_sha256": manifest_sha,
+            "artifact_sha256": (
+                manifest["rollback_boot" if rollback else "candidate_boot"]["sha256"]
+            ),
+            "artifact_size": (
+                manifest["rollback_boot" if rollback else "candidate_boot"]["size"]
+            ),
+            "flash_runner_sha256": manifest["flash_runner"]["sha256"],
+            "from_native": from_native,
+            "release_count_max": 1,
+            "descendant_quiescence_required_before_recovery": True,
+        }
+        write_json_exclusive(_launch_path(transaction_dir, rollback), launch)
+        append_journal(
+            journal,
+            manifest,
+            manifest_sha,
+            f"{kind}-launch",
+            {
+                "launch": launch,
+                "candidate_replay": False,
+                "rollback_replay": False,
+            },
+        )
+        if os.write(gate_write, b"G") != 1:
+            raise ContractError("flash child release was not exactly one byte")
+        os.close(gate_write)
+        gate_write = -1
+        returncode, timed_out = _wait_flash_group(pid, args.flash_command_timeout)
+        child_reaped = True
+    except BaseException:
+        if gate_write >= 0:
+            os.close(gate_write)
+            gate_write = -1
+        if not child_reaped:
+            try:
+                _wait_flash_group(pid, 5.0)
+            except BaseException:
+                _terminate_flash_group(pid, leader_reaped=False)
+            child_reaped = True
+        raise
+    finally:
+        os.close(ready_read)
+        if gate_write >= 0:
+            os.close(gate_write)
+        os.fsync(descriptor)
+        os.close(descriptor)
+    record = base.command_record(log_path, returncode)
+    record["process_started"] = True
+    record["process_group"] = {
+        "leader_pid": pid,
+        "pgid": pid,
+        "timed_out": timed_out,
+        "quiesced": True,
+    }
+    if timed_out:
+        record["execution_error"] = {
+            "type": "TimeoutExpired",
+            "stage": "process-group-wait",
+            "timeout_sec": args.flash_command_timeout,
+            "descendants_terminated": True,
+        }
+    record["process_group_quiescence"] = _require_launch_quiesced(
+        transaction_dir,
+        journal,
+        manifest,
+        manifest_sha,
+        spec,
+        args,
+        rollback,
+    )
+    record["phase_classification"] = base.classify_flash_log(
+        log_path
+    )
+    return record
+
+
+def _rollback(
+    manifest: dict[str, Any],
+    manifest_sha: str,
+    spec: Any,
+    args: argparse.Namespace,
+    journal: Path,
+    transaction_dir: Path,
+    guard: Any,
+    *,
+    from_native: bool,
+) -> dict[str, Any]:
+    records = read_journal(journal, manifest, manifest_sha)
+    intents = [item for item in records if item.get("action") == "rollback-intent"]
+    launches = [item for item in records if item.get("action") == "rollback-launch"]
+    expected_mode = "from-native" if from_native else "adb-recovery"
+    if launches:
+        raise ContractError("rollback launch already exists; effect replay refused")
+    if intents:
+        if (
+            len(intents) != 1
+            or intents[0].get("rollback_sha256") != ROLLBACK_SHA256
+            or intents[0].get("rollback_attempt_limit") != 1
+            or intents[0].get("candidate_replay") is not False
+            or intents[0].get("recovery_mode") != expected_mode
+        ):
+            raise ContractError("existing rollback intent is not exact")
+    else:
+        append_journal(
+            journal,
+            manifest,
+            manifest_sha,
+            "rollback-intent",
+            {
+                "rollback_sha256": ROLLBACK_SHA256,
+                "rollback_attempt_limit": 1,
+                "candidate_replay": False,
+                "recovery_mode": expected_mode,
+            },
+        )
+    record = _flash_record(
+        manifest,
+        manifest_sha,
+        spec,
+        args,
+        journal,
+        transaction_dir,
+        rollback=True,
+        from_native=from_native,
+    )
+    append_journal(
+        journal,
+        manifest,
+        manifest_sha,
+        "rollback-result",
+        {
+            "rollback_transfer_count": (
+                1
+                if record["returncode"] == 0
+                else 0
+                if base.candidate_failure_is_definite_pre_session(record)
+                else None
+            ),
+            "candidate_replay": False,
+            "record": record,
+        },
+    )
+    if record["returncode"] != 0:
+        pending = ContractError("rollback result is uncertain; do not invoke it again")
+        _park_recovery(manifest, manifest_sha, journal, pending)
+        raise pending
+    health = base.verify_final_health(spec, args, return_guard=guard)
+    append_journal(
+        journal,
+        manifest,
+        manifest_sha,
+        "rollback-health",
+        {"device_safety_state": "BASELINE_HEALTHY", "health": health},
+    )
+    return health
+
+
+def _park_recovery(
+    manifest: dict[str, Any],
+    manifest_sha: str,
+    journal: Path,
+    exc: BaseException,
+) -> None:
+    actions = [item["action"] for item in read_journal(journal, manifest, manifest_sha)]
+    if "recovery-required" not in actions:
+        append_journal(
+            journal,
+            manifest,
+            manifest_sha,
+            "recovery-required",
+            {
+                "candidate_replay": False,
+                "rollback_only": True,
+                "reason": type(exc).__name__,
+            },
+        )
+
+
+def _candidate_transfer_count(records: list[dict[str, Any]]) -> int | None:
+    matches = [item for item in records if item.get("action") == "candidate-result"]
+    if not matches:
+        return None
+    if len(matches) != 1:
+        raise ContractError("candidate transfer count has duplicate durable results")
+    count = matches[0].get("candidate_transfer_count")
+    if isinstance(count, bool) or count not in (0, 1, None):
+        raise ContractError("candidate transfer count is not exact")
+    record = matches[0].get("record")
+    if not isinstance(record, dict):
+        raise ContractError("candidate flash record is absent")
+    if record.get("returncode") == 0 and count != 1:
+        raise ContractError("successful candidate result lost its transfer count")
+    return count
+
+
+def _reconstructed_flash_record(
+    transaction_dir: Path,
+    journal: Path,
+    manifest: dict[str, Any],
+    manifest_sha: str,
+    spec: Any,
+    args: argparse.Namespace,
+    *,
+    rollback: bool,
+) -> dict[str, Any]:
+    quiescence = _require_launch_quiesced(
+        transaction_dir,
+        journal,
+        manifest,
+        manifest_sha,
+        spec,
+        args,
+        rollback,
+    )
+    kind = "rollback" if rollback else "candidate"
+    log_path = transaction_dir / f"{kind}-flash.raw.log"
+    if not log_path.is_file() or log_path.is_symlink():
+        raise ContractError(f"{kind} flash log is unavailable for reconciliation")
+    record = base.command_record(log_path, -1)
+    record.update(
+        {
+            "process_started": True,
+            "execution_error": {
+                "type": "ParentExitOutcomeUnknown",
+                "stage": "durable-result-publication",
+            },
+            "process_group_quiescence": quiescence,
+            "phase_classification": base.classify_flash_log(log_path),
+            "reconstructed_without_effect_replay": True,
+        }
+    )
+    return record
+
+
+def _historical_guard_inputs(transaction_dir: Path) -> tuple[dict[str, str], str]:
+    path = transaction_dir / "resident-promotion-modemmanager-guard-arm.json"
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ContractError("prior candidate guard evidence is unavailable") from exc
+    guard_spec = value.get("guard_spec") if isinstance(value, dict) else None
+    topology = value.get("topology") if isinstance(value, dict) else None
+    receipt = value.get("receipt") if isinstance(value, dict) else None
+    base.require_exact_modemmanager_guard_receipt(receipt, guard_spec, topology)
+    if not isinstance(guard_spec, dict) or not isinstance(topology, str):
+        raise ContractError("prior candidate guard input shape changed")
+    return dict(guard_spec), topology
+
+
+def recover(
+    manifest_path: Path,
+    manifest_sha: str,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    if args.operator_attended is not True:
+        raise ContractError("A90 H16 recovery is attended-only")
+    validate_live_args(args)
+    manifest = load_manifest(manifest_path, manifest_sha)
+    spec = _spec(manifest, manifest_path, manifest_sha)
+    journal = _journal_dir(manifest)
+    transaction_dir = journal.parent
+    records = read_journal(journal, manifest, manifest_sha)
+    require_consumed_approval(records, manifest, manifest_sha)
+    actions = [item["action"] for item in records]
+    if (
+        "candidate-intent" not in actions
+        or (
+            "recovery-required" not in actions
+            and "rollback-intent" not in actions
+        )
+        or "closed" in actions
+        or "rollback-result" in actions
+        or "rollback-launch" in actions
+        or actions.count("rollback-intent") > 1
+    ):
+        raise ContractError(
+            "rollback recovery requires one parked candidate and no released rollback"
+        )
+    if actions.count("candidate-launch") != 1:
+        raise ContractError(
+            "rollback recovery requires one durable candidate launch; intent-only "
+            "state has no released device effect"
+        )
+    _require_launch_quiesced(
+        transaction_dir,
+        journal,
+        manifest,
+        manifest_sha,
+        spec,
+        args,
+        False,
+    )
+    candidate_transfer_count = _candidate_transfer_count(records)
+    prior_recovery_guard = any(
+        (transaction_dir / f"rollback-recovery-{index}-modemmanager-guard-arm.json").exists()
+        for index in (1, 2)
+    )
+    if prior_recovery_guard and (
+        transaction_dir / "rollback-recovery-2-modemmanager-guard-arm.json"
+    ).exists():
+        raise ContractError(
+            "both bounded recovery guard slots were consumed; repair host guard state only"
+        )
+    corridor = "rollback-recovery-2" if prior_recovery_guard else "rollback-recovery-1"
+    prepared_inputs = None
+    if args.recovery_path == "adb-recovery":
+        prepared_inputs = _historical_guard_inputs(transaction_dir)
+        from_native = False
+    else:
+        staging.require_exact_bridge(spec.stage, args)
+        from_native = True
+    prior_intents = [
+        item for item in records if item.get("action") == "rollback-intent"
+    ]
+    if prior_intents and prior_intents[0].get("recovery_mode") != (
+        "from-native" if from_native else "adb-recovery"
+    ):
+        raise ContractError("rollback recovery path differs from durable intent")
+    guard = base.arm_candidate_return_modemmanager_guard(
+        spec,
+        args,
+        transaction_dir,
+        corridor=corridor,
+        prepared_inputs=prepared_inputs,
+    )
+    base.modemmanager_guard_arm_evidence(
+        transaction_dir,
+        corridor,
+        guard,
+    )
+    try:
+        health = _rollback(
+            manifest,
+            manifest_sha,
+            spec,
+            args,
+            journal,
+            transaction_dir,
+            guard,
+            from_native=from_native,
+        )
+        result = {
+            "schema": RESULT_SCHEMA,
+            "status": "FAILED_CANDIDATE_RECOVERY_ROLLBACK_COMPLETE",
+            "run_id": manifest["run_id"],
+            "manifest_sha256": manifest_sha,
+            "device_safety_state": "BASELINE_HEALTHY",
+            "candidate_attempt_count": 1,
+            "candidate_transfer_count": candidate_transfer_count,
+            "rollback_transfer_count": 1,
+            "candidate_replay": False,
+            "rootfs_payload_count": 0,
+            "sd_stage_count": 0,
+            "userdata_write_count": 0,
+            "final_health": health,
+        }
+        release = base.release_candidate_return_modemmanager_guard(
+            guard,
+            transaction_dir,
+            corridor=corridor,
+        )
+        if release.get("released") is not True:
+            raise ContractError("rollback recovery guard did not release")
+        result["guard_release"] = release
+        append_journal(journal, manifest, manifest_sha, "closed", {"result": result})
+        write_json_exclusive(transaction_dir / "result.json", result)
+        return result
+    except Exception:
+        if guard.process is not None and guard.process.poll() is None:
+            try:
+                base.release_candidate_return_modemmanager_guard(
+                    guard,
+                    transaction_dir,
+                    corridor=corridor,
+                )
+            except Exception:
+                pass
+        raise
+
+
+def _publish_reconciled_result(
+    manifest: dict[str, Any],
+    manifest_sha: str,
+    journal: Path,
+    transaction_dir: Path,
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    records = read_journal(journal, manifest, manifest_sha)
+    actions = [item["action"] for item in records]
+    if "closed" not in actions:
+        append_journal(
+            journal,
+            manifest,
+            manifest_sha,
+            "closed",
+            {"result": result, "reconciled_without_effect_replay": True},
+        )
+    result_path = transaction_dir / "result.json"
+    if result_path.exists():
+        existing = json.loads(result_path.read_text(encoding="utf-8"))
+        if existing != result:
+            raise ContractError("existing H16 result differs from durable closure")
+    else:
+        write_json_exclusive(result_path, result)
+    return result
+
+
+def reconcile_health(
+    manifest_path: Path,
+    manifest_sha: str,
+    args: argparse.Namespace,
+) -> dict[str, Any]:
+    """Finish only host publication or exact live health; never flash again."""
+    if args.operator_attended is not True:
+        raise ContractError("A90 H16 F1 health reconciliation is attended-only")
+    validate_live_args(args)
+    manifest = load_manifest(manifest_path, manifest_sha)
+    spec = _spec(manifest, manifest_path, manifest_sha)
+    journal = _journal_dir(manifest)
+    transaction_dir = journal.parent
+    records = read_journal(journal, manifest, manifest_sha)
+    require_consumed_approval(records, manifest, manifest_sha)
+    actions = [item["action"] for item in records]
+    if actions.count("candidate-intent") != 1:
+        raise ContractError("health reconciliation lacks one candidate intent")
+    if actions.count("closed") > 1 or ("closed" in actions and actions[-1] != "closed"):
+        raise ContractError("H16 closed record is not terminal")
+    if "closed" in actions:
+        result = records[-1].get("result")
+        if (
+            not isinstance(result, dict)
+            or result.get("schema") != RESULT_SCHEMA
+            or result.get("manifest_sha256") != manifest_sha
+            or result.get("candidate_replay") is not False
+            or result.get("rootfs_payload_count") != 0
+            or result.get("sd_stage_count") != 0
+            or result.get("userdata_write_count") != 0
+        ):
+            raise ContractError("durable H16 closed result is invalid")
+        return _publish_reconciled_result(
+            manifest, manifest_sha, journal, transaction_dir, result
+        )
+
+    candidate_count = _candidate_transfer_count(records)
+
+    if "rollback-intent" in actions and "rollback-result" not in actions:
+        launch_count = actions.count("rollback-launch")
+        if actions.count("rollback-intent") != 1 or launch_count not in (0, 1):
+            raise ContractError("rollback result gap is not one bounded attempt")
+        if launch_count == 0:
+            pending = ContractError(
+                "rollback intent is durable but has no released launch"
+            )
+            _park_recovery(manifest, manifest_sha, journal, pending)
+            raise ContractError(
+                "resume the same bound rollback intent; running health cannot "
+                "replace the required boot rollback"
+            ) from pending
+        rollback_record = _reconstructed_flash_record(
+            transaction_dir,
+            journal,
+            manifest,
+            manifest_sha,
+            spec,
+            args,
+            rollback=True,
+        )
+        classification = rollback_record["phase_classification"]
+        rollback_count = (
+            1
+            if classification.get("boot_write_completed") is True
+            and classification.get("readback_completed") is True
+            else 0
+            if not any(
+                classification.get(name) is True
+                for name in (
+                    "native_recovery_requested",
+                    "recovery_endpoint_selected",
+                    "payload_transfer_started",
+                    "boot_write_started",
+                )
+            )
+            else None
+        )
+        append_journal(
+            journal,
+            manifest,
+            manifest_sha,
+            "rollback-result",
+            {
+                "rollback_transfer_count": rollback_count,
+                "candidate_replay": False,
+                "record": rollback_record,
+                "inferred_from_quiescent_process_group_log": True,
+            },
+        )
+        if rollback_count != 1:
+            pending = ContractError(
+                "rollback release did not prove exact boot write and readback"
+            )
+            _park_recovery(manifest, manifest_sha, journal, pending)
+            raise ContractError(
+                "rollback outcome is parked with no replay; running baseline "
+                "health cannot prove the boot partition bytes"
+            ) from pending
+        records = read_journal(journal, manifest, manifest_sha)
+        actions = [item["action"] for item in records]
+
+    if "rollback-result" in actions:
+        if (
+            actions.count("rollback-intent") != 1
+            or actions.count("rollback-result") != 1
+            or "candidate-health" in actions
+        ):
+            raise ContractError("rollback reconciliation is not one exact attempt")
+        rollback_result = next(
+            item for item in records if item.get("action") == "rollback-result"
+        )
+        rollback_record = rollback_result.get("record")
+        if not isinstance(rollback_record, dict):
+            raise ContractError("rollback transfer record is invalid")
+        rollback_count = rollback_result.get("rollback_transfer_count")
+        if rollback_count != 1:
+            if actions.count("rollback-launch") == 1:
+                _require_launch_quiesced(
+                    transaction_dir,
+                    journal,
+                    manifest,
+                    manifest_sha,
+                    spec,
+                    args,
+                    True,
+                )
+            pending = ContractError(
+                "durable rollback result does not prove one exact transfer"
+            )
+            _park_recovery(manifest, manifest_sha, journal, pending)
+            raise ContractError(
+                "rollback remains recovery-pending with no replay"
+            ) from pending
+        if (
+            rollback_record.get("returncode") != 0
+            and not (
+                rollback_record.get("phase_classification", {}).get(
+                    "boot_write_completed"
+                )
+                is True
+                and rollback_record.get("phase_classification", {}).get(
+                    "readback_completed"
+                )
+                is True
+            )
+        ):
+            raise ContractError("rollback transfer count contradicts its result")
+        if actions.count("rollback-launch") == 1:
+            _require_launch_quiesced(
+                transaction_dir,
+                journal,
+                manifest,
+                manifest_sha,
+                spec,
+                args,
+                True,
+            )
+        health = base.verify_final_health(spec, args)
+        if actions.count("rollback-health") > 1:
+            raise ContractError("rollback health evidence is duplicated")
+        if "rollback-health" in actions:
+            prior_health = next(
+                item for item in records if item.get("action") == "rollback-health"
+            )
+            if (
+                prior_health.get("device_safety_state") != "BASELINE_HEALTHY"
+                or not isinstance(prior_health.get("health"), dict)
+            ):
+                raise ContractError("rollback health evidence is contradictory")
+        else:
+            append_journal(
+                journal,
+                manifest,
+                manifest_sha,
+                "rollback-health",
+                {
+                    "device_safety_state": "BASELINE_HEALTHY",
+                    "health": health,
+                    "reconciled_without_effect_replay": True,
+                },
+            )
+        result = {
+            "schema": RESULT_SCHEMA,
+            "status": "FAILED_CANDIDATE_RECOVERY_ROLLBACK_COMPLETE",
+            "run_id": manifest["run_id"],
+            "manifest_sha256": manifest_sha,
+            "device_safety_state": "BASELINE_HEALTHY",
+            "candidate_attempt_count": 1,
+            "candidate_transfer_count": candidate_count,
+            "rollback_transfer_count": rollback_count,
+            "candidate_replay": False,
+            "rootfs_payload_count": 0,
+            "sd_stage_count": 0,
+            "userdata_write_count": 0,
+            "final_health": health,
+            "reconciled_without_effect_replay": True,
+            "rollback_count_inferred_by_exact_health": False,
+        }
+        return _publish_reconciled_result(
+            manifest, manifest_sha, journal, transaction_dir, result
+        )
+
+    candidate_results = [
+        item for item in records if item.get("action") == "candidate-result"
+    ]
+    if not candidate_results:
+        if actions.count("candidate-launch") == 0:
+            health = staging.require_native_health(
+                args,
+                expected_version=CURRENT_VERSION,
+                expected_build=CURRENT_BUILD,
+                input_mode=INPUT_MODE,
+                input_char_delay_sec=INPUT_CHAR_DELAY_SEC,
+            )
+            record = {
+                "process_started": False,
+                "release_count": 0,
+                "reconstructed_without_effect_replay": True,
+            }
+            append_journal(
+                journal,
+                manifest,
+                manifest_sha,
+                "candidate-result",
+                {
+                    "candidate_attempt_count": 1,
+                    "candidate_transfer_count": 0,
+                    "candidate_replay": False,
+                    "record": record,
+                    "inferred_from_absent_launch": True,
+                },
+            )
+            result = {
+                "schema": RESULT_SCHEMA,
+                "status": "ABORTED_BEFORE_CANDIDATE_RELEASE",
+                "run_id": manifest["run_id"],
+                "manifest_sha256": manifest_sha,
+                "device_safety_state": "RESIDENT_HEALTHY",
+                "candidate_attempt_count": 1,
+                "candidate_transfer_count": 0,
+                "rollback_transfer_count": 0,
+                "candidate_replay": False,
+                "rootfs_payload_count": 0,
+                "sd_stage_count": 0,
+                "userdata_write_count": 0,
+                "final_health": health,
+                "reconciled_without_effect_replay": True,
+            }
+            return _publish_reconciled_result(
+                manifest, manifest_sha, journal, transaction_dir, result
+            )
+        if actions.count("candidate-launch") != 1:
+            raise ContractError("candidate launch evidence is duplicated")
+        candidate_record = _reconstructed_flash_record(
+            transaction_dir,
+            journal,
+            manifest,
+            manifest_sha,
+            spec,
+            args,
+            rollback=False,
+        )
+        try:
+            candidate_health = exact_candidate_health(spec, args, None)
+        except Exception as candidate_exc:  # read-only alternate health follows
+            try:
+                starting_health = staging.require_native_health(
+                    args,
+                    expected_version=CURRENT_VERSION,
+                    expected_build=CURRENT_BUILD,
+                    input_mode=INPUT_MODE,
+                    input_char_delay_sec=INPUT_CHAR_DELAY_SEC,
+                )
+            except Exception:
+                append_journal(
+                    journal,
+                    manifest,
+                    manifest_sha,
+                    "candidate-result",
+                    {
+                        "candidate_attempt_count": 1,
+                        "candidate_transfer_count": None,
+                        "candidate_replay": False,
+                        "record": candidate_record,
+                        "outcome_unknown_after_quiescence": True,
+                    },
+                )
+                _park_recovery(manifest, manifest_sha, journal, candidate_exc)
+                raise ContractError(
+                    "candidate process group is quiescent but boot health is unknown; "
+                    "resume bound rollback only"
+                ) from candidate_exc
+            classification = candidate_record["phase_classification"]
+            session_started = any(
+                classification.get(name) is True
+                for name in (
+                    "native_recovery_requested",
+                    "recovery_endpoint_selected",
+                    "payload_transfer_started",
+                    "boot_write_started",
+                )
+            )
+            candidate_count = None if session_started else 0
+            append_journal(
+                journal,
+                manifest,
+                manifest_sha,
+                "candidate-result",
+                {
+                    "candidate_attempt_count": 1,
+                    "candidate_transfer_count": candidate_count,
+                    "candidate_replay": False,
+                    "record": candidate_record,
+                    "inferred_by_exact_starting_health": True,
+                },
+            )
+            if session_started:
+                pending = ContractError(
+                    "candidate session or write marker exists without a durable result"
+                )
+                _park_recovery(manifest, manifest_sha, journal, pending)
+                raise ContractError(
+                    "candidate boot bytes are ambiguous; running V2321 health cannot "
+                    "replace the bound rollback"
+                ) from pending
+            result = {
+                "schema": RESULT_SCHEMA,
+                "status": "ABORTED_BEFORE_CANDIDATE_SESSION",
+                "run_id": manifest["run_id"],
+                "manifest_sha256": manifest_sha,
+                "device_safety_state": "RESIDENT_HEALTHY",
+                "candidate_attempt_count": 1,
+                "candidate_transfer_count": candidate_count,
+                "rollback_transfer_count": 0,
+                "candidate_replay": False,
+                "rootfs_payload_count": 0,
+                "sd_stage_count": 0,
+                "userdata_write_count": 0,
+                "final_health": starting_health,
+                "reconciled_without_effect_replay": True,
+            }
+            return _publish_reconciled_result(
+                manifest, manifest_sha, journal, transaction_dir, result
+            )
+        else:
+            append_journal(
+                journal,
+                manifest,
+                manifest_sha,
+                "candidate-result",
+                {
+                    "candidate_attempt_count": 1,
+                    "candidate_transfer_count": 1,
+                    "candidate_replay": False,
+                    "record": candidate_record,
+                    "inferred_by_exact_candidate_health": True,
+                },
+            )
+            candidate_count = 1
+            candidate_record["inferred_candidate_health"] = candidate_health
+            records = read_journal(journal, manifest, manifest_sha)
+            actions = [item["action"] for item in records]
+    elif len(candidate_results) != 1:
+        raise ContractError("candidate result evidence is duplicated")
+    else:
+        candidate_count = _candidate_transfer_count(records)
+        candidate_record = candidate_results[0].get("record")
+        if not isinstance(candidate_record, dict):
+            raise ContractError("candidate result record is invalid")
+
+    if candidate_count == 1:
+        if "rollback-intent" in actions or "rollback-health" in actions:
+            raise ContractError("rollback intent exists without a proven rollback result")
+        try:
+            health = exact_candidate_health(spec, args, None)
+        except Exception as exc:
+            _park_recovery(manifest, manifest_sha, journal, exc)
+            raise ContractError(
+                "candidate result is durable but exact initial health is absent; "
+                "resume bound rollback only"
+            ) from exc
+        if actions.count("candidate-health") > 1:
+            raise ContractError("candidate health evidence is duplicated")
+        if "candidate-health" in actions:
+            prior_health = next(
+                item for item in records if item.get("action") == "candidate-health"
+            )
+            if (
+                prior_health.get("device_safety_state") != "RESIDENT_HEALTHY"
+                or not isinstance(prior_health.get("health"), dict)
+            ):
+                raise ContractError("candidate health evidence is contradictory")
+        else:
+            append_journal(
+                journal,
+                manifest,
+                manifest_sha,
+                "candidate-health",
+                {
+                    "device_safety_state": "RESIDENT_HEALTHY",
+                    "health": health,
+                    "reconciled_without_effect_replay": True,
+                },
+            )
+        result = {
+            "schema": RESULT_SCHEMA,
+            "status": "PASS_A90_H16_UFS_RESIDENT_INSTALLED",
+            "run_id": manifest["run_id"],
+            "manifest_sha256": manifest_sha,
+            "device_safety_state": "RESIDENT_HEALTHY",
+            "candidate_attempt_count": 1,
+            "candidate_transfer_count": 1,
+            "rollback_transfer_count": 0,
+            "candidate_replay": False,
+            "rootfs_payload_count": 0,
+            "sd_stage_count": 0,
+            "userdata_write_count": 0,
+            "final_health": health,
+            "reconciled_without_effect_replay": True,
+        }
+    elif base.candidate_failure_is_definite_pre_session(candidate_record):
+        if "rollback-intent" in actions or candidate_count != 0:
+            raise ContractError("pre-session abort evidence is inconsistent")
+        health = staging.require_native_health(
+            args,
+            expected_version=CURRENT_VERSION,
+            expected_build=CURRENT_BUILD,
+            input_mode=INPUT_MODE,
+            input_char_delay_sec=INPUT_CHAR_DELAY_SEC,
+        )
+        result = {
+            "schema": RESULT_SCHEMA,
+            "status": "ABORTED_BEFORE_CANDIDATE_SESSION",
+            "run_id": manifest["run_id"],
+            "manifest_sha256": manifest_sha,
+            "device_safety_state": "RESIDENT_HEALTHY",
+            "candidate_attempt_count": 1,
+            "candidate_transfer_count": 0,
+            "rollback_transfer_count": 0,
+            "candidate_replay": False,
+            "rootfs_payload_count": 0,
+            "sd_stage_count": 0,
+            "userdata_write_count": 0,
+            "final_health": health,
+            "reconciled_without_effect_replay": True,
+        }
+    else:
+        pending = ContractError(
+            "candidate result is durable but its transfer count is ambiguous"
+        )
+        _park_recovery(manifest, manifest_sha, journal, pending)
+        raise ContractError(
+            "candidate outcome is recovery-pending; reconcile cannot close or replay"
+        ) from pending
+    return _publish_reconciled_result(
+        manifest, manifest_sha, journal, transaction_dir, result
+    )
+
+
+def execute(manifest_path: Path, manifest_sha: str, args: argparse.Namespace) -> dict[str, Any]:
+    if args.operator_attended is not True:
+        raise ContractError("A90 H16 F1 is attended-only")
+    validate_live_args(args)
+    manifest = load_manifest(manifest_path, manifest_sha)
+    spec = _spec(manifest, manifest_path, manifest_sha)
+    journal = _journal_dir(manifest)
+    transaction_dir = journal.parent
+    records = read_journal(journal, manifest, manifest_sha)
+    if records:
+        raise ContractError("fresh H16 execution requires an empty durable journal")
+    preflight = exact_preflight(manifest, spec, args)
+    approval = validate_approval(manifest, manifest_sha, args.approval)
+    approval_binding_value = approval["approval_binding"]
+    approval_binding_sha = approval["approval_binding_sha256"]
+    append_journal(
+        journal,
+        manifest,
+        manifest_sha,
+        "approval-consumed",
+        {
+            "approval_binding": approval_binding_value,
+            "approval_binding_sha256": approval_binding_sha,
+            "approval_token_sha256": hashlib.sha256(
+                str(approval["approval_token"]).encode("utf-8")
+            ).hexdigest(),
+            "approval_consumed": True,
+            "device_safety_state": "RESIDENT_HEALTHY",
+            "candidate_transfer_count": 0,
+            "rollback_transfer_count": 0,
+            "rootfs_payload_count": 0,
+            "sd_stage_count": 0,
+            "userdata_write_count": 0,
+            "preflight": preflight,
+        },
+    )
+
+    guard = base.arm_candidate_return_modemmanager_guard(
+        spec,
+        args,
+        transaction_dir,
+        corridor="resident-promotion",
+    )
+    guard_evidence = base.modemmanager_guard_arm_evidence(
+        transaction_dir,
+        "resident-promotion",
+        guard,
+    )
+    append_journal(
+        journal,
+        manifest,
+        manifest_sha,
+        "guard-armed",
+        {"guard": guard_evidence, "candidate_replay": False},
+    )
+    append_journal(
+        journal,
+        manifest,
+        manifest_sha,
+        "candidate-intent",
+        {
+            "candidate_sha256": spec.candidate.sha256,
+            "candidate_attempt_limit": 1,
+            "partition": "boot",
+            "rollback_pre_authorized": True,
+            "approval_binding_sha256": approval_binding_sha,
+            "candidate_replay": False,
+            "rootfs_payload_count": 0,
+            "sd_stage_count": 0,
+            "userdata_write_count": 0,
+        },
+    )
+    try:
+        record = _flash_record(
+            manifest,
+            manifest_sha,
+            spec,
+            args,
+            journal,
+            transaction_dir,
+            rollback=False,
+            from_native=True,
+        )
+        if record["returncode"] == 0:
+            candidate_transfer_count = 1
+        elif base.candidate_failure_is_definite_pre_session(record):
+            candidate_transfer_count = 0
+        else:
+            candidate_transfer_count = None
+        append_journal(
+            journal,
+            manifest,
+            manifest_sha,
+            "candidate-result",
+            {
+                "candidate_attempt_count": 1,
+                "candidate_transfer_count": candidate_transfer_count,
+                "candidate_replay": False,
+                "record": record,
+            },
+        )
+        if record["returncode"] != 0:
+            if base.candidate_failure_is_definite_pre_session(record):
+                starting_health = staging.require_native_health(
+                    args,
+                    expected_version=CURRENT_VERSION,
+                    expected_build=CURRENT_BUILD,
+                    input_mode=INPUT_MODE,
+                    input_char_delay_sec=INPUT_CHAR_DELAY_SEC,
+                )
+                result = {
+                    "schema": RESULT_SCHEMA,
+                    "status": "ABORTED_BEFORE_CANDIDATE_SESSION",
+                    "run_id": manifest["run_id"],
+                    "manifest_sha256": manifest_sha,
+                    "device_safety_state": "RESIDENT_HEALTHY",
+                    "candidate_attempt_count": 1,
+                    "candidate_transfer_count": 0,
+                    "rollback_transfer_count": 0,
+                    "candidate_replay": False,
+                    "rootfs_payload_count": 0,
+                    "sd_stage_count": 0,
+                    "userdata_write_count": 0,
+                    "final_health": starting_health,
+                }
+            else:
+                try:
+                    base.require_rollback_source_native(
+                        spec, args, return_guard=guard
+                    )
+                except Exception as exc:  # noqa: BLE001 - exact recovery park
+                    _park_recovery(manifest, manifest_sha, journal, exc)
+                    raise ContractError(
+                        "candidate result uncertain; enter bound TWRP/Download path "
+                        "and resume rollback only"
+                    ) from exc
+                health = _rollback(
+                    manifest,
+                    manifest_sha,
+                    spec,
+                    args,
+                    journal,
+                    transaction_dir,
+                    guard,
+                    from_native=True,
+                )
+                result = {
+                    "schema": RESULT_SCHEMA,
+                    "status": "FAILED_CANDIDATE_ROLLED_BACK",
+                    "run_id": manifest["run_id"],
+                    "manifest_sha256": manifest_sha,
+                    "device_safety_state": "BASELINE_HEALTHY",
+                    "candidate_attempt_count": 1,
+                    "candidate_transfer_count": candidate_transfer_count,
+                    "rollback_transfer_count": 1,
+                    "candidate_replay": False,
+                    "rootfs_payload_count": 0,
+                    "sd_stage_count": 0,
+                    "userdata_write_count": 0,
+                    "final_health": health,
+                }
+        else:
+            try:
+                health = exact_candidate_health(spec, args, guard)
+            except Exception as health_exc:  # noqa: BLE001 - rollback is mandatory
+                try:
+                    base.require_rollback_source_native(
+                        spec, args, return_guard=guard
+                    )
+                except Exception as recovery_exc:  # noqa: BLE001 - park rollback only
+                    _park_recovery(
+                        manifest,
+                        manifest_sha,
+                        journal,
+                        recovery_exc,
+                    )
+                    raise ContractError(
+                        "candidate initial health is not proven and native rollback "
+                        "source is unavailable; enter bound recovery and resume "
+                        "rollback only"
+                    ) from health_exc
+                rollback_health = _rollback(
+                    manifest,
+                    manifest_sha,
+                    spec,
+                    args,
+                    journal,
+                    transaction_dir,
+                    guard,
+                    from_native=True,
+                )
+                result = {
+                    "schema": RESULT_SCHEMA,
+                    "status": "FAILED_INITIAL_HEALTH_ROLLED_BACK",
+                    "run_id": manifest["run_id"],
+                    "manifest_sha256": manifest_sha,
+                    "device_safety_state": "BASELINE_HEALTHY",
+                    "candidate_attempt_count": 1,
+                    "candidate_transfer_count": 1,
+                    "rollback_transfer_count": 1,
+                    "candidate_replay": False,
+                    "rootfs_payload_count": 0,
+                    "sd_stage_count": 0,
+                    "userdata_write_count": 0,
+                    "final_health": rollback_health,
+                }
+            else:
+                append_journal(
+                    journal,
+                    manifest,
+                    manifest_sha,
+                    "candidate-health",
+                    {
+                        "device_safety_state": "RESIDENT_HEALTHY",
+                        "health": health,
+                    },
+                )
+                result = {
+                    "schema": RESULT_SCHEMA,
+                    "status": "PASS_A90_H16_UFS_RESIDENT_INSTALLED",
+                    "run_id": manifest["run_id"],
+                    "manifest_sha256": manifest_sha,
+                    "device_safety_state": "RESIDENT_HEALTHY",
+                    "candidate_attempt_count": 1,
+                    "candidate_transfer_count": 1,
+                    "rollback_transfer_count": 0,
+                    "candidate_replay": False,
+                    "rootfs_payload_count": 0,
+                    "sd_stage_count": 0,
+                    "userdata_write_count": 0,
+                    "final_health": health,
+                }
+        release = _release_guard(guard, transaction_dir)
+        result["guard_release"] = release
+        append_journal(journal, manifest, manifest_sha, "closed", {"result": result})
+        write_json_exclusive(transaction_dir / "result.json", result)
+        return result
+    except Exception:
+        if guard.process is not None and guard.process.poll() is None:
+            try:
+                _release_guard(guard, transaction_dir)
+            except Exception:
+                pass
+        raise
+
+
+def audit(manifest_path: Path, manifest_sha: str) -> dict[str, Any]:
+    manifest = load_manifest(manifest_path, manifest_sha)
+    return {
+        "schema": "a90-h16-ufs-f1-audit-v1",
+        "status": "PASS_HOST_CLOSURE",
+        "run_id": manifest["run_id"],
+        "manifest_sha256": manifest_sha,
+        "execution_closure_sha256": manifest["execution_closure"]["sha256"],
+        "candidate_sha256": manifest["candidate_boot"]["sha256"],
+        "rollback_sha256": manifest["rollback_boot"]["sha256"],
+        "rootfs_payload_count": 0,
+        "sd_stage_count": 0,
+        "userdata_write_count": 0,
+        "s22plus_command_count": 0,
+    }
+
+
+def parser() -> argparse.ArgumentParser:
+    result = argparse.ArgumentParser(description=__doc__)
+    sub = result.add_subparsers(dest="mode", required=True)
+    prepare = sub.add_parser("prepare")
+    prepare.add_argument("--run-id", required=True)
+    prepare.add_argument("--candidate", type=Path, required=True)
+    prepare.add_argument("--ab-receipt", type=Path, required=True)
+    prepare.add_argument("--baseline-manifest", type=Path, required=True)
+    prepare.add_argument("--baseline-result", type=Path, required=True)
+    prepare.add_argument("--ufs-inventory", type=Path, required=True)
+    prepare.add_argument("--qualification", type=Path, required=True)
+    prepare.add_argument("--output", type=Path, required=True)
+
+    for name in (
+        "audit",
+        "prepare-approval",
+        "execute",
+        "recover",
+        "reconcile-health",
+    ):
+        item = sub.add_parser(name)
+        item.add_argument("--manifest", type=Path, required=True)
+        item.add_argument("--expect-manifest-sha256", required=True)
+        if name in {"execute", "recover", "reconcile-health"}:
+            item.add_argument("--operator-attended", action="store_true")
+            item.add_argument("--bridge-host", default="127.0.0.1")
+            item.add_argument("--bridge-port", type=int, default=54321)
+            item.add_argument("--bridge-timeout", type=float, default=180.0)
+            item.add_argument("--remote-timeout", type=float, default=180.0)
+            item.add_argument("--flash-command-timeout", type=float, default=900.0)
+            item.add_argument("--ssh-connect-timeout", type=float, default=8.0)
+            item.add_argument("--poll-interval", type=float, default=3.0)
+            item.add_argument("--transfer-timeout", type=float, default=1200.0)
+        if name == "execute":
+            item.add_argument("--approval", required=True)
+        if name == "recover":
+            item.add_argument(
+                "--recovery-path",
+                choices=("from-native", "adb-recovery"),
+                required=True,
+            )
+    return result
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parser().parse_args(argv)
+    try:
+        if args.mode == "prepare":
+            value = build_manifest(args)
+            write_json_exclusive(args.output, value)
+        elif args.mode == "audit":
+            value = audit(args.manifest, args.expect_manifest_sha256)
+        elif args.mode == "prepare-approval":
+            value = prepare_approval(
+                args.manifest,
+                args.expect_manifest_sha256,
+            )
+        elif args.mode == "execute":
+            value = execute(
+                args.manifest,
+                args.expect_manifest_sha256,
+                args,
+            )
+        elif args.mode == "recover":
+            value = recover(
+                args.manifest,
+                args.expect_manifest_sha256,
+                args,
+            )
+        else:
+            value = reconcile_health(
+                args.manifest,
+                args.expect_manifest_sha256,
+                args,
+            )
+    except (ContractError, OSError, ValueError, json.JSONDecodeError) as exc:
+        print(f"H16_UFS_F1_ERROR {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 2
+    print(json.dumps(value, indent=2, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

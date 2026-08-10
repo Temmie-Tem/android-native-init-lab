@@ -230,16 +230,27 @@ device effect. Every replacement candidate uses a new build identity, absent
 rootfs destination, and absent versioned state paths; a prior enable/latch pair
 is never reused, cleared, or reinterpreted to authorize the replacement.
 
-The separately reviewed `A90_DIRECT_UFS_READONLY_ROOT_V1` capability is the
+The separately reviewed `A90_DIRECT_UFS_READONLY_ROOT_V2` capability is the
 only alternative to that SD-image binding. It applies solely to the existing
 A90-owned ext4 appliance selected by the exact userdata `PARTNAME`, block
-device tuple, sector count, filesystem UUID, label, appliance marker, and one
+device name, sector count, filesystem UUID, label, appliance marker, and one
 versioned public content-manifest semantic SHA256. The manifest binds the
 exact mode, owner, size, and SHA256 of every executable or library required for
 PID 1, SSH, display, NCM, and Wi-Fi startup; private authorized-key and Wi-Fi
 enable files are checked only for exact safe structure and are never hashed or
 logged. Public-tunnel enablement and every unreviewed network configuration
 must be absent.
+
+The numeric block `dev_t` is not a cross-boot identity: the kernel may assign a
+different major:minor to the same `sda33` userdata partition after reboot.
+V2 therefore resolves it afresh from the sole `PARTNAME=userdata` sysfs entry
+inside each qualification/handoff session. That runtime value may only create
+and validate the private block node in the same session. The stable checks
+remain exact `sda33`, sector count, size range, writable-capable block state,
+unmounted state, UUID, label, appliance marker, and content manifest. Any
+existing by-name or private node must match the freshly resolved `dev_t`; a
+duplicate userdata `PARTNAME`, stable-identity drift, or same-session node
+mismatch fails closed.
 
 This capability never formats, repairs, replays, populates, copies, stages,
 hashes as a whole, or otherwise writes userdata. Qualification and handoff
@@ -257,7 +268,7 @@ write and readback succeeded, but native preparation synchronously waited 20
 seconds for the persistent Wi-Fi ready publication before consulting the
 unarmed handoff state. That publication had not arrived, so H14 returned
 `-ETIMEDOUT` before any UFS mount and closed only after the exact V2321 rollback
-was written, read back, and proved healthy. H15 is the only replacement lane.
+was written, read back, and proved healthy. H15 replaced that timing defect.
 On an unarmed or latched boot it consults the durable handoff state before
 starting Wi-Fi or NCM preparation and stays native. On an armed boot it requires
 the private-mount/shared-network Wi-Fi companion process to be alive, but does
@@ -302,6 +313,15 @@ mount restoration, or retained root parks recovery rather than claiming healthy
 closure. Exact `1,0` also parks recovery without replay. The successful lane proves the
 same-intent UFS root/PID1/display/SSH/NCM/Wi-Fi evidence and returns once to
 exact resident health. It never replays an uncertain arm, reboot, or handoff.
+
+H15 run01 then exposed the new `UFS_DEVT_CROSS_BOOT_DRIFT` incident. Its arm-time
+qualification passed at `sda33` `259:17`, but the armed boot resolved the same
+stable userdata identity as `259:36`. H15 compared the stale compiled numeric
+tuple before runtime resolution and returned `-EPERM` before latch or UFS
+mount. H15 arm/reboot/handoff is consumed and never replayed. H16 is the only
+replacement lane and implements the V2 same-session runtime-`dev_t` rule above
+with fresh versioned enable/latch paths. Its exact V2321 boot rollback remains
+mandatory.
 
 The H15 run01 pre-latch incident activates one attended recovery primitive for
 the exact `1,0` state only. It binds the consumed D1 journal prefix, its exact

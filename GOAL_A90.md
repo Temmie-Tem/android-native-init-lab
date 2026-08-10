@@ -734,21 +734,27 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: H16 UFS Preflight EPERM Diagnosis
+## Selected Bounded Unit: H16 Dynamic-`dev_t` UFS Replacement
 
 Preserve every terminal H7-H15 F1 run and no-replay conclusion. H15 is the
 exact installed healthy resident; H14 and run08 are not reusable. Exact V2321
 remains the rollback, and the H13 transfer repair is separately qualified and
 closed.
 
-The H15 D1 ordinal is consumed and refuted at pre-latch E1. Its exact reviewed
-recovery is terminal PASS, and H15 is healthy and unarmed at `enable=0/latch=0`.
-Neither transaction is resumed or replayed.
+The H15 D1 ordinal is consumed and refuted at pre-latch E1. Exact diagnosis
+proved the same stable `sda33` userdata identity changed numeric `dev_t` from
+arm-time `259:17` to post-reboot `259:36`; H15 incorrectly treated that kernel
+assignment as cross-boot identity. Its reviewed recovery is terminal PASS, and
+H15 is healthy and unarmed at `enable=0/latch=0`. Neither transaction is resumed
+or replayed.
 
-Next isolate the exact `EPERM` return branch inside the userdata read-only
-preflight using source and captured same-boot evidence first. Any correction
-uses a fresh H16 version/build and fresh marker namespace, independent review,
-and new F1/D1 bindings. H15 arm/reboot/handoff is never reused.
+H16 0.11.184 replaces only that binding with a same-session runtime `dev_t`,
+retaining unique `PARTNAME`, stable identity/content, node-match, unmounted,
+read-only `noload`, no-write, no-replay, exact V2321 rollback, and final-health
+checks. Deterministic A/B boot SHA256 is `d545082e...e1451b88`. Independent
+`PASS_GO` closes execution closure `500c39c0...e26624b0` with HIGH/MEDIUM/LOW
+zero and 141 tests. Fresh run02 manifest `b0ca0d9b...341870` is host-audited but
+grants no live authority; next is a fresh exact A90 D0, commit, and attended F1.
 
 Only a full comparable H15 control benchmark can open a later Full-LTO unit.
 Qualification never substitutes for fresh manifest, D0, approval, attendance,
@@ -818,6 +824,8 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/archive/reports/A90_H14_DIRECT_UFS_READONLY_ROOT_INDEPENDENT_REVIEW_2026-08-10.json`
 - `docs/reports/A90_H14_UNARMED_WIFI_READY_GATE_INCIDENT_2026-08-10.md`
 - `docs/reports/A90_H15_DIRECT_UFS_ASYNC_WIFI_INDEPENDENT_REVIEW_2026-08-10.json`
+- `docs/reports/A90_H15_UFS_DEVT_CROSS_BOOT_DRIFT_INCIDENT_2026-08-10.md`
+- `docs/reports/A90_H16_DYNAMIC_DEVT_INDEPENDENT_REVIEW_2026-08-10.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`

@@ -26,21 +26,22 @@ int a90_server_distro_source_receipt_preflight(const char *image,
                                                const char *expected_sha);
 
 /*
- * H14 read-only userdata appliance root. These helpers never format, populate,
+ * H16 read-only userdata appliance root. These helpers never format, populate,
  * repair, or fsck userdata. Qualification mounts the exact PARTNAME=userdata
- * target read-only with ext4 journal replay disabled, validates its compiled
- * identity, label, marker, and init, then unmounts it. The handoff keeps the
- * UFS root read-only and reuses the D3 tmpfs writable set.
+ * target read-only with ext4 journal replay disabled, resolves the dynamic
+ * dev_t within the same session, validates its stable compiled identity,
+ * label, marker, and init, then unmounts it. The handoff keeps the UFS root
+ * read-only and reuses the D3 tmpfs writable set.
  */
 int a90_server_distro_userdata_ro_qualify(const char *expected_devname,
-                                          const char *expected_dev,
+                                          const char *expected_devt_binding,
                                           const char *expected_sectors,
                                           const char *expected_label,
                                           const char *expected_marker,
                                           const char *expected_uuid,
                                           const char *expected_content_manifest_sha256);
 int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
-                                              const char *expected_dev,
+                                              const char *expected_devt_binding,
                                               const char *expected_sectors,
                                               const char *expected_label,
                                               const char *expected_marker,
