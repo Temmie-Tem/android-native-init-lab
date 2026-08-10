@@ -5,7 +5,7 @@ where native-init performs only the vendor-kernel and hardware bridge-up that
 Debian cannot yet perform, then transfers PID 1 and the steady-state runtime to
 the existing UFS-backed Debian appliance root with `switch_root`. The exact H16
 native resident is the current healthy terminal, with V2321 retained as the
-bound rollback until the UFS control run closes under the current contract.
+bound rollback for the next server-readiness candidate.
 
 `AGENTS.md` and `docs/operations/targets/A90_TARGET_CONTRACT.md` are binding.
 This file records current state and the next bounded unit; it grants no device
@@ -18,6 +18,21 @@ The pre-H2 goal history is preserved at
 
 ## Current State
 
+- H16 D1 run01 is consumed, recovered, and terminal. Its one combined arm and
+  reboot reached the exact same-intent read-only UFS handoff and
+  `switch_root_exec` at 11,760 ms, then exposed the persistent Debian appliance
+  over A90 NCM. The appliance intentionally has no automatic-return timer and
+  rejected the manifest observer key, so authenticated SSH, Debian PID 1,
+  DRM/display, final Wi-Fi, and full personal-server readiness remain unproved.
+  After the operator's physical return, the reviewed no-replay finalizer at
+  execution closure `51f99862` appended only the two terminal journal records
+  and closed `NO_PROOF_H16_PERSISTENT_DEBIAN_PHYSICAL_RETURN_HEALTHY`. Current
+  H16 is exact at `binding=1 enable=1 latch=1`, self-test `11/1/0`, userdata
+  `259:17` mount count zero, candidate replay false, and payload, partition,
+  flash, SD stage, userdata write, physical-return reboot, and S22+ command
+  counts zero. The transaction must never be resumed. The next bounded unit is
+  an H17 design that binds a consumable observer key and separately proves the
+  intended persistent-return and DRM/display behavior.
 - H16 `0.11.184`, build
   `phase3-minimal-h16-direct-ufs-ro-async-wifi-auto-benchmark`, is the exact
   installed healthy resident. Attended run03 wrote and read back boot-only
