@@ -5,9 +5,9 @@
   "reviewer": "independent subagent /root/a90_h16_clean_review",
   "target": "Samsung Galaxy A90 5G only",
   "capability": "A90_DIRECT_UFS_READONLY_ROOT_V2",
-  "decision": "The exact H16 boot-only F1 and attended read-only-UFS D1 execution closure has no unresolved HIGH, MEDIUM, or LOW finding. It closes UFS_DEVT_CROSS_BOOT_DRIFT by resolving numeric dev_t only inside the same native session while retaining stable userdata identity, read-only mount, no-replay, rollback, and health gates.",
+  "decision": "The exact H16 boot-only F1 and attended read-only-UFS D1 execution closure has no unresolved HIGH, MEDIUM, or LOW finding. It closes UFS_DEVT_CROSS_BOOT_DRIFT by resolving numeric dev_t only inside the same native session while retaining stable userdata identity, read-only mount, no-replay, rollback, and health gates. A focused rereview also closes the host preflight omission by allowing only the exact installed H15 predecessor tuple.",
   "frozen_scope": {
-    "execution_closure_sha256": "500c39c00a5b4b8998cefecf070ce6218a629e657122011c968eaaa9e26624b0",
+    "execution_closure_sha256": "2931949198a27821e1d7d5bb4046cc17de52f64527c8546e6b2b2454990d3f62",
     "execution_closure_members": 38,
     "native_init_closure_sha256": "56c74c2fa4e26e5b2a0de8dc7bebc6ca5e41ac1ed32ee60cbd5e8e61b0d0d1c9",
     "native_init_closure_members": 253,
@@ -30,6 +30,7 @@
     "userdata_write_allowed": false,
     "userdata_node_exposed_after_switch_root": false,
     "exact_h15_healthy_predecessor": true,
+    "exact_h15_starting_identity_allowlisted": true,
     "partition_allowlist": [
       "boot"
     ],
@@ -47,14 +48,14 @@
     "final_medium": 0,
     "final_low": 0,
     "resolved_high": 0,
-    "resolved_medium": 0,
+    "resolved_medium": 1,
     "resolved_low": 0,
     "unresolved": []
   },
   "validation": {
     "h16_focused_tests": "38/38 PASS",
-    "related_tests": "103/103 PASS",
-    "total_tests": "141/141 PASS",
+    "related_tests": "154/154 PASS",
+    "total_tests": "192/192 PASS",
     "python_py_compile": "29/29 PASS",
     "scoped_git_diff_check": "PASS",
     "aarch64_static_link": "PASS",

@@ -2,7 +2,7 @@
   "schema": "a90-h16-ufs-capability-qualification-v1",
   "capability": "A90_DIRECT_UFS_READONLY_ROOT_V2",
   "verdict": "PASS_GO",
-  "execution_closure_sha256": "500c39c00a5b4b8998cefecf070ce6218a629e657122011c968eaaa9e26624b0",
+  "execution_closure_sha256": "2931949198a27821e1d7d5bb4046cc17de52f64527c8546e6b2b2454990d3f62",
   "execution_hashes": {
     "AGENTS.md": {
       "size": 14600,
@@ -141,8 +141,8 @@
       "sha256": "7a6f2a3248fcf53770cf5dee27985b23e239749cf5c8eae79158c7f903686010"
     },
     "workspace/public/src/scripts/server-distro/a90_v3403_absent_only_staging.py": {
-      "size": 109435,
-      "sha256": "8d3f6a86a67bd555f1488192e0c7074175a63b88c65006916440fc1d04e63c41"
+      "size": 109773,
+      "sha256": "d26fabf2ca6895afb76ae66c4d5dc9e0ee778f3d741ef0d9d2ee9f7cf7258dc9"
     },
     "workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py": {
       "size": 293221,

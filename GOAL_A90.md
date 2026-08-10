@@ -752,9 +752,11 @@ H16 0.11.184 replaces only that binding with a same-session runtime `dev_t`,
 retaining unique `PARTNAME`, stable identity/content, node-match, unmounted,
 read-only `noload`, no-write, no-replay, exact V2321 rollback, and final-health
 checks. Deterministic A/B boot SHA256 is `d545082e...e1451b88`. Independent
-`PASS_GO` closes execution closure `500c39c0...e26624b0` with HIGH/MEDIUM/LOW
-zero and 141 tests. Fresh run02 manifest `b0ca0d9b...341870` is host-audited but
-grants no live authority; next is a fresh exact A90 D0, commit, and attended F1.
+`PASS_GO` closes execution closure `29319491...90d3f62` with HIGH/MEDIUM/LOW
+zero and 192 tests after adding only the exact H15 predecessor to the shared
+health allowlist. The prior host-only manifests are stale; fresh run03 manifest
+`7af8e74e...55f0f55` passes host audit. Exact A90 D0 is required before attended
+F1.
 
 Only a full comparable H15 control benchmark can open a later Full-LTO unit.
 Qualification never substitutes for fresh manifest, D0, approval, attendance,

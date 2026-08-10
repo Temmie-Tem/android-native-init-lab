@@ -280,6 +280,10 @@ class A90UfsHandoffSourceV2Tests(unittest.TestCase):
             'result.get("candidate_transfer_count") != 1',
         ):
             self.assertIn(required, source)
+        self.assertIn(
+            (H16_F1.CURRENT_VERSION, H16_F1.CURRENT_BUILD),
+            H16_F1.staging.ALLOWED_STARTING_IDENTITIES,
+        )
 
     def test_userdata_binding_rejects_sd_fields_and_identity_drift(self) -> None:
         h16 = self._manifest(H16_MANIFEST)
