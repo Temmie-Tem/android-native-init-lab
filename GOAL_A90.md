@@ -3,7 +3,7 @@
 Build the operator-owned Galaxy A90 5G into a Debian-oriented personal server
 where native-init performs only the vendor-kernel and hardware bridge-up that
 Debian cannot yet perform, then transfers PID 1 and the steady-state runtime to
-the existing UFS-backed Debian appliance root with `switch_root`. The exact H15
+the existing UFS-backed Debian appliance root with `switch_root`. The exact H16
 native resident is the current healthy terminal, with V2321 retained as the
 bound rollback until the UFS control run closes under the current contract.
 
@@ -18,28 +18,20 @@ The pre-H2 goal history is preserved at
 
 ## Current State
 
-- H15 `0.11.183`, build
-  `phase3-minimal-h15-direct-ufs-ro-async-wifi-auto-benchmark`, is the exact
-  installed healthy resident. Its attended boot-only F1 wrote the candidate
-  once and closed `PASS_A90_H15_UFS_RESIDENT_INSTALLED` / `RESIDENT_HEALTHY`
-  with self-test `11/1/0`, unarmed `enable=0/latch=0`, released guard, rollback
-  zero, and candidate replay false. Exact V2321 and physical Download/TWRP
+- H16 `0.11.184`, build
+  `phase3-minimal-h16-direct-ufs-ro-async-wifi-auto-benchmark`, is the exact
+  installed healthy resident. Attended run03 wrote and read back boot-only
+  candidate `d545082e...e1451b88` once and closed
+  `PASS_A90_H16_UFS_RESIDENT_INSTALLED` / `RESIDENT_HEALTHY` with self-test
+  `11/1/0`, exact unarmed `binding=1 enable=0 latch=0`, candidate replay false,
+  rollback zero, and guard released. Rootfs payload, SD stage, userdata write,
+  and S22+ command counts are zero. Exact V2321 and physical Download/TWRP
   remain the bound recovery path.
-- H15 D1 run01 consumed one fresh approval and dispatched exactly one combined
-  arm-plus-reboot operation. The rebooted resident prepared its private-mount,
-  shared-network Wi-Fi helper and NCM, then stopped before latch, UFS mount, or
-  `switch_root` when the userdata read-only preflight returned `-1`; the screen
-  reported automatic-handoff E1. Arm and reboot are never replayed.
-- The reviewed recovery consumed one fresh approval and dispatched one
-  retry-disabled unlink-and-sync for the exact 533-byte enable marker. It
-  closed `PASS_H15_ARMED_STATE_RECOVERED` with exact H15 health,
-  `binding=1 enable=0 latch=0`, result `478cc0b0`, and no replay, reboot,
-  handoff, flash, payload, userdata write, or latch change.
-- The incident-specific armed-state recovery has independent `PASS_GO` at the
-  40-file execution closure `ed3acfed` with HIGH/MEDIUM/LOW zero and 49 focused
-  tests passing. It permits at most one retry-disabled unlink-and-sync of the
-  exact enable marker, preserves and revalidates its small bytes privately,
-  and gives no live authority; fresh attended approval remains required.
+- H15 D1 run01 remains consumed and never replayed. It stopped before latch,
+  UFS mount, or `switch_root` at visible E1 because numeric userdata `dev_t`
+  drifted across reboot. Its reviewed one-shot marker recovery closed exact
+  H15 health at `binding=1 enable=0 latch=0`; H16 replaces only that cross-boot
+  numeric binding with same-session runtime resolution.
 - H13 run08 reached attended rootfs staging but stopped before candidate intent.
   The host payload socket incorrectly retained its 10-second connection timeout
   during the 2 GiB send, timed out under SD backpressure, and then queued cleanup
@@ -734,12 +726,11 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: H16 Dynamic-`dev_t` UFS Replacement
+## Selected Bounded Unit: H16 Automatic UFS Handoff
 
-Preserve every terminal H7-H15 F1 run and no-replay conclusion. H15 is the
-exact installed healthy resident; H14 and run08 are not reusable. Exact V2321
-remains the rollback, and the H13 transfer repair is separately qualified and
-closed.
+Preserve every terminal H7-H15 run and no-replay conclusion. H14, H15 D1, and
+run08 are not reusable. Exact V2321 remains the rollback, and the H13 transfer
+repair is separately qualified and closed.
 
 The H15 D1 ordinal is consumed and refuted at pre-latch E1. Exact diagnosis
 proved the same stable `sda33` userdata identity changed numeric `dev_t` from
@@ -751,14 +742,19 @@ or replayed.
 H16 0.11.184 replaces only that binding with a same-session runtime `dev_t`,
 retaining unique `PARTNAME`, stable identity/content, node-match, unmounted,
 read-only `noload`, no-write, no-replay, exact V2321 rollback, and final-health
-checks. Deterministic A/B boot SHA256 is `d545082e...e1451b88`. Independent
-`PASS_GO` closes execution closure `29319491...90d3f62` with HIGH/MEDIUM/LOW
-zero and 192 tests after adding only the exact H15 predecessor to the shared
-health allowlist. The prior host-only manifests are stale; fresh run03 manifest
-`7af8e74e...55f0f55` passes host audit. Fresh exact A90 D0 proves H15 health,
-UFS `sda33` runtime `259:36`, absent H16 markers, and unchanged candidate and
-rollback. The fresh compatibility approval binding is prepared but grants no
-live authority; attended F1 awaits its exact operator approval.
+checks. Independent `PASS_GO` closes execution closure
+`29319491...90d3f62` with HIGH/MEDIUM/LOW zero and 192 tests. Fresh run03 D0
+and manifest `7af8e74e...55f0f55` preceded one attended F1 candidate write;
+the durable result `ca5ed12b...79333` is terminal
+`PASS_A90_H16_UFS_RESIDENT_INSTALLED` / `RESIDENT_HEALTHY` and must not be
+replayed.
+
+Next, prepare one fresh attended H16 D1 transaction from that exact installed
+result. It may arm and reboot once, resolve the stable userdata identity to the
+same-session `dev_t`, mount the existing appliance read-only, switch PID 1,
+collect automatic-handoff and server-readiness evidence, return automatically,
+and prove exact H16 final health. A missing host observation parks or closes as
+no-proof; it never authorizes another arm or reboot.
 
 Only a full comparable H15 control benchmark can open a later Full-LTO unit.
 Qualification never substitutes for fresh manifest, D0, approval, attendance,
