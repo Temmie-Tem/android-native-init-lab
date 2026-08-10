@@ -12,7 +12,40 @@ authority, evidence, transports, and commands remain separate.
 
 ## Current Frontier
 
-P3.13 is the latest closed live unit. Its distinct boot-only candidate and
+P3.14 is the latest closed live unit. Its distinct boot-only candidate and
+exact Magisk rollback each transferred exactly once. The Process-v2 journal is
+`CLOSED`; rooted boot-completed FYG8 Android, boot and supporting-partition
+identities, stopped boot animation, and absence of Download mode passed with
+`recovery_required=false`. The operator observed a normal candidate boot
+without a loop. The consumed candidate is never replayable.
+
+The exact ACM observer timed out at zero bytes. Two full-length,
+byte-identical retained reads contain CRC-clean adjacent generations 96/97:
+parent-suspended progress followed by terminal `0x6705`,
+`profile-record-deficit`, while classifying the live stop snapshot. P3.14
+therefore reached the same proved stop boundary as P3.13 but did not construct
+or execute the restart helper.
+
+Post-live H0 proves that this is deterministic observer self-failure. The
+materialized stop path reads trace text with
+`p282_trace_read_snapshot(..., 0)`, which leaves the zero-initialized
+`profile_hits[]` untouched, and then `p314_parse_live_snapshot()` compares
+those zeros with 14 valid stop records. The actual materialized parser
+reproduces `rc=0x6705 records=14 profile0=0 record0=1` in a host TU. No USB,
+PM, restart/resume, post-cycle QSCRATCH, state-delta, connector, or pull-up
+conclusion follows.
+
+The minimal successor is a userspace-only live-profile snapshot repair. It
+must execute the actual intermediate wrapper with nonzero records and prove
+that every profile relation follows a successful profile read, while retaining
+the existing final/partial close, ring, pair, capacity, Carrier, and
+Process-v2 checks. The fixed Image and kernel remain unchanged, so Full-LTO is
+not required under the exact inherited inputs. No successor is yet qualified
+or authorized.
+
+## P3.13 Predecessor Evidence
+
+P3.13 is the consumed predecessor. Its distinct boot-only candidate and
 exact Magisk rollback each transferred exactly once. The Process-v2 journal is
 `CLOSED`; rooted boot-completed FYG8 Android, boot and supporting-partition
 identities, and absence of Download mode passed with
@@ -301,17 +334,12 @@ from the durable rollback state without retransmission, and final health
 passed. No live authority remains from its approval or prepared record.
 
 P3.02 passive electrical attribution remains parked because no reviewed safe
-inline breakout is available. P3.14 is now the host-qualified digital
-successor to P3.13, with a canonical manifest in
-`ready-for-f1-approval` state. The first fresh D0 stopped read-only on the
-consumed P3.13 retained family. One approved attended normal reboot then
-rotated that baseline and returned rooted, boot-completed FYG8 health with
-boot and supporting-partition identities unchanged. A second fresh D0 passed
-with a clean baseline and prepared binding `e9a5d77c`; reopening the prepared
-record against the current execution closure passed. Device writes, Odin,
-partition transfer, F1 authority, and live authority remain false. The next
-possible device step is the exact P3.14 F1 attempt under its fresh approval;
-P3.02 remains parked.
+inline breakout is available. P3.14 is now consumed and closed. Its candidate
+and rollback each completed once; the retained observer contradiction was
+recovered from two byte-identical post-rollback reads, and final health passed.
+No live authority remains from its approval or prepared record. The next work
+is H0-only successor design and qualification for the live-profile snapshot
+ordering incident. P3.02 remains parked.
 
 ## Success and Stop Conditions
 
@@ -327,6 +355,14 @@ host-side prerequisites without changing the fixed Image or candidate kernel;
 it does not retroactively add restart evidence to P3.13. The consumed run
 cannot identify the exclusive live pair vector and must not be presented as
 doing so.
+
+P3.14 implementation and its one live attempt are also complete. The live
+result is `NO_PROOF_OBSERVER`: its clean 14-record stop snapshot was compared
+against an unpopulated profile array and deterministically emitted `0x6705`
+before restart. A successor may not inherit a claim that P3.14 attempted the
+restart or refuted any remaining digital mechanism. It must close the actual
+intermediate snapshot call sequence, not merely the lower-level parser or the
+post-emission value-position matrix, before a new candidate is packaged.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden
 archive member, an unreviewed common receipt/schema change, an observer result
