@@ -1,0 +1,57 @@
+{
+  "schema": "a90-h15-armed-recovery-independent-review-v1",
+  "status": "PASS_GO",
+  "review_date": "2026-08-10",
+  "reviewer": "independent subagent /root/a90_h7_closure_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "capability": "A90_H15_PRELATCH_ARMED_RECOVERY_V1",
+  "execution_closure_sha256": "ed3acfed605524b1aae45a9f902de73dc367f54cdeea3fca51cc466eb404bce8",
+  "execution_closure_members": 40,
+  "runner_sha256": "ba01db221770e68027fdff6a4b1342d28106fea47e9a97e8915462d906d58cd8",
+  "decision": "The exact H15 run01 pre-latch armed-state recovery has no unresolved HIGH, MEDIUM, or LOW finding.",
+  "reviewed_behavior": {
+    "exact_incident_prefix_and_intent_required": true,
+    "opening_state": "binding=1 enable=1 latch=0",
+    "selected_effect": "one exact enable-marker unlink and sync",
+    "cleanup_retry_unsafe": false,
+    "cleanup_dispatch_count_max": 1,
+    "uncertain_cleanup_replay": false,
+    "prefix_0_1_pre_intent_continuation": true,
+    "prefix_2_plus_effect_replay": false,
+    "intent_only_unknown_count_preserved": true,
+    "preserved_bytes_revalidated_before_pass": true,
+    "exact_writer_temp_hardlink_recovery": true,
+    "terminal_state": "binding=1 enable=0 latch=0 and exact H15 health",
+    "payload_transfer_count": 0,
+    "partition_write_count": 0,
+    "reboot_count": 0,
+    "handoff_count": 0,
+    "userdata_write_count": 0,
+    "s22plus_authority": false
+  },
+  "findings": {
+    "final_high": 0,
+    "final_medium": 0,
+    "final_low": 0,
+    "resolved_high": 1,
+    "resolved_medium": 3,
+    "resolved_low": 3,
+    "unresolved": []
+  },
+  "validation": {
+    "focused_tests_passed": 49,
+    "python_py_compile": "PASS",
+    "git_diff_check": "PASS",
+    "closure_recomputed_twice": true
+  },
+  "review_lifetime": {
+    "reuse": "Only while the exact 40-file execution closure and the named H15 run01 incident hazard remain unchanged and no new incident occurs.",
+    "fresh_attended_approval_required": true,
+    "live_authority_from_review": false
+  },
+  "reviewer_device_contact": false,
+  "reviewer_usb_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_s22plus_contact": false,
+  "reviewer_implementation_edits": false
+}

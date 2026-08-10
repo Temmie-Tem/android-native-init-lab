@@ -302,6 +302,22 @@ mount restoration, or retained root parks recovery rather than claiming healthy
 closure. Exact `1,0` also parks recovery without replay. The successful lane proves the
 same-intent UFS root/PID1/display/SSH/NCM/Wi-Fi evidence and returns once to
 exact resident health. It never replays an uncertain arm, reboot, or handoff.
+
+The H15 run01 pre-latch incident activates one attended recovery primitive for
+the exact `1,0` state only. It binds the consumed D1 journal prefix, its exact
+intent, current H15 identity and health, the sole H15 enable path, and the
+byte-exact regular mode-0600 enable record. Before deletion it preserves those
+small bytes under `workspace/private/`. After a fresh exact approval and a
+durable unlink intent, it may dispatch one fixed unlink-and-sync command for
+that enable path only. It sends no payload, does not reboot, hand off, flash,
+mount userdata, remove the latch path, or touch another file. A lost or
+uncertain response is never replayed; read-only reconciliation may close only
+on exact `binding=1 enable=0 latch=0`, exact H15 health, and the bound preserved
+bytes. Any other state remains recovery-pending. This primitive retires after
+its first exact PASS, on closure or target drift, or on another incident,
+whichever comes first. Independent qualification and a fresh attended approval
+are mandatory and grant no authority to another target or action.
+
 The capability never
 applies to S22+, another A90, another userdata identity, a writable UFS mount,
 or any non-boot partition transfer. Its independent `PASS_GO` is reusable

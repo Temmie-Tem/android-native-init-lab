@@ -25,6 +25,21 @@ The pre-H2 goal history is preserved at
   with self-test `11/1/0`, unarmed `enable=0/latch=0`, released guard, rollback
   zero, and candidate replay false. Exact V2321 and physical Download/TWRP
   remain the bound recovery path.
+- H15 D1 run01 consumed one fresh approval and dispatched exactly one combined
+  arm-plus-reboot operation. The rebooted resident prepared its private-mount,
+  shared-network Wi-Fi helper and NCM, then stopped before latch, UFS mount, or
+  `switch_root` when the userdata read-only preflight returned `-1`; the screen
+  reported automatic-handoff E1. Arm and reboot are never replayed.
+- Bounded same-boot evidence and later exact reads prove native H15 remains
+  healthy at `binding=1 enable=1 latch=0`. This is
+  `RECOVERY_PENDING_ARMED_NO_REPLAY`: do not reboot. The next effect is only an
+  independently reviewed, freshly approved one-shot removal and sync of that
+  exact H15 enable marker, followed by exact `0,0` and H15 health proof.
+- The incident-specific armed-state recovery has independent `PASS_GO` at the
+  40-file execution closure `ed3acfed` with HIGH/MEDIUM/LOW zero and 49 focused
+  tests passing. It permits at most one retry-disabled unlink-and-sync of the
+  exact enable marker, preserves and revalidates its small bytes privately,
+  and gives no live authority; fresh attended approval remains required.
 - H13 run08 reached attended rootfs staging but stopped before candidate intent.
   The host payload socket incorrectly retained its 10-second connection timeout
   during the 2 GiB send, timed out under SD backpressure, and then queued cleanup
@@ -719,22 +734,28 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: H15 Namespace-Proved Direct-UFS Control
+## Selected Bounded Unit: H15 Pre-Latch Armed-State Recovery
 
 Preserve every terminal H7-H15 F1 run and no-replay conclusion. H15 is the
 exact installed healthy resident; H14 and run08 are not reusable. Exact V2321
 remains the rollback, and the H13 transfer repair is separately qualified and
 closed.
 
-The H15 namespace-ready asynchronous Wi-Fi correction is independently
-qualified and its boot-only resident install is terminal healthy. Next create
-a new attended D1 ordinal bound to that exact terminal and the existing UFS
-inventory. Do not repeat the F1 candidate.
+The H15 D1 ordinal is consumed and stopped pre-latch at E1. Its exact H15
+native terminal is healthy but remains armed at `enable=1/latch=0`. Do not
+reboot, re-arm, replay the combined command, or claim UFS handoff proof.
 
-Consume a fresh D1 approval, dispatch exactly one combined arm-plus-reboot
-operation, and prove the existing UFS identity and content, read-only root, Debian PID 1,
-DRM/display, SSH/NCM/Wi-Fi service, clean automatic native return, and final H15
-resident health. An uncertain transition is never replayed.
+First close only the incident-specific attended recovery primitive: bind the
+four-record consumed D1 prefix and exact intent, prove current H15 `1,0`,
+preserve the exact small enable record privately, dispatch at most one fixed
+unlink-and-sync after fresh approval, and close only on exact H15 `0,0` health.
+An uncertain unlink response is reconciled read-only and never resent.
+The exact recovery implementation is independently qualified at closure
+`ed3acfed`; generate and consume only its fresh attended approval binding.
+
+After recovery PASS, isolate the preflight `EPERM` branch at H0 and create a
+new H16 identity for any native correction. H15 arm/reboot/handoff is never
+reused.
 
 Only a full comparable H15 control benchmark can open a later Full-LTO unit.
 Qualification never substitutes for fresh manifest, D0, approval, attendance,
