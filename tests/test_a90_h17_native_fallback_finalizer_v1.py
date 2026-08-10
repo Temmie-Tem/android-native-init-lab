@@ -43,8 +43,13 @@ class A90H17NativeFallbackFinalizerV1Tests(unittest.TestCase):
                     "selftest: pass=11 warn=1 fail=0",
                     "pid1guard: pass=12 warn=0 fail=0",
                     "autohud: running",
+                    "transport.serial=ready",
                     "transport.ncm=ready",
                     "transport.tcpctl=ready",
+                    "transport.tcpctl.port=2325",
+                    "transport.upload=tcpctl-ready",
+                    "transport.preferred=tcpctl",
+                    "transport.reason=tcpctl-ready",
                     "",
                 )
             ),
@@ -123,10 +128,20 @@ class A90H17NativeFallbackFinalizerV1Tests(unittest.TestCase):
                     "selftest: pass=11 warn=1 fail=0",
                     "pid1guard: pass=12 warn=0 fail=0",
                     "autohud: running",
+                    "transport.serial=ready",
                     "transport.ncm=ready",
-                    "transport.tcpctl=ready",
                 ],
+                "tcpctl_observation": "ready",
+                "tcpctl_running": True,
                 "record": status,
+            },
+            "tcpctl_health": {
+                "proof": True,
+                "mode": "ready",
+                "tcpctl_running": True,
+                "configured_idle_seconds": self.module.TCPCTL_IDLE_SECONDS,
+                "serial_control_ready": True,
+                "ncm_control_ready": True,
             },
             "auto_handoff_status": {
                 "binding": 1,
@@ -181,6 +196,47 @@ class A90H17NativeFallbackFinalizerV1Tests(unittest.TestCase):
         self.assertNotIn(self.module.PREDECESSOR_D1_REL, closure["files"])
         self.assertRegex(closure["sha256"], r"^[0-9a-f]{64}$")
 
+    def test_review_report_requires_new_incident_scope_and_internal_pass(self) -> None:
+        closure = {"sha256": "a" * 64, "files": {"one": {}}}
+        value = {
+            "schema": self.module.REVIEW_SCHEMA,
+            "capability": self.module.CAPABILITY,
+            "verdict": "PASS_GO",
+            "review_date": "2026-08-11",
+            "reviewer": self.module.REVIEWER,
+            "execution_closure_sha256": closure["sha256"],
+            "execution_file_count": 1,
+            "review_scope": self.module.REVIEW_SCOPE,
+            "incident": self.module.REVIEW_INCIDENT,
+            "new_hazard_or_incident": True,
+            "findings": {"high": [], "medium": [], "low": []},
+            "validated_invariants": list(
+                self.module.REVIEW_REQUIRED_INVARIANTS
+            ),
+            "review_contacts": {
+                "device": 0,
+                "dev": 0,
+                "usb": 0,
+                "network": 0,
+                "workspace_private": 0,
+                "s22plus_paths": 0,
+                "file_modifications": 0,
+            },
+            "live_authority": False,
+        }
+        self.assertEqual(
+            self.module._validate_review_report(value, closure),
+            value,
+        )
+        old_review = copy.deepcopy(value)
+        old_review["schema"] = (
+            "a90-h17-native-fallback-finalizer-independent-review-v1"
+        )
+        with self.assertRaisesRegex(
+            self.module.ContractError, "independent review is not current"
+        ):
+            self.module._validate_review_report(old_review, closure)
+
     def test_approval_binding_is_read_only_and_no_replay(self) -> None:
         value = self.module._approval_binding(
             {"sha256": "a" * 64},
@@ -201,6 +257,14 @@ class A90H17NativeFallbackFinalizerV1Tests(unittest.TestCase):
             "userdata_write_count",
         ):
             self.assertEqual(value[key], 0)
+
+    def test_approval_namespace_is_separate_from_preincident_attempt(self) -> None:
+        self.assertIn("tcpctl-idle-exit", self.module.APPROVAL_PATH.name)
+        self.assertTrue(
+            self.module.APPROVAL_PREFIX.startswith(
+                "A90-H17-TCPCTL-IDLE-EXIT-"
+            )
+        )
 
     def test_unmounted_probe_is_read_only_and_alias_complete(self) -> None:
         script = self.module._unmounted_script()
@@ -255,6 +319,142 @@ class A90H17NativeFallbackFinalizerV1Tests(unittest.TestCase):
         ):
             value = self.module._parse_status(record)
         self.assertEqual((value["enable"], value["latch"]), (1, 1))
+
+    def test_native_status_accepts_only_exact_tcpctl_idle_exit_candidate(self) -> None:
+        text = "\n".join(
+            (
+                f"init: {self.module.H17_BOOT_DETAIL}",
+                "selftest: pass=11 warn=1 fail=0",
+                "pid1guard: pass=12 warn=0 fail=0",
+                "autohud: running",
+                "transport.serial=ready",
+                "transport.ncm=ready",
+                "transport.tcpctl=starting",
+                "transport.tcpctl.port=-",
+                "transport.upload=ncm-ready",
+                "transport.preferred=ncm",
+                "transport.reason=ncm-ready",
+            )
+        )
+        record = {"command": ["status"], "text": text}
+        with mock.patch.object(
+            self.module.base,
+            "require_exact_f1_command_receipt",
+            return_value=record,
+        ):
+            value = self.module._validate_native_status(record)
+        self.assertEqual(
+            value["tcpctl_observation"],
+            "normal-idle-exit-proof-required",
+        )
+        self.assertFalse(value["tcpctl_running"])
+
+    def test_native_status_rejects_tcpctl_marker_suffix(self) -> None:
+        text = "\n".join(
+            (
+                f"init: {self.module.H17_BOOT_DETAIL}",
+                "selftest: pass=11 warn=1 fail=0",
+                "pid1guard: pass=12 warn=0 fail=0",
+                "autohud: running",
+                "transport.serial=ready",
+                "transport.ncm=ready",
+                "transport.tcpctl=starting-untrusted",
+                "transport.tcpctl.port=-",
+                "transport.upload=ncm-ready",
+                "transport.preferred=ncm",
+                "transport.reason=ncm-ready",
+            )
+        )
+        record = {"command": ["status"], "text": text}
+        with mock.patch.object(
+            self.module.base,
+            "require_exact_f1_command_receipt",
+            return_value=record,
+        ), self.assertRaisesRegex(
+            self.module.ContractError, "tcpctl state is not exact"
+        ):
+            self.module._validate_native_status(record)
+
+    def test_native_status_rejects_conflicting_transport_key_values(self) -> None:
+        base_lines = [
+            f"init: {self.module.H17_BOOT_DETAIL}",
+            "selftest: pass=11 warn=1 fail=0",
+            "pid1guard: pass=12 warn=0 fail=0",
+            "autohud: running",
+            "transport.serial=ready",
+            "transport.ncm=ready",
+            "transport.tcpctl=starting",
+            "transport.tcpctl.port=-",
+            "transport.upload=ncm-ready",
+            "transport.preferred=ncm",
+            "transport.reason=ncm-ready",
+        ]
+        for conflict in (
+            "transport.serial=failed",
+            "transport.ncm=failed",
+            "transport.tcpctl=failed",
+            "transport.upload=disabled",
+            "transport.preferred=none",
+            "transport.reason=disabled",
+        ):
+            record = {
+                "command": ["status"],
+                "text": "\n".join((*base_lines, conflict)),
+            }
+            with self.subTest(conflict=conflict), mock.patch.object(
+                self.module.base,
+                "require_exact_f1_command_receipt",
+                return_value=record,
+            ), self.assertRaisesRegex(
+                self.module.ContractError, "transport key is not unique"
+            ):
+                self.module._validate_native_status(record)
+
+    def test_tcpctl_idle_exit_proof_binds_latest_same_pid_and_interval(self) -> None:
+        text = "\n".join(
+            (
+                f"detail={self.module.H17_BOOT_DETAIL}",
+                "[100ms] run: tcpctl spawned pid=642 path=/bin/a90_tcpctl",
+                "[100ms] service: tcpctl pid=642",
+                "[200ms] netservice: tcpctl started pid=642 "
+                "bind=192.168.7.2 port=2325 auth=required",
+                "[3600200ms] service: tcpctl reaped pid=642 status=0x0",
+                "[3600200ms] netservice: tcpctl exited",
+            )
+        )
+        record = {"command": ["logcat"], "text": text}
+        with mock.patch.object(
+            self.module.base,
+            "require_exact_f1_command_receipt",
+            return_value=record,
+        ):
+            value = self.module._tcpctl_idle_exit_proof(record)
+        self.assertEqual(value["mode"], "normal-idle-exit")
+        self.assertFalse(value["tcpctl_running"])
+        self.assertEqual(value["observed_runtime_ms"], 3600000)
+        self.assertEqual(value["exit_status"], 0)
+
+    def test_tcpctl_idle_exit_proof_rejects_changed_child(self) -> None:
+        text = "\n".join(
+            (
+                f"detail={self.module.H17_BOOT_DETAIL}",
+                "[100ms] run: tcpctl spawned pid=642 path=/bin/a90_tcpctl",
+                "[100ms] service: tcpctl pid=642",
+                "[200ms] netservice: tcpctl started pid=642 "
+                "bind=192.168.7.2 port=2325 auth=required",
+                "[3600200ms] service: tcpctl reaped pid=643 status=0x0",
+                "[3600200ms] netservice: tcpctl exited",
+            )
+        )
+        record = {"command": ["logcat"], "text": text}
+        with mock.patch.object(
+            self.module.base,
+            "require_exact_f1_command_receipt",
+            return_value=record,
+        ), self.assertRaisesRegex(
+            self.module.ContractError, "lifecycle changed"
+        ):
+            self.module._tcpctl_idle_exit_proof(record)
 
     def test_fallback_proof_uses_latest_exact_failed_h17_segment(self) -> None:
         intent = self.module.INTENT_SHA256
@@ -442,6 +642,10 @@ class A90H17NativeFallbackFinalizerV1Tests(unittest.TestCase):
                 self.module,
                 "_fallback_proof",
                 return_value=value["native_fallback_proof"],
+            ), mock.patch.object(
+                self.module,
+                "_validate_tcpctl_health",
+                return_value=value["tcpctl_health"],
             ), mock.patch.object(
                 self.module,
                 "_parse_unmounted_record",

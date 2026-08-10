@@ -34,7 +34,10 @@ The pre-H2 goal history is preserved at
   latch=1`, self-test `11/1/0`, PID 1 guard `12/0/0`, HUD and USB-local control
   restored. Candidate replay, payload, partition, userdata, and S22+ command
   counts remain zero. The journal is still `HEALTH_PENDING`; no new ordinal,
-  reboot, arm, handoff, or candidate is allowed before exact finalization.
+  reboot, arm, handoff, or candidate is allowed before exact finalization. The
+  first approved read-only finalizer stopped before either terminal record
+  because tcpctl normally exited after its compiled 3600-second idle interval;
+  serial and NCM remained ready and the five-record prefix is intact.
 - H16 `0.11.184`, build
   `phase3-minimal-h16-direct-ufs-ro-async-wifi-auto-benchmark`, is the consumed
   healthy predecessor. Attended run03 wrote and read back boot-only
@@ -754,9 +757,14 @@ failure fallback. The next unit is one incident-specific read-only finalizer
 bound to the exact five-record H17 journal, private diagnosis, consumed intent,
 and a fresh independently reviewed execution closure.
 
-The finalizer may append only `final-health` and `closed` after fresh exact H17
-health, `1,1` same-intent state, the unique failed-handoff/native-fallback
-segment, clean restoration, and current userdata-unmounted proof all agree. It
+The replacement finalizer may append only `final-health` and `closed` after
+fresh exact H17 health, `1,1` same-intent state, the unique
+failed-handoff/native-fallback segment, clean restoration, and current
+userdata-unmounted proof all agree. Current tcpctl must either be exactly ready
+or its latest-boot same-PID authenticated-listener lifecycle must prove one
+normal zero-status idle exit after at least 3600 seconds while serial and NCM
+remain ready. The second case explicitly keeps tcpctl-running and persistent
+TCP/server readiness false. It
 must close
 `REFUTED_H17_PERSISTENT_SERVER_NATIVE_FALLBACK_HEALTHY` while restoring exact
 native `RESIDENT_HEALTHY`; it must not claim physical return, successful
@@ -767,6 +775,10 @@ closure, requires one fresh attended read-only approval, and has no arm,
 reboot, handoff, mount, service-control, payload, flash, state-clear, or
 userdata-write mode. A crash after `final-health` may add only the identical
 `closed` record without device contact.
+
+The old capability qualification and approval are retired by the tcpctl
+observer incident. Fresh independent review and a fresh exact read-only
+approval are required; the consumed D1 action is never replayed.
 
 Only after this health barrier is durable may a separate successor candidate
 persist exact post-root-mount stage/errno attribution. The current leading

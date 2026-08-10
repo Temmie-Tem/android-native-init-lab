@@ -1,0 +1,64 @@
+{
+  "schema": "a90-h17-tcpctl-idle-exit-native-fallback-independent-review-v1",
+  "capability": "A90_H17_TCPCTL_IDLE_EXIT_NATIVE_FALLBACK_NO_REPLAY_FINALIZER_V1",
+  "verdict": "PASS_GO",
+  "review_date": "2026-08-11",
+  "reviewer": "/root/a90_h17_capability_review",
+  "execution_closure_sha256": "96a48fad9a58cc6f4220426739dd5e97e4f2e9f85f7de218b17e9566a92bb26c",
+  "execution_file_count": 43,
+  "review_scope": "exact-h17-run01-tcpctl-idle-exit-native-fallback-read-only-no-replay-close",
+  "incident": "H17_TCPCTL_NORMAL_IDLE_EXIT_HEALTH_OBSERVER",
+  "new_hazard_or_incident": true,
+  "findings": {
+    "high": [],
+    "medium": [],
+    "low": []
+  },
+  "closed_during_review": [
+    {
+      "severity": "high",
+      "class": "CONTRADICTORY_CURRENT_TRANSPORT_KEYS_ACCEPTED",
+      "resolution": "Require exactly one value for every relevant transport key and accept only one complete ready or normal-idle-exit state family."
+    },
+    {
+      "severity": "high",
+      "class": "PREINCIDENT_INDEPENDENT_REVIEW_REUSE",
+      "resolution": "Use a successor-specific capability, review schema, scope, and path, then validate the review JSON internal closure, count, date, reviewer, incident, verdict, findings, invariants, and no-contact fields."
+    },
+    {
+      "severity": "medium",
+      "class": "PREINCIDENT_APPROVAL_PATH_COLLISION",
+      "resolution": "Use a successor-specific approval path, schema, binding schema, and token prefix so the old approval evidence remains immutable and the new exclusive file can be created."
+    }
+  ],
+  "validated_invariants": [
+    "exact current transport key uniqueness and mutually exclusive tcpctl states",
+    "latest H17 boot unique same-PID zero-status lifecycle after compiled idle interval",
+    "no later or additional tcpctl lifecycle in the selected boot segment",
+    "stored tcpctl-ready diagnosis remains valid under the replacement parser",
+    "deep six-to-seven tcpctl proof rederivation without device contact",
+    "post-read static closure and journal revalidation before terminal write",
+    "separate successor qualification review and approval namespaces",
+    "no service control device effect replay or persistent TCP server overclaim"
+  ],
+  "validation": {
+    "finalizer_tests": "23/23 passed",
+    "h17_execution_tests": "24/24 passed",
+    "h17_source_tests": "15/15 passed",
+    "h16_source_regression_tests": "38/38 passed",
+    "combined_tests": "109/109 passed",
+    "py_compile": "passed",
+    "path_scoped_diff_check": "passed",
+    "private_diagnosis_static_binding": "passed with five predecessor records"
+  },
+  "review_contacts": {
+    "device": 0,
+    "dev": 0,
+    "usb": 0,
+    "network": 0,
+    "workspace_private": 0,
+    "s22plus_paths": 0,
+    "file_modifications": 0
+  },
+  "live_authority": false
+}

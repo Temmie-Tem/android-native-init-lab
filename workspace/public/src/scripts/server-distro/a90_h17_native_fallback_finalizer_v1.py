@@ -35,11 +35,39 @@ import a90_h17_ufs_f1_runner_v1 as f1  # noqa: E402
 import a90_v3403_f1_orchestrator as base  # noqa: E402
 
 
-QUALIFICATION_SCHEMA = "a90-h17-native-fallback-qualification-v1"
-APPROVAL_SCHEMA = "a90-h17-native-fallback-approval-prepared-v1"
-APPROVAL_BINDING_SCHEMA = "a90-h17-native-fallback-approval-binding-v1"
-CAPABILITY = "A90_H17_NATIVE_FALLBACK_NO_REPLAY_FINALIZER_V1"
-APPROVAL_PREFIX = "A90-H17-NATIVE-FALLBACK-CLOSE-D0-APPROVE:"
+QUALIFICATION_SCHEMA = (
+    "a90-h17-tcpctl-idle-exit-native-fallback-qualification-v1"
+)
+APPROVAL_SCHEMA = (
+    "a90-h17-tcpctl-idle-exit-native-fallback-approval-prepared-v1"
+)
+APPROVAL_BINDING_SCHEMA = (
+    "a90-h17-tcpctl-idle-exit-native-fallback-approval-binding-v1"
+)
+CAPABILITY = (
+    "A90_H17_TCPCTL_IDLE_EXIT_NATIVE_FALLBACK_NO_REPLAY_FINALIZER_V1"
+)
+APPROVAL_PREFIX = (
+    "A90-H17-TCPCTL-IDLE-EXIT-NATIVE-FALLBACK-CLOSE-D0-APPROVE:"
+)
+REVIEW_SCHEMA = (
+    "a90-h17-tcpctl-idle-exit-native-fallback-independent-review-v1"
+)
+REVIEW_SCOPE = (
+    "exact-h17-run01-tcpctl-idle-exit-native-fallback-read-only-no-replay-close"
+)
+REVIEW_INCIDENT = "H17_TCPCTL_NORMAL_IDLE_EXIT_HEALTH_OBSERVER"
+REVIEWER = "/root/a90_h17_capability_review"
+REVIEW_REQUIRED_INVARIANTS = (
+    "exact current transport key uniqueness and mutually exclusive tcpctl states",
+    "latest H17 boot unique same-PID zero-status lifecycle after compiled idle interval",
+    "no later or additional tcpctl lifecycle in the selected boot segment",
+    "stored tcpctl-ready diagnosis remains valid under the replacement parser",
+    "deep six-to-seven tcpctl proof rederivation without device contact",
+    "post-read static closure and journal revalidation before terminal write",
+    "separate successor qualification review and approval namespaces",
+    "no service control device effect replay or persistent TCP server overclaim",
+)
 APPROVAL_TTL_SEC = 1800
 RUN_ID = "a90-h17-ufs-f1-20260810-01"
 MANIFEST_SHA256 = (
@@ -97,18 +125,23 @@ APPROVAL_PATH = (
     PRIVATE_RUN_BASE
     / RUN_ID
     / "h17-d1"
-    / "run01-native-fallback-incident-approval-prepared.json"
+    / "run01-tcpctl-idle-exit-native-fallback-approval-prepared.json"
 ).resolve()
 QUALIFICATION_REL = (
     "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/"
-    "phase3-minimal-h17/native-fallback-qualification.json"
+    "phase3-minimal-h17/"
+    "tcpctl-idle-exit-native-fallback-qualification.json"
 )
 REVIEW_REPORT_REL = (
     "docs/reports/"
-    "A90_H17_NATIVE_FALLBACK_FINALIZER_INDEPENDENT_REVIEW_2026-08-10.json"
+    "A90_H17_TCPCTL_IDLE_EXIT_NATIVE_FALLBACK_INDEPENDENT_REVIEW_2026-08-11.json"
 )
 INCIDENT_REPORT_REL = (
     "docs/reports/A90_H17_POST_ROOT_MOUNT_NATIVE_FALLBACK_INCIDENT_2026-08-10.md"
+)
+TCPCTL_INCIDENT_REPORT_REL = (
+    "docs/reports/"
+    "A90_H17_TCPCTL_IDLE_EXIT_HEALTH_OBSERVER_INCIDENT_2026-08-11.md"
 )
 TARGET_CONTRACT_REL = "docs/operations/targets/A90_TARGET_CONTRACT.md"
 ADAPTER_REL = (
@@ -121,7 +154,7 @@ PREDECESSOR_D1_REL = (
 EXECUTION_RELS = tuple(
     sorted(
         (set(f1.EXECUTION_SOURCE_RELS) - {PREDECESSOR_D1_REL})
-        | {INCIDENT_REPORT_REL, ADAPTER_REL}
+        | {INCIDENT_REPORT_REL, TCPCTL_INCIDENT_REPORT_REL, ADAPTER_REL}
     )
 )
 JOURNAL_NAMES = (
@@ -158,6 +191,31 @@ STATUS_RE = re.compile(
     r"^A90AUTO_STATUS binding=(?P<binding>[01]) "
     r"enable=(?P<enable>-?[0-9]+) latch=(?P<latch>-?[0-9]+) "
     r"build=(?P<build>[a-z0-9._-]+)\r?$",
+    re.MULTILINE,
+)
+TCPCTL_IDLE_SECONDS = 3600
+TCPCTL_SPAWN_RE = re.compile(
+    r"^\[(?P<ms>[0-9]+)ms\] run: tcpctl spawned pid=(?P<pid>[1-9][0-9]*) "
+    r"path=/bin/a90_tcpctl$",
+    re.MULTILINE,
+)
+TCPCTL_SERVICE_RE = re.compile(
+    r"^\[(?P<ms>[0-9]+)ms\] service: tcpctl pid=(?P<pid>[1-9][0-9]*)$",
+    re.MULTILINE,
+)
+TCPCTL_START_RE = re.compile(
+    r"^\[(?P<ms>[0-9]+)ms\] netservice: tcpctl started "
+    r"pid=(?P<pid>[1-9][0-9]*) bind=192\.168\.7\.2 port=2325 "
+    r"auth=required$",
+    re.MULTILINE,
+)
+TCPCTL_REAP_RE = re.compile(
+    r"^\[(?P<ms>[0-9]+)ms\] service: tcpctl reaped "
+    r"pid=(?P<pid>[1-9][0-9]*) status=0x0$",
+    re.MULTILINE,
+)
+TCPCTL_EXIT_RE = re.compile(
+    r"^\[(?P<ms>[0-9]+)ms\] netservice: tcpctl exited$",
     re.MULTILINE,
 )
 JOURNAL_MAX_BYTES = 16 * 1024 * 1024
@@ -275,6 +333,41 @@ def _validate_install_result(value: dict[str, Any]) -> None:
         raise ContractError("H17 install terminal changed")
 
 
+def _validate_review_report(
+    value: Any,
+    closure: dict[str, Any],
+) -> dict[str, Any]:
+    expected_contacts = {
+        "device": 0,
+        "dev": 0,
+        "usb": 0,
+        "network": 0,
+        "workspace_private": 0,
+        "s22plus_paths": 0,
+        "file_modifications": 0,
+    }
+    if (
+        not isinstance(value, dict)
+        or value.get("schema") != REVIEW_SCHEMA
+        or value.get("capability") != CAPABILITY
+        or value.get("verdict") != "PASS_GO"
+        or value.get("review_date") != "2026-08-11"
+        or value.get("reviewer") != REVIEWER
+        or value.get("execution_closure_sha256") != closure["sha256"]
+        or value.get("execution_file_count") != len(closure["files"])
+        or value.get("review_scope") != REVIEW_SCOPE
+        or value.get("incident") != REVIEW_INCIDENT
+        or value.get("new_hazard_or_incident") is not True
+        or value.get("findings") != {"high": [], "medium": [], "low": []}
+        or value.get("validated_invariants")
+        != list(REVIEW_REQUIRED_INVARIANTS)
+        or value.get("review_contacts") != expected_contacts
+        or value.get("live_authority") is not False
+    ):
+        raise ContractError("native-fallback independent review is not current")
+    return value
+
+
 def _load_qualification(closure: dict[str, Any]) -> dict[str, Any]:
     path = REPO_ROOT / QUALIFICATION_REL
     report = REPO_ROOT / REVIEW_REPORT_REL
@@ -285,6 +378,8 @@ def _load_qualification(closure: dict[str, Any]) -> dict[str, Any]:
         or not stat.S_ISREG(report.stat().st_mode)
     ):
         raise ContractError("native-fallback qualification files are not regular")
+    report_value = json.loads(report.read_text(encoding="utf-8"))
+    _validate_review_report(report_value, closure)
     value = json.loads(path.read_text(encoding="utf-8"))
     if (
         not isinstance(value, dict)
@@ -297,8 +392,8 @@ def _load_qualification(closure: dict[str, Any]) -> dict[str, Any]:
         or value.get("predecessor_execution_closure_sha256")
         != PREDECESSOR_EXECUTION_SHA256
         or value.get("diagnosis_sha256") != DIAGNOSIS_SHA256
-        or value.get("review_scope")
-        != "exact-h17-run01-native-fallback-read-only-no-replay-close"
+        or value.get("review_scope") != REVIEW_SCOPE
+        or value.get("incident") != REVIEW_INCIDENT
         or value.get("new_hazard_or_incident") is not True
         or value.get("read_only_approval_required") is not True
         or value.get("review_report") != REVIEW_REPORT_REL
@@ -791,12 +886,154 @@ def _validate_native_status(record: dict[str, Any]) -> dict[str, Any]:
         "selftest: pass=11 warn=1 fail=0",
         "pid1guard: pass=12 warn=0 fail=0",
         "autohud: running",
+        "transport.serial=ready",
         "transport.ncm=ready",
-        "transport.tcpctl=ready",
     )
-    if any(text.count(marker) != 1 for marker in required):
+    lines = [line.strip() for line in text.splitlines()]
+    timed_markers = set(required[1:3])
+    if any(
+        sum(
+            re.fullmatch(
+                re.escape(marker)
+                + (r"(?: duration=[0-9]+ms)?" if marker in timed_markers else ""),
+                line,
+            )
+            is not None
+            for line in lines
+        )
+        != 1
+        for marker in required
+    ):
         raise ContractError("H17 native-fallback current native health changed")
-    return {"proof": True, "required_markers": list(required), "record": record}
+    transport_keys = (
+        "transport.serial",
+        "transport.ncm",
+        "transport.tcpctl",
+        "transport.tcpctl.port",
+        "transport.upload",
+        "transport.preferred",
+        "transport.reason",
+    )
+    transport: dict[str, str] = {}
+    for key in transport_keys:
+        prefix = f"{key}="
+        matches = [line for line in lines if line.startswith(prefix)]
+        if len(matches) != 1:
+            raise ContractError("H17 native-fallback transport key is not unique")
+        transport[key] = matches[0][len(prefix) :]
+    if (
+        transport["transport.serial"] != "ready"
+        or transport["transport.ncm"] != "ready"
+    ):
+        raise ContractError("H17 native-fallback current transport is not ready")
+    ready_values = {
+        "transport.tcpctl": "ready",
+        "transport.tcpctl.port": "2325",
+        "transport.upload": "tcpctl-ready",
+        "transport.preferred": "tcpctl",
+        "transport.reason": "tcpctl-ready",
+    }
+    idle_exit_values = {
+        "transport.tcpctl": "starting",
+        "transport.tcpctl.port": "-",
+        "transport.upload": "ncm-ready",
+        "transport.preferred": "ncm",
+        "transport.reason": "ncm-ready",
+    }
+    ready = all(transport[key] == value for key, value in ready_values.items())
+    idle_exit_candidate = all(
+        transport[key] == value for key, value in idle_exit_values.items()
+    )
+    if ready == idle_exit_candidate:
+        raise ContractError("H17 native-fallback tcpctl state is not exact")
+    return {
+        "proof": True,
+        "required_markers": list(required),
+        "tcpctl_observation": (
+            "ready" if ready else "normal-idle-exit-proof-required"
+        ),
+        "tcpctl_running": ready,
+        "record": record,
+    }
+
+
+def _tcpctl_idle_exit_proof(log_record: dict[str, Any]) -> dict[str, Any]:
+    exact = base.require_exact_f1_command_receipt(
+        log_record, ["logcat"], "H17 tcpctl idle-exit durable log"
+    )
+    text = str(exact.get("text") or "").replace("\r", "")
+    boot_marker = f"detail={H17_BOOT_DETAIL}"
+    boot_starts = [match.start() for match in re.finditer(re.escape(boot_marker), text)]
+    if not boot_starts:
+        raise ContractError("H17 tcpctl idle-exit boot marker is absent")
+    segment = text[boot_starts[-1] :]
+    patterns = (
+        TCPCTL_SPAWN_RE,
+        TCPCTL_SERVICE_RE,
+        TCPCTL_START_RE,
+        TCPCTL_REAP_RE,
+        TCPCTL_EXIT_RE,
+    )
+    matches = [list(pattern.finditer(segment)) for pattern in patterns]
+    if any(len(group) != 1 for group in matches):
+        raise ContractError("H17 tcpctl idle-exit lifecycle is not unique")
+    spawn, service, started, reaped, exited = [group[0] for group in matches]
+    pids = {
+        int(spawn.group("pid")),
+        int(service.group("pid")),
+        int(started.group("pid")),
+        int(reaped.group("pid")),
+    }
+    positions = [
+        spawn.start(),
+        service.start(),
+        started.start(),
+        reaped.start(),
+        exited.start(),
+    ]
+    start_ms = int(started.group("ms"))
+    reap_ms = int(reaped.group("ms"))
+    exit_ms = int(exited.group("ms"))
+    if (
+        len(pids) != 1
+        or positions != sorted(positions)
+        or reap_ms != exit_ms
+        or reap_ms - start_ms < TCPCTL_IDLE_SECONDS * 1000
+    ):
+        raise ContractError("H17 tcpctl idle-exit lifecycle changed")
+    return {
+        "proof": True,
+        "mode": "normal-idle-exit",
+        "tcpctl_running": False,
+        "configured_idle_seconds": TCPCTL_IDLE_SECONDS,
+        "observed_runtime_ms": reap_ms - start_ms,
+        "exit_status": 0,
+        "later_start_count": 0,
+        "serial_control_ready": True,
+        "ncm_control_ready": True,
+    }
+
+
+def _validate_tcpctl_health(
+    native_status: dict[str, Any],
+    log_record: dict[str, Any],
+) -> dict[str, Any]:
+    if native_status.get("tcpctl_observation") == "ready":
+        return {
+            "proof": True,
+            "mode": "ready",
+            "tcpctl_running": True,
+            "configured_idle_seconds": TCPCTL_IDLE_SECONDS,
+            "serial_control_ready": True,
+            "ncm_control_ready": True,
+        }
+    if (
+        native_status.get("tcpctl_observation")
+        != "normal-idle-exit-proof-required"
+        or native_status.get("tcpctl_running") is not False
+    ):
+        raise ContractError("H17 tcpctl health observation changed")
+    return _tcpctl_idle_exit_proof(log_record)
 
 
 def _validate_diagnosis(value: dict[str, Any]) -> dict[str, Any]:
@@ -846,6 +1083,7 @@ def _validate_terminal(value: Any, closure: dict[str, Any]) -> dict[str, Any]:
             "read_only_approval_binding",
             "native_health",
             "native_status",
+            "tcpctl_health",
             "auto_handoff_status",
             "auto_handoff_status_record",
             "same_intent_binding",
@@ -902,6 +1140,13 @@ def _validate_terminal(value: Any, closure: dict[str, Any]) -> dict[str, Any]:
         or value.get("userdata_write_count") != 0
         or value.get("native_health", {}).get("exact_bridge") is not True
         or value.get("native_status", {}).get("proof") is not True
+        or value.get("tcpctl_health", {}).get("proof") is not True
+        or value.get("tcpctl_health", {}).get("mode")
+        not in {"ready", "normal-idle-exit"}
+        or value.get("tcpctl_health", {}).get("tcpctl_running")
+        is not (value.get("tcpctl_health", {}).get("mode") == "ready")
+        or value.get("tcpctl_health", {}).get("serial_control_ready") is not True
+        or value.get("tcpctl_health", {}).get("ncm_control_ready") is not True
         or value.get("auto_handoff_status")
         != {
             "binding": 1,
@@ -1035,9 +1280,11 @@ def _deep_validate_terminal(
     auto_status = _parse_status(receipt_values[3])
     same_intent = _parse_same_intent_record(receipt_values[4])
     fallback = _fallback_proof(receipt_values[5])
+    tcpctl_health = _validate_tcpctl_health(native_status, receipt_values[5])
     unmounted = _parse_unmounted_record(receipt_values[6])
     if (
         native_status != result.get("native_status")
+        or tcpctl_health != result.get("tcpctl_health")
         or auto_status != result.get("auto_handoff_status")
         or same_intent != result.get("same_intent_binding")
         or fallback != result.get("native_fallback_proof")
@@ -1141,6 +1388,7 @@ def _build_result(
     same_intent = _require_same_intent(effect_args)
     log_record = base.run_f1_cmd(effect_args, ["logcat"])
     fallback = _fallback_proof(log_record)
+    tcpctl_health = _validate_tcpctl_health(native_status, log_record)
     unmounted = _prove_userdata_unmounted(effect_args)
     final_bridge = base.staging.require_exact_bridge(spec.stage, effect_args)
     return {
@@ -1182,6 +1430,7 @@ def _build_result(
         "userdata_write_count": 0,
         "native_health": native,
         "native_status": native_status,
+        "tcpctl_health": tcpctl_health,
         "auto_handoff_status": auto_status,
         "auto_handoff_status_record": auto_status_record,
         "same_intent_binding": same_intent,

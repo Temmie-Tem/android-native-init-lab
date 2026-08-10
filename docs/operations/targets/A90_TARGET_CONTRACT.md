@@ -438,6 +438,28 @@ predecessor execution closure. It binds the five predecessor journal files by
 byte hash. If `final-health` is durable but `closed` is absent, a later
 host-only resume may append only the identical `closed` record without another
 device read or approval; every other incomplete state remains open.
+
+The first finalizer read exposed
+`H17_TCPCTL_NORMAL_IDLE_EXIT_HEALTH_OBSERVER`: exact H17, self-test, PID 1
+guard, native HUD, serial control, and NCM remained ready, while tcpctl had
+exceeded its compiled 3600-second idle interval, exited with status zero, and
+was reaped without restart. A replacement independently reviewed finalizer may
+accept this as exact native resident safety only when the latest H17 boot
+segment contains one same-PID spawn and authenticated-listener start, a later
+zero-status reap and exit at least 3600 seconds after start, and no later
+tcpctl start; current status must simultaneously prove serial and NCM ready,
+tcpctl `starting` with no port, and NCM as the upload and preferred control
+path. The alternative remains exact current tcpctl `ready`. The terminal
+must state whether tcpctl is running and may not turn a normal idle exit into
+persistent TCP-control or server-readiness proof. This is read-only observer
+interpretation only: it grants no service start, stop, restart, reboot,
+handoff, mount, state write, payload, flash, or userdata write. The old
+qualification is retired by this new incident; fresh independent review and a
+fresh exact read-only approval are required. The replacement uses distinct
+incident-specific review, qualification, approval-file, and token namespaces;
+it validates the new review's internal scope, closure, verdict, findings, and
+no-contact disposition instead of trusting only a report-file hash.
+
 It retires after the exact journal closes, on target/source/evidence drift, or
 on any new incident, whichever comes first.
 
