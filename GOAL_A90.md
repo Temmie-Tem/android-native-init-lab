@@ -755,8 +755,10 @@ checks. Deterministic A/B boot SHA256 is `d545082e...e1451b88`. Independent
 `PASS_GO` closes execution closure `29319491...90d3f62` with HIGH/MEDIUM/LOW
 zero and 192 tests after adding only the exact H15 predecessor to the shared
 health allowlist. The prior host-only manifests are stale; fresh run03 manifest
-`7af8e74e...55f0f55` passes host audit. Exact A90 D0 is required before attended
-F1.
+`7af8e74e...55f0f55` passes host audit. Fresh exact A90 D0 proves H15 health,
+UFS `sda33` runtime `259:36`, absent H16 markers, and unchanged candidate and
+rollback. The fresh compatibility approval binding is prepared but grants no
+live authority; attended F1 awaits its exact operator approval.
 
 Only a full comparable H15 control benchmark can open a later Full-LTO unit.
 Qualification never substitutes for fresh manifest, D0, approval, attendance,
