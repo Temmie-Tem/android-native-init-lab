@@ -11,10 +11,10 @@ from typing import Any
 import s22plus_fyg8_p314_design_contract as predecessor
 
 
-SCHEMA = "s22plus_fyg8_p315_design_requirements_v1"
-ARTIFACT_SCHEMA = "s22plus_fyg8_p315_prepackaging_closure_v1"
+SCHEMA = "s22plus_fyg8_p315_design_requirements_v2"
+ARTIFACT_SCHEMA = "s22plus_fyg8_p315_prepackaging_closure_v2"
 STATUS = "registered-not-satisfied"
-VERDICT = "PASS_P315_LIVE_SNAPSHOT_REPAIR_PREPACKAGING_HOST_ONLY"
+VERDICT = "PASS_P315_RESTART_COMPLETE_SNAPSHOT_PREPACKAGING_HOST_ONLY"
 
 INCIDENT_PATH = Path(
     "docs/reports/"
@@ -27,6 +27,52 @@ INCIDENT_RECEIPT = {
 PREDECESSOR_REQUIREMENTS_SHA256 = (
     "b5d2b520c6866faf85e4c2b9d936f8cfefb8a4a6c0905af08e93acccb7077e3e"
 )
+
+KERNEL_SOURCE_ROOT = Path(
+    "workspace/private/work/p310-v6-dev/workspace/private/work/"
+    "s22plus_fyg8_kernel_build_p290_2ec2bbae/kernel_platform"
+)
+PREDECESSOR_SOURCE_RECEIPTS = {
+    "dwc3_msm_wrapper": {
+        "path": (
+            KERNEL_SOURCE_ROOT
+            / "msm-kernel/drivers/usb/dwc3/dwc3-msm-core.c"
+        ).as_posix(),
+        "size": 204659,
+        "sha256": "1c8a3cea43337eebaf0601e01fe3a17e1260f2f768298b16f723534eee433021",
+    },
+    "dwc3_core": {
+        "path": (
+            KERNEL_SOURCE_ROOT / "msm-kernel/drivers/usb/dwc3/core.c"
+        ).as_posix(),
+        "size": 51625,
+        "sha256": "77db45ab1091f37dd935fcd827309b898bb3866b4e09e3f9751cdfaa542dd4e3",
+    },
+    "hs_phy": {
+        "path": (
+            KERNEL_SOURCE_ROOT
+            / "msm-kernel/drivers/usb/phy/phy-msm-snps-hs.c"
+        ).as_posix(),
+        "size": 50240,
+        "sha256": "7823f9efd310b350169d84ba824e715b31ef3065e6a280ffc502dac6985124eb",
+    },
+    "p314_materialized_runtime": {
+        "path": (
+            "workspace/private/outputs/s22plus_fyg8_p314/intent/"
+            "materialized-sources/s22plus_fyg8_p290_e3_runtime.inc.c"
+        ),
+        "size": 234791,
+        "sha256": "37db3603a32726f2dec1ce78e13591ffe25a479439faeaee9128bbdba738c2e6",
+    },
+    "p314_materialized_descriptor": {
+        "path": (
+            "workspace/private/outputs/s22plus_fyg8_p314/intent/"
+            "materialized-sources/s22plus_fyg8_p286_trace_descriptor.h"
+        ),
+        "size": 27172,
+        "sha256": "3e233e3eeee6ac8c522f2ae7352bce1ed736de35c85d6869b0f3e68573b6f735",
+    },
+}
 
 PAIR_NAMES = (
     "start_off",
@@ -77,13 +123,226 @@ FINAL_EXPECTED_COUNTS = {
     "notify_connect": 1,
 }
 
+# These are reviewed call chains in the exact source receipts above.  The
+# successor audit must derive each count from those functions; copying this
+# table into a fixture is not proof.
+RESTART_PAIR_SOURCE_DERIVATION = {
+    "start_off": {
+        "expected": 1,
+        "chain": [
+            "mode:none->dwc3_msm_set_role",
+            "dwc3_ext_event_notify->sm_work",
+            "DRD_STATE_PERIPHERAL->dwc3_otg_start_peripheral(0)",
+        ],
+    },
+    "start_on": {
+        "expected": 1,
+        "chain": [
+            "mode:peripheral->dwc3_msm_set_role",
+            "dwc3_ext_event_notify->sm_work",
+            "DRD_STATE_IDLE+B_SESS_VLD->dwc3_otg_start_peripheral(1)",
+        ],
+    },
+    "child_suspend": {
+        "expected": 1,
+        "chain": [
+            "dwc3_otg_start_peripheral(0)->pm_runtime_put_sync(child)",
+            "dwc3_runtime_suspend->dwc3_suspend_common",
+        ],
+    },
+    "child_resume": {
+        "expected": 1,
+        "chain": [
+            "dwc3_otg_start_peripheral(1)->pm_runtime_get_sync(child)",
+            "dwc3_runtime_resume->dwc3_resume_common",
+        ],
+    },
+    "phy_suspend_off": {
+        "expected": 2,
+        "chain": [
+            "child:dwc3_core_exit->usb_phy_set_suspend(usb2_phy,1)",
+            "parent:dwc3_msm_suspend->usb_phy_set_suspend(hs_phy,1)",
+            "child-usb2_phy==parent-hs_phy",
+        ],
+    },
+    "phy_suspend_on": {
+        "expected": 2,
+        "chain": [
+            "parent:dwc3_msm_resume->usb_phy_set_suspend(hs_phy,0)",
+            "child:dwc3_core_init->usb_phy_set_suspend(usb2_phy,0)",
+            "child-usb2_phy==parent-hs_phy",
+        ],
+    },
+    "power_off": {
+        "expected": 1,
+        "chain": [
+            "first-msm_hsphy_set_suspend(1)->msm_hsphy_enable_power(false)",
+            "second-msm_hsphy_set_suspend(1)->already-suspended-return",
+        ],
+    },
+    "power_on": {
+        "expected": 1,
+        "chain": [
+            "child:dwc3_core_init->usb_phy_init",
+            "msm_hsphy_init->msm_hsphy_enable_power(true)",
+        ],
+    },
+    "phy_init": {
+        "expected": 1,
+        "chain": [
+            "child:dwc3_resume_common->dwc3_core_init_for_resume",
+            "dwc3_core_init->usb_phy_init(usb2_phy)",
+        ],
+    },
+    "notify_connect": {
+        "expected": 1,
+        "chain": [
+            "dwc3_otg_start_peripheral(1)",
+            "usb_phy_notify_connect(hs_phy,USB_SPEED_HIGH)",
+        ],
+    },
+}
+
+RESTART_AUXILIARY_GEOMETRY = {
+    "outer_pairs": 4,
+    "outer_pair_chain": [
+        "none-state-transition-work",
+        "none-state-stabilization-work",
+        "peripheral-state-transition-work",
+        "peripheral-state-stabilization-work",
+    ],
+    "pullup_pairs": 0,
+    "run_pairs": 2,
+    "gadget_start_pairs": 1,
+    "qscratch_hits": 1,
+    "state_hits": 1,
+    "config_hits": 1,
+    "functional_pair_records": 24,
+    "outer_pair_records": 8,
+    "run_pair_records": 4,
+    "gadget_start_pair_records": 2,
+    "singleton_records": 3,
+    "total_records": 41,
+}
+
 SNAPSHOT_FAILURE_DETAIL = 0x6704
-UNKNOWN_PHASE_DETAIL = 0x6707
+RECORD_FORMAT_CONTRADICTION_DETAIL = 0x6707
+UNKNOWN_PHASE_DETAIL = RECORD_FORMAT_CONTRADICTION_DETAIL
+PAIRING_CONTRADICTION_DETAIL = 0x6713
+POSITIVE_RETURN_DETAIL = 0x6714
+QSCRATCH_CONTRADICTION_DETAIL = 0x6715
+SNAPSHOT_CONTRADICTION_DETAIL = 0x6716
 STOP_CLEAN_RECORDS = 14
 RESTART_CLEAN_RECORDS = 41
 FINAL_CLEAN_RECORDS = 41
 FINAL_DRIFT_RECORDS = 49
 RECORD_CAPACITY = 64
+
+RESTART_COMPLETION_HELPER = "p315_wait_restart_completion"
+RESTART_COMPLETION_MAX_SNAPSHOTS = 301
+RESTART_COMPLETION_TIMEOUT_DETAIL = 0x6718
+RESTART_RESUME_PRECONDITION_DETAIL = 0x671D
+PROFILE_ONLY_NESTED_HIT_DETAIL = 0x6721
+GADGET_START_ZERO_WITHOUT_RUN_ON_DETAIL = 0x6722
+RUN_ON_PROVENANCE_CONTRADICTION_DETAIL = 0x6723
+POLL_INTERVAL_MSEC = 100
+RESTART_DEADLINE_SECONDS = 30
+TRACE_BUFFER_CAPACITY_BYTES = 65536
+RESTART_READINESS_MAX_READ_EXTENT_BYTES = (
+    RESTART_COMPLETION_MAX_SNAPSHOTS * TRACE_BUFFER_CAPACITY_BYTES
+)
+PROFILE_READ_COUNT = 2
+PROFILE_BUFFER_CAPACITY_BYTES = 65536
+PROFILE_MAX_READ_EXTENT_BYTES = PROFILE_READ_COUNT * PROFILE_BUFFER_CAPACITY_BYTES
+TOTAL_MAX_ADDED_READ_EXTENT_BYTES = (
+    RESTART_READINESS_MAX_READ_EXTENT_BYTES + PROFILE_MAX_READ_EXTENT_BYTES
+)
+
+RESTART_REQUIRED_NESTED_PAIRS = (
+    "child_resume",
+    "phy_init",
+    "power_on",
+    "gadget_start",
+    "run_on",
+)
+
+RETAINED_RESTART_BRANCH_DETAILS = {
+    "profile_only_nested_hit": PROFILE_ONLY_NESTED_HIT_DETAIL,
+    "gadget_start_zero_without_run_on": (
+        GADGET_START_ZERO_WITHOUT_RUN_ON_DETAIL
+    ),
+    "run_on_provenance_contradiction": (
+        RUN_ON_PROVENANCE_CONTRADICTION_DETAIL
+    ),
+}
+
+HOST_OBSERVER_CASES = (
+    "clean-normal-adjacent-pair",
+    "stop-0x6704-at-actual-generation",
+    "restart-0x6704-at-actual-generation",
+    "profile-deficit-0x6705",
+    "unknown-phase-0x6707",
+    "completed-outer-with-missing-resume-pair-0x671d",
+    "profile-only-nested-hit-0x6721",
+    "gadget-start-zero-without-run-on-0x6722",
+    "run-on-provenance-contradiction-0x6723",
+    "all-inherited-a-b-and-pair-mask-position-cells",
+    "unknown-overlay-fail-closed",
+)
+
+HOST_OBSERVER_HAZARD_CLOSURE = {
+    "runtime-authority-and-position-drift": {
+        "historical_units": ["P3.01", "P3.04", "P3.08"],
+        "proof": "restart_source_geometry",
+    },
+    "live-caller-input-validity": {
+        "historical_units": ["P3.14"],
+        "proof": "runtime_wrapper_fixture",
+    },
+    "profile-versus-record-semantics": {
+        "historical_units": ["P3.11", "P3.14"],
+        "proof": "runtime_wrapper_fixture",
+    },
+    "carrier-decoder-persistence-and-overlay-dispatch": {
+        "historical_units": ["P3.10", "P3.13", "P3.14-ready"],
+        "proof": "process_v2_adapter_fixture",
+    },
+    "prepackaging-declaration-versus-wiring": {
+        "historical_units": ["P3.11", "P3.14"],
+        "proof": "packaging_wiring_audit",
+    },
+}
+
+PROOF_ARTIFACT_SPECS = {
+    "restart_source_geometry": {
+        "schema": "s22plus_fyg8_p315_restart_source_geometry_audit_v1",
+        "verdict": "PASS_P315_RESTART_SOURCE_GEOMETRY_HOST_ONLY",
+        "producer": "s22plus_fyg8_p315_restart_source_geometry_audit.py",
+    },
+    "runtime_wrapper_fixture": {
+        "schema": "s22plus_fyg8_p315_runtime_wrapper_fixture_v1",
+        "verdict": "PASS_P315_RUNTIME_WRAPPER_FIXTURE_HOST_ONLY",
+        "producer": "s22plus_fyg8_p315_runtime_fixture.py",
+    },
+    "process_v2_adapter_fixture": {
+        "schema": "s22plus_fyg8_p315_process_v2_adapter_fixture_v1",
+        "verdict": "PASS_P315_PROCESS_V2_ADAPTER_PERSISTENCE_HOST_ONLY",
+        "producer": "s22plus_fyg8_p315_process_v2_adapter_fixture.py",
+    },
+    "packaging_wiring_audit": {
+        "schema": "s22plus_fyg8_p315_packaging_wiring_audit_v1",
+        "verdict": "PASS_P315_PREPACKAGING_WIRING_HOST_ONLY",
+        "producer": "s22plus_fyg8_p315_packaging_wiring_audit.py",
+    },
+}
+
+FINAL_QUALIFICATION_ARTIFACT_SPECS = {
+    "reproducible_package_and_ready_rehearsal": {
+        "schema": "s22plus_fyg8_p315_final_qualification_closure_v1",
+        "verdict": "PASS_P315_FINAL_QUALIFICATION_AND_READY_REHEARSAL_HOST_ONLY",
+        "producer": "s22plus_fyg8_p315_qualification_closure.py",
+    },
+}
 
 SNAPSHOT_SITES = (
     {
@@ -117,6 +376,12 @@ SNAPSHOT_SITES = (
         "disposition": "p315-live-snapshot-helper",
     },
     {
+        "site": "restart-readiness",
+        "caller": "p313_run/restart-completion",
+        "profile_required": False,
+        "disposition": "bounded-prefix-only-no-profile-relation",
+    },
+    {
         "site": "restart",
         "caller": "p313_run/restart",
         "profile_required": True,
@@ -131,6 +396,10 @@ SEAM_CALLER_PAIRS = (
     ("p300_ring_stats_clean", "p314_parse_live_snapshot"),
     ("p315_read_live_snapshot", "p313_run/stop"),
     ("p315_read_live_snapshot", "p313_run/restart"),
+    ("p282_trace_read_snapshot", "p315_wait_restart_completion"),
+    ("p315_parse_restart_prefix", "p315_wait_restart_completion"),
+    ("p315_wait_restart_completion", "p313_run/restart"),
+    ("p315_parse_restart_snapshot", "p315_read_live_snapshot"),
     ("p313_cycle_profile_relations", "p313_cycle_finish"),
     ("p313_cycle_profile_relations", "p313_cycle_close_partial"),
 )
@@ -180,6 +449,68 @@ def _require_exact_keys(value: dict[str, Any], expected: set[str], label: str) -
         raise P315DesignError(f"{label} keys differ")
 
 
+def _require_sha256(value: Any, label: str) -> None:
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        raise P315DesignError(f"{label} is not a sha256")
+
+
+def verify_source_authority(root: Path) -> dict[str, Any]:
+    receipts: dict[str, dict[str, Any]] = {}
+    for name, expected in PREDECESSOR_SOURCE_RECEIPTS.items():
+        path = root / expected["path"]
+        payload = path.read_bytes()
+        actual = {
+            "path": expected["path"],
+            "size": len(payload),
+            "sha256": hashlib.sha256(payload).hexdigest(),
+        }
+        _require_equal(actual, expected, f"{name} source receipt")
+        receipts[name] = actual
+    return {"receipts": receipts, "verified": True}
+
+
+def _validate_proof_receipts(value: Any) -> None:
+    if not isinstance(value, dict):
+        raise P315DesignError("proof artifact receipts missing")
+    _require_exact_keys(value, set(PROOF_ARTIFACT_SPECS), "proof artifacts")
+    for name, specification in PROOF_ARTIFACT_SPECS.items():
+        proof = value.get(name)
+        if not isinstance(proof, dict):
+            raise P315DesignError(f"{name} proof receipt missing")
+        _require_exact_keys(
+            proof,
+            {
+                "schema",
+                "verdict",
+                "requirements_sha256",
+                "artifact_sha256",
+                "producer",
+                "producer_sha256",
+                "verified",
+            },
+            f"{name} proof receipt",
+        )
+        _require_equal(proof.get("schema"), specification["schema"], f"{name} schema")
+        _require_equal(
+            proof.get("verdict"), specification["verdict"], f"{name} verdict"
+        )
+        _require_equal(
+            proof.get("requirements_sha256"),
+            requirements_sha256(),
+            f"{name} requirements receipt",
+        )
+        _require_equal(
+            proof.get("producer"), specification["producer"], f"{name} producer"
+        )
+        _require_sha256(proof.get("artifact_sha256"), f"{name} artifact")
+        _require_sha256(proof.get("producer_sha256"), f"{name} producer")
+        _require_equal(proof.get("verified"), True, f"{name} verified")
+
+
 def verify_historical_authority(root: Path) -> dict[str, Any]:
     path = root / INCIDENT_PATH
     payload = path.read_bytes()
@@ -205,6 +536,7 @@ def requirements() -> dict[str, Any]:
             "incident_path": INCIDENT_PATH.as_posix(),
             "incident_receipt": INCIDENT_RECEIPT,
             "predecessor_requirements_sha256": PREDECESSOR_REQUIREMENTS_SHA256,
+            "predecessor_source_receipts": PREDECESSOR_SOURCE_RECEIPTS,
             "historical_contracts_unchanged": True,
         },
         "phase_geometry": {
@@ -222,6 +554,142 @@ def requirements() -> dict[str, Any]:
             "missing_pair_rejected": True,
             "excess_pair_uses_existing_mask": True,
         },
+        "restart_source_geometry": {
+            "pair_source_derivation": RESTART_PAIR_SOURCE_DERIVATION,
+            "auxiliary_geometry": RESTART_AUXILIARY_GEOMETRY,
+            "all_ten_pair_counts_derived_from_exact_source": True,
+            "all_seventeen_auxiliary_records_derived_from_exact_source": True,
+            "fixture_copy_is_not_source_proof": True,
+            "source_audit_spec": PROOF_ARTIFACT_SPECS[
+                "restart_source_geometry"
+            ],
+        },
+        "restart_completion": {
+            "asynchronous_chain": [
+                "mode_store->dwc3_msm_set_role",
+                "dwc3_ext_event_notify-flushes-old-work",
+                "dwc3_ext_event_notify-queues-new-sm_work",
+                "mode_store-returns-before-new-sm_work-completes",
+            ],
+            "pm_active_readbacks_are_not_completion_witness": True,
+            "helper": RESTART_COMPLETION_HELPER,
+            "prefix_parser": "p315_parse_restart_prefix",
+            "readiness_is_control_flow_only": True,
+            "readiness_requires_complete_start_on_pair": True,
+            "readiness_requires_start_on_nested_in_outer_pair": True,
+            "readiness_requires_quiescent_outer_pairs": 4,
+            "readiness_forbidden_dependencies": [
+                "child_resume",
+                "phy_init",
+                "power_on",
+                "gadget_start",
+                "run_on",
+                "qscratch",
+                "state",
+                "config",
+                "total_record_count",
+            ],
+            "four_outer_pairs_without_start_on_detail": UNKNOWN_PHASE_DETAIL,
+            "inflight_outer_or_start_pair_is_not_yet_ready": True,
+            "completed_malformed_prefix_fails_closed": True,
+            "readiness_cannot_make_controller_or_cycle_claim": True,
+            "authoritative_profile_snapshot_follows_readiness": True,
+            "deadline_seconds": RESTART_DEADLINE_SECONDS,
+            "poll_interval_msec": POLL_INTERVAL_MSEC,
+            "maximum_snapshots": RESTART_COMPLETION_MAX_SNAPSHOTS,
+            "timeout_or_attempt_exhaustion_detail": (
+                RESTART_COMPLETION_TIMEOUT_DETAIL
+            ),
+            "outer_worker_or_start_on_never_completes_detail": (
+                RESTART_COMPLETION_TIMEOUT_DETAIL
+            ),
+            "runtime_fixture_cases": [
+                "outer-pair-inflight-not-ready",
+                "start-on-pair-inflight-not-ready",
+                "four-outer-pairs-without-start-on-0x6707",
+                "outer-worker-never-completes-0x6718",
+                "control-flow-ready-without-gadget-start-or-run-on",
+            ],
+            "trace_read_failure_detail": SNAPSHOT_FAILURE_DETAIL,
+            "new_raw_errno_terminal_forbidden": True,
+        },
+        "restart_result_classification": {
+            "parser": "p315_parse_restart_snapshot",
+            "structural_parse_precedes_presence_classification": True,
+            "profile_and_ring_integrity_precede_absence_claim": True,
+            "required_nested_pairs_for_strict_geometry": list(
+                RESTART_REQUIRED_NESTED_PAIRS
+            ),
+            "resume_precondition_absence_pairs": ["gadget_start", "run_on"],
+            "resume_precondition_requires_both_pair_records_zero": True,
+            "resume_precondition_requires_both_pair_profile_hits_zero": True,
+            "resume_precondition_detail": RESTART_RESUME_PRECONDITION_DETAIL,
+            "retained_branch_details": RETAINED_RESTART_BRANCH_DETAILS,
+            "retained_branch_details_are_pairwise_distinct": True,
+            "retained_branch_details_use_inherited_reserved_slots": True,
+            "gadget_start_or_run_on_incomplete_detail": (
+                PAIRING_CONTRADICTION_DETAIL
+            ),
+            "profile_hit_without_record_detail": (
+                PROFILE_ONLY_NESTED_HIT_DETAIL
+            ),
+            "profile_only_is_attribution_not_ring_loss": True,
+            "incomplete_pair_detail": PAIRING_CONTRADICTION_DETAIL,
+            "negative_return_uses_existing_controller_detail": True,
+            "gadget_start_negative_without_run_on_uses_controller_detail": True,
+            "gadget_start_positive_detail": POSITIVE_RETURN_DETAIL,
+            "gadget_start_zero_branch_requires_rc_equal_zero": True,
+            "gadget_start_nonnegative_fallthrough_forbidden": True,
+            "gadget_start_zero_without_run_on_detail": (
+                GADGET_START_ZERO_WITHOUT_RUN_ON_DETAIL
+            ),
+            "run_on_without_gadget_start_detail": (
+                RUN_ON_PROVENANCE_CONTRADICTION_DETAIL
+            ),
+            "run_on_after_negative_gadget_start_detail": (
+                RUN_ON_PROVENANCE_CONTRADICTION_DETAIL
+            ),
+            "run_on_negative_uses_existing_controller_detail": True,
+            "run_on_negative_requires_valid_zero_gadget_start": True,
+            "run_on_absent_after_gadget_start_is_not_resume_precondition": True,
+            "precursor_absent_while_gate_pair_present_detail": (
+                UNKNOWN_PHASE_DETAIL
+            ),
+            "run_on_without_qscratch_detail": QSCRATCH_CONTRADICTION_DETAIL,
+            "run_on_without_state_or_config_detail": (
+                SNAPSHOT_CONTRADICTION_DETAIL
+            ),
+            "strict_restart_geometry_only_after_required_pairs_present": True,
+            "strict_restart_geometry_records": RESTART_CLEAN_RECORDS,
+            "bounded_drift_records": FINAL_DRIFT_RECORDS,
+            "resume_precondition_is_terminal_information_result": True,
+            "resume_precondition_does_not_continue_to_final": True,
+            "no_new_detail_family": True,
+            "classification_precedence": [
+                "profile-only-nested-hit-0x6721",
+                "incomplete-entry-return-0x6713",
+                "gadget-start-and-run-on-both-absent-0x671d",
+                "run-on-provenance-contradiction-0x6723",
+                "gadget-start-negative-run-on-absent-controller-detail",
+                "gadget-start-positive-0x6714",
+                "gadget-start-zero-run-on-absent-0x6722",
+                "run-on-negative-controller-detail",
+                "strict-restart-geometry",
+            ],
+            "runtime_fixture_cases": [
+                "both-gadget-start-and-run-on-absent-0x671d",
+                "profile-only-nested-hit-0x6721",
+                "incomplete-nested-pair-0x6713",
+                "gadget-start-negative-run-on-absent-controller-detail",
+                "gadget-start-zero-run-on-absent-0x6722",
+                "gadget-start-positive-run-on-absent-0x6714",
+                "gadget-start-positive-run-on-present-0x6714",
+                "run-on-without-gadget-start-0x6723",
+                "run-on-after-negative-gadget-start-0x6723",
+                "run-on-negative-controller-detail",
+                "full-clean-strict-restart-geometry",
+            ],
+        },
         "live_snapshot": {
             "helper": "p315_read_live_snapshot",
             "stop_and_restart_require_profile": True,
@@ -230,6 +698,7 @@ def requirements() -> dict[str, Any]:
             "profile_relation_only_after_parse": True,
             "ring_stats_only_after_profile_relation": True,
             "profile_hits_relation": "profile_hits>=record_hits",
+            "absence_claim_additionally_requires_zero_records_and_profile": True,
             "raw_errno_terminal_forbidden": True,
             "final_partial_behavior_unchanged": True,
         },
@@ -246,13 +715,45 @@ def requirements() -> dict[str, Any]:
             "candidate_window_seconds": 300,
             "bounded_wait_seconds": 160,
             "nominal_nonwait_remainder_seconds": 140,
-            "new_waits": 0,
-            "added_profile_reads": 2,
-            "profile_buffer_capacity_bytes": 65536,
-            "maximum_added_read_extent_bytes": 131072,
+            "new_wait_points": 1,
+            "new_independent_wait_seconds": 0,
+            "restart_completion_reuses_existing_deadline": True,
+            "restart_completion_maximum_snapshots": (
+                RESTART_COMPLETION_MAX_SNAPSHOTS
+            ),
+            "restart_readiness_maximum_read_extent_bytes": (
+                RESTART_READINESS_MAX_READ_EXTENT_BYTES
+            ),
+            "added_profile_reads": PROFILE_READ_COUNT,
+            "profile_buffer_capacity_bytes": PROFILE_BUFFER_CAPACITY_BYTES,
+            "profile_maximum_added_read_extent_bytes": (
+                PROFILE_MAX_READ_EXTENT_BYTES
+            ),
+            "maximum_added_read_extent_bytes": (
+                TOTAL_MAX_ADDED_READ_EXTENT_BYTES
+            ),
             "materialized_nonwait_overhead_must_be_recalculated": True,
             "subtraction_alone_is_not_proof": True,
             "guard_lifetime_unchanged": True,
+        },
+        "host_observer": {
+            "required_cases": list(HOST_OBSERVER_CASES),
+            "hazard_closure": HOST_OBSERVER_HAZARD_CLOSURE,
+            "matrix_cells_minimum": 251450,
+            "actual_runtime_emit_sites_define_acceptance": True,
+            "actual_generation_positions_required": True,
+            "p315_overlay_selected_by_real_process_v2": True,
+            "carrier_v2_semantics_selected_before_decode": True,
+            "json_persistence_round_trip_required": True,
+            "foreign_count_must_equal": 0,
+            "unknown_or_mixed_overlay_fails_closed": True,
+            "p315_decoder_overrides_reserved_branch_names": True,
+            "historical_decoder_meanings_unchanged": True,
+            "retained_branch_details": RETAINED_RESTART_BRANCH_DETAILS,
+            "inherited_b_output_count_unchanged": True,
+            "ready_manifest_rehearsal_required": True,
+            "reviewed_guard_seconds": 1200,
+            "common_guard_lifecycle_regression_required": True,
         },
         "artifacts": {
             "fixed_image_unchanged": True,
@@ -261,16 +762,29 @@ def requirements() -> dict[str, Any]:
             "module_plan_unchanged": True,
             "checkpoint_positions_unchanged": True,
             "carrier_layout_unchanged": True,
+            "new_details_within_inherited_terminal_gate": [0x6721, 0x6723],
             "rollback_unchanged": True,
             "full_lto_required": False,
             "userspace_rebuild_and_repackage_required": True,
             "changed_closure_independent_review_required": True,
         },
         "packaging": {
+            "status": "required-not-satisfied",
+            "prepackaging_proof_artifact_specs": PROOF_ARTIFACT_SPECS,
+            "final_qualification_artifact_specs": (
+                FINAL_QUALIFICATION_ARTIFACT_SPECS
+            ),
+            "two_phase_validation_required": True,
             "requirements_hash_in_source_closure": True,
-            "validator_called_before_packaging": True,
+            "prepackaging_validator_called_before_parent_packager": True,
+            "validator_return_controls_package_creation": True,
             "missing_or_failed_artifact_blocks_packaging": True,
+            "negative_fixture_parent_packager_calls": 0,
+            "negative_fixture_package_outputs": 0,
             "validated_artifact_receipted_by_qualification": True,
+            "ready_manifest_rehearsal_after_reproducible_packaging": True,
+            "registration_shape_test_is_not_execution_proof": True,
+            "actual_builder_call_graph_review_required": True,
         },
     }
 
@@ -283,7 +797,7 @@ def requirements_sha256() -> str:
 
 
 def validate_successor_artifact(value: dict[str, Any]) -> dict[str, Any]:
-    """Reject a future P3.15 package closure missing a design obligation."""
+    """Validate future closure shape; this registration is not execution proof."""
 
     _require_exact_keys(
         value,
@@ -293,11 +807,16 @@ def validate_successor_artifact(value: dict[str, Any]) -> dict[str, Any]:
             "requirements_sha256",
             "historical_authority",
             "phase_geometry",
+            "restart_source_geometry",
+            "restart_completion",
+            "restart_result_classification",
             "live_snapshot",
             "coverage",
             "time_budget",
+            "host_observer",
             "artifacts",
             "packaging",
+            "proof_artifacts",
             "verified",
         },
         "P3.15 closure",
@@ -311,9 +830,13 @@ def validate_successor_artifact(value: dict[str, Any]) -> dict[str, Any]:
     for section in (
         "historical_authority",
         "phase_geometry",
+        "restart_source_geometry",
+        "restart_completion",
+        "restart_result_classification",
         "live_snapshot",
         "coverage",
         "time_budget",
+        "host_observer",
         "artifacts",
         "packaging",
     ):
@@ -323,12 +846,20 @@ def validate_successor_artifact(value: dict[str, Any]) -> dict[str, Any]:
         for key, required in expected[section].items():
             _require_equal(proof.get(key), required, f"{section} {key}")
         _require_equal(proof.get("verified"), True, f"{section} verified")
+    _validate_proof_receipts(value.get("proof_artifacts"))
     _require_equal(value.get("verified"), True, "closure verified")
     return {
         "verdict": VERDICT,
         "requirements_sha256": requirements_sha256(),
         "restart_expected_counts": RESTART_EXPECTED_COUNTS,
+        "restart_clean_records": RESTART_CLEAN_RECORDS,
+        "restart_completion_max_snapshots": RESTART_COMPLETION_MAX_SNAPSHOTS,
+        "restart_resume_precondition_detail": (
+            RESTART_RESUME_PRECONDITION_DETAIL
+        ),
         "snapshot_failure_detail": SNAPSHOT_FAILURE_DETAIL,
         "unknown_phase_detail": UNKNOWN_PHASE_DETAIL,
+        "design_shape_valid": True,
+        "execution_authority": False,
         "verified": True,
     }

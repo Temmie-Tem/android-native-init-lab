@@ -49,7 +49,7 @@ has only an H0 design contract.
 
 P3.15 extends rather than rewrites the consumed P3.14 contract. The exact
 P3.14 incident and design-requirements receipts remain historical authority.
-The new `s22plus_fyg8_p315_design_requirements_v1` contract registers the
+The revised `s22plus_fyg8_p315_design_requirements_v2` contract registers the
 additional obligations below with status `registered-not-satisfied`; a future
 prepackaging closure must carry its exact requirements hash and pass the real
 validator before any package bytes are created.
@@ -75,6 +75,72 @@ detail is introduced. Qualification must execute a real 41-record RESTART
 fixture, reject each missing pair, and map each complete excess pair class to
 the existing `0x6c01..0x6fff` mask.
 
+The 41-record RESTART vector is not allowed to certify itself. The v2 contract
+binds exact receipts for the fixed wrapper, DWC3 core, HS-PHY source, P3.14
+materialized runtime, and 25-event descriptor. A dedicated source audit must
+derive all ten pair counts from the actual `none -> peripheral` call chain.
+The ten functional classes contain 12 complete pairs, or 24 records. It must
+also derive four outer-work pairs, two RUN_STOP pairs, one gadget-start pair,
+zero pullup pairs, and one QSCRATCH, state, and event-config singleton: another
+17 records, for 41 total. Copying the expected vector into a fixture is not
+source proof.
+
+### Restart completion fence
+
+The inherited restart readback is not a completion witness. `mode_store()`
+calls `dwc3_msm_set_role()`, whose external-event path flushes old work but
+queues the new `sm_work` and returns. Child and parent can both read `active`
+near the beginning of `dwc3_otg_start_peripheral(1)`, before its notify,
+QSCRATCH, gadget-start, RUN_STOP, and outer return records are complete.
+Reading the strict RESTART snapshot immediately after those PM readbacks can
+therefore reject a normal in-flight prefix.
+
+P3.15 adds `p315_wait_restart_completion()` before the authoritative RESTART
+snapshot. Its profile-free prefix parser may only decide ready, not-yet-ready,
+or malformed; it makes no controller or cycle-causal claim. Readiness is an
+independent control-flow fence: it requires a complete `start_on` pair nested
+in its containing outer-work pair and the source-derived quiescent topology of
+four complete outer-work pairs. It must not depend on child resume, PHY init,
+power-on, gadget-start, RUN_STOP, QSCRATCH, state/config snapshots, or a total
+41--49 record count. Four quiescent outer pairs without the required
+`start_on` shape are completed malformed topology and map to the established
+`0x6707`; an in-flight outer or `start_on` pair remains not-yet-ready. The
+helper reuses the existing restart deadline and is additionally capped at 301
+trace snapshots (one initial read plus 300 100-ms intervals). Trace-read
+failure maps to `0x6704`; a worker or `start_on` pair that never completes,
+deadline expiry, or attempt exhaustion maps to the registered `0x6718`. Only
+after this fence may the profile-bearing authoritative RESTART snapshot run.
+
+The authoritative snapshot first proves structural, profile, and ring
+integrity, then classifies the nested resume path. `0x671d` retains its P3.13
+meaning only when both gadget-start and `run_on` entry/return records are zero
+and both corresponding profile counts are also zero: the DEVICE resume
+precondition or path was not established. It is a terminal information result,
+not an observer timeout, and does not continue to FINAL because the containing
+outer invocation has already returned. A profile hit without its record maps
+to dedicated `0x6721`, `profile-only-nested-hit`, and cannot support an
+absence claim; it is an attribution contradiction, not ring-loss proof. An
+incomplete entry/return pair maps to `0x6713`.
+
+The asymmetric case is deliberately separate. A negative gadget-start return
+with no `run_on` preserves the existing controller-detail result. A positive
+gadget-start return maps to the existing `0x6714` before any zero-return branch;
+the zero branch must test `rc == 0` explicitly and may not use a nonnegative
+fallthrough. A zero gadget-start return followed by no `run_on` maps to
+dedicated `0x6722`, while `run_on` without gadget-start or after a negative
+gadget-start maps to provenance contradiction `0x6723`. Neither is `0x671d`.
+A recorded negative `run_on` return after a valid zero-return gadget-start is
+the existing controller result (including measured `-ETIMEDOUT`). Only when
+all required nested pairs are present does the parser enforce the full
+source-derived 41-record RESTART geometry, the bounded 49-record drift shape,
+QSCRATCH, state, and event-config requirements and continue the experiment.
+
+The three new meanings occupy the already enumerated reserved contradiction
+slots `0x6721..0x6723` within the inherited `0x6701..0x673f` terminal gate.
+They do not add B outputs or change the 251,450-cell matrix count. The P3.15
+decoder must replace only those three reserved names while historical P3.13
+and P3.14 decoder meanings remain unchanged.
+
 ### Live snapshot invariant
 
 One new helper, `p315_read_live_snapshot()`, owns both intermediate callsites.
@@ -97,8 +163,11 @@ The six inherited `require_profile=0` sites are classified rather than
 globally rewritten. STOP and RESTART leave that set and use the new helper.
 Role retains its role-source contradiction normalization, legacy cycle refresh
 retains its trace-incomplete warning, and bind plus direct remain intentional
-bind-event-count no-ops that perform no file read. Any new zero-profile site or
-any downstream profile comparison after those four sites blocks packaging.
+bind-event-count no-ops that perform no file read. The one new profile-free
+site is the bounded restart-readiness prefix read described above; it may not
+feed a profile comparison or terminal cycle classification. Any other new
+zero-profile site, or any downstream profile comparison after the five listed
+sites, blocks packaging.
 
 ### Coverage and timing closure
 
@@ -116,12 +185,49 @@ reasons in the P3.15 contract. This is a bounded one-time sweep, not a global
 call-graph coverage requirement.
 
 The existing bounded waits remain 160 seconds inside the 300-second candidate
-window and no new wait is added. P3.15 adds exactly two bounded profile reads;
-each uses the existing 65,536-byte buffer, for at most 131,072 bytes of added
-read extent. Qualification must recalculate materialized non-wait overhead
-with those reads and wrapper parsing included. The nominal 140-second
-subtraction is not itself proof. The reviewed 1,200-second host guard remains
-unchanged.
+window. P3.15 adds one completion wait point but zero independent wait
+seconds: it shares the already running 30-second restart deadline. Its explicit
+301-snapshot cap bounds readiness trace reads to 19,726,336 bytes. The two
+profile-bearing reads remain exactly two and add at most 131,072 bytes, for a
+combined maximum added read extent of 19,857,408 bytes. Qualification must
+recalculate materialized non-wait overhead and execute deadline, attempt-cap,
+in-flight-prefix, outer-complete-without-`start_on`, nested-both-absent,
+profile-only-hit, gadget-start-negative, gadget-start-positive,
+gadget-start-zero-without-`run_on`, `run_on` provenance, exact-ready,
+bounded-drift, and malformed-prefix fixtures.
+The nominal 140-second subtraction is not itself proof. The reviewed
+1,200-second host guard remains unchanged.
+
+### Host observer and packaging closure
+
+Device-side parser success alone is insufficient. The P3.15 overlay must be
+selected by the real Process-v2 evidence and live paths, select Carrier-v2
+semantics before decoding, preserve `foreign_count == 0`, and round-trip JSON
+persistence. Fixtures must cover a clean adjacent pair, `0x6704` at both the
+actual STOP and RESTART positions, `0x6705`, unknown phase `0x6707`, unknown or
+mixed overlay rejection, completed outer work with the existing `0x671d`
+resume-precondition result, the distinct `0x6721`, `0x6722`, and `0x6723`
+branches, and the complete inherited A/B/pair-mask position matrix of at least
+251,450 cells. A real ready-manifest rehearsal must select P3.15 and the
+reviewed 1,200-second guard rather than fall back to P3.14 or a generic Carrier
+decoder.
+
+The contract maps the recurring observer classes, rather than only this run's
+detail: materialized-source/position drift, live-caller input validity,
+profile-versus-record semantics, Carrier decoder/persistence/overlay dispatch,
+and declaration-versus-packaging wiring. Each class names one of the mandatory
+proof artifacts below; prose closure is insufficient.
+
+Four named prepackaging proof artifacts are mandatory: restart source geometry,
+the actual runtime wrapper fixture, the real Process-v2 adapter/persistence
+fixture, and packaging wiring. Each binds the v2 requirements hash plus its
+producer and artifact hashes. The future parent packager must call the real
+prepackaging validator first; missing or mutated proof must yield zero
+parent-packager calls and zero package output. A separate final-qualification
+artifact then binds reproducible packaging and the real ready rehearsal. The
+current design-contract unit test checks only this registered two-phase shape
+and explicitly grants no execution authority; the actual builder call graph and
+receipts remain future, blocking obligations.
 
 P3.15 changes only generated userspace runtime and its host
 design/fixture/closure/packaging validation. The fixed Image, kernel hooks,
