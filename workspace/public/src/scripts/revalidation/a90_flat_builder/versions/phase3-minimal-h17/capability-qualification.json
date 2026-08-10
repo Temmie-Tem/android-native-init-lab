@@ -1,0 +1,71 @@
+{
+  "schema": "a90-h17-persistent-ufs-server-capability-qualification-v1",
+  "capability": "A90_H17_PERSISTENT_UFS_SERVER_V1",
+  "verdict": "PASS_GO",
+  "execution_closure_sha256": "45aa74c13ca8a11b4bb06b192436b8416fa294f5c200fa0d2326cec6bca076ee",
+  "execution_hashes": {
+    "AGENTS.md": {
+      "size": 14600,
+      "sha256": "c07f670424fa7920f5b02e44d0f2b4f8a87030aac6f9d0ae268bf1339e51790e"
+    },
+    "docs/operations/targets/A90_TARGET_CONTRACT.md": {
+      "size": 46515,
+      "sha256": "38f4c3534e96301db4ffe5ad83f1e07ecd6321586d372f212acd504cf55930f0"
+    },
+    "workspace/public/src/native-init/a90_auto_handoff.c": {
+      "size": 33086,
+      "sha256": "d8697da63a093eaaed73339a158b2992ad3121a2a2ebc01597a10f8b05363ec6"
+    },
+    "workspace/public/src/native-init/a90_config.h": {
+      "size": 6945,
+      "sha256": "b353093f49fd2ea5b1146320bbf364335f27b04f6a2b871651c5b990395f53c3"
+    },
+    "workspace/public/src/native-init/a90_server_distro.c": {
+      "size": 239355,
+      "sha256": "32f3dbd7d39b0e5cbf852640c9c4588b8495b1d048309555b8b818d945519e33"
+    },
+    "workspace/public/src/native-init/a90_server_distro.h": {
+      "size": 3583,
+      "sha256": "ab5cad49b708ce0037494a1e001779000073cdcd480c9ada305ed5a1506fc99a"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py": {
+      "size": 45052,
+      "sha256": "229eb78567c3e2900fc683ad17a780595658fff826487aa9a5781e2251fd690c"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/buildlib.py": {
+      "size": 25644,
+      "sha256": "b44df71c70273cdc0341c52162a0e89e1d70951a1a2388ab5c97e1458d60367d"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h14/userdata-content-manifest.json": {
+      "size": 5507,
+      "sha256": "a878f6dec82bf799c3d2cd43beeda3c5494a8882ce116327f497d822b707d5ce"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h16/manifest.toml": {
+      "size": 12790,
+      "sha256": "09e3731a575447305a5b1995ed827484cf65390d73fe3dfb4dbaacb9ff83ab7a"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h17/manifest.toml": {
+      "size": 7016,
+      "sha256": "396c0cb284d130212acc558ba84b9905a90c4b9e7cd83f7a1ceed6edc02e27f7"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/v3404-effective/manifest.toml": {
+      "size": 14156,
+      "sha256": "b5edf8b0a30b76ef48dc8ec71f0f1dc23b76698e0b1154c6ccb66106b69834da"
+    },
+    "workspace/public/src/scripts/server-distro/a90_dpublic_firstboot.sh": {
+      "size": 13515,
+      "sha256": "6ffba1fb45a98b6d9861d112caed3643bf062f6bea6ef9748fec489656008d86"
+    },
+    "workspace/public/src/scripts/server-distro/a90_h17_persistent_server_observer_v1.py": {
+      "size": 15002,
+      "sha256": "ea24d636db6a954b1f95cb376ff57bb366e28c1c9c0be58b9a86c7ad5d55a302"
+    }
+  },
+  "review_scope": "h17-public-builder-native-overlay-hud-and-observer-capability",
+  "new_hazard_or_incident": true,
+  "ordinal_requalification_required": false,
+  "f1_runner_qualified": false,
+  "d1_runner_qualified": false,
+  "review_report": "docs/reports/A90_H17_PERSISTENT_UFS_SERVER_INDEPENDENT_REVIEW_2026-08-10.json",
+  "live_authority": false
+}

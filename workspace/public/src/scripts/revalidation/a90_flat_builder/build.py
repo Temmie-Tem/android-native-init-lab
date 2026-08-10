@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import filecmp
 import hashlib
 import json
@@ -72,7 +74,81 @@ AUTO_HANDOFF_USERDATA_VALUE_MACROS = (
     AUTO_HANDOFF_USERDATA_DYNAMIC_DEVT_POLICY_MACRO,
 )
 AUTO_HANDOFF_RECEIPT_MACRO = "A90_D3_SOURCE_RECEIPT_PATH"
+H17_OBSERVER_AUTH_ENABLE = "A90_UFS_OBSERVER_AUTH_OVERLAY_V1"
+H17_PERSISTENT_HUD_ENABLE = "A90_UFS_PERSISTENT_NATIVE_HUD_V1"
+H17_OBSERVER_AUTH_RAMDISK_PATH = "a90/h17/authorized_keys"
+H17_FIRSTBOOT_RAMDISK_PATH = "a90/h17/firstboot"
+H17_FIRSTBOOT_SOURCE = Path(
+    "workspace/public/src/scripts/server-distro/a90_dpublic_firstboot.sh"
+)
 USERDATA_RUNTIME_SOURCE = Path("workspace/public/src/native-init/a90_server_distro.c")
+
+
+def h17_private_runtime_mode(manifest: dict[str, Any]) -> bool:
+    """Return the all-or-nothing H17 private-auth/direct-HUD feature mode."""
+
+    cflags = manifest["init"]["cflags"]
+    auth = _macro_directives(cflags, H17_OBSERVER_AUTH_ENABLE)
+    hud = _macro_directives(cflags, H17_PERSISTENT_HUD_ENABLE)
+    valid_auth = [f"-D{H17_OBSERVER_AUTH_ENABLE}=1"]
+    valid_hud = [f"-D{H17_PERSISTENT_HUD_ENABLE}=1"]
+    if auth not in ([], valid_auth) or hud not in ([], valid_hud):
+        raise RuntimeError("H17 runtime feature macro is duplicated or conflicting")
+    if bool(auth) != bool(hud):
+        raise RuntimeError("H17 observer-auth and Debian-HUD features must be paired")
+    return bool(auth)
+
+
+def validate_observer_authorized_key(
+    repo: Path,
+    manifest: dict[str, Any],
+    requested: Path | None,
+) -> dict[str, object] | None:
+    """Bind one private Ed25519 public key without exposing its bytes."""
+
+    enabled = h17_private_runtime_mode(manifest)
+    if not enabled:
+        if requested is not None:
+            raise RuntimeError("observer authorized key supplied to a non-H17 profile")
+        return None
+    if requested is None:
+        raise RuntimeError("H17 profile requires --observer-authorized-key")
+    private_root = (repo / "workspace/private").resolve()
+    path = requested.resolve(strict=True)
+    try:
+        path.relative_to(private_root)
+    except ValueError as exc:
+        raise RuntimeError("observer authorized key must stay under workspace/private") from exc
+    if requested.is_symlink() or path.is_symlink() or not path.is_file():
+        raise RuntimeError("observer authorized key must be one regular non-symlink file")
+    stat_result = path.stat()
+    if stat_result.st_nlink != 1 or not 64 <= stat_result.st_size <= 512:
+        raise RuntimeError("observer authorized key metadata is outside the fixed bounds")
+    data = path.read_bytes()
+    if data.count(b"\n") != 1 or not data.endswith(b"\n") or b"\r" in data:
+        raise RuntimeError("observer authorized key must be exactly one LF-terminated line")
+    match = re.fullmatch(
+        rb"ssh-ed25519 ([A-Za-z0-9+/]+={0,2})(?: ([ -~]{0,128}))?\n",
+        data,
+    )
+    if match is None:
+        raise RuntimeError("observer authorized key is not one bounded ssh-ed25519 key")
+    try:
+        blob = base64.b64decode(match.group(1), validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise RuntimeError("observer authorized key base64 is invalid") from exc
+    if (
+        len(blob) != 51
+        or blob[:4] != b"\x00\x00\x00\x0b"
+        or blob[4:15] != b"ssh-ed25519"
+        or blob[15:19] != b"\x00\x00\x00\x20"
+    ):
+        raise RuntimeError("observer authorized key blob is not canonical Ed25519")
+    return {
+        "path": path,
+        "bytes": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+    }
 
 
 def _userdata_runtime_records(repo: Path) -> list[dict[str, object]]:
@@ -400,6 +476,16 @@ def normalized_auto_handoff_binding(
         )
         if receipt_path:
             normalized["receipt_path"] = receipt_path
+    if h17_private_runtime_mode(manifest):
+        if not userdata_root or not dynamic_devt:
+            raise RuntimeError("H17 private runtime requires dynamic read-only userdata")
+        normalized.update(
+            {
+                "schema": "a90-compiled-auto-handoff-binding-v5",
+                "observer_auth": "boot-private-tmpfs-v1",
+                "display_owner": "native-handoff-hud-v1",
+            }
+        )
     encoded = json.dumps(
         normalized,
         sort_keys=True,
@@ -454,6 +540,29 @@ def revalidate_execution_closure(
     if builder_source_keys(repo) != expected_source_keys:
         raise RuntimeError("flat-builder source closure changed during execution")
     current_inputs = buildlib.validate_inputs(repo, resolution, manifest)
+    observer_path = expected_inputs.get("observer_authorized_key")
+    if observer_path is not None:
+        observer = validate_observer_authorized_key(
+            repo,
+            manifest,
+            Path(observer_path),
+        )
+        assert observer is not None
+        current_inputs.update(
+            {
+                "observer_authorized_key": observer["path"],
+                "observer_authorized_key_bytes": observer["bytes"],
+                "observer_authorized_key_sha256": observer["sha256"],
+            }
+        )
+    if h17_private_runtime_mode(manifest):
+        firstboot = (repo / H17_FIRSTBOOT_SOURCE).resolve(strict=True)
+        current_inputs.update(
+            {
+                "h17_firstboot": firstboot,
+                "h17_firstboot_sha256": buildlib.sha256_file(firstboot),
+            }
+        )
     expected_pins = {
         key: value
         for key, value in expected_inputs.items()
@@ -741,6 +850,13 @@ def validate_packed_ramdisk(
     if missing:
         raise RuntimeError(f"ramdisk required entries missing: {missing}")
     buildlib.validate_ramdisk_component_listing(manifest, listing)
+    h17_entries = {
+        H17_OBSERVER_AUTH_RAMDISK_PATH,
+        H17_FIRSTBOOT_RAMDISK_PATH,
+    }
+    expected_h17_entries = h17_entries if h17_private_runtime_mode(manifest) else set()
+    if listing & h17_entries != expected_h17_entries:
+        raise RuntimeError("packed ramdisk H17 runtime entries mismatch")
     return listing
 
 
@@ -824,6 +940,28 @@ def overlay_ramdisk(
             engine_path.chmod(0o755)
         elif engine is not None:
             raise RuntimeError("disabled engine unexpectedly has output")
+
+        observer_key = inputs.get("observer_authorized_key")
+        if observer_key is not None:
+            observer_path = safe_ramdisk_path(
+                ramdisk,
+                H17_OBSERVER_AUTH_RAMDISK_PATH,
+                "H17 observer authorized key",
+            )
+            if observer_path.exists() or observer_path.is_symlink():
+                raise RuntimeError("base ramdisk already contains the H17 observer key path")
+            observer_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(Path(observer_key), observer_path)
+            observer_path.chmod(0o400)
+            firstboot_path = safe_ramdisk_path(
+                ramdisk,
+                H17_FIRSTBOOT_RAMDISK_PATH,
+                "H17 firstboot overlay",
+            )
+            if firstboot_path.exists() or firstboot_path.is_symlink():
+                raise RuntimeError("base ramdisk already contains the H17 firstboot path")
+            shutil.copyfile(Path(inputs["h17_firstboot"]), firstboot_path)
+            firstboot_path.chmod(0o500)
 
         set_reproducible_mtime(ramdisk, int(manifest["reproducible_mtime"]))
         pack_ramdisk(manifest, ramdisk, ramdisk_cpio)
@@ -961,6 +1099,7 @@ def build_one(
 def audit(
     repo: Path,
     manifest_path: Path,
+    observer_authorized_key: Path | None = None,
 ) -> tuple[
     buildlib.ManifestResolution,
     dict[str, Any],
@@ -971,6 +1110,28 @@ def audit(
     resolution = buildlib.resolve_manifest(manifest_path)
     manifest = resolution.data
     inputs = buildlib.validate_inputs(repo, resolution, manifest)
+    observer = validate_observer_authorized_key(
+        repo,
+        manifest,
+        observer_authorized_key,
+    )
+    if observer is not None:
+        inputs.update(
+            {
+                "observer_authorized_key": observer["path"],
+                "observer_authorized_key_bytes": observer["bytes"],
+                "observer_authorized_key_sha256": observer["sha256"],
+            }
+        )
+        firstboot = (repo / H17_FIRSTBOOT_SOURCE).resolve(strict=True)
+        if firstboot.is_symlink() or not firstboot.is_file():
+            raise RuntimeError("H17 firstboot source is not one regular file")
+        inputs.update(
+            {
+                "h17_firstboot": firstboot,
+                "h17_firstboot_sha256": buildlib.sha256_file(firstboot),
+            }
+        )
     versions = validate_toolchain(manifest)
     source_keys = builder_source_keys(repo)
     return resolution, manifest, inputs, versions, source_keys
@@ -983,11 +1144,16 @@ def main() -> int:
     outputs.add_argument("--out-dir", type=Path)
     outputs.add_argument("--ab-root", type=Path)
     parser.add_argument("--audit-only", action="store_true")
+    parser.add_argument("--observer-authorized-key", type=Path)
     args = parser.parse_args()
     os.environ.update({"LC_ALL": "C", "LANG": "C", "TZ": "UTC"})
     repo = repo_root()
     manifest_path = selected_manifest(args.manifest)
-    resolution, manifest, inputs, versions, source_keys = audit(repo, manifest_path)
+    resolution, manifest, inputs, versions, source_keys = audit(
+        repo,
+        manifest_path,
+        args.observer_authorized_key,
+    )
     auto_handoff_binding = normalized_auto_handoff_binding(manifest)
     audit_result = {
         "schema": buildlib.SCHEMA,

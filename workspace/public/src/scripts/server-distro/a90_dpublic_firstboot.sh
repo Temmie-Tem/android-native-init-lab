@@ -195,14 +195,38 @@ else
   echo smoke_started=0 >> /run/a90-d3-marker
 fi
 
-# If native-init left a non-PID1 /init child holding DRM master, release it so
-# Debian can own KMS.  PID1 is Debian sysvinit at this point and is never killed.
+# Release stray non-PID1 /init DRM owners.  H17 preserves only the exact PID
+# published by the reviewed native HUD service; PID1 is Debian sysvinit and is
+# never killed.
+native_hud_pid=$(cat /run/a90-dpublic/hud-presenter.pid 2>/dev/null || true)
+case "$native_hud_pid" in
+  ''|*[!0-9]*) native_hud_pid= ;;
+esac
+native_hud_pid_valid=0
+if [ -n "$native_hud_pid" ] && kill -0 "$native_hud_pid" 2>/dev/null; then
+  native_hud_exe=$(readlink "/proc/$native_hud_pid/exe" 2>/dev/null || true)
+  case "$native_hud_exe" in
+    /init|"/init (deleted)")
+      for fd in "/proc/$native_hud_pid"/fd/*; do
+        target=$(readlink "$fd" 2>/dev/null || true)
+        case "$target" in
+          *dri*|*card0*|*drm*) native_hud_pid_valid=1 ;;
+        esac
+      done
+      ;;
+  esac
+fi
+[ "$native_hud_pid_valid" = "1" ] || native_hud_pid=
 for status in /proc/[0-9]*/status; do
   pid=${status#/proc/}
   pid=${pid%/status}
   [ "$pid" = "1" ] && continue
+  [ -n "$native_hud_pid" ] && [ "$pid" = "$native_hud_pid" ] && continue
   exe=$(readlink "/proc/$pid/exe" 2>/dev/null || true)
-  [ "$exe" = "/init" ] || continue
+  case "$exe" in
+    /init|"/init (deleted)") ;;
+    *) continue ;;
+  esac
   for fd in "/proc/$pid"/fd/*; do
     target=$(readlink "$fd" 2>/dev/null || true)
     case "$target" in
@@ -249,10 +273,25 @@ if [ -x /usr/local/bin/a90-dpublic-hud-intent ]; then
   else
     echo hud_presenter_staged=0 >> /run/a90-d3-marker
   fi
+  hud_presenter_started=0
+  native_hud_exe=$(readlink "/proc/$native_hud_pid/exe" 2>/dev/null || true)
+  if [ "$native_hud_pid_valid" = "1" ] &&
+     [ -n "$native_hud_pid" ] &&
+     kill -0 "$native_hud_pid" 2>/dev/null &&
+     { [ "$native_hud_exe" = "/init" ] ||
+       [ "$native_hud_exe" = "/init (deleted)" ]; }; then
+    for fd in "/proc/$native_hud_pid"/fd/*; do
+      target=$(readlink "$fd" 2>/dev/null || true)
+      case "$target" in
+        *dri*|*card0*|*drm*) hud_presenter_started=1 ;;
+      esac
+    done
+  fi
   echo hud_presenter_owner=native-init >> /run/a90-d3-marker
-  echo hud_presenter_started=0 >> /run/a90-d3-marker
+  echo hud_presenter_pid_valid=$native_hud_pid_valid >> /run/a90-d3-marker
+  echo hud_presenter_started=$hud_presenter_started >> /run/a90-d3-marker
   echo hud_legacy_direct_kms_started=0 >> /run/a90-d3-marker
-  echo hud_started=0 >> /run/a90-d3-marker
+  echo hud_started=$hud_presenter_started >> /run/a90-d3-marker
 elif [ -x /usr/local/bin/a90-dpublic-hud ]; then
   echo hud_split_mode=0 >> /run/a90-d3-marker
   echo hud_legacy_direct_kms_fallback=1 >> /run/a90-d3-marker

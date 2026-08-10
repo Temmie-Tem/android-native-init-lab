@@ -15,7 +15,7 @@ from typing import Any, Iterable
 SCHEMA = "a90-flat-builder-v1"
 HEX_DIGITS = frozenset("0123456789abcdef")
 NEWC_HEX_BYTES = frozenset(b"0123456789abcdefABCDEF")
-MAX_EXTENDS_DEPTH = 1
+MAX_EXTENDS_DEPTH = 2
 VERSION_NAME = re.compile(r"[a-z0-9][a-z0-9._-]*")
 TOP_LEVEL_KEYS = frozenset({
     "schema",

@@ -350,6 +350,58 @@ incident qualification but no new live-effect approval. It retires after the
 exact journal has both terminal records, on target or source drift, or on any
 new incident, whichever comes first.
 
+The replacement capability `A90_H17_PERSISTENT_UFS_SERVER_V1` addresses only
+the H16 observer-key mismatch and persistent-display gap. It starts from exact
+H16 `RESIDENT_HEALTHY`, retains the H16 dynamic same-session userdata identity,
+and changes only one boot candidate. The builder accepts one exact private
+Ed25519 public key, validates its canonical structure, and places it at the
+fixed boot-ramdisk path `/a90/h17/authorized_keys`. The key bytes, host path,
+and private key never enter a tracked manifest, log, report, or repository
+artifact; the private build receipt and later F1 manifest bind their SHA256
+identities. No file other than the boot-only candidate is a device payload.
+
+During the read-only UFS handoff, native-init first validates the unchanged H14
+public content manifest and the existing private-key file structure. It then
+mounts a fixed `nosuid,nodev,noexec` tmpfs over `/root/.ssh`, copies only the
+boot-bound public key to mode-`0600` `authorized_keys`, and read-only
+bind-mounts the reviewed H17 firstboot script over `/etc/a90-d3-firstboot`. It
+also creates the
+fixed shared HUD run tmpfs, starts one native HUD child, requires that child to
+open DRM and present a bootstrap frame before the mount move, and binds the
+shared run directory into Debian. The firstboot overlay preserves only the PID
+recorded by that HUD service after rechecking its `/init` executable and DRM
+file descriptor, publishes one bounded intent, and confirms that the same
+process remains alive with a DRM file descriptor. Every overlay is
+inside the mounted UFS tree or comes from the boot ramdisk; none changes UFS
+bytes. Any pre-exec failure stops the HUD, unbinds firstboot and shared run,
+unmounts the auth tmpfs, restores moved core mounts, unmounts userdata, and
+returns native without retry. Ambiguous cleanup parks recovery.
+
+H17 installation is an ordinary attended F1 boot-only transaction with the
+exact V2321 rollback and fresh approval required by the retired-trial policy.
+After exact H17 resident health is durable, its one persistent-server handoff
+is a separately approved attended D1 ordinal. Automatic native return is
+intentionally disabled and must not be required, inferred, or reported. The
+bounded key-only USB-NCM observer proves Debian `/usr/sbin/init` as PID 1, an
+ext4 read-only root, the tmpfs auth overlay, exact Dropbear listener ownership,
+the native HUD PID and DRM FD with successful intent presentation, operator
+visible confirmation, and final Wi-Fi carrier/readiness. It sends no payload
+and performs no reboot, mount, service control, file write, or network tunnel
+action.
+
+The experiment terminal `PASS_A90_H17_PERSISTENT_SERVER_LIVE` means only that
+the attended persistent Debian server is live and proved. Its device-safety
+state remains `HEALTH_PENDING_PERSISTENT_DEBIAN`; it is not
+`RESIDENT_HEALTHY`, grants no next D1 or F1 effect, does not close the ordinal,
+and does not disarm recovery. While it remains live, permit only passive
+bounded observation or the predeclared attended physical return/recovery.
+Closure requires a later exact native resident-health terminal after that
+physical return, without replaying the handoff. Public tunnels remain disabled.
+The capability never applies to S22+, another A90 or userdata identity, a
+writable UFS mount, an unattended D1/F1 action, or a non-boot partition. Its
+independent qualification is reusable only while the execution-critical
+closure and these hazard assumptions are unchanged and no new incident occurs.
+
 The H15 run01 pre-latch incident activates one attended recovery primitive for
 the exact `1,0` state only. It binds the consumed D1 journal prefix, its exact
 intent, current H15 identity and health, the sole H15 enable path, and the

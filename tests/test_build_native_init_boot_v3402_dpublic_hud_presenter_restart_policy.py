@@ -57,7 +57,7 @@ class BuildNativeInitBootV3402DpublicHudPresenterRestartPolicyTests(unittest.Tes
         )
         self.assertIn("dpublic_hud_service_restart", source)
         self.assertIn("dpublic_hud_service_stop(opts)", source)
-        self.assertIn("dpublic_hud_service_start(opts)", source)
+        self.assertIn("dpublic_hud_service_start(opts, NULL)", source)
         self.assertIn("start.stale_pid=%ld action=unlink", source)
         self.assertIn("stale-cleaned", source)
         self.assertIn("status.restart_policy=%s", source)

@@ -187,7 +187,7 @@ class A90UfsHandoffSourceV2Tests(unittest.TestCase):
         self.assertFalse(any("AUTO_HANDOFF_IMAGE" in flag for flag in flags))
         self.assertFalse(any("SOURCE_RECEIPT_PATH" in flag for flag in flags))
 
-    def test_h16_retains_h13_minimal_and_wifi_components(self) -> None:
+    def test_h16_retains_h13_components_but_rejects_the_h17_native_closure(self) -> None:
         h16 = self._manifest(H16_MANIFEST)
         h13 = self._manifest(H13_MANIFEST)
 
@@ -201,7 +201,7 @@ class A90UfsHandoffSourceV2Tests(unittest.TestCase):
             h16["init"]["sources"],
             h16["init"]["closure_globs"],
         )
-        self.assertEqual(
+        self.assertNotEqual(
             BUILDLIB.closure_sha256(init_root, closure),
             h16["init"]["closure_sha256"],
         )
@@ -667,14 +667,14 @@ class A90UfsHandoffSourceV2Tests(unittest.TestCase):
                     missing.append((relative, candidates[0]))
         self.assertEqual(missing, [])
 
-    def test_h16_receipt_and_execution_closure_bind_full_manifest_lineage(self) -> None:
-        closure = H16_F1.execution_closure()
-        parent = (
-            "workspace/public/src/scripts/revalidation/a90_flat_builder/"
-            "versions/v3404-effective/manifest.toml"
-        )
-        self.assertIn(parent, closure["files"])
+    def test_h16_execution_closure_fails_closed_after_h17_native_change(self) -> None:
+        with self.assertRaisesRegex(
+            H16_F1.ContractError,
+            "H16 native transitive closure changed",
+        ):
+            H16_F1.execution_closure()
         source = H16_F1_RUNNER.read_text(encoding="utf-8")
+        self.assertIn('"v3404-effective/manifest.toml",', source)
         self.assertIn("lineage != expected_lineage", source)
         self.assertIn("for path in resolution.lineage", source)
 
