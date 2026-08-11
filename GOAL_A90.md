@@ -761,14 +761,17 @@ The native-fallback finalizer is complete and grants no successor authority.
 H17 evidence proves only outer `EPERM` after `root_mounted` and before
 `writable_set_ready`; it cannot distinguish root-content, writable-set,
 observer-auth, firstboot, persistent-HUD, evidence-bind, or Wi-Fi-bind failure.
-H18 `0.11.186` now records exact stage, rc, and errno before cleanup under a
-fresh identity and deterministic boot `692da1ea...ec78`. Independent
-`PASS_GO` closes native closure `714c1797...009b` with HIGH/MEDIUM/LOW zero,
-but `candidate_authority=false`: an absent log remains `NO_PROOF`, and H18 has
-not been installed or run. The next unit is host-only exact F1/D1 binding and
-fresh D0 preparation. Any live step still requires fresh approval, attendance,
-rollback and recovery readiness, one-shot no-replay state, and final health.
-Persistent HUD remains an unproved cause and must not be repaired by guess.
+H18 `0.11.186` records exact stage, rc, and errno before cleanup under fresh
+identity and deterministic boot `692da1ea...ec78`. Independent `PASS_GO`
+closes native closure `714c1797...009b` and F1/D1 execution closure
+`dcb507f5...ced8` with HIGH/MEDIUM/LOW zero. The execution qualification binds
+exact H17 terminal history, reviewed H18 artifacts, fresh-D0 gating, boot-only
+transfer and rollback, post-flash source revalidation, exact non-contradictory
+health, one-shot journals, and host-only no-replay resume. Live authority is
+still false: an absent diagnostic remains `NO_PROOF`, and H18 has not been
+installed or run. The next unit is a fresh A90 D0 inventory, then fresh
+attended F1 approval. Persistent HUD remains unproved and is not repaired by
+guess.
 
 Only a full comparable H15 control benchmark can open a later Full-LTO unit.
 Qualification never substitutes for fresh manifest, D0, approval, attendance,
@@ -842,6 +845,7 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_H16_DYNAMIC_DEVT_INDEPENDENT_REVIEW_2026-08-10.json`
 - `docs/reports/A90_H17_PERSISTENT_UFS_SERVER_INDEPENDENT_REVIEW_2026-08-10.json`
 - `docs/reports/A90_H18_POST_ROOT_FAILURE_ATTRIBUTION_INDEPENDENT_REVIEW_2026-08-11.json`
+- `docs/reports/A90_H18_UFS_F1_D1_EXECUTION_INDEPENDENT_REVIEW_2026-08-12.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`

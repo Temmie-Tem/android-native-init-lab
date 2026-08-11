@@ -1,0 +1,30 @@
+{
+  "schema": "a90-h18-post-root-failure-attribution-capability-qualification-v1",
+  "capability": "A90_H18_POST_ROOT_FAILURE_ATTRIBUTION_V1",
+  "verdict": "PASS_GO",
+  "execution_closure_sha256": "88f9aa7a38549a379223fc08ccb84792a4848122f32bb1d62abbe8be03800534",
+  "execution_hashes": {
+    "tests/test_a90_h17_persistent_server_source_v1.py": {
+      "size": 18648,
+      "sha256": "3ac8fa4acd84276f1f5997478349d4b7159caf4aceff987be3bfa7f2c97b17bf"
+    },
+    "workspace/public/src/native-init/a90_server_distro.c": {
+      "size": 242915,
+      "sha256": "581d1d98668f813a0616cbbd48ed1ad2efbfc374b1a0f48b5e4f914a6288c1e7"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h18/manifest.toml": {
+      "size": 7052,
+      "sha256": "7f1747dc0fa15f625bfdd46abdcdac1118d5468509acc9184c3d4767e44565fd"
+    }
+  },
+  "review_scope": "h18-post-root-failure-attribution-native-capability",
+  "new_hazard_or_incident": true,
+  "ordinal_requalification_required": false,
+  "f1_runner_qualified": false,
+  "d1_runner_qualified": false,
+  "record_semantics": "observed-a90-log-required-for-attribution",
+  "missing_record_verdict": "NO_PROOF_NO_REPLAY",
+  "review_report": "docs/reports/A90_H18_POST_ROOT_FAILURE_ATTRIBUTION_INDEPENDENT_REVIEW_2026-08-11.json",
+  "review_report_sha256": "ae4724c15f10bbaba7bd506ea6183a5e2056be87dfa26471d9ea37092b94dca8",
+  "live_authority": false
+}
