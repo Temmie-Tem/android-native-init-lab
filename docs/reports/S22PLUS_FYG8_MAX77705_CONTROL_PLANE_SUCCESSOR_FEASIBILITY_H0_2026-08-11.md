@@ -198,14 +198,14 @@ The primary source and artifact inputs were rehashed during this H0 unit.
 | Max77705 custom-surface authority helper v3 | `a7b93309561550bb0c1389375c309024b30d832d54cc0b9b0986fb1ae5bb640d` |
 | private 491-module/custom-65 receipt | `22a873e71677be9b5d7a6f02266c0614bd83cfcf210916bf3eb8470ec23a0808` |
 | registered custom-65 diagnostic contract | `8ec62cd19d033f93336ebc83b8fa245b522c008835527a55c9bfff09e80819f5` |
-| implemented diagnostic source (11,288 bytes) | `337b82307c269b01a59b8ee125ed75414ff47803a92d0eab7c8048fb860e264d` |
+| implemented diagnostic source (11,470 bytes) | `2cdc1e58bc77d804f61cd7e5e4efeb1bfa6fd285b7e7160b6d834cc9dc741f24` |
 | diagnostic external-module Makefile | `fd9878269e29f517f685ed8643682190419ab537eefaf1a930a1196409dea1ab` |
-| exact-ABI A/B build and linked-audit helper | `e4745cfb5fd53a6698c264c582a7d4babbd86256801a23cac88cf68bfccd2248` |
-| A/B linked-build receipt (19,363 bytes) | `633038b8368f128cdbe0d93af4f69adb4f600e64d0421aa821e24a719355f08b` |
-| independent audit-mode replay receipt | `1cbef860e63350aa327e442fea8ddc33f319a09e342c1afcb949b87cba3a9599` |
-| A/B diagnostic module (296,392 bytes each) | `66ed2477ed086ea1327cda99bfd3b84758a03dd4be7865062d5577088f80ea87` |
-| custom-surface authority helper v5 | `c3fc9bad9f69c7916c9c1445b151ae4469505fb9d8e350f882385e6bb6b3114b` |
-| linked-qualified custom-surface receipt v5 | `5ed5c3fbf991729abb0d1411afc724f204649727aba3b5d52ab66a2bcd5bc6fa` |
+| exact-ABI A/B build and linked-audit helper | `2e226da99b90ed914d99f5ebed34424dae3223f0b629b5f7a76a97569bb8bea9` |
+| A/B linked-build receipt (19,492 bytes) | `5ea484ae1381b23c42c71163a8bb5add2e54f8b936e7730aee7b87e6a8ffeadd` |
+| independent audit-mode replay receipt | `ce6a1310d1d07b9b6733e4129fecdc41dd4d2bb3ff03247fbe8df2fe9019894b` |
+| A/B diagnostic module (293,400 bytes each) | `4f4f485a35cdb12206b814390b56674ca6a6d691c9a1d7a29c97030053231849` |
+| custom-surface authority helper v6 | `df77d4daaa8e46c4f9e58550a8e8747e291fdbe2294f7ca6b41f92de1b70b3b2` |
+| linked-qualified custom-surface receipt v6 | `2a0c8014acebbf6fc5cb8b550c86926379c3fa0759682604f8f7dba24ffb5d94` |
 | retained stock/XBL `baseline_last_kmsg.bin` | `9a58a0c8486723c31f9cf8ac7d8b8be2586969bb8f167cd76907e3b82db0c7cb` |
 | P3.15 USB-sidecar result | `a075c7014e9d0524fd0b7f18fe14a263639ad27ced386a4801e4c9856caf19fa` |
 
@@ -232,8 +232,8 @@ for the hashed source snapshot, not for an unpinned upstream tree.
 | first-stage/recovery order inputs | pinned `modules.load` and `modules.load.recovery`, hash-pinned above |
 | bounded sparse/range extraction and exact second-stage file | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/result.json` and `modules.load`, hash-pinned above |
 | 67-name stage, position, and dependency-order audit | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/max77705-67-order-audit.json`, hash-pinned above |
-| all-stock export-consumer audit, full-PDIC rejection evidence, and linked-qualified custom-65 diagnostic | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-surface-authority-20260812-09.json`, hash-pinned above |
-| exact P3.10 ABI A/B build plus precompile-source/CFI/modversion/import/relocation audit | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-module-build-20260812-05/build-audit.json`, hash-pinned above |
+| all-stock export-consumer audit, full-PDIC rejection evidence, and linked-qualified custom-65 diagnostic | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-surface-authority-20260812-11.json`, hash-pinned above |
+| exact P3.10 ABI A/B build plus precompile-source/CFI/modversion/import/relocation audit | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-module-build-20260812-07/build-audit.json`, hash-pinned above |
 | PDIC, MFD, SPU, GENI-I2C, GPI, and GENI-SE dependency edges | pinned `modules.dep:91`, `:176`, `:181`, `:235`, `:305`, `:388` |
 | switch bit layout and the values that evaluate to `COM_OPEN=0x3f`, `COM_USB=0x09` | `include/linux/usb/typec/maxim/max77705-muic.h:293-301`, `:359-405` |
 | `CONTROL1` write construction and software-only previous-state assumption | `drivers/usb/typec/maxim/max77705-muic.c:326-349`, `:437-464` |
@@ -853,6 +853,15 @@ The selected source contract permits exactly this sequence:
 7. issue terminal post2 `CONTROL1_R` under the same validation; and
 8. publish only cached fields through one read-only 0444 result parameter.
 
+The PMIC compatibility check follows the stock MFD rule: compare ID `0x15`
+and only `PMICREV[2:0] == 0x02`, while retaining the complete raw revision byte
+so `PMICREV[7:3]` remains evidence. The terminal encoder finishes every cached
+byte before `smp_store_release()` publishes readiness; the getter performs the
+paired `smp_load_acquire()` and returns `-EAGAIN` until publication. This is a
+source requirement, not only a runtime convention: module-parameter sysfs is
+created before `do_init_module()`, so a reader can otherwise overlap the
+blocking probe and observe an initial or torn value.
+
 It requests no IRQ, creates no workqueue or MFD child, registers no Type-C,
 MUIC, IF-manager, notifier, power-supply, misc, debug, proc, or writable sysfs
 surface, and contains no firmware, reset, BC/DCD, CC/PD, VBUS, sink-capability,
@@ -863,12 +872,22 @@ set includes `SYSMsgI`, `VBUSDetI`, `VbADCI`, `DCDTmoI`, `CHGTypI`, and
 safe from Linux-consumer theft only under the enforced condition that no other
 Max77705 driver is bound or loaded.
 
-The v5 helper registers and tests this source shape and requires the exact
+The v6 helper registers and tests this source shape and requires the exact
 linked-build receipt. Its current receipt is
-`custom-surface-authority-20260812-09.json`. Source, precompile validation,
+`custom-surface-authority-20260812-11.json`. Source, precompile validation,
 A/B linked module, import/relocation closure, and fixed-Image modversion/CFI
 proof are satisfied. Boot staging, runtime binding, timeout/result fixtures,
 carrier integration, and independent review remain open.
+
+This v6 artifact supersedes the earlier H0-only v5 linked artifact. Review
+found two source-contract mismatches before packaging: v5 compared the entire
+raw PMIC revision byte rather than the stock driver's low-three-bit logical
+revision, and its getter could overlap result encoding because module-parameter
+sysfs exists before module init completes. The correction preserves the raw
+revision as evidence, uses the stock compatibility mask, publishes only a
+terminal cache through release/acquire ordering, and forces synchronous probe
+policy explicitly. The corrected A/B rebuild introduced no new undefined
+import or linked call relocation; no device action or boot package occurred.
 
 ### Broad MFD effects retained only by the stock comparison
 
@@ -1294,10 +1313,10 @@ FYG8 source/config/toolchain closure. The completed linked audit proves:
 - correct `modinfo` dependency list;
 - no exported symbol and no `alias`, `firmware`, or `softdep` metadata.
 
-Both linked outputs are byte-identical at 296,392 bytes with SHA-256
-`66ed2477ed086ea1327cda99bfd3b84758a03dd4be7865062d5577088f80ea87`.
+Both linked outputs are byte-identical at 293,400 bytes with SHA-256
+`4f4f485a35cdb12206b814390b56674ca6a6d691c9a1d7a29c97030053231849`.
 They are AArch64 relocatable ELFs with build ID
-`52c5141717cd4377b19494aa5b4331ea4013cb52`, exact FYG8 vermagic, 15
+`ffdf1cece67ed6d3c4940167e0669f7ef140e15e`, exact FYG8 vermagic, 15
 expected undefined imports, 16 exact modversion records including
 `module_layout`, CFI jump-table relocations for both callbacks, and zero
 exports. Linked call-relocation counts agree with the bounded source effect
@@ -1311,12 +1330,12 @@ audit did not itself prove the declared precompile validator wiring. The
 final builder therefore calls `validate_diag_source_text()` before source-tree
 copy, `modules_prepare`, or module compilation and receipts both its complete
 validation result and validator-function SHA-256
-`03fb87cbff6ad4e1f10e96de008443e19864fd1661f7593ad55041c961642588`.
-The v5 custom-surface authority rejects a missing, changed, late, or
+`0914d607dac146b4e1aec41df36a104cfaa93c3c09568171f4fe75ec9cd08c3d`.
+The v6 custom-surface authority rejects a missing, changed, late, or
 semantically different linked-build receipt. This was an H0 qualification
 repair; neither build contacted the target or created a boot package.
 The build receipt records full helper hash
-`78a25352529917270c2b88cf3e1105964cb8c71b72959c15045c36d647504137`
+`0a663733feb27ba9fb1710bfd463e0534905a7cefc9f76aec4ff1c831908bd6e`
 at precompile time. The current helper hash differs because it subsequently
 bound the final build receipt; the source-validator function itself remains
 exactly bound by the function hash above, avoiding a circular whole-file hash
@@ -1451,7 +1470,7 @@ remaining applicable gate must close before a live candidate is prepared:
 1. **Diagnostic source and linked effect contract — closed for H0 source/ELF**
    - the exact direct I2C parent match and only one managed dummy client at
      `0x25` are implemented;
-   - `validate_diag_source_text()` is exercised before the build, and the v5
+   - `validate_diag_source_text()` is exercised before the build, and the v6
      contract now rejects a missing or changed linked-build receipt;
    - source and linked relocations prove exactly three read commands and at
      most one conditional, non-retried `CONTROL1_W(0x09)`;
@@ -1482,19 +1501,30 @@ remaining applicable gate must close before a live candidate is prepared:
      in-module atomic claim suppresses reprobe only for that loaded instance;
    - selected FIFO/GSI mode;
    - gadget-path and host-sidecar readiness before late diagnostic load;
+   - the inherited 20-second bind gate closes before late load; the generic
+     loop contains exactly 64 early modules and must not contain the staged
+     diagnostic payload;
+   - one dedicated `finit_module` call owns a lifetime of at least 31 seconds,
+     so the exact 30-second dwell cannot be nested in the bind-gate deadline;
    - pre-write direct fence, bounded per-command deadlines, immediate post1,
      exact 30-second retention/correlation dwell, terminal post2, response
      validation, and explicit no-retry handling for an ambiguous write;
    - time-budget proof that the bounded blocking probe and all setup/cleanup
      remain inside the candidate endpoint and guard lifetimes;
    - cached diagnostic terminal state;
+   - separate terminal buckets for late-load failure, registered/no matching
+     parent, cached early transaction failure, post-return `-EAGAIN`, and
+     result-read timeout;
    - same-session exact-target stock/Download positive control before any
      candidate-side host-silence interpretation;
    - host-sidecar correlation;
    - fail-closed preservation of the interpretation ceiling: no host-silent
      readback tuple may refute physical MUX continuity;
    - carrier encoder/decoder/generation-position exhaustive tests through the
-     real Process-v2 adapter.
+     real Process-v2 adapter. Every existing MUX result row and every new
+     terminal bucket must first decode from a synthesized retained
+     representation through that real path; physical reproduction is neither
+     required nor sufficient for the arming precondition.
 
 4. **Historical and safety regression**
    - S7A2 must remain a prior negative recipe result, not disappear from the

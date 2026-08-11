@@ -64,7 +64,7 @@ TOOLCHAIN = Path(
 
 DEFAULT_OUTPUT_DIR = Path(
     "workspace/private/outputs/s22plus_fyg8_max77705_gate0/"
-    "custom-module-build-20260812-05"
+    "custom-module-build-20260812-07"
 )
 
 SOURCE_DATE_EPOCH = "1754027756"
@@ -108,8 +108,8 @@ MODULE_SOURCE_IDENTITIES = {
         "fd9878269e29f517f685ed8643682190419ab537eefaf1a930a1196409dea1ab",
     ),
     "s22plus_max77705_mux_diag.c": (
-        11_288,
-        "337b82307c269b01a59b8ee125ed75414ff47803a92d0eab7c8048fb860e264d",
+        11_470,
+        "2cdc1e58bc77d804f61cd7e5e4efeb1bfa6fd285b7e7160b6d834cc9dc741f24",
     ),
 }
 

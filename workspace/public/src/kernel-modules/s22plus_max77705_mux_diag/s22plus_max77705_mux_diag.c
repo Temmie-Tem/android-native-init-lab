@@ -19,7 +19,7 @@
 #define S22PLUS_MAX77705_PMIC_ID_REG 0x00
 #define S22PLUS_MAX77705_PMIC_REV_REG 0x01
 #define S22PLUS_MAX77705_EXPECTED_PMIC_ID 0x15
-#define S22PLUS_MAX77705_EXPECTED_PMIC_REV 0x02
+#define S22PLUS_MAX77705_EXPECTED_PMIC_REV_LOW3 0x02
 
 #define S22PLUS_MAX77705_UIC_INT 0x02
 #define S22PLUS_MAX77705_AP_DATAOUT0 0x21
@@ -78,7 +78,8 @@ struct s22plus_max77705_result {
 
 static atomic_t s22plus_max77705_claimed = ATOMIC_INIT(0);
 static struct s22plus_max77705_result s22plus_max77705_result;
-static char cached_result[PAGE_SIZE] = "v=1 stage=0 rc=-11\n";
+static char cached_result[PAGE_SIZE];
+static int cached_result_ready;
 
 _Static_assert(S22PLUS_MAX77705_COMMAND_COUNT == 4U,
 		"result encoder assumes four command slots");
@@ -109,7 +110,8 @@ static int s22plus_max77705_read_pmic_identity(
 	result->pmic_valid_mask |= BIT(1);
 
 	if (result->pmic_id != S22PLUS_MAX77705_EXPECTED_PMIC_ID ||
-	    result->pmic_rev != S22PLUS_MAX77705_EXPECTED_PMIC_REV)
+	    (result->pmic_rev & 0x7U) !=
+		    S22PLUS_MAX77705_EXPECTED_PMIC_REV_LOW3)
 		return -ENODEV;
 
 	return 0;
@@ -321,6 +323,7 @@ static void s22plus_max77705_cache_result(
 	cursor = s22plus_max77705_append_poll(cursor, result->poll_bytes[3],
 			result->poll_count[3]);
 	scnprintf(cursor, PAGE_SIZE - (cursor - cached_result), "\n");
+	smp_store_release(&cached_result_ready, 1);
 }
 
 static int s22plus_max77705_diag_probe(
@@ -363,6 +366,8 @@ static int s22plus_max77705_result_get(
 		char *buffer, const struct kernel_param *parameter)
 {
 	(void)parameter;
+	if (!smp_load_acquire(&cached_result_ready))
+		return -EAGAIN;
 	return scnprintf(buffer, PAGE_SIZE, "%s", cached_result);
 }
 
@@ -378,6 +383,7 @@ static struct i2c_driver s22plus_max77705_diag_driver = {
 	.driver = {
 		.name = "s22plus_max77705_mux_diag",
 		.of_match_table = s22plus_max77705_diag_of_match,
+		.probe_type = PROBE_FORCE_SYNCHRONOUS,
 	},
 	.probe = s22plus_max77705_diag_probe,
 };

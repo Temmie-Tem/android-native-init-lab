@@ -13,7 +13,8 @@ SCRIPT = (
 )
 PRIVATE_BUILD = (
     ROOT
-    / "workspace/private/outputs/s22plus_fyg8_max77705_gate0/build-probe-v2"
+    / "workspace/private/outputs/s22plus_fyg8_max77705_gate0/"
+    "custom-module-build-20260812-07"
 )
 
 

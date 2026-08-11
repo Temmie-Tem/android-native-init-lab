@@ -26,7 +26,7 @@ DIAG_SOURCE = (
 DIAG_BUILD_RECEIPT = (
     ROOT
     / "workspace/private/outputs/s22plus_fyg8_max77705_gate0/"
-    "custom-module-build-20260812-05/build-audit.json"
+    "custom-module-build-20260812-07/build-audit.json"
 )
 
 
@@ -122,6 +122,23 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
                 with self.assertRaises(self.module.SurfaceError):
                     self.module.validate_diag_source_text(source.replace(old, new, 1))
 
+    def test_pmic_revision_uses_stock_low_three_bit_identity(self):
+        source = valid_diag_source()
+        mutations = (
+            (
+                "#define S22PLUS_MAX77705_EXPECTED_PMIC_REV_LOW3 0x02",
+                "#define S22PLUS_MAX77705_EXPECTED_PMIC_REV_LOW3 0x03",
+            ),
+            (
+                "(result->pmic_rev & 0x7U) !=",
+                "result->pmic_rev !=",
+            ),
+        )
+        for old, new in mutations:
+            with self.subTest(old=old):
+                with self.assertRaises(self.module.SurfaceError):
+                    self.module.validate_diag_source_text(source.replace(old, new, 1))
+
     def test_write_must_remain_conditional_on_pre_value(self):
         mutated = valid_diag_source().replace(
             "if (pre != S22PLUS_MAX77705_COM_USB)", "if (true)", 1
@@ -200,6 +217,41 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
         ):
             self.module.validate_diag_source_text(mutated)
 
+    def test_cached_result_requires_terminal_release_acquire_publication(self):
+        source = valid_diag_source()
+        mutations = (
+            ("smp_store_release(&cached_result_ready, 1);", "cached_result_ready = 1;"),
+            (
+                "if (!smp_load_acquire(&cached_result_ready))",
+                "if (!cached_result_ready)",
+            ),
+            ("return -EAGAIN;", "return 0;"),
+        )
+        for old, new in mutations:
+            with self.subTest(old=old):
+                with self.assertRaises(self.module.SurfaceError):
+                    self.module.validate_diag_source_text(source.replace(old, new, 1))
+
+    def test_cached_result_publication_must_follow_complete_encoding(self):
+        source = valid_diag_source()
+        publication = "\tsmp_store_release(&cached_result_ready, 1);\n"
+        mutated = source.replace(publication, "", 1).replace(
+            "\tchar *cursor = cached_result;\n",
+            "\tchar *cursor = cached_result;\n" + publication,
+            1,
+        )
+        with self.assertRaisesRegex(self.module.SurfaceError, "publication"):
+            self.module.validate_diag_source_text(mutated)
+
+    def test_probe_must_remain_force_synchronous(self):
+        mutated = valid_diag_source().replace(
+            "PROBE_FORCE_SYNCHRONOUS", "PROBE_PREFER_ASYNCHRONOUS", 1
+        )
+        with self.assertRaisesRegex(
+            self.module.SurfaceError, "force-synchronous|missing required"
+        ):
+            self.module.validate_diag_source_text(mutated)
+
     def test_post_readback_values_cannot_be_terminal_errors(self):
         mutated = valid_diag_source().replace(
             "result->stage = S22PLUS_MAX77705_STAGE_COMPLETE;",
@@ -258,6 +310,67 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
         self.assertTrue(result["post2_read_is_after_retention_window"])
         self.assertEqual(result["retention_window_ms"], 30_000)
         self.assertTrue(result["ambiguous_write_retry_forbidden"])
+        self.assertEqual(
+            result["exact_pmic_identity"],
+            {
+                "pmic_id": "0x15",
+                "pmic_rev_low3": "0x02",
+                "pmic_rev_raw_retained": True,
+            },
+        )
+        self.assertTrue(result["terminal_cache_release_acquire"])
+        self.assertTrue(result["probe_force_synchronous"])
+
+    def test_runtime_integration_arithmetic_and_arming_gate_are_fail_closed(self):
+        diagnostic = {
+            "runtime_integration": {
+                "base_module_count": 61,
+                "early_substrate_module_count": 3,
+                "generic_early_load_count": 64,
+                "diagnostic_staged_payload_count": 1,
+                "total_packaged_module_count": 65,
+                "diagnostic_forbidden_in_generic_load_loop": True,
+                "inherited_bind_gate_timeout_sec": 20,
+                "bind_gate_must_close_before_late_load": True,
+                "late_load_forbidden_inside_bind_gate": True,
+                "late_load_minimum_lifetime_sec": 31,
+                "late_load_lifetime_exceeds_retention_window": True,
+                "gadget_path_ready_before_late_load": True,
+                "host_sidecar_armed_before_late_load": True,
+                "dedicated_finit_module_callsite_count": 1,
+                "successful_synchronous_finit_module_is_completion_witness": True,
+                "probe_force_synchronous": True,
+                "result_read_only_after_successful_finit_module_return": True,
+                "eagain_is_distinct_from_terminal_diagnostic_failure": True,
+                "future_async_or_missing-client_drift_must_not_expose_cache": True,
+            },
+            "result_contract_arming_precondition": {
+                "status": "REGISTERED_NOT_SATISFIED",
+                "required_terminal_buckets": self.module.DIAG_RUNTIME_TERMINAL_BUCKETS,
+                "real_encoder_carrier_decoder_round_trip_required": True,
+                "synthesized_retained_representation_required": True,
+                "physical_condition_reproduction_required": False,
+                "every_existing_mux_result_row_also_required": True,
+                "blocks_packaging_and_f1_approval_until_receipted": True,
+            },
+        }
+        self.assertTrue(self.module.validate_runtime_integration_contract(diagnostic))
+        for key, value in (
+            ("generic_early_load_count", 65),
+            ("late_load_minimum_lifetime_sec", 30),
+            ("dedicated_finit_module_callsite_count", 2),
+        ):
+            with self.subTest(key=key):
+                mutated = copy.deepcopy(diagnostic)
+                mutated["runtime_integration"][key] = value
+                with self.assertRaises(self.module.SurfaceError):
+                    self.module.validate_runtime_integration_contract(mutated)
+        mutated = copy.deepcopy(diagnostic)
+        del mutated["result_contract_arming_precondition"][
+            "required_terminal_buckets"
+        ]["result_read_timeout"]
+        with self.assertRaisesRegex(self.module.SurfaceError, "arming gate"):
+            self.module.validate_runtime_integration_contract(mutated)
 
     def test_atomic_json_replaces_output(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -383,6 +496,20 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
             "after gadget path activation and host sidecar arming; the probe "
             "then owns one bounded 30000-ms retention/correlation dwell",
         )
+        integration = diagnostic["runtime_integration"]
+        self.assertEqual(integration["generic_early_load_count"], 64)
+        self.assertEqual(integration["total_packaged_module_count"], 65)
+        self.assertEqual(integration["inherited_bind_gate_timeout_sec"], 20)
+        self.assertEqual(integration["late_load_minimum_lifetime_sec"], 31)
+        self.assertTrue(integration["diagnostic_forbidden_in_generic_load_loop"])
+        self.assertTrue(integration["bind_gate_must_close_before_late_load"])
+        arming = diagnostic["result_contract_arming_precondition"]
+        self.assertEqual(arming["status"], "REGISTERED_NOT_SATISFIED")
+        self.assertEqual(
+            arming["required_terminal_buckets"],
+            self.module.DIAG_RUNTIME_TERMINAL_BUCKETS,
+        )
+        self.assertTrue(arming["blocks_packaging_and_f1_approval_until_receipted"])
         self.assertTrue(
             diagnostic["initial_uic_read_scope"][
                 "whole_register_read_to_clear_accepted"

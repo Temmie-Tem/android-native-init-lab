@@ -133,12 +133,16 @@ The exact 491-module audit still matters: it proves PDIC alone consumes the
 three removable MFD updater exports and also records the much broader stock
 PDIC/MUIC/CC/PD/alternate/AFC/QC/notifier/user-control surface. That former
 full-PDIC custom-66 design is now rejected as disproportionate, not retained as
-the preferred implementation. The v5 source validator fixes the logical
+the preferred implementation. The v6 source validator fixes the logical
 transaction shape: neither post value may be synthesized, both reads occur
 outside the optional-write branch, post2 follows the exact retention dwell,
 and any I2C call outside the registered call multiset is rejected. The initial
 UIC read consumes every latched bit, not only `APCmdResI`; its raw byte and all
-poll bytes must therefore be retained.
+poll bytes must therefore be retained. PMIC compatibility now follows the stock
+low-three-bit revision rule while retaining the complete raw revision byte, and
+the cached terminal string is published through one release/acquire readiness
+pair. A getter invoked through the pre-init sysfs exposure returns `-EAGAIN`
+rather than an initial or torn result.
 
 The interpretation ceiling is now explicit. Pinned source proves the opcode
 ABI but not that `CONTROL1_R` senses physical analog contacts or that a cold
@@ -147,21 +151,33 @@ observed late opcode-state reversion, but no host-silent tuple refutes physical
 MUX continuity. Host attach/enumeration is the only independent physical-path
 witness in this diagnostic.
 
-The source and linked-ABI H0 gate is now closed. The final builder ran
+The corrected source and linked-ABI H0 gate is now closed. The final builder ran
 `validate_diag_source_text()` before compilation, reconstructed the exact
-P3.10 source/ABI closure, and produced two byte-identical 296,392-byte modules
+P3.10 source/ABI closure, and produced two byte-identical 293,400-byte modules
 with SHA-256
-`66ed2477ed086ea1327cda99bfd3b84758a03dd4be7865062d5577088f80ea87`.
+`4f4f485a35cdb12206b814390b56674ca6a6d691c9a1d7a29c97030053231849`.
 The audit proves exact FYG8 vermagic, 15 imports, 16 matching modversions, CFI
 callback jump-table relocations, registered call counts, and zero exports.
 The current private contract receipt is
-`custom-surface-authority-20260812-09.json`, SHA-256
-`5ed5c3fbf991729abb0d1411afc724f204649727aba3b5d52ab66a2bcd5bc6fa`;
+`custom-surface-authority-20260812-11.json`, SHA-256
+`2a0c8014acebbf6fc5cb8b550c86926379c3fa0759682604f8f7dba24ffb5d94`;
 its embedded contract is
-`4b1219ae9133055fbc27ba1a7530fca4c6c65647ab5af90dcada324551889ca8`.
+`d2226ce0e7d5215eb257cddbcb6b00612bc6fe2907504c2f5bf2c095be4d81c3`.
 Status is strictly
 `SOURCE_AND_LINKED_AB_ABI_QUALIFIED_RUNTIME_NOT_SATISFIED`; no boot package
 was created and no module was loaded.
+
+Runtime integration is now arithmetically fenced before implementation. The
+generic early loop is exactly 64 entries (the inherited 61 plus three GENI/I2C
+substrate modules); the diagnostic is the staged sixty-fifth payload but is
+forbidden from that loop. The inherited 20-second bind gate must close after
+gadget readiness and host-sidecar arming, before one dedicated late
+`finit_module` call begins a lifetime of at least 31 seconds. The late-load,
+no-match, early terminal transaction, result-not-ready `-EAGAIN`, and result
+read-timeout buckets are registered but not yet satisfied. Packaging and F1
+approval remain blocked until every bucket and every existing MUX result row
+round-trips through the real encoder, retained carrier, and decoder as required
+by the Process-v2 result-contract arming precondition.
 
 The next H0 work is target-only GENI bind proof, exhaustive transaction and
 telemetry fixtures, the host-sidecar positive-control gate, packaging

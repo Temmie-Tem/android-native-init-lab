@@ -25,7 +25,7 @@ from typing import Any
 from s22plus_fyg8_f2fs_module_corpus import FILE_TYPE_REGULAR, F2FSReader
 
 
-SCHEMA = "s22plus_fyg8_max77705_custom_surface_contract_v5"
+SCHEMA = "s22plus_fyg8_max77705_custom_surface_contract_v6"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 DIAG_SOURCE = Path(
     "workspace/public/src/kernel-modules/s22plus_max77705_mux_diag/"
@@ -58,22 +58,22 @@ P315_PLAN = Path(
 )
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_max77705_gate0/"
-    "custom-surface-authority-20260812-09.json"
+    "custom-surface-authority-20260812-11.json"
 )
 DIAG_BUILD_RECEIPT = Path(
     "workspace/private/outputs/s22plus_fyg8_max77705_gate0/"
-    "custom-module-build-20260812-05/build-audit.json"
+    "custom-module-build-20260812-07/build-audit.json"
 )
 DIAG_BUILD_RECEIPT_IDENTITY = (
-    19_363,
-    "633038b8368f128cdbe0d93af4f69adb4f600e64d0421aa821e24a719355f08b",
+    19_492,
+    "5ea484ae1381b23c42c71163a8bb5add2e54f8b936e7730aee7b87e6a8ffeadd",
 )
 DIAG_MODULE_IDENTITY = (
-    296_392,
-    "66ed2477ed086ea1327cda99bfd3b84758a03dd4be7865062d5577088f80ea87",
+    293_400,
+    "4f4f485a35cdb12206b814390b56674ca6a6d691c9a1d7a29c97030053231849",
 )
 DIAG_SOURCE_VALIDATOR_FUNCTION_SHA256 = (
-    "03fb87cbff6ad4e1f10e96de008443e19864fd1661f7593ad55041c961642588"
+    "0914d607dac146b4e1aec41df36a104cfaa93c3c09568171f4fe75ec9cd08c3d"
 )
 DIAG_EXPECTED_VERMAGIC = (
     "5.10.226-android12-9-30958166-abS906NKSS7FYG8 SMP preempt "
@@ -375,6 +375,15 @@ CUSTOM_PREFERRED_ADDITIONS = (
     "i2c-msm-geni.ko",
     "s22plus_max77705_mux_diag.ko",
 )
+DIAG_RUNTIME_TERMINAL_BUCKETS = {
+    "late_finit_module_failure": "NO_PROOF_OBSERVER_DIAGNOSTIC_LOAD",
+    "driver_registered_without_matching_parent": (
+        "NO_PROOF_OBSERVER_DIAGNOSTIC_NO_MATCH"
+    ),
+    "probe_terminal_failure": "NO_PROOF_DIAGNOSTIC_TRANSACTION",
+    "result_not_ready_eagain": "NO_PROOF_OBSERVER_DIAGNOSTIC_NOT_READY",
+    "result_read_timeout": "NO_PROOF_OBSERVER_DIAGNOSTIC_RESULT_TIMEOUT",
+}
 REJECTED_FULL_PDIC_CUSTOM_ADDITIONS = (
     "msm-geni-se.ko",
     "gpi.ko",
@@ -389,7 +398,7 @@ DIAG_REQUIRED_TOKENS = (
     "#define S22PLUS_MAX77705_PMIC_ID_REG 0x00",
     "#define S22PLUS_MAX77705_PMIC_REV_REG 0x01",
     "#define S22PLUS_MAX77705_EXPECTED_PMIC_ID 0x15",
-    "#define S22PLUS_MAX77705_EXPECTED_PMIC_REV 0x02",
+    "#define S22PLUS_MAX77705_EXPECTED_PMIC_REV_LOW3 0x02",
     "#define S22PLUS_MAX77705_UIC_INT 0x02",
     "#define S22PLUS_MAX77705_AP_DATAOUT0 0x21",
     "#define S22PLUS_MAX77705_AP_DATAOUT_END 0x41",
@@ -413,10 +422,15 @@ DIAG_REQUIRED_TOKENS = (
     "s22plus_max77705_control1_write_once(",
     "msleep(S22PLUS_MAX77705_RETENTION_MS)",
     ".compatible = S22PLUS_MAX77705_PARENT_COMPATIBLE",
+    ".probe_type = PROBE_FORCE_SYNCHRONOUS",
     "module_i2c_driver(",
     "struct i2c_client *parent, const struct i2c_device_id *id)",
     "static int s22plus_max77705_result_get(",
     "char *buffer, const struct kernel_param *parameter)",
+    "static int cached_result_ready;",
+    "smp_store_release(&cached_result_ready, 1);",
+    "if (!smp_load_acquire(&cached_result_ready))",
+    "return -EAGAIN;",
     ".set = NULL",
     ".get = s22plus_max77705_result_get",
     "module_param_cb(result",
@@ -979,6 +993,8 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
         raise SurfaceError(f"diagnostic retains forbidden broad effect: {hits}")
     if "while (" in text or "do {" in text:
         raise SurfaceError("diagnostic contains an unregistered loop form")
+    if "PROBE_PREFER_ASYNCHRONOUS" in text:
+        raise SurfaceError("diagnostic probe must remain force-synchronous")
 
     i2c_calls = re.findall(r"\b((?:devm_)?i2c_[A-Za-z0-9_]+)\s*\(", text)
     expected_i2c_calls = {
@@ -1009,13 +1025,16 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
             "result->pmic_id = (u8)value;",
             "result->pmic_rev = (u8)value;",
             "result->pmic_id != S22PLUS_MAX77705_EXPECTED_PMIC_ID",
-            "result->pmic_rev != S22PLUS_MAX77705_EXPECTED_PMIC_REV",
+            "(result->pmic_rev & 0x7U) !=",
+            "S22PLUS_MAX77705_EXPECTED_PMIC_REV_LOW3",
             "return -ENODEV;",
         ),
         "PMIC identity",
     )
     if identity_block.count("i2c_smbus_read_byte_data(") != 2:
         raise SurfaceError("PMIC identity must issue exactly two direct reads")
+    if identity_block.count("result->pmic_rev & 0x7U") != 1:
+        raise SurfaceError("PMIC revision must use the stock low-three-bit identity")
 
     clear_block = extract_function_block(
         text,
@@ -1241,11 +1260,18 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
             "result->poll_bytes[1]",
             "result->poll_bytes[2]",
             "result->poll_bytes[3]",
+            "smp_store_release(&cached_result_ready, 1);",
         ),
         "cached result encoder",
     )
     if cache_block.count("s22plus_max77705_append_poll(") != 4:
         raise SurfaceError("cached result must retain all four poll-byte vectors")
+    if cache_block.count("smp_store_release(&cached_result_ready, 1);") != 1:
+        raise SurfaceError("cached result must have one release publication")
+    if cache_block.find("smp_store_release(&cached_result_ready, 1);") < cache_block.rfind(
+        "scnprintf("
+    ):
+        raise SurfaceError("cached result publication must follow terminal encoding")
 
     getter = extract_function_block(
         text,
@@ -1257,6 +1283,25 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
         raise SurfaceError(f"result getter initiates an external effect: {getter_hits}")
     if text.count("module_param_cb(") != 1:
         raise SurfaceError("diagnostic must expose exactly one read-only result parameter")
+    require_tokens(
+        getter,
+        (
+            "if (!smp_load_acquire(&cached_result_ready))",
+            "return -EAGAIN;",
+            'return scnprintf(buffer, PAGE_SIZE, "%s", cached_result);',
+        ),
+        "read-only result getter",
+    )
+    if getter.count("smp_load_acquire(&cached_result_ready)") != 1:
+        raise SurfaceError("result getter must have one acquire readiness check")
+    if getter.find("smp_load_acquire(&cached_result_ready)") > getter.find(
+        "scnprintf("
+    ):
+        raise SurfaceError("result readiness must be checked before cached bytes")
+    if text.count("smp_store_release(&cached_result_ready, 1);") != 1 or text.count(
+        "smp_load_acquire(&cached_result_ready)"
+    ) != 1:
+        raise SurfaceError("result publication must be one release/acquire pair")
 
     return {
         "source_contract_satisfied": True,
@@ -1265,7 +1310,11 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
         "direct_parent_i2c_bind": True,
         "exact_parent_i2c_address": "0x66",
         "only_muic_dummy_client_created": True,
-        "exact_pmic_identity": {"pmic_id": "0x15", "pmic_rev": "0x02"},
+        "exact_pmic_identity": {
+            "pmic_id": "0x15",
+            "pmic_rev_low3": "0x02",
+            "pmic_rev_raw_retained": True,
+        },
         "control1_read_command_count": 3,
         "control1_write_maximum_count": 1,
         "stale_uic_latch_clear_count": 1,
@@ -1281,12 +1330,76 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
         "mfd_children_absent": True,
         "firmware_reset_power_notifier_and_protocol_stacks_absent": True,
         "result_export_read_only_and_cached": True,
+        "terminal_cache_release_acquire": True,
+        "probe_force_synchronous": True,
     }
 
 
 def canonical_hash(value: Any) -> str:
     encoded = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def validate_runtime_integration_contract(diagnostic: dict[str, Any]) -> bool:
+    runtime = diagnostic.get("runtime_integration", {})
+    if not isinstance(runtime, dict):
+        raise SurfaceError("diagnostic runtime integration contract is missing")
+    base = runtime.get("base_module_count")
+    substrate = runtime.get("early_substrate_module_count")
+    early = runtime.get("generic_early_load_count")
+    staged = runtime.get("diagnostic_staged_payload_count")
+    total = runtime.get("total_packaged_module_count")
+    bind_timeout = runtime.get("inherited_bind_gate_timeout_sec")
+    late_lifetime = runtime.get("late_load_minimum_lifetime_sec")
+    if (
+        not all(isinstance(value, int) for value in (
+            base, substrate, early, staged, total, bind_timeout, late_lifetime
+        ))
+        or base + substrate != early
+        or early + staged != total
+        or early != 64
+        or staged != 1
+        or total != 65
+    ):
+        raise SurfaceError("diagnostic early/late module arithmetic mismatch")
+    if (
+        bind_timeout != 20
+        or late_lifetime < 31
+        or late_lifetime <= bind_timeout
+        or late_lifetime <= 30
+    ):
+        raise SurfaceError("diagnostic late-load lifetime cannot contain its dwell")
+    for name in (
+        "diagnostic_forbidden_in_generic_load_loop",
+        "bind_gate_must_close_before_late_load",
+        "late_load_forbidden_inside_bind_gate",
+        "late_load_lifetime_exceeds_retention_window",
+        "gadget_path_ready_before_late_load",
+        "host_sidecar_armed_before_late_load",
+        "successful_synchronous_finit_module_is_completion_witness",
+        "probe_force_synchronous",
+        "result_read_only_after_successful_finit_module_return",
+        "eagain_is_distinct_from_terminal_diagnostic_failure",
+        "future_async_or_missing-client_drift_must_not_expose_cache",
+    ):
+        if runtime.get(name) is not True:
+            raise SurfaceError(f"diagnostic runtime invariant is not fixed: {name}")
+    if runtime.get("dedicated_finit_module_callsite_count") != 1:
+        raise SurfaceError("diagnostic must have one dedicated late-load callsite")
+
+    arming = diagnostic.get("result_contract_arming_precondition", {})
+    if (
+        not isinstance(arming, dict)
+        or arming.get("status") != "REGISTERED_NOT_SATISFIED"
+        or arming.get("required_terminal_buckets") != DIAG_RUNTIME_TERMINAL_BUCKETS
+        or arming.get("real_encoder_carrier_decoder_round_trip_required") is not True
+        or arming.get("synthesized_retained_representation_required") is not True
+        or arming.get("physical_condition_reproduction_required") is not False
+        or arming.get("every_existing_mux_result_row_also_required") is not True
+        or arming.get("blocks_packaging_and_f1_approval_until_receipted") is not True
+    ):
+        raise SurfaceError("diagnostic result-contract arming gate is incomplete")
+    return True
 
 
 def validate_diag_build_payload(
@@ -1915,6 +2028,36 @@ def audit(root: Path) -> dict[str, Any]:
                 "one loaded module instance; unload/reinsert is a separate runtime "
                 "attempt and is forbidden"
             ),
+            "runtime_integration": {
+                "base_module_count": 61,
+                "early_substrate_module_count": 3,
+                "generic_early_load_count": 64,
+                "diagnostic_staged_payload_count": 1,
+                "total_packaged_module_count": 65,
+                "diagnostic_forbidden_in_generic_load_loop": True,
+                "inherited_bind_gate_timeout_sec": 20,
+                "bind_gate_must_close_before_late_load": True,
+                "late_load_forbidden_inside_bind_gate": True,
+                "late_load_minimum_lifetime_sec": 31,
+                "late_load_lifetime_exceeds_retention_window": True,
+                "gadget_path_ready_before_late_load": True,
+                "host_sidecar_armed_before_late_load": True,
+                "dedicated_finit_module_callsite_count": 1,
+                "successful_synchronous_finit_module_is_completion_witness": True,
+                "probe_force_synchronous": True,
+                "result_read_only_after_successful_finit_module_return": True,
+                "eagain_is_distinct_from_terminal_diagnostic_failure": True,
+                "future_async_or_missing-client_drift_must_not_expose_cache": True,
+            },
+            "result_contract_arming_precondition": {
+                "status": "REGISTERED_NOT_SATISFIED",
+                "required_terminal_buckets": DIAG_RUNTIME_TERMINAL_BUCKETS,
+                "real_encoder_carrier_decoder_round_trip_required": True,
+                "synthesized_retained_representation_required": True,
+                "physical_condition_reproduction_required": False,
+                "every_existing_mux_result_row_also_required": True,
+                "blocks_packaging_and_f1_approval_until_receipted": True,
+            },
         },
         "selected_closure": {
             "base_module_count": len(p315_modules),
@@ -1980,12 +2123,16 @@ def audit(root: Path) -> dict[str, Any]:
             "the unbound max77705@66 client binds only the diagnostic and creates only 0x25",
             "no stock MFD, PDIC, or SPU module is opened or loaded",
             "late diagnostic load occurs only after gadget-path and host-sidecar readiness",
+            "the generic 20-second bind gate closes before a dedicated diagnostic late-load lifetime of at least 31 seconds begins",
+            "the diagnostic is staged as the sixty-fifth payload but is absent from the 64-entry generic early-load loop",
             "the plan loads the diagnostic exactly once and exposes no unload/reinsert path",
             "the exact 30000-ms retention dwell fits the candidate and guard budgets",
+            "all late-load and cached-result terminal buckets round-trip through the real encoder carrier and decoder before packaging or F1 approval",
             "pre-write direct fence, command deadlines, response validation, and no-retry behavior are exercised by fixtures",
             "carrier and host-sidecar positive control distinguish every result-contract row",
         ],
     }
+    validate_runtime_integration_contract(contract["diagnostic"])
     return {
         "schema": SCHEMA,
         "target": TARGET,
