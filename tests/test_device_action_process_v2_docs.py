@@ -79,6 +79,17 @@ FAST_LOOP_HEALTH_REQUIRED_CLAUSES = (
 )
 
 
+RESULT_CONTRACT_ARMING_REQUIRED_CLAUSES = (
+    "every terminal state of the result contract, including each failure bucket,"
+    " is producible on the host and decodes to its intended classification",
+    "must exercise the real encoder, the real carrier representation, and the"
+    " real host decoder rather than a stand-in for any of them",
+    "A capability proof does not satisfy this precondition.",
+    "this gate binds the observer",
+    "`NO_PROOF_OBSERVER`",
+)
+
+
 def normalized(text):
     return " ".join(text.split())
 
@@ -340,6 +351,27 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             self.assertIn("information yield", ledger)
             self.assertIn("NO_PROOF_OBSERVER", ledger)
             self.assertIn("structured result", ledger)
+
+    def test_f1_arming_requires_a_reportable_failure_contract(self):
+        value = normalized(self.process)
+        for clause in RESULT_CONTRACT_ARMING_REQUIRED_CLAUSES:
+            self.assertIn(clause, value)
+
+    def test_result_contract_precondition_rejects_each_load_bearing_mutation(self):
+        value = normalized(self.process)
+        for index, clause in enumerate(RESULT_CONTRACT_ARMING_REQUIRED_CLAUSES):
+            mutated = value.replace(clause, "")
+            self.assertNotEqual(
+                mutated,
+                value,
+                f"clause {index} is absent from the process contract",
+            )
+            missing = tuple(
+                other
+                for other in RESULT_CONTRACT_ARMING_REQUIRED_CLAUSES
+                if other not in mutated
+            )
+            self.assertIn(clause, missing)
 
     def test_process_v2_state_machine_is_canonical(self):
         for state in (

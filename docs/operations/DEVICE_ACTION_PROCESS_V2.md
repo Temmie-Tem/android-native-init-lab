@@ -315,6 +315,28 @@ Preflight, dry-run, and local Odin parser failures are durable run outcomes but
 not permanent one-shot consumption. A later attempt is a new run and requires a
 new approval. The process does not reactivate or reuse an old approval.
 
+### Result-Contract Arming Precondition
+
+An F1 approval may not bind an observation timeout and acceptance rule whose
+result contract has been demonstrated only on its success path. Before that
+approval is collected, the qualification must show that every terminal state of
+the result contract, including each failure bucket, is producible on the host
+and decodes to its intended classification. The demonstration is host-only and
+must exercise the real encoder, the real carrier representation, and the real
+host decoder rather than a stand-in for any of them.
+
+A capability proof does not satisfy this precondition. The mechanism under test
+and the observer that must report it are separate objects; this gate binds the
+observer. A terminal state that cannot be produced on the host is not
+admissible in the result contract, and removing one is a contract change that
+requires a new preflight and new approval.
+
+The precondition exists because a run whose observer cannot express its own
+failure consumes the candidate, the attendance, and the rollback budget while
+returning no information about the device. The campaign ledger records that
+outcome as `NO_PROOF_OBSERVER`. It is a durable run outcome, not a retry, and
+the consumed candidate is never replayed.
+
 ### Operator-Attended Observation
 
 The default observation remains unattended and fail-fast. A target-specific,
