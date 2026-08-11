@@ -8,10 +8,10 @@ Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` /
 `S906NKSS7FYG8`)
 
 Verdict:
-`BASE_CARRIER_NORMAL_ORDER_AND_EXACT_SYSFS_GEOMETRY_RECOVERED_STOCK_67_UNADJUDICATED_FULL_PDIC_CUSTOM_66_REJECTED_CUSTOM_65_SOURCE_LINKED_ABI_D0_AND_OVERRIDE_QEMU_PROVED_SCHEMA_REVIEW_RUNTIME_AND_PACKAGING_OPEN`
+`BASE_CARRIER_NORMAL_ORDER_AND_EXACT_SYSFS_GEOMETRY_RECOVERED_STOCK_67_UNADJUDICATED_FULL_PDIC_CUSTOM_66_REJECTED_CUSTOM_65_SOURCE_LINKED_ABI_D0_AND_OVERRIDE_QEMU_QUALIFIED_RUNTIME_AND_PACKAGING_OPEN`
 
 Review state:
-`PRIMARY_SOURCE_491_MODULE_AND_NARROW_LINKED_ABI_AUDITS_CLOSED_RUNTIME_PACKAGING_AND_INDEPENDENT_REVIEW_REQUIRED`
+`PRIMARY_SOURCE_491_MODULE_NARROW_LINKED_ABI_AND_OVERRIDE_QEMU_SCHEMA_REVIEWS_CLOSED_RUNTIME_PACKAGING_AND_SUCCESSOR_REVIEW_REQUIRED`
 
 Repository analysis base:
 `0dd0981d960aa74681f5965c021c740cb1eab393`
@@ -1193,7 +1193,7 @@ blockers and using the normal bus reprobe path must bind the two controls as a
 positive counterfactual. Direct driver `bind`/`unbind` sysfs shortcuts are not
 accepted as the proof phase, and this result grants no device authority.
 
-#### Current QEMU status — raw-replay proof complete, schema review open
+#### Current QEMU status — raw-replay schema independently qualified
 
 The control, builder, and mutation fixtures are implemented. The pinned inputs
 are Debian arm64 kernel `6.12.94`, QEMU `10.2.1`, and the signed modular
@@ -1275,8 +1275,32 @@ manifest SHA. The first re-review then found one remaining TOCTOU: replay hashed
 the manifest path and reopened it for parsing. The final repair reads one
 `manifest_bytes` object exactly once and performs both the expected-SHA check
 and strict JSON decoding on that object; a switching-path fixture proves that a
-second byte object cannot be substituted. Independent re-review remains
-required.
+second byte object cannot be substituted.
+
+The final independent re-review attacked all four findings and returned:
+
+```text
+PASS_GO — S22PLUS_FYG8_MAX77705_DRIVER_OVERRIDE_QEMU_RAW_CAPTURE_REPLAY_SCHEMA_V1
+```
+
+The reviewed S22+ changed closure is exactly:
+
+- `1024b095e8828710b29c949390fcfa25c977fee4`;
+- `2867a6df8c7718623b8e9476e98b34dda1216490`;
+- `17ae7a56fcc65fa170a05f11482e3166a40d7c33`; and
+- `28408eecb911a7d47af13a3092546c21b97d8866`.
+
+The review independently reproduced the manifest substitution attack, exact
+schema mutations, malformed FAIL variants, and exclusive-FD ownership checks,
+then replayed the actual run-03 raw to the same PASS. The qualified closure
+binds guest control C SHA-256
+`18441154b6893465039b8773539ddc6ddeb5413299bab16659ebf2abc6979c21`,
+observer/replay SHA-256
+`990cd4e793ebf2c71b7a37fd08a4826427822e5ff0eef45dd6750c9f7778e86b`,
+synthetic corpus SHA-256
+`c453f6533dcf522ac3ec1937d69b02ab5e615b225a5e4a2be8bb575ed3dd0af3`,
+and focused test-source SHA-256
+`4ff41fd612da85510e2ee864e2605750b77b91ea9f5823b2e87a49f8143a9838`.
 
 The single corrected execution then passed with:
 
@@ -1300,16 +1324,14 @@ The single corrected execution then passed with:
 - an independent no-QEMU replay of those same bytes and receipt to the same
   `PASS_MAX77705_DRIVER_OVERRIDE_QEMU_HOST_ONLY` proof.
 
-Status is now
-`DRIVER_OVERRIDE_QEMU_RAW_REPLAY_PROVED_INDEPENDENT_REVIEW_PENDING`. The
-execution and replay close the technical proof for the generic
-pre-registration platform `driver_override` suppression property. Because the
-repair adds capture and replay receipt schemas, the repository review rule
-still requires one independent changed-closure review before this proof is
-fully qualified for successor packaging. It does not validate S22+ sysfs path
-construction, QUPv3/GPI/GENI binding, Max77705 I2C or MUX behavior, candidate
-packaging, or any device authority. No Android device command, D0/D1/F1 action,
-payload, or partition operation occurred.
+Status is now `DRIVER_OVERRIDE_QEMU_RAW_CAPTURE_REPLAY_SCHEMA_V1_QUALIFIED`.
+The execution, exact replay, failure corpus, and independent review close the
+generic pre-registration platform `driver_override` suppression property and
+its three-device QEMU evidence schema. They do not validate the future
+15-device runtime corpus, S22+ sysfs path construction, QUPv3/GPI/GENI binding,
+Max77705 I2C or MUX behavior, candidate packaging, or any device authority. No
+Android device command, D0/D1/F1 action, payload, or partition operation
+occurred.
 
 ## GPI use must be observed rather than assumed
 
@@ -2033,6 +2055,11 @@ This report was closed at H0 with the following host-side checks:
   three-device target/block/reprobe/unload PASS and committed its raw capture
   before semantic decoding; the no-QEMU replay independently returned the
   same proof from the recorded raw and capture hashes;
+- final independent review reproduced the four schema/ownership attack
+  classes and returned
+  `PASS_GO — S22PLUS_FYG8_MAX77705_DRIVER_OVERRIDE_QEMU_RAW_CAPTURE_REPLAY_SCHEMA_V1`
+  for exact closure `1024b095e8` + `2867a6df8c` + `17ae7a56fc` +
+  `28408eecb9`;
 - `python3 -m unittest tests.test_device_action_process_v2_docs` passed 21/21;
   and
 - tracked and new-report whitespace checks passed with a terminating newline.
@@ -2086,8 +2113,9 @@ The evidence now supports these exact statements:
     linked module, imports, modversions, CFI callbacks, bounded call surface,
     retained envelope, actual C request-v3 publisher, and real Process-v2
     decoder path are proven. The exact-target D0 geometry is also proven.
+    The generic QEMU suppression/raw-replay schema is independently qualified.
     Binding, timeout/runtime fixtures, sidecar positive control, packaging,
-    and independent review remain.
+    and the future successor changed-closure review remain.
 
 Until the remaining H0 gates close, the correct state is:
 
@@ -2098,4 +2126,5 @@ STOCK_67_UNADJUDICATED
 FULL_PDIC_CUSTOM_66_REJECTED_AS_DISPROPORTIONATE
 CUSTOM_65_SOURCE_LINKED_AB_ABI_AND_D0_SYSFS_GEOMETRY_QUALIFIED_RUNTIME_NOT_SATISFIED
 CUSTOM_65_EFFECT_SET_LINKED_AUDITED_NOT_PACKAGED
+DRIVER_OVERRIDE_QEMU_RAW_CAPTURE_REPLAY_SCHEMA_V1_QUALIFIED
 ```

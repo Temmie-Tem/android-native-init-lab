@@ -239,18 +239,19 @@ custom diagnostic's pre-load geometry.
 
 Packaging and F1 approval remain blocked because target-specific override/bind
 runtime and its terminal rollback-by-reboot checks are not materialized,
-host-sidecar positive control is open, and independent review has not
-occurred. The next step is H0 implementation of that exact target-only
-integration and its transaction fixtures; this H0 work grants neither D1 nor
-F1 authority. A standalone connected stock-Android override write would be
-D1, but all twelve controls are already bound there: it could prove only
-write/readback, not pre-bind suppression, unless preceded by an out-of-scope
-unbind. No such low-value D1 is planned. The suppression property must instead
-pass the pinned arm64 QEMU platform-device control, while the planned
-in-candidate writes remain part of the enclosing boot-only F1 and must not be
-split into a D1 pretest. No further device action is needed for the sysfs-name
-gate. The pinned arm64 QEMU suppression behavior is now proved, with the new
-raw-capture/replay schema still pending the required independent review. Its
+host-sidecar positive control is open, and the future successor changed closure
+has neither been implemented nor independently reviewed. The next step is H0
+implementation of that exact target-only integration and its transaction
+fixtures; this H0 work grants neither D1 nor F1 authority. A standalone
+connected stock-Android override write would be D1, but all twelve controls are
+already bound there: it could prove only write/readback, not pre-bind
+suppression, unless preceded by an out-of-scope unbind. No such low-value D1 is
+planned. The suppression property must instead pass the pinned arm64 QEMU
+platform-device control, while the planned in-candidate writes remain part of
+the enclosing boot-only F1 and must not be split into a D1 pretest. No further
+device action is needed for the sysfs-name gate. The pinned arm64 QEMU
+suppression behavior and its raw-capture/replay schema are independently
+qualified. Its
 first two guest executions reached the same three-device transition but
 exposed two distinct active-Rule-7 failures: host termination before a complete
 terminal record, then rejection of a complete PL011 CRLF record by the LF-only
@@ -274,8 +275,12 @@ keeps one exclusive raw descriptor through tail drain; the original run-03 raw
 passed that stricter replay without a QEMU rerun. The first re-review then found
 a remaining manifest TOCTOU between path hashing and path reopening; replay now
 hashes and parses one immutable byte object, with a switching-path regression.
-Independent re-review, actual S22+ path construction, binding, I2C, MUX,
-packaging, and live authority remain open.
+Final independent re-review attacked those four findings and returned
+`PASS_GO — S22PLUS_FYG8_MAX77705_DRIVER_OVERRIDE_QEMU_RAW_CAPTURE_REPLAY_SCHEMA_V1`
+for closure commits `1024b095e8`, `2867a6df8c`, `17ae7a56fc`, and
+`28408eecb9`. Actual S22+ path construction, the future 15-device negative
+corpus, binding, I2C, MUX, packaging, successor review, and live authority
+remain open.
 The former
 4,246,401,024-byte
 workspace-capacity blocker is closed by the exact private S22+ cleanup
