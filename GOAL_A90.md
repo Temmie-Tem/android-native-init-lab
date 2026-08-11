@@ -752,7 +752,7 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: H18 Diagnostic Execution Preparation H0
+## Selected Bounded Unit: H18 Installed, Awaiting Diagnostic D1
 
 Preserve every terminal H7-H16 transaction and the complete seven-record H17
 run01 journal. The consumed H17 arm, reboot, and handoff are never replayed.
@@ -764,14 +764,15 @@ observer-auth, firstboot, persistent-HUD, evidence-bind, or Wi-Fi-bind failure.
 H18 `0.11.186` records exact stage, rc, and errno before cleanup under fresh
 identity and deterministic boot `692da1ea...ec78`. Independent `PASS_GO`
 closes native closure `714c1797...009b` and F1/D1 execution closure
-`dcb507f5...ced8` with HIGH/MEDIUM/LOW zero. The execution qualification binds
-exact H17 terminal history, reviewed H18 artifacts, fresh-D0 gating, boot-only
-transfer and rollback, post-flash source revalidation, exact non-contradictory
-health, one-shot journals, and host-only no-replay resume. Live authority is
-still false: an absent diagnostic remains `NO_PROOF`, and H18 has not been
-installed or run. The next unit is a fresh A90 D0 inventory, then fresh
-attended F1 approval. Persistent HUD remains unproved and is not repaired by
-guess.
+`dcb507f5...ced8` with HIGH/MEDIUM/LOW zero. Fresh D0 then proved H17 healthy,
+the same-session UFS identity unmounted, and H18 markers absent. One attended
+boot-only F1 wrote and read back H18 exactly once and closed result
+`e97aebb1...0804` as `PASS_A90_H18_UFS_RESIDENT_INSTALLED` /
+`RESIDENT_HEALTHY`, with unarmed `0,0`, self-test `11/1/0`, candidate replay
+false, rollback zero, and guard released. H18 is installed but has not run its
+diagnostic handoff. The next unit requires a separate fresh attended D1
+approval for one combined arm-plus-reboot; an absent diagnostic remains
+`NO_PROOF`, and persistent HUD remains unproved rather than repaired by guess.
 
 Only a full comparable H15 control benchmark can open a later Full-LTO unit.
 Qualification never substitutes for fresh manifest, D0, approval, attendance,
