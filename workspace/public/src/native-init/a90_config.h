@@ -79,8 +79,8 @@
 #ifndef A90_UFS_PERSISTENT_NATIVE_HUD_V1
 #define A90_UFS_PERSISTENT_NATIVE_HUD_V1 0
 #endif
-#if A90_UFS_OBSERVER_AUTH_OVERLAY_V1 != A90_UFS_PERSISTENT_NATIVE_HUD_V1
-#error A90 UFS observer-auth and persistent native-HUD features must be paired
+#if A90_UFS_PERSISTENT_NATIVE_HUD_V1 && !A90_UFS_OBSERVER_AUTH_OVERLAY_V1
+#error A90 UFS persistent native-HUD requires observer-auth overlay
 #endif
 #ifndef A90_AUTO_HANDOFF_IMAGE
 #define A90_AUTO_HANDOFF_IMAGE ""

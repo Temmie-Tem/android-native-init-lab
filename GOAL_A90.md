@@ -744,29 +744,31 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: H18 E1 Closed, H19 Firstboot-Overlay Diagnosis
+## Selected Bounded Unit: H19 Capability Qualified, Execution Adapter Pending
 
 Preserve every terminal H7-H17 transaction and the complete seven-record H18
 run01 journal. The consumed H18 arm, reboot, and handoff are never replayed.
 The captured-log finalizer is retired by its exact terminal close and grants no
 successor authority.
 
-H18 proves the visible E1 is outer `EPERM` at `firstboot-overlay`, after the
-UFS root was mounted and before `switch_root`; it is not a DRM, SD-capacity, or
-UFS-speed result. The same log proves ordered clean restoration and exact H18
-resident health. It does not yet distinguish the source check, target check,
-initial bind, remount, or post-bind verification within that stage. Host
-artifact inspection shows the compiled ramdisk firstboot source is a regular
-mode-0500 file and the published appliance content manifest expects its target
-as a regular mode-0755 file, but those static facts do not prove the runtime
-suboperation.
+H18 proves only outer `EPERM` at `firstboot-overlay`, after the UFS root mount
+and before `switch_root`; it does not distinguish source check, target check,
+bind, remount, or verification. H19 therefore avoids that optional stage rather
+than claiming a narrower cause. H19 `0.11.187` retains the boot-private observer
+auth tmpfs and its cleanup, compile-disables the boot firstboot bind and native
+persistent HUD, and delegates display startup to the exact immutable UFS
+`/etc/a90-d3-firstboot`. Its v6 binding records Debian display ownership.
 
-The next bounded unit is H0-only H19 diagnosis: split or otherwise expose the
-exact firstboot-overlay substage and verify the immutable artifacts before
-designing a replacement. Any new boot candidate requires a fresh version,
-build identity, marker namespace, execution qualification, connected D0, and
-attended F1/D1 authority. Debian PID 1, persistent SSH, display ownership,
-Wi-Fi ownership, and persistent-server readiness remain unproved.
+Deterministic A/B build `7df1a054...33ab` is byte-identical, contains the
+observer key but no H17 firstboot payload, and is bound to the 142-file A90-only
+native closure `4623c9cc...8e2`. Clean independent `PASS_GO` at 13-file closure
+`1a8f3276...d22d` has HIGH/MEDIUM/LOW zero and grants no live authority.
+
+The next bounded unit is H0-only H19 F1/D1 execution-adapter construction. It
+must bind the terminal H18 predecessor, exact H19 A/B artifacts, V2321 rollback,
+boot-only transfer, no replay, fresh connected D0, attendance, recovery, and
+fresh F1/D1 approvals. Debian PID 1, persistent SSH, display ownership, Wi-Fi
+ownership, and persistent-server readiness remain unproved until that run.
 
 Only a full comparable H15 control benchmark can open a later Full-LTO unit.
 Qualification never substitutes for fresh manifest, D0, approval, attendance,
@@ -843,6 +845,7 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_H18_UFS_F1_D1_EXECUTION_INDEPENDENT_REVIEW_2026-08-12.json`
 - `docs/reports/A90_H18_FRAMED_LOG_PREFIX_FINALIZER_INCIDENT_2026-08-12.md`
 - `docs/reports/A90_H18_FRAMED_LOG_PREFIX_FINALIZER_INDEPENDENT_REVIEW_2026-08-12.json`
+- `docs/reports/A90_H19_AUTH_ONLY_UFS_HANDOFF_INDEPENDENT_REVIEW_2026-08-12.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`

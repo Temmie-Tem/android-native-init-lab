@@ -17,6 +17,7 @@ FIRSTBOOT = REPO / "workspace/public/src/scripts/server-distro/a90_dpublic_first
 H16 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h16/manifest.toml"
 H17 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h17/manifest.toml"
 H18 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h18/manifest.toml"
+H19 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h19/manifest.toml"
 BUILDER = load_script(
     "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py"
 )
@@ -102,7 +103,7 @@ class H17ManifestTests(unittest.TestCase):
             with self.assertRaisesRegex(BUILDLIB.ManifestError, "depth exceeds 2"):
                 BUILDLIB.resolve_manifest(h18)
 
-    def test_h18_diagnostic_successor_has_fresh_identity_and_current_closure(self) -> None:
+    def test_h18_diagnostic_successor_keeps_its_historical_identity_and_pin(self) -> None:
         manifest = BUILDLIB.resolve_manifest(H18).data
         self.assertEqual(manifest["profile"], "phase3-minimal-h18-post-root-failure-attribution")
         binding = BUILDER.normalized_auto_handoff_binding(manifest)
@@ -119,12 +120,49 @@ class H17ManifestTests(unittest.TestCase):
             binding["latch_path"],
             "/cache/a90-auto-handoff-phase3-minimal-h18.done",
         )
+        self.assertEqual(
+            manifest["init"]["closure_sha256"],
+            "714c17971e357466dbccd69853d2c52b6ccf1b16648df4c2436900989e37009b",
+        )
+
+    def test_h19_keeps_auth_but_retires_firstboot_overlay_and_native_hud(self) -> None:
+        resolution = BUILDLIB.resolve_manifest(H19)
+        self.assertEqual(
+            [path.parent.name for path in resolution.lineage],
+            ["phase3-minimal-h19", "phase3-minimal-h16", "v3404-effective"],
+        )
+        manifest = resolution.data
+        binding = BUILDER.normalized_auto_handoff_binding(manifest)
+        self.assertEqual(binding["schema"], "a90-compiled-auto-handoff-binding-v6")
+        self.assertEqual(binding["candidate_version"], "0.11.187")
+        self.assertEqual(
+            binding["candidate_build"],
+            "phase3-minimal-h19-ufs-auth-debian-display",
+        )
+        self.assertEqual(binding["observer_auth"], "boot-private-tmpfs-v1")
+        self.assertEqual(binding["display_owner"], "debian-existing-firstboot-v1")
+        self.assertEqual(binding["firstboot_source"], "ufs-existing-immutable-v1")
+        self.assertEqual(binding["persistent_native_hud"], "disabled")
+        self.assertNotIn("-DA90_UFS_PERSISTENT_NATIVE_HUD_V1=1", manifest["init"]["cflags"])
+        self.assertNotIn("firstboot_overlay=ready", "\n".join(manifest["validation"]["init_strings"]))
+        self.assertEqual(
+            manifest["init"]["closure_globs"],
+            [
+                "a90*.c",
+                "a90*.h",
+                "v319/*.inc.c",
+                "v319/a90*.h",
+                "v724/*.inc.c",
+                "helpers/a90_android_execns_probe.c",
+            ],
+        )
         root = REPO / manifest["init"]["source_root"]
         closure = BUILDLIB.expanded_closure(
             root,
             manifest["init"]["sources"],
             manifest["init"]["closure_globs"],
         )
+        self.assertFalse(any(path.startswith("s22plus") for path in closure))
         self.assertEqual(
             BUILDLIB.closure_sha256(root, closure),
             manifest["init"]["closure_sha256"],
@@ -150,11 +188,16 @@ class H17ManifestTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "non-H17"):
                 BUILDER.validate_observer_authorized_key(REPO, h16, key)
 
-    def test_feature_macros_are_all_or_nothing(self) -> None:
+    def test_auth_only_is_allowed_but_hud_without_auth_is_rejected(self) -> None:
         manifest = BUILDLIB.resolve_manifest(H17).data
         manifest["init"]["cflags"].remove("-DA90_UFS_PERSISTENT_NATIVE_HUD_V1=1")
-        with self.assertRaisesRegex(RuntimeError, "must be paired"):
-            BUILDER.h17_private_runtime_mode(manifest)
+        self.assertEqual(BUILDER.h17_runtime_features(manifest), (True, False))
+        self.assertTrue(BUILDER.h17_private_runtime_mode(manifest))
+        self.assertFalse(BUILDER.h17_persistent_hud_mode(manifest))
+        manifest["init"]["cflags"].remove("-DA90_UFS_OBSERVER_AUTH_OVERLAY_V1=1")
+        manifest["init"]["cflags"].append("-DA90_UFS_PERSISTENT_NATIVE_HUD_V1=1")
+        with self.assertRaisesRegex(RuntimeError, "requires observer-auth"):
+            BUILDER.h17_runtime_features(manifest)
 
 
 class H17NativeSourceTests(unittest.TestCase):
@@ -232,6 +275,32 @@ class H17NativeSourceTests(unittest.TestCase):
         self.assertIn("h17_unmount_observer_auth", handoff)
         self.assertIn("cleanup_clean = false", handoff)
         self.assertIn("ufs_write=0", source)
+
+    def test_h19_auth_only_path_has_no_firstboot_or_native_hud_call(self) -> None:
+        source = NATIVE.read_text()
+        handoff = source[
+            source.index("int a90_server_distro_switch_root_userdata_ro(") :
+            source.index("static int d4_dpublic_hud_bind_target(")
+        ]
+        auth_start = handoff.index("#if A90_UFS_OBSERVER_AUTH_OVERLAY_V1")
+        firstboot_guard = handoff.index(
+            "#if A90_UFS_PERSISTENT_NATIVE_HUD_V1",
+            auth_start,
+        )
+        firstboot_call = handoff.index(
+            "h17_bind_firstboot(&h17_firstboot_bound)",
+            firstboot_guard,
+        )
+        hud_call = handoff.index("h17_start_persistent_hud(", firstboot_call)
+        firstboot_end = handoff.index("#endif", hud_call)
+        self.assertLess(firstboot_guard, firstboot_call)
+        self.assertLess(firstboot_call, hud_call)
+        self.assertLess(hud_call, firstboot_end)
+        self.assertIn(
+            "auth_only=ready firstboot=ufs-existing display_policy=debian-owned",
+            handoff,
+        )
+        self.assertIn("persistent_native_hud=disabled", handoff)
 
     def test_auth_overlay_is_tmpfs_and_key_bytes_are_never_logged(self) -> None:
         source = NATIVE.read_text()

@@ -1,0 +1,72 @@
+{
+  "schema": "a90-h19-auth-only-ufs-handoff-capability-qualification-v1",
+  "capability": "A90_H19_AUTH_ONLY_UFS_HANDOFF_V1",
+  "verdict": "PASS_GO",
+  "execution_closure_sha256": "1a8f32767c3decf5e1e225314d5a337b6ce1b07dcfcc936765af40b699c1d22d",
+  "execution_hashes": {
+    "AGENTS.md": {
+      "size": 14600,
+      "sha256": "c07f670424fa7920f5b02e44d0f2b4f8a87030aac6f9d0ae268bf1339e51790e"
+    },
+    "docs/operations/targets/A90_TARGET_CONTRACT.md": {
+      "size": 50612,
+      "sha256": "b07e76e4fad5ead33001cdb73e130f2cfa8e0d2ca3a7061a1babc7d18f7611e8"
+    },
+    "tests/test_a90_h17_persistent_server_source_v1.py": {
+      "size": 22066,
+      "sha256": "5d3df3f83e7bc45fd93dbfe521fa59508857b99685614fe135031802a0406b25"
+    },
+    "workspace/public/src/native-init/a90_auto_handoff.c": {
+      "size": 33086,
+      "sha256": "d8697da63a093eaaed73339a158b2992ad3121a2a2ebc01597a10f8b05363ec6"
+    },
+    "workspace/public/src/native-init/a90_config.h": {
+      "size": 6935,
+      "sha256": "d11a77c800519ce769e436fc036896b96e6edde05271d13121022ccb75d1fc52"
+    },
+    "workspace/public/src/native-init/a90_server_distro.c": {
+      "size": 243827,
+      "sha256": "4678511193e8b48b8c2c5a7eb1b97f57ad1bf29c8a23bd66b02eb3fc6d15b394"
+    },
+    "workspace/public/src/native-init/a90_server_distro.h": {
+      "size": 3583,
+      "sha256": "ab5cad49b708ce0037494a1e001779000073cdcd480c9ada305ed5a1506fc99a"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py": {
+      "size": 46373,
+      "sha256": "866bfff0ec5f8b32c4ac5388f2e5a68936390c4ad1b385f52464c17b83fcc160"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/buildlib.py": {
+      "size": 25644,
+      "sha256": "b44df71c70273cdc0341c52162a0e89e1d70951a1a2388ab5c97e1458d60367d"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h14/userdata-content-manifest.json": {
+      "size": 5507,
+      "sha256": "a878f6dec82bf799c3d2cd43beeda3c5494a8882ce116327f497d822b707d5ce"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h16/manifest.toml": {
+      "size": 12790,
+      "sha256": "09e3731a575447305a5b1995ed827484cf65390d73fe3dfb4dbaacb9ff83ab7a"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h19/manifest.toml": {
+      "size": 7076,
+      "sha256": "84808b38838d600e94d6c432c6f385f4d836882195efb99ed759df9a9c87824b"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/v3404-effective/manifest.toml": {
+      "size": 14156,
+      "sha256": "b5edf8b0a30b76ef48dc8ec71f0f1dc23b76698e0b1154c6ccb66106b69834da"
+    }
+  },
+  "native_init_closure_sha256": "4623c9cc1d6aa08b305a5151312355f3f2eff56abc4413c6ca013aa47ecf28e2",
+  "native_init_closure_members": 142,
+  "review_scope": "h19-auth-only-ufs-existing-firstboot-debian-display-native-capability",
+  "incident_class": "H18_FIRSTBOOT_OVERLAY_EPERM",
+  "new_hazard_or_incident": true,
+  "ordinal_requalification_required": false,
+  "f1_runner_qualified": false,
+  "d1_runner_qualified": false,
+  "replacement_behavior": "observer-auth-retained; boot-firstboot-overlay-and-persistent-native-hud-disabled; immutable-UFS-firstboot-and-Debian-display-owner-retained",
+  "review_report": "docs/reports/A90_H19_AUTH_ONLY_UFS_HANDOFF_INDEPENDENT_REVIEW_2026-08-12.json",
+  "review_report_sha256": "53ada4ac5cdddc49ee87bc9641bbe032ca82c2807ce68b4a28b52d5e28fba73f",
+  "live_authority": false
+}
