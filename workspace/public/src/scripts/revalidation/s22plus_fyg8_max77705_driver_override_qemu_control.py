@@ -14,7 +14,7 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 
 KERNEL_VERSION = "6.12.94+deb13-arm64"
@@ -41,6 +41,10 @@ SOURCE_RELATIVE = Path(
 )
 MODULE_RELATIVE = Path("kernel/drivers/virtio/virtio_mmio.ko.xz")
 HOST_COMMAND_TIMEOUT_SEC = 60
+RAW_CAPTURE_NAME = "qemu-console.raw"
+CAPTURE_MANIFEST_NAME = "qemu-console-capture.json"
+RENDERED_CONSOLE_NAME = "qemu-console.log"
+RESULT_NAME = "result.json"
 REQUIRED_CONFIG = (
     "CONFIG_MODULES=y",
     "CONFIG_MODULE_UNLOAD=y",
@@ -53,6 +57,19 @@ REQUIRED_CONFIG = (
 
 class HarnessError(RuntimeError):
     pass
+
+
+class ConsoleRecord(NamedTuple):
+    text: str
+    byte_start: int
+    byte_end: int
+    line_ending: str
+
+
+class DecodedConsole(NamedTuple):
+    records: tuple[ConsoleRecord, ...]
+    incomplete_suffix: str
+    incomplete_suffix_start: int
 
 
 def sha256_path(path: Path) -> str:
@@ -344,15 +361,61 @@ def _qemu_command(
     }
 
 
-def parse_pass_line(output: str) -> dict[str, Any]:
+def decode_pl011_console(raw: bytes) -> DecodedConsole:
+    """Decode only LF/CRLF records while retaining their raw byte geometry."""
+
+    if b"\x00" in raw:
+        raise HarnessError("PL011 console contains NUL")
+    records: list[ConsoleRecord] = []
+    cursor = 0
+    while True:
+        newline = raw.find(b"\n", cursor)
+        if newline < 0:
+            break
+        body = raw[cursor:newline]
+        line_ending = "LF"
+        if body.endswith(b"\r"):
+            body = body[:-1]
+            line_ending = "CRLF"
+        if b"\r" in body:
+            raise HarnessError("PL011 console contains bare CR")
+        try:
+            text = body.decode("utf-8", "strict")
+        except UnicodeDecodeError as error:
+            raise HarnessError("PL011 console is not valid UTF-8") from error
+        records.append(
+            ConsoleRecord(
+                text=text,
+                byte_start=cursor,
+                byte_end=newline + 1,
+                line_ending=line_ending,
+            )
+        )
+        cursor = newline + 1
+
+    suffix = raw[cursor:]
+    if b"\r" in suffix:
+        raise HarnessError("PL011 incomplete suffix contains bare CR")
+    try:
+        suffix_text = suffix.decode("utf-8", "strict")
+    except UnicodeDecodeError as error:
+        raise HarnessError("PL011 incomplete suffix is not valid UTF-8") from error
+    return DecodedConsole(
+        records=tuple(records),
+        incomplete_suffix=suffix_text,
+        incomplete_suffix_start=cursor,
+    )
+
+
+def parse_pass_records(records: tuple[ConsoleRecord, ...]) -> dict[str, Any]:
     pattern = re.compile(
         r"MAX77705_DRIVER_OVERRIDE_QEMU result=PASS "
         r"target=([^ ]+) blocked=([^,]+),([^ ]+) active=(\d+)"
     )
     matches = [
         match.groups()
-        for line in output.splitlines()
-        if (match := pattern.fullmatch(line)) is not None
+        for record in records
+        if (match := pattern.fullmatch(record.text)) is not None
     ]
     if len(matches) != 1:
         raise HarnessError(f"expected one PASS line, found {len(matches)}")
@@ -368,9 +431,166 @@ def parse_pass_line(output: str) -> dict[str, Any]:
     }
 
 
+def parse_pass_line(output: str) -> dict[str, Any]:
+    """Compatibility entry point used by focused tests and older callers."""
+
+    return parse_pass_records(decode_pl011_console(output.encode("utf-8")).records)
+
+
+def evaluate_console_bytes(raw: bytes) -> dict[str, Any]:
+    decoded = decode_pl011_console(raw)
+    pass_prefix = "MAX77705_DRIVER_OVERRIDE_QEMU result=PASS "
+    fail_prefix = "MAX77705_DRIVER_OVERRIDE_QEMU result=FAIL "
+    pass_records = tuple(
+        record for record in decoded.records if record.text.startswith(pass_prefix)
+    )
+    fail_records = tuple(
+        record for record in decoded.records if record.text.startswith(fail_prefix)
+    )
+    if pass_prefix in decoded.incomplete_suffix or fail_prefix in decoded.incomplete_suffix:
+        raise HarnessError("terminal record is incomplete")
+    if len(pass_records) + len(fail_records) != 1:
+        raise HarnessError(
+            "expected exactly one complete terminal record, found "
+            f"{len(pass_records) + len(fail_records)}"
+        )
+    if fail_records:
+        return {
+            "verdict": "FAIL_MAX77705_DRIVER_OVERRIDE_QEMU_HOST_ONLY",
+            "proof": None,
+            "terminal_line_ending": fail_records[0].line_ending,
+        }
+    return {
+        "verdict": VERDICT,
+        "proof": parse_pass_records(pass_records),
+        "terminal_line_ending": pass_records[0].line_ending,
+    }
+
+
+def replay_console_bytes(raw: bytes, *, expected_sha256: str | None = None) -> dict[str, Any]:
+    actual_sha256 = hashlib.sha256(raw).hexdigest()
+    if expected_sha256 is not None and actual_sha256 != expected_sha256:
+        raise HarnessError(
+            "replay console SHA256 mismatch: "
+            f"expected {expected_sha256}, got {actual_sha256}"
+        )
+    evaluated = evaluate_console_bytes(raw)
+    return {
+        "schema": "s22plus_fyg8_max77705_driver_override_qemu_replay_v1",
+        "raw_byte_count": len(raw),
+        "raw_sha256": actual_sha256,
+        **evaluated,
+    }
+
+
 def complete_record_seen(observed: bytes, marker: bytes) -> bool:
     start = observed.find(marker)
     return start >= 0 and b"\n" in observed[start:]
+
+
+def _write_all(stream: Any, data: bytes) -> None:
+    view = memoryview(data)
+    written = 0
+    while written < len(view):
+        amount = stream.write(view[written:])
+        if amount is None or amount <= 0:
+            raise HarnessError("immutable evidence write made no progress")
+        written += amount
+
+
+def _write_exclusive_bytes(path: Path, data: bytes) -> None:
+    try:
+        with path.open("xb", buffering=0) as stream:
+            _write_all(stream, data)
+            os.fsync(stream.fileno())
+    except FileExistsError as error:
+        raise HarnessError(f"immutable evidence path already exists: {path}") from error
+
+
+def _write_exclusive_json(path: Path, value: dict[str, Any]) -> None:
+    data = (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    _write_exclusive_bytes(path, data)
+
+
+def _require_capture_paths_absent(output: Path) -> None:
+    for name in (
+        RAW_CAPTURE_NAME,
+        CAPTURE_MANIFEST_NAME,
+        RENDERED_CONSOLE_NAME,
+        RESULT_NAME,
+    ):
+        path = output / name
+        if path.exists():
+            raise HarnessError(f"immutable evidence path already exists: {path}")
+
+
+def _capture_manifest(
+    *, raw: bytes, chunks: list[dict[str, Any]], started: float
+) -> dict[str, Any]:
+    expected_start = 0
+    for index, chunk in enumerate(chunks):
+        if (
+            chunk["index"] != index
+            or chunk["byte_start"] != expected_start
+            or chunk["byte_end"] < chunk["byte_start"]
+        ):
+            raise HarnessError("console capture chunk geometry is inconsistent")
+        expected_start = chunk["byte_end"]
+    if expected_start != len(raw):
+        raise HarnessError("console capture chunks do not cover the raw bytes")
+    return {
+        "schema": "s22plus_fyg8_max77705_qemu_console_capture_v1",
+        "source": "qemu-system-aarch64 PL011 stdio",
+        "clock": "host time.monotonic relative to QEMU start",
+        "raw_file": RAW_CAPTURE_NAME,
+        "raw_byte_count": len(raw),
+        "raw_sha256": hashlib.sha256(raw).hexdigest(),
+        "capture_started_monotonic": started,
+        "chunks": chunks,
+    }
+
+
+def verify_capture_manifest(raw: bytes, manifest: dict[str, Any]) -> None:
+    if manifest.get("schema") != "s22plus_fyg8_max77705_qemu_console_capture_v1":
+        raise HarnessError("console capture schema mismatch")
+    if manifest.get("raw_file") != RAW_CAPTURE_NAME:
+        raise HarnessError("console capture raw filename mismatch")
+    if manifest.get("raw_byte_count") != len(raw):
+        raise HarnessError("console capture byte count mismatch")
+    actual_sha256 = hashlib.sha256(raw).hexdigest()
+    if manifest.get("raw_sha256") != actual_sha256:
+        raise HarnessError("console capture SHA256 mismatch")
+    chunks = manifest.get("chunks")
+    if not isinstance(chunks, list):
+        raise HarnessError("console capture chunks are missing")
+    expected_start = 0
+    for index, chunk in enumerate(chunks):
+        if not isinstance(chunk, dict):
+            raise HarnessError("console capture chunk is malformed")
+        if (
+            chunk.get("index") != index
+            or chunk.get("byte_start") != expected_start
+            or not isinstance(chunk.get("byte_end"), int)
+            or chunk["byte_end"] < expected_start
+        ):
+            raise HarnessError("console capture chunk geometry mismatch")
+        expected_start = chunk["byte_end"]
+    if expected_start != len(raw):
+        raise HarnessError("console capture chunks do not cover raw bytes")
+
+
+def replay_console_capture(raw_path: Path, manifest_path: Path) -> dict[str, Any]:
+    raw = raw_path.read_bytes()
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise HarnessError("console capture manifest is unreadable") from error
+    if not isinstance(manifest, dict):
+        raise HarnessError("console capture manifest is not an object")
+    verify_capture_manifest(raw, manifest)
+    result = replay_console_bytes(raw, expected_sha256=manifest["raw_sha256"])
+    result["capture_manifest_sha256"] = sha256_path(manifest_path)
+    return result
 
 
 def run_harness(
@@ -382,6 +602,7 @@ def run_harness(
     timeout_sec: int,
 ) -> dict[str, Any]:
     output.mkdir(parents=True, exist_ok=True)
+    _require_capture_paths_absent(output)
     build = _build_initramfs(
         repo=repo, guest_root=guest_root, output=output
     )
@@ -397,33 +618,58 @@ def run_harness(
     )
     assert process.stdout is not None
     chunks: list[bytes] = []
+    chunk_receipts: list[dict[str, Any]] = []
     observed = b""
     deadline = started + timeout_sec
     verdict: str | None = None
     pass_marker = b"MAX77705_DRIVER_OVERRIDE_QEMU result=PASS "
     fail_marker = b"MAX77705_DRIVER_OVERRIDE_QEMU result=FAIL "
+    raw_path = output / RAW_CAPTURE_NAME
+
+    def preserve_chunk(stream: Any, chunk: bytes, source: str) -> None:
+        byte_start = sum(len(value) for value in chunks)
+        _write_all(stream, chunk)
+        os.fsync(stream.fileno())
+        chunks.append(chunk)
+        chunk_receipts.append(
+            {
+                "index": len(chunk_receipts),
+                "source": source,
+                "byte_start": byte_start,
+                "byte_end": byte_start + len(chunk),
+                "received_after_start_sec": round(time.monotonic() - started, 6),
+            }
+        )
+
     try:
-        while time.monotonic() < deadline:
-            remaining = max(0.0, deadline - time.monotonic())
-            readable, _, _ = select.select(
-                [process.stdout.fileno()], [], [], min(1.0, remaining)
-            )
-            if not readable:
-                if process.poll() is not None:
+        try:
+            raw_stream = raw_path.open("xb", buffering=0)
+        except FileExistsError as error:
+            raise HarnessError(
+                f"immutable evidence path already exists: {raw_path}"
+            ) from error
+        with raw_stream:
+            while time.monotonic() < deadline:
+                remaining = max(0.0, deadline - time.monotonic())
+                readable, _, _ = select.select(
+                    [process.stdout.fileno()], [], [], min(1.0, remaining)
+                )
+                if not readable:
+                    if process.poll() is not None:
+                        break
+                    continue
+                chunk = os.read(process.stdout.fileno(), 65536)
+                if not chunk:
                     break
-                continue
-            chunk = os.read(process.stdout.fileno(), 65536)
-            if not chunk:
-                break
-            chunks.append(chunk)
-            observed += chunk
-            print(chunk.decode("utf-8", "replace"), end="")
-            if complete_record_seen(observed, pass_marker):
-                verdict = VERDICT
-                break
-            if complete_record_seen(observed, fail_marker):
-                verdict = "FAIL_MAX77705_DRIVER_OVERRIDE_QEMU_HOST_ONLY"
-                break
+                preserve_chunk(raw_stream, chunk, "select-read")
+                observed += chunk
+                print(chunk.decode("utf-8", "replace"), end="")
+                if complete_record_seen(observed, pass_marker):
+                    verdict = VERDICT
+                    break
+                if complete_record_seen(observed, fail_marker):
+                    verdict = "FAIL_MAX77705_DRIVER_OVERRIDE_QEMU_HOST_ONLY"
+                    break
     finally:
         process.terminate()
         try:
@@ -432,11 +678,15 @@ def run_harness(
             process.kill()
             tail, _ = process.communicate(timeout=5)
         if tail:
-            chunks.append(tail)
+            with raw_path.open("ab", buffering=0) as raw_stream:
+                preserve_chunk(raw_stream, tail, "communicate-tail")
             print(tail.decode("utf-8", "replace"), end="")
 
-    output_text = b"".join(chunks).decode("utf-8", "replace")
-    (output / "qemu-console.log").write_text(output_text, encoding="utf-8")
+    raw_output = b"".join(chunks)
+    capture = _capture_manifest(raw=raw_output, chunks=chunk_receipts, started=started)
+    require_sha256(raw_path, capture["raw_sha256"], "QEMU raw console capture")
+    _write_exclusive_json(output / CAPTURE_MANIFEST_NAME, capture)
+    _write_exclusive_bytes(output / RENDERED_CONSOLE_NAME, raw_output)
     if verdict is None:
         verdict = (
             "TIMEOUT_MAX77705_DRIVER_OVERRIDE_QEMU_HOST_ONLY"
@@ -445,9 +695,16 @@ def run_harness(
         )
     proof = None
     observer_error = None
-    if verdict == VERDICT:
+    terminal_line_ending = None
+    if verdict in (
+        VERDICT,
+        "FAIL_MAX77705_DRIVER_OVERRIDE_QEMU_HOST_ONLY",
+    ):
         try:
-            proof = parse_pass_line(output_text)
+            evaluated = evaluate_console_bytes(raw_output)
+            verdict = evaluated["verdict"]
+            proof = evaluated["proof"]
+            terminal_line_ending = evaluated["terminal_line_ending"]
         except HarnessError as error:
             observer_error = str(error)
             verdict = "FAIL_MAX77705_DRIVER_OVERRIDE_TERMINAL_PARSE_HOST_ONLY"
@@ -460,9 +717,9 @@ def run_harness(
         "build": build,
         "proof": proof,
         "observer_error": observer_error,
-        "qemu_output_sha256": hashlib.sha256(
-            output_text.encode("utf-8")
-        ).hexdigest(),
+        "terminal_line_ending": terminal_line_ending,
+        "capture": capture,
+        "qemu_output_sha256": capture["raw_sha256"],
         "scope": {
             "validated": [
                 "three real QEMU virtio-mmio platform devices bind without overrides",
@@ -481,25 +738,44 @@ def run_harness(
             ],
         },
     }
-    (output / "result.json").write_text(
-        json.dumps(report, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    _write_exclusive_json(output / RESULT_NAME, report)
     return report
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo", type=Path, default=Path.cwd())
-    parser.add_argument("--guest-root", type=Path, required=True)
-    parser.add_argument("--qemu-root", type=Path, required=True)
+    parser.add_argument("--guest-root", type=Path)
+    parser.add_argument("--qemu-root", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--timeout-sec", type=int, default=90)
     parser.add_argument("--build-only", action="store_true")
+    parser.add_argument("--replay-console", type=Path)
+    parser.add_argument("--replay-capture-manifest", type=Path)
     args = parser.parse_args()
     if args.timeout_sec < 30 or args.timeout_sec > 180:
         raise HarnessError("--timeout-sec must be between 30 and 180")
     output = args.output.resolve()
+    if (args.replay_console is None) != (args.replay_capture_manifest is None):
+        raise HarnessError(
+            "--replay-console and --replay-capture-manifest are required together"
+        )
+    if args.replay_console is not None:
+        if args.build_only or args.guest_root is not None or args.qemu_root is not None:
+            raise HarnessError("replay mode cannot build or run QEMU")
+        output.mkdir(parents=True, exist_ok=True)
+        replay_path = output / "replay-result.json"
+        if replay_path.exists():
+            raise HarnessError(f"immutable evidence path already exists: {replay_path}")
+        result = replay_console_capture(
+            args.replay_console.resolve(),
+            args.replay_capture_manifest.resolve(),
+        )
+        _write_exclusive_json(replay_path, result)
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0 if result["verdict"] == VERDICT else 1
+    if args.guest_root is None:
+        raise HarnessError("--guest-root is required outside replay mode")
     if args.build_only:
         output.mkdir(parents=True, exist_ok=True)
         result = _build_initramfs(
@@ -509,6 +785,8 @@ def main() -> int:
         )
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
+    if args.qemu_root is None:
+        raise HarnessError("--qemu-root is required for QEMU execution")
     result = run_harness(
         repo=args.repo.resolve(),
         guest_root=args.guest_root.resolve(),

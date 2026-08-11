@@ -8,7 +8,7 @@ Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` /
 `S906NKSS7FYG8`)
 
 Verdict:
-`BASE_CARRIER_NORMAL_ORDER_AND_EXACT_SYSFS_GEOMETRY_RECOVERED_STOCK_67_UNADJUDICATED_FULL_PDIC_CUSTOM_66_REJECTED_CUSTOM_65_SOURCE_LINKED_ABI_AND_D0_QUALIFIED_RUNTIME_AND_PACKAGING_OPEN`
+`BASE_CARRIER_NORMAL_ORDER_AND_EXACT_SYSFS_GEOMETRY_RECOVERED_STOCK_67_UNADJUDICATED_FULL_PDIC_CUSTOM_66_REJECTED_CUSTOM_65_SOURCE_LINKED_ABI_D0_AND_OVERRIDE_QEMU_PROVED_SCHEMA_REVIEW_RUNTIME_AND_PACKAGING_OPEN`
 
 Review state:
 `PRIMARY_SOURCE_491_MODULE_AND_NARROW_LINKED_ABI_AUDITS_CLOSED_RUNTIME_PACKAGING_AND_INDEPENDENT_REVIEW_REQUIRED`
@@ -24,6 +24,9 @@ Narrowing continuation base:
 
 Implementation/build continuation base:
 `22398d48007086e995b64317406c1e2aa800a00b`
+
+QEMU observer-repair continuation base:
+`90810df8d2d1ee0e8e6a4386cd2f0a1d30253d84`
 
 ## Scope and authority
 
@@ -1190,7 +1193,7 @@ blockers and using the normal bus reprobe path must bind the two controls as a
 positive counterfactual. Direct driver `bind`/`unbind` sysfs shortcuts are not
 accepted as the proof phase, and this result grants no device authority.
 
-#### Current QEMU status — observer repair prepared, gate open
+#### Current QEMU status — raw-replay proof complete, schema review open
 
 The control, builder, and mutation fixtures are implemented. The pinned inputs
 are Debian arm64 kernel `6.12.94`, QEMU `10.2.1`, and the signed modular
@@ -1206,26 +1209,72 @@ and final unload removed all three bindings. Neither execution produced a
 qualified host receipt. The first observer terminated QEMU as soon as it saw
 the PASS prefix and truncated the record before its newline. The bounded
 repair waited for a complete record, but the second observer then rejected
-the complete PL011 `CRLF` line with an LF-only anchored parser. These are two
-failures of the same terminal-framing invariant, so S22+ Rule 7 stops this
-bounded QEMU unit and forbids a third execution.
+the complete PL011 `CRLF` line with an LF-only anchored parser.
 
-The prepared observer repair now:
+The earlier classification treated those as the same material failure because
+they shared a terminal-framing invariant. That was too coarse under the
+binding S22+ Rule 7, which identifies a material failure by the failed
+invariant, input/producer contract, and causal mechanism together. Run 1 was
+premature host termination on an incomplete record. Run 2 was rejection of a
+complete CRLF record by the transport codec. They are distinct novel failure
+signatures, so the CRLF failure retained one scoped repair and one corrected
+execution. This conclusion comes from the binding target contract, not the
+retired Fast-Loop text; the historical `H0 unlimited` clause is non-operative.
 
-- stops only after a complete newline-terminated PASS or FAIL record;
-- uses `splitlines()` plus full-line matching so LF and CRLF are equivalent;
-- writes `qemu-console.log` before semantic decoding, preserving future parser
-  failures; and
-- has mutation coverage for partial markers, CRLF, proof order, both blockers,
-  forbidden direct bind/unbind shortcuts, pinned guest config, exact QEMU
-  identity, and three unique platform devices.
+Runs 1 and 2 retained only their initramfs/rootfs artifacts. They did not
+preserve console bytes, so neither can be replayed from durable evidence. The
+observer repair therefore adopts the minimum applicable boundary already
+identified by
+`A90_HOST_OBSERVATION_PARSER_RECURRENCE_ANALYSIS_H0_2026-07-31.md` without
+attempting that report's broader cross-target migration:
 
-The guest observations are useful diagnosis but are not promoted to the
-required H0 proof. Status remains
-`DRIVER_OVERRIDE_QEMU_OBSERVER_REPAIR_PREPARED_NOT_QUALIFIED`. Closing it needs
-a separately defined successor H0 unit; it cannot be manufactured by retrying
-this stopped unit. No Android device command, D1 action, payload, or partition
-operation occurred.
+```text
+exclusive byte-preserving raw capture plus chunk receipt
+-> QEMU PL011 LF/CRLF codec
+-> exact terminal frame parser
+-> three-device semantic classifier
+-> atomic PASS/FAIL decision
+```
+
+The raw file is created exclusively before decoding, every received chunk is
+written and synced before use, and a separate capture receipt binds byte
+length, SHA-256, monotonic chunk boundaries, and source. The codec accepts LF
+and CRLF while rejecting bare CR, NUL, invalid UTF-8, incomplete terminal
+records, duplicate terminal records, and malformed semantic fields. A replay
+entry point requires the raw bytes and their capture receipt and invokes the
+same codec, parser, and classifier as the live path. `qemu-console.log` is only
+a convenience copy; the `.raw` file and capture receipt are the authority.
+
+The single corrected execution then passed with:
+
+- exact pinned QEMU/kernel/config/module/source identities;
+- host observer/replay script SHA-256
+  `26ddd8842be0f683f071b546e8d2d42c40cd3b3c77192b00495cfb962a4e5cd8`;
+- target `a003a00.virtio_mmio`, blocked controls
+  `a003c00.virtio_mmio` and `a003e00.virtio_mmio`, and active count 3;
+- one complete CRLF terminal record;
+- 1,463 raw bytes in 20 contiguous receive chunks, SHA-256
+  `904093a5216f8bfd5408ac6e500e4809fb763124bb8fc9948bc8af5c788156f3`;
+- capture-receipt SHA-256
+  `d92fafd1caaa1f528c3bf52548a34a9e5c56bb4efe67f862777c6c77fc71ef7b`;
+- live result SHA-256
+  `3a9258add9574d2bb8e9bcd57341237809da2373972f109bc340dd1e656c020e`;
+  and replay-result SHA-256
+  `541f8d5c158f4a17dd3526002fdb8c6a032006b0237a2f7709906c12119b822f`;
+  and
+- an independent no-QEMU replay of those same bytes and receipt to the same
+  `PASS_MAX77705_DRIVER_OVERRIDE_QEMU_HOST_ONLY` proof.
+
+Status is now
+`DRIVER_OVERRIDE_QEMU_RAW_REPLAY_PROVED_INDEPENDENT_REVIEW_PENDING`. The
+execution and replay close the technical proof for the generic
+pre-registration platform `driver_override` suppression property. Because the
+repair adds capture and replay receipt schemas, the repository review rule
+still requires one independent changed-closure review before this proof is
+fully qualified for successor packaging. It does not validate S22+ sysfs path
+construction, QUPv3/GPI/GENI binding, Max77705 I2C or MUX behavior, candidate
+packaging, or any device authority. No Android device command, D0/D1/F1 action,
+payload, or partition operation occurred.
 
 ## GPI use must be observed rather than assumed
 
@@ -1938,6 +1987,15 @@ This report was closed at H0 with the following host-side checks:
   regression;
 - `python3 -m unittest tests.test_s22plus_fyg8_max77705_order_authority`
   passed 4/4;
+- `python3 -m unittest
+  tests.test_s22plus_fyg8_max77705_driver_override_qemu_control` passed 16/16,
+  including incomplete-marker rejection, exact LF/CRLF equivalence, bare-CR,
+  NUL and invalid-UTF-8 rejection, immutable-write refusal, capture-manifest
+  verification, and exact-byte replay;
+- the single Rule-7-corrected pinned arm64 QEMU execution produced the exact
+  three-device target/block/reprobe/unload PASS and committed its raw capture
+  before semantic decoding; the no-QEMU replay independently returned the
+  same proof from the recorded raw and capture hashes;
 - `python3 -m unittest tests.test_device_action_process_v2_docs` passed 21/21;
   and
 - tracked and new-report whitespace checks passed with a terminating newline.

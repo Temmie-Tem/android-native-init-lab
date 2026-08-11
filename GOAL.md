@@ -249,14 +249,23 @@ unbind. No such low-value D1 is planned. The suppression property must instead
 pass the pinned arm64 QEMU platform-device control, while the planned
 in-candidate writes remain part of the enclosing boot-only F1 and must not be
 split into a D1 pretest. No further device action is needed for the sysfs-name
-gate. The QEMU control is implemented and statically validated but remains
-unqualified: two H0 guest executions both emitted the same three-device PASS
-transition, while the host first stopped on an incomplete terminal prefix and
-then rejected the complete PL011 CRLF record. Because terminal framing failed
-twice, Rule 7 forbids a third execution of this bounded unit. The observer
-repair now requires a complete record, accepts CRLF through `splitlines()`, and
-persists the console before decoding, but only a separately reopened H0 unit
-may close the QEMU gate. The former
+gate. The pinned arm64 QEMU suppression behavior is now proved, with the new
+raw-capture/replay schema still pending the required independent review. Its
+first two guest executions reached the same three-device transition but
+exposed two distinct active-Rule-7 failures: host termination before a complete
+terminal record, then rejection of a complete PL011 CRLF record by the LF-only
+codec.
+The former shared the terminal-framing invariant but not the latter's input
+contract or causal mechanism, so the CRLF repair had one bounded corrected
+execution available. That execution retained 1,463 exact raw bytes before
+decoding, accepted the CRLF record, proved target-only bind followed by
+clear-plus-reprobe recovery of both controls, and replayed the same raw SHA-256
+through the identical codec/parser to the same PASS. The first two runs did
+not preserve raw bytes and are not replay authority. This closes only the
+technical proof for generic platform `driver_override` suppression; schema
+review, actual S22+ path construction, binding, I2C, MUX, packaging, and live
+authority remain open.
+The former
 4,246,401,024-byte
 workspace-capacity blocker is closed by the exact private S22+ cleanup
 receipt: 68 superseded or invalidated
