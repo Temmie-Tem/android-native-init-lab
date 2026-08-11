@@ -242,10 +242,21 @@ runtime and its terminal rollback-by-reboot checks are not materialized,
 host-sidecar positive control is open, and independent review has not
 occurred. The next step is H0 implementation of that exact target-only
 integration and its transaction fixtures; this H0 work grants neither D1 nor
-F1 authority. A standalone connected stock-Android override write would be a
-freshly authorized D1, while the planned in-candidate writes remain part of
-the enclosing boot-only F1 and must not be split into a D1 pretest. No further
-device action is needed for the sysfs-name gate. The former
+F1 authority. A standalone connected stock-Android override write would be
+D1, but all twelve controls are already bound there: it could prove only
+write/readback, not pre-bind suppression, unless preceded by an out-of-scope
+unbind. No such low-value D1 is planned. The suppression property must instead
+pass the pinned arm64 QEMU platform-device control, while the planned
+in-candidate writes remain part of the enclosing boot-only F1 and must not be
+split into a D1 pretest. No further device action is needed for the sysfs-name
+gate. The QEMU control is implemented and statically validated but remains
+unqualified: two H0 guest executions both emitted the same three-device PASS
+transition, while the host first stopped on an incomplete terminal prefix and
+then rejected the complete PL011 CRLF record. Because terminal framing failed
+twice, Rule 7 forbids a third execution of this bounded unit. The observer
+repair now requires a complete record, accepts CRLF through `splitlines()`, and
+persists the console before decoding, but only a separately reopened H0 unit
+may close the QEMU gate. The former
 4,246,401,024-byte
 workspace-capacity blocker is closed by the exact private S22+ cleanup
 receipt: 68 superseded or invalidated

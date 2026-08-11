@@ -1144,10 +1144,17 @@ devices could already have changed pinctrl or DMA state before returning.
 The override proposal is not D0 and remains unauthorized. H0 may implement
 and validate the target-only runtime without device contact. A standalone
 connected write of these overrides on stock Android would be D1 and requires
-fresh exact D1 authority and terminal-health handling. If the same transient
-writes execute inside the planned boot-only successor, they are part of the
-enclosing F1 and must not be split out or pretested as a lower-tier D1 action.
-The completed bounded exact-target D0 read:
+fresh exact D1 authority and terminal-health handling, but it is not planned.
+The D0 proved that all fifteen controls were already bound. The sysfs store
+only replaces `pdev->driver_override` under the device lock
+(`drivers/base/driver.c:34-103`, `drivers/base/platform.c:1044-1055`); it does
+not unbind or reprobe an existing device. Such a D1 could prove only that the
+file accepts and reads back bytes, not that a future driver registration is
+suppressed. Producing the latter result on stock would first require an
+out-of-scope unbind and would defeat the proposed tier boundary. If the same
+transient writes execute inside the planned boot-only successor, they are part
+of the enclosing F1 and must not be split out or pretested as a lower-tier D1
+action. The completed bounded exact-target D0 read:
 
 - the exact 15 target/non-target sysfs device names;
 - whether any already has a `driver` symlink;
@@ -1166,6 +1173,59 @@ of the three substrate drivers are loaded. It must then prove:
 Any pre-existing bind, missing override, ambiguous device name, write/readback
 mismatch, or extra bind is a pre-effect or runtime contradiction. It is not a
 reason to continue with global binding.
+
+### Proof allocation for the narrowing boundary
+
+| property | required authority |
+|---|---|
+| exact target-only override path construction, write/readback, rollback-by-reboot state machine, and terminal buckets | H0 execution of the transformed runtime and transaction fixtures |
+| an override written while a platform driver is absent suppresses later matching and leaves only the unblocked target bound | pinned arm64 QEMU with multiple backed platform devices, real sysfs `driver_override`, late module registration, and clear-plus-reprobe positive controls |
+| actual QUPv3/GPI/GENI binding, I2C transfer, Max77705 response, CONTROL1 retention, and host correlation | the enclosing boot-only F1 only |
+
+The QEMU control is a required H0 gate, not an S22+ emulator. It must first
+prove that every synthetic control device binds without an override, unload
+the driver, write and read back blockers before the second driver
+registration, then prove that only the unblocked target binds. Clearing the
+blockers and using the normal bus reprobe path must bind the two controls as a
+positive counterfactual. Direct driver `bind`/`unbind` sysfs shortcuts are not
+accepted as the proof phase, and this result grants no device authority.
+
+#### Current QEMU status — observer repair prepared, gate open
+
+The control, builder, and mutation fixtures are implemented. The pinned inputs
+are Debian arm64 kernel `6.12.94`, QEMU `10.2.1`, and the signed modular
+`virtio_mmio.ko`. QEMU supplies three backed `virtio-mmio` platform devices;
+the control discovers all three in an initial positive pass, unloads the
+module, blocks two devices, and performs the late-registration proof described
+above.
+
+Two H0 executions reached the same guest terminal transition: target
+`a003a00.virtio_mmio` bound, controls `a003c00.virtio_mmio` and
+`a003e00.virtio_mmio` remained blocked, clear-plus-reprobe bound both controls,
+and final unload removed all three bindings. Neither execution produced a
+qualified host receipt. The first observer terminated QEMU as soon as it saw
+the PASS prefix and truncated the record before its newline. The bounded
+repair waited for a complete record, but the second observer then rejected
+the complete PL011 `CRLF` line with an LF-only anchored parser. These are two
+failures of the same terminal-framing invariant, so S22+ Rule 7 stops this
+bounded QEMU unit and forbids a third execution.
+
+The prepared observer repair now:
+
+- stops only after a complete newline-terminated PASS or FAIL record;
+- uses `splitlines()` plus full-line matching so LF and CRLF are equivalent;
+- writes `qemu-console.log` before semantic decoding, preserving future parser
+  failures; and
+- has mutation coverage for partial markers, CRLF, proof order, both blockers,
+  forbidden direct bind/unbind shortcuts, pinned guest config, exact QEMU
+  identity, and three unique platform devices.
+
+The guest observations are useful diagnosis but are not promoted to the
+required H0 proof. Status remains
+`DRIVER_OVERRIDE_QEMU_OBSERVER_REPAIR_PREPARED_NOT_QUALIFIED`. Closing it needs
+a separately defined successor H0 unit; it cannot be manufactured by retrying
+this stopped unit. No Android device command, D1 action, payload, or partition
+operation occurred.
 
 ## GPI use must be observed rather than assumed
 
