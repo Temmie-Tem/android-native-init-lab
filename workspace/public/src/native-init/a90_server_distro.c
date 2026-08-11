@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include "a90_server_distro.h"
 
 #include "a90_benchmark.h"
@@ -18,6 +20,7 @@
 #include <limits.h>
 #include <linux/loop.h>
 #include <poll.h>
+#include <sched.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <signal.h>
@@ -29,6 +32,7 @@
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <sys/sysmacros.h>
+#include <sys/syscall.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -127,6 +131,8 @@ a90_d3_writable_set[A90_D3_WRITABLE_SET_MAX] = {
 #define A90_DPUBLIC_HUD_SERVICE_PID A90_DPUBLIC_HUD_RUN_DIR "/hud-presenter.pid"
 #define A90_DPUBLIC_HUD_SERVICE_STATUS A90_DPUBLIC_HUD_RUN_DIR "/hud-presenter.status"
 #define A90_DPUBLIC_HUD_SERVICE_LOG A90_DPUBLIC_HUD_RUN_DIR "/hud-presenter.log"
+#define A90_DPUBLIC_HUD_PRIVATE_ROOT "/run/a90-hud-private-root"
+#define A90_DPUBLIC_HUD_PRIVATE_OLD_ROOT "/old-root"
 #define A90_DPUBLIC_HUD_SCHEMA "a90-dpublic-hud-intent-v1"
 #define A90_DPUBLIC_HUD_MAX_INTENT_BYTES 4096U
 #define A90_DPUBLIC_HUD_STALE_AFTER_MS 2000ULL
@@ -1023,6 +1029,7 @@ struct dpublic_hud_service_opts {
     const char *status_path;
     bool release_drm;
     bool preopen_drm;
+    bool private_card_root;
 };
 
 static volatile sig_atomic_t dpublic_hud_service_stop_requested = 0;
@@ -1038,6 +1045,7 @@ static void dpublic_hud_service_default_opts(struct dpublic_hud_service_opts *op
     opts->status_path = A90_DPUBLIC_HUD_SERVICE_STATUS;
     opts->release_drm = false;
     opts->preopen_drm = false;
+    opts->private_card_root = false;
 }
 
 static int dpublic_hud_service_parse_opts(char **argv,
@@ -1333,9 +1341,251 @@ static bool dpublic_hud_service_same_content(const char *left,
     return left_used == right_used && left_used > 0 && memcmp(left, right, left_used) == 0;
 }
 
+#if A90_UFS_PERSISTENT_NATIVE_HUD_PRIVATE_CARD_ROOT_V1
+static int dpublic_hud_private_mkdir(const char *path, mode_t mode) {
+    struct stat st;
+
+    if (mkdir(path, mode) == 0) {
+        return 0;
+    }
+    if (errno != EEXIST || lstat(path, &st) < 0 || !S_ISDIR(st.st_mode) ||
+        S_ISLNK(st.st_mode)) {
+        return -errno;
+    }
+    return chmod(path, mode) < 0 ? -errno : 0;
+}
+
+static int dpublic_hud_service_sanitize_fds(int ready_fd) {
+    DIR *dir;
+    struct dirent *entry;
+    struct stat null_st;
+    struct stat ready_st;
+    int null_fd;
+    int scan_fd;
+    int rc = 0;
+    int fd;
+
+    if (ready_fd <= STDERR_FILENO) {
+        return -EINVAL;
+    }
+    if (fstat(ready_fd, &ready_st) < 0) {
+        return -errno;
+    }
+    if (!S_ISFIFO(ready_st.st_mode)) {
+        return -ESTALE;
+    }
+    null_fd = open("/dev/null", O_RDWR | O_CLOEXEC | O_NOFOLLOW);
+    if (null_fd < 0) {
+        return -errno;
+    }
+    if (null_fd <= STDERR_FILENO) {
+        int protected_fd = fcntl(
+            null_fd, F_DUPFD_CLOEXEC, STDERR_FILENO + 1);
+
+        if (protected_fd < 0) {
+            rc = -errno;
+            (void)close(null_fd);
+            return rc;
+        }
+        (void)close(null_fd);
+        null_fd = protected_fd;
+    }
+    if (fstat(null_fd, &null_st) < 0) {
+        rc = -errno;
+        (void)close(null_fd);
+        return rc;
+    }
+    if (!S_ISCHR(null_st.st_mode) || null_st.st_rdev != makedev(1, 3)) {
+        (void)close(null_fd);
+        return -ESTALE;
+    }
+    for (fd = STDIN_FILENO; fd <= STDERR_FILENO; ++fd) {
+        if (dup2(null_fd, fd) < 0) {
+            rc = -errno;
+            (void)close(null_fd);
+            return rc;
+        }
+    }
+    if (close(null_fd) < 0) {
+        return -errno;
+    }
+
+    dir = opendir("/proc/self/fd");
+    if (dir == NULL) {
+        return -errno;
+    }
+    scan_fd = dirfd(dir);
+    if (scan_fd < 0) {
+        rc = -errno;
+        (void)closedir(dir);
+        return rc;
+    }
+    errno = 0;
+    while ((entry = readdir(dir)) != NULL) {
+        char *end = NULL;
+        long value;
+
+        if (entry->d_name[0] == '.') {
+            continue;
+        }
+        errno = 0;
+        value = strtol(entry->d_name, &end, 10);
+        if (errno != 0 || end == entry->d_name || *end != '\0' ||
+            value < 0 || value > INT_MAX) {
+            rc = -ESTALE;
+            break;
+        }
+        fd = (int)value;
+        if (fd <= STDERR_FILENO || fd == ready_fd || fd == scan_fd) {
+            continue;
+        }
+        if (close(fd) < 0 && errno != EBADF) {
+            rc = -errno;
+            break;
+        }
+    }
+    if (entry == NULL && errno != 0 && rc == 0) {
+        rc = -errno;
+    }
+    if (closedir(dir) < 0 && rc == 0) {
+        rc = -errno;
+    }
+    return rc;
+}
+
+static int dpublic_hud_service_enter_private_card_root(int ready_fd) {
+    const char *card_source = "/dev/dri/card0";
+    const char *card_target = A90_DPUBLIC_HUD_PRIVATE_ROOT "/dev/dri/card0";
+    const char *run_target = A90_DPUBLIC_HUD_PRIVATE_ROOT A90_DPUBLIC_HUD_RUN_DIR;
+    const char *old_root = A90_DPUBLIC_HUD_PRIVATE_ROOT A90_DPUBLIC_HUD_PRIVATE_OLD_ROOT;
+    struct stat source_card;
+    struct stat source_run;
+    struct stat private_card;
+    struct stat private_run;
+    struct stat forbidden;
+    int target_fd;
+    int rc;
+
+    rc = dpublic_hud_service_sanitize_fds(ready_fd);
+    if (rc < 0) {
+        return rc;
+    }
+    if (lstat(card_source, &source_card) < 0) {
+        return -errno;
+    }
+    if (!S_ISCHR(source_card.st_mode) || S_ISLNK(source_card.st_mode)) {
+        return -ESTALE;
+    }
+    if (stat(A90_DPUBLIC_HUD_RUN_DIR, &source_run) < 0) {
+        return -errno;
+    }
+    if (!S_ISDIR(source_run.st_mode)) {
+        return -ESTALE;
+    }
+    if (unshare(CLONE_NEWNS) < 0 ||
+        mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) < 0) {
+        return -errno;
+    }
+    rc = dpublic_hud_private_mkdir(A90_DPUBLIC_HUD_PRIVATE_ROOT, 0700);
+    if (rc < 0) {
+        return rc;
+    }
+    if (mount("a90-hud-private-root",
+              A90_DPUBLIC_HUD_PRIVATE_ROOT,
+              "tmpfs",
+              MS_NOSUID | MS_NODEV | MS_NOEXEC,
+              "mode=0700,size=64k") < 0) {
+        return -errno;
+    }
+    rc = dpublic_hud_private_mkdir(
+        A90_DPUBLIC_HUD_PRIVATE_ROOT "/dev", 0755);
+    if (rc == 0) {
+        rc = dpublic_hud_private_mkdir(
+            A90_DPUBLIC_HUD_PRIVATE_ROOT "/dev/dri", 0755);
+    }
+    if (rc == 0) {
+        rc = dpublic_hud_private_mkdir(
+            A90_DPUBLIC_HUD_PRIVATE_ROOT "/run", 0755);
+    }
+    if (rc == 0) {
+        rc = dpublic_hud_private_mkdir(run_target, A90_DPUBLIC_HUD_RUN_DIR_MODE);
+    }
+    if (rc == 0) {
+        rc = dpublic_hud_private_mkdir(old_root, 0700);
+    }
+    if (rc < 0) {
+        return rc;
+    }
+    target_fd = open(card_target,
+                     O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
+                     0600);
+    if (target_fd < 0) {
+        return -errno;
+    }
+    if (close(target_fd) < 0) {
+        return -errno;
+    }
+    if (mount(card_source, card_target, NULL, MS_BIND, NULL) < 0 ||
+        mount(A90_DPUBLIC_HUD_RUN_DIR, run_target, NULL, MS_BIND, NULL) < 0) {
+        return -errno;
+    }
+    if (lstat(card_target, &private_card) < 0) {
+        return -errno;
+    }
+    if (!S_ISCHR(private_card.st_mode) || S_ISLNK(private_card.st_mode) ||
+        private_card.st_rdev != source_card.st_rdev) {
+        return -ESTALE;
+    }
+    if (stat(run_target, &private_run) < 0) {
+        return -errno;
+    }
+    if (private_run.st_dev != source_run.st_dev ||
+        private_run.st_ino != source_run.st_ino) {
+        return -ESTALE;
+    }
+    if (chdir(A90_DPUBLIC_HUD_PRIVATE_ROOT) < 0 ||
+        syscall(SYS_pivot_root, ".", "old-root") < 0 ||
+        chdir("/") < 0) {
+        return -errno;
+    }
+    if (umount2(A90_DPUBLIC_HUD_PRIVATE_OLD_ROOT, MNT_DETACH) < 0 ||
+        rmdir(A90_DPUBLIC_HUD_PRIVATE_OLD_ROOT) < 0) {
+        return -errno;
+    }
+    if (lstat("/dev/dri/card0", &private_card) < 0) {
+        return -errno;
+    }
+    if (!S_ISCHR(private_card.st_mode) ||
+        private_card.st_rdev != source_card.st_rdev) {
+        return -ESTALE;
+    }
+    if (stat(A90_DPUBLIC_HUD_RUN_DIR, &private_run) < 0) {
+        return -errno;
+    }
+    if (private_run.st_dev != source_run.st_dev ||
+        private_run.st_ino != source_run.st_ino) {
+        return -ESTALE;
+    }
+    errno = 0;
+    if (lstat("/dev/block/a90-userdata", &forbidden) == 0 || errno != ENOENT) {
+        return -EPERM;
+    }
+    errno = 0;
+    if (lstat("/proc", &forbidden) == 0 || errno != ENOENT) {
+        return -EPERM;
+    }
+    errno = 0;
+    if (lstat("/sys", &forbidden) == 0 || errno != ENOENT) {
+        return -EPERM;
+    }
+    return 0;
+}
+#endif
+
 static int dpublic_hud_service_child_loop(const char *intent_path,
                                           const char *status_path,
                                           bool preopen_drm,
+                                          bool private_card_root,
                                           int ready_fd) {
     uint64_t last_sequence = 0;
     int last_present_rc = 0;
@@ -1343,36 +1593,40 @@ static int dpublic_hud_service_child_loop(const char *intent_path,
     size_t consumed_used = 0;
     char rejected_json[A90_DPUBLIC_HUD_MAX_INTENT_BYTES + 1U];
     size_t rejected_used = 0;
+    int bootstrap_rc = 0;
 
     dpublic_hud_service_stop_requested = 0;
     signal(SIGTERM, dpublic_hud_service_signal);
     signal(SIGINT, dpublic_hud_service_signal);
     signal(SIGHUP, dpublic_hud_service_signal);
-    if (preopen_drm) {
-        int bootstrap_rc = dpublic_hud_present_bootstrap();
-
-        if (ready_fd >= 0) {
-            ssize_t ready_written =
-                write(ready_fd, &bootstrap_rc, sizeof(bootstrap_rc));
-
-            (void)close(ready_fd);
-            if (ready_written != (ssize_t)sizeof(bootstrap_rc)) {
-                return -EIO;
-            }
+    if (private_card_root) {
+        if (preopen_drm) {
+            bootstrap_rc = -EINVAL;
+        } else {
+#if A90_UFS_PERSISTENT_NATIVE_HUD_PRIVATE_CARD_ROOT_V1
+            a90_console_silence_child();
+            bootstrap_rc = dpublic_hud_service_enter_private_card_root(ready_fd);
+#else
+            bootstrap_rc = -ENOTSUP;
+#endif
         }
-        if (bootstrap_rc < 0) {
-            return bootstrap_rc;
-        }
-        last_present_rc = bootstrap_rc;
-    } else if (ready_fd >= 0) {
-        int ready_rc = 0;
-        ssize_t ready_written = write(ready_fd, &ready_rc, sizeof(ready_rc));
+    }
+    if (bootstrap_rc == 0 && preopen_drm) {
+        bootstrap_rc = dpublic_hud_present_bootstrap();
+    }
+    if (ready_fd >= 0) {
+        ssize_t ready_written =
+            write(ready_fd, &bootstrap_rc, sizeof(bootstrap_rc));
 
         (void)close(ready_fd);
-        if (ready_written != (ssize_t)sizeof(ready_rc)) {
+        if (ready_written != (ssize_t)sizeof(bootstrap_rc)) {
             return -EIO;
         }
     }
+    if (bootstrap_rc < 0) {
+        return bootstrap_rc;
+    }
+    last_present_rc = bootstrap_rc;
     (void)dpublic_hud_service_write_status(
         status_path, "running", getpid(), 0, last_present_rc);
 
@@ -1493,6 +1747,7 @@ static int dpublic_hud_service_start(const struct dpublic_hud_service_opts *opts
             opts->intent_path,
             opts->status_path,
             opts->preopen_drm,
+            opts->private_card_root,
             ready_pipe[1]);
         _exit(child_rc == 0 ? 0 : 1);
     }
@@ -5229,6 +5484,7 @@ static int d4_resolve_userdata(struct d4_userdata_target *target) {
     if (dir == NULL) {
         return -errno;
     }
+    errno = 0;
     while ((entry = readdir(dir)) != NULL) {
         char uevent_path[PATH_MAX];
         struct d4_userdata_target candidate;
@@ -6163,11 +6419,159 @@ static int h17_unbind_firstboot(void) {
 #endif
 
 #if A90_UFS_PERSISTENT_NATIVE_HUD_V1
+#if A90_UFS_PERSISTENT_NATIVE_HUD_PRIVATE_CARD_ROOT_V1
+static int h23_dir_has_only(const char *path,
+                            const char *first,
+                            const char *second) {
+    DIR *dir;
+    struct dirent *entry;
+    bool saw_first = false;
+    bool saw_second = second == NULL;
+
+    dir = opendir(path);
+    if (dir == NULL) {
+        return -errno;
+    }
+    errno = 0;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+        if (strcmp(entry->d_name, first) == 0 && !saw_first) {
+            saw_first = true;
+            continue;
+        }
+        if (second != NULL && strcmp(entry->d_name, second) == 0 && !saw_second) {
+            saw_second = true;
+            continue;
+        }
+        closedir(dir);
+        return -ESTALE;
+    }
+    if (errno != 0) {
+        int rc = -errno;
+
+        (void)closedir(dir);
+        return rc;
+    }
+    if (closedir(dir) < 0) {
+        return -errno;
+    }
+    return saw_first && saw_second ? 0 : -ESTALE;
+}
+
+static int h23_require_absent(const char *path) {
+    struct stat st;
+
+    errno = 0;
+    if (lstat(path, &st) == 0 || errno != ENOENT) {
+        return -EPERM;
+    }
+    return 0;
+}
+
+static int h23_validate_private_card_root(pid_t pid) {
+    char child_ns_path[64];
+    char child_root[64];
+    char path[PATH_MAX];
+    char self_ns[PATH_MAX];
+    char child_ns[PATH_MAX];
+    struct stat source_card;
+    struct stat private_card;
+    struct stat source_run;
+    struct stat private_run;
+    int rc;
+
+    if (pid <= 1 ||
+        snprintf(child_ns_path,
+                 sizeof(child_ns_path),
+                 "/proc/%ld/ns/mnt",
+                 (long)pid) >= (int)sizeof(child_ns_path) ||
+        snprintf(child_root,
+                 sizeof(child_root),
+                 "/proc/%ld/root",
+                 (long)pid) >= (int)sizeof(child_root)) {
+        return -EINVAL;
+    }
+    if (d_handoff_readlink("/proc/self/ns/mnt", self_ns, sizeof(self_ns)) < 0 ||
+        d_handoff_readlink(child_ns_path, child_ns, sizeof(child_ns)) < 0 ||
+        strcmp(self_ns, child_ns) == 0) {
+        return -ESTALE;
+    }
+    if (lstat("/dev/dri/card0", &source_card) < 0) {
+        return -errno;
+    }
+    if (!S_ISCHR(source_card.st_mode) || S_ISLNK(source_card.st_mode)) {
+        return -ESTALE;
+    }
+    if (stat(A90_DPUBLIC_HUD_RUN_DIR, &source_run) < 0) {
+        return -errno;
+    }
+    if (!S_ISDIR(source_run.st_mode)) {
+        return -ESTALE;
+    }
+    if (snprintf(path, sizeof(path), "%s/dev/dri/card0", child_root) >=
+        (int)sizeof(path)) {
+        return -ENAMETOOLONG;
+    }
+    if (lstat(path, &private_card) < 0) {
+        return -errno;
+    }
+    if (!S_ISCHR(private_card.st_mode) ||
+        private_card.st_rdev != source_card.st_rdev) {
+        return -ESTALE;
+    }
+    if (snprintf(path, sizeof(path), "%s%s", child_root, A90_DPUBLIC_HUD_RUN_DIR) >=
+        (int)sizeof(path)) {
+        return -ENAMETOOLONG;
+    }
+    if (stat(path, &private_run) < 0) {
+        return -errno;
+    }
+    if (private_run.st_dev != source_run.st_dev ||
+        private_run.st_ino != source_run.st_ino) {
+        return -ESTALE;
+    }
+    rc = h23_dir_has_only(child_root, "dev", "run");
+    if (rc == 0) {
+        snprintf(path, sizeof(path), "%s/dev", child_root);
+        rc = h23_dir_has_only(path, "dri", NULL);
+    }
+    if (rc == 0) {
+        snprintf(path, sizeof(path), "%s/dev/dri", child_root);
+        rc = h23_dir_has_only(path, "card0", NULL);
+    }
+    if (rc == 0) {
+        snprintf(path, sizeof(path), "%s/run", child_root);
+        rc = h23_dir_has_only(path, "a90-dpublic", NULL);
+    }
+    if (rc < 0) {
+        return rc;
+    }
+    snprintf(path, sizeof(path), "%s/dev/block/a90-userdata", child_root);
+    rc = h23_require_absent(path);
+    if (rc == 0) {
+        snprintf(path, sizeof(path), "%s/proc", child_root);
+        rc = h23_require_absent(path);
+    }
+    if (rc == 0) {
+        snprintf(path, sizeof(path), "%s/sys", child_root);
+        rc = h23_require_absent(path);
+    }
+    if (rc == 0) {
+        snprintf(path, sizeof(path), "%s/old-root", child_root);
+        rc = h23_require_absent(path);
+    }
+    return rc;
+}
+#endif
+
 static int h17_start_persistent_hud(bool *run_bound_out,
                                     bool *started_out,
                                     pid_t *pid_out) {
     struct dpublic_hud_service_opts opts;
     pid_t hud_pid;
+    bool hud_has_drm;
     int rc;
 
     if (run_bound_out == NULL || started_out == NULL || pid_out == NULL) {
@@ -6181,7 +6585,14 @@ static int h17_start_persistent_hud(bool *run_bound_out,
         return rc;
     }
     dpublic_hud_service_default_opts(&opts);
+#if A90_UFS_PERSISTENT_NATIVE_HUD_DELAYED_DRM_V1
+    opts.preopen_drm = false;
+#else
     opts.preopen_drm = true;
+#endif
+#if A90_UFS_PERSISTENT_NATIVE_HUD_PRIVATE_CARD_ROOT_V1
+    opts.private_card_root = true;
+#endif
     rc = dpublic_hud_service_start(&opts, pid_out);
     if (rc < 0) {
         int unbind_rc;
@@ -6203,10 +6614,25 @@ static int h17_start_persistent_hud(bool *run_bound_out,
     if (rc == 0) {
         rc = dpublic_hud_service_read_pid(opts.pid_path, &hud_pid);
     }
+    hud_has_drm = false;
+    if (rc == 0) {
+        rc = d_handoff_pid_has_drm_fd_until(hud_pid, 0, &hud_has_drm);
+    }
+#if A90_UFS_PERSISTENT_NATIVE_HUD_PRIVATE_CARD_ROOT_V1
+    if (rc == 0) {
+        rc = h23_validate_private_card_root(hud_pid);
+    }
+#endif
     if (rc == 0 &&
         (hud_pid != *pid_out ||
          !dpublic_hud_service_pid_is_default(hud_pid) ||
-         !d_handoff_pid_has_drm_fd(hud_pid))) {
+#if A90_UFS_PERSISTENT_NATIVE_HUD_PRIVATE_CARD_ROOT_V1
+         hud_has_drm)) {
+#elif A90_UFS_PERSISTENT_NATIVE_HUD_DELAYED_DRM_V1
+         hud_has_drm)) {
+#else
+         !hud_has_drm)) {
+#endif
         rc = -EPERM;
     }
     if (rc < 0) {
@@ -6229,10 +6655,24 @@ static int h17_start_persistent_hud(bool *run_bound_out,
         }
         return rc;
     }
+#if A90_UFS_PERSISTENT_NATIVE_HUD_PRIVATE_CARD_ROOT_V1
+    a90_console_printf(
+        "%s persistent_hud=ready owner=native-init-child drm_fd=deferred "
+        "drm_trigger=ufs-intent drm_access=private-pivot-root-card0-bind "
+        "mount_namespace=private old_root=detached userdata_exposed=0 "
+        "shared_run=1 survives_switch_root=1\r\n",
+        A90_H17_TAG);
+#elif A90_UFS_PERSISTENT_NATIVE_HUD_DELAYED_DRM_V1
+    a90_console_printf(
+        "%s persistent_hud=ready owner=native-init-child drm_fd=deferred "
+        "drm_trigger=ufs-intent shared_run=1 survives_switch_root=1\r\n",
+        A90_H17_TAG);
+#else
     a90_console_printf(
         "%s persistent_hud=ready owner=native-init-child drm_fd=1 "
         "shared_run=1 survives_switch_root=1\r\n",
         A90_H17_TAG);
+#endif
     return 0;
 }
 
@@ -6581,10 +7021,25 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
     }
 #if !A90_UFS_FIRSTBOOT_OVERLAY_V1
 #if A90_UFS_PERSISTENT_NATIVE_HUD_V1
+#if A90_UFS_PERSISTENT_NATIVE_HUD_PRIVATE_CARD_ROOT_V1
+    a90_console_printf(
+        "%s firstboot=ufs-existing firstboot_overlay=disabled "
+        "persistent_native_hud=enabled drm_acquisition=deferred-until-ufs-intent "
+        "drm_access=private-pivot-root-card0-bind old_root=detached "
+        "userdata_exposed=0 ufs_write=0\r\n",
+        A90_H17_TAG);
+#elif A90_UFS_PERSISTENT_NATIVE_HUD_DELAYED_DRM_V1
+    a90_console_printf(
+        "%s firstboot=ufs-existing firstboot_overlay=disabled "
+        "persistent_native_hud=enabled drm_acquisition=deferred-until-ufs-intent "
+        "ufs_write=0\r\n",
+        A90_H17_TAG);
+#else
     a90_console_printf(
         "%s firstboot=ufs-existing firstboot_overlay=disabled "
         "persistent_native_hud=enabled ufs_write=0\r\n",
         A90_H17_TAG);
+#endif
 #else
     a90_console_printf(
         "%s firstboot=ufs-existing firstboot_overlay=disabled "

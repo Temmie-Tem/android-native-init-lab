@@ -19,6 +19,9 @@ H17 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/version
 H18 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h18/manifest.toml"
 H19 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h19/manifest.toml"
 H20 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h20/manifest.toml"
+H21 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h21/manifest.toml"
+H22 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h22/manifest.toml"
+H23 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h23/manifest.toml"
 BUILDER = load_script(
     "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py"
 )
@@ -189,6 +192,127 @@ class H17ManifestTests(unittest.TestCase):
             manifest["init"]["closure_globs"],
         )
         self.assertFalse(any(path.startswith("s22plus") for path in closure))
+        self.assertNotEqual(
+            BUILDLIB.closure_sha256(root, closure),
+            manifest["init"]["closure_sha256"],
+        )
+
+    def test_h21_defers_native_hud_drm_until_the_ufs_intent(self) -> None:
+        resolution = BUILDLIB.resolve_manifest(H21)
+        self.assertEqual(
+            [path.parent.name for path in resolution.lineage],
+            ["phase3-minimal-h21", "phase3-minimal-h16", "v3404-effective"],
+        )
+        manifest = resolution.data
+        binding = BUILDER.normalized_auto_handoff_binding(manifest)
+        self.assertEqual(binding["schema"], "a90-compiled-auto-handoff-binding-v8")
+        self.assertEqual(binding["candidate_version"], "0.11.189")
+        self.assertEqual(
+            binding["candidate_build"],
+            "phase3-minimal-h21-ufs-auth-native-hud-delayed-drm",
+        )
+        self.assertEqual(binding["firstboot_overlay"], "disabled")
+        self.assertEqual(binding["persistent_native_hud"], "enabled")
+        self.assertEqual(
+            binding["hud_drm_acquisition"],
+            "deferred-until-ufs-intent-v1",
+        )
+        self.assertEqual(
+            binding["ufs_firstboot_cleanup_compatibility"],
+            "no-pre-intent-drm-fd-v1",
+        )
+        self.assertTrue(BUILDER.h21_delayed_hud_drm_mode(manifest))
+        root = REPO / manifest["init"]["source_root"]
+        closure = BUILDLIB.expanded_closure(
+            root,
+            manifest["init"]["sources"],
+            manifest["init"]["closure_globs"],
+        )
+        self.assertNotEqual(
+            BUILDLIB.closure_sha256(root, closure),
+            manifest["init"]["closure_sha256"],
+        )
+
+    def test_h22_identity_is_historical_and_its_native_closure_is_retired(self) -> None:
+        resolution = BUILDLIB.resolve_manifest(H22)
+        self.assertEqual(
+            [path.parent.name for path in resolution.lineage],
+            ["phase3-minimal-h22", "phase3-minimal-h16", "v3404-effective"],
+        )
+        manifest = resolution.data
+        binding = BUILDER.normalized_auto_handoff_binding(manifest)
+        self.assertEqual(binding["schema"], "a90-compiled-auto-handoff-binding-v9")
+        self.assertEqual(binding["candidate_version"], "0.11.190")
+        self.assertEqual(
+            binding["candidate_build"],
+            "phase3-minimal-h22-ufs-auth-native-hud-preserved-dev-dir",
+        )
+        self.assertEqual(
+            binding["hud_drm_acquisition"],
+            "deferred-until-ufs-intent-v2",
+        )
+        self.assertEqual(
+            binding["hud_drm_device_access"],
+            "preopened-dev-dir-fd-openat-card0-v1",
+        )
+        self.assertEqual(
+            binding["ufs_firstboot_cleanup_compatibility"],
+            "no-pre-intent-drm-card-fd-v2",
+        )
+        self.assertTrue(BUILDER.h21_delayed_hud_drm_mode(manifest))
+        self.assertTrue(BUILDER.h22_preserved_dev_dir_mode(manifest))
+        root = REPO / manifest["init"]["source_root"]
+        closure = BUILDLIB.expanded_closure(
+            root,
+            manifest["init"]["sources"],
+            manifest["init"]["closure_globs"],
+        )
+        self.assertNotEqual(
+            BUILDLIB.closure_sha256(root, closure),
+            manifest["init"]["closure_sha256"],
+        )
+
+    def test_h23_uses_an_exact_private_card_root_binding(self) -> None:
+        resolution = BUILDLIB.resolve_manifest(H23)
+        self.assertEqual(
+            [path.parent.name for path in resolution.lineage],
+            ["phase3-minimal-h23", "phase3-minimal-h16", "v3404-effective"],
+        )
+        manifest = resolution.data
+        binding = BUILDER.normalized_auto_handoff_binding(manifest)
+        self.assertEqual(binding["schema"], "a90-compiled-auto-handoff-binding-v10")
+        self.assertEqual(binding["candidate_version"], "0.11.191")
+        self.assertEqual(
+            binding["candidate_build"],
+            "phase3-minimal-h23-ufs-auth-native-hud-private-card-root",
+        )
+        self.assertEqual(
+            binding["hud_drm_acquisition"],
+            "deferred-until-ufs-intent-v3",
+        )
+        self.assertEqual(
+            binding["hud_drm_device_access"],
+            "private-pivot-root-card0-bind-v1",
+        )
+        self.assertEqual(
+            binding["hud_mount_namespace"],
+            "private-minimal-card-root-v1",
+        )
+        self.assertEqual(
+            binding["debian_device_exposure"],
+            "card0-only-no-userdata-v1",
+        )
+        self.assertTrue(BUILDER.h21_delayed_hud_drm_mode(manifest))
+        self.assertFalse(BUILDER.h22_preserved_dev_dir_mode(manifest))
+        self.assertTrue(BUILDER.h23_private_card_root_mode(manifest))
+        root = REPO / manifest["init"]["source_root"]
+        closure = BUILDLIB.expanded_closure(
+            root,
+            manifest["init"]["sources"],
+            manifest["init"]["closure_globs"],
+        )
+        self.assertFalse(any(path.startswith("s22plus") for path in closure))
+        self.assertEqual(len(closure), 142)
         self.assertEqual(
             BUILDLIB.closure_sha256(root, closure),
             manifest["init"]["closure_sha256"],
@@ -225,6 +349,40 @@ class H17ManifestTests(unittest.TestCase):
         manifest["init"]["cflags"].append("-DA90_UFS_PERSISTENT_NATIVE_HUD_V1=1")
         with self.assertRaisesRegex(RuntimeError, "requires observer-auth"):
             BUILDER.h17_runtime_features(manifest)
+
+    def test_delayed_hud_drm_rejects_firstboot_overlay_or_missing_hud(self) -> None:
+        manifest = BUILDLIB.resolve_manifest(H21).data
+        manifest["init"]["cflags"].remove("-DA90_UFS_FIRSTBOOT_OVERLAY_V1=0")
+        manifest["init"]["cflags"].append("-DA90_UFS_FIRSTBOOT_OVERLAY_V1=1")
+        with self.assertRaisesRegex(RuntimeError, "without firstboot overlay"):
+            BUILDER.h21_delayed_hud_drm_mode(manifest)
+        manifest = BUILDLIB.resolve_manifest(H21).data
+        manifest["init"]["cflags"].remove("-DA90_UFS_PERSISTENT_NATIVE_HUD_V1=1")
+        with self.assertRaisesRegex(RuntimeError, "requires auth and HUD"):
+            BUILDER.h21_delayed_hud_drm_mode(manifest)
+
+    def test_preserved_dev_dir_requires_delayed_hud_drm(self) -> None:
+        manifest = BUILDLIB.resolve_manifest(H22).data
+        manifest["init"]["cflags"].remove(
+            "-DA90_UFS_PERSISTENT_NATIVE_HUD_DELAYED_DRM_V1=1"
+        )
+        with self.assertRaisesRegex(RuntimeError, "requires delayed HUD DRM"):
+            BUILDER.h22_preserved_dev_dir_mode(manifest)
+
+    def test_private_card_root_rejects_missing_delay_or_preserved_dev(self) -> None:
+        manifest = BUILDLIB.resolve_manifest(H23).data
+        manifest["init"]["cflags"].remove(
+            "-DA90_UFS_PERSISTENT_NATIVE_HUD_DELAYED_DRM_V1=1"
+        )
+        with self.assertRaisesRegex(RuntimeError, "requires delayed HUD DRM"):
+            BUILDER.h23_private_card_root_mode(manifest)
+
+        manifest = BUILDLIB.resolve_manifest(H23).data
+        manifest["init"]["cflags"].append(
+            "-DA90_UFS_PERSISTENT_NATIVE_HUD_PRESERVED_DEV_DIR_V1=1"
+        )
+        with self.assertRaisesRegex(RuntimeError, "without preserved dev FD"):
+            BUILDER.h23_private_card_root_mode(manifest)
 
 
 class H17NativeSourceTests(unittest.TestCase):
@@ -336,6 +494,75 @@ class H17NativeSourceTests(unittest.TestCase):
         )
         self.assertIn("persistent_native_hud=enabled", handoff)
 
+    def test_h21_starts_the_hud_without_drm_and_requires_no_preintent_drm_fd(self) -> None:
+        source = NATIVE.read_text()
+        start = source[
+            source.index("static int h17_start_persistent_hud(") :
+            source.index("static int h17_stop_persistent_hud(")
+        ]
+        self.assertIn("#if A90_UFS_PERSISTENT_NATIVE_HUD_DELAYED_DRM_V1", start)
+        self.assertIn("opts.preopen_drm = false", start)
+        self.assertIn("hud_has_drm))", start)
+        self.assertIn("drm_fd=deferred", start)
+        self.assertIn("drm_trigger=ufs-intent", start)
+
+    def test_h23_sanitizes_fds_and_pivots_to_a_card0_only_root(self) -> None:
+        source = NATIVE.read_text()
+        start = source[
+            source.index("static int h17_start_persistent_hud(") :
+            source.index("static int h17_stop_persistent_hud(")
+        ]
+        private = source[
+            source.index("static int dpublic_hud_service_sanitize_fds(") :
+            source.index("static int dpublic_hud_service_child_loop(")
+        ]
+        child = source[
+            source.index("static int dpublic_hud_service_child_loop(") :
+            source.index("static bool dpublic_hud_service_pid_is_default(")
+        ]
+        self.assertIn('open("/dev/null", O_RDWR | O_CLOEXEC | O_NOFOLLOW)', private)
+        self.assertIn("S_ISFIFO(ready_st.st_mode)", private)
+        self.assertIn("null_st.st_rdev != makedev(1, 3)", private)
+        self.assertIn("dup2(null_fd, fd)", private)
+        self.assertIn('opendir("/proc/self/fd")', private)
+        self.assertIn("fd == ready_fd || fd == scan_fd", private)
+        exact_tree = source[
+            source.index("static int h23_dir_has_only(") :
+            source.index("static int h23_require_absent(")
+        ]
+        self.assertLess(exact_tree.index("errno = 0;"), exact_tree.index("readdir(dir)"))
+        self.assertIn("if (errno != 0)", exact_tree)
+        ordered = [
+            "dpublic_hud_service_sanitize_fds(ready_fd)",
+            "unshare(CLONE_NEWNS)",
+            "MS_REC | MS_PRIVATE",
+            'mount("a90-hud-private-root"',
+            "mount(card_source, card_target, NULL, MS_BIND, NULL)",
+            "mount(A90_DPUBLIC_HUD_RUN_DIR, run_target, NULL, MS_BIND, NULL)",
+            'syscall(SYS_pivot_root, ".", "old-root")',
+            "umount2(A90_DPUBLIC_HUD_PRIVATE_OLD_ROOT, MNT_DETACH)",
+            'lstat("/dev/block/a90-userdata", &forbidden)',
+            'lstat("/proc", &forbidden)',
+            'lstat("/sys", &forbidden)',
+        ]
+        positions = [private.index(token) for token in ordered]
+        self.assertEqual(positions, sorted(positions))
+        self.assertIn("opts.private_card_root = true", start)
+        self.assertIn("d_handoff_pid_has_drm_fd_until(hud_pid, 0", start)
+        self.assertIn("h23_validate_private_card_root(hud_pid)", start)
+        self.assertIn("drm_access=private-pivot-root-card0-bind", start)
+        self.assertIn("old_root=detached userdata_exposed=0", start)
+        self.assertLess(
+            child.index("a90_console_silence_child()"),
+            child.index("dpublic_hud_service_enter_private_card_root(ready_fd)"),
+        )
+        self.assertLess(
+            child.index("dpublic_hud_parse_intent("),
+            child.index("a90_kms_begin_frame(0x061018)"),
+        )
+        self.assertNotIn("a90_kms_begin_frame_from_dev_dir", source)
+        self.assertNotIn("h22_open_preserved_dev_dir", source)
+
     def test_auth_overlay_is_tmpfs_and_key_bytes_are_never_logged(self) -> None:
         source = NATIVE.read_text()
         auth = source[
@@ -376,7 +603,7 @@ class H17NativeSourceTests(unittest.TestCase):
         )
         self.assertIn("(target_fs.f_flag & ST_RDONLY) == 0", firstboot)
         self.assertIn("dpublic_hud_service_pid_is_default(hud_pid)", hud)
-        self.assertIn("d_handoff_pid_has_drm_fd(hud_pid)", hud)
+        self.assertIn("d_handoff_pid_has_drm_fd_until(hud_pid, 0", hud)
         self.assertIn("hud_pid != *pid_out", hud)
         self.assertIn("d_handoff_stop_drm_owner(A90_DPUBLIC_HUD_SERVICE_TAG, *pid)", hud)
 

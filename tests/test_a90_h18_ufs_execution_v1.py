@@ -599,14 +599,22 @@ class A90H18UfsExecutionV1Tests(unittest.TestCase):
             now=now,
         )
 
-    def test_host_capability_qualification_remains_exact(self) -> None:
-        value = self.f1.validate_host_capability_qualification()
-        self.assertEqual(value["verdict"], "PASS_GO")
-        self.assertFalse(value["f1_runner_qualified"])
-        self.assertFalse(value["d1_runner_qualified"])
+    def test_host_capability_qualification_is_stale_after_native_successors(self) -> None:
+        with self.assertRaisesRegex(self.f1.ContractError, "qualification changed"):
+            self.f1.validate_host_capability_qualification()
 
     def test_execution_qualification_requires_both_runners(self) -> None:
-        closure = self.f1.execution_closure()
+        qualification = json.loads(
+            (
+                self.f1.REPO_ROOT
+                / "workspace/public/src/scripts/revalidation/a90_flat_builder/"
+                "versions/phase3-minimal-h18/execution-qualification.json"
+            ).read_text(encoding="utf-8")
+        )
+        closure = {
+            "sha256": qualification["execution_closure_sha256"],
+            "files": qualification["execution_hashes"],
+        }
         report = {
             "schema": self.f1.EXECUTION_REVIEW_SCHEMA,
             "capability": self.f1.CAPABILITY,

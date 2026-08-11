@@ -744,32 +744,49 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: H20 Capability Qualified, Execution Adapter Pending
+## Selected Bounded Unit: H23 Private Card-Root Capability Validation
 
-Preserve every terminal H7-H17 transaction and the complete seven-record H18
-run01 journal. The consumed H18 arm, reboot, and handoff are never replayed.
-The captured-log finalizer is retired by its exact terminal close and grants no
+Preserve all terminal H7-H17 transactions and the seven-record H18 run01. Its
+consumed arm/reboot/handoff are never replayed; the retired finalizer grants no
 successor authority.
 
-H18 proves only outer `EPERM` at `firstboot-overlay`, after the UFS root mount
-and before `switch_root`; it does not distinguish source check, target check,
-bind, remount, or verification. Host inspection then refuted H19's assumption
-that the immutable UFS firstboot launches a Debian display presenter. H19 had no
-runner, approval, connected D0, or device effect; the new hazard retires its
-qualification before live use.
+H18 proves only outer `EPERM` at `firstboot-overlay`, after UFS root mount and
+before `switch_root`. Host inspection refuted H19's assumption that immutable
+UFS firstboot launches a Debian presenter; H19 had no runner, approval, D0, or
+device effect and is retired before live use.
 
-H20 `0.11.188` is a fresh identity. It retains the boot-private observer auth
-and native HUD presenter while compile-disabling only the firstboot file overlay.
-Deterministic A/B boot `99edec6c...9713` contains the observer key, omits the
-firstboot payload, and binds native closure `7ced84b2...27ef`. Clean independent
-`PASS_GO` at 14-file closure `1d02d9a1...65f8` has HIGH/MEDIUM/LOW zero and grants
-no live authority.
+Deeper host inspection then proved H20's preopened native DRM child exactly
+matches the immutable UFS firstboot cleanup predicate. H20 had no execution
+manifest, connected D0, approval, or device effect; this new hazard invalidates
+its qualification and H20 is never live-eligible.
 
-The next bounded unit is H0-only H20 F1/D1 execution-adapter construction. It
-must bind the terminal H18 predecessor, exact H20 A/B artifacts, V2321 rollback,
-boot-only transfer, no replay, fresh connected D0, attendance, recovery, and
-fresh F1/D1 approvals. Debian PID 1, persistent SSH, display ownership, Wi-Fi
-ownership, and persistent-server readiness remain unproved until that run.
+H21 `0.11.189` started the child without DRM, but independent review proved the
+old-root child loses the absolute sysfs/device path needed to open card0 after
+`switch_root`. H21 had no adapter, D0, approval, or device effect; its closure
+`20957cd6...9583` is refuted and never live-eligible.
+
+H22 `0.11.190` then preserved a native `/dev` directory descriptor. Independent
+review proved Debian root could duplicate it through `/proc/<hud-pid>/fd` and
+traverse native devtmpfs, including userdata nodes. H22 had no qualification,
+adapter, D0, approval, or device effect; the preserved-dev path is retired.
+
+H23 `0.11.191` is a fresh identity. Before readiness, its child replaces stdio
+with `/dev/null`, closes inherited FDs except the readiness pipe, then enters a
+private namespace and pivots into a 64 KiB tmpfs containing only bound card0 and
+the shared run directory. The parent requires distinct namespace, exact card/run
+identities and tree, absent old root/proc/sys/userdata, and zero
+pre-intent DRM FD. DRM opens only after a valid intent.
+Deterministic A/B is byte-identical: boot `60a3640f...3f41` at 58,372,096 bytes,
+init `0bfab21c...5a3b`, ramdisk `e0d38311...9820`, closure
+`a6ca11c1...3eff`/142, binding v10 `5c914f53...a03d`. `candidate_authority=false`; independent
+review returned reusable `PASS_GO` at execution closure `7362e533...f9a9`/22. Live authority remains false.
+
+Only after clean H23 capability qualification may the next H0 unit construct
+F1/D1 adapters binding the terminal H18 predecessor, exact H23 A/B artifacts,
+V2321 rollback, boot-only transfer, no replay, fresh connected D0, attendance,
+recovery, and fresh F1/D1 approvals. Debian PID 1, persistent SSH, display
+ownership, Wi-Fi ownership, and persistent-server readiness remain unproved
+until that run.
 
 Only a full comparable H15 control benchmark can open a later Full-LTO unit.
 Qualification never substitutes for fresh manifest, D0, approval, attendance,
@@ -812,16 +829,6 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 
 ## Evidence
 
-- `docs/archive/reports/A90_PHASE3_MINIMAL_H2_TWO_PHASE_AUTO_BENCHMARK_INDEPENDENT_REREVIEW_2026-08-05.json`
-- `docs/archive/reports/A90_PHASE3_MINIMAL_H2_LIVE_F1_D1_INTEGRATION_FINAL_INDEPENDENT_REVIEW_2026-08-05.json`
-- `docs/reports/A90_PHASE3_MINIMAL_H2_POST_INCIDENT_FINAL_INDEPENDENT_REVIEW_2026-08-05.json`
-- `docs/reports/A90_PHASE3_MINIMAL_H2_BRIDGE_STOP_FOCUSED_FRESH_INDEPENDENT_REVIEW_2026-08-05.json`
-- `docs/reports/A90_PHASE3_MINIMAL_H2_HISTORICAL_ACM_EPOCH_FOCUSED_INDEPENDENT_REVIEW_2026-08-05.json`
-- `docs/reports/A90_PHASE3_MINIMAL_H3_EXACT_BINDING_INDEPENDENT_REVIEW_2026-08-05.json`
-- `docs/reports/A90_H3_AUTO_BENCHMARK_OBSERVER_TAIL_REPAIR_INDEPENDENT_REVIEW_2026-08-05.json`
-- `docs/reports/A90_PHASE3_MINIMAL_H4_OBSERVER_COMPLETE_INDEPENDENT_REVIEW_2026-08-05.json`
-- `docs/reports/A90_H4_CUMULATIVE_UNARMED_LOG_OBSERVER_INCIDENT_REVIEW_2026-08-05.json`
-- `docs/reports/A90_V2321_H3_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_PHASE3_MINIMAL_H5_FRESH_CAMPAIGN_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_PHASE3_MINIMAL_H6_OBSERVER_COMPLETE_BASELINE_INDEPENDENT_REVIEW_2026-08-07.json`
 - `docs/reports/A90_PHASE3_MINIMAL_H6_RUN03_REBIND_INDEPENDENT_REVIEW_2026-08-07.json`
@@ -848,7 +855,7 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_H18_FRAMED_LOG_PREFIX_FINALIZER_INDEPENDENT_REVIEW_2026-08-12.json`
 - `docs/reports/A90_H19_AUTH_ONLY_UFS_HANDOFF_INDEPENDENT_REVIEW_2026-08-12.json`
 - `docs/reports/A90_H19_UFS_FIRSTBOOT_DISPLAY_OWNER_ASSUMPTION_INCIDENT_2026-08-12.md`
-- `docs/reports/A90_H20_NATIVE_HUD_NO_FIRSTBOOT_OVERLAY_INDEPENDENT_REVIEW_2026-08-12.json`
+- `docs/reports/A90_H23_PRIVATE_CARD_ROOT_INDEPENDENT_REVIEW_2026-08-12.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`

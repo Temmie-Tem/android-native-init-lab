@@ -77,6 +77,13 @@ AUTO_HANDOFF_RECEIPT_MACRO = "A90_D3_SOURCE_RECEIPT_PATH"
 H17_OBSERVER_AUTH_ENABLE = "A90_UFS_OBSERVER_AUTH_OVERLAY_V1"
 H17_FIRSTBOOT_OVERLAY_ENABLE = "A90_UFS_FIRSTBOOT_OVERLAY_V1"
 H17_PERSISTENT_HUD_ENABLE = "A90_UFS_PERSISTENT_NATIVE_HUD_V1"
+H21_DELAYED_HUD_DRM_ENABLE = "A90_UFS_PERSISTENT_NATIVE_HUD_DELAYED_DRM_V1"
+H22_PRESERVED_DEV_DIR_ENABLE = (
+    "A90_UFS_PERSISTENT_NATIVE_HUD_PRESERVED_DEV_DIR_V1"
+)
+H23_PRIVATE_CARD_ROOT_ENABLE = (
+    "A90_UFS_PERSISTENT_NATIVE_HUD_PRIVATE_CARD_ROOT_V1"
+)
 H17_OBSERVER_AUTH_RAMDISK_PATH = "a90/h17/authorized_keys"
 H17_FIRSTBOOT_RAMDISK_PATH = "a90/h17/firstboot"
 H17_FIRSTBOOT_SOURCE = Path(
@@ -137,6 +144,54 @@ def h17_persistent_hud_mode(manifest: dict[str, Any]) -> bool:
 
     _, _, hud = h17_runtime_features(manifest)
     return hud
+
+
+def h21_delayed_hud_drm_mode(manifest: dict[str, Any]) -> bool:
+    """Return whether HUD DRM acquisition is deferred until the UFS intent."""
+
+    cflags = manifest["init"]["cflags"]
+    directives = _macro_directives(cflags, H21_DELAYED_HUD_DRM_ENABLE)
+    if directives not in ([], [f"-D{H21_DELAYED_HUD_DRM_ENABLE}=1"]):
+        raise RuntimeError("H21 delayed HUD DRM macro is duplicated or conflicting")
+    enabled = bool(directives)
+    if enabled:
+        auth, firstboot, hud = h17_runtime_features(manifest)
+        if not auth or firstboot or not hud:
+            raise RuntimeError(
+                "H21 delayed HUD DRM requires auth and HUD without firstboot overlay"
+            )
+    return enabled
+
+
+def h22_preserved_dev_dir_mode(manifest: dict[str, Any]) -> bool:
+    """Return whether the delayed HUD keeps an exact pre-handoff /dev dir FD."""
+
+    cflags = manifest["init"]["cflags"]
+    directives = _macro_directives(cflags, H22_PRESERVED_DEV_DIR_ENABLE)
+    if directives not in ([], [f"-D{H22_PRESERVED_DEV_DIR_ENABLE}=1"]):
+        raise RuntimeError("H22 preserved /dev directory macro is duplicated or conflicting")
+    enabled = bool(directives)
+    if enabled and not h21_delayed_hud_drm_mode(manifest):
+        raise RuntimeError("H22 preserved /dev directory requires delayed HUD DRM")
+    return enabled
+
+
+def h23_private_card_root_mode(manifest: dict[str, Any]) -> bool:
+    """Return whether the HUD pivots into the exact card0-only private root."""
+
+    cflags = manifest["init"]["cflags"]
+    directives = _macro_directives(cflags, H23_PRIVATE_CARD_ROOT_ENABLE)
+    if directives not in ([], [f"-D{H23_PRIVATE_CARD_ROOT_ENABLE}=1"]):
+        raise RuntimeError("H23 private card root macro is duplicated or conflicting")
+    enabled = bool(directives)
+    if enabled and (
+        not h21_delayed_hud_drm_mode(manifest) or
+        h22_preserved_dev_dir_mode(manifest)
+    ):
+        raise RuntimeError(
+            "H23 private card root requires delayed HUD DRM without preserved dev FD"
+        )
+    return enabled
 
 
 def validate_observer_authorized_key(
@@ -517,6 +572,9 @@ def normalized_auto_handoff_binding(
         if receipt_path:
             normalized["receipt_path"] = receipt_path
     auth_enabled, firstboot_enabled, hud_enabled = h17_runtime_features(manifest)
+    delayed_hud_drm = h21_delayed_hud_drm_mode(manifest)
+    preserved_dev_dir = h22_preserved_dev_dir_mode(manifest)
+    private_card_root = h23_private_card_root_mode(manifest)
     if auth_enabled:
         if not userdata_root or not dynamic_devt:
             raise RuntimeError("H17 private runtime requires dynamic read-only userdata")
@@ -535,7 +593,56 @@ def normalized_auto_handoff_binding(
                 ),
             }
         )
-        if hud_enabled and not firstboot_enabled:
+        if (hud_enabled and not firstboot_enabled and delayed_hud_drm and
+                private_card_root):
+            normalized.update(
+                {
+                    "schema": "a90-compiled-auto-handoff-binding-v10",
+                    "firstboot_source": "ufs-existing-immutable-v1",
+                    "firstboot_overlay": "disabled",
+                    "persistent_native_hud": "enabled",
+                    "hud_drm_acquisition": "deferred-until-ufs-intent-v3",
+                    "hud_drm_device_access": (
+                        "private-pivot-root-card0-bind-v1"
+                    ),
+                    "hud_mount_namespace": "private-minimal-card-root-v1",
+                    "debian_device_exposure": "card0-only-no-userdata-v1",
+                    "ufs_firstboot_cleanup_compatibility": (
+                        "zero-pre-intent-drm-fd-v3"
+                    ),
+                }
+            )
+        elif (hud_enabled and not firstboot_enabled and delayed_hud_drm and
+                preserved_dev_dir):
+            normalized.update(
+                {
+                    "schema": "a90-compiled-auto-handoff-binding-v9",
+                    "firstboot_source": "ufs-existing-immutable-v1",
+                    "firstboot_overlay": "disabled",
+                    "persistent_native_hud": "enabled",
+                    "hud_drm_acquisition": "deferred-until-ufs-intent-v2",
+                    "hud_drm_device_access": (
+                        "preopened-dev-dir-fd-openat-card0-v1"
+                    ),
+                    "ufs_firstboot_cleanup_compatibility": (
+                        "no-pre-intent-drm-card-fd-v2"
+                    ),
+                }
+            )
+        elif hud_enabled and not firstboot_enabled and delayed_hud_drm:
+            normalized.update(
+                {
+                    "schema": "a90-compiled-auto-handoff-binding-v8",
+                    "firstboot_source": "ufs-existing-immutable-v1",
+                    "firstboot_overlay": "disabled",
+                    "persistent_native_hud": "enabled",
+                    "hud_drm_acquisition": "deferred-until-ufs-intent-v1",
+                    "ufs_firstboot_cleanup_compatibility": (
+                        "no-pre-intent-drm-fd-v1"
+                    ),
+                }
+            )
+        elif hud_enabled and not firstboot_enabled:
             normalized.update(
                 {
                     "schema": "a90-compiled-auto-handoff-binding-v7",
