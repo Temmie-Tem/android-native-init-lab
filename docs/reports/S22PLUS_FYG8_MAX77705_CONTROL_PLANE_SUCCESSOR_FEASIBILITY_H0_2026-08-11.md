@@ -6,10 +6,10 @@ Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` /
 `S906NKSS7FYG8`)
 
 Verdict:
-`BASE_CARRIER_RECOVERABLE_STOCK_67_UNADJUDICATED_CUSTOM_SUCCESSOR_CONDITIONALLY_FEASIBLE`
+`BASE_CARRIER_AND_NORMAL_ORDER_RECOVERED_STOCK_67_UNADJUDICATED_CUSTOM_SUCCESSOR_CONDITIONALLY_FEASIBLE`
 
 Review state:
-`PRIMARY_SOURCE_AUDIT_CORRECTED_GATES_OPEN_INDEPENDENT_REVIEW_REQUIRED`
+`PRIMARY_SOURCE_AUDIT_GATE0_CLOSED_REMAINING_GATES_OPEN_INDEPENDENT_REVIEW_REQUIRED`
 
 Repository analysis base:
 `97be0e488b62cec8228e50ab7997e1e52cd5ba96`
@@ -55,6 +55,11 @@ firmware record was written in any retained run.
 
 Nothing in this report grants live authority. The provisional module count is
 dependency arithmetic only, not a qualified plan.
+
+The later Gate 0 continuation in this same H0 unit remained host-only. It
+streamed the pinned AP/super input, wrote only the 57,610,240-byte
+`vendor_dlkm` extent, and recovered Android's exact second-stage
+`modules.load`; it did not contact a device or create a boot payload.
 
 ## Executive result
 
@@ -122,11 +127,15 @@ P3.15 base remain recoverable from the pinned vendor ramdisk. An exact
 cross-inventory comparison partitions the proposed 67 names into 37
 first-stage names and 30 `vendor_dlkm` names; every one of the latter 30 has
 the same size and SHA-256 in the tracked super inventory as in the
-vendor-ramdisk/P3.15 byte authority. Wholesale module reconstruction is not a
-blocker. The missing normal Android second-stage
-`vendor_dlkm/lib/modules/modules.load` line order, exact target-only binding,
-stock-versus-custom selection, complete PMIC/PDIC write inventory, telemetry
-encoding, host-space headroom, and independent review remain open gates.
+vendor-ramdisk/P3.15 byte authority. Gate 0 then recovered the exact
+5,843-byte, 356-line second-stage order and matched its pre-recorded SHA-256.
+The complete 67-module dependency closure is now proven: the inherited P3.15
+sequence followed by the six dependency-ordered additions has zero forward
+dependency edges. Wholesale module reconstruction and normal-order recovery
+are no longer blockers. Exact target-only binding, stock-versus-custom
+selection, complete PMIC/PDIC write inventory, custom module/ABI closure,
+telemetry encoding, per-operation space proof, and independent review remain
+open gates.
 
 ## Evidence authority and hashes
 
@@ -160,6 +169,8 @@ The primary source and artifact inputs were rehashed during this H0 unit.
 | fixed P3.10-derived `.config` | `6adf58c7204695e6f5a8deaf0f5995bca91a79ce4cc5f7b74e7b247128e0673b` |
 | tracked super module inventory | `5ad69e151efbe48ba0348608120da3001f9e11d481b13a498177e080771c6d37` |
 | tracked `vendor_dlkm/modules.load` identity (5,843 bytes) | `8411620a0384d07fed491a2f8f7c146e354d022c8446940fc59f49cb2d98d360` |
+| streamed Gate 0 result | `f24d593219dd775d51230b7b271a90fd67f14a1ab360ca060fb64e33e90d6241` |
+| recovered 67-module order audit | `5c64cbe9dc4f8c6569248b8c8e9affb3d7f721a3854f4aa2c93a238b32c7241a` |
 | retained stock/XBL `baseline_last_kmsg.bin` | `9a58a0c8486723c31f9cf8ac7d8b8be2586969bb8f167cd76907e3b82db0c7cb` |
 | P3.15 USB-sidecar result | `a075c7014e9d0524fd0b7f18fe14a263639ad27ced386a4801e4c9856caf19fa` |
 
@@ -184,6 +195,8 @@ for the hashed source snapshot, not for an unpinned upstream tree.
 | exact 61-entry P3.15 module plan and notifier/UCSI tail | `workspace/private/outputs/s22plus_fyg8_p315/intent/materialized-sources/s22plus_fyg8_p286_e3_plan.h:20-85` |
 | exact 61-module hashes and unchanged vendor-ramdisk reuse | `workspace/private/outputs/s22plus_fyg8_p315/candidate-a/artifact-result.json`, hash-pinned above |
 | first-stage/recovery order inputs | pinned `modules.load` and `modules.load.recovery`, hash-pinned above |
+| bounded sparse/range extraction and exact second-stage file | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/result.json` and `modules.load`, hash-pinned above |
+| 67-name stage, position, and dependency-order audit | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/max77705-67-order-audit.json`, hash-pinned above |
 | PDIC, MFD, SPU, GENI-I2C, GPI, and GENI-SE dependency edges | pinned `modules.dep:91`, `:176`, `:181`, `:235`, `:305`, `:388` |
 | switch bit layout and the values that evaluate to `COM_OPEN=0x3f`, `COM_USB=0x09` | `include/linux/usb/typec/maxim/max77705-muic.h:293-301`, `:359-405` |
 | `CONTROL1` write construction and software-only previous-state assumption | `drivers/usb/typec/maxim/max77705-muic.c:326-349`, `:437-464` |
@@ -226,7 +239,7 @@ readback.
 | Class | Established in this H0 | Not established |
 |---|---|---|
 | source fact | `CONTROL1` controls the D+/D- switch and the MUIC initial-detect path can queue `COM_USB` | that the queue ran in P3.15 |
-| plan/artifact fact | P3.15 omitted the six-entry GENI/Max77705 producer closure; all six stock payloads and the P3.15 61-module base are recoverable from the pinned vendor ramdisk; the 67 expected names split exactly into 37 first-stage names and 30 byte-identical tracked `vendor_dlkm` names | Android second-stage line order and loadability of custom successor modules |
+| plan/artifact fact | P3.15 omitted the six-entry GENI/Max77705 producer closure; all six stock payloads and the P3.15 61-module base are recoverable; the 67 names split exactly into 37 first-stage and 30 `vendor_dlkm` names; the exact 356-line second-stage order is recovered; and the proposed native sequence has zero forward dependency edges | loadability of custom successor modules |
 | retained-evidence fact | the combined retained log contains two XBL MUIC-init blocks that touch opcodes `0x06` and `0x05`, one explicitly followed by Odin `SetPath: 1`, while one stock Linux boot read `6E.00` and skipped update | the XBL write payload, returned `CONTROL1` value, exact provenance of the second bootloader block beyond its non-Odin context, or value inherited at Linux probe |
 | hazard fact | every PASS5 MFD probe invokes the updater; valid PC-VBUS first-pass state exits before firmware writes, but updateward read-failure defaults and guard-free retries prevent structural nonreachability; PDIC probe performs broad control-plane initialization | that the firmware-write branch would occur in a successor, or that stock-equivalent invocation is disallowed |
 | causal inference | an open/non-USB `CONTROL1` state is compatible with controller-side success plus complete host silence | that it caused P3.15 |
@@ -304,17 +317,25 @@ The P3.15 planner uses first-stage order, then recovery order, then
 `msm-geni-se.ko` is in the first-stage list; all six are in the recovery list.
 
 Android's later `vendor_dlkm/lib/modules/modules.load` is a separate authority
-inside `super.img` and its bytes have not been recovered. The tracked super
-inventory proves that file existed at 5,843 bytes with SHA-256
-`8411620a0384d07fed491a2f8f7c146e354d022c8446940fc59f49cb2d98d360`;
-an inventory row cannot reconstruct its line order. The full 9,680,091,538-byte
-firmware ZIP is present and contains an 11,499,653,242-byte AP tar whose
-`super.img.lz4` member is 8,875,694,170 bytes. At audit time the filesystem had
-4,246,401,024 bytes available, so an ordinary full extraction could not be
-performed safely.
-Recovering that second-stage list, by a bounded streaming extractor or after
-explicit space provisioning, is Gate 0 for stock-order comparison. It is not
-a prerequisite for recovering the module bytes themselves.
+inside `super.img`. The initial audit had only its tracked 5,843-byte identity,
+SHA-256
+`8411620a0384d07fed491a2f8f7c146e354d022c8446940fc59f49cb2d98d360`,
+not its line order. At that time only 4,246,401,024 bytes were available, so an
+ordinary full extraction was unsafe.
+
+The exact S22+ cleanup closed that capacity blocker without deleting an
+authority input. Gate 0 then used
+`s22plus_fyg8_vendor_dlkm_order_gate.py` to authenticate the
+9,680,091,538-byte firmware ZIP, stream the AP tar's 8,875,694,170-byte
+`super.img.lz4` member, validate the complete 10,352,130,812-byte sparse super
+and 12,475,957,248-byte logical raw-super identities, and materialize only the
+57,610,240-byte `vendor_dlkm` extent at raw offset 10,367,270,912. The extent
+matched SHA-256
+`e5386d68ccf9ad1a12cfa4cf447e704bddcef94b0442e61765f3dba580186b26`.
+F2FS inode 144 then yielded exactly 5,843 bytes, 356 unique newline-terminated
+module names, and the expected `modules.load` SHA-256. The operation required
+57,610,240 output bytes plus an explicit 1,073,741,824-byte margin and published
+its private result directory only after every identity passed.
 
 The proposed 67 names were also compared across the two normal-load
 authorities rather than only against themselves:
@@ -330,17 +351,51 @@ authorities rather than only against themselves:
 
 Thus the proposed byte set is not inferred from two copies of the same list:
 it is an exact 37/30 carrier partition backed by the hash-pinned P3.15 artifact,
-vendor ramdisk, and tracked super inventory. Gate 0 remains necessary for the
-missing order of the 30 second-stage names, not for their identities.
+vendor ramdisk, and tracked super inventory. At the initial audit boundary,
+Gate 0 remained necessary for the missing order of the 30 second-stage names,
+not for their identities.
 
-A live read-only alternative is self-authenticating at the artifact boundary.
-An exact-target D0 capture of only
+That last sentence records the initial audit boundary; the streaming Gate 0
+continuation has now closed it. The 30 selected second-stage names all occur
+exactly once in the recovered 356-line file. The six additions occur at these
+stock-order locations: `msm-geni-se.ko` is first-stage line 132; `gpi.ko`,
+`i2c-msm-geni.ko`, `mfd_max77705.ko`, `pdic_max77705.ko`, and `spu_verify.ko`
+are second-stage lines 32, 145, 261, 265, and 291 respectively.
+
+The Android lists are stage/priority authority, not a direct `finit_module`
+recipe. The 140-line first-stage and 446-line recovery files each contain the
+same five duplicated names and have 135 and 441 unique names respectively;
+the recovered second-stage file is unique. Within the selected 67-name set,
+concatenating first-stage first occurrences and second-stage order creates 126
+forward dependency edges because Android's loader resolves dependencies. The
+native-init direct-loader sequence instead preserves the qualified P3.15
+61-module order and appends:
+
+```text
+msm-geni-se.ko
+gpi.ko
+i2c-msm-geni.ko
+spu_verify.ko
+mfd_max77705.ko
+pdic_max77705.ko
+```
+
+The exact `modules.dep` graph proves that sequence has zero missing selected
+dependencies and zero dependency-after-consumer edges. The sequence hash is
+`f95799b175e81283cab834282c1166e3d5664a21bfa322f5844f48442191a8a3`.
+This closes order arithmetic, not the runtime override/bind timing that must
+surround the GENI-I2C/MFD/PDIC loads.
+
+Before the host extractor closed Gate 0, a live read-only alternative would
+have been self-authenticating at the artifact boundary. An exact-target D0
+capture of only
 `/vendor_dlkm/lib/modules/modules.load` is acceptable only if it returns
 exactly 5,843 bytes and hashes to
 `8411620a0384d07fed491a2f8f7c146e354d022c8446940fc59f49cb2d98d360`.
 Any length/hash mismatch stops the order claim. The tracked identity makes
 the captured bytes comparable to the pinned firmware; it does not itself
-authorize the D0 or waive exact-target and read-only requirements.
+authorize the D0 or waive exact-target and read-only requirements. That D0 is
+no longer needed because the pinned host artifact supplied the exact bytes.
 
 ### The module payload base is recoverable
 
@@ -982,19 +1037,23 @@ module loadability proof.
 
 ### Host-capacity preflight
 
-The 4,246,401,024-byte free-space observation is not merely a reason to avoid
-full `super` extraction. It is insufficient headroom for an unqualified full
-kernel build or candidate-package working set and creates an avoidable
-ENOSPC/short-write artifact-integrity hazard.
+The initial 4,246,401,024-byte free-space observation was insufficient for an
+ordinary full `super` extraction or an unqualified full-kernel build. The
+subsequent exact S22+ cleanup removed 68 superseded or invalidated private
+payloads accounting for 5,033,287,680 allocated bytes only after reversible
+quarantine and focused regression. After the final bounded Gate 0 output was
+retained and its diagnostic duplicate removed, `df -B1` reported
+51,230,306,304 bytes available.
 
 Before any extraction, module build, full-kernel build, or candidate package
 starts, the successor must derive its peak simultaneous working set, add an
 explicit safety margin, and prove that much space is available on the target
 filesystem. A short write, ENOSPC, unexpected size, missing file, or hash
 mismatch must block publication before an artifact can enter a manifest or
-binding. The small 5,843-byte D0 alternative avoids the large extraction; it
-does not satisfy build/package headroom. No cleanup or deletion was performed
-by this H0 audit.
+binding. Gate 0 demonstrated the preferred bounded shape: it streamed and
+hashed the large input while retaining only the 57,610,240-byte partition
+extent. That closes this extraction's capacity proof; it does not pre-authorize
+a later module build or package, whose peak working set must be derived anew.
 
 If the repository cannot produce isolated exact modules under that closure,
 the build may need to invoke the full kernel build infrastructure. Even then,
@@ -1038,8 +1097,10 @@ existing P3.15 substrate and notifier consumers
   -> correlate with the already bounded host USB sidecar
 ```
 
-The exact relative placement inside the P3.15 module loop remains a detailed
-design item. It must preserve `ucsi_glink.ko`, preserve the existing USB
+The module order is now fixed as the inherited 61 entries followed by the six
+dependency-ordered additions. The exact runtime phase placement of override
+writes, bind checks, and observer setup remains a detailed design item. It
+must preserve `ucsi_glink.ko`, preserve the existing USB
 notifier consumers before PDIC initial detection, and be checked against stage
 capacity and every position/bind gate. P3.04's stale-position-table incident
 must be reproduced as a qualification regression. Removing UCSI requires a
@@ -1048,27 +1109,19 @@ not to subtract it.
 
 ## Remaining H0 gates
 
-The following are host-only and must close before a live candidate is
-prepared:
+The gates are listed together for continuity. Gate 0 is closed; every
+remaining applicable gate must close before a live candidate is prepared:
 
-0. **Host capacity, carrier, and normal-order authority**
-   - before a large extraction, build, or package, prove a source-derived peak
-     working set plus explicit margin against current free space; any ENOSPC,
-     short write, size drift, or hash drift blocks artifact publication;
-   - treat the pinned vendor ramdisk and its verified six-module extraction as
-     the stock-byte authority; loose-file counts are not provenance;
-   - preserve the exact 37-name first-stage / 30-name `vendor_dlkm` partition
-     and the 30 exact cross-inventory size/hash matches;
-   - recover Android's second-stage
-     `vendor_dlkm/lib/modules/modules.load` from the pinned AP/super input, or
-     obtain the exact same file under a separately authorized read-only
-     capture that is exactly 5,843 bytes and matches SHA-256
-     `8411620a0384d07fed491a2f8f7c146e354d022c8446940fc59f49cb2d98d360`;
-   - distinguish vendor_boot first-stage, recovery, and vendor_dlkm
-     second-stage order rather than calling the 446-entry recovery list
-     “normal boot”; and
-   - bind the resulting 67-entry order and every module byte before choosing
-     stock versus custom MFD/PDIC.
+0. **Host capacity, carrier, and normal-order authority — closed for this unit**
+   - the bounded extractor authenticated the complete ZIP/sparse/raw/extent
+     chain and recovered the exact 356-line second-stage authority;
+   - the exact 37-name first-stage / 30-name `vendor_dlkm` partition, every
+     selected module byte, and the dependency-safe 67-entry native order are
+     bound by private receipts;
+   - vendor_boot first-stage, recovery, and vendor_dlkm second-stage orders are
+     kept distinct; and
+   - the general per-operation peak-space-plus-margin and short-write/hash
+     fail-closed rule remains active for later build and package work.
 
 1. **Custom MFD patch contract**
    - exact removal or bypass of the probe-time updater;
@@ -1136,9 +1189,6 @@ the same probe.
 One bounded exact-target read-only inventory remains necessary before the
 override design can be materialized. It must capture only:
 
-- if the streaming host extractor is not selected, the exact 5,843-byte
-  `/vendor_dlkm/lib/modules/modules.load` file and its SHA-256, with a mismatch
-  causing an immediate stop;
 - exact platform device names for the three QUPv3 wrappers, three GPI devices,
   and nine enabled GENI I2C devices;
 - each `driver`, `driver_override`, modalias, and current binding state;
@@ -1186,8 +1236,6 @@ The successor is not admissible if any of the following remains true:
 - custom MFD/PDIC is selected and exact A/B or modversion/CFI closure fails;
 - any selected stock module cannot be rematerialized from the pinned vendor
   ramdisk with the exact inventory identity;
-- the candidate order is inferred from `modules.load.recovery` while the
-  Android second-stage authority remains unexamined;
 - target-only platform narrowing cannot be proven before driver registration;
 - the MFD/PDIC write inventory contains an unbounded power, firmware, storage,
   panic, EUD, UART, or raw-register effect;
@@ -1227,14 +1275,19 @@ This report was closed at H0 with the following host-side checks:
 - the 140-entry first-stage and 446-entry recovery lists were counted and kept
   distinct; all 61 P3.15 modules occur in recovery order, while 36 occur in
   first-stage order;
-- the tracked super inventory was checked to prove only the 5,843-byte
-  second-stage `modules.load` identity, not its missing line order;
-- the complete FYG8 ZIP and nested AP/super member sizes were read without
-  extraction; second-stage vendor_dlkm order remains an explicit open gate
-  because full super extraction exceeds current free space;
-- `df -B1` recorded only 4,246,401,024 bytes available on the workspace
-  filesystem, so large extraction/build/package work remains blocked behind a
-  peak-space and short-write fail-closed preflight;
+- the bounded Gate 0 extractor authenticated the complete firmware ZIP,
+  streamed `super.img.lz4`, validated the full sparse and logical raw-super
+  identities, and retained only the exact `vendor_dlkm` extent;
+- F2FS inode 144 yielded the exact 5,843-byte, 356-line second-stage
+  `modules.load` with the already tracked SHA-256;
+- the 67-order audit proved 37/30 stage partitioning, zero missing dependency
+  closure, and zero forward dependency edges in the proposed native sequence;
+- the same audit recorded why Android line order is not a direct-loader recipe:
+  it has 126 selected dependency inversions, while first-stage and recovery
+  also carry the same five duplicate names;
+- the extraction preflight required 1,131,352,064 bytes including margin,
+  observed 51,231,506,432 bytes available, and atomically published only after
+  all identities passed;
 - the source ranges in the locator map were read directly rather than inferred
   from symbol names or a parallel upstream tree;
 - the exact MFD-cell conditionals were evaluated against the target fragment:
@@ -1250,6 +1303,11 @@ This report was closed at H0 with the following host-side checks:
   udev stream was confirmed to contain exact-target stock and Download-mode
   transitions before candidate silence; this was not confused with the
   zero-byte ACM observer;
+- `python3 -m unittest tests.test_s22plus_fyg8_vendor_dlkm_order_gate` passed
+  9/9, including the ZIP/tar/process/sparse-parser seam and multicall basename
+  regression;
+- `python3 -m unittest tests.test_s22plus_fyg8_max77705_order_authority`
+  passed 4/4;
 - `python3 -m unittest tests.test_device_action_process_v2_docs` passed 19/19;
   and
 - tracked and new-report whitespace checks passed with a terminating newline.
@@ -1281,8 +1339,8 @@ The evidence now supports these exact statements:
    unadjudicated, not automatically rejected or approved.
 6. PDIC load is broad Max77705 control-plane bring-up, not a passive MUX read.
 7. The P3.15 base and all six stock additions are recoverable from pinned
-   local firmware; Android's separate vendor_dlkm second-stage load order is
-   still missing.
+   local firmware; Android's separate 356-line vendor_dlkm second-stage order
+   and the dependency-safe 67-entry native order are now recovered and bound.
 8. A fixed-Image successor is technically plausible with target-isolated GENI
    binding and a tagged MUX observer. The stock-67 and custom-module variants
    require separate risk/build dispositions, exhaustive telemetry fixtures,
@@ -1292,7 +1350,7 @@ Until those H0 and D0 gates close, the correct state is:
 
 ```text
 MUX_CAUSALITY_UNPROVEN
-BASE_MODULE_BYTES_RECOVERABLE_SECOND_STAGE_ORDER_OPEN
+BASE_MODULE_BYTES_AND_SECOND_STAGE_ORDER_RECOVERED
 STOCK_67_UNADJUDICATED
 CUSTOM_SUCCESSOR_CONDITIONALLY_FEASIBLE_NOT_READY
 ```

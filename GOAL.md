@@ -86,16 +86,27 @@ normal `COM_USB` transition, while its controller-side digital witnesses were
 present and its same-session host USB sidecar remained candidate-silent.
 
 The provisional successor keeps `ucsi_glink.ko` and adds six modules, taking
-the 61-module plan to 67 before capacity/order qualification. The pinned
+the 61-module plan to 67. The pinned
 vendor ramdisk can rematerialize the complete P3.15 base and all six additions
 with their recorded identities. Cross-inventory comparison partitions those
 67 names exactly into 37 first-stage names and 30 tracked `vendor_dlkm` names;
 all 30 second-stage rows match the expected size/SHA-256 and are marked
-byte-identical. That closes module-byte availability, not normal Android
-ordering: the recovered 446-entry list is recovery order, and the separate
-5,843-byte `vendor_dlkm/lib/modules/modules.load` line order remains an H0
-Gate 0 input. A bounded D0 capture is self-checking only if it matches the
-already tracked exact size and SHA-256.
+byte-identical. Gate 0 is now closed host-side. A bounded streaming extractor
+authenticated the complete pinned ZIP, sparse super, logical raw super, and
+57,610,240-byte `vendor_dlkm` extent while retaining only that extent. F2FS
+inode 144 yielded the exact 5,843-byte `modules.load`, SHA-256
+`8411620a0384d07fed491a2f8f7c146e354d022c8446940fc59f49cb2d98d360`,
+with 356 unique module lines. This removes the former D0 alternative and keeps
+the 140-line first-stage, 446-line recovery, and 356-line second-stage
+authorities distinct.
+
+The recovered Android line order is not a direct `finit_module` recipe. Within
+the selected 67 names it contains 126 dependency-after-consumer edges, while
+the inherited P3.15 61-module sequence followed by
+`msm-geni-se`, `gpi`, `i2c-msm-geni`, `spu_verify`, `mfd_max77705`, and
+`pdic_max77705` has a complete dependency closure and zero forward edges.
+That closes byte/order arithmetic; target-only override/bind timing, stage
+capacity, and the stock-versus-custom choice remain open.
 
 Stock and custom successor shapes are not interchangeable. The PASS5 stock
 MFD invokes its updater on every successful probe; retained Android evidence
@@ -107,15 +118,20 @@ is unadjudicated. The preferred bounded custom shape removes every
 firmware-update entry from the execution closure, stages custom MFD/PDIC files
 under unique generic boot-ramdisk paths while leaving the fixed Image
 unchanged, and adds tagged pre/post `CONTROL1` readback. It still requires
-second-stage order recovery, a complete write inventory, reproducible
-module/ABI closure, target-only GENI bind proof, exhaustive telemetry
+the complete write inventory, reproducible module/ABI closure, target-only
+GENI bind proof, exhaustive telemetry
 fixtures, the host-sidecar positive-control gate, and one proportional
-independent review. Current workspace availability is only 4,246,401,024
-bytes, so any extraction, build, or packaging is additionally blocked until a
-source-derived peak-space budget plus margin and fail-closed short-write/hash
-checks pass. The old 86-module phone-VBUS closure remains forbidden because it
-reintroduces the recorded debug-partition writer. No device action or live
-authority follows from this H0 result.
+independent review. The former 4,246,401,024-byte workspace-capacity blocker is
+closed by the exact private S22+ cleanup receipt: 68 superseded or invalidated
+large payloads with 5,033,287,680 allocated bytes were removed only after a
+reversible quarantine and focused regression, and the latest H0 `df -B1`
+after the bounded Gate 0 output and diagnostic cleanup reported
+51,230,306,304 bytes available. This does not waive per-operation
+capacity proof: every extraction, build, or package must still derive its peak
+working set plus margin and fail closed on ENOSPC, short write, unexpected
+size, or hash drift. The old 86-module phone-VBUS closure remains forbidden
+because it reintroduces the recorded debug-partition writer. No device action
+or live authority follows from this H0 result.
 
 ## P3.15 Detailed Successor Design
 
