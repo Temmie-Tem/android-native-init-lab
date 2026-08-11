@@ -122,28 +122,38 @@ substrate modules and one purpose-built
 `s22plus_max77705_mux_diag.ko`. It does not load stock or custom MFD/PDIC, and
 it omits `spu_verify.ko`. Instead it binds the otherwise-unowned
 `max77705@66` parent directly, creates only the `0x25` USBC/MUIC dummy client,
-clears the stale UIC latch once, performs an unconditional pre/post
-`CONTROL1_R` pair, and conditionally performs one non-retried
-`CONTROL1_W(0x09)` only when pre is not the full `COM_USB` byte. This is the
-narrowest source-supported discriminator for the remaining connector-MUX
-question.
+reads and retains the whole stale UIC latch once, performs pre and immediate
+post1 `CONTROL1_R`, holds one exact 30-second host-correlation interval, and
+performs terminal post2 `CONTROL1_R`. It conditionally performs one
+non-retried `CONTROL1_W(0x09)` only when pre is not the full `COM_USB` byte.
+The module must load only after the gadget path and host sidecar are ready, so
+its bounded probe dwell needs no workqueue or writable trigger.
 
 The exact 491-module audit still matters: it proves PDIC alone consumes the
 three removable MFD updater exports and also records the much broader stock
 PDIC/MUIC/CC/PD/alternate/AFC/QC/notifier/user-control surface. That former
 full-PDIC custom-66 design is now rejected as disproportionate, not retained as
-the preferred implementation. The v2 source validator additionally fixes the
-logical transaction shape: the post read may not be synthesized from pre or
-placed inside the optional-write branch, and any I2C call outside the exact
-registered call multiset is rejected.
+the preferred implementation. The v3 source validator fixes the logical
+transaction shape: neither post value may be synthesized, both reads occur
+outside the optional-write branch, post2 follows the exact retention dwell,
+and any I2C call outside the registered call multiset is rejected. The initial
+UIC read consumes every latched bit, not only `APCmdResI`; its raw byte and all
+poll bytes must therefore be retained.
+
+The interpretation ceiling is now explicit. Pinned source proves the opcode
+ABI but not that `CONTROL1_R` senses physical analog contacts or that a cold
+write engages them without prior classification. Thus post2 distinguishes an
+observed late opcode-state reversion, but no host-silent tuple refutes physical
+MUX continuity. Host attach/enumeration is the only independent physical-path
+witness in this diagnostic.
 
 The current private receipt is
-`custom-surface-authority-20260811-04.json`, SHA-256
-`a85856be66936f5ce5eb08b5fb76a9424d4628d79e103aaebec8bfd1b944a1fe`;
+`custom-surface-authority-20260811-05.json`, SHA-256
+`22a873e71677be9b5d7a6f02266c0614bd83cfcf210916bf3eb8470ec23a0808`;
 the helper source is SHA-256
-`6f251886bcf076d91c0e4765cb8af0ce866eaa0f11f49da5016c6c1e6fc6429e`,
+`a7b93309561550bb0c1389375c309024b30d832d54cc0b9b0986fb1ae5bb640d`,
 and the embedded custom-65 contract is
-`e927be46e49925a3c00d2ecdfd3b2ef13e6200496e1d57b86fab68c55c2abd90`.
+`8ec62cd19d033f93336ebc83b8fa245b522c008835527a55c9bfff09e80819f5`.
 Status remains strictly `REGISTERED_NOT_SATISFIED`, with write inventory
 `BOUNDED_DIAGNOSTIC_EFFECT_SET_REGISTERED_NOT_IMPLEMENTED`: no diagnostic
 source or module has been built or qualified.

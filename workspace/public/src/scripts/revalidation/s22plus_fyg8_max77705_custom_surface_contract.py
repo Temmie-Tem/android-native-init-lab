@@ -25,7 +25,7 @@ from typing import Any
 from s22plus_fyg8_f2fs_module_corpus import FILE_TYPE_REGULAR, F2FSReader
 
 
-SCHEMA = "s22plus_fyg8_max77705_custom_surface_contract_v2"
+SCHEMA = "s22plus_fyg8_max77705_custom_surface_contract_v3"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 KERNEL_ROOT = Path(
     "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/"
@@ -54,7 +54,7 @@ P315_PLAN = Path(
 )
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_max77705_gate0/"
-    "custom-surface-authority-20260811-04.json"
+    "custom-surface-authority-20260811-05.json"
 )
 
 VENDOR_RAMDISK_IDENTITY = (
@@ -354,6 +354,7 @@ DIAG_REQUIRED_TOKENS = (
     "#define S22PLUS_MAX77705_CONTROL1_WRITE 0x06",
     "#define S22PLUS_MAX77705_COM_USB 0x09",
     "#define S22PLUS_MAX77705_POLL_LIMIT",
+    "#define S22PLUS_MAX77705_RETENTION_MS 30000U",
     "devm_i2c_new_dummy_device",
     "static int s22plus_max77705_clear_uic_latch_once(",
     "static int s22plus_max77705_wait_ap_response(",
@@ -363,6 +364,7 @@ DIAG_REQUIRED_TOKENS = (
     "static int s22plus_max77705_diag_probe(",
     "if (pre != S22PLUS_MAX77705_COM_USB)",
     "s22plus_max77705_control1_write_once(muic, S22PLUS_MAX77705_COM_USB)",
+    "msleep(S22PLUS_MAX77705_RETENTION_MS)",
     ".compatible = S22PLUS_MAX77705_PARENT_COMPATIBLE",
     "module_i2c_driver(",
     "static int s22plus_max77705_result_get(",
@@ -915,9 +917,10 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
 
     This validator deliberately does not accept a reduced copy of the stock
     MFD/PDIC stack.  It permits only the parent I2C bind, one dummy client at
-    the USBC/MUIC address, two CONTROL1 read commands, and at most one
-    conditional CONTROL1 write.  Linked output and compiled control flow still
-    require independent validation before packaging.
+    the USBC/MUIC address, three CONTROL1 read commands, one fixed retention
+    dwell, and at most one conditional CONTROL1 write.  Linked output and
+    compiled control flow still require independent validation before
+    packaging.
     """
 
     require_tokens(text, DIAG_REQUIRED_TOKENS, "Max77705 MUX diagnostic")
@@ -975,6 +978,8 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
     )
     if text.count("for (") != 1:
         raise SurfaceError("only the bounded AP-response poll may loop")
+    if text.count("msleep(") != 1:
+        raise SurfaceError("diagnostic must have exactly one retention dwell")
 
     read_block = extract_function_block(
         text,
@@ -1039,8 +1044,8 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
     )
     if text.count("s22plus_max77705_control1_write_once(") != 2:
         raise SurfaceError("CONTROL1 write helper must have exactly one call site")
-    if text.count("s22plus_max77705_control1_read_once(") != 3:
-        raise SurfaceError("CONTROL1 read helper must have exactly two call sites")
+    if text.count("s22plus_max77705_control1_read_once(") != 4:
+        raise SurfaceError("CONTROL1 read helper must have exactly three call sites")
     if text.count("s22plus_max77705_clear_uic_latch_once(") != 2:
         raise SurfaceError("UIC latch clear helper must have exactly one call site")
 
@@ -1054,20 +1059,46 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
     condition_block, condition_end = extract_braced_block_from(
         run_block, condition, "conditional CONTROL1 write"
     )
-    post_read_call = run_block.find("s22plus_max77705_control1_read_once(muic, &post)")
+    post1_read_call = run_block.find(
+        "s22plus_max77705_control1_read_once(muic, &post1)"
+    )
+    retention_call = run_block.find("msleep(S22PLUS_MAX77705_RETENTION_MS)")
+    post2_read_call = run_block.find(
+        "s22plus_max77705_control1_read_once(muic, &post2)"
+    )
     if not (
         0 <= identity_call < clear_call < pre_read_call < condition
         and write_call >= condition
         and write_call < condition_end
-        and post_read_call >= condition_end
+        and condition_end <= post1_read_call < retention_call < post2_read_call
     ):
         raise SurfaceError(
-            "diagnostic command order is not identity/clear/pre/optional-write/post"
+            "diagnostic command order is not "
+            "identity/clear/pre/optional-write/post1/retention/post2"
         )
-    if "s22plus_max77705_control1_read_once(muic, &post)" in condition_block:
-        raise SurfaceError("post CONTROL1 read must execute after the optional-write branch")
-    if "post = pre" in run_block:
-        raise SurfaceError("post CONTROL1 state may not be synthesized from pre")
+    if any(
+        token in condition_block
+        for token in (
+            "s22plus_max77705_control1_read_once(muic, &post1)",
+            "s22plus_max77705_control1_read_once(muic, &post2)",
+        )
+    ):
+        raise SurfaceError(
+            "post CONTROL1 reads must execute after the optional-write branch"
+        )
+    if any(
+        token in run_block
+        for token in ("post1 = pre", "post2 = post1", "post2 = pre")
+    ):
+        raise SurfaceError("post CONTROL1 state may not be synthesized")
+    require_tokens(
+        run_block,
+        (
+            "post1 == S22PLUS_MAX77705_COM_USB",
+            "post2 == S22PLUS_MAX77705_COM_USB",
+        ),
+        "diagnostic terminal state",
+    )
 
     getter = extract_function_block(
         text,
@@ -1086,10 +1117,12 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
         "preferred_total_module_count": 61 + len(CUSTOM_PREFERRED_ADDITIONS),
         "direct_parent_i2c_bind": True,
         "only_muic_dummy_client_created": True,
-        "control1_read_command_count": 2,
+        "control1_read_command_count": 3,
         "control1_write_maximum_count": 1,
         "stale_uic_latch_clear_count": 1,
-        "post_read_is_unconditional": True,
+        "post1_read_is_unconditional": True,
+        "post2_read_is_after_retention_window": True,
+        "retention_window_ms": 30_000,
         "write_skipped_when_pre_is_usb": True,
         "ambiguous_write_retry_forbidden": True,
         "irq_and_workqueue_absent": True,
@@ -1530,6 +1563,10 @@ def audit(root: Path) -> dict[str, Any]:
             "workqueue_created": False,
             "mfd_children_created": False,
             "result_interface": "one cached read-only 0444 module parameter",
+            "load_timing": (
+                "after gadget path activation and host sidecar arming; the probe "
+                "then owns one bounded 30000-ms retention/correlation dwell"
+            ),
             "protocol": {
                 "uic_interrupt_register": "0x02",
                 "ap_command_response_bit": "BIT(7)",
@@ -1542,12 +1579,34 @@ def audit(root: Path) -> dict[str, Any]:
             },
             "transaction": [
                 "read and validate PMIC identity",
-                "clear/read the otherwise-unowned UIC interrupt latch",
+                "read/consume the full otherwise-unowned UIC interrupt latch once and retain its byte",
                 "issue exactly one bounded CONTROL1 read command and validate opcode/value",
                 "if and only if pre is not 0x09, issue one CONTROL1 write of 0x09 without retry",
-                "issue exactly one bounded post CONTROL1 read command and validate opcode/value",
+                "issue one immediate post1 CONTROL1 read and validate opcode/value",
+                "hold an exact 30000-ms host-correlation window without another MUX write",
+                "issue one terminal post2 CONTROL1 read and validate opcode/value",
                 "cache the complete result without further hardware access",
             ],
+            "initial_uic_read_scope": {
+                "whole_register_read_to_clear_accepted": True,
+                "non_ap_latches_consumed": [
+                    "SYSMsgI",
+                    "VBUSDetI",
+                    "VbADCI",
+                    "DCDTmoI",
+                    "CHGTypI",
+                    "UIDADCI",
+                ],
+                "raw_initial_byte_must_be_retained": True,
+                "no_competing_linux_consumer_required": True,
+            },
+            "interpretation_ceiling": {
+                "control1_readback_proves_physical_switch_contact": False,
+                "control1_shadow_or_command_state_possible": True,
+                "cold_write_may_require_unobserved_classification": True,
+                "silent_result_refutes_physical_mux_hypothesis": False,
+                "host_attach_is_independent_physical_witness": True,
+            },
             "source_validator": "validate_diag_source_text",
             "source_validator_must_run_before_compile": True,
         },
@@ -1564,12 +1623,15 @@ def audit(root: Path) -> dict[str, Any]:
             "status": "BOUNDED_DIAGNOSTIC_EFFECT_SET_REGISTERED_NOT_IMPLEMENTED",
             "always_present_commands": [
                 "pre CONTROL1 read command",
-                "post CONTROL1 read command",
+                "immediate post1 CONTROL1 read command",
+                "terminal post2 CONTROL1 read command after 30000 ms",
             ],
             "conditional_command": "one CONTROL1 write of full byte 0x09 when pre != 0x09",
             "maximum_control1_write_count": 1,
             "ambiguous_write_retry_forbidden": True,
             "read_to_clear_uic_interrupt_reads_bounded": True,
+            "initial_whole_uic_latch_consumption_accepted_and_retained": True,
+            "retention_window_ms": 30_000,
             "excluded_effect_families": [
                 "firmware update and IC reset",
                 "parent IRQ and interrupt-mask programming",
@@ -1582,22 +1644,35 @@ def audit(root: Path) -> dict[str, Any]:
             ],
         },
         "result_contract": {
-            "pre_0x09_post_0x09_attach": "MUX was already USB; attach is not attributed to a MUX write",
-            "pre_0x09_post_0x09_silent": "missing Linux MUX selection refuted for that run",
-            "pre_non_0x09_post_0x09_attach": "strong MUX-causal support",
-            "pre_non_0x09_post_0x09_silent": "MUX corrected but insufficient",
+            "pre_non_0x09_post1_post2_0x09_attach": "strong MUX-causal support",
+            "pre_non_0x09_post1_post2_0x09_silent": (
+                "opcode-visible state retained for the bounded window, but physical "
+                "contact and the MUX hypothesis remain unresolved"
+            ),
+            "pre_0x09_post1_post2_0x09_attach": (
+                "MUX was opcode-visible as USB; attach is not attributed to a MUX write"
+            ),
+            "pre_0x09_post1_post2_0x09_silent": (
+                "absence of opcode-visible COM_USB is refuted, but physical MUX "
+                "continuity is not"
+            ),
+            "post1_0x09_post2_non_0x09": (
+                "late opcode-visible reversion observed; no maintained-MUX claim"
+            ),
             "read_write_or_response_failure": "diagnostic failure; no connector claim",
             "host_fact_without_complete_device_result": "preserve host fact without inventing device causality",
         },
         "future_linked_and_runtime_proofs": [
             "actual diagnostic source passes validate_diag_source_text before compilation",
-            "source, linked module, and disassembly agree on two reads and at most one conditional write",
+            "source, linked module, and disassembly agree on three reads and at most one conditional write",
             "no forbidden defined, undefined, relocation, or string surface survives",
             "module imports only the bounded I2C, timing, cached-result, and module-registration closure",
             "fixed-Image modversion and CFI closure matches",
             "custom module dependency closure is exactly 65 modules",
             "the unbound max77705@66 client binds only the diagnostic and creates only 0x25",
             "no stock MFD, PDIC, or SPU module is opened or loaded",
+            "late diagnostic load occurs only after gadget-path and host-sidecar readiness",
+            "the exact 30000-ms retention dwell fits the candidate and guard budgets",
             "pre-write direct fence, command deadlines, response validation, and no-retry behavior are exercised by fixtures",
             "carrier and host-sidecar positive control distinguish every result-contract row",
         ],

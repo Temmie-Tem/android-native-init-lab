@@ -46,6 +46,7 @@ def valid_diag_source():
 #define S22PLUS_MAX77705_CONTROL1_WRITE 0x06
 #define S22PLUS_MAX77705_COM_USB 0x09
 #define S22PLUS_MAX77705_POLL_LIMIT 100U
+#define S22PLUS_MAX77705_RETENTION_MS 30000U
 
 static int s22plus_max77705_read_pmic_identity(struct i2c_client *parent)
 {
@@ -117,7 +118,8 @@ static int s22plus_max77705_diag_run(struct i2c_client *parent,
                                       struct i2c_client *muic)
 {
     u8 pre;
-    u8 post;
+    u8 post1;
+    u8 post2;
     int rc = s22plus_max77705_read_pmic_identity(parent);
     if (rc < 0)
         return rc;
@@ -132,10 +134,15 @@ static int s22plus_max77705_diag_run(struct i2c_client *parent,
         if (rc < 0)
             return rc;
     }
-    rc = s22plus_max77705_control1_read_once(muic, &post);
+    rc = s22plus_max77705_control1_read_once(muic, &post1);
     if (rc < 0)
         return rc;
-    return post == S22PLUS_MAX77705_COM_USB ? 0 : -EPROTO;
+    msleep(S22PLUS_MAX77705_RETENTION_MS);
+    rc = s22plus_max77705_control1_read_once(muic, &post2);
+    if (rc < 0)
+        return rc;
+    return post1 == S22PLUS_MAX77705_COM_USB &&
+           post2 == S22PLUS_MAX77705_COM_USB ? 0 : -EPROTO;
 }
 
 static int s22plus_max77705_diag_probe(struct i2c_client *parent)
@@ -251,26 +258,45 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
         with self.assertRaisesRegex(self.module.SurfaceError, "one call site"):
             self.module.validate_diag_source_text(mutated)
 
-    def test_post_read_cannot_be_synthesized_or_moved_inside_write_branch(self):
+    def test_post1_read_cannot_be_synthesized_or_moved_inside_write_branch(self):
         source = valid_diag_source()
-        post = (
-            "    rc = s22plus_max77705_control1_read_once(muic, &post);\n"
+        post1 = (
+            "    rc = s22plus_max77705_control1_read_once(muic, &post1);\n"
             "    if (rc < 0)\n"
             "        return rc;\n"
         )
         mutated = source.replace(
-            "    }\n" + post,
-            post + "    } else {\n        post = pre;\n    }\n",
+            "    }\n" + post1,
+            post1 + "    } else {\n        post1 = pre;\n    }\n",
             1,
         )
         with self.assertRaisesRegex(self.module.SurfaceError, "order|after|synthesized"):
             self.module.validate_diag_source_text(mutated)
 
+    def test_post2_and_retention_window_are_mandatory(self):
+        source = valid_diag_source()
+        mutations = (
+            (
+                "#define S22PLUS_MAX77705_RETENTION_MS 30000U",
+                "#define S22PLUS_MAX77705_RETENTION_MS 1U",
+            ),
+            ("msleep(S22PLUS_MAX77705_RETENTION_MS);", ""),
+            (
+                "s22plus_max77705_control1_read_once(muic, &post2)",
+                "s22plus_max77705_control1_read_once(muic, &post1)",
+            ),
+        )
+        for old, new in mutations:
+            with self.subTest(old=old):
+                mutated = source.replace(old, new, 1)
+                with self.assertRaises(self.module.SurfaceError):
+                    self.module.validate_diag_source_text(mutated)
+
     def test_extra_i2c_effect_is_rejected(self):
         mutated = valid_diag_source().replace(
-            "return post == S22PLUS_MAX77705_COM_USB ? 0 : -EPROTO;",
+            "return post1 == S22PLUS_MAX77705_COM_USB &&",
             "i2c_smbus_write_word_data(muic, 0x10, 0); "
-            "return post == S22PLUS_MAX77705_COM_USB ? 0 : -EPROTO;",
+            "return post1 == S22PLUS_MAX77705_COM_USB &&",
             1,
         )
         with self.assertRaisesRegex(self.module.SurfaceError, "I2C call surface"):
@@ -291,10 +317,12 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
     def test_preferred_custom_shape_is_65_modules(self):
         result = self.module.validate_diag_source_text(valid_diag_source())
         self.assertEqual(result["preferred_total_module_count"], 65)
-        self.assertEqual(result["control1_read_command_count"], 2)
+        self.assertEqual(result["control1_read_command_count"], 3)
         self.assertEqual(result["control1_write_maximum_count"], 1)
         self.assertEqual(result["stale_uic_latch_clear_count"], 1)
-        self.assertTrue(result["post_read_is_unconditional"])
+        self.assertTrue(result["post1_read_is_unconditional"])
+        self.assertTrue(result["post2_read_is_after_retention_window"])
+        self.assertEqual(result["retention_window_ms"], 30_000)
         self.assertTrue(result["ambiguous_write_retry_forbidden"])
 
     def test_atomic_json_replaces_output(self):
@@ -371,6 +399,39 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
         self.assertEqual(
             result["custom_contract"]["write_inventory"]["status"],
             "BOUNDED_DIAGNOSTIC_EFFECT_SET_REGISTERED_NOT_IMPLEMENTED",
+        )
+        diagnostic = result["custom_contract"]["diagnostic"]
+        self.assertEqual(
+            diagnostic["load_timing"],
+            "after gadget path activation and host sidecar arming; the probe "
+            "then owns one bounded 30000-ms retention/correlation dwell",
+        )
+        self.assertTrue(
+            diagnostic["initial_uic_read_scope"][
+                "whole_register_read_to_clear_accepted"
+            ]
+        )
+        self.assertTrue(
+            diagnostic["initial_uic_read_scope"]["raw_initial_byte_must_be_retained"]
+        )
+        self.assertFalse(
+            diagnostic["interpretation_ceiling"][
+                "control1_readback_proves_physical_switch_contact"
+            ]
+        )
+        self.assertFalse(
+            diagnostic["interpretation_ceiling"][
+                "silent_result_refutes_physical_mux_hypothesis"
+            ]
+        )
+        self.assertTrue(
+            diagnostic["interpretation_ceiling"][
+                "host_attach_is_independent_physical_witness"
+            ]
+        )
+        self.assertEqual(
+            result["custom_contract"]["write_inventory"]["retention_window_ms"],
+            30_000,
         )
 
 

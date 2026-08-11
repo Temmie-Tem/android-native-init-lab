@@ -113,7 +113,9 @@ shape is now custom-65:
    `max77705@66` I2C client via `compatible="maxim,max77705"`;
 5. create only the USBC/MUIC dummy client at `0x25`, read and validate PMIC
    identity, perform one pre `CONTROL1_R`, conditionally perform exactly one
-   non-retried `CONTROL1_W(0x09)`, then perform one post `CONTROL1_R`; and
+   non-retried `CONTROL1_W(0x09)`, perform immediate post1 `CONTROL1_R`, hold
+   one exact 30-second MUX retention/correlation interval, and perform terminal
+   post2 `CONTROL1_R`; and
 6. retain the complete cached result through one read-only 0444 interface and
    the Process-v2 carrier/USB-sidecar correlation.
 
@@ -121,9 +123,12 @@ The command protocol is source-real: UIC interrupt `0x02` carries
 `APCmdResI=BIT(7)`, AP output occupies `0x21..0x41`, AP response begins at
 `0x51`, and `CONTROL1_R/W` are `0x05/0x06`. Because no other Max77705 driver
 is loaded, the bounded read-to-clear UIC polling has no competing Linux
-consumer. The registered transaction contains two read commands and at most
+consumer. The registered transaction contains three read commands and at most
 one conditional write; firmware, reset, IRQ, MFD-child, power, notifier,
 CC/PD/MUIC/AFC/alternate, and writable user-control effects are excluded.
+The diagnostic is loaded only after the gadget path and host sidecar are
+ready, so its bounded probe dwell overlaps the declared host-correlation
+interval without adding a workqueue or writable trigger.
 
 This is a registered design, not an implementation claim. No diagnostic
 source or module exists yet. Remaining gates are the actual source/build and
@@ -178,9 +183,9 @@ The primary source and artifact inputs were rehashed during this H0 unit.
 | recovered 67-module order audit | `5c64cbe9dc4f8c6569248b8c8e9affb3d7f721a3854f4aa2c93a238b32c7241a` |
 | exact 441-module vendor-ramdisk inventory | `35f1a7b903fc3582d3d51c4f119b993d154874e632465b2e212e0bf56a37ab7b` |
 | exact 63,974,144-byte expanded vendor-ramdisk CPIO | `a96c362103eeab52fd639fd1bfc06d5f9a30972a18d8086c26d20a86a0309afd` |
-| Max77705 custom-surface authority helper v2 | `6f251886bcf076d91c0e4765cb8af0ce866eaa0f11f49da5016c6c1e6fc6429e` |
-| private 491-module/custom-65 receipt | `a85856be66936f5ce5eb08b5fb76a9424d4628d79e103aaebec8bfd1b944a1fe` |
-| registered custom-65 diagnostic contract | `e927be46e49925a3c00d2ecdfd3b2ef13e6200496e1d57b86fab68c55c2abd90` |
+| Max77705 custom-surface authority helper v3 | `a7b93309561550bb0c1389375c309024b30d832d54cc0b9b0986fb1ae5bb640d` |
+| private 491-module/custom-65 receipt | `22a873e71677be9b5d7a6f02266c0614bd83cfcf210916bf3eb8470ec23a0808` |
+| registered custom-65 diagnostic contract | `8ec62cd19d033f93336ebc83b8fa245b522c008835527a55c9bfff09e80819f5` |
 | retained stock/XBL `baseline_last_kmsg.bin` | `9a58a0c8486723c31f9cf8ac7d8b8be2586969bb8f167cd76907e3b82db0c7cb` |
 | P3.15 USB-sidecar result | `a075c7014e9d0524fd0b7f18fe14a263639ad27ced386a4801e4c9856caf19fa` |
 
@@ -207,7 +212,7 @@ for the hashed source snapshot, not for an unpinned upstream tree.
 | first-stage/recovery order inputs | pinned `modules.load` and `modules.load.recovery`, hash-pinned above |
 | bounded sparse/range extraction and exact second-stage file | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/result.json` and `modules.load`, hash-pinned above |
 | 67-name stage, position, and dependency-order audit | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/max77705-67-order-audit.json`, hash-pinned above |
-| all-stock export-consumer audit, full-PDIC rejection evidence, and registered custom-65 diagnostic | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-surface-authority-20260811-04.json`, hash-pinned above |
+| all-stock export-consumer audit, full-PDIC rejection evidence, and registered custom-65 diagnostic | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-surface-authority-20260811-05.json`, hash-pinned above |
 | PDIC, MFD, SPU, GENI-I2C, GPI, and GENI-SE dependency edges | pinned `modules.dep:91`, `:176`, `:181`, `:235`, `:305`, `:388` |
 | switch bit layout and the values that evaluate to `COM_OPEN=0x3f`, `COM_USB=0x09` | `include/linux/usb/typec/maxim/max77705-muic.h:293-301`, `:359-405` |
 | `CONTROL1` write construction and software-only previous-state assumption | `drivers/usb/typec/maxim/max77705-muic.c:326-349`, `:437-464` |
@@ -810,23 +815,30 @@ full COM_USB byte    0x09
 The selected source contract permits exactly this sequence:
 
 1. validate PMIC identity on the parent client;
-2. clear/read the otherwise-unowned UIC latch;
+2. read and consume the full otherwise-unowned UIC latch once, retaining its
+   raw byte;
 3. issue one `CONTROL1_R`, poll `APCmdResI` under a compile-time bound, and
    require a matching `0x05` response plus one value byte;
 4. if and only if pre is not `0x09`, issue one `CONTROL1_W(0x09)`, require a
    matching `0x06` response, and never retry an ambiguous write;
-5. issue one post `CONTROL1_R` under the same validation; and
-6. publish only cached fields through one read-only 0444 result parameter.
+5. issue immediate post1 `CONTROL1_R` under the same validation;
+6. hold an exact 30-second retention/correlation interval while the already
+   armed gadget path and host sidecar remain active, without another MUX write;
+7. issue terminal post2 `CONTROL1_R` under the same validation; and
+8. publish only cached fields through one read-only 0444 result parameter.
 
 It requests no IRQ, creates no workqueue or MFD child, registers no Type-C,
 MUIC, IF-manager, notifier, power-supply, misc, debug, proc, or writable sysfs
 surface, and contains no firmware, reset, BC/DCD, CC/PD, VBUS, sink-capability,
-audio, alternate-mode/VDM/Dex, AFC, or QC path. Reading the UIC latch is safe
-from Linux-consumer theft only under the enforced condition that no other
+audio, alternate-mode/VDM/Dex, AFC, or QC path. Reading UIC_INT consumes the
+whole read-to-clear byte, not only `APCmdResI`; the accepted discarded latch
+set includes `SYSMsgI`, `VBUSDetI`, `VbADCI`, `DCDTmoI`, `CHGTypI`, and
+`UIDADCI`. The source must retain every returned UIC byte, and this effect is
+safe from Linux-consumer theft only under the enforced condition that no other
 Max77705 driver is bound or loaded.
 
-The v2 helper registers and tests this source shape. Its receipt is
-`custom-surface-authority-20260811-04.json`. Status remains
+The v3 helper registers and tests this source shape. Its receipt is
+`custom-surface-authority-20260811-05.json`. Status remains
 `REGISTERED_NOT_SATISFIED`: the actual source, linked module, import/relocation
 closure, fixed-Image modversion/CFI proof, boot staging, runtime binding,
 timeouts, carrier, and independent review do not yet exist.
@@ -1026,7 +1038,7 @@ load and target-bind GPI, but the result contract must record the selected I2C
 mode. It must not claim that a successful Max77705 transfer proves a GPI data
 path unless the hardware-selected mode was GSI.
 
-## Direct-polling CONTROL1 pre/post observer
+## Direct-polling CONTROL1 pre/post1/post2 observer
 
 ### Why ordinary logs and cached state are insufficient
 
@@ -1034,12 +1046,34 @@ The normal MUIC path writes `CONTROL1` but does not read it before or after the
 write. `write_vps_regs()` derives its previous switch from software state and
 assumes `COM_OPEN` when there is no prior software cable. It is not hardware
 readback. This is why the selected diagnostic performs its own validated
-pre/post command pair rather than retaining normal MUIC detection.
+pre/post1/post2 command sequence rather than retaining normal MUIC detection.
 
 The generic response handler reads `CONTROL1_R` data but discards ordinary
 values unless the command is an update-sequence operation. A log line saying
 that `COM_USB` was selected proves only source-path reach. A successful queue
 call proves only that the request was enqueued.
+
+### Readback and negative-result ceiling
+
+The pinned Linux source proves the command and response ABI, but it does not
+prove that `CONTROL1_R` senses the physical analog switch contacts. The value
+may instead be firmware command state or a shadow of the latest accepted
+write. Nor does the source prove that a cold `CONTROL1_W(0x09)` engages the
+physical path without a preceding successful BC1.2/attach classification.
+Public primary material located for related Maxim parts is not authority for
+this exact IC, so it is not used to close either gap.
+
+`COM_USB=0x09` also leaves `NoBCComp=0`, meaning BC1.2 comparison remains
+enabled. Immediate post1 therefore proves only the opcode-visible state at one
+instant. Terminal post2, after the exact 30-second correlation interval,
+distinguishes observed late reversion from retention at two sampled times; it
+still does not turn register readback into a physical contact measurement.
+
+Consequently, host attach/enumeration is the only independent physical-path
+witness in this design. Every host-silent row is non-refuting for the physical
+MUX hypothesis, even when pre, post1, and post2 are all `0x09`. Such a row can
+refute absence of opcode-visible `COM_USB` state, but not absence of physical
+continuity or an autonomous/classification-dependent switch transition.
 
 ### Rejected queue-based observer
 
@@ -1111,7 +1145,12 @@ must preserve at least:
 - pre command issued, response-bit poll count, returned opcode, and byte;
 - whether the optional write was attempted, its single-call return bucket,
   response-bit poll count, and returned opcode;
-- post command issued, response-bit poll count, returned opcode, and byte;
+- immediate post1 command issued, response-bit poll count, returned opcode,
+  and byte;
+- exact retention interval and terminal post2 command, response-bit poll
+  count, returned opcode, and byte;
+- the raw initial UIC byte plus every poll byte whose read consumed non-AP
+  latch bits;
 - first failure stage, timeout, response mismatch, and ambiguous-write flags;
 - proof that no stock MFD/PDIC/SPU module was opened or loaded; and
 - host-side attach/enumeration correlation.
@@ -1120,21 +1159,24 @@ must preserve at least:
 
 | Device result | Host sidecar | Permitted interpretation |
 |---|---|---|
-| pre `0x3f`, post `0x09` | exact enumeration | strong causal support that the one bounded MUX transition enabled the path |
-| pre `0x3f`, post `0x09` | silent | the switch transition occurred but was insufficient; continue only from another bounded hypothesis |
-| pre `0x09`, post `0x09` | exact attach or enumeration | the MUX was already USB; the diagnostic performed no MUX write, so attach is not attributed to a MUX transition |
-| pre `0x09`, post `0x09` | silent | missing Linux MUX initialization is strongly refuted for that run |
-| pre other, post `0x09` | silent or attach | inherited state classified; Linux transition succeeded, but causality follows host result |
-| exact pre, write skipped, post differs from pre | any | source/runtime attribution contradiction; no MUX conclusion |
-| any pre, attempted write, post non-`0x09` | silent | Max77705 command/response/control-path failure boundary |
-| any pre, attempted write, post non-`0x09` | exact attach or enumeration | device/host attribution contradiction; preserve both facts but make no MUX-causal claim |
+| pre `0x3f`, post1/post2 `0x09` | exact enumeration | strong causal support that the one bounded MUX command enabled a physical path during the interval |
+| pre `0x3f`, post1/post2 `0x09` | silent | opcode-visible state persisted at both samples; physical continuity and the MUX hypothesis remain unresolved |
+| pre `0x09`, post1/post2 `0x09` | exact attach or enumeration | the MUX was opcode-visible as USB before the diagnostic; no MUX write occurred, so attach is not attributed to a transition |
+| pre `0x09`, post1/post2 `0x09` | silent | absence of opcode-visible `COM_USB` is refuted, but physical continuity and the MUX hypothesis are not |
+| pre other than `0x3f`/`0x09`, post1/post2 `0x09` | exact attach or enumeration | inherited state was classified and the only MUX write is temporally associated with an independent physical witness |
+| pre other than `0x3f`/`0x09`, post1/post2 `0x09` | silent | opcode-visible transition and bounded retention proved; physical actuation remains unproved and the MUX hypothesis stays open |
+| post1 `0x09`, post2 non-`0x09` | any | late opcode-visible reversion observed; no maintained-state or physical-MUX claim |
+| exact pre, write skipped, post1 or post2 differs from pre | any | opcode-visible state changed autonomously or the source/runtime attribution is incomplete; no MUX conclusion |
+| any pre, attempted write, post1 non-`0x09` | silent | immediate command/response/control-state failure boundary; no physical-MUX conclusion |
+| any pre, attempted write, post1 non-`0x09` | exact attach or enumeration | device/host attribution contradiction; preserve both facts but make no MUX-causal claim |
 | missing, duplicate, wrong-order, malformed, timeout, response-opcode mismatch, or unclassified write return | any | `NO_PROOF_OBSERVER`; no MUX conclusion |
 | exact attach without completed device evidence | attach | preserve host fact, but do not invent the missing device-side transition |
 
-The `pre=0x09` rows are explicit because they are the highest-value refutation
-of the MUX hypothesis and must not fall through an else branch. Once a write
-is attempted, a missing post command or response remains `NO_PROOF_OBSERVER`;
-an ambiguous write is never retried.
+The `pre=0x09` rows are explicit because they are a high-value distinction and
+must not fall through an else branch, but they are no longer labeled a
+physical-MUX refutation. Once a write is attempted, a missing post1 or post2
+command/response remains `NO_PROOF_OBSERVER`; an ambiguous write is never
+retried.
 
 No negative row proves an analog PHY, cable, connector, or host fault.
 
@@ -1293,9 +1335,13 @@ existing P3.15 substrate and notifier consumers
   -> i2c-msm-geni.ko
   -> prove only target wrapper/GPI/I2C bound and target adapter exists
   -> prove one unbound max77705@66 parent and no competing Max77705 driver
+  -> complete and prove the inherited gadget path is active
+  -> prove the exact-target host USB sidecar is armed
   -> load s22plus_max77705_mux_diag.ko
-  -> prove only the parent and one 0x25 dummy client are owned
-  -> wait for the exact polling-diagnostic terminal state
+  -> its probe performs pre/optional-write/post1, blocks for exactly 30 seconds,
+     and performs post2
+  -> prove only the parent and one 0x25 dummy client are owned and read the
+     cached terminal state
   -> correlate with the already bounded host USB sidecar
 ```
 
@@ -1303,8 +1349,9 @@ The stock module order remains the inherited 61 entries followed by six
 dependency-ordered additions. The selected diagnostic branch has four
 additions and no `spu_verify.ko`, MFD, or PDIC; its exact linked dependency
 order remains a future build proof. Runtime phase placement of overrides,
-bind checks, the pre-write direct fence, command execution, and result capture
-remains a detailed design item. It must preserve `ucsi_glink.ko` as an A/B
+bind checks, late diagnostic load, gadget/sidecar readiness, command execution,
+the 30-second dwell, and result capture remains a detailed design item. It must
+preserve `ucsi_glink.ko` as an A/B
 baseline and be checked against stage capacity and every position/bind gate.
 P3.04's stale-position-table incident must be reproduced as a qualification
 regression.
@@ -1333,10 +1380,11 @@ remaining applicable gate must close before a live candidate is prepared:
    - implement the exact direct I2C parent match and only one managed dummy
      client at `0x25`;
    - make `validate_diag_source_text()` a real precompile packaging gate;
-   - prove by source and disassembly exactly two read commands and at most one
+   - prove by source and disassembly exactly three read commands and at most one
      conditional, non-retried `CONTROL1_W(0x09)`;
-   - bind PMIC identity, UIC/AP register constants, bounded poll count,
-     response-opcode checks, first-failure stage, and cached 0444 result;
+   - bind PMIC identity, the full initial UIC byte and every poll byte, UIC/AP
+     register constants, bounded poll count, response-opcode checks,
+     first-failure stage, the exact 30-second dwell, and cached 0444 result;
    - reject every firmware/reset, IRQ/mask, MFD-child, MUIC/CC/PD, VBUS,
      alternate/AFC/QC, notifier/power, workqueue, exported ABI, and writable
      user-control surface.
@@ -1356,12 +1404,18 @@ remaining applicable gate must close before a live candidate is prepared:
    - exact target adapter, parent, diagnostic, and sole `0x25` client witnesses;
    - no competing Max77705 driver, IRQ owner, or command consumer;
    - selected FIFO/GSI mode;
-   - pre-write direct fence, bounded per-command deadlines, response validation,
-     and explicit no-retry handling for an ambiguous write;
+   - gadget-path and host-sidecar readiness before late diagnostic load;
+   - pre-write direct fence, bounded per-command deadlines, immediate post1,
+     exact 30-second retention/correlation dwell, terminal post2, response
+     validation, and explicit no-retry handling for an ambiguous write;
+   - time-budget proof that the bounded blocking probe and all setup/cleanup
+     remain inside the candidate endpoint and guard lifetimes;
    - cached diagnostic terminal state;
    - same-session exact-target stock/Download positive control before any
      candidate-side host-silence interpretation;
    - host-sidecar correlation;
+   - fail-closed preservation of the interpretation ceiling: no host-silent
+     readback tuple may refute physical MUX continuity;
    - carrier encoder/decoder/generation-position exhaustive tests through the
      real Process-v2 adapter.
 
@@ -1518,13 +1572,14 @@ This report was closed at H0 with the following host-side checks:
   IRQ/MFD-child, MUIC/CC/PD, alternate/AFC/QC, notifier, and user-control
   surfaces that are unnecessary for the MUX discriminator;
 - the direct diagnostic source validator accepts only the exact parent bind,
-  one `0x25` dummy client, one stale-UIC clear, two CONTROL1 reads, and at most
-  one conditional non-retried CONTROL1 write of full byte `0x09`;
-- the validator proves the post read is unconditional and occurs after the
-  optional-write block, rejects synthesis of post from pre, and rejects any
-  I2C call outside the registered call multiset;
+  one `0x25` dummy client, one full-UIC-latch read, three CONTROL1 reads, one
+  exact 30-second dwell, and at most one conditional non-retried CONTROL1
+  write of full byte `0x09`;
+- the validator proves post1 is unconditional after the optional-write block
+  and post2 occurs only after the retention dwell, rejects synthesis of either
+  post value, and rejects any I2C call outside the registered call multiset;
 - `python3 -m unittest
-  tests.test_s22plus_fyg8_max77705_custom_surface_contract` passed 17/17,
+  tests.test_s22plus_fyg8_max77705_custom_surface_contract` passed 18/18,
   including the exact 491-module consumer scan and negative custom-source
   fixtures;
 - `python3 -m unittest tests.test_s22plus_fyg8_vendor_dlkm_order_gate` passed
@@ -1572,10 +1627,15 @@ The evidence now supports these exact statements:
    rejected as disproportionate rather than implemented.
 9. The fixed Image can instead support a custom-65 shape: P3.15's 61 modules,
    three exact GENI/GPI/I2C substrate modules, and one direct-polling
-   diagnostic bound to `max77705@66`. Its registered effect set is two
-   validated reads plus at most one conditional, non-retried write of full
-   `COM_USB=0x09`, with no stock MFD/PDIC/SPU load.
-10. The source match and command protocol are proven, but no diagnostic source
+   diagnostic bound to `max77705@66`. Its registered effect set is three
+   validated reads spanning an exact 30-second retention interval plus at most
+   one conditional, non-retried write of full `COM_USB=0x09`, with no stock
+   MFD/PDIC/SPU load.
+10. CONTROL1 readback is not proven to sense physical switch contacts. A
+    host-silent tuple cannot refute physical MUX continuity even when all three
+    values are `0x09`; only host attach/enumeration is an independent physical
+    path witness in this design.
+11. The source match and command protocol are proven, but no diagnostic source
    or module has been built. Linked/disassembly, binding, timeout, carrier,
    sidecar-positive-control, packaging, and independent-review gates remain.
 
