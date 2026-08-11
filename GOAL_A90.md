@@ -3,10 +3,11 @@
 Build the operator-owned Galaxy A90 5G into a Debian-oriented personal server
 where native-init performs only the vendor-kernel and hardware bridge-up that
 Debian cannot yet perform, then transfers PID 1 and the steady-state runtime to
-the existing UFS-backed Debian appliance root with `switch_root`. H17 is the
+the existing UFS-backed Debian appliance root with `switch_root`. H18 is the
 installed resident, and its consumed D1 run is terminal
-`REFUTED_H17_PERSISTENT_SERVER_NATIVE_FALLBACK_HEALTHY` / `RESIDENT_HEALTHY`
-after exact read-only no-replay closure. V2321 remains the bound rollback.
+`REFUTED_H18_POST_ROOT_FAILURE_ATTRIBUTED_NATIVE_FALLBACK_HEALTHY` /
+`RESIDENT_HEALTHY` after exact captured-log no-replay closure. V2321 remains
+the bound rollback.
 
 `AGENTS.md` and `docs/operations/targets/A90_TARGET_CONTRACT.md` are binding.
 This file records current state and the next bounded unit; it grants no device
@@ -19,29 +20,20 @@ The pre-H2 goal history is preserved at
 
 ## Current State
 
-- H17 `0.11.185`, build
-  `phase3-minimal-h17-ufs-ro-observer-auth-persistent-hud`, is the exact
-  installed resident. Attended F1 run01 wrote and read back the
-  byte-identical boot-only candidate `a8602673...db814` once and closed
-  `PASS_A90_H17_UFS_RESIDENT_INSTALLED` / `RESIDENT_HEALTHY` with self-test
-  `11/1/0`, exact unarmed `binding=1 enable=0 latch=0`, candidate replay false,
-  rollback zero, and guard released. Its separately approved D1 run01 then
-  consumed one arm and one reboot. The automatic handoff released display,
-  revalidated userdata, and mounted the UFS root read-only, but failed after
-  `root_mounted` and before `writable_set_ready`. Native cleanup proved
-  `cleanup_clean=1 root_mounted=0 recovery_required=0 userdata_unchanged=1
-  userdata_write=0`, and exact native H17 returned with `binding=1 enable=1
-  latch=1`, self-test `11/1/0`, PID 1 guard `12/0/0`, HUD and USB-local control
-  restored. Candidate replay, payload, partition, userdata, and S22+ command
-  counts remain zero. The first approved read-only finalizer stopped before a
-  terminal record because tcpctl had normally exited after its compiled
-  3600-second idle interval. The independently reviewed successor then proved
-  the latest same-PID tcpctl lifecycle exited status zero after 4665368 ms,
-  serial and NCM remained ready, the same intent remained exact, and userdata
-  was unmounted with write count zero. It appended only exact `final-health`
-  and `closed` records. The seven-record journal is terminal at result
-  `e4a831ac...eafeb3`; no arm, reboot, handoff, mount, service control, payload,
-  flash, state clear, userdata write, physical-return reboot, or replay occurred.
+- H18 `0.11.186`, build `phase3-minimal-h18-post-root-failure-attribution`, is
+  the exact installed resident. Attended F1 wrote and read back deterministic
+  boot `692da1ea...ec78` once and closed `PASS_A90_H18_UFS_RESIDENT_INSTALLED`
+  / `RESIDENT_HEALTHY`, with unarmed `binding=1 enable=0 latch=0`, self-test
+  `11/1/0`, candidate replay false, rollback zero, and guard released. Its D1
+  run01 consumed exactly one arm, reboot, and handoff. The handoff mounted the
+  UFS root read-only, then stopped at `firstboot-overlay` with `rc=-1 errno=1`
+  before `switch_root` or Debian PID 1. Exact cleanup proved `cleanup_clean=1
+  root_mounted=0 recovery_required=0 userdata_unchanged=1 userdata_write=0`;
+  H18 returned healthy at `binding=1 enable=1 latch=1`. A reviewed host-only
+  captured-log finalizer corrected the framed-receipt prefix parser without
+  contacting the device and appended only `final-health` and `closed`. The
+  seven-record journal is terminal at result `8b77eed3...b2c4`; the consumed
+  arm, reboot, and handoff are never replayed, and S22+ command count is zero.
 - H16 `0.11.184`, build
   `phase3-minimal-h16-direct-ufs-ro-async-wifi-auto-benchmark`, is the consumed
   healthy predecessor. Attended run03 wrote and read back boot-only
@@ -752,27 +744,29 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: H18 Installed, Awaiting Diagnostic D1
+## Selected Bounded Unit: H18 E1 Closed, H19 Firstboot-Overlay Diagnosis
 
-Preserve every terminal H7-H16 transaction and the complete seven-record H17
-run01 journal. The consumed H17 arm, reboot, and handoff are never replayed.
-The native-fallback finalizer is complete and grants no successor authority.
+Preserve every terminal H7-H17 transaction and the complete seven-record H18
+run01 journal. The consumed H18 arm, reboot, and handoff are never replayed.
+The captured-log finalizer is retired by its exact terminal close and grants no
+successor authority.
 
-H17 evidence proves only outer `EPERM` after `root_mounted` and before
-`writable_set_ready`; it cannot distinguish root-content, writable-set,
-observer-auth, firstboot, persistent-HUD, evidence-bind, or Wi-Fi-bind failure.
-H18 `0.11.186` records exact stage, rc, and errno before cleanup under fresh
-identity and deterministic boot `692da1ea...ec78`. Independent `PASS_GO`
-closes native closure `714c1797...009b` and F1/D1 execution closure
-`dcb507f5...ced8` with HIGH/MEDIUM/LOW zero. Fresh D0 then proved H17 healthy,
-the same-session UFS identity unmounted, and H18 markers absent. One attended
-boot-only F1 wrote and read back H18 exactly once and closed result
-`e97aebb1...0804` as `PASS_A90_H18_UFS_RESIDENT_INSTALLED` /
-`RESIDENT_HEALTHY`, with unarmed `0,0`, self-test `11/1/0`, candidate replay
-false, rollback zero, and guard released. H18 is installed but has not run its
-diagnostic handoff. The next unit requires a separate fresh attended D1
-approval for one combined arm-plus-reboot; an absent diagnostic remains
-`NO_PROOF`, and persistent HUD remains unproved rather than repaired by guess.
+H18 proves the visible E1 is outer `EPERM` at `firstboot-overlay`, after the
+UFS root was mounted and before `switch_root`; it is not a DRM, SD-capacity, or
+UFS-speed result. The same log proves ordered clean restoration and exact H18
+resident health. It does not yet distinguish the source check, target check,
+initial bind, remount, or post-bind verification within that stage. Host
+artifact inspection shows the compiled ramdisk firstboot source is a regular
+mode-0500 file and the published appliance content manifest expects its target
+as a regular mode-0755 file, but those static facts do not prove the runtime
+suboperation.
+
+The next bounded unit is H0-only H19 diagnosis: split or otherwise expose the
+exact firstboot-overlay substage and verify the immutable artifacts before
+designing a replacement. Any new boot candidate requires a fresh version,
+build identity, marker namespace, execution qualification, connected D0, and
+attended F1/D1 authority. Debian PID 1, persistent SSH, display ownership,
+Wi-Fi ownership, and persistent-server readiness remain unproved.
 
 Only a full comparable H15 control benchmark can open a later Full-LTO unit.
 Qualification never substitutes for fresh manifest, D0, approval, attendance,
@@ -847,6 +841,8 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_H17_PERSISTENT_UFS_SERVER_INDEPENDENT_REVIEW_2026-08-10.json`
 - `docs/reports/A90_H18_POST_ROOT_FAILURE_ATTRIBUTION_INDEPENDENT_REVIEW_2026-08-11.json`
 - `docs/reports/A90_H18_UFS_F1_D1_EXECUTION_INDEPENDENT_REVIEW_2026-08-12.json`
+- `docs/reports/A90_H18_FRAMED_LOG_PREFIX_FINALIZER_INCIDENT_2026-08-12.md`
+- `docs/reports/A90_H18_FRAMED_LOG_PREFIX_FINALIZER_INDEPENDENT_REVIEW_2026-08-12.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`
