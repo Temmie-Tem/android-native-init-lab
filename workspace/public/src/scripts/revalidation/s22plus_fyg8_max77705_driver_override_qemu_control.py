@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import lzma
+import math
 import os
 import re
 import select
@@ -45,6 +46,30 @@ RAW_CAPTURE_NAME = "qemu-console.raw"
 CAPTURE_MANIFEST_NAME = "qemu-console-capture.json"
 RENDERED_CONSOLE_NAME = "qemu-console.log"
 RESULT_NAME = "result.json"
+CAPTURE_SCHEMA = "s22plus_fyg8_max77705_qemu_console_capture_v1"
+CAPTURE_SOURCE = "qemu-system-aarch64 PL011 stdio"
+CAPTURE_CLOCK = "host time.monotonic relative to QEMU start"
+CAPTURE_KEYS = frozenset(
+    {
+        "schema",
+        "source",
+        "clock",
+        "raw_file",
+        "raw_byte_count",
+        "raw_sha256",
+        "capture_started_monotonic",
+        "chunks",
+    }
+)
+CAPTURE_CHUNK_KEYS = frozenset(
+    {
+        "index",
+        "source",
+        "byte_start",
+        "byte_end",
+        "received_after_start_sec",
+    }
+)
 REQUIRED_CONFIG = (
     "CONFIG_MODULES=y",
     "CONFIG_MODULE_UNLOAD=y",
@@ -437,6 +462,25 @@ def parse_pass_line(output: str) -> dict[str, Any]:
     return parse_pass_records(decode_pl011_console(output.encode("utf-8")).records)
 
 
+def parse_fail_records(records: tuple[ConsoleRecord, ...]) -> dict[str, Any]:
+    pattern = re.compile(
+        r"MAX77705_DRIVER_OVERRIDE_QEMU result=FAIL "
+        r"stage=([^ ]+) detail=([1-9][0-9]*)"
+    )
+    matches = [
+        match.groups()
+        for record in records
+        if (match := pattern.fullmatch(record.text)) is not None
+    ]
+    if len(matches) != 1:
+        raise HarnessError(f"expected one exact FAIL line, found {len(matches)}")
+    stage, detail_text = matches[0]
+    detail = int(detail_text)
+    if detail > 2_147_483_647:
+        raise HarnessError("FAIL line detail exceeds signed int range")
+    return {"stage": stage, "detail": detail}
+
+
 def evaluate_console_bytes(raw: bytes) -> dict[str, Any]:
     decoded = decode_pl011_console(raw)
     pass_prefix = "MAX77705_DRIVER_OVERRIDE_QEMU result=PASS "
@@ -458,11 +502,13 @@ def evaluate_console_bytes(raw: bytes) -> dict[str, Any]:
         return {
             "verdict": "FAIL_MAX77705_DRIVER_OVERRIDE_QEMU_HOST_ONLY",
             "proof": None,
+            "failure": parse_fail_records(fail_records),
             "terminal_line_ending": fail_records[0].line_ending,
         }
     return {
         "verdict": VERDICT,
         "proof": parse_pass_records(pass_records),
+        "failure": None,
         "terminal_line_ending": pass_records[0].line_ending,
     }
 
@@ -527,36 +573,50 @@ def _require_capture_paths_absent(output: Path) -> None:
 def _capture_manifest(
     *, raw: bytes, chunks: list[dict[str, Any]], started: float
 ) -> dict[str, Any]:
-    expected_start = 0
-    for index, chunk in enumerate(chunks):
-        if (
-            chunk["index"] != index
-            or chunk["byte_start"] != expected_start
-            or chunk["byte_end"] < chunk["byte_start"]
-        ):
-            raise HarnessError("console capture chunk geometry is inconsistent")
-        expected_start = chunk["byte_end"]
-    if expected_start != len(raw):
-        raise HarnessError("console capture chunks do not cover the raw bytes")
-    return {
-        "schema": "s22plus_fyg8_max77705_qemu_console_capture_v1",
-        "source": "qemu-system-aarch64 PL011 stdio",
-        "clock": "host time.monotonic relative to QEMU start",
+    manifest = {
+        "schema": CAPTURE_SCHEMA,
+        "source": CAPTURE_SOURCE,
+        "clock": CAPTURE_CLOCK,
         "raw_file": RAW_CAPTURE_NAME,
         "raw_byte_count": len(raw),
         "raw_sha256": hashlib.sha256(raw).hexdigest(),
         "capture_started_monotonic": started,
         "chunks": chunks,
     }
+    verify_capture_manifest(raw, manifest)
+    return manifest
+
+
+def _is_finite_nonnegative_number(value: Any) -> bool:
+    if type(value) not in (int, float):
+        return False
+    try:
+        return math.isfinite(float(value)) and value >= 0
+    except (OverflowError, TypeError, ValueError):
+        return False
 
 
 def verify_capture_manifest(raw: bytes, manifest: dict[str, Any]) -> None:
-    if manifest.get("schema") != "s22plus_fyg8_max77705_qemu_console_capture_v1":
+    if frozenset(manifest) != CAPTURE_KEYS:
+        raise HarnessError("console capture top-level keys mismatch")
+    if manifest.get("schema") != CAPTURE_SCHEMA:
         raise HarnessError("console capture schema mismatch")
+    if manifest.get("source") != CAPTURE_SOURCE:
+        raise HarnessError("console capture source mismatch")
+    if manifest.get("clock") != CAPTURE_CLOCK:
+        raise HarnessError("console capture clock mismatch")
     if manifest.get("raw_file") != RAW_CAPTURE_NAME:
         raise HarnessError("console capture raw filename mismatch")
-    if manifest.get("raw_byte_count") != len(raw):
+    if (
+        not isinstance(manifest.get("raw_byte_count"), int)
+        or isinstance(manifest.get("raw_byte_count"), bool)
+        or manifest["raw_byte_count"] != len(raw)
+    ):
         raise HarnessError("console capture byte count mismatch")
+    if not _is_finite_nonnegative_number(
+        manifest.get("capture_started_monotonic")
+    ):
+        raise HarnessError("console capture start clock is invalid")
     actual_sha256 = hashlib.sha256(raw).hexdigest()
     if manifest.get("raw_sha256") != actual_sha256:
         raise HarnessError("console capture SHA256 mismatch")
@@ -564,22 +624,62 @@ def verify_capture_manifest(raw: bytes, manifest: dict[str, Any]) -> None:
     if not isinstance(chunks, list):
         raise HarnessError("console capture chunks are missing")
     expected_start = 0
+    previous_timestamp = 0.0
+    tail_seen = False
     for index, chunk in enumerate(chunks):
         if not isinstance(chunk, dict):
             raise HarnessError("console capture chunk is malformed")
+        if frozenset(chunk) != CAPTURE_CHUNK_KEYS:
+            raise HarnessError("console capture chunk keys mismatch")
+        byte_start = chunk.get("byte_start")
+        byte_end = chunk.get("byte_end")
         if (
-            chunk.get("index") != index
-            or chunk.get("byte_start") != expected_start
-            or not isinstance(chunk.get("byte_end"), int)
-            or chunk["byte_end"] < expected_start
+            not isinstance(chunk.get("index"), int)
+            or isinstance(chunk.get("index"), bool)
+            or chunk["index"] != index
+            or not isinstance(byte_start, int)
+            or isinstance(byte_start, bool)
+            or byte_start != expected_start
+            or not isinstance(byte_end, int)
+            or isinstance(byte_end, bool)
+            or byte_end <= expected_start
         ):
             raise HarnessError("console capture chunk geometry mismatch")
-        expected_start = chunk["byte_end"]
+        source = chunk.get("source")
+        if source == "select-read":
+            if tail_seen:
+                raise HarnessError("console capture source order mismatch")
+        elif source == "communicate-tail":
+            if tail_seen or index != len(chunks) - 1:
+                raise HarnessError("console capture source order mismatch")
+            tail_seen = True
+        else:
+            raise HarnessError("console capture chunk source mismatch")
+        timestamp = chunk.get("received_after_start_sec")
+        if (
+            not _is_finite_nonnegative_number(timestamp)
+            or timestamp < previous_timestamp
+        ):
+            raise HarnessError("console capture chunk clock mismatch")
+        previous_timestamp = float(timestamp)
+        expected_start = byte_end
     if expected_start != len(raw):
         raise HarnessError("console capture chunks do not cover raw bytes")
 
 
-def replay_console_capture(raw_path: Path, manifest_path: Path) -> dict[str, Any]:
+def replay_console_capture(
+    raw_path: Path,
+    manifest_path: Path,
+    *,
+    expected_manifest_sha256: str,
+) -> dict[str, Any]:
+    if re.fullmatch(r"[0-9a-f]{64}", expected_manifest_sha256) is None:
+        raise HarnessError("expected capture manifest SHA256 is not canonical")
+    manifest_sha256 = require_sha256(
+        manifest_path,
+        expected_manifest_sha256,
+        "QEMU console capture manifest",
+    )
     raw = raw_path.read_bytes()
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -589,7 +689,7 @@ def replay_console_capture(raw_path: Path, manifest_path: Path) -> dict[str, Any
         raise HarnessError("console capture manifest is not an object")
     verify_capture_manifest(raw, manifest)
     result = replay_console_bytes(raw, expected_sha256=manifest["raw_sha256"])
-    result["capture_manifest_sha256"] = sha256_path(manifest_path)
+    result["capture_manifest_sha256"] = manifest_sha256
     return result
 
 
@@ -603,52 +703,54 @@ def run_harness(
 ) -> dict[str, Any]:
     output.mkdir(parents=True, exist_ok=True)
     _require_capture_paths_absent(output)
-    build = _build_initramfs(
-        repo=repo, guest_root=guest_root, output=output
-    )
-    command, env, qemu_identity = _qemu_command(
-        qemu_root=qemu_root, build=build
-    )
-    started = time.monotonic()
-    process = subprocess.Popen(
-        command,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    )
-    assert process.stdout is not None
-    chunks: list[bytes] = []
-    chunk_receipts: list[dict[str, Any]] = []
-    observed = b""
-    deadline = started + timeout_sec
-    verdict: str | None = None
-    pass_marker = b"MAX77705_DRIVER_OVERRIDE_QEMU result=PASS "
-    fail_marker = b"MAX77705_DRIVER_OVERRIDE_QEMU result=FAIL "
     raw_path = output / RAW_CAPTURE_NAME
-
-    def preserve_chunk(stream: Any, chunk: bytes, source: str) -> None:
-        byte_start = sum(len(value) for value in chunks)
-        _write_all(stream, chunk)
-        os.fsync(stream.fileno())
-        chunks.append(chunk)
-        chunk_receipts.append(
-            {
-                "index": len(chunk_receipts),
-                "source": source,
-                "byte_start": byte_start,
-                "byte_end": byte_start + len(chunk),
-                "received_after_start_sec": round(time.monotonic() - started, 6),
-            }
-        )
-
     try:
+        raw_stream = raw_path.open("xb", buffering=0)
+    except FileExistsError as error:
+        raise HarnessError(
+            f"immutable evidence path already exists: {raw_path}"
+        ) from error
+    with raw_stream:
+        build = _build_initramfs(
+            repo=repo, guest_root=guest_root, output=output
+        )
+        command, env, qemu_identity = _qemu_command(
+            qemu_root=qemu_root, build=build
+        )
+        started = time.monotonic()
+        process = subprocess.Popen(
+            command,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        assert process.stdout is not None
+        chunks: list[bytes] = []
+        chunk_receipts: list[dict[str, Any]] = []
+        observed = b""
+        deadline = started + timeout_sec
+        verdict: str | None = None
+        pass_marker = b"MAX77705_DRIVER_OVERRIDE_QEMU result=PASS "
+        fail_marker = b"MAX77705_DRIVER_OVERRIDE_QEMU result=FAIL "
+
+        def preserve_chunk(chunk: bytes, source: str) -> None:
+            byte_start = sum(len(value) for value in chunks)
+            _write_all(raw_stream, chunk)
+            os.fsync(raw_stream.fileno())
+            chunks.append(chunk)
+            chunk_receipts.append(
+                {
+                    "index": len(chunk_receipts),
+                    "source": source,
+                    "byte_start": byte_start,
+                    "byte_end": byte_start + len(chunk),
+                    "received_after_start_sec": round(
+                        time.monotonic() - started, 6
+                    ),
+                }
+            )
+
         try:
-            raw_stream = raw_path.open("xb", buffering=0)
-        except FileExistsError as error:
-            raise HarnessError(
-                f"immutable evidence path already exists: {raw_path}"
-            ) from error
-        with raw_stream:
             while time.monotonic() < deadline:
                 remaining = max(0.0, deadline - time.monotonic())
                 readable, _, _ = select.select(
@@ -661,7 +763,7 @@ def run_harness(
                 chunk = os.read(process.stdout.fileno(), 65536)
                 if not chunk:
                     break
-                preserve_chunk(raw_stream, chunk, "select-read")
+                preserve_chunk(chunk, "select-read")
                 observed += chunk
                 print(chunk.decode("utf-8", "replace"), end="")
                 if complete_record_seen(observed, pass_marker):
@@ -670,17 +772,16 @@ def run_harness(
                 if complete_record_seen(observed, fail_marker):
                     verdict = "FAIL_MAX77705_DRIVER_OVERRIDE_QEMU_HOST_ONLY"
                     break
-    finally:
-        process.terminate()
-        try:
-            tail, _ = process.communicate(timeout=5)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            tail, _ = process.communicate(timeout=5)
-        if tail:
-            with raw_path.open("ab", buffering=0) as raw_stream:
-                preserve_chunk(raw_stream, tail, "communicate-tail")
-            print(tail.decode("utf-8", "replace"), end="")
+        finally:
+            process.terminate()
+            try:
+                tail, _ = process.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                tail, _ = process.communicate(timeout=5)
+            if tail:
+                preserve_chunk(tail, "communicate-tail")
+                print(tail.decode("utf-8", "replace"), end="")
 
     raw_output = b"".join(chunks)
     capture = _capture_manifest(raw=raw_output, chunks=chunk_receipts, started=started)
@@ -694,6 +795,7 @@ def run_harness(
             else "FAIL_MAX77705_DRIVER_OVERRIDE_QEMU_GUEST_EXIT_HOST_ONLY"
         )
     proof = None
+    failure = None
     observer_error = None
     terminal_line_ending = None
     if verdict in (
@@ -704,6 +806,7 @@ def run_harness(
             evaluated = evaluate_console_bytes(raw_output)
             verdict = evaluated["verdict"]
             proof = evaluated["proof"]
+            failure = evaluated["failure"]
             terminal_line_ending = evaluated["terminal_line_ending"]
         except HarnessError as error:
             observer_error = str(error)
@@ -716,6 +819,7 @@ def run_harness(
         "qemu_identity": qemu_identity,
         "build": build,
         "proof": proof,
+        "failure": failure,
         "observer_error": observer_error,
         "terminal_line_ending": terminal_line_ending,
         "capture": capture,
@@ -752,13 +856,21 @@ def main() -> int:
     parser.add_argument("--build-only", action="store_true")
     parser.add_argument("--replay-console", type=Path)
     parser.add_argument("--replay-capture-manifest", type=Path)
+    parser.add_argument("--expected-capture-manifest-sha256")
     args = parser.parse_args()
     if args.timeout_sec < 30 or args.timeout_sec > 180:
         raise HarnessError("--timeout-sec must be between 30 and 180")
     output = args.output.resolve()
-    if (args.replay_console is None) != (args.replay_capture_manifest is None):
+    replay_values = (
+        args.replay_console,
+        args.replay_capture_manifest,
+        args.expected_capture_manifest_sha256,
+    )
+    if any(value is not None for value in replay_values) and not all(
+        value is not None for value in replay_values
+    ):
         raise HarnessError(
-            "--replay-console and --replay-capture-manifest are required together"
+            "replay console, manifest, and expected manifest SHA256 are required together"
         )
     if args.replay_console is not None:
         if args.build_only or args.guest_root is not None or args.qemu_root is not None:
@@ -770,6 +882,7 @@ def main() -> int:
         result = replay_console_capture(
             args.replay_console.resolve(),
             args.replay_capture_manifest.resolve(),
+            expected_manifest_sha256=args.expected_capture_manifest_sha256,
         )
         _write_exclusive_json(replay_path, result)
         print(json.dumps(result, indent=2, sort_keys=True))

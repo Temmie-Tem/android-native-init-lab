@@ -178,6 +178,36 @@ class Max77705DriverOverrideQemuControlTests(unittest.TestCase):
         ):
             self.module.evaluate_console_bytes(malformed)
 
+    def test_fail_terminal_requires_exact_guest_contract(self) -> None:
+        valid = (
+            b"MAX77705_DRIVER_OVERRIDE_QEMU result=FAIL "
+            b"stage=mount-sysfs detail=5\r\n"
+        )
+        evaluated = self.module.evaluate_console_bytes(valid)
+        self.assertEqual(
+            evaluated,
+            {
+                "failure": {"detail": 5, "stage": "mount-sysfs"},
+                "proof": None,
+                "terminal_line_ending": "CRLF",
+                "verdict": "FAIL_MAX77705_DRIVER_OVERRIDE_QEMU_HOST_ONLY",
+            },
+        )
+        malformed = (
+            b"MAX77705_DRIVER_OVERRIDE_QEMU result=FAIL garbage\n",
+            b"MAX77705_DRIVER_OVERRIDE_QEMU result=FAIL stage=x\n",
+            b"MAX77705_DRIVER_OVERRIDE_QEMU result=FAIL stage=x detail=zero\n",
+            b"MAX77705_DRIVER_OVERRIDE_QEMU result=FAIL stage=x detail=0\n",
+            b"MAX77705_DRIVER_OVERRIDE_QEMU result=FAIL stage=x detail=-1\n",
+            b"MAX77705_DRIVER_OVERRIDE_QEMU result=FAIL "
+            b"stage=x detail=2147483648\n",
+        )
+        for raw in malformed:
+            with self.subTest(raw=raw), self.assertRaises(
+                self.module.HarnessError
+            ):
+                self.module.evaluate_console_bytes(raw)
+
     def test_capture_manifest_replay_uses_exact_raw_bytes(self) -> None:
         raw = (
             b"boot\r\nMAX77705_DRIVER_OVERRIDE_QEMU result=PASS "
@@ -186,14 +216,14 @@ class Max77705DriverOverrideQemuControlTests(unittest.TestCase):
         chunks = [
             {
                 "index": 0,
-                "source": "fixture",
+                "source": "select-read",
                 "byte_start": 0,
                 "byte_end": 6,
                 "received_after_start_sec": 0.1,
             },
             {
                 "index": 1,
-                "source": "fixture",
+                "source": "communicate-tail",
                 "byte_start": 6,
                 "byte_end": len(raw),
                 "received_after_start_sec": 0.2,
@@ -210,7 +240,12 @@ class Max77705DriverOverrideQemuControlTests(unittest.TestCase):
             manifest_path.write_text(
                 json.dumps(manifest), encoding="utf-8"
             )
-            replay = self.module.replay_console_capture(raw_path, manifest_path)
+            manifest_sha256 = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+            replay = self.module.replay_console_capture(
+                raw_path,
+                manifest_path,
+                expected_manifest_sha256=manifest_sha256,
+            )
             self.assertEqual(replay["verdict"], self.module.VERDICT)
             self.assertEqual(replay["raw_sha256"], hashlib.sha256(raw).hexdigest())
 
@@ -218,7 +253,20 @@ class Max77705DriverOverrideQemuControlTests(unittest.TestCase):
             with self.assertRaisesRegex(
                 self.module.HarnessError, "byte count mismatch"
             ):
-                self.module.replay_console_capture(raw_path, manifest_path)
+                self.module.replay_console_capture(
+                    raw_path,
+                    manifest_path,
+                    expected_manifest_sha256=manifest_sha256,
+                )
+
+            with self.assertRaisesRegex(
+                self.module.HarnessError, "SHA256 mismatch"
+            ):
+                self.module.replay_console_capture(
+                    raw_path,
+                    manifest_path,
+                    expected_manifest_sha256="0" * 64,
+                )
 
     def test_capture_manifest_rejects_chunk_gap(self) -> None:
         raw = b"one\ntwo\n"
@@ -227,7 +275,7 @@ class Max77705DriverOverrideQemuControlTests(unittest.TestCase):
             chunks=[
                 {
                     "index": 0,
-                    "source": "fixture",
+                    "source": "select-read",
                     "byte_start": 0,
                     "byte_end": len(raw),
                     "received_after_start_sec": 0.1,
@@ -241,6 +289,63 @@ class Max77705DriverOverrideQemuControlTests(unittest.TestCase):
         ):
             self.module.verify_capture_manifest(raw, manifest)
 
+    def test_capture_manifest_rejects_authority_mutations(self) -> None:
+        raw = b"one\ntwo\n"
+        chunks = [
+            {
+                "index": 0,
+                "source": "select-read",
+                "byte_start": 0,
+                "byte_end": 4,
+                "received_after_start_sec": 0.1,
+            },
+            {
+                "index": 1,
+                "source": "communicate-tail",
+                "byte_start": 4,
+                "byte_end": len(raw),
+                "received_after_start_sec": 0.2,
+            },
+        ]
+        manifest = self.module._capture_manifest(
+            raw=raw, chunks=chunks, started=1.0
+        )
+
+        def clone():
+            return json.loads(json.dumps(manifest))
+
+        mutations = []
+        value = clone()
+        value["unexpected"] = True
+        mutations.append(value)
+        value = clone()
+        value["source"] = "forged"
+        mutations.append(value)
+        value = clone()
+        value["clock"] = "wall-clock"
+        mutations.append(value)
+        value = clone()
+        del value["chunks"][0]["source"]
+        mutations.append(value)
+        value = clone()
+        value["chunks"][0]["source"] = "communicate-tail"
+        mutations.append(value)
+        value = clone()
+        value["chunks"][0]["received_after_start_sec"] = -1
+        mutations.append(value)
+        value = clone()
+        value["chunks"][1]["received_after_start_sec"] = 0.05
+        mutations.append(value)
+        value = clone()
+        value["chunks"][0]["received_after_start_sec"] = float("inf")
+        mutations.append(value)
+
+        for mutated in mutations:
+            with self.subTest(mutated=mutated), self.assertRaises(
+                self.module.HarnessError
+            ):
+                self.module.verify_capture_manifest(raw, mutated)
+
     def test_immutable_evidence_writer_refuses_overwrite(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "capture.raw"
@@ -250,6 +355,19 @@ class Max77705DriverOverrideQemuControlTests(unittest.TestCase):
             ):
                 self.module._write_exclusive_bytes(path, b"second")
             self.assertEqual(path.read_bytes(), b"first")
+
+    def test_live_capture_keeps_one_exclusive_fd_through_tail(self) -> None:
+        script = SCRIPT.read_bytes()
+        self.assertEqual(script.count(b'raw_path.open("xb"'), 1)
+        self.assertNotIn(b'raw_path.open("ab"', script)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.raw"
+            with path.open("xb", buffering=0) as owner:
+                self.module._write_all(owner, b"select")
+                with self.assertRaises(FileExistsError):
+                    path.open("xb", buffering=0)
+                self.module._write_all(owner, b"tail")
+            self.assertEqual(path.read_bytes(), b"selecttail")
 
     def test_named_failure_corpus_replays_exact_expected_outcomes(self) -> None:
         corpus = json.loads(CORPUS.read_text(encoding="utf-8"))

@@ -266,8 +266,14 @@ representatives now preserve their truncation and CRLF failure contracts. The
 three-device corpus does not cover the future 15-device candidate observer,
 which must add its own negative corpus when its schema materializes. This
 closes only the technical proof for generic platform `driver_override`
-suppression; schema review, actual S22+ path construction, binding, I2C, MUX,
-packaging, and live authority remain open.
+suppression. The first independent schema review correctly withheld `PASS_GO`
+for weak manifest-authority validation, non-exact FAIL parsing, and a tail
+append reopen. The scoped repair now requires the expected manifest hash,
+validates the full source/clock/chunk schema, parses exact FAIL grammar, and
+keeps one exclusive raw descriptor through tail drain; the original run-03 raw
+passed that stricter replay without a QEMU rerun. Independent re-review, actual
+S22+ path construction, binding, I2C, MUX, packaging, and live authority remain
+open.
 The former
 4,246,401,024-byte
 workspace-capacity blocker is closed by the exact private S22+ cleanup

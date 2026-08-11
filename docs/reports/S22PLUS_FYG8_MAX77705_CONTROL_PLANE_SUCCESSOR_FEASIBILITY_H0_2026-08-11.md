@@ -1260,11 +1260,26 @@ entry point requires the raw bytes and their capture receipt and invokes the
 same codec, parser, and classifier as the live path. `qemu-console.log` is only
 a convenience copy; the `.raw` file and capture receipt are the authority.
 
+The first independent review did not issue `PASS_GO`. It found that the first
+validator checked raw geometry but not exact receipt keys, fixed source/clock,
+chunk source order, or finite nondecreasing timestamps; replay recorded rather
+than required the expected manifest hash; malformed FAIL prefixes were accepted
+without the guest's exact `stage=%s detail=%d` grammar; and tail collection
+reopened the raw path with append mode after closing the exclusive descriptor.
+The scoped repair now validates the complete receipt schema and authority hash,
+parses canonical positive signed-int FAIL detail, and acquires one exclusive raw
+descriptor before build/QEMU startup and keeps that same descriptor through
+tail drain. No QEMU rerun is needed for these parser/schema repairs: the stricter
+replay accepts the already captured run-03 raw only when bound to the documented
+manifest SHA. Independent re-review remains required.
+
 The single corrected execution then passed with:
 
 - exact pinned QEMU/kernel/config/module/source identities;
-- host observer/replay script SHA-256
+- run-03 host observer/replay script SHA-256
   `26ddd8842be0f683f071b546e8d2d42c40cd3b3c77192b00495cfb962a4e5cd8`;
+- post-review strict validator/replay script SHA-256
+  `155dc244bca57a502ed61ab269484d22cbf8852bc887a8071585bad828ff3223`;
 - target `a003a00.virtio_mmio`, blocked controls
   `a003c00.virtio_mmio` and `a003e00.virtio_mmio`, and active count 3;
 - one complete CRLF terminal record;
@@ -1274,8 +1289,8 @@ The single corrected execution then passed with:
   `d92fafd1caaa1f528c3bf52548a34a9e5c56bb4efe67f862777c6c77fc71ef7b`;
 - live result SHA-256
   `3a9258add9574d2bb8e9bcd57341237809da2373972f109bc340dd1e656c020e`;
-  and replay-result SHA-256
-  `541f8d5c158f4a17dd3526002fdb8c6a032006b0237a2f7709906c12119b822f`;
+  and strict expected-manifest replay-result SHA-256
+  `ba6f7132c760690b6322c92b2336158cf4951c7be9a57e49a17ba04e2dc5c413`;
   and
 - an independent no-QEMU replay of those same bytes and receipt to the same
   `PASS_MAX77705_DRIVER_OVERRIDE_QEMU_HOST_ONLY` proof.
@@ -2003,10 +2018,11 @@ This report was closed at H0 with the following host-side checks:
 - `python3 -m unittest tests.test_s22plus_fyg8_max77705_order_authority`
   passed 4/4;
 - `python3 -m unittest
-  tests.test_s22plus_fyg8_max77705_driver_override_qemu_control` passed 17/17,
+  tests.test_s22plus_fyg8_max77705_driver_override_qemu_control` passed 20/20,
   including incomplete-marker rejection, exact LF/CRLF equivalence, bare-CR,
   NUL and invalid-UTF-8 rejection, immutable-write refusal, capture-manifest
-  verification, exact-byte replay, and the named two-failure corpus;
+  authority-mutation rejection, exact FAIL grammar, exact-byte replay, single
+  exclusive-FD tail capture, and the named two-failure corpus;
 - the single Rule-7-corrected pinned arm64 QEMU execution produced the exact
   three-device target/block/reprobe/unload PASS and committed its raw capture
   before semantic decoding; the no-QEMU replay independently returned the
