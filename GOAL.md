@@ -133,7 +133,8 @@ The exact 491-module audit still matters: it proves PDIC alone consumes the
 three removable MFD updater exports and also records the much broader stock
 PDIC/MUIC/CC/PD/alternate/AFC/QC/notifier/user-control surface. That former
 full-PDIC custom-66 design is now rejected as disproportionate, not retained as
-the preferred implementation. The v6 source validator fixes the logical
+the preferred implementation. The v7 authority retains the corrected source
+validator and fixes the logical
 transaction shape: neither post value may be synthesized, both reads occur
 outside the optional-write branch, post2 follows the exact retention dwell,
 and any I2C call outside the registered call multiset is rejected. The initial
@@ -159,10 +160,10 @@ with SHA-256
 The audit proves exact FYG8 vermagic, 15 imports, 16 matching modversions, CFI
 callback jump-table relocations, registered call counts, and zero exports.
 The current private contract receipt is
-`custom-surface-authority-20260812-11.json`, SHA-256
-`2a0c8014acebbf6fc5cb8b550c86926379c3fa0759682604f8f7dba24ffb5d94`;
+`custom-surface-authority-20260812-12.json`, SHA-256
+`1258e53187d6fda549b18e277a72035dd18d5191caa0176d0454ff9bee58c577`;
 its embedded contract is
-`d2226ce0e7d5215eb257cddbcb6b00612bc6fe2907504c2f5bf2c095be4d81c3`.
+`035b98fa0052a2b61c55f43c47419be306284cb23c358417c78753f1c70bea58`.
 Status is strictly
 `SOURCE_AND_LINKED_AB_ABI_QUALIFIED_RUNTIME_NOT_SATISFIED`; no boot package
 was created and no module was loaded.
@@ -174,10 +175,16 @@ forbidden from that loop. The inherited 20-second bind gate must close after
 gadget readiness and host-sidecar arming, before one dedicated late
 `finit_module` call begins a lifetime of at least 31 seconds. The late-load,
 no-match, early terminal transaction, result-not-ready `-EAGAIN`, and result
-read-timeout buckets are registered but not yet satisfied. Packaging and F1
-approval remain blocked until every bucket and every existing MUX result row
-round-trips through the real encoder, retained carrier, and decoder as required
-by the Process-v2 result-contract arming precondition.
+read-timeout buckets are registered but not yet satisfied. `-EAGAIN` is not a
+standalone terminal: its retained representation must also carry the loader
+state plus pre/post exact-parent, driver-owner, compatible-parent, diagnostic
+bind-count, and exact/foreign `0x25` client witnesses. The contract separates
+zero-match, wrong-address, other-driver ownership, and synchronous-publication
+contradictions; a post-synchronous-return claim-busy `EAGAIN` is forbidden as a
+valid no-match result. Packaging and F1 approval remain blocked until all eight
+terminal buckets, all seven `EAGAIN` decomposition rows, and every existing MUX
+result row round-trip through the real encoder, retained carrier, and decoder
+as required by the Process-v2 result-contract arming precondition.
 
 The next H0 work is target-only GENI bind proof, exhaustive transaction and
 telemetry fixtures, the host-sidecar positive-control gate, packaging

@@ -347,6 +347,19 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
             "result_contract_arming_precondition": {
                 "status": "REGISTERED_NOT_SATISFIED",
                 "required_terminal_buckets": self.module.DIAG_RUNTIME_TERMINAL_BUCKETS,
+                "eagain_binding_witness_fields": (
+                    self.module.DIAG_EAGAIN_BINDING_WITNESS_FIELDS
+                ),
+                "eagain_decomposition_rows": (
+                    self.module.DIAG_EAGAIN_DECOMPOSITION_ROWS
+                ),
+                "eagain_classification_priority": (
+                    self.module.DIAG_EAGAIN_CLASSIFICATION_PRIORITY
+                ),
+                "eagain_is_a_standalone_terminal": False,
+                "eagain_binding_witness_cross_axis_required": True,
+                "binding_witness_values_retained_end_to_end": True,
+                "claim_busy_post_sync_eagain_is_valid": False,
                 "real_encoder_carrier_decoder_round_trip_required": True,
                 "synthesized_retained_representation_required": True,
                 "physical_condition_reproduction_required": False,
@@ -355,6 +368,11 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
             },
         }
         self.assertTrue(self.module.validate_runtime_integration_contract(diagnostic))
+        self.assertEqual(len(self.module.DIAG_RUNTIME_TERMINAL_BUCKETS), 8)
+        self.assertEqual(
+            len(set(self.module.DIAG_RUNTIME_TERMINAL_BUCKETS.values())), 8
+        )
+        self.assertEqual(len(self.module.DIAG_EAGAIN_DECOMPOSITION_ROWS), 7)
         for key, value in (
             ("generic_early_load_count", 65),
             ("late_load_minimum_lifetime_sec", 30),
@@ -369,6 +387,28 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
         del mutated["result_contract_arming_precondition"][
             "required_terminal_buckets"
         ]["result_read_timeout"]
+        with self.assertRaisesRegex(self.module.SurfaceError, "arming gate"):
+            self.module.validate_runtime_integration_contract(mutated)
+        for key in (
+            "eagain_binding_witness_fields",
+            "eagain_decomposition_rows",
+            "eagain_classification_priority",
+        ):
+            with self.subTest(key=key):
+                mutated = copy.deepcopy(diagnostic)
+                del mutated["result_contract_arming_precondition"][key]
+                with self.assertRaisesRegex(self.module.SurfaceError, "arming gate"):
+                    self.module.validate_runtime_integration_contract(mutated)
+        mutated = copy.deepcopy(diagnostic)
+        mutated["result_contract_arming_precondition"][
+            "eagain_is_a_standalone_terminal"
+        ] = True
+        with self.assertRaisesRegex(self.module.SurfaceError, "arming gate"):
+            self.module.validate_runtime_integration_contract(mutated)
+        mutated = copy.deepcopy(diagnostic)
+        mutated["result_contract_arming_precondition"][
+            "claim_busy_post_sync_eagain_is_valid"
+        ] = True
         with self.assertRaisesRegex(self.module.SurfaceError, "arming gate"):
             self.module.validate_runtime_integration_contract(mutated)
 
@@ -509,6 +549,22 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
             arming["required_terminal_buckets"],
             self.module.DIAG_RUNTIME_TERMINAL_BUCKETS,
         )
+        self.assertEqual(
+            tuple(arming["eagain_binding_witness_fields"]),
+            self.module.DIAG_EAGAIN_BINDING_WITNESS_FIELDS,
+        )
+        self.assertEqual(
+            arming["eagain_decomposition_rows"],
+            self.module.DIAG_EAGAIN_DECOMPOSITION_ROWS,
+        )
+        self.assertEqual(
+            tuple(arming["eagain_classification_priority"]),
+            self.module.DIAG_EAGAIN_CLASSIFICATION_PRIORITY,
+        )
+        self.assertFalse(arming["eagain_is_a_standalone_terminal"])
+        self.assertTrue(arming["eagain_binding_witness_cross_axis_required"])
+        self.assertTrue(arming["binding_witness_values_retained_end_to_end"])
+        self.assertFalse(arming["claim_busy_post_sync_eagain_is_valid"])
         self.assertTrue(arming["blocks_packaging_and_f1_approval_until_receipted"])
         self.assertTrue(
             diagnostic["initial_uic_read_scope"][

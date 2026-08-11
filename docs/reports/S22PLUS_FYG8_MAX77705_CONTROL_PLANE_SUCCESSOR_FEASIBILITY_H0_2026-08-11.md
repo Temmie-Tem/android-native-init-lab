@@ -204,8 +204,8 @@ The primary source and artifact inputs were rehashed during this H0 unit.
 | A/B linked-build receipt (19,492 bytes) | `5ea484ae1381b23c42c71163a8bb5add2e54f8b936e7730aee7b87e6a8ffeadd` |
 | independent audit-mode replay receipt | `ce6a1310d1d07b9b6733e4129fecdc41dd4d2bb3ff03247fbe8df2fe9019894b` |
 | A/B diagnostic module (293,400 bytes each) | `4f4f485a35cdb12206b814390b56674ca6a6d691c9a1d7a29c97030053231849` |
-| custom-surface authority helper v6 | `df77d4daaa8e46c4f9e58550a8e8747e291fdbe2294f7ca6b41f92de1b70b3b2` |
-| linked-qualified custom-surface receipt v6 | `2a0c8014acebbf6fc5cb8b550c86926379c3fa0759682604f8f7dba24ffb5d94` |
+| custom-surface authority helper v7 | `e538d0564583897b0cac043075bce7f455e9afa43c8d01084d96eb28dfad5dad` |
+| linked-qualified custom-surface receipt v7 | `1258e53187d6fda549b18e277a72035dd18d5191caa0176d0454ff9bee58c577` |
 | retained stock/XBL `baseline_last_kmsg.bin` | `9a58a0c8486723c31f9cf8ac7d8b8be2586969bb8f167cd76907e3b82db0c7cb` |
 | P3.15 USB-sidecar result | `a075c7014e9d0524fd0b7f18fe14a263639ad27ced386a4801e4c9856caf19fa` |
 
@@ -232,7 +232,7 @@ for the hashed source snapshot, not for an unpinned upstream tree.
 | first-stage/recovery order inputs | pinned `modules.load` and `modules.load.recovery`, hash-pinned above |
 | bounded sparse/range extraction and exact second-stage file | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/result.json` and `modules.load`, hash-pinned above |
 | 67-name stage, position, and dependency-order audit | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/max77705-67-order-audit.json`, hash-pinned above |
-| all-stock export-consumer audit, full-PDIC rejection evidence, and linked-qualified custom-65 diagnostic | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-surface-authority-20260812-11.json`, hash-pinned above |
+| all-stock export-consumer audit, full-PDIC rejection evidence, and linked-qualified custom-65 diagnostic | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-surface-authority-20260812-12.json`, hash-pinned above |
 | exact P3.10 ABI A/B build plus precompile-source/CFI/modversion/import/relocation audit | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-module-build-20260812-07/build-audit.json`, hash-pinned above |
 | PDIC, MFD, SPU, GENI-I2C, GPI, and GENI-SE dependency edges | pinned `modules.dep:91`, `:176`, `:181`, `:235`, `:305`, `:388` |
 | switch bit layout and the values that evaluate to `COM_OPEN=0x3f`, `COM_USB=0x09` | `include/linux/usb/typec/maxim/max77705-muic.h:293-301`, `:359-405` |
@@ -265,6 +265,7 @@ for the hashed source snapshot, not for an unpinned upstream tree.
 | target g0q Max77705 node and `support-audio` property | `arch/arm64/boot/dts/samsung/rainbow/g0q/g0q_kor_singlex_w00_r12.dts:11624-11634` |
 | platform `driver_override` precedence over OF matching | `drivers/base/platform.c:1150-1161` |
 | pinctrl binding occurs after match but before probe | `drivers/base/dd.c:520-541` |
+| I2C registration synchronously probes every matching unbound client before return | `drivers/i2c/i2c-core-base.c:1790-1815`; `include/linux/device/driver.h:33-48` |
 | hardware-selected GSI versus FIFO/SE-DMA mode | `drivers/i2c/busses/i2c-msm-geni.c:602-634` |
 | SPU support module's side-effect-minimal module init | `drivers/spu_verify/spu-sign-verify.c:197-209` |
 | target build inputs enabling Full LTO, CFI, and modversions | `arch/arm64/configs/vendor/waipio-gki_defconfig:97-101` |
@@ -862,6 +863,23 @@ source requirement, not only a runtime convention: module-parameter sysfs is
 created before `do_init_module()`, so a reader can otherwise overlap the
 blocking probe and observe an initial or torn value.
 
+`-EAGAIN` is therefore a readiness observation, not a self-sufficient terminal
+classification. The retained record must cross it with loader state and exact
+pre/post binding witnesses: exact-parent presence and owner, matching-unbound
+and wrong-address-compatible parent counts, diagnostic-bound parent count, and
+exact-adapter/foreign `0x25` client counts. A loader still inside
+`finit_module()` is bounded continuation; zero matches, wrong-address matches,
+and another driver owning the exact parent are distinct no-proof results; an
+exact unbound parent or a complete diagnostic-parent/sole-dummy binding paired
+with post-return `-EAGAIN` is a synchronous-publication contradiction.
+`i2c_register_driver()` documents that all matching unbound devices have been
+probed when registration returns, and this driver is force-synchronous. A
+post-return claim-busy `EAGAIN` is consequently not a valid no-match branch:
+the first successful claim path caches even dummy-client failure and returns
+zero before registration completes. The v7 arming gate preserves all witness
+values, fixes classification priority, and requires seven decomposition rows
+to survive the real encoder/carrier/decoder path.
+
 It requests no IRQ, creates no workqueue or MFD child, registers no Type-C,
 MUIC, IF-manager, notifier, power-supply, misc, debug, proc, or writable sysfs
 surface, and contains no firmware, reset, BC/DCD, CC/PD, VBUS, sink-capability,
@@ -872,15 +890,17 @@ set includes `SYSMsgI`, `VBUSDetI`, `VbADCI`, `DCDTmoI`, `CHGTypI`, and
 safe from Linux-consumer theft only under the enforced condition that no other
 Max77705 driver is bound or loaded.
 
-The v6 helper registers and tests this source shape and requires the exact
+The v7 helper registers and tests this source shape and requires the exact
 linked-build receipt. Its current receipt is
-`custom-surface-authority-20260812-11.json`. Source, precompile validation,
+`custom-surface-authority-20260812-12.json`. Source, precompile validation,
 A/B linked module, import/relocation closure, and fixed-Image modversion/CFI
 proof are satisfied. Boot staging, runtime binding, timeout/result fixtures,
 carrier integration, and independent review remain open.
 
-This v6 artifact supersedes the earlier H0-only v5 linked artifact. Review
-found two source-contract mismatches before packaging: v5 compared the entire
+The linked artifact first qualified under v6 supersedes the earlier H0-only v5
+linked artifact; v7 reuses those exact module bytes and tightens only the host
+result contract. Review found two source-contract mismatches before packaging:
+v5 compared the entire
 raw PMIC revision byte rather than the stock driver's low-three-bit logical
 revision, and its getter could overlap result encoding because module-parameter
 sysfs exists before module init completes. The correction preserves the raw
@@ -1331,7 +1351,7 @@ final builder therefore calls `validate_diag_source_text()` before source-tree
 copy, `modules_prepare`, or module compilation and receipts both its complete
 validation result and validator-function SHA-256
 `0914d607dac146b4e1aec41df36a104cfaa93c3c09568171f4fe75ec9cd08c3d`.
-The v6 custom-surface authority rejects a missing, changed, late, or
+The v7 custom-surface authority rejects a missing, changed, late, or
 semantically different linked-build receipt. This was an H0 qualification
 repair; neither build contacted the target or created a boot package.
 The build receipt records full helper hash
@@ -1470,7 +1490,7 @@ remaining applicable gate must close before a live candidate is prepared:
 1. **Diagnostic source and linked effect contract — closed for H0 source/ELF**
    - the exact direct I2C parent match and only one managed dummy client at
      `0x25` are implemented;
-   - `validate_diag_source_text()` is exercised before the build, and the v6
+   - `validate_diag_source_text()` is exercised before the build, and the v7
      contract now rejects a missing or changed linked-build receipt;
    - source and linked relocations prove exactly three read commands and at
      most one conditional, non-retried `CONTROL1_W(0x09)`;
@@ -1513,8 +1533,12 @@ remaining applicable gate must close before a live candidate is prepared:
      remain inside the candidate endpoint and guard lifetimes;
    - cached diagnostic terminal state;
    - separate terminal buckets for late-load failure, registered/no matching
-     parent, cached early transaction failure, post-return `-EAGAIN`, and
-     result-read timeout;
+     parent, wrong-address identity rejection, parent ownership conflict,
+     cached early transaction failure, post-return `-EAGAIN`, result-read
+     timeout, and synchronous-publication contradiction;
+   - `-EAGAIN` is never decoded alone: loader state and every declared pre/post
+     binding-witness value must survive the retained representation, with all
+     seven decomposition rows and their fail-closed priority exercised;
    - same-session exact-target stock/Download positive control before any
      candidate-side host-silence interpretation;
    - host-sidecar correlation;

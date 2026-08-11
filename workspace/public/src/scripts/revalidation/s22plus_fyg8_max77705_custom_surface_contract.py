@@ -25,7 +25,7 @@ from typing import Any
 from s22plus_fyg8_f2fs_module_corpus import FILE_TYPE_REGULAR, F2FSReader
 
 
-SCHEMA = "s22plus_fyg8_max77705_custom_surface_contract_v6"
+SCHEMA = "s22plus_fyg8_max77705_custom_surface_contract_v7"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 DIAG_SOURCE = Path(
     "workspace/public/src/kernel-modules/s22plus_max77705_mux_diag/"
@@ -58,7 +58,7 @@ P315_PLAN = Path(
 )
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_max77705_gate0/"
-    "custom-surface-authority-20260812-11.json"
+    "custom-surface-authority-20260812-12.json"
 )
 DIAG_BUILD_RECEIPT = Path(
     "workspace/private/outputs/s22plus_fyg8_max77705_gate0/"
@@ -380,10 +380,92 @@ DIAG_RUNTIME_TERMINAL_BUCKETS = {
     "driver_registered_without_matching_parent": (
         "NO_PROOF_OBSERVER_DIAGNOSTIC_NO_MATCH"
     ),
+    "matching_parent_identity_rejected": (
+        "NO_PROOF_OBSERVER_DIAGNOSTIC_PARENT_IDENTITY"
+    ),
+    "parent_ownership_conflict": (
+        "NO_PROOF_OBSERVER_DIAGNOSTIC_PARENT_OWNERSHIP"
+    ),
     "probe_terminal_failure": "NO_PROOF_DIAGNOSTIC_TRANSACTION",
     "result_not_ready_eagain": "NO_PROOF_OBSERVER_DIAGNOSTIC_NOT_READY",
     "result_read_timeout": "NO_PROOF_OBSERVER_DIAGNOSTIC_RESULT_TIMEOUT",
+    "synchronous_result_publication_contradiction": (
+        "NO_PROOF_OBSERVER_DIAGNOSTIC_SYNC_CONTRADICTION"
+    ),
 }
+DIAG_EAGAIN_BINDING_WITNESS_FIELDS = (
+    "loader_state",
+    "pre_exact_parent_present",
+    "pre_exact_parent_driver_state",
+    "pre_matching_unbound_parent_count",
+    "pre_wrong_address_compatible_parent_count",
+    "post_exact_parent_driver_state",
+    "post_diagnostic_bound_parent_count",
+    "post_exact_adapter_muic_0x25_client_count",
+    "post_foreign_0x25_client_count",
+)
+DIAG_EAGAIN_DECOMPOSITION_ROWS = {
+    "probe_in_progress": {
+        "loader_state": "FINIT_MODULE_IN_PROGRESS",
+        "terminal": False,
+        "bounded_continuation": "WAIT_FOR_LOADER_OR_REGISTERED_TIMEOUT",
+    },
+    "no_matching_parent": {
+        "loader_state": "FINIT_MODULE_RETURNED_SUCCESS",
+        "pre_exact_parent_present": False,
+        "pre_matching_unbound_parent_count": 0,
+        "pre_wrong_address_compatible_parent_count": 0,
+        "post_diagnostic_bound_parent_count": 0,
+        "post_exact_adapter_muic_0x25_client_count": 0,
+        "terminal_bucket_key": "driver_registered_without_matching_parent",
+    },
+    "wrong_address_compatible_parent": {
+        "loader_state": "FINIT_MODULE_RETURNED_SUCCESS",
+        "pre_exact_parent_present": False,
+        "pre_wrong_address_compatible_parent_count_min": 1,
+        "post_diagnostic_bound_parent_count": 0,
+        "post_exact_adapter_muic_0x25_client_count": 0,
+        "terminal_bucket_key": "matching_parent_identity_rejected",
+    },
+    "exact_parent_owned_by_other_driver": {
+        "loader_state": "FINIT_MODULE_RETURNED_SUCCESS",
+        "pre_exact_parent_driver_state": "OTHER_DRIVER",
+        "post_exact_parent_driver_state": "OTHER_DRIVER",
+        "terminal_bucket_key": "parent_ownership_conflict",
+    },
+    "exact_parent_unbound_after_sync_return": {
+        "loader_state": "FINIT_MODULE_RETURNED_SUCCESS",
+        "pre_exact_parent_present": True,
+        "post_exact_parent_driver_state": "UNBOUND",
+        "terminal_bucket_key": "synchronous_result_publication_contradiction",
+    },
+    "diagnostic_binding_ready_but_result_eagain": {
+        "loader_state": "FINIT_MODULE_RETURNED_SUCCESS",
+        "post_exact_parent_driver_state": "DIAGNOSTIC",
+        "post_diagnostic_bound_parent_count": 1,
+        "post_exact_adapter_muic_0x25_client_count": 1,
+        "post_foreign_0x25_client_count": 0,
+        "terminal_bucket_key": "synchronous_result_publication_contradiction",
+    },
+    "claim_busy_after_sync_return": {
+        "loader_state": "FINIT_MODULE_RETURNED_SUCCESS",
+        "valid_eagain_terminal": False,
+        "terminal_bucket_key": "synchronous_result_publication_contradiction",
+        "reason": (
+            "the first successful claim path publishes a cached result and "
+            "returns zero before force-synchronous driver registration returns"
+        ),
+    },
+}
+DIAG_EAGAIN_CLASSIFICATION_PRIORITY = (
+    "probe_in_progress",
+    "exact_parent_owned_by_other_driver",
+    "diagnostic_binding_ready_but_result_eagain",
+    "exact_parent_unbound_after_sync_return",
+    "claim_busy_after_sync_return",
+    "wrong_address_compatible_parent",
+    "no_matching_parent",
+)
 REJECTED_FULL_PDIC_CUSTOM_ADDITIONS = (
     "msm-geni-se.ko",
     "gpi.ko",
@@ -1392,6 +1474,16 @@ def validate_runtime_integration_contract(diagnostic: dict[str, Any]) -> bool:
         not isinstance(arming, dict)
         or arming.get("status") != "REGISTERED_NOT_SATISFIED"
         or arming.get("required_terminal_buckets") != DIAG_RUNTIME_TERMINAL_BUCKETS
+        or tuple(arming.get("eagain_binding_witness_fields", ()))
+        != DIAG_EAGAIN_BINDING_WITNESS_FIELDS
+        or arming.get("eagain_decomposition_rows")
+        != DIAG_EAGAIN_DECOMPOSITION_ROWS
+        or tuple(arming.get("eagain_classification_priority", ()))
+        != DIAG_EAGAIN_CLASSIFICATION_PRIORITY
+        or arming.get("eagain_is_a_standalone_terminal") is not False
+        or arming.get("eagain_binding_witness_cross_axis_required") is not True
+        or arming.get("binding_witness_values_retained_end_to_end") is not True
+        or arming.get("claim_busy_post_sync_eagain_is_valid") is not False
         or arming.get("real_encoder_carrier_decoder_round_trip_required") is not True
         or arming.get("synthesized_retained_representation_required") is not True
         or arming.get("physical_condition_reproduction_required") is not False
@@ -1399,6 +1491,10 @@ def validate_runtime_integration_contract(diagnostic: dict[str, Any]) -> bool:
         or arming.get("blocks_packaging_and_f1_approval_until_receipted") is not True
     ):
         raise SurfaceError("diagnostic result-contract arming gate is incomplete")
+    for row in DIAG_EAGAIN_DECOMPOSITION_ROWS.values():
+        bucket_key = row.get("terminal_bucket_key")
+        if bucket_key is not None and bucket_key not in DIAG_RUNTIME_TERMINAL_BUCKETS:
+            raise SurfaceError("EAGAIN decomposition references an unknown bucket")
     return True
 
 
@@ -2052,6 +2148,17 @@ def audit(root: Path) -> dict[str, Any]:
             "result_contract_arming_precondition": {
                 "status": "REGISTERED_NOT_SATISFIED",
                 "required_terminal_buckets": DIAG_RUNTIME_TERMINAL_BUCKETS,
+                "eagain_binding_witness_fields": (
+                    DIAG_EAGAIN_BINDING_WITNESS_FIELDS
+                ),
+                "eagain_decomposition_rows": DIAG_EAGAIN_DECOMPOSITION_ROWS,
+                "eagain_classification_priority": (
+                    DIAG_EAGAIN_CLASSIFICATION_PRIORITY
+                ),
+                "eagain_is_a_standalone_terminal": False,
+                "eagain_binding_witness_cross_axis_required": True,
+                "binding_witness_values_retained_end_to_end": True,
+                "claim_busy_post_sync_eagain_is_valid": False,
                 "real_encoder_carrier_decoder_round_trip_required": True,
                 "synthesized_retained_representation_required": True,
                 "physical_condition_reproduction_required": False,
@@ -2128,6 +2235,7 @@ def audit(root: Path) -> dict[str, Any]:
             "the plan loads the diagnostic exactly once and exposes no unload/reinsert path",
             "the exact 30000-ms retention dwell fits the candidate and guard budgets",
             "all late-load and cached-result terminal buckets round-trip through the real encoder carrier and decoder before packaging or F1 approval",
+            "EAGAIN is never decoded alone; the retained record also carries pre/post exact-parent, driver-owner, matching-parent, and sole-0x25 binding witnesses",
             "pre-write direct fence, command deadlines, response validation, and no-retry behavior are exercised by fixtures",
             "carrier and host-sidecar positive control distinguish every result-contract row",
         ],
