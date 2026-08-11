@@ -261,10 +261,13 @@ execution available. That execution retained 1,463 exact raw bytes before
 decoding, accepted the CRLF record, proved target-only bind followed by
 clear-plus-reprobe recovery of both controls, and replayed the same raw SHA-256
 through the identical codec/parser to the same PASS. The first two runs did
-not preserve raw bytes and are not replay authority. This closes only the
-technical proof for generic platform `driver_override` suppression; schema
-review, actual S22+ path construction, binding, I2C, MUX, packaging, and live
-authority remain open.
+not preserve raw bytes and are not replay authority; named synthetic
+representatives now preserve their truncation and CRLF failure contracts. The
+three-device corpus does not cover the future 15-device candidate observer,
+which must add its own negative corpus when its schema materializes. This
+closes only the technical proof for generic platform `driver_override`
+suppression; schema review, actual S22+ path construction, binding, I2C, MUX,
+packaging, and live authority remain open.
 The former
 4,246,401,024-byte
 workspace-capacity blocker is closed by the exact private S22+ cleanup

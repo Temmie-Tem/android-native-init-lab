@@ -1236,6 +1236,21 @@ exclusive byte-preserving raw capture plus chunk receipt
 -> atomic PASS/FAIL decision
 ```
 
+The two lost failure shapes are not represented as recovered evidence. They
+are registered explicitly as synthetic representatives in
+`tests/fixtures/s22plus_max77705_driver_override_qemu/replay-corpus-v1.json`:
+an incomplete terminal record must remain incomplete and reject, while a
+complete CRLF terminal record must decode to the exact three-device PASS. The
+manifest separately references, but does not copy, the private run-03 raw and
+capture hashes as the captured success member. A focused test hard-codes the
+two expected classifications rather than trusting manifest labels alone.
+
+This corpus covers only the three-device QEMU observer. It does not claim to
+exercise the future 15-device candidate runtime schema. That materialized
+runtime observer must add its own negative corpus before qualification; the
+QEMU grammar will not be expanded speculatively to imitate a schema that does
+not exist yet.
+
 The raw file is created exclusively before decoding, every received chunk is
 written and synced before use, and a separate capture receipt binds byte
 length, SHA-256, monotonic chunk boundaries, and source. The codec accepts LF
@@ -1988,10 +2003,10 @@ This report was closed at H0 with the following host-side checks:
 - `python3 -m unittest tests.test_s22plus_fyg8_max77705_order_authority`
   passed 4/4;
 - `python3 -m unittest
-  tests.test_s22plus_fyg8_max77705_driver_override_qemu_control` passed 16/16,
+  tests.test_s22plus_fyg8_max77705_driver_override_qemu_control` passed 17/17,
   including incomplete-marker rejection, exact LF/CRLF equivalence, bare-CR,
   NUL and invalid-UTF-8 rejection, immutable-write refusal, capture-manifest
-  verification, and exact-byte replay;
+  verification, exact-byte replay, and the named two-failure corpus;
 - the single Rule-7-corrected pinned arm64 QEMU execution produced the exact
   three-device target/block/reprobe/unload PASS and committed its raw capture
   before semantic decoding; the no-QEMU replay independently returned the

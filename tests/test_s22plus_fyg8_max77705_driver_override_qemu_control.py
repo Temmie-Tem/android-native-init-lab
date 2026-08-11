@@ -19,6 +19,11 @@ SOURCE = (
     / "workspace/public/src/native-init/"
     "s22plus_fyg8_max77705_driver_override_qemu_control.c"
 )
+CORPUS = (
+    ROOT
+    / "tests/fixtures/s22plus_max77705_driver_override_qemu/"
+    "replay-corpus-v1.json"
+)
 
 
 def load_module():
@@ -245,6 +250,78 @@ class Max77705DriverOverrideQemuControlTests(unittest.TestCase):
             ):
                 self.module._write_exclusive_bytes(path, b"second")
             self.assertEqual(path.read_bytes(), b"first")
+
+    def test_named_failure_corpus_replays_exact_expected_outcomes(self) -> None:
+        corpus = json.loads(CORPUS.read_text(encoding="utf-8"))
+        self.assertEqual(
+            corpus["schema"],
+            "s22plus-max77705-driver-override-qemu-replay-corpus-v1",
+        )
+        entries = {entry["id"]: entry for entry in corpus["entries"]}
+        self.assertEqual(
+            set(entries),
+            {
+                "run01-truncated-terminal-representative",
+                "run02-complete-crlf-representative",
+            },
+        )
+        marker = b"MAX77705_DRIVER_OVERRIDE_QEMU result=PASS "
+
+        truncated = entries["run01-truncated-terminal-representative"]
+        self.assertIn("synthetic-representative", truncated["provenance"])
+        truncated_raw = truncated["raw_text"].encode("ascii")
+        self.assertFalse(
+            self.module.complete_record_seen(truncated_raw, marker)
+        )
+        self.assertEqual(
+            truncated["expected"],
+            {
+                "complete_record_seen": False,
+                "error": "terminal record is incomplete",
+                "outcome": "REJECT",
+            },
+        )
+        with self.assertRaisesRegex(
+            self.module.HarnessError, "terminal record is incomplete"
+        ):
+            self.module.evaluate_console_bytes(truncated_raw)
+
+        crlf = entries["run02-complete-crlf-representative"]
+        self.assertIn("synthetic-representative", crlf["provenance"])
+        crlf_raw = crlf["raw_text"].encode("ascii")
+        self.assertTrue(self.module.complete_record_seen(crlf_raw, marker))
+        evaluated = self.module.evaluate_console_bytes(crlf_raw)
+        self.assertEqual(evaluated["verdict"], self.module.VERDICT)
+        self.assertEqual(evaluated["terminal_line_ending"], "CRLF")
+        self.assertEqual(
+            evaluated["proof"],
+            {
+                "active_count": 3,
+                "blocked": ["b.virtio_mmio", "c.virtio_mmio"],
+                "target": "a.virtio_mmio",
+            },
+        )
+        self.assertEqual(
+            crlf["expected"],
+            {
+                "active_count": 3,
+                "blocked": ["b.virtio_mmio", "c.virtio_mmio"],
+                "complete_record_seen": True,
+                "outcome": self.module.VERDICT,
+                "target": "a.virtio_mmio",
+                "terminal_line_ending": "CRLF",
+            },
+        )
+
+        private_success = corpus["private_success_reference"]
+        self.assertEqual(private_success["raw_byte_count"], 1463)
+        self.assertEqual(
+            private_success["raw_sha256"],
+            "904093a5216f8bfd5408ac6e500e4809fb763124bb8fc9948bc8af5c788156f3",
+        )
+        self.assertFalse(
+            corpus["scope"]["candidate_runtime_15_device_schema_covered"]
+        )
 
     def test_partial_terminal_marker_does_not_stop_observer(self) -> None:
         marker = b"MAX77705_DRIVER_OVERRIDE_QEMU result=PASS "

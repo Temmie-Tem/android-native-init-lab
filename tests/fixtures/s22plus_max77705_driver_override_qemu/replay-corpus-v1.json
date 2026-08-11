@@ -1,0 +1,44 @@
+{
+  "entries": [
+    {
+      "expected": {
+        "complete_record_seen": false,
+        "error": "terminal record is incomplete",
+        "outcome": "REJECT"
+      },
+      "id": "run01-truncated-terminal-representative",
+      "provenance": "synthetic-representative; run-01 raw bytes were not preserved",
+      "raw_text": "MAX77705_DRIVER_OVERRIDE_QEMU result=PASS target=a.virtio_mmio blocked=b.virtio_mmio,c.virtio_mmio active=3"
+    },
+    {
+      "expected": {
+        "active_count": 3,
+        "blocked": [
+          "b.virtio_mmio",
+          "c.virtio_mmio"
+        ],
+        "complete_record_seen": true,
+        "outcome": "PASS_MAX77705_DRIVER_OVERRIDE_QEMU_HOST_ONLY",
+        "target": "a.virtio_mmio",
+        "terminal_line_ending": "CRLF"
+      },
+      "id": "run02-complete-crlf-representative",
+      "provenance": "synthetic-representative; run-02 raw bytes were not preserved",
+      "raw_text": "boot-prefix\r\nMAX77705_DRIVER_OVERRIDE_QEMU result=PASS target=a.virtio_mmio blocked=b.virtio_mmio,c.virtio_mmio active=3\r\n"
+    }
+  ],
+  "private_success_reference": {
+    "capture_manifest_sha256": "d92fafd1caaa1f528c3bf52548a34a9e5c56bb4efe67f862777c6c77fc71ef7b",
+    "expected_outcome": "PASS_MAX77705_DRIVER_OVERRIDE_QEMU_HOST_ONLY",
+    "id": "run03-captured-crlf-pass",
+    "raw_byte_count": 1463,
+    "raw_sha256": "904093a5216f8bfd5408ac6e500e4809fb763124bb8fc9948bc8af5c788156f3",
+    "storage": "workspace/private only; bytes are not copied into this tracked fixture"
+  },
+  "schema": "s22plus-max77705-driver-override-qemu-replay-corpus-v1",
+  "scope": {
+    "candidate_runtime_15_device_schema_covered": false,
+    "observer": "three-device pinned arm64 QEMU driver_override control",
+    "successor_requirement": "a materialized 15-device candidate runtime observer must add its own negative corpus before qualification"
+  }
+}
