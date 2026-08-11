@@ -1,4 +1,6 @@
+import copy
 import importlib.util
+import json
 import sys
 import tempfile
 import unittest
@@ -15,6 +17,16 @@ FULL_STOCK_INPUTS = (
     ROOT
     / "workspace/private/inputs/s22plus_firmware/S906NKSS7FYG8_SKC/"
     "extracted-images/unpack-vendor-boot/vendor_ramdisk00"
+)
+DIAG_SOURCE = (
+    ROOT
+    / "workspace/public/src/kernel-modules/s22plus_max77705_mux_diag/"
+    "s22plus_max77705_mux_diag.c"
+)
+DIAG_BUILD_RECEIPT = (
+    ROOT
+    / "workspace/private/outputs/s22plus_fyg8_max77705_gate0/"
+    "custom-module-build-20260812-05/build-audit.json"
 )
 
 
@@ -34,146 +46,7 @@ def load_module():
 
 
 def valid_diag_source():
-    return r'''
-#define S22PLUS_MAX77705_PARENT_COMPATIBLE "maxim,max77705"
-#define S22PLUS_MAX77705_MUIC_ADDR 0x25
-#define S22PLUS_MAX77705_UIC_INT 0x02
-#define S22PLUS_MAX77705_AP_DATAOUT0 0x21
-#define S22PLUS_MAX77705_AP_DATAOUT_END 0x41
-#define S22PLUS_MAX77705_AP_DATAIN0 0x51
-#define S22PLUS_MAX77705_AP_CMD_RESPONSE BIT(7)
-#define S22PLUS_MAX77705_CONTROL1_READ 0x05
-#define S22PLUS_MAX77705_CONTROL1_WRITE 0x06
-#define S22PLUS_MAX77705_COM_USB 0x09
-#define S22PLUS_MAX77705_POLL_LIMIT 100U
-#define S22PLUS_MAX77705_RETENTION_MS 30000U
-
-static int s22plus_max77705_read_pmic_identity(struct i2c_client *parent)
-{
-    return i2c_smbus_read_byte_data(parent, 0x00);
-}
-
-static int s22plus_max77705_clear_uic_latch_once(struct i2c_client *muic)
-{
-    int status = i2c_smbus_read_byte_data(muic, S22PLUS_MAX77705_UIC_INT);
-    return status < 0 ? status : 0;
-}
-
-static int s22plus_max77705_wait_ap_response(struct i2c_client *muic)
-{
-    unsigned int attempt;
-    int status;
-    for (attempt = 0; attempt < S22PLUS_MAX77705_POLL_LIMIT; ++attempt) {
-        status = i2c_smbus_read_byte_data(muic, S22PLUS_MAX77705_UIC_INT);
-        if (status >= 0 && (status & S22PLUS_MAX77705_AP_CMD_RESPONSE))
-            return 0;
-        usleep_range(1000, 2000);
-    }
-    return -ETIMEDOUT;
-}
-
-static int s22plus_max77705_control1_read_once(struct i2c_client *muic, u8 *value)
-{
-    u8 command[1] = { S22PLUS_MAX77705_CONTROL1_READ };
-    u8 response[2];
-    int rc = i2c_smbus_write_i2c_block_data(muic,
-        S22PLUS_MAX77705_AP_DATAOUT0, 1, command);
-    if (rc < 0)
-        return rc;
-    rc = i2c_smbus_write_byte_data(muic,
-        S22PLUS_MAX77705_AP_DATAOUT_END, 0);
-    if (rc < 0)
-        return rc;
-    rc = s22plus_max77705_wait_ap_response(muic);
-    if (rc < 0)
-        return rc;
-    rc = i2c_smbus_read_i2c_block_data(muic,
-        S22PLUS_MAX77705_AP_DATAIN0, 2, response);
-    if (rc < 0 || response[0] != S22PLUS_MAX77705_CONTROL1_READ)
-        return -EPROTO;
-    *value = response[1];
-    return 0;
-}
-
-static int s22plus_max77705_control1_write_once(struct i2c_client *muic, u8 value)
-{
-    u8 command[2] = { S22PLUS_MAX77705_CONTROL1_WRITE, value };
-    int response;
-    int rc = i2c_smbus_write_i2c_block_data(muic,
-        S22PLUS_MAX77705_AP_DATAOUT0, 2, command);
-    if (rc < 0)
-        return rc;
-    rc = i2c_smbus_write_byte_data(muic,
-        S22PLUS_MAX77705_AP_DATAOUT_END, 0);
-    if (rc < 0)
-        return rc;
-    rc = s22plus_max77705_wait_ap_response(muic);
-    if (rc < 0)
-        return rc;
-    response = i2c_smbus_read_byte_data(muic, S22PLUS_MAX77705_AP_DATAIN0);
-    return response == S22PLUS_MAX77705_CONTROL1_WRITE ? 0 : -EPROTO;
-}
-
-static int s22plus_max77705_diag_run(struct i2c_client *parent,
-                                      struct i2c_client *muic)
-{
-    u8 pre;
-    u8 post1;
-    u8 post2;
-    int rc = s22plus_max77705_read_pmic_identity(parent);
-    if (rc < 0)
-        return rc;
-    rc = s22plus_max77705_clear_uic_latch_once(muic);
-    if (rc < 0)
-        return rc;
-    rc = s22plus_max77705_control1_read_once(muic, &pre);
-    if (rc < 0)
-        return rc;
-    if (pre != S22PLUS_MAX77705_COM_USB) {
-        rc = s22plus_max77705_control1_write_once(muic, S22PLUS_MAX77705_COM_USB);
-        if (rc < 0)
-            return rc;
-    }
-    rc = s22plus_max77705_control1_read_once(muic, &post1);
-    if (rc < 0)
-        return rc;
-    msleep(S22PLUS_MAX77705_RETENTION_MS);
-    rc = s22plus_max77705_control1_read_once(muic, &post2);
-    if (rc < 0)
-        return rc;
-    return post1 == S22PLUS_MAX77705_COM_USB &&
-           post2 == S22PLUS_MAX77705_COM_USB ? 0 : -EPROTO;
-}
-
-static int s22plus_max77705_diag_probe(struct i2c_client *parent)
-{
-    struct i2c_client *muic = devm_i2c_new_dummy_device(
-        &parent->dev, parent->adapter, S22PLUS_MAX77705_MUIC_ADDR);
-    return s22plus_max77705_diag_run(parent, muic);
-}
-
-static const struct of_device_id s22plus_max77705_diag_of_match[] = {
-    { .compatible = S22PLUS_MAX77705_PARENT_COMPATIBLE },
-    { }
-};
-
-static int s22plus_max77705_result_get(char *buffer, const void *arg)
-{
-    return scnprintf(buffer, PAGE_SIZE, "%s", cached_result);
-}
-
-static const struct kernel_param_ops s22plus_max77705_result_ops = {
-    .set = NULL,
-    .get = s22plus_max77705_result_get,
-};
-module_param_cb(result, &s22plus_max77705_result_ops, NULL, 0444);
-
-static struct i2c_driver s22plus_max77705_diag_driver = {
-    .driver = { .of_match_table = s22plus_max77705_diag_of_match },
-    .probe = s22plus_max77705_diag_probe,
-};
-module_i2c_driver(s22plus_max77705_diag_driver);
-'''
+    return DIAG_SOURCE.read_text(encoding="utf-8")
 
 
 class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
@@ -232,6 +105,23 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
         with self.assertRaisesRegex(self.module.SurfaceError, "missing required"):
             self.module.validate_diag_source_text(mutated)
 
+    def test_exact_parent_i2c_address_is_required_before_claim(self):
+        source = valid_diag_source()
+        mutations = (
+            (
+                "#define S22PLUS_MAX77705_PARENT_ADDR 0x66",
+                "#define S22PLUS_MAX77705_PARENT_ADDR 0x67",
+            ),
+            (
+                "if (parent->addr != S22PLUS_MAX77705_PARENT_ADDR)\n\t\treturn -ENODEV;\n\tif (atomic_cmpxchg",
+                "if (atomic_cmpxchg",
+            ),
+        )
+        for old, new in mutations:
+            with self.subTest(old=old):
+                with self.assertRaises(self.module.SurfaceError):
+                    self.module.validate_diag_source_text(source.replace(old, new, 1))
+
     def test_write_must_remain_conditional_on_pre_value(self):
         mutated = valid_diag_source().replace(
             "if (pre != S22PLUS_MAX77705_COM_USB)", "if (true)", 1
@@ -250,24 +140,20 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
             self.module.validate_diag_source_text(mutated)
 
     def test_second_write_call_site_is_rejected(self):
-        needle = (
-            "rc = s22plus_max77705_control1_write_once("
-            "muic, S22PLUS_MAX77705_COM_USB);"
+        needle = "rc = s22plus_max77705_control1_write_once("
+        duplicate = (
+            "rc = s22plus_max77705_control1_write_once(\n"
+            "\t\t\t\tmuic, result, S22PLUS_MAX77705_COM_USB);\n\t\t"
         )
-        mutated = valid_diag_source().replace(needle, needle + "\n        " + needle, 1)
+        mutated = valid_diag_source().replace(needle, duplicate + needle, 1)
         with self.assertRaisesRegex(self.module.SurfaceError, "one call site"):
             self.module.validate_diag_source_text(mutated)
 
     def test_post1_read_cannot_be_synthesized_or_moved_inside_write_branch(self):
         source = valid_diag_source()
-        post1 = (
-            "    rc = s22plus_max77705_control1_read_once(muic, &post1);\n"
-            "    if (rc < 0)\n"
-            "        return rc;\n"
-        )
         mutated = source.replace(
-            "    }\n" + post1,
-            post1 + "    } else {\n        post1 = pre;\n    }\n",
+            "S22PLUS_MAX77705_SLOT_POST1, &post1",
+            "S22PLUS_MAX77705_SLOT_PRE, &pre",
             1,
         )
         with self.assertRaisesRegex(self.module.SurfaceError, "order|after|synthesized"):
@@ -282,8 +168,8 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
             ),
             ("msleep(S22PLUS_MAX77705_RETENTION_MS);", ""),
             (
-                "s22plus_max77705_control1_read_once(muic, &post2)",
-                "s22plus_max77705_control1_read_once(muic, &post1)",
+                "S22PLUS_MAX77705_SLOT_POST2, &post2",
+                "S22PLUS_MAX77705_SLOT_POST1, &post1",
             ),
         )
         for old, new in mutations:
@@ -294,9 +180,9 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
 
     def test_extra_i2c_effect_is_rejected(self):
         mutated = valid_diag_source().replace(
-            "return post1 == S22PLUS_MAX77705_COM_USB &&",
-            "i2c_smbus_write_word_data(muic, 0x10, 0); "
-            "return post1 == S22PLUS_MAX77705_COM_USB &&",
+            "result->stage = S22PLUS_MAX77705_STAGE_COMPLETE;",
+            "i2c_smbus_write_word_data(muic, 0x10, 0);\n\t"
+            "result->stage = S22PLUS_MAX77705_STAGE_COMPLETE;",
             1,
         )
         with self.assertRaisesRegex(self.module.SurfaceError, "I2C call surface"):
@@ -314,9 +200,57 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
         ):
             self.module.validate_diag_source_text(mutated)
 
+    def test_post_readback_values_cannot_be_terminal_errors(self):
+        mutated = valid_diag_source().replace(
+            "result->stage = S22PLUS_MAX77705_STAGE_COMPLETE;",
+            "if (post2 != S22PLUS_MAX77705_COM_USB)\n\t\treturn -EPROTO;\n\t"
+            "result->stage = S22PLUS_MAX77705_STAGE_COMPLETE;",
+            1,
+        )
+        with self.assertRaisesRegex(self.module.SurfaceError, "diagnostic results"):
+            self.module.validate_diag_source_text(mutated)
+
+    def test_successful_uic_poll_bytes_must_be_retained(self):
+        mutated = valid_diag_source().replace(
+            "result->poll_bytes[slot][attempt] = (u8)status;",
+            "result->poll_bytes[slot][attempt] = 0U;",
+            1,
+        )
+        with self.assertRaisesRegex(self.module.SurfaceError, "missing required"):
+            self.module.validate_diag_source_text(mutated)
+
+    def test_attempted_probe_must_cache_and_suppress_reprobe(self):
+        mutated = valid_diag_source().replace(
+            "/* Keep the one attempted probe bound so the I2C core cannot retry it. */\n\treturn 0;",
+            "return rc;",
+            1,
+        )
+        with self.assertRaisesRegex(
+            self.module.SurfaceError, "missing required|cached terminal return"
+        ):
+            self.module.validate_diag_source_text(mutated)
+
+    def test_kernel_callback_signatures_are_fixed(self):
+        mutations = (
+            (
+                "struct i2c_client *parent, const struct i2c_device_id *id)",
+                "struct i2c_client *parent)",
+            ),
+            (
+                "char *buffer, const struct kernel_param *parameter)",
+                "char *buffer, const void *parameter)",
+            ),
+        )
+        for old, new in mutations:
+            with self.subTest(old=old):
+                mutated = valid_diag_source().replace(old, new, 1)
+                with self.assertRaisesRegex(self.module.SurfaceError, "missing required"):
+                    self.module.validate_diag_source_text(mutated)
+
     def test_preferred_custom_shape_is_65_modules(self):
         result = self.module.validate_diag_source_text(valid_diag_source())
         self.assertEqual(result["preferred_total_module_count"], 65)
+        self.assertEqual(result["exact_parent_i2c_address"], "0x66")
         self.assertEqual(result["control1_read_command_count"], 3)
         self.assertEqual(result["control1_write_maximum_count"], 1)
         self.assertEqual(result["stale_uic_latch_clear_count"], 1)
@@ -347,6 +281,41 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
                     inventory, expected_sha256=digest, expected_rows=2
                 )
 
+    def test_missing_linked_build_receipt_blocks_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(
+                self.module.SurfaceError, "diagnostic linked-build receipt"
+            ):
+                self.module.validate_diag_build_receipt(
+                    Path(directory),
+                    {
+                        "size": DIAG_SOURCE.stat().st_size,
+                        "sha256": self.module.sha256_file(DIAG_SOURCE),
+                    },
+                )
+
+    @unittest.skipUnless(
+        DIAG_BUILD_RECEIPT.is_file(), "private diagnostic build receipt unavailable"
+    )
+    def test_linked_build_payload_is_bound_and_semantic(self):
+        payload = json.loads(DIAG_BUILD_RECEIPT.read_text(encoding="ascii"))
+        source_receipt = {
+            "size": DIAG_SOURCE.stat().st_size,
+            "sha256": self.module.sha256_file(DIAG_SOURCE),
+            "validation": self.module.validate_diag_source_text(valid_diag_source()),
+        }
+        result = self.module.validate_diag_build_payload(payload, source_receipt)
+        self.assertTrue(result["linked_build_satisfied"])
+        self.assertTrue(result["source_contract_verified_before_compile"])
+        self.assertEqual(result["module_sha256"], self.module.DIAG_MODULE_IDENTITY[1])
+
+        mutated = copy.deepcopy(payload)
+        mutated["modules"]["a"]["cfi"][
+            "callback_relocations_target_cfi_jump_tables"
+        ] = False
+        with self.assertRaisesRegex(self.module.SurfaceError, "CFI mismatch"):
+            self.module.validate_diag_build_payload(mutated, source_receipt)
+
     @unittest.skipUnless(FULL_STOCK_INPUTS.is_file(), "private FYG8 corpus unavailable")
     def test_full_stock_union_and_exclusive_consumers(self):
         result = self.module.audit(ROOT)
@@ -371,7 +340,10 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
                 ].values()
             )
         )
-        self.assertEqual(result["custom_contract"]["status"], "REGISTERED_NOT_SATISFIED")
+        self.assertEqual(
+            result["custom_contract"]["status"],
+            "SOURCE_AND_LINKED_AB_ABI_QUALIFIED_RUNTIME_NOT_SATISFIED",
+        )
         self.assertEqual(
             result["custom_contract"]["selected_design"],
             "POLLING_SINGLE_MODULE_MUX_DIAGNOSTIC",
@@ -398,7 +370,12 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
         )
         self.assertEqual(
             result["custom_contract"]["write_inventory"]["status"],
-            "BOUNDED_DIAGNOSTIC_EFFECT_SET_REGISTERED_NOT_IMPLEMENTED",
+            "BOUNDED_DIAGNOSTIC_EFFECT_SET_LINKED_ABI_AUDITED_NOT_PACKAGED",
+        )
+        self.assertTrue(
+            result["diagnostic_linked_build"]["validation"][
+                "linked_build_satisfied"
+            ]
         )
         diagnostic = result["custom_contract"]["diagnostic"]
         self.assertEqual(

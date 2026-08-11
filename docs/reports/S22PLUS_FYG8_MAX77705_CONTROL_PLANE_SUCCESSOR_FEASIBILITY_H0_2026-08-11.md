@@ -2,14 +2,16 @@
 
 Date: 2026-08-11 KST
 
+Last H0 continuation: 2026-08-12 KST
+
 Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` /
 `S906NKSS7FYG8`)
 
 Verdict:
-`BASE_CARRIER_AND_NORMAL_ORDER_RECOVERED_STOCK_67_UNADJUDICATED_FULL_PDIC_CUSTOM_66_REJECTED_CUSTOM_65_DIAGNOSTIC_REGISTERED_NOT_SATISFIED`
+`BASE_CARRIER_AND_NORMAL_ORDER_RECOVERED_STOCK_67_UNADJUDICATED_FULL_PDIC_CUSTOM_66_REJECTED_CUSTOM_65_SOURCE_AND_LINKED_ABI_QUALIFIED_RUNTIME_AND_PACKAGING_OPEN`
 
 Review state:
-`PRIMARY_SOURCE_AND_491_MODULE_SURFACE_AUDIT_CLOSED_NARROW_DIAGNOSTIC_BUILD_GATES_OPEN_INDEPENDENT_REVIEW_REQUIRED`
+`PRIMARY_SOURCE_491_MODULE_AND_NARROW_LINKED_ABI_AUDITS_CLOSED_RUNTIME_PACKAGING_AND_INDEPENDENT_REVIEW_REQUIRED`
 
 Repository analysis base:
 `0dd0981d960aa74681f5965c021c740cb1eab393`
@@ -20,11 +22,14 @@ Correction input commit:
 Narrowing continuation base:
 `f958e3f0da5bc883846fcb5cdca32561cec378aa`
 
+Implementation/build continuation base:
+`22398d48007086e995b64317406c1e2aa800a00b`
+
 ## Scope and authority
 
-This is host-only source, artifact, and retained-evidence analysis. No device
-was contacted, no module was inserted, no sysfs control was written, no
-candidate or rollback artifact was created, and no D0, D1, or F1 action was
+This is host-only source, artifact, build, and retained-evidence analysis. No
+device was contacted, no module was inserted, no sysfs control was written,
+no candidate or rollback artifact was created, and no D0, D1, or F1 action was
 performed. P3.15 remains consumed and non-replayable. A90 identity, files,
 devices, authority, and evidence are outside this unit and were not touched.
 
@@ -42,9 +47,10 @@ The stock/full-PDIC hazard is broader than one D+/D- MUX write. Loading MFD
 and PDIC initializes a combined PMIC/MUIC/CC/PD/alternate-mode/AFC interrupt
 and command plane. That source audit rejects the former full-PDIC custom-66
 shape as disproportionate for this discriminator. The selected H0 design is
-instead one direct polling I2C diagnostic with a bounded two-read/optional-
-one-write effect set. Its source, binding, command, observation, and no-retry
-contract still requires independent review before packaging.
+instead one direct polling I2C diagnostic with a bounded three-read/optional-
+one-write effect set. Its source and linked ABI are now qualified; binding,
+runtime command observation, packaging, and the changed hazard closure still
+require completion and independent review before any live candidate exists.
 
 This audit also names one narrower source-level failure class:
 
@@ -73,8 +79,12 @@ temporarily expanded the exact 441-module vendor ramdisk and read the 50
 the resulting 491-name stock union, and removed every temporary extraction
 after producing private receipts. The second continuation pinned the complete
 PDIC composite surface and the I2C command/match authorities, then registered
-the custom-65 single-module diagnostic. It did not write, build, or package
-that module, and `REGISTERED_NOT_SATISFIED` remains the only valid state.
+the custom-65 single-module diagnostic. That historical continuation did not
+write, build, or package the module. The later H0 implementation/build
+continuation created the bounded source and reproducibly linked it twice
+against the exact fixed P3.10 ABI. It still did not package or load it, so the
+valid current state is
+`SOURCE_AND_LINKED_AB_ABI_QUALIFIED_RUNTIME_NOT_SATISFIED`.
 
 ## Executive result
 
@@ -130,12 +140,14 @@ The diagnostic is loaded only after the gadget path and host sidecar are
 ready, so its bounded probe dwell overlaps the declared host-correlation
 interval without adding a workqueue or writable trigger.
 
-This is a registered design, not an implementation claim. No diagnostic
-source or module exists yet. Remaining gates are the actual source/build and
-linked/disassembly proof, exact target-only GENI/I2C bind, no competing
-driver/client proof, command/timeout/no-retry fixtures, carrier/result-matrix
-coverage, host-sidecar positive control, capacity/package proof, and one
-proportional independent review.
+The diagnostic source and linked module now exist as H0 artifacts. The exact
+source validator, two same-path clean builds, linked ELF/relocation audit,
+modversion audit, CFI callback audit, and independent audit-mode replay all
+pass. This is not a runtime or packaging claim. Remaining gates are exact
+target-only GENI/I2C bind, no competing driver/client proof,
+command/timeout/no-retry fixtures, carrier/result-matrix coverage,
+host-sidecar positive control, capacity/package proof, and one proportional
+independent review.
 
 ## Evidence authority and hashes
 
@@ -186,6 +198,14 @@ The primary source and artifact inputs were rehashed during this H0 unit.
 | Max77705 custom-surface authority helper v3 | `a7b93309561550bb0c1389375c309024b30d832d54cc0b9b0986fb1ae5bb640d` |
 | private 491-module/custom-65 receipt | `22a873e71677be9b5d7a6f02266c0614bd83cfcf210916bf3eb8470ec23a0808` |
 | registered custom-65 diagnostic contract | `8ec62cd19d033f93336ebc83b8fa245b522c008835527a55c9bfff09e80819f5` |
+| implemented diagnostic source (11,288 bytes) | `337b82307c269b01a59b8ee125ed75414ff47803a92d0eab7c8048fb860e264d` |
+| diagnostic external-module Makefile | `fd9878269e29f517f685ed8643682190419ab537eefaf1a930a1196409dea1ab` |
+| exact-ABI A/B build and linked-audit helper | `e4745cfb5fd53a6698c264c582a7d4babbd86256801a23cac88cf68bfccd2248` |
+| A/B linked-build receipt (19,363 bytes) | `633038b8368f128cdbe0d93af4f69adb4f600e64d0421aa821e24a719355f08b` |
+| independent audit-mode replay receipt | `1cbef860e63350aa327e442fea8ddc33f319a09e342c1afcb949b87cba3a9599` |
+| A/B diagnostic module (296,392 bytes each) | `66ed2477ed086ea1327cda99bfd3b84758a03dd4be7865062d5577088f80ea87` |
+| custom-surface authority helper v5 | `c3fc9bad9f69c7916c9c1445b151ae4469505fb9d8e350f882385e6bb6b3114b` |
+| linked-qualified custom-surface receipt v5 | `5ed5c3fbf991729abb0d1411afc724f204649727aba3b5d52ab66a2bcd5bc6fa` |
 | retained stock/XBL `baseline_last_kmsg.bin` | `9a58a0c8486723c31f9cf8ac7d8b8be2586969bb8f167cd76907e3b82db0c7cb` |
 | P3.15 USB-sidecar result | `a075c7014e9d0524fd0b7f18fe14a263639ad27ced386a4801e4c9856caf19fa` |
 
@@ -212,7 +232,8 @@ for the hashed source snapshot, not for an unpinned upstream tree.
 | first-stage/recovery order inputs | pinned `modules.load` and `modules.load.recovery`, hash-pinned above |
 | bounded sparse/range extraction and exact second-stage file | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/result.json` and `modules.load`, hash-pinned above |
 | 67-name stage, position, and dependency-order audit | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/max77705-67-order-audit.json`, hash-pinned above |
-| all-stock export-consumer audit, full-PDIC rejection evidence, and registered custom-65 diagnostic | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-surface-authority-20260811-05.json`, hash-pinned above |
+| all-stock export-consumer audit, full-PDIC rejection evidence, and linked-qualified custom-65 diagnostic | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-surface-authority-20260812-09.json`, hash-pinned above |
+| exact P3.10 ABI A/B build plus precompile-source/CFI/modversion/import/relocation audit | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-module-build-20260812-05/build-audit.json`, hash-pinned above |
 | PDIC, MFD, SPU, GENI-I2C, GPI, and GENI-SE dependency edges | pinned `modules.dep:91`, `:176`, `:181`, `:235`, `:305`, `:388` |
 | switch bit layout and the values that evaluate to `COM_OPEN=0x3f`, `COM_USB=0x09` | `include/linux/usb/typec/maxim/max77705-muic.h:293-301`, `:359-405` |
 | `CONTROL1` write construction and software-only previous-state assumption | `drivers/usb/typec/maxim/max77705-muic.c:326-349`, `:437-464` |
@@ -799,7 +820,12 @@ matches an I2C driver with `compatible="maxim,max77705"` and creates a dummy
 USBC/MUIC client at `(0x4a >> 1) = 0x25`. The I2C core matches OF clients
 before ID-table fallback and exports `devm_i2c_new_dummy_device()`. With stock
 MFD and PDIC absent, one custom module can own that client directly and create
-only the `0x25` dummy.
+only the `0x25` dummy. The implemented probe additionally rejects any parent
+whose seven-bit address is not exactly `0x66` before taking its one-shot claim.
+The hash-pinned stock log reports raw `pmic_id:15, pmic_rev:2`; the pinned
+revision table maps exactly `(0x15, 0x02 & 0x07)` to logical PASS5. Those are
+the implemented identity values, not an inference from the later logical
+`device found: rev:5 ver:0` message.
 
 The pinned command ABI is complete enough for a bounded polling transaction:
 
@@ -837,11 +863,12 @@ set includes `SYSMsgI`, `VBUSDetI`, `VbADCI`, `DCDTmoI`, `CHGTypI`, and
 safe from Linux-consumer theft only under the enforced condition that no other
 Max77705 driver is bound or loaded.
 
-The v3 helper registers and tests this source shape. Its receipt is
-`custom-surface-authority-20260811-05.json`. Status remains
-`REGISTERED_NOT_SATISFIED`: the actual source, linked module, import/relocation
-closure, fixed-Image modversion/CFI proof, boot staging, runtime binding,
-timeouts, carrier, and independent review do not yet exist.
+The v5 helper registers and tests this source shape and requires the exact
+linked-build receipt. Its current receipt is
+`custom-surface-authority-20260812-09.json`. Source, precompile validation,
+A/B linked module, import/relocation closure, and fixed-Image modversion/CFI
+proof are satisfied. Boot staging, runtime binding, timeout/result fixtures,
+carrier integration, and independent review remain open.
 
 ### Broad MFD effects retained only by the stock comparison
 
@@ -1255,8 +1282,8 @@ CONFIG_CFI_CLANG=y
 CONFIG_MODVERSIONS=y
 ```
 
-The one custom diagnostic module must therefore be built twice from the
-exact FYG8 source/config/toolchain closure and prove:
+The one custom diagnostic module was therefore built twice from the exact
+FYG8 source/config/toolchain closure. The completed linked audit proves:
 
 - byte-identical A/B module output;
 - exact module name and vermagic;
@@ -1265,11 +1292,54 @@ exact FYG8 source/config/toolchain closure and prove:
 - no unexpected undefined symbol or dependency drift;
 - linked source and final `.ko` hashes;
 - correct `modinfo` dependency list;
+- no exported symbol and no `alias`, `firmware`, or `softdep` metadata.
+
+Both linked outputs are byte-identical at 296,392 bytes with SHA-256
+`66ed2477ed086ea1327cda99bfd3b84758a03dd4be7865062d5577088f80ea87`.
+They are AArch64 relocatable ELFs with build ID
+`52c5141717cd4377b19494aa5b4331ea4013cb52`, exact FYG8 vermagic, 15
+expected undefined imports, 16 exact modversion records including
+`module_layout`, CFI jump-table relocations for both callbacks, and zero
+exports. Linked call-relocation counts agree with the bounded source effect
+model: three CONTROL1 transactions plus identity/latch polling require six
+byte reads, one block read, two byte writes, two block writes, one dummy-client
+creation, one 30-second `msleep`, and no firmware/reset/IRQ/power/notifier
+call.
+
+The first automated linked build exposed that source identity plus a linked
+audit did not itself prove the declared precompile validator wiring. The
+final builder therefore calls `validate_diag_source_text()` before source-tree
+copy, `modules_prepare`, or module compilation and receipts both its complete
+validation result and validator-function SHA-256
+`03fb87cbff6ad4e1f10e96de008443e19864fd1661f7593ad55041c961642588`.
+The v5 custom-surface authority rejects a missing, changed, late, or
+semantically different linked-build receipt. This was an H0 qualification
+repair; neither build contacted the target or created a boot package.
+The build receipt records full helper hash
+`78a25352529917270c2b88cf3e1105964cb8c71b72959c15045c36d647504137`
+at precompile time. The current helper hash differs because it subsequently
+bound the final build receipt; the source-validator function itself remains
+exactly bound by the function hash above, avoiding a circular whole-file hash
+claim.
+
+The following are not established by the module build and remain package or
+runtime gates:
+
 - exact generic-ramdisk staging under one unique selected filename;
 - direct loader selection of that file while neither stock MFD nor PDIC is
   opened; and
 - absence of any attempted load, alias autoload, or fallback to the stock
   vendor-ramdisk MFD/PDIC files.
+
+The private H0 build history remains explicit. `-01` stopped before compiler
+execution because the filesystem did not support the requested reflink;
+`-02` stopped in host `modules_prepare` because the pinned sysroot needed
+explicit LLD/compiler-rt linkage; `-03` linked cleanly but exposed the missing
+precompile-validator wiring described above; `-04` closed that wiring but a
+final source review found that compatible matching did not itself enforce the
+exact parent address; and `-05` is the final passing build with the pre-claim
+`0x66` address check. None created a boot archive or contacted a device, and
+no superseded output is promoted as the selected module.
 
 The fixed build has `CONFIG_MODULES=y`, `CONFIG_MODVERSIONS=y`, and
 `CONFIG_MODULE_SIG` unset. Kernel signature enforcement therefore does not
@@ -1347,8 +1417,10 @@ existing P3.15 substrate and notifier consumers
 
 The stock module order remains the inherited 61 entries followed by six
 dependency-ordered additions. The selected diagnostic branch has four
-additions and no `spu_verify.ko`, MFD, or PDIC; its exact linked dependency
-order remains a future build proof. Runtime phase placement of overrides,
+additions and no `spu_verify.ko`, MFD, or PDIC. The diagnostic itself has an
+empty `modinfo depends` field and its complete undefined-import/modversion
+surface is linked-qualified; the combined 65-entry load order and stage
+positions remain future packaging proofs. Runtime phase placement of overrides,
 bind checks, late diagnostic load, gadget/sidecar readiness, command execution,
 the 30-second dwell, and result capture remains a detailed design item. It must
 preserve `ucsi_glink.ko` as an A/B
@@ -1369,40 +1441,45 @@ remaining applicable gate must close before a live candidate is prepared:
      order are bound by private receipts;
    - the complete 491-name stock-module union proves that only stock PDIC
      consumes the removable MFD updater exports; the full-PDIC custom-66 shape
-     is rejected and the direct custom-65 source shape is registered but not
-     satisfied;
+     is rejected and the direct custom-65 source plus linked ABI are
+     qualified, while runtime and packaging remain unsatisfied;
    - vendor_boot first-stage, recovery, and vendor_dlkm second-stage orders are
      kept distinct; and
    - the general per-operation peak-space-plus-margin and short-write/hash
      fail-closed rule remains active for later build and package work.
 
-1. **Diagnostic source and effect contract**
-   - implement the exact direct I2C parent match and only one managed dummy
-     client at `0x25`;
-   - make `validate_diag_source_text()` a real precompile packaging gate;
-   - prove by source and disassembly exactly three read commands and at most one
-     conditional, non-retried `CONTROL1_W(0x09)`;
-   - bind PMIC identity, the full initial UIC byte and every poll byte, UIC/AP
+1. **Diagnostic source and linked effect contract — closed for H0 source/ELF**
+   - the exact direct I2C parent match and only one managed dummy client at
+     `0x25` are implemented;
+   - `validate_diag_source_text()` is exercised before the build, and the v5
+     contract now rejects a missing or changed linked-build receipt;
+   - source and linked relocations prove exactly three read commands and at
+     most one conditional, non-retried `CONTROL1_W(0x09)`;
+   - PMIC identity, the full initial UIC byte and every poll byte, UIC/AP
      register constants, bounded poll count, response-opcode checks,
-     first-failure stage, the exact 30-second dwell, and cached 0444 result;
-   - reject every firmware/reset, IRQ/mask, MFD-child, MUIC/CC/PD, VBUS,
-     alternate/AFC/QC, notifier/power, workqueue, exported ABI, and writable
-     user-control surface.
+     first-failure stage, the exact 30-second dwell, and cached 0444 result are
+     source-bound; and
+   - linked imports, exports, metadata, and calls reject every firmware/reset,
+     IRQ/mask, MFD-child, MUIC/CC/PD, VBUS, alternate/AFC/QC,
+     notifier/power, workqueue, exported ABI, and writable user-control
+     surface.
 
-2. **Exact module artifact**
+2. **Exact module artifact — linked ABI closed; staging/package open**
    - reuse the three exact stock substrate modules from the pinned vendor
      ramdisk and recheck their already confirmed identities;
-   - reproducibly build and qualify the one diagnostic module twice;
+   - the one diagnostic module is reproducibly built twice and linked-qualified;
    - stage it in the generic boot ramdisk under one unique selected path while
      proving stock MFD, PDIC, and SPU copies are never opened;
-   - prove linked imports/relocations/strings, module name, vermagic,
-     modversions, CFI types, and exact A/B byte identity;
+   - linked imports/relocations/metadata, module name, vermagic, modversions,
+     CFI callbacks, and exact A/B byte identity are proven;
    - recompute dependency, stage, and package closure.
 
 3. **Runtime and telemetry**
    - target-only override machinery and readback;
    - exact target adapter, parent, diagnostic, and sole `0x25` client witnesses;
    - no competing Max77705 driver, IRQ owner, or command consumer;
+   - exactly one diagnostic insertion and no unload/reinsert path, because the
+     in-module atomic claim suppresses reprobe only for that loaded instance;
    - selected FIFO/GSI mode;
    - gadget-path and host-sidecar readiness before late diagnostic load;
    - pre-write direct fence, bounded per-command deadlines, immediate post1,
@@ -1578,16 +1655,26 @@ This report was closed at H0 with the following host-side checks:
 - the validator proves post1 is unconditional after the optional-write block
   and post2 occurs only after the retention dwell, rejects synthesis of either
   post value, and rejects any I2C call outside the registered call multiset;
+- the final builder ran that validator before any compile step, reconstructed
+  the exact 166,037-member P3.10 source overlay, reproduced the fixed
+  `.config`/`vmlinux.symvers`, and built byte-identical A/B modules;
+- the linked audit proved exact AArch64 ELF, vermagic, 15-import/16-modversion
+  closure, CFI jump-table callback relocations, registered call counts, zero
+  exports, and no broad linked-effect family;
 - `python3 -m unittest
-  tests.test_s22plus_fyg8_max77705_custom_surface_contract` passed 18/18,
+  tests.test_s22plus_fyg8_max77705_custom_surface_contract` passed 25/25,
   including the exact 491-module consumer scan and negative custom-source
-  fixtures;
+  and linked-receipt fixtures;
+- `python3 -m unittest
+  tests.test_s22plus_fyg8_max77705_mux_diag_build` passed 12/12, including
+  precompile-validator ordering, fixed-KMI, parser, toolchain-link, and real
+  linked-module audit fixtures;
 - `python3 -m unittest tests.test_s22plus_fyg8_vendor_dlkm_order_gate` passed
   9/9, including the ZIP/tar/process/sparse-parser seam and multicall basename
   regression;
 - `python3 -m unittest tests.test_s22plus_fyg8_max77705_order_authority`
   passed 4/4;
-- `python3 -m unittest tests.test_device_action_process_v2_docs` passed 19/19;
+- `python3 -m unittest tests.test_device_action_process_v2_docs` passed 21/21;
   and
 - tracked and new-report whitespace checks passed with a terminating newline.
 
@@ -1630,14 +1717,16 @@ The evidence now supports these exact statements:
    diagnostic bound to `max77705@66`. Its registered effect set is three
    validated reads spanning an exact 30-second retention interval plus at most
    one conditional, non-retried write of full `COM_USB=0x09`, with no stock
-   MFD/PDIC/SPU load.
+   MFD/PDIC/SPU load. The diagnostic source and exact P3.10-ABI A/B linked
+   module are now qualified at H0.
 10. CONTROL1 readback is not proven to sense physical switch contacts. A
     host-silent tuple cannot refute physical MUX continuity even when all three
     values are `0x09`; only host attach/enumeration is an independent physical
     path witness in this design.
-11. The source match and command protocol are proven, but no diagnostic source
-   or module has been built. Linked/disassembly, binding, timeout, carrier,
-   sidecar-positive-control, packaging, and independent-review gates remain.
+11. The source match, command protocol, precompile validation, reproducible
+    linked module, imports, modversions, CFI callbacks, and bounded call surface
+    are proven. Binding, timeout/runtime fixtures, carrier,
+    sidecar-positive-control, packaging, and independent-review gates remain.
 
 Until those H0 and D0 gates close, the correct state is:
 
@@ -1646,6 +1735,6 @@ MUX_CAUSALITY_UNPROVEN
 BASE_MODULE_BYTES_AND_SECOND_STAGE_ORDER_RECOVERED
 STOCK_67_UNADJUDICATED
 FULL_PDIC_CUSTOM_66_REJECTED_AS_DISPROPORTIONATE
-CUSTOM_65_POLLING_DIAGNOSTIC_REGISTERED_NOT_SATISFIED
-CUSTOM_65_EFFECT_SET_BOUNDED_NOT_IMPLEMENTED
+CUSTOM_65_SOURCE_AND_LINKED_AB_ABI_QUALIFIED_RUNTIME_NOT_SATISFIED
+CUSTOM_65_EFFECT_SET_LINKED_AUDITED_NOT_PACKAGED
 ```

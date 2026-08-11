@@ -25,8 +25,12 @@ from typing import Any
 from s22plus_fyg8_f2fs_module_corpus import FILE_TYPE_REGULAR, F2FSReader
 
 
-SCHEMA = "s22plus_fyg8_max77705_custom_surface_contract_v3"
+SCHEMA = "s22plus_fyg8_max77705_custom_surface_contract_v5"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
+DIAG_SOURCE = Path(
+    "workspace/public/src/kernel-modules/s22plus_max77705_mux_diag/"
+    "s22plus_max77705_mux_diag.c"
+)
 KERNEL_ROOT = Path(
     "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/"
     "kernel_platform/msm-kernel"
@@ -54,8 +58,44 @@ P315_PLAN = Path(
 )
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_max77705_gate0/"
-    "custom-surface-authority-20260811-05.json"
+    "custom-surface-authority-20260812-09.json"
 )
+DIAG_BUILD_RECEIPT = Path(
+    "workspace/private/outputs/s22plus_fyg8_max77705_gate0/"
+    "custom-module-build-20260812-05/build-audit.json"
+)
+DIAG_BUILD_RECEIPT_IDENTITY = (
+    19_363,
+    "633038b8368f128cdbe0d93af4f69adb4f600e64d0421aa821e24a719355f08b",
+)
+DIAG_MODULE_IDENTITY = (
+    296_392,
+    "66ed2477ed086ea1327cda99bfd3b84758a03dd4be7865062d5577088f80ea87",
+)
+DIAG_SOURCE_VALIDATOR_FUNCTION_SHA256 = (
+    "03fb87cbff6ad4e1f10e96de008443e19864fd1661f7593ad55041c961642588"
+)
+DIAG_EXPECTED_VERMAGIC = (
+    "5.10.226-android12-9-30958166-abS906NKSS7FYG8 SMP preempt "
+    "mod_unload modversions aarch64"
+)
+DIAG_EXPECTED_UNDEFINED = {
+    "__stack_chk_fail",
+    "__stack_chk_guard",
+    "arm64_const_caps_ready",
+    "bin2hex",
+    "cpu_hwcap_keys",
+    "devm_i2c_new_dummy_device",
+    "i2c_del_driver",
+    "i2c_register_driver",
+    "i2c_smbus_read_byte_data",
+    "i2c_smbus_read_i2c_block_data",
+    "i2c_smbus_write_byte_data",
+    "i2c_smbus_write_i2c_block_data",
+    "msleep",
+    "scnprintf",
+    "usleep_range",
+}
 
 VENDOR_RAMDISK_IDENTITY = (
     21_813_545,
@@ -344,7 +384,12 @@ REJECTED_FULL_PDIC_CUSTOM_ADDITIONS = (
 )
 DIAG_REQUIRED_TOKENS = (
     '#define S22PLUS_MAX77705_PARENT_COMPATIBLE "maxim,max77705"',
+    "#define S22PLUS_MAX77705_PARENT_ADDR 0x66",
     "#define S22PLUS_MAX77705_MUIC_ADDR 0x25",
+    "#define S22PLUS_MAX77705_PMIC_ID_REG 0x00",
+    "#define S22PLUS_MAX77705_PMIC_REV_REG 0x01",
+    "#define S22PLUS_MAX77705_EXPECTED_PMIC_ID 0x15",
+    "#define S22PLUS_MAX77705_EXPECTED_PMIC_REV 0x02",
     "#define S22PLUS_MAX77705_UIC_INT 0x02",
     "#define S22PLUS_MAX77705_AP_DATAOUT0 0x21",
     "#define S22PLUS_MAX77705_AP_DATAOUT_END 0x41",
@@ -362,12 +407,16 @@ DIAG_REQUIRED_TOKENS = (
     "static int s22plus_max77705_control1_write_once(",
     "static int s22plus_max77705_diag_run(",
     "static int s22plus_max77705_diag_probe(",
+    "atomic_cmpxchg(&s22plus_max77705_claimed, 0, 1)",
+    "if (IS_ERR(muic))",
     "if (pre != S22PLUS_MAX77705_COM_USB)",
-    "s22plus_max77705_control1_write_once(muic, S22PLUS_MAX77705_COM_USB)",
+    "s22plus_max77705_control1_write_once(",
     "msleep(S22PLUS_MAX77705_RETENTION_MS)",
     ".compatible = S22PLUS_MAX77705_PARENT_COMPATIBLE",
     "module_i2c_driver(",
+    "struct i2c_client *parent, const struct i2c_device_id *id)",
     "static int s22plus_max77705_result_get(",
+    "char *buffer, const struct kernel_param *parameter)",
     ".set = NULL",
     ".get = s22plus_max77705_result_get",
     "module_param_cb(result",
@@ -405,6 +454,7 @@ DIAG_FORBIDDEN = (
     "INIT_DELAYED_WORK(",
     "create_singlethread_workqueue(",
     "blocking_notifier_call_chain(",
+    "MODULE_DEVICE_TABLE(",
     "power_supply_",
     "regulator_",
     "typec_register_port(",
@@ -465,7 +515,7 @@ DIAG_GETTER_FORBIDDEN_EFFECTS = (
     "blocking_notifier_call_chain(",
 )
 DIAG_I2C_CALL_COUNTS = {
-    "i2c_smbus_read_byte_data": 4,
+    "i2c_smbus_read_byte_data": 5,
     "i2c_smbus_write_i2c_block_data": 2,
     "i2c_smbus_write_byte_data": 2,
     "i2c_smbus_read_i2c_block_data": 1,
@@ -945,6 +995,28 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
             f"{actual_i2c_calls} != {expected_i2c_calls}"
         )
 
+    identity_block = extract_function_block(
+        text,
+        "static int s22plus_max77705_read_pmic_identity(",
+        "PMIC identity",
+    )
+    require_tokens(
+        identity_block,
+        (
+            "i2c_smbus_read_byte_data(parent,",
+            "S22PLUS_MAX77705_PMIC_ID_REG",
+            "S22PLUS_MAX77705_PMIC_REV_REG",
+            "result->pmic_id = (u8)value;",
+            "result->pmic_rev = (u8)value;",
+            "result->pmic_id != S22PLUS_MAX77705_EXPECTED_PMIC_ID",
+            "result->pmic_rev != S22PLUS_MAX77705_EXPECTED_PMIC_REV",
+            "return -ENODEV;",
+        ),
+        "PMIC identity",
+    )
+    if identity_block.count("i2c_smbus_read_byte_data(") != 2:
+        raise SurfaceError("PMIC identity must issue exactly two direct reads")
+
     clear_block = extract_function_block(
         text,
         "static int s22plus_max77705_clear_uic_latch_once(",
@@ -953,8 +1025,12 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
     require_tokens(
         clear_block,
         (
-            "i2c_smbus_read_byte_data(muic, S22PLUS_MAX77705_UIC_INT)",
-            "return status < 0 ? status : 0;",
+            "i2c_smbus_read_byte_data(",
+            "S22PLUS_MAX77705_UIC_INT",
+            "if (status < 0)",
+            "return status;",
+            "result->initial_uic = (u8)status;",
+            "result->initial_uic_valid = 1U;",
         ),
         "UIC latch clear",
     )
@@ -969,7 +1045,10 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
         (
             "for (",
             "S22PLUS_MAX77705_POLL_LIMIT",
-            "i2c_smbus_read_byte_data(muic, S22PLUS_MAX77705_UIC_INT)",
+            "i2c_smbus_read_byte_data(",
+            "if (status < 0)",
+            "result->poll_bytes[slot][attempt] = (u8)status;",
+            "result->poll_count[slot] = (u8)(attempt + 1U);",
             "S22PLUS_MAX77705_AP_CMD_RESPONSE",
             "usleep_range(",
             "return -ETIMEDOUT;",
@@ -997,6 +1076,9 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
             "i2c_smbus_write_byte_data(",
             "s22plus_max77705_wait_ap_response(",
             "i2c_smbus_read_i2c_block_data(",
+            "if (rc != 2)",
+            "result->response_opcode[slot] = response[0];",
+            "result->response_value[slot] = response[1];",
         ),
         "CONTROL1 read helper",
     )
@@ -1016,6 +1098,9 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
             "i2c_smbus_write_byte_data(",
             "s22plus_max77705_wait_ap_response(",
             "i2c_smbus_read_byte_data(",
+            "result->write_attempted = 1U;",
+            "result->write_ambiguous = 1U;",
+            "result->write_ambiguous = 0U;",
         ),
         "CONTROL1 write helper",
     )
@@ -1038,7 +1123,9 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
             "s22plus_max77705_clear_uic_latch_once(",
             "s22plus_max77705_control1_read_once(",
             "if (pre != S22PLUS_MAX77705_COM_USB)",
-            "s22plus_max77705_control1_write_once(muic, S22PLUS_MAX77705_COM_USB)",
+            "S22PLUS_MAX77705_COM_USB",
+            "result->stage = S22PLUS_MAX77705_STAGE_COMPLETE;",
+            "return 0;",
         ),
         "diagnostic run",
     )
@@ -1051,21 +1138,15 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
 
     identity_call = run_block.find("s22plus_max77705_read_pmic_identity(")
     clear_call = run_block.find("s22plus_max77705_clear_uic_latch_once(")
-    pre_read_call = run_block.find("s22plus_max77705_control1_read_once(muic, &pre)")
+    pre_read_call = run_block.find("S22PLUS_MAX77705_SLOT_PRE, &pre")
     condition = run_block.find("if (pre != S22PLUS_MAX77705_COM_USB)")
-    write_call = run_block.find(
-        "s22plus_max77705_control1_write_once(muic, S22PLUS_MAX77705_COM_USB)"
-    )
+    write_call = run_block.find("s22plus_max77705_control1_write_once(")
     condition_block, condition_end = extract_braced_block_from(
         run_block, condition, "conditional CONTROL1 write"
     )
-    post1_read_call = run_block.find(
-        "s22plus_max77705_control1_read_once(muic, &post1)"
-    )
+    post1_read_call = run_block.find("S22PLUS_MAX77705_SLOT_POST1, &post1")
     retention_call = run_block.find("msleep(S22PLUS_MAX77705_RETENTION_MS)")
-    post2_read_call = run_block.find(
-        "s22plus_max77705_control1_read_once(muic, &post2)"
-    )
+    post2_read_call = run_block.find("S22PLUS_MAX77705_SLOT_POST2, &post2")
     if not (
         0 <= identity_call < clear_call < pre_read_call < condition
         and write_call >= condition
@@ -1079,8 +1160,8 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
     if any(
         token in condition_block
         for token in (
-            "s22plus_max77705_control1_read_once(muic, &post1)",
-            "s22plus_max77705_control1_read_once(muic, &post2)",
+            "S22PLUS_MAX77705_SLOT_POST1, &post1",
+            "S22PLUS_MAX77705_SLOT_POST2, &post2",
         )
     ):
         raise SurfaceError(
@@ -1091,14 +1172,80 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
         for token in ("post1 = pre", "post2 = post1", "post2 = pre")
     ):
         raise SurfaceError("post CONTROL1 state may not be synthesized")
-    require_tokens(
-        run_block,
-        (
+    if any(
+        expression in run_block
+        for expression in (
             "post1 == S22PLUS_MAX77705_COM_USB",
+            "post1 != S22PLUS_MAX77705_COM_USB",
             "post2 == S22PLUS_MAX77705_COM_USB",
-        ),
-        "diagnostic terminal state",
+            "post2 != S22PLUS_MAX77705_COM_USB",
+        )
+    ):
+        raise SurfaceError(
+            "post readback values are diagnostic results, not terminal errors"
+        )
+
+    probe_block = extract_function_block(
+        text,
+        "static int s22plus_max77705_diag_probe(",
+        "diagnostic probe",
     )
+    require_tokens(
+        probe_block,
+        (
+            "if (parent->addr != S22PLUS_MAX77705_PARENT_ADDR)",
+            "return -ENODEV;",
+            "atomic_cmpxchg(&s22plus_max77705_claimed, 0, 1)",
+            "devm_i2c_new_dummy_device(",
+            "if (IS_ERR(muic))",
+            "s22plus_max77705_cache_result(&s22plus_max77705_result);",
+            "return 0;",
+        ),
+        "diagnostic probe",
+    )
+    if probe_block.find(
+        "if (parent->addr != S22PLUS_MAX77705_PARENT_ADDR)"
+    ) > probe_block.find("atomic_cmpxchg("):
+        raise SurfaceError("diagnostic parent address must be checked before claim")
+    if probe_block.rfind("return 0;") < probe_block.find(
+        "s22plus_max77705_cache_result(&s22plus_max77705_result);"
+    ):
+        raise SurfaceError("attempted probe can escape before caching its result")
+    if probe_block.count("atomic_cmpxchg(") != 1:
+        raise SurfaceError("diagnostic probe claim must be one exact atomic transition")
+    if probe_block.count("return 0;") != 1:
+        raise SurfaceError("attempted diagnostic probe must have one cached terminal return")
+
+    cache_block = extract_function_block(
+        text,
+        "static void s22plus_max77705_cache_result(",
+        "cached result encoder",
+    )
+    require_tokens(
+        cache_block,
+        (
+            "result->pmic_id",
+            "result->pmic_rev",
+            "result->initial_uic",
+            "result->command_issued_mask",
+            "result->response_seen_mask",
+            "result->write_attempted",
+            "result->write_ambiguous",
+            "result->response_opcode[0]",
+            "result->response_value[0]",
+            "result->poll_count[0]",
+            "result->poll_count[1]",
+            "result->poll_count[2]",
+            "result->poll_count[3]",
+            "result->poll_bytes[0]",
+            "result->poll_bytes[1]",
+            "result->poll_bytes[2]",
+            "result->poll_bytes[3]",
+        ),
+        "cached result encoder",
+    )
+    if cache_block.count("s22plus_max77705_append_poll(") != 4:
+        raise SurfaceError("cached result must retain all four poll-byte vectors")
 
     getter = extract_function_block(
         text,
@@ -1116,13 +1263,18 @@ def validate_diag_source_text(text: str) -> dict[str, Any]:
         "preferred_addition_count": len(CUSTOM_PREFERRED_ADDITIONS),
         "preferred_total_module_count": 61 + len(CUSTOM_PREFERRED_ADDITIONS),
         "direct_parent_i2c_bind": True,
+        "exact_parent_i2c_address": "0x66",
         "only_muic_dummy_client_created": True,
+        "exact_pmic_identity": {"pmic_id": "0x15", "pmic_rev": "0x02"},
         "control1_read_command_count": 3,
         "control1_write_maximum_count": 1,
         "stale_uic_latch_clear_count": 1,
         "post1_read_is_unconditional": True,
         "post2_read_is_after_retention_window": True,
         "retention_window_ms": 30_000,
+        "all_successful_uic_reads_retained": True,
+        "post_values_are_results_not_errors": True,
+        "attempted_probe_retry_suppressed": True,
         "write_skipped_when_pre_is_usb": True,
         "ambiguous_write_retry_forbidden": True,
         "irq_and_workqueue_absent": True,
@@ -1137,9 +1289,156 @@ def canonical_hash(value: Any) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def validate_diag_build_payload(
+    payload: dict[str, Any], diag_source_receipt: dict[str, Any]
+) -> dict[str, Any]:
+    if (
+        payload.get("schema") != "s22plus_fyg8_max77705_mux_diag_build_v1"
+        or payload.get("target") != TARGET
+        or payload.get("host_only") is not True
+        or payload.get("verdict") != "PASS_AB_REPRODUCIBLE_LINKED_ABI_AUDITED"
+        or payload.get("authority") != "H0_BUILD_ONLY_NO_DEVICE_AUTHORITY"
+        or payload.get("a_b_byte_identical") is not True
+    ):
+        raise SurfaceError("diagnostic linked-build verdict or authority mismatch")
+
+    safety = payload.get("safety", {})
+    if safety != {
+        "device_contact": False,
+        "partition_write": False,
+        "image_packaging": False,
+        "module_insertion": False,
+    }:
+        raise SurfaceError(f"diagnostic linked-build safety mismatch: {safety}")
+
+    source = payload.get("module_sources", {}).get(
+        "s22plus_max77705_mux_diag.c", {}
+    )
+    if (
+        source.get("size") != diag_source_receipt["size"]
+        or source.get("sha256") != diag_source_receipt["sha256"]
+    ):
+        raise SurfaceError("diagnostic source and linked-build source disagree")
+
+    precompile = payload.get("precompile_source_contract", {})
+    if (
+        precompile.get("verified_before_compile") is not True
+        or precompile.get("module_source_sha256") != diag_source_receipt["sha256"]
+        or precompile.get("validator_function_sha256")
+        != DIAG_SOURCE_VALIDATOR_FUNCTION_SHA256
+        or precompile.get("validation") != diag_source_receipt["validation"]
+    ):
+        raise SurfaceError("diagnostic precompile source-contract proof mismatch")
+
+    expected_linked_surface = {
+        "firmware_update": False,
+        "reset": False,
+        "irq": False,
+        "workqueue": False,
+        "notifier": False,
+        "power_supply": False,
+        "exported_symbols": 0,
+        "conditional_control1_write_maximum": 1,
+        "control1_read_count": 3,
+        "retention_window_ms": 30_000,
+    }
+    if payload.get("linked_surface") != expected_linked_surface:
+        raise SurfaceError("diagnostic linked effect surface mismatch")
+
+    modules = payload.get("modules", {})
+    builds = payload.get("builds", {})
+    if set(modules) != {"a", "b"} or set(builds) != {"a", "b"}:
+        raise SurfaceError("diagnostic A/B linked artifacts are incomplete")
+    for side in ("a", "b"):
+        module = modules[side]
+        build = builds[side]
+        if (
+            module.get("verified") is not True
+            or (module.get("size"), module.get("sha256")) != DIAG_MODULE_IDENTITY
+            or (build.get("size"), build.get("sha256")) != DIAG_MODULE_IDENTITY
+            or module.get("exports") != []
+            or set(module.get("undefined_imports", [])) != DIAG_EXPECTED_UNDEFINED
+            or set(module.get("modversions", {}))
+            != DIAG_EXPECTED_UNDEFINED | {"module_layout"}
+        ):
+            raise SurfaceError(f"diagnostic linked module {side} surface mismatch")
+        cfi = module.get("cfi", {})
+        if (
+            cfi.get("cfi_check_present") is not True
+            or cfi.get("callback_relocations_target_cfi_jump_tables") is not True
+        ):
+            raise SurfaceError(f"diagnostic linked module {side} CFI mismatch")
+        modinfo = module.get("modinfo", {})
+        if (
+            modinfo.get("name") != ["s22plus_max77705_mux_diag"]
+            or modinfo.get("vermagic") != [DIAG_EXPECTED_VERMAGIC]
+            or modinfo.get("depends") != [""]
+        ):
+            raise SurfaceError(f"diagnostic linked module {side} metadata mismatch")
+
+    fixed = payload.get("fixed_p310_abi", {})
+    if fixed.get("verified") is not True or fixed.get("a_b_identity") is not True:
+        raise SurfaceError("diagnostic fixed P3.10 ABI proof mismatch")
+    if (
+        payload.get("source_authority", {}).get("verified") is not True
+        or payload.get("toolchain", {}).get("verified") is not True
+        or payload.get("kmi_whitelist", {}).get("verified") is not True
+        or payload.get("protocol_authority", {}).get("verified") is not True
+    ):
+        raise SurfaceError("diagnostic build authority closure is incomplete")
+
+    return {
+        "linked_build_satisfied": True,
+        "verdict": payload["verdict"],
+        "a_b_byte_identical": True,
+        "source_contract_verified_before_compile": True,
+        "module_size": DIAG_MODULE_IDENTITY[0],
+        "module_sha256": DIAG_MODULE_IDENTITY[1],
+        "vermagic": DIAG_EXPECTED_VERMAGIC,
+        "undefined_import_count": len(DIAG_EXPECTED_UNDEFINED),
+        "modversion_count": len(DIAG_EXPECTED_UNDEFINED) + 1,
+        "cfi_callbacks_verified": True,
+        "exported_symbol_count": 0,
+    }
+
+
+def validate_diag_build_receipt(
+    root: Path, diag_source_receipt: dict[str, Any]
+) -> dict[str, Any]:
+    path = root / DIAG_BUILD_RECEIPT
+    identity = validate_file(
+        path,
+        DIAG_BUILD_RECEIPT_IDENTITY[0],
+        DIAG_BUILD_RECEIPT_IDENTITY[1],
+        "diagnostic linked-build receipt",
+    )
+    try:
+        payload = json.loads(path.read_text(encoding="ascii"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
+        raise SurfaceError(f"invalid diagnostic linked-build receipt: {error}") from error
+    if not isinstance(payload, dict):
+        raise SurfaceError("diagnostic linked-build receipt is not an object")
+    return {
+        "receipt": identity,
+        "validation": validate_diag_build_payload(payload, diag_source_receipt),
+    }
+
+
 def audit(root: Path) -> dict[str, Any]:
     kernel = root / KERNEL_ROOT
     modules = root / MODULE_ROOT
+    diag_source = root / DIAG_SOURCE
+    if diag_source.is_symlink() or not diag_source.is_file():
+        raise SurfaceError(f"diagnostic source is not a direct regular file: {diag_source}")
+    diag_source_text = diag_source.read_text(encoding="utf-8", errors="strict")
+    diag_source_validation = validate_diag_source_text(diag_source_text)
+    diag_source_receipt = {
+        "path": str(DIAG_SOURCE),
+        "size": diag_source.stat().st_size,
+        "sha256": sha256_file(diag_source),
+        "validation": diag_source_validation,
+    }
+    diag_build_receipt = validate_diag_build_receipt(root, diag_source_receipt)
     p315_modules, p315_plan_receipt = parse_p315_plan(root)
     source_receipts = {
         label: validate_file(kernel / relative, size, digest, label)
@@ -1536,7 +1835,7 @@ def audit(root: Path) -> dict[str, Any]:
         )
 
     contract = {
-        "status": "REGISTERED_NOT_SATISFIED",
+        "status": "SOURCE_AND_LINKED_AB_ABI_QUALIFIED_RUNTIME_NOT_SATISFIED",
         "selected_design": "POLLING_SINGLE_MODULE_MUX_DIAGNOSTIC",
         "preferred_total_module_count": 65,
         "preferred_additions": list(CUSTOM_PREFERRED_ADDITIONS),
@@ -1554,6 +1853,8 @@ def audit(root: Path) -> dict[str, Any]:
         },
         "diagnostic": {
             "module": "s22plus_max77705_mux_diag.ko",
+            "source": diag_source_receipt,
+            "linked_build": diag_build_receipt,
             "parent_bus": "i2c",
             "parent_compatible": "maxim,max77705",
             "parent_address": "0x66",
@@ -1609,6 +1910,11 @@ def audit(root: Path) -> dict[str, Any]:
             },
             "source_validator": "validate_diag_source_text",
             "source_validator_must_run_before_compile": True,
+            "linked_build_receipt_must_match_before_packaging": True,
+            "retry_suppression_scope": (
+                "one loaded module instance; unload/reinsert is a separate runtime "
+                "attempt and is forbidden"
+            ),
         },
         "selected_closure": {
             "base_module_count": len(p315_modules),
@@ -1620,7 +1926,7 @@ def audit(root: Path) -> dict[str, Any]:
             "inactive_lvs_consumer_absent": sorted(P315_ABSENT_IF_CB_CONSUMERS),
         },
         "write_inventory": {
-            "status": "BOUNDED_DIAGNOSTIC_EFFECT_SET_REGISTERED_NOT_IMPLEMENTED",
+            "status": "BOUNDED_DIAGNOSTIC_EFFECT_SET_LINKED_ABI_AUDITED_NOT_PACKAGED",
             "always_present_commands": [
                 "pre CONTROL1 read command",
                 "immediate post1 CONTROL1 read command",
@@ -1662,16 +1968,19 @@ def audit(root: Path) -> dict[str, Any]:
             "read_write_or_response_failure": "diagnostic failure; no connector claim",
             "host_fact_without_complete_device_result": "preserve host fact without inventing device causality",
         },
-        "future_linked_and_runtime_proofs": [
-            "actual diagnostic source passes validate_diag_source_text before compilation",
-            "source, linked module, and disassembly agree on three reads and at most one conditional write",
-            "no forbidden defined, undefined, relocation, or string surface survives",
+        "satisfied_source_and_linked_proofs": [
+            "actual diagnostic source passes validate_diag_source_text",
+            "source and linked A/B modules agree on three reads and at most one conditional write",
+            "no forbidden defined, undefined, relocation, metadata, or export surface survives",
             "module imports only the bounded I2C, timing, cached-result, and module-registration closure",
-            "fixed-Image modversion and CFI closure matches",
+            "fixed-Image modversion, CFI callback, toolchain, KMI, and A/B byte-identity closure matches",
+        ],
+        "remaining_runtime_and_packaging_proofs": [
             "custom module dependency closure is exactly 65 modules",
             "the unbound max77705@66 client binds only the diagnostic and creates only 0x25",
             "no stock MFD, PDIC, or SPU module is opened or loaded",
             "late diagnostic load occurs only after gadget-path and host-sidecar readiness",
+            "the plan loads the diagnostic exactly once and exposes no unload/reinsert path",
             "the exact 30000-ms retention dwell fits the candidate and guard budgets",
             "pre-write direct fence, command deadlines, response validation, and no-retry behavior are exercised by fixtures",
             "carrier and host-sidecar positive control distinguish every result-contract row",
@@ -1685,6 +1994,7 @@ def audit(root: Path) -> dict[str, Any]:
         "source_receipts": source_receipts,
         "p315_plan": p315_plan_receipt,
         "module_receipts": module_receipts,
+        "diagnostic_linked_build": diag_build_receipt,
         "stock_module_union": corpus_receipt,
         "stock_surface": {
             "firmware_header": {

@@ -133,7 +133,7 @@ The exact 491-module audit still matters: it proves PDIC alone consumes the
 three removable MFD updater exports and also records the much broader stock
 PDIC/MUIC/CC/PD/alternate/AFC/QC/notifier/user-control surface. That former
 full-PDIC custom-66 design is now rejected as disproportionate, not retained as
-the preferred implementation. The v3 source validator fixes the logical
+the preferred implementation. The v5 source validator fixes the logical
 transaction shape: neither post value may be synthesized, both reads occur
 outside the optional-write branch, post2 follows the exact retention dwell,
 and any I2C call outside the registered call multiset is rejected. The initial
@@ -147,21 +147,25 @@ observed late opcode-state reversion, but no host-silent tuple refutes physical
 MUX continuity. Host attach/enumeration is the only independent physical-path
 witness in this diagnostic.
 
-The current private receipt is
-`custom-surface-authority-20260811-05.json`, SHA-256
-`22a873e71677be9b5d7a6f02266c0614bd83cfcf210916bf3eb8470ec23a0808`;
-the helper source is SHA-256
-`a7b93309561550bb0c1389375c309024b30d832d54cc0b9b0986fb1ae5bb640d`,
-and the embedded custom-65 contract is
-`8ec62cd19d033f93336ebc83b8fa245b522c008835527a55c9bfff09e80819f5`.
-Status remains strictly `REGISTERED_NOT_SATISFIED`, with write inventory
-`BOUNDED_DIAGNOSTIC_EFFECT_SET_REGISTERED_NOT_IMPLEMENTED`: no diagnostic
-source or module has been built or qualified.
+The source and linked-ABI H0 gate is now closed. The final builder ran
+`validate_diag_source_text()` before compilation, reconstructed the exact
+P3.10 source/ABI closure, and produced two byte-identical 296,392-byte modules
+with SHA-256
+`66ed2477ed086ea1327cda99bfd3b84758a03dd4be7865062d5577088f80ea87`.
+The audit proves exact FYG8 vermagic, 15 imports, 16 matching modversions, CFI
+callback jump-table relocations, registered call counts, and zero exports.
+The current private contract receipt is
+`custom-surface-authority-20260812-09.json`, SHA-256
+`5ed5c3fbf991729abb0d1411afc724f204649727aba3b5d52ab66a2bcd5bc6fa`;
+its embedded contract is
+`4b1219ae9133055fbc27ba1a7530fca4c6c65647ab5af90dcada324551889ca8`.
+Status is strictly
+`SOURCE_AND_LINKED_AB_ABI_QUALIFIED_RUNTIME_NOT_SATISFIED`; no boot package
+was created and no module was loaded.
 
-The next H0 work is the actual diagnostic source and reproducible linked
-A/B/CFI/modversion proof, followed by target-only GENI bind proof, exhaustive
-transaction and telemetry fixtures, the host-sidecar positive-control gate,
-packaging integration, and one proportional independent review. The former
+The next H0 work is target-only GENI bind proof, exhaustive transaction and
+telemetry fixtures, the host-sidecar positive-control gate, packaging
+integration, and one proportional independent review. The former
 4,246,401,024-byte
 workspace-capacity blocker is closed by the exact private S22+ cleanup
 receipt: 68 superseded or invalidated
