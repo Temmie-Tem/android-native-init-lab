@@ -76,27 +76,37 @@ mandatory only for a successor that reuses the `none -> peripheral` cycle or
 claims causality from it; it is not a prerequisite for an independent path
 that does not inherit that cycle.
 
-The next H0 frontier remains a natural-attach OTG discriminator, in parallel
-with availability of the parked P3.02 passive electrical setup. The corrective
-producer authority is
-`docs/reports/S22PLUS_FYG8_NATURAL_ATTACH_ROLE_PRODUCER_CLOSURE_H0_2026-08-11.md`.
-It proves that exact P3.15 UCSI cannot become operational without the absent
-ADSP remoteproc/firmware transport, while the stock Max77705 notifier chain is
-the sole source-supported producer. P3.15 omitted its GENI-I2C/MFD/PDIC
-closure, so neither producer explains the consumed run's extra work turns.
+The next H0 frontier is the connector-side Max77705 USB2 MUX discriminator,
+in parallel with availability of the parked P3.02 passive electrical setup.
+The current authority is
+`docs/reports/S22PLUS_FYG8_MAX77705_CONTROL_PLANE_SUCCESSOR_FEASIBILITY_H0_2026-08-11.md`.
+It preserves the MUX as a source-real but causally unproven residual mechanism:
+P3.15 omitted the exact GENI-I2C/MFD/PDIC producer closure that contains the
+normal `COM_USB` transition, while its controller-side digital witnesses were
+present and its same-session host USB sidecar remained candidate-silent.
 
-The provisional role-only replacement removes `ucsi_glink.ko` and adds six
-modules, taking the 61-module plan to 66 before capacity/order qualification.
-That still cannot execute OTG: bare PID1 leaves Samsung `usb_sl` in its initial
-state, which holds the delayed HOST event, and the exact `otg` VBUS provider
-requires `sec-battery.ko`, `max77705_charger.ko`, and their large symbol
-closure. The exact missing-name arithmetic is 26 additions and one UCSI
-removal, or 86 provisional modules; `max77705-fuelgauge.ko` is not required for
-the narrow OTG proxy/backend bridge. Detailed design must decide whether that
-power closure and the policy-release write are admissible before any candidate
-is implemented. The generated-runtime contract still rejects forced `host`
-mode, and no manual VBUS action is allowed. No device action or live authority
-follows from this H0 result.
+The provisional successor keeps `ucsi_glink.ko` and adds six modules, taking
+the 61-module plan to 67 before capacity/order qualification. The pinned
+vendor ramdisk can rematerialize the complete P3.15 base and all six additions
+with their recorded identities. That closes module-byte availability, not
+normal Android ordering: the recovered 446-entry list is recovery order, and
+the separate `vendor_dlkm/lib/modules/modules.load` inside `super.img` remains
+an H0 Gate 0 input.
+
+Stock and custom successor shapes are not interchangeable. The PASS5 stock
+MFD invokes its updater on every successful probe; retained Android evidence
+proves one healthy no-update execution and therefore reduces novelty, but the
+source also drops one firmware-read errno and disables its voltage/TA guards
+after a reset/retry edge. Stock-67 is unadjudicated. The preferred bounded
+custom shape removes every firmware-update entry from the execution closure,
+stages custom MFD/PDIC files under unique generic boot-ramdisk paths while
+leaving the fixed Image unchanged, and adds tagged pre/post `CONTROL1`
+readback. It still requires second-stage order recovery, a complete write
+inventory, reproducible module/ABI closure, target-only GENI bind proof,
+exhaustive telemetry fixtures, the host-sidecar positive-control gate, and
+one proportional independent review. The old 86-module phone-VBUS closure
+remains forbidden because it reintroduces the recorded debug-partition writer.
+No device action or live authority follows from this H0 result.
 
 ## P3.15 Detailed Successor Design
 

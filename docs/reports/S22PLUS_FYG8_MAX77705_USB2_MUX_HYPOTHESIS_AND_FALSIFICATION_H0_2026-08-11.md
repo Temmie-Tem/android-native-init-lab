@@ -16,6 +16,13 @@ mean the MUX hypothesis is established. Open: S-Boot inheritance, IC autonomy,
 the MAX77705 MFD power/firmware-setting H0, and the deferred 26-module
 probe-side-effect audit.
 
+Post-closure authority: the later host-only source and artifact audit
+`S22PLUS_FYG8_MAX77705_CONTROL_PLANE_SUCCESSOR_FEASIBILITY_H0_2026-08-11.md`
+supersedes this report's MFD admissibility, normal-boot bootloader-evidence,
+physical module-availability, GENI bind-surface, and successor-observer design
+statements. This report remains the historical hypothesis/falsification
+record; its open items must not be used as the current execution boundary.
+
 S22+ analysis base while drafting:
 `3d04ca11ed3374530a3b611d8760075a1888a706`
 (`docs(s22plus): select Max77705 role producer`). The later branch parent may
