@@ -6,13 +6,13 @@ Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` /
 `S906NKSS7FYG8`)
 
 Verdict:
-`BASE_CARRIER_AND_NORMAL_ORDER_RECOVERED_STOCK_67_UNADJUDICATED_CUSTOM_SUCCESSOR_CONDITIONALLY_FEASIBLE`
+`BASE_CARRIER_AND_NORMAL_ORDER_RECOVERED_STOCK_67_UNADJUDICATED_CUSTOM_66_SURFACE_REGISTERED_NOT_SATISFIED`
 
 Review state:
-`PRIMARY_SOURCE_AUDIT_GATE0_CLOSED_REMAINING_GATES_OPEN_INDEPENDENT_REVIEW_REQUIRED`
+`PRIMARY_SOURCE_AND_491_MODULE_SURFACE_AUDIT_CLOSED_CUSTOM_BUILD_GATES_OPEN_INDEPENDENT_REVIEW_REQUIRED`
 
 Repository analysis base:
-`97be0e488b62cec8228e50ab7997e1e52cd5ba96`
+`0dd0981d960aa74681f5965c021c740cb1eab393`
 
 Correction input commit:
 `30d8e918316961ff6e42cc729b0c13ab24f618aa`
@@ -61,6 +61,13 @@ streamed the pinned AP/super input, wrote only the 57,610,240-byte
 `vendor_dlkm` extent, and recovered Android's exact second-stage
 `modules.load`; it did not contact a device or create a boot payload.
 
+The subsequent custom-surface continuation also remained host-only. It
+temporarily expanded the exact 441-module vendor ramdisk and read the 50
+`vendor_dlkm`-only modules from the already authenticated F2FS image, scanned
+the resulting 491-name stock union, and removed every temporary extraction
+after producing a private receipt. It did not build or package a custom
+module, and `REGISTERED_NOT_SATISFIED` is the only valid custom-contract state.
+
 ## Executive result
 
 The source-level MUX mechanism is real and remains compatible with the P3.15
@@ -102,9 +109,10 @@ Two successor shapes therefore remain under H0 comparison:
 - a stock 67-module path, whose updater behavior is stock-equivalent but not
   yet adjudicated against the exact candidate context and safety contract;
   and
-- a bounded custom path that removes the updater from the probe-time reach
-  set and adds tagged MUX readback, at the cost of custom-module build and
-  boot-ramdisk staging complexity.
+- a bounded custom 66-module path that removes the updater and its sole
+  `spu_verify.ko` dependency from the execution closure and adds tagged MUX
+  readback, at the cost of custom-module build and boot-ramdisk staging
+  complexity.
 
 The safer custom shape is:
 
@@ -129,10 +137,13 @@ first-stage names and 30 `vendor_dlkm` names; every one of the latter 30 has
 the same size and SHA-256 in the tracked super inventory as in the
 vendor-ramdisk/P3.15 byte authority. Gate 0 then recovered the exact
 5,843-byte, 356-line second-stage order and matched its pre-recorded SHA-256.
-The complete 67-module dependency closure is now proven: the inherited P3.15
-sequence followed by the six dependency-ordered additions has zero forward
-dependency edges. Wholesale module reconstruction and normal-order recovery
-are no longer blockers. Exact target-only binding, stock-versus-custom
+The complete stock 67-module dependency closure is now proven: the inherited
+P3.15 sequence followed by the six dependency-ordered additions has zero
+forward dependency edges. Wholesale module reconstruction and normal-order
+recovery are no longer blockers for that stock shape. The preferred custom shape is
+the same 61-module base plus five additions—GENI SE, GPI, GENI I2C, custom
+MFD, and custom PDIC—for 66 total; its source surface is registered but its
+modules do not yet exist. Exact target-only binding, stock-versus-custom
 selection, complete PMIC/PDIC write inventory, custom module/ABI closure,
 telemetry encoding, per-operation space proof, and independent review remain
 open gates.
@@ -171,6 +182,11 @@ The primary source and artifact inputs were rehashed during this H0 unit.
 | tracked `vendor_dlkm/modules.load` identity (5,843 bytes) | `8411620a0384d07fed491a2f8f7c146e354d022c8446940fc59f49cb2d98d360` |
 | streamed Gate 0 result | `f24d593219dd775d51230b7b271a90fd67f14a1ab360ca060fb64e33e90d6241` |
 | recovered 67-module order audit | `5c64cbe9dc4f8c6569248b8c8e9affb3d7f721a3854f4aa2c93a238b32c7241a` |
+| exact 441-module vendor-ramdisk inventory | `35f1a7b903fc3582d3d51c4f119b993d154874e632465b2e212e0bf56a37ab7b` |
+| exact 63,974,144-byte expanded vendor-ramdisk CPIO | `a96c362103eeab52fd639fd1bfc06d5f9a30972a18d8086c26d20a86a0309afd` |
+| Max77705 custom-surface authority helper | `c766437bad58ea7d86a60b7a7bacb7e6f75e45124659492df4b70a924feb1ca6` |
+| private 491-module/custom-surface receipt | `4d1459c6010a9a07013592071100452785d62c245c1a9752e9c0183546646164` |
+| registered custom-surface contract | `99527db28d718f424a968eedfacbdda5e83a51c1505b39f8dab6191b5b4b137f` |
 | retained stock/XBL `baseline_last_kmsg.bin` | `9a58a0c8486723c31f9cf8ac7d8b8be2586969bb8f167cd76907e3b82db0c7cb` |
 | P3.15 USB-sidecar result | `a075c7014e9d0524fd0b7f18fe14a263639ad27ced386a4801e4c9856caf19fa` |
 
@@ -197,6 +213,7 @@ for the hashed source snapshot, not for an unpinned upstream tree.
 | first-stage/recovery order inputs | pinned `modules.load` and `modules.load.recovery`, hash-pinned above |
 | bounded sparse/range extraction and exact second-stage file | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/result.json` and `modules.load`, hash-pinned above |
 | 67-name stage, position, and dependency-order audit | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/max77705-67-order-audit.json`, hash-pinned above |
+| all-stock updater-export consumer audit and registered custom-66 surface | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-surface-authority-20260811-01.json`, hash-pinned above |
 | PDIC, MFD, SPU, GENI-I2C, GPI, and GENI-SE dependency edges | pinned `modules.dep:91`, `:176`, `:181`, `:235`, `:305`, `:388` |
 | switch bit layout and the values that evaluate to `COM_OPEN=0x3f`, `COM_USB=0x09` | `include/linux/usb/typec/maxim/max77705-muic.h:293-301`, `:359-405` |
 | `CONTROL1` write construction and software-only previous-state assumption | `drivers/usb/typec/maxim/max77705-muic.c:326-349`, `:437-464` |
@@ -212,6 +229,11 @@ for the hashed source snapshot, not for an unpinned upstream tree.
 | parent IRQ GPIO, masks, nested IRQs, and charger/USBC top-mask behavior | `drivers/mfd/maxim/max77705-irq.c:408-515` |
 | automatic-VBUS disable and audio-enable opcode initialization | `drivers/usb/typec/maxim/max77705_usbc.c:1652-1663` |
 | broad PDIC probe order and final USBC unmask | `drivers/usb/typec/maxim/max77705_usbc.c:3663-3913` |
+| common sysfs firmware-update worker/imports and misc firmware callback | `drivers/usb/typec/maxim/max77705_usbc.c:573-707`, `:955-1027`, `:1343-1422`, `:3814-3868` |
+| distinct parent-local `fw_update` CONTROL1 interface | `drivers/usb/typec/maxim/max77705_usbc.c:1562-1629`, `:3707-3713` |
+| common PDIC property filtering and CHIP_NAME read-only special case | `drivers/usb/typec/common/pdic_core.c:105-126`, `drivers/usb/typec/common/pdic_sysfs.c:47-150` |
+| `/dev/ccic_misc` and `/dev/pdic_fwupdate` registrations | `drivers/usb/typec/common/pdic_misc.c:635-703` |
+| linked raw Max77705 debug misc/sysfs surface | `drivers/usb/typec/maxim/Makefile:5-10`, `drivers/usb/typec/maxim/max77705_debug.c:373-507` |
 | PD workqueue/IRQs and boot-time RID, IBUS, sink-capability, data-role, and short checks | `drivers/usb/typec/maxim/max77705_pd.c:1878-1984` |
 | command-data copies and FIFO append/dequeue semantics | `drivers/usb/typec/maxim/max77705_usbc.c:1747-1828` |
 | command/response pair construction and command dispatch | `drivers/usb/typec/maxim/max77705_usbc.c:2410-2554` |
@@ -239,11 +261,11 @@ readback.
 | Class | Established in this H0 | Not established |
 |---|---|---|
 | source fact | `CONTROL1` controls the D+/D- switch and the MUIC initial-detect path can queue `COM_USB` | that the queue ran in P3.15 |
-| plan/artifact fact | P3.15 omitted the six-entry GENI/Max77705 producer closure; all six stock payloads and the P3.15 61-module base are recoverable; the 67 names split exactly into 37 first-stage and 30 `vendor_dlkm` names; the exact 356-line second-stage order is recovered; and the proposed native sequence has zero forward dependency edges | loadability of custom successor modules |
+| plan/artifact fact | P3.15 omitted the six-entry stock GENI/Max77705 producer closure; all six stock payloads and the P3.15 61-module base are recoverable; the stock 67 names split exactly into 37 first-stage and 30 `vendor_dlkm` names; the exact 356-line second-stage order is recovered; the proposed stock sequence has zero forward dependency edges; and the complete 491-name stock union makes PDIC the sole consumer of the removable updater exports | loadability or linked correctness of custom successor modules |
 | retained-evidence fact | the combined retained log contains two XBL MUIC-init blocks that touch opcodes `0x06` and `0x05`, one explicitly followed by Odin `SetPath: 1`, while one stock Linux boot read `6E.00` and skipped update | the XBL write payload, returned `CONTROL1` value, exact provenance of the second bootloader block beyond its non-Odin context, or value inherited at Linux probe |
 | hazard fact | every PASS5 MFD probe invokes the updater; valid PC-VBUS first-pass state exits before firmware writes, but updateward read-failure defaults and guard-free retries prevent structural nonreachability; PDIC probe performs broad control-plane initialization | that the firmware-write branch would occur in a successor, or that stock-equivalent invocation is disallowed |
 | causal inference | an open/non-USB `CONTROL1` state is compatible with controller-side success plus complete host silence | that it caused P3.15 |
-| successor feasibility | fixed-Image stock-67 and target-isolated custom-module experiments both have source-supported shapes | second-stage stock-order recovery, stock/custom selection, implementation, qualification, independent review, D0 inventory, or live authority |
+| successor feasibility | fixed-Image stock-67 and target-isolated custom-66 experiments both have source-supported shapes; the custom source surface is machine-registered | stock/custom selection, custom implementation and linked proof, qualification, independent review, D0 inventory, or live authority |
 
 ## Exact P3.15 gap and provisional module arithmetic
 
@@ -286,9 +308,10 @@ if it is not inert, removing it would add a second causal variable. Therefore:
 
 This is provisional capacity and order arithmetic, not a qualified 67-module
 plan. The stock path uses all six stock additions. The custom path uses the
-four stock substrate/support additions and two custom modules loaded from
-unique boot-ramdisk paths while the stock vendor-ramdisk copies remain
-present but unopened.
+three stock GENI/GPI/I2C substrate additions and two custom modules, for 66
+total, loaded from unique boot-ramdisk paths while the stock MFD/PDIC copies
+remain present but unopened. It omits `spu_verify.ko` because the custom PDIC
+removes its only update-path import.
 
 The exact dependency facts are:
 
@@ -296,11 +319,12 @@ The exact dependency facts are:
   already in P3.15;
 - `mfd_max77705.ko` requires `abc.ko`, `usb_notify_layer.ko`, and
   `sec_class.ko`, all already present;
-- `pdic_max77705.ko` requires the MFD, `spu_verify.ko`, DWC3/USB helpers, and
-  notifier consumers already present; and
+- stock `pdic_max77705.ko` requires the MFD, `spu_verify.ko`, DWC3/USB helpers,
+  and notifier consumers already present; and
 - `spu_verify.ko` has no listed hard dependency and its module init only logs
   and returns zero. It is still required by the compiled PDIC symbol
-  reference even though the successor must never request a firmware update.
+  reference even though the stock successor must never request a firmware
+  update. The custom PDIC contract removes that reference.
 
 ### Base/order authorities are distinct
 
@@ -628,6 +652,100 @@ The correction must be exact and auditable:
 
 Skipping this call does not make the MFD passive.
 
+### Full-stock linked surface and preferred custom-66 contract
+
+The updater ABI can now be removed rather than retained as a stub. A bounded
+host audit scanned every unique stock module payload name in the two normal
+module stores:
+
+```text
+exact vendor_ramdisk module corpus       441
+exact vendor_dlkm module corpus          356
+byte-identical overlap                   306
+vendor_dlkm-only payloads                 50
+unique stock union                       491
+```
+
+The audit expanded the hash-pinned 63,974,144-byte vendor-ramdisk CPIO only
+inside a temporary directory, checked all 441 files against the tracked exact
+inventory, and extracted only the 50 `vendor_dlkm`-only inodes from the
+already authenticated F2FS image. The 306 common names inherit the existing
+byte-identical corpus proof. This is the complete absence-search scope; the
+earlier seven preserved `.ko` files under `vendor/extract/lib/modules` alone
+were not treated as a stock-union authority.
+
+Across those 491 unique modules, each of these MFD exports has exactly one
+consumer, `pdic_max77705.ko`:
+
+```text
+BOOT_FLASH_FW_PASS2
+max77705_usbc_fw_setting
+max77705_usbc_fw_update
+```
+
+The preferred custom pair may therefore remove all three exports, the
+53,055-byte linked firmware payload, the parent firmware response workqueue,
+and the PDIC imports together. `spu_verify.ko` is required only by the stock
+PDIC update path, so it also leaves the preferred closure:
+
+```text
+P3.15 base 61
+  + msm-geni-se.ko
+  + gpi.ko
+  + i2c-msm-geni.ko
+  + custom mfd_max77705.ko
+  + custom pdic_max77705.ko
+  = preferred custom 66
+```
+
+This does not alter the stock comparison: stock MFD/PDIC still needs
+`spu_verify.ko` and remains the separately adjudicated 67-module shape.
+
+The exact preferred custom MFD source contract is:
+
+- remove every firmware header/payload, update/reset/response helper, probe
+  updater call, and exported updater symbol;
+- preserve bin-version reporting only by calling `store_ccic_bin_version()`
+  with the pinned PASS5 bytes `6e 40 15` and `sw_boot=0`, without hardware I/O;
+  and
+- retain the ordinary dummy clients, IRQ initialization, and MFD child
+  creation unchanged unless a later complete write-inventory review says
+  otherwise.
+
+The stock PDIC exposes more writable entry points than the earlier report
+listed. They are separate mechanisms, not one sysfs alias:
+
+1. the common PDIC `fw_update` property and worker can call
+   `request_firmware()`, SPU verification, and the MFD updater;
+2. `/dev/pdic_fwupdate` feeds arbitrary firmware bytes to the registered
+   firmware callback;
+3. `/dev/ccic_misc` exposes UVDM/PPS control callbacks;
+4. the parent-local attribute also named `fw_update` is a distinct
+   `CONTROL1` debug read/write path; and
+5. `CONFIG_CCIC_MAX77705_DEBUG=y` links `max77705_debug.o`, whose
+   `/dev/mxim_dev` and `mxim/debug0` `reg`/`opcode` surfaces perform raw I2C
+   register or opcode operations.
+
+The preferred custom PDIC contract removes all five writable surfaces: it
+does not link `max77705_debug.o`, does not call `mxim_debug_init()` or
+`pdic_misc_init()`, removes the local `fw_update` group and all firmware
+workers/callbacks/imports, and presents only the read-only
+`PDIC_SYSFS_PROP_CHIP_NAME` property through `pdic_core_register_chip()`.
+Normal MUIC, CC, PD, notifier, initial-detect, and the separately tagged
+read-only MUX observer remain in scope. Keeping `pdic_core_register_chip()` is
+intentional because the manager's alternate-mode callback still uses the
+registered chip object; reducing its property list to `CHIP_NAME` makes the
+common sysfs group read-only rather than deleting that manager relationship.
+
+The machine-readable source contract and its 491-module baseline audit are in
+`s22plus_fyg8_max77705_custom_surface_contract.py`. Its private receipt hash is
+listed above. The contract state is `REGISTERED_NOT_SATISFIED`: no custom
+source, object, module, dependency closure, CFI/modversion proof, or boot
+package has yet been produced. A future builder must call the source
+validator before compilation, and a distinct linked-artifact validator must
+prove the forbidden symbols, imports, payload geometry, misc devices, and
+writable sysfs registrations are absent before packaging.
+
 ### Remaining MFD effects
 
 `max77705_irq_init()`:
@@ -642,10 +760,11 @@ Skipping this call does not make the MFD passive.
 
 The exact config compiles three MFD cells here: USBC, fuel gauge, and charger.
 Their three drivers are module-only (`=m`); no Max77705 regulator, vibrator,
-RGB, or flash cell is compiled by the pinned target fragment. The 67-entry
-design loads PDIC/USBC but not the charger or fuel-gauge driver, so no built-in
-child driver is expected to bind those two cells. Runtime must still prove the
-two remain unbound and that no alias/autoload path supplied their modules.
+RGB, or flash cell is compiled by the pinned target fragment. Neither the
+stock-67 nor custom-66 design loads the charger or fuel-gauge driver, so no
+built-in child driver is expected to bind those two cells. Runtime must still
+prove the two remain unbound and that no alias/autoload path supplied their
+modules.
 This child-cell result does not make the parent updater passive: it directly
 uses the parent's dummy charger and fuel-gauge I2C clients without those child
 drivers.
@@ -1089,7 +1208,7 @@ existing P3.15 substrate and notifier consumers
   -> gpi.ko
   -> i2c-msm-geni.ko
   -> prove only target wrapper/GPI/I2C bound and target adapter exists
-  -> spu_verify.ko
+  -> stock branch only: spu_verify.ko
   -> selected stock or custom mfd_max77705 module path
   -> prove one max77705@66 parent and no unintended child-driver binds
   -> selected stock or custom pdic_max77705 module path
@@ -1097,8 +1216,10 @@ existing P3.15 substrate and notifier consumers
   -> correlate with the already bounded host USB sidecar
 ```
 
-The module order is now fixed as the inherited 61 entries followed by the six
-dependency-ordered additions. The exact runtime phase placement of override
+The stock module order is now fixed as the inherited 61 entries followed by
+the six dependency-ordered additions. The preferred custom branch has five
+additions and no `spu_verify.ko`; its exact linked dependency order remains a
+future build proof. The exact runtime phase placement of override
 writes, bind checks, and observer setup remains a detailed design item. It
 must preserve `ucsi_glink.ko`, preserve the existing USB
 notifier consumers before PDIC initial detection, and be checked against stage
@@ -1116,16 +1237,20 @@ remaining applicable gate must close before a live candidate is prepared:
    - the bounded extractor authenticated the complete ZIP/sparse/raw/extent
      chain and recovered the exact 356-line second-stage authority;
    - the exact 37-name first-stage / 30-name `vendor_dlkm` partition, every
-     selected module byte, and the dependency-safe 67-entry native order are
-     bound by private receipts;
+     selected stock module byte, and the dependency-safe stock 67-entry native
+     order are bound by private receipts;
+   - the complete 491-name stock-module union proves that only stock PDIC
+     consumes the removable MFD updater exports; the preferred custom-66
+     source contract is registered but not satisfied;
    - vendor_boot first-stage, recovery, and vendor_dlkm second-stage orders are
      kept distinct; and
    - the general per-operation peak-space-plus-margin and short-write/hash
      fail-closed rule remains active for later build and package work.
 
 1. **Custom MFD patch contract**
-   - exact removal or bypass of the probe-time updater;
-   - decision on side-effect-free bin-version metadata;
+   - exact removal of the firmware header, payload, updater ABI, response
+     workqueue, reset/retry helpers, and probe-time updater call;
+   - side-effect-free literal `6e 40 15` bin-version metadata only;
    - complete retained/changed IRQ-mask behavior;
    - machine-readable forbidden-call proof for every parent, sysfs, worker,
      misc-callback, and exported update path.
@@ -1134,8 +1259,9 @@ remaining applicable gate must close before a live candidate is prepared:
    - exact pre/post queue points;
    - tag propagation through both queue nodes and every copy site;
    - first-only COM_USB selection;
-   - absence or fail-closed replacement of every firmware-update write
-     surface and callback registration;
+   - absence of every firmware-update worker/import/callback, `pdic_misc_init`,
+     the parent-local `fw_update` group, and the linked Max77705 debug object;
+   - `PDIC_SYSFS_PROP_CHIP_NAME` as the only visible common property;
    - cached read-only export and synchronization;
    - bounded timeout and registered failure details.
 
@@ -1147,8 +1273,11 @@ remaining applicable gate must close before a live candidate is prepared:
    - explicit keep/remove decision for every nonessential write.
 
 4. **Exact module artifacts**
-   - rematerialize the four stock substrate/support modules from the pinned
-     vendor ramdisk and recheck their already confirmed identities;
+   - reuse the three exact stock substrate modules from the pinned vendor
+     ramdisk and recheck their already confirmed identities;
+   - for a stock selection, also retain exact `spu_verify.ko` plus stock
+     MFD/PDIC; for a custom selection, exclude `spu_verify.ko` and both stock
+     Max77705 files from the opened-file set;
    - reproducibly build and qualify the two custom modules;
    - stage custom modules in the generic boot ramdisk under unique selected
      paths while proving the stock vendor copies are never opened;
@@ -1341,10 +1470,16 @@ The evidence now supports these exact statements:
 7. The P3.15 base and all six stock additions are recoverable from pinned
    local firmware; Android's separate 356-line vendor_dlkm second-stage order
    and the dependency-safe 67-entry native order are now recovered and bound.
-8. A fixed-Image successor is technically plausible with target-isolated GENI
-   binding and a tagged MUX observer. The stock-67 and custom-module variants
+8. An exact 491-module union audit proves PDIC is the sole consumer of the
+   three removable MFD updater exports. The preferred custom branch is
+   therefore 66 modules and can omit the firmware payload, update ABI,
+   `spu_verify.ko`, PDIC misc/update/local-debug entry points, and the raw
+   Max77705 debug object.
+9. A fixed-Image successor is technically plausible with target-isolated GENI
+   binding and a tagged MUX observer. The stock-67 and custom-66 variants
    require separate risk/build dispositions, exhaustive telemetry fixtures,
-   a sidecar positive-control gate, and independent review.
+   a sidecar positive-control gate, and independent review. The custom
+   contract is registered but no custom module has been built.
 
 Until those H0 and D0 gates close, the correct state is:
 
@@ -1352,5 +1487,5 @@ Until those H0 and D0 gates close, the correct state is:
 MUX_CAUSALITY_UNPROVEN
 BASE_MODULE_BYTES_AND_SECOND_STAGE_ORDER_RECOVERED
 STOCK_67_UNADJUDICATED
-CUSTOM_SUCCESSOR_CONDITIONALLY_FEASIBLE_NOT_READY
+CUSTOM_66_SURFACE_REGISTERED_NOT_SATISFIED
 ```

@@ -85,11 +85,11 @@ P3.15 omitted the exact GENI-I2C/MFD/PDIC producer closure that contains the
 normal `COM_USB` transition, while its controller-side digital witnesses were
 present and its same-session host USB sidecar remained candidate-silent.
 
-The provisional successor keeps `ucsi_glink.ko` and adds six modules, taking
-the 61-module plan to 67. The pinned
-vendor ramdisk can rematerialize the complete P3.15 base and all six additions
-with their recorded identities. Cross-inventory comparison partitions those
-67 names exactly into 37 first-stage names and 30 tracked `vendor_dlkm` names;
+The stock comparison keeps `ucsi_glink.ko` and adds six modules, taking the
+61-module plan to 67. The pinned vendor ramdisk can rematerialize the complete
+P3.15 base and all six stock additions with their recorded identities.
+Cross-inventory comparison partitions those 67 names exactly into 37
+first-stage names and 30 tracked `vendor_dlkm` names;
 all 30 second-stage rows match the expected size/SHA-256 and are marked
 byte-identical. Gate 0 is now closed host-side. A bounded streaming extractor
 authenticated the complete pinned ZIP, sparse super, logical raw super, and
@@ -114,15 +114,37 @@ proves one healthy no-update execution and therefore reduces novelty, but the
 source has a named updateward read-failure default: failed firmware/status
 reads can remain zero and classify as old firmware or battery-only, while
 reset/retry edges disable the voltage/TA guards after the first pass. Stock-67
-is unadjudicated. The preferred bounded custom shape removes every
-firmware-update entry from the execution closure, stages custom MFD/PDIC files
-under unique generic boot-ramdisk paths while leaving the fixed Image
-unchanged, and adds tagged pre/post `CONTROL1` readback. It still requires
-the complete write inventory, reproducible module/ABI closure, target-only
-GENI bind proof, exhaustive telemetry
-fixtures, the host-sidecar positive-control gate, and one proportional
-independent review. The former 4,246,401,024-byte workspace-capacity blocker is
-closed by the exact private S22+ cleanup receipt: 68 superseded or invalidated
+is unadjudicated.
+
+The preferred bounded custom shape is now machine-registered as 66 modules:
+the P3.15 base plus `msm-geni-se`, `gpi`, `i2c-msm-geni`, custom MFD, and
+custom PDIC. It removes the firmware payload and updater ABI, so the sole
+stock update-path dependency `spu_verify.ko` is also absent. This conclusion
+is not based on the seven convenience-extracted modules. The H0 authority
+audit scanned the exact 441-module vendor ramdisk plus the 50
+`vendor_dlkm`-only payloads, a 491-name stock union, and found that PDIC alone
+consumes `BOOT_FLASH_FW_PASS2`, `max77705_usbc_fw_setting`, and
+`max77705_usbc_fw_update`.
+
+The stock PDIC also exposes firmware sysfs/worker and misc callbacks, the
+separate `/dev/ccic_misc` control plane, a parent-local CONTROL1 `fw_update`
+attribute, and a linked raw `mxim` debug misc/sysfs surface. The preferred
+custom contract removes all of those, retains only read-only CHIP_NAME in the
+common PDIC sysfs group, preserves normal MUIC/CC/PD/notifier initialization,
+and adds tagged pre/post `CONTROL1` readback. Its private receipt is
+`custom-surface-authority-20260811-01.json`, SHA-256
+`4d1459c6010a9a07013592071100452785d62c245c1a9752e9c0183546646164`;
+the embedded contract is
+`99527db28d718f424a968eedfacbdda5e83a51c1505b39f8dab6191b5b4b137f`.
+Its status is strictly `REGISTERED_NOT_SATISFIED`: no custom source or module
+has been built or qualified.
+
+The next H0 work is the complete retained-write inventory and reproducible
+custom source/link/CFI/modversion design, followed by target-only GENI bind
+proof, exhaustive telemetry fixtures, the host-sidecar positive-control gate,
+and one proportional independent review. The former 4,246,401,024-byte
+workspace-capacity blocker is closed by the exact private S22+ cleanup
+receipt: 68 superseded or invalidated
 large payloads with 5,033,287,680 allocated bytes were removed only after a
 reversible quarantine and focused regression, and the latest H0 `df -B1`
 after the bounded Gate 0 output and diagnostic cleanup reported
