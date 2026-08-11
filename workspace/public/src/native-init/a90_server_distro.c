@@ -6363,6 +6363,49 @@ int a90_server_distro_userdata_ro_qualify(const char *expected_devname,
     return 0;
 }
 
+static void d4_record_handoff_failure(const char *stage,
+                                      int rc,
+                                      bool root_mounted,
+                                      unsigned writable_mounted,
+                                      bool evidence_bound,
+                                      bool wifi_handoff_bound) {
+    a90_console_printf(
+        "%s handoff_stop stage=%s rc=%d errno=%d root_mounted=%d "
+        "writable_mounted=%u evidence_bound=%d wifi_handoff_bound=%d\r\n",
+        A90_D4_TAG,
+        stage,
+        rc,
+        rc < 0 ? -rc : 0,
+        root_mounted ? 1 : 0,
+        writable_mounted,
+        evidence_bound ? 1 : 0,
+        wifi_handoff_bound ? 1 : 0);
+    a90_logf(
+        "server-distro",
+        "D4 handoff stop stage=%s rc=%d errno=%d root_mounted=%d "
+        "writable_mounted=%u evidence_bound=%d wifi_handoff_bound=%d",
+        stage,
+        rc,
+        rc < 0 ? -rc : 0,
+        root_mounted ? 1 : 0,
+        writable_mounted,
+        evidence_bound ? 1 : 0,
+        wifi_handoff_bound ? 1 : 0);
+}
+
+static void d4_record_handoff_cleanup_failure(const char *stage, int rc) {
+    a90_console_printf("%s handoff_cleanup_stop stage=%s rc=%d errno=%d\r\n",
+                       A90_D4_TAG,
+                       stage,
+                       rc,
+                       rc < 0 ? -rc : 0);
+    a90_logf("server-distro",
+             "D4 handoff cleanup stop stage=%s rc=%d errno=%d",
+             stage,
+             rc,
+             rc < 0 ? -rc : 0);
+}
+
 int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
                                               const char *expected_devt_binding,
                                               const char *expected_sectors,
@@ -6389,6 +6432,8 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
     bool mounted_new_dev = false;
     bool mounted_devpts = false;
     bool cleanup_clean = true;
+    bool failure_recorded = false;
+    const char *failure_stage = "compiled-identity";
     int rc;
     char *const newenv[] = {
         (char *)"HOME=/root",
@@ -6430,6 +6475,7 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_emit("handoff_begin");
 #endif
+    failure_stage = "userdata-preflight-initial";
     rc = d4_userdata_ro_static_preflight(expected_devname,
                                           expected_devt_binding,
                                           expected_sectors,
@@ -6443,10 +6489,12 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_emit("userdata_identity_initial_done");
 #endif
+    failure_stage = "root-directory";
     rc = d3_mkdir_p(A90_D3_ROOT, 0755);
     if (rc < 0) {
         goto fail_userdata_identity;
     }
+    failure_stage = "display-owner-release";
     rc = d3_handoff_stop_display_owners_strict();
     if (rc < 0) {
         a90_console_printf("%s stop=handoff-display-owner rc=%d\r\n",
@@ -6457,6 +6505,7 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_mark("display_release_done");
 #endif
+    failure_stage = "userdata-preflight-post-display";
     rc = d4_userdata_ro_static_preflight(expected_devname,
                                           expected_devt_binding,
                                           expected_sectors,
@@ -6478,6 +6527,7 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_emit("userdata_identity_post_display_done");
 #endif
+    failure_stage = "mount-namespace-private";
     if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) < 0) {
         rc = -errno;
         a90_console_printf("%s mount_namespace=private-fail rc=%d\r\n",
@@ -6486,6 +6536,7 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
         goto fail_userdata_identity;
     }
     a90_console_printf("%s mount_namespace=private\r\n", A90_D4_TAG);
+    failure_stage = "root-mount";
     rc = d4_mount_userdata_readonly_no_replay();
     if (rc < 0) {
         goto fail_before_move;
@@ -6494,6 +6545,7 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_mark("root_mounted");
 #endif
+    failure_stage = "root-content";
     rc = d4_userdata_ro_check_root(expected_marker,
                                    expected_content_manifest_sha256);
     if (rc < 0) {
@@ -6502,15 +6554,18 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
                            rc);
         goto fail_before_move;
     }
+    failure_stage = "writable-set-mount";
     rc = d3_mount_writable_set(&writable_mounted);
     if (rc < 0) {
         goto fail_before_move;
     }
+    failure_stage = "writable-set-verify";
     rc = d3_verify_writable_set();
     if (rc < 0) {
         goto fail_before_move;
     }
 #if A90_UFS_OBSERVER_AUTH_OVERLAY_V1
+    failure_stage = "observer-auth-overlay";
     rc = h17_mount_observer_auth(&h17_observer_auth_mounted);
     if (rc < 0) {
         a90_console_printf("%s stop=observer-auth-overlay rc=%d\r\n",
@@ -6518,6 +6573,7 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
                            rc);
         goto fail_before_move;
     }
+    failure_stage = "firstboot-overlay";
     rc = h17_bind_firstboot(&h17_firstboot_bound);
     if (rc < 0) {
         a90_console_printf("%s stop=firstboot-overlay rc=%d\r\n",
@@ -6525,6 +6581,7 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
                            rc);
         goto fail_before_move;
     }
+    failure_stage = "persistent-hud";
     rc = h17_start_persistent_hud(
         &h17_hud_run_bound,
         &h17_hud_started,
@@ -6536,10 +6593,12 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
         goto fail_before_move;
     }
 #endif
+    failure_stage = "evidence-bind";
     rc = d3_bind_evidence_dir(&evidence_bound);
     if (rc < 0) {
         goto fail_before_move;
     }
+    failure_stage = "wifi-handoff-bind";
     rc = d3_bind_wifi_handoff_dir(&wifi_handoff_bound);
     if (rc < 0) {
         a90_console_printf("%s stop=wifi-handoff-bind rc=%d\r\n",
@@ -6550,6 +6609,7 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_emit("writable_set_ready");
 #endif
+    failure_stage = "distro-init";
     rc = d3_check_distro_init();
     if (rc < 0) {
         a90_console_printf("%s stop=distro-init-invalid rc=%d\r\n",
@@ -6560,6 +6620,7 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_mark("distro_init_verified");
 #endif
+    failure_stage = "display-release-marker";
     rc = d3_write_display_release_marker(&d3_last_display_release);
     if (rc < 0) {
         a90_console_printf("%s stop=display-release-marker rc=%d\r\n",
@@ -6570,6 +6631,7 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
 #if A90_AUTO_HANDOFF_BENCHMARK_V1
     a90_benchmark_mark("display_marker_ready");
 #endif
+    failure_stage = "core-mount-move";
     rc = d3_move_core_mounts(true,
                              &moved_proc,
                              &moved_sys,
@@ -6577,16 +6639,26 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
                              &mounted_new_dev,
                              &mounted_devpts);
     if (rc < 0) {
-        int restore_rc = d3_restore_core_mounts(moved_proc,
-                                                moved_sys,
-                                                moved_dev,
-                                                mounted_new_dev,
-                                                mounted_devpts);
+        int restore_rc;
 
         a90_console_printf("%s mount_move=fail rc=%d\r\n", A90_D4_TAG, rc);
+        d4_record_handoff_failure(failure_stage,
+                                  rc,
+                                  root_mounted,
+                                  writable_mounted,
+                                  evidence_bound,
+                                  wifi_handoff_bound);
+        failure_recorded = true;
+        restore_rc = d3_restore_core_mounts(moved_proc,
+                                            moved_sys,
+                                            moved_dev,
+                                            mounted_new_dev,
+                                            mounted_devpts);
         if (restore_rc < 0) {
             cleanup_clean = false;
+            failure_stage = "core-mount-restore";
             rc = restore_rc;
+            d4_record_handoff_cleanup_failure(failure_stage, rc);
         } else {
             moved_proc = false;
             moved_sys = false;
@@ -6634,6 +6706,7 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
 #endif
     sync();
     usleep(200000);
+    failure_stage = "switch-root-exec";
     execve(A90_D3_BUSYBOX, switch_argv, newenv);
 
     rc = -errno;
@@ -6642,6 +6715,13 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
                        rc,
                        -rc,
                        strerror(-rc));
+    d4_record_handoff_failure(failure_stage,
+                              rc,
+                              root_mounted,
+                              writable_mounted,
+                              evidence_bound,
+                              wifi_handoff_bound);
+    failure_recorded = true;
     {
         int restore_rc = d3_restore_core_mounts(moved_proc,
                                                 moved_sys,
@@ -6651,7 +6731,9 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
 
         if (restore_rc < 0) {
             cleanup_clean = false;
+            failure_stage = "core-mount-restore-after-exec";
             rc = restore_rc;
+            d4_record_handoff_cleanup_failure(failure_stage, rc);
         } else {
             moved_proc = false;
             moved_sys = false;
@@ -6662,6 +6744,14 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
     }
 
 fail_before_move:
+    if (!failure_recorded) {
+        d4_record_handoff_failure(failure_stage,
+                                  rc,
+                                  root_mounted,
+                                  writable_mounted,
+                                  evidence_bound,
+                                  wifi_handoff_bound);
+    }
 #if A90_UFS_OBSERVER_AUTH_OVERLAY_V1
     if (h17_stop_persistent_hud(
             &h17_hud_started,

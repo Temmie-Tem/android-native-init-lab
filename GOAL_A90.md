@@ -752,19 +752,23 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: Post-H17 Failure Attribution H0
+## Selected Bounded Unit: H18 Diagnostic Execution Preparation H0
 
 Preserve every terminal H7-H16 transaction and the complete seven-record H17
 run01 journal. The consumed H17 arm, reboot, and handoff are never replayed.
 The native-fallback finalizer is complete and grants no successor authority.
 
-The next bounded unit is host-only attribution of the exact failure after
-`root_mounted` and before `writable_set_ready`, using captured H17 evidence and
-source. Do not create a candidate or live action until the failing stage and
-errno can be persisted by a bounded design with fresh manifest, review where
-execution machinery changes, D0, approval, recovery, and final-health gates.
-The current persistent-HUD hypothesis remains unproved and must not be repaired
-by guess.
+H17 evidence proves only outer `EPERM` after `root_mounted` and before
+`writable_set_ready`; it cannot distinguish root-content, writable-set,
+observer-auth, firstboot, persistent-HUD, evidence-bind, or Wi-Fi-bind failure.
+H18 `0.11.186` now records exact stage, rc, and errno before cleanup under a
+fresh identity and deterministic boot `692da1ea...ec78`. Independent
+`PASS_GO` closes native closure `714c1797...009b` with HIGH/MEDIUM/LOW zero,
+but `candidate_authority=false`: an absent log remains `NO_PROOF`, and H18 has
+not been installed or run. The next unit is host-only exact F1/D1 binding and
+fresh D0 preparation. Any live step still requires fresh approval, attendance,
+rollback and recovery readiness, one-shot no-replay state, and final health.
+Persistent HUD remains an unproved cause and must not be repaired by guess.
 
 Only a full comparable H15 control benchmark can open a later Full-LTO unit.
 Qualification never substitutes for fresh manifest, D0, approval, attendance,
@@ -837,6 +841,7 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_H15_UFS_DEVT_CROSS_BOOT_DRIFT_INCIDENT_2026-08-10.md`
 - `docs/reports/A90_H16_DYNAMIC_DEVT_INDEPENDENT_REVIEW_2026-08-10.json`
 - `docs/reports/A90_H17_PERSISTENT_UFS_SERVER_INDEPENDENT_REVIEW_2026-08-10.json`
+- `docs/reports/A90_H18_POST_ROOT_FAILURE_ATTRIBUTION_INDEPENDENT_REVIEW_2026-08-11.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`

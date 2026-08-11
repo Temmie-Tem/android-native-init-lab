@@ -1,0 +1,92 @@
+{
+  "schema": "a90-h18-post-root-failure-attribution-independent-review-v1",
+  "status": "PASS_GO",
+  "review_date": "2026-08-11",
+  "reviewer": "independent subagent /root/a90_h18_capability_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "capability": "A90_H18_POST_ROOT_FAILURE_ATTRIBUTION_V1",
+  "decision": "The H17 incident evidence proves only an outer EPERM after root_mounted and before writable_set_ready. H18 adds exact top-level stage, rc, and errno recording before cleanup without changing handoff effects, cleanup order, return behavior, or no-replay behavior. Persistent HUD remains an unproved cause.",
+  "frozen_scope": {
+    "review_closure_sha256": "88f9aa7a38549a379223fc08ccb84792a4848122f32bb1d62abbe8be03800534",
+    "review_closure_members": 3,
+    "native_init_closure_sha256": "714c17971e357466dbccd69853d2c52b6ccf1b16648df4c2436900989e37009b",
+    "native_init_closure_members": 253,
+    "manifest_sha256": "7f1747dc0fa15f625bfdd46abdcdac1118d5468509acc9184c3d4767e44565fd",
+    "effective_manifest_sha256": "4de926f623c99c842fc94b51c5f606b044d0aa2df0f28bd378ddf758e1ec0fe4",
+    "compiled_binding_sha256": "d0ffc41be4d7fd330bbc761bb9c4101aa4e87ea5dc9195278e174889ce73ed7e",
+    "candidate_boot_sha256": "692da1eae8a3e5547e7747cd553f38ea64bfbac14cb854b4bd40a11bfe47ec78",
+    "candidate_boot_bytes": 58384384,
+    "candidate_init_sha256": "3e32373f71c2ebedf9d2e0454268a701089b0df54f30aeb5d718a9920d2ef135",
+    "candidate_init_bytes": 1723376,
+    "ramdisk_sha256": "655a38756f492045c19d103ebfc180bd428852ea415fad3f33429b792e6760e3",
+    "ramdisk_bytes": 8550912,
+    "ab_receipt_sha256": "6227da6f1238cf09bd7c9e80e6a30d947bb3857a5680a7ac13ef05c711b947a9",
+    "ab_byte_identical": true
+  },
+  "reviewed_behavior": {
+    "incident_window": "root_mounted-before-writable_set_ready",
+    "incident_window_stages": [
+      "root-content",
+      "writable-set-mount",
+      "writable-set-verify",
+      "observer-auth-overlay",
+      "firstboot-overlay",
+      "persistent-hud",
+      "evidence-bind",
+      "wifi-handoff-bind"
+    ],
+    "late_failure_recording": "core-mount-move-and-switch-root-exec-record-before-core-mount-restore",
+    "restore_failure_recording": "separate-cleanup-failure-record",
+    "record_semantics": "append-write-close-call-before-cleanup; attribution requires an actually observed a90_log record",
+    "power_loss_durable_journal": false,
+    "missing_record_verdict": "NO_PROOF_NO_REPLAY",
+    "effect_order_changed": false,
+    "cleanup_order_changed": false,
+    "return_behavior_changed": false,
+    "arm_latch_dispatch_retry_changed": false,
+    "candidate_authority": false,
+    "persistent_hud_cause_proved": false,
+    "partition_allowlist": [
+      "boot"
+    ],
+    "s22plus_authority": false
+  },
+  "findings": {
+    "final_high": 0,
+    "final_medium": 0,
+    "final_low": 0,
+    "resolved_high": 1,
+    "resolved_medium": 0,
+    "resolved_low": 0,
+    "unresolved": []
+  },
+  "validation": {
+    "main_focused_tests": "167/167 PASS",
+    "reviewer_public_focused_tests": "15/15 PASS",
+    "python_py_compile": "PASS",
+    "scoped_git_diff_check": "PASS",
+    "aarch64_cross_compile": "PASS",
+    "android_boot_image_inspection": "PASS",
+    "deterministic_ab_build": "PASS"
+  },
+  "review_lifetime": {
+    "reuse": "PASS_GO qualifies only the named diagnostic capability while the review and native closures and hazard assumptions remain unchanged and no new incident occurs.",
+    "fresh_execution_binding_required": true,
+    "fresh_connected_d0_required": true,
+    "fresh_f1_and_d1_approval_required": true,
+    "attendance_recovery_and_final_health_required": true,
+    "live_authority": false
+  },
+  "private_candidate_bytes_opened_by_reviewer": false,
+  "private_receipt_bytes_opened_by_reviewer": false,
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "reviewer_device_contact": false,
+  "reviewer_dev_access": false,
+  "reviewer_usb_contact": false,
+  "reviewer_private_artifact_contact": false,
+  "reviewer_network_contact": false,
+  "reviewer_s22plus_content_contact": false,
+  "reviewer_s22plus_device_contact": false,
+  "reviewer_implementation_edits": false
+}

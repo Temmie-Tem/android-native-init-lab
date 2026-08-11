@@ -16,6 +16,7 @@ NATIVE = REPO / "workspace/public/src/native-init/a90_server_distro.c"
 FIRSTBOOT = REPO / "workspace/public/src/scripts/server-distro/a90_dpublic_firstboot.sh"
 H16 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h16/manifest.toml"
 H17 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h17/manifest.toml"
+H18 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h18/manifest.toml"
 BUILDER = load_script(
     "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py"
 )
@@ -101,8 +102,23 @@ class H17ManifestTests(unittest.TestCase):
             with self.assertRaisesRegex(BUILDLIB.ManifestError, "depth exceeds 2"):
                 BUILDLIB.resolve_manifest(h18)
 
-    def test_h17_native_closure_pin_is_current(self) -> None:
-        manifest = BUILDLIB.resolve_manifest(H17).data
+    def test_h18_diagnostic_successor_has_fresh_identity_and_current_closure(self) -> None:
+        manifest = BUILDLIB.resolve_manifest(H18).data
+        self.assertEqual(manifest["profile"], "phase3-minimal-h18-post-root-failure-attribution")
+        binding = BUILDER.normalized_auto_handoff_binding(manifest)
+        self.assertEqual(binding["candidate_version"], "0.11.186")
+        self.assertEqual(
+            binding["candidate_build"],
+            "phase3-minimal-h18-post-root-failure-attribution",
+        )
+        self.assertEqual(
+            binding["enable_path"],
+            "/cache/a90-auto-handoff-phase3-minimal-h18.enable",
+        )
+        self.assertEqual(
+            binding["latch_path"],
+            "/cache/a90-auto-handoff-phase3-minimal-h18.done",
+        )
         root = REPO / manifest["init"]["source_root"]
         closure = BUILDLIB.expanded_closure(
             root,
@@ -142,6 +158,58 @@ class H17ManifestTests(unittest.TestCase):
 
 
 class H17NativeSourceTests(unittest.TestCase):
+    def test_post_root_failure_stage_and_errno_are_retained_before_cleanup(self) -> None:
+        source = NATIVE.read_text()
+        handoff = source[
+            source.index("int a90_server_distro_switch_root_userdata_ro(") :
+            source.index("static int d4_dpublic_hud_bind_target(")
+        ]
+        stage_calls = [
+            ("root-content", "d4_userdata_ro_check_root(expected_marker,"),
+            ("writable-set-mount", "d3_mount_writable_set(&writable_mounted)"),
+            ("writable-set-verify", "d3_verify_writable_set()"),
+            ("observer-auth-overlay", "h17_mount_observer_auth("),
+            ("firstboot-overlay", "h17_bind_firstboot(&h17_firstboot_bound)"),
+            ("persistent-hud", "h17_start_persistent_hud("),
+            ("evidence-bind", "d3_bind_evidence_dir(&evidence_bound)"),
+            ("wifi-handoff-bind", "d3_bind_wifi_handoff_dir(&wifi_handoff_bound)"),
+        ]
+        positions = []
+        for index, (stage, call) in enumerate(stage_calls):
+            stage_token = f'failure_stage = "{stage}";'
+            start = handoff.index(stage_token)
+            end = (
+                handoff.index(f'failure_stage = "{stage_calls[index + 1][0]}";')
+                if index + 1 < len(stage_calls)
+                else handoff.index('failure_stage = "distro-init";')
+            )
+            block = handoff[start:end]
+            self.assertLess(block.index(stage_token), block.index(call))
+            self.assertLess(block.index(call), block.index("if (rc < 0)"))
+            self.assertIn("goto fail_before_move;", block)
+            positions.append(start)
+        self.assertEqual(positions, sorted(positions))
+        failure = handoff[handoff.index("fail_before_move:") :]
+        diagnostic = failure.index("d4_record_handoff_failure(")
+        cleanup = failure.index("h17_stop_persistent_hud(")
+        self.assertLess(diagnostic, cleanup)
+        self.assertIn("failure_stage", failure[:cleanup])
+        self.assertIn("failure_recorded", failure[:cleanup])
+
+        move = handoff[
+            handoff.index('failure_stage = "core-mount-move";') :
+            handoff.index("#if A90_AUTO_HANDOFF_BENCHMARK_V1", handoff.index('failure_stage = "core-mount-move";'))
+        ]
+        self.assertLess(move.index("d3_move_core_mounts(true,"), move.index("if (rc < 0)"))
+        self.assertLess(move.index("if (rc < 0)"), move.index("d4_record_handoff_failure("))
+        self.assertLess(move.index("d4_record_handoff_failure("), move.index("d3_restore_core_mounts("))
+
+        switch_exec = handoff[handoff.index('failure_stage = "switch-root-exec";') : handoff.index("fail_before_move:")]
+        self.assertLess(switch_exec.index("execve(A90_D3_BUSYBOX"), switch_exec.index("rc = -errno;"))
+        self.assertLess(switch_exec.index("rc = -errno;"), switch_exec.index("d4_record_handoff_failure("))
+        self.assertLess(switch_exec.index("d4_record_handoff_failure("), switch_exec.index("d3_restore_core_mounts("))
+        self.assertEqual(handoff.count("failure_recorded = true;"), 2)
+
     def test_handoff_overlays_follow_content_validation_and_precede_switch_root(self) -> None:
         source = NATIVE.read_text()
         handoff = source[
