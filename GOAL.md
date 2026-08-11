@@ -191,12 +191,16 @@ change. All nine terminal buckets, all six observable `EAGAIN` rows, and all
 five MUX result classes have retained preimages through the real Process-v2
 adapter; claim-busy has an empty decoder preimage and encoder acceptance is a
 hard error. The actual transformed C publisher emitted 15 byte-exact v3
-requests (1,500 bytes, SHA-256
+requests (1,500 bytes of host-only fixture output, not retained or device
+footprint; SHA-256
 `1200128d11c57bda9fdfa879fb3e592a1d368e0fc15a6bed255957678a136b2d`),
 rejected five out-of-family details, and left the inherited v2 publisher
 byte-identical. Oversized lossless poll evidence terminates in the ninth,
 explicit payload-unrepresentable no-proof bucket rather than truncating or
-inventing causality.
+inventing causality. That bucket retains the four per-command poll counts,
+total raw count, SHA-256, and fixed transaction/result fields, but no raw poll
+bytes or prefix/suffix sample; it can identify which transaction was long but
+cannot reconstruct the UIC byte sequence that explains why.
 
 This closes only schema, carrier, decoder, and publisher geometry. Packaging
 and F1 approval remain blocked because the target-specific override/bind

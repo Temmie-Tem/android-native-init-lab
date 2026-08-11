@@ -915,7 +915,8 @@ round-trip are now closed separately below.
 
 The publisher fixture host-compiles and executes the transformed full P3.15
 checkpoint client rather than a Python reimplementation. It emits 15 requests
-and 1,500 bytes whose SHA-256 is
+and 1,500 bytes of host-only fixture output, not retained or device footprint,
+whose SHA-256 is
 `1200128d11c57bda9fdfa879fb3e592a1d368e0fc15a6bed255957678a136b2d`;
 those bytes equal the Carrier request model exactly. The real evidence adapter
 then round-trips nine terminal-bucket preimages, six observable `EAGAIN`
@@ -1569,7 +1570,10 @@ remaining applicable gate must close before a live candidate is prepared:
      decoder preimage;
    - one 128-byte envelope fills the fixed Carrier-v2 two-slot payload exactly;
      an oversized lossless poll vector becomes explicit no-proof rather than a
-     truncated MUX result;
+     truncated MUX result. The overflow form retains four poll counts, total
+     raw length, SHA-256, and the fixed transaction/result fields, but retains
+     no raw poll byte or prefix/suffix sample and therefore cannot reconstruct
+     the UIC sequence;
    - the actual transformed C publisher emits the same 100-byte request-v3
      bytes as the Carrier model for all nine terminal and five MUX details,
      rejects out-of-family details, and leaves the inherited request-v2
