@@ -4,9 +4,9 @@ Build the operator-owned Galaxy A90 5G into a Debian-oriented personal server
 where native-init performs only the vendor-kernel and hardware bridge-up that
 Debian cannot yet perform, then transfers PID 1 and the steady-state runtime to
 the existing UFS-backed Debian appliance root with `switch_root`. H17 is the
-installed resident and is operationally back in native after a clean failed
-handoff; its D1 journal remains health-pending until the exact no-replay
-incident finalizer closes it. V2321 remains the bound rollback.
+installed resident, and its consumed D1 run is terminal
+`REFUTED_H17_PERSISTENT_SERVER_NATIVE_FALLBACK_HEALTHY` / `RESIDENT_HEALTHY`
+after exact read-only no-replay closure. V2321 remains the bound rollback.
 
 `AGENTS.md` and `docs/operations/targets/A90_TARGET_CONTRACT.md` are binding.
 This file records current state and the next bounded unit; it grants no device
@@ -33,11 +33,15 @@ The pre-H2 goal history is preserved at
   userdata_write=0`, and exact native H17 returned with `binding=1 enable=1
   latch=1`, self-test `11/1/0`, PID 1 guard `12/0/0`, HUD and USB-local control
   restored. Candidate replay, payload, partition, userdata, and S22+ command
-  counts remain zero. The journal is still `HEALTH_PENDING`; no new ordinal,
-  reboot, arm, handoff, or candidate is allowed before exact finalization. The
-  first approved read-only finalizer stopped before either terminal record
-  because tcpctl normally exited after its compiled 3600-second idle interval;
-  serial and NCM remained ready and the five-record prefix is intact.
+  counts remain zero. The first approved read-only finalizer stopped before a
+  terminal record because tcpctl had normally exited after its compiled
+  3600-second idle interval. The independently reviewed successor then proved
+  the latest same-PID tcpctl lifecycle exited status zero after 4665368 ms,
+  serial and NCM remained ready, the same intent remained exact, and userdata
+  was unmounted with write count zero. It appended only exact `final-health`
+  and `closed` records. The seven-record journal is terminal at result
+  `e4a831ac...eafeb3`; no arm, reboot, handoff, mount, service control, payload,
+  flash, state clear, userdata write, physical-return reboot, or replay occurred.
 - H16 `0.11.184`, build
   `phase3-minimal-h16-direct-ufs-ro-async-wifi-auto-benchmark`, is the consumed
   healthy predecessor. Attended run03 wrote and read back boot-only
@@ -748,41 +752,19 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: H17 Native-Fallback No-Replay Closure
+## Selected Bounded Unit: Post-H17 Failure Attribution H0
 
-Preserve every terminal H7-H16 transaction and the consumed H17 run01
-arm/reboot/handoff. Do not reuse the physical-return finalizer: the operator did
-not physically return the device, and native-init itself performed a clean
-failure fallback. The next unit is one incident-specific read-only finalizer
-bound to the exact five-record H17 journal, private diagnosis, consumed intent,
-and a fresh independently reviewed execution closure.
+Preserve every terminal H7-H16 transaction and the complete seven-record H17
+run01 journal. The consumed H17 arm, reboot, and handoff are never replayed.
+The native-fallback finalizer is complete and grants no successor authority.
 
-The replacement finalizer may append only `final-health` and `closed` after
-fresh exact H17 health, `1,1` same-intent state, the unique
-failed-handoff/native-fallback segment, clean restoration, and current
-userdata-unmounted proof all agree. Current tcpctl must either be exactly ready
-or its latest-boot same-PID authenticated-listener lifecycle must prove one
-normal zero-status idle exit after at least 3600 seconds while serial and NCM
-remain ready. The second case explicitly keeps tcpctl-running and persistent
-TCP/server readiness false. It
-must close
-`REFUTED_H17_PERSISTENT_SERVER_NATIVE_FALLBACK_HEALTHY` while restoring exact
-native `RESIDENT_HEALTHY`; it must not claim physical return, successful
-`switch_root`, Debian PID 1, SSH, persistent HUD, display, or final Wi-Fi.
-The adapter binds the exact five predecessor records and private diagnosis by
-SHA256, excludes the mutable predecessor D1 runner from its new execution
-closure, requires one fresh attended read-only approval, and has no arm,
-reboot, handoff, mount, service-control, payload, flash, state-clear, or
-userdata-write mode. A crash after `final-health` may add only the identical
-`closed` record without device contact.
-
-The old capability qualification and approval are retired by the tcpctl
-observer incident. Fresh independent review and a fresh exact read-only
-approval are required; the consumed D1 action is never replayed.
-
-Only after this health barrier is durable may a separate successor candidate
-persist exact post-root-mount stage/errno attribution. The current leading
-persistent-HUD hypothesis remains unproved and must not be repaired by guess.
+The next bounded unit is host-only attribution of the exact failure after
+`root_mounted` and before `writable_set_ready`, using captured H17 evidence and
+source. Do not create a candidate or live action until the failing stage and
+errno can be persisted by a bounded design with fresh manifest, review where
+execution machinery changes, D0, approval, recovery, and final-health gates.
+The current persistent-HUD hypothesis remains unproved and must not be repaired
+by guess.
 
 Only a full comparable H15 control benchmark can open a later Full-LTO unit.
 Qualification never substitutes for fresh manifest, D0, approval, attendance,
