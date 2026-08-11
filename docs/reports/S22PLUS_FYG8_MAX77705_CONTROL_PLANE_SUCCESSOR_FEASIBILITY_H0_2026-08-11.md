@@ -204,13 +204,17 @@ The primary source and artifact inputs were rehashed during this H0 unit.
 | A/B linked-build receipt (19,492 bytes) | `5ea484ae1381b23c42c71163a8bb5add2e54f8b936e7730aee7b87e6a8ffeadd` |
 | independent audit-mode replay receipt | `ce6a1310d1d07b9b6733e4129fecdc41dd4d2bb3ff03247fbe8df2fe9019894b` |
 | A/B diagnostic module (293,400 bytes each) | `4f4f485a35cdb12206b814390b56674ca6a6d691c9a1d7a29c97030053231849` |
-| custom-surface authority helper v9 | `0fd6777ce234ef26e1da4b0129ef786dcb5edb2bc9fe8409dfe1229911bd6207` |
-| linked-qualified custom-surface receipt v9 | `c44d35fae083706337c6618cd90e232fb990cf946665f22ad9e73703b3a5628e` |
-| Max77705 retained-envelope encoder | `55de85c876767a6494fd4c0805a940125a5e6a5a259985d50fc4a919ed342cc3` |
-| Max77705 Carrier-v2 decoder | `ba728dabdfbcb832432ad59b8600bd657e70d9e4cfe969cb321c38ea9f9f46c2` |
+| custom-surface authority helper v10 | `d24177a3aa91abe283b6abf86c0e730939bdac779935aeb7f342ed8a67afe72a` |
+| linked-qualified custom-surface receipt v10 | `54abb42839390d7a9642ff124b545a5bc32b7d94f14cf5d88341955e540fd4d5` |
+| Max77705 retained-envelope v2 encoder | `9c72afcf172aa109158c844b111efa9b0f1ff7027f10185aac9b80b996b156cc` |
+| Max77705 Carrier-v2 decoder policy v2 | `ea28fa494beac12d7d79e0d69bd60745ee1e1ef2321d7a424237306c2c1920c5` |
+| allocation-free PID1 result parser | `d8b3d152823dbf706682802142328f515c7d6c422a18a7309331814bf69e4b65` |
+| PID1 parser host C fixture | `3093151c9f613ed781a9c7fa00efcede4148f061bb25e30c8c992cbd789d9f92` |
+| PID1 parser executable audit | `1d73a82e69701006d0c31efcd16fa476ccd95351fdac46323a9deebb4cf27374` |
+| PID1 parser private receipt | `ec315f67f6420df506e63a8e2c7e1c329ffeafcf8a1b7e079411c6ccea8104e6` |
 | request-v3 checkpoint transform | `0cd6a7c0f02148125b9891efa9918ffbf5aea131c3ffec84fcd0f4bfe3bc3edd` |
 | actual C request-v3 fixture | `a6a2184b9a292353cc4d31c3f647c95b9bfeb870db23d1c46848fe4a00c80ccf` |
-| real Process-v2 adapter fixture | `28f89e560a5038734ab28c333d64b231eee5da0c9bbd92733c62640cf381c973` |
+| real Process-v2 adapter fixture | `57128106dd0ee43313dea9d1e66592742badeeba6c278ad95b4fc418f8504b92` |
 | retained stock/XBL `baseline_last_kmsg.bin` | `9a58a0c8486723c31f9cf8ac7d8b8be2586969bb8f167cd76907e3b82db0c7cb` |
 | P3.15 USB-sidecar result | `a075c7014e9d0524fd0b7f18fe14a263639ad27ced386a4801e4c9856caf19fa` |
 
@@ -237,8 +241,11 @@ for the hashed source snapshot, not for an unpinned upstream tree.
 | first-stage/recovery order inputs | pinned `modules.load` and `modules.load.recovery`, hash-pinned above |
 | bounded sparse/range extraction and exact second-stage file | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/result.json` and `modules.load`, hash-pinned above |
 | 67-name stage, position, and dependency-order audit | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/max77705-67-order-audit.json`, hash-pinned above |
-| all-stock export-consumer audit, full-PDIC rejection evidence, and linked-qualified custom-65 diagnostic | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-surface-authority-20260812-14.json`, hash-pinned above |
+| all-stock export-consumer audit, full-PDIC rejection evidence, linked-qualified custom-65 diagnostic, and parser receipt gate | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-surface-authority-20260812-15.json`, hash-pinned above |
+| actual PID1 parser, Python-summary parity, mutation rejection, and pinned AArch64 compile | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/runtime-parser-20260812-01.json`, hash-pinned above |
 | exact P3.10 ABI A/B build plus precompile-source/CFI/modversion/import/relocation audit | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-module-build-20260812-07/build-audit.json`, hash-pinned above |
+| strict allocation-free module-result grammar and poll summary | `workspace/public/src/native-init/s22plus_fyg8_max77705_result_parser.inc.c`, hash-pinned above |
+| actual host execution plus pinned AArch64 freestanding compile | `workspace/public/src/scripts/revalidation/s22plus_fyg8_max77705_runtime_parser_fixture.py`, hash-pinned above |
 | PDIC, MFD, SPU, GENI-I2C, GPI, and GENI-SE dependency edges | pinned `modules.dep:91`, `:176`, `:181`, `:235`, `:305`, `:388` |
 | switch bit layout and the values that evaluate to `COM_OPEN=0x3f`, `COM_USB=0x09` | `include/linux/usb/typec/maxim/max77705-muic.h:293-301`, `:359-405` |
 | `CONTROL1` write construction and software-only previous-state assumption | `drivers/usb/typec/maxim/max77705-muic.c:326-349`, `:437-464` |
@@ -262,6 +269,7 @@ for the hashed source snapshot, not for an unpinned upstream tree.
 | PD workqueue/IRQs and boot-time RID, IBUS, sink-capability, data-role, and short checks | `drivers/usb/typec/maxim/max77705_pd.c:1878-1984` |
 | command-data copies and FIFO append/dequeue semantics | `drivers/usb/typec/maxim/max77705_usbc.c:1747-1828` |
 | command/response pair construction and command dispatch | `drivers/usb/typec/maxim/max77705_usbc.c:2410-2554` |
+| exact UIC latch bit assignments (`APCmdResI=0x80`, detection mask `0x7b`, DCD/charger-type subset `0x0a`) | `include/linux/usb/typec/maxim/max77705.h:102-110` |
 | direct parent OF match and USBC/MUIC dummy-client precedent | `drivers/mfd/maxim/max77705.c:1311-1316`, `:1391-1397`, `:1454-1476` |
 | I2C OF match and exported managed dummy-client helper | `drivers/i2c/i2c-core-base.c:95-116`, `:1034-1064` |
 | UIC/AP command registers and response bit | `include/linux/mfd/max77705-private.h:172-190`, `:192-226`; `include/linux/usb/typec/maxim/max77705.h:101-110`, `:508-517` |
@@ -885,7 +893,7 @@ as a kernel-semantics violation. A post-return claim-busy `EAGAIN` is not an
 observable no-match branch at all: the first successful claim path caches even
 dummy-client failure and returns zero before registration completes.
 
-The v9 arming gate consequently separates two proof directions. Each of the
+The v10 arming gate consequently separates two proof directions. Each of the
 six observable `EAGAIN` rows must have at least one unique retained-vector
 preimage that decodes to that row, while claim-busy is a negative invariant
 whose decoder preimage must be empty and whose encoder acceptance is a hard
@@ -904,9 +912,9 @@ set includes `SYSMsgI`, `VBUSDetI`, `VbADCI`, `DCDTmoI`, `CHGTypI`, and
 safe from Linux-consumer theft only under the enforced condition that no other
 Max77705 driver is bound or loaded.
 
-The v9 helper registers and tests this source shape and requires the exact
+The v10 helper registers and tests this source shape and requires the exact
 linked-build receipt. Its current receipt is
-`custom-surface-authority-20260812-14.json`. Source, precompile validation,
+`custom-surface-authority-20260812-15.json`. Source, precompile validation,
 A/B linked module, import/relocation closure, and fixed-Image modversion/CFI
 proof are satisfied. Boot staging, runtime binding, timeout/result fixtures,
 host-sidecar positive control, and independent review remain open. Carrier
@@ -925,7 +933,7 @@ unknown overlay, and proves the claim-busy decoder preimage empty. These tests
 do not invent target sysfs names, target binding state, or package wiring.
 
 The linked artifact first qualified under v6 supersedes the earlier H0-only v5
-linked artifact; v9 reuses those exact module bytes and tightens only the host
+linked artifact; v10 reuses those exact module bytes and tightens only the host
 result contract. Review found two source-contract mismatches before packaging:
 v5 compared the entire
 raw PMIC revision byte rather than the stock driver's low-three-bit logical
@@ -1231,8 +1239,7 @@ the getter must use an explicit synchronization rule. Raw kmsg text alone is
 not a sufficient retained authority because an observer parser defect would
 again destroy the only evidence.
 
-The exact carrier representation is a later detailed-design obligation. It
-must preserve at least:
+The exact carrier representation is now fixed as envelope v2. It preserves:
 
 - parent identity and exact parent/MUIC bind witnesses;
 - pre command issued, response-bit poll count, returned opcode, and byte;
@@ -1247,6 +1254,21 @@ must preserve at least:
 - first failure stage, timeout, response mismatch, and ambiguous-write flags;
 - proof that no stock MFD/PDIC/SPU module was opened or loaded; and
 - host-side attach/enumeration correlation.
+
+Lossless PackBits remains mandatory for a MUX-causal row. If the raw poll
+vectors cannot fit losslessly, the row becomes the explicit
+`result_payload_unrepresentable` no-proof terminal. Its 44-byte bounded
+summary contains SHA-256 of the four concatenated vectors, per-command byte
+OR, per-command first byte (`poll0`), and per-command nonzero-read count. The
+remaining 32 bytes stay zero. This summary improves diagnosis but never
+restores MUX causality or reconstructs the consumed read-to-clear sequence.
+
+The summary carries four source-derived one-way checks. A retained response
+witness requires `APCmdResI` in that command slot's OR; a timed-out command's
+active slot forbids it; `APCmdResI` without a response witness remains possible
+when the response-data read fails after the wait succeeds; and OR is zero if
+and only if the nonzero count is zero. These are slot-local rules, not a global
+BIT(7) assertion.
 
 ### Result matrix
 
@@ -1264,6 +1286,23 @@ must preserve at least:
 | any pre, attempted write, post1 non-`0x09` | exact attach or enumeration | device/host attribution contradiction; preserve both facts but make no MUX-causal claim |
 | missing, duplicate, wrong-order, malformed, timeout, response-opcode mismatch, or unclassified write return | any | `NO_PROOF_OBSERVER`; no MUX conclusion |
 | exact attach without completed device evidence | attach | preserve host fact, but do not invent the missing device-side transition |
+
+When post1 is a validated `CONTROL1_R=0x09`, the decoder also crosses post2
+`CONTROL1` with `poll0[post2]`. That first post2 UIC read contains the latch
+accumulated since post1's final UIC read through the first post2 poll. The
+source-pinned detection-bit mask is `0x7b`; its narrower
+`DCDTmoI|CHGTypI` subset is `0x0a`.
+
+| Post2 `CONTROL1` | Post2 `poll0 & 0x7b` | Permitted retention reading |
+|---|---:|---|
+| `0x09` | zero | quiet retention interval; weak opcode-visible maintenance evidence |
+| `0x09` | nonzero | a detection latch occurred during the interval and opcode-visible `COM_USB` survived to post2 |
+| non-`0x09` | nonzero | late opcode-visible reversion is correlated with a retained detection-latch event |
+| non-`0x09` | zero | late opcode-visible reversion lacks a retained detection-event witness |
+
+This second matrix proves only event presence and temporal correlation.
+`CHGTypI` or `DCDTmoI` does not prove that the physical switch moved, and it
+does not prove that the event caused either retention or reversion.
 
 The `pre=0x09` rows are explicit because they are a high-value distinction and
 must not fall through an else branch, but they are no longer labeled a
@@ -1378,7 +1417,7 @@ final builder therefore calls `validate_diag_source_text()` before source-tree
 copy, `modules_prepare`, or module compilation and receipts both its complete
 validation result and validator-function SHA-256
 `0914d607dac146b4e1aec41df36a104cfaa93c3c09568171f4fe75ec9cd08c3d`.
-The v9 custom-surface authority rejects a missing, changed, late, or
+The v10 custom-surface authority rejects a missing, changed, late, or
 semantically different linked-build receipt. This was an H0 qualification
 repair; neither build contacted the target or created a boot package.
 The build receipt records full helper hash
@@ -1517,7 +1556,7 @@ remaining applicable gate must close before a live candidate is prepared:
 1. **Diagnostic source and linked effect contract — closed for H0 source/ELF**
    - the exact direct I2C parent match and only one managed dummy client at
      `0x25` are implemented;
-   - `validate_diag_source_text()` is exercised before the build, and the v9
+   - `validate_diag_source_text()` is exercised before the build, and the v10
      contract now rejects a missing or changed linked-build receipt;
    - source and linked relocations prove exactly three read commands and at
      most one conditional, non-retried `CONTROL1_W(0x09)`;
@@ -1568,12 +1607,18 @@ remaining applicable gate must close before a live candidate is prepared:
      binding-witness value survives the retained representation; all six
      observable rows have unique retained preimages and claim-busy has an empty
      decoder preimage;
-   - one 128-byte envelope fills the fixed Carrier-v2 two-slot payload exactly;
+   - one envelope-v2 128-byte value fills the fixed Carrier-v2 two-slot payload exactly;
      an oversized lossless poll vector becomes explicit no-proof rather than a
      truncated MUX result. The overflow form retains four poll counts, total
-     raw length, SHA-256, and the fixed transaction/result fields, but retains
-     no raw poll byte or prefix/suffix sample and therefore cannot reconstruct
-     the UIC sequence;
+     raw length, SHA-256, per-command OR, poll0, nonzero count, and the fixed
+     transaction/result fields, but retains no raw sequence and therefore
+     cannot reconstruct the consumed UIC history;
+   - post2 `CONTROL1` and post2 poll0 cross into four explicit retention rows,
+     with event-presence and physical/causal interpretation ceilings retained;
+   - the exact allocation-free PID1 parser accepts only the module getter's
+     canonical ordered grammar, computes the same SHA-256/OR/poll0/nonzero
+     summary as the Python authority, and rejects malformed or semantically
+     impossible strings before any runtime classification;
    - the actual transformed C publisher emits the same 100-byte request-v3
      bytes as the Carrier model for all nine terminal and five MUX details,
      rejects out-of-family details, and leaves the inherited request-v2
@@ -1763,9 +1808,15 @@ This report was closed at H0 with the following host-side checks:
   including the exact 491-module consumer scan and negative custom-source
   and linked-receipt fixtures;
 - `python3 -m unittest tests.test_s22plus_fyg8_max77705_telemetry` passed
-  12/12, including six-row surjectivity, nine terminal and five MUX retained
-  preimages, claim-busy exclusion, payload overflow, and the real Process-v2
-  adapter round trip;
+  19/19, including six-row surjectivity, nine terminal and five MUX retained
+  preimages, claim-busy exclusion, the 44-byte overflow summary and tamper
+  rejection, fixed-result validation for overflow and result-absent envelopes,
+  all four post2-retention rows, and the real Process-v2 adapter round trip;
+- `python3 -m unittest
+  tests.test_s22plus_fyg8_max77705_runtime_parser` passed 1/1 by compiling and
+  executing the allocation-free C parser over four valid strings and thirteen
+  mutations, matching Python summaries and producing a pinned-clang AArch64
+  freestanding object;
 - `python3 -m unittest tests.test_s22plus_fyg8_max77705_checkpoint` passed 1/1
   by compiling and executing the transformed full C checkpoint client and
   comparing all 15 request-v3 byte strings with the Carrier model;

@@ -14,15 +14,16 @@ import s22plus_fyg8_p310_source_contract as source_contract
 import s22plus_fyg8_p315_telemetry_decoder as inherited
 
 
-SCHEMA = "s22plus_fyg8_max77705_telemetry_decoder_v1"
-DECODER_ID = "s22plus_fyg8_max77705_carrier_v2_two_slot_envelope_v1"
-OVERLAY_CONTRACT_ID = "s22plus-fyg8-max77705-mux-diag-carrier-v2-observer-v1"
+SCHEMA = "s22plus_fyg8_max77705_telemetry_decoder_v2"
+DECODER_ID = "s22plus_fyg8_max77705_carrier_v2_two_slot_envelope_v2"
+OVERLAY_CONTRACT_ID = "s22plus-fyg8-max77705-mux-diag-carrier-v2-observer-v2"
 PARENT_SOURCE_CONTRACT_ID = source_contract.CONTRACT_ID
 PROFILE = inherited.PROFILE
 POLICY_PREIMAGE = (
-    "S22PLUS_FYG8_MAX77705_TELEMETRY_DECODER_V1|carrier=S22E1L2-192|"
-    "pair=106,107|a=0xda3|b=0x6701-0x673f|envelope=MXD1-128|"
-    "poll=packbits-or-no-proof-overflow|negative=claim-busy-empty"
+    "S22PLUS_FYG8_MAX77705_TELEMETRY_DECODER_V2|carrier=S22E1L2-192|"
+    "pair=106,107|a=0xda3|b=0x6701-0x673f|envelope=MXD2-128|"
+    "poll=packbits-or-sha256-or-poll0-nonzero-summary-no-proof|"
+    "retention=post2-control1-x-post2-poll0|negative=claim-busy-empty"
 )
 POLICY_SHA256 = hashlib.sha256(POLICY_PREIMAGE.encode("ascii")).hexdigest()
 POLICY_ID = POLICY_SHA256[:32]

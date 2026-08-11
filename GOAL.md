@@ -133,7 +133,7 @@ The exact 491-module audit still matters: it proves PDIC alone consumes the
 three removable MFD updater exports and also records the much broader stock
 PDIC/MUIC/CC/PD/alternate/AFC/QC/notifier/user-control surface. That former
 full-PDIC custom-66 design is now rejected as disproportionate, not retained as
-the preferred implementation. The v9 authority retains the corrected source
+the preferred implementation. The v10 authority retains the corrected source
 validator and fixes the logical
 transaction shape: neither post value may be synthesized, both reads occur
 outside the optional-write branch, post2 follows the exact retention dwell,
@@ -160,10 +160,10 @@ with SHA-256
 The audit proves exact FYG8 vermagic, 15 imports, 16 matching modversions, CFI
 callback jump-table relocations, registered call counts, and zero exports.
 The current private contract receipt is
-`custom-surface-authority-20260812-14.json`, SHA-256
-`c44d35fae083706337c6618cd90e232fb990cf946665f22ad9e73703b3a5628e`;
+`custom-surface-authority-20260812-15.json`, SHA-256
+`54abb42839390d7a9642ff124b545a5bc32b7d94f14cf5d88341955e540fd4d5`;
 its embedded contract is
-`8c045bf4fc394b11bb487e78423d8e3b3f79e8a89ee3694f0083fd9b19dc8779`.
+`309ca1fba6c3e0892445fb92ad5a7936c12f1a3ce7e2656eea0d59207b9a9c19`.
 Status is strictly
 `SOURCE_AND_LINKED_AB_ABI_QUALIFIED_RUNTIME_NOT_SATISFIED`; no boot package
 was created and no module was loaded.
@@ -197,12 +197,24 @@ footprint; SHA-256
 rejected five out-of-family details, and left the inherited v2 publisher
 byte-identical. Oversized lossless poll evidence terminates in the ninth,
 explicit payload-unrepresentable no-proof bucket rather than truncating or
-inventing causality. That bucket retains the four per-command poll counts,
-total raw count, SHA-256, and fixed transaction/result fields, but no raw poll
-bytes or prefix/suffix sample; it can identify which transaction was long but
-cannot reconstruct the UIC byte sequence that explains why.
+inventing causality. Envelope v2 keeps the four per-command poll counts, total
+raw count, SHA-256, per-command OR, poll0, nonzero count, and fixed
+transaction/result fields in 44 bytes, leaving 32 bytes zero; it retains no raw
+sequence and cannot recover MUX causality. Post2 `CONTROL1` crossed with post2
+poll0 now yields four explicit retention rows. The `0x7b` detection mask and
+`0x0a` DCD/charger-type subset prove only a retained event and temporal
+correlation, never physical switch movement or causation.
 
-This closes only schema, carrier, decoder, and publisher geometry. Packaging
+The exact allocation-free PID1 result parser is also H0-qualified but not live
+integrated. Its private receipt is `runtime-parser-20260812-01.json`, SHA-256
+`ec315f67f6420df506e63a8e2c7e1c329ffeafcf8a1b7e079411c6ccea8104e6`.
+The actual C accepted four canonical module strings, rejected thirteen syntax
+or semantic mutations, matched Python SHA-256/OR/poll0/nonzero summaries, and
+compiled freestanding for AArch64 with the pinned Android clang. It performs no
+I/O and names no sysfs path.
+
+This closes schema, carrier, decoder, publisher geometry, and the isolated
+result parser. Packaging
 and F1 approval remain blocked because the target-specific override/bind
 runtime has not been materialized, the exact sysfs names and pre-existing bind
 state have not been captured by the required fresh D0, host-sidecar positive

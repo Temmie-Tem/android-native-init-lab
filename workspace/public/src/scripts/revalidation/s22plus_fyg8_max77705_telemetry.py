@@ -4,8 +4,8 @@
 The fixed Image retains one 192-byte record with two 64-byte request payloads.
 This module therefore defines one fixed 128-byte envelope.  Read-to-clear poll
 bytes are PackBits-compressed losslessly.  A result that cannot fit is retained
-as an explicit no-proof overflow bucket with a digest; it is never decoded as a
-MUX result.
+as an explicit no-proof overflow bucket with a digest and bounded per-command
+poll summary; it is never decoded as a MUX result.
 """
 
 from __future__ import annotations
@@ -21,18 +21,38 @@ import s22plus_fyg8_p310_carrier_model as carrier
 import s22plus_fyg8_p308_telemetry_spec as fixed_spec
 
 
-SCHEMA = "s22plus_fyg8_max77705_telemetry_v1"
+SCHEMA = "s22plus_fyg8_max77705_telemetry_v2"
 TARGET = surface.TARGET
 
-ENVELOPE_MAGIC = b"MXD1"
-ENVELOPE_VERSION = 1
+ENVELOPE_MAGIC = b"MXD2"
+ENVELOPE_VERSION = 2
 ENVELOPE_SIZE = 128
 SLOT_PAYLOAD_SIZE = 64
 PAYLOAD_AREA_OFFSET = 48
 PAYLOAD_AREA_SIZE = 76
 CRC_OFFSET = 124
 POLL_ENCODING_PACKBITS = 1
-POLL_ENCODING_SHA256_ONLY = 2
+POLL_ENCODING_SHA256_SUMMARY = 2
+POLL_SUMMARY_DIGEST_SIZE = 32
+POLL_SUMMARY_VECTOR_SIZE = 4
+POLL_SUMMARY_SIZE = 44
+
+UIC_AP_COMMAND_RESPONSE = 0x80
+UIC_DETECTION_LATCH_MASK = 0x7B
+UIC_BC12_REDETECTION_LATCH_MASK = 0x0A
+COM_USB = 0x09
+STAGE_PRE = 5
+STAGE_WRITE = 6
+STAGE_POST1 = 7
+STAGE_POST2 = 9
+STAGE_COMPLETE = 10
+RC_ETIMEDOUT = -110
+TIMEOUT_SLOT_BY_STAGE = {
+    STAGE_PRE: 0,
+    STAGE_WRITE: 1,
+    STAGE_POST1: 2,
+    STAGE_POST2: 3,
+}
 
 FLAG_RESULT_PRESENT = 1 << 0
 FLAG_POLL_OVERFLOW = 1 << 1
@@ -90,7 +110,7 @@ DRIVER_STATES = {
 }
 DRIVER_STATE_NAMES = {value: key for key, value in DRIVER_STATES.items()}
 
-CRC_DOMAIN = b"S22PLUS-FYG8-MAX77705-DIAG-V1\0"
+CRC_DOMAIN = b"S22PLUS-FYG8-MAX77705-DIAG-V2\0"
 
 
 class TelemetryError(ValueError):
@@ -139,6 +159,17 @@ class DiagnosticResult:
     poll_bytes: tuple[bytes, bytes, bytes, bytes]
     write_attempted: int
     write_ambiguous: int
+
+
+@dataclass(frozen=True)
+class PollSummary:
+    sha256: bytes
+    or_mask: tuple[int, int, int, int]
+    poll0: tuple[int, int, int, int]
+    nonzero_count: tuple[int, int, int, int]
+
+    def payload(self) -> bytes:
+        return self.sha256 + bytes(self.or_mask + self.poll0 + self.nonzero_count)
 
 
 def _u8(value: int, label: str) -> int:
@@ -223,9 +254,95 @@ def eagain_terminal_bucket(row_name: str) -> str:
     return str(bucket)
 
 
-def _validate_result(result: DiagnosticResult) -> bytes:
+def summarize_poll_vectors(
+    poll_vectors: tuple[bytes, bytes, bytes, bytes],
+) -> PollSummary:
+    if len(poll_vectors) != POLL_SUMMARY_VECTOR_SIZE:
+        raise TelemetryError("poll-vector extent differs")
+    if any(not isinstance(value, bytes) or len(value) > 100 for value in poll_vectors):
+        raise TelemetryError("poll vector is outside the source bound")
+    raw = b"".join(poll_vectors)
+    return PollSummary(
+        sha256=hashlib.sha256(raw).digest(),
+        or_mask=tuple(_poll_or(values) for values in poll_vectors),
+        poll0=tuple(values[0] if values else 0 for values in poll_vectors),
+        nonzero_count=tuple(
+            sum(value != 0 for value in values) for values in poll_vectors
+        ),
+    )
+
+
+def _poll_or(values: bytes) -> int:
+    result = 0
+    for value in values:
+        result |= value
+    return result
+
+
+def _validate_poll_summary(
+    summary: PollSummary,
+    *,
+    counts: tuple[int, int, int, int],
+    command_issued_mask: int,
+    response_seen_mask: int,
+    stage: int,
+    rc: int,
+) -> None:
+    if (
+        len(summary.sha256) != POLL_SUMMARY_DIGEST_SIZE
+        or len(summary.or_mask) != POLL_SUMMARY_VECTOR_SIZE
+        or len(summary.poll0) != POLL_SUMMARY_VECTOR_SIZE
+        or len(summary.nonzero_count) != POLL_SUMMARY_VECTOR_SIZE
+    ):
+        raise TelemetryError("poll summary extent differs")
+    if command_issued_mask & ~0x0F or response_seen_mask & ~0x0F:
+        raise TelemetryError("command or response mask exceeds four slots")
+    if response_seen_mask & ~command_issued_mask:
+        raise TelemetryError("response mask is not a subset of issued commands")
+    for slot, (count, or_mask, poll0, nonzero_count) in enumerate(
+        zip(
+            counts,
+            summary.or_mask,
+            summary.poll0,
+            summary.nonzero_count,
+            strict=True,
+        )
+    ):
+        _u8(count, f"poll count {slot}")
+        _u8(or_mask, f"poll OR {slot}")
+        _u8(poll0, f"poll0 {slot}")
+        _u8(nonzero_count, f"poll nonzero count {slot}")
+        if count > 100:
+            raise TelemetryError("poll count exceeds the source bound")
+        if nonzero_count > count:
+            raise TelemetryError("poll nonzero count exceeds poll count")
+        if (or_mask == 0) != (nonzero_count == 0):
+            raise TelemetryError("poll OR and nonzero count disagree")
+        if count == 0 and (or_mask or poll0 or nonzero_count):
+            raise TelemetryError("empty poll slot carries a nonempty summary")
+        if poll0 & ~or_mask:
+            raise TelemetryError("poll0 contains a bit absent from the poll OR")
+        if count and not command_issued_mask & (1 << slot):
+            raise TelemetryError("poll bytes exist without an issued command")
+        if response_seen_mask & (1 << slot) and not (
+            or_mask & UIC_AP_COMMAND_RESPONSE
+        ):
+            raise TelemetryError("response witness lacks APCmdResI in its slot")
+    if rc == RC_ETIMEDOUT:
+        active_slot = TIMEOUT_SLOT_BY_STAGE.get(stage)
+        if active_slot is None:
+            raise TelemetryError("timeout result has no command-stage slot")
+        if summary.or_mask[active_slot] & UIC_AP_COMMAND_RESPONSE:
+            raise TelemetryError("timed-out slot contains APCmdResI")
+
+
+def _validate_result_fixed(result: DiagnosticResult) -> None:
     _u8(result.stage, "diagnostic stage")
     _s32(result.rc, "diagnostic rc")
+    if not 2 <= result.stage <= STAGE_COMPLETE:
+        raise TelemetryError("published diagnostic stage is not source-reachable")
+    if (result.rc == 0) != (result.stage == STAGE_COMPLETE):
+        raise TelemetryError("diagnostic success and complete stage disagree")
     for label, value in (
         ("pmic valid mask", result.pmic_valid_mask),
         ("pmic id", result.pmic_id),
@@ -240,8 +357,20 @@ def _validate_result(result: DiagnosticResult) -> bytes:
         _u8(value, label)
     if result.initial_uic_valid not in {0, 1}:
         raise TelemetryError("initial UIC validity is not binary")
+    if result.pmic_valid_mask > 3:
+        raise TelemetryError("PMIC validity mask exceeds its two source bits")
     if result.write_attempted not in {0, 1} or result.write_ambiguous not in {0, 1}:
         raise TelemetryError("write flags are not binary")
+    reachable_masks = {0x00, 0x01, 0x03, 0x05, 0x07, 0x0D, 0x0F}
+    if (
+        result.command_issued_mask not in reachable_masks
+        or result.response_seen_mask not in reachable_masks
+    ):
+        raise TelemetryError("command or response mask is not source-reachable")
+    if result.write_attempted != bool(result.command_issued_mask & 0x02):
+        raise TelemetryError("write-attempt flag and command mask disagree")
+    if result.write_ambiguous and not result.write_attempted:
+        raise TelemetryError("ambiguous-write flag lacks a write attempt")
     for label, values in (
         ("response opcode", result.response_opcode),
         ("response value", result.response_value),
@@ -250,12 +379,106 @@ def _validate_result(result: DiagnosticResult) -> bytes:
             raise TelemetryError(f"{label} extent differs")
         for value in values:
             _u8(value, label)
-    if len(result.poll_bytes) != 4:
+    if result.stage == STAGE_COMPLETE:
+        if (
+            result.command_issued_mask not in {0x0D, 0x0F}
+            or result.response_seen_mask != result.command_issued_mask
+            or result.response_opcode[0] != 0x05
+            or result.response_opcode[2] != 0x05
+            or result.response_opcode[3] != 0x05
+            or (
+                result.command_issued_mask & 0x02
+                and result.response_opcode[1] != 0x06
+            )
+            or result.write_ambiguous != 0
+        ):
+            raise TelemetryError("complete diagnostic tuple is not source-reachable")
+
+
+def _validate_result(result: DiagnosticResult) -> bytes:
+    _validate_result_fixed(result)
+    if len(result.poll_bytes) != POLL_SUMMARY_VECTOR_SIZE:
         raise TelemetryError("poll-vector extent differs")
     for value in result.poll_bytes:
         if not isinstance(value, bytes) or len(value) > 100:
             raise TelemetryError("poll vector is outside the source bound")
+    summary = summarize_poll_vectors(result.poll_bytes)
+    _validate_poll_summary(
+        summary,
+        counts=tuple(len(value) for value in result.poll_bytes),
+        command_issued_mask=result.command_issued_mask,
+        response_seen_mask=result.response_seen_mask,
+        stage=result.stage,
+        rc=result.rc,
+    )
     return b"".join(result.poll_bytes)
+
+
+def _post2_retention_interpretation(result: dict[str, Any]) -> dict[str, Any] | None:
+    """Correlate the terminal CONTROL1 value with the retention poll0 latch.
+
+    The first post2 UIC read contains the latch accumulated since post1's last
+    UIC read plus events up to that post2 poll.  It is an event-presence
+    witness, not proof that the physical switch moved or that a particular
+    event caused the terminal CONTROL1 value.
+    """
+
+    if (
+        result["stage"] != STAGE_COMPLETE
+        or result["rc"] != 0
+        or result["response_seen_mask"] & 0x0C != 0x0C
+        or result["response_opcode"][2] != 0x05
+        or result["response_opcode"][3] != 0x05
+        or result["response_value"][2] != COM_USB
+    ):
+        return None
+    post2 = result["response_value"][3]
+    post2_poll0 = result["poll0"][3]
+    detection = post2_poll0 & UIC_DETECTION_LATCH_MASK
+    bc12_redetection = post2_poll0 & UIC_BC12_REDETECTION_LATCH_MASK
+    if post2 == COM_USB:
+        classification = (
+            "POST1_USB_POST2_USB_WITH_RETENTION_DETECTION_LATCH"
+            if detection
+            else "POST1_USB_POST2_USB_WITHOUT_RETENTION_DETECTION_LATCH"
+        )
+    else:
+        classification = (
+            "POST1_USB_POST2_NONUSB_WITH_RETENTION_DETECTION_LATCH"
+            if detection
+            else "POST1_USB_POST2_NONUSB_WITHOUT_RETENTION_DETECTION_LATCH"
+        )
+    return {
+        "classification": classification,
+        "post2_control1": post2,
+        "post2_poll0": post2_poll0,
+        "detection_latch_mask": detection,
+        "bc12_redetection_latch_mask": bc12_redetection,
+        "event_presence_only": True,
+        "physical_switch_movement_proven": False,
+        "causal_trigger_proven": False,
+    }
+
+
+def format_module_result(result: DiagnosticResult) -> bytes:
+    """Emit the exact canonical string produced by the diagnostic getter."""
+
+    _validate_result(result)
+    polls = tuple(value.hex() for value in result.poll_bytes)
+    return (
+        f"v=1 stage={result.stage} rc={result.rc} "
+        f"pmic_v={result.pmic_valid_mask:02x} pmic_id={result.pmic_id:02x} "
+        f"pmic_rev={result.pmic_rev:02x} uic0_v={result.initial_uic_valid} "
+        f"uic0={result.initial_uic:02x} issued={result.command_issued_mask:02x} "
+        f"seen={result.response_seen_mask:02x} "
+        f"wr_attempt={result.write_attempted} wr_amb={result.write_ambiguous} "
+        f"rsp={''.join(f'{value:02x}' for value in result.response_opcode)} "
+        f"val={''.join(f'{value:02x}' for value in result.response_value)} "
+        f"p0n={len(result.poll_bytes[0])} p0={polls[0]} "
+        f"p1n={len(result.poll_bytes[1])} p1={polls[1]} "
+        f"p2n={len(result.poll_bytes[2])} p2={polls[2]} "
+        f"p3n={len(result.poll_bytes[3])} p3={polls[3]}\n"
+    ).encode("ascii")
 
 
 def packbits_encode(data: bytes) -> bytes:
@@ -348,8 +571,10 @@ def encode_envelope(
     mux_code = 0 if mux_class is None else MUX_CODE_BY_NAME[mux_class]
     flags = FLAG_BINDING_PRESENT
     raw_poll = b""
+    poll_summary: PollSummary | None = None
     if result is not None:
         raw_poll = _validate_result(result)
+        poll_summary = summarize_poll_vectors(result.poll_bytes)
         flags |= FLAG_RESULT_PRESENT
     elif mux_class is not None:
         raise TelemetryError("MUX classification requires a diagnostic result")
@@ -363,8 +588,10 @@ def encode_envelope(
         mux_code = 0
         flags |= FLAG_POLL_OVERFLOW
         flags &= ~FLAG_POLL_LOSSLESS
-        encoding = POLL_ENCODING_SHA256_ONLY
-        payload = hashlib.sha256(raw_poll).digest()
+        if poll_summary is None:
+            raise TelemetryError("overflow result lacks its poll summary")
+        encoding = POLL_ENCODING_SHA256_SUMMARY
+        payload = poll_summary.payload()
     else:
         flags |= FLAG_POLL_LOSSLESS
 
@@ -427,66 +654,110 @@ def decode_envelope(envelope: bytes) -> dict[str, Any]:
     if envelope[47] or any(envelope[48 + envelope[46] : CRC_OFFSET]):
         raise TelemetryError("Max77705 envelope reserved bytes differ")
 
+    result_present = bool(flags & FLAG_RESULT_PRESENT)
+    if not result_present and any(envelope[8:34]):
+        raise TelemetryError("result-absent envelope carries diagnostic bytes")
+
     binding_values = tuple(envelope[34:43])
     binding = BindingWitness(*binding_values)
     _validate_binding(binding)
     raw_size = struct.unpack_from("<H", envelope, 44)[0]
+    counts = tuple(envelope[30:34])
+    if sum(counts) != raw_size:
+        raise TelemetryError("Max77705 poll counts differ from raw extent")
     encoded_size = envelope[46]
     if encoded_size > PAYLOAD_AREA_SIZE:
         raise TelemetryError("Max77705 payload length differs")
     encoded = envelope[PAYLOAD_AREA_OFFSET : PAYLOAD_AREA_OFFSET + encoded_size]
     encoding = envelope[43]
     poll_vectors: tuple[bytes, bytes, bytes, bytes] | None = None
-    poll_digest: str | None = None
+    poll_summary: PollSummary | None = None
     causal_result_allowed = False
     if flags & FLAG_POLL_OVERFLOW:
         if (
             terminal_bucket != "result_payload_unrepresentable"
             or mux_code != 0
+            or not result_present
             or flags & FLAG_POLL_LOSSLESS
-            or encoding != POLL_ENCODING_SHA256_ONLY
-            or encoded_size != hashlib.sha256().digest_size
+            or encoding != POLL_ENCODING_SHA256_SUMMARY
+            or encoded_size != POLL_SUMMARY_SIZE
         ):
             raise TelemetryError("Max77705 overflow envelope is not fail-closed")
-        poll_digest = encoded.hex()
+        poll_summary = PollSummary(
+            sha256=encoded[:POLL_SUMMARY_DIGEST_SIZE],
+            or_mask=tuple(encoded[32:36]),
+            poll0=tuple(encoded[36:40]),
+            nonzero_count=tuple(encoded[40:44]),
+        )
     else:
         if not flags & FLAG_POLL_LOSSLESS or encoding != POLL_ENCODING_PACKBITS:
             raise TelemetryError("Max77705 causal envelope is not lossless")
         raw = packbits_decode(encoded, expected_size=raw_size)
-        counts = tuple(envelope[30:34])
-        if sum(counts) != raw_size:
-            raise TelemetryError("Max77705 poll counts differ from raw extent")
         parts: list[bytes] = []
         cursor = 0
         for count in counts:
             parts.append(raw[cursor : cursor + count])
             cursor += count
         poll_vectors = tuple(parts)  # type: ignore[assignment]
+        poll_summary = summarize_poll_vectors(poll_vectors)
         causal_result_allowed = mux_class is not None
 
-    result_present = bool(flags & FLAG_RESULT_PRESENT)
     if mux_class is not None and not result_present:
         raise TelemetryError("Max77705 MUX row lacks a diagnostic result")
     result: dict[str, Any] | None = None
     if result_present:
+        if poll_summary is None:
+            raise TelemetryError("diagnostic result lacks its poll summary")
+        fixed_result = DiagnosticResult(
+            stage=envelope[8],
+            rc=struct.unpack_from("<i", envelope, 9)[0],
+            pmic_valid_mask=envelope[13],
+            pmic_id=envelope[14],
+            pmic_rev=envelope[15],
+            initial_uic_valid=envelope[16],
+            initial_uic=envelope[17],
+            command_issued_mask=envelope[18],
+            response_seen_mask=envelope[19],
+            response_opcode=tuple(envelope[22:26]),
+            response_value=tuple(envelope[26:30]),
+            poll_bytes=(b"", b"", b"", b"") if poll_vectors is None else poll_vectors,
+            write_attempted=envelope[20],
+            write_ambiguous=envelope[21],
+        )
+        if poll_vectors is None:
+            _validate_result_fixed(fixed_result)
+            _validate_poll_summary(
+                poll_summary,
+                counts=counts,
+                command_issued_mask=fixed_result.command_issued_mask,
+                response_seen_mask=fixed_result.response_seen_mask,
+                stage=fixed_result.stage,
+                rc=fixed_result.rc,
+            )
+        else:
+            _validate_result(fixed_result)
         result = {
-            "stage": envelope[8],
-            "rc": struct.unpack_from("<i", envelope, 9)[0],
-            "pmic_valid_mask": envelope[13],
-            "pmic_id": envelope[14],
-            "pmic_rev": envelope[15],
-            "initial_uic_valid": envelope[16],
-            "initial_uic": envelope[17],
-            "command_issued_mask": envelope[18],
-            "response_seen_mask": envelope[19],
-            "write_attempted": envelope[20],
-            "write_ambiguous": envelope[21],
-            "response_opcode": tuple(envelope[22:26]),
-            "response_value": tuple(envelope[26:30]),
-            "poll_count": tuple(envelope[30:34]),
+            "stage": fixed_result.stage,
+            "rc": fixed_result.rc,
+            "pmic_valid_mask": fixed_result.pmic_valid_mask,
+            "pmic_id": fixed_result.pmic_id,
+            "pmic_rev": fixed_result.pmic_rev,
+            "initial_uic_valid": fixed_result.initial_uic_valid,
+            "initial_uic": fixed_result.initial_uic,
+            "command_issued_mask": fixed_result.command_issued_mask,
+            "response_seen_mask": fixed_result.response_seen_mask,
+            "write_attempted": fixed_result.write_attempted,
+            "write_ambiguous": fixed_result.write_ambiguous,
+            "response_opcode": fixed_result.response_opcode,
+            "response_value": fixed_result.response_value,
+            "poll_count": counts,
             "poll_bytes": poll_vectors,
-            "poll_sha256": poll_digest,
+            "poll_sha256": poll_summary.sha256.hex(),
+            "poll_or": poll_summary.or_mask,
+            "poll0": poll_summary.poll0,
+            "poll_nonzero_count": poll_summary.nonzero_count,
         }
+        result["post2_retention"] = _post2_retention_interpretation(result)
     decoded = {
         "schema": SCHEMA,
         "terminal_bucket": terminal_bucket,
@@ -640,6 +911,10 @@ def validate() -> dict[str, Any]:
         ENVELOPE_SIZE != 2 * SLOT_PAYLOAD_SIZE
         or SLOT_PAYLOAD_SIZE != carrier.REQUEST_PAYLOAD_SIZE
         or PAYLOAD_AREA_OFFSET + PAYLOAD_AREA_SIZE != CRC_OFFSET
+        or POLL_SUMMARY_SIZE != 44
+        or POLL_SUMMARY_SIZE > PAYLOAD_AREA_SIZE
+        or UIC_DETECTION_LATCH_MASK != 0x7B
+        or UIC_BC12_REDETECTION_LATCH_MASK != 0x0A
         or len(TERMINAL_BUCKET_KEYS) != 9
         or len(set(TERMINAL_DETAIL_BY_KEY.values())) != 9
         or not all(0x6701 <= value <= 0x673F for value in (
@@ -658,6 +933,9 @@ def validate() -> dict[str, Any]:
         "slot_payload_size": SLOT_PAYLOAD_SIZE,
         "envelope_size": ENVELOPE_SIZE,
         "packbits_payload_capacity": PAYLOAD_AREA_SIZE,
+        "overflow_poll_summary_size": POLL_SUMMARY_SIZE,
+        "overflow_summary_spare_bytes": PAYLOAD_AREA_SIZE - POLL_SUMMARY_SIZE,
+        "post2_poll0_retention_axis": True,
         "terminal_bucket_count": len(TERMINAL_BUCKET_KEYS),
         "mux_device_class_count": len(MUX_DEVICE_CLASSES),
         "negative_invariant_count": len(surface.DIAG_EAGAIN_NEGATIVE_INVARIANTS),

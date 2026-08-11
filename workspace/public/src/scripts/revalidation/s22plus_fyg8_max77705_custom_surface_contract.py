@@ -25,7 +25,7 @@ from typing import Any
 from s22plus_fyg8_f2fs_module_corpus import FILE_TYPE_REGULAR, F2FSReader
 
 
-SCHEMA = "s22plus_fyg8_max77705_custom_surface_contract_v9"
+SCHEMA = "s22plus_fyg8_max77705_custom_surface_contract_v10"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 DIAG_SOURCE = Path(
     "workspace/public/src/kernel-modules/s22plus_max77705_mux_diag/"
@@ -58,11 +58,49 @@ P315_PLAN = Path(
 )
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_max77705_gate0/"
-    "custom-surface-authority-20260812-14.json"
+    "custom-surface-authority-20260812-15.json"
 )
 DIAG_BUILD_RECEIPT = Path(
     "workspace/private/outputs/s22plus_fyg8_max77705_gate0/"
     "custom-module-build-20260812-07/build-audit.json"
+)
+RUNTIME_PARSER_RECEIPT = Path(
+    "workspace/private/outputs/s22plus_fyg8_max77705_gate0/"
+    "runtime-parser-20260812-01.json"
+)
+RUNTIME_PARSER_RECEIPT_IDENTITY = (
+    2_368,
+    "ec315f67f6420df506e63a8e2c7e1c329ffeafcf8a1b7e079411c6ccea8104e6",
+)
+RUNTIME_PARSER_SOURCE_IDENTITY = (
+    "workspace/public/src/native-init/"
+    "s22plus_fyg8_max77705_result_parser.inc.c",
+    19_499,
+    "d8b3d152823dbf706682802142328f515c7d6c422a18a7309331814bf69e4b65",
+)
+RUNTIME_PARSER_FIXTURE_SOURCE_IDENTITY = (
+    "workspace/public/src/native-init/"
+    "s22plus_fyg8_max77705_result_parser_fixture.c",
+    1_937,
+    "3093151c9f613ed781a9c7fa00efcede4148f061bb25e30c8c992cbd789d9f92",
+)
+RUNTIME_PARSER_FIXTURE_DRIVER_IDENTITY = (
+    "workspace/public/src/scripts/revalidation/"
+    "s22plus_fyg8_max77705_runtime_parser_fixture.py",
+    13_362,
+    "1d73a82e69701006d0c31efcd16fa476ccd95351fdac46323a9deebb4cf27374",
+)
+RUNTIME_PARSER_TELEMETRY_AUTHORITY_IDENTITY = (
+    "workspace/public/src/scripts/revalidation/"
+    "s22plus_fyg8_max77705_telemetry.py",
+    36_607,
+    "9c72afcf172aa109158c844b111efa9b0f1ff7027f10185aac9b80b996b156cc",
+)
+RUNTIME_PARSER_CLANG_IDENTITY = (
+    "workspace/private/work/toolchains/aosp-clang-android12-release/"
+    "clang-r416183b/bin/clang",
+    2_999_243,
+    "b2ce016755bddbab76549895bca07b1dc8d14a3e315b8b3567097fef04eadae1",
 )
 DIAG_BUILD_RECEIPT_IDENTITY = (
     19_492,
@@ -486,11 +524,53 @@ DIAG_RETAINED_PAYLOAD_CONTRACT = {
     "retained_slot_count": 2,
     "request_payload_bytes_per_slot": 64,
     "fixed_envelope_bytes": 128,
-    "encoding": "MAX77705_DIAG_V1_PACKBITS",
+    "encoding": "MAX77705_DIAG_V2_PACKBITS_OR_BOUNDED_OVERFLOW_SUMMARY",
     "lossless_poll_bytes_required_for_causal_rows": True,
     "unrepresentable_poll_payload_is_terminal_no_proof": True,
     "unrepresentable_terminal_bucket_key": "result_payload_unrepresentable",
+    "overflow_payload_bytes": 44,
+    "overflow_payload_layout": {
+        "raw_poll_sha256": [0, 32],
+        "per_command_or": [32, 36],
+        "per_command_poll0": [36, 40],
+        "per_command_nonzero_count": [40, 44],
+    },
+    "overflow_payload_spare_bytes": 32,
+    "overflow_causal_result_allowed": False,
+    "response_seen_implies_slot_or_apcmdresi": True,
+    "timeout_active_slot_or_apcmdresi_forbidden": True,
+    "or_apcmdresi_without_response_seen_allowed": True,
+    "or_zero_iff_nonzero_count_zero": True,
     "full_lto_or_fixed_image_change_required": False,
+}
+DIAG_POST2_RETENTION_MATRIX = {
+    "applicability": (
+        "complete result with validated post1 and post2 CONTROL1_R responses "
+        "and post1 CONTROL1 equal to COM_USB"
+    ),
+    "post2_poll0_interval": (
+        "latch accumulated after the final post1 UIC read through the first "
+        "post2 UIC poll"
+    ),
+    "detection_latch_mask": 0x7B,
+    "bc12_redetection_latch_mask": 0x0A,
+    "rows": {
+        "post2_usb_without_detection_latch": (
+            "quiet retention interval; weak opcode-visible maintenance evidence"
+        ),
+        "post2_usb_with_detection_latch": (
+            "detection event presence correlated with retained opcode-visible COM_USB"
+        ),
+        "post2_nonusb_with_detection_latch": (
+            "late opcode-visible reversion correlated with detection event presence"
+        ),
+        "post2_nonusb_without_detection_latch": (
+            "late opcode-visible reversion without a retained detection-event witness"
+        ),
+    },
+    "event_presence_only": True,
+    "physical_switch_movement_proven": False,
+    "causal_trigger_proven": False,
 }
 REJECTED_FULL_PDIC_CUSTOM_ADDITIONS = (
     "msm-geni-se.ko",
@@ -670,6 +750,84 @@ def validate_file(path: Path, size: int, digest: str, label: str) -> dict[str, A
     if actual != (size, digest):
         raise SurfaceError(f"{label} identity mismatch: {actual}")
     return {"path": str(path), "size": actual[0], "sha256": actual[1]}
+
+
+def validate_runtime_parser_receipt(root: Path) -> dict[str, Any]:
+    path = root / RUNTIME_PARSER_RECEIPT
+    size, digest = RUNTIME_PARSER_RECEIPT_IDENTITY
+    validate_file(path, size, digest, "Max77705 runtime-parser receipt")
+    value = json.loads(path.read_text(encoding="utf-8"))
+    expected_parser_path, expected_parser_size, expected_parser_digest = (
+        RUNTIME_PARSER_SOURCE_IDENTITY
+    )
+    expected_fixture_path, expected_fixture_size, expected_fixture_digest = (
+        RUNTIME_PARSER_FIXTURE_SOURCE_IDENTITY
+    )
+    expected_driver_path, expected_driver_size, expected_driver_digest = (
+        RUNTIME_PARSER_FIXTURE_DRIVER_IDENTITY
+    )
+    expected_telemetry_path, expected_telemetry_size, expected_telemetry_digest = (
+        RUNTIME_PARSER_TELEMETRY_AUTHORITY_IDENTITY
+    )
+    expected_clang_path, expected_clang_size, expected_clang_digest = (
+        RUNTIME_PARSER_CLANG_IDENTITY
+    )
+    if (
+        value.get("schema")
+        != "s22plus_fyg8_max77705_runtime_parser_fixture_v1"
+        or value.get("verdict")
+        != "PASS_MAX77705_ACTUAL_PID1_PARSER_AND_SUMMARY_HOST_ONLY"
+        or value.get("host_only") is not True
+        or value.get("device_contact") is not False
+        or value.get("valid_vector_count") != 4
+        or value.get("invalid_mutation_count") != 13
+        or value.get("python_summary_matches_actual_c") is not True
+        or value.get("strict_module_string_grammar") is not True
+        or value.get("aarch64_freestanding_compile") is not True
+        or value.get("sysfs_path_or_driver_override_integrated") is not False
+        or value.get("fresh_d0_still_required") is not True
+        or value.get("verified") is not True
+        or value.get("parser_source")
+        != {
+            "path": expected_parser_path,
+            "size": expected_parser_size,
+            "sha256": expected_parser_digest,
+        }
+        or value.get("host_fixture_source")
+        != {
+            "path": expected_fixture_path,
+            "size": expected_fixture_size,
+            "sha256": expected_fixture_digest,
+        }
+        or value.get("fixture_driver_source")
+        != {
+            "path": expected_driver_path,
+            "size": expected_driver_size,
+            "sha256": expected_driver_digest,
+        }
+        or value.get("telemetry_authority_source")
+        != {
+            "path": expected_telemetry_path,
+            "size": expected_telemetry_size,
+            "sha256": expected_telemetry_digest,
+        }
+        or {
+            key: value.get("pinned_aarch64_clang", {}).get(key)
+            for key in ("path", "size", "sha256")
+        }
+        != {
+            "path": expected_clang_path,
+            "size": expected_clang_size,
+            "sha256": expected_clang_digest,
+        }
+    ):
+        raise SurfaceError("Max77705 runtime-parser receipt contract differs")
+    return {
+        "path": str(RUNTIME_PARSER_RECEIPT),
+        "size": size,
+        "sha256": digest,
+        "payload": value,
+    }
 
 
 def validate_tool(path: Path, size: int | None, digest: str, label: str) -> dict[str, Any]:
@@ -1534,6 +1692,28 @@ def validate_runtime_integration_contract(diagnostic: dict[str, Any]) -> bool:
         raise SurfaceError("local terminal-row admission rule is incomplete")
     if diagnostic.get("retained_payload_contract") != DIAG_RETAINED_PAYLOAD_CONTRACT:
         raise SurfaceError("diagnostic retained-payload contract is incomplete")
+    if diagnostic.get("post2_retention_matrix") != DIAG_POST2_RETENTION_MATRIX:
+        raise SurfaceError("diagnostic post2-retention matrix is incomplete")
+    runtime_parser = diagnostic.get("runtime_result_parser", {})
+    parser_receipt = runtime_parser.get("receipt", {})
+    if (
+        runtime_parser.get("status") != "HOST_EXECUTED_NOT_SYSFS_INTEGRATED"
+        or parser_receipt.get("path") != str(RUNTIME_PARSER_RECEIPT)
+        or (parser_receipt.get("size"), parser_receipt.get("sha256"))
+        != RUNTIME_PARSER_RECEIPT_IDENTITY
+        or runtime_parser.get("allocation_free") is not True
+        or runtime_parser.get("io_free") is not True
+        or runtime_parser.get("strict_canonical_module_string_grammar") is not True
+        or runtime_parser.get("python_summary_matches_actual_c") is not True
+        or runtime_parser.get("aarch64_freestanding_compile") is not True
+        or runtime_parser.get("sysfs_and_driver_override_require_fresh_d0")
+        is not True
+        or runtime_parser.get(
+            "blocks_packaging_until_live_callsite_is_wired_and_tested"
+        )
+        is not True
+    ):
+        raise SurfaceError("diagnostic runtime-result parser gate is incomplete")
     return True
 
 
@@ -1687,6 +1867,7 @@ def audit(root: Path) -> dict[str, Any]:
         "validation": diag_source_validation,
     }
     diag_build_receipt = validate_diag_build_receipt(root, diag_source_receipt)
+    runtime_parser_receipt = validate_runtime_parser_receipt(root)
     p315_modules, p315_plan_receipt = parse_p315_plan(root)
     source_receipts = {
         label: validate_file(kernel / relative, size, digest, label)
@@ -2209,6 +2390,18 @@ def audit(root: Path) -> dict[str, Any]:
             },
             "terminal_row_admission_rule": DIAG_TERMINAL_ROW_ADMISSION_RULE,
             "retained_payload_contract": DIAG_RETAINED_PAYLOAD_CONTRACT,
+            "post2_retention_matrix": DIAG_POST2_RETENTION_MATRIX,
+            "runtime_result_parser": {
+                "status": "HOST_EXECUTED_NOT_SYSFS_INTEGRATED",
+                "receipt": runtime_parser_receipt,
+                "allocation_free": True,
+                "io_free": True,
+                "strict_canonical_module_string_grammar": True,
+                "python_summary_matches_actual_c": True,
+                "aarch64_freestanding_compile": True,
+                "sysfs_and_driver_override_require_fresh_d0": True,
+                "blocks_packaging_until_live_callsite_is_wired_and_tested": True,
+            },
         },
         "selected_closure": {
             "base_module_count": len(p315_modules),
@@ -2261,6 +2454,7 @@ def audit(root: Path) -> dict[str, Any]:
             ),
             "read_write_or_response_failure": "diagnostic failure; no connector claim",
             "host_fact_without_complete_device_result": "preserve host fact without inventing device causality",
+            "post2_retention_matrix": DIAG_POST2_RETENTION_MATRIX,
         },
         "satisfied_source_and_linked_proofs": [
             "actual diagnostic source passes validate_diag_source_text",
@@ -2279,7 +2473,7 @@ def audit(root: Path) -> dict[str, Any]:
             "the plan loads the diagnostic exactly once and exposes no unload/reinsert path",
             "the exact 30000-ms retention dwell fits the candidate and guard budgets",
             "all late-load and cached-result terminal buckets round-trip through the real encoder carrier and decoder before packaging or F1 approval",
-            "one fixed Carrier-v2 record retains one 128-byte two-slot envelope; only losslessly represented poll bytes may support a causal row, while an oversized lossless payload terminates as explicit no-proof",
+            "one fixed Carrier-v2 record retains one 128-byte two-slot envelope; only losslessly represented poll bytes may support a causal row, while an oversized lossless payload terminates as explicit no-proof with SHA-256 plus per-command OR, poll0, and nonzero-count summary",
             "EAGAIN is never decoded alone; six observable rows are surjective over unique retained vectors while claim-busy has an empty decoder preimage",
             "pre-write direct fence, command deadlines, response validation, and no-retry behavior are exercised by fixtures",
             "carrier and host-sidecar positive control distinguish every result-contract row",
@@ -2295,6 +2489,7 @@ def audit(root: Path) -> dict[str, Any]:
         "p315_plan": p315_plan_receipt,
         "module_receipts": module_receipts,
         "diagnostic_linked_build": diag_build_receipt,
+        "runtime_result_parser": runtime_parser_receipt,
         "stock_module_union": corpus_receipt,
         "stock_surface": {
             "firmware_header": {

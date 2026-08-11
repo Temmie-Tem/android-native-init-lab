@@ -1,4 +1,5 @@
 import copy
+from dataclasses import replace
 import importlib.util
 import json
 import sys
@@ -85,6 +86,7 @@ class S22PlusFyg8Max77705TelemetryTest(unittest.TestCase):
         return m.BindingWitness(**values)
 
     def result(self, *, polls=(b"\x00\x00\x80", b"", b"\x80", b"\x80")):
+        write_present = bool(polls[1])
         return self.module.DiagnosticResult(
             stage=10,
             rc=0,
@@ -93,14 +95,18 @@ class S22PlusFyg8Max77705TelemetryTest(unittest.TestCase):
             pmic_rev=0x02,
             initial_uic_valid=1,
             initial_uic=0x04,
-            command_issued_mask=0x0D,
-            response_seen_mask=0x0D,
-            response_opcode=(0x05, 0, 0x05, 0x05),
+            command_issued_mask=0x0F if write_present else 0x0D,
+            response_seen_mask=0x0F if write_present else 0x0D,
+            response_opcode=(0x05, 0x06 if write_present else 0, 0x05, 0x05),
             response_value=(0x3F, 0, 0x09, 0x09),
             poll_bytes=tuple(polls),
-            write_attempted=0,
+            write_attempted=1 if write_present else 0,
             write_ambiguous=0,
         )
+
+    @staticmethod
+    def uncompressible_poll():
+        return bytes((*range(99), 0x80))
 
     def eagain_bindings(self):
         m = self.module
@@ -169,6 +175,9 @@ class S22PlusFyg8Max77705TelemetryTest(unittest.TestCase):
         self.assertEqual(value["record_count"], 1)
         self.assertEqual(value["retained_slot_count"], 2)
         self.assertEqual(value["envelope_size"], 128)
+        self.assertEqual(value["overflow_poll_summary_size"], 44)
+        self.assertEqual(value["overflow_summary_spare_bytes"], 32)
+        self.assertTrue(value["post2_poll0_retention_axis"])
         self.assertEqual(value["terminal_bucket_count"], 9)
         self.assertFalse(value["full_lto_required"])
 
@@ -217,7 +226,7 @@ class S22PlusFyg8Max77705TelemetryTest(unittest.TestCase):
         records = {}
         for bucket in m.TERMINAL_BUCKET_KEYS:
             if bucket == "result_payload_unrepresentable":
-                polls = tuple(bytes(range(100)) for _ in range(4))
+                polls = tuple(self.uncompressible_poll() for _ in range(4))
                 envelope = m.encode_envelope(
                     binding=self.binding(),
                     mux_class="pre-nonusb-post-stable-usb",
@@ -266,7 +275,7 @@ class S22PlusFyg8Max77705TelemetryTest(unittest.TestCase):
 
     def test_uncompressible_poll_bytes_fail_closed(self):
         m = self.module
-        polls = tuple(bytes(range(100)) for _ in range(4))
+        polls = tuple(self.uncompressible_poll() for _ in range(4))
         envelope = m.encode_envelope(
             binding=self.binding(),
             mux_class="pre-nonusb-post-stable-usb",
@@ -280,7 +289,171 @@ class S22PlusFyg8Max77705TelemetryTest(unittest.TestCase):
         self.assertFalse(decoded["poll_lossless"])
         self.assertFalse(decoded["causal_result_allowed"])
         self.assertIsNone(decoded["mux_class"])
-        self.assertEqual(decoded["poll_encoded_size"], 32)
+        self.assertEqual(decoded["poll_encoded_size"], 44)
+        self.assertEqual(decoded["result"]["poll_or"], (0xFF,) * 4)
+        self.assertEqual(decoded["result"]["poll0"], (0,) * 4)
+        self.assertEqual(decoded["result"]["poll_nonzero_count"], (99,) * 4)
+
+    def test_post2_control1_and_retention_poll0_form_four_explicit_rows(self):
+        m = self.module
+        cases = (
+            (0x09, 0x80, "POST1_USB_POST2_USB_WITHOUT_RETENTION_DETECTION_LATCH"),
+            (0x09, 0x88, "POST1_USB_POST2_USB_WITH_RETENTION_DETECTION_LATCH"),
+            (0x3F, 0x82, "POST1_USB_POST2_NONUSB_WITH_RETENTION_DETECTION_LATCH"),
+            (0x3F, 0x80, "POST1_USB_POST2_NONUSB_WITHOUT_RETENTION_DETECTION_LATCH"),
+        )
+        for post2, poll0, expected in cases:
+            with self.subTest(post2=post2, poll0=poll0):
+                result = replace(
+                    self.result(),
+                    response_value=(0x3F, 0, 0x09, post2),
+                    poll_bytes=(b"\x80", b"", b"\x80", bytes((poll0,))),
+                )
+                decoded = m.decode_envelope(
+                    m.encode_envelope(
+                        binding=self.binding(),
+                        mux_class="pre-nonusb-post-stable-usb",
+                        result=result,
+                    )
+                )
+                retention = decoded["result"]["post2_retention"]
+                self.assertEqual(retention["classification"], expected)
+                self.assertTrue(retention["event_presence_only"])
+                self.assertFalse(retention["physical_switch_movement_proven"])
+                self.assertFalse(retention["causal_trigger_proven"])
+
+    def test_poll_summary_invariants_match_module_control_flow(self):
+        m = self.module
+        response_without_apcmd = replace(
+            self.result(), poll_bytes=(b"\x01", b"", b"\x80", b"\x80")
+        )
+        with self.assertRaisesRegex(m.TelemetryError, "lacks APCmdResI"):
+            m.encode_envelope(
+                binding=self.binding(),
+                mux_class="pre-nonusb-post-stable-usb",
+                result=response_without_apcmd,
+            )
+
+        apcmd_without_response = replace(
+            self.result(),
+            stage=m.STAGE_WRITE,
+            rc=-5,
+            command_issued_mask=0x03,
+            response_seen_mask=0x01,
+            write_attempted=1,
+            write_ambiguous=1,
+            response_opcode=(0x05, 0, 0, 0),
+            response_value=(0x3F, 0, 0, 0),
+            poll_bytes=(b"\x80", b"\x80", b"", b""),
+        )
+        m.encode_envelope(
+            binding=self.binding(),
+            terminal_bucket="probe_terminal_failure",
+            result=apcmd_without_response,
+        )
+
+        timeout = replace(
+            self.result(),
+            stage=m.STAGE_PRE,
+            rc=m.RC_ETIMEDOUT,
+            command_issued_mask=0x01,
+            response_seen_mask=0,
+            response_opcode=(0, 0, 0, 0),
+            response_value=(0, 0, 0, 0),
+            poll_bytes=(b"\x01" * 100, b"", b"", b""),
+        )
+        m.encode_envelope(
+            binding=self.binding(),
+            terminal_bucket="probe_terminal_failure",
+            result=timeout,
+        )
+        with self.assertRaisesRegex(m.TelemetryError, "timed-out slot"):
+            m.encode_envelope(
+                binding=self.binding(),
+                terminal_bucket="probe_terminal_failure",
+                result=replace(timeout, poll_bytes=(b"\x01" * 99 + b"\x80", b"", b"", b"")),
+            )
+
+    def test_overflow_summary_semantic_tamper_fails_after_valid_crc(self):
+        m = self.module
+        polls = tuple(self.uncompressible_poll() for _ in range(4))
+        envelope = bytearray(
+            m.encode_envelope(
+                binding=self.binding(),
+                mux_class="pre-nonusb-post-stable-usb",
+                result=self.result(polls=polls),
+            )
+        )
+        envelope[m.PAYLOAD_AREA_OFFSET + 40] = 0
+        crc = m.binascii.crc32(m.CRC_DOMAIN + envelope[: m.CRC_OFFSET]) & 0xFFFFFFFF
+        m.struct.pack_into("<I", envelope, m.CRC_OFFSET, crc)
+        with self.assertRaisesRegex(m.TelemetryError, "OR and nonzero count"):
+            m.decode_envelope(bytes(envelope))
+
+    def test_overflow_fixed_result_tamper_fails_after_valid_crc(self):
+        m = self.module
+        polls = tuple(self.uncompressible_poll() for _ in range(4))
+        envelope = bytearray(
+            m.encode_envelope(
+                binding=self.binding(),
+                mux_class="pre-nonusb-post-stable-usb",
+                result=self.result(polls=polls),
+            )
+        )
+        envelope[8] = 0
+        crc = m.binascii.crc32(m.CRC_DOMAIN + envelope[: m.CRC_OFFSET]) & 0xFFFFFFFF
+        m.struct.pack_into("<I", envelope, m.CRC_OFFSET, crc)
+        with self.assertRaisesRegex(m.TelemetryError, "source-reachable"):
+            m.decode_envelope(bytes(envelope))
+
+    def test_overflow_poll_count_above_source_bound_fails_after_valid_crc(self):
+        m = self.module
+        polls = tuple(self.uncompressible_poll() for _ in range(4))
+        envelope = bytearray(
+            m.encode_envelope(
+                binding=self.binding(),
+                mux_class="pre-nonusb-post-stable-usb",
+                result=self.result(polls=polls),
+            )
+        )
+        envelope[30] = 101
+        m.struct.pack_into("<H", envelope, 44, 401)
+        crc = m.binascii.crc32(m.CRC_DOMAIN + envelope[: m.CRC_OFFSET]) & 0xFFFFFFFF
+        m.struct.pack_into("<I", envelope, m.CRC_OFFSET, crc)
+        with self.assertRaisesRegex(m.TelemetryError, "source bound"):
+            m.decode_envelope(bytes(envelope))
+
+    def test_overflow_requires_a_result_even_with_valid_crc(self):
+        m = self.module
+        polls = tuple(self.uncompressible_poll() for _ in range(4))
+        envelope = bytearray(
+            m.encode_envelope(
+                binding=self.binding(),
+                mux_class="pre-nonusb-post-stable-usb",
+                result=self.result(polls=polls),
+            )
+        )
+        envelope[7] &= ~m.FLAG_RESULT_PRESENT
+        envelope[8:34] = bytes(26)
+        m.struct.pack_into("<H", envelope, 44, 0)
+        crc = m.binascii.crc32(m.CRC_DOMAIN + envelope[: m.CRC_OFFSET]) & 0xFFFFFFFF
+        m.struct.pack_into("<I", envelope, m.CRC_OFFSET, crc)
+        with self.assertRaisesRegex(m.TelemetryError, "overflow envelope"):
+            m.decode_envelope(bytes(envelope))
+
+    def test_result_absent_envelope_rejects_hidden_diagnostic_bytes(self):
+        m = self.module
+        envelope = bytearray(
+            m.encode_envelope(
+                binding=self.binding(),
+                terminal_bucket="late_finit_module_failure",
+            )
+        )
+        envelope[8] = m.STAGE_PRE
+        crc = m.binascii.crc32(m.CRC_DOMAIN + envelope[: m.CRC_OFFSET]) & 0xFFFFFFFF
+        m.struct.pack_into("<I", envelope, m.CRC_OFFSET, crc)
+        with self.assertRaisesRegex(m.TelemetryError, "result-absent"):
+            m.decode_envelope(bytes(envelope))
 
     def test_claim_busy_has_empty_decoder_preimage(self):
         m = self.module
@@ -375,7 +548,7 @@ class S22PlusFyg8Max77705TelemetryTest(unittest.TestCase):
         m = self.module
         decoder = self.decoder
         run_id = bytes.fromhex("31653165316531653165316531653165")
-        polls = tuple(bytes(range(100)) for _ in range(4))
+        polls = tuple(self.uncompressible_poll() for _ in range(4))
         envelope = m.encode_envelope(
             binding=self.binding(),
             mux_class="pre-nonusb-post-stable-usb",
@@ -406,6 +579,8 @@ class S22PlusFyg8Max77705TelemetryTest(unittest.TestCase):
         self.assertEqual(value["observable_eagain_rows"], 6)
         self.assertEqual(value["terminal_bucket_preimages"], 9)
         self.assertEqual(value["mux_class_preimages"], 5)
+        self.assertEqual(value["post2_retention_matrix_rows"], 4)
+        self.assertTrue(value["overflow_summary_round_trip"])
         self.assertTrue(value["claim_busy_decoder_preimage_empty"])
         self.assertTrue(value["unknown_overlay_rejected"])
         self.assertTrue(value["real_process_v2_adapter_round_trip"])

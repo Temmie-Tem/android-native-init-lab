@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 import hashlib
 import json
 from typing import Any
@@ -12,7 +13,7 @@ import s22plus_fyg8_max77705_telemetry as telemetry
 import s22plus_fyg8_max77705_telemetry_decoder as decoder
 
 
-SCHEMA = "s22plus_fyg8_max77705_process_v2_adapter_fixture_v1"
+SCHEMA = "s22plus_fyg8_max77705_process_v2_adapter_fixture_v2"
 VERDICT = "PASS_MAX77705_REAL_PROCESS_V2_RETAINED_SEMANTICS_HOST_ONLY"
 RUN_ID = b"max77705fixture1"
 
@@ -92,6 +93,8 @@ def _eagain_bindings() -> dict[str, telemetry.BindingWitness]:
 def _result(
     *, polls: tuple[bytes, bytes, bytes, bytes] | None = None
 ) -> telemetry.DiagnosticResult:
+    selected_polls = polls or (b"\x00\x00\x80", b"", b"\x80", b"\x80")
+    write_present = bool(selected_polls[1])
     return telemetry.DiagnosticResult(
         stage=10,
         rc=0,
@@ -100,14 +103,18 @@ def _result(
         pmic_rev=0x02,
         initial_uic_valid=1,
         initial_uic=0x04,
-        command_issued_mask=0x0D,
-        response_seen_mask=0x0D,
-        response_opcode=(0x05, 0, 0x05, 0x05),
+        command_issued_mask=0x0F if write_present else 0x0D,
+        response_seen_mask=0x0F if write_present else 0x0D,
+        response_opcode=(0x05, 0x06 if write_present else 0, 0x05, 0x05),
         response_value=(0x3F, 0, 0x09, 0x09),
-        poll_bytes=polls or (b"\x00\x00\x80", b"", b"\x80", b"\x80"),
-        write_attempted=0,
+        poll_bytes=selected_polls,
+        write_attempted=1 if write_present else 0,
         write_ambiguous=0,
     )
+
+
+def _uncompressible_poll() -> bytes:
+    return bytes((*range(99), 0x80))
 
 
 def _acceptance() -> dict[str, Any]:
@@ -192,7 +199,7 @@ def audit() -> dict[str, Any]:
                 binding=_binding(),
                 mux_class=telemetry.MUX_DEVICE_CLASSES[0],
                 result=_result(
-                    polls=tuple(bytes(range(100)) for _ in range(4))
+                    polls=tuple(_uncompressible_poll() for _ in range(4))
                 ),
             )
         else:
@@ -213,6 +220,16 @@ def audit() -> dict[str, Any]:
             or classified.get("accepted") is not False
         ):
             raise FixtureError(f"Max77705 terminal adapter row differs: {bucket}")
+        if bucket == "result_payload_unrepresentable":
+            result = decoded.get("result") or {}
+            if (
+                decoded.get("poll_encoded_size") != telemetry.POLL_SUMMARY_SIZE
+                or decoded.get("causal_result_allowed") is not False
+                or tuple(result.get("poll_or", ())) != (0xFF,) * 4
+                or tuple(result.get("poll0", ())) != (0,) * 4
+                or tuple(result.get("poll_nonzero_count", ())) != (99,) * 4
+            ):
+                raise FixtureError("Max77705 overflow summary adapter row differs")
         terminal_receipts[bucket] = hashlib.sha256(record).hexdigest()
     if len(set(terminal_receipts.values())) != len(terminal_receipts):
         raise FixtureError("Max77705 terminal retained vectors collide")
@@ -234,6 +251,39 @@ def audit() -> dict[str, Any]:
         mux_receipts[name] = hashlib.sha256(record).hexdigest()
     if len(set(mux_receipts.values())) != len(mux_receipts):
         raise FixtureError("Max77705 MUX retained vectors collide")
+
+    retention_rows = (
+        (0x09, 0x80, "POST1_USB_POST2_USB_WITHOUT_RETENTION_DETECTION_LATCH"),
+        (0x09, 0x88, "POST1_USB_POST2_USB_WITH_RETENTION_DETECTION_LATCH"),
+        (0x3F, 0x82, "POST1_USB_POST2_NONUSB_WITH_RETENTION_DETECTION_LATCH"),
+        (0x3F, 0x80, "POST1_USB_POST2_NONUSB_WITHOUT_RETENTION_DETECTION_LATCH"),
+    )
+    retention_receipts: dict[str, str] = {}
+    for post2, poll0, expected in retention_rows:
+        result = replace(
+            _result(),
+            response_value=(0x3F, 0, 0x09, post2),
+            poll_bytes=(b"\x80", b"", b"\x80", bytes((poll0,))),
+        )
+        record, classified = _round_trip(
+            telemetry.encode_envelope(
+                binding=_binding(),
+                mux_class="pre-nonusb-post-stable-usb",
+                result=result,
+            )
+        )
+        decoded = classified["records"][0]["max77705"]
+        retention = decoded["result"]["post2_retention"]
+        if (
+            retention.get("classification") != expected
+            or retention.get("event_presence_only") is not True
+            or retention.get("physical_switch_movement_proven") is not False
+            or retention.get("causal_trigger_proven") is not False
+        ):
+            raise FixtureError(f"Max77705 retention row differs: {expected}")
+        retention_receipts[expected] = hashlib.sha256(record).hexdigest()
+    if len(set(retention_receipts.values())) != len(retention_receipts):
+        raise FixtureError("Max77705 retention matrix retained vectors collide")
 
     try:
         telemetry.encode_envelope(
@@ -275,6 +325,8 @@ def audit() -> dict[str, Any]:
         "observable_eagain_rows": len(eagain_receipts),
         "terminal_bucket_preimages": len(terminal_receipts),
         "mux_class_preimages": len(mux_receipts),
+        "post2_retention_matrix_rows": len(retention_receipts),
+        "overflow_summary_round_trip": True,
         "claim_busy_decoder_preimage_empty": negative_rejected,
         "unknown_overlay_rejected": unknown_rejected,
         "real_process_v2_adapter_round_trip": True,

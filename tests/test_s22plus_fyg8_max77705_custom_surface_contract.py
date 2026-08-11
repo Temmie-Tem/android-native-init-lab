@@ -322,6 +322,7 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
         self.assertTrue(result["probe_force_synchronous"])
 
     def test_runtime_integration_arithmetic_and_arming_gate_are_fail_closed(self):
+        parser_receipt = self.module.validate_runtime_parser_receipt(ROOT)
         diagnostic = {
             "runtime_integration": {
                 "base_module_count": 61,
@@ -375,6 +376,18 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
             "retained_payload_contract": (
                 self.module.DIAG_RETAINED_PAYLOAD_CONTRACT
             ),
+            "post2_retention_matrix": self.module.DIAG_POST2_RETENTION_MATRIX,
+            "runtime_result_parser": {
+                "status": "HOST_EXECUTED_NOT_SYSFS_INTEGRATED",
+                "receipt": parser_receipt,
+                "allocation_free": True,
+                "io_free": True,
+                "strict_canonical_module_string_grammar": True,
+                "python_summary_matches_actual_c": True,
+                "aarch64_freestanding_compile": True,
+                "sysfs_and_driver_override_require_fresh_d0": True,
+                "blocks_packaging_until_live_callsite_is_wired_and_tested": True,
+            },
         }
         self.assertTrue(self.module.validate_runtime_integration_contract(diagnostic))
         self.assertEqual(len(self.module.DIAG_RUNTIME_TERMINAL_BUCKETS), 9)
@@ -598,6 +611,18 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
         self.assertEqual(
             diagnostic["retained_payload_contract"],
             self.module.DIAG_RETAINED_PAYLOAD_CONTRACT,
+        )
+        self.assertEqual(
+            diagnostic["post2_retention_matrix"],
+            self.module.DIAG_POST2_RETENTION_MATRIX,
+        )
+        self.assertEqual(
+            diagnostic["runtime_result_parser"]["status"],
+            "HOST_EXECUTED_NOT_SYSFS_INTEGRATED",
+        )
+        self.assertFalse(
+            diagnostic["runtime_result_parser"]["receipt"]["payload"]
+            ["sysfs_path_or_driver_override_integrated"]
         )
         self.assertTrue(
             diagnostic["initial_uic_read_scope"][
