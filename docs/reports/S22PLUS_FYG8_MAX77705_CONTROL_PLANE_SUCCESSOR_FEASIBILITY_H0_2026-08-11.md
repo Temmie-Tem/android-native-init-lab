@@ -1271,7 +1271,12 @@ parses canonical positive signed-int FAIL detail, and acquires one exclusive raw
 descriptor before build/QEMU startup and keeps that same descriptor through
 tail drain. No QEMU rerun is needed for these parser/schema repairs: the stricter
 replay accepts the already captured run-03 raw only when bound to the documented
-manifest SHA. Independent re-review remains required.
+manifest SHA. The first re-review then found one remaining TOCTOU: replay hashed
+the manifest path and reopened it for parsing. The final repair reads one
+`manifest_bytes` object exactly once and performs both the expected-SHA check
+and strict JSON decoding on that object; a switching-path fixture proves that a
+second byte object cannot be substituted. Independent re-review remains
+required.
 
 The single corrected execution then passed with:
 
@@ -1279,7 +1284,7 @@ The single corrected execution then passed with:
 - run-03 host observer/replay script SHA-256
   `26ddd8842be0f683f071b546e8d2d42c40cd3b3c77192b00495cfb962a4e5cd8`;
 - post-review strict validator/replay script SHA-256
-  `155dc244bca57a502ed61ab269484d22cbf8852bc887a8071585bad828ff3223`;
+  `990cd4e793ebf2c71b7a37fd08a4826427822e5ff0eef45dd6750c9f7778e86b`;
 - target `a003a00.virtio_mmio`, blocked controls
   `a003c00.virtio_mmio` and `a003e00.virtio_mmio`, and active count 3;
 - one complete CRLF terminal record;
@@ -2018,11 +2023,12 @@ This report was closed at H0 with the following host-side checks:
 - `python3 -m unittest tests.test_s22plus_fyg8_max77705_order_authority`
   passed 4/4;
 - `python3 -m unittest
-  tests.test_s22plus_fyg8_max77705_driver_override_qemu_control` passed 20/20,
+  tests.test_s22plus_fyg8_max77705_driver_override_qemu_control` passed 21/21,
   including incomplete-marker rejection, exact LF/CRLF equivalence, bare-CR,
   NUL and invalid-UTF-8 rejection, immutable-write refusal, capture-manifest
   authority-mutation rejection, exact FAIL grammar, exact-byte replay, single
-  exclusive-FD tail capture, and the named two-failure corpus;
+  exclusive-FD tail capture, single-object manifest hash/parse binding, and the
+  named two-failure corpus;
 - the single Rule-7-corrected pinned arm64 QEMU execution produced the exact
   three-device target/block/reprobe/unload PASS and committed its raw capture
   before semantic decoding; the no-QEMU replay independently returned the

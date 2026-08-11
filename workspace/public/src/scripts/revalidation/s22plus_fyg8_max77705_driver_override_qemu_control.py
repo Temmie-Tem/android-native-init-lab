@@ -675,15 +675,20 @@ def replay_console_capture(
 ) -> dict[str, Any]:
     if re.fullmatch(r"[0-9a-f]{64}", expected_manifest_sha256) is None:
         raise HarnessError("expected capture manifest SHA256 is not canonical")
-    manifest_sha256 = require_sha256(
-        manifest_path,
-        expected_manifest_sha256,
-        "QEMU console capture manifest",
-    )
     raw = raw_path.read_bytes()
     try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        manifest_bytes = manifest_path.read_bytes()
+    except OSError as error:
+        raise HarnessError("console capture manifest is unreadable") from error
+    manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
+    if manifest_sha256 != expected_manifest_sha256:
+        raise HarnessError(
+            "QEMU console capture manifest SHA256 mismatch: "
+            f"expected {expected_manifest_sha256}, got {manifest_sha256}"
+        )
+    try:
+        manifest = json.loads(manifest_bytes.decode("utf-8", "strict"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise HarnessError("console capture manifest is unreadable") from error
     if not isinstance(manifest, dict):
         raise HarnessError("console capture manifest is not an object")

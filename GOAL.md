@@ -271,9 +271,11 @@ for weak manifest-authority validation, non-exact FAIL parsing, and a tail
 append reopen. The scoped repair now requires the expected manifest hash,
 validates the full source/clock/chunk schema, parses exact FAIL grammar, and
 keeps one exclusive raw descriptor through tail drain; the original run-03 raw
-passed that stricter replay without a QEMU rerun. Independent re-review, actual
-S22+ path construction, binding, I2C, MUX, packaging, and live authority remain
-open.
+passed that stricter replay without a QEMU rerun. The first re-review then found
+a remaining manifest TOCTOU between path hashing and path reopening; replay now
+hashes and parses one immutable byte object, with a switching-path regression.
+Independent re-review, actual S22+ path construction, binding, I2C, MUX,
+packaging, and live authority remain open.
 The former
 4,246,401,024-byte
 workspace-capacity blocker is closed by the exact private S22+ cleanup

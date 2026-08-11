@@ -268,6 +268,53 @@ class Max77705DriverOverrideQemuControlTests(unittest.TestCase):
                     expected_manifest_sha256="0" * 64,
                 )
 
+    def test_replay_hashes_and_parses_one_manifest_byte_object(self) -> None:
+        raw = (
+            b"MAX77705_DRIVER_OVERRIDE_QEMU result=PASS "
+            b"target=a.virtio_mmio blocked=b.virtio_mmio,c.virtio_mmio active=3\n"
+        )
+        manifest = self.module._capture_manifest(
+            raw=raw,
+            chunks=[
+                {
+                    "index": 0,
+                    "source": "select-read",
+                    "byte_start": 0,
+                    "byte_end": len(raw),
+                    "received_after_start_sec": 0.1,
+                }
+            ],
+            started=1.0,
+        )
+        original = json.dumps(manifest, sort_keys=True).encode("utf-8")
+        forged = json.loads(original.decode("utf-8"))
+        forged["capture_started_monotonic"] = 2.0
+        forged_bytes = json.dumps(forged, sort_keys=True).encode("utf-8")
+
+        class SwitchingManifestPath:
+            def __init__(self):
+                self.calls = 0
+
+            def read_bytes(self):
+                self.calls += 1
+                return original if self.calls == 1 else forged_bytes
+
+        with tempfile.TemporaryDirectory() as directory:
+            raw_path = Path(directory) / self.module.RAW_CAPTURE_NAME
+            raw_path.write_bytes(raw)
+            manifest_path = SwitchingManifestPath()
+            replay = self.module.replay_console_capture(
+                raw_path,
+                manifest_path,
+                expected_manifest_sha256=hashlib.sha256(original).hexdigest(),
+            )
+        self.assertEqual(manifest_path.calls, 1)
+        self.assertEqual(replay["verdict"], self.module.VERDICT)
+        self.assertEqual(
+            replay["capture_manifest_sha256"],
+            hashlib.sha256(original).hexdigest(),
+        )
+
     def test_capture_manifest_rejects_chunk_gap(self) -> None:
         raw = b"one\ntwo\n"
         manifest = self.module._capture_manifest(
