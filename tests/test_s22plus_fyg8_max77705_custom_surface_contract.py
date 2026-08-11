@@ -350,8 +350,9 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
                 "eagain_binding_witness_fields": (
                     self.module.DIAG_EAGAIN_BINDING_WITNESS_FIELDS
                 ),
-                "eagain_decomposition_rows": (
-                    self.module.DIAG_EAGAIN_DECOMPOSITION_ROWS
+                "eagain_observable_rows": self.module.DIAG_EAGAIN_OBSERVABLE_ROWS,
+                "eagain_negative_invariants": (
+                    self.module.DIAG_EAGAIN_NEGATIVE_INVARIANTS
                 ),
                 "eagain_classification_priority": (
                     self.module.DIAG_EAGAIN_CLASSIFICATION_PRIORITY
@@ -359,20 +360,29 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
                 "eagain_is_a_standalone_terminal": False,
                 "eagain_binding_witness_cross_axis_required": True,
                 "binding_witness_values_retained_end_to_end": True,
-                "claim_busy_post_sync_eagain_is_valid": False,
+                "observable_obligation_surjectivity_required": True,
+                "negative_invariant_decode_preimage_must_be_empty": True,
+                "unique_retained_vector_reverse_map_required": True,
                 "real_encoder_carrier_decoder_round_trip_required": True,
                 "synthesized_retained_representation_required": True,
                 "physical_condition_reproduction_required": False,
                 "every_existing_mux_result_row_also_required": True,
                 "blocks_packaging_and_f1_approval_until_receipted": True,
             },
+            "terminal_row_admission_rule": (
+                self.module.DIAG_TERMINAL_ROW_ADMISSION_RULE
+            ),
+            "retained_payload_contract": (
+                self.module.DIAG_RETAINED_PAYLOAD_CONTRACT
+            ),
         }
         self.assertTrue(self.module.validate_runtime_integration_contract(diagnostic))
-        self.assertEqual(len(self.module.DIAG_RUNTIME_TERMINAL_BUCKETS), 8)
+        self.assertEqual(len(self.module.DIAG_RUNTIME_TERMINAL_BUCKETS), 9)
         self.assertEqual(
-            len(set(self.module.DIAG_RUNTIME_TERMINAL_BUCKETS.values())), 8
+            len(set(self.module.DIAG_RUNTIME_TERMINAL_BUCKETS.values())), 9
         )
-        self.assertEqual(len(self.module.DIAG_EAGAIN_DECOMPOSITION_ROWS), 7)
+        self.assertEqual(len(self.module.DIAG_EAGAIN_OBSERVABLE_ROWS), 6)
+        self.assertEqual(len(self.module.DIAG_EAGAIN_NEGATIVE_INVARIANTS), 1)
         for key, value in (
             ("generic_early_load_count", 65),
             ("late_load_minimum_lifetime_sec", 30),
@@ -391,7 +401,8 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
             self.module.validate_runtime_integration_contract(mutated)
         for key in (
             "eagain_binding_witness_fields",
-            "eagain_decomposition_rows",
+            "eagain_observable_rows",
+            "eagain_negative_invariants",
             "eagain_classification_priority",
         ):
             with self.subTest(key=key):
@@ -407,9 +418,17 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
             self.module.validate_runtime_integration_contract(mutated)
         mutated = copy.deepcopy(diagnostic)
         mutated["result_contract_arming_precondition"][
-            "claim_busy_post_sync_eagain_is_valid"
-        ] = True
+            "negative_invariant_decode_preimage_must_be_empty"
+        ] = False
         with self.assertRaisesRegex(self.module.SurfaceError, "arming gate"):
+            self.module.validate_runtime_integration_contract(mutated)
+        mutated = copy.deepcopy(diagnostic)
+        mutated["terminal_row_admission_rule"]["common_process_v2_gate"] = True
+        with self.assertRaisesRegex(self.module.SurfaceError, "admission rule"):
+            self.module.validate_runtime_integration_contract(mutated)
+        mutated = copy.deepcopy(diagnostic)
+        mutated["retained_payload_contract"]["record_count"] = 2
+        with self.assertRaisesRegex(self.module.SurfaceError, "retained-payload"):
             self.module.validate_runtime_integration_contract(mutated)
 
     def test_atomic_json_replaces_output(self):
@@ -554,8 +573,12 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
             self.module.DIAG_EAGAIN_BINDING_WITNESS_FIELDS,
         )
         self.assertEqual(
-            arming["eagain_decomposition_rows"],
-            self.module.DIAG_EAGAIN_DECOMPOSITION_ROWS,
+            arming["eagain_observable_rows"],
+            self.module.DIAG_EAGAIN_OBSERVABLE_ROWS,
+        )
+        self.assertEqual(
+            arming["eagain_negative_invariants"],
+            self.module.DIAG_EAGAIN_NEGATIVE_INVARIANTS,
         )
         self.assertEqual(
             tuple(arming["eagain_classification_priority"]),
@@ -564,8 +587,18 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
         self.assertFalse(arming["eagain_is_a_standalone_terminal"])
         self.assertTrue(arming["eagain_binding_witness_cross_axis_required"])
         self.assertTrue(arming["binding_witness_values_retained_end_to_end"])
-        self.assertFalse(arming["claim_busy_post_sync_eagain_is_valid"])
+        self.assertTrue(arming["observable_obligation_surjectivity_required"])
+        self.assertTrue(arming["negative_invariant_decode_preimage_must_be_empty"])
+        self.assertTrue(arming["unique_retained_vector_reverse_map_required"])
         self.assertTrue(arming["blocks_packaging_and_f1_approval_until_receipted"])
+        self.assertEqual(
+            diagnostic["terminal_row_admission_rule"],
+            self.module.DIAG_TERMINAL_ROW_ADMISSION_RULE,
+        )
+        self.assertEqual(
+            diagnostic["retained_payload_contract"],
+            self.module.DIAG_RETAINED_PAYLOAD_CONTRACT,
+        )
         self.assertTrue(
             diagnostic["initial_uic_read_scope"][
                 "whole_register_read_to_clear_accepted"

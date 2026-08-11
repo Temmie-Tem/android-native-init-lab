@@ -69,6 +69,7 @@ import s22plus_fyg8_p315_e2_stock_closure as p315_e2_closure
 import s22plus_fyg8_p315_overlay_contract as p315_overlay
 import s22plus_fyg8_p315_telemetry_decoder as p315_decoder
 import s22plus_fyg8_p315_telemetry_spec as p315_spec
+import s22plus_fyg8_max77705_telemetry_decoder as max77705_decoder
 
 
 MARKER_KIND = "retained_marker_after_rollback"
@@ -247,6 +248,7 @@ P315_CANDIDATE_STATIC_VERDICT = (
     "PASS_P315_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
 )
 P315_OVERLAY_CONTRACT_ID = p315_overlay.CONTRACT_ID
+MAX77705_OVERLAY_CONTRACT_ID = max77705_decoder.OVERLAY_CONTRACT_ID
 P301_TELEMETRY_OVERLAY_IDS = frozenset(
     {
         P301_OVERLAY_CONTRACT_ID,
@@ -262,6 +264,7 @@ P301_TELEMETRY_OVERLAY_IDS = frozenset(
         P313_OVERLAY_CONTRACT_ID,
         P314_OVERLAY_CONTRACT_ID,
         P315_OVERLAY_CONTRACT_ID,
+        MAX77705_OVERLAY_CONTRACT_ID,
     }
 )
 P298_HISTORICAL_POSTBUILD_RESULT = {
@@ -539,7 +542,16 @@ def _latest_stage_observation_decoder(
 ):
     if userspace_overlay_contract_id is None:
         return _latest_stage_decoder(source_contract_id, profile)
-    if userspace_overlay_contract_id == P311_OVERLAY_CONTRACT_ID:
+    if userspace_overlay_contract_id == MAX77705_OVERLAY_CONTRACT_ID:
+        if (
+            source_contract_id != max77705_decoder.PARENT_SOURCE_CONTRACT_ID
+            or profile != max77705_decoder.PROFILE
+        ):
+            raise EvidenceError(
+                "Max77705 userspace observation overlay is unsupported"
+            )
+        selected = max77705_decoder
+    elif userspace_overlay_contract_id == P311_OVERLAY_CONTRACT_ID:
         if (
             source_contract_id != P310_SOURCE_CONTRACT_ID
             or profile != p311_overlay.PROFILE

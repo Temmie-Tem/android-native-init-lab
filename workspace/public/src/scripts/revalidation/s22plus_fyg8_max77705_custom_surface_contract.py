@@ -25,7 +25,7 @@ from typing import Any
 from s22plus_fyg8_f2fs_module_corpus import FILE_TYPE_REGULAR, F2FSReader
 
 
-SCHEMA = "s22plus_fyg8_max77705_custom_surface_contract_v7"
+SCHEMA = "s22plus_fyg8_max77705_custom_surface_contract_v9"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 DIAG_SOURCE = Path(
     "workspace/public/src/kernel-modules/s22plus_max77705_mux_diag/"
@@ -58,7 +58,7 @@ P315_PLAN = Path(
 )
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_max77705_gate0/"
-    "custom-surface-authority-20260812-12.json"
+    "custom-surface-authority-20260812-14.json"
 )
 DIAG_BUILD_RECEIPT = Path(
     "workspace/private/outputs/s22plus_fyg8_max77705_gate0/"
@@ -389,8 +389,11 @@ DIAG_RUNTIME_TERMINAL_BUCKETS = {
     "probe_terminal_failure": "NO_PROOF_DIAGNOSTIC_TRANSACTION",
     "result_not_ready_eagain": "NO_PROOF_OBSERVER_DIAGNOSTIC_NOT_READY",
     "result_read_timeout": "NO_PROOF_OBSERVER_DIAGNOSTIC_RESULT_TIMEOUT",
-    "synchronous_result_publication_contradiction": (
+    "synchronous_probe_or_publication_contradiction": (
         "NO_PROOF_OBSERVER_DIAGNOSTIC_SYNC_CONTRADICTION"
+    ),
+    "result_payload_unrepresentable": (
+        "NO_PROOF_OBSERVER_DIAGNOSTIC_PAYLOAD_OVERFLOW"
     ),
 }
 DIAG_EAGAIN_BINDING_WITNESS_FIELDS = (
@@ -404,7 +407,7 @@ DIAG_EAGAIN_BINDING_WITNESS_FIELDS = (
     "post_exact_adapter_muic_0x25_client_count",
     "post_foreign_0x25_client_count",
 )
-DIAG_EAGAIN_DECOMPOSITION_ROWS = {
+DIAG_EAGAIN_OBSERVABLE_ROWS = {
     "probe_in_progress": {
         "loader_state": "FINIT_MODULE_IN_PROGRESS",
         "terminal": False,
@@ -437,7 +440,8 @@ DIAG_EAGAIN_DECOMPOSITION_ROWS = {
         "loader_state": "FINIT_MODULE_RETURNED_SUCCESS",
         "pre_exact_parent_present": True,
         "post_exact_parent_driver_state": "UNBOUND",
-        "terminal_bucket_key": "synchronous_result_publication_contradiction",
+        "terminal_bucket_key": "synchronous_probe_or_publication_contradiction",
+        "investigation_scope": "DRIVER_CORE_PRE_PROBE_OR_PROBE_REACHABILITY",
     },
     "diagnostic_binding_ready_but_result_eagain": {
         "loader_state": "FINIT_MODULE_RETURNED_SUCCESS",
@@ -445,16 +449,19 @@ DIAG_EAGAIN_DECOMPOSITION_ROWS = {
         "post_diagnostic_bound_parent_count": 1,
         "post_exact_adapter_muic_0x25_client_count": 1,
         "post_foreign_0x25_client_count": 0,
-        "terminal_bucket_key": "synchronous_result_publication_contradiction",
+        "terminal_bucket_key": "synchronous_probe_or_publication_contradiction",
+        "investigation_scope": "MODULE_PUBLICATION_OR_RESULT_READ_PATH",
     },
+}
+DIAG_EAGAIN_NEGATIVE_INVARIANTS = {
     "claim_busy_after_sync_return": {
-        "loader_state": "FINIT_MODULE_RETURNED_SUCCESS",
-        "valid_eagain_terminal": False,
-        "terminal_bucket_key": "synchronous_result_publication_contradiction",
+        "decodable_vector_allowed": False,
+        "encoder_acceptance_is_hard_error": True,
         "reason": (
             "the first successful claim path publishes a cached result and "
             "returns zero before force-synchronous driver registration returns"
         ),
+        "if_observed_in_raw_witnesses": "DEVICE_MULTIPLICITY_OR_SOURCE_DRIFT",
     },
 }
 DIAG_EAGAIN_CLASSIFICATION_PRIORITY = (
@@ -462,10 +469,29 @@ DIAG_EAGAIN_CLASSIFICATION_PRIORITY = (
     "exact_parent_owned_by_other_driver",
     "diagnostic_binding_ready_but_result_eagain",
     "exact_parent_unbound_after_sync_return",
-    "claim_busy_after_sync_return",
     "wrong_address_compatible_parent",
     "no_matching_parent",
 )
+DIAG_TERMINAL_ROW_ADMISSION_RULE = {
+    "scope": "LOCAL_MAX77705_DESIGN_ONLY",
+    "common_process_v2_gate": False,
+    "source_reachable_or_required_negative_invariant": True,
+    "changes_safety_causal_interpretation_or_next_action": True,
+    "distinct_retained_witness_required": True,
+    "merge_when_semantics_and_followup_are_equivalent": True,
+}
+DIAG_RETAINED_PAYLOAD_CONTRACT = {
+    "fixed_image_carrier": "S22E1L2-192",
+    "record_count": 1,
+    "retained_slot_count": 2,
+    "request_payload_bytes_per_slot": 64,
+    "fixed_envelope_bytes": 128,
+    "encoding": "MAX77705_DIAG_V1_PACKBITS",
+    "lossless_poll_bytes_required_for_causal_rows": True,
+    "unrepresentable_poll_payload_is_terminal_no_proof": True,
+    "unrepresentable_terminal_bucket_key": "result_payload_unrepresentable",
+    "full_lto_or_fixed_image_change_required": False,
+}
 REJECTED_FULL_PDIC_CUSTOM_ADDITIONS = (
     "msm-geni-se.ko",
     "gpi.ko",
@@ -1476,14 +1502,17 @@ def validate_runtime_integration_contract(diagnostic: dict[str, Any]) -> bool:
         or arming.get("required_terminal_buckets") != DIAG_RUNTIME_TERMINAL_BUCKETS
         or tuple(arming.get("eagain_binding_witness_fields", ()))
         != DIAG_EAGAIN_BINDING_WITNESS_FIELDS
-        or arming.get("eagain_decomposition_rows")
-        != DIAG_EAGAIN_DECOMPOSITION_ROWS
+        or arming.get("eagain_observable_rows") != DIAG_EAGAIN_OBSERVABLE_ROWS
+        or arming.get("eagain_negative_invariants")
+        != DIAG_EAGAIN_NEGATIVE_INVARIANTS
         or tuple(arming.get("eagain_classification_priority", ()))
         != DIAG_EAGAIN_CLASSIFICATION_PRIORITY
         or arming.get("eagain_is_a_standalone_terminal") is not False
         or arming.get("eagain_binding_witness_cross_axis_required") is not True
         or arming.get("binding_witness_values_retained_end_to_end") is not True
-        or arming.get("claim_busy_post_sync_eagain_is_valid") is not False
+        or arming.get("observable_obligation_surjectivity_required") is not True
+        or arming.get("negative_invariant_decode_preimage_must_be_empty") is not True
+        or arming.get("unique_retained_vector_reverse_map_required") is not True
         or arming.get("real_encoder_carrier_decoder_round_trip_required") is not True
         or arming.get("synthesized_retained_representation_required") is not True
         or arming.get("physical_condition_reproduction_required") is not False
@@ -1491,10 +1520,20 @@ def validate_runtime_integration_contract(diagnostic: dict[str, Any]) -> bool:
         or arming.get("blocks_packaging_and_f1_approval_until_receipted") is not True
     ):
         raise SurfaceError("diagnostic result-contract arming gate is incomplete")
-    for row in DIAG_EAGAIN_DECOMPOSITION_ROWS.values():
+    for row in DIAG_EAGAIN_OBSERVABLE_ROWS.values():
         bucket_key = row.get("terminal_bucket_key")
         if bucket_key is not None and bucket_key not in DIAG_RUNTIME_TERMINAL_BUCKETS:
             raise SurfaceError("EAGAIN decomposition references an unknown bucket")
+    for invariant in DIAG_EAGAIN_NEGATIVE_INVARIANTS.values():
+        if (
+            invariant.get("decodable_vector_allowed") is not False
+            or invariant.get("encoder_acceptance_is_hard_error") is not True
+        ):
+            raise SurfaceError("EAGAIN negative invariant is not fail-closed")
+    if diagnostic.get("terminal_row_admission_rule") != DIAG_TERMINAL_ROW_ADMISSION_RULE:
+        raise SurfaceError("local terminal-row admission rule is incomplete")
+    if diagnostic.get("retained_payload_contract") != DIAG_RETAINED_PAYLOAD_CONTRACT:
+        raise SurfaceError("diagnostic retained-payload contract is incomplete")
     return True
 
 
@@ -2151,20 +2190,25 @@ def audit(root: Path) -> dict[str, Any]:
                 "eagain_binding_witness_fields": (
                     DIAG_EAGAIN_BINDING_WITNESS_FIELDS
                 ),
-                "eagain_decomposition_rows": DIAG_EAGAIN_DECOMPOSITION_ROWS,
+                "eagain_observable_rows": DIAG_EAGAIN_OBSERVABLE_ROWS,
+                "eagain_negative_invariants": DIAG_EAGAIN_NEGATIVE_INVARIANTS,
                 "eagain_classification_priority": (
                     DIAG_EAGAIN_CLASSIFICATION_PRIORITY
                 ),
                 "eagain_is_a_standalone_terminal": False,
                 "eagain_binding_witness_cross_axis_required": True,
                 "binding_witness_values_retained_end_to_end": True,
-                "claim_busy_post_sync_eagain_is_valid": False,
+                "observable_obligation_surjectivity_required": True,
+                "negative_invariant_decode_preimage_must_be_empty": True,
+                "unique_retained_vector_reverse_map_required": True,
                 "real_encoder_carrier_decoder_round_trip_required": True,
                 "synthesized_retained_representation_required": True,
                 "physical_condition_reproduction_required": False,
                 "every_existing_mux_result_row_also_required": True,
                 "blocks_packaging_and_f1_approval_until_receipted": True,
             },
+            "terminal_row_admission_rule": DIAG_TERMINAL_ROW_ADMISSION_RULE,
+            "retained_payload_contract": DIAG_RETAINED_PAYLOAD_CONTRACT,
         },
         "selected_closure": {
             "base_module_count": len(p315_modules),
@@ -2235,7 +2279,8 @@ def audit(root: Path) -> dict[str, Any]:
             "the plan loads the diagnostic exactly once and exposes no unload/reinsert path",
             "the exact 30000-ms retention dwell fits the candidate and guard budgets",
             "all late-load and cached-result terminal buckets round-trip through the real encoder carrier and decoder before packaging or F1 approval",
-            "EAGAIN is never decoded alone; the retained record also carries pre/post exact-parent, driver-owner, matching-parent, and sole-0x25 binding witnesses",
+            "one fixed Carrier-v2 record retains one 128-byte two-slot envelope; only losslessly represented poll bytes may support a causal row, while an oversized lossless payload terminates as explicit no-proof",
+            "EAGAIN is never decoded alone; six observable rows are surjective over unique retained vectors while claim-busy has an empty decoder preimage",
             "pre-write direct fence, command deadlines, response validation, and no-retry behavior are exercised by fixtures",
             "carrier and host-sidecar positive control distinguish every result-contract row",
         ],

@@ -204,8 +204,13 @@ The primary source and artifact inputs were rehashed during this H0 unit.
 | A/B linked-build receipt (19,492 bytes) | `5ea484ae1381b23c42c71163a8bb5add2e54f8b936e7730aee7b87e6a8ffeadd` |
 | independent audit-mode replay receipt | `ce6a1310d1d07b9b6733e4129fecdc41dd4d2bb3ff03247fbe8df2fe9019894b` |
 | A/B diagnostic module (293,400 bytes each) | `4f4f485a35cdb12206b814390b56674ca6a6d691c9a1d7a29c97030053231849` |
-| custom-surface authority helper v7 | `e538d0564583897b0cac043075bce7f455e9afa43c8d01084d96eb28dfad5dad` |
-| linked-qualified custom-surface receipt v7 | `1258e53187d6fda549b18e277a72035dd18d5191caa0176d0454ff9bee58c577` |
+| custom-surface authority helper v9 | `0fd6777ce234ef26e1da4b0129ef786dcb5edb2bc9fe8409dfe1229911bd6207` |
+| linked-qualified custom-surface receipt v9 | `c44d35fae083706337c6618cd90e232fb990cf946665f22ad9e73703b3a5628e` |
+| Max77705 retained-envelope encoder | `55de85c876767a6494fd4c0805a940125a5e6a5a259985d50fc4a919ed342cc3` |
+| Max77705 Carrier-v2 decoder | `ba728dabdfbcb832432ad59b8600bd657e70d9e4cfe969cb321c38ea9f9f46c2` |
+| request-v3 checkpoint transform | `0cd6a7c0f02148125b9891efa9918ffbf5aea131c3ffec84fcd0f4bfe3bc3edd` |
+| actual C request-v3 fixture | `a6a2184b9a292353cc4d31c3f647c95b9bfeb870db23d1c46848fe4a00c80ccf` |
+| real Process-v2 adapter fixture | `28f89e560a5038734ab28c333d64b231eee5da0c9bbd92733c62640cf381c973` |
 | retained stock/XBL `baseline_last_kmsg.bin` | `9a58a0c8486723c31f9cf8ac7d8b8be2586969bb8f167cd76907e3b82db0c7cb` |
 | P3.15 USB-sidecar result | `a075c7014e9d0524fd0b7f18fe14a263639ad27ced386a4801e4c9856caf19fa` |
 
@@ -232,7 +237,7 @@ for the hashed source snapshot, not for an unpinned upstream tree.
 | first-stage/recovery order inputs | pinned `modules.load` and `modules.load.recovery`, hash-pinned above |
 | bounded sparse/range extraction and exact second-stage file | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/result.json` and `modules.load`, hash-pinned above |
 | 67-name stage, position, and dependency-order audit | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/max77705-67-order-audit.json`, hash-pinned above |
-| all-stock export-consumer audit, full-PDIC rejection evidence, and linked-qualified custom-65 diagnostic | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-surface-authority-20260812-12.json`, hash-pinned above |
+| all-stock export-consumer audit, full-PDIC rejection evidence, and linked-qualified custom-65 diagnostic | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-surface-authority-20260812-14.json`, hash-pinned above |
 | exact P3.10 ABI A/B build plus precompile-source/CFI/modversion/import/relocation audit | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-module-build-20260812-07/build-audit.json`, hash-pinned above |
 | PDIC, MFD, SPU, GENI-I2C, GPI, and GENI-SE dependency edges | pinned `modules.dep:91`, `:176`, `:181`, `:235`, `:305`, `:388` |
 | switch bit layout and the values that evaluate to `COM_OPEN=0x3f`, `COM_USB=0x09` | `include/linux/usb/typec/maxim/max77705-muic.h:293-301`, `:359-405` |
@@ -871,14 +876,23 @@ exact-adapter/foreign `0x25` client counts. A loader still inside
 `finit_module()` is bounded continuation; zero matches, wrong-address matches,
 and another driver owning the exact parent are distinct no-proof results; an
 exact unbound parent or a complete diagnostic-parent/sole-dummy binding paired
-with post-return `-EAGAIN` is a synchronous-publication contradiction.
-`i2c_register_driver()` documents that all matching unbound devices have been
-probed when registration returns, and this driver is force-synchronous. A
-post-return claim-busy `EAGAIN` is consequently not a valid no-match branch:
-the first successful claim path caches even dummy-client failure and returns
-zero before registration completes. The v7 arming gate preserves all witness
-values, fixes classification priority, and requires seven decomposition rows
-to survive the real encoder/carrier/decoder path.
+with post-return `-EAGAIN` is a synchronous probe or publication
+contradiction. Force-synchronous registration does not prove entry into this
+driver's `probe()`: supplier, pinctrl, DMA, or driver-sysfs setup can fail in
+driver core first. Therefore an exact parent that remains unbound after
+synchronous return is classified as pre-probe/probe-reachability failure, not
+as a kernel-semantics violation. A post-return claim-busy `EAGAIN` is not an
+observable no-match branch at all: the first successful claim path caches even
+dummy-client failure and returns zero before registration completes.
+
+The v9 arming gate consequently separates two proof directions. Each of the
+six observable `EAGAIN` rows must have at least one unique retained-vector
+preimage that decodes to that row, while claim-busy is a negative invariant
+whose decoder preimage must be empty and whose encoder acceptance is a hard
+error. The local row-admission rule accepts a separate row only when it is
+source-reachable or a required negative invariant, changes safety, causal
+interpretation, or next action, and is distinguishable in retained evidence.
+This is a Max77705 design discipline, not a new common Process-v2 gate.
 
 It requests no IRQ, creates no workqueue or MFD child, registers no Type-C,
 MUIC, IF-manager, notifier, power-supply, misc, debug, proc, or writable sysfs
@@ -890,15 +904,27 @@ set includes `SYSMsgI`, `VBUSDetI`, `VbADCI`, `DCDTmoI`, `CHGTypI`, and
 safe from Linux-consumer theft only under the enforced condition that no other
 Max77705 driver is bound or loaded.
 
-The v7 helper registers and tests this source shape and requires the exact
+The v9 helper registers and tests this source shape and requires the exact
 linked-build receipt. Its current receipt is
-`custom-surface-authority-20260812-12.json`. Source, precompile validation,
+`custom-surface-authority-20260812-14.json`. Source, precompile validation,
 A/B linked module, import/relocation closure, and fixed-Image modversion/CFI
 proof are satisfied. Boot staging, runtime binding, timeout/result fixtures,
-carrier integration, and independent review remain open.
+host-sidecar positive control, and independent review remain open. Carrier
+geometry, actual C request-v3 publication, and real Process-v2 adapter
+round-trip are now closed separately below.
+
+The publisher fixture host-compiles and executes the transformed full P3.15
+checkpoint client rather than a Python reimplementation. It emits 15 requests
+and 1,500 bytes whose SHA-256 is
+`1200128d11c57bda9fdfa879fb3e592a1d368e0fc15a6bed255957678a136b2d`;
+those bytes equal the Carrier request model exactly. The real evidence adapter
+then round-trips nine terminal-bucket preimages, six observable `EAGAIN`
+preimages, and five MUX-class preimages through JSON persistence, rejects an
+unknown overlay, and proves the claim-busy decoder preimage empty. These tests
+do not invent target sysfs names, target binding state, or package wiring.
 
 The linked artifact first qualified under v6 supersedes the earlier H0-only v5
-linked artifact; v7 reuses those exact module bytes and tightens only the host
+linked artifact; v9 reuses those exact module bytes and tightens only the host
 result contract. Review found two source-contract mismatches before packaging:
 v5 compared the entire
 raw PMIC revision byte rather than the stock driver's low-three-bit logical
@@ -1351,7 +1377,7 @@ final builder therefore calls `validate_diag_source_text()` before source-tree
 copy, `modules_prepare`, or module compilation and receipts both its complete
 validation result and validator-function SHA-256
 `0914d607dac146b4e1aec41df36a104cfaa93c3c09568171f4fe75ec9cd08c3d`.
-The v7 custom-surface authority rejects a missing, changed, late, or
+The v9 custom-surface authority rejects a missing, changed, late, or
 semantically different linked-build receipt. This was an H0 qualification
 repair; neither build contacted the target or created a boot package.
 The build receipt records full helper hash
@@ -1490,7 +1516,7 @@ remaining applicable gate must close before a live candidate is prepared:
 1. **Diagnostic source and linked effect contract — closed for H0 source/ELF**
    - the exact direct I2C parent match and only one managed dummy client at
      `0x25` are implemented;
-   - `validate_diag_source_text()` is exercised before the build, and the v7
+   - `validate_diag_source_text()` is exercised before the build, and the v9
      contract now rejects a missing or changed linked-build receipt;
    - source and linked relocations prove exactly three read commands and at
      most one conditional, non-retried `CONTROL1_W(0x09)`;
@@ -1513,7 +1539,7 @@ remaining applicable gate must close before a live candidate is prepared:
      CFI callbacks, and exact A/B byte identity are proven;
    - recompute dependency, stage, and package closure.
 
-3. **Runtime and telemetry**
+3. **Runtime and telemetry — retained schema/publisher closed; live runtime open**
    - target-only override machinery and readback;
    - exact target adapter, parent, diagnostic, and sole `0x25` client witnesses;
    - no competing Max77705 driver, IRQ owner, or command consumer;
@@ -1532,23 +1558,36 @@ remaining applicable gate must close before a live candidate is prepared:
    - time-budget proof that the bounded blocking probe and all setup/cleanup
      remain inside the candidate endpoint and guard lifetimes;
    - cached diagnostic terminal state;
-   - separate terminal buckets for late-load failure, registered/no matching
-     parent, wrong-address identity rejection, parent ownership conflict,
-     cached early transaction failure, post-return `-EAGAIN`, result-read
-     timeout, and synchronous-publication contradiction;
+   - nine separate terminal buckets for late-load failure, registered/no
+     matching parent, wrong-address identity rejection, parent ownership
+     conflict, cached early transaction failure, post-return `-EAGAIN`,
+     result-read timeout, synchronous probe/publication contradiction, and
+     unrepresentable lossless payload;
    - `-EAGAIN` is never decoded alone: loader state and every declared pre/post
-     binding-witness value must survive the retained representation, with all
-     seven decomposition rows and their fail-closed priority exercised;
+     binding-witness value survives the retained representation; all six
+     observable rows have unique retained preimages and claim-busy has an empty
+     decoder preimage;
+   - one 128-byte envelope fills the fixed Carrier-v2 two-slot payload exactly;
+     an oversized lossless poll vector becomes explicit no-proof rather than a
+     truncated MUX result;
+   - the actual transformed C publisher emits the same 100-byte request-v3
+     bytes as the Carrier model for all nine terminal and five MUX details,
+     rejects out-of-family details, and leaves the inherited request-v2
+     publisher byte-identical;
    - same-session exact-target stock/Download positive control before any
      candidate-side host-silence interpretation;
    - host-sidecar correlation;
    - fail-closed preservation of the interpretation ceiling: no host-silent
      readback tuple may refute physical MUX continuity;
-   - carrier encoder/decoder/generation-position exhaustive tests through the
-     real Process-v2 adapter. Every existing MUX result row and every new
-     terminal bucket must first decode from a synthesized retained
-     representation through that real path; physical reproduction is neither
-     required nor sufficient for the arming precondition.
+   - carrier encoder/decoder/generation-position tests pass through the real
+     Process-v2 adapter for all nine terminal buckets, all six observable
+     `EAGAIN` rows, all five MUX result classes, and the claim-busy negative
+     invariant. These are H0-closed schema and publisher proofs only; physical
+     reproduction is neither required nor sufficient for the arming
+     precondition;
+   - target-specific override/bind runtime materialization remains blocked on
+     the exact D0 inventory below, and packaging remains blocked until that
+     runtime and its qualification receipt call these validators directly.
 
 4. **Historical and safety regression**
    - S7A2 must remain a prior negative recipe result, not disappear from the
@@ -1716,9 +1755,16 @@ This report was closed at H0 with the following host-side checks:
   closure, CFI jump-table callback relocations, registered call counts, zero
   exports, and no broad linked-effect family;
 - `python3 -m unittest
-  tests.test_s22plus_fyg8_max77705_custom_surface_contract` passed 25/25,
+  tests.test_s22plus_fyg8_max77705_custom_surface_contract` passed 30/30,
   including the exact 491-module consumer scan and negative custom-source
   and linked-receipt fixtures;
+- `python3 -m unittest tests.test_s22plus_fyg8_max77705_telemetry` passed
+  12/12, including six-row surjectivity, nine terminal and five MUX retained
+  preimages, claim-busy exclusion, payload overflow, and the real Process-v2
+  adapter round trip;
+- `python3 -m unittest tests.test_s22plus_fyg8_max77705_checkpoint` passed 1/1
+  by compiling and executing the transformed full C checkpoint client and
+  comparing all 15 request-v3 byte strings with the Carrier model;
 - `python3 -m unittest
   tests.test_s22plus_fyg8_max77705_mux_diag_build` passed 12/12, including
   precompile-validator ordering, fixed-KMI, parser, toolchain-link, and real
@@ -1778,9 +1824,10 @@ The evidence now supports these exact statements:
     values are `0x09`; only host attach/enumeration is an independent physical
     path witness in this design.
 11. The source match, command protocol, precompile validation, reproducible
-    linked module, imports, modversions, CFI callbacks, and bounded call surface
-    are proven. Binding, timeout/runtime fixtures, carrier,
-    sidecar-positive-control, packaging, and independent-review gates remain.
+    linked module, imports, modversions, CFI callbacks, bounded call surface,
+    retained envelope, actual C request-v3 publisher, and real Process-v2
+    decoder path are proven. Exact-target D0, binding, timeout/runtime fixtures,
+    sidecar positive control, packaging, and independent review remain.
 
 Until those H0 and D0 gates close, the correct state is:
 

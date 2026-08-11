@@ -133,7 +133,7 @@ The exact 491-module audit still matters: it proves PDIC alone consumes the
 three removable MFD updater exports and also records the much broader stock
 PDIC/MUIC/CC/PD/alternate/AFC/QC/notifier/user-control surface. That former
 full-PDIC custom-66 design is now rejected as disproportionate, not retained as
-the preferred implementation. The v7 authority retains the corrected source
+the preferred implementation. The v9 authority retains the corrected source
 validator and fixes the logical
 transaction shape: neither post value may be synthesized, both reads occur
 outside the optional-write branch, post2 follows the exact retention dwell,
@@ -160,10 +160,10 @@ with SHA-256
 The audit proves exact FYG8 vermagic, 15 imports, 16 matching modversions, CFI
 callback jump-table relocations, registered call counts, and zero exports.
 The current private contract receipt is
-`custom-surface-authority-20260812-12.json`, SHA-256
-`1258e53187d6fda549b18e277a72035dd18d5191caa0176d0454ff9bee58c577`;
+`custom-surface-authority-20260812-14.json`, SHA-256
+`c44d35fae083706337c6618cd90e232fb990cf946665f22ad9e73703b3a5628e`;
 its embedded contract is
-`035b98fa0052a2b61c55f43c47419be306284cb23c358417c78753f1c70bea58`.
+`8c045bf4fc394b11bb487e78423d8e3b3f79e8a89ee3694f0083fd9b19dc8779`.
 Status is strictly
 `SOURCE_AND_LINKED_AB_ABI_QUALIFIED_RUNTIME_NOT_SATISFIED`; no boot package
 was created and no module was loaded.
@@ -179,16 +179,36 @@ read-timeout buckets are registered but not yet satisfied. `-EAGAIN` is not a
 standalone terminal: its retained representation must also carry the loader
 state plus pre/post exact-parent, driver-owner, compatible-parent, diagnostic
 bind-count, and exact/foreign `0x25` client witnesses. The contract separates
-zero-match, wrong-address, other-driver ownership, and synchronous-publication
-contradictions; a post-synchronous-return claim-busy `EAGAIN` is forbidden as a
-valid no-match result. Packaging and F1 approval remain blocked until all eight
-terminal buckets, all seven `EAGAIN` decomposition rows, and every existing MUX
-result row round-trip through the real encoder, retained carrier, and decoder
-as required by the Process-v2 result-contract arming precondition.
+zero-match, wrong-address, other-driver ownership, and synchronous probe or
+publication contradictions. Parent-unbound after synchronous return is a
+driver-core pre-probe/probe-reachability contradiction, not a kernel-semantics
+violation. A post-synchronous-return claim-busy `EAGAIN` is a required negative
+invariant rather than an observable terminal row.
 
-The next H0 work is target-only GENI bind proof, exhaustive transaction and
-telemetry fixtures, the host-sidecar positive-control gate, packaging
-integration, and one proportional independent review. The former
+The retained-telemetry sub-gate is now closed H0-side. One fixed 128-byte
+Carrier-v2 envelope preserves both 64-byte request-v3 payloads without an Image
+change. All nine terminal buckets, all six observable `EAGAIN` rows, and all
+five MUX result classes have retained preimages through the real Process-v2
+adapter; claim-busy has an empty decoder preimage and encoder acceptance is a
+hard error. The actual transformed C publisher emitted 15 byte-exact v3
+requests (1,500 bytes, SHA-256
+`1200128d11c57bda9fdfa879fb3e592a1d368e0fc15a6bed255957678a136b2d`),
+rejected five out-of-family details, and left the inherited v2 publisher
+byte-identical. Oversized lossless poll evidence terminates in the ninth,
+explicit payload-unrepresentable no-proof bucket rather than truncating or
+inventing causality.
+
+This closes only schema, carrier, decoder, and publisher geometry. Packaging
+and F1 approval remain blocked because the target-specific override/bind
+runtime has not been materialized, the exact sysfs names and pre-existing bind
+state have not been captured by the required fresh D0, host-sidecar positive
+control is still open, and independent review has not occurred.
+
+The next bounded step is the exact read-only D0 inventory required by the
+authority report. Only after that evidence fixes the target and 12 non-target
+sysfs paths may H0 continue with target-only override/bind integration,
+transaction fixtures, the host-sidecar positive-control gate, packaging, and
+one proportional independent review. The former
 4,246,401,024-byte
 workspace-capacity blocker is closed by the exact private S22+ cleanup
 receipt: 68 superseded or invalidated
