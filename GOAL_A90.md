@@ -744,7 +744,7 @@ sequence, operator-visible Debian output, retained latch, automatic native
 return, cleanup, final health, and benchmark telemetry. It does not claim the
 missing same-ordinal mechanical Debian PID1/SSH evidence.
 
-## Selected Bounded Unit: H19 Capability Qualified, Execution Adapter Pending
+## Selected Bounded Unit: H20 Capability Qualified, Execution Adapter Pending
 
 Preserve every terminal H7-H17 transaction and the complete seven-record H18
 run01 journal. The consumed H18 arm, reboot, and handoff are never replayed.
@@ -753,19 +753,20 @@ successor authority.
 
 H18 proves only outer `EPERM` at `firstboot-overlay`, after the UFS root mount
 and before `switch_root`; it does not distinguish source check, target check,
-bind, remount, or verification. H19 therefore avoids that optional stage rather
-than claiming a narrower cause. H19 `0.11.187` retains the boot-private observer
-auth tmpfs and its cleanup, compile-disables the boot firstboot bind and native
-persistent HUD, and delegates display startup to the exact immutable UFS
-`/etc/a90-d3-firstboot`. Its v6 binding records Debian display ownership.
+bind, remount, or verification. Host inspection then refuted H19's assumption
+that the immutable UFS firstboot launches a Debian display presenter. H19 had no
+runner, approval, connected D0, or device effect; the new hazard retires its
+qualification before live use.
 
-Deterministic A/B build `7df1a054...33ab` is byte-identical, contains the
-observer key but no H17 firstboot payload, and is bound to the 142-file A90-only
-native closure `4623c9cc...8e2`. Clean independent `PASS_GO` at 13-file closure
-`1a8f3276...d22d` has HIGH/MEDIUM/LOW zero and grants no live authority.
+H20 `0.11.188` is a fresh identity. It retains the boot-private observer auth
+and native HUD presenter while compile-disabling only the firstboot file overlay.
+Deterministic A/B boot `99edec6c...9713` contains the observer key, omits the
+firstboot payload, and binds native closure `7ced84b2...27ef`. Clean independent
+`PASS_GO` at 14-file closure `1d02d9a1...65f8` has HIGH/MEDIUM/LOW zero and grants
+no live authority.
 
-The next bounded unit is H0-only H19 F1/D1 execution-adapter construction. It
-must bind the terminal H18 predecessor, exact H19 A/B artifacts, V2321 rollback,
+The next bounded unit is H0-only H20 F1/D1 execution-adapter construction. It
+must bind the terminal H18 predecessor, exact H20 A/B artifacts, V2321 rollback,
 boot-only transfer, no replay, fresh connected D0, attendance, recovery, and
 fresh F1/D1 approvals. Debian PID 1, persistent SSH, display ownership, Wi-Fi
 ownership, and persistent-server readiness remain unproved until that run.
@@ -846,6 +847,8 @@ proves equivalent ownership and the rollback/recovery contract remains intact.
 - `docs/reports/A90_H18_FRAMED_LOG_PREFIX_FINALIZER_INCIDENT_2026-08-12.md`
 - `docs/reports/A90_H18_FRAMED_LOG_PREFIX_FINALIZER_INDEPENDENT_REVIEW_2026-08-12.json`
 - `docs/reports/A90_H19_AUTH_ONLY_UFS_HANDOFF_INDEPENDENT_REVIEW_2026-08-12.json`
+- `docs/reports/A90_H19_UFS_FIRSTBOOT_DISPLAY_OWNER_ASSUMPTION_INCIDENT_2026-08-12.md`
+- `docs/reports/A90_H20_NATIVE_HUD_NO_FIRSTBOOT_OVERLAY_INDEPENDENT_REVIEW_2026-08-12.json`
 - `docs/reports/A90_H5_H4_SOURCE_RECLAIM_CAPABILITY_INDEPENDENT_REVIEW_2026-08-05.json`
 - `docs/reports/A90_H5_HISTORICAL_IMAGE_GC_CAPABILITY_INDEPENDENT_REVIEW_2026-08-06.json`
 - `docs/operations/CAMPAIGN_LEDGER_A90.md`

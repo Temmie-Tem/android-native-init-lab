@@ -79,8 +79,15 @@
 #ifndef A90_UFS_PERSISTENT_NATIVE_HUD_V1
 #define A90_UFS_PERSISTENT_NATIVE_HUD_V1 0
 #endif
-#if A90_UFS_PERSISTENT_NATIVE_HUD_V1 && !A90_UFS_OBSERVER_AUTH_OVERLAY_V1
-#error A90 UFS persistent native-HUD requires observer-auth overlay
+#ifndef A90_UFS_FIRSTBOOT_OVERLAY_V1
+#define A90_UFS_FIRSTBOOT_OVERLAY_V1 A90_UFS_PERSISTENT_NATIVE_HUD_V1
+#endif
+#if (A90_UFS_FIRSTBOOT_OVERLAY_V1 || A90_UFS_PERSISTENT_NATIVE_HUD_V1) && \
+    !A90_UFS_OBSERVER_AUTH_OVERLAY_V1
+#error A90 UFS firstboot/native-HUD features require observer-auth overlay
+#endif
+#if A90_UFS_FIRSTBOOT_OVERLAY_V1 && !A90_UFS_PERSISTENT_NATIVE_HUD_V1
+#error A90 UFS firstboot overlay requires persistent native HUD
 #endif
 #ifndef A90_AUTO_HANDOFF_IMAGE
 #define A90_AUTO_HANDOFF_IMAGE ""

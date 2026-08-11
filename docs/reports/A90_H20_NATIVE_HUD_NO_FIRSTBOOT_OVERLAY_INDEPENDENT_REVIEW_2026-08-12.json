@@ -1,0 +1,89 @@
+{
+  "schema": "a90-h20-native-hud-no-firstboot-overlay-independent-review-v1",
+  "status": "PASS_GO",
+  "review_date": "2026-08-12",
+  "reviewer": "independent subagent /root/a90_h18_execution_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "capability": "A90_H20_NATIVE_HUD_NO_FIRSTBOOT_OVERLAY_V1",
+  "incident_class": "H19_UFS_FIRSTBOOT_DISPLAY_OWNER_ASSUMPTION",
+  "decision": "Host-only inspection refuted H19's Debian display-owner assumption before any H19 live action. H20 is a fresh identity that retains boot-private observer authentication and the persistent native HUD, while compile-disabling only the firstboot file overlay that failed under H18. Display and server success remain live D1 observations rather than capability-review claims.",
+  "frozen_scope": {
+    "execution_closure_sha256": "1d02d9a10abc4f6edc4711daeb9289aadb6e7c83f21e869b157700831eb765f8",
+    "execution_closure_members": 14,
+    "native_init_closure_sha256": "7ced84b224ecaf64684b0d13a656e2f2bd652c3a91404314a0e80607f9d727ef",
+    "native_init_closure_members": 142,
+    "quoted_include_edges": 392,
+    "quoted_include_edges_missing_from_closure": 0,
+    "s22plus_named_native_members": 0,
+    "manifest_sha256": "cbf84a0c63fd7ba02b277a254d2c8634e002ef12c62f3ab50465c5f064bd567a",
+    "effective_manifest_sha256": "5b4c357ff10ed6bd48fc5e57ff74edd11a7375b151ab2cab9a574239002dcbc9",
+    "compiled_binding_sha256": "6c22621274cc306223edbf56adc3ed42434aaefb60df5a2fb8927b5e3898f59b",
+    "candidate_boot_sha256": "99edec6c6a54a75c5127c49ed7fceb2a89d2bd2fe8ce563ff40e0986df4e9713",
+    "candidate_boot_bytes": 58372096,
+    "candidate_init_sha256": "6057d340206d8168dc84309260b0b3ae53f39ad95b75afc4bfeeb955e70ea6e3",
+    "candidate_init_bytes": 1723376,
+    "ramdisk_sha256": "0a05f07dc98282a493ae1d943b3a08538a994ffca7b5997b2dbcb841ad7b3cc4",
+    "ramdisk_bytes": 8537600,
+    "helper_sha256": "fcb005b0454aceb08aa6f8f81d83aa303e37199a56e018eb2501e4225f08e00e",
+    "helper_bytes": 1649904,
+    "ab_receipt_sha256": "cb7b5a61c65d208908ec4f1dd7c27c12988cef92660a9d6f21aef0b3e6ec41da",
+    "ab_byte_identical": true
+  },
+  "reviewed_behavior": {
+    "manifest_lineage": "phase3-minimal-h20 -> phase3-minimal-h16 -> v3404-effective",
+    "runtime_features": "observer-auth-enabled; firstboot-overlay-disabled; persistent-native-hud-enabled",
+    "observer_auth_overlay": "boot-private-tmpfs-v1",
+    "observer_auth_failure_cleanup": "unmount-auth-tmpfs; ambiguous-cleanup-recovery-required",
+    "firstboot_overlay": "compile-disabled",
+    "persistent_native_hud": "enabled-native-handoff-hud-v1",
+    "existing_ufs_firstboot": "regular-0755-size-12092-sha256-fd8625402c76b2ee0cc4a2aff07eed3b182c6dd12eba1a022a445ea428c8c84a",
+    "display_owner": "native-handoff-hud-v1",
+    "packed_ramdisk": "observer-authorized-key-required; h17-firstboot-forbidden",
+    "compiled_binding_schema": "a90-compiled-auto-handoff-binding-v7",
+    "candidate_authority": false,
+    "partition_allowlist": [
+      "boot"
+    ],
+    "s22plus_authority": false
+  },
+  "findings": {
+    "final_high": 0,
+    "final_medium": 0,
+    "final_low": 0,
+    "unresolved": []
+  },
+  "validation": {
+    "main_related_tests": "57/57 PASS",
+    "reviewer_public_allowlisted_tests": "9/9 PASS",
+    "reviewer_adversarial_macro_binding_ramdisk_checks": "PASS",
+    "python_py_compile": "PASS",
+    "reviewer_python_in_memory_compile": "3/3 PASS",
+    "reviewer_aarch64_syntax_translation_units": "51/51 PASS",
+    "aarch64_warning_disposition": "one unchanged permitted unused-parameter warning only",
+    "android_boot_image_inspection": "PASS",
+    "deterministic_ab_build": "PASS",
+    "ramdisk_observer_authorized_key": "present",
+    "ramdisk_h17_firstboot": "absent"
+  },
+  "review_lifetime": {
+    "reuse": "PASS_GO qualifies only this named H20 native/build capability while the 14-file execution closure, 142-file native closure, and H19 incident assumptions remain unchanged and no new hazard or incident occurs.",
+    "fresh_f1_runner_review_required": true,
+    "fresh_d1_runner_review_required": true,
+    "fresh_manifest_d0_attendance_rollback_recovery_and_approval_required": true,
+    "live_authority": false
+  },
+  "review_contacts": {
+    "device": 0,
+    "dev": 0,
+    "usb": 0,
+    "network": 0,
+    "workspace_private": 0,
+    "s22plus_paths": 0,
+    "file_modifications": 0
+  },
+  "private_candidate_bytes_opened_by_reviewer": false,
+  "private_receipt_bytes_opened_by_reviewer": false,
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "reviewer_implementation_edits": false
+}

@@ -6089,7 +6089,7 @@ static int d4_userdata_ro_check_root(
                : d4_userdata_ro_check_content(expected_content_manifest_sha256);
 }
 
-#if A90_UFS_PERSISTENT_NATIVE_HUD_V1
+#if A90_UFS_FIRSTBOOT_OVERLAY_V1
 static int h17_bind_firstboot(bool *bound_out) {
     char target[PATH_MAX];
     struct stat source_st;
@@ -6160,7 +6160,9 @@ static int h17_unbind_firstboot(void) {
     }
     return umount2(target, MNT_DETACH) < 0 ? -errno : 0;
 }
+#endif
 
+#if A90_UFS_PERSISTENT_NATIVE_HUD_V1
 static int h17_start_persistent_hud(bool *run_bound_out,
                                     bool *started_out,
                                     pid_t *pid_out) {
@@ -6421,8 +6423,10 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
 #if A90_UFS_OBSERVER_AUTH_OVERLAY_V1
     bool h17_observer_auth_mounted = false;
 #endif
-#if A90_UFS_PERSISTENT_NATIVE_HUD_V1
+#if A90_UFS_FIRSTBOOT_OVERLAY_V1
     bool h17_firstboot_bound = false;
+#endif
+#if A90_UFS_PERSISTENT_NATIVE_HUD_V1
     bool h17_hud_run_bound = false;
     bool h17_hud_started = false;
     pid_t h17_hud_pid = -1;
@@ -6575,14 +6579,21 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
                            rc);
         goto fail_before_move;
     }
-#if !A90_UFS_PERSISTENT_NATIVE_HUD_V1
+#if !A90_UFS_FIRSTBOOT_OVERLAY_V1
+#if A90_UFS_PERSISTENT_NATIVE_HUD_V1
     a90_console_printf(
-        "%s auth_only=ready firstboot=ufs-existing display_policy=debian-owned "
+        "%s firstboot=ufs-existing firstboot_overlay=disabled "
+        "persistent_native_hud=enabled ufs_write=0\r\n",
+        A90_H17_TAG);
+#else
+    a90_console_printf(
+        "%s firstboot=ufs-existing firstboot_overlay=disabled "
         "persistent_native_hud=disabled ufs_write=0\r\n",
         A90_H17_TAG);
 #endif
 #endif
-#if A90_UFS_PERSISTENT_NATIVE_HUD_V1
+#endif
+#if A90_UFS_FIRSTBOOT_OVERLAY_V1
     failure_stage = "firstboot-overlay";
     rc = h17_bind_firstboot(&h17_firstboot_bound);
     if (rc < 0) {
@@ -6591,6 +6602,8 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
                            rc);
         goto fail_before_move;
     }
+#endif
+#if A90_UFS_PERSISTENT_NATIVE_HUD_V1
     failure_stage = "persistent-hud";
     rc = h17_start_persistent_hud(
         &h17_hud_run_bound,
@@ -6689,31 +6702,25 @@ int a90_server_distro_switch_root_userdata_ro(const char *expected_devname,
         A90_D3_ROOT,
         A90_D3_INIT);
 #if A90_UFS_OBSERVER_AUTH_OVERLAY_V1
-#if A90_UFS_PERSISTENT_NATIVE_HUD_V1
     a90_logf("server-distro",
              "D4 read-only switch_root exec source=%s root=%s "
              "writable_set=%u evidence_bound=%d wifi_handoff_bound=%d "
-             "h17_auth=%d h17_firstboot=%d h17_hud=%d",
+             "observer_auth=%d firstboot_overlay=%d persistent_native_hud=%d",
              A90_D4_NODE,
              A90_D3_ROOT,
              writable_mounted,
              evidence_bound ? 1 : 0,
              wifi_handoff_bound ? 1 : 0,
              h17_observer_auth_mounted ? 1 : 0,
+#if A90_UFS_FIRSTBOOT_OVERLAY_V1
              h17_firstboot_bound ? 1 : 0,
+#else
+             0,
+#endif
+#if A90_UFS_PERSISTENT_NATIVE_HUD_V1
              h17_hud_started ? 1 : 0);
 #else
-    a90_logf("server-distro",
-             "D4 read-only switch_root exec source=%s root=%s "
-             "writable_set=%u evidence_bound=%d wifi_handoff_bound=%d "
-             "observer_auth=%d firstboot=ufs-existing "
-             "display_policy=debian-owned persistent_native_hud=0",
-             A90_D4_NODE,
-             A90_D3_ROOT,
-             writable_mounted,
-             evidence_bound ? 1 : 0,
-             wifi_handoff_bound ? 1 : 0,
-             h17_observer_auth_mounted ? 1 : 0);
+             0);
 #endif
 #else
     a90_logf("server-distro",
@@ -6784,6 +6791,8 @@ fail_before_move:
             &h17_hud_pid) < 0) {
         cleanup_clean = false;
     }
+#endif
+#if A90_UFS_FIRSTBOOT_OVERLAY_V1
     if (h17_firstboot_bound) {
         if (h17_unbind_firstboot() < 0) {
             cleanup_clean = false;

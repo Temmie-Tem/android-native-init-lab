@@ -75,6 +75,7 @@ AUTO_HANDOFF_USERDATA_VALUE_MACROS = (
 )
 AUTO_HANDOFF_RECEIPT_MACRO = "A90_D3_SOURCE_RECEIPT_PATH"
 H17_OBSERVER_AUTH_ENABLE = "A90_UFS_OBSERVER_AUTH_OVERLAY_V1"
+H17_FIRSTBOOT_OVERLAY_ENABLE = "A90_UFS_FIRSTBOOT_OVERLAY_V1"
 H17_PERSISTENT_HUD_ENABLE = "A90_UFS_PERSISTENT_NATIVE_HUD_V1"
 H17_OBSERVER_AUTH_RAMDISK_PATH = "a90/h17/authorized_keys"
 H17_FIRSTBOOT_RAMDISK_PATH = "a90/h17/firstboot"
@@ -84,32 +85,57 @@ H17_FIRSTBOOT_SOURCE = Path(
 USERDATA_RUNTIME_SOURCE = Path("workspace/public/src/native-init/a90_server_distro.c")
 
 
-def h17_runtime_features(manifest: dict[str, Any]) -> tuple[bool, bool]:
-    """Return the observer-auth and persistent-HUD feature modes."""
+def h17_runtime_features(manifest: dict[str, Any]) -> tuple[bool, bool, bool]:
+    """Return observer-auth, firstboot-overlay, and persistent-HUD modes."""
 
     cflags = manifest["init"]["cflags"]
     auth = _macro_directives(cflags, H17_OBSERVER_AUTH_ENABLE)
+    firstboot = _macro_directives(cflags, H17_FIRSTBOOT_OVERLAY_ENABLE)
     hud = _macro_directives(cflags, H17_PERSISTENT_HUD_ENABLE)
     valid_auth = [f"-D{H17_OBSERVER_AUTH_ENABLE}=1"]
+    valid_firstboot = [
+        f"-D{H17_FIRSTBOOT_OVERLAY_ENABLE}=0",
+        f"-D{H17_FIRSTBOOT_OVERLAY_ENABLE}=1",
+    ]
     valid_hud = [f"-D{H17_PERSISTENT_HUD_ENABLE}=1"]
-    if auth not in ([], valid_auth) or hud not in ([], valid_hud):
+    if (
+        auth not in ([], valid_auth)
+        or firstboot not in ([], [valid_firstboot[0]], [valid_firstboot[1]])
+        or hud not in ([], valid_hud)
+    ):
         raise RuntimeError("H17 runtime feature macro is duplicated or conflicting")
-    if hud and not auth:
-        raise RuntimeError("H17 persistent native HUD requires observer-auth")
-    return bool(auth), bool(hud)
+    auth_enabled = bool(auth)
+    hud_enabled = bool(hud)
+    firstboot_enabled = (
+        hud_enabled
+        if not firstboot
+        else firstboot == [f"-D{H17_FIRSTBOOT_OVERLAY_ENABLE}=1"]
+    )
+    if (firstboot_enabled or hud_enabled) and not auth_enabled:
+        raise RuntimeError("H17 firstboot/native HUD requires observer-auth")
+    if firstboot_enabled and not hud_enabled:
+        raise RuntimeError("H17 firstboot overlay requires persistent native HUD")
+    return auth_enabled, firstboot_enabled, hud_enabled
 
 
 def h17_private_runtime_mode(manifest: dict[str, Any]) -> bool:
     """Return whether the private observer-auth overlay is enabled."""
 
-    auth, _ = h17_runtime_features(manifest)
+    auth, _, _ = h17_runtime_features(manifest)
     return auth
+
+
+def h17_firstboot_overlay_mode(manifest: dict[str, Any]) -> bool:
+    """Return whether the boot firstboot file bind is enabled."""
+
+    _, firstboot, _ = h17_runtime_features(manifest)
+    return firstboot
 
 
 def h17_persistent_hud_mode(manifest: dict[str, Any]) -> bool:
     """Return whether the boot firstboot overlay and native HUD are enabled."""
 
-    _, hud = h17_runtime_features(manifest)
+    _, _, hud = h17_runtime_features(manifest)
     return hud
 
 
@@ -490,7 +516,7 @@ def normalized_auto_handoff_binding(
         )
         if receipt_path:
             normalized["receipt_path"] = receipt_path
-    auth_enabled, hud_enabled = h17_runtime_features(manifest)
+    auth_enabled, firstboot_enabled, hud_enabled = h17_runtime_features(manifest)
     if auth_enabled:
         if not userdata_root or not dynamic_devt:
             raise RuntimeError("H17 private runtime requires dynamic read-only userdata")
@@ -498,7 +524,7 @@ def normalized_auto_handoff_binding(
             {
                 "schema": (
                     "a90-compiled-auto-handoff-binding-v5"
-                    if hud_enabled
+                    if firstboot_enabled and hud_enabled
                     else "a90-compiled-auto-handoff-binding-v6"
                 ),
                 "observer_auth": "boot-private-tmpfs-v1",
@@ -509,7 +535,16 @@ def normalized_auto_handoff_binding(
                 ),
             }
         )
-        if not hud_enabled:
+        if hud_enabled and not firstboot_enabled:
+            normalized.update(
+                {
+                    "schema": "a90-compiled-auto-handoff-binding-v7",
+                    "firstboot_source": "ufs-existing-immutable-v1",
+                    "firstboot_overlay": "disabled",
+                    "persistent_native_hud": "enabled",
+                }
+            )
+        elif not hud_enabled:
             normalized.update(
                 {
                     "firstboot_source": "ufs-existing-immutable-v1",
@@ -585,7 +620,7 @@ def revalidate_execution_closure(
                 "observer_authorized_key_sha256": observer["sha256"],
             }
         )
-    if h17_persistent_hud_mode(manifest):
+    if h17_firstboot_overlay_mode(manifest):
         firstboot = (repo / H17_FIRSTBOOT_SOURCE).resolve(strict=True)
         current_inputs.update(
             {
@@ -880,12 +915,12 @@ def validate_packed_ramdisk(
     if missing:
         raise RuntimeError(f"ramdisk required entries missing: {missing}")
     buildlib.validate_ramdisk_component_listing(manifest, listing)
-    auth_enabled, hud_enabled = h17_runtime_features(manifest)
+    auth_enabled, firstboot_enabled, _ = h17_runtime_features(manifest)
     h17_entries = {H17_OBSERVER_AUTH_RAMDISK_PATH, H17_FIRSTBOOT_RAMDISK_PATH}
     expected_h17_entries: set[str] = set()
     if auth_enabled:
         expected_h17_entries.add(H17_OBSERVER_AUTH_RAMDISK_PATH)
-    if hud_enabled:
+    if firstboot_enabled:
         expected_h17_entries.add(H17_FIRSTBOOT_RAMDISK_PATH)
     if listing & h17_entries != expected_h17_entries:
         raise RuntimeError("packed ramdisk H17 runtime entries mismatch")
@@ -985,7 +1020,7 @@ def overlay_ramdisk(
             observer_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(Path(observer_key), observer_path)
             observer_path.chmod(0o400)
-            if h17_persistent_hud_mode(manifest):
+            if h17_firstboot_overlay_mode(manifest):
                 firstboot_path = safe_ramdisk_path(
                     ramdisk,
                     H17_FIRSTBOOT_RAMDISK_PATH,
@@ -1158,7 +1193,7 @@ def audit(
                 "observer_authorized_key_sha256": observer["sha256"],
             }
         )
-        if h17_persistent_hud_mode(manifest):
+        if h17_firstboot_overlay_mode(manifest):
             firstboot = (repo / H17_FIRSTBOOT_SOURCE).resolve(strict=True)
             if firstboot.is_symlink() or not firstboot.is_file():
                 raise RuntimeError("H17 firstboot source is not one regular file")

@@ -18,6 +18,7 @@ H16 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/version
 H17 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h17/manifest.toml"
 H18 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h18/manifest.toml"
 H19 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h19/manifest.toml"
+H20 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h20/manifest.toml"
 BUILDER = load_script(
     "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py"
 )
@@ -125,7 +126,7 @@ class H17ManifestTests(unittest.TestCase):
             "714c17971e357466dbccd69853d2c52b6ccf1b16648df4c2436900989e37009b",
         )
 
-    def test_h19_keeps_auth_but_retires_firstboot_overlay_and_native_hud(self) -> None:
+    def test_h19_identity_remains_historical_after_display_assumption_refutation(self) -> None:
         resolution = BUILDLIB.resolve_manifest(H19)
         self.assertEqual(
             [path.parent.name for path in resolution.lineage],
@@ -144,6 +145,31 @@ class H17ManifestTests(unittest.TestCase):
         self.assertEqual(binding["firstboot_source"], "ufs-existing-immutable-v1")
         self.assertEqual(binding["persistent_native_hud"], "disabled")
         self.assertNotIn("-DA90_UFS_PERSISTENT_NATIVE_HUD_V1=1", manifest["init"]["cflags"])
+        self.assertEqual(
+            manifest["init"]["closure_sha256"],
+            "4623c9cc1d6aa08b305a5151312355f3f2eff56abc4413c6ca013aa47ecf28e2",
+        )
+
+    def test_h20_keeps_native_hud_but_retires_only_firstboot_overlay(self) -> None:
+        resolution = BUILDLIB.resolve_manifest(H20)
+        self.assertEqual(
+            [path.parent.name for path in resolution.lineage],
+            ["phase3-minimal-h20", "phase3-minimal-h16", "v3404-effective"],
+        )
+        manifest = resolution.data
+        binding = BUILDER.normalized_auto_handoff_binding(manifest)
+        self.assertEqual(binding["schema"], "a90-compiled-auto-handoff-binding-v7")
+        self.assertEqual(binding["candidate_version"], "0.11.188")
+        self.assertEqual(
+            binding["candidate_build"],
+            "phase3-minimal-h20-ufs-auth-native-hud-no-firstboot-overlay",
+        )
+        self.assertEqual(binding["observer_auth"], "boot-private-tmpfs-v1")
+        self.assertEqual(binding["display_owner"], "native-handoff-hud-v1")
+        self.assertEqual(binding["firstboot_source"], "ufs-existing-immutable-v1")
+        self.assertEqual(binding["firstboot_overlay"], "disabled")
+        self.assertEqual(binding["persistent_native_hud"], "enabled")
+        self.assertEqual(BUILDER.h17_runtime_features(manifest), (True, False, True))
         self.assertNotIn("firstboot_overlay=ready", "\n".join(manifest["validation"]["init_strings"]))
         self.assertEqual(
             manifest["init"]["closure_globs"],
@@ -191,8 +217,9 @@ class H17ManifestTests(unittest.TestCase):
     def test_auth_only_is_allowed_but_hud_without_auth_is_rejected(self) -> None:
         manifest = BUILDLIB.resolve_manifest(H17).data
         manifest["init"]["cflags"].remove("-DA90_UFS_PERSISTENT_NATIVE_HUD_V1=1")
-        self.assertEqual(BUILDER.h17_runtime_features(manifest), (True, False))
+        self.assertEqual(BUILDER.h17_runtime_features(manifest), (True, False, False))
         self.assertTrue(BUILDER.h17_private_runtime_mode(manifest))
+        self.assertFalse(BUILDER.h17_firstboot_overlay_mode(manifest))
         self.assertFalse(BUILDER.h17_persistent_hud_mode(manifest))
         manifest["init"]["cflags"].remove("-DA90_UFS_OBSERVER_AUTH_OVERLAY_V1=1")
         manifest["init"]["cflags"].append("-DA90_UFS_PERSISTENT_NATIVE_HUD_V1=1")
@@ -276,7 +303,7 @@ class H17NativeSourceTests(unittest.TestCase):
         self.assertIn("cleanup_clean = false", handoff)
         self.assertIn("ufs_write=0", source)
 
-    def test_h19_auth_only_path_has_no_firstboot_or_native_hud_call(self) -> None:
+    def test_h20_firstboot_and_native_hud_calls_have_independent_guards(self) -> None:
         source = NATIVE.read_text()
         handoff = source[
             source.index("int a90_server_distro_switch_root_userdata_ro(") :
@@ -284,23 +311,30 @@ class H17NativeSourceTests(unittest.TestCase):
         ]
         auth_start = handoff.index("#if A90_UFS_OBSERVER_AUTH_OVERLAY_V1")
         firstboot_guard = handoff.index(
-            "#if A90_UFS_PERSISTENT_NATIVE_HUD_V1",
+            "#if A90_UFS_FIRSTBOOT_OVERLAY_V1",
             auth_start,
         )
         firstboot_call = handoff.index(
             "h17_bind_firstboot(&h17_firstboot_bound)",
             firstboot_guard,
         )
-        hud_call = handoff.index("h17_start_persistent_hud(", firstboot_call)
-        firstboot_end = handoff.index("#endif", hud_call)
+        firstboot_end = handoff.index("#endif", firstboot_call)
+        hud_guard = handoff.index(
+            "#if A90_UFS_PERSISTENT_NATIVE_HUD_V1",
+            firstboot_end,
+        )
+        hud_call = handoff.index("h17_start_persistent_hud(", hud_guard)
+        hud_end = handoff.index("#endif", hud_call)
         self.assertLess(firstboot_guard, firstboot_call)
-        self.assertLess(firstboot_call, hud_call)
-        self.assertLess(hud_call, firstboot_end)
+        self.assertLess(firstboot_call, firstboot_end)
+        self.assertLess(firstboot_end, hud_guard)
+        self.assertLess(hud_guard, hud_call)
+        self.assertLess(hud_call, hud_end)
         self.assertIn(
-            "auth_only=ready firstboot=ufs-existing display_policy=debian-owned",
+            "firstboot=ufs-existing firstboot_overlay=disabled",
             handoff,
         )
-        self.assertIn("persistent_native_hud=disabled", handoff)
+        self.assertIn("persistent_native_hud=enabled", handoff)
 
     def test_auth_overlay_is_tmpfs_and_key_bytes_are_never_logged(self) -> None:
         source = NATIVE.read_text()
