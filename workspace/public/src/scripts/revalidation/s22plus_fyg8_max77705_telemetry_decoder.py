@@ -22,6 +22,7 @@ PROFILE = inherited.PROFILE
 POLICY_PREIMAGE = (
     "S22PLUS_FYG8_MAX77705_TELEMETRY_DECODER_V2|carrier=S22E1L2-192|"
     "pair=106,107|a=0xda3|b=0x6701-0x673f|envelope=MXD2-128|"
+    "observer=site-x-error-class-packed-byte47-field-authority|"
     "poll=packbits-or-sha256-or-poll0-nonzero-summary-no-proof|"
     "retention=post2-control1-x-post2-poll0|negative=claim-busy-empty"
 )

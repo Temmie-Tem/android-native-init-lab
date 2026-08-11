@@ -188,6 +188,31 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             / "docs/archive/roadmaps/"
             "GOAL_THROUGH_P312_AND_P313_DESIGN_2026-08-10.md"
         ).read_text(encoding="utf-8")
+        cls.p313_design = (
+            ROOT
+            / "docs/reports/"
+            "S22PLUS_FYG8_P313_POST_BIND_RESUME_CYCLE_DESIGN_H0_2026-08-10.md"
+        ).read_text(encoding="utf-8")
+        cls.p313_gap = (
+            ROOT
+            / "docs/reports/"
+            "S22PLUS_FYG8_P313_STOP_MULTIPLICITY_AND_CONTINUATION_GAP_H0_2026-08-10.md"
+        ).read_text(encoding="utf-8")
+        cls.p313_decoder_incident = (
+            ROOT
+            / "docs/reports/"
+            "S22PLUS_FYG8_P313_INTERMEDIATE_CONTRADICTION_DECODER_INCIDENT_2026-08-10.md"
+        ).read_text(encoding="utf-8")
+        cls.p314_design = (
+            ROOT
+            / "docs/reports/"
+            "S22PLUS_FYG8_P314_SOURCE_NORMALIZED_CYCLE_SUCCESSOR_DESIGN_H0_2026-08-10.md"
+        ).read_text(encoding="utf-8")
+        cls.p314_incident = (
+            ROOT
+            / "docs/reports/"
+            "S22PLUS_FYG8_P314_LIVE_PROFILE_SNAPSHOT_INCIDENT_2026-08-10.md"
+        ).read_text(encoding="utf-8")
 
     def test_active_contracts_remain_small(self):
         self.assertLessEqual(
@@ -496,6 +521,16 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
 
     def test_frontier_records_closed_p315_outer_work_drift(self):
         normalized_goal = " ".join(self.goal.split())
+        normalized_p313 = " ".join(
+            (
+                self.p313_design
+                + self.p313_gap
+                + self.p313_decoder_incident
+            ).split()
+        )
+        normalized_p314 = " ".join(
+            (self.p314_design + self.p314_incident).split()
+        )
         self.assertIn("P3.15 is the latest closed live unit", normalized_goal)
         self.assertIn("A=`0x0d3f`", normalized_goal)
         self.assertIn("B=`0x5064`", normalized_goal)
@@ -516,45 +551,34 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("generation 96, stage `0x90`, item 3", normalized_goal)
         self.assertIn("generation 97, stage `0x90`, item 4", normalized_goal)
         self.assertIn("terminal failure `0x6712`", normalized_goal)
-        self.assertIn("`cycle-event-multiplicity`", normalized_goal)
-        self.assertIn("runtime terminated before the restart helper", normalized_goal)
-        self.assertIn("source-forced sufficient trigger", normalized_goal)
-        self.assertIn("not proof that no other pair multiplied", normalized_goal)
         self.assertIn("inherited P3.12 Carrier semantics", normalized_goal)
-        self.assertIn("reported only `E2_PROGRESS_OBSERVED`", normalized_goal)
-        self.assertIn("This is an observer-decoder incident", normalized_goal)
         self.assertIn("P3.13 is now consumed and closed", normalized_goal)
         self.assertIn("No live authority remains", normalized_goal)
-        self.assertIn("role: strict five events, `5/64`", normalized_goal)
-        self.assertIn("cycle: a dedicated 25-event set, 37 records clean", normalized_goal)
-        self.assertIn("41 clean records and 49 for one bounded drift", normalized_goal)
-        self.assertIn("count-model correction does not relax fail-closed", normalized_goal)
-        self.assertIn("exactly one diagnostic restorative restart", normalized_goal)
-        self.assertIn("revokes every cycle-causal claim", normalized_goal)
-        self.assertIn("`0x6c01..0x6fff`", normalized_goal)
-        self.assertIn("P3.11's historical `0x6801..0x680c`", normalized_goal)
-        self.assertIn("1,023 nonzero masks", normalized_goal)
-        self.assertIn("zero new trace records", normalized_goal)
-        self.assertIn("109,461 mask-by-position failure cells", normalized_goal)
-        self.assertIn("6,741 failure round trips pass", normalized_goal)
-        self.assertIn("inherited 1,200 B outputs", normalized_goal)
-        self.assertIn("at least 251,450 cells", normalized_goal)
-        self.assertIn("real Process-v2 evidence adapter", normalized_goal)
-        self.assertIn("registered-not-satisfied", normalized_goal)
-        self.assertIn("missing or failed closure blocks the package", normalized_goal)
-        self.assertIn("P3.14 is the selected minimal successor", normalized_goal)
-        self.assertIn("P3.14 does not activate the optional diagnostic-only continuation", normalized_goal)
-        self.assertIn("clean stop is 14 records", normalized_goal)
-        self.assertIn("host-qualified-independent-review-pending", normalized_goal)
-        self.assertIn("validator precedes the parent packager", normalized_goal)
-        self.assertIn("Configured host waits total 880 seconds", normalized_goal)
-        self.assertIn("default guard is only 360 seconds", normalized_goal)
-        self.assertIn("exact live `approval_binding_sha256`", normalized_goal)
-        self.assertIn("Existing v2 evidence remains readable under its original meaning", normalized_goal)
-        self.assertIn("Unknown or mixed versions fail closed", normalized_goal)
-        self.assertIn("68 frozen `SOURCE_KEYS`", normalized_goal)
-        self.assertIn("no kernel rebuild or Full-LTO was performed", normalized_goal)
-        self.assertIn("The consumed candidate is never replayable", normalized_goal)
+        self.assertIn("251,450-cell", normalized_goal)
+        self.assertIn("real Process-v2 adapter", normalized_goal)
+        self.assertIn("validator-before-packager wiring", normalized_goal)
+        self.assertIn("without changing the fixed Image or running Full-LTO", normalized_goal)
+        self.assertIn("clean 14-record stop snapshot", normalized_goal)
+        self.assertIn("neither candidate may be replayed", normalized_goal)
+        for report_name in (
+            "S22PLUS_FYG8_P313_POST_BIND_RESUME_CYCLE_DESIGN_H0_2026-08-10.md",
+            "S22PLUS_FYG8_P313_STOP_MULTIPLICITY_AND_CONTINUATION_GAP_H0_2026-08-10.md",
+            "S22PLUS_FYG8_P314_SOURCE_NORMALIZED_CYCLE_SUCCESSOR_DESIGN_H0_2026-08-10.md",
+        ):
+            self.assertIn(report_name, normalized_goal)
+        self.assertIn("`cycle-event-multiplicity`", normalized_p313)
+        self.assertIn("source-forced `phy_suspend_off` multiplicity", normalized_p313)
+        self.assertIn("does **not** prove that `phy_suspend_off` was the only multiplied pair", normalized_p313)
+        self.assertIn("persisted `E2_PROGRESS_OBSERVED`", normalized_p313)
+        self.assertIn("all 126 A outputs and 1,200 B outputs", normalized_p313)
+        self.assertIn("exact live `approval_binding_sha256`", normalized_p313)
+        self.assertIn("68 frozen `SOURCE_KEYS`", normalized_p313)
+        self.assertIn("1,023 nonzero masks", normalized_p313)
+        self.assertIn("109,461 combinations", normalized_p313)
+        self.assertIn("6,741 accepted combinations", normalized_p313)
+        self.assertIn("251,450 cells", normalized_p314)
+        self.assertIn("prepackaging validator precedes", normalized_p314)
+        self.assertIn("P3.14 is consumed and never replayable", normalized_p314)
         self.assertIn("Archived Goal: S22+ Through P3.12 and P3.13 Design", self.archived_goal_through_p313)
         self.assertIn("P3.12 is the latest closed live unit", self.archived_goal_through_p313)
         self.assertIn("docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md", self.agents)

@@ -425,6 +425,7 @@ def _overridden_candidate_sources(
     userspace_overlay_contract_id: str | None,
 ) -> frozenset[str]:
     if userspace_overlay_contract_id in {
+        typed_evidence.MAX77705_OVERLAY_CONTRACT_ID,
         typed_evidence.P311_OVERLAY_CONTRACT_ID,
         typed_evidence.P312_OVERLAY_CONTRACT_ID,
         typed_evidence.P313_OVERLAY_CONTRACT_ID,
@@ -544,6 +545,14 @@ def execution_critical_source_receipts(
                 root = candidate_intent.repo_root()
                 if (
                     userspace_overlay_contract_id
+                    == typed_evidence.MAX77705_OVERLAY_CONTRACT_ID
+                ):
+                    import s22plus_fyg8_p316_overlay_contract as overlay_module
+
+                    overlay_label = "P3.16"
+                    prefix = "p316"
+                elif (
+                    userspace_overlay_contract_id
                     == typed_evidence.P315_OVERLAY_CONTRACT_ID
                 ):
                     overlay_module = typed_evidence.p315_overlay
@@ -646,7 +655,7 @@ def execution_critical_source_receipts(
                         typed_evidence.p313_overlay,
                         typed_evidence.p314_overlay,
                         typed_evidence.p315_overlay,
-                    }:
+                    } or prefix == "p316":
                         overlay_sources = {
                             name: overlay_module._read_regular(  # noqa: SLF001
                                 root / path, f"{overlay_label} SOURCE_KEY {name}"
@@ -1060,6 +1069,13 @@ def verify_candidate_source_binding(
         ):
             raise F1V2Error("candidate userspace overlay selector changed")
         if (
+            userspace_overlay_contract_id
+            == typed_evidence.MAX77705_OVERLAY_CONTRACT_ID
+        ):
+            import s22plus_fyg8_p316_overlay_contract as p316_overlay
+
+            required_overlays = [("p316", p316_overlay)]
+        elif (
             userspace_overlay_contract_id
             == typed_evidence.P315_OVERLAY_CONTRACT_ID
         ):

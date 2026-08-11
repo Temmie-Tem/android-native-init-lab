@@ -152,7 +152,7 @@ observed late opcode-state reversion, but no host-silent tuple refutes physical
 MUX continuity. Host attach/enumeration is the only independent physical-path
 witness in this diagnostic.
 
-The corrected source and linked-ABI H0 gate is now closed. The final builder ran
+The corrected source and linked-ABI H0 gate is closed. The final builder ran
 `validate_diag_source_text()` before compilation, reconstructed the exact
 P3.10 source/ABI closure, and produced two byte-identical 293,400-byte modules
 with SHA-256
@@ -161,36 +161,36 @@ The audit proves exact FYG8 vermagic, 15 imports, 16 matching modversions, CFI
 callback jump-table relocations, registered call counts, and zero exports.
 The current private contract receipt is
 `custom-surface-authority-20260812-15.json`, SHA-256
-`54abb42839390d7a9642ff124b545a5bc32b7d94f14cf5d88341955e540fd4d5`;
+`2da2f53c981440663a1626024125bcced789872f664b0f4c59b7b07b14ecc339`;
 its embedded contract is
-`309ca1fba6c3e0892445fb92ad5a7936c12f1a3ce7e2656eea0d59207b9a9c19`.
-Status is strictly
-`SOURCE_AND_LINKED_AB_ABI_QUALIFIED_RUNTIME_NOT_SATISFIED`; no boot package
-was created and no module was loaded.
+`eefe1890d72bb7a03fe979e6349b8d64195a6beec04b9606949b78b601e2b472`.
+That receipt remains the source/linked predecessor; the P3.16 runtime and
+boot-only package now extend rather than rewrite it. No module was loaded on a
+device.
 
-Runtime integration is now arithmetically fenced before implementation. The
+Runtime integration is now implemented and arithmetically fenced. The
 generic early loop is exactly 64 entries (the inherited 61 plus three GENI/I2C
 substrate modules); the diagnostic is the staged sixty-fifth payload but is
 forbidden from that loop. The inherited 20-second bind gate must close after
 gadget readiness and host-sidecar arming, before one dedicated late
-`finit_module` call begins a lifetime of at least 31 seconds. The late-load,
-no-match, early terminal transaction, result-not-ready `-EAGAIN`, and result
-read-timeout buckets are registered but not yet satisfied. `-EAGAIN` is not a
-standalone terminal: its retained representation must also carry the loader
-state plus pre/post exact-parent, driver-owner, compatible-parent, diagnostic
-bind-count, and exact/foreign `0x25` client witnesses. The contract separates
-zero-match, wrong-address, other-driver ownership, and synchronous probe or
-publication contradictions. Parent-unbound after synchronous return is a
-driver-core pre-probe/probe-reachability contradiction, not a kernel-semantics
-violation. A post-synchronous-return claim-busy `EAGAIN` is a required negative
-invariant rather than an observable terminal row.
+`finit_module` call begins a lifetime of at least 31 seconds. Actual-C fixtures
+execute the dynamic adapter scan, exact pre/post binding witnesses, dedicated
+late-loader helper, final pipe drain, bounded abort/reap, and result-read
+priority. They distinguish seven observer sites by seven normalized error
+classes, preserve only site-authoritative binding fields, and keep helper
+failure above loader deadline above result-read failure. The synchronous result
+may be sampled while loading, but parse/classify/publish remain forbidden until
+the helper proves successful `finit_module` return. A post-return claim-busy
+`EAGAIN` remains a required negative invariant, not an observable terminal.
 
-The retained-telemetry sub-gate is now closed H0-side. One fixed 128-byte
+The retained-telemetry sub-gate is closed H0-side. One fixed 128-byte
 Carrier-v2 envelope preserves both 64-byte request-v3 payloads without an Image
-change. All nine terminal buckets, all six observable `EAGAIN` rows, and all
-five MUX result classes have retained preimages through the real Process-v2
-adapter; claim-busy has an empty decoder preimage and encoder acceptance is a
-hard error. The actual transformed C publisher emitted 15 byte-exact v3
+change. All nine terminal buckets, all five MUX result classes, and the complete
+seven-site by seven-error observer matrix have retained preimages through the
+real Process-v2 adapter; claim-busy has an empty decoder preimage and encoder
+acceptance is a hard error. The native envelope fixture executes 64 rows: 49
+observer rows, nine terminal rows, five MUX rows, and one overflow row. The
+actual transformed C publisher also emitted 15 byte-exact v3
 requests (1,500 bytes of host-only fixture output, not retained or device
 footprint; SHA-256
 `1200128d11c57bda9fdfa879fb3e592a1d368e0fc15a6bed255957678a136b2d`),
@@ -205,13 +205,15 @@ poll0 now yields four explicit retention rows. The `0x7b` detection mask and
 `0x0a` DCD/charger-type subset prove only a retained event and temporal
 correlation, never physical switch movement or causation.
 
-The exact allocation-free PID1 result parser is also H0-qualified but not live
-integrated. Its private receipt is `runtime-parser-20260812-01.json`, SHA-256
-`ec315f67f6420df506e63a8e2c7e1c329ffeafcf8a1b7e079411c6ccea8104e6`.
+The exact allocation-free PID1 result parser is H0-qualified and integrated by
+the P3.16 materialized runtime. Its private receipt is
+`runtime-parser-20260812-01.json`, SHA-256
+`692325e9e16a600b8ca8f62d3196d8304a3dab24301f26a266096ec0288ff209`.
 The actual C accepted four canonical module strings, rejected thirteen syntax
 or semantic mutations, matched Python SHA-256/OR/poll0/nonzero summaries, and
 compiled freestanding for AArch64 with the pinned Android clang. It performs no
-I/O and names no sysfs path.
+I/O and names no sysfs path; the surrounding runtime owns all I/O and loader
+lifecycle.
 
 This closes schema, carrier, decoder, publisher geometry, the isolated result
 parser, and the exact sysfs-inventory D0 gate. The bounded read-only D0 selected
@@ -237,12 +239,26 @@ then the unique `*-0066` client below that adapter; a literal bus number is
 forbidden. The stock MFD-created dummy clients do not become part of the
 custom diagnostic's pre-load geometry.
 
-Packaging and F1 approval remain blocked because target-specific override/bind
-runtime and its terminal rollback-by-reboot checks are not materialized,
-host-sidecar positive control is open, and the future successor changed closure
-has neither been implemented nor independently reviewed. The next step is H0
-implementation of that exact target-only integration and its transaction
-fixtures; this H0 work grants neither D1 nor F1 authority. A standalone
+P3.16 now has one canonical H0 package and offline Process-v2 ready bundle. The
+frozen intent, prepackaging, final qualification, and static-closure SHA-256
+values are respectively `7ed7530597dee0064fd76ba698aca5230e7efe079b099e9c1799b902814040b5`,
+`4068d8aefd49adb38ed12465508aefada5025a7a99efda5b19c27ca5b6c0cbf0`,
+`25dc4066b4e49bed0b46e100753accd515b98021783aa8e4e0918d1df6cd11dc`,
+and `0842f1efb5a51bc05117e499a45ac65592504b46eaa6c3750537f49a9de568b5`.
+Independent regeneration reproduced all four byte-for-byte. Candidate A/B have
+identical boot SHA-256
+`7c6ee851196b7d604aff7a4ce81eba271adc52c5408de10a568b924e8c6f41c9`
+and AP SHA-256
+`59893227c4deccc107d2fc4469a882e44212e076a0c5c8e4072031b853a6c6f0`.
+Offline promotion produced run-manifest SHA-256
+`803d8c106e538302bc64c89294678e0efd9a56de96a6d8bd93e57a7e9d8f1c00`;
+the canonical ready manifest and a non-creating rehearsal agree at SHA-256
+`a9fb48065d717d47b0877d96f08b7d05974ac3a6a8f7b7dea4b17ba4cab4c533`.
+Final independent review returned
+`PASS_GO — S22PLUS_FYG8_P316_CUSTOM65_PROCESS_V2_OFFLINE_READY_CAPABILITY_V1`
+for this exact execution-critical closure.
+All remain H0: `device_contact=false`, `live_authorized=false`, and no fresh
+D0/F1 binding or approval exists. A standalone
 connected stock-Android override write would be D1, but all twelve controls are
 already bound there: it could prove only write/readback, not pre-bind
 suppression, unless preceded by an out-of-scope unbind. No such low-value D1 is
@@ -279,8 +295,9 @@ Final independent re-review attacked those four findings and returned
 `PASS_GO — S22PLUS_FYG8_MAX77705_DRIVER_OVERRIDE_QEMU_RAW_CAPTURE_REPLAY_SCHEMA_V1`
 for closure commits `1024b095e8`, `2867a6df8c`, `17ae7a56fc`, and
 `28408eecb9`. Actual S22+ path construction, the future 15-device negative
-corpus, binding, I2C, MUX, packaging, successor review, and live authority
-remain open.
+corpus, binding, I2C, and MUX behavior remain live-only unknowns. P3.16 now
+materializes the 15-device path, negative corpus, package, and offline ready
+closure; they do not create live authority.
 The former
 4,246,401,024-byte
 workspace-capacity blocker is closed by the exact private S22+ cleanup
@@ -521,272 +538,40 @@ make the wiring audit enforce that ordering, restore the exact inherited field,
 and add focused regressions. Independent review returned `PASS_GO` for the full
 changed closure and each narrow repair.
 
-## P3.13 Predecessor Evidence
+## Completed P3.13/P3.14 predecessor evidence
 
-P3.13 is the consumed predecessor. Its distinct boot-only candidate and
-exact Magisk rollback each transferred exactly once. The Process-v2 journal is
-`CLOSED`; rooted boot-completed FYG8 Android, boot and supporting-partition
-identities, and absence of Download mode passed with
-`recovery_required=false`. The operator also observed a normal Android boot
-without a loop. The consumed candidate is never replayable.
+P3.13 and P3.14 are consumed, closed predecessors; neither candidate may be
+replayed. P3.13's two retained slots proved generation 96, stage `0x90`, item 3
+parent-suspended progress followed by generation 97, stage `0x90`, item 4
+terminal failure `0x6712`. Post-live source analysis showed that the
+child and parent necessarily contribute two complete stop-side
+`phy_suspend_off` pairs, so the original one-pair expectation was wrong.
+The frozen live decoder also inherited P3.12 Carrier semantics and rejected the
+valid P3.13 intermediate terminal. Those count-model and decoder incidents are
+historical evidence, not grounds to relabel or replay the run.
 
-The exact ACM observer timed out. Two full-length, byte-identical retained
-reads contain one Carrier-v2 record. Post-live H0 recovered two CRC-committed
-adjacent slots:
+P3.14 normalized the exact two-off/two-on source geometry, introduced
+pair-specific `0x6c01..0x6fff` excess masks, executed the 251,450-cell
+value-by-position matrix through the real Process-v2 adapter, and enforced
+validator-before-packager wiring. Candidate A/B reproducibility, final
+qualification, independent static closure, Process-v2 promotion, ready
+rehearsal, and focused independent review passed without changing the fixed
+Image or running Full-LTO.
 
-- generation 96, stage `0x90`, item 3 is the completed
-  `PARENT_SUSPENDED` progress boundary; and
-- generation 97, stage `0x90`, item 4 is terminal failure `0x6712`,
-  `cycle-event-multiplicity`, emitted while classifying the stop-side trace.
+The actual P3.14 F1 then stopped during the stop snapshot at `0x6705` because
+the live caller requested a snapshot without profile data before invoking the
+profile comparison. P3.15 repaired that live-caller seam, registered distinct
+STOP/RESTART/FINAL geometry, executed the actual wrapper and inherited matrix,
+and passed the packaged closure summarized above. The detailed immutable
+authorities remain:
 
-Thus P3.13 proves that the direct path stayed silent long enough to select the
-cycle, the stop helper returned, the UDC binding survived, and both child and
-parent reached suspended state. Fixed-source H0 now proves that this path
-necessarily invokes the same HS PHY's `set_suspend(1)` callback once from the
-child core-exit path and once from the parent wrapper-suspend path. Those two
-complete `phy_suspend_off` pairs alone reproduce `0x6712` in the actual
-materialized parser. The retained detail does not preserve the raw pair
-vector, so this is a source-forced sufficient trigger, not proof that no other
-pair multiplied. The runtime terminated before the restart helper, so P3.13
-provides no restart/resume, post-cycle QSCRATCH, state-delta, or
-connector/pull-up conclusion.
+- `docs/reports/S22PLUS_FYG8_P313_POST_BIND_RESUME_CYCLE_DESIGN_H0_2026-08-10.md`;
+- `docs/reports/S22PLUS_FYG8_P313_STOP_MULTIPLICITY_AND_CONTINUATION_GAP_H0_2026-08-10.md`;
+- `docs/reports/S22PLUS_FYG8_P314_SOURCE_NORMALIZED_CYCLE_SUCCESSOR_DESIGN_H0_2026-08-10.md`; and
+- the corresponding P3.13/P3.14 incident, implementation, and independent-review reports.
 
-The frozen live decoder had inherited P3.12 Carrier semantics. It rejected the
-otherwise valid P3.13 intermediate contradiction as `bad-body`, fell back to
-generation 96, and reported only `E2_PROGRESS_OBSERVED`. A separate post-live
-H0 decoder now reproduces that historical failure and recovers the committed
-P3.13 terminal without changing the frozen candidate, Image, manifest, live
-journal, or any device state. This is an observer-decoder incident, not grounds
-to replay P3.13.
-
-## Post-live H0 Localization and Successor Boundary
-
-The frozen record model expected one `phy_suspend_off` pair and one
-`phy_suspend_on` pair. Source order forces two of each: child plus parent on
-stop, and parent plus child on restart. The corrected successor budget is
-therefore 41 clean records and 49 for one bounded drift under the existing
-64-record cap, leaving headroom 23 and 15 respectively. The clean contract
-must encode the exact two-off/two-on geometry; an unexplained third call or an
-incomplete pair remains a contradiction.
-
-The frozen Result Contract said multiplicity removes cycle causality but did
-not unambiguously require termination before restart. The materialized runtime
-used the stricter rule and called its terminal failure path immediately after
-the stop snapshot. The successor must first normalize the source-required two
-off/two on pairs as clean geometry; this count-model correction does not relax
-fail-closed behavior. Only genuine contradictions remaining after that step
-are partitioned. Malformed/incomplete records, profile deficit, `nmissed`, ring
-loss, capacity or cleanup failure, timeout/unreaped helper, target/UDC loss,
-unbind, pullup, force activity, and every unclassified contradiction stop.
-Only a separately enumerated complete, bounded, integrity-clean excess-mask
-branch may qualify for exactly one diagnostic restorative restart under proved
-stop, binding, child/parent-suspended, per-pair ceiling, and no-stop-condition
-fences. It retains a pair-specific diagnostic and revokes every cycle-causal
-claim; downstream data is diagnostic only.
-
-The ten functional pair classes formerly collapsed into `0x6712` use a 10-bit
-excess-over-expected mask. `0x6c00 + mask` occupies `0x6c01..0x6fff` for all
-1,023 nonzero masks and identifies simultaneous offending pair classes with
-zero new trace records, so the 41/49 budget is unchanged. The current
-userspace terminal guard requires expansion; the inherited checkpoint client
-and fixed Image already accept all 109,461 mask-by-position failure cells. The
-range also avoids P3.11's historical `0x6801..0x680c` details.
-The generic `0x6712` stays historical-readable but is not a successor output
-for these pairs. This is userspace-only and requires no Full-LTO while the
-fixed Image remains unchanged.
-
-Host H0 now exercises all 63 contradiction values at all 107 generations:
-6,741 failure round trips pass and 6,741 progress-outcome variants fail closed.
-This closes the exact P3.13 incident family at the standalone model/decoder
-layer, not the entire Carrier seam. Successor qualification must derive an
-expected accept/reject matrix from actual runtime emit sites for all inherited
-126 A outputs, inherited 1,200 B outputs, every new successor output, ordinary
-progress zero, and all 107 positions, then round-trip that matrix through the
-real Process-v2 evidence adapter and persistence path.
-The minimum successor emitter has 2,222 B outputs, while the matrix retains
-historical `0x6712` for a 2,223-value B union and at least 251,450 cells.
-
-These obligations were registered in the machine-enforced
-`s22plus_fyg8_p313_successor_hazard_requirements_v1` contract. Its five
-mandatory entries cover source pair geometry, continuation partition, the
-full runtime-authorized Carrier matrix, pair-specific multiplicity detail, and
-qualification wiring. At registration its status was
-`registered-not-satisfied`, not a claim that a successor was implemented or
-qualified. A missing or failed closure blocks the package. P3.14 now satisfies
-the registered requirements through the actual
-runtime, matrix, Process-v2 adapter, package gate, and final qualification
-paths described below.
-
-## P3.14 Detailed Successor Design
-
-P3.14 is the selected minimal successor. It preserves the fixed Image, kernel
-hooks, 25-event cycle inventory, all 107 positions, 61-module plan, Carrier
-size, rollback, transfer, recovery, and 1,200-second guard. It changes only
-userspace parser/schema/adapter/qualification and therefore needs a
-userspace rebuild and boot-only repackaging, not Full-LTO, while those inputs
-remain exact.
-
-The parser first validates every complete pair return and normalizes the exact
-stop/final vectors, including two `phy_suspend_off` and two
-`phy_suspend_on` pairs. The clean stop is 14 records, the clean final cycle is
-41, bounded path drift is 49, and 65 remains overflow against capacity 64.
-Zero excess proceeds through the existing restart. Every genuine remaining
-contradiction stops; P3.14 does not activate the optional diagnostic-only
-continuation. A complete count above expectation emits the pair-specific
-`0x6c01..0x6fff` mask at its current position and stops.
-The stop snapshot also rejects pullup/force activity, UDC/binding drift,
-unexpected on-side pairs, and any other non-clean topology before restart.
-Every P3.14 runtime emit site for generic `0x6712` must be removed; it remains
-historical decode-only.
-
-The A emitter remains 126 values. The B emitter has at least 2,222 values,
-while historical `0x6712` makes the qualification union 2,223 and the full
-value-by-position matrix at least 251,450 cells. The real Process-v2 adapter
-and persistence path must execute that matrix.
-
-The deferred packaging obligation is separate from declaration. It uses two
-phases so the gate is not circular: the real packaging entrypoint must first
-pass `validate_prepackaging_artifact()`, which transitively calls
-`validate_successor_artifact()`, before creating package bytes. A
-missing/mutated closure must produce no package. Only after two userspace
-builds and two packages prove reproducible may
-`validate_qualification_artifact()` accept the final receipt binding the
-validated prepackaging artifact and both requirements hashes. A source
-call-graph inspection is required after implementation exists. The final H0
-qualification now satisfies that obligation: the validator precedes the
-parent packager, both missing and invalid closures create zero package output,
-two userspace builds and two boot-only packages are byte-identical, and the
-same prepackaging receipt is bound into both package results and the final
-qualification. The pre-review status was
-`host-qualified-independent-review-pending`. Exact commit
-`578482a0396353c5d13eb43b29156695b926348f` received focused independent
-`PASS_GO`: 94/94 SOURCE_KEYS and 13/13 materialized receipts matched, all
-251,450 value-position cells round-tripped, four semantic package mutations
-stopped before the parent packager with zero output, candidate A/B were
-byte-identical, and final qualification, candidate-tree rebinding, and actual
-Process-v2 promotion passed.
-
-The first actual ready-manifest rehearsal then found a host-only integration
-gap: the common Process-v2 runner did not select the P3.14 execution overlay
-and fell back to P3.01 semantics. Because that runner is a P3.14 SOURCE_KEY,
-the earlier capability approval was superseded before device contact. Exact
-commit `ba713cc64d8d33c9f403cfa0f511f02c60aa8b6a` repairs the dispatch and now
-has focused independent `PASS_GO`: all 94 execution-overlay receipts are
-bound, a mutated receipt fails closed, the P3.10 decoder replacement is
-byte-exact, and both ready-manifest rehearsal and creation pass through the
-real Process-v2 path. Candidate boot `ccd9c76a...44ec9` and AP
-`f1251098...fc2f3` remain byte-identical to the prior qualification. The
-canonical manifest is `ready-for-f1-approval`, but that is a host artifact
-state only. P3.14 is host-qualified; neither capability approval nor the
-manifest grants D0/D1/F1 or live authority.
-
-## P3.13 Closed Bounded Unit
-
-P3.13 compares the existing direct bind with one same-boot, post-bind wrapper
-cycle:
-
-1. establish exact parent `peripheral`, UDC membership, and direct QSCRATCH;
-2. bind once under the inherited direct observer;
-3. hold a 30-second direct-path fence;
-4. if the direct path remains silent and integrity-clean, arm the dedicated
-   cycle observer;
-5. write `none` once, preserve the UDC binding, and prove child and parent
-   suspended;
-6. write `peripheral` once, prove child and parent active, and retain the
-   inlined gadget-start/RUN_STOP results;
-7. compare direct and post-cycle QSCRATCH, DWC3 state, and event configuration;
-8. publish the adjacent final pair before one bounded ACM banner attempt; and
-9. park without a second retained terminal.
-
-Direct configured/high-speed or integrity-clean CONNECT_DONE is a direct late
-success and prevents cycle attribution. Direct pullup re-entry, unbind,
-force-path activity, trace loss, multiplicity, or cleanup-gap activity also
-prevents a cycle claim. A negative inner RUN_STOP is a controller result;
-outer deadline expiry is `NO_PROOF_OBSERVER`.
-
-The frozen P3.13 trace contracts were:
-
-- role: strict five events, `5/64`, with the inherited four-event behavior kept
-  only as a differential fixture;
-- direct: the existing 15-event streaming observer, CONNECT_DONE traceoff,
-  prefix 10 clean, 11--22 bounded drift, and 23-or-more contradiction; and
-- cycle: a dedicated 25-event set, 37 records clean, 45 for one bounded drift,
-  and 65 as fail-closed overflow.
-
-Stop and restart use independent 30-second deadlines. Device-side bounded
-waits total 160 seconds inside the exact 300-second candidate endpoint window;
-qualification must prove that materialized non-wait overhead fits the remaining
-140 seconds rather than treating subtraction as proof.
-
-The fixed Image, kernel hooks, module plan, Carrier-v2 size, rollback, and
-recovery path stay unchanged. P3.13 therefore requires no Full-LTO while those
-inputs remain byte-identical. It does require userspace rebuild/repackaging,
-fresh qualification, a new execution closure and binding, and focused
-independent review of the changed runtime/schema and host observer lifecycle.
-
-## Host Guard Contract
-
-The Process-v2 endpoint clock starts after Download departure; the CDC ACM
-guard starts before the Download request. Configured host waits total 880
-seconds through the 300-second observation, while the current default guard is
-only 360 seconds.
-
-P3.13 must use one execution-closure-bound derivation function over the real
-Process-v2 timeout constants, the approval-bound manifest observation timeout,
-and one named reviewed overhead bound. Reopen recomputes the selected
-`max_sec`; no other component reconstructs the subtotal independently.
-
-The shared `device_action_modemmanager_guard_v2` arm/release receipt shapes and
-default 360-second behavior remain immutable. P3.13 opts into separately
-versioned S22 lifetime evidence that binds:
-
-- the exact live `approval_binding_sha256`, canonical derived `max_sec`,
-  derivation hash, and immutable v2 arm-receipt hash; and
-- the lifetime-arm hash, immutable v2 release-receipt hash, and conservative
-  launch-to-release elapsed upper bound.
-
-Unknown or mixed versions fail closed. Existing v2 evidence remains readable
-under its original meaning. Shared host-only regression may exercise existing
-consumers, but no A90 device, campaign, receipt, or authority is modified or
-reused.
-
-## Implementation and Qualification
-
-The materialized implementation passed all of the following:
-
-1. freeze and print the complete P3.13 `SOURCE_KEYS` closure;
-2. materialize the 5-event role, 15-event direct, and 25-event cycle phases;
-3. validate tracefs ABI, symbol/callsite, parser-table, position, cleanup, and
-   descriptor authority against materialized sources;
-4. execute role, direct, cycle, timeout, multiplicity, tuple, banner-order,
-   record-capacity, and ring-integrity fixtures;
-5. enumerate all 126 A and 1,200 B encoder outputs through runtime,
-   checkpoint, fixed-Image, model, decoder, and Process-v2 gates;
-6. execute canonical guard derivation, immutable-v2, S22 lifetime-version,
-   mixed-version rejection, reopen, and three-way expiry fixtures;
-7. emit the hash-bound P3.13 hazard-closure artifact;
-8. cross-compile touched C, run focused Python tests, and inspect generated
-   artifacts; and
-9. obtain one independent review of the exact changed execution closure.
-
-The hazard artifact must mechanically close the prior P3.04 stale-position,
-P3.08 tracefs-ABI, P3.10 Carrier-v2 JSON, and P3.11 profile-equality incidents,
-plus the P3.13 PM race, record, timeout, guard, banner, and tuple contracts.
-Prose assertion is insufficient. The realized closure contains 68 frozen
-`SOURCE_KEYS`; role/direct/cycle contain 5/15/25 events; all 126 A and 1,200 B
-outputs passed the actual gates; and the P3.13 guard lifetime is exactly 1,200
-seconds while the inherited default remains 360 seconds. Two userspace builds
-and two boot-only packages were byte-identical. Static artifact closure,
-Process-v2 promotion, canonical manifest verification, focused tests, and the
-independent changed-closure review all passed. The fixed P3.10 Image remained
-byte-identical, so no kernel rebuild or Full-LTO was performed.
-
-Those statements describe the frozen qualification result, not a continuing
-claim that its source model was complete. Post-live H0 proved that the
-37/45-record fixtures omitted the source-forced second stop and restart PHY
-suspend pairs, and that the 126/1,200 numeric enumeration did not cross values
-with intermediate generation positions. These are successor inputs and do not
-rewrite the consumed P3.13 evidence.
+This compression changes no historical result, hash, authority, or
+non-replayability rule.
 
 ## Authority and Target State
 
@@ -852,6 +637,17 @@ unretained queue provenance; an independent natural-attach OTG unit does not
 inherit that cycle and may instead proceed from its dedicated H0 design and
 hazard review. No P3.15 candidate replay or inherited clean-cycle claim is
 permitted.
+
+P3.16 is the next host-qualified unit. Its independent changed-closure review,
+canonical Process-v2 promotion, ready-manifest creation, and non-creating
+rehearsal are complete. It keeps the fixed P3.10 Image, packages only boot,
+loads 64 stock modules early, and loads the single bounded diagnostic only
+after target-only override/bind, gadget, and sidecar gates. This status is
+offline readiness only. Before any device contact it still requires the
+ordinary fresh exact-target D0 preparation, clean retained baseline, current
+rollback and recovery proof, immutable live binding, attendance, and one fresh
+exact F1 approval. Until those occur, `live_authorized=false`; no module has
+been inserted and no candidate transfer has started.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden
 archive member, an unreviewed common receipt/schema change, an observer result

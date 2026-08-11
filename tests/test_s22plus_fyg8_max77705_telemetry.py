@@ -85,7 +85,11 @@ class S22PlusFyg8Max77705TelemetryTest(unittest.TestCase):
         values.update(changes)
         return m.BindingWitness(**values)
 
-    def result(self, *, polls=(b"\x00\x00\x80", b"", b"\x80", b"\x80")):
+    def result(
+        self,
+        *,
+        polls=(b"\x00\x00\x80", b"\x80", b"\x80", b"\x80"),
+    ):
         write_present = bool(polls[1])
         return self.module.DiagnosticResult(
             stage=10,
@@ -98,11 +102,28 @@ class S22PlusFyg8Max77705TelemetryTest(unittest.TestCase):
             command_issued_mask=0x0F if write_present else 0x0D,
             response_seen_mask=0x0F if write_present else 0x0D,
             response_opcode=(0x05, 0x06 if write_present else 0, 0x05, 0x05),
-            response_value=(0x3F, 0, 0x09, 0x09),
+            response_value=(0x3F if write_present else 0x09, 0, 0x09, 0x09),
             poll_bytes=tuple(polls),
             write_attempted=1 if write_present else 0,
             write_ambiguous=0,
         )
+
+    def result_for_mux(self, name):
+        m = self.module
+        base = self.result()
+        if name == "pre-nonusb-post-stable-usb":
+            return base
+        if name == "pre-usb-post-stable-usb":
+            return self.result(
+                polls=(b"\x80", b"", b"\x80", b"\x80")
+            )
+        if name == "post-visible-reversion":
+            return replace(base, response_value=(0x3F, 0, 0x09, 0x3F))
+        if name == "complete-other-tuple":
+            return replace(base, response_value=(0x3F, 0, 0x3F, 0x3F))
+        if name == "diagnostic-transaction-failure":
+            return replace(base, stage=m.STAGE_POST2, rc=-5)
+        self.fail(f"undeclared MUX class: {name}")
 
     @staticmethod
     def uncompressible_poll():
@@ -236,15 +257,6 @@ class S22PlusFyg8Max77705TelemetryTest(unittest.TestCase):
                 envelope = m.encode_envelope(
                     binding=eagain_by_bucket.get(bucket, self.binding()),
                     terminal_bucket=bucket,
-                    result=(
-                        self.result()
-                        if bucket
-                        in {
-                            "probe_terminal_failure",
-                            "matching_parent_identity_rejected",
-                        }
-                        else None
-                    ),
                 )
             record = m.encode_carrier_record(envelope, run_id=run_id)
             decoded = m.decode_carrier_record(record, run_id=run_id)
@@ -253,13 +265,129 @@ class S22PlusFyg8Max77705TelemetryTest(unittest.TestCase):
         self.assertEqual(len(records), 9)
         self.assertEqual(len(set(records.values())), 9)
 
+    def test_all_observer_site_error_rows_round_trip_and_invalid_tags_fail(self):
+        m = self.module
+        rows = {}
+        for site in tuple(m.OBSERVER_SITES)[1:]:
+            for error_class in tuple(m.OBSERVER_ERROR_CLASSES)[1:]:
+                with self.subTest(site=site, error_class=error_class):
+                    envelope = m.encode_envelope(
+                        binding=self.binding(),
+                        terminal_bucket=(
+                            "synchronous_probe_or_publication_contradiction"
+                        ),
+                        observer_site=site,
+                        observer_error_class=error_class,
+                    )
+                    decoded = m.decode_envelope(envelope)
+                    self.assertEqual(decoded["observer_site"], site)
+                    self.assertEqual(
+                        decoded["observer_error_class"], error_class
+                    )
+                    fields = tuple(
+                        m.surface.DIAG_EAGAIN_BINDING_WITNESS_FIELDS
+                    )
+                    expected_authority = {"loader_state"}
+                    if site in {
+                        "late-loader",
+                        "post-topology",
+                        "result-policy",
+                        "result-read",
+                    }:
+                        expected_authority.update(fields[:5])
+                    if site in {"result-policy", "result-read"}:
+                        expected_authority.update(fields)
+                    self.assertEqual(
+                        {
+                            name
+                            for name, authoritative in decoded[
+                                "binding_authority"
+                            ].items()
+                            if authoritative
+                        },
+                        expected_authority,
+                    )
+                    for name in fields:
+                        if name not in expected_authority:
+                            self.assertIsNone(decoded["binding"][name])
+                    rows[(site, error_class)] = envelope
+        self.assertEqual(len(rows), 49)
+        self.assertEqual(len(set(rows.values())), 49)
+
+        with self.assertRaisesRegex(m.TelemetryError, "incomplete"):
+            m.encode_envelope(
+                binding=self.binding(),
+                terminal_bucket="synchronous_probe_or_publication_contradiction",
+                observer_site="late-loader",
+            )
+        with self.assertRaisesRegex(m.TelemetryError, "contradiction semantics"):
+            m.encode_envelope(
+                binding=self.binding(),
+                terminal_bucket="late_finit_module_failure",
+                observer_site="late-loader",
+                observer_error_class="io-format",
+            )
+        with self.assertRaisesRegex(m.TelemetryError, "contradiction semantics"):
+            m.encode_envelope(
+                binding=self.binding(),
+                terminal_bucket="synchronous_probe_or_publication_contradiction",
+                result=self.result(),
+                observer_site="result-policy",
+                observer_error_class="io-format",
+            )
+
+        corrupted = bytearray(next(iter(rows.values())))
+        corrupted[47] = 0x70
+        crc = m.binascii.crc32(
+            m.CRC_DOMAIN + corrupted[: m.CRC_OFFSET]
+        ) & 0xFFFFFFFF
+        m.struct.pack_into("<I", corrupted, m.CRC_OFFSET, crc)
+        with self.assertRaisesRegex(m.TelemetryError, "observer tag"):
+            m.decode_envelope(bytes(corrupted))
+
+    def test_pre_post_topology_terminals_do_not_claim_zero_filled_post_witnesses(self):
+        m = self.module
+        fields = tuple(m.surface.DIAG_EAGAIN_BINDING_WITNESS_FIELDS)
+        for bucket, loader_state in {
+            "late_finit_module_failure": m.LOADER_STATES[
+                "FINIT_MODULE_FAILED"
+            ],
+            "result_not_ready_eagain": m.LOADER_STATES[
+                "FINIT_MODULE_IN_PROGRESS"
+            ],
+            "result_read_timeout": m.LOADER_STATES[
+                "FINIT_MODULE_IN_PROGRESS"
+            ],
+        }.items():
+            with self.subTest(bucket=bucket):
+                binding = replace(self.binding(), loader_state=loader_state)
+                decoded = m.decode_envelope(
+                    m.encode_envelope(
+                        binding=binding,
+                        terminal_bucket=bucket,
+                    )
+                )
+                self.assertTrue(
+                    all(decoded["binding_authority"][name] for name in fields[:5])
+                )
+                self.assertTrue(
+                    all(
+                        not decoded["binding_authority"][name]
+                        for name in fields[5:]
+                    )
+                )
+                self.assertTrue(
+                    all(decoded["binding"][name] is None for name in fields[5:])
+                )
+
     def test_all_mux_device_classes_round_trip_losslessly(self):
         m = self.module
         run_id = bytes.fromhex("31623162316231623162316231623162")
         for name in m.MUX_DEVICE_CLASSES:
             with self.subTest(name=name):
+                result = self.result_for_mux(name)
                 envelope = m.encode_envelope(
-                    binding=self.binding(), mux_class=name, result=self.result()
+                    binding=self.binding(), mux_class=name, result=result
                 )
                 decoded = m.decode_carrier_record(
                     m.encode_carrier_record(envelope, run_id=run_id),
@@ -270,7 +398,7 @@ class S22PlusFyg8Max77705TelemetryTest(unittest.TestCase):
                 self.assertTrue(decoded["causal_result_allowed"])
                 self.assertEqual(
                     tuple(decoded["result"]["poll_bytes"]),
-                    self.result().poll_bytes,
+                    result.poll_bytes,
                 )
 
     def test_uncompressible_poll_bytes_fail_closed(self):
@@ -307,12 +435,16 @@ class S22PlusFyg8Max77705TelemetryTest(unittest.TestCase):
                 result = replace(
                     self.result(),
                     response_value=(0x3F, 0, 0x09, post2),
-                    poll_bytes=(b"\x80", b"", b"\x80", bytes((poll0,))),
+                    poll_bytes=(b"\x80", b"\x80", b"\x80", bytes((poll0,))),
                 )
                 decoded = m.decode_envelope(
                     m.encode_envelope(
                         binding=self.binding(),
-                        mux_class="pre-nonusb-post-stable-usb",
+                        mux_class=(
+                            "pre-nonusb-post-stable-usb"
+                            if post2 == 0x09
+                            else "post-visible-reversion"
+                        ),
                         result=result,
                     )
                 )
@@ -348,7 +480,7 @@ class S22PlusFyg8Max77705TelemetryTest(unittest.TestCase):
         )
         m.encode_envelope(
             binding=self.binding(),
-            terminal_bucket="probe_terminal_failure",
+            mux_class="diagnostic-transaction-failure",
             result=apcmd_without_response,
         )
 
@@ -358,19 +490,20 @@ class S22PlusFyg8Max77705TelemetryTest(unittest.TestCase):
             rc=m.RC_ETIMEDOUT,
             command_issued_mask=0x01,
             response_seen_mask=0,
+            write_attempted=0,
             response_opcode=(0, 0, 0, 0),
             response_value=(0, 0, 0, 0),
             poll_bytes=(b"\x01" * 100, b"", b"", b""),
         )
         m.encode_envelope(
             binding=self.binding(),
-            terminal_bucket="probe_terminal_failure",
+            mux_class="diagnostic-transaction-failure",
             result=timeout,
         )
         with self.assertRaisesRegex(m.TelemetryError, "timed-out slot"):
             m.encode_envelope(
                 binding=self.binding(),
-                terminal_bucket="probe_terminal_failure",
+                mux_class="diagnostic-transaction-failure",
                 result=replace(timeout, poll_bytes=(b"\x01" * 99 + b"\x80", b"", b"", b"")),
             )
 
@@ -479,7 +612,7 @@ class S22PlusFyg8Max77705TelemetryTest(unittest.TestCase):
         envelope = m.encode_envelope(
             binding=self.binding(),
             mux_class="pre-usb-post-stable-usb",
-            result=self.result(),
+            result=self.result_for_mux("pre-usb-post-stable-usb"),
         )
         corrupted = bytearray(envelope)
         corrupted[20] ^= 1
@@ -578,6 +711,7 @@ class S22PlusFyg8Max77705TelemetryTest(unittest.TestCase):
         value = self.adapter_fixture.audit()
         self.assertEqual(value["observable_eagain_rows"], 6)
         self.assertEqual(value["terminal_bucket_preimages"], 9)
+        self.assertEqual(value["incomplete_terminal_binding_authority_rows"], 3)
         self.assertEqual(value["mux_class_preimages"], 5)
         self.assertEqual(value["post2_retention_matrix_rows"], 4)
         self.assertTrue(value["overflow_summary_round_trip"])
@@ -585,6 +719,8 @@ class S22PlusFyg8Max77705TelemetryTest(unittest.TestCase):
         self.assertTrue(value["unknown_overlay_rejected"])
         self.assertTrue(value["real_process_v2_adapter_round_trip"])
         self.assertTrue(value["persistence_round_trip"])
+        self.assertEqual(value["observer_site_error_preimages"], 49)
+        self.assertTrue(value["observer_site_error_cross_product_complete"])
         self.assertTrue(value["verified"])
 
 

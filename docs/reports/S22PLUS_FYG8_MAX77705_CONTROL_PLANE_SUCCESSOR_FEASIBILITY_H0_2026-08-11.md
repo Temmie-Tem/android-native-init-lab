@@ -8,10 +8,10 @@ Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` /
 `S906NKSS7FYG8`)
 
 Verdict:
-`BASE_CARRIER_NORMAL_ORDER_AND_EXACT_SYSFS_GEOMETRY_RECOVERED_STOCK_67_UNADJUDICATED_FULL_PDIC_CUSTOM_66_REJECTED_CUSTOM_65_SOURCE_LINKED_ABI_D0_AND_OVERRIDE_QEMU_QUALIFIED_RUNTIME_AND_PACKAGING_OPEN`
+`BASE_CARRIER_NORMAL_ORDER_AND_EXACT_SYSFS_GEOMETRY_RECOVERED_STOCK_67_UNADJUDICATED_FULL_PDIC_CUSTOM_66_REJECTED_CUSTOM_65_P316_HOST_QUALIFIED_PROCESS_V2_READY_LIVE_UNAUTHORIZED`
 
 Review state:
-`PRIMARY_SOURCE_491_MODULE_NARROW_LINKED_ABI_AND_OVERRIDE_QEMU_SCHEMA_REVIEWS_CLOSED_RUNTIME_PACKAGING_AND_SUCCESSOR_REVIEW_REQUIRED`
+`PRIMARY_SOURCE_491_MODULE_NARROW_LINKED_ABI_OVERRIDE_QEMU_AND_P316_CHANGED_CLOSURE_REVIEWS_CLOSED`
 
 Repository analysis base:
 `0dd0981d960aa74681f5965c021c740cb1eab393`
@@ -53,9 +53,11 @@ and PDIC initializes a combined PMIC/MUIC/CC/PD/alternate-mode/AFC interrupt
 and command plane. That source audit rejects the former full-PDIC custom-66
 shape as disproportionate for this discriminator. The selected H0 design is
 instead one direct polling I2C diagnostic with a bounded three-read/optional-
-one-write effect set. Its source and linked ABI are now qualified; binding,
-runtime command observation, packaging, and the changed hazard closure still
-require completion and independent review before any live candidate exists.
+one-write effect set. Its source, linked ABI, target-only binding runtime,
+observer schema, deterministic boot-only package, Process-v2 promotion, ready
+manifest, and changed hazard closure are now host-qualified. Actual GENI/I2C,
+Max77705, MUX, and host behavior remain live-only unknowns; no live authority
+follows.
 
 This audit also names one narrower source-level failure class:
 
@@ -87,9 +89,12 @@ PDIC composite surface and the I2C command/match authorities, then registered
 the custom-65 single-module diagnostic. That historical continuation did not
 write, build, or package the module. The later H0 implementation/build
 continuation created the bounded source and reproducibly linked it twice
-against the exact fixed P3.10 ABI. It still did not package or load it, so the
-valid current state is
-`SOURCE_AND_LINKED_AB_ABI_QUALIFIED_RUNTIME_NOT_SATISFIED`.
+against the exact fixed P3.10 ABI. The P3.16 continuation then materialized the
+64-plus-late-only runtime, actual topology/lifecycle fixtures, retained observer
+authority, two reproducible boot-only packages, independent artifact closure,
+Process-v2 promotion, and canonical ready bundle. It did not contact a device
+or load the module. The valid current state is
+`CUSTOM_65_P316_HOST_QUALIFIED_PROCESS_V2_READY_LIVE_UNAUTHORIZED`.
 
 ## Executive result
 
@@ -209,14 +214,14 @@ The primary source and artifact inputs were rehashed during this H0 unit.
 | A/B linked-build receipt (19,492 bytes) | `5ea484ae1381b23c42c71163a8bb5add2e54f8b936e7730aee7b87e6a8ffeadd` |
 | independent audit-mode replay receipt | `ce6a1310d1d07b9b6733e4129fecdc41dd4d2bb3ff03247fbe8df2fe9019894b` |
 | A/B diagnostic module (293,400 bytes each) | `4f4f485a35cdb12206b814390b56674ca6a6d691c9a1d7a29c97030053231849` |
-| custom-surface authority helper v10 | `d24177a3aa91abe283b6abf86c0e730939bdac779935aeb7f342ed8a67afe72a` |
-| linked-qualified custom-surface receipt v10 | `54abb42839390d7a9642ff124b545a5bc32b7d94f14cf5d88341955e540fd4d5` |
-| Max77705 retained-envelope v2 encoder | `9c72afcf172aa109158c844b111efa9b0f1ff7027f10185aac9b80b996b156cc` |
-| Max77705 Carrier-v2 decoder policy v2 | `ea28fa494beac12d7d79e0d69bd60745ee1e1ef2321d7a424237306c2c1920c5` |
-| allocation-free PID1 result parser | `d8b3d152823dbf706682802142328f515c7d6c422a18a7309331814bf69e4b65` |
+| custom-surface authority helper v10 plus P3.16 closure pins | `a59c68b8f9c4d92f3914555bc6e2b16d07acc309b08b12292ebcee527d91c4bd` |
+| linked-qualified custom-surface receipt v10 | `2da2f53c981440663a1626024125bcced789872f664b0f4c59b7b07b14ecc339` |
+| Max77705 retained-envelope v2 encoder | `812fabbc6e269ba8ac0167b910b77ac0a367b8c56f33d432c2b8de12a694054b` |
+| Max77705 Carrier-v2 decoder policy v2 | `18263bf199436898fb2f8cdc25de15891b65974ea50305dae4c5bcbd6de03ae7` |
+| allocation-free PID1 result parser | `8c02d0e9e55aed5dcea65d0ced830ba03985886517c73774cec7f2cf9cc1da4c` |
 | PID1 parser host C fixture | `3093151c9f613ed781a9c7fa00efcede4148f061bb25e30c8c992cbd789d9f92` |
-| PID1 parser executable audit | `1d73a82e69701006d0c31efcd16fa476ccd95351fdac46323a9deebb4cf27374` |
-| PID1 parser private receipt | `ec315f67f6420df506e63a8e2c7e1c329ffeafcf8a1b7e079411c6ccea8104e6` |
+| PID1 parser executable audit source | `5d2b0e504f1850093ece544c9e05cb27a71ef79a3b94363f03a7691b3cb65bce` |
+| PID1 parser private receipt | `692325e9e16a600b8ca8f62d3196d8304a3dab24301f26a266096ec0288ff209` |
 | request-v3 checkpoint transform | `0cd6a7c0f02148125b9891efa9918ffbf5aea131c3ffec84fcd0f4bfe3bc3edd` |
 | actual C request-v3 fixture | `a6a2184b9a292353cc4d31c3f647c95b9bfeb870db23d1c46848fe4a00c80ccf` |
 | real Process-v2 adapter fixture | `57128106dd0ee43313dea9d1e66592742badeeba6c278ad95b4fc418f8504b92` |
@@ -1731,19 +1736,16 @@ The stock module order remains the inherited 61 entries followed by six
 dependency-ordered additions. The selected diagnostic branch has four
 additions and no `spu_verify.ko`, MFD, or PDIC. The diagnostic itself has an
 empty `modinfo depends` field and its complete undefined-import/modversion
-surface is linked-qualified; the combined 65-entry load order and stage
-positions remain future packaging proofs. Runtime phase placement of overrides,
-bind checks, late diagnostic load, gadget/sidecar readiness, command execution,
-the 30-second dwell, and result capture remains a detailed design item. It must
-preserve `ucsi_glink.ko` as an A/B
-baseline and be checked against stage capacity and every position/bind gate.
-P3.04's stale-position-table incident must be reproduced as a qualification
-regression.
+surface is linked-qualified. P3.16 proves the 64-entry early load order plus one
+late-only staged payload, exact stage positions, override/bind checks,
+gadget/sidecar readiness, dedicated load, 30-second dwell, and result capture.
+It preserves `ucsi_glink.ko` as an A/B baseline and reproduces P3.04's stale-
+position-table incident as a qualification regression.
 
-## Remaining H0 gates
+## H0 gate disposition
 
-The gates are listed together for continuity. Gate 0 is closed; every
-remaining applicable gate must close before a live candidate is prepared:
+The gates are listed together for continuity. P3.16 closes every host-side gate;
+actual device behavior remains deliberately outside H0:
 
 0. **Host capacity, carrier, and normal-order authority — closed for this unit**
    - the bounded extractor authenticated the complete ZIP/sparse/raw/extent
@@ -1753,8 +1755,8 @@ remaining applicable gate must close before a live candidate is prepared:
      order are bound by private receipts;
    - the complete 491-name stock-module union proves that only stock PDIC
      consumes the removable MFD updater exports; the full-PDIC custom-66 shape
-     is rejected and the direct custom-65 source plus linked ABI are
-     qualified, while runtime and packaging remain unsatisfied;
+     is rejected and the direct custom-65 source, linked ABI, runtime, and
+     packaging are qualified;
    - vendor_boot first-stage, recovery, and vendor_dlkm second-stage orders are
      kept distinct; and
    - the general per-operation peak-space-plus-margin and short-write/hash
@@ -1776,17 +1778,17 @@ remaining applicable gate must close before a live candidate is prepared:
      notifier/power, workqueue, exported ABI, and writable user-control
      surface.
 
-2. **Exact module artifact — linked ABI closed; staging/package open**
+2. **Exact module artifact — linked ABI and staging/package closed**
    - reuse the three exact stock substrate modules from the pinned vendor
      ramdisk and recheck their already confirmed identities;
    - the one diagnostic module is reproducibly built twice and linked-qualified;
-   - stage it in the generic boot ramdisk under one unique selected path while
+   - the generic boot ramdisk stages it under one unique selected path while
      proving stock MFD, PDIC, and SPU copies are never opened;
    - linked imports/relocations/metadata, module name, vermagic, modversions,
      CFI callbacks, and exact A/B byte identity are proven;
-   - recompute dependency, stage, and package closure.
+   - dependency, stage, and package closures are recomputed and receipted.
 
-3. **Runtime and telemetry — retained schema/publisher closed; live runtime open**
+3. **Runtime and telemetry — H0 materialization and qualification closed**
    - target-only override machinery and readback;
    - exact target adapter, parent, diagnostic, and sole `0x25` client witnesses;
    - no competing Max77705 driver, IRQ owner, or command consumer;
@@ -1810,10 +1812,10 @@ remaining applicable gate must close before a live candidate is prepared:
      conflict, cached early transaction failure, post-return `-EAGAIN`,
      result-read timeout, synchronous probe/publication contradiction, and
      unrepresentable lossless payload;
-   - `-EAGAIN` is never decoded alone: loader state and every declared pre/post
-     binding-witness value survives the retained representation; all six
-     observable rows have unique retained preimages and claim-busy has an empty
-     decoder preimage;
+   - observer failure is never decoded alone: site, normalized error class,
+     loader state, and every site-authoritative binding witness survive the
+     retained representation; all 49 site/error rows have unique retained
+     preimages and claim-busy has an empty decoder preimage;
    - one envelope-v2 128-byte value fills the fixed Carrier-v2 two-slot payload exactly;
      an oversized lossless poll vector becomes explicit no-proof rather than a
      truncated MUX result. The overflow form retains four poll counts, total
@@ -1836,14 +1838,14 @@ remaining applicable gate must close before a live candidate is prepared:
    - fail-closed preservation of the interpretation ceiling: no host-silent
      readback tuple may refute physical MUX continuity;
    - carrier encoder/decoder/generation-position tests pass through the real
-     Process-v2 adapter for all nine terminal buckets, all six observable
-     `EAGAIN` rows, all five MUX result classes, and the claim-busy negative
+     Process-v2 adapter for all nine terminal buckets, all 49 observer rows,
+     all five MUX result classes, and the claim-busy negative
      invariant. These are H0-closed schema and publisher proofs only; physical
      reproduction is neither required nor sufficient for the arming
      precondition;
-   - target-specific override/bind runtime materialization remains blocked on
-     the exact D0 inventory below, and packaging remains blocked until that
-     runtime and its qualification receipt call these validators directly.
+   - target-specific override/bind runtime materialization consumes the exact
+     D0 inventory, and the package/qualification paths call these validators
+     directly before producing the ready bundle.
 
 4. **Historical and safety regression**
    - S7A2 must remain a prior negative recipe result, not disappear from the
@@ -1860,7 +1862,8 @@ remaining applicable gate must close before a live candidate is prepared:
      reviewed risk disposition. It may not borrow the custom nonreachability
      claim.
 
-Gates 1 through 4 above describe the selected custom-65 path. A stock-67
+Gates 1 through 4 above describe the selected custom-65 path and are now closed
+for H0. A stock-67
 selection instead requires a reviewed finding that
 the stock-equivalent updater/control-plane risk is admissible for this exact
 context; it does not inherit an approval merely because stock Android has run
@@ -1891,13 +1894,13 @@ Nor does the stock-bound observation waive the candidate's pre-effect rule:
 the candidate must begin with the substrate modules absent, apply and read
 back all twelve exact sentinels, then bind only the three target devices.
 
-## Independent review boundary
+## Independent review boundary — closed for the named H0 capability
 
-One proportional independent review is required because the successor changes
+One proportional independent review was required because the successor changes
 execution-critical module artifacts, introduces transient platform override
 writes, and introduces one bounded direct-I2C CONTROL1 effect.
 
-The review must cover at least:
+The completed review covered:
 
 - exact diagnostic source and linked A/B outputs;
 - proof that no stock MFD/PDIC/SPU module is opened and no broad control-plane
@@ -1911,7 +1914,9 @@ The review must cover at least:
 - 86-module and forbidden-writer rejection; and
 - unchanged boot-only transfer, rollback, and final-health machinery.
 
-A review pass qualifies the named capability and hashes only. It does not
+The final pass is
+`PASS_P316_PROCESS_V2_CANONICAL_ARTIFACT_READY_HOST_ONLY`. It qualifies the
+named capability and hashes only. It does not
 authorize a run or revive P3.15.
 
 ## Stop conditions
@@ -2023,7 +2028,7 @@ This report was closed at H0 with the following host-side checks:
   including the exact 491-module consumer scan and negative custom-source
   and linked-receipt fixtures;
 - `python3 -m unittest tests.test_s22plus_fyg8_max77705_telemetry` passed
-  19/19, including six-row surjectivity, nine terminal and five MUX retained
+  21/21, including 49-row observer-site/error surjectivity, nine terminal and five MUX retained
   preimages, claim-busy exclusion, the 44-byte overflow summary and tamper
   rejection, fixed-result validation for overflow and result-absent envelopes,
   all four post2-retention rows, and the real Process-v2 adapter round trip;
@@ -2068,6 +2073,97 @@ The transient merged-DT count is deliberately not promoted to a durable
 qualification result. Its required regeneration and receipt are an explicit
 successor gate above.
 
+## P3.16 implementation and offline-ready closure
+
+P3.16 implements the selected custom-65 shape without changing the fixed
+P3.10 Image or rebuilding the kernel. The early plan contains exactly 64 stock
+modules: the inherited 61 plus `msm-geni-se.ko`, `gpi.ko`, and
+`i2c-msm-geni.ko`. The 293,400-byte diagnostic exists once in the generic boot
+ramdisk, is forbidden from the early loop, and is opened by one dedicated late
+loader only after gadget readiness, sidecar arming, twelve sentinel readbacks,
+and the exact target-only binding precondition.
+
+The host fixtures execute the materialized seams rather than Python stand-ins:
+
+- dynamic adapter/client discovery below `994000.i2c`, including exact `0066`
+  and pre/post `0025` geometry, wrong-address, duplicate, malformed, and driver
+  ownership cases;
+- pre/post binding construction, not only the directory scanner;
+- late helper pipe-drain, reap, abort, unexpected-`wait4`, deadline, synchronous
+  `finit_module`, and result-read lifecycles;
+- the source-real priority `helper failure > loader deadline > result-read
+  failure`; and
+- the rule that result bytes may be sampled while loading but may be parsed,
+  classified, or published only after the helper proves successful synchronous
+  `finit_module` return.
+
+Observer failures no longer collapse into an invented terminal. Byte 47 binds
+seven observer sites to seven normalized error classes. The decoder exposes
+only site-authoritative binding fields: preflight has no topology authority,
+late-loader and post-topology retain only the proven pre/loader subset, and
+result-policy retains the full binding witness. Module-path `openat` failure is
+an observer error, while `late_finit_module_failure` is reserved for an actual
+negative child result. Missing result, read failure, and deadline are distinct;
+unmeasured zero-initialized post fields decode as unknown rather than absence.
+The native envelope fixture executes 64 rows, comprising 49 observer rows,
+nine terminal rows, five MUX rows, and one oversized-evidence row. The real
+Process-v2 adapter round-trips the same authority and rejects mixed or
+non-authoritative combinations.
+
+The frozen canonical artifacts are:
+
+| Artifact | SHA-256 |
+|---|---|
+| overlay intent | `7ed7530597dee0064fd76ba698aca5230e7efe079b099e9c1799b902814040b5` |
+| prepackaging closure | `4068d8aefd49adb38ed12465508aefada5025a7a99efda5b19c27ca5b6c0cbf0` |
+| reproducible userspace result | `a9bcfe693861d6a277a4b75ce462a94b5d02c644e9baa7eb769c8e3807e5c2bf` |
+| candidate A artifact result | `567987e49cac251d44a0f0c255eb0659b3c5057ca4707cd2343342b913432f2f` |
+| final qualification | `25dc4066b4e49bed0b46e100753accd515b98021783aa8e4e0918d1df6cd11dc` |
+| independent static closure | `0842f1efb5a51bc05117e499a45ac65592504b46eaa6c3750537f49a9de568b5` |
+| Process-v2 run manifest | `803d8c106e538302bc64c89294678e0efd9a56de96a6d8bd93e57a7e9d8f1c00` |
+| canonical ready manifest | `a9fb48065d717d47b0877d96f08b7d05974ac3a6a8f7b7dea4b17ba4cab4c533` |
+
+Candidate A and B are byte-identical: boot SHA-256 is
+`7c6ee851196b7d604aff7a4ce81eba271adc52c5408de10a568b924e8c6f41c9`
+and AP SHA-256 is
+`59893227c4deccc107d2fc4469a882e44212e076a0c5c8e4072031b853a6c6f0`.
+An independent clean-directory regeneration reproduced the intent,
+prepackaging, qualification, static, boot, and AP bytes exactly. Process-v2
+promotion returned its offline PASS, the private ready bundle is byte-identical
+to the promoted evidence/candidate files, and a non-creating ready rehearsal
+returned the same manifest hash. Final changed-closure review returned
+`PASS_GO — S22PLUS_FYG8_P316_CUSTOM65_PROCESS_V2_OFFLINE_READY_CAPABILITY_V1`:
+all 33 current
+`SOURCE_KEYS` matched, the candidate and rollback each contained only
+`boot.img.lz4`, the exact S22 profile and 1,200-second guard derivation matched,
+and no A90 reference or action was present.
+
+The final frozen-source regression ran 232 current tests: 137 Max77705,
+P3.16, and documentation tests plus 95 common Process-v2 runner, evidence, and
+live-observer tests. All passed. Two historical immutable-closure checks remain
+expected invalidations rather than current regressions: P3.13 rejects its old
+overlay intent at setup, and P3.14 rejects its old execution-overlay receipt,
+because the shared `device_action_f1_live_v2.py` SOURCE_KEY changed. Their
+historical intents were not rewritten to manufacture a pass.
+
+This closure also records why the enlarged host gate was necessary. Before
+source freeze, focused review found and forced repairs for a post-reap pipe
+drain race, a topology fixture that had not executed the live seam, observer
+site/error collapse, phase-marker leakage into terminal encoding, false binding
+authority for unmeasured fields, immediate-caller input gaps, result-read and
+module-open collapse, a false result-read timing invariant, and one
+unexpected-`wait4` exit that failed to reap the child. Each was repaired and
+executed host-side before packaging, so none consumed an attended flash.
+
+The ready manifest says `ready-for-f1-approval`; that phrase is an artifact
+state, not live authority. Creation and rehearsal both preserve
+`device_contact=false`, `live_authorized=false`, and `f1_authorized=false`.
+Actual GENI transfer, Max77705 command/retention behavior, physical MUX
+continuity, and host attach remain unknown until one separately authorized,
+attended boot-only F1. Fresh exact-target D0 preparation, a clean retained
+baseline, current rollback/recovery proof, immutable live binding, and one
+fresh exact approval remain mandatory.
+
 ## Final conclusion
 
 The Max77705 MUX hypothesis survives the detailed audit, but the naive test
@@ -2111,20 +2207,24 @@ The evidence now supports these exact statements:
     path witness in this design.
 11. The source match, command protocol, precompile validation, reproducible
     linked module, imports, modversions, CFI callbacks, bounded call surface,
-    retained envelope, actual C request-v3 publisher, and real Process-v2
-    decoder path are proven. The exact-target D0 geometry is also proven.
-    The generic QEMU suppression/raw-replay schema is independently qualified.
-    Binding, timeout/runtime fixtures, sidecar positive control, packaging,
-    and the future successor changed-closure review remain.
+    retained envelope, actual C request-v3 publisher, exact runtime topology
+    and lifecycle seams, and real Process-v2 decoder path are proven. The
+    exact-target D0 geometry and generic QEMU suppression/raw-replay schema are
+    qualified. Sidecar positive control, deterministic packaging, independent
+    static closure, Process-v2 promotion, canonical ready manifest, rehearsal,
+    and changed-closure review also pass. Actual device-side binding, I2C,
+    MUX, and host behavior remain live-only unknowns.
 
-Until the remaining H0 gates close, the correct state is:
+The resulting H0 state is:
 
 ```text
 MUX_CAUSALITY_UNPROVEN
 BASE_MODULE_BYTES_AND_SECOND_STAGE_ORDER_RECOVERED
 STOCK_67_UNADJUDICATED
 FULL_PDIC_CUSTOM_66_REJECTED_AS_DISPROPORTIONATE
-CUSTOM_65_SOURCE_LINKED_AB_ABI_AND_D0_SYSFS_GEOMETRY_QUALIFIED_RUNTIME_NOT_SATISFIED
-CUSTOM_65_EFFECT_SET_LINKED_AUDITED_NOT_PACKAGED
+CUSTOM_65_SOURCE_LINKED_AB_ABI_AND_D0_SYSFS_GEOMETRY_QUALIFIED
+CUSTOM_65_P316_RUNTIME_TOPOLOGY_LIFECYCLE_AND_OBSERVER_QUALIFIED
+CUSTOM_65_EFFECT_SET_BOOT_ONLY_PACKAGED_AND_PROCESS_V2_READY
 DRIVER_OVERRIDE_QEMU_RAW_CAPTURE_REPLAY_SCHEMA_V1_QUALIFIED
+LIVE_UNAUTHORIZED_DEVICE_BEHAVIOR_UNMEASURED
 ```

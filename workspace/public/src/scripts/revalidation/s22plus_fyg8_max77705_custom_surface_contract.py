@@ -70,13 +70,13 @@ RUNTIME_PARSER_RECEIPT = Path(
 )
 RUNTIME_PARSER_RECEIPT_IDENTITY = (
     2_368,
-    "ec315f67f6420df506e63a8e2c7e1c329ffeafcf8a1b7e079411c6ccea8104e6",
+    "692325e9e16a600b8ca8f62d3196d8304a3dab24301f26a266096ec0288ff209",
 )
 RUNTIME_PARSER_SOURCE_IDENTITY = (
     "workspace/public/src/native-init/"
     "s22plus_fyg8_max77705_result_parser.inc.c",
-    19_499,
-    "d8b3d152823dbf706682802142328f515c7d6c422a18a7309331814bf69e4b65",
+    22_556,
+    "8c02d0e9e55aed5dcea65d0ced830ba03985886517c73774cec7f2cf9cc1da4c",
 )
 RUNTIME_PARSER_FIXTURE_SOURCE_IDENTITY = (
     "workspace/public/src/native-init/"
@@ -87,14 +87,14 @@ RUNTIME_PARSER_FIXTURE_SOURCE_IDENTITY = (
 RUNTIME_PARSER_FIXTURE_DRIVER_IDENTITY = (
     "workspace/public/src/scripts/revalidation/"
     "s22plus_fyg8_max77705_runtime_parser_fixture.py",
-    13_362,
-    "1d73a82e69701006d0c31efcd16fa476ccd95351fdac46323a9deebb4cf27374",
+    13_471,
+    "5d2b0e504f1850093ece544c9e05cb27a71ef79a3b94363f03a7691b3cb65bce",
 )
 RUNTIME_PARSER_TELEMETRY_AUTHORITY_IDENTITY = (
     "workspace/public/src/scripts/revalidation/"
     "s22plus_fyg8_max77705_telemetry.py",
-    36_607,
-    "9c72afcf172aa109158c844b111efa9b0f1ff7027f10185aac9b80b996b156cc",
+    47_066,
+    "1cb7149cc49eefa02a2e3554f030c9c22d63e4d9f8605f4ccead95fc621e1348",
 )
 RUNTIME_PARSER_CLANG_IDENTITY = (
     "workspace/private/work/toolchains/aosp-clang-android12-release/"
@@ -1644,7 +1644,8 @@ def validate_runtime_integration_contract(diagnostic: dict[str, Any]) -> bool:
         "host_sidecar_armed_before_late_load",
         "successful_synchronous_finit_module_is_completion_witness",
         "probe_force_synchronous",
-        "result_read_only_after_successful_finit_module_return",
+        "result_sample_may_precede_completion_but_parse_classify_publish_require_success",
+        "result_read_error_yields_to_child_finit_module_failure_and_loader_deadline",
         "eagain_is_distinct_from_terminal_diagnostic_failure",
         "future_async_or_missing-client_drift_must_not_expose_cache",
     ):
@@ -2361,7 +2362,8 @@ def audit(root: Path) -> dict[str, Any]:
                 "dedicated_finit_module_callsite_count": 1,
                 "successful_synchronous_finit_module_is_completion_witness": True,
                 "probe_force_synchronous": True,
-                "result_read_only_after_successful_finit_module_return": True,
+                "result_sample_may_precede_completion_but_parse_classify_publish_require_success": True,
+                "result_read_error_yields_to_child_finit_module_failure_and_loader_deadline": True,
                 "eagain_is_distinct_from_terminal_diagnostic_failure": True,
                 "future_async_or_missing-client_drift_must_not_expose_cache": True,
             },

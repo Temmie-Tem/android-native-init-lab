@@ -57,7 +57,12 @@ def _sha256(path: Path) -> str:
 def _result(
     *, polls: tuple[bytes, bytes, bytes, bytes] | None = None
 ) -> telemetry.DiagnosticResult:
-    selected = polls or (b"\x00\x00\x80", b"", b"\x80", b"\x80")
+    selected = polls or (
+        b"\x00\x00\x80",
+        b"\x80",
+        b"\x80",
+        b"\x80",
+    )
     write_present = bool(selected[1])
     return telemetry.DiagnosticResult(
         stage=telemetry.STAGE_COMPLETE,
@@ -70,7 +75,7 @@ def _result(
         command_issued_mask=0x0F if write_present else 0x0D,
         response_seen_mask=0x0F if write_present else 0x0D,
         response_opcode=(0x05, 0x06 if write_present else 0, 0x05, 0x05),
-        response_value=(0x3F, 0, 0x09, 0x09),
+        response_value=(0x3F if write_present else 0x09, 0, 0x09, 0x09),
         poll_bytes=selected,
         write_attempted=1 if write_present else 0,
         write_ambiguous=0,
@@ -203,7 +208,7 @@ def audit(repo_root: Path | None = None) -> dict[str, Any]:
             replace(
                 _result(),
                 response_value=(0x3F, 0, 0x09, 0x09),
-                poll_bytes=(b"\x80", b"", b"\x80", b"\x88"),
+                poll_bytes=(b"\x80", b"\x80", b"\x80", b"\x88"),
             ),
             replace(
                 _result(),
@@ -211,6 +216,7 @@ def audit(repo_root: Path | None = None) -> dict[str, Any]:
                 rc=telemetry.RC_ETIMEDOUT,
                 command_issued_mask=0x01,
                 response_seen_mask=0,
+                write_attempted=0,
                 response_opcode=(0, 0, 0, 0),
                 response_value=(0, 0, 0, 0),
                 poll_bytes=(b"\x01" * 100, b"", b"", b""),
@@ -240,14 +246,14 @@ def audit(repo_root: Path | None = None) -> dict[str, Any]:
             "leading_zero_stage": canonical.replace(b"stage=10", b"stage=010", 1),
             "negative_zero_rc": canonical.replace(b"rc=0", b"rc=-0", 1),
             "reordered_masks": canonical.replace(
-                b"issued=0d seen=0d", b"seen=0d issued=0d", 1
+                b"issued=0f seen=0f", b"seen=0f issued=0f", 1
             ),
             "poll_count_mismatch": canonical.replace(b"p0n=3", b"p0n=4", 1),
             "poll_count_over_bound": canonical.replace(b"p0n=3", b"p0n=101", 1),
-            "response_not_issued": canonical.replace(b"issued=0d", b"issued=0c", 1),
+            "response_not_issued": canonical.replace(b"issued=0f", b"issued=0e", 1),
             "response_without_apcmd": canonical.replace(b"p0=000080", b"p0=000001", 1),
             "complete_write_flag_drift": canonical.replace(
-                b"wr_attempt=0", b"wr_attempt=1", 1
+                b"wr_attempt=1", b"wr_attempt=0", 1
             ),
             "timeout_slot_contains_apcmd": timeout_with_apcmd,
         }

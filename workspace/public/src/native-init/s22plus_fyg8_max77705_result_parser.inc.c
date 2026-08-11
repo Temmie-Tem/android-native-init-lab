@@ -404,6 +404,8 @@ static int s22plus_max77705_runtime_validate_semantics(
 		const struct s22plus_max77705_runtime_result *result,
 		const struct s22plus_max77705_runtime_poll_summary *summary)
 {
+	uint8_t issued;
+	uint8_t seen;
 	unsigned int slot;
 
 	if (result->stage < 2U ||
@@ -436,6 +438,83 @@ static int s22plus_max77705_runtime_validate_semantics(
 		((result->command_issued_mask & 0x02U) != 0U) ||
 	    (result->write_ambiguous != 0U && result->write_attempted == 0U))
 		return S22PLUS_MAX77705_RUNTIME_PARSE_SEMANTIC;
+	issued = result->command_issued_mask;
+	seen = result->response_seen_mask;
+	/*
+	 * The module publishes the stage before each fallible operation.  These
+	 * are therefore source-reachability constraints, not a second protocol
+	 * implementation.  In particular, RETENTION has no fallible operation
+	 * and can never be a terminal cached result.
+	 */
+	switch (result->stage) {
+	case 2U: /* identity */
+	case 3U: /* dummy client */
+	case 4U: /* initial UIC read */
+		if (issued != 0U || seen != 0U || result->write_attempted != 0U)
+			return S22PLUS_MAX77705_RUNTIME_PARSE_SEMANTIC;
+		break;
+	case S22PLUS_MAX77705_RUNTIME_STAGE_PRE:
+		if (issued != 0x01U || (seen != 0U && seen != 0x01U) ||
+		    result->write_attempted != 0U)
+			return S22PLUS_MAX77705_RUNTIME_PARSE_SEMANTIC;
+		break;
+	case S22PLUS_MAX77705_RUNTIME_STAGE_WRITE:
+		if (issued != 0x03U || (seen != 0x01U && seen != 0x03U) ||
+		    result->response_seen_mask == 0U ||
+		    result->response_opcode[0] != 0x05U ||
+		    result->response_value[0] == 0x09U ||
+		    result->write_attempted != 1U ||
+		    result->write_ambiguous != 1U)
+			return S22PLUS_MAX77705_RUNTIME_PARSE_SEMANTIC;
+		break;
+	case S22PLUS_MAX77705_RUNTIME_STAGE_POST1: {
+		uint8_t expected_issued = result->response_value[0] == 0x09U
+			? 0x05U : 0x07U;
+		uint8_t prefix_seen = result->response_value[0] == 0x09U
+			? 0x01U : 0x03U;
+
+		if (issued != expected_issued ||
+		    (seen != prefix_seen && seen != expected_issued) ||
+		    result->response_opcode[0] != 0x05U ||
+		    (result->response_value[0] == 0x09U
+			? (result->write_attempted != 0U ||
+			   result->response_opcode[1] != 0U ||
+			   result->response_value[1] != 0U)
+			: (result->write_attempted != 1U ||
+			   result->write_ambiguous != 0U ||
+			   result->response_opcode[1] != 0x06U ||
+			   result->response_value[1] != 0U)))
+			return S22PLUS_MAX77705_RUNTIME_PARSE_SEMANTIC;
+		break;
+	}
+	case 8U: /* retention sleep cannot return an errno */
+		return S22PLUS_MAX77705_RUNTIME_PARSE_SEMANTIC;
+	case S22PLUS_MAX77705_RUNTIME_STAGE_POST2: {
+		uint8_t expected_issued = result->response_value[0] == 0x09U
+			? 0x0dU : 0x0fU;
+		uint8_t prefix_seen = result->response_value[0] == 0x09U
+			? 0x05U : 0x07U;
+
+		if (issued != expected_issued ||
+		    (seen != prefix_seen && seen != expected_issued) ||
+		    result->response_opcode[0] != 0x05U ||
+		    result->response_opcode[2] != 0x05U ||
+		    (result->response_value[0] == 0x09U
+			? (result->write_attempted != 0U ||
+			   result->response_opcode[1] != 0U ||
+			   result->response_value[1] != 0U)
+			: (result->write_attempted != 1U ||
+			   result->write_ambiguous != 0U ||
+			   result->response_opcode[1] != 0x06U ||
+			   result->response_value[1] != 0U)))
+			return S22PLUS_MAX77705_RUNTIME_PARSE_SEMANTIC;
+		break;
+	}
+	case S22PLUS_MAX77705_RUNTIME_STAGE_COMPLETE:
+		break;
+	default:
+		return S22PLUS_MAX77705_RUNTIME_PARSE_SEMANTIC;
+	}
 	for (slot = 0U; slot < S22PLUS_MAX77705_RUNTIME_COMMANDS; ++slot) {
 		uint8_t bit = (uint8_t)(1U << slot);
 
@@ -466,8 +545,11 @@ static int s22plus_max77705_runtime_validate_semantics(
 		    result->response_opcode[3] != 0x05U ||
 		    ((result->command_issued_mask & 0x02U) != 0U &&
 		     result->response_opcode[1] != 0x06U) ||
+		    result->response_value[1] != 0U ||
 		    result->write_attempted !=
 			((result->command_issued_mask & 0x02U) != 0U) ||
+		    (result->response_value[0] == 0x09U) !=
+			(result->write_attempted == 0U) ||
 		    result->write_ambiguous != 0U)
 			return S22PLUS_MAX77705_RUNTIME_PARSE_SEMANTIC;
 	}

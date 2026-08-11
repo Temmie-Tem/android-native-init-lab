@@ -319,6 +319,7 @@ def _p313_bundle(bundle: core.Bundle) -> bool:
             p313_guard_lifetime.OVERLAY_CONTRACT_ID,
             typed_evidence.P314_OVERLAY_CONTRACT_ID,
             typed_evidence.P315_OVERLAY_CONTRACT_ID,
+            typed_evidence.MAX77705_OVERLAY_CONTRACT_ID,
         }
     )
 

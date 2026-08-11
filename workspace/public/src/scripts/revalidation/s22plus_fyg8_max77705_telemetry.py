@@ -44,6 +44,7 @@ COM_USB = 0x09
 STAGE_PRE = 5
 STAGE_WRITE = 6
 STAGE_POST1 = 7
+STAGE_RETENTION = 8
 STAGE_POST2 = 9
 STAGE_COMPLETE = 10
 RC_ETIMEDOUT = -110
@@ -109,6 +110,31 @@ DRIVER_STATES = {
     "DIAGNOSTIC": 3,
 }
 DRIVER_STATE_NAMES = {value: key for key, value in DRIVER_STATES.items()}
+
+OBSERVER_SITES = {
+    "none": 0,
+    "override-prepare": 1,
+    "substrate-verify": 2,
+    "pre-topology": 3,
+    "late-loader": 4,
+    "post-topology": 5,
+    "result-policy": 6,
+    "result-read": 7,
+}
+OBSERVER_SITE_NAMES = {value: key for key, value in OBSERVER_SITES.items()}
+OBSERVER_ERROR_CLASSES = {
+    "none": 0,
+    "not-found": 1,
+    "busy": 2,
+    "timeout-retry": 3,
+    "io-format": 4,
+    "interrupted": 5,
+    "other-negative": 6,
+    "nonnegative": 7,
+}
+OBSERVER_ERROR_CLASS_NAMES = {
+    value: key for key, value in OBSERVER_ERROR_CLASSES.items()
+}
 
 CRC_DOMAIN = b"S22PLUS-FYG8-MAX77705-DIAG-V2\0"
 
@@ -198,6 +224,21 @@ def _validate_binding(binding: BindingWitness) -> None:
         raise TelemetryError("pre driver state is not declared")
     if binding.post_exact_parent_driver_state not in DRIVER_STATE_NAMES:
         raise TelemetryError("post driver state is not declared")
+
+
+def _binding_causal_ready(binding: BindingWitness) -> bool:
+    _validate_binding(binding)
+    return (
+        binding.loader_state == LOADER_STATES["FINIT_MODULE_RETURNED_SUCCESS"]
+        and binding.pre_exact_parent_present == 1
+        and binding.pre_exact_parent_driver_state == DRIVER_STATES["UNBOUND"]
+        and binding.pre_matching_unbound_parent_count == 1
+        and binding.pre_wrong_address_compatible_parent_count == 0
+        and binding.post_exact_parent_driver_state == DRIVER_STATES["DIAGNOSTIC"]
+        and binding.post_diagnostic_bound_parent_count == 1
+        and binding.post_exact_adapter_muic_0x25_client_count == 1
+        and binding.post_foreign_0x25_client_count == 0
+    )
 
 
 def classify_eagain_binding(binding: BindingWitness) -> str:
@@ -379,6 +420,59 @@ def _validate_result_fixed(result: DiagnosticResult) -> None:
             raise TelemetryError(f"{label} extent differs")
         for value in values:
             _u8(value, label)
+    issued = result.command_issued_mask
+    seen = result.response_seen_mask
+    if result.stage in {2, 3, 4}:
+        if issued or seen or result.write_attempted:
+            raise TelemetryError("pre-command stage carries command state")
+    elif result.stage == STAGE_PRE:
+        if issued != 0x01 or seen not in {0x00, 0x01} or result.write_attempted:
+            raise TelemetryError("pre-read failure shape is not source-reachable")
+    elif result.stage == STAGE_WRITE:
+        if (
+            issued != 0x03
+            or seen not in {0x01, 0x03}
+            or result.response_opcode[0] != 0x05
+            or result.response_value[0] == COM_USB
+            or result.write_attempted != 1
+            or result.write_ambiguous != 1
+        ):
+            raise TelemetryError("write failure shape is not source-reachable")
+    elif result.stage == STAGE_POST1:
+        write_path = result.response_value[0] != COM_USB
+        expected_issued = 0x07 if write_path else 0x05
+        prefix_seen = 0x03 if write_path else 0x01
+        if (
+            issued != expected_issued
+            or seen not in {prefix_seen, expected_issued}
+            or result.response_opcode[0] != 0x05
+            or result.write_attempted != int(write_path)
+            or result.response_value[1] != 0
+            or (not write_path and result.response_opcode[1] != 0)
+            or (write_path and (
+                result.write_ambiguous != 0 or result.response_opcode[1] != 0x06
+            ))
+        ):
+            raise TelemetryError("post1 failure shape is not source-reachable")
+    elif result.stage == STAGE_RETENTION:
+        raise TelemetryError("retention sleep cannot publish a terminal result")
+    elif result.stage == STAGE_POST2:
+        write_path = result.response_value[0] != COM_USB
+        expected_issued = 0x0F if write_path else 0x0D
+        prefix_seen = 0x07 if write_path else 0x05
+        if (
+            issued != expected_issued
+            or seen not in {prefix_seen, expected_issued}
+            or result.response_opcode[0] != 0x05
+            or result.response_opcode[2] != 0x05
+            or result.write_attempted != int(write_path)
+            or result.response_value[1] != 0
+            or (not write_path and result.response_opcode[1] != 0)
+            or (write_path and (
+                result.write_ambiguous != 0 or result.response_opcode[1] != 0x06
+            ))
+        ):
+            raise TelemetryError("post2 failure shape is not source-reachable")
     if result.stage == STAGE_COMPLETE:
         if (
             result.command_issued_mask not in {0x0D, 0x0F}
@@ -390,6 +484,8 @@ def _validate_result_fixed(result: DiagnosticResult) -> None:
                 result.command_issued_mask & 0x02
                 and result.response_opcode[1] != 0x06
             )
+            or result.response_value[1] != 0
+            or (result.response_value[0] == COM_USB) != (not result.write_attempted)
             or result.write_ambiguous != 0
         ):
             raise TelemetryError("complete diagnostic tuple is not source-reachable")
@@ -412,6 +508,43 @@ def _validate_result(result: DiagnosticResult) -> bytes:
         rc=result.rc,
     )
     return b"".join(result.poll_bytes)
+
+
+def classify_diagnostic_result(
+    binding: BindingWitness, result: DiagnosticResult
+) -> tuple[str | None, str | None]:
+    """Map one source-reachable cached result to its retained semantic."""
+
+    _validate_binding(binding)
+    _validate_result_fixed(result)
+    if result.rc > 0:
+        return "synchronous_probe_or_publication_contradiction", None
+    if result.rc < 0:
+        if result.stage == 2 and result.rc == -19:
+            return "matching_parent_identity_rejected", None
+        if result.stage <= 4:
+            return "probe_terminal_failure", None
+        if result.stage not in {STAGE_PRE, STAGE_WRITE, STAGE_POST1, STAGE_POST2}:
+            raise TelemetryError("negative diagnostic stage is not classifiable")
+        if not _binding_causal_ready(binding):
+            return "synchronous_probe_or_publication_contradiction", None
+        return None, "diagnostic-transaction-failure"
+    if result.stage != STAGE_COMPLETE:
+        raise TelemetryError("zero diagnostic result is not complete")
+    if not _binding_causal_ready(binding):
+        return "synchronous_probe_or_publication_contradiction", None
+    pre, post1, post2 = (
+        result.response_value[0],
+        result.response_value[2],
+        result.response_value[3],
+    )
+    if post1 == COM_USB and post2 != COM_USB:
+        return None, "post-visible-reversion"
+    if pre != COM_USB and post1 == COM_USB and post2 == COM_USB:
+        return None, "pre-nonusb-post-stable-usb"
+    if pre == COM_USB and post1 == COM_USB and post2 == COM_USB:
+        return None, "pre-usb-post-stable-usb"
+    return None, "complete-other-tuple"
 
 
 def _post2_retention_interpretation(result: dict[str, Any]) -> dict[str, Any] | None:
@@ -563,12 +696,32 @@ def encode_envelope(
     terminal_bucket: str | None = None,
     mux_class: str | None = None,
     result: DiagnosticResult | None = None,
+    observer_site: str | None = None,
+    observer_error_class: str | None = None,
 ) -> bytes:
     _validate_binding(binding)
     detail = terminal_detail(terminal_bucket=terminal_bucket, mux_class=mux_class)
     del detail  # The detail is redundantly checked when the carrier is assembled.
     terminal_code = 0 if terminal_bucket is None else TERMINAL_CODE_BY_KEY[terminal_bucket]
     mux_code = 0 if mux_class is None else MUX_CODE_BY_NAME[mux_class]
+    if (observer_site is None) != (observer_error_class is None):
+        raise TelemetryError("observer site/error tag is incomplete")
+    site_code = OBSERVER_SITES["none"]
+    error_code = OBSERVER_ERROR_CLASSES["none"]
+    if observer_site is not None:
+        try:
+            site_code = OBSERVER_SITES[observer_site]
+            error_code = OBSERVER_ERROR_CLASSES[str(observer_error_class)]
+        except KeyError as exc:
+            raise TelemetryError("observer site/error tag is undeclared") from exc
+        if (
+            site_code == 0
+            or error_code == 0
+            or terminal_bucket
+            != "synchronous_probe_or_publication_contradiction"
+            or result is not None
+        ):
+            raise TelemetryError("observer site/error tag lacks contradiction semantics")
     flags = FLAG_BINDING_PRESENT
     raw_poll = b""
     poll_summary: PollSummary | None = None
@@ -578,6 +731,14 @@ def encode_envelope(
         flags |= FLAG_RESULT_PRESENT
     elif mux_class is not None:
         raise TelemetryError("MUX classification requires a diagnostic result")
+    if mux_class is not None and not _binding_causal_ready(binding):
+        raise TelemetryError("MUX classification lacks exact causal binding")
+    if result is not None:
+        expected_terminal, expected_mux = classify_diagnostic_result(
+            binding, result
+        )
+        if (terminal_bucket, mux_class) != (expected_terminal, expected_mux):
+            raise TelemetryError("diagnostic result and retained semantic disagree")
 
     encoded_poll = packbits_encode(raw_poll)
     encoding = POLL_ENCODING_PACKBITS
@@ -624,7 +785,7 @@ def encode_envelope(
     envelope[43] = encoding
     struct.pack_into("<H", envelope, 44, len(raw_poll))
     envelope[46] = len(payload)
-    envelope[47] = 0
+    envelope[47] = (site_code << 4) | error_code
     envelope[PAYLOAD_AREA_OFFSET : PAYLOAD_AREA_OFFSET + len(payload)] = payload
     crc = binascii.crc32(CRC_DOMAIN + envelope[:CRC_OFFSET]) & 0xFFFFFFFF
     struct.pack_into("<I", envelope, CRC_OFFSET, crc)
@@ -651,12 +812,28 @@ def decode_envelope(envelope: bytes) -> dict[str, Any]:
         raise TelemetryError("Max77705 terminal code is not declared")
     if mux_code and mux_class is None:
         raise TelemetryError("Max77705 MUX code is not declared")
-    if envelope[47] or any(envelope[48 + envelope[46] : CRC_OFFSET]):
+    observer_tag = envelope[47]
+    observer_site_code = observer_tag >> 4
+    observer_error_code = observer_tag & 0x0F
+    observer_site = OBSERVER_SITE_NAMES.get(observer_site_code)
+    observer_error_class = OBSERVER_ERROR_CLASS_NAMES.get(observer_error_code)
+    if (
+        observer_site is None
+        or observer_error_class is None
+        or ((observer_site_code == 0) != (observer_error_code == 0))
+    ):
+        raise TelemetryError("Max77705 observer tag differs")
+    if any(envelope[48 + envelope[46] : CRC_OFFSET]):
         raise TelemetryError("Max77705 envelope reserved bytes differ")
 
     result_present = bool(flags & FLAG_RESULT_PRESENT)
     if not result_present and any(envelope[8:34]):
         raise TelemetryError("result-absent envelope carries diagnostic bytes")
+    if observer_site_code != 0 and (
+        result_present
+        or terminal_bucket != "synchronous_probe_or_publication_contradiction"
+    ):
+        raise TelemetryError("Max77705 observer tag lacks contradiction semantics")
 
     binding_values = tuple(envelope[34:43])
     binding = BindingWitness(*binding_values)
@@ -704,6 +881,8 @@ def decode_envelope(envelope: bytes) -> dict[str, Any]:
 
     if mux_class is not None and not result_present:
         raise TelemetryError("Max77705 MUX row lacks a diagnostic result")
+    if mux_class is not None and not _binding_causal_ready(binding):
+        raise TelemetryError("Max77705 MUX row lacks exact causal binding")
     result: dict[str, Any] | None = None
     if result_present:
         if poll_summary is None:
@@ -758,6 +937,39 @@ def decode_envelope(envelope: bytes) -> dict[str, Any]:
             "poll_nonzero_count": poll_summary.nonzero_count,
         }
         result["post2_retention"] = _post2_retention_interpretation(result)
+        expected_terminal, expected_mux = classify_diagnostic_result(
+            binding, fixed_result
+        )
+        if flags & FLAG_POLL_OVERFLOW:
+            if expected_mux is None:
+                raise TelemetryError("overflow summary does not wrap a MUX result")
+        elif (terminal_bucket, mux_class) != (expected_terminal, expected_mux):
+            raise TelemetryError("retained semantic and diagnostic result disagree")
+    binding_field_names = tuple(surface.DIAG_EAGAIN_BINDING_WITNESS_FIELDS)
+    encoded_binding = {
+        name: value
+        for name, value in zip(
+            binding_field_names,
+            binding_values,
+            strict=True,
+        )
+    }
+    authoritative_binding_fields = set(binding_field_names)
+    if observer_site_code == 0 and (
+        binding.loader_state != LOADER_STATES["FINIT_MODULE_RETURNED_SUCCESS"]
+    ):
+        # The late loader publishes module-open/helper failures and deadline
+        # terminals before post-topology is sampled.  Their zero-filled post
+        # bytes are placeholders, not absence witnesses.
+        authoritative_binding_fields = set(binding_field_names[:5])
+    elif observer_site_code != 0:
+        authoritative_binding_fields = {"loader_state"}
+        if observer_site in {
+            "late-loader", "post-topology", "result-policy", "result-read"
+        }:
+            authoritative_binding_fields.update(binding_field_names[:5])
+        if observer_site in {"result-policy", "result-read"}:
+            authoritative_binding_fields.update(binding_field_names)
     decoded = {
         "schema": SCHEMA,
         "terminal_bucket": terminal_bucket,
@@ -768,12 +980,15 @@ def decode_envelope(envelope: bytes) -> dict[str, Any]:
         ),
         "mux_class": mux_class,
         "binding": {
-            name: value
-            for name, value in zip(
-                surface.DIAG_EAGAIN_BINDING_WITNESS_FIELDS,
-                binding_values,
-                strict=True,
+            name: (
+                value if name in authoritative_binding_fields else None
             )
+            for name, value in encoded_binding.items()
+        },
+        "binding_encoded": encoded_binding,
+        "binding_authority": {
+            name: name in authoritative_binding_fields
+            for name in binding_field_names
         },
         "result": result,
         "poll_raw_size": raw_size,
@@ -782,6 +997,10 @@ def decode_envelope(envelope: bytes) -> dict[str, Any]:
         "poll_lossless": bool(flags & FLAG_POLL_LOSSLESS),
         "payload_overflow": bool(flags & FLAG_POLL_OVERFLOW),
         "causal_result_allowed": causal_result_allowed,
+        "observer_site": None if observer_site_code == 0 else observer_site,
+        "observer_error_class": (
+            None if observer_error_code == 0 else observer_error_class
+        ),
         "envelope_crc32": recorded,
     }
     eagain_buckets = {
@@ -791,14 +1010,35 @@ def decode_envelope(envelope: bytes) -> dict[str, Any]:
         "result_not_ready_eagain",
         "synchronous_probe_or_publication_contradiction",
     }
-    if result is None and terminal_bucket in eagain_buckets:
-        row = classify_eagain_binding(binding)
-        if eagain_terminal_bucket(row) != terminal_bucket:
-            raise TelemetryError("EAGAIN row and terminal bucket disagree")
-        decoded["eagain_row"] = row
-        decoded["eagain_terminal"] = bool(
-            surface.DIAG_EAGAIN_OBSERVABLE_ROWS[row].get("terminal", True)
+    if observer_site_code != 0:
+        preflight_sites = {
+            "override-prepare",
+            "substrate-verify",
+            "pre-topology",
+        }
+        decoded["eagain_row"] = None
+        decoded["observer_failure_scope"] = (
+            "preflight" if observer_site in preflight_sites else "diagnostic"
         )
+        decoded["preflight_observer_contradiction"] = (
+            observer_site in preflight_sites
+        )
+    elif result is None and terminal_bucket in eagain_buckets:
+        if (
+            terminal_bucket
+            == "synchronous_probe_or_publication_contradiction"
+            and binding.loader_state == LOADER_STATES["NOT_STARTED"]
+        ):
+            decoded["eagain_row"] = None
+            decoded["preflight_observer_contradiction"] = True
+        else:
+            row = classify_eagain_binding(binding)
+            if eagain_terminal_bucket(row) != terminal_bucket:
+                raise TelemetryError("EAGAIN row and terminal bucket disagree")
+            decoded["eagain_row"] = row
+            decoded["eagain_terminal"] = bool(
+                surface.DIAG_EAGAIN_OBSERVABLE_ROWS[row].get("terminal", True)
+            )
     return decoded
 
 

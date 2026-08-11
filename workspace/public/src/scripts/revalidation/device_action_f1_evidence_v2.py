@@ -69,6 +69,7 @@ import s22plus_fyg8_p315_e2_stock_closure as p315_e2_closure
 import s22plus_fyg8_p315_overlay_contract as p315_overlay
 import s22plus_fyg8_p315_telemetry_decoder as p315_decoder
 import s22plus_fyg8_p315_telemetry_spec as p315_spec
+import s22plus_fyg8_p316_e2_stock_closure as p316_e2_closure
 import s22plus_fyg8_max77705_telemetry_decoder as max77705_decoder
 
 
@@ -249,6 +250,12 @@ P315_CANDIDATE_STATIC_VERDICT = (
 )
 P315_OVERLAY_CONTRACT_ID = p315_overlay.CONTRACT_ID
 MAX77705_OVERLAY_CONTRACT_ID = max77705_decoder.OVERLAY_CONTRACT_ID
+P316_CANDIDATE_STATIC_SCHEMA = "s22plus_fyg8_p316_candidate_static_checker_v1"
+P316_CANDIDATE_STATIC_VERDICT = (
+    "PASS_P316_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
+)
+DEFAULT_CONTRACT_ARTIFACT_MAX_BYTES = 1024 * 1024
+P316_CANDIDATE_STATIC_MAX_BYTES = 2 * 1024 * 1024
 P301_TELEMETRY_OVERLAY_IDS = frozenset(
     {
         P301_OVERLAY_CONTRACT_ID,
@@ -803,9 +810,24 @@ def _validate_p315_overlay_contract(value: Any) -> dict[str, Any]:
     return current
 
 
+def _validate_p316_overlay_contract(value: Any) -> dict[str, Any]:
+    import s22plus_fyg8_p316_overlay_contract as p316_overlay
+
+    root = Path(__file__).resolve().parents[5]
+    try:
+        current = p316_overlay.verify_intent(root, root / p316_overlay.DEFAULT_INTENT)
+    except (p316_overlay.OverlayContractError, OSError) as exc:
+        raise EvidenceError("P3.16 overlay intent verification failed") from exc
+    if value != current:
+        raise EvidenceError("P3.16 overlay contract differs from current intent")
+    return current
+
+
 def _validate_userspace_overlay_contract(
     value: Any, userspace_overlay_contract_id: str
 ) -> dict[str, Any]:
+    if userspace_overlay_contract_id == MAX77705_OVERLAY_CONTRACT_ID:
+        return _validate_p316_overlay_contract(value)
     if userspace_overlay_contract_id == P301_OVERLAY_CONTRACT_ID:
         return _validate_p301_overlay_contract(value)
     if userspace_overlay_contract_id == P302_OVERLAY_CONTRACT_ID:
@@ -839,6 +861,10 @@ def _select_e2_closure(
     source_contract_id: str | None,
     userspace_overlay_contract_id: str | None = None,
 ):
+    if userspace_overlay_contract_id == MAX77705_OVERLAY_CONTRACT_ID:
+        if source_contract_id != P310_SOURCE_CONTRACT_ID:
+            raise EvidenceError("P3.16 parent source contract differs")
+        return p316_e2_closure.select(source_contract_id)
     if userspace_overlay_contract_id in {
         P304_OVERLAY_CONTRACT_ID,
         P305_OVERLAY_CONTRACT_ID,
@@ -1028,6 +1054,26 @@ def _p315_e2_authority_context(
         or e2_closure.receipt(matching[0].data) != expected_init
     ):
         raise EvidenceError("P3.15 exact init authority is unavailable")
+    return closure_api.exact_init_authority(matching[0].data)
+
+
+def _p316_e2_authority_context(
+    closure_api: Any,
+    entries: list[Any],
+    expected_init: dict[str, Any],
+):
+    if closure_api is not p316_e2_closure.select(P310_SOURCE_CONTRACT_ID):
+        raise EvidenceError("P3.16 stock-closure authority adapter differs")
+    matching = [
+        entry
+        for entry in entries
+        if entry.name == "init" and entry.file_type == "regular"
+    ]
+    if (
+        len(matching) != 1
+        or e2_closure.receipt(matching[0].data) != expected_init
+    ):
+        raise EvidenceError("P3.16 exact init authority is unavailable")
     return closure_api.exact_init_authority(matching[0].data)
 
 
@@ -1341,14 +1387,19 @@ def _exact(value: Any, keys: set[str], label: str) -> dict[str, Any]:
     return value
 
 
-def _artifact(value: Any, label: str) -> dict[str, Any]:
+def _artifact(
+    value: Any,
+    label: str,
+    *,
+    maximum: int = DEFAULT_CONTRACT_ARTIFACT_MAX_BYTES,
+) -> dict[str, Any]:
     item = _exact(value, {"path", "size", "sha256"}, label)
     if (
         not isinstance(item["path"], str)
         or not item["path"]
         or isinstance(item["size"], bool)
         or not isinstance(item["size"], int)
-        or not 1 <= item["size"] <= 1024 * 1024
+        or not 1 <= item["size"] <= maximum
         or not isinstance(item["sha256"], str)
         or HASH_RE.fullmatch(item["sha256"]) is None
     ):
@@ -1543,6 +1594,7 @@ def _generic_rootfs_module_closure(
             p313_e2_closure.select(P310_SOURCE_CONTRACT_ID),
             p314_e2_closure.select(P310_SOURCE_CONTRACT_ID),
             p315_e2_closure.select(P310_SOURCE_CONTRACT_ID),
+            p316_e2_closure.select(P310_SOURCE_CONTRACT_ID),
         }:
             raise EvidenceError("P3.10 generic-rootfs closure adapter differs")
         return module_closure
@@ -1726,7 +1778,11 @@ def validate_e2_ap_payload(
         generic_module_closure = _generic_rootfs_module_closure(
             source_contract_id, closure_api, module_closure
         )
-        if userspace_overlay_contract_id == P315_OVERLAY_CONTRACT_ID:
+        if userspace_overlay_contract_id == MAX77705_OVERLAY_CONTRACT_ID:
+            authority_context = _p316_e2_authority_context(
+                closure_api, entries, identities["init"]
+            )
+        elif userspace_overlay_contract_id == P315_OVERLAY_CONTRACT_ID:
             authority_context = _p315_e2_authority_context(
                 closure_api, entries, identities["init"]
             )
@@ -2146,7 +2202,15 @@ def validate_acceptance(value: Any) -> dict[str, Any]:
             contract_keys,
             "E1 latest-stage contract",
         )
-        _artifact(contract["candidate_static"], "E1 latest-stage candidate_static")
+        _artifact(
+            contract["candidate_static"],
+            "E1 latest-stage candidate_static",
+            maximum=(
+                P316_CANDIDATE_STATIC_MAX_BYTES
+                if userspace_overlay_contract_id == MAX77705_OVERLAY_CONTRACT_ID
+                else DEFAULT_CONTRACT_ARTIFACT_MAX_BYTES
+            ),
+        )
         _artifact(contract["run_manifest"], "E1 latest-stage run_manifest")
         _artifact(contract["static_check"], "E1 latest-stage static_check")
         if stock_keys <= set(contract):
@@ -2838,6 +2902,9 @@ def _verify_e1_latest_stage_offline_contract(
         P315_OVERLAY_CONTRACT_ID: (
             P315_CANDIDATE_STATIC_SCHEMA, P315_CANDIDATE_STATIC_VERDICT
         ),
+        MAX77705_OVERLAY_CONTRACT_ID: (
+            P316_CANDIDATE_STATIC_SCHEMA, P316_CANDIDATE_STATIC_VERDICT
+        ),
     }
     source_static_contracts = {
         P286_SOURCE_CONTRACT_ID: (
@@ -2928,6 +2995,18 @@ def _verify_e1_latest_stage_offline_contract(
                 "p315_qualification_closure",
                 "p315_telemetry",
                 "p315_observer",
+            }
+        )
+    if userspace_overlay_contract_id == MAX77705_OVERLAY_CONTRACT_ID:
+        expected_candidate_static_keys.update(
+            {
+                "p316_runtime_fixture",
+                "p316_late_loader_lifecycle",
+                "p316_process_v2_adapter_fixture",
+                "p316_sidecar_positive_control",
+                "p316_qualification_closure",
+                "p316_telemetry",
+                "p316_observer",
             }
         )
     elif userspace_overlay_contract_id == P312_OVERLAY_CONTRACT_ID:
@@ -3037,6 +3116,7 @@ def _verify_e1_latest_stage_offline_contract(
     p313_overlay_source_receipts = None
     p314_overlay_source_receipts = None
     p315_overlay_source_receipts = None
+    p316_overlay_source_receipts = None
     p302_contract = None
     p303_contract = None
     if userspace_overlay_contract_id == P301_OVERLAY_CONTRACT_ID:
@@ -3056,6 +3136,72 @@ def _verify_e1_latest_stage_offline_contract(
             raise EvidenceError("P3.01 overlay candidate contract is invalid")
         candidate_contract_value = p301_contract.get("parent_candidate_contract")
         p301_overlay_source_receipts = p301_contract.get("source_receipts")
+    elif userspace_overlay_contract_id == MAX77705_OVERLAY_CONTRACT_ID:
+        import s22plus_fyg8_p316_qualification_closure as p316_qualification
+
+        p316_contract = _validate_p316_overlay_contract(candidate_contract_value)
+        telemetry = p316_contract.get("telemetry")
+        observer = p316_contract.get("observer")
+        runtime = candidate_static_result.get("p316_runtime_fixture")
+        lifecycle = candidate_static_result.get("p316_late_loader_lifecycle")
+        adapter = candidate_static_result.get("p316_process_v2_adapter_fixture")
+        sidecar = candidate_static_result.get("p316_sidecar_positive_control")
+        qualified = candidate_static_result.get("p316_qualification_closure")
+        if not isinstance(qualified, dict):
+            raise EvidenceError("P3.16 qualification closure is absent")
+        try:
+            p316_qualification.validate_qualification_artifact(
+                qualified,
+                root=Path(__file__).resolve().parents[5],
+                candidate_tree=qualified.get("candidate_tree"),
+            )
+        except p316_qualification.QualificationError as exc:
+            raise EvidenceError("P3.16 qualification closure is invalid") from exc
+        if (
+            p316_contract.get("userspace_overlay_contract_id")
+            != userspace_overlay_contract_id
+            or p316_contract.get("source_contract_id") != source_contract_id
+            or p316_contract.get("profile") != profile
+            or p316_contract.get("run_id") != item["run_id"]
+            or selected_decoder is not max77705_decoder
+            or not isinstance(telemetry, dict)
+            or telemetry.get("decoder_id") != selected_decoder.DECODER_ID
+            or telemetry.get("decoder_policy_id") != selected_decoder.POLICY_ID
+            or telemetry.get("verified") is not True
+            or not isinstance(observer, dict)
+            or observer.get("candidate_window_sec") != 300
+            or observer.get("guard_lifetime_sec") != 1200
+            or observer.get("final_pair_before_banner") is not True
+            or observer.get("usb_sidecar_required") is not True
+            or observer.get("verified") is not True
+            or not isinstance(runtime, dict)
+            or runtime.get("verdict")
+            != "PASS_P316_15_DEVICE_RUNTIME_FIXTURE_HOST_ONLY"
+            or runtime.get("device_count") != 15
+            or runtime.get("target_count") != 3
+            or runtime.get("blocked_count") != 12
+            or runtime.get("verified") is not True
+            or not isinstance(lifecycle, dict)
+            or lifecycle.get("verdict")
+            != "PASS_P316_LATE_LOADER_LIFECYCLE_HOST_ONLY"
+            or lifecycle.get("verified") is not True
+            or not isinstance(adapter, dict)
+            or adapter.get("verdict")
+            != "PASS_MAX77705_REAL_PROCESS_V2_RETAINED_SEMANTICS_HOST_ONLY"
+            or adapter.get("verified") is not True
+            or not isinstance(sidecar, dict)
+            or sidecar.get("verdict")
+            != "PASS_P316_USB_SIDECAR_POSITIVE_CONTROL_HOST_ONLY"
+            or sidecar.get("verified") is not True
+            or qualified.get("schema") != p316_qualification.FINAL_SCHEMA
+            or qualified.get("verified") is not True
+            or candidate_static_result.get("p316_telemetry") != telemetry
+            or candidate_static_result.get("p316_observer") != observer
+            or p316_contract.get("verified") is not True
+        ):
+            raise EvidenceError("P3.16 overlay candidate contract is invalid")
+        candidate_contract_value = p316_contract.get("parent_candidate_contract")
+        p316_overlay_source_receipts = p316_contract.get("source_receipts")
     elif userspace_overlay_contract_id == P315_OVERLAY_CONTRACT_ID:
         p315_contract = _validate_p315_overlay_contract(candidate_contract_value)
         telemetry = p315_contract.get("telemetry")
@@ -4195,6 +4341,8 @@ def _verify_e1_latest_stage_offline_contract(
         candidate_keys.update(
             {"module_closure", "effective_rootfs", "stock_vendor_boot"}
         )
+    if userspace_overlay_contract_id == MAX77705_OVERLAY_CONTRACT_ID:
+        candidate_keys.update({"diagnostic_module", "diagnostic_ramdisk_path"})
     source_candidate = _exact(
         candidate_static_result.get("candidate"),
         candidate_keys,
@@ -4336,6 +4484,21 @@ def _verify_e1_latest_stage_offline_contract(
         or source_candidate.get("two_package_builds_byte_identical") is not True
         or source_candidate.get("manifest_absent") is not True
         or source_candidate.get("verified") is not True
+        or (
+            userspace_overlay_contract_id == MAX77705_OVERLAY_CONTRACT_ID
+            and (
+                _binary_identity(
+                    source_candidate.get("diagnostic_module"),
+                    "P3.16 diagnostic module",
+                )
+                != {
+                    "size": 293_400,
+                    "sha256": "4f4f485a35cdb12206b814390b56674ca6a6d691c9a1d7a29c97030053231849",
+                }
+                or source_candidate.get("diagnostic_ramdisk_path")
+                != "lib/modules/s22plus_max77705_mux_diag.ko"
+            )
+        )
         or candidate_static_result.get("limits") != expected_limits
     ):
         raise EvidenceError("candidate static artifact closure is not accepted")
@@ -4552,6 +4715,10 @@ def _verify_e1_latest_stage_offline_contract(
         if userspace_overlay_contract_id == P315_OVERLAY_CONTRACT_ID:
             result["p315_overlay_source_receipts"] = (
                 p315_overlay_source_receipts
+            )
+        if userspace_overlay_contract_id == MAX77705_OVERLAY_CONTRACT_ID:
+            result["p316_overlay_source_receipts"] = (
+                p316_overlay_source_receipts
             )
     if p298_repair_files is not None:
         result["tier2_repair_files"] = p298_repair_files
