@@ -213,18 +213,32 @@ or semantic mutations, matched Python SHA-256/OR/poll0/nonzero summaries, and
 compiled freestanding for AArch64 with the pinned Android clang. It performs no
 I/O and names no sysfs path.
 
-This closes schema, carrier, decoder, publisher geometry, and the isolated
-result parser. Packaging
-and F1 approval remain blocked because the target-specific override/bind
-runtime has not been materialized, the exact sysfs names and pre-existing bind
-state have not been captured by the required fresh D0, host-sidecar positive
-control is still open, and independent review has not occurred.
+This closes schema, carrier, decoder, publisher geometry, the isolated result
+parser, and the exact sysfs-inventory D0 gate. The bounded read-only D0 selected
+one healthy `SM-S906N/g0q/S906NKSS7FYG8`, observed one Android `04e8:6860`
+endpoint and no Download endpoint, and sent no command to any other target.
+Its 16,542-byte private result has SHA-256
+`5adbb80d5178b709097abc2f9bcc0d597fafeab72f904057d9f44dbca18ccdcf`;
+an independent host reparse matched its 72,904-byte raw snapshot exactly.
 
-The next bounded step is the exact read-only D0 inventory required by the
-authority report. Only after that evidence fixes the target and 12 non-target
-sysfs paths may H0 continue with target-only override/bind integration,
-transaction fixtures, the host-sidecar positive-control gate, packaging, and
-one proportional independent review. The former
+Live geometry is exactly three QUPv3 wrappers, three GPI devices, and nine
+GENI I2C controllers. The target triplet is
+`9c0000.qcom,qupv3_0_geni_se`, `900000.qcom,gpi-dma`, and `994000.i2c`;
+the remaining twelve exact names are now frozen by the authority report. All
+fifteen stock devices had the source-expected driver, exposed
+`driver_override`, and read `(null)`. This is stock evidence, not permission to
+inherit a bound state in the candidate: the future runtime must still apply
+and verify twelve sentinels before loading any substrate module. The live
+target path is `994000.i2c/i2c-57/57-0066`, with the parent bound to
+`max77705`; the stock MFD-created dummy clients do not become part of the
+custom diagnostic's pre-load geometry.
+
+Packaging and F1 approval remain blocked because target-specific override/bind
+runtime and its terminal rollback-by-reboot checks are not materialized,
+host-sidecar positive control is open, and independent review has not
+occurred. The next step is H0 implementation of that exact target-only
+integration and its transaction fixtures; no further device action is needed
+for the sysfs-name gate. The former
 4,246,401,024-byte
 workspace-capacity blocker is closed by the exact private S22+ cleanup
 receipt: 68 superseded or invalidated

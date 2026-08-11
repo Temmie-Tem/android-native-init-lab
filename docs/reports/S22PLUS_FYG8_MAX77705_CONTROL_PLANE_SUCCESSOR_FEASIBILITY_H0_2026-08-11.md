@@ -8,7 +8,7 @@ Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` /
 `S906NKSS7FYG8`)
 
 Verdict:
-`BASE_CARRIER_AND_NORMAL_ORDER_RECOVERED_STOCK_67_UNADJUDICATED_FULL_PDIC_CUSTOM_66_REJECTED_CUSTOM_65_SOURCE_AND_LINKED_ABI_QUALIFIED_RUNTIME_AND_PACKAGING_OPEN`
+`BASE_CARRIER_NORMAL_ORDER_AND_EXACT_SYSFS_GEOMETRY_RECOVERED_STOCK_67_UNADJUDICATED_FULL_PDIC_CUSTOM_66_REJECTED_CUSTOM_65_SOURCE_LINKED_ABI_AND_D0_QUALIFIED_RUNTIME_AND_PACKAGING_OPEN`
 
 Review state:
 `PRIMARY_SOURCE_491_MODULE_AND_NARROW_LINKED_ABI_AUDITS_CLOSED_RUNTIME_PACKAGING_AND_INDEPENDENT_REVIEW_REQUIRED`
@@ -27,11 +27,13 @@ Implementation/build continuation base:
 
 ## Scope and authority
 
-This is host-only source, artifact, build, and retained-evidence analysis. No
-device was contacted, no module was inserted, no sysfs control was written,
-no candidate or rollback artifact was created, and no D0, D1, or F1 action was
-performed. P3.15 remains consumed and non-replayable. A90 identity, files,
-devices, authority, and evidence are outside this unit and were not touched.
+The original analysis and its build continuations were host-only. A final
+2026-08-12 continuation performed one separately directed, bounded read-only
+D0 on the exact S22+ solely to close the sysfs-inventory gate below. It wrote
+no sysfs control, inserted no module, changed no service, rebooted nothing, and
+created no candidate or rollback artifact. No D1 or F1 action was performed.
+P3.15 remains consumed and non-replayable. A90 identity, files, devices,
+authority, and evidence are outside this unit and received zero commands.
 
 This report follows the closed discussion in
 `S22PLUS_FYG8_MAX77705_USB2_MUX_HYPOTHESIS_AND_FALSIFICATION_H0_2026-08-11.md`.
@@ -1058,18 +1060,34 @@ tagged pre-read is the direct discriminator.
 
 ## GENI/GPI/I2C drivers have a global bind surface
 
-The exact active DT composition contains:
+The source-derived active DT composition predicted:
 
 - three enabled QUPv3 wrapper devices;
 - three enabled GPI DMA devices; and
 - nine enabled GENI I2C controllers.
 
-Those counts were derived during this audit from a host-generated merged FYG8
-DT, not from a retained live inventory. The temporary merged file is not
-evidence authority. Successor qualification must regenerate the exact merged
-topology from the pinned r12 input, hash a durable private receipt, and prove
-the same 3/3/9 count before it constructs the override set. A different count
-or target path stops the design rather than being normalized to this report.
+The exact-target D0 has now independently confirmed all 15 live devices and
+made the temporary merged file unnecessary as runtime-name authority. The
+private result is 16,542 bytes with SHA-256
+`5adbb80d5178b709097abc2f9bcc0d597fafeab72f904057d9f44dbca18ccdcf`;
+the 72,904-byte raw TSV is SHA-256
+`4bfac8c987587e5b7138b5f78bf66d94567c039a49cb6c0f4f872543497d5a2a`.
+The committed collector is `b28f0df99e`. Re-executing its actual parser over
+the raw bytes reproduced the stored inventory byte-for-structure and verified
+the raw size/hash. The exact live names are:
+
+| class | target | exact non-target names |
+|---|---|---|
+| QUPv3 | `9c0000.qcom,qupv3_0_geni_se` | `8c0000.qcom,qupv3_2_geni_se`, `ac0000.qcom,qupv3_1_geni_se` |
+| GPI | `900000.qcom,gpi-dma` | `800000.qcom,gpi-dma`, `a00000.qcom,gpi-dma` |
+| GENI I2C | `994000.i2c` | `884000.i2c`, `888000.i2c`, `88c000.i2c`, `988000.i2c`, `990000.i2c`, `a84000.i2c`, `a90000.i2c`, `a94000.i2c` |
+
+Every one of the 15 exposed `driver_override`, read exactly `(null)`, and was
+stock-bound to the source-expected driver: `qupv3_geni_se`, `gpi_dma`, or
+`i2c_geni`. All three substrate modules and all three excluded stock
+MFD/PDIC/SPU modules were loaded. These are stock-state observations, not a
+candidate precondition. The custom runtime must still prove that none of the
+three substrate drivers is loaded before it writes the twelve sentinels.
 
 The target chain is:
 
@@ -1080,9 +1098,14 @@ The target chain is:
   -> max77705@66
 ```
 
-The target I2C adapter also contains `fsa4480@42` and `pca9481@57`. Their
-drivers are not part of the provisional 67-entry plan, but their bind absence
-must be included in the terminal contract.
+The exact stock adapter was `i2c-57`. It contained `57-0066/max77705`,
+`57-0057/pca9481`, and stock-MFD-created dummy clients at `0x25`, `0x36`,
+`0x62`, and `0x69`. It did not expose a `57-0042` client. The earlier
+`fsa4480@42` statement came from generic Waipio source and is not retained as
+exact FYG8 runtime authority. The future custom geometry must distinguish the
+DT-created `0x66` parent from stock-MFD-created dummies: it may create only its
+registered `0x25` client and must reject any foreign pre-existing owner or
+client rather than copying the stock list.
 
 The three substrate modules register global OF platform drivers. Loading them
 without narrowing can bind all matching enabled devices, select their pinctrl
@@ -1105,8 +1128,8 @@ important because `really_probe()` binds pinctrl before it invokes the driver
 probe. A probe-local address check would therefore be weaker: unrelated
 devices could already have changed pinctrl or DMA state before returning.
 
-The override proposal is not D0 and is not yet authorized. Before design, a
-bounded exact-target D0 must read:
+The override proposal is not D0 and remains unauthorized. The completed
+bounded exact-target D0 read:
 
 - the exact 15 target/non-target sysfs device names;
 - whether any already has a `driver` symlink;
@@ -1659,10 +1682,9 @@ the stock-equivalent updater/control-plane risk is admissible for this exact
 context; it does not inherit an approval merely because stock Android has run
 the same probe.
 
-## Required D0 gate
+## Required D0 gate — closed read-only
 
-One bounded exact-target read-only inventory remains necessary before the
-override design can be materialized. It must capture only:
+The exact D0 completed at `2026-08-11T17:36:26Z` and captured:
 
 - exact platform device names for the three QUPv3 wrappers, three GPI devices,
   and nine enabled GENI I2C devices;
@@ -1672,9 +1694,18 @@ override design can be materialized. It must capture only:
   stock MFD/PDIC/SPU modules; and
 - exact stock health and USB inventory.
 
-It must not write `driver_override`, bind/unbind a driver, load a module,
-change a service, reboot, or trigger any Max77705 control. Ambiguity or a
-pre-existing unexpected bind stops the proposed narrowing design.
+The initial and final host snapshots were identical, contained exactly one
+Android `04e8:6860` endpoint and no Download endpoint, and exact FYG8 rooted
+boot health plus boot/supporting-partition identities passed. The snapshot
+shell wrote nothing, performed no bind/unbind or module/service action, did
+not reboot, and did not trigger Max77705 control. The ADB inventory contained
+one target, and A90 command count was zero.
+
+This closes name, file-presence, current-value, stock-owner, and live-topology
+uncertainty. It does not authorize the later twelve `driver_override` writes.
+Nor does the stock-bound observation waive the candidate's pre-effect rule:
+the candidate must begin with the substrate modules absent, apply and read
+back all twelve exact sentinels, then bind only the three target devices.
 
 ## Independent review boundary
 
@@ -1881,16 +1912,17 @@ The evidence now supports these exact statements:
 11. The source match, command protocol, precompile validation, reproducible
     linked module, imports, modversions, CFI callbacks, bounded call surface,
     retained envelope, actual C request-v3 publisher, and real Process-v2
-    decoder path are proven. Exact-target D0, binding, timeout/runtime fixtures,
-    sidecar positive control, packaging, and independent review remain.
+    decoder path are proven. The exact-target D0 geometry is also proven.
+    Binding, timeout/runtime fixtures, sidecar positive control, packaging,
+    and independent review remain.
 
-Until those H0 and D0 gates close, the correct state is:
+Until the remaining H0 gates close, the correct state is:
 
 ```text
 MUX_CAUSALITY_UNPROVEN
 BASE_MODULE_BYTES_AND_SECOND_STAGE_ORDER_RECOVERED
 STOCK_67_UNADJUDICATED
 FULL_PDIC_CUSTOM_66_REJECTED_AS_DISPROPORTIONATE
-CUSTOM_65_SOURCE_AND_LINKED_AB_ABI_QUALIFIED_RUNTIME_NOT_SATISFIED
+CUSTOM_65_SOURCE_LINKED_AB_ABI_AND_D0_SYSFS_GEOMETRY_QUALIFIED_RUNTIME_NOT_SATISFIED
 CUSTOM_65_EFFECT_SET_LINKED_AUDITED_NOT_PACKAGED
 ```
