@@ -1102,10 +1102,23 @@ The exact stock adapter was `i2c-57`. It contained `57-0066/max77705`,
 `57-0057/pca9481`, and stock-MFD-created dummy clients at `0x25`, `0x36`,
 `0x62`, and `0x69`. It did not expose a `57-0042` client. The earlier
 `fsa4480@42` statement came from generic Waipio source and is not retained as
-exact FYG8 runtime authority. The future custom geometry must distinguish the
-DT-created `0x66` parent from stock-MFD-created dummies: it may create only its
-registered `0x25` client and must reject any foreign pre-existing owner or
-client rather than copying the stock list.
+exact FYG8 runtime authority. The four observed dummy clients independently
+corroborate the source-derived stock-MFD client-creation model, but remain
+stock-only geometry. The future custom geometry must distinguish the
+DT-created `0x66` parent from those dummies: it may create only its registered
+`0x25` client and must reject any foreign pre-existing owner or client rather
+than copying the stock list.
+
+The adapter number is not stable candidate authority. The exact GENI driver
+calls `i2c_add_adapter()` (`drivers/i2c/busses/i2c-msm-geni.c:2166`). The I2C
+core first accepts an `i2c` DT alias when one exists and otherwise allocates
+the first available dynamic ID before naming the device `i2c-N`
+(`common/drivers/i2c/i2c-core-base.c:1517-1554`). Thus `i2c-57`, `57-0066`,
+and `57-0057` are scoped to the stock D0 registration context. The successor
+must resolve the unique adapter whose real path descends from
+`/sys/bus/platform/devices/994000.i2c/`, then require exactly one `*-0066`
+client below that adapter. Its static qualification must reject a literal
+`i2c-57` or `57-0066` dependency and any ambiguous adapter or client count.
 
 The three substrate modules register global OF platform drivers. Loading them
 without narrowing can bind all matching enabled devices, select their pinctrl
@@ -1128,8 +1141,13 @@ important because `really_probe()` binds pinctrl before it invokes the driver
 probe. A probe-local address check would therefore be weaker: unrelated
 devices could already have changed pinctrl or DMA state before returning.
 
-The override proposal is not D0 and remains unauthorized. The completed
-bounded exact-target D0 read:
+The override proposal is not D0 and remains unauthorized. H0 may implement
+and validate the target-only runtime without device contact. A standalone
+connected write of these overrides on stock Android would be D1 and requires
+fresh exact D1 authority and terminal-health handling. If the same transient
+writes execute inside the planned boot-only successor, they are part of the
+enclosing F1 and must not be split out or pretested as a lower-tier D1 action.
+The completed bounded exact-target D0 read:
 
 - the exact 15 target/non-target sysfs device names;
 - whether any already has a `driver` symlink;

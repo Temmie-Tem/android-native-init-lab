@@ -229,16 +229,23 @@ fifteen stock devices had the source-expected driver, exposed
 `driver_override`, and read `(null)`. This is stock evidence, not permission to
 inherit a bound state in the candidate: the future runtime must still apply
 and verify twelve sentinels before loading any substrate module. The live
-target path is `994000.i2c/i2c-57/57-0066`, with the parent bound to
-`max77705`; the stock MFD-created dummy clients do not become part of the
+stock path was `994000.i2c/i2c-57/57-0066`, with the parent bound to
+`max77705`. Adapter number `57` and both `57-*` client prefixes are stock
+registration-context observations, not candidate inputs. The successor must
+resolve the unique adapter below `/sys/bus/platform/devices/994000.i2c/` and
+then the unique `*-0066` client below that adapter; a literal bus number is
+forbidden. The stock MFD-created dummy clients do not become part of the
 custom diagnostic's pre-load geometry.
 
 Packaging and F1 approval remain blocked because target-specific override/bind
 runtime and its terminal rollback-by-reboot checks are not materialized,
 host-sidecar positive control is open, and independent review has not
 occurred. The next step is H0 implementation of that exact target-only
-integration and its transaction fixtures; no further device action is needed
-for the sysfs-name gate. The former
+integration and its transaction fixtures; this H0 work grants neither D1 nor
+F1 authority. A standalone connected stock-Android override write would be a
+freshly authorized D1, while the planned in-candidate writes remain part of
+the enclosing boot-only F1 and must not be split into a D1 pretest. No further
+device action is needed for the sysfs-name gate. The former
 4,246,401,024-byte
 workspace-capacity blocker is closed by the exact private S22+ cleanup
 receipt: 68 superseded or invalidated
