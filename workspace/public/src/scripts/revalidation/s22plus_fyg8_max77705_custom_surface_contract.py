@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Bind the FYG8 Max77705 writable baseline and the custom-module closure.
+"""Bind the FYG8 Max77705 writable baseline and narrow diagnostic closure.
 
 This is a host-only authority/contract helper.  Its baseline mode proves what
-the pinned stock sources and modules expose.  The custom-source validator is a
-future packaging prerequisite; declaring this contract does not claim that a
-custom module has already been built or qualified.
+the pinned stock sources and modules expose.  The diagnostic-source validator
+is a future packaging prerequisite; declaring this contract does not claim
+that a custom module has already been written, built, or qualified.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from typing import Any
 from s22plus_fyg8_f2fs_module_corpus import FILE_TYPE_REGULAR, F2FSReader
 
 
-SCHEMA = "s22plus_fyg8_max77705_custom_surface_contract_v1"
+SCHEMA = "s22plus_fyg8_max77705_custom_surface_contract_v2"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 KERNEL_ROOT = Path(
     "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/"
@@ -54,7 +54,7 @@ P315_PLAN = Path(
 )
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_max77705_gate0/"
-    "custom-surface-authority-20260811-03.json"
+    "custom-surface-authority-20260811-04.json"
 )
 
 VENDOR_RAMDISK_IDENTITY = (
@@ -114,6 +114,21 @@ SOURCE_IDENTITIES = {
         10_072,
         "1cc7e211c50685c3eed3d1b4582869d0a65a559a2114c0087fac2646f4fc883e",
     ),
+    "muic_header": (
+        Path("include/linux/usb/typec/maxim/max77705-muic.h"),
+        13_948,
+        "3f7f2b9790940d61ec6bb636f87fd750f7971f1c609c06e6380d11907f701cb1",
+    ),
+    "usbc_register_header": (
+        Path("include/linux/usb/typec/maxim/max77705.h"),
+        13_686,
+        "ff2498061ddb20c1891cb9fe6611edde655c3e1cda8fa4446d0c876a476ff1c7",
+    ),
+    "mfd_private_header": (
+        Path("include/linux/mfd/max77705-private.h"),
+        13_063,
+        "a205dfc0743d38f7684a046f5aef26d466f5feef3713fe0d19bc58134a7c441e",
+    ),
     "pdic_misc": (
         Path("drivers/usb/typec/common/pdic_misc.c"),
         16_791,
@@ -143,6 +158,21 @@ SOURCE_IDENTITIES = {
         Path("drivers/usb/typec/maxim/max77705_pd.c"),
         62_385,
         "4818b54be4a4616f44ed3e993cf9e5e55d394b966b0202a1c6616c59cfce47ac",
+    ),
+    "max77705_alternate": (
+        Path("drivers/usb/typec/maxim/max77705_alternate.c"),
+        64_610,
+        "d6812fd27e0612d8c09a1462b9a39c4b1aee0d0eb0bc88f81611bb97e79a4228",
+    ),
+    "max77705_muic_afc": (
+        Path("drivers/usb/typec/maxim/max77705-muic-afc.c"),
+        26_164,
+        "7b8a775af9fa13f65a042a651e87b6d4cb4e5e735f43e358a5d04d89bd88e4d5",
+    ),
+    "max77705_muic_ccic": (
+        Path("drivers/usb/typec/maxim/max77705-muic-ccic.c"),
+        9_519,
+        "6cdb78864ce17eb1a70c093a73fd993f62884d4eabafb0b02813eb1b0eadff80",
     ),
     "max77705_irq": (
         Path("drivers/mfd/maxim/max77705-irq.c"),
@@ -178,6 +208,11 @@ SOURCE_IDENTITIES = {
         Path("drivers/usb/dwc3/dwc3-msm-core.c"),
         204_659,
         "1c8a3cea43337eebaf0601e01fe3a17e1260f2f768298b16f723534eee433021",
+    ),
+    "i2c_core": (
+        Path("drivers/i2c/i2c-core-base.c"),
+        68_341,
+        "0292f223758b3d9eb74889e986cf2e67588b97874d54bcfbf257b15a5906ffa5",
     ),
     "firmware": (
         Path("include/linux/mfd/firmware/max77705C_pass2_specific.h"),
@@ -291,26 +326,58 @@ HOST_STATE_CALLBACK_FORBIDDEN_EFFECTS = (
     "blocking_notifier_call_chain(",
 )
 
-# A future custom builder must import and call validate_custom_source_texts()
+# A future custom builder must import and call validate_diag_source_text()
 # before compiling.  A later linked-artifact validator must independently
-# establish the corresponding symbol/import properties.
+# establish the corresponding symbol/import properties and control flow.
 CUSTOM_PREFERRED_ADDITIONS = (
+    "msm-geni-se.ko",
+    "gpi.ko",
+    "i2c-msm-geni.ko",
+    "s22plus_max77705_mux_diag.ko",
+)
+REJECTED_FULL_PDIC_CUSTOM_ADDITIONS = (
     "msm-geni-se.ko",
     "gpi.ko",
     "i2c-msm-geni.ko",
     "mfd_max77705.ko",
     "pdic_max77705.ko",
 )
-CUSTOM_MFD_FORBIDDEN = (
+DIAG_REQUIRED_TOKENS = (
+    '#define S22PLUS_MAX77705_PARENT_COMPATIBLE "maxim,max77705"',
+    "#define S22PLUS_MAX77705_MUIC_ADDR 0x25",
+    "#define S22PLUS_MAX77705_UIC_INT 0x02",
+    "#define S22PLUS_MAX77705_AP_DATAOUT0 0x21",
+    "#define S22PLUS_MAX77705_AP_DATAOUT_END 0x41",
+    "#define S22PLUS_MAX77705_AP_DATAIN0 0x51",
+    "#define S22PLUS_MAX77705_AP_CMD_RESPONSE BIT(7)",
+    "#define S22PLUS_MAX77705_CONTROL1_READ 0x05",
+    "#define S22PLUS_MAX77705_CONTROL1_WRITE 0x06",
+    "#define S22PLUS_MAX77705_COM_USB 0x09",
+    "#define S22PLUS_MAX77705_POLL_LIMIT",
+    "devm_i2c_new_dummy_device",
+    "static int s22plus_max77705_clear_uic_latch_once(",
+    "static int s22plus_max77705_wait_ap_response(",
+    "static int s22plus_max77705_control1_read_once(",
+    "static int s22plus_max77705_control1_write_once(",
+    "static int s22plus_max77705_diag_run(",
+    "static int s22plus_max77705_diag_probe(",
+    "if (pre != S22PLUS_MAX77705_COM_USB)",
+    "s22plus_max77705_control1_write_once(muic, S22PLUS_MAX77705_COM_USB)",
+    ".compatible = S22PLUS_MAX77705_PARENT_COMPATIBLE",
+    "module_i2c_driver(",
+    "static int s22plus_max77705_result_get(",
+    ".set = NULL",
+    ".get = s22plus_max77705_result_get",
+    "module_param_cb(result",
+    "0444",
+)
+DIAG_FORBIDDEN = (
     "BOOT_FLASH_FW_PASS2",
     "linux/mfd/firmware/",
     "max77705_usbc_fw_update",
     "__max77705_usbc_fw_update",
     "max77705_usbc_wait_response",
     "max77705_reset_ic",
-)
-CUSTOM_PDIC_FORBIDDEN = (
-    "BOOT_FLASH_FW_PASS2",
     "MAX77705_SYS_FW_UPDATE",
     "PDIC_SYSFS_PROP_FW_UPDATE",
     "PDIC_SYSFS_PROP_FW_UPDATE_STATUS",
@@ -320,18 +387,53 @@ CUSTOM_PDIC_FORBIDDEN = (
     "request_firmware",
     "spu_firmware_signature_verify",
     "pdic_misc_init",
+    "mfd_add_devices",
+    "mfd_remove_devices",
     "max77705_attr_grp",
     "max77705_fw_update",
     "mxim_debug_",
     "blocking_auto_vbus_control",
+    "request_irq(",
+    "request_threaded_irq(",
+    "devm_request_threaded_irq(",
+    "irq_set_",
+    "queue_work(",
+    "schedule_work(",
+    "INIT_WORK(",
+    "INIT_DELAYED_WORK(",
+    "create_singlethread_workqueue(",
+    "blocking_notifier_call_chain(",
+    "power_supply_",
+    "regulator_",
+    "typec_register_port(",
+    "register_usbpd(",
+    "register_muic(",
+    "max77705_muic_probe(",
+    "max77705_cc_init(",
+    "max77705_pd_init(",
+    "max77705_alternate",
+    "max77705_muic_afc",
+    "max77705_muic_enable_detecting_short",
+    "max77705_set_fw_noautoibus",
+    "max77705_set_enable_audio",
+    "max77705_enable_alternate_mode",
+    "max77705_check_pdo",
+    "max77705_switch_path(",
+    "com_to_usb_ap(",
+    "DCD",
+    "CHGDET",
+    "sysfs_create_group(",
+    "DEVICE_ATTR",
+    "misc_register(",
+    "debugfs_create",
+    "proc_create",
+    "module_param_named(",
+    "module_param_array",
+    "EXPORT_SYMBOL",
     "max77705_ops",
     "max77705_dr_set",
     "max77705_pr_set",
     "max77705_port_type_set",
-    "static void max77705_usbpd_wait_entermode(",
-    "EXPORT_SYMBOL(pdic_manual_ccopen_request)",
-)
-CUSTOM_MUIC_FORBIDDEN = (
     "max77705_muic_group",
     "max77705_muic_attributes",
     "max77705_muic_set_uart_sel",
@@ -342,8 +444,6 @@ CUSTOM_MUIC_FORBIDDEN = (
     "max77705_muic_set_afc_disable",
     "hiccup_store",
     "sysfs_create_group(&switch_device->kobj",
-)
-CUSTOM_PD_FORBIDDEN = (
     "max77705_usbc_icurr(",
     "max77705_set_fw_ship_mode(",
     "max77705_get_fw_ship_mode(",
@@ -354,6 +454,20 @@ CUSTOM_PD_FORBIDDEN = (
     "fp_sec_pd_manual_ccopen_req = pdic_manual_ccopen_request",
     "fp_sec_pd_change_src = max77705_forced_change_srccap",
 )
+DIAG_GETTER_FORBIDDEN_EFFECTS = (
+    "i2c_",
+    "regmap_",
+    "queue_work(",
+    "schedule_work(",
+    "power_supply_",
+    "blocking_notifier_call_chain(",
+)
+DIAG_I2C_CALL_COUNTS = {
+    "i2c_smbus_read_byte_data": 4,
+    "i2c_smbus_write_i2c_block_data": 2,
+    "i2c_smbus_write_byte_data": 2,
+    "i2c_smbus_read_i2c_block_data": 1,
+}
 
 
 class SurfaceError(ValueError):
@@ -759,6 +873,21 @@ def extract_function_block(text: str, signature: str, label: str) -> str:
     raise SurfaceError(f"{label} closing brace is missing")
 
 
+def extract_braced_block_from(text: str, start: int, label: str) -> tuple[str, int]:
+    brace = text.find("{", start)
+    if brace < 0:
+        raise SurfaceError(f"{label} opening brace is missing")
+    depth = 0
+    for index in range(brace, len(text)):
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : index + 1], index + 1
+    raise SurfaceError(f"{label} closing brace is missing")
+
+
 def validate_host_state_callback(text: str, label: str) -> None:
     block = extract_function_block(
         text,
@@ -781,114 +910,192 @@ def validate_host_state_callback(text: str, label: str) -> None:
         raise SurfaceError(f"{label} gains a hardware/external effect: {hits}")
 
 
-def validate_custom_source_texts(
-    mfd: str,
-    pdic: str,
-    muic: str,
-    pd: str,
-    makefile: str,
-) -> dict[str, Any]:
-    """Validate the source-level preferred custom closure.
+def validate_diag_source_text(text: str) -> dict[str, Any]:
+    """Validate the future one-module polling diagnostic source shape.
 
-    Linked output still needs its own symbol, relocation, CFI/modversion, and
-    dependency audit.  This function deliberately rejects an effect-free
-    updater stub: the preferred closure removes the update ABI and payload
-    entirely because the pinned inventory proves that only the replaced PDIC
-    consumes it.
+    This validator deliberately does not accept a reduced copy of the stock
+    MFD/PDIC stack.  It permits only the parent I2C bind, one dummy client at
+    the USBC/MUIC address, two CONTROL1 read commands, and at most one
+    conditional CONTROL1 write.  Linked output and compiled control flow still
+    require independent validation before packaging.
     """
 
-    mfd_hits = [token for token in CUSTOM_MFD_FORBIDDEN if token in mfd]
-    pdic_hits = [token for token in CUSTOM_PDIC_FORBIDDEN if token in pdic]
-    muic_hits = [token for token in CUSTOM_MUIC_FORBIDDEN if token in muic]
-    pd_hits = [token for token in CUSTOM_PD_FORBIDDEN if token in pd]
-    if mfd_hits:
-        raise SurfaceError(f"custom MFD retains forbidden update surface: {mfd_hits}")
-    if pdic_hits:
-        raise SurfaceError(f"custom PDIC retains forbidden writable surface: {pdic_hits}")
-    if muic_hits:
-        raise SurfaceError(f"custom MUIC retains forbidden sysfs surface: {muic_hits}")
-    if pd_hits:
-        raise SurfaceError(f"custom PD retains external mutation surface: {pd_hits}")
-    if "max77705_debug.o" in makefile:
-        raise SurfaceError("custom PDIC Makefile still links max77705_debug.o")
-    validate_host_state_callback(pdic, "custom PDIC host-state callback")
+    require_tokens(text, DIAG_REQUIRED_TOKENS, "Max77705 MUX diagnostic")
+    hits = [token for token in DIAG_FORBIDDEN if token in text]
+    if hits:
+        raise SurfaceError(f"diagnostic retains forbidden broad effect: {hits}")
+    if "while (" in text or "do {" in text:
+        raise SurfaceError("diagnostic contains an unregistered loop form")
 
-    require_tokens(
-        mfd,
-        (
-            "store_ccic_bin_version",
-            "0x6e",
-            "0x40",
-            "0x15",
-            "max77705_irq_init",
-            "mfd_add_devices",
-        ),
-        "custom MFD",
+    i2c_calls = re.findall(r"\b((?:devm_)?i2c_[A-Za-z0-9_]+)\s*\(", text)
+    expected_i2c_calls = {
+        **DIAG_I2C_CALL_COUNTS,
+        "devm_i2c_new_dummy_device": 1,
+    }
+    actual_i2c_calls = {
+        name: i2c_calls.count(name)
+        for name in sorted(set(i2c_calls))
+    }
+    if actual_i2c_calls != expected_i2c_calls:
+        raise SurfaceError(
+            "diagnostic I2C call surface mismatch: "
+            f"{actual_i2c_calls} != {expected_i2c_calls}"
+        )
+
+    clear_block = extract_function_block(
+        text,
+        "static int s22plus_max77705_clear_uic_latch_once(",
+        "UIC latch clear",
     )
     require_tokens(
-        pdic,
+        clear_block,
         (
-            "PDIC_SYSFS_PROP_CHIP_NAME",
-            "pdic_core_register_chip",
-            "max77705_muic_probe",
-            "max77705_cc_init",
-            "max77705_pd_init",
-            "usbc_data->typec_cap.ops = NULL;",
-            "typec_register_port",
-            "struct usbpd_ops ops_usbpd",
-            ".usbpd_sbu_test_read = NULL,",
-            ".usbpd_set_host_on = max77705_usbpd_set_host_on,",
-            ".usbpd_cc_control_command = NULL,",
-            ".usbpd_wait_entermode = NULL,",
-            "usbpd_d->ops = &ops_usbpd;",
-            "register_usbpd(usbpd_d)",
-            "pdic_manual_ccopen_request(0);",
+            "i2c_smbus_read_byte_data(muic, S22PLUS_MAX77705_UIC_INT)",
+            "return status < 0 ? status : 0;",
         ),
-        "custom PDIC",
+        "UIC latch clear",
+    )
+
+    wait_block = extract_function_block(
+        text,
+        "static int s22plus_max77705_wait_ap_response(",
+        "AP-command wait",
     )
     require_tokens(
-        muic,
+        wait_block,
         (
-            "max77705_muic_probe",
-            "max77705_muic_init_regs",
-            "max77705_muic_init_detect",
-            "com_to_usb_ap",
-            "muic_data->muic_d.ops = NULL;",
-            "register_muic(&(muic_data->muic_d))",
+            "for (",
+            "S22PLUS_MAX77705_POLL_LIMIT",
+            "i2c_smbus_read_byte_data(muic, S22PLUS_MAX77705_UIC_INT)",
+            "S22PLUS_MAX77705_AP_CMD_RESPONSE",
+            "usleep_range(",
+            "return -ETIMEDOUT;",
         ),
-        "custom MUIC",
+        "AP-command wait",
+    )
+    if text.count("for (") != 1:
+        raise SurfaceError("only the bounded AP-response poll may loop")
+
+    read_block = extract_function_block(
+        text,
+        "static int s22plus_max77705_control1_read_once(",
+        "CONTROL1 read helper",
     )
     require_tokens(
-        pd,
+        read_block,
         (
-            "max77705_pd_init",
-            "max77705_set_fw_noautoibus(MAX77705_AUTOIBUS_AT_OFF);",
-            "fp_sec_pd_select_pdo = NULL;",
-            "fp_sec_pd_select_pps = NULL;",
-            "fp_sec_pd_vpdo_auth = NULL;",
-            "fp_sec_pd_manual_ccopen_req = NULL;",
-            "fp_sec_pd_change_src = NULL;",
+            "S22PLUS_MAX77705_CONTROL1_READ",
+            "S22PLUS_MAX77705_AP_DATAOUT0",
+            "S22PLUS_MAX77705_AP_DATAOUT_END",
+            "S22PLUS_MAX77705_AP_DATAIN0",
+            "i2c_smbus_write_i2c_block_data(",
+            "i2c_smbus_write_byte_data(",
+            "s22plus_max77705_wait_ap_response(",
+            "i2c_smbus_read_i2c_block_data(",
         ),
-        "custom PD",
+        "CONTROL1 read helper",
     )
-    if re.search(r"max77705_sysfs_properties\s*\[\s*\]\s*=\s*\{\s*"
-                 r"PDIC_SYSFS_PROP_CHIP_NAME\s*,?\s*\};", pdic, re.S) is None:
-        raise SurfaceError("custom PDIC sysfs surface is not CHIP_NAME-only")
+    write_block = extract_function_block(
+        text,
+        "static int s22plus_max77705_control1_write_once(",
+        "CONTROL1 write helper",
+    )
+    require_tokens(
+        write_block,
+        (
+            "S22PLUS_MAX77705_CONTROL1_WRITE",
+            "S22PLUS_MAX77705_AP_DATAOUT0",
+            "S22PLUS_MAX77705_AP_DATAOUT_END",
+            "S22PLUS_MAX77705_AP_DATAIN0",
+            "i2c_smbus_write_i2c_block_data(",
+            "i2c_smbus_write_byte_data(",
+            "s22plus_max77705_wait_ap_response(",
+            "i2c_smbus_read_byte_data(",
+        ),
+        "CONTROL1 write helper",
+    )
+    if any(token in write_block for token in ("for (", "while (", "goto ")):
+        raise SurfaceError("CONTROL1 write helper may not retry an ambiguous write")
+    if write_block.count("i2c_smbus_write_i2c_block_data(") != 1:
+        raise SurfaceError("CONTROL1 write command count is not exactly one")
+    if write_block.count("i2c_smbus_write_byte_data(") != 1:
+        raise SurfaceError("CONTROL1 write terminator count is not exactly one")
+
+    run_block = extract_function_block(
+        text,
+        "static int s22plus_max77705_diag_run(",
+        "diagnostic run",
+    )
+    require_tokens(
+        run_block,
+        (
+            "s22plus_max77705_read_pmic_identity(",
+            "s22plus_max77705_clear_uic_latch_once(",
+            "s22plus_max77705_control1_read_once(",
+            "if (pre != S22PLUS_MAX77705_COM_USB)",
+            "s22plus_max77705_control1_write_once(muic, S22PLUS_MAX77705_COM_USB)",
+        ),
+        "diagnostic run",
+    )
+    if text.count("s22plus_max77705_control1_write_once(") != 2:
+        raise SurfaceError("CONTROL1 write helper must have exactly one call site")
+    if text.count("s22plus_max77705_control1_read_once(") != 3:
+        raise SurfaceError("CONTROL1 read helper must have exactly two call sites")
+    if text.count("s22plus_max77705_clear_uic_latch_once(") != 2:
+        raise SurfaceError("UIC latch clear helper must have exactly one call site")
+
+    identity_call = run_block.find("s22plus_max77705_read_pmic_identity(")
+    clear_call = run_block.find("s22plus_max77705_clear_uic_latch_once(")
+    pre_read_call = run_block.find("s22plus_max77705_control1_read_once(muic, &pre)")
+    condition = run_block.find("if (pre != S22PLUS_MAX77705_COM_USB)")
+    write_call = run_block.find(
+        "s22plus_max77705_control1_write_once(muic, S22PLUS_MAX77705_COM_USB)"
+    )
+    condition_block, condition_end = extract_braced_block_from(
+        run_block, condition, "conditional CONTROL1 write"
+    )
+    post_read_call = run_block.find("s22plus_max77705_control1_read_once(muic, &post)")
+    if not (
+        0 <= identity_call < clear_call < pre_read_call < condition
+        and write_call >= condition
+        and write_call < condition_end
+        and post_read_call >= condition_end
+    ):
+        raise SurfaceError(
+            "diagnostic command order is not identity/clear/pre/optional-write/post"
+        )
+    if "s22plus_max77705_control1_read_once(muic, &post)" in condition_block:
+        raise SurfaceError("post CONTROL1 read must execute after the optional-write branch")
+    if "post = pre" in run_block:
+        raise SurfaceError("post CONTROL1 state may not be synthesized from pre")
+
+    getter = extract_function_block(
+        text,
+        "static int s22plus_max77705_result_get(",
+        "read-only result getter",
+    )
+    getter_hits = [token for token in DIAG_GETTER_FORBIDDEN_EFFECTS if token in getter]
+    if getter_hits:
+        raise SurfaceError(f"result getter initiates an external effect: {getter_hits}")
+    if text.count("module_param_cb(") != 1:
+        raise SurfaceError("diagnostic must expose exactly one read-only result parameter")
+
     return {
         "source_contract_satisfied": True,
         "preferred_addition_count": len(CUSTOM_PREFERRED_ADDITIONS),
         "preferred_total_module_count": 61 + len(CUSTOM_PREFERRED_ADDITIONS),
-        "spu_verify_removed": True,
-        "debug_object_removed": True,
-        "misc_and_sysfs_update_surfaces_removed": True,
-        "max77705_muic_attribute_group_removed": True,
-        "typec_port_retained_read_only": True,
-        "typec_role_mutation_ops_removed": True,
-        "if_cb_usbpd_host_state_coordination_retained": True,
-        "if_cb_unused_usbpd_callbacks_nulled": True,
-        "if_cb_muic_callbacks_remain_null": True,
-        "external_sec_pd_callback_table_nulled": True,
-        "internal_probe_ccopen_clear_retained": True,
+        "direct_parent_i2c_bind": True,
+        "only_muic_dummy_client_created": True,
+        "control1_read_command_count": 2,
+        "control1_write_maximum_count": 1,
+        "stale_uic_latch_clear_count": 1,
+        "post_read_is_unconditional": True,
+        "write_skipped_when_pre_is_usb": True,
+        "ambiguous_write_retry_forbidden": True,
+        "irq_and_workqueue_absent": True,
+        "mfd_children_absent": True,
+        "firmware_reset_power_notifier_and_protocol_stacks_absent": True,
+        "result_export_read_only_and_cached": True,
     }
 
 
@@ -995,6 +1202,15 @@ def audit(root: Path) -> dict[str, Any]:
     debug_text = (kernel / SOURCE_IDENTITIES["debug"][0]).read_text(errors="strict")
     makefile_text = (kernel / SOURCE_IDENTITIES["pdic_makefile"][0]).read_text(errors="strict")
     header_text = (kernel / SOURCE_IDENTITIES["pdic_header"][0]).read_text(errors="strict")
+    muic_header_text = (kernel / SOURCE_IDENTITIES["muic_header"][0]).read_text(
+        errors="strict"
+    )
+    usbc_register_header_text = (
+        kernel / SOURCE_IDENTITIES["usbc_register_header"][0]
+    ).read_text(errors="strict")
+    mfd_private_header_text = (
+        kernel / SOURCE_IDENTITIES["mfd_private_header"][0]
+    ).read_text(errors="strict")
     misc_text = (kernel / SOURCE_IDENTITIES["pdic_misc"][0]).read_text(errors="strict")
     muic_text = (kernel / SOURCE_IDENTITIES["max77705_muic"][0]).read_text(
         errors="strict"
@@ -1003,6 +1219,15 @@ def audit(root: Path) -> dict[str, Any]:
         errors="strict"
     )
     pd_text = (kernel / SOURCE_IDENTITIES["max77705_pd"][0]).read_text(
+        errors="strict"
+    )
+    alternate_text = (kernel / SOURCE_IDENTITIES["max77705_alternate"][0]).read_text(
+        errors="strict"
+    )
+    muic_afc_text = (kernel / SOURCE_IDENTITIES["max77705_muic_afc"][0]).read_text(
+        errors="strict"
+    )
+    muic_ccic_text = (kernel / SOURCE_IDENTITIES["max77705_muic_ccic"][0]).read_text(
         errors="strict"
     )
     irq_text = (kernel / SOURCE_IDENTITIES["max77705_irq"][0]).read_text(
@@ -1024,6 +1249,9 @@ def audit(root: Path) -> dict[str, Any]:
         kernel / SOURCE_IDENTITIES["if_cb_manager"][0]
     ).read_text(errors="strict")
     dwc3_msm_text = (kernel / SOURCE_IDENTITIES["dwc3_msm"][0]).read_text(
+        errors="strict"
+    )
+    i2c_core_text = (kernel / SOURCE_IDENTITIES["i2c_core"][0]).read_text(
         errors="strict"
     )
     firmware_text = (kernel / SOURCE_IDENTITIES["firmware"][0]).read_text(
@@ -1190,6 +1418,82 @@ def audit(root: Path) -> dict[str, Any]:
         raise SurfaceError("stock PDIC update macro is no longer unconditional")
     if "max77705_debug.o" not in makefile_text:
         raise SurfaceError("stock PDIC debug object is no longer linked")
+    require_tokens(
+        muic_header_text,
+        (
+            "COMMAND_CONTROL1_READ\t\t= 0x05",
+            "COMMAND_CONTROL1_WRITE\t\t= 0x06",
+            "COM_OPEN\t=",
+            "COM_USB\t\t=",
+            "MAX77705_MUIC_COM_OPEN\t\t= 0x07",
+            "MAX77705_MUIC_COM_USB\t\t= 0x01",
+        ),
+        "Max77705 MUIC command header",
+    )
+    require_tokens(
+        usbc_register_header_text,
+        (
+            "#define BIT_APCmdResI\t\t\tBIT(7)",
+            "#define OPCODE_WRITE 0x21",
+            "#define OPCODE_WRITE_END 0x41",
+            "#define OPCODE_READ 0x51",
+        ),
+        "Max77705 USBC register header",
+    )
+    require_tokens(
+        mfd_private_header_text,
+        (
+            "MAX77705_USBC_REG_UIC_INT\t\t= 0x02",
+            "MAX77705_USBC_REG_AP_DATAOUT0\t\t= 0x21",
+            "MAX77705_USBC_REG_AP_DATAIN0\t\t= 0x51",
+        ),
+        "Max77705 private register header",
+    )
+    require_tokens(
+        mfd_text,
+        (
+            '#define I2C_ADDR_MUIC\t(0x4A >> 1)',
+            "i2c_new_dummy_device",
+            '{ .compatible = "maxim,max77705" }',
+            "return i2c_add_driver(&max77705_i2c_driver);",
+        ),
+        "stock MFD direct-I2C precedent",
+    )
+    require_tokens(
+        i2c_core_text,
+        (
+            "if (i2c_of_match_device(drv->of_match_table, client))",
+            ".match\t\t= i2c_device_match",
+            "EXPORT_SYMBOL_GPL(devm_i2c_new_dummy_device);",
+        ),
+        "I2C core match/dummy-client authority",
+    )
+    require_tokens(
+        alternate_text,
+        (
+            "max77705_process_alternate_mode",
+            "max77705_vdm_message_handler",
+            "max77705_sec_uvdm_out_request_message",
+        ),
+        "stock alternate-mode surface",
+    )
+    require_tokens(
+        muic_afc_text,
+        (
+            "max77705_muic_afc_hv_set",
+            "max77705_muic_qc_hv_set",
+            "max77705_muic_handle_detect_dev_afc",
+        ),
+        "stock AFC/QC surface",
+    )
+    require_tokens(
+        muic_ccic_text,
+        (
+            "max77705_muic_handle_ccic_notification",
+            "max77705_muic_register_ccic_notifier",
+        ),
+        "stock MUIC CCIC notifier surface",
+    )
 
     firmware = parse_firmware_array(firmware_text)
     expected_header = [0xC1, 0x66, 0xF1, 0xCE, 0x6E, 0x40, 0x15, 0x02]
@@ -1200,101 +1504,102 @@ def audit(root: Path) -> dict[str, Any]:
 
     contract = {
         "status": "REGISTERED_NOT_SATISFIED",
-        "preferred_total_module_count": 66,
+        "selected_design": "POLLING_SINGLE_MODULE_MUX_DIAGNOSTIC",
+        "preferred_total_module_count": 65,
         "preferred_additions": list(CUSTOM_PREFERRED_ADDITIONS),
-        "stock_only_removed_addition": "spu_verify.ko",
-        "mfd": {
-            "firmware_payload_and_update_abi_absent": True,
-            "probe_time_metadata_only": {
-                "sw_main": [0x6E, 0x40, 0x15],
-                "sw_boot": 0,
-                "hardware_io": False,
-            },
-            "ordinary_irq_and_child_creation_retained": True,
-        },
-        "pdic": {
-            "debug_object_absent": True,
-            "update_imports_absent": sorted(PDIC_UPDATE_IMPORTS),
-            "firmware_worker_absent": True,
-            "firmware_misc_callback_absent": True,
-            "pdic_misc_registration_absent": True,
-            "local_control1_debug_attribute_absent": True,
-            "pdic_core_chip_registration_retained": True,
-            "visible_common_sysfs_properties": ["PDIC_SYSFS_PROP_CHIP_NAME"],
-            "tagged_cached_observer_must_be_separate_and_read_only": True,
-            "max77705_muic_attribute_group_absent": True,
-            "typec_port_registration_retained": True,
-            "typec_capability_ops_null": True,
-            "typec_role_mutation_callbacks_absent": list(
-                MAX77705_TYPEC_MUTATION_CALLBACKS
-            ),
-            "natural_attach_typec_reporting_retained": [
-                "typec_set_pwr_role",
-                "typec_set_data_role",
-                "typec_register_partner",
-                "typec_unregister_partner",
+        "stock_comparison_total_module_count": 67,
+        "rejected_full_pdic_custom_design": {
+            "module_count": 61 + len(REJECTED_FULL_PDIC_CUSTOM_ADDITIONS),
+            "additions": list(REJECTED_FULL_PDIC_CUSTOM_ADDITIONS),
+            "status": "REJECTED_AS_DISPROPORTIONATE_FOR_MUX_DISCRIMINATION",
+            "reason": [
+                "retains parent IRQ masking and MFD child creation",
+                "retains MUIC initial detection and runtime protocol branches",
+                "retains CC, PD, alternate-mode, AFC/QC, and notifier control planes",
+                "requires a much larger write matrix than the connector-MUX question",
             ],
-            "if_cb_usbpd_registration_retained": True,
-            "if_cb_host_state_callback_retained": True,
-            "if_cb_host_state_callback_has_hardware_io": False,
-            "if_cb_sbu_cc_control_and_wait_callbacks_null": True,
-            "if_cb_muic_registration_retained_with_null_ops": True,
-            "external_sec_pd_function_pointers_null": True,
-            "internal_probe_ccopen_clear_retained": True,
+        },
+        "diagnostic": {
+            "module": "s22plus_max77705_mux_diag.ko",
+            "parent_bus": "i2c",
+            "parent_compatible": "maxim,max77705",
+            "parent_address": "0x66",
+            "only_dummy_client_address": "0x25",
+            "stock_mfd_and_pdic_loaded": False,
+            "irq_requested": False,
+            "workqueue_created": False,
+            "mfd_children_created": False,
+            "result_interface": "one cached read-only 0444 module parameter",
+            "protocol": {
+                "uic_interrupt_register": "0x02",
+                "ap_command_response_bit": "BIT(7)",
+                "ap_data_out_start": "0x21",
+                "ap_data_out_end": "0x41",
+                "ap_data_in_start": "0x51",
+                "control1_read_opcode": "0x05",
+                "control1_write_opcode": "0x06",
+                "full_com_usb_byte": "0x09",
+            },
+            "transaction": [
+                "read and validate PMIC identity",
+                "clear/read the otherwise-unowned UIC interrupt latch",
+                "issue exactly one bounded CONTROL1 read command and validate opcode/value",
+                "if and only if pre is not 0x09, issue one CONTROL1 write of 0x09 without retry",
+                "issue exactly one bounded post CONTROL1 read command and validate opcode/value",
+                "cache the complete result without further hardware access",
+            ],
+            "source_validator": "validate_diag_source_text",
+            "source_validator_must_run_before_compile": True,
         },
         "selected_closure": {
             "base_module_count": len(p315_modules),
+            "custom_total_module_count": 65,
+            "stock_mfd_pdic_and_spu_verify_absent_from_opened_set": True,
             "external_control_consumers_absent": sorted(
                 P315_FORBIDDEN_CONTROL_CONSUMERS
             ),
             "inactive_lvs_consumer_absent": sorted(P315_ABSENT_IF_CB_CONSUMERS),
-            "custom_total_module_count": 66,
         },
         "write_inventory": {
-            "status": "SOURCE_DERIVED_PARTIAL_NOT_COMPLETE",
-            "retained_probe_families": [
-                "mfd-irq-mask-and-parent-intsrc",
-                "muic-cc-pd-interrupt-masks",
-                "auto-vbus-disable",
-                "support-audio-ccctrl1",
-                "no-auto-ibus",
-                "sink-capability",
-                "initial-muic-detect-and-com-switch",
-                "probe-end-ccopen-clear",
+            "status": "BOUNDED_DIAGNOSTIC_EFFECT_SET_REGISTERED_NOT_IMPLEMENTED",
+            "always_present_commands": [
+                "pre CONTROL1 read command",
+                "post CONTROL1 read command",
             ],
-            "removed_user_mutation_surfaces": [
-                "max77705-muic-attribute-group",
-                "typec-data-power-port-role-setters",
-                "common-pdic-firmware-and-uvdm-misc",
-                "parent-control1-debug-attribute",
-                "mxim-raw-debug-object",
-                "external-sec-pd-function-pointers",
-                "unused-if-callback-sbu-cc-control-and-enter-mode-operations",
-            ],
-            "retained_non_hardware_coordination": [
-                "if-callback-register-usbpd",
-                "if-callback-usbpd-set-host-on-state-and-wakeup-only",
-                "if-callback-register-muic-with-null-ops",
-            ],
-            "unresolved_before_complete": [
-                "conditional-initial-detect-branch-write-matrix",
-                "runtime-irq-notifier-and-protocol-write-matrix",
-                "exact-tagged-observer-coverage-for-every-retained-write",
+            "conditional_command": "one CONTROL1 write of full byte 0x09 when pre != 0x09",
+            "maximum_control1_write_count": 1,
+            "ambiguous_write_retry_forbidden": True,
+            "read_to_clear_uic_interrupt_reads_bounded": True,
+            "excluded_effect_families": [
+                "firmware update and IC reset",
+                "parent IRQ and interrupt-mask programming",
+                "MFD child creation",
+                "MUIC attach classification and BC/DCD",
+                "CC, PD, source-VBUS, sink-capability, and no-auto-IBUS",
+                "alternate mode, VDM, Dex, AFC, QC, and audio accessory",
+                "Type-C, MUIC, IF-manager, power-supply, and notifier publication",
+                "writable sysfs, misc, debugfs, procfs, and exported control ABI",
             ],
         },
-        "future_linked_proofs": [
-            "source validator called before compilation",
-            "no forbidden defined or undefined symbol survives",
-            "no firmware payload symbol or 53055-byte payload survives",
-            "no pdic_misc_init, mxim_debug_init, request_firmware, or direct local sysfs-group import survives",
-            "the retained common PDIC sysfs list is CHIP_NAME-only and read-only",
-            "the Max77705 MUIC attribute group and Type-C role mutation callbacks are absent",
-            "only usbpd_set_host_on survives in the custom usbpd_ops table and remains state/wakeup-only",
-            "the fixed DWC3 register_usb endpoint remains ops-null while its usbpd_set_host_on consumer remains present",
-            "the Type-C port and natural-attach status-reporting imports remain",
-            "the selected 66-module closure has no charger, battery, fuel-gauge, or sec_pd control consumer",
-            "modversion and CFI closure matches the fixed Image",
-            "custom module dependency closure is exactly 66 modules",
+        "result_contract": {
+            "pre_0x09_post_0x09_attach": "MUX was already USB; attach is not attributed to a MUX write",
+            "pre_0x09_post_0x09_silent": "missing Linux MUX selection refuted for that run",
+            "pre_non_0x09_post_0x09_attach": "strong MUX-causal support",
+            "pre_non_0x09_post_0x09_silent": "MUX corrected but insufficient",
+            "read_write_or_response_failure": "diagnostic failure; no connector claim",
+            "host_fact_without_complete_device_result": "preserve host fact without inventing device causality",
+        },
+        "future_linked_and_runtime_proofs": [
+            "actual diagnostic source passes validate_diag_source_text before compilation",
+            "source, linked module, and disassembly agree on two reads and at most one conditional write",
+            "no forbidden defined, undefined, relocation, or string surface survives",
+            "module imports only the bounded I2C, timing, cached-result, and module-registration closure",
+            "fixed-Image modversion and CFI closure matches",
+            "custom module dependency closure is exactly 65 modules",
+            "the unbound max77705@66 client binds only the diagnostic and creates only 0x25",
+            "no stock MFD, PDIC, or SPU module is opened or loaded",
+            "pre-write direct fence, command deadlines, response validation, and no-retry behavior are exercised by fixtures",
+            "carrier and host-sidecar positive control distinguish every result-contract row",
         ],
     }
     return {

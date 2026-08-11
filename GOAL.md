@@ -116,38 +116,43 @@ reads can remain zero and classify as old firmware or battery-only, while
 reset/retry edges disable the voltage/TA guards after the first pass. Stock-67
 is unadjudicated.
 
-The preferred bounded custom shape is now machine-registered as 66 modules:
-the P3.15 base plus `msm-geni-se`, `gpi`, `i2c-msm-geni`, custom MFD, and
-custom PDIC. It removes the firmware payload and updater ABI, so the sole
-stock update-path dependency `spu_verify.ko` is also absent. This conclusion
-is not based on the seven convenience-extracted modules. The H0 authority
-audit scanned the exact 441-module vendor ramdisk plus the 50
-`vendor_dlkm`-only payloads, a 491-name stock union, and found that PDIC alone
-consumes `BOOT_FLASH_FW_PASS2`, `max77705_usbc_fw_setting`, and
-`max77705_usbc_fw_update`.
+The preferred bounded shape is now machine-registered as 65 modules: the
+P3.15 base plus exact stock `msm-geni-se`, `gpi`, and `i2c-msm-geni`
+substrate modules and one purpose-built
+`s22plus_max77705_mux_diag.ko`. It does not load stock or custom MFD/PDIC, and
+it omits `spu_verify.ko`. Instead it binds the otherwise-unowned
+`max77705@66` parent directly, creates only the `0x25` USBC/MUIC dummy client,
+clears the stale UIC latch once, performs an unconditional pre/post
+`CONTROL1_R` pair, and conditionally performs one non-retried
+`CONTROL1_W(0x09)` only when pre is not the full `COM_USB` byte. This is the
+narrowest source-supported discriminator for the remaining connector-MUX
+question.
 
-The stock PDIC also exposes firmware/debug/misc surfaces, a separate seven-
-attribute writable Max77705 MUIC group, Type-C data/power/port-role setters,
-external `sec_pd` function pointers, and IF-manager callbacks. The revised
-custom contract removes or nulls all of those mutation paths except
-`usbpd_set_host_on`: the exact 491-module consumer map proves DWC3 consumes
-that callback, and its pinned body changes only state/wait fields. `lvstest`
-is absent, the enter-mode callback is nulled, MUIC registers with null ops,
-and fixed DWC3 provides no effective `usb_set_vbus_current` endpoint. Natural
-attach reporting, read-only CHIP_NAME, and tagged pre/post CONTROL1 readback
-remain. The current receipt is
-`custom-surface-authority-20260811-03.json`, SHA-256
-`05118dce14f5e534ca40ebcc8fb0421ac79d61e7d0daa1916c011ca0f4863f39`;
-the embedded contract is
-`687c247e6d24eb44040acdec12709dd2a31071396a6fe80d162408b38ac369fe`.
-Its status is strictly `REGISTERED_NOT_SATISFIED`, and its write inventory is
-`SOURCE_DERIVED_PARTIAL_NOT_COMPLETE`: no custom source or module has been
-built or qualified, and runtime IRQ/notifier/protocol writes remain open.
+The exact 491-module audit still matters: it proves PDIC alone consumes the
+three removable MFD updater exports and also records the much broader stock
+PDIC/MUIC/CC/PD/alternate/AFC/QC/notifier/user-control surface. That former
+full-PDIC custom-66 design is now rejected as disproportionate, not retained as
+the preferred implementation. The v2 source validator additionally fixes the
+logical transaction shape: the post read may not be synthesized from pre or
+placed inside the optional-write branch, and any I2C call outside the exact
+registered call multiset is rejected.
 
-The next H0 work is the complete retained-write matrix and reproducible custom
-source/link/CFI/modversion design, followed by target-only GENI bind
-proof, exhaustive telemetry fixtures, the host-sidecar positive-control gate,
-and one proportional independent review. The former 4,246,401,024-byte
+The current private receipt is
+`custom-surface-authority-20260811-04.json`, SHA-256
+`a85856be66936f5ce5eb08b5fb76a9424d4628d79e103aaebec8bfd1b944a1fe`;
+the helper source is SHA-256
+`6f251886bcf076d91c0e4765cb8af0ce866eaa0f11f49da5016c6c1e6fc6429e`,
+and the embedded custom-65 contract is
+`e927be46e49925a3c00d2ecdfd3b2ef13e6200496e1d57b86fab68c55c2abd90`.
+Status remains strictly `REGISTERED_NOT_SATISFIED`, with write inventory
+`BOUNDED_DIAGNOSTIC_EFFECT_SET_REGISTERED_NOT_IMPLEMENTED`: no diagnostic
+source or module has been built or qualified.
+
+The next H0 work is the actual diagnostic source and reproducible linked
+A/B/CFI/modversion proof, followed by target-only GENI bind proof, exhaustive
+transaction and telemetry fixtures, the host-sidecar positive-control gate,
+packaging integration, and one proportional independent review. The former
+4,246,401,024-byte
 workspace-capacity blocker is closed by the exact private S22+ cleanup
 receipt: 68 superseded or invalidated
 large payloads with 5,033,287,680 allocated bytes were removed only after a

@@ -6,16 +6,19 @@ Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` /
 `S906NKSS7FYG8`)
 
 Verdict:
-`BASE_CARRIER_AND_NORMAL_ORDER_RECOVERED_STOCK_67_UNADJUDICATED_CUSTOM_66_SURFACE_REGISTERED_NOT_SATISFIED`
+`BASE_CARRIER_AND_NORMAL_ORDER_RECOVERED_STOCK_67_UNADJUDICATED_FULL_PDIC_CUSTOM_66_REJECTED_CUSTOM_65_DIAGNOSTIC_REGISTERED_NOT_SATISFIED`
 
 Review state:
-`PRIMARY_SOURCE_AND_491_MODULE_SURFACE_AUDIT_CLOSED_CUSTOM_BUILD_GATES_OPEN_INDEPENDENT_REVIEW_REQUIRED`
+`PRIMARY_SOURCE_AND_491_MODULE_SURFACE_AUDIT_CLOSED_NARROW_DIAGNOSTIC_BUILD_GATES_OPEN_INDEPENDENT_REVIEW_REQUIRED`
 
 Repository analysis base:
 `0dd0981d960aa74681f5965c021c740cb1eab393`
 
 Correction input commit:
 `30d8e918316961ff6e42cc729b0c13ab24f618aa`
+
+Narrowing continuation base:
+`f958e3f0da5bc883846fcb5cdca32561cec378aa`
 
 ## Scope and authority
 
@@ -35,10 +38,13 @@ questions and introduces a distinct hazard class:
 MAX77705_CONTROL_PLANE_BRINGUP
 ```
 
-The hazard is broader than one D+/D- MUX write. Loading the required MFD and
-PDIC modules initializes a combined PMIC/MUIC/CC/PD interrupt and command
-plane. The exact write and observation contract therefore requires an
-independent review before any successor can be packaged.
+The stock/full-PDIC hazard is broader than one D+/D- MUX write. Loading MFD
+and PDIC initializes a combined PMIC/MUIC/CC/PD/alternate-mode/AFC interrupt
+and command plane. That source audit rejects the former full-PDIC custom-66
+shape as disproportionate for this discriminator. The selected H0 design is
+instead one direct polling I2C diagnostic with a bounded two-read/optional-
+one-write effect set. Its source, binding, command, observation, and no-retry
+contract still requires independent review before packaging.
 
 This audit also names one narrower source-level failure class:
 
@@ -61,92 +67,70 @@ streamed the pinned AP/super input, wrote only the 57,610,240-byte
 `vendor_dlkm` extent, and recovered Android's exact second-stage
 `modules.load`; it did not contact a device or create a boot payload.
 
-The subsequent custom-surface continuation also remained host-only. It
+The subsequent custom-surface continuations also remained host-only. They
 temporarily expanded the exact 441-module vendor ramdisk and read the 50
 `vendor_dlkm`-only modules from the already authenticated F2FS image, scanned
 the resulting 491-name stock union, and removed every temporary extraction
-after producing a private receipt. It did not build or package a custom
-module, and `REGISTERED_NOT_SATISFIED` is the only valid custom-contract state.
+after producing private receipts. The second continuation pinned the complete
+PDIC composite surface and the I2C command/match authorities, then registered
+the custom-65 single-module diagnostic. It did not write, build, or package
+that module, and `REGISTERED_NOT_SATISFIED` remains the only valid state.
 
 ## Executive result
 
 The source-level MUX mechanism is real and remains compatible with the P3.15
-signature:
+signature. `CONTROL1` selects D+/D-, its full register bytes are
+`COM_OPEN=0x3f` and `COM_USB=0x09`, P3.15 omitted the GENI-I2C/Max77705
+producer closure, and the host sidecar remained candidate-silent despite the
+controller-side digital witnesses.
 
-- Max77705 `CONTROL1` selects the D+ and D- switch paths;
-- USB, CDP, timeout-open, and OTG detection can explicitly queue `COM_USB`;
-- P3.15 loaded Samsung notifier consumers but omitted the GENI-I2C/MFD/PDIC
-  producer path; and
-- the P3.15 host sidecar observed no candidate attach after Download departure
-  despite the retained controller-side gadget-start, RUN_STOP, QSCRATCH,
-  state, and event-configuration witnesses.
+The stock 67-module comparison remains source-supported but unadjudicated.
+Every successful PASS5 stock MFD probe invokes the updater; retained Android
+evidence proves a healthy no-update pass, but failed reads default toward old
+firmware/battery-only classification and later reset/retry passes no longer
+apply the first-pass voltage/TA guards. Stock equivalence reduces novelty; it
+does not establish admissibility.
 
-The stock MFD firmware-setting call is not a newly discovered or
-candidate-only action. This device is `MAX77705_PASS5`, for which every
-successful MFD probe calls `max77705_usbc_fw_update()`. A retained normal
-Android boot proves that the stock driver reached that function and took its
-no-update branch. That baseline substantially lowers the novelty of a stock
-successor, so this report no longer labels stock MFD categorically
-inadmissible.
+The full PDIC composite is also much broader than the question. Its linked
+objects carry parent IRQ/mask programming, MFD children, MUIC classification,
+BC/DCD, CC/PD, source-VBUS coordination, sink-capability/no-auto-IBUS writes,
+alternate-mode/VDM/Dex, AFC/QC, audio/accessory, notifier, writable sysfs,
+misc, and debug surfaces. Removing only firmware and obvious callbacks leaves
+that runtime matrix intact. The former custom-66 full-PDIC design is therefore
+rejected as disproportionate, not promoted to implementation.
 
-It does not make the stock path automatically qualified. The updater
-has a named updateward read-failure default: it overwrites the return code
-from its first firmware-version read, ignores both charger-status read
-results, and lets failed reads leave values that classify as old firmware or
-battery-only operation. It also applies its voltage and TA-mode guards only
-on the first pass. Once either retry counter becomes nonzero, the retry path
-can reset the IC and re-enter with those guards disabled. With valid PC-VBUS
-status reads, the first pass exits before charger reconfiguration, secure-mode
-writes, IC reset, or firmware records; read failure or a retry invalidates
-that protection. This is the actual stock-path hazard boundary.
+P3.12/P3.15 already established the controller/gadget side through clocks,
+PHY resume, QSCRATCH session-valid, gadget-start, RUN_STOP, and halted exit
+without PDIC. Reproducing Android's complete Type-C control plane is not a
+prerequisite for the remaining connector-MUX discriminator. The selected H0
+shape is now custom-65:
 
-The PDIC probe is also not a passive observer. It initializes MUIC, CC, PD,
-interrupts, notifier plumbing, automatic-VBUS policy, audio detection, sink
-capabilities, and the opcode queue before unmasking the USBC interrupt source.
+1. keep the P3.15 61-module base and fixed Image;
+2. add the exact stock `msm-geni-se.ko`, `gpi.ko`, and `i2c-msm-geni.ko`;
+3. add one purpose-built `s22plus_max77705_mux_diag.ko` and load no stock or
+   custom MFD/PDIC/SPU module;
+4. bind that module directly to the otherwise-unbound
+   `max77705@66` I2C client via `compatible="maxim,max77705"`;
+5. create only the USBC/MUIC dummy client at `0x25`, read and validate PMIC
+   identity, perform one pre `CONTROL1_R`, conditionally perform exactly one
+   non-retried `CONTROL1_W(0x09)`, then perform one post `CONTROL1_R`; and
+6. retain the complete cached result through one read-only 0444 interface and
+   the Process-v2 carrier/USB-sidecar correlation.
 
-Two successor shapes therefore remain under H0 comparison:
+The command protocol is source-real: UIC interrupt `0x02` carries
+`APCmdResI=BIT(7)`, AP output occupies `0x21..0x41`, AP response begins at
+`0x51`, and `CONTROL1_R/W` are `0x05/0x06`. Because no other Max77705 driver
+is loaded, the bounded read-to-clear UIC polling has no competing Linux
+consumer. The registered transaction contains two read commands and at most
+one conditional write; firmware, reset, IRQ, MFD-child, power, notifier,
+CC/PD/MUIC/AFC/alternate, and writable user-control effects are excluded.
 
-- a stock 67-module path, whose updater behavior is stock-equivalent but not
-  yet adjudicated against the exact candidate context and safety contract;
-  and
-- a bounded custom 66-module path that removes the updater and its sole
-  `spu_verify.ko` dependency from the execution closure and adds tagged MUX
-  readback, at the cost of custom-module build and boot-ramdisk staging
-  complexity.
-
-The safer custom shape is:
-
-1. preserve the fixed Image;
-2. isolate the exact GENI wrapper, GPI controller, and I2C controller before
-   loading their global platform drivers;
-3. stage an exact-source custom MFD under a unique boot generic-ramdisk path
-   and load it instead of opening the stock vendor-ramdisk module; it prevents
-   the boot-time firmware updater from executing;
-4. stage and select an exact-source custom PDIC the same way; it preserves the
-   normal initial-detect path and records tagged pre/post `CONTROL1` reads;
-5. retain the result through a bounded read-only interface and the existing
-   Process-v2 carrier/host-sidecar path; and
-6. fail closed on any module, bind, queue, response, order, integrity, or
-   health contradiction.
-
-This shape appears technically feasible without changing the fixed Image. It
-is not yet implementation-ready. The six stock additions and the complete
-P3.15 base remain recoverable from the pinned vendor ramdisk. An exact
-cross-inventory comparison partitions the proposed 67 names into 37
-first-stage names and 30 `vendor_dlkm` names; every one of the latter 30 has
-the same size and SHA-256 in the tracked super inventory as in the
-vendor-ramdisk/P3.15 byte authority. Gate 0 then recovered the exact
-5,843-byte, 356-line second-stage order and matched its pre-recorded SHA-256.
-The complete stock 67-module dependency closure is now proven: the inherited
-P3.15 sequence followed by the six dependency-ordered additions has zero
-forward dependency edges. Wholesale module reconstruction and normal-order
-recovery are no longer blockers for that stock shape. The preferred custom shape is
-the same 61-module base plus five additions—GENI SE, GPI, GENI I2C, custom
-MFD, and custom PDIC—for 66 total; its source surface is registered but its
-modules do not yet exist. Exact target-only binding, stock-versus-custom
-selection, complete PMIC/PDIC write inventory, custom module/ABI closure,
-telemetry encoding, per-operation space proof, and independent review remain
-open gates.
+This is a registered design, not an implementation claim. No diagnostic
+source or module exists yet. Remaining gates are the actual source/build and
+linked/disassembly proof, exact target-only GENI/I2C bind, no competing
+driver/client proof, command/timeout/no-retry fixtures, carrier/result-matrix
+coverage, host-sidecar positive control, capacity/package proof, and one
+proportional independent review.
 
 ## Evidence authority and hashes
 
@@ -168,6 +152,9 @@ The primary source and artifact inputs were rehashed during this H0 unit.
 | `drivers/usb/typec/maxim/max77705_usbc.c` | `4dabc4b25e99e26c662748934a6a98775073683832f08652e15762f4689a3e3d` |
 | `drivers/usb/typec/maxim/max77705-muic.c` | `bfdb034d7571ca233202221cdc8cdfe68bab3e837afea9c4b5a37378ed7acbab` |
 | `drivers/usb/typec/maxim/max77705_pd.c` | `4818b54be4a4616f44ed3e993cf9e5e55d394b966b0202a1c6616c59cfce47ac` |
+| `drivers/usb/typec/maxim/max77705_alternate.c` | `d6812fd27e0612d8c09a1462b9a39c4b1aee0d0eb0bc88f81611bb97e79a4228` |
+| `drivers/usb/typec/maxim/max77705-muic-afc.c` | `7b8a775af9fa13f65a042a651e87b6d4cb4e5e735f43e358a5d04d89bd88e4d5` |
+| `drivers/usb/typec/maxim/max77705-muic-ccic.c` | `6cdb78864ce17eb1a70c093a73fd993f62884d4eabafb0b02813eb1b0eadff80` |
 | `drivers/usb/typec/manager/if_cb_manager.c` | `044b2b6aae5e9c9c042f5c9c2d5ecba53d275639057002893306b0106b554f6f` |
 | `drivers/usb/dwc3/dwc3-msm-core.c` | `1c8a3cea43337eebaf0601e01fe3a17e1260f2f768298b16f723534eee433021` |
 | `drivers/muic/common/muic_sysfs.c` | `eaa86d77f2ae0d8e554aa80a68a87afaba797fe63d5c8f7ae2cfff9a7b7d2f80` |
@@ -176,6 +163,8 @@ The primary source and artifact inputs were rehashed during this H0 unit.
 | `drivers/usb/typec/maxim/Makefile` | `8055a9480971e835edccb441ce0554940a1d211be5bc1d1702ebc4587580c91d` |
 | `include/linux/usb/typec/maxim/max77705_usbc.h` | `1cc7e211c50685c3eed3d1b4582869d0a65a559a2114c0087fac2646f4fc883e` |
 | `include/linux/usb/typec/maxim/max77705-muic.h` | `3f7f2b9790940d61ec6bb636f87fd750f7971f1c609c06e6380d11907f701cb1` |
+| `include/linux/usb/typec/maxim/max77705.h` | `ff2498061ddb20c1891cb9fe6611edde655c3e1cda8fa4446d0c876a476ff1c7` |
+| `drivers/i2c/i2c-core-base.c` | `0292f223758b3d9eb74889e986cf2e67588b97874d54bcfbf257b15a5906ffa5` |
 | `drivers/i2c/busses/i2c-msm-geni.c` | `2d062f016c1481984aaf9108883a940be3907b8ca48d13031324348c68b29c7a` |
 | `drivers/base/platform.c` | `3aa156b25f4acd8e327a887e209a2eaa9d8c53ef3bc4e2ba74876c1447f04569` |
 | `drivers/base/dd.c` | `ce68320e68f0978f854e3c8b0fa52e7f6837c08f2fcf3417400d15fe521578d0` |
@@ -189,9 +178,9 @@ The primary source and artifact inputs were rehashed during this H0 unit.
 | recovered 67-module order audit | `5c64cbe9dc4f8c6569248b8c8e9affb3d7f721a3854f4aa2c93a238b32c7241a` |
 | exact 441-module vendor-ramdisk inventory | `35f1a7b903fc3582d3d51c4f119b993d154874e632465b2e212e0bf56a37ab7b` |
 | exact 63,974,144-byte expanded vendor-ramdisk CPIO | `a96c362103eeab52fd639fd1bfc06d5f9a30972a18d8086c26d20a86a0309afd` |
-| Max77705 custom-surface authority helper | `8cbece53e4b0d095ad8d1d4d9630849f5b94c2ad9eb84269af9851e28e45c981` |
-| private 491-module/custom-surface receipt | `05118dce14f5e534ca40ebcc8fb0421ac79d61e7d0daa1916c011ca0f4863f39` |
-| registered custom-surface contract | `687c247e6d24eb44040acdec12709dd2a31071396a6fe80d162408b38ac369fe` |
+| Max77705 custom-surface authority helper v2 | `6f251886bcf076d91c0e4765cb8af0ce866eaa0f11f49da5016c6c1e6fc6429e` |
+| private 491-module/custom-65 receipt | `a85856be66936f5ce5eb08b5fb76a9424d4628d79e103aaebec8bfd1b944a1fe` |
+| registered custom-65 diagnostic contract | `e927be46e49925a3c00d2ecdfd3b2ef13e6200496e1d57b86fab68c55c2abd90` |
 | retained stock/XBL `baseline_last_kmsg.bin` | `9a58a0c8486723c31f9cf8ac7d8b8be2586969bb8f167cd76907e3b82db0c7cb` |
 | P3.15 USB-sidecar result | `a075c7014e9d0524fd0b7f18fe14a263639ad27ced386a4801e4c9856caf19fa` |
 
@@ -218,7 +207,7 @@ for the hashed source snapshot, not for an unpinned upstream tree.
 | first-stage/recovery order inputs | pinned `modules.load` and `modules.load.recovery`, hash-pinned above |
 | bounded sparse/range extraction and exact second-stage file | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/result.json` and `modules.load`, hash-pinned above |
 | 67-name stage, position, and dependency-order audit | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/max77705-67-order-audit.json`, hash-pinned above |
-| all-stock export-consumer audit and registered custom-66 surface | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-surface-authority-20260811-03.json`, hash-pinned above |
+| all-stock export-consumer audit, full-PDIC rejection evidence, and registered custom-65 diagnostic | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-surface-authority-20260811-04.json`, hash-pinned above |
 | PDIC, MFD, SPU, GENI-I2C, GPI, and GENI-SE dependency edges | pinned `modules.dep:91`, `:176`, `:181`, `:235`, `:305`, `:388` |
 | switch bit layout and the values that evaluate to `COM_OPEN=0x3f`, `COM_USB=0x09` | `include/linux/usb/typec/maxim/max77705-muic.h:293-301`, `:359-405` |
 | `CONTROL1` write construction and software-only previous-state assumption | `drivers/usb/typec/maxim/max77705-muic.c:326-349`, `:437-464` |
@@ -242,6 +231,10 @@ for the hashed source snapshot, not for an unpinned upstream tree.
 | PD workqueue/IRQs and boot-time RID, IBUS, sink-capability, data-role, and short checks | `drivers/usb/typec/maxim/max77705_pd.c:1878-1984` |
 | command-data copies and FIFO append/dequeue semantics | `drivers/usb/typec/maxim/max77705_usbc.c:1747-1828` |
 | command/response pair construction and command dispatch | `drivers/usb/typec/maxim/max77705_usbc.c:2410-2554` |
+| direct parent OF match and USBC/MUIC dummy-client precedent | `drivers/mfd/maxim/max77705.c:1311-1316`, `:1391-1397`, `:1454-1476` |
+| I2C OF match and exported managed dummy-client helper | `drivers/i2c/i2c-core-base.c:95-116`, `:1034-1064` |
+| UIC/AP command registers and response bit | `include/linux/mfd/max77705-private.h:172-190`, `:192-226`; `include/linux/usb/typec/maxim/max77705.h:101-110`, `:508-517` |
+| broad alternate-mode, AFC/QC, and CCIC-notifier linked surfaces | `drivers/usb/typec/maxim/max77705_alternate.c`, `drivers/usb/typec/maxim/max77705-muic-afc.c`, `drivers/usb/typec/maxim/max77705-muic-ccic.c`, all hash-pinned above |
 | MUIC object inclusion in `pdic_max77705.ko` | `drivers/usb/typec/maxim/Makefile:5-10` |
 | target g0q Max77705 node and `support-audio` property | `arch/arm64/boot/dts/samsung/rainbow/g0q/g0q_kor_singlex_w00_r12.dts:11624-11634` |
 | platform `driver_override` precedence over OF matching | `drivers/base/platform.c:1150-1161` |
@@ -270,7 +263,7 @@ readback.
 | retained-evidence fact | the combined retained log contains two XBL MUIC-init blocks that touch opcodes `0x06` and `0x05`, one explicitly followed by Odin `SetPath: 1`, while one stock Linux boot read `6E.00` and skipped update | the XBL write payload, returned `CONTROL1` value, exact provenance of the second bootloader block beyond its non-Odin context, or value inherited at Linux probe |
 | hazard fact | every PASS5 MFD probe invokes the updater; valid PC-VBUS first-pass state exits before firmware writes, but updateward read-failure defaults and guard-free retries prevent structural nonreachability; PDIC probe performs broad control-plane initialization | that the firmware-write branch would occur in a successor, or that stock-equivalent invocation is disallowed |
 | causal inference | an open/non-USB `CONTROL1` state is compatible with controller-side success plus complete host silence | that it caused P3.15 |
-| successor feasibility | fixed-Image stock-67 and target-isolated custom-66 experiments both have source-supported shapes; the custom source surface is machine-registered | stock/custom selection, custom implementation and linked proof, qualification, independent review, D0 inventory, or live authority |
+| successor feasibility | fixed-Image stock-67 remains source-supported; the full-PDIC custom-66 shape is rejected as disproportionate; direct-polling custom-65 is source-supported and machine-registered | diagnostic implementation and linked proof, qualification, independent review, D0 inventory, or live authority |
 
 ## Exact P3.15 gap and provisional module arithmetic
 
@@ -312,11 +305,10 @@ if it is not inert, removing it would add a second causal variable. Therefore:
 ```
 
 This is provisional capacity and order arithmetic, not a qualified 67-module
-plan. The stock path uses all six stock additions. The custom path uses the
-three stock GENI/GPI/I2C substrate additions and two custom modules, for 66
-total, loaded from unique boot-ramdisk paths while the stock MFD/PDIC copies
-remain present but unopened. It omits `spu_verify.ko` because the custom PDIC
-removes its only update-path import.
+plan. The stock path uses all six stock additions. The selected diagnostic
+path instead uses the three stock GENI/GPI/I2C substrate additions and one
+custom direct-I2C module, for 65 total. It opens no stock MFD, PDIC, or
+`spu_verify.ko`; those vendor files remain present but unused.
 
 The exact dependency facts are:
 
@@ -327,9 +319,9 @@ The exact dependency facts are:
 - stock `pdic_max77705.ko` requires the MFD, `spu_verify.ko`, DWC3/USB helpers,
   and notifier consumers already present; and
 - `spu_verify.ko` has no listed hard dependency and its module init only logs
-  and returns zero. It is still required by the compiled PDIC symbol
-  reference even though the stock successor must never request a firmware
-  update. The custom PDIC contract removes that reference.
+  and returns zero. It remains required by stock PDIC's linked updater
+  reference but is irrelevant to the direct diagnostic because neither MFD
+  nor PDIC enters that closure.
 
 ### Base/order authorities are distinct
 
@@ -619,12 +611,12 @@ not an infinite loop; it can nevertheless reset the IC repeatedly and reach
 firmware records without re-establishing the first-pass power predicates.
 
 The named updateward read-failure-defaulting class and this retry geometry are
-complementary reasons to prefer a custom MFD for a narrow discriminator. The
-first makes failed I/O lean toward the active branch; the second means a retry
-does not re-establish the initial power guards. The mere existence of a stock
-updater call is not the reason. Whether stock-equivalent risk is admissible
-remains an explicit independent review decision rather than a conclusion
-smuggled into this H0 report.
+complementary reasons not to import the stock/full MFD/PDIC stack into a narrow
+discriminator. The first makes failed I/O lean toward the active branch; the
+second means a retry does not re-establish the initial power guards. The mere
+existence of a stock updater call is not the reason. Whether stock-equivalent
+risk is admissible remains an explicit independent review decision rather
+than a conclusion smuggled into this H0 report.
 
 The status boundary is also closed in the wrong direction:
 `max77705_usbc_fw_setting()` is `void`, discards the integer return from
@@ -632,11 +624,11 @@ The status boundary is also closed in the wrong direction:
 creation. Thus neither the lost first-read error nor a later updater failure
 can be propagated through the parent probe call site.
 
-### Bounded custom-MFD option
+### Rejected bounded custom-MFD intermediate
 
-The minimum custom correction is to prevent the parent probe's boot-time call
-from entering `max77705_usbc_fw_update()`. This is a preferred risk reduction,
-not proof that an unchanged stock path violates a permanent boundary.
+An earlier intermediate proposed preventing the parent probe's boot-time call
+from entering `max77705_usbc_fw_update()`. That reduces updater risk but does
+not reduce the rest of the MFD/PDIC control plane and is no longer selected.
 
 The correction must be exact and auditable:
 
@@ -657,7 +649,12 @@ The correction must be exact and auditable:
 
 Skipping this call does not make the MFD passive.
 
-### Full-stock linked surface and preferred custom-66 contract
+### Full-stock linked surface and rejected full-PDIC custom-66 contract
+
+This subsection preserves the source audit that rejected the former design.
+Its removal claims are valid facts about what a custom MFD/PDIC pair could
+omit; they are not current implementation requirements. The selected design
+below bypasses both modules entirely.
 
 The updater ABI can now be removed rather than retained as a stub. A bounded
 host audit scanned every unique stock module payload name in the two normal
@@ -688,10 +685,10 @@ max77705_usbc_fw_setting
 max77705_usbc_fw_update
 ```
 
-The preferred custom pair may therefore remove all three exports, the
+The former custom pair could therefore remove all three exports, the
 53,055-byte linked firmware payload, the parent firmware response workqueue,
 and the PDIC imports together. `spu_verify.ko` is required only by the stock
-PDIC update path, so it also leaves the preferred closure:
+PDIC update path, so it also leaves the former closure:
 
 ```text
 P3.15 base 61
@@ -700,13 +697,13 @@ P3.15 base 61
   + i2c-msm-geni.ko
   + custom mfd_max77705.ko
   + custom pdic_max77705.ko
-  = preferred custom 66
+  = rejected full-PDIC custom 66
 ```
 
 This does not alter the stock comparison: stock MFD/PDIC still needs
 `spu_verify.ko` and remains the separately adjudicated 67-module shape.
 
-The exact preferred custom MFD source contract is:
+The rejected custom MFD source contract was:
 
 - remove every firmware header/payload, update/reset/response helper, probe
   updater call, and exported updater symbol;
@@ -735,7 +732,7 @@ Those five surfaces were not exhaustive. The stock linked PDIC also creates a
 separate Max77705 MUIC attribute group on `switch_device` with seven writable
 attributes: `uart_sel`, `usb_sel`, `uart_en`, `otg_test`, `apo_factory`,
 `afc_disable`, and `hiccup` (`max77705-muic.c:1054-1098,2552-2555`). The
-preferred custom contract removes that entire group. The similarly named
+former custom contract removed that entire group. The similarly named
 common-MUIC sysfs helper is not a second active group for this path:
 `muic_sysfs_init()` has no C call site outside its own definition and the
 stock linked PDIC imports neither `muic_sysfs_init` nor
@@ -775,7 +772,7 @@ defines neither `ops_usb` nor `restart_usb_host_mode`; its zero-allocated
 `usb_set_vbus_current(..., USB_CURRENT_CLEAR)` call has no effective callback
 endpoint in this fixed closure, rather than being an untracked VBUS writer.
 
-The preferred custom PDIC contract therefore removes the five original
+The rejected custom PDIC contract would remove the five original
 firmware/debug/misc surfaces, the Max77705 MUIC attribute group, the Type-C
 role-mutation operations, the external `sec_pd` mutation function pointers,
 and unused IF-callback operations. It presents only read-only
@@ -786,28 +783,55 @@ observer remain in scope. Keeping `pdic_core_register_chip()` is intentional
 because the manager's alternate-mode callback still uses the registered chip
 object.
 
-The machine-readable source contract and its 491-module baseline audit are in
-`s22plus_fyg8_max77705_custom_surface_contract.py`. Its current private receipt
-is `custom-surface-authority-20260811-03.json`; both helper and receipt hashes are
-listed above. The contract state is `REGISTERED_NOT_SATISFIED`: no custom
-source, object, module, dependency closure, CFI/modversion proof, or boot
-package has yet been produced. A future builder must call the source
-validator before compilation, and a distinct linked-artifact validator must
-prove the forbidden symbols, imports, payload geometry, misc devices, and
-writable sysfs registrations are absent before packaging.
+The v1 custom-66 receipt remains historical rejection evidence. Completing
+its conditional initial-detect and runtime write matrix would be required only
+to revive that broader design. It is not a gate for the selected diagnostic.
 
-This continuation does not claim a complete retained-write inventory. The
-machine state is deliberately
-`SOURCE_DERIVED_PARTIAL_NOT_COMPLETE`. It has source-bound these probe-time
-families: parent/per-group interrupt masks, MUIC/CC/PD masks, automatic-VBUS
-disable, target `support-audio` CCCTRL1, no-auto-IBUS, sink capability,
-initial MUIC detection/COM selection, and the probe-end CC-open clear. The
-remaining H0 work is the conditional initial-detect branch matrix, the
-runtime IRQ/notifier/protocol write matrix, and exact tagged-observer coverage
-for every retained write. Until those three are closed, the contract cannot
-be used to describe the custom pair as read-only or to package it.
+### Selected direct-polling custom-65 contract
 
-### Remaining MFD effects
+The exact MFD source demonstrates that the `max77705@66` OF client normally
+matches an I2C driver with `compatible="maxim,max77705"` and creates a dummy
+USBC/MUIC client at `(0x4a >> 1) = 0x25`. The I2C core matches OF clients
+before ID-table fallback and exports `devm_i2c_new_dummy_device()`. With stock
+MFD and PDIC absent, one custom module can own that client directly and create
+only the `0x25` dummy.
+
+The pinned command ABI is complete enough for a bounded polling transaction:
+
+```text
+UIC_INT              0x02
+APCmdResI            BIT(7)
+AP_DATAOUT0..END     0x21..0x41
+AP_DATAIN0           0x51
+CONTROL1_R/W         0x05 / 0x06
+full COM_USB byte    0x09
+```
+
+The selected source contract permits exactly this sequence:
+
+1. validate PMIC identity on the parent client;
+2. clear/read the otherwise-unowned UIC latch;
+3. issue one `CONTROL1_R`, poll `APCmdResI` under a compile-time bound, and
+   require a matching `0x05` response plus one value byte;
+4. if and only if pre is not `0x09`, issue one `CONTROL1_W(0x09)`, require a
+   matching `0x06` response, and never retry an ambiguous write;
+5. issue one post `CONTROL1_R` under the same validation; and
+6. publish only cached fields through one read-only 0444 result parameter.
+
+It requests no IRQ, creates no workqueue or MFD child, registers no Type-C,
+MUIC, IF-manager, notifier, power-supply, misc, debug, proc, or writable sysfs
+surface, and contains no firmware, reset, BC/DCD, CC/PD, VBUS, sink-capability,
+audio, alternate-mode/VDM/Dex, AFC, or QC path. Reading the UIC latch is safe
+from Linux-consumer theft only under the enforced condition that no other
+Max77705 driver is bound or loaded.
+
+The v2 helper registers and tests this source shape. Its receipt is
+`custom-surface-authority-20260811-04.json`. Status remains
+`REGISTERED_NOT_SATISFIED`: the actual source, linked module, import/relocation
+closure, fixed-Image modversion/CFI proof, boot staging, runtime binding,
+timeouts, carrier, and independent review do not yet exist.
+
+### Broad MFD effects retained only by the stock comparison
 
 `max77705_irq_init()`:
 
@@ -821,11 +845,10 @@ be used to describe the custom pair as read-only or to package it.
 
 The exact config compiles three MFD cells here: USBC, fuel gauge, and charger.
 Their three drivers are module-only (`=m`); no Max77705 regulator, vibrator,
-RGB, or flash cell is compiled by the pinned target fragment. Neither the
-stock-67 nor custom-66 design loads the charger or fuel-gauge driver, so no
-built-in child driver is expected to bind those two cells. Runtime must still
-prove the two remain unbound and that no alias/autoload path supplied their
-modules.
+RGB, or flash cell is compiled by the pinned target fragment. The stock-67
+comparison loads the parent but not the charger or fuel-gauge driver, so it
+must prove those children remain unbound. The selected custom-65 diagnostic
+creates no MFD cells at all.
 This child-cell result does not make the parent updater passive: it directly
 uses the parent's dummy charger and fuel-gauge I2C clients without those child
 drivers.
@@ -1003,27 +1026,28 @@ load and target-bind GPI, but the result contract must record the selected I2C
 mode. It must not claim that a successful Max77705 transfer proves a GPI data
 path unless the hardware-selected mode was GSI.
 
-## Tagged CONTROL1 pre/post observer
+## Direct-polling CONTROL1 pre/post observer
 
 ### Why ordinary logs and cached state are insufficient
 
 The normal MUIC path writes `CONTROL1` but does not read it before or after the
 write. `write_vps_regs()` derives its previous switch from software state and
 assumes `COM_OPEN` when there is no prior software cable. It is not hardware
-readback.
+readback. This is why the selected diagnostic performs its own validated
+pre/post command pair rather than retaining normal MUIC detection.
 
 The generic response handler reads `CONTROL1_R` data but discards ordinary
 values unless the command is an update-sequence operation. A log line saying
 that `COM_USB` was selected proves only source-path reach. A successful queue
 call proves only that the request was enqueued.
 
-### Queue ordering that makes the observation possible
+### Rejected queue-based observer
 
 The PDIC probe initializes its workqueues and IRQ handlers before
 `max77705_muic_probe()`. The parent USBC interrupt source remains masked until
 the end of child probe.
 
-A bounded custom PDIC can therefore:
+The former full-PDIC custom-66 design proposed:
 
 1. queue a tagged `CONTROL1_R` immediately after child IRQ setup and before
    `max77705_muic_probe()`;
@@ -1051,7 +1075,7 @@ response remains queued for interrupt service. Subsequent commands append
 behind the pending response. This produces a hardware pre-value immediately
 before the queued COM_USB transition rather than relying on bootloader logs.
 
-### Tag propagation requirements
+### Why queue tag propagation was rejected
 
 Adding a field to `usbc_cmd_data` is not sufficient. The read helper creates
 separate command and response queue entries and copies only selected fields.
@@ -1067,49 +1091,50 @@ caller read_op
   -> max77705_response_opcode()
 ```
 
-Only the two observer reads may carry nonzero tags. Ordinary commands and
-responses must remain tag zero. Missing, duplicate, reordered, overwritten,
-or unexpected tagged responses fail closed.
+That scheme requires tag propagation across every queue copy and coexists with
+all ordinary PDIC commands. The direct diagnostic removes the queue entirely:
+it owns the only Linux USBC/MUIC client, writes one command at a time, polls
+the response bit, validates the returned opcode, and proceeds only after the
+current command is terminal.
 
 The preferred userspace boundary is one read-only cached-result interface,
 for example a custom 0444 module-parameter getter. The getter must return only
-cached state and must never initiate I2C. IRQ/workqueue updates and the getter
-must use an explicit synchronization rule. Raw kmsg text alone is not a
-sufficient retained authority because an observer parser defect would again
-destroy the only evidence.
+the terminal cached state and must never initiate I2C. Probe publication and
+the getter must use an explicit synchronization rule. Raw kmsg text alone is
+not a sufficient retained authority because an observer parser defect would
+again destroy the only evidence.
 
 The exact carrier representation is a later detailed-design obligation. It
 must preserve at least:
 
-- pre command queued / response received;
-- initial detect entered/completed and its bounded cable classification;
-- COM_USB branch and command queued;
-- post command queued / response received;
-- pre and post one-byte values;
-- first failure stage and bounded error bucket;
-- duplicate/order/foreign-response contradiction flags;
-- MFD, PDIC, target I2C, and target platform bind witnesses; and
+- parent identity and exact parent/MUIC bind witnesses;
+- pre command issued, response-bit poll count, returned opcode, and byte;
+- whether the optional write was attempted, its single-call return bucket,
+  response-bit poll count, and returned opcode;
+- post command issued, response-bit poll count, returned opcode, and byte;
+- first failure stage, timeout, response mismatch, and ambiguous-write flags;
+- proof that no stock MFD/PDIC/SPU module was opened or loaded; and
 - host-side attach/enumeration correlation.
 
 ### Result matrix
 
 | Device result | Host sidecar | Permitted interpretation |
 |---|---|---|
-| pre `0x3f`, post `0x09` | exact enumeration | strong causal support that Linux's MUX transition enabled the path |
+| pre `0x3f`, post `0x09` | exact enumeration | strong causal support that the one bounded MUX transition enabled the path |
 | pre `0x3f`, post `0x09` | silent | the switch transition occurred but was insufficient; continue only from another bounded hypothesis |
-| pre `0x09`, post `0x09` | exact attach or enumeration | the MUX was already USB; any improvement came from another newly loaded control-plane effect, so MUX causality is refuted and the witnessed notifier/session delta becomes the next boundary |
+| pre `0x09`, post `0x09` | exact attach or enumeration | the MUX was already USB; the diagnostic performed no MUX write, so attach is not attributed to a MUX transition |
 | pre `0x09`, post `0x09` | silent | missing Linux MUX initialization is strongly refuted for that run |
 | pre other, post `0x09` | silent or attach | inherited state classified; Linux transition succeeded, but causality follows host result |
-| exact pre, completed initial detect, no `COM_USB` branch | silent or attach | valid classification/control-plane result; retain the bounded attached-device/status class and do not require a post tag |
-| any pre, post non-`0x09` | silent | Max77705 command/response/control-path failure boundary |
-| any pre, post non-`0x09` | exact attach or enumeration | device/host attribution contradiction; preserve both facts but make no MUX-causal claim |
-| missing, duplicate, wrong-order, malformed, or foreign tag | any | `NO_PROOF_OBSERVER`; no MUX conclusion |
+| exact pre, write skipped, post differs from pre | any | source/runtime attribution contradiction; no MUX conclusion |
+| any pre, attempted write, post non-`0x09` | silent | Max77705 command/response/control-path failure boundary |
+| any pre, attempted write, post non-`0x09` | exact attach or enumeration | device/host attribution contradiction; preserve both facts but make no MUX-causal claim |
+| missing, duplicate, wrong-order, malformed, timeout, response-opcode mismatch, or unclassified write return | any | `NO_PROOF_OBSERVER`; no MUX conclusion |
 | exact attach without completed device evidence | attach | preserve host fact, but do not invent the missing device-side transition |
 
-The no-`COM_USB` row is valid only when the initial-detect entry, terminal
-classification, and queue state are all complete. Once a `COM_USB` branch is
-recorded, a missing post command or response remains `NO_PROOF_OBSERVER`; the
-valid absence branch must not become a generic escape from tag loss.
+The `pre=0x09` rows are explicit because they are the highest-value refutation
+of the MUX hypothesis and must not fall through an else branch. Once a write
+is attempted, a missing post command or response remains `NO_PROOF_OBSERVER`;
+an ambiguous write is never retried.
 
 No negative row proves an analog PHY, cable, connector, or host fault.
 
@@ -1188,7 +1213,7 @@ CONFIG_CFI_CLANG=y
 CONFIG_MODVERSIONS=y
 ```
 
-The two custom modules, if selected, must therefore be built twice from the
+The one custom diagnostic module must therefore be built twice from the
 exact FYG8 source/config/toolchain closure and prove:
 
 - byte-identical A/B module output;
@@ -1198,8 +1223,8 @@ exact FYG8 source/config/toolchain closure and prove:
 - no unexpected undefined symbol or dependency drift;
 - linked source and final `.ko` hashes;
 - correct `modinfo` dependency list;
-- exact generic-ramdisk staging under two unique selected filenames;
-- direct loader selection of those two files before either stock module is
+- exact generic-ramdisk staging under one unique selected filename;
+- direct loader selection of that file while neither stock MFD nor PDIC is
   opened; and
 - absence of any attempted load, alias autoload, or fallback to the stock
   vendor-ramdisk MFD/PDIC files.
@@ -1243,16 +1268,14 @@ a loadability qualification.
 
 Boot is the only permitted partition payload. The stock modules physically
 remain under stock `vendor_boot` `/lib/modules`, so “replace the stock files”
-is not a valid boot-only construction. The custom artifacts must instead be
-added to the generic boot ramdisk under collision-free paths such as
-`/lib/modules/p3xx_mfd_max77705.ko` and
-`/lib/modules/p3xx_pdic_max77705.ko`. Their ELF module names and exported ABI
-may remain source-correct even though the carrier filenames are unique.
+is not a valid boot-only construction. The custom diagnostic must instead be
+added to the generic boot ramdisk under a collision-free path such as
+`/lib/modules/s22plus_max77705_mux_diag.ko`.
 
 The P3.15 runtime currently constructs `/lib/modules/` plus the plan filename.
-A successor must bind that loader input to the two generic paths, prove the
-effective-rootfs composition contains each selected custom byte exactly once,
-and prove the stock vendor paths are never opened. The inherited
+A successor must bind that loader input to the diagnostic path, prove the
+effective-rootfs composition contains its bytes exactly once, and prove the
+stock vendor MFD/PDIC/SPU paths are never opened. The inherited
 `no_duplicate_override_or_alias` rule remains valid at the filesystem-path
 level; it cannot be satisfied by placing same-path replacements into the
 generic ramdisk and hoping archive order wins.
@@ -1269,25 +1292,22 @@ existing P3.15 substrate and notifier consumers
   -> gpi.ko
   -> i2c-msm-geni.ko
   -> prove only target wrapper/GPI/I2C bound and target adapter exists
-  -> stock branch only: spu_verify.ko
-  -> selected stock or custom mfd_max77705 module path
-  -> prove one max77705@66 parent and no unintended child-driver binds
-  -> selected stock or custom pdic_max77705 module path
-  -> wait for exact tagged observer terminal state
+  -> prove one unbound max77705@66 parent and no competing Max77705 driver
+  -> load s22plus_max77705_mux_diag.ko
+  -> prove only the parent and one 0x25 dummy client are owned
+  -> wait for the exact polling-diagnostic terminal state
   -> correlate with the already bounded host USB sidecar
 ```
 
-The stock module order is now fixed as the inherited 61 entries followed by
-the six dependency-ordered additions. The preferred custom branch has five
-additions and no `spu_verify.ko`; its exact linked dependency order remains a
-future build proof. The exact runtime phase placement of override
-writes, bind checks, and observer setup remains a detailed design item. It
-must preserve `ucsi_glink.ko`, preserve the existing USB
-notifier consumers before PDIC initial detection, and be checked against stage
-capacity and every position/bind gate. P3.04's stale-position-table incident
-must be reproduced as a qualification regression. Removing UCSI requires a
-separate causal justification; inertness is a reason to keep the A/B baseline,
-not to subtract it.
+The stock module order remains the inherited 61 entries followed by six
+dependency-ordered additions. The selected diagnostic branch has four
+additions and no `spu_verify.ko`, MFD, or PDIC; its exact linked dependency
+order remains a future build proof. Runtime phase placement of overrides,
+bind checks, the pre-write direct fence, command execution, and result capture
+remains a detailed design item. It must preserve `ucsi_glink.ko` as an A/B
+baseline and be checked against stage capacity and every position/bind gate.
+P3.04's stale-position-table incident must be reproduced as a qualification
+regression.
 
 ## Remaining H0 gates
 
@@ -1301,91 +1321,67 @@ remaining applicable gate must close before a live candidate is prepared:
      selected stock module byte, and the dependency-safe stock 67-entry native
      order are bound by private receipts;
    - the complete 491-name stock-module union proves that only stock PDIC
-     consumes the removable MFD updater exports; the preferred custom-66
-     source contract is registered but not satisfied;
+     consumes the removable MFD updater exports; the full-PDIC custom-66 shape
+     is rejected and the direct custom-65 source shape is registered but not
+     satisfied;
    - vendor_boot first-stage, recovery, and vendor_dlkm second-stage orders are
      kept distinct; and
    - the general per-operation peak-space-plus-margin and short-write/hash
      fail-closed rule remains active for later build and package work.
 
-1. **Custom MFD patch contract**
-   - exact removal of the firmware header, payload, updater ABI, response
-     workqueue, reset/retry helpers, and probe-time updater call;
-   - side-effect-free literal `6e 40 15` bin-version metadata only;
-   - complete retained/changed IRQ-mask behavior;
-   - machine-readable forbidden-call proof for every parent, sysfs, worker,
-     misc-callback, and exported update path.
+1. **Diagnostic source and effect contract**
+   - implement the exact direct I2C parent match and only one managed dummy
+     client at `0x25`;
+   - make `validate_diag_source_text()` a real precompile packaging gate;
+   - prove by source and disassembly exactly two read commands and at most one
+     conditional, non-retried `CONTROL1_W(0x09)`;
+   - bind PMIC identity, UIC/AP register constants, bounded poll count,
+     response-opcode checks, first-failure stage, and cached 0444 result;
+   - reject every firmware/reset, IRQ/mask, MFD-child, MUIC/CC/PD, VBUS,
+     alternate/AFC/QC, notifier/power, workqueue, exported ABI, and writable
+     user-control surface.
 
-2. **Custom PDIC observer contract**
-   - exact pre/post queue points;
-   - tag propagation through both queue nodes and every copy site;
-   - first-only COM_USB selection;
-   - absence of every firmware-update worker/import/callback, `pdic_misc_init`,
-     the parent-local `fw_update` group, and the linked Max77705 debug object;
-   - absence of the Max77705 MUIC writable attribute group and all three
-     Type-C role-mutation operations while preserving natural-attach status
-     reporting;
-   - preserve only the source-proven state/wakeup-only
-     `usbpd_set_host_on` IF callback; retain `register_usbpd`, retain
-     `register_muic` with null MUIC ops, and explicitly null the unused SBU,
-     CC-control, and enter-mode callbacks;
-   - `PDIC_SYSFS_PROP_CHIP_NAME` as the only visible common property;
-   - cached read-only export and synchronization;
-   - bounded timeout and registered failure details.
-
-3. **Complete write inventory**
-   - MFD dummy clients, per-group masks, INTSRC mask, IRQ setup, and MFD cells;
-   - MUIC/CC/PD masks and opcode writes;
-   - auto-VBUS disable, audio enable, no-auto-IBUS, sink capability, and
-     initial-detect writes;
-   - conditional initial-detect branch and runtime IRQ/notifier/protocol
-     matrices, not merely the straight-line probe list;
-   - exact tagged-observer coverage for every retained write; and
-   - explicit keep/remove decision for every nonessential write. The current
-     machine state remains `SOURCE_DERIVED_PARTIAL_NOT_COMPLETE` until all
-     unresolved families close.
-
-4. **Exact module artifacts**
+2. **Exact module artifact**
    - reuse the three exact stock substrate modules from the pinned vendor
      ramdisk and recheck their already confirmed identities;
-   - for a stock selection, also retain exact `spu_verify.ko` plus stock
-     MFD/PDIC; for a custom selection, exclude `spu_verify.ko` and both stock
-     Max77705 files from the opened-file set;
-   - reproducibly build and qualify the two custom modules;
-   - stage custom modules in the generic boot ramdisk under unique selected
-     paths while proving the stock vendor copies are never opened;
+   - reproducibly build and qualify the one diagnostic module twice;
+   - stage it in the generic boot ramdisk under one unique selected path while
+     proving stock MFD, PDIC, and SPU copies are never opened;
+   - prove linked imports/relocations/strings, module name, vermagic,
+     modversions, CFI types, and exact A/B byte identity;
    - recompute dependency, stage, and package closure.
 
-5. **Runtime and telemetry**
+3. **Runtime and telemetry**
    - target-only override machinery and readback;
-   - module load and bind witnesses;
+   - exact target adapter, parent, diagnostic, and sole `0x25` client witnesses;
+   - no competing Max77705 driver, IRQ owner, or command consumer;
    - selected FIFO/GSI mode;
-   - tagged observer terminal state;
+   - pre-write direct fence, bounded per-command deadlines, response validation,
+     and explicit no-retry handling for an ambiguous write;
+   - cached diagnostic terminal state;
    - same-session exact-target stock/Download positive control before any
      candidate-side host-silence interpretation;
    - host-sidecar correlation;
    - carrier encoder/decoder/generation-position exhaustive tests through the
      real Process-v2 adapter.
 
-6. **Historical and safety regression**
+4. **Historical and safety regression**
    - S7A2 must remain a prior negative recipe result, not disappear from the
      result contract;
    - the 86-module/debug-partition path must be mechanically rejected;
-   - no charger, battery, raw-I2C, forced-host, VBUS, EUD, or UART path may
-     enter the candidate source closure;
-   - the linked 491-module consumer map must continue to prove the intended
-     IF-callback exception: DWC3 consumes the state-only host-on callback,
-     `lvstest` is absent, and fixed DWC3 exposes no effective
-     `usb_set_vbus_current` endpoint;
-   - a custom selection must prove the updater is unreachable from its parent
-     probe and from every later exported/sysfs entry point; and
+   - no charger, battery, forced-host, source-VBUS, EUD, UART, generic raw-I2C
+     interface, or debug path may enter the candidate closure;
+   - the direct diagnostic may use only its compiled exact I2C operations; it
+     must not expose them as a user-controlled raw-I2C surface;
+   - the full-PDIC custom-66 design must remain rejected unless a later unit
+     reopens and completes its much broader write matrix; and
    - a stock selection must instead bind the exact stock updater call,
      first-pass inputs, retry state, and terminal result to its separately
      reviewed risk disposition. It may not borrow the custom nonreachability
      claim.
 
-Gate 1 and the custom portions of Gates 2 and 4 apply only if the custom path
-is selected. A stock-67 selection instead requires a reviewed finding that
+Gates 1 through 4 above describe the selected custom-65 path. A stock-67
+selection instead requires a reviewed finding that
 the stock-equivalent updater/control-plane risk is admissible for this exact
 context; it does not inherit an approval merely because stock Android has run
 the same probe.
@@ -1399,7 +1395,8 @@ override design can be materialized. It must capture only:
   and nine enabled GENI I2C devices;
 - each `driver`, `driver_override`, modalias, and current binding state;
 - the target `994000.i2c` topology and existing Max77705 client path;
-- current loaded state of the six proposed modules; and
+- current loaded state of the three substrate modules and the three excluded
+  stock MFD/PDIC/SPU modules; and
 - exact stock health and USB inventory.
 
 It must not write `driver_override`, bind/unbind a driver, load a module,
@@ -1410,18 +1407,17 @@ pre-existing unexpected bind stops the proposed narrowing design.
 
 One proportional independent review is required because the successor changes
 execution-critical module artifacts, introduces transient platform override
-writes, and activates a new PMIC/PDIC control-plane hazard.
+writes, and introduces one bounded direct-I2C CONTROL1 effect.
 
 The review must cover at least:
 
-- exact custom-module source diffs and linked outputs, if the custom path is
-  selected;
-- custom updater nonreachability, or for a stock selection the exact
-  stock-equivalent updater inputs, retry/outcome evidence, and explicit risk
-  disposition;
+- exact diagnostic source and linked A/B outputs;
+- proof that no stock MFD/PDIC/SPU module is opened and no broad control-plane
+  surface survives in the diagnostic;
 - platform override scope and rollback-by-reboot behavior;
-- complete I2C/IRQ/opcode write inventory;
-- tag and queue-order proof;
+- exact two-read/optional-one-write I2C inventory, polling deadline,
+  response-opcode checks, read-to-clear ownership, and no-retry proof;
+- direct-parent/dummy-client bind and command-order proof;
 - telemetry carrier and Process-v2 adapter round trip;
 - module/stage capacity and position-table regression;
 - 86-module and forbidden-writer rejection; and
@@ -1439,16 +1435,19 @@ The successor is not admissible if any of the following remains true:
   unexpected size, or hash drift;
 - stock MFD is selected without an explicit reviewed disposition of its
   stock-equivalent updater and retry hazard;
-- custom MFD/PDIC is selected and exact A/B or modversion/CFI closure fails;
+- the direct diagnostic source, exact A/B module, or modversion/CFI closure
+  fails its registered contract;
 - any selected stock module cannot be rematerialized from the pinned vendor
   ramdisk with the exact inventory identity;
 - target-only platform narrowing cannot be proven before driver registration;
-- the MFD/PDIC write inventory contains an unbounded power, firmware, storage,
-  panic, EUD, UART, or raw-register effect;
-- tagged read responses cannot be retained without relying solely on raw log
-  parsing;
-- the package cannot distinguish pre, completed initial detect without
-  `COM_USB`, COM_USB, post, and observer failure;
+- the diagnostic gains any unregistered IRQ, child, power, firmware, reset,
+  notifier, protocol, workqueue, writable-control, EUD, UART, or raw-user-I2C
+  effect;
+- the source or linked module permits a second/ambiguous CONTROL1 write retry;
+- validated polling responses cannot be retained without relying solely on raw
+  log parsing;
+- the package cannot distinguish pre `0x09`, pre non-`0x09`, optional write,
+  post, response mismatch, timeout, and observer failure;
 - `ucsi_glink.ko` is removed without a separately proven causal need;
 - the old 86-module closure reappears; or
 - exact rollback, physical recovery, attendance, or final health is not
@@ -1515,11 +1514,17 @@ This report was closed at H0 with the following host-side checks:
 - the Max77705 MUIC writable group, Type-C mutation ops, null common-MUIC ops,
   state-only host callback, and all relevant registration/call sites were
   checked against the pinned source and linked symbols;
-- the revised source validator rejects reintroduction of the MUIC group,
-  Type-C role ops, external `sec_pd` callbacks, unused IF callbacks, and any
-  known hardware/external effect inside the retained host-state callback;
+- the full-stack audit rejects the former custom-66 design because it retains
+  IRQ/MFD-child, MUIC/CC/PD, alternate/AFC/QC, notifier, and user-control
+  surfaces that are unnecessary for the MUX discriminator;
+- the direct diagnostic source validator accepts only the exact parent bind,
+  one `0x25` dummy client, one stale-UIC clear, two CONTROL1 reads, and at most
+  one conditional non-retried CONTROL1 write of full byte `0x09`;
+- the validator proves the post read is unconditional and occurs after the
+  optional-write block, rejects synthesis of post from pre, and rejects any
+  I2C call outside the registered call multiset;
 - `python3 -m unittest
-  tests.test_s22plus_fyg8_max77705_custom_surface_contract` passed 14/14,
+  tests.test_s22plus_fyg8_max77705_custom_surface_contract` passed 17/17,
   including the exact 491-module consumer scan and negative custom-source
   fixtures;
 - `python3 -m unittest tests.test_s22plus_fyg8_vendor_dlkm_order_gate` passed
@@ -1561,19 +1566,18 @@ The evidence now supports these exact statements:
    local firmware; Android's separate 356-line vendor_dlkm second-stage order
    and the dependency-safe 67-entry native order are now recovered and bound.
 8. An exact 491-module union audit proves PDIC is the sole consumer of the
-   three removable MFD updater exports and binds the IF-callback consumers.
-   The preferred custom branch is therefore 66 modules and can omit the
-   firmware payload, update ABI, `spu_verify.ko`, PDIC
-   misc/update/local-debug entry points, the raw Max77705 debug object, the
-   Max77705 MUIC writable group, Type-C role setters, external `sec_pd`
-   callbacks, and unused IF callbacks. It must retain the state-only
-   `usbpd_set_host_on` callback consumed by DWC3.
-9. A fixed-Image successor is technically plausible with target-isolated GENI
-   binding and a tagged MUX observer. The stock-67 and custom-66 variants
-   require separate risk/build dispositions, exhaustive telemetry fixtures,
-   a sidecar positive-control gate, and independent review. The custom
-   contract is registered but no custom module has been built. Its retained
-   write inventory remains explicitly partial, not qualified.
+   three removable MFD updater exports, but the complete linked PDIC source
+   also retains IRQ/MFD-child, MUIC/CC/PD, alternate-mode, AFC/QC, notifier,
+   and user-control effects. The former full-PDIC custom-66 shape is therefore
+   rejected as disproportionate rather than implemented.
+9. The fixed Image can instead support a custom-65 shape: P3.15's 61 modules,
+   three exact GENI/GPI/I2C substrate modules, and one direct-polling
+   diagnostic bound to `max77705@66`. Its registered effect set is two
+   validated reads plus at most one conditional, non-retried write of full
+   `COM_USB=0x09`, with no stock MFD/PDIC/SPU load.
+10. The source match and command protocol are proven, but no diagnostic source
+   or module has been built. Linked/disassembly, binding, timeout, carrier,
+   sidecar-positive-control, packaging, and independent-review gates remain.
 
 Until those H0 and D0 gates close, the correct state is:
 
@@ -1581,6 +1585,7 @@ Until those H0 and D0 gates close, the correct state is:
 MUX_CAUSALITY_UNPROVEN
 BASE_MODULE_BYTES_AND_SECOND_STAGE_ORDER_RECOVERED
 STOCK_67_UNADJUDICATED
-CUSTOM_66_SURFACE_REGISTERED_NOT_SATISFIED
-CUSTOM_66_WRITE_INVENTORY_PARTIAL_NOT_COMPLETE
+FULL_PDIC_CUSTOM_66_REJECTED_AS_DISPROPORTIONATE
+CUSTOM_65_POLLING_DIAGNOSTIC_REGISTERED_NOT_SATISFIED
+CUSTOM_65_EFFECT_SET_BOUNDED_NOT_IMPLEMENTED
 ```
