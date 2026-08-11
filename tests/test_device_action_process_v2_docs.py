@@ -81,9 +81,14 @@ FAST_LOOP_HEALTH_REQUIRED_CLAUSES = (
 
 RESULT_CONTRACT_ARMING_REQUIRED_CLAUSES = (
     "every terminal state of the result contract, including each failure bucket,"
-    " is producible on the host and decodes to its intended classification",
+    " decodes to its intended classification from a synthesized retained"
+    " representation",
     "must exercise the real encoder, the real carrier representation, and the"
     " real host decoder rather than a stand-in for any of them",
+    "The gate binds the encode and decode path, not the device condition behind"
+    " it.",
+    "reproducing the physical condition that would emit it is neither required"
+    " nor sufficient",
     "A capability proof does not satisfy this precondition.",
     "this gate binds the observer",
     "`NO_PROOF_OBSERVER`",

@@ -320,16 +320,23 @@ new approval. The process does not reactivate or reuse an old approval.
 An F1 approval may not bind an observation timeout and acceptance rule whose
 result contract has been demonstrated only on its success path. Before that
 approval is collected, the qualification must show that every terminal state of
-the result contract, including each failure bucket, is producible on the host
-and decodes to its intended classification. The demonstration is host-only and
-must exercise the real encoder, the real carrier representation, and the real
-host decoder rather than a stand-in for any of them.
+the result contract, including each failure bucket, decodes to its intended
+classification from a synthesized retained representation. The demonstration is
+host-only and must exercise the real encoder, the real carrier representation,
+and the real host decoder rather than a stand-in for any of them.
+
+The gate binds the encode and decode path, not the device condition behind it.
+A terminal state qualifies when a synthesized carrier representation decodes to
+exactly that state; reproducing the physical condition that would emit it is
+neither required nor sufficient. A state whose representation cannot be
+synthesized and decoded at all is unreachable in the decoder and is therefore
+not admissible in the result contract. Once an approval exists, removing an
+admitted state is a contract change that requires a new preflight and new
+approval.
 
 A capability proof does not satisfy this precondition. The mechanism under test
 and the observer that must report it are separate objects; this gate binds the
-observer. A terminal state that cannot be produced on the host is not
-admissible in the result contract, and removing one is a contract change that
-requires a new preflight and new approval.
+observer.
 
 The precondition exists because a run whose observer cannot express its own
 failure consumes the candidate, the attendance, and the rollback budget while
