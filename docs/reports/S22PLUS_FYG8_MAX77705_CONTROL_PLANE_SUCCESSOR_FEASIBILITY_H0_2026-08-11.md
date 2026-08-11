@@ -168,6 +168,11 @@ The primary source and artifact inputs were rehashed during this H0 unit.
 | `drivers/usb/typec/maxim/max77705_usbc.c` | `4dabc4b25e99e26c662748934a6a98775073683832f08652e15762f4689a3e3d` |
 | `drivers/usb/typec/maxim/max77705-muic.c` | `bfdb034d7571ca233202221cdc8cdfe68bab3e837afea9c4b5a37378ed7acbab` |
 | `drivers/usb/typec/maxim/max77705_pd.c` | `4818b54be4a4616f44ed3e993cf9e5e55d394b966b0202a1c6616c59cfce47ac` |
+| `drivers/usb/typec/manager/if_cb_manager.c` | `044b2b6aae5e9c9c042f5c9c2d5ecba53d275639057002893306b0106b554f6f` |
+| `drivers/usb/dwc3/dwc3-msm-core.c` | `1c8a3cea43337eebaf0601e01fe3a17e1260f2f768298b16f723534eee433021` |
+| `drivers/muic/common/muic_sysfs.c` | `eaa86d77f2ae0d8e554aa80a68a87afaba797fe63d5c8f7ae2cfff9a7b7d2f80` |
+| `drivers/muic/common/muic-core.c` | `962d841eb2e8097eefc79a0769b844c168f4d21c37f7fc3d0365ae72b224eec1` |
+| `drivers/usb/typec/class.c` | `992f17dc0e69f96b77d477d9e47dd4ad46e205683ade0533fbf54279e885508c` |
 | `drivers/usb/typec/maxim/Makefile` | `8055a9480971e835edccb441ce0554940a1d211be5bc1d1702ebc4587580c91d` |
 | `include/linux/usb/typec/maxim/max77705_usbc.h` | `1cc7e211c50685c3eed3d1b4582869d0a65a559a2114c0087fac2646f4fc883e` |
 | `include/linux/usb/typec/maxim/max77705-muic.h` | `3f7f2b9790940d61ec6bb636f87fd750f7971f1c609c06e6380d11907f701cb1` |
@@ -184,9 +189,9 @@ The primary source and artifact inputs were rehashed during this H0 unit.
 | recovered 67-module order audit | `5c64cbe9dc4f8c6569248b8c8e9affb3d7f721a3854f4aa2c93a238b32c7241a` |
 | exact 441-module vendor-ramdisk inventory | `35f1a7b903fc3582d3d51c4f119b993d154874e632465b2e212e0bf56a37ab7b` |
 | exact 63,974,144-byte expanded vendor-ramdisk CPIO | `a96c362103eeab52fd639fd1bfc06d5f9a30972a18d8086c26d20a86a0309afd` |
-| Max77705 custom-surface authority helper | `c766437bad58ea7d86a60b7a7bacb7e6f75e45124659492df4b70a924feb1ca6` |
-| private 491-module/custom-surface receipt | `4d1459c6010a9a07013592071100452785d62c245c1a9752e9c0183546646164` |
-| registered custom-surface contract | `99527db28d718f424a968eedfacbdda5e83a51c1505b39f8dab6191b5b4b137f` |
+| Max77705 custom-surface authority helper | `8cbece53e4b0d095ad8d1d4d9630849f5b94c2ad9eb84269af9851e28e45c981` |
+| private 491-module/custom-surface receipt | `05118dce14f5e534ca40ebcc8fb0421ac79d61e7d0daa1916c011ca0f4863f39` |
+| registered custom-surface contract | `687c247e6d24eb44040acdec12709dd2a31071396a6fe80d162408b38ac369fe` |
 | retained stock/XBL `baseline_last_kmsg.bin` | `9a58a0c8486723c31f9cf8ac7d8b8be2586969bb8f167cd76907e3b82db0c7cb` |
 | P3.15 USB-sidecar result | `a075c7014e9d0524fd0b7f18fe14a263639ad27ced386a4801e4c9856caf19fa` |
 
@@ -213,7 +218,7 @@ for the hashed source snapshot, not for an unpinned upstream tree.
 | first-stage/recovery order inputs | pinned `modules.load` and `modules.load.recovery`, hash-pinned above |
 | bounded sparse/range extraction and exact second-stage file | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/result.json` and `modules.load`, hash-pinned above |
 | 67-name stage, position, and dependency-order audit | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/order-authority-20260811-01/max77705-67-order-audit.json`, hash-pinned above |
-| all-stock updater-export consumer audit and registered custom-66 surface | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-surface-authority-20260811-01.json`, hash-pinned above |
+| all-stock export-consumer audit and registered custom-66 surface | `workspace/private/outputs/s22plus_fyg8_max77705_gate0/custom-surface-authority-20260811-03.json`, hash-pinned above |
 | PDIC, MFD, SPU, GENI-I2C, GPI, and GENI-SE dependency edges | pinned `modules.dep:91`, `:176`, `:181`, `:235`, `:305`, `:388` |
 | switch bit layout and the values that evaluate to `COM_OPEN=0x3f`, `COM_USB=0x09` | `include/linux/usb/typec/maxim/max77705-muic.h:293-301`, `:359-405` |
 | `CONTROL1` write construction and software-only previous-state assumption | `drivers/usb/typec/maxim/max77705-muic.c:326-349`, `:437-464` |
@@ -726,25 +731,81 @@ listed. They are separate mechanisms, not one sysfs alias:
    `/dev/mxim_dev` and `mxim/debug0` `reg`/`opcode` surfaces perform raw I2C
    register or opcode operations.
 
-The preferred custom PDIC contract removes all five writable surfaces: it
-does not link `max77705_debug.o`, does not call `mxim_debug_init()` or
-`pdic_misc_init()`, removes the local `fw_update` group and all firmware
-workers/callbacks/imports, and presents only the read-only
-`PDIC_SYSFS_PROP_CHIP_NAME` property through `pdic_core_register_chip()`.
-Normal MUIC, CC, PD, notifier, initial-detect, and the separately tagged
-read-only MUX observer remain in scope. Keeping `pdic_core_register_chip()` is
-intentional because the manager's alternate-mode callback still uses the
-registered chip object; reducing its property list to `CHIP_NAME` makes the
-common sysfs group read-only rather than deleting that manager relationship.
+Those five surfaces were not exhaustive. The stock linked PDIC also creates a
+separate Max77705 MUIC attribute group on `switch_device` with seven writable
+attributes: `uart_sel`, `usb_sel`, `uart_en`, `otg_test`, `apo_factory`,
+`afc_disable`, and `hiccup` (`max77705-muic.c:1054-1098,2552-2555`). The
+preferred custom contract removes that entire group. The similarly named
+common-MUIC sysfs helper is not a second active group for this path:
+`muic_sysfs_init()` has no C call site outside its own definition and the
+stock linked PDIC imports neither `muic_sysfs_init` nor
+`muic_sysfs_deinit`.
+
+The Type-C class is another independent mutation surface. Stock PDIC supplies
+`max77705_dr_set`, `max77705_pr_set`, and `max77705_port_type_set` through
+`max77705_ops` (`max77705_usbc.c:421-553,3762-3769`). The custom contract
+keeps `typec_register_port()` and the natural-attach reporting calls
+`typec_set_*`/partner register/unregister, but assigns
+`typec_cap.ops = NULL`. The pinned Type-C class then makes the data-role and
+power-role attributes read-only and hides `port_type`; it does not suppress
+driver-originated attach reporting.
+
+The complete IF-callback consumer audit adds one deliberate exception to the
+removal rule. Across the exact 491-module union:
+
+| IF-callback export | Exact stock consumer | P3.15/custom disposition |
+|---|---|---|
+| `register_usb` | `dwc3-msm.ko` | retained; P3.15 contains DWC3 |
+| `register_muic` | `pdic_max77705.ko` | retained with `muic_d.ops = NULL` |
+| `register_usbpd` | `pdic_max77705.ko` | retained |
+| `usbpd_set_host_on` | `dwc3-msm.ko` | retained |
+| `usbpd_wait_entermode` | `lvstest.ko` | nulled; `lvstest.ko` is absent from P3.15 |
+| `usb_set_vbus_current` | `pdic_max77705.ko` | call may occur, but the fixed linked DWC3 supplies no USB ops callback |
+| `usbpd_sbu_test_read`, `usbpd_cc_control_command`, `muic_check_usb_killer`, `muic_set_bc12` | none | nulled/unavailable |
+
+`usbpd_set_host_on` is not a Type-C role-forcing writer. Its pinned body only
+updates `device_add`, `detach_done_wait`, and `host_turn_on_event`, plus one
+waitqueue wake (`max77705_usbc.c:3621-3639`). DWC3 calls it after host
+start/stop (`dwc3-msm-core.c:6596-6604`), so deleting it would introduce a
+second behavioral change. The custom `usbpd_ops` table must therefore retain
+only that state/wakeup callback and explicitly null the SBU, CC-control, and
+enter-mode fields. The fixed `dwc3-msm.ko` still imports `register_usb` but
+defines neither `ops_usb` nor `restart_usb_host_mode`; its zero-allocated
+`usb_d.ops` remains null. Consequently the PDIC-side
+`usb_set_vbus_current(..., USB_CURRENT_CLEAR)` call has no effective callback
+endpoint in this fixed closure, rather than being an untracked VBUS writer.
+
+The preferred custom PDIC contract therefore removes the five original
+firmware/debug/misc surfaces, the Max77705 MUIC attribute group, the Type-C
+role-mutation operations, the external `sec_pd` mutation function pointers,
+and unused IF-callback operations. It presents only read-only
+`PDIC_SYSFS_PROP_CHIP_NAME` through `pdic_core_register_chip()`, while normal
+MUIC, CC, PD, notifier, initial-detect, natural-attach reporting, the
+state-only `usbpd_set_host_on`, and the separately tagged read-only MUX
+observer remain in scope. Keeping `pdic_core_register_chip()` is intentional
+because the manager's alternate-mode callback still uses the registered chip
+object.
 
 The machine-readable source contract and its 491-module baseline audit are in
-`s22plus_fyg8_max77705_custom_surface_contract.py`. Its private receipt hash is
+`s22plus_fyg8_max77705_custom_surface_contract.py`. Its current private receipt
+is `custom-surface-authority-20260811-03.json`; both helper and receipt hashes are
 listed above. The contract state is `REGISTERED_NOT_SATISFIED`: no custom
 source, object, module, dependency closure, CFI/modversion proof, or boot
 package has yet been produced. A future builder must call the source
 validator before compilation, and a distinct linked-artifact validator must
 prove the forbidden symbols, imports, payload geometry, misc devices, and
 writable sysfs registrations are absent before packaging.
+
+This continuation does not claim a complete retained-write inventory. The
+machine state is deliberately
+`SOURCE_DERIVED_PARTIAL_NOT_COMPLETE`. It has source-bound these probe-time
+families: parent/per-group interrupt masks, MUIC/CC/PD masks, automatic-VBUS
+disable, target `support-audio` CCCTRL1, no-auto-IBUS, sink capability,
+initial MUIC detection/COM selection, and the probe-end CC-open clear. The
+remaining H0 work is the conditional initial-detect branch matrix, the
+runtime IRQ/notifier/protocol write matrix, and exact tagged-observer coverage
+for every retained write. Until those three are closed, the contract cannot
+be used to describe the custom pair as read-only or to package it.
 
 ### Remaining MFD effects
 
@@ -1261,6 +1322,13 @@ remaining applicable gate must close before a live candidate is prepared:
    - first-only COM_USB selection;
    - absence of every firmware-update worker/import/callback, `pdic_misc_init`,
      the parent-local `fw_update` group, and the linked Max77705 debug object;
+   - absence of the Max77705 MUIC writable attribute group and all three
+     Type-C role-mutation operations while preserving natural-attach status
+     reporting;
+   - preserve only the source-proven state/wakeup-only
+     `usbpd_set_host_on` IF callback; retain `register_usbpd`, retain
+     `register_muic` with null MUIC ops, and explicitly null the unused SBU,
+     CC-control, and enter-mode callbacks;
    - `PDIC_SYSFS_PROP_CHIP_NAME` as the only visible common property;
    - cached read-only export and synchronization;
    - bounded timeout and registered failure details.
@@ -1270,7 +1338,12 @@ remaining applicable gate must close before a live candidate is prepared:
    - MUIC/CC/PD masks and opcode writes;
    - auto-VBUS disable, audio enable, no-auto-IBUS, sink capability, and
      initial-detect writes;
-   - explicit keep/remove decision for every nonessential write.
+   - conditional initial-detect branch and runtime IRQ/notifier/protocol
+     matrices, not merely the straight-line probe list;
+   - exact tagged-observer coverage for every retained write; and
+   - explicit keep/remove decision for every nonessential write. The current
+     machine state remains `SOURCE_DERIVED_PARTIAL_NOT_COMPLETE` until all
+     unresolved families close.
 
 4. **Exact module artifacts**
    - reuse the three exact stock substrate modules from the pinned vendor
@@ -1300,6 +1373,10 @@ remaining applicable gate must close before a live candidate is prepared:
    - the 86-module/debug-partition path must be mechanically rejected;
    - no charger, battery, raw-I2C, forced-host, VBUS, EUD, or UART path may
      enter the candidate source closure;
+   - the linked 491-module consumer map must continue to prove the intended
+     IF-callback exception: DWC3 consumes the state-only host-on callback,
+     `lvstest` is absent, and fixed DWC3 exposes no effective
+     `usb_set_vbus_current` endpoint;
    - a custom selection must prove the updater is unreachable from its parent
      probe and from every later exported/sysfs entry point; and
    - a stock selection must instead bind the exact stock updater call,
@@ -1432,6 +1509,19 @@ This report was closed at H0 with the following host-side checks:
   udev stream was confirmed to contain exact-target stock and Download-mode
   transitions before candidate silence; this was not confused with the
   zero-byte ACM observer;
+- the exact 491-module linked-symbol union was also evaluated for every named
+  IF-manager export: P3.15 contains `if_cb_manager` and DWC3, omits
+  `lvstest`, and the fixed linked DWC3 defines no USB callback ops;
+- the Max77705 MUIC writable group, Type-C mutation ops, null common-MUIC ops,
+  state-only host callback, and all relevant registration/call sites were
+  checked against the pinned source and linked symbols;
+- the revised source validator rejects reintroduction of the MUIC group,
+  Type-C role ops, external `sec_pd` callbacks, unused IF callbacks, and any
+  known hardware/external effect inside the retained host-state callback;
+- `python3 -m unittest
+  tests.test_s22plus_fyg8_max77705_custom_surface_contract` passed 14/14,
+  including the exact 491-module consumer scan and negative custom-source
+  fixtures;
 - `python3 -m unittest tests.test_s22plus_fyg8_vendor_dlkm_order_gate` passed
   9/9, including the ZIP/tar/process/sparse-parser seam and multicall basename
   regression;
@@ -1471,15 +1561,19 @@ The evidence now supports these exact statements:
    local firmware; Android's separate 356-line vendor_dlkm second-stage order
    and the dependency-safe 67-entry native order are now recovered and bound.
 8. An exact 491-module union audit proves PDIC is the sole consumer of the
-   three removable MFD updater exports. The preferred custom branch is
-   therefore 66 modules and can omit the firmware payload, update ABI,
-   `spu_verify.ko`, PDIC misc/update/local-debug entry points, and the raw
-   Max77705 debug object.
+   three removable MFD updater exports and binds the IF-callback consumers.
+   The preferred custom branch is therefore 66 modules and can omit the
+   firmware payload, update ABI, `spu_verify.ko`, PDIC
+   misc/update/local-debug entry points, the raw Max77705 debug object, the
+   Max77705 MUIC writable group, Type-C role setters, external `sec_pd`
+   callbacks, and unused IF callbacks. It must retain the state-only
+   `usbpd_set_host_on` callback consumed by DWC3.
 9. A fixed-Image successor is technically plausible with target-isolated GENI
    binding and a tagged MUX observer. The stock-67 and custom-66 variants
    require separate risk/build dispositions, exhaustive telemetry fixtures,
    a sidecar positive-control gate, and independent review. The custom
-   contract is registered but no custom module has been built.
+   contract is registered but no custom module has been built. Its retained
+   write inventory remains explicitly partial, not qualified.
 
 Until those H0 and D0 gates close, the correct state is:
 
@@ -1488,4 +1582,5 @@ MUX_CAUSALITY_UNPROVEN
 BASE_MODULE_BYTES_AND_SECOND_STAGE_ORDER_RECOVERED
 STOCK_67_UNADJUDICATED
 CUSTOM_66_SURFACE_REGISTERED_NOT_SATISFIED
+CUSTOM_66_WRITE_INVENTORY_PARTIAL_NOT_COMPLETE
 ```

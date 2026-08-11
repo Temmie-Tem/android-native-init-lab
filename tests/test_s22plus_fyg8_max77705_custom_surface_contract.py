@@ -33,6 +33,52 @@ def load_module():
         sys.path.remove(str(SCRIPT.parent))
 
 
+def valid_custom_sources():
+    mfd = (
+        "store_ccic_bin_version 0x6e 0x40 0x15 "
+        "max77705_irq_init mfd_add_devices"
+    )
+    pdic = (
+        "enum x { PDIC_SYSFS_PROP_CHIP_NAME }; "
+        "static int max77705_sysfs_properties[] = {"
+        "PDIC_SYSFS_PROP_CHIP_NAME}; "
+        "pdic_core_register_chip max77705_muic_probe max77705_cc_init "
+        "max77705_pd_init usbc_data->typec_cap.ops = NULL; "
+        "typec_register_port "
+        "static void max77705_usbpd_set_host_on(void *data, int mode) { "
+        "struct max77705_usbc_platform_data *usbpd_data = data; "
+        "if (mode) { usbpd_data->device_add = 0; "
+        "usbpd_data->detach_done_wait = 0; "
+        "usbpd_data->host_turn_on_event = 1; "
+        "wake_up_interruptible(&usbpd_data->host_turn_on_wait_q); } "
+        "else { usbpd_data->device_add = 0; "
+        "usbpd_data->detach_done_wait = 0; "
+        "usbpd_data->host_turn_on_event = 0; } } "
+        "struct usbpd_ops ops_usbpd = { "
+        ".usbpd_sbu_test_read = NULL, "
+        ".usbpd_set_host_on = max77705_usbpd_set_host_on, "
+        ".usbpd_cc_control_command = NULL, "
+        ".usbpd_wait_entermode = NULL, }; "
+        "usbpd_d->ops = &ops_usbpd; register_usbpd(usbpd_d) "
+        "pdic_manual_ccopen_request(0);"
+    )
+    muic = (
+        "max77705_muic_probe max77705_muic_init_regs "
+        "max77705_muic_init_detect com_to_usb_ap "
+        "muic_data->muic_d.ops = NULL; "
+        "register_muic(&(muic_data->muic_d))"
+    )
+    pd = (
+        "max77705_pd_init "
+        "max77705_set_fw_noautoibus(MAX77705_AUTOIBUS_AT_OFF); "
+        "fp_sec_pd_select_pdo = NULL; fp_sec_pd_select_pps = NULL; "
+        "fp_sec_pd_vpdo_auth = NULL; "
+        "fp_sec_pd_manual_ccopen_req = NULL; "
+        "fp_sec_pd_change_src = NULL;"
+    )
+    return mfd, pdic, muic, pd, ""
+
+
 class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -47,74 +93,104 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
         )
 
     def test_stock_source_is_rejected_as_custom(self):
+        _mfd, pdic, muic, pd, makefile = valid_custom_sources()
         with self.assertRaisesRegex(self.module.SurfaceError, "custom MFD"):
             self.module.validate_custom_source_texts(
                 "max77705_usbc_fw_update BOOT_FLASH_FW_PASS2",
-                "PDIC_SYSFS_PROP_CHIP_NAME",
-                "",
+                pdic,
+                muic,
+                pd,
+                makefile,
             )
 
     def test_mfd_firmware_header_is_rejected_even_without_symbol_use(self):
+        _mfd, pdic, muic, pd, makefile = valid_custom_sources()
         with self.assertRaisesRegex(self.module.SurfaceError, "custom MFD"):
             self.module.validate_custom_source_texts(
                 "#include <linux/mfd/firmware/example.h> "
                 "store_ccic_bin_version 0x6e 0x40 0x15 "
                 "max77705_irq_init mfd_add_devices",
-                "enum x { PDIC_SYSFS_PROP_CHIP_NAME }; "
-                "static int max77705_sysfs_properties[] = {"
-                "PDIC_SYSFS_PROP_CHIP_NAME}; "
-                "pdic_core_register_chip max77705_muic_probe "
-                "max77705_cc_init max77705_pd_init",
-                "",
+                pdic,
+                muic,
+                pd,
+                makefile,
             )
 
     def test_debug_object_is_rejected(self):
-        mfd = (
-            "store_ccic_bin_version 0x6e 0x40 0x15 "
-            "max77705_irq_init mfd_add_devices"
-        )
-        pdic = (
-            "enum x { PDIC_SYSFS_PROP_CHIP_NAME }; "
-            "static int max77705_sysfs_properties[] = {"
-            "PDIC_SYSFS_PROP_CHIP_NAME}; "
-            "pdic_core_register_chip max77705_muic_probe max77705_cc_init "
-            "max77705_pd_init"
-        )
+        mfd, pdic, muic, pd, _makefile = valid_custom_sources()
         with self.assertRaisesRegex(self.module.SurfaceError, "debug"):
             self.module.validate_custom_source_texts(
-                mfd, pdic, "pdic_max77705-y += max77705_debug.o"
+                mfd,
+                pdic,
+                muic,
+                pd,
+                "pdic_max77705-y += max77705_debug.o",
             )
 
     def test_pdic_firmware_payload_reference_is_rejected(self):
-        mfd = (
-            "store_ccic_bin_version 0x6e 0x40 0x15 "
-            "max77705_irq_init mfd_add_devices"
-        )
-        pdic = (
-            "enum x { PDIC_SYSFS_PROP_CHIP_NAME }; "
-            "static int max77705_sysfs_properties[] = {"
-            "PDIC_SYSFS_PROP_CHIP_NAME}; "
-            "pdic_core_register_chip max77705_muic_probe max77705_cc_init "
-            "max77705_pd_init BOOT_FLASH_FW_PASS2"
-        )
+        mfd, pdic, muic, pd, makefile = valid_custom_sources()
         with self.assertRaisesRegex(self.module.SurfaceError, "custom PDIC"):
-            self.module.validate_custom_source_texts(mfd, pdic, "")
+            self.module.validate_custom_source_texts(
+                mfd, pdic + " BOOT_FLASH_FW_PASS2", muic, pd, makefile
+            )
+
+    def test_muic_attribute_group_is_rejected(self):
+        mfd, pdic, muic, pd, makefile = valid_custom_sources()
+        with self.assertRaisesRegex(self.module.SurfaceError, "custom MUIC"):
+            self.module.validate_custom_source_texts(
+                mfd, pdic, muic + " max77705_muic_group", pd, makefile
+            )
+
+    def test_typec_role_mutation_ops_are_rejected(self):
+        mfd, pdic, muic, pd, makefile = valid_custom_sources()
+        with self.assertRaisesRegex(self.module.SurfaceError, "custom PDIC"):
+            self.module.validate_custom_source_texts(
+                mfd, pdic + " max77705_ops", muic, pd, makefile
+            )
+
+    def test_if_cb_wait_callback_is_rejected(self):
+        mfd, pdic, muic, pd, makefile = valid_custom_sources()
+        with self.assertRaisesRegex(self.module.SurfaceError, "custom PDIC"):
+            self.module.validate_custom_source_texts(
+                mfd,
+                pdic + " static void max77705_usbpd_wait_entermode(",
+                muic,
+                pd,
+                makefile,
+            )
+
+    def test_if_cb_host_callback_cannot_gain_hardware_effect(self):
+        mfd, pdic, muic, pd, makefile = valid_custom_sources()
+        mutated = pdic.replace(
+            "if (mode) {",
+            "max77705_write_reg(client, reg, value); if (mode) {",
+            1,
+        )
+        with self.assertRaisesRegex(self.module.SurfaceError, "gains a hardware"):
+            self.module.validate_custom_source_texts(
+                mfd, mutated, muic, pd, makefile
+            )
+
+    def test_sec_pd_mutation_callback_is_rejected(self):
+        mfd, pdic, muic, pd, makefile = valid_custom_sources()
+        with self.assertRaisesRegex(self.module.SurfaceError, "custom PD"):
+            self.module.validate_custom_source_texts(
+                mfd,
+                pdic,
+                muic,
+                pd.replace(
+                    "fp_sec_pd_manual_ccopen_req = NULL;",
+                    "fp_sec_pd_manual_ccopen_req = pdic_manual_ccopen_request;",
+                ),
+                makefile,
+            )
 
     def test_preferred_custom_shape_is_66_modules(self):
-        mfd = (
-            "store_ccic_bin_version 0x6e 0x40 0x15 "
-            "max77705_irq_init mfd_add_devices"
-        )
-        pdic = (
-            "enum x { PDIC_SYSFS_PROP_CHIP_NAME }; "
-            "static int max77705_sysfs_properties[] = {"
-            "PDIC_SYSFS_PROP_CHIP_NAME}; "
-            "pdic_core_register_chip max77705_muic_probe max77705_cc_init "
-            "max77705_pd_init"
-        )
-        result = self.module.validate_custom_source_texts(mfd, pdic, "")
+        result = self.module.validate_custom_source_texts(*valid_custom_sources())
         self.assertEqual(result["preferred_total_module_count"], 66)
         self.assertTrue(result["spu_verify_removed"])
+        self.assertTrue(result["max77705_muic_attribute_group_removed"])
+        self.assertTrue(result["typec_role_mutation_ops_removed"])
 
     def test_atomic_json_replaces_output(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -163,6 +239,25 @@ class S22PlusFyg8Max77705CustomSurfaceContractTest(unittest.TestCase):
             )
         )
         self.assertEqual(result["custom_contract"]["status"], "REGISTERED_NOT_SATISFIED")
+        self.assertEqual(result["p315_plan"]["module_count"], 61)
+        self.assertEqual(
+            result["stock_surface"]["pdic_control_export_consumers"],
+            self.module.PDIC_CONTROL_EXPORT_CONSUMERS,
+        )
+        self.assertEqual(
+            result["stock_surface"]["if_cb_export_consumers"],
+            self.module.IF_CB_EXPORT_CONSUMERS,
+        )
+        self.assertEqual(
+            result["stock_surface"]["common_muic_sysfs"][
+                "tree_wide_driver_c_definition_only"
+            ],
+            ["drivers/muic/common/muic_sysfs.c"],
+        )
+        self.assertEqual(
+            result["custom_contract"]["write_inventory"]["status"],
+            "SOURCE_DERIVED_PARTIAL_NOT_COMPLETE",
+        )
 
 
 if __name__ == "__main__":

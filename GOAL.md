@@ -126,21 +126,26 @@ audit scanned the exact 441-module vendor ramdisk plus the 50
 consumes `BOOT_FLASH_FW_PASS2`, `max77705_usbc_fw_setting`, and
 `max77705_usbc_fw_update`.
 
-The stock PDIC also exposes firmware sysfs/worker and misc callbacks, the
-separate `/dev/ccic_misc` control plane, a parent-local CONTROL1 `fw_update`
-attribute, and a linked raw `mxim` debug misc/sysfs surface. The preferred
-custom contract removes all of those, retains only read-only CHIP_NAME in the
-common PDIC sysfs group, preserves normal MUIC/CC/PD/notifier initialization,
-and adds tagged pre/post `CONTROL1` readback. Its private receipt is
-`custom-surface-authority-20260811-01.json`, SHA-256
-`4d1459c6010a9a07013592071100452785d62c245c1a9752e9c0183546646164`;
+The stock PDIC also exposes firmware/debug/misc surfaces, a separate seven-
+attribute writable Max77705 MUIC group, Type-C data/power/port-role setters,
+external `sec_pd` function pointers, and IF-manager callbacks. The revised
+custom contract removes or nulls all of those mutation paths except
+`usbpd_set_host_on`: the exact 491-module consumer map proves DWC3 consumes
+that callback, and its pinned body changes only state/wait fields. `lvstest`
+is absent, the enter-mode callback is nulled, MUIC registers with null ops,
+and fixed DWC3 provides no effective `usb_set_vbus_current` endpoint. Natural
+attach reporting, read-only CHIP_NAME, and tagged pre/post CONTROL1 readback
+remain. The current receipt is
+`custom-surface-authority-20260811-03.json`, SHA-256
+`05118dce14f5e534ca40ebcc8fb0421ac79d61e7d0daa1916c011ca0f4863f39`;
 the embedded contract is
-`99527db28d718f424a968eedfacbdda5e83a51c1505b39f8dab6191b5b4b137f`.
-Its status is strictly `REGISTERED_NOT_SATISFIED`: no custom source or module
-has been built or qualified.
+`687c247e6d24eb44040acdec12709dd2a31071396a6fe80d162408b38ac369fe`.
+Its status is strictly `REGISTERED_NOT_SATISFIED`, and its write inventory is
+`SOURCE_DERIVED_PARTIAL_NOT_COMPLETE`: no custom source or module has been
+built or qualified, and runtime IRQ/notifier/protocol writes remain open.
 
-The next H0 work is the complete retained-write inventory and reproducible
-custom source/link/CFI/modversion design, followed by target-only GENI bind
+The next H0 work is the complete retained-write matrix and reproducible custom
+source/link/CFI/modversion design, followed by target-only GENI bind
 proof, exhaustive telemetry fixtures, the host-sidecar positive-control gate,
 and one proportional independent review. The former 4,246,401,024-byte
 workspace-capacity blocker is closed by the exact private S22+ cleanup

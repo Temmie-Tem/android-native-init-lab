@@ -48,9 +48,13 @@ DUMP_F2FS = Path("workspace/private/tools/f2fs-local/usr/sbin/dump.f2fs")
 FIRST_STAGE_INVENTORY = Path("docs/module-map/s22plus-fyg8/inventory.tsv")
 VENDOR_DLKM_INVENTORY = Path("docs/module-map/s22plus-fyg8-super/inventory.tsv")
 VENDOR_DLKM_MANIFEST = Path("docs/module-map/s22plus-fyg8-super/manifest.json")
+P315_PLAN = Path(
+    "workspace/private/outputs/s22plus_fyg8_p315/intent/materialized-sources/"
+    "s22plus_fyg8_p286_e3_plan.h"
+)
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_max77705_gate0/"
-    "custom-surface-authority-20260811-01.json"
+    "custom-surface-authority-20260811-03.json"
 )
 
 VENDOR_RAMDISK_IDENTITY = (
@@ -77,6 +81,11 @@ EXPECTED_FIRST_STAGE_MODULES = 441
 EXPECTED_VENDOR_DLKM_MODULES = 356
 EXPECTED_VENDOR_DLKM_ONLY_MODULES = 50
 EXPECTED_STOCK_UNION_MODULES = 491
+P315_PLAN_IDENTITY = (
+    4_707,
+    "d5ec1423cd47aba29c935512690c4e0b9af3302e4df1b91e50ed1cc816199005",
+)
+EXPECTED_P315_MODULES = 61
 MIN_TEMP_FREE_BYTES = 512 << 20
 
 SOURCE_IDENTITIES = {
@@ -119,6 +128,56 @@ SOURCE_IDENTITIES = {
         Path("drivers/usb/typec/common/pdic_sysfs.c"),
         5_624,
         "18af12002f8e89453feaec33fabc1ce4f024e638152f5110079a03d97127abcf",
+    ),
+    "max77705_muic": (
+        Path("drivers/usb/typec/maxim/max77705-muic.c"),
+        76_141,
+        "bfdb034d7571ca233202221cdc8cdfe68bab3e837afea9c4b5a37378ed7acbab",
+    ),
+    "max77705_cc": (
+        Path("drivers/usb/typec/maxim/max77705_cc.c"),
+        27_233,
+        "45bd6c7c782e3ba80b4140a4ee257ac39e8ad3876a4691b1843b85dc46acccdb",
+    ),
+    "max77705_pd": (
+        Path("drivers/usb/typec/maxim/max77705_pd.c"),
+        62_385,
+        "4818b54be4a4616f44ed3e993cf9e5e55d394b966b0202a1c6616c59cfce47ac",
+    ),
+    "max77705_irq": (
+        Path("drivers/mfd/maxim/max77705-irq.c"),
+        16_518,
+        "5ddbe1dee81c5756fc86c8c47264d77b4049c1ca7063647abbdc5c1cbc5cfabc",
+    ),
+    "waipio_vendor_defconfig": (
+        Path("arch/arm64/configs/vendor/waipio-gki_defconfig"),
+        35_621,
+        "de7373038099658387dea7f2168be3c63268c554c645067e255492cb836276c7",
+    ),
+    "common_muic_sysfs": (
+        Path("drivers/muic/common/muic_sysfs.c"),
+        19_090,
+        "eaa86d77f2ae0d8e554aa80a68a87afaba797fe63d5c8f7ae2cfff9a7b7d2f80",
+    ),
+    "common_muic_core": (
+        Path("drivers/muic/common/muic-core.c"),
+        16_794,
+        "962d841eb2e8097eefc79a0769b844c168f4d21c37f7fc3d0365ae72b224eec1",
+    ),
+    "typec_class": (
+        Path("drivers/usb/typec/class.c"),
+        57_131,
+        "992f17dc0e69f96b77d477d9e47dd4ad46e205683ade0533fbf54279e885508c",
+    ),
+    "if_cb_manager": (
+        Path("drivers/usb/typec/manager/if_cb_manager.c"),
+        5_164,
+        "044b2b6aae5e9c9c042f5c9c2d5ecba53d275639057002893306b0106b554f6f",
+    ),
+    "dwc3_msm": (
+        Path("drivers/usb/dwc3/dwc3-msm-core.c"),
+        204_659,
+        "1c8a3cea43337eebaf0601e01fe3a17e1260f2f768298b16f723534eee433021",
     ),
     "firmware": (
         Path("include/linux/mfd/firmware/max77705C_pass2_specific.h"),
@@ -163,6 +222,74 @@ PDIC_WRITABLE_DEFINED_SYMBOLS = frozenset(
         "mxim_debug_opcode_store",
     }
 )
+PDIC_CONTROL_EXPORT_CONSUMERS = {
+    "blocking_auto_vbus_control": [],
+    "check_usbc_opcode_queue": [],
+    "max77705_usbc_icurr": ["max77705_charger.ko"],
+    "max77705_set_fw_noautoibus": ["max77705_charger.ko"],
+    "max77705_set_fw_ship_mode": ["max77705_charger.ko"],
+    "max77705_get_fw_ship_mode": ["max77705_charger.ko"],
+    "pdic_manual_ccopen_request": [],
+    "mxim_debug_init": [],
+    "mxim_debug_exit": [],
+    "mxim_debug_set_i2c_client": [],
+}
+IF_CB_EXPORT_CONSUMERS = {
+    "register_usb": ["dwc3-msm.ko"],
+    "register_muic": ["pdic_max77705.ko"],
+    "register_usbpd": ["pdic_max77705.ko"],
+    "register_lvs": ["lvstest.ko"],
+    "usb_set_vbus_current": ["pdic_max77705.ko"],
+    "muic_check_usb_killer": [],
+    "muic_set_bc12": [],
+    "usbpd_sbu_test_read": [],
+    "usbpd_set_host_on": ["dwc3-msm.ko"],
+    "usbpd_cc_control_command": [],
+    "usbpd_wait_entermode": ["lvstest.ko"],
+}
+P315_FORBIDDEN_CONTROL_CONSUMERS = frozenset(
+    {
+        "sec_pd.ko",
+        "sec-battery.ko",
+        "max77705_charger.ko",
+        "max77705-fuelgauge.ko",
+    }
+)
+P315_REQUIRED_IF_CB_MODULES = frozenset({"if_cb_manager.ko", "dwc3-msm.ko"})
+P315_ABSENT_IF_CB_CONSUMERS = frozenset({"lvstest.ko"})
+MAX77705_MUIC_WRITABLE_ATTRIBUTES = (
+    "uart_sel",
+    "usb_sel",
+    "uart_en",
+    "otg_test",
+    "apo_factory",
+    "afc_disable",
+    "hiccup",
+)
+MAX77705_MUIC_READ_ONLY_ATTRIBUTES = (
+    "adc",
+    "usb_state",
+    "attached_dev",
+    "vbus_value",
+    "vbus_value_pd",
+)
+MAX77705_TYPEC_MUTATION_CALLBACKS = (
+    "max77705_dr_set",
+    "max77705_pr_set",
+    "max77705_port_type_set",
+)
+HOST_STATE_CALLBACK_FORBIDDEN_EFFECTS = (
+    "max77705_write_reg(",
+    "max77705_update_reg(",
+    "max77705_usbc_opcode",
+    "max77705_switch_path(",
+    "queue_work(",
+    "schedule_work(",
+    "i2c_",
+    "regmap_",
+    "power_supply_",
+    "blocking_notifier_call_chain(",
+)
 
 # A future custom builder must import and call validate_custom_source_texts()
 # before compiling.  A later linked-artifact validator must independently
@@ -196,6 +323,36 @@ CUSTOM_PDIC_FORBIDDEN = (
     "max77705_attr_grp",
     "max77705_fw_update",
     "mxim_debug_",
+    "blocking_auto_vbus_control",
+    "max77705_ops",
+    "max77705_dr_set",
+    "max77705_pr_set",
+    "max77705_port_type_set",
+    "static void max77705_usbpd_wait_entermode(",
+    "EXPORT_SYMBOL(pdic_manual_ccopen_request)",
+)
+CUSTOM_MUIC_FORBIDDEN = (
+    "max77705_muic_group",
+    "max77705_muic_attributes",
+    "max77705_muic_set_uart_sel",
+    "max77705_muic_set_usb_sel",
+    "max77705_muic_set_uart_en",
+    "max77705_muic_set_otg_test",
+    "max77705_muic_set_apo_factory",
+    "max77705_muic_set_afc_disable",
+    "hiccup_store",
+    "sysfs_create_group(&switch_device->kobj",
+)
+CUSTOM_PD_FORBIDDEN = (
+    "max77705_usbc_icurr(",
+    "max77705_set_fw_ship_mode(",
+    "max77705_get_fw_ship_mode(",
+    "EXPORT_SYMBOL(max77705_set_fw_noautoibus)",
+    "fp_sec_pd_select_pdo = max77705_select_pdo",
+    "fp_sec_pd_select_pps = max77705_select_pps",
+    "fp_sec_pd_vpdo_auth = max77705_vpdo_auth",
+    "fp_sec_pd_manual_ccopen_req = pdic_manual_ccopen_request",
+    "fp_sec_pd_change_src = max77705_forced_change_srccap",
 )
 
 
@@ -264,6 +421,56 @@ def parse_inventory(
     if len(set(names)) != len(names):
         raise SurfaceError(f"duplicate inventory filename in {path}")
     return rows
+
+
+def parse_p315_plan(root: Path) -> tuple[list[str], dict[str, Any]]:
+    path = root / P315_PLAN
+    receipt = validate_file(path, *P315_PLAN_IDENTITY, "P3.15 materialized plan")
+    text = path.read_text(encoding="ascii")
+    match = re.search(
+        r"s22plus_o2_module_plan\[\]\s*=\s*\{(.*?)\n\};",
+        text,
+        re.S,
+    )
+    if match is None:
+        raise SurfaceError("P3.15 module-plan array not found")
+    modules = re.findall(
+        r'^\s*\{"([^"]+\.ko)",\s*"[^"]+",\s*"[^"]*"\},\s*$',
+        match.group(1),
+        re.M,
+    )
+    if len(modules) != EXPECTED_P315_MODULES or len(set(modules)) != len(modules):
+        raise SurfaceError(f"P3.15 module-plan geometry mismatch: {len(modules)}")
+    forbidden = sorted(P315_FORBIDDEN_CONTROL_CONSUMERS & set(modules))
+    if forbidden:
+        raise SurfaceError(f"P3.15 unexpectedly contains control consumers: {forbidden}")
+    if set(CUSTOM_PREFERRED_ADDITIONS) & set(modules):
+        raise SurfaceError("P3.15 already contains one or more custom additions")
+    missing_if_cb = sorted(P315_REQUIRED_IF_CB_MODULES - set(modules))
+    unexpected_if_cb = sorted(P315_ABSENT_IF_CB_CONSUMERS & set(modules))
+    if missing_if_cb or unexpected_if_cb:
+        raise SurfaceError(
+            "P3.15 IF-callback closure mismatch: "
+            f"missing={missing_if_cb} unexpected={unexpected_if_cb}"
+        )
+    return modules, {
+        **receipt,
+        "module_count": len(modules),
+        "forbidden_control_consumers_absent": sorted(
+            P315_FORBIDDEN_CONTROL_CONSUMERS
+        ),
+        "required_if_cb_modules_present": sorted(P315_REQUIRED_IF_CB_MODULES),
+        "inactive_if_cb_consumers_absent": sorted(P315_ABSENT_IF_CB_CONSUMERS),
+    }
+
+
+def source_token_locations(root: Path, token: str) -> list[str]:
+    locations: list[str] = []
+    needle = token.encode("ascii")
+    for path in sorted((root / "drivers").rglob("*.c")):
+        if needle in path.read_bytes():
+            locations.append(str(path.relative_to(root)))
+    return locations
 
 
 def run_checked(command: list[str], *, cwd: Path | None = None, stdin: Any = None) -> subprocess.CompletedProcess[bytes]:
@@ -534,7 +741,53 @@ def require_tokens(text: str, tokens: tuple[str, ...], label: str) -> None:
         raise SurfaceError(f"{label} is missing required tokens: {missing}")
 
 
-def validate_custom_source_texts(mfd: str, pdic: str, makefile: str) -> dict[str, Any]:
+def extract_function_block(text: str, signature: str, label: str) -> str:
+    start = text.find(signature)
+    if start < 0:
+        raise SurfaceError(f"{label} signature is missing")
+    brace = text.find("{", start + len(signature))
+    if brace < 0:
+        raise SurfaceError(f"{label} opening brace is missing")
+    depth = 0
+    for index in range(brace, len(text)):
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : index + 1]
+    raise SurfaceError(f"{label} closing brace is missing")
+
+
+def validate_host_state_callback(text: str, label: str) -> None:
+    block = extract_function_block(
+        text,
+        "static void max77705_usbpd_set_host_on(void *data, int mode)",
+        label,
+    )
+    require_tokens(
+        block,
+        (
+            "usbpd_data->device_add = 0;",
+            "usbpd_data->detach_done_wait = 0;",
+            "usbpd_data->host_turn_on_event = 1;",
+            "usbpd_data->host_turn_on_event = 0;",
+            "wake_up_interruptible(&usbpd_data->host_turn_on_wait_q);",
+        ),
+        label,
+    )
+    hits = [token for token in HOST_STATE_CALLBACK_FORBIDDEN_EFFECTS if token in block]
+    if hits:
+        raise SurfaceError(f"{label} gains a hardware/external effect: {hits}")
+
+
+def validate_custom_source_texts(
+    mfd: str,
+    pdic: str,
+    muic: str,
+    pd: str,
+    makefile: str,
+) -> dict[str, Any]:
     """Validate the source-level preferred custom closure.
 
     Linked output still needs its own symbol, relocation, CFI/modversion, and
@@ -546,12 +799,19 @@ def validate_custom_source_texts(mfd: str, pdic: str, makefile: str) -> dict[str
 
     mfd_hits = [token for token in CUSTOM_MFD_FORBIDDEN if token in mfd]
     pdic_hits = [token for token in CUSTOM_PDIC_FORBIDDEN if token in pdic]
+    muic_hits = [token for token in CUSTOM_MUIC_FORBIDDEN if token in muic]
+    pd_hits = [token for token in CUSTOM_PD_FORBIDDEN if token in pd]
     if mfd_hits:
         raise SurfaceError(f"custom MFD retains forbidden update surface: {mfd_hits}")
     if pdic_hits:
         raise SurfaceError(f"custom PDIC retains forbidden writable surface: {pdic_hits}")
+    if muic_hits:
+        raise SurfaceError(f"custom MUIC retains forbidden sysfs surface: {muic_hits}")
+    if pd_hits:
+        raise SurfaceError(f"custom PD retains external mutation surface: {pd_hits}")
     if "max77705_debug.o" in makefile:
         raise SurfaceError("custom PDIC Makefile still links max77705_debug.o")
+    validate_host_state_callback(pdic, "custom PDIC host-state callback")
 
     require_tokens(
         mfd,
@@ -573,8 +833,43 @@ def validate_custom_source_texts(mfd: str, pdic: str, makefile: str) -> dict[str
             "max77705_muic_probe",
             "max77705_cc_init",
             "max77705_pd_init",
+            "usbc_data->typec_cap.ops = NULL;",
+            "typec_register_port",
+            "struct usbpd_ops ops_usbpd",
+            ".usbpd_sbu_test_read = NULL,",
+            ".usbpd_set_host_on = max77705_usbpd_set_host_on,",
+            ".usbpd_cc_control_command = NULL,",
+            ".usbpd_wait_entermode = NULL,",
+            "usbpd_d->ops = &ops_usbpd;",
+            "register_usbpd(usbpd_d)",
+            "pdic_manual_ccopen_request(0);",
         ),
         "custom PDIC",
+    )
+    require_tokens(
+        muic,
+        (
+            "max77705_muic_probe",
+            "max77705_muic_init_regs",
+            "max77705_muic_init_detect",
+            "com_to_usb_ap",
+            "muic_data->muic_d.ops = NULL;",
+            "register_muic(&(muic_data->muic_d))",
+        ),
+        "custom MUIC",
+    )
+    require_tokens(
+        pd,
+        (
+            "max77705_pd_init",
+            "max77705_set_fw_noautoibus(MAX77705_AUTOIBUS_AT_OFF);",
+            "fp_sec_pd_select_pdo = NULL;",
+            "fp_sec_pd_select_pps = NULL;",
+            "fp_sec_pd_vpdo_auth = NULL;",
+            "fp_sec_pd_manual_ccopen_req = NULL;",
+            "fp_sec_pd_change_src = NULL;",
+        ),
+        "custom PD",
     )
     if re.search(r"max77705_sysfs_properties\s*\[\s*\]\s*=\s*\{\s*"
                  r"PDIC_SYSFS_PROP_CHIP_NAME\s*,?\s*\};", pdic, re.S) is None:
@@ -586,6 +881,14 @@ def validate_custom_source_texts(mfd: str, pdic: str, makefile: str) -> dict[str
         "spu_verify_removed": True,
         "debug_object_removed": True,
         "misc_and_sysfs_update_surfaces_removed": True,
+        "max77705_muic_attribute_group_removed": True,
+        "typec_port_retained_read_only": True,
+        "typec_role_mutation_ops_removed": True,
+        "if_cb_usbpd_host_state_coordination_retained": True,
+        "if_cb_unused_usbpd_callbacks_nulled": True,
+        "if_cb_muic_callbacks_remain_null": True,
+        "external_sec_pd_callback_table_nulled": True,
+        "internal_probe_ccopen_clear_retained": True,
     }
 
 
@@ -597,6 +900,7 @@ def canonical_hash(value: Any) -> str:
 def audit(root: Path) -> dict[str, Any]:
     kernel = root / KERNEL_ROOT
     modules = root / MODULE_ROOT
+    p315_modules, p315_plan_receipt = parse_p315_plan(root)
     source_receipts = {
         label: validate_file(kernel / relative, size, digest, label)
         for label, (relative, size, digest) in SOURCE_IDENTITIES.items()
@@ -623,6 +927,15 @@ def audit(root: Path) -> dict[str, Any]:
                 f"mfd={sorted(missing_mfd)} imports={sorted(missing_pdic_imports)} "
                 f"definitions={sorted(missing_pdic_definitions)}"
             )
+        missing_pdic_local_surface = (
+            {"max77705_muic_group", "max77705_ops"}
+            | set(MAX77705_TYPEC_MUTATION_CALLBACKS)
+        ) - pdic_defined
+        if missing_pdic_local_surface:
+            raise SurfaceError(
+                "stock PDIC local control surface mismatch: "
+                f"{sorted(missing_pdic_local_surface)}"
+            )
 
         consumers: dict[str, list[str]] = {}
         for symbol in MFD_EXPORTS_CONSUMED_ONLY_BY_PDIC:
@@ -635,12 +948,84 @@ def audit(root: Path) -> dict[str, Any]:
                 raise SurfaceError(f"unexpected {symbol} consumers: {names}")
             consumers[symbol] = names
 
+        control_export_consumers: dict[str, list[str]] = {}
+        for symbol, expected_consumers in PDIC_CONTROL_EXPORT_CONSUMERS.items():
+            definers = sorted(
+                name
+                for name, (defined, _undefined) in symbol_tables.items()
+                if symbol in defined
+            )
+            names = sorted(
+                name
+                for name, (_defined, undefined) in symbol_tables.items()
+                if symbol in undefined
+            )
+            if definers != ["pdic_max77705.ko"] or names != expected_consumers:
+                raise SurfaceError(
+                    f"unexpected {symbol} surface: "
+                    f"definers={definers} consumers={names}"
+                )
+            control_export_consumers[symbol] = names
+
+        if_cb_export_consumers: dict[str, list[str]] = {}
+        for symbol, expected_consumers in IF_CB_EXPORT_CONSUMERS.items():
+            definers = sorted(
+                name
+                for name, (defined, _undefined) in symbol_tables.items()
+                if symbol in defined
+            )
+            names = sorted(
+                name
+                for name, (_defined, undefined) in symbol_tables.items()
+                if symbol in undefined
+            )
+            if definers != ["if_cb_manager.ko"] or names != expected_consumers:
+                raise SurfaceError(
+                    f"unexpected {symbol} IF-callback surface: "
+                    f"definers={definers} consumers={names}"
+                )
+            if_cb_export_consumers[symbol] = names
+
+        dwc3_defined, _dwc3_undefined = symbol_tables["dwc3-msm.ko"]
+        if {"ops_usb", "restart_usb_host_mode"} & dwc3_defined:
+            raise SurfaceError("fixed DWC3 unexpectedly supplies an IF-callback USB op")
+
     mfd_text = (kernel / SOURCE_IDENTITIES["mfd"][0]).read_text(errors="strict")
     pdic_text = (kernel / SOURCE_IDENTITIES["pdic"][0]).read_text(errors="strict")
     debug_text = (kernel / SOURCE_IDENTITIES["debug"][0]).read_text(errors="strict")
     makefile_text = (kernel / SOURCE_IDENTITIES["pdic_makefile"][0]).read_text(errors="strict")
     header_text = (kernel / SOURCE_IDENTITIES["pdic_header"][0]).read_text(errors="strict")
     misc_text = (kernel / SOURCE_IDENTITIES["pdic_misc"][0]).read_text(errors="strict")
+    muic_text = (kernel / SOURCE_IDENTITIES["max77705_muic"][0]).read_text(
+        errors="strict"
+    )
+    cc_text = (kernel / SOURCE_IDENTITIES["max77705_cc"][0]).read_text(
+        errors="strict"
+    )
+    pd_text = (kernel / SOURCE_IDENTITIES["max77705_pd"][0]).read_text(
+        errors="strict"
+    )
+    irq_text = (kernel / SOURCE_IDENTITIES["max77705_irq"][0]).read_text(
+        errors="strict"
+    )
+    vendor_defconfig_text = (
+        kernel / SOURCE_IDENTITIES["waipio_vendor_defconfig"][0]
+    ).read_text(errors="strict")
+    common_muic_sysfs_text = (
+        kernel / SOURCE_IDENTITIES["common_muic_sysfs"][0]
+    ).read_text(errors="strict")
+    common_muic_core_text = (
+        kernel / SOURCE_IDENTITIES["common_muic_core"][0]
+    ).read_text(errors="strict")
+    typec_class_text = (kernel / SOURCE_IDENTITIES["typec_class"][0]).read_text(
+        errors="strict"
+    )
+    if_cb_manager_text = (
+        kernel / SOURCE_IDENTITIES["if_cb_manager"][0]
+    ).read_text(errors="strict")
+    dwc3_msm_text = (kernel / SOURCE_IDENTITIES["dwc3_msm"][0]).read_text(
+        errors="strict"
+    )
     firmware_text = (kernel / SOURCE_IDENTITIES["firmware"][0]).read_text(
         encoding="utf-8-sig", errors="strict"
     )
@@ -663,9 +1048,125 @@ def audit(root: Path) -> dict[str, Any]:
             "ret = pdic_misc_init(ppdic_data);",
             "sysfs_create_group(&max77705->dev->kobj, &max77705_attr_grp);",
             "mxim_debug_init();",
+            "static const struct typec_operations max77705_ops",
+            "usbc_data->typec_cap.ops = &max77705_ops;",
+            "usbc_data->port = typec_register_port",
+            "static void max77705_usbpd_set_host_on(void *data, int mode)",
+            ".usbpd_set_host_on = max77705_usbpd_set_host_on,",
+            ".usbpd_wait_entermode = max77705_usbpd_wait_entermode,",
+            "usbc_data->man = register_usbpd(usbpd_d);",
+            "pdic_manual_ccopen_request(0);",
         ),
         "stock PDIC source",
     )
+    validate_host_state_callback(pdic_text, "stock PDIC host-state callback")
+    require_tokens(
+        muic_text,
+        (
+            "static const struct attribute_group max77705_muic_group",
+            "sysfs_create_group(&switch_device->kobj, &max77705_muic_group)",
+            "static DEVICE_ATTR(uart_sel, 0664",
+            "static DEVICE_ATTR(usb_sel, 0664",
+            "static DEVICE_ATTR(uart_en, 0660",
+            "static DEVICE_ATTR(otg_test, 0664",
+            "static DEVICE_ATTR(apo_factory, 0664",
+            "static DEVICE_ATTR(afc_disable, 0664",
+            "static DEVICE_ATTR_RW(hiccup)",
+            "max77705_muic_init_detect",
+            "com_to_usb_ap",
+            "muic_data->muic_d.ops = NULL;",
+            "muic_data->man = register_muic(&(muic_data->muic_d));",
+        ),
+        "stock Max77705 MUIC source",
+    )
+    require_tokens(
+        pd_text,
+        (
+            "fp_sec_pd_select_pdo = max77705_select_pdo;",
+            "fp_sec_pd_select_pps = max77705_select_pps;",
+            "fp_sec_pd_vpdo_auth = max77705_vpdo_auth;",
+            "fp_sec_pd_manual_ccopen_req = pdic_manual_ccopen_request;",
+            "fp_sec_pd_change_src = max77705_forced_change_srccap;",
+            "max77705_set_fw_noautoibus(MAX77705_AUTOIBUS_AT_OFF);",
+        ),
+        "stock Max77705 PD source",
+    )
+    require_tokens(
+        cc_text,
+        (
+            "typec_set_pwr_role",
+            "typec_set_data_role",
+            "typec_register_partner",
+            "typec_unregister_partner",
+            "usb_set_vbus_current(usbpd_data->man, USB_CURRENT_CLEAR);",
+        ),
+        "stock Max77705 CC source",
+    )
+    require_tokens(
+        irq_text,
+        (
+            "max77705_write_reg(i2c, max77705_mask_reg[i], 0xff)",
+            "MAX77705_PMIC_REG_INTSRC_MASK",
+            "request_threaded_irq(max77705->irq, NULL, max77705_irq_thread",
+        ),
+        "stock Max77705 IRQ source",
+    )
+    require_tokens(
+        typec_class_text,
+        (
+            "port->ops = cap->ops;",
+            "!port->ops || !port->ops->dr_set",
+            "!port->ops || !port->ops->pr_set",
+            "!port->ops || !port->ops->port_type_set",
+        ),
+        "Type-C class source",
+    )
+    require_tokens(
+        if_cb_manager_text,
+        (
+            "struct if_cb_manager *register_usbpd(struct usbpd_dev *usbpd)",
+            "man_core->usbpd_d->ops->usbpd_set_host_on(",
+            "man_core->usbpd_d->ops->usbpd_wait_entermode(",
+            "man_core->usb_d->ops->usb_set_vbus_current(",
+        ),
+        "IF callback manager source",
+    )
+    require_tokens(
+        dwc3_msm_text,
+        (
+            "mdwc = devm_kzalloc(&pdev->dev, sizeof(*mdwc), GFP_KERNEL);",
+            "mdwc->man = register_usb(&(mdwc->usb_d));",
+            "usbpd_set_host_on(mdwc->man, on);",
+        ),
+        "DWC3 MSM source",
+    )
+    require_tokens(
+        vendor_defconfig_text,
+        (
+            "CONFIG_HV_MUIC_MAX77705_AFC=y",
+            "CONFIG_HICCUP_CHARGER=y",
+            "CONFIG_MUIC_MAX77705_PDIC=y",
+            "CONFIG_USB_EXTERNAL_NOTIFY=y",
+            "CONFIG_CCIC_MAX77705_DEBUG=y",
+            "# CONFIG_SEC_FACTORY is not set",
+        ),
+        "waipio vendor defconfig",
+    )
+    require_tokens(
+        common_muic_sysfs_text,
+        ("int muic_sysfs_init(struct muic_platform_data *pdata)",),
+        "common MUIC sysfs source",
+    )
+    if "muic_sysfs_init(" in common_muic_core_text:
+        raise SurfaceError("common MUIC core unexpectedly registers common sysfs")
+    common_muic_sysfs_locations = source_token_locations(kernel, "muic_sysfs_init(")
+    if common_muic_sysfs_locations != ["drivers/muic/common/muic_sysfs.c"]:
+        raise SurfaceError(
+            "common MUIC sysfs call-site scope changed: "
+            f"{common_muic_sysfs_locations}"
+        )
+    if "muic_sysfs_init" in pdic_undefined or "muic_sysfs_deinit" in pdic_undefined:
+        raise SurfaceError("stock PDIC unexpectedly imports common MUIC sysfs helpers")
     require_tokens(
         debug_text,
         (
@@ -721,6 +1222,65 @@ def audit(root: Path) -> dict[str, Any]:
             "pdic_core_chip_registration_retained": True,
             "visible_common_sysfs_properties": ["PDIC_SYSFS_PROP_CHIP_NAME"],
             "tagged_cached_observer_must_be_separate_and_read_only": True,
+            "max77705_muic_attribute_group_absent": True,
+            "typec_port_registration_retained": True,
+            "typec_capability_ops_null": True,
+            "typec_role_mutation_callbacks_absent": list(
+                MAX77705_TYPEC_MUTATION_CALLBACKS
+            ),
+            "natural_attach_typec_reporting_retained": [
+                "typec_set_pwr_role",
+                "typec_set_data_role",
+                "typec_register_partner",
+                "typec_unregister_partner",
+            ],
+            "if_cb_usbpd_registration_retained": True,
+            "if_cb_host_state_callback_retained": True,
+            "if_cb_host_state_callback_has_hardware_io": False,
+            "if_cb_sbu_cc_control_and_wait_callbacks_null": True,
+            "if_cb_muic_registration_retained_with_null_ops": True,
+            "external_sec_pd_function_pointers_null": True,
+            "internal_probe_ccopen_clear_retained": True,
+        },
+        "selected_closure": {
+            "base_module_count": len(p315_modules),
+            "external_control_consumers_absent": sorted(
+                P315_FORBIDDEN_CONTROL_CONSUMERS
+            ),
+            "inactive_lvs_consumer_absent": sorted(P315_ABSENT_IF_CB_CONSUMERS),
+            "custom_total_module_count": 66,
+        },
+        "write_inventory": {
+            "status": "SOURCE_DERIVED_PARTIAL_NOT_COMPLETE",
+            "retained_probe_families": [
+                "mfd-irq-mask-and-parent-intsrc",
+                "muic-cc-pd-interrupt-masks",
+                "auto-vbus-disable",
+                "support-audio-ccctrl1",
+                "no-auto-ibus",
+                "sink-capability",
+                "initial-muic-detect-and-com-switch",
+                "probe-end-ccopen-clear",
+            ],
+            "removed_user_mutation_surfaces": [
+                "max77705-muic-attribute-group",
+                "typec-data-power-port-role-setters",
+                "common-pdic-firmware-and-uvdm-misc",
+                "parent-control1-debug-attribute",
+                "mxim-raw-debug-object",
+                "external-sec-pd-function-pointers",
+                "unused-if-callback-sbu-cc-control-and-enter-mode-operations",
+            ],
+            "retained_non_hardware_coordination": [
+                "if-callback-register-usbpd",
+                "if-callback-usbpd-set-host-on-state-and-wakeup-only",
+                "if-callback-register-muic-with-null-ops",
+            ],
+            "unresolved_before_complete": [
+                "conditional-initial-detect-branch-write-matrix",
+                "runtime-irq-notifier-and-protocol-write-matrix",
+                "exact-tagged-observer-coverage-for-every-retained-write",
+            ],
         },
         "future_linked_proofs": [
             "source validator called before compilation",
@@ -728,6 +1288,11 @@ def audit(root: Path) -> dict[str, Any]:
             "no firmware payload symbol or 53055-byte payload survives",
             "no pdic_misc_init, mxim_debug_init, request_firmware, or direct local sysfs-group import survives",
             "the retained common PDIC sysfs list is CHIP_NAME-only and read-only",
+            "the Max77705 MUIC attribute group and Type-C role mutation callbacks are absent",
+            "only usbpd_set_host_on survives in the custom usbpd_ops table and remains state/wakeup-only",
+            "the fixed DWC3 register_usb endpoint remains ops-null while its usbpd_set_host_on consumer remains present",
+            "the Type-C port and natural-attach status-reporting imports remain",
+            "the selected 66-module closure has no charger, battery, fuel-gauge, or sec_pd control consumer",
             "modversion and CFI closure matches the fixed Image",
             "custom module dependency closure is exactly 66 modules",
         ],
@@ -738,6 +1303,7 @@ def audit(root: Path) -> dict[str, Any]:
         "host_only": True,
         "device_contact": False,
         "source_receipts": source_receipts,
+        "p315_plan": p315_plan_receipt,
         "module_receipts": module_receipts,
         "stock_module_union": corpus_receipt,
         "stock_surface": {
@@ -752,6 +1318,38 @@ def audit(root: Path) -> dict[str, Any]:
             "exclusive_consumer_search_scope": corpus_receipt["absence_search_scope"],
             "pdic_update_imports": sorted(PDIC_UPDATE_IMPORTS),
             "pdic_writable_defined_symbols": sorted(PDIC_WRITABLE_DEFINED_SYMBOLS),
+            "pdic_control_export_consumers": control_export_consumers,
+            "if_cb_export_consumers": if_cb_export_consumers,
+            "p315_forbidden_control_consumers_absent": sorted(
+                P315_FORBIDDEN_CONTROL_CONSUMERS
+            ),
+            "max77705_muic_group": {
+                "writable_attributes": list(MAX77705_MUIC_WRITABLE_ATTRIBUTES),
+                "read_only_attributes": list(MAX77705_MUIC_READ_ONLY_ATTRIBUTES),
+                "stock_linked_group_and_callbacks_present": True,
+            },
+            "typec_role_mutation": {
+                "callbacks": list(MAX77705_TYPEC_MUTATION_CALLBACKS),
+                "stock_linked_ops_present": True,
+                "ops_null_makes_data_and_power_role_read_only": True,
+                "ops_null_hides_port_type": True,
+                "natural_attach_status_reporting_is_independent": True,
+            },
+            "common_muic_sysfs": {
+                "tree_wide_driver_c_definition_only": common_muic_sysfs_locations,
+                "stock_pdic_imports_init_or_deinit": False,
+                "active_additional_surface_for_this_pdic_path": False,
+            },
+            "if_cb_manager": {
+                "fixed_dwc3_register_usb_present": True,
+                "fixed_dwc3_usb_ops_linked": False,
+                "usb_set_vbus_current_endpoint_effective": False,
+                "custom_must_retain_usbpd_set_host_on": True,
+                "usbpd_set_host_on_is_state_and_wakeup_only": True,
+                "lvstest_consumer_absent_from_p315": True,
+                "custom_must_null_sbu_cc_control_and_wait_entermode": True,
+                "max77705_muic_ops_remain_null": True,
+            },
             "separate_same_name_surfaces": {
                 "common_pdic_fw_update": "firmware update",
                 "parent_local_fw_update": "CONTROL1 read/write debug path",
