@@ -14,6 +14,9 @@ Review state:
 Repository analysis base:
 `97be0e488b62cec8228e50ab7997e1e52cd5ba96`
 
+Correction input commit:
+`30d8e918316961ff6e42cc729b0c13ab24f618aa`
+
 ## Scope and authority
 
 This is host-only source, artifact, and retained-evidence analysis. No device
@@ -36,6 +39,19 @@ The hazard is broader than one D+/D- MUX write. Loading the required MFD and
 PDIC modules initializes a combined PMIC/MUIC/CC/PD interrupt and command
 plane. The exact write and observation contract therefore requires an
 independent review before any successor can be packaged.
+
+This audit also names one narrower source-level failure class:
+
+```text
+MAX77705_FIRMWARE_UPDATEWARD_READ_FAILURE_DEFAULTING
+```
+
+`max77705_read_reg()` leaves its destination unchanged on error. In the
+updater, both the zero-initialized firmware revision and the explicitly
+zero-initialized charger-detail locals are therefore failure defaults that
+favor entering or continuing the firmware-update path. This class identifies
+the direction of failed-read interpretation; it does not claim that a
+firmware record was written in any retained run.
 
 Nothing in this report grants live authority. The provisional module count is
 dependency arithmetic only, not a qualified plan.
@@ -62,8 +78,10 @@ successor, so this report no longer labels stock MFD categorically
 inadmissible.
 
 It does not make the stock path automatically qualified. The updater
-overwrites the return code from its first firmware-version read, ignores both
-charger-status read results, and applies its voltage and TA-mode guards only
+has a named updateward read-failure default: it overwrites the return code
+from its first firmware-version read, ignores both charger-status read
+results, and lets failed reads leave values that classify as old firmware or
+battery-only operation. It also applies its voltage and TA-mode guards only
 on the first pass. Once either retry counter becomes nonzero, the retry path
 can reset the IC and re-enter with those guards disabled. With valid PC-VBUS
 status reads, the first pass exits before charger reconfiguration, secure-mode
@@ -100,11 +118,15 @@ The safer custom shape is:
 
 This shape appears technically feasible without changing the fixed Image. It
 is not yet implementation-ready. The six stock additions and the complete
-P3.15 base remain recoverable from the pinned vendor ramdisk, so wholesale
-module reconstruction is not a blocker. The normal Android second-stage
-`vendor_dlkm/modules.load`, exact target-only binding, stock-versus-custom
-selection, complete PMIC/PDIC write inventory, telemetry encoding, and
-independent review remain open gates.
+P3.15 base remain recoverable from the pinned vendor ramdisk. An exact
+cross-inventory comparison partitions the proposed 67 names into 37
+first-stage names and 30 `vendor_dlkm` names; every one of the latter 30 has
+the same size and SHA-256 in the tracked super inventory as in the
+vendor-ramdisk/P3.15 byte authority. Wholesale module reconstruction is not a
+blocker. The missing normal Android second-stage
+`vendor_dlkm/lib/modules/modules.load` line order, exact target-only binding,
+stock-versus-custom selection, complete PMIC/PDIC write inventory, telemetry
+encoding, host-space headroom, and independent review remain open gates.
 
 ## Evidence authority and hashes
 
@@ -137,6 +159,7 @@ The primary source and artifact inputs were rehashed during this H0 unit.
 | `waipio-gki_defconfig` | `de7373038099658387dea7f2168be3c63268c554c645067e255492cb836276c7` |
 | fixed P3.10-derived `.config` | `6adf58c7204695e6f5a8deaf0f5995bca91a79ce4cc5f7b74e7b247128e0673b` |
 | tracked super module inventory | `5ad69e151efbe48ba0348608120da3001f9e11d481b13a498177e080771c6d37` |
+| tracked `vendor_dlkm/modules.load` identity (5,843 bytes) | `8411620a0384d07fed491a2f8f7c146e354d022c8446940fc59f49cb2d98d360` |
 | retained stock/XBL `baseline_last_kmsg.bin` | `9a58a0c8486723c31f9cf8ac7d8b8be2586969bb8f167cd76907e3b82db0c7cb` |
 | P3.15 USB-sidecar result | `a075c7014e9d0524fd0b7f18fe14a263639ad27ced386a4801e4c9856caf19fa` |
 
@@ -165,9 +188,9 @@ for the hashed source snapshot, not for an unpinned upstream tree.
 | switch bit layout and the values that evaluate to `COM_OPEN=0x3f`, `COM_USB=0x09` | `include/linux/usb/typec/maxim/max77705-muic.h:293-301`, `:359-405` |
 | `CONTROL1` write construction and software-only previous-state assumption | `drivers/usb/typec/maxim/max77705-muic.c:326-349`, `:437-464` |
 | initial cable detection during MUIC probe | `drivers/usb/typec/maxim/max77705-muic.c:2484-2644` |
-| read failure leaves destination unchanged | `drivers/mfd/maxim/max77705.c:127-165` |
+| read failure leaves destination unchanged and parent state is zero-allocated | `drivers/mfd/maxim/max77705.c:127-165`, `:1219-1226` |
 | overwritten first firmware-version read and exact first-pass error condition | `drivers/mfd/maxim/max77705.c:879-902` |
-| first-pass voltage/TA guards, ignored charger-status errno, and pre-write boundary | `drivers/mfd/maxim/max77705.c:915-1009` |
+| zero-initialized charger-detail inputs and first-pass voltage/TA guards, ignored charger-status errno, and pre-write boundary | `drivers/mfd/maxim/max77705.c:847-849`, `:915-1009` |
 | retry counters, IC reset, and guard-bypassing retry edges | `drivers/mfd/maxim/max77705.c:1016-1054` |
 | void firmware-setting wrapper discards updater status | `drivers/mfd/maxim/max77705.c:1157-1182` |
 | PASS5 value and updater dispatch | `include/linux/mfd/max77705-private.h:42-48`, `drivers/mfd/maxim/max77705.c:1167-1179` |
@@ -203,9 +226,9 @@ readback.
 | Class | Established in this H0 | Not established |
 |---|---|---|
 | source fact | `CONTROL1` controls the D+/D- switch and the MUIC initial-detect path can queue `COM_USB` | that the queue ran in P3.15 |
-| plan/artifact fact | P3.15 omitted the six-entry GENI/Max77705 producer closure; all six stock payloads and the P3.15 61-module base are recoverable from the pinned vendor ramdisk | Android second-stage load order and loadability of custom successor modules |
+| plan/artifact fact | P3.15 omitted the six-entry GENI/Max77705 producer closure; all six stock payloads and the P3.15 61-module base are recoverable from the pinned vendor ramdisk; the 67 expected names split exactly into 37 first-stage names and 30 byte-identical tracked `vendor_dlkm` names | Android second-stage line order and loadability of custom successor modules |
 | retained-evidence fact | the combined retained log contains two XBL MUIC-init blocks that touch opcodes `0x06` and `0x05`, one explicitly followed by Odin `SetPath: 1`, while one stock Linux boot read `6E.00` and skipped update | the XBL write payload, returned `CONTROL1` value, exact provenance of the second bootloader block beyond its non-Odin context, or value inherited at Linux probe |
-| hazard fact | every PASS5 MFD probe invokes the updater; valid PC-VBUS first-pass state exits before firmware writes, but ignored read errors and guard-free retries prevent structural nonreachability; PDIC probe performs broad control-plane initialization | that the firmware-write branch would occur in a successor, or that stock-equivalent invocation is disallowed |
+| hazard fact | every PASS5 MFD probe invokes the updater; valid PC-VBUS first-pass state exits before firmware writes, but updateward read-failure defaults and guard-free retries prevent structural nonreachability; PDIC probe performs broad control-plane initialization | that the firmware-write branch would occur in a successor, or that stock-equivalent invocation is disallowed |
 | causal inference | an open/non-USB `CONTROL1` state is compatible with controller-side success plus complete host silence | that it caused P3.15 |
 | successor feasibility | fixed-Image stock-67 and target-isolated custom-module experiments both have source-supported shapes | second-stage stock-order recovery, stock/custom selection, implementation, qualification, independent review, D0 inventory, or live authority |
 
@@ -287,11 +310,37 @@ inventory proves that file existed at 5,843 bytes with SHA-256
 an inventory row cannot reconstruct its line order. The full 9,680,091,538-byte
 firmware ZIP is present and contains an 11,499,653,242-byte AP tar whose
 `super.img.lz4` member is 8,875,694,170 bytes. At audit time the filesystem had
-about 4.0 GiB free, so an ordinary full extraction could not be performed
-safely.
+4,246,401,024 bytes available, so an ordinary full extraction could not be
+performed safely.
 Recovering that second-stage list, by a bounded streaming extractor or after
 explicit space provisioning, is Gate 0 for stock-order comparison. It is not
 a prerequisite for recovering the module bytes themselves.
+
+The proposed 67 names were also compared across the two normal-load
+authorities rather than only against themselves:
+
+- 37 names occur in the vendor-ramdisk first-stage `modules.load` and have no
+  row in the tracked `vendor_dlkm` inventory;
+- the other 30 names have a tracked `vendor_dlkm` row and do not occur in the
+  first-stage list;
+- all 30 of those rows match the expected size and SHA-256 from the P3.15
+  artifact/six-module vendor-ramdisk extraction and carry
+  `reference_status=byte-identical`; and
+- the overlap and uncovered sets are both empty.
+
+Thus the proposed byte set is not inferred from two copies of the same list:
+it is an exact 37/30 carrier partition backed by the hash-pinned P3.15 artifact,
+vendor ramdisk, and tracked super inventory. Gate 0 remains necessary for the
+missing order of the 30 second-stage names, not for their identities.
+
+A live read-only alternative is self-authenticating at the artifact boundary.
+An exact-target D0 capture of only
+`/vendor_dlkm/lib/modules/modules.load` is acceptable only if it returns
+exactly 5,843 bytes and hashes to
+`8411620a0384d07fed491a2f8f7c146e354d022c8446940fc59f49cb2d98d360`.
+Any length/hash mismatch stops the order claim. The tracked identity makes
+the captured bytes comparable to the pinned firmware; it does not itself
+authorize the D0 or waive exact-target and read-only requirements.
 
 ### The module payload base is recoverable
 
@@ -402,6 +451,24 @@ one healthy no-update execution; source control flow establishes the call for
 every successful PASS5 probe. Neither fact proves that every future execution
 takes the same no-update branch.
 
+### Named subhazard: updateward read-failure defaulting
+
+The updater contains two manifestations of the same failure direction:
+
+1. the parent object is zero-allocated, a failed firmware-major read leaves
+   `FW_Revision` at zero, and the following minor read overwrites the first
+   errno; zero is then classified as older firmware; and
+2. `chgin_dtls` and `wcin_dtls` are initialized to zero, both charger-status
+   read returns are ignored, and zero/zero is classified as battery-only
+   rather than TA mode.
+
+Both defaults point toward entering or continuing the firmware-update path.
+They are therefore one source-level class,
+`MAX77705_FIRMWARE_UPDATEWARD_READ_FAILURE_DEFAULTING`, rather than two
+unrelated local mistakes. The class is a reachability bias, not a claim that
+all remaining voltage, product, secure-mode, or record-write conditions have
+been satisfied.
+
 ### First-pass guards and their exact boundary
 
 The updater has three early protections:
@@ -456,7 +523,7 @@ write would occur in the PC-VBUS experiment. It is one way to enter the update
 predicate with stale input; the first-pass voltage and TA guards still apply
 if their own reads succeed.
 
-### Retry is the stronger stock-path hazard
+### Retry removes the first-pass guards
 
 The read-error, voltage, and TA guards all test
 `try_count == 0 && try_command == 0`. The two retry edges increment one of
@@ -467,10 +534,13 @@ counters are each bounded by ten attempts, so this is bounded active behavior,
 not an infinite loop; it can nevertheless reset the IC repeatedly and reach
 firmware records without re-establishing the first-pass power predicates.
 
-This retry geometry, not the mere existence of a stock updater call, is the
-strongest technical reason to prefer a custom MFD for a narrow discriminator.
-Whether stock-equivalent risk is admissible remains an explicit independent
-review decision rather than a conclusion smuggled into this H0 report.
+The named updateward read-failure-defaulting class and this retry geometry are
+complementary reasons to prefer a custom MFD for a narrow discriminator. The
+first makes failed I/O lean toward the active branch; the second means a retry
+does not re-establish the initial power guards. The mere existence of a stock
+updater call is not the reason. Whether stock-equivalent risk is admissible
+remains an explicit independent review decision rather than a conclusion
+smuggled into this H0 report.
 
 The status boundary is also closed in the wrong direction:
 `max77705_usbc_fw_setting()` is `void`, discards the integer return from
@@ -903,6 +973,28 @@ The fixed build has `CONFIG_MODULES=y`, `CONFIG_MODVERSIONS=y`, and
 `CONFIG_MODULE_SIG` unset. Kernel signature enforcement therefore does not
 block an exact custom-module experiment. This does not relax the harder ABI,
 CFI, trimmed-export, reproducibility, or package-binding requirements above.
+The primary authority for that statement is the hash-pinned, fixed
+P3.10-derived `.config`, not an option's absence from
+`waipio-gki_defconfig`. P3.15's successful live use of its 61 reused stock
+vendor modules under the same fixed-Image line is empirical corroboration of
+module loading, not a substitute for the exact configuration or a custom
+module loadability proof.
+
+### Host-capacity preflight
+
+The 4,246,401,024-byte free-space observation is not merely a reason to avoid
+full `super` extraction. It is insufficient headroom for an unqualified full
+kernel build or candidate-package working set and creates an avoidable
+ENOSPC/short-write artifact-integrity hazard.
+
+Before any extraction, module build, full-kernel build, or candidate package
+starts, the successor must derive its peak simultaneous working set, add an
+explicit safety margin, and prove that much space is available on the target
+filesystem. A short write, ENOSPC, unexpected size, missing file, or hash
+mismatch must block publication before an artifact can enter a manifest or
+binding. The small 5,843-byte D0 alternative avoids the large extraction; it
+does not satisfy build/package headroom. No cleanup or deletion was performed
+by this H0 audit.
 
 If the repository cannot produce isolated exact modules under that closure,
 the build may need to invoke the full kernel build infrastructure. Even then,
@@ -959,13 +1051,19 @@ not to subtract it.
 The following are host-only and must close before a live candidate is
 prepared:
 
-0. **Carrier and normal-order authority**
+0. **Host capacity, carrier, and normal-order authority**
+   - before a large extraction, build, or package, prove a source-derived peak
+     working set plus explicit margin against current free space; any ENOSPC,
+     short write, size drift, or hash drift blocks artifact publication;
    - treat the pinned vendor ramdisk and its verified six-module extraction as
      the stock-byte authority; loose-file counts are not provenance;
+   - preserve the exact 37-name first-stage / 30-name `vendor_dlkm` partition
+     and the 30 exact cross-inventory size/hash matches;
    - recover Android's second-stage
      `vendor_dlkm/lib/modules/modules.load` from the pinned AP/super input, or
      obtain the exact same file under a separately authorized read-only
-     capture;
+     capture that is exactly 5,843 bytes and matches SHA-256
+     `8411620a0384d07fed491a2f8f7c146e354d022c8446940fc59f49cb2d98d360`;
    - distinguish vendor_boot first-stage, recovery, and vendor_dlkm
      second-stage order rather than calling the 446-entry recovery list
      “normal boot”; and
@@ -1038,6 +1136,9 @@ the same probe.
 One bounded exact-target read-only inventory remains necessary before the
 override design can be materialized. It must capture only:
 
+- if the streaming host extractor is not selected, the exact 5,843-byte
+  `/vendor_dlkm/lib/modules/modules.load` file and its SHA-256, with a mismatch
+  causing an immediate stop;
 - exact platform device names for the three QUPv3 wrappers, three GPI devices,
   and nine enabled GENI I2C devices;
 - each `driver`, `driver_override`, modalias, and current binding state;
@@ -1077,6 +1178,9 @@ authorize a run or revive P3.15.
 
 The successor is not admissible if any of the following remains true:
 
+- host capacity does not cover a source-derived peak extraction/build/package
+  working set plus margin, or any output reports ENOSPC, a short write,
+  unexpected size, or hash drift;
 - stock MFD is selected without an explicit reviewed disposition of its
   stock-equivalent updater and retry hazard;
 - custom MFD/PDIC is selected and exact A/B or modversion/CFI closure fails;
@@ -1115,6 +1219,11 @@ This report was closed at H0 with the following host-side checks:
   `vendor_ramdisk00` and matched the six inventory size/hash pairs exactly;
 - the P3.15 artifact result independently proved the exact 61-module closure,
   unchanged stock vendor-ramdisk reuse, and zero injected module binaries;
+- the combined 67 expected names were cross-checked against both normal-load
+  authorities: 37 are first-stage-only in this comparison, 30 are
+  `vendor_dlkm`-inventory-only, the intersection and uncovered sets are empty,
+  and all 30 second-stage rows match expected size/SHA-256 with
+  `reference_status=byte-identical`;
 - the 140-entry first-stage and 446-entry recovery lists were counted and kept
   distinct; all 61 P3.15 modules occur in recovery order, while 36 occur in
   first-stage order;
@@ -1123,13 +1232,18 @@ This report was closed at H0 with the following host-side checks:
 - the complete FYG8 ZIP and nested AP/super member sizes were read without
   extraction; second-stage vendor_dlkm order remains an explicit open gate
   because full super extraction exceeds current free space;
+- `df -B1` recorded only 4,246,401,024 bytes available on the workspace
+  filesystem, so large extraction/build/package work remains blocked behind a
+  peak-space and short-write fail-closed preflight;
 - the source ranges in the locator map were read directly rather than inferred
   from symbol names or a parallel upstream tree;
 - the exact MFD-cell conditionals were evaluated against the target fragment:
   only USBC, charger, and fuel-gauge cells compile, and all three child drivers
   are module-only;
-- the fixed P3.10-derived config proves kernel module signatures are disabled
-  while modversions, CFI, Full LTO, and trimmed-export constraints remain;
+- the hash-pinned fixed P3.10-derived `.config`, rather than defconfig absence,
+  proves kernel module signatures are disabled while modversions, CFI, Full
+  LTO, and trimmed-export constraints remain; the successful P3.15 stock-module
+  run was retained only as empirical corroboration;
 - the retained binary log markers were found in the hash-pinned file, while
   the absent opcode payload/read value was kept explicitly unresolved;
 - the P3.15 USB sidecar was verified nonempty and untruncated and its private
@@ -1161,10 +1275,10 @@ The evidence now supports these exact statements:
 4. The historical S7A2 negative lacks the bind and command evidence required
    to refute the mechanism cleanly.
 5. Stock MFD probe runs the updater on this PASS5 device during normal Android
-   boot; valid PC-VBUS first-pass state is protective, but ignored status-read
-   errors and guard-free reset/retry passes keep the active write branch
-   structurally reachable. Stock use is unadjudicated, not automatically
-   rejected or approved.
+   boot; valid PC-VBUS first-pass state is protective, but the named
+   updateward read-failure-defaulting class and guard-free reset/retry passes
+   keep the active write branch structurally reachable. Stock use is
+   unadjudicated, not automatically rejected or approved.
 6. PDIC load is broad Max77705 control-plane bring-up, not a passive MUX read.
 7. The P3.15 base and all six stock additions are recoverable from pinned
    local firmware; Android's separate vendor_dlkm second-stage load order is

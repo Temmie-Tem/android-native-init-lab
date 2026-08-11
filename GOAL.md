@@ -88,25 +88,34 @@ present and its same-session host USB sidecar remained candidate-silent.
 The provisional successor keeps `ucsi_glink.ko` and adds six modules, taking
 the 61-module plan to 67 before capacity/order qualification. The pinned
 vendor ramdisk can rematerialize the complete P3.15 base and all six additions
-with their recorded identities. That closes module-byte availability, not
-normal Android ordering: the recovered 446-entry list is recovery order, and
-the separate `vendor_dlkm/lib/modules/modules.load` inside `super.img` remains
-an H0 Gate 0 input.
+with their recorded identities. Cross-inventory comparison partitions those
+67 names exactly into 37 first-stage names and 30 tracked `vendor_dlkm` names;
+all 30 second-stage rows match the expected size/SHA-256 and are marked
+byte-identical. That closes module-byte availability, not normal Android
+ordering: the recovered 446-entry list is recovery order, and the separate
+5,843-byte `vendor_dlkm/lib/modules/modules.load` line order remains an H0
+Gate 0 input. A bounded D0 capture is self-checking only if it matches the
+already tracked exact size and SHA-256.
 
 Stock and custom successor shapes are not interchangeable. The PASS5 stock
 MFD invokes its updater on every successful probe; retained Android evidence
 proves one healthy no-update execution and therefore reduces novelty, but the
-source also drops one firmware-read errno and disables its voltage/TA guards
-after a reset/retry edge. Stock-67 is unadjudicated. The preferred bounded
-custom shape removes every firmware-update entry from the execution closure,
-stages custom MFD/PDIC files under unique generic boot-ramdisk paths while
-leaving the fixed Image unchanged, and adds tagged pre/post `CONTROL1`
-readback. It still requires second-stage order recovery, a complete write
-inventory, reproducible module/ABI closure, target-only GENI bind proof,
-exhaustive telemetry fixtures, the host-sidecar positive-control gate, and
-one proportional independent review. The old 86-module phone-VBUS closure
-remains forbidden because it reintroduces the recorded debug-partition writer.
-No device action or live authority follows from this H0 result.
+source has a named updateward read-failure default: failed firmware/status
+reads can remain zero and classify as old firmware or battery-only, while
+reset/retry edges disable the voltage/TA guards after the first pass. Stock-67
+is unadjudicated. The preferred bounded custom shape removes every
+firmware-update entry from the execution closure, stages custom MFD/PDIC files
+under unique generic boot-ramdisk paths while leaving the fixed Image
+unchanged, and adds tagged pre/post `CONTROL1` readback. It still requires
+second-stage order recovery, a complete write inventory, reproducible
+module/ABI closure, target-only GENI bind proof, exhaustive telemetry
+fixtures, the host-sidecar positive-control gate, and one proportional
+independent review. Current workspace availability is only 4,246,401,024
+bytes, so any extraction, build, or packaging is additionally blocked until a
+source-derived peak-space budget plus margin and fail-closed short-write/hash
+checks pass. The old 86-module phone-VBUS closure remains forbidden because it
+reintroduces the recorded debug-partition writer. No device action or live
+authority follows from this H0 result.
 
 ## P3.15 Detailed Successor Design
 
