@@ -632,7 +632,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             normalized_goal,
         )
         self.assertIn(
-            "f6136aa108d036544ba4003326bd8a4b7c497230e9ae75033ed303f2023da604",
+            "b9d8b967aed453ab006aa7532592f4fc6413131d775159df4f18daf96ec33334",
             normalized_goal,
         )
         self.assertIn(
@@ -647,9 +647,12 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("170 raw and 53 deduplicated relations", normalized_goal)
         self.assertIn("effective count from `65 -> 70`", normalized_goal)
         self.assertIn(
-            "55971dd9228b51ad5076ec0ca3c75433172d110f9fb6b5a92f7d32e3d19d066f",
+            "b4418d8cf0a8aedcb540e53d008720e31202ede823cc6064978463ef3b8d8f9c",
             normalized_goal,
         )
+        self.assertIn("generic early loop loads those 69 modules", normalized_goal)
+        self.assertIn("`s22plus_max77705_mux_diag.ko`", normalized_goal)
+        self.assertIn("dedicated synchronous late `finit_module()`", normalized_goal)
         self.assertIn(
             "two raw property reasons become one deduplicated consumer-to-supplier edge",
             normalized_goal,

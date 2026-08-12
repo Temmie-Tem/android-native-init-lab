@@ -700,11 +700,12 @@ still has three roots, three claims, nine claim-to-consumer counterfactuals,
 and four explicit evaluability preconditions. The previous reviewed authority
 hash `fd27d79883cbdc5e6daab937f0b24ab303fdd8a1c91cf63feb5789975e04c1d3`
 is superseded because its wrapper-instantiation sentence was false; the
-corrected pending claim-authority hash is
+corrected reviewed claim-authority hash is
 `49859c0957a15ef25cdad98137c5f178eb790f4689ddeb74553971d1a9ce3070`.
-Machines prove coverage, fixed-point semantics, and source seams only; human
-causal review is again `REQUIRED_NOT_YET_SATISFIED`, the new relation-family
-review is pending, and no candidate authority follows.
+Machines prove coverage, fixed-point semantics, and source seams only. The
+follow-up review approves the corrected causal authority, all three mutually
+recursive relation families, and the exact `+5` module delta; no candidate
+authority follows.
 
 The exact mutually recursive H0 extractor now applies the active revision-12
 overlay independently to both applicable pinned Waipio bases. Both produce the
@@ -714,16 +715,19 @@ delta is exactly `spmi-pmic-arb.ko`, `pinctrl-spmi-gpio.ko`,
 `qti-regmap-debugfs.ko`, `regmap-spmi.ko`, and `qcom-spmi-pmic.ko`. It preserves
 all 64 predecessor early modules as an exact subsequence, inserts the five
 before `msm-geni-se.ko`, and changes the effective count from `65 -> 70`
-(69 early stock modules plus the inherited one late diagnostic). The private
-receipt is 495,646 bytes with SHA-256
-`55971dd9228b51ad5076ec0ca3c75433172d110f9fb6b5a92f7d32e3d19d066f`.
-The corrected must-bind receipt is 15,657 bytes with SHA-256
-`f6136aa108d036544ba4003326bd8a4b7c497230e9ae75033ed303f2023da604`.
+(69 early stock modules plus the inherited one late diagnostic). Specifically,
+the generic early loop loads those 69 modules; the seventieth is
+`s22plus_max77705_mux_diag.ko`, loaded exactly once by the dedicated synchronous
+late `finit_module()` path after early-module completion, gadget readiness, and
+sidecar arming. The private receipt is 496,664 bytes with SHA-256
+`b4418d8cf0a8aedcb540e53d008720e31202ede823cc6064978463ef3b8d8f9c`.
+The reviewed must-bind receipt is 15,712 bytes with SHA-256
+`b9d8b967aed453ab006aa7532592f4fc6413131d775159df4f18daf96ec33334`.
 
 P3.17 remains H0 and not ready. The static transitive closure is now derived,
-but its corrected claim authority and new relationship family still require
-human/proportional independent review. A successor must also reprove effective
-fw_devlink mode and strictness from candidate boot authorities, prove the
+and its corrected claim authority and new relationship family are reviewed. A
+successor must still reprove effective fw_devlink mode and strictness from
+candidate boot authorities, prove the
 runtime-only early-device gate, account for broader provider binding effects,
 retain the three-state `waiting_for_supplier` witness separately from supplier
 identity and probe entry, prove all four claim-evaluability preconditions, and

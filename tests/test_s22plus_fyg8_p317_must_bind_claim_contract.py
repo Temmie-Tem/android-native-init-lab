@@ -259,12 +259,13 @@ class P317MustBindClaimContractTest(unittest.TestCase):
         result = self.build()
         self.assertEqual(
             result["human_causal_review"],
-            "REQUIRED_NOT_YET_SATISFIED",
+            "SATISFIED_2026_08_12",
         )
         self.assertEqual(
-            result["human_review_binding"]["pending_claim_authority_sha256"],
+            result["human_review_binding"]["reviewed_claim_authority_sha256"],
             result["claim_authority_sha256"],
         )
+        self.assertEqual(result["human_review_binding"]["review_outcome"], "APPROVED")
         self.assertFalse(result["human_review_binding"]["candidate_authority"])
         self.assertTrue(result["contract"]["machine_enforces_coverage_not_truth"])
         self.assertFalse(result["contract"]["p317_candidate_ready"])

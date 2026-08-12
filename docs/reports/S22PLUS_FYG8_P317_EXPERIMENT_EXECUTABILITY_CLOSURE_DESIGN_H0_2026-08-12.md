@@ -2,8 +2,8 @@
 
 Status: **H0 DESIGN, FIRST FW_DEVLINK REGRESSION, REVIEWABLE MUST-BIND
 AUTHORITY, AND EXACT TWO-BASE MUTUALLY RECURSIVE FIXED-POINT/MODULE DELTA
-IMPLEMENTED; NEW RELATION-FAMILY REVIEW, HUMAN CAUSAL REVIEW, AND RUNTIME
-WITNESSES PENDING; P3.17 CANDIDATE NOT READY**
+IMPLEMENTED; HUMAN CAUSAL AND NEW RELATION-FAMILY REVIEW CLOSED; RUNTIME
+WITNESSES AND PACKAGING PENDING; P3.17 CANDIDATE NOT READY**
 
 Date: 2026-08-12
 
@@ -46,10 +46,10 @@ supported candidate. The independent review of this report is the initial
 boundary review.
 
 The prior **INDEPENDENT REVIEW PASS** remains valid for the proof-class split,
-the common gate, and the first exact fw_devlink regression only. It does not
-review the corrected must-bind authority, the mutually recursive
-`DEVICE_INSTANTIATION_CLOSURE`, or the new direct driver-reference family;
-those remain pending as stated in the status.
+the common gate, and the first exact fw_devlink regression. A follow-up review
+now also approves the corrected three-root causal authority, all three mutually
+recursive relation families, and the exact `+5` module delta. That review does
+not qualify runtime witnesses, packaging, a candidate, or live authority.
 
 ## Scope and non-goals
 
@@ -80,8 +80,7 @@ binding is necessary for its causal claim. Only this set forces provider
 closure. The complete dependency graph may be inventoried, but a loaded yet
 irrelevant DT node does not automatically expand the candidate.
 
-For the Max77705 discriminator, the corrected review-pending proposal has
-three roots:
+For the Max77705 discriminator, the reviewed authority has three roots:
 
 | Root | Expected driver | Why it must bind |
 |---|---|---|
@@ -224,13 +223,13 @@ Private output:
 `workspace/private/outputs/s22plus_fyg8_p317/must-bind-claim-contract-20260812-01.json`
 
 ```text
-receipt size                15,657 bytes
-receipt SHA-256             f6136aa108d036544ba4003326bd8a4b7c497230e9ae75033ed303f2023da604
+receipt size                15,712 bytes
+receipt SHA-256             b9d8b967aed453ab006aa7532592f4fc6413131d775159df4f18daf96ec33334
 claim-authority SHA-256     49859c0957a15ef25cdad98137c5f178eb790f4689ddeb74553971d1a9ce3070
 claims / roots / edges      3 / 3 / 9
 evaluability preconditions  4
-verdict                     PASS_P317_MUST_BIND_FIXED_POINT_AUTHORITY_H0_REVIEW_REQUIRED
-human causal review         REQUIRED_NOT_YET_SATISFIED
+verdict                     PASS_P317_MUST_BIND_FIXED_POINT_AUTHORITY_H0_REVIEWED
+human causal review         SATISFIED_2026_08_12
 candidate ready             false
 ```
 
@@ -260,8 +259,8 @@ Private output:
 `workspace/private/outputs/s22plus_fyg8_p317/executability-fixed-point-20260812-01.json`
 
 ```text
-receipt size                         495,646 bytes
-receipt SHA-256                      55971dd9228b51ad5076ec0ca3c75433172d110f9fb6b5a92f7d32e3d19d066f
+receipt size                         496,664 bytes
+receipt SHA-256                      b4418d8cf0a8aedcb540e53d008720e31202ede823cc6064978463ef3b8d8f9c
 applicable vendor bases              2
 static fixed-point nodes             23
 iterations to convergence            5
@@ -269,7 +268,7 @@ raw / deduplicated relation edges    170 / 53
 predecessor early/effective          64 / 65
 successor early/effective            69 / 70
 effective count delta                65 -> 70
-verdict                              PASS_P317_EXECUTABILITY_FIXED_POINT_H0_REVIEW_AND_RUNTIME_PENDING
+verdict                              PASS_P317_EXECUTABILITY_FIXED_POINT_H0_RUNTIME_PENDING
 candidate ready                      false
 ```
 
@@ -300,12 +299,21 @@ This is a derived result, not a copied localization list. `qcom-spmi-pmic.ko`
 pulls the two regmap dependencies from exact `modules.dep`, while the SPMI
 arbiter and GPIO modules arise from the recursive instantiation chain.
 
+`69 early / 70 effective` describes two different load domains. The generic
+early loop loads the 64 inherited stock modules plus the five derived provider
+modules, for 69. The seventieth module is the inherited
+`s22plus_max77705_mux_diag.ko`; it is deliberately absent from that loop and is
+loaded exactly once through the dedicated synchronous late `finit_module()`
+path only after all early modules, gadget-path readiness, and Process-v2
+sidecar arming. Thus 70 is the effective complete candidate module count, not
+the early-loop capacity.
+
 The receipt deliberately remains `CANDIDATE_NOT_READY`. Static DT cannot prove
 the live `OF_POPULATED`/`FWNODE_FLAG_NOT_DEVICE` early-device gate, and source
 defaults cannot substitute for a retained boot-specific `fw_devlink` mode and
-strictness witness. The corrected claim authority also still requires human
-causal review, and the changed permanent relation-family machinery requires
-proportional independent review before packaging.
+strictness witness. The corrected claim authority and changed permanent
+relation-family machinery are reviewed; the runtime and packaging authorities
+remain unavailable.
 
 ## Exact parser authority
 
@@ -449,9 +457,11 @@ P3.17 package receipt.
 
 The first fw_devlink extractor and Process-v2 documentation suites pass 40/40.
 The corrected must-bind and mutually recursive fixed-point suites add 34/34,
-for 74/74 focused host tests in the current tree. Those 34 added tests do not
-satisfy the pending human or proportional independent review. The earlier
-independent review reproduced and closed fail-open mutations for parser-table
+for 74/74 focused host tests in the current tree. Machine tests establish
+coverage and source binding, not causal truth. The follow-up human review
+approves the corrected causal authority, mutual recursion, direct-reference
+family, and exact `+5` delta. The earlier independent review reproduced and
+closed fail-open mutations for parser-table
 substitution, unmodeled consumer properties, disabled consumer/supplier paths,
 self/descendant suppliers, malformed GPIO arguments, mode/strict producers,
 and receipt/source separation. It independently regenerated the exact private
@@ -522,20 +532,16 @@ P3.17 remains H0 and not ready. The exact static transitive closure and module
 delta below are complete H0 inputs, not candidate qualification. Before any
 candidate qualification it must:
 
-1. complete human causal review of the three-root, nine-counterfactual
-   must-bind authority without treating machine coverage as truth;
-2. accept or revise the exact two-base 23-node, five-iteration,
-   `65 -> 70` fixed-point result through proportional independent review;
-3. reprove effective fw_devlink mode/strict from candidate boot authorities;
-4. prove the runtime-only early-device gate for every statically eligible
+1. reprove effective fw_devlink mode/strict from candidate boot authorities;
+2. prove the runtime-only early-device gate for every statically eligible
    supplier edge;
-5. account for the broader binding effects of every added provider;
-6. define a non-ambiguous retained instantiator/supplier/bind/probe-entry vector
+3. account for the broader binding effects of every added provider;
+4. define a non-ambiguous retained instantiator/supplier/bind/probe-entry vector
    and prove all four claim-evaluability preconditions;
-7. run actual encoder, Carrier, decoder, persistence, and negative terminal
+5. run actual encoder, Carrier, decoder, persistence, and negative terminal
    fixtures;
-8. run source-frozen A/B userspace/package/static qualification; and
-9. obtain a final independent ready-closure review before any ready-manifest,
+6. run source-frozen A/B userspace/package/static qualification; and
+7. obtain a final independent ready-closure review before any ready-manifest,
    D0, or
    approval work.
 

@@ -35,7 +35,7 @@ import s22plus_o2_module_plan as module_plan  # noqa: E402
 
 
 SCHEMA = "s22plus_fyg8_p317_executability_fixed_point_v1"
-VERDICT = "PASS_P317_EXECUTABILITY_FIXED_POINT_H0_REVIEW_AND_RUNTIME_PENDING"
+VERDICT = "PASS_P317_EXECUTABILITY_FIXED_POINT_H0_RUNTIME_PENDING"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 
 DEFAULT_DTBO = p225.DEFAULT_DTBO
@@ -711,6 +711,16 @@ def derive_module_delta(
         "successor_early_modules": successor_early,
         "successor_early_count": len(successor_early),
         "late_custom_module": CUSTOM_LATE_MODULE,
+        "early_vs_effective_contract": {
+            "early_module_count": EXPECTED_SUCCESSOR_EARLY_COUNT,
+            "early_loop_excludes": CUSTOM_LATE_MODULE,
+            "late_load_stage": (
+                "after all early modules, gadget-path readiness, and "
+                "Process-v2 sidecar arming"
+            ),
+            "late_load_operation": "one dedicated synchronous finit_module",
+            "effective_count_includes_late_module": True,
+        },
         "successor_effective_total_count": len(successor_early) + 1,
         "effective_count_delta": (
             f"{PREDECESSOR_EFFECTIVE_COUNT}->{len(successor_early) + 1}"
@@ -805,7 +815,7 @@ def validate_must_bind_receipt(data: bytes) -> dict[str, Any]:
         raise FixedPointError("must-bind receipt schema differs")
     if result.get("claim_authority_sha256") != claims.CLAIM_AUTHORITY_SHA256:
         raise FixedPointError("must-bind claim authority differs")
-    if result.get("human_causal_review") != "REQUIRED_NOT_YET_SATISFIED":
+    if result.get("human_causal_review") != claims.HUMAN_CAUSAL_REVIEW:
         raise FixedPointError("corrected must-bind authority review state differs")
     source_receipt = result.get("authority", {}).get("extractor_source")
     current_source = stable_read(
@@ -979,12 +989,10 @@ def build_contract(
         "fixed_point": shared["fixed_point"],
         "module_delta": shared["module_delta"],
         "remaining_gates": [
-            "human_causal_review_of_corrected_claim_authority",
             "runtime_fw_devlink_mode_and_strict_witness",
             "runtime_early_device_gate_witness",
             "retained_waiting_for_supplier_and_binding_witness",
             "successor_packaging_and_process_v2_requalification",
-            "independent_review_of_changed_permanent_process_gate",
         ],
         "safety": {
             "device_contact": False,

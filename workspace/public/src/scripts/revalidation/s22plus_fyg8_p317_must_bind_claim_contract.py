@@ -18,8 +18,9 @@ from typing import Any, Iterable
 
 
 SCHEMA = "s22plus_fyg8_p317_must_bind_claim_contract_v1"
-VERDICT = "PASS_P317_MUST_BIND_FIXED_POINT_AUTHORITY_H0_REVIEW_REQUIRED"
+VERDICT = "PASS_P317_MUST_BIND_FIXED_POINT_AUTHORITY_H0_REVIEWED"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
+HUMAN_CAUSAL_REVIEW = "SATISFIED_2026_08_12"
 CLAIM_AUTHORITY_SHA256 = (
     "49859c0957a15ef25cdad98137c5f178eb790f4689ddeb74553971d1a9ce3070"
 )
@@ -826,7 +827,7 @@ def build_contract(
         "verdict": VERDICT,
         "target": TARGET,
         "host_only": True,
-        "human_causal_review": "REQUIRED_NOT_YET_SATISFIED",
+        "human_causal_review": HUMAN_CAUSAL_REVIEW,
         "human_review_binding": {
             "superseded_reviewed_claim_authority_sha256": (
                 SUPERSEDED_REVIEWED_CLAIM_AUTHORITY_SHA256
@@ -836,11 +837,13 @@ def build_contract(
                 "siblings; the I2C driver consumes qcom,wrapper-core directly "
                 "instead of the wrapper instantiating the controller"
             ),
-            "pending_claim_authority_sha256": CLAIM_AUTHORITY_SHA256,
+            "reviewed_claim_authority_sha256": CLAIM_AUTHORITY_SHA256,
             "scope": (
                 "corrected must-bind causal authority, third relation family, "
                 "and three-family fixed-point definition"
             ),
+            "review_outcome": "APPROVED",
+            "review_date": "2026-08-12",
             "candidate_authority": False,
         },
         "machine_validation_scope": (

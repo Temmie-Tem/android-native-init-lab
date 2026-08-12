@@ -130,6 +130,15 @@ class P317ExecutabilityFixedPointTest(unittest.TestCase):
             self.assertLess(positions[row["before"]], positions[row["after"]])
         self.assertEqual(len(new), 69)
         self.assertEqual(delta["successor_effective_total_count"], 70)
+        late = delta["early_vs_effective_contract"]
+        self.assertEqual(late["early_module_count"], 69)
+        self.assertEqual(late["early_loop_excludes"], "s22plus_max77705_mux_diag.ko")
+        self.assertIn("gadget-path readiness", late["late_load_stage"])
+        self.assertEqual(
+            late["late_load_operation"],
+            "one dedicated synchronous finit_module",
+        )
+        self.assertTrue(late["effective_count_includes_late_module"])
 
     def test_runtime_only_authorities_remain_pending(self):
         self.assertEqual(
@@ -142,7 +151,15 @@ class P317ExecutabilityFixedPointTest(unittest.TestCase):
         )
         self.assertEqual(
             self.result["must_bind"]["human_causal_review"],
-            "REQUIRED_NOT_YET_SATISFIED",
+            "SATISFIED_2026_08_12",
+        )
+        self.assertNotIn(
+            "human_causal_review_of_corrected_claim_authority",
+            self.result["remaining_gates"],
+        )
+        self.assertNotIn(
+            "independent_review_of_changed_permanent_process_gate",
+            self.result["remaining_gates"],
         )
 
     def test_missing_wrapper_reference_hard_fails(self):
