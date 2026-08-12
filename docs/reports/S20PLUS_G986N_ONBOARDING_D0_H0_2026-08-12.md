@@ -153,3 +153,38 @@ replayed. The post-result host privacy checker initially used an invalid JSON
 array traversal and exited without changing the result; a corrected exact-key
 and digest-shape check passed. No device command was repeated for that host
 inspection defect.
+
+## Operator-Provided Download Mode Photograph
+
+The operator subsequently supplied a 1001-by-1280 JPEG photograph of this
+S20+ already displaying Download Mode. The attachment SHA-256 is
+`2ea3eac21446264aac030bf00c25727c3bdf478712984d9d1b8154ee524bfe4c`.
+No ADB, USB enumeration, Odin, reboot, mode-transition, or other device command
+was used to obtain or inspect this photograph.
+
+The following screen text is sufficiently clear for exact status recording:
+
+- `RPMB Fuse Set`;
+- `RPMB PROVISIONED`;
+- `CURRENT BINARY: Samsung Official`;
+- `FRP LOCK: OFF`;
+- `OEM LOCK: OFF (U)`;
+- `KG STATUS: CHECKING`;
+- `WARRANTY VOID: 0x0`;
+- `QUALCOMM SECUREBOOT: ENABLE`;
+- `SECURE DOWNLOAD: ENABLE`; and
+- `HDMI STATUS: NONE`.
+
+The photograph also visibly contains a DID. It is treated as a private device
+identifier and is intentionally omitted from tracked text. The RP SWREV row
+and one red status/code row are not transcribed because blur and color overlap
+do not support exact character-level evidence.
+
+This photograph corroborates `OEM LOCK: OFF (U)` together with the earlier
+Android observations `flash_locked=0`, `vbmeta_device_state=unlocked`, and
+verified boot `orange`. It does not establish that flashing is safe or ready.
+In particular, `KG STATUS: CHECKING` is retained as an unresolved observed
+state, not normalized to pass; rollback artifact, recovery path, exact
+partition identities, root, and any Odin transfer capability remain unknown or
+undefined. The observation grants no Download-mode exit, reboot, D1, F1,
+payload, or partition authority.

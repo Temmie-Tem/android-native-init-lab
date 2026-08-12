@@ -32,6 +32,21 @@ The current preparation evidence is
 - Boot security observations: `flash_locked=0`,
   `vbmeta_device_state=unlocked`, verified boot `orange`. These corroborate the
   unlocked state but grant no root or flash authority.
+- Operator-provided Download Mode photograph records the following
+  screen-visible state: `CURRENT BINARY: Samsung Official`, `FRP LOCK: OFF`,
+  `OEM LOCK: OFF (U)`, `KG STATUS: CHECKING`, `WARRANTY VOID: 0x0`,
+  `QUALCOMM SECUREBOOT: ENABLE`, `SECURE DOWNLOAD: ENABLE`, RPMB fuse set and
+  provisioned, and `HDMI STATUS: NONE`. This is photographic observation, not
+  a host/ADB/Odin probe. It corroborates the unlocked state but does not prove
+  flash readiness, rollback availability, recovery, root, or partition safety.
+- The Download Mode screen's DID is a private device identifier and is omitted
+  from tracked text. The RP SWREV row and one red status/code row are not
+  transcribed because the photograph does not support exact character-level
+  reading. The private source photograph is bound by SHA-256
+  `2ea3eac21446264aac030bf00c25727c3bdf478712984d9d1b8154ee524bfe4c`.
+- Download Mode entry was performed by the operator outside this agent's
+  command path. This recording sent zero device commands and grants no exit,
+  reboot, Odin, transfer, D1, or F1 authority.
 - Durable result: `PASS_S20PLUS_G986N_D0_ONBOARDING_READ_ONLY`; private result
   SHA-256 `bda29a458c11eab7634bf1d0ea9186ba314f55604e06fe0fca331ab8e6a60cef`.
 - Counts: six bounded host ADB invocations total, including two inventories;
@@ -56,8 +71,9 @@ The S20+-only D0 onboarding inventory completed and proved that it:
    authority.
 
 The durable active-intent guard remains present. The D0 is consumed and must
-not be replayed. The next unit is host-only interpretation and selection of a
-future objective; no connected process is currently active.
+not be replayed. The operator-provided photograph now records Download Mode
+state without creating a host-connected process. The next unit remains
+host-only interpretation and selection of a future objective.
 
 ## Open Decisions
 
