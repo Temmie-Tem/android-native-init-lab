@@ -98,6 +98,26 @@ The current preparation evidence is
   build, and stock-kernel byte identity remain unproven. Detailed H0 evidence
   is in
   `docs/reports/S20PLUS_G986N_STOCK_ARTIFACT_ACQUISITION_H0_2026-08-13.md`.
+- Magisk boot-only H0: official Magisk v30.7 and its tag source were pinned;
+  the APK is bound by SHA-256
+  `e0d32d2123532860f97123d927b1bb86c4e08e6fd8a48bfc6b5bee0afae9ebd5`.
+  Its official `magiskboot` accepted the exact stock boot as Android boot v2
+  with a gzip ramdisk, raw ARM64 kernel, DTB, Samsung marker, and AVB 2 footer.
+  The ramdisk and DTB read-only tests both classify as stock/clean.
+- Direct kernel evidence: Samsung's `extract-ikconfig` recovered the embedded
+  final stock configuration, including `CONFIG_IKCONFIG=y`,
+  `CONFIG_MODULES=y`, `CONFIG_MODULE_SIG=y`, and
+  `CONFIG_MODULE_SIG_FORCE=y`; its text is bound by SHA-256
+  `5e4e4a986f7aae396dc3ebb03818a4c0b9bea5f6948c5e17eb6abaf8d988f760`.
+- AVB blocker: the stock boot's valid AVB 2 footer and the AP's separate
+  top-level `vbmeta.img` both bind the exact stock boot digest. Magisk's
+  Samsung AP flow modifies the separate VBMeta flags and the official first
+  install flashes patched AP together with BL, CP, and CSC. That is not a
+  boot-only transaction and is outside the permanent boundary.
+- Current rooting verdict:
+  `FORMAT_COMPATIBLE_AVB_AND_TRANSPORT_UNQUALIFIED_NO_GO`. No patched image was
+  created. Detailed H0 evidence is in
+  `docs/reports/S20PLUS_G986N_MAGISK_BOOT_ONLY_FEASIBILITY_H0_2026-08-13.md`.
 
 ## Current Bounded Unit
 
@@ -121,11 +141,17 @@ host-connected process.
 
 ## Open Decisions
 
-The next host-side objective may unpack the stock boot image and bind its
-kernel and ramdisk properties without modifying it, then compare direct stock
-image evidence against the published `4.19.113` source and defconfig. A later
-reproducible-build unit would first need exact toolchain acquisition and a
-generated final configuration; the published defconfig alone is insufficient.
-Rooting, recovery work, native-init, or boot-only experiments each require a
-separately designed and reviewed target-contract amendment; none is implied by
-the unlocked bootloader, downloaded stock artifacts, or routine D0.
+The next host-side objective is an exact boot-only Odin feasibility and
+recovery design. It must prove whether this unlocked/orange S20+ can accept a
+`boot.img`-only transaction while keeping the stock separate VBMeta unchanged;
+the official Magisk Samsung AP flow cannot be reused because it modifies
+VBMeta and calls for BL, CP, and CSC. Any live experiment still requires an
+exact archive validator, stock-boot rollback through a demonstrated recovery
+path, one-shot/no-replay journaling, bounded observation, a target-contract
+amendment, independent review, and fresh authority. TWRP remains out of scope
+because recovery writes are permanently forbidden.
+
+A later reproducible-kernel-build unit would still need exact toolchain
+acquisition and a demonstrated matching build; the newly recovered embedded
+final `.config` removes the configuration-evidence gap but does not itself
+prove stock-kernel byte identity.
