@@ -3,7 +3,7 @@
 Status: **H0 DESIGN AND IMPLEMENTATION COMPLETE; EXACT TWO-BASE MUTUALLY
 RECURSIVE FIXED POINT, RUNTIME WITNESSES, A/B PACKAGE, PROCESS-V2 PROMOTION,
 AND CANONICAL OFFLINE BUNDLE PASS; FINAL INDEPENDENT READY-CLOSURE REVIEW
-PENDING; NO LIVE AUTHORITY**
+PASS_GO; NO LIVE AUTHORITY**
 
 Date: 2026-08-12
 
@@ -51,6 +51,14 @@ now also approves the corrected three-root causal authority, all three mutually
 recursive relation families, and the exact `+5` module delta. That review does
 not qualify runtime witnesses, packaging, a candidate, or live authority.
 
+The final changed-closure review independently regenerated the source-frozen
+intent, userspace, candidates, qualification, and static closure byte-for-byte;
+verified the actual-C wrapper, all 107 positive retained preimages, the
+claim-busy negative path, common Process-v2 enforcement, canonical/private
+ready copies, target, rollback, and guard derivation; and returned
+`PASS_GO — S22PLUS_FYG8_P317_CUSTOM70_PROCESS_V2_OFFLINE_READY_CAPABILITY_V1`.
+This qualifies only the named H0 capability and creates no D0 or F1 authority.
+
 ## Scope and non-goals
 
 This unit does:
@@ -69,8 +77,10 @@ This unit does:
 The follow-up implementation qualifies and packages the derived
 69-early/70-effective module order without changing the fixed P3.10 Image or
 the inherited diagnostic module. It builds a boot-only candidate and an
-offline Process-v2 bundle, but does not run Full-LTO, read a device, authorize
-F1, or satisfy the required final independent changed-closure review.
+offline Process-v2 bundle, and the final independent changed-closure review is
+complete. It does not run Full-LTO, read a device, authorize F1, or answer the
+remaining live-only target-binding, GENI/I2C, retention, physical-MUX, or host-
+attach questions.
 
 ## Gate contract
 
@@ -540,9 +550,19 @@ The successor implementation closes items 1-6 of the original boundary:
 - the actual materialized runtime and immediate callers execute under host
   fixtures, and the late-loader lifecycle preserves the bounded reap/error
   rules inherited from P3.16;
-- native Envelope-v3 and the real Process-v2 adapter round-trip 105 unique
-  rows: 84 observer site/error rows, 15 terminal rows, five MUX rows, and one
-  overflow no-proof row;
+- native Envelope-v3 and the real Process-v2 adapter round-trip 107 unique
+  retained preimages: 84 observer site/error rows, 15 direct terminal rows,
+  five MUX rows, one overflow no-proof row, and two additional EAGAIN
+  generation-path rows. Together with four terminal representatives, those
+  two rows preserve all six observable EAGAIN branches and their distinct
+  next actions. A separate negative obligation runs the inherited actual-C
+  EAGAIN policy over a claim-busy multiplicity witness, requires policy
+  rejection, executes the byte-identical materialized
+  `p316_classify_eagain()` wrapper with its immediate caller structurally
+  bound, and feeds that normalized `result-policy` / `io-format` row through
+  the actual envelope, Carrier, and real host adapter. `eagain_row` remains
+  absent; the negative row is deliberately excluded from the 107 positive
+  preimages;
 - the generic early loop contains exactly 69 modules and the unchanged
   diagnostic remains one dedicated late-only module, for 70 effective;
 - two userspace builds and two boot-only packages are byte-identical. Both use
@@ -552,13 +572,13 @@ The successor implementation closes items 1-6 of the original boundary:
   and candidate AP SHA-256
   `ac0db3172cdc4dc9fe7991bf034e872f0d377a3fb175e61ff8cba0eb136c9f22`;
 - final qualification, independent static reconstruction, and Process-v2
-  promotion pass with candidate-static `90ab95c9248ee6f3a5e506bc61ab7d973cf815de5e711d105aaa503c8b42628a`,
-  run-manifest `857b6d0710a4b54ce2f2bc02b4110e8d6ea0c3570936011fee578cf382254c9b`,
-  and static-check `fc28637f63aecd996fb37bb509c42acd55df8844130595efcb274d9ea87ce346`;
+  promotion pass with candidate-static `269a057fecaac91c677dc1d2912775ad0a3c1365b6fc49947e39754ea2872d8c`,
+  run-manifest `4ec038df97f53b271ac5d2ed2cccdd24d6160afb9e6990379bdf9699cce99b26`,
+  and static-check `3b6726a4a1154c0b0b4b9a1bf4a401a53332917f017955b9d14dd5ee4668d465`;
   and
 - non-creating ready rehearsal and canonical creation both pass. The manifest
   is 2,777 bytes, SHA-256
-  `47b5e3c61d5a262ac6f00481210ef85f695d7d3793f456be8cbf0de28d2843b6`,
+  `5732cb44797f4a4aec3d5024796c80d6a771afa23ce4c1309300a5a23e2fccb3`,
   binds the exact rollback `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`,
   and records a 300-second candidate window under the 1,200-second guard.
 
@@ -569,9 +589,20 @@ overlay intent, while every other source retains the 1 MiB default.
 
 ## Remaining boundary
 
-P3.17 is canonical **offline-bundle ready but not independently PASS_GO**.
-Item 7 remains: independently review the changed runtime/schema/Process-v2
-closure and reproduce the source-frozen artifacts before D0 preparation or a
-fresh exact F1 approval. The ready manifest itself creates no device authority.
-No P3.16 artifact or approval may be reused, and no device command, Full-LTO,
-kernel rebuild, flash, or A90 action occurred in this H0 implementation.
+P3.17 is canonical **offline-bundle ready and independently PASS_GO** for the
+named H0 capability. Independent regeneration reproduced intent
+file SHA-256 `6d2cabacda85b2810b98f952fa26d480d1c3c4cbbd716b4a7d411c8b182eed81`,
+prepackaging `c4f6a9284032a8b97222a6700d285f597acf738aa4d905b185fea04ef7c1a7b9`,
+userspace `1b00407b402563e5ed0bc0e31ab0541491c9ad565b74c85a709d329936670e37`,
+qualification `74becadbda0453ea338743f9850d3c228d627d90d95a31a4e74922bc2c91a034`,
+and static closure `269a057fecaac91c677dc1d2912775ad0a3c1365b6fc49947e39754ea2872d8c`
+byte-for-byte. Focused P3.17 tests pass 73/73, documentation tests 24/24,
+and common runner/evidence/live/sidecar tests pass 101/101. The selected
+regression set therefore totals 198/198.
+
+The ready manifest itself creates no device authority. A live unit still needs
+the target contract's fresh prerequisites and exact authority; its remaining
+answers are actual provider binding and fw_devlink state, GENI/I2C transport,
+Max77705 retention, physical MUX conduction, and host attach. No P3.16 artifact
+or approval may be reused, and no device command, Full-LTO, kernel rebuild,
+flash, A90 action, or S20+ device action occurred in this H0 implementation.

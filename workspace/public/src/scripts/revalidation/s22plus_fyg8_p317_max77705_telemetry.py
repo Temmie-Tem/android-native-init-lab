@@ -701,7 +701,7 @@ def decode_envelope(envelope: bytes) -> dict[str, Any]:
         observer_site=None if observer_site_code == 0 else observer_site,
         terminal_bucket=terminal_bucket,
     )
-    return {
+    decoded = {
         "schema": SCHEMA,
         "terminal_bucket": terminal_bucket,
         "terminal_classification": (
@@ -742,6 +742,35 @@ def decode_envelope(envelope: bytes) -> dict[str, Any]:
         "diagnostic_probe_entry": None if result is None else result["stage"] >= 1,
         "envelope_crc32": recorded,
     }
+    eagain_buckets = {
+        "driver_registered_without_matching_parent",
+        "matching_parent_identity_rejected",
+        "parent_ownership_conflict",
+        "result_not_ready_eagain",
+        "synchronous_probe_or_publication_contradiction",
+    }
+    if observer_site_code != 0:
+        decoded["eagain_row"] = None
+    elif result is None and terminal_bucket in eagain_buckets:
+        if (
+            terminal_bucket
+            == "synchronous_probe_or_publication_contradiction"
+            and binding.loader_state == inherited.LOADER_STATES["NOT_STARTED"]
+        ):
+            decoded["eagain_row"] = None
+        else:
+            row = inherited.classify_eagain_binding(binding)
+            if inherited.eagain_terminal_bucket(row) != terminal_bucket:
+                raise TelemetryError("P3.17 EAGAIN row and terminal bucket disagree")
+            row_contract = inherited.surface.DIAG_EAGAIN_OBSERVABLE_ROWS[row]
+            decoded["eagain_row"] = row
+            decoded["eagain_terminal"] = bool(row_contract.get("terminal", True))
+            decoded["eagain_next_action"] = (
+                row_contract.get("investigation_scope")
+                or row_contract.get("bounded_continuation")
+                or row
+            )
+    return decoded
 
 
 def expected_b_detail(decoded: dict[str, Any]) -> int:
@@ -828,6 +857,7 @@ def validate() -> dict[str, Any]:
         ENVELOPE_SIZE != 128
         or PAYLOAD_AREA_SIZE != 76
         or len(TERMINAL_BUCKET_KEYS) != 15
+        or len(inherited.surface.DIAG_EAGAIN_OBSERVABLE_ROWS) != 6
         or max(TERMINAL_DETAIL_BY_KEY.values()) != 0x670F
         or min(inherited.MUX_DETAIL_BY_NAME.values()) != 0x6710
     ):
@@ -841,6 +871,9 @@ def validate() -> dict[str, Any]:
         "binding_bytes": 3,
         "executability_bytes": 6,
         "terminal_bucket_count": len(TERMINAL_BUCKET_KEYS),
+        "observable_eagain_row_count": len(
+            inherited.surface.DIAG_EAGAIN_OBSERVABLE_ROWS
+        ),
         "mux_device_class_count": len(MUX_DEVICE_CLASSES),
         "full_lto_required": False,
         "verified": True,

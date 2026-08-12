@@ -13,17 +13,17 @@
       "contract": {
         "candidate_static": {
           "path": "workspace/private/device-action/s22plus_fyg8_p317_ready_1/evidence/candidate-static.json",
-          "sha256": "90ab95c9248ee6f3a5e506bc61ab7d973cf815de5e711d105aaa503c8b42628a",
-          "size": 4081124
+          "sha256": "269a057fecaac91c677dc1d2912775ad0a3c1365b6fc49947e39754ea2872d8c",
+          "size": 4091068
         },
         "run_manifest": {
           "path": "workspace/private/device-action/s22plus_fyg8_p317_ready_1/evidence/run-manifest.json",
-          "sha256": "857b6d0710a4b54ce2f2bc02b4110e8d6ea0c3570936011fee578cf382254c9b",
+          "sha256": "4ec038df97f53b271ac5d2ed2cccdd24d6160afb9e6990379bdf9699cce99b26",
           "size": 869
         },
         "static_check": {
           "path": "workspace/private/device-action/s22plus_fyg8_p317_ready_1/evidence/static-check-result.json",
-          "sha256": "fc28637f63aecd996fb37bb509c42acd55df8844130595efcb274d9ea87ce346",
+          "sha256": "3b6726a4a1154c0b0b4b9a1bf4a401a53332917f017955b9d14dd5ee4668d465",
           "size": 1783
         }
       },
@@ -31,7 +31,7 @@
       "kind": "retained_e1_latest_stage_multiboot_after_rollback",
       "long_family_hex": "53323245314c327c",
       "minimum_success_count": 1,
-      "policy_id": "499895346049671f57c1d13d35807820",
+      "policy_id": "326a3c6f740e028015526f862f880b58",
       "profile": "E2",
       "run_id": "b9cc424d0d184f5accbce94a844e817d",
       "source": "/proc/last_kmsg",

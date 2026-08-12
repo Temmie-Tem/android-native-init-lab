@@ -50,6 +50,14 @@ def _exec(**changes: int) -> telemetry.ExecWitness:
     return telemetry.ExecWitness(**values)
 
 
+def _claim_busy_binding() -> inherited.BindingWitness:
+    """One impossible post-return EAGAIN binding rejected by the C policy."""
+
+    return vectors._binding(  # noqa: SLF001
+        post_diagnostic_bound_parent_count=2,
+    )
+
+
 def _exec_for_terminal(bucket: str) -> telemetry.ExecWitness:
     if bucket == "fw_devlink_policy_precondition":
         return _exec(
@@ -180,6 +188,25 @@ def _run(
     return completed.stdout, int(match.group(1), 16)
 
 
+def _run_claim_busy(executable: Path) -> tuple[bytes, int]:
+    completed = subprocess.run(
+        [str(executable), "claim-busy"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=10,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise FixtureError(
+            "P3.17 native claim-busy normalization failed "
+            f"rc={completed.returncode}: {completed.stderr!r}"
+        )
+    match = DETAIL_RE.fullmatch(completed.stderr)
+    if match is None:
+        raise FixtureError("P3.17 claim-busy detail receipt differs")
+    return completed.stdout, int(match.group(1), 16)
+
+
 def audit(root: Path | None = None) -> dict[str, object]:
     root = (root or Path(__file__).resolve().parents[5]).resolve()
     compiler = root / CLANG
@@ -190,10 +217,26 @@ def audit(root: Path | None = None) -> dict[str, object]:
 
     rows: list[dict[str, object]] = []
     eagain = vectors._eagain_bindings()  # noqa: SLF001
-    representative = {
-        inherited.eagain_terminal_bucket(name): binding
-        for name, binding in eagain.items()
-    }
+    representative: dict[str, inherited.BindingWitness] = {}
+    eagain_preimage_labels: dict[str, str] = {}
+    additional_eagain: list[
+        tuple[str, inherited.BindingWitness, str, str]
+    ] = []
+    terminal_result_buckets = {"matching_parent_identity_rejected"}
+    for name, binding in eagain.items():
+        bucket = inherited.eagain_terminal_bucket(name)
+        if bucket not in representative:
+            representative[bucket] = binding
+            if bucket not in terminal_result_buckets:
+                eagain_preimage_labels[name] = f"terminal:{bucket}"
+            else:
+                label = f"eagain:{name}"
+                eagain_preimage_labels[name] = label
+                additional_eagain.append((name, binding, bucket, label))
+        else:
+            label = f"eagain:{name}"
+            eagain_preimage_labels[name] = label
+            additional_eagain.append((name, binding, bucket, label))
     for bucket in telemetry.TERMINAL_BUCKET_KEYS:
         result = None
         if bucket == "probe_terminal_failure":
@@ -207,6 +250,15 @@ def audit(root: Path | None = None) -> dict[str, object]:
                 "exec_witness": _exec_for_terminal(bucket),
                 "terminal_bucket": bucket,
                 "result": result,
+            }
+        )
+    for _name, binding, bucket, label in additional_eagain:
+        rows.append(
+            {
+                "label": label,
+                "binding": binding,
+                "exec_witness": _exec_for_terminal(bucket),
+                "terminal_bucket": bucket,
             }
         )
     for mux_class in telemetry.MUX_DEVICE_CLASSES:
@@ -308,8 +360,31 @@ def audit(root: Path | None = None) -> dict[str, object]:
             if detail != telemetry.expected_b_detail(decoded):
                 raise FixtureError(f"P3.17 native detail differs: {row['label']}")
             receipts[str(row["label"])] = hashlib.sha256(actual).hexdigest()
+        claim_busy_actual, claim_busy_detail = _run_claim_busy(executable)
+        claim_busy_expected = telemetry.encode_envelope(
+            binding=_claim_busy_binding(),
+            exec_witness=_exec(),
+            terminal_bucket="synchronous_probe_or_publication_contradiction",
+            observer_site="result-policy",
+            observer_error_class="io-format",
+        )
+        if claim_busy_actual != claim_busy_expected:
+            raise FixtureError("P3.17 native claim-busy envelope differs")
+        claim_busy_decoded = telemetry.decode_envelope(claim_busy_actual)
+        if (
+            claim_busy_detail != telemetry.expected_b_detail(claim_busy_decoded)
+            or claim_busy_decoded.get("observer_site") != "result-policy"
+            or claim_busy_decoded.get("observer_error_class") != "io-format"
+            or claim_busy_decoded.get("eagain_row") is not None
+        ):
+            raise FixtureError("P3.17 claim-busy normalization semantics differ")
     if len(set(receipts.values())) != len(receipts):
         raise FixtureError("P3.17 native envelope rows collide")
+    if (
+        len(eagain_preimage_labels) != len(eagain)
+        or any(label not in receipts for label in eagain_preimage_labels.values())
+    ):
+        raise FixtureError("P3.17 EAGAIN native preimage map is incomplete")
     observer_rows = (
         (len(telemetry.OBSERVER_SITES) - 1)
         * (len(telemetry.OBSERVER_ERROR_CLASSES) - 1)
@@ -322,6 +397,16 @@ def audit(root: Path | None = None) -> dict[str, object]:
         "mux_rows": len(telemetry.MUX_DEVICE_CLASSES),
         "overflow_rows": 1,
         "observer_site_error_rows": observer_rows,
+        "observable_eagain_rows": len(eagain_preimage_labels),
+        "additional_eagain_rows": len(additional_eagain),
+        "eagain_preimage_labels": eagain_preimage_labels,
+        "claim_busy_policy_rejected": True,
+        "claim_busy_decoder_preimage_empty": True,
+        "claim_busy_normalized_observer_site": "result-policy",
+        "claim_busy_normalized_error_class": "io-format",
+        "claim_busy_negative_envelope_sha256": hashlib.sha256(
+            claim_busy_actual
+        ).hexdigest(),
         "byte_exact_python_authority": True,
         "aarch64_freestanding_compile": True,
         "authority_masks_decoded": True,

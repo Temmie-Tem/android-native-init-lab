@@ -23,7 +23,9 @@ POLICY_PREIMAGE = (
     "S22PLUS_FYG8_P317_MAX77705_TELEMETRY_DECODER_V3|carrier=S22E1L2-192|"
     "pair=106,107|a=0xda3|b=0x6701-0x673f|envelope=MXD3-128|"
     "binding=compact-0-1-many-3bytes|exec=policy-provider-pre-post-link-wait-6bytes|"
-    "poll=unchanged-76bytes|precondition=0x670a-0x670e|contradiction=0x670f"
+    "poll=unchanged-76bytes|eagain=6-observable-row-reverse-map|"
+    "negative=claim-busy-c-policy-to-result-policy-io-format-empty-preimage|"
+    "precondition=0x670a-0x670e|contradiction=0x670f"
 )
 POLICY_SHA256 = hashlib.sha256(POLICY_PREIMAGE.encode("ascii")).hexdigest()
 POLICY_ID = POLICY_SHA256[:32]

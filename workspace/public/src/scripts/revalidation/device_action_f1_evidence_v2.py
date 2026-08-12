@@ -70,6 +70,7 @@ import s22plus_fyg8_p315_overlay_contract as p315_overlay
 import s22plus_fyg8_p315_telemetry_decoder as p315_decoder
 import s22plus_fyg8_p315_telemetry_spec as p315_spec
 import s22plus_fyg8_p316_e2_stock_closure as p316_e2_closure
+import s22plus_fyg8_p317_e2_stock_closure as p317_e2_closure
 import s22plus_fyg8_max77705_telemetry_decoder as max77705_decoder
 import s22plus_fyg8_p317_max77705_telemetry_decoder as p317_max77705_decoder
 
@@ -900,8 +901,6 @@ def _select_e2_closure(
     if userspace_overlay_contract_id == P317_MAX77705_OVERLAY_CONTRACT_ID:
         if source_contract_id != P310_SOURCE_CONTRACT_ID:
             raise EvidenceError("P3.17 parent source contract differs")
-        import s22plus_fyg8_p317_e2_stock_closure as p317_e2_closure
-
         return p317_e2_closure.select(source_contract_id)
     if userspace_overlay_contract_id == MAX77705_OVERLAY_CONTRACT_ID:
         if source_contract_id != P310_SOURCE_CONTRACT_ID:
@@ -1124,8 +1123,6 @@ def _p317_e2_authority_context(
     entries: list[Any],
     expected_init: dict[str, Any],
 ):
-    import s22plus_fyg8_p317_e2_stock_closure as p317_e2_closure
-
     if closure_api is not p317_e2_closure.select(P310_SOURCE_CONTRACT_ID):
         raise EvidenceError("P3.17 stock-closure authority adapter differs")
     matching = [
@@ -1651,8 +1648,6 @@ def _generic_rootfs_module_closure(
     if closure_api is p304_e2_closure:
         return module_closure
     if source_contract_id == P310_SOURCE_CONTRACT_ID:
-        import s22plus_fyg8_p317_e2_stock_closure as p317_e2_closure
-
         if closure_api not in {
             p310_e2_closure.select(P310_SOURCE_CONTRACT_ID),
             p311_e2_closure.select(P310_SOURCE_CONTRACT_ID),
@@ -3276,17 +3271,47 @@ def _verify_e1_latest_stage_offline_contract(
             or not isinstance(envelope, dict)
             or envelope.get("verdict")
             != "PASS_P317_MAX77705_NATIVE_ENVELOPE_V3_HOST_ONLY"
-            or envelope.get("row_count") != 105
+            or envelope.get("row_count") != 107
+            or envelope.get("observable_eagain_rows") != 6
+            or envelope.get("additional_eagain_rows") != 2
+            or envelope.get("claim_busy_policy_rejected") is not True
+            or envelope.get("claim_busy_decoder_preimage_empty") is not True
             or envelope.get("verified") is not True
             or not isinstance(adapter, dict)
             or adapter.get("verdict")
             != "PASS_P317_REAL_PROCESS_V2_RETAINED_SEMANTICS_HOST_ONLY"
+            or adapter.get("observable_eagain_preimages") != 6
+            or adapter.get("additional_eagain_preimages") != 2
+            or adapter.get("retained_vector_preimages") != 107
+            or adapter.get("actual_native_envelope_preimages") != 107
+            or adapter.get("retained_vector_cross_group_unique") is not True
+            or adapter.get("retained_vector_reverse_map_complete") is not True
+            or adapter.get("native_envelope_adapter_input_byte_identity") is not True
+            or adapter.get("claim_busy_policy_rejected") is not True
+            or adapter.get("claim_busy_decoder_preimage_empty") is not True
+            or adapter.get("claim_busy_normalized_observer_round_trip") is not True
+            or adapter.get(
+                "claim_busy_native_envelope_adapter_input_byte_identity"
+            ) is not True
             or adapter.get("verified") is not True
             or not isinstance(fixed_point, dict)
             or fixed_point.get("module_delta", {}).get("added_early_module_count") != 5
             or not isinstance(lifecycle, dict)
             or lifecycle.get("verdict")
             != "PASS_P317_LATE_LOADER_LIFECYCLE_HOST_ONLY"
+            or lifecycle.get("claim_busy_runtime_observation_byte_identical")
+            is not True
+            or lifecycle.get("claim_busy_runtime_wrapper_byte_identical")
+            is not True
+            or lifecycle.get(
+                "claim_busy_runtime_wrapper_immediate_caller_verified"
+            ) is not True
+            or lifecycle.get(
+                "claim_busy_runtime_wrapper_actual_c_executed_by_native_fixture"
+            ) is not True
+            or lifecycle.get(
+                "claim_busy_runtime_wrapper_negative_envelope_sha256"
+            ) != envelope.get("claim_busy_negative_envelope_sha256")
             or lifecycle.get("verified") is not True
             or not isinstance(sidecar, dict)
             or sidecar.get("verdict")

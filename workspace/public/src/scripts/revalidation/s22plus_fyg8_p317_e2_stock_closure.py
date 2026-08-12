@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 import s22plus_fyg8_p316_e2_stock_closure as base
-import s22plus_fyg8_p317_overlay_contract as overlay
+import s22plus_fyg8_p310_source_contract as source_contract
 
 
 SCHEMA = "s22plus_fyg8_p317_stock_closure_h0_v1"
@@ -43,10 +43,21 @@ ClosureError = base.ClosureError
 P310 = base.P310
 INCIDENTAL_PATH = base.INCIDENTAL_PATH
 INCIDENTAL_PATHS = frozenset({base.INCIDENTAL_PATH, b"/e9;"})
+PARENT_SOURCE_CONTRACT_ID = source_contract.CONTRACT_ID
+
+
+def _overlay_module():
+    # Keep the closure module safe to bind at evidence-adapter import time.
+    # Importing the P3.17 overlay here at module load would recurse through the
+    # P3.16 adapter back into device_action_f1_evidence_v2.
+    import s22plus_fyg8_p317_overlay_contract as overlay
+
+    return overlay
 
 
 @contextmanager
 def _configured() -> Iterator[None]:
+    overlay = _overlay_module()
     names = (
         "SCHEMA", "VERDICT", "EXPECTED_MODULE_COUNT", "ADDED_MODULES",
         "REQUIRED_ABSOLUTE_PATH_STRINGS", "ALLOWED_ABSOLUTE_PATH_STRINGS",
@@ -73,7 +84,7 @@ def _configured() -> Iterator[None]:
 
 
 def select(source_contract_id: str | None):
-    if source_contract_id != overlay.PARENT_SOURCE_CONTRACT_ID:
+    if source_contract_id != PARENT_SOURCE_CONTRACT_ID:
         raise ClosureError("P3.17 source contract differs")
     return __import__(__name__)
 

@@ -96,18 +96,40 @@ def audit() -> dict[str, Any]:
     if selected is not decoder:
         raise FixtureError("P3.17 Process-v2 decoder selection differs")
 
+    native = envelope_vectors.audit()
+    native_receipts_value = native.get("receipts")
+    if not isinstance(native_receipts_value, dict):
+        raise FixtureError("P3.17 native envelope receipt map is missing")
+    native_receipts = {
+        str(label): str(receipt)
+        for label, receipt in native_receipts_value.items()
+    }
+    adapter_envelope_receipts: dict[str, str] = {}
+
+    def round_trip_native(
+        label: str, envelope: bytes
+    ) -> tuple[bytes, dict[str, Any]]:
+        receipt = hashlib.sha256(envelope).hexdigest()
+        if native_receipts.get(label) != receipt:
+            raise FixtureError(
+                f"P3.17 native envelope and adapter input differ: {label}"
+            )
+        adapter_envelope_receipts[label] = receipt
+        return _round_trip(envelope)
+
+    retained_receipts: dict[str, str] = {}
     observer_receipts: dict[str, str] = {}
     for site in tuple(telemetry.OBSERVER_SITES)[1:]:
         for error_class in tuple(telemetry.OBSERVER_ERROR_CLASSES)[1:]:
-            record, classified = _round_trip(
-                telemetry.encode_envelope(
-                    binding=envelope_vectors._observer_binding(site),  # noqa: SLF001
-                    exec_witness=envelope_vectors._observer_exec(site),  # noqa: SLF001
-                    terminal_bucket="synchronous_probe_or_publication_contradiction",
-                    observer_site=site,
-                    observer_error_class=error_class,
-                )
+            label = f"observer:{site}:{error_class}"
+            envelope = telemetry.encode_envelope(
+                binding=envelope_vectors._observer_binding(site),  # noqa: SLF001
+                exec_witness=envelope_vectors._observer_exec(site),  # noqa: SLF001
+                terminal_bucket="synchronous_probe_or_publication_contradiction",
+                observer_site=site,
+                observer_error_class=error_class,
             )
+            record, classified = round_trip_native(label, envelope)
             decoded = classified["records"][0]["max77705"]
             authority = {
                 name
@@ -121,15 +143,48 @@ def audit() -> dict[str, Any]:
                 or classified.get("accepted") is not False
             ):
                 raise FixtureError(f"P3.17 observer row differs: {site}/{error_class}")
-            observer_receipts[f"{site}:{error_class}"] = hashlib.sha256(record).hexdigest()
+            receipt = hashlib.sha256(record).hexdigest()
+            observer_receipts[f"{site}:{error_class}"] = receipt
+            retained_receipts[label] = receipt
     if len(set(observer_receipts.values())) != len(observer_receipts):
         raise FixtureError("P3.17 observer retained vectors collide")
 
-    representative = {
-        inherited.eagain_terminal_bucket(name): binding
-        for name, binding in vectors._eagain_bindings().items()  # noqa: SLF001
-    }
+    eagain = vectors._eagain_bindings()  # noqa: SLF001
+    representative: dict[str, inherited.BindingWitness] = {}
+    representative_eagain_rows: dict[str, str] = {}
+    additional_eagain: list[
+        tuple[str, inherited.BindingWitness, str, str]
+    ] = []
+    eagain_preimage_labels: dict[str, str] = {}
+    terminal_result_buckets = {"matching_parent_identity_rejected"}
+    for name, binding in eagain.items():
+        bucket = inherited.eagain_terminal_bucket(name)
+        if bucket not in representative:
+            representative[bucket] = binding
+            if bucket not in terminal_result_buckets:
+                representative_eagain_rows[bucket] = name
+                eagain_preimage_labels[name] = f"terminal:{bucket}"
+            else:
+                label = f"eagain:{name}"
+                eagain_preimage_labels[name] = label
+                additional_eagain.append((name, binding, bucket, label))
+        else:
+            label = f"eagain:{name}"
+            eagain_preimage_labels[name] = label
+            additional_eagain.append((name, binding, bucket, label))
+    if native.get("eagain_preimage_labels") != eagain_preimage_labels:
+        raise FixtureError("P3.17 native EAGAIN preimage map differs")
+
+    def expected_eagain_next_action(row: str) -> str:
+        contract = inherited.surface.DIAG_EAGAIN_OBSERVABLE_ROWS[row]
+        return str(
+            contract.get("investigation_scope")
+            or contract.get("bounded_continuation")
+            or row
+        )
+
     terminal_receipts: dict[str, str] = {}
+    eagain_receipts: dict[str, str] = {}
     precondition_rows = 0
     for bucket in telemetry.TERMINAL_BUCKET_KEYS:
         result = None
@@ -138,26 +193,24 @@ def audit() -> dict[str, Any]:
             result = vectors._failure_result(4)  # noqa: SLF001
         elif bucket == "matching_parent_identity_rejected":
             result = vectors._failure_result(2, rc=-19)  # noqa: SLF001
-        if bucket == "result_payload_unrepresentable":
-            envelope = telemetry.encode_envelope(
-                binding=vectors._binding(),  # noqa: SLF001
-                exec_witness=envelope_vectors._exec(),  # noqa: SLF001
-                mux_class=telemetry.MUX_DEVICE_CLASSES[0],
-                result=vectors._result(  # noqa: SLF001
-                    polls=tuple(vectors._uncompressible_poll() for _ in range(4))  # noqa: SLF001
-                ),
-            )
-        else:
-            envelope = telemetry.encode_envelope(
-                binding=binding,
-                exec_witness=envelope_vectors._exec_for_terminal(bucket),  # noqa: SLF001
-                terminal_bucket=bucket,
-                result=result,
-            )
-        record, classified = _round_trip(envelope)
+        envelope = telemetry.encode_envelope(
+            binding=binding,
+            exec_witness=envelope_vectors._exec_for_terminal(bucket),  # noqa: SLF001
+            terminal_bucket=bucket,
+            result=result,
+        )
+        record, classified = round_trip_native(f"terminal:{bucket}", envelope)
         decoded = classified["records"][0]["max77705"]
         if decoded.get("terminal_bucket") != bucket or classified.get("accepted") is not False:
             raise FixtureError(f"P3.17 terminal row differs: {bucket}")
+        eagain_row = representative_eagain_rows.get(bucket)
+        if eagain_row is not None:
+            if (
+                decoded.get("eagain_row") != eagain_row
+                or decoded.get("eagain_next_action")
+                != expected_eagain_next_action(eagain_row)
+            ):
+                raise FixtureError(f"P3.17 EAGAIN row differs: {eagain_row}")
         if bucket in {
             "fw_devlink_policy_precondition",
             "provider_preclient_precondition",
@@ -170,20 +223,48 @@ def audit() -> dict[str, Any]:
             ):
                 raise FixtureError(f"P3.17 precondition class differs: {bucket}")
             precondition_rows += 1
-        terminal_receipts[bucket] = hashlib.sha256(record).hexdigest()
+        receipt = hashlib.sha256(record).hexdigest()
+        terminal_receipts[bucket] = receipt
+        retained_receipts[f"terminal:{bucket}"] = receipt
+        if eagain_row is not None:
+            eagain_receipts[eagain_row] = receipt
     if len(set(terminal_receipts.values())) != len(terminal_receipts):
         raise FixtureError("P3.17 terminal retained vectors collide")
 
+    for row, binding, bucket, label in additional_eagain:
+        envelope = telemetry.encode_envelope(
+            binding=binding,
+            exec_witness=envelope_vectors._exec_for_terminal(bucket),  # noqa: SLF001
+            terminal_bucket=bucket,
+        )
+        record, classified = round_trip_native(label, envelope)
+        decoded = classified["records"][0]["max77705"]
+        if (
+            decoded.get("terminal_bucket") != bucket
+            or decoded.get("eagain_row") != row
+            or decoded.get("eagain_next_action")
+            != expected_eagain_next_action(row)
+            or classified.get("accepted") is not False
+        ):
+            raise FixtureError(f"P3.17 additional EAGAIN row differs: {row}")
+        receipt = hashlib.sha256(record).hexdigest()
+        eagain_receipts[row] = receipt
+        retained_receipts[label] = receipt
+    if (
+        set(eagain_receipts) != set(eagain)
+        or len(set(eagain_receipts.values())) != len(eagain_receipts)
+    ):
+        raise FixtureError("P3.17 EAGAIN retained preimages differ")
+
     mux_receipts: dict[str, str] = {}
     for mux_class in telemetry.MUX_DEVICE_CLASSES:
-        record, classified = _round_trip(
-            telemetry.encode_envelope(
-                binding=vectors._binding(),  # noqa: SLF001
-                exec_witness=envelope_vectors._exec(),  # noqa: SLF001
-                mux_class=mux_class,
-                result=vectors._result_for_mux(mux_class),  # noqa: SLF001
-            )
+        envelope = telemetry.encode_envelope(
+            binding=vectors._binding(),  # noqa: SLF001
+            exec_witness=envelope_vectors._exec(),  # noqa: SLF001
+            mux_class=mux_class,
+            result=vectors._result_for_mux(mux_class),  # noqa: SLF001
         )
+        record, classified = round_trip_native(f"mux:{mux_class}", envelope)
         decoded = classified["records"][0]["max77705"]
         if (
             decoded.get("mux_class") != mux_class
@@ -192,9 +273,65 @@ def audit() -> dict[str, Any]:
             or classified.get("accepted") is not True
         ):
             raise FixtureError(f"P3.17 MUX row differs: {mux_class}")
-        mux_receipts[mux_class] = hashlib.sha256(record).hexdigest()
+        receipt = hashlib.sha256(record).hexdigest()
+        mux_receipts[mux_class] = receipt
+        retained_receipts[f"mux:{mux_class}"] = receipt
     if len(set(mux_receipts.values())) != len(mux_receipts):
         raise FixtureError("P3.17 MUX retained vectors collide")
+
+    overflow_envelope = telemetry.encode_envelope(
+        binding=vectors._binding(),  # noqa: SLF001
+        exec_witness=envelope_vectors._exec(),  # noqa: SLF001
+        mux_class=telemetry.MUX_DEVICE_CLASSES[0],
+        result=vectors._result(  # noqa: SLF001
+            polls=tuple(
+                vectors._uncompressible_poll() for _ in range(4)  # noqa: SLF001
+            )
+        ),
+    )
+    overflow_record, overflow_classified = round_trip_native(
+        "overflow", overflow_envelope
+    )
+    overflow_decoded = overflow_classified["records"][0]["max77705"]
+    if (
+        overflow_decoded.get("terminal_bucket")
+        != "result_payload_unrepresentable"
+        or overflow_classified.get("accepted") is not False
+    ):
+        raise FixtureError("P3.17 overflow row differs")
+    retained_receipts["overflow"] = hashlib.sha256(overflow_record).hexdigest()
+
+    if len(retained_receipts) != 107:
+        raise FixtureError("P3.17 retained vector coverage count differs")
+    if len(set(retained_receipts.values())) != len(retained_receipts):
+        raise FixtureError("P3.17 retained vectors collide across semantic groups")
+    if adapter_envelope_receipts != native_receipts:
+        raise FixtureError("P3.17 native envelope reverse map is incomplete")
+
+    claim_busy_envelope = telemetry.encode_envelope(
+        binding=envelope_vectors._claim_busy_binding(),  # noqa: SLF001
+        exec_witness=envelope_vectors._exec(),  # noqa: SLF001
+        terminal_bucket="synchronous_probe_or_publication_contradiction",
+        observer_site="result-policy",
+        observer_error_class="io-format",
+    )
+    claim_busy_envelope_sha256 = hashlib.sha256(claim_busy_envelope).hexdigest()
+    if (
+        native.get("claim_busy_policy_rejected") is not True
+        or native.get("claim_busy_decoder_preimage_empty") is not True
+        or native.get("claim_busy_negative_envelope_sha256")
+        != claim_busy_envelope_sha256
+    ):
+        raise FixtureError("P3.17 native claim-busy negative receipt differs")
+    claim_busy_record, claim_busy_classified = _round_trip(claim_busy_envelope)
+    claim_busy_decoded = claim_busy_classified["records"][0]["max77705"]
+    if (
+        claim_busy_decoded.get("observer_site") != "result-policy"
+        or claim_busy_decoded.get("observer_error_class") != "io-format"
+        or claim_busy_decoded.get("eagain_row") is not None
+        or claim_busy_classified.get("accepted") is not False
+    ):
+        raise FixtureError("P3.17 claim-busy adapter normalization differs")
 
     try:
         telemetry.encode_envelope(
@@ -248,7 +385,22 @@ def audit() -> dict[str, Any]:
         "observer_site_error_cross_product_complete": True,
         "terminal_bucket_preimages": len(terminal_receipts),
         "precondition_terminal_preimages": precondition_rows,
+        "observable_eagain_preimages": len(eagain_receipts),
+        "additional_eagain_preimages": len(additional_eagain),
         "mux_class_preimages": len(mux_receipts),
+        "overflow_preimages": 1,
+        "retained_vector_preimages": len(retained_receipts),
+        "retained_vector_cross_group_unique": True,
+        "retained_vector_reverse_map_complete": True,
+        "actual_native_envelope_preimages": len(native_receipts),
+        "native_envelope_adapter_input_byte_identity": True,
+        "claim_busy_policy_rejected": True,
+        "claim_busy_decoder_preimage_empty": True,
+        "claim_busy_normalized_observer_round_trip": True,
+        "claim_busy_native_envelope_adapter_input_byte_identity": True,
+        "claim_busy_negative_record_sha256": hashlib.sha256(
+            claim_busy_record
+        ).hexdigest(),
         "noncausal_mux_preimage_empty": noncausal_mux_rejected,
         "unknown_overlay_rejected": unknown_rejected,
         "real_process_v2_adapter_round_trip": True,

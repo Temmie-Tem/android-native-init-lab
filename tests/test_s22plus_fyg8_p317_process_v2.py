@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import ast
+import dataclasses
 import json
 from pathlib import Path
 import sys
 from types import SimpleNamespace
 import unittest
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -74,14 +76,68 @@ class P317ProcessV2Tests(unittest.TestCase):
         self.assertTrue(value["inherited_helper_definitions_byte_identical"])
         self.assertEqual(value["p317_runtime_observer_callers"], 7)
         self.assertEqual(value["p317_wrapper_observer_callers"], 2)
+        self.assertTrue(value["claim_busy_runtime_observation_byte_identical"])
+        self.assertTrue(value["claim_busy_runtime_wrapper_byte_identical"])
+        self.assertTrue(
+            value["claim_busy_runtime_wrapper_immediate_caller_verified"]
+        )
+        self.assertTrue(
+            value["claim_busy_runtime_wrapper_actual_c_executed_by_native_fixture"]
+        )
+        self.assertEqual(
+            len(value["claim_busy_runtime_wrapper_negative_envelope_sha256"]),
+            64,
+        )
 
     def test_native_envelope_and_real_adapter_are_complete(self) -> None:
         envelope = envelope_fixture.audit(ROOT)
         adapter = adapter_fixture.audit()
-        self.assertEqual(envelope["row_count"], 105)
+        self.assertEqual(envelope["row_count"], 107)
         self.assertEqual(envelope["observer_site_error_rows"], 84)
+        self.assertEqual(envelope["observable_eagain_rows"], 6)
+        self.assertEqual(envelope["additional_eagain_rows"], 2)
+        self.assertTrue(envelope["claim_busy_policy_rejected"])
+        self.assertTrue(envelope["claim_busy_decoder_preimage_empty"])
         self.assertTrue(envelope["byte_exact_python_authority"])
+        self.assertEqual(
+            lifecycle.audit(ROOT)[
+                "claim_busy_runtime_wrapper_negative_envelope_sha256"
+            ],
+            envelope["claim_busy_negative_envelope_sha256"],
+        )
+        self.assertEqual(adapter["retained_vector_preimages"], 107)
+        self.assertEqual(adapter["overflow_preimages"], 1)
+        self.assertEqual(adapter["observable_eagain_preimages"], 6)
+        self.assertEqual(adapter["additional_eagain_preimages"], 2)
+        self.assertTrue(adapter["retained_vector_cross_group_unique"])
+        self.assertTrue(adapter["retained_vector_reverse_map_complete"])
+        self.assertEqual(adapter["actual_native_envelope_preimages"], 107)
+        self.assertTrue(adapter["native_envelope_adapter_input_byte_identity"])
+        self.assertTrue(adapter["claim_busy_policy_rejected"])
+        self.assertTrue(adapter["claim_busy_decoder_preimage_empty"])
+        self.assertTrue(adapter["claim_busy_normalized_observer_round_trip"])
+        self.assertTrue(
+            adapter["claim_busy_native_envelope_adapter_input_byte_identity"]
+        )
         self.assertTrue(adapter["verified"])
+
+    def test_real_adapter_rejects_native_preimage_drift(self) -> None:
+        native = envelope_fixture.audit(ROOT)
+        binding = adapter_fixture.vectors._binding()  # noqa: SLF001
+        drifted = dataclasses.replace(
+            binding, post_foreign_0x25_client_count=1
+        )
+        with (
+            mock.patch.object(envelope_fixture, "audit", return_value=native),
+            mock.patch.object(
+                adapter_fixture.vectors, "_binding", return_value=drifted
+            ),
+            self.assertRaisesRegex(
+                adapter_fixture.FixtureError,
+                "native envelope and adapter input differ",
+            ),
+        ):
+            adapter_fixture.audit()
 
     def test_evidence_adapter_selects_exact_p317_decoder(self) -> None:
         selected = evidence._latest_stage_observation_decoder(  # noqa: SLF001

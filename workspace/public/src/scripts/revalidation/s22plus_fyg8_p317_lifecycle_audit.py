@@ -11,11 +11,16 @@ import s22plus_fyg8_p316_lifecycle_audit as inherited
 import s22plus_fyg8_p316_generator as parent_generator
 import s22plus_fyg8_p308_cross_gate_audit as support
 import s22plus_fyg8_p317_generator as generator
+import s22plus_fyg8_p317_max77705_envelope_fixture as native_envelope_fixture
 
 
 SCHEMA = "s22plus_fyg8_p317_lifecycle_audit_v1"
 VERDICT = "PASS_P317_LATE_LOADER_LIFECYCLE_HOST_ONLY"
 LifecycleError = inherited.LifecycleError
+NATIVE_ENVELOPE_FIXTURE = Path(
+    "workspace/public/src/native-init/"
+    "s22plus_fyg8_p317_max77705_envelope_fixture.c"
+)
 
 
 def audit(root: Path | None = None) -> dict[str, object]:
@@ -42,6 +47,7 @@ def audit(root: Path | None = None) -> dict[str, object]:
         b"static long p316_drain_helper_pipe(",
         b"static uint8_t p316_observer_error_class(",
         b"static uint8_t p316_late_evidence_priority(",
+        b"static void p316_classify_eagain(",
     )
     inherited_hashes: dict[str, str] = {}
     for marker in inherited_helpers:
@@ -56,6 +62,38 @@ def audit(root: Path | None = None) -> dict[str, object]:
         inherited_hashes[marker.decode()] = hashlib.sha256(
             current_definition
         ).hexdigest()
+
+    native_fixture = (root / NATIVE_ENVELOPE_FIXTURE).read_bytes()
+    runtime_observation = support._struct(  # noqa: SLF001
+        runtime, b"struct p316_diag_observation {"
+    )
+    fixture_observation = support._struct(  # noqa: SLF001
+        native_fixture, b"struct p316_diag_observation {"
+    )
+    if runtime_observation != fixture_observation:
+        raise LifecycleError("P3.17 claim-busy observation structure differs")
+    runtime_eagain = support._definition(  # noqa: SLF001
+        runtime, b"static void p316_classify_eagain("
+    )
+    fixture_eagain = support._definition(  # noqa: SLF001
+        native_fixture, b"static void p316_classify_eagain("
+    )
+    if runtime_eagain != fixture_eagain:
+        raise LifecycleError("P3.17 claim-busy runtime wrapper differs")
+    observe = support._definition(  # noqa: SLF001
+        runtime, b"static long p316_observe_diagnostic("
+    )
+    if observe.count(b"p316_classify_eagain(observation);") != 1:
+        raise LifecycleError("P3.17 claim-busy immediate caller differs")
+    inherited._ordered(  # noqa: SLF001
+        observe,
+        (
+            b"if (read_rc == -EAGAIN) {",
+            b"p316_classify_eagain(observation);",
+            b"return 0;",
+        ),
+        "P3.17 claim-busy runtime wrapper caller",
+    )
 
     run = support._definition(  # noqa: SLF001
         runtime, b"static __attribute__((noreturn)) void p317_run("
@@ -110,6 +148,17 @@ def audit(root: Path | None = None) -> dict[str, object]:
         ),
         "P3.17 provider precondition caller",
     )
+    native_envelope = native_envelope_fixture.audit(root)
+    claim_busy_sha256 = native_envelope.get(
+        "claim_busy_negative_envelope_sha256"
+    )
+    if (
+        native_envelope.get("claim_busy_policy_rejected") is not True
+        or native_envelope.get("claim_busy_decoder_preimage_empty") is not True
+        or not isinstance(claim_busy_sha256, str)
+        or len(claim_busy_sha256) != 64
+    ):
+        raise LifecycleError("P3.17 claim-busy native execution differs")
     return {
         "schema": SCHEMA,
         "verdict": VERDICT,
@@ -120,6 +169,11 @@ def audit(root: Path | None = None) -> dict[str, object]:
         ],
         "inherited_helper_definitions_byte_identical": True,
         "inherited_helper_sha256": inherited_hashes,
+        "claim_busy_runtime_observation_byte_identical": True,
+        "claim_busy_runtime_wrapper_byte_identical": True,
+        "claim_busy_runtime_wrapper_immediate_caller_verified": True,
+        "claim_busy_runtime_wrapper_actual_c_executed_by_native_fixture": True,
+        "claim_busy_runtime_wrapper_negative_envelope_sha256": claim_busy_sha256,
         "p317_runtime_observer_callers": 7,
         "p317_wrapper_observer_callers": 2,
         "p317_wrapper_precondition_callers": 1,

@@ -447,10 +447,10 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         marker_offset = self.agents_bytes.index(active_marker)
         self.assertEqual(self.agents_bytes[:marker_offset], expected_prefix)
         active_tail = self.agents_bytes[marker_offset:]
-        self.assertEqual(len(active_tail), 9805)
+        self.assertEqual(len(active_tail), 9814)
         self.assertEqual(
             hashlib.sha256(active_tail).hexdigest(),
-            "474ad4b4ddbcab9569a38ba83c61b9f537688d7d5b7853a26c72b8bea3497eb6",
+            "16c2130220016bb5e28565f8d0b3fe5c576fddd0d774603412bc77f5578ed367",
         )
 
     def test_process_v2_requires_regular_path_and_rollback_authority(self):
@@ -759,7 +759,21 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("present, value `1`", normalized_p317)
         self.assertIn("`fw_devlink=off`", normalized_p317)
         self.assertIn("INDEPENDENT REVIEW PASS", normalized_p317)
+        self.assertIn(
+            "S22PLUS_FYG8_P317_CUSTOM70_PROCESS_V2_OFFLINE_READY_CAPABILITY_V1",
+            normalized_p317,
+        )
+        self.assertIn("independently PASS_GO", normalized_p317)
+        self.assertIn("5732cb44797f4a4a", normalized_p317)
         self.assertIn("pass 40/40", normalized_p317)
+        self.assertIn(
+            "final independent changed-closure review is complete",
+            normalized_p317,
+        )
+        self.assertNotIn(
+            "satisfy the required final independent changed-closure review",
+            normalized_p317,
+        )
         self.assertIn(
             "P316_PROOF_CLASS_CORRECTION_AND_EXPERIMENT_EXECUTABILITY_CLOSURE_DESIGN",
             normalized_ledger,
@@ -772,6 +786,12 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             "count its effective class as NO_PROOF_EXPERIMENT_PRECONDITION",
             normalized_ledger,
         )
+        self.assertIn(
+            "PASS_GO_P317_CUSTOM70_PROCESS_V2_OFFLINE_READY_CAPABILITY_V1",
+            normalized_ledger,
+        )
+        self.assertIn("107 positive retained preimages", normalized_ledger)
+        self.assertIn("claim-busy negative invariant", normalized_ledger)
         self.assertIn("Archived Goal: S22+ Through P3.12 and P3.13 Design", self.archived_goal_through_p313)
         self.assertIn("P3.12 is the latest closed live unit", self.archived_goal_through_p313)
         self.assertIn("docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md", self.agents)

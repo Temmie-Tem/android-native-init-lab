@@ -15,7 +15,7 @@ import s22plus_fyg8_max77705_custom_surface_contract as surface
 import s22plus_fyg8_p304_e2_stock_closure as module_parent
 import s22plus_fyg8_p315_e2_stock_closure as parent
 import s22plus_fyg8_p316_generator as p316_generator
-import s22plus_fyg8_p316_overlay_contract as overlay
+import s22plus_fyg8_p310_source_contract as source_contract
 
 
 SCHEMA = "s22plus_fyg8_p316_stock_closure_h0_v1"
@@ -39,6 +39,11 @@ ClosureError = parent.ClosureError
 P310 = parent.parent.parent.p310_parent
 INCIDENTAL_PATH = P310.INCIDENTAL_PATH
 INCIDENTAL_PATHS = frozenset({INCIDENTAL_PATH})
+PARENT_SOURCE_CONTRACT_ID = source_contract.CONTRACT_ID
+# Successors temporarily replace this operation-time authority while reusing
+# the frozen generic-rootfs implementation. Keep it unbound at module import
+# so the evidence adapter cannot recurse through the P3.16 overlay graph.
+overlay = None
 P316_ADDITIONAL_ABSOLUTE_PATH_STRINGS = frozenset(
     {
         "/proc/modules",
@@ -71,6 +76,17 @@ ALLOWED_ABSOLUTE_PATH_STRINGS = frozenset(
 )
 
 
+def _overlay_module():
+    # Evidence imports this closure while the P3.16 adapter import graph is
+    # still being initialized. Bind the immutable parent ID above and load the
+    # full overlay only when an operation needs its intent verifier.
+    if overlay is not None:
+        return overlay
+    import s22plus_fyg8_p316_overlay_contract as selected
+
+    return selected
+
+
 def _canonical(value: Any) -> bytes:
     return json.dumps(
         value, sort_keys=True, separators=(",", ":"), allow_nan=False
@@ -83,7 +99,7 @@ def closure_sha256(value: dict[str, Any]) -> str:
 
 
 def select(source_contract_id: str | None):
-    if source_contract_id != overlay.PARENT_SOURCE_CONTRACT_ID:
+    if source_contract_id != PARENT_SOURCE_CONTRACT_ID:
         raise ClosureError("P3.16 source contract differs")
     return __import__(__name__)
 
@@ -123,6 +139,7 @@ def derive_module_closure(
 ) -> dict[str, Any]:
     if plan_header is None:
         raise ClosureError("P3.16 exact materialized plan is missing")
+    overlay = _overlay_module()
     intent_path = plan_header.parent.parent / "overlay-intent.json"
     exact = overlay.verify_intent(root, intent_path)
     supplied = module_parent.p241.stable_read(

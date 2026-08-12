@@ -735,7 +735,14 @@ P3.17 H0 implementation now closes the remaining runtime and packaging
 obligations. The materialized runtime retains effective fw_devlink policy,
 three provider/binding witnesses, the three-state `waiting_for_supplier`
 authority, supplier links, exact consumer binding, and diagnostic probe entry.
-Envelope-v3 and the real Process-v2 adapter cover 105 unique rows. The package
+Envelope-v3 and the real Process-v2 adapter cover 107 unique retained
+preimages, including all six observable EAGAIN generation paths. The separate
+claim-busy negative fixture executes the inherited C policy rejection,
+then executes a byte-identical copy of the materialized runtime
+`p316_classify_eagain()` wrapper and its exact immediate-caller seam. Its
+normalized `result-policy` / `io-format` output is the input to the actual
+envelope, Carrier, and host decoder, where no claim-busy `eagain_row` survives.
+The package
 contains exactly 69 early stock modules plus the unchanged one late diagnostic;
 two userspace and boot-only builds are byte-identical, with boot SHA-256
 `068aa5337acdbe4c2a0dcf80241b7aa543600fdfdfc84bb0e74111542b76d18d`
@@ -744,11 +751,18 @@ and AP SHA-256
 Final qualification, independent static reconstruction, Process-v2 promotion,
 private ready exact-copy, and non-creating ready rehearsal pass. Canonical
 manifest SHA-256 is
-`47b5e3c61d5a262ac6f00481210ef85f695d7d3793f456be8cbf0de28d2843b6`.
-P3.17 is offline-bundle ready but **not independently PASS_GO**: a final
-independent changed-closure review remains mandatory before D0 preparation or
-fresh exact F1 approval. No device command, Full-LTO, kernel rebuild, live
-authority, or A90 action occurred.
+`5732cb44797f4a4aec3d5024796c80d6a771afa23ce4c1309300a5a23e2fccb3`.
+Independent source-frozen regeneration reproduced intent-file `6d2cabac...`,
+prepackaging `c4f6a928...`, userspace `1b00407b...`, qualification
+`74becadb...`, and static closure `269a057f...` byte-for-byte. It also verified
+the canonical/private ready copies, target, rollback, 300-second candidate
+window, 1,200-second guard, and non-creating rehearsal. The capability verdict
+is `PASS_GO — S22PLUS_FYG8_P317_CUSTOM70_PROCESS_V2_OFFLINE_READY_CAPABILITY_V1`.
+This is H0 capability qualification only: fresh live prerequisites and exact
+authority remain mandatory, and actual provider binding, GENI/I2C transfer,
+Max77705 retention, physical MUX conduction, and host attach remain device-only
+unknowns. No device command, Full-LTO, kernel rebuild, live authority, A90
+action, or S20+ device action occurred.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden
 archive member, an unreviewed common receipt/schema change, an observer result
