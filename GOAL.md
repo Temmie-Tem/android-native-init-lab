@@ -682,14 +682,55 @@ The incident and successor design are in
 and
 `docs/reports/S22PLUS_FYG8_P317_EXPERIMENT_EXECUTABILITY_CLOSURE_DESIGN_H0_2026-08-12.md`.
 
-P3.17 remains H0 and not ready. It must derive and qualify the complete
-transitive must-bind consumer/provider closure, reprove effective fw_devlink
-mode and strictness from candidate boot authorities, account for broader
-provider binding effects, retain the three-state `waiting_for_supplier` witness
-separately from supplier identity and probe entry, and rerun the complete
-source-frozen userspace/package/Process-v2 closure. The fixed Image and custom
-diagnostic may be inherited only if static qualification reproves their bytes;
-no Full-LTO need, candidate authority, or live approval is implied.
+The next host-only boundary review found two more non-symbol dependency
+classes. Device instantiation is real beneath the derived PM8350C GPIO
+provider: SPMI-controller registration enumerates the PMIC, and the PMIC driver
+populates the GPIO child. But exact merged-DT reconstruction corrects the
+initial QUP explanation. `9c0000` and `994000.i2c` are `/soc` siblings created
+by default OF platform population; the wrapper's `of_platform_populate()` does
+not create this controller. Instead the I2C driver parses the otherwise
+unregistered `qcom,wrapper-core` reference and
+`geni_se_resources_init()` returns `-EPROBE_DEFER` before adapter registration
+when wrapper driver data is absent. The second and third registered families
+are therefore `DEVICE_INSTANTIATION_CLOSURE` and
+`DRIVER_CONSUMED_DT_REFERENCE_CLOSURE`. All three registered families now
+iterate over every emitted exact node until a least fixed point, rather than
+running as root-only or single-family passes. The reviewable must-bind proposal
+still has three roots, three claims, nine claim-to-consumer counterfactuals,
+and four explicit evaluability preconditions. The previous reviewed authority
+hash `fd27d79883cbdc5e6daab937f0b24ab303fdd8a1c91cf63feb5789975e04c1d3`
+is superseded because its wrapper-instantiation sentence was false; the
+corrected pending claim-authority hash is
+`49859c0957a15ef25cdad98137c5f178eb790f4689ddeb74553971d1a9ce3070`.
+Machines prove coverage, fixed-point semantics, and source seams only; human
+causal review is again `REQUIRED_NOT_YET_SATISFIED`, the new relation-family
+review is pending, and no candidate authority follows.
+
+The exact mutually recursive H0 extractor now applies the active revision-12
+overlay independently to both applicable pinned Waipio bases. Both produce the
+same 23-node closure after five iterations, with 170 raw and 53 deduplicated
+relations. Every frontier node enters all three families. The derived module
+delta is exactly `spmi-pmic-arb.ko`, `pinctrl-spmi-gpio.ko`,
+`qti-regmap-debugfs.ko`, `regmap-spmi.ko`, and `qcom-spmi-pmic.ko`. It preserves
+all 64 predecessor early modules as an exact subsequence, inserts the five
+before `msm-geni-se.ko`, and changes the effective count from `65 -> 70`
+(69 early stock modules plus the inherited one late diagnostic). The private
+receipt is 495,646 bytes with SHA-256
+`55971dd9228b51ad5076ec0ca3c75433172d110f9fb6b5a92f7d32e3d19d066f`.
+The corrected must-bind receipt is 15,657 bytes with SHA-256
+`f6136aa108d036544ba4003326bd8a4b7c497230e9ae75033ed303f2023da604`.
+
+P3.17 remains H0 and not ready. The static transitive closure is now derived,
+but its corrected claim authority and new relationship family still require
+human/proportional independent review. A successor must also reprove effective
+fw_devlink mode and strictness from candidate boot authorities, prove the
+runtime-only early-device gate, account for broader provider binding effects,
+retain the three-state `waiting_for_supplier` witness separately from supplier
+identity and probe entry, prove all four claim-evaluability preconditions, and
+rerun the complete source-frozen userspace/package/Process-v2 closure. The
+fixed Image and custom diagnostic may be inherited only if static
+qualification reproves their bytes; no Full-LTO need, candidate authority, or
+live approval is implied.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden
 archive member, an unreviewed common receipt/schema change, an observer result

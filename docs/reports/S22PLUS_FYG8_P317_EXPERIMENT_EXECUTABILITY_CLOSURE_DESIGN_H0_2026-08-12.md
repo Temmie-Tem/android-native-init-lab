@@ -1,7 +1,9 @@
 # S22+ FYG8 P3.17 experiment-executability closure design
 
-Status: **H0 DESIGN AND FIRST FW_DEVLINK REGRESSION IMPLEMENTED; INDEPENDENT
-REVIEW PASS; P3.17 CANDIDATE NOT READY**
+Status: **H0 DESIGN, FIRST FW_DEVLINK REGRESSION, REVIEWABLE MUST-BIND
+AUTHORITY, AND EXACT TWO-BASE MUTUALLY RECURSIVE FIXED-POINT/MODULE DELTA
+IMPLEMENTED; NEW RELATION-FAMILY REVIEW, HUMAN CAUSAL REVIEW, AND RUNTIME
+WITNESSES PENDING; P3.17 CANDIDATE NOT READY**
 
 Date: 2026-08-12
 
@@ -24,11 +26,15 @@ conflated:
 2. **Can the candidate satisfy the dependencies needed to execute the
    mechanism?** The new `EXPERIMENT_EXECUTABILITY_CLOSURE` answers this.
 
-The first registered non-symbol dependency family is
-`FW_DEVLINK_DT_SUPPLIER_CLOSURE`. A `modules.dep` symbol closure cannot prove
-it. The exact fixed kernel derives these dependencies from a bounded property
-parser table and the exact DT, then blocks probing while required fwnode
-suppliers remain unresolved.
+Three non-symbol dependency families are now registered. The first,
+`FW_DEVLINK_DT_SUPPLIER_CLOSURE`, is derived from the fixed kernel's bounded
+property-parser table and exact DT. The second,
+`DEVICE_INSTANTIATION_CLOSURE`, covers the parent probe or bus registration
+that must create a required device before a supplier graph can even start from
+it. The third, `DRIVER_CONSUMED_DT_REFERENCE_CLOSURE`, covers a property that
+the exact consumer driver parses and enforces directly even though the fixed
+fw_devlink parser table does not recognize it. A `modules.dep` symbol closure
+cannot prove any of these relationships.
 
 The general gate is registered as the permanent common qualification boundary
 for `UNMODELED_EXPERIMENT_DEPENDENCY_PRECONDITION`, not as a temporary P3.17
@@ -39,6 +45,12 @@ reviewed common-contract replacement proving equivalent closure for every
 supported candidate. The independent review of this report is the initial
 boundary review.
 
+The prior **INDEPENDENT REVIEW PASS** remains valid for the proof-class split,
+the common gate, and the first exact fw_devlink regression only. It does not
+review the corrected must-bind authority, the mutually recursive
+`DEVICE_INSTANTIATION_CLOSURE`, or the new direct driver-reference family;
+those remain pending as stated in the status.
+
 ## Scope and non-goals
 
 This unit does:
@@ -46,14 +58,18 @@ This unit does:
 - register the new proof class and append-only correction semantics;
 - audit P3.10-P3.16 into four observer failures, one experiment-precondition
   failure, and two conclusive results;
-- define the general executability gate and its first relation family;
+- define the general executability gate and its first three relation families;
 - implement a host-only exact-source extractor for the parser table and the
-  first Max77705 regression case; and
+  first Max77705 regression case;
+- register device instantiation and direct driver-consumed references,
+  materialize a reviewable three-root claim-to-consumer authority, and derive
+  the exact two-base static fixed point and predecessor module delta; and
 - reject global fw_devlink relaxation as a remedy.
 
-It does not derive or package the final P3.17 module plan, change the P3.16
+It does not yet qualify or package a P3.17 module plan, change the P3.16
 diagnostic module, build a candidate, run Full-LTO, read a device, or authorize
-F1.
+F1. The derived 69-early/70-effective order is an H0 input to later packaging,
+not a ready candidate.
 
 ## Gate contract
 
@@ -64,10 +80,35 @@ binding is necessary for its causal claim. Only this set forces provider
 closure. The complete dependency graph may be inventoried, but a loaded yet
 irrelevant DT node does not automatically expand the candidate.
 
-For the Max77705 discriminator, the minimum set begins with the dynamically
-resolved `994000.i2c` transport chain and the exact `maxim,max77705` client at
-address `0x66`. P3.17 must derive the complete transitive set; this report does
-not copy the five post-live localized modules as an expected answer.
+For the Max77705 discriminator, the corrected review-pending proposal has
+three roots:
+
+| Root | Expected driver | Why it must bind |
+|---|---|---|
+| `platform:9c0000.qcom,qupv3_0_geni_se` | `qupv3_geni_se` | the exact I2C probe consumes `qcom,wrapper-core` and `geni_se_resources_init()` returns `-EPROBE_DEFER` before adapter registration when wrapper driver data is absent |
+| `platform:994000.i2c` | `i2c_geni` | its probe registers the adapter; adapter registration calls `of_i2c_register_devices()` and creates the exact DT child at `0x66` |
+| exact `maxim,max77705` child at `0x66` beneath that adapter | `s22plus_max77705_mux_diag` | its synchronous probe is the sole producer of the bounded CONTROL1 result |
+
+The exact merged FYG8 DT corrects an earlier source-fragment inference:
+`9c0000` and `994000.i2c` are `/soc` siblings created by default OF platform
+population. The wrapper's `of_platform_populate()` call therefore does not
+create this I2C controller. The dependency is instead a direct driver-consumed
+DT reference: the I2C probe parses `qcom,wrapper-core`, resolves the wrapper
+platform device, and later requires bound wrapper driver data. Starting only
+from the fw_devlink table would still make this dependency structurally
+invisible, but attributing it to device instantiation would be equally wrong.
+The GPI DMA device remains a derived fw_devlink supplier through the
+controller's `dmas` property and is not seeded as a root. P3.17 must still
+derive the complete transitive set; this report does not copy the five
+post-live localized modules as an expected answer.
+
+The claim authority turns the root judgment into nine explicit
+claim-to-consumer counterfactuals. In particular, loss of the controller is no
+longer described merely as lost attribution: no adapter is registered,
+`of_i2c_register_devices()` does not create the `0x66` client, and the CONTROL1
+transaction and both window samples do not occur. Machines enforce membership,
+coverage, referential integrity, source seams, and hash drift. Human review,
+not the presence of text, decides whether each causal sentence is true.
 
 ### Registered relation families
 
@@ -85,8 +126,186 @@ FW_DEVLINK_DT_SUPPLIER_CLOSURE
   live witness = provider presence/binding + consumer bind/probe state
 ```
 
-This is intentionally open to future non-symbol relationship classes without
+The second family is:
+
+```text
+DEVICE_INSTANTIATION_CLOSURE
+  authority = exact parent/bus driver source + exact DT parent/child/match
+  first mechanisms = default OF platform population + SPMI enumeration +
+                     parent OF child population + OF I2C child enumeration
+  root rule = seed an instantiator only when the dependent device cannot exist
+              before that instantiator binds
+  live witness = instantiator bind + dependent presence + dependent bind/probe
+```
+
+The third family is:
+
+```text
+DRIVER_CONSUMED_DT_REFERENCE_CLOSURE
+  authority = exact consumer probe/helper + exact DT property and target
+  first relation = 994000.i2c qcom,wrapper-core -> QUPv3 wrapper
+  failure edge = missing wrapper drvdata -> -EPROBE_DEFER before adapter add
+  live witness = referenced device present/bound + consumer probe/bind state
+```
+
+The corrected exact FYG8 chain is:
+
+```text
+default OF platform population
+  -> sibling platform devices 9c0000 wrapper and 994000.i2c
+  -> i2c_geni probe parses qcom,wrapper-core
+  -> bound wrapper drvdata required by geni_se_resources_init()
+  -> i2c_add_adapter()
+  -> of_i2c_register_devices()
+  -> exact maxim,max77705 client at 0x66
+```
+
+The three families are mutually recursive, not root-only passes. With the
+reviewed roots as `S[0]`, qualification computes:
+
+```text
+S[n+1] = S[n]
+       union fw_devlink_suppliers(S[n])
+       union device_instantiators(S[n])
+       union driver_consumed_dt_dependencies(S[n])
+```
+
+Every node emitted by any family re-enters all three. Exact identities are
+deduplicated, and the calculation stops only when neither a node nor a required
+edge is added. The candidate DT/device-node universe is finite, so the least
+fixed point terminates. Historical module-plan membership is checked as an
+output; it cannot stand in for a missing relation.
+
+The first supplier-side counterexample is the exact PM8350C GPIO provider.
+`pm8350c.dtsi` places `qcom,pm8350c@2` beneath `spmi_bus`, with compatible
+`qcom,spmi-pmic`, and places the `qcom,pm8350c-gpio` node beneath that PMIC.
+The PMIC-arbiter probe calls `spmi_controller_add()`, the SPMI core enumerates
+the PMIC firmware child, and the `qcom-spmi-pmic` probe calls
+`devm_of_platform_populate()` to create the GPIO platform child. Thus the GPIO
+node emitted by fw_devlink supplier closure must be fed into instantiation
+closure; analyzing instantiation only for the three reviewed roots is
+fail-open. The exact fixed-point receipt below resolves this dependency rather
+than inheriting the 65-module predecessor as an assumption: five required SPMI
+and PMIC modules are absent from that predecessor and produce the derived
+`65 -> 70` effective-count change.
+
+This registry remains open to future non-symbol relationship classes without
 weakening or overloading the observer arming precondition.
+
+### Claim evaluability without root inflation
+
+Each claim carries a non-empty `evaluability_preconditions` field. Four named
+preconditions currently cover a complete exact diagnostic result, complete
+post1/post2 boundaries, device gadget-path readiness before diagnostic
+dispatch, and a Process-v2 USB-sidecar arm receipt covering the candidate
+window. The existing materialized runtime source orders UDC bind and the closed
+direct fence before diagnostic dispatch; the live Process-v2 runner arms the
+sidecar before requesting Download. Those source facts do not make a future
+P3.17 run true by declaration: successor qualification must rebind the exact
+sources and the live result/arm evidence must satisfy the named preconditions.
+
+DWC3 and the sidecar therefore remain excluded from the dependency-root set
+while their absence still makes the MUX-causal host-attach claim unevaluable.
+The machine checks that every claim names known preconditions and that none is
+orphaned. It deliberately does not machine-assert their causal truth.
+
+### Reviewable must-bind authority receipt
+
+Implementation:
+
+`workspace/public/src/scripts/revalidation/s22plus_fyg8_p317_must_bind_claim_contract.py`
+
+Focused regression:
+
+`tests/test_s22plus_fyg8_p317_must_bind_claim_contract.py`
+
+Private output:
+
+`workspace/private/outputs/s22plus_fyg8_p317/must-bind-claim-contract-20260812-01.json`
+
+```text
+receipt size                15,657 bytes
+receipt SHA-256             f6136aa108d036544ba4003326bd8a4b7c497230e9ae75033ed303f2023da604
+claim-authority SHA-256     49859c0957a15ef25cdad98137c5f178eb790f4689ddeb74553971d1a9ce3070
+claims / roots / edges      3 / 3 / 9
+evaluability preconditions  4
+verdict                     PASS_P317_MUST_BIND_FIXED_POINT_AUTHORITY_H0_REVIEW_REQUIRED
+human causal review         REQUIRED_NOT_YET_SATISFIED
+candidate ready             false
+```
+
+The receipt pins the materialized P3.16 runtime, diagnostic, result contract,
+and Process-v2 live runner plus the fixed QUPv3 wrapper driver, GENI I2C
+driver, I2C adapter/OF cores, default OF platform population, Waipio QUPv3 DT,
+SPMI PMIC-arbiter driver, SPMI core, SPMI PMIC MFD driver, and PM8350C DT
+source. Source mutations that remove the direct wrapper reference, pre-adapter
+defer, sibling topology, adapter child enumeration, either SPMI enumeration
+stage, gadget-before-diagnostic ordering, or sidecar-before-candidate ordering
+fail closed. A root-only or single-family fixed-point mutation also fails.
+This is a reviewable input contract for transitive closure, not approval of the
+causal sentences and not a candidate qualification.
+
+### Exact mutually recursive fixed-point receipt
+
+Implementation:
+
+`workspace/public/src/scripts/revalidation/s22plus_fyg8_p317_executability_fixed_point.py`
+
+Focused regression:
+
+`tests/test_s22plus_fyg8_p317_executability_fixed_point.py`
+
+Private output:
+
+`workspace/private/outputs/s22plus_fyg8_p317/executability-fixed-point-20260812-01.json`
+
+```text
+receipt size                         495,646 bytes
+receipt SHA-256                      55971dd9228b51ad5076ec0ca3c75433172d110f9fb6b5a92f7d32e3d19d066f
+applicable vendor bases              2
+static fixed-point nodes             23
+iterations to convergence            5
+raw / deduplicated relation edges    170 / 53
+predecessor early/effective          64 / 65
+successor early/effective            69 / 70
+effective count delta                65 -> 70
+verdict                              PASS_P317_EXECUTABILITY_FIXED_POINT_H0_REVIEW_AND_RUNTIME_PENDING
+candidate ready                      false
+```
+
+The extractor applies the active revision-12 overlay independently to both
+applicable pinned Waipio vendor base DTBs and requires byte-independent but
+semantically identical closure and module results. Every frontier node is
+offered to all three relation families. The working set therefore expands from
+the three reviewed roots through the exact GCC, pinctrl, GPI, interconnect,
+SMMU, PDC, RPMh, SPMI, PMIC, GPIO, GIC, PSCI, and early fixed-clock nodes. The
+Max77705 `pinctrl-0` and `max77705,irq-gpio` reasons still deduplicate to one
+PM8350C GPIO owner. Kernel-rejected relationships, including the GIC's
+self-reference, are retained as rejected raw evidence rather than incorrectly
+treated as created supplier links.
+
+The exact module delta is:
+
+```text
+spmi-pmic-arb.ko
+pinctrl-spmi-gpio.ko
+qti-regmap-debugfs.ko
+regmap-spmi.ko
+qcom-spmi-pmic.ko
+```
+
+The five modules are dependency-ordered before the inherited
+`msm-geni-se.ko`; all 64 predecessor modules remain an exact subsequence.
+This is a derived result, not a copied localization list. `qcom-spmi-pmic.ko`
+pulls the two regmap dependencies from exact `modules.dep`, while the SPMI
+arbiter and GPIO modules arise from the recursive instantiation chain.
+
+The receipt deliberately remains `CANDIDATE_NOT_READY`. Static DT cannot prove
+the live `OF_POPULATED`/`FWNODE_FLAG_NOT_DEVICE` early-device gate, and source
+defaults cannot substitute for a retained boot-specific `fw_devlink` mode and
+strictness witness. The corrected claim authority also still requires human
+causal review, and the changed permanent relation-family machinery requires
+proportional independent review before packaging.
 
 ## Exact parser authority
 
@@ -228,7 +447,10 @@ final device-link count. The receipt deliberately says
 `candidate_boot_arguments_must_reprove_effective_policy=true`; it is not yet a
 P3.17 package receipt.
 
-The focused extractor and Process-v2 documentation suites pass 40/40. The
+The first fw_devlink extractor and Process-v2 documentation suites pass 40/40.
+The corrected must-bind and mutually recursive fixed-point suites add 34/34,
+for 74/74 focused host tests in the current tree. Those 34 added tests do not
+satisfy the pending human or proportional independent review. The earlier
 independent review reproduced and closed fail-open mutations for parser-table
 substitution, unmodeled consumer properties, disabled consumer/supplier paths,
 self/descendant suppliers, malformed GPIO arguments, mode/strict producers,
@@ -296,20 +518,25 @@ new H0 row carries the effective classification correction for metrics.
 
 ## Successor boundary
 
-P3.17 remains H0 and not ready. Before any candidate qualification it must:
+P3.17 remains H0 and not ready. The exact static transitive closure and module
+delta below are complete H0 inputs, not candidate qualification. Before any
+candidate qualification it must:
 
-1. derive the complete must-bind consumer set;
-2. reprove effective fw_devlink mode/strict from candidate boot authorities;
-3. run the 28-row parser over every must-bind consumer and its transitive
-   compatible owners;
-4. map each effective owner to exact built-in/module bytes and source-derived
-   order without using the five-module H0 localization as an expected answer;
+1. complete human causal review of the three-root, nine-counterfactual
+   must-bind authority without treating machine coverage as truth;
+2. accept or revise the exact two-base 23-node, five-iteration,
+   `65 -> 70` fixed-point result through proportional independent review;
+3. reprove effective fw_devlink mode/strict from candidate boot authorities;
+4. prove the runtime-only early-device gate for every statically eligible
+   supplier edge;
 5. account for the broader binding effects of every added provider;
-6. define a non-ambiguous retained supplier/bind/probe-entry vector;
+6. define a non-ambiguous retained instantiator/supplier/bind/probe-entry vector
+   and prove all four claim-evaluability preconditions;
 7. run actual encoder, Carrier, decoder, persistence, and negative terminal
    fixtures;
 8. run source-frozen A/B userspace/package/static qualification; and
-9. obtain proportional independent review before any ready-manifest, D0, or
+9. obtain a final independent ready-closure review before any ready-manifest,
+   D0, or
    approval work.
 
 No P3.16 artifact or approval may be reused as live authority. The fixed Image

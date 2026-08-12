@@ -373,11 +373,30 @@ boot-argument, or package authority triggers review. Every new relation family
 requires proportional independent review before use.
 
 The closure starts from the experiment design's explicit **must-bind consumer
-set**. For each consumer, qualification must enumerate every dependency graph
-that can prevent the claimed execution but is not represented by the selected
-module symbol graph. A graph family may be declared empty only by an executed,
-source-bound extractor. An unclassified relation, unresolved required edge, or
-missing provider blocks packaging; it is not deferred to attended F1.
+set**, but registered relationship families are not root-only passes. Let
+`S[0]` be the reviewed must-bind set. Qualification computes the least fixed
+point
+
+`S[n+1] = S[n] union fw_devlink_suppliers(S[n]) union device_instantiators(S[n]) union driver_consumed_dt_dependencies(S[n])`
+
+over exact source-derived device or firmware-node identities. Equivalently,
+the right-hand side is the union of every registered relationship family, so a
+new family cannot be registered without entering the same iteration. Every
+node emitted by any family re-enters **all** registered families on the next
+iteration. Therefore a supplier's own creator, an instantiator's own fw_devlink
+suppliers, and a driver-consumed reference's own predecessors are all in
+scope. Stop only when no new exact node or required edge is produced.
+Termination follows from the finite exact candidate firmware/device-node
+universe; a repeated identity is deduplicated, not re-expanded. Root-only or
+single-family analysis is forbidden.
+
+For each node in this working set, qualification must enumerate every
+dependency graph that can prevent the claimed execution but is not represented
+by the selected module symbol graph. A graph family may be declared empty only
+by an executed, source-bound extractor. An unclassified relation, unresolved
+required edge, unknown creator, or missing provider blocks packaging; it is not
+deferred to attended F1. Existing membership in a historical module plan is an
+output to verify, never a seed assumption that closes the relation.
 
 The first registered family is `FW_DEVLINK_DT_SUPPLIER_CLOSURE`. Its authority
 is the exact fixed kernel's `of_supplier_bindings[]` parser table, exact device
@@ -388,7 +407,53 @@ This family applies only to must-bind consumers whose exact kernel path uses an
 OF fwnode and the registered parser authority; it is not permission to expand
 the module plan from every node in the device tree.
 
-Its receipt must preserve:
+The second registered family is `DEVICE_INSTANTIATION_CLOSURE`. It covers a
+different graph: a required device may not exist until another device's probe
+populates it, or until a bus/adapter registration enumerates its firmware
+children. Such an instantiator is an explicit must-bind root when starting the
+supplier closure from the not-yet-created consumer would make the dependency
+structurally invisible. Its authority is the exact parent/bus driver source,
+the exact firmware-node parent/child and match relationship, the exact
+population or enumeration call path, and the candidate built-in/module and
+load-order plan. The first registered mechanisms are default OF platform
+population, SPMI controller child enumeration, parent-driver OF child
+population, and OF I2C-child creation through adapter registration and
+`of_i2c_register_devices()`.
+
+For every node in the fixed-point working set, qualification must classify how
+that device comes to exist. A statically created device, a parent-populated
+platform child, a bus-enumerated firmware child, and an unclassified creator
+are distinct states. An unclassified creator, absent required instantiator, or
+order that allows the dependent probe before its instantiator blocks
+packaging. This family does not turn every bus parent into a reviewed causal
+root: only the original claim-to-consumer set is a root judgment, while
+source-derived instantiators are closure predecessors with recorded
+provenance.
+
+The third registered family is `DRIVER_CONSUMED_DT_REFERENCE_CLOSURE`. It
+covers exact DT relationships that a driver parses and enforces directly but
+which the fixed `of_supplier_bindings[]` table does not convert into a
+fw_devlink edge. Its authority is the exact consumer driver function boundary,
+the exact property parser and referenced-node lookup, the failure or defer
+condition when the referenced device or bound-driver state is absent, the
+exact DT property and target identity, and the module/built-in and order plan.
+For P3.17 the first registered relation is the GENI I2C driver's
+`qcom,wrapper-core` reference: `994000.i2c` and the QUPv3 wrapper are siblings
+created by default OF platform population, while the I2C probe requires bound
+wrapper driver data and returns `-EPROBE_DEFER` before adapter registration
+when it is absent. A direct driver-consumed reference is neither a fw_devlink
+supplier edge nor proof that the referenced driver instantiated the consumer.
+
+Each causal claim must also name its **evaluability preconditions**, including
+non-root runtime/observer facts such as an already-active gadget path or a
+host-sidecar arm receipt. Qualification mechanically enforces presence and
+coverage of those declarations; it does not certify their causal truth merely
+because text exists. The candidate-specific closure must prove each declared
+precondition with its stated runtime or retained authority before the claim may
+be interpreted. This requirement does not enlarge the result-contract arming
+precondition or turn such prerequisites into dependency roots.
+
+The `FW_DEVLINK_DT_SUPPLIER_CLOSURE` receipt must preserve:
 
 1. the complete parser-table rows, count, order, source identity, and each
    row's `optional` bit;
@@ -402,6 +467,25 @@ Its receipt must preserve:
 7. the mapped built-in or module provider, exact module bytes, dependency
    order, presence, and expected bind witness; and
 8. the final effective probe-blocking decision.
+
+The `DEVICE_INSTANTIATION_CLOSURE` receipt must preserve the dependent device
+identity, its exact creator/instantiator identity and expected driver, firmware
+parent/child and match evidence, the source call path that performs population
+or enumeration, candidate module/built-in and order authority, and the runtime
+presence/binding witnesses that make the dependent device available. It must
+also distinguish source-proven creation from a device that merely happened to
+exist in a stock comparison boot. The combined executability receipt must also
+preserve each fixed-point iteration's input frontier, every emitted node and
+edge with its producing family, exact-identity deduplication, the convergence
+iteration, and proof that every emitted node was offered back to every
+registered family.
+
+The `DRIVER_CONSUMED_DT_REFERENCE_CLOSURE` receipt must preserve the consumer
+and referenced-node identities, exact DT property and parser call, source
+ordering from lookup through the blocking/defer condition, required referenced
+driver state, mapped module/built-in and dependency order, and the runtime
+presence/bind witnesses. It must fail closed if the relationship is instead
+silently attributed to device instantiation or fw_devlink.
 
 The table's `optional` bit never substitutes for must-bind scope. Whether an
 optional row is parsed depends on the exact `fw_devlink` mode and

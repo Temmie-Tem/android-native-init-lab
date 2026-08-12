@@ -102,7 +102,17 @@ EXPERIMENT_EXECUTABILITY_REQUIRED_CLAUSES = (
     "It has no expiry.",
     "Every new relation family requires proportional independent review before use.",
     "must-bind consumer set",
-    "`FW_DEVLINK_DT_SUPPLIER_CLOSURE`",
+    "The first registered family is `FW_DEVLINK_DT_SUPPLIER_CLOSURE`.",
+    "The second registered family is `DEVICE_INSTANTIATION_CLOSURE`.",
+    "The third registered family is `DRIVER_CONSUMED_DT_REFERENCE_CLOSURE`.",
+    "default OF platform population, SPMI controller child enumeration, parent-driver OF child population, and OF I2C-child creation",
+    "Every node emitted by any family re-enters **all** registered families on the next iteration.",
+    "Root-only or single-family analysis is forbidden.",
+    "`qcom,wrapper-core` reference",
+    "A direct driver-consumed reference is neither a fw_devlink supplier edge nor proof that the referenced driver instantiated the consumer.",
+    "each fixed-point iteration's input frontier",
+    "Each causal claim must also name its **evaluability preconditions**",
+    "Qualification mechanically enforces presence and coverage of those declarations; it does not certify their causal truth merely because text exists.",
     "A raw scan of every phandle is not equivalent to the kernel parser and is forbidden as closure evidence.",
     "the complete parser-table rows, count, order, source identity, and each row's `optional` bit;",
     "Whether an optional row is parsed depends on the exact `fw_devlink` mode and `fw_devlink.strict`;",
@@ -615,6 +625,31 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             normalized_goal,
         )
         self.assertIn("`FW_DEVLINK_DT_SUPPLIER_CLOSURE`", normalized_goal)
+        self.assertIn("`DEVICE_INSTANTIATION_CLOSURE`", normalized_goal)
+        self.assertIn("`DRIVER_CONSUMED_DT_REFERENCE_CLOSURE`", normalized_goal)
+        self.assertIn(
+            "three roots, three claims, nine claim-to-consumer counterfactuals, and four explicit evaluability preconditions",
+            normalized_goal,
+        )
+        self.assertIn(
+            "f6136aa108d036544ba4003326bd8a4b7c497230e9ae75033ed303f2023da604",
+            normalized_goal,
+        )
+        self.assertIn(
+            "49859c0957a15ef25cdad98137c5f178eb790f4689ddeb74553971d1a9ce3070",
+            normalized_goal,
+        )
+        self.assertIn(
+            "fd27d79883cbdc5e6daab937f0b24ab303fdd8a1c91cf63feb5789975e04c1d3",
+            normalized_goal,
+        )
+        self.assertIn("same 23-node closure after five iterations", normalized_goal)
+        self.assertIn("170 raw and 53 deduplicated relations", normalized_goal)
+        self.assertIn("effective count from `65 -> 70`", normalized_goal)
+        self.assertIn(
+            "55971dd9228b51ad5076ec0ca3c75433172d110f9fb6b5a92f7d32e3d19d066f",
+            normalized_goal,
+        )
         self.assertIn(
             "two raw property reasons become one deduplicated consumer-to-supplier edge",
             normalized_goal,
