@@ -70,6 +70,34 @@ The current preparation evidence is
   readiness: unknown and not inferred.
 - S22+ and A90 state, profiles, evidence, approvals, and commands remain wholly
   separate.
+- Host-only stock-artifact acquisition: exact Samsung FUS version
+  `G986NKSS8IYC2/G986NOKT8IYC2/G986NKSS8IYC2/G986NKSS8IYC2` was downloaded for
+  `SM-G986N` / `KTC`. The private five-file firmware ZIP passed ZIP64 integrity
+  validation and is bound by SHA-256
+  `1add7bd2e8b122b0668a44b084fd5e5cd62fb7b90472412d12348599d10d64d7`.
+- Stock boot candidate: the AP appended MD5 verified successfully; its sole
+  extracted `boot.img.lz4` decoded to a 64 MiB Android boot image bound by
+  SHA-256
+  `29fde3a189b906ea20ed0e14fcd7a448e005597b82e3adceea64196284bd31ab`.
+  This is an offline artifact candidate, not a demonstrated rollback or flash
+  authorization.
+- Samsung-published source: the operator completed the official Release Center
+  download for exact row `SM-G986N` / `G986NKSS8IYC2`. The intact outer bundle
+  is bound by SHA-256
+  `3ae8f4606ce54e931535b72c5e339494655fd5b01a8b0abc45088033410fa1a5`;
+  the extracted target-only `SM-G986N_KOR_13_Opensource.zip` is bound by
+  SHA-256
+  `f21189586ed4739b4810a81346cee0fdd6b82aa8fd7854b6ca337e7cac13d31e`.
+  Both passed ZIP integrity checks.
+- Samsung kernel source: `Kernel.tar.gz` passed gzip integrity and is bound by
+  SHA-256
+  `4ed0aa2f390d9d847eee313693fe8b9b726f4decefc40b3ba8fde1b64272ae6d`.
+  It identifies Linux `4.19.113` and exact defconfig
+  `arch/arm64/configs/vendor/y2q_kor_singlex_defconfig`. The required external
+  GCC 4.9/Qualcomm Clang 10 toolchain, generated final `.config`, reproducible
+  build, and stock-kernel byte identity remain unproven. Detailed H0 evidence
+  is in
+  `docs/reports/S20PLUS_G986N_STOCK_ARTIFACT_ACQUISITION_H0_2026-08-13.md`.
 
 ## Current Bounded Unit
 
@@ -93,8 +121,11 @@ host-connected process.
 
 ## Open Decisions
 
-The next host-side objective may bind a firmware package and Samsung-published
-kernel source to exact model/build/CSC evidence. Rooting, recovery work,
-native-init, or boot-only experiments each require a separately designed and
-reviewed target-contract amendment; none is implied by the unlocked bootloader
-or routine D0.
+The next host-side objective may unpack the stock boot image and bind its
+kernel and ramdisk properties without modifying it, then compare direct stock
+image evidence against the published `4.19.113` source and defconfig. A later
+reproducible-build unit would first need exact toolchain acquisition and a
+generated final configuration; the published defconfig alone is insufficient.
+Rooting, recovery work, native-init, or boot-only experiments each require a
+separately designed and reviewed target-contract amendment; none is implied by
+the unlocked bootloader, downloaded stock artifacts, or routine D0.
