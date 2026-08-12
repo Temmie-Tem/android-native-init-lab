@@ -297,6 +297,7 @@ class A90H24UfsExecutionV1Tests(unittest.TestCase):
             "format_count": 0,
             "repair_count": 0,
             "s22plus_command_count": 0,
+            "s20plus_command_count": 0,
             "provenance": {
                 "fresh_d0_bridge": f1.EXACT_BRIDGE_DEVICE,
                 "fresh_d0_bridge_realpath": "/dev/ttyACM0",
@@ -885,6 +886,15 @@ class A90H24UfsExecutionV1Tests(unittest.TestCase):
             enforce_fresh=False,
             now=now,
         )
+        value["s20plus_command_count"] = 1
+        with self.assertRaisesRegex(self.f1.ContractError, "inventory"):
+            self.f1.validate_ufs_inventory(
+                value,
+                expected_run_id=value["run_id"],
+                expected_bridge_realpath="/dev/ttyACM0",
+                enforce_fresh=False,
+                now=now,
+            )
 
     def test_host_capability_qualification_is_current_and_live_false(self) -> None:
         value = self.f1.validate_host_capability_qualification()
@@ -915,6 +925,7 @@ class A90H24UfsExecutionV1Tests(unittest.TestCase):
                 "network": 0,
                 "workspace_private": 0,
                 "s22plus_paths": 0,
+                "s20plus_paths": 0,
                 "file_modifications": 0,
             },
             "live_authority": False,

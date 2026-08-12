@@ -4,7 +4,7 @@
   "verdict": "PASS_GO",
   "review_date": "2026-08-12",
   "reviewer": "/root/a90_h23_dev_isolation_review/a90_h24_clean_capability_review",
-  "execution_closure_sha256": "43749d577d8984696fc213075f5421799702c320e7d5c11b9e160e957e5a3363",
+  "execution_closure_sha256": "c0b8f2e31aff1bcb552e6e708c353ebffdd0cb1237e9dc460cc791ec80a76ae4",
   "execution_file_count": 41,
   "review_scope": "h24-private-card-root-boot-only-f1-and-persistent-ufs-d1-execution-critical-closure",
   "incident": "H23_DEBIAN_DEVTMPFS_EXPOSURE",
@@ -24,12 +24,14 @@
     "whole-line diagnostic attribution remains exact while missing evidence stays NO_PROOF",
     "native-fallback close requires same intent resident health and unmounted userdata",
     "fresh D0 inventory remains required before manifest preparation",
-    "A90-only target rollback recovery evidence and S22+ isolation"
+    "A90-only target rollback recovery evidence and S22+ and S20+ isolation"
   ],
   "validation": {
     "public_unittest": "59/59 PASS",
     "in_memory_python_compile": "30/30 closure Python files PASS",
-    "qualification_and_report_absence": "fail-closed as required"
+    "qualification_and_report_absence": "fail-closed as required",
+    "s20plus_nonzero_adversarial": "PASS",
+    "common_contract_delta": "S20+ isolated D0 onboarding-only registry row; no A90 authority transfer"
   },
   "review_contacts": {
     "device": 0,
@@ -38,6 +40,7 @@
     "network": 0,
     "workspace_private": 0,
     "s22plus_paths": 0,
+    "s20plus_paths": 0,
     "file_modifications": 0
   },
   "live_authority": false,

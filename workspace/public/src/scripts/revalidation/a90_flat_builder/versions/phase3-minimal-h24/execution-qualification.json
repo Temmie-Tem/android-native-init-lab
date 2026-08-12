@@ -2,12 +2,12 @@
   "schema": "a90-h24-ufs-execution-qualification-v1",
   "capability": "A90_H24_PRIVATE_CARD_ROOT_PERSISTENT_UFS_SERVER_V1",
   "verdict": "PASS_GO",
-  "predecessor_capability_closure_sha256": "9ce9fb0e3ff654909afe3cc4b9a9f9422a6a7bc5e67dc65433914fa9f9d2f0bc",
-  "execution_closure_sha256": "43749d577d8984696fc213075f5421799702c320e7d5c11b9e160e957e5a3363",
+  "predecessor_capability_closure_sha256": "c1fbf02e266ba59f8ba72c5b1be95e302384beedb129ce0eb7c3125c1657d587",
+  "execution_closure_sha256": "c0b8f2e31aff1bcb552e6e708c353ebffdd0cb1237e9dc460cc791ec80a76ae4",
   "execution_hashes": {
     "AGENTS.md": {
-      "size": 14600,
-      "sha256": "c07f670424fa7920f5b02e44d0f2b4f8a87030aac6f9d0ae268bf1339e51790e"
+      "size": 14811,
+      "sha256": "509adf5c813a9214ec157d56c7f8831b8e67f0ebeadebf1a98923cbfbeec576d"
     },
     "docs/operations/targets/A90_TARGET_CONTRACT.md": {
       "size": 50612,
@@ -51,7 +51,7 @@
     },
     "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h24/capability-qualification.json": {
       "size": 5742,
-      "sha256": "1a8c96fda5c41cb8d8be247b45c41f2d49d493dab53356b6d623dcd1a8e91c9d"
+      "sha256": "0d013c14b918ad33b571adb2e8cf92e877f48a37d4f18639990f3f2d11dc19c5"
     },
     "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h24/manifest.toml": {
       "size": 7801,
@@ -110,8 +110,8 @@
       "sha256": "62cc6d79165bdab3894228eabed4aa7e76885bb5ea327afce8e0c8668676a644"
     },
     "workspace/public/src/scripts/server-distro/a90_h24_ufs_f1_runner_v1.py": {
-      "size": 147152,
-      "sha256": "d9788e59aa23aae8172e17a3862597590138c06f9b3e64efbcc158eafc7b6c2d"
+      "size": 147317,
+      "sha256": "a9e8b9a3348de66ba45118868a2f0afe9d2b5162c8f755d9fce7fb3782345167"
     },
     "workspace/public/src/scripts/server-distro/a90_h5_existing_source_install_v1.py": {
       "size": 106013,
@@ -177,6 +177,6 @@
   "f1_runner_qualified": true,
   "d1_runner_qualified": true,
   "review_report": "docs/reports/A90_H24_UFS_F1_D1_EXECUTION_INDEPENDENT_REVIEW_2026-08-12.json",
-  "review_report_sha256": "6f95234f5be3137761b9219e9a926ac1c1c33fac3548353979a1c12804ebc37f",
+  "review_report_sha256": "afb11cd138a8d012426c9f69756310cf498151d08d5b44e3a67a9fe081c1ae6a",
   "live_authority": false
 }

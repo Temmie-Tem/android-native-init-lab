@@ -2,11 +2,11 @@
   "schema": "a90-h24-minimal-debian-dev-capability-qualification-v1",
   "capability": "A90_H24_PRIVATE_CARD_ROOT_MINIMAL_DEBIAN_DEV_V1",
   "verdict": "PASS_GO",
-  "execution_closure_sha256": "9ce9fb0e3ff654909afe3cc4b9a9f9422a6a7bc5e67dc65433914fa9f9d2f0bc",
+  "execution_closure_sha256": "c1fbf02e266ba59f8ba72c5b1be95e302384beedb129ce0eb7c3125c1657d587",
   "execution_hashes": {
     "AGENTS.md": {
-      "size": 14600,
-      "sha256": "c07f670424fa7920f5b02e44d0f2b4f8a87030aac6f9d0ae268bf1339e51790e"
+      "size": 14811,
+      "sha256": "509adf5c813a9214ec157d56c7f8831b8e67f0ebeadebf1a98923cbfbeec576d"
     },
     "docs/operations/targets/A90_TARGET_CONTRACT.md": {
       "size": 50612,
@@ -111,6 +111,6 @@
   "d1_runner_qualified": false,
   "replacement_behavior": "fresh-h24-identity; automatic-and-manual-ufs-fresh-minimal-tmpfs-dev; mandatory-devpts; exact-core-char-nodes; private-hud-card0-root; explicit-proc-hud-root-exposure; no-native-devtmpfs-move",
   "review_report": "docs/reports/A90_H24_MINIMAL_DEBIAN_DEV_INDEPENDENT_REVIEW_2026-08-12.json",
-  "review_report_sha256": "c3f61a30e106b0228a6f2b8e57e19e64fea4d1623444b47fd24705c54fd78adb",
+  "review_report_sha256": "459aa1c49f9bc87e4703215a8f4efad781dcd569d38322db8e2fac60f9bbe636",
   "live_authority": false
 }

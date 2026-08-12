@@ -768,7 +768,7 @@ native devtmpfs; `/proc/<hud-pid>/root` exposes only card0 and shared public run
 Deterministic A/B is byte-identical: boot `d8c280e4...82782` at 58,372,096 bytes,
 init `c53db468...ca4fc`, ramdisk `280cd922...0601`, native closure
 `3d1514e3...ca52`/142, binding v11 `02b9ffb1...4582`. `candidate_authority=false`;
-capability closure `9ce9fb0e...f0bc`/24 is independently `PASS_GO`.
+capability closure `c1fbf02e...d587`/24 is independently `PASS_GO`.
 
 The current H0 unit constructs H24 F1/D1 adapters binding the terminal H18
 predecessor, exact H24 A/B artifacts, V2321 rollback, boot-only transfer, no
@@ -779,7 +779,7 @@ Wi-Fi, exact minimal Debian `/dev`, and a PID-coupled native HUD private root.
 Host tests cover F1 crash boundaries, post-flash source revalidation,
 deep journal resume, decoded log-payload prefix attribution, semantic duplicate
 rejection, and H24 private-root/device-tree drift. Execution closure
-`43749d57...3363`/41 is independently `PASS_GO`; qualification grants no live
+`c0b8f2e3...6ae4`/41 is independently `PASS_GO`; qualification grants no live
 authority. The next bounded step is one fresh connected D0 and new run-specific
 F1/D1 approvals; no H18 action or retired H23 candidate may be replayed.
 

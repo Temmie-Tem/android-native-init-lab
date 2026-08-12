@@ -8,7 +8,7 @@
   "incident_class": "H23_DEBIAN_DEVTMPFS_EXPOSURE",
   "decision": "H23 was retired before live use because the automatic path did not fail closed on devpts and the manual path could move native devtmpfs into Debian. H24 uses a fresh identity; both UFS paths construct a fresh minimal tmpfs /dev, require devpts, retain the HUD card0 in a separate private root, and bind Debian /dev-tree and proc-mediated HUD exposure separately.",
   "frozen_scope": {
-    "execution_closure_sha256": "9ce9fb0e3ff654909afe3cc4b9a9f9422a6a7bc5e67dc65433914fa9f9d2f0bc",
+    "execution_closure_sha256": "c1fbf02e266ba59f8ba72c5b1be95e302384beedb129ce0eb7c3125c1657d587",
     "execution_closure_members": 24,
     "native_init_closure_sha256": "3d1514e3f266e5b77886bf4511a396c9328b487b0c614c3c79fd3df16d26ca52",
     "native_init_closure_members": 142,
@@ -33,7 +33,7 @@
     "HUD child retains only exact card0 and shared public run in its private pivot root",
     "compiled binding v11 distinguishes HUD card0 from Debian minimal core char exposure",
     "H24 A B artifacts are deterministic boot-only bytes with candidate authority false",
-    "A90-only native closure preserves permanent boundaries and S22 plus isolation"
+    "A90-only native closure preserves permanent boundaries and S22 plus and S20 plus isolation"
   ],
   "findings": {
     "final_high": 0,
@@ -49,7 +49,8 @@
     "aarch64_init_compile_and_link": "PASS static stripped ELF",
     "aarch64_init_sha256": "c53db468893bf9001e907ae6c35c8bbb7db82e260484b20abc4d146b64eca4fc",
     "aarch64_init_bytes": 1723376,
-    "unresolved_findings": 0
+    "unresolved_findings": 0,
+    "common_contract_delta": "S20+ isolated D0 onboarding-only registry row; no A90 authority transfer"
   },
   "review_contacts": {
     "device": 0,
@@ -58,6 +59,7 @@
     "network": 0,
     "workspace_private": 0,
     "s22plus_paths": 0,
+    "s20plus_paths": 0,
     "file_modifications": 0
   },
   "private_candidate_bytes_opened_by_reviewer": false,

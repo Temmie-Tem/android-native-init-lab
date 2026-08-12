@@ -182,7 +182,7 @@ NATIVE_CLOSURE_SHA256 = (
     "3d1514e3f266e5b77886bf4511a396c9328b487b0c614c3c79fd3df16d26ca52"
 )
 HOST_CAPABILITY_CLOSURE_SHA256 = (
-    "9ce9fb0e3ff654909afe3cc4b9a9f9422a6a7bc5e67dc65433914fa9f9d2f0bc"
+    "c1fbf02e266ba59f8ba72c5b1be95e302384beedb129ce0eb7c3125c1657d587"
 )
 HOST_QUALIFICATION_REL = (
     "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/"
@@ -202,7 +202,7 @@ HOST_CAPABILITY_REQUIRED_INVARIANTS = (
     "HUD child retains only exact card0 and shared public run in its private pivot root",
     "compiled binding v11 distinguishes HUD card0 from Debian minimal core char exposure",
     "H24 A B artifacts are deterministic boot-only bytes with candidate authority false",
-    "A90-only native closure preserves permanent boundaries and S22 plus isolation",
+    "A90-only native closure preserves permanent boundaries and S22 plus and S20 plus isolation",
 )
 EXECUTION_REVIEW_REPORT_REL = (
     "docs/reports/A90_H24_UFS_F1_D1_EXECUTION_INDEPENDENT_REVIEW_2026-08-12.json"
@@ -224,7 +224,7 @@ EXECUTION_REVIEW_REQUIRED_INVARIANTS = (
     "whole-line diagnostic attribution remains exact while missing evidence stays NO_PROOF",
     "native-fallback close requires same intent resident health and unmounted userdata",
     "fresh D0 inventory remains required before manifest preparation",
-    "A90-only target rollback recovery evidence and S22+ isolation",
+    "A90-only target rollback recovery evidence and S22+ and S20+ isolation",
 )
 FIRSTBOOT_REL = "workspace/public/src/scripts/server-distro/a90_dpublic_firstboot.sh"
 
@@ -536,6 +536,7 @@ def validate_qualification(
         "network": 0,
         "workspace_private": 0,
         "s22plus_paths": 0,
+        "s20plus_paths": 0,
         "file_modifications": 0,
     }
     if (
@@ -618,6 +619,7 @@ def validate_host_capability_qualification() -> dict[str, Any]:
         "network": 0,
         "workspace_private": 0,
         "s22plus_paths": 0,
+        "s20plus_paths": 0,
         "file_modifications": 0,
     }
     if (
@@ -728,6 +730,7 @@ def validate_ufs_inventory(
         or value.get("format_count") != 0
         or value.get("repair_count") != 0
         or value.get("s22plus_command_count") != 0
+        or value.get("s20plus_command_count") != 0
         or not isinstance(provenance, dict)
         or provenance.get("fresh_d0_bridge") != EXACT_BRIDGE_DEVICE
         or provenance.get("fresh_d0_bridge_realpath")
@@ -3638,6 +3641,7 @@ def audit(manifest_path: Path, manifest_sha: str) -> dict[str, Any]:
         "sd_stage_count": 0,
         "userdata_write_count": 0,
         "s22plus_command_count": 0,
+        "s20plus_command_count": 0,
     }
 
 
