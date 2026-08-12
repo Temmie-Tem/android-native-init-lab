@@ -145,6 +145,22 @@ The current preparation evidence is
   `c6183f5679510d713d2cefc7c58f7fbeebb811fbeb86e503f6567ca8f4b3e292`.
   The run issued zero device-effect, S22+, A90, other-target, reboot, root,
   partition, flash, or F1 commands.
+- The exact `enter-download` D1 control was dispatched once and the operator's
+  subsequent “다운로드 모드 진입” confirmation closed it as
+  `download-observed`; it was not replayed. The private dispatch result SHA-256
+  is `0f62006aa71e5d1a76e87f994d2c465fa47a8d550f2fe0e3fe99c5ab18418e84`.
+- Odin host preparation found the full Magisk AP unsafe for direct use because
+  it also contains recovery, DTBO, super, persist, VBMeta, and other members.
+  A host-only builder extracted only its `boot.img` and prepared candidate and
+  stock rollback AP files whose sole TAR member is `boot.img.lz4`. Candidate AP
+  SHA-256 is
+  `1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`;
+  stock rollback AP SHA-256 is
+  `48a11265a6730a6ab842b07f63cffe9cbdf1582a919b02abdaf1d2b9a2e0bd6b`.
+  Official Magisk v30.7 `magiskboot` accepted the candidate as boot header v2
+  and its ramdisk test returned the Magisk-patched classification. These are
+  private host artifacts only: Odin was not invoked, no flash occurred, and no
+  S20+ F1 process or live flash authority exists.
 
 ## Current Bounded Unit
 
@@ -170,8 +186,9 @@ host-connected process.
 
 The immediate setup actions may now install the pinned Magisk APK and stage the
 exact AP under a fresh direct operator request. They do not launch or patch it.
-After routine setup, the next experiment objective is an exact boot-only Odin feasibility and
-recovery design. It must prove whether this unlocked/orange S20+ can accept a
+After routine setup, the next experiment objective remains an exact boot-only
+Odin feasibility and recovery design. Host artifacts now exist, but it must
+still prove whether this unlocked/orange S20+ can accept a
 `boot.img`-only transaction while keeping the stock separate VBMeta unchanged;
 the official Magisk Samsung AP flow cannot be reused because it modifies
 VBMeta and calls for BL, CP, and CSC. Any live experiment still requires an
