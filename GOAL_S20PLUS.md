@@ -36,13 +36,15 @@ The current preparation evidence is
   screen-visible state: `CURRENT BINARY: Samsung Official`, `FRP LOCK: OFF`,
   `OEM LOCK: OFF (U)`, `KG STATUS: CHECKING`, `WARRANTY VOID: 0x0`,
   `QUALCOMM SECUREBOOT: ENABLE`, `SECURE DOWNLOAD: ENABLE`, RPMB fuse set and
-  provisioned, and `HDMI STATUS: NONE`. This is photographic observation, not
-  a host/ADB/Odin probe. It corroborates the unlocked state but does not prove
-  flash readiness, rollback availability, recovery, root, or partition safety.
+  provisioned, `RP SWREV: B8(1,1,1,0,1,1) K0 S0`, `SPU:5`, and
+  `HDMI STATUS: NONE`. This is photographic observation, not a host/ADB/Odin
+  probe. It corroborates the unlocked state but does not prove flash readiness,
+  rollback availability, recovery, root, or partition safety.
 - The Download Mode screen's DID is a private device identifier and is omitted
-  from tracked text. The RP SWREV row and one red status/code row are not
-  transcribed because the photograph does not support exact character-level
-  reading. The private source photograph is bound by SHA-256
+  from tracked text. A clearer follow-up photograph makes the previously
+  untranscribed RP SWREV and red status rows readable and is bound by SHA-256
+  `e3ce871f7381b1f64abdccab4fcdbf7eeed565475704b3d122bd225e3920e7be`.
+  The initial full-screen photograph remains bound by SHA-256
   `2ea3eac21446264aac030bf00c25727c3bdf478712984d9d1b8154ee524bfe4c`.
 - Download Mode entry was performed by the operator outside this agent's
   command path. This recording sent zero device commands and grants no exit,

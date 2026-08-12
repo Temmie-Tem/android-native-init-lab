@@ -176,9 +176,9 @@ The following screen text is sufficiently clear for exact status recording:
 - `HDMI STATUS: NONE`.
 
 The photograph also visibly contains a DID. It is treated as a private device
-identifier and is intentionally omitted from tracked text. The RP SWREV row
-and one red status/code row are not transcribed because blur and color overlap
-do not support exact character-level evidence.
+identifier and is intentionally omitted from tracked text. In this first
+photograph, the RP SWREV row and one red status/code row were not transcribed
+because blur and color overlap did not support exact character-level evidence.
 
 This photograph corroborates `OEM LOCK: OFF (U)` together with the earlier
 Android observations `flash_locked=0`, `vbmeta_device_state=unlocked`, and
@@ -188,3 +188,20 @@ state, not normalized to pass; rollback artifact, recovery path, exact
 partition identities, root, and any Odin transfer capability remain unknown or
 undefined. The observation grants no Download-mode exit, reboot, D1, F1,
 payload, or partition authority.
+
+### Clearer follow-up photograph
+
+The operator supplied a closer 1221-by-1280 JPEG of the same Download Mode
+status block, SHA-256
+`e3ce871f7381b1f64abdccab4fcdbf7eeed565475704b3d122bd225e3920e7be`.
+It preserves all previously recorded fields and makes the two formerly
+untranscribed rows sufficiently clear to record as:
+
+- `RP SWREV: B8(1,1,1,0,1,1) K0 S0`; and
+- `SPU:5`.
+
+`B8` is consistent with the revision digit in the observed firmware
+`G986NKSS8IYC2`, but this is only a consistency observation. It is not a
+firmware compatibility, anti-rollback, Odin, or flash-readiness decision. The
+DID remains intentionally omitted. Processing the follow-up photograph used
+zero device commands and created no connected or live authority.
