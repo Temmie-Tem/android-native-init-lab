@@ -65,7 +65,7 @@ and [`docs/operations/DEVICE_ACTION_PROCESS_V2.md`](docs/operations/DEVICE_ACTIO
 
 ## Current scope
 
-Currently demonstrated on two maintainer-owned devices. The architecture and
+Currently demonstrated on three maintainer-owned devices. The architecture and
 validation methodology are developed around device-independent boundaries where
 practical.
 
@@ -74,6 +74,8 @@ practical.
   userspace.
 - **Galaxy S22+ (`SM-S906N`, FYG8)** — active frontier: source-matched
   vendor-kernel rebuild and retained PID 1 witness work.
+- **Galaxy S20+ 5G (`SM-G986N`)** — newly acquired: one-shot read-only D0
+  onboarding is consumed; no active D1/F1 process yet.
 
 Target-specific source, helpers, reports, rollback identities, and safety gates
 stay explicitly separated. A result on one target never authorizes a device
@@ -125,7 +127,7 @@ fixtures and is not run in CI.
 
 ## Key documents
 
-- [`GOAL.md`](GOAL.md) / [`GOAL_A90.md`](GOAL_A90.md) — current frontier and next bounded unit per target
+- [`GOAL.md`](GOAL.md) / [`GOAL_A90.md`](GOAL_A90.md) / [`GOAL_S20PLUS.md`](GOAL_S20PLUS.md) — current frontier and next bounded unit per target
 - [`AGENTS.md`](AGENTS.md) — binding safety contract and absolute device boundaries
 - [`docs/README.md`](docs/README.md) — full documentation index
 - [`docs/overview/PROJECT_STATUS.md`](docs/overview/PROJECT_STATUS.md) — device state and verification history

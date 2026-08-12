@@ -10,7 +10,7 @@
 boot chain과 kernel 위에 custom static `/init`(PID 1)와 최소 Linux-style
 runtime을 구성·검증하는 다기기 로컬 연구/문서화 작업 공간입니다.
 
-현재 활성 대상은 Samsung Galaxy A90 5G와 Galaxy S22+이며, 공통 연구 축은
+현재 활성 대상은 Samsung Galaxy A90 5G, Galaxy S22+, Galaxy S20+ 5G이며, 공통 연구 축은
 특정 모델이 아니라 **Android vendor kernel 기반의 custom native PID 1**입니다.
 프로젝트는 해당 진입점을 안정화하고 반복 운용 가능한 임베디드 콘솔과
 서버형 userspace로 확장합니다.
@@ -79,6 +79,9 @@ known-good boot/recovery/vbmeta, 로그 보존 경로를 확인하고, 복구 �
   source-matched vendor-kernel 재빌드와 retained PID 1 witness 작업이 현재
   활성 프론티어입니다. 정확한 현재 상태, 다음 host-only unit, live
   authorization 여부는 `GOAL.md` 최상단에서 관리합니다.
+- **Galaxy S20+ 5G (`SM-G986N`)**: 새로 확보한 대상입니다. 1회성 읽기 전용
+  D0 onboarding이 완료됐고, 아직 활성 D1/F1 프로세스는 없습니다. 현재 상태는
+  `GOAL_S20PLUS.md`에서 관리합니다.
 
 공용 소스는 `workspace/public/src/` 아래에 둡니다. 대상 전용 소스, 헬퍼,
 리포트, rollback identity, 안전 게이트는 명시적으로 분리합니다. 한 대상의
@@ -140,6 +143,7 @@ A90은 확보한 native-init/runtime 기반 위에서 별도의 프론티어를 
 
 - `GOAL.md` — S22+ 현재 상태와 다음 bounded unit
 - `GOAL_A90.md` — A90 현재 상태와 다음 bounded unit
+- `GOAL_S20PLUS.md` — S20+ 현재 상태와 다음 bounded unit
 - `AGENTS.md` — 절대 실행 규칙
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md` — 공용 F1 설계
 
@@ -170,6 +174,7 @@ A90은 확보한 native-init/runtime 기반 위에서 별도의 프론티어를 
 
 - `GOAL.md` — S22+ frontier와 다음 bounded unit
 - `GOAL_A90.md` — A90 frontier와 다음 bounded unit
+- `GOAL_S20PLUS.md` — S20+ frontier와 다음 bounded unit
 - `AGENTS.md` / `CLAUDE.md` — 기기 작업 절대 안전 경계와 운영 계약
 - `docs/module-map/s22plus-fyg8/subsystem-usb.md` — S22+ 현재 frontier(USB
   gadget/UDC bring-up) 서브시스템 맵과 게이트 상태 (frontier·다음 unit 자체는
