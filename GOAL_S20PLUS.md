@@ -128,6 +128,23 @@ The current preparation evidence is
   The H0
   design is
   `docs/reports/S20PLUS_G986N_ROUTINE_CONNECTED_ACTIONS_H0_2026-08-13.md`.
+- Patched-AP retrieval is independently reviewed and active for the current
+  exact operator request. It accepts exactly one
+  `magisk_patched-30700_[A-Za-z0-9_-]{1,64}.tar` in Download, verifies its
+  device and host SHA-256, and publishes no-clobber into the private firmware
+  tree. It grants no device write, root, patch, flash, partition, or F1 action.
+  The active runner SHA-256 is
+  `7b1d8989db5ffbf012cbf356e4e1411d5e487e965361b4ea61307a508b17bc72`.
+- Patched-AP retrieval completed with
+  `PASS_S20PLUS_G986N_PATCHED_AP_RETRIEVED_VERIFIED`. The exact
+  `magisk_patched-30700_kFiLC.tar` is `7,362,972,672` bytes and bound by
+  SHA-256
+  `a025e13cf5665701df2229e07ecdab404a906d816aa7dd93aa3393bf8797b5f6`.
+  It is a read-only private artifact under the target's private firmware tree;
+  no partial remains. The private result SHA-256 is
+  `c6183f5679510d713d2cefc7c58f7fbeebb811fbeb86e503f6567ca8f4b3e292`.
+  The run issued zero device-effect, S22+, A90, other-target, reboot, root,
+  partition, flash, or F1 commands.
 
 ## Current Bounded Unit
 

@@ -1,6 +1,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest import mock
@@ -81,13 +82,13 @@ class S20PlusG986NRoutineActionsTests(unittest.TestCase):
                 return 0, self.inventory().encode(), b""
             if argv[-1] == "get-devpath":
                 return 0, b"usb:3-2.1\n", b""
-            if "exec-out" in argv:
+            if "exec-out" in argv and argv[-1] == MODULE.base.REMOTE_SNAPSHOT:
                 return 0, self.snapshot().encode(), b""
             return extra(argv)
         return command
 
     def test_dry_run_is_device_hidden_and_actions_are_closed(self):
-        for action in MODULE.ACTIONS:
+        for action in MODULE.IMPLEMENTED_ACTIONS:
             plan = MODULE.dry_run_plan(action)
             self.assertFalse(plan["live_authorized"])
             self.assertFalse(plan["partition_access"])
@@ -95,6 +96,9 @@ class S20PlusG986NRoutineActionsTests(unittest.TestCase):
         options = MODULE.build_parser()._option_string_actions
         for forbidden in ("--adb", "--artifact", "--destination", "--serial", "--shell"):
             self.assertNotIn(forbidden, options)
+        self.assertTrue(MODULE.PATCHED_AP_RETRIEVAL_ACTIVE)
+        self.assertEqual(MODULE.ACTIONS.count(MODULE.PATCHED_AP_ACTION), 1)
+        self.assertIn(MODULE.PATCHED_AP_ACTION, options["--action"].choices)
 
     def test_exact_target_preflight_rejects_wrong_identity_before_effect(self):
         calls: list[list[str]] = []
@@ -201,6 +205,219 @@ class S20PlusG986NRoutineActionsTests(unittest.TestCase):
         self.assertEqual(result["verdict"], "PASS_S20PLUS_G986N_AP_STAGED_VERIFIED")
         self.assertTrue(result["effect"]["user_storage_stage"])
         self.assertFalse(result["effect"]["partition_access"])
+
+    def test_retrieve_patched_ap_is_single_match_private_no_clobber_and_hash_exact(self):
+        calls: list[list[str]] = []
+        payload = b"patched-ap-fixture"
+        digest = MODULE.hashlib.sha256(payload).hexdigest()
+        remote = "/sdcard/Download/magisk_patched-30700_AbC12.tar"
+
+        def extra(argv):
+            if argv[-1] == MODULE.PATCHED_AP_DISCOVERY:
+                return 0, f"{remote}\n".encode(), b""
+            if "stat" in argv:
+                return 0, f"{len(payload)}\n".encode(), b""
+            if "sha256sum" in argv:
+                return 0, f"{digest}  {remote}\n".encode(), b""
+            if "pull" in argv:
+                Path(argv[-1]).write_bytes(payload)
+                return 0, b"1 file pulled\n", b""
+            raise AssertionError(argv)
+
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(
+            MODULE, "PATCHED_AP_MIN_SIZE", 1
+        ), mock.patch.object(MODULE, "PATCHED_AP_MAX_SIZE", 1024), mock.patch.object(
+            MODULE, "PATCHED_AP_HOST_RESERVE", 0
+        ):
+            root = Path(temporary)
+            result, _ = MODULE.run_action(
+                MODULE.PATCHED_AP_ACTION,
+                root=root,
+                command=self.common_command(calls, extra),
+            )
+            final_path = Path(result["verification"]["host_private_path"])
+            self.assertEqual(final_path.read_bytes(), payload)
+            self.assertEqual(final_path.stat().st_mode & 0o777, 0o400)
+            self.assertEqual(final_path.parent, root / MODULE.PATCHED_AP_DEST_REL)
+            self.assertEqual(list(final_path.parent.glob(".*.partial-*")), [])
+        pulls = [call for call in calls if "pull" in call]
+        self.assertEqual(len(pulls), 1)
+        self.assertEqual(pulls[0][-2], remote)
+        self.assertEqual(result["verification"]["sha256"], digest)
+        self.assertTrue(result["d0_authorized"])
+        self.assertFalse(result["d1_authorized"])
+        self.assertEqual(result["effect_command_count"], 0)
+        self.assertFalse(result["effect"]["device_write"])
+        self.assertEqual(result["verdict"], "PASS_S20PLUS_G986N_PATCHED_AP_RETRIEVED_VERIFIED")
+
+    def test_retrieve_rejects_zero_multiple_or_malformed_candidates_before_pull(self):
+        candidates = (
+            "",
+            "/sdcard/Download/magisk_patched-30700_A.tar\n"
+            "/sdcard/Download/magisk_patched-30700_B.tar\n",
+            "/sdcard/Download/not-magisk.tar\n",
+            "/sdcard/Download/../magisk_patched-30700_A.tar\n",
+        )
+        for discovery in candidates:
+            with self.subTest(discovery=discovery):
+                calls: list[list[str]] = []
+
+                def extra(argv):
+                    if argv[-1] == MODULE.PATCHED_AP_DISCOVERY:
+                        return 0, discovery.encode(), b""
+                    raise AssertionError(argv)
+
+                with tempfile.TemporaryDirectory() as temporary, self.assertRaises(
+                    MODULE.RoutineActionError
+                ):
+                    MODULE.run_action(
+                        MODULE.PATCHED_AP_ACTION,
+                        root=Path(temporary),
+                        command=self.common_command(calls, extra),
+                    )
+                self.assertFalse(any("pull" in call for call in calls))
+
+    def test_device_side_discovery_filter_emits_only_closed_ascii_grammar(self):
+        valid = "/sdcard/Download/magisk_patched-30700_AbC12_-x.tar"
+        invalid = (
+            "/sdcard/Download/magisk_patched-30700_has space.tar",
+            "/sdcard/Download/magisk_patched-30700_한글.tar",
+            "/sdcard/Download/magisk_patched-30700_" + "A" * 65 + ".tar",
+            "/sdcard/Download/magisk_patched-30700_.tar",
+        )
+        mixed = "\n".join((invalid[0], valid, *invalid[1:])) + "\n"
+        filtered = subprocess.run(
+            ["grep", "-E", MODULE.PATCHED_AP_DEVICE_ERE],
+            input=mixed.encode(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+        )
+        self.assertEqual(filtered.stdout.decode(), valid + "\n")
+        invalid_only = subprocess.run(
+            ["grep", "-E", MODULE.PATCHED_AP_DEVICE_ERE],
+            input=("\n".join(invalid) + "\n").encode(),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        self.assertEqual(invalid_only.returncode, 1)
+        self.assertEqual(invalid_only.stdout, b"")
+        self.assertIn(
+            f"LC_ALL=C toybox grep -E '{MODULE.PATCHED_AP_DEVICE_ERE}'",
+            MODULE.PATCHED_AP_DISCOVERY,
+        )
+
+    def test_retrieve_wrong_target_rejects_before_discovery_or_pull(self):
+        calls: list[list[str]] = []
+        wrong = self.inventory().replace("device:y2q", "device:g0q", 1)
+
+        def command(argv, _timeout, _maximum):
+            calls.append(argv)
+            return 0, wrong.encode(), b""
+
+        with tempfile.TemporaryDirectory() as temporary, self.assertRaises(
+            MODULE.RoutineActionError
+        ):
+            MODULE.run_action(
+                MODULE.PATCHED_AP_ACTION,
+                root=Path(temporary),
+                command=command,
+            )
+        self.assertEqual(len(calls), 1)
+        self.assertFalse(any(MODULE.PATCHED_AP_DISCOVERY in call for call in calls))
+        self.assertFalse(any("pull" in call for call in calls))
+
+    def test_retrieve_rejects_size_hash_and_existing_destination_before_pull_or_publish(self):
+        remote = "/sdcard/Download/magisk_patched-30700_AbC12.tar"
+        for case in ("size", "hash", "existing"):
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as temporary:
+                calls: list[list[str]] = []
+                root = Path(temporary)
+                payload = b"patched"
+                digest = MODULE.hashlib.sha256(payload).hexdigest()
+                if case == "existing":
+                    destination = root / MODULE.PATCHED_AP_DEST_REL
+                    destination.mkdir(parents=True)
+                    (destination / Path(remote).name).write_bytes(b"keep")
+
+                def extra(argv):
+                    if argv[-1] == MODULE.PATCHED_AP_DISCOVERY:
+                        return 0, f"{remote}\n".encode(), b""
+                    if "stat" in argv:
+                        return 0, (b"0\n" if case == "size" else f"{len(payload)}\n".encode()), b""
+                    if "sha256sum" in argv:
+                        value = "0" * 64 if case == "hash" else digest
+                        return 0, f"{value}  {remote}\n".encode(), b""
+                    if "pull" in argv:
+                        Path(argv[-1]).write_bytes(payload)
+                        return 0, b"pulled\n", b""
+                    raise AssertionError(argv)
+
+                with mock.patch.object(MODULE, "PATCHED_AP_MIN_SIZE", 1), mock.patch.object(
+                    MODULE, "PATCHED_AP_MAX_SIZE", 1024
+                ), mock.patch.object(MODULE, "PATCHED_AP_HOST_RESERVE", 0), self.assertRaises(
+                    MODULE.RoutineActionError
+                ):
+                    MODULE.run_action(
+                        MODULE.PATCHED_AP_ACTION,
+                        root=root,
+                        command=self.common_command(calls, extra),
+                    )
+                if case in ("size", "existing"):
+                    self.assertFalse(any("pull" in call for call in calls))
+                if case == "existing":
+                    self.assertEqual((destination / Path(remote).name).read_bytes(), b"keep")
+
+    def test_retrieve_unexpected_partial_node_retains_guard_and_fails_closed(self):
+        calls: list[list[str]] = []
+        remote = "/sdcard/Download/magisk_patched-30700_AbC12.tar"
+        payload = b"patched"
+        digest = MODULE.hashlib.sha256(payload).hexdigest()
+
+        def extra(argv):
+            if argv[-1] == MODULE.PATCHED_AP_DISCOVERY:
+                return 0, f"{remote}\n".encode(), b""
+            if "stat" in argv:
+                return 0, f"{len(payload)}\n".encode(), b""
+            if "sha256sum" in argv:
+                return 0, f"{digest}  {remote}\n".encode(), b""
+            if "pull" in argv:
+                Path(argv[-1]).mkdir()
+                return 1, b"", b"pull failed\n"
+            raise AssertionError(argv)
+
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(
+            MODULE, "PATCHED_AP_MIN_SIZE", 1
+        ), mock.patch.object(MODULE, "PATCHED_AP_MAX_SIZE", 1024), mock.patch.object(
+            MODULE, "PATCHED_AP_HOST_RESERVE", 0
+        ):
+            root = Path(temporary)
+            run_dir = MODULE.allocate_run_dir(root, MODULE.PATCHED_AP_ACTION, None)
+            MODULE.acquire_guard(root, run_dir, MODULE.PATCHED_AP_ACTION, None)
+            recorder = MODULE.Recorder(
+                self.common_command(calls, extra)
+            )
+            with self.assertRaisesRegex(MODULE.RoutineActionError, "pull failed"):
+                MODULE.run_action(
+                    MODULE.PATCHED_AP_ACTION,
+                    root=root,
+                    recorder=recorder,
+                )
+            self.assertFalse(recorder.retrieval_cleanup_confirmed)
+            self.assertEqual(
+                len(list((root / MODULE.PATCHED_AP_DEST_REL).glob(".*.partial-*"))),
+                1,
+            )
+            self.assertFalse(
+                MODULE.close_guard_after_failure(
+                    root,
+                    run_dir=run_dir,
+                    action=MODULE.PATCHED_AP_ACTION,
+                    effect_command_count=recorder.effect_command_count,
+                    retrieval_cleanup_confirmed=recorder.retrieval_cleanup_confirmed,
+                )
+            )
+            self.assertTrue(MODULE.guard_path(root).is_file())
 
     def test_stage_rejects_low_space_before_transfer(self):
         calls: list[list[str]] = []
@@ -318,6 +535,28 @@ class S20PlusG986NRoutineActionsTests(unittest.TestCase):
             self.assertEqual(intent.stat().st_mode & 0o777, 0o400)
             with self.assertRaises(FileExistsError):
                 MODULE.base.durable_write(intent, {"action": "again"})
+
+    def test_retrieval_destination_rejects_parent_symlink_and_publish_race(self):
+        basename = "magisk_patched-30700_AbC12.tar"
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            outside = root / "outside"
+            outside.mkdir()
+            workspace = root / "workspace"
+            workspace.mkdir()
+            (workspace / "private").symlink_to(outside, target_is_directory=True)
+            with self.assertRaisesRegex(MODULE.RoutineActionError, "tree is not exact"):
+                MODULE.prepare_retrieval_destination(root, basename)
+            self.assertEqual(list(outside.iterdir()), [])
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            partial, final = MODULE.prepare_retrieval_destination(root, basename)
+            partial.write_bytes(b"candidate")
+            final.write_bytes(b"racer")
+            with self.assertRaisesRegex(MODULE.RoutineActionError, "clobber"):
+                MODULE.publish_retrieved_artifact(partial, final)
+            self.assertEqual(final.read_bytes(), b"racer")
 
     def test_failure_receipt_preserves_possible_effect_without_raw_error(self):
         recorder = MODULE.Recorder(lambda _argv, _timeout, _maximum: (0, b"", b""))
@@ -533,6 +772,11 @@ class S20PlusG986NRoutineActionsTests(unittest.TestCase):
             ROOT
             / "docs/reports/S20PLUS_G986N_ROUTINE_CONNECTED_ACTIONS_H0_2026-08-13.md"
         ).read_text(encoding="utf-8")
+        retrieval_report = (
+            ROOT
+            / "docs/reports/S20PLUS_G986N_PATCHED_AP_RETRIEVAL_H0_2026-08-13.md"
+        ).read_text(encoding="utf-8")
+        goal = (ROOT / "GOAL_S20PLUS.md").read_text(encoding="utf-8")
         s22_contract = (
             ROOT / "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md"
         ).read_text(encoding="utf-8")
@@ -541,14 +785,16 @@ class S20PlusG986NRoutineActionsTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("Status: **BINDING - TARGET-CONTRACT ACTIVATION REQUIRED**", common)
         self.assertIn("Status: **BINDING - ROUTINE D1 SETUP/CONTROL ACTIVE**", contract)
+        self.assertIn("Status: **BINDING - ROUTINE D0 PATCHED-AP RETRIEVAL ACTIVE**", contract)
         self.assertIn("PASS_GO - ROUTINE D1 ACTIVATED", report)
+        self.assertIn("PASS_GO - ROUTINE D0 RETRIEVAL ACTIVATED", retrieval_report)
         self.assertIn(MODULE.sha256_file(SCRIPT), contract)
         self.assertIn("ROUTINE_CONNECTED_ACTIONS.md", agents)
         self.assertIn("ROUTINE_CONNECTED_ACTIONS.md", tiers)
         row = (
             "| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) "
             "| `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` "
-            "| Active exact-target routine D0 reads and reviewed D1 setup/control; no F1 process |"
+            "| Active exact-target routine D0 reads, closed patched-AP D0 retrieval, and reviewed D1 setup/control; no F1 process |"
         )
         self.assertEqual(agents.count(row), 1)
         self.assertNotIn("s20plus_g986n_routine_actions.py", s22_contract)
@@ -556,6 +802,9 @@ class S20PlusG986NRoutineActionsTests(unittest.TestCase):
         for text in (agents, tiers, common, contract):
             self.assertIn("partition", text.lower())
         self.assertIn("F1 and all partition actions\nremain undefined", contract)
+        for text in (contract, retrieval_report, goal):
+            self.assertNotIn("DRAFT - NOT ACTIVE", text)
+            self.assertNotIn("H0 REVIEW PENDING", text)
 
 
 if __name__ == "__main__":

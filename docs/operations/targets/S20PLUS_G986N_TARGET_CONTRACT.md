@@ -143,6 +143,36 @@ A fresh direct operator request may name exactly one of these closed actions:
 | `enter-download` | one exact `adb reboot download` | dispatch only; Download state remains pending observation |
 | `enter-recovery` | one exact `adb reboot recovery` | dispatch only; recovery state remains pending observation |
 
+### Patched-AP retrieval
+
+Status: **BINDING - ROUTINE D0 PATCHED-AP RETRIEVAL ACTIVE**
+
+The independently reviewed `retrieve-patched-ap` implementation is present in
+the runner's closed live `--action` choices. The current operator request to
+bring back the completed file authorizes one invocation of this exact D0
+retrieval after its normal exact-target preflight.
+
+The D0 retrieval is limited to exactly one regular file directly under
+`/sdcard/Download` matching the closed grammar
+`magisk_patched-30700_[A-Za-z0-9_-]{1,64}.tar`. The runner uses a fixed `find`
+expression followed by a device-side fixed `LC_ALL=C` extended-regex filter,
+so invalid glob matches are never emitted to the host. It rejects zero or
+multiple valid matches, requires a size from 1 GiB through 12 GiB, computes the device-side
+SHA-256, and performs one `adb pull -a`. It writes only to
+`workspace/private/inputs/s20plus_g986n/G986NKSS8IYC2_KTC/patched/`, checks
+host free space, compares the pulled size and SHA-256, and publishes with an
+atomic no-clobber hard link. Partial files are unique and removed on a handled
+failure only when they are exact regular non-symlink files. An unexpected node
+or cleanup failure retains the guard and fails closed. It neither deletes nor
+modifies the device file.
+
+The fixed routine guard excludes concurrent retrieval/setup/control. A
+retrieval has zero device effects; a durable success releases the guard, and a
+failure may release it only because no device mutation or control dispatch was
+attempted. It reads no other Download name, package data, credential, app-
+private path, partition, or block device and creates no root, patch, flash, or
+F1 authority.
+
 Routine public reads continue through the separately active D0 runner. A later
 normal-health read may close a reboot return, but an absent or late observation
 never authorizes resending the reboot or mode-entry command. No setup or
@@ -222,8 +252,9 @@ remain undefined.
 
 ## F1 and non-routine D1 are not defined
 
-The binding section above defines only its five exact routine actions. It does
-not activate or imply arbitrary D1. This contract defines no S20+ F1, root,
+The binding section above defines five exact D1 setup/control actions and one
+exact D0 patched-AP retrieval. It does not activate or imply arbitrary D0 or
+D1. This contract defines no S20+ F1, root,
 flash, partition recovery, or rollback capability. Any such work requires a
 later exact contract amendment, recovery design, appropriate artifacts,
 proportional validation, independent safety review, and fresh authority.
@@ -261,3 +292,12 @@ unresolved finding on 2026-08-13. The reviewed routine-action runner SHA-256 is
 The existing onboarding active-intent guard remains consumed and was not
 removed or rotated. This activation creates no F1, root, flash, or partition
 authority and does not activate any S22+ or A90 action.
+
+Independent review of the patched-AP retrieval closure returned `PASS_GO` with
+no unresolved finding on 2026-08-13. The reviewed pre-activation runner SHA-256
+was `5361f986811f9283b340c7ee37f2ff6945f3081979d395409201e9b823f51bad`.
+The permitted mechanical activation changed only its activation constant and
+the named status/hash assertions. The active runner SHA-256 is
+`7b1d8989db5ffbf012cbf356e4e1411d5e487e965361b4ea61307a508b17bc72`.
+This activation adds only the exact D0 retrieval above and creates no device
+write, root, patch, flash, partition, arbitrary user-data, or F1 authority.

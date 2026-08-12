@@ -244,7 +244,7 @@ class S20PlusG986NRoutineD0Tests(unittest.TestCase):
             agents.count(
                 "| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) "
                 "| `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` "
-                "| Active exact-target routine D0 reads and reviewed D1 setup/control; no F1 process |"
+                "| Active exact-target routine D0 reads, closed patched-AP D0 retrieval, and reviewed D1 setup/control; no F1 process |"
             ),
             1,
         )

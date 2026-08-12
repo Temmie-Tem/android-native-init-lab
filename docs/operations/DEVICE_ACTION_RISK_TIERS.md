@@ -37,6 +37,13 @@ and `odin4 -l` when a target-specific rule permits it.
 - Record only the evidence needed for the decision. A bespoke one-shot policy,
   artifact hash graph, and independent-model review are not required unless an
   installed policy explicitly requires them.
+- A selected target contract may activate one exact derived-artifact retrieval
+  after independent review. It must use a closed filename grammar in one fixed
+  normal shared-storage directory, accept exactly one regular-file match,
+  enforce fixed size bounds, compare the device SHA-256 with the pulled host
+  file, and publish only by no-clobber into `workspace/private/`. It may not
+  enumerate unrelated filenames, read app data, use root, or access a
+  partition/block path.
 
 ### D1 - Routine Attended Non-Partition Action
 

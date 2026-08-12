@@ -17,6 +17,16 @@ The process may inventory transports and read public properties, procfs, or
 sysfs named by that contract. It must not use root, enumerate user data or
 credentials, or mutate the target.
 
+A binding target contract may separately activate one reviewed derived-
+artifact retrieval from a fixed normal shared-storage directory. It must use a
+closed filename grammar that cannot match unrelated files, require exactly one
+regular-file match, enforce fixed size bounds, compute the device SHA-256,
+pull once into a private no-clobber host destination, and require the host hash
+to match. The retrieved payload and its raw evidence remain under
+`workspace/private/`. This narrow exception does not permit a general
+directory listing, arbitrary path input, app-private data, root, partition or
+block access, or any device write.
+
 ### Routine D1 control
 
 A current direct operator request while the operator is attending may
@@ -77,8 +87,9 @@ an action explicitly represented by the selected contract.
 Every connected invocation follows this small sequence:
 
 1. validate fixed host inputs before contacting a device;
-2. atomically create one fixed private active-action guard and durably write
-   the D1 intent before the first connected command;
+2. when the selected target process requires transaction exclusion, atomically
+   create one fixed private active-action guard and durably write its intent
+   before the first connected command;
 3. inventory every attached row and resolve exactly one target using its full
    model/device/product tuple;
 4. read the selected target's USB topology and fixed normal-health snapshot;
@@ -87,16 +98,17 @@ Every connected invocation follows this small sequence:
 7. write one no-clobber private result or failure receipt with raw serial,
    topology, and boot ID represented only by SHA-256.
 
-A direct request such as “read it”, “reboot normally”, “enter Download”,
-“enter recovery”, “install the pinned APK”, or “stage the pinned file” is the
-fresh approval for that one named action. It does not approve a later action
+A direct request such as “read it”, “retrieve the patched artifact”, “reboot
+normally”, “enter Download”, “enter recovery”, “install the pinned APK”, or
+“stage the pinned file” is the fresh approval for that one named action. It
+does not approve a later action
 and does not survive a material runner, artifact, target, or contract change.
 No special approval sentence or campaign-specific policy is required.
 
-The fixed guard blocks every later routine setup/control invocation. An
-effect-free preflight failure may durably close and remove it. Setup success
-removes it only after the result is durable. Any effect-attempted failure and
-every reboot/mode dispatch retain it. A separate reviewed host-only finalizer
+The fixed guard blocks every later guarded retrieval/setup/control invocation.
+An effect-free preflight failure may durably close and remove it. Retrieval or
+setup success removes it only after the result is durable. Any effect-attempted
+failure and every reboot/mode dispatch retain it. A separate reviewed host-only finalizer
 may remove a control guard only after the operator explicitly confirms the
 matching normal return or requested Download/recovery observation and durable
 dispatch evidence is present. A guard inconsistency fails closed.

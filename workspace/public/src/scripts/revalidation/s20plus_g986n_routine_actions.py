@@ -9,6 +9,8 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
+import shutil
 import stat
 import subprocess
 import tempfile
@@ -48,13 +50,36 @@ AP_STAGE_DIR_NAME = f"Codex-S20Plus-IYC2-{AP_SHA256[:12]}"
 AP_STAGE_DIR = f"/sdcard/Download/{AP_STAGE_DIR_NAME}"
 AP_REMOTE = f"{AP_STAGE_DIR}/{AP_NAME}"
 
-ACTIONS = (
+PATCHED_AP_ACTION = "retrieve-patched-ap"
+PATCHED_AP_RETRIEVAL_ACTIVE = True
+PATCHED_AP_PATTERN = "magisk_patched-30700_*.tar"
+PATCHED_AP_DEVICE_ERE = (
+    r"^/sdcard/Download/magisk_patched-30700_[A-Za-z0-9_-]{1,64}\.tar$"
+)
+PATCHED_AP_PATH_RE = re.compile(
+    r"\A/sdcard/Download/(magisk_patched-30700_[A-Za-z0-9_-]{1,64}\.tar)\Z"
+)
+PATCHED_AP_DISCOVERY = (
+    "toybox find /sdcard/Download -maxdepth 1 -type f "
+    "-name 'magisk_patched-30700_*.tar' -print | "
+    f"LC_ALL=C toybox grep -E '{PATCHED_AP_DEVICE_ERE}'"
+)
+PATCHED_AP_MIN_SIZE = 1 * 1024 * 1024 * 1024
+PATCHED_AP_MAX_SIZE = 12 * 1024 * 1024 * 1024
+PATCHED_AP_HOST_RESERVE = 1 * 1024 * 1024 * 1024
+PATCHED_AP_DEST_REL = Path(
+    "workspace/private/inputs/s20plus_g986n/G986NKSS8IYC2_KTC/patched"
+)
+
+BASE_ACTIONS = (
     "install-magisk",
     "stage-ap",
     "reboot-system",
     "enter-download",
     "enter-recovery",
 )
+IMPLEMENTED_ACTIONS = BASE_ACTIONS + (PATCHED_AP_ACTION,)
+ACTIONS = BASE_ACTIONS + ((PATCHED_AP_ACTION,) if PATCHED_AP_RETRIEVAL_ACTIVE else ())
 CONTROL_ACTIONS = frozenset(("reboot-system", "enter-download", "enter-recovery"))
 CONTROL_RESOLUTIONS = {
     "reboot-system-returned-normal": "reboot-system",
@@ -85,6 +110,7 @@ class Recorder:
         self.inventory_command_count = 0
         self.selected_target_command_count = 0
         self.effect_command_count = 0
+        self.retrieval_cleanup_confirmed = True
         self.labels: list[str] = []
 
     def run(
@@ -332,6 +358,97 @@ def parse_remote_sha256(output: str, expected_path: str) -> str:
     return value
 
 
+def parse_patched_ap_path(output: str) -> tuple[str, str]:
+    lines = output.splitlines()
+    if len(lines) != 1 or not lines[0] or lines[0] != lines[0].strip():
+        raise RoutineActionError("patched AP discovery is not an exact single match")
+    match = PATCHED_AP_PATH_RE.fullmatch(lines[0])
+    if match is None:
+        raise RoutineActionError("patched AP path is outside the closed grammar")
+    return lines[0], match.group(1)
+
+
+def parse_patched_ap_size(output: str) -> int:
+    if not output or output != output.strip() or not output.isascii() or not output.isdecimal():
+        raise RoutineActionError("patched AP size is malformed")
+    value = int(output)
+    if not PATCHED_AP_MIN_SIZE <= value <= PATCHED_AP_MAX_SIZE:
+        raise RoutineActionError("patched AP size is outside the closed bounds")
+    return value
+
+
+def mkdir_exact_tree(root: Path, relative: Path) -> Path:
+    root_path = root.absolute()
+    if root_path.is_symlink() or root_path.resolve(strict=True) != root_path:
+        raise RoutineActionError("repository root is not exact")
+    current = root_path
+    for component in relative.parts:
+        if component in ("", ".", ".."):
+            raise RoutineActionError("private destination component is invalid")
+        current = current / component
+        try:
+            metadata = current.lstat()
+        except FileNotFoundError:
+            current.mkdir(mode=0o700)
+            _fsync_dir(current.parent)
+            metadata = current.lstat()
+        if current.is_symlink() or not stat.S_ISDIR(metadata.st_mode):
+            raise RoutineActionError("private destination tree is not exact")
+    return current
+
+
+def prepare_retrieval_destination(root: Path, basename: str) -> tuple[Path, Path]:
+    if PATCHED_AP_PATH_RE.fullmatch(f"/sdcard/Download/{basename}") is None:
+        raise RoutineActionError("patched AP basename is outside the closed grammar")
+    destination = mkdir_exact_tree(root, PATCHED_AP_DEST_REL)
+    final_path = destination / basename
+    if final_path.exists() or final_path.is_symlink():
+        raise RoutineActionError("private patched AP destination already exists")
+    partial_path = destination / f".{basename}.partial-{time.time_ns()}"
+    if partial_path.exists() or partial_path.is_symlink():
+        raise RoutineActionError("private patched AP partial path already exists")
+    return partial_path, final_path
+
+
+def publish_retrieved_artifact(partial_path: Path, final_path: Path) -> None:
+    metadata = partial_path.lstat()
+    if not stat.S_ISREG(metadata.st_mode) or partial_path.is_symlink():
+        raise RoutineActionError("retrieved patched AP is not a regular file")
+    os.chmod(partial_path, 0o400)
+    with partial_path.open("rb") as stream:
+        os.fsync(stream.fileno())
+    try:
+        os.link(partial_path, final_path)
+    except FileExistsError as exc:
+        raise RoutineActionError("private patched AP publish would clobber") from exc
+    _fsync_dir(final_path.parent)
+    partial_path.unlink()
+    _fsync_dir(final_path.parent)
+
+
+def cleanup_retrieval_partial(partial_path: Path) -> bool:
+    try:
+        metadata = partial_path.lstat()
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+    if partial_path.is_symlink() or not stat.S_ISREG(metadata.st_mode):
+        return False
+    try:
+        partial_path.unlink()
+        _fsync_dir(partial_path.parent)
+    except OSError:
+        return False
+    try:
+        partial_path.lstat()
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+    return False
+
+
 def run_action(
     action: str,
     *,
@@ -340,7 +457,7 @@ def run_action(
     recorder: Recorder | None = None,
     artifact: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], Recorder]:
-    if action not in ACTIONS:
+    if action not in IMPLEMENTED_ACTIONS:
         raise RoutineActionError("action is not allowlisted")
     receipt = base.tool_receipt(base.DEFAULT_ADB)
     exact_adb = receipt["path"]
@@ -366,6 +483,8 @@ def run_action(
     serial = target["serial"]
     effect = {
         "device_write": False,
+        "device_artifact_read": False,
+        "host_private_artifact_write": False,
         "package_install": False,
         "user_storage_stage": False,
         "reboot_requested": False,
@@ -497,6 +616,76 @@ def run_action(
         }
         final_normal_check(recorder, exact_adb, target)
         verdict = "PASS_S20PLUS_G986N_AP_STAGED_VERIFIED"
+    elif action == PATCHED_AP_ACTION:
+        discovery_text, _ = decode(
+            recorder.run(
+                [exact_adb, "-s", serial, "exec-out", "sh", "-c", PATCHED_AP_DISCOVERY],
+                30,
+                MAX_OUTPUT_BYTES,
+                label="discover-patched-ap",
+            ),
+            "patched AP discovery",
+        )
+        remote_path, basename = parse_patched_ap_path(discovery_text)
+        size_text, _ = decode(
+            recorder.run(
+                [exact_adb, "-s", serial, "shell", "toybox", "stat", "-c", "%s", remote_path],
+                20,
+                MAX_OUTPUT_BYTES,
+                label="size-patched-ap",
+            ),
+            "patched AP size",
+        )
+        remote_size = parse_patched_ap_size(size_text)
+        remote_hash_text, _ = decode(
+            recorder.run(
+                [exact_adb, "-s", serial, "shell", "toybox", "sha256sum", remote_path],
+                MAX_COMMAND_TIMEOUT,
+                MAX_OUTPUT_BYTES,
+                label="hash-patched-ap-device",
+            ),
+            "patched AP device hash",
+        )
+        remote_sha256 = parse_remote_sha256(remote_hash_text, remote_path)
+        partial_path, final_path = prepare_retrieval_destination(root, basename)
+        if shutil.disk_usage(final_path.parent).free < remote_size + PATCHED_AP_HOST_RESERVE:
+            raise RoutineActionError("insufficient private host storage")
+        recorder.retrieval_cleanup_confirmed = False
+        try:
+            decode(
+                recorder.run(
+                    [exact_adb, "-s", serial, "pull", "-a", remote_path, str(partial_path)],
+                    MAX_COMMAND_TIMEOUT,
+                    MAX_OUTPUT_BYTES,
+                    label="pull-patched-ap",
+                ),
+                "patched AP pull",
+                permit_stderr=True,
+            )
+            metadata = partial_path.lstat()
+            if not stat.S_ISREG(metadata.st_mode) or partial_path.is_symlink():
+                raise RoutineActionError("retrieved patched AP is not a regular file")
+            if metadata.st_size != remote_size:
+                raise RoutineActionError("retrieved patched AP size mismatch")
+            host_sha256 = sha256_file(partial_path)
+            if host_sha256 != remote_sha256:
+                raise RoutineActionError("retrieved patched AP SHA-256 mismatch")
+            publish_retrieved_artifact(partial_path, final_path)
+            recorder.retrieval_cleanup_confirmed = True
+        except Exception:
+            recorder.retrieval_cleanup_confirmed = cleanup_retrieval_partial(partial_path)
+            raise
+        verification = {
+            "remote_name": basename,
+            "size": remote_size,
+            "sha256": remote_sha256,
+            "host_private_path": str(final_path),
+            "device_artifact_read": True,
+            "host_no_clobber_publish": True,
+        }
+        effect.update(device_artifact_read=True, host_private_artifact_write=True)
+        final_normal_check(recorder, exact_adb, target)
+        verdict = "PASS_S20PLUS_G986N_PATCHED_AP_RETRIEVED_VERIFIED"
     else:
         reboot_argument = {
             "reboot-system": None,
@@ -554,7 +743,8 @@ def run_action(
             "effect": effect,
             "host_tool": receipt,
             **recorder.evidence(),
-            "d1_authorized": True,
+            "d0_authorized": action == PATCHED_AP_ACTION,
+            "d1_authorized": action != PATCHED_AP_ACTION,
             "f1_authorized": False,
             "verdict": verdict,
         },
@@ -615,6 +805,15 @@ def acquire_guard(
         "artifact": None
         if artifact is None
         else {"size": artifact["size"], "sha256": artifact["sha256"]},
+        "retrieval": {
+            "remote_directory": "/sdcard/Download",
+            "remote_ere": PATCHED_AP_DEVICE_ERE,
+            "private_destination": str(PATCHED_AP_DEST_REL),
+            "minimum_size": PATCHED_AP_MIN_SIZE,
+            "maximum_size": PATCHED_AP_MAX_SIZE,
+        }
+        if action == PATCHED_AP_ACTION
+        else None,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "unresolved": True,
     }
@@ -638,7 +837,7 @@ def read_guard(root: Path) -> dict[str, Any]:
         not isinstance(payload, dict)
         or payload.get("schema") != "s20plus_g986n_active_routine_action_v1"
         or payload.get("version") != VERSION
-        or payload.get("action") not in ACTIONS
+        or payload.get("action") not in IMPLEMENTED_ACTIONS
         or payload.get("unresolved") is not True
         or not isinstance(payload.get("run_dir"), str)
     ):
@@ -728,9 +927,16 @@ def close_guard_after_result(
 
 
 def close_guard_after_failure(
-    root: Path, *, run_dir: Path, action: str, effect_command_count: int
+    root: Path,
+    *,
+    run_dir: Path,
+    action: str,
+    effect_command_count: int,
+    retrieval_cleanup_confirmed: bool = True,
 ) -> bool:
     if effect_command_count != 0:
+        return False
+    if action == PATCHED_AP_ACTION and not retrieval_cleanup_confirmed:
         return False
     release_guard(root, expected_run_dir=run_dir, expected_action=action)
     return True
@@ -749,6 +955,9 @@ def failure_result(action: str, recorder: Recorder, exc: Exception) -> dict[str,
         "possible_effect": possible_effect,
         "possible_package_install": possible_effect and action == "install-magisk",
         "possible_user_storage_stage": possible_effect and action == "stage-ap",
+        "possible_private_host_artifact": action == PATCHED_AP_ACTION
+        and "pull-patched-ap" in recorder.labels,
+        "retrieval_cleanup_confirmed": recorder.retrieval_cleanup_confirmed,
         "possible_reboot_or_mode_dispatch": possible_effect and action in CONTROL_ACTIONS,
         "automatic_retry_permitted": False,
         "f1_authorized": False,
@@ -757,13 +966,19 @@ def failure_result(action: str, recorder: Recorder, exc: Exception) -> dict[str,
 
 
 def dry_run_plan(action: str) -> dict[str, Any]:
-    if action not in ACTIONS:
+    if action not in IMPLEMENTED_ACTIONS:
         raise RoutineActionError("action is not allowlisted")
     artifact = None
     if action == "install-magisk":
         artifact = {"size": MAGISK_APK_SIZE, "sha256": MAGISK_APK_SHA256}
     elif action == "stage-ap":
         artifact = {"size": AP_SIZE, "sha256": AP_SHA256, "remote_name": AP_NAME}
+    elif action == PATCHED_AP_ACTION:
+        artifact = {
+            "remote_directory": "/sdcard/Download",
+            "remote_ere": PATCHED_AP_DEVICE_ERE,
+            "private_destination": str(PATCHED_AP_DEST_REL),
+        }
     return {
         "schema": "s20plus_g986n_routine_action_plan_v1",
         "version": VERSION,
@@ -858,6 +1073,15 @@ def main() -> int:
             "artifact": None
             if artifact is None
             else {"size": artifact["size"], "sha256": artifact["sha256"]},
+            "retrieval": {
+                "remote_directory": "/sdcard/Download",
+                "remote_ere": PATCHED_AP_DEVICE_ERE,
+                "private_destination": str(PATCHED_AP_DEST_REL),
+                "minimum_size": PATCHED_AP_MIN_SIZE,
+                "maximum_size": PATCHED_AP_MAX_SIZE,
+            }
+            if args.action == PATCHED_AP_ACTION
+            else None,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "no_automatic_retry": True,
         },
@@ -895,6 +1119,7 @@ def main() -> int:
             run_dir=run_dir,
             action=args.action,
             effect_command_count=recorder.effect_command_count,
+            retrieval_cleanup_confirmed=recorder.retrieval_cleanup_confirmed,
         )
         print("FAIL_S20PLUS_G986N_ROUTINE_ACTION_CLOSED")
         print(f"failure={run_dir / 'failure.json'}")
