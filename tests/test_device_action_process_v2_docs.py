@@ -1,3 +1,4 @@
+import hashlib
 import unittest
 from pathlib import Path
 
@@ -146,7 +147,8 @@ def a90_target_contract_issues(text):
 class DeviceActionProcessV2DocsTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+        cls.agents_bytes = (ROOT / "AGENTS.md").read_bytes()
+        cls.agents = cls.agents_bytes.decode("utf-8")
         cls.goal = (ROOT / "GOAL.md").read_text(encoding="utf-8")
         cls.goal_a90 = (ROOT / "GOAL_A90.md").read_text(encoding="utf-8")
         cls.claude = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
@@ -206,6 +208,16 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         cls.archived_agents = (
             ROOT / "docs/archive/policy/AGENTS_PRE_PROCESS_V2_2026-07-21.md"
+        ).read_text(encoding="utf-8")
+        retired_fast_loop_path = (
+            ROOT
+            / "docs/archive/policy/"
+            "AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md"
+        )
+        cls.retired_fast_loop_bytes = retired_fast_loop_path.read_bytes()
+        cls.retired_fast_loop = cls.retired_fast_loop_bytes.decode("utf-8")
+        cls.archive_index = (
+            ROOT / "docs/archive/README.md"
         ).read_text(encoding="utf-8")
         cls.archived_goal = (
             ROOT / "docs/archive/roadmaps/GOAL_PRE_PROCESS_V2_2026-07-21.md"
@@ -277,9 +289,14 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         active_text = "\n".join((self.agents, self.goal, self.claude))
         self.assertNotIn("POLICY_STATE=ACTIVE", active_text)
         self.assertNotIn("BEGIN_S22PLUS", active_text)
-        self.assertIn("Status: **RETIRED**", self.agents)
+        self.assertNotIn("Status: **RETIRED**", self.agents)
+        self.assertIn("Status: **RETIRED**", self.retired_fast_loop)
         self.assertIn(
             "no longer grant standing D0, procedural autonomy, or an override",
+            normalized(self.retired_fast_loop),
+        )
+        self.assertIn(
+            "historical evidence only and grants no current authority",
             normalized(self.agents),
         )
         self.assertIn(
@@ -294,6 +311,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
 
     def test_retired_trial_is_historical_and_ordinary_authority_controls(self):
         compact = normalized(self.agents)
+        historical = normalized(self.retired_fast_loop)
         for clause in (
             "For a new device effect that already satisfies every permanent boundary",
             "exact target identity matches its bound profile (D0/D1/F1);",
@@ -308,6 +326,9 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             "F1 exclusivity belongs to target-identity gate 1, not a fifth gate.",
             "A target becomes F1-armed when its journal durably records candidate intent",
             "Disarm only after exact `HEALTHY` is durable;",
+        ):
+            self.assertIn(clause, historical)
+        for clause in (
             "An independent `PASS_GO` qualifies a capability, not a run.",
             "Reuse it across candidates, campaigns, manifests, qualifications, and ordinals while its named execution-critical hashes are unchanged and no new hazard or incident occurs.",
             "Fresh qualification and any runner binding still apply.",
@@ -394,6 +415,43 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
     def test_archives_are_explicitly_inert(self):
         self.assertIn("INERT HISTORICAL EVIDENCE", self.archived_agents[:600])
         self.assertIn("INERT HISTORICAL ROADMAP", self.archived_goal[:600])
+        self.assertEqual(len(self.retired_fast_loop.splitlines()), 82)
+        self.assertEqual(len(self.retired_fast_loop_bytes), 4898)
+        self.assertEqual(
+            hashlib.sha256(self.retired_fast_loop_bytes).hexdigest(),
+            "e270865908821ff1221665a83a22707ae0dcde140e18e5ba600b82423c34dbc7",
+        )
+        self.assertIn(
+            "It is inert historical evidence and grants no current authority.",
+            self.archive_index,
+        )
+        self.assertIn(
+            "AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md",
+            self.agents,
+        )
+
+    def test_archiving_preserves_the_active_contract_tail_byte_for_byte(self):
+        expected_prefix = (
+            b"# AGENTS.md - repository operating contract\n\n"
+            b"Contract-Revision: **2** (supersedes revision 1; 2026-08-03)\n\n"
+            b"The retired Interim Fast-Loop trial contract is preserved "
+            b"byte-for-byte at `docs/archive/policy/"
+            b"AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is "
+            b"historical evidence only and grants no current authority.\n\n"
+        )
+        active_marker = (
+            b"---\n\nThis file contains the repository-wide invariants and the "
+            b"binding target\nregistry."
+        )
+        self.assertEqual(self.agents_bytes.count(active_marker), 1)
+        marker_offset = self.agents_bytes.index(active_marker)
+        self.assertEqual(self.agents_bytes[:marker_offset], expected_prefix)
+        active_tail = self.agents_bytes[marker_offset:]
+        self.assertEqual(len(active_tail), 9805)
+        self.assertEqual(
+            hashlib.sha256(active_tail).hexdigest(),
+            "474ad4b4ddbcab9569a38ba83c61b9f537688d7d5b7853a26c72b8bea3497eb6",
+        )
 
     def test_process_v2_requires_regular_path_and_rollback_authority(self):
         combined = "\n".join((self.agents, self.process, self.risk))
@@ -408,7 +466,7 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("does not retransmit automatically", self.process)
 
     def test_fast_loop_separates_observation_delay_from_device_failure(self):
-        compact = normalized(self.agents)
+        compact = normalized(self.retired_fast_loop)
         for clause in FAST_LOOP_HEALTH_REQUIRED_CLAUSES:
             self.assertIn(clause, compact)
         self.assertIn("HEALTH_PENDING", self.a90_target)

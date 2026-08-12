@@ -7,6 +7,10 @@ Historical `ACTIVE` strings and acknowledgement tokens are inert evidence.
 
 - `policy/AGENTS_PRE_PROCESS_V2_2026-07-21.md`: immutable Git blob, SHA256, and
   retrieval commands for the complete pre-v2 operating contract.
+- `policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`: byte-identical
+  82-line retired trial block, SHA-256
+  `e270865908821ff1221665a83a22707ae0dcde140e18e5ba600b82423c34dbc7`.
+  It is inert historical evidence and grants no current authority.
 - `roadmaps/GOAL_PRE_PROCESS_V2_2026-07-21.md`: immutable Git blob, SHA256, and
   retrieval commands for the complete pre-v2 accumulated roadmap.
 
