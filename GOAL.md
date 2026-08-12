@@ -638,37 +638,34 @@ inherit that cycle and may instead proceed from its dedicated H0 design and
 hazard review. No P3.15 candidate replay or inherited clean-cycle claim is
 permitted.
 
-P3.16 is the next host-qualified unit. Its independent changed-closure review,
-canonical Process-v2 promotion, ready-manifest creation, and non-creating
-rehearsal are complete. It keeps the fixed P3.10 Image, packages only boot,
-loads 64 stock modules early, and loads the single bounded diagnostic only
-after target-only override/bind, gadget, and sidecar gates. This status is
-offline readiness only. Before any device contact it still requires the
-ordinary fresh exact-target D0 preparation, clean retained baseline, current
-rollback and recovery proof, immutable live binding, attendance, and one fresh
-exact F1 approval. Until those occur, `live_authorized=false`; no module has
-been inserted and no candidate transfer has started.
+P3.16 qualification and its one live attempt are complete. Candidate and exact
+rollback each transferred once, the 19-record journal closed, and rooted
+boot-completed FYG8 health passed after rollback. Two byte-identical,
+CRC-clean retained reads decoded one authoritative `0x6708`
+`exact_parent_unbound_after_sync_return` terminal: the exact Max77705 parent
+existed unbound, the diagnostic module's synchronous `finit_module()` returned
+success, but the parent remained unbound, no diagnostic `0x25` client existed,
+and the result stayed `-EAGAIN`. The result is
+`NO_PROOF_OBSERVER_DIAGNOSTIC_SYNC_CONTRADICTION`; no CONTROL1 or physical-MUX
+claim is permitted and the P3.16 candidate is consumed without replay.
 
-The first P3.16 connected D0 preparation stopped read-only after exact target
-and health validation because the 2,097,136-byte retained baseline still
-contained one integrity-clean, foreign-count-zero consumed P3.15 family:
-generation 106 `0x0d3f` followed by generation 107 `0x5064`. The raw capture
-and empty stderr are preserved under the private failed run; no `prepared.json`,
-F1 binding, reboot, Download transition, Odin invocation, payload, or transfer
-was created. The invocation is not reusable. One fresh exact normal-reboot
-baseline-rotation D1 is now required before a second fresh D0; the existing
-one-shot helper fixture passes, but no D1 authority has been supplied.
+Post-live H0 localizes the dominant pre-probe mechanism. Exact g0q DT makes
+`max77705@66` depend on the `qcom,pm8350c-gpio` pinctrl provider, and fixed
+driver core checks that supplier before the diagnostic probe. P3.16 omitted
+the full stock five-module provider chain: `qti-regmap-debugfs`, `regmap-spmi`,
+`qcom-spmi-pmic`, `spmi-pmic-arb`, and `pinctrl-spmi-gpio`. That omission
+exactly predicts successful driver registration followed by an unbound client
+and an unpublished result. It remains a strongest H0 localization rather than
+a unique device proof because P3.16 did not retain `waiting_for_supplier` or
+the unresolved supplier identity. The incident and successor boundary are in
+`docs/reports/S22PLUS_FYG8_P316_MAX77705_SYNC_PROBE_CONTRADICTION_INCIDENT_2026-08-12.md`.
 
-Fresh exact D1 authority then bound one normal reboot. The helper sent one
-reboot to the unique `SM-S906N`/`g0q`, changed the boot ID, and returned rooted
-boot-completed FYG8 Android with boot, vendor_boot, dtbo, and recovery hashes
-unchanged and no Download endpoint. It sent no command to another target.
-The subsequent fresh D0 read a clean 2,097,136-byte retained baseline with
-zero marker families and created immutable P3.16 binding
-`f5d964deef7cfc36c7b7e6464c04873da1f86fcdc5717058f8bdb66f348a8ad9`.
-The prepared record still has `f1_authorized=false` and
-`live_authorized=false`; execution now requires the exact fresh F1 approval
-token for that binding.
+The next unit is H0 only. It must derive and qualify the exact PMIC supplier
+closure, account for its broader stock-provider binding effects, retain the
+supplier identity on any unbound terminal, and rerun the complete
+source-frozen userspace/package/Process-v2 closure. The fixed Image and custom
+diagnostic may be inherited only if static qualification reproves their bytes;
+no Full-LTO need, candidate authority, or live approval is implied.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden
 archive member, an unreviewed common receipt/schema change, an observer result
