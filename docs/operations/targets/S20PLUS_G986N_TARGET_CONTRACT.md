@@ -7,9 +7,10 @@ This is the binding target contract for the operator-owned Samsung Galaxy S20+
 in `AGENTS.md`. Its exact one-shot D0 onboarding inventory has been consumed.
 The durable onboarding active-intent guard remains present. A separately
 reviewed routine D0 public-property process may be activated below without
-removing, rotating, or reusing that onboarding guard. The exact routine D1
-closure below is separately reviewed and active. This
-contract defines no F1, root, flash, partition recovery, or rollback
+removing, rotating, or reusing that onboarding guard. The exact routine D1 and
+narrow bootstrap F1 below are separately reviewed and active. The F1 permits
+only one attended boot-only candidate followed by mandatory stock rollback; it
+defines no resident-root, arbitrary flash, non-boot partition, or TWRP
 capability.
 
 Exact live D0 established model `SM-G986N`, device `y2q`, product `y2qksx`,
@@ -250,15 +251,55 @@ remain undefined.
   retain only the target's public properties, CSC resolution, command counts,
   zero-effect assertions, verdict, and private result SHA-256.
 
-## F1 and non-routine D1 are not defined
+## Arbitrary F1 and non-routine D1 are not defined
 
 The binding section above defines five exact D1 setup/control actions and one
 exact D0 patched-AP retrieval. It does not activate or imply arbitrary D0 or
-D1. This contract defines no S20+ F1, root,
-flash, partition recovery, or rollback capability. Any such work requires a
+D1. Except for the exact bootstrap F1 below, this contract defines no S20+ F1,
+resident root, arbitrary flash, non-boot partition recovery, or rollback
+capability. Any such work requires a
 later exact contract amendment, recovery design, appropriate artifacts,
 proportional validation, independent safety review, and fresh authority.
 Bootloader-unlocked state and a passing D0/D1 do not grant those capabilities.
+
+## Magisk bootstrap F1
+
+Status: **BINDING - ATTENDED ONE-SHOT BOOT-ONLY F1 ACTIVE**
+
+The target-specific bootstrap process is implemented by
+`workspace/public/src/scripts/revalidation/s20plus_g986n_magisk_bootstrap_f1.py`.
+The independently reviewed runner and registry row activate this narrow
+capability. Activation alone authorizes no transfer: each run still requires a
+fresh connected read-only prepare, its exact approval token, current operator
+attendance, and all fixed guard and recovery conditions below.
+
+This is one attended experiment with two fixed private AP files.
+Each AP is a deterministic TAR+MD5 archive containing only one canonical
+regular member named `boot.img.lz4`. The candidate is `25,835,561` bytes with
+SHA-256 `1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`;
+the stock rollback is `25,671,721` bytes with SHA-256
+`48a11265a6730a6ab842b07f63cffe9cbdf1582a919b02abdaf1d2b9a2e0bd6b`.
+No BL, CP, CSC, recovery, vendor_boot, DTBO, VBMeta, super, persist, userdata,
+or other partition payload is accepted.
+
+The fixed state machine pins the exact Download endpoint, artifacts, tools,
+transition evidence, and reviewed helper closure; accepts one fresh exact
+approval for one candidate boot transfer; observes root only on the exact
+normal-Android target; and then requires one stock-boot rollback in the same
+approval whether root was proved or not. Terminal health requires completed
+rollback transfer, exact Android identity and health, and root absence. The
+experiment deliberately leaves Magisk non-persistent.
+
+Candidate and rollback intents are durable before their respective Odin
+sessions and each transfer has exactly one attempt. Missing or uncertain
+outcomes never permit candidate replay; after rollback intent, rollback replay
+is also forbidden. The fixed guard remains through any unresolved state and is
+removed only after healthy stock return. A Download-mode timeout parks for the
+attended physical recovery path. Raw logs and identifiers remain private and
+public results report zero commands to S22+, A90, and other targets.
+
+This capability grants no native-init, TWRP, recovery write, arbitrary Odin,
+arbitrary artifact, or resident-root authority.
 
 ## Activation and Review Record
 
@@ -301,3 +342,17 @@ the named status/hash assertions. The active runner SHA-256 is
 `7b1d8989db5ffbf012cbf356e4e1411d5e487e965361b4ea61307a508b17bc72`.
 This activation adds only the exact D0 retrieval above and creates no device
 write, root, patch, flash, partition, arbitrary user-data, or F1 authority.
+
+Independent review of the exact Magisk bootstrap F1 runner, helpers, target
+contract, registry transition, report, goal, tests, no-replay journal,
+Download-endpoint pinning, root observation, and mandatory rollback state
+machine returned `PASS_GO` with no unresolved finding on 2026-08-13. The
+reviewed dormant runner SHA-256 was
+`cb0d288a1f699b1958927c3c1307639ac63751d1c6bd5c532d974ee17d6b289b`;
+the mechanically activated runner SHA-256 is
+`211e001c492930c4490405ace09a6203980bf4092d276dcd018171624a16e887` and
+its normalized reviewed identity is
+`73e8800248796a542c4d9d63acbfb641302dc12fe79b14d30b23771b6bbfb23b`.
+This activation grants only the attended one-shot boot-only candidate plus
+mandatory stock rollback described above. It creates no resident-root,
+arbitrary artifact/Odin, non-boot partition, S22+, or A90 authority.
