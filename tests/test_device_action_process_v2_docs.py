@@ -122,6 +122,32 @@ EXPERIMENT_EXECUTABILITY_REQUIRED_CLAUSES = (
     "Absence means unavailable authority, not false; the value is a boolean and never names the unresolved supplier.",
 )
 
+RETIRED_FAST_LOOP_OPERATIONAL_CLAUSES = (
+    "only these procedural authority gates may refuse it",
+    "Other host-only schema, shape, and evidence failures are H0 bugs to fix and rerun, not new device-authority gates.",
+    "H0 | Unlimited. Rule 7 suspended. Fix and continue.",
+    "D0 | Autonomous for a resolved exact target. No approval.",
+    "D1 | Autonomous under the target presence mode.",
+    "F1 | Autonomous while attended. No per-candidate approval.",
+    "The agent owns goal selection, experiment design, and iteration. Do not require a campaign-level planner or runner.",
+    "Legacy v1 approval/time/action limits remain implementation constraints until their runners change; they do not define the trial policy.",
+    "An F1 run parked while awaiting a required physical operator step remains F1-armed.",
+    "Host-only work continues during a park; no second candidate may be armed, and a park is not an abort.",
+    "F1 exclusivity belongs to target-identity gate 1, not a fifth gate.",
+    "Each target contract defines its presence predicate.",
+    "A missing, late, timed-out, or malformed observation is not by itself a device-health or recovery failure.",
+    "Endpoint absence is not target ambiguity; ambiguity requires multiple plausible targets or conflicting bound identity.",
+    "Unresolved observation freezes new effects as `HEALTH_PENDING`, `HOST_OBSERVER_FAILURE`, or `RECOVERY_PENDING_PARKED`.",
+    "Until exact health and recovery establish `HEALTHY`, permit only passive bounded observation, re-enumeration stabilization, H0 observer repair/replay, and exact recovery.",
+    "A timeout parks rather than closes; confirmed negative health enters recovery.",
+    "Attendance loss stops F1 and all D1 except the qualified A90 lane.",
+    "Routine narrative evidence is the commit body: attempt, result including no-proof, judgment, work, and a `Validation:` line.",
+    "Append the structured row to the per-target campaign ledger: `docs/operations/CAMPAIGN_LEDGER_S22PLUS.md` or `docs/operations/CAMPAIGN_LEDGER_A90.md`.",
+    "Write a separate report only for a new capability, a new hazard class, an incident, or a genuinely ambiguous device-safety result.",
+    "No per-run prose, no review ladder, and no per-candidate policy document.",
+    "A superseded report moves to `docs/archive/reports/`; location is the authority signal.",
+)
+
 
 def normalized(text):
     return " ".join(text.split())
@@ -144,11 +170,18 @@ def a90_target_contract_issues(text):
     )
 
 
+def retired_fast_loop_authority_issues(text):
+    value = normalized(text)
+    return tuple(
+        clause for clause in RETIRED_FAST_LOOP_OPERATIONAL_CLAUSES
+        if clause in value
+    )
+
+
 class DeviceActionProcessV2DocsTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.agents_bytes = (ROOT / "AGENTS.md").read_bytes()
-        cls.agents = cls.agents_bytes.decode("utf-8")
+        cls.agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
         cls.goal = (ROOT / "GOAL.md").read_text(encoding="utf-8")
         cls.goal_a90 = (ROOT / "GOAL_A90.md").read_text(encoding="utf-8")
         cls.claude = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
@@ -430,28 +463,32 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             self.agents,
         )
 
-    def test_archiving_preserves_the_active_contract_tail_byte_for_byte(self):
-        expected_prefix = (
-            b"# AGENTS.md - repository operating contract\n\n"
-            b"Contract-Revision: **2** (supersedes revision 1; 2026-08-03)\n\n"
-            b"The retired Interim Fast-Loop trial contract is preserved "
-            b"byte-for-byte at `docs/archive/policy/"
-            b"AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is "
-            b"historical evidence only and grants no current authority.\n\n"
-        )
-        active_marker = (
-            b"---\n\nThis file contains the repository-wide invariants and the "
-            b"binding target\nregistry."
-        )
-        self.assertEqual(self.agents_bytes.count(active_marker), 1)
-        marker_offset = self.agents_bytes.index(active_marker)
-        self.assertEqual(self.agents_bytes[:marker_offset], expected_prefix)
-        active_tail = self.agents_bytes[marker_offset:]
-        self.assertEqual(len(active_tail), 9814)
-        self.assertEqual(
-            hashlib.sha256(active_tail).hexdigest(),
-            "16c2130220016bb5e28565f8d0b3fe5c576fddd0d774603412bc77f5578ed367",
-        )
+    def test_archiving_keeps_retired_authority_out_of_live_contract(self):
+        active = normalized(self.agents)
+        archived = normalized(self.retired_fast_loop)
+        self.assertNotIn("## Interim Fast-Loop Rules", self.agents)
+        for clause in (
+            "The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.",
+            "This file contains the repository-wide invariants and the binding target registry.",
+            "Select exactly one target contract before target-specific work.",
+            "Historical or draft policies under `docs/archive/` or elsewhere are evidence only, even if their text says `ACTIVE`.",
+            "`STATE -> SELECT -> DESIGN -> IMPLEMENT -> STATIC VALIDATE -> DEVICE -> REPORT -> COMMIT`",
+            "Do not add a device step when host-only work can answer the question.",
+        ):
+            self.assertIn(clause, active)
+        for clause in RETIRED_FAST_LOOP_OPERATIONAL_CLAUSES:
+            self.assertIn(clause, archived)
+        self.assertEqual(retired_fast_loop_authority_issues(self.agents), ())
+
+    def test_retired_fast_loop_authority_reinsertion_is_rejected(self):
+        for clause in RETIRED_FAST_LOOP_OPERATIONAL_CLAUSES:
+            with self.subTest(clause=clause):
+                self.assertEqual(
+                    retired_fast_loop_authority_issues(
+                        f"{self.agents}\n{clause}\n"
+                    ),
+                    (clause,),
+                )
 
     def test_process_v2_requires_regular_path_and_rollback_authority(self):
         combined = "\n".join((self.agents, self.process, self.risk))

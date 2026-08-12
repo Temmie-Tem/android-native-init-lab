@@ -49,3 +49,29 @@ exact 317-byte prefix, archive inertness, test authority split, and absence of
 semantic authority change. It returned `PASS_GO` after three fail-open test
 gaps were corrected: universal-newline normalization of the archive, an
 unpinned active tail, and an unpinned root prefix.
+
+## 2026-08-13 guard correction
+
+The active-tail and root-prefix byte identities above are point-in-time
+receipts for the archive transformation, not permanent invariants of the live
+common contract. Commit `529132441be970addab69f4f691e88edeab27adc`
+legitimately changed one binding-registry cell, and commit
+`7f31d201a16d7212a9cbe506bc7202e95bfe8acc` had to advance the pinned active
+tail from 9,805 to 9,814 bytes merely to admit that reviewed edit. This showed
+that the regression was testing "the active contract never changes," rather
+than the intended historical claim that archiving preserved the then-active
+contract.
+
+The permanent regression therefore keeps the true byte invariant on the
+archived object itself: 82 lines, 4,898 raw bytes, and SHA-256
+`e270865908821ff1221665a83a22707ae0dcde140e18e5ba600b82423c34dbc7`.
+For live `AGENTS.md`, it instead requires that the retired heading is absent,
+the pointer is explicitly non-authoritative, and the active archive rule,
+target-contract selection rule, default work cycle, and host-first rule remain
+present. Twenty-three distinctive trial-only operational clauses across the
+procedural-gate, autonomy, health/recovery, and evidence sections are sourced
+from the pinned archive, forbidden in the live contract, and individually
+reinserted by a mutation regression that must fail the guard. It no longer
+freezes the mutable active prefix, length, or SHA-256.
+This correction changes only the regression contract and grants no device
+authority.
