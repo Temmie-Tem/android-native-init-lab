@@ -1,9 +1,9 @@
 # S22+ FYG8 P3.17 experiment-executability closure design
 
-Status: **H0 DESIGN, FIRST FW_DEVLINK REGRESSION, REVIEWABLE MUST-BIND
-AUTHORITY, AND EXACT TWO-BASE MUTUALLY RECURSIVE FIXED-POINT/MODULE DELTA
-IMPLEMENTED; HUMAN CAUSAL AND NEW RELATION-FAMILY REVIEW CLOSED; RUNTIME
-WITNESSES AND PACKAGING PENDING; P3.17 CANDIDATE NOT READY**
+Status: **H0 DESIGN AND IMPLEMENTATION COMPLETE; EXACT TWO-BASE MUTUALLY
+RECURSIVE FIXED POINT, RUNTIME WITNESSES, A/B PACKAGE, PROCESS-V2 PROMOTION,
+AND CANONICAL OFFLINE BUNDLE PASS; FINAL INDEPENDENT READY-CLOSURE REVIEW
+PENDING; NO LIVE AUTHORITY**
 
 Date: 2026-08-12
 
@@ -66,10 +66,11 @@ This unit does:
   the exact two-base static fixed point and predecessor module delta; and
 - reject global fw_devlink relaxation as a remedy.
 
-It does not yet qualify or package a P3.17 module plan, change the P3.16
-diagnostic module, build a candidate, run Full-LTO, read a device, or authorize
-F1. The derived 69-early/70-effective order is an H0 input to later packaging,
-not a ready candidate.
+The follow-up implementation qualifies and packages the derived
+69-early/70-effective module order without changing the fixed P3.10 Image or
+the inherited diagnostic module. It builds a boot-only candidate and an
+offline Process-v2 bundle, but does not run Full-LTO, read a device, authorize
+F1, or satisfy the required final independent changed-closure review.
 
 ## Gate contract
 
@@ -224,7 +225,7 @@ Private output:
 
 ```text
 receipt size                15,712 bytes
-receipt SHA-256             b9d8b967aed453ab006aa7532592f4fc6413131d775159df4f18daf96ec33334
+receipt SHA-256             bbb066b0dc8a7492db407a22f9cb1417773ee049a69b232a2ebc02d234418263
 claim-authority SHA-256     49859c0957a15ef25cdad98137c5f178eb790f4689ddeb74553971d1a9ce3070
 claims / roots / edges      3 / 3 / 9
 evaluability preconditions  4
@@ -260,7 +261,7 @@ Private output:
 
 ```text
 receipt size                         496,664 bytes
-receipt SHA-256                      b4418d8cf0a8aedcb540e53d008720e31202ede823cc6064978463ef3b8d8f9c
+receipt SHA-256                      67042a70a6e023a5ea3382d4fd179fd04b6f0c111ff9430d5e5a1b9410b2a657
 applicable vendor bases              2
 static fixed-point nodes             23
 iterations to convergence            5
@@ -308,7 +309,7 @@ path only after all early modules, gadget-path readiness, and Process-v2
 sidecar arming. Thus 70 is the effective complete candidate module count, not
 the early-loop capacity.
 
-The receipt deliberately remains `CANDIDATE_NOT_READY`. Static DT cannot prove
+The static receipt deliberately remains `CANDIDATE_NOT_READY`. Static DT cannot prove
 the live `OF_POPULATED`/`FWNODE_FLAG_NOT_DEVICE` early-device gate, and source
 defaults cannot substitute for a retained boot-specific `fw_devlink` mode and
 strictness witness. The corrected claim authority and changed permanent
@@ -526,25 +527,51 @@ This is derived from the existing post-live cause rows, not from current
 terminal spelling. The original append-only P3.16 F1 row remains unchanged; a
 new H0 row carries the effective classification correction for metrics.
 
-## Successor boundary
+## Runtime, packaging, and Process-v2 closure
 
-P3.17 remains H0 and not ready. The exact static transitive closure and module
-delta below are complete H0 inputs, not candidate qualification. Before any
-candidate qualification it must:
+The successor implementation closes items 1-6 of the original boundary:
 
-1. reprove effective fw_devlink mode/strict from candidate boot authorities;
-2. prove the runtime-only early-device gate for every statically eligible
-   supplier edge;
-3. account for the broader binding effects of every added provider;
-4. define a non-ambiguous retained instantiator/supplier/bind/probe-entry vector
-   and prove all four claim-evaluability preconditions;
-5. run actual encoder, Carrier, decoder, persistence, and negative terminal
-   fixtures;
-6. run source-frozen A/B userspace/package/static qualification; and
-7. obtain a final independent ready-closure review before any ready-manifest,
-   D0, or
-   approval work.
+- the materialized runtime reads complete `/proc/cmdline`, rejects either
+  `fw_devlink` override token, and retains the effective default mode/strict
+  witness separately from `waiting_for_supplier`;
+- three provider devices, provider binding, `of_node`, `supplier:*`, the
+  three-state waiting attribute, exact consumer binding, and diagnostic probe
+  entry are sampled with field-level authority masks;
+- the actual materialized runtime and immediate callers execute under host
+  fixtures, and the late-loader lifecycle preserves the bounded reap/error
+  rules inherited from P3.16;
+- native Envelope-v3 and the real Process-v2 adapter round-trip 105 unique
+  rows: 84 observer site/error rows, 15 terminal rows, five MUX rows, and one
+  overflow no-proof row;
+- the generic early loop contains exactly 69 modules and the unchanged
+  diagnostic remains one dedicated late-only module, for 70 effective;
+- two userspace builds and two boot-only packages are byte-identical. Both use
+  fixed Image SHA-256 `71f573eb77e67c82b9191bfe0926153f6c8dd5fefe3bba01f884c9beb0c4bae8`,
+  candidate boot SHA-256
+  `068aa5337acdbe4c2a0dcf80241b7aa543600fdfdfc84bb0e74111542b76d18d`,
+  and candidate AP SHA-256
+  `ac0db3172cdc4dc9fe7991bf034e872f0d377a3fb175e61ff8cba0eb136c9f22`;
+- final qualification, independent static reconstruction, and Process-v2
+  promotion pass with candidate-static `90ab95c9248ee6f3a5e506bc61ab7d973cf815de5e711d105aaa503c8b42628a`,
+  run-manifest `857b6d0710a4b54ce2f2bc02b4110e8d6ea0c3570936011fee578cf382254c9b`,
+  and static-check `fc28637f63aecd996fb37bb509c42acd55df8844130595efcb274d9ea87ce346`;
+  and
+- non-creating ready rehearsal and canonical creation both pass. The manifest
+  is 2,777 bytes, SHA-256
+  `47b5e3c61d5a262ac6f00481210ef85f695d7d3793f456be8cbf0de28d2843b6`,
+  binds the exact rollback `d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56`,
+  and records a 300-second candidate window under the 1,200-second guard.
 
-No P3.16 artifact or approval may be reused as live authority. The fixed Image
-and diagnostic module may be inherited only after the future static closure
-proves their exact bytes; no Full-LTO expectation is itself proof.
+The common Process-v2 limits remain fail-closed: the 5 MiB candidate-static
+allowance applies only to the P3.17 overlay, while the P3.16 allowance remains
+2 MiB; the 2 MiB execution-source allowance applies only to the named P3.17
+overlay intent, while every other source retains the 1 MiB default.
+
+## Remaining boundary
+
+P3.17 is canonical **offline-bundle ready but not independently PASS_GO**.
+Item 7 remains: independently review the changed runtime/schema/Process-v2
+closure and reproduce the source-frozen artifacts before D0 preparation or a
+fresh exact F1 approval. The ready manifest itself creates no device authority.
+No P3.16 artifact or approval may be reused, and no device command, Full-LTO,
+kernel rebuild, flash, or A90 action occurred in this H0 implementation.

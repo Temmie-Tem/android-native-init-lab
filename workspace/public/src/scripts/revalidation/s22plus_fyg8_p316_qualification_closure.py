@@ -18,6 +18,9 @@ PREPACKAGING_SCHEMA = "s22plus_fyg8_p316_prepackaging_closure_v1"
 PREPACKAGING_VERDICT = "PASS_P316_PREPACKAGING_CLOSURE_HOST_ONLY"
 FINAL_SCHEMA = "s22plus_fyg8_p316_qualification_closure_v1"
 FINAL_VERDICT = "PASS_P316_QUALIFICATION_CLOSURE_HOST_ONLY"
+EXPECTED_MODULE_PLAN_COUNT = 64
+CANDIDATE_SCHEMA = "s22plus_fyg8_p316_candidate_artifact_result_v1"
+CANDIDATE_VERDICT = "PASS_P316_DETERMINISTIC_BOOT_ONLY_CANDIDATE_HOST_ONLY"
 DEFAULT_INTENT = overlay.DEFAULT_INTENT
 DEFAULT_USERSPACE = Path("workspace/private/outputs/s22plus_fyg8_p316/userspace")
 DEFAULT_CANDIDATE_A = Path("workspace/private/outputs/s22plus_fyg8_p316/candidate-a")
@@ -184,9 +187,8 @@ def _validate_candidate_result(
     construction = value.get("construction", {})
     safety = value.get("safety", {})
     if (
-        value.get("schema") != "s22plus_fyg8_p316_candidate_artifact_result_v1"
-        or value.get("verdict")
-        != "PASS_P316_DETERMINISTIC_BOOT_ONLY_CANDIDATE_HOST_ONLY"
+        value.get("schema") != CANDIDATE_SCHEMA
+        or value.get("verdict") != CANDIDATE_VERDICT
         or value.get("prepackaging_closure") != prepackaging_receipt
         or construction.get("diagnostic_staged_path")
         != "lib/modules/s22plus_max77705_mux_diag.ko"
@@ -218,7 +220,7 @@ def create_final_value(
     if (
         user.get("candidate_contract") != exact
         or user.get("two_build_byte_identical") is not True
-        or user.get("module_plan_count") != 64
+        or user.get("module_plan_count") != EXPECTED_MODULE_PLAN_COUNT
         or user.get("late_diagnostic_payload_count") != 1
     ):
         raise QualificationError("P3.16 userspace result differs")

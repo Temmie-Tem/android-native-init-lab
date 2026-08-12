@@ -48,6 +48,7 @@ DEFAULT_RUN_ROOT = Path("workspace/private/runs/device-action-f1-v2")
 HASH_RE = re.compile(r"[0-9a-f]{64}")
 ID_RE = re.compile(r"[a-z0-9][a-z0-9._-]{2,95}")
 MAX_JSON = 1024 * 1024
+P317_OVERLAY_INTENT_MAX_BYTES = 2 * 1024 * 1024
 MAX_RECORD = 32 * 1024
 
 STATES = (
@@ -180,6 +181,18 @@ def _stable_read(path: Path, label: str, maximum: int = MAX_JSON) -> tuple[bytes
         "size": len(data),
         "sha256": hashlib.sha256(data).hexdigest(),
     }
+
+
+def _execution_source_maximum(
+    name: str, userspace_overlay_contract_id: str | None
+) -> int:
+    if (
+        name == "p317_overlay_intent"
+        and userspace_overlay_contract_id
+        == typed_evidence.P317_MAX77705_OVERLAY_CONTRACT_ID
+    ):
+        return P317_OVERLAY_INTENT_MAX_BYTES
+    return MAX_JSON
 
 
 def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -426,6 +439,7 @@ def _overridden_candidate_sources(
 ) -> frozenset[str]:
     if userspace_overlay_contract_id in {
         typed_evidence.MAX77705_OVERLAY_CONTRACT_ID,
+        typed_evidence.P317_MAX77705_OVERLAY_CONTRACT_ID,
         typed_evidence.P311_OVERLAY_CONTRACT_ID,
         typed_evidence.P312_OVERLAY_CONTRACT_ID,
         typed_evidence.P313_OVERLAY_CONTRACT_ID,
@@ -545,6 +559,14 @@ def execution_critical_source_receipts(
                 root = candidate_intent.repo_root()
                 if (
                     userspace_overlay_contract_id
+                    == typed_evidence.P317_MAX77705_OVERLAY_CONTRACT_ID
+                ):
+                    import s22plus_fyg8_p317_overlay_contract as overlay_module
+
+                    overlay_label = "P3.17"
+                    prefix = "p317"
+                elif (
+                    userspace_overlay_contract_id
                     == typed_evidence.MAX77705_OVERLAY_CONTRACT_ID
                 ):
                     import s22plus_fyg8_p316_overlay_contract as overlay_module
@@ -655,7 +677,7 @@ def execution_critical_source_receipts(
                         typed_evidence.p313_overlay,
                         typed_evidence.p314_overlay,
                         typed_evidence.p315_overlay,
-                    } or prefix == "p316":
+                    } or prefix in {"p316", "p317"}:
                         overlay_sources = {
                             name: overlay_module._read_regular(  # noqa: SLF001
                                 root / path, f"{overlay_label} SOURCE_KEY {name}"
@@ -1011,7 +1033,13 @@ def execution_critical_source_receipts(
                 }
             )
         for name, path in e1_latest_stage_sources.items():
-            receipts[name] = _stable_read(path.resolve(), name.replace("_", " "))[1]
+            receipts[name] = _stable_read(
+                path.resolve(),
+                name.replace("_", " "),
+                maximum=_execution_source_maximum(
+                    name, userspace_overlay_contract_id
+                ),
+            )[1]
     return receipts
 
 
@@ -1069,6 +1097,13 @@ def verify_candidate_source_binding(
         ):
             raise F1V2Error("candidate userspace overlay selector changed")
         if (
+            userspace_overlay_contract_id
+            == typed_evidence.P317_MAX77705_OVERLAY_CONTRACT_ID
+        ):
+            import s22plus_fyg8_p317_overlay_contract as p317_overlay
+
+            required_overlays = [("p317", p317_overlay)]
+        elif (
             userspace_overlay_contract_id
             == typed_evidence.MAX77705_OVERLAY_CONTRACT_ID
         ):

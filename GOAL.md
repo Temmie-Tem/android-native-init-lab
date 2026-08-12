@@ -720,21 +720,35 @@ the generic early loop loads those 69 modules; the seventieth is
 `s22plus_max77705_mux_diag.ko`, loaded exactly once by the dedicated synchronous
 late `finit_module()` path after early-module completion, gadget readiness, and
 sidecar arming. The private receipt is 496,664 bytes with SHA-256
-`b4418d8cf0a8aedcb540e53d008720e31202ede823cc6064978463ef3b8d8f9c`.
+`67042a70a6e023a5ea3382d4fd179fd04b6f0c111ff9430d5e5a1b9410b2a657`.
 The reviewed must-bind receipt is 15,712 bytes with SHA-256
-`b9d8b967aed453ab006aa7532592f4fc6413131d775159df4f18daf96ec33334`.
+`bbb066b0dc8a7492db407a22f9cb1417773ee049a69b232a2ebc02d234418263`;
+the fixed-point receipt SHA-256 is
+`67042a70a6e023a5ea3382d4fd179fd04b6f0c111ff9430d5e5a1b9410b2a657`.
+The superseded pre-correction must-bind receipt remains historical evidence at
+SHA-256 `b9d8b967aed453ab006aa7532592f4fc6413131d775159df4f18daf96ec33334`;
+the matching pre-correction fixed-point receipt was
+`b4418d8cf0a8aedcb540e53d008720e31202ede823cc6064978463ef3b8d8f9c`.
+Neither is the current packaging authority.
 
-P3.17 remains H0 and not ready. The static transitive closure is now derived,
-and its corrected claim authority and new relationship family are reviewed. A
-successor must still reprove effective fw_devlink mode and strictness from
-candidate boot authorities, prove the
-runtime-only early-device gate, account for broader provider binding effects,
-retain the three-state `waiting_for_supplier` witness separately from supplier
-identity and probe entry, prove all four claim-evaluability preconditions, and
-rerun the complete source-frozen userspace/package/Process-v2 closure. The
-fixed Image and custom diagnostic may be inherited only if static
-qualification reproves their bytes; no Full-LTO need, candidate authority, or
-live approval is implied.
+P3.17 H0 implementation now closes the remaining runtime and packaging
+obligations. The materialized runtime retains effective fw_devlink policy,
+three provider/binding witnesses, the three-state `waiting_for_supplier`
+authority, supplier links, exact consumer binding, and diagnostic probe entry.
+Envelope-v3 and the real Process-v2 adapter cover 105 unique rows. The package
+contains exactly 69 early stock modules plus the unchanged one late diagnostic;
+two userspace and boot-only builds are byte-identical, with boot SHA-256
+`068aa5337acdbe4c2a0dcf80241b7aa543600fdfdfc84bb0e74111542b76d18d`
+and AP SHA-256
+`ac0db3172cdc4dc9fe7991bf034e872f0d377a3fb175e61ff8cba0eb136c9f22`.
+Final qualification, independent static reconstruction, Process-v2 promotion,
+private ready exact-copy, and non-creating ready rehearsal pass. Canonical
+manifest SHA-256 is
+`47b5e3c61d5a262ac6f00481210ef85f695d7d3793f456be8cbf0de28d2843b6`.
+P3.17 is offline-bundle ready but **not independently PASS_GO**: a final
+independent changed-closure review remains mandatory before D0 preparation or
+fresh exact F1 approval. No device command, Full-LTO, kernel rebuild, live
+authority, or A90 action occurred.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden
 archive member, an unreviewed common receipt/schema change, an observer result

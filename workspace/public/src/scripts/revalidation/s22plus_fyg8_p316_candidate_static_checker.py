@@ -28,6 +28,8 @@ import s22plus_fyg8_p316_userspace_build as userspace
 
 SCHEMA = "s22plus_fyg8_p316_candidate_static_checker_v1"
 VERDICT = "PASS_P316_INDEPENDENT_ARTIFACT_CLOSURE_HOST_ONLY"
+EXPECTED_MODULE_PLAN_COUNT = 64
+RESULT_PREFIX = "p316"
 TARGET = contract.TARGET
 DEFAULT_CANDIDATE = candidate.DEFAULT_OUT
 DEFAULT_CANDIDATE_B = qualification.DEFAULT_CANDIDATE_B
@@ -98,7 +100,7 @@ def _userspace(
         or value.get("candidate_contract") != exact
         or value.get("source_contract") != userspace._source_contract(exact)  # noqa: SLF001
         or value.get("two_build_byte_identical") is not True
-        or value.get("module_plan_count") != 64
+        or value.get("module_plan_count") != EXPECTED_MODULE_PLAN_COUNT
         or value.get("late_diagnostic_payload_count") != 1
     ):
         raise CheckError("P3.16 userspace result differs")
@@ -262,7 +264,7 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
         _resolve(root, args.lz4),
         plan_header=plan_header,
     )
-    if len(module_closure.get("modules", ())) != 64:
+    if len(module_closure.get("modules", ())) != EXPECTED_MODULE_PLAN_COUNT:
         raise CheckError("P3.16 early module closure differs")
     payloads_a, result_a = _candidate_payloads(_resolve(root, args.candidate), "A")
     payloads_b, result_b = _candidate_payloads(_resolve(root, args.candidate_b), "B")
@@ -416,13 +418,13 @@ def audit(args: argparse.Namespace) -> dict[str, Any]:
             "boot_only_ap": True,
             "verified": True,
         },
-        "p316_runtime_fixture": runtime,
-        "p316_late_loader_lifecycle": lifecycle_value,
-        "p316_process_v2_adapter_fixture": exact["process_v2_adapter_fixture"],
-        "p316_sidecar_positive_control": sidecar,
-        "p316_qualification_closure": qualified,
-        "p316_telemetry": exact["telemetry"],
-        "p316_observer": exact["observer"],
+        f"{RESULT_PREFIX}_runtime_fixture": runtime,
+        f"{RESULT_PREFIX}_late_loader_lifecycle": lifecycle_value,
+        f"{RESULT_PREFIX}_process_v2_adapter_fixture": exact["process_v2_adapter_fixture"],
+        f"{RESULT_PREFIX}_sidecar_positive_control": sidecar,
+        f"{RESULT_PREFIX}_qualification_closure": qualified,
+        f"{RESULT_PREFIX}_telemetry": exact["telemetry"],
+        f"{RESULT_PREFIX}_observer": exact["observer"],
         "tools": {"lz4": base.receipt(lz4), "magiskboot": base.receipt(magiskboot), "qemu_aarch64": qemu_receipt},
         "limits": [
             "host-only artifact qualification grants no D0, D1, F1, or live authority",

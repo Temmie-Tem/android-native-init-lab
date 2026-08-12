@@ -14,6 +14,7 @@ from typing import Any, Iterator
 import s22plus_fyg8_max77705_custom_surface_contract as surface
 import s22plus_fyg8_p304_e2_stock_closure as module_parent
 import s22plus_fyg8_p315_e2_stock_closure as parent
+import s22plus_fyg8_p316_generator as p316_generator
 import s22plus_fyg8_p316_overlay_contract as overlay
 
 
@@ -33,9 +34,11 @@ ADDED_MODULES = (
     ("gpi.ko", "gpi"),
     ("i2c-msm-geni.ko", "i2c_msm_geni"),
 )
+FROZEN_PARENT_INTENT = p316_generator.EXPECTED_P315_INTENT
 ClosureError = parent.ClosureError
 P310 = parent.parent.parent.p310_parent
 INCIDENTAL_PATH = P310.INCIDENTAL_PATH
+INCIDENTAL_PATHS = frozenset({INCIDENTAL_PATH})
 P316_ADDITIONAL_ABSOLUTE_PATH_STRINGS = frozenset(
     {
         "/proc/modules",
@@ -105,7 +108,7 @@ def _frozen_parent_closure(root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         or artifact.get("verdict")
         != "PASS_P315_DETERMINISTIC_BOOT_ONLY_CANDIDATE_HOST_ONLY"
         or candidate.get("contract_id") != parent.overlay.CONTRACT_ID
-        or candidate.get("overlay_intent") != overlay.generator.EXPECTED_P315_INTENT
+        or candidate.get("overlay_intent") != FROZEN_PARENT_INTENT
     ):
         raise ClosureError("P3.16 frozen P3.15 candidate authority differs")
     closure = parent.validate_module_closure(artifact.get("module_closure"))
@@ -137,7 +140,8 @@ def derive_module_closure(
     if (
         names != expanded.modules
         or len(names) != EXPECTED_MODULE_COUNT
-        or names[-3:] != tuple(name for name, _runtime in ADDED_MODULES)
+        or names[-len(ADDED_MODULES):]
+        != tuple(name for name, _runtime in ADDED_MODULES)
         or len(set(names)) != EXPECTED_MODULE_COUNT
     ):
         raise ClosureError("P3.16 exact 64-module order differs")
@@ -147,7 +151,8 @@ def derive_module_closure(
     )
     if (
         audit.get("module_count") != EXPECTED_MODULE_COUNT
-        or tuple(row.get("file") for row in audit.get("modules", ()))[-3:]
+        or tuple(row.get("file") for row in audit.get("modules", ()))
+        [-len(ADDED_MODULES):]
         != tuple(name for name, _runtime in ADDED_MODULES)
     ):
         raise ClosureError("P3.16 vendor 64-module audit differs")
@@ -192,8 +197,10 @@ def validate_module_closure(value: Any, *, allow_unpinned: bool = False):
         or value.get("count") != EXPECTED_MODULE_COUNT
         or len(set(value["files"])) != EXPECTED_MODULE_COUNT
         or len(set(value["runtime_names"])) != EXPECTED_MODULE_COUNT
-        or tuple(value["files"][-3:]) != tuple(name for name, _runtime in ADDED_MODULES)
-        or tuple(value["runtime_names"][-3:]) != tuple(runtime for _name, runtime in ADDED_MODULES)
+        or tuple(value["files"][-len(ADDED_MODULES):])
+        != tuple(name for name, _runtime in ADDED_MODULES)
+        or tuple(value["runtime_names"][-len(ADDED_MODULES):])
+        != tuple(runtime for _name, runtime in ADDED_MODULES)
         or value.get("added_modules")
         != [{"file": name, "runtime_name": runtime} for name, runtime in ADDED_MODULES]
         or value.get("parent_closure_sha256")
@@ -386,8 +393,8 @@ def validate_effective_rootfs(
         raise ClosureError("P3.16 generic diagnostic proof differs")
     legacy["generic_rootfs"]["entry_count"] -= 1
     legacy["entry_count"] -= 1
-    del legacy["modules"][-3:]
-    legacy["module_count"] = EXPECTED_MODULE_COUNT - 3
+    del legacy["modules"][-len(ADDED_MODULES):]
+    legacy["module_count"] = EXPECTED_MODULE_COUNT - len(ADDED_MODULES)
     legacy["module_closure_sha256"] = selected["parent_closure_sha256"]
     parent.validate_effective_rootfs(
         legacy,
@@ -404,13 +411,19 @@ def _validate_p316_authority_strings(data: bytes) -> None:
     incidental = paths - ALLOWED_ABSOLUTE_PATH_STRINGS
     if (
         REQUIRED_ABSOLUTE_PATH_STRINGS - paths
-        or incidental != {INCIDENTAL_PATH.decode("ascii")}
-        or data.count(INCIDENTAL_PATH) != 1
+        or incidental != {path.decode("ascii") for path in INCIDENTAL_PATHS}
+        or any(data.count(path) != 1 for path in INCIDENTAL_PATHS)
         or any(data.count(value.encode("ascii")) != 1 for value in P316_ADDITIONAL_ABSOLUTE_PATH_STRINGS)
     ):
         raise ClosureError("P3.16 candidate absolute-path authority mismatch")
-    offset = data.find(INCIDENTAL_PATH)
-    scrubbed = data[:offset] + b"\0" * len(INCIDENTAL_PATH) + data[offset + len(INCIDENTAL_PATH):]
+    scrubbed = data
+    for incidental_path in INCIDENTAL_PATHS:
+        offset = scrubbed.find(incidental_path)
+        scrubbed = (
+            scrubbed[:offset]
+            + b"\0" * len(incidental_path)
+            + scrubbed[offset + len(incidental_path):]
+        )
     p300 = P310.parent
     previous_required = p300.REQUIRED_ABSOLUTE_PATH_STRINGS
     previous_allowed = p300.ALLOWED_ABSOLUTE_PATH_STRINGS
