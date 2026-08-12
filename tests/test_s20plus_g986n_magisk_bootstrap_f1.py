@@ -57,40 +57,93 @@ class S20BootstrapF1Tests(unittest.TestCase):
             "ae90de878991480bf8aafc6e131953d185245aba4fa8d9cd8d0507810d2c96e1",
         }))
 
-    def test_transition_evidence_uses_exact_public_schema_and_topology_key(self):
-        dispatch = {
-            "schema": "s20plus_g986n_routine_action_result_v1",
-            "version": "s20plus-g986n-routine-actions-v1",
-            "action": "enter-download",
-            "verdict": "DISPATCHED_S20PLUS_G986N_DOWNLOAD_ENTRY_PENDING",
-            "effect_command_count": 1,
-            "other_target_command_count": 0,
-            "s22plus_command_count": 0,
-            "a90_command_count": 0,
-            "target": {"model": MODULE.EXPECTED_MODEL, "device": MODULE.EXPECTED_DEVICE, "product": MODULE.EXPECTED_PRODUCT, "incremental": MODULE.EXPECTED_INCREMENTAL, "usb_topology_sha256": MODULE.EXPECTED_TOPOLOGY_SHA256},
-            "verification": {"replay_permitted": False},
+    def test_live_transition_records_exact_android_intent_before_one_reboot(self):
+        selected = {"serial": "SERIAL"}
+        identity = {
+            "serial_sha256": MODULE.base.sha256_text("SERIAL"),
+            "topology_sha256": MODULE.EXPECTED_TOPOLOGY_SHA256,
+            "boot_id_sha256": MODULE.base.sha256_text("boot-id"),
         }
-        resolution = {"schema": "s20plus_g986n_control_resolution_v1", "version": "s20plus-g986n-routine-actions-v1", "action": "enter-download", "resolution": "download-observed"}
+        endpoint = {
+            "device": "/dev/bus/usb/003/007",
+            "endpoint_identity": [1, 2, 3, 4],
+            "endpoint_sha256": MODULE.hashlib.sha256(b"/dev/bus/usb/003/007").hexdigest(),
+            "topology_sha256": next(iter(MODULE.EXPECTED_DOWNLOAD_TOPOLOGY_SHA256)),
+            "usb": {**MODULE.DOWNLOAD_USB, "serial_absent": True},
+        }
+        root_absence = {
+            "returncode": 127,
+            "stdout_sha256": MODULE.hashlib.sha256(b"").hexdigest(),
+            "stderr_sha256": MODULE.hashlib.sha256(b"su: not found").hexdigest(),
+            "identity_confirmed": True,
+        }
         with tempfile.TemporaryDirectory() as temporary:
-            result_path = Path(temporary) / "result.json"
-            resolution_path = Path(temporary) / "resolution.json"
-            result_path.write_text(json.dumps(dispatch))
-            resolution_path.write_text(json.dumps(resolution))
-            patches = (
-                mock.patch.object(MODULE, "TRANSITION_RESULT", result_path),
-                mock.patch.object(MODULE, "TRANSITION_RESULT_SIZE", result_path.stat().st_size),
-                mock.patch.object(MODULE, "TRANSITION_RESULT_SHA256", MODULE.sha256_file(result_path)),
-                mock.patch.object(MODULE, "TRANSITION_RESOLUTION", resolution_path),
-                mock.patch.object(MODULE, "TRANSITION_RESOLUTION_SIZE", resolution_path.stat().st_size),
-                mock.patch.object(MODULE, "TRANSITION_RESOLUTION_SHA256", MODULE.sha256_file(resolution_path)),
-            )
-            with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
-                MODULE.validate_transition_evidence()
-                dispatch["target"]["topology_sha256"] = dispatch["target"].pop("usb_topology_sha256")
-                result_path.write_text(json.dumps(dispatch))
-                with mock.patch.object(MODULE, "TRANSITION_RESULT_SIZE", result_path.stat().st_size), mock.patch.object(MODULE, "TRANSITION_RESULT_SHA256", MODULE.sha256_file(result_path)):
-                    with self.assertRaisesRegex(MODULE.BootstrapError, "not exact"):
-                        MODULE.validate_transition_evidence()
+            run = Path(temporary)
+            calls = []
+
+            def command(argv, timeout, maximum):
+                self.assertTrue((run / "initial-download-intent.json").exists())
+                calls.append(argv)
+                return 0, b"", b""
+
+            with mock.patch.object(MODULE, "android_health_once", return_value=(selected, {}, identity)), mock.patch.object(MODULE, "exact_root_absence_once", return_value=root_absence), mock.patch.object(MODULE, "wait_download", return_value=endpoint):
+                transition, observed = MODULE.transition_android_to_download(run, command, "/adb")
+            self.assertEqual(calls, [["/adb", "-s", "SERIAL", "reboot", "download"]])
+            self.assertEqual(observed, endpoint)
+            MODULE.validate_live_transition_binding(run, transition, endpoint)
+
+    def test_live_transition_never_issues_approval_without_download_observation(self):
+        selected = {"serial": "SERIAL"}
+        identity = {
+            "serial_sha256": MODULE.base.sha256_text("SERIAL"),
+            "topology_sha256": MODULE.EXPECTED_TOPOLOGY_SHA256,
+            "boot_id_sha256": MODULE.base.sha256_text("boot-id"),
+        }
+        root_absence = {
+            "returncode": 127,
+            "stdout_sha256": MODULE.hashlib.sha256(b"").hexdigest(),
+            "stderr_sha256": MODULE.hashlib.sha256(b"su: not found").hexdigest(),
+            "identity_confirmed": True,
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            run = Path(temporary)
+            command = lambda argv, timeout, maximum: (0, b"", b"")
+            with mock.patch.object(MODULE, "android_health_once", return_value=(selected, {}, identity)), mock.patch.object(MODULE, "exact_root_absence_once", return_value=root_absence), mock.patch.object(MODULE, "wait_download", return_value=None):
+                with self.assertRaisesRegex(MODULE.BootstrapError, "not observed"):
+                    MODULE.transition_android_to_download(run, command, "/adb")
+            self.assertTrue((run / "initial-download-intent.json").exists())
+            self.assertTrue((run / "initial-download-result.json").exists())
+            self.assertFalse((run / "initial-download-observation.json").exists())
+            self.assertFalse((run / "prepared.json").exists())
+
+    def test_initial_root_absence_rejects_root_marker_and_identity_drift(self):
+        selected = {"serial": "SERIAL"}
+        identity = {
+            "serial_sha256": MODULE.base.sha256_text("SERIAL"),
+            "topology_sha256": MODULE.EXPECTED_TOPOLOGY_SHA256,
+            "boot_id_sha256": MODULE.base.sha256_text("boot-a"),
+        }
+        rooted = lambda argv, timeout, maximum: (
+            127,
+            b"uid=0(root) gid=0(root)\n",
+            b"/system/bin/sh: su: not found\n",
+        )
+        with self.assertRaisesRegex(MODULE.BootstrapError, "not exact"):
+            MODULE.exact_root_absence_once(rooted, "/adb", selected, identity)
+
+        absent = lambda argv, timeout, maximum: (
+            127,
+            b"",
+            b"/system/bin/sh: su: inaccessible or not found\n",
+        )
+        with mock.patch.object(MODULE, "android_health_once", return_value=(selected, {}, identity)):
+            receipt = MODULE.exact_root_absence_once(absent, "/adb", selected, identity)
+        self.assertTrue(receipt["identity_confirmed"])
+
+        drift = {**identity, "boot_id_sha256": MODULE.base.sha256_text("boot-b")}
+        with mock.patch.object(MODULE, "android_health_once", return_value=(selected, {}, drift)):
+            with self.assertRaisesRegex(MODULE.BootstrapError, "identity changed"):
+                MODULE.exact_root_absence_once(absent, "/adb", selected, identity)
 
     def test_download_rejects_wrong_topology_usb_and_ambiguity(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -190,7 +243,8 @@ class S20BootstrapF1Tests(unittest.TestCase):
             self.assertTrue(MODULE.guard_path().exists())
 
     def test_prepare_is_host_bound_and_creates_exact_shared_guard(self):
-        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(MODULE, "ROOT", Path(temporary)), mock.patch.object(MODULE, "F1_ACTIVE", True), mock.patch.object(MODULE, "validate_artifacts", return_value={"candidate": "exact"}), mock.patch.object(MODULE, "validate_transition_evidence", return_value={"transition": "exact"}), mock.patch.object(MODULE, "closure_receipts", return_value={"runner": "exact"}), mock.patch.object(MODULE, "identify_download", return_value={"device": "/dev/bus/usb/003/007", "endpoint_identity": [1, 2, 3, 4]}):
+        endpoint = {"device": "/dev/bus/usb/003/007", "endpoint_identity": [1, 2, 3, 4]}
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(MODULE, "ROOT", Path(temporary)), mock.patch.object(MODULE, "F1_ACTIVE", True), mock.patch.object(MODULE, "validate_artifacts", return_value={"candidate": "exact"}), mock.patch.object(MODULE, "closure_receipts", return_value={"runner": "exact", "adb": {"path": "/adb"}}), mock.patch.object(MODULE, "transition_android_to_download", return_value=({"transition": "exact"}, endpoint)):
             (Path(temporary) / MODULE.RUN_ROOT).mkdir(parents=True)
             MODULE.guard_path().parent.mkdir(parents=True)
             run = MODULE.prepare(None)
@@ -200,6 +254,21 @@ class S20BootstrapF1Tests(unittest.TestCase):
             self.assertFalse((run / "candidate-intent.json").exists())
             with self.assertRaisesRegex(MODULE.BootstrapError, "remains unresolved"):
                 MODULE.prepare(None)
+
+    def test_prepare_retains_guard_after_initial_download_intent(self):
+        def attempted_transition(run, command, adb):
+            MODULE.durable_create(run / "initial-download-intent.json", {"no_replay": True})
+            raise MODULE.BootstrapError("observer unavailable")
+
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(MODULE, "ROOT", Path(temporary)), mock.patch.object(MODULE, "F1_ACTIVE", True), mock.patch.object(MODULE, "validate_artifacts", return_value={"candidate": "exact"}), mock.patch.object(MODULE, "closure_receipts", return_value={"runner": "exact", "adb": {"path": "/adb"}}), mock.patch.object(MODULE, "transition_android_to_download", side_effect=attempted_transition):
+            (Path(temporary) / MODULE.RUN_ROOT).mkdir(parents=True)
+            MODULE.guard_path().parent.mkdir(parents=True)
+            with self.assertRaisesRegex(MODULE.BootstrapError, "observer unavailable"):
+                MODULE.prepare(None)
+            self.assertTrue(MODULE.guard_path().exists())
+            guarded_run = Path(json.loads(MODULE.guard_path().read_text())["run_dir"])
+            self.assertTrue((guarded_run / "initial-download-intent.json").exists())
+            self.assertFalse((guarded_run / "prepared.json").exists())
 
     def test_recover_refuses_malformed_uncertain_rollback_replay(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -364,7 +433,10 @@ class S20BootstrapF1Tests(unittest.TestCase):
         self.assertEqual(registry.count(row), 1)
         self.assertIn("S22+", contract)
         self.assertIn("A90", contract)
-        self.assertIn("restores\nexact prepare-time endpoint-identity equality", report)
+        self.assertIn("current dormant correction implements the required single-session design", report)
+        self.assertIn(MODULE.sha256_file(SCRIPT), report)
+        self.assertIn(MODULE.EXPECTED_REVIEWED_RUNNER_NORMALIZED_SHA256, report)
+        self.assertIn("`F1_ACTIVE` remains false", contract)
 
 
 if __name__ == "__main__":

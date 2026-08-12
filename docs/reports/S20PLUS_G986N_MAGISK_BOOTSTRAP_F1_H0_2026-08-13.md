@@ -30,17 +30,22 @@ Payloads and raw evidence remain under `workspace/private/`.
 
 ## State and recovery model
 
-Connected prepare is endpoint enumeration only. It accepts one Samsung
-Download endpoint with VID:PID `04e8:685d`, expected manufacturer/product, no
-USB serial string, and the previously bound private topology. It creates one
-fixed unresolved guard and one hash-bound private approval token. Prepare does
-not invoke Odin with an AP.
+The current dormant connected prepare starts on exact healthy, root-absent
+Android rather than accepting an already-present generic Download endpoint. It
+creates one fixed unresolved guard, records a no-replay transition intent, sends
+one exact Download reboot, and accepts only the resulting Samsung endpoint with
+VID:PID `04e8:685d`, exact manufacturer/product, no USB serial string, and one
+of the two private hash-bound paired-controller topologies. Only then does it
+create one hash-bound private approval token. Prepare never invokes Odin with an
+AP.
 
 Execution durably records candidate intent before its only Odin session. Root
 proof requires exact-target normal Android plus `su -c id` containing
 `uid=0(root)`. Proof or no-proof both lead to mandatory stock rollback. The
-runner sends at most one `adb reboot download`; otherwise the operator uses the
-physical key path. Rollback intent precedes the rollback's only Odin session.
+initial Download transition and the later stock-rollback Download transition
+each have one distinct durable no-replay intent and at most one ADB dispatch.
+Otherwise the operator uses the physical key path. Rollback intent precedes the
+rollback's only Odin session.
 
 Uncertain candidate or rollback outcomes are never replayed. Endpoint or
 observation timeout parks with the guard retained. The guard clears only after
@@ -54,7 +59,7 @@ userdata, or other partition member. It never uses fastboot, raw block access,
 `dd`, format, EFS, RPMB, or fuse operations. S22+, A90, and other-target command
 counts remain zero.
 
-## Activation gate
+## Historical activation gate
 
 Independent review returned `PASS_GO` with no unresolved finding for the exact
 runner, helpers, contract, goal, report, tests, journal recovery, endpoint
@@ -72,7 +77,7 @@ prepare and the operator's exact approval token while attended. It grants no
 resident root, arbitrary Odin/artifact, non-boot partition, S22+, or A90
 authority.
 
-## Connected prepare correction
+## Historical Download-profile correction
 
 Three connected prepare attempts failed closed before any candidate/rollback
 intent or Odin AP transfer. Passive host kernel evidence then established the
@@ -107,10 +112,25 @@ dispatch.
 
 The proposal to accept a fresh generic matching endpoint without prepare-time
 identity equality was rejected because it could transfer approval to another
-Samsung SM8250 Download device on the same port. The dormant runner restores
-exact prepare-time endpoint-identity equality, so no corrected flash capability
-is qualified. A future design must prove exact Android-to-Download continuity
-within one live session before producing an approval.
+Samsung SM8250 Download device on the same port.
+
+The current dormant correction implements the required single-session design.
+Prepare begins on exact healthy, root-absent Android, records a durable
+no-replay intent with hashed serial/topology/boot ID, dispatches one Download
+reboot, and observes the exact Download profile and allowed paired-controller
+topology before producing an approval. The approval binds the complete observed
+character-device identity. Execute accepts only the unchanged complete endpoint
+record. Missing observation, reboot uncertainty, endpoint replacement, or
+re-enumeration produces no approval or no transfer and retains the guard after
+the transition intent.
+
+The dormant runner SHA-256 is
+`23c6f019c0ea6020c21de68b331e461b395a4693fd341c83209ee032a20d340c`;
+its normalized SHA-256 is
+`57e7fd9dfd61422c64eac5744cf8a3175b9456206b24c6c7d510e94bafcafcc0`.
+Focused host tests pass, but independent review has not qualified this changed
+execution-critical closure. `F1_ACTIVE` remains false and there is no current
+run approval or live flash authority.
 
 Independent review returned `PASS_GO` only for the host-only pre-effect abandon
 finalizer. It is pinned to the exact old binding SHA-256

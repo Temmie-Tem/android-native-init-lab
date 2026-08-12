@@ -164,26 +164,30 @@ The current preparation evidence is
 - A target-specific one-shot bootstrap F1 was reviewed, but connected prepare
   exposed a pre-transfer Download profile mismatch: this device reports product
   `SM8250` and may negotiate the same physical port through two exact paired-
-  controller topology identities retained publicly only as SHA-256. The process is temporarily
-  corrected and independently reviewed. It is active for one boot-only
-  candidate attempt followed by mandatory stock-boot rollback in the same
-  attended run. It intentionally leaves root non-persistent and parks rather
-  than replaying an uncertain candidate or rollback. The active runner SHA-256
-  is `d2447b21b1ab22b4def7ae309220d508e66b9de6064cc5fde702870758322976`.
-  No run is prepared or approved; three earlier prepare attempts failed before
-  transfer and left no guard or transfer intent. Current Download-mode presence
-  and capability activation grant no Odin transfer without fresh exact prepare
-  and approval.
+  controller topology identities retained publicly only as SHA-256. A
+  correction was briefly activated, then suspended after its first approved
+  execute exposed an endpoint-session defect before transfer. That historical
+  activation grants no current authority.
 - The first exact approved execution failed closed before candidate intent or
   Odin transfer because prepare-time Download device-node inode/devnum was
   incorrectly treated as stable across re-enumeration. Host validation and
   journal inspection proved candidate/rollback intents and raw transfer logs
-  absent; the shared guard remains. A proposal to accept any fresh matching
+  absent. A proposal to accept any fresh matching
   Download endpoint was rejected because it could transfer approval to another
   device on the same port. The dormant runner restores prepare-time endpoint
   identity equality. Only the exact host-only zero-effect abandon for this
-  prepared run passed review; F1 remains suspended and the approval must not be
-  reused.
+  prepared run passed review and cleared its guard; F1 remains suspended and
+  the approval must not be reused.
+- A new dormant H0 correction now makes prepare start from exact healthy,
+  root-absent Android. In one guarded execution it records a no-replay intent,
+  dispatches exactly one Download reboot, observes and binds the resulting exact
+  Download endpoint, and only then emits an approval token. Execute requires the
+  complete endpoint record to remain unchanged. The dormant runner SHA-256 is
+  `23c6f019c0ea6020c21de68b331e461b395a4693fd341c83209ee032a20d340c`
+  with normalized SHA-256
+  `57e7fd9dfd61422c64eac5744cf8a3175b9456206b24c6c7d510e94bafcafcc0`.
+  This correction has host tests but no independent `PASS_GO`; `F1_ACTIVE` is
+  false, no run is prepared or approved, and no live flash authority exists.
 
 ## Current Bounded Unit
 

@@ -270,9 +270,19 @@ The Download product/topology correction passed review, but the first approved
 execute then failed before candidate intent because it required ephemeral USB
 inode/devnum equality across prepare and execution. A proposal to accept any
 fresh generic matching Download endpoint was rejected because it could transfer
-the approval to another device on the same port. The dormant runner therefore
-restores exact prepare-time endpoint-identity equality and no flash correction
-is qualified. A future design must prove target continuity in one live session.
+the approval to another device on the same port.
+
+The current dormant H0 correction starts prepare only from an exact healthy,
+root-absent Android target. It records the exact hashed serial, Android topology,
+and boot ID in a durable no-replay intent before one `adb reboot download`, then
+requires the exact Download profile and paired-controller topology to be
+observed in that same guarded invocation. Only after that observation does it
+bind the complete Download character-device identity and emit an approval.
+Execute requires the complete endpoint record to remain equal; any
+re-enumeration, replacement, missing observation, or identity drift sends no
+Odin transfer. A transition attempt without a completed observation retains the
+guard and cannot be replayed. This correction is not independently qualified,
+`F1_ACTIVE` remains false, and no flash capability is active.
 
 Status: **PASS_GO - EXACT HOST-ONLY PRE-EFFECT ABANDON ACTIVE**
 
@@ -379,3 +389,13 @@ Only product `SM8250` and the two exact paired-controller topology hashes were
 added to the Download profile; raw topology remains private. All prior target,
 artifact, journal, endpoint-identity, no-replay, and mandatory rollback rules
 remain unchanged.
+
+Those two bootstrap activation records are historical and were suspended after
+the first approved execute exposed the pre-effect endpoint-session defect. The
+old prepared run was closed only by the independently reviewed zero-effect
+abandon finalizer. The current single-session correction is dormant at runner
+SHA-256 `23c6f019c0ea6020c21de68b331e461b395a4693fd341c83209ee032a20d340c`
+and normalized SHA-256
+`57e7fd9dfd61422c64eac5744cf8a3175b9456206b24c6c7d510e94bafcafcc0`.
+It has no independent `PASS_GO`; `F1_ACTIVE` is false, no current run or
+approval exists, and the registry grants no S20+ F1 authority.

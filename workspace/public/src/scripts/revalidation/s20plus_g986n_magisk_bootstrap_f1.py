@@ -36,7 +36,7 @@ EXPECTED_DOWNLOAD_TOPOLOGY_SHA256 = frozenset({
     "3279d577ef7a789f8aac93664e3b45543e10522b08d29ebabc99564ca86295f1",
     "ae90de878991480bf8aafc6e131953d185245aba4fa8d9cd8d0507810d2c96e1",
 })
-EXPECTED_REVIEWED_RUNNER_NORMALIZED_SHA256 = "d04ebf4c544023291da26817155d12d4668e998e090a9f11a2024a27ab21fe46"
+EXPECTED_REVIEWED_RUNNER_NORMALIZED_SHA256 = "57e7fd9dfd61422c64eac5744cf8a3175b9456206b24c6c7d510e94bafcafcc0"
 ABANDONABLE_PREVIOUS_RUNNER_SHA256 = "d2447b21b1ab22b4def7ae309220d508e66b9de6064cc5fde702870758322976"
 ABANDONABLE_PREVIOUS_NORMALIZED_SHA256 = "f85505049b899be56df0e79b95092c13afd8deaa885befce03c8e0736d1b4407"
 ABANDONABLE_PREVIOUS_BINDING_SHA256 = "0e299f6f05c9846cb8584aef161c109a9bdf1007a5cf642a8c9589e46255c859"
@@ -49,12 +49,6 @@ CANDIDATE_SHA256 = "1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f
 ROLLBACK = ROOT / "workspace/private/outputs/s20plus_g986n/magisk_boot_only_iyc2_v1/rollback/AP.tar.md5"
 ROLLBACK_SIZE = 25_671_721
 ROLLBACK_SHA256 = "48a11265a6730a6ab842b07f63cffe9cbdf1582a919b02abdaf1d2b9a2e0bd6b"
-TRANSITION_RESULT = ROOT / "workspace/private/runs/s20plus-g986n-routine-actions/enter-download-20260812T171215Z-1786554735803424083/result.json"
-TRANSITION_RESULT_SIZE = 1_783
-TRANSITION_RESULT_SHA256 = "0f62006aa71e5d1a76e87f994d2c465fa47a8d550f2fe0e3fe99c5ab18418e84"
-TRANSITION_RESOLUTION = ROOT / "workspace/private/runs/s20plus-g986n-routine-actions/enter-download-20260812T171215Z-1786554735803424083/resolution.json"
-TRANSITION_RESOLUTION_SIZE = 264
-TRANSITION_RESOLUTION_SHA256 = "8f2567e14f13d85722675666347cff777c7d1d4c8f56a73da25d62b145ecf27b"
 ADB = base.DEFAULT_ADB
 DOWNLOAD_USB = {
     "idVendor": "04e8",
@@ -317,35 +311,6 @@ def identify_download(
     }
 
 
-def validate_transition_evidence() -> dict[str, Any]:
-    require_file(TRANSITION_RESULT, TRANSITION_RESULT_SIZE, TRANSITION_RESULT_SHA256, "Download dispatch result")
-    require_file(TRANSITION_RESOLUTION, TRANSITION_RESOLUTION_SIZE, TRANSITION_RESOLUTION_SHA256, "Download observation resolution")
-    dispatch = json.loads(TRANSITION_RESULT.read_text())
-    resolution = json.loads(TRANSITION_RESOLUTION.read_text())
-    if (
-        dispatch.get("schema") != "s20plus_g986n_routine_action_result_v1"
-        or dispatch.get("version") != "s20plus-g986n-routine-actions-v1"
-        or dispatch.get("action") != "enter-download"
-        or dispatch.get("verdict") != "DISPATCHED_S20PLUS_G986N_DOWNLOAD_ENTRY_PENDING"
-        or dispatch.get("effect_command_count") != 1
-        or dispatch.get("other_target_command_count") != 0
-        or dispatch.get("s22plus_command_count") != 0
-        or dispatch.get("a90_command_count") != 0
-        or dispatch.get("target", {}).get("model") != EXPECTED_MODEL
-        or dispatch.get("target", {}).get("device") != EXPECTED_DEVICE
-        or dispatch.get("target", {}).get("product") != EXPECTED_PRODUCT
-        or dispatch.get("target", {}).get("incremental") != EXPECTED_INCREMENTAL
-        or dispatch.get("target", {}).get("usb_topology_sha256") != EXPECTED_TOPOLOGY_SHA256
-        or dispatch.get("verification", {}).get("replay_permitted") is not False
-        or resolution.get("schema") != "s20plus_g986n_control_resolution_v1"
-        or resolution.get("version") != "s20plus-g986n-routine-actions-v1"
-        or resolution.get("action") != "enter-download"
-        or resolution.get("resolution") != "download-observed"
-    ):
-        raise BootstrapError("Download transition evidence is not exact")
-    return {"dispatch_sha256": TRANSITION_RESULT_SHA256, "resolution_sha256": TRANSITION_RESOLUTION_SHA256}
-
-
 def validate_artifacts() -> dict[str, Any]:
     require_file(ODIN, ODIN_SIZE, ODIN_SHA256, "Odin4")
     require_file(CANDIDATE, CANDIDATE_SIZE, CANDIDATE_SHA256, "candidate AP")
@@ -381,6 +346,104 @@ def binding_payload(run_dir: Path, artifacts: dict[str, Any], transition: dict[s
 
 def canonical_sha(value: Any) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def validate_live_transition_binding(
+    run_dir: Path,
+    transition: dict[str, Any],
+    endpoint: dict[str, Any],
+) -> None:
+    expected_transition_keys = {
+        "schema",
+        "version",
+        "android_identity",
+        "stock_root_absence",
+        "intent_sha256",
+        "result_sha256",
+        "observation_sha256",
+        "endpoint_identity",
+        "endpoint_topology_sha256",
+        "replay_permitted",
+    }
+    identity = transition.get("android_identity", {})
+    root_absence = transition.get("stock_root_absence", {})
+    endpoint_identity = endpoint.get("endpoint_identity")
+    endpoint_device = endpoint.get("device")
+    if (
+        set(transition) != expected_transition_keys
+        or transition.get("schema") != "s20plus_g986n_f1_live_transition_binding_v1"
+        or transition.get("version") != VERSION
+        or set(identity) != {"serial_sha256", "topology_sha256", "boot_id_sha256"}
+        or identity.get("topology_sha256") != EXPECTED_TOPOLOGY_SHA256
+        or set(root_absence) != {"returncode", "stdout_sha256", "stderr_sha256", "identity_confirmed"}
+        or root_absence.get("returncode") != 127
+        or root_absence.get("stdout_sha256") != hashlib.sha256(b"").hexdigest()
+        or re.fullmatch(r"[0-9a-f]{64}", str(root_absence.get("stderr_sha256"))) is None
+        or root_absence.get("identity_confirmed") is not True
+        or set(endpoint) != {"device", "endpoint_identity", "endpoint_sha256", "topology_sha256", "usb"}
+        or not isinstance(endpoint_device, str)
+        or USBFS_RE.fullmatch(endpoint_device) is None
+        or endpoint.get("endpoint_sha256") != hashlib.sha256(endpoint_device.encode()).hexdigest()
+        or not isinstance(endpoint_identity, list)
+        or len(endpoint_identity) != 4
+        or any(not isinstance(item, int) for item in endpoint_identity)
+        or endpoint.get("topology_sha256") not in EXPECTED_DOWNLOAD_TOPOLOGY_SHA256
+        or endpoint.get("usb") != {**DOWNLOAD_USB, "serial_absent": True}
+        or transition.get("endpoint_identity") != endpoint.get("endpoint_identity")
+        or transition.get("endpoint_topology_sha256") != endpoint.get("topology_sha256")
+        or transition.get("replay_permitted") is not False
+    ):
+        raise BootstrapError("prepared live transition binding is malformed")
+    paths = {
+        "intent_sha256": run_dir / "initial-download-intent.json",
+        "result_sha256": run_dir / "initial-download-result.json",
+        "observation_sha256": run_dir / "initial-download-observation.json",
+    }
+    values: dict[str, Any] = {}
+    for key, path in paths.items():
+        metadata = path.lstat()
+        if path.is_symlink() or not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+            raise BootstrapError("live transition evidence is not an exact regular file")
+        if sha256_file(path) != transition[key]:
+            raise BootstrapError("live transition evidence hash mismatch")
+        values[key] = json.loads(path.read_text())
+    intent = values["intent_sha256"]
+    result = values["result_sha256"]
+    observation = values["observation_sha256"]
+    expected_target = {
+        "model": EXPECTED_MODEL,
+        "device": EXPECTED_DEVICE,
+        "product": EXPECTED_PRODUCT,
+        "incremental": EXPECTED_INCREMENTAL,
+        **identity,
+    }
+    if (
+        set(intent) != {"schema", "version", "action", "target", "stock_root_absence", "attempt", "no_replay", "at"}
+        or intent.get("schema") != "s20plus_g986n_f1_initial_download_intent_v1"
+        or intent.get("version") != VERSION
+        or intent.get("action") != "enter-download-for-candidate-session"
+        or intent.get("target") != expected_target
+        or intent.get("stock_root_absence") != root_absence
+        or intent.get("attempt") != 1
+        or intent.get("no_replay") is not True
+        or set(result) != {"schema", "version", "action", "attempt", "returncode", "stdout_sha256", "stderr_sha256", "outcome", "replay_permitted", "at"}
+        or result.get("schema") != "s20plus_g986n_f1_initial_download_result_v1"
+        or result.get("version") != VERSION
+        or result.get("action") != intent["action"]
+        or result.get("attempt") != 1
+        or result.get("returncode") != 0
+        or result.get("stdout_sha256") != hashlib.sha256(b"").hexdigest()
+        or result.get("stderr_sha256") != hashlib.sha256(b"").hexdigest()
+        or result.get("outcome") != "dispatched"
+        or result.get("replay_permitted") is not False
+        or set(observation) != {"schema", "version", "action", "resolution", "endpoint", "at"}
+        or observation.get("schema") != "s20plus_g986n_f1_initial_download_observation_v1"
+        or observation.get("version") != VERSION
+        or observation.get("action") != intent["action"]
+        or observation.get("resolution") != "download-observed"
+        or observation.get("endpoint") != endpoint
+    ):
+        raise BootstrapError("live transition evidence is malformed or mismatched")
 
 
 def guard_path() -> Path:
@@ -447,7 +510,6 @@ def prepare(requested: Path | None, command: Command = bounded_command) -> Path:
     if os.path.lexists(guard_path()):
         raise BootstrapError("routine action remains unresolved")
     artifacts = validate_artifacts()
-    transition = validate_transition_evidence()
     closure = closure_receipts()
     run_dir = allocate_run_dir(requested)
     guard_parent = guard_path().parent
@@ -456,7 +518,8 @@ def prepare(requested: Path | None, command: Command = bounded_command) -> Path:
     fsync_dir(guard_path().parent.parent)
     durable_create(guard_path(), {"schema": "s20plus_g986n_magisk_bootstrap_guard_v1", "version": VERSION, "run_dir": str(run_dir), "unresolved": True})
     try:
-        endpoint = identify_download(command)
+        adb = closure["adb"]["path"]
+        transition, endpoint = transition_android_to_download(run_dir, command, adb)
         binding = binding_payload(run_dir, artifacts, transition, endpoint, closure)
         binding_sha = canonical_sha(binding)
         prepared = {"schema": "s20plus_g986n_magisk_bootstrap_prepared_v1", "version": VERSION, "binding": binding, "binding_sha256": binding_sha, "approval_token": APPROVAL_PREFIX + binding_sha, "prepared_at": utc_now()}
@@ -464,7 +527,10 @@ def prepare(requested: Path | None, command: Command = bounded_command) -> Path:
         event(run_dir, 0, "prepared", {"binding_sha256": binding_sha})
         return run_dir
     except Exception:
-        if guard_path().exists():
+        # Before a durable transition intent there was no device effect and the
+        # run may close.  Once the intent exists the exact reboot is no-replay;
+        # retain the guard for attended observation or reviewed recovery.
+        if guard_path().exists() and not (run_dir / "initial-download-intent.json").exists():
             release_guard(run_dir)
         raise
 
@@ -477,7 +543,11 @@ def read_prepared(run_dir: Path) -> dict[str, Any]:
     if prepared_path.is_symlink() or not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
         raise BootstrapError("prepared binding is not an exact regular file")
     prepared = json.loads(prepared_path.read_text())
-    if prepared.get("schema") != "s20plus_g986n_magisk_bootstrap_prepared_v1" or prepared.get("version") != VERSION:
+    if (
+        set(prepared) != {"schema", "version", "binding", "binding_sha256", "approval_token", "prepared_at"}
+        or prepared.get("schema") != "s20plus_g986n_magisk_bootstrap_prepared_v1"
+        or prepared.get("version") != VERSION
+    ):
         raise BootstrapError("prepared binding is malformed")
     if prepared.get("binding_sha256") != canonical_sha(prepared.get("binding")) or prepared.get("approval_token") != APPROVAL_PREFIX + prepared["binding_sha256"]:
         raise BootstrapError("prepared binding hash mismatch")
@@ -486,6 +556,22 @@ def read_prepared(run_dir: Path) -> dict[str, Any]:
     if prepared["binding"].get("closure") != closure_receipts():
         raise BootstrapError("execution closure changed after preparation")
     binding = prepared["binding"]
+    if set(binding) != {
+        "schema",
+        "version",
+        "run_dir",
+        "target",
+        "artifacts",
+        "transition",
+        "endpoint",
+        "closure",
+        "candidate_attempts",
+        "rollback_attempts",
+        "rollback_mandatory",
+        "candidate_replay",
+        "root_persistence_authorized",
+    }:
+        raise BootstrapError("prepared binding fields are not exact")
     if binding.get("target") != {
         "model": EXPECTED_MODEL,
         "device": EXPECTED_DEVICE,
@@ -494,6 +580,9 @@ def read_prepared(run_dir: Path) -> dict[str, Any]:
         "topology_sha256": EXPECTED_TOPOLOGY_SHA256,
     }:
         raise BootstrapError("prepared target binding mismatch")
+    if binding.get("artifacts") != validate_artifacts():
+        raise BootstrapError("prepared artifact binding mismatch")
+    validate_live_transition_binding(run_dir, binding.get("transition", {}), binding.get("endpoint", {}))
     if binding.get("candidate_attempts") != 1 or binding.get("rollback_attempts") != 1:
         raise BootstrapError("prepared attempt bounds mismatch")
     if binding.get("rollback_mandatory") is not True or binding.get("candidate_replay") is not False:
@@ -733,11 +822,137 @@ def android_health_once(command: Command, adb: str) -> tuple[dict[str, Any], dic
     final_selected = routine.select_exact_target(final_rows)
     if serial != final_selected["serial"] or base.sanitized_inventory(first_rows) != base.sanitized_inventory(final_rows):
         raise BootstrapError("Android inventory changed during exact health read")
-    expected = {"model": EXPECTED_MODEL, "device": EXPECTED_DEVICE, "product_name": EXPECTED_PRODUCT, "incremental": EXPECTED_INCREMENTAL, "boot_completed": "1", "bootanim": "stopped", "selinux": "Enforcing", "verified_boot_state": "orange"}
+    expected = {"model": EXPECTED_MODEL, "device": EXPECTED_DEVICE, "product_name": EXPECTED_PRODUCT, "incremental": EXPECTED_INCREMENTAL, "boot_completed": "1", "bootanim": "stopped", "selinux": "Enforcing", "verified_boot_state": "orange", "flash_locked": "0", "vbmeta_device_state": "unlocked"}
     if not all(values.get(key) == value for key, value in expected.items()):
         raise BootstrapError("Android health does not match exact target")
     identity = {"serial_sha256": base.sha256_text(serial), "topology_sha256": base.sha256_text(devpath), "boot_id_sha256": base.sha256_text(values["boot_id"])}
     return selected, values, identity
+
+
+def exact_root_absence_once(
+    command: Command,
+    adb: str,
+    selected: dict[str, Any],
+    expected_identity: dict[str, str],
+) -> dict[str, Any]:
+    rc, stdout, stderr = command(
+        [adb, "-s", selected["serial"], "shell", "su", "-c", "id"],
+        20,
+        64 * 1024,
+    )
+    if len(stdout) + len(stderr) > 64 * 1024:
+        raise BootstrapError("initial root-absence output is oversized")
+    try:
+        stdout_text = stdout.decode("utf-8", "strict").strip()
+        stderr_text = stderr.decode("utf-8", "strict").strip()
+    except UnicodeError as exc:
+        raise BootstrapError("initial root-absence output is malformed") from exc
+    combined = stdout_text + ("\n" if stdout_text and stderr_text else "") + stderr_text
+    absence_re = re.compile(
+        r"(?:/system/bin/sh: )?su: (?:not found|inaccessible(?: or not found)?|permission denied|no such file)",
+        re.IGNORECASE,
+    )
+    if "uid=0(root)" in combined or rc != 127 or stdout_text != "" or absence_re.fullmatch(stderr_text) is None:
+        raise BootstrapError("initial stock root absence is not exact")
+    _confirmed_selected, _confirmed_values, confirmed_identity = android_health_once(command, adb)
+    if confirmed_identity != expected_identity:
+        raise BootstrapError("Android identity changed during initial root-absence proof")
+    return {
+        "returncode": rc,
+        "stdout_sha256": hashlib.sha256(stdout).hexdigest(),
+        "stderr_sha256": hashlib.sha256(stderr).hexdigest(),
+        "identity_confirmed": True,
+    }
+
+
+def transition_android_to_download(
+    run_dir: Path,
+    command: Command,
+    adb: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    selected, _values, identity = android_health_once(command, adb)
+    if identity["topology_sha256"] != EXPECTED_TOPOLOGY_SHA256:
+        raise BootstrapError("initial Android topology is not exact")
+    serial = selected["serial"]
+    root_absence = exact_root_absence_once(command, adb, selected, identity)
+    intent = {
+        "schema": "s20plus_g986n_f1_initial_download_intent_v1",
+        "version": VERSION,
+        "action": "enter-download-for-candidate-session",
+        "target": {
+            "model": EXPECTED_MODEL,
+            "device": EXPECTED_DEVICE,
+            "product": EXPECTED_PRODUCT,
+            "incremental": EXPECTED_INCREMENTAL,
+            **identity,
+        },
+        "stock_root_absence": root_absence,
+        "attempt": 1,
+        "no_replay": True,
+        "at": utc_now(),
+    }
+    intent_path = run_dir / "initial-download-intent.json"
+    durable_create(intent_path, intent)
+    try:
+        rc, stdout, stderr = command(
+            [adb, "-s", serial, "reboot", "download"],
+            20,
+            64 * 1024,
+        )
+        outcome = "dispatched" if rc == 0 and not stderr else "uncertain"
+        result = {
+            "schema": "s20plus_g986n_f1_initial_download_result_v1",
+            "version": VERSION,
+            "action": intent["action"],
+            "attempt": 1,
+            "returncode": rc,
+            "stdout_sha256": hashlib.sha256(stdout).hexdigest(),
+            "stderr_sha256": hashlib.sha256(stderr).hexdigest(),
+            "outcome": outcome,
+            "replay_permitted": False,
+            "at": utc_now(),
+        }
+    except Exception as exc:
+        result = {
+            "schema": "s20plus_g986n_f1_initial_download_result_v1",
+            "version": VERSION,
+            "action": intent["action"],
+            "attempt": 1,
+            "outcome": "uncertain",
+            "failure_class": type(exc).__name__,
+            "replay_permitted": False,
+            "at": utc_now(),
+        }
+    result_path = run_dir / "initial-download-result.json"
+    durable_create(result_path, result)
+    if result["outcome"] != "dispatched":
+        raise BootstrapError("initial Download dispatch is uncertain; replay forbidden")
+    endpoint = wait_download(command, DOWNLOAD_TIMEOUT)
+    if endpoint is None:
+        raise BootstrapError("initial Download endpoint was not observed; replay forbidden")
+    observed = {
+        "schema": "s20plus_g986n_f1_initial_download_observation_v1",
+        "version": VERSION,
+        "action": intent["action"],
+        "resolution": "download-observed",
+        "endpoint": endpoint,
+        "at": utc_now(),
+    }
+    observed_path = run_dir / "initial-download-observation.json"
+    durable_create(observed_path, observed)
+    transition = {
+        "schema": "s20plus_g986n_f1_live_transition_binding_v1",
+        "version": VERSION,
+        "android_identity": identity,
+        "stock_root_absence": root_absence,
+        "intent_sha256": sha256_file(intent_path),
+        "result_sha256": sha256_file(result_path),
+        "observation_sha256": sha256_file(observed_path),
+        "endpoint_identity": endpoint["endpoint_identity"],
+        "endpoint_topology_sha256": endpoint["topology_sha256"],
+        "replay_permitted": False,
+    }
+    return transition, endpoint
 
 
 def wait_android(command: Command, adb: str, timeout: float) -> tuple[dict[str, Any], dict[str, str], dict[str, str]] | None:
@@ -820,7 +1035,7 @@ def final_stock_health(command: Command, adb: str, prior_boot_id_sha256: str | N
         return {"healthy": False, "reason": "root-absence-output-malformed"}
     root_text = stdout_text + ("\n" if stdout_text and stderr_text else "") + stderr_text
     root_present = "uid=0(root)" in root_text
-    absence_re = re.compile(r"(?:/system/bin/sh: )?su: (?:not found|inaccessible|permission denied|no such file)", re.IGNORECASE)
+    absence_re = re.compile(r"(?:/system/bin/sh: )?su: (?:not found|inaccessible(?: or not found)?|permission denied|no such file)", re.IGNORECASE)
     expected_absence = rc == 127 and stdout_text == "" and absence_re.fullmatch(stderr_text) is not None
     if root_present:
         return {"healthy": False, "root_absent": False, "reason": "root-still-present", "root_probe_rc": rc, "root_probe_sha256": hashlib.sha256(root_text.encode()).hexdigest()}
@@ -848,7 +1063,7 @@ def execute(run_dir: Path, approval: str, command: Command = bounded_command) ->
     validate_artifacts()
     adb = base.tool_receipt(ADB)["path"]
     endpoint = identify_download(command)
-    if endpoint["endpoint_identity"] != prepared["binding"]["endpoint"]["endpoint_identity"]:
+    if endpoint != prepared["binding"]["endpoint"]:
         raise BootstrapError("prepared Download endpoint changed")
     binding_sha256 = prepared["binding_sha256"]
     classification = transfer_once(run_dir, "candidate", endpoint, 1, binding_sha256)
