@@ -24,7 +24,7 @@ import s22plus_boot_only_f1_transport as transport
 
 
 VERSION = "s20plus-g986n-magisk-bootstrap-f1-v1"
-F1_ACTIVE = True
+F1_ACTIVE = False
 ROOT = Path(__file__).resolve().parents[5]
 RUN_ROOT = Path("workspace/private/runs/s20plus-g986n-magisk-bootstrap-f1")
 EXPECTED_MODEL = "SM-G986N"
@@ -36,7 +36,10 @@ EXPECTED_DOWNLOAD_TOPOLOGY_SHA256 = frozenset({
     "3279d577ef7a789f8aac93664e3b45543e10522b08d29ebabc99564ca86295f1",
     "ae90de878991480bf8aafc6e131953d185245aba4fa8d9cd8d0507810d2c96e1",
 })
-EXPECTED_REVIEWED_RUNNER_NORMALIZED_SHA256 = "f85505049b899be56df0e79b95092c13afd8deaa885befce03c8e0736d1b4407"
+EXPECTED_REVIEWED_RUNNER_NORMALIZED_SHA256 = "d04ebf4c544023291da26817155d12d4668e998e090a9f11a2024a27ab21fe46"
+ABANDONABLE_PREVIOUS_RUNNER_SHA256 = "d2447b21b1ab22b4def7ae309220d508e66b9de6064cc5fde702870758322976"
+ABANDONABLE_PREVIOUS_NORMALIZED_SHA256 = "f85505049b899be56df0e79b95092c13afd8deaa885befce03c8e0736d1b4407"
+ABANDONABLE_PREVIOUS_BINDING_SHA256 = "0e299f6f05c9846cb8584aef161c109a9bdf1007a5cf642a8c9589e46255c859"
 ODIN = Path("/usr/bin/odin4")
 ODIN_SIZE = 3_746_744
 ODIN_SHA256 = "6754aa54f2abe6e99ece32414cd34c8b23b28dbddde537a33203036813637c3b"
@@ -498,6 +501,73 @@ def read_prepared(run_dir: Path) -> dict[str, Any]:
     return prepared
 
 
+def read_prepared_for_pre_effect_abandon(run_dir: Path) -> dict[str, Any]:
+    run_dir = validate_run_dir(run_dir)
+    read_guard(run_dir)
+    prepared_path = run_dir / "prepared.json"
+    metadata = prepared_path.lstat()
+    if prepared_path.is_symlink() or not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+        raise BootstrapError("prepared binding is not an exact regular file")
+    prepared = json.loads(prepared_path.read_text())
+    if (
+        prepared.get("schema") != "s20plus_g986n_magisk_bootstrap_prepared_v1"
+        or prepared.get("version") != VERSION
+        or prepared.get("binding_sha256") != canonical_sha(prepared.get("binding"))
+        or prepared.get("approval_token") != APPROVAL_PREFIX + prepared["binding_sha256"]
+        or prepared.get("binding", {}).get("run_dir") != str(run_dir)
+        or prepared.get("binding_sha256") != ABANDONABLE_PREVIOUS_BINDING_SHA256
+        or prepared.get("binding", {}).get("closure", {}).get("runner", {}).get("sha256") != ABANDONABLE_PREVIOUS_RUNNER_SHA256
+        or prepared.get("binding", {}).get("closure", {}).get("runner", {}).get("normalized_sha256") != ABANDONABLE_PREVIOUS_NORMALIZED_SHA256
+    ):
+        raise BootstrapError("previous prepared binding is not exactly abandonable")
+    return prepared
+
+
+def abandon_pre_effect(run_dir: Path) -> Path:
+    prepared = read_prepared_for_pre_effect_abandon(run_dir)
+    expected = {
+        run_dir / "prepared.json": "regular",
+        run_dir / "events": "directory",
+        run_dir / "events" / "00-prepared.json": "regular",
+    }
+    actual: dict[Path, str] = {}
+    pending = [run_dir]
+    while pending:
+        directory = pending.pop()
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                path = Path(entry.path)
+                metadata = entry.stat(follow_symlinks=False)
+                if stat.S_ISREG(metadata.st_mode):
+                    kind = "regular"
+                elif stat.S_ISDIR(metadata.st_mode):
+                    kind = "directory"
+                    pending.append(path)
+                else:
+                    kind = "special"
+                actual[path] = kind
+    if actual != expected:
+        raise BootstrapError("prepared run has possible effect or unexpected evidence")
+    prepared_event_path = run_dir / "events" / "00-prepared.json"
+    event_meta = prepared_event_path.lstat()
+    if prepared_event_path.is_symlink() or not stat.S_ISREG(event_meta.st_mode) or event_meta.st_nlink != 1:
+        raise BootstrapError("prepared event is not an exact regular file")
+    prepared_event = json.loads(prepared_event_path.read_text())
+    if (
+        set(prepared_event) != {"schema", "version", "ordinal", "name", "at", "binding_sha256"}
+        or prepared_event.get("schema") != "s20plus_g986n_f1_event_v1"
+        or prepared_event.get("version") != VERSION
+        or prepared_event.get("ordinal") != 0
+        or prepared_event.get("name") != "prepared"
+        or prepared_event.get("binding_sha256") != prepared["binding_sha256"]
+    ):
+        raise BootstrapError("prepared event is malformed or mismatched")
+    path = run_dir / "abandoned-pre-effect.json"
+    durable_create(path, {"schema": "s20plus_g986n_f1_pre_effect_abandon_v1", "version": VERSION, "binding_sha256": prepared["binding_sha256"], "candidate_intent_absent": True, "rollback_intent_absent": True, "device_effects": 0, "reason": "ephemeral-download-endpoint-session-binding", "at": utc_now()})
+    release_guard(run_dir)
+    return path
+
+
 def persist_transfer(run_dir: Path, kind: str, binding_sha256: str, endpoint: dict[str, Any], outcome: tuple[dict[str, object], bytes, bytes]) -> str:
     receipt, stdout, stderr = outcome
     durable_bytes(run_dir / f"{kind}.stdout", stdout)
@@ -869,6 +939,7 @@ def main() -> int:
     modes.add_argument("--prepare", action="store_true")
     modes.add_argument("--execute", action="store_true")
     modes.add_argument("--recover", action="store_true")
+    modes.add_argument("--abandon-pre-effect", action="store_true")
     parser.add_argument("--run-dir", type=Path)
     parser.add_argument("--approval")
     args = parser.parse_args()
@@ -890,6 +961,15 @@ def main() -> int:
         print("FAIL_S20PLUS_G986N_F1_RUN_DIR_REQUIRED")
         return 1
     run_dir = args.run_dir if args.run_dir.is_absolute() else ROOT / args.run_dir
+    if args.abandon_pre_effect:
+        try:
+            path = abandon_pre_effect(run_dir)
+        except Exception:
+            print("FAIL_S20PLUS_G986N_F1_PRE_EFFECT_ABANDON_CLOSED")
+            return 1
+        print("PASS_S20PLUS_G986N_F1_PRE_EFFECT_ABANDONED")
+        print(f"result={path}")
+        return 0
     try:
         result = execute(run_dir, args.approval or "") if args.execute else recover(run_dir)
     except Exception:

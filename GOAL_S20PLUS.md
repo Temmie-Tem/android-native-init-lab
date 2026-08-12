@@ -174,6 +174,16 @@ The current preparation evidence is
   transfer and left no guard or transfer intent. Current Download-mode presence
   and capability activation grant no Odin transfer without fresh exact prepare
   and approval.
+- The first exact approved execution failed closed before candidate intent or
+  Odin transfer because prepare-time Download device-node inode/devnum was
+  incorrectly treated as stable across re-enumeration. Host validation and
+  journal inspection proved candidate/rollback intents and raw transfer logs
+  absent; the shared guard remains. A proposal to accept any fresh matching
+  Download endpoint was rejected because it could transfer approval to another
+  device on the same port. The dormant runner restores prepare-time endpoint
+  identity equality. Only the exact host-only zero-effect abandon for this
+  prepared run passed review; F1 remains suspended and the approval must not be
+  reused.
 
 ## Current Bounded Unit
 

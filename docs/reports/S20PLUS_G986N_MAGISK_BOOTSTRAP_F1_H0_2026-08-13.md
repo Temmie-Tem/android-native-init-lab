@@ -4,7 +4,7 @@ Date: 2026-08-13
 
 Target: `SM-G986N` / `y2q` / `y2qksx` / `G986NKSS8IYC2`
 
-State: **PASS_GO - CORRECTED CAPABILITY ACTIVE - NO RUN APPROVAL**
+State: **H0 REVIEW PENDING - ENDPOINT SESSION CORRECTION - NO RUN APPROVAL**
 
 ## Objective
 
@@ -93,3 +93,29 @@ mechanically activated runner SHA-256 is
 with normalized reviewed identity
 `f85505049b899be56df0e79b95092c13afd8deaa885befce03c8e0736d1b4407`.
 This activates only fresh connected prepare; no run or transfer is approved.
+
+## Pre-effect approved-execute stop
+
+The first exactly approved execute exited fail-closed before candidate intent,
+raw Odin output, candidate result, or partition transfer. Host-only inspection
+confirmed the prepared binding, artifacts, transition evidence, and runner
+closure still matched. The remaining reject was equality between the
+prepare-time USB character-device inode/devnum and a freshly enumerated node.
+Those values are intentionally ephemeral across Download re-enumeration and
+are already pinned immediately before and checked immediately after each Odin
+dispatch.
+
+The proposal to accept a fresh generic matching endpoint without prepare-time
+identity equality was rejected because it could transfer approval to another
+Samsung SM8250 Download device on the same port. The dormant runner restores
+exact prepare-time endpoint-identity equality, so no corrected flash capability
+is qualified. A future design must prove exact Android-to-Download continuity
+within one live session before producing an approval.
+
+Independent review returned `PASS_GO` only for the host-only pre-effect abandon
+finalizer. It is pinned to the exact old binding SHA-256
+`0e299f6f05c9846cb8584aef161c109a9bdf1007a5cf642a8c9589e46255c859`
+and old runner hashes, requires the exact prepared event and no other directory
+node of any type, writes a durable zero-effect receipt, then clears the guard.
+It refuses any candidate/rollback intent, raw log, result, symlink, special
+node, or extra entry. F1 remains suspended and the old approval is not reusable.

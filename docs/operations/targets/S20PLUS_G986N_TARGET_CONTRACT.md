@@ -7,10 +7,9 @@ This is the binding target contract for the operator-owned Samsung Galaxy S20+
 in `AGENTS.md`. Its exact one-shot D0 onboarding inventory has been consumed.
 The durable onboarding active-intent guard remains present. A separately
 reviewed routine D0 public-property process may be activated below without
-removing, rotating, or reusing that onboarding guard. The exact routine D1 and
-narrow bootstrap F1 are reviewed and active. The F1 permits only one attended
-boot-only candidate followed by mandatory stock rollback and grants no
-resident-root or non-boot partition authority.
+removing, rotating, or reusing that onboarding guard. The exact routine D1 is
+reviewed and active. Bootstrap F1 is suspended for endpoint-session correction
+review and grants no current live F1.
 
 Exact live D0 established model `SM-G986N`, device `y2q`, product `y2qksx`,
 firmware incremental `G986NKSS8IYC2`, and fingerprint
@@ -263,15 +262,27 @@ Bootloader-unlocked state and a passing D0/D1 do not grant those capabilities.
 
 ## Magisk bootstrap F1
 
-Status: **BINDING - ATTENDED ONE-SHOT BOOT-ONLY F1 ACTIVE**
+Status: **H0 REVIEW PENDING - ENDPOINT SESSION CORRECTION - NO LIVE F1**
 
 The target-specific bootstrap process is implemented by
 `workspace/public/src/scripts/revalidation/s20plus_g986n_magisk_bootstrap_f1.py`.
-The corrected runner is independently reviewed and active after connected
-prepare exposed a Download profile mismatch before any transfer. It pins two
-exact hash-only paired-controller topology identities and product `SM8250`.
-Activation alone authorizes no transfer: every run still requires fresh
-connected prepare, exact approval, and attendance.
+The Download product/topology correction passed review, but the first approved
+execute then failed before candidate intent because it required ephemeral USB
+inode/devnum equality across prepare and execution. A proposal to accept any
+fresh generic matching Download endpoint was rejected because it could transfer
+the approval to another device on the same port. The dormant runner therefore
+restores exact prepare-time endpoint-identity equality and no flash correction
+is qualified. A future design must prove target continuity in one live session.
+
+Status: **PASS_GO - EXACT HOST-ONLY PRE-EFFECT ABANDON ACTIVE**
+
+The exact host-only pre-effect abandon finalizer may close only the named old
+prepared run bound to runner SHA-256
+`d2447b21b1ab22b4def7ae309220d508e66b9de6064cc5fde702870758322976`
+when its directory contains only `prepared.json` and the ordinal-zero prepared
+event, with no candidate/rollback intent, raw transfer log, result, or other
+evidence. It writes a durable zero-effect abandonment receipt before clearing
+the shared guard. Any extra node fails closed.
 
 This is one attended experiment with two fixed private AP files.
 Each AP is a deterministic TAR+MD5 archive containing only one canonical

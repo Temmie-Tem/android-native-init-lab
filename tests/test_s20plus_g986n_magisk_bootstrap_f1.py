@@ -28,9 +28,9 @@ class S20BootstrapF1Tests(unittest.TestCase):
             (node / key).write_text(value + "\n")
         return node
 
-    def test_corrected_profile_is_active_and_cli_surface_is_closed(self):
+    def test_endpoint_session_revision_is_dormant_and_cli_surface_is_closed(self):
         plan = MODULE.render_plan()
-        self.assertTrue(plan["active"])
+        self.assertFalse(plan["active"])
         self.assertFalse(plan["live_flash_authorized"])
         self.assertFalse(plan["candidate_replay"])
         self.assertTrue(plan["rollback"]["mandatory"])
@@ -112,6 +112,55 @@ class S20BootstrapF1Tests(unittest.TestCase):
             with mock.patch.object(MODULE, "F1_ACTIVE", True), mock.patch.object(MODULE, "read_prepared", return_value=prepared):
                 with self.assertRaisesRegex(MODULE.BootstrapError, "replay"):
                     MODULE.execute(run, "token", lambda argv, timeout, maximum: (0, b"", b""))
+
+    def test_dormant_execute_rejects_changed_ephemeral_endpoint_identity(self):
+        endpoint = {"device": "/dev/bus/usb/003/009", "endpoint_identity": [9, 9, 9, 9], "topology_sha256": next(iter(MODULE.EXPECTED_DOWNLOAD_TOPOLOGY_SHA256)), "usb": {**MODULE.DOWNLOAD_USB, "serial_absent": True}}
+        prepared = {"approval_token": "approval", "binding_sha256": "binding", "binding": {"endpoint": {"device": "/dev/bus/usb/003/007", "endpoint_identity": [1, 2, 3, 4]}}}
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(MODULE, "F1_ACTIVE", True), mock.patch.object(MODULE, "read_prepared", return_value=prepared), mock.patch.object(MODULE, "validate_artifacts"), mock.patch.object(MODULE.base, "tool_receipt", return_value={"path": "/adb"}), mock.patch.object(MODULE, "identify_download", return_value=endpoint), mock.patch.object(MODULE, "transfer_once") as transfer:
+            with self.assertRaisesRegex(MODULE.BootstrapError, "endpoint changed"):
+                MODULE.execute(Path(temporary), "approval")
+        transfer.assert_not_called()
+
+    def test_pre_effect_abandon_requires_exact_empty_previous_run(self):
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(MODULE, "ROOT", Path(temporary)):
+            run = Path(temporary) / MODULE.RUN_ROOT / "run-old"
+            (run / "events").mkdir(parents=True)
+            MODULE.guard_path().parent.mkdir(parents=True)
+            prepared = {"binding_sha256": "binding"}
+            with mock.patch.object(MODULE, "read_prepared_for_pre_effect_abandon", return_value=prepared):
+                MODULE.durable_create(MODULE.guard_path(), {"schema": "s20plus_g986n_magisk_bootstrap_guard_v1", "version": MODULE.VERSION, "run_dir": str(run), "unresolved": True})
+                (run / "prepared.json").write_text("{}")
+                (run / "events" / "00-prepared.json").write_text(json.dumps({"schema": "s20plus_g986n_f1_event_v1", "version": MODULE.VERSION, "ordinal": 0, "name": "prepared", "at": "fixed", "binding_sha256": "binding"}))
+                result = MODULE.abandon_pre_effect(run)
+                self.assertTrue(result.exists())
+                self.assertFalse(MODULE.guard_path().exists())
+
+            run2 = Path(temporary) / MODULE.RUN_ROOT / "run-bad"
+            (run2 / "events").mkdir(parents=True)
+            (run2 / "prepared.json").write_text("{}")
+            (run2 / "events" / "00-prepared.json").write_text(json.dumps({"schema": "s20plus_g986n_f1_event_v1", "version": MODULE.VERSION, "ordinal": 0, "name": "prepared", "at": "fixed", "binding_sha256": "binding"}))
+            (run2 / "candidate-intent.json").write_text("{}")
+            MODULE.durable_create(MODULE.guard_path(), {"schema": "s20plus_g986n_magisk_bootstrap_guard_v1", "version": MODULE.VERSION, "run_dir": str(run2), "unresolved": True})
+            with mock.patch.object(MODULE, "read_prepared_for_pre_effect_abandon", return_value=prepared):
+                with self.assertRaisesRegex(MODULE.BootstrapError, "possible effect"):
+                    MODULE.abandon_pre_effect(run2)
+            self.assertTrue(MODULE.guard_path().exists())
+
+    def test_pre_effect_abandon_rejects_dangling_symlink_and_wrong_binding_hash(self):
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(MODULE, "ROOT", Path(temporary)):
+            run = Path(temporary) / MODULE.RUN_ROOT / "run-special"
+            (run / "events").mkdir(parents=True)
+            (run / "prepared.json").write_text("{}")
+            (run / "events" / "00-prepared.json").write_text("{}")
+            (run / "dangling").symlink_to("missing")
+            MODULE.guard_path().parent.mkdir(parents=True)
+            MODULE.durable_create(MODULE.guard_path(), {"schema": "s20plus_g986n_magisk_bootstrap_guard_v1", "version": MODULE.VERSION, "run_dir": str(run), "unresolved": True})
+            with mock.patch.object(MODULE, "read_prepared_for_pre_effect_abandon", return_value={"binding_sha256": "binding"}):
+                with self.assertRaisesRegex(MODULE.BootstrapError, "unexpected evidence"):
+                    MODULE.abandon_pre_effect(run)
+            self.assertTrue(MODULE.guard_path().exists())
+
+        self.assertEqual(MODULE.ABANDONABLE_PREVIOUS_BINDING_SHA256, "0e299f6f05c9846cb8584aef161c109a9bdf1007a5cf642a8c9589e46255c859")
 
     def test_raw_transfer_evidence_is_exclusive_and_bounded(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -212,7 +261,7 @@ class S20BootstrapF1Tests(unittest.TestCase):
         def pinned_ap(*args, **kwargs):
             yield Pinned(MODULE.CANDIDATE, MODULE.CANDIDATE_SHA256)
 
-        endpoint = {"device": "/dev/bus/usb/003/007", "endpoint_identity": [1, 2, 3, 4]}
+        endpoint = {"device": "/dev/bus/usb/003/007", "endpoint_identity": [1, 2, 3, 4], "topology_sha256": next(iter(MODULE.EXPECTED_DOWNLOAD_TOPOLOGY_SHA256)), "usb": {**MODULE.DOWNLOAD_USB, "serial_absent": True}}
         with tempfile.TemporaryDirectory() as temporary, mock.patch.object(MODULE.transport, "pin_regular_file", pinned_regular), mock.patch.object(MODULE.transport, "pin_boot_only_ap", pinned_ap), mock.patch.object(MODULE.transport, "revalidate_pinned_path"), mock.patch.object(MODULE, "streaming_command", return_value=(0, b"Setup Connection Upload Binaries boot.img.lz4 100% Close Connection", b"")), mock.patch.object(MODULE, "endpoint_stat", side_effect=[(1, 2, 3, 4), (9, 9, 9, 9)]):
             receipt, stdout, stderr = MODULE.execute_odin_exact(MODULE.CANDIDATE, MODULE.CANDIDATE_SIZE, MODULE.CANDIDATE_SHA256, "candidate", endpoint)
             classification = MODULE.persist_transfer(Path(temporary), "candidate", "binding", endpoint, (receipt, stdout, stderr))
@@ -281,7 +330,7 @@ class S20BootstrapF1Tests(unittest.TestCase):
             self.assertTrue((run / "rollback-mode-intent.json").exists())
 
     def test_execute_observer_uncertainty_still_reaches_one_mandatory_rollback(self):
-        endpoint = {"device": "/dev/bus/usb/003/007", "endpoint_identity": [1, 2, 3, 4]}
+        endpoint = {"device": "/dev/bus/usb/003/007", "endpoint_identity": [1, 2, 3, 4], "topology_sha256": next(iter(MODULE.EXPECTED_DOWNLOAD_TOPOLOGY_SHA256)), "usb": {**MODULE.DOWNLOAD_USB, "serial_absent": True}}
         candidate_android = ({"serial": "SERIAL"}, {"boot_id": "boot-b"}, {"serial_sha256": "s", "topology_sha256": "t", "boot_id_sha256": MODULE.base.sha256_text("boot-b")})
         prepared = {"approval_token": "approval", "binding_sha256": "binding", "binding": {"endpoint": endpoint}}
         with tempfile.TemporaryDirectory() as temporary:
@@ -304,18 +353,18 @@ class S20BootstrapF1Tests(unittest.TestCase):
         for forbidden in ("recovery.img", "dtbo.img", "vbmeta.img", "super.img", "persist.img", "fastboot", "/dev/block"):
             self.assertNotIn(forbidden, source)
 
-    def test_documents_bind_corrected_active_f1_and_one_registry_row(self):
+    def test_documents_suspend_f1_for_endpoint_session_review(self):
         contract = (ROOT / "docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md").read_text()
         registry = (ROOT / "AGENTS.md").read_text()
         report = (ROOT / "docs/reports/S20PLUS_G986N_MAGISK_BOOTSTRAP_F1_H0_2026-08-13.md").read_text()
-        self.assertIn("Status: **BINDING - ATTENDED ONE-SHOT BOOT-ONLY F1 ACTIVE**", contract)
-        self.assertIn("State: **PASS_GO - CORRECTED CAPABILITY ACTIVE - NO RUN APPROVAL**", report)
-        row = "| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) | `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` | Active exact-target routine D0/D1 plus attended one-shot boot-only Magisk candidate and mandatory stock rollback F1; no resident-root authority |"
+        self.assertIn("Status: **H0 REVIEW PENDING - ENDPOINT SESSION CORRECTION - NO LIVE F1**", contract)
+        self.assertIn("Status: **PASS_GO - EXACT HOST-ONLY PRE-EFFECT ABANDON ACTIVE**", contract)
+        self.assertIn("State: **H0 REVIEW PENDING - ENDPOINT SESSION CORRECTION - NO RUN APPROVAL**", report)
+        row = "| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) | `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` | Active exact-target routine D0/D1; bootstrap F1 endpoint-session correction under H0 review, no active F1 |"
         self.assertEqual(registry.count(row), 1)
-        for document in (contract, report):
-            self.assertIn("d2447b21b1ab22b4def7ae309220d508e66b9de6064cc5fde702870758322976", document)
         self.assertIn("S22+", contract)
         self.assertIn("A90", contract)
+        self.assertIn("restores\nexact prepare-time endpoint-identity equality", report)
 
 
 if __name__ == "__main__":
