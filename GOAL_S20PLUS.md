@@ -21,6 +21,13 @@ The current preparation evidence is
 - USB debugging: enabled/allowed based on the operator statement.
 - Direct ADB verification: terminal one-shot D0 PASS. USB debugging and host
   authorization were verified with one exact row in state `device`.
+- Routine public-property D0: PASS for the exact same target. Current Samsung
+  sales/OMC properties are `boot_sales_code=KTC`, `csc_sales_code=KTC`,
+  `omcnw_code=KTC`, `omc_path=/optics/configs/carriers/KTC/conf`, and
+  `omc_etcpath=/prism/etc/carriers/KTC`; the distinct `carrier_id` property is
+  `KOO`. The evidence therefore records current sales/OMC configuration `KTC`
+  and boot carrier ID `KOO` separately rather than claiming one unqualified
+  CSC value.
 - Live public identity: `SM-G986N` / `y2q` / `y2qksx` /
   `G986NKSS8IYC2`; fingerprint
   `samsung/y2qksx/y2q:13/TP1A.220624.014/G986NKSS8IYC2:user/release-keys`.
@@ -51,6 +58,10 @@ The current preparation evidence is
   reboot, Odin, transfer, D1, or F1 authority.
 - Durable result: `PASS_S20PLUS_G986N_D0_ONBOARDING_READ_ONLY`; private result
   SHA-256 `bda29a458c11eab7634bf1d0ea9186ba314f55604e06fe0fca331ab8e6a60cef`.
+- Routine result: `PASS_S20PLUS_G986N_ROUTINE_D0_READ_ONLY`; private result
+  SHA-256 `5c1825b643f1745c6ed0c84b19cf4cce0246b20c4e3eb60cdb8e6047d03ba04f`.
+  Its four bounded host invocations comprised two global inventories and two
+  exact S20+ reads; S22+, A90, and other-target command counts were all zero.
 - Counts: six bounded host ADB invocations total, including two inventories;
   three commands addressed to S20+, and zero to S22+, A90, or another target.
 - Effects: device writes, root use, reboot, mode transition, payload transfer,
@@ -72,13 +83,18 @@ The S20+-only D0 onboarding inventory completed and proved that it:
 5. creates no D1, F1, root, reboot, mode-transition, transfer, or partition
    authority.
 
-The durable active-intent guard remains present. The D0 is consumed and must
-not be replayed. The operator-provided photograph now records Download Mode
-state without creating a host-connected process. The next unit remains
-host-only interpretation and selection of a future objective.
+The durable onboarding active-intent guard remains present. That D0 is consumed
+and must not be replayed. The separately reviewed routine public-property D0
+process is active for current direct operator-requested reads under the binding
+contract. Its first successful read recorded the exact device's public Samsung
+CSC/OMC properties and preserved their KTC/KOO role distinction. The
+operator-provided photograph records Download Mode state without creating a
+host-connected process.
 
 ## Open Decisions
 
-No post-onboarding objective is selected. Rooting, recovery work, native-init,
-or boot-only experiments each require a separately designed and reviewed target
-contract amendment; none is implied by the unlocked bootloader.
+The next host-side objective may bind a firmware package and Samsung-published
+kernel source to exact model/build/CSC evidence. Rooting, recovery work,
+native-init, or boot-only experiments each require a separately designed and
+reviewed target-contract amendment; none is implied by the unlocked bootloader
+or routine D0.

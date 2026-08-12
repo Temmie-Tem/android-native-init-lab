@@ -5,9 +5,10 @@ Status: **BINDING - D0 ONBOARDING CONSUMED**
 This is the binding target contract for the operator-owned Samsung Galaxy S20+
 5G `SM-G986N` / `y2q` / `G986NKSS8IYC2`, listed in the binding target registry
 in `AGENTS.md`. Its exact one-shot D0 onboarding inventory has been consumed.
-The durable active-intent guard remains present and this contract grants no
-further connected action. It defines no D1, F1, root, flash, recovery,
-rollback, or other connected capability.
+The durable onboarding active-intent guard remains present. A separately
+reviewed routine D0 public-property process may be activated below without
+removing, rotating, or reusing that onboarding guard. This contract defines no
+D1, F1, root, flash, recovery, rollback, or other connected capability.
 
 Exact live D0 established model `SM-G986N`, device `y2q`, product `y2qksx`,
 firmware incremental `G986NKSS8IYC2`, and fingerprint
@@ -83,6 +84,44 @@ USB debugging was ADB-verified when the exact selected row was in state
 `device`, the fixed snapshot succeeds twice, and the selection remains stable.
 The one-shot result is terminal; this paragraph grants no repeat collection.
 
+## S20+ Routine D0 Public-Property Reads
+
+Status: **BINDING - ROUTINE D0 PUBLIC-PROPERTY READS ACTIVE**
+
+The reusable routine D0 is implemented by
+`workspace/public/src/scripts/revalidation/s20plus_g986n_routine_d0.py`. It is
+separate from the consumed onboarding transaction and does not inspect,
+remove, rotate, or bypass the onboarding active-intent guard.
+
+Once activated by the review record below, a current direct operator request
+may authorize one invocation of this fixed read-only process. Each invocation:
+
+1. pins the same reviewed `/usr/bin/adb` canonical realpath and SHA-256;
+2. inventories all ADB rows and selects exactly one healthy
+   `model:SM_G986N` / `device:y2q` / `product:y2qksx` target;
+3. reads its USB devpath and one fixed public-property snapshot using the exact
+   serial selector;
+4. binds model, device, product, and `G986NKSS8IYC2` back to the selected row;
+5. repeats global inventory and stops if any row or selection changed; and
+6. writes one no-clobber private result or failure receipt.
+
+The fixed snapshot is limited to public model/build identity, normal-Android
+boot health, verified-boot state, and Samsung carrier/CSC/OMC properties. It
+may classify Korean sales-code aliases as `KOO`, `KTC`, `SKC`, or `LUC`; no
+evidence and conflicting evidence remain explicit and must not be guessed.
+
+Routine D0 does not create an active intent because it has no device effect.
+A failed read closes that invocation but does not prohibit a later separately
+requested routine read. There is no automatic retry or loop. Reuse depends on
+this exact runner and contract remaining unchanged and on a current direct
+operator request; it is never standing background authority.
+
+The prohibitions in the onboarding D0 apply unchanged: no `su`, root, writes,
+settings or property mutation, service control, package inventory, `/efs` or
+partition access, payload transfer, reboot, Download/recovery transition,
+Odin, D1, or F1. A routine result cannot establish root, recovery, rollback,
+firmware-package identity, or flash readiness.
+
 ## Evidence
 
 - Durable raw execution evidence belongs only under
@@ -99,6 +138,10 @@ The one-shot result is terminal; this paragraph grants no repeat collection.
   `failure.json` containing only a hashed failure signature, actual command
   counts, zero-effect assertions, and a stop verdict. Neither path clears the
   durable active-intent guard or retries the command sequence.
+- Routine D0 raw evidence belongs only under
+  `workspace/private/runs/s20plus-g986n-routine-d0/`. Public summaries may
+  retain only the target's public properties, CSC resolution, command counts,
+  zero-effect assertions, verdict, and private result SHA-256.
 
 ## D1 and F1 Are Not Defined
 
@@ -124,7 +167,10 @@ The following gates were completed before activation:
    onboarding collection.
 
 This activation authorized only the now-consumed D0 onboarding inventory above.
-It does not activate D1 or F1. Any later connected action requires a separately
-defined target process, proportional independent review, and fresh authority;
-the existing active-intent guard must not be removed or rotated under this
-contract.
+It does not activate D1 or F1. Independent review of the routine contract,
+exact runner, tests, registry transition, and activation wording returned
+`PASS_GO` with no unresolved finding on 2026-08-12. The reviewed routine runner
+SHA-256 is
+`2377e463e1ec4869fd9ba7a5155aeb6c792bdb5b5b969c902a2b0e5a00fda77c`.
+The exact S20+ registry process cell is active. The existing onboarding
+active-intent guard remains consumed and must not be removed or rotated.

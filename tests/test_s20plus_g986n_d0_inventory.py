@@ -234,7 +234,7 @@ class S20PlusG986ND0InventoryTests(unittest.TestCase):
         row = (
             "| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) "
             "| `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` "
-            "| Consumed one-shot D0 onboarding only; no active D1/F1 process |"
+            "| Routine exact-target D0 public-property reads; no active D1/F1 process |"
         )
         self.assertEqual(agents.count(row), 1)
 
