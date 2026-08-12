@@ -659,6 +659,17 @@ was created. The invocation is not reusable. One fresh exact normal-reboot
 baseline-rotation D1 is now required before a second fresh D0; the existing
 one-shot helper fixture passes, but no D1 authority has been supplied.
 
+Fresh exact D1 authority then bound one normal reboot. The helper sent one
+reboot to the unique `SM-S906N`/`g0q`, changed the boot ID, and returned rooted
+boot-completed FYG8 Android with boot, vendor_boot, dtbo, and recovery hashes
+unchanged and no Download endpoint. It sent no command to another target.
+The subsequent fresh D0 read a clean 2,097,136-byte retained baseline with
+zero marker families and created immutable P3.16 binding
+`f5d964deef7cfc36c7b7e6464c04873da1f86fcdc5717058f8bdb66f348a8ad9`.
+The prepared record still has `f1_authorized=false` and
+`live_authorized=false`; execution now requires the exact fresh F1 approval
+token for that binding.
+
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden
 archive member, an unreviewed common receipt/schema change, an observer result
 that cannot distinguish the declared branches, or any unexplained post-session
