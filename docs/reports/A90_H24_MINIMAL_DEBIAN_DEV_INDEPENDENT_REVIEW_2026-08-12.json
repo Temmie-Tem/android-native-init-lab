@@ -1,0 +1,68 @@
+{
+  "schema": "a90-h24-minimal-debian-dev-independent-review-v1",
+  "status": "PASS_GO",
+  "review_date": "2026-08-12",
+  "reviewer": "/root/a90_h23_dev_isolation_review/a90_h24_clean_capability_review",
+  "target": "Samsung Galaxy A90 5G only",
+  "capability": "A90_H24_PRIVATE_CARD_ROOT_MINIMAL_DEBIAN_DEV_V1",
+  "incident_class": "H23_DEBIAN_DEVTMPFS_EXPOSURE",
+  "decision": "H23 was retired before live use because the automatic path did not fail closed on devpts and the manual path could move native devtmpfs into Debian. H24 uses a fresh identity; both UFS paths construct a fresh minimal tmpfs /dev, require devpts, retain the HUD card0 in a separate private root, and bind Debian /dev-tree and proc-mediated HUD exposure separately.",
+  "frozen_scope": {
+    "execution_closure_sha256": "9ce9fb0e3ff654909afe3cc4b9a9f9422a6a7bc5e67dc65433914fa9f9d2f0bc",
+    "execution_closure_members": 24,
+    "native_init_closure_sha256": "3d1514e3f266e5b77886bf4511a396c9328b487b0c614c3c79fd3df16d26ca52",
+    "native_init_closure_members": 142,
+    "manifest_sha256": "40c26c5878db21737600bc29864db9123cc4650ec39d7f0d7395209c2df70a8f",
+    "effective_manifest_sha256": "a88126ea5f8c0abfdb90034f15fb7c5c0f33a545f666b7372d6998a3f8a942a5",
+    "compiled_binding_sha256": "02b9ffb16e16a4545520c01aa0010cf1a1ecb3419a98def962a0b3a4d7994582",
+    "candidate_boot_sha256": "d8c280e4acee5d17d13270fdf25535b4ce05304e786bc22efa84ab16f6b82782",
+    "candidate_boot_bytes": 58372096,
+    "candidate_init_sha256": "c53db468893bf9001e907ae6c35c8bbb7db82e260484b20abc4d146b64eca4fc",
+    "candidate_init_bytes": 1723376,
+    "ramdisk_sha256": "280cd922c9a516a188683835f8d072736df5c13628c835bd38bf570875ea0601",
+    "ramdisk_bytes": 8537600,
+    "helper_sha256": "fcb005b0454aceb08aa6f8f81d83aa303e37199a56e018eb2501e4225f08e00e",
+    "helper_bytes": 1649904,
+    "ab_receipt_sha256": "980a366754afe176062cc9712ac26cd89479da1d37b91ceed7539139cd0a90cf",
+    "ab_receipt_bytes": 5494,
+    "ab_byte_identical": true
+  },
+  "validated_invariants": [
+    "automatic and manual UFS paths create a fresh minimal tmpfs Debian dev and never move native devtmpfs",
+    "mandatory devpts and every minimal dev failure path restore mounts fail closed",
+    "HUD child retains only exact card0 and shared public run in its private pivot root",
+    "compiled binding v11 distinguishes HUD card0 from Debian minimal core char exposure",
+    "H24 A B artifacts are deterministic boot-only bytes with candidate authority false",
+    "A90-only native closure preserves permanent boundaries and S22 plus isolation"
+  ],
+  "findings": {
+    "final_high": 0,
+    "final_medium": 0,
+    "final_low": 0,
+    "unresolved": []
+  },
+  "validation": {
+    "independent_execution_closure_recomputation": "PASS 24/24",
+    "independent_native_closure_recomputation": "PASS 142/142",
+    "selected_public_unittest": "10/10 PASS",
+    "private_writing_test": "excluded by review boundary",
+    "aarch64_init_compile_and_link": "PASS static stripped ELF",
+    "aarch64_init_sha256": "c53db468893bf9001e907ae6c35c8bbb7db82e260484b20abc4d146b64eca4fc",
+    "aarch64_init_bytes": 1723376,
+    "unresolved_findings": 0
+  },
+  "review_contacts": {
+    "device": 0,
+    "dev": 0,
+    "usb": 0,
+    "network": 0,
+    "workspace_private": 0,
+    "s22plus_paths": 0,
+    "file_modifications": 0
+  },
+  "private_candidate_bytes_opened_by_reviewer": false,
+  "private_receipt_bytes_opened_by_reviewer": false,
+  "permanent_boundaries_unchanged": true,
+  "device_authority_granted": false,
+  "reviewer_implementation_edits": false
+}

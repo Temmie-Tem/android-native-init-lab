@@ -597,7 +597,7 @@ def normalized_auto_handoff_binding(
                 private_card_root):
             normalized.update(
                 {
-                    "schema": "a90-compiled-auto-handoff-binding-v10",
+                    "schema": "a90-compiled-auto-handoff-binding-v11",
                     "firstboot_source": "ufs-existing-immutable-v1",
                     "firstboot_overlay": "disabled",
                     "persistent_native_hud": "enabled",
@@ -606,7 +606,13 @@ def normalized_auto_handoff_binding(
                         "private-pivot-root-card0-bind-v1"
                     ),
                     "hud_mount_namespace": "private-minimal-card-root-v1",
-                    "debian_device_exposure": "card0-only-no-userdata-v1",
+                    "hud_device_exposure": "card0-only-no-userdata-v1",
+                    "debian_dev_tree_exposure": (
+                        "minimal-core-char-no-drm-no-userdata-v1"
+                    ),
+                    "debian_proc_hud_root_exposure": (
+                        "card0-and-shared-public-run-no-block-no-userdata-v1"
+                    ),
                     "ufs_firstboot_cleanup_compatibility": (
                         "zero-pre-intent-drm-fd-v3"
                     ),

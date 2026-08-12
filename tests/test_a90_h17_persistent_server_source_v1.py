@@ -22,6 +22,7 @@ H20 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/version
 H21 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h21/manifest.toml"
 H22 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h22/manifest.toml"
 H23 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h23/manifest.toml"
+H24 = REPO / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h24/manifest.toml"
 BUILDER = load_script(
     "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py"
 )
@@ -272,19 +273,19 @@ class H17ManifestTests(unittest.TestCase):
             manifest["init"]["closure_sha256"],
         )
 
-    def test_h23_uses_an_exact_private_card_root_binding(self) -> None:
-        resolution = BUILDLIB.resolve_manifest(H23)
+    def test_h24_uses_an_exact_private_card_root_binding(self) -> None:
+        resolution = BUILDLIB.resolve_manifest(H24)
         self.assertEqual(
             [path.parent.name for path in resolution.lineage],
-            ["phase3-minimal-h23", "phase3-minimal-h16", "v3404-effective"],
+            ["phase3-minimal-h24", "phase3-minimal-h16", "v3404-effective"],
         )
         manifest = resolution.data
         binding = BUILDER.normalized_auto_handoff_binding(manifest)
-        self.assertEqual(binding["schema"], "a90-compiled-auto-handoff-binding-v10")
-        self.assertEqual(binding["candidate_version"], "0.11.191")
+        self.assertEqual(binding["schema"], "a90-compiled-auto-handoff-binding-v11")
+        self.assertEqual(binding["candidate_version"], "0.11.192")
         self.assertEqual(
             binding["candidate_build"],
-            "phase3-minimal-h23-ufs-auth-native-hud-private-card-root",
+            "phase3-minimal-h24-ufs-auth-native-hud-private-card-root-minimal-debian-dev",
         )
         self.assertEqual(
             binding["hud_drm_acquisition"],
@@ -299,8 +300,16 @@ class H17ManifestTests(unittest.TestCase):
             "private-minimal-card-root-v1",
         )
         self.assertEqual(
-            binding["debian_device_exposure"],
+            binding["hud_device_exposure"],
             "card0-only-no-userdata-v1",
+        )
+        self.assertEqual(
+            binding["debian_dev_tree_exposure"],
+            "minimal-core-char-no-drm-no-userdata-v1",
+        )
+        self.assertEqual(
+            binding["debian_proc_hud_root_exposure"],
+            "card0-and-shared-public-run-no-block-no-userdata-v1",
         )
         self.assertTrue(BUILDER.h21_delayed_hud_drm_mode(manifest))
         self.assertFalse(BUILDER.h22_preserved_dev_dir_mode(manifest))
@@ -317,6 +326,42 @@ class H17ManifestTests(unittest.TestCase):
             BUILDLIB.closure_sha256(root, closure),
             manifest["init"]["closure_sha256"],
         )
+
+    def test_h23_is_retired_by_the_minimal_debian_dev_native_change(self) -> None:
+        manifest = BUILDLIB.resolve_manifest(H23).data
+        root = REPO / manifest["init"]["source_root"]
+        closure = BUILDLIB.expanded_closure(
+            root,
+            manifest["init"]["sources"],
+            manifest["init"]["closure_globs"],
+        )
+        self.assertNotEqual(
+            BUILDLIB.closure_sha256(root, closure),
+            manifest["init"]["closure_sha256"],
+        )
+
+    def test_h24_ufs_handoff_uses_a_private_minimal_debian_dev(self) -> None:
+        source = NATIVE.read_text(encoding="utf-8")
+        d3_prepare = source[source.index("static int d3_prepare_new_dev(") :]
+        d3_prepare = d3_prepare[: d3_prepare.index("static int d3_restore_mount_one")]
+        auto = source[source.index("int a90_server_distro_switch_root_userdata_ro(") :]
+        auto = auto[: auto.index("static int d4_dpublic_hud_bind_target")]
+        prepare = source[source.index("static int d4_prepare_new_dev(") :]
+        prepare = prepare[: prepare.index("static void d4_restore_mount_one")]
+        move = source[source.index("static int d4_move_core_mounts(") :]
+        move = move[: move.index("static void d4_restore_core_mounts")]
+        self.assertIn(
+            'mount("tmpfs", dev_dir, "tmpfs", MS_NOSUID | MS_NOEXEC,',
+            prepare,
+        )
+        self.assertIn('mount("devpts", pts_dir, "devpts"', prepare)
+        self.assertIn("goto fail_new_dev;", prepare)
+        self.assertIn('mount("devpts", pts_dir, "devpts"', d3_prepare)
+        self.assertIn("devpts=fail", d3_prepare)
+        self.assertIn("goto fail_new_dev;", d3_prepare)
+        self.assertIn("d3_move_core_mounts(true,", auto)
+        self.assertNotIn('d4_move_mount_one("/dev", "dev")', move)
+        self.assertIn("d4_prepare_new_dev(mounted_new_dev, mounted_devpts)", move)
 
     def test_private_key_is_required_only_for_h17_and_never_enters_manifest(self) -> None:
         h17 = BUILDLIB.resolve_manifest(H17).data
@@ -370,14 +415,14 @@ class H17ManifestTests(unittest.TestCase):
             BUILDER.h22_preserved_dev_dir_mode(manifest)
 
     def test_private_card_root_rejects_missing_delay_or_preserved_dev(self) -> None:
-        manifest = BUILDLIB.resolve_manifest(H23).data
+        manifest = BUILDLIB.resolve_manifest(H24).data
         manifest["init"]["cflags"].remove(
             "-DA90_UFS_PERSISTENT_NATIVE_HUD_DELAYED_DRM_V1=1"
         )
         with self.assertRaisesRegex(RuntimeError, "requires delayed HUD DRM"):
             BUILDER.h23_private_card_root_mode(manifest)
 
-        manifest = BUILDLIB.resolve_manifest(H23).data
+        manifest = BUILDLIB.resolve_manifest(H24).data
         manifest["init"]["cflags"].append(
             "-DA90_UFS_PERSISTENT_NATIVE_HUD_PRESERVED_DEV_DIR_V1=1"
         )

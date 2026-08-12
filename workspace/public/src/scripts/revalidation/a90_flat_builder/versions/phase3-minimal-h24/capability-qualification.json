@@ -1,0 +1,116 @@
+{
+  "schema": "a90-h24-minimal-debian-dev-capability-qualification-v1",
+  "capability": "A90_H24_PRIVATE_CARD_ROOT_MINIMAL_DEBIAN_DEV_V1",
+  "verdict": "PASS_GO",
+  "execution_closure_sha256": "9ce9fb0e3ff654909afe3cc4b9a9f9422a6a7bc5e67dc65433914fa9f9d2f0bc",
+  "execution_hashes": {
+    "AGENTS.md": {
+      "size": 14600,
+      "sha256": "c07f670424fa7920f5b02e44d0f2b4f8a87030aac6f9d0ae268bf1339e51790e"
+    },
+    "docs/operations/targets/A90_TARGET_CONTRACT.md": {
+      "size": 50612,
+      "sha256": "b07e76e4fad5ead33001cdb73e130f2cfa8e0d2ca3a7061a1babc7d18f7611e8"
+    },
+    "docs/reports/A90_H19_UFS_FIRSTBOOT_DISPLAY_OWNER_ASSUMPTION_INCIDENT_2026-08-12.md": {
+      "size": 2327,
+      "sha256": "cd1499d24d4db7c59f7da38598d7ab0c22060a17fb467a028a2c5f085cfb7b31"
+    },
+    "docs/reports/A90_H20_UFS_FIRSTBOOT_PREOPENED_DRM_KILL_INCIDENT_2026-08-12.md": {
+      "size": 2192,
+      "sha256": "4dac9cbae1f1ea556073cfb6301888bcff5f66fc123e76e895ae9c563d0b346b"
+    },
+    "docs/reports/A90_H21_POST_SWITCH_ROOT_DRM_PATH_LOSS_INCIDENT_2026-08-12.md": {
+      "size": 2142,
+      "sha256": "c0a65936191ba287a073e9ef6987a11b78bbb52f1cf5dd0cefeede38d17daf65"
+    },
+    "docs/reports/A90_H22_PRESERVED_DEV_DIR_PROC_CAPABILITY_INCIDENT_2026-08-12.md": {
+      "size": 1890,
+      "sha256": "f1b1406189e865b3e3374064241b3148390f80aeb26857640c9a8fc09a1d9864"
+    },
+    "docs/reports/A90_H23_DEBIAN_DEVTMPFS_EXPOSURE_INCIDENT_2026-08-12.md": {
+      "size": 1688,
+      "sha256": "476aa15ea4b3ef821627002e920c32c275c56e3122b10a4e9d9839f3c9f1ee44"
+    },
+    "tests/test_a90_h17_persistent_server_source_v1.py": {
+      "size": 36786,
+      "sha256": "72becbebf46098cce54ccc13559b089af02440f874c98996bdbd963482e736be"
+    },
+    "workspace/public/src/native-init/a90_auto_handoff.c": {
+      "size": 33086,
+      "sha256": "d8697da63a093eaaed73339a158b2992ad3121a2a2ebc01597a10f8b05363ec6"
+    },
+    "workspace/public/src/native-init/a90_config.h": {
+      "size": 8227,
+      "sha256": "c72e23ad9f10b2051b67210b09dc39fa35a00644df2e8ff9977a736f2d8078da"
+    },
+    "workspace/public/src/native-init/a90_kms.c": {
+      "size": 60175,
+      "sha256": "deabd2837863eceafd1b193f982442a5dde6503b74a02bb5fc80c3a2e448fcf3"
+    },
+    "workspace/public/src/native-init/a90_kms.h": {
+      "size": 3442,
+      "sha256": "d727e3823f2f59189fa56d0158b8630cfde700975b8fe2903b932c2605d1372e"
+    },
+    "workspace/public/src/native-init/a90_server_distro.c": {
+      "size": 258111,
+      "sha256": "199b4f55075384c64d3b1f82deb7b5b630b4d306bfc058c5e50a896f28297abf"
+    },
+    "workspace/public/src/native-init/a90_server_distro.h": {
+      "size": 3583,
+      "sha256": "ab5cad49b708ce0037494a1e001779000073cdcd480c9ada305ed5a1506fc99a"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py": {
+      "size": 52916,
+      "sha256": "53df5ecc1302216981331dd94bb43d51269711a8d9fb9ef53159ac95fabbe739"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/buildlib.py": {
+      "size": 25644,
+      "sha256": "b44df71c70273cdc0341c52162a0e89e1d70951a1a2388ab5c97e1458d60367d"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h14/userdata-content-manifest.json": {
+      "size": 5507,
+      "sha256": "a878f6dec82bf799c3d2cd43beeda3c5494a8882ce116327f497d822b707d5ce"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h16/manifest.toml": {
+      "size": 12790,
+      "sha256": "09e3731a575447305a5b1995ed827484cf65390d73fe3dfb4dbaacb9ff83ab7a"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h20/manifest.toml": {
+      "size": 7311,
+      "sha256": "cbf84a0c63fd7ba02b277a254d2c8634e002ef12c62f3ab50465c5f064bd567a"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h21/manifest.toml": {
+      "size": 7458,
+      "sha256": "e91b3de09957fa1de3874d0b79048db530032d3ddc0cf96d2c26830074763ff7"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h22/manifest.toml": {
+      "size": 7636,
+      "sha256": "2abe2c4912a907e00fe9368855e4e197af58da140b2f1f10cd27f74904f50375"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h23/manifest.toml": {
+      "size": 7727,
+      "sha256": "215339bd4d3a689c347204e0d36d395c410e0ae07aef9170f6565dd0fcf216f7"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h24/manifest.toml": {
+      "size": 7801,
+      "sha256": "40c26c5878db21737600bc29864db9123cc4650ec39d7f0d7395209c2df70a8f"
+    },
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/v3404-effective/manifest.toml": {
+      "size": 14156,
+      "sha256": "b5edf8b0a30b76ef48dc8ec71f0f1dc23b76698e0b1154c6ccb66106b69834da"
+    }
+  },
+  "native_init_closure_sha256": "3d1514e3f266e5b77886bf4511a396c9328b487b0c614c3c79fd3df16d26ca52",
+  "native_init_closure_members": 142,
+  "review_scope": "h24-private-card-root-minimal-debian-dev-capability",
+  "incident_class": "H23_DEBIAN_DEVTMPFS_EXPOSURE",
+  "new_hazard_or_incident": true,
+  "ordinal_requalification_required": false,
+  "f1_runner_qualified": false,
+  "d1_runner_qualified": false,
+  "replacement_behavior": "fresh-h24-identity; automatic-and-manual-ufs-fresh-minimal-tmpfs-dev; mandatory-devpts; exact-core-char-nodes; private-hud-card0-root; explicit-proc-hud-root-exposure; no-native-devtmpfs-move",
+  "review_report": "docs/reports/A90_H24_MINIMAL_DEBIAN_DEV_INDEPENDENT_REVIEW_2026-08-12.json",
+  "review_report_sha256": "c3f61a30e106b0228a6f2b8e57e19e64fea4d1623444b47fd24705c54fd78adb",
+  "live_authority": false
+}

@@ -3929,8 +3929,10 @@ static int d3_prepare_new_dev(bool *mounted_devpts) {
         }
         a90_console_printf("%s devpts=mounted path=%s\r\n", A90_D3_TAG, pts_dir);
     } else {
-        a90_console_printf("%s devpts=warn rc=-%d (%s)\r\n",
-                           A90_D3_TAG, errno, strerror(errno));
+        rc = -errno;
+        a90_console_printf("%s devpts=fail rc=%d (%s)\r\n",
+                           A90_D3_TAG, rc, strerror(-rc));
+        goto fail_new_dev;
     }
     a90_console_printf("%s dev_mountpoint=0 dev_nodes=prepared root=%s\r\n",
                        A90_D3_TAG, dev_dir);
@@ -7483,11 +7485,17 @@ static int d4_prepare_optional_ttygs0(void) {
     return d4_prepare_dev_node("dev/ttyGS0", 0600, major(st.st_rdev), minor(st.st_rdev));
 }
 
-static int d4_prepare_new_dev(bool *mounted_devpts) {
+static int d4_prepare_new_dev(bool *mounted_new_dev, bool *mounted_devpts) {
     char dev_dir[PATH_MAX];
     char pts_dir[PATH_MAX];
+    struct stat st;
+    bool dev_tmpfs_mounted = false;
+    bool devpts_mounted = false;
     int rc;
 
+    if (mounted_new_dev != NULL) {
+        *mounted_new_dev = false;
+    }
     if (mounted_devpts != NULL) {
         *mounted_devpts = false;
     }
@@ -7495,62 +7503,90 @@ static int d4_prepare_new_dev(bool *mounted_devpts) {
     if (rc < 0) {
         return rc;
     }
-    rc = d3_mkdir_p(dev_dir, 0755);
-    if (rc < 0) {
-        return rc;
+    if (lstat(dev_dir, &st) < 0) {
+        return -errno;
+    }
+    if (!S_ISDIR(st.st_mode)) {
+        return -ENOTDIR;
+    }
+    if (mount("tmpfs", dev_dir, "tmpfs", MS_NOSUID | MS_NOEXEC,
+              "mode=0755") < 0) {
+        return -errno;
+    }
+    dev_tmpfs_mounted = true;
+    if (mounted_new_dev != NULL) {
+        *mounted_new_dev = true;
     }
     rc = d4_prepare_dev_node("dev/console", 0600, 5, 1);
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     rc = d4_prepare_dev_node("dev/tty", 0666, 5, 0);
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     rc = d4_prepare_dev_node("dev/ptmx", 0666, 5, 2);
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     rc = d4_prepare_dev_node("dev/null", 0666, 1, 3);
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     rc = d4_prepare_dev_node("dev/zero", 0666, 1, 5);
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     rc = d4_prepare_dev_node("dev/random", 0666, 1, 8);
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     rc = d4_prepare_dev_node("dev/urandom", 0666, 1, 9);
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     rc = d4_prepare_optional_ttygs0();
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     rc = d4_join_root(pts_dir, sizeof(pts_dir), "dev/pts");
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     rc = d3_mkdir_p(pts_dir, 0755);
     if (rc < 0) {
-        return rc;
+        goto fail_new_dev;
     }
     if (mount("devpts", pts_dir, "devpts", 0, "mode=620,ptmxmode=666") == 0) {
+        devpts_mounted = true;
         if (mounted_devpts != NULL) {
             *mounted_devpts = true;
         }
         a90_console_printf("%s devpts=mounted path=%s\r\n", A90_D4_TAG, pts_dir);
     } else {
-        a90_console_printf("%s devpts=warn rc=-%d (%s)\r\n",
-                           A90_D4_TAG, errno, strerror(errno));
+        rc = -errno;
+        a90_console_printf("%s devpts=fail rc=%d (%s)\r\n",
+                           A90_D4_TAG, rc, strerror(-rc));
+        goto fail_new_dev;
     }
     a90_console_printf("%s dev_mountpoint=0 dev_nodes=prepared root=%s\r\n",
                        A90_D4_TAG, dev_dir);
     return 0;
+
+fail_new_dev:
+    if (devpts_mounted) {
+        (void)umount2(pts_dir, MNT_DETACH);
+    }
+    if (mounted_devpts != NULL) {
+        *mounted_devpts = false;
+    }
+    if (dev_tmpfs_mounted) {
+        (void)umount2(dev_dir, MNT_DETACH);
+    }
+    if (mounted_new_dev != NULL) {
+        *mounted_new_dev = false;
+    }
+    return rc;
 }
 
 static void d4_restore_mount_one(const char *leaf, const char *dst) {
@@ -7574,8 +7610,8 @@ static void d4_unmount_leaf(const char *leaf) {
 static int d4_move_core_mounts(bool *moved_proc,
                                bool *moved_sys,
                                bool *moved_dev,
+                               bool *mounted_new_dev,
                                bool *mounted_devpts) {
-    int dev_mounted;
     int rc;
 
     if (moved_proc != NULL) {
@@ -7587,12 +7623,11 @@ static int d4_move_core_mounts(bool *moved_proc,
     if (moved_dev != NULL) {
         *moved_dev = false;
     }
+    if (mounted_new_dev != NULL) {
+        *mounted_new_dev = false;
+    }
     if (mounted_devpts != NULL) {
         *mounted_devpts = false;
-    }
-    dev_mounted = d3_path_is_mounted("/dev");
-    if (dev_mounted < 0) {
-        return dev_mounted;
     }
     if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) < 0) {
         return -errno;
@@ -7612,33 +7647,25 @@ static int d4_move_core_mounts(bool *moved_proc,
     if (moved_sys != NULL) {
         *moved_sys = true;
     }
-    if (dev_mounted) {
-        rc = d4_move_mount_one("/dev", "dev");
-        if (rc < 0) {
-            d4_restore_mount_one("sys", "/sys");
-            d4_restore_mount_one("proc", "/proc");
-            return rc;
-        }
-        if (moved_dev != NULL) {
-            *moved_dev = true;
-        }
-    } else {
-        rc = d4_prepare_new_dev(mounted_devpts);
-        if (rc < 0) {
-            d4_restore_mount_one("sys", "/sys");
-            d4_restore_mount_one("proc", "/proc");
-            return rc;
-        }
+    rc = d4_prepare_new_dev(mounted_new_dev, mounted_devpts);
+    if (rc < 0) {
+        d4_restore_mount_one("sys", "/sys");
+        d4_restore_mount_one("proc", "/proc");
+        return rc;
     }
     return 0;
 }
 
-static void d4_restore_core_mounts(bool moved_proc, bool moved_sys, bool moved_dev, bool mounted_devpts) {
+static void d4_restore_core_mounts(bool moved_proc, bool moved_sys,
+                                   bool moved_dev, bool mounted_new_dev,
+                                   bool mounted_devpts) {
     if (mounted_devpts) {
         d4_unmount_leaf("dev/pts");
     }
     if (moved_dev) {
         d4_restore_mount_one("dev", "/dev");
+    } else if (mounted_new_dev) {
+        d4_unmount_leaf("dev");
     }
     if (moved_sys) {
         d4_restore_mount_one("sys", "/sys");
@@ -7907,6 +7934,7 @@ int a90_server_distro_switch_root_userdata_cmd(char **argv, int argc) {
     bool moved_sys = false;
     bool moved_dev = false;
     bool mounted_devpts = false;
+    bool mounted_new_dev = false;
     bool bound_dpublic_hud_run = false;
     int rc;
     char *const newenv[] = {
@@ -7973,7 +8001,8 @@ int a90_server_distro_switch_root_userdata_cmd(char **argv, int argc) {
         a90_console_printf("%s stop=dpublic-hud-shared-run-bind rc=%d\r\n", A90_D4_TAG, rc);
         return rc;
     }
-    rc = d4_move_core_mounts(&moved_proc, &moved_sys, &moved_dev, &mounted_devpts);
+    rc = d4_move_core_mounts(&moved_proc, &moved_sys, &moved_dev,
+                             &mounted_new_dev, &mounted_devpts);
     if (rc < 0) {
         a90_console_printf("%s mount_move=fail rc=%d\r\n", A90_D4_TAG, rc);
         if (bound_dpublic_hud_run) {
@@ -7992,7 +8021,8 @@ int a90_server_distro_switch_root_userdata_cmd(char **argv, int argc) {
     rc = -errno;
     a90_console_printf("%s execve_switch_root=fail rc=%d errno=%d (%s)\r\n",
                        A90_D4_TAG, rc, -rc, strerror(-rc));
-    d4_restore_core_mounts(moved_proc, moved_sys, moved_dev, mounted_devpts);
+    d4_restore_core_mounts(moved_proc, moved_sys, moved_dev,
+                           mounted_new_dev, mounted_devpts);
     if (bound_dpublic_hud_run) {
         d4_unbind_dpublic_hud_run_dir();
     }
