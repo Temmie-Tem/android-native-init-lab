@@ -18,6 +18,15 @@ permanent safety boundaries. Boot-only transfer, exact target selection,
 rollback, recovery, read-only UFS, durable one-shot/no-replay state, minimal
 Debian `/dev`, cleanup, and terminal health remain mandatory.
 
+2026-08-13 refinement: the next candidate is deferred until Wi-Fi ownership is
+decided. The persistent native Wi-Fi companion keeps an old-root mount
+namespace while Debian receives shared procfs, so private `CLONE_NEWNS` alone
+cannot support a minimal-exposure claim. The binding follow-up is
+`A90_HEADLESS_HANDOFF_MINIMUM_AND_WIFI_OWNERSHIP_DECISION_2026-08-13.md`.
+Prefer a bounded proof that all native Wi-Fi sidecars can be reaped and Debian
+can take ownership. Consider a nested PID-namespace supervisor only if that
+proof is refuted and after a separate hazard review.
+
 The installed H24 resident is unchanged. Its consumed D1 effect is not retried.
 H25 is `NO_GO_RETIRED`; this plan creates no H26 or other successor identity,
 artifact, approval, or live authority.
@@ -127,10 +136,11 @@ The current lane is direct-UFS for the Debian root, but is not yet SD-free:
   `/mnt/sdext/a90/private-property-v317/v726/dev/__properties__`.
 
 The public closure does not prove whether every armed Wi-Fi path dereferences
-that property root, so SD removal is unproved. Before the operator moves the SD
-card to S20+, a fresh A90 successor must either retain a known exact SD during
-its first headless proof or replace both dependencies with a reviewed same-run
-host/UFS evidence path and a non-SD Wi-Fi input. HUD removal alone is not the
+that property root, so SD removal is unproved. The current H24 resident may use
+its exact known SD only for the separately approved pre-candidate W0 ownership
+test. Before any fresh A90 successor candidate is created, both dependencies
+must be replaced by a reviewed compact cache receipt/authenticated same-run
+observer and a boot-private non-SD Wi-Fi input. HUD removal alone is not the
 SD-removal gate.
 
 ## Exact firstboot distinction
@@ -256,8 +266,10 @@ Retain:
   DRM even when no persistent HUD starts;
 - detailed stage telemetry, benchmark, and failure attribution;
 - current observer authorization overlay;
-- host ACM/NCM observation and Wi-Fi companion;
-- SD evidence bind until its replacement is independently reviewed;
+- host ACM/NCM observation and W0-selected bounded Wi-Fi diagnostics, with no
+  native Wi-Fi companion surviving into `switch_root`;
+- compact cache receipt and authenticated same-run observer replacing the SD
+  evidence bind before candidate creation;
 - current immutable UFS content, even where optional services remain inert;
 - bounded Wi-Fi watch/trace settings until repeatable final Wi-Fi is proved.
 
@@ -269,11 +281,11 @@ Retain:
 - H25 `chroot` and boot-selftest designs;
 - firstboot overlay;
 - boot chime autoplay;
+- hard SD evidence bind and compiled SD Wi-Fi property path;
 - any display-success requirement in the headless terminal.
 
 ### D. Retire or replace after stable headless proof
 
-- hard SD evidence bind and compiled SD Wi-Fi property path;
 - SD image/work-copy/loop/hash paths;
 - UFS formatter/populator and manual experiment commands in resident init;
 - manual HUD/display surfaces;
@@ -303,7 +315,20 @@ It can be reorganized without weakening it.
 - identify SD evidence and Wi-Fi couplings;
 - change no target, rootfs, artifact, or live state.
 
-### Stage 1: fresh headless successor
+### Stage 1: Wi-Fi ownership decision
+
+- qualify one attended no-payload test against the exact healthy resident;
+- start from a known Wi-Fi state, durably record one stop intent, stop and reap
+  the exact native helper group once, and observe bounded redacted `wlan0`
+  state;
+- never arm handoff, mount UFS, reboot, flash, or call the result a server PASS;
+- select Debian-owned Wi-Fi only on `TRANSFER_FEASIBLE`;
+- on `TRANSFER_REFUTED` or `NO_PROOF`, stop for a separately reviewed nested
+  PID-namespace design.
+
+No successor identity is allocated in this stage.
+
+### Stage 2: fresh headless successor
 
 - allocate a fresh post-H25 version/build, profile, random seed, enable path,
   latch path, A/B receipt, qualification, and execution closure;
@@ -311,7 +336,9 @@ It can be reorganized without weakening it.
   firstboot overlay, and boot chime;
 - define a distinct headless persistent-result model with display explicitly
   not required and terminal native health deferred until attended return;
-- retain SD for the first proof unless both SD couplings are already closed;
+- replace the SD evidence bind with a compact durable cache receipt and use a
+  boot-private non-SD Wi-Fi input selected by Stage 1; do not create a new
+  candidate that still requires SD;
 - require independent capability review, fresh connected D0, exact attended F1
   approval, resident health, separate attended D1 approval, and no replay.
 
@@ -319,17 +346,20 @@ While Debian stays live, report exact server observations and
 `HEALTH_PENDING_PERSISTENT_DEBIAN`. Only an attended return/recovery and exact
 native checks can close `RESIDENT_HEALTHY`.
 
-### Stage 2: remove SD dependency
+### Stage 3: prove and exercise SD independence
 
-- replace SD evidence bind with a reviewed same-run host or UFS-neutral receipt;
-- prove the Wi-Fi helper no longer reads the compiled SD property root;
-- perform an explicit no-SD D0 inventory and headless qualification;
-- only then remove the SD card from A90 for use in S20+.
+- verify the installed artifact and runtime binding contain neither the SD
+  evidence path nor the compiled SD Wi-Fi property root;
+- after the SD-free resident is installed and healthy, remove the card while
+  attended, perform an explicit no-SD D0 inventory, and only then approve the
+  headless D1 handoff;
+- move the card to S20+ only after A90's no-SD resident and recovery path are
+  exact.
 
 This stage is not a license to transfer A90 evidence, profiles, or approvals to
 S20+.
 
-### Stage 3: split production source
+### Stage 4: split production source
 
 Separate modules/interfaces for:
 
@@ -346,21 +376,21 @@ Build production init without the experimental modules. Then evaluate
 artifact and behavior comparison. This is a fresh build change and requires
 the usual closure review.
 
-### Stage 4: minimal Debian content
+### Stage 5: minimal Debian content
 
 Create a separately versioned UFS image/content manifest containing only the
 chosen control channel, Dropbear/authentication, Wi-Fi configuration, logging,
 and required recovery support. Remove HUD, smoke HTTP, tunnel, and obsolete
 test services. Do not mutate the installed read-only appliance opportunistically.
 
-### Stage 5: optional display
+### Stage 6: optional display
 
 After repeated headless success, design display as an independent capability,
 preferably Debian-owned. It must have its own target/device exposure claim,
 failure isolation, qualification, and terminal; display failure must not prevent
 an otherwise healthy headless server from booting.
 
-### Stage 6: compiler optimization
+### Stage 7: compiler optimization
 
 Only after the functional split and comparable benchmark are stable:
 

@@ -1,0 +1,50 @@
+{
+  "schema": "a90-headless-wifi-ownership-h0-independent-review-v1",
+  "target": "Samsung Galaxy A90 5G",
+  "review_date": "2026-08-13",
+  "reviewer": "/root/a90_headless_wifi_boundary_review",
+  "review_scope": "headless-handoff-minimum-native-wifi-sidecar-proc-root-hazard-and-w0-ownership-boundary",
+  "verdict": "PASS_H0_DOCUMENTATION_AND_HAZARD_BOUNDARY",
+  "live_authority": false,
+  "pass_go": false,
+  "reviewed_closure": {
+    "formula": "sorted relative\\0size\\0sha256\\0",
+    "sha256": "4e5259677e14b9b6279e49723faf349b085d07250a52521bbd19f2944f3dca38",
+    "file_count": 15,
+    "report_is_outside_reviewed_closure": true
+  },
+  "findings": {
+    "high": [],
+    "medium": [],
+    "low": []
+  },
+  "validated_invariants": [
+    "H24 persistent Wi-Fi uses a private mount namespace without a PID namespace while the handoff moves procfs into Debian, so proc-mediated old-root capability is a valid static hazard",
+    "H24 stopped before Wi-Fi bind, core-mount move, and switch_root, so no live exposure or exploit is claimed and its consumed D1 is never replayed",
+    "W0 is a proposed attended no-payload capability shape with one stop and no replay, not standing D1 authority",
+    "W0 excludes handoff arm, UFS mount, reboot, candidate transfer, flash, and Debian-health claims",
+    "only TRANSFER_FEASIBLE selects Debian-owned Wi-Fi; TRANSFER_REFUTED and NO_PROOF grant no candidate authority",
+    "nested PID namespace supervision remains a separate H0 architecture and fresh hazard review",
+    "boot-only scope, exact rollback, physical recovery, no-replay, native-health separation, and A90 target isolation remain binding",
+    "both SD dependencies must be removed before any fresh successor candidate and attended no-SD D0 precedes D1",
+    "current benchmark storage counters are mmcblk0-only and UFS whole-device sda accounting remains future test work",
+    "no H26 identity, artifact, state namespace, runner, path, or authority exists or is reserved"
+  ],
+  "validation": {
+    "focused_public_unittest": "5/5 PASS",
+    "closure_recomputed_independently": true,
+    "formatting_delta_review": "PASS"
+  },
+  "review_contacts": {
+    "file_modifications": 0,
+    "device_or_live_commands": 0,
+    "dev": 0,
+    "usb": 0,
+    "network": 0,
+    "workspace_private": 0,
+    "s22plus_paths": 0,
+    "s20plus_paths": 0,
+    "payload_partition_reboot_flash_handoff_effects": 0
+  },
+  "authority_statement": "This review qualifies only the H0 documentation and hazard boundary. It grants no D0, D1, F1, candidate, PASS_GO, flash, reboot, handoff, SD-removal, or device authority."
+}

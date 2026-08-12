@@ -195,7 +195,9 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
             h15["init"]["sources"],
             h15["init"]["closure_globs"],
         )
-        self.assertEqual(
+        # H15 is historical. Later native safety work must invalidate its pin
+        # instead of silently requalifying the old candidate.
+        self.assertNotEqual(
             BUILDLIB.closure_sha256(init_root, closure),
             h15["init"]["closure_sha256"],
         )
@@ -381,7 +383,7 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
 
         for token in (
             "d4_resolve_userdata(&target)",
-            "d4_compare_expected(&target",
+            "d4_compare_ro_expected(&target",
             "d4_check_ext4_magic_phase(A90_D4_NODE, phase)",
             "d4_check_ext_has_journal(A90_D4_NODE, phase)",
             "d4_check_ext4_clean_no_recovery(A90_D4_NODE, phase)",
@@ -579,13 +581,12 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
                     missing.append((relative, candidates[0]))
         self.assertEqual(missing, [])
 
-    def test_h15_receipt_and_execution_closure_bind_full_manifest_lineage(self) -> None:
-        closure = H15_F1.execution_closure()
-        parent = (
-            "workspace/public/src/scripts/revalidation/a90_flat_builder/"
-            "versions/v3404-effective/manifest.toml"
-        )
-        self.assertIn(parent, closure["files"])
+    def test_h15_execution_closure_fails_closed_after_native_lineage_changes(self) -> None:
+        with self.assertRaisesRegex(
+            H15_F1.ContractError,
+            "H15 native transitive closure changed",
+        ):
+            H15_F1.execution_closure()
         source = H15_F1_RUNNER.read_text(encoding="utf-8")
         self.assertIn("lineage != expected_lineage", source)
         self.assertIn("for path in resolution.lineage", source)
@@ -1154,7 +1155,7 @@ class A90UfsHandoffSourceV1Tests(unittest.TestCase):
 
     def test_target_contract_represents_direct_ufs_readonly_lane(self) -> None:
         contract = TARGET_CONTRACT.read_text(encoding="utf-8")
-        start = contract.index("`A90_DIRECT_UFS_READONLY_ROOT_V1`")
+        start = contract.index("`A90_DIRECT_UFS_READONLY_ROOT_V2`")
         lane = contract[start:contract.index("The one-use attended D1", start)]
         for token in (
             "ro,noload,nosuid,nodev",

@@ -896,10 +896,12 @@ class A90H24UfsExecutionV1Tests(unittest.TestCase):
                 now=now,
             )
 
-    def test_host_capability_qualification_is_current_and_live_false(self) -> None:
-        value = self.f1.validate_host_capability_qualification()
-        self.assertEqual(value["verdict"], "PASS_GO")
-        self.assertFalse(value["live_authority"])
+    def test_historical_host_capability_qualification_fails_closed_after_contract_change(self) -> None:
+        with self.assertRaisesRegex(
+            self.f1.ContractError,
+            "H24 host capability execution hash changed",
+        ):
+            self.f1.validate_host_capability_qualification()
 
     def test_execution_qualification_requires_both_runners(self) -> None:
         closure = self.f1.execution_closure()

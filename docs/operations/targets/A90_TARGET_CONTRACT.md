@@ -502,11 +502,37 @@ reap, parser, and receipt boundary. H25 never gained qualification, runner,
 approval, connected D0, transfer, reboot, or handoff authority. Its identity,
 state paths, artifacts, and evidence are never reused or reinterpreted.
 
-Only a fresh successor identity may replace H24. A successor may define a
-headless persistent-server lane that compile-disables the persistent native HUD
-and firstboot overlay. Such a lane must retain the exact read-only UFS,
-boot-private authentication, minimal Debian `/dev`, mandatory devpts, Wi-Fi,
-one-shot/no-replay, rollback, cleanup, recovery, and resident-health boundaries.
+Only a fresh successor identity may replace H24. Before allocating that
+identity, the Wi-Fi ownership boundary must be selected. H24's persistent
+native Wi-Fi companion uses a private mount namespace but remains in the PID
+namespace whose procfs is moved into Debian. That is not proof of isolation: a
+surviving process may expose its retained old root, file descriptors, or mount
+namespace through `/proc/<pid>`. No headless successor may inherit this process
+model while claiming minimal Debian exposure.
+
+The preferred selection is one separately qualified, attended, no-payload D1
+Wi-Fi ownership test. It may bring up Wi-Fi, durably record one stop intent,
+stop and reap the exact native Wi-Fi helper group once, and observe bounded
+redacted `wlan0` state. It must not arm handoff, mount UFS, reboot, transfer a
+candidate, or claim Debian health. Its only terminals are
+`TRANSFER_FEASIBLE`, `TRANSFER_REFUTED`, or `NO_PROOF`; an uncertain stop is
+never replayed. This paragraph defines the required capability shape, not
+standing D1 authority. A fresh execution closure, independent review, exact
+resident/recovery binding, and fresh attended approval remain mandatory.
+
+`TRANSFER_FEASIBLE` permits a later fresh successor to require every native
+Wi-Fi/Android companion gone before `switch_root` and give association, DHCP,
+DNS, and final Wi-Fi health to Debian using a boot-private non-SD input.
+`TRANSFER_REFUTED` or `NO_PROOF` grants no candidate authority. A nested PID
+namespace with native supervisor is then a separate H0 architecture and hazard
+review; `hidepid`, `chroot`, a private mount namespace, or path-name checks are
+not implicit alternatives.
+
+After that decision, a successor may define a headless persistent-server lane
+that compile-disables the persistent native HUD and firstboot overlay. Such a
+lane must retain the exact read-only UFS, boot-private authentication, minimal
+Debian `/dev`, mandatory devpts, final Wi-Fi, one-shot/no-replay, rollback,
+cleanup, recovery, and resident-health boundaries.
 Its persistent result may prove Debian PID 1, authenticated SSH, exact minimal
 Debian `/dev`, final Wi-Fi, and persistent service health while explicitly
 making no display or HUD claim. While Debian remains live, device safety stays
