@@ -485,6 +485,42 @@ across ordinals, manifests, and campaigns only while the named
 execution-critical hashes and these hazard assumptions are unchanged and no
 new incident occurs.
 
+H24 run01 exposed the separate `H24_PERSISTENT_HUD_BOOTSTRAP_EINVAL`
+incident. The exact H24 resident install remains healthy, but its one D1 arm,
+reboot, and handoff attempt are consumed and never replayed. The same-intent
+record proves only the outer `persistent-hud rc=-22 errno=22` stop after the
+read-only UFS root and writable set were mounted; it does not prove which
+private-root syscall failed. Clean restoration, zero userdata writes, and the
+terminal native `RESIDENT_HEALTHY` are separate facts. H24 qualification and
+live authority are retired by this new incident.
+
+H25 `0.11.193` was a host-only attempted successor and is
+`NO_GO_RETIRED`. Review proved that its `chroot` design retained the old mount
+graph as a namespace capability and that its HUD boot self-test was replayable,
+could mutate or leave parent mount state, and did not fail closed across every
+reap, parser, and receipt boundary. H25 never gained qualification, runner,
+approval, connected D0, transfer, reboot, or handoff authority. Its identity,
+state paths, artifacts, and evidence are never reused or reinterpreted.
+
+Only a fresh successor identity may replace H24. A successor may define a
+headless persistent-server lane that compile-disables the persistent native HUD
+and firstboot overlay. Such a lane must retain the exact read-only UFS,
+boot-private authentication, minimal Debian `/dev`, mandatory devpts, Wi-Fi,
+one-shot/no-replay, rollback, cleanup, recovery, and resident-health boundaries.
+Its persistent result may prove Debian PID 1, authenticated SSH, exact minimal
+Debian `/dev`, final Wi-Fi, and persistent service health while explicitly
+making no display or HUD claim. While Debian remains live, device safety stays
+`HEALTH_PENDING_PERSISTENT_DEBIAN`; only an attended return or recovery and
+exact native checks may close `RESIDENT_HEALTHY`. It must not inherit a
+HUD-enabled result predicate.
+
+Display is a separate optional capability after headless server health is
+established, preferably with Debian as owner. Any future persistent native HUD
+or boot-time HUD self-test requires a fresh hazard design and independent
+review; it may not reuse the H25 `chroot` or replayable-self-test design. Every
+successor F1 and D1 remains separately approved, attended, one-shot, and
+no-replay under the ordinary live gates.
+
 The one-use attended D1 sub-capability
 `A90_ATTENDED_H5_H4_SOURCE_RECLAIM_V1` addresses only the bounded hazard
 `SD_CAPACITY_EXHAUSTION_BLOCKING_FRESH_SOURCE_AND_WORK_COPY`. It may unlink
