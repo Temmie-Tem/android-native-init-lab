@@ -649,6 +649,16 @@ rollback and recovery proof, immutable live binding, attendance, and one fresh
 exact F1 approval. Until those occur, `live_authorized=false`; no module has
 been inserted and no candidate transfer has started.
 
+The first P3.16 connected D0 preparation stopped read-only after exact target
+and health validation because the 2,097,136-byte retained baseline still
+contained one integrity-clean, foreign-count-zero consumed P3.15 family:
+generation 106 `0x0d3f` followed by generation 107 `0x5064`. The raw capture
+and empty stderr are preserved under the private failed run; no `prepared.json`,
+F1 binding, reboot, Download transition, Odin invocation, payload, or transfer
+was created. The invocation is not reusable. One fresh exact normal-reboot
+baseline-rotation D1 is now required before a second fresh D0; the existing
+one-shot helper fixture passes, but no D1 authority has been supplied.
+
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden
 archive member, an unreviewed common receipt/schema change, an observer result
 that cannot distinguish the declared branches, or any unexplained post-session
