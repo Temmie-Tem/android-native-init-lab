@@ -18,9 +18,19 @@ incident, or a genuinely ambiguous device-safety result.
 
 Metrics:
 
-- information-bearing results per week: `PROVED + REFUTED`;
-- information yield: `(PROVED + REFUTED) / all device attempts`; and
+- conclusive experiment results per week: `PROVED + REFUTED`;
+- conclusive information yield: `(PROVED + REFUTED) / all device attempts`;
+- diagnostic-bearing yield:
+  `(PROVED + REFUTED + NO_PROOF_EXPERIMENT_PRECONDITION) / all device attempts`;
+- experiment-precondition no-proof rate:
+  `NO_PROOF_EXPERIMENT_PRECONDITION / all device attempts`; and
 - observer no-proof rate: `NO_PROOF_OBSERVER / all device attempts`.
+
+An append-only proof-class correction never edits or removes the original
+action row, terminal spelling, transfer count, health, or raw evidence. A later
+H0 correction row must identify the original campaign/ordinal, name its
+effective class, and cite the source-backed distinction. Metrics use that
+effective class once; the correction row itself is not another device attempt.
 
 Device safety is recorded independently from experiment proof. A timeout or
 late endpoint may be `HEALTH_PENDING`, `HOST_OBSERVER_FAILURE`, or
@@ -28,7 +38,7 @@ late endpoint may be `HEALTH_PENDING`, `HOST_OBSERVER_FAILURE`, or
 
 ## Format
 
-`<UTC> | <campaign> | <ordinal> | <tier> | <action> | <HEALTHY|HEALTH_PENDING|HOST_OBSERVER_FAILURE|RECOVERY_PENDING_PARKED|RECOVERY_REQUIRED> | <PROVED|REFUTED|NO_PROOF_OBSERVER|N/A> | <candidate-transfers>/<rollback-transfers> | <one-line finding>`
+`<UTC> | <campaign> | <ordinal> | <tier> | <action> | <HEALTHY|HEALTH_PENDING|HOST_OBSERVER_FAILURE|RECOVERY_PENDING_PARKED|RECOVERY_REQUIRED> | <PROVED|REFUTED|NO_PROOF_EXPERIMENT_PRECONDITION|NO_PROOF_OBSERVER|N/A> | <candidate-transfers>/<rollback-transfers> | <one-line finding>`
 
 ## Log
 
@@ -192,3 +202,4 @@ late endpoint may be `HEALTH_PENDING`, `HOST_OBSERVER_FAILURE`, or
 2026-08-12T03:59:29Z | s22plus-fyg8-p316 | live-prepare-2 | D0 | PROCESS_V2_PREPARED | HEALTHY | PROVED | 0/0 | Fresh exact-S22 D0 read a clean 2,097,136-byte retained baseline with zero marker-family matches and bound the P3.16 candidate, exact Magisk rollback, USB sidecar, reviewed 1,200-second guard, and current execution closure as binding f5d964de. Host-only prepared reopening remains required before execution; device_writes, reboot_requested, odin_invoked, partition_transfer, f1_authorized, and live_authorized are false, and A90 received zero commands.
 2026-08-12T04:22:44Z | s22plus-fyg8-p316 | 1 | F1 | CAMPAIGN_CLOSED | HEALTHY | NO_PROOF_OBSERVER | 1/1 | The operator observed one normal candidate boot without a loop; ACM timed out, while two byte-identical 2,097,136-byte retained reads proved a CRC-clean generation-106 0x0da3 record followed by terminal 0x6708 exact-parent-unbound-after-sync-return. The exact Max77705 parent existed unbound and the diagnostic finit_module returned success, but the parent remained unbound, no diagnostic 0x25 client existed, and result publication stayed EAGAIN, so no CONTROL1 or physical-MUX claim is allowed. Candidate and exact rollback each transferred once, the 19-record journal closed, rooted boot-completed FYG8 and supporting-partition health passed, recovery is not required, the candidate is consumed without replay, and A90 was untouched.
 2026-08-12T04:29:25Z | s22plus-fyg8-p316 | postlive-h0-1 | H0 | MAX77705_PMIC_PINCTRL_SUPPLIER_CLOSURE_LOCALIZED | HEALTHY | PROVED | 0/0 | Exact g0q DT, fixed OF/device-core source, stock modules.load/modules.dep, and the materialized P3.16 plan localize the dominant 0x6708 mechanism: max77705@66 has a PM8350C GPIO/pinctrl supplier, while P3.16 omits qti-regmap-debugfs, regmap-spmi, qcom-spmi-pmic, spmi-pmic-arb, and pinctrl-spmi-gpio. This exactly predicts successful driver registration followed by pre-probe deferral, but the consumed record lacks waiting_for_supplier and supplier identity, so the cause remains strongest H0 localization rather than unique live proof. A successor must derive and qualify that changed provider closure and retain the unresolved supplier; no replay, device action, Full-LTO, live authority, or A90 touch occurred.
+2026-08-12T06:21:50Z | s22plus-fyg8-p317 | h0-design-1 | H0 | P316_PROOF_CLASS_CORRECTION_AND_EXPERIMENT_EXECUTABILITY_CLOSURE_DESIGN | HEALTHY | PROVED | 0/0 | Append-only metrics correction for original campaign s22plus-fyg8-p316 ordinal 1: preserve its immutable 0x6708 terminal, NO_PROOF_OBSERVER spelling, 1/1 transfers, and healthy close, but count its effective class as NO_PROOF_EXPERIMENT_PRECONDITION because the CRC-clean authority-complete retained vector proved the exact parent stayed unbound after synchronous registration and the MUX mechanism never executed. The audited P3.10-P3.16 cohort is four observer failures, one experiment-precondition failure, and two conclusive results. Process-v2 now separates observer arming from EXPERIMENT_EXECUTABILITY_CLOSURE; an exact 28-row fw_devlink extractor resolves Max77705 pinctrl 0x7b and IRQ-GPIO 0x11 as two raw reasons for one qcom,pm8350c-gpio owner edge. H0 only: no candidate, device action, Full-LTO, live authority, replay, or A90 touch occurred.

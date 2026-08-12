@@ -12,7 +12,14 @@ authority, evidence, transports, and commands remain separate.
 
 ## Current Frontier
 
-P3.15 is the latest closed live unit. Its distinct boot-only candidate and
+P3.16 is the latest closed live unit. Its distinct boot-only candidate and
+exact Magisk rollback each transferred once, the journal closed, and rooted
+boot-completed FYG8 health passed after rollback. Its retained observer was
+sound but proved that the Max77705 experiment did not execute; the effective
+class is `NO_PROOF_EXPERIMENT_PRECONDITION`. The immutable decoder spelling and
+original append-only ledger row remain historical evidence.
+
+P3.15 is the preceding closed cycle unit. Its distinct boot-only candidate and
 exact Magisk rollback each transferred exactly once. The Process-v2 journal is
 `CLOSED`; rooted boot-completed FYG8 Android, boot and supporting-partition
 identities, stopped boot animation, and absence of Download mode passed with
@@ -645,24 +652,41 @@ CRC-clean retained reads decoded one authoritative `0x6708`
 `exact_parent_unbound_after_sync_return` terminal: the exact Max77705 parent
 existed unbound, the diagnostic module's synchronous `finit_module()` returned
 success, but the parent remained unbound, no diagnostic `0x25` client existed,
-and the result stayed `-EAGAIN`. The result is
-`NO_PROOF_OBSERVER_DIAGNOSTIC_SYNC_CONTRADICTION`; no CONTROL1 or physical-MUX
-claim is permitted and the P3.16 candidate is consumed without replay.
+and the result stayed `-EAGAIN`. The immutable decoder terminal is
+`NO_PROOF_OBSERVER_DIAGNOSTIC_SYNC_CONTRADICTION`, but the observer itself did
+not fail. It emitted the exact registered EAGAIN precondition row, so the
+effective campaign class is `NO_PROOF_EXPERIMENT_PRECONDITION`: observer sound,
+experiment not executed. No CONTROL1 or physical-MUX claim is permitted and
+the P3.16 candidate is consumed without replay.
 
-Post-live H0 localizes the dominant pre-probe mechanism. Exact g0q DT makes
-`max77705@66` depend on the `qcom,pm8350c-gpio` pinctrl provider, and fixed
-driver core checks that supplier before the diagnostic probe. P3.16 omitted
-the full stock five-module provider chain: `qti-regmap-debugfs`, `regmap-spmi`,
-`qcom-spmi-pmic`, `spmi-pmic-arb`, and `pinctrl-spmi-gpio`. That omission
-exactly predicts successful driver registration followed by an unbound client
-and an unpublished result. It remains a strongest H0 localization rather than
-a unique device proof because P3.16 did not retain `waiting_for_supplier` or
-the unresolved supplier identity. The incident and successor boundary are in
-`docs/reports/S22PLUS_FYG8_P316_MAX77705_SYNC_PROBE_CONTRADICTION_INCIDENT_2026-08-12.md`.
+Post-live H0 localizes the dominant pre-probe mechanism. An exact-source
+extractor proves that `pinctrl-0 = <0x7b>` and
+`max77705,irq-gpio = <0x11 ...>` resolve to the same compatible owner,
+`qcom,pm8350c-gpio`: two raw property reasons become one deduplicated
+consumer-to-supplier edge. P3.16 omitted the full stock five-module provider
+chain: `qti-regmap-debugfs`, `regmap-spmi`, `qcom-spmi-pmic`, `spmi-pmic-arb`,
+and `pinctrl-spmi-gpio`. That omission exactly predicts successful driver
+registration followed by an unbound client and an unpublished result. It
+remains a strongest H0 localization rather than a unique device proof because
+P3.16 did not retain `waiting_for_supplier` or the unresolved supplier
+identity.
 
-The next unit is H0 only. It must derive and qualify the exact PMIC supplier
-closure, account for its broader stock-provider binding effects, retain the
-supplier identity on any unbound terminal, and rerun the complete
+The P3.10-P3.16 proof audit is now fixed as four observer failures, one
+experiment-precondition failure, and two conclusive `REFUTED` results. The
+general `EXPERIMENT_EXECUTABILITY_CLOSURE` and its first exact-source family,
+`FW_DEVLINK_DT_SUPPLIER_CLOSURE`, are registered in Process-v2. The host-only
+28-row parser-table regression receipt is 14,680 bytes with SHA-256
+`88b8247e48a1945c8a5f31544336f942c32f9604787e0cd46de0ba5f70f17609`.
+The incident and successor design are in
+`docs/reports/S22PLUS_FYG8_P316_MAX77705_SYNC_PROBE_CONTRADICTION_INCIDENT_2026-08-12.md`
+and
+`docs/reports/S22PLUS_FYG8_P317_EXPERIMENT_EXECUTABILITY_CLOSURE_DESIGN_H0_2026-08-12.md`.
+
+P3.17 remains H0 and not ready. It must derive and qualify the complete
+transitive must-bind consumer/provider closure, reprove effective fw_devlink
+mode and strictness from candidate boot authorities, account for broader
+provider binding effects, retain the three-state `waiting_for_supplier` witness
+separately from supplier identity and probe entry, and rerun the complete
 source-frozen userspace/package/Process-v2 closure. The fixed Image and custom
 diagnostic may be inherited only if static qualification reproves their bytes;
 no Full-LTO need, candidate authority, or live approval is implied.

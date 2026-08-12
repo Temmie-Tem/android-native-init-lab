@@ -1,6 +1,7 @@
 # S22+ FYG8 P3.16 Max77705 synchronous-probe contradiction
 
-Status: **F1 CLOSED HEALTHY; H0 LOCALIZATION COMPLETE; SUCCESSOR NOT READY**
+Status: **F1 CLOSED HEALTHY; OBSERVER SOUND; EXPERIMENT PRECONDITION FAILED;
+H0 LOCALIZATION COMPLETE; SUCCESSOR NOT READY**
 
 Date: 2026-08-12
 
@@ -13,6 +14,14 @@ P3.16 did not measure the Max77705 `CONTROL1` MUX. Its single live attempt
 ended in the predeclared fail-closed terminal `0x6708`, decoded as
 `exact_parent_unbound_after_sync_return` /
 `NO_PROOF_OBSERVER_DIAGNOSTIC_SYNC_CONTRADICTION`.
+
+That last string is the immutable P3.16 decoder's terminal spelling, not the
+effective campaign proof class. The retained observer did not fail: it emitted
+one CRC-clean, authority-complete precondition vector and selected the exact
+registered EAGAIN row. The effective proof class is therefore
+`NO_PROOF_EXPERIMENT_PRECONDITION`, meaning observer sound, mechanism not
+executed. The independent ACM endpoint timed out, but that host-channel result
+does not erase or downgrade the retained precondition proof.
 
 The retained record proves all of the following in one authoritative vector:
 
@@ -28,6 +37,32 @@ The retained record proves all of the following in one authoritative vector:
 Therefore no PMIC identity read, `CONTROL1_R`, `CONTROL1_W(0x09)`, retention
 interval, post read, physical-MUX inference, or connector-side causal claim is
 permitted. P3.16 is consumed and must never be replayed.
+
+## Append-only proof-class correction
+
+The original P3.16 `CAMPAIGN_CLOSED` row remains byte-for-byte historical and
+continues to preserve its terminal, transfer, and health facts. A later H0
+ledger row corrects only its effective metrics class from
+`NO_PROOF_OBSERVER` to `NO_PROOF_EXPERIMENT_PRECONDITION`.
+
+The adjacent P3.10-P3.16 F1 cohort was re-audited from its existing post-live
+H0 rows rather than inferred from terminal names:
+
+| Unit | Effective class | Existing causal authority |
+|---|---|---|
+| P3.10 | `NO_PROOF_OBSERVER` | nested Carrier-v2 bytes rejected by host JSON persistence |
+| P3.11 | `NO_PROOF_OBSERVER` | invalid profile equality plus Carrier selection seam |
+| P3.12 | `REFUTED` | integrity-clean clock/QSCRATCH result |
+| P3.13 | `NO_PROOF_OBSERVER` | valid intermediate terminal rejected and STOP pair-count model underderived |
+| P3.14 | `NO_PROOF_OBSERVER` | live caller read the snapshot without profiles before comparing them |
+| P3.15 | `REFUTED` | integrity-clean functional tuple with outer-work drift |
+| P3.16 | `NO_PROOF_EXPERIMENT_PRECONDITION` | exact parent stayed unbound after synchronous registration |
+
+The audited summary is observer failures 4, experiment-precondition failure 1,
+and conclusive experiment results 2. P3.16 is not a fifth consecutive observer
+failure. It is the first live demonstration that the result-contract arming
+precondition and EAGAIN decomposition reported an unexecuted experiment as
+designed.
 
 The strongest host-only localization is a missing Max77705 pinctrl-supplier
 closure. The exact board DT makes `max77705@66` a consumer of the PM8350C GPIO

@@ -344,6 +344,85 @@ returning no information about the device. The campaign ledger records that
 outcome as `NO_PROOF_OBSERVER`. It is a durable run outcome, not a retry, and
 the consumed candidate is never replayed.
 
+An observer-valid terminal that proves a necessary in-candidate experiment
+precondition was false is different. It is recorded as
+`NO_PROOF_EXPERIMENT_PRECONDITION`: the observer is sound, the mechanism under
+test did not execute, and neither `PROVED` nor `REFUTED` is permitted. Host
+channel degradation may coexist with that result, but does not replace a
+CRC-clean, authority-complete retained precondition terminal. The original
+terminal spelling and append-only action row remain evidence; a later
+classification correction may change only the effective campaign metric and
+must identify the original row and its source-backed reason.
+
+### Experiment Executability Closure
+
+The result-contract arming precondition proves that the observer can report
+every admitted outcome. It does not prove that the candidate can reach the
+mechanism under test. An ordinary Process-v2 candidate must therefore carry a
+second, independent `EXPERIMENT_EXECUTABILITY_CLOSURE` before approval.
+
+This is an explicitly permanent common qualification boundary, not a temporary
+P3.17 gate. It blocks the
+`UNMODELED_EXPERIMENT_DEPENDENCY_PRECONDITION` hazard exposed by P3.16 and
+applies to ordinary Process-v2 causal experiments. It has no expiry. Retiring
+or weakening it requires a reviewed common-contract change proving that every
+supported candidate obtains equivalent execution-precondition closure
+elsewhere. A false admission or false block, a newly discovered non-symbol
+dependency family, or a change to a registered extractor's kernel, firmware,
+boot-argument, or package authority triggers review. Every new relation family
+requires proportional independent review before use.
+
+The closure starts from the experiment design's explicit **must-bind consumer
+set**. For each consumer, qualification must enumerate every dependency graph
+that can prevent the claimed execution but is not represented by the selected
+module symbol graph. A graph family may be declared empty only by an executed,
+source-bound extractor. An unclassified relation, unresolved required edge, or
+missing provider blocks packaging; it is not deferred to attended F1.
+
+The first registered family is `FW_DEVLINK_DT_SUPPLIER_CLOSURE`. Its authority
+is the exact fixed kernel's `of_supplier_bindings[]` parser table, exact device
+tree, effective `fw_devlink` mode and strict value from all boot-argument
+sources, and the candidate module/built-in plan. A raw scan of every phandle is
+not equivalent to the kernel parser and is forbidden as closure evidence.
+This family applies only to must-bind consumers whose exact kernel path uses an
+OF fwnode and the registered parser authority; it is not permission to expand
+the module plan from every node in the device tree.
+
+Its receipt must preserve:
+
+1. the complete parser-table rows, count, order, source identity, and each
+   row's `optional` bit;
+2. the effective mode and strict value plus the boot source that establishes
+   each;
+3. the exact property parser that produced each raw consumer-to-phandle edge;
+4. the compatible owning ancestor selected by the fixed kernel;
+5. both raw edges and consumer-to-owner edges after the kernel-equivalent
+   duplicate elimination;
+6. the experiment design's must-bind status for every consumer;
+7. the mapped built-in or module provider, exact module bytes, dependency
+   order, presence, and expected bind witness; and
+8. the final effective probe-blocking decision.
+
+The table's `optional` bit never substitutes for must-bind scope. Whether an
+optional row is parsed depends on the exact `fw_devlink` mode and
+`fw_devlink.strict`; with `on` plus strict true, optional rows are parsed too.
+Qualification must evaluate the source condition rather than assigning a
+meaning to the field declaration alone.
+
+Changing the global kernel policy to `fw_devlink=off`,
+`fw_devlink=permissive`, or a non-strict equivalent is not an admissible remedy
+for a missing candidate provider. It changes unrelated device probe ordering,
+hides the omitted dependency, and invalidates causal interpretation of a
+partially initialized consumer. Add or remove must-bind consumers and satisfy
+their exact providers instead.
+
+When `waiting_for_supplier` is used as a live witness, its admissible states
+are attribute absent, attribute present with `0`, and attribute present with
+`1`. Absence means unavailable authority, not false; the value is a boolean
+and never names the unresolved supplier. Existing `supplier:*` device links,
+source-derived unresolved candidates, provider presence/binding, and an
+independent probe-entry witness must remain separate evidence fields.
+
 ### Operator-Attended Observation
 
 The default observation remains unattended and fail-fast. A target-specific,

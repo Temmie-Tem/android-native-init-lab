@@ -94,6 +94,23 @@ RESULT_CONTRACT_ARMING_REQUIRED_CLAUSES = (
     "`NO_PROOF_OBSERVER`",
 )
 
+EXPERIMENT_EXECUTABILITY_REQUIRED_CLAUSES = (
+    "`NO_PROOF_EXPERIMENT_PRECONDITION`",
+    "`EXPERIMENT_EXECUTABILITY_CLOSURE`",
+    "explicitly permanent common qualification boundary",
+    "`UNMODELED_EXPERIMENT_DEPENDENCY_PRECONDITION`",
+    "It has no expiry.",
+    "Every new relation family requires proportional independent review before use.",
+    "must-bind consumer set",
+    "`FW_DEVLINK_DT_SUPPLIER_CLOSURE`",
+    "A raw scan of every phandle is not equivalent to the kernel parser and is forbidden as closure evidence.",
+    "the complete parser-table rows, count, order, source identity, and each row's `optional` bit;",
+    "Whether an optional row is parsed depends on the exact `fw_devlink` mode and `fw_devlink.strict`;",
+    "Changing the global kernel policy to `fw_devlink=off`, `fw_devlink=permissive`, or a non-strict equivalent is not an admissible remedy",
+    "attribute absent, attribute present with `0`, and attribute present with `1`",
+    "Absence means unavailable authority, not false; the value is a boolean and never names the unresolved supplier.",
+)
+
 
 def normalized(text):
     return " ".join(text.split())
@@ -212,6 +229,18 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             ROOT
             / "docs/reports/"
             "S22PLUS_FYG8_P314_LIVE_PROFILE_SNAPSHOT_INCIDENT_2026-08-10.md"
+        ).read_text(encoding="utf-8")
+        cls.p316_incident = (
+            ROOT
+            / "docs/reports/"
+            "S22PLUS_FYG8_P316_MAX77705_SYNC_PROBE_"
+            "CONTRADICTION_INCIDENT_2026-08-12.md"
+        ).read_text(encoding="utf-8")
+        cls.p317_design = (
+            ROOT
+            / "docs/reports/"
+            "S22PLUS_FYG8_P317_EXPERIMENT_EXECUTABILITY_"
+            "CLOSURE_DESIGN_H0_2026-08-12.md"
         ).read_text(encoding="utf-8")
 
     def test_active_contracts_remain_small(self):
@@ -403,6 +432,25 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
             )
             self.assertIn(clause, missing)
 
+    def test_process_v2_requires_experiment_executability_closure(self):
+        value = normalized(self.process)
+        for clause in EXPERIMENT_EXECUTABILITY_REQUIRED_CLAUSES:
+            self.assertIn(clause, value)
+
+    def test_executability_closure_rejects_each_load_bearing_mutation(self):
+        source = normalized(self.process)
+        for index, clause in enumerate(EXPERIMENT_EXECUTABILITY_REQUIRED_CLAUSES):
+            with self.subTest(clause=clause):
+                mutated = source.replace(
+                    clause, f"removed-exec-clause-{index}", 1
+                )
+                missing = tuple(
+                    other
+                    for other in EXPERIMENT_EXECUTABILITY_REQUIRED_CLAUSES
+                    if other not in mutated
+                )
+                self.assertIn(clause, missing)
+
     def test_process_v2_state_machine_is_canonical(self):
         for state in (
             "PREFLIGHT",
@@ -531,7 +579,8 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         normalized_p314 = " ".join(
             (self.p314_design + self.p314_incident).split()
         )
-        self.assertIn("P3.15 is the latest closed live unit", normalized_goal)
+        self.assertIn("P3.16 is the latest closed live unit", normalized_goal)
+        self.assertIn("P3.15 is the preceding closed cycle unit", normalized_goal)
         self.assertIn("A=`0x0d3f`", normalized_goal)
         self.assertIn("B=`0x5064`", normalized_goal)
         self.assertIn("path-drift mask `0x04`", normalized_goal)
@@ -560,6 +609,20 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("without changing the fixed Image or running Full-LTO", normalized_goal)
         self.assertIn("clean 14-record stop snapshot", normalized_goal)
         self.assertIn("neither candidate may be replayed", normalized_goal)
+        self.assertIn("`NO_PROOF_EXPERIMENT_PRECONDITION`", normalized_goal)
+        self.assertIn(
+            "four observer failures, one experiment-precondition failure, and two conclusive `REFUTED` results",
+            normalized_goal,
+        )
+        self.assertIn("`FW_DEVLINK_DT_SUPPLIER_CLOSURE`", normalized_goal)
+        self.assertIn(
+            "two raw property reasons become one deduplicated consumer-to-supplier edge",
+            normalized_goal,
+        )
+        self.assertIn(
+            "88b8247e48a1945c8a5f31544336f942c32f9604787e0cd46de0ba5f70f17609",
+            normalized_goal,
+        )
         for report_name in (
             "S22PLUS_FYG8_P313_POST_BIND_RESUME_CYCLE_DESIGN_H0_2026-08-10.md",
             "S22PLUS_FYG8_P313_STOP_MULTIPLICITY_AND_CONTINUATION_GAP_H0_2026-08-10.md",
@@ -579,6 +642,40 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("251,450 cells", normalized_p314)
         self.assertIn("prepackaging validator precedes", normalized_p314)
         self.assertIn("P3.14 is consumed and never replayable", normalized_p314)
+        normalized_p316 = normalized(self.p316_incident)
+        normalized_p317 = normalized(self.p317_design)
+        normalized_ledger = normalized(self.s22_ledger)
+        self.assertIn(
+            "observer failures 4, experiment-precondition failure 1, and conclusive experiment results 2",
+            normalized_p316,
+        )
+        self.assertIn(
+            "original P3.16 `CAMPAIGN_CLOSED` row remains byte-for-byte historical",
+            normalized_p316,
+        )
+        self.assertIn("exactly 28 non-sentinel entries", normalized_p317)
+        self.assertIn(
+            "raw property edges 2 deduplicated consumer -> supplier edges 1",
+            normalized_p317,
+        )
+        self.assertIn("attribute absent", normalized_p317)
+        self.assertIn("present, value `0`", normalized_p317)
+        self.assertIn("present, value `1`", normalized_p317)
+        self.assertIn("`fw_devlink=off`", normalized_p317)
+        self.assertIn("INDEPENDENT REVIEW PASS", normalized_p317)
+        self.assertIn("pass 40/40", normalized_p317)
+        self.assertIn(
+            "P316_PROOF_CLASS_CORRECTION_AND_EXPERIMENT_EXECUTABILITY_CLOSURE_DESIGN",
+            normalized_ledger,
+        )
+        self.assertIn(
+            "original campaign s22plus-fyg8-p316 ordinal 1",
+            normalized_ledger,
+        )
+        self.assertIn(
+            "count its effective class as NO_PROOF_EXPERIMENT_PRECONDITION",
+            normalized_ledger,
+        )
         self.assertIn("Archived Goal: S22+ Through P3.12 and P3.13 Design", self.archived_goal_through_p313)
         self.assertIn("P3.12 is the latest closed live unit", self.archived_goal_through_p313)
         self.assertIn("docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md", self.agents)
