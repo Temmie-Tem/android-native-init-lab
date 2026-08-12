@@ -161,14 +161,19 @@ The current preparation evidence is
   and its ramdisk test returned the Magisk-patched classification. These are
   private host artifacts only: Odin was not invoked, no flash occurred, and no
   S20+ F1 process or live flash authority exists.
-- A target-specific one-shot bootstrap F1 is independently reviewed and active
-  for one boot-only
+- A target-specific one-shot bootstrap F1 was reviewed, but connected prepare
+  exposed a pre-transfer Download profile mismatch: this device reports product
+  `SM8250` and may negotiate the same physical port through two exact paired-
+  controller topology identities retained publicly only as SHA-256. The process is temporarily
+  corrected and independently reviewed. It is active for one boot-only
   candidate attempt followed by mandatory stock-boot rollback in the same
   attended run. It intentionally leaves root non-persistent and parks rather
   than replaying an uncertain candidate or rollback. The active runner SHA-256
-  is `211e001c492930c4490405ace09a6203980bf4092d276dcd018171624a16e887`.
-  No run is prepared or approved yet; current Download-mode presence and this
-  capability activation do not themselves grant an Odin transfer.
+  is `d2447b21b1ab22b4def7ae309220d508e66b9de6064cc5fde702870758322976`.
+  No run is prepared or approved; three earlier prepare attempts failed before
+  transfer and left no guard or transfer intent. Current Download-mode presence
+  and capability activation grant no Odin transfer without fresh exact prepare
+  and approval.
 
 ## Current Bounded Unit
 

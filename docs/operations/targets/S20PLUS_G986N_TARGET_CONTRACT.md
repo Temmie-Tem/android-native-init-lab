@@ -8,10 +8,9 @@ in `AGENTS.md`. Its exact one-shot D0 onboarding inventory has been consumed.
 The durable onboarding active-intent guard remains present. A separately
 reviewed routine D0 public-property process may be activated below without
 removing, rotating, or reusing that onboarding guard. The exact routine D1 and
-narrow bootstrap F1 below are separately reviewed and active. The F1 permits
-only one attended boot-only candidate followed by mandatory stock rollback; it
-defines no resident-root, arbitrary flash, non-boot partition, or TWRP
-capability.
+narrow bootstrap F1 are reviewed and active. The F1 permits only one attended
+boot-only candidate followed by mandatory stock rollback and grants no
+resident-root or non-boot partition authority.
 
 Exact live D0 established model `SM-G986N`, device `y2q`, product `y2qksx`,
 firmware incremental `G986NKSS8IYC2`, and fingerprint
@@ -268,10 +267,11 @@ Status: **BINDING - ATTENDED ONE-SHOT BOOT-ONLY F1 ACTIVE**
 
 The target-specific bootstrap process is implemented by
 `workspace/public/src/scripts/revalidation/s20plus_g986n_magisk_bootstrap_f1.py`.
-The independently reviewed runner and registry row activate this narrow
-capability. Activation alone authorizes no transfer: each run still requires a
-fresh connected read-only prepare, its exact approval token, current operator
-attendance, and all fixed guard and recovery conditions below.
+The corrected runner is independently reviewed and active after connected
+prepare exposed a Download profile mismatch before any transfer. It pins two
+exact hash-only paired-controller topology identities and product `SM8250`.
+Activation alone authorizes no transfer: every run still requires fresh
+connected prepare, exact approval, and attendance.
 
 This is one attended experiment with two fixed private AP files.
 Each AP is a deterministic TAR+MD5 archive containing only one canonical
@@ -356,3 +356,15 @@ its normalized reviewed identity is
 This activation grants only the attended one-shot boot-only candidate plus
 mandatory stock rollback described above. It creates no resident-root,
 arbitrary artifact/Odin, non-boot partition, S22+, or A90 authority.
+
+Independent review of the Download profile correction returned `PASS_GO` with
+no unresolved finding. The reviewed dormant runner SHA-256 was
+`e3c0e3236d13227fd5321d348f8eb21c3f9b67d6ab7572a405735e2043c94edd`;
+the corrected active runner SHA-256 is
+`d2447b21b1ab22b4def7ae309220d508e66b9de6064cc5fde702870758322976`,
+with normalized reviewed identity
+`f85505049b899be56df0e79b95092c13afd8deaa885befce03c8e0736d1b4407`.
+Only product `SM8250` and the two exact paired-controller topology hashes were
+added to the Download profile; raw topology remains private. All prior target,
+artifact, journal, endpoint-identity, no-replay, and mandatory rollback rules
+remain unchanged.

@@ -4,7 +4,7 @@ Date: 2026-08-13
 
 Target: `SM-G986N` / `y2q` / `y2qksx` / `G986NKSS8IYC2`
 
-State: **PASS_GO - EXACT CAPABILITY ACTIVE - NO RUN APPROVAL**
+State: **PASS_GO - CORRECTED CAPABILITY ACTIVE - NO RUN APPROVAL**
 
 ## Objective
 
@@ -71,3 +71,25 @@ Activation does not approve a run. Live use still requires a fresh connected
 prepare and the operator's exact approval token while attended. It grants no
 resident root, arbitrary Odin/artifact, non-boot partition, S22+, or A90
 authority.
+
+## Connected prepare correction
+
+Three connected prepare attempts failed closed before any candidate/rollback
+intent or Odin AP transfer. Passive host kernel evidence then established the
+reason: exact VID:PID `04e8:685d` and absent USB serial were correct, but the
+device's Download product is `SM8250`, not the assumed generic label. Link
+renegotiation also exposed the same physical port through two exact paired-
+controller topology identities. The correction closes the product to `SM8250`
+and accepts only their SHA-256 identities. Raw topology remains private. It does not generalize
+to another port, VID/PID, product, serial-bearing endpoint, artifact, or target.
+Independent review and a fresh mechanical activation are required before
+another connected prepare.
+
+Independent correction review returned `PASS_GO` with no unresolved finding.
+Dormant corrected runner SHA-256 was
+`e3c0e3236d13227fd5321d348f8eb21c3f9b67d6ab7572a405735e2043c94edd`;
+mechanically activated runner SHA-256 is
+`d2447b21b1ab22b4def7ae309220d508e66b9de6064cc5fde702870758322976`,
+with normalized reviewed identity
+`f85505049b899be56df0e79b95092c13afd8deaa885befce03c8e0736d1b4407`.
+This activates only fresh connected prepare; no run or transfer is approved.

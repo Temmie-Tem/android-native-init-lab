@@ -28,7 +28,7 @@ class S20BootstrapF1Tests(unittest.TestCase):
             (node / key).write_text(value + "\n")
         return node
 
-    def test_active_plan_and_cli_surface_are_closed(self):
+    def test_corrected_profile_is_active_and_cli_surface_is_closed(self):
         plan = MODULE.render_plan()
         self.assertTrue(plan["active"])
         self.assertFalse(plan["live_flash_authorized"])
@@ -41,7 +41,7 @@ class S20BootstrapF1Tests(unittest.TestCase):
 
     def test_exact_download_identity_and_topology(self):
         with tempfile.TemporaryDirectory() as temporary, mock.patch.object(
-            MODULE, "EXPECTED_TOPOLOGY_SHA256", MODULE.hashlib.sha256(b"usb:3-2.1").hexdigest()
+            MODULE, "EXPECTED_DOWNLOAD_TOPOLOGY_SHA256", frozenset({MODULE.hashlib.sha256(b"usb:3-2.1").hexdigest()})
         ):
             root = Path(temporary)
             self.make_sysfs(root)
@@ -49,6 +49,13 @@ class S20BootstrapF1Tests(unittest.TestCase):
             result = MODULE.identify_download(command, sys_root=root, stat_reader=lambda path: (1, 2, 3, 4))
             self.assertEqual(result["usb"]["idProduct"], "685d")
             self.assertTrue(result["usb"]["serial_absent"])
+
+    def test_download_profile_accepts_only_observed_paired_port_and_sm8250(self):
+        self.assertEqual(MODULE.DOWNLOAD_USB["product"], "SM8250")
+        self.assertEqual(MODULE.EXPECTED_DOWNLOAD_TOPOLOGY_SHA256, frozenset({
+            "3279d577ef7a789f8aac93664e3b45543e10522b08d29ebabc99564ca86295f1",
+            "ae90de878991480bf8aafc6e131953d185245aba4fa8d9cd8d0507810d2c96e1",
+        }))
 
     def test_transition_evidence_uses_exact_public_schema_and_topology_key(self):
         dispatch = {
@@ -150,7 +157,7 @@ class S20BootstrapF1Tests(unittest.TestCase):
             run = Path(temporary)
             (run / "candidate-intent.json").write_text("{}")
             (run / "rollback-intent.json").write_text("{}")
-            with mock.patch.object(MODULE, "read_prepared", return_value={"binding_sha256": "binding"}):
+            with mock.patch.object(MODULE, "F1_ACTIVE", True), mock.patch.object(MODULE, "read_prepared", return_value={"binding_sha256": "binding"}):
                 with self.assertRaisesRegex(MODULE.BootstrapError, "malformed or mismatched"):
                     MODULE.recover(run)
 
@@ -297,16 +304,16 @@ class S20BootstrapF1Tests(unittest.TestCase):
         for forbidden in ("recovery.img", "dtbo.img", "vbmeta.img", "super.img", "persist.img", "fastboot", "/dev/block"):
             self.assertNotIn(forbidden, source)
 
-    def test_documents_bind_exact_active_f1_and_one_registry_row(self):
+    def test_documents_bind_corrected_active_f1_and_one_registry_row(self):
         contract = (ROOT / "docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md").read_text()
         registry = (ROOT / "AGENTS.md").read_text()
         report = (ROOT / "docs/reports/S20PLUS_G986N_MAGISK_BOOTSTRAP_F1_H0_2026-08-13.md").read_text()
         self.assertIn("Status: **BINDING - ATTENDED ONE-SHOT BOOT-ONLY F1 ACTIVE**", contract)
-        self.assertIn("State: **PASS_GO - EXACT CAPABILITY ACTIVE - NO RUN APPROVAL**", report)
+        self.assertIn("State: **PASS_GO - CORRECTED CAPABILITY ACTIVE - NO RUN APPROVAL**", report)
         row = "| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) | `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` | Active exact-target routine D0/D1 plus attended one-shot boot-only Magisk candidate and mandatory stock rollback F1; no resident-root authority |"
         self.assertEqual(registry.count(row), 1)
         for document in (contract, report):
-            self.assertIn("211e001c492930c4490405ace09a6203980bf4092d276dcd018171624a16e887", document)
+            self.assertIn("d2447b21b1ab22b4def7ae309220d508e66b9de6064cc5fde702870758322976", document)
         self.assertIn("S22+", contract)
         self.assertIn("A90", contract)
 

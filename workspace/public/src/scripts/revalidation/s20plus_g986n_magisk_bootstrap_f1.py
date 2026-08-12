@@ -32,7 +32,11 @@ EXPECTED_DEVICE = "y2q"
 EXPECTED_PRODUCT = "y2qksx"
 EXPECTED_INCREMENTAL = "G986NKSS8IYC2"
 EXPECTED_TOPOLOGY_SHA256 = "3279d577ef7a789f8aac93664e3b45543e10522b08d29ebabc99564ca86295f1"
-EXPECTED_REVIEWED_RUNNER_NORMALIZED_SHA256 = "73e8800248796a542c4d9d63acbfb641302dc12fe79b14d30b23771b6bbfb23b"
+EXPECTED_DOWNLOAD_TOPOLOGY_SHA256 = frozenset({
+    "3279d577ef7a789f8aac93664e3b45543e10522b08d29ebabc99564ca86295f1",
+    "ae90de878991480bf8aafc6e131953d185245aba4fa8d9cd8d0507810d2c96e1",
+})
+EXPECTED_REVIEWED_RUNNER_NORMALIZED_SHA256 = "f85505049b899be56df0e79b95092c13afd8deaa885befce03c8e0736d1b4407"
 ODIN = Path("/usr/bin/odin4")
 ODIN_SIZE = 3_746_744
 ODIN_SHA256 = "6754aa54f2abe6e99ece32414cd34c8b23b28dbddde537a33203036813637c3b"
@@ -52,7 +56,7 @@ ADB = base.DEFAULT_ADB
 DOWNLOAD_USB = {
     "idVendor": "04e8",
     "idProduct": "685d",
-    "product": "SAMSUNG USB",
+    "product": "SM8250",
     "manufacturer": "Samsung",
 }
 APPROVAL_PREFIX = "S20PLUS-G986N-MAGISK-BOOTSTRAP-F1-APPROVE:"
@@ -296,7 +300,8 @@ def identify_download(
     if values != repeated or any(values[key] != value for key, value in DOWNLOAD_USB.items()) or values["serial"] not in (None, ""):
         raise BootstrapError("Download USB identity mismatch")
     topology = f"usb:{node.name}"
-    if hashlib.sha256(topology.encode()).hexdigest() != EXPECTED_TOPOLOGY_SHA256:
+    topology_sha256 = hashlib.sha256(topology.encode()).hexdigest()
+    if topology_sha256 not in EXPECTED_DOWNLOAD_TOPOLOGY_SHA256:
         raise BootstrapError("Download topology differs from the exact Android target")
     if stat_reader(device) != identity:
         raise BootstrapError("Download endpoint changed during identity read")
@@ -304,7 +309,7 @@ def identify_download(
         "device": device,
         "endpoint_identity": list(identity),
         "endpoint_sha256": hashlib.sha256(device.encode()).hexdigest(),
-        "topology_sha256": EXPECTED_TOPOLOGY_SHA256,
+        "topology_sha256": topology_sha256,
         "usb": {**DOWNLOAD_USB, "serial_absent": True},
     }
 

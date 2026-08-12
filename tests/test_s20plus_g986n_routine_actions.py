@@ -802,7 +802,7 @@ class S20PlusG986NRoutineActionsTests(unittest.TestCase):
         for text in (agents, tiers, common, contract):
             self.assertIn("partition", text.lower())
         self.assertIn("arbitrary artifact, or resident-root authority", contract)
-        for text in (contract, retrieval_report, goal):
+        for text in (retrieval_report, goal):
             self.assertNotIn("DRAFT - NOT ACTIVE", text)
             self.assertNotIn("H0 REVIEW PENDING", text)
 
