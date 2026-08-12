@@ -42,7 +42,7 @@ are current. An unactivated policy edit remains H0 only.
 |---|---|---|---|
 | Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q` / `S906NKSS7FYG8`) | `GOAL.md` | `docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md` | `docs/operations/DEVICE_ACTION_PROCESS_V2.md` |
 | Samsung Galaxy A90 5G | `GOAL_A90.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` sections `A90 D1 Resident Session`, `A90 F1 Resident Install`, and `Attended F1 Pre-Handoff` |
-| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) | `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` | Routine exact-target D0 public-property reads; no active D1/F1 process |
+| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) | `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` | Active exact-target routine D0 reads and reviewed D1 setup/control; no F1 process |
 
 Targets, profiles, rollback identities, transports, approvals, and health
 evidence never transfer between registry rows. If no binding target contract
@@ -58,9 +58,14 @@ records current state only and cannot grant or extend live authority.
    require attendance except the exact A90 resident D1 lane delegated below;
    F1 is never unattended, and authority never transfers between targets.
 2. The only partition payload permitted by the ordinary process is **boot**.
-   Never write or flash recovery, vendor_boot, DTBO, vbmeta, vbmeta_system, BL,
-   CP, CSC, super, userdata, persist, EFS, sec_efs, RPMB, keymaster, modem,
-   bootloader, or any other partition.
+   Never send a partition image, raw block write, or flashing operation to
+   recovery, vendor_boot, DTBO, vbmeta, vbmeta_system, BL, CP, CSC, super,
+   userdata, persist, EFS, sec_efs, RPMB, keymaster, modem, bootloader, or any
+   other partition. An exact reviewed D1 action performed through normal
+   Android Package Manager or shared-user-storage APIs is an OS-mediated data
+   write, not a partition payload; it is permitted only within the closed
+   package/file staging rules below and never authorizes block or filesystem
+   access to a partition mount outside that normal API.
 3. Never use raw host `dd`, fastboot, partition-table actions, qdl/Sahara/
    Firehose, RAM dump, EUD/UART writes, fuse/QFPROM actions, format operations,
    or an unreviewed panic/RDX path.
@@ -95,7 +100,15 @@ Classify every action using
 
 - **H0:** host-only work. No device approval.
 - **D0:** connected read-only work. Exact target and bounded reads.
-- **D1:** transient no-payload control. Use active trial autonomy; outside the trial, require the selected target contract's fresh approval. A selected target contract may also define one separately reviewed, exact, rollback-recoverable storage-artifact cleanup sub-capability. That exception may remove only named target-owned files with exact host preservation and must not write a partition, configuration, credential, or security state.
+- **D1:** attended non-partition control or an exact reviewed routine setup
+  action. A current direct operator request authorizes one target-contract
+  allowlisted invocation. Routine setup is limited to one pinned
+  non-privileged Package Manager APK install or one pinned inert file staged
+  no-clobber to shared user storage under
+  `docs/operations/ROUTINE_CONNECTED_ACTIONS.md`. It never authorizes launch,
+  patch, permission grants, arbitrary files/packages, partition payloads, or
+  security/configuration changes. A selected target contract may also define
+  the existing separately reviewed exact storage-artifact cleanup capability.
 - **F1:** a boot-only transfer process defined by the selected target contract.
 - **X:** forbidden by the permanent boundaries.
 

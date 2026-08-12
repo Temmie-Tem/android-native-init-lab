@@ -7,8 +7,10 @@ This is the binding target contract for the operator-owned Samsung Galaxy S20+
 in `AGENTS.md`. Its exact one-shot D0 onboarding inventory has been consumed.
 The durable onboarding active-intent guard remains present. A separately
 reviewed routine D0 public-property process may be activated below without
-removing, rotating, or reusing that onboarding guard. This contract defines no
-D1, F1, root, flash, recovery, rollback, or other connected capability.
+removing, rotating, or reusing that onboarding guard. The exact routine D1
+closure below is separately reviewed and active. This
+contract defines no F1, root, flash, partition recovery, or rollback
+capability.
 
 Exact live D0 established model `SM-G986N`, device `y2q`, product `y2qksx`,
 firmware incremental `G986NKSS8IYC2`, and fingerprint
@@ -122,6 +124,81 @@ partition access, payload transfer, reboot, Download/recovery transition,
 Odin, D1, or F1. A routine result cannot establish root, recovery, rollback,
 firmware-package identity, or flash readiness.
 
+## S20+ Routine Connected Actions
+
+Status: **BINDING - ROUTINE D1 SETUP/CONTROL ACTIVE**
+
+The routine D1 process is implemented only by
+`workspace/public/src/scripts/revalidation/s20plus_g986n_routine_actions.py`
+under `docs/operations/ROUTINE_CONNECTED_ACTIONS.md`. A current direct operator
+request naming one exact action authorizes one invocation under this section.
+
+A fresh direct operator request may name exactly one of these closed actions:
+
+| Action | Exact effect | Terminal meaning |
+|---|---|---|
+| `install-magisk` | Package Manager installs/replaces the pinned official Magisk v30.7 APK without permission grants | package path verified; no launch or root claim |
+| `stage-ap` | atomically claim one fixed `/sdcard/Download` directory and copy the pinned exact stock AP inside it | final device SHA-256 verified |
+| `reboot-system` | one exact `adb reboot` | dispatch only; normal health remains pending |
+| `enter-download` | one exact `adb reboot download` | dispatch only; Download state remains pending observation |
+| `enter-recovery` | one exact `adb reboot recovery` | dispatch only; recovery state remains pending observation |
+
+Routine public reads continue through the separately active D0 runner. A later
+normal-health read may close a reboot return, but an absent or late observation
+never authorizes resending the reboot or mode-entry command. No setup or
+additional control action may start while normal health or the requested mode
+remains unresolved.
+
+Every proposed D1 invocation:
+
+1. pins `/usr/bin/adb` to canonical realpath
+   `/usr/lib/android-sdk/platform-tools/adb` and SHA-256
+   `05a1a4435e436230931acd8737fd68f31542d652731d3ca8c464cab7a42be226`;
+2. validates every fixed host artifact before device contact;
+3. atomically creates the fixed private `active-action.json` guard and writes
+   one no-clobber private intent before the first connected command;
+4. inventories all ADB rows and selects one healthy exact
+   `model:SM_G986N` / `device:y2q` / `product:y2qksx` /
+   `G986NKSS8IYC2` target;
+5. records only SHA-256 representations of serial, topology, and boot ID;
+6. sends the named effect once with no automatic retry; and
+7. writes one no-clobber private result or failure receipt.
+
+The two fixed setup inputs are:
+
+- official Magisk v30.7 APK: `11,613,864` bytes, SHA-256
+  `e0d32d2123532860f97123d927b1bb86c4e08e6fd8a48bfc6b5bee0afae9ebd5`,
+  installed only as package `com.topjohnwu.magisk` using exact
+  `adb install --no-streaming -r`; and
+- exact stock AP
+  `AP_G986NKSS8IYC2_G986NKSS8IYC2_MQB93855401_REV00_user_low_ship_MULTI_CERT_meta_OS13.tar.md5`,
+  `8,799,989,882` bytes, SHA-256
+  `460a414ca8ba0d9fb64aa53de0fc1c1cc87ae75f0d79a1a1496e478bafa08753`.
+
+AP staging requires at least 20 GiB free in shared storage. The runner first
+claims the fixed artifact-specific directory
+`Codex-S20Plus-IYC2-460a414ca8ba` with one atomic failing-if-present `mkdir`.
+It pushes the AP only inside that newly owned directory and verifies its
+device-side SHA-256. There is no rename/publish or overwrite operation. A
+failure after directory creation starts may leave the directory or file and
+retains the active guard; do not replay or delete it without a separately
+represented action.
+
+The fixed guard prevents concurrent or later routine setup/control. An
+effect-free preflight failure removes it only after a durable failure receipt;
+a setup success removes it only after a durable result. Any effect-attempted
+failure and every control dispatch retain it. The runner's separate host-only
+control finalizer requires durable one-dispatch evidence and a current explicit
+operator confirmation matching one of: normal reboot returned, Download
+observed/returned, or recovery observed/returned. Only that finalizer clears a
+control guard. A missing, malformed, or mismatched guard fails closed.
+
+This routine process never launches Magisk, patches AP, reads package data,
+grants permissions, invokes root, changes settings/properties/services, sends
+Odin or partition bytes, accesses `/efs` or block devices, or claims Download,
+recovery, root, rollback, or flash readiness. F1 and all partition actions
+remain undefined.
+
 ## Evidence
 
 - Durable raw execution evidence belongs only under
@@ -143,13 +220,14 @@ firmware-package identity, or flash readiness.
   retain only the target's public properties, CSC resolution, command counts,
   zero-effect assertions, verdict, and private result SHA-256.
 
-## D1 and F1 Are Not Defined
+## F1 and non-routine D1 are not defined
 
-This contract defines no S20+ D1, F1, root, flash, recovery, or rollback
-capability. Any such work requires a later exact contract amendment, recovery
-design, appropriate artifacts, proportional validation, independent safety
-review, and fresh authority. Bootloader-unlocked state and a passing D0 do not
-grant those capabilities.
+The binding section above defines only its five exact routine actions. It does
+not activate or imply arbitrary D1. This contract defines no S20+ F1, root,
+flash, partition recovery, or rollback capability. Any such work requires a
+later exact contract amendment, recovery design, appropriate artifacts,
+proportional validation, independent safety review, and fresh authority.
+Bootloader-unlocked state and a passing D0/D1 do not grant those capabilities.
 
 ## Activation and Review Record
 
@@ -174,3 +252,12 @@ SHA-256 is
 `2377e463e1ec4869fd9ba7a5155aeb6c792bdb5b5b969c902a2b0e5a00fda77c`.
 The exact S20+ registry process cell is active. The existing onboarding
 active-intent guard remains consumed and must not be removed or rotated.
+
+Independent review of the common routine policy, risk-tier and permanent-
+boundary wording, this exact target contract, runner, tests, registry
+transition, report, and activation wording returned `PASS_GO` with no
+unresolved finding on 2026-08-13. The reviewed routine-action runner SHA-256 is
+`709a89fb35f643170a72e613105af68816a0a17ee622865f2d7ebdac6442c444`.
+The existing onboarding active-intent guard remains consumed and was not
+removed or rotated. This activation creates no F1, root, flash, or partition
+authority and does not activate any S22+ or A90 action.

@@ -118,6 +118,16 @@ The current preparation evidence is
   `FORMAT_COMPATIBLE_AVB_AND_TRANSPORT_UNQUALIFIED_NO_GO`. No patched image was
   created. Detailed H0 evidence is in
   `docs/reports/S20PLUS_G986N_MAGISK_BOOT_ONLY_FEASIBILITY_H0_2026-08-13.md`.
+- Routine connected-action simplification is independently reviewed and
+  active for S20+ only. It covers exact routine reads, one-shot attended
+  normal/Download/recovery reboot
+  dispatch, the pinned Magisk v30.7 APK install, and no-clobber device-hash-
+  verified staging of the exact stock AP. It grants no launch, patch, Odin,
+  partition, root, or F1 action. The reviewed runner SHA-256 is
+  `709a89fb35f643170a72e613105af68816a0a17ee622865f2d7ebdac6442c444`.
+  The H0
+  design is
+  `docs/reports/S20PLUS_G986N_ROUTINE_CONNECTED_ACTIONS_H0_2026-08-13.md`.
 
 ## Current Bounded Unit
 
@@ -141,7 +151,9 @@ host-connected process.
 
 ## Open Decisions
 
-The next host-side objective is an exact boot-only Odin feasibility and
+The immediate setup actions may now install the pinned Magisk APK and stage the
+exact AP under a fresh direct operator request. They do not launch or patch it.
+After routine setup, the next experiment objective is an exact boot-only Odin feasibility and
 recovery design. It must prove whether this unlocked/orange S20+ can accept a
 `boot.img`-only transaction while keeping the stock separate VBMeta unchanged;
 the official Magisk Samsung AP flow cannot be reused because it modifies

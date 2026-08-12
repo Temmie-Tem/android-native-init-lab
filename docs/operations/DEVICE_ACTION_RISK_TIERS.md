@@ -38,10 +38,12 @@ and `odin4 -l` when a target-specific rule permits it.
   artifact hash graph, and independent-model review are not required unless an
   installed policy explicitly requires them.
 
-### D1 - Transient No-Payload Control
+### D1 - Routine Attended Non-Partition Action
 
 Examples: an attended reboot, request/exit Download mode, or exact Odin
-`--reboot` with no AP or other payload option.
+`--reboot` with no AP or other payload option. A target contract may also bind
+one exact Package Manager APK install or one inert shared-storage file stage as
+defined by `docs/operations/ROUTINE_CONNECTED_ACTIONS.md`.
 
 - Exact UI-only native-init `hide` may use the operator's standing direction
   while the operator is actively attending. Announce it, send it once to the
@@ -49,9 +51,17 @@ Examples: an attended reboot, request/exit Download mode, or exact Odin
 - Require one fresh explicit operator approval for every other bounded D1
   action.
 - Pin the exact target/topology, use an argv allowlist, bound output and time,
-  and verify the expected healthy return state.
-- No partition payload, persistent configuration change, or security-state
-  change is permitted.
+  and verify the expected return state. A mode-entry dispatch remains
+  `HEALTH_PENDING` until its endpoint or operator-visible state is confirmed;
+  do not replay it merely because observation is absent.
+- No partition payload, credential mutation, persistent system configuration,
+  permission grant, or security/debug-state change is permitted.
+- A binding target contract may activate the reviewed routine-setup subset:
+  one exact non-privileged APK install through Package Manager or one exact
+  inert regular-file stage to fixed shared user storage. The input path, size,
+  SHA-256, package/destination, and argv must be closed; staging is no-clobber
+  and device-hash verified. It never authorizes execution, patching, deletion,
+  reboot, mode transition, or partition transfer.
 - A binding target contract may define a separately reviewed exact
   storage-artifact cleanup as a narrow D1 sub-capability when the only
   persistent effect is unlinking named target-owned files, every selected byte
@@ -95,20 +105,26 @@ Examples: one checked candidate or rollback AP containing only `boot.img.lz4`.
 ### X - Forbidden
 
 The existing forbidden partition and primitive list remains absolute. In
-particular, no policy tier authorizes writes to recovery, vendor_boot, DTBO,
-vbmeta, BL, CP, CSC, super, userdata, persist, EFS, sec_efs, RPMB, keymaster,
-modem, bootloader, or any partition other than an explicitly authorized boot
-payload. Raw host `dd`, partition-table action, qdl/Sahara/Firehose, RAM dump,
-EUD/UART write, format, fuse/QFPROM action, and unreviewed panic/RDX paths remain
-forbidden unless a separate binding contract explicitly says otherwise.
+particular, no policy tier authorizes a partition image, raw block write, or
+flashing operation to recovery, vendor_boot, DTBO, vbmeta, BL, CP, CSC, super,
+userdata, persist, EFS, sec_efs, RPMB, keymaster, modem, bootloader, or any
+partition other than an explicitly authorized boot payload. Normal Android
+Package Manager and shared-user-storage writes are not partition operations
+when they satisfy the exact reviewed D1 rules above. Raw host `dd`,
+partition-table action, qdl/Sahara/Firehose, RAM dump, EUD/UART write, format,
+fuse/QFPROM action, and unreviewed panic/RDX paths remain forbidden unless a
+separate binding contract explicitly says otherwise.
 
 ## Escalation Rules
 
-Escalate to F1 or a separately reviewed contract when any command includes a
-payload, can write a partition, persists across reboot, changes a security or
-debug state, introduces a new low-level transport primitive, or cannot bind one
-unambiguous target. A lower tier must never be used to split a higher-risk action
-into apparently harmless steps.
+Escalate to F1 or a separately reviewed contract when any command hands a
+payload to a bootloader, recovery, partition writer, or other executable
+runtime; can write a partition; changes a credential, security, debug, or
+persistent system configuration state; introduces a new low-level transport
+primitive; or cannot bind one unambiguous target. The only persistent D1
+exceptions are the exact Package Manager APK install, inert shared-storage
+stage, and reviewed storage-artifact cleanup defined above. A lower tier must
+never be used to split a higher-risk action into apparently harmless steps.
 
 Historical consumed policies remain evidence only. `ACTIVE`, `RETIRED`, or
 never-installed text under `docs/archive/` grants no current authority and

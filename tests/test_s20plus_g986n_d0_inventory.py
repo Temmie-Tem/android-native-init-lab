@@ -229,12 +229,12 @@ class S20PlusG986ND0InventoryTests(unittest.TestCase):
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
         self.assertIn("Status: **BINDING - D0 ONBOARDING CONSUMED**", contract)
         self.assertIn("s20plus_g986n_d0_inventory.py", contract)
-        self.assertIn("defines no S20+ D1, F1", contract)
+        self.assertIn("defines no S20+ F1", contract)
         self.assertIn("terminal one-shot D0 PASS", goal)
         row = (
             "| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) "
             "| `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` "
-            "| Routine exact-target D0 public-property reads; no active D1/F1 process |"
+            "| Active exact-target routine D0 reads and reviewed D1 setup/control; no F1 process |"
         )
         self.assertEqual(agents.count(row), 1)
 
