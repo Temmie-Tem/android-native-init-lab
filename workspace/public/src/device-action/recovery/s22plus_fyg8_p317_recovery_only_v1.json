@@ -1,0 +1,97 @@
+{
+  "approval_binding_sha256": "8ca5bd43dde4f85c466c741f8be465adee861abd472cf66247970866df007870",
+  "approval_token": "DEVICE-ACTION-S22PLUS-P317-RECOVERY-ONLY-V1-APPROVE:8ca5bd43dde4f85c466c741f8be465adee861abd472cf66247970866df007870",
+  "binding": {
+    "adapter": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p317_recovery_only.py",
+      "sha256": "768f393e98dd047e4b3a1b23dd1aeb1f84528e5d2f96f27428e086a4159152d1",
+      "size": 32473
+    },
+    "constraints": {
+      "candidate_transfer_allowed": false,
+      "fresh_multi_endpoint_allowed": false,
+      "historical_receipt_preserved": true,
+      "partition_payload": "boot-only-exact-rollback",
+      "rollback_transfer_maximum": 1
+    },
+    "immutable_inputs": {
+      "candidate_result": {
+        "path": "workspace/private/runs/device-action-f1-live-v2/f1-2026-08-12T165954582328Z-1786553994582372233/candidate-attempt-01.result.json",
+        "sha256": "da290825e3406094ccf5b3fca793f794998957943cd3c782ed211cb3da6f2498",
+        "size": 1678
+      },
+      "candidate_start": {
+        "path": "workspace/private/runs/device-action-f1-live-v2/f1-2026-08-12T165954582328Z-1786553994582372233/candidate-attempt-01.start.json",
+        "sha256": "dfc7173f5b8cceddb3c1cd7a1cbace939bc53eecfcec75c61759e6c18e88ad25",
+        "size": 233
+      },
+      "historical_ambiguity_receipt": {
+        "path": "workspace/private/runs/device-action-f1-live-v2/f1-2026-08-12T165954582328Z-1786553994582372233/odin-endpoints/receipts/odin-snapshot-000017.json",
+        "sha256": "498a17263a3aefd9ce5f30e271df536de0a3ed65bb8656691780d71d05984da9",
+        "size": 26460
+      },
+      "live_adapter": {
+        "path": "workspace/public/src/scripts/revalidation/device_action_f1_live_v2.py",
+        "sha256": "ed4c84b4ed179cfc16a30d4ea80713807c7a3f0f8b0d9b25e2df460f094bb7bf",
+        "size": 132710
+      },
+      "manifest": {
+        "path": "workspace/public/src/device-action/manifests/s22plus_fyg8_p317_process_v2_ready_1.json",
+        "sha256": "5732cb44797f4a4aec3d5024796c80d6a771afa23ce4c1309300a5a23e2fccb3",
+        "size": 2777
+      },
+      "odin_transition_core": {
+        "path": "workspace/public/src/scripts/revalidation/s22plus_odin_transition_core.py",
+        "sha256": "e77bd24d045ac30a8d46ab3c333b2cd544a8a2dbb883e76e4739385e6eb68919",
+        "size": 67198
+      },
+      "prepared": {
+        "path": "workspace/private/runs/device-action-f1-live-v2/f1-2026-08-12T165954582328Z-1786553994582372233/prepared.json",
+        "sha256": "08350b4629a57a90986e77001d5d6fddacb41b09aa74b16bf83a108fcb96de47",
+        "size": 9725
+      },
+      "rollback_ap": {
+        "path": "workspace/private/outputs/s22plus_magisk_root_boot_only/AP.tar.md5",
+        "sha256": "d2373bf88dda342709440dc3db468f11d80a4593856768a4d8ae402bef215a56",
+        "size": 23367721
+      },
+      "target_private": {
+        "path": "workspace/private/runs/device-action-f1-live-v2/f1-2026-08-12T165954582328Z-1786553994582372233/target-private.json",
+        "sha256": "94a7c1e84513f2b6e59fc2a2cc6bff0de390c42d56f155f0a34c05e3dbfd3aab",
+        "size": 107
+      }
+    },
+    "incident": {
+      "approval_binding_sha256": "d5c2c24dbfdcb98482cef143a4a0f507ce010d4388f466a4b0893e799a954f2f",
+      "execution_closure_sha256": "7fae669c5f5b60893bb39f34f491d813e50cc1acb52580a61f85f8716215a842",
+      "historical_ambiguity_identity_count": 2,
+      "historical_ambiguity_sequence": 17,
+      "run_dir": "workspace/private/runs/device-action-f1-live-v2/f1-2026-08-12T165954582328Z-1786553994582372233"
+    },
+    "initial_mutable_inputs": {
+      "endpoint_index": {
+        "path": "workspace/private/runs/device-action-f1-live-v2/f1-2026-08-12T165954582328Z-1786553994582372233/odin-endpoints/transaction.jsonl",
+        "sha256": "81465061bbb92c5202f993a7ee5bc86d50ecb5620ebf53cfc261c0ce2d114d3d",
+        "size": 9560
+      },
+      "journal_head": {
+        "path": "workspace/private/runs/device-action-f1-live-v2/f1-2026-08-12T165954582328Z-1786553994582372233/transaction/journal-head.json",
+        "sha256": "0dd097241469971eded01c6ecd0c53d85be7bc8d82d236750ff1cf0b52d97fca",
+        "size": 275
+      },
+      "live_state": {
+        "path": "workspace/private/runs/device-action-f1-live-v2/f1-2026-08-12T165954582328Z-1786553994582372233/live-state.json",
+        "sha256": "99ac7fbf10258606ed5858f4ac1cb1ed22e6d83e29e56b4c21dafa9d8bcc03ed",
+        "size": 4638
+      }
+    },
+    "schema": "s22plus_fyg8_p317_recovery_only_binding_v1",
+    "target": {
+      "device": "g0q",
+      "firmware_incremental": "S906NKSS7FYG8",
+      "model": "SM-S906N",
+      "topology": "usb:2-1.3"
+    }
+  },
+  "schema": "s22plus_fyg8_p317_recovery_only_authority_v1"
+}
