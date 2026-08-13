@@ -2,28 +2,31 @@
 
 Date: 2026-08-14 KST
 Target: Samsung Galaxy S22+ FYG8 only
-Status: **RECOVERY-ONLY CAPABILITY INDEPENDENTLY REVIEWED; FRESH APPROVAL REQUIRED**
+Status: **RECOVERY CLOSED; DEVICE HEALTHY; POST-CLOSE H0 AUDIT INDEPENDENTLY REVIEWED**
 
 ## Outcome boundary
 
 The P3.17 candidate AP transferred exactly once and Odin returned success. The
 operator observed a normal candidate boot without a boot loop. The bounded ACM
-candidate observer returned `endpoint-timeout`, so the candidate is consumed
-but not formally proved. The durable Process-v2 transaction remains
-`OBSERVED`: candidate transfers are `1`, rollback transfers are `0`, and final
-health is not yet verified. The exact Magisk rollback is therefore mandatory.
+candidate observer returned `endpoint-timeout`, so the candidate was consumed
+but not formally proved.
 
 The first recovery inventory saw both the S22+ and S20+ in Download mode and
 correctly stopped before rollback. That snapshot is sealed as sequence 17,
 contains two live endpoint identities, and has SHA-256
 `498a17263a3aefd9ce5f30e271df536de0a3ed65bb8656691780d71d05984da9`.
 After the S20+ was physically disconnected, a second recovery invocation still
-stopped before a new snapshot or rollback transfer. The current S22+ remains
-parked in Download mode; the S20+ is detached. The attached A90 is outside the
-Odin Download set and has received zero commands.
+stopped before a new snapshot or rollback transfer. The repair below was then
+independently reviewed and bound to a fresh exact recovery-only approval.
 
-No candidate replay, raw `odin4`, receipt deletion, rollback transfer, or new
-partition effect occurred during diagnosis and implementation.
+The approved adapter selected the one fresh S22+ endpoint at `usb:2-1.3` and
+transferred the exact boot-only Magisk rollback as attempt 1. Odin returned 0
+and the durable transfer classification is `odin_transfer_completed`. The
+Process-v2 journal is `CLOSED` with 19 records and transfer count `1/1`.
+Android boot completion, stopped boot animation, rooted health, the exact boot
+and supporting-partition identities, and Download-endpoint absence all passed;
+`recovery_required=false`. No candidate replay, raw host Odin, receipt deletion,
+second rollback attempt, A90 command, or S20+ command occurred.
 
 ## Root cause
 
@@ -115,7 +118,7 @@ after the ordinary live-result validator reopens it against durable state.
 
 ## Host validation
 
-The focused suite passes 17/17 and covers:
+The pre-recovery focused suite passed 17/17 and covered:
 
 - authority and approval-token integrity;
 - canonical live-authority path, same-byte authority identity, atomic
@@ -140,21 +143,49 @@ synthetic fresh-multi vector. It performs no USB enumeration, arm write, device
 command, Odin call, or partition transfer. Python compilation and scoped
 `git diff --check` pass.
 
-## Remaining authority boundary
+## Live result boundary
 
-Independent review reproduced the actual private `--validate` result and found
+Independent review reproduced the pre-recovery private `--validate` result and found
 the initial direct-final arm write, missing successful superclass seam, parsed
 authority/receipt TOCTOU, attempt-2 re-entry edge, and unvalidated closed-result
-reopen. The fixes above close all five findings. This capability verdict does
-not authorize live recovery. Before execution:
+reopen. The fixes above closed all five findings. Before execution, the common
+and focused regressions were green, current inventory showed one S22+ Download
+endpoint at the bound topology with S20+ absent, every bound input reopened,
+and the operator supplied the exact recovery-only token.
 
-1. the common and focused regressions must remain green;
-2. current inventory must again show exactly one Download endpoint at the
-   bound S22+ topology, with the S20+ absent;
-3. the exact rollback, journal, source hashes, and authority must reopen; and
-4. the operator must provide the exact fresh recovery-only token emitted by
-   `--validate`.
+The official result is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK` with outcome
+`candidate_not_proven_rollback_verified`. Two byte-identical 2,097,136-byte
+final reads each contain two identical P3.17 records, so the top-level decoder
+returns `MAX77705_RESULT_MULTIPLICITY`. Both decoded records report:
 
-Only then may the adapter resume the original transaction. It may transfer the
-exact rollback once and finish ordinary Process-v2 health closure. It may never
-transfer the consumed candidate.
+- executability `causal_ready=true`, all three provider masks bound before and
+  after, `waiting_for_supplier=ZERO`, and gadget readiness;
+- diagnostic probe entry and a bound diagnostic parent plus one exact `0x25`
+  client;
+- stage 10, `rc=0`, all four commands issued and all four responses observed;
+- CONTROL1 pre `0x3f`, post1 `0x09`, and post2 `0x09`; and
+- no post2 detection latch, with the explicit retained ceiling
+  `physical_switch_movement_proven=false`.
+
+These are duplicated retained diagnostic facts, not an accepted single-run
+causal result. Multiplicity blocks the campaign-level causal claim, register
+readback is not a physical-conduction witness, and host silence remains
+non-refuting under the frozen matrix.
+
+## Post-close host audit
+
+The frozen recovery adapter's original `--validate` audit expected sealed
+snapshot 17 to remain the tail. Successful recovery legitimately added three
+snapshots, so that pre-recovery check now rejects the expanded history. This is
+a host-only post-close validation scope defect, not a device, rollback, or
+health failure. The approved adapter and authority remain byte-frozen.
+
+`s22plus_fyg8_p317_recovery_close_audit.py` separately reopens the ordinary
+live-result validator, exact arm, attempt-01 evidence, absence of attempt 2,
+and sequence-17 SHA. It observes 21 snapshots total; the three post-barrier
+identity counts are `[1, 1, 0]`, generation advances from historical 1 to
+closed 2, and a synthetic fresh multi-endpoint vector remains fatal. The audit
+returns `PASS_P317_RECOVERY_CLOSED_HEALTHY_HOST_AUDIT` with device contact and
+commands both zero. Independent review returns
+`PASS_GO_P317_RECOVERY_CLOSE_AUDIT_V1`; the expanded focused suite passes
+18/18, the device is healthy, and no recovery authority remains.

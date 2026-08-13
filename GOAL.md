@@ -12,23 +12,23 @@ authority, evidence, transports, and commands remain separate.
 
 ## Current Frontier
 
-P3.17 has one consumed live candidate and remains in mandatory recovery. The AP
-transferred once and the operator saw a normal boot without a loop, but ACM
-returned `endpoint-timeout`; the durable journal is `OBSERVED`, transfer count
-is `1/0`, final health is pending, and candidate replay is forbidden.
-
-Rollback first stopped correctly because S20+ and S22+ were both in Download.
-After S20+ was detached, `_resume_tracker()` still replayed sealed ambiguous
-snapshot 17 as current hardware. S22+ remains parked at `usb:2-1.3`; S20+ is
-detached, A90 commands are zero, and raw Odin or generic recovery retry is
-prohibited. A recovery-only adapter now separates that exact historical receipt
-from fresh inventory and permits only exact rollback attempt 1. Host replay and
-focused tests pass under binding `8ca5bd43dde4f85c466c741f8be465adee861abd472cf66247970866df007870`,
-but fresh single-endpoint inventory and exact new approval remain mandatory.
-See
+P3.17 is the latest closed live unit. The candidate transferred once and the
+operator saw one normal boot, but ACM returned `endpoint-timeout`. After the
+historical two-endpoint recovery blocker was repaired under binding
+`8ca5bd43dde4f85c466c741f8be465adee861abd472cf66247970866df007870`,
+the exact rollback transferred once; the 19-record journal is `CLOSED`, rooted
+FYG8 health passed, and `recovery_required=false`. Candidate replay is forbidden.
+The official verdict remains `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: the two
+byte-identical final reads contain two identical P3.17 records and classify as
+`MAX77705_RESULT_MULTIPLICITY`. Each record reports a causal-ready provider and
+gadget prefix, diagnostic probe entry, CONTROL1 `0x3f -> 0x09 -> 0x09`, and
+successful command responses, but multiplicity blocks a single-run causal
+claim and neither register readback nor host silence proves physical MUX
+conduction. An independently reviewed host-only close audit reopens the 1/1
+transaction and exact sequence-17 barrier plus three unambiguous receipts. See
 `docs/reports/S22PLUS_FYG8_P317_HISTORICAL_ENDPOINT_REPLAY_RECOVERY_INCIDENT_2026-08-14.md`.
 
-P3.16 is the latest closed live unit. Its distinct boot-only candidate and
+P3.16 is the preceding closed live unit. Its distinct boot-only candidate and
 exact Magisk rollback each transferred once, the journal closed, and rooted
 boot-completed FYG8 health passed after rollback. Its retained observer was
 sound but proved that the Max77705 experiment did not execute; the effective

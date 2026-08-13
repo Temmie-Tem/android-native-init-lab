@@ -1,4 +1,5 @@
 import importlib.util
+import copy
 import json
 import sys
 import tempfile
@@ -12,6 +13,10 @@ SCRIPT = Path(
     "workspace/public/src/scripts/revalidation/"
     "s22plus_fyg8_p317_recovery_only.py"
 )
+CLOSE_AUDIT_SCRIPT = Path(
+    "workspace/public/src/scripts/revalidation/"
+    "s22plus_fyg8_p317_recovery_close_audit.py"
+)
 USB_A = "/dev/bus/usb/002/007"
 USB_B = "/dev/bus/usb/002/008"
 USB_C = "/dev/bus/usb/002/009"
@@ -23,6 +28,20 @@ def load_module():
         sys.path.insert(0, script_dir)
     spec = importlib.util.spec_from_file_location(
         "s22plus_fyg8_p317_recovery_only", SCRIPT
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_close_audit_module():
+    script_dir = str(CLOSE_AUDIT_SCRIPT.parent.resolve())
+    if script_dir not in sys.path:
+        sys.path.insert(0, script_dir)
+    spec = importlib.util.spec_from_file_location(
+        "s22plus_fyg8_p317_recovery_close_audit", CLOSE_AUDIT_SCRIPT
     )
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
@@ -47,6 +66,7 @@ class P317RecoveryOnlyTest(unittest.TestCase):
     def setUpClass(cls):
         cls.module = load_module()
         cls.core = cls.module.odin_core
+        cls.close_audit = load_close_audit_module()
 
     def _snapshot(self, identities):
         return self.core.OdinSnapshot(
@@ -116,8 +136,9 @@ class P317RecoveryOnlyTest(unittest.TestCase):
         authority = self.module.load_authority()
         with tempfile.TemporaryDirectory() as temporary:
             run_dir = Path(temporary)
-            first = self.module.arm_recovery(authority, run_dir)
-            second = self.module.arm_recovery(authority, run_dir)
+            with mock.patch.object(self.module, "_initial_inputs_match"):
+                first = self.module.arm_recovery(authority, run_dir)
+                second = self.module.arm_recovery(authority, run_dir)
             self.assertEqual(first, second)
             self.assertFalse(first["candidate_transfer_allowed"])
             arm = run_dir / self.module.ARM_FILENAME
@@ -139,10 +160,13 @@ class P317RecoveryOnlyTest(unittest.TestCase):
                 path.write_bytes(b"partial")
                 raise self.module.live.F1LiveError("fixture interruption")
 
-            with mock.patch.object(
-                self.module.live,
-                "_write_exclusive",
-                side_effect=fail_after_partial,
+            with (
+                mock.patch.object(self.module, "_initial_inputs_match"),
+                mock.patch.object(
+                    self.module.live,
+                    "_write_exclusive",
+                    side_effect=fail_after_partial,
+                ),
             ):
                 with self.assertRaisesRegex(
                     self.module.RecoveryOnlyError, "could not be published"
@@ -245,6 +269,136 @@ class P317RecoveryOnlyTest(unittest.TestCase):
                 self.core.OdinTransitionError, "ambiguous live Odin endpoints"
             ):
                 tracker.observe(((USB_B, "node-b"), (USB_C, "node-c")))
+
+    def test_close_audit_accepts_only_unambiguous_post_barrier_receipts(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            endpoint_dir = base / "odin-endpoints"
+            records, _patch = self._history(endpoint_dir)
+            tail = (
+                self._snapshot(((USB_C, "node-c"),)),
+                self._snapshot(((USB_C, "node-c"),)),
+                self._snapshot(()),
+            )
+            with self.core.transaction_session(endpoint_dir) as lease:
+                for sequence, snapshot in enumerate(tail, len(records)):
+                    self.core.persist_snapshot(
+                        endpoint_dir, sequence, snapshot, lease=lease
+                    )
+            records = self.core.list_snapshot_receipts(endpoint_dir)
+            expected_post_barrier = self.close_audit._post_barrier_closure(
+                records, 3
+            )
+            authority = {
+                "binding": {
+                    "incident": {
+                        "historical_ambiguity_sequence": 3,
+                        "historical_ambiguity_identity_count": 2,
+                        "run_dir": str(base),
+                    },
+                    "immutable_inputs": {
+                        "historical_ambiguity_receipt": {
+                            "sha256": records[3]["sha256"]
+                        }
+                    },
+                }
+            }
+            result = self.close_audit.audit_receipt_history(
+                authority,
+                records,
+                endpoint_dir=endpoint_dir,
+                expected_post_barrier=expected_post_barrier,
+            )
+            self.assertEqual(result["snapshot_receipt_count"], 7)
+            self.assertEqual(result["post_barrier_identity_counts"], [1, 1, 0])
+            self.assertEqual(result["historical_generation"], 1)
+            self.assertEqual(result["closed_generation"], 2)
+            self.assertTrue(result["fresh_multi_fixture_rejected"])
+
+            all_empty = copy.deepcopy(records)
+            for record in all_empty[4:]:
+                record["live_device_identities"] = []
+            with self.assertRaisesRegex(
+                self.close_audit.CloseAuditError,
+                "generation semantics differ",
+            ):
+                self.close_audit.audit_receipt_history(
+                    authority,
+                    all_empty,
+                    endpoint_dir=endpoint_dir,
+                    expected_post_barrier=expected_post_barrier,
+                )
+
+            two_distinct = copy.deepcopy(records)
+            two_distinct[5]["live_device_identities"] = [[USB_B, "node-b"]]
+            with self.assertRaisesRegex(
+                self.close_audit.CloseAuditError,
+                "generation semantics differ",
+            ):
+                self.close_audit.audit_receipt_history(
+                    authority,
+                    two_distinct,
+                    endpoint_dir=endpoint_dir,
+                    expected_post_barrier=expected_post_barrier,
+                )
+
+            ambiguous = copy.deepcopy(records)
+            ambiguous[5]["live_device_identities"] = [
+                [USB_B, "node-b"],
+                [USB_C, "node-c"],
+            ]
+            with self.assertRaisesRegex(
+                self.close_audit.CloseAuditError,
+                "post-barrier snapshot is ambiguous",
+            ):
+                self.close_audit.audit_receipt_history(
+                    authority,
+                    ambiguous,
+                    endpoint_dir=endpoint_dir,
+                    expected_post_barrier=expected_post_barrier,
+                )
+
+            missing = copy.deepcopy(records[:-1])
+            with self.assertRaisesRegex(
+                self.close_audit.CloseAuditError,
+                "post-barrier receipt closure differs",
+            ):
+                self.close_audit.audit_receipt_history(
+                    authority,
+                    missing,
+                    endpoint_dir=endpoint_dir,
+                    expected_post_barrier=expected_post_barrier,
+                )
+
+            extra = copy.deepcopy(records)
+            extra_record = copy.deepcopy(extra[-1])
+            extra_record["sequence"] = len(extra)
+            extra_record["sha256"] = "f" * 64
+            extra.append(extra_record)
+            with self.assertRaisesRegex(
+                self.close_audit.CloseAuditError,
+                "post-barrier receipt closure differs",
+            ):
+                self.close_audit.audit_receipt_history(
+                    authority,
+                    extra,
+                    endpoint_dir=endpoint_dir,
+                    expected_post_barrier=expected_post_barrier,
+                )
+
+            same_generation_drift = copy.deepcopy(records)
+            for record in same_generation_drift[4:6]:
+                record["live_device_identities"] = [[USB_B, "node-b"]]
+            with self.assertRaisesRegex(
+                self.close_audit.CloseAuditError,
+                "post-barrier receipt closure differs",
+            ):
+                self.close_audit.audit_receipt_history(
+                    authority,
+                    same_generation_drift,
+                    endpoint_dir=endpoint_dir,
+                    expected_post_barrier=expected_post_barrier,
+                )
 
     def test_backend_rejects_candidate_and_nonexact_rollback_before_super(self):
         backend = object.__new__(self.module.ExactRollbackBackend)
