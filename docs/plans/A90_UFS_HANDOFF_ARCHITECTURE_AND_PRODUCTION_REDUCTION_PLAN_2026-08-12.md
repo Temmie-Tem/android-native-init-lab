@@ -18,14 +18,26 @@ permanent safety boundaries. Boot-only transfer, exact target selection,
 rollback, recovery, read-only UFS, durable one-shot/no-replay state, minimal
 Debian `/dev`, cleanup, and terminal health remain mandatory.
 
-2026-08-13 refinement: the next candidate is deferred until Wi-Fi ownership is
-decided. The persistent native Wi-Fi companion keeps an old-root mount
-namespace while Debian receives shared procfs, so private `CLONE_NEWNS` alone
-cannot support a minimal-exposure claim. The binding follow-up is
+2026-08-13 refinement deferred the next candidate until Wi-Fi ownership was
+selected. The persistent native Wi-Fi companion keeps an old-root mount
+namespace while the old in-place handoff moves shared procfs, so private
+`CLONE_NEWNS` alone cannot support a minimal-exposure claim. The binding
+follow-up is
 `A90_HEADLESS_HANDOFF_MINIMUM_AND_WIFI_OWNERSHIP_DECISION_2026-08-13.md`.
-Prefer a bounded proof that all native Wi-Fi sidecars can be reaped and Debian
-can take ownership. Consider a nested PID-namespace supervisor only if that
-proof is refuted and after a separate hazard review.
+
+2026-08-14 correction retires both attempted ownership diagnostics. H24 shell
+inventory triggers PID 1's generic command-boundary reaper and separate
+inventory/stop frames cannot close the device-side capability race. The later
+atomic design would require a new Binder/AF_UNIX/process-broker runtime and
+cannot reproduce H24's distinct post-fork Android UID/GID/capability roles
+under its filter contract. It is preserved only as rejected design evidence.
+
+The selected H0 direction is
+`A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md`: native PID 1
+keeps the exact native Wi-Fi owner and remains a small safety supervisor; one
+child becomes Debian PID 1 in fresh PID, mount, and network namespaces, pivots
+to read-only UFS, and receives only a reviewed veth/IP boundary. No ownership
+stop, diagnostic resident, or shared-namespace fallback is part of the product.
 
 The installed H24 resident is unchanged. Its consumed D1 effect is not retried.
 H25 is `NO_GO_RETIRED`; this plan creates no H26 or other successor identity,
@@ -136,12 +148,12 @@ The current lane is direct-UFS for the Debian root, but is not yet SD-free:
   `/mnt/sdext/a90/private-property-v317/v726/dev/__properties__`.
 
 The public closure does not prove whether every armed Wi-Fi path dereferences
-that property root, so SD removal is unproved. The current H24 resident may use
-its exact known SD only for the separately approved pre-candidate W0 ownership
-test. Before any fresh A90 successor candidate is created, both dependencies
-must be replaced by a reviewed compact cache receipt/authenticated same-run
-observer and a boot-private non-SD Wi-Fi input. HUD removal alone is not the
-SD-removal gate.
+that property root, so SD removal is unproved. The retired H24 shell W0 and
+atomic diagnostic grant no exception. Before any fresh isolated-Debian
+successor candidate is created, both production dependencies must be replaced
+by a reviewed compact cache receipt/authenticated same-run observer and a
+boot-private non-SD native-Wi-Fi input. HUD removal alone is not the SD-removal
+gate.
 
 ## Exact firstboot distinction
 
@@ -266,8 +278,8 @@ Retain:
   DRM even when no persistent HUD starts;
 - detailed stage telemetry, benchmark, and failure attribution;
 - current observer authorization overlay;
-- host ACM/NCM observation and W0-selected bounded Wi-Fi diagnostics, with no
-  native Wi-Fi companion surviving into `switch_root`;
+- host ACM/NCM observation plus bounded native-Wi-Fi and veth/netfilter health
+  evidence, with native tasks absent from Debian's PID/proc/network view;
 - compact cache receipt and authenticated same-run observer replacing the SD
   evidence bind before candidate creation;
 - current immutable UFS content, even where optional services remain inert;
@@ -307,7 +319,7 @@ It can be reorganized without weakening it.
 
 ## Staged production plan
 
-### Stage 0: documentation boundary — this commit
+### Stage 0: documentation boundary — complete
 
 - retire H25 and record its host-only hazards;
 - record the exact H24 path and failure boundary;
@@ -315,18 +327,22 @@ It can be reorganized without weakening it.
 - identify SD evidence and Wi-Fi couplings;
 - change no target, rootfs, artifact, or live state.
 
-### Stage 1: Wi-Fi ownership decision
+### Stage 1: isolated-Debian feasibility
 
-- qualify one attended no-payload test against the exact healthy resident;
-- start from a known Wi-Fi state, durably record one stop intent, stop and reap
-  the exact native helper group once, and observe bounded redacted `wlan0`
-  state;
-- never arm handoff, mount UFS, reboot, flash, or call the result a server PASS;
-- select Debian-owned Wi-Fi only on `TRANSFER_FEASIBLE`;
-- on `TRANSFER_REFUTED` or `NO_PROOF`, stop for a separately reviewed nested
-  PID-namespace design.
-
-No successor identity is allocated in this stage.
+- freeze the H24 shell-W0 and atomic-diagnostic `NO_GO_RETIRED` disposition;
+- independently review
+  `A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md`;
+- prove host-side kernel/toolchain support for PID/mount/network namespaces,
+  matching procfs, veth, exact rtnetlink/netfilter operations, `pivot_root`,
+  capability drops, pidfd/wait, and complete cleanup;
+- prove native Wi-Fi remains in its native namespaces while Debian receives
+  only the isolated veth/IP boundary, never native procfs, AF_UNIX/Binder/
+  property endpoints, `wlan0`, old root, devtmpfs, or block devices;
+- replace SD evidence and property-root dependencies with cache-backed bounded
+  evidence and boot-private native-Wi-Fi inputs before candidate allocation;
+- implement and independently qualify only after the H0 feasibility boundary
+  passes; no diagnostic identity, ownership signal, or shared-namespace
+  fallback exists.
 
 ### Stage 2: fresh headless successor
 
@@ -334,6 +350,8 @@ No successor identity is allocated in this stage.
   latch path, A/B receipt, qualification, and execution closure;
 - compile-disable persistent HUD, private-card-root, delayed HUD DRM,
   firstboot overlay, and boot chime;
+- compile in only the minimal native supervisor, isolated Debian bootstrap,
+  veth/netfilter policy, SD-free evidence pipes, and exact cleanup;
 - define a distinct headless persistent-result model with display explicitly
   not required and terminal native health deferred until attended return;
 - replace the SD evidence bind with a compact durable cache receipt and use a
@@ -364,9 +382,9 @@ S20+.
 Separate modules/interfaces for:
 
 - read-only UFS qualification and mount;
-- switch-root transaction and restoration;
+- isolated child pivot-root transaction and parent fallback;
 - minimal Debian `/dev` construction;
-- optional Wi-Fi bridge;
+- native-Wi-Fi veth/netfilter boundary;
 - experimental SD/formatter/populator commands;
 - optional HUD/display support;
 - host approval/journal/observer logic.
@@ -379,9 +397,10 @@ the usual closure review.
 ### Stage 5: minimal Debian content
 
 Create a separately versioned UFS image/content manifest containing only the
-chosen control channel, Dropbear/authentication, Wi-Fi configuration, logging,
-and required recovery support. Remove HUD, smoke HTTP, tunnel, and obsolete
-test services. Do not mutate the installed read-only appliance opportunistically.
+chosen control channel, Dropbear/authentication, veth consumer configuration,
+logging, and required recovery support. Remove HUD, smoke HTTP, tunnel, and
+obsolete test services. Do not mutate the installed read-only appliance
+opportunistically.
 
 ### Stage 6: optional display
 

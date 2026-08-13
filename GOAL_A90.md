@@ -4,9 +4,12 @@
 
 Build the operator-owned Samsung Galaxy A90 5G into a Debian-oriented personal
 server. Native init performs only the vendor-kernel and hardware bridge-up that
-Debian cannot yet perform, mounts the existing UFS appliance root read-only,
-and transfers PID 1 with `switch_root`. The production steady state is Debian
-PID 1, authenticated SSH, final Wi-Fi, and a minimal Debian `/dev`.
+Debian cannot yet perform, then remains a minimal headless safety supervisor.
+One isolated child becomes Debian PID 1 in fresh PID, mount, and network
+namespaces, pivots to the existing read-only UFS appliance root, and receives
+only a bounded IP path through native-owned Wi-Fi. The production steady state
+is authenticated SSH, final Wi-Fi, and a minimal Debian `/dev`, with native
+fallback and recovery still available outside Debian's namespaces.
 
 `AGENTS.md` and `docs/operations/targets/A90_TARGET_CONTRACT.md` are binding.
 This file records current state and the next bounded unit; it grants no device
@@ -81,9 +84,10 @@ The following are established capabilities, not standing live authority:
 - Retired identities, paths, artifacts, reviews, and evidence are never
   reinterpreted as a fresh successor.
 
-## Selected Bounded Unit: Handoff Reduction and Headless Successor Design
+## Selected Bounded Unit: Retire Ownership Diagnostics and Bound Isolated Debian
 
-The current unit remains H0 architecture only. A fresh static audit found that
+The current unit remains H0 architecture and contract work only. A fresh
+static audit found that
 the existing persistent native Wi-Fi companion cannot simply be carried into a
 headless successor: it retains the old Android root in a private mount
 namespace while Debian receives the shared PID namespace and `/proc`. A private
@@ -100,31 +104,47 @@ This unit does not build a successor and does not touch the device, UFS root,
 boot partition, private evidence, or another target. No H26 identity or path is
 allocated.
 
-Before the next candidate, one separately qualified no-payload Wi-Fi ownership
-test must decide whether all native Wi-Fi/Android companions can be stopped and
-reaped while `wlan0` remains suitable for Debian takeover. Its terminal is only
-`TRANSFER_FEASIBLE`, `TRANSFER_REFUTED`, or `NO_PROOF`; it never proves Debian
-or resident health.
+The attempted H24 shell-based W0 implementation is retired before review or
+live use. Every H24 `cat` or `run` command reaches the generic command-boundary
+orphan reaper, so a `run`-based inventory is not connected read-only D0.
+Furthermore, inventory and stop were separate frames: the approved
+process/group/session/mount-namespace set could change before `SIGTERM`. A host
+journal cannot make that device-side gap atomic. The unqualified runner and
+tests were removed; no W0 qualification, connected read, approval, durable
+intent, signal, reboot, transfer, or recovery exists to resume.
 
-If transfer is feasible, the next implementation candidate uses a fresh
-identity after H25 and is headless:
+The replacement atomic diagnostic is also `NO_GO_RETIRED`. Successive reviews
+showed that safely reproducing H24's Binder/property/service tree would require
+new process brokers, AF_UNIX mediation, and multiple Android UID/GID/capability
+launch contracts. The final frozen H24 source proves those identities differ
+after fork and before exec, contradicting the diagnostic filter model. No
+diagnostic identity, qualification, connected read, approval, signal, reboot,
+transfer, or recovery exists; the long design is historical evidence only.
 
-- persistent native HUD disabled;
-- firstboot overlay disabled;
-- boot chime disabled;
-- every native Wi-Fi sidecar gone before `switch_root`;
-- Debian owns Wi-Fi from a boot-private, non-SD input;
-- read-only UFS root, bounded writable tmpfs set, minimal Debian `/dev`,
-  authenticated SSH, final Wi-Fi, exact cleanup/recovery, and no-replay kept;
-- a distinct persistent-result model that proves headless Debian service
-  health, explicitly makes no display-success claim, and remains
-  `HEALTH_PENDING_PERSISTENT_DEBIAN` until an exact attended return.
+The selected direction is now
+`docs/plans/A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md`:
 
-If transfer is refuted, work returns to H0 for a separately reviewed nested
-PID-namespace supervisor. It is not an automatic fallback. The exact successor
-ordinal, version, build, enable/latch paths, artifact pins, qualification, D0,
-F1 approval, and D1 approval remain future work. Nothing in this document
-reserves or authorizes them.
+- native PID 1 remains a small headless supervisor and keeps the existing
+  native Wi-Fi owner;
+- one direct child becomes Debian PID 1 in separate PID, mount, and network
+  namespaces, mounts a matching private procfs, pivots to read-only UFS, removes
+  the complete old root, and constructs only minimal `/dev`;
+- a reviewed veth plus default-drop forwarding/NAT boundary exposes only the
+  selected IP service; Debian cannot name native tasks, AF_UNIX/Binder/property
+  endpoints, `wlan0`, native devtmpfs, userdata, DRM, or network control;
+- native PID 1 keeps one-shot/no-replay journal, SD-free bounded logs, exact
+  fallback, power/recovery control, and final native-health responsibility;
+- HUD, firstboot overlay, chime, W0/ownership brokers, general shell health,
+  SD evidence/property roots, and benchmark safety predicates leave the formal
+  path.
+
+This is H0 architecture only. Kernel/toolchain support for nested namespaces,
+veth/netfilter, `pivot_root`, capability drops, exact cleanup, and performance
+must be independently proved before any successor identity. Missing support is
+`NO_GO`; shared PID/proc/network namespaces, `chroot`, or a userspace proxy are
+not fallbacks. While Debian is live the state remains
+`HEALTH_PENDING_PERSISTENT_DEBIAN`; attended return/recovery is required for
+`RESIDENT_HEALTHY`.
 
 ## What Stays in the Critical Path
 
@@ -169,32 +189,40 @@ Those are safety machinery, not target runtime bloat.
 
 ## Product Sequence
 
-1. Freeze and independently review this reduction boundary.
-2. Qualify and perform one attended no-payload Wi-Fi ownership test; do not arm
-   handoff, mount UFS, reboot, or flash as part of that test.
-3. Select Debian-owned Wi-Fi only on exact `TRANSFER_FEASIBLE`; otherwise stop
-   for a separately reviewed PID-namespace design.
-4. Design one fresh headless candidate; do not patch or reuse H25.
-5. Build and host-validate it, including a before/after size and handoff-time
-   baseline. Qualification remains host-only.
-6. Require fresh connected D0 and exact attended F1 approval before one
+1. Freeze the H24 shell-W0 and atomic-diagnostic retirement; neither is resumed.
+2. Independently review the selected native-Wi-Fi/isolated-Debian H0 boundary,
+   then commit only the accepted A90 documentation and tests.
+3. Prove host-side kernel/toolchain feasibility for nested PID/mount/network
+   namespaces, veth/netfilter, `pivot_root`, capability drops, and exact cleanup.
+4. Implement the minimal native supervisor, blocked Debian bootstrap,
+   SD-free log transport, and host runner without live authority; independently
+   qualify their exact execution-critical closure.
+5. Only then allocate one fresh headless successor identity and deterministic
+   boot-only candidate/rollback artifacts; never patch/reuse H25 or the retired
+   diagnostic.
+6. Build and host-validate it, including negative namespace/device/network
+   tests and before/after size, boot, forwarding, and handoff measurements.
+7. Prepare from the exact durable H24 terminal and passive target/recovery
+   evidence. Any unavoidable H24 command is reviewed post-approval F1 control,
+   never relabelled D0.
+8. Require fresh connected D0 and exact attended F1 approval before one
    boot-only resident install.
-7. Require exact resident health, then a separate attended D1 approval before
-   one arm/reboot/handoff.
-8. While Debian remains the persistent live runtime, publish only its exact
+9. Require exact resident health, then a separate attended D1 approval before
+   one arm/reboot/isolated-Debian launch.
+10. While Debian remains the persistent live runtime, publish only its exact
    service evidence and `HEALTH_PENDING_PERSISTENT_DEBIAN`; do not call the
    native resident healthy. After an attended return or recovery, require exact
    native `RESIDENT_HEALTHY`. Missing display is expected in the headless lane,
    not a failure.
-9. Replace the hard SD evidence bind and compiled Wi-Fi property-root path
+11. Replace the hard SD evidence bind and compiled Wi-Fi property-root path
    before the next headless candidate. After its resident install, prove an
    attended no-SD D0 before approving handoff; absence of SD is not yet a
    proved resident invariant.
-10. After repeatable headless success, split experimental source modules and
+12. After repeatable headless success, split experimental source modules and
    rebuild the Debian firstboot content as a separate rootfs/config change.
-11. Add display later as a separate optional capability, preferably owned by
+13. Add display later as a separate optional capability, preferably owned by
    Debian. Any persistent native HUD needs a fresh hazard design and review.
-12. Consider section garbage collection and then Full-LTO only after functional
+14. Consider section garbage collection and then Full-LTO only after functional
    boundaries and comparable benchmarks are stable.
 
 ## Evidence
@@ -209,6 +237,8 @@ Canonical public records include:
 - `docs/reports/A90_NATIVE_WIFI_SIDECAR_PROC_ROOT_EXPOSURE_HOST_INCIDENT_2026-08-13.md`
 - `docs/plans/A90_UFS_HANDOFF_ARCHITECTURE_AND_PRODUCTION_REDUCTION_PLAN_2026-08-12.md`
 - `docs/plans/A90_HEADLESS_HANDOFF_MINIMUM_AND_WIFI_OWNERSHIP_DECISION_2026-08-13.md`
+- `docs/plans/A90_ATOMIC_WIFI_OWNERSHIP_DIAGNOSTIC_RESIDENT_DESIGN_2026-08-14.md`
+- `docs/plans/A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md`
 
 Private manifests, journals, raw logs, artifacts, device identifiers, network
 identifiers, and credentials remain under `workspace/private/` and are never

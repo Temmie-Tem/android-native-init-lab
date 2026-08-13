@@ -1,0 +1,65 @@
+{
+  "schema": "a90-headless-native-wifi-isolated-debian-h0-independent-review-v1",
+  "review_date": "2026-08-14",
+  "target": "Samsung Galaxy A90 5G only",
+  "reviewer": "/root/a90_isolated_debian_h0_boundary_review",
+  "verdict": "PASS_H0_DOCUMENTATION_CONTRACT_BOUNDARY",
+  "review_scope": "retired-wifi-ownership-diagnostics-and-selected-isolated-debian-h0-documentation-boundary",
+  "mixed_closure": {
+    "formula": "sort and concatenate PRESENT relpath\\0size\\0sha256\\0 and ABSENT relpath\\0ABSENT\\0 frames, then SHA256",
+    "sha256": "dfd58410a662839da82db51bb5376f361b2d1d50cf5837583e76a0813a689bc2",
+    "member_count": 21,
+    "present_count": 18,
+    "absent_count": 3,
+    "absent_sentinels": [
+      "tests/test_a90_h24_wifi_ownership_w0_v1.py",
+      "workspace/public/src/scripts/server-distro/a90_h24_wifi_ownership_w0_runner_v1.py",
+      "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h26/manifest.toml"
+    ]
+  },
+  "findings": {
+    "high": [],
+    "medium": [],
+    "low": []
+  },
+  "validated_boundaries": [
+    "the H24 shell W0 and the replacement atomic ownership diagnostic are unambiguously retired before qualification or live use",
+    "the selected native Wi-Fi and isolated Debian direction is unimplemented H0 architecture and allocates no H26 identity or path",
+    "the exact H24 resident remains installed and healthy while its one H24 D1 handoff effect is consumed and never replayed",
+    "the H24 evidence proves only the outer persistent HUD EINVAL boundary and does not identify the inner failing syscall",
+    "boot-only transfer rollback physical recovery durable journal no-replay private evidence and exact target isolation remain mandatory",
+    "persistent Debian health remains distinct from attended post-return native RESIDENT_HEALTHY",
+    "SD independence removal and implementation feasibility remain future proof obligations",
+    "S22 plus and S20 plus profiles approvals evidence commands and authority do not transfer to A90"
+  ],
+  "parent_validation": {
+    "focused_public_unittest": "8/8 PASS",
+    "python_compile": "PASS",
+    "scoped_diff_check": "PASS"
+  },
+  "review_contacts": {
+    "present_paths_read": 18,
+    "absent_sentinels_checked": 3,
+    "device": 0,
+    "dev": 0,
+    "usb": 0,
+    "network": 0,
+    "workspace_private": 0,
+    "s22plus_paths_or_commands": 0,
+    "s20plus_paths_or_commands": 0,
+    "tests_builds_imports": 0,
+    "file_modifications_or_creations": 0,
+    "live_commands": 0
+  },
+  "authority": {
+    "capability_pass_go": false,
+    "implementation_feasibility_qualified": false,
+    "candidate_or_build_authority": false,
+    "d0_authority": false,
+    "d1_authority": false,
+    "f1_authority": false,
+    "flash_reboot_handoff_recovery_authority": false,
+    "sd_removal_authority": false,
+    "live_authority": false
+  }
+}

@@ -101,6 +101,14 @@ D0 is exact-target, bounded, connected read-only inspection.
 - With more than one attached device, name A90 as the selected target and
   explicitly confirm S22+ received no command.
 
+The installed H24 shell is not a D0 reader: PID 1 invokes its generic orphan
+reaper before the prompt and after every dispatched command. Until a fresh
+resident provides an independently qualified non-mutating reader, H24 D0 is
+limited to passive host/transport observation that sends no shell command. Any
+required live H24 command must be represented by a separately reviewed D1/F1
+action and its exact authority; harmless-looking output does not lower its
+tier.
+
 ## A90 D1 Resident Session
 
 The namespaced risk label is `TIER_D1_TRANSIENT_NO_PAYLOAD_CONTROL`; historical stage names such as `STAGE_D1_CHROOT_MVP` are not risk labels.
@@ -510,23 +518,53 @@ surviving process may expose its retained old root, file descriptors, or mount
 namespace through `/proc/<pid>`. No headless successor may inherit this process
 model while claiming minimal Debian exposure.
 
-The preferred selection is one separately qualified, attended, no-payload D1
-Wi-Fi ownership test. It may bring up Wi-Fi, durably record one stop intent,
-stop and reap the exact native Wi-Fi helper group once, and observe bounded
-redacted `wlan0` state. It must not arm handoff, mount UFS, reboot, transfer a
-candidate, or claim Debian health. Its only terminals are
-`TRANSFER_FEASIBLE`, `TRANSFER_REFUTED`, or `NO_PROOF`; an uncertain stop is
-never replayed. This paragraph defines the required capability shape, not
-standing D1 authority. A fresh execution closure, independent review, exact
-resident/recovery binding, and fresh attended approval remain mandatory.
+The H24 shell-based W0 path is retired before qualification or live use. Its
+`cat`/`run` commands trigger generic PID-1 reaping, so inventory was not D0;
+separate inventory/stop frames also left a capability-set race before
+`SIGTERM`. No W0 qualification, D0, approval, intent, signal, terminal, or
+recovery exists to resume, and the removed host runner/tests are not evidence.
 
-`TRANSFER_FEASIBLE` permits a later fresh successor to require every native
-Wi-Fi/Android companion gone before `switch_root` and give association, DHCP,
-DNS, and final Wi-Fi health to Debian using a boot-private non-SD input.
-`TRANSFER_REFUTED` or `NO_PROOF` grants no candidate authority. A nested PID
-namespace with native supervisor is then a separate H0 architecture and hazard
-review; `hidepid`, `chroot`, a private mount namespace, or path-name checks are
-not implicit alternatives.
+The non-permanent `A90_WIFI_OWNERSHIP_ATOMICITY_GATE_V1` addresses
+`H24_COMMAND_BOUNDARY_REAPER_EFFECT` and
+`WIFI_HELPER_SPLIT_INVENTORY_STOP_TOCTOU`. It blocks every ownership path
+without a different independently reviewed replacement. The attempted atomic
+diagnostic is `NO_GO_RETIRED`: reproducing H24's distinct post-fork Android
+UID/GID/capability roles under its accumulated filter/broker contract required
+more permanent security machinery than the production handoff. It never gained
+identity, qualification, D0/D1/F1, signal, reboot, or recovery authority.
+
+The selected H0 direction is
+`docs/plans/A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md`.
+It performs no ownership-stop experiment. Native PID 1 remains a minimal
+headless safety supervisor with the exact native Wi-Fi owner. One direct child
+becomes Debian PID 1 in fresh PID, mount, and network namespaces, mounts one
+matching procfs, constructs minimal `/dev`, privately validates and pivots to
+the read-only UFS root, detaches the complete old root, drops bootstrap/network
+capabilities, and execs Debian init. `chroot`, shared procfs, shared network
+namespace, and path-name hiding are not substitutes.
+
+The native side retains `wlan0`; Debian receives only a bound veth peer and
+closed default-drop forwarding/NAT policy. No native task, procfs, Binder,
+property socket, abstract AF_UNIX namespace, Wi-Fi control socket, devtmpfs,
+block/userdata/DRM node, old-root handle, or network-administration capability
+is nameable from Debian. Missing namespace, veth, netfilter, pivot-root,
+capability-drop, cleanup, or exact H24 Wi-Fi support is `NO_GO`; neither a
+shared namespace nor a userspace proxy is an allowed fallback.
+
+Native PID 1 journals one child launch, drains fixed one-way scalar health/log
+pipes into cache-backed SD-free evidence, supervises the exact pidfd and bound
+network rules, and remains available for deterministic fallback. Before child
+release it may reap the blocked bootstrap and remove only its exact veth/rules.
+After release it never launches a second child; uncertainty is recovery-parked.
+While Debian is live state is `HEALTH_PENDING_PERSISTENT_DEBIAN`; only attended
+return/recovery plus exact native health closes `RESIDENT_HEALTHY`.
+
+This architecture is H0 until its kernel/toolchain feasibility, complete
+execution-critical source, crash prefixes, cleanup, performance cost, and
+negative isolation corpus receive independent review. No successor identity or
+live action is allocated. The ownership gate retires only after an isolated-
+Debian successor proves no ownership-stop path is reachable and its exact live
+terminal/recovery closure succeeds; the gate itself grants no authority.
 
 After that decision, a successor may define a headless persistent-server lane
 that compile-disables the persistent native HUD and firstboot overlay. Such a

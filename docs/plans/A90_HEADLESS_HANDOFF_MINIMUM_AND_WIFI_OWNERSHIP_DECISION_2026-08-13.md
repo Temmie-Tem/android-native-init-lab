@@ -7,18 +7,17 @@ Live authority: none
 
 ## Outcome
 
-The project does not need to rewrite the proven UFS handoff from zero. It needs
-to freeze a smaller product contract around the existing transaction core and
-resolve one ownership question before allocating another candidate: **who owns
-Wi-Fi after Debian starts?**
+The project does not need to rewrite the proven UFS qualification and safety
+transaction from zero. It needs a smaller product contract around that core
+and an explicit Wi-Fi owner before another candidate is allocated.
 
-The preferred final architecture has no long-lived native process visible in
-Debian's PID namespace. Native init performs bounded hardware bring-up, proves
-all temporary helpers gone, mounts the exact UFS appliance read-only, creates
-the minimal Debian runtime, and executes `switch_root`. Debian then owns SSH,
-Wi-Fi, logging, and any future display. A nested native supervisor is considered
-only if a small Wi-Fi ownership-transfer experiment proves that the sidecars
-cannot be retired.
+The selected owner is native. Native PID 1 remains a minimal headless safety
+supervisor with the existing native Wi-Fi service. One child becomes Debian
+PID 1 in fresh PID, mount, and network namespaces, privately mounts and pivots
+to the exact UFS appliance, and receives only a reviewed veth/IP path. Debian
+owns SSH, logging, the server workload, and any later optional display, but it
+does not own or name `wlan0`, native tasks, or native IPC/device state. The
+ownership-stop experiment and its replacement atomic diagnostic are retired.
 
 No H26 ordinal, version, profile, state path, artifact, or live runner is
 created by this design. Identity allocation follows the Wi-Fi decision so a
@@ -37,7 +36,7 @@ failed design does not leave another dead candidate lineage.
 | Debian `/dev` | Fresh tmpfs, exact core character nodes, mandatory devpts, no userdata block node | Host-qualified H24 design; H24 stopped before live execution | Keep and live-prove |
 | Display cleanup | Bounded scan/release of native DRM owners before mount transition | Earlier live use; shared safety function | Keep until headless proof; remove broad scan only after explicit ownership exists |
 | Persistent HUD | Native presenter plus private card root after UFS mount | H24 failed at bootstrap; H25 alternatives retired | Remove from headless path |
-| Wi-Fi | Persistent native helper, Android companions and native autoconnect in shared network/PID environment | Earlier functional evidence, but old-root isolation is unproved | Block final candidate pending ownership decision |
+| Wi-Fi | Persistent native helper, Android companions and native autoconnect in shared network/PID environment | Earlier functional evidence, but shared proc/network exposure is unproved | Keep native owner; isolate Debian with fresh PID/mount/network namespaces plus veth/netfilter |
 | USB/NCM | Kernel gadget prepared for Debian; native TCP control is not required in Debian | Earlier observation path | Keep as attended recovery/first-proof channel |
 | Same-run evidence | SD evidence-run file bind plus host observer/journal | Works but hard-requires SD | Replace with cache receipt plus authenticated live observation |
 | Failure fallback | Stage/rc/errno attribution, child cleanup, mount restoration, UFS unmount, native continuation | Repeatedly exercised | Keep |
@@ -75,58 +74,58 @@ only a compact durable sequence containing intent identity, checkpoint,
 boottime, failure stage, rc/errno, cleanup result, and zero-write result. Raw
 logs and large observer transcripts stay private on the host.
 
-## Wi-Fi ownership gate W0
+## Wi-Fi ownership diagnostic disposition
 
-W0 is a separately reviewed D1, no-payload feasibility experiment. It does not
-arm handoff, mount UFS, reboot, flash, or claim Debian health.
+The attempted H24 shell-based W0 is retired without qualification or live
+contact. Every installed H24 `cat` and `run` command reaches PID 1's generic
+command-boundary orphan reaper, so the proposed inventory was not D0. Its
+separate inventory and stop frames also could not atomically preserve the
+approved process, group, session, and mount-namespace closure through
+`SIGTERM`. The deleted runner and tests are not evidence and are never resumed.
 
-The exact experiment must:
+The replacement atomic design in
+`A90_ATOMIC_WIFI_OWNERSHIP_DIAGNOSTIC_RESIDENT_DESIGN_2026-08-14.md` is
+`NO_GO_RETIRED`. It accumulated a new Binder/AF_UNIX/process-broker runtime and
+still could not reproduce H24's distinct post-fork UID/GID/capability roles
+without reopening its filter boundary. That is disproportionate for a single
+measurement. It grants no identity or live authority and is never implemented.
 
-1. start from the exact healthy installed resident and a USB recovery path;
-2. identify the native Wi-Fi helper process group and every required child;
-3. establish `wlan0` and record only redacted link state;
-4. durably record stop intent, stop the group once, and prove every named PID
-   and process-group member is reaped;
-5. sample `wlan0` presence, carrier and driver state for a fixed short window;
-6. make no association replay and send no external probe unless separately
-   approved;
-7. restore native service only through a predeclared bounded recovery branch;
-8. publish `TRANSFER_FEASIBLE`, `TRANSFER_REFUTED`, or `NO_PROOF`, never a
-   server PASS.
+The selected production direction is
+`A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md`. It stops trying
+to transfer ownership. Native PID 1 retains the exact native Wi-Fi owner and
+supervises Debian as PID 1 in separate PID, mount, and network namespaces.
+Debian receives only a veth/IP boundary, fresh procfs, minimal `/dev`, and the
+read-only UFS root. Native tasks, abstract AF_UNIX/Binder/property state,
+`wlan0`, old root, and device nodes are not nameable from Debian.
 
-Decision:
+That architecture is H0 and unimplemented. Namespace/veth/netfilter/pivot-root
+support, capability drops, crash-prefix no-replay, exact network cleanup,
+SD-free logging, and performance must receive independent review before a
+fresh identity. Missing support is `NO_GO`; shared namespaces are not a
+fallback.
 
-- `TRANSFER_FEASIBLE` selects Debian-owned Wi-Fi. A fresh candidate gets a
-  boot-private, non-SD configuration overlay and Debian performs association,
-  DHCP, DNS, and final health. Every native helper must be gone before
-  `switch_root`.
-- `TRANSFER_REFUTED` selects an H0-only nested PID-namespace supervisor design.
-  That design must keep native sidecars outside Debian's procfs and requalify
-  cleanup, recovery, and health. It is not automatically authorized.
-- `NO_PROOF` leaves the branch unresolved and authorizes no candidate.
-
-## Minimal handoff state machine after W0
+## Minimal isolated-Debian handoff state machine
 
 ```text
 native healthy
   -> fresh target/UFS/rollback preflight
   -> prepare recovery USB/NCM
-  -> bounded vendor Wi-Fi bring-up
-  -> W0-selected ownership boundary
-  -> prove zero Debian-visible old-root sidecars
+  -> exact native Wi-Fi owner healthy
+  -> one blocked child in fresh PID/mount/network namespaces
+  -> bind veth + default-drop forwarding policy
   -> durable one-shot intent and latch
-  -> mount UFS read-only + tmpfs auth/runtime + minimal /dev
-  -> durable pre-switch receipt
-  -> switch_root once
+  -> child mounts UFS read-only + tmpfs auth/runtime + minimal /dev
+  -> child pivot_root + old-root detach + capability drop
   -> authenticated same-run Debian observation
   -> HEALTH_PENDING_PERSISTENT_DEBIAN
   -> attended return/recovery
   -> exact native RESIDENT_HEALTHY
 ```
 
-Any failure before `switch_root` records the original failure first, cleans up,
-and stays native. Any uncertain post-intent state parks; it does not resend arm,
-reboot, candidate transfer, or handoff.
+Native PID 1 never leaves its namespace. Any failure before child release
+records the original failure first, reaps the blocked child, removes only bound
+veth/rules, and stays native. Any uncertain post-intent state parks; it does not
+resend arm, reboot, candidate transfer, or child launch.
 
 ## Test and benchmark features
 
@@ -157,7 +156,7 @@ from the final production profile.
 - persistent native HUD and all display-success predicates;
 - firstboot overlay and boot chime;
 - SD evidence bind and compiled SD property-root dependency;
-- any long-lived native process whose old root is visible in Debian `/proc`;
+- any shared PID/proc/network namespace that makes native state visible to Debian;
 - continuous HUD polling and display presenter artifacts;
 - candidate-specific legacy rootfs copy/hash work from the direct-UFS lane.
 
@@ -167,7 +166,7 @@ from the final production profile.
 - detailed stage attribution and private raw logs;
 - USB/NCM attended observation;
 - existing immutable UFS root content;
-- conservative Wi-Fi bring-up diagnostics selected by W0.
+- conservative native Wi-Fi and isolated veth/netfilter diagnostics.
 
 ### Remove from the formal production image after repeated proof
 
@@ -202,9 +201,13 @@ this ownership and module split; LTO cannot correct an unsafe process model.
 
 ## Exit criteria
 
-This design advances to candidate implementation only when W0 has one terminal
-result and an independent review agrees with the selected ownership branch.
-The final candidate then needs its own fresh identity, deterministic boot-only
-artifacts, capability qualification, connected D0, attended F1 approval,
-resident health, separate attended D1 approval, and same-run result. This H0
-document grants none of those authorities.
+This design advances to implementation only after an independent H0 review
+accepts the retirement and architecture boundary, and host/static feasibility
+proves the required PID/mount/network namespaces, private procfs, veth and
+netfilter operations, `pivot_root`, capability drops, SD-free evidence, and
+exact cleanup. Missing support is `NO_GO`; it does not reactivate an ownership
+experiment or permit a shared-namespace fallback. A later candidate needs its
+own fresh identity, deterministic boot-only artifacts, capability
+qualification, connected D0, attended F1 approval, resident health, separate
+attended D1 approval, and same-run result. This H0 document grants none of
+those authorities.

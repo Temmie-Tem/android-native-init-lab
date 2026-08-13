@@ -59,27 +59,49 @@ the device currently exposes anything. H24 stopped earlier at the HUD stage.
   reserved by this report.
 - H25 remains `NO_GO_RETIRED`; its identity and evidence remain unusable.
 
-## Required decision gate
+## Selected decision gate
 
-Before a final cable-free headless candidate exists, one separately qualified
-no-payload Wi-Fi ownership test must answer whether native Wi-Fi companions can
-be stopped and fully reaped while `wlan0` remains usable long enough for Debian
-to take ownership.
+The atomic ownership diagnostic is now `NO_GO_RETIRED`. Independent review
+showed that reproducing H24's service set safely required a new Binder/AF_UNIX/
+process-broker runtime and still conflicted with its distinct post-fork Android
+UID/GID/capability identities. It never gained identity or live authority.
 
-If the result is positive, the production direction is:
+The selected H0 direction is
+`docs/plans/A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md`.
+Native PID 1 retains Wi-Fi and supervises Debian in separate PID, mount, and
+network namespaces. Debian receives only a veth/IP boundary, fresh procfs,
+minimal `/dev`, and read-only UFS; native processes, old root, AF_UNIX/Binder/
+property state, `wlan0`, and device control are not nameable from Debian.
 
-1. native code performs the minimum vendor/firmware bring-up;
-2. every native Wi-Fi helper and companion is stopped and proved gone;
-3. a boot-private credential/config input is handed to Debian without SD;
-4. Debian owns association, DHCP, DNS, and health;
-5. `switch_root` proceeds only after the zero-sidecar proof is durable.
+Kernel/toolchain support, veth/netfilter policy, pivot-root cleanup, capability
+drops, SD-free evidence, crash-prefix no-replay, and performance must pass an
+independent review before any fresh identity. Shared proc/network namespaces,
+`hidepid`, `chroot`, path-name checks, or a userspace proxy are not fallbacks.
 
-If the result is negative, the handoff must stop at H0. A nested PID-namespace
-supervisor is then a separate architecture and hazard review; it is not an
-implicit fallback and must not be added inside the existing critical path.
-`hidepid`, a private mount namespace, `chroot`, path-name checks, or merely
-dropping one file descriptor are not accepted substitutes for an exact
-isolation proof.
+## Subsequent host-only correction
+
+The attempted follow-up that reused H24's installed `cat` and `run` surface is
+also retired before qualification or live contact. Static inspection proved
+two independent defects:
+
+1. H24 PID 1 invokes its generic command-boundary orphan reaper after every
+   shell command. A `run`-based inventory could therefore reap unrelated PID-1
+   children and is a device mutation, not connected read-only D0.
+2. Inventory and `SIGTERM` were different command frames. A helper could fork,
+   exec, reparent, change process group/session, or change mount namespace in
+   the gap. A host journal makes replay conservative but cannot make that
+   device-side capability set atomic.
+
+The unqualified W0 runner and tests were removed. There was no connected read,
+approval, device intent, signal, terminal, reboot, recovery, or evidence to
+resume. H24 remains the healthy installed resident and is not modified for this
+experiment.
+
+The later atomic design closed several additional theoretical races but was
+retired when its own exact H24 source dependency proved the design
+disproportionate and internally incompatible. Its detailed document is kept as
+negative design evidence only. No diagnostic command, journal, or recovery
+state exists to reconcile.
 
 ## Retirement evidence
 
@@ -94,8 +116,10 @@ This blocker retires only after one of these independently reviewed closures:
   all sidecars are absent from Debian `/proc`, and rollback, cleanup, no-replay,
   and terminal-health semantics are independently requalified.
 
-The first closure is preferred because it removes runtime machinery instead of
-adding a permanent supervisor.
+The atomic attempt made the first closure disproportionate. The selected path
+is the second closure extended with a separate Debian network namespace and
+veth boundary; it still requires fresh independent implementation and live
+proof.
 
 ## Contact and authority statement
 
