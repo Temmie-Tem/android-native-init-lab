@@ -92,19 +92,19 @@ class P318BannerResultContractTest(unittest.TestCase):
         )
         producer = result["successor"]["host_event_producer"]
         self.assertFalse(producer["implementation_present"])
-        self.assertFalse(producer["gadget_exposure_source_binding_present"])
-        self.assertFalse(producer["gadget_exposure_sample_is_actual_bind_time"])
+        self.assertFalse(producer["gate_write_source_binding_present"])
+        self.assertFalse(producer["gate_write_sample_is_actual_bind_time"])
         self.assertIn(
             "write-once pre-UDC gate",
-            producer["gadget_exposure_sample_producer"],
+            producer["gate_write_sample_producer"],
         )
         self.assertIn(
             "reads back that exact marker before its only configfs UDC bind",
-            producer["gadget_exposure_qualification_obligations"],
+            producer["gate_write_qualification_obligations"],
         )
         ordering = result["successor"]["ordering"]
         self.assertLess(
-            ordering.index("capture_one_shot_gadget_exposure_gate_in_latch_module"),
+            ordering.index("capture_one_shot_pre_udc_gate_write_in_latch_module"),
             ordering.index("read_back_exposure_gate_then_bind_configfs_udc"),
         )
         self.assertLess(
@@ -256,9 +256,14 @@ class P318BannerResultContractTest(unittest.TestCase):
             timing["encoding"],
             "pre_is_zero_origin_plus_six_signed_int32_microsecond_deltas",
         )
-        self.assertEqual(timing["causal_validity_masks"], [0x6F, 0x7F])
-        self.assertEqual(timing["validity_bits"]["bit6"], "gadget_exposure")
-        self.assertIn("derived", timing["required_latch_order"])
+        self.assertEqual(timing["causal_validity_masks"], [0xEF, 0xFF])
+        self.assertEqual(timing["validity_bits"]["bit6"], "gate_write")
+        self.assertEqual(
+            timing["validity_bits"]["bit7"],
+            "no_qualifying_host_event_before_gate_write",
+        )
+        self.assertIn("structural invariant", timing["required_latch_order"])
+        self.assertIn("only gate_write <= pre", timing["required_latch_order"])
         self.assertIn("not observable", timing["legacy_0x0f_meaning"])
         self.assertEqual(
             timing["required_device_sample_order"],

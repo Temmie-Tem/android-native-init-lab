@@ -20,6 +20,14 @@ FIXTURE = (
     / "workspace/public/src/native-init/"
     "s22plus_fyg8_p318_dwc3_event_decoder_fixture.c"
 )
+UDC_CORE = (
+    ROOT
+    / "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/"
+    "kernel_platform/common/drivers/usb/gadget/udc/core.c"
+)
+P260_RUNTIME = (
+    ROOT / "workspace/public/src/native-init/s22plus_fyg8_p260_e3_runtime.inc.c"
+)
 
 
 def load_module():
@@ -45,6 +53,17 @@ class P318Dwc3EventLatchTest(unittest.TestCase):
 
     def decoder_data(self) -> bytes:
         return DECODER.read_bytes()
+
+    def audit_source(
+        self, module_data: bytes | None = None, decoder_data: bytes | None = None,
+        udc_data: bytes | None = None, runtime_data: bytes | None = None,
+    ):
+        return P318.audit_latch_source(
+            module_data if module_data is not None else self.module_data(),
+            decoder_data if decoder_data is not None else self.decoder_data(),
+            udc_data if udc_data is not None else UDC_CORE.read_bytes(),
+            runtime_data if runtime_data is not None else P260_RUNTIME.read_bytes(),
+        )
 
     def run_decoder_fixture(self, decoder_text: str | None = None):
         with tempfile.TemporaryDirectory(prefix="p318-dwc3-decode-") as name:
@@ -91,12 +110,21 @@ class P318Dwc3EventLatchTest(unittest.TestCase):
         receipts = P318._source_receipts(ROOT)  # noqa: SLF001
         self.assertEqual(
             set(receipts),
-            {"Makefile", "s22plus_dwc3_event_decode.h", "s22plus_dwc3_event_latch.c", "decoder_fixture"},
+            {
+                "Makefile", "s22plus_dwc3_event_decode.h",
+                "s22plus_dwc3_event_latch.c", "decoder_fixture",
+                "p260_runtime_udc_observation",
+            },
         )
-        audit = P318.audit_latch_source(self.module_data(), self.decoder_data())
+        audit = self.audit_source()
         self.assertTrue(audit["event_ready_is_first_callback_guard"])
-        self.assertTrue(audit["events_before_exposure_gate_are_ignored"])
+        self.assertTrue(audit["qualifying_events_before_gate_are_counted"])
+        self.assertTrue(audit["pre_gate_zero_cannot_race_a_gate_transition"])
         self.assertTrue(audit["exact_a600000_dwc3_filter_precedes_decode"])
+        self.assertEqual(
+            audit["udc_name_authority"]["latch_exact_target"],
+            "a600000.dwc3",
+        )
         self.assertTrue(audit["first_event_claim_is_atomic"])
         self.assertTrue(audit["tracepoint_unregister_is_synchronized"])
 
@@ -145,21 +173,15 @@ class P318Dwc3EventLatchTest(unittest.TestCase):
 
     def test_source_audit_rejects_hot_path_guard_reordering(self):
         source = MODULE.read_text(encoding="utf-8")
-        original = (
-            "if (smp_load_acquire(&s22plus_latch.event_ready))\n"
-            "\t\treturn;\n"
-            "\tif (!smp_load_acquire(&s22plus_latch.gate_ready))"
-        )
+        original = "if (smp_load_acquire(&s22plus_latch.event_ready))"
         mutated = source.replace(
             original,
-            "if (!smp_load_acquire(&s22plus_latch.gate_ready))\n"
-            "\t\treturn;\n"
-            "\tif (smp_load_acquire(&s22plus_latch.event_ready))",
+            "if (false)",
             1,
         )
         self.assertNotEqual(mutated, source)
         with self.assertRaises(P318.LatchBuildError):
-            P318.audit_latch_source(mutated.encode(), self.decoder_data())
+            self.audit_source(module_data=mutated.encode())
 
     def test_source_audit_rejects_non_atomic_event_claim(self):
         source = MODULE.read_text(encoding="utf-8")
@@ -170,7 +192,7 @@ class P318Dwc3EventLatchTest(unittest.TestCase):
         )
         self.assertNotEqual(mutated, source)
         with self.assertRaises(P318.LatchBuildError):
-            P318.audit_latch_source(mutated.encode(), self.decoder_data())
+            self.audit_source(module_data=mutated.encode())
 
     def test_source_audit_rejects_publish_before_event_fields(self):
         source = MODULE.read_text(encoding="utf-8")
@@ -188,7 +210,7 @@ class P318Dwc3EventLatchTest(unittest.TestCase):
         )
         self.assertNotEqual(mutated, source)
         with self.assertRaises(P318.LatchBuildError):
-            P318.audit_latch_source(mutated.encode(), self.decoder_data())
+            self.audit_source(module_data=mutated.encode())
 
     def test_source_audit_rejects_gate_replay(self):
         source = MODULE.read_text(encoding="utf-8")
@@ -199,7 +221,37 @@ class P318Dwc3EventLatchTest(unittest.TestCase):
         )
         self.assertNotEqual(mutated, source)
         with self.assertRaises(P318.LatchBuildError):
-            P318.audit_latch_source(mutated.encode(), self.decoder_data())
+            self.audit_source(module_data=mutated.encode())
+
+    def test_source_audit_rejects_split_pre_gate_counter(self):
+        source = MODULE.read_text(encoding="utf-8")
+        mutated = source.replace(
+            "&s22plus_latch.exposure_state, state_value, state_value + 1",
+            "&s22plus_latch.exposure_state, state_value, state_value",
+            1,
+        )
+        self.assertNotEqual(mutated, source)
+        with self.assertRaises(P318.LatchBuildError):
+            self.audit_source(module_data=mutated.encode())
+
+    def test_udc_name_authority_rejects_kernel_or_observed_path_drift(self):
+        udc = UDC_CORE.read_text(encoding="utf-8")
+        mutated_udc = udc.replace(
+            "kobject_name(&gadget->dev.parent->kobj)", '"fixed-udc"', 1
+        )
+        self.assertNotEqual(mutated_udc, udc)
+        with self.assertRaises(P318.LatchBuildError):
+            self.audit_source(udc_data=mutated_udc.encode())
+
+        runtime = P260_RUNTIME.read_text(encoding="utf-8")
+        mutated_runtime = runtime.replace(
+            "/sys/class/udc/a600000.dwc3/state",
+            "/sys/class/udc/other.dwc3/state",
+            1,
+        )
+        self.assertNotEqual(mutated_runtime, runtime)
+        with self.assertRaises(P318.LatchBuildError):
+            self.audit_source(runtime_data=mutated_runtime.encode())
 
     def test_current_ab_module_receipt_reaudits(self):
         build_dir = ROOT / P318.DEFAULT_OUTPUT_DIR

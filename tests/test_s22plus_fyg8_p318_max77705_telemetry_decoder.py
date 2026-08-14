@@ -1,5 +1,6 @@
 import sys
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 
@@ -15,7 +16,7 @@ import s22plus_fyg8_p318_max77705_telemetry_decoder as decoder
 RUN_ID = b"p318decoderfix01"
 
 
-def classified(event_kind: int):
+def classified(event_kind: int, *, pre_gate_events: int = 0):
     result = qualified._result((b"\x80", b"\x80", b"\x80", b"\x80"))  # noqa: SLF001
     envelope = telemetry.encode_envelope(
         binding=qualified._binding(),  # noqa: SLF001
@@ -23,7 +24,9 @@ def classified(event_kind: int):
         banner=qualified._banner("written", "none", 49),  # noqa: SLF001
         mux_class="pre-nonusb-post-stable-usb",
         result=result,
-        latch=qualified._latch(event_kind),  # noqa: SLF001
+        latch=replace(  # noqa: SLF001
+            qualified._latch(event_kind), pre_gate_events=pre_gate_events
+        ),
     )
     record = telemetry.encode_carrier_record(envelope, run_id=RUN_ID)
     return decoder.classify_observation(
@@ -81,6 +84,16 @@ class P318Max77705TelemetryDecoderTests(unittest.TestCase):
         value = decoder.correlate_candidate_receipt(
             classified(0),
             relationship="same",
+            authority_state="candidate_approved_exact",
+            observation_complete=True,
+        )
+        self.assertFalse(value["accepted"])
+        self.assertEqual(value["classification"], "NO_PROOF_OBSERVER")
+
+    def test_pre_gate_event_cannot_become_favorable_host_silence(self):
+        value = decoder.correlate_candidate_receipt(
+            classified(0, pre_gate_events=1),
+            relationship="absent",
             authority_state="candidate_approved_exact",
             observation_complete=True,
         )

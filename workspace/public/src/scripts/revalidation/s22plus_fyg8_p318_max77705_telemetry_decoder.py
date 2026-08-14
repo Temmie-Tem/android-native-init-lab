@@ -23,7 +23,7 @@ PROFILE = inherited.PROFILE
 POLICY_PREIMAGE = (
     "S22PLUS_FYG8_P318_MAX77705_TELEMETRY_DECODER_V4|carrier=S22E1L2-192|"
     "pair=106,107|a=0xda3|b=0x6701-0x673f|envelope=MXD4-128|"
-    "timing=install-exposure-pre-write-post1-post2-first-host-event|"
+    "timing=install-gate-pre-write-post1-post2-first-host-event-plus-pre-gate-absence|"
     "banner=outcome-error-count|poll=47-lossless-or-44-summary-plus-zero3|"
     "host=phase-bound-complete-receipt-required|claim-busy=empty-preimage"
 )
@@ -164,9 +164,7 @@ def correlate_candidate_receipt(
         decoded["host_correlation_proof_class"] = "NO_PROOF_OBSERVER"
         decoded["causal_result_allowed"] = False
         records[0]["max77705"] = decoded
-        result["classification"] = decoded.get(
-            "terminal_classification", "NO_PROOF_OBSERVER"
-        )
+        result["classification"] = "NO_PROOF_OBSERVER"
         result["accepted"] = False
         result["telemetry_count"] = 0
         result["contradiction_count"] = 1
@@ -182,7 +180,7 @@ def correlate_candidate_receipt(
         validity_mask=int(timing["valid_mask"]),
         host_event_kind=str(timing["first_host_event_kind"]),
         latch_install_delta_us=int(timing["latch_install_delta_us"]),
-        gadget_exposure_delta_us=int(timing["gadget_exposure_delta_us"]),
+        gate_write_delta_us=int(timing["gate_write_delta_us"]),
     )
     proof_class = str(correlated["proof_class"])
     accepted = (

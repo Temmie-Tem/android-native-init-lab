@@ -16,7 +16,7 @@ import s22plus_fyg8_p317_userspace_build as userspace
 import s22plus_fyg8_p318_generator as generator
 
 
-SCHEMA = "s22plus_fyg8_p318_runtime_qualification_v1"
+SCHEMA = "s22plus_fyg8_p318_runtime_qualification_v2"
 VERDICT = "PASS_P318_RUNTIME_GATE_AND_V4_PUBLISH_H0"
 NATIVE = Path("workspace/public/src/native-init")
 PREFIX = Path("workspace/public/src/scripts/revalidation")
@@ -107,9 +107,9 @@ def _run_gate_fixture(root: Path, directory: Path) -> dict[str, Any]:
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise RuntimeQualificationError("runtime gate fixture output differs") from exc
     expected = {
-        "schema": "s22plus_fyg8_p318_runtime_gate_fixture_v1",
-        "positive": 2,
-        "negative": 5,
+        "schema": "s22plus_fyg8_p318_runtime_gate_fixture_v2",
+        "positive": 4,
+        "negative": 7,
         "verdict": "PASS",
     }
     if result != expected:
@@ -158,6 +158,12 @@ def audit(repo_root: Path | None = None) -> dict[str, Any]:
         runtime,
         b"static __attribute__((noreturn)) void p317_publish(\n",
     )
+    gate_helper = _function(
+        runtime, b"static long p318_arm_exposure_gate(void)"
+    )
+    terminal_latch = _function(
+        runtime, b"static long p318_capture_terminal_latch(\n"
+    )
     if selected.count(b"p260_bind_udc();") != 1:
         raise RuntimeQualificationError("selected P3.18 UDC bind count differs")
     _ordered(
@@ -169,6 +175,26 @@ def audit(repo_root: Path | None = None) -> dict[str, Any]:
             b"S22PLUS_MAX77705_P318_OBSERVER_SITE_EXPOSURE_GATE",
             b"p260_bind_udc();",
             b"S22_P313_POSITION_DIRECT_BIND_RETURNED",
+        ),
+    )
+    _ordered(
+        gate_helper,
+        "selected P3.18 gate baseline",
+        (
+            b"after.pre_gate_events < before.pre_gate_events",
+            b"p318_gate_baseline = after;",
+            b"p318_gate_baseline_ready = 1;",
+        ),
+    )
+    _ordered(
+        terminal_latch,
+        "selected P3.18 terminal latch continuity",
+        (
+            b"p318_gate_baseline_ready == 0",
+            b"p318_read_latch_snapshot(snapshot)",
+            b"snapshot->install_ns == p318_gate_baseline.install_ns",
+            b"snapshot->gate_ns == p318_gate_baseline.gate_ns",
+            b"snapshot->pre_gate_events ==",
         ),
     )
     _ordered(
@@ -245,6 +271,8 @@ def audit(repo_root: Path | None = None) -> dict[str, Any]:
             "banner_attempt_precedes_terminal_envelope": True,
             "old_unchecked_banner_call_absent_from_selected_publisher": True,
             "late_timed_diagnostic_path_exact": True,
+            "post_gate_baseline_retained_until_terminal": True,
+            "terminal_pre_gate_count_exactly_matches_baseline": True,
         },
         "gate_fixture": fixture,
         "userspace_a_b": {

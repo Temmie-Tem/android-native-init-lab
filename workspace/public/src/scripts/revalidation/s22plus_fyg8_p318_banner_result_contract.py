@@ -82,7 +82,7 @@ OUTCOMES = ("written", "eagain_timeout", "failure", "partial")
 HOST_EVENT_KINDS = ("none", "reset", "connect_done", "setup")
 TIMING_SAMPLES = (
     "latch_install",
-    "gadget_exposure",
+    "gate_write",
     "pre",
     "write",
     "post1",
@@ -873,7 +873,7 @@ def successor_contract() -> dict[str, Any]:
         "ordering": [
             "load_early_dwc3_event_latch_module",
             "prove_tracepoint_registered_and_exact_a600000_dwc3_filter_armed",
-            "capture_one_shot_gadget_exposure_gate_in_latch_module",
+            "capture_one_shot_pre_udc_gate_write_in_latch_module",
             "read_back_exposure_gate_then_bind_configfs_udc",
             "only_then_expose_the_gadget_to_the_host",
             "gadget_and_observer_evaluability_preconditions",
@@ -938,7 +938,7 @@ def successor_contract() -> dict[str, Any]:
             "timing_valid_mask",
             "first_host_event_kind",
             "latch_install_delta_us_from_pre",
-            "gadget_exposure_delta_us_from_pre",
+            "gate_write_delta_us_from_pre",
             "write_delta_us_from_pre",
             "post1_delta_us_from_pre",
             "post2_delta_us_from_pre",
@@ -983,23 +983,22 @@ def successor_contract() -> dict[str, Any]:
                 "modules; inherited diagnostic remains late"
             ),
             "implementation_present": False,
-            "gadget_exposure_sample_producer": (
+            "gate_write_sample_producer": (
                 "the early latch module captures ktime_get_ns once through a "
                 "write-once pre-UDC gate; runtime proves marker readback then "
                 "performs the sole configfs UDC bind"
             ),
-            "gadget_exposure_source_binding_present": False,
-            "gadget_exposure_sample_is_actual_bind_time": False,
-            "gadget_exposure_sample_semantics": (
-                "same-clock pre-exposure gate whose source-bound runtime order "
-                "plus successful sole UDC bind must prove latch installation "
-                "preceded gadget exposure"
+            "gate_write_source_binding_present": False,
+            "gate_write_sample_is_actual_bind_time": False,
+            "gate_write_sample_semantics": (
+                "same-clock write-once gate marker; it is not a host-visibility "
+                "or UDC-bind timestamp"
             ),
-            "gadget_exposure_qualification_obligations": (
+            "gate_write_qualification_obligations": (
                 "module-owned write-once gate calls ktime_get_ns, runtime reads "
                 "back that exact marker before its only configfs UDC bind, and "
-                "the existing gadget-evaluability witness proves that bind "
-                "completed"
+                "the latch counts every qualifying event linearized before the "
+                "gate transition"
             ),
             "latched_hot_path": (
                 "one acquire/read of first-event state then immediate return; "
@@ -1025,30 +1024,33 @@ def successor_contract() -> dict[str, Any]:
                 "bit3": "post2",
                 "bit4": "first_host_event",
                 "bit5": "latch_install",
-                "bit6": "gadget_exposure",
+                "bit6": "gate_write",
+                "bit7": "no_qualifying_host_event_before_gate_write",
             },
-            "causal_validity_masks": [111, 127],
+            "causal_validity_masks": [239, 255],
             "legacy_0x0f_meaning": (
                 "host event not observable because latch-install authority is "
                 "absent; never no-host-event"
             ),
             "required_device_sample_order": "pre <= write <= post1 < post2",
             "required_latch_order": (
-                "tracepoint_registered <= latch_install <= gadget_exposure "
-                "<= pre; armed-before is derived from retained same-clock samples"
+                "tracepoint_registered <= latch_install <= gate_write is a "
+                "module structural invariant; only gate_write <= pre carries "
+                "causal ordering evidence"
             ),
             "host_event_kind_pairing": (
-                "mask_0x6f_requires_none; mask_0x7f_requires_"
+                "mask_0xef_requires_none; mask_0xff_requires_"
                 "reset_connect_done_or_setup"
             ),
             "host_receipt_cross_check": {
-                "endpoint_present_plus_mask_0x6f": (
+                "endpoint_present_plus_mask_0xef": (
                     "observer_contradiction_latched_event_missing"
                 ),
-                "endpoint_absent_plus_mask_0x6f": (
-                    "legal_no_host_event_only_when_armed_before_gadget_exposure"
+                "endpoint_absent_plus_mask_0xef": (
+                    "legal_no_host_event_only_when_gate_precedes_pre_and_bit7_"
+                    "proves_no_qualifying_pre_gate_event"
                 ),
-                "mask_without_bits5_or6": (
+                "mask_without_bits5_6_or7": (
                     "host_event_not_observable_no_causal_claim"
                 ),
             },
@@ -1102,9 +1104,11 @@ def successor_contract() -> dict[str, Any]:
             "written_bytes_outside_0_to_49_rejected": True,
             "written_outcome_with_non49_count_rejected": True,
             "partial_outcome_with_boundary_count_rejected": True,
-            "only_causal_validity_masks_0x6f_and_0x7f_allowed": True,
-            "mask_without_latch_install_or_gadget_exposure_cannot_mean_no_host_event": True,
-            "armed_before_gadget_exposure_is_derived_not_asserted": True,
+            "only_causal_validity_masks_0xef_and_0xff_allowed": True,
+            "mask_without_latch_install_gate_or_pre_gate_absence_cannot_mean_no_host_event": True,
+            "gate_write_before_pre_is_the_only_causal_order_predicate": True,
+            "install_before_gate_is_structural_not_causal_evidence": True,
+            "pre_gate_event_count_zero_is_encoded_as_bit7": True,
             "gadget_ready_event_kind_rejected": True,
             "lossless_47_and_overflow_48_preimages_required": True,
             "overflow_spare_three_bytes_zero_and_decode_rejected_if_nonzero": True,

@@ -173,28 +173,32 @@ host-silent device-result classification. Rollback-endpoint drift or absence
 parks recovery and never changes an already retained experiment result.
 
 For a P3.18 timing successor, “no host event” is not a default value. It is
-admissible only when an exact DWC3 event latch was registered and read back as
-armed before gadget exposure, both latch-install and gadget-exposure samples
-are valid on the same monotonic clock, the retained ordering proves
-`latch_install <= gadget_exposure <= pre`, and the complete candidate-end host
-receipt has no endpoint. Arming is derived from those two samples and is never
-accepted as an independent boolean assertion. An endpoint-present receipt
-combined with an armed no-event mask is an observer contradiction. An
-incomplete or unavailable host receipt is an observer failure and can never
-support a no-event claim. An armed host event combined with a complete
-no-endpoint receipt is the distinct
+admissible only when an exact DWC3 event latch was registered, its write-once
+gate was read back before the sole UDC bind, bit 7 proves that no qualifying
+host event linearized before that gate transition, the retained gate-write
+timestamp is no later than the diagnostic pre sample on the same monotonic
+clock, and the complete candidate-end host receipt has no endpoint. The
+module-enforced `latch_install <= gate_write` order remains a structural
+consistency check and diagnostic value; it is not causal evidence. An
+endpoint-present receipt combined with the no-event mask `0xef` is an observer
+contradiction. An incomplete or unavailable host receipt is an observer
+failure and can never support a no-event claim. A latched host event under
+mask `0xff` combined with a complete no-endpoint receipt is the distinct
 `DEVICE_RESULT_DWC3_HOST_EVENT_NO_ENDPOINT`, not a host-silent result. A
-missing install or exposure sample means “host event not observable,” never
-“no host event,” and cannot support a MUX ordering claim.
+missing install, gate-write, or pre-gate-absence bit means “host event not
+observable,” never “no host event,” and cannot support a MUX ordering claim.
+Legacy masks `0x6f` and `0x7f` therefore have no causal authority.
 
-The P3.18 `gadget_exposure` sample is a module-owned, write-once pre-UDC gate
+The P3.18 `gate_write` sample is a module-owned, write-once pre-UDC gate
 timestamp from the same `ktime_get_ns()` clock as latch installation. It is
-not the configfs bind time. A future qualified runtime must read back that
-exact gate marker and only then perform its sole configfs UDC bind; the
-existing gadget-evaluability witness must prove that bind completed. Until
-the gate producer, readback-before-bind order, and sole-bind property are
-source-bound together, the exposure sample and every derived no-event claim
-are unavailable.
+not gadget exposure or configfs bind time. The latch and gate transition share
+one atomic state so a qualifying event cannot race the transition and leave a
+false zero count. A qualified runtime must read back that exact gate marker
+and only then perform its sole configfs UDC bind; the existing
+gadget-evaluability witness must prove that bind completed. Until the producer,
+pre-gate count, readback-before-bind order, and sole-bind property are
+source-bound together, the gate sample and every derived no-event claim are
+unavailable.
 
 A drifted topology does not authorize rollback against the new path. Mandatory
 rollback remains required, but the run parks without new device effects until

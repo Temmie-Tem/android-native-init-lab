@@ -60,14 +60,15 @@ class P318DocumentationTest(unittest.TestCase):
         required = (
             "For P3.17 only",
             "does not reclassify earlier campaigns",
-            "H0 IMPLEMENTATION PASS_GO; PROCESS-V2 OFFLINE READY; NO LIVE AUTHORITY",
+            "PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V2; H0 OFFLINE CAPABILITY ONLY; NO LIVE AUTHORITY",
             "PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V1",
+            "PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V2",
             "grants no D0, D1, F1, recovery, replay, or live authority",
             "Fresh connected prerequisites",
-            "41 `SOURCE_KEYS`",
+            "42 `SOURCE_KEYS`",
             "70 early and 71 effective",
-            "4484914edbae",
-            "6ed48ac12d0c",
+            "ffc28ce036b6",
+            "4a8b408681da",
             "NO_PROOF_EXPERIMENT_PRECONDITION",
             "first actual host-caused device event",
             "lossless PackBits poll capacity falls from 76 to 47 bytes",
@@ -111,15 +112,27 @@ class P318DocumentationTest(unittest.TestCase):
             "s22plus-fyg8-p318 | h0-implementation-ready-1 | H0 | "
             "PASS_GO_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V1"
         )
+        followup = (
+            "s22plus-fyg8-p318 | h0-pregate-evidence-followup-1 | H0 | "
+            "P318_PRE_GATE_EVENT_EVIDENCE_IMPLEMENTED_REVIEW_PENDING"
+        )
+        final_review = (
+            "s22plus-fyg8-p318 | h0-pregate-evidence-review-2 | H0 | "
+            "PASS_GO_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V2"
+        )
         self.assertEqual(ledger.count(original), 1)
         self.assertEqual(ledger.count(superseded_correction), 1)
         self.assertEqual(ledger.count(correction), 1)
         self.assertEqual(ledger.count(design), 1)
         self.assertEqual(ledger.count(implementation), 1)
+        self.assertEqual(ledger.count(followup), 1)
+        self.assertEqual(ledger.count(final_review), 1)
         self.assertLess(ledger.index(original), ledger.index(superseded_correction))
         self.assertLess(ledger.index(superseded_correction), ledger.index(correction))
         self.assertLess(ledger.index(correction), ledger.index(design))
         self.assertLess(ledger.index(design), ledger.index(implementation))
+        self.assertLess(ledger.index(implementation), ledger.index(followup))
+        self.assertLess(ledger.index(followup), ledger.index(final_review))
 
     def test_incident_report_carries_explicit_post_close_correction(self):
         incident = INCIDENT.read_text(encoding="utf-8")
@@ -175,11 +188,12 @@ class P318DocumentationTest(unittest.TestCase):
             "a bounded, independently reviewed recovery-only path establishes "
             "`recovery_rebound_exact`",
             "`rollback_bound_exact` and `recovery_rebound_exact` are distinct authority states",
-            "A missing install or exposure sample means “host event not observable,” never “no host event,”",
-            "`latch_install <= gadget_exposure <= pre`",
-            "Arming is derived from those two samples",
+            "bit 7 proves that no qualifying host event linearized before that gate transition",
+            "`latch_install <= gate_write` order remains a structural consistency check",
+            "the retained gate-write timestamp is no later than the diagnostic pre sample",
+            "Legacy masks `0x6f` and `0x7f` therefore have no causal authority",
             "module-owned, write-once pre-UDC gate timestamp",
-            "It is not the configfs bind time",
+            "It is not gadget exposure or configfs bind time",
             "read back that exact gate marker and only then perform its sole configfs UDC bind",
             "An incomplete or unavailable host receipt is an observer failure",
             "`DEVICE_RESULT_DWC3_HOST_EVENT_NO_ENDPOINT`, not a host-silent result",

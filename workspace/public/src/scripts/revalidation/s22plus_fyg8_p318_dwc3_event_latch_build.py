@@ -23,7 +23,7 @@ from typing import Any
 import s22plus_fyg8_max77705_mux_diag_build as base
 
 
-SCHEMA = "s22plus_fyg8_p318_dwc3_event_latch_build_v1"
+SCHEMA = "s22plus_fyg8_p318_dwc3_event_latch_build_v2"
 TARGET = base.TARGET
 VERDICT = "PASS_P318_DWC3_EVENT_LATCH_AB_ABI_QUALIFIED_H0"
 MODULE_NAME = "s22plus_dwc3_event_latch"
@@ -49,8 +49,8 @@ MODULE_SOURCE_IDENTITIES = {
         "6e12bbe4c6d62966d59557d04c14f6b6212e12a55fe2ca89469472dec8029180",
     ),
     "s22plus_dwc3_event_latch.c": (
-        5_694,
-        "8dda4496ab009ef2e3bf70727d7f5c47f94173fe5d55958c3b6869f70b3d64e6",
+        7_076,
+        "a731a64921e75fc716087c4100c75629f40b0e4d5391862b36cc961e9b98ab8c",
     ),
 }
 FIXTURE_SOURCE_IDENTITY = (
@@ -74,7 +74,18 @@ DWC3_SOURCE_IDENTITIES = {
         125_778,
         "a08c37921fdcd95895a19ee7e1524b17da5e6165a8369f666f7932e309c93717",
     ),
+    "drivers/usb/gadget/udc/core.c": (
+        50_119,
+        "630ffab76668143456679d7538b44ec1bc11444feb69dde66e49bdff96d563f1",
+    ),
 }
+P260_RUNTIME_SOURCE = Path(
+    "workspace/public/src/native-init/s22plus_fyg8_p260_e3_runtime.inc.c"
+)
+P260_RUNTIME_IDENTITY = (
+    20_665,
+    "767bd359de56cb24be84c4479cd01d4f710a676490c23f966617b996fe5cc612",
+)
 
 EXPECTED_UNDEFINED = frozenset(
     {
@@ -154,20 +165,65 @@ def _ordered(source: str, label: str, tokens: tuple[str, ...]) -> None:
         cursor = found
 
 
-def audit_latch_source(module_data: bytes, decoder_data: bytes) -> dict[str, Any]:
+def audit_udc_name_authority(
+    module: str, udc_core: str, p260_runtime: str
+) -> dict[str, Any]:
+    add = _function(udc_core, "int usb_add_gadget(")
+    _ordered(
+        add,
+        "UDC parent-derived sysfs naming",
+        (
+            "udc->dev.parent = gadget->dev.parent;",
+            'ret = dev_set_name(&udc->dev, "%s",',
+            "kobject_name(&gadget->dev.parent->kobj)",
+        ),
+    )
+    observed = re.findall(
+        r'"/sys/class/udc/([^/\"]+)/state"', p260_runtime
+    )
+    if observed != ["a600000.dwc3"]:
+        raise LatchBuildError(f"P2.60 observed UDC name differs: {observed}")
+    target = re.findall(
+        r'^#define S22PLUS_DWC3_TARGET_NAME "([^\"]+)"$', module, re.MULTILINE
+    )
+    if target != observed:
+        raise LatchBuildError(
+            f"latch target {target} differs from source-bound UDC name {observed}"
+        )
+    return {
+        "verified": True,
+        "kernel_name_producer": (
+            "usb_add_gadget dev_set_name from gadget parent kobject_name"
+        ),
+        "observed_p260_sysfs_state_path": (
+            "/sys/class/udc/a600000.dwc3/state"
+        ),
+        "latch_exact_target": target[0],
+        "self_referential_literal_count_forbidden": True,
+    }
+
+
+def audit_latch_source(
+    module_data: bytes,
+    decoder_data: bytes,
+    udc_core_data: bytes,
+    p260_runtime_data: bytes,
+) -> dict[str, Any]:
     module = _text(module_data, "DWC3 latch module")
     decoder = _text(decoder_data, "DWC3 raw decoder")
+    udc_core = _text(udc_core_data, "fixed UDC core")
+    p260_runtime = _text(p260_runtime_data, "P2.60 runtime UDC observation")
     probe = _function(module, "static void s22plus_dwc3_event_probe(")
     _ordered(
         probe,
         "latch callback",
         (
             "if (smp_load_acquire(&s22plus_latch.event_ready))",
-            "if (!smp_load_acquire(&s22plus_latch.gate_ready))",
             "if (!s22plus_dwc3_exact_target(dwc))",
             "ep0state = (u32)READ_ONCE(dwc->ep0state);",
             "kind = s22plus_dwc3_decode_host_event(raw, ep0state);",
             "if (kind == S22PLUS_DWC3_EVENT_NONE)",
+            "if (s22plus_dwc3_count_before_gate())",
             "atomic_cmpxchg(&s22plus_latch.event_claimed, 0, 1)",
             "s22plus_latch.first_event_ns = ktime_get_ns();",
             "s22plus_latch.first_event_raw = raw;",
@@ -177,6 +233,29 @@ def audit_latch_source(module_data: bytes, decoder_data: bytes) -> dict[str, Any
     )
     if probe.count("ktime_get_ns()") != 1:
         raise LatchBuildError("event callback clock sample count differs")
+    count_before = _function(module, "static bool s22plus_dwc3_count_before_gate(")
+    _ordered(
+        count_before,
+        "pre-gate event/gate linearization",
+        (
+            "atomic_read(&s22plus_latch.exposure_state)",
+            "S22PLUS_DWC3_GATE_READY",
+            "S22PLUS_DWC3_PRE_GATE_COUNT_MASK",
+            "atomic_cmpxchg(",
+            "&s22plus_latch.exposure_state, state_value, state_value + 1",
+        ),
+    )
+    publish_gate = _function(module, "static int s22plus_dwc3_publish_gate(")
+    _ordered(
+        publish_gate,
+        "gate/pre-event shared atomic publication",
+        (
+            "atomic_read(&s22plus_latch.exposure_state)",
+            "S22PLUS_DWC3_GATE_READY",
+            "atomic_cmpxchg(",
+            "state_value | (int)S22PLUS_DWC3_GATE_READY",
+        ),
+    )
     gate = _function(module, "static int s22plus_dwc3_expose_gate_set(")
     _ordered(
         gate,
@@ -185,7 +264,8 @@ def audit_latch_source(module_data: bytes, decoder_data: bytes) -> dict[str, Any
             "if (!s22plus_dwc3_exact_one(value))",
             "if (!smp_load_acquire(&s22plus_latch.install_ready))",
             "atomic_cmpxchg(&s22plus_latch.gate_claimed, 0, 1)",
-            "s22plus_latch.gadget_exposure_ns = ktime_get_ns();",
+            "s22plus_latch.gate_write_ns = ktime_get_ns();",
+            "s22plus_dwc3_publish_gate()",
             "smp_store_release(&s22plus_latch.gate_ready, 1);",
         ),
     )
@@ -209,8 +289,9 @@ def audit_latch_source(module_data: bytes, decoder_data: bytes) -> dict[str, Any
             "tracepoint_synchronize_unregister();",
         ),
     )
-    if module.count('S22PLUS_DWC3_TARGET_NAME "a600000.dwc3"') != 1:
-        raise LatchBuildError("exact DWC3 target filter differs")
+    udc_name_authority = audit_udc_name_authority(
+        module, udc_core, p260_runtime
+    )
     for token in (
         "module_param_cb(expose_gate, &s22plus_dwc3_expose_gate_ops, NULL, 0644);",
         "module_param_cb(snapshot, &s22plus_dwc3_snapshot_ops, NULL, 0444);",
@@ -236,8 +317,11 @@ def audit_latch_source(module_data: bytes, decoder_data: bytes) -> dict[str, Any
         "verified": True,
         "event_ready_is_first_callback_guard": True,
         "post_latch_hot_path_loads_event_ready_then_returns": True,
-        "events_before_exposure_gate_are_ignored": True,
+        "qualifying_events_before_gate_are_counted": True,
+        "pre_gate_count_and_gate_transition_share_one_atomic_state": True,
+        "pre_gate_zero_cannot_race_a_gate_transition": True,
         "exact_a600000_dwc3_filter_precedes_decode": True,
+        "udc_name_authority": udc_name_authority,
         "masked_raw_decoder_is_shared_with_host_fixture": True,
         "first_event_claim_is_atomic": True,
         "event_fields_publish_before_release_ready": True,
@@ -262,6 +346,11 @@ def _source_receipts(root: Path) -> dict[str, Any]:
         base.resolve(root, FIXTURE_SOURCE),
         FIXTURE_SOURCE_IDENTITY,
         "P3.18 decoder fixture",
+    )
+    rows["p260_runtime_udc_observation"] = base.validate_file(
+        base.resolve(root, P260_RUNTIME_SOURCE),
+        P260_RUNTIME_IDENTITY,
+        "P2.60 runtime UDC observation",
     )
     return rows
 
@@ -434,10 +523,21 @@ def audit_build(
 ) -> dict[str, Any]:
     fixed = base.validate_fixed_abi(root)
     source_receipts = _source_receipts(root)
+    udc_core_path = (
+        base.resolve(root, base.BASE_COMMON) / "drivers/usb/gadget/udc/core.c"
+    )
+    udc_core_receipt = base.validate_file(
+        udc_core_path,
+        DWC3_SOURCE_IDENTITIES["drivers/usb/gadget/udc/core.c"],
+        "fixed UDC naming source",
+    )
     source_contract = audit_latch_source(
         (base.resolve(root, MODULE_SOURCE_DIR) / "s22plus_dwc3_event_latch.c").read_bytes(),
         (base.resolve(root, MODULE_SOURCE_DIR) / "s22plus_dwc3_event_decode.h").read_bytes(),
+        udc_core_path.read_bytes(),
+        base.resolve(root, P260_RUNTIME_SOURCE).read_bytes(),
     )
+    source_contract["fixed_udc_naming_source"] = udc_core_receipt
     symvers = base.resolve(root, base.P310_FIXED_A) / "vmlinux.symvers"
     paths = {
         side: build_dir / f"immutable-{side}/{MODULE_NAME}.ko"

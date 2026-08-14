@@ -64,7 +64,7 @@ int main(int argc, char **argv)
 	};
 	struct s22plus_max77705_p318_latch_snapshot latch = {
 		.install_valid = 1U,
-		.exposure_valid = 1U,
+		.gate_valid = 1U,
 	};
 	struct s22plus_p318_banner_result banner;
 	uint8_t envelope[S22PLUS_MAX77705_ENVELOPE_SIZE];

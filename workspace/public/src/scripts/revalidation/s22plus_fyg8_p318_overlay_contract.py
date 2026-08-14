@@ -67,6 +67,7 @@ SOURCE_PATHS = {
     "p318_runtime_parser": PREFIX / "s22plus_fyg8_p318_max77705_runtime_parser_fixture.py",
     "p318_telemetry": PREFIX / "s22plus_fyg8_p318_max77705_telemetry.py",
     "p318_decoder": PREFIX / "s22plus_fyg8_p318_max77705_telemetry_decoder.py",
+    "p318_endpoint_transition": PREFIX / "s22plus_fyg8_p318_cdc_acm_endpoint_transition.py",
     "p318_adapter_fixture": PREFIX / "s22plus_fyg8_p318_process_v2_adapter_fixture.py",
     "p318_topology_receipt": PREFIX / "s22plus_fyg8_p318_topology_receipt.py",
     "p318_stock_closure": PREFIX / "s22plus_fyg8_p318_e2_stock_closure.py",

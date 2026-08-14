@@ -25,11 +25,13 @@ int main(int argc, char **argv)
 		puts("ERR");
 		return 2;
 	}
-	printf("OK install=%u:%llu exposure=%u:%llu event=%u:%llu kind=%u raw=%08x\n",
+	printf("OK install=%u:%llu exposure=%u:%llu pre_gate=%u "
+		"event=%u:%llu kind=%u raw=%08x\n",
 		(unsigned int)snapshot.install_valid,
 		(unsigned long long)snapshot.install_ns,
-		(unsigned int)snapshot.exposure_valid,
-		(unsigned long long)snapshot.exposure_ns,
+		(unsigned int)snapshot.gate_valid,
+		(unsigned long long)snapshot.gate_ns,
+		(unsigned int)snapshot.pre_gate_events,
 		(unsigned int)snapshot.event_valid,
 		(unsigned long long)snapshot.event_ns,
 		(unsigned int)snapshot.event_kind,

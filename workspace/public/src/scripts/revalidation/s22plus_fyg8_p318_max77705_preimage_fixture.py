@@ -106,8 +106,9 @@ def _latch_text(latch: telemetry.LatchSnapshot | None) -> str:
     if latch is None:
         return "-"
     return (
-        f"v=1 install_v={latch.install_valid} install_ns={latch.install_ns} "
-        f"gate_v={latch.exposure_valid} gate_ns={latch.exposure_ns} "
+        f"v=2 install_v={latch.install_valid} install_ns={latch.install_ns} "
+        f"gate_v={latch.gate_valid} gate_ns={latch.gate_ns} "
+        f"pre_gate_events={latch.pre_gate_events} "
         f"event_v={latch.event_valid} event_ns={latch.event_ns} "
         f"kind={latch.event_kind} raw={latch.event_raw:08x}\n"
     )

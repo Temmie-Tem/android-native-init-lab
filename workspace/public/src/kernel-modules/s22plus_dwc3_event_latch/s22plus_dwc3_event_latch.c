@@ -17,12 +17,15 @@
 #include "s22plus_dwc3_event_decode.h"
 
 #define S22PLUS_DWC3_TARGET_NAME "a600000.dwc3"
+#define S22PLUS_DWC3_GATE_READY (1U << 30)
+#define S22PLUS_DWC3_PRE_GATE_COUNT_MASK (S22PLUS_DWC3_GATE_READY - 1U)
 
 struct s22plus_dwc3_latch_state {
 	atomic_t gate_claimed;
 	atomic_t event_claimed;
+	atomic_t exposure_state;
 	u64 latch_install_ns;
-	u64 gadget_exposure_ns;
+	u64 gate_write_ns;
 	u64 first_event_ns;
 	u32 first_event_raw;
 	u8 first_event_kind;
@@ -34,6 +37,7 @@ struct s22plus_dwc3_latch_state {
 static struct s22plus_dwc3_latch_state s22plus_latch = {
 	.gate_claimed = ATOMIC_INIT(0),
 	.event_claimed = ATOMIC_INIT(0),
+	.exposure_state = ATOMIC_INIT(0),
 };
 
 _Static_assert(sizeof(struct dwc3_event_type) == sizeof(u32),
@@ -63,6 +67,44 @@ static bool s22plus_dwc3_exact_target(const struct dwc3 *dwc)
 		strcmp(dev_name(dwc->dev), S22PLUS_DWC3_TARGET_NAME) == 0;
 }
 
+static bool s22plus_dwc3_count_before_gate(void)
+{
+	int state_value = atomic_read(&s22plus_latch.exposure_state);
+
+	for (;;) {
+		int previous;
+
+		if (((u32)state_value & S22PLUS_DWC3_GATE_READY) != 0U)
+			return false;
+		if (((u32)state_value & S22PLUS_DWC3_PRE_GATE_COUNT_MASK) ==
+		    S22PLUS_DWC3_PRE_GATE_COUNT_MASK)
+			return true;
+		previous = atomic_cmpxchg(
+			&s22plus_latch.exposure_state, state_value, state_value + 1);
+		if (previous == state_value)
+			return true;
+		state_value = previous;
+	}
+}
+
+static int s22plus_dwc3_publish_gate(void)
+{
+	int state_value = atomic_read(&s22plus_latch.exposure_state);
+
+	for (;;) {
+		int previous;
+
+		if (((u32)state_value & S22PLUS_DWC3_GATE_READY) != 0U)
+			return -EBUSY;
+		previous = atomic_cmpxchg(
+			&s22plus_latch.exposure_state, state_value,
+			state_value | (int)S22PLUS_DWC3_GATE_READY);
+		if (previous == state_value)
+			return 0;
+		state_value = previous;
+	}
+}
+
 static void s22plus_dwc3_event_probe(void *unused, u32 raw, struct dwc3 *dwc)
 {
 	enum s22plus_dwc3_event_kind kind;
@@ -72,14 +114,14 @@ static void s22plus_dwc3_event_probe(void *unused, u32 raw, struct dwc3 *dwc)
 	/* Permanent hot-path rule: a published first event costs one load. */
 	if (smp_load_acquire(&s22plus_latch.event_ready))
 		return;
-	if (!smp_load_acquire(&s22plus_latch.gate_ready))
-		return;
 	if (!s22plus_dwc3_exact_target(dwc))
 		return;
 
 	ep0state = (u32)READ_ONCE(dwc->ep0state);
 	kind = s22plus_dwc3_decode_host_event(raw, ep0state);
 	if (kind == S22PLUS_DWC3_EVENT_NONE)
+		return;
+	if (s22plus_dwc3_count_before_gate())
 		return;
 	if (atomic_cmpxchg(&s22plus_latch.event_claimed, 0, 1) != 0)
 		return;
@@ -110,7 +152,9 @@ static int s22plus_dwc3_expose_gate_set(const char *value,
 	if (atomic_cmpxchg(&s22plus_latch.gate_claimed, 0, 1) != 0)
 		return -EBUSY;
 
-	s22plus_latch.gadget_exposure_ns = ktime_get_ns();
+	s22plus_latch.gate_write_ns = ktime_get_ns();
+	if (s22plus_dwc3_publish_gate() != 0)
+		return -EBUSY;
 	smp_store_release(&s22plus_latch.gate_ready, 1);
 	return 0;
 }
@@ -137,6 +181,8 @@ static int s22plus_dwc3_snapshot_get(char *buffer,
 {
 	bool gate_ready;
 	bool event_ready;
+	unsigned int pre_gate_events;
+	unsigned int exposure_state;
 
 	(void)parameter;
 	if (!smp_load_acquire(&s22plus_latch.install_ready))
@@ -144,13 +190,17 @@ static int s22plus_dwc3_snapshot_get(char *buffer,
 
 	gate_ready = smp_load_acquire(&s22plus_latch.gate_ready) != 0;
 	event_ready = smp_load_acquire(&s22plus_latch.event_ready) != 0;
+	exposure_state = (unsigned int)atomic_read(&s22plus_latch.exposure_state);
+	pre_gate_events = exposure_state & S22PLUS_DWC3_PRE_GATE_COUNT_MASK;
 	return scnprintf(buffer, PAGE_SIZE,
-			"v=1 install_v=1 install_ns=%llu gate_v=%u gate_ns=%llu "
+			"v=2 install_v=1 install_ns=%llu gate_v=%u gate_ns=%llu "
+			"pre_gate_events=%u "
 			"event_v=%u event_ns=%llu kind=%u raw=%08x\n",
 			(unsigned long long)s22plus_latch.latch_install_ns,
 			gate_ready ? 1U : 0U,
 			(unsigned long long)(gate_ready ?
-				s22plus_latch.gadget_exposure_ns : 0U),
+				s22plus_latch.gate_write_ns : 0U),
+			pre_gate_events,
 			event_ready ? 1U : 0U,
 			(unsigned long long)(event_ready ?
 				s22plus_latch.first_event_ns : 0U),

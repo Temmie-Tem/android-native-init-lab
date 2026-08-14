@@ -35,9 +35,10 @@ TIME_POST2 = 1 << 3
 TIME_HOST_EVENT = 1 << 4
 TIME_INSTALL = 1 << 5
 TIME_EXPOSURE = 1 << 6
-TIME_MASK = 0x7F
-CAUSAL_NO_EVENT = 0x6F
-CAUSAL_WITH_EVENT = 0x7F
+TIME_NO_PRE_GATE_EVENT = 1 << 7
+TIME_MASK = 0xFF
+CAUSAL_NO_EVENT = 0xEF
+CAUSAL_WITH_EVENT = 0xFF
 
 HOST_EVENT_KINDS = {"none": 0, "reset": 1, "connect_done": 2, "setup": 3}
 HOST_EVENT_KIND_NAMES = {value: key for key, value in HOST_EVENT_KINDS.items()}
@@ -123,13 +124,14 @@ class TimedDiagnosticResult:
 @dataclass(frozen=True)
 class LatchSnapshot:
     install_valid: int
-    exposure_valid: int
+    gate_valid: int
     event_valid: int
     event_kind: int
     install_ns: int
-    exposure_ns: int
+    gate_ns: int
     event_ns: int
     event_raw: int
+    pre_gate_events: int = 0
 
 
 @dataclass(frozen=True)
@@ -144,7 +146,7 @@ class TimingWitness:
     valid_mask: int
     first_host_event_kind: int
     latch_install_delta_us: int
-    gadget_exposure_delta_us: int
+    gate_write_delta_us: int
     write_delta_us: int
     post1_delta_us: int
     post2_delta_us: int
@@ -187,20 +189,22 @@ def _validate_banner(banner: BannerResult) -> None:
 def _validate_latch(latch: LatchSnapshot | None) -> None:
     if latch is None:
         return
-    if any(value not in {0, 1} for value in (latch.install_valid, latch.exposure_valid, latch.event_valid)):
+    if any(value not in {0, 1} for value in (latch.install_valid, latch.gate_valid, latch.event_valid)):
         raise TelemetryV4Error("P3.18 latch validity byte differs")
+    if type(latch.pre_gate_events) is not int or not 0 <= latch.pre_gate_events <= 0x3FFFFFFF:
+        raise TelemetryV4Error("P3.18 pre-gate event count differs")
     if (
         (not latch.install_valid and latch.install_ns)
-        or (not latch.exposure_valid and latch.exposure_ns)
+        or (not latch.gate_valid and latch.gate_ns)
         or (not latch.event_valid and (latch.event_ns or latch.event_kind or latch.event_raw))
-        or (latch.exposure_valid and not latch.install_valid)
-        or (latch.event_valid and not latch.exposure_valid)
+        or (latch.gate_valid and not latch.install_valid)
+        or (latch.event_valid and not latch.gate_valid)
         or (latch.event_valid and latch.event_kind not in {1, 2, 3})
         or (latch.install_valid and not latch.install_ns)
-        or (latch.exposure_valid and not latch.exposure_ns)
+        or (latch.gate_valid and not latch.gate_ns)
         or (latch.event_valid and not latch.event_ns)
-        or (latch.exposure_valid and latch.install_ns > latch.exposure_ns)
-        or (latch.event_valid and latch.event_ns < latch.exposure_ns)
+        or (latch.gate_valid and latch.install_ns > latch.gate_ns)
+        or (latch.event_valid and latch.event_ns < latch.gate_ns)
         or (latch.event_valid and not _raw_kind_matches(latch.event_kind, latch.event_raw))
     ):
         raise TelemetryV4Error("P3.18 latch snapshot is inconsistent")
@@ -280,9 +284,11 @@ def derive_timing(
         if latch.install_valid:
             mask |= TIME_INSTALL
             values["install"] = _delta_us(latch.install_ns, origin)
-        if latch.exposure_valid:
+        if latch.gate_valid:
             mask |= TIME_EXPOSURE
-            values["exposure"] = _delta_us(latch.exposure_ns, origin)
+            values["exposure"] = _delta_us(latch.gate_ns, origin)
+        if latch.gate_valid and latch.pre_gate_events == 0:
+            mask |= TIME_NO_PRE_GATE_EVENT
         if latch.event_valid:
             mask |= TIME_HOST_EVENT
             event_kind = latch.event_kind
@@ -300,9 +306,14 @@ def _validate_timing(timing: TimingWitness) -> None:
         raise TelemetryV4Error("P3.18 timing prefix reserved value differs")
     if bool(timing.valid_mask & TIME_HOST_EVENT) != bool(timing.first_host_event_kind):
         raise TelemetryV4Error("P3.18 host-event kind and validity differ")
+    if timing.valid_mask & TIME_NO_PRE_GATE_EVENT and (
+        timing.valid_mask & (TIME_INSTALL | TIME_EXPOSURE)
+        != (TIME_INSTALL | TIME_EXPOSURE)
+    ):
+        raise TelemetryV4Error("P3.18 pre-gate absence lacks latch/gate authority")
     bit_values = (
         (TIME_INSTALL, timing.latch_install_delta_us),
-        (TIME_EXPOSURE, timing.gadget_exposure_delta_us),
+        (TIME_EXPOSURE, timing.gate_write_delta_us),
         (TIME_WRITE, timing.write_delta_us),
         (TIME_POST1, timing.post1_delta_us),
         (TIME_POST2, timing.post2_delta_us),
@@ -315,10 +326,10 @@ def _validate_timing(timing: TimingWitness) -> None:
             raise TelemetryV4Error("P3.18 timing delta overflows int32")
     required = TIME_PRE | TIME_INSTALL | TIME_EXPOSURE
     if timing.valid_mask & required == required and (
-        timing.latch_install_delta_us > timing.gadget_exposure_delta_us
-        or timing.gadget_exposure_delta_us > 0
+        timing.latch_install_delta_us > timing.gate_write_delta_us
+        or timing.gate_write_delta_us > 0
     ):
-        raise TelemetryV4Error("P3.18 latch was not armed before exposure/pre")
+        raise TelemetryV4Error("P3.18 structural install/gate/pre order differs")
 
 
 def _timing_bytes(timing: TimingWitness) -> bytes:
@@ -326,7 +337,7 @@ def _timing_bytes(timing: TimingWitness) -> bytes:
     return bytes((timing.valid_mask, timing.first_host_event_kind)) + struct.pack(
         "<6i",
         timing.latch_install_delta_us,
-        timing.gadget_exposure_delta_us,
+        timing.gate_write_delta_us,
         timing.write_delta_us,
         timing.post1_delta_us,
         timing.post2_delta_us,
@@ -450,22 +461,25 @@ def decode_envelope(envelope: bytes) -> dict[str, Any]:
     decoded = p317.decode_envelope(bytes(base))
     decoded["observer_site"] = None if site_code == 0 else observer_site
     mask_causal = timing.valid_mask in {CAUSAL_NO_EVENT, CAUSAL_WITH_EVENT}
-    armed = (
-        mask_causal
-        and timing.latch_install_delta_us <= timing.gadget_exposure_delta_us <= 0
-    )
+    gate_write_before_pre = mask_causal and timing.gate_write_delta_us <= 0
     diagnostic_ready = bool(decoded["causal_result_allowed"])
     decoded["schema"] = SCHEMA
     decoded["timing"] = {
         "valid_mask": timing.valid_mask,
         "first_host_event_kind": HOST_EVENT_KIND_NAMES[timing.first_host_event_kind],
         "latch_install_delta_us": timing.latch_install_delta_us,
-        "gadget_exposure_delta_us": timing.gadget_exposure_delta_us,
+        "gate_write_delta_us": timing.gate_write_delta_us,
         "write_delta_us": timing.write_delta_us,
         "post1_delta_us": timing.post1_delta_us,
         "post2_delta_us": timing.post2_delta_us,
         "first_host_event_delta_us": timing.first_host_event_delta_us,
-        "armed_before_gadget_exposure": armed,
+        "gate_write_before_pre": gate_write_before_pre,
+        "latch_install_before_gate_write_structurally_enforced": (
+            timing.latch_install_delta_us <= timing.gate_write_delta_us
+        ),
+        "no_pre_gate_qualifying_event": bool(
+            timing.valid_mask & TIME_NO_PRE_GATE_EVENT
+        ),
         "causal_mask": mask_causal,
     }
     decoded["banner"] = {
@@ -474,7 +488,9 @@ def decode_envelope(envelope: bytes) -> dict[str, Any]:
         "bytes_written": banner.bytes_written,
     }
     decoded["diagnostic_causal_prerequisites_ready"] = diagnostic_ready
-    decoded["causal_pending_complete_host_receipt"] = diagnostic_ready and armed and not overflow
+    decoded["causal_pending_complete_host_receipt"] = (
+        diagnostic_ready and gate_write_before_pre and not overflow
+    )
     decoded["causal_result_allowed"] = False
     decoded["poll_encoded_size"] = poll_size
     decoded["payload_used_size"] = used

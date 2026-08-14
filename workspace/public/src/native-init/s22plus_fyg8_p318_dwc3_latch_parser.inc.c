@@ -2,12 +2,13 @@
 
 struct s22plus_max77705_p318_latch_snapshot {
 	uint8_t install_valid;
-	uint8_t exposure_valid;
+	uint8_t gate_valid;
 	uint8_t event_valid;
 	uint8_t event_kind;
 	uint64_t install_ns;
-	uint64_t exposure_ns;
+	uint64_t gate_ns;
 	uint64_t event_ns;
+	uint32_t pre_gate_events;
 	uint32_t event_raw;
 };
 
@@ -95,18 +96,18 @@ static int s22plus_p318_latch_snapshot_valid(
 		const struct s22plus_max77705_p318_latch_snapshot *snapshot)
 {
 	if (snapshot == NULL || snapshot->install_valid != 1U ||
-	    snapshot->exposure_valid > 1U || snapshot->event_valid > 1U ||
+	    snapshot->gate_valid > 1U || snapshot->event_valid > 1U ||
 	    snapshot->install_ns == 0U ||
-	    (snapshot->exposure_valid == 0U && snapshot->exposure_ns != 0U) ||
-	    (snapshot->exposure_valid != 0U &&
-	     (snapshot->exposure_ns == 0U ||
-	      snapshot->install_ns > snapshot->exposure_ns)) ||
+	    (snapshot->gate_valid == 0U && snapshot->gate_ns != 0U) ||
+	    (snapshot->gate_valid != 0U &&
+	     (snapshot->gate_ns == 0U ||
+	      snapshot->install_ns > snapshot->gate_ns)) ||
 	    (snapshot->event_valid == 0U &&
 	     (snapshot->event_ns != 0U || snapshot->event_kind != 0U ||
 	      snapshot->event_raw != 0U)) ||
 	    (snapshot->event_valid != 0U &&
-	     (snapshot->exposure_valid == 0U || snapshot->event_ns == 0U ||
-	      snapshot->event_ns < snapshot->exposure_ns ||
+	     (snapshot->gate_valid == 0U || snapshot->event_ns == 0U ||
+	      snapshot->event_ns < snapshot->gate_ns ||
 	      snapshot->event_kind < 1U || snapshot->event_kind > 3U ||
 	      !s22plus_p318_latch_raw_matches(
 		 snapshot->event_kind, snapshot->event_raw))))
@@ -137,16 +138,20 @@ static int s22plus_p318_parse_latch_snapshot(
 	if (s22plus_p318_latch_u64(&cursor, (maximum), &value) != 0) return -1; \
 	(field) = (uint8_t)value; \
 } while (0)
-	P318_LATCH_EXPECT("v=1 install_v=");
+	P318_LATCH_EXPECT("v=2 install_v=");
 	P318_LATCH_DECIMAL(snapshot->install_valid, 1U);
 	P318_LATCH_EXPECT(" install_ns=");
 	if (s22plus_p318_latch_u64(&cursor, UINT64_MAX, &snapshot->install_ns) != 0)
 		return -1;
 	P318_LATCH_EXPECT(" gate_v=");
-	P318_LATCH_DECIMAL(snapshot->exposure_valid, 1U);
+	P318_LATCH_DECIMAL(snapshot->gate_valid, 1U);
 	P318_LATCH_EXPECT(" gate_ns=");
-	if (s22plus_p318_latch_u64(&cursor, UINT64_MAX, &snapshot->exposure_ns) != 0)
+	if (s22plus_p318_latch_u64(&cursor, UINT64_MAX, &snapshot->gate_ns) != 0)
 		return -1;
+	P318_LATCH_EXPECT(" pre_gate_events=");
+	if (s22plus_p318_latch_u64(&cursor, 0x3fffffffU, &value) != 0)
+		return -1;
+	snapshot->pre_gate_events = (uint32_t)value;
 	P318_LATCH_EXPECT(" event_v=");
 	P318_LATCH_DECIMAL(snapshot->event_valid, 1U);
 	P318_LATCH_EXPECT(" event_ns=");

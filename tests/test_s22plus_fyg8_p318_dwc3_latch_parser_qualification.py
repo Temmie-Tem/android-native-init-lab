@@ -31,7 +31,7 @@ class S22PlusFyg8P318Dwc3LatchParserQualificationTest(unittest.TestCase):
 
     def test_exact_snapshot_and_gate_grammar(self):
         self.assertEqual(self.value["valid_snapshot_count"], 5)
-        self.assertEqual(self.value["invalid_snapshot_count"], 14)
+        self.assertEqual(self.value["invalid_snapshot_count"], 16)
         self.assertTrue(self.value["masked_raw_kind_cross_check"])
         self.assertTrue(self.value["gate_readback_exact_one_newline"])
 

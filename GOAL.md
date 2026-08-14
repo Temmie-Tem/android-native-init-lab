@@ -816,13 +816,18 @@ boundary spans Download through rollback and final health. Drift parks until
 an independently reviewed `recovery_rebound_exact`; normal rollback uses
 `rollback_bound_exact`, and neither path may reclassify the experiment.
 
-The host-only successor is now implemented. An early GPL module registers the
-exported `dwc3_event` tracepoint, masks the exact DWC3 raw-word ABI, filters
-`a600000.dwc3`, and latches install, exposure, and the first RESET,
-CONNECT_DONE, or physical-EP0 SETUP event with `ktime_get_ns()`. A write-once
-pre-UDC gate is read back before the sole reachable UDC bind. The late
-diagnostic uses the same clock for pre/write/post1/post2, derives
-`install <= exposure <= pre`, and only permits causal masks `0x6f`/`0x7f`.
+The host-only successor now includes the pre-gate evidence correction. An
+early GPL module registers the exported `dwc3_event` tracepoint, masks the
+exact DWC3 raw-word ABI, filters the source-bound `a600000.dwc3` UDC name, and
+latches install plus the first post-gate RESET, CONNECT_DONE, or physical-EP0
+SETUP event with `ktime_get_ns()`. One atomic state also saturating-counts
+qualifying events that linearize before the write-once pre-UDC gate. Snapshot
+v2 retains that count, and the runtime reads back the gate before its sole
+reachable UDC bind. The late diagnostic uses the same clock for
+pre/write/post1/post2. `install <= gate_write` is structural consistency, not
+causal evidence; no-event interpretation additionally requires
+`gate_write <= pre`, zero pre-gate events, and a complete no-endpoint host
+receipt. Only masks `0xef`/`0xff` carry that authority; `0x6f`/`0x7f` do not.
 
 The bounded banner writer uses one absolute five-second deadline across
 EINTR, EAGAIN, and short writes and retains written/deadline/errno/partial plus
@@ -832,21 +837,26 @@ bytes. Actual P3.17 poll evidence is 8 raw/9 PackBits bytes. The real C encoder,
 Carrier, and host decoder cover the 47/48 boundary, nonzero-spare rejection,
 all terminal preimages, and separate EAGAIN/EPIPE/ENODEV outcomes.
 
-The frozen 41-`SOURCE_KEY` package contains the exact 69 P3.17 stock modules
+The frozen 42-`SOURCE_KEY` package contains the exact 69 P3.17 stock modules
 plus one early latch (70 early) and one synchronous late diagnostic (71
 effective); the old P3.17 diagnostic is absent. Two userspace and boot-only
-builds are byte-identical: boot `5b173b04319d`, AP `6ed48ac12d0c`. Independent
+builds are byte-identical: boot `1385ac1ac2b4`, AP `4a8b408681da`. Independent
 intent, prepack, userspace, qualification, static, Process-v2 promotion, ready
 4/4 exact-copy, and noncreating rehearsal all match. The canonical ready
-manifest is 2,778 bytes, SHA-256 `4484914edbae`; candidate observation is 300
-seconds and the source-bound guard is 1,200 seconds. Focused 106/106 and common
-120/120 regressions pass.
+manifest is 2,778 bytes, SHA-256 `ffc28ce036b6`; candidate observation is 300
+seconds and the source-bound guard is 1,200 seconds. Focused P3.18 tests pass
+110/110 and the common Process-v2 set passes 120/120. Final independent
+changed-closure review regenerated the intent-to-ready path byte-for-byte,
+verified all 42 source receipts, and returned:
 
-Independent changed-closure review returned
-`PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V1`.
-This qualifies only the exact host-side capability. It grants no D0, D1, F1,
+`PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V2`
+
+The earlier implementation PASS_GO remains historical authority for its exact
+old hashes only. V2 qualifies the corrected current closure only as an exact
+H0 offline implementation and packaging capability. It grants no D0, D1, F1,
 recovery, replay, or live authority; fresh connected prerequisites and exact
-approval remain mandatory. Detailed report:
+approval remain mandatory.
+Detailed report:
 `docs/reports/S22PLUS_FYG8_P317_CDC_ACM_ENDPOINT_SELECTOR_CORRECTION_H0_2026-08-14.md`.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden

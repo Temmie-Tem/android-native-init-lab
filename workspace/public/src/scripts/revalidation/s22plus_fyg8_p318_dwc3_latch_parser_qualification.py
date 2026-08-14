@@ -14,7 +14,7 @@ import tempfile
 from typing import Any
 
 
-SCHEMA = "s22plus_fyg8_p318_dwc3_latch_parser_qualification_v1"
+SCHEMA = "s22plus_fyg8_p318_dwc3_latch_parser_qualification_v2"
 VERDICT = "PASS_P318_ACTUAL_DWC3_LATCH_PARSER_HOST_ONLY"
 NATIVE = Path("workspace/public/src/native-init")
 PARSER = NATIVE / "s22plus_fyg8_p318_dwc3_latch_parser.inc.c"
@@ -68,7 +68,8 @@ def audit(repo_root: Path | None = None) -> dict[str, Any]:
         raise LatchParserError("P3.18 latch parser closure is missing")
     module = (root / MODULE).read_text(encoding="utf-8")
     for token in (
-        '"v=1 install_v=1 install_ns=%llu gate_v=%u gate_ns=%llu "',
+        '"v=2 install_v=1 install_ns=%llu gate_v=%u gate_ns=%llu "',
+        '"pre_gate_events=%u "',
         '"event_v=%u event_ns=%llu kind=%u raw=%08x\\n"',
         "smp_load_acquire(&s22plus_latch.gate_ready)",
         "smp_load_acquire(&s22plus_latch.event_ready)",
@@ -84,19 +85,21 @@ def audit(repo_root: Path | None = None) -> dict[str, Any]:
             check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         )
         valid = (
-            b"v=1 install_v=1 install_ns=500 gate_v=0 gate_ns=0 event_v=0 event_ns=0 kind=0 raw=00000000\n",
-            b"v=1 install_v=1 install_ns=500 gate_v=1 gate_ns=600 event_v=0 event_ns=0 kind=0 raw=00000000\n",
-            b"v=1 install_v=1 install_ns=500 gate_v=1 gate_ns=600 event_v=1 event_ns=700 kind=1 raw=01ff0101\n",
-            b"v=1 install_v=1 install_ns=500 gate_v=1 gate_ns=600 event_v=1 event_ns=700 kind=2 raw=00000201\n",
-            b"v=1 install_v=1 install_ns=500 gate_v=1 gate_ns=600 event_v=1 event_ns=700 kind=3 raw=abcd3040\n",
+            b"v=2 install_v=1 install_ns=500 gate_v=0 gate_ns=0 pre_gate_events=0 event_v=0 event_ns=0 kind=0 raw=00000000\n",
+            b"v=2 install_v=1 install_ns=500 gate_v=1 gate_ns=600 pre_gate_events=0 event_v=0 event_ns=0 kind=0 raw=00000000\n",
+            b"v=2 install_v=1 install_ns=500 gate_v=1 gate_ns=600 pre_gate_events=1 event_v=1 event_ns=700 kind=1 raw=01ff0101\n",
+            b"v=2 install_v=1 install_ns=500 gate_v=1 gate_ns=600 pre_gate_events=1073741823 event_v=1 event_ns=700 kind=2 raw=00000201\n",
+            b"v=2 install_v=1 install_ns=500 gate_v=1 gate_ns=600 pre_gate_events=0 event_v=1 event_ns=700 kind=3 raw=abcd3040\n",
         )
         valid_outputs = [hashlib.sha256(_run(binary, item, True)).hexdigest() for item in valid]
         base = valid[-1]
         invalid = {
-            "legacy_or_future_version": base.replace(b"v=1", b"v=2", 1),
+            "legacy_version": base.replace(b"v=2", b"v=1", 1),
             "missing_newline": base[:-1],
             "extra_byte": base + b"x",
             "leading_zero_time": base.replace(b"install_ns=500", b"install_ns=0500", 1),
+            "leading_zero_pre_gate_count": base.replace(b"pre_gate_events=0", b"pre_gate_events=00", 1),
+            "pre_gate_count_overflow": base.replace(b"pre_gate_events=0", b"pre_gate_events=1073741824", 1),
             "uppercase_hex": base.replace(b"abcd3040", b"ABCD3040", 1),
             "install_not_valid": base.replace(b"install_v=1", b"install_v=0", 1),
             "exposure_before_install": base.replace(b"gate_ns=600", b"gate_ns=400", 1),

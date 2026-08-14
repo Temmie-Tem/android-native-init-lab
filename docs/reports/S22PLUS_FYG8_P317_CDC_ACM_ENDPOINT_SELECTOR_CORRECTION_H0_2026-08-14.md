@@ -2,7 +2,7 @@
 
 Date: 2026-08-14 KST
 Target: Samsung Galaxy S22+ FYG8 only
-Status: **H0 IMPLEMENTATION PASS_GO; PROCESS-V2 OFFLINE READY; NO LIVE AUTHORITY**
+Status: **PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V2; H0 OFFLINE CAPABILITY ONLY; NO LIVE AUTHORITY**
 
 ## Result first
 
@@ -431,14 +431,25 @@ below is a later changed closure and received its own independent review.
 
 ## P3.18 implementation and offline-ready closure
 
-The design obligations are now implemented without changing the fixed P3.10
-Image. An early GPL module registers the exported `dwc3_event` tracepoint,
-filters the exact `a600000.dwc3` instance, decodes the source-bound raw event
-layout, and latches install plus the first RESET, CONNECT_DONE, or physical-EP0
-SETUP timestamp with `ktime_get_ns()`. Its write-once exposure gate is read back
-before the only reachable UDC bind. The late Max77705 diagnostic reads the same
-latch and clock domain for pre/write/post1/post2; causal interpretation requires
-the derived `install <= exposure <= pre` order and masks `0x6f` or `0x7f`.
+The design obligations are implemented without changing the fixed P3.10
+Image, and the later pre-gate evidence correction is now integrated. An early
+GPL module registers the exported `dwc3_event` tracepoint, filters the exact
+`a600000.dwc3` instance, decodes the source-bound raw event layout, and latches
+install plus the first post-gate RESET, CONNECT_DONE, or physical-EP0 SETUP
+timestamp with `ktime_get_ns()`. The UDC name is derived from fixed gadget-core
+parent `kobject_name()` semantics and the observed P2.60 sysfs path rather than
+from a self-referential literal check.
+
+The module uses one atomic state for the write-once gate transition and a
+saturating pre-gate qualifying-event count, so a callback cannot race the gate
+and leave a favorable false zero. Snapshot v2 retains that count. The runtime
+reads back the gate before the only reachable UDC bind. The late Max77705
+diagnostic reads the same latch and clock domain for pre/write/post1/post2.
+`latch_install <= gate_write` is a structural consistency check and diagnostic
+value, not causal evidence. A no-event interpretation additionally requires
+`gate_write <= pre`, bit 7 proving zero qualifying pre-gate events, and a
+complete no-endpoint host receipt. Only `0xef` and `0xff` are causal masks;
+legacy `0x6f` and `0x7f` mean the pre-gate fact is unavailable.
 
 The banner path now executes before terminal publication under one absolute
 five-second deadline shared by EINTR, EAGAIN, and every short-write
@@ -454,40 +465,45 @@ and round-trip every retained terminal preimage. The measured P3.17 source
 records remain 8 raw poll bytes and 9 PackBits bytes; that observation does not
 waive the boundary.
 
-The frozen overlay contains 41 `SOURCE_KEYS`. Its module plan is the exact 69
+The frozen overlay contains 42 `SOURCE_KEYS`. Its module plan is the exact 69
 P3.17 stock modules followed by one early DWC3 latch, then one synchronous
 late-only P3.18 diagnostic: 70 early and 71 effective. The P3.17 diagnostic is
-absent. The latch module is 412,272 bytes, SHA-256 `5dcc40b1cc5f`; the timed
+absent. The latch module is 421,872 bytes, SHA-256 `52f2e59aae62`; the timed
 diagnostic is 303,112 bytes, SHA-256 `d7dac722a11b`. Both A/B module builds and
 both full userspace/boot-only builds are byte-identical.
 
 The final host-only closure is:
 
-- intent `fbe961959f2e`, prepack `b1aa6bfce0ea`, userspace `0d110248cf32`,
-  qualification `f7d7a7af977f`, and static `ca5c24af0aae`;
-- candidate boot `5b173b04319d`, one-member candidate AP `6ed48ac12d0c`, and
+- intent `ad27e29c87fc`, prepack `6516c59c4579`, userspace `dd201d33e8cc`,
+  qualification `0d180d6015e6`, and static `b65883990edb`;
+- candidate boot `1385ac1ac2b4`, one-member candidate AP `4a8b408681da`, and
   exact rollback AP `d2373bf88dda`;
-- Process-v2 candidate-static `ca5c24af0aae`, run manifest `8b6730ae57b6`, and
-  static check `b4fb3d27b913`;
-- canonical ready manifest 2,778 bytes, SHA-256 `4484914edbae`, with its three
+- Process-v2 candidate-static `b65883990edb`, run manifest `67d515b1d190`, and
+  static check `c399e5c9039d`;
+- canonical ready manifest 2,778 bytes, SHA-256 `ffc28ce036b6`, with its three
   evidence files and candidate AP copied byte-for-byte into the private ready
   bundle; and
 - a noncreating ready rehearsal with the same manifest bytes,
   `created=false`, 300-second candidate observation, and a source-bound
   1,200-second guard.
 
-Focused P3.18 tests pass 106/106 and the common Process-v2 set passes 120/120.
-Python compilation and `git diff --check` pass. Independent review regenerated
-intent through ready, compared every canonical byte, exercised the actual
-gate/readback/sole-bind seam, rejected topology/evidence/runner mutations, and
-returned:
+The current follow-up includes a direct standalone invocation of the live
+integration test, exact C/Python mask cross-checks, and a retained negative in
+which a nonzero pre-gate count cannot become host silence. Focused P3.18 tests
+pass 110/110 and the common Process-v2 set passes 120/120. Python compilation,
+scoped diff checks, and standalone live integration 5/5 pass. Final independent
+changed-closure review regenerated every stage through ready, verified all 42
+source receipts, and matched the canonical bytes exactly.
 
+The prior implementation verdict
 `PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V1`
-
-This is an offline capability verdict only. The manifest status does not grant
-D0, D1, F1, recovery, replay, or live authority. Fresh connected prerequisites,
-clean retained baseline, current rollback/recovery evidence, attendance, and a
-fresh exact approval remain mandatory. A topology-drift
+applies only to its old execution-critical hashes. This corrected closure is
+independently qualified as
+`PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V2`.
+This is an H0 offline capability only; it does not grant D0, D1, F1, recovery,
+replay, or live authority. Fresh connected prerequisites, clean retained
+baseline, current rollback/recovery evidence, attendance, and a fresh exact
+approval remain mandatory. A topology-drift
 `recovery_rebound_exact` implementation remains a separate independently
 reviewed recovery capability; the current runner parks rather than improvising
 that path.

@@ -31,7 +31,7 @@ class S22PlusFyg8P318Max77705EnvelopeQualificationTest(unittest.TestCase):
         cls.value = cls.module.audit(ROOT)
 
     def test_actual_c_matches_python_at_47_and_48(self):
-        self.assertEqual(self.value["actual_c_python_case_count"], 5)
+        self.assertEqual(self.value["actual_c_python_case_count"], 6)
         self.assertEqual(self.value["lossless_boundary_encoded_bytes"], 47)
         self.assertEqual(self.value["overflow_boundary_encoded_bytes"], 48)
         self.assertEqual(self.value["overflow_summary_bytes"], 44)
@@ -39,6 +39,8 @@ class S22PlusFyg8P318Max77705EnvelopeQualificationTest(unittest.TestCase):
         self.assertTrue(self.value["nonzero_overflow_spare_rejected_after_valid_crc"])
         self.assertTrue(self.value["actual_c_bytes_pass_real_carrier_and_host_decoder"])
         self.assertTrue(self.value["carrier_integration"])
+        self.assertEqual(self.value["pre_gate_event_mask"], 0x6F)
+        self.assertFalse(self.value["pre_gate_event_causal_authority"])
 
     def test_actual_c_observer_sites_survive_carrier_with_exact_authority(self):
         self.assertEqual(self.value["actual_c_python_observer_case_count"], 2)

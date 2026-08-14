@@ -22,7 +22,14 @@ class P318RuntimeQualificationTests(unittest.TestCase):
     def test_actual_runtime_and_gate_fixture_pass(self) -> None:
         self.assertEqual(cls_value := self.value["verdict"], qualification.VERDICT)
         self.assertTrue(self.value["gate_fixture"]["actual_gate_helper_executed"])
-        self.assertEqual(self.value["gate_fixture"]["result"]["negative"], 5)
+        self.assertEqual(self.value["gate_fixture"]["result"]["positive"], 4)
+        self.assertEqual(self.value["gate_fixture"]["result"]["negative"], 7)
+        self.assertTrue(
+            self.value["runtime"]["post_gate_baseline_retained_until_terminal"]
+        )
+        self.assertTrue(
+            self.value["runtime"]["terminal_pre_gate_count_exactly_matches_baseline"]
+        )
         self.assertTrue(self.value["userspace_a_b"]["byte_identical"])
         self.assertTrue(cls_value.startswith("PASS_P318_"))
 

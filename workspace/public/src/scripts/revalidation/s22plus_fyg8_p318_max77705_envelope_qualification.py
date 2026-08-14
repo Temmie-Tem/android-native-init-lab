@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import binascii
+from dataclasses import replace
 import hashlib
 import json
 from pathlib import Path
@@ -147,13 +148,14 @@ def _latch(event_kind: int) -> telemetry.LatchSnapshot:
     raw = {0: 0, 1: 0x01FF0101, 2: 0x00000201, 3: 0xABCD3040}[event_kind]
     return telemetry.LatchSnapshot(
         install_valid=1,
-        exposure_valid=1,
+        gate_valid=1,
         event_valid=1 if event_kind else 0,
         event_kind=event_kind,
         install_ns=500_000_000,
-        exposure_ns=900_000_000,
+        gate_ns=900_000_000,
         event_ns=1_000_500_000 if event_kind else 0,
         event_raw=raw,
+        pre_gate_events=0,
     )
 
 
@@ -186,8 +188,9 @@ def _c_envelope(
     banner: telemetry.BannerResult,
 ) -> tuple[bytes, str]:
     snapshot = (
-        f"v=1 install_v={latch.install_valid} install_ns={latch.install_ns} "
-        f"gate_v={latch.exposure_valid} gate_ns={latch.exposure_ns} "
+        f"v=2 install_v={latch.install_valid} install_ns={latch.install_ns} "
+        f"gate_v={latch.gate_valid} gate_ns={latch.gate_ns} "
+        f"pre_gate_events={latch.pre_gate_events} "
         f"event_v={latch.event_valid} event_ns={latch.event_ns} "
         f"kind={latch.event_kind} raw={latch.event_raw:08x}\n"
     )
@@ -274,6 +277,12 @@ def audit(repo_root: Path | None = None) -> dict[str, Any]:
         cases = (
             ("lossless47_event_written", _result(lossless_polls), _latch(1), _banner("written", "none", 49)),
             ("lossless47_no_event_eagain", _result(lossless_polls), _latch(0), _banner("eagain_timeout", "eagain_deadline", 0)),
+            (
+                "lossless47_pre_gate_event_no_event",
+                _result(lossless_polls),
+                replace(_latch(0), pre_gate_events=1),
+                _banner("written", "none", 49),
+            ),
             ("lossless47_event_epipe", _result(lossless_polls), _latch(3), _banner("failure", "epipe", 0)),
             ("lossless47_event_enodev", _result(lossless_polls), _latch(2), _banner("failure", "enodev", 0)),
             ("overflow48_event_partial", _result(overflow_polls), _latch(1), _banner("partial", "eintr_deadline", 48)),
@@ -395,7 +404,19 @@ def audit(repo_root: Path | None = None) -> dict[str, Any]:
         if correlations != expected_correlations:
             raise EnvelopeQualificationError("P3.18 host-receipt cross product differs")
 
-        incomplete_latch = telemetry.LatchSnapshot(1, 0, 0, 0, 500_000_000, 0, 0, 0)
+        pre_gate = decoded_by_name["lossless47_pre_gate_event_no_event"]
+        if (
+            pre_gate["timing"]["valid_mask"] != 0x6F
+            or pre_gate["timing"]["no_pre_gate_qualifying_event"]
+            or pre_gate["causal_pending_complete_host_receipt"]
+        ):
+            raise EnvelopeQualificationError(
+                "P3.18 pre-gate event gained favorable causal authority"
+            )
+
+        incomplete_latch = telemetry.LatchSnapshot(
+            1, 0, 0, 0, 500_000_000, 0, 0, 0, 0
+        )
         incomplete = _python_envelope(_result(lossless_polls), incomplete_latch, _banner("written", "none", 49))
         incomplete_decoded = telemetry.decode_envelope(incomplete)
         if incomplete_decoded["timing"]["valid_mask"] != 0x2F or incomplete_decoded["causal_pending_complete_host_receipt"]:
@@ -437,6 +458,8 @@ def audit(repo_root: Path | None = None) -> dict[str, Any]:
         "overflow_spare_bytes": 3,
         "nonzero_overflow_spare_rejected_after_valid_crc": spare_rejected,
         "host_receipt_cross_product": correlations,
+        "pre_gate_event_mask": 0x6F,
+        "pre_gate_event_causal_authority": False,
         "missing_exposure_mask": 0x2F,
         "missing_exposure_causal_authority": False,
         "invalid_banner_tuple_count": len(invalid_banners),

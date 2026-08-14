@@ -138,7 +138,7 @@ class P318EndpointTransitionTest(unittest.TestCase):
             "pre_session_stop_no_run_proof_class",
         )
         self.assertIn(
-            "mask_0x6f_retains_host_silent",
+            "mask_0xef_retains_host_silent",
             effects["candidate_end"][
                 "same_complete_absent_causal_ready_after_timing_cross_check"
             ],
@@ -298,10 +298,10 @@ class P318EndpointTransitionTest(unittest.TestCase):
             authority_state="candidate_approved_exact",
             observation_complete=True,
             causal_terminal_ready=True,
-            validity_mask=0x6F,
+            validity_mask=0xEF,
             host_event_kind="none",
             latch_install_delta_us=-20,
-            gadget_exposure_delta_us=-10,
+            gate_write_delta_us=-10,
         )
         self.assertEqual(contradiction["proof_class"], "NO_PROOF_OBSERVER")
         self.assertIsNone(contradiction["topology"])
@@ -310,10 +310,10 @@ class P318EndpointTransitionTest(unittest.TestCase):
             authority_state="candidate_approved_exact",
             observation_complete=True,
             causal_terminal_ready=True,
-            validity_mask=0x6F,
+            validity_mask=0xEF,
             host_event_kind="none",
             latch_install_delta_us=-20,
-            gadget_exposure_delta_us=-10,
+            gate_write_delta_us=-10,
         )
         self.assertEqual(no_event["proof_class"], "DEVICE_RESULT_HOST_SILENT")
         host_event_without_endpoint = P318.classify_candidate_evidence(
@@ -321,10 +321,10 @@ class P318EndpointTransitionTest(unittest.TestCase):
             authority_state="candidate_approved_exact",
             observation_complete=True,
             causal_terminal_ready=True,
-            validity_mask=0x7F,
+            validity_mask=0xFF,
             host_event_kind="reset",
             latch_install_delta_us=-20,
-            gadget_exposure_delta_us=-10,
+            gate_write_delta_us=-10,
         )
         self.assertEqual(
             host_event_without_endpoint["proof_class"],
@@ -339,10 +339,10 @@ class P318EndpointTransitionTest(unittest.TestCase):
             authority_state="candidate_approved_exact",
             observation_complete=False,
             causal_terminal_ready=True,
-            validity_mask=0x6F,
+            validity_mask=0xEF,
             host_event_kind="none",
             latch_install_delta_us=-20,
-            gadget_exposure_delta_us=-10,
+            gate_write_delta_us=-10,
         )
         self.assertEqual(incomplete["proof_class"], "NO_PROOF_OBSERVER")
         self.assertFalse(incomplete["timing"]["no_host_event_claim_allowed"])
@@ -354,17 +354,17 @@ class P318EndpointTransitionTest(unittest.TestCase):
             validity_mask=0x0F,
             host_event_kind="none",
             latch_install_delta_us=None,
-            gadget_exposure_delta_us=None,
+            gate_write_delta_us=None,
         )
         self.assertEqual(legacy["proof_class"], "NO_PROOF_OBSERVER")
         audit = P318.audit_candidate_timing_cross_check()
         self.assertEqual(audit["timing_cross_product_row_count"], 55296)
-        self.assertEqual(audit["timing_decision_partition_count"], 10)
+        self.assertEqual(audit["timing_decision_partition_count"], 26)
         self.assertTrue(
-            audit["endpoint_absent_plus_mask_0x7f_is_distinct_dwc3_event_result"]
+            audit["endpoint_absent_plus_mask_0xff_is_distinct_dwc3_event_result"]
         )
         self.assertTrue(
-            audit["armed_before_gadget_exposure_is_derived_from_two_samples"]
+            audit["gate_write_before_pre_is_the_only_causal_order_predicate"]
         )
         self.assertTrue(audit["incomplete_receipt_never_allows_no_event_claim"])
 
@@ -373,14 +373,33 @@ class P318EndpointTransitionTest(unittest.TestCase):
             authority_state="candidate_approved_exact",
             observation_complete=True,
             causal_terminal_ready=True,
-            validity_mask=0x6F,
+            validity_mask=0xEF,
             host_event_kind="none",
             latch_install_delta_us=-10,
-            gadget_exposure_delta_us=-20,
+            gate_write_delta_us=-20,
         )
         self.assertEqual(exposure_before_install["proof_class"], "NO_PROOF_OBSERVER")
         self.assertFalse(
-            exposure_before_install["timing"]["armed_before_gadget_exposure"]
+            exposure_before_install["timing"][
+                "latch_install_before_gate_write_structurally_enforced"
+            ]
+        )
+
+        missing_pre_gate_absence = P318.classify_candidate_evidence(
+            relationship="absent",
+            authority_state="candidate_approved_exact",
+            observation_complete=True,
+            causal_terminal_ready=True,
+            validity_mask=0x6F,
+            host_event_kind="none",
+            latch_install_delta_us=-20,
+            gate_write_delta_us=-10,
+        )
+        self.assertEqual(
+            missing_pre_gate_absence["proof_class"], "NO_PROOF_OBSERVER"
+        )
+        self.assertFalse(
+            missing_pre_gate_absence["timing"]["no_host_event_claim_allowed"]
         )
 
     def test_observed_exact_transition_is_topology_drift_and_not_selected(self):

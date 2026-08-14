@@ -14,6 +14,9 @@
 	"/sys/module/s22plus_dwc3_event_latch/parameters/snapshot"
 #define P318_LATCH_VALUE_CAPACITY 256U
 
+static struct s22plus_max77705_p318_latch_snapshot p318_gate_baseline;
+static int p318_gate_baseline_ready;
+
 static long p318_read_latch_snapshot(
 		struct s22plus_max77705_p318_latch_snapshot *snapshot)
 {
@@ -52,7 +55,7 @@ static long p318_arm_exposure_gate(void)
 
 	if (rc != 0)
 		return rc;
-	if (before.install_valid != 1U || before.exposure_valid != 0U ||
+	if (before.install_valid != 1U || before.gate_valid != 0U ||
 	    before.event_valid != 0U)
 		return -P260_EPROTO;
 	rc = p282_write_control(P318_LATCH_GATE_PATH, "1\n");
@@ -64,17 +67,24 @@ static long p318_arm_exposure_gate(void)
 	rc = p318_read_latch_snapshot(&after);
 	if (rc != 0)
 		return rc;
-	if (after.install_valid != 1U || after.exposure_valid != 1U ||
+	if (after.install_valid != 1U || after.gate_valid != 1U ||
 	    after.event_valid != 0U || after.install_ns != before.install_ns ||
-	    after.exposure_ns < after.install_ns)
+	    after.gate_ns < after.install_ns ||
+	    after.pre_gate_events < before.pre_gate_events)
 		return -P260_EPROTO;
+	p318_gate_baseline = after;
+	p318_gate_baseline_ready = 1;
 	return 0;
 }
 
 static long p318_capture_terminal_latch(
-		struct s22plus_max77705_p318_latch_snapshot *snapshot)
+	struct s22plus_max77705_p318_latch_snapshot *snapshot)
 {
-	long rc = p318_read_exposure_gate();
+	long rc;
+
+	if (p318_gate_baseline_ready == 0)
+		return -P260_EPROTO;
+	rc = p318_read_exposure_gate();
 
 	if (rc != 0)
 		return rc;
@@ -82,7 +92,11 @@ static long p318_capture_terminal_latch(
 	if (rc != 0)
 		return rc;
 	return snapshot->install_valid == 1U &&
-		snapshot->exposure_valid == 1U
+		snapshot->gate_valid == 1U &&
+		snapshot->install_ns == p318_gate_baseline.install_ns &&
+		snapshot->gate_ns == p318_gate_baseline.gate_ns &&
+		snapshot->pre_gate_events ==
+			p318_gate_baseline.pre_gate_events
 		? 0 : -P260_EPROTO;
 }
 

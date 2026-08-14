@@ -46,8 +46,8 @@ class P318PackagingTest(unittest.TestCase):
         paths = (
             (
                 candidate.DEFAULT_LATCH,
-                412272,
-                "5dcc40b1cc5f3d55e429196861829c36176f30f9537d2fbd54c93a1bbe02a2bf",
+                421872,
+                "52f2e59aae62224c772b0a86a908ae50b6b7b174aa258459ff170c7c703a683c",
             ),
             (
                 candidate.DEFAULT_DIAGNOSTIC,
@@ -161,6 +161,22 @@ class P318PackagingTest(unittest.TestCase):
                 evidence.P318_MAX77705_OVERLAY_CONTRACT_ID
             ),
             frozenset({"p310_telemetry_decoder"}),
+        )
+
+    def test_live_endpoint_transition_classifier_is_a_frozen_source_key(self):
+        self.assertEqual(len(overlay.SOURCE_KEYS), 42)
+        self.assertEqual(
+            overlay.SOURCE_PATHS["p318_endpoint_transition"],
+            overlay.PREFIX / "s22plus_fyg8_p318_cdc_acm_endpoint_transition.py",
+        )
+        receipts = overlay.source_receipts(ROOT)
+        self.assertEqual(set(receipts), overlay.SOURCE_KEYS)
+        self.assertEqual(
+            receipts["p318_endpoint_transition"]["sha256"],
+            hashlib.sha256(
+                (ROOT / overlay.SOURCE_PATHS["p318_endpoint_transition"])
+                .read_bytes()
+            ).hexdigest(),
         )
 
 

@@ -25,9 +25,10 @@
 #define S22PLUS_MAX77705_P318_TIME_HOST_EVENT (1U << 4)
 #define S22PLUS_MAX77705_P318_TIME_INSTALL (1U << 5)
 #define S22PLUS_MAX77705_P318_TIME_EXPOSURE (1U << 6)
-#define S22PLUS_MAX77705_P318_TIME_MASK 0x7fU
-#define S22PLUS_MAX77705_P318_CAUSAL_NO_EVENT 0x6fU
-#define S22PLUS_MAX77705_P318_CAUSAL_WITH_EVENT 0x7fU
+#define S22PLUS_MAX77705_P318_TIME_NO_PRE_GATE_EVENT (1U << 7)
+#define S22PLUS_MAX77705_P318_TIME_MASK 0xffU
+#define S22PLUS_MAX77705_P318_CAUSAL_NO_EVENT 0xefU
+#define S22PLUS_MAX77705_P318_CAUSAL_WITH_EVENT 0xffU
 
 enum s22plus_max77705_p318_observer_site {
 	S22PLUS_MAX77705_P318_OBSERVER_SITE_EXPOSURE_GATE = 13,
@@ -45,7 +46,7 @@ struct s22plus_max77705_p318_timing_witness {
 	uint8_t valid_mask;
 	uint8_t first_host_event_kind;
 	int32_t latch_install_delta_us;
-	int32_t gadget_exposure_delta_us;
+	int32_t gate_write_delta_us;
 	int32_t write_delta_us;
 	int32_t post1_delta_us;
 	int32_t post2_delta_us;
@@ -175,13 +176,16 @@ static int s22plus_max77705_p318_derive_timing(
 			&timing->latch_install_delta_us) != 0)
 			return -1;
 	}
-	if (latch->exposure_valid != 0U) {
+	if (latch->gate_valid != 0U) {
 		timing->valid_mask |= S22PLUS_MAX77705_P318_TIME_EXPOSURE;
 		if (s22plus_max77705_p318_delta_us(
-			latch->exposure_ns, origin,
-			&timing->gadget_exposure_delta_us) != 0)
+			latch->gate_ns, origin,
+			&timing->gate_write_delta_us) != 0)
 			return -1;
 	}
+	if (latch->gate_valid != 0U && latch->pre_gate_events == 0U)
+		timing->valid_mask |=
+			S22PLUS_MAX77705_P318_TIME_NO_PRE_GATE_EVENT;
 	if (latch->event_valid != 0U) {
 		timing->valid_mask |= S22PLUS_MAX77705_P318_TIME_HOST_EVENT;
 		timing->first_host_event_kind = latch->event_kind;
@@ -198,7 +202,7 @@ static int s22plus_max77705_p318_timing_valid(
 {
 	uint8_t mask;
 
-	if (timing == NULL || (timing->valid_mask & 0x80U) != 0U)
+	if (timing == NULL)
 		return 0;
 	mask = timing->valid_mask;
 	if (((mask & S22PLUS_MAX77705_P318_TIME_HOST_EVENT) != 0U) !=
@@ -211,7 +215,7 @@ static int s22plus_max77705_p318_timing_valid(
 	    timing->latch_install_delta_us != 0)
 		return 0;
 	if ((mask & S22PLUS_MAX77705_P318_TIME_EXPOSURE) == 0U &&
-	    timing->gadget_exposure_delta_us != 0)
+	    timing->gate_write_delta_us != 0)
 		return 0;
 	if ((mask & S22PLUS_MAX77705_P318_TIME_WRITE) == 0U &&
 	    timing->write_delta_us != 0)
@@ -225,6 +229,12 @@ static int s22plus_max77705_p318_timing_valid(
 	if ((mask & S22PLUS_MAX77705_P318_TIME_HOST_EVENT) == 0U &&
 	    timing->first_host_event_delta_us != 0)
 		return 0;
+	if ((mask & S22PLUS_MAX77705_P318_TIME_NO_PRE_GATE_EVENT) != 0U &&
+	    (mask & (S22PLUS_MAX77705_P318_TIME_INSTALL |
+		     S22PLUS_MAX77705_P318_TIME_EXPOSURE)) !=
+		    (S22PLUS_MAX77705_P318_TIME_INSTALL |
+		     S22PLUS_MAX77705_P318_TIME_EXPOSURE))
+		return 0;
 	if ((mask & (S22PLUS_MAX77705_P318_TIME_PRE |
 		    S22PLUS_MAX77705_P318_TIME_INSTALL |
 		    S22PLUS_MAX77705_P318_TIME_EXPOSURE)) ==
@@ -232,8 +242,8 @@ static int s22plus_max77705_p318_timing_valid(
 	     S22PLUS_MAX77705_P318_TIME_INSTALL |
 	     S22PLUS_MAX77705_P318_TIME_EXPOSURE) &&
 	    (timing->latch_install_delta_us >
-		timing->gadget_exposure_delta_us ||
-	     timing->gadget_exposure_delta_us > 0))
+		timing->gate_write_delta_us ||
+	     timing->gate_write_delta_us > 0))
 		return 0;
 	return 1;
 }
@@ -244,7 +254,7 @@ static void s22plus_max77705_p318_store_timing(
 {
 	const int32_t values[6] = {
 		timing->latch_install_delta_us,
-		timing->gadget_exposure_delta_us,
+		timing->gate_write_delta_us,
 		timing->write_delta_us,
 		timing->post1_delta_us,
 		timing->post2_delta_us,
