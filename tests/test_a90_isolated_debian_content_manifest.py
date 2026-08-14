@@ -76,8 +76,21 @@ class IsolatedDebianManifestTests(unittest.TestCase):
         )
         self.assertEqual(self.value["selected_closure"], "NESTED_PID_NAMESPACE_ISOLATION")
         self.assertEqual(self.value["pid1"]["historical_sysvinit_assumed"], False)
-        self.assertTrue(self.value["toolchain"]["trace"]["output_is_candidate_superset"])
-        self.assertTrue(self.value["toolchain"]["trace"]["later_on_device_negative_testing_required"])
+        trace = self.value["toolchain"]["trace"]
+        self.assertTrue(trace["observed_trace_is_lower_bound_only"])
+        self.assertTrue(trace["allowlist_must_cover_observed_union"])
+        self.assertIn("strict subset", trace["interpretation"])
+        self.assertIn("missing syscall", trace["interpretation"])
+        self.assertNotIn("output_is_" + "candidate" + "_superset", trace)
+        self.assertTrue(trace["later_on_device_negative_testing_required"])
+        security = self.value["security_derivation"]
+        self.assertFalse(security["authority"]["candidate_eligible"])
+        self.assertFalse(security["authority"]["device_install_authorized"])
+        self.assertEqual(
+            security["static"]["candidate_allowlist_numbers"],
+            security["static"]["union_resolved_syscall_numbers"],
+        )
+        self.assertEqual(security["reconciliation"]["traced_missing_from_candidate_allowlist"], [])
 
     def test_absent_list_requires_the_forbidden_paths(self) -> None:
         required = {

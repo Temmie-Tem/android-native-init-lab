@@ -158,21 +158,276 @@
   "deferred": [
     {
       "item": "seccomp-positive-syscall-argument-allowlist",
-      "reason": "It derives from the exact PID-1, Dropbear, dispatcher, and workload service trace, which is not available until the deferred Dropbear build and all binaries are materialized.",
-      "successor_method": "Run qemu-aarch64 user-mode tracing after the binaries are built; treat the output as a candidate superset and later perform on-device negative testing."
+      "reason": "The preserved operator trace exercised authenticated public-key sessions, wrong-key rejection, PTY refusal, and a dropped handshake, but still left port-forwarding refusal, PID-1 fork/reap/shutdown, and workload steady state unexercised. It observed 48 syscall names and five numbers outside the raw 84-number resolved svc-site union: pselect6=72, rt_sigreturn=139, accept=202, connect=203, and wait4=260. Four are libc cancellation callers that the bounded walk stopped at as register-sourced, and rt_sigreturn is a signal-trampoline entry; the resolved svc-site union therefore is not an upper bound. The corrected evidence candidate is 89 numbers, while exact syscall arguments, generic runtime-number escape hatches, ioctl filtering, and on-device negative tests remain open.",
+      "successor_method": "Use the corrected 89-number evidence candidate only as a host-side candidate universe; run the fixed valid -L harness on a socket-capable host, then run exact 3301:3301/3302:3302 private-namespace PID-1/workload traces with guest exec support. Reconcile all paths, decide syscall arguments including clone3 denial and ioctl requests, and perform on-device negative testing before any filter release."
     },
     {
       "item": "capability-minimum-set",
-      "reason": "The exact minimum must be derived from the same service trace and native bootstrap boundary; it is not invented from a static guess here.",
-      "successor_method": "Derive from the completed trace and independently review before any candidate."
+      "reason": "Consumer review still derives empty minimums for PID 1, the dispatcher, and the workload, and CAP_SETUID plus CAP_SETGID for Dropbear. The new trace did observe setresgid and setresuid, but deliberately used the invoking uid/gid, so the calls retained one borrowed identity rather than proving the exact 3302-to-3301 transition or capability necessity.",
+      "successor_method": "Exercise the authenticated Dropbear path with exact a90key/a90svc ownership and the exact 3302-to-3301 transition, then prove both capabilities are necessary and every other capability is absent with negative tests and independent review."
     },
     {
       "item": "proc-scalar-allowlist",
-      "reason": "The exact scalar reads are consumer-dependent and cannot be selected before the completed service trace.",
-      "successor_method": "Derive from the completed trace, bind a finite read-only list, and independently review before any candidate."
+      "reason": "The preserved trace reached authenticated sessions and observed global non-scalar paths including /proc/net/*, /proc/interrupts, /proc/loadavg, /proc/sys/kernel/random/entropy_avail, and /proc/vmstat, plus /proc/self/exe. It observed no finite global scalar value, but PID-1 and workload steady state remain unexercised, so an empty finite scalar list is still not closed.",
+      "successor_method": "Trace the exact isolated PID-1/workload and remaining service paths, distinguish global scalar reads from non-scalar/proc-link access, bind only the finite read-only scalar set, and negative-test omitted scalars and all writes."
     }
   ],
   "device_install_authorized": false,
+  "security_derivation": {
+    "authority": {
+      "candidate_eligible": false,
+      "device_contact": false,
+      "device_install_authorized": false,
+      "device_network_contact": false
+    },
+    "abi": "AArch64 Linux LP64 syscall ABI; compat/arm32 is not supported by this rootfs",
+    "tool": "workspace/public/src/scripts/server-distro/a90_isolated_debian_security_derivation.py",
+    "report": "docs/reports/A90_ISOLATED_DEBIAN_SECURITY_DERIVATION_H0_2026-08-15.md",
+    "static": {
+      "method": "Disassemble each exact private binary; inspect every svc #0; walk at most 12 prior instructions, stopping at branches and register-sourced mov x8/w8; separately bind caller immediates entering __syscall_cancel.",
+      "binaries": {
+        "dropbear": {
+          "svc_site_count": 194,
+          "resolved_site_count": 185,
+          "unresolved_site_count": 9,
+          "distinct_resolved_syscall_count": 83
+        },
+        "pid1": {
+          "svc_site_count": 149,
+          "resolved_site_count": 145,
+          "unresolved_site_count": 4,
+          "distinct_resolved_syscall_count": 63
+        },
+        "probe": {
+          "svc_site_count": 127,
+          "resolved_site_count": 123,
+          "unresolved_site_count": 4,
+          "distinct_resolved_syscall_count": 47
+        },
+        "workload": {
+          "svc_site_count": 128,
+          "resolved_site_count": 124,
+          "unresolved_site_count": 4,
+          "distinct_resolved_syscall_count": 48
+        }
+      },
+      "resolved_svc_union_count": 84,
+      "resolved_svc_union_numbers": [
+        17, 24, 25, 29, 35, 37, 46, 48, 49, 50, 53, 54, 56, 57, 59, 61,
+        62, 63, 64, 66, 67, 78, 79, 80, 93, 94, 95, 96, 98, 99, 103,
+        113, 118, 119, 120, 121, 123, 125, 126, 129, 131, 134, 135, 144,
+        146, 147, 149, 154, 155, 157, 159, 160, 166, 167, 169, 172, 174,
+        175, 176, 177, 178, 179, 198, 200, 201, 204, 205, 208, 209, 210,
+        214, 215, 216, 220, 221, 222, 226, 233, 261, 278, 281, 293, 435,
+        436
+      ],
+      "union_resolved_syscall_count": 89,
+      "union_resolved_syscall_numbers": [
+        17, 24, 25, 29, 35, 37, 46, 48, 49, 50, 53, 54, 56, 57, 59, 61,
+        62, 63, 64, 66, 67, 72, 78, 79, 80, 93, 94, 95, 96, 98, 99, 103,
+        113, 118, 119, 120, 121, 123, 125, 126, 129, 131, 134, 135, 139,
+        144, 146, 147, 149, 154, 155, 157, 159, 160, 166, 167, 169, 172,
+        174, 175, 176, 177, 178, 179, 198, 200, 201, 202, 203, 204, 205,
+        208, 209, 210, 214, 215, 216, 220, 221, 222, 226, 233, 260, 261,
+        278, 281, 293, 435, 436
+      ],
+      "union_semantics": "union_resolved_syscall_numbers is the corrected evidence candidate consumed by the manifest validator; resolved_svc_union_numbers is the raw 84-number static svc-site union. The five observed numbers outside the raw union are recorded in reconciliation.traced_outside_resolved_svc_union.",
+      "candidate_allowlist_numbers": [
+        17, 24, 25, 29, 35, 37, 46, 48, 49, 50, 53, 54, 56, 57, 59, 61,
+        62, 63, 64, 66, 67, 72, 78, 79, 80, 93, 94, 95, 96, 98, 99, 103,
+        113, 118, 119, 120, 121, 123, 125, 126, 129, 131, 134, 135, 139,
+        144, 146, 147, 149, 154, 155, 157, 159, 160, 166, 167, 169, 172,
+        174, 175, 176, 177, 178, 179, 198, 200, 201, 202, 203, 204, 205,
+        208, 209, 210, 214, 215, 216, 220, 221, 222, 226, 233, 260, 261,
+        278, 281, 293, 435, 436
+      ],
+      "candidate_choice": "include every raw resolved static number plus every mapped syscall observed in the preserved trace; dynamic omission is not reachability proof and this remains a candidate, not a released filter",
+      "unresolved_dropbear_sites": [
+        {"address": "0x40520", "classification": "flow-carried-immediate", "decision": "contextually-167", "residual_risk": "branch proof is outside the bounded walk"},
+        {"address": "0x4fac4", "classification": "register-sourced-generic-wrapper", "decision": "runtime-value", "residual_risk": "cancellation-point caller can select a runtime syscall number"},
+        {"address": "0x50da8", "classification": "register-sourced-generic-wrapper", "decision": "runtime-value", "residual_risk": "cancellation wrapper is an unqualified runtime syscall-number escape hatch"},
+        {"address": "0x54ef0", "classification": "bounded-window-limit", "decision": "contextually-278", "residual_risk": "bounded result remains unresolved"},
+        {"address": "0x63940", "classification": "bounded-window-limit", "decision": "contextually-29", "residual_risk": "ioctl request-argument filtering is unproved"},
+        {"address": "0x63b44", "classification": "flow-carried-immediate", "decision": "contextually-29", "residual_risk": "ioctl request-argument filtering is unproved"},
+        {"address": "0x65164", "classification": "register-sourced-generic-wrapper", "decision": "runtime-value", "residual_risk": "reachable syscall() caller can select a runtime syscall number"},
+        {"address": "0x9c604", "classification": "register-sourced-setxid-descriptor", "decision": "runtime-setxid-family", "residual_risk": "exact CAP_SETUID/CAP_SETGID transition must be exercised and negatively tested"},
+        {"address": "0x9c950", "classification": "register-sourced-setxid-descriptor", "decision": "runtime-setxid-family", "residual_risk": "exact CAP_SETUID/CAP_SETGID transition must be exercised and negatively tested"}
+      ]
+    },
+    "dynamic": {
+      "method": "Ingest the preserved private qemu-aarch64 -strace file; the ingestion performs no host, device, USB, or device-network execution.",
+      "interpretation": "two-sided exercised-path lower bound: the trace may be a strict subset of the real syscall set, so a missing syscall can kill the service, while every observed syscall must be in the candidate allowlist",
+      "trace_input": {
+        "path": "workspace/private/outputs/a90-isolated-debian-trace-2026-08-15/session_strace.txt",
+        "sha256": "ac32def66189fe7b3f5033987b460dd9f08dfd444c6b266a9d3c5377005f4f13",
+        "line_count": 1799
+      },
+      "observed_syscall_names": [
+        "accept", "bind", "brk", "clock_gettime", "clone", "close", "connect",
+        "dup3", "execveat", "exit_group", "fcntl", "fstat", "geteuid", "getgid",
+        "getpeername", "getpid", "getrandom", "getsockname", "gettimeofday", "getuid",
+        "ioctl", "listen", "lseek", "mmap", "mprotect", "newfstatat", "openat",
+        "pipe2", "prlimit64", "pselect6", "read", "readlinkat", "rseq", "rt_sigaction",
+        "rt_sigprocmask", "rt_sigreturn", "set_robust_list", "set_tid_address", "setresgid",
+        "setresuid", "setsid", "setsockopt", "socket", "uname", "unlinkat", "wait4",
+        "write", "writev"
+      ],
+      "observed_syscall_numbers": [
+        24, 25, 29, 35, 56, 57, 59, 62, 63, 64, 66, 72, 78, 79, 80, 94,
+        96, 99, 113, 134, 135, 139, 147, 149, 157, 160, 169, 172, 174, 175,
+        176, 198, 200, 201, 202, 203, 204, 205, 208, 214, 220, 222, 226, 260,
+        261, 278, 281, 293
+      ],
+      "syscall_name_to_number": {
+        "accept": 202, "bind": 200, "brk": 214, "clock_gettime": 113, "clone": 220,
+        "close": 57, "connect": 203, "dup3": 24, "execveat": 281, "exit_group": 94,
+        "fcntl": 25, "fstat": 80, "geteuid": 175, "getgid": 176, "getpeername": 205,
+        "getpid": 172, "getrandom": 278, "getsockname": 204, "gettimeofday": 169,
+        "getuid": 174, "ioctl": 29, "listen": 201, "lseek": 62, "mmap": 222,
+        "mprotect": 226, "newfstatat": 79, "openat": 56, "pipe2": 59, "prlimit64": 261,
+        "pselect6": 72, "read": 63, "readlinkat": 78, "rseq": 293, "rt_sigaction": 134,
+        "rt_sigprocmask": 135, "rt_sigreturn": 139, "set_robust_list": 99,
+        "set_tid_address": 96, "setresgid": 149, "setresuid": 147, "setsid": 157,
+        "setsockopt": 208, "socket": 198, "uname": 160, "unlinkat": 35, "wait4": 260,
+        "write": 64, "writev": 66
+      },
+      "observed_signal_trampoline_entries": ["rt_sigreturn"],
+      "observed_proc_paths": [
+        "/proc/interrupts", "/proc/loadavg", "/proc/net/dev", "/proc/net/netstat",
+        "/proc/net/rt_cache", "/proc/net/tcp", "/proc/self/exe",
+        "/proc/sys/kernel/random/entropy_avail", "/proc/vmstat"
+      ],
+      "observed_global_proc_scalars": [],
+      "status": "preserved-session-lower-bound-required-scenarios-recorded-separately",
+      "required_scenarios": {
+        "full-authenticated-public-key-ssh": "exercised-pass; server logged public-key success for a90svc",
+        "forced-dispatcher-returning-bounded-output": "exercised-pass per trace README; exact identity/path deviations are recorded below",
+        "bad-public-key-rejected": "exercised-rejected; client observed Permission denied (publickey)",
+        "pty-request-refused": "exercised-refused; client observed PTY allocation request failed on channel 0",
+        "connection-dropped-mid-handshake": "exercised; harness recorded sent",
+        "port-forwarding-refusal": "not-exercised in preserved trace; the old -L argument used local port 0 and failed in the SSH client before the request. The fixed harness uses a valid nonzero local port, but this sandbox still denied socket creation with EPERM.",
+        "pid1-reap-child-and-shutdown": "not-exercised; unshare/bwrap user and PID namespaces were denied",
+        "workload-normal-work": "not-exercised; the same exact-identity/private-root host precondition was denied",
+        "malformed-probe-request": "identity-gate-only; no new closure"
+      },
+      "deliberate_deviations": {
+        "borrowed_uid_gid": {
+          "description": "the invoking uid/gid were used because Dropbear could not perform the distinct service transition without privilege and user namespaces were blocked",
+          "effect_on_validity": "validates the observed syscall/control path and setresgid/setresuid presence, but does not prove the exact 3302-to-3301 transition or capability necessity"
+        },
+        "absolute_paths": {
+          "description": "service home and probe paths were absolute host paths because qemu-user -L does not redirect chdir",
+          "effect_on_validity": "validates syscall names and broad Dropbear behavior, but does not bind path resolution to the final private root"
+        },
+        "etc_shells_agreement": {
+          "description": "the passwd shell and /etc/shells were kept in agreement because Dropbear rejects a mismatch before authorized_keys",
+          "effect_on_validity": "necessary to reach key lookup; it changes no syscall number, but remains a harness prerequisite rather than independent service-root proof"
+        }
+      },
+      "host_network_contact": "preserved evidence only; trace ingestion opened no socket and contacted no device or device network",
+      "trace_readme": "workspace/private/outputs/a90-isolated-debian-trace-2026-08-15/README.txt",
+      "trace_harness": "workspace/private/outputs/a90-isolated-debian-trace-2026-08-15/trace_session.sh",
+      "host_limit": "The corrected harness was retried host-side: the valid -L form reached the local socket precondition, but socket creation returned EPERM; bwrap then reported that the host denied user/PID namespace creation. No device or device-network endpoint was contacted."
+    },
+    "reconciliation": {
+      "static_syscall_count": 84,
+      "dynamic_syscall_count": 48,
+      "candidate_allowlist_count": 89,
+      "candidate_allowlist": [
+        17, 24, 25, 29, 35, 37, 46, 48, 49, 50, 53, 54, 56, 57, 59, 61,
+        62, 63, 64, 66, 67, 72, 78, 79, 80, 93, 94, 95, 96, 98, 99, 103,
+        113, 118, 119, 120, 121, 123, 125, 126, 129, 131, 134, 135, 139,
+        144, 146, 147, 149, 154, 155, 157, 159, 160, 166, 167, 169, 172,
+        174, 175, 176, 177, 178, 179, 198, 200, 201, 202, 203, 204, 205,
+        208, 209, 210, 214, 215, 216, 220, 221, 222, 226, 233, 260, 261,
+        278, 281, 293, 435, 436
+      ],
+      "traced_outside_static_set": [],
+      "traced_outside_resolved_svc_union": [72, 139, 202, 203, 260],
+      "traced_missing_from_candidate_allowlist": [],
+      "regression_pass": true,
+      "static_analysis_defect": true,
+      "static_upper_bound_claim": {
+        "survives": false,
+        "status": "does-not-survive-observed-outside-resolved-svc-union",
+        "corrected_claim": "The 84-number resolved svc-site union is a partial known set, not an upper bound. The corrected 89-number candidate is the raw resolved union plus every mapped observed trace number, with register-sourced and signal-trampoline gaps explicitly characterized; it is not a final syscall or argument filter."
+      },
+      "static_analysis_gaps": [
+        {
+          "syscall_name": "pselect6",
+          "syscall_number": 72,
+          "classification": "unresolved-register-sourced-site",
+          "status": "characterized-not-resolved-by-bounded-walk",
+          "cause": "select at 0x64e20 loads x6=72 at 0x64e94 and 0x64f00 before calling __syscall_cancel at 0x4fae0; the generic cancellation path reaches unresolved mov x8,x6 at 0x4fac4",
+          "evidence": {"caller_immediates": ["0x64e94", "0x64f00"], "generic_site": "0x4fac4"}
+        },
+        {
+          "syscall_name": "rt_sigreturn",
+          "syscall_number": 139,
+          "classification": "signal-trampoline-entry",
+          "status": "characterized-not-a-private-ELF-svc-site",
+          "cause": "AArch64 signal-return trampoline supplied by the kernel/libc signal-delivery ABI; it is outside the private ELF text and has no private svc site for the backward walk",
+          "evidence": {"trace_name": "rt_sigreturn"}
+        },
+        {
+          "syscall_name": "accept",
+          "syscall_number": 202,
+          "classification": "unresolved-register-sourced-site",
+          "status": "characterized-not-resolved-by-bounded-walk",
+          "cause": "__libc_accept loads x6=202 at 0x674a8 before __syscall_cancel at 0x674c0; the generic cancellation path reaches unresolved mov x8,x6 at 0x4fac4",
+          "evidence": {"caller_immediate": "0x674a8", "cancel_call": "0x674c0", "generic_site": "0x4fac4"}
+        },
+        {
+          "syscall_name": "connect",
+          "syscall_number": 203,
+          "classification": "unresolved-register-sourced-site",
+          "status": "characterized-not-resolved-by-bounded-walk",
+          "cause": "__libc_connect loads x6=203 at 0x6754c before __syscall_cancel at 0x67564; the generic cancellation path reaches unresolved mov x8,x6 at 0x4fac4",
+          "evidence": {"caller_immediate": "0x6754c", "cancel_call": "0x67564", "generic_site": "0x4fac4"}
+        },
+        {
+          "syscall_name": "wait4",
+          "syscall_number": 260,
+          "classification": "unresolved-register-sourced-site",
+          "status": "characterized-not-resolved-by-bounded-walk",
+          "cause": "wait4 loads x6=260 at 0xa1acc before __syscall_cancel at 0xa1ae0; the generic cancellation path reaches unresolved mov x8,x6 at 0x4fac4",
+          "evidence": {"caller_immediate": "0xa1acc", "cancel_call": "0xa1ae0", "generic_site": "0x4fac4"}
+        }
+      ],
+      "static_only_decision": "include every static number conservatively; each omission is not reachability proof",
+      "filter_release_status": "deferred-until-complete-path-tracing-argument-analysis-and-on-device-negative-testing"
+    },
+    "capabilities": {
+      "pid1": [],
+      "dispatcher": [],
+      "workload": [],
+      "key_daemon": ["CAP_SETGID", "CAP_SETUID"],
+      "key_daemon_transition_status": "observed-borrowed-identity-exact-3302-to-3301-transition-unproved",
+      "observed_transition_syscalls": ["setresgid", "setresuid"],
+      "observed_identity_deviation": "the preserved trace used the invoking uid/gid, so setresgid/setresuid retained the borrowed identity",
+      "all_other_capabilities": "absent"
+    },
+    "proc": {
+      "finite_global_read_only_scalar_allowlist": [],
+      "observed_global_scalars": [],
+      "observed_paths": [
+        "/proc/interrupts", "/proc/loadavg", "/proc/net/dev", "/proc/net/netstat",
+        "/proc/net/rt_cache", "/proc/net/tcp", "/proc/self/exe",
+        "/proc/sys/kernel/random/entropy_avail", "/proc/vmstat"
+      ],
+      "observed_global_read_only_paths": [
+        "/proc/interrupts", "/proc/loadavg", "/proc/net/dev", "/proc/net/netstat",
+        "/proc/net/rt_cache", "/proc/net/tcp", "/proc/sys/kernel/random/entropy_avail",
+        "/proc/vmstat"
+      ],
+      "observed_non_scalar_per_task_paths": ["/proc/self/exe"],
+      "status": "observed-global-paths-but-finite-scalar-closure-remains-deferred",
+      "unexercised_literal_candidates": [
+        "/proc/meminfo", "/proc/stat", "/proc/sys/kernel/ngroups_max",
+        "/proc/sys/kernel/rtsig-max", "/proc/sys/vm/overcommit_memory"
+      ]
+    }
+  },
   "dropbear": {
     "argv": [
       "/usr/sbin/dropbear",
@@ -585,10 +840,13 @@
     ],
     "source_date_epoch": 0,
     "trace": {
+      "abi": "AArch64 Linux LP64 syscall ABI; compat/arm32 is not supported by this rootfs",
+      "allowlist_must_cover_observed_union": true,
+      "interpretation": "two-sided exercised-path lower bound: the trace may be a strict subset of the real syscall set, so a missing syscall can kill the service, while every observed syscall must be in the candidate allowlist",
       "later_on_device_negative_testing_required": true,
-      "method": "qemu-aarch64 user-mode tracing with registered binfmt_misc",
-      "output_is_candidate_superset": true,
-      "status": "deferred-until-all-binaries-are-built"
+      "method": "qemu-aarch64 user-mode tracing with direct binary invocation; binfmt_misc is not required",
+      "observed_trace_is_lower_bound_only": true,
+      "status": "host-derived-partial-lower-bound"
     }
   },
   "usrmerge_symlinks": {

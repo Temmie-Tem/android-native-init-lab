@@ -31,7 +31,7 @@ dispatcher and the selected bounded readiness workload.
 | `/etc/debian_version` | removed | — | Suite identification is build provenance, not a runtime dependency of the selected static content; removing it avoids retaining an unneeded base-rootfs file. |
 | `/usr/bin/ip` | removed | — | The trusted native bootstrap owns veth and network setup; general `ip` is forbidden in Debian. |
 | `/usr/bin/dropbearkey` | removed | — | Host-key generation is a trusted bootstrap operation; the rootfs cannot create, rotate, or read the per-boot server key. |
-| `/usr/sbin/dropbear` | replaced | `/usr/sbin/dropbear` | Same service path, but only a separately built feature-removed Dropbear can be selected. Its exact binary/source hashes remain deferred until the private pinned source input exists. |
+| `/usr/sbin/dropbear` | replaced | `/usr/sbin/dropbear` | Same service path, but only the separately built feature-removed Dropbear selected from the private pinned source is present. Its exact binary/source hashes are host-bound and remain H0 evidence only. |
 | `/usr/local/bin/a90-dpublic-wifi-sta` | removed | — | Wi-Fi remains native-owned; Debian consumes only the already-configured veth peer. |
 | `/usr/local/bin/a90-dpublic-smoke-httpd` | removed | — | Smoke HTTP is outside the selected server workload and is forbidden. |
 | `/usr/local/bin/a90-dpublic-hud-intent` | removed | — | HUD intent is outside the headless content closure. |
@@ -175,16 +175,22 @@ rejected flag is absent from the argv, that reintroducing `-a` fails
 validation, and — when a private build is present — that the bound argv is
 accepted by the actual binary under `qemu-aarch64`.
 
-## Deferred requirements
+## Security derivation status
 
 The seccomp positive syscall/argument allowlist, capability minimum set, and
-`/proc` scalar allowlist are also deferred. The intended successor method is
-qemu-aarch64 user-mode tracing after all binaries are built; its output must be
-treated as a candidate superset and then subjected to later on-device negative
-testing. The trace was not attempted here. The current host has the
-`qemu-aarch64` executable and cross-compiler, but the fresh
-`/proc/sys/fs/binfmt_misc/qemu-aarch64` entry is unavailable, so no trace claim
-is inferred.
+`/proc` scalar allowlist were re-derived after all four private AArch64
+binaries were materialized. The exact method, raw sets, unresolved `svc`
+sites, exercised and unexercised scenarios, and successor conditions are in
+`docs/reports/A90_ISOLATED_DEBIAN_SECURITY_DERIVATION_H0_2026-08-15.md`.
+
+The trace interpretation is now explicit and two-sided: QEMU output covers
+only exercised paths and may be a strict subset of the real syscall set, so a
+missing syscall can kill the service, while every observed syscall must be in
+the candidate allowlist. QEMU is an emulator and not the A90 vendor kernel;
+on-device negative testing remains required. The current host trace reached
+Dropbear startup and component identity gates, but host socket creation and
+the exact service/root isolation needed for the full scenarios were
+unavailable, so the three manifest items remain narrowed deferred evidence.
 
 The native-bootstrap key-daemon/generator clean-exec and observer proofs are
 not rootfs content and are not implemented by this static-content unit; the

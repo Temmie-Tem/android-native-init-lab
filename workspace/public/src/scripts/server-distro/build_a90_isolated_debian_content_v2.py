@@ -11,8 +11,11 @@ The Dropbear source input is intentionally not vendored.  Until it is present,
 the materialization command fails closed and the tracked manifest remains an
 H0 specification with the exact Dropbear hash deferred.  After every binary
 is materialized, the intended trace method is qemu-aarch64 user-mode tracing
-with binfmt_misc.  That trace is a candidate syscall superset and must later
-be followed by on-device negative testing; this script never runs that trace.
+with binfmt_misc.  Its output is an exercised-path lower bound and may be a
+strict subset of the service's real syscall set; a missing syscall can kill a
+service under seccomp.  Observed syscalls must still be in the candidate
+allowlist, and the result must later be followed by on-device negative
+testing; this content builder never runs that trace.
 """
 
 from __future__ import annotations
@@ -498,6 +501,59 @@ def validate_manifest(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
         }
     ):
         raise ContentError("content manifest carries candidate or installation authority")
+    trace = manifest.get("toolchain", {}).get("trace")
+    legacy_trace_field = "output_is_" + "candidate" + "_superset"
+    if (
+        not isinstance(trace, dict)
+        or trace.get("abi")
+        != "AArch64 Linux LP64 syscall ABI; compat/arm32 is not supported by this rootfs"
+        or trace.get("observed_trace_is_lower_bound_only") is not True
+        or trace.get("allowlist_must_cover_observed_union") is not True
+        or trace.get("later_on_device_negative_testing_required") is not True
+        or legacy_trace_field in trace
+        or not isinstance(trace.get("interpretation"), str)
+        or "strict subset" not in trace["interpretation"]
+        or "missing syscall" not in trace["interpretation"]
+    ):
+        raise ContentError("trace interpretation is not the two-sided lower-bound contract")
+    security = manifest.get("security_derivation")
+    static_security = security.get("static") if isinstance(security, dict) else None
+    dynamic_security = security.get("dynamic") if isinstance(security, dict) else None
+    reconciliation_security = security.get("reconciliation") if isinstance(security, dict) else None
+    candidate_allowlist = (
+        static_security.get("candidate_allowlist_numbers")
+        if isinstance(static_security, dict)
+        else None
+    )
+    if (
+        not isinstance(security, dict)
+        or security.get("authority")
+        != {
+            "candidate_eligible": False,
+            "device_install_authorized": False,
+            "device_contact": False,
+            "device_network_contact": False,
+        }
+        or not isinstance(candidate_allowlist, list)
+        or candidate_allowlist != sorted(set(candidate_allowlist))
+        or not all(isinstance(number, int) and number >= 0 for number in candidate_allowlist)
+        or static_security.get("union_resolved_syscall_numbers") != candidate_allowlist
+        or not isinstance(dynamic_security, dict)
+        or not isinstance(dynamic_security.get("observed_syscall_numbers"), list)
+        or dynamic_security.get("observed_syscall_numbers")
+        != sorted(set(dynamic_security.get("observed_syscall_numbers", [])))
+        or not all(
+            isinstance(number, int) and number >= 0
+            for number in dynamic_security.get("observed_syscall_numbers", [])
+        )
+        or not isinstance(reconciliation_security, dict)
+        or reconciliation_security.get("traced_missing_from_candidate_allowlist") != []
+        or reconciliation_security.get("traced_outside_static_set") != []
+        or not set(dynamic_security.get("observed_syscall_numbers", [])).issubset(
+            set(candidate_allowlist)
+        )
+    ):
+        raise ContentError("security derivation is malformed or carries authority")
     files = _manifest_files(manifest)
     if "/usr/sbin/dropbear" not in files:
         raise ContentError("Dropbear is missing from the content allowlist")
