@@ -102,3 +102,34 @@ terminal result SHA-256 is
 `14dfeb9bae3567dc20da9719104bceb06bf64d1a14e7880775eeb8826602fdd2`;
 the private candidate-result SHA-256 is
 `0e3612192ba4f71c2a00603088a5dad1ad1784582621782aa01d2db5ebe456a1`.
+
+## Post-reboot persistence baseline
+
+The exact reviewed routine action dispatched one ordinary Android reboot and
+parked in health-pending state. After the same exact S20+ returned, the
+host-only resolver recorded
+`PASS_S20PLUS_G986N_CONTROL_RESOLVED`; no command was addressed to the
+simultaneously connected S22+.
+
+Fresh bounded reads then proved that resident Magisk root survived the reboot:
+
+- exact target identity and Android health remained stable;
+- `su -c id` returned `uid=0(root)` in `u:r:magisk:s0` on the first attempt;
+- Magisk reported `30.7:MAGISK:R` / version code `30700`, with `magiskd`
+  running and zero installed modules;
+- SELinux remained `Enforcing`;
+- PID 1 remained `/system/bin/init` in `u:r:init:s0`;
+- `/` was read-only ext4, `/debug_ramdisk` was writable tmpfs, and `/data`
+  was writable f2fs.
+
+The root-proof stdout SHA-256 is
+`a44238cc03d3fe4a77b3e4e4bf2c842c698f60937e34df9572686bbf999f195d`.
+The terminal read-only verdict is
+`PASS_S20PLUS_G986N_ROOT_BASELINE_COMPLETED`. Three initial compound shell
+probes produced syntax errors because of host-to-Android quoting; they had no
+write or control effect and were replaced by direct bounded `cat`/`ls` reads.
+
+This proves persistent Magisk root across an ordinary reboot. It does not
+prove a native-init replacement, custom PID 1, or any additional boot payload.
+The next bounded unit is H0 design of the smallest root-backed native-init
+experiment and its stock-boot recovery path before any new device effect.

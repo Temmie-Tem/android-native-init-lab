@@ -313,6 +313,21 @@ command counts zero, and the shared guard released. Private terminal result
 SHA-256 is
 `14dfeb9bae3567dc20da9719104bceb06bf64d1a14e7880775eeb8826602fdd2`.
 
+An ordinary reviewed Android reboot subsequently returned the exact target to
+healthy Android. The routine control resolver closed the pending reboot, and a
+fresh bounded read proved Magisk `uid=0(root)` on the first attempt. Magisk
+`30.7:MAGISK:R` (`30700`) and `magiskd` remained active, SELinux remained
+`Enforcing`, PID 1 remained stock `/system/bin/init` in `u:r:init:s0`, and the
+identity remained stable throughout the read. The terminal read-only verdict
+is `PASS_S20PLUS_G986N_ROOT_BASELINE_COMPLETED`; no command was addressed to
+the concurrently connected S22+.
+
+The next bounded unit is host-only design for the smallest root-backed
+native-init experiment. It must state whether the objective is a Magisk-started
+native service or an actual PID-1 replacement, bind an exact rollback path,
+and remain within the permanent boot-only boundary. Persistent Magisk root is
+the prerequisite now proved; it is not itself proof of a native-init result.
+
 A later reproducible-kernel-build unit would still need exact toolchain
 acquisition and a demonstrated matching build; the newly recovered embedded
 final `.config` removes the configuration-evidence gap but does not itself
