@@ -6,8 +6,9 @@ operator-owned Samsung Galaxy S20+ 5G before selecting any later experiment.
 This file records current state only. It grants no device authority. The
 binding target contract is
 `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md`. Independent review
-returned `PASS_GO` for its exact D0-only onboarding closure, and `AGENTS.md`
-contains one exact S20+ registry row. This does not define D1 or F1.
+returned `PASS_GO` for the exact D0 onboarding closure and the payload-free
+Download-return D1 helper; `AGENTS.md` contains one exact S20+ registry row.
+This file still grants no standing device authority.
 The current preparation evidence is
 `docs/reports/S20PLUS_G986N_ONBOARDING_D0_H0_2026-08-12.md`.
 
@@ -149,6 +150,13 @@ The current preparation evidence is
   subsequent “다운로드 모드 진입” confirmation closed it as
   `download-observed`; it was not replayed. The private dispatch result SHA-256
   is `0f62006aa71e5d1a76e87f994d2c465fa47a8d550f2fe0e3fe99c5ab18418e84`.
+- The attended, payload-free Download-mode return helper is active as an exact
+  D1 action. It requires an empty USB baseline while the phone is physically
+  held in Download mode, then one exact endpoint and the operator confirmation
+  token before a single `odin4 --reboot -d` dispatch. It performs no AP or
+  partition transfer and releases its guard only after exact normal-Android
+  health. Runner SHA-256:
+  `c00558393235b82e50b8df833fd97064801c3f297f1ce067cefcee27332a2bb6`.
 - Odin host preparation found the full Magisk AP unsafe for direct use because
   it also contains recovery, DTBO, super, persist, VBMeta, and other members.
   A host-only builder extracted only its `boot.img` and prepared candidate and
@@ -178,16 +186,46 @@ The current preparation evidence is
   identity equality. Only the exact host-only zero-effect abandon for this
   prepared run passed review and cleared its guard; F1 remains suspended and
   the approval must not be reused.
-- A new dormant H0 correction now makes prepare start from exact healthy,
+- The activated F1 correction now makes prepare start from exact healthy,
   root-absent Android. In one guarded execution it records a no-replay intent,
-  dispatches exactly one Download reboot, observes and binds the resulting exact
-  Download endpoint, and only then emits an approval token. Execute requires the
-  complete endpoint record to remain unchanged. The dormant runner SHA-256 is
-  `23c6f019c0ea6020c21de68b331e461b395a4693fd341c83209ee032a20d340c`
-  with normalized SHA-256
-  `57e7fd9dfd61422c64eac5744cf8a3175b9456206b24c6c7d510e94bafcafcc0`.
-  This correction has host tests but no independent `PASS_GO`; `F1_ACTIVE` is
-  false, no run is prepared or approved, and no live flash authority exists.
+  records an empty endpoint baseline, dispatches exactly one Download reboot,
+  observes an endpoint arrival after that baseline, and only then emits an
+  approval token. Execute requires stable path, endpoint hash, `st_dev`, inode,
+  `st_rdev`, topology, and USB profile continuity while treating mutable
+  `ctime_ns` as observational; the freshly read complete identity is still
+  pinned at Odin dispatch. If a stable field changes, the runner records
+  the changed endpoint and stops before Odin; an attended
+  `--confirm-candidate-endpoint` with token
+  `S20PLUS-G986N-CANDIDATE-ENDPOINT-REENUM-CONFIRM` is required to bind that
+  one observed endpoint for the sole candidate transfer. Recovery uses an
+  explicit two-step physical handoff and never auto-selects a generic endpoint.
+  The active runner SHA-256 is
+  `fe86f61166a7f719678ca74431abb0de4f1638ead514289f973601f5b47c4cda` with
+  normalized SHA-256
+  `6ceec9037dad1e486450a7fc1085aeb5e527b1e3d1ec7420ac6aa23f03bb823e`.
+  This correction passed independent `PASS_GO`; `F1_ACTIVE` is true, no run was
+  created by activation itself, and activation grants only the attended
+  boot-only F1 capability described by the target contract.
+- Closed pre-candidate run state: one F1 run completed only its exact initial
+  Android-to-Download transition and then stopped on endpoint re-enumeration
+  before candidate intent. Host journal inspection records no candidate
+  intent/result/raw output and no rollback evidence; partition transfer count
+  is zero. The operator has returned the exact device to normal Android. A
+  generic owner-aware `--abort-pre-candidate` health-only closure passed
+  independent review and completed without Odin. Its terminal receipt records
+  zero partition transfers, no candidate/rollback evidence, and both replay
+  permissions false; the owning shared guard is released. Receipt SHA-256 is
+  `c50a7e619015bd5061585adcbdedf6d8f3000e23b10c3e6a67f945e006ac470d`.
+  Active runner SHA-256 is
+  `11ca8aaef183e76c6eeec1a43e75b00bbc14e4b51650e3122c8f4bbdfdc8799f`;
+  normalized SHA-256 is
+  `457c6c9c06a70b431a0c352d7707c1d421bbe89f190667eb2eab608cab49c57e`.
+  The closure refresh binds shared `device_action_f1_v2.py` SHA-256
+  `4e61a7511cc2ed103d1cac4d1afdd2c91d6edc41e30d9bc2832229286d9ee290`;
+  its intervening P3.18 changes are confined to S22+ overlay selection and do
+  not change the S20+ Odin-output classifier used by this runner.
+- Policy proportionality and future blockers are audited in
+  `docs/reports/S20PLUS_G986N_POLICY_FRICTION_AUDIT_2026-08-14.md`.
 
 ## Current Bounded Unit
 
@@ -209,20 +247,71 @@ CSC/OMC properties and preserved their KTC/KOO role distinction. The
 operator-provided photograph records Download Mode state without creating a
 host-connected process.
 
-## Open Decisions
+## Next Bounded Unit
 
-The immediate setup actions may now install the pinned Magisk APK and stage the
-exact AP under a fresh direct operator request. They do not launch or patch it.
-After routine setup, the next experiment objective remains an exact boot-only
-Odin feasibility and recovery design. Host artifacts now exist, but it must
-still prove whether this unlocked/orange S20+ can accept a
-`boot.img`-only transaction while keeping the stock separate VBMeta unchanged;
-the official Magisk Samsung AP flow cannot be reused because it modifies
-VBMeta and calls for BL, CP, and CSC. Any live experiment still requires an
-exact archive validator, stock-boot rollback through a demonstrated recovery
-path, one-shot/no-replay journaling, bounded observation, a target-contract
-amendment, independent review, and fresh authority. TWRP remains out of scope
-because recovery writes are permanently forbidden.
+On 2026-08-14 the operator explicitly accepted the possible irreversible Knox
+warranty/security-state change from the first custom boot. That decision is
+recorded for this exact S20+ bootstrap campaign and unchanged hazard class.
+The permanent scope remains boot-only; TWRP, VBMeta, BL, CP, CSC, and all other
+partition writes remain excluded.
+
+The next unit is the smallest P1 correction needed before a fresh bootstrap:
+absorb the expected Android-to-Download USB re-enumeration inside the same
+guarded, freshly approved F1 invocation using causal empty-baseline/arrival and
+dispatch-time endpoint pinning. It must not require a second magic confirmation
+for an otherwise unchanged target/artifact/session. After host validation and
+independent review, perform a fresh connected prepare, obtain its fresh exact
+approval, execute the one boot-only Magisk candidate, observe bounded root or
+no-proof, and perform the already-authorized mandatory stock-boot rollback.
+Candidate replay remains forbidden.
+
+The fresh approved candidate was transferred exactly once and booted the exact
+S20+ into healthy rooted Android; the durable late observation proved root in
+the Magisk SELinux domain. The predecessor's ctime-only endpoint ambiguity was
+closed by the independently reviewed recovery continuation. The fixed stock
+boot rollback then transferred exactly once. Final exact-target Android health
+proved a changed boot ID and root absence, both replay permissions are false,
+S22+/A90 command counts are zero, and the shared guard is released. The
+terminal verdict is
+`PASS_S20PLUS_G986N_MAGISK_ROOT_PROVEN_STOCK_ROLLBACK_HEALTHY`; private recovery
+result SHA-256 is
+`f4cad9dcf5c0b147395e48db6b009d6abb3ac8e09c064a0b6e2885e76d53a8db`.
+No candidate replay or resident-root promotion occurred.
+
+The operator observed the same first-boot failure and recovery fallback after
+both patched and stock boot transfers; factory reset restored normal boot in
+both directions. That symmetry leaves the cause unclassified and makes a data-
+encryption/metadata/mount transition at least as plausible as a boot-image
+mismatch. The reset erased the most useful failure-state evidence. Before any
+resident-root attempt, capture bounded recovery logs before resetting and plan
+for complete data loss as a likely recovery cost.
+
+The current bounded unit is a separate resident-root F1 design, not a replay
+or relaxation of the completed bootstrap run. Its active runner is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_magisk_resident_f1.py`
+at SHA-256
+`226842be1c5a32dd72e4af3f5d4e9936a2d389489ce09f1d904b56e955b99a22`
+and normalized SHA-256
+`d9a47bbc6627fbfc2f57ee18952c5d9524527c23978873ea541e04c7617c8fdc`.
+It binds the same fixed patched boot and stock rollback, permits one candidate
+and at most one failure-recovery rollback, and treats healthy exact-target
+Magisk root as terminal success with zero rollback. Its fresh approval must
+explicitly accept another factory reset and complete data loss. First-boot
+failure parks for operator reset; later finalization is read-only and requires
+exact identity, changed boot ID, and root proof. Independent review returned
+`PASS_GO` and the capability is now `BINDING - ACTIVE`; activation itself
+created no resident run or approval.
+
+The first fresh resident run then transferred the fixed patched boot exactly
+once. Initial Android observation timed out and parked without replay or
+rollback. After operator recovery/factory-reset handling, the read-only
+finalizer proved the exact S20+ returned with a changed boot ID and working
+Magisk `uid=0(root)`. Terminal verdict is
+`PASS_S20PLUS_G986N_MAGISK_RESIDENT_ROOT_HEALTHY`: candidate transfers `1`,
+rollback transfers `0`, both replay permissions false, other-target/S22+/A90
+command counts zero, and the shared guard released. Private terminal result
+SHA-256 is
+`14dfeb9bae3567dc20da9719104bceb06bf64d1a14e7880775eeb8826602fdd2`.
 
 A later reproducible-kernel-build unit would still need exact toolchain
 acquisition and a demonstrated matching build; the newly recovered embedded

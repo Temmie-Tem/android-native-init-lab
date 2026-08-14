@@ -1,15 +1,14 @@
 # S20+ G986N Binding Target Contract
 
-Status: **BINDING - D0 ONBOARDING CONSUMED**
+Status: **BINDING - ROUTINE D0/D1, P0 ABORT, AND ATTENDED F1 ACTIVE**
 
 This is the binding target contract for the operator-owned Samsung Galaxy S20+
 5G `SM-G986N` / `y2q` / `G986NKSS8IYC2`, listed in the binding target registry
 in `AGENTS.md`. Its exact one-shot D0 onboarding inventory has been consumed.
 The durable onboarding active-intent guard remains present. A separately
 reviewed routine D0 public-property process may be activated below without
-removing, rotating, or reusing that onboarding guard. The exact routine D1 is
-reviewed and active. Bootstrap F1 is suspended for endpoint-session correction
-review and grants no current live F1.
+removing, rotating, or reusing that onboarding guard. The exact routine D1 and
+attended boot-only F1 are reviewed and active.
 
 Exact live D0 established model `SM-G986N`, device `y2q`, product `y2qksx`,
 firmware incremental `G986NKSS8IYC2`, and fingerprint
@@ -141,6 +140,35 @@ A fresh direct operator request may name exactly one of these closed actions:
 | `reboot-system` | one exact `adb reboot` | dispatch only; normal health remains pending |
 | `enter-download` | one exact `adb reboot download` | dispatch only; Download state remains pending observation |
 | `enter-recovery` | one exact `adb reboot recovery` | dispatch only; recovery state remains pending observation |
+| `exit-download` | one exact payload-free `odin4 --reboot -d <Download endpoint>` after the attended handoff below | normal Android health required before closure |
+
+### Download-mode normal return
+
+Status: **BINDING - ATTENDED PAYLOAD-FREE DOWNLOAD RETURN ACTIVE**
+
+The exact return helper is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_download_exit_d1.py`.
+It is a D1 control action and is separate from the boot-only F1 runner. The
+operator first disconnects the USB cable while the phone remains in Download
+mode and runs `--arm`; the helper requires an empty `odin4 -l` baseline and
+records it before any endpoint is accepted. After the operator reconnects the
+same attended phone, `--confirm` requires the exact confirmation token
+`S20PLUS-G986N-DOWNLOAD-EXIT-CONFIRM`, exactly one Samsung `04e8:685d`
+`SM8250` endpoint, one of the two allowlisted paired-controller topology
+hashes, and a stable character-device identity. The helper then sends exactly
+`/usr/bin/odin4 --reboot -d <endpoint>` once. No `-a`, `-b`, `-c`, `-s`, `-u`,
+PIT, archive, or partition payload is accepted.
+
+The Odin executable is pinned to `/usr/bin/odin4`, size `3746744`, SHA-256
+`6754aa54f2abe6e99ece32414cd34c8b23b28dbddde537a33203036813637c3b`.
+Dispatch intent is durable before the command, output is bounded and stored
+privately, and any nonzero, timeout, endpoint drift, or post-dispatch
+uncertainty retains the shared action guard and forbids replay. The helper
+performs bounded exact-target ADB inventory, topology, public-health, and
+SELinux checks after return. Only a durable healthy result releases the guard;
+`--finalize` performs that read-only health closure and never sends Odin.
+This activation grants one fresh attended `exit-download` D1 request at a
+time. It grants no root, boot-image, recovery, partition, or F1 authority.
 
 ### Patched-AP retrieval
 
@@ -251,7 +279,7 @@ remain undefined.
 
 ## Arbitrary F1 and non-routine D1 are not defined
 
-The binding section above defines five exact D1 setup/control actions and one
+The binding section above defines six exact D1 setup/control actions and one
 exact D0 patched-AP retrieval. It does not activate or imply arbitrary D0 or
 D1. Except for the exact bootstrap F1 below, this contract defines no S20+ F1,
 resident root, arbitrary flash, non-boot partition recovery, or rollback
@@ -262,7 +290,7 @@ Bootloader-unlocked state and a passing D0/D1 do not grant those capabilities.
 
 ## Magisk bootstrap F1
 
-Status: **H0 REVIEW PENDING - ENDPOINT SESSION CORRECTION - NO LIVE F1**
+Status: **BINDING - ATTENDED BOOT-ONLY F1 ACTIVE**
 
 The target-specific bootstrap process is implemented by
 `workspace/public/src/scripts/revalidation/s20plus_g986n_magisk_bootstrap_f1.py`.
@@ -272,17 +300,117 @@ inode/devnum equality across prepare and execution. A proposal to accept any
 fresh generic matching Download endpoint was rejected because it could transfer
 the approval to another device on the same port.
 
-The current dormant H0 correction starts prepare only from an exact healthy,
-root-absent Android target. It records the exact hashed serial, Android topology,
-and boot ID in a durable no-replay intent before one `adb reboot download`, then
-requires the exact Download profile and paired-controller topology to be
-observed in that same guarded invocation. Only after that observation does it
-bind the complete Download character-device identity and emit an approval.
-Execute requires the complete endpoint record to remain equal; any
-re-enumeration, replacement, missing observation, or identity drift sends no
-Odin transfer. A transition attempt without a completed observation retains the
-guard and cannot be replayed. This correction is not independently qualified,
-`F1_ACTIVE` remains false, and no flash capability is active.
+The current active correction starts prepare only from an exact healthy,
+root-absent Android target. It first records an empty Download-endpoint
+baseline, then records the exact hashed serial, Android topology, and boot ID in
+a durable no-replay intent before one `adb reboot download`. It requires the
+exact Download profile and paired-controller topology to appear after that
+baseline in the same guarded invocation. Only after that observation does it
+bind the observed Download character-device identity and emit an approval.
+Execute treats path, endpoint hash, `st_dev`, inode, `st_rdev`, topology, and
+USB profile as the stable session identity; mutable `ctime_ns` is observational
+only. It refreshes the complete identity immediately before Odin and requires
+that exact fresh value at dispatch. A change to any stable field is recorded as
+durable
+candidate re-enumeration evidence and sends no Odin transfer. It may continue
+only through the attended `--confirm-candidate-endpoint` handoff with exact
+token `S20PLUS-G986N-CANDIDATE-ENDPOINT-REENUM-CONFIRM`; that handoff observes
+the recorded endpoint once, binds it, and permits the sole candidate transfer.
+Any further replacement, missing observation, or identity ambiguity fails
+closed. Physical recovery remains a separate two-step attended rollback
+handoff. This correction passed an independent `PASS_GO` review with no
+unresolved finding. `F1_ACTIVE` is true, but activation creates no run
+approval; each run still requires a fresh connected prepare, exact approval,
+and attendance.
+
+The 2026-08-14 P1 correction additionally permits one exact pre-candidate run
+prepared by runner SHA-256
+`5200a4bff71f0f8996530497354ddee07c5efbd9c70be5ac7c7f92c77fc4c4d5`
+to continue only after a durable runner-rotation receipt is written before
+candidate intent. It does not permit a second candidate attempt or a different
+path/inode/device/topology/profile.
+
+### Generic pre-candidate abort
+
+Status: **BINDING - ACTIVE**
+
+The `--abort-pre-candidate` path is owned by the existing guarded F1
+run; it never creates or bypasses a second shared guard. It is eligible only
+after the exact Android-to-Download transition completed and while candidate
+intent, candidate result/raw output/observation, endpoint confirmation,
+rollback intent/result/raw output, and every partition-transfer receipt remain
+absent. It validates the exact prepared target, artifacts, helpers, transition,
+and either the current reviewed runner closure or the one reviewed compatible
+closure named by the implementation.
+
+If the exact S20+ is already in healthy normal Android, the path performs only
+bounded exact-target health reads, requires serial/topology continuity and a
+changed boot ID, writes a durable terminal receipt, and releases the owning
+guard. If the phone remains in Download mode, a current attended direct request
+permits one payload-free `/usr/bin/odin4 --reboot -d <endpoint>` under that same
+guard. The endpoint must retain the prepared profile/topology and is pinned
+immediately before dispatch. No `-a`, AP, BL, CP, CSC, PIT, archive, or other
+payload option is accepted. The payload-free command is no-replay; a later
+invocation may only observe exact Android health and finalize it.
+
+The partition-transfer count is always zero. Any candidate/rollback evidence,
+foreign or ambiguous endpoint, malformed journal, unhealthy Android return, or
+uncertain payload-free dispatch retains the guard and grants no retry or flash
+authority. Independent review returned `PASS_GO` with no unresolved finding. A
+current direct operator request authorizes one invocation for the exact owning
+guarded run; it grants no candidate, rollback, or partition-transfer authority.
+
+The reviewed dormant implementation SHA-256 was
+`81ac97471d4155a35cbb2fe98a4c81d98b63da0cd81b1019dd2a91e5806db93b`;
+its normalized SHA-256 was
+`c8c95150be76e7cde100db23a47a9fc30bc8fb836e1e92a44bcd94771f78c43e`.
+Mechanical activation changed only the capability constant and reviewed hash.
+The active implementation SHA-256 is
+`11ca8aaef183e76c6eeec1a43e75b00bbc14e4b51650e3122c8f4bbdfdc8799f`;
+its normalized SHA-256 is
+`457c6c9c06a70b431a0c352d7707c1d421bbe89f190667eb2eab608cab49c57e`.
+The closure refresh binds shared `device_action_f1_v2.py` SHA-256
+`4e61a7511cc2ed103d1cac4d1afdd2c91d6edc41e30d9bc2832229286d9ee290`;
+the added P3.18 branches are S22+-specific and leave the S20+ classifier call
+surface unchanged.
+
+The current recovery correction is limited to a candidate already transferred
+exactly once by the reviewed predecessor runner. Its Odin raw output reports a
+completed transfer and the pre/post USB character identity differs only in
+`ctime_ns`, while the predecessor conservatively persisted an uncertain
+classification and timed out before Android observation. Recovery accepts that
+historical state only with the exact predecessor runner receipt, the complete
+candidate intent/result/raw/observation journal, and a durable no-replay
+recovery-continuation receipt. It then permits one fresh exact Android health
+and bounded root observation, records `candidate-late-observation.json`, and
+continues directly to the already-mandatory stock boot rollback. It never
+replays the candidate. Any stable endpoint field drift, malformed evidence,
+target/boot identity mismatch, or rollback uncertainty retains the guard.
+
+The reviewed handoff surface is `--confirm-rollback-mode`. The arm token is
+`S20PLUS-G986N-PHYSICAL-ROLLBACK-ARM`; it records the empty baseline and does
+not dispatch Odin. The confirm token is
+`S20PLUS-G986N-PHYSICAL-ROLLBACK-CONFIRM`; it accepts one exact endpoint once,
+binds the physical-handoff evidence, and permits only the stock rollback
+transfer. There is no automatic wait or generic endpoint fallback.
+
+The named prior run that completed only the initial Download transition may be
+closed once, and only, with `--close-pre-candidate`. It is pinned to binding
+`dfb6aab5ebfcc88aa516e0463b79cb5458abf26c54177a7a1f6a6fd9d3e734f4`, requires
+the exact six-node transition journal with no candidate/rollback/raw transfer
+evidence, and performs a fresh exact Android health/root-absence read. It
+requires the exact serial/topology and a changed boot ID after the recorded
+Download transition before writing its durable close receipt and releasing the guard. This is a host
+repair for that named run, not a retry or standing recovery authority.
+
+The current endpoint-uncertain run has a separate one-shot
+`--close-endpoint-uncertain` host repair bound to approval
+`9bc9b25e4299126b239541b7808135ea5a55367543b44dc2fa5ba787a60b80d9`. It
+requires the exact seven-node journal plus `events/`, the endpoint-uncertain
+result, no candidate/rollback/raw evidence, exact serial/topology continuity,
+a changed boot ID, and fresh root absence. It writes the durable close receipt
+before releasing the guard and never retries endpoint discovery or invokes
+Odin.
 
 Status: **PASS_GO - EXACT HOST-ONLY PRE-EFFECT ABANDON ACTIVE**
 
@@ -321,6 +449,72 @@ public results report zero commands to S22+, A90, and other targets.
 
 This capability grants no native-init, TWRP, recovery write, arbitrary Odin,
 arbitrary artifact, or resident-root authority.
+
+## Magisk resident boot F1
+
+Status: **BINDING - ACTIVE**
+
+The proposed resident process is implemented separately by
+`workspace/public/src/scripts/revalidation/s20plus_g986n_magisk_resident_f1.py`.
+It reuses the already-qualified exact target, Download transition, Odin
+transport, fixed Magisk-patched boot candidate, and fixed stock-boot rollback.
+It changes only the terminal policy: a healthy exact-target Android boot with
+bounded `uid=0(root)` proof keeps the candidate boot installed instead of
+performing the bootstrap runner's mandatory stock rollback.
+
+The fixed target is `SM-G986N` / `y2q` / `y2qksx` /
+`G986NKSS8IYC2`. Candidate SHA-256 is
+`1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`;
+failure recovery is limited to the fixed stock boot SHA-256
+`48a11265a6730a6ab842b07f63cffe9cbdf1582a919b02abdaf1d2b9a2e0bd6b`.
+Each has one attempt, candidate replay is forbidden, and no non-boot payload is
+permitted. Successful resident completion records one candidate transfer,
+zero rollback transfers, exact serial/topology continuity, a changed boot ID,
+and Magisk root proof before releasing the shared S20+ guard.
+
+The operator-observed first-boot behavior makes a factory reset a likely part
+of this exact campaign. A fresh run approval therefore contains the literal
+`DATA-RESET-ACCEPTED` hazard acknowledgement and binds it into the prepared
+manifest. If Android does not return rooted after the candidate transfer, the
+runner parks without rollback or replay. After an operator-performed recovery
+factory reset and Android setup/USB authorization, `--finalize-resident`
+performs only bounded exact-target health and root reads; it releases the guard
+only if the same target returns with a changed boot ID and Magisk root.
+The receipt names this only as `late_boot_finalization`; it does not claim that
+a factory reset was machine-observed.
+
+If resident root cannot be proved, recovery is an explicit attended two-step
+physical Download handoff. The arm step requires an empty Download baseline;
+the confirmation step permits exactly one fixed stock-boot transfer. A stock
+first-boot reset may likewise be followed only by the read-only
+`--finalize-stock` health/root-absence closure. Candidate or rollback outcome
+uncertainty never permits replay. `--abort-pre-candidate` is available only
+before candidate intent and closes only after exact healthy stock Android and
+root absence are observed.
+
+The reviewed dormant runner was 41,140 bytes with SHA-256
+`3141fe6eea3fae7844715df3a6b3304e176cd608de446f382d570da643cb19e7`
+and normalized SHA-256
+`73388d9ba786ae9d73fe577ed5e5e202a1879de99ee5a947b051a0f76a0ebe88`.
+Mechanical activation changed only the capability constant and its reviewed
+identity. The active 41,139-byte runner SHA-256 is
+`226842be1c5a32dd72e4af3f5d4e9936a2d389489ce09f1d904b56e955b99a22`;
+its normalized SHA-256 is
+`d9a47bbc6627fbfc2f57ee18952c5d9524527c23978873ea541e04c7617c8fdc`.
+`RESIDENT_F1_ACTIVE` is true. Activation grants the capability only; it creates
+no run, approval, transfer, reset, or recovery action.
+
+If prepare records an initial Download intent but fails before `prepared.json`,
+the shared guard deliberately remains unresolved and this capability has no
+automatic finalizer for that partial state. It is a conservative stranded
+state: do not delete the guard or retry. Return the phone manually and qualify
+a separate exact host-only repair before any later run.
+
+Independent review returned `PASS_GO` for the exact dormant closure with no
+unresolved finding. Mechanical activation changed only the capability
+constant, reviewed identities, registry/status wording, and their exact test
+assertions; the post-activation S20+ aggregate passes 155/155. A fresh prepare,
+its emitted `DATA-RESET-ACCEPTED` approval, and attendance remain mandatory.
 
 ## Activation and Review Record
 
@@ -393,9 +587,20 @@ remain unchanged.
 Those two bootstrap activation records are historical and were suspended after
 the first approved execute exposed the pre-effect endpoint-session defect. The
 old prepared run was closed only by the independently reviewed zero-effect
-abandon finalizer. The current single-session correction is dormant at runner
-SHA-256 `23c6f019c0ea6020c21de68b331e461b395a4693fd341c83209ee032a20d340c`
+abandon finalizer. The current single-session correction is active at runner
+SHA-256 `fe86f61166a7f719678ca74431abb0de4f1638ead514289f973601f5b47c4cda`
 and normalized SHA-256
-`57e7fd9dfd61422c64eac5744cf8a3175b9456206b24c6c7d510e94bafcafcc0`.
-It has no independent `PASS_GO`; `F1_ACTIVE` is false, no current run or
-approval exists, and the registry grants no S20+ F1 authority.
+`6ceec9037dad1e486450a7fc1085aeb5e527b1e3d1ec7420ac6aa23f03bb823e`.
+It has independent `PASS_GO`; `F1_ACTIVE` is true and the registry grants only
+this attended boot-only F1 authority. One later run reached pre-candidate state
+with zero partition transfers and was closed through the active P0 Android
+health-only branch; its owning shared guard was released after the durable
+terminal receipt, as recorded in the current goal.
+
+Independent review of the payload-free Download return helper returned
+`PASS_GO` with no unresolved finding on 2026-08-14. The reviewed runner
+SHA-256 is
+`c00558393235b82e50b8df833fd97064801c3f297f1ce067cefcee27332a2bb6`.
+The activation adds only the exact attended `exit-download` D1 action above;
+it creates no current run, approval, root, boot-image, recovery, partition, or
+F1 authority.

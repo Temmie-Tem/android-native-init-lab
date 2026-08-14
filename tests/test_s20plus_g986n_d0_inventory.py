@@ -227,14 +227,14 @@ class S20PlusG986ND0InventoryTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         goal = (ROOT / "GOAL_S20PLUS.md").read_text(encoding="utf-8")
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-        self.assertIn("Status: **BINDING - D0 ONBOARDING CONSUMED**", contract)
+        self.assertIn("Status: **BINDING - ROUTINE D0/D1, P0 ABORT, AND ATTENDED F1 ACTIVE**", contract)
         self.assertIn("s20plus_g986n_d0_inventory.py", contract)
         self.assertIn("Except for the exact bootstrap F1 below", contract)
         self.assertIn("terminal one-shot D0 PASS", goal)
         row = (
             "| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) "
             "| `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` "
-            "| Active exact-target routine D0/D1; bootstrap F1 endpoint-session correction under H0 review, no active F1 |"
+            "| Active exact-target routine D0/D1 including payload-free Download return; attended boot-only bootstrap and resident Magisk F1 active |"
         )
         self.assertEqual(agents.count(row), 1)
 
