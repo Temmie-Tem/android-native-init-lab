@@ -13,8 +13,9 @@ The record is stronger than either simple conclusion. WSTA18 proves that
 letting Android/vendor userspace disappear while Debian merely inherits
 `wlan0` does not work. WSTA19 and the later native-uplink lineage prove that a
 surviving vendor backend works. They do not prove that native PID 1 is the only
-possible supervisor. Current H24 source also shows that the known-sufficient
-backend is a multi-service compatibility environment, not a single daemon.
+possible supervisor. Current H24 source also shows that the accumulated,
+not-live-qualified backend is a multi-service compatibility environment, not a
+single daemon.
 
 No private run artifact was read and no result was reproduced. See
 [`context.md`](context.md) for the exact inventory and observed/inferred split.

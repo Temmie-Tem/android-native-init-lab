@@ -41,7 +41,7 @@
     ],
     "assumptions": [
       "The public WSTA reports accurately preserve their historical live results; private raw artifacts were not reread.",
-      "The current H24 service-object-visible branch is known-sufficient but not known-minimal.",
+      "The current H24 service-object-visible branch is accumulated source behavior; H24 never reached it live, so it is neither live-qualified nor known-minimal.",
       "No measured latency, memory, power, wakeup, or recovery comparison exists for the proposed alternatives.",
       "Single owner means one steady-state lifecycle and policy authority, not one process or the absence of a vendor hardware backend."
     ]
@@ -72,7 +72,7 @@
           "sourceKind": "source",
           "evidenceId": "E06",
           "path": "workspace/public/src/native-init/helpers/a90_android_execns_probe.c",
-          "claim": "The H24-selected service-object-visible path names eleven child processes and also maintains a property-service shim and subsystem-modem holder."
+          "claim": "The H24-selected service-object-visible path constructs thirteen composite child entries representing eleven unique roles because servicemanager and hwservicemanager are each enqueued twice; it also maintains a property-service shim and subsystem-modem holder."
         },
         {
           "claimType": "observed",
@@ -456,7 +456,7 @@
     }
   ],
   "openQuestions": [
-    "Which H24 service-object-visible children are individually necessary for WCNSS, Root PD, WMI, and bounded scan readiness?",
+    "Which of the eleven unique H24 service-object-visible roles are individually necessary for WCNSS, Root PD, WMI, and bounded scan readiness, and why are two service-manager roles duplicated into thirteen entries?",
     "Can Root PD and WMI cold-recover after the final vendor backend exits without a reboot?",
     "Can a private Binder context and boot-private property input replace H24's current global-device and SD property sources?",
     "Can Debian own station, association, DHCP, route, and resolver policy once only the vendor backend is preserved?",

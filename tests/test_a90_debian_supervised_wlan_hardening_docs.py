@@ -175,7 +175,18 @@ class A90DebianSupervisedWlanHardeningDocsTest(unittest.TestCase):
         self.assertIn("property_service_shim_needed", helper)
         self.assertIn("persistent_handoff_modem_holder_ready", helper)
         self.assertIn("a90_wifi_start_boot_autoconnect_once", main)
-        self.assertIn("known-sufficient, not known-minimal", self.proposal)
+        self.assertRegex(
+            self.proposal,
+            r"neither\s+live-qualified nor known-minimal",
+        )
+        self.assertIn(
+            "thirteen child entries representing eleven unique roles",
+            self.proposal,
+        )
+        self.assertRegex(
+            self.proposal,
+            r"`servicemanager` and `hwservicemanager` are each\s+enqueued twice",
+        )
 
     def test_single_owner_does_not_collapse_the_remote_trust_boundary(self) -> None:
         self.assertIn(

@@ -51,7 +51,7 @@ observations from source-derived structure and from our inference.
 | `E03` | [WSTA19 native-owned chroot pass](../../../../reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA19_NATIVE_OWNED_CHROOT_WIFI_PASS_2026-07-04.md) | Native scan remained healthy while Debian Dropbear ran, proving a persistent backend is sufficient. |
 | `E04` | [WSTA20 service boundary](../../../../reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA20_NATIVE_SERVICE_BOUNDARY_PASS_2026-07-04.md) and WSTA22-WSTA24 | Debian consumed bounded native status, scan, and uplink controls without owning the vendor backend. |
 | `E05` | [WSTA40 association and DHCP](../../../../reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA40_WSTA41_MATERIALIZATION_CONFIRMED_AUTOCONNECT_PASS_2026-07-04.md), [WSTA42 tunnel](../../../../reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA42_NATIVE_UPLINK_DPUBLIC_TUNNEL_PASS_2026-07-04.md), and WSTA43 | The native path reached scan, WPA, DHCP, route, and a gated Debian service tunnel. |
-| `E06` | H24 manifest plus `a90_android_execns_probe.c` and `v724/90_main.inc.c` | The current known-sufficient path is an accumulated Android/vendor compatibility environment, not one daemon. |
+| `E06` | H24 manifest plus `a90_android_execns_probe.c` and `v724/90_main.inc.c` | The current source path is an accumulated Android/vendor compatibility environment, not one daemon; H24 never reached it live. |
 | `E07` | [`/proc` sidecar incident](../../../../reports/A90_NATIVE_WIFI_SIDECAR_PROC_ROOT_EXPOSURE_HOST_INCIDENT_2026-08-13.md) | Preserving sidecars in a shared PID/proc view leaves old-root, FD, and mount-namespace capabilities nameable. |
 | `E08` | [Selected isolated-Debian design](../../../../plans/A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md) | The current answer is full containment around Debian plus a veth/IP boundary. |
 | `E09` | [Retired atomic diagnostic](../../../../plans/A90_ATOMIC_WIFI_OWNERSHIP_DIAGNOSTIC_RESIDENT_DESIGN_2026-08-14.md) | H24-equivalent reproduction needs distinct Android identities and Binder/property/AF_UNIX support; it does not disprove a smaller service set. |
@@ -70,17 +70,21 @@ they do not prove that API is the only safe architecture.
 
 Observed in current source: H24 chooses
 `wifi-companion-wlan-pd-service-object-visible-trigger-start-only`. Its
-published branch names eleven children:
+selected composition constructs thirteen child entries representing eleven unique roles:
 `servicemanager`, `hwservicemanager`, `vndservicemanager`, `qrtr-ns`,
 `pd-mapper`, `rmt_storage`, `tftp_server`, `pm_proxy_helper`, `pm-service`,
-`cnss_diag`, and `cnss-daemon`. The persistent helper also requires a property
-service shim and a `/dev/subsys_modem` holder. Native autoconnect is dispatched
-separately after that backend reports ready.
+`cnss_diag`, and `cnss-daemon`. `servicemanager` and `hwservicemanager` are each
+enqueued twice; the published order string hides the duplicate pair. The
+persistent helper also requires a property-service shim and a
+`/dev/subsys_modem` holder, bringing the helper-managed children to fifteen;
+the helper itself makes the selected backend a sixteen-process construction.
+Native autoconnect is dispatched separately after that backend reports ready.
 
-Inferred: that list is known-sufficient, not known-minimal. The history contains
-many diagnostic modes and trigger windows. We should not turn every component
-that accumulated on the successful route into a permanent production
-requirement without ablation.
+Observed: H24 never reached this helper path; its D1 stopped at the preceding
+HUD bootstrap. The thirteen-entry composition is therefore neither
+live-qualified nor known-minimal. The history contains many diagnostic modes
+and trigger windows. We should not turn every component that accumulated in
+source into a permanent production requirement without ablation.
 
 ### Responsibility is multi-dimensional
 
@@ -111,8 +115,8 @@ separate workload sandbox.
 | `qrtr-ns` | Required child in the H24 branch; Qualcomm IPC/name routing | likely core, not individually proved |
 | `pd-mapper` | Absent in WSTA18 with Root PD shutdown; required child in H24 | likely core, not individually proved |
 | `rmt_storage`, `tftp_server` | Required H24 children with firmware/RFS path construction | likely core for firmware/RFS, not individually proved |
-| three service managers and Binder nodes | Present in service-object-visible H24 branch | sufficiency evidence only; necessity unknown |
-| `pm_proxy_helper`, `pm-service` | Present in H24 branch around service-object visibility | sufficiency evidence only; necessity unknown |
+| three unique service-manager roles and Binder nodes | Five selected entries because `servicemanager` and `hwservicemanager` are duplicated | accumulated route evidence only; duplicate correctness and individual necessity unknown |
+| `pm_proxy_helper`, `pm-service` | Present in H24 branch around service-object visibility | accumulated route evidence only; necessity unknown |
 | property-service shim | Mandatory in current helper when the property root is supplied; narrow setprop allowlist | current-route dependency; production need unknown |
 | `/dev/subsys_modem` holder | Persistent health requires it to remain open | current-route dependency; minimum need unknown |
 | native autoconnect/supplicant | Started after persistent backend readiness | known station-policy implementation; Debian replacement unproved |
@@ -438,7 +442,7 @@ opens, socket families, Binder/QRTR endpoints, firmware/RFS paths, UID/GID/cap
 contracts, SELinux expectations, scheduler state, and writable outputs. Mark
 each edge observed, source-derived, or inferred.
 
-**H0 ablation matrix.** Starting from the H24 known-sufficient list, define one
+**H0 ablation matrix.** Starting from the exact H24 accumulated list, define one
 component removal per row with a predicted failure stage. No row may infer
 success from process survival; its future oracle is exact firmware/PD/WMI,
 bounded scan, and cleanup. Static review must decide which rows are safe enough
@@ -529,8 +533,9 @@ approvals, and all target-contract gates.
 
 ## Open Questions
 
-1. Which of the eleven H24 children are necessary for WCNSS/WMI readiness, and
-   which only expose service objects or diagnostics?
+1. Which of the eleven unique H24 roles are necessary for WCNSS/WMI readiness,
+   which only expose service objects or diagnostics, and why does the selected
+   composition expand them to thirteen entries by duplicating two managers?
 2. Is `/dev/subsys_modem` hold a permanent WLAN dependency, or a route-specific
    materialization aid?
 3. Can Root PD recover after the last backend exits without reboot?

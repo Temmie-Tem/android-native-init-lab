@@ -95,7 +95,7 @@ Artifact count: `28`. Source drift at analysis time: `none`.
 | WSTA18 itself left four architectural responses open, including preserve/relaunch | `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA18_CONTROL_PLANE_BLOCKED_2026-07-04.md:119-127` |
 | Native scan stayed healthy while Debian Dropbear was active | `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA19_NATIVE_OWNED_CHROOT_WIFI_PASS_2026-07-04.md:15-24` and `:128-134` |
 | H24 selects persistent handoff, the SD property snapshot, and the service-object-visible trigger | `workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h24/manifest.toml:34`, `:64`, and `:72` |
-| The selected H24 helper branch names the accumulated service tree | `workspace/public/src/native-init/helpers/a90_android_execns_probe.c:58856-58865`; property-shim selection begins at `:60957` |
+| The selected H24 helper branch constructs the accumulated service tree | `workspace/public/src/native-init/helpers/a90_android_execns_probe.c:58654-58769`; the published order at `:58860-58862` omits the duplicated service-manager pair; property-shim selection begins at `:60957` |
 | The `/proc` blocker has exactly two accepted retirement closures | `docs/reports/A90_NATIVE_WIFI_SIDECAR_PROC_ROOT_EXPOSURE_HOST_INCIDENT_2026-08-13.md:108-122` |
 
 ## Findings Used By The Proposal
@@ -105,11 +105,14 @@ Artifact count: `28`. Source drift at analysis time: `none`.
 - WSTA18 refutes only `native/vendor userspace disappears and Debian inherits
   wlan0`. It does not refute a Debian-supervised relaunch of the existing vendor
   backend.
-- H24 uses a known-sufficient accumulated path. Its manifest chooses the
-  service-object-visible trigger and a persistent helper, then starts native
-  autoconnect separately. The helper's current composition contains eleven
-  named child processes in the selected branch, plus its property-service shim
-  and `/dev/subsys_modem` holder.
+- H24 uses an accumulated path whose sufficiency was never reached in its
+  consumed D1. Its manifest chooses the service-object-visible trigger and a
+  persistent helper, then starts native autoconnect separately. The selected
+  branch constructs thirteen composite child entries representing eleven
+  unique roles: `servicemanager` and `hwservicemanager` are each enqueued
+  twice. The published order string lists only the eleven unique roles and
+  hides that duplicate pair. A property-service shim and `/dev/subsys_modem`
+  holder add two more helper-managed children.
 - H24's property snapshot source is under `/mnt/sdext`; that is incompatible
   with the selected SD-free direction and cannot be copied into a successor.
 - The public lineage proves native scan/association/DHCP and Debian service
@@ -126,8 +129,9 @@ Artifact count: `28`. Source drift at analysis time: `none`.
   the vendor TCB. If remote SSH/workload code remains root-equivalent in the
   same process and mount view, the attack surface grows rather than shrinks.
 - The minimum service set is unknown. H24's service managers, Binder nodes,
-  peripheral-manager services, property shim, and modem holder are evidence of
-  a sufficient route, not proof that every component is necessary.
+  peripheral-manager services, property shim, and modem holder are an
+  accumulated source route, not a live-qualified H24 route and not proof that
+  every component is necessary.
 
 ### Proposed
 

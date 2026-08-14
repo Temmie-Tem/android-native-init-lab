@@ -1,0 +1,21 @@
+flowchart LR
+    N["Native PID 1"] --> H["H24 persistent helper"]
+    H --> C["13 composite entries / 11 unique roles"]
+    H --> P["Property shim"]
+    H --> M["Modem holder"]
+    H --> S["Global SELinux load + permissive attempt"]
+    SD["SD property snapshot"] --> R["Vendor property readers"]
+    R --> C
+    P -. "write ACK only; no proved property-area mutation" .-> C
+    GB["Global Binder devices"] --> C
+    C --> W["WCNSS / Root PD / WMI"]
+    W --> A["Separate native station policy"]
+    H -. "published order hides duplicate pair" .-> C
+    subgraph boundary_current["Current accumulated boundary"]
+        H
+        C
+        P
+        R
+        M
+        S
+    end

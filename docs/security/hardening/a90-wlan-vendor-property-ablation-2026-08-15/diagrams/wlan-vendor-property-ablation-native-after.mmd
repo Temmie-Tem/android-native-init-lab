@@ -1,0 +1,20 @@
+flowchart LR
+    N["Reduced native supervisor"] --> G["Generated exact component manifest"]
+    G --> V["Ablated vendor WLAN backend"]
+    Q["No property OR finite read-only seed"] --> V
+    V --> W["WCNSS / Root PD / WMI"]
+    W --> A["Bounded station policy"]
+    N --> I["Isolated Debian PID 1"]
+    A --> IP["IP-only veth service boundary"]
+    IP --> I
+    X["No global SELinux write / no SD / no duplicate roles"] --> V
+    subgraph boundary_vendor["Privileged native WLAN boundary"]
+        G
+        V
+        Q
+        W
+        A
+    end
+    subgraph boundary_debian["Remote Debian boundary"]
+        I
+    end

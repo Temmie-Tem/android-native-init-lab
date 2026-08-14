@@ -27,6 +27,12 @@ patch reports, and local rescan evidence for the A90 native init project.
   compatibility state, per-boot server keys, and native-only receipts instead
   of moving the SD tree wholesale to cache. It grants no provisioning,
   candidate, SD-removal, or live authority.
+- Latest vendor-dependency hardening review:
+  `hardening/a90-wlan-vendor-property-ablation-2026-08-15/`, an H0-only
+  correction and ablation program for the H24 13-entry/11-role WLAN graph,
+  property uncertainty, and global SELinux mutation. It is shared by the
+  reduced-native and Debian-supervised-capsule research paths and grants no
+  candidate or live authority.
 
 ## Directory Map
 

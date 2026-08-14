@@ -1,0 +1,20 @@
+flowchart LR
+    D["Debian PID 1"] --> L["Clean-exec capsule launcher"]
+    L --> G["Generated exact component manifest"]
+    G --> V["Ablated vendor WLAN capsule"]
+    Q["No property OR finite read-only seed"] --> V
+    V --> W["WCNSS / Root PD / WMI"]
+    W --> C["Bounded client API"]
+    C --> D
+    R["Rootless SSH + workload sandbox"] --> D
+    X["Private IPC / no global SELinux write / no SD"] --> V
+    subgraph boundary_capsule["Privileged vendor capsule boundary"]
+        L
+        G
+        V
+        Q
+        W
+    end
+    subgraph boundary_service["Remote workload boundary"]
+        R
+    end

@@ -1,0 +1,362 @@
+import hashlib
+import json
+import re
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+ANALYSIS = (
+    ROOT
+    / "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15"
+)
+EXPECTED_COLLECTION_SHA256 = (
+    "e169452d657fe5c1cff34263db9e169e522fc35c45f178543eeec357d7e8940c"
+)
+
+EVIDENCE_RELS = (
+    "AGENTS.md",
+    "GOAL_A90.md",
+    "docs/operations/targets/A90_TARGET_CONTRACT.md",
+    "docs/operations/CAMPAIGN_LEDGER_A90.md",
+    "docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA18_CONTROL_PLANE_BLOCKED_2026-07-04.md",
+    "docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA19_NATIVE_OWNED_CHROOT_WIFI_PASS_2026-07-04.md",
+    "docs/reports/A90_NATIVE_WIFI_OWNERSHIP_PERMANENCE_EVIDENCE_H0_2026-08-15.md",
+    "docs/reports/A90_NATIVE_WIFI_SIDECAR_PROC_ROOT_EXPOSURE_HOST_INCIDENT_2026-08-13.md",
+    "docs/reports/A90_H24_PERSISTENT_HUD_BOOTSTRAP_EINVAL_INCIDENT_2026-08-12.md",
+    "docs/reports/A90_H16_PERSISTENT_DEBIAN_RETURN_OBSERVER_INCIDENT_2026-08-10.md",
+    "docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md",
+    "docs/plans/A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md",
+    "docs/security/hardening/a90-debian-supervised-wlan-2026-08-15/proposals/debian-supervised-wlan.md",
+    "docs/security/hardening/a90-sd-free-input-evidence-2026-08-15/proposals/typed-sd-free-input-evidence.md",
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h16/manifest.toml",
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h24/manifest.toml",
+    "workspace/public/src/native-init/helpers/a90_android_execns_probe.c",
+    "workspace/public/src/native-init/v724/90_main.inc.c",
+)
+
+
+def collection_sha256() -> str:
+    aggregate = hashlib.sha256()
+    for rel in EVIDENCE_RELS:
+        data = (ROOT / rel).read_bytes()
+        aggregate.update(rel.encode("utf-8"))
+        aggregate.update(b"\0")
+        aggregate.update(str(len(data)).encode("ascii"))
+        aggregate.update(b"\0")
+        aggregate.update(hashlib.sha256(data).hexdigest().encode("ascii"))
+        aggregate.update(b"\0")
+    return aggregate.hexdigest()
+
+
+class A90WlanVendorPropertyAblationHardeningDocsTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.data = json.loads((ANALYSIS / "hardening.json").read_text())
+        self.context = (ANALYSIS / "context.md").read_text()
+        self.proposal = (
+            ANALYSIS / "proposals/wlan-vendor-property-ablation.md"
+        ).read_text()
+        self.helper = (
+            ROOT
+            / "workspace/public/src/native-init/helpers/a90_android_execns_probe.c"
+        ).read_text()
+        self.manifest = (
+            ROOT
+            / "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h24/manifest.toml"
+        ).read_text()
+
+    def test_evidence_collection_is_exact_and_current(self) -> None:
+        self.assertEqual(len(EVIDENCE_RELS), 18)
+        self.assertEqual(collection_sha256(), EXPECTED_COLLECTION_SHA256)
+        source = self.data["sourceEvidence"]
+        self.assertEqual(source["artifactCount"], len(EVIDENCE_RELS))
+        self.assertEqual(source["collectionSha256"], EXPECTED_COLLECTION_SHA256)
+        self.assertEqual(source["sourceDrift"], "none")
+
+    def test_analysis_is_h0_and_grants_no_authority(self) -> None:
+        authority = self.data["authority"]
+        self.assertEqual(authority["tier"], "H0")
+        for key in (
+            "candidateEligible",
+            "deviceInstallAuthorized",
+            "propertyProvisionAuthorized",
+            "credentialProvisionAuthorized",
+            "ufsMutationAuthorized",
+            "sdRemovalAuthorized",
+            "d0Authorized",
+            "d1Authorized",
+            "f1Authorized",
+            "handoffAuthorized",
+            "otherTargetEvidenceUsed",
+            "otherTargetFileRead",
+        ):
+            self.assertIs(authority[key], False)
+        self.assertEqual(authority["primaryPassPublicS22PathDisplayCount"], 1)
+        self.assertEqual(authority["s20plusContactCount"], 0)
+        self.assertIn("creates no candidate identity", self.proposal)
+        self.assertFalse((ANALYSIS / "implementation").exists())
+
+    def test_selected_h24_mode_and_duplicate_pair_are_bound(self) -> None:
+        self.assertIn(
+            "-DA90_WIFI_TEST_BOOT_WLAN_PD_SERVICE_OBJECT_VISIBLE_TRIGGER=1",
+            self.manifest,
+        )
+        self.assertIn("/mnt/sdext/a90/private-property-v317", self.manifest)
+
+        function = self.helper[
+            self.helper.index("static int run_wifi_companion_start_only_guarded") :
+            self.helper.index("static int run_wifi_companion_hal_order_start_only_guarded")
+        ]
+        first_pair = function[
+            function.index("if (!android_order_pre_cnss_provider_observer &&\n        with_service_manager") :
+            function.index("if (!android_order_pre_cnss_provider_observer &&\n        !peripheral_manager_node_parity")
+        ]
+        second_pair = function[
+            function.index("if (wlan_pd_service_window_trigger || wlan_pd_service_object_visible_trigger)") :
+            function.index("if (wlan_pd_pm_service_window_trigger || wlan_pd_service_object_visible_trigger)")
+        ]
+        for target in (
+            '"/system/bin/servicemanager"',
+            '"/system/bin/hwservicemanager"',
+        ):
+            self.assertEqual(first_pair.count(target), 1)
+            self.assertEqual(second_pair.count(target), 1)
+
+        entries = (
+            "servicemanager",
+            "hwservicemanager",
+            "qrtr_ns",
+            "pd_mapper",
+            "rmt_storage",
+            "tftp_server",
+            "servicemanager",
+            "hwservicemanager",
+            "vndservicemanager",
+            "pm_proxy_helper",
+            "per_mgr",
+            "cnss_diag",
+            "cnss_daemon",
+        )
+        self.assertEqual(len(entries), 13)
+        self.assertEqual(len(set(entries)), 11)
+        self.assertIn("thirteen entries representing eleven unique roles", self.proposal)
+        self.assertIn("published order hides the duplicate pair", self.proposal)
+
+    def test_current_liveness_policy_is_not_mislabeled_as_necessity(self) -> None:
+        self.assertIn("persistent_handoff_child_required", self.helper)
+        self.assertIn("identity != COMPOSITE_ID_MACLOADER", self.helper)
+        self.assertEqual(
+            self.data["assessment"]["propertyVerdict"],
+            "UNPROVED",
+        )
+        self.assertIn("Individually proved hardware-essential roles: **zero**", (
+            ANALYSIS / "hardening.md"
+        ).read_text())
+        self.assertIn("Individually proved unrelated roles: **zero**", (
+            ANALYSIS / "hardening.md"
+        ).read_text())
+        self.assertIn("neither live-qualified nor known-minimal", self.proposal)
+
+    def test_global_selinux_mutation_is_explicitly_rejected(self) -> None:
+        for source_fact in (
+            'bind_rw("/sys/fs/selinux", paths->sys_fs_selinux)',
+            "load_precompiled_policy_for_pm_observer(paths, stdout_buf)",
+            "write_file_once_to_fd(policy_path, load_fd",
+            'write(enforce_fd, "0", 1)',
+        ):
+            self.assertIn(source_fact, self.helper)
+        self.assertIn("zero writes to SELinux policy `load`, `enforce`", self.proposal)
+        self.assertIn(
+            "global selinux load",
+            self.data["assessment"]["globalPolicyVerdict"].replace("_", " ").lower(),
+        )
+
+    def test_property_has_only_two_acceptable_terminals(self) -> None:
+        self.assertIn("property_service_shim_needed", self.helper)
+        self.assertIn("PROPERTY_ABSENT_PROVED", self.proposal)
+        self.assertIn("PROPERTY_FINITE_SEED_PROVED", self.proposal)
+        self.assertIn("The current whole snapshot", self.context)
+        self.assertIn("write acknowledgements", self.context)
+        self.assertNotIn("PROPERTY_MINIMAL_SEED_ASSUMED", self.proposal)
+
+    def test_options_and_tradeoffs_are_complete(self) -> None:
+        opportunity = self.data["opportunities"][0]
+        self.assertEqual(
+            opportunity["recommendedOptionId"],
+            "topology-neutral-ablation-first",
+        )
+        self.assertEqual(
+            {option["optionId"] for option in opportunity["options"]},
+            {
+                "rehost-h24-unchanged",
+                "reduced-native-supervisor",
+                "debian-supervised-capsule",
+                "topology-neutral-ablation-first",
+            },
+        )
+        required = {
+            "security",
+            "performance",
+            "memory",
+            "reliability",
+            "operability",
+            "migration",
+        }
+        for option in opportunity["options"]:
+            self.assertEqual(
+                {tradeoff["dimension"] for tradeoff in option["tradeoffs"]},
+                required,
+            )
+            self.assertTrue(option["evidenceCoverage"])
+            for diagram in option["diagramPaths"].values():
+                text = (ANALYSIS / diagram).read_text()
+                self.assertTrue(text.startswith("flowchart LR\n"))
+                self.assertIn("boundary", text.lower())
+
+    def test_ablation_sequence_and_metrics_are_explicit(self) -> None:
+        stages = (
+            "`A0`", "`A1`", "`A2`", "`A3`", "`A4`",
+            "`A5a`", "`A5b`", "`A6a`", "`A6b`", "`A6c`",
+            "`A7a`", "`A7b`", "`A7c`", "`A7d`",
+            "`A8`", "`A9`", "`A10`", "`A11a`", "`A11b`",
+            "`A12`", "`A13`",
+        )
+        for stage in stages:
+            self.assertIn(stage, self.proposal)
+        self.assertEqual(
+            [self.proposal.index(f"| {stage} |") for stage in stages],
+            sorted(self.proposal.index(f"| {stage} |") for stage in stages),
+        )
+        self.assertLess(
+            self.proposal.index("| `A2` | Eliminate global SELinux mutation"),
+            self.proposal.index("| `A4` | Remove `cnss_diag` only"),
+        )
+        for component_terminal in (
+            "Remove `cnss-daemon` only",
+            "Remove modem holder only",
+            "Remove property-service shim only",
+        ):
+            self.assertIn(component_terminal, self.proposal)
+        for phrase in (
+            "One ablation changes one variable",
+            "A failure is terminal evidence for that unit",
+            "process/thread/FD count",
+            "RSS/PSS",
+            "CPU time",
+            "wakeups",
+            "property/IPC",
+            "cleanup",
+            "recovery",
+        ):
+            self.assertIn(phrase, self.proposal)
+
+    def test_current_source_launch_inventory_is_complete(self) -> None:
+        self.assertIn("### Current-source launch inventory", self.proposal)
+        ordered_roles = (
+            "| 1 `servicemanager` #1 |",
+            "| 2 `hwservicemanager` #1 |",
+            "| 3 `qrtr_ns` |",
+            "| 4 `pd_mapper` |",
+            "| 5 `rmt_storage` |",
+            "| 6 `tftp_server` |",
+            "| 7 `servicemanager` #2 |",
+            "| 8 `hwservicemanager` #2 |",
+            "| 9 `vndservicemanager` |",
+            "| 10 `pm_proxy_helper` |",
+            "| 11 `per_mgr` |",
+            "| 12 `cnss_diag` |",
+            "| 13 `cnss_daemon` |",
+        )
+        for role in ordered_roles:
+            self.assertIn(role, self.proposal)
+        for required_fact in (
+            "UID/GID `2906:2906`",
+            "groups `1000,3009`",
+            "groups `3003,3005,1010`",
+            "groups `1000,1010,3003,1015,1023,2002`",
+            "exact post-exec caps are **UNPROVED**",
+            "android-init-root` capability mode",
+            "process-group `SIGTERM`",
+            "property-service shim",
+            "modem holder",
+            "13 composite children + shim + holder + helper",
+            "construction `:58654-58666`",
+            "cleanup `:61426-61500`",
+            "cleanup `:29166-29266`",
+        ):
+            self.assertIn(required_fact, self.proposal)
+
+    def test_dependency_classification_and_property_diagram_are_fail_closed(self) -> None:
+        for phrase in (
+            "### Dependency classification: established versus unproved",
+            "producer is the external whole property snapshot",
+            "write-compatibility shim",
+            "compatibility registry/context-manager route",
+            "QMI | protocol/transport observation surface",
+            "contains no separately named `rmtfs` daemon",
+            "relationship between `rmt_storage` and `rmtfs` is **UNPROVED**",
+            "diagnostic candidate",
+            "does not rename `rmt_storage` as `rmtfs`",
+        ):
+            self.assertIn(phrase, self.proposal)
+        before = (
+            ANALYSIS / "diagrams/wlan-vendor-property-ablation-before.mmd"
+        ).read_text()
+        self.assertIn(
+            'SD["SD property snapshot"] --> R["Vendor property readers"]',
+            before,
+        )
+        self.assertIn('P -. "write ACK only; no proved property-area mutation" .-> C', before)
+        self.assertNotIn('SD["SD property snapshot"] --> P', before)
+
+    def test_prior_portfolio_correction_is_locked(self) -> None:
+        prior = (
+            ROOT
+            / "docs/security/hardening/a90-debian-supervised-wlan-2026-08-15/proposals/debian-supervised-wlan.md"
+        ).read_text()
+        self.assertIn("thirteen child entries representing eleven", prior)
+        self.assertRegex(prior, r"neither\s+live-qualified nor known-minimal")
+        self.assertNotIn("Inferred: that list is known-sufficient", prior)
+        self.assertNotIn("Which of the eleven H24 children", prior)
+        typed = (
+            ROOT
+            / "docs/security/hardening/a90-sd-free-input-evidence-2026-08-15/proposals/typed-sd-free-input-evidence.md"
+        ).read_text()
+        self.assertNotIn("known-sufficient", typed)
+
+    def test_proposal_headings_and_relative_links_are_complete(self) -> None:
+        headings = (
+            "## Decision",
+            "## Executive Recommendation",
+            "## Evidence",
+            "## Current Design And Failure Mode",
+            "## Desired Invariants",
+            "## Constraints And Non-Goals",
+            "## Before Architecture",
+            "## Property And IPC Boundary",
+            "## Options",
+            "## Comparison",
+            "## Recommendation",
+            "## Ablation Matrix",
+            "## Evidence Coverage And Residual Risk",
+            "## Migration And Rollout",
+            "## Validation Plan",
+            "## Implementation Work Packages",
+            "## Open Questions",
+            "## Authority",
+        )
+        positions = [self.proposal.index(heading) for heading in headings]
+        self.assertEqual(positions, sorted(positions))
+        for evidence_id in range(1, 13):
+            self.assertIn(f"`E{evidence_id:02d}`", self.proposal)
+
+        for markdown in ANALYSIS.rglob("*.md"):
+            for target in re.findall(r"\[[^]]+\]\(([^)]+)\)", markdown.read_text()):
+                if "://" in target or target.startswith("#"):
+                    continue
+                resolved = (markdown.parent / target.split("#", 1)[0]).resolve()
+                self.assertTrue(resolved.exists(), f"broken link in {markdown}: {target}")
+
+
+if __name__ == "__main__":
+    unittest.main()

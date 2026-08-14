@@ -1,0 +1,221 @@
+{
+  "schemaVersion": "1.0",
+  "documentType": "security_hardening_portfolio",
+  "analysisId": "a90-wlan-vendor-property-ablation-2026-08-15",
+  "sourceEvidence": {
+    "kind": "document_collection",
+    "label": "A90 contracts, WSTA control-plane evidence, H24 selected manifests/source, incidents, and preceding ownership/input hardening decisions",
+    "collectionSha256": "e169452d657fe5c1cff34263db9e169e522fc35c45f178543eeec357d7e8940c",
+    "artifactCount": 18,
+    "baselineRevision": "cddd986c561aa3211638e107ac9164ccec994da6",
+    "sourceRefreeze": "Exact working-tree bytes after the bounded prior-portfolio wording corrections in this same H0 unit",
+    "sourceDrift": "none"
+  },
+  "authority": {
+    "target": "Samsung Galaxy A90 5G only",
+    "tier": "H0",
+    "candidateEligible": false,
+    "deviceInstallAuthorized": false,
+    "propertyProvisionAuthorized": false,
+    "credentialProvisionAuthorized": false,
+    "ufsMutationAuthorized": false,
+    "sdRemovalAuthorized": false,
+    "d0Authorized": false,
+    "d1Authorized": false,
+    "f1Authorized": false,
+    "handoffAuthorized": false,
+    "otherTargetEvidenceUsed": false,
+    "otherTargetFileRead": false,
+    "primaryPassPublicS22PathDisplayCount": 1,
+    "s20plusContactCount": 0
+  },
+  "assessment": {
+    "verdict": "H0_ABLATION_PROGRAM_SELECTED_NO_CANDIDATE_AUTHORITY",
+    "strongestFinding": "The H24-selected control flow constructs thirteen composite children representing eleven unique roles because servicemanager and hwservicemanager are each enqueued twice, while the published order hides the duplicate pair.",
+    "propertyVerdict": "UNPROVED",
+    "globalPolicyVerdict": "REJECT_SELECTED_GLOBAL_SELINUX_LOAD_AND_PERMISSIVE_WRITE_FROM_ANY_SUCCESSOR",
+    "dependencyVerdict": "QMI_RMTFS_PROPERTY_BINDER_COMPONENT_EDGES_UNPROVED_PENDING_ONE_FACTOR_OBSERVATION",
+    "observed": [
+      "H24 selected source contains thirteen composite entries, a property shim, a modem holder, and the helper itself before station policy.",
+      "H24 never reached this helper route live; its consumed D1 stopped at persistent HUD.",
+      "WSTA18 proves aggregate backend necessity but no individual role necessity.",
+      "The selected source path writes global SELinux policy load and best-effort enforce=0."
+    ],
+    "inferred": [
+      "Duplicated Binder context managers are likely to conflict, but actual runtime failure is unproved.",
+      "QRTR, PD, RFS, CNSS, and the current provider route are plausible dependencies but individually unproved.",
+      "cnss_diag is the first diagnostic ablation candidate but is not proved unrelated."
+    ],
+    "proposed": [
+      "Use one generated duplicate-rejecting component manifest for construction, logs, health, cleanup, and evidence.",
+      "Accept only PROPERTY_ABSENT_PROVED or PROPERTY_FINITE_SEED_PROVED.",
+      "Run the same one-factor ablation and measurement contract before selecting either ownership topology."
+    ]
+  },
+  "constraints": {
+    "invariants": [
+      "H24 remains installed and its D1 remains consumed and unreplayable.",
+      "No successor inherits an SD path, global SELinux policy write, hidden duplicate, or hand-maintained process/order mismatch.",
+      "The proc capability-exposure incident is closed under either topology.",
+      "One ablation changes one variable and a failed unit is never the next baseline.",
+      "Host fixtures do not substitute for future hardware necessity evidence.",
+      "Rollback, physical recovery, durable no-replay, target isolation, and final health remain mandatory."
+    ],
+    "nonGoals": [
+      "Prove a Debian-supervised capsule feasible in this unit.",
+      "Declare any individual role required or unrelated without ablation.",
+      "Inspect private property or credential content.",
+      "Allocate an identity, mutate UFS, provision cache, or authorize a live action."
+    ]
+  },
+  "opportunities": [
+    {
+      "opportunityId": "wlan-vendor-property-ablation",
+      "title": "Minimize the A90 vendor WLAN backend once for both ownership topologies",
+      "priority": "critical-pre-candidate",
+      "summary": "Correct the executable graph and global-policy hazards, then derive a finite component/property contract through one-factor ablation before topology selection.",
+      "proposalPath": "proposals/wlan-vendor-property-ablation.md",
+      "sourceEvidence": [
+        "E01",
+        "E02",
+        "E03",
+        "E04",
+        "E05",
+        "E06",
+        "E07",
+        "E08",
+        "E09",
+        "E10",
+        "E11",
+        "E12"
+      ],
+      "desiredInvariants": [
+        "One generated component manifest determines construction, order, health, cleanup, and evidence.",
+        "Every role has exact executable, identity, capability, FD, namespace, cgroup, readiness, and cleanup bindings.",
+        "Global SELinux policy/load/enforce writes are zero.",
+        "Property has exactly one proved terminal: absent or finite deterministic seed.",
+        "The same component/property contract serves reduced-native and Debian-capsule topology tests.",
+        "Remote workload code cannot name or control the privileged vendor backend."
+      ],
+      "recommendedOptionId": "topology-neutral-ablation-first",
+      "recommendation": "Select topology-neutral ablation first and retain reduced native supervision as the reference boundary until the Debian capsule passes every explicit switch condition.",
+      "options": [
+        {
+          "optionId": "rehost-h24-unchanged",
+          "title": "Rehost the H24 accumulated graph unchanged",
+          "kind": "rejected",
+          "summary": "Move the current helper and its compatibility surfaces under another supervisor without reducing them.",
+          "diagramPaths": {
+            "before": "diagrams/wlan-vendor-property-ablation-before.mmd",
+            "after": "diagrams/wlan-vendor-property-ablation-before.mmd"
+          },
+          "evidenceCoverage": [
+            {"evidenceId": "E04", "effect": "preserves", "tacticalFixRequired": true, "rationale": "It preserves the hidden duplicate and graph/order mismatch."},
+            {"evidenceId": "E07", "effect": "preserves", "tacticalFixRequired": true, "rationale": "It preserves the global SELinux mutation."}
+          ],
+          "tradeoffs": [
+            {"dimension": "security", "direction": "regresses", "confidence": "high", "basis": "source-derived", "assessment": "Preserves root services, global IPC, SD property assumptions, and global policy writes.", "validationPlan": "Reject statically; do not qualify."},
+            {"dimension": "performance", "direction": "regresses", "confidence": "medium", "basis": "source-derived", "assessment": "Keeps a sixteen-process backend and recurring health writes before station policy.", "validationPlan": "No live benchmark because structural rejection precedes it."},
+            {"dimension": "memory", "direction": "regresses", "confidence": "medium", "basis": "source-derived", "assessment": "Retains all accumulated processes and compatibility state.", "validationPlan": "Use source count only as a rejection signal, not a measured RSS claim."},
+            {"dimension": "reliability", "direction": "regresses", "confidence": "medium", "basis": "source-derived", "assessment": "Duplicate context managers may prevent readiness and H24 never exercised the route.", "validationPlan": "Require duplicate rejection before any future run."},
+            {"dimension": "operability", "direction": "regresses", "confidence": "high", "basis": "source-derived", "assessment": "Emitted order cannot identify the actual instance graph.", "validationPlan": "Require generated instance manifest and exact receipts."},
+            {"dimension": "migration", "direction": "improves", "confidence": "low", "basis": "hypothetical", "assessment": "Moves less code initially but carries every unresolved dependency forward.", "validationPlan": "Rejected because short migration does not outweigh structural hazards."}
+          ],
+          "residualRisks": ["No H24 live readiness proof exists.", "Global security state can be changed.", "Minimum component and property sets remain unknown."],
+          "implementationReadiness": {"affectedComponents": ["H24 helper", "Binder", "property", "SELinux"], "workPackages": ["None; rejected."], "acceptanceCriteria": ["Not applicable."], "migrationNotes": ["Do not rehost."], "rollback": "H24 remains unchanged and no live action is authorized."}
+        },
+        {
+          "optionId": "reduced-native-supervisor",
+          "title": "Reduced native supervisor and isolated Debian",
+          "kind": "reference",
+          "summary": "Apply the finite ablated backend under the selected native-supervisor containment model.",
+          "diagramPaths": {
+            "before": "diagrams/wlan-vendor-property-ablation-before.mmd",
+            "after": "diagrams/wlan-vendor-property-ablation-native-after.mmd"
+          },
+          "evidenceCoverage": [
+            {"evidenceId": "E01", "effect": "addresses", "tacticalFixRequired": false, "rationale": "A surviving backend remains available."},
+            {"evidenceId": "E10", "effect": "addresses", "tacticalFixRequired": true, "rationale": "The selected isolated-Debian boundary is still mandatory."}
+          ],
+          "tradeoffs": [
+            {"dimension": "security", "direction": "improves", "confidence": "medium", "basis": "source-derived", "assessment": "Keeps remote Debian behind the selected containment while reducing the privileged vendor set.", "validationPlan": "Complete the selected design negative corpus plus exact backend closure."},
+            {"dimension": "performance", "direction": "mixed", "confidence": "low", "basis": "hypothetical", "assessment": "Veth and two administrative planes add cost while service ablation removes cost.", "validationPlan": "Measure throughput, latency, CPU, wakeups, and readiness against the same component set."},
+            {"dimension": "memory", "direction": "mixed", "confidence": "low", "basis": "hypothetical", "assessment": "Two PID 1 roles remain but the vendor graph may shrink materially.", "validationPlan": "Measure RSS/PSS, cgroup memory, process/thread/FD count."},
+            {"dimension": "reliability", "direction": "improves", "confidence": "medium", "basis": "analogous", "assessment": "Closest to WSTA19 and later live WLAN lineage.", "validationPlan": "Prove isolated boot, WLAN, cleanup, fallback, and attended return."},
+            {"dimension": "operability", "direction": "regresses", "confidence": "high", "basis": "source-derived", "assessment": "Two health planes and cross-boundary policy remain.", "validationPlan": "Use one canonical timeline and exact stage attribution."},
+            {"dimension": "migration", "direction": "improves", "confidence": "high", "basis": "source-derived", "assessment": "Reuses the selected containment direction and existing WLAN ownership evidence.", "validationPlan": "Implement only after ablation and independent review."}
+          ],
+          "residualRisks": ["Two administrative worlds remain.", "The reduced service set is unproved.", "No isolated successor is implemented."],
+          "implementationReadiness": {"affectedComponents": ["native supervisor", "vendor backend", "isolated Debian", "veth policy"], "workPackages": ["Complete topology-neutral ablation.", "Integrate exact manifest under selected containment."], "acceptanceCriteria": ["All selected-design invariants and ablation metrics pass."], "migrationNotes": ["Fresh identity only after pre-candidate gates."], "rollback": "Exact reviewed boot-only rollback and final native health remain mandatory."}
+        },
+        {
+          "optionId": "debian-supervised-capsule",
+          "title": "Debian PID 1 supervises a reduced vendor capsule",
+          "kind": "conditional-research",
+          "summary": "Clean-exec Debian first and launch only the finite vendor backend behind a separate privileged capsule boundary.",
+          "diagramPaths": {
+            "before": "diagrams/wlan-vendor-property-ablation-before.mmd",
+            "after": "diagrams/wlan-vendor-property-ablation-capsule-after.mmd"
+          },
+          "evidenceCoverage": [
+            {"evidenceId": "E01", "effect": "addresses", "tacticalFixRequired": true, "rationale": "It must preserve or relaunch the backend instead of removing it."},
+            {"evidenceId": "E10", "effect": "addresses", "tacticalFixRequired": true, "rationale": "Remote workloads still require proc/fd/ns separation from the capsule."}
+          ],
+          "tradeoffs": [
+            {"dimension": "security", "direction": "mixed", "confidence": "low", "basis": "hypothetical", "assessment": "One lifecycle owner can simplify policy only if rootless workloads cannot name the privileged capsule.", "validationPlan": "Prove clean exec, private IPC, capability, proc/fd/ns, old-root, VMA, cgroup, and workload separation."},
+            {"dimension": "performance", "direction": "mixed", "confidence": "low", "basis": "hypothetical", "assessment": "May remove native supervisory overhead but adds capsule launch and mediation.", "validationPlan": "Benchmark the same component set against reduced native supervision."},
+            {"dimension": "memory", "direction": "improves", "confidence": "low", "basis": "hypothetical", "assessment": "Could remove one administrative world only after real service reduction.", "validationPlan": "Measure steady-state RSS/PSS and process/thread/FD count."},
+            {"dimension": "reliability", "direction": "regresses", "confidence": "medium", "basis": "source-derived", "assessment": "Cold relaunch, Root PD recovery, and Debian station ownership are unproved.", "validationPlan": "Require clean cold launch/relaunch, scan, association, DHCP, cleanup, and recovery."},
+            {"dimension": "operability", "direction": "improves", "confidence": "low", "basis": "hypothetical", "assessment": "One PID 1 can own lifecycle and recovery after the bootstrap is proved.", "validationPlan": "Demonstrate one canonical journal with exact capsule and workload attribution."},
+            {"dimension": "migration", "direction": "regresses", "confidence": "high", "basis": "source-derived", "assessment": "Requires a new clean launcher, private compatibility boundary, adoption, and recovery design.", "validationPlan": "Keep H0 until every switch condition passes."}
+          ],
+          "residualRisks": ["Vendor binaries may require broad Android compatibility.", "Cold relaunch may be impossible without reboot.", "Debian station ownership may fail."],
+          "implementationReadiness": {"affectedComponents": ["Debian PID 1", "capsule launcher", "vendor backend", "private IPC", "rootless workload"], "workPackages": ["Complete topology-neutral ablation.", "Prove clean capsule launch and workload separation."], "acceptanceCriteria": ["Every explicit architecture switch condition passes."], "migrationNotes": ["Research path only; not selected."], "rollback": "No live action until a fresh reviewed boot-only candidate exists."}
+        },
+        {
+          "optionId": "topology-neutral-ablation-first",
+          "title": "Freeze a shared component and property contract first",
+          "kind": "recommended",
+          "summary": "Correct the graph and define one-factor evidence and metrics before either supervisor topology becomes a candidate.",
+          "diagramPaths": {
+            "before": "diagrams/wlan-vendor-property-ablation-before.mmd",
+            "nativeAfter": "diagrams/wlan-vendor-property-ablation-native-after.mmd",
+            "capsuleAfter": "diagrams/wlan-vendor-property-ablation-capsule-after.mmd"
+          },
+          "evidenceCoverage": [
+            {"evidenceId": "E04", "effect": "addresses", "tacticalFixRequired": true, "rationale": "Graph generation and duplicate rejection close the 13/11 drift."},
+            {"evidenceId": "E07", "effect": "addresses", "tacticalFixRequired": true, "rationale": "Static rejection closes global SELinux mutation before topology work."},
+            {"evidenceId": "E11", "effect": "addresses", "tacticalFixRequired": true, "rationale": "The property terminal is shared by both architectures."}
+          ],
+          "tradeoffs": [
+            {"dimension": "security", "direction": "improves", "confidence": "high", "basis": "source-derived", "assessment": "Prevents accumulated compatibility and topology preference from becoming authority.", "validationPlan": "Bind generated manifests, property terminals, and negative corpus in an independent review."},
+            {"dimension": "performance", "direction": "improves", "confidence": "medium", "basis": "hypothetical", "assessment": "Makes service removal and topology cost separately measurable.", "validationPlan": "Use one metric vocabulary and the same component set for comparisons."},
+            {"dimension": "memory", "direction": "improves", "confidence": "medium", "basis": "hypothetical", "assessment": "Measured ablation can remove unnecessary processes before architecture duplication.", "validationPlan": "Record process/thread/FD and RSS/PSS deltas per one-factor unit."},
+            {"dimension": "reliability", "direction": "improves", "confidence": "high", "basis": "source-derived", "assessment": "Separates component failures from supervisor failures and forbids chained baselines.", "validationPlan": "Require exact failure stage, rollback, and final health per unit."},
+            {"dimension": "operability", "direction": "improves", "confidence": "high", "basis": "source-derived", "assessment": "One generated vocabulary aligns construction, logs, health, and cleanup.", "validationPlan": "Reject graph/order/health/report drift in focused host tests."},
+            {"dimension": "migration", "direction": "mixed", "confidence": "high", "basis": "source-derived", "assessment": "Adds H0 work now but makes every result reusable by both architectures.", "validationPlan": "Finish WP2-1 through WP2-4 before identity allocation."}
+          ],
+          "residualRisks": ["Opaque binaries still require future hardware evidence.", "A clean finite backend may not exist.", "Property absence and finite seed are both unproved today."],
+          "implementationReadiness": {"affectedComponents": ["component manifest", "property schema", "negative corpus", "benchmark vocabulary"], "workPackages": ["WP2-1 generated graph", "WP2-2 global hazard rejection", "WP2-3 dependency inventory", "WP2-4 property terminal validators"], "acceptanceCriteria": ["No hidden duplicate or global policy write remains.", "One property terminal is structurally testable.", "Both topology launchers consume the same contract."], "migrationNotes": ["H0 outputs only; no candidate identity."], "rollback": "Not applicable to host-only documentation and tests."}
+        }
+      ],
+      "validationPlan": [
+        "Derive selected entries from current source and reject the 13/11 order mismatch.",
+        "Reject duplicate roles and global SELinux load/enforce writes.",
+        "Freeze an exact component identity/capability/FD/readiness/cleanup schema.",
+        "Accept only property absence or an exact finite deterministic seed.",
+        "Measure functionality, latency, footprint, runtime cost, IPC/property use, cleanup, and recovery per one-factor future unit."
+      ]
+    }
+  ],
+  "openQuestions": [
+    "Which role first establishes minimum WCNSS and WMI readiness?",
+    "Can duplicated service-manager instances ever stay healthy?",
+    "Is cnss_diag causally required?",
+    "Can the provider gate be replaced by direct hardware readiness?",
+    "Which properties are actually read by retained binaries?",
+    "Can private binderfs replace global Binder devices?",
+    "Can the backend cold relaunch without reboot?",
+    "Can Debian own scan, association, and DHCP over the surviving backend?"
+  ]
+}

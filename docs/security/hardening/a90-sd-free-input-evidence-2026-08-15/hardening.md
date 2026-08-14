@@ -2,9 +2,10 @@
 
 ## Evidence Basis
 
-This H0 review binds 22 public artifacts at revision
-`3e3c3cdabea297794f185709c42419d5032fb245` with collection SHA256
-`159770631a055504a81fbc0be645f3676899cbf457bc323b0fa8990e08228c85`.
+This H0 review binds 22 public artifacts from baseline revision
+`3e3c3cdabea297794f185709c42419d5032fb245`, rebound after the later H24
+13-entry/11-role wording correction, with collection SHA256
+`8950bf44255bfd9661701e35da9a474013ccc0121aa3dc7f7337daddc639b070`.
 
 The current code is not simply “SD-based” or “cache-ready.” H24 still hard-gates
 an SD evidence bind and compiles an SD property snapshot. Native Wi-Fi already

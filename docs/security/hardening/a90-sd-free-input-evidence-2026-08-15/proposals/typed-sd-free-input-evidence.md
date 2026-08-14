@@ -593,8 +593,8 @@ option or capability has been selected for implementation.
 
 ## Open Questions
 
-1. Which H24 vendor services read the property area on the known-sufficient
-   path, and which exact keys/contexts do they read?
+1. Which H24 vendor services read the property area on the selected accumulated,
+   not-live-qualified path, and which exact keys/contexts do they read?
 2. Can service ablation eliminate the property-service shim and binary property
    area entirely for both ownership options?
 3. Is the existing cache filesystem and free-space reserve suitable for two
