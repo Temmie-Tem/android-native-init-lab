@@ -1,0 +1,550 @@
+{
+  "absent": [
+    "/bin/bash",
+    "/bin/ip",
+    "/bin/sh",
+    "/dev/console",
+    "/dev/ptmx",
+    "/dev/random",
+    "/dev/shm",
+    "/dev/tty",
+    "/dev/ttyGS0",
+    "/dev/pts",
+    "/etc/a90-d3-firstboot",
+    "/etc/a90-dpublic/cloudflared-quick-enable",
+    "/etc/a90-dpublic/native-uplink-enable",
+    "/etc/a90-dpublic/wpa_supplicant-wlan0.conf",
+    "/etc/a90-dpublic/wifi-sta-enable",
+    "/etc/a90-dpublic/wifi-sta-immediate-snapshot-only",
+    "/etc/dropbear/dropbear_ed25519_host_key",
+    "/etc/inittab",
+    "/root/.ssh",
+    "/root/.ssh/authorized_keys",
+    "/sbin/agetty",
+    "/sbin/getty",
+    "/usr/bin/a90-dpublic-smoke-httpd",
+    "/usr/bin/bash",
+    "/usr/bin/ip",
+    "/usr/bin/iw",
+    "/usr/bin/sh",
+    "/usr/bin/su",
+    "/usr/local/bin/a90-dpublic-hud-intent",
+    "/usr/local/bin/a90-dpublic-hud-presenter",
+    "/usr/local/bin/a90-dpublic-smoke-httpd",
+    "/usr/local/bin/a90-dpublic-wifi-sta",
+    "/usr/local/bin/a90-service-launch",
+    "/usr/sbin/a90-dpublic-smoke-httpd",
+    "/usr/sbin/agetty",
+    "/usr/sbin/dropbearkey",
+    "/usr/sbin/getty",
+    "/usr/sbin/init",
+    "/usr/sbin/iw",
+    "/usr/sbin/nologin",
+    "/usr/sbin/syslogd",
+    "/usr/bin/wpa_supplicant",
+    "/usr/sbin/wpa_supplicant"
+  ],
+  "accounts": {
+    "database_files": [
+      "/etc/passwd",
+      "/etc/group",
+      "/etc/shadow",
+      "/etc/nsswitch.conf",
+      "/etc/shells"
+    ],
+    "nss": {
+      "account_sources": ["files"],
+      "network_lookup": false,
+      "pam": false,
+      "source_lookup": false
+    },
+    "root": {
+      "gid": 0,
+      "login_eligible": false,
+      "name": "root",
+      "shell": "/usr/sbin/nologin",
+      "uid": 0
+    },
+    "service": {
+      "gid": 3301,
+      "home": "/srv/a90-service",
+      "login_eligible": true,
+      "name": "a90svc",
+      "shell": "/usr/local/libexec/a90-probe",
+      "uid": 3301
+    },
+    "ssh_key_daemon": {
+      "gid": 3302,
+      "home": "/var/empty",
+      "login_eligible": false,
+      "name": "a90key",
+      "shell": "/usr/sbin/nologin",
+      "uid": 3302
+    },
+    "exact_identity_count": 2,
+    "duplicate_names_or_ids": false,
+    "supplementary_groups": [],
+    "service_shell_is_general_shell": false
+  },
+  "authorized_keys": {
+    "path": "/srv/a90-service/.ssh/authorized_keys",
+    "content": "redacted-unbound",
+    "owner": {
+      "uid": 3301,
+      "gid": 3301,
+      "mode": "0600"
+    },
+    "parent": {
+      "path": "/srv/a90-service/.ssh",
+      "uid": 3301,
+      "gid": 3301,
+      "mode": "0700"
+    },
+    "home": {
+      "path": "/srv/a90-service",
+      "uid": 3301,
+      "gid": 3301,
+      "mode": "0750",
+      "read_only_before_exec": true
+    },
+    "grammar": {
+      "canonical_one_line": true,
+      "line_count": 1,
+      "line_template": "command=\"/usr/local/libexec/a90-probe --request=readiness\",no-agent-forwarding,no-port-forwarding,no-X11-forwarding,no-pty ssh-ed25519 <redacted-unbound>\n",
+      "algorithm": "ssh-ed25519",
+      "key_material": "redacted-unbound",
+      "comment": false,
+      "options": [
+        "command=\"/usr/local/libexec/a90-probe --request=readiness\"",
+        "no-agent-forwarding",
+        "no-port-forwarding",
+        "no-X11-forwarding",
+        "no-pty"
+      ],
+      "alternate_key_sources": false,
+      "extra_lines": false,
+      "shell_or_command_override": false
+    },
+    "root_authorization_path": false,
+    "key_bytes_tracked": false
+  },
+  "bootstrap_owned": {
+    "server_host_key_tree": {
+      "path": "/etc/dropbear",
+      "uid": 3302,
+      "gid": 3302,
+      "mode": "0700",
+      "private_key_mode": "0400",
+      "per_boot_ed25519": true,
+      "rootfs_creates_or_rotates": false,
+      "rootfs_traverses_or_reads": false,
+      "rootfs_inherits": false,
+      "read_only_before_exec": true
+    },
+    "service_authorization_tmpfs": {
+      "path": "/srv/a90-service/.ssh",
+      "source": "trusted-bootstrap-boot-private-key",
+      "rootfs_creates_or_rotates": false,
+      "read_only_before_exec": true
+    },
+    "veth_peer": {
+      "source": "trusted-native-bootstrap",
+      "rootfs_configures": false
+    }
+  },
+  "candidate_eligible": false,
+  "device_install_authorized": false,
+  "deferred": [
+    {
+      "item": "dropbear-feature-removed-binary",
+      "reason": "No private pinned Dropbear source/configuration input is present in this host workspace; the exact binary hash and source-semantics hash cannot be honestly materialized.",
+      "successor_method": "Provide a private SHA-pinned Dropbear source tree or archive, build the bound static feature matrix, refresh this manifest from the produced binary, then independently review it.",
+      "trace_method": "qemu-aarch64 user-mode tracing with registered binfmt_misc",
+      "trace_interpretation": "The trace is a candidate syscall superset and requires later on-device negative testing; it is not attempted in this unit."
+    },
+    {
+      "item": "dropbear-argv-flag-semantics",
+      "reason": "The launch argv is bound as an exact token sequence, but each flag's meaning is not yet bound against the selected Dropbear version. The design requires that a runtime option is accepted only after its exact selected-version source/help/parser semantics are independently bound. The bound sequence includes -a alongside the -j and -k forwarding denials, and that combination is not yet justified from source.",
+      "successor_method": "After the private pinned Dropbear source arrives, derive each flag's meaning from that exact version's option parser, record a per-flag semantics table beside the argv, and reject or replace any flag whose effect is not required by the session contract."
+    },
+    {
+      "item": "seccomp-positive-syscall-argument-allowlist",
+      "reason": "It derives from the exact PID-1, Dropbear, dispatcher, and workload service trace, which is not available until the deferred Dropbear build and all binaries are materialized.",
+      "successor_method": "Run qemu-aarch64 user-mode tracing after the binaries are built; treat the output as a candidate superset and later perform on-device negative testing."
+    },
+    {
+      "item": "capability-minimum-set",
+      "reason": "The exact minimum must be derived from the same service trace and native bootstrap boundary; it is not invented from a static guess here.",
+      "successor_method": "Derive from the completed trace and independently review before any candidate."
+    },
+    {
+      "item": "proc-scalar-allowlist",
+      "reason": "The exact scalar reads are consumer-dependent and cannot be selected before the completed service trace.",
+      "successor_method": "Derive from the completed trace, bind a finite read-only list, and independently review before any candidate."
+    }
+  ],
+  "files": [
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0644",
+      "path": "/etc/a90-appliance-stage",
+      "sha256": "27f595908145941fad95eb33bbc8275cfd28c6abdeabf6791f501d3e17861f87",
+      "size": 188,
+      "uid": 0,
+      "source": "recipe-generated-static-provenance"
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0644",
+      "path": "/etc/a90-server-distro-stage",
+      "sha256": "9e4b0b1648b992f6f549e0500cc579952aed50daf714d80d680a3b08a4814732",
+      "size": 132,
+      "uid": 0,
+      "source": "recipe-generated-static-provenance"
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0644",
+      "path": "/etc/group",
+      "sha256": "8855d276cc2794a1006cc8592081d64df33f159d1a136489ef66051c6b404ade",
+      "size": 40,
+      "uid": 0,
+      "source": "recipe-generated-exact-account-database"
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0644",
+      "path": "/etc/nsswitch.conf",
+      "sha256": "e084c79f847d9ad8b13aafc845dba7ced2c2b4d06a6e79f6ca3b481d088cacfb",
+      "size": 54,
+      "uid": 0,
+      "source": "recipe-generated-files-only-lookup"
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0644",
+      "path": "/etc/passwd",
+      "sha256": "13170136f18167e99f12cf9ef2294f8a3e6fcd6a633dea0a20dd582a95a2ebaf",
+      "size": 191,
+      "uid": 0,
+      "source": "recipe-generated-exact-account-database"
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0600",
+      "path": "/etc/shadow",
+      "sha256": "058762622ee7969242ea19eba740969cef6f14789b3383bb1f7e8dc22b5958fd",
+      "size": 73,
+      "uid": 0,
+      "source": "recipe-generated-locked-account-database"
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0644",
+      "path": "/etc/shells",
+      "sha256": "a9f5aad99af6132362ca186b919dc84b9b6504a47a20064742fee3d6ba21eca1",
+      "size": 29,
+      "uid": 0,
+      "source": "recipe-generated-single-forced-shell"
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0755",
+      "path": "/usr/local/libexec/a90-pid1",
+      "sha256": "32157f0bd3833ba41f869aaa866b7299a95d2694eddd19f5d861c52d382e3bd6",
+      "size": 663848,
+      "uid": 0,
+      "source": "workspace/public/src/scripts/server-distro/a90_isolated_debian_content_v2/a90_pid1.c"
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0755",
+      "path": "/usr/local/libexec/a90-probe",
+      "sha256": "8e9b0b96dd2d0392eb66d3c931b4abbe1972425bbb53fdf222743ea9d77335c2",
+      "size": 598136,
+      "uid": 0,
+      "source": "workspace/public/src/scripts/server-distro/a90_isolated_debian_content_v2/a90_probe.c"
+    },
+    {
+      "gid": 0,
+      "kind": "file",
+      "mode": "0755",
+      "path": "/usr/local/libexec/a90-workload",
+      "sha256": "ad9cb7f51b1339af138c21ac58a815051373397133a65b88eb04c95ad9a058ce",
+      "size": 598136,
+      "uid": 0,
+      "source": "workspace/public/src/scripts/server-distro/a90_isolated_debian_content_v2/a90_workload.c"
+    },
+    {
+      "artifact_state": "deferred",
+      "gid": 0,
+      "kind": "file",
+      "mode": "0755",
+      "path": "/usr/sbin/dropbear",
+      "sha256": null,
+      "size": null,
+      "uid": 0,
+      "source": "workspace/private/inputs/a90-isolated-debian/dropbear-source"
+    }
+  ],
+  "dropbear": {
+    "path": "/usr/sbin/dropbear",
+    "binary_sha256": null,
+    "binary_state": "deferred-missing-private-source",
+    "non_privileged_port": 2222,
+    "argv": [
+      "/usr/sbin/dropbear",
+      "-F",
+      "-E",
+      "-s",
+      "-w",
+      "-j",
+      "-k",
+      "-a",
+      "-p",
+      "2222",
+      "-r",
+      "/etc/dropbear/dropbear_ed25519_host_key"
+    ],
+    "build": {
+      "source_path": "workspace/private/inputs/a90-isolated-debian/dropbear-source",
+      "source_sha256": null,
+      "static": true,
+      "pam": false,
+      "feature_macros": {
+        "DROPBEAR_SVR_PASSWORD_AUTH": false,
+        "DROPBEAR_SVR_PAM_AUTH": false,
+        "DROPBEAR_SVR_PUBKEY_AUTH": true,
+        "DROPBEAR_SVR_ROOTLOGIN": false,
+        "DROPBEAR_SVR_AGENTFWD": false,
+        "DROPBEAR_SVR_X11FWD": false,
+        "DROPBEAR_SVR_LOCALTCPFWD": false,
+        "DROPBEAR_SVR_REMOTETCPFWD": false,
+        "DROPBEAR_SVR_PTY": false,
+        "DROPBEAR_SVR_SUBSYSTEM": false,
+        "DROPBEAR_SVR_HOSTKEYGEN": false
+      },
+      "feature_matrix": {
+        "password_auth": false,
+        "empty_password_auth": false,
+        "none_authentication": false,
+        "keyboard_interactive_auth": false,
+        "pam_auth": false,
+        "public_key_auth": true,
+        "root_login": false,
+        "alternate_accounts": false,
+        "alternate_authorized_key_sources": false,
+        "general_shell": false,
+        "arbitrary_command": false,
+        "subsystem": false,
+        "pty": false,
+        "local_forwarding": false,
+        "remote_forwarding": false,
+        "agent_forwarding": false,
+        "x11_forwarding": false,
+        "host_key_generation": false
+      },
+      "enforcement": "compile-time-feature-removal-required; runtime-only-disablement-is-not-accepted",
+      "configuration_semantics_sha256": null
+    },
+    "launch_contract": {
+      "password": false,
+      "empty_password": false,
+      "none_authentication": false,
+      "keyboard_interactive": false,
+      "pam": false,
+      "root_login": false,
+      "alternate_accounts": false,
+      "alternate_authorized_key_sources": false,
+      "general_shell": false,
+      "arbitrary_command": false,
+      "subsystem": false,
+      "pty": false,
+      "local_forwarding": false,
+      "remote_forwarding": false,
+      "agent_forwarding": false,
+      "x11_forwarding": false,
+      "host_key_generation": false,
+      "foreground": true,
+      "stderr_only_logging": true
+    },
+    "session_contract": {
+      "account": "a90svc",
+      "forced_dispatcher": "/usr/local/libexec/a90-probe",
+      "accepted_client_key": "boot-private-ed25519-only",
+      "non_pty": true,
+      "max_sessions": 1,
+      "max_request_bytes": 128,
+      "max_output_bytes": 256
+    }
+  },
+  "filesystem": {
+    "label": "A90D4ROOT",
+    "marker": "userdata=appliance-root",
+    "type": "ext4",
+    "uuid": "300aaf21-412c-4238-9106-56414eaab105"
+  },
+  "forbidden_content": {
+    "firstboot_overlay": false,
+    "smoke_http": false,
+    "hud_intent_or_presenter": false,
+    "debian_wifi_helper": false,
+    "iw": false,
+    "general_ip": false,
+    "display_console_or_getty": false,
+    "setuid_executables": false,
+    "file_capability_executables": false,
+    "root_authorization": false,
+    "server_private_key_in_rootfs": false,
+    "native_wifi_configuration": false,
+    "native_veth_configuration": false,
+    "general_shell": false,
+    "arbitrary_command_or_subsystem": false,
+    "pty_or_devpts": false
+  },
+  "pid1": {
+    "path": "/usr/local/libexec/a90-pid1",
+    "argv": ["/usr/local/libexec/a90-pid1"],
+    "uid": 3301,
+    "gid": 3301,
+    "nonprivileged": true,
+    "consoleless": true,
+    "controlling_tty": false,
+    "historical_sysvinit_assumed": false,
+    "choice_justification": "A purpose-built static PIE owns one exact workload child, has no init-script or getty surface, and is entered only after trusted bootstrap has established the nonzero service identity and isolation envelope. The historical root-owned /usr/sbin/init is therefore neither reused nor treated as compatible."
+  },
+  "probe_dispatcher": {
+    "path": "/usr/local/libexec/a90-probe",
+    "argv": ["/usr/local/libexec/a90-probe", "--request=readiness"],
+    "shell_argv": ["/usr/local/libexec/a90-probe", "-c", "/usr/local/libexec/a90-probe --request=readiness"],
+    "request_grammar": "exactly --request=readiness; shell form is exactly -c plus the bound forced command",
+    "max_request_bytes": 128,
+    "max_output_bytes": 256,
+    "read_only": true,
+    "general_shell": false,
+    "arbitrary_command": false,
+    "subsystem": false,
+    "source_sha256": "a1e0fe967da22752ff379483ee563942490b4be699aac74a231eecc4012d4dca"
+  },
+  "schema": "a90-isolated-debian-ufs-content-manifest-v2",
+  "supersedes": "a90-h14-ufs-content-manifest-v1",
+  "selected_closure": "NESTED_PID_NAMESPACE_ISOLATION",
+  "status": "h0-specification-deferred",
+  "source_inputs": {
+    "pid1": {
+      "path": "workspace/public/src/scripts/server-distro/a90_isolated_debian_content_v2/a90_pid1.c",
+      "sha256": "fab6c8fd70840592517c0bc5a3ff82d4482339b9ade6fe83a2618a7ad3f6cf31"
+    },
+    "probe": {
+      "path": "workspace/public/src/scripts/server-distro/a90_isolated_debian_content_v2/a90_probe.c",
+      "sha256": "a1e0fe967da22752ff379483ee563942490b4be699aac74a231eecc4012d4dca"
+    },
+    "workload": {
+      "path": "workspace/public/src/scripts/server-distro/a90_isolated_debian_content_v2/a90_workload.c",
+      "sha256": "bff82d3eda4bdb239004d37834f03cd4cb51c97d98ea44fcd83bc737b732ac70"
+    },
+    "dropbear": {
+      "path": "workspace/private/inputs/a90-isolated-debian/dropbear-source",
+      "sha256": null,
+      "state": "missing-private-input"
+    }
+  },
+  "toolchain": {
+    "compiler": "aarch64-linux-gnu-gcc",
+    "source_date_epoch": 0,
+    "flags": [
+      "-std=c11",
+      "-O2",
+      "-pipe",
+      "-fPIE",
+      "-fno-ident",
+      "-ffunction-sections",
+      "-fdata-sections",
+      "-ffile-prefix-map=<repo>=/a90-source",
+      "-fdebug-prefix-map=<repo>=/a90-source",
+      "-D_FORTIFY_SOURCE=2",
+      "-fstack-protector-strong",
+      "-static-pie",
+      "-Wl,--gc-sections",
+      "-Wl,--build-id=none",
+      "-Wl,--strip-all"
+    ],
+    "trace": {
+      "method": "qemu-aarch64 user-mode tracing with registered binfmt_misc",
+      "status": "deferred-until-all-binaries-are-built",
+      "output_is_candidate_superset": true,
+      "later_on_device_negative_testing_required": true
+    }
+  },
+  "structural": {
+    "/srv/a90-service": {
+      "gid": 3301,
+      "kind": "directory",
+      "mode": "0750",
+      "uid": 3301
+    },
+    "/srv/a90-service/.ssh": {
+      "gid": 3301,
+      "kind": "directory",
+      "mode": "0700",
+      "uid": 3301
+    },
+    "/srv/a90-service/.ssh/authorized_keys": {
+      "content": "redacted-unbound",
+      "gid": 3301,
+      "kind": "file",
+      "mode": "0600",
+      "nonempty": true,
+      "uid": 3301
+    },
+    "/var/empty": {
+      "gid": 3302,
+      "kind": "directory",
+      "mode": "0700",
+      "uid": 3302
+    },
+    "/etc/a90-dpublic/wifi-sta-enable": {
+      "kind": "absent",
+      "reason": "native Wi-Fi owner and no Debian helper"
+    },
+    "/etc/a90-dpublic/wifi-sta-immediate-snapshot-only": {
+      "kind": "absent",
+      "reason": "native Wi-Fi owner and no Debian helper"
+    }
+  },
+  "usrmerge_symlinks": {
+    "/bin": "usr/bin",
+    "/lib": "usr/lib",
+    "/sbin": "usr/sbin"
+  },
+  "workload": {
+    "path": "/usr/local/libexec/a90-workload",
+    "argv": ["/usr/local/libexec/a90-workload", "--serve"],
+    "uid": 3301,
+    "gid": 3301,
+    "readiness_record": "A90_WORKLOAD_V1 ready=1\n",
+    "readiness_path": "/run/a90/workload.ready",
+    "source_sha256": "bff82d3eda4bdb239004d37834f03cd4cb51c97d98ea44fcd83bc737b732ac70"
+  },
+  "writable_tmpfs": [
+    {
+      "path": "/run/a90",
+      "uid": 3301,
+      "gid": 3301,
+      "mode": "0755",
+      "max_bytes": 4096,
+      "max_inodes": 4,
+      "allowed_paths": ["/run/a90/workload.ready"],
+      "rootfs_creates_mount": false
+    }
+  ]
+}
