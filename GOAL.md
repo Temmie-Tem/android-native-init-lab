@@ -863,8 +863,11 @@ Three same-byte path receipts remain required. The classifier now has 240
 inputs and 12 decision partitions, excludes input echoes from the partition
 digest, and tests branch/output mutations against an independent rule oracle.
 The prior `PASS_GO — S22PLUS_FYG8_P318_TOPOLOGY_TIMING_DESIGN_H0_CAPABILITY_V1`
-is withdrawn; status is `CHANGES_REQUIRED`. Producer, envelope, packaging, and
-live authority are absent; P3.18 is not candidate-ready. Detailed report:
+is withdrawn. Independent review of correction commit `4f54675d1a` returned
+`PASS_GO — S22PLUS_FYG8_P318_TOPOLOGY_TIMING_DESIGN_H0_CAPABILITY_V2` for the
+exact corrected H0 design and boundary. The component banner contract remains
+`CHANGES_REQUIRED`; producer, absolute-deadline helper, envelope, packaging,
+and live authority are absent, so P3.18 remains candidate-not-ready. Detailed report:
 `docs/reports/S22PLUS_FYG8_P317_CDC_ACM_ENDPOINT_SELECTOR_CORRECTION_H0_2026-08-14.md`.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden

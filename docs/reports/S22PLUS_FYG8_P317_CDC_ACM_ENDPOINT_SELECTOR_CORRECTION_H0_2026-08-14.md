@@ -2,7 +2,7 @@
 
 Date: 2026-08-14 KST
 Target: Samsung Galaxy S22+ FYG8 only
-Status: **H0 DESIGN CHANGES_REQUIRED; PRIOR PASS_GO WITHDRAWN; NO LIVE AUTHORITY**
+Status: **H0 DESIGN PASS_GO V2; CANDIDATE-NOT-READY; NO LIVE AUTHORITY**
 
 ## Result first
 
@@ -356,13 +356,20 @@ returns had no terminal row, and `trace.h` was not a receipt input. This
 revision separates the DWC3-event/no-endpoint result, adds receipt completeness
 to the exhaustive cross-product, specifies a once-initialized absolute
 deadline and a total 344-row banner domain, and binds the callback ABI and
-`ep0state` through the exact `trace.h` bytes. Those corrections remain subject
-to a fresh independent review.
-The current verdict is `CHANGES_REQUIRED`; a new independent review is needed
-after the corrected receipts and tests close.
+`ep0state` through the exact `trace.h` bytes.
+
+Fresh independent review of commit `4f54675d1a` regenerated both receipts,
+rejected the host-event/endpoint and receipt-completeness counterexamples over
+the 36,864-row audit, proved the valid 344-row banner domain plus 56 rejected
+rows, and mutation-tested the exact `trace.h` ABI. Focused 46/46, Process-v2
+120/120, and extended common 167/167 (one skip) passed. It returned:
+
+`PASS_GO — S22PLUS_FYG8_P318_TOPOLOGY_TIMING_DESIGN_H0_CAPABILITY_V2`
 
 P3.18 is not candidate-ready. No live selector transition is authorized, the
 new banner/timing envelope encoder/decoder has not been implemented, and no
 package or Process-v2 binding exists. The target-contract recovery-boundary
-change no longer carries a reusable PASS verdict. This H0 correction grants no
-D0, D1, F1, recovery, or live authority.
+change and design are qualified only at the exact V2 H0 closure. The component
+banner receipt deliberately remains `CHANGES_REQUIRED` until the producer,
+absolute-deadline helper, real Envelope-v4 path, and package exist. This H0
+PASS grants no D0, D1, F1, recovery, or live authority.
