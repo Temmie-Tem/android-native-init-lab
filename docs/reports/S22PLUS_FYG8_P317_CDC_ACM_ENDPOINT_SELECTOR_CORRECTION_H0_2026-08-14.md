@@ -91,8 +91,8 @@ Private receipt:
 
 ```text
 endpoint-transition-20260814-01.json
-size    4630
-sha256  d8ec779eba33ae1855fcf50147306a5e92ed37fec423fa5b685def8fd4da2851
+size    6639
+sha256  321636bb5dc2d1741b3e4732829eb9b0c55d9477dbbb3e6e28e8422e6dfae65a
 verdict PASS_P318_P317_PHYSICAL_TOPOLOGY_DRIFT_LOCALIZATION_H0
 ```
 
@@ -177,12 +177,37 @@ Private receipt:
 
 ```text
 banner-result-contract-20260814-01.json
-size    4194
-sha256  e15af9b96dc7109297babd482ddd4ca4e1cb6f435f6c27a9a7e3903fbc36b57a
-verdict PASS_P318_BANNER_RESULT_DESIGN_H0_IMPLEMENTATION_REQUIRED
+size    8087
+sha256  8bfac3eead09db039fd5d05a7657203f9f9c386578943cb495f71f5148b355a7
+verdict PASS_P318_ENVELOPE_V4_TIMING_BANNER_BUDGET_DESIGN_H0_IMPLEMENTATION_REQUIRED
 ```
 
-## Timing correction and successor correlation requirement
+## Physical-topology continuity and rollback recovery
+
+P3.17 proves that the Download-era endpoint binding is invalidated if the
+operator moves the cable, dock, or host port before candidate observation
+closes. The S22+ target contract now prohibits that movement. A mismatch is
+`NO_PROOF_EXPERIMENT_PRECONDITION`; it never widens the live selector and the
+unapproved endpoint is not opened.
+
+The same mismatch also invalidates the old rollback endpoint binding. It is
+therefore not enough to say that rollback “continues.” Mandatory rollback
+remains required, but the run must park without new effects until a
+bounded, independently reviewed recovery-only path re-establishes one exact
+current Download/rollback endpoint. Only then may the predeclared exact
+rollback resume from the durable journal; candidate replay remains forbidden.
+
+A successor records three path boundaries: approved Download start,
+candidate-observer end, and fresh rollback Download. Each includes the
+endpoint identity, topology, controller/device-path digests, match count, and
+an immutable raw-snapshot size/hash made from the same bytes that are parsed.
+It decodes to exactly one of `same`, `drift`, `absent`, `ambiguous`, or
+`unavailable`. Drift, absence, and ambiguity are experiment-precondition
+no-proof; unavailable/truncated input is observer no-proof. Every non-exact
+rollback state parks. A path mismatch can prove drift, but it cannot
+manufacture proof that a person physically moved the cable.
+
+## Timing correction and Envelope-v4 budget
 
 The host sidecar's `armed.json` is not the candidate-internal “sidecar arm
 proof” in the runtime ordering. It was published before the candidate flash
@@ -194,24 +219,46 @@ cannot distinguish gadget-ready enumeration from post-CONTROL1 enumeration.
 Extending the existing sidecar window is not sufficient. Its sealed result
 shows that kernel and udev capture continued until `17:08:53Z`, roughly 250
 seconds after the candidate enumerated, while the kernel log contains no later
-USB event. Absence of a later event supplies no post1 or post2 timestamp. A
-successor must instead retain an explicit correlation between the host time
-axis and at least one diagnostic boundary (post1 or post2). The correlation
-must not depend on accepting an unapproved USB topology, must survive the real
-encoder/Carrier/decoder path, and must distinguish correlation failure from a
-device result.
+USB event. Absence of a later event supplies no post1 or post2 timestamp.
+Gadget readiness is also not a host anchor: the host may enumerate an
+arbitrary time later.
+
+The successor instead latches the first actual host-caused device event —
+`RESET`, `CONNECT_DONE`, or `SETUP` — on the same device monotonic clock as
+`pre`, `write`, `post1`, and `post2`. No host/device wall-clock synchronization
+is needed. `pre` is the zero origin and four signed 32-bit microsecond deltas
+represent all five samples. A validity mask distinguishes a missing host event
+from a zero delta. If the host-event delta precedes the write delta, host
+traffic existed before the MUX write. If write precedes the event, the write
+preceded first host traffic but causation is still not proved. Equality,
+missing data, or clock-source mismatch permits no MUX causal claim.
+The four device samples are mandatory and ordered
+`pre <= write <= post1 < post2`; only validity masks `0x0f` (no host event) and
+`0x1f` (one latched host event) are legal. A clock read failure is an observer
+failure, not a device result.
+
+Envelope-v3 has no generic free 44-byte region. Its fixed geometry is 128-byte
+Carrier/envelope = 48-byte metadata + 76-byte payload + 4-byte CRC. Envelope-v4
+reserves 18 payload bytes for the validity mask, host-event kind, and four
+signed deltas, plus 3 bytes for banner outcome, byte count, and error class.
+The prefix is therefore 21 bytes and the lossless PackBits poll capacity falls
+from 76 to 55 bytes. The existing 44-byte overflow summary (SHA-256 32 + OR 4
++ poll0 4 + nonzero-count 4) occupies 65 bytes with the prefix and leaves 11
+zero-reserved bytes. Overflow remains non-causal. The 55/56-byte boundary,
+five timing samples, banner outcomes, and same-clock ordering must all
+cross the real encoder, Carrier, and host decoder before any successor use.
 
 ## Validation and remaining boundary
 
-The three new focused modules pass 25/25, including the requested topology
-negatives, source-seam mutations, and banner ordering/write-helper mutations.
-A separate documentation/receipt binding module passes 5/5, for a 30/30
-P3.18 unit total. Python compilation passes. No device command, USB open, reboot,
+The three focused P3.18 modules pass 30/30 and the documentation/receipt
+binding module passes 6/6, for a 36/36 unit total after the Envelope-v4 and
+topology-continuity receipts are regenerated. Python compilation passes. No
+device command, USB open, reboot,
 Odin invocation, payload, partition transfer, candidate replay, recovery
 action, A90 action, or S20+ action occurred.
 
 P3.18 is not candidate-ready. No live selector transition is authorized, the
-new banner envelope/encoder/decoder has not been implemented, and no package,
-Process-v2 binding, or host-time correlation witness exists. Independent
-review is still required. This H0 unit
+new banner/timing envelope encoder/decoder has not been implemented, and no
+package or Process-v2 binding exists. The target-contract recovery-boundary
+change requires independent review. This H0 unit
 grants no D0, D1, F1, recovery, or live authority.

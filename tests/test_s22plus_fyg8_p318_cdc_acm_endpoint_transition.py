@@ -118,6 +118,34 @@ class P318EndpointTransitionTest(unittest.TestCase):
             "exact-candidate-topology-drift",
         )
         self.assertFalse(result["topology_drift_assessment"]["open_permitted"])
+        continuity = result["successor_topology_continuity"]
+        self.assertEqual(
+            continuity["path_states"],
+            ["same", "drift", "absent", "ambiguous", "unavailable"],
+        )
+        self.assertFalse(continuity["widen_live_selector_on_drift"])
+        self.assertFalse(continuity["rollback_against_drifted_path_authorized"])
+        self.assertTrue(continuity["park_without_new_effects_until_reestablished"])
+        self.assertTrue(continuity["candidate_replay_forbidden"])
+        record = continuity["path_record_schema"]
+        self.assertEqual(
+            record["phases"],
+            ["download_start", "candidate_end", "rollback_download"],
+        )
+        self.assertTrue(record["same_bytes_parsed_and_hashed"])
+        self.assertTrue(record["raw_snapshot_private"])
+        self.assertEqual(
+            continuity["state_effects"]["unavailable"],
+            "NO_PROOF_OBSERVER and park",
+        )
+        self.assertEqual(
+            continuity["state_effects"]["drift"],
+            "NO_PROOF_EXPERIMENT_PRECONDITION and park",
+        )
+        self.assertEqual(
+            continuity["rollback_transfer_requires_state"],
+            "same_and_fresh_exact_download_binding",
+        )
         self.assertFalse(authority["observed_transition_authorizes_selection"])
         self.assertEqual(
             result["scope"]["effective_proof_class"],

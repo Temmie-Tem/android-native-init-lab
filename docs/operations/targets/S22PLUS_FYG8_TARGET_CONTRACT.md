@@ -144,6 +144,26 @@ and the uncertain candidate is never replayed. Passive host observation and
 the exact predeclared rollback continue until final FYG8 health is proved or
 the predeclared recovery path is exhausted.
 
+**Physical-topology continuity.** From the exact Download endpoint binding
+through candidate-observer closure, the operator must not disconnect, move,
+or reroute the data cable, dock, or host port. A topology mismatch invalidates
+the experiment precondition: the observer must not widen its selector or open
+the unapproved endpoint, and the experimental result is
+`NO_PROOF_EXPERIMENT_PRECONDITION`.
+
+Process-v2 evidence must retain the exact endpoint identity, topology, host
+controller/device path, and immutable raw-snapshot receipt at approved Download
+start and candidate-observer closure. Before rollback transfer it must retain a
+fresh exact Download/rollback binding with the same fields. A missing,
+truncated, or unreadable snapshot is an observer failure, not proof of path
+continuity.
+
+A drifted topology does not authorize rollback against the new path. Mandatory
+rollback remains required, but the run parks without new device effects until
+a bounded, independently reviewed recovery-only path re-establishes one exact
+current rollback endpoint. Only then may the predeclared exact rollback resume
+from durable journal state. Candidate replay remains forbidden.
+
 - Use Odin with ordinary regular `.tar.md5` paths. Each candidate and rollback
   AP must contain exactly one regular `boot.img.lz4` and no forbidden member.
 - Process-v2 requires a new immutable manifest, exact D0, one fresh

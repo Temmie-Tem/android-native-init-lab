@@ -33,6 +33,10 @@ class P318BannerResultContractTest(unittest.TestCase):
             "materialized_data": (ROOT / P318.DEFAULT_MATERIALIZED).read_bytes(),
             "p260_data": (ROOT / P318.DEFAULT_P260_RUNTIME).read_bytes(),
             "envelope_data": (ROOT / P318.DEFAULT_P317_ENVELOPE).read_bytes(),
+            "base_envelope_data": (ROOT / P318.DEFAULT_BASE_ENVELOPE).read_bytes(),
+            "dwc3_core_data": (ROOT / P318.DEFAULT_DWC3_CORE).read_bytes(),
+            "dwc3_gadget_data": (ROOT / P318.DEFAULT_DWC3_GADGET).read_bytes(),
+            "dwc3_ep0_data": (ROOT / P318.DEFAULT_DWC3_EP0).read_bytes(),
             "extractor_data": SCRIPT.read_bytes(),
         }
 
@@ -47,6 +51,10 @@ class P318BannerResultContractTest(unittest.TestCase):
         )
         self.assertTrue(
             result["successor"]["schema"]["new_envelope_version_required"]
+        )
+        self.assertEqual(result["successor"]["schema"]["envelope_version"], 4)
+        self.assertTrue(
+            result["host_event_source_audit"]["setup_completion_source_bound"]
         )
         self.assertFalse(result["scope"]["p318_candidate_ready"])
 
@@ -106,6 +114,70 @@ class P318BannerResultContractTest(unittest.TestCase):
         )
         self.assertEqual(successor["attempt"]["count"], 1)
         self.assertTrue(successor["attempt"]["retry_after_terminal_forbidden"])
+
+    def test_v4_timing_banner_and_poll_budget_is_exact(self):
+        budget = P318.validate_v4_budget()
+        self.assertEqual(
+            budget["metadata_size"]
+            + budget["payload_size"]
+            + budget["crc_size"],
+            budget["envelope_size"],
+        )
+        self.assertEqual(budget["v4_prefix_size"], 21)
+        self.assertEqual(budget["lossless_poll_capacity"], 55)
+        self.assertEqual(budget["overflow_summary_size"], 44)
+        self.assertEqual(budget["overflow_total_size"], 65)
+        self.assertEqual(budget["overflow_spare_size"], 11)
+        self.assertGreaterEqual(
+            budget["signed_delta_us_max"], budget["process_v2_guard_us"]
+        )
+
+    def test_v4_budget_mutations_fail_closed(self):
+        cases = (
+            {"payload_size": 75},
+            {"timing_prefix_size": 17},
+            {"banner_prefix_size": 4},
+            {"overflow_summary_size": 43},
+        )
+        for kwargs in cases:
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaises(P318.BannerContractError):
+                    P318.validate_v4_budget(**kwargs)
+
+    def test_only_actual_host_caused_events_are_timing_anchors(self):
+        timing = P318.successor_contract()["timing"]
+        self.assertEqual(
+            timing["first_host_event_kinds"],
+            ["none", "reset", "connect_done", "setup"],
+        )
+        self.assertNotIn("gadget_ready", timing["first_host_event_kinds"])
+        self.assertTrue(timing["gadget_ready_is_host_event_forbidden"])
+        self.assertFalse(timing["cross_clock_synchronization_required"])
+        self.assertEqual(
+            timing["encoding"],
+            "pre_is_zero_origin_plus_four_signed_int32_microsecond_deltas",
+        )
+        self.assertEqual(timing["allowed_validity_masks"], [0x0F, 0x1F])
+        self.assertEqual(
+            timing["required_device_sample_order"],
+            "pre <= write <= post1 < post2",
+        )
+
+    def test_poll_boundary_and_overflow_remain_fail_closed(self):
+        poll = P318.successor_contract()["poll_evidence"]
+        self.assertEqual(poll["lossless_boundary_preimages"], [55, 56])
+        self.assertEqual(poll["overflow_summary_size"], 44)
+        self.assertFalse(poll["overflow_causal_result_allowed"])
+
+    def test_host_event_source_dispatch_mutation_fails(self):
+        values = self.inputs()
+        values["dwc3_gadget_data"] = values["dwc3_gadget_data"].replace(
+            b"case DWC3_DEVICE_EVENT_CONNECT_DONE:",
+            b"case DWC3_DEVICE_EVENT_CONNECT_DONX:",
+            1,
+        )
+        with self.assertRaisesRegex(P318.BannerContractError, "source seam"):
+            P318.build_contract(**values)
 
 
 if __name__ == "__main__":

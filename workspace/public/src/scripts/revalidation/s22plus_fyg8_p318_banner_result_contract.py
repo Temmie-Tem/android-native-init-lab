@@ -5,7 +5,9 @@ P3.17 publishes its retained terminal before calling p260_write_banner() and
 discards the return value.  No after-the-fact stage can repair that ordering.
 This host-only contract requires a future candidate to perform one bounded
 attempt first, retain its outcome and byte count in a new envelope version,
-and publish the terminal even when banner delivery fails.
+and publish the terminal even when banner delivery fails.  Envelope-v4 also
+retains five same-clock timing samples and the first actual host-caused USB
+event without pretending that gadget readiness is a host/time-axis anchor.
 """
 
 from __future__ import annotations
@@ -17,8 +19,11 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-SCHEMA = "s22plus_fyg8_p318_banner_result_contract_v1"
-VERDICT = "PASS_P318_BANNER_RESULT_DESIGN_H0_IMPLEMENTATION_REQUIRED"
+SCHEMA = "s22plus_fyg8_p318_envelope_v4_design_contract_v2"
+VERDICT = (
+    "PASS_P318_ENVELOPE_V4_TIMING_BANNER_BUDGET_DESIGN_H0_"
+    "IMPLEMENTATION_REQUIRED"
+)
 DEFAULT_MATERIALIZED = Path(
     "workspace/private/outputs/s22plus_fyg8_p317/intent/materialized-sources/"
     "s22plus_fyg8_p290_e3_runtime.inc.c"
@@ -30,8 +35,44 @@ DEFAULT_P317_ENVELOPE = Path(
     "workspace/public/src/native-init/"
     "s22plus_fyg8_p317_max77705_envelope.inc.c"
 )
+DEFAULT_BASE_ENVELOPE = Path(
+    "workspace/public/src/native-init/s22plus_fyg8_max77705_envelope.inc.c"
+)
+DEFAULT_DWC3_CORE = Path(
+    "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/"
+    "kernel_platform/common/drivers/usb/dwc3/core.h"
+)
+DEFAULT_DWC3_GADGET = Path(
+    "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/"
+    "kernel_platform/common/drivers/usb/dwc3/gadget.c"
+)
+DEFAULT_DWC3_EP0 = Path(
+    "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/"
+    "kernel_platform/common/drivers/usb/dwc3/ep0.c"
+)
 
 OUTCOMES = ("written", "eagain_timeout", "errno", "partial")
+HOST_EVENT_KINDS = ("none", "reset", "connect_done", "setup")
+TIMING_SAMPLES = ("pre", "write", "post1", "post2", "first_host_event")
+
+ENVELOPE_SIZE = 128
+METADATA_SIZE = 48
+CRC_SIZE = 4
+PAYLOAD_SIZE = 76
+TIMING_VALID_MASK_SIZE = 1
+HOST_EVENT_KIND_SIZE = 1
+TIMING_DELTA_COUNT = 4
+TIMING_DELTA_SIZE = 4
+TIMING_PREFIX_SIZE = 18
+BANNER_PREFIX_SIZE = 3
+V4_PREFIX_SIZE = 21
+LOSSLESS_POLL_CAPACITY = 55
+OVERFLOW_SUMMARY_SIZE = 44
+OVERFLOW_TOTAL_SIZE = 65
+OVERFLOW_SPARE_SIZE = 11
+SIGNED_DELTA_US_MIN = -(2**31)
+SIGNED_DELTA_US_MAX = 2**31 - 1
+PROCESS_V2_GUARD_SECONDS = 1200
 PREIMAGE_OBLIGATIONS = (
     {"outcome": "written", "bytes_written": 49, "error_class": "none"},
     {"outcome": "eagain_timeout", "bytes_written": 0, "error_class": "timeout"},
@@ -43,6 +84,61 @@ PREIMAGE_OBLIGATIONS = (
 
 class BannerContractError(ValueError):
     pass
+
+
+def validate_v4_budget(
+    *,
+    envelope_size: int = ENVELOPE_SIZE,
+    metadata_size: int = METADATA_SIZE,
+    crc_size: int = CRC_SIZE,
+    payload_size: int = PAYLOAD_SIZE,
+    timing_prefix_size: int = TIMING_PREFIX_SIZE,
+    banner_prefix_size: int = BANNER_PREFIX_SIZE,
+    overflow_summary_size: int = OVERFLOW_SUMMARY_SIZE,
+) -> dict[str, int]:
+    derived_payload = envelope_size - metadata_size - crc_size
+    expected_timing = (
+        TIMING_VALID_MASK_SIZE
+        + HOST_EVENT_KIND_SIZE
+        + TIMING_DELTA_COUNT * TIMING_DELTA_SIZE
+    )
+    if envelope_size != 128 or derived_payload != payload_size or payload_size != 76:
+        raise BannerContractError("Envelope-v4 fixed Carrier geometry differs")
+    if timing_prefix_size != expected_timing or timing_prefix_size != 18:
+        raise BannerContractError("Envelope-v4 timing prefix geometry differs")
+    if banner_prefix_size != 3:
+        raise BannerContractError("Envelope-v4 banner prefix geometry differs")
+    prefix_size = timing_prefix_size + banner_prefix_size
+    lossless_capacity = payload_size - prefix_size
+    overflow_total = prefix_size + overflow_summary_size
+    overflow_spare = payload_size - overflow_total
+    if (
+        prefix_size != 21
+        or lossless_capacity != 55
+        or overflow_summary_size != 44
+        or overflow_total != 65
+        or overflow_spare != 11
+    ):
+        raise BannerContractError("Envelope-v4 timing/poll budget differs")
+    guard_us = PROCESS_V2_GUARD_SECONDS * 1_000_000
+    if SIGNED_DELTA_US_MAX < guard_us or SIGNED_DELTA_US_MIN > -guard_us:
+        raise BannerContractError("Envelope-v4 signed delta cannot span guard")
+    return {
+        "envelope_size": envelope_size,
+        "metadata_size": metadata_size,
+        "payload_size": payload_size,
+        "crc_size": crc_size,
+        "timing_prefix_size": timing_prefix_size,
+        "banner_prefix_size": banner_prefix_size,
+        "v4_prefix_size": prefix_size,
+        "lossless_poll_capacity": lossless_capacity,
+        "overflow_summary_size": overflow_summary_size,
+        "overflow_total_size": overflow_total,
+        "overflow_spare_size": overflow_spare,
+        "signed_delta_us_min": SIGNED_DELTA_US_MIN,
+        "signed_delta_us_max": SIGNED_DELTA_US_MAX,
+        "process_v2_guard_us": guard_us,
+    }
 
 
 def repo_root() -> Path:
@@ -133,11 +229,15 @@ def _require_tokens(text: str, label: str, tokens: Iterable[str]) -> None:
 
 
 def audit_current_sources(
-    materialized_data: bytes, p260_data: bytes, envelope_data: bytes
+    materialized_data: bytes,
+    p260_data: bytes,
+    envelope_data: bytes,
+    base_envelope_data: bytes,
 ) -> dict[str, Any]:
     materialized = _text(materialized_data, "P3.17 materialized runtime")
     p260 = _text(p260_data, "P2.60 banner helper")
     envelope = _text(envelope_data, "P3.17 envelope")
+    base_envelope = _text(base_envelope_data, "Max77705 base envelope")
     publish = _function(
         materialized,
         "static __attribute__((noreturn)) void p317_publish(",
@@ -183,6 +283,17 @@ def audit_current_sources(
             "envelope[4] = S22PLUS_MAX77705_P317_ENVELOPE_VERSION;",
         ),
     )
+    _require_tokens(
+        base_envelope,
+        "Max77705 fixed envelope geometry",
+        (
+            "#define S22PLUS_MAX77705_ENVELOPE_SIZE 128U",
+            "#define S22PLUS_MAX77705_ENVELOPE_CRC_OFFSET 124U",
+            "#define S22PLUS_MAX77705_ENVELOPE_PAYLOAD_OFFSET 48U",
+            "#define S22PLUS_MAX77705_ENVELOPE_PAYLOAD_SIZE 76U",
+            "#define S22PLUS_MAX77705_ENVELOPE_OVERFLOW_SIZE 44U",
+        ),
+    )
     return {
         "active_entrypoint": "p290_e3_run -> p317_run -> p317_publish",
         "terminal_before_banner": True,
@@ -199,7 +310,64 @@ def audit_current_sources(
     }
 
 
+def audit_host_event_sources(
+    core_data: bytes, gadget_data: bytes, ep0_data: bytes
+) -> dict[str, Any]:
+    core = _text(core_data, "DWC3 core header")
+    gadget = _text(gadget_data, "DWC3 gadget source")
+    ep0 = _text(ep0_data, "DWC3 EP0 source")
+    _require_tokens(
+        core,
+        "DWC3 host-caused device-event constants",
+        (
+            "#define DWC3_DEVICE_EVENT_RESET\t\t\t1",
+            "#define DWC3_DEVICE_EVENT_CONNECT_DONE\t\t2",
+        ),
+    )
+    interrupt = _function(
+        gadget,
+        "static void dwc3_gadget_interrupt(struct dwc3 *dwc,",
+    )
+    _require_tokens(
+        interrupt,
+        "DWC3 device-event dispatch",
+        (
+            "case DWC3_DEVICE_EVENT_RESET:",
+            "dwc3_gadget_reset_interrupt(dwc);",
+            "case DWC3_DEVICE_EVENT_CONNECT_DONE:",
+            "dwc3_gadget_conndone_interrupt(dwc);",
+        ),
+    )
+    ep0_interrupt = _function(ep0, "void dwc3_ep0_interrupt(struct dwc3 *dwc,")
+    ep0_complete = _function(
+        ep0, "static void dwc3_ep0_xfer_complete(struct dwc3 *dwc,"
+    )
+    _require_tokens(
+        ep0_interrupt,
+        "DWC3 EP0 completion dispatch",
+        (
+            "case DWC3_DEPEVT_XFERCOMPLETE:",
+            "dwc3_ep0_xfer_complete(dwc, event);",
+        ),
+    )
+    _require_tokens(
+        ep0_complete,
+        "DWC3 SETUP completion seam",
+        (
+            "case EP0_SETUP_PHASE:",
+            "dwc3_ep0_inspect_setup(dwc, event);",
+        ),
+    )
+    return {
+        "reset_dispatch_source_bound": True,
+        "connect_done_dispatch_source_bound": True,
+        "setup_completion_source_bound": True,
+        "gadget_ready_used_as_host_event": False,
+    }
+
+
 def successor_contract() -> dict[str, Any]:
+    budget = validate_v4_budget()
     return {
         "status": "DESIGN_ONLY_NOT_IMPLEMENTED",
         "ordering": [
@@ -232,13 +400,80 @@ def successor_contract() -> dict[str, Any]:
             "banner_outcome",
             "banner_bytes_written",
             "banner_error_class",
+            "timing_valid_mask",
+            "first_host_event_kind",
+            "write_delta_us_from_pre",
+            "post1_delta_us_from_pre",
+            "post2_delta_us_from_pre",
+            "first_host_event_delta_us_from_pre",
         ],
         "schema": {
             "carrier_size": 128,
             "carrier_resize_forbidden": True,
+            "envelope_version": 4,
             "new_envelope_version_required": True,
             "v3_reserved_byte_reinterpretation_forbidden": True,
             "registered_terminal_details_required": True,
+            "budget": budget,
+            "payload_layout": [
+                "18_byte_same_clock_timing_prefix",
+                "3_byte_banner_result_prefix",
+                "packbits_poll_up_to_55_bytes_or_44_byte_overflow_summary",
+            ],
+        },
+        "timing": {
+            "samples": list(TIMING_SAMPLES),
+            "encoding": (
+                "pre_is_zero_origin_plus_four_signed_int32_microsecond_deltas"
+            ),
+            "clock_domain": "one_kernel_monotonic_clock_domain",
+            "cross_clock_synchronization_required": False,
+            "first_host_event_kinds": list(HOST_EVENT_KINDS),
+            "host_event_latched_once": True,
+            "gadget_ready_is_host_event_forbidden": True,
+            "absent_host_event_has_validity_bit_zero": True,
+            "validity_bits": {
+                "bit0": "pre",
+                "bit1": "write",
+                "bit2": "post1",
+                "bit3": "post2",
+                "bit4": "first_host_event",
+            },
+            "allowed_validity_masks": [15, 31],
+            "required_device_sample_order": "pre <= write <= post1 < post2",
+            "host_event_kind_pairing": (
+                "mask_0x0f_requires_none; mask_0x1f_requires_"
+                "reset_connect_done_or_setup"
+            ),
+            "clock_read_failure": (
+                "observer_failure_distinct_from_device_result_and_no_causal_claim"
+            ),
+            "event_before_write": (
+                "first_host_event_delta_us < write_delta_us; host traffic "
+                "preceded the MUX write"
+            ),
+            "write_before_event": (
+                "write_delta_us < first_host_event_delta_us; MUX write "
+                "preceded first host traffic but causation is not proven"
+            ),
+            "equal_or_absent": "ambiguous ordering; no MUX causation claim",
+            "implementation_gate": (
+                "diagnostic samples and DWC3 RESET/CONNECT_DONE/SETUP latch "
+                "must prove the exact same monotonic clock primitive"
+            ),
+        },
+        "poll_evidence": {
+            "lossless_encoding": "PackBits",
+            "lossless_capacity": budget["lossless_poll_capacity"],
+            "overflow_summary_size": budget["overflow_summary_size"],
+            "overflow_summary_fields": [
+                "sha256_32",
+                "or_mask_4",
+                "poll0_4",
+                "nonzero_count_4",
+            ],
+            "overflow_causal_result_allowed": False,
+            "lossless_boundary_preimages": [55, 56],
         },
         "arming": {
             "real_encoder_carrier_decoder_required": True,
@@ -247,6 +482,10 @@ def successor_contract() -> dict[str, Any]:
             "written_bytes_outside_0_to_49_rejected": True,
             "written_outcome_with_non49_count_rejected": True,
             "partial_outcome_with_boundary_count_rejected": True,
+            "only_validity_masks_0x0f_and_0x1f_allowed": True,
+            "gadget_ready_event_kind_rejected": True,
+            "lossless_55_and_overflow_56_preimages_required": True,
+            "same_clock_ordering_preimages_required": True,
         },
         "interpretation": {
             "written": "device accepted all 49 bytes into the gadget write path",
@@ -267,6 +506,10 @@ def build_contract(
     materialized_data: bytes,
     p260_data: bytes,
     envelope_data: bytes,
+    base_envelope_data: bytes,
+    dwc3_core_data: bytes,
+    dwc3_gadget_data: bytes,
+    dwc3_ep0_data: bytes,
     extractor_data: bytes,
 ) -> dict[str, Any]:
     return {
@@ -276,10 +519,17 @@ def build_contract(
             "p317_materialized_runtime": receipt(materialized_data),
             "p260_banner_helper": receipt(p260_data),
             "p317_envelope": receipt(envelope_data),
+            "max77705_base_envelope": receipt(base_envelope_data),
+            "dwc3_core_header": receipt(dwc3_core_data),
+            "dwc3_gadget_source": receipt(dwc3_gadget_data),
+            "dwc3_ep0_source": receipt(dwc3_ep0_data),
             "extractor": receipt(extractor_data),
         },
         "current": audit_current_sources(
-            materialized_data, p260_data, envelope_data
+            materialized_data, p260_data, envelope_data, base_envelope_data
+        ),
+        "host_event_source_audit": audit_host_event_sources(
+            dwc3_core_data, dwc3_gadget_data, dwc3_ep0_data
         ),
         "successor": successor_contract(),
         "scope": {
@@ -302,6 +552,10 @@ def main() -> int:
     parser.add_argument("--materialized", type=Path, default=DEFAULT_MATERIALIZED)
     parser.add_argument("--p260-runtime", type=Path, default=DEFAULT_P260_RUNTIME)
     parser.add_argument("--p317-envelope", type=Path, default=DEFAULT_P317_ENVELOPE)
+    parser.add_argument("--base-envelope", type=Path, default=DEFAULT_BASE_ENVELOPE)
+    parser.add_argument("--dwc3-core", type=Path, default=DEFAULT_DWC3_CORE)
+    parser.add_argument("--dwc3-gadget", type=Path, default=DEFAULT_DWC3_GADGET)
+    parser.add_argument("--dwc3-ep0", type=Path, default=DEFAULT_DWC3_EP0)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     root = args.repo.resolve()
@@ -319,6 +573,18 @@ def main() -> int:
         ),
         envelope_data=stable_read(
             resolve(args.p317_envelope), "P3.17 envelope", 2**20
+        ),
+        base_envelope_data=stable_read(
+            resolve(args.base_envelope), "Max77705 base envelope", 2**20
+        ),
+        dwc3_core_data=stable_read(
+            resolve(args.dwc3_core), "DWC3 core header", 2**20
+        ),
+        dwc3_gadget_data=stable_read(
+            resolve(args.dwc3_gadget), "DWC3 gadget source", 2**24
+        ),
+        dwc3_ep0_data=stable_read(
+            resolve(args.dwc3_ep0), "DWC3 EP0 source", 2**24
         ),
         extractor_data=stable_read(extractor_path, "banner result contract", 2**20),
     )

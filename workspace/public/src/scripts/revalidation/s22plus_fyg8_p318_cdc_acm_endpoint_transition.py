@@ -700,6 +700,55 @@ def build_contract(
             "effective_classification": "exact-candidate-topology-drift",
         },
         "topology_drift_assessment": drift,
+        "successor_topology_continuity": {
+            "operator_rule": (
+                "do_not_disconnect_move_or_reroute_data_cable_dock_or_host_port_"
+                "from_download_binding_through_candidate_observer_closure"
+            ),
+            "path_receipts": [
+                "approved_download_start_path_and_controller",
+                "candidate_observer_end_path_and_controller",
+                "fresh_rollback_download_path_and_controller",
+            ],
+            "path_record_schema": {
+                "phases": ["download_start", "candidate_end", "rollback_download"],
+                "fields": [
+                    "phase",
+                    "state",
+                    "match_count",
+                    "endpoint_identity_sha256",
+                    "topology_sha256",
+                    "controller_path_sha256",
+                    "usb_device_path_sha256",
+                    "immutable_raw_snapshot_size",
+                    "immutable_raw_snapshot_sha256",
+                ],
+                "same_bytes_parsed_and_hashed": True,
+                "raw_snapshot_private": True,
+                "tracked_record_contains_digest_only": True,
+                "literal_topology_copy_forbidden": True,
+            },
+            "path_states": ["same", "drift", "absent", "ambiguous", "unavailable"],
+            "state_effects": {
+                "same": "phase-specific exact binding may continue",
+                "drift": "NO_PROOF_EXPERIMENT_PRECONDITION and park",
+                "absent": "NO_PROOF_EXPERIMENT_PRECONDITION and park",
+                "ambiguous": "NO_PROOF_EXPERIMENT_PRECONDITION and park",
+                "unavailable": "NO_PROOF_OBSERVER and park",
+            },
+            "rollback_transfer_requires_state": "same_and_fresh_exact_download_binding",
+            "drift_effective_proof_class": "NO_PROOF_EXPERIMENT_PRECONDITION",
+            "widen_live_selector_on_drift": False,
+            "open_unapproved_endpoint": False,
+            "rollback_against_drifted_path_authorized": False,
+            "park_without_new_effects_until_reestablished": True,
+            "reestablishment": (
+                "bounded_independently_reviewed_recovery_only_path_reestablishes_"
+                "exact_current_endpoint_for_predeclared_rollback"
+            ),
+            "candidate_replay_forbidden": True,
+            "physical_movement_machine_proven_by_path_mismatch": False,
+        },
         "dtr_source_audit": dtr_audit,
         "causal_timing_boundary": {
             "candidate_enumeration_utc": enumeration_match.group("utc"),

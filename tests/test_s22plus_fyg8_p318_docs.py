@@ -17,6 +17,7 @@ INCIDENT = ROOT / (
 )
 GOAL = ROOT / "GOAL.md"
 LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
+TARGET_CONTRACT = ROOT / "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md"
 PRIVATE = ROOT / "workspace/private/outputs/s22plus_fyg8_p318_endpoint_selector"
 PREPARED = ROOT / (
     "workspace/private/runs/device-action-f1-live-v2/"
@@ -35,7 +36,8 @@ class P318DocumentationTest(unittest.TestCase):
                 "PASS_P318_CDC_ACM_TWO_SEAM_POSITIVE_CONTROL_H0"
             ),
             "banner-result-contract-20260814-01.json": (
-                "PASS_P318_BANNER_RESULT_DESIGN_H0_IMPLEMENTATION_REQUIRED"
+                "PASS_P318_ENVELOPE_V4_TIMING_BANNER_BUDGET_DESIGN_H0_"
+                "IMPLEMENTATION_REQUIRED"
             ),
         }
         for name, verdict in expected.items():
@@ -57,7 +59,8 @@ class P318DocumentationTest(unittest.TestCase):
             "P3.18 is not candidate-ready",
             "grants no D0, D1, F1, recovery, or live authority",
             "NO_PROOF_EXPERIMENT_PRECONDITION",
-            "explicit host-time correlation witness at post1 or post2",
+            "first actual host-caused device event",
+            "lossless PackBits poll capacity falls from 76 to 55 bytes",
         )
         for clause in required:
             self.assertIn(clause, combined)
@@ -113,6 +116,29 @@ class P318DocumentationTest(unittest.TestCase):
         ]
         for path in tracked:
             self.assertNotIn(serial, path.read_text(encoding="utf-8"), path)
+
+    def test_target_contract_closes_physical_drift_and_rollback_rebinding(self):
+        contract = TARGET_CONTRACT.read_text(encoding="utf-8")
+        required = (
+            "the operator must not disconnect, move,\n"
+            "or reroute the data cable, dock, or host port",
+            "A topology mismatch invalidates\n"
+            "the experiment precondition",
+            "the observer must not widen its selector or open\n"
+            "the unapproved endpoint",
+            "Process-v2 evidence must retain the exact endpoint identity, topology, host\n"
+            "controller/device path, and immutable raw-snapshot receipt",
+            "A missing,\n"
+            "truncated, or unreadable snapshot is an observer failure",
+            "A drifted topology does not authorize rollback against the new path",
+            "the run parks without new device effects until\n"
+            "a bounded, independently reviewed recovery-only path re-establishes one exact\n"
+            "current rollback endpoint",
+            "the predeclared exact rollback resume",
+            "Candidate replay remains forbidden",
+        )
+        for clause in required:
+            self.assertIn(clause, contract)
 
 
 if __name__ == "__main__":

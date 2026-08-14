@@ -825,16 +825,37 @@ The host sidecar arm preceded flash completion and is not the candidate's
 internal arm-proof stage. Enumeration occurred 53.2 seconds after flash, but
 that interval cannot place gadget readiness, CONTROL1 write, post1, or post2.
 The sealed sidecar already continued roughly 250 seconds after enumeration;
-its lack of later USB events supplies no dwell timestamp. P3.18 therefore
-requires an explicit host-time correlation witness at post1 or post2 rather
-than a merely longer capture window.
+its lack of later USB events supplies no dwell timestamp. Gadget readiness is
+not a host anchor. P3.18 therefore latches the first actual host-caused device
+event (`RESET`, `CONNECT_DONE`, or `SETUP`) on the same device monotonic clock
+as pre/write/post1/post2. Four signed microsecond deltas from pre represent all
+five samples without cross-clock synchronization; missing/equal ordering makes
+no causal claim. The four device samples are mandatory and ordered; only masks
+`0x0f` (no host event) and `0x1f` (latched host event) are legal.
 
 The remaining banner result is genuinely unknown. The active P3.17 publisher
 commits the terminal, discards `p260_write_banner()`'s return, then parks. A
 successor must make one bounded attempt first, retain
 `written/eagain_timeout/errno/partial` plus byte count and normalized error in
 a new envelope version, publish the terminal for every outcome, and never
-retry after it. The fixed 128-byte Carrier remains unchanged. No transition
+retry after it. Envelope-v4 keeps the fixed 128-byte Carrier: 48-byte metadata,
+76-byte payload, and 4-byte CRC. Timing uses 18 payload bytes and banner result
+uses 3, so lossless PackBits poll capacity falls from 76 to 55 bytes; the
+44-byte overflow summary plus prefix uses 65 and leaves 11 reserved bytes.
+Overflow remains non-causal.
+
+The S22 target contract now forbids cable/dock/host-port movement from Download
+binding through observer closure. Drift is
+`NO_PROOF_EXPERIMENT_PRECONDITION`, never selector widening. It also invalidates
+rollback endpoint authority: the run parks without new effects until a
+bounded independently reviewed recovery-only path re-establishes one exact
+current rollback endpoint, then the predeclared exact rollback resumes from
+durable state.
+Start, candidate-end, and rollback path/controller receipts are required. This
+includes immutable raw size/hash and endpoint/topology/controller/device-path
+digests from the same parsed bytes. Drift/absence/ambiguity are precondition
+no-proof; unavailable/truncated input is observer no-proof. This contract
+change is H0 and awaits independent review. No transition
 selector is live-authorized, the new envelope and timing correlation are not
 implemented, packaging and independent changed-closure review are absent, and
 P3.18 is not candidate-ready and grants no device authority. The detailed H0 report is
