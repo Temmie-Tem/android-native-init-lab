@@ -802,9 +802,13 @@ def materialize_tree(
     dropbear_output: Path,
     output: Path,
 ) -> Path:
-    if output.exists() or output.is_symlink():
-        raise ContentError(f"private output must be absent: {output}")
+    # The output root's absence is enforced once in build(), before it creates
+    # the component and Dropbear build directories inside it. Re-checking the
+    # root here can never pass on a real build; the tree this function owns is
+    # the rootfs subdirectory, so that is what must be absent.
     rootfs = output / "rootfs"
+    if rootfs.exists() or rootfs.is_symlink():
+        raise ContentError(f"private output must be absent: {rootfs}")
     _mkdir(rootfs, 0o755)
     for path, data in STATIC_TEXT.items():
         record = _record_for(files, path)
@@ -961,8 +965,17 @@ def refreshed_manifest(
     value["dropbear"]["binary_sha256"] = sha256_file(dropbear_output)
     value["dropbear"]["binary_state"] = "materialized-private-not-authorized"
     value["dropbear"]["build"]["source_sha256"] = dropbear_source_sha256
+    # The digest covers the configuration, so it must exclude the field that
+    # carries the digest itself. Hashing the whole build dict fed each build's
+    # result into the next one, so the manifest never reached a fixed point and
+    # every rebuild produced a spurious diff against the reviewed value.
+    configuration_semantics = {
+        key: item
+        for key, item in value["dropbear"]["build"].items()
+        if key != "configuration_semantics_sha256"
+    }
     value["dropbear"]["build"]["configuration_semantics_sha256"] = sha256_bytes(
-        json.dumps(value["dropbear"]["build"], sort_keys=True, separators=(",", ":")).encode()
+        json.dumps(configuration_semantics, sort_keys=True, separators=(",", ":")).encode()
     )
     value["source_inputs"]["dropbear"]["sha256"] = dropbear_source_sha256
     value["source_inputs"]["dropbear"]["state"] = "materialized-private"

@@ -65,7 +65,14 @@ class IsolatedDebianManifestTests(unittest.TestCase):
     def test_authority_is_explicitly_h0_only(self) -> None:
         self.assertFalse(self.value["candidate_eligible"])
         self.assertFalse(self.value["device_install_authorized"])
-        self.assertEqual(self.value["status"], "h0-specification-deferred")
+        # The manifest has exactly two lawful lifecycle states: specified with
+        # the Dropbear input still absent, and materialized from a private
+        # build. Neither grants authority, so both are bound here exactly
+        # rather than the set being widened to "any status".
+        self.assertIn(
+            self.value["status"],
+            ("h0-specification-deferred", "h0-materialized-private"),
+        )
         self.assertEqual(self.value["selected_closure"], "NESTED_PID_NAMESPACE_ISOLATION")
         self.assertEqual(self.value["pid1"]["historical_sysvinit_assumed"], False)
         self.assertTrue(self.value["toolchain"]["trace"]["output_is_candidate_superset"])
@@ -156,13 +163,54 @@ class IsolatedDebianManifestTests(unittest.TestCase):
         with self.assertRaises(RECIPE.ContentError):
             RECIPE.validate_dropbear(bad)
 
-    def test_deferred_dropbear_cannot_be_presented_as_an_exact_hash(self) -> None:
-        self.assertIsNone(self.value["dropbear"]["binary_sha256"])
+    def test_dropbear_hash_state_and_deferral_stay_coupled(self) -> None:
+        """A hash may never appear while the input is still declared absent.
+
+        The invariant is the coupling, not the null: an unbound hash must be
+        accompanied by the deferral and by an unbound audit, and a bound hash
+        must be exact hex and must have retired that deferral. Asserting only
+        `is None` pinned the pre-source moment and would have to be relaxed
+        the first time the build succeeded.
+        """
+        value = self.value["dropbear"]
+        deferred = {item["item"] for item in self.value["deferred"]}
+        bound = RECIPE.audit(RECIPE.parse_args(["--manifest", str(MANIFEST)]))["dropbear_hash_bound"]
         self.assertFalse(self.value["candidate_eligible"])
-        self.assertTrue(
-            any(item["item"] == "dropbear-feature-removed-binary" for item in self.value["deferred"])
+        if value["binary_sha256"] is None:
+            self.assertEqual(value["binary_state"], "deferred-missing-private-source")
+            self.assertIn("dropbear-feature-removed-binary", deferred)
+            self.assertIsNone(value["build"]["source_sha256"])
+            self.assertFalse(bound)
+        else:
+            self.assertEqual(value["binary_state"], "materialized-private-not-authorized")
+            self.assertNotIn("dropbear-feature-removed-binary", deferred)
+            for digest in (
+                value["binary_sha256"],
+                value["build"]["source_sha256"],
+                value["build"]["configuration_semantics_sha256"],
+            ):
+                self.assertRegex(digest, r"^[0-9a-f]{64}$")
+            self.assertTrue(bound)
+        self.assertFalse(self.value["device_install_authorized"])
+
+    def test_configuration_semantics_digest_excludes_itself(self) -> None:
+        """Otherwise each build hashes the previous build's result.
+
+        That self-reference kept the manifest from ever reaching a fixed
+        point, so every rebuild produced a spurious diff against the reviewed
+        value while the built artifact was in fact byte-identical.
+        """
+        build = self.value["dropbear"]["build"]
+        if build["configuration_semantics_sha256"] is None:
+            self.skipTest("configuration digest is unbound until a private build exists")
+        expected = RECIPE.sha256_bytes(
+            json.dumps(
+                {k: v for k, v in build.items() if k != "configuration_semantics_sha256"},
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
         )
-        self.assertFalse(RECIPE.audit(RECIPE.parse_args(["--manifest", str(MANIFEST)]))["dropbear_hash_bound"])
+        self.assertEqual(build["configuration_semantics_sha256"], expected)
 
     def test_forbidden_content_assertions_are_all_closed(self) -> None:
         RECIPE.validate_manifest(self.value)

@@ -78,14 +78,64 @@ The v2 manifest binds the following content-only facts:
 - the filesystem tuple and usrmerge links retain the h14 appliance identity
   while the content schema and semantic contract are new.
 
-## Deferred requirements
+## Dropbear source materialization
 
-The exact Dropbear binary hash and source/configuration semantics are deferred:
-the required private pinned Dropbear source input is not present in this host
-workspace, so the manifest deliberately says
-`h0-specification-deferred`, leaves that hash null, and cannot be candidate
-eligible. The builder fails closed rather than using the historical Dropbear
-binary as a substitute.
+The pinned source was supplied after the specification was first written, so
+the manifest has moved from `h0-specification-deferred` to
+`h0-materialized-private`. It remains `candidate_eligible=false` and
+`device_install_authorized=false`.
+
+- upstream Dropbear `2026.94`, tarball SHA-256
+  `e098034a843699200c8c977a991fff73159735bf795d5f72ef672c41a6b1ae81`,
+  retrieved from the `dropbear.nl` release mirror because the canonical
+  `matt.ucc.asn.au` host returned HTTP 525 at fetch time;
+- the detached signature verifies as a good signature from
+  `Dropbear SSH Release Signing <matt@ucc.asn.au>`, key
+  `F7347EF2EE2E07A267628CA944931494F29C6773`. Upstream `release.sh` at the
+  `DROPBEAR_2026.94` tag on `raw.githubusercontent.com` names key id
+  `F29C6773` as the signing key, so tarball host and key-id publisher are
+  independent. That cross-check binds only the low 32 bits of the
+  fingerprint; a full-fingerprint publication by upstream was not located;
+- the archive carries no symlink, hardlink, or special member, satisfying the
+  builder's rejection rules;
+- the built server is 1,550,912 bytes, static-PIE aarch64.
+
+Compile-time feature removal was verified against the built binary rather than
+assumed from the macro list. `svr_auth_password`, `svr_auth_pam`, `x11req`,
+`agentreq`, `recv_msg_channel_open_tcp`, `setup_listener_tcp`,
+`send_msg_channel_open_x11`, `svr_chansession_checksignal`, `newptycmd`, and
+`sessionpty` are all absent from its symbol table, while `svr_auth_pubkey` is
+present. Dropbear's Makefile compiles those translation units unconditionally,
+so their absence from the link result is the fact that supports the manifest's
+`compile-time-feature-removal-required` enforcement claim.
+
+Static glibc emits link-time warnings that `getpwnam`, `getpwuid`, `getgrnam`,
+`getgrouplist`, `initgroups`, `getspnam`, and `getaddrinfo` need the shared
+libraries from the linking glibc. Because the appliance retains no shared
+library at all, that warning was treated as a possible blocker and tested: a
+static-PIE probe built with the same flags resolves the service account from a
+files-only `/etc/passwd`, `/etc/group`, and `nsswitch.conf` under
+`qemu-aarch64`. The instrument was validated first — the same probe returns
+NULL when run without the emulated root prefix, so it is reading the supplied
+database and not the host's.
+
+Two builder defects surfaced only once the source existed, because the
+previous validation could reach neither path:
+
+- `materialize_tree()` re-checked the absence of the output root that
+  `build()` had already created and populated, so a complete build could never
+  finish. It now checks the `rootfs` subdirectory it owns; the root's absence
+  is still enforced once, in `build()`.
+- `configuration_semantics_sha256` was computed over the build dictionary that
+  already contained that same field, so each build hashed the previous build's
+  result. The manifest never reached a fixed point and every rebuild produced
+  a spurious diff while the built artifact was byte-identical. The digest now
+  excludes itself, and a regression test recomputes it.
+
+With both repaired, three consecutive builds produce an identical manifest and
+an identical `content.tar`.
+
+## Deferred requirements
 
 The Dropbear launch argv is bound as an exact token sequence, but each flag's
 meaning is not yet bound against the selected version. The design accepts a
