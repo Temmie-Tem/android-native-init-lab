@@ -1,0 +1,19 @@
+flowchart LR
+    Host["Operator and host"] --> Native["Native PID 1 supervisor"]
+    Native --> WLAN["Vendor WLAN service tree"]
+    WLAN --> Radio["WCNSS WMI firmware path"]
+    Native --> Veth["veth and filtering boundary"]
+    Veth --> Debian["Isolated Debian PID 1"]
+    Debian --> SSH["Rootless SSH and workload"]
+    Native --> Journal["Durable boot and recovery journal"]
+
+    subgraph NativeTrust["Native trust boundary"]
+      Native
+      WLAN
+      Veth
+      Journal
+    end
+    subgraph DebianTrust["Debian containment boundary"]
+      Debian
+      SSH
+    end

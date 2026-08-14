@@ -16,6 +16,11 @@ patch reports, and local rescan evidence for the A90 native init project.
   `scans/SECURITY_FRESH_SCAN_V2189_2026-06-10.md` with PASS `10`, WARN `1`,
   FAIL `0`; the remaining warning is the accepted trusted-lab local
   root-control boundary.
+- Latest architecture hardening review:
+  `hardening/a90-debian-supervised-wlan-2026-08-15/`, an H0-only comparison of
+  the selected native-supervisor baseline with clean Debian supervision of a
+  bounded vendor WLAN compatibility capsule. It grants no candidate or live
+  authority.
 
 ## Directory Map
 
@@ -29,6 +34,8 @@ patch reports, and local rescan evidence for the A90 native init project.
   reports.
 - `incoming/`: scratch area for newly pasted findings before triage.
 - `templates/`: reusable finding-detail templates.
+- `hardening/`: evidence-bound architecture alternatives, diagrams, and
+  conditional security recommendations that have not yet been implemented.
 
 ## Workflow
 

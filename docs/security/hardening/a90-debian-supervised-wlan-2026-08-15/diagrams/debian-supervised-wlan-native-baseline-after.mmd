@@ -1,0 +1,19 @@
+flowchart LR
+    Host["Operator and host"] --> Native["Reduced native PID 1 supervisor"]
+    Native --> Capsule["Manifest-bound WLAN backend"]
+    Capsule --> Radio["WCNSS WMI firmware path"]
+    Native --> Gate["Exact veth ingress and egress policy"]
+    Gate --> Debian["Isolated Debian PID 1"]
+    Debian --> Service["Rootless SSH and workload"]
+    Native --> Evidence["Durable stage and recovery evidence"]
+
+    subgraph NativeBoundary["Native production boundary"]
+      Native
+      Capsule
+      Gate
+      Evidence
+    end
+    subgraph DebianBoundary["Untrusted service boundary"]
+      Debian
+      Service
+    end

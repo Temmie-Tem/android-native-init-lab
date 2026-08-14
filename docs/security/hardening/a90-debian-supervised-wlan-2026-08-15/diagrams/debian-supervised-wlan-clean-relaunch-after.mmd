@@ -1,0 +1,20 @@
+flowchart LR
+    Bootstrap["Minimal boot-private bootstrap"] --> Exec["Clean exec to Debian PID 1"]
+    Exec --> Debian["Debian PID 1 sole supervisor"]
+    Debian --> Capsule["Clean relaunched WLAN compatibility capsule"]
+    Capsule --> Radio["WCNSS WMI firmware path"]
+    Debian --> Net["Station IP and appliance policy"]
+    Net --> Service["Rootless SSH and workload sandbox"]
+    Debian --> Evidence["Durable stage and recovery evidence"]
+
+    subgraph CapsuleBoundary["Vendor compatibility boundary"]
+      Capsule
+    end
+    subgraph DebianBoundary["Debian administrative boundary"]
+      Debian
+      Net
+      Evidence
+    end
+    subgraph ServiceBoundary["Remote workload boundary"]
+      Service
+    end
