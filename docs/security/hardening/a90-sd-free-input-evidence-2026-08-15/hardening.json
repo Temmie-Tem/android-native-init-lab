@@ -1,0 +1,514 @@
+{
+  "documentType": "codex-security.hardening-analysis",
+  "schemaVersion": "1.0",
+  "analysisId": "hardening_20260815_a90_sd_free_input_evidence",
+  "sourceEvidence": {
+    "kind": "document_collection",
+    "label": "A90 current contracts, selected SD-free design, H24 SD consumers, Wi-Fi profile producer, property consumer, and evidence path",
+    "collectionSha256": "159770631a055504a81fbc0be645f3676899cbf457bc323b0fa8990e08228c85",
+    "artifactCount": 22,
+    "targetRevision": "3e3c3cdabea297794f185709c42419d5032fb245",
+    "sourceDrift": "none"
+  },
+  "assessment": {
+    "outcome": "opportunities_identified",
+    "summary": "A90 should replace the remaining SD evidence and compatibility inputs with four typed channels. The selected design reuses the public-key validation pattern, requires a new separately authorized immutable-generation Wi-Fi provisioner, eliminates or minimizes the Android property seed, and makes native the sole device-side evidence writer."
+  },
+  "authority": {
+    "target": "Samsung Galaxy A90 5G only",
+    "tier": "H0",
+    "candidateEligible": false,
+    "credentialProvisionAuthorized": false,
+    "deviceInstallAuthorized": false,
+    "ufsMutationAuthorized": false,
+    "sdRemovalAuthorized": false,
+    "d0Authorized": false,
+    "d1Authorized": false,
+    "f1Authorized": false,
+    "handoffAuthorized": false,
+    "otherTargetsTouched": false
+  },
+  "constraints": {
+    "profile": "security_first",
+    "changeHorizons": [
+      "incremental",
+      "medium_term",
+      "foundational"
+    ],
+    "nonNegotiables": [
+      "H24 remains installed and healthy; its consumed D1 is never replayed.",
+      "Only boot may be a partition payload; UFS root content remains read-only and this analysis grants no UFS mutation.",
+      "Wi-Fi secrets, public client keys, server private keys, compatibility state, and evidence do not share a generic mutable namespace.",
+      "No successor identity is allocated until SD evidence and property dependencies plus the producer boundary are closed.",
+      "No private input, raw credential, device identifier, or raw run evidence enters public Git.",
+      "Rollback, physical recovery, durable no-replay, attendance, and target isolation remain exact."
+    ]
+  },
+  "opportunities": [
+    {
+      "opportunityId": "typed-sd-free-input-evidence",
+      "title": "Separate A90 SD-free inputs from evidence and minimize compatibility state",
+      "priority": "high",
+      "summary": "Remove the hard SD evidence bind and property snapshot without embedding long-lived secrets into boot or recreating one broad mutable cache bundle.",
+      "sourceEvidence": [
+        {
+          "claimType": "observed",
+          "sourceKind": "source",
+          "evidenceId": "E01",
+          "path": "workspace/public/src/native-init/a90_auto_handoff.c",
+          "claim": "H24 publishes the run identity and reads Debian evidence under /mnt/sdext."
+        },
+        {
+          "claimType": "observed",
+          "sourceKind": "source",
+          "evidenceId": "E01-BIND",
+          "path": "workspace/public/src/native-init/a90_server_distro.c",
+          "claim": "The handoff path hard-gates a bind of the SD evidence directory into Debian before Wi-Fi handoff and root transition."
+        },
+        {
+          "claimType": "observed",
+          "sourceKind": "source",
+          "evidenceId": "E03",
+          "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h24/manifest.toml",
+          "claim": "H24 compiles a property root under /mnt/sdext."
+        },
+        {
+          "claimType": "observed",
+          "sourceKind": "source",
+          "evidenceId": "E04",
+          "path": "workspace/public/src/native-init/a90_wificfg.c",
+          "claim": "Native Wi-Fi configuration has SD-primary and cache-fallback readers and keeps inline secrets out of the profile grammar."
+        },
+        {
+          "claimType": "observed",
+          "sourceKind": "source",
+          "evidenceId": "E05",
+          "path": "workspace/public/src/scripts/revalidation/a90_wifi_profile_stage.py",
+          "claim": "A public legacy host tool can stage cache profiles and secrets, but performs live NCM/tcpctl device mutation."
+        },
+        {
+          "claimType": "observed",
+          "sourceKind": "document",
+          "evidenceId": "E06",
+          "path": "docs/operations/targets/A90_TARGET_CONTRACT.md",
+          "claim": "Current A90 D1 rules do not grant generic persistent credential/configuration mutation and H24 commands need separately reviewed authority."
+        },
+        {
+          "claimType": "observed",
+          "sourceKind": "source",
+          "evidenceId": "E07",
+          "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/build.py",
+          "claim": "The builder already validates and embeds one canonical public Ed25519 authorization key without treating private bytes as an artifact input."
+        },
+        {
+          "claimType": "proposed",
+          "sourceKind": "document",
+          "evidenceId": "E08",
+          "path": "docs/plans/A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md",
+          "claim": "The selected design calls for native-only cache receipts, strict host observation, and a per-boot child-private server host key."
+        },
+        {
+          "claimType": "inferred",
+          "sourceKind": "document",
+          "evidenceId": "E11",
+          "path": "docs/security/hardening/a90-debian-supervised-wlan-2026-08-15/proposals/debian-supervised-wlan.md",
+          "claim": "Property/service minimization and typed inputs are shared prerequisites for both the current native-supervisor baseline and clean Debian relaunch research."
+        }
+      ],
+      "desiredInvariants": [
+        "Every input has one exact typed root, schema, writer, reader, lifetime, and authority.",
+        "The boot artifact contains only public client authorization and no Wi-Fi or SSH private key.",
+        "Wi-Fi profiles are immutable selected generations; active files are never edited in place.",
+        "Credential provisioning is a separate attended one-use capability with no arbitrary path, shell, or command authority.",
+        "The Android property channel is absent or an exact minimal deterministic seed; a full private snapshot is rejected.",
+        "The server private key is generated once per boot inside child-private tmpfs and only public fingerprint data leaves it.",
+        "Native PID 1 is the sole device-side receipt writer and Debian has no write path to the receipt root.",
+        "Native and host observations are joined only by exact target, resident, boot, run, pidfd, input-generation, and receipt digests.",
+        "All records and generation publications are durable, bounded, no-clobber, crash-reconcilable, and never replay uncertain effects.",
+        "No reachable successor artifact, runtime path, or health predicate requires /mnt/sdext."
+      ],
+      "proposalPath": "proposals/typed-sd-free-input-evidence.md",
+      "options": [
+        {
+          "optionId": "private-boot-bundle",
+          "title": "Private boot bundle",
+          "kind": "incremental",
+          "summary": "Embed the Wi-Fi credential and full compatibility input in a private candidate boot artifact alongside the public client key.",
+          "diagramPaths": {
+            "before": "diagrams/sd-free-input-evidence-before.mmd",
+            "after": "diagrams/sd-free-input-evidence-boot-bundle-after.mmd"
+          },
+          "evidenceCoverage": [
+            {
+              "evidenceId": "E01",
+              "effect": "addresses",
+              "tacticalFixRequired": true,
+              "rationale": "It can remove SD runtime reads, but only by moving private state into the candidate."
+            },
+            {
+              "evidenceId": "E07",
+              "effect": "regresses",
+              "tacticalFixRequired": true,
+              "rationale": "The existing builder pattern is safe for a public key; extending it to persistent secrets changes the trust boundary."
+            },
+            {
+              "evidenceId": "E03",
+              "effect": "unknown",
+              "tacticalFixRequired": true,
+              "rationale": "The full property snapshot remains unproved even if embedded."
+            }
+          ],
+          "tradeoffs": [
+            {
+              "dimension": "security",
+              "direction": "regresses",
+              "confidence": "high",
+              "basis": "source-derived",
+              "assessment": "Persistent Wi-Fi secrets enter candidate, rollback, build, and archival custody.",
+              "validationPlan": "Prove zero public/log leakage and complete private artifact custody; rejection remains preferred."
+            },
+            {
+              "dimension": "performance",
+              "direction": "improves",
+              "confidence": "low",
+              "basis": "hypothetical",
+              "assessment": "Inputs may be locally available during boot, but ramdisk decompression and copy costs are unmeasured.",
+              "validationPlan": "Measure artifact bytes, decompression time, boot reads, and input-copy latency."
+            },
+            {
+              "dimension": "memory",
+              "direction": "regresses",
+              "confidence": "low",
+              "basis": "hypothetical",
+              "assessment": "The boot bundle and runtime copies may coexist at peak.",
+              "validationPlan": "Measure peak bootstrap RSS/PSS and tmpfs bytes."
+            },
+            {
+              "dimension": "reliability",
+              "direction": "unknown",
+              "confidence": "medium",
+              "basis": "source-derived",
+              "assessment": "A separate provisioner disappears, but credential rotation becomes a new F1 and rollback-artifact problem.",
+              "validationPlan": "Exercise rotation, failed boot, rollback, and stale artifact rejection."
+            },
+            {
+              "dimension": "operability",
+              "direction": "regresses",
+              "confidence": "high",
+              "basis": "source-derived",
+              "assessment": "Routine credential rotation requires building, qualifying, approving, and installing a boot artifact.",
+              "validationPlan": "Measure complete attended rotation and recovery workload."
+            },
+            {
+              "dimension": "migration",
+              "direction": "improves",
+              "confidence": "medium",
+              "basis": "source-derived",
+              "assessment": "It reuses the builder input mechanism but expands it beyond its public-key safety purpose.",
+              "validationPlan": "Run a private-artifact threat review before considering implementation."
+            }
+          ],
+          "residualRisks": [
+            "Credential rotation is coupled to F1.",
+            "Private bytes multiply across candidate and rollback custody.",
+            "The full property snapshot remains unbounded."
+          ],
+          "implementationReadiness": {
+            "affectedComponents": [
+              "flat builder",
+              "boot ramdisk",
+              "native Wi-Fi bootstrap",
+              "vendor compatibility bootstrap"
+            ],
+            "workPackages": [
+              "Private artifact custody design",
+              "Secret leak corpus",
+              "Rotation and rollback process"
+            ],
+            "acceptanceCriteria": [
+              "No private byte enters public Git or logs.",
+              "Rotation and rollback remain exact."
+            ],
+            "migrationNotes": [
+              "This option is rejected and is included to make the shortcut explicit."
+            ],
+            "rollback": "Use only the exact reviewed boot rollback; credential rollback remains coupled to it."
+          }
+        },
+        {
+          "optionId": "wholesale-cache-transplant",
+          "title": "Wholesale cache transplant",
+          "kind": "incremental",
+          "summary": "Move the current SD profile, secret, property, and evidence trees to cache and adapt the legacy staging path.",
+          "diagramPaths": {
+            "before": "diagrams/sd-free-input-evidence-before.mmd",
+            "after": "diagrams/sd-free-input-evidence-cache-transplant-after.mmd"
+          },
+          "evidenceCoverage": [
+            {
+              "evidenceId": "E04",
+              "effect": "addresses",
+              "tacticalFixRequired": false,
+              "rationale": "A cache Wi-Fi consumer path already exists."
+            },
+            {
+              "evidenceId": "E05",
+              "effect": "mitigates",
+              "tacticalFixRequired": true,
+              "rationale": "A prototype producer exists, but lacks production authority, generations, and no-replay semantics."
+            },
+            {
+              "evidenceId": "E03",
+              "effect": "unknown",
+              "tacticalFixRequired": true,
+              "rationale": "Moving the full property snapshot does not establish its minimum or safety."
+            },
+            {
+              "evidenceId": "E06",
+              "effect": "regresses",
+              "tacticalFixRequired": true,
+              "rationale": "The legacy live staging surface has no current credential-mutation authority."
+            }
+          ],
+          "tradeoffs": [
+            {
+              "dimension": "security",
+              "direction": "unknown",
+              "confidence": "high",
+              "basis": "source-derived",
+              "assessment": "It removes removable-media dependence but preserves a broad mutable trust plane and generic command surface.",
+              "validationPlan": "Split roots and writers, replace active overwrite semantics, and independently review the live provision boundary."
+            },
+            {
+              "dimension": "performance",
+              "direction": "improves",
+              "confidence": "low",
+              "basis": "hypothetical",
+              "assessment": "Cache may be faster than SD, but exact bytes and fsync latency are unknown.",
+              "validationPlan": "Measure provisioning, boot reads, property materialization, and write amplification."
+            },
+            {
+              "dimension": "memory",
+              "direction": "unchanged",
+              "confidence": "low",
+              "basis": "hypothetical",
+              "assessment": "The same full property tree and runtime consumers remain.",
+              "validationPlan": "Measure property-tree resident pages and setup peak."
+            },
+            {
+              "dimension": "reliability",
+              "direction": "improves",
+              "confidence": "medium",
+              "basis": "source-derived",
+              "assessment": "SD absence stops being a failure, but replace-in-place and partial transfer states remain ambiguous.",
+              "validationPlan": "Power-cut every transfer and publication prefix and prove no replay."
+            },
+            {
+              "dimension": "operability",
+              "direction": "improves",
+              "confidence": "medium",
+              "basis": "source-derived",
+              "assessment": "Existing operator tooling is familiar, but it lacks a current production authority model.",
+              "validationPlan": "Demonstrate exact generation rollback without arbitrary shell/path access."
+            },
+            {
+              "dimension": "migration",
+              "direction": "improves",
+              "confidence": "high",
+              "basis": "source-derived",
+              "assessment": "It has the smallest code delta and the largest inherited security debt.",
+              "validationPlan": "Bind and review every retained legacy command and dependency."
+            }
+          ],
+          "residualRisks": [
+            "One mutable cache domain can influence credentials, privileged compatibility, and grading.",
+            "The full property snapshot remains unproved.",
+            "The current stager has no activated A90 authority and no immutable generation rollback."
+          ],
+          "implementationReadiness": {
+            "affectedComponents": [
+              "Wi-Fi profile stager",
+              "native Wi-Fi config",
+              "vendor property materializer",
+              "evidence writer and reader"
+            ],
+            "workPackages": [
+              "Legacy path adaptation",
+              "Live authority design",
+              "Crash and overwrite hardening"
+            ],
+            "acceptanceCriteria": [
+              "No SD path remains.",
+              "No generic mutable bundle remains."
+            ],
+            "migrationNotes": [
+              "Rejected for production; parser and format evidence may be reused host-only."
+            ],
+            "rollback": "Unspecified in the legacy path; this is a blocking deficiency."
+          }
+        },
+        {
+          "optionId": "typed-minimal-channels",
+          "title": "Typed minimal channels",
+          "kind": "structural",
+          "summary": "Separate public auth, persistent Wi-Fi secrets, minimal compatibility state, native receipts, and per-boot server-key lifetime into independently bound channels.",
+          "diagramPaths": {
+            "before": "diagrams/sd-free-input-evidence-before.mmd",
+            "after": "diagrams/sd-free-input-evidence-typed-after.mmd"
+          },
+          "evidenceCoverage": [
+            {
+              "evidenceId": "E01",
+              "effect": "addresses",
+              "tacticalFixRequired": true,
+              "rationale": "Native-only cache receipts remove the SD bind and Debian evidence writer."
+            },
+            {
+              "evidenceId": "E03",
+              "effect": "addresses",
+              "tacticalFixRequired": true,
+              "rationale": "Property state becomes absent or a minimal deterministic seed rather than a full snapshot."
+            },
+            {
+              "evidenceId": "E04",
+              "effect": "mitigates",
+              "tacticalFixRequired": true,
+              "rationale": "The parser concepts are reusable, but successor precedence and immutable generation semantics change."
+            },
+            {
+              "evidenceId": "E05",
+              "effect": "mitigates",
+              "tacticalFixRequired": true,
+              "rationale": "Secret grammar and redaction lessons are reusable; live transport and replace semantics are not."
+            },
+            {
+              "evidenceId": "E06",
+              "effect": "addresses",
+              "tacticalFixRequired": true,
+              "rationale": "Provisioning is explicitly separated into a future independently reviewed capability."
+            },
+            {
+              "evidenceId": "E07",
+              "effect": "addresses",
+              "tacticalFixRequired": false,
+              "rationale": "The canonical public-key validation pattern is retained for public input only."
+            },
+            {
+              "evidenceId": "E08",
+              "effect": "addresses",
+              "tacticalFixRequired": true,
+              "rationale": "It implements the selected native receipt, host observation, and per-boot key lifetime split."
+            },
+            {
+              "evidenceId": "E11",
+              "effect": "addresses",
+              "tacticalFixRequired": true,
+              "rationale": "The schemas can be shared by either WLAN ownership architecture after property/service ablation."
+            }
+          ],
+          "tradeoffs": [
+            {
+              "dimension": "security",
+              "direction": "improves",
+              "confidence": "high",
+              "basis": "source-derived",
+              "assessment": "Secrets, public auth, compatibility state, and evidence have distinct writers/readers and cannot silently authorize one another.",
+              "validationPlan": "Threat-model every channel and prove cross-channel read/write/rename/FD/IPC denial."
+            },
+            {
+              "dimension": "performance",
+              "direction": "unknown",
+              "confidence": "medium",
+              "basis": "hypothetical",
+              "assessment": "Generation and receipt fsyncs add bounded cost while SD and possibly a full property snapshot disappear.",
+              "validationPlan": "Measure bytes, fsync latency, write amplification, WLAN readiness, and authenticated SSH readiness."
+            },
+            {
+              "dimension": "memory",
+              "direction": "improves",
+              "confidence": "low",
+              "basis": "hypothetical",
+              "assessment": "A minimal or absent property seed can reduce mappings; runtime secret and receipt buffers add small bounded state.",
+              "validationPlan": "Measure property pages, runtime input tmpfs, receipt buffers, and peak/steady RSS/PSS."
+            },
+            {
+              "dimension": "reliability",
+              "direction": "improves",
+              "confidence": "medium",
+              "basis": "source-derived",
+              "assessment": "Immutable generations and native-only records remove in-place credential and shared-evidence ambiguity.",
+              "validationPlan": "Power-cut every prepare/select/record prefix and reconcile without resend or broad cleanup."
+            },
+            {
+              "dimension": "operability",
+              "direction": "improves",
+              "confidence": "medium",
+              "basis": "source-derived",
+              "assessment": "The initial workflow is more explicit, but rotation, diagnosis, and rollback have attributable generations and records.",
+              "validationPlan": "Time provision, rotation, rollback, no-SD D0, failed handoff, and attended recovery drills."
+            },
+            {
+              "dimension": "migration",
+              "direction": "regresses",
+              "confidence": "high",
+              "basis": "source-derived",
+              "assessment": "It requires new schemas, validators, provision authority, readers, property ablation, receipt writer, and retrieval.",
+              "validationPlan": "Deliver host-only schemas and simulators first, then independent closure review before identity allocation."
+            }
+          ],
+          "residualRisks": [
+            "The exact property minimum is unproved.",
+            "The exact safe live credential provision transport is unselected.",
+            "At-rest PSK confidentiality has no hardware-backed proof.",
+            "Cache wear, corruption, free-space reserve, and performance are unmeasured.",
+            "The native receipt codec and read-only retrieval are unimplemented."
+          ],
+          "implementationReadiness": {
+            "affectedComponents": [
+              "flat builder public-key input",
+              "Wi-Fi input schema and native reader",
+              "credential provision and rotation runner",
+              "vendor property dependency and seed producer",
+              "native evidence writer and read-only retrieval",
+              "host SSH observer and evidence join"
+            ],
+            "workPackages": [
+              "Freeze typed schemas and threat model.",
+              "Perform property/service ablation.",
+              "Build host-only generation transaction and receipt simulators.",
+              "Implement typed readers and native-only receipt without a candidate identity.",
+              "Design and independently review a separate credential provision authority.",
+              "Review the full execution-critical closure before allocating a successor."
+            ],
+            "acceptanceCriteria": [
+              "No reachable successor path or predicate references /mnt/sdext.",
+              "No boot artifact, log, receipt, or public file contains private credentials.",
+              "The property input is absent or an exact minimal deterministic seed.",
+              "Provision and receipt crash-prefix tests never replay or overwrite uncertain effects.",
+              "Debian cannot write or name the native receipt root.",
+              "A healthy SD-free resident and attended no-SD D0 precede any handoff approval."
+            ],
+            "migrationNotes": [
+              "The existing cache profile parser and public-key validator are evidence, not live authority.",
+              "The legacy tcpctl profile stager is not reused as the production provisioner.",
+              "The same typed inputs support either native-supervisor or clean Debian-supervisor WLAN ownership after separate H0 selection."
+            ],
+            "rollback": "Retain the prior immutable Wi-Fi generation until successor resident health and no-SD D0 close; use only the exact reviewed boot rollback for candidate failure."
+          }
+        }
+      ],
+      "recommendedOptionId": "typed-minimal-channels",
+      "recommendation": "Select typed minimal channels for H0 schema, property-ablation, and simulator work. Do not activate a credential provisioner or allocate a successor until the new higher-precedence and A90 target-contract boundary is independently reviewed.",
+      "validationPlan": [
+        "Reject every reachable /mnt/sdext path in the successor closure and artifacts.",
+        "Prove boot artifacts contain public authorization only and no private credentials or full property snapshot.",
+        "Exercise immutable Wi-Fi generation publication, selector, rollback, and every crash prefix without replay.",
+        "Prove property input absent or exactly minimal and deterministic.",
+        "Prove Debian has zero path, mount, FD, IPC, or rename capability to native receipts.",
+        "Join native and host evidence only on exact target, resident, boot, run, pidfd, generation, receipt, and host-key bindings.",
+        "Measure storage bytes, fsync latency, write amplification, boot/WLAN/SSH latency, memory, CPU, wakeups, power, and recovery time.",
+        "After a future healthy resident install, require attended physical SD removal and exact no-SD D0 before D1."
+      ]
+    }
+  ]
+}

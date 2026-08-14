@@ -21,6 +21,12 @@ patch reports, and local rescan evidence for the A90 native init project.
   the selected native-supervisor baseline with clean Debian supervision of a
   bounded vendor WLAN compatibility capsule. It grants no candidate or live
   authority.
+- Latest input/evidence hardening review:
+  `hardening/a90-sd-free-input-evidence-2026-08-15/`, an H0-only design that
+  separates public authorization, persistent Wi-Fi secrets, minimal vendor
+  compatibility state, per-boot server keys, and native-only receipts instead
+  of moving the SD tree wholesale to cache. It grants no provisioning,
+  candidate, SD-removal, or live authority.
 
 ## Directory Map
 

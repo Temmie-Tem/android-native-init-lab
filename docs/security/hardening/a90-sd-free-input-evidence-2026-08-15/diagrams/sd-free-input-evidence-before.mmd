@@ -1,0 +1,10 @@
+flowchart LR
+    Host["Host private inputs"] --> Stage["Legacy NCM and tcpctl staging"]
+    Stage --> SDConfig["SD Wi-Fi config and secrets"]
+    SDConfig --> Native["Native Wi-Fi owner"]
+    SDProperty["SD Android property snapshot"] --> Capsule["Vendor WLAN compatibility tree"]
+    Native --> SDEvidence["SD shared evidence directory"]
+    Debian["Debian writer"] --> SDEvidence
+    SDEvidence --> Grade["Native replay and host grading"]
+    SDConfig -. "shared removable-media boundary" .-> SDEvidence
+    SDProperty -. "shared removable-media boundary" .-> SDEvidence

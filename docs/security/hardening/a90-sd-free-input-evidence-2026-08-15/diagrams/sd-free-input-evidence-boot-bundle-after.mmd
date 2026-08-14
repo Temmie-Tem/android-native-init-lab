@@ -1,0 +1,10 @@
+flowchart LR
+    Private["Host private Wi-Fi input"] --> Boot["Private boot artifact bundle"]
+    Public["Client public key"] --> Boot
+    Property["Full property snapshot"] --> Boot
+    Boot --> Native["Native Wi-Fi owner"]
+    Boot --> Capsule["Vendor WLAN compatibility tree"]
+    Native --> Receipt["Native-only cache receipt boundary"]
+    Host["Strict host observer"] --> Grade["Private host result"]
+    Receipt --> Grade
+    Boot -. "secret rotation tied to F1 boundary" .-> Private

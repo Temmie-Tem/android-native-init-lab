@@ -1,0 +1,8 @@
+flowchart LR
+    Provisioner["Legacy-style cache provisioner"] --> Cache["One mutable cache bundle"]
+    Cache --> Native["Native Wi-Fi owner"]
+    Cache --> Capsule["Vendor WLAN compatibility tree"]
+    Native --> Receipt["Native-only cache receipt boundary"]
+    Host["Strict host observer"] --> Grade["Private host result"]
+    Receipt --> Grade
+    Cache -. "credential and property trust share one boundary" .-> Receipt

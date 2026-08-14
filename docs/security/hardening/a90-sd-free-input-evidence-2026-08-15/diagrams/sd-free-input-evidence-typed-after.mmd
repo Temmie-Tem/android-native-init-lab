@@ -1,0 +1,13 @@
+flowchart LR
+    Public["Canonical client public key"] --> Boot["Immutable boot-public input boundary"]
+    Secret["Operator Wi-Fi secret"] --> Provision["One-use generation provision boundary"]
+    Provision --> WiFi["Versioned root-only Wi-Fi input"]
+    Seed["Minimal property seed or none"] --> Compat["Read-only compatibility input boundary"]
+    Boot --> Auth["Service auth tmpfs"]
+    WiFi --> Native["Native Wi-Fi owner"]
+    Compat --> Capsule["Reduced vendor WLAN backend"]
+    Native --> Receipt["Native-only append receipt boundary"]
+    RuntimeKey["Per-boot host-key generator"] --> KeyTmpfs["Child-private key tmpfs"]
+    Host["Strict host SSH observer"] --> Grade["Private host evidence join"]
+    Receipt --> Grade
+    KeyTmpfs --> Host
