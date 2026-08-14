@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
-"""Audit P3.17 and define the fail-closed P3.18 endpoint transition selector.
+"""Audit the P3.17 physical-topology drift without widening live selection.
 
-This is host-only.  The transition is not inferred from a common port suffix,
-an xHCI peer relationship, or a controller family.  It is an exact, reviewed
-pair of host paths derived from the sealed P3.17 USB sidecar.  The selector is
-implemented here for fixture execution, but it is not wired into Process-v2 by
-this unit.
+This is host-only.  The sealed sidecar proves that the approved Download path
+and the later candidate path differ.  The operator separately reports moving
+the cable during the run.  That human report is documented outside this
+machine-derived receipt; it is not promoted to source authority here.  The
+observed path pair is incident evidence only and must never authorize a live
+selector transition.
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import datetime as dt
 import hashlib
 import json
 import re
@@ -19,9 +21,9 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-SCHEMA = "s22plus_fyg8_p318_cdc_acm_endpoint_transition_v1"
-AUTHORITY_SCHEMA = "s22plus_fyg8_p318_endpoint_transition_authority_v1"
-VERDICT = "PASS_P318_P317_ENDPOINT_SELECTOR_LOCALIZATION_H0"
+SCHEMA = "s22plus_fyg8_p318_cdc_acm_topology_drift_v2"
+AUTHORITY_SCHEMA = "s22plus_fyg8_p318_topology_drift_authority_v2"
+VERDICT = "PASS_P318_P317_PHYSICAL_TOPOLOGY_DRIFT_LOCALIZATION_H0"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
 
 RUN_RELATIVE = Path(
@@ -103,6 +105,16 @@ def digest(value: Any) -> str:
             value, sort_keys=True, separators=(",", ":"), allow_nan=False
         ).encode("utf-8")
     ).hexdigest()
+
+
+def _utc(value: Any, label: str) -> dt.datetime:
+    if not isinstance(value, str) or not value.endswith("Z"):
+        raise TransitionError(f"{label} is not a UTC timestamp")
+    try:
+        parsed = dt.datetime.fromisoformat(value.removesuffix("Z") + "+00:00")
+    except ValueError as exc:
+        raise TransitionError(f"{label} is not a UTC timestamp") from exc
+    return parsed
 
 
 def _unique_object(items: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -294,6 +306,8 @@ def validate_authority(authority: dict[str, Any]) -> dict[str, Any]:
         "same_port_suffix",
         "same_controller",
         "generic_companion_inference_forbidden",
+        "observed_transition_authorizes_selection",
+        "approved_path_remains_frozen",
         "scope",
     }
     if set(authority) != expected:
@@ -302,9 +316,11 @@ def validate_authority(authority: dict[str, Any]) -> dict[str, Any]:
     if (
         authority["schema"] != AUTHORITY_SCHEMA
         or authority["target"] != TARGET
-        or authority["derivation"] != "sealed_p317_sidecar_exact_path_pair"
+        or authority["derivation"] != "sealed_p317_sidecar_topology_drift"
         or authority["generic_companion_inference_forbidden"] is not True
-        or authority["scope"] != "p317_endpoint_replay_only"
+        or authority["observed_transition_authorizes_selection"] is not False
+        or authority["approved_path_remains_frozen"] is not True
+        or authority["scope"] != "p317_topology_drift_localization_only"
         or authority["same_port_suffix"] is not True
         or authority["same_controller"] is not False
         or not isinstance(identity, dict)
@@ -394,22 +410,27 @@ def classify_endpoints(
     elif len(exact_rows) == 1:
         row = exact_rows[0]
         if (
+            row["topology"] == authority["source_topology"]
+            and row["usb_device_path"] == authority["source_usb_device_path"]
+        ):
+            classification = "selected-exact-approved-path"
+            selected = row
+        elif (
             row["topology"] == authority["candidate_topology"]
             and row["usb_device_path"] == authority["candidate_usb_device_path"]
         ):
-            classification = "selected-exact-transition"
-            selected = row
+            classification = "exact-candidate-topology-drift"
         else:
             classification = "exact-candidate-unrecognized-path"
     else:
         occupied = [
             value
             for value in endpoints
-            if value["topology"] == authority["candidate_topology"]
-            and value["usb_device_path"] == authority["candidate_usb_device_path"]
+            if value["topology"] == authority["source_topology"]
+            and value["usb_device_path"] == authority["source_usb_device_path"]
         ]
         classification = (
-            "authorized-path-identity-mismatch" if occupied else "endpoint-absent"
+            "approved-path-identity-mismatch" if occupied else "endpoint-absent"
         )
     return {
         "classification": classification,
@@ -576,7 +597,7 @@ def build_contract(
         {
             "schema": AUTHORITY_SCHEMA,
             "target": TARGET,
-            "derivation": "sealed_p317_sidecar_exact_path_pair",
+            "derivation": "sealed_p317_sidecar_topology_drift",
             "source_topology": source_topology,
             "source_usb_device_path": source_device_path,
             "source_id_path": source_id_path,
@@ -601,7 +622,9 @@ def build_contract(
                 _controller(source_device_path) == _controller(candidate_device_path)
             ),
             "generic_companion_inference_forbidden": True,
-            "scope": "p317_endpoint_replay_only",
+            "observed_transition_authorizes_selection": False,
+            "approved_path_remains_frozen": True,
+            "scope": "p317_topology_drift_localization_only",
         }
     )
     kernel_text = kernel_data.decode("utf-8", "strict")
@@ -613,15 +636,37 @@ def build_contract(
     )
     if any(kernel_text.count(token) != 1 for token in required_kernel):
         raise TransitionError("P3.17 kernel exact candidate evidence differs")
+    enumeration_match = re.search(
+        rf"(?m)^(?P<utc>[^ ]+Z) source=kernel .*usb {re.escape(candidate_topology)}: "
+        r"new high-speed USB device",
+        kernel_text,
+    )
+    if enumeration_match is None:
+        raise TransitionError("P3.17 candidate enumeration time is absent")
+    enumeration_utc = _utc(
+        enumeration_match.group("utc"), "P3.17 candidate enumeration"
+    )
+    sidecar_end_value = sidecar["sources"]["kernel"].get("ended_utc")
+    sidecar_end_utc = _utc(sidecar_end_value, "P3.17 kernel sidecar end")
+    capture_after_enumeration_sec = (
+        sidecar_end_utc - enumeration_utc
+    ).total_seconds()
+    if capture_after_enumeration_sec <= 30.0:
+        raise TransitionError(
+            "P3.17 sidecar did not continue 30 seconds after enumeration"
+        )
     endpoint = {
         "tty_name": "ttyACM0",
         "topology": candidate_topology,
         "usb_device_path": candidate_device_path,
         **authority["candidate_identity"],
     }
-    corrected = classify_endpoints(authority, [endpoint])
-    if corrected["classification"] != "selected-exact-transition":
-        raise TransitionError("corrected P3.17 selector does not select exact endpoint")
+    drift = classify_endpoints(authority, [endpoint])
+    if (
+        drift["classification"] != "exact-candidate-topology-drift"
+        or drift["open_permitted"] is not False
+    ):
+        raise TransitionError("P3.17 topology drift does not fail closed")
     old_selector_exact = candidate_topology == source_topology
     if old_selector_exact:
         raise TransitionError("P3.17 endpoint unexpectedly matches frozen topology")
@@ -652,17 +697,28 @@ def build_contract(
             "tty_open_attempted": False,
             "classification": "endpoint-timeout",
             "raw_size": 0,
-            "corrected_classification": "exact-candidate-on-unrecognized-topology",
+            "effective_classification": "exact-candidate-topology-drift",
         },
-        "corrected_selector": corrected,
+        "topology_drift_assessment": drift,
         "dtr_source_audit": dtr_audit,
+        "causal_timing_boundary": {
+            "candidate_enumeration_utc": enumeration_match.group("utc"),
+            "sidecar_kernel_end_utc": sidecar_end_value,
+            "capture_after_enumeration_sec": capture_after_enumeration_sec,
+            "sidecar_capture_continued_after_candidate_enumeration": True,
+            "usb_event_silence_after_enumeration_locates_post1_or_post2": False,
+            "successor_requires_explicit_post1_or_post2_host_correlation": True,
+        },
         "scope": {
             "p317_only": True,
             "prior_campaign_silence_reclassified": False,
+            "effective_proof_class": "NO_PROOF_EXPERIMENT_PRECONDITION",
+            "operator_physical_relocation_machine_proven": False,
             "banner_write_success_proven": False,
             "dtr_hypothesis_retained": False,
             "physical_mux_conduction_inferred_from_registers": False,
             "live_selector_wired": False,
+            "observed_path_live_authority": False,
             "device_actions": 0,
         },
     }

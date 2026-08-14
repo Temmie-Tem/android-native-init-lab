@@ -34,7 +34,7 @@ class P318EndpointTransitionTest(unittest.TestCase):
         return {
             "schema": P318.AUTHORITY_SCHEMA,
             "target": P318.TARGET,
-            "derivation": "sealed_p317_sidecar_exact_path_pair",
+            "derivation": "sealed_p317_sidecar_topology_drift",
             "source_topology": "2-1.3",
             "source_usb_device_path": (
                 "/devices/pci0000:00/0000:00:0d.0/usb2/2-1/2-1.3"
@@ -57,7 +57,9 @@ class P318EndpointTransitionTest(unittest.TestCase):
             "same_port_suffix": True,
             "same_controller": False,
             "generic_companion_inference_forbidden": True,
-            "scope": "p317_endpoint_replay_only",
+            "observed_transition_authorizes_selection": False,
+            "approved_path_remains_frozen": True,
+            "scope": "p317_topology_drift_localization_only",
         }
 
     def endpoint(self, **changes):
@@ -96,7 +98,7 @@ class P318EndpointTransitionTest(unittest.TestCase):
         values.update(overrides)
         return P318.build_contract(**values)
 
-    def test_exact_p317_evidence_localizes_selector_miss(self):
+    def test_exact_p317_evidence_localizes_topology_drift(self):
         result = self.build_default()
         self.assertEqual(result["verdict"], P318.VERDICT)
         authority = result["authority"]
@@ -107,23 +109,49 @@ class P318EndpointTransitionTest(unittest.TestCase):
         self.assertFalse(authority["same_controller"])
         self.assertTrue(authority["same_port_suffix"])
         self.assertEqual(
-            result["frozen_observer"]["corrected_classification"],
-            "exact-candidate-on-unrecognized-topology",
+            result["frozen_observer"]["effective_classification"],
+            "exact-candidate-topology-drift",
         )
         self.assertFalse(result["frozen_observer"]["tty_open_attempted"])
         self.assertEqual(
-            result["corrected_selector"]["classification"],
-            "selected-exact-transition",
+            result["topology_drift_assessment"]["classification"],
+            "exact-candidate-topology-drift",
+        )
+        self.assertFalse(result["topology_drift_assessment"]["open_permitted"])
+        self.assertFalse(authority["observed_transition_authorizes_selection"])
+        self.assertEqual(
+            result["scope"]["effective_proof_class"],
+            "NO_PROOF_EXPERIMENT_PRECONDITION",
+        )
+        self.assertGreater(
+            result["causal_timing_boundary"]["capture_after_enumeration_sec"],
+            30.0,
+        )
+        self.assertTrue(
+            result["causal_timing_boundary"][
+                "successor_requires_explicit_post1_or_post2_host_correlation"
+            ]
         )
         self.assertTrue(result["scope"]["p317_only"])
         self.assertFalse(result["scope"]["prior_campaign_silence_reclassified"])
         self.assertFalse(result["dtr_source_audit"]["dtr_hypothesis_retained"])
 
-    def test_positive_exact_transition_is_selected(self):
+    def test_observed_exact_transition_is_topology_drift_and_not_selected(self):
         result = P318.classify_endpoints(self.authority(), [self.endpoint()])
-        self.assertEqual(result["classification"], "selected-exact-transition")
-        self.assertTrue(result["open_permitted"])
+        self.assertEqual(result["classification"], "exact-candidate-topology-drift")
+        self.assertFalse(result["open_permitted"])
         self.assertEqual(result["exact_candidate_count"], 1)
+
+    def test_exact_candidate_at_approved_path_is_selected(self):
+        endpoint = self.endpoint(
+            topology="2-1.3",
+            usb_device_path=(
+                "/devices/pci0000:00/0000:00:0d.0/usb2/2-1/2-1.3"
+            ),
+        )
+        result = P318.classify_endpoints(self.authority(), [endpoint])
+        self.assertEqual(result["classification"], "selected-exact-approved-path")
+        self.assertTrue(result["open_permitted"])
 
     def test_same_suffix_on_other_controller_is_not_selected(self):
         endpoint = self.endpoint(
@@ -168,18 +196,33 @@ class P318EndpointTransitionTest(unittest.TestCase):
         self.assertEqual(result["exact_candidate_count"], 2)
         self.assertFalse(result["open_permitted"])
 
-    def test_authorized_path_with_wrong_identity_is_explicit(self):
+    def test_approved_path_with_wrong_identity_is_explicit(self):
         result = P318.classify_endpoints(
-            self.authority(), [self.endpoint(serial_sha256="b" * 64)]
+            self.authority(),
+            [
+                self.endpoint(
+                    topology="2-1.3",
+                    usb_device_path=(
+                        "/devices/pci0000:00/0000:00:0d.0/usb2/2-1/2-1.3"
+                    ),
+                    serial_sha256="b" * 64,
+                )
+            ],
         )
         self.assertEqual(
-            result["classification"], "authorized-path-identity-mismatch"
+            result["classification"], "approved-path-identity-mismatch"
         )
         self.assertFalse(result["open_permitted"])
 
     def test_generic_companion_inference_cannot_be_enabled(self):
         authority = self.authority()
         authority["generic_companion_inference_forbidden"] = False
+        with self.assertRaisesRegex(P318.TransitionError, "semantics"):
+            P318.classify_endpoints(authority, [self.endpoint()])
+
+    def test_observed_transition_cannot_be_promoted_to_selection_authority(self):
+        authority = self.authority()
+        authority["observed_transition_authorizes_selection"] = True
         with self.assertRaisesRegex(P318.TransitionError, "semantics"):
             P318.classify_endpoints(authority, [self.endpoint()])
 
@@ -212,6 +255,15 @@ class P318EndpointTransitionTest(unittest.TestCase):
         sidecar["sources"]["udev"]["sha256"] = "0" * 64
         mutated = json.dumps(sidecar, sort_keys=True).encode()
         with self.assertRaisesRegex(P318.TransitionError, "udev authority"):
+            self.build_default(sidecar_result_data=mutated)
+
+    def test_sidecar_must_continue_beyond_enumeration(self):
+        sidecar = json.loads((ROOT / P318.DEFAULT_SIDECAR_RESULT).read_text())
+        sidecar["sources"]["kernel"]["ended_utc"] = (
+            "2026-08-12T17:04:44.060317Z"
+        )
+        mutated = json.dumps(sidecar, sort_keys=True).encode()
+        with self.assertRaisesRegex(P318.TransitionError, "continue 30 seconds"):
             self.build_default(sidecar_result_data=mutated)
 
     def test_contract_never_exports_raw_candidate_serial(self):

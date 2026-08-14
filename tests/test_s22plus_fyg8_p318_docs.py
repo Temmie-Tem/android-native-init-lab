@@ -29,7 +29,7 @@ class P318DocumentationTest(unittest.TestCase):
         report = REPORT.read_text(encoding="utf-8")
         expected = {
             "endpoint-transition-20260814-01.json": (
-                "PASS_P318_P317_ENDPOINT_SELECTOR_LOCALIZATION_H0"
+                "PASS_P318_P317_PHYSICAL_TOPOLOGY_DRIFT_LOCALIZATION_H0"
             ),
             "cdc-acm-positive-control-20260814-01.json": (
                 "PASS_P318_CDC_ACM_TWO_SEAM_POSITIVE_CONTROL_H0"
@@ -53,9 +53,11 @@ class P318DocumentationTest(unittest.TestCase):
         required = (
             "For P3.17 only",
             "does not reclassify earlier campaigns",
-            "not yet wired into the live observer",
+            "No live selector transition is authorized",
             "P3.18 is not candidate-ready",
             "grants no D0, D1, F1, recovery, or live authority",
+            "NO_PROOF_EXPERIMENT_PRECONDITION",
+            "explicit host-time correlation witness at post1 or post2",
         )
         for clause in required:
             self.assertIn(clause, combined)
@@ -66,19 +68,28 @@ class P318DocumentationTest(unittest.TestCase):
             "2026-08-13T17:42:07Z | s22plus-fyg8-p317 | 1-recovery-close | "
             "F1 | CAMPAIGN_CLOSED | HEALTHY | NO_PROOF_OBSERVER | 1/1 |"
         )
-        correction = (
+        superseded_correction = (
             "s22plus-fyg8-p317 | h0-endpoint-selector-correction-1 | H0 | "
             "P317_CDC_ACM_ENDPOINT_SELECTOR_POSTCLOSE_CORRECTION_AND_P318_H0_DESIGN"
         )
+        correction = (
+            "s22plus-fyg8-p317 | h0-endpoint-topology-correction-2 | H0 | "
+            "P317_PHYSICAL_TOPOLOGY_PRECONDITION_POSTCLOSE_CORRECTION | "
+            "HEALTHY | NO_PROOF_EXPERIMENT_PRECONDITION | 0/0 |"
+        )
         self.assertEqual(ledger.count(original), 1)
+        self.assertEqual(ledger.count(superseded_correction), 1)
         self.assertEqual(ledger.count(correction), 1)
-        self.assertLess(ledger.index(original), ledger.index(correction))
+        self.assertLess(ledger.index(original), ledger.index(superseded_correction))
+        self.assertLess(ledger.index(superseded_correction), ledger.index(correction))
 
     def test_incident_report_carries_explicit_post_close_correction(self):
         incident = INCIDENT.read_text(encoding="utf-8")
-        self.assertIn("## Post-close endpoint-observer correction", incident)
-        self.assertIn("selected no\nendpoint and never opened the TTY", incident)
+        normalized = " ".join(incident.split())
+        self.assertIn("## Post-close endpoint/topology correction", incident)
+        self.assertIn("selected no endpoint and never opened the TTY", normalized)
         self.assertIn("campaign-level multiplicity result", incident)
+        self.assertIn("cable/dock connection was physically moved", incident)
 
     def test_tracked_unit_does_not_export_raw_candidate_serial(self):
         prepared = json.loads(PREPARED.read_text(encoding="utf-8"))

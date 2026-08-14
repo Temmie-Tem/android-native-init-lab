@@ -1,4 +1,4 @@
-# S22+ FYG8 P3.17 CDC-ACM endpoint-selector correction
+# S22+ FYG8 P3.17 CDC-ACM topology-drift correction
 
 Date: 2026-08-14 KST
 Target: Samsung Galaxy S22+ FYG8 only
@@ -14,11 +14,15 @@ exact `04e8:6861` identity, the hash-bound candidate serial, `cdc_acm`, and
 and candidate-like match required that literal topology. It therefore selected
 zero endpoints and never opened the TTY.
 
-The P3.17 `endpoint-timeout`, null endpoint identity, and zero-byte raw file do
-not mean that the observer opened the candidate TTY and read no bytes. They
-mean that the observer did not select or open the enumerated candidate at all.
-For P3.17 only, the corrected host classification is
-`exact-candidate-on-unrecognized-topology`.
+The operator now confirms that the cable/dock connection was physically moved
+during the run. That statement explains the controller and path change but is
+human evidence, not a fact manufactured from the sealed logs. The frozen
+observer was therefore correct to refuse the new path. Its `endpoint-timeout`,
+null endpoint identity, and zero-byte raw file mean “not selected,” not
+“opened and read nothing.” For P3.17 only, the endpoint classification is
+`exact-candidate-topology-drift`, and the effective proof class for that
+experimental precondition is `NO_PROOF_EXPERIMENT_PRECONDITION`.
+It does not reclassify earlier campaigns.
 
 This does not change the official campaign-level no-proof result. Two
 byte-identical retained records still violate the frozen single-result
@@ -41,21 +45,21 @@ P3.17 crossed the P3.16 executability blocker:
   30-second retention boundary; and
 - no post2 detection latch was retained.
 
-The host independently saw high-speed enumeration and CDC-ACM binding. That
-proves that the candidate's USB2 data path physically conducted well enough
-for enumeration. It does not prove that the CONTROL1 command caused the
-physical path to move: the two retained records are not attributable to one
-boot, and opcode `0x05` readback remains a register/firmware observation rather
-than a direct switch-position witness. The simple claim that the run was
-silent because the MUX stayed open is no longer supported, but the frozen
-physical-switch ceiling remains.
+The host independently saw high-speed enumeration and CDC-ACM binding after
+the physical topology changed. That proves that the candidate enumerated on
+the later connection, but it is not a clean witness for the original
+connection or for CONTROL1 causality. The two retained records are not
+attributable to one boot, opcode `0x05` readback remains a register/firmware
+observation rather than a direct switch-position witness, and physical
+disconnect/reconnect is a competing cause. The MUX hypothesis is therefore not
+resolved by host enumeration; the frozen physical-switch ceiling remains.
 
-## Exact transition authority, not a generic companion rule
+## Incident topology audit, not live selector authority
 
 The H0 transition contract is implemented in
 `workspace/public/src/scripts/revalidation/s22plus_fyg8_p318_cdc_acm_endpoint_transition.py`.
 It reopens the sealed P3.17 preparation, target, observer, sidecar, kernel,
-udev, and frozen observer source. It derives one incident-specific transition:
+udev, and frozen observer source. It derives one incident-specific drift:
 
 ```text
 Download source: 2-1.3 / 0000:00:0d.0
@@ -64,29 +68,32 @@ Candidate target: 3-1.3 / 0000:00:14.0
 
 The common suffix `1.3` is descriptive only. The controllers differ, so the
 contract explicitly forbids inferring a generic companion relation from a
-shared suffix or parent. Only the exact sealed P3.17 path pair and exact
-candidate identity authorize selection in this replay audit.
+shared suffix or parent. The observed `3-1.3` path is incident evidence and
+does not authorize selection. Only the original approved `2-1.3` path can
+produce `selected-exact-approved-path` in the fixture model.
 
-The positive fixture selects exactly one candidate at the authorized target.
-The negative fixtures reject:
+The positive fixture selects the exact identity only at the approved path.
+The observed incident endpoint is classified as topology drift and is not
+opened. Further negative fixtures reject:
 
 1. the same suffix on another controller;
 2. another Samsung device;
 3. more than one exact candidate; and
-4. a wrong identity occupying the authorized path.
+4. a wrong identity occupying the approved path.
 
-An exact candidate on any unregistered path is classified explicitly and is
-not opened. This prevents the repair from turning a timeout into cross-device
-evidence contamination. The contract is a host-only incident replay; it is
-not yet wired into the live observer and cannot qualify another host or run.
+An exact candidate on any unapproved path is classified explicitly and is not
+opened. This prevents the correction from turning a topology-precondition
+failure into cross-device evidence contamination. The contract is a host-only
+incident audit; it cannot qualify another host or run and supplies no live
+selector transition.
 
 Private receipt:
 
 ```text
 endpoint-transition-20260814-01.json
-size    3998
-sha256  8f0ff7c015dbc4c8ee27d81f497ae16bc38b73863785d8bd6fbb165b154e5f03
-verdict PASS_P318_P317_ENDPOINT_SELECTOR_LOCALIZATION_H0
+size    4630
+sha256  d8ec779eba33ae1855fcf50147306a5e92ed37fec423fa5b685def8fd4da2851
+verdict PASS_P318_P317_PHYSICAL_TOPOLOGY_DRIFT_LOCALIZATION_H0
 ```
 
 ## CDC-ACM positive control
@@ -119,7 +126,7 @@ Private receipt:
 ```text
 cdc-acm-positive-control-20260814-01.json
 size    2387
-sha256  8aefa209527611fe7644ea6589598d9e6752af968bac744334eb9d7ebcc6a61c
+sha256  3911bd72177e32be10a78b50553436f96adcb418b69ed19a2cb88b350d0a280e
 verdict PASS_P318_CDC_ACM_TWO_SEAM_POSITIVE_CONTROL_H0
 ```
 
@@ -175,16 +182,36 @@ sha256  e15af9b96dc7109297babd482ddd4ca4e1cb6f435f6c27a9a7e3903fbc36b57a
 verdict PASS_P318_BANNER_RESULT_DESIGN_H0_IMPLEMENTATION_REQUIRED
 ```
 
+## Timing correction and successor correlation requirement
+
+The host sidecar's `armed.json` is not the candidate-internal “sidecar arm
+proof” in the runtime ordering. It was published before the candidate flash
+completed. Candidate enumeration occurred about 53.2 seconds after flash
+completion, but boot, the 69-module early load, gadget setup, diagnostic load,
+and the 30-second dwell all fit inside that interval. The retained host events
+cannot distinguish gadget-ready enumeration from post-CONTROL1 enumeration.
+
+Extending the existing sidecar window is not sufficient. Its sealed result
+shows that kernel and udev capture continued until `17:08:53Z`, roughly 250
+seconds after the candidate enumerated, while the kernel log contains no later
+USB event. Absence of a later event supplies no post1 or post2 timestamp. A
+successor must instead retain an explicit correlation between the host time
+axis and at least one diagnostic boundary (post1 or post2). The correlation
+must not depend on accepting an unapproved USB topology, must survive the real
+encoder/Carrier/decoder path, and must distinguish correlation failure from a
+device result.
+
 ## Validation and remaining boundary
 
-The three new focused modules pass 22/22, including the three requested
-selector negatives, source-seam mutations, and banner ordering/write-helper
-mutations. A separate documentation/receipt binding module passes 5/5, for a
-27/27 P3.18 unit total. Python compilation passes. No device command, USB open, reboot,
+The three new focused modules pass 25/25, including the requested topology
+negatives, source-seam mutations, and banner ordering/write-helper mutations.
+A separate documentation/receipt binding module passes 5/5, for a 30/30
+P3.18 unit total. Python compilation passes. No device command, USB open, reboot,
 Odin invocation, payload, partition transfer, candidate replay, recovery
 action, A90 action, or S20+ action occurred.
 
-P3.18 is not candidate-ready. The live selector has not been changed, the new
-banner envelope/encoder/decoder has not been implemented, and no package or
-Process-v2 binding exists. Independent review is still required. This H0 unit
+P3.18 is not candidate-ready. No live selector transition is authorized, the
+new banner envelope/encoder/decoder has not been implemented, and no package,
+Process-v2 binding, or host-time correlation witness exists. Independent
+review is still required. This H0 unit
 grants no D0, D1, F1, recovery, or live authority.

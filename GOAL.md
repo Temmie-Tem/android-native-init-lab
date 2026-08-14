@@ -780,49 +780,64 @@ Max77705 retention, physical MUX conduction, and host attach remain device-only
 unknowns. No device command, Full-LTO, kernel rebuild, live authority, A90
 action, or S20+ device action occurred.
 
-P3.17 live evidence now corrects the final host-attach item without rewriting
-the frozen campaign result. The sealed sidecar proves the exact candidate
-enumerated high-speed at `3-1.3` under `0000:00:14.0`, with the bound
+P3.17 live evidence localizes a topology-precondition failure without
+rewriting the frozen campaign row. The sealed sidecar proves the exact
+candidate enumerated high-speed at `3-1.3` under `0000:00:14.0`, with the bound
 `04e8:6861` identity, candidate serial, `cdc_acm`, and `ttyACM0`. The frozen
-observer required literal topology `2-1.3` under the different controller
-`0000:00:0d.0` in both its exact and candidate-like matches. It selected zero
-endpoints and never opened the TTY. Thus its null endpoint identity and
-zero-byte raw file mean “not selected,” not “opened and read nothing”; the
-P3.17 endpoint sub-result is corrected to
-`exact-candidate-on-unrecognized-topology`. This correction is P3.17-only and
-does not reclassify earlier campaigns.
+observer required approved topology `2-1.3` under the different controller
+`0000:00:0d.0`; it selected zero endpoints and never opened the TTY. The
+operator confirms that the cable/dock connection was physically moved during
+the run. The observer therefore behaved correctly, while the experiment lost
+its frozen topology precondition. Its null endpoint identity and zero-byte raw
+file mean “not selected,” not “opened and read nothing.” The P3.17 endpoint
+sub-result is `exact-candidate-topology-drift`, with effective proof class
+`NO_PROOF_EXPERIMENT_PRECONDITION`. This correction is P3.17-only and does not
+reclassify earlier campaigns. The original multiplicity terminal remains a
+separate observer limitation and the immutable F1 row remains unchanged.
 
 The live diagnostic also crossed the P3.16 executability boundary: all three
 providers were bound, `waiting_for_supplier=ZERO`, the diagnostic owned the
 parent and one `0x25` client, all commands/responses completed, and CONTROL1
 was `0x3f -> 0x09 -> 0x09` across the 30-second boundary with no post2
-detection latch. Host enumeration proves physical USB2 data conduction for
-the candidate. It does not prove that CONTROL1 caused a physical switch move:
-two identical retained records still violate the single-result contract, and
-register readback is not a physical switch witness. The operator reports a
+detection latch. Host enumeration proves only that the candidate enumerated on
+the later physical connection. Because disconnect/reconnect and controller
+movement are competing causes, it does not prove that CONTROL1 caused a
+physical switch move or that the original connection conducted. Two identical
+retained records still violate the single-result contract, and register
+readback is not a physical switch witness. The operator reports a
 physical-button misoperation that caused two actions, which is consistent with
 two records but cannot supply the missing per-boot retained identity. The
 official multiplicity no-proof and healthy 1/1 close remain unchanged.
 
-P3.18 host-only work implements an exact sealed-path replay selector with
+P3.18 host-only work now treats the sealed `2-1.3 -> 3-1.3` pair as incident
+topology-drift evidence, never as live selector authority. Exact identity at
+the approved path is the sole positive selection; the observed drift path and
 fail-closed negatives for the same suffix on another controller, another
 Samsung device, multiple exact candidates, and a wrong identity at the
-authorized path. It explicitly rejects generic same-suffix/controller
-companion inference. A two-seam positive control joins the sealed
+approved path are not opened. Generic same-suffix/controller companion
+inference is forbidden. A two-seam positive control joins the sealed
 dummy_hcd/u_serial/cdc_acm 49-byte PASS to a fresh execution of the real Python
 observer reading the same prequeued bytes; it does not claim that Python ran
 inside QEMU or that the real root udev guard was covered. Fixed `f_acm` and
 `u_serial` sources reject DTR as the explanation.
+
+The host sidecar arm preceded flash completion and is not the candidate's
+internal arm-proof stage. Enumeration occurred 53.2 seconds after flash, but
+that interval cannot place gadget readiness, CONTROL1 write, post1, or post2.
+The sealed sidecar already continued roughly 250 seconds after enumeration;
+its lack of later USB events supplies no dwell timestamp. P3.18 therefore
+requires an explicit host-time correlation witness at post1 or post2 rather
+than a merely longer capture window.
 
 The remaining banner result is genuinely unknown. The active P3.17 publisher
 commits the terminal, discards `p260_write_banner()`'s return, then parks. A
 successor must make one bounded attempt first, retain
 `written/eagain_timeout/errno/partial` plus byte count and normalized error in
 a new envelope version, publish the terminal for every outcome, and never
-retry after it. The fixed 128-byte Carrier remains unchanged. The endpoint
-selector is not live-wired, the new envelope is not implemented, packaging and
-independent changed-closure review are absent, and P3.18 is not candidate-ready
-and grants no device authority. The detailed H0 report is
+retry after it. The fixed 128-byte Carrier remains unchanged. No transition
+selector is live-authorized, the new envelope and timing correlation are not
+implemented, packaging and independent changed-closure review are absent, and
+P3.18 is not candidate-ready and grants no device authority. The detailed H0 report is
 `docs/reports/S22PLUS_FYG8_P317_CDC_ACM_ENDPOINT_SELECTOR_CORRECTION_H0_2026-08-14.md`.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden

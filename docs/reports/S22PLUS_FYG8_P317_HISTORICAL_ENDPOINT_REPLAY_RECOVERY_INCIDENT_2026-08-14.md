@@ -190,20 +190,24 @@ commands both zero. Independent review returns
 `PASS_GO_P317_RECOVERY_CLOSE_AUDIT_V1`; the expanded focused suite passes
 18/18, the device is healthy, and no recovery authority remains.
 
-## Post-close endpoint-observer correction
+## Post-close endpoint/topology correction
 
 A later H0 audit of the same sealed sidecar corrects one sentence in the live
 interpretation above. The host was not silent: the exact P3.17 candidate
 enumerated high-speed at `3-1.3` under `0000:00:14.0`, bound `cdc_acm`, and
-created `ttyACM0`. The frozen candidate observer remained pinned to Download
-topology `2-1.3` under the different controller `0000:00:0d.0`; it selected no
-endpoint and never opened the TTY. Its `endpoint-timeout`, null endpoint
-identity, and zero-byte raw file are therefore a selector misclassification,
-not proof of a zero-byte read.
+created `ttyACM0`. The frozen candidate observer remained pinned to approved
+Download topology `2-1.3` under the different controller `0000:00:0d.0`; it
+selected no endpoint and never opened the TTY. The operator confirms that the
+cable/dock connection was physically moved during the run. The observer's
+refusal was therefore correct, and its `endpoint-timeout`, null endpoint
+identity, and zero-byte raw file localize a topology-precondition failure, not
+a zero-byte read or selector defect. The effective endpoint proof class is
+`NO_PROOF_EXPERIMENT_PRECONDITION`.
 
 This correction is confined to the P3.17 endpoint sub-result. The two retained
 records, campaign-level multiplicity result, 1/1 transfer accounting, healthy
-close, and physical-switch ceiling remain unchanged. The detailed correction,
-negative selector fixtures, two-seam CDC-ACM positive control, and successor
-banner-result design are recorded in
+close, and physical-switch ceiling remain unchanged. The observed path pair is
+incident evidence and grants no live selector transition. The detailed
+correction, fail-closed topology fixtures, two-seam CDC-ACM positive control,
+and successor banner/timing-correlation design are recorded in
 `S22PLUS_FYG8_P317_CDC_ACM_ENDPOINT_SELECTOR_CORRECTION_H0_2026-08-14.md`.
