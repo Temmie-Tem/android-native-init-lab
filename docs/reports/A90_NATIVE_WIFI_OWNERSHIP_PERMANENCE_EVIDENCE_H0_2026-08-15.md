@@ -6,6 +6,13 @@ Tier: H0 public-source audit of existing live evidence
 Device or live effect: none
 Disposition: recovers an answered question whose answer no current document cites
 
+Scope of the claim, stated once so the title cannot be read past it: what is
+live-supported is that **under the current WLAN bring-up path**, the native and
+vendor control plane must stay alive **for as long as the Debian steady state
+needs Wi-Fi**. That native PID 1 is the only possible permanent owner, and that
+a Debian-owned control plane is impossible, are both **unproved** and are not
+claimed here.
+
 ## Why this report exists
 
 The selected isolated-Debian direction keeps native PID 1 alive as the permanent
@@ -64,6 +71,28 @@ unblocked WLAN rfkill, but a direct `iw scan` returned rc 234 /
 > WLAN userspace (`cnss-daemon`, `cnss_diag`, and related Android/vendor
 > companions); only kernel WLAN threads and Debian `dropbear` remain.
 
+The absent vendor set recorded in that run also includes `pd-mapper` and
+`rmt_storage`, which are the protection-domain and remote-storage services the
+subsystem depends on.
+
+**WSTA18 enumerated its own successors, and they are not all closed.** The same
+report states that the next design "should not keep pushing direct Debian
+netdev ownership", and lists four practical choices:
+
+1. preserve/relaunch the minimal vendor WLAN userspace/control-plane set across
+   handoff;
+2. keep Wi-Fi owned by native init and expose a bounded service/API to Debian;
+3. run Debian as a chroot/container under native PID 1 for the Wi-Fi-enabled
+   appliance path instead of full `switch_root`;
+4. treat full Debian PID 1 handoff as local USB/server-only unless a
+   control-plane bridge is built.
+
+The selected isolated-Debian design is choice 2: native keeps the owner and
+Debian receives a bounded IP path. The WSTA lineage that followed took choice 3.
+Choice 1 was never attempted, and it is materially lighter than reimplementing
+the vendor stack — it is carrying a minimal existing set across the handoff, not
+rewriting it.
+
 **Resolution, WSTA19 (`NATIVE_OWNED_CHROOT_WIFI_PASS`).** Its opening sentence
 states the conclusion directly:
 
@@ -92,9 +121,11 @@ returns nothing useful" rather than as a missing device.
 
 ## What this settles
 
-- Native Wi-Fi ownership is a **structural requirement of this device**, not a
-  preference, not an artifact of experiment sequencing, and not a consequence of
-  having retired the atomic ownership diagnostic.
+- Under the current bring-up path, a surviving native/vendor control plane is a
+  **structural requirement**, not a preference, not an artifact of experiment
+  sequencing, and not a consequence of having retired the atomic ownership
+  diagnostic. "Permanent" here means for the duration of the Debian steady
+  state that needs Wi-Fi, not for the life of the device.
 - The isolated-Debian design's central premise — that native must survive the
   handoff — is **correct and live-supported**.
 - Consequently the `/proc/<native-pid>` exposure is a real and unavoidable
@@ -111,11 +142,17 @@ returns nothing useful" rather than as a missing device.
   alternative: "the Debian handoff can either preserve a usable `wlan0` scan
   state or explicitly reset/re-materialize the WLAN path after switch_root."
   Neither was implemented.
-- That path means reproducing the vendor connectivity daemons in Debian, which
-  is the same conclusion the later atomic ownership diagnostic reached from a
-  different direction when it required a new Binder/AF_UNIX/process-broker
-  runtime and still could not reproduce the distinct post-fork Android
-  UID/GID/capability roles. The two findings agree.
+  WSTA18's own choice 1 is the narrower version of it: preserve or relaunch the
+  minimal vendor set across the handoff. That is not the same as reproducing the
+  vendor stack in Debian, and this report does not treat it as refuted.
+- The later atomic ownership diagnostic is weaker evidence than it first looks
+  for this question. It concluded that reproducing H24's *service set* needed a
+  new Binder/AF_UNIX/process-broker runtime and still could not reproduce the
+  distinct post-fork Android UID/GID/capability roles. That bears on
+  reimplementation, not on choice 1's preserve-and-relaunch.
+- That native PID 1 is the **only** possible permanent owner is unproved. So is
+  the claim that a Debian-owned control plane is impossible. Neither is asserted
+  here, and neither follows from WSTA18.
 - Whether a different bring-up path exists at all is a separate H0 question. It
   is not answered here and no work on it is authorized here.
 

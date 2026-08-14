@@ -77,6 +77,25 @@ class RecoveredEvidenceTests(unittest.TestCase):
     def test_the_report_states_its_own_limits(self) -> None:
         self.assertIn("## What this does not settle", self.report)
         self.assertIn("re-materialize", self.report)
+        # Independent verification found the first draft's headline read
+        # stronger than its body. These pin the scope so it cannot drift back.
+        self.assertIn("under the current WLAN bring-up path", self.report)
+        self.assertIn("for as long as the Debian steady state needs Wi-Fi", self.report)
+        self.assertIn("only** possible permanent owner is unproved", self.report)
+
+    def test_wsta18_own_successor_choices_are_carried_over(self) -> None:
+        """Omitting them made the first draft one-sided about the alternatives."""
+        source = flatten(WSTA18.read_text(encoding="utf-8"))
+        for fragment in (
+            "preserve/relaunch the minimal vendor WLAN userspace/control-plane set",
+            "expose a bounded service/API to Debian",
+            "chroot/container under native PID1",
+            "control-plane bridge",
+        ):
+            self.assertIn(fragment, source, fragment)
+        self.assertIn("preserve/relaunch the minimal vendor WLAN userspace", self.report)
+        self.assertIn("selected isolated-Debian design is choice 2", self.report)
+        self.assertIn("Choice 1 was never attempted", self.report)
 
     def test_the_report_does_not_reopen_the_selected_closure(self) -> None:
         self.assertIn("NESTED_PID_NAMESPACE_ISOLATION", self.report)
