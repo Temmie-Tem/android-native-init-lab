@@ -120,6 +120,9 @@ class P318Dwc3EventLatchTest(unittest.TestCase):
         self.assertTrue(audit["event_ready_is_first_callback_guard"])
         self.assertTrue(audit["qualifying_events_before_gate_are_counted"])
         self.assertTrue(audit["pre_gate_zero_cannot_race_a_gate_transition"])
+        self.assertTrue(audit["gate_state_has_no_shadow_ready_flag"])
+        self.assertTrue(audit["gate_state_consumers_use_one_acquire_authority"])
+        self.assertTrue(audit["duplicate_gate_publication_warns_and_rejects"])
         self.assertTrue(audit["exact_a600000_dwc3_filter_precedes_decode"])
         self.assertEqual(
             audit["udc_name_authority"]["latch_exact_target"],
@@ -230,6 +233,35 @@ class P318Dwc3EventLatchTest(unittest.TestCase):
             "&s22plus_latch.exposure_state, state_value, state_value",
             1,
         )
+        self.assertNotEqual(mutated, source)
+        with self.assertRaises(P318.LatchBuildError):
+            self.audit_source(module_data=mutated.encode())
+
+    def test_source_audit_rejects_non_acquire_gate_state_read(self):
+        source = MODULE.read_text(encoding="utf-8")
+        mutated = source.replace(
+            "atomic_read_acquire(&s22plus_latch.exposure_state)",
+            "atomic_read(&s22plus_latch.exposure_state)",
+            1,
+        )
+        self.assertNotEqual(mutated, source)
+        with self.assertRaises(P318.LatchBuildError):
+            self.audit_source(module_data=mutated.encode())
+
+    def test_source_audit_rejects_shadow_gate_ready_state(self):
+        source = MODULE.read_text(encoding="utf-8")
+        mutated = source.replace(
+            "\tint event_ready;",
+            "\tint gate_ready;\n\tint event_ready;",
+            1,
+        )
+        self.assertNotEqual(mutated, source)
+        with self.assertRaises(P318.LatchBuildError):
+            self.audit_source(module_data=mutated.encode())
+
+    def test_source_audit_rejects_silent_duplicate_gate_branch(self):
+        source = MODULE.read_text(encoding="utf-8")
+        mutated = source.replace("WARN_ON_ONCE(", "(", 1)
         self.assertNotEqual(mutated, source)
         with self.assertRaises(P318.LatchBuildError):
             self.audit_source(module_data=mutated.encode())

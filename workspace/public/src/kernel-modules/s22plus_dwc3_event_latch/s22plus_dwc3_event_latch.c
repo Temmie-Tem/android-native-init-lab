@@ -30,7 +30,6 @@ struct s22plus_dwc3_latch_state {
 	u32 first_event_raw;
 	u8 first_event_kind;
 	int install_ready;
-	int gate_ready;
 	int event_ready;
 };
 
@@ -94,7 +93,13 @@ static int s22plus_dwc3_publish_gate(void)
 	for (;;) {
 		int previous;
 
-		if (((u32)state_value & S22PLUS_DWC3_GATE_READY) != 0U)
+		/*
+		 * gate_claimed admits only one setter.  Reaching this branch is an
+		 * invariant violation, so retain the fail-closed error and make the
+		 * otherwise unreachable condition observable.
+		 */
+		if (WARN_ON_ONCE(((u32)state_value &
+				  S22PLUS_DWC3_GATE_READY) != 0U))
 			return -EBUSY;
 		previous = atomic_cmpxchg(
 			&s22plus_latch.exposure_state, state_value,
@@ -103,6 +108,12 @@ static int s22plus_dwc3_publish_gate(void)
 			return 0;
 		state_value = previous;
 	}
+}
+
+static unsigned int s22plus_dwc3_exposure_state_acquire(void)
+{
+	/* Pairs with the successful gate-publication atomic_cmpxchg(). */
+	return (unsigned int)atomic_read_acquire(&s22plus_latch.exposure_state);
 }
 
 static void s22plus_dwc3_event_probe(void *unused, u32 raw, struct dwc3 *dwc)
@@ -155,16 +166,18 @@ static int s22plus_dwc3_expose_gate_set(const char *value,
 	s22plus_latch.gate_write_ns = ktime_get_ns();
 	if (s22plus_dwc3_publish_gate() != 0)
 		return -EBUSY;
-	smp_store_release(&s22plus_latch.gate_ready, 1);
 	return 0;
 }
 
 static int s22plus_dwc3_expose_gate_get(char *buffer,
 		const struct kernel_param *parameter)
 {
+	unsigned int exposure_state;
+
 	(void)parameter;
+	exposure_state = s22plus_dwc3_exposure_state_acquire();
 	return scnprintf(buffer, PAGE_SIZE, "%u\n",
-			smp_load_acquire(&s22plus_latch.gate_ready) ? 1U : 0U);
+			(exposure_state & S22PLUS_DWC3_GATE_READY) ? 1U : 0U);
 }
 
 static const struct kernel_param_ops s22plus_dwc3_expose_gate_ops = {
@@ -179,7 +192,7 @@ MODULE_PARM_DESC(expose_gate,
 static int s22plus_dwc3_snapshot_get(char *buffer,
 		const struct kernel_param *parameter)
 {
-	bool gate_ready;
+	bool gate_published;
 	bool event_ready;
 	unsigned int pre_gate_events;
 	unsigned int exposure_state;
@@ -188,17 +201,18 @@ static int s22plus_dwc3_snapshot_get(char *buffer,
 	if (!smp_load_acquire(&s22plus_latch.install_ready))
 		return -EAGAIN;
 
-	gate_ready = smp_load_acquire(&s22plus_latch.gate_ready) != 0;
+	exposure_state = s22plus_dwc3_exposure_state_acquire();
+	gate_published =
+		(exposure_state & S22PLUS_DWC3_GATE_READY) != 0U;
 	event_ready = smp_load_acquire(&s22plus_latch.event_ready) != 0;
-	exposure_state = (unsigned int)atomic_read(&s22plus_latch.exposure_state);
 	pre_gate_events = exposure_state & S22PLUS_DWC3_PRE_GATE_COUNT_MASK;
 	return scnprintf(buffer, PAGE_SIZE,
 			"v=2 install_v=1 install_ns=%llu gate_v=%u gate_ns=%llu "
 			"pre_gate_events=%u "
 			"event_v=%u event_ns=%llu kind=%u raw=%08x\n",
 			(unsigned long long)s22plus_latch.latch_install_ns,
-			gate_ready ? 1U : 0U,
-			(unsigned long long)(gate_ready ?
+			gate_published ? 1U : 0U,
+			(unsigned long long)(gate_published ?
 				s22plus_latch.gate_write_ns : 0U),
 			pre_gate_events,
 			event_ready ? 1U : 0U,

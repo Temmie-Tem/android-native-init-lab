@@ -95,6 +95,8 @@ METADATA_SIZE = 48
 CRC_SIZE = 4
 PAYLOAD_SIZE = 76
 TIMING_VALID_MASK_SIZE = 1
+TIMING_VALID_MASK = 0xFF
+TIMING_VALID_MASK_SPARE_BITS = 0
 HOST_EVENT_KIND_SIZE = 1
 TIMING_DELTA_COUNT = 6
 TIMING_DELTA_SIZE = 4
@@ -273,6 +275,8 @@ def validate_v4_budget(
         raise BannerContractError("Envelope-v4 fixed Carrier geometry differs")
     if timing_prefix_size != expected_timing or timing_prefix_size != 26:
         raise BannerContractError("Envelope-v4 timing prefix geometry differs")
+    if TIMING_VALID_MASK != 0xFF or TIMING_VALID_MASK_SPARE_BITS != 0:
+        raise BannerContractError("Envelope-v4 timing-mask budget differs")
     if banner_prefix_size != 3:
         raise BannerContractError("Envelope-v4 banner prefix geometry differs")
     prefix_size = timing_prefix_size + banner_prefix_size
@@ -296,6 +300,8 @@ def validate_v4_budget(
         "payload_size": payload_size,
         "crc_size": crc_size,
         "timing_prefix_size": timing_prefix_size,
+        "timing_valid_mask": TIMING_VALID_MASK,
+        "timing_valid_mask_spare_bits": TIMING_VALID_MASK_SPARE_BITS,
         "banner_prefix_size": banner_prefix_size,
         "v4_prefix_size": prefix_size,
         "lossless_poll_capacity": lossless_capacity,
@@ -1026,6 +1032,11 @@ def successor_contract() -> dict[str, Any]:
                 "bit5": "latch_install",
                 "bit6": "gate_write",
                 "bit7": "no_qualifying_host_event_before_gate_write",
+            },
+            "validity_mask_budget": {
+                "mask": TIMING_VALID_MASK,
+                "spare_bits": TIMING_VALID_MASK_SPARE_BITS,
+                "next_witness_requires_new_byte_or_envelope_v5": True,
             },
             "causal_validity_masks": [239, 255],
             "legacy_0x0f_meaning": (

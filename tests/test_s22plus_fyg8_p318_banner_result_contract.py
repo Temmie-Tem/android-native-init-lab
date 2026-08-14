@@ -223,6 +223,8 @@ class P318BannerResultContractTest(unittest.TestCase):
             budget["envelope_size"],
         )
         self.assertEqual(budget["v4_prefix_size"], 29)
+        self.assertEqual(budget["timing_valid_mask"], 0xFF)
+        self.assertEqual(budget["timing_valid_mask_spare_bits"], 0)
         self.assertEqual(budget["lossless_poll_capacity"], 47)
         self.assertEqual(budget["overflow_summary_size"], 44)
         self.assertEqual(budget["overflow_total_size"], 73)
@@ -261,6 +263,13 @@ class P318BannerResultContractTest(unittest.TestCase):
         self.assertEqual(
             timing["validity_bits"]["bit7"],
             "no_qualifying_host_event_before_gate_write",
+        )
+        self.assertEqual(timing["validity_mask_budget"]["mask"], 0xFF)
+        self.assertEqual(timing["validity_mask_budget"]["spare_bits"], 0)
+        self.assertTrue(
+            timing["validity_mask_budget"][
+                "next_witness_requires_new_byte_or_envelope_v5"
+            ]
         )
         self.assertIn("structural invariant", timing["required_latch_order"])
         self.assertIn("only gate_write <= pre", timing["required_latch_order"])

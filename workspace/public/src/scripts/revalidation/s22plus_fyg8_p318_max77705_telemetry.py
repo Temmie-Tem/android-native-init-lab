@@ -131,7 +131,7 @@ class LatchSnapshot:
     gate_ns: int
     event_ns: int
     event_raw: int
-    pre_gate_events: int = 0
+    pre_gate_events: int
 
 
 @dataclass(frozen=True)

@@ -35,6 +35,19 @@ def classified(event_kind: int, *, pre_gate_events: int = 0):
 
 
 class P318Max77705TelemetryDecoderTests(unittest.TestCase):
+    def test_latch_snapshot_requires_explicit_pre_gate_count(self):
+        with self.assertRaises(TypeError):
+            telemetry.LatchSnapshot(
+                install_valid=1,
+                gate_valid=1,
+                event_valid=0,
+                event_kind=0,
+                install_ns=1,
+                gate_ns=2,
+                event_ns=0,
+                event_raw=0,
+            )
+
     def test_record_alone_remains_pending(self):
         value = classified(1)
         self.assertFalse(value["accepted"])

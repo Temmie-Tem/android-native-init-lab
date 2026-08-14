@@ -187,7 +187,8 @@ mask `0xff` combined with a complete no-endpoint receipt is the distinct
 `DEVICE_RESULT_DWC3_HOST_EVENT_NO_ENDPOINT`, not a host-silent result. A
 missing install, gate-write, or pre-gate-absence bit means “host event not
 observable,” never “no host event,” and cannot support a MUX ordering claim.
-Legacy masks `0x6f` and `0x7f` therefore have no causal authority.
+Legacy masks `0x6f` and `0x7f` therefore have no causal authority. Envelope-v4
+`TIME_MASK=0xff` allocates all eight validity bits; another witness needs a new byte or reviewed Envelope-v5, never reinterpretation.
 
 The P3.18 `gate_write` sample is a module-owned, write-once pre-UDC gate
 timestamp from the same `ktime_get_ns()` clock as latch installation. It is

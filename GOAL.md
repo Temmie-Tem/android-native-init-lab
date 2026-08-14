@@ -822,12 +822,17 @@ exact DWC3 raw-word ABI, filters the source-bound `a600000.dwc3` UDC name, and
 latches install plus the first post-gate RESET, CONNECT_DONE, or physical-EP0
 SETUP event with `ktime_get_ns()`. One atomic state also saturating-counts
 qualifying events that linearize before the write-once pre-UDC gate. Snapshot
-v2 retains that count, and the runtime reads back the gate before its sole
-reachable UDC bind. The late diagnostic uses the same clock for
+v2 retains that count; both the gate parameter and snapshot derive readiness
+from bit 30 of that same state with an acquire read, without a shadow ready
+flag. Python snapshots require an explicit pre-gate count, and impossible
+duplicate gate publication warns while remaining fail-closed. The runtime
+reads back the gate before its sole reachable UDC bind. The late diagnostic uses the same clock for
 pre/write/post1/post2. `install <= gate_write` is structural consistency, not
 causal evidence; no-event interpretation additionally requires
 `gate_write <= pre`, zero pre-gate events, and a complete no-endpoint host
 receipt. Only masks `0xef`/`0xff` carry that authority; `0x6f`/`0x7f` do not.
+The v4 `TIME_MASK=0xff` is fully allocated; a future timing witness requires a
+new byte or reviewed Envelope-v5 and may not reinterpret an existing bit.
 
 The bounded banner writer uses one absolute five-second deadline across
 EINTR, EAGAIN, and short writes and retains written/deadline/errno/partial plus
@@ -840,22 +845,24 @@ all terminal preimages, and separate EAGAIN/EPIPE/ENODEV outcomes.
 The frozen 42-`SOURCE_KEY` package contains the exact 69 P3.17 stock modules
 plus one early latch (70 early) and one synchronous late diagnostic (71
 effective); the old P3.17 diagnostic is absent. Two userspace and boot-only
-builds are byte-identical: boot `1385ac1ac2b4`, AP `4a8b408681da`. Independent
-intent, prepack, userspace, qualification, static, Process-v2 promotion, ready
-4/4 exact-copy, and noncreating rehearsal all match. The canonical ready
-manifest is 2,778 bytes, SHA-256 `ffc28ce036b6`; candidate observation is 300
-seconds and the source-bound guard is 1,200 seconds. Focused P3.18 tests pass
-110/110 and the common Process-v2 set passes 120/120. Final independent
-changed-closure review regenerated the intent-to-ready path byte-for-byte,
-verified all 42 source receipts, and returned:
+builds are byte-identical: boot `0b74986f8531`, AP `129ad86b934c`. Independent
+intent `d760c54dc01e`, prepack `594b02effd24`, userspace `a5bccc6edadd`,
+qualification `c2453d656d10`, static `b5ddb3cacdfd`, Process-v2 run
+`0c2fab45520e`, and process static `a26f0aa26507` match the canonical bytes.
+Ready 4/4 exact-copy and noncreating rehearsal pass with manifest 2,778 bytes,
+SHA-256 `79cf54d59171`; candidate observation is 300 seconds and the source-bound
+guard is 1,200 seconds. Focused P3.18, common Process-v2, and standalone live
+integration tests pass 114/114, 120/120, and 5/5.
 
-`PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V2`
+The V1 and V2 implementation PASS_GO verdicts remain historical authority for
+their exact old hashes only. Independent final4 changed-closure review matched
+the canonical path byte-for-byte and returned:
 
-The earlier implementation PASS_GO remains historical authority for its exact
-old hashes only. V2 qualifies the corrected current closure only as an exact
-H0 offline implementation and packaging capability. It grants no D0, D1, F1,
-recovery, replay, or live authority; fresh connected prerequisites and exact
-approval remain mandatory.
+`PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V3`
+
+V3 qualifies only this exact H0 offline implementation and packaging closure.
+It grants no D0, D1, F1, recovery, replay, or live authority; fresh connected
+prerequisites and exact approval remain mandatory.
 Detailed report:
 `docs/reports/S22PLUS_FYG8_P317_CDC_ACM_ENDPOINT_SELECTOR_CORRECTION_H0_2026-08-14.md`.
 

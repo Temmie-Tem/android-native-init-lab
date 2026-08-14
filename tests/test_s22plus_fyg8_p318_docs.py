@@ -60,15 +60,18 @@ class P318DocumentationTest(unittest.TestCase):
         required = (
             "For P3.17 only",
             "does not reclassify earlier campaigns",
-            "PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V2; H0 OFFLINE CAPABILITY ONLY; NO LIVE AUTHORITY",
+            "PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V3; H0 OFFLINE CAPABILITY ONLY; NO LIVE AUTHORITY",
             "PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V1",
             "PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V2",
+            "PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V3",
             "grants no D0, D1, F1, recovery, replay, or live authority",
             "Fresh connected prerequisites",
             "42 `SOURCE_KEYS`",
             "70 early and 71 effective",
-            "ffc28ce036b6",
-            "4a8b408681da",
+            "79cf54d59171",
+            "129ad86b934c",
+            "without a shadow ready flag",
+            "Python snapshots require an explicit pre-gate count",
             "NO_PROOF_EXPERIMENT_PRECONDITION",
             "first actual host-caused device event",
             "lossless PackBits poll capacity falls from 76 to 47 bytes",
@@ -120,6 +123,14 @@ class P318DocumentationTest(unittest.TestCase):
             "s22plus-fyg8-p318 | h0-pregate-evidence-review-2 | H0 | "
             "PASS_GO_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V2"
         )
+        followup_3 = (
+            "s22plus-fyg8-p318 | h0-gate-state-single-authority-followup-3 | H0 | "
+            "P318_GATE_STATE_SINGLE_AUTHORITY_FOLLOWUP_REVIEW_PENDING"
+        )
+        final_review_3 = (
+            "s22plus-fyg8-p318 | h0-gate-state-single-authority-review-3 | H0 | "
+            "PASS_GO_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V3"
+        )
         self.assertEqual(ledger.count(original), 1)
         self.assertEqual(ledger.count(superseded_correction), 1)
         self.assertEqual(ledger.count(correction), 1)
@@ -127,12 +138,16 @@ class P318DocumentationTest(unittest.TestCase):
         self.assertEqual(ledger.count(implementation), 1)
         self.assertEqual(ledger.count(followup), 1)
         self.assertEqual(ledger.count(final_review), 1)
+        self.assertEqual(ledger.count(followup_3), 1)
+        self.assertEqual(ledger.count(final_review_3), 1)
         self.assertLess(ledger.index(original), ledger.index(superseded_correction))
         self.assertLess(ledger.index(superseded_correction), ledger.index(correction))
         self.assertLess(ledger.index(correction), ledger.index(design))
         self.assertLess(ledger.index(design), ledger.index(implementation))
         self.assertLess(ledger.index(implementation), ledger.index(followup))
         self.assertLess(ledger.index(followup), ledger.index(final_review))
+        self.assertLess(ledger.index(final_review), ledger.index(followup_3))
+        self.assertLess(ledger.index(followup_3), ledger.index(final_review_3))
 
     def test_incident_report_carries_explicit_post_close_correction(self):
         incident = INCIDENT.read_text(encoding="utf-8")
@@ -192,6 +207,7 @@ class P318DocumentationTest(unittest.TestCase):
             "`latch_install <= gate_write` order remains a structural consistency check",
             "the retained gate-write timestamp is no later than the diagnostic pre sample",
             "Legacy masks `0x6f` and `0x7f` therefore have no causal authority",
+            "Envelope-v4 `TIME_MASK=0xff` allocates all eight validity bits",
             "module-owned, write-once pre-UDC gate timestamp",
             "It is not gadget exposure or configfs bind time",
             "read back that exact gate marker and only then perform its sole configfs UDC bind",

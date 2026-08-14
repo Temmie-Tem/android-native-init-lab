@@ -71,7 +71,9 @@ def audit(repo_root: Path | None = None) -> dict[str, Any]:
         '"v=2 install_v=1 install_ns=%llu gate_v=%u gate_ns=%llu "',
         '"pre_gate_events=%u "',
         '"event_v=%u event_ns=%llu kind=%u raw=%08x\\n"',
-        "smp_load_acquire(&s22plus_latch.gate_ready)",
+        "atomic_read_acquire(&s22plus_latch.exposure_state)",
+        "s22plus_dwc3_exposure_state_acquire();",
+        "exposure_state & S22PLUS_DWC3_GATE_READY",
         "smp_load_acquire(&s22plus_latch.event_ready)",
     ):
         if token not in module:

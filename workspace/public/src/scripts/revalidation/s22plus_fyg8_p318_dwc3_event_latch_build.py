@@ -49,8 +49,8 @@ MODULE_SOURCE_IDENTITIES = {
         "6e12bbe4c6d62966d59557d04c14f6b6212e12a55fe2ca89469472dec8029180",
     ),
     "s22plus_dwc3_event_latch.c": (
-        7_076,
-        "a731a64921e75fc716087c4100c75629f40b0e4d5391862b36cc961e9b98ab8c",
+        7_525,
+        "b5852b30c20fd277fe29819276c765b579b2a568ac331f25eda01a0441f5d7b9",
     ),
 }
 FIXTURE_SOURCE_IDENTITY = (
@@ -251,9 +251,21 @@ def audit_latch_source(
         "gate/pre-event shared atomic publication",
         (
             "atomic_read(&s22plus_latch.exposure_state)",
+            "WARN_ON_ONCE(",
             "S22PLUS_DWC3_GATE_READY",
+            "return -EBUSY;",
             "atomic_cmpxchg(",
             "state_value | (int)S22PLUS_DWC3_GATE_READY",
+        ),
+    )
+    acquire_state = _function(
+        module, "static unsigned int s22plus_dwc3_exposure_state_acquire("
+    )
+    _ordered(
+        acquire_state,
+        "acquire gate-state reader",
+        (
+            "atomic_read_acquire(&s22plus_latch.exposure_state)",
         ),
     )
     gate = _function(module, "static int s22plus_dwc3_expose_gate_set(")
@@ -266,9 +278,36 @@ def audit_latch_source(
             "atomic_cmpxchg(&s22plus_latch.gate_claimed, 0, 1)",
             "s22plus_latch.gate_write_ns = ktime_get_ns();",
             "s22plus_dwc3_publish_gate()",
-            "smp_store_release(&s22plus_latch.gate_ready, 1);",
+            "return 0;",
         ),
     )
+    gate_get = _function(module, "static int s22plus_dwc3_expose_gate_get(")
+    _ordered(
+        gate_get,
+        "gate readback from shared atomic state",
+        (
+            "s22plus_dwc3_exposure_state_acquire();",
+            "exposure_state & S22PLUS_DWC3_GATE_READY",
+        ),
+    )
+    snapshot_get = _function(module, "static int s22plus_dwc3_snapshot_get(")
+    _ordered(
+        snapshot_get,
+        "snapshot gate readback from shared atomic state",
+        (
+            "s22plus_dwc3_exposure_state_acquire();",
+            "exposure_state & S22PLUS_DWC3_GATE_READY",
+            "smp_load_acquire(&s22plus_latch.event_ready)",
+        ),
+    )
+    if "s22plus_latch.gate_ready" in module or "\tint gate_ready;" in module:
+        raise LatchBuildError("latch source retains a shadow gate-ready state")
+    if module.count(
+        "atomic_read_acquire(&s22plus_latch.exposure_state)"
+    ) != 1:
+        raise LatchBuildError("gate-state acquire authority differs")
+    if module.count("s22plus_dwc3_exposure_state_acquire();") != 2:
+        raise LatchBuildError("gate-state acquire consumers differ")
     init = _function(module, "static int __init s22plus_dwc3_event_latch_init(")
     _ordered(
         init,
@@ -320,13 +359,16 @@ def audit_latch_source(
         "qualifying_events_before_gate_are_counted": True,
         "pre_gate_count_and_gate_transition_share_one_atomic_state": True,
         "pre_gate_zero_cannot_race_a_gate_transition": True,
+        "gate_state_has_no_shadow_ready_flag": True,
+        "gate_state_consumers_use_one_acquire_authority": True,
+        "duplicate_gate_publication_warns_and_rejects": True,
         "exact_a600000_dwc3_filter_precedes_decode": True,
         "udc_name_authority": udc_name_authority,
         "masked_raw_decoder_is_shared_with_host_fixture": True,
         "first_event_claim_is_atomic": True,
         "event_fields_publish_before_release_ready": True,
         "exposure_gate_is_write_once": True,
-        "gate_timestamp_publishes_before_release_ready": True,
+        "gate_timestamp_publishes_before_atomic_ready": True,
         "tracepoint_register_precedes_install_timestamp": True,
         "tracepoint_unregister_is_synchronized": True,
         "clock_samples": "ktime_get_ns",

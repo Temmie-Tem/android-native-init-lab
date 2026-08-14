@@ -2,7 +2,7 @@
 
 Date: 2026-08-14 KST
 Target: Samsung Galaxy S22+ FYG8 only
-Status: **PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V2; H0 OFFLINE CAPABILITY ONLY; NO LIVE AUTHORITY**
+Status: **PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V3; H0 OFFLINE CAPABILITY ONLY; NO LIVE AUTHORITY**
 
 ## Result first
 
@@ -186,8 +186,8 @@ Private receipt:
 
 ```text
 banner-result-contract-20260814-01.json
-size    21451
-sha256  514b185317f03eb9b467fab7f37bd896be73b027756d839c630d9c5ecc5119a5
+size    21840
+sha256  ffe3856e7d6c0f296bdaf41100bbba9c5a7e37335cfcd1dd3c6c5934de11446a
 verdict CHANGES_REQUIRED_P318_HOST_EVENT_PRODUCER_NOT_IMPLEMENTED_H0
 ```
 
@@ -445,11 +445,19 @@ saturating pre-gate qualifying-event count, so a callback cannot race the gate
 and leave a favorable false zero. Snapshot v2 retains that count. The runtime
 reads back the gate before the only reachable UDC bind. The late Max77705
 diagnostic reads the same latch and clock domain for pre/write/post1/post2.
+The module now derives both the gate parameter and snapshot readiness from
+bit 30 of that one state with an acquire read; there is no shadow `gate_ready`
+flag or publication window. Python callers must provide `pre_gate_events`
+explicitly. An impossible duplicate gate publication warns once and remains
+fail-closed without granting causal authority.
 `latch_install <= gate_write` is a structural consistency check and diagnostic
 value, not causal evidence. A no-event interpretation additionally requires
 `gate_write <= pre`, bit 7 proving zero qualifying pre-gate events, and a
 complete no-endpoint host receipt. Only `0xef` and `0xff` are causal masks;
 legacy `0x6f` and `0x7f` mean the pre-gate fact is unavailable.
+The v4 `TIME_MASK=0xff` is now fully allocated. There is no spare validity bit;
+another timing witness requires a new byte or reviewed Envelope-v5 and cannot
+reuse an existing bit.
 
 The banner path now executes before terminal publication under one absolute
 five-second deadline shared by EINTR, EAGAIN, and every short-write
@@ -468,19 +476,19 @@ waive the boundary.
 The frozen overlay contains 42 `SOURCE_KEYS`. Its module plan is the exact 69
 P3.17 stock modules followed by one early DWC3 latch, then one synchronous
 late-only P3.18 diagnostic: 70 early and 71 effective. The P3.17 diagnostic is
-absent. The latch module is 421,872 bytes, SHA-256 `52f2e59aae62`; the timed
+absent. The latch module is 423,232 bytes, SHA-256 `27be8abfe121`; the timed
 diagnostic is 303,112 bytes, SHA-256 `d7dac722a11b`. Both A/B module builds and
 both full userspace/boot-only builds are byte-identical.
 
-The final host-only closure is:
+The changed host-only closure is:
 
-- intent `ad27e29c87fc`, prepack `6516c59c4579`, userspace `dd201d33e8cc`,
-  qualification `0d180d6015e6`, and static `b65883990edb`;
-- candidate boot `1385ac1ac2b4`, one-member candidate AP `4a8b408681da`, and
+- intent `d760c54dc01e`, prepack `594b02effd24`, userspace `a5bccc6edadd`,
+  qualification `c2453d656d10`, and static `b5ddb3cacdfd`;
+- candidate boot `0b74986f8531`, one-member candidate AP `129ad86b934c`, and
   exact rollback AP `d2373bf88dda`;
-- Process-v2 candidate-static `b65883990edb`, run manifest `67d515b1d190`, and
-  static check `c399e5c9039d`;
-- canonical ready manifest 2,778 bytes, SHA-256 `ffc28ce036b6`, with its three
+- Process-v2 candidate-static `b5ddb3cacdfd`, run manifest `0c2fab45520e`, and
+  static check `a26f0aa26507`;
+- canonical ready manifest 2,778 bytes, SHA-256 `79cf54d59171`, with its three
   evidence files and candidate AP copied byte-for-byte into the private ready
   bundle; and
 - a noncreating ready rehearsal with the same manifest bytes,
@@ -490,16 +498,17 @@ The final host-only closure is:
 The current follow-up includes a direct standalone invocation of the live
 integration test, exact C/Python mask cross-checks, and a retained negative in
 which a nonzero pre-gate count cannot become host silence. Focused P3.18 tests
-pass 110/110 and the common Process-v2 set passes 120/120. Python compilation,
-scoped diff checks, and standalone live integration 5/5 pass. Final independent
-changed-closure review regenerated every stage through ready, verified all 42
-source receipts, and matched the canonical bytes exactly.
+pass 114/114, the common Process-v2 set passes 120/120, and standalone live
+integration passes 5/5. Final independent review regenerated and matched the
+canonical intent-to-ready path byte-for-byte, verified all 42 source receipts,
+and kept the discarded temporary-path closure invalid.
 
-The prior implementation verdict
+The prior implementation verdicts
 `PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V1`
-applies only to its old execution-critical hashes. This corrected closure is
+and `PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V2`
+apply only to their old execution-critical hashes. This changed closure is
 independently qualified as
-`PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V2`.
+`PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V3`.
 This is an H0 offline capability only; it does not grant D0, D1, F1, recovery,
 replay, or live authority. Fresh connected prerequisites, clean retained
 baseline, current rollback/recovery evidence, attendance, and a fresh exact

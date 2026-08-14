@@ -2,7 +2,7 @@
   "allowed_member": "boot.img.lz4",
   "candidate_ap": {
     "path": "workspace/private/device-action/s22plus_fyg8_p318_ready_1/candidate/AP.tar.md5",
-    "sha256": "4a8b408681da2584c4b42b34df81217a33c66739236f98312ffb9886d25edf2a",
+    "sha256": "129ad86b934cf839e9c013b04e8f244c0fba0e958d399f4ce80d286b3cf98a9c",
     "size": 27392041
   },
   "final_health_profile": "s22plus-fyg8-magisk",
@@ -13,17 +13,17 @@
       "contract": {
         "candidate_static": {
           "path": "workspace/private/device-action/s22plus_fyg8_p318_ready_1/evidence/candidate-static.json",
-          "sha256": "b65883990edb10a23f2035c392e0404884bffd1b71f5079cd1175073b30f126e",
-          "size": 554008
+          "sha256": "b5ddb3cacdfd42bfa1f2c52035c8949d6a8fe8e96049ef132010397541860600",
+          "size": 554578
         },
         "run_manifest": {
           "path": "workspace/private/device-action/s22plus_fyg8_p318_ready_1/evidence/run-manifest.json",
-          "sha256": "67d515b1d190a5f4199253dc781d1928a2e729506007b2efa49957af4fc03c5d",
+          "sha256": "0c2fab45520ef6c4140d5d3c167f5815b12b297eda922094948ca8ca39c84e66",
           "size": 870
         },
         "static_check": {
           "path": "workspace/private/device-action/s22plus_fyg8_p318_ready_1/evidence/static-check-result.json",
-          "sha256": "c399e5c9039d039a64569202129c67992f6f4be79731b04f88ef3115e5ef1d0f",
+          "sha256": "a26f0aa26507a7aa4eb0c079a6824f6839133b96b36fb3f34c5353f7fd5a45a9",
           "size": 1785
         }
       },
