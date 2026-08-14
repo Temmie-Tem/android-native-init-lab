@@ -35,7 +35,7 @@ under its filter contract. It is preserved only as rejected design evidence.
 The selected H0 direction is
 `A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md`: native PID 1
 keeps the exact native Wi-Fi owner and remains a small safety supervisor; one
-child becomes Debian PID 1 in fresh PID, mount, and network namespaces, pivots
+child becomes Debian PID 1 in fresh PID, mount, IPC, UTS, and network namespaces, pivots
 to read-only UFS, and receives only a reviewed veth/IP boundary. No ownership
 stop, diagnostic resident, or shared-namespace fallback is part of the product.
 
@@ -105,9 +105,9 @@ The active H24 `a90_server_distro_switch_root_userdata_ro()` sequence is:
 11. start H24's persistent native HUD private-root service;
 12. bind the SD evidence directory and the redacted Wi-Fi handoff input;
 13. validate `/sbin/init` and the display-release marker;
-14. move `/proc` and `/sys`, create a fresh minimal tmpfs `/dev`, create exact
-    core character nodes, and mount mandatory devpts without moving native
-    devtmpfs or creating a userdata block node;
+14. in the historical H24 path, move `/proc` and `/sys`, create a fresh minimal
+    tmpfs `/dev`, create exact core character nodes, and mount devpts without
+    moving native devtmpfs or creating a userdata block node;
 15. execute BusyBox `switch_root` into `/sbin/init`.
 
 Every pre-exec failure records the exact stage/return/errno, stops transient
@@ -124,13 +124,13 @@ useful, but it is not same-run device evidence.
 |---|---|---|
 | UFS appliance root | Debian root, mounted read-only with journal replay disabled | Core; retain |
 | `/run`, `/tmp`, `/etc/dropbear`, `/var/log` | Fresh bounded tmpfs for one Debian boot | Core initially; revisit sizes later |
-| `/root/.ssh` | Boot-private tmpfs populated from reviewed observer input | Keep until formal key provisioning replaces it |
-| Debian `/dev` | Fresh bounded tmpfs plus exact core nodes and devpts | Core safety boundary |
+| `/root/.ssh` | Historical H24 boot-private tmpfs populated from reviewed observer input | Replace with read-only service-home authorization owned by the successor's fixed nonzero UID |
+| Debian `/dev` | Historical H24 used core nodes plus devpts; successor freezes exactly null/zero/full/urandom and no PTY | Core safety boundary, reduced before successor |
 | Native devtmpfs | Remains outside Debian | Core safety boundary |
 | Native HUD card0 root | H24-only child namespace/private root | Remove from headless critical path |
 | Wi-Fi handoff | Read-only, redacted input consumed by Debian | Core for cable-free server use |
 | SD evidence bind | Proof sidecar under `/mnt/sdext` | Temporary hard dependency; replace before SD removal |
-| UFS firstboot | Immutable script in the existing appliance image | Rebuild separately after headless success |
+| UFS firstboot | Immutable demonstration script configures legacy NCM, smoke, HUD-intent, and Debian Wi-Fi and has no inherited-FD writer | Replace with separately versioned minimal content before the first candidate; installation also needs a reviewed higher-precedence boundary change |
 
 The physical storage device may contain several partitions, but the automatic
 lane treats only the exact UFS appliance filesystem as Debian root and writes no
@@ -169,6 +169,20 @@ It must not be cited as the exact H24 post-exec runtime. Its HUD, tunnel,
 smoke-HTTP, and resolver-write logic is design input for a future rootfs rebuild
 only. In particular, its `/etc/hosts` and `/etc/resolv.conf` writes conflict with
 the current read-only-root writable set and should be redesigned, not inherited.
+
+The historical script is also not evidence for a new post-exec health/log
+descriptor protocol. The exact audit in
+`A90_H14_IMMUTABLE_FIRSTBOOT_ISOLATED_DEBIAN_MISMATCH_H0_2026-08-14.md`
+shows that it configures legacy `ncm0`, smoke, HUD-intent, and Debian Wi-Fi
+paths. The first isolated-Debian proof therefore uses separately versioned
+minimal content, keeps exactly two bounded scalar bootstrap pipes created
+close-on-exec -- one parent-to-child control pipe for fixed `N`/`R`/`X` tokens
+and one child-to-parent receipt pipe for fixed stage frames -- with only the
+two child ends temporarily cleared for one clean-bootstrap exec and re-armed
+before `CHILD_READY`, and relies on
+native parent observations plus an attended host SSH proof. The minimal content
+Stage 2 precedes the candidate Stage 3; no overlay, undeclared FD writer, or
+one-pipe shortcut is inserted.
 
 ## Where the size came from
 
@@ -209,9 +223,9 @@ metric smaller.
 
 The H14 content manifest binds 19 objects totaling 4,247,011 declared bytes.
 HUD intent/presenter, smoke HTTP, and service-launch objects account for 855,448
-bytes, about 20.1%. They may remain inert for the first headless proof because
-changing them mutates the rootfs content contract; remove them only in a
-separately versioned UFS image/content-manifest change.
+bytes, about 20.1%. The exact firstboot audit proves that some are invoked, so
+they are removed in the separately versioned minimal content completed before
+the first headless candidate.
 
 The later 384-line public firstboot source devotes inclusive source spans of
 126 lines to HUD, 115 to tunnel handling, and 18 to smoke HTTP: 259 lines,
@@ -266,8 +280,22 @@ Retain:
 - versioned durable enable/latch and one-shot/no-replay journal;
 - exact boot-only candidate, rollback, and physical recovery;
 - `ro,noload,nosuid,nodev` root mount;
-- bounded writable tmpfs set and boot-private authentication;
-- fresh minimal Debian `/dev`, mandatory devpts, and no native-devtmpfs move;
+- bounded writable tmpfs set and boot-private authentication installed
+  read-only in the manifest-fixed nonzero service UID's home, not `/root/.ssh`;
+- exact public-key-only Dropbear client authentication: one login-eligible
+  fixed service account, one canonical boot-private key, one forced read-only
+  probe, and no password/interactive/root/alternate-account/key/general-shell/
+  subsystem/PTY/forwarding/agent/X11 path;
+- one preinstalled dormant SSH-ingress handle plus durable
+  `INGRESS_OPEN_INTENT`, one atomic activation, exact `INGRESS_OPEN` return/
+  readback, no replay, and close-only exact cleanup before child termination;
+- one distinct locked non-login SSH-key-daemon UID/GID owning the mode-0700/
+  mode-0400 private-key tree and Dropbear engines; the service UID cannot read
+  the file, inspect daemon proc/memory/FDs, inherit key material, or regain the
+  daemon identity, and cleanup empties both dedicated-UID resource sets;
+- exact consoleless Debian `/dev` with only null/zero/full/urandom, verified
+  null stdio, a read-only root-device tmpfs, no devpts/ptmx/tty/console/
+  `ttyGS0`/native PTY, and no native-devtmpfs move;
 - strict pre-exec failure attribution, cleanup, mount restoration, and
   post-return native health;
 - same-run Debian PID 1, authenticated SSH, Wi-Fi, and device-tree evidence.
@@ -282,7 +310,8 @@ Retain:
   evidence, with native tasks absent from Debian's PID/proc/network view;
 - compact cache receipt and authenticated same-run observer replacing the SD
   evidence bind before candidate creation;
-- current immutable UFS content, even where optional services remain inert;
+- separately versioned minimal UFS content completed and reviewed before the
+  candidate;
 - bounded Wi-Fi watch/trace settings until repeatable final Wi-Fi is proved.
 
 ### C. Remove from the next critical path
@@ -294,7 +323,9 @@ Retain:
 - firstboot overlay;
 - boot chime autoplay;
 - hard SD evidence bind and compiled SD Wi-Fi property path;
-- any display-success requirement in the headless terminal.
+- any display-success requirement in the headless terminal;
+- historical smoke HTTP, tunnel, HUD-intent/presenter, and Debian-Wi-Fi
+  services from the demonstration rootfs.
 
 ### D. Retire or replace after stable headless proof
 
@@ -307,8 +338,6 @@ Retain:
 - broad `/proc` display-owner scans once explicit service ownership is proved;
 - experiment enable/latch names once a reviewed production boot policy and
   rescue selector exist;
-- smoke HTTP, tunnel/cloudflared, HUD intent/presenter, and ineffective resolver
-  writes in a separately rebuilt minimal Debian firstboot;
 - debugfs/firmware trace and long Wi-Fi supervisor instrumentation after
   repeatable hardware bring-up proof;
 - obsolete lineage adapters from the active distribution, while retaining
@@ -339,26 +368,187 @@ It can be reorganized without weakening it.
 - use the frozen H16/H24 comparison to retain the proven UFS, rollback,
   fallback, and timing anchors while rejecting a simple H16 rebuild or a
   continuation of H24's HUD/display gate;
-- prove host-side kernel/toolchain support for PID/mount/network namespaces,
-  matching procfs, veth, exact rtnetlink/netfilter operations, `pivot_root`,
-  capability drops, pidfd/wait, and complete cleanup;
+- prove host-side kernel/toolchain support for PID/mount/IPC/UTS/network
+  namespaces, matching procfs, one exact cgroup backend with aggregate pids/
+  memory+swap/CPU/UFS-I/O bounds, veth, exact rtnetlink/netfilter/sysctl
+  operations, `pivot_root`, capability drops, pidfd/wait, empty child session
+  keyring, one all-ABI inherited static deny for keyring, namespace creation,
+  mount/root APIs, and device-node creation with exact fork compatibility,
+  plus an AF_INET-TCP/UDP-only direct-socket allowlist that rejects QRTR,
+  netlink, packet/raw, hardware/control families and compat `socketcall`, a
+  normalized exec envelope, and
+  complete cleanup/restoration;
+- prove the exact three-barrier bootstrap protocol: `CHILD_READY` then an empty
+  control-pipe block plus parent pidfd stop, but only after one inherited-mm
+  close/exec branch enters a manifest-bound static clean bootstrap and the
+  parent proves exact `/proc/<pid>/{exe,maps,map_files,fd,fdinfo}` with no
+  inherited native anonymous/shared/file/device mapping; resource/scheduler plus native-end
+  network setup while stopped, with the peer moved only by one bound close-on-
+  exec netns FD and no native `setns`; bind its number/flags/nsfs inode, prove
+  no duplicate, close it immediately after the exact move acknowledgement, and
+  enumerate zero parent child-namespace FDs before configuration/continuation;
+  durable `NETWORK_PREP_INTENT`, one-byte `N` and first
+  continuation; unique child-side `NETWORK_PREPARED` reread/zero-payload/
+  `CAP_NET_ADMIN`-drop frame plus empty-pipe block and second parent stop;
+  durable `ROOT_PREP_INTENT`, one-byte `R` and second continuation; unique
+  `ROOT_PREPARED` frame plus empty-pipe block and third parent stop; durable
+  `CHILD_RELEASE_INTENT`, and only then one-byte `X`/`RELEASE` and the third/
+  final pidfd continuation for pivot/exec plus exact `CHILD_RELEASED` dispatch
+  result; every stopped barrier independently enumerates the exact two-pipe
+  child FD set, revalidates clean mapping provenance, and rejects a retained
+  netlink socket; no token or signal replay;
 - prove native Wi-Fi remains in its native namespaces while Debian receives
   only the isolated veth/IP boundary, never native procfs, AF_UNIX/Binder/
-  property endpoints, `wlan0`, old root, devtmpfs, or block devices;
+  property endpoints, native-local TCP/UDP listeners, `wlan0`, old root,
+  devtmpfs, or block devices; bind native-veth INPUT/OUTPUT as well as
+  forwarding/NAT and prove exact cleanup;
+- prove the child procfs has fixed private options, exact child PID/net/IPC/
+  mount views plus only a finite read-only scalar allowlist, immutable masks
+  over every writable/sensitive global entry, and a final read-only remount;
+- freeze parent-owned veth MTU/queue plus bidirectional packet/byte rate,
+  burst, and depth limits and one dedicated conntrack zone with bounded
+  new-flow rate/concurrent state; prove UDP/SYN/return floods cannot consume
+  the native Wi-Fi/control reserve and cleanup changes no global/Wi-Fi state;
+- prove the consoleless four-node allowlist, `/dev/null` fd 0/1/2, `tty_nr=0`,
+  final read-only `/dev`, and absence of devpts, ptmx, tty, `/dev/random`,
+  `ttyGS0`, `/dev/console`, every native/physical character node, every block
+  node, and every submount;
+- prove distinct manifest-fixed nonzero service and non-login SSH-key-daemon
+  UID/GID boundaries, non-PTY Dropbear, a complete
+  trace-derived all-ABI default-deny syscall policy, and global file-table,
+  pipe/socket/epoll/timer/per-UID/kernel-memory reserves in addition to cgroups;
+- prove exact child `SCHED_OTHER`/priority-0/nice-+10/reset-on-fork state,
+  manifest-frozen CPU placement, `IOPRIO_CLASS_BE` 7, bounded uclamp, zero RT
+  rlimits/capabilities, and denial of every later scheduler mutation;
+- freeze and independently review the separately versioned minimal-content
+  contract: only the manifest-pinned public-key-only Dropbear and selected
+  workload, boot-private authorization in the fixed nonzero service UID's
+  read-only manifest home on the isolated veth, exactly one login account/key
+  and forced probe, zero alternate auth/session/forwarding features, and a
+  distinct filtered non-dumpable key daemon that alone owns/loads the
+  already-present trusted-bootstrap per-boot server key after one bounded
+  clean-exec non-dumpable zero-core generator exception has exited, been reaped, and left
+  no core/log/temp/private-output residue. PID 1/firstboot/probe/
+  workload never create, rotate, read, or inherit that key or a post-exec
+  private FD;
 - replace SD evidence and property-root dependencies with cache-backed bounded
   evidence and boot-private native-Wi-Fi inputs before candidate allocation;
 - implement and independently qualify only after the H0 feasibility boundary
   passes; no diagnostic identity, ownership signal, or shared-namespace
   fallback exists.
 
-### Stage 2: fresh headless successor
+### Stage 2: minimal Debian content prerequisite
+
+Create a separately versioned UFS image/content manifest containing only one
+independently reviewed nonprivileged consoleless PID 1, non-PTY
+Dropbear/authentication on a non-privileged port, isolated-veth consumption,
+the chosen workload, bounded logging, and required recovery support. Do not
+assume the historical sysvinit binary or its root identity is compatible; the
+chosen PID 1 must have an exact trace under the fixed UID/device/filter
+envelope. Remove HUD, smoke
+HTTP, tunnel, Debian Wi-Fi, and obsolete test services. Do not mutate the
+installed read-only appliance opportunistically.
+
+The manifest binds the exact Dropbear binary hash, source/configuration
+provenance, feature matrix, argv, account database, fixed service and distinct
+non-login key-daemon identities/homes, forced read-only probe dispatcher, and
+canonical one-line `authorized_keys` grammar.
+Only one nonzero service account is login-eligible and only one run-bound
+boot-private public key is accepted. Password, empty-password, `none`,
+keyboard-interactive/PAM, root or alternate accounts, alternate key sources,
+general shell, arbitrary command/subsystem, PTY, local/remote forwarding,
+agent forwarding, and X11 forwarding are disabled and negatively tested.
+Missing exact two-identity non-root Dropbear support makes Stage 2 `NO_GO`; it
+never selects a permissive runtime fallback.
+
+Trusted bootstrap alone launches the static Dropbear listener under the
+distinct key-daemon UID/GID. From the proved-clean bootstrap mm, one child
+first exact-execs the manifest-bound static daemon before reading the key or
+binding the listener. It becomes non-dumpable, installs the exact filter,
+emits `KEY_DAEMON_CLEAN_READY` on its sole transient internal status pipe before
+key load/listener bind, and may load/bind only while ingress remains blocked.
+It emits `KEY_DAEMON_LISTEN_READY` and closes that pipe before any accept. The
+clean bootstrap validates both frames and EOF and alone forwards a canonical
+summary; Native PID 1 proves exact `maps`/`map_files`, IDs, capabilities and FDs
+before `LOCAL_PERSISTENT`; that verification never opens ingress or permits an
+accepted connection. The service
+UID cannot traverse the private tree or
+use proc/ptrace/process-vm/pidfd-getfd to inspect it. Before the forced
+dispatcher exec, every child key copy is zeroed, key/config/listener FDs are
+absent or close-on-exec, an explicit zero-`capset` and ambient clear are
+performed after the nonzero-to-nonzero service-ID transition, all capability
+sets/saved IDs are reread empty/exact, and
+the new address space receives only bounded non-PTY channels. Missing exact
+source/zeroization/FD/proc/capability proof is `NO_GO`.
+
+The minimal content never touches the exact per-boot Ed25519 server key created
+in private tmpfs by trusted bootstrap. It never generates, replaces, rotates,
+reads, or inherits that key. The one manifest-pinned transient generator is
+non-dumpable with `RLIMIT_CORE=0`, closed stdio/FD/output sinks, and exact
+exit/reap; any crash, private output, core/log/temp artifact, or residual PID/
+FD is `NO_GO`. Trusted bootstrap binds the file, remounts the
+exact `/etc/dropbear` tmpfs read-only, and launches the filtered key daemon
+before the service PID-1 exec. Only the algorithm, public key, and SHA-256
+fingerprint are exported in the target/resident/boot/run-bound native receipt;
+during generation private bytes are limited to the file and sole generator
+address space; after proven generator reap they remain inside the mode-0400
+file or key-daemon signing memory and disappear when exact child cleanup reaps
+the daemon and destroys the tmpfs.
+
+The two bootstrap control/receipt pipes remain the only native-facing pipes,
+and the clean bootstrap is the sole native-receipt writer. Generator and
+key-daemon helper forks may only close both main-pipe ends before clean exec and
+never carry or write them across that exec. One helper at a time receives one
+transient internal `pipe2(O_CLOEXEC)` status writer plus its exact manifest-
+bound object FDs for one static exec, then re-arms and rereads that FD set. The
+generator emits exactly `GENERATOR_CLEAN_READY` then public-only
+`GENERATOR_PUBLIC_COMPLETE`, closes before exact exit/reap, and reaches EOF.
+The daemon emits exactly `KEY_DAEMON_CLEAN_READY` then
+`KEY_DAEMON_LISTEN_READY`, closes before any accept, and reaches EOF while it
+remains live. Bootstrap binds helper pid/start/pidfd, frame order, byte cap, FD
+set and EOF and forwards only the canonical scalar summary. Wrong writer,
+inherited main-pipe end, extra FD, interleaved/partial/duplicate/extra frame,
+premature or late EOF, helper crash, or residue is `RECOVERY_PARKED`.
+
+The immutable H14/H24 service-start path is audited incompatible with the
+selected minimum. This stage therefore completes before any headless candidate
+identity. Building content is host-only; installing it on UFS requires a
+separately reviewed higher-precedence boundary change, a future exact
+target-contract capability, an exact rollback/recovery model, and attended
+approval. Until then installation is `NO_GO`; a raw partition image is never
+permitted.
+
+### Stage 3: fresh headless successor
 
 - allocate a fresh post-H25 version/build, profile, random seed, enable path,
   latch path, A/B receipt, qualification, and execution closure;
 - compile-disable persistent HUD, private-card-root, delayed HUD DRM,
   firstboot overlay, and boot chime;
 - compile in only the minimal native supervisor, isolated Debian bootstrap,
-  veth/netfilter policy, SD-free evidence pipes, and exact cleanup;
+  manifest-frozen cgroup resource boundary verified without runtime selection,
+  consoleless no-PTY minimal-dev boundary, positive default-deny syscall and
+  global-kernel-object resource boundary, exact scheduler/CPU/ioprio/uclamp
+  normalization, UTS/veth/netfilter/traffic-rate/
+  queue/conntrack/read-only-native-sysctl policy, exactly two bounded
+  scalar bootstrap pipes created close-on-exec; only their child ends may be
+  temporarily cleared for one exact clean-bootstrap exec and are re-armed
+  before `CHILD_READY` (parent-to-child `N`/`R`/`X` control and child-to-parent
+  fixed-frame receipt); helper clean execs use only the one-at-a-time transient
+  internal status channels above and bootstrap alone forwards their summaries;
+  preinstall and bind one dormant SSH-ingress set/handle, then after
+  `LOCAL_PERSISTENT` require durable `INGRESS_OPEN_INTENT`, one atomic
+  element activation and exact `INGRESS_OPEN` return/readback with no resend;
+  close and prove absent every scoped parent child-namespace FD before any
+  continuation, published observation, or cleanup namespace-disappearance claim;
+  dedicated read-only native evidence
+  retrieval, and exact cleanup/restoration;
+- require the attended host observer to connect only after exact current
+  `INGRESS_OPEN`, retrieve the same-run host-key receipt before SSH, build a
+  no-clobber private `known_hosts`, and use strict host-key
+  checking; then require the exact public-key method, accepted client-key
+  fingerprint, fixed service account, and forced read-only probe with zero
+  alternate authentication/session/forwarding feature; TOFU, a stale receipt,
+  or any permissive client-auth path is `NO_PROOF`/security failure;
 - define a distinct headless persistent-result model with display explicitly
   not required and terminal native health deferred until attended return;
 - replace the SD evidence bind with a compact durable cache receipt and use a
@@ -371,7 +561,7 @@ While Debian stays live, report exact server observations and
 `HEALTH_PENDING_PERSISTENT_DEBIAN`. Only an attended return/recovery and exact
 native checks can close `RESIDENT_HEALTHY`.
 
-### Stage 3: prove and exercise SD independence
+### Stage 4: prove and exercise SD independence
 
 - verify the installed artifact and runtime binding contain neither the SD
   evidence path nor the compiled SD Wi-Fi property root;
@@ -384,7 +574,7 @@ native checks can close `RESIDENT_HEALTHY`.
 This stage is not a license to transfer A90 evidence, profiles, or approvals to
 S20+.
 
-### Stage 4: split production source
+### Stage 5: split production source
 
 Separate modules/interfaces for:
 
@@ -400,14 +590,6 @@ Build production init without the experimental modules. Then evaluate
 `-ffunction-sections -fdata-sections` and `--gc-sections` for init, with exact
 artifact and behavior comparison. This is a fresh build change and requires
 the usual closure review.
-
-### Stage 5: minimal Debian content
-
-Create a separately versioned UFS image/content manifest containing only the
-chosen control channel, Dropbear/authentication, veth consumer configuration,
-logging, and required recovery support. Remove HUD, smoke HTTP, tunnel, and
-obsolete test services. Do not mutate the installed read-only appliance
-opportunistically.
 
 ### Stage 6: optional display
 
@@ -432,8 +614,9 @@ model or an incorrect ownership boundary.
 
 The reduction plan is complete only when:
 
-- a fresh headless candidate reaches same-run Debian PID 1, authenticated SSH,
-  final Wi-Fi, and exact minimal `/dev` without HUD/display dependencies;
+- a fresh headless candidate reaches same-run Debian PID 1, exact one-shot
+  `INGRESS_OPEN`, authenticated SSH, final Wi-Fi, and exact minimal `/dev`
+  without HUD/display dependencies;
 - persistent live state and post-return native resident health remain distinct;
 - the consumed H24 effect and retired H25 identity are never replayed or reused;
 - SD removal has an explicit proof that both evidence and Wi-Fi couplings are

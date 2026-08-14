@@ -1,20 +1,29 @@
 {
-  "schema": "a90-headless-native-wifi-isolated-debian-h0-independent-review-v1",
+  "schema": "a90-headless-native-wifi-isolated-debian-h0-independent-review-v2",
   "review_date": "2026-08-14",
   "target": "Samsung Galaxy A90 5G only",
-  "reviewer": "/root/a90_isolated_debian_h0_boundary_review",
-  "verdict": "PASS_H0_DOCUMENTATION_CONTRACT_BOUNDARY",
-  "review_scope": "retired-wifi-ownership-diagnostics-and-selected-isolated-debian-h0-documentation-boundary",
+  "reviewer": "/root/a90_isolated_debian_h0_final_review",
+  "verdict": "PASS_H0_DESIGN_BOUNDARY",
+  "review_scope": "native-wifi-isolated-debian-h0-design-contract-history-and-negative-boundary",
   "mixed_closure": {
-    "formula": "sort and concatenate PRESENT relpath\\0size\\0sha256\\0 and ABSENT relpath\\0ABSENT\\0 frames, then SHA256",
-    "sha256": "dfd58410a662839da82db51bb5376f361b2d1d50cf5837583e76a0813a689bc2",
-    "member_count": 21,
-    "present_count": 18,
+    "formula": "bytewise sort and concatenate PRESENT relpath\\0size\\0sha256\\0, ABSENT relpath\\0ABSENT\\0, and GIT_BLOB git:revision:relpath\\0size\\0sha256\\0 frames, then SHA256",
+    "sha256": "7e219485207f89c3f25711ccb38f7684abfb118bea722c9cba27cde210a1a7b2",
+    "member_count": 33,
+    "present_count": 29,
     "absent_count": 3,
+    "git_blob_count": 1,
     "absent_sentinels": [
       "tests/test_a90_h24_wifi_ownership_w0_v1.py",
       "workspace/public/src/scripts/server-distro/a90_h24_wifi_ownership_w0_runner_v1.py",
       "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h26/manifest.toml"
+    ],
+    "git_blobs": [
+      {
+        "revision": "a4925b80eadf781cf524c7eaf6741bb940ce78d4",
+        "path": "workspace/public/src/scripts/server-distro/a90_dpublic_firstboot.sh",
+        "size": 12092,
+        "sha256": "fd8625402c76b2ee0cc4a2aff07eed3b182c6dd12eba1a022a445ea428c8c84a"
+      }
     ]
   },
   "findings": {
@@ -23,23 +32,38 @@
     "low": []
   },
   "validated_boundaries": [
-    "the H24 shell W0 and the replacement atomic ownership diagnostic are unambiguously retired before qualification or live use",
-    "the selected native Wi-Fi and isolated Debian direction is unimplemented H0 architecture and allocates no H26 identity or path",
-    "the exact H24 resident remains installed and healthy while its one H24 D1 handoff effect is consumed and never replayed",
-    "the H24 evidence proves only the outer persistent HUD EINVAL boundary and does not identify the inner failing syscall",
-    "boot-only transfer rollback physical recovery durable journal no-replay private evidence and exact target isolation remain mandatory",
-    "persistent Debian health remains distinct from attended post-return native RESIDENT_HEALTHY",
-    "SD independence removal and implementation feasibility remain future proof obligations",
-    "S22 plus and S20 plus profiles approvals evidence commands and authority do not transfer to A90"
+    "H16 is only the first direct-UFS mechanical root-exec boundary baseline and does not prove Debian PID 1 SSH Wi-Fi display or server readiness",
+    "the installed H24 resident remains the exact healthy predecessor while its consumed H24 D1 effect and the retired W0 path are never replayed",
+    "native PID 1 retains native Wi-Fi and supervises one isolated Debian child across fresh PID mount IPC UTS and network namespaces",
+    "one exec-clean bootstrap and exact maps map_files FD and fdinfo proofs prevent inherited native mappings roots devices namespaces and descriptors from reaching long-lived Debian services",
+    "the consoleless private root uses read-only proc and minimal read-only dev without devpts ptmx console ttyGS0 block DRM userdata or native devtmpfs exposure",
+    "an inherited all-ABI default-deny boundary closes keyring namespace mount root device-node socket-family and namespace-external global resource escape paths",
+    "exact scheduler cgroup network queue flow and conntrack limits preserve a native recovery reserve and fail closed when the frozen backend or counters are unavailable",
+    "three pidfd-bound N R X barriers follow durable intent and prohibit early child effects token signal candidate or handoff replay",
+    "the sole parent child-netns nsfs FD is identity-bound used once for acknowledged IFLA_NET_NS_FD peer movement closed before configuration or continuation and proved absent with every duplicate and later scoped handle",
+    "two close-on-exec bootstrap pipes and separately bounded internal helper channels preserve sole-writer attribution and disappear before Debian exec",
+    "Dropbear uses distinct service and non-login key identities exact public-key-only forced-probe authentication and a bounded per-boot server-key generation and lifetime contract",
+    "one dormant SSH-ingress handle opens only after LOCAL_PERSISTENT through durable INGRESS_OPEN_INTENT one atomic activation exact readback and no resend",
+    "original failure evidence is durable before cleanup while traffic and sessions close before child network cgroup namespace and key state removal",
+    "the historical H14 firstboot and H24 UFS content are rejected for the isolated minimum so a separately versioned minimal rootfs is mandatory before any successor identity",
+    "the design remains H0 only and proves neither kernel support rootfs compatibility implementation feasibility candidate authority UFS installation nor live-device success"
   ],
   "parent_validation": {
-    "focused_public_unittest": "8/8 PASS",
+    "focused_public_unittest": "12/12 PASS",
     "python_compile": "PASS",
-    "scoped_diff_check": "PASS"
+    "scoped_diff_check": "PASS",
+    "literal_private_identifier_scan": "PASS"
+  },
+  "independent_validation": {
+    "initial_closure_rehash": "MATCH",
+    "final_closure_rehash": "MATCH",
+    "focused_public_unittest": "12/12 PASS"
   },
   "review_contacts": {
-    "present_paths_read": 18,
+    "present_paths_read": 29,
     "absent_sentinels_checked": 3,
+    "historical_git_blobs_read": 1,
+    "focused_unittest_runs": 1,
     "device": 0,
     "dev": 0,
     "usb": 0,
@@ -47,14 +71,16 @@
     "workspace_private": 0,
     "s22plus_paths_or_commands": 0,
     "s20plus_paths_or_commands": 0,
-    "tests_builds_imports": 0,
     "file_modifications_or_creations": 0,
     "live_commands": 0
   },
   "authority": {
     "capability_pass_go": false,
     "implementation_feasibility_qualified": false,
+    "kernel_support_qualified": false,
+    "rootfs_qualified": false,
     "candidate_or_build_authority": false,
+    "ufs_install_authority": false,
     "d0_authority": false,
     "d1_authority": false,
     "f1_authority": false,

@@ -73,12 +73,12 @@ reference. Neither fact upgrades the other run's missing evidence.
 | UFS identity | Fresh same-session dynamic `dev_t` plus exact stable identity | Inherits H16 identity policy and exact UFS content | Preserve same-session identity; mount only inside child mount namespace |
 | UFS mount | Exact read-only `ro,noload,nosuid,nodev` | Same; live-mounted and content-verified | Preserve exact flags and immutable content validation |
 | Root transition | Native PID 1 performs in-place BusyBox `switch_root` | Intended to retain that transition but failed before it | Native PID 1 remains supervisor; one isolated child uses `pivot_root` |
-| Last live stage | `switch_root_exec` at boot time 11,760 ms | `persistent-hud` EINVAL after `writable_set_ready` | Future `DEBIAN_EXEC`, then `SERVICE_READY`; not implemented |
+| Last live stage | `switch_root_exec` at boot time 11,760 ms | `persistent-hud` EINVAL after `writable_set_ready` | Future `DEBIAN_EXEC_LOCAL`, `LOCAL_PERSISTENT`, one-shot `INGRESS_OPEN`, then `HOST_AUTHENTICATED`/`SERVICE_READY`; not implemented |
 | Observer/auth | Manifest key rejected by appliance root | Boot-private observer auth overlay added | Keep boot-private auth; prove same-run authenticated SSH |
 | Display/HUD | Display marker existed, but no current DRM/display proof | Persistent native HUD/private card-root added and became the failing gate | Remove HUD/display from headless acceptance; display is optional later |
 | Wi-Fi helper model | Persistent native helper with private mount namespace, not isolated PID/network namespaces | Inherits that helper model and adds more persistent server machinery | Native owns Wi-Fi; Debian gets a distinct netns and bounded veth/IP path |
 | Debian `/proc` | In-place handoff/shared process model; no production isolation claim | Shared-process ancestry made surviving native sidecars unsafe to expose | Fresh PID namespace and matching private procfs; no native task is nameable |
-| Debian `/dev` | Successful topology did not prove exposure, but lacked H24's later always-fresh minimal-device contract | Host-qualified fresh tmpfs minimal `/dev` plus mandatory devpts; H24 failed before live reaching it | Preserve fresh minimal `/dev`; no native devtmpfs, block, userdata, or DRM |
+| Debian `/dev` | Successful topology did not prove exposure, but lacked H24's later always-fresh minimal-device contract | Host-qualified fresh tmpfs `/dev`, but its historical set retained optional `ttyGS0`, global console, and shared/non-`newinstance` devpts; H24 failed before live reaching it | Preserve only the fresh/no-devtmpfs principle; use exactly null/zero/full/urandom, null stdio, a read-only tree, and no devpts/ptmx/PTY |
 | Evidence storage | Direct UFS root still depended on the SD evidence sidecar | Still retains SD evidence bind and compiled SD Wi-Fi property root | Cache-backed bounded records and one-way pipes; SD absent from runtime |
 | Failure return | Persistent Debian did not automatically return; operator physically returned | Pre-switch failure restored mounts and returned exact native health | Parent never leaves native root; exact child/network cleanup or recovery park |
 | Terminal meaning | Mechanical root-exec boundary reached; full server readiness unproved | HUD lane refuted; exact native fallback healthy | Persistent Debian remains `HEALTH_PENDING_PERSISTENT_DEBIAN` until attended return |
@@ -116,7 +116,9 @@ H16's missing product evidence:
 - H19-H23 iterated host-only on overlay/HUD ownership and device isolation;
   review prevented unsafe variants from reaching the device.
 - H24 retained observer authorization, disabled firstboot overlay, and added a
-  delayed-DRM private-card-root HUD plus an always-fresh minimal Debian `/dev`.
+  delayed-DRM private-card-root HUD plus an always-fresh Debian tmpfs `/dev`.
+  Its optional `ttyGS0`, global console node, and non-`newinstance` devpts are
+  historical evidence, not successor requirements.
   Its live D1 passed UFS and writable setup but the new HUD bootstrap returned
   EINVAL before root transition.
 
@@ -141,9 +143,13 @@ The isolated successor must preserve these exact classes of behavior:
 - fresh per-session userdata resolution and stable UFS identity;
 - `ro,noload,nosuid,nodev` UFS mount, immutable content manifest, and zero UFS
   mutation;
-- bounded writable tmpfs paths and boot-private SSH authorization;
-- fresh minimal tmpfs Debian `/dev`, mandatory devpts, and zero native-devtmpfs
-  or userdata-block exposure;
+- bounded writable tmpfs paths and boot-private SSH authorization, with the
+  successor relocating it from H24's `/root/.ssh` to the fixed nonzero service
+  UID's read-only manifest home;
+- fresh tmpfs Debian `/dev` and zero native-devtmpfs/userdata-block exposure as
+  the carried principle, with the successor replacing the historical node set
+  by exact consoleless null/zero/full/urandom nodes, null stdio, a read-only
+  root, and no devpts/ptmx/PTY;
 - durable launch intent, one child maximum, exact failure attribution, and
   recovery park on ambiguity;
 - exact final native health only after attended return or recovery; and
@@ -170,7 +176,7 @@ Do not carry these H16-H24 mechanisms into the formal headless path:
 | Native PID 1 disappears through in-place `switch_root` | Native PID 1 remains a minimal supervisor; one direct child becomes Debian PID 1 and `pivot_root`s |
 | Shared PID/proc model | Fresh Debian PID namespace plus matching private procfs |
 | Shared native network namespace | Fresh Debian netns, exact veth pair, default-drop forwarding/NAT |
-| SD evidence directory bind | Cache-backed append-only records and two bounded one-way pipes |
+| SD evidence directory bind | Cache-backed append-only records, two bounded bootstrap control/receipt pipes created close-on-exec and re-armed after one clean-bootstrap exec, plus one dedicated native read-only retrieval frame |
 | Persistent HUD/display proof | Headless SSH/workload health; optional display is a later capability |
 | Reverse root transition/automatic timer | Exact child namespace teardown or attended reboot/recovery |
 | Port-visible or screen-visible inference | Authenticated same-run PID1, SSH, network, mount, and workload receipts |
@@ -191,8 +197,8 @@ required implementation shape. The new design maps it as follows:
 | `distro_init_verified` | `debian_init_verified` |
 | `display_marker_ready` | removed; no headless equivalent |
 | `mount_moves_done` | `old_root_detached` after private pivot |
-| `switch_root_exec` | `DEBIAN_EXEC` |
-| no H16 equivalent | `NETWORK_READY`, authenticated `SSH_READY`, `SERVICE_READY` |
+| `switch_root_exec` | `DEBIAN_EXEC_LOCAL` |
+| no H16 equivalent | child `NETWORK_PREPARED`, durable one-shot `INGRESS_OPEN`, attended `HOST_AUTHENTICATED`, and the selected workload probe |
 
 Every future comparison must report at least:
 

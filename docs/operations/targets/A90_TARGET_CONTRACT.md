@@ -537,27 +537,410 @@ The selected H0 direction is
 `docs/plans/A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md`.
 It performs no ownership-stop experiment. Native PID 1 remains a minimal
 headless safety supervisor with the exact native Wi-Fi owner. One direct child
-becomes Debian PID 1 in fresh PID, mount, and network namespaces, mounts one
-matching procfs, constructs minimal `/dev`, privately validates and pivots to
+becomes Debian PID 1 in fresh PID, mount, IPC, UTS, and network namespaces, mounts one
+matching procfs, constructs the exact consoleless `/dev` described below,
+privately validates and pivots to
 the read-only UFS root, detaches the complete old root, drops bootstrap/network
 capabilities, and execs Debian init. `chroot`, shared procfs, shared network
 namespace, and path-name hiding are not substitutes.
+
+The successor Debian `/dev` is a bounded fresh tmpfs containing only manifest-
+fixed `/dev/null` (1:3, 0666), `zero` (1:5, 0666), `full` (1:7, 0666), and
+read-only-mode `urandom` (1:9, 0444). `/dev/random`, `/dev/console` (5:1),
+`ttyGS0`, generic `tty`, `ptmx`, `pts`, `shm`, every physical/native character
+node, every block node, every submount, and native devtmpfs are forbidden. No
+devpts is mounted and no PTY allocation is a product function. The minimal
+rootfs is consoleless, Dropbear rejects PTY requests, the attended proof uses
+non-PTY SSH, the child has no controlling tty and proves `tty_nr=0`, and fd
+0/1/2 share one verified open description for its private `/dev/null`. Before
+exec the complete `/dev` tmpfs is remounted read-only and its exact four-node
+tree, rdevs, modes, ownership, link counts, byte/inode bounds, and absence of
+submounts are reread. An extra node, writable root `/dev`, devpts, or PTY is
+`NO_GO`. DAC-override/read-search, fowner, and mknod capabilities are absent,
+so node metadata and the read-only urandom mode cannot be bypassed.
+
+The matching child procfs uses fixed `nosuid,nodev,noexec,hidepid=2`, shows
+only the child PID/net/IPC/mount views and an exact finite read-only scalar
+allowlist, proves its superblock differs from native procfs, and is finally
+remounted read-only before exec. Trusted bootstrap
+masks all of `/proc/sys`, `sysrq-trigger`, key listings, KASLR/kernel/module/
+device/interrupt/I/O maps, and every non-allowlisted top-level entry with exact
+immutable read-only empty masks. It rejects unknown entry/type drift, verifies
+representative global and per-task writes including `oom_score_adj` fail, and
+forbids later native module load/unload. A global proc scalar is allowed only as
+a named read-only evidence value; no native task, root, FD, namespace, device,
+or control endpoint is exposed. Writable proc or an unbounded global view is
+`NO_GO`.
 
 The native side retains `wlan0`; Debian receives only a bound veth peer and
 closed default-drop forwarding/NAT policy. No native task, procfs, Binder,
 property socket, abstract AF_UNIX namespace, Wi-Fi control socket, devtmpfs,
 block/userdata/DRM node, old-root handle, or network-administration capability
-is nameable from Debian. Missing namespace, veth, netfilter, pivot-root,
+is nameable from Debian. The Debian IPC namespace must also differ from native,
+begin with empty SysV IPC state, inherit no `/dev/mqueue`, expose no `/dev/shm`,
+and allow no SysV IPC or POSIX-mqueue/shared-memory creation. Because keyrings
+are not IPC-namespace objects, trusted
+bootstrap must reject any inherited thread/process keyring, replace the
+inherited session with one proved-empty anonymous child session, preserve the
+directly subscribed thread/process/session serial/link/count snapshot unchanged,
+never resolve `KEY_SPEC_USER_KEYRING` or `KEY_SPEC_USER_SESSION_KEYRING`, never
+call the get-or-create `KEYCTL_GET_PERSISTENT`, hide `/proc/keys` and `/proc/key-users`,
+and install one reviewed inherited classic-seccomp isolation filter on every
+supported ABI before exec. It denies `keyctl`, `add_key`, `request_key`,
+`unshare`, `setns`, `mknod`, `mknodat`, all `clone3`, every legacy `clone` with
+a namespace or unknown service flag, and the complete supported post-bootstrap
+mount/root API family. It is static, inherited, and non-removable. The exact
+consoleless PID-1/Dropbear/workload trace must prove both compatible finite
+fork flags and no dependency on denied calls. Thus later user-namespace
+creation cannot regain mount/device capability even when the kernel supports
+unprivileged user namespaces. The UFS root is `nodev`; the exact private `/dev`
+is the only non-`nodev` device filesystem, and node creation, new mounts, native
+devtmpfs paths, and inherited device FDs are all absent. Any unsupported ABI,
+unknown clone flag, filter gap, or service mismatch is `NO_GO`.
+
+The filter also permits direct `socket()` only for exact traced AF_INET TCP
+stream and UDP datagram forms. It denies `socket(AF_UNIX, ...)`; only an exact
+internal AF_UNIX `socketpair()` form may be allowed because it creates no
+pathname/abstract endpoint and both FDs remain child-local. Every unknown or
+non-INET family/type/protocol is denied, including QRTR, netlink/kobject,
+packet/raw, Bluetooth, NFC, VSOCK, CAN, XDP, and key/control families. Compat
+`socketcall` is denied completely and the rootfs is exact AArch64-only. No
+native/preexisting socket FD reaches the service identity. The sole
+bootstrap-created listener remains only in the distinct filtered key daemon,
+and the forced dispatcher receives only exact bounded channel ends. Positive
+service traces and negatives for every prohibited family/ABI are mandatory.
+
+The final execution envelope also uses an exact environment, empty
+supplementary groups, and two non-aliasing manifest-fixed nonzero identities
+unused by every native task and file. The service UID/GID owns PID 1, the only
+login account, forced probe, and workload. A distinct non-login
+SSH-key-daemon UID/GID owns only the Dropbear listener/session engines and the
+private server-key tree.
+default catchable-signal dispositions, empty signal mask, disabled alternate
+stack, and fixed umask/cwd/rlimits. Missing namespace, veth, netfilter, pivot-root,
 capability-drop, cleanup, or exact H24 Wi-Fi support is `NO_GO`; neither a
 shared namespace nor a userspace proxy is an allowed fallback.
+Trusted bootstrap installs the boot-private client public key only as one
+mode-0600 `authorized_keys` owned by that service UID/GID under its
+manifest-fixed home, final-remounts the bounded auth tmpfs read-only, and
+proves the historical H24 `/root/.ssh` overlay absent. It creates the separate
+host-key tree mode 0700 and private key mode 0400 owned only by the key-daemon
+UID/GID. The two identities, groups, homes, files, and mounts may not alias. A
+root-owned, service-readable, or mutable successor private-key/authorization
+path is `NO_GO`.
 
-Native PID 1 journals one child launch, drains fixed one-way scalar health/log
-pipes into cache-backed SD-free evidence, supervises the exact pidfd and bound
-network rules, and remains available for deterministic fallback. Before child
-release it may reap the blocked bootstrap and remove only its exact veth/rules.
-After release it never launches a second child; uncertainty is recovery-parked.
-While Debian is live state is `HEALTH_PENDING_PERSISTENT_DEBIAN`; only attended
-return/recovery plus exact native health closes `RESIDENT_HEALTHY`.
+Server-side client authentication is a separate mandatory boundary from the
+Dropbear server-host-key receipt. The separately versioned rootfs manifest
+must bind the exact Dropbear binary hash, source/configuration provenance,
+feature matrix, argv, account database, fixed service username/UID/GID and
+home, forced-command dispatcher, and canonical `authorized_keys` grammar. The
+only login-eligible identity is that fixed nonzero service account and the only
+accepted client credential is its one run-bound boot-private public key.
+Password, empty-password, `none`, keyboard-interactive/PAM, root login,
+alternate accounts, alternate homes or key sources, and duplicate names/IDs
+must be structurally disabled and negatively tested. The distinct key-daemon
+account, root, and every other retained system identity are locked and
+non-login; the service account has no general shell.
+
+The proved-clean bootstrap never reads private key bytes. It opens only the
+exact key/public/account/dispatcher objects and forks one child that performs
+an exact manifest-bound static key-daemon `execveat(AT_EMPTY_PATH)` before key
+read, listener bind, or accept. The clean daemon closes every unneeded source/
+path/directory FD, changes all IDs to the distinct key-daemon UID/GID, sets
+itself permanently non-dumpable, uses keep-caps only during that trusted
+transition, retains exactly `CAP_SETUID`/`CAP_SETGID`, clears keep-caps, locks
+securebits, sets `no_new_privs`, installs its static filter, emits one fixed
+`KEY_DAEMON_CLEAN_READY` on its sole transient internal status pipe only after
+its own exact mapping check and before key load/listener bind. It may then load
+and close the exact key FD and bind/listen while external ingress remains
+blocked, emits exactly `KEY_DAEMON_LISTEN_READY`, and closes that status writer
+to produce EOF before any `accept`. The proved-clean bootstrap validates both
+frames and EOF and, as the sole native-receipt writer, forwards only their
+canonical scalar summary. Native PID 1 must independently verify the summary,
+exact pidfd/executable/ID/capability/filter/FD set and `maps`/
+`map_files` provenance with no inherited native/shared/file/device/deleted/
+memfd/unexpected mapping before the daemon may contribute to `LOCAL_PERSISTENT`;
+this verification itself never opens ingress or permits an accepted connection.
+A missing, reordered, or drifted proof parks with ingress closed. The
+service identity cannot traverse the private tree or inspect the
+daemon: child procfs has no hidepid bypass, and the inherited service filter
+denies ptrace, process-vm, pidfd-getfd, process memory/FD duplication, dumpable
+regain, and access to the daemon's proc mem/fd/maps/ns surfaces.
+
+The daemon retains only `CAP_SETUID`/`CAP_SETGID` under a filter that permits
+one authenticated child to call only the exact service-GID `setresgid` then
+service-UID `setresuid` transition. Empty groups, no keep-caps, locked
+securebits, one explicit exact zero-`capset`, ambient clear, complete capability
+and ID reread, and denial of every alternate identity/capability/file/exec path
+are mandatory; nonzero-to-nonzero setuid is never treated as an implicit cap
+clear. Before the forced dispatcher,
+no client-controlled code runs; all child-side private-key copies are
+explicitly zeroed, every key/config/listener FD is absent or close-on-exec, and
+one exact `execveat(AT_EMPTY_PATH)` of the prebound immutable dispatcher
+replaces the address space. The dispatcher receives only bounded non-PTY
+channel FDs. The listener/session parents remain non-dumpable key-daemon
+processes and may use private material only for SSH signing/rekey. Missing
+source proof, service-readable key bytes, retained key FD/buffer, proc access,
+saved-ID/capability regain, second listener, or restart is `NO_GO`.
+
+The exact server build/launch and independently validated one-line key options
+must reject arbitrary commands and subsystems, PTY, local or remote forwarding,
+agent forwarding, and X11 forwarding. One immutable bounded read-only
+PID-1/workload probe dispatcher is the sole accepted session. Any option or
+key restriction is authority only after its exact selected-version
+source/help/parser semantics are bound; missing support is `NO_GO`, never a
+permissive fallback. The attended host may connect only after the exact current
+`INGRESS_OPEN` record and must use the one service username and
+private counterpart with strict server-host-key checking, public-key-only
+batch/identity-only behavior, no agent/PTY/forwarding, and the fixed probe. Its
+receipt binds the negotiated public-key method, accepted client-key
+fingerprint, account, forced result, and target/resident/boot/run/cache
+identity. A connection accepted through any other method, credential, account,
+command, subsystem, or forwarding feature is a security failure.
+
+Before release the parent must normalize and reread the blocked child to exact
+manifest-fixed `SCHED_OTHER`, priority 0, `SCHED_RESET_ON_FORK`, a bounded
+nice value of +10, a reviewed CPU-affinity/cpuset subset that preserves native
+control CPUs, `IOPRIO_CLASS_BE` priority 7, and the selected current-kernel
+uclamp state. No inherited FIFO/RR/DEADLINE parameters or Android scheduler
+boost may remain. The envelope binds `RLIMIT_RTPRIO=0`, `RLIMIT_RTTIME=0`,
+`RLIMIT_NICE=0`, and absence of `CAP_SYS_NICE` and
+`CAP_SYS_RESOURCE`; the default-deny filter blocks later scheduler, affinity,
+nice, ioprio, uclamp, and rlimit-raising changes. All descendants inherit the
+same lower-priority state, and exact before/after evidence proves native PID 1
+and Wi-Fi scheduling state unchanged.
+
+The inherited all-ABI filter is a static default-deny policy. The separately
+versioned rootfs manifest binds the complete positive syscall and argument
+allowlist for the exact nonprivileged consoleless PID 1, non-PTY Dropbear, and
+workload trace. Every unlisted syscall fails, and the named keyring,
+namespace, mount, device, and socket denials above are mandatory assertions,
+not an exhaustive blacklist. The positive policy also denies unneeded global
+kernel-object allocators and controls including `perf_event_open`, `bpf`,
+`userfaultfd`, io_uring and legacy AIO setup, inotify/fanotify setup, POSIX
+mqueue and SysV IPC, module/kexec/syslog control, and all untraced multiplexed
+ioctl/fcntl/prctl operations. `getrandom` permits only flags 0 or
+`GRND_NONBLOCK`; `GRND_RANDOM` is denied and `/dev/random` is absent. Queued
+real-time signal APIs and untraced signal sends are denied. Missing positive
+trace coverage or an allowed unbounded object class is `NO_GO`.
+
+Per-process rlimits are not aggregate containment. Before child release, the
+still-blocked child must be the sole member of one nonce-bound, manifest-frozen
+A90 cgroup layout that provides exact pids, memory plus swap (or proven no
+swap), CPU quota/period, fresh-UFS-device I/O bounds, and the exact cpuset/
+uclamp or equivalent controls required by the normalized `SCHED_OTHER` state
+while reserving enough
+global capacity for native PID 1, Wi-Fi, evidence, and recovery. H0/static
+evidence selects and independently reviews exactly one v1 or v2 backend before
+identity allocation. The later candidate unarmed F1 self-check only verifies
+that manifest-frozen selection before D1; runtime selection/fallback or mixed
+hierarchies are forbidden. Controller mount/ancestor/
+group identities, limits, membership, counters, empty teardown, and unchanged
+native/ancestor state are durable evidence. The cgroup filesystem and FDs are
+never child-visible. Missing controller or reserve proof is `NO_GO`; uncertain
+cleanup is `RECOVERY_PARKED`.
+
+Cgroups do not close every global or per-UID kernel allocator. The manifest
+therefore binds `RLIMIT_NOFILE`, `RLIMIT_SIGPENDING`, `RLIMIT_MSGQUEUE=0`,
+`RLIMIT_MEMLOCK`, `RLIMIT_CORE=0`, stack and process limits, then proves that
+`pids.max * RLIMIT_NOFILE`, all allowed socket/pipe/epoll/timer objects, both
+dedicated UIDs' pipe pages, and their worst-case charged or
+conservatively bounded kernel memory leave an exact native PID-1/Wi-Fi/
+evidence/recovery reserve in the global file table and every relevant counter.
+No devpts/ptmx exists, so no PTY ID is allocatable. Preflight reads but never
+writes global limits; cleanup proves the child PID namespace empty, both
+dedicated UIDs have no remaining charged object, and native/global counters stay
+within their permitted monotonic deltas. An uncharged, unobservable, or
+unbounded allowed object class is `NO_GO`; unreadable/overflowed cleanup
+counters are `RECOVERY_PARKED`.
+
+The clone/exec boundary uses three exact pidfd-controlled stop barriers. Before
+durable handoff intent, the native cloning thread must already be ordinary
+`SCHED_OTHER`/priority-0/nice-0 with no RT/RR/DEADLINE or Android boost; the
+runner never mutates native state to satisfy that precondition. The new child
+receives exactly two `pipe2(O_CLOEXEC)` scalar pipes and one manifest-bound
+static bootstrap executable FD. Its inherited-mm branch may only close FDs,
+temporarily clear `FD_CLOEXEC` on the two child pipe ends, and make one exact
+`execveat(AT_EMPTY_PATH)` before any effect. The clean bootstrap immediately
+re-arms both close-on-exec bits, closes every other FD, emits one no-effect
+`CHILD_READY` frame, and blocks on the empty control pipe. The parent binds the
+same pidfd, exact executable/fd/fdinfo and exact `/proc/<pid>/{maps,map_files}`
+provenance: no inherited native anonymous secret, shared/file/device/deleted/
+memfd mapping, unexpected executable, or writable-executable VMA may remain.
+The parent revalidates the mapping/FD proof at every stop barrier, then sends a
+pidfd `SIGSTOP` from the ancestor namespace and proves the stopped event before
+installing resource and scheduler state. Native PID 1 never enters the child
+network namespace: it moves only the peer with the bound netns FD and exact
+`IFLA_NET_NS_FD`. The parent opens exactly one `O_RDONLY|O_CLOEXEC` child nsfs
+FD, binds its number/flags/link target/`st_dev:st_ino`, proves no duplicate,
+uses it in the sole move message, and closes it immediately after the exact
+rtnetlink acknowledgement. Before native-end configuration or any continuation
+it enumerates its own fd/fdinfo and proves no descriptor references that child
+namespace inode. Every later namespace observation is path-based or uses one
+scoped close-on-exec FD that is closed and followed by the same zero-reference
+proof before a result is published. It then configures the native end and outer rules, and leaves the
+child peer down and unaddressed. It durably publishes `NETWORK_PREP_INTENT`,
+atomically writes the one-byte `N` (`NETWORK_PREPARE`) opcode, then sends one
+pidfd `SIGCONT`. The trusted child may configure and reread only its own peer,
+route, child-local sysctls and traffic-control handles, must send no packet,
+then permanently drop `CAP_NET_ADMIN`, emit the unique `NETWORK_PREPARED`
+receipt, and block on the empty pipe. The parent sends a second pidfd
+`SIGSTOP`, proves that stop, receipt, native-side digests, and capability
+absence plus the exact two-pipe FD set, unchanged clean mapping provenance,
+and no retained netlink socket, then
+durably publishes `ROOT_PREP_INTENT`. Only the one-byte `R`
+(`ROOT_PREPARE`) opcode and second pidfd `SIGCONT` permit private root/key
+preparation. The child emits the unique `ROOT_PREPARED` receipt and blocks
+again before pivot, UID/filter transition, or exec. The parent sends a third
+pidfd `SIGSTOP` and proves the stop, frame, scheduler, network, mount, file,
+key, empty-pipe, exact two-pipe FD-set and clean-mapping digests. It durably publishes
+`CHILD_RELEASE_INTENT`,
+atomically writes one-byte `X` (`RELEASE`), then sends one final pidfd
+`SIGCONT`. Exact successful results for all three token/signal dispatches
+publish `CHILD_RELEASED` without enabling retry; a missing result is uncertain.
+Only that final token/continuation permits pivot/exec. Pipe EOF, a PID-number
+signal, early exec, wrong or missing token/stop/frame, extra dispatch, crash
+ambiguity, child-network drift, retained `CAP_NET_ADMIN`, native `setns`, or
+replay of any phase is `RECOVERY_PARKED`.
+
+The fresh UTS namespace receives one fixed public hostname and empty domain;
+native UTS values must remain unchanged. The first proof is IPv4-only. Native
+PID 1 requires compatible preexisting `net.ipv4.ip_forward=1` and exact
+all/default/wlan forwarding, `rp_filter`, `accept_redirects`, `send_redirects`,
+and `proxy_arp` values before any network effect. It never writes those existing
+native scalars. Only nonce-created veth and child-network-namespace fields may
+be written and reread. IPv6 is disabled only inside the child network namespace;
+native IPv6 is untouched. Cleanup removes the rules/veth and proves all native
+preconditions unchanged. A mismatch is zero-effect `NO_GO`; source or runtime
+evidence of an `ip_forward` or existing all/default/wlan write fails closed.
+
+Cgroups do not account all softirq, skb/qdisc, conntrack, or Wi-Fi airtime
+caused in the native network namespace. H0/static evidence must therefore
+freeze one exact supported parent-owned traffic-control and conntrack design
+before identity allocation. Before release, both nonce-created veth ends have
+fixed MTU/txqueuelen plus exact ingress/egress packet/byte rate, burst, and
+queue-depth limits. Permitted traffic uses one dedicated conntrack zone with
+exact new-flow-rate and concurrent-flow bounds; flow/hardware offload is
+forbidden for the first proof. The same pre-release transaction installs and
+binds one exact dormant SSH-ingress gate: its complete forwarding/NAT rule and
+named set/handle exist, the sole manifest-bound activation element is absent,
+and default drop prevents a match. Every qdisc/filter/action/zone/table/chain/
+set/rule handle, empty-element prestate, counter, interface identity, target/
+boot/run nonce, and close-only cleanup operation is bound and reread. Global conntrack settings, existing Wi-Fi qdiscs,
+and other interfaces never change. Cleanup blocks new traffic, removes only
+the zone's state and nonce-bound handles/interfaces, and proves complete
+absence plus unchanged native configuration/identity; ordinary existing
+Wi-Fi counters may only advance monotonically and are never reset. Missing
+per-zone accounting/removal,
+unsupported limits, unreadable/wrapped counters, reserve failure, or cleanup
+ambiguity is `NO_GO`/`RECOVERY_PARKED`.
+
+Native PID 1 journals one child launch, uses one bootstrap-only scalar control
+pipe, drains the separate bootstrap-only scalar receipt pipe into cache-backed
+SD-free evidence, supervises the exact pidfd and bound network rules, and
+remains available for deterministic fallback. Both pipes are close-on-exec and
+no descriptor is inherited by Debian init. Post-exec health
+is not inferred from an undeclared rootfs writer: the native parent records
+only externally observed pidfd/exec/network facts, while a separate host
+observer must authenticate through the exact SSH path and bind the same run.
+Local persistent evidence also rereads the single key-daemon/listener tree,
+non-login IDs, non-dumpable state, two-cap filter, bounded session count, and
+exact clean-exec mapping provenance plus zero service-side key FD/proc access;
+the `LOCAL_PERSISTENT` proof must also reread the exact dormant gate, absent
+activation element, zero pre-open counters, and default-drop policy. It still
+cannot open ingress or claim authentication.
+
+Only after durable `INGRESS_OPEN_INTENT` binds that local proof, exact table/
+chain/set/rule/element identities, empty prestate, counters, one reviewed atomic
+activation and the close-only cleanup may native PID 1 dispatch one insertion
+of the prebound element. It never creates/replaces a rule or dispatches the
+activation twice. Exact return plus independent handle/element/policy/counter
+readback must be durably recorded as `INGRESS_OPEN` before any host connection;
+all other ingress remains default-drop. Missing/torn return, wrong or duplicate
+element/handle, drift, or read failure is never resent. When exact identity is
+complete, reconciliation removes only that element with the predeclared close-
+only cleanup, proves the gate dormant, and enters `RECOVERY_PARKED`; incomplete
+identity parks without guessing or flushing global state. Return and failure
+cleanup always close and prove this element absent before terminating child
+services or deleting the remaining bound network objects, and independently
+prove no parent nsfs FD or duplicate can pin any child namespace before claiming
+that namespace gone. A wrong/stale/duplicated/retained namespace FD, flag/inode
+drift, move-ack or close failure, result published before zero-reference
+enumeration, or cleanup with a parent-pinned namespace is `RECOVERY_PARKED`.
+
+Those two pipes are the only native-facing pipes, and the proved-clean
+bootstrap is the sole native-receipt writer. Generator and key-daemon helper
+forks may only close both main-pipe ends before clean exec and never carry or
+write them across that exec. For each helper, one at a time, bootstrap
+creates one transient internal `pipe2(O_CLOEXEC)` status channel, retains its
+read end, and gives the helper only the write end plus the exact manifest-bound
+object FDs required by that exec. The helper fork closes every unrelated FD,
+temporarily clears `FD_CLOEXEC` only on that exact set for one static exec, then
+re-arms and rereads every retained descriptor before emitting as the sole
+writer. The generator emits exactly `GENERATOR_CLEAN_READY` followed by one
+bounded public-only `GENERATOR_PUBLIC_COMPLETE`, closes before exact exit/reap,
+and reaches EOF. The daemon emits exactly `KEY_DAEMON_CLEAN_READY` followed by
+`KEY_DAEMON_LISTEN_READY`, closes before any accept, and reaches EOF while it
+remains live. Bootstrap binds the helper pid/start/pidfd, frame order, byte cap,
+FD set, and EOF, closes the internal read end, and alone forwards the canonical
+summary on the native receipt. At every main stop only the original two
+bootstrap ends remain. Wrong or multiple writer, inherited main-pipe end,
+extra FD, interleaved/partial/duplicate/extra frame, premature or late EOF,
+helper crash, or internal-pipe residue is `RECOVERY_PARKED` and is never
+inferred or replayed.
+
+Before child release, trusted bootstrap must generate exactly one per-boot
+Ed25519 Dropbear host key in the child's private mode-0700 tmpfs using the exact
+manifest-pinned helper. The proved-clean bootstrap forks it only through an
+exact static generator exec; a pre-key barrier must bind its executable,
+`maps`, and `map_files` with no inherited native mapping. That helper is the
+sole bounded transient generator
+memory exception before `ROOT_PREPARED`: before generation it is permanently
+non-dumpable with `RLIMIT_CORE=0`, an exact executable/argv/environment/ID/
+capability/stdio/FD set, and no core/log/socket/foreign output sink. Exact
+source and negative fixtures must prove one absent `O_EXCL` key file, one
+bounded public-only `GENERATOR_PUBLIC_COMPLETE` internal frame after
+`GENERATOR_CLEAN_READY`, terminal EOF, zero private output, exact exit/reap, and no
+remaining PID, FD, address space, core, log, temporary file, or second key;
+crash, signal, output, reap, or residue ambiguity is `RECOVERY_PARKED`.
+During that exact generation only, private bytes may exist in the one file and
+the generator address space. After proven reap and before daemon launch they
+may exist only in the file; after load they may exist only in that file and the
+filtered non-dumpable key-daemon memory required for signing. The file is mode
+0400 and owned only by the distinct non-login key-daemon identity. Only its
+algorithm, public key, SHA-256 fingerprint, and target/resident/boot/run/pidfd/
+cache binding may enter the native receipt. The service UID, PID 1, forced
+probe, workload, logs, and retrieval never receive a key FD, buffer, or byte.
+Bootstrap binds the exact inode/size/hash locally, remounts the exact
+`/etc/dropbear` tmpfs read-only, rereads the mount and file binding, and proves
+descendants cannot replace, unlink, rewrite, rotate, traverse, or read the key
+outside the key daemon. Before any SSH attempt the host
+must retrieve that exact receipt through the dedicated target-bound read-only
+frame, construct a no-clobber private `known_hosts`, and require
+`StrictHostKeyChecking=yes`. TOFU, first-seen network pinning,
+`StrictHostKeyChecking=no`, stale receipt reuse, within-run rotation, missing or
+duplicate keys, and fingerprint or presented-key drift fail closed. Only then
+may it perform the exact public-key-only client authentication described above;
+success additionally requires the one fixed service account, accepted
+client-key fingerprint, forced read-only probe, and zero password/interactive/
+alternate-account/command/forwarding path. Exact child cleanup destroys the
+private key only after blocking new sessions, reaping every bound
+listener/session engine, and proving every key-daemon PID/FD plus both
+dedicated-UID resource sets gone; a later boot requires a fresh key and
+receipt.
+On every selected isolated-Debian failure branch, native PID 1 first blocks all
+new veth traffic and SSH accepts/sessions, then durably appends the immutable
+original stage/return/errno plus cleanup intent and exact bound identities.
+Only after that record may it terminate/reap the exact namespace members and
+remove the bound network/cgroup state. Cleanup outcomes append separately and
+never replace or aggregate away the original failure; any missing record,
+identity, or cleanup proof is `RECOVERY_PARKED` and never replays handoff.
+Before child release the parent may reap the blocked bootstrap and remove only
+its exact zone state, qdiscs/actions, veth/rules, and empty child cgroups. After
+release it never launches a second child;
+uncertainty is recovery-parked. While Debian is live state is
+`HEALTH_PENDING_PERSISTENT_DEBIAN`; only attended return/recovery plus exact
+native health closes `RESIDENT_HEALTHY`.
 
 This architecture is H0 until its kernel/toolchain feasibility, complete
 execution-critical source, crash prefixes, cleanup, performance cost, and
@@ -569,7 +952,7 @@ terminal/recovery closure succeeds; the gate itself grants no authority.
 After that decision, a successor may define a headless persistent-server lane
 that compile-disables the persistent native HUD and firstboot overlay. Such a
 lane must retain the exact read-only UFS, boot-private authentication, minimal
-Debian `/dev`, mandatory devpts, final Wi-Fi, one-shot/no-replay, rollback,
+Debian `/dev` with no devpts/PTY, final Wi-Fi, one-shot/no-replay, rollback,
 cleanup, recovery, and resident-health boundaries.
 Its persistent result may prove Debian PID 1, authenticated SSH, exact minimal
 Debian `/dev`, final Wi-Fi, and persistent service health while explicitly
@@ -577,6 +960,18 @@ making no display or HUD claim. While Debian remains live, device safety stays
 `HEALTH_PENDING_PERSISTENT_DEBIAN`; only an attended return or recovery and
 exact native checks may close `RESIDENT_HEALTHY`. It must not inherit a
 HUD-enabled result predicate.
+
+The exact audit in
+`docs/reports/A90_H14_IMMUTABLE_FIRSTBOOT_ISOLATED_DEBIAN_MISMATCH_H0_2026-08-14.md`
+rejects the immutable H14/H24 demonstration content for that successor: its
+12,092-byte firstboot also configures legacy NCM, smoke, HUD-intent, and Debian
+Wi-Fi paths and has no post-exec receipt writer. A separately versioned minimal
+Debian content manifest must therefore be built and independently reviewed
+before candidate allocation. Its eventual installation is a separate
+target-contract capability and attended authority, and additionally requires a
+separately reviewed higher-precedence boundary change because the current
+common contract activates no direct UFS filesystem-content mutation. This H0
+decision authorizes no UFS write, overlay, or non-boot partition payload.
 
 Display is a separate optional capability after headless server health is
 established, preferably with Debian as owner. Any future persistent native HUD

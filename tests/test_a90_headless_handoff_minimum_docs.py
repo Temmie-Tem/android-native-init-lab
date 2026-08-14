@@ -14,6 +14,10 @@ PLAN = REPO / (
     "docs/plans/"
     "A90_HEADLESS_HANDOFF_MINIMUM_AND_WIFI_OWNERSHIP_DECISION_2026-08-13.md"
 )
+REDUCTION = REPO / (
+    "docs/plans/"
+    "A90_UFS_HANDOFF_ARCHITECTURE_AND_PRODUCTION_REDUCTION_PLAN_2026-08-12.md"
+)
 DIAGNOSTIC_DESIGN = REPO / (
     "docs/plans/"
     "A90_ATOMIC_WIFI_OWNERSHIP_DIAGNOSTIC_RESIDENT_DESIGN_2026-08-14.md"
@@ -45,6 +49,14 @@ H16_INCIDENT = REPO / (
 H24_INCIDENT = REPO / (
     "docs/reports/"
     "A90_H24_PERSISTENT_HUD_BOOTSTRAP_EINVAL_INCIDENT_2026-08-12.md"
+)
+FIRSTBOOT_AUDIT = REPO / (
+    "docs/reports/"
+    "A90_H14_IMMUTABLE_FIRSTBOOT_ISOLATED_DEBIAN_MISMATCH_H0_2026-08-14.md"
+)
+H14_CONTENT = REPO / (
+    "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/"
+    "phase3-minimal-h14/userdata-content-manifest.json"
 )
 LEDGER = REPO / "docs/operations/CAMPAIGN_LEDGER_A90.md"
 MAIN = REPO / "workspace/public/src/native-init/v724/90_main.inc.c"
@@ -104,8 +116,63 @@ class A90HeadlessHandoffBoundaryTests(unittest.TestCase):
             "A90_WIFI_OWNERSHIP_ATOMICITY_GATE_V1",
             "attempted atomic diagnostic is `NO_GO_RETIRED`",
             "A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md",
-            "fresh PID, mount, and network namespaces",
+            "fresh PID, mount, IPC, UTS, and network namespaces",
             "bound veth peer",
+            "manifest-frozen A90 cgroup layout",
+            "exact consoleless `/dev` described below",
+            "No devpts is mounted and no PTY allocation is a product function",
+            "complete `/dev` tmpfs is remounted read-only",
+            "matching child procfs uses fixed `nosuid,nodev,noexec,hidepid=2`",
+            "Writable proc or an unbounded global view is `NO_GO`",
+            "exact new-flow-rate and concurrent-flow bounds",
+            "one exact dormant SSH-ingress gate",
+            "durable `INGRESS_OPEN_INTENT`",
+            "durably recorded as `INGRESS_OPEN` before any host connection",
+            "The fresh UTS namespace receives one fixed public hostname",
+            "replace the inherited session with one proved-empty anonymous child session",
+            "one reviewed inherited classic-seccomp isolation filter",
+            "all `clone3`",
+            "later user-namespace creation cannot regain mount/device capability",
+            "permits direct `socket()` only for exact traced AF_INET TCP",
+            "including QRTR, netlink/kobject",
+            "static default-deny policy",
+            "`GRND_RANDOM` is denied and `/dev/random` is absent",
+            "dedicated UIDs' pipe pages",
+            "`SCHED_OTHER`, priority 0, `SCHED_RESET_ON_FORK`",
+            "`RLIMIT_RTPRIO=0`, `RLIMIT_RTTIME=0`",
+            "three exact pidfd-controlled stop barriers",
+            "binds its number/flags/link target/`st_dev:st_ino`",
+            "proves no descriptor references that child namespace inode",
+            "`NETWORK_PREP_INTENT`",
+            "`NETWORK_PREPARED`",
+            "`ROOT_PREP_INTENT`",
+            "`CHILD_RELEASE_INTENT`",
+            "manifest-fixed home",
+            "historical H24 `/root/.ssh` overlay absent",
+            "Server-side client authentication is a separate mandatory boundary",
+            "only login-eligible identity",
+            "public-key-only batch/identity-only behavior",
+            "arbitrary commands and subsystems",
+            "distinct non-login SSH-key-daemon UID/GID",
+            "permanently non-dumpable",
+            "all child-side private-key copies are explicitly zeroed",
+            "nonzero-to-nonzero setuid is never treated as an implicit cap clear",
+            "single key-daemon/listener tree",
+            "sole bounded transient generator memory exception",
+            "RLIMIT_CORE=0",
+            "zero private output",
+            "Cleanup outcomes append separately",
+            "inherited-mm branch",
+            "`/proc/<pid>/{maps,map_files}`",
+            "`KEY_DAEMON_CLEAN_READY`",
+            "`KEY_DAEMON_LISTEN_READY`",
+            "`GENERATOR_PUBLIC_COMPLETE`",
+            "sole native-receipt writer",
+            "one transient internal `pipe2(O_CLOEXEC)` status channel",
+            "Both pipes are close-on-exec and no descriptor is inherited by Debian init",
+            "A90_H14_IMMUTABLE_FIRSTBOOT_ISOLATED_DEBIAN_MISMATCH_H0_2026-08-14.md",
+            "separately versioned minimal Debian content manifest must",
+            "current common contract activates no direct UFS filesystem-content mutation",
             "HEALTH_PENDING_PERSISTENT_DEBIAN",
             "No headless successor may inherit this process model",
         ):
@@ -125,6 +192,7 @@ class A90HeadlessHandoffBoundaryTests(unittest.TestCase):
 
     def test_plan_separates_minimum_test_features_and_later_removal(self) -> None:
         plan = PLAN.read_text(encoding="utf-8")
+        plan_flat = " ".join(plan.split())
         reduction = (REPO / (
             "docs/plans/"
             "A90_UFS_HANDOFF_ARCHITECTURE_AND_PRODUCTION_REDUCTION_PLAN_2026-08-12.md"
@@ -142,11 +210,93 @@ class A90HeadlessHandoffBoundaryTests(unittest.TestCase):
         self.assertIn("HEALTH_PENDING_PERSISTENT_DEBIAN", plan)
         self.assertIn("Native PID 1 retains the exact native Wi-Fi owner", plan)
         self.assertIn("Benchmark collection never delays", plan)
+        intent = plan.index("  -> durable one-shot intent and latch")
+        child = plan.index(
+            "  -> one CHILD_READY child blocked on an empty control pipe"
+        )
+        resource = plan.index(
+            "  -> exact scheduler plus pids/memory+swap/CPU/UFS-I/O cgroup bounds active"
+        )
+        network = plan.index(
+            "  -> parent moves only the veth peer by netns FD, closes it, proves zero nsfs FD"
+        )
+        network_policy = plan.index(
+            "  -> parent binds native-end/rule policy with no retained namespace handle"
+        )
+        self.assertLess(intent, child)
+        self.assertLess(child, resource)
+        self.assertLess(resource, network)
+        self.assertLess(network, network_policy)
+        self.assertIn(
+            "durable intent is published before the first child or network effect",
+            plan,
+        )
+        self.assertIn("bootstrap pipes are closed", plan)
+        local_ready = plan.index(
+            "  -> KEY_DAEMON_LOCAL_READY + LOCAL_PERSISTENT with exact SSH gate dormant"
+        )
+        ingress_intent = plan.index("  -> durable INGRESS_OPEN_INTENT")
+        ingress_open = plan.index("  -> INGRESS_OPEN; every other ingress remains default-drop")
+        host_auth = plan.index("  -> attended host pins the server key")
+        self.assertLess(local_ready, ingress_intent)
+        self.assertLess(ingress_intent, ingress_open)
+        self.assertLess(ingress_open, host_auth)
+        self.assertIn(
+            "exactly three fixed control tokens and three parent continuations",
+            plan_flat,
+        )
+        self.assertIn(
+            "control pipe carries only the three fixed one-byte `N`/`R`/`X` opcodes",
+            plan_flat,
+        )
+        self.assertNotIn("only the two fixed tokens", plan_flat)
+        self.assertIn("durable `NETWORK_PREP_INTENT`", plan_flat)
+        self.assertIn(
+            "closes it immediately, and enumerates zero parent references to the child namespace",
+            plan_flat,
+        )
+        self.assertIn("no parent nsfs descriptor pins a child namespace", plan_flat)
+        self.assertIn("durable `ROOT_PREP_INTENT`", plan_flat)
+        self.assertIn("durably publishes `CHILD_RELEASE_INTENT`", plan_flat)
+        self.assertIn("dispatches publish `CHILD_RELEASED`", plan_flat)
+        self.assertIn("zone/queue/veth/rules and empty child cgroups", plan)
+        self.assertIn(
+            "does not require sysvinit or firstboot to retain",
+            plan,
+        )
+        self.assertIn(
+            "separately versioned minimal rootfs before the first candidate",
+            plan,
+        )
+        for phrase in (
+            "public-key-only Dropbear",
+            "Exactly one nonzero service account",
+            "One immutable read-only probe is forced",
+            "zero password/interactive/",
+            "two non-aliasing manifest-fixed nonzero identities",
+            "service UID cannot traverse the key tree",
+            "zeroes every child-side key copy",
+            "sole native-receipt writer",
+            "`GENERATOR_CLEAN_READY` then public-only `GENERATOR_PUBLIC_COMPLETE`",
+            "`KEY_DAEMON_CLEAN_READY` then `KEY_DAEMON_LISTEN_READY`",
+            "preinstalled as an exact dormant set/handle",
+            "durably publishes `INGRESS_OPEN_INTENT`",
+            "before `INGRESS_OPEN`",
+        ):
+            self.assertIn(phrase, plan_flat)
         self.assertIn("atomic diagnostic grant no exception", reduction_flat)
         self.assertIn("no diagnostic identity", reduction_flat)
         self.assertIn(
             "installed artifact and runtime binding contain neither",
             reduction_flat,
+        )
+        self.assertIn(
+            "minimal content Stage 2 precedes the candidate Stage 3",
+            reduction_flat,
+        )
+        self.assertLess(
+            reduction.index("### Stage 2: minimal Debian content prerequisite"),
+            reduction.index("### Stage 3: fresh headless successor"),
         )
 
     def test_atomic_diagnostic_is_retired_and_not_live_authority(self) -> None:
@@ -165,17 +315,236 @@ class A90HeadlessHandoffBoundaryTests(unittest.TestCase):
         design = " ".join(ISOLATED_DESIGN.read_text(encoding="utf-8").split())
         for phrase in (
             "Native PID 1 does not call the current in-place `switch_root`",
-            "separate PID, mount, and network namespaces",
+            "separate PID, mount, IPC, UTS, and network namespaces",
+            "CLONE_NEWPID | CLONE_NEWNS | CLONE_NEWIPC | CLONE_NEWUTS | CLONE_NEWNET",
+            "initial SysV IPC tables are empty",
+            "fixed public hostname `a90-debian`",
+            "joins one new anonymous empty session keyring",
+            "never resolves `KEY_SPEC_USER_KEYRING`",
+            "never calls `KEYCTL_GET_PERSISTENT`",
+            "missing user, user-session, and persistent keyrings all remain missing",
+            "denies `clone3` completely",
+            "no `CLONE_NEW*` bit or unknown service flag",
+            "complete supported post-bootstrap mount/root API corpus",
+            "node-creation denial",
+            "nested user/mount/PID/network namespace",
+            "Direct `socket()` is allowed only for `AF_INET`",
+            "AF_QIPCRTR/QRTR",
+            "compat `socketcall` entry is denied completely",
+            "no native/preexisting socket FD reaches the service identity",
+            "selected consoleless PID 1 or Dropbear",
+            "clears the inherited environment",
+            "## Aggregate resource boundary",
+            "it never selects, autodetects, or falls back",
+            "same child is the only member",
+            "one exact manifest-bound static bootstrap executable",
+            "restores `FD_CLOEXEC` on both pipe ends, closes every other FD",
+            "independently re-enumerates the same exact two-pipe FD set",
+            "no retained netlink socket",
+            "O_RDONLY|O_CLOEXEC",
+            "no parent descriptor references that nsfs inode",
+            "every later parent observation require zero retained child-namespace FDs",
+            "`waitid(P_PIDFD, ..., WSTOPPED)`",
+            "`NETWORK_PREPARED`",
+            "`ROOT_PREP_INTENT`",
+            "`ROOT_PREPARED`",
+            "`CHILD_RELEASE_INTENT`",
+            "exact third/final continuation count",
+            "any required token-write or pidfd-signal dispatch result missing",
+            "Native PID 1 never calls `setns`",
+            "permanently drops `CAP_NET_ADMIN`",
+            "barrier negatives for any child effect or any frame other than the unique",
+            "`/dev/console` (5:1), `ttyGS0`",
+            "proves `tty_nr=0`",
+            "No devpts is mounted and no PTY allocation is a product function",
+            "remounts `/dev` read-only",
+            "`/dev/urandom` (1:9, 0444)",
+            "two distinct manifest-fixed nonzero identities",
+            "manifest-fixed service home `.ssh`",
+            "H24's historical `/root/.ssh` is absent",
+            "## Server-side SSH client-authentication boundary",
+            "public-key-only client authentication",
+            "exactly one login-eligible service account",
+            "service account has no general shell",
+            "local and remote TCP forwarding",
+            "sole accepted session is forced",
+            "`IdentitiesOnly`/batch public-key-only behavior",
+            "A successful connection by any password",
+            "separate non-login SSH-key-daemon UID/GID",
+            "mode 0700 and key mode 0400",
+            "sets itself permanently non-dumpable",
+            "all host-key FDs are absent or close-on-exec",
+            "explicitly zeroed before one exact `execveat(AT_EMPTY_PATH)`",
+            "nonzero-to-nonzero ID transition is never assumed to clear capabilities",
+            "one key-daemon/listener tree retains",
+            "sole pre-`ROOT_PREPARED` private-key memory exception",
+            "generator crash, signal, private output",
+            "inherited-mm pre-exec branch",
+            "clean bootstrap address space",
+            "native PID-1 virtual mapping",
+            "`KEY_DAEMON_CLEAN_READY`",
+            "`KEY_DAEMON_LISTEN_READY`",
+            "`GENERATOR_CLEAN_READY`",
+            "`GENERATOR_PUBLIC_COMPLETE`",
+            "clean bootstrap is their sole receipt writer",
+            "one exact internal `pipe2(O_CLOEXEC)` status channel",
+            "Wrong writer, multiple writers",
+            "`KEY_DAEMON_LOCAL_READY`",
+            "It cannot open ingress or claim SSH authentication",
+            "`INGRESS_OPEN_INTENT`",
+            "`INGRESS_OPEN`",
+            "never inserts the activation element",
+            "opens ingress twice",
+            "negative parent-namespace-handle tests",
+            "19. `RETURN`",
+            "an inherited native anonymous secret VMA",
+            "`MAP_SHARED` file/device mapping",
+            "static default-deny filter",
+            "`GRND_RANDOM` is denied",
+            "pids.max * RLIMIT_NOFILE",
+            "nice value of +10",
+            "`IOPRIO_CLASS_BE` priority 7",
+            "inherited `SCHED_FIFO`, `SCHED_RR`, `SCHED_DEADLINE`",
+            "Cgroup accounting alone does not bound",
+            "one dedicated conntrack zone and enforces both a maximum new-flow rate and a maximum concurrent-flow set",
+            "packet/byte counters may only advance monotonically",
+            "now-empty child cgroups",
+            "requires a closed compatible precondition over the existing native network namespace",
+            "never writes `ip_forward` or an existing all/default/wlan scalar",
             "reviewed veth and forwarding boundary",
             "default drop in both forwarding directions",
+            "native-veth `INPUT` defaults to drop",
+            "no native local listener is reachable from the child peer",
+            "unexpected native-to-Debian `OUTPUT`",
             "The SD card is not a runtime dependency",
-            "duplicates only the two child write ends to reviewed fixed descriptor numbers",
+            "Neither is duplicated to a fixed post-exec descriptor",
+            "EOF alone is never success",
+            "separate attended host observer reach the exact forwarded port",
+            "per-boot Ed25519 host key",
+            "remounts the exact host-key tmpfs read-only",
+            "Before any SSH attempt",
+            "TOFU and `StrictHostKeyChecking=no` are forbidden",
+            "never creates, replaces, rotates, or reads the server private key",
+            "12,092-byte firstboot can start Dropbear",
+            "mounting or binding native sysfs is forbidden",
+            "proves the child proc superblock differs from native procfs",
+            "remounts each mask and the child proc superblock read-only",
+            "The only permitted global proc facts are the exact read-only scalar allowlist",
+            "writable `/proc/sys` or `sysrq-trigger`",
+            "explicitly does not carry forward H24's optional `ttyGS0`",
+            "neither the node, FD, nor old `/dev` survives",
+            "Only ownership-aware `waitid(P_PIDFD, ...)`",
+            "locks the reviewed securebits against root/setuid capability regain",
             "`HEALTH_PENDING_PERSISTENT_DEBIAN`",
             "neither a shared network namespace nor a userspace proxy is an allowed fallback",
             "No H26 ordinal, version, build string",
             "This document is H0 only",
         ):
             self.assertIn(phrase, design)
+
+        failure = design[
+            design.index("## Failure and fallback") :
+            design.index("## Production minimum and removals")
+        ]
+        post_release = failure[
+            failure.index("after release but before persistent health") :
+            failure.index("after persistent service begins")
+        ]
+        self.assertLess(
+            post_release.index("first block every new veth traffic path and SSH accept/session path"),
+            post_release.index("durably publish the immutable original failure"),
+        )
+        self.assertLess(
+            post_release.index("durably publish the immutable original failure"),
+            post_release.index("terminate the exact child PID namespace"),
+        )
+        self.assertLess(
+            post_release.index("prove every member gone"),
+            post_release.index("remove those exact network objects"),
+        )
+        self.assertLess(
+            post_release.index("remove those exact network objects"),
+            post_release.index("Append the cleanup result separately"),
+        )
+
+        reduction = " ".join(REDUCTION.read_text(encoding="utf-8").split())
+        for phrase in (
+            "consoleless no-PTY minimal-dev boundary",
+            "global-kernel-object resource boundary",
+            "exact scheduler/CPU/ioprio/uclamp normalization",
+            "exact three-barrier bootstrap protocol",
+            "exactly two bounded scalar bootstrap pipes created close-on-exec",
+            "parent-to-child `N`/`R`/`X` control",
+            "child-to-parent fixed-frame receipt",
+            "bidirectional packet/byte rate, burst, and depth limits",
+            "UDP/SYN/return floods",
+            "exact Dropbear binary hash",
+            "one run-bound boot-private public key",
+            "general shell, arbitrary command/subsystem",
+            "distinct locked non-login SSH-key-daemon UID/GID",
+            "every child key copy is zeroed",
+            "non-dumpable with `RLIMIT_CORE=0`",
+            "no core/log/temp/private-output residue",
+            "manifest-bound static clean bootstrap",
+            "revalidates clean mapping provenance",
+            "sole native-receipt writer",
+            "one-at-a-time transient internal status channels",
+            "`GENERATOR_PUBLIC_COMPLETE`",
+            "`KEY_DAEMON_LISTEN_READY`",
+            "one preinstalled dormant SSH-ingress handle",
+            "`INGRESS_OPEN_INTENT`",
+            "exact `INGRESS_OPEN` return/readback",
+            "enumerate zero parent child-namespace FDs",
+            "close and prove absent every scoped parent child-namespace FD",
+        ):
+            self.assertIn(phrase, reduction)
+        self.assertNotIn("one close-on-exec bootstrap receipt pipe", reduction)
+
+    def test_exact_h14_firstboot_is_rejected_for_isolated_minimum(self) -> None:
+        audit = " ".join(FIRSTBOOT_AUDIT.read_text(encoding="utf-8").split())
+        content = H14_CONTENT.read_text(encoding="utf-8")
+        goal = GOAL.read_text(encoding="utf-8")
+
+        for phrase in (
+            "fd8625402c76b2ee0cc4a2aff07eed3b182c6dd12eba1a022a445ea428c8c84a",
+            "it brings up `ncm0`",
+            "firstboot invokes the Debian Wi-Fi helper",
+            "unchanged H14/H24 UFS content is rejected",
+            "inherit no private key buffer or private control, health, or log descriptor",
+            "common contract activates no direct UFS filesystem-content mutation",
+            "never creates, replaces, rotates, traverses, reads, or inherits it",
+            "remounted read-only before release",
+            "strict host-key checking without TOFU",
+            "one independently reviewed nonprivileged consoleless PID 1",
+            "does not assume the historical sysvinit binary or root identity is compatible",
+            "not `/root/.ssh`",
+            "Possessing one `authorized_keys` file is not proof",
+            "exact Dropbear binary hash",
+            "exactly one fixed nonzero service account",
+            "negotiated public-key client method",
+            "mode-0700/mode-0400 tree",
+            "filtered non-dumpable key daemon",
+            "zeroes child-side key copies",
+            "sole manifest-pinned transient generator",
+            "sole native-receipt writer",
+            "`GENERATOR_PUBLIC_COMPLETE`",
+            "`KEY_DAEMON_LISTEN_READY`",
+            "`INGRESS_OPEN_INTENT`",
+            "exact `INGRESS_OPEN` return/readback",
+            "zero core/log/temp/private-output residue",
+            "No H26 identity",
+        ):
+            self.assertIn(phrase, audit)
+        for path in (
+            "/usr/local/bin/a90-dpublic-smoke-httpd",
+            "/usr/local/bin/a90-dpublic-hud-intent",
+            "/etc/a90-dpublic/wifi-sta-enable",
+        ):
+            self.assertIn(path, content)
+        self.assertIn(
+            "It is not the first isolated-Debian rootfs",
+            goal,
+        )
 
     def test_h16_is_frozen_as_mechanical_not_server_success_baseline(self) -> None:
         comparison = COMPARISON.read_text(encoding="utf-8")
@@ -190,6 +559,12 @@ class A90HeadlessHandoffBoundaryTests(unittest.TestCase):
             "does not simply revert to H16",
             "Native PID 1 remains a minimal supervisor",
             "Fresh Debian PID namespace plus matching private procfs",
+            "Preserve only the fresh/no-devtmpfs principle",
+            "no devpts/ptmx/PTY",
+            "`DEBIAN_EXEC_LOCAL`",
+            "one-shot `INGRESS_OPEN`",
+            "two bounded bootstrap control/receipt pipes created close-on-exec",
+            "dedicated native read-only retrieval frame",
             "`HEALTH_PENDING_PERSISTENT_DEBIAN` while live",
             "no device or live authority",
         ):
@@ -243,7 +618,7 @@ class A90HeadlessHandoffBoundaryTests(unittest.TestCase):
         self.assertIn('"handoff_begin_to_switch_root_ms"', finalizer)
         for phrase in (
             "`display_marker_ready` | removed; no headless equivalent",
-            "`switch_root_exec` | `DEBIAN_EXEC`",
+            "`switch_root_exec` | `DEBIAN_EXEC_LOCAL`",
             "Performance collection is observational",
         ):
             self.assertIn(phrase, comparison)
