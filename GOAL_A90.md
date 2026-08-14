@@ -61,7 +61,7 @@ The following are established capabilities, not standing live authority:
 - H10 proved the minimal automatic loop can reach `switch_root` in about one
   second after dispatch. H16 proved the direct UFS path avoids the former
   multi-gigabyte SD work-copy and reached the UFS `switch_root` boundary in
-  about 11.8 seconds on its successful mechanical run.
+  about 11.8 seconds on its boundary-reaching mechanical run.
 - H24's reviewed design proves that native devtmpfs need not be moved into
   Debian: Debian is intended to receive a bounded tmpfs `/dev`, while a native
   HUD card capability is isolated in a separate private root. The H24 D1 run
@@ -69,6 +69,14 @@ The following are established capabilities, not standing live authority:
 - Debian display, SSH, and Wi-Fi have each been observed in earlier bounded
   experiments, but H24 did not prove them in one terminal persistent-server
   run. Do not combine evidence from different ordinals into a new PASS.
+
+The formal historical/design delta is frozen in
+`docs/plans/A90_H16_H24_ISOLATED_DEBIAN_COMPARISON_BASELINE_2026-08-14.md`.
+H16 is the direct-UFS mechanical reference, not a production image to rebuild:
+the successor preserves its UFS identity/mount/fallback mechanics and
+comparable stage anchors, incorporates later authorization and minimal-`/dev`
+safety, and replaces its in-place/shared-namespace structure rather than
+reviving it.
 
 ## Retired Successor Experiments
 
@@ -190,39 +198,42 @@ Those are safety machinery, not target runtime bloat.
 ## Product Sequence
 
 1. Freeze the H24 shell-W0 and atomic-diagnostic retirement; neither is resumed.
-2. Independently review the selected native-Wi-Fi/isolated-Debian H0 boundary,
+2. Freeze and independently check the H16-to-H24 comparison baseline so the
+   first direct-UFS boundary reach is retained as a mechanical/timing reference
+   without overclaiming it as server success or authorizing its reuse.
+3. Independently review the selected native-Wi-Fi/isolated-Debian H0 boundary,
    then commit only the accepted A90 documentation and tests.
-3. Prove host-side kernel/toolchain feasibility for nested PID/mount/network
+4. Prove host-side kernel/toolchain feasibility for nested PID/mount/network
    namespaces, veth/netfilter, `pivot_root`, capability drops, and exact cleanup.
-4. Implement the minimal native supervisor, blocked Debian bootstrap,
+5. Implement the minimal native supervisor, blocked Debian bootstrap,
    SD-free log transport, and host runner without live authority; independently
    qualify their exact execution-critical closure.
-5. Only then allocate one fresh headless successor identity and deterministic
+6. Only then allocate one fresh headless successor identity and deterministic
    boot-only candidate/rollback artifacts; never patch/reuse H25 or the retired
    diagnostic.
-6. Build and host-validate it, including negative namespace/device/network
+7. Build and host-validate it, including negative namespace/device/network
    tests and before/after size, boot, forwarding, and handoff measurements.
-7. Prepare from the exact durable H24 terminal and passive target/recovery
+8. Prepare from the exact durable H24 terminal and passive target/recovery
    evidence. Any unavoidable H24 command is reviewed post-approval F1 control,
    never relabelled D0.
-8. Require fresh connected D0 and exact attended F1 approval before one
+9. Require fresh connected D0 and exact attended F1 approval before one
    boot-only resident install.
-9. Require exact resident health, then a separate attended D1 approval before
+10. Require exact resident health, then a separate attended D1 approval before
    one arm/reboot/isolated-Debian launch.
-10. While Debian remains the persistent live runtime, publish only its exact
+11. While Debian remains the persistent live runtime, publish only its exact
    service evidence and `HEALTH_PENDING_PERSISTENT_DEBIAN`; do not call the
    native resident healthy. After an attended return or recovery, require exact
    native `RESIDENT_HEALTHY`. Missing display is expected in the headless lane,
    not a failure.
-11. Replace the hard SD evidence bind and compiled Wi-Fi property-root path
+12. Replace the hard SD evidence bind and compiled Wi-Fi property-root path
    before the next headless candidate. After its resident install, prove an
    attended no-SD D0 before approving handoff; absence of SD is not yet a
    proved resident invariant.
-12. After repeatable headless success, split experimental source modules and
+13. After repeatable headless success, split experimental source modules and
    rebuild the Debian firstboot content as a separate rootfs/config change.
-13. Add display later as a separate optional capability, preferably owned by
+14. Add display later as a separate optional capability, preferably owned by
    Debian. Any persistent native HUD needs a fresh hazard design and review.
-14. Consider section garbage collection and then Full-LTO only after functional
+15. Consider section garbage collection and then Full-LTO only after functional
    boundaries and comparable benchmarks are stable.
 
 ## Evidence
@@ -235,6 +246,7 @@ Canonical public records include:
 - `docs/reports/A90_H24_PERSISTENT_HUD_BOOTSTRAP_EINVAL_INCIDENT_2026-08-12.md`
 - `docs/reports/A90_H25_HUD_CHROOT_AND_SELFTEST_REPLAY_HOST_INCIDENT_2026-08-12.md`
 - `docs/reports/A90_NATIVE_WIFI_SIDECAR_PROC_ROOT_EXPOSURE_HOST_INCIDENT_2026-08-13.md`
+- `docs/plans/A90_H16_H24_ISOLATED_DEBIAN_COMPARISON_BASELINE_2026-08-14.md`
 - `docs/plans/A90_UFS_HANDOFF_ARCHITECTURE_AND_PRODUCTION_REDUCTION_PLAN_2026-08-12.md`
 - `docs/plans/A90_HEADLESS_HANDOFF_MINIMUM_AND_WIFI_OWNERSHIP_DECISION_2026-08-13.md`
 - `docs/plans/A90_ATOMIC_WIFI_OWNERSHIP_DIAGNOSTIC_RESIDENT_DESIGN_2026-08-14.md`
@@ -253,6 +265,8 @@ committed.
   private mount namespace alone never proves old-root isolation.
 - The critical-path inventory distinguishes device safety from experiment
   convenience and from later product cleanup.
+- H16 is used as a mechanical and comparable-timing baseline without
+  reclassifying its missing SSH/PID1/Wi-Fi/display evidence as success.
 - Any future headless successor keeps the permanent boot-only, rollback,
   recovery, isolation, evidence, and target-selection boundaries.
 - GOAL remains a current-state document rather than another historical ledger.

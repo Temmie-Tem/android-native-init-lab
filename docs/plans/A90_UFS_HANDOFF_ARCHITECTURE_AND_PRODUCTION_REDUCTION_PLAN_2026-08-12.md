@@ -323,6 +323,10 @@ It can be reorganized without weakening it.
 
 - retire H25 and record its host-only hazards;
 - record the exact H24 path and failure boundary;
+- freeze H16 as the first live direct-UFS mechanical-boundary baseline and compare its
+  proved `switch_root_exec` boundary, missing server evidence, and inherited
+  mechanisms against H24 and the selected isolated-Debian design in
+  `A90_H16_H24_ISOLATED_DEBIAN_COMPARISON_BASELINE_2026-08-14.md`;
 - make headless service health distinct from display health;
 - identify SD evidence and Wi-Fi couplings;
 - change no target, rootfs, artifact, or live state.
@@ -332,6 +336,9 @@ It can be reorganized without weakening it.
 - freeze the H24 shell-W0 and atomic-diagnostic `NO_GO_RETIRED` disposition;
 - independently review
   `A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md`;
+- use the frozen H16/H24 comparison to retain the proven UFS, rollback,
+  fallback, and timing anchors while rejecting a simple H16 rebuild or a
+  continuation of H24's HUD/display gate;
 - prove host-side kernel/toolchain support for PID/mount/network namespaces,
   matching procfs, veth, exact rtnetlink/netfilter operations, `pivot_root`,
   capability drops, pidfd/wait, and complete cleanup;

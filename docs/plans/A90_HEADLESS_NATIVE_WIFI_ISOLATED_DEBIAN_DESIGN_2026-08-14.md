@@ -52,6 +52,31 @@ security broker. The supervisor is production machinery and therefore remains
 in the permanent execution-critical closure; HUD, ownership-test, and general
 shell machinery do not.
 
+## H16 and H24 reference baseline
+
+The exact comparison baseline is
+`A90_H16_H24_ISOLATED_DEBIAN_COMPARISON_BASELINE_2026-08-14.md`. H16 is the
+first live direct-UFS mechanical handoff boundary: it reached `switch_root_exec` at
+boot time 11,760 ms, but did not prove authenticated SSH, Debian PID 1,
+automatic return, DRM/display, final Wi-Fi, or full server readiness. H24
+directly extends the H16 manifest ancestry and is the exact installed resident,
+but its consumed D1 stopped at the newly added persistent-HUD gate after UFS
+and writable-set setup and before `switch_root`.
+
+The successor carries forward H16's fresh same-session UFS identity,
+read-only/no-replay mount, immutable content, bounded writable set, ordered
+stage timing, rollback, and fallback classes. It also carries forward H24's
+later boot-private authorization and always-fresh minimal Debian `/dev` safety
+contracts. It does not carry forward H16/H24's in-place native-PID1 root
+transition, shared PID/proc visibility for persistent native Wi-Fi tasks,
+persistent HUD/display gate, or SD evidence/property-root dependencies.
+
+H16's 11,760 ms stamp is a boot-relative mechanical boundary, not an
+authenticated-server boot time. Future measurements must preserve comparable
+boot-to-exec and intent-to-exec anchors, then separately measure network,
+authenticated SSH, and service readiness. Matching H16 speed cannot substitute
+for the new namespace, device, network, evidence, and recovery proofs.
+
 ## Absolute required functions
 
 The production lane must retain all of these:
