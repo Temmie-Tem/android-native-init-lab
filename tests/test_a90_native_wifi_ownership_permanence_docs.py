@@ -97,6 +97,22 @@ class RecoveredEvidenceTests(unittest.TestCase):
         self.assertIn("selected isolated-Debian design is choice 2", self.report)
         self.assertIn("Choice 1 was never attempted", self.report)
 
+    def test_the_selected_design_is_marked_live_supported_not_only_possible(self) -> None:
+        """The architecture stands; the claim that nothing else could work does not."""
+        self.assertIn("only currently live-supported design, not the only possible one", self.report)
+        self.assertIn("Choice 1, preserve or relaunch a minimal vendor set", self.report)
+        self.assertIn("open, never attempted", self.report)
+
+    def test_rootfs_only_changes_are_recorded_as_insufficient(self) -> None:
+        """Closes the specific wrong turn of proposing a rootfs fix."""
+        self.assertIn("rootfs contents, keys, or `wpa_supplicant` configuration only", self.report)
+        self.assertIn("**insufficient**", self.report)
+        self.assertIn("A proposal to \"just fix the rootfs\" is answered by WSTA18", self.report)
+
+    def test_the_open_alternatives_do_not_license_removing_native(self) -> None:
+        self.assertIn("do not license removing native from the next candidate", self.report)
+        self.assertIn("requires proving it first, in its own H0 unit", self.report)
+
     def test_the_report_does_not_reopen_the_selected_closure(self) -> None:
         self.assertIn("NESTED_PID_NAMESPACE_ISOLATION", self.report)
         self.assertIn("does not reopen it", self.report)

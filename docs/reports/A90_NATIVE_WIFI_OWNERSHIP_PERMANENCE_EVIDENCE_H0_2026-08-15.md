@@ -166,6 +166,43 @@ returns nothing useful" rather than as a missing device.
   false; WSTA14 and WSTA18 both ran after `switch_root`, with native userspace
   gone.
 
+## Decision status, stated as separable propositions
+
+| Proposition | Status |
+|---|---|
+| A persistent WLAN control plane is required | live-supported |
+| Removing native/vendor userspace and letting Debian inherit the surviving `wlan0` works | **refuted** |
+| Choice 2, native owner plus isolated Debian, works | live-supported |
+| While choice 2 is the selected design, the `/proc` isolation is required | follows |
+| Native PID 1 is the **only** possible permanent owner | unproved |
+| Choice 1, preserve or relaunch a minimal vendor set across handoff | open, never attempted |
+| A Debian-owned control plane is impossible | unproved |
+
+The selected isolated-Debian design is therefore **the only currently
+live-supported design, not the only possible one**. That distinction is the
+whole point of this report: the architecture stands, and the claim that no
+alternative could exist does not.
+
+How much change each alternative would need:
+
+| Change | Sufficiency |
+|---|---|
+| rootfs contents, keys, or `wpa_supplicant` configuration only | **insufficient** — the WCNSS/WMI control plane is already down before any of it runs |
+| keep a minimal native/vendor service set alive | the validated direction; still a persistent native owner |
+| re-run `cnss-daemon`, QRTR/QMI, protection-domain, `rmt_storage`, property and Binder dependencies inside Debian | theoretically possible, unproved |
+| reimplement WLAN driver/firmware control in the kernel or a new userspace | possible, but a much larger separate project |
+
+The first row closes a specific wrong turn: no amount of improving the Debian
+rootfs, its authorization key, or its supplicant configuration can recover a
+control plane that died at handoff. A proposal to "just fix the rootfs" is
+answered by WSTA18 before it is made.
+
+**Operational rule that follows.** The open possibilities do not license
+removing native from the next candidate. Acting on choice 1 or on a
+Debian-owned control plane requires proving it first, in its own H0 unit, and
+that unit is about vendor control-plane reconstruction, not about rootfs
+hardening.
+
 ## Consequence for the selected direction
 
 This report **supports** the selected closure `NESTED_PID_NAMESPACE_ISOLATION`
