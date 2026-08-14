@@ -322,11 +322,21 @@ identity remained stable throughout the read. The terminal read-only verdict
 is `PASS_S20PLUS_G986N_ROOT_BASELINE_COMPLETED`; no command was addressed to
 the concurrently connected S22+.
 
-The next bounded unit is host-only design for the smallest root-backed
-native-init experiment. It must state whether the objective is a Magisk-started
-native service or an actual PID-1 replacement, bind an exact rollback path,
-and remain within the permanent boot-only boundary. Persistent Magisk root is
-the prerequisite now proved; it is not itself proof of a native-init result.
+The host-only native-init architecture review is now recorded in
+`docs/plans/S20PLUS_G986N_NATIVE_INIT_PHASED_DESIGN_2026-08-15.md`. It selects
+a data-only Magisk `late_start` native canary as N1, followed by private
+mount/UTS supervisor mechanics, a boot-ramdisk overlay canary, a retained
+pre-userspace witness, and only then a global native PID 1. The current kernel
+has no PID or user namespace, no veth, and no devtmpfs, so the A90 isolated-
+Debian topology and a blind direct-PID1 candidate are not portable.
+
+The next commit-sized unit is H0 implementation of the deterministic N1 module,
+static AArch64 canary, no-clobber one-shot evidence format, hostile host tests,
+and a draft exact recovery-aware root-data transaction. The current common and
+target contracts do not authorize arbitrary `su`, `/data/adb` writes, or a
+Magisk module install; no such capability, runner, artifact, approval, staging,
+reboot, or device command was created by the design. Persistent Magisk root is
+the prerequisite now proved, not itself proof of native init.
 
 A later reproducible-kernel-build unit would still need exact toolchain
 acquisition and a demonstrated matching build; the newly recovered embedded
