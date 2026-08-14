@@ -2,7 +2,7 @@
 
 Date: 2026-08-14 KST
 Target: Samsung Galaxy S22+ FYG8 only
-Status: **H0 IMPLEMENTED; INDEPENDENT REVIEW PENDING; NO LIVE AUTHORITY**
+Status: **H0 DESIGN PASS_GO; NO LIVE AUTHORITY**
 
 ## Result first
 
@@ -91,8 +91,8 @@ Private receipt:
 
 ```text
 endpoint-transition-20260814-01.json
-size    6639
-sha256  321636bb5dc2d1741b3e4732829eb9b0c55d9477dbbb3e6e28e8422e6dfae65a
+size    9519
+sha256  ce91779ce2f4aec95998fe982a21594092a4ca5d448d8082d565ce71f1118183
 verdict PASS_P318_P317_PHYSICAL_TOPOLOGY_DRIFT_LOCALIZATION_H0
 ```
 
@@ -177,8 +177,8 @@ Private receipt:
 
 ```text
 banner-result-contract-20260814-01.json
-size    8087
-sha256  8bfac3eead09db039fd5d05a7657203f9f9c386578943cb495f71f5148b355a7
+size    8386
+sha256  81ed202b30c6513683354cb3054c30d093b64cb772a0da063a0058bfdbc92c9d
 verdict PASS_P318_ENVELOPE_V4_TIMING_BANNER_BUDGET_DESIGN_H0_IMPLEMENTATION_REQUIRED
 ```
 
@@ -186,26 +186,43 @@ verdict PASS_P318_ENVELOPE_V4_TIMING_BANNER_BUDGET_DESIGN_H0_IMPLEMENTATION_REQU
 
 P3.17 proves that the Download-era endpoint binding is invalidated if the
 operator moves the cable, dock, or host port before candidate observation
-closes. The S22+ target contract now prohibits that movement. A mismatch is
-`NO_PROOF_EXPERIMENT_PRECONDITION`; it never widens the live selector and the
-unapproved endpoint is not opened.
+closes. The S22+ target contract now prohibits that movement from the initial
+Download binding through rollback and verified final-health close. The named
+gate is a permanent S22+ F1 boundary with no expiry; endpoint identity,
+topology/controller capture, phase classification, recovery rebinding, or
+selector changes trigger a new independent boundary review. It never widens
+the live selector and the unapproved endpoint is not opened.
 
 The same mismatch also invalidates the old rollback endpoint binding. It is
 therefore not enough to say that rollback “continues.” Mandatory rollback
 remains required, but the run must park without new effects until a
 bounded, independently reviewed recovery-only path re-establishes one exact
 current Download/rollback endpoint. Only then may the predeclared exact
-rollback resume from the durable journal; candidate replay remains forbidden.
+rollback resume from the durable journal. The endpoint is carried by a new
+immutable recovery binding ID and may differ from the start path; it is
+recovery authority only and cannot reclassify the experiment result. Candidate
+replay remains forbidden.
 
 A successor records three path boundaries: approved Download start,
 candidate-observer end, and fresh rollback Download. Each includes the
 endpoint identity, topology, controller/device-path digests, match count, and
 an immutable raw-snapshot size/hash made from the same bytes that are parsed.
-It decodes to exactly one of `same`, `drift`, `absent`, `ambiguous`, or
-`unavailable`. Drift, absence, and ambiguity are experiment-precondition
-no-proof; unavailable/truncated input is observer no-proof. Every non-exact
-rollback state parks. A path mismatch can prove drift, but it cannot
-manufacture proof that a person physically moved the cable.
+Each record carries its binding ID, comparison binding ID, relationship to the
+start path, and authority state. Classification is phase-specific:
+
+- Download-start non-exact/absent/ambiguous is a pre-session stop with no
+  consumed-run proof class; unreadable evidence is a pre-session observer
+  failure.
+- Candidate-end drift or ambiguity is experiment-precondition no-proof. An
+  exact complete same-path window with no host endpoint and a causal-ready
+  device terminal remains an evaluable host-silent device result. Other absent
+  or unavailable cases are observer no-proof.
+- Rollback Download accepts only `reestablished_exact` under the fresh recovery
+  binding ID. Every other state parks recovery without changing the retained
+  experiment result. Relationship to the start path is evidence only.
+
+A path mismatch can prove drift, but it cannot manufacture proof that a person
+physically moved the cable.
 
 ## Timing correction and Envelope-v4 budget
 
@@ -236,6 +253,9 @@ The four device samples are mandatory and ordered
 `pre <= write <= post1 < post2`; only validity masks `0x0f` (no host event) and
 `0x1f` (one latched host event) are legal. A clock read failure is an observer
 failure, not a device result.
+The current 1,200-second guard fits the signed-delta range, but the Python
+design constant is not execution authority. Successor qualification must bind
+the actual Process-v2 guard and prove it does not exceed 2,147.483647 seconds.
 
 Envelope-v3 has no generic free 44-byte region. Its fixed geometry is 128-byte
 Carrier/envelope = 48-byte metadata + 76-byte payload + 4-byte CRC. Envelope-v4
@@ -250,15 +270,26 @@ cross the real encoder, Carrier, and host decoder before any successor use.
 
 ## Validation and remaining boundary
 
-The three focused P3.18 modules pass 30/30 and the documentation/receipt
-binding module passes 6/6, for a 36/36 unit total after the Envelope-v4 and
+The three focused P3.18 modules pass 32/32 and the documentation/receipt
+binding module passes 6/6, for a 38/38 unit total after the Envelope-v4 and
 topology-continuity receipts are regenerated. Python compilation passes. No
 device command, USB open, reboot,
 Odin invocation, payload, partition transfer, candidate replay, recovery
 action, A90 action, or S20+ action occurred.
 
+Independent review first returned `CHANGES_REQUIRED`: the topology gate lacked
+permanent-boundary metadata, one phase-insensitive state table collapsed
+device results and recovery states, recovery lacked a fresh binding identity,
+and the table was descriptive rather than executable. The corrected closure
+uses a total 180-row classifier over phase, relationship, authority, snapshot
+completeness, and causal-terminal readiness. Independent re-review found zero
+oracle mismatches, rejected all three policy mutations, independently
+reproduced both private receipts byte-for-byte, and returned:
+
+`PASS_GO — S22PLUS_FYG8_P318_TOPOLOGY_TIMING_DESIGN_H0_CAPABILITY_V1`
+
 P3.18 is not candidate-ready. No live selector transition is authorized, the
 new banner/timing envelope encoder/decoder has not been implemented, and no
 package or Process-v2 binding exists. The target-contract recovery-boundary
-change requires independent review. This H0 unit
-grants no D0, D1, F1, recovery, or live authority.
+change has passed independent review. This H0 design capability grants no D0,
+D1, F1, recovery, or live authority.

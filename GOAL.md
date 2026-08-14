@@ -831,7 +831,9 @@ event (`RESET`, `CONNECT_DONE`, or `SETUP`) on the same device monotonic clock
 as pre/write/post1/post2. Four signed microsecond deltas from pre represent all
 five samples without cross-clock synchronization; missing/equal ordering makes
 no causal claim. The four device samples are mandatory and ordered; only masks
-`0x0f` (no host event) and `0x1f` (latched host event) are legal.
+`0x0f` (no host event) and `0x1f` (latched host event) are legal. The 1,200-sec
+design value fits int32 microseconds, but qualification must source-bind the
+actual guard at or below 2,147.483647 seconds.
 
 The remaining banner result is genuinely unknown. The active P3.17 publisher
 commits the terminal, discards `p260_write_banner()`'s return, then parks. A
@@ -844,20 +846,28 @@ uses 3, so lossless PackBits poll capacity falls from 76 to 55 bytes; the
 44-byte overflow summary plus prefix uses 65 and leaves 11 reserved bytes.
 Overflow remains non-causal.
 
-The S22 target contract now forbids cable/dock/host-port movement from Download
-binding through observer closure. Drift is
+The S22 target contract now permanently forbids cable/dock/host-port movement
+from Download binding through rollback and verified final-health close; it has
+no expiry and named endpoint/rebinding/selector changes trigger independent
+boundary review. Candidate-end drift is
 `NO_PROOF_EXPERIMENT_PRECONDITION`, never selector widening. It also invalidates
-rollback endpoint authority: the run parks without new effects until a
-bounded independently reviewed recovery-only path re-establishes one exact
-current rollback endpoint, then the predeclared exact rollback resumes from
-durable state.
+rollback endpoint authority: the run parks without new effects until a bounded
+independently reviewed recovery-only path establishes a fresh immutable
+recovery binding ID for one exact current endpoint, then the predeclared exact
+rollback resumes. That recovery binding may differ from the start path and
+never reclassifies the experiment result.
 Start, candidate-end, and rollback path/controller receipts are required. This
 includes immutable raw size/hash and endpoint/topology/controller/device-path
 digests from the same parsed bytes. Drift/absence/ambiguity are precondition
-no-proof; unavailable/truncated input is observer no-proof. This contract
-change is H0 and awaits independent review. No transition
+no-proof only where the phase table says so: Download-start failures are
+pre-session, candidate-end complete same-path host absence may be a device
+result, and rollback states affect recovery only. Unavailable/truncated input
+is observer no-proof. The executable 180-row classifier and three negative
+policy mutations passed independent re-review with zero oracle mismatches.
+The capability verdict is
+`PASS_GO — S22PLUS_FYG8_P318_TOPOLOGY_TIMING_DESIGN_H0_CAPABILITY_V1`. No transition
 selector is live-authorized, the new envelope and timing correlation are not
-implemented, packaging and independent changed-closure review are absent, and
+implemented, packaging is absent, and
 P3.18 is not candidate-ready and grants no device authority. The detailed H0 report is
 `docs/reports/S22PLUS_FYG8_P317_CDC_ACM_ENDPOINT_SELECTOR_CORRECTION_H0_2026-08-14.md`.
 

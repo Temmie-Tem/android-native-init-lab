@@ -162,6 +162,12 @@ class P318BannerResultContractTest(unittest.TestCase):
             timing["required_device_sample_order"],
             "pre <= write <= post1 < post2",
         )
+        self.assertFalse(
+            timing["guard_budget"]["design_value_is_execution_authority"]
+        )
+        self.assertTrue(
+            timing["guard_budget"]["qualification_must_source_bind_actual_guard"]
+        )
 
     def test_poll_boundary_and_overflow_remain_fail_closed(self):
         poll = P318.successor_contract()["poll_evidence"]

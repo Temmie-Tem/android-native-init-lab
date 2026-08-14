@@ -119,10 +119,8 @@ class P318EndpointTransitionTest(unittest.TestCase):
         )
         self.assertFalse(result["topology_drift_assessment"]["open_permitted"])
         continuity = result["successor_topology_continuity"]
-        self.assertEqual(
-            continuity["path_states"],
-            ["same", "drift", "absent", "ambiguous", "unavailable"],
-        )
+        self.assertEqual(continuity["gate"]["designation"], "permanent_boundary")
+        self.assertIsNone(continuity["gate"]["expiry"])
         self.assertFalse(continuity["widen_live_selector_on_drift"])
         self.assertFalse(continuity["rollback_against_drifted_path_authorized"])
         self.assertTrue(continuity["park_without_new_effects_until_reestablished"])
@@ -134,18 +132,31 @@ class P318EndpointTransitionTest(unittest.TestCase):
         )
         self.assertTrue(record["same_bytes_parsed_and_hashed"])
         self.assertTrue(record["raw_snapshot_private"])
+        effects = continuity["phase_state_effects"]
         self.assertEqual(
-            continuity["state_effects"]["unavailable"],
-            "NO_PROOF_OBSERVER and park",
+            effects["download_start"]["drift_absent_ambiguous"],
+            "pre_session_stop_no_run_proof_class",
         )
-        self.assertEqual(
-            continuity["state_effects"]["drift"],
-            "NO_PROOF_EXPERIMENT_PRECONDITION and park",
+        self.assertIn(
+            "classify_host_silent",
+            effects["candidate_end"]["same_complete_absent_causal_ready"],
+        )
+        self.assertIn(
+            "no_experiment_proof_reclassification",
+            effects["rollback_download"]["absent_ambiguous_unavailable"],
         )
         self.assertEqual(
             continuity["rollback_transfer_requires_state"],
-            "same_and_fresh_exact_download_binding",
+            "reestablished_exact_under_fresh_recovery_binding_id",
         )
+        self.assertTrue(continuity["recovery_binding_may_differ_from_start_path"])
+        self.assertTrue(
+            continuity["recovery_binding_never_reclassifies_experiment_result"]
+        )
+        audit = continuity["phase_classifier_audit"]
+        self.assertEqual(audit["domain_row_count"], 180)
+        self.assertEqual(audit["unique_row_count"], 180)
+        self.assertTrue(audit["all_non_reestablished_rollback_rows_park"])
         self.assertFalse(authority["observed_transition_authorizes_selection"])
         self.assertEqual(
             result["scope"]["effective_proof_class"],
@@ -163,6 +174,63 @@ class P318EndpointTransitionTest(unittest.TestCase):
         self.assertTrue(result["scope"]["p317_only"])
         self.assertFalse(result["scope"]["prior_campaign_silence_reclassified"])
         self.assertFalse(result["dtr_source_audit"]["dtr_hypothesis_retained"])
+
+    def test_phase_classifier_preserves_host_silent_and_recovery_boundaries(self):
+        host_silent = P318.classify_topology_phase(
+            phase="candidate_end",
+            relationship="absent",
+            authority_state="approved_exact",
+            observation_complete=True,
+            causal_terminal_ready=True,
+        )
+        self.assertEqual(host_silent["proof_class"], "DEVICE_RESULT_HOST_SILENT")
+        self.assertFalse(host_silent["park"])
+        rollback = P318.classify_topology_phase(
+            phase="rollback_download",
+            relationship="drift",
+            authority_state="reestablished_exact",
+            observation_complete=True,
+            causal_terminal_ready=True,
+        )
+        self.assertTrue(rollback["rollback_resume"])
+        self.assertFalse(rollback["experiment_proof_reclassified_by_rollback"])
+        unapproved = P318.classify_topology_phase(
+            phase="rollback_download",
+            relationship="drift",
+            authority_state="not_authorized",
+            observation_complete=True,
+            causal_terminal_ready=True,
+        )
+        self.assertTrue(unapproved["park"])
+        self.assertFalse(unapproved["rollback_resume"])
+
+    def test_phase_policy_mutations_fail_closed(self):
+        mutations = (
+            (
+                "candidate drift retained",
+                "candidate_end",
+                "precondition",
+                "retain_experiment_terminal_classification",
+            ),
+            (
+                "rollback exact reclassifies",
+                "rollback_download",
+                "resume",
+                "resume_and_reclassify_experiment",
+            ),
+            (
+                "download unavailable eligible",
+                "download_start",
+                "observer",
+                "pre_session_candidate_eligible",
+            ),
+        )
+        for label, phase, key, value in mutations:
+            with self.subTest(label=label):
+                policy = copy.deepcopy(P318.PHASE_POLICY)
+                policy[phase][key] = value
+                with self.assertRaises(P318.TransitionError):
+                    P318.audit_topology_phase_classifier(policy)
 
     def test_observed_exact_transition_is_topology_drift_and_not_selected(self):
         result = P318.classify_endpoints(self.authority(), [self.endpoint()])

@@ -49,8 +49,11 @@ class P318DocumentationTest(unittest.TestCase):
             self.assertIn(f"sha256  {hashlib.sha256(payload).hexdigest()}", report)
 
     def test_scope_is_p317_only_and_not_live_ready(self):
-        combined = REPORT.read_text(encoding="utf-8") + GOAL.read_text(
-            encoding="utf-8"
+        combined = " ".join(
+            (
+                REPORT.read_text(encoding="utf-8")
+                + GOAL.read_text(encoding="utf-8")
+            ).split()
         )
         required = (
             "For P3.17 only",
@@ -61,6 +64,8 @@ class P318DocumentationTest(unittest.TestCase):
             "NO_PROOF_EXPERIMENT_PRECONDITION",
             "first actual host-caused device event",
             "lossless PackBits poll capacity falls from 76 to 55 bytes",
+            "PASS_GO — S22PLUS_FYG8_P318_TOPOLOGY_TIMING_DESIGN_H0_CAPABILITY_V1",
+            "P3.18 is not candidate-ready",
         )
         for clause in required:
             self.assertIn(clause, combined)
@@ -118,23 +123,26 @@ class P318DocumentationTest(unittest.TestCase):
             self.assertNotIn(serial, path.read_text(encoding="utf-8"), path)
 
     def test_target_contract_closes_physical_drift_and_rollback_rebinding(self):
-        contract = TARGET_CONTRACT.read_text(encoding="utf-8")
+        contract = " ".join(TARGET_CONTRACT.read_text(encoding="utf-8").split())
         required = (
-            "the operator must not disconnect, move,\n"
-            "or reroute the data cable, dock, or host port",
-            "A topology mismatch invalidates\n"
-            "the experiment precondition",
-            "the observer must not widen its selector or open\n"
-            "the unapproved endpoint",
-            "Process-v2 evidence must retain the exact endpoint identity, topology, host\n"
+            "through rollback transfer and verified final-health close",
+            "The observer must never widen its selector or open an unapproved endpoint",
+            "permanent `S22PLUS_F1_PHYSICAL_TOPOLOGY_CONTINUITY` boundary",
+            "and has no expiry",
+            "requires a new independent boundary review",
+            "Process-v2 evidence must retain the exact endpoint identity, topology, host "
             "controller/device path, and immutable raw-snapshot receipt",
-            "A missing,\n"
-            "truncated, or unreadable snapshot is an observer failure",
+            "A missing, truncated, or unreadable snapshot is an observer failure",
+            "Classification is phase-specific",
+            "pre-session stop and has no consumed-run proof class",
+            "host-silent device-result classification",
+            "never changes an already retained experiment result",
             "A drifted topology does not authorize rollback against the new path",
-            "the run parks without new device effects until\n"
-            "a bounded, independently reviewed recovery-only path re-establishes one exact\n"
-            "current rollback endpoint",
+            "the run parks without new device effects until "
+            "a bounded, independently reviewed recovery-only path re-establishes one exact "
+            "current rollback endpoint under a new immutable recovery binding ID",
             "the predeclared exact rollback resume",
+            "does not retroactively validate candidate attribution",
             "Candidate replay remains forbidden",
         )
         for clause in required:

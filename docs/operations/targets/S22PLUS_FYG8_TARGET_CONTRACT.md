@@ -145,11 +145,16 @@ the exact predeclared rollback continue until final FYG8 health is proved or
 the predeclared recovery path is exhausted.
 
 **Physical-topology continuity.** From the exact Download endpoint binding
-through candidate-observer closure, the operator must not disconnect, move,
-or reroute the data cable, dock, or host port. A topology mismatch invalidates
-the experiment precondition: the observer must not widen its selector or open
-the unapproved endpoint, and the experimental result is
-`NO_PROOF_EXPERIMENT_PRECONDITION`.
+through rollback transfer and verified final-health close, the operator must
+not disconnect, move, or reroute the data cable, dock, or host port. The
+observer must never widen its selector or open an unapproved endpoint.
+
+This is the permanent `S22PLUS_F1_PHYSICAL_TOPOLOGY_CONTINUITY` boundary. It
+blocks physical endpoint drift from invalidating candidate attribution or
+rollback authority, applies only to S22+ F1 endpoint observation and recovery,
+and has no expiry. Any change to endpoint identity, topology/controller
+capture, phase classification, recovery rebinding, or selector semantics
+requires a new independent boundary review.
 
 Process-v2 evidence must retain the exact endpoint identity, topology, host
 controller/device path, and immutable raw-snapshot receipt at approved Download
@@ -158,11 +163,21 @@ fresh exact Download/rollback binding with the same fields. A missing,
 truncated, or unreadable snapshot is an observer failure, not proof of path
 continuity.
 
+Classification is phase-specific. A non-exact Download-start binding is a
+pre-session stop and has no consumed-run proof class. Candidate-end drift is
+`NO_PROOF_EXPERIMENT_PRECONDITION`, but an exact, complete same-path observer
+window with no host endpoint remains eligible for the experiment's declared
+host-silent device-result classification. Rollback-endpoint drift or absence
+parks recovery and never changes an already retained experiment result.
+
 A drifted topology does not authorize rollback against the new path. Mandatory
 rollback remains required, but the run parks without new device effects until
 a bounded, independently reviewed recovery-only path re-establishes one exact
-current rollback endpoint. Only then may the predeclared exact rollback resume
-from durable journal state. Candidate replay remains forbidden.
+current rollback endpoint under a new immutable recovery binding ID. Only then
+may the predeclared exact rollback resume from durable journal state. The new
+binding may name a different physical path; it is recovery authority only and
+does not retroactively validate candidate attribution. Candidate replay
+remains forbidden.
 
 - Use Odin with ordinary regular `.tar.md5` paths. Each candidate and rollback
   AP must contain exactly one regular `boot.img.lz4` and no forbidden member.

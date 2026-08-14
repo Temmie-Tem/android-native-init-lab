@@ -15,6 +15,7 @@ import argparse
 import ast
 import datetime as dt
 import hashlib
+import itertools
 import json
 import re
 from pathlib import Path
@@ -59,6 +60,29 @@ ID_PATH_RE = re.compile(
     r"pci-[0-9a-f:.]+-usb-0:[0-9]+(?:\.[0-9]+)*"
 )
 CONTROLLER_RE = re.compile(r"/devices/pci[0-9a-f:]+/(?P<value>[0-9a-f:.]+)/usb")
+
+TOPOLOGY_PHASES = ("download_start", "candidate_end", "rollback_download")
+TOPOLOGY_RELATIONSHIPS = ("same", "drift", "absent", "ambiguous", "unavailable")
+TOPOLOGY_AUTHORITIES = ("approved_exact", "not_authorized", "reestablished_exact")
+PHASE_POLICY = {
+    "download_start": {
+        "eligible": "pre_session_candidate_eligible",
+        "stop": "pre_session_stop_no_run_proof_class",
+        "observer": "pre_session_observer_failure_no_attempt",
+        "contradiction": "pre_session_authority_contradiction_no_attempt",
+    },
+    "candidate_end": {
+        "retain": "retain_experiment_terminal_classification",
+        "host_silent": "retain_host_silent_device_result",
+        "precondition": "NO_PROOF_EXPERIMENT_PRECONDITION_and_park",
+        "observer": "NO_PROOF_OBSERVER_and_park",
+        "contradiction": "NO_PROOF_OBSERVER_authority_contradiction_and_park",
+    },
+    "rollback_download": {
+        "resume": "rollback_may_resume_no_proof_reclassification",
+        "park": "recovery_park_no_experiment_proof_reclassification",
+    },
+}
 
 
 class TransitionError(ValueError):
@@ -105,6 +129,213 @@ def digest(value: Any) -> str:
             value, sort_keys=True, separators=(",", ":"), allow_nan=False
         ).encode("utf-8")
     ).hexdigest()
+
+
+def classify_topology_phase(
+    *,
+    phase: str,
+    relationship: str,
+    authority_state: str,
+    observation_complete: bool,
+    causal_terminal_ready: bool,
+    policy: dict[str, dict[str, str]] = PHASE_POLICY,
+) -> dict[str, Any]:
+    if phase not in TOPOLOGY_PHASES:
+        raise TransitionError("topology phase differs")
+    if relationship not in TOPOLOGY_RELATIONSHIPS:
+        raise TransitionError("topology relationship differs")
+    if authority_state not in TOPOLOGY_AUTHORITIES:
+        raise TransitionError("topology authority state differs")
+    if not isinstance(observation_complete, bool) or not isinstance(
+        causal_terminal_ready, bool
+    ):
+        raise TransitionError("topology phase flags differ")
+    if set(policy) != set(TOPOLOGY_PHASES) or any(
+        not isinstance(value, dict) for value in policy.values()
+    ):
+        raise TransitionError("topology phase policy shape differs")
+
+    candidate_eligible = False
+    rollback_resume = False
+    park = False
+    proof_class: str | None = None
+
+    if phase == "download_start":
+        values = policy[phase]
+        if authority_state == "reestablished_exact":
+            effect = values["contradiction"]
+        elif not observation_complete or relationship == "unavailable":
+            effect = values["observer"]
+        elif relationship == "same" and authority_state == "approved_exact":
+            effect = values["eligible"]
+            candidate_eligible = True
+        else:
+            effect = values["stop"]
+    elif phase == "candidate_end":
+        values = policy[phase]
+        park = True
+        if authority_state == "reestablished_exact":
+            effect = values["contradiction"]
+            proof_class = "NO_PROOF_OBSERVER"
+        elif not observation_complete or relationship == "unavailable":
+            effect = values["observer"]
+            proof_class = "NO_PROOF_OBSERVER"
+        elif relationship in ("drift", "ambiguous"):
+            effect = values["precondition"]
+            proof_class = "NO_PROOF_EXPERIMENT_PRECONDITION"
+        elif relationship == "absent":
+            if causal_terminal_ready and authority_state == "approved_exact":
+                effect = values["host_silent"]
+                proof_class = "DEVICE_RESULT_HOST_SILENT"
+                park = False
+            else:
+                effect = values["observer"]
+                proof_class = "NO_PROOF_OBSERVER"
+        elif authority_state == "approved_exact":
+            effect = values["retain"]
+            proof_class = "RETAIN_EXPERIMENT_TERMINAL"
+            park = False
+        else:
+            effect = values["contradiction"]
+            proof_class = "NO_PROOF_OBSERVER"
+    else:
+        values = policy[phase]
+        if (
+            authority_state == "reestablished_exact"
+            and relationship in ("same", "drift")
+            and observation_complete
+        ):
+            effect = values["resume"]
+            rollback_resume = True
+        else:
+            effect = values["park"]
+            park = True
+
+    return {
+        "phase": phase,
+        "relationship": relationship,
+        "authority_state": authority_state,
+        "observation_complete": observation_complete,
+        "causal_terminal_ready": causal_terminal_ready,
+        "effect": effect,
+        "proof_class": proof_class,
+        "candidate_eligible": candidate_eligible,
+        "rollback_resume": rollback_resume,
+        "park": park,
+        "experiment_proof_reclassified_by_rollback": False,
+    }
+
+
+def audit_topology_phase_classifier(
+    policy: dict[str, dict[str, str]] = PHASE_POLICY,
+) -> dict[str, Any]:
+    expected_policy = {
+        "download_start": {
+            "eligible": "pre_session_candidate_eligible",
+            "stop": "pre_session_stop_no_run_proof_class",
+            "observer": "pre_session_observer_failure_no_attempt",
+            "contradiction": "pre_session_authority_contradiction_no_attempt",
+        },
+        "candidate_end": {
+            "retain": "retain_experiment_terminal_classification",
+            "host_silent": "retain_host_silent_device_result",
+            "precondition": "NO_PROOF_EXPERIMENT_PRECONDITION_and_park",
+            "observer": "NO_PROOF_OBSERVER_and_park",
+            "contradiction": "NO_PROOF_OBSERVER_authority_contradiction_and_park",
+        },
+        "rollback_download": {
+            "resume": "rollback_may_resume_no_proof_reclassification",
+            "park": "recovery_park_no_experiment_proof_reclassification",
+        },
+    }
+    expected_policy_keys = {
+        "download_start": {"eligible", "stop", "observer", "contradiction"},
+        "candidate_end": {
+            "retain",
+            "host_silent",
+            "precondition",
+            "observer",
+            "contradiction",
+        },
+        "rollback_download": {"resume", "park"},
+    }
+    if set(policy) != set(expected_policy_keys) or any(
+        set(policy[phase]) != keys for phase, keys in expected_policy_keys.items()
+    ):
+        raise TransitionError("topology phase policy keys differ")
+    if policy != expected_policy:
+        raise TransitionError("topology phase policy semantics differ")
+    rows = [
+        classify_topology_phase(
+            phase=phase,
+            relationship=relationship,
+            authority_state=authority_state,
+            observation_complete=observation_complete,
+            causal_terminal_ready=causal_terminal_ready,
+            policy=policy,
+        )
+        for phase, relationship, authority_state, observation_complete, causal_terminal_ready
+        in itertools.product(
+            TOPOLOGY_PHASES,
+            TOPOLOGY_RELATIONSHIPS,
+            TOPOLOGY_AUTHORITIES,
+            (False, True),
+            (False, True),
+        )
+    ]
+    if len(rows) != 180 or len({digest(row) for row in rows}) != 180:
+        raise TransitionError("topology phase classifier is not total and unique")
+    if any(
+        row["candidate_eligible"]
+        for row in rows
+        if row["phase"] == "download_start"
+        and (
+            row["relationship"] == "unavailable"
+            or not row["observation_complete"]
+        )
+    ):
+        raise TransitionError("download-start unavailable can arm a candidate")
+    if any(
+        row["effect"] == policy["candidate_end"]["retain"]
+        for row in rows
+        if row["phase"] == "candidate_end"
+        and row["relationship"] in ("drift", "ambiguous")
+    ):
+        raise TransitionError("candidate drift can retain a normal terminal")
+    rollback_rows = [row for row in rows if row["phase"] == "rollback_download"]
+    if any(row["experiment_proof_reclassified_by_rollback"] for row in rollback_rows):
+        raise TransitionError("rollback can reclassify experiment proof")
+    if any(
+        row["rollback_resume"]
+        for row in rollback_rows
+        if row["authority_state"] != "reestablished_exact"
+    ):
+        raise TransitionError("rollback can resume without recovery authority")
+    if any(
+        not row["park"]
+        for row in rollback_rows
+        if row["authority_state"] != "reestablished_exact"
+    ):
+        raise TransitionError("unapproved rollback row does not park")
+    expected_resume = [
+        row
+        for row in rollback_rows
+        if row["authority_state"] == "reestablished_exact"
+        and row["relationship"] in ("same", "drift")
+        and row["observation_complete"]
+    ]
+    if not expected_resume or any(not row["rollback_resume"] for row in expected_resume):
+        raise TransitionError("reestablished rollback cannot resume")
+    return {
+        "domain_row_count": len(rows),
+        "unique_row_count": len({digest(row) for row in rows}),
+        "rows_sha256": digest(rows),
+        "download_start_unavailable_never_eligible": True,
+        "candidate_drift_never_retains_normal_terminal": True,
+        "rollback_requires_reestablished_exact": True,
+        "rollback_never_reclassifies_experiment": True,
+        "all_non_reestablished_rollback_rows_park": True,
+    }
 
 
 def _utc(value: Any, label: str) -> dt.datetime:
@@ -703,8 +934,19 @@ def build_contract(
         "successor_topology_continuity": {
             "operator_rule": (
                 "do_not_disconnect_move_or_reroute_data_cable_dock_or_host_port_"
-                "from_download_binding_through_candidate_observer_closure"
+                "from_download_binding_through_rollback_and_final_health_close"
             ),
+            "gate": {
+                "name": "S22PLUS_F1_PHYSICAL_TOPOLOGY_CONTINUITY",
+                "designation": "permanent_boundary",
+                "hazard": "physical_endpoint_drift_breaks_attribution_or_recovery",
+                "scope": "s22plus_f1_endpoint_observation_and_recovery_only",
+                "expiry": None,
+                "review_trigger": (
+                    "endpoint_identity_topology_controller_capture_phase_"
+                    "classification_recovery_binding_or_selector_change"
+                ),
+            },
             "path_receipts": [
                 "approved_download_start_path_and_controller",
                 "candidate_observer_end_path_and_controller",
@@ -714,8 +956,13 @@ def build_contract(
                 "phases": ["download_start", "candidate_end", "rollback_download"],
                 "fields": [
                     "phase",
-                    "state",
+                    "relationship_to_start",
+                    "authority_state",
+                    "binding_id_sha256",
+                    "comparison_binding_id_sha256",
                     "match_count",
+                    "observation_window_complete",
+                    "causal_terminal_ready",
                     "endpoint_identity_sha256",
                     "topology_sha256",
                     "controller_path_sha256",
@@ -728,15 +975,49 @@ def build_contract(
                 "tracked_record_contains_digest_only": True,
                 "literal_topology_copy_forbidden": True,
             },
-            "path_states": ["same", "drift", "absent", "ambiguous", "unavailable"],
-            "state_effects": {
-                "same": "phase-specific exact binding may continue",
-                "drift": "NO_PROOF_EXPERIMENT_PRECONDITION and park",
-                "absent": "NO_PROOF_EXPERIMENT_PRECONDITION and park",
-                "ambiguous": "NO_PROOF_EXPERIMENT_PRECONDITION and park",
-                "unavailable": "NO_PROOF_OBSERVER and park",
+            "relationship_states": [
+                "same",
+                "drift",
+                "absent",
+                "ambiguous",
+                "unavailable",
+            ],
+            "authority_states": [
+                "approved_exact",
+                "not_authorized",
+                "reestablished_exact",
+            ],
+            "phase_state_effects": {
+                "download_start": {
+                    "approved_exact": "pre_session_candidate_eligible",
+                    "drift_absent_ambiguous": "pre_session_stop_no_run_proof_class",
+                    "unavailable": "pre_session_observer_failure_no_attempt",
+                },
+                "candidate_end": {
+                    "same_endpoint_present": "retain_experiment_terminal_classification",
+                    "same_complete_absent_causal_ready": (
+                        "retain_device_side_result_and_classify_host_silent_"
+                        "under_experiment_contract"
+                    ),
+                    "drift_or_ambiguous": "NO_PROOF_EXPERIMENT_PRECONDITION_and_park",
+                    "absent_without_complete_causal_ready": "NO_PROOF_OBSERVER_and_park",
+                    "unavailable": "NO_PROOF_OBSERVER_and_park",
+                },
+                "rollback_download": {
+                    "reestablished_exact": "rollback_may_resume_no_proof_reclassification",
+                    "absent_ambiguous_unavailable": (
+                        "recovery_park_no_experiment_proof_reclassification"
+                    ),
+                    "relationship_to_start": (
+                        "evidence_only_not_recovery_authority_and_may_be_same_or_drift"
+                    ),
+                },
             },
-            "rollback_transfer_requires_state": "same_and_fresh_exact_download_binding",
+            "phase_policy": PHASE_POLICY,
+            "phase_classifier_audit": audit_topology_phase_classifier(),
+            "rollback_transfer_requires_state": (
+                "reestablished_exact_under_fresh_recovery_binding_id"
+            ),
             "drift_effective_proof_class": "NO_PROOF_EXPERIMENT_PRECONDITION",
             "widen_live_selector_on_drift": False,
             "open_unapproved_endpoint": False,
@@ -744,8 +1025,10 @@ def build_contract(
             "park_without_new_effects_until_reestablished": True,
             "reestablishment": (
                 "bounded_independently_reviewed_recovery_only_path_reestablishes_"
-                "exact_current_endpoint_for_predeclared_rollback"
+                "exact_current_endpoint_under_new_binding_id_for_predeclared_rollback"
             ),
+            "recovery_binding_may_differ_from_start_path": True,
+            "recovery_binding_never_reclassifies_experiment_result": True,
             "candidate_replay_forbidden": True,
             "physical_movement_machine_proven_by_path_mismatch": False,
         },

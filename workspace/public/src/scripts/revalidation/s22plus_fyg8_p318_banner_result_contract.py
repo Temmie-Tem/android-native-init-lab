@@ -448,6 +448,13 @@ def successor_contract() -> dict[str, Any]:
             "clock_read_failure": (
                 "observer_failure_distinct_from_device_result_and_no_causal_claim"
             ),
+            "guard_budget": {
+                "design_value_seconds": PROCESS_V2_GUARD_SECONDS,
+                "signed_delta_max_seconds": SIGNED_DELTA_US_MAX / 1_000_000,
+                "design_value_is_execution_authority": False,
+                "qualification_must_source_bind_actual_guard": True,
+                "actual_guard_must_not_exceed_signed_delta_range": True,
+            },
             "event_before_write": (
                 "first_host_event_delta_us < write_delta_us; host traffic "
                 "preceded the MUX write"
