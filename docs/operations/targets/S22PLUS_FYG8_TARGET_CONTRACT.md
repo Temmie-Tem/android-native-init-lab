@@ -177,8 +177,12 @@ admissible only when an exact DWC3 event latch was registered and read back as
 armed before gadget exposure, its install sample is valid and no later than
 the diagnostic `pre` sample, and the complete candidate-end host receipt has
 no endpoint. An endpoint-present receipt combined with an armed no-event mask
-is an observer contradiction. A missing install sample means “host event not
-observable,” never “no host event,” and cannot support a MUX ordering claim.
+is an observer contradiction. An incomplete or unavailable host receipt is an
+observer failure and can never support a no-event claim. An armed host event
+combined with a complete no-endpoint receipt is the distinct
+`DEVICE_RESULT_DWC3_HOST_EVENT_NO_ENDPOINT`, not a host-silent result. A
+missing install sample means “host event not observable,” never “no host
+event,” and cannot support a MUX ordering claim.
 
 A drifted topology does not authorize rollback against the new path. Mandatory
 rollback remains required, but the run parks without new device effects until

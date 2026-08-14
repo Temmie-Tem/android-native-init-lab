@@ -91,8 +91,8 @@ Private receipt:
 
 ```text
 endpoint-transition-20260814-01.json
-size    10400
-sha256  e9a65be58ca080cb2ae32f55005520bb06b7cfa1fb17043910f1244c0cf5102b
+size    10589
+sha256  fbaa41713b606c8d8757d59752bd4fd07ba221fdb0576b2b46265334af3dbe8a
 verdict PASS_P318_P317_PHYSICAL_TOPOLOGY_DRIFT_LOCALIZATION_H0
 ```
 
@@ -144,7 +144,9 @@ discarded return value, then the runtime parks. There are three discarded
 banner calls in the complete materialized file, including the one active P3.17
 publisher call. The inherited `p260_write_all()` retries `EINTR`, bounds
 `EAGAIN` with a deadline, handles short writes, and rejects nonpositive or
-invalid returns, but it returns no successful byte count to P3.17.
+invalid returns, but it returns no successful byte count to P3.17. Its deadline
+is not an absolute attempt deadline: the `EINTR` branch loops before any clock
+check, so an interrupt storm can extend the attempt without bound.
 
 Consequently, the retained P3.17 data cannot distinguish a successful 49-byte
 gadget write from timeout, errno, or partial delivery. Adding a stage after the
@@ -154,18 +156,25 @@ The P3.18 design contract therefore requires this order:
 
 ```text
 prove gadget and observer evaluability
--> make one five-second bounded banner attempt
+-> initialize one five-second absolute monotonic deadline
+-> make one banner attempt whose EINTR, EAGAIN, and short-write loops all use it
 -> retain outcome, normalized error class, and bytes written
 -> encode a new terminal envelope
 -> publish the retained terminal for every outcome
 -> park without a second banner attempt
 ```
 
-The outcomes are `written`, `eagain_timeout`, `errno`, and `partial`.
+The outcomes are `written`, `eagain_timeout`, `failure`, and `partial`.
 `written` requires exactly 49 bytes; partial coverage includes both boundary
-counts 1 and 48. A written result proves only that the device accepted all 49
-bytes into the gadget write path. It does not prove host selection, open, or
-receipt. Failure of the banner attempt must not suppress the Max77705 terminal.
+counts 1 and 48. Zero-byte `zero_write` and `invalid_short_write` returns map to
+`failure`; the same causes after progress map to `partial`. The valid terminal
+domain contains 344 rows and has no unclassified zero-byte state. The absolute
+deadline is initialized once, checked before every write or retry, covers
+`EINTR`, `EAGAIN`, and every short-write continuation, and caps sleeps to its
+remaining duration. A written result proves only that the device accepted all
+49 bytes into the gadget write path. It does not prove host selection, open,
+or receipt. Failure of the banner attempt must not suppress the Max77705
+terminal.
 
 This requires a new envelope version. Reinterpreting reserved Envelope-v3
 bytes is forbidden; the fixed 128-byte Carrier size remains unchanged. Before
@@ -177,8 +186,8 @@ Private receipt:
 
 ```text
 banner-result-contract-20260814-01.json
-size    12654
-sha256  3ed3b61f21756fe32e56f9548ca3ce6479cc52a147ffb00e4e2925001b5c05d4
+size    14730
+sha256  e14efb29cfaaeee7de35452033ce3c789391befaeefe88c2002ddba277308f2d
 verdict CHANGES_REQUIRED_P318_HOST_EVENT_PRODUCER_NOT_IMPLEMENTED_H0
 ```
 
@@ -252,6 +261,8 @@ The fixed source exposes a module-only route that does not require an Image
 patch, kprobe, tracefs, or trace-clock synchronization. `dwc3_process_event_entry()`
 calls `trace_dwc3_event(event->raw, dwc)` before endpoint or device dispatch;
 `trace.c` exports `dwc3_event` with `EXPORT_TRACEPOINT_SYMBOL_GPL`; the fixed
+`trace.h` callback ABI supplies both `u32 event` and `struct dwc3 *dwc` and
+captures `dwc->ep0state`; the fixed
 P3.10 Image config (`6adf58c7204695e6f5a8deaf0f5995bca91a79ce4cc5f7b74e7b247128e0673b`)
 has `CONFIG_TRACING=y`; and `ktime_get()` is GPL-exported. A future
 early custom latch module can therefore register the tracepoint, filter exact
@@ -276,7 +287,11 @@ event.” Even `0x2f` is legal only when registration/arming preceded gadget
 exposure, latch-install is no later than pre, and the complete host receipt has
 no endpoint. Endpoint-present plus `0x2f` is an observer contradiction. The
 candidate decision path must execute this timing/host-receipt cross-check
-before retaining any topology result.
+before retaining any topology result. An incomplete receipt cannot authorize
+the no-event reading. Conversely, `0x3f` plus a complete no-endpoint receipt
+means the host reached DWC3 but no host endpoint survived the observation; it
+is retained separately as `DEVICE_RESULT_DWC3_HOST_EVENT_NO_ENDPOINT`, never
+collapsed into host-silent.
 
 If the host-event delta precedes the write delta, host traffic existed before
 the MUX write. If write precedes the event, the write preceded first host
@@ -302,7 +317,9 @@ The one-byte banner error field now has an explicit mapping. `EAGAIN` deadline,
 `EPIPE`, and `ENODEV` are pairwise distinct; `ETIMEDOUT`, zero write, invalid
 short write, and other errno have separate declared classes. The implementation
 must source-bind `sizeof(p260_banner) - 1 == 49`, statically prove it is at most
-`UINT8_MAX`, and reject rather than saturate an out-of-range byte count.
+`UINT8_MAX`, and reject rather than saturate an out-of-range byte count. The
+absolute attempt deadline must be new implementation work; the inherited
+helper's EAGAIN-only deadline is explicitly insufficient.
 
 ## Validation and remaining boundary
 
@@ -310,8 +327,9 @@ The corrected classifier has 240 input rows and 12 decision partitions after
 input echoes are removed from the partition digest. Its independent
 input-to-decision oracle is exercised by branch/output mutations rather than
 only by mutating a policy dictionary. The mask/install/event/receipt audit
-also covers 18,432 inputs and five timing decisions. Corrected focused tests
-pass 43/43 and
+also covers 36,864 inputs and eight timing decisions, including receipt
+completeness. Corrected focused tests
+pass 46/46, the common Process-v2 regression passes 120/120, and
 both changed private receipts were regenerated from the current sources. No
 device command, USB open, reboot,
 Odin invocation, payload, partition transfer, candidate replay, recovery
@@ -331,6 +349,15 @@ reproduced both private receipts byte-for-byte, and returned the now-withdrawn:
 A later adversarial review found the missing event producer, the favorable
 late-latch/no-event ambiguity, overloaded rollback authority, tautological
 180-row uniqueness metric, and policy-copy “oracle.” Those findings are valid.
+The first review of the resulting correction found three more gaps: host-event
+plus endpoint-absent still collapsed into host-silent, the inherited helper's
+EINTR path escaped the claimed five-second bound while zero/invalid zero-byte
+returns had no terminal row, and `trace.h` was not a receipt input. This
+revision separates the DWC3-event/no-endpoint result, adds receipt completeness
+to the exhaustive cross-product, specifies a once-initialized absolute
+deadline and a total 344-row banner domain, and binds the callback ABI and
+`ep0state` through the exact `trace.h` bytes. Those corrections remain subject
+to a fresh independent review.
 The current verdict is `CHANGES_REQUIRED`; a new independent review is needed
 after the corrected receipts and tests close.
 

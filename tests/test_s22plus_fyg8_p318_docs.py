@@ -67,6 +67,11 @@ class P318DocumentationTest(unittest.TestCase):
             "is withdrawn",
             "current verdict is `CHANGES_REQUIRED`",
             "P3.18 is not candidate-ready",
+            "DEVICE_RESULT_DWC3_HOST_EVENT_NO_ENDPOINT",
+            "36,864 inputs and eight timing decisions",
+            "valid terminal domain contains 344 rows",
+            "`EINTR` branch loops before any clock check",
+            "fixed `trace.h` callback ABI",
         )
         for clause in required:
             self.assertIn(clause, combined)
@@ -144,6 +149,8 @@ class P318DocumentationTest(unittest.TestCase):
             "`recovery_rebound_exact`",
             "`rollback_bound_exact` and `recovery_rebound_exact` are distinct authority states",
             "A missing install sample means “host event not observable,” never “no host event,”",
+            "An incomplete or unavailable host receipt is an observer failure",
+            "`DEVICE_RESULT_DWC3_HOST_EVENT_NO_ENDPOINT`, not a host-silent result",
             "the predeclared exact rollback resume",
             "does not retroactively validate candidate attribution",
             "Candidate replay remains forbidden",

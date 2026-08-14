@@ -829,19 +829,27 @@ its lack of later USB events supplies no dwell timestamp. Gadget readiness is
 not a host anchor. The initial P3.18 design had no first-host-event producer,
 so its design `PASS_GO` is withdrawn. Exact source selects a module-only route:
 an early GPL module registers exported `dwc3_event`, filters `a600000.dwc3`,
-and uses `ktime_get_ns()`; the late diagnostic uses the same primitive. It
-needs no Image patch, kprobe, tracefs, or trace clock, but is not implemented.
+and uses `ktime_get_ns()`; fixed `trace.h` supplies the raw-event/`dwc3 *`
+callback ABI and `ep0state`, and the late diagnostic uses the same primitive.
+It needs no Image patch, kprobe, tracefs, or trace clock, but is not implemented.
 
 Corrected samples are latch-install/pre/write/post1/post2/first-host-event.
 Five signed deltas use 22 bytes. Bit 5 authenticates latch-install; causal
 masks are `0x2f`/`0x3f`; legacy `0x0f` means not observable. Endpoint-present
-plus armed no-event is an observer contradiction. The timing/host-receipt
-wrapper precedes topology classification, and qualification source-binds the
-actual guard at or below 2,147.483647 seconds.
+plus armed no-event is an observer contradiction, and an incomplete receipt
+cannot support no-event. Armed host-event plus a complete absent endpoint is
+the distinct `DEVICE_RESULT_DWC3_HOST_EVENT_NO_ENDPOINT`, not host-silent. The
+timing/host-receipt wrapper precedes topology classification, and qualification
+source-binds the actual guard at or below 2,147.483647 seconds.
 
 The banner result remains unknown because P3.17 commits the terminal then
 discards `p260_write_banner()`'s return. A successor attempts once, retains
-outcome/count/error, publishes every outcome, and never retries. Envelope-v4
+outcome/count/error, publishes every outcome, and never retries. The inherited
+helper is not sufficient because `EINTR` bypasses its EAGAIN-only deadline; the
+successor initializes one absolute five-second monotonic deadline and applies
+it to EINTR, EAGAIN, and every short-write continuation. Zero-byte zero/invalid
+writes map to `failure`, while the same causes after progress map to `partial`;
+the 344-row valid terminal domain has no hole. Envelope-v4
 remains 128 bytes: the 25-byte timing/banner prefix leaves 51 lossless poll
 bytes; the 44-byte overflow summary uses 69 total and leaves 7 reserved.
 Overflow is non-causal. EAGAIN deadline, EPIPE, and ENODEV remain distinct;

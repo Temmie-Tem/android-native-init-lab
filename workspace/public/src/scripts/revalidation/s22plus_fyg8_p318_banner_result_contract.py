@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-SCHEMA = "s22plus_fyg8_p318_envelope_v4_design_contract_v3"
+SCHEMA = "s22plus_fyg8_p318_envelope_v4_design_contract_v4"
 VERDICT = "CHANGES_REQUIRED_P318_HOST_EVENT_PRODUCER_NOT_IMPLEMENTED_H0"
 DEFAULT_MATERIALIZED = Path(
     "workspace/private/outputs/s22plus_fyg8_p317/intent/materialized-sources/"
@@ -55,6 +55,10 @@ DEFAULT_DWC3_TRACE = Path(
     "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/"
     "kernel_platform/common/drivers/usb/dwc3/trace.c"
 )
+DEFAULT_DWC3_TRACE_HEADER = Path(
+    "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/"
+    "kernel_platform/common/drivers/usb/dwc3/trace.h"
+)
 DEFAULT_DWC3_MAKEFILE = Path(
     "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/"
     "kernel_platform/common/drivers/usb/dwc3/Makefile"
@@ -74,7 +78,7 @@ FIXED_KERNEL_CONFIG_SHA256 = (
     "6adf58c7204695e6f5a8deaf0f5995bca91a79ce4cc5f7b74e7b247128e0673b"
 )
 
-OUTCOMES = ("written", "eagain_timeout", "errno", "partial")
+OUTCOMES = ("written", "eagain_timeout", "failure", "partial")
 HOST_EVENT_KINDS = ("none", "reset", "connect_done", "setup")
 TIMING_SAMPLES = (
     "latch_install",
@@ -110,14 +114,27 @@ PREIMAGE_OBLIGATIONS = (
         "bytes_written": 0,
         "error_class": "eagain_deadline",
     },
-    {"outcome": "errno", "bytes_written": 0, "error_class": "epipe"},
-    {"outcome": "errno", "bytes_written": 0, "error_class": "enodev"},
-    {"outcome": "errno", "bytes_written": 0, "error_class": "etimedout"},
+    {"outcome": "failure", "bytes_written": 0, "error_class": "epipe"},
+    {"outcome": "failure", "bytes_written": 0, "error_class": "enodev"},
+    {"outcome": "failure", "bytes_written": 0, "error_class": "etimedout"},
+    {"outcome": "failure", "bytes_written": 0, "error_class": "zero_write"},
+    {
+        "outcome": "failure",
+        "bytes_written": 0,
+        "error_class": "invalid_short_write",
+    },
+    {"outcome": "failure", "bytes_written": 0, "error_class": "other_errno"},
     {"outcome": "partial", "bytes_written": 1, "error_class": "epipe"},
+    {"outcome": "partial", "bytes_written": 1, "error_class": "zero_write"},
     {
         "outcome": "partial",
         "bytes_written": 48,
         "error_class": "eagain_deadline",
+    },
+    {
+        "outcome": "partial",
+        "bytes_written": 48,
+        "error_class": "invalid_short_write",
     },
 )
 ERROR_CLASSES = {
@@ -134,6 +151,68 @@ ERROR_CLASSES = {
 
 class BannerContractError(ValueError):
     pass
+
+
+def classify_banner_terminal(*, bytes_written: int, error_class: str) -> str:
+    if not isinstance(bytes_written, int) or not 0 <= bytes_written <= 49:
+        raise BannerContractError("banner byte count outside exact domain")
+    if error_class not in ERROR_CLASSES:
+        raise BannerContractError("banner error class outside exact domain")
+    if bytes_written == 49:
+        if error_class != "none":
+            raise BannerContractError("complete banner has a failure cause")
+        return "written"
+    if error_class == "none":
+        raise BannerContractError("incomplete banner lacks a failure cause")
+    if bytes_written == 0:
+        return "eagain_timeout" if error_class == "eagain_deadline" else "failure"
+    return "partial"
+
+
+def audit_banner_terminal_domain() -> dict[str, Any]:
+    rows = [
+        {
+            "bytes_written": bytes_written,
+            "error_class": error_class,
+            "outcome": classify_banner_terminal(
+                bytes_written=bytes_written, error_class=error_class
+            ),
+        }
+        for error_class in ERROR_CLASSES
+        if error_class != "none"
+        for bytes_written in range(49)
+    ]
+    rows.append(
+        {
+            "bytes_written": 49,
+            "error_class": "none",
+            "outcome": classify_banner_terminal(
+                bytes_written=49, error_class="none"
+            ),
+        }
+    )
+    if len(rows) != 344 or {row["outcome"] for row in rows} != set(OUTCOMES):
+        raise BannerContractError("banner terminal domain coverage differs")
+    return {
+        "valid_terminal_row_count": len(rows),
+        "outcome_set": sorted({row["outcome"] for row in rows}),
+        "zero_write_at_zero_is_failure": classify_banner_terminal(
+            bytes_written=0, error_class="zero_write"
+        )
+        == "failure",
+        "invalid_short_at_zero_is_failure": classify_banner_terminal(
+            bytes_written=0, error_class="invalid_short_write"
+        )
+        == "failure",
+        "eagain_at_zero_is_timeout": classify_banner_terminal(
+            bytes_written=0, error_class="eagain_deadline"
+        )
+        == "eagain_timeout",
+        "failure_after_progress_is_partial": classify_banner_terminal(
+            bytes_written=1, error_class="zero_write"
+        )
+        == "partial",
+    }
 
 
 def validate_v4_budget(
@@ -324,6 +403,12 @@ def audit_current_sources(
             "written += (size_t)rc;",
         ),
     )
+    if (
+        write_all.count("p241_timespec_before(&now, &deadline)") != 1
+        or write_all.find("if (rc == -P260_EINTR)")
+        > write_all.find("if (rc == -EAGAIN && retry_eagain)")
+    ):
+        raise BannerContractError("P2.60 retry/deadline topology differs")
     banner_array = re.search(r"static char p260_banner\[([0-9]+)\];", p260)
     if (
         banner_array is None
@@ -361,6 +446,8 @@ def audit_current_sources(
         "terminal_can_retain_banner_result": False,
         "p260_write_all_retries_eintr": True,
         "p260_write_all_bounds_eagain": True,
+        "p260_write_all_eintr_bypasses_deadline": True,
+        "p260_existing_timeout_is_not_an_absolute_attempt_deadline": True,
         "p260_write_all_handles_short_writes": True,
         "p260_write_all_returns_no_byte_count": True,
         "p260_banner_payload_bytes": 49,
@@ -375,6 +462,7 @@ def audit_host_event_sources(
     gadget_data: bytes,
     ep0_data: bytes,
     trace_data: bytes,
+    trace_header_data: bytes,
     makefile_data: bytes,
     timekeeping_header_data: bytes,
     timekeeping_source_data: bytes,
@@ -384,6 +472,7 @@ def audit_host_event_sources(
     gadget = _text(gadget_data, "DWC3 gadget source")
     ep0 = _text(ep0_data, "DWC3 EP0 source")
     trace = _text(trace_data, "DWC3 tracepoint export source")
+    trace_header = _text(trace_header_data, "DWC3 tracepoint ABI header")
     makefile = _text(makefile_data, "DWC3 Makefile")
     timekeeping_header = _text(timekeeping_header_data, "timekeeping header")
     timekeeping_source = _text(timekeeping_source_data, "timekeeping source")
@@ -447,6 +536,20 @@ def audit_host_event_sources(
         "DWC3 module-visible event tracepoint",
         ("EXPORT_TRACEPOINT_SYMBOL_GPL(dwc3_event);",),
     )
+    trace_header_counts = {
+        "#include \"core.h\"": 1,
+        "DECLARE_EVENT_CLASS(dwc3_log_event,": 1,
+        "TP_PROTO(u32 event, struct dwc3 *dwc),": 2,
+        "TP_ARGS(event, dwc)": 2,
+        "__field(u32, ep0state)": 1,
+        "__entry->ep0state = dwc->ep0state;": 1,
+        "DEFINE_EVENT(dwc3_log_event, dwc3_event,": 1,
+    }
+    if any(
+        trace_header.count(token) != count
+        for token, count in trace_header_counts.items()
+    ):
+        raise BannerContractError("DWC3 tracepoint callback ABI differs")
     _require_tokens(
         makefile,
         "DWC3 trace object build selection",
@@ -493,6 +596,9 @@ def audit_host_event_sources(
         "setup_completion_source_bound": True,
         "tracepoint_precedes_device_and_endpoint_dispatch": True,
         "dwc3_event_tracepoint_exported_gpl": True,
+        "dwc3_event_callback_proto_source_bound": True,
+        "dwc3_event_callback_receives_raw_and_dwc": True,
+        "dwc3_event_ep0state_source_bound": True,
         "trace_object_enabled_by_fixed_config": True,
         "module_only_producer_feasible": True,
         "kprobe_required": False,
@@ -523,8 +629,15 @@ def successor_contract() -> dict[str, Any]:
         "attempt": {
             "count": 1,
             "banner_size": 49,
-            "deadline_source": "existing_P260_SHORT_TIMEOUT_SEC",
+            "deadline_source": "new_once_initialized_absolute_monotonic_deadline",
             "deadline_seconds": 5,
+            "deadline_covers_eintr": True,
+            "deadline_covers_eagain": True,
+            "deadline_covers_every_short_write_iteration": True,
+            "deadline_checked_before_every_write_or_retry": True,
+            "deadline_never_reinitialized": True,
+            "sleep_is_capped_to_remaining_deadline": True,
+            "existing_p260_helper_is_not_sufficient": True,
             "terminal_publication_required_for_every_outcome": True,
             "retry_after_terminal_forbidden": True,
         },
@@ -541,9 +654,9 @@ def successor_contract() -> dict[str, Any]:
             "eagain_timeout": (
                 "bytes_written == 0 and final cause is eagain_deadline"
             ),
-            "errno": (
+            "failure": (
                 "bytes_written == 0 and final cause preserves epipe, enodev, "
-                "etimedout, or other_errno"
+                "etimedout, zero_write, invalid_short_write, or other_errno"
             ),
             "partial": (
                 "1 <= bytes_written <= 48; normalized cause separately retains "
@@ -551,6 +664,7 @@ def successor_contract() -> dict[str, Any]:
                 "invalid-short-write, or other-errno"
             ),
         },
+        "terminal_domain_audit": audit_banner_terminal_domain(),
         "banner_length_contract": {
             "source_expression": "sizeof(p260_banner) - 1",
             "expected_bytes": 49,
@@ -703,6 +817,10 @@ def successor_contract() -> dict[str, Any]:
             "same_clock_ordering_preimages_required": True,
             "host_receipt_mask_cross_product_required": True,
             "eagain_epipe_enodev_preimages_required": True,
+            "zero_and_invalid_short_at_zero_preimages_required": True,
+            "eintr_storm_absolute_deadline_preimage_required": True,
+            "eagain_storm_absolute_deadline_preimage_required": True,
+            "short_write_then_eintr_deadline_preimage_required": True,
             "banner_length_source_bound_and_u8_safe": True,
         },
         "interpretation": {
@@ -729,6 +847,7 @@ def build_contract(
     dwc3_gadget_data: bytes,
     dwc3_ep0_data: bytes,
     dwc3_trace_data: bytes,
+    dwc3_trace_header_data: bytes,
     dwc3_makefile_data: bytes,
     timekeeping_header_data: bytes,
     timekeeping_source_data: bytes,
@@ -747,6 +866,7 @@ def build_contract(
             "dwc3_gadget_source": receipt(dwc3_gadget_data),
             "dwc3_ep0_source": receipt(dwc3_ep0_data),
             "dwc3_trace_source": receipt(dwc3_trace_data),
+            "dwc3_trace_abi_header": receipt(dwc3_trace_header_data),
             "dwc3_makefile": receipt(dwc3_makefile_data),
             "timekeeping_header": receipt(timekeeping_header_data),
             "timekeeping_source": receipt(timekeeping_source_data),
@@ -761,6 +881,7 @@ def build_contract(
             dwc3_gadget_data,
             dwc3_ep0_data,
             dwc3_trace_data,
+            dwc3_trace_header_data,
             dwc3_makefile_data,
             timekeeping_header_data,
             timekeeping_source_data,
@@ -792,6 +913,9 @@ def main() -> int:
     parser.add_argument("--dwc3-gadget", type=Path, default=DEFAULT_DWC3_GADGET)
     parser.add_argument("--dwc3-ep0", type=Path, default=DEFAULT_DWC3_EP0)
     parser.add_argument("--dwc3-trace", type=Path, default=DEFAULT_DWC3_TRACE)
+    parser.add_argument(
+        "--dwc3-trace-header", type=Path, default=DEFAULT_DWC3_TRACE_HEADER
+    )
     parser.add_argument("--dwc3-makefile", type=Path, default=DEFAULT_DWC3_MAKEFILE)
     parser.add_argument(
         "--timekeeping-header", type=Path, default=DEFAULT_TIMEKEEPING_HEADER
@@ -832,6 +956,9 @@ def main() -> int:
         ),
         dwc3_trace_data=stable_read(
             resolve(args.dwc3_trace), "DWC3 tracepoint export source", 2**20
+        ),
+        dwc3_trace_header_data=stable_read(
+            resolve(args.dwc3_trace_header), "DWC3 tracepoint ABI header", 2**20
         ),
         dwc3_makefile_data=stable_read(
             resolve(args.dwc3_makefile), "DWC3 Makefile", 2**20

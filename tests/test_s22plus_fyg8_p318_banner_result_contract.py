@@ -38,6 +38,9 @@ class P318BannerResultContractTest(unittest.TestCase):
             "dwc3_gadget_data": (ROOT / P318.DEFAULT_DWC3_GADGET).read_bytes(),
             "dwc3_ep0_data": (ROOT / P318.DEFAULT_DWC3_EP0).read_bytes(),
             "dwc3_trace_data": (ROOT / P318.DEFAULT_DWC3_TRACE).read_bytes(),
+            "dwc3_trace_header_data": (
+                ROOT / P318.DEFAULT_DWC3_TRACE_HEADER
+            ).read_bytes(),
             "dwc3_makefile_data": (ROOT / P318.DEFAULT_DWC3_MAKEFILE).read_bytes(),
             "timekeeping_header_data": (
                 ROOT / P318.DEFAULT_TIMEKEEPING_HEADER
@@ -68,6 +71,11 @@ class P318BannerResultContractTest(unittest.TestCase):
         )
         self.assertTrue(
             result["host_event_source_audit"]["module_only_producer_feasible"]
+        )
+        self.assertTrue(
+            result["host_event_source_audit"][
+                "dwc3_event_callback_proto_source_bound"
+            ]
         )
         self.assertFalse(
             result["host_event_source_audit"]["producer_implementation_present"]
@@ -135,11 +143,45 @@ class P318BannerResultContractTest(unittest.TestCase):
         preimages = successor["arming"]["positive_preimages"]
         self.assertEqual({item["outcome"] for item in preimages}, set(P318.OUTCOMES))
         self.assertEqual(
-            [item["bytes_written"] for item in preimages if item["outcome"] == "partial"],
+            sorted(
+                {
+                    item["bytes_written"]
+                    for item in preimages
+                    if item["outcome"] == "partial"
+                }
+            ),
             [1, 48],
         )
         self.assertEqual(successor["attempt"]["count"], 1)
         self.assertTrue(successor["attempt"]["retry_after_terminal_forbidden"])
+
+    def test_banner_terminal_domain_is_total_and_zero_failures_are_classified(self):
+        audit = P318.audit_banner_terminal_domain()
+        self.assertEqual(audit["valid_terminal_row_count"], 344)
+        self.assertEqual(audit["outcome_set"], sorted(P318.OUTCOMES))
+        self.assertTrue(audit["zero_write_at_zero_is_failure"])
+        self.assertTrue(audit["invalid_short_at_zero_is_failure"])
+        self.assertTrue(audit["eagain_at_zero_is_timeout"])
+        self.assertEqual(
+            P318.classify_banner_terminal(
+                bytes_written=1, error_class="invalid_short_write"
+            ),
+            "partial",
+        )
+        with self.assertRaises(P318.BannerContractError):
+            P318.classify_banner_terminal(bytes_written=0, error_class="none")
+        with self.assertRaises(P318.BannerContractError):
+            P318.classify_banner_terminal(bytes_written=49, error_class="epipe")
+
+    def test_successor_uses_one_absolute_deadline_for_every_retry_path(self):
+        result = P318.build_contract(**self.inputs())
+        self.assertTrue(result["current"]["p260_write_all_eintr_bypasses_deadline"])
+        attempt = result["successor"]["attempt"]
+        self.assertTrue(attempt["existing_p260_helper_is_not_sufficient"])
+        self.assertTrue(attempt["deadline_covers_eintr"])
+        self.assertTrue(attempt["deadline_covers_eagain"])
+        self.assertTrue(attempt["deadline_covers_every_short_write_iteration"])
+        self.assertTrue(attempt["deadline_never_reinitialized"])
 
     def test_v4_timing_banner_and_poll_budget_is_exact(self):
         budget = P318.validate_v4_budget()
@@ -237,6 +279,32 @@ class P318BannerResultContractTest(unittest.TestCase):
                 with self.assertRaises(P318.BannerContractError):
                     P318.build_contract(**values)
 
+    def test_tracepoint_callback_abi_mutations_fail(self):
+        cases = (
+            (
+                b"TP_PROTO(u32 event, struct dwc3 *dwc),",
+                b"TP_PROTO(u32 event, void *dwc),       ",
+            ),
+            (
+                b"__field(u32, ep0state)",
+                b"__field(u32, otherstate)",
+            ),
+            (
+                b"__entry->ep0state = dwc->ep0state;",
+                b"__entry->ep0state = 0;             ",
+            ),
+        )
+        for old, new in cases:
+            with self.subTest(old=old):
+                values = self.inputs()
+                values["dwc3_trace_header_data"] = values[
+                    "dwc3_trace_header_data"
+                ].replace(old, new, 1)
+                with self.assertRaisesRegex(
+                    P318.BannerContractError, "callback ABI"
+                ):
+                    P318.build_contract(**values)
+
     def test_errno_classes_and_banner_u8_bound_are_explicit(self):
         successor = P318.successor_contract()
         mapping = successor["error_class_encoding"]["mapping"]
@@ -248,7 +316,7 @@ class P318BannerResultContractTest(unittest.TestCase):
         retained = {
             item["error_class"] for item in successor["arming"]["positive_preimages"]
         }
-        self.assertTrue({"eagain_deadline", "epipe", "enodev"} <= retained)
+        self.assertEqual(retained - {"none"}, set(P318.ERROR_CLASSES) - {"none"})
         self.assertTrue(
             successor["banner_length_contract"][
                 "encoder_rejects_out_of_range_instead_of_saturating"

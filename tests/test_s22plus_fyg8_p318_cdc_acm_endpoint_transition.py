@@ -138,8 +138,10 @@ class P318EndpointTransitionTest(unittest.TestCase):
             "pre_session_stop_no_run_proof_class",
         )
         self.assertIn(
-            "classify_host_silent",
-            effects["candidate_end"]["same_complete_absent_causal_ready"],
+            "mask_0x2f_retains_host_silent",
+            effects["candidate_end"][
+                "same_complete_absent_causal_ready_after_timing_cross_check"
+            ],
         )
         self.assertIn(
             "no_experiment_proof_reclassification",
@@ -314,6 +316,36 @@ class P318EndpointTransitionTest(unittest.TestCase):
             armed_before_gadget_exposure=True,
         )
         self.assertEqual(no_event["proof_class"], "DEVICE_RESULT_HOST_SILENT")
+        host_event_without_endpoint = P318.classify_candidate_evidence(
+            relationship="absent",
+            authority_state="candidate_approved_exact",
+            observation_complete=True,
+            causal_terminal_ready=True,
+            validity_mask=0x3F,
+            host_event_kind="reset",
+            latch_install_delta_us=-10,
+            armed_before_gadget_exposure=True,
+        )
+        self.assertEqual(
+            host_event_without_endpoint["proof_class"],
+            "DEVICE_RESULT_DWC3_HOST_EVENT_NO_ENDPOINT",
+        )
+        self.assertNotEqual(
+            host_event_without_endpoint["proof_class"],
+            no_event["proof_class"],
+        )
+        incomplete = P318.classify_candidate_evidence(
+            relationship="absent",
+            authority_state="candidate_approved_exact",
+            observation_complete=False,
+            causal_terminal_ready=True,
+            validity_mask=0x2F,
+            host_event_kind="none",
+            latch_install_delta_us=-10,
+            armed_before_gadget_exposure=True,
+        )
+        self.assertEqual(incomplete["proof_class"], "NO_PROOF_OBSERVER")
+        self.assertFalse(incomplete["timing"]["no_host_event_claim_allowed"])
         legacy = P318.classify_candidate_evidence(
             relationship="absent",
             authority_state="candidate_approved_exact",
@@ -326,8 +358,12 @@ class P318EndpointTransitionTest(unittest.TestCase):
         )
         self.assertEqual(legacy["proof_class"], "NO_PROOF_OBSERVER")
         audit = P318.audit_candidate_timing_cross_check()
-        self.assertEqual(audit["timing_cross_product_row_count"], 18432)
-        self.assertEqual(audit["timing_decision_partition_count"], 5)
+        self.assertEqual(audit["timing_cross_product_row_count"], 36864)
+        self.assertEqual(audit["timing_decision_partition_count"], 8)
+        self.assertTrue(
+            audit["endpoint_absent_plus_mask_0x3f_is_distinct_dwc3_event_result"]
+        )
+        self.assertTrue(audit["incomplete_receipt_never_allows_no_event_claim"])
 
     def test_observed_exact_transition_is_topology_drift_and_not_selected(self):
         result = P318.classify_endpoints(self.authority(), [self.endpoint()])
