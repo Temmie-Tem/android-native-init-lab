@@ -2,7 +2,7 @@
 
 Date: 2026-08-14 KST
 Target: Samsung Galaxy S22+ FYG8 only
-Status: **H0 DESIGN PASS_GO; NO LIVE AUTHORITY**
+Status: **H0 DESIGN CHANGES_REQUIRED; PRIOR PASS_GO WITHDRAWN; NO LIVE AUTHORITY**
 
 ## Result first
 
@@ -91,8 +91,8 @@ Private receipt:
 
 ```text
 endpoint-transition-20260814-01.json
-size    9519
-sha256  ce91779ce2f4aec95998fe982a21594092a4ca5d448d8082d565ce71f1118183
+size    10400
+sha256  e9a65be58ca080cb2ae32f55005520bb06b7cfa1fb17043910f1244c0cf5102b
 verdict PASS_P318_P317_PHYSICAL_TOPOLOGY_DRIFT_LOCALIZATION_H0
 ```
 
@@ -177,9 +177,9 @@ Private receipt:
 
 ```text
 banner-result-contract-20260814-01.json
-size    8386
-sha256  81ed202b30c6513683354cb3054c30d093b64cb772a0da063a0058bfdbc92c9d
-verdict PASS_P318_ENVELOPE_V4_TIMING_BANNER_BUDGET_DESIGN_H0_IMPLEMENTATION_REQUIRED
+size    12654
+sha256  3ed3b61f21756fe32e56f9548ca3ce6479cc52a147ffb00e4e2925001b5c05d4
+verdict CHANGES_REQUIRED_P318_HOST_EVENT_PRODUCER_NOT_IMPLEMENTED_H0
 ```
 
 ## Physical-topology continuity and rollback recovery
@@ -217,9 +217,13 @@ start path, and authority state. Classification is phase-specific:
   exact complete same-path window with no host endpoint and a causal-ready
   device terminal remains an evaluable host-silent device result. Other absent
   or unavailable cases are observer no-proof.
-- Rollback Download accepts only `reestablished_exact` under the fresh recovery
-  binding ID. Every other state parks recovery without changing the retained
-  experiment result. Relationship to the start path is evidence only.
+- Normal rollback accepts `rollback_bound_exact` when a fresh revalidation of
+  the predeclared rollback binding is complete and the path is unchanged. It
+  does not require a new independent recovery review.
+- After drift, rollback accepts only `recovery_rebound_exact` under a fresh,
+  independently reviewed recovery-only binding ID. It may name the same or a
+  different current path. Every other state parks recovery without changing
+  the retained experiment result.
 
 A path mismatch can prove drift, but it cannot manufacture proof that a person
 physically moved the cable.
@@ -240,39 +244,75 @@ USB event. Absence of a later event supplies no post1 or post2 timestamp.
 Gadget readiness is also not a host anchor: the host may enumerate an
 arbitrary time later.
 
-The successor instead latches the first actual host-caused device event —
-`RESET`, `CONNECT_DONE`, or `SETUP` — on the same device monotonic clock as
-`pre`, `write`, `post1`, and `post2`. No host/device wall-clock synchronization
-is needed. `pre` is the zero origin and four signed 32-bit microsecond deltas
-represent all five samples. A validity mask distinguishes a missing host event
-from a zero delta. If the host-event delta precedes the write delta, host
-traffic existed before the MUX write. If write precedes the event, the write
-preceded first host traffic but causation is still not proved. Equality,
-missing data, or clock-source mismatch permits no MUX causal claim.
-The four device samples are mandatory and ordered
-`pre <= write <= post1 < post2`; only validity masks `0x0f` (no host event) and
-`0x1f` (one latched host event) are legal. A clock read failure is an observer
-failure, not a device result.
-The current 1,200-second guard fits the signed-delta range, but the Python
-design constant is not execution authority. Successor qualification must bind
-the actual Process-v2 guard and prove it does not exceed 2,147.483647 seconds.
+The first design named `RESET`, `CONNECT_DONE`, and `SETUP` dispatch seams but
+did not name any candidate component able to retain them. That was an
+executability gap, so the earlier design `PASS_GO` is withdrawn.
+
+The fixed source exposes a module-only route that does not require an Image
+patch, kprobe, tracefs, or trace-clock synchronization. `dwc3_process_event_entry()`
+calls `trace_dwc3_event(event->raw, dwc)` before endpoint or device dispatch;
+`trace.c` exports `dwc3_event` with `EXPORT_TRACEPOINT_SYMBOL_GPL`; the fixed
+P3.10 Image config (`6adf58c7204695e6f5a8deaf0f5995bca91a79ce4cc5f7b74e7b247128e0673b`)
+has `CONFIG_TRACING=y`; and `ktime_get()` is GPL-exported. A future
+early custom latch module can therefore register the tracepoint, filter exact
+`a600000.dwc3`, decode the first RESET/CONNECT_DONE/EP0-SETUP completion, and
+sample `ktime_get_ns()` as the first actual host-caused device event. The late
+Max77705 diagnostic must use the literal same
+primitive for `pre`, `write`, `post1`, and `post2`.
+
+This route is selected but not implemented. The latch module must load and
+prove exact-target registration before configfs exposes the gadget; only then
+may the 69 stock early-module plan, gadget activation, and late diagnostic
+sequence proceed. That changes the future package shape to one early custom
+latch plus the 69 stock early modules, followed by the inherited late
+diagnostic. Release/acquire publication must prevent a torn event kind/time.
+
+`pre` remains the zero origin, but the six samples are now latch-install,
+pre, write, post1, post2, and first host event. Five signed 32-bit microsecond
+deltas are required. Bit 5 authenticates the install sample. The only
+causal masks are `0x2f` (armed latch, no host event) and `0x3f` (armed latch,
+host event). Legacy `0x0f` means “host event not observable,” never “no host
+event.” Even `0x2f` is legal only when registration/arming preceded gadget
+exposure, latch-install is no later than pre, and the complete host receipt has
+no endpoint. Endpoint-present plus `0x2f` is an observer contradiction. The
+candidate decision path must execute this timing/host-receipt cross-check
+before retaining any topology result.
+
+If the host-event delta precedes the write delta, host traffic existed before
+the MUX write. If write precedes the event, the write preceded first host
+traffic but causation is still not proved. Equality, missing install/event
+authority, host-receipt contradiction, or clock-source mismatch permits no MUX
+causal claim. The current 1,200-second guard fits the signed-delta range, but
+the Python design constant is not execution authority. Successor qualification
+must bind the actual Process-v2 guard and prove it does not exceed
+2,147.483647 seconds.
 
 Envelope-v3 has no generic free 44-byte region. Its fixed geometry is 128-byte
 Carrier/envelope = 48-byte metadata + 76-byte payload + 4-byte CRC. Envelope-v4
-reserves 18 payload bytes for the validity mask, host-event kind, and four
+reserves 22 payload bytes for the validity mask, host-event kind, and five
 signed deltas, plus 3 bytes for banner outcome, byte count, and error class.
-The prefix is therefore 21 bytes and the lossless PackBits poll capacity falls
-from 76 to 55 bytes. The existing 44-byte overflow summary (SHA-256 32 + OR 4
-+ poll0 4 + nonzero-count 4) occupies 65 bytes with the prefix and leaves 11
-zero-reserved bytes. Overflow remains non-causal. The 55/56-byte boundary,
-five timing samples, banner outcomes, and same-clock ordering must all
+The prefix is therefore 25 bytes and the lossless PackBits poll capacity falls
+from 76 to 51 bytes. The existing 44-byte overflow summary (SHA-256 32 + OR 4
++ poll0 4 + nonzero-count 4) occupies 69 bytes with the prefix and leaves 7
+zero-reserved bytes. Overflow remains non-causal. The 51/52-byte boundary,
+six timing samples, banner outcomes, and same-clock ordering must all
 cross the real encoder, Carrier, and host decoder before any successor use.
+
+The one-byte banner error field now has an explicit mapping. `EAGAIN` deadline,
+`EPIPE`, and `ENODEV` are pairwise distinct; `ETIMEDOUT`, zero write, invalid
+short write, and other errno have separate declared classes. The implementation
+must source-bind `sizeof(p260_banner) - 1 == 49`, statically prove it is at most
+`UINT8_MAX`, and reject rather than saturate an out-of-range byte count.
 
 ## Validation and remaining boundary
 
-The three focused P3.18 modules pass 32/32 and the documentation/receipt
-binding module passes 6/6, for a 38/38 unit total after the Envelope-v4 and
-topology-continuity receipts are regenerated. Python compilation passes. No
+The corrected classifier has 240 input rows and 12 decision partitions after
+input echoes are removed from the partition digest. Its independent
+input-to-decision oracle is exercised by branch/output mutations rather than
+only by mutating a policy dictionary. The mask/install/event/receipt audit
+also covers 18,432 inputs and five timing decisions. Corrected focused tests
+pass 43/43 and
+both changed private receipts were regenerated from the current sources. No
 device command, USB open, reboot,
 Odin invocation, payload, partition transfer, candidate replay, recovery
 action, A90 action, or S20+ action occurred.
@@ -284,12 +324,18 @@ and the table was descriptive rather than executable. The corrected closure
 uses a total 180-row classifier over phase, relationship, authority, snapshot
 completeness, and causal-terminal readiness. Independent re-review found zero
 oracle mismatches, rejected all three policy mutations, independently
-reproduced both private receipts byte-for-byte, and returned:
+reproduced both private receipts byte-for-byte, and returned the now-withdrawn:
 
 `PASS_GO — S22PLUS_FYG8_P318_TOPOLOGY_TIMING_DESIGN_H0_CAPABILITY_V1`
+
+A later adversarial review found the missing event producer, the favorable
+late-latch/no-event ambiguity, overloaded rollback authority, tautological
+180-row uniqueness metric, and policy-copy “oracle.” Those findings are valid.
+The current verdict is `CHANGES_REQUIRED`; a new independent review is needed
+after the corrected receipts and tests close.
 
 P3.18 is not candidate-ready. No live selector transition is authorized, the
 new banner/timing envelope encoder/decoder has not been implemented, and no
 package or Process-v2 binding exists. The target-contract recovery-boundary
-change has passed independent review. This H0 design capability grants no D0,
-D1, F1, recovery, or live authority.
+change no longer carries a reusable PASS verdict. This H0 correction grants no
+D0, D1, F1, recovery, or live authority.

@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""Freeze the P3.17 banner blind spot and the P3.18 successor contract.
+"""Freeze the P3.17 banner blind spot and the corrected P3.18 design boundary.
 
 P3.17 publishes its retained terminal before calling p260_write_banner() and
 discards the return value.  No after-the-fact stage can repair that ordering.
 This host-only contract requires a future candidate to perform one bounded
 attempt first, retain its outcome and byte count in a new envelope version,
-and publish the terminal even when banner delivery fails.  Envelope-v4 also
-retains five same-clock timing samples and the first actual host-caused USB
-event without pretending that gadget readiness is a host/time-axis anchor.
+and publish the terminal even when banner delivery fails.  The initial v4
+design reserved timing bytes without naming a producer.  This correction
+source-binds a module-only producer path through the exported dwc3_event
+tracepoint, but deliberately keeps the capability CHANGES_REQUIRED until the
+early latch module, late diagnostic consumer, and real encoder are built and
+qualified together.
 """
 
 from __future__ import annotations
@@ -15,15 +18,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any, Iterable
 
 
-SCHEMA = "s22plus_fyg8_p318_envelope_v4_design_contract_v2"
-VERDICT = (
-    "PASS_P318_ENVELOPE_V4_TIMING_BANNER_BUDGET_DESIGN_H0_"
-    "IMPLEMENTATION_REQUIRED"
-)
+SCHEMA = "s22plus_fyg8_p318_envelope_v4_design_contract_v3"
+VERDICT = "CHANGES_REQUIRED_P318_HOST_EVENT_PRODUCER_NOT_IMPLEMENTED_H0"
 DEFAULT_MATERIALIZED = Path(
     "workspace/private/outputs/s22plus_fyg8_p317/intent/materialized-sources/"
     "s22plus_fyg8_p290_e3_runtime.inc.c"
@@ -50,10 +51,39 @@ DEFAULT_DWC3_EP0 = Path(
     "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/"
     "kernel_platform/common/drivers/usb/dwc3/ep0.c"
 )
+DEFAULT_DWC3_TRACE = Path(
+    "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/"
+    "kernel_platform/common/drivers/usb/dwc3/trace.c"
+)
+DEFAULT_DWC3_MAKEFILE = Path(
+    "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/"
+    "kernel_platform/common/drivers/usb/dwc3/Makefile"
+)
+DEFAULT_TIMEKEEPING_HEADER = Path(
+    "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/"
+    "kernel_platform/common/include/linux/timekeeping.h"
+)
+DEFAULT_TIMEKEEPING_SOURCE = Path(
+    "workspace/private/work/s22plus_fyg8_kernel_build_p290_2ec2bbae/"
+    "kernel_platform/common/kernel/time/timekeeping.c"
+)
+DEFAULT_KERNEL_CONFIG = Path(
+    "workspace/private/outputs/s22plus_fyg8_p310/immutable-a-v6/.config"
+)
+FIXED_KERNEL_CONFIG_SHA256 = (
+    "6adf58c7204695e6f5a8deaf0f5995bca91a79ce4cc5f7b74e7b247128e0673b"
+)
 
 OUTCOMES = ("written", "eagain_timeout", "errno", "partial")
 HOST_EVENT_KINDS = ("none", "reset", "connect_done", "setup")
-TIMING_SAMPLES = ("pre", "write", "post1", "post2", "first_host_event")
+TIMING_SAMPLES = (
+    "latch_install",
+    "pre",
+    "write",
+    "post1",
+    "post2",
+    "first_host_event",
+)
 
 ENVELOPE_SIZE = 128
 METADATA_SIZE = 48
@@ -61,25 +91,45 @@ CRC_SIZE = 4
 PAYLOAD_SIZE = 76
 TIMING_VALID_MASK_SIZE = 1
 HOST_EVENT_KIND_SIZE = 1
-TIMING_DELTA_COUNT = 4
+TIMING_DELTA_COUNT = 5
 TIMING_DELTA_SIZE = 4
-TIMING_PREFIX_SIZE = 18
+TIMING_PREFIX_SIZE = 22
 BANNER_PREFIX_SIZE = 3
-V4_PREFIX_SIZE = 21
-LOSSLESS_POLL_CAPACITY = 55
+V4_PREFIX_SIZE = 25
+LOSSLESS_POLL_CAPACITY = 51
 OVERFLOW_SUMMARY_SIZE = 44
-OVERFLOW_TOTAL_SIZE = 65
-OVERFLOW_SPARE_SIZE = 11
+OVERFLOW_TOTAL_SIZE = 69
+OVERFLOW_SPARE_SIZE = 7
 SIGNED_DELTA_US_MIN = -(2**31)
 SIGNED_DELTA_US_MAX = 2**31 - 1
 PROCESS_V2_GUARD_SECONDS = 1200
 PREIMAGE_OBLIGATIONS = (
     {"outcome": "written", "bytes_written": 49, "error_class": "none"},
-    {"outcome": "eagain_timeout", "bytes_written": 0, "error_class": "timeout"},
-    {"outcome": "errno", "bytes_written": 0, "error_class": "normalized_errno"},
-    {"outcome": "partial", "bytes_written": 1, "error_class": "normalized_cause"},
-    {"outcome": "partial", "bytes_written": 48, "error_class": "normalized_cause"},
+    {
+        "outcome": "eagain_timeout",
+        "bytes_written": 0,
+        "error_class": "eagain_deadline",
+    },
+    {"outcome": "errno", "bytes_written": 0, "error_class": "epipe"},
+    {"outcome": "errno", "bytes_written": 0, "error_class": "enodev"},
+    {"outcome": "errno", "bytes_written": 0, "error_class": "etimedout"},
+    {"outcome": "partial", "bytes_written": 1, "error_class": "epipe"},
+    {
+        "outcome": "partial",
+        "bytes_written": 48,
+        "error_class": "eagain_deadline",
+    },
 )
+ERROR_CLASSES = {
+    "none": 0,
+    "eagain_deadline": 1,
+    "epipe": 2,
+    "enodev": 3,
+    "etimedout": 4,
+    "zero_write": 5,
+    "invalid_short_write": 6,
+    "other_errno": 7,
+}
 
 
 class BannerContractError(ValueError):
@@ -104,7 +154,7 @@ def validate_v4_budget(
     )
     if envelope_size != 128 or derived_payload != payload_size or payload_size != 76:
         raise BannerContractError("Envelope-v4 fixed Carrier geometry differs")
-    if timing_prefix_size != expected_timing or timing_prefix_size != 18:
+    if timing_prefix_size != expected_timing or timing_prefix_size != 22:
         raise BannerContractError("Envelope-v4 timing prefix geometry differs")
     if banner_prefix_size != 3:
         raise BannerContractError("Envelope-v4 banner prefix geometry differs")
@@ -113,11 +163,11 @@ def validate_v4_budget(
     overflow_total = prefix_size + overflow_summary_size
     overflow_spare = payload_size - overflow_total
     if (
-        prefix_size != 21
-        or lossless_capacity != 55
+        prefix_size != 25
+        or lossless_capacity != 51
         or overflow_summary_size != 44
-        or overflow_total != 65
-        or overflow_spare != 11
+        or overflow_total != 69
+        or overflow_spare != 7
     ):
         raise BannerContractError("Envelope-v4 timing/poll budget differs")
     guard_us = PROCESS_V2_GUARD_SECONDS * 1_000_000
@@ -274,6 +324,14 @@ def audit_current_sources(
             "written += (size_t)rc;",
         ),
     )
+    banner_array = re.search(r"static char p260_banner\[([0-9]+)\];", p260)
+    if (
+        banner_array is None
+        or int(banner_array.group(1)) - 1 != 49
+        or int(banner_array.group(1)) - 1 > 0xFF
+        or p260.count("p260_banner, sizeof(p260_banner) - 1U, 1") != 1
+    ):
+        raise BannerContractError("P2.60 banner length source seam differs")
     _require_tokens(
         envelope,
         "P3.17 envelope identity",
@@ -305,17 +363,33 @@ def audit_current_sources(
         "p260_write_all_bounds_eagain": True,
         "p260_write_all_handles_short_writes": True,
         "p260_write_all_returns_no_byte_count": True,
+        "p260_banner_payload_bytes": 49,
+        "p260_banner_count_fits_u8": True,
         "historical_envelope_version": 3,
         "historical_envelope_size": 128,
     }
 
 
 def audit_host_event_sources(
-    core_data: bytes, gadget_data: bytes, ep0_data: bytes
+    core_data: bytes,
+    gadget_data: bytes,
+    ep0_data: bytes,
+    trace_data: bytes,
+    makefile_data: bytes,
+    timekeeping_header_data: bytes,
+    timekeeping_source_data: bytes,
+    config_data: bytes,
 ) -> dict[str, Any]:
     core = _text(core_data, "DWC3 core header")
     gadget = _text(gadget_data, "DWC3 gadget source")
     ep0 = _text(ep0_data, "DWC3 EP0 source")
+    trace = _text(trace_data, "DWC3 tracepoint export source")
+    makefile = _text(makefile_data, "DWC3 Makefile")
+    timekeeping_header = _text(timekeeping_header_data, "timekeeping header")
+    timekeeping_source = _text(timekeeping_source_data, "timekeeping source")
+    config = _text(config_data, "fixed kernel config")
+    if hashlib.sha256(config_data).hexdigest() != FIXED_KERNEL_CONFIG_SHA256:
+        raise BannerContractError("fixed kernel config identity differs")
     _require_tokens(
         core,
         "DWC3 host-caused device-event constants",
@@ -338,6 +412,16 @@ def audit_host_event_sources(
             "dwc3_gadget_conndone_interrupt(dwc);",
         ),
     )
+    event_entry = _function(
+        gadget, "static void dwc3_process_event_entry(struct dwc3 *dwc,"
+    )
+    trace_at = event_entry.find("trace_dwc3_event(event->raw, dwc);")
+    endpoint_at = event_entry.find("dwc3_endpoint_interrupt(dwc, &event->depevt);")
+    gadget_at = event_entry.find("dwc3_gadget_interrupt(dwc, &event->devt);")
+    if min(trace_at, endpoint_at, gadget_at) < 0 or not (
+        trace_at < endpoint_at and trace_at < gadget_at
+    ):
+        raise BannerContractError("DWC3 event tracepoint is not before dispatch")
     ep0_interrupt = _function(ep0, "void dwc3_ep0_interrupt(struct dwc3 *dwc,")
     ep0_complete = _function(
         ep0, "static void dwc3_ep0_xfer_complete(struct dwc3 *dwc,"
@@ -358,10 +442,65 @@ def audit_host_event_sources(
             "dwc3_ep0_inspect_setup(dwc, event);",
         ),
     )
+    _require_tokens(
+        trace,
+        "DWC3 module-visible event tracepoint",
+        ("EXPORT_TRACEPOINT_SYMBOL_GPL(dwc3_event);",),
+    )
+    _require_tokens(
+        makefile,
+        "DWC3 trace object build selection",
+        (
+            "ifneq ($(CONFIG_TRACING),)",
+            "dwc3-y\t\t\t\t+= trace.o",
+        ),
+    )
+    config_lines = set(config.splitlines())
+    for required in (
+        "CONFIG_TRACING=y",
+        "CONFIG_USB_DWC3=y",
+        "CONFIG_USB_DWC3_DUAL_ROLE=y",
+    ):
+        if required not in config_lines:
+            raise BannerContractError(f"fixed kernel config lacks {required}")
+    _require_tokens(
+        timekeeping_header,
+        "same-clock module API",
+        (
+            "extern ktime_t ktime_get(void);",
+            "static inline u64 ktime_get_ns(void)",
+            "return ktime_to_ns(ktime_get());",
+        ),
+    )
+    ktime_get_body = _function(timekeeping_source, "ktime_t ktime_get(void)")
+    _require_tokens(
+        ktime_get_body,
+        "monotonic clock implementation",
+        (
+            "read_seqcount_begin(&tk_core.seq)",
+            "timekeeping_get_ns(&tk->tkr_mono)",
+            "read_seqcount_retry(&tk_core.seq, seq)",
+        ),
+    )
+    _require_tokens(
+        timekeeping_source,
+        "module-visible monotonic clock",
+        ("EXPORT_SYMBOL_GPL(ktime_get);",),
+    )
     return {
         "reset_dispatch_source_bound": True,
         "connect_done_dispatch_source_bound": True,
         "setup_completion_source_bound": True,
+        "tracepoint_precedes_device_and_endpoint_dispatch": True,
+        "dwc3_event_tracepoint_exported_gpl": True,
+        "trace_object_enabled_by_fixed_config": True,
+        "module_only_producer_feasible": True,
+        "kprobe_required": False,
+        "tracefs_required": False,
+        "trace_clock_used": False,
+        "clock_primitive": "ktime_get_ns_via_exported_ktime_get",
+        "clock_is_shared_by_latch_and_diagnostic_design": True,
+        "producer_implementation_present": False,
         "gadget_ready_used_as_host_event": False,
     }
 
@@ -369,8 +508,11 @@ def audit_host_event_sources(
 def successor_contract() -> dict[str, Any]:
     budget = validate_v4_budget()
     return {
-        "status": "DESIGN_ONLY_NOT_IMPLEMENTED",
+        "status": "CHANGES_REQUIRED_PRODUCER_AND_V4_NOT_IMPLEMENTED",
         "ordering": [
+            "load_early_dwc3_event_latch_module",
+            "prove_tracepoint_registered_and_exact_a600000_dwc3_filter_armed",
+            "only_then_expose_the_gadget_to_the_host",
             "gadget_and_observer_evaluability_preconditions",
             "one_bounded_banner_attempt",
             "capture_outcome_error_class_and_bytes_written",
@@ -387,14 +529,36 @@ def successor_contract() -> dict[str, Any]:
             "retry_after_terminal_forbidden": True,
         },
         "outcomes": list(OUTCOMES),
+        "error_class_encoding": {
+            "width_bytes": 1,
+            "mapping": ERROR_CLASSES,
+            "eagain_epipe_enodev_are_pairwise_distinct": True,
+            "unknown_errno_may_only_enter_other_errno": True,
+            "silent_saturation_forbidden": True,
+        },
         "outcome_rules": {
             "written": "bytes_written == 49 and error_class == none",
-            "eagain_timeout": "bytes_written == 0 and final cause is EAGAIN deadline",
-            "errno": "bytes_written == 0 and final cause is another normalized errno",
+            "eagain_timeout": (
+                "bytes_written == 0 and final cause is eagain_deadline"
+            ),
+            "errno": (
+                "bytes_written == 0 and final cause preserves epipe, enodev, "
+                "etimedout, or other_errno"
+            ),
             "partial": (
                 "1 <= bytes_written <= 48; normalized cause separately retains "
-                "timeout, errno, zero-write, or invalid-short-write"
+                "eagain_deadline, epipe, enodev, etimedout, zero-write, "
+                "invalid-short-write, or other-errno"
             ),
+        },
+        "banner_length_contract": {
+            "source_expression": "sizeof(p260_banner) - 1",
+            "expected_bytes": 49,
+            "encoded_byte_count_max": 255,
+            "implementation_static_assert_required": (
+                "sizeof(p260_banner) - 1 <= UINT8_MAX"
+            ),
+            "encoder_rejects_out_of_range_instead_of_saturating": True,
         },
         "retained_fields": [
             "banner_outcome",
@@ -402,6 +566,7 @@ def successor_contract() -> dict[str, Any]:
             "banner_error_class",
             "timing_valid_mask",
             "first_host_event_kind",
+            "latch_install_delta_us_from_pre",
             "write_delta_us_from_pre",
             "post1_delta_us_from_pre",
             "post2_delta_us_from_pre",
@@ -416,17 +581,39 @@ def successor_contract() -> dict[str, Any]:
             "registered_terminal_details_required": True,
             "budget": budget,
             "payload_layout": [
-                "18_byte_same_clock_timing_prefix",
+                "22_byte_same_clock_timing_prefix",
                 "3_byte_banner_result_prefix",
-                "packbits_poll_up_to_55_bytes_or_44_byte_overflow_summary",
+                "packbits_poll_up_to_51_bytes_or_44_byte_overflow_summary",
             ],
+        },
+        "host_event_producer": {
+            "architecture": "early_gpl_module_on_exported_dwc3_event_tracepoint",
+            "image_patch_required": False,
+            "kprobe_required": False,
+            "tracefs_required": False,
+            "target_filter": "dev_name(dwc->dev) == a600000.dwc3",
+            "event_decode": ["reset", "connect_done", "ep0_setup_complete"],
+            "clock_primitive": "ktime_get_ns",
+            "publish_rule": (
+                "store kind/time then release-publish first-event-seen; "
+                "reader acquires before copying"
+            ),
+            "load_order": (
+                "tracepoint registration and exact-target armed readback must "
+                "complete before configfs UDC bind exposes the gadget"
+            ),
+            "module_plan_effect": (
+                "one new early custom latch module before the 69 stock early "
+                "modules; inherited diagnostic remains late"
+            ),
+            "implementation_present": False,
         },
         "timing": {
             "samples": list(TIMING_SAMPLES),
             "encoding": (
-                "pre_is_zero_origin_plus_four_signed_int32_microsecond_deltas"
+                "pre_is_zero_origin_plus_five_signed_int32_microsecond_deltas"
             ),
-            "clock_domain": "one_kernel_monotonic_clock_domain",
+            "clock_domain": "ktime_get_ns_in_both_kernel_modules",
             "cross_clock_synchronization_required": False,
             "first_host_event_kinds": list(HOST_EVENT_KINDS),
             "host_event_latched_once": True,
@@ -438,13 +625,31 @@ def successor_contract() -> dict[str, Any]:
                 "bit2": "post1",
                 "bit3": "post2",
                 "bit4": "first_host_event",
+                "bit5": "latch_install",
             },
-            "allowed_validity_masks": [15, 31],
+            "causal_validity_masks": [47, 63],
+            "legacy_0x0f_meaning": (
+                "host event not observable because latch-install authority is "
+                "absent; never no-host-event"
+            ),
             "required_device_sample_order": "pre <= write <= post1 < post2",
+            "required_latch_order": (
+                "tracepoint_registered <= latch_install <= gadget_exposure "
+                "and latch_install <= pre"
+            ),
             "host_event_kind_pairing": (
-                "mask_0x0f_requires_none; mask_0x1f_requires_"
+                "mask_0x2f_requires_none; mask_0x3f_requires_"
                 "reset_connect_done_or_setup"
             ),
+            "host_receipt_cross_check": {
+                "endpoint_present_plus_mask_0x2f": (
+                    "observer_contradiction_latched_event_missing"
+                ),
+                "endpoint_absent_plus_mask_0x2f": (
+                    "legal_no_host_event_only_when_armed_before_gadget_exposure"
+                ),
+                "mask_without_bit5": "host_event_not_observable_no_causal_claim",
+            },
             "clock_read_failure": (
                 "observer_failure_distinct_from_device_result_and_no_causal_claim"
             ),
@@ -465,8 +670,10 @@ def successor_contract() -> dict[str, Any]:
             ),
             "equal_or_absent": "ambiguous ordering; no MUX causation claim",
             "implementation_gate": (
-                "diagnostic samples and DWC3 RESET/CONNECT_DONE/SETUP latch "
-                "must prove the exact same monotonic clock primitive"
+                "build and qualify the early latch and late diagnostic with "
+                "literal ktime_get_ns calls, source-bound tracepoint register/"
+                "unregister, armed-before-UDC ordering, exact DWC3 filtering, "
+                "and host-receipt contradiction preimages"
             ),
         },
         "poll_evidence": {
@@ -480,7 +687,7 @@ def successor_contract() -> dict[str, Any]:
                 "nonzero_count_4",
             ],
             "overflow_causal_result_allowed": False,
-            "lossless_boundary_preimages": [55, 56],
+            "lossless_boundary_preimages": [51, 52],
         },
         "arming": {
             "real_encoder_carrier_decoder_required": True,
@@ -489,10 +696,14 @@ def successor_contract() -> dict[str, Any]:
             "written_bytes_outside_0_to_49_rejected": True,
             "written_outcome_with_non49_count_rejected": True,
             "partial_outcome_with_boundary_count_rejected": True,
-            "only_validity_masks_0x0f_and_0x1f_allowed": True,
+            "only_causal_validity_masks_0x2f_and_0x3f_allowed": True,
+            "mask_without_latch_install_cannot_mean_no_host_event": True,
             "gadget_ready_event_kind_rejected": True,
-            "lossless_55_and_overflow_56_preimages_required": True,
+            "lossless_51_and_overflow_52_preimages_required": True,
             "same_clock_ordering_preimages_required": True,
+            "host_receipt_mask_cross_product_required": True,
+            "eagain_epipe_enodev_preimages_required": True,
+            "banner_length_source_bound_and_u8_safe": True,
         },
         "interpretation": {
             "written": "device accepted all 49 bytes into the gadget write path",
@@ -517,6 +728,11 @@ def build_contract(
     dwc3_core_data: bytes,
     dwc3_gadget_data: bytes,
     dwc3_ep0_data: bytes,
+    dwc3_trace_data: bytes,
+    dwc3_makefile_data: bytes,
+    timekeeping_header_data: bytes,
+    timekeeping_source_data: bytes,
+    kernel_config_data: bytes,
     extractor_data: bytes,
 ) -> dict[str, Any]:
     return {
@@ -530,13 +746,25 @@ def build_contract(
             "dwc3_core_header": receipt(dwc3_core_data),
             "dwc3_gadget_source": receipt(dwc3_gadget_data),
             "dwc3_ep0_source": receipt(dwc3_ep0_data),
+            "dwc3_trace_source": receipt(dwc3_trace_data),
+            "dwc3_makefile": receipt(dwc3_makefile_data),
+            "timekeeping_header": receipt(timekeeping_header_data),
+            "timekeeping_source": receipt(timekeeping_source_data),
+            "fixed_kernel_config": receipt(kernel_config_data),
             "extractor": receipt(extractor_data),
         },
         "current": audit_current_sources(
             materialized_data, p260_data, envelope_data, base_envelope_data
         ),
         "host_event_source_audit": audit_host_event_sources(
-            dwc3_core_data, dwc3_gadget_data, dwc3_ep0_data
+            dwc3_core_data,
+            dwc3_gadget_data,
+            dwc3_ep0_data,
+            dwc3_trace_data,
+            dwc3_makefile_data,
+            timekeeping_header_data,
+            timekeeping_source_data,
+            kernel_config_data,
         ),
         "successor": successor_contract(),
         "scope": {
@@ -563,6 +791,15 @@ def main() -> int:
     parser.add_argument("--dwc3-core", type=Path, default=DEFAULT_DWC3_CORE)
     parser.add_argument("--dwc3-gadget", type=Path, default=DEFAULT_DWC3_GADGET)
     parser.add_argument("--dwc3-ep0", type=Path, default=DEFAULT_DWC3_EP0)
+    parser.add_argument("--dwc3-trace", type=Path, default=DEFAULT_DWC3_TRACE)
+    parser.add_argument("--dwc3-makefile", type=Path, default=DEFAULT_DWC3_MAKEFILE)
+    parser.add_argument(
+        "--timekeeping-header", type=Path, default=DEFAULT_TIMEKEEPING_HEADER
+    )
+    parser.add_argument(
+        "--timekeeping-source", type=Path, default=DEFAULT_TIMEKEEPING_SOURCE
+    )
+    parser.add_argument("--kernel-config", type=Path, default=DEFAULT_KERNEL_CONFIG)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     root = args.repo.resolve()
@@ -592,6 +829,21 @@ def main() -> int:
         ),
         dwc3_ep0_data=stable_read(
             resolve(args.dwc3_ep0), "DWC3 EP0 source", 2**24
+        ),
+        dwc3_trace_data=stable_read(
+            resolve(args.dwc3_trace), "DWC3 tracepoint export source", 2**20
+        ),
+        dwc3_makefile_data=stable_read(
+            resolve(args.dwc3_makefile), "DWC3 Makefile", 2**20
+        ),
+        timekeeping_header_data=stable_read(
+            resolve(args.timekeeping_header), "timekeeping header", 2**20
+        ),
+        timekeeping_source_data=stable_read(
+            resolve(args.timekeeping_source), "timekeeping source", 2**24
+        ),
+        kernel_config_data=stable_read(
+            resolve(args.kernel_config), "fixed kernel config", 2**20
         ),
         extractor_data=stable_read(extractor_path, "banner result contract", 2**20),
     )

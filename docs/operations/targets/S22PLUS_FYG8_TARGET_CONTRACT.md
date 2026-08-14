@@ -159,9 +159,11 @@ requires a new independent boundary review.
 Process-v2 evidence must retain the exact endpoint identity, topology, host
 controller/device path, and immutable raw-snapshot receipt at approved Download
 start and candidate-observer closure. Before rollback transfer it must retain a
-fresh exact Download/rollback binding with the same fields. A missing,
-truncated, or unreadable snapshot is an observer failure, not proof of path
-continuity.
+fresh exact Download/rollback binding with the same fields. A normal unchanged
+path is `rollback_bound_exact`: it is a fresh revalidation of the original
+predeclared rollback authority and does not require a new independent recovery
+review. A missing, truncated, or unreadable snapshot is an observer failure,
+not proof of path continuity.
 
 Classification is phase-specific. A non-exact Download-start binding is a
 pre-session stop and has no consumed-run proof class. Candidate-end drift is
@@ -170,13 +172,24 @@ window with no host endpoint remains eligible for the experiment's declared
 host-silent device-result classification. Rollback-endpoint drift or absence
 parks recovery and never changes an already retained experiment result.
 
+For a P3.18 timing successor, “no host event” is not a default value. It is
+admissible only when an exact DWC3 event latch was registered and read back as
+armed before gadget exposure, its install sample is valid and no later than
+the diagnostic `pre` sample, and the complete candidate-end host receipt has
+no endpoint. An endpoint-present receipt combined with an armed no-event mask
+is an observer contradiction. A missing install sample means “host event not
+observable,” never “no host event,” and cannot support a MUX ordering claim.
+
 A drifted topology does not authorize rollback against the new path. Mandatory
 rollback remains required, but the run parks without new device effects until
-a bounded, independently reviewed recovery-only path re-establishes one exact
-current rollback endpoint under a new immutable recovery binding ID. Only then
-may the predeclared exact rollback resume from durable journal state. The new
-binding may name a different physical path; it is recovery authority only and
-does not retroactively validate candidate attribution. Candidate replay
+a bounded, independently reviewed recovery-only path establishes
+`recovery_rebound_exact` for one exact current rollback endpoint under a new
+immutable recovery binding ID. Only then may the predeclared exact rollback
+resume from durable journal state. The new binding may name a different
+physical path; it is recovery authority only and does not retroactively
+validate candidate attribution. `rollback_bound_exact` and
+`recovery_rebound_exact` are distinct authority states; the latter cannot be
+inferred from an ordinary fresh rollback revalidation. Candidate replay
 remains forbidden.
 
 - Use Odin with ordinary regular `.tar.md5` paths. Each candidate and rollback

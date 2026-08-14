@@ -147,16 +147,19 @@ class P318EndpointTransitionTest(unittest.TestCase):
         )
         self.assertEqual(
             continuity["rollback_transfer_requires_state"],
-            "reestablished_exact_under_fresh_recovery_binding_id",
+            "rollback_bound_exact_for_normal_path_or_recovery_rebound_exact_"
+            "under_fresh_reviewed_recovery_binding_id_after_drift",
         )
         self.assertTrue(continuity["recovery_binding_may_differ_from_start_path"])
         self.assertTrue(
             continuity["recovery_binding_never_reclassifies_experiment_result"]
         )
         audit = continuity["phase_classifier_audit"]
-        self.assertEqual(audit["domain_row_count"], 180)
-        self.assertEqual(audit["unique_row_count"], 180)
-        self.assertTrue(audit["all_non_reestablished_rollback_rows_park"])
+        self.assertEqual(audit["domain_row_count"], 240)
+        self.assertEqual(audit["decision_partition_count"], 12)
+        self.assertEqual(audit["decision_oracle_mismatch_count"], 0)
+        self.assertTrue(audit["input_echo_excluded_from_partition_digest"])
+        self.assertTrue(audit["all_other_rollback_rows_park"])
         self.assertFalse(authority["observed_transition_authorizes_selection"])
         self.assertEqual(
             result["scope"]["effective_proof_class"],
@@ -179,7 +182,7 @@ class P318EndpointTransitionTest(unittest.TestCase):
         host_silent = P318.classify_topology_phase(
             phase="candidate_end",
             relationship="absent",
-            authority_state="approved_exact",
+            authority_state="candidate_approved_exact",
             observation_complete=True,
             causal_terminal_ready=True,
         )
@@ -188,7 +191,7 @@ class P318EndpointTransitionTest(unittest.TestCase):
         rollback = P318.classify_topology_phase(
             phase="rollback_download",
             relationship="drift",
-            authority_state="reestablished_exact",
+            authority_state="recovery_rebound_exact",
             observation_complete=True,
             causal_terminal_ready=True,
         )
@@ -203,6 +206,15 @@ class P318EndpointTransitionTest(unittest.TestCase):
         )
         self.assertTrue(unapproved["park"])
         self.assertFalse(unapproved["rollback_resume"])
+        normal = P318.classify_topology_phase(
+            phase="rollback_download",
+            relationship="same",
+            authority_state="rollback_bound_exact",
+            observation_complete=True,
+            causal_terminal_ready=True,
+        )
+        self.assertTrue(normal["rollback_resume"])
+        self.assertEqual(normal["rollback_path_kind"], "normal")
 
     def test_phase_policy_mutations_fail_closed(self):
         mutations = (
@@ -231,6 +243,91 @@ class P318EndpointTransitionTest(unittest.TestCase):
                 policy[phase][key] = value
                 with self.assertRaises(P318.TransitionError):
                     P318.audit_topology_phase_classifier(policy)
+
+    def test_decision_oracle_rejects_branch_and_field_mutations(self):
+        mutations = (
+            ("download same loses eligibility", "download_start", "same", "candidate_approved_exact", True, True, "candidate_eligible", False),
+            ("download unavailable becomes eligible", "download_start", "unavailable", "candidate_approved_exact", True, True, "candidate_eligible", True),
+            ("wrong download authority becomes eligible", "download_start", "same", "not_authorized", True, True, "candidate_eligible", True),
+            ("candidate same changes proof", "candidate_end", "same", "candidate_approved_exact", True, True, "proof_class", "NO_PROOF_OBSERVER"),
+            ("candidate absent causal loses result", "candidate_end", "absent", "candidate_approved_exact", True, True, "proof_class", "NO_PROOF_OBSERVER"),
+            ("candidate absent noncausal gains result", "candidate_end", "absent", "candidate_approved_exact", True, False, "proof_class", "DEVICE_RESULT_HOST_SILENT"),
+            ("candidate drift retained", "candidate_end", "drift", "candidate_approved_exact", True, True, "effect", "retain_experiment_terminal_classification"),
+            ("candidate ambiguity retained", "candidate_end", "ambiguous", "candidate_approved_exact", True, True, "park", False),
+            ("candidate unavailable retained", "candidate_end", "unavailable", "candidate_approved_exact", True, True, "proof_class", "RETAIN_EXPERIMENT_TERMINAL"),
+            ("candidate wrong authority retained", "candidate_end", "same", "rollback_bound_exact", True, True, "park", False),
+            ("normal rollback parks", "rollback_download", "same", "rollback_bound_exact", True, True, "rollback_resume", False),
+            ("normal rollback drifts", "rollback_download", "drift", "rollback_bound_exact", True, True, "rollback_resume", True),
+            ("reviewed recovery drift parks", "rollback_download", "drift", "recovery_rebound_exact", True, True, "rollback_resume", False),
+            ("unauthorized rollback resumes", "rollback_download", "same", "not_authorized", True, True, "rollback_resume", True),
+            ("rollback reclassifies proof", "rollback_download", "same", "rollback_bound_exact", True, True, "experiment_proof_reclassified_by_rollback", True),
+        )
+        for (
+            label,
+            phase,
+            relationship,
+            authority,
+            complete,
+            causal,
+            field,
+            value,
+        ) in mutations:
+            with self.subTest(label=label):
+                def mutated_classifier(**kwargs):
+                    row = P318.classify_topology_phase(**kwargs)
+                    if (
+                        kwargs["phase"] == phase
+                        and kwargs["relationship"] == relationship
+                        and kwargs["authority_state"] == authority
+                        and kwargs["observation_complete"] is complete
+                        and kwargs["causal_terminal_ready"] is causal
+                    ):
+                        row[field] = value
+                    return row
+
+                with self.assertRaisesRegex(P318.TransitionError, "oracle mismatch"):
+                    P318.audit_topology_phase_classifier(
+                        classifier=mutated_classifier
+                    )
+
+    def test_host_timing_mask_is_cross_checked_with_endpoint_receipt(self):
+        contradiction = P318.classify_candidate_evidence(
+            relationship="same",
+            authority_state="candidate_approved_exact",
+            observation_complete=True,
+            causal_terminal_ready=True,
+            validity_mask=0x2F,
+            host_event_kind="none",
+            latch_install_delta_us=-10,
+            armed_before_gadget_exposure=True,
+        )
+        self.assertEqual(contradiction["proof_class"], "NO_PROOF_OBSERVER")
+        self.assertIsNone(contradiction["topology"])
+        no_event = P318.classify_candidate_evidence(
+            relationship="absent",
+            authority_state="candidate_approved_exact",
+            observation_complete=True,
+            causal_terminal_ready=True,
+            validity_mask=0x2F,
+            host_event_kind="none",
+            latch_install_delta_us=-10,
+            armed_before_gadget_exposure=True,
+        )
+        self.assertEqual(no_event["proof_class"], "DEVICE_RESULT_HOST_SILENT")
+        legacy = P318.classify_candidate_evidence(
+            relationship="absent",
+            authority_state="candidate_approved_exact",
+            observation_complete=True,
+            causal_terminal_ready=True,
+            validity_mask=0x0F,
+            host_event_kind="none",
+            latch_install_delta_us=None,
+            armed_before_gadget_exposure=False,
+        )
+        self.assertEqual(legacy["proof_class"], "NO_PROOF_OBSERVER")
+        audit = P318.audit_candidate_timing_cross_check()
+        self.assertEqual(audit["timing_cross_product_row_count"], 18432)
+        self.assertEqual(audit["timing_decision_partition_count"], 5)
 
     def test_observed_exact_transition_is_topology_drift_and_not_selected(self):
         result = P318.classify_endpoints(self.authority(), [self.endpoint()])

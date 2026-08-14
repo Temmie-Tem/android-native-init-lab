@@ -37,6 +37,15 @@ class P318BannerResultContractTest(unittest.TestCase):
             "dwc3_core_data": (ROOT / P318.DEFAULT_DWC3_CORE).read_bytes(),
             "dwc3_gadget_data": (ROOT / P318.DEFAULT_DWC3_GADGET).read_bytes(),
             "dwc3_ep0_data": (ROOT / P318.DEFAULT_DWC3_EP0).read_bytes(),
+            "dwc3_trace_data": (ROOT / P318.DEFAULT_DWC3_TRACE).read_bytes(),
+            "dwc3_makefile_data": (ROOT / P318.DEFAULT_DWC3_MAKEFILE).read_bytes(),
+            "timekeeping_header_data": (
+                ROOT / P318.DEFAULT_TIMEKEEPING_HEADER
+            ).read_bytes(),
+            "timekeeping_source_data": (
+                ROOT / P318.DEFAULT_TIMEKEEPING_SOURCE
+            ).read_bytes(),
+            "kernel_config_data": (ROOT / P318.DEFAULT_KERNEL_CONFIG).read_bytes(),
             "extractor_data": SCRIPT.read_bytes(),
         }
 
@@ -47,7 +56,8 @@ class P318BannerResultContractTest(unittest.TestCase):
         self.assertTrue(result["current"]["banner_return_discarded"])
         self.assertFalse(result["current"]["terminal_can_retain_banner_result"])
         self.assertEqual(
-            result["successor"]["status"], "DESIGN_ONLY_NOT_IMPLEMENTED"
+            result["successor"]["status"],
+            "CHANGES_REQUIRED_PRODUCER_AND_V4_NOT_IMPLEMENTED",
         )
         self.assertTrue(
             result["successor"]["schema"]["new_envelope_version_required"]
@@ -55,6 +65,12 @@ class P318BannerResultContractTest(unittest.TestCase):
         self.assertEqual(result["successor"]["schema"]["envelope_version"], 4)
         self.assertTrue(
             result["host_event_source_audit"]["setup_completion_source_bound"]
+        )
+        self.assertTrue(
+            result["host_event_source_audit"]["module_only_producer_feasible"]
+        )
+        self.assertFalse(
+            result["host_event_source_audit"]["producer_implementation_present"]
         )
         self.assertFalse(result["scope"]["p318_candidate_ready"])
 
@@ -104,6 +120,16 @@ class P318BannerResultContractTest(unittest.TestCase):
         with self.assertRaisesRegex(P318.BannerContractError, "source seam"):
             P318.build_contract(**values)
 
+    def test_banner_length_source_mutation_fails(self):
+        values = self.inputs()
+        values["p260_data"] = values["p260_data"].replace(
+            b"static char p260_banner[50];",
+            b"static char p260_banner[51];",
+            1,
+        )
+        with self.assertRaisesRegex(P318.BannerContractError, "banner length"):
+            P318.build_contract(**values)
+
     def test_all_four_outcomes_have_boundary_preimages(self):
         successor = P318.successor_contract()
         preimages = successor["arming"]["positive_preimages"]
@@ -123,11 +149,11 @@ class P318BannerResultContractTest(unittest.TestCase):
             + budget["crc_size"],
             budget["envelope_size"],
         )
-        self.assertEqual(budget["v4_prefix_size"], 21)
-        self.assertEqual(budget["lossless_poll_capacity"], 55)
+        self.assertEqual(budget["v4_prefix_size"], 25)
+        self.assertEqual(budget["lossless_poll_capacity"], 51)
         self.assertEqual(budget["overflow_summary_size"], 44)
-        self.assertEqual(budget["overflow_total_size"], 65)
-        self.assertEqual(budget["overflow_spare_size"], 11)
+        self.assertEqual(budget["overflow_total_size"], 69)
+        self.assertEqual(budget["overflow_spare_size"], 7)
         self.assertGreaterEqual(
             budget["signed_delta_us_max"], budget["process_v2_guard_us"]
         )
@@ -135,7 +161,7 @@ class P318BannerResultContractTest(unittest.TestCase):
     def test_v4_budget_mutations_fail_closed(self):
         cases = (
             {"payload_size": 75},
-            {"timing_prefix_size": 17},
+            {"timing_prefix_size": 21},
             {"banner_prefix_size": 4},
             {"overflow_summary_size": 43},
         )
@@ -155,9 +181,10 @@ class P318BannerResultContractTest(unittest.TestCase):
         self.assertFalse(timing["cross_clock_synchronization_required"])
         self.assertEqual(
             timing["encoding"],
-            "pre_is_zero_origin_plus_four_signed_int32_microsecond_deltas",
+            "pre_is_zero_origin_plus_five_signed_int32_microsecond_deltas",
         )
-        self.assertEqual(timing["allowed_validity_masks"], [0x0F, 0x1F])
+        self.assertEqual(timing["causal_validity_masks"], [0x2F, 0x3F])
+        self.assertIn("not observable", timing["legacy_0x0f_meaning"])
         self.assertEqual(
             timing["required_device_sample_order"],
             "pre <= write <= post1 < post2",
@@ -171,7 +198,7 @@ class P318BannerResultContractTest(unittest.TestCase):
 
     def test_poll_boundary_and_overflow_remain_fail_closed(self):
         poll = P318.successor_contract()["poll_evidence"]
-        self.assertEqual(poll["lossless_boundary_preimages"], [55, 56])
+        self.assertEqual(poll["lossless_boundary_preimages"], [51, 52])
         self.assertEqual(poll["overflow_summary_size"], 44)
         self.assertFalse(poll["overflow_causal_result_allowed"])
 
@@ -184,6 +211,49 @@ class P318BannerResultContractTest(unittest.TestCase):
         )
         with self.assertRaisesRegex(P318.BannerContractError, "source seam"):
             P318.build_contract(**values)
+
+    def test_tracepoint_export_and_clock_mutations_fail(self):
+        cases = (
+            (
+                "dwc3_trace_data",
+                b"EXPORT_TRACEPOINT_SYMBOL_GPL(dwc3_event);",
+                b"EXPORT_TRACEPOINT_SYMBOL_GPL(dwc3_other);",
+            ),
+            (
+                "timekeeping_source_data",
+                b"EXPORT_SYMBOL_GPL(ktime_get);",
+                b"EXPORT_SYMBOL_GPL(ktime_get_other);",
+            ),
+            (
+                "kernel_config_data",
+                b"CONFIG_TRACING=y",
+                b"# CONFIG_TRACING is not set",
+            ),
+        )
+        for field, old, new in cases:
+            with self.subTest(field=field):
+                values = self.inputs()
+                values[field] = values[field].replace(old, new, 1)
+                with self.assertRaises(P318.BannerContractError):
+                    P318.build_contract(**values)
+
+    def test_errno_classes_and_banner_u8_bound_are_explicit(self):
+        successor = P318.successor_contract()
+        mapping = successor["error_class_encoding"]["mapping"]
+        self.assertEqual(
+            len({mapping["eagain_deadline"], mapping["epipe"], mapping["enodev"]}),
+            3,
+        )
+        self.assertEqual(successor["banner_length_contract"]["expected_bytes"], 49)
+        retained = {
+            item["error_class"] for item in successor["arming"]["positive_preimages"]
+        }
+        self.assertTrue({"eagain_deadline", "epipe", "enodev"} <= retained)
+        self.assertTrue(
+            successor["banner_length_contract"][
+                "encoder_rejects_out_of_range_instead_of_saturating"
+            ]
+        )
 
 
 if __name__ == "__main__":

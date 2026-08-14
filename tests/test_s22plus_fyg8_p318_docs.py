@@ -36,8 +36,7 @@ class P318DocumentationTest(unittest.TestCase):
                 "PASS_P318_CDC_ACM_TWO_SEAM_POSITIVE_CONTROL_H0"
             ),
             "banner-result-contract-20260814-01.json": (
-                "PASS_P318_ENVELOPE_V4_TIMING_BANNER_BUDGET_DESIGN_H0_"
-                "IMPLEMENTATION_REQUIRED"
+                "CHANGES_REQUIRED_P318_HOST_EVENT_PRODUCER_NOT_IMPLEMENTED_H0"
             ),
         }
         for name, verdict in expected.items():
@@ -63,8 +62,10 @@ class P318DocumentationTest(unittest.TestCase):
             "grants no D0, D1, F1, recovery, or live authority",
             "NO_PROOF_EXPERIMENT_PRECONDITION",
             "first actual host-caused device event",
-            "lossless PackBits poll capacity falls from 76 to 55 bytes",
+            "lossless PackBits poll capacity falls from 76 to 51 bytes",
             "PASS_GO — S22PLUS_FYG8_P318_TOPOLOGY_TIMING_DESIGN_H0_CAPABILITY_V1",
+            "is withdrawn",
+            "current verdict is `CHANGES_REQUIRED`",
             "P3.18 is not candidate-ready",
         )
         for clause in required:
@@ -138,9 +139,11 @@ class P318DocumentationTest(unittest.TestCase):
             "host-silent device-result classification",
             "never changes an already retained experiment result",
             "A drifted topology does not authorize rollback against the new path",
-            "the run parks without new device effects until "
-            "a bounded, independently reviewed recovery-only path re-establishes one exact "
-            "current rollback endpoint under a new immutable recovery binding ID",
+            "A normal unchanged path is `rollback_bound_exact`",
+            "a bounded, independently reviewed recovery-only path establishes "
+            "`recovery_rebound_exact`",
+            "`rollback_bound_exact` and `recovery_rebound_exact` are distinct authority states",
+            "A missing install sample means “host event not observable,” never “no host event,”",
             "the predeclared exact rollback resume",
             "does not retroactively validate candidate attribution",
             "Candidate replay remains forbidden",

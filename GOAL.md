@@ -826,49 +826,37 @@ internal arm-proof stage. Enumeration occurred 53.2 seconds after flash, but
 that interval cannot place gadget readiness, CONTROL1 write, post1, or post2.
 The sealed sidecar already continued roughly 250 seconds after enumeration;
 its lack of later USB events supplies no dwell timestamp. Gadget readiness is
-not a host anchor. P3.18 therefore latches the first actual host-caused device
-event (`RESET`, `CONNECT_DONE`, or `SETUP`) on the same device monotonic clock
-as pre/write/post1/post2. Four signed microsecond deltas from pre represent all
-five samples without cross-clock synchronization; missing/equal ordering makes
-no causal claim. The four device samples are mandatory and ordered; only masks
-`0x0f` (no host event) and `0x1f` (latched host event) are legal. The 1,200-sec
-design value fits int32 microseconds, but qualification must source-bind the
+not a host anchor. The initial P3.18 design had no first-host-event producer,
+so its design `PASS_GO` is withdrawn. Exact source selects a module-only route:
+an early GPL module registers exported `dwc3_event`, filters `a600000.dwc3`,
+and uses `ktime_get_ns()`; the late diagnostic uses the same primitive. It
+needs no Image patch, kprobe, tracefs, or trace clock, but is not implemented.
+
+Corrected samples are latch-install/pre/write/post1/post2/first-host-event.
+Five signed deltas use 22 bytes. Bit 5 authenticates latch-install; causal
+masks are `0x2f`/`0x3f`; legacy `0x0f` means not observable. Endpoint-present
+plus armed no-event is an observer contradiction. The timing/host-receipt
+wrapper precedes topology classification, and qualification source-binds the
 actual guard at or below 2,147.483647 seconds.
 
-The remaining banner result is genuinely unknown. The active P3.17 publisher
-commits the terminal, discards `p260_write_banner()`'s return, then parks. A
-successor must make one bounded attempt first, retain
-`written/eagain_timeout/errno/partial` plus byte count and normalized error in
-a new envelope version, publish the terminal for every outcome, and never
-retry after it. Envelope-v4 keeps the fixed 128-byte Carrier: 48-byte metadata,
-76-byte payload, and 4-byte CRC. Timing uses 18 payload bytes and banner result
-uses 3, so lossless PackBits poll capacity falls from 76 to 55 bytes; the
-44-byte overflow summary plus prefix uses 65 and leaves 11 reserved bytes.
-Overflow remains non-causal.
+The banner result remains unknown because P3.17 commits the terminal then
+discards `p260_write_banner()`'s return. A successor attempts once, retains
+outcome/count/error, publishes every outcome, and never retries. Envelope-v4
+remains 128 bytes: the 25-byte timing/banner prefix leaves 51 lossless poll
+bytes; the 44-byte overflow summary uses 69 total and leaves 7 reserved.
+Overflow is non-causal. EAGAIN deadline, EPIPE, and ENODEV remain distinct;
+implementation source-binds the 49-byte banner and forbids count saturation.
 
-The S22 target contract now permanently forbids cable/dock/host-port movement
-from Download binding through rollback and verified final-health close; it has
-no expiry and named endpoint/rebinding/selector changes trigger independent
-boundary review. Candidate-end drift is
-`NO_PROOF_EXPERIMENT_PRECONDITION`, never selector widening. It also invalidates
-rollback endpoint authority: the run parks without new effects until a bounded
-independently reviewed recovery-only path establishes a fresh immutable
-recovery binding ID for one exact current endpoint, then the predeclared exact
-rollback resumes. That recovery binding may differ from the start path and
-never reclassifies the experiment result.
-Start, candidate-end, and rollback path/controller receipts are required. This
-includes immutable raw size/hash and endpoint/topology/controller/device-path
-digests from the same parsed bytes. Drift/absence/ambiguity are precondition
-no-proof only where the phase table says so: Download-start failures are
-pre-session, candidate-end complete same-path host absence may be a device
-result, and rollback states affect recovery only. Unavailable/truncated input
-is observer no-proof. The executable 180-row classifier and three negative
-policy mutations passed independent re-review with zero oracle mismatches.
-The capability verdict is
-`PASS_GO — S22PLUS_FYG8_P318_TOPOLOGY_TIMING_DESIGN_H0_CAPABILITY_V1`. No transition
-selector is live-authorized, the new envelope and timing correlation are not
-implemented, packaging is absent, and
-P3.18 is not candidate-ready and grants no device authority. The detailed H0 report is
+The permanent topology boundary spans Download through rollback/final health.
+Drift is `NO_PROOF_EXPERIMENT_PRECONDITION`, never selector widening. Normal
+rollback uses `rollback_bound_exact`; drift recovery parks until independently
+reviewed `recovery_rebound_exact`, which never reclassifies the experiment.
+Three same-byte path receipts remain required. The classifier now has 240
+inputs and 12 decision partitions, excludes input echoes from the partition
+digest, and tests branch/output mutations against an independent rule oracle.
+The prior `PASS_GO — S22PLUS_FYG8_P318_TOPOLOGY_TIMING_DESIGN_H0_CAPABILITY_V1`
+is withdrawn; status is `CHANGES_REQUIRED`. Producer, envelope, packaging, and
+live authority are absent; P3.18 is not candidate-ready. Detailed report:
 `docs/reports/S22PLUS_FYG8_P317_CDC_ACM_ENDPOINT_SELECTOR_CORRECTION_H0_2026-08-14.md`.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden
