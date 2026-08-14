@@ -24,6 +24,7 @@ import device_action_f1_v2 as core
 import device_action_usb_trace_sidecar_v1 as usb_trace_sidecar
 import s22plus_fyg8_p300_usb_trace_binding as p300_usb_trace
 import s22plus_fyg8_p313_guard_lifetime as p313_guard_lifetime
+import s22plus_fyg8_p318_topology_receipt as p318_topology
 import s22plus_boot_only_f1_transport as transport
 import s22plus_boot_only_live_core as live_core
 import s22plus_odin_transition_core as odin_core
@@ -60,6 +61,10 @@ P300_PROCESS_WAIT_SEC = 10.0
 
 class F1LiveError(RuntimeError):
     pass
+
+
+class P318TopologyPark(F1LiveError):
+    """A durable P3.18 topology receipt forbids the next transfer."""
 
 
 @dataclass(frozen=True)
@@ -321,6 +326,7 @@ def _p313_bundle(bundle: core.Bundle) -> bool:
             typed_evidence.P315_OVERLAY_CONTRACT_ID,
             typed_evidence.MAX77705_OVERLAY_CONTRACT_ID,
             typed_evidence.P317_MAX77705_OVERLAY_CONTRACT_ID,
+            typed_evidence.P318_MAX77705_OVERLAY_CONTRACT_ID,
         }
     )
 
@@ -354,6 +360,205 @@ def _p300_bundle(bundle: core.Bundle) -> bool:
             typed_evidence.P310_SOURCE_CONTRACT_ID,
         }
     )
+
+
+def _p318_bundle(bundle: core.Bundle) -> bool:
+    return (
+        _userspace_overlay_contract_id(bundle)
+        == typed_evidence.P318_MAX77705_OVERLAY_CONTRACT_ID
+    )
+
+
+def _p318_phase_paths(prepared: PreparedRun, phase: str) -> tuple[Path, Path]:
+    if phase not in p318_topology.transition.TOPOLOGY_PHASES:
+        raise F1LiveError("P3.18 topology phase differs")
+    prefix = prepared.run_dir / f"p318-topology-{phase.replace('_', '-')}"
+    return prefix.with_suffix(".raw.json"), prefix.with_suffix(".record.json")
+
+
+def _p318_download_target(prepared: PreparedRun) -> dict[str, str]:
+    download = prepared.bundle.profile["target"]["download"]
+    return {
+        "vendor": download["usb_vendor_id"],
+        "product_id": download["usb_product_id"],
+        "product": download["product"],
+        "manufacturer": download["manufacturer"],
+        "serial": "",
+    }
+
+
+def _p318_candidate_target(prepared: PreparedRun) -> dict[str, str]:
+    spec = prepared.bundle.manifest["observation"].get("candidate_observer")
+    if not isinstance(spec, dict):
+        raise F1LiveError("P3.18 candidate observer is absent")
+    return {
+        "vendor": spec["usb_vendor_id"],
+        "product_id": spec["usb_product_id"],
+        "serial": spec["usb_serial"],
+        "driver": spec["usb_driver"],
+        "interface": spec["usb_interface_number"],
+    }
+
+
+def _p318_read_phase(
+    prepared: PreparedRun, phase: str
+) -> tuple[bytes, dict[str, Any]]:
+    raw_path, record_path = _p318_phase_paths(prepared, phase)
+    try:
+        raw = p318_topology.stable_read(raw_path)
+        record = _read_json(record_path, f"P3.18 {phase} topology record")
+        start = None
+        target = _p318_download_target(prepared)
+        if phase == "candidate_end":
+            target = _p318_candidate_target(prepared)
+        if phase != "download_start":
+            start = p318_topology.start_path(
+                _p318_read_phase(prepared, "download_start")[1]
+            )
+        return raw, p318_topology.validate_phase_record(
+            record,
+            raw_payload=raw,
+            target_identity=target,
+            start_path=start,
+        )
+    except p318_topology.TopologyReceiptError as exc:
+        raise F1LiveError(str(exc)) from exc
+
+
+def _p318_publish_or_reopen_phase(
+    prepared: PreparedRun, phase: str, payload: bytes, **record_args: Any
+) -> dict[str, Any]:
+    raw_path, record_path = _p318_phase_paths(prepared, phase)
+    expected = p318_topology.validate_phase_record(
+        p318_topology.build_phase_record(payload, phase=phase, **record_args),
+        raw_payload=payload,
+    )
+    if raw_path.exists() or record_path.exists():
+        if not raw_path.is_file() or not record_path.is_file():
+            raise F1LiveError("P3.18 topology phase evidence is partial")
+        reopened_raw, reopened = _p318_read_phase(prepared, phase)
+        if reopened_raw != payload or reopened != expected:
+            raise F1LiveError("P3.18 topology phase evidence changed")
+        return reopened
+    try:
+        record, _receipts = p318_topology.publish_phase(
+            raw_path, record_path, payload, phase=phase, **record_args
+        )
+    except p318_topology.TopologyReceiptError as exc:
+        raise F1LiveError(str(exc)) from exc
+    return record
+
+
+def _p318_publish_candidate_raw(
+    prepared: PreparedRun, payload: bytes
+) -> dict[str, Any]:
+    raw_path, record_path = _p318_phase_paths(prepared, "candidate_end")
+    if record_path.exists() or record_path.is_symlink():
+        raise F1LiveError("P3.18 candidate phase record exists before final decode")
+    try:
+        if raw_path.exists() or raw_path.is_symlink():
+            reopened = p318_topology.stable_read(raw_path)
+            if reopened != payload:
+                raise F1LiveError("P3.18 candidate topology raw snapshot changed")
+            receipt = {"size": len(reopened), "sha256": hashlib.sha256(reopened).hexdigest()}
+        else:
+            receipt = p318_topology.publish_raw(
+                raw_path, payload, phase="candidate_end"
+            )
+    except p318_topology.TopologyReceiptError as exc:
+        raise F1LiveError(str(exc)) from exc
+    return receipt
+
+
+def _p318_candidate_raw_receipt(prepared: PreparedRun) -> dict[str, Any]:
+    raw_path, record_path = _p318_phase_paths(prepared, "candidate_end")
+    if record_path.exists() or record_path.is_symlink():
+        raw, record = _p318_read_phase(prepared, "candidate_end")
+        return {
+            "size": record["immutable_raw_snapshot_size"],
+            "sha256": hashlib.sha256(raw).hexdigest(),
+        }
+    try:
+        raw = p318_topology.stable_read(raw_path)
+        p318_topology.parse_raw_snapshot(raw, phase="candidate_end")
+    except p318_topology.TopologyReceiptError as exc:
+        raise F1LiveError(str(exc)) from exc
+    return {"size": len(raw), "sha256": hashlib.sha256(raw).hexdigest()}
+
+
+def _p318_interrupted_candidate_raw(prepared: PreparedRun) -> dict[str, Any]:
+    raw_path, record_path = _p318_phase_paths(prepared, "candidate_end")
+    if record_path.exists() or record_path.is_symlink():
+        _raw, record = _p318_read_phase(prepared, "candidate_end")
+        return {
+            "size": record["immutable_raw_snapshot_size"],
+            "sha256": record["immutable_raw_snapshot_sha256"],
+        }
+    if raw_path.exists() or raw_path.is_symlink():
+        return _p318_candidate_raw_receipt(prepared)
+    payload = p318_topology.raw_snapshot(
+        phase="candidate_end", capture_complete=False, endpoints=[]
+    )
+    return _p318_publish_candidate_raw(prepared, payload)
+
+
+def _p318_finalize_candidate_phase(
+    prepared: PreparedRun, classified: dict[str, Any]
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    raw_path, record_path = _p318_phase_paths(prepared, "candidate_end")
+    raw = p318_topology.stable_read(raw_path)
+    start = p318_topology.start_path(
+        _p318_read_phase(prepared, "download_start")[1]
+    )
+    durable = _reopen_candidate_observation(prepared)
+    host_observer = _p318_host_observer(prepared, durable)
+    causal_ready = typed_evidence.p318_candidate_causal_ready(classified)
+    arguments = {
+        "phase": "candidate_end",
+        "target_identity": _p318_candidate_target(prepared),
+        "binding_id_sha256": prepared.binding_sha256,
+        "comparison_binding_id_sha256": prepared.binding_sha256,
+        "authority_state": "candidate_approved_exact",
+        "causal_terminal_ready": causal_ready,
+        "start_path": start,
+        "host_observer": host_observer,
+    }
+    expected = p318_topology.validate_phase_record(
+        p318_topology.build_phase_record(raw, **arguments),
+        raw_payload=raw,
+        target_identity=arguments["target_identity"],
+        start_path=start,
+    )
+    if record_path.exists() or record_path.is_symlink():
+        _reopened_raw, phase_record = _p318_read_phase(
+            prepared, "candidate_end"
+        )
+        if phase_record != expected:
+            raise F1LiveError("P3.18 candidate topology phase changed")
+    else:
+        try:
+            phase_record, _record_receipt = (
+                p318_topology.publish_record_for_existing_raw(
+                    raw_path, record_path, raw, **arguments
+                )
+            )
+        except p318_topology.TopologyReceiptError as exc:
+            raise F1LiveError(str(exc)) from exc
+    try:
+        correlated = typed_evidence.correlate_p318_candidate_topology(
+            classified, phase_record
+        )
+    except typed_evidence.EvidenceError as exc:
+        raise F1LiveError(str(exc)) from exc
+    evidence = {
+        "raw": {
+            "size": len(raw),
+            "sha256": hashlib.sha256(raw).hexdigest(),
+        },
+        "record": _receipt(record_path, "P3.18 candidate topology record"),
+        "phase": phase_record,
+    }
+    return correlated, evidence
 
 
 def _private_relative(root: Path, path: Path, label: str) -> str:
@@ -1257,6 +1462,62 @@ class SamsungOdinBackend:
         )
         if result.timed_out or result.ticket is None:
             raise F1LiveError("bounded wait for Download endpoint expired")
+        if _p318_bundle(prepared.bundle):
+            start_raw_path, start_record_path = _p318_phase_paths(
+                prepared, "download_start"
+            )
+            start_exists = start_raw_path.exists() and start_record_path.exists()
+            if (start_raw_path.exists() or start_record_path.exists()) and not start_exists:
+                raise F1LiveError("P3.18 Download-start topology evidence is partial")
+            phase = "rollback_download" if start_exists else "download_start"
+            try:
+                topology_raw = p318_topology.capture_download_inventory_raw(
+                    phase=phase,
+                    profile=prepared.bundle.profile,
+                    usb_root=self.usb_root,
+                )
+                target = _p318_download_target(prepared)
+                matching = p318_topology.matching_endpoints(
+                    topology_raw, phase=phase, target_identity=target
+                )
+                if len(matching) == 1 and (
+                    matching[0]["identity"]["endpoint_node"]
+                    != result.ticket.device
+                ):
+                    raise P318TopologyPark(
+                        "P3.18 Odin ticket and topology snapshot differ"
+                    )
+                start = (
+                    None
+                    if phase == "download_start"
+                    else p318_topology.start_path(
+                        _p318_read_phase(prepared, "download_start")[1]
+                    )
+                )
+                phase_record = _p318_publish_or_reopen_phase(
+                    prepared,
+                    phase,
+                    topology_raw,
+                    target_identity=target,
+                    binding_id_sha256=prepared.binding_sha256,
+                    comparison_binding_id_sha256=prepared.binding_sha256,
+                    authority_state=(
+                        "candidate_approved_exact"
+                        if phase == "download_start"
+                        else "rollback_bound_exact"
+                    ),
+                    causal_terminal_ready=False,
+                    start_path=start,
+                )
+            except P318TopologyPark:
+                raise
+            except (p318_topology.TopologyReceiptError, F1LiveError) as exc:
+                raise P318TopologyPark(str(exc)) from exc
+            decision = phase_record["decision"]
+            if phase == "download_start" and decision["candidate_eligible"] is not True:
+                raise P318TopologyPark("P3.18 Download-start topology is not eligible")
+            if phase == "rollback_download" and decision["rollback_resume"] is not True:
+                raise P318TopologyPark("P3.18 rollback topology requires reviewed rebinding")
         identity = validate_download_endpoint(
             result.ticket.device,
             prepared.private_target["topology"],
@@ -1404,7 +1665,7 @@ class SamsungOdinBackend:
                 except (cdc_acm_observer.ObserverError, OSError):
                     pass
             durable = _reopen_candidate_observation(prepared)
-            return {
+            result = {
                 "bounded": True,
                 "download_endpoint_absent": absent.absent,
                 "absence_timed_out": absent.timed_out,
@@ -1419,6 +1680,22 @@ class SamsungOdinBackend:
                     "receipt_sha256"
                 ],
             }
+            if _p318_bundle(prepared.bundle):
+                try:
+                    topology_raw = p318_topology.capture_candidate_raw(
+                        phase="candidate_end"
+                    )
+                except (p318_topology.TopologyReceiptError, OSError):
+                    topology_raw = p318_topology.raw_snapshot(
+                        phase="candidate_end",
+                        capture_complete=False,
+                        endpoints=[],
+                    )
+                topology_receipt = _p318_publish_candidate_raw(
+                    prepared, topology_raw
+                )
+                result["p318_candidate_topology_raw"] = topology_receipt
+            return result
         if absent.absent:
             time.sleep(timeout)
         return {
@@ -1509,8 +1786,13 @@ class SamsungOdinBackend:
         ):
             raise F1LiveError("final target changed during observer collection")
         marker_result = classify_acceptance(payloads[0], acceptance)
+        p318_topology_evidence = None
+        if _p318_bundle(prepared.bundle):
+            marker_result, p318_topology_evidence = (
+                _p318_finalize_candidate_phase(prepared, marker_result)
+            )
         accepted = marker_result["accepted"] is True
-        return {
+        result = {
             "health": health,
             "target_evidence_sha256": core.json_sha256(
                 {
@@ -1532,6 +1814,9 @@ class SamsungOdinBackend:
             },
             "rollback_verified": True,
         }
+        if p318_topology_evidence is not None:
+            result["p318_candidate_topology"] = p318_topology_evidence
+        return result
 
 
 def _live_state_path(prepared: PreparedRun) -> Path:
@@ -1639,6 +1924,9 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
             "receipt_sha256": None,
             "valid_receipt": False,
             "download_endpoint_absent": False,
+            "endpoint_identity_sha256": None,
+            "topology_sha256": None,
+            "bounded": False,
         }
     path = prepared.run_dir / "candidate-observer.json"
     if not path.is_file() or path.is_symlink():
@@ -1648,6 +1936,9 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
             "receipt_sha256": None,
             "valid_receipt": False,
             "download_endpoint_absent": False,
+            "endpoint_identity_sha256": None,
+            "topology_sha256": None,
+            "bounded": False,
         }
     try:
         value = cdc_acm_observer.validate_receipt(
@@ -1664,6 +1955,9 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
             "receipt_sha256": None,
             "valid_receipt": False,
             "download_endpoint_absent": False,
+            "endpoint_identity_sha256": None,
+            "topology_sha256": None,
+            "bounded": False,
         }
     return {
         "classification": value["classification"],
@@ -1671,6 +1965,28 @@ def _reopen_candidate_observation(prepared: PreparedRun) -> dict[str, Any]:
         "receipt_sha256": receipt["sha256"],
         "valid_receipt": True,
         "download_endpoint_absent": value["download_endpoint_absent"],
+        "endpoint_identity_sha256": value["endpoint_identity_sha256"],
+        "topology_sha256": value["topology_sha256"],
+        "bounded": value["bounded"],
+    }
+
+
+def _p318_host_observer(
+    prepared: PreparedRun, durable: dict[str, Any]
+) -> dict[str, Any]:
+    topology_sha256 = durable["topology_sha256"]
+    if topology_sha256 is None:
+        topology_sha256 = hashlib.sha256(
+            prepared.private_target["topology"].removeprefix("usb:").encode()
+        ).hexdigest()
+    return {
+        "classification": durable["classification"],
+        "endpoint_identity_sha256": durable["endpoint_identity_sha256"],
+        "receipt_sha256": durable["receipt_sha256"],
+        "topology_sha256": topology_sha256,
+        "bounded": durable["bounded"],
+        "valid_receipt": durable["valid_receipt"],
+        "download_endpoint_absent": durable["download_endpoint_absent"],
     }
 
 
@@ -1968,6 +2284,14 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
         raise F1LiveError("final observer raw reads are not identical")
     acceptance = prepared.bundle.manifest["observation"]["acceptance"]
     marker_result = classify_acceptance(payloads[0], acceptance)
+    if _p318_bundle(prepared.bundle):
+        marker_result, topology_evidence = _p318_finalize_candidate_phase(
+            prepared, marker_result
+        )
+        if evidence.get("p318_candidate_topology") != topology_evidence:
+            raise F1LiveError("P3.18 final topology evidence changed")
+    elif "p318_candidate_topology" in evidence:
+        raise F1LiveError("foreign P3.18 final topology evidence")
     exact = marker_result["exact_count"]
     family = marker_result["family_count"]
     accepted = marker_result["accepted"] is True
@@ -2014,6 +2338,10 @@ def _validate_candidate_observer_state(
         or durable["download_endpoint_absent"] is not True
     ):
         raise F1LiveError("candidate observer acceptance lacks transfer continuity")
+    if _p318_bundle(prepared.bundle) and state.get(
+        "p318_candidate_topology_raw"
+    ) != _p318_candidate_raw_receipt(prepared):
+        raise F1LiveError("P3.18 candidate topology raw durable state mismatch")
 
 
 def validate_live_result(
@@ -2284,6 +2612,15 @@ def _normalize_recovery(prepared: PreparedRun, journal: core.Journal) -> bool:
         if "candidate_flash_start" in events:
             raise F1LiveError("candidate event exists without an attempt ledger")
         return False
+    if _p318_bundle(prepared.bundle):
+        topology_receipt = _p318_interrupted_candidate_raw(prepared)
+        topology_state = _state(prepared)
+        retained = topology_state.get("p318_candidate_topology_raw")
+        if retained is not None and retained != topology_receipt:
+            raise F1LiveError("P3.18 recovered topology raw receipt differs")
+        if retained is None:
+            topology_state["p318_candidate_topology_raw"] = topology_receipt
+            _save_state(prepared, topology_state)
     if "candidate_flash_start" not in events:
         if journal.state() != "DOWNLOAD_IDENTIFIED":
             raise F1LiveError("candidate attempt lacks its timeline start")
@@ -2424,9 +2761,32 @@ def _finish_rollback(
             file=os.sys.stderr,
             flush=True,
         )
-        rollback_endpoint = backend.wait_download(
-            prepared, endpoint_dir, lease, ROLLBACK_WAIT_SEC
-        )
+        try:
+            rollback_endpoint = backend.wait_download(
+                prepared, endpoint_dir, lease, ROLLBACK_WAIT_SEC
+            )
+        except P318TopologyPark as exc:
+            current = _state(prepared)
+            current["p318_rollback_topology_parked"] = True
+            current["p318_rollback_topology_error_sha256"] = hashlib.sha256(
+                str(exc).encode("utf-8", "replace")
+            ).hexdigest()
+            _save_state(prepared, current)
+            journal.transition(
+                "RECOVERY_DOWNLOAD",
+                "rollback_topology_rebind_required",
+                {
+                    "endpoint_authorized": False,
+                    "rollback_transfer_started": False,
+                },
+            )
+            return _result(
+                prepared,
+                journal,
+                "RECOVERY_REQUIRED_F1_V2_ROLLBACK_NOT_VERIFIED",
+                "rollback_topology_rebind_required",
+                True,
+            )
         journal.transition(
             "RECOVERY_DOWNLOAD",
             "rollback_endpoint_identified",
@@ -2435,8 +2795,40 @@ def _finish_rollback(
         journal.event("rollback_flash_start", {"preapproved": True})
         state = "RECOVERY_DOWNLOAD"
     if state == "RECOVERY_DOWNLOAD":
+        current = _state(prepared)
+        topology_parked = (
+            _p318_bundle(prepared.bundle)
+            and current.get("p318_rollback_topology_parked") is True
+        )
+        if (
+            _p318_bundle(prepared.bundle)
+            and rollback_endpoint is None
+            and "rollback_flash_start" not in _events(journal)
+        ):
+            try:
+                rollback_endpoint = backend.wait_download(
+                    prepared, endpoint_dir, lease, ROLLBACK_WAIT_SEC
+                )
+            except P318TopologyPark as exc:
+                current["p318_rollback_topology_error_sha256"] = hashlib.sha256(
+                    str(exc).encode("utf-8", "replace")
+                ).hexdigest()
+                _save_state(prepared, current)
+                return _result(
+                    prepared,
+                    journal,
+                    "RECOVERY_REQUIRED_F1_V2_ROLLBACK_NOT_VERIFIED",
+                    "rollback_topology_rebind_required",
+                    True,
+                )
+            if topology_parked:
+                current["p318_rollback_topology_parked"] = False
+                current.pop("p318_rollback_topology_error_sha256", None)
+                _save_state(prepared, current)
         if "rollback_flash_start" not in _events(journal):
-            journal.event("rollback_flash_start", {"preapproved": True, "resumed": True})
+            journal.event(
+                "rollback_flash_start", {"preapproved": True, "resumed": True}
+            )
         consumed = _reconcile_transfer_attempts(
             prepared, journal, "rollback", repair_orphan_start=True
         )
@@ -2467,9 +2859,24 @@ def _finish_rollback(
         else:
             if consumed >= MAX_ATTEMPTS:
                 raise F1LiveError("rollback transfer attempt bound exceeded")
-            endpoint = rollback_endpoint or backend.wait_download(
-                prepared, endpoint_dir, lease, ROLLBACK_WAIT_SEC
-            )
+            try:
+                endpoint = rollback_endpoint or backend.wait_download(
+                    prepared, endpoint_dir, lease, ROLLBACK_WAIT_SEC
+                )
+            except P318TopologyPark as exc:
+                current = _state(prepared)
+                current["p318_rollback_topology_parked"] = True
+                current["p318_rollback_topology_error_sha256"] = hashlib.sha256(
+                    str(exc).encode("utf-8", "replace")
+                ).hexdigest()
+                _save_state(prepared, current)
+                return _result(
+                    prepared,
+                    journal,
+                    "RECOVERY_REQUIRED_F1_V2_ROLLBACK_NOT_VERIFIED",
+                    "rollback_topology_rebind_required",
+                    True,
+                )
             attempt, prefix, _start = _begin_transfer_attempt(
                 prepared, journal, "rollback"
             )
@@ -3271,6 +3678,15 @@ def _execute_prepared_locked(
                         ],
                     }
                 )
+                if _p318_bundle(prepared.bundle):
+                    topology_receipt = observation.get(
+                        "p318_candidate_topology_raw"
+                    )
+                    if topology_receipt != _p318_candidate_raw_receipt(prepared):
+                        raise F1LiveError(
+                            "P3.18 candidate topology raw receipt differs"
+                        )
+                    current["p318_candidate_topology_raw"] = topology_receipt
             _save_state(prepared, current)
             if _p300_bundle(prepared.bundle):
                 trace_session.observation_durable(current)

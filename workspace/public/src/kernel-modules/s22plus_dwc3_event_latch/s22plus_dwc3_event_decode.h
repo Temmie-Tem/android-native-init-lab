@@ -1,0 +1,63 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+#ifndef S22PLUS_DWC3_EVENT_DECODE_H
+#define S22PLUS_DWC3_EVENT_DECODE_H
+
+#ifdef __KERNEL__
+#include <linux/types.h>
+typedef u32 s22plus_dwc3_u32;
+#else
+#include <stdint.h>
+typedef uint32_t s22plus_dwc3_u32;
+#endif
+
+enum s22plus_dwc3_event_kind {
+	S22PLUS_DWC3_EVENT_NONE = 0,
+	S22PLUS_DWC3_EVENT_RESET = 1,
+	S22PLUS_DWC3_EVENT_CONNECT_DONE = 2,
+	S22PLUS_DWC3_EVENT_EP0_SETUP_COMPLETE = 3,
+};
+
+#define S22PLUS_DWC3_IS_DEVSPEC_MASK 0x00000001U
+#define S22PLUS_DWC3_EVENT_CLASS_MASK 0x000000feU
+#define S22PLUS_DWC3_DEVICE_TYPE_MASK 0x00000f00U
+#define S22PLUS_DWC3_ENDPOINT_MASK 0x0000003eU
+#define S22PLUS_DWC3_ENDPOINT_EVENT_MASK 0x000003c0U
+
+#define S22PLUS_DWC3_EVENT_CLASS_DEV 0U
+#define S22PLUS_DWC3_DEVICE_RESET 1U
+#define S22PLUS_DWC3_DEVICE_CONNECT_DONE 2U
+#define S22PLUS_DWC3_ENDPOINT_XFERCOMPLETE 1U
+#define S22PLUS_DWC3_EP0_SETUP_PHASE 1U
+
+static inline enum s22plus_dwc3_event_kind
+s22plus_dwc3_decode_host_event(s22plus_dwc3_u32 raw,
+		s22plus_dwc3_u32 ep0state)
+{
+	s22plus_dwc3_u32 event_class;
+	s22plus_dwc3_u32 event_type;
+
+	if (raw & S22PLUS_DWC3_IS_DEVSPEC_MASK) {
+		event_class = (raw & S22PLUS_DWC3_EVENT_CLASS_MASK) >> 1;
+		if (event_class != S22PLUS_DWC3_EVENT_CLASS_DEV)
+			return S22PLUS_DWC3_EVENT_NONE;
+
+		event_type = (raw & S22PLUS_DWC3_DEVICE_TYPE_MASK) >> 8;
+		if (event_type == S22PLUS_DWC3_DEVICE_RESET)
+			return S22PLUS_DWC3_EVENT_RESET;
+		if (event_type == S22PLUS_DWC3_DEVICE_CONNECT_DONE)
+			return S22PLUS_DWC3_EVENT_CONNECT_DONE;
+		return S22PLUS_DWC3_EVENT_NONE;
+	}
+
+	if (((raw & S22PLUS_DWC3_ENDPOINT_MASK) >> 1) != 0U)
+		return S22PLUS_DWC3_EVENT_NONE;
+	if (((raw & S22PLUS_DWC3_ENDPOINT_EVENT_MASK) >> 6) !=
+		S22PLUS_DWC3_ENDPOINT_XFERCOMPLETE)
+		return S22PLUS_DWC3_EVENT_NONE;
+	if (ep0state != S22PLUS_DWC3_EP0_SETUP_PHASE)
+		return S22PLUS_DWC3_EVENT_NONE;
+
+	return S22PLUS_DWC3_EVENT_EP0_SETUP_COMPLETE;
+}
+
+#endif /* S22PLUS_DWC3_EVENT_DECODE_H */

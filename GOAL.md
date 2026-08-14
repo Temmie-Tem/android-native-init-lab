@@ -809,65 +809,44 @@ physical-button misoperation that caused two actions, which is consistent with
 two records but cannot supply the missing per-boot retained identity. The
 official multiplicity no-proof and healthy 1/1 close remain unchanged.
 
-P3.18 host-only work now treats the sealed `2-1.3 -> 3-1.3` pair as incident
-topology-drift evidence, never as live selector authority. Exact identity at
-the approved path is the sole positive selection; the observed drift path and
-fail-closed negatives for the same suffix on another controller, another
-Samsung device, multiple exact candidates, and a wrong identity at the
-approved path are not opened. Generic same-suffix/controller companion
-inference is forbidden. A two-seam positive control joins the sealed
-dummy_hcd/u_serial/cdc_acm 49-byte PASS to a fresh execution of the real Python
-observer reading the same prequeued bytes; it does not claim that Python ran
-inside QEMU or that the real root udev guard was covered. Fixed `f_acm` and
-`u_serial` sources reject DTR as the explanation.
+P3.18 preserves the P3.17 result as
+`NO_PROOF_EXPERIMENT_PRECONDITION`: the operator-moved `2-1.3 -> 3-1.3` pair is
+incident evidence only, never selector authority. The permanent topology
+boundary spans Download through rollback and final health. Drift parks until
+an independently reviewed `recovery_rebound_exact`; normal rollback uses
+`rollback_bound_exact`, and neither path may reclassify the experiment.
 
-The host sidecar arm preceded flash completion and is not the candidate's
-internal arm-proof stage. Enumeration occurred 53.2 seconds after flash, but
-that interval cannot place gadget readiness, CONTROL1 write, post1, or post2.
-The sealed sidecar already continued roughly 250 seconds after enumeration;
-its lack of later USB events supplies no dwell timestamp. Gadget readiness is
-not a host anchor. The initial P3.18 design had no first-host-event producer,
-so its design `PASS_GO` is withdrawn. Exact source selects a module-only route:
-an early GPL module registers exported `dwc3_event`, filters `a600000.dwc3`,
-and uses `ktime_get_ns()`; fixed `trace.h` supplies the raw-event/`dwc3 *`
-callback ABI and `ep0state`, and the late diagnostic uses the same primitive.
-It needs no Image patch, kprobe, tracefs, or trace clock, but is not implemented.
+The host-only successor is now implemented. An early GPL module registers the
+exported `dwc3_event` tracepoint, masks the exact DWC3 raw-word ABI, filters
+`a600000.dwc3`, and latches install, exposure, and the first RESET,
+CONNECT_DONE, or physical-EP0 SETUP event with `ktime_get_ns()`. A write-once
+pre-UDC gate is read back before the sole reachable UDC bind. The late
+diagnostic uses the same clock for pre/write/post1/post2, derives
+`install <= exposure <= pre`, and only permits causal masks `0x6f`/`0x7f`.
 
-Corrected samples are latch-install/pre/write/post1/post2/first-host-event.
-Five signed deltas use 22 bytes. Bit 5 authenticates latch-install; causal
-masks are `0x2f`/`0x3f`; legacy `0x0f` means not observable. Endpoint-present
-plus armed no-event is an observer contradiction, and an incomplete receipt
-cannot support no-event. Armed host-event plus a complete absent endpoint is
-the distinct `DEVICE_RESULT_DWC3_HOST_EVENT_NO_ENDPOINT`, not host-silent. The
-timing/host-receipt wrapper precedes topology classification, and qualification
-source-binds the actual guard at or below 2,147.483647 seconds.
+The bounded banner writer uses one absolute five-second deadline across
+EINTR, EAGAIN, and short writes and retains written/deadline/errno/partial plus
+the exact byte count. Envelope-v4 remains 128 bytes: a 29-byte prefix leaves
+47 lossless poll bytes; overflow uses 73 bytes and requires three zero spare
+bytes. Actual P3.17 poll evidence is 8 raw/9 PackBits bytes. The real C encoder,
+Carrier, and host decoder cover the 47/48 boundary, nonzero-spare rejection,
+all terminal preimages, and separate EAGAIN/EPIPE/ENODEV outcomes.
 
-The banner result remains unknown because P3.17 commits the terminal then
-discards `p260_write_banner()`'s return. A successor attempts once, retains
-outcome/count/error, publishes every outcome, and never retries. The inherited
-helper is not sufficient because `EINTR` bypasses its EAGAIN-only deadline; the
-successor initializes one absolute five-second monotonic deadline and applies
-it to EINTR, EAGAIN, and every short-write continuation. Zero-byte zero/invalid
-writes map to `failure`, while the same causes after progress map to `partial`;
-the 344-row valid terminal domain has no hole. Envelope-v4
-remains 128 bytes: the 25-byte timing/banner prefix leaves 51 lossless poll
-bytes; the 44-byte overflow summary uses 69 total and leaves 7 reserved.
-Overflow is non-causal. EAGAIN deadline, EPIPE, and ENODEV remain distinct;
-implementation source-binds the 49-byte banner and forbids count saturation.
+The frozen 41-`SOURCE_KEY` package contains the exact 69 P3.17 stock modules
+plus one early latch (70 early) and one synchronous late diagnostic (71
+effective); the old P3.17 diagnostic is absent. Two userspace and boot-only
+builds are byte-identical: boot `5b173b04319d`, AP `6ed48ac12d0c`. Independent
+intent, prepack, userspace, qualification, static, Process-v2 promotion, ready
+4/4 exact-copy, and noncreating rehearsal all match. The canonical ready
+manifest is 2,778 bytes, SHA-256 `4484914edbae`; candidate observation is 300
+seconds and the source-bound guard is 1,200 seconds. Focused 106/106 and common
+120/120 regressions pass.
 
-The permanent topology boundary spans Download through rollback/final health.
-Drift is `NO_PROOF_EXPERIMENT_PRECONDITION`, never selector widening. Normal
-rollback uses `rollback_bound_exact`; drift recovery parks until independently
-reviewed `recovery_rebound_exact`, which never reclassifies the experiment.
-Three same-byte path receipts remain required. The classifier now has 240
-inputs and 12 decision partitions, excludes input echoes from the partition
-digest, and tests branch/output mutations against an independent rule oracle.
-The prior `PASS_GO — S22PLUS_FYG8_P318_TOPOLOGY_TIMING_DESIGN_H0_CAPABILITY_V1`
-is withdrawn. Independent review of correction commit `4f54675d1a` returned
-`PASS_GO — S22PLUS_FYG8_P318_TOPOLOGY_TIMING_DESIGN_H0_CAPABILITY_V2` for the
-exact corrected H0 design and boundary. The component banner contract remains
-`CHANGES_REQUIRED`; producer, absolute-deadline helper, envelope, packaging,
-and live authority are absent, so P3.18 remains candidate-not-ready. Detailed report:
+Independent changed-closure review returned
+`PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V1`.
+This qualifies only the exact host-side capability. It grants no D0, D1, F1,
+recovery, replay, or live authority; fresh connected prerequisites and exact
+approval remain mandatory. Detailed report:
 `docs/reports/S22PLUS_FYG8_P317_CDC_ACM_ENDPOINT_SELECTOR_CORRECTION_H0_2026-08-14.md`.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden

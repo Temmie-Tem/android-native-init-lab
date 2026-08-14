@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-SCHEMA = "s22plus_fyg8_p318_cdc_acm_topology_drift_v3"
+SCHEMA = "s22plus_fyg8_p318_cdc_acm_topology_drift_v4"
 AUTHORITY_SCHEMA = "s22plus_fyg8_p318_topology_drift_authority_v2"
 VERDICT = "PASS_P318_P317_PHYSICAL_TOPOLOGY_DRIFT_LOCALIZATION_H0"
 TARGET = "SM-S906N/g0q/S906NKSS7FYG8"
@@ -426,7 +426,7 @@ def classify_host_timing_consistency(
     validity_mask: int,
     host_event_kind: str,
     latch_install_delta_us: int | None,
-    armed_before_gadget_exposure: bool,
+    gadget_exposure_delta_us: int | None,
     host_receipt_state: str,
     observation_complete: bool,
 ) -> dict[str, Any]:
@@ -436,24 +436,34 @@ def classify_host_timing_consistency(
         raise TransitionError("host receipt state differs")
     if not isinstance(validity_mask, int) or not 0 <= validity_mask <= 0xFF:
         raise TransitionError("timing validity mask differs")
-    if not isinstance(armed_before_gadget_exposure, bool):
-        raise TransitionError("latch arming witness differs")
     if not isinstance(observation_complete, bool):
         raise TransitionError("host receipt completeness differs")
 
     device_samples_valid = validity_mask & 0x0F == 0x0F
     event_valid = bool(validity_mask & 0x10)
     install_valid = bool(validity_mask & 0x20)
-    unknown_bits = validity_mask & ~0x3F
+    exposure_valid = bool(validity_mask & 0x40)
+    unknown_bits = validity_mask & ~0x7F
+    armed_before_gadget_exposure = False
     if unknown_bits or not device_samples_valid:
         classification = "timing_observer_contradiction"
     elif not observation_complete:
         classification = "host_receipt_incomplete"
-    elif not install_valid or latch_install_delta_us is None:
+    elif (
+        not install_valid
+        or not exposure_valid
+        or latch_install_delta_us is None
+        or gadget_exposure_delta_us is None
+    ):
         classification = "host_event_not_observable"
-    elif not isinstance(latch_install_delta_us, int):
-        raise TransitionError("latch install delta differs")
-    elif latch_install_delta_us > 0 or not armed_before_gadget_exposure:
+    elif not isinstance(latch_install_delta_us, int) or not isinstance(
+        gadget_exposure_delta_us, int
+    ):
+        raise TransitionError("latch/exposure delta differs")
+    elif not (
+        latch_install_delta_us <= gadget_exposure_delta_us <= 0
+        and latch_install_delta_us <= 0
+    ):
         classification = "host_event_not_observable"
     elif event_valid and host_event_kind == "none":
         classification = "timing_observer_contradiction"
@@ -469,8 +479,20 @@ def classify_host_timing_consistency(
         classification = "host_event_observed_without_endpoint"
     else:
         classification = "host_event_observed_consistent_with_endpoint"
+    if (
+        install_valid
+        and exposure_valid
+        and isinstance(latch_install_delta_us, int)
+        and isinstance(gadget_exposure_delta_us, int)
+    ):
+        armed_before_gadget_exposure = (
+            latch_install_delta_us <= gadget_exposure_delta_us <= 0
+            and latch_install_delta_us <= 0
+        )
     return {
         "classification": classification,
+        "armed_before_gadget_exposure": armed_before_gadget_exposure,
+        "armed_before_gadget_exposure_derived": True,
         "causal_timing_allowed": classification
         in (
             "no_host_event_observed_under_complete_latch",
@@ -499,7 +521,7 @@ def classify_candidate_evidence(
     validity_mask: int,
     host_event_kind: str,
     latch_install_delta_us: int | None,
-    armed_before_gadget_exposure: bool,
+    gadget_exposure_delta_us: int | None,
 ) -> dict[str, Any]:
     host_receipt_state = (
         "endpoint_present"
@@ -512,7 +534,7 @@ def classify_candidate_evidence(
         validity_mask=validity_mask,
         host_event_kind=host_event_kind,
         latch_install_delta_us=latch_install_delta_us,
-        armed_before_gadget_exposure=armed_before_gadget_exposure,
+        gadget_exposure_delta_us=gadget_exposure_delta_us,
         host_receipt_state=host_receipt_state,
         observation_complete=observation_complete,
     )
@@ -549,11 +571,11 @@ def classify_candidate_evidence(
 
 def audit_candidate_timing_cross_check() -> dict[str, Any]:
     rows = []
-    for mask, kind, install, armed, receipt_state, complete in itertools.product(
+    for mask, kind, install, exposure, receipt_state, complete in itertools.product(
         range(256),
         HOST_EVENT_KINDS,
         (None, -1, 1),
-        (False, True),
+        (None, -1, 1),
         HOST_RECEIPT_STATES,
         (False, True),
     ):
@@ -561,18 +583,18 @@ def audit_candidate_timing_cross_check() -> dict[str, Any]:
             validity_mask=mask,
             host_event_kind=kind,
             latch_install_delta_us=install,
-            armed_before_gadget_exposure=armed,
+            gadget_exposure_delta_us=exposure,
             host_receipt_state=receipt_state,
             observation_complete=complete,
         )
-        rows.append((mask, kind, install, armed, receipt_state, complete, row))
+        rows.append((mask, kind, install, exposure, receipt_state, complete, row))
     if any(
         row[6]["causal_timing_allowed"]
         and not (
-            row[0] in (0x2F, 0x3F)
+            row[0] in (0x6F, 0x7F)
             and row[2] is not None
-            and row[2] <= 0
-            and row[3]
+            and row[3] is not None
+            and row[2] <= row[3] <= 0
             and row[5]
         )
         for row in rows
@@ -581,11 +603,11 @@ def audit_candidate_timing_cross_check() -> dict[str, Any]:
     if any(
         row[6]["no_host_event_claim_allowed"]
         != (
-            row[0] == 0x2F
+            row[0] == 0x6F
             and row[1] == "none"
             and row[2] is not None
-            and row[2] <= 0
-            and row[3]
+            and row[3] is not None
+            and row[2] <= row[3] <= 0
             and row[4] == "endpoint_absent"
             and row[5]
         )
@@ -599,20 +621,20 @@ def audit_candidate_timing_cross_check() -> dict[str, Any]:
         authority_state="candidate_approved_exact",
         observation_complete=True,
         causal_terminal_ready=True,
-        validity_mask=0x2F,
+        validity_mask=0x6F,
         host_event_kind="none",
-        latch_install_delta_us=-1,
-        armed_before_gadget_exposure=True,
+        latch_install_delta_us=-2,
+        gadget_exposure_delta_us=-1,
     )
     absent_without_event = classify_candidate_evidence(
         relationship="absent",
         authority_state="candidate_approved_exact",
         observation_complete=True,
         causal_terminal_ready=True,
-        validity_mask=0x2F,
+        validity_mask=0x6F,
         host_event_kind="none",
-        latch_install_delta_us=-1,
-        armed_before_gadget_exposure=True,
+        latch_install_delta_us=-2,
+        gadget_exposure_delta_us=-1,
     )
     legacy_mask = classify_candidate_evidence(
         relationship="absent",
@@ -622,27 +644,27 @@ def audit_candidate_timing_cross_check() -> dict[str, Any]:
         validity_mask=0x0F,
         host_event_kind="none",
         latch_install_delta_us=None,
-        armed_before_gadget_exposure=False,
+        gadget_exposure_delta_us=None,
     )
     absent_with_event = classify_candidate_evidence(
         relationship="absent",
         authority_state="candidate_approved_exact",
         observation_complete=True,
         causal_terminal_ready=True,
-        validity_mask=0x3F,
+        validity_mask=0x7F,
         host_event_kind="reset",
-        latch_install_delta_us=-1,
-        armed_before_gadget_exposure=True,
+        latch_install_delta_us=-2,
+        gadget_exposure_delta_us=-1,
     )
     incomplete_without_event = classify_candidate_evidence(
         relationship="absent",
         authority_state="candidate_approved_exact",
         observation_complete=False,
         causal_terminal_ready=True,
-        validity_mask=0x2F,
+        validity_mask=0x6F,
         host_event_kind="none",
-        latch_install_delta_us=-1,
-        armed_before_gadget_exposure=True,
+        latch_install_delta_us=-2,
+        gadget_exposure_delta_us=-1,
     )
     if (
         present_without_event["proof_class"] != "NO_PROOF_OBSERVER"
@@ -661,11 +683,12 @@ def audit_candidate_timing_cross_check() -> dict[str, Any]:
                 for row in rows
             }
         ),
-        "endpoint_present_plus_mask_0x2f_is_contradiction": True,
-        "endpoint_absent_plus_armed_mask_0x2f_allows_no_event": True,
-        "endpoint_absent_plus_mask_0x3f_is_distinct_dwc3_event_result": True,
+        "endpoint_present_plus_mask_0x6f_is_contradiction": True,
+        "endpoint_absent_plus_derived_armed_mask_0x6f_allows_no_event": True,
+        "endpoint_absent_plus_mask_0x7f_is_distinct_dwc3_event_result": True,
         "incomplete_receipt_never_allows_no_event_claim": True,
         "legacy_mask_0x0f_is_not_observable_not_no_event": True,
+        "armed_before_gadget_exposure_is_derived_from_two_samples": True,
         "candidate_result_uses_timing_topology_wrapper": True,
     }
 
@@ -1329,7 +1352,7 @@ def build_contract(
                 "candidate_end": {
                     "same_endpoint_present": "retain_experiment_terminal_classification",
                     "same_complete_absent_causal_ready_after_timing_cross_check": (
-                        "mask_0x2f_retains_host_silent_but_mask_0x3f_retains_"
+                        "mask_0x6f_retains_host_silent_but_mask_0x7f_retains_"
                         "distinct_dwc3_host_event_no_endpoint_device_result"
                     ),
                     "drift_or_ambiguous": "NO_PROOF_EXPERIMENT_PRECONDITION_and_park",

@@ -2,7 +2,7 @@
 
 Date: 2026-08-14 KST
 Target: Samsung Galaxy S22+ FYG8 only
-Status: **H0 DESIGN PASS_GO V2; CANDIDATE-NOT-READY; NO LIVE AUTHORITY**
+Status: **H0 IMPLEMENTATION PASS_GO; PROCESS-V2 OFFLINE READY; NO LIVE AUTHORITY**
 
 ## Result first
 
@@ -91,8 +91,8 @@ Private receipt:
 
 ```text
 endpoint-transition-20260814-01.json
-size    10589
-sha256  fbaa41713b606c8d8757d59752bd4fd07ba221fdb0576b2b46265334af3dbe8a
+size    10670
+sha256  36a9b313b127c3091f6b038e2241e9c29f19db64da9ca5ce80c38c6595ac37cb
 verdict PASS_P318_P317_PHYSICAL_TOPOLOGY_DRIFT_LOCALIZATION_H0
 ```
 
@@ -186,8 +186,8 @@ Private receipt:
 
 ```text
 banner-result-contract-20260814-01.json
-size    14730
-sha256  e14efb29cfaaeee7de35452033ce3c789391befaeefe88c2002ddba277308f2d
+size    21451
+sha256  514b185317f03eb9b467fab7f37bd896be73b027756d839c630d9c5ecc5119a5
 verdict CHANGES_REQUIRED_P318_HOST_EVENT_PRODUCER_NOT_IMPLEMENTED_H0
 ```
 
@@ -271,6 +271,21 @@ sample `ktime_get_ns()` as the first actual host-caused device event. The late
 Max77705 diagnostic must use the literal same
 primitive for `pre`, `write`, `post1`, and `post2`.
 
+The raw event word is decoded by fields, never by whole-word equality. Exact
+FYG8 `core.h` binds `is_devspec`, the event-type discriminator, device-event
+type, endpoint number/event, status, parameters, and `ep0state`. Device events
+require bit 0 set, bits 1..7 equal `DWC3_EVENT_TYPE_DEV`, and bits 8..11 equal
+RESET or CONNECT_DONE. SETUP completion requires bit 0 clear, physical endpoint
+0, `DWC3_DEPEVT_XFERCOMPLETE`, and the tracepoint's pre-dispatch
+`ep0state == EP0_SETUP_PHASE`. Upper `event_info`, status, and parameter bits are ignored by
+the masked decode. Positive preimages include `0x01ff0101` and `0xabcd3040`;
+negative preimages include CARKIT/I2C device-specific words `0x07`/`0x09`,
+EP1/EP2 completion, XFERNOTREADY, and a non-SETUP EP0 state. Fixed source also
+binds SETUP reception to `dwc->eps[0]`. Once the first event is latched, the
+future callback must perform one acquire/read and return immediately; target
+filtering, decoding, clock reads, and publication belong only to the unlatchable
+path so the measurement does not add recurring endpoint-completion work.
+
 This route is selected but not implemented. The latch module must load and
 prove exact-target registration before configfs exposes the gadget; only then
 may the 69 stock early-module plan, gadget activation, and late diagnostic
@@ -278,17 +293,27 @@ sequence proceed. That changes the future package shape to one early custom
 latch plus the 69 stock early modules, followed by the inherited late
 diagnostic. Release/acquire publication must prevent a torn event kind/time.
 
-`pre` remains the zero origin, but the six samples are now latch-install,
-pre, write, post1, post2, and first host event. Five signed 32-bit microsecond
-deltas are required. Bit 5 authenticates the install sample. The only
-causal masks are `0x2f` (armed latch, no host event) and `0x3f` (armed latch,
-host event). Legacy `0x0f` means “host event not observable,” never “no host
-event.” Even `0x2f` is legal only when registration/arming preceded gadget
-exposure, latch-install is no later than pre, and the complete host receipt has
-no endpoint. Endpoint-present plus `0x2f` is an observer contradiction. The
+`gadget-exposure` is deliberately not claimed to be the configfs bind instant.
+It is a module-owned, write-once pre-UDC gate timestamp taken with
+`ktime_get_ns()`. The future runtime must read back that exact marker before
+its sole configfs UDC bind, and the existing gadget-evaluability witness must
+then prove the bind completed. Those producer and ordering seams are current
+implementation obligations, not facts proved by this design receipt; without
+them the exposure bit is unavailable and no no-event inference is legal.
+
+`pre` remains the zero origin, but the seven samples are latch-install,
+gadget-exposure, pre, write, post1, post2, and first host event. Six signed
+32-bit microsecond deltas are required. Bits 5 and 6 authenticate install and
+exposure. `armed_before_gadget_exposure` is derived from the retained
+same-clock ordering `latch_install <= gadget_exposure <= pre`; it is not an
+independent boolean input. The only causal masks are `0x6f` (armed latch, no
+host event) and `0x7f` (armed latch, host event). Legacy `0x0f` means “host
+event not observable,” never “no host event.” Even `0x6f` is legal only when
+the two order samples are valid and the complete host receipt has no endpoint.
+Endpoint-present plus `0x6f` is an observer contradiction. The
 candidate decision path must execute this timing/host-receipt cross-check
 before retaining any topology result. An incomplete receipt cannot authorize
-the no-event reading. Conversely, `0x3f` plus a complete no-endpoint receipt
+the no-event reading. Conversely, `0x7f` plus a complete no-endpoint receipt
 means the host reached DWC3 but no host endpoint survived the observation; it
 is retained separately as `DEVICE_RESULT_DWC3_HOST_EVENT_NO_ENDPOINT`, never
 collapsed into host-silent.
@@ -304,14 +329,32 @@ must bind the actual Process-v2 guard and prove it does not exceed
 
 Envelope-v3 has no generic free 44-byte region. Its fixed geometry is 128-byte
 Carrier/envelope = 48-byte metadata + 76-byte payload + 4-byte CRC. Envelope-v4
-reserves 22 payload bytes for the validity mask, host-event kind, and five
+reserves 26 payload bytes for the validity mask, host-event kind, and six
 signed deltas, plus 3 bytes for banner outcome, byte count, and error class.
-The prefix is therefore 25 bytes and the lossless PackBits poll capacity falls
-from 76 to 51 bytes. The existing 44-byte overflow summary (SHA-256 32 + OR 4
-+ poll0 4 + nonzero-count 4) occupies 69 bytes with the prefix and leaves 7
-zero-reserved bytes. Overflow remains non-causal. The 51/52-byte boundary,
-six timing samples, banner outcomes, and same-clock ordering must all
+The prefix is therefore 29 bytes and the lossless PackBits poll capacity falls
+from 76 to 47 bytes. The existing 44-byte overflow summary (SHA-256 32 + OR 4
++ poll0 4 + nonzero-count 4) occupies 73 bytes with the prefix and leaves 3
+zero-reserved bytes. Those three bytes are a lower-bound reserve: the encoder
+must write zero and the decoder must reject any nonzero value. Overflow remains
+non-causal. The 47/48-byte boundary, seven timing samples, banner outcomes, and
+same-clock ordering must all
 cross the real encoder, Carrier, and host decoder before any successor use.
+
+The actual P3.17 retained poll payload was measured before accepting this
+reduction. Both P3.17 records contain four two-byte vectors (`00 80` each), for
+8 raw bytes. Executing the existing production `packbits_encode()` yields 9
+bytes for each record and round-trips exactly, leaving 38 bytes under the
+proposed 47-byte limit. This is incident evidence, not a proof of future poll
+sizes; the 47/48 boundary and overflow path remain mandatory.
+
+Private measurement receipt:
+
+```text
+p317-poll-budget-measurement-20260814-01.json
+size    2151
+sha256  600d7a5c08918b2ee49a63d451413c21f6374c169932d517356929b892523231
+verdict PASS_P318_P317_POLL_BUDGET_MEASURED_H0
+```
 
 The one-byte banner error field now has an explicit mapping. `EAGAIN` deadline,
 `EPIPE`, and `ENODEV` are pairwise distinct; `ETIMEDOUT`, zero write, invalid
@@ -327,10 +370,10 @@ The corrected classifier has 240 input rows and 12 decision partitions after
 input echoes are removed from the partition digest. Its independent
 input-to-decision oracle is exercised by branch/output mutations rather than
 only by mutating a policy dictionary. The mask/install/event/receipt audit
-also covers 36,864 inputs and eight timing decisions, including receipt
-completeness. Corrected focused tests
-pass 46/46, the common Process-v2 regression passes 120/120, and
-both changed private receipts were regenerated from the current sources. No
+also covers 55,296 inputs and ten timing decisions, including receipt
+completeness. Current focused tests pass 52/52, the common Process-v2
+regression passes 120/120, and all three changed private receipts were
+regenerated from the current sources. No
 device command, USB open, reboot,
 Odin invocation, payload, partition transfer, candidate replay, recovery
 action, A90 action, or S20+ action occurred.
@@ -358,7 +401,7 @@ to the exhaustive cross-product, specifies a once-initialized absolute
 deadline and a total 344-row banner domain, and binds the callback ABI and
 `ep0state` through the exact `trace.h` bytes.
 
-Fresh independent review of commit `4f54675d1a` regenerated both receipts,
+Fresh independent review of commit `4f54675d1a` regenerated both then-current receipts,
 rejected the host-event/endpoint and receipt-completeness counterexamples over
 the 36,864-row audit, proved the valid 344-row banner domain plus 56 rejected
 rows, and mutation-tested the exact `trace.h` ABI. Focused 46/46, Process-v2
@@ -366,10 +409,85 @@ rows, and mutation-tested the exact `trace.h` ABI. Focused 46/46, Process-v2
 
 `PASS_GO — S22PLUS_FYG8_P318_TOPOLOGY_TIMING_DESIGN_H0_CAPABILITY_V2`
 
-P3.18 is not candidate-ready. No live selector transition is authorized, the
-new banner/timing envelope encoder/decoder has not been implemented, and no
-package or Process-v2 binding exists. The target-contract recovery-boundary
-change and design are qualified only at the exact V2 H0 closure. The component
-banner receipt deliberately remains `CHANGES_REQUIRED` until the producer,
-absolute-deadline helper, real Envelope-v4 path, and package exist. This H0
-PASS grants no D0, D1, F1, recovery, or live authority.
+That V2 verdict does not qualify the changed closure in this revision. The
+later raw-word review proved that minimal equality preimages would reject
+valid upper-bit event words, and that the independent
+`armed_before_gadget_exposure` boolean lacked a producing witness. This
+revision replaces equality with source-bound masked decoding, adds upper-bit
+positive and non-device-type negative preimages, retains gadget exposure as a
+sixth delta, derives arming from the two same-clock order samples, and records
+the real P3.17 PackBits measurement.
+
+Fresh independent changed-closure review regenerated all three current
+receipts byte-for-byte, mutation-tested the exact bitfield and EP0 layouts,
+dispatcher and physical-EP0 seams, and rejected missing-bit6 and reversed
+install/exposure order over the 55,296-row timing audit. Focused 52/52,
+Process-v2 120/120, and extended common 167/167 (one skip) passed. It returned:
+
+`PASS_GO — S22PLUS_FYG8_P318_TOPOLOGY_TIMING_DESIGN_H0_CAPABILITY_V3`
+
+V3 qualified only that exact design and receipt closure. The implementation
+below is a later changed closure and received its own independent review.
+
+## P3.18 implementation and offline-ready closure
+
+The design obligations are now implemented without changing the fixed P3.10
+Image. An early GPL module registers the exported `dwc3_event` tracepoint,
+filters the exact `a600000.dwc3` instance, decodes the source-bound raw event
+layout, and latches install plus the first RESET, CONNECT_DONE, or physical-EP0
+SETUP timestamp with `ktime_get_ns()`. Its write-once exposure gate is read back
+before the only reachable UDC bind. The late Max77705 diagnostic reads the same
+latch and clock domain for pre/write/post1/post2; causal interpretation requires
+the derived `install <= exposure <= pre` order and masks `0x6f` or `0x7f`.
+
+The banner path now executes before terminal publication under one absolute
+five-second deadline shared by EINTR, EAGAIN, and every short-write
+continuation. It retains outcome, exact byte count, and a bounded error class;
+EAGAIN deadline, EPIPE, and ENODEV remain distinct, zero writes are explicit,
+and the source-bound 49-byte banner cannot saturate its one-byte count.
+
+Envelope-v4 remains exactly 128 bytes. Its 29-byte timing/banner prefix leaves
+47 bytes for lossless poll evidence; overflow occupies 73 payload bytes and
+requires all three spare bytes to be zero. The actual C encoder, fixed Carrier,
+and P3.18 host decoder execute the 47/48 boundary, reject nonzero spare bytes,
+and round-trip every retained terminal preimage. The measured P3.17 source
+records remain 8 raw poll bytes and 9 PackBits bytes; that observation does not
+waive the boundary.
+
+The frozen overlay contains 41 `SOURCE_KEYS`. Its module plan is the exact 69
+P3.17 stock modules followed by one early DWC3 latch, then one synchronous
+late-only P3.18 diagnostic: 70 early and 71 effective. The P3.17 diagnostic is
+absent. The latch module is 412,272 bytes, SHA-256 `5dcc40b1cc5f`; the timed
+diagnostic is 303,112 bytes, SHA-256 `d7dac722a11b`. Both A/B module builds and
+both full userspace/boot-only builds are byte-identical.
+
+The final host-only closure is:
+
+- intent `fbe961959f2e`, prepack `b1aa6bfce0ea`, userspace `0d110248cf32`,
+  qualification `f7d7a7af977f`, and static `ca5c24af0aae`;
+- candidate boot `5b173b04319d`, one-member candidate AP `6ed48ac12d0c`, and
+  exact rollback AP `d2373bf88dda`;
+- Process-v2 candidate-static `ca5c24af0aae`, run manifest `8b6730ae57b6`, and
+  static check `b4fb3d27b913`;
+- canonical ready manifest 2,778 bytes, SHA-256 `4484914edbae`, with its three
+  evidence files and candidate AP copied byte-for-byte into the private ready
+  bundle; and
+- a noncreating ready rehearsal with the same manifest bytes,
+  `created=false`, 300-second candidate observation, and a source-bound
+  1,200-second guard.
+
+Focused P3.18 tests pass 106/106 and the common Process-v2 set passes 120/120.
+Python compilation and `git diff --check` pass. Independent review regenerated
+intent through ready, compared every canonical byte, exercised the actual
+gate/readback/sole-bind seam, rejected topology/evidence/runner mutations, and
+returned:
+
+`PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V1`
+
+This is an offline capability verdict only. The manifest status does not grant
+D0, D1, F1, recovery, replay, or live authority. Fresh connected prerequisites,
+clean retained baseline, current rollback/recovery evidence, attendance, and a
+fresh exact approval remain mandatory. A topology-drift
+`recovery_rebound_exact` implementation remains a separate independently
+reviewed recovery capability; the current runner parks rather than improvising
+that path.

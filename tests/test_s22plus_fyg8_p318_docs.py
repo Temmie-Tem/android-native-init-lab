@@ -38,6 +38,9 @@ class P318DocumentationTest(unittest.TestCase):
             "banner-result-contract-20260814-01.json": (
                 "CHANGES_REQUIRED_P318_HOST_EVENT_PRODUCER_NOT_IMPLEMENTED_H0"
             ),
+            "p317-poll-budget-measurement-20260814-01.json": (
+                "PASS_P318_P317_POLL_BUDGET_MEASURED_H0"
+            ),
         }
         for name, verdict in expected.items():
             payload = (PRIVATE / name).read_bytes()
@@ -47,7 +50,7 @@ class P318DocumentationTest(unittest.TestCase):
             self.assertIn(f"size    {len(payload)}", report)
             self.assertIn(f"sha256  {hashlib.sha256(payload).hexdigest()}", report)
 
-    def test_scope_is_p317_only_and_not_live_ready(self):
+    def test_scope_and_offline_ready_do_not_grant_live_authority(self):
         combined = " ".join(
             (
                 REPORT.read_text(encoding="utf-8")
@@ -57,22 +60,30 @@ class P318DocumentationTest(unittest.TestCase):
         required = (
             "For P3.17 only",
             "does not reclassify earlier campaigns",
-            "No live selector transition is authorized",
-            "P3.18 is not candidate-ready",
-            "grants no D0, D1, F1, recovery, or live authority",
+            "H0 IMPLEMENTATION PASS_GO; PROCESS-V2 OFFLINE READY; NO LIVE AUTHORITY",
+            "PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V1",
+            "grants no D0, D1, F1, recovery, replay, or live authority",
+            "Fresh connected prerequisites",
+            "41 `SOURCE_KEYS`",
+            "70 early and 71 effective",
+            "4484914edbae",
+            "6ed48ac12d0c",
             "NO_PROOF_EXPERIMENT_PRECONDITION",
             "first actual host-caused device event",
-            "lossless PackBits poll capacity falls from 76 to 51 bytes",
+            "lossless PackBits poll capacity falls from 76 to 47 bytes",
             "PASS_GO — S22PLUS_FYG8_P318_TOPOLOGY_TIMING_DESIGN_H0_CAPABILITY_V1",
             "is withdrawn",
             "PASS_GO — S22PLUS_FYG8_P318_TOPOLOGY_TIMING_DESIGN_H0_CAPABILITY_V2",
-            "component banner contract remains `CHANGES_REQUIRED`",
-            "P3.18 is not candidate-ready",
+            "PASS_GO — S22PLUS_FYG8_P318_TOPOLOGY_TIMING_DESIGN_H0_CAPABILITY_V3",
             "DEVICE_RESULT_DWC3_HOST_EVENT_NO_ENDPOINT",
-            "36,864 inputs and eight timing decisions",
+            "55,296 inputs and ten timing decisions",
             "valid terminal domain contains 344 rows",
             "`EINTR` branch loops before any clock check",
             "fixed `trace.h` callback ABI",
+            "0x01ff0101",
+            "0xabcd3040",
+            "8 raw bytes",
+            "9 bytes for each record",
         )
         for clause in required:
             self.assertIn(clause, combined)
@@ -92,11 +103,23 @@ class P318DocumentationTest(unittest.TestCase):
             "P317_PHYSICAL_TOPOLOGY_PRECONDITION_POSTCLOSE_CORRECTION | "
             "HEALTHY | NO_PROOF_EXPERIMENT_PRECONDITION | 0/0 |"
         )
+        design = (
+            "s22plus-fyg8-p318 | h0-topology-timing-review-3 | H0 | "
+            "PASS_GO_P318_TOPOLOGY_TIMING_DESIGN_H0_CAPABILITY_V3"
+        )
+        implementation = (
+            "s22plus-fyg8-p318 | h0-implementation-ready-1 | H0 | "
+            "PASS_GO_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V1"
+        )
         self.assertEqual(ledger.count(original), 1)
         self.assertEqual(ledger.count(superseded_correction), 1)
         self.assertEqual(ledger.count(correction), 1)
+        self.assertEqual(ledger.count(design), 1)
+        self.assertEqual(ledger.count(implementation), 1)
         self.assertLess(ledger.index(original), ledger.index(superseded_correction))
         self.assertLess(ledger.index(superseded_correction), ledger.index(correction))
+        self.assertLess(ledger.index(correction), ledger.index(design))
+        self.assertLess(ledger.index(design), ledger.index(implementation))
 
     def test_incident_report_carries_explicit_post_close_correction(self):
         incident = INCIDENT.read_text(encoding="utf-8")
@@ -125,6 +148,9 @@ class P318DocumentationTest(unittest.TestCase):
             ROOT
             / "workspace/public/src/scripts/revalidation/"
             "s22plus_fyg8_p318_banner_result_contract.py",
+            ROOT
+            / "workspace/public/src/scripts/revalidation/"
+            "s22plus_fyg8_p318_poll_budget_measurement.py",
         ]
         for path in tracked:
             self.assertNotIn(serial, path.read_text(encoding="utf-8"), path)
@@ -149,7 +175,12 @@ class P318DocumentationTest(unittest.TestCase):
             "a bounded, independently reviewed recovery-only path establishes "
             "`recovery_rebound_exact`",
             "`rollback_bound_exact` and `recovery_rebound_exact` are distinct authority states",
-            "A missing install sample means “host event not observable,” never “no host event,”",
+            "A missing install or exposure sample means “host event not observable,” never “no host event,”",
+            "`latch_install <= gadget_exposure <= pre`",
+            "Arming is derived from those two samples",
+            "module-owned, write-once pre-UDC gate timestamp",
+            "It is not the configfs bind time",
+            "read back that exact gate marker and only then perform its sole configfs UDC bind",
             "An incomplete or unavailable host receipt is an observer failure",
             "`DEVICE_RESULT_DWC3_HOST_EVENT_NO_ENDPOINT`, not a host-silent result",
             "the predeclared exact rollback resume",

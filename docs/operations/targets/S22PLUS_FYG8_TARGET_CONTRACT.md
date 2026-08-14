@@ -174,15 +174,27 @@ parks recovery and never changes an already retained experiment result.
 
 For a P3.18 timing successor, “no host event” is not a default value. It is
 admissible only when an exact DWC3 event latch was registered and read back as
-armed before gadget exposure, its install sample is valid and no later than
-the diagnostic `pre` sample, and the complete candidate-end host receipt has
-no endpoint. An endpoint-present receipt combined with an armed no-event mask
-is an observer contradiction. An incomplete or unavailable host receipt is an
-observer failure and can never support a no-event claim. An armed host event
-combined with a complete no-endpoint receipt is the distinct
+armed before gadget exposure, both latch-install and gadget-exposure samples
+are valid on the same monotonic clock, the retained ordering proves
+`latch_install <= gadget_exposure <= pre`, and the complete candidate-end host
+receipt has no endpoint. Arming is derived from those two samples and is never
+accepted as an independent boolean assertion. An endpoint-present receipt
+combined with an armed no-event mask is an observer contradiction. An
+incomplete or unavailable host receipt is an observer failure and can never
+support a no-event claim. An armed host event combined with a complete
+no-endpoint receipt is the distinct
 `DEVICE_RESULT_DWC3_HOST_EVENT_NO_ENDPOINT`, not a host-silent result. A
-missing install sample means “host event not observable,” never “no host
-event,” and cannot support a MUX ordering claim.
+missing install or exposure sample means “host event not observable,” never
+“no host event,” and cannot support a MUX ordering claim.
+
+The P3.18 `gadget_exposure` sample is a module-owned, write-once pre-UDC gate
+timestamp from the same `ktime_get_ns()` clock as latch installation. It is
+not the configfs bind time. A future qualified runtime must read back that
+exact gate marker and only then perform its sole configfs UDC bind; the
+existing gadget-evaluability witness must prove that bind completed. Until
+the gate producer, readback-before-bind order, and sole-bind property are
+source-bound together, the exposure sample and every derived no-event claim
+are unavailable.
 
 A drifted topology does not authorize rollback against the new path. Mandatory
 rollback remains required, but the run parks without new device effects until

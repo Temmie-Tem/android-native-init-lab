@@ -77,8 +77,39 @@ class P318BannerResultContractTest(unittest.TestCase):
                 "dwc3_event_callback_proto_source_bound"
             ]
         )
+        self.assertTrue(
+            result["host_event_source_audit"][
+                "raw_event_bitfield_layout_source_bound"
+            ]
+        )
+        self.assertTrue(
+            result["host_event_source_audit"][
+                "setup_uses_physical_ep0_source_bound"
+            ]
+        )
         self.assertFalse(
             result["host_event_source_audit"]["producer_implementation_present"]
+        )
+        producer = result["successor"]["host_event_producer"]
+        self.assertFalse(producer["implementation_present"])
+        self.assertFalse(producer["gadget_exposure_source_binding_present"])
+        self.assertFalse(producer["gadget_exposure_sample_is_actual_bind_time"])
+        self.assertIn(
+            "write-once pre-UDC gate",
+            producer["gadget_exposure_sample_producer"],
+        )
+        self.assertIn(
+            "reads back that exact marker before its only configfs UDC bind",
+            producer["gadget_exposure_qualification_obligations"],
+        )
+        ordering = result["successor"]["ordering"]
+        self.assertLess(
+            ordering.index("capture_one_shot_gadget_exposure_gate_in_latch_module"),
+            ordering.index("read_back_exposure_gate_then_bind_configfs_udc"),
+        )
+        self.assertLess(
+            ordering.index("read_back_exposure_gate_then_bind_configfs_udc"),
+            ordering.index("only_then_expose_the_gadget_to_the_host"),
         )
         self.assertFalse(result["scope"]["p318_candidate_ready"])
 
@@ -191,11 +222,11 @@ class P318BannerResultContractTest(unittest.TestCase):
             + budget["crc_size"],
             budget["envelope_size"],
         )
-        self.assertEqual(budget["v4_prefix_size"], 25)
-        self.assertEqual(budget["lossless_poll_capacity"], 51)
+        self.assertEqual(budget["v4_prefix_size"], 29)
+        self.assertEqual(budget["lossless_poll_capacity"], 47)
         self.assertEqual(budget["overflow_summary_size"], 44)
-        self.assertEqual(budget["overflow_total_size"], 69)
-        self.assertEqual(budget["overflow_spare_size"], 7)
+        self.assertEqual(budget["overflow_total_size"], 73)
+        self.assertEqual(budget["overflow_spare_size"], 3)
         self.assertGreaterEqual(
             budget["signed_delta_us_max"], budget["process_v2_guard_us"]
         )
@@ -203,7 +234,7 @@ class P318BannerResultContractTest(unittest.TestCase):
     def test_v4_budget_mutations_fail_closed(self):
         cases = (
             {"payload_size": 75},
-            {"timing_prefix_size": 21},
+            {"timing_prefix_size": 25},
             {"banner_prefix_size": 4},
             {"overflow_summary_size": 43},
         )
@@ -223,9 +254,11 @@ class P318BannerResultContractTest(unittest.TestCase):
         self.assertFalse(timing["cross_clock_synchronization_required"])
         self.assertEqual(
             timing["encoding"],
-            "pre_is_zero_origin_plus_five_signed_int32_microsecond_deltas",
+            "pre_is_zero_origin_plus_six_signed_int32_microsecond_deltas",
         )
-        self.assertEqual(timing["causal_validity_masks"], [0x2F, 0x3F])
+        self.assertEqual(timing["causal_validity_masks"], [0x6F, 0x7F])
+        self.assertEqual(timing["validity_bits"]["bit6"], "gadget_exposure")
+        self.assertIn("derived", timing["required_latch_order"])
         self.assertIn("not observable", timing["legacy_0x0f_meaning"])
         self.assertEqual(
             timing["required_device_sample_order"],
@@ -240,9 +273,58 @@ class P318BannerResultContractTest(unittest.TestCase):
 
     def test_poll_boundary_and_overflow_remain_fail_closed(self):
         poll = P318.successor_contract()["poll_evidence"]
-        self.assertEqual(poll["lossless_boundary_preimages"], [51, 52])
+        self.assertEqual(poll["lossless_boundary_preimages"], [47, 48])
         self.assertEqual(poll["overflow_summary_size"], 44)
         self.assertFalse(poll["overflow_causal_result_allowed"])
+        self.assertIn("3 spare bytes", poll["overflow_spare_policy"])
+
+    def test_raw_event_decoder_masks_upper_fields_and_rejects_other_types(self):
+        audit = P318.audit_dwc3_raw_decoder()
+        positives = {row["name"]: row["decoded"] for row in audit["positive_preimages"]}
+        negatives = {row["name"]: row["decoded"] for row in audit["negative_preimages"]}
+        self.assertEqual(positives["reset-nonzero-event-info"], "reset")
+        self.assertEqual(positives["setup-nonzero-status-parameters"], "setup")
+        self.assertIsNone(negatives["carkit-device-specific"])
+        self.assertIsNone(negatives["i2c-device-specific"])
+        self.assertIsNone(negatives["ep1-xfercomplete"])
+        self.assertIsNone(negatives["ep0-xfernotready"])
+        self.assertTrue(audit["whole_word_equality_forbidden"])
+
+    def test_raw_event_layout_and_dispatch_mutations_fail_closed(self):
+        cases = (
+            (
+                "dwc3_core_data",
+                b"u32\tevent_info:9;",
+                b"u32\tevent_info:8;",
+            ),
+            (
+                "dwc3_core_data",
+                b"u32\tparameters:16;",
+                b"u32\tparameters:15;",
+            ),
+            (
+                "dwc3_gadget_data",
+                b"else if (event->type.type == DWC3_EVENT_TYPE_DEV)",
+                b"else if (event->type.type != DWC3_EVENT_TYPE_DEV)",
+            ),
+            (
+                "dwc3_core_data",
+                b"u32\tis_devspec:1;",
+                b"u32\tinserted:1;\n\tu32\tis_devspec:1;",
+            ),
+            (
+                "dwc3_core_data",
+                b"EP0_SETUP_PHASE,",
+                b"EP0_INSERTED_PHASE,\n\tEP0_SETUP_PHASE,",
+            ),
+        )
+        for field, old, new in cases:
+            with self.subTest(field=field):
+                values = self.inputs()
+                values[field] = values[field].replace(old, new, 1)
+                self.assertNotEqual(values[field], self.inputs()[field])
+                with self.assertRaises(P318.BannerContractError):
+                    P318.build_contract(**values)
 
     def test_host_event_source_dispatch_mutation_fails(self):
         values = self.inputs()
