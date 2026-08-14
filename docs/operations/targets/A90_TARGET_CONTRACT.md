@@ -70,6 +70,91 @@ Device safety state and experiment proof are separate axes:
 verified resident boot unsafe. Conversely, a visible screen, USB notification,
 or parser PASS cannot override a device-safety failure.
 
+## A90 Validation Discipline
+
+This section binds how A90 claims about this repository and about device
+evidence are established. It grants no device authority and changes no tier.
+It exists because the dominant recorded cause of A90 ordinal loss is host-side
+observation defect, not device failure, and because every such defect entered
+the record as a confident claim.
+
+### Tree state is re-derived, never inherited
+
+A conversation summary, prior report, memory note, or earlier turn is a
+hypothesis about the tree, never evidence about it. Before asserting what an
+A90 file contains, or that a named defect is live:
+
+1. Establish the working HEAD with `git log --oneline -3`.
+2. Establish that file's own history with `git log --oneline -5 -- <path>`.
+   An empty `git diff HEAD` proves the worktree matches HEAD; it does not
+   prove HEAD is the generation being reasoned about.
+3. Re-read the current bytes and quote that fresh output, with line numbers,
+   inside the claim.
+4. Read the consumer, not only the declaration. An emitted marker, constant,
+   or manifest string is a claim about intent; only its reader proves behavior.
+
+Establish the current generation before reasoning about design: `GOAL_A90.md`
+`## Exact Current State`, the builder `versions/` listing, and
+`git log -- GOAL_A90.md`. A line-number citation whose source was not
+re-derived is not a finding, and a defect list carried forward from an earlier
+generation is not a work item until step 3 passes.
+
+### Instrument failure and device failure are separate terminals
+
+Classify every failed proof by what actually failed before assigning a verdict.
+
+| Failure | Terminal | Ordinal effect |
+|---|---|---|
+| Device reported state contradicting health | `REFUTED` | Consumed; never replayed |
+| Host could not reach, parse, or decide | `NO_PROOF_OBSERVER` | Freezes new device effects; does not close the campaign |
+
+Only device-attributable evidence may burn an ordinal or force a no-replay
+conclusion. A missing, late, or malformed observation enters health
+classification and stops that host invocation; passive reads, host-only
+observer repair, and the exact predeclared recovery may continue.
+If an observer defect and a device-attributable contradiction coexist, the
+device contradiction wins; the observer defect must not downgrade it to
+`NO_PROOF_OBSERVER`. When attribution remains unresolved,
+`NO_PROOF_OBSERVER` freezes every new non-recovery device effect and never
+permits candidate replay; only passive reads, H0 observer repair, or the exact
+journal-bound recovery allowed by the higher-precedence contract may continue
+until exact resident health or the recovery terminal is established.
+
+Observation is not attribution. A responding port, a written marker, a visible
+screen, or an exposed endpoint proves only that the observation occurred. The
+process, root, namespace, and identity that produced it must be bound
+separately by same-intent evidence. A marker emitted before the effect it names
+— including a stage marker logged ahead of its own syscall — is not proof that
+the effect occurred.
+
+`unproved` is never promoted to either `PROVED` or `REFUTED`. Absence of
+evidence for a capability is not evidence that the capability failed, and
+absence of evidence for a failure is not evidence of success. State the scope
+actually searched inside the claim.
+
+### Validator changes follow a fixed taxonomy
+
+A failing validator is repaired by class, never by loosening whatever rejected.
+
+| Class | Symptom | Required repair |
+|---|---|---|
+| Shape | Rejects a cosmetic form the device never promised | Relax. Permissive about shape. |
+| Substance | Accepts a record carrying no health assertion | Tighten. Strict about state. |
+| Drift | Producer changed, paired consumer did not | Replace both with one generated source; do not hand-maintain two encodings of one fact |
+| Binding | An exact per-generation identity no longer matches | Extend to the new generation exactly; never widen, alias, or make optional |
+| Budget | A declared bound aborts a healthy run | Re-derive from measurement or from the bounded implementation; a policy allowance is not an upper bound |
+
+`Shape` is inapplicable to any field whose equality, presence or absence,
+hash, version/build, target, ordinal, process/namespace identity, or health
+value is part of a binding or predicate. A formatting difference affecting
+one of those fields is `Binding` or `Substance`, not a reason to relax.
+
+Every validator assertion carries adversarial fixtures: one record that must
+pass, and one that must fail for the stated reason. A validator whose only
+tests are happy-path is not qualified. Where a producer and a consumer encode
+the same fact, they are bound in one reviewed artifact and the built binary is
+checked against the pinned strings.
+
 ## A90 H0
 
 H0 includes source/build work, rootfs and boot-image inspection, deterministic
