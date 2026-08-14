@@ -6,6 +6,7 @@ import copy
 import json
 from pathlib import Path
 import shutil
+import subprocess
 import tempfile
 import unittest
 
@@ -158,8 +159,12 @@ class IsolatedDebianManifestTests(unittest.TestCase):
             with self.subTest(name=name):
                 with self.assertRaises(RECIPE.ContentError):
                     RECIPE.validate_dropbear(bad)
+        # Address the port by value, not by index: removing -a shifted every
+        # position after it, and an index-based edit silently started testing
+        # a different token than the one this case is named for.
         bad = copy.deepcopy(self.value)
-        bad["dropbear"]["argv"][9] = "22"
+        argv = bad["dropbear"]["argv"]
+        argv[argv.index("-p") + 1] = "22"
         with self.assertRaises(RECIPE.ContentError):
             RECIPE.validate_dropbear(bad)
 
@@ -285,6 +290,71 @@ class IsolatedDebianManifestTests(unittest.TestCase):
             self.assertTrue((output / "content.tar").is_file())
             self.assertFalse((rootfs / "root/.ssh/authorized_keys").exists())
             self.assertFalse((rootfs / "usr/bin/ip").exists())
+
+
+class DropbearArgvSemanticsTests(unittest.TestCase):
+    """A bound flag whose case label was compiled out is fatal, not ignored.
+
+    Dropbear's option parser ends in a default branch that prints usage and
+    calls exit(EXIT_FAILURE). Feature removal deletes case labels, and only
+    some of them have an ignore-the-flag #else. `-a` had none, so the
+    originally bound argv would have stopped the server from ever starting
+    while every other health signal looked normal.
+    """
+
+    def setUp(self) -> None:
+        self.value = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        self.dropbear = self.value["dropbear"]
+
+    def test_every_bound_flag_has_derived_semantics(self) -> None:
+        semantics = self.dropbear["argv_semantics"]["flags"]
+        argv = self.dropbear["argv"]
+        flags = [token for token in argv[1:] if token.startswith("-")]
+        self.assertEqual(sorted(flags), sorted(semantics))
+        for flag, record in semantics.items():
+            self.assertTrue(record["present_in_this_build"], flag)
+            self.assertTrue(record["effect"], flag)
+
+    def test_flags_whose_case_label_is_removed_are_rejected(self) -> None:
+        rejected = self.dropbear["argv_semantics"]["rejected"]
+        self.assertIn("-a", rejected)
+        for flag, record in rejected.items():
+            self.assertNotIn(flag, self.dropbear["argv"])
+            self.assertFalse(record["present_in_this_build"], flag)
+
+    def test_a_flag_may_not_be_reintroduced_without_its_case_label(self) -> None:
+        bad = copy.deepcopy(self.value)
+        bad["dropbear"]["argv"].insert(7, "-a")
+        with self.assertRaises(RECIPE.ContentError):
+            RECIPE.validate_dropbear(bad["dropbear"])
+
+    def test_bound_argv_is_accepted_by_the_built_binary(self) -> None:
+        """Executed against the real binary when a private build is present.
+
+        Reading the parser proves what the source says; only running it proves
+        what this build does.
+        """
+        built = (
+            RECIPE.PRIVATE_ROOT
+            / "outputs/a90-isolated-debian-content-v2/dropbear-build/dropbear"
+        )
+        if not built.is_file():
+            self.skipTest("no private Dropbear build present")
+        if shutil.which("qemu-aarch64") is None:
+            self.skipTest("qemu-aarch64 is unavailable")
+        argv = list(self.dropbear["argv"][1:])
+        argv[argv.index("-r") + 1] = "/nonexistent-host-key"
+        completed = subprocess.run(
+            ["qemu-aarch64", str(built), *argv],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        output = completed.stdout + completed.stderr
+        self.assertNotIn("Invalid option", output)
+        self.assertNotIn("Usage:", output)
+        # Reaching host-key loading proves the whole option sequence parsed.
+        self.assertIn("hostkey", output.lower())
 
 
 if __name__ == "__main__":

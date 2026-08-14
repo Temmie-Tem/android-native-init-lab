@@ -135,16 +135,47 @@ previous validation could reach neither path:
 With both repaired, three consecutive builds produce an identical manifest and
 an identical `content.tar`.
 
-## Deferred requirements
+## Launch argv: a bound flag that would have stopped the server
 
-The Dropbear launch argv is bound as an exact token sequence, but each flag's
-meaning is not yet bound against the selected version. The design accepts a
-runtime option only after its exact selected-version source, help, and parser
-semantics are independently bound. The bound sequence includes `-a` alongside
-the `-j` and `-k` forwarding denials, and that combination is not justified
-from source here. The per-flag semantics table is deferred to the same unit
-that supplies the pinned source; any flag whose effect is not required by the
-session contract is then rejected or replaced.
+With the source present, each flag was derived from `src/svr-runopts.c` and the
+result retired the argv-semantics deferral. It also found a blocking defect.
+
+The parser's default branch prints `Invalid option -%c`, prints usage, and
+calls `exit(EXIT_FAILURE)`. Feature removal deletes case labels, and only some
+of them leave an ignore-the-flag `#else`:
+
+- `-j` sits in `#if DROPBEAR_SVR_LOCALANYFWD` with an `#else` that accepts and
+  ignores it, and `-k` likewise in `#if DROPBEAR_SVR_REMOTEANYFWD`. With those
+  features removed the flags are harmless no-ops.
+- `-s` sits in `#if DROPBEAR_SVR_PASSWORD_AUTH || DROPBEAR_SVR_PAM_AUTH`, also
+  with an ignoring `#else`.
+- `-a` sits in `#if DROPBEAR_SVR_REMOTETCPFWD` **with no `#else`**. This build
+  removes that feature, so `case 'a'` does not exist and the flag reaches the
+  default branch.
+
+The previously bound argv therefore could not start the server. Running the
+built binary confirms it: with `-a` it prints `Invalid option -a` and exits 1;
+without `-a` the same sequence parses and proceeds to host-key loading. On
+device this would have presented as a healthy handoff with no SSH, and it
+would have consumed an ordinal to learn.
+
+`-a` is removed from the bound argv and recorded under
+`dropbear.argv_semantics.rejected` with its effect, guard, consequence, and the
+verification. The retained flags carry their derived effect, guard, and whether
+they are required. Four of them — `-s`, `-w`, `-j`, `-k` — are marked
+`redundant_with_compile_time_removal`: the features they disable are already
+gone from the binary. They are kept as defence in depth, but redundancy with a
+compile-time removal is exactly the condition that produced this defect, so the
+table records it explicitly. `-E` is flagged separately: its case label is
+guarded by `#ifndef DISABLE_SYSLOG`, which this build does not define, so a
+future build that does would make `-E` fatal in the same way.
+
+Tests now assert that every bound flag has derived semantics, that every
+rejected flag is absent from the argv, that reintroducing `-a` fails
+validation, and — when a private build is present — that the bound argv is
+accepted by the actual binary under `qemu-aarch64`.
+
+## Deferred requirements
 
 The seccomp positive syscall/argument allowlist, capability minimum set, and
 `/proc` scalar allowlist are also deferred. The intended successor method is

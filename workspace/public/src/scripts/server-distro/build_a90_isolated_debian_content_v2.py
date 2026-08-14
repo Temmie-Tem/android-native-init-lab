@@ -461,7 +461,11 @@ def validate_dropbear(manifest: dict[str, Any]) -> None:
             "-w",
             "-j",
             "-k",
-            "-a",
+            # No -a. Its case label lives inside #if DROPBEAR_SVR_REMOTETCPFWD,
+            # which this build disables, and unlike -j and -k it has no
+            # ignore-the-flag #else. An unknown option reaches the parser's
+            # default branch, which prints usage and exit(EXIT_FAILURE), so the
+            # server would never start. Verified against the built binary.
             "-p",
             "2222",
             "-r",

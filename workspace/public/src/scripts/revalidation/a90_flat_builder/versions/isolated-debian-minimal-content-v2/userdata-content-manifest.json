@@ -157,11 +157,6 @@
   "candidate_eligible": false,
   "deferred": [
     {
-      "item": "dropbear-argv-flag-semantics",
-      "reason": "The launch argv is bound as an exact token sequence, but each flag's meaning is not yet bound against the selected Dropbear version. The design requires that a runtime option is accepted only after its exact selected-version source/help/parser semantics are independently bound. The bound sequence includes -a alongside the -j and -k forwarding denials, and that combination is not yet justified from source.",
-      "successor_method": "After the private pinned Dropbear source arrives, derive each flag's meaning from that exact version's option parser, record a per-flag semantics table beside the argv, and reject or replace any flag whose effect is not required by the session contract."
-    },
-    {
       "item": "seccomp-positive-syscall-argument-allowlist",
       "reason": "It derives from the exact PID-1, Dropbear, dispatcher, and workload service trace, which is not available until the deferred Dropbear build and all binaries are materialized.",
       "successor_method": "Run qemu-aarch64 user-mode tracing after the binaries are built; treat the output as a candidate superset and later perform on-device negative testing."
@@ -187,12 +182,84 @@
       "-w",
       "-j",
       "-k",
-      "-a",
       "-p",
       "2222",
       "-r",
       "/etc/dropbear/dropbear_ed25519_host_key"
     ],
+    "argv_semantics": {
+      "derived_from": "dropbear-2026.94 src/svr-runopts.c option parser",
+      "flags": {
+        "-E": {
+          "effect": "opts.usingsyslog = 0; do not log to syslog",
+          "guard": "#ifndef DISABLE_SYSLOG",
+          "note": "the case label disappears if a future build defines DISABLE_SYSLOG, which would make this flag fatal in the same way -a was",
+          "present_in_this_build": true,
+          "redundant_with_compile_time_removal": false,
+          "required": true
+        },
+        "-F": {
+          "effect": "svr_opts.forkbg = 0; stay in the foreground",
+          "guard": null,
+          "present_in_this_build": true,
+          "redundant_with_compile_time_removal": false,
+          "required": true
+        },
+        "-j": {
+          "effect": "svr_opts.nolocaltcp = 1; refuse local port forwarding",
+          "guard": "#if DROPBEAR_SVR_LOCALANYFWD, with an #else that ignores the flag",
+          "present_in_this_build": true,
+          "redundant_with_compile_time_removal": true,
+          "required": false
+        },
+        "-k": {
+          "effect": "svr_opts.noremotefwd = 1; refuse remote port forwarding",
+          "guard": "#if DROPBEAR_SVR_REMOTEANYFWD, with an #else that ignores the flag",
+          "present_in_this_build": true,
+          "redundant_with_compile_time_removal": true,
+          "required": false
+        },
+        "-p": {
+          "effect": "the next token is the listen port",
+          "guard": null,
+          "present_in_this_build": true,
+          "redundant_with_compile_time_removal": false,
+          "required": true
+        },
+        "-r": {
+          "effect": "the next token is the host key file",
+          "guard": null,
+          "present_in_this_build": true,
+          "redundant_with_compile_time_removal": false,
+          "required": true
+        },
+        "-s": {
+          "effect": "svr_opts.noauthpass = 1; refuse password authentication",
+          "guard": "#if DROPBEAR_SVR_PASSWORD_AUTH || DROPBEAR_SVR_PAM_AUTH, with an #else that accepts and ignores the flag",
+          "present_in_this_build": true,
+          "redundant_with_compile_time_removal": true,
+          "required": false
+        },
+        "-w": {
+          "effect": "svr_opts.norootlogin = 1; refuse root login",
+          "guard": null,
+          "present_in_this_build": true,
+          "redundant_with_compile_time_removal": true,
+          "required": false
+        }
+      },
+      "rejected": {
+        "-a": {
+          "consequence": "reaches the parser default branch and exits EXIT_FAILURE, so the server never starts",
+          "effect_when_present": "opts.listen_fwd_all = 1; allow connections to forwarded ports from any host",
+          "guard": "#if DROPBEAR_SVR_REMOTETCPFWD, with no #else",
+          "present_in_this_build": false,
+          "verified": "running the built binary with the previously bound argv prints 'Invalid option -a' and exits 1; the same argv without -a parses and proceeds to host key loading"
+        }
+      },
+      "unknown_option_behaviour": "the parser default branch prints \"Invalid option -%c\", prints usage, and calls exit(EXIT_FAILURE); an option whose case label is compiled out is therefore fatal at startup, not ignored",
+      "verification": "each effect read from the selected version's parser; the accepted sequence was executed against the built aarch64 binary under qemu-aarch64"
+    },
     "binary_sha256": "8466c0837f81aefdd34535bf946ebb3ebb9dc6b9de82fb0d02cbba511c15183d",
     "binary_state": "materialized-private-not-authorized",
     "build": {
