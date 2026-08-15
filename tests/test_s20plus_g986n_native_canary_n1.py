@@ -22,10 +22,10 @@ SPEC = importlib.util.spec_from_file_location("s20plus_n1_builder_tested", SCRIP
 assert SPEC is not None and SPEC.loader is not None
 BUILDER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(BUILDER)
-EXPECTED_CANARY_SOURCE_SHA256 = "e611310eadf992bb1050fd5e35f236d3523e5c04693fd9e2beede1173766791b"
-EXPECTED_BUILDER_SOURCE_SHA256 = "2046fc81a3cd71b2f9390cf29387e75b7ede9c0195eb2b30739b87a16c80175f"
-EXPECTED_BINARY_SHA256 = "f5ebd70951827f831b2b11bb6eb012e150ef5a198444cc335e15016627e9536c"
-EXPECTED_MODULE_ZIP_SHA256 = "207c91293714a22460441c10b9b126530328ce0f2e2f384e8584a85663218e79"
+EXPECTED_CANARY_SOURCE_SHA256 = "31a4413f5d1d320d81ddb8720ff2f0303fb5198cd14a746af4c6cbe47bed3f2e"
+EXPECTED_BUILDER_SOURCE_SHA256 = "bcbbc60052631d810ffa3f866e7077fdbc394f161c701d00f17d9c1a3166c0cc"
+EXPECTED_BINARY_SHA256 = "38e14e6f54374fc98604bdd61e50922ce9bff1c96feae7572221be548902066c"
+EXPECTED_MODULE_ZIP_SHA256 = "e06c88c3a1c029658160b974bc5938acc1f89ab68ea9a7d7d7169d5bd51525a2"
 
 
 class S20PlusNativeCanaryN1Tests(unittest.TestCase):
@@ -48,14 +48,43 @@ class S20PlusNativeCanaryN1Tests(unittest.TestCase):
             run_nonce="0123456789abcdef0123456789abcdef",
             pre_boot_id_sha256="0" * 64,
         )
+        cls.intent_fault_cases: dict[str, tuple[Path, bytes]] = {}
+        for index, fault in enumerate(
+            ("intent-after-create", "intent-before-fsync", "intent-close-failure")
+        ):
+            fault_binary = cls.class_root / f"s20plus_native_canary_{fault}"
+            BUILDER.compile_canary(
+                fault_binary,
+                host_test=True,
+                host_fault=fault,
+            )
+            fault_receipt = {
+                "size": fault_binary.stat().st_size,
+                "sha256": hashlib.sha256(fault_binary.read_bytes()).hexdigest(),
+            }
+            binding = BUILDER.render_binding(
+                {
+                    "binary": fault_receipt,
+                    "module_zip": {"size": 1, "sha256": "1" * 64},
+                },
+                run_nonce=f"{index + 1:032x}",
+                pre_boot_id_sha256="0" * 64,
+            )
+            cls.intent_fault_cases[fault] = (fault_binary, binding)
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls._class_temp.cleanup()
 
-    def run_canary(self, state: Path) -> subprocess.CompletedProcess[bytes]:
+    def run_canary(
+        self, state: Path, binary: Path | None = None
+    ) -> subprocess.CompletedProcess[bytes]:
         return subprocess.run(
-            ["/usr/bin/qemu-aarch64", str(self.host_binary), str(state)],
+            [
+                "/usr/bin/qemu-aarch64",
+                str(self.host_binary if binary is None else binary),
+                str(state),
+            ],
             check=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -140,28 +169,48 @@ class S20PlusNativeCanaryN1Tests(unittest.TestCase):
                     self.assertEqual(info.date_time, (1980, 1, 1, 0, 0, 0))
             self.assertTrue(result["module_zip_audit"]["exact_four_regular_members"])
 
-    def test_zip_audit_rejects_extra_symlink_and_wrong_mode(self) -> None:
+    def test_zip_audit_rejects_noncanonical_metadata_and_trailing_bytes(self) -> None:
         binary = self.host_binary.read_bytes()
-        cases = ("extra", "symlink", "wrong-mode")
+        cases = (
+            "extra", "symlink", "wrong-mode", "archive-comment",
+            "entry-extra", "entry-comment", "trailing-bytes",
+        )
         for label in cases:
             with self.subTest(label=label), tempfile.TemporaryDirectory(prefix="s20plus-n1-badzip-") as temp:
                 archive_path = Path(temp) / "bad.zip"
-                with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_STORED) as archive:
-                    for name in BUILDER.MODULE_FILES:
-                        info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
-                        info.create_system = 3
-                        mode = stat.S_IFREG | BUILDER.MODULE_MODES[name]
-                        if label == "symlink" and name == "service.sh":
-                            mode = stat.S_IFLNK | 0o777
-                        if label == "wrong-mode" and name == "service.sh":
-                            mode = stat.S_IFREG | 0o777
-                        info.external_attr = mode << 16
-                        archive.writestr(info, BUILDER.module_contents(binary)[name])
-                    if label == "extra":
-                        info = zipfile.ZipInfo("extra", date_time=(1980, 1, 1, 0, 0, 0))
-                        info.create_system = 3
-                        info.external_attr = (stat.S_IFREG | 0o644) << 16
-                        archive.writestr(info, b"extra")
+                if label == "trailing-bytes":
+                    archive_path.write_bytes(BUILDER.module_zip_bytes(binary) + b"tail")
+                else:
+                    with zipfile.ZipFile(
+                        archive_path, "w", compression=zipfile.ZIP_STORED
+                    ) as archive:
+                        for name in BUILDER.MODULE_FILES:
+                            info = zipfile.ZipInfo(
+                                name, date_time=(1980, 1, 1, 0, 0, 0)
+                            )
+                            info.create_system = 3
+                            mode = stat.S_IFREG | BUILDER.MODULE_MODES[name]
+                            if label == "symlink" and name == "service.sh":
+                                mode = stat.S_IFLNK | 0o777
+                            if label == "wrong-mode" and name == "service.sh":
+                                mode = stat.S_IFREG | 0o777
+                            if label == "entry-extra" and name == "service.sh":
+                                info.extra = b"\x0a\x00\x00\x00"
+                            if label == "entry-comment" and name == "service.sh":
+                                info.comment = b"comment"
+                            info.external_attr = mode << 16
+                            archive.writestr(
+                                info, BUILDER.module_contents(binary)[name]
+                            )
+                        if label == "extra":
+                            info = zipfile.ZipInfo(
+                                "extra", date_time=(1980, 1, 1, 0, 0, 0)
+                            )
+                            info.create_system = 3
+                            info.external_attr = (stat.S_IFREG | 0o644) << 16
+                            archive.writestr(info, b"extra")
+                        if label == "archive-comment":
+                            archive.comment = b"comment"
                 with self.assertRaises(BUILDER.BuildError):
                     BUILDER.audit_module_zip(archive_path, binary)
 
@@ -237,6 +286,114 @@ class S20PlusNativeCanaryN1Tests(unittest.TestCase):
             self.assertEqual((state / "intent.json").read_bytes(), intent_bytes)
             self.assertEqual((state / "result.json").read_bytes(), result_bytes)
             self.assertFalse((state / ".result.pending").exists())
+
+    def test_completed_journal_rejects_every_mutated_result_without_replay(self) -> None:
+        mutators = {
+            "wrong-schema": lambda value: value.replace(
+                b"s20plus_native_canary_n1_result_v1", b"forged_result_schema_0000000000000000"
+            ),
+            "wrong-model": lambda value: value.replace(b"SM-G986N", b"SM-G999N"),
+            "wrong-device": lambda value: value.replace(b'"y2q"', b'"g0q"', 1),
+            "wrong-product": lambda value: value.replace(
+                b'"y2qksx"', b'"g0qksx"', 1
+            ),
+            "wrong-incremental": lambda value: value.replace(
+                b"G986NKSS8IYC2", b"G986NKSS8FORGED"
+            ),
+            "extra-key": lambda value: value.replace(
+                b"\"replay_permitted\":false}\n",
+                b"\"replay_permitted\":false,\"extra\":0}\n",
+            ),
+            "duplicate-key": lambda value: value.replace(
+                b"\"target_device\":\"y2q\",",
+                b"\"target_device\":\"y2q\",\"target_device\":\"y2q\",",
+            ),
+            "replay-true": lambda value: value.replace(
+                b"\"replay_permitted\":false", b"\"replay_permitted\":true"
+            ),
+            "wrong-self": lambda value: value.replace(
+                self.host_binary_receipt["sha256"].encode(), b"2" * 64
+            ),
+            "unchanged-boot": lambda value: value.replace(
+                json.loads(value)["boot_id_sha256"].encode(), b"0" * 64
+            ),
+            "boolean-uid": lambda value: value.replace(
+                f'\"uid\":{os.getuid()}'.encode(), b'\"uid\":true'
+            ),
+            "negative-pid": lambda value: value.replace(b'\"pid\":', b'\"pid\":-'),
+            "bad-capability": lambda value: value.replace(
+                json.loads(value)["cap_eff"].encode(), b"g" * 16, 1
+            ),
+            "bad-namespace": lambda value: value.replace(
+                json.loads(value)["mnt_ns"].encode(), b"mnt:[0]", 1
+            ),
+            "backslash-nul": lambda value: value.replace(
+                json.loads(value)["selinux_context"].encode(), b"x\\\x00", 1
+            ),
+            "noncanonical-slash-escape": lambda value: value.replace(
+                json.loads(value)["selinux_context"].encode(), b"x\\/", 1
+            ),
+            "noncanonical-unicode-printable": lambda value: value.replace(
+                json.loads(value)["selinux_context"].encode(), b"\\u0041", 1
+            ),
+            "trailing-bytes": lambda value: value + b"forged",
+        }
+        for label, mutate in mutators.items():
+            with self.subTest(label=label), tempfile.TemporaryDirectory(
+                prefix="s20plus-n1-result-mutation-"
+            ) as temp:
+                state = self.make_state(Path(temp))
+                self.assertEqual(self.run_canary(state).returncode, 0)
+                result_path = state / "result.json"
+                original = result_path.read_bytes()
+                mutated = mutate(original)
+                self.assertNotEqual(mutated, original)
+                result_path.write_bytes(mutated)
+                before = self.node_snapshot(state)
+                completed = self.run_canary(state)
+                self.assertEqual(completed.returncode, 20)
+                self.assertEqual(self.node_snapshot(state), before)
+
+    def test_completed_journal_requires_exact_intent_without_replay(self) -> None:
+        mutators = {
+            "wrong-schema": lambda value: value.replace(
+                b"s20plus_native_canary_n1_intent_v1", b"forged_native_canary_intent_schema"
+            ),
+            "extra-key": lambda value: value.replace(b"}\n", b',"extra":0}\n'),
+            "replay-true": lambda value: value.replace(b"false", b"true"),
+        }
+        for label, mutate in mutators.items():
+            with self.subTest(label=label), tempfile.TemporaryDirectory(
+                prefix="s20plus-n1-intent-mutation-"
+            ) as temp:
+                state = self.make_state(Path(temp))
+                self.assertEqual(self.run_canary(state).returncode, 0)
+                intent_path = state / "intent.json"
+                original = intent_path.read_bytes()
+                mutated = mutate(original)
+                self.assertNotEqual(mutated, original)
+                intent_path.write_bytes(mutated)
+                before = self.node_snapshot(state)
+                completed = self.run_canary(state)
+                self.assertEqual(completed.returncode, 20)
+                self.assertEqual(self.node_snapshot(state), before)
+
+    def test_intent_publish_failures_consume_run_and_cannot_replay(self) -> None:
+        for label, (binary, binding) in self.intent_fault_cases.items():
+            with self.subTest(label=label), tempfile.TemporaryDirectory(
+                prefix="s20plus-n1-intent-fault-"
+            ) as temp:
+                state = self.make_state(Path(temp), binding)
+                first = self.run_canary(state, binary)
+                self.assertEqual(first.returncode, 23)
+                self.assertEqual(
+                    {path.name for path in state.iterdir()},
+                    {"binding.txt", "intent.json"},
+                )
+                before = self.node_snapshot(state)
+                second = self.run_canary(state, binary)
+                self.assertEqual(second.returncode, 20)
+                self.assertEqual(self.node_snapshot(state), before)
 
     def test_rejects_malformed_stale_and_oversized_binding_without_effect(self) -> None:
         boot_id = Path("/proc/sys/kernel/random/boot_id").read_text().strip().encode()
@@ -378,14 +535,26 @@ class S20PlusNativeCanaryN1Tests(unittest.TestCase):
             / "docs/plans/"
             "S20PLUS_G986N_NATIVE_CANARY_ROOT_DATA_TRANSACTION_DRAFT_2026-08-15.md"
         ).read_text()
+        phased = (
+            ROOT
+            / "docs/plans/"
+            "S20PLUS_G986N_NATIVE_INIT_PHASED_DESIGN_2026-08-15.md"
+        ).read_text()
         for document in (goal, report):
             self.assertIn(EXPECTED_CANARY_SOURCE_SHA256, document)
             self.assertIn(EXPECTED_BUILDER_SOURCE_SHA256, document)
             self.assertIn(EXPECTED_BINARY_SHA256, document)
             self.assertIn(EXPECTED_MODULE_ZIP_SHA256, document)
         self.assertIn("NOT BINDING - NOT ACTIVE - NO DEVICE AUTHORITY", draft)
+        self.assertIn("Neither routine shared-storage staging", draft)
+        self.assertIn("This branch is not currently executable", draft)
+        self.assertIn("Bootstrap and resident-F1 recovery authority", draft)
+        self.assertIn("durable pre-bound handoff", draft)
         self.assertIn("LIVE CAPABILITY NOT ACTIVE", report)
-        self.assertIn("INDEPENDENT REVIEW PENDING", report)
+        self.assertIn("INDEPENDENT REVIEW PASS_GO", report)
+        self.assertIn("received independent `PASS_GO`", draft)
+        self.assertIn("REVIEW PASS_GO; NOT ACTIVE; NO DEVICE AUTHORITY", phased)
+        self.assertNotIn("REVIEW PENDING", phased)
         self.assertNotIn(
             "S20PLUS_NATIVE_CANARY_ROOT_DATA_V1",
             (ROOT / "AGENTS.md").read_text(),

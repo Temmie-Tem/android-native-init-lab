@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import os
 import re
-import shutil
 import stat
 import subprocess
 import sys
@@ -102,7 +102,9 @@ def direct_regular(path: Path, label: str) -> os.stat_result:
     return st
 
 
-def receipt(path: Path, label: str) -> dict[str, Any]:
+def read_regular_bytes(
+    path: Path, label: str, *, maximum: int = 64 * 1024 * 1024
+) -> bytes:
     st = direct_regular(path, label)
     fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
     try:
@@ -113,7 +115,7 @@ def receipt(path: Path, label: str) -> dict[str, Any]:
             or before.st_nlink != 1
             or not stat.S_ISREG(before.st_mode)
             or before.st_size < 0
-            or before.st_size > 64 * 1024 * 1024
+            or before.st_size > maximum
         ):
             raise BuildError(f"{label} changed before it was read")
         chunks: list[bytes] = []
@@ -138,11 +140,42 @@ def receipt(path: Path, label: str) -> dict[str, Any]:
         or after.st_ctime_ns != before.st_ctime_ns
     ):
         raise BuildError(f"{label} changed while it was read")
-    data = b"".join(chunks)
+    return b"".join(chunks)
+
+
+def receipt(path: Path, label: str) -> dict[str, Any]:
+    data = read_regular_bytes(path, label)
     return {
         "size": len(data),
         "sha256": sha256_bytes(data),
     }
+
+
+def publish_bytes_no_clobber(path: Path, data: bytes, mode: int) -> None:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW
+    try:
+        fd = os.open(path, flags, 0o600)
+    except OSError as exc:
+        raise BuildError(f"refusing to clobber published path {path}: {exc}") from exc
+    try:
+        os.fchmod(fd, mode)
+        written = 0
+        while written < len(data):
+            amount = os.write(fd, data[written:])
+            if amount <= 0:
+                raise OSError("short write while publishing exact bytes")
+            written += amount
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def fsync_directory(path: Path) -> None:
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
 
 
 def tool_receipts() -> dict[str, Any]:
@@ -245,7 +278,9 @@ def run_checked(command: list[str], *, timeout: int = 60) -> bytes:
     return completed.stdout
 
 
-def compile_canary(output: Path, *, host_test: bool = False) -> dict[str, Any]:
+def compile_canary(
+    output: Path, *, host_test: bool = False, host_fault: str | None = None
+) -> dict[str, Any]:
     direct_regular(SOURCE, "canary source")
     output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists() or output.is_symlink():
@@ -253,6 +288,17 @@ def compile_canary(output: Path, *, host_test: bool = False) -> dict[str, Any]:
     command = [str(TOOLS["cc"]), *COMPILE_FLAGS]
     if host_test:
         command.append("-DS20PLUS_CANARY_HOST_TEST=1")
+    if host_fault is not None:
+        fault_stages = {
+            "intent-after-create": 1,
+            "intent-before-fsync": 2,
+            "intent-close-failure": 3,
+        }
+        if not host_test or host_fault not in fault_stages:
+            raise BuildError("unknown or non-host canary fault injection")
+        command.append(
+            f"-DS20PLUS_CANARY_HOST_TEST_INTENT_FAULT_STAGE={fault_stages[host_fault]}"
+        )
     command.extend(["-o", str(output), str(SOURCE)])
     run_checked(command)
     run_checked([str(TOOLS["strip"]), "--strip-all", str(output)])
@@ -340,25 +386,39 @@ def module_contents(binary: bytes) -> dict[str, bytes]:
     }
 
 
-def write_module_zip(path: Path, binary: bytes) -> None:
-    if path.exists() or path.is_symlink():
-        raise BuildError("module ZIP already exists")
+def module_zip_bytes(binary: bytes) -> bytes:
     contents = module_contents(binary)
-    with zipfile.ZipFile(path, "x", compression=zipfile.ZIP_STORED) as archive:
+    output = io.BytesIO()
+    with zipfile.ZipFile(
+        output, "w", compression=zipfile.ZIP_STORED, allowZip64=False
+    ) as archive:
         for name in MODULE_FILES:
             info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
             info.compress_type = zipfile.ZIP_STORED
             info.create_system = 3
             info.external_attr = (stat.S_IFREG | MODULE_MODES[name]) << 16
             archive.writestr(info, contents[name])
-    os.chmod(path, 0o600)
+    return output.getvalue()
+
+
+def write_module_zip(path: Path, binary: bytes) -> None:
+    publish_bytes_no_clobber(path, module_zip_bytes(binary), 0o600)
 
 
 def audit_module_zip(path: Path, binary: bytes) -> dict[str, Any]:
-    archive_identity = receipt(path, "module ZIP")
+    archive_bytes = read_regular_bytes(path, "module ZIP")
+    canonical_bytes = module_zip_bytes(binary)
+    if archive_bytes != canonical_bytes:
+        raise BuildError("module ZIP is not the exact canonical byte stream")
+    archive_identity = {
+        "size": len(archive_bytes),
+        "sha256": sha256_bytes(archive_bytes),
+    }
     expected = module_contents(binary)
     members: list[dict[str, Any]] = []
-    with zipfile.ZipFile(path, "r") as archive:
+    with zipfile.ZipFile(io.BytesIO(archive_bytes), "r") as archive:
+        if archive.comment != b"":
+            raise BuildError("module ZIP archive comment is forbidden")
         infos = archive.infolist()
         if tuple(info.filename for info in infos) != MODULE_FILES:
             raise BuildError("module ZIP member order or inventory changed")
@@ -375,10 +435,15 @@ def audit_module_zip(path: Path, binary: bytes) -> dict[str, Any]:
                 or name.endswith("/")
                 or not stat.S_ISREG(mode)
                 or stat.S_IMODE(mode) != MODULE_MODES[name]
+                or info.create_system != 3
                 or info.compress_type != zipfile.ZIP_STORED
                 or info.date_time != (1980, 1, 1, 0, 0, 0)
-                or info.flag_bits & 0x1
+                or info.flag_bits != 0
+                or info.extra != b""
+                or info.comment != b""
                 or info.file_size != len(expected[name])
+                or info.compress_size != info.file_size
+                or info.CRC != (zipfile.crc32(expected[name]) & 0xFFFFFFFF)
                 or data != expected[name]
             ):
                 raise BuildError(f"module ZIP member is not exact: {name}")
@@ -490,12 +555,11 @@ def build(out_dir: Path) -> dict[str, Any]:
         zip_audit = audit_module_zip(first_zip, first_binary.read_bytes())
 
         out_dir.mkdir(mode=0o700)
+        fsync_directory(out_dir.parent)
         binary_out = out_dir / "s20plus_native_canary"
         zip_out = out_dir / f"{MODULE_ID}.zip"
-        shutil.copyfile(first_binary, binary_out)
-        shutil.copyfile(first_zip, zip_out)
-        os.chmod(binary_out, 0o700)
-        os.chmod(zip_out, 0o600)
+        publish_bytes_no_clobber(binary_out, first_binary.read_bytes(), 0o700)
+        publish_bytes_no_clobber(zip_out, first_zip.read_bytes(), 0o600)
 
     result: dict[str, Any] = {
         "schema": SCHEMA,
@@ -527,22 +591,8 @@ def build(out_dir: Path) -> dict[str, Any]:
     }
     manifest = out_dir / "build-result.json"
     manifest_bytes = (json.dumps(result, indent=2, sort_keys=True) + "\n").encode()
-    fd = os.open(manifest, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-    try:
-        written = 0
-        while written < len(manifest_bytes):
-            amount = os.write(fd, manifest_bytes[written:])
-            if amount <= 0:
-                raise OSError("short write while publishing build result")
-            written += amount
-        os.fsync(fd)
-    finally:
-        os.close(fd)
-    dir_fd = os.open(out_dir, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-    try:
-        os.fsync(dir_fd)
-    finally:
-        os.close(dir_fd)
+    publish_bytes_no_clobber(manifest, manifest_bytes, 0o600)
+    fsync_directory(out_dir)
     result["manifest"] = receipt(manifest, "build result")
     return result
 

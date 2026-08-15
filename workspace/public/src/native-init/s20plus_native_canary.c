@@ -591,51 +591,261 @@ static int write_new_file_at(int dir_fd,
                              uid_t owner,
                              gid_t group,
                              const char *content,
-                             size_t size) {
+                             size_t size,
+                             int preserve_on_failure) {
     int fd = openat(dir_fd, name,
                     O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
                     0600);
     int rc = 0;
     if (fd < 0) return -1;
-    if (fchown(fd, owner, group) < 0 || fchmod(fd, 0600) < 0 ||
-        write_all(fd, content, size) < 0 || fsync(fd) < 0) {
+#if defined(S20PLUS_CANARY_HOST_TEST) && \
+    defined(S20PLUS_CANARY_HOST_TEST_INTENT_FAULT_STAGE)
+#if S20PLUS_CANARY_HOST_TEST_INTENT_FAULT_STAGE == 1
+    if (preserve_on_failure && strcmp(name, INTENT_NAME) == 0) {
+        errno = EIO;
         rc = -1;
     }
+#endif
+#endif
+    if (rc == 0 &&
+        (fchown(fd, owner, group) < 0 || fchmod(fd, 0600) < 0 ||
+         write_all(fd, content, size) < 0)) {
+        rc = -1;
+    }
+#if defined(S20PLUS_CANARY_HOST_TEST) && \
+    defined(S20PLUS_CANARY_HOST_TEST_INTENT_FAULT_STAGE)
+#if S20PLUS_CANARY_HOST_TEST_INTENT_FAULT_STAGE == 2
+    if (rc == 0 && preserve_on_failure && strcmp(name, INTENT_NAME) == 0) {
+        errno = EIO;
+        rc = -1;
+    }
+#endif
+#endif
+    if (rc == 0 && fsync(fd) < 0) rc = -1;
     if (close(fd) < 0) rc = -1;
+#if defined(S20PLUS_CANARY_HOST_TEST) && \
+    defined(S20PLUS_CANARY_HOST_TEST_INTENT_FAULT_STAGE)
+#if S20PLUS_CANARY_HOST_TEST_INTENT_FAULT_STAGE == 3
+    if (rc == 0 && preserve_on_failure && strcmp(name, INTENT_NAME) == 0) {
+        errno = EIO;
+        rc = -1;
+    }
+#endif
+#endif
     if (rc < 0) {
-        (void)unlinkat(dir_fd, name, 0);
+        if (!preserve_on_failure) {
+            (void)unlinkat(dir_fd, name, 0);
+        }
         (void)fsync(dir_fd);
     }
     return rc;
 }
 
-static int output_references_binding(int dir_fd,
-                                     const char *name,
-                                     uid_t owner,
-                                     gid_t group,
-                                     const char *schema,
-                                     const char *binding_sha,
-                                     const char *nonce) {
-    char content[RESULT_MAX + 1U];
-    char binding_token[128];
-    char nonce_token[96];
+struct json_cursor {
+    const char *current;
+    const char *end;
+};
+
+static int json_literal(struct json_cursor *cursor, const char *literal) {
+    size_t size = strlen(literal);
+    if ((size_t)(cursor->end - cursor->current) < size ||
+        memcmp(cursor->current, literal, size) != 0) {
+        return 0;
+    }
+    cursor->current += size;
+    return 1;
+}
+
+static int json_uint(struct json_cursor *cursor,
+                     uint64_t minimum,
+                     uint64_t maximum,
+                     uint64_t *out) {
+    uint64_t value = 0U;
+    const char *start = cursor->current;
+    if (start >= cursor->end || *start < '0' || *start > '9') return 0;
+    if (*start == '0' && start + 1 < cursor->end &&
+        start[1] >= '0' && start[1] <= '9') return 0;
+    while (cursor->current < cursor->end &&
+           *cursor->current >= '0' && *cursor->current <= '9') {
+        unsigned int digit = (unsigned int)(*cursor->current - '0');
+        if ((uint64_t)digit > maximum ||
+            value > (maximum - (uint64_t)digit) / 10U) return 0;
+        value = value * 10U + digit;
+        ++cursor->current;
+    }
+    if (cursor->current == start || value < minimum || value > maximum) return 0;
+    *out = value;
+    return 1;
+}
+
+static int json_hex(struct json_cursor *cursor, size_t length, char *out) {
+    size_t index;
+    if ((size_t)(cursor->end - cursor->current) < length) return 0;
+    for (index = 0U; index < length; ++index) {
+        char value = cursor->current[index];
+        if (!((value >= '0' && value <= '9') ||
+              (value >= 'a' && value <= 'f'))) return 0;
+        if (out != NULL) out[index] = value;
+    }
+    cursor->current += length;
+    if (out != NULL) out[length] = '\0';
+    return 1;
+}
+
+static int lower_hex_value(char value) {
+    if (value >= '0' && value <= '9') return value - '0';
+    if (value >= 'a' && value <= 'f') return value - 'a' + 10;
+    return -1;
+}
+
+static int json_string_body(struct json_cursor *cursor) {
+    size_t decoded = 0U;
+    while (cursor->current < cursor->end) {
+        unsigned char value = (unsigned char)*cursor->current++;
+        if (value == '"') return decoded > 0U;
+        if (value < 0x20U || value > 0x7eU) return 0;
+        if (value == '\\') {
+            size_t index;
+            int high;
+            int low;
+            int decoded_byte;
+            if (cursor->current >= cursor->end) return 0;
+            value = (unsigned char)*cursor->current++;
+            if (value != '\0' && strchr("\"\\nrt", (int)value) != NULL) {
+                ++decoded;
+                continue;
+            }
+            if (value != 'u' || (size_t)(cursor->end - cursor->current) < 4U) {
+                return 0;
+            }
+            for (index = 0U; index < 4U; ++index) {
+                if (lower_hex_value(cursor->current[index]) < 0) return 0;
+            }
+            if (cursor->current[0] != '0' || cursor->current[1] != '0') return 0;
+            high = lower_hex_value(cursor->current[2]);
+            low = lower_hex_value(cursor->current[3]);
+            decoded_byte = high * 16 + low;
+            if (decoded_byte == 0 || decoded_byte == '\n' ||
+                decoded_byte == '\r' || decoded_byte == '\t' ||
+                decoded_byte == '"' || decoded_byte == '\\' ||
+                (decoded_byte >= 0x20 && decoded_byte <= 0x7e)) {
+                return 0;
+            }
+            cursor->current += 4U;
+        }
+        ++decoded;
+        if (decoded >= OBSERVATION_MAX) return 0;
+    }
+    return 0;
+}
+
+static int json_namespace(struct json_cursor *cursor, const char *name) {
+    uint64_t inode;
+    char prefix[16];
+    int length = snprintf(prefix, sizeof(prefix), "%s:[", name);
+    if (length < 0 || (size_t)length >= sizeof(prefix) ||
+        !json_literal(cursor, prefix) ||
+        !json_uint(cursor, 1U, UINT64_MAX, &inode) ||
+        !json_literal(cursor, "]\"")) {
+        return 0;
+    }
+    return inode > 0U;
+}
+
+static int exact_intent(int dir_fd,
+                        uid_t owner,
+                        gid_t group,
+                        const char *binding_sha,
+                        const char *nonce) {
+    char content[512];
+    char expected[512];
     size_t size = 0U;
-    int binding_length;
-    int nonce_length;
-    if (read_regular_at(dir_fd, name, owner, group, content, RESULT_MAX,
-                        &size) < 0) return 0;
+    int expected_size = snprintf(expected, sizeof(expected),
+        "{\"schema\":\"%s\",\"binding_sha256\":\"%s\","
+        "\"run_nonce\":\"%s\",\"replay_permitted\":false}\n",
+        INTENT_SCHEMA, binding_sha, nonce);
+    if (expected_size < 0 || (size_t)expected_size >= sizeof(expected) ||
+        read_regular_at(dir_fd, INTENT_NAME, owner, group, content,
+                        sizeof(content), &size) < 0) {
+        return 0;
+    }
+    return size == (size_t)expected_size &&
+           memcmp(content, expected, size) == 0;
+}
+
+static int exact_result(int dir_fd,
+                        uid_t owner,
+                        gid_t group,
+                        const char *binding_sha,
+                        const struct n1_binding *binding) {
+    char content[RESULT_MAX + 1U];
+    char prefix[512];
+    char self_token[192];
+    char boot_sha[65];
+    struct json_cursor cursor;
+    size_t size = 0U;
+    uint64_t value;
+    int prefix_size;
+    int self_size;
+
+    if (read_regular_at(dir_fd, RESULT_NAME, owner, group, content,
+                        RESULT_MAX, &size) < 0 || size < 2U) return 0;
     content[size] = '\0';
-    binding_length = snprintf(binding_token, sizeof(binding_token),
-                              "\"binding_sha256\":\"%s\"", binding_sha);
-    nonce_length = snprintf(nonce_token, sizeof(nonce_token),
-                            "\"run_nonce\":\"%s\"", nonce);
-    if (binding_length < 0 || nonce_length < 0 ||
-        (size_t)binding_length >= sizeof(binding_token) ||
-        (size_t)nonce_length >= sizeof(nonce_token)) return 0;
-    return strstr(content, schema) != NULL &&
-           strstr(content, binding_token) != NULL &&
-           strstr(content, nonce_token) != NULL &&
-           size >= 2U && content[size - 2U] == '}' && content[size - 1U] == '\n';
+    cursor.current = content;
+    cursor.end = content + size;
+    prefix_size = snprintf(prefix, sizeof(prefix),
+        "{\"schema\":\"%s\",\"binding_sha256\":\"%s\","
+        "\"run_nonce\":\"%s\",\"target_model\":\"SM-G986N\","
+        "\"target_device\":\"y2q\",\"target_product\":\"y2qksx\","
+        "\"target_incremental\":\"G986NKSS8IYC2\",\"pid\":",
+        CANARY_SCHEMA, binding_sha, binding->run_nonce);
+    if (prefix_size < 0 || (size_t)prefix_size >= sizeof(prefix) ||
+        !json_literal(&cursor, prefix) ||
+        !json_uint(&cursor, 1U, INT32_MAX, &value) ||
+        !json_literal(&cursor, ",\"ppid\":") ||
+        !json_uint(&cursor, 0U, INT32_MAX, &value) ||
+        !json_literal(&cursor, ",\"uid\":") ||
+        !json_uint(&cursor, (uint64_t)owner, (uint64_t)owner, &value) ||
+        !json_literal(&cursor, ",\"gid\":") ||
+        !json_uint(&cursor, (uint64_t)group, (uint64_t)group, &value) ||
+        !json_literal(&cursor, ",\"selinux_context\":\"") ||
+        !json_string_body(&cursor) ||
+        !json_literal(&cursor, ",\"cap_eff\":\"") ||
+        !json_hex(&cursor, 16U, NULL) || !json_literal(&cursor, "\"") ||
+        !json_literal(&cursor, ",\"cap_prm\":\"") ||
+        !json_hex(&cursor, 16U, NULL) || !json_literal(&cursor, "\"") ||
+        !json_literal(&cursor, ",\"cap_bnd\":\"") ||
+        !json_hex(&cursor, 16U, NULL) || !json_literal(&cursor, "\"") ||
+        !json_literal(&cursor, ",\"no_new_privs\":\"") ||
+        !(json_literal(&cursor, "0\"") || json_literal(&cursor, "1\"")) ||
+        !json_literal(&cursor, ",\"monotonic_sec\":") ||
+        !json_uint(&cursor, 0U, INT64_MAX, &value) ||
+        !json_literal(&cursor, ",\"monotonic_nsec\":") ||
+        !json_uint(&cursor, 0U, 999999999U, &value)) {
+        return 0;
+    }
+    self_size = snprintf(self_token, sizeof(self_token),
+        ",\"self_sha256\":\"%s\",\"self_size\":%" PRIu64
+        ",\"boot_id_sha256\":\"", binding->binary_sha256,
+        binding->binary_size);
+    if (self_size < 0 || (size_t)self_size >= sizeof(self_token) ||
+        !json_literal(&cursor, self_token) ||
+        !json_hex(&cursor, 64U, boot_sha) ||
+        strcmp(boot_sha, binding->pre_boot_id_sha256) == 0 ||
+        !json_literal(&cursor,
+            "\",\"pre_boot_id_changed\":true,\"mnt_ns\":\"") ||
+        !json_namespace(&cursor, "mnt") ||
+        !json_literal(&cursor, ",\"pid_ns\":\"") ||
+        !json_namespace(&cursor, "pid") ||
+        !json_literal(&cursor, ",\"uts_ns\":\"") ||
+        !json_namespace(&cursor, "uts") ||
+        !json_literal(&cursor, ",\"net_ns\":\"") ||
+        !json_namespace(&cursor, "net") ||
+        !json_literal(&cursor, ",\"replay_permitted\":false}\n") ||
+        cursor.current != cursor.end) {
+        return 0;
+    }
+    return 1;
 }
 
 int main(int argc, char **argv) {
@@ -718,12 +928,10 @@ int main(int argc, char **argv) {
         return CANARY_BINDING_REJECTED;
     }
     if (nodes.intent && nodes.result) {
-        int valid = output_references_binding(
-                        dir_fd, INTENT_NAME, expected_uid, expected_gid,
-                        INTENT_SCHEMA, binding_sha, binding.run_nonce) &&
-                    output_references_binding(
-                        dir_fd, RESULT_NAME, expected_uid, expected_gid,
-                        CANARY_SCHEMA, binding_sha, binding.run_nonce);
+        int valid = exact_intent(dir_fd, expected_uid, expected_gid,
+                                 binding_sha, binding.run_nonce) &&
+                    exact_result(dir_fd, expected_uid, expected_gid,
+                                 binding_sha, &binding);
         (void)close(dir_fd);
         return valid ? CANARY_ALREADY_CONSUMED : CANARY_STATE_REJECTED;
     }
@@ -732,11 +940,20 @@ int main(int argc, char **argv) {
         "{\"schema\":\"%s\",\"binding_sha256\":\"%s\","
         "\"run_nonce\":\"%s\",\"replay_permitted\":false}\n",
         INTENT_SCHEMA, binding_sha, binding.run_nonce);
-    if (intent_length < 0 || (size_t)intent_length >= sizeof(intent) ||
-        write_new_file_at(dir_fd, INTENT_NAME, expected_uid, expected_gid,
-                          intent, (size_t)intent_length) < 0 || fsync(dir_fd) < 0) {
+    if (intent_length < 0 || (size_t)intent_length >= sizeof(intent)) {
         (void)close(dir_fd);
-        return errno == EEXIST ? CANARY_ALREADY_CONSUMED : CANARY_PUBLISH_FAILED;
+        return CANARY_PUBLISH_FAILED;
+    }
+    if (write_new_file_at(dir_fd, INTENT_NAME, expected_uid, expected_gid,
+                          intent, (size_t)intent_length, 1) < 0) {
+        int saved_errno = errno;
+        (void)close(dir_fd);
+        return saved_errno == EEXIST ? CANARY_STATE_REJECTED
+                                     : CANARY_PUBLISH_FAILED;
+    }
+    if (fsync(dir_fd) < 0) {
+        (void)close(dir_fd);
+        return CANARY_PUBLISH_FAILED;
     }
 
     if (read_trimmed("/proc/self/attr/current", selinux_raw,
@@ -773,7 +990,7 @@ int main(int argc, char **argv) {
         self_sha, self_size, boot_sha, mnt_ns, pid_ns, uts_ns, net_ns);
     if (result_length < 0 || (size_t)result_length >= sizeof(result) ||
         write_new_file_at(dir_fd, PENDING_NAME, expected_uid, expected_gid,
-                          result, (size_t)result_length) < 0 ||
+                          result, (size_t)result_length, 0) < 0 ||
         linkat(dir_fd, PENDING_NAME, dir_fd, RESULT_NAME, 0) < 0 ||
         fsync(dir_fd) < 0 || unlinkat(dir_fd, PENDING_NAME, 0) < 0 ||
         fsync(dir_fd) < 0) {

@@ -341,18 +341,24 @@ the prerequisite now proved, not itself proof of native init.
 That H0 implementation is now complete and recorded in
 `docs/reports/S20PLUS_G986N_NATIVE_CANARY_N1_H0_2026-08-15.md`. The tracked C
 source SHA-256 is
-`e611310eadf992bb1050fd5e35f236d3523e5c04693fd9e2beede1173766791b` and the
+`31a4413f5d1d320d81ddb8720ff2f0303fb5198cd14a746af4c6cbe47bed3f2e` and the
 deterministic builder SHA-256 is
-`2046fc81a3cd71b2f9390cf29387e75b7ede9c0195eb2b30739b87a16c80175f`.
+`bcbbc60052631d810ffa3f866e7077fdbc394f161c701d00f17d9c1a3166c0cc`.
 The canonical private output contains a 597,720-byte static AArch64 canary at
-SHA-256 `f5ebd70951827f831b2b11bb6eb012e150ef5a198444cc335e15016627e9536c`
+SHA-256 `38e14e6f54374fc98604bdd61e50922ce9bff1c96feae7572221be548902066c`
 and an exact four-member 598,551-byte module ZIP at SHA-256
-`207c91293714a22460441c10b9b126530328ce0f2e2f384e8584a85663218e79`.
+`e06c88c3a1c029658160b974bc5938acc1f89ab68ea9a7d7d7169d5bd51525a2`.
 Two native builds and two ZIP builds were byte-identical, and the QEMU/native
-hostile suite passed 13/13. The root-data transaction remains a non-binding,
-inactive H0 draft: no install runner, policy activation, approval, staging,
-`su`, reboot, or device command was created. The next bounded unit is an
-independent H0 review, not a live module install.
+hostile suite passed 16/16 after remediating the initial independent review's
+strict-result, intent-durability, canonical-ZIP, cleanup-authority, and artifact-
+fsync findings, plus the first re-review's NUL escape, nonexistent standalone
+stock-recovery authority, and namespace-fixture findings. The root-data
+transaction remains a non-binding, inactive H0 draft: no install runner,
+policy activation, approval, staging, `su`, reboot, or device command was
+created. The final independent H0 re-review returned `PASS_GO` for the exact
+public closure. The next optional bounded unit is an operator-selected binding
+policy and exact runner proposal with a new independent review, not a live
+module install.
 
 A later reproducible-kernel-build unit would still need exact toolchain
 acquisition and a demonstrated matching build; the newly recovered embedded

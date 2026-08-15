@@ -60,8 +60,10 @@ bin/s20plus_native_canary          0750
 ```
 
 No explicit directory entry, duplicate, symlink, hardlink, special node,
-traversal, encryption, compression variance, timestamp variance, or extra
-member is allowed. The module has no `post-fs-data.sh`, `customize.sh`,
+traversal, encryption, compression variance, timestamp variance, archive or
+entry comment, extra field, trailing byte, or extra member is allowed. The
+whole ZIP must equal the deterministic canonical byte stream, not merely yield
+the expected extracted files. The module has no `post-fs-data.sh`, `customize.sh`,
 `action.sh`, `uninstall.sh`, `system/`, `system.prop`, `sepolicy.rule`,
 `zygisk/`, updater, network fetch, or packaged shell.
 
@@ -103,7 +105,9 @@ requires mode `0700`, and accepts only the initial one-file state. It checks
 the exact binding grammar, its own executable SHA-256 and size through
 `/proc/self/exe`, and a changed hash of the trimmed boot ID. It then:
 
-1. creates and flushes `intent.json` with `O_CREAT|O_EXCL`;
+1. creates and flushes `intent.json` with `O_CREAT|O_EXCL`; once its directory
+   entry exists, any write, flush, or close failure preserves that name and
+   consumes the run rather than permitting replay;
 2. observes only fixed process, SELinux, capability, clock, executable,
    boot-ID-hash, and namespace scalars;
 3. writes and flushes a fixed pending regular file;
@@ -149,9 +153,10 @@ Preparation may repeat because it has no device effect. It must prove:
 - current builder source and pinned tool identities;
 - two byte-identical native builds and two byte-identical ZIP builds;
 - the static ELF and exact ZIP audits;
-- the exact known resident boot and stock boot-only recovery artifacts remain
-  present, direct, regular, size/hash verified, and usable by their already
-  reviewed transfer machinery;
+- the exact known resident boot and stock boot-only artifacts remain present,
+  direct, regular, and size/hash verified as H0 inputs; no standalone stock-
+  recovery capability currently exists, so a future preparation cannot claim
+  that branch until it is separately defined, reviewed, and activated;
 - no active shared device guard and no unresolved S20+ run;
 - a fresh private run directory, binding, intended stage path, and complete
   action/recovery manifest; and
@@ -222,13 +227,21 @@ verifies it, performs one final ordinary reboot, and proves:
 - enforcing SELinux and persistent Magisk root;
 - the exact module is disabled and its canary did not execute;
 - the original intent/result are unchanged and no extra state node exists;
-- staged shared-storage input is removed through the already reviewed exact
-  cleanup surface; and
+- staged shared-storage input is removed only through an exact fixed-path
+  cleanup action owned, guarded, and independently reviewed as part of this
+  future transaction; and
 - both install and reboot replay permissions are false.
 
 Only a durable terminal result may release the shared guard. Module removal
 may be a later exact cleanup after this disabled healthy boot; it is not the
 first response to an ambiguous state.
+
+Neither routine shared-storage staging nor the resident Magisk F1 capability
+currently grants this cleanup authority. The eventual binding transaction
+must define the single staged filename, intent/result schemas, no-follow
+unlink preconditions, post-unlink absence proof, failure parking, and guard
+ownership. Until that capability is reviewed and activated, an inert staged
+input remains rather than being removed by an inferred or generic command.
 
 ## Recovery branches
 
@@ -243,11 +256,19 @@ The approval must bind all three branches in advance.
    operator uses the official Magisk Safe Mode key sequence to disable
    modules. The runner performs no blind device command while Android identity
    is absent. It resumes only with exact Android identity and health.
-3. **Safe Mode fails.** Use attended physical Download and the already-known
-   exact stock boot-only recovery through its reviewed runner. Candidate
-   install/reboot is not replayed. Root absence and exact healthy stock Android
-   are terminal; complete data loss and factory reset are accepted recovery
-   costs because both prior S20+ boot transitions required reset.
+3. **Safe Mode fails.** This branch is not currently executable: there is no
+   standalone stock-recovery capability or runner in the binding target
+   contract. Before this root-data transaction can activate, a separate policy
+   change must define, independently review, and activate one exact stock boot-
+   only recovery runner. Bootstrap and resident-F1 recovery authority does not
+   transfer or imply that new lane. Only then may the root-data runner create a
+   durable pre-bound handoff identifying that runner closure, exact stock
+   artifact, target, endpoint-transition requirements, and shared guard; the
+   recovery runner must validate and consume the handoff before its one
+   transfer. Candidate install/reboot is not replayed. Root absence and exact
+   healthy stock Android are terminal; complete data loss and factory reset
+   are accepted recovery costs because both prior S20+ boot transitions
+   required reset.
 
 Any target ambiguity, malformed journal, changed bytes, unknown root-data
 effect, failed disable, absent physical recovery, or stock-recovery ambiguity
@@ -274,6 +295,11 @@ tests all of the following:
 - exactly one install and the bounded reboots in the successful fixture;
 - no candidate replay after install intent and no generic command or path
   substitution; and
+- an exact guarded staged-input cleanup implemented by this transaction, plus
+  a future separately defined, reviewed, and activated stock-recovery runner
+  and exact durable handoff into it; neither operation or authority may be
+  inferred from the bootstrap, resident F1, or an adjacent routine capability;
+  and
 - terminal guard release only after a durable disabled-rooted or stock-healthy
   result.
 
@@ -285,8 +311,10 @@ artifact, approve a device action, or imply operator attendance.
 
 ## Current disposition
 
-The C canary, deterministic module builder, and hostile process-model tests
-are H0 implementation inputs. This transaction remains deliberately dormant.
-The next safe unit after H0 validation is an independent review of those
-inputs and this draft. Activation, staging, installation, reboot, and device
-observation are separate future decisions.
+The C canary, deterministic module builder, hostile process-model tests, and
+this draft received independent `PASS_GO` as an exact H0 closure. The root-data
+transaction remains deliberately dormant and unrepresented by the binding
+target contract. The next optional unit is a separate binding policy and exact
+runner proposal, including cleanup and stock-recovery definitions, followed by
+another independent review. Activation, staging, installation, reboot, and
+device observation remain separate future decisions.

@@ -7,7 +7,7 @@ Selected target: operator-owned Samsung Galaxy S20+ 5G only,
 
 Tier: H0 architecture, evidence map, and next-unit selection
 
-Status: **SELECTED DESIGN; N1 H0 IMPLEMENTED; REVIEW PENDING; NOT ACTIVE; NO DEVICE AUTHORITY**
+Status: **SELECTED DESIGN; N1 H0 IMPLEMENTED; REVIEW PASS_GO; NOT ACTIVE; NO DEVICE AUTHORITY**
 
 ## Decision
 
@@ -502,10 +502,15 @@ implemented and recorded in
 `../reports/S20PLUS_G986N_NATIVE_CANARY_N1_H0_2026-08-15.md`. That H0 result
 creates no install runner or live authority.
 
-The next commit-sized unit is an independent H0 review of the builder,
-toolchain closure, module grammar, state parser, hostile corpus, policy
-interaction, and recovery model. Stop before module staging, `su`, install,
-reboot, or any device command. Only after a `PASS_GO` should the operator
-decide whether to propose and independently review a binding policy change
-and exact runner. N2 through N5 remain designs, not a queue of implicitly
-approved actions.
+The initial independent H0 review found strict-result, intent-durability,
+canonical-ZIP, cleanup-authority, and artifact-fsync gaps. Those findings are
+now remediated in the host-only closure. The same reviewer re-reviewed the
+fixed builder, toolchain closure, module grammar, state parser, hostile corpus,
+policy interaction, and recovery model. That first re-review additionally
+exposed a NUL escape, a missing namespace fixture,
+and a nonexistent standalone stock-recovery assumption; all three were
+remediated, and the final re-review returned `PASS_GO` for the exact H0 closure.
+Stop before module staging, `su`, install, reboot, or any device command. The
+next optional unit is an operator-selected binding policy and exact runner
+proposal with its own review. N2 through N5 remain designs, not a queue of
+implicitly approved actions.
