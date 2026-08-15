@@ -493,6 +493,16 @@ embedded origin, so a private provenance marker records both names and forbids
 reuse. Until a separately reviewed prefix-map successor is qualified, any
 other output path creates a new module identity and requires full requalification.
 
+The observed ten-byte stripped residual is not a divergence upper bound. The
+variable path segments `20260814-01` and `followup-v3` are both 11 characters
+and share the hyphen position, so only ten aligned bytes differ; another path
+length can shift the `.rodata` string, section sizes, and the whole ELF layout.
+This V3 path constraint is the direct cost of the newly requested
+`WARN_ON_ONCE`, the current latch source's only `__FILE__` consumer: invariant
+violation observability was gained at the expense of source-only
+reproducibility. The V2 module is not retained for a byte audit, so this record
+does not claim that V2 was path-independent.
+
 One source-level tightening is deliberately deferred to that next latch
 rebuild. `snapshot_get` currently reads `exposure_state` before `event_ready`,
 so an arbitrary reader concurrent with gate publication could format the
