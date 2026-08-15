@@ -234,17 +234,17 @@ Execution-critical public files:
 
 The active reviewed identities are:
 
-- root-data runner: 212,818 bytes, SHA-256
-  `536cb88c67ddd378c511b3e6c659433009b68a5f2d9b767f7e41afdcf6a567a3`,
+- root-data runner: 213,525 bytes, SHA-256
+  `71cb0617d6989ad1bbfce98779796e7cf923c65fb497b67cd4ea93fe9f4253b1`,
   normalized
-  `83ea1116e17ba1551633d9e4b73008f512b83764957f6bcc9bfd84f79e2479aa`;
+  `5e29e8659fb493f0b1885cdc8954e11ec8be6fb60e6953e80923da4ed225300c`;
 - stock-recovery runner: 61,312 bytes, SHA-256
   `b029afc3d4a899e4d83304773f8405519bacdb02de742de015a52c97689cc2a6`,
   normalized
   `0bb7eab8a87d11758dac20103ede5ac16c5acbdf3cbc3b511cb30842c4f29f2d`;
   and
-- focused active/hostile tests: 114/114 PASS; exact eight-module S20+
-  aggregate: 276/276 PASS.
+- focused active/hostile tests: 115/115 PASS; exact eight-module S20+
+  aggregate: 277/277 PASS.
 
 The 2026-08-15 changed-closure audit corrected five material boundaries before
 the initial activation: recovery entrypoints no longer import candidate-only
@@ -264,9 +264,22 @@ internal error handling to the finite classifier described in the incident
 report; it adds no CLI action, caller input, path, root authority, or persistent
 effect. Independent H0 review qualified the self-blocked candidate at full
 SHA-256 `51a210748b538ecb53f1a468e68f6a0e700c2b9bc86b040a73d97f9e1a45e3c5`.
-The subsequent mechanical identity-only rotation produced the current active
-root identity above, and post-activation review accepted the 114/114 focused
-and 276/276 aggregate closure.
+The subsequent mechanical identity-only rotation produced root identity
+`536cb88c67ddd378c511b3e6c659433009b68a5f2d9b767f7e41afdcf6a567a3`
+(normalized `83ea1116e17ba1551633d9e4b73008f512b83764957f6bcc9bfd84f79e2479aa`),
+and post-activation review accepted the 114/114 focused and 276/276 aggregate
+closure.
+
+The first classified live retry then exposed a separate command-framing defect:
+ADB joins the arguments after `shell` without escaping, while the runner passed
+the multiline fixed script as a raw argument. The resulting `absent` records
+did not prove that Magisk files were missing. The reviewed correction quotes
+the entire fixed script before ADB's join and requires UID 0 in the same
+closure command. Independent review returned `PASS_GO` for self-blocked runner
+SHA-256 `66fcf659b2025a477bc19336c746bb745774258f8395b860038b0f906b37d274`
+(normalized `5e29e8659fb493f0b1885cdc8954e11ec8be6fb60e6953e80923da4ed225300c`).
+Its mechanical identity-only rotation produced the current active identity
+above; focused and aggregate closure are now 115/115 and 277/277.
 
 No private artifact or device evidence is included in this tracked report.
 
@@ -274,11 +287,11 @@ No private artifact or device evidence is included in this tracked report.
 
 On 2026-08-15, independent `PASS_GO` qualified the exact dormant closure and
 its mechanical initial activation changed only capability constants, reviewed
-identities, registry/status wording, and assertions. On 2026-08-16, the
-separately reviewed finite-classifier hotfix changed fixed command logic but
-not its surface or authority; its later activation changed only the normalized
-identity constant and matching records. Neither activation touched a device or
-created a run or standing approval. Post-hotfix activation review returned
-`PASS_GO` for the exact current identities above, target isolation, and the
-114/114 focused plus 276/276 aggregate test closure. Only a fresh connected
-prepare may emit an approval for one attended run.
+identities, registry/status wording, and assertions. On 2026-08-16, separately
+reviewed finite-classifier and remote-shell-framing hotfixes changed fixed
+command logic but not its surface or authority; each later activation changed
+only the normalized identity constant and matching records. No activation
+touched a device or created a run or standing approval. Post-hotfix activation
+review returned `PASS_GO` for the exact current identities above, target
+isolation, and the 115/115 focused plus 277/277 aggregate test closure. Only a
+fresh connected prepare may emit an approval for one attended run.

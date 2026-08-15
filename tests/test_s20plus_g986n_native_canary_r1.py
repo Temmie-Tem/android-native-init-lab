@@ -7,6 +7,7 @@ import io
 import json
 import os
 from pathlib import Path
+import shlex
 import stat
 import subprocess
 import sys
@@ -38,6 +39,15 @@ STOCK = load(
     "s20plus_g986n_native_canary_stock_recovery_r1_tested",
     SCRIPTS / "s20plus_g986n_native_canary_stock_recovery_r1.py",
 )
+
+
+def root_script_from_argv(argv: list[str]) -> str:
+    shell_index = argv.index("shell")
+    remote = " ".join(argv[shell_index + 1 :])
+    parsed = shlex.split(remote)
+    if len(parsed) != 3 or parsed[:2] != ["su", "-c"]:
+        raise AssertionError(f"unexpected root command framing: {remote!r}")
+    return parsed[2]
 
 
 class S20PlusNativeCanaryR1Tests(unittest.TestCase):
@@ -403,6 +413,32 @@ class S20PlusNativeCanaryR1Tests(unittest.TestCase):
         self.assertNotIn("--install-module", disable)
         self.assertNotIn("magisk --remove-modules", disable)
         self.assertEqual(STOCK.render_plan()["candidate_path"], False)
+
+    def test_root_argv_quotes_the_complete_script_before_adb_joins_arguments(self) -> None:
+        script = "set -eu\n[ \"$FAKE_SU_CONTEXT\" = root ]\nprintf '%s\\n' 'inside root'"
+        argv = ROOT_DATA.root_argv("/usr/bin/adb", "SERIAL", script)
+        self.assertEqual(root_script_from_argv(argv), script)
+        remote = " ".join(argv[argv.index("shell") + 1 :])
+        with tempfile.TemporaryDirectory(prefix="s20plus-r1-fake-su-") as temp:
+            fake_su = Path(temp) / "su"
+            fake_su.write_text(
+                "#!/bin/sh\n"
+                "[ \"$#\" -eq 2 ] && [ \"$1\" = -c ] || exit 91\n"
+                "FAKE_SU_CONTEXT=root /bin/sh -c \"$2\"\n"
+            )
+            fake_su.chmod(0o700)
+            environment = dict(os.environ)
+            environment["PATH"] = temp + os.pathsep + environment.get("PATH", "")
+            completed = subprocess.run(
+                ["/bin/sh", "-c", remote],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=environment,
+                check=False,
+            )
+        self.assertEqual(completed.returncode, 0)
+        self.assertEqual(completed.stdout, b"inside root\n")
+        self.assertEqual(completed.stderr, b"")
 
     def test_preflight_parser_binds_inventory_and_rejects_dirty_namespace(self) -> None:
         clean = (
@@ -1750,8 +1786,9 @@ except SystemExit as exc:
             reads: list[str] = []
 
             def read_missing(argv, _timeout, _maximum):
-                reads.append(argv[-1])
-                self.assertEqual(argv[-1], ROOT_DATA.CAT_RESULT_SCRIPT)
+                script = root_script_from_argv(argv)
+                reads.append(script)
+                self.assertEqual(script, ROOT_DATA.CAT_RESULT_SCRIPT)
                 return 0, valid_result, b""
 
             intent, result, parsed = ROOT_DATA.read_or_collect_state_files(
@@ -2430,8 +2467,9 @@ except SystemExit as exc:
         commands = []
 
         def classified(argv, _timeout, _maximum):
-            commands.append(argv[-1])
-            if argv[-1] == ROOT_DATA.MAGISK_CLOSURE_SCRIPT:
+            script = root_script_from_argv(argv)
+            commands.append(script)
+            if script == ROOT_DATA.MAGISK_CLOSURE_SCRIPT:
                 return 0, payload, b""
             raise AssertionError("no command may follow a classified closure failure")
 
@@ -2477,6 +2515,37 @@ except SystemExit as exc:
         self.assertIn("probe util_functions " + ROOT_DATA.MAGISK_UTIL_FUNCTIONS, ROOT_DATA.MAGISK_CLOSURE_SCRIPT)
         self.assertIn("2>/dev/null", ROOT_DATA.MAGISK_CLOSURE_SCRIPT)
 
+        def wrong_root_context(argv, _timeout, _maximum):
+            self.assertEqual(root_script_from_argv(argv), ROOT_DATA.MAGISK_CLOSURE_SCRIPT)
+            return ROOT_DATA.MAGISK_CLOSURE_ROOT_CONTEXT_RC, b"", b""
+
+        with mock.patch.object(
+            ROOT_DATA.bootstrap,
+            "root_observation",
+            return_value={"root_verified": True, "attempts": 1, "output_sha256": "3" * 64},
+        ):
+            with self.assertRaisesRegex(
+                ROOT_DATA.RootDataError,
+                "install closure root context is not exact",
+            ):
+                ROOT_DATA.root_preflight(
+                    wrong_root_context,
+                    "/usr/bin/adb",
+                    {"serial": "SERIAL"},
+                    identity,
+                )
+            with self.assertRaisesRegex(
+                ROOT_DATA.RootDataError,
+                "recovery Magisk helper root context is not exact",
+            ):
+                ROOT_DATA.recovery_magisk_preflight(
+                    wrong_root_context,
+                    "/usr/bin/adb",
+                    {"serial": "SERIAL"},
+                    identity,
+                    self.prepared(),
+                )
+
     def test_magisk_closure_shell_classifier_covers_fixed_labels_and_tokens(self) -> None:
         labels = ("magisk", "busybox", "util_functions")
         read_failures = {
@@ -2488,7 +2557,9 @@ except SystemExit as exc:
             "hash-read-failed": "sha256sum",
         }
 
-        def execute_case(states: dict[str, str]) -> tuple[int, bytes, bytes]:
+        def execute_case(
+            states: dict[str, str], *, root_uid: str = "0"
+        ) -> tuple[int, bytes, bytes]:
             with tempfile.TemporaryDirectory(prefix="s20plus-r1-closure-shell-") as temp:
                 root = Path(temp)
                 paths = {
@@ -2513,6 +2584,9 @@ except SystemExit as exc:
                     "#!/usr/bin/env python3\n"
                     "import hashlib, os, stat, sys\n"
                     "command = sys.argv[1]\n"
+                    "if command == 'id':\n"
+                    "    print(os.environ.get('N1_TEST_ROOT_UID', '0'))\n"
+                    "    sys.exit(0)\n"
                     "path = sys.argv[-1]\n"
                     "label = {'util_functions.sh': 'util_functions'}.get(os.path.basename(path), os.path.basename(path))\n"
                     "failure = os.environ.get('N1_TEST_FAILURE', '')\n"
@@ -2548,6 +2622,7 @@ except SystemExit as exc:
                 )
                 environment = dict(os.environ)
                 environment.pop("N1_TEST_FAILURE", None)
+                environment["N1_TEST_ROOT_UID"] = root_uid
                 for label, state in states.items():
                     if state in read_failures:
                         environment["N1_TEST_FAILURE"] = f"{label}={read_failures[state]}"
@@ -2559,6 +2634,9 @@ except SystemExit as exc:
                     check=False,
                 )
                 return completed.returncode, completed.stdout, completed.stderr
+
+        wrong_context = execute_case({}, root_uid="2000")
+        self.assertEqual(wrong_context, (ROOT_DATA.MAGISK_CLOSURE_ROOT_CONTEXT_RC, b"", b""))
 
         success = execute_case({})
         self.assertEqual(success[0], 0)
@@ -2618,7 +2696,7 @@ except SystemExit as exc:
         }
 
         def read_only(argv, _timeout, _maximum):
-            script = argv[-1]
+            script = root_script_from_argv(argv)
             self.assertNotIn("PASS_N1_RECOVERY_DISABLE", script)
             if script == ROOT_DATA.MAGISK_CLOSURE_SCRIPT:
                 return 0, current_payload, b""
@@ -5143,11 +5221,11 @@ except SystemExit as exc:
     def test_runner_identities_and_policy_documents_are_frozen_after_review(self) -> None:
         self.assertEqual(
             ROOT_DATA.normalized_self_sha256(),
-            "83ea1116e17ba1551633d9e4b73008f512b83764957f6bcc9bfd84f79e2479aa",
+            "5e29e8659fb493f0b1885cdc8954e11ec8be6fb60e6953e80923da4ed225300c",
         )
         self.assertEqual(
             hashlib.sha256(ROOT_DATA.SCRIPT.read_bytes()).hexdigest(),
-            "536cb88c67ddd378c511b3e6c659433009b68a5f2d9b767f7e41afdcf6a567a3",
+            "71cb0617d6989ad1bbfce98779796e7cf923c65fb497b67cd4ea93fe9f4253b1",
         )
         self.assertEqual(
             STOCK.normalized_self_sha256(),
@@ -5164,7 +5242,7 @@ except SystemExit as exc:
         ):
             text = (ROOT / relative).read_text()
             self.assertIn(
-                "536cb88c67ddd378c511b3e6c659433009b68a5f2d9b767f7e41afdcf6a567a3",
+                "71cb0617d6989ad1bbfce98779796e7cf923c65fb497b67cd4ea93fe9f4253b1",
                 text,
             )
             self.assertIn(

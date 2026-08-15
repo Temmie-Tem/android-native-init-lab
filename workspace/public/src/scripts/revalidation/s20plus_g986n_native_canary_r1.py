@@ -20,6 +20,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import stat
 import time
 from typing import Any, Callable
@@ -30,7 +31,7 @@ import s22plus_boot_only_f1_transport as transport
 
 VERSION = "s20plus-g986n-native-canary-r1-v1"
 NATIVE_CANARY_R1_ACTIVE = True
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "83ea1116e17ba1551633d9e4b73008f512b83764957f6bcc9bfd84f79e2479aa"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "5e29e8659fb493f0b1885cdc8954e11ec8be6fb60e6953e80923da4ed225300c"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -568,7 +569,10 @@ printf 'active_count=%s\\n' "$(/data/adb/magisk/busybox find /data/adb/modules -
 printf 'update_count=0\\n'
 """
 
+MAGISK_CLOSURE_ROOT_CONTEXT_RC = 97
+
 MAGISK_CLOSURE_SCRIPT = f"""set -u
+[ "$(/system/bin/toybox id -u 2>/dev/null)" = "0" ] || exit {MAGISK_CLOSURE_ROOT_CONTEXT_RC}
 probe() {{
   label="$1"; path="$2"
   if [ -L "$path" ]; then printf '%s|error|symlink\\n' "$label"; return 0; fi
@@ -963,7 +967,10 @@ def validate_install_output(result: tuple[int, bytes, bytes]) -> str:
 
 
 def root_argv(adb: str, serial: str, script: str) -> list[str]:
-    return [adb, "-s", serial, "shell", "su", "-c", script]
+    # ADB joins all arguments following `shell` with spaces and does not quote
+    # them. Quote the complete fixed script for the remote shell so `su -c`
+    # receives exactly one command argument rather than only its first token.
+    return [adb, "-s", serial, "shell", "su", "-c", shlex.quote(script)]
 
 
 def run_root_exact(
@@ -1129,6 +1136,8 @@ def root_preflight(
     closure_rc, closure_stdout, closure_stderr = command(
         root_argv(adb, serial, MAGISK_CLOSURE_SCRIPT), 30, MAX_OUTPUT
     )
+    if closure_rc == MAGISK_CLOSURE_ROOT_CONTEXT_RC and not closure_stderr:
+        raise RootDataError("N1 Magisk install closure root context is not exact")
     if closure_rc != 0 or closure_stderr:
         raise RootDataError("N1 Magisk install closure read failed")
     install_closure = parse_magisk_install_closure(closure_stdout)
@@ -1170,6 +1179,8 @@ def recovery_magisk_preflight(
     closure_rc, closure_stdout, closure_stderr = command(
         root_argv(adb, serial, MAGISK_CLOSURE_SCRIPT), 30, MAX_OUTPUT
     )
+    if closure_rc == MAGISK_CLOSURE_ROOT_CONTEXT_RC and not closure_stderr:
+        raise RootDataError("N1 recovery Magisk helper root context is not exact")
     if closure_rc != 0 or closure_stderr:
         raise RootDataError("N1 recovery Magisk helper closure read failed")
     current_closure = parse_magisk_install_closure(closure_stdout)

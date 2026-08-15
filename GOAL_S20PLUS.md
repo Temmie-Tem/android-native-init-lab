@@ -409,20 +409,21 @@ cleanup each follow a durable branch-specific terminal input. Canonical canary e
 not merely JSON-equivalent. The CLI exposes an
 automatically allocated closed-grammar `run-id`, never a caller path.
 
-The active root-data runner is 212,818 bytes at SHA-256
-`536cb88c67ddd378c511b3e6c659433009b68a5f2d9b767f7e41afdcf6a567a3`
+The active root-data runner is 213,525 bytes at SHA-256
+`71cb0617d6989ad1bbfce98779796e7cf923c65fb497b67cd4ea93fe9f4253b1`
 (normalized
-`83ea1116e17ba1551633d9e4b73008f512b83764957f6bcc9bfd84f79e2479aa`).
+`5e29e8659fb493f0b1885cdc8954e11ec8be6fb60e6953e80923da4ed225300c`).
 Its active stock-recovery owner is 61,312 bytes at SHA-256
 `b029afc3d4a899e4d83304773f8405519bacdb02de742de015a52c97689cc2a6`
 (normalized
 `0bb7eab8a87d11758dac20103ede5ac16c5acbdf3cbc3b511cb30842c4f29f2d`).
-Focused host tests pass 114/114; the exact eight-module S20+ aggregate passes
-276/276.
-Independent H0 review returned `PASS_GO` for the finite-classifier command
-logic and a separate post-activation review accepted these exact active
-identities. The final mechanical identity rotation introduced no further logic
-change; the CLI surface and authority remain unchanged.
+Focused host tests pass 115/115; the exact eight-module S20+ aggregate passes
+277/277.
+Independent H0 review returned `PASS_GO` for the finite classifier and the
+remote-shell quoting/root-context correction; separate post-activation review
+accepted these exact active identities. The final mechanical identity rotation
+introduced no further logic change; the CLI surface and authority remain
+unchanged.
 This R1 capability is active, but no current run, approval, or device action
 exists.
 
@@ -432,9 +433,11 @@ at the Magisk install-closure read. It created no approval, staging, install,
 reboot, Download, Odin, or partition effect. The incident and self-blocked H0
 finite-classifier remediation are recorded in
 `docs/reports/S20PLUS_G986N_NATIVE_CANARY_R1_PREPARE_INCIDENT_2026-08-16.md`;
-The changed closure passed independent H0 review and exact identity activation;
-it creates no current run or approval. Any later connected preparation still
-requires fresh direct operator authority.
+the first classified retry did not prove Magisk absence because the raw
+multiline script was not quoted across ADB's argument join. The reviewed fix
+now sends each fixed root script as one `su -c` command and verifies UID 0 in
+the same closure probe. It creates no current run or approval. Any later
+connected preparation still requires fresh direct operator authority.
 
 A later reproducible-kernel-build unit would still need exact toolchain
 acquisition and a demonstrated matching build; the newly recovered embedded

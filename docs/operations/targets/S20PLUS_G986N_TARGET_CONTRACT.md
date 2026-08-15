@@ -536,10 +536,10 @@ module installation, cleanup, reboot, or stock transfer. Activation creates no
 run or approval; each use still requires fresh connected preparation, its
 emitted exact approval, and operator attendance.
 
-The active root-data runner is 212,818 bytes at SHA-256
-`536cb88c67ddd378c511b3e6c659433009b68a5f2d9b767f7e41afdcf6a567a3`
+The active root-data runner is 213,525 bytes at SHA-256
+`71cb0617d6989ad1bbfce98779796e7cf923c65fb497b67cd4ea93fe9f4253b1`
 and normalized SHA-256
-`83ea1116e17ba1551633d9e4b73008f512b83764957f6bcc9bfd84f79e2479aa`.
+`5e29e8659fb493f0b1885cdc8954e11ec8be6fb60e6953e80923da4ed225300c`.
 The active stock-recovery runner is 61,312 bytes at SHA-256
 `b029afc3d4a899e4d83304773f8405519bacdb02de742de015a52c97689cc2a6`
 and normalized SHA-256
@@ -587,14 +587,19 @@ replacement run or approval.
 A fixed install-closure probe may report only the ordered labels `magisk`,
 `busybox`, and `util_functions`. Expected path/type or individual metadata/hash
 read failures use a finite reviewed token vocabulary with raw command stderr
-suppressed; all other output is malformed. A classified incompatibility stops
-before Magisk version, inventory, guard publication, staging, or any persistent
-effect and never grants a preparation retry. The 2026-08-16 preflight incident
-and its H0 correction are recorded in
+suppressed; all other output is malformed. Because ADB joins remote-shell
+arguments without escaping, every fixed root script is shell-quoted as one
+`su -c` argument before that join. The closure probe additionally verifies UID
+0 inside that same quoted command before reading any path. A classified
+incompatibility stops before Magisk version, inventory, guard publication,
+staging, or any persistent effect and never grants a preparation retry. The
+ADB behavior is pinned by the AOSP
+[`client/commandline.cpp`](https://android.googlesource.com/platform/packages/modules/adb/+/7c2fd99d6ec7e0d2d977ba03cecc82375af1baad/client/commandline.cpp)
+implementation. The 2026-08-16 preflight incident and its H0 corrections are recorded in
 `docs/reports/S20PLUS_G986N_NATIVE_CANARY_R1_PREPARE_INCIDENT_2026-08-16.md`.
-That correction changed only the fixed command's internal failure
+Those corrections changed only fixed command framing and failure
 classification, not the CLI or authority surface; independent review qualified
-the self-blocked candidate before a separate identity-only activation.
+each self-blocked candidate before a separate identity-only activation.
 
 Staging and privileged install use distinct intents. Before the install intent
 exists, an exact prepared-only run may be declined with zero device writes;

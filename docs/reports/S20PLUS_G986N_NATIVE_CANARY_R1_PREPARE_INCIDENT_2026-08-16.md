@@ -5,14 +5,14 @@ Date: 2026-08-16
 Target: operator-owned `SM-G986N` / `y2q` / `y2qksx` /
 `G986NKSS8IYC2` only
 
-Status: **PASS_GO - FINITE PREFLIGHT CLASSIFIER ACTIVE - NO CURRENT RUN OR APPROVAL**
+Status: **PASS_GO - QUOTED ROOT PREFLIGHT ACTIVE - NO CURRENT RUN OR APPROVAL**
 
 ## Outcome
 
-One fresh connected R1 preparation selected the exact target, completed the
-bounded Android-health check, and verified working Magisk root. It then stopped
-at the fixed Magisk install-closure read before creating a prepared binding or
-shared action guard.
+Two separately requested connected R1 preparations selected the exact target,
+completed the bounded Android-health check, and verified working Magisk root.
+Both stopped at the fixed Magisk install-closure read before creating a
+prepared binding or shared action guard.
 
 The failed preparation created no approval, staged file, root-data/module
 write, install intent, reboot intent, Download transition, Odin intent, or
@@ -22,21 +22,28 @@ absent.
 
 An earlier invocation failed even earlier because the sandbox could not create
 the local ADB daemon listener. A bounded redacted host diagnostic established
-that condition without exposing the serial; the later preparation reached the
-target and root checks, so USB detection and ADB authorization were not the
-material blocker.
+that condition without exposing the serial; both later preparations reached
+the target and root checks, so USB detection and ADB authorization were not
+the material blocker.
 
 ## Stop decision
 
-The active runner reported only `N1 Magisk install closure read failed`. That
-message did not identify whether the fixed Magisk binary, BusyBox, or
-`util_functions.sh` was absent, indirect, non-regular, unreadable, or had
-unsafe metadata. No additional device command or preparation retry followed
-the material preflight failure.
+The first active runner reported only `N1 Magisk install closure read failed`.
+Its reviewed finite classifier made the next separately authorized preparation
+report `magisk=absent,busybox=absent,util_functions=absent`. No guard or effect
+followed either result.
 
-## H0 remediation candidate
+That second output did **not** prove the files were absent. AOSP ADB constructs
+the remote shell command by joining every argument after `shell` with spaces
+and deliberately does not escape them. The runner passed its multiline script
+as an unquoted final argument, so `su -c` was not guaranteed to receive the
+complete script as one command. Remaining lines could execute in the ordinary
+shell context, where inaccessible root paths also appeared absent. No Magisk
+reinstall or root-data change was performed from that invalid inference.
 
-The correction keeps the same three constant paths and the same single fixed
+## H0 corrections
+
+The first correction kept the same three constant paths and the same single fixed
 root-read boundary. Its shell probe always emits exactly three ordered records
 and maps expected incompatibilities to a finite vocabulary:
 
@@ -52,12 +59,26 @@ inventory, staging, or any persistent effect. No CLI argument, path, shell
 fragment, module ID, or generic root command is added.
 
 Independent review returned `PASS_GO` for the finite classifier and hostile
-shell fixture. Exact identity activation set the root-data runner to 212,818
-bytes, SHA-256
-`536cb88c67ddd378c511b3e6c659433009b68a5f2d9b767f7e41afdcf6a567a3`,
+shell fixture.
+
+The second correction changes only the common fixed `root_argv` framing. It
+shell-quotes the complete script before ADB joins the remote arguments, so the
+remote shell removes that quoting and passes exactly one script argument to
+`su -c`. The Magisk closure additionally runs absolute-path `toybox id -u`
+inside the same command and stops with fixed rc `97` unless it is UID 0. A
+tracked fake-ADB-join/fake-`su` shell fixture covers newlines, quotes, and
+variable expansion; all root-script consumers use this one wrapper.
+
+The ADB source authority is the immutable AOSP
+[`client/commandline.cpp`](https://android.googlesource.com/platform/packages/modules/adb/+/7c2fd99d6ec7e0d2d977ba03cecc82375af1baad/client/commandline.cpp),
+whose `adb shell` path joins command arguments without escaping. Independent
+review returned `PASS_GO` for the self-blocked quoting candidate at SHA-256
+`66fcf659b2025a477bc19336c746bb745774258f8395b860038b0f906b37d274`,
 normalized
-`83ea1116e17ba1551633d9e4b73008f512b83764957f6bcc9bfd84f79e2479aa`.
-Focused hostile tests pass 114/114 and the exact eight-module S20+ aggregate
-passes 276/276.
+`5e29e8659fb493f0b1885cdc8954e11ec8be6fb60e6953e80923da4ed225300c`.
+Exact identity activation set the root-data runner to 213,525 bytes, SHA-256
+`71cb0617d6989ad1bbfce98779796e7cf923c65fb497b67cd4ea93fe9f4253b1`,
+with the same normalized hash. Focused hostile tests pass 115/115 and the exact
+eight-module S20+ aggregate passes 277/277.
 A later live preparation still needs a fresh direct operator request and is not
 authorized by this report.
