@@ -553,8 +553,11 @@ class S20PlusNativeCanaryN1Tests(unittest.TestCase):
         self.assertIn("LIVE CAPABILITY NOT ACTIVE", report)
         self.assertIn("INDEPENDENT REVIEW PASS_GO", report)
         self.assertIn("received independent `PASS_GO`", draft)
-        self.assertIn("REVIEW PASS_GO; NOT ACTIVE; NO DEVICE AUTHORITY", phased)
-        self.assertNotIn("REVIEW PENDING", phased)
+        self.assertIn(
+            "N1 H0 PASS_GO; R1 H0 PASS_GO; NOT ACTIVE; NO DEVICE AUTHORITY",
+            phased,
+        )
+        self.assertNotIn("R1 REVIEW PENDING", phased)
         self.assertNotIn(
             "S20PLUS_NATIVE_CANARY_ROOT_DATA_V1",
             (ROOT / "AGENTS.md").read_text(),

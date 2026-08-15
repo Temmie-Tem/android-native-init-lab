@@ -338,6 +338,13 @@ Magisk module install; no such capability, runner, artifact, approval, staging,
 reboot, or device command was created by the design. Persistent Magisk root is
 the prerequisite now proved, not itself proof of native init.
 
+The dormant R1 implementation now closes preparation-output loss, post-stage
+identity/helper drift, partial canary/result and read-only-audit publication
+cuts, rooted-Android monotonic state recovery, truthful
+`completed-source-unobserved` terminals, and stock-terminal identity binding.
+These are host-only capability properties; both R1 activation constants remain
+false and no connected run or approval exists.
+
 That H0 implementation is now complete and recorded in
 `docs/reports/S20PLUS_G986N_NATIVE_CANARY_N1_H0_2026-08-15.md`. The tracked C
 source SHA-256 is
@@ -352,13 +359,65 @@ Two native builds and two ZIP builds were byte-identical, and the QEMU/native
 hostile suite passed 16/16 after remediating the initial independent review's
 strict-result, intent-durability, canonical-ZIP, cleanup-authority, and artifact-
 fsync findings, plus the first re-review's NUL escape, nonexistent standalone
-stock-recovery authority, and namespace-fixture findings. The root-data
-transaction remains a non-binding, inactive H0 draft: no install runner,
-policy activation, approval, staging, `su`, reboot, or device command was
-created. The final independent H0 re-review returned `PASS_GO` for the exact
-public closure. The next optional bounded unit is an operator-selected binding
-policy and exact runner proposal with a new independent review, not a live
-module install.
+stock-recovery authority, and namespace-fixture findings. The root-data draft
+created no device authority. The final independent H0 re-review returned
+`PASS_GO` for that exact artifact closure.
+
+The operator then selected the optional binding-policy unit. A common R1
+boundary, exact dormant target specialization, exact dormant root-data runner,
+separate dormant stock-recovery owner, and hostile host tests are now
+implemented. Both activation constants remain false. This creates no run,
+approval, staging, `su`, install, reboot, factory reset,
+Download transition, or Odin transfer. Independent changed-closure review
+returned `PASS_GO` for the exact frozen dormant closure. The dormant
+implementation creates no R1 or live authority; mechanical
+activation and live preparation remain later explicit decisions.
+
+The narrowed candidate requires zero pre-existing Magisk modules and an absent
+`modules_update` tree. It audits the exact canary update/active/state directory
+shapes, modes, owners, file hashes, and disable-marker mode. Staging and
+privileged installation have separate intents: a cut before install closes
+only through exact-current same-target health/root, unchanged zero-module and
+Magisk state, plus exact staged cleanup, records the current boot identity, and
+records zero install attempts. The privileged Magisk sink receives only an exact re-hashed
+direct shell-owned `0600` ZIP inside one exclusively claimed non-shared
+shell-owned `0700` stage under `/data/local/tmp`, never a normal shared-storage
+pathname. Host preflight binds that source ZIP as mode `0600` and the generated
+binding as mode `0400`; bounded interrupted-push cleanup accepts only their
+AOSP-derived `0666`/`0444` modes or the completed normalized `0600` modes.
+Concurrent independently authorized same-shell-UID writers are
+outside this lane, while the non-root shell owner keeps exact cleanup available
+after a stock/root-absent return. Android-root recovery
+and normal execution freshly rebind every reboot source and reject reuse of the
+prepared or any earlier durable boot ID. Android-root recovery
+revalidates only its frozen runner/helper closure rather than candidate build
+inputs; candidate-builder import is prepare-only, and recovery CLI startup is
+tested with that source missing. It includes a fresh
+exact Magisk version and on-device helper-byte check before persistent recovery
+effects. Physical Magisk Safe Mode is deliberately excluded: official v30.7
+also changes persistent Magisk configuration/database state, including the
+Zygisk setting, outside this finite module/state surface. Pre-promotion
+uncertainty is therefore stock-only. Stock dispatch also pins the exact reviewed recovery owner and stock
+artifact, while a completed transfer can resume health finalization without
+reopening the AP. Its empty baseline is followed by a durable physical intent
+and a 300-second initial wait for exact same-session arrival; an intent-only cut
+may only observe the current endpoint and cannot refresh the physical action. A reporting cut after Odin
+intent is observation-only and never resends the transfer. Rooted and stock
+cleanup each follow a durable branch-specific terminal input. Canonical canary evidence is byte-identical to the C writer,
+not merely JSON-equivalent. The CLI exposes an
+automatically allocated closed-grammar `run-id`, never a caller path.
+
+The frozen review-candidate root-data runner is 211,486 bytes at SHA-256
+`838f9fb89ec8f9c67e84a67eb9fd1ac0fe269b9f62310f8a0791adce95a94ad0`
+(normalized
+`cfaed8fc7de2d4aa4ce8793ab52127736b70b9d12795c819075fa2e102bec798`).
+Its stock-recovery owner is 61,315 bytes at SHA-256
+`20ffdb8dd39e87d32fe5391269bde775ac04e136425755c1ed5feb76bf0ce5f4`
+(normalized
+`9849416b63064406afa5c7c235c6b7b1e79e490ceda9af2417b6ddd77dc6b8bb`).
+Focused host tests pass 112/112; the exact eight-module S20+ aggregate passes
+274/274.
+This H0 capability remains dormant and grants no R1 or device authority.
 
 A later reproducible-kernel-build unit would still need exact toolchain
 acquisition and a demonstrated matching build; the newly recovered embedded

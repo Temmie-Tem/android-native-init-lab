@@ -516,6 +516,266 @@ constant, reviewed identities, registry/status wording, and their exact test
 assertions; the post-activation S20+ aggregate passes 155/155. A fresh prepare,
 its emitted `DATA-RESET-ACCEPTED` approval, and attendance remain mandatory.
 
+## N1 exact privileged root-data transaction
+
+Status: **PASS_GO - DORMANT - NOT ACTIVE - NO R1 OR DEVICE AUTHORITY**
+
+The proposed capability is implemented by two dormant runners:
+
+- `workspace/public/src/scripts/revalidation/s20plus_g986n_native_canary_r1.py`;
+  and
+- `workspace/public/src/scripts/revalidation/s20plus_g986n_native_canary_stock_recovery_r1.py`.
+
+Both activation constants are false. This section specializes the common R1
+invariants for the exact operator-owned `SM-G986N` / `y2q` / `y2qksx` /
+`G986NKSS8IYC2` target, but does not activate them. Existing resident Magisk
+root is a precondition only. It does not itself authorize `su`, `/data/adb`
+mutation, module installation, cleanup, reboot, or stock transfer.
+
+The review-candidate root-data runner is 211,486 bytes at SHA-256
+`838f9fb89ec8f9c67e84a67eb9fd1ac0fe269b9f62310f8a0791adce95a94ad0`
+and normalized SHA-256
+`cfaed8fc7de2d4aa4ce8793ab52127736b70b9d12795c819075fa2e102bec798`.
+The stock-recovery runner is 61,315 bytes at SHA-256
+`20ffdb8dd39e87d32fe5391269bde775ac04e136425755c1ed5feb76bf0ce5f4`
+and normalized SHA-256
+`9849416b63064406afa5c7c235c6b7b1e79e490ceda9af2417b6ddd77dc6b8bb`.
+These values identify the frozen dormant H0 review candidate only.
+
+The only proposed payload is the canonical data-only Magisk module ID
+`s20plus_native_canary`: ZIP size `598551`, SHA-256
+`e06c88c3a1c029658160b974bc5938acc1f89ab68ea9a7d7d7169d5bd51525a2`;
+static binary size `597720`, SHA-256
+`38e14e6f54374fc98604bdd61e50922ce9bff1c96feae7572221be548902066c`.
+The finite persistent root-data surface is exactly the runner-owned state tree
+`/data/adb/s20plus-native-init/n1` plus the Magisk-managed module trees
+`/data/adb/modules_update/s20plus_native_canary` and
+`/data/adb/modules/s20plus_native_canary`. The only staging namespace is the
+fixed non-shared shell-private directory
+`/data/local/tmp/Codex-S20Plus-N1-e06c88c3a1c0`, claimed direct shell:shell
+`0700`; its ZIP and binding are direct shell:shell `0600` regular files with
+link count one. No normal shared-storage pathname is part of R1. Paths, module
+ID, bytes, and root command strings are constants. Magisk's own source-pinned temporary
+installer paths are not caller-selectable and are not terminal owned state.
+The CLI allocates its run directory and later accepts only its closed-grammar
+`run-id`; no CLI parameter can provide a path,
+module/package ID, executable, property, service, mount, credential, or shell
+fragment.
+
+Fresh preparation requires exact healthy rooted Android, stable target
+identity, Magisk `30.7:MAGISK:R` / `30700`, no canary module or state/stage
+namespace, zero pre-existing modules, and an absent `modules_update` tree.
+`/data/adb/modules` must be a direct root-owned `0755` directory with exact
+top-level count zero. This deliberately narrow zero-module baseline makes the
+complete pre-existing module inventory finite; any unrelated module or pending
+update rejects preparation instead of requiring a recursive third-party tree
+manifest. One approval binds that state, the exact artifacts, three ordinary
+reboots, one install, one exact disable marker, staged-input cleanup, and one
+stock fallback. Every effect has a durable intent and one attempt; ambiguity
+retains the shared S20+ guard and forbids replay.
+Preparation prints one closed-schema result containing the allocated run ID and
+its exact approval token. If output is lost after the guard is claimed, a
+second `--prepare` invocation validates the sole guarded prepared-only journal
+and re-emits the same values with zero device commands; it never allocates a
+replacement run or approval.
+
+Staging and privileged install use distinct intents. Before the install intent
+exists, an exact prepared-only run may be declined with zero device writes;
+otherwise the only permitted finalizer proves the exact current same target,
+healthy root, unchanged zero-module/Magisk baseline, and whether its boot ID is
+the prepared or a later changed boot, removes only the exact staged ZIP/binding or bounded partial regular
+bytes at those two fixed names if staging began, records
+zero install attempts and an absent module, and releases the guard. Once the install intent
+exists, the install attempt is consumed and only the disabled-rooted or
+stock-recovery branches may close the run.
+
+The ordinary shell transport first binds the host ZIP as a direct regular
+link-count-one mode-`0600` input and the runner-created binding as a direct
+regular link-count-one mode-`0400` input. It then claims the fixed non-shared stage as an
+empty direct shell:shell `0700` directory, pushes only those ZIP and binding bytes,
+makes both direct shell:shell `0600`/link-count-one files, and verifies their
+exact size and SHA-256. After both pushes and immediately before the install
+intent, the runner freshly rebinds the same Android serial/topology/boot,
+Magisk version, and exact Magisk/BusyBox/`util_functions.sh` bytes; drift closes
+only through the zero-install cleanup path. Immediately before the sink, the
+fixed root command revalidates the same directory, exact two-member set,
+ownership, modes, link counts, sizes, and hashes, then invokes exactly
+`/data/adb/magisk/magisk --install-module` on that private-stage ZIP. Normal
+apps and shared-storage writers cannot enter or replace this stage. A bounded
+partial stage is removed by the consumed shell cleanup path; installation is
+never repeated. A concurrent independently authorized writer with the same
+shell UID is outside this lane and is an immediate stop. Because cleanup and
+absence checks use the non-root shell owner, the same bounded cleanup remains
+available after a stock/root-absent return. The only accepted interrupted-push
+modes are the AOSP sync derivations from those bound host inputs: ZIP `0666`
+and binding `0444`, plus each normalized completed mode `0600`. Magisk
+v30.7's official installer extracts boot-mode modules into
+`modules_update`, resets default file modes, and later promotes that directory
+at boot, after which the official promotion code removes `modules_update`.
+The proposed runner therefore requires that tree absent before install and
+after promotion, and performs and verifies one additional
+fixed `chmod 0750` only on
+`modules_update/s20plus_native_canary/bin/s20plus_native_canary`; this is part
+of the same preauthorized root-data effect, not a generic chmod surface. The
+source authority is the official v30.7 tag commit
+`e8a58776f1d7bdf852072ad0baa6eceb9a1e4aac`, particularly
+[`native/src/core/applets.cpp`](https://github.com/topjohnwu/Magisk/blob/v30.7/native/src/core/applets.cpp),
+[`scripts/util_functions.sh`](https://github.com/topjohnwu/Magisk/blob/v30.7/scripts/util_functions.sh)
+and [`native/src/core/scripting.cpp`](https://github.com/topjohnwu/Magisk/blob/v30.7/native/src/core/scripting.cpp),
+[`native/src/core/module.rs`](https://github.com/topjohnwu/Magisk/blob/v30.7/native/src/core/module.rs),
+[`native/src/core/bootstages.rs`](https://github.com/topjohnwu/Magisk/blob/v30.7/native/src/core/bootstages.rs), and the documented
+[`magisk --install-module` interface](https://github.com/topjohnwu/Magisk/blob/v30.7/docs/tools.md).
+The native entrypoint redirects installer stderr to `/dev/null` before the
+BusyBox shell, so the reviewed exact success grammar correctly requires empty
+stderr even though `util_functions.sh` redirects unzip diagnostics to its
+stderr. The same native entrypoint sets `umask(0)`: immediately after install,
+the newly created `modules_update` parent and active-stub module directory are
+therefore exact root-owned mode `0777`, while the update module root and `bin`
+are `0755` and its regular payload files are separately mode/hash bound. After
+promotion, the exact active module root and `bin` are `0755` and
+`modules_update` is absent. Preparation also binds direct regular-file mode/owner/link/size/SHA-256
+receipts for the on-device Magisk binary, BusyBox, and `util_functions.sh`, and
+execution requires byte-identical receipts. Those receipts prove stable local
+installer bytes and version, not upstream provenance by themselves.
+
+Normal PASS requires exact direct directory modes/ownership and exact child
+sets for the update, active, state-parent, and state trees; every regular file
+has its exact mode, owner, link count, size/hash; then one exact canary result, a second boot with byte-identical
+intent/result, the exact module `disable` marker, a third healthy rooted boot
+with no canary journal change, unchanged unrelated module inventory, and
+no-clobber namespace cleanup of only the two private staged files. The disabled module
+and immutable on-device evidence remain; arbitrary module removal is not part
+of this capability. Immediately before each reboot intent the runner freshly
+rebinds the exact source boot, working root, prepared Magisk/helper bytes, and
+the phase-specific module tree. The prepared, first, replay, disabled,
+Android-recovery, and stock-terminal return boot IDs form a non-repeating
+ordered history; a reused earlier ID is malformed evidence and sends no new
+reboot or terminal release.
+
+All host journals use bounded no-follow reads, exact key sets, strict JSON
+types, duplicate-key rejection, no-clobber publication, and file/directory
+fsync. The R1 owners build each record in an unnamed same-directory inode,
+file-fsync it, and publish it with an atomic no-replace link before directory
+fsync, so a final name is absent or contains the complete value and never a
+partial JSON prefix. A result-write cut after an intent is `uncertain-consumed`: it cannot
+authorize replay, but exact partial command evidence and an exact canary
+intent-only read remain valid inputs to recovery. A cut after the canary intent
+read may fetch and atomically publish only the missing fixed result read; a
+result without its preceding intent remains malformed. A partial final
+read-only audit may be repeated only as a read and published as one atomic
+zero-effect resume receipt whose source-prefix set is exact. A durable branch-specific
+`terminal-input.json` precedes cleanup, including the stock branch's exact
+transfer classification, health receipt, and pre-cleanup root-absence receipt.
+The named terminal finalizer can derive
+that input from a complete branch journal, accept a consumed partial cleanup
+only after an accessible shell-private staging parent and staged-input-absence proof,
+publish a missing terminal, or validate an existing terminal and release its
+leftover guard without a device command. Every other terminal publication
+repeats current exact target/root and branch-state reads.
+The terminal-only path revalidates only the runners/parsers and immutable
+journal needed for that terminal: it may release a leftover matching guard or,
+after the guard was already released and only CLI output was lost, re-emit the
+byte-identical terminal with zero device command. A present foreign guard
+rejects. Unrelated missing candidate inputs, ADB, or the unused stock owner
+cannot strand a rooted terminal, while the stock owner remains mandatory for a
+stock terminal. Stock terminal identity must equal the
+durable final-health identity, not merely a self-consistent terminal record.
+
+Canary intent/result evidence is not accepted by semantic JSON equivalence.
+The host reconstructs and compares the exact ordered canonical bytes emitted
+and re-consumed by the reviewed C canary, including the C parser's INT32,
+INT64, and UINT64 limits. Whitespace variants, escaped fixed keys/values, and
+out-of-range numeric tokens are malformed even when a generic JSON decoder
+would produce the same object.
+
+Recovery is preauthorized by the same approval and does not depend on the
+candidate ZIP, builder source, or canary source remaining present after an
+install intent. Candidate-only builder loading is confined to fresh prepare;
+all recovery CLI entrypoints import, parse, and reach their scoped validator
+when that builder is absent. Recovery revalidates the exact root-data runner and shared helper
+closure. Before any rooted recovery audit or persistent disable effect it also
+re-reads Magisk `30.7:MAGISK:R` / `30700` and the exact prepared on-device
+Magisk, BusyBox, and `util_functions.sh` receipts. The stock dispatch branch
+additionally revalidates the reviewed stock owner and fixed stock artifact;
+after exact transfer completion, its health-only finalizer revalidates the
+owner and completed strict journal but does not require the AP bytes to remain
+present. When exact rooted Android is available after the
+update tree has been promoted on a changed boot, the runner may create only
+the canary module's fixed `disable` flag and perform one recovery reboot.
+Install uncertainty while the device is still on the prepared pre-promotion
+boot is deliberately not normalized by a root command; it proceeds only
+through the stock branch. On-device
+recovery audits accept only the exact filesystem state classes `binding-only`,
+`intent-only`, or `completed`. When `completed` bytes are canonical and
+hash-bound but the source boot was not durably observed before a recovery
+transition, the terminal uses the distinct `completed-source-unobserved` class
+and never claims N1 PASS or observed-source attribution. A completed result may
+use the ordinary `completed` terminal class only when it matches the observed
+first source boot. The recovery intent binds that canary-source boot separately
+from the current disable-source identity, so an exact replay boot can disable
+the module without misattributing the immutable first-boot result. Exact
+monotonic advance from binding-only or intent-only to
+completed during disable is accepted; regression is malformed. Physical
+Magisk Safe Mode is not an R1 recovery action. Official v30.7 runs
+`disable_modules()` but also changes persistent Magisk database/configuration
+state, including disabling Zygisk, while its bootloop bookkeeping is outside
+the finite module/state surface bound here. No Safe Mode arm, key sequence,
+finalizer, marker mode, or database mutation is authorized. A future lane must
+bind and independently review every such persistent side effect before it can
+add that recovery path. Submitting the exact
+token
+`S20PLUS-G986N-NATIVE-CANARY-R1-ROOTED-RECOVERY-UNAVAILABLE-STOCK-HANDOFF`
+is the attended operator's explicit assertion that the supported
+rooted-Android recovery path is unavailable; it is not a
+generic confirmation. Only then may the root-data runner write one exact durable handoff.
+That handoff cannot supersede a durable completed rooted recovery proof,
+terminal input/result, or cleanup closure;
+only the separate stock-recovery runner may consume it. Preparation pins that
+owner's exact reviewed size, full SHA-256, and normalized SHA-256; the owner
+revalidates the same receipt before use. That runner has no candidate path. It
+publishes a durable attended physical-action intent after an empty Download
+baseline and before physical entry, with a fixed 300-second arrival deadline,
+then publishes a separate exact endpoint-session arrival. An intent-only
+reporting cut may observe the current sole endpoint once without refreshing
+the baseline, arm, or physical action; the deadline bounds only the initial
+attended wait and does not strand that read-only resumption. A legacy
+baseline-only record or a different endpoint session fails closed. Direct operator
+confirmation binds that arrival, and the owner can transfer exactly once only
+the fixed stock boot AP,
+size `25671721`, SHA-256
+`48a11265a6730a6ab842b07f63cffe9cbdf1582a919b02abdaf1d2b9a2e0bd6b`.
+Terminal stock health requires exact Android, root absence, staged-input
+absence/cleanup, and a durable result. Root absence requires rc `127`, empty
+stdout, one finite whole-stderr `not found`/`inaccessible or not found`/`no
+such file` grammar, raw transcript bytes and hashes, and unchanged exact target
+identity; `permission denied` is not absence. Only a completed transfer may
+claim stock-boot provenance. Exact healthy/root-absent Android after an
+unproved/failed/local-parse stock attempt uses a distinct non-PASS terminal
+verdict, `stock-attempt-unproved` recovery class, and
+`inactive-under-root-absent-boot` module state. An exact root-absent observation
+whose boot ID did not change is recorded as a distinct recovery-pending state,
+not as success and not as a malformed factory-reset receipt. A durable health receipt is
+resumable evidence, not a standing lease, so terminal publication repeats the
+read-only Android/root check. A complete arm/arrival or confirmation reporting
+cut may resume without repeating its effect; an arm-only cut is limited to one
+current read-only arrival observation without repeating or refreshing the
+finite initial wait window. Once rollback intent exists, missing
+or partial result evidence is classified
+`odin_effect_outcome_unproved_after_intent` and only observation/final-health
+continuation is allowed—Odin is never resent. Rollback intent/result JSON is re-read by the stock owner
+with duplicate-key rejection and exact typed schemas. A required factory reset is an accepted
+recovery cost, not permission for the runner to issue a format command.
+
+Independent review of the common R1 boundary, this section, both runners,
+schemas, fixed command literals, artifact and Magisk source closure, hostile
+tests, cleanup, stock handoff, and higher-precedence interactions is in
+progress. Activation remains a later mechanical decision and
+must set both
+constants true, rotate reviewed full/normalized hashes and exact assertions,
+and update the registry wording without changing any other target row. Even
+then a fresh connected preparation, emitted exact approval, and operator
+attendance remain mandatory. No approval or run exists now.
+
 ## Activation and Review Record
 
 The following gates were completed before activation:

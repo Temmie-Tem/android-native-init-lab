@@ -7,7 +7,7 @@ Selected target: operator-owned Samsung Galaxy S20+ 5G only,
 
 Tier: H0 architecture, evidence map, and next-unit selection
 
-Status: **SELECTED DESIGN; N1 H0 IMPLEMENTED; REVIEW PASS_GO; NOT ACTIVE; NO DEVICE AUTHORITY**
+Status: **SELECTED DESIGN; N1 H0 PASS_GO; R1 H0 PASS_GO; NOT ACTIVE; NO DEVICE AUTHORITY**
 
 ## Decision
 
@@ -22,7 +22,7 @@ The selected progression is:
 
 ```mermaid
 flowchart LR
-    N0["N0: resident Magisk root\ncomplete"] --> N1["N1: data-only native canary\nnext selected unit"]
+    N0["N0: resident Magisk root\ncomplete"] --> N1["N1: data-only native canary\nhost-built; live R1 gated"]
     N1 --> N2["N2: private mount/UTS\nsupervisor mechanics"]
     N2 --> N3["N3: boot-ramdisk overlay\ninit-rc native canary"]
     N3 --> N4["N4: retained pre-userspace witness\nand PID1 handoff proof"]
@@ -177,8 +177,9 @@ The design uses primary or official material only:
   mechanisms, not current repository authority.
 - The official [Magisk module bootloop recovery FAQ](https://topjohnwu.github.io/Magisk/faq.html)
   documents ADB module removal and the physical Magisk Safe Mode key path.
-  N1 uses both only as reviewed recovery branches, never as proof that an
-  unsafe boot script is acceptable.
+  N1 uses only the exact rooted-Android disable path. Safe Mode is excluded
+  because v30.7 also mutates persistent Magisk database/configuration state
+  outside the finite module surface reviewed here.
 - [AOSP init's service contract](https://android.googlesource.com/platform/system/core/+/master/init/README.md)
   defines triggers, one-shot services, execution context, and `seclabel`.
 - [AOSP ueventd](https://android.googlesource.com/platform/system/core/+/refs/heads/android12-qpr3-s2-release/init/ueventd.cpp)
@@ -202,7 +203,7 @@ The design uses primary or official material only:
 | Phase | Change surface | Required proof | Explicit non-claim | Recovery |
 |---|---|---|---|---|
 | N0 - resident baseline | known Magisk boot only | persistent exact-target root, enforcing SELinux, stock Android PID 1 | no native-init result | complete |
-| N1 - data canary | exact Magisk module under `/data/adb`; no partition transfer | one static native binary executes once after boot completion and writes bound private evidence | not early init, not PID 1, not isolation | disable/remove module; Magisk Safe Mode; stock boot remains available |
+| N1 - data canary | exact Magisk module under `/data/adb`; no partition transfer | one static native binary executes once after boot completion and writes bound private evidence | not early init, not PID 1, not isolation | exact rooted disable; stock boot remains available |
 | N2 - supervisor mechanics | N1 binary only | private mount/UTS namespace, recursive-private mounts, exact child supervision, bounded teardown, optional private `pivot_root` | no PID namespace; no container security; no network | same data-only disable path |
 | N3 - ramdisk canary | current resident boot plus one rc and one static binary | exact overlay injection, explicit SELinux context, init-launched execution, mandatory resident-boot rollback | first trigger is after boot completion; Magisk remains first program; Android init remains PID 1 | same-run known resident Magisk boot rollback |
 | N4 - PID1 witness/handoff | boot-only research candidate | retained pre-userspace witness, watchdog/device/module map, classified PID-1 entry, safe handoff or bounded park | no production native appliance | immediate boot-only rollback; candidate never replayed |
@@ -283,15 +284,20 @@ The native binary owns the state transaction:
 Success requires all of the following:
 
 - exact S20+ Android identity and health before install;
-- healthy persistent Magisk `30.7` root and no pre-existing module with the
-  proposed ID;
+- healthy persistent Magisk `30.7` root, zero pre-existing modules, and an
+  absent `modules_update` tree;
 - exact ZIP and binary readback after install;
-- one ordinary reboot and a changed boot ID;
+- three separately journaled ordinary reboots and three contiguous changed boot
+  IDs: first execution, replay-proof observation, and final disabled-state boot;
+  each source is freshly rebound before intent and all four prepared/returned
+  boot IDs are pairwise distinct;
 - exact result schema and binding, one intent, one result, no extra node, and
   a native `uid=0` execution in the expected Magisk context;
 - exact Android identity, boot completion, enforcing SELinux, working Magisk
   root, stable health samples, and module count/state after observation;
-- a second ordinary reboot that does not execute the consumed canary again.
+- a second ordinary reboot that does not execute the consumed canary again;
+- a third ordinary reboot after the exact disable marker, proving the module
+  remains inactive on the terminal rooted boot.
 
 N1 `PASS` proves only one native late-start execution and its one-shot
 behavior. It does not prove init-rc injection, early boot, first-stage mounts,
@@ -300,15 +306,23 @@ or a native root filesystem.
 
 Recovery order is fixed before activation:
 
-1. If exact Android/ADB returns, create the exact module `disable` flag through
-   the reviewed recovery branch, reboot once, and prove healthy Android/root
-   without canary execution.
-2. If Android does not return, use the documented physical Magisk Safe Mode
-   key sequence to disable modules, then prove health before any new action.
-3. If Magisk Safe Mode does not restore Android, use attended physical Download
+1. If exact Android/ADB returns after promotion on a changed boot, create the
+   exact module `disable` flag through the reviewed recovery branch, reboot
+   once, and prove healthy Android/root without new canary execution.
+   Binding-only, intent-only, and completed on-device state are distinct.
+   Canonical completed bytes not durably tied to an observed source boot use a
+   separate `completed-source-unobserved` recovery terminal and never count as
+   N1 PASS; only the ordinary completed state is bound to the observed source
+   boot. Monotonic in-flight advancement is accepted and regression is not. A
+   prepared-boot/pre-promotion uncertainty proceeds only to stock recovery
+   instead of an inferred root-data normalization.
+2. If exact rooted Android recovery is unavailable, use attended physical Download
    and the exact known stock boot-only rollback. Candidate install/reboot is
    not replayed. Because both prior S20+ boot-image transitions required a
-   factory reset, this last branch must again assume complete data loss.
+   factory reset, this branch must again assume complete data loss. Physical
+   Magisk Safe Mode is not authorized because its v30.7 implementation also
+   changes persistent Magisk database/configuration state outside N1's bound
+   surface.
 
 Module removal follows only after a healthy disabled boot and an exact state
 readback; removal is not the first response to an ambiguous boot.
@@ -322,15 +336,43 @@ independent review must define one exact root-data transaction, provisionally
 named `S20PLUS_NATIVE_CANARY_ROOT_DATA_V1`:
 
 - one prepared target, one exact module ZIP, one exact module ID;
-- one stage, one `magisk --install-module` dispatch, one ordinary reboot, one
-  bounded observation, and no generic root command surface;
-- durable intent before install; install/reboot is never blindly replayed;
+- one separately journaled stage, one `magisk --install-module` dispatch, three
+  separately journaled ordinary reboots, one bounded observation, and no generic
+  root command surface;
+- distinct durable intents before stage and install; a pre-install cut permits
+  a zero-write prepared-only decline or exact staged cleanup and records zero
+  install attempts; install/reboot is never blindly replayed;
+- privileged Magisk consumes only an exact re-hashed direct shell-owned `0600`
+  file in one exclusively claimed non-shared shell-owned `0700` stage, never a
+  normal shared-storage pathname; ordinary, stock/root-absent, and abrupt-cut
+  cleanup prove that bounded private stage absent without replaying install;
+  host preflight binds the source ZIP mode `0600` and generated binding mode
+  `0400`, so interrupted ADB-sync cleanup admits only their source-derived
+  `0666`/`0444` modes or normalized `0600`;
 - the expected Android USB disconnect/re-enumeration is internal to the same
   transaction and needs no second confirmation;
-- one preauthorized exact disable/remove recovery branch if Android returns;
-- the documented physical Magisk Safe Mode path if the module interferes with
-  boot; and
-- terminal exact Android and root health before guard release.
+- one preauthorized exact disable recovery branch if promoted Android returns,
+  without depending on candidate build inputs after the install intent, and
+  with every recovery CLI able to start when the candidate builder is absent;
+- no physical Magisk Safe Mode authority because v30.7 also changes persistent
+  Magisk database/configuration state; when rooted Android recovery is
+  unavailable, only the separately reviewed exact stock handoff may proceed;
+- strict typed/duplicate-free durable JSON, recovery-only partial receipts, a
+  branch-specific terminal input before cleanup, and cut-point finalization
+  without effect replay; and
+- canonical canary result bytes equivalent to the C writer rather than merely
+  semantically equivalent JSON, with the same integer bounds; and
+- fresh prepared Magisk/helper closure validation before persistent rooted
+  recovery effects, while completed stock-transfer health finalization no
+  longer depends on reopening the AP; and
+- stock attribution through an empty baseline, durable physical intent, a
+  bounded initial arrival wait, and exact same-session arrival; an intent-only
+  cut may only observe the current endpoint and never refresh the physical
+  action; after rollback intent,
+  missing/partial transfer results allow only observation and never Odin
+  replay; and
+- terminal exact Android/root/module state and accessible shell-private stage
+  absence before guard release.
 
 The proposed gate blocks the hazard class “arbitrary persistent root-data
 configuration.” Its scope ends when the one module is proved consumed and
@@ -485,6 +527,8 @@ boundaries, but it should avoid repeating incident-specific control machinery:
 - expected Android disconnect/reconnect is observed inside that transaction;
 - pre-effect failures close cleanly and may be freshly prepared;
 - after install or transfer intent, no blind replay occurs;
+- reporting cuts resume from strict durable state, each reboot is bound to the
+  preceding durable boot, and a prior health receipt is not a standing lease;
 - the current guard owner may execute only its predeclared observation or
   recovery path; and
 - reports record new capabilities, incidents, or changed hazards rather than
@@ -510,7 +554,13 @@ policy interaction, and recovery model. That first re-review additionally
 exposed a NUL escape, a missing namespace fixture,
 and a nonexistent standalone stock-recovery assumption; all three were
 remediated, and the final re-review returned `PASS_GO` for the exact H0 closure.
-Stop before module staging, `su`, install, reboot, or any device command. The
-next optional unit is an operator-selected binding policy and exact runner
-proposal with its own review. N2 through N5 remain designs, not a queue of
-implicitly approved actions.
+The operator selected that optional unit. A common R1 boundary, a dormant
+exact-target specialization, a fixed-command root-data runner, a separate
+dormant stock-boot recovery owner, and hostile tests are
+now implemented host-only. Both runner activation constants remain false, so
+the implementation creates no preparation, approval, `su`, staging, install,
+reboot, Download transition, or transfer authority. Stop before every device
+command. Independent changed-closure review returned `PASS_GO` for the exact
+frozen dormant R1 closure. Any later activation is a separate mechanical
+decision. N2 through N5 remain designs, not a queue of implicitly approved
+actions.

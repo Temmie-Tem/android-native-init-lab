@@ -6,11 +6,9 @@ The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs
 
 ---
 
-This file contains the repository-wide invariants and the binding target
-registry. Select exactly one target contract before target-specific work.
-`GOAL.md` and `GOAL_A90.md` describe current state and objectives; they never
-grant device authority. Historical or draft policies under `docs/archive/` or
-elsewhere are evidence only, even if their text says `ACTIVE`.
+This file contains the repository-wide invariants and the binding target registry.
+Select exactly one target contract before target-specific work. A registry goal describes current state and objectives but never grants device authority.
+Historical or draft policies under `docs/archive/` or elsewhere are evidence only, even if their text says `ACTIVE`.
 
 The default work cycle is:
 
@@ -44,13 +42,9 @@ are current. An unactivated policy edit remains H0 only.
 | Samsung Galaxy A90 5G | `GOAL_A90.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` | `docs/operations/targets/A90_TARGET_CONTRACT.md` sections `A90 D1 Resident Session`, `A90 F1 Resident Install`, and `Attended F1 Pre-Handoff` |
 | Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) | `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` | Active exact-target routine D0/D1 including payload-free Download return; attended boot-only bootstrap and resident Magisk F1 active |
 
-Targets, profiles, rollback identities, transports, approvals, and health
-evidence never transfer between registry rows. If no binding target contract
-matches the exact target and action, remain H0.
+Targets, profiles, rollback identities, transports, approvals, and health evidence never transfer between registry rows. Without an exact matching contract, remain H0.
 
-For A90 work, the required read order is this file, then
-`docs/operations/targets/A90_TARGET_CONTRACT.md`, then `GOAL_A90.md`. The goal
-records current state only and cannot grant or extend live authority.
+For A90 work, read this file, then `docs/operations/targets/A90_TARGET_CONTRACT.md`, then `GOAL_A90.md`. The goal cannot grant or extend live authority.
 
 ## Permanent Device Safety Boundaries
 
@@ -114,11 +108,38 @@ Classify every action using
   patch, permission grants, arbitrary files/packages, partition payloads, or
   security/configuration changes. A selected target contract may also define
   the existing separately reviewed exact storage-artifact cleanup capability.
+- **R1:** an attended exact privileged root-data transaction activated by one
+  target contract outside D1/F1. It uses fixed no-input root commands for one
+  pinned data-only payload in a finite surface, durable one-shot journal, and
+  reviewed recovery owner. It grants no caller-supplied `su`, arbitrary module/
+  path/configuration mutation, or partition payload; root grants no R1.
 - **F1:** a boot-only transfer process defined by the selected target contract.
 - **X:** forbidden by the permanent boundaries.
 
 Do not split a higher-risk action into lower-tier commands. A device-connected
 action is not H0 merely because it sends no partition payload.
+
+## Common R1 Invariants
+
+R1 exists only for a target-contract-named persistent privileged-data experiment outside D1/F1. Its runner, schema, artifact closure, fixed commands, cleanup, recovery, and hostile tests require review before activation; capability PASS prepares no run or live authority.
+
+One fresh attended approval binds the exact target/current boot, payload bytes, finite state/staging/module surface and inventory, root commands/reboots, cleanup, and recovery. The shared guard and intent-before-effect journal make each effect one-shot and retain the guard after uncertainty or malformed state. Strict typed JSON rejects duplicate keys, bool/integer substitution, indirect nodes, and raw-receipt mismatch. A post-intent write/fsync cut is `uncertain-consumed`: never replay it, but keep exact preauthorized recovery reachable. Callers select only named actions, never a path, shell fragment, ID, property, service, mount, credential, or executable.
+
+An R1 journal final name exposes only complete file-fsynced bytes via atomic no-replace publication and directory fsync: before publication it is absent; afterward it is complete and parseable. Direct final-name writes are not durable R1 receipts.
+
+Staging and installation are separate; staging intent is not a root-data attempt. Before install intent, exact prepared-only decline or same-target recovery may remove owned staged bytes and close with zero installs; install intent consumes the attempt without a result. Recovery revalidates only branch inputs and remains reachable without candidate build inputs. Before Magisk BusyBox use or disable-marker change it re-reads prepared Magisk and exact helper bytes. Stock AP remains required through transfer, but an exact completed-transfer health finalizer must not reopen it.
+
+A privileged R1 sink must not reopen a payload from normal shared user storage. Stage it only in one fixed, exclusively claimed non-shared directory inaccessible to untrusted app UIDs; bind the direct non-symlink directory by owner, mode, and exact child set, and bind each direct regular payload by owner, mode, link count, exact size, and SHA-256 immediately before the sink. Directory link counts are filesystem-dependent and are not authority receipts. Concurrent independently authorized writers with the same staging UID are outside the lane and constitute an immediate stop. Ordinary, stock/root-absent, and abrupt-cut cleanup must remain available to that non-root staging owner and remove only bounded regular remnants at the fixed names without replaying installation.
+
+Normal terminal requires bounded observation, one-shot replay proof, disablement, healthy exact-target return, and owned-stage cleanup. Each reboot rebinds its exact current source boot immediately before intent, and no returned observation may reuse the prepared or any earlier durable boot ID. Recovery never waits after an effect; Android-root recovery touches only the named disable marker. If exact rooted Android is unavailable, only separately reviewed stock recovery may consume a durable handoff and one prebound boot-only stock artifact; another F1 grants no authority. Physical Magisk Safe Mode is outside ordinary R1 because it can mutate Magisk database/configuration state in addition to module markers; a future target may authorize it only after separately binding and reviewing every such persistent side effect. Install, reboot, disable, cleanup, and stock transfer never replay after their durable intents.
+
+Stock Download attribution requires an empty baseline, durable attended physical-action intent, and one exact bound arrival. The initial wait is finite. After an intent-only cut, a later invocation may observe the current sole exact endpoint once and publish arrival, but cannot repeat baseline or physical action. Legacy baseline-only, malformed arm/arrival, or a different endpoint grants no transfer. After rollback intent, missing/partial transfer results permit observation and recovery only, never Odin replay. Later exact root-absent health may close while retaining an unproved outcome; it cannot relabel completion or stock provenance.
+
+Device one-shot evidence uses only the reviewed writer/parser's exact canonical bytes; semantic JSON equivalence, escaped fixed tokens, and out-of-range numbers are invalid. Cleanup may remove a bounded partial regular file only at its fixed owned staged name after staging intent; symlink, hardlink, special/oversized file, or extra namespace entry remains a stop.
+
+Every host-reporting cut resumes without repeating a device effect. Durable branch terminal input, including stock health and transfer state, precedes cleanup. A finalizer may derive it from a complete journal, accept consumed partial cleanup only after read-only stage absence, publish a missing terminal, release a post-terminal guard, or re-emit an exact terminal after that guard was already released and only stdout was lost. A present foreign guard still rejects. Except for those terminal-only cuts, it repeats fresh target/root/branch reads; older health is not a standing lease.
+
+R1 never weakens forbidden partitions, permits raw block access, or makes root general maintenance authority. Target/build, Magisk, payload, namespace, command/schema, recovery artifact/transport, or health-model drift expires it.
 
 ## Common F1 Invariants
 
@@ -150,6 +171,10 @@ healthy terminal state. Candidate boot or transfer success alone is not PASS.
 
 - Routine H0/D0/D1 work needs only the evidence required by its tier and target
   contract.
+- Routine R1 output is one exact private run, append-only one-shot intents and
+  results, bounded private raw command evidence, and one terminal structured
+  result. A new R1 capability, recovery deviation, or incident also requires a
+  prose report.
 - Routine F1 output is one structured result, one append-only journal, private
   raw logs, and the target contract's canonical timeline.
 - Write a prose report for a new capability, new hazard class, incident,
@@ -172,12 +197,11 @@ healthy terminal state. Candidate boot or transfer success alone is not PASS.
 
 ## Development and Commit Discipline
 
-- Read this file, the selected target contract, and the target's current goal.
-  Read both goals for a common or cross-target change. Inspect
+- Read this file, the selected target contract, and every affected goal; inspect
   `git status --short` and keep edits scoped.
 - Keep each active goal focused on current state and the selected bounded unit.
   Review completed history for archival above 800 lines; 900 lines is the hard
-  limit for either goal file.
+  limit for any goal file.
 - Use canonical paths under `workspace/public/src/`, `workspace/private/`, and
   `docs/`. Do not recreate legacy root trees.
 - Validate touched Python with `py_compile` and focused tests. Cross-compile
@@ -189,10 +213,7 @@ healthy terminal state. Candidate boot or transfer success alone is not PASS.
 
 ## Stop and Escalate
 
-Stop when evidence is ambiguous, a boundary would need to bend, recovery is
-not available, or the current action is not represented by the selected tier
-and target contract. Do not widen scope or retry-loop. Fall back to H0 analysis
-and record the blocker.
+Stop when evidence is ambiguous, a boundary would need to bend, recovery is not available, or the current action is not represented by the selected tier and target contract.
+Do not widen scope or retry-loop. Fall back to H0 analysis and record the blocker.
 
-Outside the active trial, pre-session host-only repair requires an explicit
-target-contract rule; otherwise stop on the first material failure.
+Outside the active trial, pre-session host-only repair requires an explicit target-contract rule; otherwise stop on the first material failure.

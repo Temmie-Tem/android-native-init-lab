@@ -109,6 +109,95 @@ Examples: one checked candidate or rollback AP containing only `boot.img.lz4`.
   closures across one separate resident reboot. This does not apply to S22+
   or authorize an untested candidate.
 
+### R1 - Exact Privileged Root-Data Transaction
+
+Examples: one independently reviewed, target-bound Magisk module experiment
+whose exact persistent data mutation, ordinary reboots, disablement, cleanup,
+and stock-boot recovery are one preauthorized attended transaction.
+
+- R1 is not routine root maintenance. A binding target contract must activate
+  the exact runner, artifact bytes, target/build, Magisk version, module ID,
+  finite root-data surface set, fixed command literals, reboot budget, cleanup, and
+  recovery owner after independent review. Otherwise the action is forbidden.
+- Require one fresh attended approval after exact healthy rooted-Android
+  preflight. Bind the complete pre-existing module inventory and reject any
+  pending module update, target drift, stale namespace, staged-path collision,
+  artifact drift, or unexpected root state before the first effect.
+- The CLI exposes named state transitions only. It accepts no shell fragment,
+  path, module/package ID, property, service, mount, credential, or executable
+  from the caller. Every root command is a reviewed literal with bounded output
+  and time.
+- Durably record separate intent before staging, privileged install, each reboot, disablement,
+  cleanup, or recovery. Each effect has one attempt. A missing receipt,
+  transport uncertainty, malformed journal, or identity drift retains the
+  shared guard and never permits replay. Strict typed JSON rejects duplicate
+  keys and bool/integer substitution. Bounded partial command or read evidence
+  after an intent is classified as consumed recovery-only evidence, never as
+  success and never as permission to repeat the effect.
+- Publish each final journal name only from a complete file-fsynced inode using
+  an atomic no-replace operation, then fsync its directory. A pre-publication
+  cut leaves no final name; a post-publication cut may expose only complete
+  parseable bytes. Direct partial writes into final names are invalid.
+- A staging-only cut has no root-data effect. Before the install intent, the
+  operator may close an exact prepared-only run with zero writes; after
+  staging starts, the only terminal continuation is exact-target health plus
+  cleanup or read-only absence of the fixed staged bytes. After the install
+  intent, recovery remains possible without
+  requiring the candidate ZIP, builder source, or other candidate-only inputs;
+  each recovery CLI must start and reach its scoped validator without importing
+  those disposable inputs. It revalidates only the closure needed by that
+  recovery branch. Rooted
+  recovery rebinds the exact prepared Magisk version and helper bytes before
+  any persistent recovery effect. A completed stock transfer may proceed to
+  health-only finalization without reopening the already-consumed stock AP.
+- The privileged installer must not reopen a payload from normal shared user
+  storage. Stage it only in one fixed, exclusively claimed non-shared
+  directory inaccessible to untrusted app UIDs; bind the direct non-symlink
+  directory by owner, mode, and exact child set, and bind each direct regular
+  payload by owner, mode, link count, exact size, and SHA-256 immediately before
+  the sink. Directory link counts are filesystem-dependent and are not authority
+  receipts. Concurrent independently authorized writers
+  with the same staging UID are outside the lane and are a stop. Ordinary,
+  stock/root-absent, and abrupt-cut cleanup must remain available to the
+  non-root staging owner and remove only bounded regular remnants at the fixed
+  names without replaying install.
+- Normal success requires the exact observation contract, immutable replay
+  proof when claimed, exact disable marker, healthy exact-target rooted
+  Android, unchanged unrelated module inventory, and exact staged-input
+  cleanup. Each reboot must freshly rebind its exact source boot before intent,
+  and every returned boot ID must be distinct from the prepared and all earlier
+  durable observations. It does not silently remove or alter any unrelated module.
+- A durable terminal input must precede cleanup. A reviewed finalizer may
+  resume only from exact journal state, never replay a consumed cleanup, and
+  may release a post-terminal guard without a device command. Every other
+  terminal attempt rechecks current exact target/root and terminal module
+  state; a prior health receipt alone is insufficient.
+- Device-generated evidence must match the reviewed writer/parser canonical
+  byte grammar, not merely decode to an equivalent JSON object. Cleanup of a
+  consumed partial stage write is limited to bounded regular non-hardlinked
+  bytes at the two fixed names inside the exclusively claimed namespace.
+- Recovery is included in the original approval. Exact Android-root recovery
+  may create only the named disable marker. Physical Magisk Safe Mode is not an
+  ordinary R1 recovery because its implementation can also mutate persistent
+  Magisk database/configuration state; it requires a separate target-specific
+  surface binding and review before use. When rooted Android recovery is
+  unavailable, a stock fallback requires a distinct reviewed recovery owner
+  and durable handoff, and can send only one prebound stock boot-only artifact.
+  It has no candidate path and cannot inherit an adjacent F1 approval.
+- The stock owner couples an empty Download baseline, a durable attended
+  physical-action intent, and one exact endpoint arrival. The initial wait is
+  finite; an intent-only reporting cut may perform one current exact endpoint
+  observation but cannot repeat the baseline or physical action. It rejects
+  legacy baseline-only state, malformed arm/arrival, and any endpoint-session
+  change before dispatch. After
+  rollback intent, a missing or partial local result is observation-only and
+  can never cause another Odin call; later exact stock health may close with an
+  explicit unproved transfer state but never as proved transfer completion or
+  as stock-boot provenance.
+- R1 never authorizes a partition payload itself. Its separately owned stock
+  fallback remains subject to every ordinary boot-only transport, endpoint,
+  artifact, no-replay, and final-stock-health boundary.
+
 ### X - Forbidden
 
 The existing forbidden partition and primitive list remains absolute. In
@@ -124,7 +213,7 @@ separate binding contract explicitly says otherwise.
 
 ## Escalation Rules
 
-Escalate to F1 or a separately reviewed contract when any command hands a
+Escalate to F1, R1, or a separately reviewed contract when any command hands a
 payload to a bootloader, recovery, partition writer, or other executable
 runtime; can write a partition; changes a credential, security, debug, or
 persistent system configuration state; introduces a new low-level transport
