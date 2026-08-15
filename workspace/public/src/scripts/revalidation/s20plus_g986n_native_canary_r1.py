@@ -30,7 +30,7 @@ import s22plus_boot_only_f1_transport as transport
 
 VERSION = "s20plus-g986n-native-canary-r1-v1"
 NATIVE_CANARY_R1_ACTIVE = True
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "61b32d82ebf3a14db5a236d7286f2d6fb5764d04372152549100a48f2f224fe7"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "83ea1116e17ba1551633d9e4b73008f512b83764957f6bcc9bfd84f79e2479aa"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -568,22 +568,37 @@ printf 'active_count=%s\\n' "$(/data/adb/magisk/busybox find /data/adb/modules -
 printf 'update_count=0\\n'
 """
 
-MAGISK_CLOSURE_SCRIPT = f"""set -eu
-for item in \
-  magisk:{MAGISK_BINARY} \
-  busybox:{MAGISK_BUSYBOX} \
-  util_functions:{MAGISK_UTIL_FUNCTIONS}; do
-  label=${{item%%:*}}; path=${{item#*:}}
-  [ -f "$path" ] && [ ! -L "$path" ]
-  mode=$(/system/bin/toybox stat -c %a "$path")
-  uid=$(/system/bin/toybox stat -c %u "$path")
-  gid=$(/system/bin/toybox stat -c %g "$path")
-  links=$(/system/bin/toybox stat -c %h "$path")
-  size=$(/system/bin/toybox stat -c %s "$path")
-  digest=$(/system/bin/toybox sha256sum "$path" | /system/bin/toybox cut -d' ' -f1)
+MAGISK_CLOSURE_SCRIPT = f"""set -u
+probe() {{
+  label="$1"; path="$2"
+  if [ -L "$path" ]; then printf '%s|error|symlink\\n' "$label"; return 0; fi
+  if [ ! -e "$path" ]; then printf '%s|error|absent\\n' "$label"; return 0; fi
+  if [ ! -f "$path" ]; then printf '%s|error|not-regular\\n' "$label"; return 0; fi
+  mode=$(/system/bin/toybox stat -c %a "$path" 2>/dev/null) || {{ printf '%s|error|mode-read-failed\\n' "$label"; return 0; }}
+  uid=$(/system/bin/toybox stat -c %u "$path" 2>/dev/null) || {{ printf '%s|error|uid-read-failed\\n' "$label"; return 0; }}
+  gid=$(/system/bin/toybox stat -c %g "$path" 2>/dev/null) || {{ printf '%s|error|gid-read-failed\\n' "$label"; return 0; }}
+  links=$(/system/bin/toybox stat -c %h "$path" 2>/dev/null) || {{ printf '%s|error|nlink-read-failed\\n' "$label"; return 0; }}
+  size=$(/system/bin/toybox stat -c %s "$path" 2>/dev/null) || {{ printf '%s|error|size-read-failed\\n' "$label"; return 0; }}
+  hash_line=$(/system/bin/toybox sha256sum "$path" 2>/dev/null) || {{ printf '%s|error|hash-read-failed\\n' "$label"; return 0; }}
+  digest=${{hash_line%% *}}
   printf '%s|%s|%s|%s|%s|%s|%s\\n' "$label" "$mode" "$uid" "$gid" "$links" "$size" "$digest"
-done
+}}
+probe magisk {MAGISK_BINARY}
+probe busybox {MAGISK_BUSYBOX}
+probe util_functions {MAGISK_UTIL_FUNCTIONS}
 """
+
+MAGISK_CLOSURE_ERROR_TOKENS = frozenset({
+    "symlink",
+    "absent",
+    "not-regular",
+    "mode-read-failed",
+    "uid-read-failed",
+    "gid-read-failed",
+    "nlink-read-failed",
+    "size-read-failed",
+    "hash-read-failed",
+})
 
 INVENTORY_SCRIPT = """set -eu
 [ -d /data/adb/modules ] && [ ! -L /data/adb/modules ]
@@ -1022,8 +1037,17 @@ def parse_magisk_install_closure(payload: bytes) -> dict[str, Any]:
     if len(lines) != len(expected):
         raise RootDataError("N1 Magisk install closure has the wrong cardinality")
     receipts: dict[str, Any] = {}
+    issues: list[str] = []
     for line, (label, path, modes, maximum) in zip(lines, expected, strict=True):
         fields = line.split("|")
+        if (
+            len(fields) == 3
+            and fields[0] == label
+            and fields[1] == "error"
+            and fields[2] in MAGISK_CLOSURE_ERROR_TOKENS
+        ):
+            issues.append(f"{label}={fields[2]}")
+            continue
         if len(fields) != 7 or fields[0] != label:
             raise RootDataError("N1 Magisk install closure is malformed")
         _label, mode, uid, gid, links, size_text, digest = fields
@@ -1036,7 +1060,8 @@ def parse_magisk_install_closure(payload: bytes) -> dict[str, Any]:
             or not 1 <= int(size_text) <= maximum
             or re.fullmatch(r"[0-9a-f]{64}", digest) is None
         ):
-            raise RootDataError("N1 Magisk install closure receipt is unsafe")
+            issues.append(f"{label}=unsafe-metadata")
+            continue
         receipts[label] = {
             "path": path,
             "mode": mode,
@@ -1046,6 +1071,10 @@ def parse_magisk_install_closure(payload: bytes) -> dict[str, Any]:
             "size": int(size_text),
             "sha256": digest,
         }
+    if issues:
+        raise RootDataError(
+            "N1 Magisk install closure incompatible: " + ",".join(issues)
+        )
     return receipts
 
 

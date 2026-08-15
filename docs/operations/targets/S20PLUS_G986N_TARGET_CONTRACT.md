@@ -536,10 +536,10 @@ module installation, cleanup, reboot, or stock transfer. Activation creates no
 run or approval; each use still requires fresh connected preparation, its
 emitted exact approval, and operator attendance.
 
-The active root-data runner is 211,523 bytes at SHA-256
-`c683a5cb5e230996cce439e6f2e0c5ebd02bda152e44fa9944eb74fcc41145c8`
+The active root-data runner is 212,818 bytes at SHA-256
+`536cb88c67ddd378c511b3e6c659433009b68a5f2d9b767f7e41afdcf6a567a3`
 and normalized SHA-256
-`61b32d82ebf3a14db5a236d7286f2d6fb5764d04372152549100a48f2f224fe7`.
+`83ea1116e17ba1551633d9e4b73008f512b83764957f6bcc9bfd84f79e2479aa`.
 The active stock-recovery runner is 61,312 bytes at SHA-256
 `b029afc3d4a899e4d83304773f8405519bacdb02de742de015a52c97689cc2a6`
 and normalized SHA-256
@@ -584,14 +584,26 @@ second `--prepare` invocation validates the sole guarded prepared-only journal
 and re-emits the same values with zero device commands; it never allocates a
 replacement run or approval.
 
+A fixed install-closure probe may report only the ordered labels `magisk`,
+`busybox`, and `util_functions`. Expected path/type or individual metadata/hash
+read failures use a finite reviewed token vocabulary with raw command stderr
+suppressed; all other output is malformed. A classified incompatibility stops
+before Magisk version, inventory, guard publication, staging, or any persistent
+effect and never grants a preparation retry. The 2026-08-16 preflight incident
+and its H0 correction are recorded in
+`docs/reports/S20PLUS_G986N_NATIVE_CANARY_R1_PREPARE_INCIDENT_2026-08-16.md`.
+That correction changed only the fixed command's internal failure
+classification, not the CLI or authority surface; independent review qualified
+the self-blocked candidate before a separate identity-only activation.
+
 Staging and privileged install use distinct intents. Before the install intent
 exists, an exact prepared-only run may be declined with zero device writes;
 otherwise the only permitted finalizer proves the exact current same target,
 healthy root, unchanged zero-module/Magisk baseline, and whether its boot ID is
-the prepared or a later changed boot, removes only the exact staged ZIP/binding or bounded partial regular
-bytes at those two fixed names if staging began, records
-zero install attempts and an absent module, and releases the guard. Once the install intent
-exists, the install attempt is consumed and only the disabled-rooted or
+the prepared or a later changed boot, removes only the exact staged ZIP/binding
+or bounded partial regular bytes at those two fixed names if staging began,
+records zero install attempts and an absent module, and releases the guard. Once
+the install intent exists, the install attempt is consumed and only the disabled-rooted or
 stock-recovery branches may close the run.
 
 The ordinary shell transport first binds the host ZIP as a direct regular

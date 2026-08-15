@@ -2400,6 +2400,204 @@ except SystemExit as exc:
             with self.assertRaises(ROOT_DATA.RootDataError):
                 ROOT_DATA.parse_magisk_install_closure(malformed)
 
+    def test_magisk_install_closure_failure_is_finitely_classified_before_followup(self) -> None:
+        payload = (
+            b"magisk|755|0|0|1|1000|" + b"1" * 64 + b"\n"
+            b"busybox|755|0|0|1|2000|" + b"2" * 64 + b"\n"
+            b"util_functions|error|absent\n"
+        )
+        with self.assertRaisesRegex(
+            ROOT_DATA.RootDataError,
+            "install closure incompatible: util_functions=absent",
+        ):
+            ROOT_DATA.parse_magisk_install_closure(payload)
+        unsafe = payload.replace(b"magisk|755", b"magisk|777").replace(
+            b"util_functions|error|absent",
+            b"util_functions|644|0|0|1|3000|" + b"3" * 64,
+        )
+        with self.assertRaisesRegex(
+            ROOT_DATA.RootDataError,
+            "install closure incompatible: magisk=unsafe-metadata",
+        ):
+            ROOT_DATA.parse_magisk_install_closure(unsafe)
+        for malformed in (
+            payload.replace(b"absent", b"caller-controlled"),
+            payload.replace(b"util_functions|error", b"busybox|error"),
+        ):
+            with self.assertRaisesRegex(ROOT_DATA.RootDataError, "malformed"):
+                ROOT_DATA.parse_magisk_install_closure(malformed)
+
+        commands = []
+
+        def classified(argv, _timeout, _maximum):
+            commands.append(argv[-1])
+            if argv[-1] == ROOT_DATA.MAGISK_CLOSURE_SCRIPT:
+                return 0, payload, b""
+            raise AssertionError("no command may follow a classified closure failure")
+
+        identity = {
+            "serial_sha256": "1" * 64,
+            "topology_sha256": ROOT_DATA.bootstrap.EXPECTED_TOPOLOGY_SHA256,
+            "boot_id_sha256": "2" * 64,
+        }
+        with mock.patch.object(
+            ROOT_DATA.bootstrap,
+            "root_observation",
+            return_value={"root_verified": True, "attempts": 1, "output_sha256": "3" * 64},
+        ):
+            with self.assertRaisesRegex(
+                ROOT_DATA.RootDataError,
+                "install closure incompatible: util_functions=absent",
+            ):
+                ROOT_DATA.root_preflight(
+                    classified,
+                    "/usr/bin/adb",
+                    {"serial": "SERIAL"},
+                    identity,
+                )
+        self.assertEqual(commands, [ROOT_DATA.MAGISK_CLOSURE_SCRIPT])
+        commands.clear()
+        with mock.patch.object(
+            ROOT_DATA.bootstrap,
+            "root_observation",
+            return_value={"root_verified": True, "attempts": 1, "output_sha256": "3" * 64},
+        ):
+            with self.assertRaisesRegex(
+                ROOT_DATA.RootDataError,
+                "install closure incompatible: util_functions=absent",
+            ):
+                ROOT_DATA.recovery_magisk_preflight(
+                    classified,
+                    "/usr/bin/adb",
+                    {"serial": "SERIAL"},
+                    identity,
+                    self.prepared(),
+                )
+        self.assertEqual(commands, [ROOT_DATA.MAGISK_CLOSURE_SCRIPT])
+        self.assertIn("probe util_functions " + ROOT_DATA.MAGISK_UTIL_FUNCTIONS, ROOT_DATA.MAGISK_CLOSURE_SCRIPT)
+        self.assertIn("2>/dev/null", ROOT_DATA.MAGISK_CLOSURE_SCRIPT)
+
+    def test_magisk_closure_shell_classifier_covers_fixed_labels_and_tokens(self) -> None:
+        labels = ("magisk", "busybox", "util_functions")
+        read_failures = {
+            "mode-read-failed": "%a",
+            "uid-read-failed": "%u",
+            "gid-read-failed": "%g",
+            "nlink-read-failed": "%h",
+            "size-read-failed": "%s",
+            "hash-read-failed": "sha256sum",
+        }
+
+        def execute_case(states: dict[str, str]) -> tuple[int, bytes, bytes]:
+            with tempfile.TemporaryDirectory(prefix="s20plus-r1-closure-shell-") as temp:
+                root = Path(temp)
+                paths = {
+                    "magisk": root / "magisk",
+                    "busybox": root / "busybox",
+                    "util_functions": root / "util_functions.sh",
+                }
+                modes = {"magisk": 0o755, "busybox": 0o755, "util_functions": 0o644}
+                for label, path in paths.items():
+                    state = states.get(label, "ok")
+                    if state == "absent":
+                        continue
+                    if state == "symlink":
+                        path.symlink_to(root / "missing-target")
+                    elif state == "not-regular":
+                        path.mkdir()
+                    else:
+                        path.write_bytes((label + "-exact-bytes").encode("ascii"))
+                        path.chmod(modes[label])
+                toybox = root / "toybox"
+                toybox.write_text(
+                    "#!/usr/bin/env python3\n"
+                    "import hashlib, os, stat, sys\n"
+                    "command = sys.argv[1]\n"
+                    "path = sys.argv[-1]\n"
+                    "label = {'util_functions.sh': 'util_functions'}.get(os.path.basename(path), os.path.basename(path))\n"
+                    "failure = os.environ.get('N1_TEST_FAILURE', '')\n"
+                    "if failure.startswith(label + '='):\n"
+                    "    wanted = failure.split('=', 1)[1]\n"
+                    "    if (command == 'sha256sum' and wanted == 'sha256sum') or (command == 'stat' and sys.argv[3] == wanted):\n"
+                    "        print('N1_TEST_STDOUT_SENTINEL')\n"
+                    "        print('N1_TEST_STDERR_SENTINEL', file=sys.stderr)\n"
+                    "        sys.exit(19)\n"
+                    "if command == 'sha256sum':\n"
+                    "    data = open(path, 'rb').read()\n"
+                    "    print(hashlib.sha256(data).hexdigest() + '  ' + path)\n"
+                    "elif command == 'stat':\n"
+                    "    metadata = os.stat(path)\n"
+                    "    values = {'%a': format(stat.S_IMODE(metadata.st_mode), 'o'), '%u': '0', '%g': '0', '%h': str(metadata.st_nlink), '%s': str(metadata.st_size)}\n"
+                    "    print(values[sys.argv[3]])\n"
+                    "else:\n"
+                    "    sys.exit(17)\n"
+                )
+                toybox.chmod(0o700)
+                script = ROOT_DATA.MAGISK_CLOSURE_SCRIPT.replace(
+                    ROOT_DATA.MAGISK_UTIL_FUNCTIONS,
+                    str(paths["util_functions"]),
+                ).replace(
+                    ROOT_DATA.MAGISK_BUSYBOX,
+                    str(paths["busybox"]),
+                ).replace(
+                    ROOT_DATA.MAGISK_BINARY,
+                    str(paths["magisk"]),
+                ).replace(
+                    "/system/bin/toybox",
+                    str(toybox),
+                )
+                environment = dict(os.environ)
+                environment.pop("N1_TEST_FAILURE", None)
+                for label, state in states.items():
+                    if state in read_failures:
+                        environment["N1_TEST_FAILURE"] = f"{label}={read_failures[state]}"
+                completed = subprocess.run(
+                    ["/bin/sh", "-c", script],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    env=environment,
+                    check=False,
+                )
+                return completed.returncode, completed.stdout, completed.stderr
+
+        success = execute_case({})
+        self.assertEqual(success[0], 0)
+        self.assertEqual(success[2], b"")
+        self.assertEqual(tuple(ROOT_DATA.parse_magisk_install_closure(success[1])), labels)
+
+        tokens = ("symlink", "absent", "not-regular", *read_failures)
+        self.assertEqual(set(tokens), set(ROOT_DATA.MAGISK_CLOSURE_ERROR_TOKENS))
+        for label in labels:
+            for token in tokens:
+                rc, stdout, stderr = execute_case({label: token})
+                self.assertEqual(rc, 0, (label, token))
+                self.assertEqual(stderr, b"", (label, token))
+                lines = stdout.decode("ascii").splitlines()
+                self.assertEqual([line.split("|", 1)[0] for line in lines], list(labels))
+                self.assertEqual(lines[labels.index(label)], f"{label}|error|{token}")
+                with self.assertRaisesRegex(
+                    ROOT_DATA.RootDataError,
+                    f"install closure incompatible: {label}={token}",
+                ):
+                    ROOT_DATA.parse_magisk_install_closure(stdout)
+
+        rc, stdout, stderr = execute_case({
+            "magisk": "absent",
+            "busybox": "symlink",
+            "util_functions": "nlink-read-failed",
+        })
+        self.assertEqual((rc, stderr), (0, b""))
+        self.assertEqual(stdout, (
+            b"magisk|error|absent\n"
+            b"busybox|error|symlink\n"
+            b"util_functions|error|nlink-read-failed\n"
+        ))
+        with self.assertRaisesRegex(
+            ROOT_DATA.RootDataError,
+            "magisk=absent,busybox=symlink,util_functions=nlink-read-failed",
+        ):
+            ROOT_DATA.parse_magisk_install_closure(stdout)
+
     def test_recovery_helper_drift_blocks_disable_before_effect_intent(self) -> None:
         prepared = self.prepared()
         expected_payload = (
@@ -4945,11 +5143,11 @@ except SystemExit as exc:
     def test_runner_identities_and_policy_documents_are_frozen_after_review(self) -> None:
         self.assertEqual(
             ROOT_DATA.normalized_self_sha256(),
-            "61b32d82ebf3a14db5a236d7286f2d6fb5764d04372152549100a48f2f224fe7",
+            "83ea1116e17ba1551633d9e4b73008f512b83764957f6bcc9bfd84f79e2479aa",
         )
         self.assertEqual(
             hashlib.sha256(ROOT_DATA.SCRIPT.read_bytes()).hexdigest(),
-            "c683a5cb5e230996cce439e6f2e0c5ebd02bda152e44fa9944eb74fcc41145c8",
+            "536cb88c67ddd378c511b3e6c659433009b68a5f2d9b767f7e41afdcf6a567a3",
         )
         self.assertEqual(
             STOCK.normalized_self_sha256(),
@@ -4966,7 +5164,7 @@ except SystemExit as exc:
         ):
             text = (ROOT / relative).read_text()
             self.assertIn(
-                "c683a5cb5e230996cce439e6f2e0c5ebd02bda152e44fa9944eb74fcc41145c8",
+                "536cb88c67ddd378c511b3e6c659433009b68a5f2d9b767f7e41afdcf6a567a3",
                 text,
             )
             self.assertIn(

@@ -409,20 +409,32 @@ cleanup each follow a durable branch-specific terminal input. Canonical canary e
 not merely JSON-equivalent. The CLI exposes an
 automatically allocated closed-grammar `run-id`, never a caller path.
 
-The active root-data runner is 211,523 bytes at SHA-256
-`c683a5cb5e230996cce439e6f2e0c5ebd02bda152e44fa9944eb74fcc41145c8`
+The active root-data runner is 212,818 bytes at SHA-256
+`536cb88c67ddd378c511b3e6c659433009b68a5f2d9b767f7e41afdcf6a567a3`
 (normalized
-`61b32d82ebf3a14db5a236d7286f2d6fb5764d04372152549100a48f2f224fe7`).
+`83ea1116e17ba1551633d9e4b73008f512b83764957f6bcc9bfd84f79e2479aa`).
 Its active stock-recovery owner is 61,312 bytes at SHA-256
 `b029afc3d4a899e4d83304773f8405519bacdb02de742de015a52c97689cc2a6`
 (normalized
 `0bb7eab8a87d11758dac20103ede5ac16c5acbdf3cbc3b511cb30842c4f29f2d`).
-Focused host tests pass 112/112; the exact eight-module S20+ aggregate passes
-274/274.
-Independent post-activation H0 review returned `PASS_GO` for these exact active
-identities and confirmed that no CLI or command logic changed.
+Focused host tests pass 114/114; the exact eight-module S20+ aggregate passes
+276/276.
+Independent H0 review returned `PASS_GO` for the finite-classifier command
+logic and a separate post-activation review accepted these exact active
+identities. The final mechanical identity rotation introduced no further logic
+change; the CLI surface and authority remain unchanged.
 This R1 capability is active, but no current run, approval, or device action
 exists.
+
+On 2026-08-16 one fresh connected preparation verified the exact target,
+Android health, and working Magisk root, then stopped before guard publication
+at the Magisk install-closure read. It created no approval, staging, install,
+reboot, Download, Odin, or partition effect. The incident and self-blocked H0
+finite-classifier remediation are recorded in
+`docs/reports/S20PLUS_G986N_NATIVE_CANARY_R1_PREPARE_INCIDENT_2026-08-16.md`;
+The changed closure passed independent H0 review and exact identity activation;
+it creates no current run or approval. Any later connected preparation still
+requires fresh direct operator authority.
 
 A later reproducible-kernel-build unit would still need exact toolchain
 acquisition and a demonstrated matching build; the newly recovered embedded

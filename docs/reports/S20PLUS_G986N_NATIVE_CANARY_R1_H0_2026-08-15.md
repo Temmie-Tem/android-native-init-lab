@@ -234,40 +234,51 @@ Execution-critical public files:
 
 The active reviewed identities are:
 
-- root-data runner: 211,523 bytes, SHA-256
-  `c683a5cb5e230996cce439e6f2e0c5ebd02bda152e44fa9944eb74fcc41145c8`,
+- root-data runner: 212,818 bytes, SHA-256
+  `536cb88c67ddd378c511b3e6c659433009b68a5f2d9b767f7e41afdcf6a567a3`,
   normalized
-  `61b32d82ebf3a14db5a236d7286f2d6fb5764d04372152549100a48f2f224fe7`;
+  `83ea1116e17ba1551633d9e4b73008f512b83764957f6bcc9bfd84f79e2479aa`;
 - stock-recovery runner: 61,312 bytes, SHA-256
   `b029afc3d4a899e4d83304773f8405519bacdb02de742de015a52c97689cc2a6`,
   normalized
   `0bb7eab8a87d11758dac20103ede5ac16c5acbdf3cbc3b511cb30842c4f29f2d`;
   and
-- focused active/hostile tests: 112/112 PASS; exact eight-module S20+
-  aggregate: 274/274 PASS.
+- focused active/hostile tests: 114/114 PASS; exact eight-module S20+
+  aggregate: 276/276 PASS.
 
-The changed-closure audit corrected five material boundaries before freezing
-this review candidate: recovery entrypoints no longer import candidate-only
+The 2026-08-15 changed-closure audit corrected five material boundaries before
+the initial activation: recovery entrypoints no longer import candidate-only
 builder code; stock Download attribution uses a finite arm/arrival session;
 the root sink consumes a verified shell-private stage rather than normal
 shared storage; a post-Odin reporting cut is observation-only and never
-replays transfer; and stock cleanup now follows its durable branch-specific
-terminal input. It also retains the earlier correction that distinguishes a
-complete but semantically invalid cleanup result from an uncertain partial
-receipt. Independent re-review returned `PASS_GO` for the corrected runner,
-complete hostile suite, common boundary, target specialization, and recovery
-owner at the frozen identities above.
+replays transfer; and stock cleanup follows its durable branch-specific
+terminal input. Independent re-review returned `PASS_GO` for root runner
+SHA-256 `c683a5cb5e230996cce439e6f2e0c5ebd02bda152e44fa9944eb74fcc41145c8`
+(normalized `61b32d82ebf3a14db5a236d7286f2d6fb5764d04372152549100a48f2f224fe7`),
+the unchanged stock owner above, and the then-current 112/112 focused and
+274/274 aggregate closure.
+
+The 2026-08-16 prepare incident exposed a separate observability defect in the
+fixed Magisk closure command. Its reviewed hotfix changes that command's
+internal error handling to the finite classifier described in the incident
+report; it adds no CLI action, caller input, path, root authority, or persistent
+effect. Independent H0 review qualified the self-blocked candidate at full
+SHA-256 `51a210748b538ecb53f1a468e68f6a0e700c2b9bc86b040a73d97f9e1a45e3c5`.
+The subsequent mechanical identity-only rotation produced the current active
+root identity above, and post-activation review accepted the 114/114 focused
+and 276/276 aggregate closure.
 
 No private artifact or device evidence is included in this tracked report.
 
 ## Activation record and boundary
 
-Independent `PASS_GO` qualified the exact dormant closure. Mechanical
-activation changed only the two capability constants, their reviewed
-full/normalized identities, registry/status wording, and exact assertions; it
-did not change a command surface or touch a device. The active capability still
-creates no run or standing approval. Only a fresh connected prepare may emit a
-fresh exact approval for one attended run.
-Independent post-activation H0 review returned `PASS_GO` for the exact active
-runner identities above, the activation-only diff, target isolation, and the
-112/112 focused plus 274/274 aggregate test closure.
+On 2026-08-15, independent `PASS_GO` qualified the exact dormant closure and
+its mechanical initial activation changed only capability constants, reviewed
+identities, registry/status wording, and assertions. On 2026-08-16, the
+separately reviewed finite-classifier hotfix changed fixed command logic but
+not its surface or authority; its later activation changed only the normalized
+identity constant and matching records. Neither activation touched a device or
+created a run or standing approval. Post-hotfix activation review returned
+`PASS_GO` for the exact current identities above, target isolation, and the
+114/114 focused plus 276/276 aggregate test closure. Only a fresh connected
+prepare may emit an approval for one attended run.
