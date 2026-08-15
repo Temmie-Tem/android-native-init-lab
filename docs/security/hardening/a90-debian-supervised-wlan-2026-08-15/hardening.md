@@ -5,7 +5,7 @@
 This H0 review asks whether we can replace the selected dual-supervisor steady
 state with Debian PID 1 as the sole administrative owner. The source collection
 is bound by SHA256
-`1f622cd4d048beeaac600e6596a32a788c96476e528ff9985bc0b13b97d32a11`
+`b2d61c52455603583f19fc8f005e16597523ef82cb7e474e843e6df13828bcdf`
 across 28 public artifacts at revision
 `fda348a072eba8a53c2de7c9904c52429a7dddaf`.
 

@@ -709,6 +709,51 @@ closed for their exact generation: corrected-`G0` feasibility first,
 finally one property terminal. It never grants a global necessity claim or
 Option C eligibility.
 
+## WP2-3 Dependency-Surface Inventory Boundary
+
+`WP2-3` is complete only as the generated H0 requirement and evidence-state
+inventory in
+[`a90-h24-wlan-dependency-surface-inventory-v1.json`](../inventory/a90-h24-wlan-dependency-surface-inventory-v1.json).
+Its generator pins the WP-H0-1 component inventory, WP-H0-2 design, WP2-2
+policy, H24 manifest/helper/launcher, and six historical public reports. It
+does not read a device, private input, or compiled payload.
+
+The inventory contains fourteen role records: eleven opaque external ELF
+roles, two in-process helper bodies, and the topology-owning helper ELF. Every
+record contains all ten dependency surfaces mapped to `H0D01-H0D10`, for 140
+explicit slots. Source-selected executable path, argv, predicate, ownership
+plane, and selected launch identity are kept separate from complete dependency
+proof.
+
+The decisive result is negative: current H24 exact opaque-ELF bindings remain
+**zero**. No current size, SHA-256, ELF class/interpreter, `DT_NEEDED`, or
+recursive library closure is invented. The one historical `cnss-daemon`
+95112-byte/SHA-256 observation, its historical linker list, two property keys,
+and WLFW control-flow evidence remain
+`HISTORICAL_ONLY_H24_APPLICABILITY_UNPROVED`; they do not fill the current H24
+artifact slot. Historical Android identities for `rmt_storage` and
+`tftp_server` conflict with the selected H24 root launch and remain explicit
+unresolved conflicts.
+
+Known selected-route facts are equally narrow. The property shim names the
+bounded `/dev/socket/property_service` ACK surface but proves no read seed; the
+modem holder names `/dev/subsys_modem`; selected manager roles identify the
+native-global Binder class already rejected by WP2-2; and the helper still
+names the forbidden private SD property root. Historical `/dev/diag`, QRTR/QMI,
+and WLANMDSP/RFS observations remain historical or incomplete rather than
+causal current-H24 edges.
+
+Ten negative mutations reject missing/duplicate roles, a missing dependency
+slot, promotion of historical bytes into current H24, gate retirement,
+authority enablement, erased identity conflict, false completion, unknown fact
+state, and an extra top-level field. Passing this validator grants no
+dependency-retirement credit. `H0D01-H0D10` all remain `UNPROVED`; the future
+byte-derived consumer and execution implementation are absent.
+
+`WP2-4` may now design a property observation schema from the explicit
+unproved property slots in H0. It may not treat this inventory as a property
+read set, exact ELF closure, SD-free bootstrap, candidate, or live authority.
+
 ## Validation Plan
 
 ### Host-only static fixtures
@@ -752,7 +797,11 @@ qualification; this document does not invent pass numbers.
   sixteen-case negative corpus, and serial execution-economy projection —
   complete as H0 static preparation only; no byte-derived future consumer,
   dependency-gate retirement, or execution authority;
-- `WP2-3`: exact binary/config/device/identity dependency inventory;
+- `WP2-3`: generated fourteen-role/140-slot binary, dynamic-dispatch,
+  config, property, Binder, QRTR/QMI, device, firmware/RFS, output, SD-free,
+  and identity evidence-state inventory with ten negative mutations — complete
+  only as H0 requirements/known-facts/conflicts; current exact opaque-ELF
+  bindings remain zero and every dependency gate remains unproved;
 - `WP2-4`: property read/write observation schema and two terminal validators;
 - `WP2-5a`: H0 one-factor ablation design generator, baseline state machine,
   terminal vocabulary, and conceptual durable result schema — complete;
@@ -763,10 +812,10 @@ qualification; this document does not invent pass numbers.
 - `WP2-8`: clean Debian capsule feasibility implementation;
 - `WP2-9`: independent security/execution review and topology decision.
 
-`WP2-1`, `WP2-2`, and `WP2-5a` are complete only at their stated H0
-boundaries. `WP2-3` and `WP2-4` remain host preparation. `WP2-5b` and every later live
-package require their own implementation, review, and authority and must not be
-inferred from this proposal.
+`WP2-1`, `WP2-2`, `WP2-3`, and `WP2-5a` are complete only at their stated H0
+boundaries. `WP2-4` remains host preparation. `WP2-5b` and every later live
+package require their own implementation, review, and authority and must not
+be inferred from this proposal.
 
 ## Open Questions
 

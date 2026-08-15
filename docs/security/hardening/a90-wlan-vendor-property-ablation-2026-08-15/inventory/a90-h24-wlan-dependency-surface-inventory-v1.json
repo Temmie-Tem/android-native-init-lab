@@ -1,0 +1,3463 @@
+{
+  "authority": {
+    "candidateEligible": false,
+    "d0Authorized": false,
+    "d1Authorized": false,
+    "deviceContact": false,
+    "deviceInstallAuthorized": false,
+    "f1Authorized": false,
+    "handoffAuthorized": false,
+    "liveExecutionAuthorized": false,
+    "privateInputRead": false,
+    "propertyProvisionAuthorized": false,
+    "tier": "H0",
+    "ufsMutationAuthorized": false
+  },
+  "counts": {
+    "dependencySurfaceSlots": 140,
+    "identityConflictRoles": 2,
+    "inProcessHelperBodies": 2,
+    "negativeCases": 10,
+    "opaqueExternalElfRoles": 11,
+    "roleRecords": 14,
+    "sourceSelectedProcessInstances": 16,
+    "topologyOwnerElfs": 1
+  },
+  "crossRoleConstraints": {
+    "identity": "The rmt_storage and tftp_server historical Android identities conflict with the selected H24 root launch and must be resolved, not averaged or chosen by preference.",
+    "opaqueArtifacts": "Every opaque role requires a current exact regular-file and recursive ELF closure before execution; historical bytes provide zero retirement credit.",
+    "privateSurfaces": "Private Binder/property shapes remain H0D05/H0D04 UNPROVED even if WP2-2 global-surface checks pass.",
+    "property": "The current private SD property root and write-ACK shim do not prove any read set or finite seed.",
+    "sdFree": "No row may become executable until the public deterministic SD-free bootstrap superset is separately proved."
+  },
+  "dependencySurfaceSchema": [
+    {
+      "gateIds": [
+        "H0D01"
+      ],
+      "surface": "artifact"
+    },
+    {
+      "gateIds": [
+        "H0D02"
+      ],
+      "surface": "dynamicDispatch"
+    },
+    {
+      "gateIds": [
+        "H0D03"
+      ],
+      "surface": "configuration"
+    },
+    {
+      "gateIds": [
+        "H0D04"
+      ],
+      "surface": "property"
+    },
+    {
+      "gateIds": [
+        "H0D05"
+      ],
+      "surface": "binder"
+    },
+    {
+      "gateIds": [
+        "H0D06"
+      ],
+      "surface": "qrtrQmi"
+    },
+    {
+      "gateIds": [
+        "H0D07"
+      ],
+      "surface": "deviceKernel"
+    },
+    {
+      "gateIds": [
+        "H0D08"
+      ],
+      "surface": "firmwareRfs"
+    },
+    {
+      "gateIds": [
+        "H0D09"
+      ],
+      "surface": "writableOutput"
+    },
+    {
+      "gateIds": [
+        "H0D10"
+      ],
+      "surface": "sdFreeProvenance"
+    }
+  ],
+  "evidenceStateVocabulary": [
+    "HISTORICAL_ONLY_H24_APPLICABILITY_UNPROVED",
+    "IDENTITY_CONFLICT_H24_RESOLUTION_REQUIRED",
+    "SOURCE_SELECTED_H24_PATH"
+  ],
+  "gateCoverage": [
+    {
+      "gateId": "H0D01",
+      "retirementCreditGranted": false,
+      "rolesWithExplicitSlot": [
+        "servicemanager",
+        "hwservicemanager",
+        "qrtr_ns",
+        "pd_mapper",
+        "rmt_storage",
+        "tftp_server",
+        "vndservicemanager",
+        "pm_proxy_helper",
+        "per_mgr",
+        "cnss_diag",
+        "cnss_daemon",
+        "property-service-shim",
+        "modem-holder",
+        "wifi-helper"
+      ],
+      "status": "UNPROVED"
+    },
+    {
+      "gateId": "H0D02",
+      "retirementCreditGranted": false,
+      "rolesWithExplicitSlot": [
+        "servicemanager",
+        "hwservicemanager",
+        "qrtr_ns",
+        "pd_mapper",
+        "rmt_storage",
+        "tftp_server",
+        "vndservicemanager",
+        "pm_proxy_helper",
+        "per_mgr",
+        "cnss_diag",
+        "cnss_daemon",
+        "property-service-shim",
+        "modem-holder",
+        "wifi-helper"
+      ],
+      "status": "UNPROVED"
+    },
+    {
+      "gateId": "H0D03",
+      "retirementCreditGranted": false,
+      "rolesWithExplicitSlot": [
+        "servicemanager",
+        "hwservicemanager",
+        "qrtr_ns",
+        "pd_mapper",
+        "rmt_storage",
+        "tftp_server",
+        "vndservicemanager",
+        "pm_proxy_helper",
+        "per_mgr",
+        "cnss_diag",
+        "cnss_daemon",
+        "property-service-shim",
+        "modem-holder",
+        "wifi-helper"
+      ],
+      "status": "UNPROVED"
+    },
+    {
+      "gateId": "H0D04",
+      "retirementCreditGranted": false,
+      "rolesWithExplicitSlot": [
+        "servicemanager",
+        "hwservicemanager",
+        "qrtr_ns",
+        "pd_mapper",
+        "rmt_storage",
+        "tftp_server",
+        "vndservicemanager",
+        "pm_proxy_helper",
+        "per_mgr",
+        "cnss_diag",
+        "cnss_daemon",
+        "property-service-shim",
+        "modem-holder",
+        "wifi-helper"
+      ],
+      "status": "UNPROVED"
+    },
+    {
+      "gateId": "H0D05",
+      "retirementCreditGranted": false,
+      "rolesWithExplicitSlot": [
+        "servicemanager",
+        "hwservicemanager",
+        "qrtr_ns",
+        "pd_mapper",
+        "rmt_storage",
+        "tftp_server",
+        "vndservicemanager",
+        "pm_proxy_helper",
+        "per_mgr",
+        "cnss_diag",
+        "cnss_daemon",
+        "property-service-shim",
+        "modem-holder",
+        "wifi-helper"
+      ],
+      "status": "UNPROVED"
+    },
+    {
+      "gateId": "H0D06",
+      "retirementCreditGranted": false,
+      "rolesWithExplicitSlot": [
+        "servicemanager",
+        "hwservicemanager",
+        "qrtr_ns",
+        "pd_mapper",
+        "rmt_storage",
+        "tftp_server",
+        "vndservicemanager",
+        "pm_proxy_helper",
+        "per_mgr",
+        "cnss_diag",
+        "cnss_daemon",
+        "property-service-shim",
+        "modem-holder",
+        "wifi-helper"
+      ],
+      "status": "UNPROVED"
+    },
+    {
+      "gateId": "H0D07",
+      "retirementCreditGranted": false,
+      "rolesWithExplicitSlot": [
+        "servicemanager",
+        "hwservicemanager",
+        "qrtr_ns",
+        "pd_mapper",
+        "rmt_storage",
+        "tftp_server",
+        "vndservicemanager",
+        "pm_proxy_helper",
+        "per_mgr",
+        "cnss_diag",
+        "cnss_daemon",
+        "property-service-shim",
+        "modem-holder",
+        "wifi-helper"
+      ],
+      "status": "UNPROVED"
+    },
+    {
+      "gateId": "H0D08",
+      "retirementCreditGranted": false,
+      "rolesWithExplicitSlot": [
+        "servicemanager",
+        "hwservicemanager",
+        "qrtr_ns",
+        "pd_mapper",
+        "rmt_storage",
+        "tftp_server",
+        "vndservicemanager",
+        "pm_proxy_helper",
+        "per_mgr",
+        "cnss_diag",
+        "cnss_daemon",
+        "property-service-shim",
+        "modem-holder",
+        "wifi-helper"
+      ],
+      "status": "UNPROVED"
+    },
+    {
+      "gateId": "H0D09",
+      "retirementCreditGranted": false,
+      "rolesWithExplicitSlot": [
+        "servicemanager",
+        "hwservicemanager",
+        "qrtr_ns",
+        "pd_mapper",
+        "rmt_storage",
+        "tftp_server",
+        "vndservicemanager",
+        "pm_proxy_helper",
+        "per_mgr",
+        "cnss_diag",
+        "cnss_daemon",
+        "property-service-shim",
+        "modem-holder",
+        "wifi-helper"
+      ],
+      "status": "UNPROVED"
+    },
+    {
+      "gateId": "H0D10",
+      "retirementCreditGranted": false,
+      "rolesWithExplicitSlot": [
+        "servicemanager",
+        "hwservicemanager",
+        "qrtr_ns",
+        "pd_mapper",
+        "rmt_storage",
+        "tftp_server",
+        "vndservicemanager",
+        "pm_proxy_helper",
+        "per_mgr",
+        "cnss_diag",
+        "cnss_daemon",
+        "property-service-shim",
+        "modem-holder",
+        "wifi-helper"
+      ],
+      "status": "UNPROVED"
+    }
+  ],
+  "generatedDeterministically": true,
+  "missingInputPlan": {
+    "acquisitionAuthority": "ABSENT_THIS_H0_UNIT",
+    "offline": [
+      "current exact regular opaque ELF bytes and recursive library closure",
+      "static executable, dlopen, config/default, and device/syscall read set",
+      "public deterministic SD-free bootstrap superset"
+    ],
+    "runtime": [
+      "property reads/writes and semantics",
+      "Binder services and transactions",
+      "QRTR/QMI services/messages",
+      "device/kernel-object lifetime",
+      "firmware/RFS requests and transfers",
+      "bounded writable outputs and residue"
+    ]
+  },
+  "negativeCorpus": [
+    {
+      "caseId": "N01",
+      "expected": "ROLE_SET_MISMATCH",
+      "mutation": "remove-role"
+    },
+    {
+      "caseId": "N02",
+      "expected": "ROLE_SET_MISMATCH",
+      "mutation": "duplicate-role"
+    },
+    {
+      "caseId": "N03",
+      "expected": "SURFACE_SET_MISMATCH",
+      "mutation": "remove-surface-slot"
+    },
+    {
+      "caseId": "N04",
+      "expected": "CURRENT_H24_ARTIFACT_BINDING_FORBIDDEN",
+      "mutation": "promote-historical-artifact"
+    },
+    {
+      "caseId": "N05",
+      "expected": "GATE_RETIREMENT_FORBIDDEN",
+      "mutation": "retire-gate"
+    },
+    {
+      "caseId": "N06",
+      "expected": "AUTHORITY_MISMATCH",
+      "mutation": "enable-authority"
+    },
+    {
+      "caseId": "N07",
+      "expected": "IDENTITY_CONFLICT_MISSING",
+      "mutation": "remove-identity-conflict"
+    },
+    {
+      "caseId": "N08",
+      "expected": "DEPENDENCY_COMPLETION_FORBIDDEN",
+      "mutation": "claim-dependency-complete"
+    },
+    {
+      "caseId": "N09",
+      "expected": "FACT_STATE_MISMATCH",
+      "mutation": "unknown-fact-state"
+    },
+    {
+      "caseId": "N10",
+      "expected": "TOP_LEVEL_SCHEMA_MISMATCH",
+      "mutation": "add-unknown-field"
+    }
+  ],
+  "nextSequencingConstraint": {
+    "beforeAnyExecution": "Retire H0D01 and relevant static halves, prove the H0D10 bootstrap superset, independently review instrumentation, bind recovery, and obtain separate authority.",
+    "beforeOptionC": "Retire H0D01 through H0D10 by their declared evidence classes.",
+    "beforeWp2_5b": "A future byte-derived consumer must fill exact offline slots, preserve historical calibration, and remain blocked on runtime observations.",
+    "wp2_4": "MAY_DESIGN_PROPERTY_OBSERVATION_SCHEMA_FROM_UNPROVED_PROPERTY_SLOTS_H0_ONLY"
+  },
+  "roles": [
+    {
+      "allGateSlotsPresent": [
+        "H0D01",
+        "H0D02",
+        "H0D03",
+        "H0D04",
+        "H0D05",
+        "H0D06",
+        "H0D07",
+        "H0D08",
+        "H0D09",
+        "H0D10"
+      ],
+      "artifactClass": "OPAQUE_EXTERNAL_ELF",
+      "dependencyClosureComplete": false,
+      "dependencySurfaces": {
+        "artifact": {
+          "completion": "UNPROVED_COMPLETE_ARTIFACT",
+          "currentH24ExactBinding": {
+            "bytes": null,
+            "dtNeeded": null,
+            "elfClass": null,
+            "interpreter": null,
+            "path": "/system/bin/servicemanager",
+            "recursiveLibraryClosure": null,
+            "sha256": null
+          },
+          "facts": [],
+          "gateIds": [
+            "H0D01"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "binder": {
+          "completion": "UNPROVED_COMPLETE_BINDER",
+          "facts": [
+            {
+              "factId": "source-selected-binder-manager-role",
+              "h24Applicability": "SOURCE_SELECTED_PATH_ONLY",
+              "sources": [
+                "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json#components",
+                "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/policy/a90-h24-wlan-forbidden-surface-policy-v1.json"
+              ],
+              "state": "SOURCE_SELECTED_H24_PATH",
+              "value": {
+                "endpointClass": "NATIVE_GLOBAL_REJECTED_BY_WP2_2",
+                "role": "servicemanager"
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D05"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "configuration": {
+          "completion": "UNPROVED_COMPLETE_CONFIGURATION",
+          "facts": [],
+          "gateIds": [
+            "H0D03"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "deviceKernel": {
+          "completion": "UNPROVED_COMPLETE_DEVICEKERNEL",
+          "facts": [],
+          "gateIds": [
+            "H0D07"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "dynamicDispatch": {
+          "completion": "UNPROVED_COMPLETE_DYNAMICDISPATCH",
+          "facts": [],
+          "gateIds": [
+            "H0D02"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "firmwareRfs": {
+          "completion": "UNPROVED_COMPLETE_FIRMWARERFS",
+          "facts": [],
+          "gateIds": [
+            "H0D08"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "property": {
+          "completion": "UNPROVED_COMPLETE_PROPERTY",
+          "facts": [],
+          "gateIds": [
+            "H0D04"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "qrtrQmi": {
+          "completion": "UNPROVED_COMPLETE_QRTRQMI",
+          "facts": [],
+          "gateIds": [
+            "H0D06"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "sdFreeProvenance": {
+          "completion": "UNPROVED_COMPLETE_SDFREEPROVENANCE",
+          "facts": [],
+          "gateIds": [
+            "H0D10"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "writableOutput": {
+          "completion": "UNPROVED_COMPLETE_WRITABLEOUTPUT",
+          "facts": [],
+          "gateIds": [
+            "H0D09"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        }
+      },
+      "designRoleSpecificGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D05"
+      ],
+      "executionEligible": false,
+      "identityContract": {
+        "currentRuntimeAppliedIdentityProved": false,
+        "currentSelectedSourceIdentity": {
+          "capabilities": null,
+          "capabilityStatus": "UNPROVED",
+          "evidenceState": "source-derived",
+          "gid": 1000,
+          "note": "Source prints expected none but does not apply an explicit empty capset.",
+          "supplementaryGroups": [
+            1000,
+            3009
+          ],
+          "uid": 1000
+        },
+        "historicalConflicts": [],
+        "optionCExactIdentityEnvelopeProved": false
+      },
+      "instanceIds": [
+        "servicemanager#1",
+        "servicemanager#2"
+      ],
+      "role": "servicemanager",
+      "sourceSelectedInstances": [
+        {
+          "argv": [
+            "/system/bin/servicemanager"
+          ],
+          "cleanup": {
+            "completeDescendantClosure": false,
+            "evidenceState": "source-derived",
+            "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+            "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+          },
+          "environment": null,
+          "executable": "/system/bin/servicemanager",
+          "identity": {
+            "capabilities": null,
+            "capabilityStatus": "UNPROVED",
+            "evidenceState": "source-derived",
+            "gid": 1000,
+            "note": "Source prints expected none but does not apply an explicit empty capset.",
+            "supplementaryGroups": [
+              1000,
+              3009
+            ],
+            "uid": 1000
+          },
+          "instanceId": "servicemanager#1",
+          "kind": "composite-child",
+          "launchContract": null,
+          "launchPredicate": "!android_order_pre_cnss_provider_observer && with_service_manager && !qrtr_first_service_manager && !cnss_first_delayed_service_manager && !service74_gated_any",
+          "lifetime": {
+            "evidenceState": "source-derived",
+            "hardwareNecessity": "UNPROVED",
+            "requirement": "required alive and observable for persistent handoff"
+          },
+          "ownershipPlane": "binder-registry",
+          "sourceAnchors": [
+            "a90_android_execns_probe.c:58654-58666",
+            "a90_android_execns_probe.c:7139-7175"
+          ]
+        },
+        {
+          "argv": [
+            "/system/bin/servicemanager"
+          ],
+          "cleanup": {
+            "completeDescendantClosure": false,
+            "evidenceState": "source-derived",
+            "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+            "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+          },
+          "environment": null,
+          "executable": "/system/bin/servicemanager",
+          "identity": {
+            "capabilities": null,
+            "capabilityStatus": "UNPROVED",
+            "evidenceState": "source-derived",
+            "gid": 1000,
+            "note": "Source prints expected none but does not apply an explicit empty capset.",
+            "supplementaryGroups": [
+              1000,
+              3009
+            ],
+            "uid": 1000
+          },
+          "instanceId": "servicemanager#2",
+          "kind": "composite-child",
+          "launchContract": null,
+          "launchPredicate": "wlan_pd_service_window_trigger || wlan_pd_service_object_visible_trigger",
+          "lifetime": {
+            "evidenceState": "source-derived",
+            "hardwareNecessity": "UNPROVED",
+            "requirement": "required alive and observable for persistent handoff"
+          },
+          "ownershipPlane": "binder-registry",
+          "sourceAnchors": [
+            "a90_android_execns_probe.c:58722-58735",
+            "a90_android_execns_probe.c:7139-7175"
+          ]
+        }
+      ]
+    },
+    {
+      "allGateSlotsPresent": [
+        "H0D01",
+        "H0D02",
+        "H0D03",
+        "H0D04",
+        "H0D05",
+        "H0D06",
+        "H0D07",
+        "H0D08",
+        "H0D09",
+        "H0D10"
+      ],
+      "artifactClass": "OPAQUE_EXTERNAL_ELF",
+      "dependencyClosureComplete": false,
+      "dependencySurfaces": {
+        "artifact": {
+          "completion": "UNPROVED_COMPLETE_ARTIFACT",
+          "currentH24ExactBinding": {
+            "bytes": null,
+            "dtNeeded": null,
+            "elfClass": null,
+            "interpreter": null,
+            "path": "/system/bin/hwservicemanager",
+            "recursiveLibraryClosure": null,
+            "sha256": null
+          },
+          "facts": [],
+          "gateIds": [
+            "H0D01"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "binder": {
+          "completion": "UNPROVED_COMPLETE_BINDER",
+          "facts": [
+            {
+              "factId": "source-selected-binder-manager-role",
+              "h24Applicability": "SOURCE_SELECTED_PATH_ONLY",
+              "sources": [
+                "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json#components",
+                "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/policy/a90-h24-wlan-forbidden-surface-policy-v1.json"
+              ],
+              "state": "SOURCE_SELECTED_H24_PATH",
+              "value": {
+                "endpointClass": "NATIVE_GLOBAL_REJECTED_BY_WP2_2",
+                "role": "hwservicemanager"
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D05"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "configuration": {
+          "completion": "UNPROVED_COMPLETE_CONFIGURATION",
+          "facts": [],
+          "gateIds": [
+            "H0D03"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "deviceKernel": {
+          "completion": "UNPROVED_COMPLETE_DEVICEKERNEL",
+          "facts": [],
+          "gateIds": [
+            "H0D07"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "dynamicDispatch": {
+          "completion": "UNPROVED_COMPLETE_DYNAMICDISPATCH",
+          "facts": [],
+          "gateIds": [
+            "H0D02"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "firmwareRfs": {
+          "completion": "UNPROVED_COMPLETE_FIRMWARERFS",
+          "facts": [],
+          "gateIds": [
+            "H0D08"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "property": {
+          "completion": "UNPROVED_COMPLETE_PROPERTY",
+          "facts": [],
+          "gateIds": [
+            "H0D04"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "qrtrQmi": {
+          "completion": "UNPROVED_COMPLETE_QRTRQMI",
+          "facts": [],
+          "gateIds": [
+            "H0D06"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "sdFreeProvenance": {
+          "completion": "UNPROVED_COMPLETE_SDFREEPROVENANCE",
+          "facts": [],
+          "gateIds": [
+            "H0D10"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "writableOutput": {
+          "completion": "UNPROVED_COMPLETE_WRITABLEOUTPUT",
+          "facts": [],
+          "gateIds": [
+            "H0D09"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        }
+      },
+      "designRoleSpecificGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D05"
+      ],
+      "executionEligible": false,
+      "identityContract": {
+        "currentRuntimeAppliedIdentityProved": false,
+        "currentSelectedSourceIdentity": {
+          "capabilities": null,
+          "capabilityStatus": "UNPROVED",
+          "evidenceState": "source-derived",
+          "gid": 1000,
+          "note": "Source prints expected none but does not apply an explicit empty capset.",
+          "supplementaryGroups": [
+            1000,
+            3009
+          ],
+          "uid": 1000
+        },
+        "historicalConflicts": [],
+        "optionCExactIdentityEnvelopeProved": false
+      },
+      "instanceIds": [
+        "hwservicemanager#1",
+        "hwservicemanager#2"
+      ],
+      "role": "hwservicemanager",
+      "sourceSelectedInstances": [
+        {
+          "argv": [
+            "/system/bin/hwservicemanager"
+          ],
+          "cleanup": {
+            "completeDescendantClosure": false,
+            "evidenceState": "source-derived",
+            "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+            "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+          },
+          "environment": null,
+          "executable": "/system/bin/hwservicemanager",
+          "identity": {
+            "capabilities": null,
+            "capabilityStatus": "UNPROVED",
+            "evidenceState": "source-derived",
+            "gid": 1000,
+            "note": "Source prints expected none but does not apply an explicit empty capset.",
+            "supplementaryGroups": [
+              1000,
+              3009
+            ],
+            "uid": 1000
+          },
+          "instanceId": "hwservicemanager#1",
+          "kind": "composite-child",
+          "launchContract": null,
+          "launchPredicate": "!android_order_pre_cnss_provider_observer && with_service_manager && !qrtr_first_service_manager && !cnss_first_delayed_service_manager && !service74_gated_any",
+          "lifetime": {
+            "evidenceState": "source-derived",
+            "hardwareNecessity": "UNPROVED",
+            "requirement": "required alive and observable for persistent handoff"
+          },
+          "ownershipPlane": "binder-registry",
+          "sourceAnchors": [
+            "a90_android_execns_probe.c:58654-58666",
+            "a90_android_execns_probe.c:7139-7175"
+          ]
+        },
+        {
+          "argv": [
+            "/system/bin/hwservicemanager"
+          ],
+          "cleanup": {
+            "completeDescendantClosure": false,
+            "evidenceState": "source-derived",
+            "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+            "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+          },
+          "environment": null,
+          "executable": "/system/bin/hwservicemanager",
+          "identity": {
+            "capabilities": null,
+            "capabilityStatus": "UNPROVED",
+            "evidenceState": "source-derived",
+            "gid": 1000,
+            "note": "Source prints expected none but does not apply an explicit empty capset.",
+            "supplementaryGroups": [
+              1000,
+              3009
+            ],
+            "uid": 1000
+          },
+          "instanceId": "hwservicemanager#2",
+          "kind": "composite-child",
+          "launchContract": null,
+          "launchPredicate": "wlan_pd_service_window_trigger || wlan_pd_service_object_visible_trigger",
+          "lifetime": {
+            "evidenceState": "source-derived",
+            "hardwareNecessity": "UNPROVED",
+            "requirement": "required alive and observable for persistent handoff"
+          },
+          "ownershipPlane": "binder-registry",
+          "sourceAnchors": [
+            "a90_android_execns_probe.c:58722-58735",
+            "a90_android_execns_probe.c:7139-7175"
+          ]
+        }
+      ]
+    },
+    {
+      "allGateSlotsPresent": [
+        "H0D01",
+        "H0D02",
+        "H0D03",
+        "H0D04",
+        "H0D05",
+        "H0D06",
+        "H0D07",
+        "H0D08",
+        "H0D09",
+        "H0D10"
+      ],
+      "artifactClass": "OPAQUE_EXTERNAL_ELF",
+      "dependencyClosureComplete": false,
+      "dependencySurfaces": {
+        "artifact": {
+          "completion": "UNPROVED_COMPLETE_ARTIFACT",
+          "currentH24ExactBinding": {
+            "bytes": null,
+            "dtNeeded": null,
+            "elfClass": null,
+            "interpreter": null,
+            "path": "/vendor/bin/qrtr-ns",
+            "recursiveLibraryClosure": null,
+            "sha256": null
+          },
+          "facts": [],
+          "gateIds": [
+            "H0D01"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "binder": {
+          "completion": "UNPROVED_COMPLETE_BINDER",
+          "facts": [],
+          "gateIds": [
+            "H0D05"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "configuration": {
+          "completion": "UNPROVED_COMPLETE_CONFIGURATION",
+          "facts": [],
+          "gateIds": [
+            "H0D03"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "deviceKernel": {
+          "completion": "UNPROVED_COMPLETE_DEVICEKERNEL",
+          "facts": [],
+          "gateIds": [
+            "H0D07"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "dynamicDispatch": {
+          "completion": "UNPROVED_COMPLETE_DYNAMICDISPATCH",
+          "facts": [],
+          "gateIds": [
+            "H0D02"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "firmwareRfs": {
+          "completion": "UNPROVED_COMPLETE_FIRMWARERFS",
+          "facts": [],
+          "gateIds": [
+            "H0D08"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "property": {
+          "completion": "UNPROVED_COMPLETE_PROPERTY",
+          "facts": [],
+          "gateIds": [
+            "H0D04"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "qrtrQmi": {
+          "completion": "UNPROVED_COMPLETE_QRTRQMI",
+          "facts": [
+            {
+              "factId": "source-selected-qrtr-pd-rfs-plane-membership",
+              "h24Applicability": "SOURCE_SELECTED_PATH_ONLY",
+              "sources": [
+                "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json#components"
+              ],
+              "state": "SOURCE_SELECTED_H24_PATH",
+              "value": {
+                "causalMessages": null,
+                "role": "qrtr_ns"
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D06"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "sdFreeProvenance": {
+          "completion": "UNPROVED_COMPLETE_SDFREEPROVENANCE",
+          "facts": [],
+          "gateIds": [
+            "H0D10"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "writableOutput": {
+          "completion": "UNPROVED_COMPLETE_WRITABLEOUTPUT",
+          "facts": [],
+          "gateIds": [
+            "H0D09"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        }
+      },
+      "designRoleSpecificGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D06",
+        "H0D07"
+      ],
+      "executionEligible": false,
+      "identityContract": {
+        "currentRuntimeAppliedIdentityProved": false,
+        "currentSelectedSourceIdentity": {
+          "capabilities": [
+            "CAP_NET_BIND_SERVICE"
+          ],
+          "capabilityStatus": "SOURCE_DERIVED",
+          "evidenceState": "source-derived",
+          "gid": 2906,
+          "note": "Capability is retained and raised ambient.",
+          "supplementaryGroups": [],
+          "uid": 2906
+        },
+        "historicalConflicts": [],
+        "optionCExactIdentityEnvelopeProved": false
+      },
+      "instanceIds": [
+        "qrtr_ns#1"
+      ],
+      "role": "qrtr_ns",
+      "sourceSelectedInstances": [
+        {
+          "argv": [
+            "/vendor/bin/qrtr-ns",
+            "-f"
+          ],
+          "cleanup": {
+            "completeDescendantClosure": false,
+            "evidenceState": "source-derived",
+            "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+            "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+          },
+          "environment": null,
+          "executable": "/vendor/bin/qrtr-ns",
+          "identity": {
+            "capabilities": [
+              "CAP_NET_BIND_SERVICE"
+            ],
+            "capabilityStatus": "SOURCE_DERIVED",
+            "evidenceState": "source-derived",
+            "gid": 2906,
+            "note": "Capability is retained and raised ambient.",
+            "supplementaryGroups": [],
+            "uid": 2906
+          },
+          "instanceId": "qrtr_ns#1",
+          "kind": "composite-child",
+          "launchContract": null,
+          "launchPredicate": "!android_order_pre_cnss_provider_observer && !peripheral_manager_node_parity",
+          "lifetime": {
+            "evidenceState": "source-derived",
+            "hardwareNecessity": "UNPROVED",
+            "requirement": "required alive and observable for persistent handoff"
+          },
+          "ownershipPlane": "qrtr-pd-rfs",
+          "sourceAnchors": [
+            "a90_android_execns_probe.c:58674-58679",
+            "a90_android_execns_probe.c:6834-6845",
+            "a90_android_execns_probe.c:43679-43682"
+          ]
+        }
+      ]
+    },
+    {
+      "allGateSlotsPresent": [
+        "H0D01",
+        "H0D02",
+        "H0D03",
+        "H0D04",
+        "H0D05",
+        "H0D06",
+        "H0D07",
+        "H0D08",
+        "H0D09",
+        "H0D10"
+      ],
+      "artifactClass": "OPAQUE_EXTERNAL_ELF",
+      "dependencyClosureComplete": false,
+      "dependencySurfaces": {
+        "artifact": {
+          "completion": "UNPROVED_COMPLETE_ARTIFACT",
+          "currentH24ExactBinding": {
+            "bytes": null,
+            "dtNeeded": null,
+            "elfClass": null,
+            "interpreter": null,
+            "path": "/vendor/bin/pd-mapper",
+            "recursiveLibraryClosure": null,
+            "sha256": null
+          },
+          "facts": [],
+          "gateIds": [
+            "H0D01"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "binder": {
+          "completion": "UNPROVED_COMPLETE_BINDER",
+          "facts": [],
+          "gateIds": [
+            "H0D05"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "configuration": {
+          "completion": "UNPROVED_COMPLETE_CONFIGURATION",
+          "facts": [],
+          "gateIds": [
+            "H0D03"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "deviceKernel": {
+          "completion": "UNPROVED_COMPLETE_DEVICEKERNEL",
+          "facts": [],
+          "gateIds": [
+            "H0D07"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "dynamicDispatch": {
+          "completion": "UNPROVED_COMPLETE_DYNAMICDISPATCH",
+          "facts": [],
+          "gateIds": [
+            "H0D02"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "firmwareRfs": {
+          "completion": "UNPROVED_COMPLETE_FIRMWARERFS",
+          "facts": [],
+          "gateIds": [
+            "H0D08"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "property": {
+          "completion": "UNPROVED_COMPLETE_PROPERTY",
+          "facts": [],
+          "gateIds": [
+            "H0D04"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "qrtrQmi": {
+          "completion": "UNPROVED_COMPLETE_QRTRQMI",
+          "facts": [
+            {
+              "factId": "source-selected-qrtr-pd-rfs-plane-membership",
+              "h24Applicability": "SOURCE_SELECTED_PATH_ONLY",
+              "sources": [
+                "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json#components"
+              ],
+              "state": "SOURCE_SELECTED_H24_PATH",
+              "value": {
+                "causalMessages": null,
+                "role": "pd_mapper"
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D06"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "sdFreeProvenance": {
+          "completion": "UNPROVED_COMPLETE_SDFREEPROVENANCE",
+          "facts": [],
+          "gateIds": [
+            "H0D10"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "writableOutput": {
+          "completion": "UNPROVED_COMPLETE_WRITABLEOUTPUT",
+          "facts": [],
+          "gateIds": [
+            "H0D09"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        }
+      },
+      "designRoleSpecificGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D06",
+        "H0D07"
+      ],
+      "executionEligible": false,
+      "identityContract": {
+        "currentRuntimeAppliedIdentityProved": false,
+        "currentSelectedSourceIdentity": {
+          "capabilities": [
+            "CAP_NET_BIND_SERVICE"
+          ],
+          "capabilityStatus": "SOURCE_DERIVED",
+          "evidenceState": "source-derived",
+          "gid": 1000,
+          "note": "Capability is retained and raised ambient.",
+          "supplementaryGroups": [],
+          "uid": 1000
+        },
+        "historicalConflicts": [],
+        "optionCExactIdentityEnvelopeProved": false
+      },
+      "instanceIds": [
+        "pd_mapper#1"
+      ],
+      "role": "pd_mapper",
+      "sourceSelectedInstances": [
+        {
+          "argv": [
+            "/vendor/bin/pd-mapper"
+          ],
+          "cleanup": {
+            "completeDescendantClosure": false,
+            "evidenceState": "source-derived",
+            "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+            "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+          },
+          "environment": null,
+          "executable": "/vendor/bin/pd-mapper",
+          "identity": {
+            "capabilities": [
+              "CAP_NET_BIND_SERVICE"
+            ],
+            "capabilityStatus": "SOURCE_DERIVED",
+            "evidenceState": "source-derived",
+            "gid": 1000,
+            "note": "Capability is retained and raised ambient.",
+            "supplementaryGroups": [],
+            "uid": 1000
+          },
+          "instanceId": "pd_mapper#1",
+          "kind": "composite-child",
+          "launchContract": null,
+          "launchPredicate": "!android_order_pre_cnss_provider_observer && !peripheral_manager_node_parity && wlan_pd_firmware_serve_gate",
+          "lifetime": {
+            "evidenceState": "source-derived",
+            "hardwareNecessity": "UNPROVED",
+            "requirement": "required alive and observable for persistent handoff"
+          },
+          "ownershipPlane": "qrtr-pd-rfs",
+          "sourceAnchors": [
+            "a90_android_execns_probe.c:58680-58693",
+            "a90_android_execns_probe.c:6929-6940"
+          ]
+        }
+      ]
+    },
+    {
+      "allGateSlotsPresent": [
+        "H0D01",
+        "H0D02",
+        "H0D03",
+        "H0D04",
+        "H0D05",
+        "H0D06",
+        "H0D07",
+        "H0D08",
+        "H0D09",
+        "H0D10"
+      ],
+      "artifactClass": "OPAQUE_EXTERNAL_ELF",
+      "dependencyClosureComplete": false,
+      "dependencySurfaces": {
+        "artifact": {
+          "completion": "UNPROVED_COMPLETE_ARTIFACT",
+          "currentH24ExactBinding": {
+            "bytes": null,
+            "dtNeeded": null,
+            "elfClass": null,
+            "interpreter": null,
+            "path": "/vendor/bin/rmt_storage",
+            "recursiveLibraryClosure": null,
+            "sha256": null
+          },
+          "facts": [],
+          "gateIds": [
+            "H0D01"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "binder": {
+          "completion": "UNPROVED_COMPLETE_BINDER",
+          "facts": [],
+          "gateIds": [
+            "H0D05"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "configuration": {
+          "completion": "UNPROVED_COMPLETE_CONFIGURATION",
+          "facts": [],
+          "gateIds": [
+            "H0D03"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "deviceKernel": {
+          "completion": "UNPROVED_COMPLETE_DEVICEKERNEL",
+          "facts": [],
+          "gateIds": [
+            "H0D07"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "dynamicDispatch": {
+          "completion": "UNPROVED_COMPLETE_DYNAMICDISPATCH",
+          "facts": [],
+          "gateIds": [
+            "H0D02"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "firmwareRfs": {
+          "completion": "UNPROVED_COMPLETE_FIRMWARERFS",
+          "facts": [],
+          "gateIds": [
+            "H0D08"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "property": {
+          "completion": "UNPROVED_COMPLETE_PROPERTY",
+          "facts": [],
+          "gateIds": [
+            "H0D04"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "qrtrQmi": {
+          "completion": "UNPROVED_COMPLETE_QRTRQMI",
+          "facts": [
+            {
+              "factId": "source-selected-qrtr-pd-rfs-plane-membership",
+              "h24Applicability": "SOURCE_SELECTED_PATH_ONLY",
+              "sources": [
+                "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json#components"
+              ],
+              "state": "SOURCE_SELECTED_H24_PATH",
+              "value": {
+                "causalMessages": null,
+                "role": "rmt_storage"
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D06"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "sdFreeProvenance": {
+          "completion": "UNPROVED_COMPLETE_SDFREEPROVENANCE",
+          "facts": [],
+          "gateIds": [
+            "H0D10"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "writableOutput": {
+          "completion": "UNPROVED_COMPLETE_WRITABLEOUTPUT",
+          "facts": [],
+          "gateIds": [
+            "H0D09"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        }
+      },
+      "designRoleSpecificGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D06",
+        "H0D07",
+        "H0D08",
+        "H0D09"
+      ],
+      "executionEligible": false,
+      "identityContract": {
+        "currentRuntimeAppliedIdentityProved": false,
+        "currentSelectedSourceIdentity": {
+          "capabilities": null,
+          "capabilityStatus": "UNPROVED",
+          "evidenceState": "source-derived",
+          "gid": 0,
+          "note": "H24 selects android-init-root mode; no exact capability reduction is proved.",
+          "supplementaryGroups": [],
+          "uid": 0
+        },
+        "historicalConflicts": [
+          {
+            "factId": "historical-rmt-storage-android-identity",
+            "h24Applicability": "CONFLICTS_WITH_SELECTED_ROOT_LAUNCH",
+            "sources": [
+              "docs/archive/legacy/reports/NATIVE_INIT_V2117_DUAL_RFS_LEAF_ANDROID_IDENTITY_HANDOFF_2026-06-05.md:29"
+            ],
+            "state": "IDENTITY_CONFLICT_H24_RESOLUTION_REQUIRED",
+            "value": {
+              "caps": [
+                10,
+                36
+              ],
+              "gid": 1000,
+              "groups": [
+                1000,
+                3010
+              ],
+              "uid": 9999
+            }
+          }
+        ],
+        "optionCExactIdentityEnvelopeProved": false
+      },
+      "instanceIds": [
+        "rmt_storage#1"
+      ],
+      "role": "rmt_storage",
+      "sourceSelectedInstances": [
+        {
+          "argv": [
+            "/vendor/bin/rmt_storage"
+          ],
+          "cleanup": {
+            "completeDescendantClosure": false,
+            "evidenceState": "source-derived",
+            "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+            "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+          },
+          "environment": null,
+          "executable": "/vendor/bin/rmt_storage",
+          "identity": {
+            "capabilities": null,
+            "capabilityStatus": "UNPROVED",
+            "evidenceState": "source-derived",
+            "gid": 0,
+            "note": "H24 selects android-init-root mode; no exact capability reduction is proved.",
+            "supplementaryGroups": [],
+            "uid": 0
+          },
+          "instanceId": "rmt_storage#1",
+          "kind": "composite-child",
+          "launchContract": null,
+          "launchPredicate": "!android_order_pre_cnss_provider_observer && !peripheral_manager_node_parity && wlan_pd_firmware_serve_gate",
+          "lifetime": {
+            "evidenceState": "source-derived",
+            "hardwareNecessity": "UNPROVED",
+            "requirement": "required alive and observable for persistent handoff"
+          },
+          "ownershipPlane": "qrtr-pd-rfs",
+          "sourceAnchors": [
+            "a90_android_execns_probe.c:58680-58693",
+            "a90_android_execns_probe.c:6848-6902"
+          ]
+        }
+      ]
+    },
+    {
+      "allGateSlotsPresent": [
+        "H0D01",
+        "H0D02",
+        "H0D03",
+        "H0D04",
+        "H0D05",
+        "H0D06",
+        "H0D07",
+        "H0D08",
+        "H0D09",
+        "H0D10"
+      ],
+      "artifactClass": "OPAQUE_EXTERNAL_ELF",
+      "dependencyClosureComplete": false,
+      "dependencySurfaces": {
+        "artifact": {
+          "completion": "UNPROVED_COMPLETE_ARTIFACT",
+          "currentH24ExactBinding": {
+            "bytes": null,
+            "dtNeeded": null,
+            "elfClass": null,
+            "interpreter": null,
+            "path": "/vendor/bin/tftp_server",
+            "recursiveLibraryClosure": null,
+            "sha256": null
+          },
+          "facts": [],
+          "gateIds": [
+            "H0D01"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "binder": {
+          "completion": "UNPROVED_COMPLETE_BINDER",
+          "facts": [],
+          "gateIds": [
+            "H0D05"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "configuration": {
+          "completion": "UNPROVED_COMPLETE_CONFIGURATION",
+          "facts": [],
+          "gateIds": [
+            "H0D03"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "deviceKernel": {
+          "completion": "UNPROVED_COMPLETE_DEVICEKERNEL",
+          "facts": [],
+          "gateIds": [
+            "H0D07"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "dynamicDispatch": {
+          "completion": "UNPROVED_COMPLETE_DYNAMICDISPATCH",
+          "facts": [],
+          "gateIds": [
+            "H0D02"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "firmwareRfs": {
+          "completion": "UNPROVED_COMPLETE_FIRMWARERFS",
+          "facts": [
+            {
+              "factId": "historical-wlanmdsp-rfs-paths",
+              "h24Applicability": "UNPROVED_CURRENT_H24_REQUEST_AND_TRANSFER_SET",
+              "sources": [
+                "docs/archive/legacy/reports/NATIVE_INIT_V2033_WLANMDSP_TFTP_TRANSFER_COMPLETION_GAP_2026-06-04.md:17-20"
+              ],
+              "state": "HISTORICAL_ONLY_H24_APPLICABILITY_UNPROVED",
+              "value": {
+                "historicalCompletedBytes": 4251884,
+                "paths": [
+                  "readonly/vendor/firmware_mnt/image/wlanmdsp.mbn",
+                  "readonly/vendor/firmware/wlanmdsp.mbn",
+                  "readwrite/mcfg.tmp"
+                ]
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D08"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "property": {
+          "completion": "UNPROVED_COMPLETE_PROPERTY",
+          "facts": [],
+          "gateIds": [
+            "H0D04"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "qrtrQmi": {
+          "completion": "UNPROVED_COMPLETE_QRTRQMI",
+          "facts": [
+            {
+              "factId": "source-selected-qrtr-pd-rfs-plane-membership",
+              "h24Applicability": "SOURCE_SELECTED_PATH_ONLY",
+              "sources": [
+                "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json#components"
+              ],
+              "state": "SOURCE_SELECTED_H24_PATH",
+              "value": {
+                "causalMessages": null,
+                "role": "tftp_server"
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D06"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "sdFreeProvenance": {
+          "completion": "UNPROVED_COMPLETE_SDFREEPROVENANCE",
+          "facts": [],
+          "gateIds": [
+            "H0D10"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "writableOutput": {
+          "completion": "UNPROVED_COMPLETE_WRITABLEOUTPUT",
+          "facts": [],
+          "gateIds": [
+            "H0D09"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        }
+      },
+      "designRoleSpecificGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D07",
+        "H0D08",
+        "H0D09"
+      ],
+      "executionEligible": false,
+      "identityContract": {
+        "currentRuntimeAppliedIdentityProved": false,
+        "currentSelectedSourceIdentity": {
+          "capabilities": null,
+          "capabilityStatus": "UNPROVED",
+          "evidenceState": "source-derived",
+          "gid": 0,
+          "note": "H24 selects android-init-root mode; no exact capability reduction is proved.",
+          "supplementaryGroups": [],
+          "uid": 0
+        },
+        "historicalConflicts": [
+          {
+            "factId": "historical-tftp-server-android-identity",
+            "h24Applicability": "CONFLICTS_WITH_SELECTED_ROOT_LAUNCH",
+            "sources": [
+              "docs/archive/legacy/reports/NATIVE_INIT_V2117_DUAL_RFS_LEAF_ANDROID_IDENTITY_HANDOFF_2026-06-05.md:30"
+            ],
+            "state": "IDENTITY_CONFLICT_H24_RESOLUTION_REQUIRED",
+            "value": {
+              "caps": [
+                10,
+                36
+              ],
+              "gid": 2903,
+              "groups": [
+                1000,
+                2903,
+                2904,
+                3010
+              ],
+              "uid": 2903
+            }
+          }
+        ],
+        "optionCExactIdentityEnvelopeProved": false
+      },
+      "instanceIds": [
+        "tftp_server#1"
+      ],
+      "role": "tftp_server",
+      "sourceSelectedInstances": [
+        {
+          "argv": [
+            "/vendor/bin/tftp_server"
+          ],
+          "cleanup": {
+            "completeDescendantClosure": false,
+            "evidenceState": "source-derived",
+            "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+            "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+          },
+          "environment": null,
+          "executable": "/vendor/bin/tftp_server",
+          "identity": {
+            "capabilities": null,
+            "capabilityStatus": "UNPROVED",
+            "evidenceState": "source-derived",
+            "gid": 0,
+            "note": "H24 selects android-init-root mode; no exact capability reduction is proved.",
+            "supplementaryGroups": [],
+            "uid": 0
+          },
+          "instanceId": "tftp_server#1",
+          "kind": "composite-child",
+          "launchContract": null,
+          "launchPredicate": "!android_order_pre_cnss_provider_observer && !peripheral_manager_node_parity && wlan_pd_firmware_serve_gate",
+          "lifetime": {
+            "evidenceState": "source-derived",
+            "hardwareNecessity": "UNPROVED",
+            "requirement": "required alive and observable for persistent handoff"
+          },
+          "ownershipPlane": "qrtr-pd-rfs",
+          "sourceAnchors": [
+            "a90_android_execns_probe.c:58680-58693",
+            "a90_android_execns_probe.c:6905-6926"
+          ]
+        }
+      ]
+    },
+    {
+      "allGateSlotsPresent": [
+        "H0D01",
+        "H0D02",
+        "H0D03",
+        "H0D04",
+        "H0D05",
+        "H0D06",
+        "H0D07",
+        "H0D08",
+        "H0D09",
+        "H0D10"
+      ],
+      "artifactClass": "OPAQUE_EXTERNAL_ELF",
+      "dependencyClosureComplete": false,
+      "dependencySurfaces": {
+        "artifact": {
+          "completion": "UNPROVED_COMPLETE_ARTIFACT",
+          "currentH24ExactBinding": {
+            "bytes": null,
+            "dtNeeded": null,
+            "elfClass": null,
+            "interpreter": null,
+            "path": "/vendor/bin/vndservicemanager",
+            "recursiveLibraryClosure": null,
+            "sha256": null
+          },
+          "facts": [],
+          "gateIds": [
+            "H0D01"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "binder": {
+          "completion": "UNPROVED_COMPLETE_BINDER",
+          "facts": [
+            {
+              "factId": "source-selected-binder-manager-role",
+              "h24Applicability": "SOURCE_SELECTED_PATH_ONLY",
+              "sources": [
+                "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json#components",
+                "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/policy/a90-h24-wlan-forbidden-surface-policy-v1.json"
+              ],
+              "state": "SOURCE_SELECTED_H24_PATH",
+              "value": {
+                "endpointClass": "NATIVE_GLOBAL_REJECTED_BY_WP2_2",
+                "role": "vndservicemanager"
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D05"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "configuration": {
+          "completion": "UNPROVED_COMPLETE_CONFIGURATION",
+          "facts": [],
+          "gateIds": [
+            "H0D03"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "deviceKernel": {
+          "completion": "UNPROVED_COMPLETE_DEVICEKERNEL",
+          "facts": [],
+          "gateIds": [
+            "H0D07"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "dynamicDispatch": {
+          "completion": "UNPROVED_COMPLETE_DYNAMICDISPATCH",
+          "facts": [],
+          "gateIds": [
+            "H0D02"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "firmwareRfs": {
+          "completion": "UNPROVED_COMPLETE_FIRMWARERFS",
+          "facts": [],
+          "gateIds": [
+            "H0D08"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "property": {
+          "completion": "UNPROVED_COMPLETE_PROPERTY",
+          "facts": [],
+          "gateIds": [
+            "H0D04"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "qrtrQmi": {
+          "completion": "UNPROVED_COMPLETE_QRTRQMI",
+          "facts": [],
+          "gateIds": [
+            "H0D06"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "sdFreeProvenance": {
+          "completion": "UNPROVED_COMPLETE_SDFREEPROVENANCE",
+          "facts": [],
+          "gateIds": [
+            "H0D10"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "writableOutput": {
+          "completion": "UNPROVED_COMPLETE_WRITABLEOUTPUT",
+          "facts": [],
+          "gateIds": [
+            "H0D09"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        }
+      },
+      "designRoleSpecificGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D05"
+      ],
+      "executionEligible": false,
+      "identityContract": {
+        "currentRuntimeAppliedIdentityProved": false,
+        "currentSelectedSourceIdentity": {
+          "capabilities": null,
+          "capabilityStatus": "UNPROVED",
+          "evidenceState": "source-derived",
+          "gid": 1000,
+          "note": "Source prints expected none but does not apply an explicit empty capset.",
+          "supplementaryGroups": [
+            1000,
+            3009
+          ],
+          "uid": 1000
+        },
+        "historicalConflicts": [],
+        "optionCExactIdentityEnvelopeProved": false
+      },
+      "instanceIds": [
+        "vndservicemanager#1"
+      ],
+      "role": "vndservicemanager",
+      "sourceSelectedInstances": [
+        {
+          "argv": [
+            "/vendor/bin/vndservicemanager",
+            "/dev/vndbinder"
+          ],
+          "cleanup": {
+            "completeDescendantClosure": false,
+            "evidenceState": "source-derived",
+            "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+            "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+          },
+          "environment": null,
+          "executable": "/vendor/bin/vndservicemanager",
+          "identity": {
+            "capabilities": null,
+            "capabilityStatus": "UNPROVED",
+            "evidenceState": "source-derived",
+            "gid": 1000,
+            "note": "Source prints expected none but does not apply an explicit empty capset.",
+            "supplementaryGroups": [
+              1000,
+              3009
+            ],
+            "uid": 1000
+          },
+          "instanceId": "vndservicemanager#1",
+          "kind": "composite-child",
+          "launchContract": null,
+          "launchPredicate": "wlan_pd_service_window_trigger || wlan_pd_service_object_visible_trigger",
+          "lifetime": {
+            "evidenceState": "source-derived",
+            "hardwareNecessity": "UNPROVED",
+            "requirement": "required alive and observable for persistent handoff"
+          },
+          "ownershipPlane": "binder-registry",
+          "sourceAnchors": [
+            "a90_android_execns_probe.c:58722-58735",
+            "a90_android_execns_probe.c:43674-43677"
+          ]
+        }
+      ]
+    },
+    {
+      "allGateSlotsPresent": [
+        "H0D01",
+        "H0D02",
+        "H0D03",
+        "H0D04",
+        "H0D05",
+        "H0D06",
+        "H0D07",
+        "H0D08",
+        "H0D09",
+        "H0D10"
+      ],
+      "artifactClass": "OPAQUE_EXTERNAL_ELF",
+      "dependencyClosureComplete": false,
+      "dependencySurfaces": {
+        "artifact": {
+          "completion": "UNPROVED_COMPLETE_ARTIFACT",
+          "currentH24ExactBinding": {
+            "bytes": null,
+            "dtNeeded": null,
+            "elfClass": null,
+            "interpreter": null,
+            "path": "/vendor/bin/pm_proxy_helper",
+            "recursiveLibraryClosure": null,
+            "sha256": null
+          },
+          "facts": [],
+          "gateIds": [
+            "H0D01"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "binder": {
+          "completion": "UNPROVED_COMPLETE_BINDER",
+          "facts": [
+            {
+              "factId": "source-selected-peripheral-manager-provider-role",
+              "h24Applicability": "SOURCE_SELECTED_PATH_ONLY",
+              "sources": [
+                "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json#components"
+              ],
+              "state": "SOURCE_SELECTED_H24_PATH",
+              "value": {
+                "role": "pm_proxy_helper",
+                "transactionSet": null
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D05"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "configuration": {
+          "completion": "UNPROVED_COMPLETE_CONFIGURATION",
+          "facts": [],
+          "gateIds": [
+            "H0D03"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "deviceKernel": {
+          "completion": "UNPROVED_COMPLETE_DEVICEKERNEL",
+          "facts": [],
+          "gateIds": [
+            "H0D07"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "dynamicDispatch": {
+          "completion": "UNPROVED_COMPLETE_DYNAMICDISPATCH",
+          "facts": [],
+          "gateIds": [
+            "H0D02"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "firmwareRfs": {
+          "completion": "UNPROVED_COMPLETE_FIRMWARERFS",
+          "facts": [],
+          "gateIds": [
+            "H0D08"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "property": {
+          "completion": "UNPROVED_COMPLETE_PROPERTY",
+          "facts": [],
+          "gateIds": [
+            "H0D04"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "qrtrQmi": {
+          "completion": "UNPROVED_COMPLETE_QRTRQMI",
+          "facts": [],
+          "gateIds": [
+            "H0D06"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "sdFreeProvenance": {
+          "completion": "UNPROVED_COMPLETE_SDFREEPROVENANCE",
+          "facts": [],
+          "gateIds": [
+            "H0D10"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "writableOutput": {
+          "completion": "UNPROVED_COMPLETE_WRITABLEOUTPUT",
+          "facts": [],
+          "gateIds": [
+            "H0D09"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        }
+      },
+      "designRoleSpecificGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D05",
+        "H0D09"
+      ],
+      "executionEligible": false,
+      "identityContract": {
+        "currentRuntimeAppliedIdentityProved": false,
+        "currentSelectedSourceIdentity": {
+          "capabilities": [],
+          "capabilityStatus": "SOURCE_DERIVED",
+          "evidenceState": "source-derived",
+          "gid": 1000,
+          "note": "Source applies an explicit empty capability set.",
+          "supplementaryGroups": [],
+          "uid": 1000
+        },
+        "historicalConflicts": [],
+        "optionCExactIdentityEnvelopeProved": false
+      },
+      "instanceIds": [
+        "pm_proxy_helper#1"
+      ],
+      "role": "pm_proxy_helper",
+      "sourceSelectedInstances": [
+        {
+          "argv": [
+            "/vendor/bin/pm_proxy_helper"
+          ],
+          "cleanup": {
+            "completeDescendantClosure": false,
+            "evidenceState": "source-derived",
+            "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+            "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+          },
+          "environment": null,
+          "executable": "/vendor/bin/pm_proxy_helper",
+          "identity": {
+            "capabilities": [],
+            "capabilityStatus": "SOURCE_DERIVED",
+            "evidenceState": "source-derived",
+            "gid": 1000,
+            "note": "Source applies an explicit empty capability set.",
+            "supplementaryGroups": [],
+            "uid": 1000
+          },
+          "instanceId": "pm_proxy_helper#1",
+          "kind": "composite-child",
+          "launchContract": null,
+          "launchPredicate": "wlan_pd_pm_service_window_trigger || wlan_pd_service_object_visible_trigger",
+          "lifetime": {
+            "evidenceState": "source-derived",
+            "hardwareNecessity": "UNPROVED",
+            "requirement": "required alive and observable for persistent handoff"
+          },
+          "ownershipPlane": "peripheral-manager-provider",
+          "sourceAnchors": [
+            "a90_android_execns_probe.c:58737-58745",
+            "a90_android_execns_probe.c:6972-6981"
+          ]
+        }
+      ]
+    },
+    {
+      "allGateSlotsPresent": [
+        "H0D01",
+        "H0D02",
+        "H0D03",
+        "H0D04",
+        "H0D05",
+        "H0D06",
+        "H0D07",
+        "H0D08",
+        "H0D09",
+        "H0D10"
+      ],
+      "artifactClass": "OPAQUE_EXTERNAL_ELF",
+      "dependencyClosureComplete": false,
+      "dependencySurfaces": {
+        "artifact": {
+          "completion": "UNPROVED_COMPLETE_ARTIFACT",
+          "currentH24ExactBinding": {
+            "bytes": null,
+            "dtNeeded": null,
+            "elfClass": null,
+            "interpreter": null,
+            "path": "/vendor/bin/pm-service",
+            "recursiveLibraryClosure": null,
+            "sha256": null
+          },
+          "facts": [],
+          "gateIds": [
+            "H0D01"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "binder": {
+          "completion": "UNPROVED_COMPLETE_BINDER",
+          "facts": [
+            {
+              "factId": "source-selected-peripheral-manager-provider-role",
+              "h24Applicability": "SOURCE_SELECTED_PATH_ONLY",
+              "sources": [
+                "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json#components"
+              ],
+              "state": "SOURCE_SELECTED_H24_PATH",
+              "value": {
+                "role": "per_mgr",
+                "transactionSet": null
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D05"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "configuration": {
+          "completion": "UNPROVED_COMPLETE_CONFIGURATION",
+          "facts": [],
+          "gateIds": [
+            "H0D03"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "deviceKernel": {
+          "completion": "UNPROVED_COMPLETE_DEVICEKERNEL",
+          "facts": [],
+          "gateIds": [
+            "H0D07"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "dynamicDispatch": {
+          "completion": "UNPROVED_COMPLETE_DYNAMICDISPATCH",
+          "facts": [],
+          "gateIds": [
+            "H0D02"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "firmwareRfs": {
+          "completion": "UNPROVED_COMPLETE_FIRMWARERFS",
+          "facts": [],
+          "gateIds": [
+            "H0D08"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "property": {
+          "completion": "UNPROVED_COMPLETE_PROPERTY",
+          "facts": [],
+          "gateIds": [
+            "H0D04"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "qrtrQmi": {
+          "completion": "UNPROVED_COMPLETE_QRTRQMI",
+          "facts": [],
+          "gateIds": [
+            "H0D06"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "sdFreeProvenance": {
+          "completion": "UNPROVED_COMPLETE_SDFREEPROVENANCE",
+          "facts": [],
+          "gateIds": [
+            "H0D10"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "writableOutput": {
+          "completion": "UNPROVED_COMPLETE_WRITABLEOUTPUT",
+          "facts": [],
+          "gateIds": [
+            "H0D09"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        }
+      },
+      "designRoleSpecificGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D05",
+        "H0D07",
+        "H0D09"
+      ],
+      "executionEligible": false,
+      "identityContract": {
+        "currentRuntimeAppliedIdentityProved": false,
+        "currentSelectedSourceIdentity": {
+          "capabilities": [],
+          "capabilityStatus": "SOURCE_DERIVED",
+          "evidenceState": "source-derived",
+          "gid": 1000,
+          "note": "Source applies an explicit empty capability set.",
+          "supplementaryGroups": [],
+          "uid": 1000
+        },
+        "historicalConflicts": [],
+        "optionCExactIdentityEnvelopeProved": false
+      },
+      "instanceIds": [
+        "per_mgr#1"
+      ],
+      "role": "per_mgr",
+      "sourceSelectedInstances": [
+        {
+          "argv": [
+            "/vendor/bin/pm-service"
+          ],
+          "cleanup": {
+            "completeDescendantClosure": false,
+            "evidenceState": "source-derived",
+            "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+            "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+          },
+          "environment": null,
+          "executable": "/vendor/bin/pm-service",
+          "identity": {
+            "capabilities": [],
+            "capabilityStatus": "SOURCE_DERIVED",
+            "evidenceState": "source-derived",
+            "gid": 1000,
+            "note": "Source applies an explicit empty capability set.",
+            "supplementaryGroups": [],
+            "uid": 1000
+          },
+          "instanceId": "per_mgr#1",
+          "kind": "composite-child",
+          "launchContract": null,
+          "launchPredicate": "wlan_pd_pm_service_window_trigger || wlan_pd_service_object_visible_trigger",
+          "lifetime": {
+            "evidenceState": "source-derived",
+            "hardwareNecessity": "UNPROVED",
+            "requirement": "required alive and observable; requests I/O priority RT/4"
+          },
+          "ownershipPlane": "peripheral-manager-provider",
+          "sourceAnchors": [
+            "a90_android_execns_probe.c:58737-58745",
+            "a90_android_execns_probe.c:6972-7005"
+          ]
+        }
+      ]
+    },
+    {
+      "allGateSlotsPresent": [
+        "H0D01",
+        "H0D02",
+        "H0D03",
+        "H0D04",
+        "H0D05",
+        "H0D06",
+        "H0D07",
+        "H0D08",
+        "H0D09",
+        "H0D10"
+      ],
+      "artifactClass": "OPAQUE_EXTERNAL_ELF",
+      "dependencyClosureComplete": false,
+      "dependencySurfaces": {
+        "artifact": {
+          "completion": "UNPROVED_COMPLETE_ARTIFACT",
+          "currentH24ExactBinding": {
+            "bytes": null,
+            "dtNeeded": null,
+            "elfClass": null,
+            "interpreter": null,
+            "path": "/vendor/bin/cnss_diag",
+            "recursiveLibraryClosure": null,
+            "sha256": null
+          },
+          "facts": [],
+          "gateIds": [
+            "H0D01"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "binder": {
+          "completion": "UNPROVED_COMPLETE_BINDER",
+          "facts": [],
+          "gateIds": [
+            "H0D05"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "configuration": {
+          "completion": "UNPROVED_COMPLETE_CONFIGURATION",
+          "facts": [],
+          "gateIds": [
+            "H0D03"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "deviceKernel": {
+          "completion": "UNPROVED_COMPLETE_DEVICEKERNEL",
+          "facts": [
+            {
+              "factId": "historical-diag-device-gap",
+              "h24Applicability": "UNPROVED",
+              "sources": [
+                "docs/archive/legacy/reports/NATIVE_INIT_V242_CNSS_RUNTIME_REQUIREMENT_INVENTORY_2026-05-18.md:64"
+              ],
+              "state": "HISTORICAL_ONLY_H24_APPLICABILITY_UNPROVED",
+              "value": {
+                "availability": "historically-missing",
+                "path": "/dev/diag"
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D07"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "dynamicDispatch": {
+          "completion": "UNPROVED_COMPLETE_DYNAMICDISPATCH",
+          "facts": [],
+          "gateIds": [
+            "H0D02"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "firmwareRfs": {
+          "completion": "UNPROVED_COMPLETE_FIRMWARERFS",
+          "facts": [],
+          "gateIds": [
+            "H0D08"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "property": {
+          "completion": "UNPROVED_COMPLETE_PROPERTY",
+          "facts": [],
+          "gateIds": [
+            "H0D04"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "qrtrQmi": {
+          "completion": "UNPROVED_COMPLETE_QRTRQMI",
+          "facts": [],
+          "gateIds": [
+            "H0D06"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "sdFreeProvenance": {
+          "completion": "UNPROVED_COMPLETE_SDFREEPROVENANCE",
+          "facts": [],
+          "gateIds": [
+            "H0D10"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "writableOutput": {
+          "completion": "UNPROVED_COMPLETE_WRITABLEOUTPUT",
+          "facts": [],
+          "gateIds": [
+            "H0D09"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        }
+      },
+      "designRoleSpecificGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D07",
+        "H0D09"
+      ],
+      "executionEligible": false,
+      "identityContract": {
+        "currentRuntimeAppliedIdentityProved": false,
+        "currentSelectedSourceIdentity": {
+          "capabilities": [],
+          "capabilityStatus": "SOURCE_DERIVED",
+          "evidenceState": "source-derived",
+          "gid": 1000,
+          "note": "Source applies an explicit empty capability set.",
+          "supplementaryGroups": [
+            1000,
+            1010,
+            3003,
+            1015,
+            1023,
+            2002
+          ],
+          "uid": 1000
+        },
+        "historicalConflicts": [],
+        "optionCExactIdentityEnvelopeProved": false
+      },
+      "instanceIds": [
+        "cnss_diag#1"
+      ],
+      "role": "cnss_diag",
+      "sourceSelectedInstances": [
+        {
+          "argv": [
+            "/vendor/bin/cnss_diag",
+            "-q",
+            "-f",
+            "-t",
+            "HELIUM"
+          ],
+          "cleanup": {
+            "completeDescendantClosure": false,
+            "evidenceState": "source-derived",
+            "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+            "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+          },
+          "environment": null,
+          "executable": "/vendor/bin/cnss_diag",
+          "identity": {
+            "capabilities": [],
+            "capabilityStatus": "SOURCE_DERIVED",
+            "evidenceState": "source-derived",
+            "gid": 1000,
+            "note": "Source applies an explicit empty capability set.",
+            "supplementaryGroups": [
+              1000,
+              1010,
+              3003,
+              1015,
+              1023,
+              2002
+            ],
+            "uid": 1000
+          },
+          "instanceId": "cnss_diag#1",
+          "kind": "composite-child",
+          "launchContract": null,
+          "launchPredicate": "!post_sysmon_observer",
+          "lifetime": {
+            "evidenceState": "source-derived",
+            "hardwareNecessity": "UNPROVED",
+            "requirement": "required alive and observable for persistent handoff"
+          },
+          "ownershipPlane": "diagnostic",
+          "sourceAnchors": [
+            "a90_android_execns_probe.c:58753-58757",
+            "a90_android_execns_probe.c:6699-6753"
+          ]
+        }
+      ]
+    },
+    {
+      "allGateSlotsPresent": [
+        "H0D01",
+        "H0D02",
+        "H0D03",
+        "H0D04",
+        "H0D05",
+        "H0D06",
+        "H0D07",
+        "H0D08",
+        "H0D09",
+        "H0D10"
+      ],
+      "artifactClass": "OPAQUE_EXTERNAL_ELF",
+      "dependencyClosureComplete": false,
+      "dependencySurfaces": {
+        "artifact": {
+          "completion": "UNPROVED_COMPLETE_ARTIFACT",
+          "currentH24ExactBinding": {
+            "bytes": null,
+            "dtNeeded": null,
+            "elfClass": null,
+            "interpreter": null,
+            "path": "/vendor/bin/cnss-daemon",
+            "recursiveLibraryClosure": null,
+            "sha256": null
+          },
+          "facts": [
+            {
+              "factId": "historical-cnss-daemon-artifact",
+              "h24Applicability": "UNPROVED_NOT_CURRENT_H24_BINDING",
+              "sources": [
+                "docs/archive/legacy/reports/NATIVE_INIT_V1692_CNSS_NONLOG_CONTROL_FLOW_2026-06-02.md:25"
+              ],
+              "state": "HISTORICAL_ONLY_H24_APPLICABILITY_UNPROVED",
+              "value": {
+                "bytes": 95112,
+                "sha256": "bced9853a77cfb02252571196584efa535be14f8f3fd9ce32712ddee224ba4bc"
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D01"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "binder": {
+          "completion": "UNPROVED_COMPLETE_BINDER",
+          "facts": [],
+          "gateIds": [
+            "H0D05"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "configuration": {
+          "completion": "UNPROVED_COMPLETE_CONFIGURATION",
+          "facts": [],
+          "gateIds": [
+            "H0D03"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "deviceKernel": {
+          "completion": "UNPROVED_COMPLETE_DEVICEKERNEL",
+          "facts": [],
+          "gateIds": [
+            "H0D07"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "dynamicDispatch": {
+          "completion": "UNPROVED_COMPLETE_DYNAMICDISPATCH",
+          "facts": [
+            {
+              "factId": "historical-cnss-daemon-linker-resolution",
+              "h24Applicability": "UNPROVED_INCOMPLETE_RECURSIVE_CLOSURE",
+              "sources": [
+                "docs/archive/legacy/reports/NATIVE_INIT_V241_VNDK_APEX_ALIAS_PROBE_2026-05-18.md:106-148"
+              ],
+              "state": "HISTORICAL_ONLY_H24_APPLICABILITY_UNPROVED",
+              "value": {
+                "libraries": [
+                  "libcutils.so",
+                  "libnl.so",
+                  "libc++.so",
+                  "libqmi_cci.so",
+                  "libqmi_common_so.so",
+                  "libcld80211.so"
+                ]
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D02"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "firmwareRfs": {
+          "completion": "UNPROVED_COMPLETE_FIRMWARERFS",
+          "facts": [],
+          "gateIds": [
+            "H0D08"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "property": {
+          "completion": "UNPROVED_COMPLETE_PROPERTY",
+          "facts": [
+            {
+              "factId": "historical-cnss-daemon-property-reads",
+              "h24Applicability": "UNPROVED_CURRENT_H24_VALUES_AND_NECESSITY",
+              "sources": [
+                "docs/archive/legacy/reports/NATIVE_INIT_V1692_CNSS_NONLOG_CONTROL_FLOW_2026-06-02.md:37-38"
+              ],
+              "state": "HISTORICAL_ONLY_H24_APPLICABILITY_UNPROVED",
+              "value": {
+                "keys": [
+                  "persist.vendor.cnss-daemon.debug_level",
+                  "persist.vendor.cnss-daemon.kmsg_logging"
+                ]
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D04"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "qrtrQmi": {
+          "completion": "UNPROVED_COMPLETE_QRTRQMI",
+          "facts": [
+            {
+              "factId": "historical-cnss-daemon-wlfw-control-flow",
+              "h24Applicability": "UNPROVED_RUNTIME_MESSAGE_SET",
+              "sources": [
+                "docs/archive/legacy/reports/NATIVE_INIT_V1692_CNSS_NONLOG_CONTROL_FLOW_2026-06-02.md:28-31"
+              ],
+              "state": "HISTORICAL_ONLY_H24_APPLICABILITY_UNPROVED",
+              "value": {
+                "entry": "wlfw_start",
+                "qmiMessages": null
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D06"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "sdFreeProvenance": {
+          "completion": "UNPROVED_COMPLETE_SDFREEPROVENANCE",
+          "facts": [],
+          "gateIds": [
+            "H0D10"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "writableOutput": {
+          "completion": "UNPROVED_COMPLETE_WRITABLEOUTPUT",
+          "facts": [],
+          "gateIds": [
+            "H0D09"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        }
+      },
+      "designRoleSpecificGateIds": [
+        "H0D01",
+        "H0D02",
+        "H0D03",
+        "H0D04",
+        "H0D06",
+        "H0D07",
+        "H0D09"
+      ],
+      "executionEligible": false,
+      "identityContract": {
+        "currentRuntimeAppliedIdentityProved": false,
+        "currentSelectedSourceIdentity": {
+          "capabilities": [
+            "CAP_NET_ADMIN"
+          ],
+          "capabilityStatus": "SOURCE_DERIVED",
+          "evidenceState": "source-derived",
+          "gid": 1000,
+          "note": "Only CAP_NET_ADMIN is retained and raised ambient.",
+          "supplementaryGroups": [
+            3003,
+            3005,
+            1010
+          ],
+          "uid": 1000
+        },
+        "historicalConflicts": [],
+        "optionCExactIdentityEnvelopeProved": false
+      },
+      "instanceIds": [
+        "cnss_daemon#1"
+      ],
+      "role": "cnss_daemon",
+      "sourceSelectedInstances": [
+        {
+          "argv": [
+            "/vendor/bin/cnss-daemon",
+            "-n",
+            "-l"
+          ],
+          "cleanup": {
+            "completeDescendantClosure": false,
+            "evidenceState": "source-derived",
+            "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+            "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+          },
+          "environment": null,
+          "executable": "/vendor/bin/cnss-daemon",
+          "identity": {
+            "capabilities": [
+              "CAP_NET_ADMIN"
+            ],
+            "capabilityStatus": "SOURCE_DERIVED",
+            "evidenceState": "source-derived",
+            "gid": 1000,
+            "note": "Only CAP_NET_ADMIN is retained and raised ambient.",
+            "supplementaryGroups": [
+              3003,
+              3005,
+              1010
+            ],
+            "uid": 1000
+          },
+          "instanceId": "cnss_daemon#1",
+          "kind": "composite-child",
+          "launchContract": null,
+          "launchPredicate": "!post_sysmon_observer && !service74_gated_peripheral_manager_provider_first_cnss",
+          "lifetime": {
+            "evidenceState": "source-derived",
+            "hardwareNecessity": "UNPROVED",
+            "requirement": "required alive and observable for persistent handoff"
+          },
+          "ownershipPlane": "wcnss-wmi-control",
+          "sourceAnchors": [
+            "a90_android_execns_probe.c:58753-58769",
+            "a90_android_execns_probe.c:6630-6697",
+            "a90_android_execns_probe.c:43660-43664"
+          ]
+        }
+      ]
+    },
+    {
+      "allGateSlotsPresent": [
+        "H0D01",
+        "H0D02",
+        "H0D03",
+        "H0D04",
+        "H0D05",
+        "H0D06",
+        "H0D07",
+        "H0D08",
+        "H0D09",
+        "H0D10"
+      ],
+      "artifactClass": "IN_PROCESS_HELPER_BODY",
+      "dependencyClosureComplete": false,
+      "dependencySurfaces": {
+        "artifact": {
+          "completion": "UNPROVED_COMPLETE_ARTIFACT",
+          "currentH24ExactBinding": {
+            "bytes": null,
+            "dtNeeded": null,
+            "elfClass": null,
+            "interpreter": null,
+            "path": "forked helper body",
+            "recursiveLibraryClosure": null,
+            "sha256": null
+          },
+          "facts": [],
+          "gateIds": [
+            "H0D01"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "binder": {
+          "completion": "UNPROVED_COMPLETE_BINDER",
+          "facts": [],
+          "gateIds": [
+            "H0D05"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "configuration": {
+          "completion": "UNPROVED_COMPLETE_CONFIGURATION",
+          "facts": [],
+          "gateIds": [
+            "H0D03"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "deviceKernel": {
+          "completion": "UNPROVED_COMPLETE_DEVICEKERNEL",
+          "facts": [
+            {
+              "factId": "source-selected-property-ack-shim",
+              "h24Applicability": "SOURCE_SELECTED_PATH_ONLY",
+              "sources": [
+                "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json#property-service-shim"
+              ],
+              "state": "SOURCE_SELECTED_H24_PATH",
+              "value": {
+                "path": "/dev/socket/property_service",
+                "protocol": "SETPROP_OR_SETPROP2_BOUNDED_ACK",
+                "provesReadSeed": false
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D07"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "dynamicDispatch": {
+          "completion": "UNPROVED_COMPLETE_DYNAMICDISPATCH",
+          "facts": [],
+          "gateIds": [
+            "H0D02"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "firmwareRfs": {
+          "completion": "UNPROVED_COMPLETE_FIRMWARERFS",
+          "facts": [],
+          "gateIds": [
+            "H0D08"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "property": {
+          "completion": "UNPROVED_COMPLETE_PROPERTY",
+          "facts": [
+            {
+              "factId": "source-selected-property-ack-shim",
+              "h24Applicability": "SOURCE_SELECTED_PATH_ONLY",
+              "sources": [
+                "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json#property-service-shim"
+              ],
+              "state": "SOURCE_SELECTED_H24_PATH",
+              "value": {
+                "path": "/dev/socket/property_service",
+                "protocol": "SETPROP_OR_SETPROP2_BOUNDED_ACK",
+                "provesReadSeed": false
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D04"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "qrtrQmi": {
+          "completion": "UNPROVED_COMPLETE_QRTRQMI",
+          "facts": [],
+          "gateIds": [
+            "H0D06"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "sdFreeProvenance": {
+          "completion": "UNPROVED_COMPLETE_SDFREEPROVENANCE",
+          "facts": [],
+          "gateIds": [
+            "H0D10"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "writableOutput": {
+          "completion": "UNPROVED_COMPLETE_WRITABLEOUTPUT",
+          "facts": [],
+          "gateIds": [
+            "H0D09"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        }
+      },
+      "designRoleSpecificGateIds": [
+        "H0D04",
+        "H0D07",
+        "H0D09"
+      ],
+      "executionEligible": false,
+      "identityContract": {
+        "currentRuntimeAppliedIdentityProved": false,
+        "currentSelectedSourceIdentity": {
+          "evidenceState": "source-derived",
+          "note": "Inherits root helper identity; no identity/capability normalization.",
+          "status": "UNPROVED"
+        },
+        "historicalConflicts": [],
+        "optionCExactIdentityEnvelopeProved": false
+      },
+      "instanceIds": [
+        "property-service-shim#1"
+      ],
+      "role": "property-service-shim",
+      "sourceSelectedInstances": [
+        {
+          "argv": [],
+          "cleanup": "drain, direct TERM 500ms, KILL 500ms, wait, close record FD, unlink socket",
+          "environment": null,
+          "executable": "forked helper body",
+          "identity": {
+            "evidenceState": "source-derived",
+            "note": "Inherits root helper identity; no identity/capability normalization.",
+            "status": "UNPROVED"
+          },
+          "instanceId": "property-service-shim#1",
+          "kind": "helper-managed-child",
+          "launchContract": null,
+          "launchPredicate": "cfg->property_root != NULL && is_wifi_companion_any_start_only_mode(cfg->mode) && cfg->allow_wifi_companion_start_only",
+          "lifetime": "poll loop until stop or 4096 requests; start mandatory, later liveness not equivalent to composite children",
+          "ownershipPlane": "property-write-compatibility",
+          "sourceAnchors": [
+            "a90_android_execns_probe.c:60957-60986",
+            "a90_android_execns_probe.c:61126-61262",
+            "a90_android_execns_probe.c:61264-61500"
+          ]
+        }
+      ]
+    },
+    {
+      "allGateSlotsPresent": [
+        "H0D01",
+        "H0D02",
+        "H0D03",
+        "H0D04",
+        "H0D05",
+        "H0D06",
+        "H0D07",
+        "H0D08",
+        "H0D09",
+        "H0D10"
+      ],
+      "artifactClass": "IN_PROCESS_HELPER_BODY",
+      "dependencyClosureComplete": false,
+      "dependencySurfaces": {
+        "artifact": {
+          "completion": "UNPROVED_COMPLETE_ARTIFACT",
+          "currentH24ExactBinding": {
+            "bytes": null,
+            "dtNeeded": null,
+            "elfClass": null,
+            "interpreter": null,
+            "path": "forked helper body",
+            "recursiveLibraryClosure": null,
+            "sha256": null
+          },
+          "facts": [],
+          "gateIds": [
+            "H0D01"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "binder": {
+          "completion": "UNPROVED_COMPLETE_BINDER",
+          "facts": [],
+          "gateIds": [
+            "H0D05"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "configuration": {
+          "completion": "UNPROVED_COMPLETE_CONFIGURATION",
+          "facts": [],
+          "gateIds": [
+            "H0D03"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "deviceKernel": {
+          "completion": "UNPROVED_COMPLETE_DEVICEKERNEL",
+          "facts": [
+            {
+              "factId": "source-selected-modem-holder-device",
+              "h24Applicability": "SOURCE_SELECTED_PATH_ONLY",
+              "sources": [
+                "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json#modem-holder"
+              ],
+              "state": "SOURCE_SELECTED_H24_PATH",
+              "value": {
+                "access": "open-and-hold",
+                "path": "/dev/subsys_modem"
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D07"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "dynamicDispatch": {
+          "completion": "UNPROVED_COMPLETE_DYNAMICDISPATCH",
+          "facts": [],
+          "gateIds": [
+            "H0D02"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "firmwareRfs": {
+          "completion": "UNPROVED_COMPLETE_FIRMWARERFS",
+          "facts": [],
+          "gateIds": [
+            "H0D08"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "property": {
+          "completion": "UNPROVED_COMPLETE_PROPERTY",
+          "facts": [],
+          "gateIds": [
+            "H0D04"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "qrtrQmi": {
+          "completion": "UNPROVED_COMPLETE_QRTRQMI",
+          "facts": [],
+          "gateIds": [
+            "H0D06"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "sdFreeProvenance": {
+          "completion": "UNPROVED_COMPLETE_SDFREEPROVENANCE",
+          "facts": [],
+          "gateIds": [
+            "H0D10"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "writableOutput": {
+          "completion": "UNPROVED_COMPLETE_WRITABLEOUTPUT",
+          "facts": [],
+          "gateIds": [
+            "H0D09"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        }
+      },
+      "designRoleSpecificGateIds": [
+        "H0D07",
+        "H0D09"
+      ],
+      "executionEligible": false,
+      "identityContract": {
+        "currentRuntimeAppliedIdentityProved": false,
+        "currentSelectedSourceIdentity": {
+          "evidenceState": "source-derived",
+          "note": "Inherits root helper identity; no identity/capability normalization.",
+          "status": "UNPROVED"
+        },
+        "historicalConflicts": [],
+        "optionCExactIdentityEnvelopeProved": false
+      },
+      "instanceIds": [
+        "modem-holder#1"
+      ],
+      "role": "modem-holder",
+      "sourceSelectedInstances": [
+        {
+          "argv": [],
+          "cleanup": "process-group TERM 3s, KILL 10s, wait, close record FD, unlink projected node",
+          "environment": null,
+          "executable": "forked helper body",
+          "identity": {
+            "evidenceState": "source-derived",
+            "note": "Inherits root helper identity; no identity/capability normalization.",
+            "status": "UNPROVED"
+          },
+          "instanceId": "modem-holder#1",
+          "kind": "helper-managed-child",
+          "launchContract": null,
+          "launchPredicate": "wlan_pd_firmware_serve_gate && (!wlan_pd_service_object_visible_trigger || wlan_pd_service_object_provider_seen)",
+          "lifetime": "new session/chroot; persistent readiness requires direct PID alive",
+          "ownershipPlane": "device-lifetime",
+          "sourceAnchors": [
+            "a90_android_execns_probe.c:29011-29266",
+            "a90_android_execns_probe.c:59754-59767",
+            "a90_android_execns_probe.c:58077-58099"
+          ]
+        }
+      ]
+    },
+    {
+      "allGateSlotsPresent": [
+        "H0D01",
+        "H0D02",
+        "H0D03",
+        "H0D04",
+        "H0D05",
+        "H0D06",
+        "H0D07",
+        "H0D08",
+        "H0D09",
+        "H0D10"
+      ],
+      "artifactClass": "TOPOLOGY_OWNER_ELF",
+      "dependencyClosureComplete": false,
+      "dependencySurfaces": {
+        "artifact": {
+          "completion": "UNPROVED_COMPLETE_ARTIFACT",
+          "currentH24ExactBinding": {
+            "bytes": null,
+            "dtNeeded": null,
+            "elfClass": null,
+            "interpreter": null,
+            "path": "/bin/a90_android_execns_probe",
+            "recursiveLibraryClosure": null,
+            "sha256": null
+          },
+          "facts": [],
+          "gateIds": [
+            "H0D01"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "binder": {
+          "completion": "UNPROVED_COMPLETE_BINDER",
+          "facts": [],
+          "gateIds": [
+            "H0D05"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "configuration": {
+          "completion": "UNPROVED_COMPLETE_CONFIGURATION",
+          "facts": [
+            {
+              "factId": "source-selected-helper-compatibility-inputs",
+              "h24Applicability": "SOURCE_SELECTED_PATH_ONLY",
+              "sources": [
+                "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json#wifi-helper"
+              ],
+              "state": "SOURCE_SELECTED_H24_PATH",
+              "value": {
+                "apexLibrariesConfig": "/cache/bin/a90_real_apex.libraries.config.txt",
+                "linkerConfig": "/cache/bin/a90_real_ld.config.txt",
+                "propertyRoot": "/mnt/sdext/a90/private-property-v317/v726/dev/__properties__",
+                "vendorBlock": "/dev/block/sda29"
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D03"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "deviceKernel": {
+          "completion": "UNPROVED_COMPLETE_DEVICEKERNEL",
+          "facts": [],
+          "gateIds": [
+            "H0D07"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "dynamicDispatch": {
+          "completion": "UNPROVED_COMPLETE_DYNAMICDISPATCH",
+          "facts": [],
+          "gateIds": [
+            "H0D02"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "firmwareRfs": {
+          "completion": "UNPROVED_COMPLETE_FIRMWARERFS",
+          "facts": [],
+          "gateIds": [
+            "H0D08"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "property": {
+          "completion": "UNPROVED_COMPLETE_PROPERTY",
+          "facts": [],
+          "gateIds": [
+            "H0D04"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "qrtrQmi": {
+          "completion": "UNPROVED_COMPLETE_QRTRQMI",
+          "facts": [],
+          "gateIds": [
+            "H0D06"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "sdFreeProvenance": {
+          "completion": "UNPROVED_COMPLETE_SDFREEPROVENANCE",
+          "facts": [
+            {
+              "factId": "source-selected-private-sd-property-root",
+              "h24Applicability": "SOURCE_SELECTED_PATH_ONLY",
+              "sources": [
+                "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h24/manifest.toml",
+                "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/policy/a90-h24-wlan-forbidden-surface-policy-v1.json"
+              ],
+              "state": "SOURCE_SELECTED_H24_PATH",
+              "value": {
+                "path": "/mnt/sdext/a90/private-property-v317/v726/dev/__properties__",
+                "successorAdmissible": false
+              }
+            }
+          ],
+          "gateIds": [
+            "H0D10"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        },
+        "writableOutput": {
+          "completion": "UNPROVED_COMPLETE_WRITABLEOUTPUT",
+          "facts": [],
+          "gateIds": [
+            "H0D09"
+          ],
+          "relevance": "UNKNOWN_UNTIL_PROVED_PRESENT_OR_ABSENT",
+          "retirementCreditGranted": false
+        }
+      },
+      "designRoleSpecificGateIds": [
+        "H0D01",
+        "H0D02",
+        "H0D03",
+        "H0D04",
+        "H0D05",
+        "H0D06",
+        "H0D07",
+        "H0D08",
+        "H0D09",
+        "H0D10"
+      ],
+      "executionEligible": false,
+      "identityContract": {
+        "currentRuntimeAppliedIdentityProved": false,
+        "currentSelectedSourceIdentity": {
+          "evidenceState": "source-derived",
+          "note": "Exact post-fork privilege envelope is not a capsule contract.",
+          "status": "UNPROVED"
+        },
+        "historicalConflicts": [],
+        "optionCExactIdentityEnvelopeProved": false
+      },
+      "instanceIds": [
+        "wifi-helper#1"
+      ],
+      "role": "wifi-helper",
+      "sourceSelectedInstances": [
+        {
+          "argv": [
+            "/bin/a90_android_execns_probe",
+            "--system-root",
+            "/mnt/system/system",
+            "--vendor-block",
+            "/dev/block/sda29",
+            "--vendor-fstype",
+            "ext4",
+            "--mode",
+            "wifi-companion-wlan-pd-service-object-visible-trigger-start-only",
+            "--result-output-path",
+            "/cache/native-init-wifi-test-boot-v2812-helper.result",
+            "--timeout-sec",
+            "120",
+            "--property-root",
+            "/mnt/sdext/a90/private-property-v317/v726/dev/__properties__",
+            "--null-device-mode",
+            "dev-null",
+            "--android-selinux-context-mode",
+            "service-defaults",
+            "--linkerconfig-mode",
+            "copy-real",
+            "--linkerconfig-source",
+            "/cache/bin/a90_real_ld.config.txt",
+            "--apex-libraries-source",
+            "/cache/bin/a90_real_apex.libraries.config.txt",
+            "--vndk-apex-alias-mode",
+            "v30-to-system-ext-v30",
+            "--allow-wifi-companion-start-only",
+            "--allow-cnss-start-only",
+            "--allow-service-manager-start-only",
+            "--allow-wlan-pd-service-object-visible-trigger",
+            "--persistent-handoff",
+            "--handoff-ready-output-path",
+            "/cache/native-init-wifi-test-boot-v2812.ready"
+          ],
+          "cleanup": "current source cleanup is not a proved cgroup/descendant closure",
+          "environment": [
+            "PATH=/bin:/cache/bin:/system/bin:/vendor/bin",
+            "HOME=/",
+            "TERM=vt100"
+          ],
+          "executable": "/bin/a90_android_execns_probe",
+          "identity": {
+            "evidenceState": "source-derived",
+            "note": "Exact post-fork privilege envelope is not a capsule contract.",
+            "status": "UNPROVED"
+          },
+          "instanceId": "wifi-helper#1",
+          "kind": "topology-owner",
+          "launchContract": {
+            "cancelable": false,
+            "ignoreHupPipe": true,
+            "killProcessGroup": true,
+            "logPath": "/cache/native-init-wifi-test-boot-v2812.log",
+            "setsid": true,
+            "stdioMode": "A90_RUN_STDIO_LOG_APPEND",
+            "stopTimeoutMs": 1000,
+            "tag": "wifi-v1393-test-boot",
+            "timeoutMs": 0
+          },
+          "launchPredicate": "A90_WIFI_TEST_BOOT=1 && A90_WIFI_TEST_BOOT_SUPERVISE_HELPER=0 && A90_WIFI_PERSISTENT_HANDOFF_V1=1 && disable-path-absent",
+          "lifetime": "long-lived supervisor for composite children, shim, and holder",
+          "ownershipPlane": "backend-lifecycle-health-cleanup",
+          "sourceAnchors": [
+            "v724/90_main.inc.c:5106-5301",
+            "v724/90_main.inc.c:5660-5765",
+            "a90_android_execns_probe.c:3540-3605",
+            "a90_android_execns_probe.c:58048-58099",
+            "a90_android_execns_probe.c:58460-59800"
+          ]
+        }
+      ]
+    }
+  ],
+  "schema": "a90-h24-wlan-dependency-surface-inventory-v1",
+  "scope": {
+    "doesNotProve": [
+      "current H24 opaque ELF bytes or recursive library closure",
+      "complete config, property, Binder, QRTR/QMI, device, firmware/RFS, or output use",
+      "individual role necessity",
+      "SD-free bootstrap",
+      "Option C feasibility"
+    ],
+    "purpose": "exact requirement, known-fact, conflict, and unproved-slot inventory",
+    "target": "Samsung Galaxy A90 5G only",
+    "workPackage": "WP2-3"
+  },
+  "sourcePins": [
+    {
+      "bytes": 42264,
+      "path": "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json",
+      "sha256": "d4ac9b47de9674995b891e888937969cb34b74d27b1c59e35cb7172fbd3370cb"
+    },
+    {
+      "bytes": 105900,
+      "path": "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/design/a90-h24-wlan-one-factor-ablation-design-v1.json",
+      "sha256": "0eddec9ba9d637590c82499709179bd6b56a79d646d7967d3049a0bf36136b85"
+    },
+    {
+      "bytes": 39695,
+      "path": "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/policy/a90-h24-wlan-forbidden-surface-policy-v1.json",
+      "sha256": "af4b25c766746a5297c4b7f7f48bec6dba429dac9775e738e758f96ccbae1b58"
+    },
+    {
+      "bytes": 7801,
+      "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h24/manifest.toml",
+      "sha256": "40c26c5878db21737600bc29864db9123cc4650ec39d7f0d7395209c2df70a8f"
+    },
+    {
+      "bytes": 3253399,
+      "path": "workspace/public/src/native-init/helpers/a90_android_execns_probe.c",
+      "sha256": "4e68735fa2acc06fa4c101d8dbab6380d7785c4d9c7edfe47448ab26031b57e2"
+    },
+    {
+      "bytes": 277766,
+      "path": "workspace/public/src/native-init/v724/90_main.inc.c",
+      "sha256": "2a6863c0fd5f1dc2559ccee45031e389c956d6e094d8602364fd1875b919128f"
+    },
+    {
+      "bytes": 5118,
+      "path": "docs/archive/legacy/reports/NATIVE_INIT_V241_VNDK_APEX_ALIAS_PROBE_2026-05-18.md",
+      "sha256": "0212b18b2f76a88247300a55f9c670b18de15f69a488c62f1167304b3de1ebc2"
+    },
+    {
+      "bytes": 3867,
+      "path": "docs/archive/legacy/reports/NATIVE_INIT_V242_CNSS_RUNTIME_REQUIREMENT_INVENTORY_2026-05-18.md",
+      "sha256": "b6a61a6b259b4dd29606bc29ed3f788c7479b0289a32f8b6e4252e2422aa2821"
+    },
+    {
+      "bytes": 4050,
+      "path": "docs/archive/legacy/reports/NATIVE_INIT_V249_CNSS_RUNTIME_GAP_CLASSIFIER_2026-05-19.md",
+      "sha256": "07dac305ae652c451135606d62f69479af756c3958e5e5798574dc6c426f71f3"
+    },
+    {
+      "bytes": 3629,
+      "path": "docs/archive/legacy/reports/NATIVE_INIT_V1692_CNSS_NONLOG_CONTROL_FLOW_2026-06-02.md",
+      "sha256": "345428d2284919776b67a3a88c40f9a4986002956a2f9d5488efe2c48dd033e3"
+    },
+    {
+      "bytes": 4757,
+      "path": "docs/archive/legacy/reports/NATIVE_INIT_V2033_WLANMDSP_TFTP_TRANSFER_COMPLETION_GAP_2026-06-04.md",
+      "sha256": "caad3e832038f28de2febd4b2dd0742f093ab0b035d4b1d6db59032e595e20d2"
+    },
+    {
+      "bytes": 4291,
+      "path": "docs/archive/legacy/reports/NATIVE_INIT_V2117_DUAL_RFS_LEAF_ANDROID_IDENTITY_HANDOFF_2026-06-05.md",
+      "sha256": "a3f7b5b81c9cf9861c1e7a039d6f0f4102726c71cca8585e1228194ab6c59914"
+    }
+  ],
+  "status": {
+    "currentH24ExactOpaqueElfBindings": 0,
+    "dependencyClosure": "BLOCKED_UNPROVED_H0D01_THROUGH_H0D10",
+    "dependencyGatesRetired": [],
+    "executionImplementation": "ABSENT",
+    "futureByteDerivedConsumer": "ABSENT",
+    "optionC": "BLOCKED_RESEARCH_ONLY",
+    "wp2_3": "COMPLETE_H0_REQUIREMENT_AND_EVIDENCE_STATE_INVENTORY_ONLY"
+  }
+}

@@ -285,6 +285,17 @@ identity:
   even terminal one-minimality remains unproved.
 - `WP2-2` itself is host-only and consumes zero device ordinals. The thirty-unit
   figure applies only to a separately designed and authorized future program.
+- `WP2-3` now generates
+  `inventory/a90-h24-wlan-dependency-surface-inventory-v1.json`: fourteen
+  roles with every `H0D01-H0D10` dependency surface represented, for 140
+  exact known-fact/historical/conflict/unproved slots and ten fail-closed
+  mutation cases. It records zero current H24 opaque-ELF bindings; the old
+  `cnss-daemon` bytes/linker/property/WLFW evidence stays historical-only, and
+  the Android `rmt_storage`/`tftp_server` identities remain unresolved
+  conflicts with the selected root launch. This completes only the H0
+  requirement/evidence-state inventory, not dependency closure: all ten gates,
+  the future byte-derived consumer, execution implementation, and Option C
+  remain blocked. `WP2-4` property observation-schema work may proceed H0-only.
 - Numeric budgets remain unset until measured from a corrected healthy
   baseline. The design has no execution implementation, qualification,
   independent execution review, identity, candidate, D0, D1, F1, handoff, UFS

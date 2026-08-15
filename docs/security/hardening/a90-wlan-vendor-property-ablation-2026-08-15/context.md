@@ -48,14 +48,14 @@ security index entry, and corrections to the prior portfolio's inaccurate
 The collection digest is computed over the following files in the listed
 order as `relative_path NUL size NUL sha256 NUL`:
 
-`8b00d72b2ff1621351374dda081fbd4e9c3c376a5687a6bf8d04b32e67cde691`
+`1a9d4901e3b21b3fd4ec02f2a308e2faca5af228fbfd1956de1262e11c02fd47`
 
 Artifact count: `24`. Source drift at analysis time: `none`.
 
 | SHA256 | Bytes | Repository-relative path |
 | --- | ---: | --- |
 | `6cd7e24235396089baab844b0e568a93fb82528bf7fc6cb6c5cfc62d83ef0793` | 17014 | `AGENTS.md` |
-| `a34394119a7327a08cb74ab4b577f46e39c078e6b81d09cbd2ee39b04aa0a34a` | 28386 | `GOAL_A90.md` |
+| `18f6087c6f7f62193d4112271bb4f0be1a44b3fc9277c4fdc1d99c56d0c374d1` | 29160 | `GOAL_A90.md` |
 | `ed9f51212db33bd822dc96ecf12feeda05ce255d088c402c4742851d173fad51` | 89405 | `docs/operations/targets/A90_TARGET_CONTRACT.md` |
 | `edd64a434330f79a3b1ec542c12822e5b201362c212484c7b67d67b4ffbb61a9` | 97237 | `docs/operations/CAMPAIGN_LEDGER_A90.md` |
 | `1c7984a85af3cb059244d7f3e7ed5b21516a60657bd947a275a4ed7e4faa5b71` | 4991 | `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA18_CONTROL_PLANE_BLOCKED_2026-07-04.md` |
@@ -259,6 +259,39 @@ an order-conditioned reduced generation; global minimality and final
 one-minimality are not claimed, and the thirty-unit projection excludes any
 terminal retest sweep.
 This `WP2-2` host-only unit consumes zero device ordinals.
+
+## WP2-3 Dependency-Surface Inventory Boundary
+
+The generated
+[`a90-h24-wlan-dependency-surface-inventory-v1.json`](inventory/a90-h24-wlan-dependency-surface-inventory-v1.json)
+pins twelve public inputs and creates fourteen role records: eleven opaque
+external ELF roles, the property shim, the modem holder, and the topology
+owner. Each record has one explicit slot for each `H0D01-H0D10` surface, for
+140 total slots, plus the source-selected launch and identity information.
+
+The inventory separates `SOURCE_SELECTED_H24_PATH`,
+`HISTORICAL_ONLY_H24_APPLICABILITY_UNPROVED`, and
+`IDENTITY_CONFLICT_H24_RESOLUTION_REQUIRED`. It records zero current exact H24
+opaque-ELF bindings. In particular, the historical 95112-byte
+`cnss-daemon` artifact and its linker/property/WLFW observations are not
+promoted to current H24. The historical Android `rmt_storage` and
+`tftp_server` identities remain explicit conflicts with the selected H24 root
+launch.
+
+Source-selected facts are bounded to what the frozen launcher says: manager
+roles use the native-global Binder class rejected by WP2-2, the property shim
+exposes a write-ACK socket but no read seed, the modem holder opens
+`/dev/subsys_modem`, and the helper consumes the forbidden private SD property
+root. These facts do not prove complete runtime dependency or individual
+necessity.
+
+Ten negative mutations reject role/surface omission, historical-artifact
+promotion, gate retirement, live authority, erased identity conflict, false
+completion, unknown evidence state, and extra schema. All ten H0D gates remain
+`UNPROVED`; no byte-derived consumer, acquisition authority, or execution
+implementation exists. `WP2-4` may use the unproved property slots for an H0
+observation-schema design, but no device action or dependency retirement is
+authorized.
 
 ## Authority Result
 

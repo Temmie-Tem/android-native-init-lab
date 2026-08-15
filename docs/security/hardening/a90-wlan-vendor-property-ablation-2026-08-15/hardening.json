@@ -5,10 +5,10 @@
   "sourceEvidence": {
     "kind": "document_collection",
     "label": "A90 contracts, WSTA control-plane evidence, H24 selected manifests/source, incidents, and preceding ownership/input hardening decisions",
-    "collectionSha256": "8b00d72b2ff1621351374dda081fbd4e9c3c376a5687a6bf8d04b32e67cde691",
+    "collectionSha256": "1a9d4901e3b21b3fd4ec02f2a308e2faca5af228fbfd1956de1262e11c02fd47",
     "artifactCount": 24,
     "baselineRevision": "fda348a072eba8a53c2de7c9904c52429a7dddaf",
-    "sourceRefreeze": "Exact working-tree bytes after WP-H0-1, WP-H0-2, and the GOAL_A90 WP2-2 H0-only status update",
+    "sourceRefreeze": "Exact working-tree bytes after WP-H0-1, WP-H0-2, WP2-2, and the GOAL_A90 WP2-3 H0-only status update",
     "sourceDrift": "none"
   },
   "authority": {
@@ -30,8 +30,8 @@
     "s20plusContactCount": 0
   },
   "assessment": {
-    "verdict": "H0_WP2_2_STATIC_POLICY_CORPUS_COMPLETE_NO_CANDIDATE_AUTHORITY",
-    "strongestFinding": "The H24-selected control flow constructs thirteen composite children representing eleven unique roles because servicemanager and hwservicemanager are each enqueued twice, while the published order hides the duplicate pair.",
+    "verdict": "H0_WP2_3_REQUIREMENT_INVENTORY_COMPLETE_RUNTIME_CLOSURE_BLOCKED",
+    "strongestFinding": "All fourteen roles now have explicit H0D01-H0D10 dependency slots, but current H24 exact opaque-ELF bindings remain zero; historical bytes and runtime hints cannot be promoted into that closure.",
     "propertyVerdict": "UNPROVED",
     "globalPolicyVerdict": "REJECT_SELECTED_GLOBAL_SELINUX_LOAD_AND_PERMISSIVE_WRITE_FROM_ANY_SUCCESSOR",
     "dependencyVerdict": "QMI_RMTFS_PROPERTY_BINDER_COMPONENT_EDGES_UNPROVED_PENDING_ONE_FACTOR_OBSERVATION",
@@ -53,6 +53,14 @@
     "wp2_2ExactAttendedSessionCount": "UNPROVED_UNTIL_WP2_5B_EXECUTION_PROCESS_EXISTS",
     "wp2_2ExactOrdinalBudget": "UNSET_BLOCKS_EXECUTION_QUALIFICATION",
     "wp2_2ResultScope": "ORDER_CONDITIONED_REDUCED_GENERATION_ONLY",
+    "wp2_3Inventory": "COMPLETE_H0_REQUIREMENT_AND_EVIDENCE_STATE_INVENTORY_ONLY",
+    "wp2_3InventoryPath": "inventory/a90-h24-wlan-dependency-surface-inventory-v1.json",
+    "wp2_3RoleCount": 14,
+    "wp2_3DependencySurfaceSlotCount": 140,
+    "wp2_3CurrentH24ExactOpaqueElfBindingCount": 0,
+    "wp2_3NegativeCaseCount": 10,
+    "wp2_3DependencyGatesRetired": [],
+    "wp2_3FutureByteDerivedConsumer": "ABSENT",
     "observed": [
       "H24 selected source contains thirteen composite entries, a property shim, a modem holder, and the helper itself before station policy.",
       "H24 never reached this helper route live; its consumed D1 stopped at persistent HUD.",
@@ -71,7 +79,8 @@
       "Run the same one-factor ablation and measurement contract before selecting either ownership topology.",
       "Use the completed WP-H0-2 H0 design for corrected-baseline and exact-one-role planning; prove the public SD-free bootstrap superset and each row's static prerequisites before separately reviewed and authorized execution, then retire all ten H0D gates by their declared evidence classes before Option C implementation.",
       "Apply the generated WP2-2 static policy to every future byte-derived surface declaration; the current H0 fixtures and sixteen negative cases retire no dependency gate and grant no execution eligibility.",
-      "Before execution qualification, derive the exact attended-session and ordinal budget from WP2-5b and obtain operator acceptance; the current one-to-one logical projection is thirty serial units."
+      "Before execution qualification, derive the exact attended-session and ordinal budget from WP2-5b and obtain operator acceptance; the current one-to-one logical projection is thirty serial units.",
+      "Use the WP2-3 inventory to preserve selected-source facts, historical-only observations, and identity conflicts without claiming current H24 opaque ELF closure; WP2-4 may design only the property observation schema from its unproved slots."
     ]
   },
   "constraints": {
@@ -85,6 +94,7 @@
       "A private binderfs or property-service endpoint remains blocked until its exact H0D05 or H0D04 proof is bound; static shape acceptance is not execution proof.",
       "Each corrected B0 placement binds the complete ordered fourteen-instance graph; later removals and integrations require explicit parent and transition lineage but remain non-executable.",
       "Ablation results are generation- and order-conditioned; no global or terminal one-minimal set is claimed without a separate retest design.",
+      "Historical artifact, linker, property, QMI, RFS, or identity evidence never fills a current H24 exact dependency slot unless a separately qualified current-generation consumer binds it.",
       "Host fixtures do not substitute for future hardware necessity evidence.",
       "Rollback, physical recovery, durable no-replay, target isolation, and final health remain mandatory."
     ],
@@ -227,7 +237,7 @@
             {"dimension": "migration", "direction": "mixed", "confidence": "high", "basis": "source-derived", "assessment": "Adds H0 work now but makes every result reusable by both architectures.", "validationPlan": "Finish WP2-1 through WP2-4 before identity allocation."}
           ],
           "residualRisks": ["Opaque binaries still require future hardware evidence.", "A clean finite backend may not exist.", "Property absence and finite seed are both unproved today."],
-          "implementationReadiness": {"affectedComponents": ["component manifest", "property schema", "negative corpus", "benchmark vocabulary"], "workPackages": ["WP2-1 generated graph complete H0", "WP2-2 global hazard rejection complete H0", "WP2-3 dependency inventory absent", "WP2-4 property terminal validators absent"], "acceptanceCriteria": ["No hidden duplicate or global policy write remains.", "One property terminal is structurally testable.", "Both topology launchers consume the same contract.", "Exact session and ordinal budget is accepted before execution qualification."], "migrationNotes": ["H0 outputs only; no candidate identity.", "Current result scope is order-conditioned reduced generation only."], "rollback": "Not applicable to host-only documentation and tests."}
+          "implementationReadiness": {"affectedComponents": ["component manifest", "dependency inventory", "property schema", "negative corpus", "benchmark vocabulary"], "workPackages": ["WP2-1 generated graph complete H0", "WP2-2 global hazard rejection complete H0", "WP2-3 requirement and evidence-state inventory complete H0 with runtime closure blocked", "WP2-4 property terminal validators absent"], "acceptanceCriteria": ["No hidden duplicate or global policy write remains.", "Every retained role has current byte-derived static closure before execution.", "One property terminal is structurally testable.", "Both topology launchers consume the same contract.", "Exact session and ordinal budget is accepted before execution qualification."], "migrationNotes": ["H0 outputs only; no candidate identity.", "Current exact H24 opaque-ELF binding count is zero.", "Current result scope is order-conditioned reduced generation only."], "rollback": "Not applicable to host-only documentation and tests."}
         }
       ],
       "validationPlan": [

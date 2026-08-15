@@ -11,7 +11,7 @@ ANALYSIS = (
     / "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15"
 )
 EXPECTED_COLLECTION_SHA256 = (
-    "8b00d72b2ff1621351374dda081fbd4e9c3c376a5687a6bf8d04b32e67cde691"
+    "1a9d4901e3b21b3fd4ec02f2a308e2faca5af228fbfd1956de1262e11c02fd47"
 )
 
 EVIDENCE_RELS = (
@@ -72,6 +72,12 @@ class A90WlanVendorPropertyAblationHardeningDocsTest(unittest.TestCase):
             (
                 ANALYSIS
                 / "policy/a90-h24-wlan-forbidden-surface-policy-v1.json"
+            ).read_text()
+        )
+        self.wp2_3_inventory = json.loads(
+            (
+                ANALYSIS
+                / "inventory/a90-h24-wlan-dependency-surface-inventory-v1.json"
             ).read_text()
         )
         self.helper = (
@@ -455,6 +461,36 @@ class A90WlanVendorPropertyAblationHardeningDocsTest(unittest.TestCase):
         self.assertIn("no byte-derived future consumer", self.proposal)
         self.assertIn("complete source-derived ordered\nfourteen-instance graph", self.proposal)
         self.assertIn("qualified\nbyte-derived lineage consumer", self.proposal)
+
+    def test_wp2_3_inventory_preserves_known_historical_and_unproved_states(self) -> None:
+        assessment = self.data["assessment"]
+        self.assertEqual(
+            assessment["wp2_3Inventory"],
+            "COMPLETE_H0_REQUIREMENT_AND_EVIDENCE_STATE_INVENTORY_ONLY",
+        )
+        self.assertEqual(
+            assessment["wp2_3InventoryPath"],
+            "inventory/a90-h24-wlan-dependency-surface-inventory-v1.json",
+        )
+        self.assertEqual(assessment["wp2_3RoleCount"], 14)
+        self.assertEqual(assessment["wp2_3DependencySurfaceSlotCount"], 140)
+        self.assertEqual(assessment["wp2_3CurrentH24ExactOpaqueElfBindingCount"], 0)
+        self.assertEqual(assessment["wp2_3NegativeCaseCount"], 10)
+        self.assertEqual(assessment["wp2_3DependencyGatesRetired"], [])
+        self.assertEqual(assessment["wp2_3FutureByteDerivedConsumer"], "ABSENT")
+        self.assertEqual(
+            self.wp2_3_inventory["status"]["wp2_3"],
+            assessment["wp2_3Inventory"],
+        )
+        self.assertEqual(self.wp2_3_inventory["counts"]["roleRecords"], 14)
+        self.assertEqual(
+            self.wp2_3_inventory["counts"]["dependencySurfaceSlots"], 140
+        )
+        self.assertIn("## WP2-3 Dependency-Surface Inventory Boundary", self.proposal)
+        self.assertIn("current H24 exact opaque-ELF bindings remain\n**zero**", self.proposal)
+        self.assertIn("HISTORICAL_ONLY_H24_APPLICABILITY_UNPROVED", self.proposal)
+        self.assertIn("`H0D01-H0D10` all remain `UNPROVED`", self.proposal)
+        self.assertIn("`WP2-4` may now design", self.proposal)
 
     def test_prior_portfolio_correction_is_locked(self) -> None:
         prior = (

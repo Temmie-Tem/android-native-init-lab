@@ -4,7 +4,7 @@
 
 This H0 review binds 24 public artifacts from baseline revision
 `fda348a072eba8a53c2de7c9904c52429a7dddaf` with collection SHA256
-`8b00d72b2ff1621351374dda081fbd4e9c3c376a5687a6bf8d04b32e67cde691`.
+`1a9d4901e3b21b3fd4ec02f2a308e2faca5af228fbfd1956de1262e11c02fd47`.
 
 The strongest result is not a successful ablation. It is a correction to the
 baseline: H24's selected helper builds thirteen composite children representing
@@ -94,6 +94,17 @@ See [`context.md`](context.md) for exact anchors and the observed/inferred split
   prerequisite. The output is an order-conditioned reduced generation, not a
   global or terminal one-minimal set.
   `WP2-2` itself is H0 and consumes zero device ordinals.
+- The generated
+  [`WP2-3` inventory](inventory/a90-h24-wlan-dependency-surface-inventory-v1.json)
+  now binds fourteen roles and all 140 `H0D01-H0D10` dependency-surface slots
+  as exact selected-source facts, historical-only observations, explicit
+  identity conflicts, or unproved requirements. Its ten mutation cases reject
+  evidence promotion and schema drift. It deliberately binds zero current H24
+  opaque-ELF hashes: the historical `cnss-daemon` artifact and linker/property/
+  WLFW facts are not current H24 closure, while the historical `rmt_storage`
+  and `tftp_server` identities remain conflicts with the selected root launch.
+  `WP2-3` is complete only as an H0 requirement/evidence-state inventory; all
+  ten gates, the byte-derived consumer, execution, and Option C remain blocked.
 
 ## Property Terminal
 

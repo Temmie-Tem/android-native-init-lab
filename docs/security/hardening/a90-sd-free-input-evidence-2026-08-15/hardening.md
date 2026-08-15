@@ -5,7 +5,7 @@
 This H0 review binds 22 public artifacts from baseline revision
 `fda348a072eba8a53c2de7c9904c52429a7dddaf`, rebound after the later H24
 13-entry/11-role and `WP-H0-1` status corrections, with collection SHA256
-`2dc2e08896417f6d1b94765a7c95fbec968d98c2b7d8cdfb4fda0473cb634319`.
+`89606178bd9a1753a4baa40a26d8a44bd7b34feed177449795925cf17911a474`.
 
 The current code is not simply “SD-based” or “cache-ready.” H24 still hard-gates
 an SD evidence bind and compiles an SD property snapshot. Native Wi-Fi already
