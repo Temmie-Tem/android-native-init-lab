@@ -96,6 +96,59 @@ sha256  36a9b313b127c3091f6b038e2241e9c29f19db64da9ca5ce80c38c6595ac37cb
 verdict PASS_P318_P317_PHYSICAL_TOPOLOGY_DRIFT_LOCALIZATION_H0
 ```
 
+## Real-selector negative control
+
+The transition receipt above classifies sealed endpoint snapshots but does not
+itself execute the live Python observer.  A separate H0 control now imports the
+exact current `device_action_cdc_acm_observer_v1.py` bytes and executes its real
+`ObserverSession.observe()` path against synthetic sysfs and PTY endpoints.
+An `os.open()` spy covers every synthetic `/dev/ttyACM*` node, while all other
+observer persistence calls still use the real filesystem operations.
+
+Three independently reopened negative receipts prove:
+
+1. exact candidate identity at `3-1.3` is not selected when authority names
+   `2-1.3`, despite the shared `1.3` suffix (`endpoint-timeout`);
+2. a same-path, same-product Samsung endpoint with a different serial is not
+   selected (`identity-mismatch`); and
+3. two exact candidates at the approved path fail closed
+   (`endpoint-ambiguous`).
+
+All three retain null endpoint identity, empty raw bytes, and zero TTY-open
+attempts.  Mutations that remove the topology or serial predicate, or weaken
+the two-candidate ambiguity branch, fail the control.  This proves the real
+selector's exclusion path without widening it and without changing observer or
+candidate bytes.
+
+The same unit materializes the actual
+`s22plus_dwc3_exact_target()` function from the frozen latch source in a host C
+translation unit.  It accepts `a600000.dwc3` once and rejects null objects plus
+prefix, suffix, case, and unrelated-name near misses.  A prefix-match mutation
+fails.  This is the missing executable negative for the latch's exact UDC-name
+filter; it does not claim a live tracepoint invocation.
+
+Private receipt:
+
+```text
+cdc-acm-selector-negative-control-20260815-01.json
+size    2667
+sha256  afcf17eef45db91376b53d9f2cc7c947f787d833806f7b5feb56c772cef4f3b4
+verdict PASS_P318_SELECTOR_NEGATIVE_CONTROL_H0
+```
+
+Independent read-only review regenerated the 2,667-byte receipt byte-for-byte,
+reproved that all 42 `SOURCE_KEYS` equal the frozen intent, and returned:
+
+`PASS_GO — S22PLUS_FYG8_P318_SELECTOR_NEGATIVE_CONTROL_H0_CAPABILITY_V1`
+
+The reviewer additionally injected three direct fail-open mutations: suffix
+matching, serial omission, and selecting the first of two exact candidates.
+Each caused one synthetic TTY-open attempt and was rejected by the control.
+P3.18 focused tests pass 120/120 and common Process-v2 tests pass 120/120.
+This scoped H0 PASS_GO does not alter or invalidate the V3 candidate, its 42
+`SOURCE_KEYS`, the historical positive-control receipt below, or any
+D0/D1/F1/recovery/replay/live authority.
+
 ## CDC-ACM positive control
 
 The positive control deliberately closes two real seams without claiming an

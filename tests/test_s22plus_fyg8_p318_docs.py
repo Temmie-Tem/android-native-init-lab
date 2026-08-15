@@ -35,6 +35,9 @@ class P318DocumentationTest(unittest.TestCase):
             "cdc-acm-positive-control-20260814-01.json": (
                 "PASS_P318_CDC_ACM_TWO_SEAM_POSITIVE_CONTROL_H0"
             ),
+            "cdc-acm-selector-negative-control-20260815-01.json": (
+                "PASS_P318_SELECTOR_NEGATIVE_CONTROL_H0"
+            ),
             "banner-result-contract-20260814-01.json": (
                 "CHANGES_REQUIRED_P318_HOST_EVENT_PRODUCER_NOT_IMPLEMENTED_H0"
             ),
@@ -64,6 +67,7 @@ class P318DocumentationTest(unittest.TestCase):
             "PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V1",
             "PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V2",
             "PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V3",
+            "PASS_GO — S22PLUS_FYG8_P318_SELECTOR_NEGATIVE_CONTROL_H0_CAPABILITY_V1",
             "grants no D0, D1, F1, recovery, replay, or live authority",
             "Fresh connected prerequisites",
             "42 `SOURCE_KEYS`",
@@ -144,6 +148,14 @@ class P318DocumentationTest(unittest.TestCase):
             "s22plus-fyg8-p318 | h0-build-path-provenance-4 | H0 | "
             "P318_LATCH_SOURCE_AND_PATH_FREEZE_PROVENANCE_RECORDED"
         )
+        selector_negative_5 = (
+            "s22plus-fyg8-p318 | h0-selector-negative-control-5 | H0 | "
+            "P318_REAL_SELECTOR_NEGATIVE_CONTROL_IMPLEMENTED_REVIEW_PENDING"
+        )
+        selector_negative_review_5 = (
+            "s22plus-fyg8-p318 | h0-selector-negative-control-review-5 | H0 | "
+            "PASS_GO_P318_SELECTOR_NEGATIVE_CONTROL_H0_CAPABILITY_V1"
+        )
         self.assertEqual(ledger.count(original), 1)
         self.assertEqual(ledger.count(superseded_correction), 1)
         self.assertEqual(ledger.count(correction), 1)
@@ -154,6 +166,8 @@ class P318DocumentationTest(unittest.TestCase):
         self.assertEqual(ledger.count(followup_3), 1)
         self.assertEqual(ledger.count(final_review_3), 1)
         self.assertEqual(ledger.count(path_provenance_4), 1)
+        self.assertEqual(ledger.count(selector_negative_5), 1)
+        self.assertEqual(ledger.count(selector_negative_review_5), 1)
         self.assertLess(ledger.index(original), ledger.index(superseded_correction))
         self.assertLess(ledger.index(superseded_correction), ledger.index(correction))
         self.assertLess(ledger.index(correction), ledger.index(design))
@@ -163,6 +177,11 @@ class P318DocumentationTest(unittest.TestCase):
         self.assertLess(ledger.index(final_review), ledger.index(followup_3))
         self.assertLess(ledger.index(followup_3), ledger.index(final_review_3))
         self.assertLess(ledger.index(final_review_3), ledger.index(path_provenance_4))
+        self.assertLess(ledger.index(path_provenance_4), ledger.index(selector_negative_5))
+        self.assertLess(
+            ledger.index(selector_negative_5),
+            ledger.index(selector_negative_review_5),
+        )
 
     def test_incident_report_carries_explicit_post_close_correction(self):
         incident = INCIDENT.read_text(encoding="utf-8")
@@ -188,6 +207,10 @@ class P318DocumentationTest(unittest.TestCase):
             ROOT
             / "workspace/public/src/scripts/revalidation/"
             "s22plus_fyg8_p318_cdc_acm_positive_control.py",
+            ROOT
+            / "workspace/public/src/scripts/revalidation/"
+            "s22plus_fyg8_p318_selector_negative_control.py",
+            ROOT / "tests/test_s22plus_fyg8_p318_selector_negative_control.py",
             ROOT
             / "workspace/public/src/scripts/revalidation/"
             "s22plus_fyg8_p318_banner_result_contract.py",
