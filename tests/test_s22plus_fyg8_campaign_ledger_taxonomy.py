@@ -60,9 +60,9 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         self.assertEqual(self.auditor.encode_receipt(regenerated), self.receipt_data)
         self.assertEqual(
             hashlib.sha256(self.receipt_data).hexdigest(),
-            "6e1fb6cd64879a8b2610861cfe7e4b22a1f0ac470556c178d548c76a090b1c61",
+            "6541ed535aec06337094cae98f9b07a91c37e13528a619bdeb4811fc870da026",
         )
-        self.assertEqual(len(self.receipt_data), 23257)
+        self.assertEqual(len(self.receipt_data), 23314)
         self.assertEqual(
             self.receipt["verdict"],
             "PASS_P318_CAMPAIGN_LEDGER_TAXONOMY_H0_V2",
@@ -437,7 +437,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             self.auditor.audit_ledger_bytes(regressed, self.script_data)
 
         tied = self.ledger_data + (
-            b"2026-08-15T15:54:07Z | s22plus-fyg8-p319 | "
+            b"2026-08-15T17:03:56Z | s22plus-fyg8-p319 | "
             b"h0-synthetic-review-1 | H0 | "
             b"PASS_GO_P319_SYNTHETIC_TAXONOMY_H0_CAPABILITY_V1 | "
             b"HEALTHY | PROVED | 0/0 | Valid equal-time append.\n"
@@ -614,21 +614,27 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         current = self.auditor.audit_review_obligations(all_rows)
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (12, 11, 1),
+            (12, 12, 0),
         )
         self.assertEqual(
             current["unresolved"],
-            [
-                {
-                    "campaign": "s22plus-fyg8-p318",
-                    "review_topic": "ledger-taxonomy",
-                    "pending_ordinal": "h0-ledger-taxonomy-followup-8",
-                    "pending_action": (
-                        "P318_CAMPAIGN_LEDGER_TAXONOMY_DERIVATION_"
-                        "FOLLOWUP_IMPLEMENTED_REVIEW_PENDING"
-                    ),
-                }
-            ],
+            [],
+        )
+        self.assertEqual(
+            current["resolved"][-1],
+            {
+                "campaign": "s22plus-fyg8-p318",
+                "review_topic": "ledger-taxonomy",
+                "pending_ordinal": "h0-ledger-taxonomy-followup-8",
+                "pending_action": (
+                    "P318_CAMPAIGN_LEDGER_TAXONOMY_DERIVATION_"
+                    "FOLLOWUP_IMPLEMENTED_REVIEW_PENDING"
+                ),
+                "resolution_ordinal": "h0-ledger-taxonomy-review-8",
+                "resolution_action": (
+                    "PASS_GO_P318_CAMPAIGN_LEDGER_TAXONOMY_H0_CAPABILITY_V2"
+                ),
+            },
         )
         scoped = self.receipt["scoped_review_obligations"]
         self.assertEqual(
@@ -682,7 +688,14 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             self.auditor.audit_ledger_bytes(appended, self.script_data)
 
     def test_pending_review_ordinal_grammar_is_closed(self):
-        for ordinal in ("h0-review-1", "h0-topic-0", "h0-topic-01"):
+        for ordinal in (
+            "h0-review-1",
+            "h0-topic-0",
+            "h0-topic-01",
+            "h0-topic--9",
+            "h0--topic-9",
+            "h0-topic--followup-9",
+        ):
             with self.subTest(ordinal=ordinal):
                 appended = self.ledger_data + (
                     "2026-08-16T00:00:00Z | s22plus-fyg8-p319 | "
@@ -695,6 +708,15 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 ):
                     self.auditor.audit_ledger_bytes(appended, self.script_data)
 
+    def test_review_obligation_axis_describes_topic_keyed_resolution(self):
+        self.assertEqual(
+            self.receipt["axes"]["review_obligation_state"],
+            (
+                "pending keyed by campaign and review topic; only same-topic "
+                "PASS_GO resolves it, with six exact legacy mappings"
+            ),
+        )
+
     def test_unrelated_pending_topics_can_coexist(self):
         appended = self.ledger_data + (
             b"2026-08-16T00:00:00Z | s22plus-fyg8-p318 | h0-unrelated-9 | H0 | "
@@ -706,10 +728,10 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             appended.split(marker, 1)[1].splitlines(keepends=True)
         )
         obligations = self.auditor.audit_review_obligations(rows)
-        self.assertEqual(obligations["unresolved_count"], 2)
+        self.assertEqual(obligations["unresolved_count"], 1)
         self.assertEqual(
             {item["review_topic"] for item in obligations["unresolved"]},
-            {"ledger-taxonomy", "unrelated"},
+            {"unrelated"},
         )
         baseline = self.auditor.audit_ledger_bytes(
             self.ledger_data, self.script_data
@@ -720,6 +742,10 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
 
     def test_unrelated_pass_go_cannot_resolve_open_topic(self):
         appended = self.ledger_data + (
+            b"2026-08-16T00:00:00Z | s22plus-fyg8-p318 | "
+            b"h0-taxonomy-guard-9 | H0 | "
+            b"TAXONOMY_GUARD_IMPLEMENTED_REVIEW_PENDING | HEALTHY | PROVED | "
+            b"0/0 | Synthetic open topic.\n"
             b"2026-08-16T00:00:00Z | s22plus-fyg8-p318 | "
             b"h0-unrelated-implementation-ready-9 | H0 | "
             b"PASS_GO_P318_UNRELATED_OFFLINE_READY_CAPABILITY_V1 | HEALTHY | "
@@ -732,7 +758,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         obligations = self.auditor.audit_review_obligations(rows)
         self.assertEqual(obligations["unresolved_count"], 1)
         self.assertEqual(
-            obligations["unresolved"][0]["review_topic"], "ledger-taxonomy"
+            obligations["unresolved"][0]["review_topic"], "taxonomy-guard"
         )
         self.assertEqual(
             obligations["pass_go_resolving_no_obligation_count"], 11
@@ -753,11 +779,9 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             appended.split(marker, 1)[1].splitlines(keepends=True)
         )
         obligations = self.auditor.audit_review_obligations(rows)
-        self.assertEqual(obligations["resolved_count"], 12)
-        self.assertEqual(obligations["unresolved_count"], 1)
-        self.assertEqual(
-            obligations["unresolved"][0]["review_topic"], "ledger-taxonomy"
-        )
+        self.assertEqual(obligations["resolved_count"], 13)
+        self.assertEqual(obligations["unresolved_count"], 0)
+        self.assertEqual(obligations["unresolved"], [])
 
     def test_candidate_bearing_open_attempt_enters_inventory(self):
         marker = self.auditor.MARKER
@@ -853,30 +877,36 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             "P318_CAMPAIGN_LEDGER_TAXONOMY_DERIVATION_FOLLOWUP_"
             "IMPLEMENTED_REVIEW_PENDING"
         )
+        followup_review = (
+            "s22plus-fyg8-p318 | h0-ledger-taxonomy-review-8 | H0 | "
+            "PASS_GO_P318_CAMPAIGN_LEDGER_TAXONOMY_H0_CAPABILITY_V2"
+        )
         self.assertEqual(ledger.count(prior), 1)
         self.assertEqual(ledger.count(taxonomy), 1)
         self.assertEqual(ledger.count(review), 1)
         self.assertEqual(ledger.count(followup), 1)
+        self.assertEqual(ledger.count(followup_review), 1)
         self.assertLess(ledger.index(prior), ledger.index(taxonomy))
         self.assertLess(ledger.index(taxonomy), ledger.index(review))
         self.assertLess(ledger.index(review), ledger.index(followup))
+        self.assertLess(ledger.index(followup), ledger.index(followup_review))
 
     def test_report_binds_receipt_and_denies_live_authority(self):
         report = " ".join(REPORT.read_text(encoding="utf-8").split())
         required = (
-            "FOLLOWUP IMPLEMENTED_REVIEW_PENDING; H0 ONLY; NO LIVE AUTHORITY",
+            "PASS_GO_P318_CAMPAIGN_LEDGER_TAXONOMY_H0_CAPABILITY_V2; H0 ONLY; NO LIVE AUTHORITY",
             "five observer no-proofs, one precondition no-proof, and two conclusive results",
             "SUBRESULT_ONLY",
             "LEGACY_UNSCOPED_REVIEW_LABEL",
             "3c0cca0feea9259a0107cc9c9bfa021579707595afa15b6bf9371529f1fe06e1",
-            "6e1fb6cd64879a8b2610861cfe7e4b22a1f0ac470556c178d548c76a090b1c61",
+            "6541ed535aec06337094cae98f9b07a91c37e13528a619bdeb4811fc870da026",
             "grants no D0, D1, F1, recovery, replay, or live authority",
             "all eleven historical obligations were therefore resolved",
             "ATTEMPT_OPEN",
             "does not audit candidate artifact identity or cross-ordinal replay",
             "pass_go_resolving_no_obligation",
             "S22PLUS_FYG8_P318_LEDGER_TAXONOMY_V1_PREDECESSOR_PROVENANCE.json",
-            "requires a fresh independent review",
+            "The read-only review independently regenerated",
         )
         for clause in required:
             self.assertIn(clause, report)

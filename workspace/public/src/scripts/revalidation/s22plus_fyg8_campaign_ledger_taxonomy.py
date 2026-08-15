@@ -627,7 +627,11 @@ def pending_review_topic(row: dict[str, Any]) -> str:
     topic_parts = parts[1:-1]
     if topic_parts and topic_parts[-1] == "followup":
         topic_parts = topic_parts[:-1]
-    if not topic_parts or "review" in topic_parts:
+    if (
+        not topic_parts
+        or "review" in topic_parts
+        or any(re.fullmatch(r"[a-z0-9]+", part) is None for part in topic_parts)
+    ):
         raise TaxonomyError("pending review ordinal has no closed topic key")
     return "-".join(topic_parts)
 
@@ -1068,7 +1072,8 @@ def audit_ledger_bytes(ledger_data: bytes, script_data: bytes) -> dict[str, Any]
             ),
             "capability_review_state": "independent H0 action-name state",
             "review_obligation_state": (
-                "campaign-serialized pending to next PASS_GO resolution"
+                "pending keyed by campaign and review topic; only same-topic "
+                "PASS_GO resolves it, with six exact legacy mappings"
             ),
         },
         "correction_registry": corrections,

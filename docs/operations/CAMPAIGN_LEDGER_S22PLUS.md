@@ -59,7 +59,9 @@ topics may remain open in parallel. A future resolution must use
 `h0-<same-topic>-review-N`; six frozen nonconforming historical pairs resolve
 only through exact identity mappings. An unrelated `PASS_GO_` never resolves
 an obligation, and a second pending row is rejected only for the same topic.
-Except for those six legacy pairs, a pending ordinal is `h0-<topic>-N` or `h0-<topic>-followup-N`, with a nonempty lowercase/hyphen topic containing no `review` token and a positive canonical `N`.
+Except for those six legacy pairs, a pending ordinal is `h0-<topic>-N` or
+`h0-<topic>-followup-N`, with nonempty lowercase-alphanumeric topic segments
+joined by single hyphens, no `review` segment, and a positive canonical `N`.
 
 The format below governs new rows. Four frozen legacy rows omit only the
 transfer cell; their findings prove zero transfers, so the auditor recognizes
@@ -76,8 +78,9 @@ positive canonical integer with an optional `-recovery-close` suffix.
 `CAMPAIGN_CLOSED` is F1-only with one candidate; a healthy close requires one
 rollback, while an exhausted `RECOVERY_REQUIRED` close may retain 1/0 or 1/1.
 Rows sharing one campaign and normalized attempt ordinal have componentwise
-nondecreasing transfer counts, exactly one terminal, and no F1 continuation
-after that terminal. A `-recovery-close` row requires the earlier base attempt.
+nondecreasing transfer counts, at most one terminal, and no F1 continuation
+after that terminal; a `CLOSED` attempt has exactly one terminal. A
+`-recovery-close` row requires the earlier base attempt.
 The row schema has no candidate artifact identity. It audits attempt-local
 one-shot counts but cannot prove that one candidate artifact was not reused
 under another campaign or attempt ordinal; replay identity remains governed by
@@ -283,3 +286,4 @@ reclassify the campaign terminal.
 2026-08-15T14:44:47Z | s22plus-fyg8-p318 | h0-ledger-taxonomy-7 | H0 | P318_CAMPAIGN_LEDGER_TAXONOMY_IMPLEMENTED_REVIEW_PENDING | HEALTHY | PROVED | 0/0 | Host-only taxonomy separates immutable row evidence, effective experiment proof, device health, attempt phase, and capability-review state. It preserves all 181 prior log rows byte-for-byte, normalizes only four exact legacy missing-transfer rows as 0/0, applies the P3.16 campaign correction while excluding the P3.17 endpoint subresult correction from campaign metrics, and audits P3.10-P3.17 as five observer no-proofs, one precondition no-proof, and two conclusive results. A deterministic receipt and mutation tests remain subject to one independent review; no candidate, execution-critical P3.18 byte, device action, D0/D1/F1/recovery/replay/live authority, A90 action, or S20+ action changed.
 2026-08-15T15:36:06Z | s22plus-fyg8-p318 | h0-ledger-taxonomy-review-7 | H0 | PASS_GO_P318_CAMPAIGN_LEDGER_TAXONOMY_H0_CAPABILITY_V1 | HEALTHY | PROVED | 0/0 | Append-only independent review preserves the implementation REVIEW_PENDING row and approves only the exact host-only taxonomy closure. It independently regenerated the 10,118-byte 4214ea53 receipt, retained the 181-row 3c0cca0f historical prefix, and rejected malformed future rows, legacy proof reuse, invalid UTC/tokens, transfer and health contradictions, duplicate actions, time regression, normalized-attempt transfer rollback, duplicate terminal, post-close continuation, and orphan recovery-close. Taxonomy 27/27, combined docs 58/58, common Process-v2 120/120, and P3.18 136/136 pass. This PASS_GO creates no device, D0/D1/F1/recovery/replay/live, A90, or S20+ action or authority.
 2026-08-15T15:54:07Z | s22plus-fyg8-p318 | h0-ledger-taxonomy-followup-8 | H0 | P318_CAMPAIGN_LEDGER_TAXONOMY_DERIVATION_FOLLOWUP_IMPLEMENTED_REVIEW_PENDING | HEALTHY | PROVED | 0/0 | Host-only follow-up separates raw pending-label counts from serialized review obligations, records the current historical 11/11 resolution before opening this one fresh review obligation, derives attempt eligibility from maximum candidate transfers with explicit ATTEMPT_OPEN state, removes H0 review-state input from row kind, and states that the ledger lacks candidate identity and cannot audit cross-ordinal replay. P3.10-P3.17 metrics and P3.18 execution-critical bytes remain unchanged. Fresh independent review is required; no device, D0/D1/F1/recovery/replay/live, A90, or S20+ action or authority occurred.
+2026-08-15T17:03:56Z | s22plus-fyg8-p318 | h0-ledger-taxonomy-review-8 | H0 | PASS_GO_P318_CAMPAIGN_LEDGER_TAXONOMY_H0_CAPABILITY_V2 | HEALTHY | PROVED | 0/0 | Append-only independent review approves only the repaired host-only taxonomy closure. It independently regenerated the 23,314-byte 6541ed53 receipt, retained the 181-row 3c0cca0f historical prefix and 10,118-byte 4214ea53 V1 provenance, proved topic-keyed parallel obligations and same-topic resolution, rejected empty topic segments, and aligned ATTEMPT_OPEN with at-most-one terminal and CLOSED with exactly one. Taxonomy 38/38, combined docs 69/69, common Process-v2 120/120, and P3.18 136/136 pass. This PASS_GO creates no device, D0/D1/F1/recovery/replay/live, A90, or S20+ action or authority.

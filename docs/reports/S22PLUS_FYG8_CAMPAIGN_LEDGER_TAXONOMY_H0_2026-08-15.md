@@ -1,6 +1,6 @@
 # S22+ FYG8 campaign-ledger taxonomy H0 — 2026-08-15
 
-Status: **FOLLOWUP IMPLEMENTED_REVIEW_PENDING; H0 ONLY; NO LIVE AUTHORITY**
+Status: **PASS_GO_P318_CAMPAIGN_LEDGER_TAXONOMY_H0_CAPABILITY_V2; H0 ONLY; NO LIVE AUTHORITY**
 
 ## Scope
 
@@ -17,8 +17,9 @@ It changes no historical log row, candidate, P3.18 execution-critical byte,
 `SOURCE_KEYS`, package, ready manifest, device state, or target contract. It
 grants no D0, D1, F1, recovery, replay, or live authority. The append-only
 review-7 verdict remains historical authority only for its earlier exact
-closure. This follow-up changes taxonomy derivation and requires a fresh
-independent review.
+closure. A fresh independent review approved only this exact repaired H0
+taxonomy derivation as
+`PASS_GO_P318_CAMPAIGN_LEDGER_TAXONOMY_H0_CAPABILITY_V2`.
 
 ## Metrics boundary
 
@@ -75,8 +76,8 @@ nonconforming pairs are exact identity exceptions. At the frozen
 implementation scope, ten of eleven obligations are resolved and the taxonomy
 implementation itself is the one open obligation. Review-7 resolves that
 obligation in the append-only tail. Before this follow-up, all eleven
-historical obligations were therefore resolved; the new follow-up row
-intentionally creates one fresh unresolved `ledger-taxonomy` obligation.
+historical obligations were therefore resolved; the follow-up row creates one
+fresh `ledger-taxonomy` obligation and review-8 resolves it by the same topic.
 
 Ten of the 20 scoped `PASS_GO` labels resolve no pending obligation: P3.09,
 P3.11, P3.12, P3.13, two P3.14 rows, P3.15, P3.16, and two P3.18 rows. The
@@ -122,9 +123,10 @@ integers. `CAMPAIGN_CLOSED` requires exactly one candidate transfer. A healthy
 close also requires exact rollback; pending, observer-failure, and parked
 health cannot close, while an exhausted `RECOVERY_REQUIRED` close may retain
 1/0 or 1/1. All F1 rows sharing one campaign and normalized attempt ordinal
-must advance transfer counts monotonically, may contain exactly one terminal,
-and cannot continue after it; `-recovery-close` requires a prior base-attempt
-row. Candidate-bearing attempts are separately inventoried as `CLOSED` or
+must advance transfer counts monotonically, may contain at most one terminal,
+and cannot continue after it; a `CLOSED` attempt has exactly one terminal and
+`-recovery-close` requires a prior base-attempt row. Candidate-bearing attempts
+are separately inventoried as `CLOSED` or
 `ATTEMPT_OPEN`; the current frozen scope has 19 closed attempts and zero open
 attempts, so the published 2/7, 3/7, 2/8, and 3/8 values do not change.
 
@@ -133,27 +135,29 @@ This taxonomy therefore audits attempt-local count monotonicity but does not
 audit candidate artifact identity or cross-ordinal replay. The Process-v2
 closure remains the higher-precedence authority for no-replay.
 
-The scoped ledger identity is 110,202 bytes with SHA-256
-`5ec56a03bcec560895102447fe4553979719e32551cba7649648bc8fa98b6640`.
+The scoped ledger identity is 110,278 bytes with SHA-256
+`f774fe1c697fc5f4f1cda46a6c00ee125e9f0c75e7000e1efc973246639c27d6`.
 
 ## Retained receipt
 
 `workspace/private/outputs/s22plus_fyg8_p318_ledger_taxonomy/ledger-taxonomy-20260815-01.json`
 
-- size: 23,257 bytes
-- SHA-256: `6e1fb6cd64879a8b2610861cfe7e4b22a1f0ac470556c178d548c76a090b1c61`
+- size: 23,314 bytes
+- SHA-256: `6541ed535aec06337094cae98f9b07a91c37e13528a619bdeb4811fc870da026`
 - schema: `s22plus-fyg8-campaign-ledger-taxonomy-v2`
 - derivation version: 2
 - verdict: `PASS_P318_CAMPAIGN_LEDGER_TAXONOMY_H0_V2`
 - status: `IMPLEMENTED_REVIEW_PENDING`
-- auditor source: 44,601 bytes,
-  SHA-256 `e0dc2051cc51b29f0b83b6a12f2350eeec38e12e987e1eaa3a357e2e48a64a21`
+- auditor source: 44,782 bytes,
+  SHA-256 `524519b643301938563a2bf424bc55c91614ea5cede266eaee2826279d88cb4d`
 
 The receipt is deterministically regenerated from one stable read of the
 ledger and one stable read of the auditor. Publication is exclusive,
 file-synced, and directory-synced. Its safety section records zero device,
 candidate, rollback, A90, and S20+ actions and explicitly denies live
-authority.
+authority. Its `IMPLEMENTED_REVIEW_PENDING` status is the frozen implementation
+scope status; append-only review-8 is validated after that scope and does not
+rewrite the receipt.
 
 The exact review-7 predecessor receipt is separately preserved at
 `workspace/private/outputs/s22plus_fyg8_p318_ledger_taxonomy/ledger-taxonomy-20260815-01-v1-approved.json`
@@ -161,12 +165,12 @@ The exact review-7 predecessor receipt is separately preserved at
 not recoverable because that source was untracked and edited in place. The
 tracked marker
 `docs/reports/S22PLUS_FYG8_P318_LEDGER_TAXONOMY_V1_PREDECESSOR_PROVENANCE.json`
-records the predecessor receipt, auditor and scope identities, the 1,080-byte
+records the predecessor receipt, auditor and scope identities, the 1,156-byte
 scope delta, and the exact non-reproducibility reason. Preserved V1 bytes are
 historical provenance only, never current authority.
 
-Current implementation validation passes taxonomy 37/37 and the combined
-taxonomy/P3.18/Process-v2 documentation set 68/68. Common Process-v2 passes
+Current implementation validation passes taxonomy 38/38 and the combined
+taxonomy/P3.18/Process-v2 documentation set 69/69. Common Process-v2 passes
 120/120: `test_device_action_f1_v2` 22, `test_device_action_f1_evidence_v2`
 28, `test_device_action_f1_live_v2` 45, and
 `test_device_action_process_v2_docs` 25. The full P3.18 set passes 136/136.
@@ -181,10 +185,22 @@ while preserving the P3.17 base `1/0` to recovery-close `1/1` transition.
 That verdict remains valid only for the predecessor hashes and does not approve
 this follow-up.
 
+## Follow-up independent review
+
+The read-only review independently regenerated the current 23,314-byte
+`6541ed535aec…` receipt byte-for-byte and confirmed the 110,278-byte
+`f774fe1c697f…` scope, 44,782-byte `524519b64330…` auditor, and preserved
+10,118-byte `4214ea5393ed…` V1 receipt. It rejected all three empty-segment
+pending ordinals, proved valid same-topic resolution and unrelated-topic
+parallelism, and confirmed that `ATTEMPT_OPEN` permits zero terminals while a
+`CLOSED` attempt requires exactly one. Taxonomy 38/38, combined docs 69/69,
+common Process-v2 120/120, P3.18 136/136, Python compilation, and scoped diff
+checks passed. The exact scoped verdict is
+`PASS_GO_P318_CAMPAIGN_LEDGER_TAXONOMY_H0_CAPABILITY_V2`.
+
 ## Remaining boundary
 
-This follow-up is implemented but not independently approved. It does not alter
-P3.18 candidate bytes, prepare a run, or create D0, D1, F1, recovery, replay,
-live, or device authority. The next permissible step is read-only independent
-review of this exact changed closure; device work is neither required nor
-authorized.
+This follow-up is independently approved only as the exact H0 taxonomy
+capability above. It does not alter P3.18 candidate bytes, prepare a run, or
+create D0, D1, F1, recovery, replay, live, or device authority. Device work is
+neither required nor authorized.
