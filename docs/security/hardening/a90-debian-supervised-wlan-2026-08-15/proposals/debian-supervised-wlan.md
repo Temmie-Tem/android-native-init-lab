@@ -519,7 +519,11 @@ the goalposts.
 No implementation plan is created because no option has been selected for
 implementation. The design-level work packages are:
 
-- `WP-H0-1`: exact H24 service/dependency inventory and ownership-plane map;
+- `WP-H0-1`: exact H24 service/dependency inventory and ownership-plane map.
+  The public-source launch/identity/lifetime/cleanup map is now generated at
+  `docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json`; its opaque
+  ELF/dlopen/config/property/Binder/QRTR-QMI/device/firmware-RFS/output/SD-free
+  closure remains `BLOCKED_UNPROVED` behind `H0D01-H0D10`;
 - `WP-H0-2`: static necessity arguments and fail-closed ablation matrix;
 - `WP-H0-3`: deterministic SD-free compatibility-root manifest;
 - `WP-H0-4`: capsule security envelope and remote-workload separation;

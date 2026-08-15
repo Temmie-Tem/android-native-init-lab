@@ -2,9 +2,9 @@
 
 Date: 2026-08-15
 Repository: `android-native-init-lab` (all paths below are repository-relative)
-Baseline revision: `cddd986c561aa3211638e107ac9164ccec994da6`; the exact
-collection below was refrozen after the bounded prior-portfolio wording
-corrections in this same H0 unit
+Baseline revision: `dd8d0d8a59f84419ec830e0798718dc14edbd3b7`; the exact
+collection below was refrozen after adding the public historical dependency
+evidence and correcting the prior portfolio's `WP-H0-1` status
 Target: operator-owned Samsung Galaxy A90 5G only
 Tier: H0, host-only source investigation and design
 
@@ -48,9 +48,9 @@ security index entry, and corrections to the prior portfolio's inaccurate
 The collection digest is computed over the following files in the listed
 order as `relative_path NUL size NUL sha256 NUL`:
 
-`e169452d657fe5c1cff34263db9e169e522fc35c45f178543eeec357d7e8940c`
+`adc7127d7a7fe7960d28e26267f096c30ec56ddc649a3b3ed961c8d3e4a05368`
 
-Artifact count: `18`. Source drift at analysis time: `none`.
+Artifact count: `24`. Source drift at analysis time: `none`.
 
 | SHA256 | Bytes | Repository-relative path |
 | --- | ---: | --- |
@@ -66,12 +66,18 @@ Artifact count: `18`. Source drift at analysis time: `none`.
 | `87d3cda80ba0acddece4a8553a70de04451fd15ae03695fe46e150310b15cc74` | 2585 | `docs/reports/A90_H16_PERSISTENT_DEBIAN_RETURN_OBSERVER_INCIDENT_2026-08-10.md` |
 | `5f67ed8a163e05abb91b5d0bf5d7f3699ca4d63578d8bf487a883b6fec29bf9b` | 1136979 | `docs/plans/NATIVE_INIT_NEXT_WORK_2026-04-25.md` |
 | `9c48c21e813f27681d60cfd5e4881b73e8c4544abe2bca02b4a2f37dac0860c6` | 79078 | `docs/plans/A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md` |
-| `4bfdb51e13d745b0f69ff9c4ead045592a7b274a680db836cf40f6d59b38c93f` | 35967 | `docs/security/hardening/a90-debian-supervised-wlan-2026-08-15/proposals/debian-supervised-wlan.md` |
+| `f732b1ff9ff48dfd97383ad14c2c1e75f5eea227c3d80c85cddab68300099d73` | 36328 | `docs/security/hardening/a90-debian-supervised-wlan-2026-08-15/proposals/debian-supervised-wlan.md` |
 | `47148cf7ef35331af47ef74ed07ff74075c2cec474062b7c0782d13890229ffd` | 37200 | `docs/security/hardening/a90-sd-free-input-evidence-2026-08-15/proposals/typed-sd-free-input-evidence.md` |
 | `09e3731a575447305a5b1995ed827484cf65390d73fe3dfb4dbaacb9ff83ab7a` | 12790 | `workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h16/manifest.toml` |
 | `40c26c5878db21737600bc29864db9123cc4650ec39d7f0d7395209c2df70a8f` | 7801 | `workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h24/manifest.toml` |
 | `4e68735fa2acc06fa4c101d8dbab6380d7785c4d9c7edfe47448ab26031b57e2` | 3253399 | `workspace/public/src/native-init/helpers/a90_android_execns_probe.c` |
 | `2a6863c0fd5f1dc2559ccee45031e389c956d6e094d8602364fd1875b919128f` | 277766 | `workspace/public/src/native-init/v724/90_main.inc.c` |
+| `0212b18b2f76a88247300a55f9c670b18de15f69a488c62f1167304b3de1ebc2` | 5118 | `docs/archive/legacy/reports/NATIVE_INIT_V241_VNDK_APEX_ALIAS_PROBE_2026-05-18.md` |
+| `b6a61a6b259b4dd29606bc29ed3f788c7479b0289a32f8b6e4252e2422aa2821` | 3867 | `docs/archive/legacy/reports/NATIVE_INIT_V242_CNSS_RUNTIME_REQUIREMENT_INVENTORY_2026-05-18.md` |
+| `07dac305ae652c451135606d62f69479af756c3958e5e5798574dc6c426f71f3` | 4050 | `docs/archive/legacy/reports/NATIVE_INIT_V249_CNSS_RUNTIME_GAP_CLASSIFIER_2026-05-19.md` |
+| `345428d2284919776b67a3a88c40f9a4986002956a2f9d5488efe2c48dd033e3` | 3629 | `docs/archive/legacy/reports/NATIVE_INIT_V1692_CNSS_NONLOG_CONTROL_FLOW_2026-06-02.md` |
+| `caad3e832038f28de2febd4b2dd0742f093ab0b035d4b1d6db59032e595e20d2` | 4757 | `docs/archive/legacy/reports/NATIVE_INIT_V2033_WLANMDSP_TFTP_TRANSFER_COMPLETION_GAP_2026-06-04.md` |
+| `a3f7b5b81c9cf9861c1e7a039d6f0f4102726c71cca8585e1228194ab6c59914` | 4291 | `docs/archive/legacy/reports/NATIVE_INIT_V2117_DUAL_RFS_LEAF_ANDROID_IDENTITY_HANDOFF_2026-06-05.md` |
 
 ## Evidence Registry
 
@@ -90,6 +96,11 @@ Artifact count: `18`. Source drift at analysis time: `none`.
 | `E11` | architecture boundary | `/proc` incident and selected design | Either topology must prevent Debian workload code from naming vendor-side process/root/fd/ns capabilities. |
 | `E12` | input boundary | SD-free portfolio | Property must end as proved absent or an exact deterministic finite seed; wholesale snapshot transplantation is rejected. |
 | `E13` | authority evidence | common/A90 contract and goal | This is H0 only. H24 is installed, its D1 is consumed, and no successor identity or live authority exists. |
+| `E14` | historical observed linker evidence | archived V241 | One historical `cnss-daemon` linker-list completed with a private VNDK v30 alias and named six example libraries; it is not a complete current-H24 ELF closure. |
+| `E15` | historical runtime classification | archived V242/V249 | Historical identity, property, SELinux, QRTR, diag, path, and linker gaps were classified without starting `cnss-daemon`. |
+| `E16` | historical binary/control-flow evidence | archived V1692 | One historical `cnss-daemon` byte identity, two property keys, and its WLFW start control-flow were recorded; applicability to the H24 executable bytes is unproved. |
+| `E17` | historical RFS evidence | archived V2033 | `tftp_server` named a read-only `wlanmdsp.mbn` RFS path and reached request/open/OACK, not a complete transfer or current dependency proof. |
+| `E18` | historical identity evidence | archived V2117 | Android-observed non-root `rmt_storage`/`tftp_server` identities differ from H24's selected root-mode source path. |
 
 ## Direct Anchors
 
@@ -98,6 +109,9 @@ Artifact count: `18`. Source drift at analysis time: `none`.
 | Selected mode and SD property root | `workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h24/manifest.toml:34`, `:64`, `:72`; `workspace/public/src/native-init/v724/90_main.inc.c:350-359` |
 | First duplicated service-manager pair | `workspace/public/src/native-init/helpers/a90_android_execns_probe.c:58654-58666` |
 | QRTR/PD/RFS entries and second service-manager trio | `workspace/public/src/native-init/helpers/a90_android_execns_probe.c:58674-58745` |
+| Historical linker examples and VNDK alias | `docs/archive/legacy/reports/NATIVE_INIT_V241_VNDK_APEX_ALIAS_PROBE_2026-05-18.md` |
+| Historical `cnss-daemon` hash, property keys, and WLFW flow | `docs/archive/legacy/reports/NATIVE_INIT_V1692_CNSS_NONLOG_CONTROL_FLOW_2026-06-02.md` |
+| Historical RFS path and identity mismatch | `docs/archive/legacy/reports/NATIVE_INIT_V2033_WLANMDSP_TFTP_TRANSFER_COMPLETION_GAP_2026-06-04.md`; `docs/archive/legacy/reports/NATIVE_INIT_V2117_DUAL_RFS_LEAF_ANDROID_IDENTITY_HANDOFF_2026-06-05.md` |
 | CNSS entries and actual spawn loop | `workspace/public/src/native-init/helpers/a90_android_execns_probe.c:58753-58769`, `:59215-59231` |
 | Published order hides the duplicate pair | `workspace/public/src/native-init/helpers/a90_android_execns_probe.c:58857-58868` |
 | All selected entries become liveness requirements | `workspace/public/src/native-init/helpers/a90_android_execns_probe.c:58048-58074` |
@@ -188,6 +202,10 @@ composite entries plus the shim and holder are frozen in the proposal's
 `rmt_storage`, not a separately selected `rmtfs` process. Any relationship
 between those names, and the exact QMI producer/consumer edges, remains
 `UNPROVED`; it is not inferred from names or diagnostic strings.
+The machine-readable snapshot additionally binds the topology owner's exact
+H24 executable, selected argv/environment/run contract, and the shim/holder
+selected boolean predicates. Those source contracts do not prove opaque
+runtime necessity.
 
 ## Property Decision
 

@@ -11,7 +11,7 @@ ANALYSIS = (
     / "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15"
 )
 EXPECTED_COLLECTION_SHA256 = (
-    "e169452d657fe5c1cff34263db9e169e522fc35c45f178543eeec357d7e8940c"
+    "adc7127d7a7fe7960d28e26267f096c30ec56ddc649a3b3ed961c8d3e4a05368"
 )
 
 EVIDENCE_RELS = (
@@ -33,6 +33,12 @@ EVIDENCE_RELS = (
     "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h24/manifest.toml",
     "workspace/public/src/native-init/helpers/a90_android_execns_probe.c",
     "workspace/public/src/native-init/v724/90_main.inc.c",
+    "docs/archive/legacy/reports/NATIVE_INIT_V241_VNDK_APEX_ALIAS_PROBE_2026-05-18.md",
+    "docs/archive/legacy/reports/NATIVE_INIT_V242_CNSS_RUNTIME_REQUIREMENT_INVENTORY_2026-05-18.md",
+    "docs/archive/legacy/reports/NATIVE_INIT_V249_CNSS_RUNTIME_GAP_CLASSIFIER_2026-05-19.md",
+    "docs/archive/legacy/reports/NATIVE_INIT_V1692_CNSS_NONLOG_CONTROL_FLOW_2026-06-02.md",
+    "docs/archive/legacy/reports/NATIVE_INIT_V2033_WLANMDSP_TFTP_TRANSFER_COMPLETION_GAP_2026-06-04.md",
+    "docs/archive/legacy/reports/NATIVE_INIT_V2117_DUAL_RFS_LEAF_ANDROID_IDENTITY_HANDOFF_2026-06-05.md",
 )
 
 
@@ -66,7 +72,7 @@ class A90WlanVendorPropertyAblationHardeningDocsTest(unittest.TestCase):
         ).read_text()
 
     def test_evidence_collection_is_exact_and_current(self) -> None:
-        self.assertEqual(len(EVIDENCE_RELS), 18)
+        self.assertEqual(len(EVIDENCE_RELS), 24)
         self.assertEqual(collection_sha256(), EXPECTED_COLLECTION_SHA256)
         source = self.data["sourceEvidence"]
         self.assertEqual(source["artifactCount"], len(EVIDENCE_RELS))
@@ -283,6 +289,10 @@ class A90WlanVendorPropertyAblationHardeningDocsTest(unittest.TestCase):
             "construction `:58654-58666`",
             "cleanup `:61426-61500`",
             "cleanup `:29166-29266`",
+            "`/bin/a90_android_execns_probe`",
+            "/cache/native-init-wifi-test-boot-v2812-helper.result",
+            "/cache/native-init-wifi-test-boot-v2812.ready",
+            "complete selected argv and",
         ):
             self.assertIn(required_fact, self.proposal)
 
@@ -308,6 +318,41 @@ class A90WlanVendorPropertyAblationHardeningDocsTest(unittest.TestCase):
         )
         self.assertIn('P -. "write ACK only; no proved property-area mutation" .-> C', before)
         self.assertNotIn('SD["SD property snapshot"] --> P', before)
+
+    def test_wp_h0_1_generated_inventory_stays_fail_closed(self) -> None:
+        inventory_path = (
+            ANALYSIS
+            / "inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json"
+        )
+        inventory = json.loads(inventory_path.read_text())
+        self.assertEqual(
+            inventory["status"]["wpH01PublicSourceInventory"],
+            "COMPLETE_FROZEN_H24_SELECTED_PATH_ONLY",
+        )
+        self.assertEqual(
+            inventory["status"]["wpH01Overall"],
+            "PARTIAL_RUNTIME_CLOSURE_BLOCKED",
+        )
+        self.assertEqual(
+            self.data["assessment"]["wpH01PublicSourceInventory"],
+            inventory["status"]["wpH01PublicSourceInventory"],
+        )
+        self.assertEqual(
+            self.data["assessment"]["wpH01Overall"],
+            inventory["status"]["wpH01Overall"],
+        )
+        self.assertEqual(
+            inventory["status"]["wpH01OpaqueRuntimeClosure"],
+            "BLOCKED_UNPROVED",
+        )
+        self.assertEqual(len(inventory["dependencyGates"]), 10)
+        self.assertTrue(
+            all(gate["status"] == "UNPROVED" for gate in inventory["dependencyGates"])
+        )
+        self.assertIn("H0D01-H0D10", self.proposal)
+        self.assertIn("`WP-H0-2` **design** may now proceed as H0", self.proposal)
+        self.assertIn("cannot be retired by\none offline generation", self.proposal)
+        self.assertIn("Option C is still research-only", (ANALYSIS / "hardening.md").read_text())
 
     def test_prior_portfolio_correction_is_locked(self) -> None:
         prior = (
@@ -347,7 +392,7 @@ class A90WlanVendorPropertyAblationHardeningDocsTest(unittest.TestCase):
         )
         positions = [self.proposal.index(heading) for heading in headings]
         self.assertEqual(positions, sorted(positions))
-        for evidence_id in range(1, 13):
+        for evidence_id in range(1, 17):
             self.assertIn(f"`E{evidence_id:02d}`", self.proposal)
 
         for markdown in ANALYSIS.rglob("*.md"):

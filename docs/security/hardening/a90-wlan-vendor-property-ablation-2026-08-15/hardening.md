@@ -2,9 +2,9 @@
 
 ## Evidence Basis
 
-This H0 review binds 18 public artifacts from baseline revision
-`cddd986c561aa3211638e107ac9164ccec994da6` with collection SHA256
-`e169452d657fe5c1cff34263db9e169e522fc35c45f178543eeec357d7e8940c`.
+This H0 review binds 24 public artifacts from baseline revision
+`dd8d0d8a59f84419ec830e0798718dc14edbd3b7` with collection SHA256
+`adc7127d7a7fe7960d28e26267f096c30ec56ddc649a3b3ed961c8d3e4a05368`.
 
 The strongest result is not a successful ablation. It is a correction to the
 baseline: H24's selected helper builds thirteen composite children representing
@@ -61,6 +61,14 @@ See [`context.md`](context.md) for exact anchors and the observed/inferred split
 - The selected set contains `rmt_storage` but no separately selected `rmtfs`
   role. Their relationship and the exact QMI producer/consumer graph remain
   `UNPROVED` rather than inferred from names.
+- The generated
+  [`WP-H0-1` inventory](inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json)
+  now source-parses the frozen H24 selected composite graph and binds exact
+  selected-path helper/shim/holder launch contracts. This selected-path
+  snapshot is complete, but overall `WP-H0-1` is
+  `PARTIAL_RUNTIME_CLOSURE_BLOCKED`. Its ten opaque runtime gates remain
+  `UNPROVED`, so Option C is still research-only. `WP-H0-2` design may proceed
+  in H0; execution and Option C implementation may not.
 
 ## Property Terminal
 
@@ -78,18 +86,22 @@ binaries' read set. Moving the complete SD snapshot to cache is rejected.
 1. Correct the executable graph: one generated manifest, no duplicate role,
    exact child count, exact identity/capability/FD/readiness/cleanup contract.
 2. Remove all global SELinux load/enforce writes and reject them statically.
-3. Build a host-only dependency inventory from exact binaries and public
-   configuration without treating inferred edges as facts.
-4. Define one-factor ablation candidates and instrumentation, then obtain an
-   independent capability review before any candidate identity or live action.
+3. Use the frozen source-derived graph and `H0D01-H0D10` registry to design
+   one-factor `WP-H0-2` observations and ablations. Do not treat historical
+   observations or inferred edges as current H24 facts.
+4. Before executing a row, retire its offline/static prerequisites, review the
+   exact bounded instrumentation independently, and obtain separate live
+   authority. Runtime gates retire only from their declared observations or
+   ablations; one offline generation cannot retire them.
 5. For each separately qualified future candidate, measure backend readiness,
    scan, association, DHCP, process/FD/memory/CPU/wakeup, property/Binder/QRTR
    use, cache write rate, cleanup, cold relaunch, and recovery. Never chain a
    failed removal into the next candidate.
 6. Freeze either property absence or one finite deterministic seed.
-7. Apply the resulting component contract to both topology models and select
-   the smaller proved boundary. Until the capsule passes every switch gate,
-   reduced native supervision remains the reference design.
+7. Retire all ten gates, then apply the resulting component contract to both
+   topology models and select the smaller proved boundary. Until the capsule
+   passes every switch gate, reduced native supervision remains the reference
+   design.
 
 ## Deliverables Before A Topology Change
 

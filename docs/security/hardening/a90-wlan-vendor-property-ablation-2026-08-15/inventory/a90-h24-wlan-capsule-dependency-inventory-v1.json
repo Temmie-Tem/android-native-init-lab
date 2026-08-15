@@ -1,0 +1,1056 @@
+{
+  "authority": {
+    "candidateEligible": false,
+    "d0Authorized": false,
+    "d1Authorized": false,
+    "deviceContact": false,
+    "deviceInstallAuthorized": false,
+    "f1Authorized": false,
+    "handoffAuthorized": false,
+    "privateInputRead": false,
+    "tier": "H0",
+    "ufsMutationAuthorized": false
+  },
+  "components": [
+    {
+      "argv": [
+        "/system/bin/servicemanager"
+      ],
+      "cleanup": {
+        "completeDescendantClosure": false,
+        "evidenceState": "source-derived",
+        "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+        "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+      },
+      "compositeIdentity": "COMPOSITE_ID_SERVICE_MANAGER",
+      "constructionEvidence": "source-parsed-selected-branch",
+      "executable": "/system/bin/servicemanager",
+      "identity": {
+        "capabilities": null,
+        "capabilityStatus": "UNPROVED",
+        "evidenceState": "source-derived",
+        "gid": 1000,
+        "note": "Source prints expected none but does not apply an explicit empty capset.",
+        "supplementaryGroups": [
+          1000,
+          3009
+        ],
+        "uid": 1000
+      },
+      "instanceId": "servicemanager#1",
+      "kind": "composite-child",
+      "launchPredicate": "!android_order_pre_cnss_provider_observer && with_service_manager && !qrtr_first_service_manager && !cnss_first_delayed_service_manager && !service74_gated_any",
+      "lifetime": {
+        "evidenceState": "source-derived",
+        "hardwareNecessity": "UNPROVED",
+        "requirement": "required alive and observable for persistent handoff"
+      },
+      "opaqueRuntimeDependencyStatus": "UNPROVED",
+      "order": 1,
+      "ownershipPlane": "binder-registry",
+      "role": "servicemanager",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58654-58666",
+        "a90_android_execns_probe.c:7139-7175"
+      ]
+    },
+    {
+      "argv": [
+        "/system/bin/hwservicemanager"
+      ],
+      "cleanup": {
+        "completeDescendantClosure": false,
+        "evidenceState": "source-derived",
+        "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+        "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+      },
+      "compositeIdentity": "COMPOSITE_ID_SERVICE_MANAGER",
+      "constructionEvidence": "source-parsed-selected-branch",
+      "executable": "/system/bin/hwservicemanager",
+      "identity": {
+        "capabilities": null,
+        "capabilityStatus": "UNPROVED",
+        "evidenceState": "source-derived",
+        "gid": 1000,
+        "note": "Source prints expected none but does not apply an explicit empty capset.",
+        "supplementaryGroups": [
+          1000,
+          3009
+        ],
+        "uid": 1000
+      },
+      "instanceId": "hwservicemanager#1",
+      "kind": "composite-child",
+      "launchPredicate": "!android_order_pre_cnss_provider_observer && with_service_manager && !qrtr_first_service_manager && !cnss_first_delayed_service_manager && !service74_gated_any",
+      "lifetime": {
+        "evidenceState": "source-derived",
+        "hardwareNecessity": "UNPROVED",
+        "requirement": "required alive and observable for persistent handoff"
+      },
+      "opaqueRuntimeDependencyStatus": "UNPROVED",
+      "order": 2,
+      "ownershipPlane": "binder-registry",
+      "role": "hwservicemanager",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58654-58666",
+        "a90_android_execns_probe.c:7139-7175"
+      ]
+    },
+    {
+      "argv": [
+        "/vendor/bin/qrtr-ns",
+        "-f"
+      ],
+      "cleanup": {
+        "completeDescendantClosure": false,
+        "evidenceState": "source-derived",
+        "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+        "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+      },
+      "compositeIdentity": "COMPOSITE_ID_QRTR_NS",
+      "constructionEvidence": "source-parsed-selected-branch",
+      "executable": "/vendor/bin/qrtr-ns",
+      "identity": {
+        "capabilities": [
+          "CAP_NET_BIND_SERVICE"
+        ],
+        "capabilityStatus": "SOURCE_DERIVED",
+        "evidenceState": "source-derived",
+        "gid": 2906,
+        "note": "Capability is retained and raised ambient.",
+        "supplementaryGroups": [],
+        "uid": 2906
+      },
+      "instanceId": "qrtr_ns#1",
+      "kind": "composite-child",
+      "launchPredicate": "!android_order_pre_cnss_provider_observer && !peripheral_manager_node_parity",
+      "lifetime": {
+        "evidenceState": "source-derived",
+        "hardwareNecessity": "UNPROVED",
+        "requirement": "required alive and observable for persistent handoff"
+      },
+      "opaqueRuntimeDependencyStatus": "UNPROVED",
+      "order": 3,
+      "ownershipPlane": "qrtr-pd-rfs",
+      "role": "qrtr_ns",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58674-58679",
+        "a90_android_execns_probe.c:6834-6845",
+        "a90_android_execns_probe.c:43679-43682"
+      ]
+    },
+    {
+      "argv": [
+        "/vendor/bin/pd-mapper"
+      ],
+      "cleanup": {
+        "completeDescendantClosure": false,
+        "evidenceState": "source-derived",
+        "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+        "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+      },
+      "compositeIdentity": "COMPOSITE_ID_PD_MAPPER",
+      "constructionEvidence": "source-parsed-selected-branch",
+      "executable": "/vendor/bin/pd-mapper",
+      "identity": {
+        "capabilities": [
+          "CAP_NET_BIND_SERVICE"
+        ],
+        "capabilityStatus": "SOURCE_DERIVED",
+        "evidenceState": "source-derived",
+        "gid": 1000,
+        "note": "Capability is retained and raised ambient.",
+        "supplementaryGroups": [],
+        "uid": 1000
+      },
+      "instanceId": "pd_mapper#1",
+      "kind": "composite-child",
+      "launchPredicate": "!android_order_pre_cnss_provider_observer && !peripheral_manager_node_parity && wlan_pd_firmware_serve_gate",
+      "lifetime": {
+        "evidenceState": "source-derived",
+        "hardwareNecessity": "UNPROVED",
+        "requirement": "required alive and observable for persistent handoff"
+      },
+      "opaqueRuntimeDependencyStatus": "UNPROVED",
+      "order": 4,
+      "ownershipPlane": "qrtr-pd-rfs",
+      "role": "pd_mapper",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58680-58693",
+        "a90_android_execns_probe.c:6929-6940"
+      ]
+    },
+    {
+      "argv": [
+        "/vendor/bin/rmt_storage"
+      ],
+      "cleanup": {
+        "completeDescendantClosure": false,
+        "evidenceState": "source-derived",
+        "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+        "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+      },
+      "compositeIdentity": "COMPOSITE_ID_RMT_STORAGE",
+      "constructionEvidence": "source-parsed-selected-branch",
+      "executable": "/vendor/bin/rmt_storage",
+      "identity": {
+        "capabilities": null,
+        "capabilityStatus": "UNPROVED",
+        "evidenceState": "source-derived",
+        "gid": 0,
+        "note": "H24 selects android-init-root mode; no exact capability reduction is proved.",
+        "supplementaryGroups": [],
+        "uid": 0
+      },
+      "instanceId": "rmt_storage#1",
+      "kind": "composite-child",
+      "launchPredicate": "!android_order_pre_cnss_provider_observer && !peripheral_manager_node_parity && wlan_pd_firmware_serve_gate",
+      "lifetime": {
+        "evidenceState": "source-derived",
+        "hardwareNecessity": "UNPROVED",
+        "requirement": "required alive and observable for persistent handoff"
+      },
+      "opaqueRuntimeDependencyStatus": "UNPROVED",
+      "order": 5,
+      "ownershipPlane": "qrtr-pd-rfs",
+      "role": "rmt_storage",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58680-58693",
+        "a90_android_execns_probe.c:6848-6902"
+      ]
+    },
+    {
+      "argv": [
+        "/vendor/bin/tftp_server"
+      ],
+      "cleanup": {
+        "completeDescendantClosure": false,
+        "evidenceState": "source-derived",
+        "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+        "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+      },
+      "compositeIdentity": "COMPOSITE_ID_TFTP_SERVER",
+      "constructionEvidence": "source-parsed-selected-branch",
+      "executable": "/vendor/bin/tftp_server",
+      "identity": {
+        "capabilities": null,
+        "capabilityStatus": "UNPROVED",
+        "evidenceState": "source-derived",
+        "gid": 0,
+        "note": "H24 selects android-init-root mode; no exact capability reduction is proved.",
+        "supplementaryGroups": [],
+        "uid": 0
+      },
+      "instanceId": "tftp_server#1",
+      "kind": "composite-child",
+      "launchPredicate": "!android_order_pre_cnss_provider_observer && !peripheral_manager_node_parity && wlan_pd_firmware_serve_gate",
+      "lifetime": {
+        "evidenceState": "source-derived",
+        "hardwareNecessity": "UNPROVED",
+        "requirement": "required alive and observable for persistent handoff"
+      },
+      "opaqueRuntimeDependencyStatus": "UNPROVED",
+      "order": 6,
+      "ownershipPlane": "qrtr-pd-rfs",
+      "role": "tftp_server",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58680-58693",
+        "a90_android_execns_probe.c:6905-6926"
+      ]
+    },
+    {
+      "argv": [
+        "/system/bin/servicemanager"
+      ],
+      "cleanup": {
+        "completeDescendantClosure": false,
+        "evidenceState": "source-derived",
+        "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+        "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+      },
+      "compositeIdentity": "COMPOSITE_ID_SERVICE_MANAGER",
+      "constructionEvidence": "source-parsed-selected-branch",
+      "executable": "/system/bin/servicemanager",
+      "identity": {
+        "capabilities": null,
+        "capabilityStatus": "UNPROVED",
+        "evidenceState": "source-derived",
+        "gid": 1000,
+        "note": "Source prints expected none but does not apply an explicit empty capset.",
+        "supplementaryGroups": [
+          1000,
+          3009
+        ],
+        "uid": 1000
+      },
+      "instanceId": "servicemanager#2",
+      "kind": "composite-child",
+      "launchPredicate": "wlan_pd_service_window_trigger || wlan_pd_service_object_visible_trigger",
+      "lifetime": {
+        "evidenceState": "source-derived",
+        "hardwareNecessity": "UNPROVED",
+        "requirement": "required alive and observable for persistent handoff"
+      },
+      "opaqueRuntimeDependencyStatus": "UNPROVED",
+      "order": 7,
+      "ownershipPlane": "binder-registry",
+      "role": "servicemanager",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58722-58735",
+        "a90_android_execns_probe.c:7139-7175"
+      ]
+    },
+    {
+      "argv": [
+        "/system/bin/hwservicemanager"
+      ],
+      "cleanup": {
+        "completeDescendantClosure": false,
+        "evidenceState": "source-derived",
+        "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+        "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+      },
+      "compositeIdentity": "COMPOSITE_ID_SERVICE_MANAGER",
+      "constructionEvidence": "source-parsed-selected-branch",
+      "executable": "/system/bin/hwservicemanager",
+      "identity": {
+        "capabilities": null,
+        "capabilityStatus": "UNPROVED",
+        "evidenceState": "source-derived",
+        "gid": 1000,
+        "note": "Source prints expected none but does not apply an explicit empty capset.",
+        "supplementaryGroups": [
+          1000,
+          3009
+        ],
+        "uid": 1000
+      },
+      "instanceId": "hwservicemanager#2",
+      "kind": "composite-child",
+      "launchPredicate": "wlan_pd_service_window_trigger || wlan_pd_service_object_visible_trigger",
+      "lifetime": {
+        "evidenceState": "source-derived",
+        "hardwareNecessity": "UNPROVED",
+        "requirement": "required alive and observable for persistent handoff"
+      },
+      "opaqueRuntimeDependencyStatus": "UNPROVED",
+      "order": 8,
+      "ownershipPlane": "binder-registry",
+      "role": "hwservicemanager",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58722-58735",
+        "a90_android_execns_probe.c:7139-7175"
+      ]
+    },
+    {
+      "argv": [
+        "/vendor/bin/vndservicemanager",
+        "/dev/vndbinder"
+      ],
+      "cleanup": {
+        "completeDescendantClosure": false,
+        "evidenceState": "source-derived",
+        "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+        "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+      },
+      "compositeIdentity": "COMPOSITE_ID_VND_SERVICE_MANAGER",
+      "constructionEvidence": "source-parsed-selected-branch",
+      "executable": "/vendor/bin/vndservicemanager",
+      "identity": {
+        "capabilities": null,
+        "capabilityStatus": "UNPROVED",
+        "evidenceState": "source-derived",
+        "gid": 1000,
+        "note": "Source prints expected none but does not apply an explicit empty capset.",
+        "supplementaryGroups": [
+          1000,
+          3009
+        ],
+        "uid": 1000
+      },
+      "instanceId": "vndservicemanager#1",
+      "kind": "composite-child",
+      "launchPredicate": "wlan_pd_service_window_trigger || wlan_pd_service_object_visible_trigger",
+      "lifetime": {
+        "evidenceState": "source-derived",
+        "hardwareNecessity": "UNPROVED",
+        "requirement": "required alive and observable for persistent handoff"
+      },
+      "opaqueRuntimeDependencyStatus": "UNPROVED",
+      "order": 9,
+      "ownershipPlane": "binder-registry",
+      "role": "vndservicemanager",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58722-58735",
+        "a90_android_execns_probe.c:43674-43677"
+      ]
+    },
+    {
+      "argv": [
+        "/vendor/bin/pm_proxy_helper"
+      ],
+      "cleanup": {
+        "completeDescendantClosure": false,
+        "evidenceState": "source-derived",
+        "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+        "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+      },
+      "compositeIdentity": "COMPOSITE_ID_PER_PROXY_HELPER",
+      "constructionEvidence": "source-parsed-selected-branch",
+      "executable": "/vendor/bin/pm_proxy_helper",
+      "identity": {
+        "capabilities": [],
+        "capabilityStatus": "SOURCE_DERIVED",
+        "evidenceState": "source-derived",
+        "gid": 1000,
+        "note": "Source applies an explicit empty capability set.",
+        "supplementaryGroups": [],
+        "uid": 1000
+      },
+      "instanceId": "pm_proxy_helper#1",
+      "kind": "composite-child",
+      "launchPredicate": "wlan_pd_pm_service_window_trigger || wlan_pd_service_object_visible_trigger",
+      "lifetime": {
+        "evidenceState": "source-derived",
+        "hardwareNecessity": "UNPROVED",
+        "requirement": "required alive and observable for persistent handoff"
+      },
+      "opaqueRuntimeDependencyStatus": "UNPROVED",
+      "order": 10,
+      "ownershipPlane": "peripheral-manager-provider",
+      "role": "pm_proxy_helper",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58737-58745",
+        "a90_android_execns_probe.c:6972-6981"
+      ]
+    },
+    {
+      "argv": [
+        "/vendor/bin/pm-service"
+      ],
+      "cleanup": {
+        "completeDescendantClosure": false,
+        "evidenceState": "source-derived",
+        "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+        "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+      },
+      "compositeIdentity": "COMPOSITE_ID_PER_MGR",
+      "constructionEvidence": "source-parsed-selected-branch",
+      "executable": "/vendor/bin/pm-service",
+      "identity": {
+        "capabilities": [],
+        "capabilityStatus": "SOURCE_DERIVED",
+        "evidenceState": "source-derived",
+        "gid": 1000,
+        "note": "Source applies an explicit empty capability set.",
+        "supplementaryGroups": [],
+        "uid": 1000
+      },
+      "instanceId": "per_mgr#1",
+      "kind": "composite-child",
+      "launchPredicate": "wlan_pd_pm_service_window_trigger || wlan_pd_service_object_visible_trigger",
+      "lifetime": {
+        "evidenceState": "source-derived",
+        "hardwareNecessity": "UNPROVED",
+        "requirement": "required alive and observable; requests I/O priority RT/4"
+      },
+      "opaqueRuntimeDependencyStatus": "UNPROVED",
+      "order": 11,
+      "ownershipPlane": "peripheral-manager-provider",
+      "role": "per_mgr",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58737-58745",
+        "a90_android_execns_probe.c:6972-7005"
+      ]
+    },
+    {
+      "argv": [
+        "/vendor/bin/cnss_diag",
+        "-q",
+        "-f",
+        "-t",
+        "HELIUM"
+      ],
+      "cleanup": {
+        "completeDescendantClosure": false,
+        "evidenceState": "source-derived",
+        "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+        "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+      },
+      "compositeIdentity": "COMPOSITE_ID_CNSS_DIAG",
+      "constructionEvidence": "source-parsed-selected-branch",
+      "executable": "/vendor/bin/cnss_diag",
+      "identity": {
+        "capabilities": [],
+        "capabilityStatus": "SOURCE_DERIVED",
+        "evidenceState": "source-derived",
+        "gid": 1000,
+        "note": "Source applies an explicit empty capability set.",
+        "supplementaryGroups": [
+          1000,
+          1010,
+          3003,
+          1015,
+          1023,
+          2002
+        ],
+        "uid": 1000
+      },
+      "instanceId": "cnss_diag#1",
+      "kind": "composite-child",
+      "launchPredicate": "!post_sysmon_observer",
+      "lifetime": {
+        "evidenceState": "source-derived",
+        "hardwareNecessity": "UNPROVED",
+        "requirement": "required alive and observable for persistent handoff"
+      },
+      "opaqueRuntimeDependencyStatus": "UNPROVED",
+      "order": 12,
+      "ownershipPlane": "diagnostic",
+      "role": "cnss_diag",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58753-58757",
+        "a90_android_execns_probe.c:6699-6753"
+      ]
+    },
+    {
+      "argv": [
+        "/vendor/bin/cnss-daemon",
+        "-n",
+        "-l"
+      ],
+      "cleanup": {
+        "completeDescendantClosure": false,
+        "evidenceState": "source-derived",
+        "method": "process-group TERM 1s, KILL 1s, direct wait, PGID absence",
+        "sourceAnchor": "a90_android_execns_probe.c:45424-45555"
+      },
+      "compositeIdentity": "COMPOSITE_ID_CNSS",
+      "constructionEvidence": "source-parsed-selected-branch",
+      "executable": "/vendor/bin/cnss-daemon",
+      "identity": {
+        "capabilities": [
+          "CAP_NET_ADMIN"
+        ],
+        "capabilityStatus": "SOURCE_DERIVED",
+        "evidenceState": "source-derived",
+        "gid": 1000,
+        "note": "Only CAP_NET_ADMIN is retained and raised ambient.",
+        "supplementaryGroups": [
+          3003,
+          3005,
+          1010
+        ],
+        "uid": 1000
+      },
+      "instanceId": "cnss_daemon#1",
+      "kind": "composite-child",
+      "launchPredicate": "!post_sysmon_observer && !service74_gated_peripheral_manager_provider_first_cnss",
+      "lifetime": {
+        "evidenceState": "source-derived",
+        "hardwareNecessity": "UNPROVED",
+        "requirement": "required alive and observable for persistent handoff"
+      },
+      "opaqueRuntimeDependencyStatus": "UNPROVED",
+      "order": 13,
+      "ownershipPlane": "wcnss-wmi-control",
+      "role": "cnss_daemon",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58753-58769",
+        "a90_android_execns_probe.c:6630-6697",
+        "a90_android_execns_probe.c:43660-43664"
+      ]
+    },
+    {
+      "argv": [],
+      "cleanup": "drain, direct TERM 500ms, KILL 500ms, wait, close record FD, unlink socket",
+      "executable": "forked helper body",
+      "identity": {
+        "evidenceState": "source-derived",
+        "note": "Inherits root helper identity; no identity/capability normalization.",
+        "status": "UNPROVED"
+      },
+      "instanceId": "property-service-shim#1",
+      "interface": "/dev/socket/property_service AF_UNIX; SETPROP/SETPROP2 bounded ACK protocol",
+      "kind": "helper-managed-child",
+      "launchContractState": "SOURCE_DERIVED_SELECTED_BRANCH",
+      "launchPredicate": "cfg->property_root != NULL && is_wifi_companion_any_start_only_mode(cfg->mode) && cfg->allow_wifi_companion_start_only",
+      "lifetime": "poll loop until stop or 4096 requests; start mandatory, later liveness not equivalent to composite children",
+      "opaqueRuntimeDependencyStatus": "UNPROVED",
+      "ownershipPlane": "property-write-compatibility",
+      "role": "property-service-shim",
+      "selectedPredicateEvaluation": {
+        "allowWifiCompanionStartOnly": true,
+        "mode": "wifi-companion-wlan-pd-service-object-visible-trigger-start-only",
+        "propertyRoot": "/mnt/sdext/a90/private-property-v317/v726/dev/__properties__",
+        "result": true
+      },
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:60957-60986",
+        "a90_android_execns_probe.c:61126-61262",
+        "a90_android_execns_probe.c:61264-61500"
+      ]
+    },
+    {
+      "argv": [],
+      "cleanup": "process-group TERM 3s, KILL 10s, wait, close record FD, unlink projected node",
+      "executable": "forked helper body",
+      "identity": {
+        "evidenceState": "source-derived",
+        "note": "Inherits root helper identity; no identity/capability normalization.",
+        "status": "UNPROVED"
+      },
+      "instanceId": "modem-holder#1",
+      "interface": "holds /dev/subsys_modem open indefinitely",
+      "kind": "helper-managed-child",
+      "launchContractState": "SOURCE_DERIVED_SELECTED_BRANCH",
+      "launchPredicate": "wlan_pd_firmware_serve_gate && (!wlan_pd_service_object_visible_trigger || wlan_pd_service_object_provider_seen)",
+      "lifetime": "new session/chroot; persistent readiness requires direct PID alive",
+      "opaqueRuntimeDependencyStatus": "UNPROVED",
+      "ownershipPlane": "device-lifetime",
+      "role": "modem-holder",
+      "selectedPredicateEvaluation": {
+        "requiresProviderSeen": true,
+        "wlanPdFirmwareServeGate": true,
+        "wlanPdServiceObjectVisibleTrigger": true
+      },
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:29011-29266",
+        "a90_android_execns_probe.c:59754-59767",
+        "a90_android_execns_probe.c:58077-58099"
+      ]
+    },
+    {
+      "argv": [
+        "/bin/a90_android_execns_probe",
+        "--system-root",
+        "/mnt/system/system",
+        "--vendor-block",
+        "/dev/block/sda29",
+        "--vendor-fstype",
+        "ext4",
+        "--mode",
+        "wifi-companion-wlan-pd-service-object-visible-trigger-start-only",
+        "--result-output-path",
+        "/cache/native-init-wifi-test-boot-v2812-helper.result",
+        "--timeout-sec",
+        "120",
+        "--property-root",
+        "/mnt/sdext/a90/private-property-v317/v726/dev/__properties__",
+        "--null-device-mode",
+        "dev-null",
+        "--android-selinux-context-mode",
+        "service-defaults",
+        "--linkerconfig-mode",
+        "copy-real",
+        "--linkerconfig-source",
+        "/cache/bin/a90_real_ld.config.txt",
+        "--apex-libraries-source",
+        "/cache/bin/a90_real_apex.libraries.config.txt",
+        "--vndk-apex-alias-mode",
+        "v30-to-system-ext-v30",
+        "--allow-wifi-companion-start-only",
+        "--allow-cnss-start-only",
+        "--allow-service-manager-start-only",
+        "--allow-wlan-pd-service-object-visible-trigger",
+        "--persistent-handoff",
+        "--handoff-ready-output-path",
+        "/cache/native-init-wifi-test-boot-v2812.ready"
+      ],
+      "cleanup": "current source cleanup is not a proved cgroup/descendant closure",
+      "environment": [
+        "PATH=/bin:/cache/bin:/system/bin:/vendor/bin",
+        "HOME=/",
+        "TERM=vt100"
+      ],
+      "executable": "/bin/a90_android_execns_probe",
+      "identity": {
+        "evidenceState": "source-derived",
+        "note": "Exact post-fork privilege envelope is not a capsule contract.",
+        "status": "UNPROVED"
+      },
+      "instanceId": "wifi-helper#1",
+      "kind": "topology-owner",
+      "launchContract": {
+        "cancelable": false,
+        "ignoreHupPipe": true,
+        "killProcessGroup": true,
+        "logPath": "/cache/native-init-wifi-test-boot-v2812.log",
+        "setsid": true,
+        "stdioMode": "A90_RUN_STDIO_LOG_APPEND",
+        "stopTimeoutMs": 1000,
+        "tag": "wifi-v1393-test-boot",
+        "timeoutMs": 0
+      },
+      "launchContractState": "SOURCE_DERIVED_SELECTED_BRANCH",
+      "launchPredicate": "A90_WIFI_TEST_BOOT=1 && A90_WIFI_TEST_BOOT_SUPERVISE_HELPER=0 && A90_WIFI_PERSISTENT_HANDOFF_V1=1 && disable-path-absent",
+      "lifetime": "long-lived supervisor for composite children, shim, and holder",
+      "opaqueRuntimeDependencyStatus": "UNPROVED",
+      "ownershipPlane": "backend-lifecycle-health-cleanup",
+      "role": "wifi-helper",
+      "sourceAnchors": [
+        "v724/90_main.inc.c:5106-5301",
+        "v724/90_main.inc.c:5660-5765",
+        "a90_android_execns_probe.c:3540-3605",
+        "a90_android_execns_probe.c:58048-58099",
+        "a90_android_execns_probe.c:58460-59800"
+      ]
+    }
+  ],
+  "constructionDefects": {
+    "duplicateRoles": {
+      "hwservicemanager": [
+        "hwservicemanager#1",
+        "hwservicemanager#2"
+      ],
+      "servicemanager": [
+        "servicemanager#1",
+        "servicemanager#2"
+      ]
+    },
+    "publishedOrderHidesDuplicates": true,
+    "successorRule": "Reject every duplicate role, instance ID, executable identity, or cleanup identity before construction."
+  },
+  "counts": {
+    "compositeInstances": 13,
+    "helperManagedChildrenOutsideComposite": 2,
+    "sourceAccountedProcessesBeforeStationPolicy": 16,
+    "topologyOwners": 1,
+    "uniqueCompositeRoles": 11
+  },
+  "dependencyGates": [
+    {
+      "blocker": "Exact bytes, SHA256, ELF class/interpreter, full DT_NEEDED closure, and every library byte are not bound for all eleven opaque roles.",
+      "gateId": "H0D01",
+      "liveExecutionAuthorized": false,
+      "optionCImplementationBlocking": true,
+      "preExecutionRequirement": "RETIRE_RELEVANT_ROW_BEFORE_EXECUTION",
+      "retirementClass": "OFFLINE_STATIC",
+      "retirementEvidence": "Exact regular-file manifest, recursive ELF closure, negative fixture, and independent review.",
+      "status": "UNPROVED",
+      "surface": "exact-elf-closure",
+      "wpH02DesignBlocking": false
+    },
+    {
+      "blocker": "dlopen, executable dispatch, linker namespace, APEX aliases, and plugin/config-selected code paths are incomplete.",
+      "gateId": "H0D02",
+      "liveExecutionAuthorized": false,
+      "optionCImplementationBlocking": true,
+      "preExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+      "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+      "retirementEvidence": "Static dispatch inventory plus bounded runtime trace that fails on an unbound load or exec.",
+      "status": "UNPROVED",
+      "surface": "dynamic-dispatch",
+      "wpH02DesignBlocking": false
+    },
+    {
+      "blocker": "Every config, rc fragment, environment input, default, and read lifetime is not enumerated.",
+      "gateId": "H0D03",
+      "liveExecutionAuthorized": false,
+      "optionCImplementationBlocking": true,
+      "preExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+      "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+      "retirementEvidence": "Static input manifest plus bounded read trace and missing/extra/default negative fixtures.",
+      "status": "UNPROVED",
+      "surface": "configuration",
+      "wpH02DesignBlocking": false
+    },
+    {
+      "blocker": "Per-role property keys, contexts, defaults, reads, writes, ACK callers, and required semantics are not closed.",
+      "gateId": "H0D04",
+      "liveExecutionAuthorized": false,
+      "optionCImplementationBlocking": true,
+      "preExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+      "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+      "retirementEvidence": "Per-role bounded trace followed by one-factor property ablation; accept only PROPERTY_ABSENT_PROVED or PROPERTY_FINITE_SEED_PROVED.",
+      "status": "UNPROVED",
+      "surface": "property-read-write",
+      "wpH02DesignBlocking": false
+    },
+    {
+      "blocker": "Per-role Binder device, context manager, service name, transaction, direction, and lifetime are not closed.",
+      "gateId": "H0D05",
+      "liveExecutionAuthorized": false,
+      "optionCImplementationBlocking": true,
+      "preExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+      "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+      "retirementEvidence": "Per-role transaction trace and one-factor manager/provider ablation with private/global endpoint negatives.",
+      "status": "UNPROVED",
+      "surface": "binder",
+      "wpH02DesignBlocking": false
+    },
+    {
+      "blocker": "QRTR service IDs, QMI clients/messages, producer-consumer edges, and cleanup ownership are not closed.",
+      "gateId": "H0D06",
+      "liveExecutionAuthorized": false,
+      "optionCImplementationBlocking": true,
+      "preExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+      "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+      "retirementEvidence": "Bounded QRTR/QMI message and service observation plus one-factor role ablation and cleanup proof.",
+      "status": "UNPROVED",
+      "surface": "qrtr-qmi",
+      "wpH02DesignBlocking": false
+    },
+    {
+      "blocker": "Every device node, ioctl, sysfs/proc read/write, socket family/type/protocol, and kernel-object lifetime is not closed.",
+      "gateId": "H0D07",
+      "liveExecutionAuthorized": false,
+      "optionCImplementationBlocking": true,
+      "preExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+      "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+      "retirementEvidence": "Static syscall/path inventory plus bounded runtime observation, lifetime accounting, and forbidden-surface negatives.",
+      "status": "UNPROVED",
+      "surface": "device-kernel",
+      "wpH02DesignBlocking": false
+    },
+    {
+      "blocker": "Every firmware/RFS/persist path, served object, read/write direction, ownership, and cleanup rule is not closed.",
+      "gateId": "H0D08",
+      "liveExecutionAuthorized": false,
+      "optionCImplementationBlocking": true,
+      "preExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+      "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+      "retirementEvidence": "Bounded request/object trace plus one-factor RFS role ablation and exact residue cleanup proof.",
+      "status": "UNPROVED",
+      "surface": "firmware-rfs",
+      "wpH02DesignBlocking": false
+    },
+    {
+      "blocker": "All files, sockets, logs, caches, rename/fsync activity, bounds, and no-residue cleanup are not closed.",
+      "gateId": "H0D09",
+      "liveExecutionAuthorized": false,
+      "optionCImplementationBlocking": true,
+      "preExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+      "retirementClass": "RUNTIME_OBSERVATION",
+      "retirementEvidence": "Bounded runtime output trace with byte/rate limits and exact post-stop residue negatives.",
+      "status": "UNPROVED",
+      "surface": "writable-output",
+      "wpH02DesignBlocking": false
+    },
+    {
+      "blocker": "Every retained binary, library, config, property seed, firmware/RFS input, and public metadata source lacks one deterministic SD-free compatibility-root manifest.",
+      "gateId": "H0D10",
+      "liveExecutionAuthorized": false,
+      "optionCImplementationBlocking": true,
+      "preExecutionRequirement": "NOT_A_PRECONDITION_TO_ABLATION_FREEZE_AFTER_RETAINED_SET",
+      "retirementClass": "POST_ABLATION_STATIC_FREEZE",
+      "retirementEvidence": "After the retained set is known, one deterministic no-SD compatibility-root manifest and provenance review.",
+      "status": "UNPROVED",
+      "surface": "sd-free-provenance",
+      "wpH02DesignBlocking": false
+    }
+  ],
+  "generatedDeterministically": true,
+  "graphDerivation": {
+    "metadataMismatchFailsClosed": true,
+    "method": "parse selected composite_child_init calls from frozen helper branches",
+    "publishedOrderUsedAsAuthority": false,
+    "selectedCompositeTuples": [
+      {
+        "executable": "/system/bin/servicemanager",
+        "identity": "COMPOSITE_ID_SERVICE_MANAGER",
+        "role": "servicemanager"
+      },
+      {
+        "executable": "/system/bin/hwservicemanager",
+        "identity": "COMPOSITE_ID_SERVICE_MANAGER",
+        "role": "hwservicemanager"
+      },
+      {
+        "executable": "/vendor/bin/qrtr-ns",
+        "identity": "COMPOSITE_ID_QRTR_NS",
+        "role": "qrtr_ns"
+      },
+      {
+        "executable": "/vendor/bin/pd-mapper",
+        "identity": "COMPOSITE_ID_PD_MAPPER",
+        "role": "pd_mapper"
+      },
+      {
+        "executable": "/vendor/bin/rmt_storage",
+        "identity": "COMPOSITE_ID_RMT_STORAGE",
+        "role": "rmt_storage"
+      },
+      {
+        "executable": "/vendor/bin/tftp_server",
+        "identity": "COMPOSITE_ID_TFTP_SERVER",
+        "role": "tftp_server"
+      },
+      {
+        "executable": "/system/bin/servicemanager",
+        "identity": "COMPOSITE_ID_SERVICE_MANAGER",
+        "role": "servicemanager"
+      },
+      {
+        "executable": "/system/bin/hwservicemanager",
+        "identity": "COMPOSITE_ID_SERVICE_MANAGER",
+        "role": "hwservicemanager"
+      },
+      {
+        "executable": "/vendor/bin/vndservicemanager",
+        "identity": "COMPOSITE_ID_VND_SERVICE_MANAGER",
+        "role": "vndservicemanager"
+      },
+      {
+        "executable": "/vendor/bin/pm_proxy_helper",
+        "identity": "COMPOSITE_ID_PER_PROXY_HELPER",
+        "role": "pm_proxy_helper"
+      },
+      {
+        "executable": "/vendor/bin/pm-service",
+        "identity": "COMPOSITE_ID_PER_MGR",
+        "role": "per_mgr"
+      },
+      {
+        "executable": "/vendor/bin/cnss_diag",
+        "identity": "COMPOSITE_ID_CNSS_DIAG",
+        "role": "cnss_diag"
+      },
+      {
+        "executable": "/vendor/bin/cnss-daemon",
+        "identity": "COMPOSITE_ID_CNSS",
+        "role": "cnss_daemon"
+      }
+    ]
+  },
+  "historicalPublicEvidence": [
+    {
+      "claim": "A historical cnss-daemon binary was recorded as 95112 bytes with SHA256 bced9853a77cfb02252571196584efa535be14f8f3fd9ce32712ddee224ba4bc.",
+      "evidenceState": "observed-historical",
+      "h24Applicability": "UNPROVED",
+      "source": "NATIVE_INIT_V1692_CNSS_NONLOG_CONTROL_FLOW_2026-06-02.md"
+    },
+    {
+      "claim": "Historical linker-list resolution included libcutils.so, libnl.so, libc++.so, libqmi_cci.so, libqmi_common_so.so, and libcld80211.so.",
+      "evidenceState": "observed-historical",
+      "h24Applicability": "UNPROVED",
+      "source": "NATIVE_INIT_V241_VNDK_APEX_ALIAS_PROBE_2026-05-18.md"
+    },
+    {
+      "claim": "Historical cnss-daemon reads included persist.vendor.cnss-daemon.debug_level and persist.vendor.cnss-daemon.kmsg_logging; its mapped flow reached WLFW QMI setup.",
+      "evidenceState": "observed-historical",
+      "h24Applicability": "UNPROVED",
+      "source": "NATIVE_INIT_V1692_CNSS_NONLOG_CONTROL_FLOW_2026-06-02.md"
+    },
+    {
+      "claim": "Historical tftp_server evidence names readonly wlanmdsp.mbn and readwrite mcfg.tmp RFS paths.",
+      "evidenceState": "observed-historical",
+      "h24Applicability": "UNPROVED",
+      "source": "NATIVE_INIT_V2033_WLANMDSP_TFTP_TRANSFER_COMPLETION_GAP_2026-06-04.md"
+    },
+    {
+      "claim": "Historical Android-observed rmt_storage and tftp_server identities differ from H24's selected root-mode launch path.",
+      "evidenceState": "observed-historical",
+      "h24Applicability": "IDENTITY_CONFLICT_REQUIRES_RESOLUTION",
+      "source": "NATIVE_INIT_V2117_DUAL_RFS_LEAF_ANDROID_IDENTITY_HANDOFF_2026-06-05.md"
+    }
+  ],
+  "nextSequencingConstraint": {
+    "beforeOptionCImplementationOrPromotion": "Retire H0D01 through H0D10 with each gate's declared evidence class; no single offline generation can retire runtime gates.",
+    "beforeWpH02Execution": "Retire the row-specific OFFLINE_STATIC or static half of HYBRID prerequisites; independently review the bounded observer/ablation mechanism and obtain separate live authority.",
+    "failureRule": "Any unresolved edge keeps Option C H0-only and blocks candidate identity allocation.",
+    "inputRule": "Private inputs remain outside this unit; any later bounded collection requires separate authority and public-safe metadata handling.",
+    "wpH02Design": "ALLOWED_H0_ONLY_FROM_THIS_FROZEN_BLOCKER_REGISTRY"
+  },
+  "ownershipPlanes": [
+    {
+      "h24Owner": "native Wi-Fi helper",
+      "optionCRequiredOwner": "Debian PID 1 platform manager",
+      "plane": "backend lifecycle, health, and cleanup",
+      "status": "PROPOSED_UNPROVED"
+    },
+    {
+      "h24Owner": "root/native helper plus child identities",
+      "optionCRequiredOwner": "separate non-remote capsule launcher",
+      "plane": "privileged vendor actuation",
+      "status": "PROPOSED_UNPROVED"
+    },
+    {
+      "h24Owner": "native autoconnect path",
+      "optionCRequiredOwner": "Debian station policy",
+      "plane": "station scan, association, and DHCP",
+      "status": "UNPROVED"
+    },
+    {
+      "h24Owner": "native handoff plus Debian service",
+      "optionCRequiredOwner": "Debian PID 1",
+      "plane": "network exposure and application service",
+      "status": "PROPOSED_UNPROVED"
+    },
+    {
+      "h24Owner": "boot-only host/native recovery boundary",
+      "optionCRequiredOwner": "unchanged external safety boundary",
+      "plane": "boot rollback and physical recovery",
+      "status": "PERMANENT_BOUNDARY"
+    }
+  ],
+  "schema": "a90-h24-wlan-capsule-dependency-inventory-v1",
+  "scope": {
+    "doesNotProve": [
+      "individual hardware necessity",
+      "opaque runtime dependency closure",
+      "cold relaunch",
+      "Debian station ownership",
+      "Option C feasibility"
+    ],
+    "purpose": "WP-H0-1 public-source dependency inventory and ownership-plane map",
+    "residentReference": "H24 0.11.192 source-selected route",
+    "target": "Samsung Galaxy A90 5G only"
+  },
+  "sourcePins": [
+    {
+      "bytes": 7801,
+      "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h24/manifest.toml",
+      "sha256": "40c26c5878db21737600bc29864db9123cc4650ec39d7f0d7395209c2df70a8f"
+    },
+    {
+      "bytes": 3253399,
+      "path": "workspace/public/src/native-init/helpers/a90_android_execns_probe.c",
+      "sha256": "4e68735fa2acc06fa4c101d8dbab6380d7785c4d9c7edfe47448ab26031b57e2"
+    },
+    {
+      "bytes": 277766,
+      "path": "workspace/public/src/native-init/v724/90_main.inc.c",
+      "sha256": "2a6863c0fd5f1dc2559ccee45031e389c956d6e094d8602364fd1875b919128f"
+    },
+    {
+      "bytes": 5118,
+      "path": "docs/archive/legacy/reports/NATIVE_INIT_V241_VNDK_APEX_ALIAS_PROBE_2026-05-18.md",
+      "sha256": "0212b18b2f76a88247300a55f9c670b18de15f69a488c62f1167304b3de1ebc2"
+    },
+    {
+      "bytes": 3867,
+      "path": "docs/archive/legacy/reports/NATIVE_INIT_V242_CNSS_RUNTIME_REQUIREMENT_INVENTORY_2026-05-18.md",
+      "sha256": "b6a61a6b259b4dd29606bc29ed3f788c7479b0289a32f8b6e4252e2422aa2821"
+    },
+    {
+      "bytes": 4050,
+      "path": "docs/archive/legacy/reports/NATIVE_INIT_V249_CNSS_RUNTIME_GAP_CLASSIFIER_2026-05-19.md",
+      "sha256": "07dac305ae652c451135606d62f69479af756c3958e5e5798574dc6c426f71f3"
+    },
+    {
+      "bytes": 3629,
+      "path": "docs/archive/legacy/reports/NATIVE_INIT_V1692_CNSS_NONLOG_CONTROL_FLOW_2026-06-02.md",
+      "sha256": "345428d2284919776b67a3a88c40f9a4986002956a2f9d5488efe2c48dd033e3"
+    },
+    {
+      "bytes": 4757,
+      "path": "docs/archive/legacy/reports/NATIVE_INIT_V2033_WLANMDSP_TFTP_TRANSFER_COMPLETION_GAP_2026-06-04.md",
+      "sha256": "caad3e832038f28de2febd4b2dd0742f093ab0b035d4b1d6db59032e595e20d2"
+    },
+    {
+      "bytes": 4291,
+      "path": "docs/archive/legacy/reports/NATIVE_INIT_V2117_DUAL_RFS_LEAF_ANDROID_IDENTITY_HANDOFF_2026-06-05.md",
+      "sha256": "a3f7b5b81c9cf9861c1e7a039d6f0f4102726c71cca8585e1228194ab6c59914"
+    }
+  ],
+  "status": {
+    "optionC": "H0_RESEARCH_ONLY_NOT_IMPLEMENTATION_ELIGIBLE",
+    "strongestBlocker": "H24 does not bind exact bytes or complete transitive runtime dependencies for the eleven opaque service roles.",
+    "wpH01AuxiliaryLaunchContracts": "COMPLETE_SOURCE_BOUND_FROZEN_H24_PATH",
+    "wpH01CompositeGraph": "COMPLETE_SOURCE_PARSED_FROZEN_H24_PATH",
+    "wpH01OpaqueRuntimeClosure": "BLOCKED_UNPROVED",
+    "wpH01Overall": "PARTIAL_RUNTIME_CLOSURE_BLOCKED",
+    "wpH01PublicSourceInventory": "COMPLETE_FROZEN_H24_SELECTED_PATH_ONLY"
+  }
+}

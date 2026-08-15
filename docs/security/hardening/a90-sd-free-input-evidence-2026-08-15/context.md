@@ -2,9 +2,9 @@
 
 Date: 2026-08-15
 Repository: `android-native-init-lab` (all listed paths are repository-relative)
-Baseline revision: `3e3c3cdabea297794f185709c42419d5032fb245`; the collection
-below was rebound after the later H24 13-entry/11-role wording correction to
-its Debian-supervised-WLAN input
+Baseline revision: `dd8d0d8a59f84419ec830e0798718dc14edbd3b7`; the collection
+below was rebound after the later H24 13-entry/11-role and `WP-H0-1` status
+corrections to its Debian-supervised-WLAN input
 Target: operator-owned Samsung Galaxy A90 5G only
 Tier: H0, host-only investigation and documentation
 
@@ -46,7 +46,7 @@ security index entry.
 The collection digest is computed over the listed files in this exact order as
 the concatenation of `relative_path NUL size NUL sha256 NUL`:
 
-`8950bf44255bfd9661701e35da9a474013ccc0121aa3dc7f7337daddc639b070`
+`68549ffb7c26ff6a79185a3397ee7d392fc175654a812c71d795d5bcb7a6339b`
 
 Artifact count: `22`. Source drift at analysis time: `none`.
 
@@ -60,7 +60,7 @@ Artifact count: `22`. Source drift at analysis time: `none`.
 | `9c48c21e813f27681d60cfd5e4881b73e8c4544abe2bca02b4a2f37dac0860c6` | 79078 | `docs/plans/A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md` |
 | `06cadec22833439c3c72fdc26e4d72dfeaf44959ee882c81347ca05d73fb9168` | 34818 | `docs/plans/A90_UFS_HANDOFF_ARCHITECTURE_AND_PRODUCTION_REDUCTION_PLAN_2026-08-12.md` |
 | `f3c641c133f5f6b52d316292239d9fc792a42572f1b86b3c552d7c94a5bd897a` | 7614 | `docs/reports/A90_H14_IMMUTABLE_FIRSTBOOT_ISOLATED_DEBIAN_MISMATCH_H0_2026-08-14.md` |
-| `4bfdb51e13d745b0f69ff9c4ead045592a7b274a680db836cf40f6d59b38c93f` | 35967 | `docs/security/hardening/a90-debian-supervised-wlan-2026-08-15/proposals/debian-supervised-wlan.md` |
+| `f732b1ff9ff48dfd97383ad14c2c1e75f5eea227c3d80c85cddab68300099d73` | 36328 | `docs/security/hardening/a90-debian-supervised-wlan-2026-08-15/proposals/debian-supervised-wlan.md` |
 | `40c26c5878db21737600bc29864db9123cc4650ec39d7f0d7395209c2df70a8f` | 7801 | `workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h24/manifest.toml` |
 | `d8697da63a093eaaed73339a158b2992ad3121a2a2ebc01597a10f8b05363ec6` | 33086 | `workspace/public/src/native-init/a90_auto_handoff.c` |
 | `199b4f55075384c64d3b1f82deb7b5b630b4d306bfc058c5e50a896f28297abf` | 258111 | `workspace/public/src/native-init/a90_server_distro.c` |
