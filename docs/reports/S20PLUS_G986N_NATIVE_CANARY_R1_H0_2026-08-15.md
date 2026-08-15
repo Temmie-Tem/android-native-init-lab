@@ -5,14 +5,15 @@ Date: 2026-08-15
 Target: operator-owned `SM-G986N` / `y2q` / `y2qksx` /
 `G986NKSS8IYC2` only
 
-Status: **PASS_GO - DORMANT - NOT ACTIVE - NO R1 OR DEVICE AUTHORITY**
+Status: **PASS_GO - ACTIVE CAPABILITY - NO CURRENT RUN OR DEVICE AUTHORITY**
 
 ## Outcome
 
-The selected post-N1 unit is implemented host-only as one proposed exact
+The selected post-N1 unit is implemented as one exact
 privileged root-data transaction and one separately owned stock-boot recovery
-path. The implementation changes no device. Both activation constants are
-false, and all connected modes fail before target commands.
+path. Mechanical activation changed no device. Both activation constants are
+true, but activation created no run, approval, connected preparation, or
+device command. Fresh preparation and attended approval remain mandatory.
 
 The proposed normal transaction is fixed to:
 
@@ -231,18 +232,18 @@ Execution-critical public files:
 - `tests/test_s20plus_g986n_native_canary_r1.py`; and
 - this report, the phased design, draft disposition, and `GOAL_S20PLUS.md`.
 
-The frozen review-candidate identities are:
+The active reviewed identities are:
 
-- root-data runner: 211,486 bytes, SHA-256
-  `838f9fb89ec8f9c67e84a67eb9fd1ac0fe269b9f62310f8a0791adce95a94ad0`,
+- root-data runner: 211,523 bytes, SHA-256
+  `c683a5cb5e230996cce439e6f2e0c5ebd02bda152e44fa9944eb74fcc41145c8`,
   normalized
-  `cfaed8fc7de2d4aa4ce8793ab52127736b70b9d12795c819075fa2e102bec798`;
-- stock-recovery runner: 61,315 bytes, SHA-256
-  `20ffdb8dd39e87d32fe5391269bde775ac04e136425755c1ed5feb76bf0ce5f4`,
+  `61b32d82ebf3a14db5a236d7286f2d6fb5764d04372152549100a48f2f224fe7`;
+- stock-recovery runner: 61,312 bytes, SHA-256
+  `b029afc3d4a899e4d83304773f8405519bacdb02de742de015a52c97689cc2a6`,
   normalized
-  `9849416b63064406afa5c7c235c6b7b1e79e490ceda9af2417b6ddd77dc6b8bb`;
+  `0bb7eab8a87d11758dac20103ede5ac16c5acbdf3cbc3b511cb30842c4f29f2d`;
   and
-- focused dormant/hostile tests: 112/112 PASS; exact eight-module S20+
+- focused active/hostile tests: 112/112 PASS; exact eight-module S20+
   aggregate: 274/274 PASS.
 
 The changed-closure audit corrected five material boundaries before freezing
@@ -259,10 +260,14 @@ owner at the frozen identities above.
 
 No private artifact or device evidence is included in this tracked report.
 
-## Activation boundary
+## Activation record and boundary
 
-This independent `PASS_GO` qualifies only the exact frozen H0 capability. It
-does not create a run or device authority. A later activation must be a
-mechanical status/hash/constants/test update with no command-surface change.
-Only after that may a fresh connected prepare emit a fresh exact approval for
-an attended run.
+Independent `PASS_GO` qualified the exact dormant closure. Mechanical
+activation changed only the two capability constants, their reviewed
+full/normalized identities, registry/status wording, and exact assertions; it
+did not change a command surface or touch a device. The active capability still
+creates no run or standing approval. Only a fresh connected prepare may emit a
+fresh exact approval for one attended run.
+Independent post-activation H0 review returned `PASS_GO` for the exact active
+runner identities above, the activation-only diff, target isolation, and the
+112/112 focused plus 274/274 aggregate test closure.

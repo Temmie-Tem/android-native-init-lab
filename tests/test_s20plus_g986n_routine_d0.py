@@ -244,7 +244,7 @@ class S20PlusG986NRoutineD0Tests(unittest.TestCase):
             agents.count(
                 "| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) "
                 "| `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` "
-                "| Active exact-target routine D0/D1 including payload-free Download return; attended boot-only bootstrap and resident Magisk F1 active |"
+                "| Active exact-target routine D0/D1 including payload-free Download return; attended boot-only bootstrap and resident Magisk F1 active; reviewed attended native-canary R1 active |"
             ),
             1,
         )

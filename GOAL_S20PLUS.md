@@ -338,12 +338,13 @@ Magisk module install; no such capability, runner, artifact, approval, staging,
 reboot, or device command was created by the design. Persistent Magisk root is
 the prerequisite now proved, not itself proof of native init.
 
-The dormant R1 implementation now closes preparation-output loss, post-stage
+The reviewed R1 implementation closes preparation-output loss, post-stage
 identity/helper drift, partial canary/result and read-only-audit publication
 cuts, rooted-Android monotonic state recovery, truthful
 `completed-source-unobserved` terminals, and stock-terminal identity binding.
-These are host-only capability properties; both R1 activation constants remain
-false and no connected run or approval exists.
+Mechanical activation set both R1 constants true without changing those
+command surfaces. It created no connected run or approval; fresh connected
+preparation and operator attendance remain mandatory.
 
 That H0 implementation is now complete and recorded in
 `docs/reports/S20PLUS_G986N_NATIVE_CANARY_N1_H0_2026-08-15.md`. The tracked C
@@ -364,14 +365,15 @@ created no device authority. The final independent H0 re-review returned
 `PASS_GO` for that exact artifact closure.
 
 The operator then selected the optional binding-policy unit. A common R1
-boundary, exact dormant target specialization, exact dormant root-data runner,
-separate dormant stock-recovery owner, and hostile host tests are now
-implemented. Both activation constants remain false. This creates no run,
+boundary, exact target specialization, exact root-data runner, separate
+stock-recovery owner, and hostile host tests are now implemented and active.
+Both activation constants are true. Activation created no run,
 approval, staging, `su`, install, reboot, factory reset,
 Download transition, or Odin transfer. Independent changed-closure review
 returned `PASS_GO` for the exact frozen dormant closure. The dormant
-implementation creates no R1 or live authority; mechanical
-activation and live preparation remain later explicit decisions.
+implementation was then activated mechanically by rotating only its constants,
+reviewed identities, registry/status wording, and assertions. Live preparation
+remains a later explicit attended decision.
 
 The narrowed candidate requires zero pre-existing Magisk modules and an absent
 `modules_update` tree. It audits the exact canary update/active/state directory
@@ -407,17 +409,20 @@ cleanup each follow a durable branch-specific terminal input. Canonical canary e
 not merely JSON-equivalent. The CLI exposes an
 automatically allocated closed-grammar `run-id`, never a caller path.
 
-The frozen review-candidate root-data runner is 211,486 bytes at SHA-256
-`838f9fb89ec8f9c67e84a67eb9fd1ac0fe269b9f62310f8a0791adce95a94ad0`
+The active root-data runner is 211,523 bytes at SHA-256
+`c683a5cb5e230996cce439e6f2e0c5ebd02bda152e44fa9944eb74fcc41145c8`
 (normalized
-`cfaed8fc7de2d4aa4ce8793ab52127736b70b9d12795c819075fa2e102bec798`).
-Its stock-recovery owner is 61,315 bytes at SHA-256
-`20ffdb8dd39e87d32fe5391269bde775ac04e136425755c1ed5feb76bf0ce5f4`
+`61b32d82ebf3a14db5a236d7286f2d6fb5764d04372152549100a48f2f224fe7`).
+Its active stock-recovery owner is 61,312 bytes at SHA-256
+`b029afc3d4a899e4d83304773f8405519bacdb02de742de015a52c97689cc2a6`
 (normalized
-`9849416b63064406afa5c7c235c6b7b1e79e490ceda9af2417b6ddd77dc6b8bb`).
+`0bb7eab8a87d11758dac20103ede5ac16c5acbdf3cbc3b511cb30842c4f29f2d`).
 Focused host tests pass 112/112; the exact eight-module S20+ aggregate passes
 274/274.
-This H0 capability remains dormant and grants no R1 or device authority.
+Independent post-activation H0 review returned `PASS_GO` for these exact active
+identities and confirmed that no CLI or command logic changed.
+This R1 capability is active, but no current run, approval, or device action
+exists.
 
 A later reproducible-kernel-build unit would still need exact toolchain
 acquisition and a demonstrated matching build; the newly recovered embedded

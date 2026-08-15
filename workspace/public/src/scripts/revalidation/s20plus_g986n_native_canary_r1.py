@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Dormant attended S20+ N1 exact privileged root-data transaction.
+"""Reviewed attended S20+ N1 exact privileged root-data transaction.
 
-This runner is deliberately inactive.  It owns only one deterministic Magisk
-module, one fixed device namespace, bounded ordinary reboots, exact staged-byte
-cleanup, and a durable handoff to its separately reviewed stock-boot recovery
-runner.  It never accepts a caller supplied device path, shell fragment,
-module ID, package, artifact, or root command.
+This capability is active but creates no run or standing device authority.  It
+owns only one deterministic Magisk module, one fixed device namespace, bounded
+ordinary reboots, exact staged-byte cleanup, and a durable handoff to its
+separately reviewed stock-boot recovery runner.  It never accepts a caller
+supplied device path, shell fragment, module ID, package, artifact, or root
+command.
 """
 
 from __future__ import annotations
@@ -28,8 +29,8 @@ import s22plus_boot_only_f1_transport as transport
 
 
 VERSION = "s20plus-g986n-native-canary-r1-v1"
-NATIVE_CANARY_R1_ACTIVE = False
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "cfaed8fc7de2d4aa4ce8793ab52127736b70b9d12795c819075fa2e102bec798"
+NATIVE_CANARY_R1_ACTIVE = True
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "61b32d82ebf3a14db5a236d7286f2d6fb5764d04372152549100a48f2f224fe7"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -72,9 +73,9 @@ BOOTSTRAP_SOURCE = {
 }
 STOCK_RECOVERY_SOURCE = {
     "path": str(RECOVERY_SCRIPT),
-    "size": 61_315,
-    "sha256": "20ffdb8dd39e87d32fe5391269bde775ac04e136425755c1ed5feb76bf0ce5f4",
-    "normalized_sha256": "9849416b63064406afa5c7c235c6b7b1e79e490ceda9af2417b6ddd77dc6b8bb",
+    "size": 61_312,
+    "sha256": "b029afc3d4a899e4d83304773f8405519bacdb02de742de015a52c97689cc2a6",
+    "normalized_sha256": "0bb7eab8a87d11758dac20103ede5ac16c5acbdf3cbc3b511cb30842c4f29f2d",
 }
 
 STATE_PARENT = "/data/adb/s20plus-native-init"

@@ -1120,7 +1120,7 @@ class S20BootstrapF1Tests(unittest.TestCase):
         self.assertIn("Status: **PASS_GO - EXACT HOST-ONLY PRE-EFFECT ABANDON ACTIVE**", contract)
         self.assertIn("State: **PASS_GO - FIRST MAGISK ROOT PROVEN; STOCK ROLLBACK HEALTHY**", report)
         self.assertIn("Status: **BINDING - ACTIVE**", contract)
-        row = "| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) | `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` | Active exact-target routine D0/D1 including payload-free Download return; attended boot-only bootstrap and resident Magisk F1 active |"
+        row = "| Samsung Galaxy S20+ 5G (`SM-G986N` / `y2q` / `G986NKSS8IYC2`) | `GOAL_S20PLUS.md` | `docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md` | Active exact-target routine D0/D1 including payload-free Download return; attended boot-only bootstrap and resident Magisk F1 active; reviewed attended native-canary R1 active |"
         self.assertEqual(registry.count(row), 1)
         self.assertIn("S22+", contract)
         self.assertIn("A90", contract)

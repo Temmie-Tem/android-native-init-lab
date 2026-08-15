@@ -5,9 +5,9 @@ Date: 2026-08-15
 Selected target: operator-owned Samsung Galaxy S20+ 5G only,
 `SM-G986N` / `y2q` / `y2qksx` / `G986NKSS8IYC2`
 
-Tier: H0 policy and dormant state-machine implementation record
+Tier: H0 historical policy and state-machine design record
 
-Status: **SUPERSEDED BY REVIEWED DORMANT R1 IMPLEMENTATION - PASS_GO - NOT BINDING - NOT ACTIVE - NO DEVICE AUTHORITY**
+Status: **SUPERSEDED BY REVIEWED ACTIVE R1 IMPLEMENTATION - PASS_GO - NOT BINDING - NOT ACTIVE - NO DEVICE AUTHORITY**
 
 Provisional gate name: `S20PLUS_NATIVE_CANARY_ROOT_DATA_V1`
 
@@ -16,11 +16,11 @@ Provisional gate name: `S20PLUS_NATIVE_CANARY_ROOT_DATA_V1`
 This document originally described the smallest future transaction that could install and
 observe the N1 data-only Magisk canary selected in
 `S20PLUS_G986N_NATIVE_INIT_PHASED_DESIGN_2026-08-15.md`. Its design has now
-been implemented as a still-dormant R1 proposal in `AGENTS.md`, the binding
-S20+ target contract, and two exact inactive runners. This historical draft
-does not activate those clauses. It authorizes no `adb`, `su`, root-data
-write, module install, reboot, factory reset, or Odin
-transfer.
+been implemented and mechanically activated as R1 in `AGENTS.md`, the binding
+S20+ target contract, and two exact reviewed runners. This historical draft
+does not activate those clauses and remains neither binding nor executable. It
+authorizes no `adb`, `su`, root-data write, module install, reboot, factory
+reset, or Odin transfer.
 This branch is not currently executable.
 
 The transaction would prove only that one fixed repository-built static
@@ -159,9 +159,9 @@ Preparation may repeat because it has no device effect. It must prove:
 - two byte-identical native builds and two byte-identical ZIP builds;
 - the static ELF and exact ZIP audits;
 - the exact known resident boot and stock boot-only artifacts remain present,
-  direct, regular, and size/hash verified as H0 inputs; a dormant standalone
-  stock-recovery owner is now implemented, but a future preparation cannot
-  claim that branch until its exact closure is reviewed and activated;
+  direct, regular, and size/hash verified as H0 inputs; an exact standalone
+  stock-recovery owner is reviewed and active, but a fresh preparation cannot
+  claim that branch without binding and revalidating its exact active closure;
 - no active shared device guard and no unresolved S20+ run;
 - an automatically allocated private `run-id`, binding, intended stage path, and complete
   action/recovery manifest; and
@@ -173,8 +173,9 @@ intent, reboot intent, or approval by itself.
 
 ### Fresh live preflight
 
-A future activation would need one attended approval for the whole prepared
-transaction. Immediately before the first effect, the runner must prove one
+The active implementation still needs one fresh attended approval for each
+whole prepared transaction. Immediately before the first effect, the runner
+must prove one
 exact Android target and stable serial/topology/boot identity, healthy boot
 completion, enforcing SELinux, working Magisk root, Magisk `30.7`/`30700`, the
 expected resident boot, zero pre-existing modules, an absent `modules_update`
@@ -315,11 +316,11 @@ The approval must bind both branches in advance.
 2. **Exact rooted Android unavailable.** Physical Magisk Safe Mode is excluded:
    official v30.7 also mutates persistent Magisk configuration/database state,
    including the Zygisk setting, outside this transaction's finite surface.
-   A separate dormant stock-recovery
-   runner is now implemented and named by the review-pending target clause.
+   A separate reviewed active stock-recovery runner is named by the binding
+   target clause.
    Bootstrap and resident-F1 recovery authority still does not transfer or
    imply authority for it. The root-data runner may create one durable pre-bound handoff
-   only after activation and the exact token
+   only from a freshly prepared approved run and the exact token
    `S20PLUS-G986N-NATIVE-CANARY-R1-ROOTED-RECOVERY-UNAVAILABLE-STOCK-HANDOFF`.
    Submitting that token is the attended operator's explicit assertion that
    rooted Android recovery is unavailable, not a generic confirmation; a completed successful rooted recovery proof
@@ -346,9 +347,10 @@ partition, or another target.
 
 ## Required runner and hostile test closure before activation
 
-The dormant runners and their hostile suite implement the following review
-checklist. No live decision should be requested until the exact frozen closure
-has independently passed it and a later mechanical activation has occurred:
+The reviewed runners and their hostile suite implement the following review
+checklist. The exact frozen closure independently passed it and mechanical
+activation later occurred; no live decision follows without a fresh connected
+preparation and attended approval:
 
 - exact target isolation from S22+ and A90 at every pre-effect and post-reboot
   boundary;
@@ -389,8 +391,8 @@ has independently passed it and a later mechanical activation has occurred:
 
 An independent review must cover this draft's eventual binding policy,
 runner, schemas, source/builder closure, root command surface, Magisk behavior,
-recovery, tests, and higher-precedence boundaries. `PASS_GO` would qualify that
-unchanged capability only; it would still not create a run, prepare an
+recovery, tests, and higher-precedence boundaries. The resulting `PASS_GO`
+qualified that unchanged capability only; it did not create a run, prepare an
 artifact, approve a device action, or imply operator attendance.
 
 ## Current disposition
@@ -398,9 +400,11 @@ artifact, approve a device action, or imply operator attendance.
 The C canary, deterministic module builder, hostile process-model tests, and
 the original draft received independent `PASS_GO` as an exact H0 artifact
 closure. The optional next unit was selected and implemented host-only as the
-common R1 boundary, dormant S20+ specialization, root-data runner, stock-
+common R1 boundary, exact S20+ specialization, root-data runner, stock-
 recovery owner, and hostile tests. Independent changed-closure review returned
-`PASS_GO` for the exact frozen dormant closure. Both activation constants
-remain false. Activation,
-approval, staging, installation, reboot, recovery, and device observation
+`PASS_GO` for the exact frozen dormant closure. Mechanical activation then set
+both constants true and rotated only reviewed identities, status wording, and
+assertions; independent post-activation H0 review returned `PASS_GO` for the
+exact active identities. Activation itself created no run. Approval,
+staging, installation, reboot, recovery, and device observation
 remain separate decisions.

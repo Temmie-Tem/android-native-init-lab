@@ -7,7 +7,7 @@ Selected target: operator-owned Samsung Galaxy S20+ 5G only,
 
 Tier: H0 architecture, evidence map, and next-unit selection
 
-Status: **SELECTED DESIGN; N1 H0 PASS_GO; R1 H0 PASS_GO; NOT ACTIVE; NO DEVICE AUTHORITY**
+Status: **SELECTED DESIGN; N1 H0 PASS_GO; R1 PASS_GO - ACTIVE CAPABILITY; NO CURRENT RUN OR DEVICE AUTHORITY**
 
 ## Decision
 
@@ -554,13 +554,15 @@ policy interaction, and recovery model. That first re-review additionally
 exposed a NUL escape, a missing namespace fixture,
 and a nonexistent standalone stock-recovery assumption; all three were
 remediated, and the final re-review returned `PASS_GO` for the exact H0 closure.
-The operator selected that optional unit. A common R1 boundary, a dormant
-exact-target specialization, a fixed-command root-data runner, a separate
-dormant stock-boot recovery owner, and hostile tests are
-now implemented host-only. Both runner activation constants remain false, so
-the implementation creates no preparation, approval, `su`, staging, install,
+The operator selected that optional unit. A common R1 boundary, an exact-target
+specialization, a fixed-command root-data runner, a separate stock-boot
+recovery owner, and hostile tests are implemented and mechanically activated.
+Both runner activation constants are true, but activation created no
+preparation, approval, `su`, staging, install,
 reboot, Download transition, or transfer authority. Stop before every device
 command. Independent changed-closure review returned `PASS_GO` for the exact
-frozen dormant R1 closure. Any later activation is a separate mechanical
-decision. N2 through N5 remain designs, not a queue of implicitly approved
-actions.
+frozen dormant R1 closure; activation then changed only the constants, reviewed
+identities, status wording, and assertions. Independent post-activation H0
+review returned `PASS_GO` for the exact active identities and unchanged command
+surface. Fresh connected preparation is a separate attended decision. N2
+through N5 remain designs, not a queue of implicitly approved actions.

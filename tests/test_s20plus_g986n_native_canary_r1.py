@@ -235,24 +235,11 @@ class S20PlusNativeCanaryR1Tests(unittest.TestCase):
             "replay_permitted": False,
         }))
 
-    def test_capability_is_dormant_and_cli_blocks_every_connected_mode(self) -> None:
-        self.assertFalse(ROOT_DATA.NATIVE_CANARY_R1_ACTIVE)
-        self.assertFalse(STOCK.NATIVE_CANARY_STOCK_RECOVERY_ACTIVE)
-        self.assertFalse(ROOT_DATA.render_plan()["live_authority"])
-        self.assertFalse(STOCK.render_plan()["live_authority"])
-        for script, argv in (
-            (ROOT_DATA.SCRIPT, ["--prepare"]),
-            (STOCK.SCRIPT, ["--arm", "--run-id", "run-123456789012345678", "--confirmation", STOCK.PHYSICAL_ARM]),
-        ):
-            result = subprocess.run(
-                [sys.executable, str(script), *argv],
-                cwd=ROOT,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                check=False,
-            )
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn(b"not active", result.stderr)
+    def test_capability_is_active_but_cli_surface_remains_closed(self) -> None:
+        self.assertTrue(ROOT_DATA.NATIVE_CANARY_R1_ACTIVE)
+        self.assertTrue(STOCK.NATIVE_CANARY_STOCK_RECOVERY_ACTIVE)
+        self.assertTrue(ROOT_DATA.render_plan()["live_authority"])
+        self.assertTrue(STOCK.render_plan()["live_authority"])
         rejected = subprocess.run(
             [sys.executable, str(ROOT_DATA.SCRIPT), "--shell", "id"],
             cwd=ROOT,
@@ -4894,7 +4881,7 @@ except SystemExit as exc:
         self.assertEqual(completed["recovery"], "stock")
         self.assertEqual(completed["module_terminal"], "inactive-under-stock-boot")
 
-    def test_policy_documents_keep_r1_dormant_and_target_isolated(self) -> None:
+    def test_policy_documents_activate_only_r1_and_keep_target_isolated(self) -> None:
         agents = (ROOT / "AGENTS.md").read_text()
         contract = (
             ROOT / "docs/operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md"
@@ -4904,9 +4891,11 @@ except SystemExit as exc:
         ).read_text()
         self.assertIn("## Common R1 Invariants", agents)
         self.assertEqual(agents.count("| Samsung Galaxy S20+ 5G ("), 1)
-        self.assertIn("PASS_GO - DORMANT - NOT ACTIVE - NO R1 OR DEVICE AUTHORITY", contract)
-        self.assertIn("PASS_GO - DORMANT - NOT ACTIVE", report)
-        self.assertNotIn("Status: **BINDING - ACTIVE", report)
+        self.assertIn(
+            "PASS_GO - BINDING - ACTIVE CAPABILITY - NO CURRENT RUN OR DEVICE AUTHORITY",
+            contract,
+        )
+        self.assertIn("PASS_GO - ACTIVE CAPABILITY - NO CURRENT RUN", report)
         self.assertIn(ROOT_DATA.STAGE_DIR, contract)
         self.assertIn(ROOT_DATA.STAGE_DIR, report)
         self.assertIn(ROOT_DATA.STOCK_HANDOFF_CONFIRM, contract)
@@ -4956,19 +4945,19 @@ except SystemExit as exc:
     def test_runner_identities_and_policy_documents_are_frozen_after_review(self) -> None:
         self.assertEqual(
             ROOT_DATA.normalized_self_sha256(),
-            "cfaed8fc7de2d4aa4ce8793ab52127736b70b9d12795c819075fa2e102bec798",
+            "61b32d82ebf3a14db5a236d7286f2d6fb5764d04372152549100a48f2f224fe7",
         )
         self.assertEqual(
             hashlib.sha256(ROOT_DATA.SCRIPT.read_bytes()).hexdigest(),
-            "838f9fb89ec8f9c67e84a67eb9fd1ac0fe269b9f62310f8a0791adce95a94ad0",
+            "c683a5cb5e230996cce439e6f2e0c5ebd02bda152e44fa9944eb74fcc41145c8",
         )
         self.assertEqual(
             STOCK.normalized_self_sha256(),
-            "9849416b63064406afa5c7c235c6b7b1e79e490ceda9af2417b6ddd77dc6b8bb",
+            "0bb7eab8a87d11758dac20103ede5ac16c5acbdf3cbc3b511cb30842c4f29f2d",
         )
         self.assertEqual(
             hashlib.sha256(STOCK.SCRIPT.read_bytes()).hexdigest(),
-            "20ffdb8dd39e87d32fe5391269bde775ac04e136425755c1ed5feb76bf0ce5f4",
+            "b029afc3d4a899e4d83304773f8405519bacdb02de742de015a52c97689cc2a6",
         )
         for relative in (
             "GOAL_S20PLUS.md",
@@ -4977,11 +4966,11 @@ except SystemExit as exc:
         ):
             text = (ROOT / relative).read_text()
             self.assertIn(
-                "838f9fb89ec8f9c67e84a67eb9fd1ac0fe269b9f62310f8a0791adce95a94ad0",
+                "c683a5cb5e230996cce439e6f2e0c5ebd02bda152e44fa9944eb74fcc41145c8",
                 text,
             )
             self.assertIn(
-                "20ffdb8dd39e87d32fe5391269bde775ac04e136425755c1ed5feb76bf0ce5f4",
+                "b029afc3d4a899e4d83304773f8405519bacdb02de742de015a52c97689cc2a6",
                 text,
             )
 

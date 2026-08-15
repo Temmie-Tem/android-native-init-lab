@@ -554,7 +554,7 @@ class S20PlusNativeCanaryN1Tests(unittest.TestCase):
         self.assertIn("INDEPENDENT REVIEW PASS_GO", report)
         self.assertIn("received independent `PASS_GO`", draft)
         self.assertIn(
-            "N1 H0 PASS_GO; R1 H0 PASS_GO; NOT ACTIVE; NO DEVICE AUTHORITY",
+            "N1 H0 PASS_GO; R1 PASS_GO - ACTIVE CAPABILITY; NO CURRENT RUN OR DEVICE AUTHORITY",
             phased,
         )
         self.assertNotIn("R1 REVIEW PENDING", phased)

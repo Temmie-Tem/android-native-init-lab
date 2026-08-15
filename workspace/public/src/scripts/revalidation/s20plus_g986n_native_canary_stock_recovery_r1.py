@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dormant stock-boot recovery owner for the S20+ N1 root-data transaction.
+"""Reviewed active stock-boot recovery owner for the S20+ N1 transaction.
 
 The runner consumes only the exact durable handoff written by
 ``s20plus_g986n_native_canary_r1.py``.  It has no candidate path and can send
@@ -23,8 +23,8 @@ import s20plus_g986n_native_canary_r1 as root_data
 
 
 VERSION = "s20plus-g986n-native-canary-stock-recovery-r1-v1"
-NATIVE_CANARY_STOCK_RECOVERY_ACTIVE = False
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "9849416b63064406afa5c7c235c6b7b1e79e490ceda9af2417b6ddd77dc6b8bb"
+NATIVE_CANARY_STOCK_RECOVERY_ACTIVE = True
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "0bb7eab8a87d11758dac20103ede5ac16c5acbdf3cbc3b511cb30842c4f29f2d"
 SCRIPT = Path(__file__).resolve()
 
 PHYSICAL_ARM = "S20PLUS-G986N-NATIVE-CANARY-R1-STOCK-RECOVERY-ARM"

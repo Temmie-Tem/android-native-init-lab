@@ -1,6 +1,6 @@
 # S20+ G986N Binding Target Contract
 
-Status: **BINDING - ROUTINE D0/D1, P0 ABORT, AND ATTENDED F1 ACTIVE**
+Status: **BINDING - ROUTINE D0/D1, P0 ABORT, ATTENDED F1, AND ATTENDED R1 ACTIVE**
 
 This is the binding target contract for the operator-owned Samsung Galaxy S20+
 5G `SM-G986N` / `y2q` / `G986NKSS8IYC2`, listed in the binding target registry
@@ -8,7 +8,9 @@ in `AGENTS.md`. Its exact one-shot D0 onboarding inventory has been consumed.
 The durable onboarding active-intent guard remains present. A separately
 reviewed routine D0 public-property process may be activated below without
 removing, rotating, or reusing that onboarding guard. The exact routine D1 and
-attended boot-only F1 are reviewed and active.
+attended boot-only F1 and attended native-canary R1 are reviewed and active.
+R1 activation creates no run or standing approval; each transaction still
+requires fresh exact preparation, its emitted approval, and attendance.
 
 Exact live D0 established model `SM-G986N`, device `y2q`, product `y2qksx`,
 firmware incremental `G986NKSS8IYC2`, and fingerprint
@@ -518,29 +520,32 @@ its emitted `DATA-RESET-ACCEPTED` approval, and attendance remain mandatory.
 
 ## N1 exact privileged root-data transaction
 
-Status: **PASS_GO - DORMANT - NOT ACTIVE - NO R1 OR DEVICE AUTHORITY**
+Status: **PASS_GO - BINDING - ACTIVE CAPABILITY - NO CURRENT RUN OR DEVICE AUTHORITY**
 
-The proposed capability is implemented by two dormant runners:
+The reviewed active capability is implemented by two exact runners:
 
 - `workspace/public/src/scripts/revalidation/s20plus_g986n_native_canary_r1.py`;
   and
 - `workspace/public/src/scripts/revalidation/s20plus_g986n_native_canary_stock_recovery_r1.py`.
 
-Both activation constants are false. This section specializes the common R1
-invariants for the exact operator-owned `SM-G986N` / `y2q` / `y2qksx` /
-`G986NKSS8IYC2` target, but does not activate them. Existing resident Magisk
-root is a precondition only. It does not itself authorize `su`, `/data/adb`
-mutation, module installation, cleanup, reboot, or stock transfer.
+Both activation constants are true. This section specializes and activates the
+common R1 invariants only for the exact operator-owned `SM-G986N` / `y2q` /
+`y2qksx` / `G986NKSS8IYC2` target. Existing resident Magisk root is a
+precondition only. It does not itself authorize `su`, `/data/adb` mutation,
+module installation, cleanup, reboot, or stock transfer. Activation creates no
+run or approval; each use still requires fresh connected preparation, its
+emitted exact approval, and operator attendance.
 
-The review-candidate root-data runner is 211,486 bytes at SHA-256
-`838f9fb89ec8f9c67e84a67eb9fd1ac0fe269b9f62310f8a0791adce95a94ad0`
+The active root-data runner is 211,523 bytes at SHA-256
+`c683a5cb5e230996cce439e6f2e0c5ebd02bda152e44fa9944eb74fcc41145c8`
 and normalized SHA-256
-`cfaed8fc7de2d4aa4ce8793ab52127736b70b9d12795c819075fa2e102bec798`.
-The stock-recovery runner is 61,315 bytes at SHA-256
-`20ffdb8dd39e87d32fe5391269bde775ac04e136425755c1ed5feb76bf0ce5f4`
+`61b32d82ebf3a14db5a236d7286f2d6fb5764d04372152549100a48f2f224fe7`.
+The active stock-recovery runner is 61,312 bytes at SHA-256
+`b029afc3d4a899e4d83304773f8405519bacdb02de742de015a52c97689cc2a6`
 and normalized SHA-256
-`9849416b63064406afa5c7c235c6b7b1e79e490ceda9af2417b6ddd77dc6b8bb`.
-These values identify the frozen dormant H0 review candidate only.
+`0bb7eab8a87d11758dac20103ede5ac16c5acbdf3cbc3b511cb30842c4f29f2d`.
+These values identify the active capability. They do not identify a prepared
+run, approval, target session, or device action.
 
 The only proposed payload is the canonical data-only Magisk module ID
 `s20plus_native_canary`: ZIP size `598551`, SHA-256
@@ -766,15 +771,17 @@ continuation is allowed—Odin is never resent. Rollback intent/result JSON is r
 with duplicate-key rejection and exact typed schemas. A required factory reset is an accepted
 recovery cost, not permission for the runner to issue a format command.
 
-Independent review of the common R1 boundary, this section, both runners,
-schemas, fixed command literals, artifact and Magisk source closure, hostile
-tests, cleanup, stock handoff, and higher-precedence interactions is in
-progress. Activation remains a later mechanical decision and
-must set both
-constants true, rotate reviewed full/normalized hashes and exact assertions,
-and update the registry wording without changing any other target row. Even
-then a fresh connected preparation, emitted exact approval, and operator
-attendance remain mandatory. No approval or run exists now.
+Independent review of the common R1 boundary, this section, both dormant
+runners, schemas, fixed command literals, artifact and Magisk source closure,
+hostile tests, cleanup, stock handoff, and higher-precedence interactions
+returned `PASS_GO`. Mechanical activation set only the two capability
+constants true, rotated their full/normalized hashes and exact assertions, and
+updated the single S20+ registry row without changing either command surface
+or another target. Fresh connected preparation, its emitted exact approval,
+and operator attendance remain mandatory. No approval or run exists now.
+Independent H0 re-review of the exact active identities, activation-only diff,
+registry/status wording, and full test closure returned `PASS_GO` with no
+unresolved finding.
 
 ## Activation and Review Record
 
