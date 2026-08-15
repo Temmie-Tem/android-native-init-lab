@@ -520,7 +520,7 @@ its emitted `DATA-RESET-ACCEPTED` approval, and attendance remain mandatory.
 
 ## N1 exact privileged root-data transaction
 
-Status: **PASS_GO - BINDING - ACTIVE CAPABILITY - NO CURRENT RUN OR DEVICE AUTHORITY**
+Status: **BINDING - ACTIVE BASE CAPABILITY; ONE GUARDED POST-INSTALL RUN; EXACT NO-INSTALL CONTINUATION ACTIVE**
 
 The reviewed active capability is implemented by two exact runners:
 
@@ -536,16 +536,25 @@ module installation, cleanup, reboot, or stock transfer. Activation creates no
 run or approval; each use still requires fresh connected preparation, its
 emitted exact approval, and operator attendance.
 
-The active root-data runner is 213,403 bytes at SHA-256
-`35dfc7557c5c9e9b3e62d4865e81122572c57d0464997f4e2a35904a0b15432f`
+The active root-data runner is 223,363 bytes at SHA-256
+`63e58f99b06275ed0d1eeacc5d87dbb7fdc1a9f471fcd7645f447345b23a3b52`
 and normalized SHA-256
-`6c64c8763fd0ab68fe2b88721f6d6d1f0f9c28f96b4595f028c0af7c143194ad`.
+`39cdf9eda1eb4fa8240bab49c1a45fdf54b63431908fd6721cdde2453e77544c`.
 The active stock-recovery runner is 61,312 bytes at SHA-256
 `b029afc3d4a899e4d83304773f8405519bacdb02de742de015a52c97689cc2a6`
 and normalized SHA-256
 `0bb7eab8a87d11758dac20103ede5ac16c5acbdf3cbc3b511cb30842c4f29f2d`.
 These values identify the active capability. They do not identify a prepared
 run, approval, target session, or device action.
+
+One attended run prepared under that exact active identity has consumed its
+sole install attempt. Its complete rc-0/empty-stderr transcript was rejected
+only because the host grammar omitted Magisk v30.7's preceding system-as-root
+line. Its guard remains held; it has no post-install audit or reboot intent,
+installation replay is forbidden, and no general recovery or device authority
+is inferred. The exact incident and reviewed no-install continuation are
+recorded in
+`docs/reports/S20PLUS_G986N_NATIVE_CANARY_R1_INSTALL_TRANSCRIPT_INCIDENT_2026-08-16.md`.
 
 The only proposed payload is the canonical data-only Magisk module ID
 `s20plus_native_canary`: ZIP size `598551`, SHA-256
@@ -605,6 +614,28 @@ official Magisk v30.7 applies `0755` to the persistent `MAGISKBIN` tree in both
 its flash and app direct-install paths. The independently reviewed correction
 therefore requires exact `0755` for `util_functions.sh` through one shared
 parser/validator table; it adds no command, path, effect, or retry authority.
+
+The later install-transcript incident exposed one further host grammar defect.
+Official v30.7 `mount_partitions()` emits
+`- Device is system-as-root` on this exact target before the module title, so
+the closed successful stdout grammar includes that line and still requires rc
+zero, empty stderr, the exact remaining title/extraction lines, and no trailing
+bytes. A candidate-only compatibility entrypoint is bound to exact predecessor
+binding SHA-256
+`89098a4190d3ab2a85ddf0efd8b12ffdd800f79cf4146b8302f8e23832cf1845`
+and predecessor runner SHA-256
+`35dfc7557c5c9e9b3e62d4865e81122572c57d0464997f4e2a35904a0b15432f`.
+It must atomically bind the old and new runner receipts plus the exact install
+result/stdout hashes before connected reads, records zero device effects and
+`install_replay_permitted=false`, rebinds the same prepared Android boot before
+any privileged read, and starts only at the read-only post-install tree audit.
+It cannot stage or install. Missing or extra journal state, another binding,
+another runner, another transcript, target/boot drift, or helper drift stops
+before reboot. Independent review returned `PASS_GO` for candidate full
+SHA-256 `e2725e77dc552384eedc669902e35790af940d15fc786240171b50cc608ea420`
+and normalized SHA-256
+`39cdf9eda1eb4fa8240bab49c1a45fdf54b63431908fd6721cdde2453e77544c`;
+the separate identity-only rotation produced the active root-data runner above.
 
 Staging and privileged install use distinct intents. Before the install intent
 exists, an exact prepared-only run may be declined with zero device writes;
@@ -800,7 +831,10 @@ returned `PASS_GO`. Mechanical activation set only the two capability
 constants true, rotated their full/normalized hashes and exact assertions, and
 updated the single S20+ registry row without changing either command surface
 or another target. Fresh connected preparation, its emitted exact approval,
-and operator attendance remain mandatory. No approval or run exists now.
+and operator attendance remain mandatory for a new transaction. The one
+existing guarded post-install run is not fresh authority and may proceed only
+through the exact independently reviewed and identity-activated no-install
+continuation described above.
 Independent H0 re-review of the exact active identities, activation-only diff,
 registry/status wording, and full test closure returned `PASS_GO` with no
 unresolved finding.

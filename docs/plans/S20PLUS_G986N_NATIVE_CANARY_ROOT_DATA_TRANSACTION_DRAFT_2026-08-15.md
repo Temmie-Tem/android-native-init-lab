@@ -408,3 +408,11 @@ assertions; independent post-activation H0 review returned `PASS_GO` for the
 exact active identities. Activation itself created no run. Approval,
 staging, installation, reboot, recovery, and device observation
 remain separate decisions.
+
+A later live run exposed a host-only success-transcript defect after its exact
+install intent and rc-0 result were durable. The binding implementation's
+incident-specific continuation must never stage or reinstall: it is restricted
+to the exact predecessor binding/runner, binds both runner identities and the
+raw result hashes in a zero-effect receipt, and resumes at the read-only
+post-install audit. This addendum records the no-replay interpretation only;
+the superseded draft grants no continuation or device authority.

@@ -409,24 +409,45 @@ cleanup each follow a durable branch-specific terminal input. Canonical canary e
 not merely JSON-equivalent. The CLI exposes an
 automatically allocated closed-grammar `run-id`, never a caller path.
 
-The active root-data runner is 213,403 bytes at SHA-256
-`35dfc7557c5c9e9b3e62d4865e81122572c57d0464997f4e2a35904a0b15432f`
+The active root-data runner is 223,363 bytes at SHA-256
+`63e58f99b06275ed0d1eeacc5d87dbb7fdc1a9f471fcd7645f447345b23a3b52`
 (normalized
-`6c64c8763fd0ab68fe2b88721f6d6d1f0f9c28f96b4595f028c0af7c143194ad`).
+`39cdf9eda1eb4fa8240bab49c1a45fdf54b63431908fd6721cdde2453e77544c`).
 Its active stock-recovery owner is 61,312 bytes at SHA-256
 `b029afc3d4a899e4d83304773f8405519bacdb02de742de015a52c97689cc2a6`
 (normalized
 `0bb7eab8a87d11758dac20103ede5ac16c5acbdf3cbc3b511cb30842c4f29f2d`).
-Focused host tests pass 115/115; the exact eight-module S20+ aggregate passes
-277/277.
+Focused host tests pass 119/119; the exact eight-module S20+ aggregate passes
+281/281.
 Independent H0 review returned `PASS_GO` for the finite classifier, the
 remote-shell quoting/root-context correction, and the source-derived Magisk
 metadata candidate. Earlier rotations passed separate post-activation review;
 the current metadata rotation also passed final post-activation review.
 Each mechanical identity rotation introduced no further logic change; the CLI
 surface and authority remain unchanged.
-This R1 capability is active, but no current run, approval, or device action
-exists.
+The base R1 capability remains active. One later attended run has consumed its
+sole install attempt and remains guarded after the old host grammar rejected
+Magisk v30.7's legitimate leading system-as-root line. It has no post-install
+audit or reboot intent, and installation replay is forbidden.
+
+The exact no-install continuation candidate is bound only to predecessor
+binding SHA-256
+`89098a4190d3ab2a85ddf0efd8b12ffdd800f79cf4146b8302f8e23832cf1845`
+and predecessor runner SHA-256
+`35dfc7557c5c9e9b3e62d4865e81122572c57d0464997f4e2a35904a0b15432f`.
+It writes a zero-effect predecessor/current-runner receipt, rebinds the same
+prepared boot before privileged reads, and starts only at the read-only
+post-install audit; it cannot stage or install. Candidate identity is 223,363
+bytes, SHA-256
+`e2725e77dc552384eedc669902e35790af940d15fc786240171b50cc608ea420`,
+normalized
+`39cdf9eda1eb4fa8240bab49c1a45fdf54b63431908fd6721cdde2453e77544c`.
+Focused candidate validation had 118 logic passes and one expected stale-hash
+failure. Independent review returned `PASS_GO`; a separate identity-only
+rotation produced the current active root-data identity above, with post-rotation
+focused 119/119 and canonical eight-module 281/281 validation. The incident is recorded
+in
+`docs/reports/S20PLUS_G986N_NATIVE_CANARY_R1_INSTALL_TRANSCRIPT_INCIDENT_2026-08-16.md`.
 
 On 2026-08-16 three fresh connected preparations verified the exact target,
 Android health, and working Magisk root, then stopped before guard publication

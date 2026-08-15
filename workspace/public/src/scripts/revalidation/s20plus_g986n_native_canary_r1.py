@@ -31,12 +31,22 @@ import s22plus_boot_only_f1_transport as transport
 
 VERSION = "s20plus-g986n-native-canary-r1-v1"
 NATIVE_CANARY_R1_ACTIVE = True
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "6c64c8763fd0ab68fe2b88721f6d6d1f0f9c28f96b4595f028c0af7c143194ad"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "39cdf9eda1eb4fa8240bab49c1a45fdf54b63431908fd6721cdde2453e77544c"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
 RUN_ROOT = ROOT / "workspace/private/runs/s20plus-g986n-native-canary-r1"
 RECOVERY_SCRIPT = SCRIPT.with_name("s20plus_g986n_native_canary_stock_recovery_r1.py")
+
+POST_INSTALL_PREDECESSOR_ROOT_RUNNER = {
+    "path": str(SCRIPT),
+    "size": 213_403,
+    "sha256": "35dfc7557c5c9e9b3e62d4865e81122572c57d0464997f4e2a35904a0b15432f",
+    "normalized_sha256": "6c64c8763fd0ab68fe2b88721f6d6d1f0f9c28f96b4595f028c0af7c143194ad",
+}
+POST_INSTALL_PREDECESSOR_BINDING_SHA256 = (
+    "89098a4190d3ab2a85ddf0efd8b12ffdd800f79cf4146b8302f8e23832cf1845"
+)
 
 APPROVAL_PREFIX = "S20PLUS-G986N-NATIVE-CANARY-R1-APPROVE:"
 STOCK_HANDOFF_CONFIRM = (
@@ -369,15 +379,54 @@ def closure_receipts() -> dict[str, Any]:
     }
 
 
-def validate_recovery_inputs(prepared: dict[str, Any], scope: str) -> None:
+def validate_recovery_inputs(
+    prepared: dict[str, Any],
+    scope: str,
+    run_dir: Path | None = None,
+) -> None:
     if scope not in {
         "root-recovery", "stock-recovery", "stock-finalize",
         "root-terminal-release", "stock-terminal-release",
+        "post-install-resume",
     }:
         raise RootDataError("N1 recovery input scope is invalid")
     binding = prepared.get("binding") if isinstance(prepared, dict) else None
     closure = binding.get("closure") if isinstance(binding, dict) else None
     artifacts = binding.get("artifacts") if isinstance(binding, dict) else None
+    root_runner = closure.get("root_data_runner") if isinstance(closure, dict) else None
+    if scope == "post-install-resume":
+        if (
+            not isinstance(closure, dict)
+            or set(closure) != {
+                "root_data_runner", "stock_recovery_runner", "bootstrap",
+                "builder", "canary_source",
+            }
+            or not exact_typed_equal(
+                closure.get("root_data_runner"),
+                POST_INSTALL_PREDECESSOR_ROOT_RUNNER,
+            )
+            or prepared.get("binding_sha256")
+            != POST_INSTALL_PREDECESSOR_BINDING_SHA256
+            or not exact_typed_equal(
+                closure.get("bootstrap"), bootstrap.closure_receipts()
+            )
+        ):
+            raise RootDataError("N1 post-install predecessor closure changed")
+        self_receipt()
+        return
+    continued_predecessor = False
+    if (
+        run_dir is not None
+        and exact_typed_equal(root_runner, POST_INSTALL_PREDECESSOR_ROOT_RUNNER)
+        and os.path.lexists(run_dir / "post-install-continuation.json")
+    ):
+        validate_post_install_continuation(run_dir, prepared)
+        continued_predecessor = True
+    current_root_runner = self_receipt()
+    root_runner_valid = (
+        exact_typed_equal(root_runner, current_root_runner)
+        or continued_predecessor
+    )
     if scope in {"root-terminal-release", "stock-terminal-release"}:
         bootstrap_closure = (
             closure.get("bootstrap") if isinstance(closure, dict) else None
@@ -388,7 +437,7 @@ def validate_recovery_inputs(prepared: dict[str, Any], scope: str) -> None:
                 "root_data_runner", "stock_recovery_runner", "bootstrap",
                 "builder", "canary_source",
             }
-            or not exact_typed_equal(closure.get("root_data_runner"), self_receipt())
+            or not root_runner_valid
             or (
                 scope == "stock-terminal-release"
                 and not exact_typed_equal(
@@ -417,7 +466,7 @@ def validate_recovery_inputs(prepared: dict[str, Any], scope: str) -> None:
             "root_data_runner", "stock_recovery_runner", "bootstrap",
             "builder", "canary_source",
         }
-        or not exact_typed_equal(closure.get("root_data_runner"), self_receipt())
+        or not root_runner_valid
         or not exact_typed_equal(closure.get("bootstrap"), bootstrap.closure_receipts())
     ):
         raise RootDataError("N1 recovery-critical helper closure changed")
@@ -958,23 +1007,26 @@ def decode_exact(result: tuple[int, bytes, bytes], label: str, expected: bytes) 
     return stdout
 
 
+INSTALL_SUCCESS_STDOUT = (
+    b"- Device is system-as-root\n"
+    b"****************************\n"
+    b" S20+ Native Canary \n"
+    b" by android-native-init-lab \n"
+    b"****************************\n"
+    b"*******************\n"
+    b" Powered by Magisk \n"
+    b"*******************\n"
+    b"- Extracting module files\n"
+    b"- Done\n"
+    b"PASS_N1_INSTALL_EXACT\n"
+)
+
+
 def validate_install_output(result: tuple[int, bytes, bytes]) -> str:
     rc, stdout, stderr = result
     if rc != 0 or stderr or len(stdout) > MAX_OUTPUT:
         raise RootDataError("N1 exact Magisk install failed")
-    expected = (
-        b"****************************\n"
-        b" S20+ Native Canary \n"
-        b" by android-native-init-lab \n"
-        b"****************************\n"
-        b"*******************\n"
-        b" Powered by Magisk \n"
-        b"*******************\n"
-        b"- Extracting module files\n"
-        b"- Done\n"
-        b"PASS_N1_INSTALL_EXACT\n"
-    )
-    if stdout != expected:
+    if stdout != INSTALL_SUCCESS_STDOUT:
         raise RootDataError("N1 install output does not match the closed Magisk grammar")
     return hashlib.sha256(stdout).hexdigest()
 
@@ -1568,8 +1620,9 @@ def read_prepared(
     elif input_scope in {
         "root-recovery", "stock-recovery", "stock-finalize",
         "root-terminal-release", "stock-terminal-release",
+        "post-install-resume",
     }:
-        validate_recovery_inputs(value, input_scope)
+        validate_recovery_inputs(value, input_scope, run_dir)
     else:
         raise RootDataError("N1 prepared input scope is invalid")
     return value
@@ -2860,6 +2913,164 @@ def confirm_rooted_terminal_state(
         raise RootDataError("N1 module state changed after staged-input cleanup")
 
 
+def continue_after_install(
+    run_dir: Path,
+    prepared: dict[str, Any],
+    selected: dict[str, Any],
+    identity: dict[str, str],
+    command: Command,
+) -> dict[str, Any]:
+    """Continue after one durably proven install without invoking it again."""
+    adb = prepared["binding"]["closure"]["bootstrap"]["adb"]["path"]
+    audit_script = INSTALL_AUDIT_TEMPLATE.replace(
+        "__BINDING_SHA256__", prepared["binding"]["device_binding_sha256"]
+    )
+    audit = complete_readonly_command(
+        run_dir,
+        "post-install-audit",
+        root_argv(adb, selected["serial"], audit_script),
+        command,
+        180,
+        MAX_OUTPUT,
+    )
+    decode_exact(
+        audit,
+        "N1 post-install audit",
+        b"PASS_N1_POST_INSTALL_AUDIT\n",
+    )
+    selected, identity = dispatch_reboot(
+        run_dir, "first", prepared, selected, identity, command
+    )
+    require_module_inventory(run_dir, command, adb, selected["serial"])
+    device_binding_sha256 = prepared["binding"]["device_binding_sha256"]
+    run_nonce = prepared["binding"]["run_nonce"]
+    durable_root_exact(
+        run_dir,
+        "first-active-audit",
+        command,
+        adb,
+        selected["serial"],
+        active_audit_script(device_binding_sha256, run_nonce),
+        "N1 active audit",
+        b"PASS_N1_ACTIVE_AUDIT\n",
+    )
+    first_intent, first_result, first_parsed = read_state_files(
+        run_dir, "first", prepared, selected, command
+    )
+    require_canary_boot(
+        first_parsed, identity.get("boot_id_sha256"), "N1 canary result"
+    )
+    event(
+        run_dir,
+        3,
+        "first-observed",
+        {"result_sha256": hashlib.sha256(first_result).hexdigest()},
+    )
+    selected, identity = dispatch_reboot(
+        run_dir, "replay", prepared, selected, identity, command
+    )
+    require_module_inventory(run_dir, command, adb, selected["serial"])
+    durable_root_exact(
+        run_dir,
+        "replay-active-audit",
+        command,
+        adb,
+        selected["serial"],
+        active_audit_script(device_binding_sha256, run_nonce),
+        "N1 replay audit",
+        b"PASS_N1_ACTIVE_AUDIT\n",
+    )
+    replay_intent, replay_result, _ = read_state_files(
+        run_dir, "replay", prepared, selected, command
+    )
+    if replay_intent != first_intent or replay_result != first_result:
+        raise RootDataError("N1 canary journal changed on replay-proof boot")
+    current_selected, _values, current_identity = bootstrap.android_health_once(
+        command, adb
+    )
+    if current_identity != identity:
+        raise RootDataError("N1 target changed before module disable")
+    recovery_magisk_preflight(
+        command,
+        adb,
+        current_selected,
+        current_identity,
+        prepared,
+    )
+    require_module_inventory(
+        run_dir, command, adb, current_selected["serial"]
+    )
+    selected = current_selected
+    identity = current_identity
+    durable_create(run_dir / "disable-intent.json", {
+        "schema": "s20plus_g986n_native_canary_r1_disable_intent_v1",
+        "version": VERSION,
+        "binding_sha256": prepared["binding_sha256"],
+        "module_id": MODULE_ID,
+        "source_identity": identity,
+        "attempt": 1,
+        "replay_permitted": False,
+        "at": utc_now(),
+    })
+    disable = durable_command_result(
+        run_dir,
+        "disable",
+        root_argv(
+            adb,
+            selected["serial"],
+            disable_script(device_binding_sha256, run_nonce),
+        ),
+        command,
+        30,
+        MAX_OUTPUT,
+    )
+    decode_exact(disable, "N1 module disable", b"PASS_N1_DISABLE_EXACT\n")
+    selected, identity = dispatch_reboot(
+        run_dir, "disabled", prepared, selected, identity, command
+    )
+    require_module_inventory(run_dir, command, adb, selected["serial"])
+    durable_root_exact(
+        run_dir,
+        "disabled-audit",
+        command,
+        adb,
+        selected["serial"],
+        disabled_audit_script(device_binding_sha256, run_nonce),
+        "N1 disabled audit",
+        b"PASS_N1_DISABLED_AUDIT\n",
+    )
+    disabled_intent, disabled_result, _ = read_state_files(
+        run_dir, "disabled", prepared, selected, command
+    )
+    if disabled_intent != first_intent or disabled_result != first_result:
+        raise RootDataError("N1 canary journal changed after disable")
+    result_sha = hashlib.sha256(first_result).hexdigest()
+    write_terminal_input(
+        run_dir,
+        prepared,
+        "PASS_S20PLUS_G986N_NATIVE_CANARY_N1_DISABLED_ROOTED_HEALTHY",
+        identity,
+        result_sha,
+        recovery="normal",
+        canary_state_class="completed",
+    )
+    cleanup_stage(run_dir, prepared, selected, command)
+    staged_absence = stage_absence_evidence(command, adb, selected)
+    confirm_rooted_terminal_state(
+        run_dir, prepared, command, identity, "normal", "completed"
+    )
+    return write_terminal(
+        run_dir,
+        prepared,
+        "PASS_S20PLUS_G986N_NATIVE_CANARY_N1_DISABLED_ROOTED_HEALTHY",
+        identity,
+        result_sha,
+        recovery="normal",
+        canary_state_class="completed",
+        staged_input_absence=staged_absence,
+    )
+
+
 def execute(
     run_dir: Path,
     approval: str,
@@ -2925,87 +3136,42 @@ def execute(
         MAX_OUTPUT,
     )
     validate_install_output(outcome)
-    audit = INSTALL_AUDIT_TEMPLATE.replace(
-        "__BINDING_SHA256__", prepared["binding"]["device_binding_sha256"]
+    return continue_after_install(run_dir, prepared, selected, identity, command)
+
+
+def resume_after_install(
+    run_dir: Path,
+    command: Command = bootstrap.bounded_command,
+) -> dict[str, Any]:
+    """Resume one exact predecessor run after its proven install result.
+
+    This entrypoint never stages or installs.  It first publishes a host-only
+    predecessor-to-successor receipt, then rebinds the prepared Android boot
+    before any privileged read and continues at the post-install audit.
+    """
+    require_active()
+    prepared = read_prepared(run_dir, input_scope="post-install-resume")
+    validate_post_install_resume_cut(run_dir, prepared)
+    ensure_post_install_continuation(run_dir, prepared)
+    continued_seen = validate_post_install_resume_cut(run_dir, prepared)
+    if "post-install-continuation.json" not in continued_seen:
+        raise RootDataError("N1 post-install continuation receipt disappeared")
+    adb = prepared["binding"]["closure"]["bootstrap"]["adb"]["path"]
+    selected, _values, identity = bootstrap.android_health_once(command, adb)
+    require_returned_target(
+        prepared,
+        identity,
+        "N1 post-install continuation source",
+        require_boot_change=False,
     )
-    durable_root_exact(run_dir, "post-install-audit", command, adb, selected["serial"], audit, "N1 post-install audit", b"PASS_N1_POST_INSTALL_AUDIT\n")
-    selected, identity = dispatch_reboot(run_dir, "first", prepared, selected, identity, command)
-    require_module_inventory(run_dir, command, adb, selected["serial"])
-    device_binding_sha256 = prepared["binding"]["device_binding_sha256"]
-    run_nonce = prepared["binding"]["run_nonce"]
-    durable_root_exact(run_dir, "first-active-audit", command, adb, selected["serial"], active_audit_script(device_binding_sha256, run_nonce), "N1 active audit", b"PASS_N1_ACTIVE_AUDIT\n")
-    first_intent, first_result, _result = read_state_files(run_dir, "first", prepared, selected, command)
-    require_canary_boot(_result, identity.get("boot_id_sha256"), "N1 canary result")
-    event(run_dir, 3, "first-observed", {"result_sha256": hashlib.sha256(first_result).hexdigest()})
-    selected, identity = dispatch_reboot(run_dir, "replay", prepared, selected, identity, command)
-    require_module_inventory(run_dir, command, adb, selected["serial"])
-    durable_root_exact(run_dir, "replay-active-audit", command, adb, selected["serial"], active_audit_script(device_binding_sha256, run_nonce), "N1 replay audit", b"PASS_N1_ACTIVE_AUDIT\n")
-    replay_intent, replay_result, _ = read_state_files(run_dir, "replay", prepared, selected, command)
-    if replay_intent != first_intent or replay_result != first_result:
-        raise RootDataError("N1 canary journal changed on replay-proof boot")
-    current_selected, _values, current_identity = bootstrap.android_health_once(command, adb)
-    if current_identity != identity:
-        raise RootDataError("N1 target changed before module disable")
     recovery_magisk_preflight(
         command,
         adb,
-        current_selected,
-        current_identity,
-        prepared,
-    )
-    require_module_inventory(run_dir, command, adb, current_selected["serial"])
-    selected = current_selected
-    identity = current_identity
-    durable_create(run_dir / "disable-intent.json", {
-        "schema": "s20plus_g986n_native_canary_r1_disable_intent_v1",
-        "version": VERSION,
-        "binding_sha256": prepared["binding_sha256"],
-        "module_id": MODULE_ID,
-        "source_identity": identity,
-        "attempt": 1,
-        "replay_permitted": False,
-        "at": utc_now(),
-    })
-    disable = durable_command_result(
-        run_dir,
-        "disable",
-        root_argv(adb, selected["serial"], disable_script(device_binding_sha256, run_nonce)),
-        command,
-        30,
-        MAX_OUTPUT,
-    )
-    decode_exact(disable, "N1 module disable", b"PASS_N1_DISABLE_EXACT\n")
-    selected, identity = dispatch_reboot(run_dir, "disabled", prepared, selected, identity, command)
-    require_module_inventory(run_dir, command, adb, selected["serial"])
-    durable_root_exact(run_dir, "disabled-audit", command, adb, selected["serial"], disabled_audit_script(device_binding_sha256, run_nonce), "N1 disabled audit", b"PASS_N1_DISABLED_AUDIT\n")
-    disabled_intent, disabled_result, _ = read_state_files(run_dir, "disabled", prepared, selected, command)
-    if disabled_intent != first_intent or disabled_result != first_result:
-        raise RootDataError("N1 canary journal changed after disable")
-    result_sha = hashlib.sha256(first_result).hexdigest()
-    write_terminal_input(
-        run_dir,
-        prepared,
-        "PASS_S20PLUS_G986N_NATIVE_CANARY_N1_DISABLED_ROOTED_HEALTHY",
+        selected,
         identity,
-        result_sha,
-        recovery="normal",
-        canary_state_class="completed",
-    )
-    cleanup_stage(run_dir, prepared, selected, command)
-    staged_absence = stage_absence_evidence(command, adb, selected)
-    confirm_rooted_terminal_state(
-        run_dir, prepared, command, identity, "normal", "completed"
-    )
-    return write_terminal(
-        run_dir,
         prepared,
-        "PASS_S20PLUS_G986N_NATIVE_CANARY_N1_DISABLED_ROOTED_HEALTHY",
-        identity,
-        result_sha,
-        recovery="normal",
-        canary_state_class="completed",
-        staged_input_absence=staged_absence,
     )
+    return continue_after_install(run_dir, prepared, selected, identity, command)
 
 
 PRE_INSTALL_ABORT_FILES = PREPARED_FILES | {
@@ -3571,6 +3737,8 @@ HANDOFF_ALLOWED_FILES = PREPARED_FILES | {
     "stage-verify.stdout", "stage-verify.stderr", "stage-verify-result.json",
     "install.stdout", "install.stderr", "install-result.json",
     "post-install-audit.stdout", "post-install-audit.stderr", "post-install-audit-result.json",
+    "post-install-audit-resume.json",
+    "post-install-continuation.json",
     "first-reboot-intent.json", "first-reboot.stdout", "first-reboot.stderr",
     "first-reboot-result.json", "first-observation.json",
     "first-active-audit.stdout", "first-active-audit.stderr", "first-active-audit-result.json",
@@ -3608,6 +3776,26 @@ COMMAND_LABELS = (
     "disabled-audit", "recovery-disable", "recovery-disabled-reboot",
     "recovery-disabled-audit", "cleanup",
 )
+
+POST_INSTALL_RESUME_REQUIRED_FILES = PREPARED_FILES | {
+    "stage-intent.json",
+    "install-intent.json",
+    "stage-claim.stdout", "stage-claim.stderr", "stage-claim-result.json",
+    "stage-zip.stdout", "stage-zip.stderr", "stage-zip-result.json",
+    "stage-binding.stdout", "stage-binding.stderr", "stage-binding-result.json",
+    "stage-verify.stdout", "stage-verify.stderr", "stage-verify-result.json",
+    "install.stdout", "install.stderr", "install-result.json",
+    "events/01-native-canary-stage-intent.json",
+    "events/02-native-canary-install-intent.json",
+}
+
+POST_INSTALL_RESUME_ALLOWED_FILES = POST_INSTALL_RESUME_REQUIRED_FILES | {
+    "post-install-continuation.json",
+    "post-install-audit.stdout",
+    "post-install-audit.stderr",
+    "post-install-audit-result.json",
+    "post-install-audit-resume.json",
+}
 
 
 def uncertain_command_evidence(
@@ -4479,6 +4667,104 @@ def validate_recovery_prefix_graph(
         raise RootDataError("N1 terminal result lacks its cleanup prefix")
 
 
+def validate_post_install_continuation(
+    run_dir: Path,
+    prepared: dict[str, Any],
+) -> dict[str, Any]:
+    if prepared.get("binding_sha256") != POST_INSTALL_PREDECESSOR_BINDING_SHA256:
+        raise RootDataError("N1 post-install continuation binding is not authorized")
+    value = read_exact_json(
+        run_dir / "post-install-continuation.json",
+        "N1 post-install continuation",
+    )
+    install_result = read_exact_blob(
+        run_dir / "install-result.json",
+        "N1 post-install continuation install result",
+        MAX_OUTPUT,
+    )
+    install_stdout_sha256 = validate_install_output(
+        require_complete_successful_command(run_dir, "install")
+    )
+    expected = {
+        "schema": "s20plus_g986n_native_canary_r1_post_install_continuation_v1",
+        "version": VERSION,
+        "binding_sha256": prepared["binding_sha256"],
+        "predecessor_root_data_runner": POST_INSTALL_PREDECESSOR_ROOT_RUNNER,
+        "current_root_data_runner": self_receipt(),
+        "install_result_sha256": hashlib.sha256(install_result).hexdigest(),
+        "install_stdout_sha256": install_stdout_sha256,
+        "attempt": 1,
+        "device_effect_count": 0,
+        "install_replay_permitted": False,
+        "at": value.get("at") if isinstance(value, dict) else None,
+    }
+    if (
+        not exact_typed_equal(value, expected)
+        or type(value.get("attempt")) is not int
+        or type(value.get("device_effect_count")) is not int
+        or not isinstance(value.get("at"), str)
+    ):
+        raise RootDataError("N1 post-install continuation is malformed or mismatched")
+    return value
+
+
+def ensure_post_install_continuation(
+    run_dir: Path,
+    prepared: dict[str, Any],
+) -> dict[str, Any]:
+    if prepared.get("binding_sha256") != POST_INSTALL_PREDECESSOR_BINDING_SHA256:
+        raise RootDataError("N1 post-install continuation binding is not authorized")
+    path = run_dir / "post-install-continuation.json"
+    if not os.path.lexists(path):
+        install_result = read_exact_blob(
+            run_dir / "install-result.json",
+            "N1 post-install continuation install result",
+            MAX_OUTPUT,
+        )
+        install_stdout_sha256 = validate_install_output(
+            require_complete_successful_command(run_dir, "install")
+        )
+        durable_create(path, {
+            "schema": "s20plus_g986n_native_canary_r1_post_install_continuation_v1",
+            "version": VERSION,
+            "binding_sha256": prepared["binding_sha256"],
+            "predecessor_root_data_runner": POST_INSTALL_PREDECESSOR_ROOT_RUNNER,
+            "current_root_data_runner": self_receipt(),
+            "install_result_sha256": hashlib.sha256(install_result).hexdigest(),
+            "install_stdout_sha256": install_stdout_sha256,
+            "attempt": 1,
+            "device_effect_count": 0,
+            "install_replay_permitted": False,
+            "at": utc_now(),
+        })
+    return validate_post_install_continuation(run_dir, prepared)
+
+
+def validate_post_install_resume_cut(
+    run_dir: Path,
+    prepared: dict[str, Any],
+) -> set[str]:
+    if prepared.get("binding_sha256") != POST_INSTALL_PREDECESSOR_BINDING_SHA256:
+        raise RootDataError("N1 post-install continuation binding is not authorized")
+    seen = validate_recovery_journal(
+        run_dir,
+        prepared,
+        allow_uncertain_commands=True,
+    )
+    if (
+        not POST_INSTALL_RESUME_REQUIRED_FILES.issubset(seen)
+        or not seen.issubset(POST_INSTALL_RESUME_ALLOWED_FILES)
+    ):
+        raise RootDataError("N1 post-install continuation journal is not at the exact cut")
+    audit_present = any(name.startswith("post-install-audit") for name in seen)
+    if audit_present and "post-install-continuation.json" not in seen:
+        raise RootDataError("N1 post-install audit has no continuation predecessor")
+    validate_install_output(require_complete_successful_command(run_dir, "install"))
+    if "post-install-continuation.json" in seen:
+        validate_post_install_continuation(run_dir, prepared)
+    return seen
+
+
 def validate_recovery_journal(
     run_dir: Path,
     prepared: dict[str, Any],
@@ -4506,11 +4792,14 @@ def validate_recovery_journal(
             allow_uncertain_consumed=allow_uncertain_commands,
         )
     for label in (
+        "post-install-audit",
         "disabled-audit",
         "recovery-disabled-audit",
     ):
         if os.path.lexists(run_dir / f"{label}-resume.json"):
             read_readonly_resume(run_dir, label)
+    if os.path.lexists(run_dir / "post-install-continuation.json"):
+        validate_post_install_continuation(run_dir, prepared)
     validate_optional_effect_intents(run_dir, prepared)
     if os.path.lexists(run_dir / "normal-disable-proof.json"):
         if not os.path.lexists(run_dir / "disable-intent.json"):
@@ -5207,6 +5496,15 @@ def render_plan() -> dict[str, Any]:
         "stage_dir": STAGE_DIR,
         "install_attempts": 1,
         "normal_reboot_budget": 3,
+        "post_install_resume": {
+            "predecessor_binding_sha256": (
+                POST_INSTALL_PREDECESSOR_BINDING_SHA256
+            ),
+            "predecessor_root_data_runner_sha256": (
+                POST_INSTALL_PREDECESSOR_ROOT_RUNNER["sha256"]
+            ),
+            "install_replay_permitted": False,
+        },
         "stock_recovery_attempts": 1,
         "generic_root_command_surface": False,
         "partition_payloads": ["boot-only-stock-recovery"],
@@ -5219,6 +5517,7 @@ def main() -> int:
     parser.add_argument("--render-plan", action="store_true")
     parser.add_argument("--prepare", action="store_true")
     parser.add_argument("--execute", action="store_true")
+    parser.add_argument("--resume-after-install", action="store_true")
     parser.add_argument("--abort-pre-install", action="store_true")
     parser.add_argument("--recover-android", action="store_true")
     parser.add_argument("--finalize-terminal", action="store_true")
@@ -5231,6 +5530,7 @@ def main() -> int:
         args.render_plan,
         args.prepare,
         args.execute,
+        args.resume_after_install,
         args.abort_pre_install,
         args.recover_android,
         args.finalize_terminal,
@@ -5260,6 +5560,10 @@ def main() -> int:
         if args.approval is None or args.confirmation is not None:
             parser.error("--approval is required")
         result = execute(run_dir, args.approval)
+    elif args.resume_after_install:
+        if args.approval is not None or args.confirmation is not None:
+            parser.error("--resume-after-install accepts only --run-id")
+        result = resume_after_install(run_dir)
     elif args.abort_pre_install:
         if args.approval is not None or args.confirmation is not None:
             parser.error("--abort-pre-install accepts only --run-id")

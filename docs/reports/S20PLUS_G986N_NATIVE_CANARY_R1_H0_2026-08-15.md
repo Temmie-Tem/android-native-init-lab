@@ -5,15 +5,17 @@ Date: 2026-08-15
 Target: operator-owned `SM-G986N` / `y2q` / `y2qksx` /
 `G986NKSS8IYC2` only
 
-Status: **PASS_GO - ACTIVE CAPABILITY - NO CURRENT RUN OR DEVICE AUTHORITY**
+Status: **ACTIVE BASE CAPABILITY; ONE GUARDED POST-INSTALL RUN; EXACT NO-INSTALL CONTINUATION ACTIVE**
 
 ## Outcome
 
 The selected post-N1 unit is implemented as one exact
 privileged root-data transaction and one separately owned stock-boot recovery
 path. Mechanical activation changed no device. Both activation constants are
-true, but activation created no run, approval, connected preparation, or
-device command. Fresh preparation and attended approval remain mandatory.
+true. Activation itself created no run, approval, connected preparation, or
+device command. A later attended run has now consumed its sole install attempt
+and remains guarded after a host transcript-parser rejection; fresh preparation
+and attended approval remain mandatory for every new transaction.
 
 The proposed normal transaction is fixed to:
 
@@ -220,6 +222,45 @@ owner and requires terminal identity to equal durable final-health identity.
 Factory reset and complete data loss are accepted possible operator recovery
 costs; neither runner contains a reset or format command.
 
+## Install transcript incident and bounded continuation candidate
+
+The current guarded run has one exact install intent and one complete command
+result with rc zero and empty stderr. No post-install audit or reboot intent was
+published. Its private stdout SHA-256 is
+`a8127967c1e9ffbc12d32f6630ed0bdbc4c12237c009a4bf727e7348d0e7e5eb`.
+The old grammar omitted the source-defined first line
+`- Device is system-as-root`; official Magisk v30.7 emits it in
+`mount_partitions()` before the module title and extraction output. The
+installation is therefore consumed and successful as a command result, but N1
+PASS remains unproved until the module tree and reboot sequence are observed.
+Installation replay is forbidden.
+
+The independently reviewed candidate added only
+`--resume-after-install --run-id <closed-id>`. It binds exact predecessor
+binding SHA-256
+`89098a4190d3ab2a85ddf0efd8b12ffdd800f79cf4146b8302f8e23832cf1845`
+and the predecessor root-runner receipt. Before connected reads it atomically
+publishes an exact typed continuation receipt binding predecessor/current
+runner identities and install result/stdout hashes, with zero device effects
+and `install_replay_permitted=false`. It accepts no approval, artifact path, or
+command input; it never stages or installs. It requires the same prepared
+serial/topology/boot before privileged reads, rechecks exact Magisk/helper
+bytes, and resumes only at the existing read-only post-install audit. All later
+cuts must revalidate that continuation receipt and use the ordinary no-replay
+recovery state machine.
+
+The candidate is 223,363 bytes at SHA-256
+`e2725e77dc552384eedc669902e35790af940d15fc786240171b50cc608ea420`,
+normalized SHA-256
+`39cdf9eda1eb4fa8240bab49c1a45fdf54b63431908fd6721cdde2453e77544c`.
+Focused validation has 118 logic passes plus the expected stale-identity
+failure before activation. Independent review returned `PASS_GO`; the separate
+identity-only rotation produced the active 223,363-byte runner at SHA-256
+`63e58f99b06275ed0d1eeacc5d87dbb7fdc1a9f471fcd7645f447345b23a3b52`
+with the same normalized SHA-256. Post-rotation focused validation is 119/119
+and the canonical eight-module S20+ aggregate is 281/281. Full details are in
+`docs/reports/S20PLUS_G986N_NATIVE_CANARY_R1_INSTALL_TRANSCRIPT_INCIDENT_2026-08-16.md`.
+
 ## Public closure
 
 Execution-critical public files:
@@ -234,17 +275,17 @@ Execution-critical public files:
 
 The active reviewed identities are:
 
-- root-data runner: 213,403 bytes, SHA-256
-  `35dfc7557c5c9e9b3e62d4865e81122572c57d0464997f4e2a35904a0b15432f`,
+- root-data runner: 223,363 bytes, SHA-256
+  `63e58f99b06275ed0d1eeacc5d87dbb7fdc1a9f471fcd7645f447345b23a3b52`,
   normalized
-  `6c64c8763fd0ab68fe2b88721f6d6d1f0f9c28f96b4595f028c0af7c143194ad`;
+  `39cdf9eda1eb4fa8240bab49c1a45fdf54b63431908fd6721cdde2453e77544c`;
 - stock-recovery runner: 61,312 bytes, SHA-256
   `b029afc3d4a899e4d83304773f8405519bacdb02de742de015a52c97689cc2a6`,
   normalized
   `0bb7eab8a87d11758dac20103ede5ac16c5acbdf3cbc3b511cb30842c4f29f2d`;
   and
-- focused active/hostile tests: 115/115 PASS; exact eight-module S20+
-  aggregate: 277/277 PASS.
+- focused active/hostile tests: 119/119 PASS; exact eight-module S20+
+  aggregate: 281/281 PASS.
 
 The 2026-08-15 changed-closure audit corrected five material boundaries before
 the initial activation: recovery entrypoints no longer import candidate-only
@@ -293,9 +334,17 @@ candidate SHA-256
 `6905a92a7dd2eb7a3d64b3dc5055cf7cd297c43077a682eeea0f0fadbb1639c4`
 (normalized
 `6c64c8763fd0ab68fe2b88721f6d6d1f0f9c28f96b4595f028c0af7c143194ad`).
-The mechanical identity-only rotation produced the current active identity
-above; the CLI, fixed root script, effect budget, and recovery surface are
-unchanged.
+The mechanical identity-only rotation produced the then-active 213,403-byte
+identity `35dfc7557c5c9e9b3e62d4865e81122572c57d0464997f4e2a35904a0b15432f`
+with the same normalized hash; the CLI, fixed root script, effect budget, and
+recovery surface were unchanged.
+
+The install-transcript continuation candidate above then received independent
+`PASS_GO` at full SHA-256
+`e2725e77dc552384eedc669902e35790af940d15fc786240171b50cc608ea420`.
+Its identity-only rotation produced the current active root-data identity
+listed in Public closure. The active CLI adds only the closed run-ID
+continuation and cannot stage or reinstall.
 
 No private artifact or device evidence is included in this tracked report.
 
@@ -311,5 +360,5 @@ validator table; each later activation changed only the normalized identity
 constant and matching records. No activation
 touched a device or created a run or standing approval. Post-hotfix activation
 review returned `PASS_GO` for the exact current identities above, target
-isolation, and the 115/115 focused plus 277/277 aggregate test closure. Only a
+isolation, and the 119/119 focused plus 281/281 aggregate test closure. Only a
 fresh connected prepare may emit an approval for one attended run.

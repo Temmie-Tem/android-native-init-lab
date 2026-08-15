@@ -325,6 +325,8 @@ class S20PlusNativeCanaryR1Tests(unittest.TestCase):
                 [str(ROOT_DATA.SCRIPT), "--prepare"],
             ), mock.patch.object(ROOT_DATA, "require_active"), mock.patch.object(
                 ROOT_DATA, "prepare", return_value=run
+            ), mock.patch.object(
+                ROOT_DATA, "guard_path", return_value=Path(temp) / "unused-guard.json"
             ), contextlib.redirect_stdout(output):
                 self.assertEqual(ROOT_DATA.main(), 0)
             self.assertEqual(json.loads(output.getvalue()), {
@@ -332,6 +334,47 @@ class S20PlusNativeCanaryR1Tests(unittest.TestCase):
                 "run_id": run.name,
                 "approval_token": ROOT_DATA.APPROVAL_PREFIX + binding_sha,
             })
+
+    def test_resume_after_install_is_one_closed_run_id_only_cli_action(self) -> None:
+        run = Path("/tmp/run-123456789012345678")
+        output = io.StringIO()
+        with mock.patch.object(
+            sys,
+            "argv",
+            [
+                str(ROOT_DATA.SCRIPT),
+                "--resume-after-install",
+                "--run-id",
+                run.name,
+            ],
+        ), mock.patch.object(ROOT_DATA, "require_active"), mock.patch.object(
+            ROOT_DATA, "resolve_run_id", return_value=run
+        ), mock.patch.object(
+            ROOT_DATA,
+            "resume_after_install",
+            return_value={"verdict": "PASS"},
+        ) as resume, contextlib.redirect_stdout(output):
+            self.assertEqual(ROOT_DATA.main(), 0)
+        resume.assert_called_once_with(run)
+        self.assertEqual(json.loads(output.getvalue()), {"verdict": "PASS"})
+
+        with mock.patch.object(
+            sys,
+            "argv",
+            [
+                str(ROOT_DATA.SCRIPT),
+                "--resume-after-install",
+                "--run-id",
+                run.name,
+                "--approval",
+                "ignored",
+            ],
+        ), mock.patch.object(ROOT_DATA, "require_active"), mock.patch.object(
+            ROOT_DATA, "resolve_run_id", return_value=run
+        ), mock.patch.object(ROOT_DATA, "resume_after_install") as rejected:
+            with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                ROOT_DATA.main()
+        rejected.assert_not_called()
 
     def test_prepare_output_cut_reemits_exact_binding_without_device_work(self) -> None:
         with tempfile.TemporaryDirectory(prefix="s20plus-r1-prepare-output-cut-") as temp:
@@ -665,25 +708,305 @@ class S20PlusNativeCanaryR1Tests(unittest.TestCase):
             )
 
     def test_magisk_install_output_uses_a_closed_terminal_grammar(self) -> None:
-        valid = (
-            b"****************************\n S20+ Native Canary \n"
-            b" by android-native-init-lab \n****************************\n"
-            b"*******************\n Powered by Magisk \n*******************\n"
-            b"- Extracting module files\n- Done\n"
-            b"PASS_N1_INSTALL_EXACT\n"
-        )
+        valid = ROOT_DATA.INSTALL_SUCCESS_STDOUT
         self.assertEqual(
             ROOT_DATA.validate_install_output((0, valid, b"")),
             hashlib.sha256(valid).hexdigest(),
         )
+        prefixless = valid.removeprefix(b"- Device is system-as-root\n")
         for result in (
             (1, valid, b""),
             (0, valid, b"warning"),
+            (0, prefixless, b""),
             (0, valid.replace(b"- Done", b"- Failed"), b""),
             (0, valid + b"trailing\n", b""),
         ):
             with self.assertRaises(ROOT_DATA.RootDataError):
                 ROOT_DATA.validate_install_output(result)
+
+    def test_post_install_continuation_binds_exact_predecessor_without_replay(self) -> None:
+        prepared = self.prepared()
+        prepared["binding_sha256"] = ROOT_DATA.POST_INSTALL_PREDECESSOR_BINDING_SHA256
+        current_runner = {
+            "path": str(ROOT_DATA.SCRIPT),
+            "size": 9,
+            "sha256": "9" * 64,
+            "normalized_sha256": "8" * 64,
+        }
+        with tempfile.TemporaryDirectory(prefix="s20plus-r1-post-install-cut-") as temp:
+            run = Path(temp)
+            self.seed_recovery_journal(run, prepared)
+            self.write_command_result(
+                run,
+                "install",
+                ROOT_DATA.INSTALL_SUCCESS_STDOUT,
+            )
+            with mock.patch.object(
+                ROOT_DATA,
+                "self_receipt",
+                return_value=current_runner,
+            ):
+                self.assertEqual(
+                    ROOT_DATA.validate_post_install_resume_cut(run, prepared),
+                    set(ROOT_DATA.POST_INSTALL_RESUME_REQUIRED_FILES),
+                )
+                receipt = ROOT_DATA.ensure_post_install_continuation(run, prepared)
+                self.assertEqual(receipt["device_effect_count"], 0)
+                self.assertFalse(receipt["install_replay_permitted"])
+                self.assertEqual(
+                    receipt["predecessor_root_data_runner"],
+                    ROOT_DATA.POST_INSTALL_PREDECESSOR_ROOT_RUNNER,
+                )
+                self.assertEqual(receipt["current_root_data_runner"], current_runner)
+                ROOT_DATA.validate_post_install_resume_cut(run, prepared)
+                wrong_binding = {
+                    **prepared,
+                    "binding_sha256": "0" * 64,
+                }
+                with self.assertRaisesRegex(
+                    ROOT_DATA.RootDataError,
+                    "binding is not authorized",
+                ):
+                    ROOT_DATA.validate_post_install_resume_cut(run, wrong_binding)
+
+                self.write_command_result(
+                    run,
+                    "post-install-audit",
+                    b"PASS_N1_POST_INSTALL_AUDIT\n",
+                )
+                (run / "first-reboot-intent.json").write_text(json.dumps({
+                    "schema": "s20plus_g986n_native_canary_r1_reboot_intent_v1",
+                    "version": ROOT_DATA.VERSION,
+                    "binding_sha256": prepared["binding_sha256"],
+                    "phase": "first",
+                    "prior_boot_id_sha256": (
+                        prepared["binding"]["target"]["boot_id_sha256"]
+                    ),
+                    "attempt": 1,
+                    "replay_permitted": False,
+                    "at": "now",
+                }))
+                with self.assertRaisesRegex(
+                    ROOT_DATA.RootDataError,
+                    "not at the exact cut",
+                ):
+                    ROOT_DATA.validate_post_install_resume_cut(run, prepared)
+                for name in (
+                    "post-install-audit.stdout",
+                    "post-install-audit.stderr",
+                    "post-install-audit-result.json",
+                    "first-reboot-intent.json",
+                ):
+                    (run / name).unlink()
+
+                forged = dict(receipt)
+                forged["install_replay_permitted"] = 0
+                (run / "post-install-continuation.json").unlink()
+                (run / "post-install-continuation.json").write_text(json.dumps(forged))
+                with self.assertRaisesRegex(
+                    ROOT_DATA.RootDataError,
+                    "continuation is malformed",
+                ):
+                    ROOT_DATA.validate_post_install_continuation(run, prepared)
+
+    def test_predecessor_recovery_opens_only_after_exact_continuation_receipt(self) -> None:
+        prepared = self.prepared()
+        prepared["binding_sha256"] = ROOT_DATA.POST_INSTALL_PREDECESSOR_BINDING_SHA256
+        current_runner = {
+            "path": str(ROOT_DATA.SCRIPT),
+            "size": 9,
+            "sha256": "9" * 64,
+            "normalized_sha256": "8" * 64,
+        }
+        bootstrap_closure = {
+            "runner": {"sha256": "7" * 64},
+            "adb": {"path": "/usr/bin/adb"},
+        }
+        prepared["binding"]["closure"] = {
+            "root_data_runner": ROOT_DATA.POST_INSTALL_PREDECESSOR_ROOT_RUNNER,
+            "stock_recovery_runner": prepared["binding"]["closure"]["stock_recovery_runner"],
+            "bootstrap": bootstrap_closure,
+            "builder": {"historical": True},
+            "canary_source": {"historical": True},
+        }
+        with tempfile.TemporaryDirectory(prefix="s20plus-r1-successor-bind-") as temp:
+            run = Path(temp)
+            self.seed_recovery_journal(run, prepared)
+            self.write_command_result(
+                run,
+                "install",
+                ROOT_DATA.INSTALL_SUCCESS_STDOUT,
+            )
+            with mock.patch.object(
+                ROOT_DATA.bootstrap,
+                "closure_receipts",
+                return_value=bootstrap_closure,
+            ), mock.patch.object(
+                ROOT_DATA,
+                "self_receipt",
+                return_value=current_runner,
+            ):
+                ROOT_DATA.validate_recovery_inputs(
+                    prepared,
+                    "post-install-resume",
+                    run,
+                )
+                with self.assertRaisesRegex(
+                    ROOT_DATA.RootDataError,
+                    "recovery-critical helper closure changed",
+                ):
+                    ROOT_DATA.validate_recovery_inputs(
+                        prepared,
+                        "root-recovery",
+                        run,
+                    )
+                ROOT_DATA.ensure_post_install_continuation(run, prepared)
+                ROOT_DATA.validate_recovery_inputs(
+                    prepared,
+                    "root-recovery",
+                    run,
+                )
+
+    def test_resume_after_install_never_replays_install_and_rejects_foreign_or_changed_boot(self) -> None:
+        prepared = self.prepared()
+        prepared["binding_sha256"] = ROOT_DATA.POST_INSTALL_PREDECESSOR_BINDING_SHA256
+        expected_identity = {
+            key: prepared["binding"]["target"][key]
+            for key in ("serial_sha256", "topology_sha256", "boot_id_sha256")
+        }
+        selected = {"serial": "SERIAL"}
+        with tempfile.TemporaryDirectory(prefix="s20plus-r1-no-reinstall-") as temp:
+            run = Path(temp)
+            with mock.patch.object(ROOT_DATA, "require_active"), \
+                 mock.patch.object(ROOT_DATA, "read_prepared", return_value=prepared) as read_prepared, \
+                 mock.patch.object(
+                     ROOT_DATA,
+                     "validate_post_install_resume_cut",
+                     side_effect=(
+                         set(ROOT_DATA.POST_INSTALL_RESUME_REQUIRED_FILES),
+                         set(ROOT_DATA.POST_INSTALL_RESUME_REQUIRED_FILES)
+                         | {"post-install-continuation.json"},
+                     ),
+                 ) as validate_cut, \
+                 mock.patch.object(ROOT_DATA, "ensure_post_install_continuation") as continuation, \
+                 mock.patch.object(
+                     ROOT_DATA.bootstrap,
+                     "android_health_once",
+                     return_value=(selected, {}, expected_identity),
+                 ), \
+                 mock.patch.object(ROOT_DATA, "recovery_magisk_preflight") as preflight, \
+                 mock.patch.object(
+                     ROOT_DATA,
+                     "continue_after_install",
+                     return_value={"verdict": "PASS"},
+                 ) as continue_after, \
+                 mock.patch.object(
+                     ROOT_DATA,
+                     "install_script",
+                     side_effect=AssertionError("install script must not be rendered"),
+                 ), \
+                 mock.patch.object(
+                     ROOT_DATA,
+                     "durable_command_result",
+                     side_effect=AssertionError("install command must not be dispatched"),
+                 ):
+                self.assertEqual(
+                    ROOT_DATA.resume_after_install(run, mock.Mock()),
+                    {"verdict": "PASS"},
+                )
+            read_prepared.assert_called_once_with(
+                run,
+                input_scope="post-install-resume",
+            )
+            self.assertEqual(validate_cut.call_count, 2)
+            continuation.assert_called_once_with(run, prepared)
+            preflight.assert_called_once()
+            continue_after.assert_called_once()
+
+            with mock.patch.object(ROOT_DATA, "require_active"), \
+                 mock.patch.object(ROOT_DATA, "read_prepared", return_value=prepared), \
+                 mock.patch.object(
+                     ROOT_DATA,
+                     "validate_post_install_resume_cut",
+                     side_effect=(
+                         set(ROOT_DATA.POST_INSTALL_RESUME_REQUIRED_FILES),
+                         set(ROOT_DATA.POST_INSTALL_RESUME_REQUIRED_FILES),
+                     ),
+                 ), \
+                 mock.patch.object(ROOT_DATA, "ensure_post_install_continuation"), \
+                 mock.patch.object(
+                     ROOT_DATA.bootstrap,
+                     "android_health_once",
+                 ) as disappeared_health:
+                with self.assertRaisesRegex(
+                    ROOT_DATA.RootDataError,
+                    "continuation receipt disappeared",
+                ):
+                    ROOT_DATA.resume_after_install(run, mock.Mock())
+            disappeared_health.assert_not_called()
+
+            foreign_identity = {**expected_identity, "serial_sha256": "f" * 64}
+            with mock.patch.object(ROOT_DATA, "require_active"), \
+                 mock.patch.object(ROOT_DATA, "read_prepared", return_value=prepared), \
+                 mock.patch.object(
+                     ROOT_DATA,
+                     "validate_post_install_resume_cut",
+                     side_effect=(
+                         set(ROOT_DATA.POST_INSTALL_RESUME_REQUIRED_FILES),
+                         set(ROOT_DATA.POST_INSTALL_RESUME_REQUIRED_FILES)
+                         | {"post-install-continuation.json"},
+                     ),
+                 ), \
+                 mock.patch.object(ROOT_DATA, "ensure_post_install_continuation"), \
+                 mock.patch.object(
+                     ROOT_DATA.bootstrap,
+                     "android_health_once",
+                     return_value=(selected, {}, foreign_identity),
+                 ), \
+                 mock.patch.object(ROOT_DATA, "recovery_magisk_preflight") as foreign_preflight, \
+                 mock.patch.object(ROOT_DATA, "continue_after_install") as foreign_continue:
+                with self.assertRaisesRegex(
+                    ROOT_DATA.RootDataError,
+                    "is not the prepared returned target",
+                ):
+                    ROOT_DATA.resume_after_install(run, mock.Mock())
+            foreign_preflight.assert_not_called()
+            foreign_continue.assert_not_called()
+
+            changed_boot_identity = {
+                **expected_identity,
+                "boot_id_sha256": (
+                    "e" * 64
+                    if expected_identity["boot_id_sha256"] != "e" * 64
+                    else "d" * 64
+                ),
+            }
+            with mock.patch.object(ROOT_DATA, "require_active"), \
+                 mock.patch.object(ROOT_DATA, "read_prepared", return_value=prepared), \
+                 mock.patch.object(
+                     ROOT_DATA,
+                     "validate_post_install_resume_cut",
+                     side_effect=(
+                         set(ROOT_DATA.POST_INSTALL_RESUME_REQUIRED_FILES),
+                         set(ROOT_DATA.POST_INSTALL_RESUME_REQUIRED_FILES)
+                         | {"post-install-continuation.json"},
+                     ),
+                 ), \
+                 mock.patch.object(ROOT_DATA, "ensure_post_install_continuation"), \
+                 mock.patch.object(
+                     ROOT_DATA.bootstrap,
+                     "android_health_once",
+                     return_value=(selected, {}, changed_boot_identity),
+                 ), \
+                 mock.patch.object(ROOT_DATA, "recovery_magisk_preflight") as changed_preflight, \
+                 mock.patch.object(ROOT_DATA, "continue_after_install") as changed_continue:
+                with self.assertRaisesRegex(
+                    ROOT_DATA.RootDataError,
+                    "is not the prepared returned target",
+                ):
+                    ROOT_DATA.resume_after_install(run, mock.Mock())
+            changed_preflight.assert_not_called()
+            changed_continue.assert_not_called()
 
     def test_reboot_intent_precedes_dispatch_and_failure_is_not_replayed(self) -> None:
         with tempfile.TemporaryDirectory(prefix="s20plus-r1-reboot-") as temp:
@@ -3561,13 +3884,7 @@ except SystemExit as exc:
         def durable(_run, label, _argv, _command, _timeout, _maximum):
             command_labels.append(label)
             if label == "install":
-                stdout = (
-                    b"****************************\n S20+ Native Canary \n"
-                    b" by android-native-init-lab \n****************************\n"
-                    b"*******************\n Powered by Magisk \n*******************\n"
-                    b"- Extracting module files\n- Done\nPASS_N1_INSTALL_EXACT\n"
-                )
-                return 0, stdout, b""
+                return 0, ROOT_DATA.INSTALL_SUCCESS_STDOUT, b""
             self.assertEqual(label, "disable")
             return 0, b"PASS_N1_DISABLE_EXACT\n", b""
 
@@ -3600,6 +3917,11 @@ except SystemExit as exc:
                  mock.patch.object(ROOT_DATA, "post_stage_preflight"), \
                  mock.patch.object(ROOT_DATA, "recovery_magisk_preflight"), \
                  mock.patch.object(ROOT_DATA, "durable_command_result", side_effect=durable), \
+                 mock.patch.object(
+                     ROOT_DATA,
+                     "complete_readonly_command",
+                     return_value=(0, b"PASS_N1_POST_INSTALL_AUDIT\n", b""),
+                 ), \
                  mock.patch.object(ROOT_DATA, "durable_root_exact"), \
                  mock.patch.object(ROOT_DATA, "dispatch_reboot", side_effect=reboot), \
                  mock.patch.object(ROOT_DATA, "require_module_inventory"), \
@@ -3649,10 +3971,7 @@ except SystemExit as exc:
             self.assertEqual(label, "install")
             return (
                 0,
-                b"****************************\n S20+ Native Canary \n"
-                b" by android-native-init-lab \n****************************\n"
-                b"*******************\n Powered by Magisk \n*******************\n"
-                b"- Extracting module files\n- Done\nPASS_N1_INSTALL_EXACT\n",
+                ROOT_DATA.INSTALL_SUCCESS_STDOUT,
                 b"",
             )
 
@@ -3684,6 +4003,11 @@ except SystemExit as exc:
                      ROOT_DATA,
                      "durable_command_result",
                      side_effect=install_only,
+                 ), \
+                 mock.patch.object(
+                     ROOT_DATA,
+                     "complete_readonly_command",
+                     return_value=(0, b"PASS_N1_POST_INSTALL_AUDIT\n", b""),
                  ), \
                  mock.patch.object(ROOT_DATA, "durable_root_exact"), \
                  mock.patch.object(
@@ -5052,7 +5376,8 @@ except SystemExit as exc:
                      "validate_root_absence_record",
                      return_value=terminal_absence,
                  ), \
-                 mock.patch.object(ROOT_DATA, "guard_path", return_value=guard):
+                 mock.patch.object(ROOT_DATA, "guard_path", return_value=guard), \
+                 mock.patch.object(STOCK.root_data, "guard_path", return_value=guard):
                 result = STOCK.finalize_stock(run, device)
             device.assert_not_called()
             self.assertEqual(result["verdict"], semantics["verdict"])
@@ -5166,18 +5491,30 @@ except SystemExit as exc:
         report = (
             ROOT / "docs/reports/S20PLUS_G986N_NATIVE_CANARY_R1_H0_2026-08-15.md"
         ).read_text()
+        incident = (
+            ROOT
+            / "docs/reports/S20PLUS_G986N_NATIVE_CANARY_R1_INSTALL_TRANSCRIPT_INCIDENT_2026-08-16.md"
+        ).read_text()
         self.assertIn("## Common R1 Invariants", agents)
         self.assertEqual(agents.count("| Samsung Galaxy S20+ 5G ("), 1)
         self.assertIn(
-            "PASS_GO - BINDING - ACTIVE CAPABILITY - NO CURRENT RUN OR DEVICE AUTHORITY",
+            "ACTIVE BASE CAPABILITY; ONE GUARDED POST-INSTALL RUN; EXACT NO-INSTALL CONTINUATION ACTIVE",
             contract,
         )
-        self.assertIn("PASS_GO - ACTIVE CAPABILITY - NO CURRENT RUN", report)
+        self.assertIn(
+            "ONE GUARDED POST-INSTALL RUN; EXACT NO-INSTALL CONTINUATION ACTIVE",
+            report,
+        )
         self.assertIn(ROOT_DATA.STAGE_DIR, contract)
         self.assertIn(ROOT_DATA.STAGE_DIR, report)
         self.assertIn(ROOT_DATA.STOCK_HANDOFF_CONFIRM, contract)
         self.assertIn(ROOT_DATA.STOCK_HANDOFF_CONFIRM, report)
         self.assertIn("android.googlesource.com/platform/packages/modules/adb", report)
+        for text in (contract, report, incident):
+            self.assertIn(ROOT_DATA.POST_INSTALL_PREDECESSOR_BINDING_SHA256, text)
+            self.assertIn("install_replay_permitted=false", text)
+        self.assertIn("--resume-after-install", report)
+        self.assertIn("--resume-after-install", incident)
 
     def test_stock_confirm_has_exactly_one_rollback_and_no_candidate_path(self) -> None:
         prepared = self.prepared()
@@ -5222,11 +5559,11 @@ except SystemExit as exc:
     def test_runner_identities_and_policy_documents_are_frozen_after_review(self) -> None:
         self.assertEqual(
             ROOT_DATA.normalized_self_sha256(),
-            "6c64c8763fd0ab68fe2b88721f6d6d1f0f9c28f96b4595f028c0af7c143194ad",
+            "39cdf9eda1eb4fa8240bab49c1a45fdf54b63431908fd6721cdde2453e77544c",
         )
         self.assertEqual(
             hashlib.sha256(ROOT_DATA.SCRIPT.read_bytes()).hexdigest(),
-            "35dfc7557c5c9e9b3e62d4865e81122572c57d0464997f4e2a35904a0b15432f",
+            "63e58f99b06275ed0d1eeacc5d87dbb7fdc1a9f471fcd7645f447345b23a3b52",
         )
         self.assertEqual(
             STOCK.normalized_self_sha256(),
@@ -5243,7 +5580,7 @@ except SystemExit as exc:
         ):
             text = (ROOT / relative).read_text()
             self.assertIn(
-                "35dfc7557c5c9e9b3e62d4865e81122572c57d0464997f4e2a35904a0b15432f",
+                "63e58f99b06275ed0d1eeacc5d87dbb7fdc1a9f471fcd7645f447345b23a3b52",
                 text,
             )
             self.assertIn(

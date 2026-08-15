@@ -5,7 +5,7 @@ Date: 2026-08-16
 Target: operator-owned `SM-G986N` / `y2q` / `y2qksx` /
 `G986NKSS8IYC2` only
 
-Status: **PASS_GO - MAGISK METADATA CORRECTION ACTIVE - NO CURRENT RUN OR APPROVAL**
+Status: **PASS_GO - HISTORICAL PREPARE CORRECTIONS ACTIVE; LATER GUARDED RUN RECORDED SEPARATELY**
 
 ## Outcome
 
@@ -118,3 +118,8 @@ with the same normalized hash above. Focused 115/115 and exact eight-module
 aggregate 277/277 validation passed, and independent post-activation review
 returned `PASS_GO` with no unresolved finding. No connected retry is authorized
 by the correction or its activation.
+
+A later separately prepared and approved run is outside this prepare-incident
+authority. Its consumed install and host transcript-parser stop are recorded in
+`S20PLUS_G986N_NATIVE_CANARY_R1_INSTALL_TRANSCRIPT_INCIDENT_2026-08-16.md`;
+this report does not authorize that run's continuation or installation replay.
