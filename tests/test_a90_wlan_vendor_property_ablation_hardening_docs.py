@@ -490,7 +490,7 @@ class A90WlanVendorPropertyAblationHardeningDocsTest(unittest.TestCase):
         self.assertIn("current H24 exact opaque-ELF bindings remain\n**zero**", self.proposal)
         self.assertIn("HISTORICAL_ONLY_H24_APPLICABILITY_UNPROVED", self.proposal)
         self.assertIn("`H0D01-H0D10` all remain `UNPROVED`", self.proposal)
-        self.assertIn("`WP2-4` may now design", self.proposal)
+        self.assertIn("`WP2-4` has now generated", self.proposal)
 
     def test_prior_portfolio_correction_is_locked(self) -> None:
         prior = (

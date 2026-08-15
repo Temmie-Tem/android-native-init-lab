@@ -22,6 +22,12 @@ capsule baseline even before topology is chosen.
 
 See [`context.md`](context.md) for exact anchors and the observed/inferred split.
 
+The 2026-08-16 `WP2-4` follow-up is a separately generated H0 extension. Its
+JSON carries its own five exact public `sourcePins`; it is not retroactively
+counted inside the original 24-artifact collection above. The original
+collection hash therefore remains unchanged rather than being relabelled as
+evidence for the later schema.
+
 ## Constraints
 
 - A90 only; H24 remains installed and its D1 remains consumed.
@@ -35,6 +41,9 @@ See [`context.md`](context.md) for exact anchors and the observed/inferred split
   service-manager instances, or a hand-maintained process/order mismatch.
 - The `/proc` incident's containment closure remains mandatory under either
   ownership topology.
+- Namespace membership is never proof that a global or shared kernel object is
+  contained. QRTR, SELinux policy state, and ancestor proc magic links each
+  require their own proved deny/non-nameability/mediated-owner control.
 
 ## Opportunity Portfolio
 
@@ -105,6 +114,22 @@ See [`context.md`](context.md) for exact anchors and the observed/inferred split
   and `tftp_server` identities remain conflicts with the selected root launch.
   `WP2-3` is complete only as an H0 requirement/evidence-state inventory; all
   ten gates, the byte-derived consumer, execution, and Option C remain blocked.
+- The generated
+  [`WP2-4` schema](schema/a90-h24-wlan-property-observation-schema-v1.json)
+  fixes eight observation phases, exact retained-role/phase coverage, distinct
+  READ/WRITE/ACK events, a separately qualified exact generation/role binding,
+  two terminal validators, and a total same-run
+  cnss_utils MAC-effect decision table. Event loss, fabricated defaults,
+  read-error-as-absence, mixed runs, writable/link/extra seed members, missing
+  final `RESIDENT_HEALTHY`, and recovery uncertainty all fail closed as
+  `NO_PROOF_OBSERVER` or a rejected terminal. It also makes the global-object
+  rule explicit: the remote workload keeps the all-ABI `AF_QIPCRTR` deny,
+  compat `socketcall` and namespace-escape/namespace-clone denies remain a
+  non-relaxable coupled invariant,
+  global SELinux load/enforce writes stay zero, and ancestor proc magic links
+  require the selected fresh PID/proc boundary. This is H0 schema completion
+  only: runtime observer and byte-derived consumer are absent, H0D04 and H0D10
+  remain `UNPROVED`, and WP2-4 grants no D0 or live authority.
 
 ## Property Terminal
 
@@ -116,6 +141,17 @@ Do not select a seed format yet. Accept only:
 
 The shim's narrow set-operation acknowledgements do not reveal the vendor
 binaries' read set. Moving the complete SD snapshot to cache is rejected.
+The WP2-4 validators make an ACK non-equivalent to a read or state change and
+require complete same-run coverage before either terminal can be published.
+The result cannot nominate its own role set: validation also requires the exact
+separately qualified pre-effect component-generation binding,
+cold/persistent lifecycle partition, candidate seed-contract digest, and exact
+event/byte caps; the post-run
+trace digest remains result evidence rather than a pre-effect input. READ `ERROR`
+or `DENIED`, phase regression, or an ACK not returned to the same exact
+writer process in the same phase rejects the terminal. An explicit `MISSING`
+remains a recorded read result and is never silently replaced by a fabricated
+default.
 
 ## Exact Sequence
 

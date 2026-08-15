@@ -1,0 +1,505 @@
+{
+  "authority": {
+    "candidateEligible": false,
+    "d0Authorized": false,
+    "d1Authorized": false,
+    "deviceContact": false,
+    "deviceInstallAuthorized": false,
+    "f1Authorized": false,
+    "handoffAuthorized": false,
+    "liveExecutionAuthorized": false,
+    "privateInputAuthorityGranted": false,
+    "propertyProvisionAuthorized": false,
+    "tier": "H0",
+    "ufsMutationAuthorized": false
+  },
+  "coverageContract": {
+    "failure": "Missing, duplicate, lossy, late-attached, or early-detached coverage is NO_PROOF_OBSERVER.",
+    "lifecycle": "The retained-role set is exactly partitioned into roles relaunched with INITIAL plus COLD_RELAUNCH identities and trusted supervisor roles that persist with one INITIAL identity; at least one role must actually relaunch, every INITIAL identity is observed running before COLD_RELAUNCH, every COLD_RELAUNCH identity is observed running in that phase, and every identity is exit/reap bound before a property terminal.",
+    "rule": "The exact retained-role set crossed with every phase appears once; each cell is complete or proves that role not running in that phase, and every event names the bound process instance for that cell.",
+    "states": [
+      "RUNNING_OBSERVED",
+      "PROVED_NOT_RUNNING"
+    ]
+  },
+  "eventContract": {
+    "operations": [
+      "READ",
+      "WRITE",
+      "ACK"
+    ],
+    "results": [
+      "SUCCESS",
+      "MISSING",
+      "DENIED",
+      "ERROR"
+    ],
+    "rules": [
+      "Every event is bound to one run, role, phase, request, key, context, source, result, errno, value length, and value digest.",
+      "Every event is attributed to one exact launch-epoch process identity already bound by coverage.",
+      "Event sequence is monotonic in the frozen phase order; a later phase cannot be followed by an earlier phase.",
+      "Raw values are private evidence and never appear in the public schema; exactness is carried by size and SHA-256.",
+      "READ, WRITE, and ACK remain distinct; a successful ACK never proves a read value changed.",
+      "Every WRITE has exactly one later ACK from the same exact process identity in the same phase with the same request, role, key, context, source, length, and digest; orphan, duplicate, reordered, cross-lifecycle, or drifted ACK is invalid.",
+      "A returned or synthesized default is an event and never counts as property absence.",
+      "A READ error or denial is NO_PROOF and cannot publish either property terminal; MISSING remains an explicit observed result rather than an observer error."
+    ]
+  },
+  "generatedDeterministically": true,
+  "globalKernelObjectRule": {
+    "cases": [
+      {
+        "ineffectiveBoundary": "network namespace",
+        "object": "QRTR node, endpoint, and port registries",
+        "requiredControl": "Non-relaxable coupled invariant: remote service/workload direct socket policy denies AF_QIPCRTR on every native ABI, compat socketcall remains denied because its pointed argument vector is not safely filterable, namespace-escape syscalls and legacy clone namespace flags remain denied, and no QRTR FD is inherited; a trusted capsule QRTR role remains separately bounded."
+      },
+      {
+        "ineffectiveBoundary": "namespace placement; SELinux has no per-capsule policy namespace here",
+        "object": "SELinux loaded policy and enforcing state",
+        "requiredControl": "Zero read-write bind of native SELinuxFS and zero load/enforce or equivalent global-policy write."
+      },
+      {
+        "ineffectiveBoundary": "mount namespace with shared PID visibility/procfs",
+        "object": "ancestor task proc magic links including root, fd, and ns",
+        "requiredControl": "Fresh nested PID namespace with its matching procfs and proved ancestor-task non-nameability; path hiding alone is rejected."
+      }
+    ],
+    "default": "Namespace membership is never evidence that a global or shared kernel object is contained. Name the object's actual scope and prove its deny, non-nameability, or sole mediated owner individually.",
+    "unknownScope": "NO_GO"
+  },
+  "macProvisioningEffectObservation": {
+    "bindingRule": "Same boot, run, built-in cnss_utils instance, source, driver, debugfs identity, complete read, and exact driver outcome are all required.",
+    "decisionTable": [
+      {
+        "cnssUtilsMacState": "PRESENT_VALID",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": false,
+        "wlanOutcome": "WLAN0_UP_EXACT_DRIVER"
+      },
+      {
+        "cnssUtilsMacState": "PRESENT_VALID",
+        "decision": "MAC_PROVISION_VALUE_UNRESOLVED",
+        "observationBoundComplete": true,
+        "wlanOutcome": "WLAN0_UP_EXACT_DRIVER"
+      },
+      {
+        "cnssUtilsMacState": "PRESENT_VALID",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": false,
+        "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
+      },
+      {
+        "cnssUtilsMacState": "PRESENT_VALID",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": true,
+        "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
+      },
+      {
+        "cnssUtilsMacState": "PRESENT_VALID",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": false,
+        "wlanOutcome": "OTHER_OR_UNPROVED"
+      },
+      {
+        "cnssUtilsMacState": "PRESENT_VALID",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": true,
+        "wlanOutcome": "OTHER_OR_UNPROVED"
+      },
+      {
+        "cnssUtilsMacState": "ABSENT_PARSED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": false,
+        "wlanOutcome": "WLAN0_UP_EXACT_DRIVER"
+      },
+      {
+        "cnssUtilsMacState": "ABSENT_PARSED",
+        "decision": "MAC_PROVISION_FALSE_PROVED_EXACT_RUN",
+        "observationBoundComplete": true,
+        "wlanOutcome": "WLAN0_UP_EXACT_DRIVER"
+      },
+      {
+        "cnssUtilsMacState": "ABSENT_PARSED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": false,
+        "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
+      },
+      {
+        "cnssUtilsMacState": "ABSENT_PARSED",
+        "decision": "MAC_PROVISION_TRUE_PROVED_EXACT_RUN",
+        "observationBoundComplete": true,
+        "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
+      },
+      {
+        "cnssUtilsMacState": "ABSENT_PARSED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": false,
+        "wlanOutcome": "OTHER_OR_UNPROVED"
+      },
+      {
+        "cnssUtilsMacState": "ABSENT_PARSED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": true,
+        "wlanOutcome": "OTHER_OR_UNPROVED"
+      },
+      {
+        "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": false,
+        "wlanOutcome": "WLAN0_UP_EXACT_DRIVER"
+      },
+      {
+        "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": true,
+        "wlanOutcome": "WLAN0_UP_EXACT_DRIVER"
+      },
+      {
+        "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": false,
+        "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
+      },
+      {
+        "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": true,
+        "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
+      },
+      {
+        "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": false,
+        "wlanOutcome": "OTHER_OR_UNPROVED"
+      },
+      {
+        "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": true,
+        "wlanOutcome": "OTHER_OR_UNPROVED"
+      }
+    ],
+    "scopeRule": "A proved exact-run value does not prove another build, boot, INI, or future generation.",
+    "sourceState": "same persistent provisioned-MAC count and bytes as cnss_utils_get_wlan_mac_address; getter does not consume them",
+    "surface": "/sys/kernel/debug/cnss_utils/mac_address",
+    "uniqueFailure": "getting MAC address from platform driver failed"
+  },
+  "negativeCorpus": [
+    {
+      "caseId": "N01",
+      "expected": "COVERAGE_MISMATCH",
+      "mutation": "missing-phase-role-coverage"
+    },
+    {
+      "caseId": "N02",
+      "expected": "OBSERVER_INCOMPLETE",
+      "mutation": "dropped-event"
+    },
+    {
+      "caseId": "N03",
+      "expected": "OBSERVER_INCOMPLETE",
+      "mutation": "fabricated-default"
+    },
+    {
+      "caseId": "N04",
+      "expected": "OBSERVER_INCOMPLETE",
+      "mutation": "mixed-run"
+    },
+    {
+      "caseId": "N05",
+      "expected": "TRACE_DIGEST_MISMATCH",
+      "mutation": "trace-digest-drift"
+    },
+    {
+      "caseId": "N06",
+      "expected": "SUCCESSFUL_READ_PRESENT",
+      "mutation": "absent-terminal-with-successful-read"
+    },
+    {
+      "caseId": "N07",
+      "expected": "SEED_READ_MAPPING_MISMATCH",
+      "mutation": "finite-seed-unmapped-read"
+    },
+    {
+      "caseId": "N08",
+      "expected": "SEED_READ_MAPPING_MISMATCH",
+      "mutation": "finite-seed-extra-entry"
+    },
+    {
+      "caseId": "N09",
+      "expected": "SEED_SCHEMA_MISMATCH",
+      "mutation": "duplicate-key-context"
+    },
+    {
+      "caseId": "N10",
+      "expected": "SEED_SCHEMA_MISMATCH",
+      "mutation": "writable-seed"
+    },
+    {
+      "caseId": "N11",
+      "expected": "SEED_SCHEMA_MISMATCH",
+      "mutation": "symlink-or-hardlink-seed"
+    },
+    {
+      "caseId": "N12",
+      "expected": "SEED_SCHEMA_MISMATCH",
+      "mutation": "unexpected-seed-member"
+    },
+    {
+      "caseId": "N13",
+      "expected": "SAFETY_PROOF_MISMATCH",
+      "mutation": "recovery-required-terminal"
+    },
+    {
+      "caseId": "N14",
+      "expected": "MAC_EFFECT_MISMATCH",
+      "mutation": "mac-read-error-normalized-to-absent"
+    },
+    {
+      "caseId": "N15",
+      "expected": "MAC_EFFECT_MISMATCH",
+      "mutation": "mac-present-up-promoted-to-false"
+    },
+    {
+      "caseId": "N16",
+      "expected": "PINNED_SEMANTIC_MISMATCH",
+      "mutation": "namespace-only-global-object-claim"
+    },
+    {
+      "caseId": "N17",
+      "expected": "AUTHORITY_MISMATCH",
+      "mutation": "enable-live-authority"
+    },
+    {
+      "caseId": "N18",
+      "expected": "STATUS_MISMATCH",
+      "mutation": "claim-h0d04-retired"
+    },
+    {
+      "caseId": "N19",
+      "expected": "RESULT_SCHEMA_MISMATCH",
+      "mutation": "unknown-result-field"
+    },
+    {
+      "caseId": "N20",
+      "expected": "TOP_LEVEL_SCHEMA_MISMATCH",
+      "mutation": "unknown-schema-field"
+    },
+    {
+      "caseId": "N21",
+      "expected": "PROCESS_IDENTITY_MISMATCH",
+      "mutation": "missing-or-misattributed-relaunch-process"
+    },
+    {
+      "caseId": "N22",
+      "expected": "WRITE_ACK_MISMATCH",
+      "mutation": "orphan-duplicate-or-drifted-write-ack"
+    },
+    {
+      "caseId": "N23",
+      "expected": "QUALIFIED_EXPECTATION_MISSING",
+      "mutation": "missing-or-self-nominated-qualified-generation"
+    },
+    {
+      "caseId": "N24",
+      "expected": "READ_OUTCOME_INCOMPLETE",
+      "mutation": "read-error-or-denial-promoted-to-terminal"
+    },
+    {
+      "caseId": "N25",
+      "expected": "EVENT_PHASE_ORDER_MISMATCH",
+      "mutation": "event-phase-regression"
+    },
+    {
+      "caseId": "N26",
+      "expected": "WRITE_ACK_MISMATCH",
+      "mutation": "write-ack-crosses-phase-or-lifecycle"
+    },
+    {
+      "caseId": "N27",
+      "expected": "QUALIFIED_EXPECTATION_MISMATCH",
+      "mutation": "result-raises-qualified-event-or-byte-cap"
+    },
+    {
+      "caseId": "N28",
+      "expected": "QUALIFIED_EXPECTATION_MISMATCH",
+      "mutation": "budget-digest-does-not-match-qualified-caps"
+    },
+    {
+      "caseId": "N29",
+      "expected": "OBSERVER_INCOMPLETE",
+      "mutation": "boolean-substituted-for-integer-trace-counter"
+    },
+    {
+      "caseId": "N30",
+      "expected": "COVERAGE_MISMATCH",
+      "mutation": "unhashable-process-instance-id-container"
+    },
+    {
+      "caseId": "N31",
+      "expected": "MAC_EFFECT_MISMATCH",
+      "mutation": "integer-substituted-for-mac-binding-boolean"
+    },
+    {
+      "caseId": "N32",
+      "expected": "PROCESS_IDENTITY_MISMATCH",
+      "mutation": "unhashable-launch-epoch"
+    },
+    {
+      "caseId": "N33",
+      "expected": "EVENT_SCHEMA_MISMATCH",
+      "mutation": "unhashable-event-identity-or-result"
+    },
+    {
+      "caseId": "N34",
+      "expected": "SEED_READ_MAPPING_MISMATCH",
+      "mutation": "declared-seed-reader-not-observed-reading"
+    },
+    {
+      "caseId": "N35",
+      "expected": "PROCESS_IDENTITY_MISMATCH",
+      "mutation": "declared-launch-epoch-never-observed-running"
+    }
+  ],
+  "observationPhases": [
+    "CLEAN_LAUNCH",
+    "READINESS",
+    "SCAN",
+    "ASSOCIATION",
+    "DHCP_ROUTE",
+    "STEADY_STATE",
+    "SHUTDOWN",
+    "COLD_RELAUNCH"
+  ],
+  "resultContract": {
+    "budgetRule": "Positive event-count and byte caps are canonically hashed together as observationBudgetSha256 before execution; the validator recomputes that digest, and this H0 schema invents no numeric live budget.",
+    "noReplayRule": "This H0 validator never dispatches or retries an effect. Future no-replay behavior belongs to WP2-5b and separate review.",
+    "qualifiedExpectationRule": "Validation requires a separately qualified pre-effect binding projection (all result bindings except the post-run trace digest), exact retained-role and relaunch-lifecycle partition, exact candidate seed-contract digest, and exact event/byte caps; a result cannot nominate its own generation, role set, seed, or limits.",
+    "safetyRule": "A property terminal requires PROVED plus final RESIDENT_HEALTHY; observer failure and recovery uncertainty cannot publish it.",
+    "schema": "a90-h24-wlan-property-observation-result-v1",
+    "terminalValidators": [
+      "validate_property_absent_result",
+      "validate_property_finite_seed_result"
+    ],
+    "topLevelFields": [
+      "bindings",
+      "coldRelaunchRoles",
+      "coverage",
+      "deviceSafetyState",
+      "events",
+      "expectedRoles",
+      "experimentProof",
+      "macProvisioningEffect",
+      "persistentAcrossRelaunchRoles",
+      "processInstances",
+      "schema",
+      "seedEntries",
+      "seedFilesystem",
+      "terminal",
+      "trace",
+      "workflowState"
+    ]
+  },
+  "schema": "a90-h24-wlan-property-observation-schema-v1",
+  "scope": {
+    "doesNotProve": [
+      "a successful property observation",
+      "property absence or a finite seed",
+      "the deployed enable_mac_provision value outside one exact run",
+      "H0D04 or H0D10 retirement",
+      "Option C feasibility or implementation"
+    ],
+    "parentRoleVocabulary": [
+      "servicemanager",
+      "hwservicemanager",
+      "qrtr_ns",
+      "pd_mapper",
+      "rmt_storage",
+      "tftp_server",
+      "vndservicemanager",
+      "pm_proxy_helper",
+      "per_mgr",
+      "cnss_diag",
+      "cnss_daemon",
+      "property-service-shim",
+      "modem-holder",
+      "wifi-helper"
+    ],
+    "purpose": "property read/write observation and terminal validation contract",
+    "target": "Samsung Galaxy A90 5G only",
+    "workPackage": "WP2-4"
+  },
+  "sequencingConstraint": {
+    "h0d04": "Remains UNPROVED until one valid exact-run terminal is independently accepted.",
+    "h0d10": "Remains UNPROVED until the retained property input is absent or one deterministic public SD-free seed is frozen.",
+    "next": "WP2-5b may consume this schema only after an exact byte-derived producer/consumer, independent execution review, recovery binding, operator-accepted budget, and separate live authority exist.",
+    "optionC": "All H0D01-H0D10 and the global-object containment/switch conditions remain blocking."
+  },
+  "sourcePins": [
+    {
+      "bytes": 111287,
+      "path": "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/inventory/a90-h24-wlan-dependency-surface-inventory-v1.json",
+      "sha256": "23e40105a6bfd9b86ef98897bd22734a66dcd0991af1b87fcd0f380bdd622be8"
+    },
+    {
+      "bytes": 39695,
+      "path": "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/policy/a90-h24-wlan-forbidden-surface-policy-v1.json",
+      "sha256": "af4b25c766746a5297c4b7f7f48bec6dba429dac9775e738e758f96ccbae1b58"
+    },
+    {
+      "bytes": 105900,
+      "path": "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/design/a90-h24-wlan-one-factor-ablation-design-v1.json",
+      "sha256": "0eddec9ba9d637590c82499709179bd6b56a79d646d7967d3049a0bf36136b85"
+    },
+    {
+      "bytes": 25810,
+      "path": "docs/reports/A90_WLAN_KERNEL_SOURCE_CONFIRMATION_H0_2026-08-16.md",
+      "sha256": "1d1c15850619f278d7d56e0702ffc23197a216602f5d9e4ef6be78fc4db3fffb"
+    },
+    {
+      "bytes": 14212,
+      "path": "docs/reports/A90_WLAN_MAC_PROVISIONING_EXISTING_EVIDENCE_H0_2026-08-16.md",
+      "sha256": "14d0d2bf24397520beebf7642b38b218af2ce966678f090e53070049ad9e4ba3"
+    }
+  ],
+  "status": {
+    "byteDerivedConsumer": "ABSENT",
+    "dependencyGatesRetired": [],
+    "executionQualification": "ABSENT",
+    "h0d04": "UNPROVED",
+    "h0d10": "UNPROVED",
+    "independentExecutionReview": "ABSENT",
+    "macProvisioningValue": "UNPROVED_OUTSIDE_ONE_EXACT_FUTURE_RUN",
+    "optionC": "BLOCKED_RESEARCH_ONLY",
+    "runtimeObserverImplementation": "ABSENT",
+    "wp2_4": "COMPLETE_H0_PROPERTY_OBSERVATION_SCHEMA_AND_TERMINAL_VALIDATORS_ONLY"
+  },
+  "terminals": {
+    "PROPERTY_ABSENT_PROVED": {
+      "requires": [
+        "complete exact-role-by-phase coverage",
+        "zero successful READ events",
+        "zero READ error or denial events",
+        "zero fabricated-default events",
+        "seed filesystem proved absent",
+        "exact final RESIDENT_HEALTHY and experiment PROVED"
+      ],
+      "writeAckScope": "WRITE and ACK remain separately observed and do not become read-seed evidence."
+    },
+    "PROPERTY_FINITE_SEED_PROVED": {
+      "rejects": [
+        "unknown or duplicate key/context",
+        "extra or unused seed entry",
+        "writable, symlink, hardlink, special, truncated, wrong-generation, or digest-drifted input"
+      ],
+      "requires": [
+        "complete exact-role-by-phase coverage",
+        "every successful READ maps one-to-one to one canonical seed key/context/value/source",
+        "zero READ error or denial events",
+        "every canonical seed entry is used by at least one exact retained reader",
+        "one read-only exact-member regular-file seed with stable generation and digest",
+        "exact final RESIDENT_HEALTHY and experiment PROVED"
+      ]
+    }
+  }
+}

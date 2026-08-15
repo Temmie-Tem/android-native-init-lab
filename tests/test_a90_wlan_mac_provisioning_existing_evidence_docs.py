@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import unittest
+
+TESTS = Path(__file__).resolve().parent
+if str(TESTS) not in sys.path:
+    sys.path.insert(0, str(TESTS))
 
 from _loader import load_script
 
@@ -39,6 +45,28 @@ def frozen_v3342_helper() -> str:
         capture_output=True,
         text=True,
     ).stdout
+
+
+def kernel_mac_setter_sites() -> list[str]:
+    """Search every regular file without consulting ignore configuration."""
+    pattern = re.compile(rb"cnss_utils_set_wlan_(?:derived_)?mac_address\s*\(")
+    sites: list[str] = []
+    for root in (KERNEL / "drivers", KERNEL / "include"):
+        for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+            base = Path(dirpath)
+            dirnames[:] = sorted(
+                name for name in dirnames if not (base / name).is_symlink()
+            )
+            for name in sorted(filenames):
+                path = base / name
+                if path.is_symlink() or not path.is_file():
+                    continue
+                for line_no, line in enumerate(path.read_bytes().splitlines(), 1):
+                    if pattern.search(line):
+                        sites.append(
+                            f"{path}:{line_no}:{line.decode('utf-8', errors='replace')}"
+                        )
+    return sites
 
 
 class A90WlanMacProvisioningExistingEvidenceDocsTests(unittest.TestCase):
@@ -162,6 +190,18 @@ class A90WlanMacProvisioningExistingEvidenceDocsTests(unittest.TestCase):
             self.assertIn(claim, self.report)
         self.assertNotIn('"role": "macloader"', CAPSULE.read_text(encoding="utf-8"))
 
+    def test_wp2_4_effect_observation_is_same_run_and_fail_closed(self) -> None:
+        for claim in (
+            "`cnss_utils_mac_show()` reads the same persistent",
+            "the getter does not consume or clear that state",
+            "MAC_PROVISION_VALUE_UNRESOLVED",
+            "MAC_PROVISION_FALSE_PROVED_EXACT_RUN",
+            "MAC_PROVISION_TRUE_PROVED_EXACT_RUN",
+            "an empty string caused by a read error is never “absent.”",
+            "not a current D0 action and grants no D0 or live authority",
+        ):
+            self.assertIn(claim, self.report)
+
     def test_report_keeps_h0_and_grants_no_live_authority(self) -> None:
         self.assertIn("This is H0 research evidence only", self.report)
         self.assertIn("grants no D0, D1, F1, candidate", self.report)
@@ -216,20 +256,7 @@ class A90WlanMacProvisioningExistingEvidenceDocsTests(unittest.TestCase):
 
     def test_setter_search_does_not_hide_the_direct_debugfs_writer(self) -> None:
         self.require_source()
-        result = subprocess.run(
-            [
-                "rg",
-                "-uuu",
-                "-n",
-                r"cnss_utils_set_wlan_(derived_)?mac_address\s*\(",
-                str(KERNEL / "drivers"),
-                str(KERNEL / "include"),
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout
-        lines = result.splitlines()
+        lines = kernel_mac_setter_sites()
         provisioned_calls = [line for line in lines if "set_wlan_mac_address(" in line]
         derived_calls = [line for line in lines if "set_wlan_derived_mac_address(" in line]
         self.assertEqual(len(provisioned_calls), 4, provisioned_calls)

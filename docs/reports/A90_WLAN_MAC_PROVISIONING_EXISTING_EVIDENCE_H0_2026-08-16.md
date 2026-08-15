@@ -202,17 +202,41 @@ change the current ablation order.
 
 The next useful Option C documentation unit may therefore remain the already
 declared `WP2-4` property observation schema. A stock firmware download is not
-a prerequisite for that H0 work. Exact MAC-gate closure has a different order:
+a prerequisite for that H0 work.
 
-1. one separately designed and authorized bounded D0 read of the existing
-   current-generation INI, if the contract can expose a genuinely read-only
-   reader;
-2. matching stock-firmware extraction only if that route is unavailable; or
-3. a separately designed same-run read-only getter/writer observation that
-   closes the alternative-producer gap.
+The matching source exposes a narrower effect observation than reading the
+whole INI. `cnss_utils_mac_show()` reads the same persistent
+`priv->wlan_mac_addr.no_of_mac_addr_set` and address array used by
+`cnss_utils_get_wlan_mac_address()`; the getter does not consume or clear that
+state. Because `CONFIG_CNSS_UTILS=y`, one exact same-boot observation after the
+driver result can distinguish these cases when the debugfs read itself is
+complete and bound to the same built-in cnss_utils instance and driver source:
 
-This report grants no D0 authority for any of those routes. Reading never
-authorizes replacing the Samsung file.
+| cnss_utils provisioned MAC | exact driver outcome | exact-run conclusion |
+|---|---|---|
+| present and valid | exact `wlan0` up | `MAC_PROVISION_VALUE_UNRESOLVED` |
+| proved absent | exact `wlan0` up | `MAC_PROVISION_FALSE_PROVED_EXACT_RUN` |
+| proved absent | exact `getting MAC address from platform driver failed` branch | `MAC_PROVISION_TRUE_PROVED_EXACT_RUN` |
+| unreadable, malformed, stale, mixed-run, or any other pair | any | `NO_PROOF_OBSERVER` |
+
+The first row remains unresolved because a writer may have supplied the MAC
+under either boolean. The second row is stronger: a successful set persists in
+the same built-in cnss_utils state, so proved absence plus default-vdev creation
+selects the fallback branch. The third row binds the source-unique fatal branch
+rather than inferring the boolean from a generic probe failure. Module/source,
+boot/run, observation order, driver identity, debugfs file identity, parse
+completeness, and the exact outcome must all match; an empty string caused by a
+read error is never “absent.”
+
+`WP2-4` may encode that matrix as an observation field for a future separately
+reviewed execution. Doing so avoids making a standalone INI read a prerequisite
+for the H0 schema, but it is not a current D0 action and grants no D0 or live
+authority. More explicitly, WP2-4 grants no D0 authority and no live authority.
+A future execution still needs its own exact tier, observer,
+qualification, recovery, and approval. Matching stock-firmware extraction or
+an exact current-generation INI read remains fallback evidence if the effect
+observation cannot be made complete. Reading never authorizes replacing the
+Samsung file.
 
 ## Source anchors
 

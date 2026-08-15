@@ -257,18 +257,21 @@ their collection or execution.
    any equivalent global policy interface.
 4. No SD path, old root, global devtmpfs, global Binder endpoint, or unbounded
    property namespace is reachable.
-5. Property is either proved absent or one exact deterministic read-only seed;
+5. Namespace membership is never proof that a global or shared kernel object
+   is contained. Each such object has one named scope and an independently
+   proved deny, non-nameability rule, or sole mediated owner.
+6. Property is either proved absent or one exact deterministic read-only seed;
    no third state exists.
-6. The property write-ACK protocol is versioned separately from property read
+7. The property write-ACK protocol is versioned separately from property read
    data, bounded, authenticated by local provenance, and not treated as a
    successful state mutation unless a consumer requires and verifies it.
-7. One ablation changes one variable. Failure never becomes the baseline for
+8. One ablation changes one variable. Failure never becomes the baseline for
    the next removal.
-8. A passing unit proves WCNSS/Root PD/WMI, bounded scan, association, DHCP,
+9. A passing unit proves WCNSS/Root PD/WMI, bounded scan, association, DHCP,
    cleanup, recovery, and no forbidden capability exposure.
-9. Remote SSH/workload code cannot name or control the privileged backend in
+10. Remote SSH/workload code cannot name or control the privileged backend in
    either topology.
-10. The same component/property contract can be launched by native PID 1 or a
+11. The same component/property contract can be launched by native PID 1 or a
     Debian-owned clean launcher without semantic drift.
 
 ## Constraints And Non-Goals
@@ -292,6 +295,31 @@ hand-built multi-process graph, hidden duplicates, global SELinux mutation,
 and a separate station-policy path.
 
 ## Property And IPC Boundary
+
+### Global kernel-object containment rule
+
+Namespace membership is never proof that a global or shared kernel object is
+contained. The current evidence names three load-bearing examples rather than
+treating them as exceptions:
+
+- QRTR node, endpoint, and port registries are not keyed by the caller's
+  network namespace on this tree. Remote service/workload code must retain the
+  all-ABI `AF_QIPCRTR` deny, compat `socketcall` denial, and namespace-escape/
+  namespace-clone denials as one non-relaxable invariant and receive no
+  inherited QRTR FD; a separately trusted capsule QRTR role remains explicitly
+  bounded.
+- SELinux loaded policy and enforcing state are kernel-global here. A private
+  mount namespace cannot make a read-write SELinuxFS bind or `load`/`enforce`
+  write private, so those effects are zero.
+- A mount namespace with shared PID visibility does not close ancestor
+  `/proc/<pid>/{root,fd,ns}` magic links. The selected boundary requires a
+  fresh nested PID namespace, its matching procfs, and proved ancestor-task
+  non-nameability; path hiding is not a substitute.
+
+An object whose actual scope or deny cannot be proved is `NO_GO`. This rule is
+topology-neutral: it applies equally to the reduced native-supervisor path and
+Option C. It neither grants a device read nor turns any namespace declaration
+into H0D04/H0D10 retirement.
 
 ### What is observed
 
@@ -320,13 +348,38 @@ and a separate station-policy path.
 
 `PROPERTY_ABSENT_PROVED` requires zero successful property reads across clean
 launch, readiness, scan, association, DHCP, steady state, shutdown, and cold
-relaunch. Missing property access must fail the trace rather than silently
-return a fabricated default.
+relaunch. A missing property access must be emitted as an explicit `MISSING`
+event; READ `ERROR` or `DENIED` invalidates the terminal, and no missing/error
+path may silently return a fabricated default.
 
 `PROPERTY_FINITE_SEED_PROVED` requires one canonical finite set of key,
 context, value, source, digest, lifetime, and reader. Unknown/duplicate keys,
 extra files, wrong context, writable content, symlinks, hardlinks, truncated
 records, wrong generation, and digest drift must fail closed.
+
+The generated
+[`WP2-4` schema](../schema/a90-h24-wlan-property-observation-schema-v1.json)
+turns these requirements into two host-side terminal validators. It requires
+the exact retained-role by phase Cartesian coverage, distinguishes READ,
+WRITE, and ACK, rejects event loss/default fabrication/mixed runs, and requires
+final `RESIDENT_HEALTHY` plus `PROVED` before either terminal can validate. The
+result may not choose its own topology: the validator also consumes a
+separately qualified exact generation binding, retained-role set, and
+cold/persistent lifecycle partition, candidate seed-contract digest, plus the
+exact event/byte caps. The
+post-run trace digest is not misclassified as a pre-effect expectation. Phase
+regression, an ACK from a different writer identity or phase, or a READ `ERROR`
+or `DENIED` rejects the terminal. Observer failure is `NO_PROOF_OBSERVER`,
+never property absence.
+
+The same schema records the optional same-run cnss_utils effect observation.
+Only a complete read of the same built-in state used by the platform getter,
+bound to the same boot/run/source/driver and exact driver outcome, may classify
+`MAC_PROVISION_FALSE_PROVED_EXACT_RUN` or
+`MAC_PROVISION_TRUE_PROVED_EXACT_RUN`. A present MAC with working `wlan0`
+remains unresolved, and a read error is never normalized to absence. This is
+an observation shape for a future separately reviewed run, not a current D0
+action; WP2-4 grants no D0 or live authority.
 
 ## Options
 
@@ -750,9 +803,10 @@ state, and an extra top-level field. Passing this validator grants no
 dependency-retirement credit. `H0D01-H0D10` all remain `UNPROVED`; the future
 byte-derived consumer and execution implementation are absent.
 
-`WP2-4` may now design a property observation schema from the explicit
-unproved property slots in H0. It may not treat this inventory as a property
-read set, exact ELF closure, SD-free bootstrap, candidate, or live authority.
+`WP2-4` has now generated a property observation schema from the explicit
+unproved property slots in H0. It may not treat this inventory or that schema
+as a property read set, exact ELF closure, SD-free bootstrap, candidate,
+runtime observation, or live authority.
 
 ## Validation Plan
 
@@ -802,7 +856,13 @@ qualification; this document does not invent pass numbers.
   and identity evidence-state inventory with ten negative mutations — complete
   only as H0 requirements/known-facts/conflicts; current exact opaque-ELF
   bindings remain zero and every dependency gate remains unproved;
-- `WP2-4`: property read/write observation schema and two terminal validators;
+- `WP2-4`: generated property read/write observation schema, externally
+  qualified exact-generation/role binding, two terminal validators, total
+  same-run cnss_utils MAC-effect decision table, and
+  global-kernel-object containment rule — complete as H0 contract only at
+  `schema/a90-h24-wlan-property-observation-schema-v1.json`; runtime observer,
+  byte-derived consumer, qualification, H0D04/H0D10 retirement, and live
+  authority remain absent;
 - `WP2-5a`: H0 one-factor ablation design generator, baseline state machine,
   terminal vocabulary, and conceptual durable result schema — complete;
 - `WP2-5b`: execution implementation, journal/observer encoders, qualification,
@@ -812,8 +872,8 @@ qualification; this document does not invent pass numbers.
 - `WP2-8`: clean Debian capsule feasibility implementation;
 - `WP2-9`: independent security/execution review and topology decision.
 
-`WP2-1`, `WP2-2`, `WP2-3`, and `WP2-5a` are complete only at their stated H0
-boundaries. `WP2-4` remains host preparation. `WP2-5b` and every later live
+`WP2-1`, `WP2-2`, `WP2-3`, `WP2-4`, and `WP2-5a` are complete only at their
+stated H0 boundaries. `WP2-4` remains host preparation. `WP2-5b` and every later live
 package require their own implementation, review, and authority and must not
 be inferred from this proposal.
 

@@ -290,8 +290,10 @@ promotion, gate retirement, live authority, erased identity conflict, false
 completion, unknown evidence state, and extra schema. All ten H0D gates remain
 `UNPROVED`; no byte-derived consumer, acquisition authority, or execution
 implementation exists. `WP2-4` may use the unproved property slots for an H0
-observation-schema design, but no device action or dependency retirement is
-authorized.
+observation-schema design. That generated H0 schema now exists at
+`schema/a90-h24-wlan-property-observation-schema-v1.json`, but its runtime
+observer and byte-derived consumer remain absent; no device action or
+dependency retirement is authorized.
 
 ## Authority Result
 
