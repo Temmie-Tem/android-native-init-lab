@@ -11,7 +11,7 @@ ANALYSIS = (
     / "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15"
 )
 EXPECTED_COLLECTION_SHA256 = (
-    "1a9d4901e3b21b3fd4ec02f2a308e2faca5af228fbfd1956de1262e11c02fd47"
+    "12e587805caa82beff7599a1be8130469929f30916d52d89bf039fc24a1e6d67"
 )
 
 EVIDENCE_RELS = (
@@ -96,6 +96,24 @@ class A90WlanVendorPropertyAblationHardeningDocsTest(unittest.TestCase):
         self.assertEqual(source["artifactCount"], len(EVIDENCE_RELS))
         self.assertEqual(source["collectionSha256"], EXPECTED_COLLECTION_SHA256)
         self.assertEqual(source["sourceDrift"], "none")
+
+        identity_section = self.context.split("## Evidence Registry", 1)[0]
+        self.assertIn(
+            f"`{EXPECTED_COLLECTION_SHA256}`\n\nArtifact count: `24`.",
+            identity_section,
+        )
+        documented_rows = re.findall(
+            r"^\| `([0-9a-f]{64})` \| ([0-9]+) \| `([^`]+)` \|$",
+            identity_section,
+            flags=re.MULTILINE,
+        )
+        expected_rows = []
+        for rel in EVIDENCE_RELS:
+            data = (ROOT / rel).read_bytes()
+            expected_rows.append(
+                (hashlib.sha256(data).hexdigest(), str(len(data)), rel)
+            )
+        self.assertEqual(documented_rows, expected_rows)
 
     def test_analysis_is_h0_and_grants_no_authority(self) -> None:
         authority = self.data["authority"]

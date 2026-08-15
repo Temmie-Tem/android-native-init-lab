@@ -295,7 +295,20 @@ identity:
   conflicts with the selected root launch. This completes only the H0
   requirement/evidence-state inventory, not dependency closure: all ten gates,
   the future byte-derived consumer, execution implementation, and Option C
-  remain blocked. `WP2-4` property observation-schema work may proceed H0-only.
+  remain blocked.
+- `WP2-4` now freezes the H0 property observation/result schema, including the
+  lookup-time type-0 MAC signature and strict fail-closed validators. Its
+  runtime producer and byte-derived consumer remain absent; it retires no gate
+  and grants no live authority.
+- Before `WP2-5b` implementation, the permanent
+  `WP2_5B_KMSG_STREAM_COMPLETENESS` invariant requires a trusted exact
+  `/dev/kmsg` reader armed before effect intent and driver init, continuous
+  sequence-complete bounded raw capture, and fail-closed overrun/boundary
+  handling. `LOG_BUF_SHIFT=17` is only the 128-KiB minimum; the eight-CPU
+  source-default calculation is 1 MiB absent an early override, while the
+  effective live size remains unproved. Post-result snapshots and
+  `/proc/kmsg` fallback cannot prove a log-dependent terminal. The
+  `WP2_5B_STREAMING_KMSG_OBSERVER_ABSENT` implementation gate remains open.
 - Numeric budgets remain unset until measured from a corrected healthy
   baseline. The design has no execution implementation, qualification,
   independent execution review, identity, candidate, D0, D1, F1, handoff, UFS

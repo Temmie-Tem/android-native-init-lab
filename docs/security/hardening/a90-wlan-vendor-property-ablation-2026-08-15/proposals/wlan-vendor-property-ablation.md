@@ -641,6 +641,37 @@ an observer defect also exists; the observer defect never downgrades it.
 `REFUTED` may coexist with `RECOVERY_REQUIRED`/`RECOVERY_PARKED`, so recovery
 uncertainty never erases the causal result.
 
+#### WP2-5b kernel-log streaming prerequisite
+
+`WP2-5b` must permanently close
+`A90_WP2_5B_POSTHOC_KMSG_RETENTION_GAP` before it can qualify any unit whose
+proof uses a kernel-log record. The matching source does not prove a fixed
+128-KiB live ring: `LOG_BUF_SHIFT=17` is the minimum, CPU scaling computes a
+source-default 1 MiB for eight possible CPUs absent an early override, and the
+effective live `log_buf_len` remains unproved. No finite size proves that an
+earlier record survives until a post-result snapshot.
+
+The future observer must therefore open and `SEEK_END` the exact `/dev/kmsg`
+reader before durable effect intent and before the bound driver init can start,
+then publish `OBSERVER_ARMED` before allowing the effect. It continuously
+drains complete structured records with a buffer of at least the source-bound
+8192-byte maximum, preserves every record in the bounded epoch, and proves
+strict sequence continuity through the exact driver outcome. `EPIPE`,
+`POLLERR`, any sequence/format/boundary error, or byte/count cap exhaustion is
+`NO_PROOF_OBSERVER`. `/proc/kmsg` is forbidden as an automatic fallback
+because it advances the global legacy syslog cursor; `dmesg`, post-result
+snapshots, pstore/last-kmsg absence, and a larger boot log are not substitutes.
+
+Open/identity/seek/parser/arm failure stops before intent and spends no ordinal.
+Loss after intent never replays the effect and remains separate from cleanup,
+recovery, and final resident health. The complete requirement and source
+anchors are in
+`docs/reports/A90_WLAN_WP2_5B_STREAMING_KMSG_OBSERVER_H0_2026-08-16.md`.
+The permanent runtime invariant is `WP2_5B_KMSG_STREAM_COMPLETENESS`; the
+temporary `WP2_5B_STREAMING_KMSG_OBSERVER_ABSENT` gate remains until the exact
+producer, raw encoder, consumer, qualification, hostile tests, and independent
+execution review exist.
+
 ### Result and budget contract
 
 Each result binds the exact target/resident/candidate/rollback/recovery,
@@ -870,7 +901,9 @@ qualification; this document does not invent pass numbers.
 - `WP2-5a`: H0 one-factor ablation design generator, baseline state machine,
   terminal vocabulary, and conceptual durable result schema — complete;
 - `WP2-5b`: execution implementation, journal/observer encoders, qualification,
-  and live result validator — absent and unauthorized;
+  and live result validator — absent and unauthorized; any future version must
+  satisfy `WP2_5B_KMSG_STREAM_COMPLETENESS` and may not use a post-result log
+  snapshot or `/proc/kmsg` fallback for proof;
 - `WP2-6`: common metric/benchmark collector and failure attribution;
 - `WP2-7`: reduced-native launch/cleanup integration;
 - `WP2-8`: clean Debian capsule feasibility implementation;

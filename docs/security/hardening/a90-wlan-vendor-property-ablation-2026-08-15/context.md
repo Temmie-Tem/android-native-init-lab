@@ -48,14 +48,14 @@ security index entry, and corrections to the prior portfolio's inaccurate
 The collection digest is computed over the following files in the listed
 order as `relative_path NUL size NUL sha256 NUL`:
 
-`1a9d4901e3b21b3fd4ec02f2a308e2faca5af228fbfd1956de1262e11c02fd47`
+`12e587805caa82beff7599a1be8130469929f30916d52d89bf039fc24a1e6d67`
 
 Artifact count: `24`. Source drift at analysis time: `none`.
 
 | SHA256 | Bytes | Repository-relative path |
 | --- | ---: | --- |
 | `6cd7e24235396089baab844b0e568a93fb82528bf7fc6cb6c5cfc62d83ef0793` | 17014 | `AGENTS.md` |
-| `18f6087c6f7f62193d4112271bb4f0be1a44b3fc9277c4fdc1d99c56d0c374d1` | 29160 | `GOAL_A90.md` |
+| `91125c75349c41aeefb0d2618f111e494f9a0232c3c972a081f9a5e39c81ce61` | 29988 | `GOAL_A90.md` |
 | `ed9f51212db33bd822dc96ecf12feeda05ce255d088c402c4742851d173fad51` | 89405 | `docs/operations/targets/A90_TARGET_CONTRACT.md` |
 | `edd64a434330f79a3b1ec542c12822e5b201362c212484c7b67d67b4ffbb61a9` | 97237 | `docs/operations/CAMPAIGN_LEDGER_A90.md` |
 | `1c7984a85af3cb059244d7f3e7ed5b21516a60657bd947a275a4ed7e4faa5b71` | 4991 | `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA18_CONTROL_PLANE_BLOCKED_2026-07-04.md` |
@@ -297,6 +297,17 @@ requires the exact type-0 absence line from the bound driver-init epoch;
 debugfs absence alone is corroboration, and the source guarantee is
 non-reversion rather than set-once. No device action or
 dependency retirement is authorized.
+
+The follow-on WP2-5b observer requirement is now source-calibrated at
+`docs/reports/A90_WLAN_WP2_5B_STREAMING_KMSG_OBSERVER_H0_2026-08-16.md`.
+`LOG_BUF_SHIFT=17` is a 128-KiB minimum, not a proved final live size; the
+eight-CPU source-default calculation is 1 MiB absent an early override, and
+the effective live ring remains unproved. Any kernel-log-dependent terminal
+therefore requires pre-effect, sequence-complete `/dev/kmsg` streaming under
+`WP2_5B_KMSG_STREAM_COMPLETENESS`. Snapshot evidence and `/proc/kmsg` fallback
+are forbidden. The implementation gate
+`WP2_5B_STREAMING_KMSG_OBSERVER_ABSENT` remains open, and WP2-5b remains
+unimplemented and unauthorized.
 
 ## Authority Result
 

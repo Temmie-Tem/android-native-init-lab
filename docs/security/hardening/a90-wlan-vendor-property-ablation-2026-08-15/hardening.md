@@ -2,9 +2,10 @@
 
 ## Evidence Basis
 
-This H0 review binds 24 public artifacts from baseline revision
-`fda348a072eba8a53c2de7c9904c52429a7dddaf` with collection SHA256
-`1a9d4901e3b21b3fd4ec02f2a308e2faca5af228fbfd1956de1262e11c02fd47`.
+This H0 review binds 24 public artifacts from the lineage anchored at baseline
+revision `fda348a072eba8a53c2de7c9904c52429a7dddaf`. Their current collection
+SHA256 is
+`12e587805caa82beff7599a1be8130469929f30916d52d89bf039fc24a1e6d67`.
 
 The strongest result is not a successful ablation. It is a correction to the
 baseline: H24's selected helper builds thirteen composite children representing
@@ -23,10 +24,11 @@ capsule baseline even before topology is chosen.
 See [`context.md`](context.md) for exact anchors and the observed/inferred split.
 
 The 2026-08-16 `WP2-4` follow-up is a separately generated H0 extension. Its
-JSON carries its own five exact public `sourcePins`; it is not retroactively
-counted inside the original 24-artifact collection above. The original
-collection hash therefore remains unchanged rather than being relabelled as
-evidence for the later schema.
+JSON carries its own five exact public `sourcePins`; neither it nor the new
+WP2-5b streaming-kmsg report is retroactively counted as source evidence in
+the 24-artifact collection above. `GOAL_A90.md` is one of those 24 artifacts,
+so recording the current WP2-4/WP2-5b state rotates the collection hash; that
+rotation does not relabel either derived follow-up as original evidence.
 
 ## Constraints
 
@@ -134,6 +136,19 @@ evidence for the later schema.
   require the selected fresh PID/proc boundary. This is H0 schema completion
   only: runtime observer and byte-derived consumer are absent, H0D04 and H0D10
   remain `UNPROVED`, and WP2-4 grants no D0 or live authority.
+- `WP2-5b` remains absent and unauthorized. Its permanent
+  `WP2_5B_KMSG_STREAM_COMPLETENESS` invariant now forbids post-result `dmesg`,
+  `/proc/kmsg` fallback, pstore/last-kmsg absence, or a larger ring from proving
+  a kernel-log-dependent terminal. A trusted exact `/dev/kmsg` reader must be
+  armed before effect intent and driver init, continuously drain complete
+  source-bounded records, preserve the bounded raw epoch, and reject every
+  overrun (`EPIPE`/`POLLERR`), sequence, format, boundary, or cap defect as
+  `NO_PROOF_OBSERVER`. The effective live ring size is unproved:
+  `LOG_BUF_SHIFT=17` is only the 128-KiB minimum, while the eight-CPU
+  source-default calculation is 1 MiB absent an early override. The temporary
+  `WP2_5B_STREAMING_KMSG_OBSERVER_ABSENT` gate retires only with the exact
+  implementation, consumer, qualification, hostile tests, and independent
+  execution review; it grants no authority.
 
 ## Property Terminal
 
