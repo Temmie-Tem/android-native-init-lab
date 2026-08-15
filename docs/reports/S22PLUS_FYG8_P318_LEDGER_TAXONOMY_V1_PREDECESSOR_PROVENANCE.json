@@ -1,0 +1,60 @@
+{
+  "approved_review": {
+    "action": "PASS_GO_P318_CAMPAIGN_LEDGER_TAXONOMY_H0_CAPABILITY_V1",
+    "campaign": "s22plus-fyg8-p318",
+    "ordinal": "h0-ledger-taxonomy-review-7",
+    "timestamp": "2026-08-15T15:36:06Z"
+  },
+  "current_successor": {
+    "auditor": {
+      "sha256": "e0dc2051cc51b29f0b83b6a12f2350eeec38e12e987e1eaa3a357e2e48a64a21",
+      "size": 44601
+    },
+    "derivation_version": 2,
+    "ledger_scope": {
+      "sha256": "5ec56a03bcec560895102447fe4553979719e32551cba7649648bc8fa98b6640",
+      "size": 110202
+    },
+    "receipt": {
+      "path": "workspace/private/outputs/s22plus_fyg8_p318_ledger_taxonomy/ledger-taxonomy-20260815-01.json",
+      "sha256": "6e1fb6cd64879a8b2610861cfe7e4b22a1f0ac470556c178d548c76a090b1c61",
+      "size": 23257
+    }
+  },
+  "predecessor": {
+    "auditor": {
+      "bytes_preserved": false,
+      "sha256": "80faa898e23f96d95437bd13c1c87fe8906b1b12802123db53f44fed61c1c06c",
+      "size": 34654
+    },
+    "derivation_version": 1,
+    "historical_prefix": {
+      "row_count": 181,
+      "sha256": "3c0cca0feea9259a0107cc9c9bfa021579707595afa15b6bf9371529f1fe06e1",
+      "size": 103274
+    },
+    "ledger_scope": {
+      "sha256": "407e4acfb718fda2432970f0f90a2dda9a79b9f52186bd3cab6f2d1f5bf97f51",
+      "size": 109122
+    },
+    "receipt": {
+      "bytes_preserved": true,
+      "path": "workspace/private/outputs/s22plus_fyg8_p318_ledger_taxonomy/ledger-taxonomy-20260815-01-v1-approved.json",
+      "sha256": "4214ea5393ed2ec9f1bdef2357e711494050d483cf39b18c46fc9324bf94a153",
+      "size": 10118
+    }
+  },
+  "reproducibility": {
+    "current_scope_size_delta_from_approved_v1": 1080,
+    "predecessor_reproducible_from_current_header_and_auditor": false,
+    "reason": "The approved V1 auditor was an untracked in-place source and is not preserved; the ledger header and current V2 auditor also changed. The exact approved receipt bytes remain preserved for provenance, not current execution authority."
+  },
+  "safety": {
+    "a90_actions": 0,
+    "device_actions": 0,
+    "live_authority_created": false,
+    "s20plus_actions": 0
+  },
+  "schema": "s22plus-fyg8-p318-ledger-taxonomy-v1-predecessor-provenance-v1",
+  "status": "HISTORICAL_APPROVED_PREDECESSOR_NOT_CURRENT"
+}

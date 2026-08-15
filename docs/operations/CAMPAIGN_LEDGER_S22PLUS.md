@@ -36,6 +36,62 @@ Device safety is recorded independently from experiment proof. A timeout or
 late endpoint may be `HEALTH_PENDING`, `HOST_OBSERVER_FAILURE`, or
 `RECOVERY_PENDING_PARKED` without closing the campaign.
 
+## Orthogonal taxonomy
+
+The immutable proof column is a row-local evidence outcome. A normalized F1
+attempt enters metric denominators when its maximum candidate-transfer count
+reaches one, whether or not it later closes. Until one `CAMPAIGN_CLOSED` row
+supplies experiment proof it is `ATTEMPT_OPEN`, not omitted. Intermediate
+F1/recovery rows, pre-session stops, connected reads and controls, H0
+capability work, reviews, analyses, and corrections do not independently add
+attempts or experiment-proof outcomes. Device health, transfer-phase row kind,
+experiment proof, and capability-review state are separate axes; H0 row kind
+does not consume the review-state classifier.
+
+For H0 capability rows, an action beginning `PASS_GO_` has review state
+`PASS_GO`; an action ending `_REVIEW_PENDING` or `_PENDING_REVIEW` has review
+state `IMPLEMENTED_REVIEW_PENDING`. Historical actions that merely contain
+`REVIEW` have `LEGACY_UNSCOPED_REVIEW_LABEL`, not an inferred approval. Other
+rows have `NOT_APPLICABLE`. A row cannot satisfy more than one state rule.
+Raw review-state label counts are historical labels, not outstanding review
+debt. Review obligations are keyed by `(campaign, review-topic)`, so unrelated
+topics may remain open in parallel. A future resolution must use
+`h0-<same-topic>-review-N`; six frozen nonconforming historical pairs resolve
+only through exact identity mappings. An unrelated `PASS_GO_` never resolves
+an obligation, and a second pending row is rejected only for the same topic.
+Except for those six legacy pairs, a pending ordinal is `h0-<topic>-N` or `h0-<topic>-followup-N`, with a nonempty lowercase/hyphen topic containing no `review` token and a positive canonical `N`.
+
+The format below governs new rows. Four frozen legacy rows omit only the
+transfer cell; their findings prove zero transfers, so the auditor recognizes
+those exact row identities as `0/0` and rejects every other omission. Legacy
+`NO_PROOF`, `NO_PROOF_SUBTYPE`, and `NO_PROOF_LOG_BASELINE` spellings remain
+row-local evidence qualifiers and never become experiment-proof classes.
+
+Rows use a closed S22 campaign token, lowercase/hyphen ordinal, and uppercase
+action token; timestamps are real nondecreasing UTC values and each
+`(campaign, ordinal, action)` is unique. `PASS_GO_` and pending-review action
+forms are reserved to H0. Non-F1 rows require `0/0`; F1 counts are one-shot,
+rollback cannot precede candidate, and every candidate-bearing F1 ordinal is a
+positive canonical integer with an optional `-recovery-close` suffix.
+`CAMPAIGN_CLOSED` is F1-only with one candidate; a healthy close requires one
+rollback, while an exhausted `RECOVERY_REQUIRED` close may retain 1/0 or 1/1.
+Rows sharing one campaign and normalized attempt ordinal have componentwise
+nondecreasing transfer counts, exactly one terminal, and no F1 continuation
+after that terminal. A `-recovery-close` row requires the earlier base attempt.
+The row schema has no candidate artifact identity. It audits attempt-local
+one-shot counts but cannot prove that one candidate artifact was not reused
+under another campaign or attempt ordinal; replay identity remains governed by
+the higher-precedence Process-v2 evidence.
+
+The following registry is the machine-readable authority for correction
+scope. `CAMPAIGN_PROOF` changes the named attempt's effective class once for
+metrics. `SUBRESULT_ONLY` preserves a narrower interpretation and can never
+reclassify the campaign terminal.
+
+`CORRECTION | s22plus-fyg8-p316 | 1 | s22plus-fyg8-p317 | h0-design-1 | CAMPAIGN_PROOF | experiment | NO_PROOF_EXPERIMENT_PRECONDITION | APPLY_TO_METRICS`
+
+`CORRECTION | s22plus-fyg8-p317 | 1 | s22plus-fyg8-p317 | h0-endpoint-topology-correction-2 | SUBRESULT_ONLY | endpoint-selection | NO_PROOF_EXPERIMENT_PRECONDITION | EXCLUDE_FROM_CAMPAIGN_METRICS`
+
 ## Format
 
 `<UTC> | <campaign> | <ordinal> | <tier> | <action> | <HEALTHY|HEALTH_PENDING|HOST_OBSERVER_FAILURE|RECOVERY_PENDING_PARKED|RECOVERY_REQUIRED> | <PROVED|REFUTED|NO_PROOF_EXPERIMENT_PRECONDITION|NO_PROOF_OBSERVER|N/A> | <candidate-transfers>/<rollback-transfers> | <one-line finding>`
@@ -224,3 +280,6 @@ late endpoint may be `HEALTH_PENDING`, `HOST_OBSERVER_FAILURE`, or
 2026-08-15T07:35:51Z | s22plus-fyg8-p318 | h0-selector-negative-control-review-5 | H0 | PASS_GO_P318_SELECTOR_NEGATIVE_CONTROL_H0_CAPABILITY_V1 | HEALTHY | PROVED | 0/0 | Append-only independent review preserves the REVIEW_PENDING row and approves only the new H0 negative qualification. It independently regenerated the 2,667-byte afcf17ee receipt, proved current observer/latch/extractor byte identities and all 42 frozen SOURCE_KEYS, and executed actual ObserverSession and materialized latch-helper paths. Same-suffix other-controller, different-serial Samsung, and two-exact-candidate cases retain empty evidence with zero TTY opens; suffix, serial, accept-first ambiguity, and UDC-prefix fail-open mutations each reject. P3.18 120/120, Process-v2 120/120, and standalone live 5/5 pass. V3 candidate and observer bytes remain unchanged, and this PASS_GO creates no device, D0/D1/F1/recovery/replay/live, A90, or S20+ authority.
 2026-08-15T08:13:56Z | s22plus-fyg8-p318 | h0-cdc-acm-qemu-e2e-6 | H0 | P318_CDC_ACM_QEMU_REAL_OBSERVER_IMPLEMENTED_REVIEW_PENDING | HEALTHY | PROVED | 0/0 | A successor host-only control closes the historical two-seam gap: one arm64 QEMU guest loads the exact dummy_hcd/u_serial/cdc_acm stack, queues the source-derived 49-byte P2.60 banner on ttyGS0 before the observer child exists, binds dummy_udc.0, and executes the current real Python ObserverSession through exact selection, ttyACM0 open, TIOCEXCL, raw read, exclusive evidence writes, and receipt reopen. The immutable console has one complete terminal line; incomplete-line and multiplicity mutations reject. Exact QEMU/kernel/modules and a gpgv-verified Debian trixie InRelease to signed arm64 Packages to eight-deb chain are retained. The root udev guard remains synthetic, physical S22+ USB and the independent Envelope-v4 47/48 PackBits boundary are not qualified, the V3 candidate and 42 SOURCE_KEYS are unchanged, independent review remains mandatory, and no device, D0/D1/F1/recovery/replay/live, A90, or S20+ action or authority occurred.
 2026-08-15T09:15:50Z | s22plus-fyg8-p318 | h0-cdc-acm-qemu-e2e-review-6 | H0 | PASS_GO_P318_CDC_ACM_QEMU_REAL_OBSERVER_H0_CAPABILITY_V1 | HEALTHY | PROVED | 0/0 | Append-only independent review preserves the REVIEW_PENDING implementation row and approves only the exact host-only dummy_hcd-to-current-ObserverSession 49-byte control. A separate full QEMU regeneration matches 1,158 paths and modes; initramfs, init, kernel, signed Packages.xz and kernel deb, nine modules, observer, QEMU, Bubblewrap, and loader snapshots are byte-identical, while run-local console/maps/mount receipts differ only in their expected raw identities and preserve exact semantics. Both audits pass with one complete terminal, nine exact modules, accepted banner SHA e9e1fed4, panic zero, 48 QEMU maps, six launcher maps, and 12 isolated mounts; provenance-free loose inputs and incomplete control tails reject. Focused plus docs 22/22, P3.18 136/136, and common Process-v2 120/120 pass. The root udev guard remains synthetic, physical S22+ USB and Envelope-v4 47/48 remain unqualified, host-kernel runtime interfaces are not byte-frozen, and this PASS_GO creates no device, D0/D1/F1/recovery/replay/live, A90, or S20+ action or authority.
+2026-08-15T14:44:47Z | s22plus-fyg8-p318 | h0-ledger-taxonomy-7 | H0 | P318_CAMPAIGN_LEDGER_TAXONOMY_IMPLEMENTED_REVIEW_PENDING | HEALTHY | PROVED | 0/0 | Host-only taxonomy separates immutable row evidence, effective experiment proof, device health, attempt phase, and capability-review state. It preserves all 181 prior log rows byte-for-byte, normalizes only four exact legacy missing-transfer rows as 0/0, applies the P3.16 campaign correction while excluding the P3.17 endpoint subresult correction from campaign metrics, and audits P3.10-P3.17 as five observer no-proofs, one precondition no-proof, and two conclusive results. A deterministic receipt and mutation tests remain subject to one independent review; no candidate, execution-critical P3.18 byte, device action, D0/D1/F1/recovery/replay/live authority, A90 action, or S20+ action changed.
+2026-08-15T15:36:06Z | s22plus-fyg8-p318 | h0-ledger-taxonomy-review-7 | H0 | PASS_GO_P318_CAMPAIGN_LEDGER_TAXONOMY_H0_CAPABILITY_V1 | HEALTHY | PROVED | 0/0 | Append-only independent review preserves the implementation REVIEW_PENDING row and approves only the exact host-only taxonomy closure. It independently regenerated the 10,118-byte 4214ea53 receipt, retained the 181-row 3c0cca0f historical prefix, and rejected malformed future rows, legacy proof reuse, invalid UTC/tokens, transfer and health contradictions, duplicate actions, time regression, normalized-attempt transfer rollback, duplicate terminal, post-close continuation, and orphan recovery-close. Taxonomy 27/27, combined docs 58/58, common Process-v2 120/120, and P3.18 136/136 pass. This PASS_GO creates no device, D0/D1/F1/recovery/replay/live, A90, or S20+ action or authority.
+2026-08-15T15:54:07Z | s22plus-fyg8-p318 | h0-ledger-taxonomy-followup-8 | H0 | P318_CAMPAIGN_LEDGER_TAXONOMY_DERIVATION_FOLLOWUP_IMPLEMENTED_REVIEW_PENDING | HEALTHY | PROVED | 0/0 | Host-only follow-up separates raw pending-label counts from serialized review obligations, records the current historical 11/11 resolution before opening this one fresh review obligation, derives attempt eligibility from maximum candidate transfers with explicit ATTEMPT_OPEN state, removes H0 review-state input from row kind, and states that the ledger lacks candidate identity and cannot audit cross-ordinal replay. P3.10-P3.17 metrics and P3.18 execution-critical bytes remain unchanged. Fresh independent review is required; no device, D0/D1/F1/recovery/replay/live, A90, or S20+ action or authority occurred.
