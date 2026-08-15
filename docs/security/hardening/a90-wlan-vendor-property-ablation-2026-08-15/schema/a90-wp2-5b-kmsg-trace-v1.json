@@ -1,0 +1,229 @@
+{
+  "authority": {
+    "candidateEligible": false,
+    "d0Authorized": false,
+    "d1Authorized": false,
+    "deviceContact": false,
+    "f1Authorized": false,
+    "generationPromotionAuthorized": false,
+    "liveExecutionAuthorized": false,
+    "propertyProvisionAuthorized": false,
+    "tier": "H0",
+    "ufsMutationAuthorized": false
+  },
+  "boundConsumer": {
+    "boundResultSchema": "a90-wp2-5b-kmsg-bound-result-v1",
+    "driverOutcomeReceiptProducerImplemented": false,
+    "driverOutcomeReceiptSchema": "a90-wp2-5b-driver-outcome-receipt-v1",
+    "driverOutcomeReceiptTiming": "POST_EFFECT_CANONICAL_PUBLICATION",
+    "existingResultSchema": "a90-h24-wlan-property-observation-result-v1",
+    "promotion": "ALWAYS_FALSE_IN_THIS_H0_UNIT",
+    "proofAxes": [
+      "experimentProofOutcome",
+      "deviceSafetyState",
+      "workflowState"
+    ],
+    "qualifiedExpectationSchema": "a90-wp2-5b-kmsg-qualified-expectation-v1"
+  },
+  "generatedDeterministically": true,
+  "journalContract": {
+    "chain": "sha256(canonical JSON record); first previous hash is zero",
+    "durableWriterImplemented": false,
+    "events": [
+      "OBSERVER_ARMED",
+      "EFFECT_INTENT",
+      "EFFECT_DISPATCHED",
+      "DRIVER_OUTCOME_BOUND",
+      "CAPTURE_CLOSED",
+      "TERMINAL"
+    ],
+    "noReplay": "At and after durable EFFECT_INTENT the attempt is consumed. This H0 validator never returns dispatch authority; incomplete post-intent prefixes are observation, cleanup, and recovery only.",
+    "payloadBindings": {
+      "CAPTURE_CLOSED": "complete raw trace SHA-256",
+      "DRIVER_OUTCOME_BOUND": "bound driver-outcome receipt SHA-256",
+      "EFFECT_DISPATCHED": "qualified exact-command SHA-256",
+      "EFFECT_INTENT": "qualified proof-subject SHA-256",
+      "OBSERVER_ARMED": "trace header plus ARM frame SHA-256",
+      "TERMINAL": "canonical WP2-4 property result SHA-256"
+    },
+    "rawCanonicalParserImplemented": false,
+    "recordSchema": "a90-wp2-5b-kmsg-journal-record-v1"
+  },
+  "kmsgRecordContract": {
+    "completeProof": [
+      "ARM precedes durable effect intent and driver init",
+      "zero FAULT frames",
+      "zero EPIPE and zero POLLERR",
+      "strict sequence increment by one across every RECORD",
+      "every read is one complete canonical extended record",
+      "END follows the bound driver outcome and final EAGAIN drain",
+      "record and raw-byte counts match END and qualified caps"
+    ],
+    "continuationFlags": [
+      "-",
+      "c"
+    ],
+    "escapedTextGrammar": "Printable ASCII except backslash is literal; every backslash introduces exactly lowercase \\xHH for a raw byte below 0x20, at least 0x7f, or backslash itself. Dictionary data begins with a space-prefixed line; only its source-derived final newline may be empty.",
+    "fallbacksForbidden": [
+      "/proc/kmsg",
+      "dmesg snapshot",
+      "last_kmsg",
+      "pstore absence"
+    ],
+    "headerGrammar": "priority,sequence,timestamp,continuation;body",
+    "initialSeek": "SEEK_END_OFFSET_0",
+    "macFalseSignature": {
+      "body": "WLAN MAC address is not set, type 0",
+      "continuation": "-",
+      "exactCount": 1,
+      "priority": 3,
+      "type1ExactCount": 0
+    },
+    "macTrueSignature": {
+      "bodySuffix": "getting MAC address from platform driver failed",
+      "continuation": "-",
+      "exactCount": 1,
+      "priority": 3,
+      "sourceShape": "QDF hdd_err prepends a dynamic wlan/PID/module/function/line prefix; the pinned source-unique literal is therefore matched as the exact final suffix, not as the whole body."
+    },
+    "openFlags": [
+      "O_RDONLY",
+      "O_NONBLOCK",
+      "O_CLOEXEC"
+    ],
+    "priorityRange": [
+      0,
+      2047
+    ],
+    "recordMaxBytes": 8192,
+    "source": "/dev/kmsg",
+    "sourceKind": "NON_SYMLINK_CHAR_DEVICE_RDEV_1_11"
+  },
+  "negativeCorpus": [
+    "bad magic/version/header reserved",
+    "unknown/duplicate/misordered/trailing frame",
+    "short/oversized/malformed /dev/kmsg record",
+    "EPIPE/POLLERR/EINVAL/read fault",
+    "sequence gap/duplicate/regression/overflow",
+    "record-count or byte-cap exhaustion",
+    "total framed-trace envelope exhaustion",
+    "wrong priority/continuation/dictionary signature",
+    "type-0 count not one or type-1 count not zero",
+    "ARM/END run/qualification/observer/driver/close mismatch",
+    "journal event/order/chain/payload mismatch",
+    "driver-outcome receipt/result/run/boot/epoch laundering",
+    "post-intent prefix never permits replay",
+    "WP2-4 result/expectation/trace binding mismatch",
+    "bool-for-int and extra/missing-key substitution"
+  ],
+  "schema": "a90-wp2-5b-kmsg-trace-contract-v1",
+  "scope": {
+    "hazard": "A90_WP2_5B_POSTHOC_KMSG_RETENTION_GAP",
+    "openGate": "WP2_5B_STREAMING_KMSG_OBSERVER_ABSENT",
+    "permanentInvariant": "WP2_5B_KMSG_STREAM_COMPLETENESS",
+    "retiredGate": null,
+    "statement": "This contract closes only raw framing, sequence validation, WP2-4 result binding, and H0 no-replay prefix semantics. It does not open /dev/kmsg, publish a durable journal, qualify a runtime observer, select numeric budgets, or authorize a run.",
+    "target": "Samsung Galaxy A90 5G only",
+    "workPackage": "WP2-5b.1"
+  },
+  "sequencingConstraint": {
+    "current": "WP2-5b.1 H0 trace core and state contract",
+    "deviceOrdinalsConsumed": 0,
+    "next": "A separately reviewed runtime owner must integrate the exact /dev/kmsg open/poll/drain lifecycle and durable no-replace journal, then qualify measured caps and obtain fresh live authority."
+  },
+  "sourcePins": [
+    {
+      "bytes": 27687,
+      "path": "docs/reports/A90_WLAN_KERNEL_SOURCE_CONFIRMATION_H0_2026-08-16.md",
+      "sha256": "a9d80e2134e985dd15c01b4dc9b3ca573f402884c21e75f8ab1febd5a905155f"
+    },
+    {
+      "bytes": 15385,
+      "path": "docs/reports/A90_WLAN_MAC_PROVISIONING_EXISTING_EVIDENCE_H0_2026-08-16.md",
+      "sha256": "144bf161f8009f518c1a5d6b815b2a00e24ef7a0b131619ccce37add417b673b"
+    },
+    {
+      "bytes": 25818,
+      "path": "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/schema/a90-h24-wlan-property-observation-schema-v1.json",
+      "sha256": "ce8428a2f85183c206a3d4e224a59ea55b63749afb8be248e7b9f92e31344f10"
+    },
+    {
+      "bytes": 60728,
+      "path": "workspace/public/src/scripts/revalidation/a90_h24_wlan_property_observation_schema_v1.py",
+      "sha256": "6e58e4e25b5c20cef6c39a0310e8a2fa621093d0b28a273b7e7bbcea28912cc3"
+    }
+  ],
+  "status": "H0_TRACE_CORE_ONLY_RUNTIME_INTEGRATION_ABSENT",
+  "wireFormat": {
+    "faultReasons": [
+      {
+        "id": 1,
+        "name": "READ_ERROR"
+      },
+      {
+        "id": 2,
+        "name": "POLL_ERROR"
+      },
+      {
+        "id": 3,
+        "name": "EPIPE_OVERRUN"
+      },
+      {
+        "id": 4,
+        "name": "EINVAL_CURSOR_ADVANCED"
+      },
+      {
+        "id": 5,
+        "name": "RECORD_FORMAT_ERROR"
+      },
+      {
+        "id": 6,
+        "name": "SEQUENCE_ERROR"
+      },
+      {
+        "id": 7,
+        "name": "RECORD_COUNT_CAP_EXHAUSTED"
+      },
+      {
+        "id": 8,
+        "name": "RECORD_BYTE_CAP_EXHAUSTED"
+      },
+      {
+        "id": 9,
+        "name": "BOUNDARY_ERROR"
+      }
+    ],
+    "frameFlags": 0,
+    "frameHeader": ">BBHI",
+    "frameReserved": 0,
+    "frames": [
+      {
+        "cardinality": "EXACTLY_ONE_FIRST",
+        "id": 1,
+        "name": "ARM",
+        "payload": ">32s32s32s32sIQ"
+      },
+      {
+        "cardinality": "ZERO_OR_MORE_BEFORE_FAULT_OR_END",
+        "id": 2,
+        "name": "RECORD",
+        "payload": "ONE_EXACT_DEV_KMSG_READ_1_TO_8192_BYTES"
+      },
+      {
+        "cardinality": "ZERO_OR_ONE_TERMINAL_FAULT_BEFORE_END",
+        "id": 3,
+        "name": "FAULT",
+        "payload": ">IiIQ"
+      },
+      {
+        "cardinality": "EXACTLY_ONE_LAST",
+        "id": 4,
+        "name": "END",
+        "payload": ">32s32sIQQQ"
+      }
+    ],
+    "magicHex": "4139304b35423100",
+    "traceHeader": ">8sHHI",
+    "version": 1
+  }
+}

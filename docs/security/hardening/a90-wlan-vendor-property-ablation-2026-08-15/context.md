@@ -306,8 +306,12 @@ the effective live ring remains unproved. Any kernel-log-dependent terminal
 therefore requires pre-effect, sequence-complete `/dev/kmsg` streaming under
 `WP2_5B_KMSG_STREAM_COMPLETENESS`. Snapshot evidence and `/proc/kmsg` fallback
 are forbidden. The implementation gate
-`WP2_5B_STREAMING_KMSG_OBSERVER_ABSENT` remains open, and WP2-5b remains
-unimplemented and unauthorized.
+`WP2_5B_STREAMING_KMSG_OBSERVER_ABSENT` remains open. WP2-5b.1 now supplies a
+generated H0 binary trace contract, C encoder core, raw consumer, WP2-4 result
+binder, and no-replay prefix validator at
+`schema/a90-wp2-5b-kmsg-trace-v1.json`; none opens `/dev/kmsg` or grants a
+dispatch. The runtime observer, durable writer, measured qualification,
+execution review, and full WP2-5b remain unimplemented and unauthorized.
 
 ## Authority Result
 

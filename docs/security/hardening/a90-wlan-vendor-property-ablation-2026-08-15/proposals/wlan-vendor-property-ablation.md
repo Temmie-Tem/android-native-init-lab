@@ -669,8 +669,9 @@ anchors are in
 `docs/reports/A90_WLAN_WP2_5B_STREAMING_KMSG_OBSERVER_H0_2026-08-16.md`.
 The permanent runtime invariant is `WP2_5B_KMSG_STREAM_COMPLETENESS`; the
 temporary `WP2_5B_STREAMING_KMSG_OBSERVER_ABSENT` gate remains until the exact
-producer, raw encoder, consumer, qualification, hostile tests, and independent
-execution review exist.
+runtime owner, durable raw/journal writer, integrated consumer, qualification,
+hostile execution tests, and independent execution review exist. The later
+WP2-5b.1 H0 framing/consumer core alone does not retire it.
 
 ### Result and budget contract
 
@@ -900,8 +901,14 @@ qualification; this document does not invent pass numbers.
   authority remain absent;
 - `WP2-5a`: H0 one-factor ablation design generator, baseline state machine,
   terminal vocabulary, and conceptual durable result schema — complete;
-- `WP2-5b`: execution implementation, journal/observer encoders, qualification,
-  and live result validator — absent and unauthorized; any future version must
+- `WP2-5b.1`: generated raw-trace contract/header, C framing encoder core,
+  strict sequence/signature consumer, WP2-4 result binder, and H0 no-replay
+  journal-prefix validator — complete only as host code; it opens no device,
+  writes no durable journal, returns no dispatch permission, and grants no
+  authority;
+- `WP2-5b`: runtime execution implementation, journal/observer encoders with
+  durable publication, qualification, and live result validator — absent and
+  unauthorized; any future version must
   satisfy `WP2_5B_KMSG_STREAM_COMPLETENESS` and may not use a post-result log
   snapshot or `/proc/kmsg` fallback for proof;
 - `WP2-6`: common metric/benchmark collector and failure attribution;
@@ -909,10 +916,10 @@ qualification; this document does not invent pass numbers.
 - `WP2-8`: clean Debian capsule feasibility implementation;
 - `WP2-9`: independent security/execution review and topology decision.
 
-`WP2-1`, `WP2-2`, `WP2-3`, `WP2-4`, and `WP2-5a` are complete only at their
-stated H0 boundaries. `WP2-4` remains host preparation. `WP2-5b` and every later live
-package require their own implementation, review, and authority and must not
-be inferred from this proposal.
+`WP2-1`, `WP2-2`, `WP2-3`, `WP2-4`, `WP2-5a`, and `WP2-5b.1` are complete only
+at their stated H0 boundaries. `WP2-4` and WP2-5b.1 remain host preparation.
+Runtime `WP2-5b` and every later live package require their own implementation,
+review, and authority and must not be inferred from this proposal.
 
 ## Open Questions
 

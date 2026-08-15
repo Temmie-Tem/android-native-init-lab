@@ -136,7 +136,12 @@ rotation does not relabel either derived follow-up as original evidence.
   require the selected fresh PID/proc boundary. This is H0 schema completion
   only: runtime observer and byte-derived consumer are absent, H0D04 and H0D10
   remain `UNPROVED`, and WP2-4 grants no D0 or live authority.
-- `WP2-5b` remains absent and unauthorized. Its permanent
+- For authority purposes, `WP2-5b` remains absent and unauthorized. WP2-5b.1
+  now has a generated H0 trace contract/header, C encoder core, raw consumer,
+  WP2-4 result binder, strict combined-result rederivation, and no-replay
+  journal-prefix validator. The core opens no device and returns no dispatch
+  or promotion authority. The runtime observer, durable writer, measured
+  qualification, and execution integration remain absent. Its permanent
   `WP2_5B_KMSG_STREAM_COMPLETENESS` invariant now forbids post-result `dmesg`,
   `/proc/kmsg` fallback, pstore/last-kmsg absence, or a larger ring from proving
   a kernel-log-dependent terminal. A trusted exact `/dev/kmsg` reader must be
@@ -147,8 +152,8 @@ rotation does not relabel either derived follow-up as original evidence.
   `LOG_BUF_SHIFT=17` is only the 128-KiB minimum, while the eight-CPU
   source-default calculation is 1 MiB absent an early override. The temporary
   `WP2_5B_STREAMING_KMSG_OBSERVER_ABSENT` gate retires only with the exact
-  implementation, consumer, qualification, hostile tests, and independent
-  execution review; it grants no authority.
+  runtime implementation, durable writer, qualification, hostile execution
+  tests, and independent execution review; this H0 core does not retire it.
 
 ## Property Terminal
 

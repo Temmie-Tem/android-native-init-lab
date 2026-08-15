@@ -4,7 +4,7 @@ Date: 2026-08-16
 Target: operator-owned Samsung Galaxy A90 5G only
 Tier: H0 source and design analysis
 Device, `/dev`, USB, network, or other-target contact: none
-Disposition: permanent streaming-completeness invariant; implementation absent
+Disposition: permanent invariant; H0 trace core separate, runtime observer absent
 
 ## Result
 
@@ -19,9 +19,10 @@ This requirement is named
 `WP2_5B_KMSG_STREAM_COMPLETENESS`, is permanent for every terminal whose proof
 depends on a kernel-log record. The temporary implementation gate
 `WP2_5B_STREAMING_KMSG_OBSERVER_ABSENT` retires only after an exact
-byte-derived observer, raw encoder, result consumer, qualification, hostile
-negative corpus, and independent execution review exist. Neither gate grants
-device or execution authority.
+byte-derived runtime observer, durable raw/journal writer, result consumer,
+qualification, hostile execution corpus, and independent execution review
+exist. The separate WP2-5b.1 H0 trace encoder/consumer core does not open the
+device or retire this gate. Neither gate grants device or execution authority.
 
 ## The effective ring is not proved to be 128 KiB
 
@@ -154,4 +155,6 @@ Public current source:
 This report is H0 only. It creates no observer binary, candidate identity,
 qualification, approval, journal, D0, D1, F1, handoff, UFS mutation, property
 provisioning, live ablation, recovery, or execution authority. Option C and
-`WP2-5b` remain unimplemented and unauthorized.
+full runtime `WP2-5b` remain unimplemented and unauthorized. The later H0 trace-core
+implementation is documented separately in
+`A90_WLAN_WP2_5B_KMSG_TRACE_CORE_H0_2026-08-16.md`.
