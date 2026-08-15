@@ -149,6 +149,7 @@ class A90H24WlanPropertyObservationSchemaV1Test(unittest.TestCase):
                 "readComplete": False,
                 "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
                 "wlanOutcome": "OTHER_OR_UNPROVED",
+                "provisionedAbsenceAtDriverLookup": "NOT_PROVED",
                 "decision": "NO_PROOF_OBSERVER",
             },
             "deviceSafetyState": "RESIDENT_HEALTHY",
@@ -831,30 +832,70 @@ class A90H24WlanPropertyObservationSchemaV1Test(unittest.TestCase):
 
     def test_mac_effect_table_is_total_and_scoped_to_one_exact_run(self) -> None:
         table = self.data["macProvisioningEffectObservation"]["decisionTable"]
-        self.assertEqual(len(table), 18)
+        self.assertEqual(len(table), 36)
         self.assertEqual(
             self.module.classify_mac_effect(
-                "ABSENT_PARSED", "WLAN0_UP_EXACT_DRIVER", True
+                "ABSENT_PARSED",
+                "WLAN0_UP_EXACT_DRIVER",
+                True,
+                "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
             ),
             "MAC_PROVISION_FALSE_PROVED_EXACT_RUN",
         )
         self.assertEqual(
             self.module.classify_mac_effect(
-                "ABSENT_PARSED", "MAC_INIT_FAILED_EXACT_SIGNATURE", True
+                "ABSENT_PARSED",
+                "MAC_INIT_FAILED_EXACT_SIGNATURE",
+                True,
+                "NOT_PROVED",
             ),
             "MAC_PROVISION_TRUE_PROVED_EXACT_RUN",
         )
         self.assertEqual(
             self.module.classify_mac_effect(
-                "PRESENT_VALID", "WLAN0_UP_EXACT_DRIVER", True
+                "PRESENT_VALID",
+                "WLAN0_UP_EXACT_DRIVER",
+                True,
+                "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
             ),
             "MAC_PROVISION_VALUE_UNRESOLVED",
         )
         self.assertEqual(
             self.module.classify_mac_effect(
-                "ABSENT_PARSED", "WLAN0_UP_EXACT_DRIVER", False
+                "ABSENT_PARSED",
+                "WLAN0_UP_EXACT_DRIVER",
+                False,
+                "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
             ),
             "NO_PROOF_OBSERVER",
+        )
+        self.assertEqual(
+            self.module.classify_mac_effect(
+                "ABSENT_PARSED", "WLAN0_UP_EXACT_DRIVER", True, "NOT_PROVED"
+            ),
+            "NO_PROOF_OBSERVER",
+        )
+
+        for row in table:
+            if row["observationBoundComplete"] is False:
+                self.assertEqual(row["decision"], "NO_PROOF_OBSERVER")
+        false_rows = [
+            row
+            for row in table
+            if row["decision"] == "MAC_PROVISION_FALSE_PROVED_EXACT_RUN"
+        ]
+        self.assertEqual(
+            false_rows,
+            [
+                {
+                    "cnssUtilsMacState": "ABSENT_PARSED",
+                    "wlanOutcome": "WLAN0_UP_EXACT_DRIVER",
+                    "observationBoundComplete": True,
+                    "provisionedAbsenceAtDriverLookup":
+                        "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
+                    "decision": "MAC_PROVISION_FALSE_PROVED_EXACT_RUN",
+                }
+            ],
         )
 
         value = self.base_result("PROPERTY_ABSENT_PROVED")
@@ -869,11 +910,30 @@ class A90H24WlanPropertyObservationSchemaV1Test(unittest.TestCase):
         )
 
         value = self.base_result("PROPERTY_ABSENT_PROVED")
+        value["macProvisioningEffect"].update(
+            sameBoot=True,
+            sameRun=True,
+            sourceIdentityBound=True,
+            driverIdentityBound=True,
+            debugfsIdentityBound=True,
+            readComplete=True,
+            cnssUtilsMacState="ABSENT_PARSED",
+            wlanOutcome="WLAN0_UP_EXACT_DRIVER",
+            provisionedAbsenceAtDriverLookup="TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
+            decision="MAC_PROVISION_FALSE_PROVED_EXACT_RUN",
+        )
+        self.assertEqual(self.validate_absent(value), [])
+
+        value = self.base_result("PROPERTY_ABSENT_PROVED")
         value["macProvisioningEffect"]["cnssUtilsMacState"] = "UNKNOWN"
         self.assertIn(
             "MAC_EFFECT_MISMATCH",
             self.validate_absent(value),
         )
+
+        value = self.base_result("PROPERTY_ABSENT_PROVED")
+        value["macProvisioningEffect"]["provisionedAbsenceAtDriverLookup"] = {}
+        self.assertIn("MAC_EFFECT_MISMATCH", self.validate_absent(value))
 
     def test_finite_seed_reader_and_root_are_exactly_bounded(self) -> None:
         value = self.finite_result()
@@ -933,6 +993,12 @@ class A90H24WlanPropertyObservationSchemaV1Test(unittest.TestCase):
         value["macProvisioningEffectObservation"] = []
         mutations.append((value, "MAC_DECISION_TABLE_MISMATCH"))
 
+        value = copy.deepcopy(self.data)
+        value["macProvisioningEffectObservation"]["decisionTable"][0][
+            "observationBoundComplete"
+        ] = 0
+        mutations.append((value, "MAC_DECISION_TABLE_MISMATCH"))
+
         for value, expected in mutations:
             with self.subTest(expected=expected):
                 self.assertIn(expected, self.module.validate_schema(value))
@@ -945,6 +1011,9 @@ class A90H24WlanPropertyObservationSchemaV1Test(unittest.TestCase):
             self.assertIn("Namespace membership is never", text)
             self.assertIn("AF_QIPCRTR", text)
             self.assertIn("NO_PROOF_OBSERVER", text)
+            self.assertIn("type-0", text)
+            self.assertIn("corroboration", text)
+            self.assertIn("non-reversion", text)
             self.assertIn("no D0", text)
             self.assertIn("H0D04", text)
             self.assertIn("H0D10", text)

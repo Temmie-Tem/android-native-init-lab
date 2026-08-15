@@ -292,7 +292,10 @@ completion, unknown evidence state, and extra schema. All ten H0D gates remain
 implementation exists. `WP2-4` may use the unproved property slots for an H0
 observation-schema design. That generated H0 schema now exists at
 `schema/a90-h24-wlan-property-observation-schema-v1.json`, but its runtime
-observer and byte-derived consumer remain absent; no device action or
+observer and byte-derived consumer remain absent. Its false MAC-value row
+requires the exact type-0 absence line from the bound driver-init epoch;
+debugfs absence alone is corroboration, and the source guarantee is
+non-reversion rather than set-once. No device action or
 dependency retirement is authorized.
 
 ## Authority Result

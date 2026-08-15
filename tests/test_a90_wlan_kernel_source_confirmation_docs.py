@@ -310,6 +310,60 @@ class KernelSourceConfirmationDocsTests(unittest.TestCase):
         self.assertIn("every syntactically valid provisioned or derived token mutates", self.report)
         self.assertIn("No destination overflow is claimed for this debugfs path", self.report)
 
+    def test_mac_lookup_signature_and_nonreversion_are_source_backed(self) -> None:
+        self.require_source()
+        utils = (KERNEL / "drivers/net/wireless/cnss_utils/cnss_utils.c").read_text(
+            errors="replace"
+        )
+        main = (
+            KERNEL
+            / "drivers/net/wireless/qualcomm/wcn39xx/qcacld-3.0/core/hdd/src/wlan_hdd_main.c"
+        ).read_text(errors="replace")
+
+        self.assertRegex(
+            utils,
+            re.compile(
+                r"enum mac_type\s*\{\s*CNSS_MAC_PROVISIONED,\s*CNSS_MAC_DERIVED,",
+                re.MULTILINE,
+            ),
+        )
+        getter = utils[utils.index("static u8 *get_wlan_mac_address") :]
+        getter = getter[: getter.index("u8 *cnss_utils_get_wlan_mac_address")]
+        self.assertIn('pr_err("WLAN MAC address is not set, type %d\\n", type);', getter)
+        self.assertLess(getter.index("if (!addr->no_of_mac_addr_set)"), getter.index("*num = 0;"))
+
+        setter = utils[utils.index("static int set_wlan_mac_address") :]
+        setter = setter[: setter.index("int cnss_utils_set_wlan_mac_address")]
+        self.assertLess(
+            setter.index("if (addr->no_of_mac_addr_set)"),
+            setter.index("addr->no_of_mac_addr_set = no_of_mac_addr;"),
+        )
+        guarded = setter[
+            setter.index("if (addr->no_of_mac_addr_set)") :
+            setter.index("addr->no_of_mac_addr_set = no_of_mac_addr;")
+        ]
+        self.assertIn("return 0;", guarded)
+        self.assertNotIn("ether_addr_copy", guarded)
+
+        platform = main[main.index("static int hdd_platform_wlan_mac") :]
+        platform = platform[: platform.index("static int hdd_update_mac_addr_to_fw")]
+        self.assertLess(
+            platform.index("hdd_get_platform_wlan_mac_buff"),
+            platform.index("hdd_get_platform_wlan_derived_mac_buff"),
+        )
+        self.assertIn("return -EINVAL;", platform)
+        self.assertIn("static void __exit cnss_utils_exit", utils)
+        self.assertEqual(config_values(DEFCONFIG)["CONFIG_CNSS_UTILS"], "y")
+
+        for claim in (
+            "exact type-0 absence line",
+            "does **not** copy the",
+            "**non-reversion**",
+            "It is not **set-once**",
+            "debugfs absence read remains corroboration",
+        ):
+            self.assertIn(claim, self.report)
+
     def test_cnss_daemon_named_kernel_interactions_are_not_base_lookup(self) -> None:
         self.require_source()
         wlan = KERNEL / "drivers/net/wireless/qualcomm/wcn39xx"

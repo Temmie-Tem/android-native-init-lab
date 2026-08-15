@@ -119,7 +119,11 @@ evidence for the later schema.
   fixes eight observation phases, exact retained-role/phase coverage, distinct
   READ/WRITE/ACK events, a separately qualified exact generation/role binding,
   two terminal validators, and a total same-run
-  cnss_utils MAC-effect decision table. Event loss, fabricated defaults,
+  cnss_utils MAC-effect decision table. The false-value row additionally
+  requires the exact type-0 absence signature from the bound driver-init epoch;
+  a debugfs absence read alone is only corroboration. The source invariant is
+  non-reversion, not set-once, because debugfs may overwrite existing bytes.
+  Event loss, fabricated defaults,
   read-error-as-absence, mixed runs, writable/link/extra seed members, missing
   final `RESIDENT_HEALTHY`, and recovery uncertainty all fail closed as
   `NO_PROOF_OBSERVER` or a rejected terminal. It also makes the global-object

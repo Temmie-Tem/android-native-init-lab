@@ -40,12 +40,12 @@ PINNED_INPUTS = {
         "0eddec9ba9d637590c82499709179bd6b56a79d646d7967d3049a0bf36136b85",
     ),
     SOURCE_REPORT_REL: (
-        25810,
-        "1d1c15850619f278d7d56e0702ffc23197a216602f5d9e4ef6be78fc4db3fffb",
+        27687,
+        "a9d80e2134e985dd15c01b4dc9b3ca573f402884c21e75f8ab1febd5a905155f",
     ),
     MAC_REPORT_REL: (
-        14212,
-        "14d0d2bf24397520beebf7642b38b218af2ce966678f090e53070049ad9e4ba3",
+        15385,
+        "144bf161f8009f518c1a5d6b815b2a00e24ef7a0b131619ccce37add417b673b",
     ),
 }
 
@@ -81,6 +81,10 @@ PROPERTY_OPERATIONS = ("READ", "WRITE", "ACK")
 PROPERTY_RESULTS = ("SUCCESS", "MISSING", "DENIED", "ERROR")
 TERMINALS = ("PROPERTY_ABSENT_PROVED", "PROPERTY_FINITE_SEED_PROVED")
 MAC_STATES = ("PRESENT_VALID", "ABSENT_PARSED", "UNREADABLE_OR_MALFORMED")
+PROVISIONED_LOOKUP_SIGNATURES = (
+    "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
+    "NOT_PROVED",
+)
 WLAN_OUTCOMES = (
     "WLAN0_UP_EXACT_DRIVER",
     "MAC_INIT_FAILED_EXACT_SIGNATURE",
@@ -256,6 +260,7 @@ MAC_EFFECT_KEYS = {
     "decision",
     "driverIdentityBound",
     "readComplete",
+    "provisionedAbsenceAtDriverLookup",
     "sameBoot",
     "sameRun",
     "sourceIdentityBound",
@@ -377,6 +382,9 @@ def _require_source_contract(inputs: dict[str, Any]) -> None:
             "one global `qrtr_ports` IDR and one global endpoint list",
             "network namespace, `pivot_root`, or mount isolation is **not a proved QRTR",
             "denied the entire `AF_QIPCRTR` socket family",
+            "`WLAN MAC address is not set, type 0`",
+            "The sound invariant is therefore **non-reversion**",
+            "does **not** copy the\ncaller's requested bytes",
         ),
         "source report",
     )
@@ -387,7 +395,10 @@ def _require_source_contract(inputs: dict[str, Any]) -> None:
             "`cnss_utils_mac_show()`",
             "MAC_PROVISION_FALSE_PROVED_EXACT_RUN",
             "MAC_PROVISION_TRUE_PROVED_EXACT_RUN",
-            "an empty string caused by a\nread error is never “absent.”",
+            "an empty string caused\nby a read error is never “absent.”",
+            "exact type-0 absence once, no type-1",
+            "supports only a\n**non-reversion** invariant",
+            "returns success without copying",
         ),
         "MAC report",
     )
@@ -414,18 +425,25 @@ def classify_mac_effect(
     mac_state: str,
     wlan_outcome: str,
     observation_bound_complete: bool,
+    provisioned_lookup_signature: str,
 ) -> str:
     if (
         mac_state not in MAC_STATES
         or wlan_outcome not in WLAN_OUTCOMES
         or type(observation_bound_complete) is not bool
+        or provisioned_lookup_signature not in PROVISIONED_LOOKUP_SIGNATURES
     ):
         return "NO_PROOF_OBSERVER"
     if not observation_bound_complete:
         return "NO_PROOF_OBSERVER"
     if mac_state == "PRESENT_VALID" and wlan_outcome == "WLAN0_UP_EXACT_DRIVER":
         return "MAC_PROVISION_VALUE_UNRESOLVED"
-    if mac_state == "ABSENT_PARSED" and wlan_outcome == "WLAN0_UP_EXACT_DRIVER":
+    if (
+        mac_state == "ABSENT_PARSED"
+        and wlan_outcome == "WLAN0_UP_EXACT_DRIVER"
+        and provisioned_lookup_signature
+        == "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT"
+    ):
         return "MAC_PROVISION_FALSE_PROVED_EXACT_RUN"
     if (
         mac_state == "ABSENT_PARSED"
@@ -441,11 +459,15 @@ def _mac_decision_table() -> list[dict[str, Any]]:
             "cnssUtilsMacState": mac_state,
             "wlanOutcome": wlan_outcome,
             "observationBoundComplete": bound,
-            "decision": classify_mac_effect(mac_state, wlan_outcome, bound),
+            "provisionedAbsenceAtDriverLookup": lookup_signature,
+            "decision": classify_mac_effect(
+                mac_state, wlan_outcome, bound, lookup_signature
+            ),
         }
         for mac_state in MAC_STATES
         for wlan_outcome in WLAN_OUTCOMES
         for bound in (False, True)
+        for lookup_signature in PROVISIONED_LOOKUP_SIGNATURES
     ]
 
 
@@ -486,6 +508,7 @@ def _negative_corpus() -> list[dict[str, str]]:
         {"caseId": "N33", "mutation": "unhashable-event-identity-or-result", "expected": "EVENT_SCHEMA_MISMATCH"},
         {"caseId": "N34", "mutation": "declared-seed-reader-not-observed-reading", "expected": "SEED_READ_MAPPING_MISMATCH"},
         {"caseId": "N35", "mutation": "declared-launch-epoch-never-observed-running", "expected": "PROCESS_IDENTITY_MISMATCH"},
+        {"caseId": "N36", "mutation": "absent-and-wlan-up-without-bound-type0-lookup-signature", "expected": "MAC_EFFECT_MISMATCH"},
     ]
 
 
@@ -575,8 +598,11 @@ def build_schema() -> dict[str, Any]:
         "macProvisioningEffectObservation": {
             "surface": "/sys/kernel/debug/cnss_utils/mac_address",
             "sourceState": "same persistent provisioned-MAC count and bytes as cnss_utils_get_wlan_mac_address; getter does not consume them",
-            "bindingRule": "Same boot, run, built-in cnss_utils instance, source, driver, debugfs identity, complete read, and exact driver outcome are all required.",
+            "bindingRule": "Same boot, run, built-in cnss_utils instance, source, exact driver-initialization epoch, driver, debugfs identity, complete debugfs read, complete bounded kernel-log capture, and exact driver outcome are all required.",
+            "falseSignature": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT means exactly one `WLAN MAC address is not set, type 0`, zero type-1 absence lines, and exact attribution to the one bound driver initialization that produced wlan0 up.",
+            "debugfsRole": "The debugfs state is corroboration only; absence before an unobserved writer window never proves the value false.",
             "uniqueFailure": "getting MAC address from platform driver failed",
+            "nonReversionRule": "Within one bound boot the built-in state has no nonzero-to-zero path, but it is not set-once: debugfs can overwrite bytes and count, and the ordinary setter can return success without copying a requested replacement.",
             "decisionTable": _mac_decision_table(),
             "scopeRule": "A proved exact-run value does not prove another build, boot, INI, or future generation.",
         },
@@ -623,6 +649,23 @@ def build_schema() -> dict[str, Any]:
     }
 
 
+def _strict_json_equal(left: Any, right: Any) -> bool:
+    if type(left) is not type(right):
+        return False
+    if isinstance(left, dict):
+        return (
+            set(left) == set(right)
+            and all(type(key) is str for key in left)
+            and all(_strict_json_equal(left[key], right[key]) for key in left)
+        )
+    if isinstance(left, list):
+        return len(left) == len(right) and all(
+            _strict_json_equal(left_item, right_item)
+            for left_item, right_item in zip(left, right)
+        )
+    return left == right
+
+
 def validate_schema(value: Any) -> list[str]:
     findings: set[str] = set()
     if not isinstance(value, dict) or set(value) != TOP_LEVEL_KEYS:
@@ -657,14 +700,14 @@ def validate_schema(value: Any) -> list[str]:
         if isinstance(mac_observation, dict)
         else None
     )
-    if table != _mac_decision_table():
+    if not _strict_json_equal(table, _mac_decision_table()):
         findings.add("MAC_DECISION_TABLE_MISMATCH")
     try:
         canonical = build_schema()
     except (OSError, UnicodeError, json.JSONDecodeError, KeyError, TypeError, ValueError):
         findings.add("PINNED_SEMANTIC_MODEL_UNAVAILABLE")
     else:
-        if value != canonical:
+        if not _strict_json_equal(value, canonical):
             findings.add("PINNED_SEMANTIC_MISMATCH")
     return sorted(findings)
 
@@ -1147,6 +1190,8 @@ def _validate_common_result(value: Any, qualified_expectation: Any) -> set[str]:
             any(type(effect.get(key)) is not bool for key in boolean_keys)
             or effect.get("cnssUtilsMacState") not in MAC_STATES
             or effect.get("wlanOutcome") not in WLAN_OUTCOMES
+            or effect.get("provisionedAbsenceAtDriverLookup")
+            not in PROVISIONED_LOOKUP_SIGNATURES
         ):
             findings.add("MAC_EFFECT_MISMATCH")
         complete = all(
@@ -1161,7 +1206,10 @@ def _validate_common_result(value: Any, qualified_expectation: Any) -> set[str]:
             )
         )
         expected_decision = classify_mac_effect(
-            effect.get("cnssUtilsMacState"), effect.get("wlanOutcome"), complete
+            effect.get("cnssUtilsMacState"),
+            effect.get("wlanOutcome"),
+            complete,
+            effect.get("provisionedAbsenceAtDriverLookup"),
         )
         if effect.get("decision") != expected_decision:
             findings.add("MAC_EFFECT_MISMATCH")

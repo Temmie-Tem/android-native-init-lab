@@ -492,6 +492,16 @@ class A90WlanVendorPropertyAblationHardeningDocsTest(unittest.TestCase):
         self.assertIn("`H0D01-H0D10` all remain `UNPROVED`", self.proposal)
         self.assertIn("`WP2-4` has now generated", self.proposal)
 
+    def test_wp2_4_false_mac_proof_is_bound_at_the_driver_lookup(self) -> None:
+        hardening = (ANALYSIS / "hardening.md").read_text()
+        context = (ANALYSIS / "context.md").read_text()
+        for text in (self.proposal, hardening, context):
+            self.assertIn("type-0", text)
+            self.assertIn("corroboration", text)
+            self.assertIn("non-reversion", text)
+        self.assertIn("WLAN MAC address is not set, type 0", self.proposal)
+        self.assertIn("proof-bearing type-0 lookup signature", json.dumps(self.data))
+
     def test_prior_portfolio_correction_is_locked(self) -> None:
         prior = (
             ROOT

@@ -194,10 +194,16 @@ class A90WlanMacProvisioningExistingEvidenceDocsTests(unittest.TestCase):
         for claim in (
             "`cnss_utils_mac_show()` reads the same persistent",
             "the getter does not consume or clear that state",
+            "`WLAN MAC address is not set, type 0`",
+            "exact type-0 absence once, no type-1",
+            "debugfs absence is only corroboration",
             "MAC_PROVISION_VALUE_UNRESOLVED",
             "MAC_PROVISION_FALSE_PROVED_EXACT_RUN",
             "MAC_PROVISION_TRUE_PROVED_EXACT_RUN",
             "an empty string caused by a read error is never “absent.”",
+            "**non-reversion** invariant",
+            "not a set-once invariant",
+            "returns success without copying",
             "not a current D0 action and grants no D0 or live authority",
         ):
             self.assertIn(claim, self.report)

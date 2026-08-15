@@ -205,28 +205,45 @@ declared `WP2-4` property observation schema. A stock firmware download is not
 a prerequisite for that H0 work.
 
 The matching source exposes a narrower effect observation than reading the
-whole INI. `cnss_utils_mac_show()` reads the same persistent
+whole INI, but the post-result debugfs state is corroboration rather than a
+proof-bearing timestamp. `cnss_utils_mac_show()` reads the same persistent
 `priv->wlan_mac_addr.no_of_mac_addr_set` and address array used by
 `cnss_utils_get_wlan_mac_address()`; the getter does not consume or clear that
-state. Because `CONFIG_CNSS_UTILS=y`, one exact same-boot observation after the
-driver result can distinguish these cases when the debugfs read itself is
-complete and bound to the same built-in cnss_utils instance and driver source:
+state. A pre-trigger absent read followed by an unobserved writer and then a
+successful driver start is therefore unsafe to compose into a false-value
+proof.
 
-| cnss_utils provisioned MAC | exact driver outcome | exact-run conclusion |
-|---|---|---|
-| present and valid | exact `wlan0` up | `MAC_PROVISION_VALUE_UNRESOLVED` |
-| proved absent | exact `wlan0` up | `MAC_PROVISION_FALSE_PROVED_EXACT_RUN` |
-| proved absent | exact `getting MAC address from platform driver failed` branch | `MAC_PROVISION_TRUE_PROVED_EXACT_RUN` |
-| unreadable, malformed, stale, mixed-run, or any other pair | any | `NO_PROOF_OBSERVER` |
+The proof-bearing false signature is emitted at the getter itself.
+Provisioned=`type 0` and derived=`type 1`; the exact line
+`WLAN MAC address is not set, type 0` is printed only while the provisioned
+count is zero at that invocation. The driver returns from the platform path at
+that point and never performs the derived lookup. The bounded matrix is:
 
-The first row remains unresolved because a writer may have supplied the MAC
-under either boolean. The second row is stronger: a successful set persists in
-the same built-in cnss_utils state, so proved absence plus default-vdev creation
-selects the fallback branch. The third row binds the source-unique fatal branch
-rather than inferring the boolean from a generic probe failure. Module/source,
-boot/run, observation order, driver identity, debugfs file identity, parse
-completeness, and the exact outcome must all match; an empty string caused by a
-read error is never “absent.”
+| cnss_utils provisioned MAC | bound lookup signature | exact driver outcome | exact-run conclusion |
+|---|---|---|---|
+| present and valid | any | exact `wlan0` up | `MAC_PROVISION_VALUE_UNRESOLVED` |
+| proved absent | exact type-0 absence once, no type-1, same bound driver-init epoch | exact `wlan0` up | `MAC_PROVISION_FALSE_PROVED_EXACT_RUN` |
+| proved absent | not required | exact `getting MAC address from platform driver failed` branch | `MAC_PROVISION_TRUE_PROVED_EXACT_RUN` |
+| absent without the bound type-0 signature, unreadable, malformed, stale, mixed-run, or any other combination | any | any | `NO_PROOF_OBSERVER` |
+
+The first row remains unresolved because a writer may have supplied or
+overwritten the MAC under either boolean. The second row now depends on the
+self-timestamping getter line, not on observation order inferred around an
+untracked writer window. It requires exactly one type-0 line, zero type-1
+lines, complete bounded kernel-log capture, and `wlan0` up from the same exact
+driver initialization epoch. The third row binds the source-unique fatal
+branch rather than inferring the boolean from a generic probe failure; the
+debugfs absence is only corroboration there as well. Module/source, boot/run,
+driver-init epoch, driver identity, debugfs file identity, parse completeness,
+log completeness, and the exact outcome must all match; an empty string caused
+by a read error is never “absent.”
+
+Within one boot the provisioned count has no zero-clear path: the built-in
+`CONFIG_CNSS_UTILS=y` exit routine is not a runtime reset. This supports only a
+**non-reversion** invariant (present does not later become absent), not a
+set-once invariant. The ordinary setter returns success without copying when a
+count already exists, while the debugfs writer bypasses that guard and can
+overwrite the count and bytes.
 
 `WP2-4` may encode that matrix as an observation field for a future separately
 reviewed execution. Doing so avoids making a standalone INI read a prerequisite

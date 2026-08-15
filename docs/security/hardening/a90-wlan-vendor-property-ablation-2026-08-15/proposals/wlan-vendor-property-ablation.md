@@ -373,13 +373,16 @@ or `DENIED` rejects the terminal. Observer failure is `NO_PROOF_OBSERVER`,
 never property absence.
 
 The same schema records the optional same-run cnss_utils effect observation.
-Only a complete read of the same built-in state used by the platform getter,
-bound to the same boot/run/source/driver and exact driver outcome, may classify
-`MAC_PROVISION_FALSE_PROVED_EXACT_RUN` or
-`MAC_PROVISION_TRUE_PROVED_EXACT_RUN`. A present MAC with working `wlan0`
-remains unresolved, and a read error is never normalized to absence. This is
-an observation shape for a future separately reviewed run, not a current D0
-action; WP2-4 grants no D0 or live authority.
+The false-value row requires exactly one
+`WLAN MAC address is not set, type 0`, zero type-1 absence lines, and exact
+attribution to the bound driver initialization that produces working `wlan0`;
+a debugfs absence read is corroboration only. The true-value row retains the
+source-unique `getting MAC address from platform driver failed` signature. A
+present MAC with working `wlan0` remains unresolved, and a read error is never
+normalized to absence. The within-boot source invariant is non-reversion, not
+set-once: debugfs can overwrite an existing value. This is an observation
+shape for a future separately reviewed run, not a current D0 action; WP2-4
+grants no D0 or live authority.
 
 ## Options
 
@@ -858,7 +861,8 @@ qualification; this document does not invent pass numbers.
   bindings remain zero and every dependency gate remains unproved;
 - `WP2-4`: generated property read/write observation schema, externally
   qualified exact-generation/role binding, two terminal validators, total
-  same-run cnss_utils MAC-effect decision table, and
+  same-run cnss_utils MAC-effect decision table with a proof-bearing type-0
+  getter signature for the false row, and
   global-kernel-object containment rule — complete as H0 contract only at
   `schema/a90-h24-wlan-property-observation-schema-v1.json`; runtime observer,
   byte-derived consumer, qualification, H0D04/H0D10 retirement, and live

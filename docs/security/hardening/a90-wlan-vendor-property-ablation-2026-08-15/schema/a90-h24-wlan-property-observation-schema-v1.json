@@ -68,117 +68,264 @@
     "unknownScope": "NO_GO"
   },
   "macProvisioningEffectObservation": {
-    "bindingRule": "Same boot, run, built-in cnss_utils instance, source, driver, debugfs identity, complete read, and exact driver outcome are all required.",
+    "bindingRule": "Same boot, run, built-in cnss_utils instance, source, exact driver-initialization epoch, driver, debugfs identity, complete debugfs read, complete bounded kernel-log capture, and exact driver outcome are all required.",
+    "debugfsRole": "The debugfs state is corroboration only; absence before an unobserved writer window never proves the value false.",
     "decisionTable": [
       {
         "cnssUtilsMacState": "PRESENT_VALID",
         "decision": "NO_PROOF_OBSERVER",
         "observationBoundComplete": false,
+        "provisionedAbsenceAtDriverLookup": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
+        "wlanOutcome": "WLAN0_UP_EXACT_DRIVER"
+      },
+      {
+        "cnssUtilsMacState": "PRESENT_VALID",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": false,
+        "provisionedAbsenceAtDriverLookup": "NOT_PROVED",
         "wlanOutcome": "WLAN0_UP_EXACT_DRIVER"
       },
       {
         "cnssUtilsMacState": "PRESENT_VALID",
         "decision": "MAC_PROVISION_VALUE_UNRESOLVED",
         "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
+        "wlanOutcome": "WLAN0_UP_EXACT_DRIVER"
+      },
+      {
+        "cnssUtilsMacState": "PRESENT_VALID",
+        "decision": "MAC_PROVISION_VALUE_UNRESOLVED",
+        "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "NOT_PROVED",
         "wlanOutcome": "WLAN0_UP_EXACT_DRIVER"
       },
       {
         "cnssUtilsMacState": "PRESENT_VALID",
         "decision": "NO_PROOF_OBSERVER",
         "observationBoundComplete": false,
-        "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
-      },
-      {
-        "cnssUtilsMacState": "PRESENT_VALID",
-        "decision": "NO_PROOF_OBSERVER",
-        "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
         "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
       },
       {
         "cnssUtilsMacState": "PRESENT_VALID",
         "decision": "NO_PROOF_OBSERVER",
         "observationBoundComplete": false,
+        "provisionedAbsenceAtDriverLookup": "NOT_PROVED",
+        "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
+      },
+      {
+        "cnssUtilsMacState": "PRESENT_VALID",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
+        "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
+      },
+      {
+        "cnssUtilsMacState": "PRESENT_VALID",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "NOT_PROVED",
+        "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
+      },
+      {
+        "cnssUtilsMacState": "PRESENT_VALID",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": false,
+        "provisionedAbsenceAtDriverLookup": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
+        "wlanOutcome": "OTHER_OR_UNPROVED"
+      },
+      {
+        "cnssUtilsMacState": "PRESENT_VALID",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": false,
+        "provisionedAbsenceAtDriverLookup": "NOT_PROVED",
         "wlanOutcome": "OTHER_OR_UNPROVED"
       },
       {
         "cnssUtilsMacState": "PRESENT_VALID",
         "decision": "NO_PROOF_OBSERVER",
         "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
+        "wlanOutcome": "OTHER_OR_UNPROVED"
+      },
+      {
+        "cnssUtilsMacState": "PRESENT_VALID",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "NOT_PROVED",
         "wlanOutcome": "OTHER_OR_UNPROVED"
       },
       {
         "cnssUtilsMacState": "ABSENT_PARSED",
         "decision": "NO_PROOF_OBSERVER",
         "observationBoundComplete": false,
+        "provisionedAbsenceAtDriverLookup": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
+        "wlanOutcome": "WLAN0_UP_EXACT_DRIVER"
+      },
+      {
+        "cnssUtilsMacState": "ABSENT_PARSED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": false,
+        "provisionedAbsenceAtDriverLookup": "NOT_PROVED",
         "wlanOutcome": "WLAN0_UP_EXACT_DRIVER"
       },
       {
         "cnssUtilsMacState": "ABSENT_PARSED",
         "decision": "MAC_PROVISION_FALSE_PROVED_EXACT_RUN",
         "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
+        "wlanOutcome": "WLAN0_UP_EXACT_DRIVER"
+      },
+      {
+        "cnssUtilsMacState": "ABSENT_PARSED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "NOT_PROVED",
         "wlanOutcome": "WLAN0_UP_EXACT_DRIVER"
       },
       {
         "cnssUtilsMacState": "ABSENT_PARSED",
         "decision": "NO_PROOF_OBSERVER",
         "observationBoundComplete": false,
+        "provisionedAbsenceAtDriverLookup": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
+        "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
+      },
+      {
+        "cnssUtilsMacState": "ABSENT_PARSED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": false,
+        "provisionedAbsenceAtDriverLookup": "NOT_PROVED",
         "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
       },
       {
         "cnssUtilsMacState": "ABSENT_PARSED",
         "decision": "MAC_PROVISION_TRUE_PROVED_EXACT_RUN",
         "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
+        "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
+      },
+      {
+        "cnssUtilsMacState": "ABSENT_PARSED",
+        "decision": "MAC_PROVISION_TRUE_PROVED_EXACT_RUN",
+        "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "NOT_PROVED",
         "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
       },
       {
         "cnssUtilsMacState": "ABSENT_PARSED",
         "decision": "NO_PROOF_OBSERVER",
         "observationBoundComplete": false,
+        "provisionedAbsenceAtDriverLookup": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
+        "wlanOutcome": "OTHER_OR_UNPROVED"
+      },
+      {
+        "cnssUtilsMacState": "ABSENT_PARSED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": false,
+        "provisionedAbsenceAtDriverLookup": "NOT_PROVED",
         "wlanOutcome": "OTHER_OR_UNPROVED"
       },
       {
         "cnssUtilsMacState": "ABSENT_PARSED",
         "decision": "NO_PROOF_OBSERVER",
         "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
+        "wlanOutcome": "OTHER_OR_UNPROVED"
+      },
+      {
+        "cnssUtilsMacState": "ABSENT_PARSED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "NOT_PROVED",
         "wlanOutcome": "OTHER_OR_UNPROVED"
       },
       {
         "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
         "decision": "NO_PROOF_OBSERVER",
         "observationBoundComplete": false,
-        "wlanOutcome": "WLAN0_UP_EXACT_DRIVER"
-      },
-      {
-        "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
-        "decision": "NO_PROOF_OBSERVER",
-        "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
         "wlanOutcome": "WLAN0_UP_EXACT_DRIVER"
       },
       {
         "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
         "decision": "NO_PROOF_OBSERVER",
         "observationBoundComplete": false,
-        "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
+        "provisionedAbsenceAtDriverLookup": "NOT_PROVED",
+        "wlanOutcome": "WLAN0_UP_EXACT_DRIVER"
       },
       {
         "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
         "decision": "NO_PROOF_OBSERVER",
         "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
+        "wlanOutcome": "WLAN0_UP_EXACT_DRIVER"
+      },
+      {
+        "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "NOT_PROVED",
+        "wlanOutcome": "WLAN0_UP_EXACT_DRIVER"
+      },
+      {
+        "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": false,
+        "provisionedAbsenceAtDriverLookup": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
         "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
       },
       {
         "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
         "decision": "NO_PROOF_OBSERVER",
         "observationBoundComplete": false,
+        "provisionedAbsenceAtDriverLookup": "NOT_PROVED",
+        "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
+      },
+      {
+        "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
+        "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
+      },
+      {
+        "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "NOT_PROVED",
+        "wlanOutcome": "MAC_INIT_FAILED_EXACT_SIGNATURE"
+      },
+      {
+        "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": false,
+        "provisionedAbsenceAtDriverLookup": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
+        "wlanOutcome": "OTHER_OR_UNPROVED"
+      },
+      {
+        "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": false,
+        "provisionedAbsenceAtDriverLookup": "NOT_PROVED",
         "wlanOutcome": "OTHER_OR_UNPROVED"
       },
       {
         "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
         "decision": "NO_PROOF_OBSERVER",
         "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT",
+        "wlanOutcome": "OTHER_OR_UNPROVED"
+      },
+      {
+        "cnssUtilsMacState": "UNREADABLE_OR_MALFORMED",
+        "decision": "NO_PROOF_OBSERVER",
+        "observationBoundComplete": true,
+        "provisionedAbsenceAtDriverLookup": "NOT_PROVED",
         "wlanOutcome": "OTHER_OR_UNPROVED"
       }
     ],
+    "falseSignature": "TYPE0_ABSENT_EXACT_BOUND_DRIVER_INIT means exactly one `WLAN MAC address is not set, type 0`, zero type-1 absence lines, and exact attribution to the one bound driver initialization that produced wlan0 up.",
+    "nonReversionRule": "Within one bound boot the built-in state has no nonzero-to-zero path, but it is not set-once: debugfs can overwrite bytes and count, and the ordinary setter can return success without copying a requested replacement.",
     "scopeRule": "A proved exact-run value does not prove another build, boot, INI, or future generation.",
     "sourceState": "same persistent provisioned-MAC count and bytes as cnss_utils_get_wlan_mac_address; getter does not consume them",
     "surface": "/sys/kernel/debug/cnss_utils/mac_address",
@@ -359,6 +506,11 @@
       "caseId": "N35",
       "expected": "PROCESS_IDENTITY_MISMATCH",
       "mutation": "declared-launch-epoch-never-observed-running"
+    },
+    {
+      "caseId": "N36",
+      "expected": "MAC_EFFECT_MISMATCH",
+      "mutation": "absent-and-wlan-up-without-bound-type0-lookup-signature"
     }
   ],
   "observationPhases": [
@@ -452,14 +604,14 @@
       "sha256": "0eddec9ba9d637590c82499709179bd6b56a79d646d7967d3049a0bf36136b85"
     },
     {
-      "bytes": 25810,
+      "bytes": 27687,
       "path": "docs/reports/A90_WLAN_KERNEL_SOURCE_CONFIRMATION_H0_2026-08-16.md",
-      "sha256": "1d1c15850619f278d7d56e0702ffc23197a216602f5d9e4ef6be78fc4db3fffb"
+      "sha256": "a9d80e2134e985dd15c01b4dc9b3ca573f402884c21e75f8ab1febd5a905155f"
     },
     {
-      "bytes": 14212,
+      "bytes": 15385,
       "path": "docs/reports/A90_WLAN_MAC_PROVISIONING_EXISTING_EVIDENCE_H0_2026-08-16.md",
-      "sha256": "14d0d2bf24397520beebf7642b38b218af2ce966678f090e53070049ad9e4ba3"
+      "sha256": "144bf161f8009f518c1a5d6b815b2a00e24ef7a0b131619ccce37add417b673b"
     }
   ],
   "status": {

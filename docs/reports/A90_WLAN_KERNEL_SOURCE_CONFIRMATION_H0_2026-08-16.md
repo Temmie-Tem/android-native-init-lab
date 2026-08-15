@@ -350,6 +350,36 @@ bytes fit the four-MAC destination and the failing iteration does not write.
 It is nevertheless nonfunctional as a successful provisioning interface and
 cannot replace the Samsung sysfs path without repair and validation.
 
+The exported setter has a third, distinct semantic hazard
+(`cnss_utils.c:294-300`). Once `no_of_mac_addr_set` is nonzero it logs
+`WLAN MAC address is already set`, returns `0`, and does **not** copy the
+caller's requested bytes. A caller that treats return zero as proof that its
+specific input was installed can therefore publish a false attribution. This
+does not make the state set-once: the debugfs writer assigns the count and
+bytes directly and bypasses this guard.
+
+The getter supplies a temporally local observation that the later WP2-4
+schema must use instead of composing a pre-trigger debugfs read with a later
+driver result. `enum mac_type` assigns provisioned=`0` and derived=`1`.
+`get_wlan_mac_address()` emits the exact line
+`WLAN MAC address is not set, type 0` only while the provisioned count is zero
+at that getter invocation. `hdd_platform_wlan_mac()` returns immediately when
+that provisioned getter fails, so the derived getter is reached only after a
+provisioned address was returned. Consequently a false-provisioning proof
+requires the exact type-0 absence line, exactly once inside the bound driver
+initialization epoch, no type-1 line in that epoch, complete bounded kernel-log
+capture, and the exact `wlan0`-up result from that same initialization. A
+debugfs absence read remains corroboration, not the proof-bearing temporal
+fact.
+
+The selected source contains no path that resets a nonzero provisioned count
+to zero during one boot. The only teardown is `cnss_utils_exit()`, while the
+matching defconfig has `CONFIG_CNSS_UTILS=y`; the built-in exit path is not a
+runtime reset mechanism. The sound invariant is therefore **non-reversion**:
+within one bound boot, observed present state does not later become absent.
+It is not **set-once**, because the debugfs writer can overwrite the count and
+bytes after the ordinary setter would refuse them.
+
 Samsung creates this input as a top-level `/sys/wifi/mac_addr` node through
 `kobject_create_and_add("wifi", NULL)` and mode `0220`, not under a private
 vendor filesystem. Option C must therefore bind this surface explicitly. If
