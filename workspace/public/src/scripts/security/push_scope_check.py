@@ -6,10 +6,15 @@ target contract, an F1 runner, a schema, transfer/archive/recovery machinery, a
 boundary, or a hazard changes. Routine work — verifiers, packagers, decoders,
 static checkers, auditors, documentation — does not trigger it.
 
-This tells you which of those a push would carry. It does **not** decide whether
-the review happened, so it reports and exits 0. Blocking here would only teach
-`--no-verify`, which would also skip the identifier boundary check that must
-never be bypassed.
+This also counts commits with an empty body. A body-less commit is not itself
+an `AGENTS.md` violation — the required prose report can live under
+`docs/reports/` instead — but a push where most commits carry no narrative at
+all is harder for a reviewer to audit at the commit level, so it is worth
+surfacing.
+
+Neither check decides whether a review happened or a report was written, so
+this reports and exits 0. Blocking here would only teach `--no-verify`, which
+would also skip the identifier boundary check that must never be bypassed.
 
 Usage:
     push_scope_check.py <range>          e.g. origin/main..HEAD, or <remote_sha>..<local_sha>
@@ -59,6 +64,33 @@ def commits(root: Path, revision_range: str) -> list[str]:
     return [line for line in result.stdout.split("\n") if line.strip()]
 
 
+def empty_body_commits(root: Path, revision_range: str) -> list[str]:
+    """Return "<short-hash> <subject>" for each commit with no body text.
+
+    Checks one commit at a time with `git show -s`, rather than one combined
+    `git log` with a custom field separator, because a subject or body can
+    itself contain the separator or a newline.
+    """
+    hashes = subprocess.run(
+        ["git", "log", "--format=%H", revision_range],
+        cwd=root, capture_output=True, text=True, check=True,
+    ).stdout.split()
+
+    empty: list[str] = []
+    for full_hash in hashes:
+        header = subprocess.run(
+            ["git", "show", "-s", "--format=%h %s", full_hash],
+            cwd=root, capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        body = subprocess.run(
+            ["git", "show", "-s", "--format=%b", full_hash],
+            cwd=root, capture_output=True, text=True, check=True,
+        ).stdout
+        if not body.strip():
+            empty.append(header)
+    return empty
+
+
 def main(argv: list[str]) -> int:
     if len(argv) != 2:
         print(__doc__.strip().splitlines()[-1].strip(), file=sys.stderr)
@@ -68,6 +100,7 @@ def main(argv: list[str]) -> int:
 
     carried = commits(root, revision_range)
     paths = changed_paths(root, revision_range)
+    empty_bodies = empty_body_commits(root, revision_range)
 
     hits: list[tuple[str, str]] = []
     for path in paths:
@@ -80,16 +113,30 @@ def main(argv: list[str]) -> int:
     for line in carried:
         print(f"  {line}")
 
-    if not hits:
-        print("no review-triggering paths in this range")
-        return 0
+    if hits:
+        print()
+        print(f"REVIEW TRIGGER — {len(hits)} path(s) require one independent review")
+        print("(AGENTS.md, Review Rules)")
+        for path, reason in sorted(hits):
+            print(f"  {path}")
+            print(f"      {reason}")
 
-    print()
-    print(f"REVIEW TRIGGER — {len(hits)} path(s) require one independent review")
-    print("(AGENTS.md, Review Rules)")
-    for path, reason in sorted(hits):
-        print(f"  {path}")
-        print(f"      {reason}")
+    if empty_bodies and carried:
+        print()
+        print(
+            f"COMMIT BODY WARNING — {len(empty_bodies)}/{len(carried)} commit(s) "
+            "have no body text"
+        )
+        print(
+            "(informational; not an AGENTS.md requirement — check that the "
+            "narrative evidence exists somewhere, e.g. docs/reports/)"
+        )
+        for line in empty_bodies:
+            print(f"  {line}")
+
+    if not hits and not empty_bodies:
+        print("no review-triggering paths and no empty-body commits in this range")
+
     print()
     print("Reporting only; this does not block the push.")
     return 0
