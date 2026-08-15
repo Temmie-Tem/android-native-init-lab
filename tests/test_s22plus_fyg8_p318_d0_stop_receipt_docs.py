@@ -1,3 +1,5 @@
+import hashlib
+import json
 from pathlib import Path
 import unittest
 
@@ -13,6 +15,10 @@ REPORT = ROOT / (
 ADAPTER = (
     ROOT / "workspace/public/src/scripts/revalidation/device_action_d0_v2.py"
 )
+READY = ROOT / (
+    "workspace/public/src/device-action/manifests/"
+    "s22plus_fyg8_p318_process_v2_ready_1.json"
+)
 
 
 class P318D0StopReceiptDocsTest(unittest.TestCase):
@@ -23,17 +29,54 @@ class P318D0StopReceiptDocsTest(unittest.TestCase):
         cls.ledger = LEDGER.read_text(encoding="utf-8")
         cls.report = REPORT.read_text(encoding="utf-8")
         cls.adapter = ADAPTER.read_text(encoding="utf-8")
+        cls.ready_bytes = READY.read_bytes()
+        cls.ready = json.loads(cls.ready_bytes.decode("ascii"))
 
     def test_report_has_scoped_pass_go_and_creates_no_live_authority(self):
         for token in (
             "`PASS_GO_P318_D0_FAIL_CLOSED_RECEIPT_H0_CAPABILITY_V1`",
             "creates no D0, D1, F1, recovery, replay, or live\nauthority",
-            "No\nreboot or connected retry is authorized by this report.",
+            "does not itself authorize that D1, a new D0,\nreboot, connected retry",
             "final_health_observed=false",
             "result_reusable=false",
         ):
             self.assertIn(token, self.report)
-        self.assertIn("downstream requalification", self.report)
+        self.assertIn("downstream independent requalification", self.report)
+
+    def test_downstream_requalification_is_exact_and_independently_approved(self):
+        for token in (
+            "PASS_GO_P318_D0_STOP_RECEIPT_PROCESS_V2_REQUALIFICATION_H0_CAPABILITY_V1",
+            "`375db867fb55`",
+            "`2a4d639b55aa`",
+            "`d96381c12e23`",
+            "`35324f4a4b14`",
+            "`082c046f9091`",
+            "`0b74986f8531`",
+            "`129ad86b934c`",
+            "`6b8505bcdd48` to `e1dc1eb07f2c`",
+            "P3.18 passes 142/142",
+            "common Process-v2 suite\n120/120",
+            "does not itself authorize that D1",
+        ):
+            self.assertIn(token, self.report)
+        self.assertEqual(len(self.ready_bytes), 2778)
+        self.assertEqual(
+            hashlib.sha256(self.ready_bytes).hexdigest(),
+            "082c046f90914730172426c16222981039027d9384d3912fb09ee99d081a73d3",
+        )
+        contract = self.ready["observation"]["acceptance"]["contract"]
+        self.assertEqual(
+            contract["candidate_static"]["sha256"],
+            "2a4d639b55aa21cf8f52dba505e9bc2d9dfd33f20cd3b217a7c482906aeea4df",
+        )
+        self.assertEqual(
+            contract["run_manifest"]["sha256"],
+            "d96381c12e23b42b3da414977721cce5c680a7729e3755bbead41ebf1894d819",
+        )
+        self.assertEqual(
+            contract["static_check"]["sha256"],
+            "35324f4a4b14f73c3514078f85020e4cd6a5bf73abc08f77cc7d1b4f90f8d2b7",
+        )
 
     def test_common_process_requires_a_nonreusable_post_capture_stop_receipt(self):
         for token in (
@@ -44,12 +87,15 @@ class P318D0StopReceiptDocsTest(unittest.TestCase):
         ):
             self.assertIn(token, self.process)
 
-    def test_goal_keeps_ready_fail_closed_after_scoped_review(self):
+    def test_goal_keeps_regenerated_ready_host_only(self):
         for token in (
             "three residual P3.17 records",
             "no result receipt",
             "independent H0 `PASS_GO`",
-            "ready verification remains fail closed",
+            "ready is `082c046f9091`",
+            "downstream requalification now have\nindependent H0 `PASS_GO`",
+            "create no D0, D1, F1, recovery, replay, or live authority",
+            "fresh exact\nD1 baseline-rotation approval is required",
         ):
             self.assertIn(token, self.goal)
         self.assertLessEqual(len(self.goal.splitlines()), 900)
@@ -83,11 +129,28 @@ class P318D0StopReceiptDocsTest(unittest.TestCase):
             "PASS_GO_P318_D0_FAIL_CLOSED_RECEIPT_H0_CAPABILITY_V1 | "
             "HEALTHY | PROVED | 0/0"
         )
+        requalification = (
+            "h0-d0-stop-requalification-10 | H0 | "
+            "P318_D0_STOP_RECEIPT_PROCESS_V2_REQUALIFICATION_"
+            "IMPLEMENTED_REVIEW_PENDING | HEALTHY | PROVED | 0/0"
+        )
+        requalification_review = (
+            "h0-d0-stop-requalification-review-10 | H0 | "
+            "PASS_GO_P318_D0_STOP_RECEIPT_PROCESS_V2_REQUALIFICATION_"
+            "H0_CAPABILITY_V1 | HEALTHY | PROVED | 0/0"
+        )
         self.assertEqual(self.ledger.count(device), 1)
         self.assertEqual(self.ledger.count(repair), 1)
         self.assertEqual(self.ledger.count(review), 1)
+        self.assertEqual(self.ledger.count(requalification), 1)
+        self.assertEqual(self.ledger.count(requalification_review), 1)
         self.assertLess(self.ledger.index(device), self.ledger.index(repair))
         self.assertLess(self.ledger.index(repair), self.ledger.index(review))
+        self.assertLess(self.ledger.index(review), self.ledger.index(requalification))
+        self.assertLess(
+            self.ledger.index(requalification),
+            self.ledger.index(requalification_review),
+        )
 
 
 if __name__ == "__main__":

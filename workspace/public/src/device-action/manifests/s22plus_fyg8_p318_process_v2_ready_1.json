@@ -13,17 +13,17 @@
       "contract": {
         "candidate_static": {
           "path": "workspace/private/device-action/s22plus_fyg8_p318_ready_1/evidence/candidate-static.json",
-          "sha256": "b5ddb3cacdfd42bfa1f2c52035c8949d6a8fe8e96049ef132010397541860600",
+          "sha256": "2a4d639b55aa21cf8f52dba505e9bc2d9dfd33f20cd3b217a7c482906aeea4df",
           "size": 554578
         },
         "run_manifest": {
           "path": "workspace/private/device-action/s22plus_fyg8_p318_ready_1/evidence/run-manifest.json",
-          "sha256": "0c2fab45520ef6c4140d5d3c167f5815b12b297eda922094948ca8ca39c84e66",
+          "sha256": "d96381c12e23b42b3da414977721cce5c680a7729e3755bbead41ebf1894d819",
           "size": 870
         },
         "static_check": {
           "path": "workspace/private/device-action/s22plus_fyg8_p318_ready_1/evidence/static-check-result.json",
-          "sha256": "a26f0aa26507a7aa4eb0c079a6824f6839133b96b36fb3f34c5353f7fd5a45a9",
+          "sha256": "35324f4a4b14f73c3514078f85020e4cd6a5bf73abc08f77cc7d1b4f90f8d2b7",
           "size": 1785
         }
       },

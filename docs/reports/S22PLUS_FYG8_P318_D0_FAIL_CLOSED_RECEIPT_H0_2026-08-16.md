@@ -6,11 +6,14 @@ Date: 2026-08-16 KST
 
 `PASS_GO_P318_D0_FAIL_CLOSED_RECEIPT_H0_CAPABILITY_V1`
 
+Downstream status:
+`PASS_GO_P318_D0_STOP_RECEIPT_PROCESS_V2_REQUALIFICATION_H0_CAPABILITY_V1`
+
 Independent review approves only this exact host-only repair of the reusable
 Process-v2 D0 adapter. It creates no D0, D1, F1, recovery, replay, or live
 authority. The P3.18 candidate bytes are unchanged, but the changed execution
-closure still requires downstream requalification before another connected
-prerequisite run.
+closure has now passed downstream independent requalification. Fresh live
+prerequisites and exact approval remain separate gates.
 
 ## Trigger
 
@@ -106,16 +109,57 @@ intent only at `process_v2_contract`: the old 33,005-byte `2a6e48c9` receipt is
 now 33,498-byte `72f1eb61`. The materialized sources and candidate patch remain
 byte-identical; the patch SHA-256 remains `d839850e6e95`.
 
-The canonical ready-manifest verify-only path now fails closed with
-`P3.18 overlay intent verification failed`. No canonical intent, candidate,
-qualification, Process-v2 evidence, ready manifest, or private ready file was
-overwritten. That is the correct state until this changed common closure is
-reviewed and its downstream host-only receipts are regenerated.
+Before regeneration, the canonical ready-manifest verify-only path failed
+closed with `P3.18 overlay intent verification failed`; no stale canonical or
+private ready file was accepted. The host-only downstream chain has now been
+regenerated from the changed common receipt through intent, prepackaging,
+userspace, candidate A/B, qualification, independent static checking,
+Process-v2 promotion, private ready exact-copy, and noncreating rehearsal.
+
+The intent-level delta remains exactly the Process-v2 contract receipt above.
+The wider static closure has one additional changed execution input:
+`/usr/bin/qemu-aarch64` remains 7,108,312 bytes but changed from SHA-256
+`6b8505bcdd48` to `e1dc1eb07f2c`. Host package history records the corresponding
+`qemu-user` upgrade from `1:10.2.1+ds-1ubuntu3.1` to
+`1:10.2.1+ds-1ubuntu3.2` on 2026-08-15. The static checker reads, snapshots,
+executes, and receipts the current exact binary; this report does not treat a
+package name or version as a substitute for that byte identity.
+
+The new canonical identities are:
+
+- intent `375db867fb55`;
+- prepackaging `5c197da1bcbd`;
+- userspace `bbc44e25086c`;
+- qualification `694e1c7eb3e6`;
+- candidate static `2a4d639b55aa`;
+- Process-v2 run `d96381c12e23`;
+- Process-v2 static `35324f4a4b14`; and
+- ready manifest 2,778 bytes, SHA-256 `082c046f9091`.
+
+The independent reviewer regenerated a third temporary build; it, the first
+separate build, and the canonical tree are byte-identical for intent,
+userspace, candidate A/B, qualification, static result, and all three
+Process-v2 files. Candidate boot SHA-256 `0b74986f8531` and boot-only AP SHA-256
+`129ad86b934c` are unchanged from V3. The private ready directory is an exact
+4/4 copy at mode 0400/link-count one, and verify-only rehearsal returned
+`created=false` with the same ready-manifest bytes and no output file. The
+replaced prior canonical receipts were retained outside the repository through
+review and are not current authority.
 
 ## Independent Review and Remaining Gate
 
-Independent review is complete for the exact H0 stop-receipt closure. The
-Process-v2 execution closure and ready evidence must still be regenerated
-against the repaired adapter. Only then may one fresh exact D1
-baseline-rotation approval be requested, followed by a new exact S22+ D0. No
-reboot or connected retry is authorized by this report.
+Independent review is complete for both the exact H0 stop-receipt repair and
+the downstream regeneration. The latter returned:
+
+`PASS_GO_P318_D0_STOP_RECEIPT_PROCESS_V2_REQUALIFICATION_H0_CAPABILITY_V1`
+
+The reviewer independently matched SOURCE_KEYS 42/42, the exact QEMU binary,
+unchanged materialized sources/patch/init/child/boot/LZ4/AP, rollback
+`d2373bf8` at 23,367,721 bytes, the 1,200-second guard, private ready 4/4, and
+the noncreating rehearsal. P3.18 passes 142/142, the common Process-v2 suite
+120/120, and D0 plus taxonomy 60/60.
+
+This PASS_GO qualifies only the exact current host-only requalification. It
+makes the ready evidence eligible to precede a separately requested fresh D1
+baseline-rotation approval; it does not itself authorize that D1, a new D0,
+reboot, connected retry, F1, recovery, replay, or live action.
