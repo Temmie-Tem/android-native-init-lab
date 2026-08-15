@@ -520,7 +520,7 @@ its emitted `DATA-RESET-ACCEPTED` approval, and attendance remain mandatory.
 
 ## N1 exact privileged root-data transaction
 
-Status: **BINDING - ACTIVE BASE CAPABILITY; ONE GUARDED POST-INSTALL RUN; EXACT NO-INSTALL CONTINUATION ACTIVE**
+Status: **BINDING - ACTIVE R1 CAPABILITY; LAST N1 RUN RECOVERED INTENT-ONLY/DISABLED ROOTED HEALTHY**
 
 The reviewed active capability is implemented by two exact runners:
 
@@ -547,12 +547,19 @@ and normalized SHA-256
 These values identify the active capability. They do not identify a prepared
 run, approval, target session, or device action.
 
-One attended run prepared under that exact active identity has consumed its
-sole install attempt. Its complete rc-0/empty-stderr transcript was rejected
-only because the host grammar omitted Magisk v30.7's preceding system-as-root
-line. Its guard remains held; it has no post-install audit or reboot intent,
-installation replay is forbidden, and no general recovery or device authority
-is inferred. The exact incident and reviewed no-install continuation are
+One attended run prepared under the predecessor active identity consumed its
+sole install attempt. Its complete rc-0/empty-stderr transcript was initially
+rejected only because the host grammar omitted Magisk v30.7's preceding
+system-as-root line. The reviewed no-install continuation then passed the
+separate post-install tree audit and performed the first reboot without
+reinstalling. The canary wrote its exact intent but no result; that reboot was
+not replayed. The preauthorized Android-root recovery created the one disable
+marker, performed one recovery reboot, proved the exact target rooted and the
+module disabled in `intent-only` state, removed the owned staged inputs, and
+released the guard. Terminal verdict is
+`RECOVERED_S20PLUS_G986N_NATIVE_CANARY_N1_DISABLED_ROOTED_HEALTHY`.
+Stock/Odin attempts were zero and installation/reboot replay remains forbidden.
+The exact incident and reviewed continuation are
 recorded in
 `docs/reports/S20PLUS_G986N_NATIVE_CANARY_R1_INSTALL_TRANSCRIPT_INCIDENT_2026-08-16.md`.
 
@@ -831,10 +838,8 @@ returned `PASS_GO`. Mechanical activation set only the two capability
 constants true, rotated their full/normalized hashes and exact assertions, and
 updated the single S20+ registry row without changing either command surface
 or another target. Fresh connected preparation, its emitted exact approval,
-and operator attendance remain mandatory for a new transaction. The one
-existing guarded post-install run is not fresh authority and may proceed only
-through the exact independently reviewed and identity-activated no-install
-continuation described above.
+and operator attendance remain mandatory for a new transaction. The closed
+recovered run grants no fresh authority and cannot be replayed.
 Independent H0 re-review of the exact active identities, activation-only diff,
 registry/status wording, and full test closure returned `PASS_GO` with no
 unresolved finding.

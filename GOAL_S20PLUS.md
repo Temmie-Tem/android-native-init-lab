@@ -425,10 +425,9 @@ metadata candidate. Earlier rotations passed separate post-activation review;
 the current metadata rotation also passed final post-activation review.
 Each mechanical identity rotation introduced no further logic change; the CLI
 surface and authority remain unchanged.
-The base R1 capability remains active. One later attended run has consumed its
-sole install attempt and remains guarded after the old host grammar rejected
-Magisk v30.7's legitimate leading system-as-root line. It has no post-install
-audit or reboot intent, and installation replay is forbidden.
+The base R1 capability remains active. One later attended run consumed its
+sole install attempt after the old host grammar rejected Magisk v30.7's
+legitimate leading system-as-root line. Installation replay remains forbidden.
 
 The exact no-install continuation candidate is bound only to predecessor
 binding SHA-256
@@ -448,6 +447,17 @@ rotation produced the current active root-data identity above, with post-rotatio
 focused 119/119 and canonical eight-module 281/281 validation. The incident is recorded
 in
 `docs/reports/S20PLUS_G986N_NATIVE_CANARY_R1_INSTALL_TRANSCRIPT_INCIDENT_2026-08-16.md`.
+
+The active continuation passed its read-only post-install audit and performed
+the first reboot exactly once. The canary wrote its canonical intent but no
+result, so execution stopped without replay. The preauthorized Android-root
+recovery created one disable marker, performed one recovery reboot, and closed
+with terminal verdict
+`RECOVERED_S20PLUS_G986N_NATIVE_CANARY_N1_DISABLED_ROOTED_HEALTHY`: exact
+target rooted healthy, canary `intent-only`, module disabled, staged inputs
+absent, stock attempts zero, both replay permissions false, and the shared
+guard released. Private terminal result SHA-256 is
+`146230b0744b956bfa03c5088b7022ffe89be4d2596f0ebd3bb600eb495c7d66`.
 
 On 2026-08-16 three fresh connected preparations verified the exact target,
 Android health, and working Magisk root, then stopped before guard publication

@@ -5498,11 +5498,11 @@ except SystemExit as exc:
         self.assertIn("## Common R1 Invariants", agents)
         self.assertEqual(agents.count("| Samsung Galaxy S20+ 5G ("), 1)
         self.assertIn(
-            "ACTIVE BASE CAPABILITY; ONE GUARDED POST-INSTALL RUN; EXACT NO-INSTALL CONTINUATION ACTIVE",
+            "ACTIVE R1 CAPABILITY; LAST N1 RUN RECOVERED INTENT-ONLY/DISABLED ROOTED HEALTHY",
             contract,
         )
         self.assertIn(
-            "ONE GUARDED POST-INSTALL RUN; EXACT NO-INSTALL CONTINUATION ACTIVE",
+            "ACTIVE R1 CAPABILITY; LAST N1 RUN RECOVERED INTENT-ONLY/DISABLED ROOTED HEALTHY",
             report,
         )
         self.assertIn(ROOT_DATA.STAGE_DIR, contract)
@@ -5515,6 +5515,11 @@ except SystemExit as exc:
             self.assertIn("install_replay_permitted=false", text)
         self.assertIn("--resume-after-install", report)
         self.assertIn("--resume-after-install", incident)
+        for text in (contract, report, incident):
+            self.assertIn(
+                "RECOVERED_S20PLUS_G986N_NATIVE_CANARY_N1_DISABLED_ROOTED_HEALTHY",
+                text,
+            )
 
     def test_stock_confirm_has_exactly_one_rollback_and_no_candidate_path(self) -> None:
         prepared = self.prepared()

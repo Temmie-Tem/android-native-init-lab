@@ -5,7 +5,7 @@ Date: 2026-08-15
 Target: operator-owned `SM-G986N` / `y2q` / `y2qksx` /
 `G986NKSS8IYC2` only
 
-Status: **ACTIVE BASE CAPABILITY; ONE GUARDED POST-INSTALL RUN; EXACT NO-INSTALL CONTINUATION ACTIVE**
+Status: **ACTIVE R1 CAPABILITY; LAST N1 RUN RECOVERED INTENT-ONLY/DISABLED ROOTED HEALTHY**
 
 ## Outcome
 
@@ -13,9 +13,12 @@ The selected post-N1 unit is implemented as one exact
 privileged root-data transaction and one separately owned stock-boot recovery
 path. Mechanical activation changed no device. Both activation constants are
 true. Activation itself created no run, approval, connected preparation, or
-device command. A later attended run has now consumed its sole install attempt
-and remains guarded after a host transcript-parser rejection; fresh preparation
-and attended approval remain mandatory for every new transaction.
+device command. A later attended run consumed its sole install attempt, then
+closed through the reviewed no-install continuation and preauthorized
+Android-root disable recovery. Its exact terminal is rooted healthy with the
+canary `intent-only`, module disabled, staged inputs absent, stock attempts
+zero, and the shared guard released. Fresh preparation and attended approval
+remain mandatory for every new transaction.
 
 The proposed normal transaction is fixed to:
 
@@ -222,11 +225,11 @@ owner and requires terminal identity to equal durable final-health identity.
 Factory reset and complete data loss are accepted possible operator recovery
 costs; neither runner contains a reset or format command.
 
-## Install transcript incident and bounded continuation candidate
+## Install transcript incident and bounded continuation outcome
 
-The current guarded run has one exact install intent and one complete command
-result with rc zero and empty stderr. No post-install audit or reboot intent was
-published. Its private stdout SHA-256 is
+The run initially had one exact install intent and one complete command result
+with rc zero and empty stderr. At that stop no post-install audit or reboot
+intent had been published. Its private stdout SHA-256 is
 `a8127967c1e9ffbc12d32f6630ed0bdbc4c12237c009a4bf727e7348d0e7e5eb`.
 The old grammar omitted the source-defined first line
 `- Device is system-as-root`; official Magisk v30.7 emits it in
@@ -260,6 +263,17 @@ identity-only rotation produced the active 223,363-byte runner at SHA-256
 with the same normalized SHA-256. Post-rotation focused validation is 119/119
 and the canonical eight-module S20+ aggregate is 281/281. Full details are in
 `docs/reports/S20PLUS_G986N_NATIVE_CANARY_R1_INSTALL_TRANSCRIPT_INCIDENT_2026-08-16.md`.
+
+The active continuation then passed the separate post-install audit and issued
+the first reboot exactly once. The canary produced its canonical intent but no
+result, so the runner stopped without replay. Android-root recovery created the
+single disable marker and performed one recovery reboot; final evidence proves
+the same exact target rooted healthy, state `intent-only`, module disabled,
+staged input absent, and stock/Odin attempts zero. Both install and reboot
+replay remain false, and the shared guard is released. Terminal verdict is
+`RECOVERED_S20PLUS_G986N_NATIVE_CANARY_N1_DISABLED_ROOTED_HEALTHY`; private
+terminal result SHA-256 is
+`146230b0744b956bfa03c5088b7022ffe89be4d2596f0ebd3bb600eb495c7d66`.
 
 ## Public closure
 

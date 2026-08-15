@@ -7,7 +7,7 @@ Selected target: operator-owned Samsung Galaxy S20+ 5G only,
 
 Tier: H0 architecture, evidence map, and next-unit selection
 
-Status: **SELECTED DESIGN; N1 H0 PASS_GO; R1 BASE CAPABILITY ACTIVE; ONE GUARDED POST-INSTALL RUN; EXACT NO-INSTALL CONTINUATION ACTIVE**
+Status: **SELECTED DESIGN; N1 H0 PASS_GO; R1 CAPABILITY ACTIVE; LAST N1 RUN RECOVERED INTENT-ONLY/DISABLED ROOTED HEALTHY**
 
 ## Decision
 
@@ -569,9 +569,11 @@ through N5 remain designs, not a queue of implicitly approved actions.
 
 One later attended N1/R1 run consumed its single install attempt before a host
 grammar defect rejected Magisk v30.7's legitimate leading system-as-root line.
-Its guard remains held and install replay is forbidden. The bounded candidate
-continuation is restricted to that exact binding and predecessor runner,
-publishes a zero-effect predecessor/current receipt, rebinds the same prepared
-boot, and starts only at the existing read-only post-install audit. It remains
-independently reviewed and identity-activated; N2 through N5
-gain no authority from this incident.
+Install replay is forbidden. The independently reviewed and identity-activated
+continuation was restricted to that exact binding and predecessor runner,
+published a zero-effect predecessor/current receipt, rebound the same prepared
+boot, and started only at the existing read-only post-install audit. Its first
+reboot produced the canary intent but no result. Android-root recovery then
+disabled the module, performed one recovery reboot, proved the exact target
+rooted healthy in `intent-only` state, removed staged inputs, and released the
+guard without stock/Odin. N2 through N5 gain no authority from this incident.

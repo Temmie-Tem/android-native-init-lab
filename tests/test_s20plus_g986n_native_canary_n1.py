@@ -554,7 +554,7 @@ class S20PlusNativeCanaryN1Tests(unittest.TestCase):
         self.assertIn("INDEPENDENT REVIEW PASS_GO", report)
         self.assertIn("received independent `PASS_GO`", draft)
         self.assertIn(
-            "N1 H0 PASS_GO; R1 BASE CAPABILITY ACTIVE; ONE GUARDED POST-INSTALL RUN; EXACT NO-INSTALL CONTINUATION ACTIVE",
+            "N1 H0 PASS_GO; R1 CAPABILITY ACTIVE; LAST N1 RUN RECOVERED INTENT-ONLY/DISABLED ROOTED HEALTHY",
             phased,
         )
         self.assertNotIn("R1 REVIEW PENDING", phased)

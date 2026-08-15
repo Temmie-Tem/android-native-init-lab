@@ -5,7 +5,7 @@ Date: 2026-08-16
 Target: operator-owned `SM-G986N` / `y2q` / `y2qksx` /
 `G986NKSS8IYC2` only
 
-Status: **PASS_GO - EXACT POST-INSTALL CONTINUATION ACTIVE - INSTALL REPLAY FORBIDDEN**
+Status: **CLOSED - INTENT-ONLY CANARY DISABLED ROOTED HEALTHY - INSTALL/REBOOT REPLAY FORBIDDEN**
 
 ## Outcome
 
@@ -14,7 +14,7 @@ then the fixed Magisk v30.7 command returned rc `0`, empty stderr, and a
 complete success transcript. The fixed install command's in-command tree
 checks passed before its success sentinel, but no separate durable
 post-install-audit command or journal node was published; no reboot intent or
-reboot command followed. The shared S20+ guard remains held.
+reboot command had followed at that initial stop.
 The exact private `install.stdout` is retained only in the private run; its
 SHA-256 is
 `a8127967c1e9ffbc12d32f6630ed0bdbc4c12237c009a4bf727e7348d0e7e5eb`.
@@ -33,7 +33,7 @@ foreign transcript.
 
 The install intent consumes the sole installation attempt even though the
 host parser failed after command return. Staging and installation must not be
-repeated. The current journal contains the exact prepared prefix, four
+repeated. At the initial stop the journal contained the exact prepared prefix, four
 complete successful stage command tuples, one install intent/event, and one
 complete successful install tuple; it contains no post-install audit, reboot,
 disable, cleanup, stock handoff, or terminal node. Host-only validation of
@@ -42,10 +42,10 @@ stdout grammar.
 
 This is a host parser/reporting failure after a persistent effect. It is not a
 reason to reinstall Magisk, restage the module, delete the guard, issue an
-ad-hoc `su` command, or infer PASS. Until the reviewed continuation is active,
-the run remains stopped with its guard held.
+ad-hoc `su` command, or infer PASS. The run therefore remained stopped with its
+guard held until the separately reviewed continuation became active.
 
-## Exact continuation candidate
+## Exact reviewed continuation
 
 The candidate adds one named `--resume-after-install --run-id <closed-id>`
 entrypoint. It is restricted to the exact predecessor binding SHA-256
@@ -88,6 +88,31 @@ and the same normalized SHA-256 above; post-rotation focused validation is
 119/119 and the canonical eight-module S20+ aggregate is 281/281. This report
 does not authorize installation replay or any action outside the exact guarded
 run continuation.
+
+## Live continuation and recovery result
+
+The active continuation revalidated the exact 23-node predecessor cut,
+published its zero-effect continuation receipt, rebound the same prepared
+Android boot before root, and passed the separate read-only post-install tree
+audit. It then issued the first ordinary reboot exactly once. The returned
+exact rooted target passed the active-tree audit, and the canary had published
+its canonical intent, but its result file was absent. The runner durably
+published only `first-intent.raw`, stopped, and did not replay installation or
+the first reboot.
+
+The already-authorized Android-root recovery classified the live canary state
+as `intent-only`, created the one module disable marker, and issued one recovery
+reboot. Final evidence proves the exact target returned rooted healthy, the
+module is disabled, the canary remains `intent-only`, owned staged inputs are
+absent, stock/Odin attempts are zero, other-target command counts are zero,
+and both install and reboot replay permissions are false. Terminal verdict is
+`RECOVERED_S20PLUS_G986N_NATIVE_CANARY_N1_DISABLED_ROOTED_HEALTHY`; the shared
+guard is released. Private terminal result SHA-256 is
+`146230b0744b956bfa03c5088b7022ffe89be4d2596f0ebd3bb600eb495c7d66`.
+
+This is a safe recovered result, not N1 canary PASS. Any future N1 candidate
+must first explain why the native canary wrote intent but not result and must
+use a fresh reviewed transaction; this closed run cannot be replayed.
 
 No raw device identifier, private journal, module bytes, or raw command log is
 included in this tracked report.
