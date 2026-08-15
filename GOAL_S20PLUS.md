@@ -338,6 +338,22 @@ Magisk module install; no such capability, runner, artifact, approval, staging,
 reboot, or device command was created by the design. Persistent Magisk root is
 the prerequisite now proved, not itself proof of native init.
 
+That H0 implementation is now complete and recorded in
+`docs/reports/S20PLUS_G986N_NATIVE_CANARY_N1_H0_2026-08-15.md`. The tracked C
+source SHA-256 is
+`e611310eadf992bb1050fd5e35f236d3523e5c04693fd9e2beede1173766791b` and the
+deterministic builder SHA-256 is
+`2046fc81a3cd71b2f9390cf29387e75b7ede9c0195eb2b30739b87a16c80175f`.
+The canonical private output contains a 597,720-byte static AArch64 canary at
+SHA-256 `f5ebd70951827f831b2b11bb6eb012e150ef5a198444cc335e15016627e9536c`
+and an exact four-member 598,551-byte module ZIP at SHA-256
+`207c91293714a22460441c10b9b126530328ce0f2e2f384e8584a85663218e79`.
+Two native builds and two ZIP builds were byte-identical, and the QEMU/native
+hostile suite passed 13/13. The root-data transaction remains a non-binding,
+inactive H0 draft: no install runner, policy activation, approval, staging,
+`su`, reboot, or device command was created. The next bounded unit is an
+independent H0 review, not a live module install.
+
 A later reproducible-kernel-build unit would still need exact toolchain
 acquisition and a demonstrated matching build; the newly recovered embedded
 final `.config` removes the configuration-evidence gap but does not itself

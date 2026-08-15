@@ -7,7 +7,7 @@ Selected target: operator-owned Samsung Galaxy S20+ 5G only,
 
 Tier: H0 architecture, evidence map, and next-unit selection
 
-Status: **SELECTED DESIGN; N1 NOT IMPLEMENTED OR ACTIVE; NO DEVICE AUTHORITY**
+Status: **SELECTED DESIGN; N1 H0 IMPLEMENTED; REVIEW PENDING; NOT ACTIVE; NO DEVICE AUTHORITY**
 
 ## Decision
 
@@ -496,16 +496,16 @@ boot transfer and recovery rules that protect the only physical target.
 
 ## Immediate next work
 
-The next commit-sized unit is H0 only:
+The deterministic module, static canary, native one-shot evidence writer,
+hostile host tests, and inactive root-data transaction draft are now
+implemented and recorded in
+`../reports/S20PLUS_G986N_NATIVE_CANARY_N1_H0_2026-08-15.md`. That H0 result
+creates no install runner or live authority.
 
-1. implement the deterministic N1 module and static canary builder;
-2. implement the native one-shot evidence writer and hostile host tests;
-3. draft, but do not activate, the exact root-data transaction and recovery
-   contract;
-4. run an independent H0 review of the builder, module grammar, state parser,
-   policy interaction, and recovery model; and
-5. stop before module staging, `su`, install, reboot, or any device command.
-
-Only after that review should the operator decide whether to activate N1 and
-provide one fresh exact approval. N2 through N5 remain designs, not a queue of
-implicitly approved actions.
+The next commit-sized unit is an independent H0 review of the builder,
+toolchain closure, module grammar, state parser, hostile corpus, policy
+interaction, and recovery model. Stop before module staging, `su`, install,
+reboot, or any device command. Only after a `PASS_GO` should the operator
+decide whether to propose and independently review a binding policy change
+and exact runner. N2 through N5 remain designs, not a queue of implicitly
+approved actions.
