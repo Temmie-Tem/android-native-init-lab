@@ -82,10 +82,25 @@ class KernelSourceConfirmationDocsTests(unittest.TestCase):
         self.assertIn("It does not gate ephemeral client transmission", self.report)
         self.assertIn("denied the entire `AF_QIPCRTR` socket family", self.report)
         self.assertIn("the remote workload must inherit the same whole-family deny", self.report)
+        self.assertIn("`A90_REMOTE_WORKLOAD_QRTR_REMOTE_PROCESSOR_REACHABILITY`", self.report)
+        self.assertIn("direct non-relaxable enforcement set is one indivisible invariant", self.report)
+        self.assertIn("no native or preexisting socket FD", self.report)
+        self.assertIn("They do **not** make the seccomp filter survive", self.report)
         self.assertIn("this report alone does not do it", self.report)
 
         design = flatten(ISOLATED_DESIGN.read_text(encoding="utf-8"))
-        self.assertIn("AF_QIPCRTR/QRTR", design)
+        for control in (
+            "bootstrap sets `PR_SET_NO_NEW_PRIVS`",
+            "filter is inherited across exec and descendants and cannot be removed",
+            "Direct `socket()` is allowed only for `AF_INET`",
+            "AF_QIPCRTR/QRTR",
+            "AF_NETLINK (including kobject uevent)",
+            "compat `socketcall` entry is denied completely",
+            "no native/preexisting socket FD reaches the service identity",
+            "`unshare`, `setns`, `mknod`, and `mknodat`; denies `clone3` completely",
+            "no `CLONE_NEW*` bit or unknown service flag",
+        ):
+            self.assertIn(control, design)
         self.assertIn("AF_INET-only direct-socket allowlist", self.report)
 
     def test_report_keeps_h0_and_grants_no_authority(self) -> None:

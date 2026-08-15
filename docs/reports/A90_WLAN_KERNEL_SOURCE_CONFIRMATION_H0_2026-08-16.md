@@ -146,6 +146,37 @@ deny and an AF_INET-only direct-socket allowlist. A future Option C capsule may
 retain QRTR only inside its separately trusted boundary; the remote workload
 must inherit the same whole-family deny.
 
+This source evidence names the already-binding selected-design socket
+boundary's permanent hazard as
+`A90_REMOTE_WORKLOAD_QRTR_REMOTE_PROCESSOR_REACHABILITY`, not a conservative
+default that a later service request may casually relax. Its direct
+non-relaxable enforcement set is one indivisible invariant:
+
+1. trusted bootstrap sets `PR_SET_NO_NEW_PRIVS`, installs the reviewed all-ABI
+   default-deny filter before untrusted code, and proves that the filter is
+   inherited and non-removable;
+2. direct `socket()` remains an exact positive allowlist and explicitly denies
+   `AF_QIPCRTR`, every unknown family/type/protocol, and any unreviewed
+   `AF_NETLINK` form;
+3. compat `socketcall` remains completely denied because classic BPF cannot
+   inspect its pointed argument vector safely; and
+4. no native or preexisting socket FD, especially a QRTR FD, reaches the
+   service/workload identity.
+
+Adding a narrowly reviewed netlink need may never be implemented by widening
+this into a generic family allowlist, restoring compat `socketcall`, dropping
+the explicit QRTR/unknown-family denials, or admitting an inherited control
+FD. Any such change is a permanent-boundary change requiring a new threat
+review, independent safety review, and negative corpus.
+
+The adjacent denials of `unshare`, `setns`, `clone3`, and namespace-bearing or
+unknown legacy `clone` flags remain separately non-relaxable for the
+userns/mount/device/network containment model. They do **not** make the seccomp
+filter survive a namespace transition: inherited seccomp already survives
+fork, clone, exec, and namespace changes. Keeping that causal distinction
+prevents a future reviewer from treating either boundary as a substitute for
+the other.
+
 ### PD locator/notifier is a recovery path, not a fatal probe prerequisite
 
 `icnss_pd_restart_enable()` asks the service locator for WLAN domains and then
