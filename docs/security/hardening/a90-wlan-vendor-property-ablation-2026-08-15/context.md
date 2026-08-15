@@ -4,7 +4,8 @@ Date: 2026-08-15
 Repository: `android-native-init-lab` (all paths below are repository-relative)
 Baseline revision: `fda348a072eba8a53c2de7c9904c52429a7dddaf`; the exact
 collection below was refrozen after adding the public historical dependency
-evidence and correcting the prior portfolio's `WP-H0-1` status
+evidence, correcting the prior portfolio's `WP-H0-1` status, and recording the
+WP2-5b.2 H0 runtime-owner design boundary
 Target: operator-owned Samsung Galaxy A90 5G only
 Tier: H0, host-only source investigation and design
 
@@ -48,14 +49,14 @@ security index entry, and corrections to the prior portfolio's inaccurate
 The collection digest is computed over the following files in the listed
 order as `relative_path NUL size NUL sha256 NUL`:
 
-`12e587805caa82beff7599a1be8130469929f30916d52d89bf039fc24a1e6d67`
+`db6f305889b88759af8927ba4062890519de43031393bccc64819f6334c21171`
 
 Artifact count: `24`. Source drift at analysis time: `none`.
 
 | SHA256 | Bytes | Repository-relative path |
 | --- | ---: | --- |
 | `6cd7e24235396089baab844b0e568a93fb82528bf7fc6cb6c5cfc62d83ef0793` | 17014 | `AGENTS.md` |
-| `91125c75349c41aeefb0d2618f111e494f9a0232c3c972a081f9a5e39c81ce61` | 29988 | `GOAL_A90.md` |
+| `fe9c298f9761410f95f92649dd3c7f01504beacd10d10667dbc5b2dc9af95599` | 30442 | `GOAL_A90.md` |
 | `ed9f51212db33bd822dc96ecf12feeda05ce255d088c402c4742851d173fad51` | 89405 | `docs/operations/targets/A90_TARGET_CONTRACT.md` |
 | `edd64a434330f79a3b1ec542c12822e5b201362c212484c7b67d67b4ffbb61a9` | 97237 | `docs/operations/CAMPAIGN_LEDGER_A90.md` |
 | `1c7984a85af3cb059244d7f3e7ed5b21516a60657bd947a275a4ed7e4faa5b71` | 4991 | `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA18_CONTROL_PLANE_BLOCKED_2026-07-04.md` |
@@ -312,6 +313,13 @@ binder, and no-replay prefix validator at
 `schema/a90-wp2-5b-kmsg-trace-v1.json`; none opens `/dev/kmsg` or grants a
 dispatch. The runtime observer, durable writer, measured qualification,
 execution review, and full WP2-5b remain unimplemented and unauthorized.
+WP2-5b.2 additionally fixes their execution-boundary design: one sole reader,
+no effect authority in the observer, no-retry terminal handling for consumed
+`EINVAL`/`EFAULT` records, atomic no-replace trace/journal publication,
+separate driver/interface receipts, and observation-only crash reconciliation.
+It is documented in
+`docs/reports/A90_WLAN_WP2_5B_RUNTIME_OWNER_DURABLE_EVIDENCE_DESIGN_H0_2026-08-16.md`
+and does not retire the implementation gate.
 
 ## Authority Result
 

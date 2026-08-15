@@ -309,6 +309,12 @@ identity:
   effective live size remains unproved. Post-result snapshots and
   `/proc/kmsg` fallback cannot prove a log-dependent terminal. The
   `WP2_5B_STREAMING_KMSG_OBSERVER_ABSENT` implementation gate remains open.
+- `WP2-5b.1` provides the generated trace framing/consumer core. `WP2-5b.2`
+  now fixes the H0 runtime-owner/durable-evidence design: one sole reader with
+  no effect authority, consumed-record `EINVAL`/`EFAULT` terminal faults with
+  no retry, atomic no-replace trace/journal publication, separate
+  driver/interface receipts, and observation-only crash reconciliation. No
+  owner, writer, receipt producer, integration binary, or qualification exists.
 - Numeric budgets remain unset until measured from a corrected healthy
   baseline. The design has no execution implementation, qualification,
   independent execution review, identity, candidate, D0, D1, F1, handoff, UFS

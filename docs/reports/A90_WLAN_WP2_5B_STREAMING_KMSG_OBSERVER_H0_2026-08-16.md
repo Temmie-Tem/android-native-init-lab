@@ -4,7 +4,8 @@ Date: 2026-08-16
 Target: operator-owned Samsung Galaxy A90 5G only
 Tier: H0 source and design analysis
 Device, `/dev`, USB, network, or other-target contact: none
-Disposition: permanent invariant; H0 trace core separate, runtime observer absent
+Disposition: permanent invariant; H0 trace core and owner design separate,
+runtime observer absent
 
 ## Result
 
@@ -23,6 +24,8 @@ byte-derived runtime observer, durable raw/journal writer, result consumer,
 qualification, hostile execution corpus, and independent execution review
 exist. The separate WP2-5b.1 H0 trace encoder/consumer core does not open the
 device or retire this gate. Neither gate grants device or execution authority.
+WP2-5b.2 fixes only the future owner/writer/receipt/reconciliation design and
+also does not retire the gate.
 
 ## The effective ring is not proved to be 128 KiB
 
@@ -73,6 +76,15 @@ The exact source-side maximum exported record buffer is
 large and parse one complete record at a time. A smaller fixed buffer can
 receive `-EINVAL` for a valid record and is not a complete observer.
 
+`EINVAL` is not retryable on this kernel. `devkmsg_read()` advances the
+per-reader index and sequence before checking whether the rendered record fits
+the supplied buffer. It likewise advances them before `copy_to_user()`, so an
+`EFAULT` also consumes the selected record. Either errno must produce one
+terminal typed fault and permanently stop reads from that descriptor. A retry
+would skip to the next record, and a sequence gap alone is insufficient because
+there may be no later record. The exact mechanism and crash ordering are fixed
+in `A90_WLAN_WP2_5B_RUNTIME_OWNER_DURABLE_EVIDENCE_DESIGN_H0_2026-08-16.md`.
+
 `/proc/kmsg` is not an acceptable automatic fallback. Its read path calls
 `do_syslog(SYSLOG_ACTION_READ, ...)` and advances the one global
 `syslog_seq/syslog_idx/syslog_partial` cursor. It lacks the independent
@@ -97,15 +109,18 @@ The future implementation must enforce all of the following:
    bytes, preserves every complete structured record in the bound epoch under
    an operator-accepted byte/count cap, and frames and hashes the exact raw
    bytes for the result consumer.
-4. **Sequence proof.** The consumer rejects `EPIPE`, `POLLERR`, sequence gaps,
-   duplicates, regression, malformed headers/bodies, continuation ambiguity,
-   short or oversized records, byte/count cap exhaustion, read/poll error,
-   premature EOF, unknown start/end, and mixed boot/run/driver-init epochs.
+4. **Sequence proof.** The consumer rejects `EPIPE`, `POLLERR`, `EINVAL`,
+   `EFAULT`, sequence gaps, duplicates, regression, malformed headers/bodies,
+   continuation ambiguity, short or oversized records, byte/count cap
+   exhaustion, read/poll error, premature EOF, unknown start/end, and mixed
+   boot/run/driver-init epochs. `EINVAL` and `EFAULT` are consumed-read faults:
+   the owner records them directly and issues no retry or later read.
 5. **Parent-controlled end.** Only after the exact driver outcome is bound may
    the parent close the observation epoch. The observer then drains to
-   `EAGAIN`, fsyncs/publishes its bounded result through the future reviewed
-   journal channel, closes the sole FD, and proves no duplicate reader or FD
-   survives cleanup.
+   `EAGAIN`, closes the sole reader FD, fsyncs and closes `trace.pending`, sends
+   one fixed closed status, and exits. Only after exact wait/reap and a
+   zero-reader proof may the parent publish the bounded final trace and its
+   canonical journal binding; the observer never publishes a final name.
 6. **Exact MAC classification.** Within that one epoch,
    `MAC_PROVISION_FALSE_PROVED_EXACT_RUN` requires exactly one kernel-facility
    error record whose body is
@@ -155,6 +170,7 @@ Public current source:
 This report is H0 only. It creates no observer binary, candidate identity,
 qualification, approval, journal, D0, D1, F1, handoff, UFS mutation, property
 provisioning, live ablation, recovery, or execution authority. Option C and
-full runtime `WP2-5b` remain unimplemented and unauthorized. The later H0 trace-core
-implementation is documented separately in
-`A90_WLAN_WP2_5B_KMSG_TRACE_CORE_H0_2026-08-16.md`.
+full runtime `WP2-5b` remain unimplemented and unauthorized. The later H0
+trace-core implementation and owner/writer design are documented separately in
+`A90_WLAN_WP2_5B_KMSG_TRACE_CORE_H0_2026-08-16.md` and
+`A90_WLAN_WP2_5B_RUNTIME_OWNER_DURABLE_EVIDENCE_DESIGN_H0_2026-08-16.md`.

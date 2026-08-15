@@ -5,7 +5,7 @@
 This H0 review binds 24 public artifacts from the lineage anchored at baseline
 revision `fda348a072eba8a53c2de7c9904c52429a7dddaf`. Their current collection
 SHA256 is
-`12e587805caa82beff7599a1be8130469929f30916d52d89bf039fc24a1e6d67`.
+`db6f305889b88759af8927ba4062890519de43031393bccc64819f6334c21171`.
 
 The strongest result is not a successful ablation. It is a correction to the
 baseline: H24's selected helper builds thirteen composite children representing
@@ -147,13 +147,18 @@ rotation does not relabel either derived follow-up as original evidence.
   a kernel-log-dependent terminal. A trusted exact `/dev/kmsg` reader must be
   armed before effect intent and driver init, continuously drain complete
   source-bounded records, preserve the bounded raw epoch, and reject every
-  overrun (`EPIPE`/`POLLERR`), sequence, format, boundary, or cap defect as
-  `NO_PROOF_OBSERVER`. The effective live ring size is unproved:
+  overrun (`EPIPE`/`POLLERR`), consumed-read error (`EINVAL`/`EFAULT`),
+  sequence, format, boundary, or cap defect as `NO_PROOF_OBSERVER`. On the
+  selected source, `EINVAL` and `EFAULT` occur after the reader cursor advances;
+  they are terminal and may never be retried. The effective live ring size is unproved:
   `LOG_BUF_SHIFT=17` is only the 128-KiB minimum, while the eight-CPU
   source-default calculation is 1 MiB absent an early override. The temporary
   `WP2_5B_STREAMING_KMSG_OBSERVER_ABSENT` gate retires only with the exact
   runtime implementation, durable writer, qualification, hostile execution
   tests, and independent execution review; this H0 core does not retire it.
+  WP2-5b.2 now fixes the sole-reader, durable-publication, receipt, and
+  crash-reconciliation design, but implements none of those runtime roles and
+  likewise does not retire the gate.
 
 ## Property Terminal
 

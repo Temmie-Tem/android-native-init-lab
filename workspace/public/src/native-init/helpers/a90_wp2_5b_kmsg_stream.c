@@ -262,7 +262,7 @@ int a90_wp2_5b_stream_note_fault(struct a90_wp2_5b_stream *stream,
 
     if (stream == NULL || !stream->armed || stream->ended || stream->faulted ||
         reason < A90_WP2_5B_FAULT_READ ||
-        reason > A90_WP2_5B_FAULT_BOUNDARY)
+        reason > A90_WP2_5B_FAULT_EFAULT)
         return -1;
     put_u32_be(payload, reason);
     put_u32_be(payload + 4, (uint32_t)os_errno);
@@ -434,6 +434,9 @@ int main(int argc, char **argv)
             &stream, short_flag_one, sizeof(short_flag_one) - 1);
     else if (strcmp(mode, "null") == 0)
         add_result = a90_wp2_5b_stream_add_record(&stream, NULL, 1);
+    else if (strcmp(mode, "efault") == 0)
+        add_result = a90_wp2_5b_stream_note_fault(
+            &stream, A90_WP2_5B_FAULT_EFAULT, EFAULT, 0);
     else if (strcmp(mode, "escaped") == 0)
         add_result = a90_wp2_5b_stream_add_record(
             &stream, escaped, sizeof(escaped) - 1);
@@ -449,7 +452,11 @@ int main(int argc, char **argv)
                     &stream, second, sizeof(second) - 1);
         }
     }
-    if ((expected_failure && (add_result == 0 || !stream.faulted)) ||
+    if (strcmp(mode, "efault") == 0)
+        expected_failure = 1;
+    if ((expected_failure &&
+         ((strcmp(mode, "efault") != 0 && add_result == 0) ||
+          !stream.faulted)) ||
         (!expected_failure && add_result != 0) ||
         a90_wp2_5b_stream_end(&stream, driver, close_binding) != 0)
         return 1;

@@ -91,6 +91,7 @@ FAULT_SEQUENCE = 6
 FAULT_COUNT_CAP = 7
 FAULT_BYTE_CAP = 8
 FAULT_BOUNDARY = 9
+FAULT_EFAULT = 10
 FAULT_NAMES = {
     FAULT_READ: "READ_ERROR",
     FAULT_POLL: "POLL_ERROR",
@@ -101,6 +102,7 @@ FAULT_NAMES = {
     FAULT_COUNT_CAP: "RECORD_COUNT_CAP_EXHAUSTED",
     FAULT_BYTE_CAP: "RECORD_BYTE_CAP_EXHAUSTED",
     FAULT_BOUNDARY: "BOUNDARY_ERROR",
+    FAULT_EFAULT: "EFAULT_CURSOR_ADVANCED",
 }
 
 KMSG_RECORD_MAX = 8192
@@ -364,6 +366,28 @@ def build_contract() -> dict[str, Any]:
                 "END follows the bound driver outcome and final EAGAIN drain",
                 "record and raw-byte counts match END and qualified caps",
             ],
+            "consumedReadFaults": {
+                "sourceOrdering": (
+                    "The selected devkmsg_read advances user->idx and "
+                    "user->seq before testing len > count or copy_to_user."
+                ),
+                "EINVAL": (
+                    "The current record is already consumed before -EINVAL; "
+                    "emit one terminal EINVAL_CURSOR_ADVANCED fault and never "
+                    "retry or read again from that descriptor."
+                ),
+                "EFAULT": (
+                    "The current record is already consumed before -EFAULT; "
+                    "emit one terminal EFAULT_CURSOR_ADVANCED fault and never "
+                    "retry or read again from that descriptor."
+                ),
+                "whySequenceAloneIsInsufficient": (
+                    "A later sequence gap may expose the loss, but no later "
+                    "record is guaranteed; the errno itself is terminal proof "
+                    "of observer loss."
+                ),
+                "postIntentResult": "NO_PROOF_OBSERVER_AND_NO_EFFECT_REPLAY",
+            },
             "macFalseSignature": {
                 "priority": 3,
                 "continuation": "-",
@@ -421,7 +445,7 @@ def build_contract() -> dict[str, Any]:
             "bad magic/version/header reserved",
             "unknown/duplicate/misordered/trailing frame",
             "short/oversized/malformed /dev/kmsg record",
-            "EPIPE/POLLERR/EINVAL/read fault",
+            "EPIPE/POLLERR/EINVAL/EFAULT/read fault",
             "sequence gap/duplicate/regression/overflow",
             "record-count or byte-cap exhaustion",
             "total framed-trace envelope exhaustion",
@@ -498,6 +522,7 @@ def canonical_header_text() -> str:
 #define A90_WP2_5B_FAULT_COUNT_CAP {FAULT_COUNT_CAP}u
 #define A90_WP2_5B_FAULT_BYTE_CAP {FAULT_BYTE_CAP}u
 #define A90_WP2_5B_FAULT_BOUNDARY {FAULT_BOUNDARY}u
+#define A90_WP2_5B_FAULT_EFAULT {FAULT_EFAULT}u
 
 #define A90_WP2_5B_TYPE0_ABSENT \"{TYPE0_ABSENT}\"
 #define A90_WP2_5B_TYPE1_ABSENT \"{TYPE1_ABSENT}\"

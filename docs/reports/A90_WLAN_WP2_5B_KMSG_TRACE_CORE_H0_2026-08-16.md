@@ -5,7 +5,8 @@ Target: operator-owned Samsung Galaxy A90 5G only
 Tier: H0 source, framing, parser, and state-machine implementation
 Device, `/dev`, USB, network, live command, or other-target evidence: none
 Excluded contact: one accidental S22+ public-source excerpt read; not used
-Disposition: trace core complete H0; runtime observer and execution remain absent
+Disposition: trace core complete H0; runtime-owner design fixed separately;
+runtime observer and execution remain absent
 
 ## Result
 
@@ -54,9 +55,14 @@ drift, or any `FAULT` as `NO_PROOF_OBSERVER`.
 The C core reports format, sequence, count-cap, and byte-cap failures through
 a typed `FAULT` frame. It does not claim that these are the only possible
 runtime faults: the future owner must translate every `EPIPE`, `POLLERR`,
-`EINVAL`, read/poll error, boundary failure, or final-drain failure into the
-same fail-closed channel. A callback write failure leaves a truncated stream,
-which the consumer also rejects.
+`EINVAL`, `EFAULT`, read/poll error, boundary failure, or final-drain failure
+into the same fail-closed channel. The selected kernel advances the reader
+cursor before returning `EINVAL` for a short destination or `EFAULT` for a
+failed copy. Those two errnos are therefore terminal consumed-record faults:
+the owner emits `FAULT_EINVAL` or the appended `FAULT_EFAULT=10`, never retries
+or reads again from that descriptor, and never relies on a later sequence gap.
+A callback write failure leaves a truncated stream, which the consumer also
+rejects.
 
 ## MAC signatures
 
@@ -134,6 +140,16 @@ scoped diff checking passed. This paragraph is a receipt-only delta and is
 separately rehashed before commit. No PASS from this report grants live
 authority.
 
+## WP2-5b.2 runtime-owner design
+
+The separate
+`A90_WLAN_WP2_5B_RUNTIME_OWNER_DURABLE_EVIDENCE_DESIGN_H0_2026-08-16.md`
+now fixes sole-reader ownership, exact FD/control-channel boundaries,
+intent-before-effect ordering, consumed-read fault handling, atomic no-replace
+trace/journal publication, subordinate receipt boundaries, and every crash
+prefix. It is design evidence only. No owner, writer, raw canonical journal
+parser, receipt producer, integration binary, or qualification is implemented.
+
 ## What remains before any live unit
 
 The next unit must integrate, without relaxing this contract:
@@ -142,8 +158,9 @@ The next unit must integrate, without relaxing this contract:
    `O_RDONLY|O_NONBLOCK|O_CLOEXEC` plus `SEEK_END`;
 2. a dedicated continuously draining owner armed before durable effect intent
    and before the selected driver-init epoch;
-3. complete translation of `EPIPE`, `POLLERR`, `EINVAL`, read/poll errors,
-   end-boundary failures, and final-drain uncertainty into durable evidence;
+3. complete translation of `EPIPE`, `POLLERR`, `EINVAL`, `EFAULT`, read/poll
+   errors, end-boundary failures, and final-drain uncertainty into durable
+   evidence, with zero reads after either consumed-read fault;
 4. an exact private atomic no-replace trace/journal writer, strict raw
    canonical parser rejecting duplicate keys or noncanonical bytes, fsync,
    and crash-prefix reconciliation;

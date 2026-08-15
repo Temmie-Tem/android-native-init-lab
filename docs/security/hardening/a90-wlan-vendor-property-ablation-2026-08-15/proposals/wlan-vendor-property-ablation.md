@@ -657,8 +657,11 @@ then publish `OBSERVER_ARMED` before allowing the effect. It continuously
 drains complete structured records with a buffer of at least the source-bound
 8192-byte maximum, preserves every record in the bounded epoch, and proves
 strict sequence continuity through the exact driver outcome. `EPIPE`,
-`POLLERR`, any sequence/format/boundary error, or byte/count cap exhaustion is
-`NO_PROOF_OBSERVER`. `/proc/kmsg` is forbidden as an automatic fallback
+`POLLERR`, `EINVAL`, `EFAULT`, any sequence/format/boundary error, or
+byte/count cap exhaustion is `NO_PROOF_OBSERVER`. The selected reader advances
+its cursor before returning `EINVAL` or `EFAULT`, so either is a terminal
+consumed-record fault: record it once and never retry or issue another read.
+`/proc/kmsg` is forbidden as an automatic fallback
 because it advances the global legacy syslog cursor; `dmesg`, post-result
 snapshots, pstore/last-kmsg absence, and a larger boot log are not substitutes.
 
@@ -671,7 +674,11 @@ The permanent runtime invariant is `WP2_5B_KMSG_STREAM_COMPLETENESS`; the
 temporary `WP2_5B_STREAMING_KMSG_OBSERVER_ABSENT` gate remains until the exact
 runtime owner, durable raw/journal writer, integrated consumer, qualification,
 hostile execution tests, and independent execution review exist. The later
-WP2-5b.1 H0 framing/consumer core alone does not retire it.
+WP2-5b.1 H0 framing/consumer core alone does not retire it. WP2-5b.2 now fixes
+the separate sole-reader, durable no-replace publication, receipt, and
+crash-reconciliation design in
+`docs/reports/A90_WLAN_WP2_5B_RUNTIME_OWNER_DURABLE_EVIDENCE_DESIGN_H0_2026-08-16.md`;
+it remains H0 design and implements none of those runtime roles.
 
 ### Result and budget contract
 

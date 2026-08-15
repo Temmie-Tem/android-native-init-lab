@@ -59,6 +59,13 @@
       "END follows the bound driver outcome and final EAGAIN drain",
       "record and raw-byte counts match END and qualified caps"
     ],
+    "consumedReadFaults": {
+      "EFAULT": "The current record is already consumed before -EFAULT; emit one terminal EFAULT_CURSOR_ADVANCED fault and never retry or read again from that descriptor.",
+      "EINVAL": "The current record is already consumed before -EINVAL; emit one terminal EINVAL_CURSOR_ADVANCED fault and never retry or read again from that descriptor.",
+      "postIntentResult": "NO_PROOF_OBSERVER_AND_NO_EFFECT_REPLAY",
+      "sourceOrdering": "The selected devkmsg_read advances user->idx and user->seq before testing len > count or copy_to_user.",
+      "whySequenceAloneIsInsufficient": "A later sequence gap may expose the loss, but no later record is guaranteed; the errno itself is terminal proof of observer loss."
+    },
     "continuationFlags": [
       "-",
       "c"
@@ -103,7 +110,7 @@
     "bad magic/version/header reserved",
     "unknown/duplicate/misordered/trailing frame",
     "short/oversized/malformed /dev/kmsg record",
-    "EPIPE/POLLERR/EINVAL/read fault",
+    "EPIPE/POLLERR/EINVAL/EFAULT/read fault",
     "sequence gap/duplicate/regression/overflow",
     "record-count or byte-cap exhaustion",
     "total framed-trace envelope exhaustion",
@@ -191,6 +198,10 @@
       {
         "id": 9,
         "name": "BOUNDARY_ERROR"
+      },
+      {
+        "id": 10,
+        "name": "EFAULT_CURSOR_ADVANCED"
       }
     ],
     "frameFlags": 0,

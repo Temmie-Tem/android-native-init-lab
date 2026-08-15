@@ -321,6 +321,15 @@ class A90Wp25bKmsgTraceV1Test(unittest.TestCase):
         self.assertFalse(
             self.contract["journalContract"]["rawCanonicalParserImplemented"]
         )
+        consumed = self.contract["kmsgRecordContract"]["consumedReadFaults"]
+        self.assertIn("already consumed", consumed["EINVAL"])
+        self.assertIn("already consumed", consumed["EFAULT"])
+        self.assertIn("never retry or read again", consumed["EINVAL"])
+        self.assertIn("never retry or read again", consumed["EFAULT"])
+        self.assertEqual(
+            self.module.FAULT_NAMES[self.module.FAULT_EFAULT],
+            "EFAULT_CURSOR_ADVANCED",
+        )
 
     def test_contract_mutation_fails_closed(self) -> None:
         value = copy.deepcopy(self.contract)
@@ -977,6 +986,7 @@ class A90Wp25bKmsgTraceV1Test(unittest.TestCase):
                 ("short-flag-zero", 8, 16384),
                 ("short-flag-one", 8, 16384),
                 ("null", 8, 16384),
+                ("efault", 8, 16384),
                 ("count-cap", 1, 16384),
                 ("byte-cap", 8, 8),
             ):
@@ -1083,7 +1093,9 @@ class A90Wp25bKmsgTraceV1Test(unittest.TestCase):
         for text in (report, proposal, hardening, context, hardening_json):
             self.assertIn("WP2-5b.1", text)
         for claim in (
-            "trace core complete H0; runtime observer and execution remain absent",
+            "trace core complete H0",
+            "runtime-owner design fixed separately",
+            "runtime observer and execution remain absent",
             "effectReplayAllowed` is always false",
             "generationPromotionEligible=false",
             "grants no candidate identity, D0, D1, F1",
