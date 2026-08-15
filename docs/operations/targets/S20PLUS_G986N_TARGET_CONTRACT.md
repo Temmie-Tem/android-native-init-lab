@@ -536,10 +536,10 @@ module installation, cleanup, reboot, or stock transfer. Activation creates no
 run or approval; each use still requires fresh connected preparation, its
 emitted exact approval, and operator attendance.
 
-The active root-data runner is 213,525 bytes at SHA-256
-`71cb0617d6989ad1bbfce98779796e7cf923c65fb497b67cd4ea93fe9f4253b1`
+The active root-data runner is 213,403 bytes at SHA-256
+`35dfc7557c5c9e9b3e62d4865e81122572c57d0464997f4e2a35904a0b15432f`
 and normalized SHA-256
-`5e29e8659fb493f0b1885cdc8954e11ec8be6fb60e6953e80923da4ed225300c`.
+`6c64c8763fd0ab68fe2b88721f6d6d1f0f9c28f96b4595f028c0af7c143194ad`.
 The active stock-recovery runner is 61,312 bytes at SHA-256
 `b029afc3d4a899e4d83304773f8405519bacdb02de742de015a52c97689cc2a6`
 and normalized SHA-256
@@ -600,6 +600,11 @@ implementation. The 2026-08-16 preflight incident and its H0 corrections are rec
 Those corrections changed only fixed command framing and failure
 classification, not the CLI or authority surface; independent review qualified
 each self-blocked candidate before a separate identity-only activation.
+The later `unsafe-metadata` stop exposed a separate host expectation defect:
+official Magisk v30.7 applies `0755` to the persistent `MAGISKBIN` tree in both
+its flash and app direct-install paths. The independently reviewed correction
+therefore requires exact `0755` for `util_functions.sh` through one shared
+parser/validator table; it adds no command, path, effect, or retry authority.
 
 Staging and privileged install use distinct intents. Before the install intent
 exists, an exact prepared-only run may be declined with zero device writes;

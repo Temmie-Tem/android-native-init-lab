@@ -234,10 +234,10 @@ Execution-critical public files:
 
 The active reviewed identities are:
 
-- root-data runner: 213,525 bytes, SHA-256
-  `71cb0617d6989ad1bbfce98779796e7cf923c65fb497b67cd4ea93fe9f4253b1`,
+- root-data runner: 213,403 bytes, SHA-256
+  `35dfc7557c5c9e9b3e62d4865e81122572c57d0464997f4e2a35904a0b15432f`,
   normalized
-  `5e29e8659fb493f0b1885cdc8954e11ec8be6fb60e6953e80923da4ed225300c`;
+  `6c64c8763fd0ab68fe2b88721f6d6d1f0f9c28f96b4595f028c0af7c143194ad`;
 - stock-recovery runner: 61,312 bytes, SHA-256
   `b029afc3d4a899e4d83304773f8405519bacdb02de742de015a52c97689cc2a6`,
   normalized
@@ -278,8 +278,24 @@ the entire fixed script before ADB's join and requires UID 0 in the same
 closure command. Independent review returned `PASS_GO` for self-blocked runner
 SHA-256 `66fcf659b2025a477bc19336c746bb745774258f8395b860038b0f906b37d274`
 (normalized `5e29e8659fb493f0b1885cdc8954e11ec8be6fb60e6953e80923da4ed225300c`).
-Its mechanical identity-only rotation produced the current active identity
-above; focused and aggregate closure are now 115/115 and 277/277.
+Its mechanical identity-only rotation produced the then-active 213,525-byte
+identity `71cb0617d6989ad1bbfce98779796e7cf923c65fb497b67cd4ea93fe9f4253b1`
+with the same `5e29e8659fb493f0b1885cdc8954e11ec8be6fb60e6953e80923da4ed225300c`
+normalized hash; focused and aggregate closure reached 115/115 and 277/277.
+
+The next exact preparation reached the now-valid quoted root probe and reported
+only `util_functions=unsafe-metadata`. Official Magisk v30.7 commit
+`e8a58776f1d7bdf852072ad0baa6eceb9a1e4aac` applies recursive `0755` to
+the persistent `MAGISKBIN` tree in both flash and app direct-install paths;
+the runner had incorrectly admitted only non-executable modes for
+`util_functions.sh`. Independent review returned `PASS_GO` for self-blocked
+candidate SHA-256
+`6905a92a7dd2eb7a3d64b3dc5055cf7cd297c43077a682eeea0f0fadbb1639c4`
+(normalized
+`6c64c8763fd0ab68fe2b88721f6d6d1f0f9c28f96b4595f028c0af7c143194ad`).
+The mechanical identity-only rotation produced the current active identity
+above; the CLI, fixed root script, effect budget, and recovery surface are
+unchanged.
 
 No private artifact or device evidence is included in this tracked report.
 
@@ -289,8 +305,10 @@ On 2026-08-15, independent `PASS_GO` qualified the exact dormant closure and
 its mechanical initial activation changed only capability constants, reviewed
 identities, registry/status wording, and assertions. On 2026-08-16, separately
 reviewed finite-classifier and remote-shell-framing hotfixes changed fixed
-command logic but not its surface or authority; each later activation changed
-only the normalized identity constant and matching records. No activation
+command logic but not its surface or authority. The later metadata correction
+changed only the source-derived `util_functions.sh` mode expectation and shared
+validator table; each later activation changed only the normalized identity
+constant and matching records. No activation
 touched a device or created a run or standing approval. Post-hotfix activation
 review returned `PASS_GO` for the exact current identities above, target
 isolation, and the 115/115 focused plus 277/277 aggregate test closure. Only a

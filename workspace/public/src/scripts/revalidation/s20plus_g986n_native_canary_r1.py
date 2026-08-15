@@ -31,7 +31,7 @@ import s22plus_boot_only_f1_transport as transport
 
 VERSION = "s20plus-g986n-native-canary-r1-v1"
 NATIVE_CANARY_R1_ACTIVE = True
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "5e29e8659fb493f0b1885cdc8954e11ec8be6fb60e6953e80923da4ed225300c"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "6c64c8763fd0ab68fe2b88721f6d6d1f0f9c28f96b4595f028c0af7c143194ad"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -604,6 +604,19 @@ MAGISK_CLOSURE_ERROR_TOKENS = frozenset({
     "hash-read-failed",
 })
 
+MAGISK_CLOSURE_EXPECTED = (
+    ("magisk", MAGISK_BINARY, frozenset({"700", "750", "755"}), 128 * 1024 * 1024),
+    ("busybox", MAGISK_BUSYBOX, frozenset({"700", "750", "755"}), 32 * 1024 * 1024),
+    (
+        "util_functions",
+        MAGISK_UTIL_FUNCTIONS,
+        # Magisk v30.7 installs the persistent MAGISKBIN tree with
+        # chmod -R 755 in both flash_script.sh and app fix_env().
+        frozenset({"755"}),
+        2 * 1024 * 1024,
+    ),
+)
+
 INVENTORY_SCRIPT = """set -eu
 [ -d /data/adb/modules ] && [ ! -L /data/adb/modules ]
 [ "$(/data/adb/magisk/busybox stat -c %a /data/adb/modules)" = "755" ]
@@ -1031,16 +1044,7 @@ def parse_magisk_install_closure(payload: bytes) -> dict[str, Any]:
         lines = payload.decode("ascii", "strict").splitlines()
     except UnicodeError as exc:
         raise RootDataError("N1 Magisk install closure is not ASCII") from exc
-    expected = (
-        ("magisk", MAGISK_BINARY, {"700", "750", "755"}, 128 * 1024 * 1024),
-        ("busybox", MAGISK_BUSYBOX, {"700", "750", "755"}, 32 * 1024 * 1024),
-        (
-            "util_functions",
-            MAGISK_UTIL_FUNCTIONS,
-            {"600", "640", "644"},
-            2 * 1024 * 1024,
-        ),
-    )
+    expected = MAGISK_CLOSURE_EXPECTED
     if len(lines) != len(expected):
         raise RootDataError("N1 Magisk install closure has the wrong cardinality")
     receipts: dict[str, Any] = {}
@@ -1090,16 +1094,7 @@ def validate_magisk_install_closure(value: Any) -> dict[str, Any]:
         "magisk", "busybox", "util_functions"
     }:
         raise RootDataError("N1 prepared Magisk install closure is malformed")
-    for label, path, modes, maximum in (
-        ("magisk", MAGISK_BINARY, {"700", "750", "755"}, 128 * 1024 * 1024),
-        ("busybox", MAGISK_BUSYBOX, {"700", "750", "755"}, 32 * 1024 * 1024),
-        (
-            "util_functions",
-            MAGISK_UTIL_FUNCTIONS,
-            {"600", "640", "644"},
-            2 * 1024 * 1024,
-        ),
-    ):
+    for label, path, modes, maximum in MAGISK_CLOSURE_EXPECTED:
         receipt = value.get(label)
         if (
             not isinstance(receipt, dict)

@@ -5,16 +5,16 @@ Date: 2026-08-16
 Target: operator-owned `SM-G986N` / `y2q` / `y2qksx` /
 `G986NKSS8IYC2` only
 
-Status: **PASS_GO - QUOTED ROOT PREFLIGHT ACTIVE - NO CURRENT RUN OR APPROVAL**
+Status: **PASS_GO - MAGISK METADATA CORRECTION ACTIVE - NO CURRENT RUN OR APPROVAL**
 
 ## Outcome
 
-Two separately requested connected R1 preparations selected the exact target,
+Three separately requested connected R1 preparations selected the exact target,
 completed the bounded Android-health check, and verified working Magisk root.
-Both stopped at the fixed Magisk install-closure read before creating a
+All stopped at the fixed Magisk install-closure read before creating a
 prepared binding or shared action guard.
 
-The failed preparation created no approval, staged file, root-data/module
+The failed preparations created no approval, staged file, root-data/module
 write, install intent, reboot intent, Download transition, Odin intent, or
 partition transfer. Pre-guard private run directories are preserved as private
 host evidence and grant no continuation authority. The shared S20+ guard is
@@ -22,7 +22,7 @@ absent.
 
 An earlier invocation failed even earlier because the sandbox could not create
 the local ADB daemon listener. A bounded redacted host diagnostic established
-that condition without exposing the serial; both later preparations reached
+that condition without exposing the serial; all three later preparations reached
 the target and root checks, so USB detection and ADB authorization were not
 the material blocker.
 
@@ -40,6 +40,24 @@ as an unquoted final argument, so `su -c` was not guaranteed to receive the
 complete script as one command. Remaining lines could execute in the ordinary
 shell context, where inaccessible root paths also appeared absent. No Magisk
 reinstall or root-data change was performed from that invalid inference.
+
+After activation of the quoted framing correction, a third direct operator
+request ran one fresh preparation. It reported only
+`util_functions=unsafe-metadata`. This result proves that the fixed root probe
+found and read the file; it does not indicate a missing or broken Magisk
+installation. The invocation again stopped before a guard, approval, staging,
+install, reboot, Download transition, or partition effect. The no-retry rule
+therefore prevented any ad-hoc follow-up `su` probe.
+
+Host-only review found a second runner defect. Magisk v30.7 commit
+`e8a58776f1d7bdf852072ad0baa6eceb9a1e4aac` installs its persistent
+`MAGISKBIN` tree with `chmod -R 755` in both
+[`scripts/flash_script.sh`](https://github.com/topjohnwu/Magisk/blob/e8a58776f1d7bdf852072ad0baa6eceb9a1e4aac/scripts/flash_script.sh)
+and the app direct-install
+[`scripts/app_functions.sh`](https://github.com/topjohnwu/Magisk/blob/e8a58776f1d7bdf852072ad0baa6eceb9a1e4aac/scripts/app_functions.sh)
+path; the latter also applies `chown -R 0:0`. The runner incorrectly accepted
+only `0600`, `0640`, or `0644` for `util_functions.sh`, so it rejected the
+source-defined normal `0755` installation.
 
 ## H0 corrections
 
@@ -82,3 +100,21 @@ with the same normalized hash. Focused hostile tests pass 115/115 and the exact
 eight-module S20+ aggregate passes 277/277.
 A later live preparation still needs a fresh direct operator request and is not
 authorized by this report.
+
+## Metadata correction
+
+The reviewed candidate uses one shared parser/validator table and
+requires exact `0755` for `util_functions.sh`; `0644` is now a hostile negative
+fixture. It changes no path, CLI, command, effect, approval, or recovery
+surface. Candidate root runner identity is 213,403 bytes, SHA-256
+`6905a92a7dd2eb7a3d64b3dc5055cf7cd297c43077a682eeea0f0fadbb1639c4`,
+normalized
+`6c64c8763fd0ab68fe2b88721f6d6d1f0f9c28f96b4595f028c0af7c143194ad`.
+Independent review returned `PASS_GO` with no unresolved finding. A separate
+mechanical identity rotation changed only the normalized identity constant and
+matching public assertions. The active runner is 213,403 bytes, SHA-256
+`35dfc7557c5c9e9b3e62d4865e81122572c57d0464997f4e2a35904a0b15432f`,
+with the same normalized hash above. Focused 115/115 and exact eight-module
+aggregate 277/277 validation passed, and independent post-activation review
+returned `PASS_GO` with no unresolved finding. No connected retry is authorized
+by the correction or its activation.

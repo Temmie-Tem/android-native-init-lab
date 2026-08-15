@@ -2419,7 +2419,7 @@ except SystemExit as exc:
         payload = (
             b"magisk|755|0|0|1|1000|" + b"1" * 64 + b"\n"
             b"busybox|755|0|0|1|2000|" + b"2" * 64 + b"\n"
-            b"util_functions|644|0|0|1|3000|" + b"3" * 64 + b"\n"
+            b"util_functions|755|0|0|1|3000|" + b"3" * 64 + b"\n"
         )
         parsed = ROOT_DATA.parse_magisk_install_closure(payload)
         self.assertEqual(parsed["magisk"]["path"], ROOT_DATA.MAGISK_BINARY)
@@ -2431,6 +2431,7 @@ except SystemExit as exc:
                 ROOT_DATA.validate_magisk_install_closure(forged)
         for malformed in (
             payload.replace(b"magisk|755", b"magisk|777"),
+            payload.replace(b"util_functions|755", b"util_functions|644"),
             payload.replace(b"|0|0|1|1000|", b"|0|0|2|1000|", 1),
             payload + b"extra|600|0|0|1|1|" + b"4" * 64 + b"\n",
         ):
@@ -2450,7 +2451,7 @@ except SystemExit as exc:
             ROOT_DATA.parse_magisk_install_closure(payload)
         unsafe = payload.replace(b"magisk|755", b"magisk|777").replace(
             b"util_functions|error|absent",
-            b"util_functions|644|0|0|1|3000|" + b"3" * 64,
+            b"util_functions|755|0|0|1|3000|" + b"3" * 64,
         )
         with self.assertRaisesRegex(
             ROOT_DATA.RootDataError,
@@ -2567,7 +2568,7 @@ except SystemExit as exc:
                     "busybox": root / "busybox",
                     "util_functions": root / "util_functions.sh",
                 }
-                modes = {"magisk": 0o755, "busybox": 0o755, "util_functions": 0o644}
+                modes = {"magisk": 0o755, "busybox": 0o755, "util_functions": 0o755}
                 for label, path in paths.items():
                     state = states.get(label, "ok")
                     if state == "absent":
@@ -2681,7 +2682,7 @@ except SystemExit as exc:
         expected_payload = (
             b"magisk|755|0|0|1|1000|" + b"1" * 64 + b"\n"
             b"busybox|755|0|0|1|2000|" + b"2" * 64 + b"\n"
-            b"util_functions|644|0|0|1|3000|" + b"3" * 64 + b"\n"
+            b"util_functions|755|0|0|1|3000|" + b"3" * 64 + b"\n"
         )
         prepared["binding"]["magisk"] = {
             "magisk_version": ROOT_DATA.MAGISK_VERSION,
@@ -5221,11 +5222,11 @@ except SystemExit as exc:
     def test_runner_identities_and_policy_documents_are_frozen_after_review(self) -> None:
         self.assertEqual(
             ROOT_DATA.normalized_self_sha256(),
-            "5e29e8659fb493f0b1885cdc8954e11ec8be6fb60e6953e80923da4ed225300c",
+            "6c64c8763fd0ab68fe2b88721f6d6d1f0f9c28f96b4595f028c0af7c143194ad",
         )
         self.assertEqual(
             hashlib.sha256(ROOT_DATA.SCRIPT.read_bytes()).hexdigest(),
-            "71cb0617d6989ad1bbfce98779796e7cf923c65fb497b67cd4ea93fe9f4253b1",
+            "35dfc7557c5c9e9b3e62d4865e81122572c57d0464997f4e2a35904a0b15432f",
         )
         self.assertEqual(
             STOCK.normalized_self_sha256(),
@@ -5242,7 +5243,7 @@ except SystemExit as exc:
         ):
             text = (ROOT / relative).read_text()
             self.assertIn(
-                "71cb0617d6989ad1bbfce98779796e7cf923c65fb497b67cd4ea93fe9f4253b1",
+                "35dfc7557c5c9e9b3e62d4865e81122572c57d0464997f4e2a35904a0b15432f",
                 text,
             )
             self.assertIn(

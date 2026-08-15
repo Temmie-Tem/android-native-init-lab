@@ -409,34 +409,39 @@ cleanup each follow a durable branch-specific terminal input. Canonical canary e
 not merely JSON-equivalent. The CLI exposes an
 automatically allocated closed-grammar `run-id`, never a caller path.
 
-The active root-data runner is 213,525 bytes at SHA-256
-`71cb0617d6989ad1bbfce98779796e7cf923c65fb497b67cd4ea93fe9f4253b1`
+The active root-data runner is 213,403 bytes at SHA-256
+`35dfc7557c5c9e9b3e62d4865e81122572c57d0464997f4e2a35904a0b15432f`
 (normalized
-`5e29e8659fb493f0b1885cdc8954e11ec8be6fb60e6953e80923da4ed225300c`).
+`6c64c8763fd0ab68fe2b88721f6d6d1f0f9c28f96b4595f028c0af7c143194ad`).
 Its active stock-recovery owner is 61,312 bytes at SHA-256
 `b029afc3d4a899e4d83304773f8405519bacdb02de742de015a52c97689cc2a6`
 (normalized
 `0bb7eab8a87d11758dac20103ede5ac16c5acbdf3cbc3b511cb30842c4f29f2d`).
 Focused host tests pass 115/115; the exact eight-module S20+ aggregate passes
 277/277.
-Independent H0 review returned `PASS_GO` for the finite classifier and the
-remote-shell quoting/root-context correction; separate post-activation review
-accepted these exact active identities. The final mechanical identity rotation
-introduced no further logic change; the CLI surface and authority remain
-unchanged.
+Independent H0 review returned `PASS_GO` for the finite classifier, the
+remote-shell quoting/root-context correction, and the source-derived Magisk
+metadata candidate. Earlier rotations passed separate post-activation review;
+the current metadata rotation also passed final post-activation review.
+Each mechanical identity rotation introduced no further logic change; the CLI
+surface and authority remain unchanged.
 This R1 capability is active, but no current run, approval, or device action
 exists.
 
-On 2026-08-16 one fresh connected preparation verified the exact target,
+On 2026-08-16 three fresh connected preparations verified the exact target,
 Android health, and working Magisk root, then stopped before guard publication
-at the Magisk install-closure read. It created no approval, staging, install,
+at the Magisk install-closure read. They created no approval, staging, install,
 reboot, Download, Odin, or partition effect. The incident and self-blocked H0
-finite-classifier remediation are recorded in
+remediations are recorded in
 `docs/reports/S20PLUS_G986N_NATIVE_CANARY_R1_PREPARE_INCIDENT_2026-08-16.md`;
 the first classified retry did not prove Magisk absence because the raw
 multiline script was not quoted across ADB's argument join. The reviewed fix
 now sends each fixed root script as one `su -c` command and verifies UID 0 in
-the same closure probe. It creates no current run or approval. Any later
+the same closure probe. The third preparation then exposed a separate host
+metadata bug: official Magisk v30.7 installs `util_functions.sh` as `0755`,
+while the runner accepted only non-executable modes. The independently reviewed
+correction now requires the source-defined `0755` mode through one shared
+parser/validator table. It creates no current run or approval. Any later
 connected preparation still requires fresh direct operator authority.
 
 A later reproducible-kernel-build unit would still need exact toolchain
