@@ -265,6 +265,26 @@ identity:
   bootstrap superset. It may not copy or bless the private whole snapshot.
   After ablation, the retained set must close as `PROPERTY_ABSENT_PROVED` or
   `PROPERTY_FINITE_SEED_PROVED`.
+- The distinct `WP2-2` work package is now complete only as a generated H0
+  forbidden-surface policy and sixteen-case negative corpus at
+  `policy/a90-h24-wlan-forbidden-surface-policy-v1.json`. It source-pins the
+  current H24 evidence and rejects manager duplication/consumer drift, global
+  SELinux mutation, native-global Binder endpoints even when renamed,
+  SD/whole/relocated-private property inputs, and global/inherited property
+  service endpoints. A fresh private binderfs or private property socket stays
+  blocked on `H0D05`/`H0D04`; no future byte-derived consumer exists and no
+  dependency gate is retired. Each B0 placement is bound to its complete
+  ordered fourteen-instance graph; later G_N or topology inputs require an
+  explicit parent digest and removal/integration lineage and remain H0-only.
+- The current sequential plan projects `2 + 13 + 13 + 2 = 30` logical future
+  units if each baseline variant, removal, successful-removal requalification,
+  and property-terminal attempt maps one-to-one to an attended session. Exact
+  sessions and the ordinal budget remain unset and block execution
+  qualification until `WP2-5b` plus operator acceptance. The result is only an
+  order-conditioned reduced generation; without a separate final retest sweep,
+  even terminal one-minimality remains unproved.
+- `WP2-2` itself is host-only and consumes zero device ordinals. The thirty-unit
+  figure applies only to a separately designed and authorized future program.
 - Numeric budgets remain unset until measured from a corrected healthy
   baseline. The design has no execution implementation, qualification,
   independent execution review, identity, candidate, D0, D1, F1, handoff, UFS

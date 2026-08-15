@@ -11,7 +11,7 @@ ANALYSIS = (
     / "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15"
 )
 EXPECTED_COLLECTION_SHA256 = (
-    "d1e9ae368d697b4556584e264d523de72eb7c991d6cf9a3fb742528f3b3a62f6"
+    "8b00d72b2ff1621351374dda081fbd4e9c3c376a5687a6bf8d04b32e67cde691"
 )
 
 EVIDENCE_RELS = (
@@ -66,6 +66,12 @@ class A90WlanVendorPropertyAblationHardeningDocsTest(unittest.TestCase):
             (
                 ANALYSIS
                 / "design/a90-h24-wlan-one-factor-ablation-design-v1.json"
+            ).read_text()
+        )
+        self.policy = json.loads(
+            (
+                ANALYSIS
+                / "policy/a90-h24-wlan-forbidden-surface-policy-v1.json"
             ).read_text()
         )
         self.helper = (
@@ -403,6 +409,52 @@ class A90WlanVendorPropertyAblationHardeningDocsTest(unittest.TestCase):
             ),
             1,
         )
+
+    def test_wp2_2_static_policy_corpus_and_execution_economy_are_bound(self) -> None:
+        assessment = self.data["assessment"]
+        self.assertEqual(
+            assessment["wp2_2Policy"],
+            "COMPLETE_H0_STATIC_POLICY_AND_NEGATIVE_CORPUS_ONLY",
+        )
+        self.assertEqual(
+            assessment["wp2_2PolicyPath"],
+            "policy/a90-h24-wlan-forbidden-surface-policy-v1.json",
+        )
+        self.assertEqual(assessment["wp2_2NegativeCaseCount"], 16)
+        self.assertEqual(assessment["wp2_2FutureByteDerivationConsumer"], "ABSENT")
+        self.assertEqual(assessment["wp2_2LogicalSerialUnitProjection"], 30)
+        self.assertEqual(assessment["wp2_2HostOnlyDeviceOrdinalConsumed"], 0)
+        self.assertEqual(
+            assessment["wp2_2ExactOrdinalBudget"],
+            "UNSET_BLOCKS_EXECUTION_QUALIFICATION",
+        )
+        self.assertEqual(
+            assessment["wp2_2ResultScope"],
+            "ORDER_CONDITIONED_REDUCED_GENERATION_ONLY",
+        )
+        self.assertEqual(
+            self.policy["status"]["wp2_2"],
+            assessment["wp2_2Policy"],
+        )
+        self.assertEqual(self.policy["status"]["dependencyGatesRetired"], [])
+        self.assertEqual(len(self.policy["negativeCorpus"]), 16)
+        self.assertEqual(
+            self.policy["executionEconomy"]["logicalFutureUnitProjection"]
+            ["oneToOneSerialUnitProjection"],
+            30,
+        )
+        self.assertFalse(
+            self.policy["executionEconomy"]["seriality"]
+            ["parallelExecutionAllowed"]
+        )
+        self.assertIn("## WP2-2 Forbidden-Surface Policy And Execution Economy", self.proposal)
+        self.assertIn("2 + 13 + 13 + 2 = 30", self.proposal)
+        self.assertIn("consumes zero device ordinals", self.proposal)
+        self.assertIn("not yet a proved attended-session count", self.proposal)
+        self.assertIn("even terminal one-minimality is\nunproved", self.proposal)
+        self.assertIn("no byte-derived future consumer", self.proposal)
+        self.assertIn("complete source-derived ordered\nfourteen-instance graph", self.proposal)
+        self.assertIn("qualified\nbyte-derived lineage consumer", self.proposal)
 
     def test_prior_portfolio_correction_is_locked(self) -> None:
         prior = (

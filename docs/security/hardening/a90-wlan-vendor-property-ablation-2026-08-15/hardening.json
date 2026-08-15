@@ -5,10 +5,10 @@
   "sourceEvidence": {
     "kind": "document_collection",
     "label": "A90 contracts, WSTA control-plane evidence, H24 selected manifests/source, incidents, and preceding ownership/input hardening decisions",
-    "collectionSha256": "d1e9ae368d697b4556584e264d523de72eb7c991d6cf9a3fb742528f3b3a62f6",
+    "collectionSha256": "8b00d72b2ff1621351374dda081fbd4e9c3c376a5687a6bf8d04b32e67cde691",
     "artifactCount": 24,
     "baselineRevision": "fda348a072eba8a53c2de7c9904c52429a7dddaf",
-    "sourceRefreeze": "Exact working-tree bytes after WP-H0-1 and the GOAL_A90 WP-H0-2 H0-only status update",
+    "sourceRefreeze": "Exact working-tree bytes after WP-H0-1, WP-H0-2, and the GOAL_A90 WP2-2 H0-only status update",
     "sourceDrift": "none"
   },
   "authority": {
@@ -30,7 +30,7 @@
     "s20plusContactCount": 0
   },
   "assessment": {
-    "verdict": "H0_WP_H0_2_DESIGN_COMPLETE_NO_CANDIDATE_AUTHORITY",
+    "verdict": "H0_WP2_2_STATIC_POLICY_CORPUS_COMPLETE_NO_CANDIDATE_AUTHORITY",
     "strongestFinding": "The H24-selected control flow constructs thirteen composite children representing eleven unique roles because servicemanager and hwservicemanager are each enqueued twice, while the published order hides the duplicate pair.",
     "propertyVerdict": "UNPROVED",
     "globalPolicyVerdict": "REJECT_SELECTED_GLOBAL_SELINUX_LOAD_AND_PERMISSIVE_WRITE_FROM_ANY_SUCCESSOR",
@@ -44,11 +44,21 @@
     "wpH02CorrectedHealthyBaseline": "ABSENT_UNPROVED",
     "wpH02ExecutionQualification": "ABSENT",
     "wpH02LiveAuthority": false,
+    "wp2_2Policy": "COMPLETE_H0_STATIC_POLICY_AND_NEGATIVE_CORPUS_ONLY",
+    "wp2_2PolicyPath": "policy/a90-h24-wlan-forbidden-surface-policy-v1.json",
+    "wp2_2NegativeCaseCount": 16,
+    "wp2_2FutureByteDerivationConsumer": "ABSENT",
+    "wp2_2LogicalSerialUnitProjection": 30,
+    "wp2_2HostOnlyDeviceOrdinalConsumed": 0,
+    "wp2_2ExactAttendedSessionCount": "UNPROVED_UNTIL_WP2_5B_EXECUTION_PROCESS_EXISTS",
+    "wp2_2ExactOrdinalBudget": "UNSET_BLOCKS_EXECUTION_QUALIFICATION",
+    "wp2_2ResultScope": "ORDER_CONDITIONED_REDUCED_GENERATION_ONLY",
     "observed": [
       "H24 selected source contains thirteen composite entries, a property shim, a modem holder, and the helper itself before station policy.",
       "H24 never reached this helper route live; its consumed D1 stopped at persistent HUD.",
       "WSTA18 proves aggregate backend necessity but no individual role necessity.",
-      "The selected source path writes global SELinux policy load and best-effort enforce=0."
+      "The selected source path writes global SELinux policy load and best-effort enforce=0.",
+      "The selected source materializes native-global Binder rdevs 10:79, 10:80, and 10:81 and accepts both SD and historical cache whole-property roots."
     ],
     "inferred": [
       "Duplicated Binder context managers are likely to conflict, but actual runtime failure is unproved.",
@@ -59,7 +69,9 @@
       "Use one generated duplicate-rejecting component manifest for construction, logs, health, cleanup, and evidence.",
       "Accept only PROPERTY_ABSENT_PROVED or PROPERTY_FINITE_SEED_PROVED.",
       "Run the same one-factor ablation and measurement contract before selecting either ownership topology.",
-      "Use the completed WP-H0-2 H0 design for corrected-baseline and exact-one-role planning; prove the public SD-free bootstrap superset and each row's static prerequisites before separately reviewed and authorized execution, then retire all ten H0D gates by their declared evidence classes before Option C implementation."
+      "Use the completed WP-H0-2 H0 design for corrected-baseline and exact-one-role planning; prove the public SD-free bootstrap superset and each row's static prerequisites before separately reviewed and authorized execution, then retire all ten H0D gates by their declared evidence classes before Option C implementation.",
+      "Apply the generated WP2-2 static policy to every future byte-derived surface declaration; the current H0 fixtures and sixteen negative cases retire no dependency gate and grant no execution eligibility.",
+      "Before execution qualification, derive the exact attended-session and ordinal budget from WP2-5b and obtain operator acceptance; the current one-to-one logical projection is thirty serial units."
     ]
   },
   "constraints": {
@@ -70,6 +82,9 @@
       "One ablation changes one variable and a failed unit is never the next baseline.",
       "H24 is not the ablation baseline; the first complete corrected healthy variant becomes G0.",
       "No future baseline reads the SD property snapshot or a copied private whole snapshot.",
+      "A private binderfs or property-service endpoint remains blocked until its exact H0D05 or H0D04 proof is bound; static shape acceptance is not execution proof.",
+      "Each corrected B0 placement binds the complete ordered fourteen-instance graph; later removals and integrations require explicit parent and transition lineage but remain non-executable.",
+      "Ablation results are generation- and order-conditioned; no global or terminal one-minimal set is claimed without a separate retest design.",
       "Host fixtures do not substitute for future hardware necessity evidence.",
       "Rollback, physical recovery, durable no-replay, target isolation, and final health remain mandatory."
     ],
@@ -212,12 +227,12 @@
             {"dimension": "migration", "direction": "mixed", "confidence": "high", "basis": "source-derived", "assessment": "Adds H0 work now but makes every result reusable by both architectures.", "validationPlan": "Finish WP2-1 through WP2-4 before identity allocation."}
           ],
           "residualRisks": ["Opaque binaries still require future hardware evidence.", "A clean finite backend may not exist.", "Property absence and finite seed are both unproved today."],
-          "implementationReadiness": {"affectedComponents": ["component manifest", "property schema", "negative corpus", "benchmark vocabulary"], "workPackages": ["WP2-1 generated graph", "WP2-2 global hazard rejection", "WP2-3 dependency inventory", "WP2-4 property terminal validators"], "acceptanceCriteria": ["No hidden duplicate or global policy write remains.", "One property terminal is structurally testable.", "Both topology launchers consume the same contract."], "migrationNotes": ["H0 outputs only; no candidate identity."], "rollback": "Not applicable to host-only documentation and tests."}
+          "implementationReadiness": {"affectedComponents": ["component manifest", "property schema", "negative corpus", "benchmark vocabulary"], "workPackages": ["WP2-1 generated graph complete H0", "WP2-2 global hazard rejection complete H0", "WP2-3 dependency inventory absent", "WP2-4 property terminal validators absent"], "acceptanceCriteria": ["No hidden duplicate or global policy write remains.", "One property terminal is structurally testable.", "Both topology launchers consume the same contract.", "Exact session and ordinal budget is accepted before execution qualification."], "migrationNotes": ["H0 outputs only; no candidate identity.", "Current result scope is order-conditioned reduced generation only."], "rollback": "Not applicable to host-only documentation and tests."}
         }
       ],
       "validationPlan": [
         "Derive selected entries from current source and reject the 13/11 order mismatch.",
-        "Reject duplicate roles and global SELinux load/enforce writes.",
+        "Reject duplicate roles, graph-consumer drift, global SELinux load/enforce writes, native-global Binder by path/backing/rdev, and SD/whole/private-snapshot inputs.",
         "Freeze an exact component identity/capability/FD/readiness/cleanup schema.",
         "Accept only property absence or an exact finite deterministic seed.",
         "Measure functionality, latency, footprint, runtime cost, IPC/property use, cleanup, and recovery per one-factor future unit."

@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ANALYSIS = ROOT / "docs/security/hardening/a90-debian-supervised-wlan-2026-08-15"
 EXPECTED_COLLECTION_SHA256 = (
-    "90a4c704e282749c48da023833614a30d3312f58b99ce4d1b5ee7d5df5a0cb78"
+    "1f622cd4d048beeaac600e6596a32a788c96476e528ff9985bc0b13b97d32a11"
 )
 
 EVIDENCE_RELS = (

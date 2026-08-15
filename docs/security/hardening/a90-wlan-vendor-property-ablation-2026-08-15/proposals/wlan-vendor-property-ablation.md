@@ -3,7 +3,7 @@
 Date: 2026-08-15
 Target: operator-owned Samsung Galaxy A90 5G only
 Tier: H0, host-only design
-Status: `H0_WP_H0_2_DESIGN_COMPLETE_NO_CANDIDATE_AUTHORITY`
+Status: `H0_WP2_2_STATIC_POLICY_CORPUS_COMPLETE_NO_CANDIDATE_AUTHORITY`
 
 ## Decision
 
@@ -636,6 +636,79 @@ binary unnecessary on the physical SoC.
 7. Return/recover to exact native health after every persistent experiment.
 8. Compare Options B and C only on the same proved component/property set.
 
+## WP2-2 Forbidden-Surface Policy And Execution Economy
+
+`WP2-2` is complete only as a host-side static policy and negative corpus in
+[`a90-h24-wlan-forbidden-surface-policy-v1.json`](../policy/a90-h24-wlan-forbidden-surface-policy-v1.json).
+It is distinct from the already-complete `WP-H0-2` one-factor design. The
+generator pins that design, the source-derived `WP-H0-1` inventory, the H24
+manifest, the exact v724 launcher, and the exact helper source.
+
+The policy rejects four H24-derived reintroduction classes before any future
+corrected-baseline or Option C input can be considered:
+
+1. more than one `servicemanager` or `hwservicemanager`, or different graph
+   digests across construction, order, health, cleanup, and evidence;
+2. a read-write bind of global SELinuxFS or a write to global `load` or
+   `enforce`;
+3. `/dev/binder`, `/dev/hwbinder`, `/dev/vndbinder`, their native-global
+   backing, or the same global Binder rdevs hidden under a different path; and
+4. `/mnt/sdext`, the historical cache relocation class, a whole property-area
+   snapshot, or private-snapshot provenance renamed under another path.
+
+The sixteen-case corpus also rejects an inherited/global property-service
+socket and an unknown exception field. A fresh capsule-private binderfs or a
+fresh capsule-private filesystem property-service socket is not classified as
+globally forbidden, but it remains blocked on an exact `H0D05` or `H0D04`
+proof respectively. Passing these static guards is therefore
+`STATIC_REINTRODUCTION_GUARDS_PASS_H0_ONLY`, never execution eligibility.
+No qualified extractor yet derives the declaration from complete linked
+candidate/config/input bytes, so a hand-authored declaration is not evidence.
+
+Each B0 placement accepts only its complete source-derived ordered
+fourteen-instance graph. Removing any non-placement role while calling the
+result B0 is rejected. A later `G_N_ROLE_ABLATION` declaration must instead
+name the exact WP-H0-2 unit, removed role and instance, plus its parent manifest
+digest; topology-integration declarations carry their own parent digest. Those
+lineage shapes remain H0-only and explicitly pending until a qualified
+byte-derived lineage consumer exists.
+
+### Execution economy before any ordinal
+
+The current plan contains a worst-path projection of thirty **logical future
+units** under a one-unit/one-session interpretation:
+
+| Class | Maximum logical units |
+| --- | ---: |
+| corrected baseline placement variants | 2 |
+| exact-one-role removal units | 13 |
+| fresh `G_N_PLUS_1` baseline requalifications after every supported removal | 13 |
+| mutually exclusive property-terminal attempts | 2 |
+| **one-to-one serial projection** | **30** |
+
+The projection formula is `2 + 13 + 13 + 2 = 30`.
+
+This `WP2-2` unit is H0 and consumes zero device ordinals. The projection is
+for a separately designed, reviewed, budgeted, and authorized future program.
+
+They are serial: a supported removal changes the generation, and another
+removal cannot start until those exact bytes and bindings become a fresh
+healthy baseline. Thirty is not yet a proved attended-session count or an
+ordinal budget. `WP2-5b` may require more than one attended session per logical
+unit; it must derive the exact session/ordinal budget, and the operator must
+accept it, before execution qualification. Performance pass budgets remain a
+different unset quantity derived from measured corrected `G0`.
+
+The program yields an `ORDER_CONDITIONED_REDUCED_GENERATION_ONLY`, not a
+global minimum. Earlier refuted removals are not retested after later supported
+removals, so non-monotonic interaction means even terminal one-minimality is
+unproved without a separate retest sweep. Such a sweep is not included in the
+thirty-unit projection. Stopping early preserves only scoped results already
+closed for their exact generation: corrected-`G0` feasibility first,
+`cnss_diag` next, then manager/provider, QRTR/PD/RFS, CNSS/holder/shim, and
+finally one property terminal. It never grants a global necessity claim or
+Option C eligibility.
+
 ## Validation Plan
 
 ### Host-only static fixtures
@@ -675,7 +748,10 @@ qualification; this document does not invent pass numbers.
 - `WP2-1`: source-parsed component graph, exact frozen-path auxiliary launch
   contracts, and 13/11 mutation regression fixture — selected-path snapshot
   complete; overall runtime closure blocked by `H0D01-H0D10`;
-- `WP2-2`: global SELinux/Binder/SD-path rejection corpus;
+- `WP2-2`: generated global SELinux/Binder/SD-path rejection policy,
+  sixteen-case negative corpus, and serial execution-economy projection —
+  complete as H0 static preparation only; no byte-derived future consumer,
+  dependency-gate retirement, or execution authority;
 - `WP2-3`: exact binary/config/device/identity dependency inventory;
 - `WP2-4`: property read/write observation schema and two terminal validators;
 - `WP2-5a`: H0 one-factor ablation design generator, baseline state machine,
@@ -687,8 +763,8 @@ qualification; this document does not invent pass numbers.
 - `WP2-8`: clean Debian capsule feasibility implementation;
 - `WP2-9`: independent security/execution review and topology decision.
 
-`WP2-1` and `WP2-5a` are complete only at their stated H0 boundaries.
-`WP2-2` through `WP2-4` remain host preparation. `WP2-5b` and every later live
+`WP2-1`, `WP2-2`, and `WP2-5a` are complete only at their stated H0
+boundaries. `WP2-3` and `WP2-4` remain host preparation. `WP2-5b` and every later live
 package require their own implementation, review, and authority and must not be
 inferred from this proposal.
 

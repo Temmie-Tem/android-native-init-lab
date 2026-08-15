@@ -48,14 +48,14 @@ security index entry, and corrections to the prior portfolio's inaccurate
 The collection digest is computed over the following files in the listed
 order as `relative_path NUL size NUL sha256 NUL`:
 
-`d1e9ae368d697b4556584e264d523de72eb7c991d6cf9a3fb742528f3b3a62f6`
+`8b00d72b2ff1621351374dda081fbd4e9c3c376a5687a6bf8d04b32e67cde691`
 
 Artifact count: `24`. Source drift at analysis time: `none`.
 
 | SHA256 | Bytes | Repository-relative path |
 | --- | ---: | --- |
-| `a90560db2985b588a1aa53c0a2078bb6d930865895167a5b71e5bba2acec076b` | 11157 | `AGENTS.md` |
-| `fca649759d6275267f71fc303d978c31220bbcf9bb95c24c47283fd813566b88` | 26900 | `GOAL_A90.md` |
+| `6cd7e24235396089baab844b0e568a93fb82528bf7fc6cb6c5cfc62d83ef0793` | 17014 | `AGENTS.md` |
+| `a34394119a7327a08cb74ab4b577f46e39c078e6b81d09cbd2ee39b04aa0a34a` | 28386 | `GOAL_A90.md` |
 | `ed9f51212db33bd822dc96ecf12feeda05ce255d088c402c4742851d173fad51` | 89405 | `docs/operations/targets/A90_TARGET_CONTRACT.md` |
 | `edd64a434330f79a3b1ec542c12822e5b201362c212484c7b67d67b4ffbb61a9` | 97237 | `docs/operations/CAMPAIGN_LEDGER_A90.md` |
 | `1c7984a85af3cb059244d7f3e7ed5b21516a60657bd947a275a4ed7e4faa5b71` | 4991 | `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA18_CONTROL_PLANE_BLOCKED_2026-07-04.md` |
@@ -222,6 +222,43 @@ The next design must not guess. It must end in exactly one state:
 
 The current whole snapshot, cache relocation of that snapshot, and the shim's
 write acknowledgements are not acceptable substitutes.
+
+## WP2-2 Static Policy Boundary
+
+The generated
+[`a90-h24-wlan-forbidden-surface-policy-v1.json`](policy/a90-h24-wlan-forbidden-surface-policy-v1.json)
+pins the exact WP-H0-1 inventory, WP-H0-2 design, H24 manifest, v724 launcher,
+and helper bytes. It mechanically preserves four source observations without
+turning them into live H24 claims: duplicate manager construction, global
+SELinux mutation, native-global Binder rdev materialization, and the SD/legacy
+cache whole-property input class. H24 did not reach the selected route live.
+
+Sixteen negative cases reject those surfaces by both name and structure. In
+particular, renaming native Binder rdevs or private snapshot bytes does not
+make them capsule-private or public. A structurally fresh private binderfs or
+private filesystem property-service socket is only conditionally non-global;
+it remains `H0D05` or `H0D04` `UNPROVED` and never becomes executable merely
+because its declaration passes WP2-2.
+
+The policy has no future byte-derived declaration producer. Its two corrected
+reference declarations bind the complete ordered fourteen-instance B0 graph;
+deleting a non-placement role is rejected. A later G_N removal or topology
+integration must carry a parent digest and exact removal/integration lineage,
+and the absent lineage consumer remains an explicit pending proof. These are
+H0 fixtures, not candidate manifests. All ten H0D
+gates remain `UNPROVED`; no baseline, input generation, property provision,
+or execution is authorized.
+
+The current state-machine plan projects thirty serial logical future units if
+each maps one-to-one to an attended session: two corrected baseline variants,
+thirteen removals, up to thirteen fresh promotion-baseline qualifications, and
+up to two property-terminal attempts. Exact attended sessions and the ordinal
+budget remain unproved until WP2-5b and require operator acceptance before
+execution qualification. This is not a performance pass budget. The output is
+an order-conditioned reduced generation; global minimality and final
+one-minimality are not claimed, and the thirty-unit projection excludes any
+terminal retest sweep.
+This `WP2-2` host-only unit consumes zero device ordinals.
 
 ## Authority Result
 

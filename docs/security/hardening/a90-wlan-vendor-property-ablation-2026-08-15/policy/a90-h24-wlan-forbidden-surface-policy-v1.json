@@ -1,0 +1,1135 @@
+{
+  "authority": {
+    "candidateEligible": false,
+    "d0Authorized": false,
+    "d1Authorized": false,
+    "deviceContact": false,
+    "deviceInstallAuthorized": false,
+    "f1Authorized": false,
+    "handoffAuthorized": false,
+    "liveExecutionAuthorized": false,
+    "privateInputRead": false,
+    "propertyProvisionAuthorized": false,
+    "tier": "H0",
+    "ufsMutationAuthorized": false
+  },
+  "conditionalPrivateSurfaceExamples": [
+    {
+      "declaration": {
+        "binderSurface": {
+          "endpointMode": "CAPSULE_PRIVATE_BINDERFS_PENDING_H0D05",
+          "endpoints": [
+            {
+              "backingClass": "FRESH_CAPSULE_PRIVATE_BINDERFS",
+              "major": null,
+              "minor": null,
+              "namespaceScope": "CAPSULE_PRIVATE",
+              "path": "/run/a90-wlan-capsule/binderfs/binder"
+            }
+          ],
+          "proofBindingSha256": null,
+          "proofTerminal": "UNPROVED_H0D05"
+        },
+        "componentGraph": {
+          "consumerManifestSha256": {
+            "cleanup": "9b2a8c40b90ddcdddd2c6789d9bf82cfbb3c789c7d5b6d1ab73d43d4cc8e9905",
+            "construction": "9b2a8c40b90ddcdddd2c6789d9bf82cfbb3c789c7d5b6d1ab73d43d4cc8e9905",
+            "evidence": "9b2a8c40b90ddcdddd2c6789d9bf82cfbb3c789c7d5b6d1ab73d43d4cc8e9905",
+            "health": "9b2a8c40b90ddcdddd2c6789d9bf82cfbb3c789c7d5b6d1ab73d43d4cc8e9905",
+            "order": "9b2a8c40b90ddcdddd2c6789d9bf82cfbb3c789c7d5b6d1ab73d43d4cc8e9905"
+          },
+          "generationSource": "ONE_CANONICAL_GENERATED_MANIFEST",
+          "instances": [
+            {
+              "instanceId": "servicemanager#1",
+              "role": "servicemanager"
+            },
+            {
+              "instanceId": "hwservicemanager#1",
+              "role": "hwservicemanager"
+            },
+            {
+              "instanceId": "qrtr_ns#1",
+              "role": "qrtr_ns"
+            },
+            {
+              "instanceId": "pd_mapper#1",
+              "role": "pd_mapper"
+            },
+            {
+              "instanceId": "rmt_storage#1",
+              "role": "rmt_storage"
+            },
+            {
+              "instanceId": "tftp_server#1",
+              "role": "tftp_server"
+            },
+            {
+              "instanceId": "vndservicemanager#1",
+              "role": "vndservicemanager"
+            },
+            {
+              "instanceId": "pm_proxy_helper#1",
+              "role": "pm_proxy_helper"
+            },
+            {
+              "instanceId": "per_mgr#1",
+              "role": "per_mgr"
+            },
+            {
+              "instanceId": "cnss_diag#1",
+              "role": "cnss_diag"
+            },
+            {
+              "instanceId": "cnss_daemon#1",
+              "role": "cnss_daemon"
+            },
+            {
+              "instanceId": "property-service-shim#1",
+              "role": "property-service-shim"
+            },
+            {
+              "instanceId": "modem-holder#1",
+              "role": "modem-holder"
+            },
+            {
+              "instanceId": "wifi-helper#1",
+              "role": "wifi-helper"
+            }
+          ],
+          "lineage": {
+            "ablationUnitId": null,
+            "kind": "CORRECTED_BASELINE_PLACEMENT",
+            "parentInstances": [
+              {
+                "instanceId": "servicemanager#1",
+                "role": "servicemanager"
+              },
+              {
+                "instanceId": "hwservicemanager#1",
+                "role": "hwservicemanager"
+              },
+              {
+                "instanceId": "qrtr_ns#1",
+                "role": "qrtr_ns"
+              },
+              {
+                "instanceId": "pd_mapper#1",
+                "role": "pd_mapper"
+              },
+              {
+                "instanceId": "rmt_storage#1",
+                "role": "rmt_storage"
+              },
+              {
+                "instanceId": "tftp_server#1",
+                "role": "tftp_server"
+              },
+              {
+                "instanceId": "servicemanager#2",
+                "role": "servicemanager"
+              },
+              {
+                "instanceId": "hwservicemanager#2",
+                "role": "hwservicemanager"
+              },
+              {
+                "instanceId": "vndservicemanager#1",
+                "role": "vndservicemanager"
+              },
+              {
+                "instanceId": "pm_proxy_helper#1",
+                "role": "pm_proxy_helper"
+              },
+              {
+                "instanceId": "per_mgr#1",
+                "role": "per_mgr"
+              },
+              {
+                "instanceId": "cnss_diag#1",
+                "role": "cnss_diag"
+              },
+              {
+                "instanceId": "cnss_daemon#1",
+                "role": "cnss_daemon"
+              },
+              {
+                "instanceId": "property-service-shim#1",
+                "role": "property-service-shim"
+              },
+              {
+                "instanceId": "modem-holder#1",
+                "role": "modem-holder"
+              },
+              {
+                "instanceId": "wifi-helper#1",
+                "role": "wifi-helper"
+              }
+            ],
+            "parentManifestSha256": "56721ee1fe2b9d9c1f5ca0cf40f19582781db2487893d4603fbb58c2b38e31a5",
+            "removedInstanceIds": [
+              "servicemanager#2",
+              "hwservicemanager#2"
+            ],
+            "removedRole": null
+          },
+          "manifestSha256": "9b2a8c40b90ddcdddd2c6789d9bf82cfbb3c789c7d5b6d1ab73d43d4cc8e9905",
+          "variantId": "B0_EARLY_PAIR"
+        },
+        "propertyInput": {
+          "finalTerminal": "UNPROVED_H0D04_H0D10",
+          "preExecutionTerminal": "UNPROVED_H0D10",
+          "privateSnapshotBytesUsed": false,
+          "sourceClass": "PUBLIC_DETERMINISTIC_BOOTSTRAP_SUPERSET_UNBUILT",
+          "sources": [],
+          "wholeSnapshotAccepted": false
+        },
+        "propertyService": {
+          "endpointMode": "ABSENT",
+          "endpoints": [],
+          "proofBindingSha256": null,
+          "proofTerminal": "NOT_APPLICABLE"
+        },
+        "schema": "a90-wlan-successor-surface-declaration-v1",
+        "scope": "H0_STRUCTURAL_REFERENCE_ONLY_NOT_CANDIDATE_INPUT",
+        "selinuxSurface": {
+          "operations": []
+        },
+        "target": "Samsung Galaxy A90 5G"
+      },
+      "exampleId": "private-binderfs-still-unproved",
+      "validation": {
+        "authorityGranted": false,
+        "candidateEligible": false,
+        "executionEligible": false,
+        "findingCodes": [],
+        "outcome": "STATIC_REINTRODUCTION_GUARDS_PASS_H0_ONLY",
+        "pendingProofs": [
+          "FUTURE_BYTE_DERIVED_DECLARATION_CONSUMER_ABSENT",
+          "H0D04_PROPERTY_TERMINAL_UNPROVED",
+          "H0D05_PRIVATE_BINDERFS_PROOF_REQUIRED",
+          "H0D10_PUBLIC_BOOTSTRAP_SUPERSET_UNPROVED"
+        ],
+        "surfacePolicySatisfied": true
+      }
+    },
+    {
+      "declaration": {
+        "binderSurface": {
+          "endpointMode": "NONE",
+          "endpoints": [],
+          "proofBindingSha256": null,
+          "proofTerminal": "NOT_APPLICABLE"
+        },
+        "componentGraph": {
+          "consumerManifestSha256": {
+            "cleanup": "9b2a8c40b90ddcdddd2c6789d9bf82cfbb3c789c7d5b6d1ab73d43d4cc8e9905",
+            "construction": "9b2a8c40b90ddcdddd2c6789d9bf82cfbb3c789c7d5b6d1ab73d43d4cc8e9905",
+            "evidence": "9b2a8c40b90ddcdddd2c6789d9bf82cfbb3c789c7d5b6d1ab73d43d4cc8e9905",
+            "health": "9b2a8c40b90ddcdddd2c6789d9bf82cfbb3c789c7d5b6d1ab73d43d4cc8e9905",
+            "order": "9b2a8c40b90ddcdddd2c6789d9bf82cfbb3c789c7d5b6d1ab73d43d4cc8e9905"
+          },
+          "generationSource": "ONE_CANONICAL_GENERATED_MANIFEST",
+          "instances": [
+            {
+              "instanceId": "servicemanager#1",
+              "role": "servicemanager"
+            },
+            {
+              "instanceId": "hwservicemanager#1",
+              "role": "hwservicemanager"
+            },
+            {
+              "instanceId": "qrtr_ns#1",
+              "role": "qrtr_ns"
+            },
+            {
+              "instanceId": "pd_mapper#1",
+              "role": "pd_mapper"
+            },
+            {
+              "instanceId": "rmt_storage#1",
+              "role": "rmt_storage"
+            },
+            {
+              "instanceId": "tftp_server#1",
+              "role": "tftp_server"
+            },
+            {
+              "instanceId": "vndservicemanager#1",
+              "role": "vndservicemanager"
+            },
+            {
+              "instanceId": "pm_proxy_helper#1",
+              "role": "pm_proxy_helper"
+            },
+            {
+              "instanceId": "per_mgr#1",
+              "role": "per_mgr"
+            },
+            {
+              "instanceId": "cnss_diag#1",
+              "role": "cnss_diag"
+            },
+            {
+              "instanceId": "cnss_daemon#1",
+              "role": "cnss_daemon"
+            },
+            {
+              "instanceId": "property-service-shim#1",
+              "role": "property-service-shim"
+            },
+            {
+              "instanceId": "modem-holder#1",
+              "role": "modem-holder"
+            },
+            {
+              "instanceId": "wifi-helper#1",
+              "role": "wifi-helper"
+            }
+          ],
+          "lineage": {
+            "ablationUnitId": null,
+            "kind": "CORRECTED_BASELINE_PLACEMENT",
+            "parentInstances": [
+              {
+                "instanceId": "servicemanager#1",
+                "role": "servicemanager"
+              },
+              {
+                "instanceId": "hwservicemanager#1",
+                "role": "hwservicemanager"
+              },
+              {
+                "instanceId": "qrtr_ns#1",
+                "role": "qrtr_ns"
+              },
+              {
+                "instanceId": "pd_mapper#1",
+                "role": "pd_mapper"
+              },
+              {
+                "instanceId": "rmt_storage#1",
+                "role": "rmt_storage"
+              },
+              {
+                "instanceId": "tftp_server#1",
+                "role": "tftp_server"
+              },
+              {
+                "instanceId": "servicemanager#2",
+                "role": "servicemanager"
+              },
+              {
+                "instanceId": "hwservicemanager#2",
+                "role": "hwservicemanager"
+              },
+              {
+                "instanceId": "vndservicemanager#1",
+                "role": "vndservicemanager"
+              },
+              {
+                "instanceId": "pm_proxy_helper#1",
+                "role": "pm_proxy_helper"
+              },
+              {
+                "instanceId": "per_mgr#1",
+                "role": "per_mgr"
+              },
+              {
+                "instanceId": "cnss_diag#1",
+                "role": "cnss_diag"
+              },
+              {
+                "instanceId": "cnss_daemon#1",
+                "role": "cnss_daemon"
+              },
+              {
+                "instanceId": "property-service-shim#1",
+                "role": "property-service-shim"
+              },
+              {
+                "instanceId": "modem-holder#1",
+                "role": "modem-holder"
+              },
+              {
+                "instanceId": "wifi-helper#1",
+                "role": "wifi-helper"
+              }
+            ],
+            "parentManifestSha256": "56721ee1fe2b9d9c1f5ca0cf40f19582781db2487893d4603fbb58c2b38e31a5",
+            "removedInstanceIds": [
+              "servicemanager#2",
+              "hwservicemanager#2"
+            ],
+            "removedRole": null
+          },
+          "manifestSha256": "9b2a8c40b90ddcdddd2c6789d9bf82cfbb3c789c7d5b6d1ab73d43d4cc8e9905",
+          "variantId": "B0_EARLY_PAIR"
+        },
+        "propertyInput": {
+          "finalTerminal": "UNPROVED_H0D04_H0D10",
+          "preExecutionTerminal": "UNPROVED_H0D10",
+          "privateSnapshotBytesUsed": false,
+          "sourceClass": "PUBLIC_DETERMINISTIC_BOOTSTRAP_SUPERSET_UNBUILT",
+          "sources": [],
+          "wholeSnapshotAccepted": false
+        },
+        "propertyService": {
+          "endpointMode": "CAPSULE_PRIVATE_FILESYSTEM_UNIX_PENDING_H0D04",
+          "endpoints": [
+            {
+              "abstract": false,
+              "backingClass": "FRESH_CAPSULE_PRIVATE_FILESYSTEM_SOCKET",
+              "inherited": false,
+              "namespaceScope": "CAPSULE_PRIVATE",
+              "path": "/run/a90-wlan-capsule/dev/socket/property_service",
+              "scmRights": false
+            }
+          ],
+          "proofBindingSha256": null,
+          "proofTerminal": "UNPROVED_H0D04"
+        },
+        "schema": "a90-wlan-successor-surface-declaration-v1",
+        "scope": "H0_STRUCTURAL_REFERENCE_ONLY_NOT_CANDIDATE_INPUT",
+        "selinuxSurface": {
+          "operations": []
+        },
+        "target": "Samsung Galaxy A90 5G"
+      },
+      "exampleId": "private-property-service-still-unproved",
+      "validation": {
+        "authorityGranted": false,
+        "candidateEligible": false,
+        "executionEligible": false,
+        "findingCodes": [],
+        "outcome": "STATIC_REINTRODUCTION_GUARDS_PASS_H0_ONLY",
+        "pendingProofs": [
+          "FUTURE_BYTE_DERIVED_DECLARATION_CONSUMER_ABSENT",
+          "H0D04_PRIVATE_PROPERTY_SERVICE_PROOF_REQUIRED",
+          "H0D04_PROPERTY_TERMINAL_UNPROVED",
+          "H0D10_PUBLIC_BOOTSTRAP_SUPERSET_UNPROVED"
+        ],
+        "surfacePolicySatisfied": true
+      }
+    }
+  ],
+  "currentH24SourceDisposition": {
+    "baselineAdmissible": false,
+    "h24LiveExecutionOfSelectedRoute": false,
+    "liveEffectClaim": "UNPROVED_H24_D1_STOPPED_BEFORE_WIFI_HELPER_ROUTE",
+    "sourceReachableHazards": [
+      "DUPLICATE_SERVICEMANAGER_AND_HWSERVICEMANAGER_CONSTRUCTION",
+      "GLOBAL_SELINUXFS_RW_BIND_POLICY_LOAD_AND_ENFORCE_WRITE",
+      "NATIVE_GLOBAL_BINDER_CHARDEV_MATERIALIZATION_10_79_80_81",
+      "SD_WHOLE_PROPERTY_SNAPSHOT_AND_ACCEPTED_CACHE_RELOCATION_CLASS"
+    ]
+  },
+  "executionEconomy": {
+    "calibration": {
+      "exactAttendedSessionCount": "UNPROVED_UNTIL_WP2_5B_EXECUTION_PROCESS_EXISTS",
+      "exactOrdinalBudget": "UNSET_BLOCKS_EXECUTION_QUALIFICATION",
+      "oneToOneInterpretation": "If each logical unit maps to one attended no-replay session, the current maximum projection is 30; the implementation may require more than one attended session per logical unit.",
+      "operatorAcceptanceRequiredBeforeExecutionQualification": true,
+      "performancePassBudgets": "SEPARATE_AND_STILL_UNSET_PENDING_MEASURED_CORRECTED_G0",
+      "wp2_2HostOnlyDeviceOrdinalConsumed": 0
+    },
+    "classification": "H0_PLANNING_ESTIMATE_NOT_LIVE_BUDGET_OR_AUTHORITY",
+    "earlyStopValue": [
+      {
+        "after": "CORRECTED_G0",
+        "retainedEvidence": "One manager placement can form a corrected healthy baseline; no role minimality follows."
+      },
+      {
+        "after": "A4_CNSS_DIAG",
+        "retainedEvidence": "The first scoped diagnostic-role necessity result remains generation-bound."
+      },
+      {
+        "after": "A5_A6_MANAGER_PROVIDER",
+        "retainedEvidence": "Scoped Binder manager/provider removal results remain generation-bound."
+      },
+      {
+        "after": "A7_QRTR_PD_RFS",
+        "retainedEvidence": "Scoped QRTR, PD, storage, and firmware-serving results remain generation-bound."
+      },
+      {
+        "after": "A8_A10_CNSS_HOLDER_SHIM",
+        "retainedEvidence": "Scoped CNSS, modem-holder, and property-write-shim results remain generation-bound."
+      },
+      {
+        "after": "A11_PROPERTY_TERMINAL",
+        "retainedEvidence": "One exact property absence or finite-seed terminal may be frozen if independently proved."
+      }
+    ],
+    "logicalFutureUnitProjection": {
+      "correctedBaselineVariantAttemptsMax": 2,
+      "formula": "2 + 13 + 13 + 2 = 30",
+      "mutuallyExclusivePropertyTerminalAttemptsMax": 2,
+      "oneRoleRemovalUnits": 13,
+      "oneToOneSerialUnitProjection": 30,
+      "successfulRemovalFreshBaselineRequalificationsMax": 13
+    },
+    "resultScope": {
+      "claim": "ORDER_CONDITIONED_REDUCED_GENERATION_ONLY",
+      "globalMinimumProved": false,
+      "reason": "Earlier refuted removals are not retested after later successful removals; non-monotonic interactions remain possible.",
+      "terminalOneMinimalProved": false,
+      "terminalRetestSweepIncludedInThirty": false
+    },
+    "seriality": {
+      "parallelExecutionAllowed": false,
+      "reason": "Each removal branches from one exact healthy G_N; a supported removal requires a fresh G_N_PLUS_1 baseline before another removal."
+    },
+    "stopRule": "Stopping early preserves only completed exact-generation results. It never grants a global necessity claim, Option C eligibility, or permission to skip remaining H0D gates."
+  },
+  "negativeCorpus": [
+    {
+      "actualFindingCodes": [
+        "BASELINE_COMPONENT_GRAPH_MISMATCH",
+        "BASELINE_EXACT_ONE_SERVICEMANAGER_REQUIRED",
+        "DUPLICATE_COMPONENT_ROLE_FORBIDDEN",
+        "DUPLICATE_SERVICEMANAGER_FORBIDDEN"
+      ],
+      "caseId": "duplicate-servicemanager",
+      "expectedFindingCodes": [
+        "DUPLICATE_SERVICEMANAGER_FORBIDDEN"
+      ],
+      "expectedOutcome": "REJECTED_FORBIDDEN_OR_MALFORMED_SURFACE",
+      "mutation": "Reintroduce the removed servicemanager instance through the canonical manifest."
+    },
+    {
+      "actualFindingCodes": [
+        "BASELINE_COMPONENT_GRAPH_MISMATCH",
+        "BASELINE_EXACT_ONE_HWSERVICEMANAGER_REQUIRED",
+        "DUPLICATE_COMPONENT_ROLE_FORBIDDEN",
+        "DUPLICATE_HWSERVICEMANAGER_FORBIDDEN"
+      ],
+      "caseId": "duplicate-hwservicemanager",
+      "expectedFindingCodes": [
+        "DUPLICATE_HWSERVICEMANAGER_FORBIDDEN"
+      ],
+      "expectedOutcome": "REJECTED_FORBIDDEN_OR_MALFORMED_SURFACE",
+      "mutation": "Reintroduce the removed hwservicemanager instance through the canonical manifest."
+    },
+    {
+      "actualFindingCodes": [
+        "BASELINE_COMPONENT_GRAPH_MISMATCH"
+      ],
+      "caseId": "baseline-nonplacement-role-removal",
+      "expectedFindingCodes": [
+        "BASELINE_COMPONENT_GRAPH_MISMATCH"
+      ],
+      "expectedOutcome": "REJECTED_FORBIDDEN_OR_MALFORMED_SURFACE",
+      "mutation": "Delete cnss_daemon while falsely retaining the corrected-baseline identity."
+    },
+    {
+      "actualFindingCodes": [
+        "ROLE_REMOVAL_LINEAGE_MISMATCH"
+      ],
+      "caseId": "multi-role-removal-disguised-as-one",
+      "expectedFindingCodes": [
+        "ROLE_REMOVAL_LINEAGE_MISMATCH"
+      ],
+      "expectedOutcome": "REJECTED_FORBIDDEN_OR_MALFORMED_SURFACE",
+      "mutation": "Delete cnss_daemon and tftp_server while declaring only the A8 cnss_daemon transition."
+    },
+    {
+      "actualFindingCodes": [
+        "COMPONENT_CONSUMER_DIGEST_DRIFT"
+      ],
+      "caseId": "component-consumer-digest-drift",
+      "expectedFindingCodes": [
+        "COMPONENT_CONSUMER_DIGEST_DRIFT"
+      ],
+      "expectedOutcome": "REJECTED_FORBIDDEN_OR_MALFORMED_SURFACE",
+      "mutation": "Let cleanup consume a graph different from construction/order/health/evidence."
+    },
+    {
+      "actualFindingCodes": [
+        "GLOBAL_SELINUX_MUTATION_FORBIDDEN"
+      ],
+      "caseId": "global-selinuxfs-rw-bind",
+      "expectedFindingCodes": [
+        "GLOBAL_SELINUX_MUTATION_FORBIDDEN"
+      ],
+      "expectedOutcome": "REJECTED_FORBIDDEN_OR_MALFORMED_SURFACE",
+      "mutation": "Bind the native SELinuxFS read-write into the capsule."
+    },
+    {
+      "actualFindingCodes": [
+        "GLOBAL_SELINUX_MUTATION_FORBIDDEN"
+      ],
+      "caseId": "global-selinux-load-write",
+      "expectedFindingCodes": [
+        "GLOBAL_SELINUX_MUTATION_FORBIDDEN"
+      ],
+      "expectedOutcome": "REJECTED_FORBIDDEN_OR_MALFORMED_SURFACE",
+      "mutation": "Write a vendor policy to the global SELinux load interface."
+    },
+    {
+      "actualFindingCodes": [
+        "GLOBAL_SELINUX_MUTATION_FORBIDDEN"
+      ],
+      "caseId": "global-selinux-enforce-write",
+      "expectedFindingCodes": [
+        "GLOBAL_SELINUX_MUTATION_FORBIDDEN"
+      ],
+      "expectedOutcome": "REJECTED_FORBIDDEN_OR_MALFORMED_SURFACE",
+      "mutation": "Write permissive state to the global SELinux enforce interface."
+    },
+    {
+      "actualFindingCodes": [
+        "GLOBAL_BINDER_BACKING_FORBIDDEN",
+        "GLOBAL_BINDER_NAMESPACE_FORBIDDEN",
+        "GLOBAL_BINDER_PATH_FORBIDDEN",
+        "GLOBAL_BINDER_RDEV_FORBIDDEN",
+        "PRIVATE_BINDERFS_SHAPE_MISMATCH"
+      ],
+      "caseId": "native-global-binder-path",
+      "expectedFindingCodes": [
+        "GLOBAL_BINDER_BACKING_FORBIDDEN",
+        "GLOBAL_BINDER_NAMESPACE_FORBIDDEN",
+        "GLOBAL_BINDER_PATH_FORBIDDEN",
+        "GLOBAL_BINDER_RDEV_FORBIDDEN",
+        "PRIVATE_BINDERFS_SHAPE_MISMATCH"
+      ],
+      "expectedOutcome": "REJECTED_FORBIDDEN_OR_MALFORMED_SURFACE",
+      "mutation": "Expose the native /dev/binder character device."
+    },
+    {
+      "actualFindingCodes": [
+        "GLOBAL_BINDER_BACKING_FORBIDDEN",
+        "GLOBAL_BINDER_RDEV_FORBIDDEN",
+        "PRIVATE_BINDERFS_SHAPE_MISMATCH"
+      ],
+      "caseId": "relocated-native-global-binder-rdev",
+      "expectedFindingCodes": [
+        "GLOBAL_BINDER_BACKING_FORBIDDEN",
+        "GLOBAL_BINDER_RDEV_FORBIDDEN",
+        "PRIVATE_BINDERFS_SHAPE_MISMATCH"
+      ],
+      "expectedOutcome": "REJECTED_FORBIDDEN_OR_MALFORMED_SURFACE",
+      "mutation": "Rename the native binder rdev under a capsule-looking path."
+    },
+    {
+      "actualFindingCodes": [
+        "SD_OR_LEGACY_SNAPSHOT_PATH_FORBIDDEN"
+      ],
+      "caseId": "sd-property-source",
+      "expectedFindingCodes": [
+        "SD_OR_LEGACY_SNAPSHOT_PATH_FORBIDDEN"
+      ],
+      "expectedOutcome": "REJECTED_FORBIDDEN_OR_MALFORMED_SURFACE",
+      "mutation": "Read a finite-seed declaration from the removable-card namespace."
+    },
+    {
+      "actualFindingCodes": [
+        "PRIVATE_SNAPSHOT_PROVENANCE_FORBIDDEN",
+        "PROPERTY_SOURCE_CLASS_CONTRADICTION",
+        "SD_OR_LEGACY_SNAPSHOT_PATH_FORBIDDEN",
+        "WHOLE_PROPERTY_SNAPSHOT_FORBIDDEN"
+      ],
+      "caseId": "cache-relocated-whole-snapshot",
+      "expectedFindingCodes": [
+        "PRIVATE_SNAPSHOT_PROVENANCE_FORBIDDEN",
+        "SD_OR_LEGACY_SNAPSHOT_PATH_FORBIDDEN",
+        "WHOLE_PROPERTY_SNAPSHOT_FORBIDDEN"
+      ],
+      "expectedOutcome": "REJECTED_FORBIDDEN_OR_MALFORMED_SURFACE",
+      "mutation": "Move the private whole snapshot to the historical cache alias."
+    },
+    {
+      "actualFindingCodes": [
+        "PRIVATE_SNAPSHOT_PROVENANCE_FORBIDDEN"
+      ],
+      "caseId": "private-snapshot-provenance-under-benign-path",
+      "expectedFindingCodes": [
+        "PRIVATE_SNAPSHOT_PROVENANCE_FORBIDDEN"
+      ],
+      "expectedOutcome": "REJECTED_FORBIDDEN_OR_MALFORMED_SURFACE",
+      "mutation": "Rename private snapshot bytes under a nonlegacy cache path."
+    },
+    {
+      "actualFindingCodes": [
+        "PROPERTY_SOURCE_CLASS_CONTRADICTION",
+        "WHOLE_PROPERTY_SNAPSHOT_FORBIDDEN"
+      ],
+      "caseId": "publicly-named-whole-snapshot",
+      "expectedFindingCodes": [
+        "WHOLE_PROPERTY_SNAPSHOT_FORBIDDEN"
+      ],
+      "expectedOutcome": "REJECTED_FORBIDDEN_OR_MALFORMED_SURFACE",
+      "mutation": "Call a complete property-area copy public deterministic input."
+    },
+    {
+      "actualFindingCodes": [
+        "GLOBAL_OR_CAPABILITY_PROPERTY_ENDPOINT_FORBIDDEN"
+      ],
+      "caseId": "native-global-property-service",
+      "expectedFindingCodes": [
+        "GLOBAL_OR_CAPABILITY_PROPERTY_ENDPOINT_FORBIDDEN"
+      ],
+      "expectedOutcome": "REJECTED_FORBIDDEN_OR_MALFORMED_SURFACE",
+      "mutation": "Expose or inherit the native property-service endpoint."
+    },
+    {
+      "actualFindingCodes": [
+        "SCHEMA_KEY_MISMATCH"
+      ],
+      "caseId": "unknown-authority-exception-field",
+      "expectedFindingCodes": [
+        "SCHEMA_KEY_MISMATCH"
+      ],
+      "expectedOutcome": "REJECTED_FORBIDDEN_OR_MALFORMED_SURFACE",
+      "mutation": "Add an unreviewed exception to the exact declaration schema."
+    }
+  ],
+  "policyBoundary": {
+    "appliesTo": [
+      "future-corrected-baseline-input",
+      "future-reduced-native-backend-input",
+      "future-debian-supervised-capsule-input"
+    ],
+    "conditionalNotProved": [
+      "fresh-capsule-private-binderfs-requires-H0D05-bound-proof",
+      "fresh-capsule-private-filesystem-property-service-requires-H0D04-bound-proof"
+    ],
+    "consumerRequirement": "A future qualified byte-derived extractor must produce this exact declaration from the complete linked candidate/config/input closure. A hand-authored declaration is never execution evidence.",
+    "forbidden": [
+      "duplicate-servicemanager-or-hwservicemanager-role",
+      "different-component-digests-across-construction-order-health-cleanup-evidence",
+      "global-selinuxfs-rw-bind-load-write-or-enforce-write",
+      "native-global-binder-path-backing-rdev-or-namespace",
+      "sd-path-whole-property-snapshot-or-relocated-private-snapshot-provenance",
+      "native-global-inherited-abstract-or-scm-rights-property-service-endpoint"
+    ]
+  },
+  "referenceVariants": [
+    {
+      "declaration": {
+        "binderSurface": {
+          "endpointMode": "NONE",
+          "endpoints": [],
+          "proofBindingSha256": null,
+          "proofTerminal": "NOT_APPLICABLE"
+        },
+        "componentGraph": {
+          "consumerManifestSha256": {
+            "cleanup": "9b2a8c40b90ddcdddd2c6789d9bf82cfbb3c789c7d5b6d1ab73d43d4cc8e9905",
+            "construction": "9b2a8c40b90ddcdddd2c6789d9bf82cfbb3c789c7d5b6d1ab73d43d4cc8e9905",
+            "evidence": "9b2a8c40b90ddcdddd2c6789d9bf82cfbb3c789c7d5b6d1ab73d43d4cc8e9905",
+            "health": "9b2a8c40b90ddcdddd2c6789d9bf82cfbb3c789c7d5b6d1ab73d43d4cc8e9905",
+            "order": "9b2a8c40b90ddcdddd2c6789d9bf82cfbb3c789c7d5b6d1ab73d43d4cc8e9905"
+          },
+          "generationSource": "ONE_CANONICAL_GENERATED_MANIFEST",
+          "instances": [
+            {
+              "instanceId": "servicemanager#1",
+              "role": "servicemanager"
+            },
+            {
+              "instanceId": "hwservicemanager#1",
+              "role": "hwservicemanager"
+            },
+            {
+              "instanceId": "qrtr_ns#1",
+              "role": "qrtr_ns"
+            },
+            {
+              "instanceId": "pd_mapper#1",
+              "role": "pd_mapper"
+            },
+            {
+              "instanceId": "rmt_storage#1",
+              "role": "rmt_storage"
+            },
+            {
+              "instanceId": "tftp_server#1",
+              "role": "tftp_server"
+            },
+            {
+              "instanceId": "vndservicemanager#1",
+              "role": "vndservicemanager"
+            },
+            {
+              "instanceId": "pm_proxy_helper#1",
+              "role": "pm_proxy_helper"
+            },
+            {
+              "instanceId": "per_mgr#1",
+              "role": "per_mgr"
+            },
+            {
+              "instanceId": "cnss_diag#1",
+              "role": "cnss_diag"
+            },
+            {
+              "instanceId": "cnss_daemon#1",
+              "role": "cnss_daemon"
+            },
+            {
+              "instanceId": "property-service-shim#1",
+              "role": "property-service-shim"
+            },
+            {
+              "instanceId": "modem-holder#1",
+              "role": "modem-holder"
+            },
+            {
+              "instanceId": "wifi-helper#1",
+              "role": "wifi-helper"
+            }
+          ],
+          "lineage": {
+            "ablationUnitId": null,
+            "kind": "CORRECTED_BASELINE_PLACEMENT",
+            "parentInstances": [
+              {
+                "instanceId": "servicemanager#1",
+                "role": "servicemanager"
+              },
+              {
+                "instanceId": "hwservicemanager#1",
+                "role": "hwservicemanager"
+              },
+              {
+                "instanceId": "qrtr_ns#1",
+                "role": "qrtr_ns"
+              },
+              {
+                "instanceId": "pd_mapper#1",
+                "role": "pd_mapper"
+              },
+              {
+                "instanceId": "rmt_storage#1",
+                "role": "rmt_storage"
+              },
+              {
+                "instanceId": "tftp_server#1",
+                "role": "tftp_server"
+              },
+              {
+                "instanceId": "servicemanager#2",
+                "role": "servicemanager"
+              },
+              {
+                "instanceId": "hwservicemanager#2",
+                "role": "hwservicemanager"
+              },
+              {
+                "instanceId": "vndservicemanager#1",
+                "role": "vndservicemanager"
+              },
+              {
+                "instanceId": "pm_proxy_helper#1",
+                "role": "pm_proxy_helper"
+              },
+              {
+                "instanceId": "per_mgr#1",
+                "role": "per_mgr"
+              },
+              {
+                "instanceId": "cnss_diag#1",
+                "role": "cnss_diag"
+              },
+              {
+                "instanceId": "cnss_daemon#1",
+                "role": "cnss_daemon"
+              },
+              {
+                "instanceId": "property-service-shim#1",
+                "role": "property-service-shim"
+              },
+              {
+                "instanceId": "modem-holder#1",
+                "role": "modem-holder"
+              },
+              {
+                "instanceId": "wifi-helper#1",
+                "role": "wifi-helper"
+              }
+            ],
+            "parentManifestSha256": "56721ee1fe2b9d9c1f5ca0cf40f19582781db2487893d4603fbb58c2b38e31a5",
+            "removedInstanceIds": [
+              "servicemanager#2",
+              "hwservicemanager#2"
+            ],
+            "removedRole": null
+          },
+          "manifestSha256": "9b2a8c40b90ddcdddd2c6789d9bf82cfbb3c789c7d5b6d1ab73d43d4cc8e9905",
+          "variantId": "B0_EARLY_PAIR"
+        },
+        "propertyInput": {
+          "finalTerminal": "UNPROVED_H0D04_H0D10",
+          "preExecutionTerminal": "UNPROVED_H0D10",
+          "privateSnapshotBytesUsed": false,
+          "sourceClass": "PUBLIC_DETERMINISTIC_BOOTSTRAP_SUPERSET_UNBUILT",
+          "sources": [],
+          "wholeSnapshotAccepted": false
+        },
+        "propertyService": {
+          "endpointMode": "ABSENT",
+          "endpoints": [],
+          "proofBindingSha256": null,
+          "proofTerminal": "NOT_APPLICABLE"
+        },
+        "schema": "a90-wlan-successor-surface-declaration-v1",
+        "scope": "H0_STRUCTURAL_REFERENCE_ONLY_NOT_CANDIDATE_INPUT",
+        "selinuxSurface": {
+          "operations": []
+        },
+        "target": "Samsung Galaxy A90 5G"
+      },
+      "validation": {
+        "authorityGranted": false,
+        "candidateEligible": false,
+        "executionEligible": false,
+        "findingCodes": [],
+        "outcome": "STATIC_REINTRODUCTION_GUARDS_PASS_H0_ONLY",
+        "pendingProofs": [
+          "FUTURE_BYTE_DERIVED_DECLARATION_CONSUMER_ABSENT",
+          "H0D04_PROPERTY_TERMINAL_UNPROVED",
+          "H0D10_PUBLIC_BOOTSTRAP_SUPERSET_UNPROVED"
+        ],
+        "surfacePolicySatisfied": true
+      },
+      "variantId": "B0_EARLY_PAIR"
+    },
+    {
+      "declaration": {
+        "binderSurface": {
+          "endpointMode": "NONE",
+          "endpoints": [],
+          "proofBindingSha256": null,
+          "proofTerminal": "NOT_APPLICABLE"
+        },
+        "componentGraph": {
+          "consumerManifestSha256": {
+            "cleanup": "46e8599320fa62d74f22d2ed6dcfbb0c6c7519f1b822c2be20c6fde4cf9146b6",
+            "construction": "46e8599320fa62d74f22d2ed6dcfbb0c6c7519f1b822c2be20c6fde4cf9146b6",
+            "evidence": "46e8599320fa62d74f22d2ed6dcfbb0c6c7519f1b822c2be20c6fde4cf9146b6",
+            "health": "46e8599320fa62d74f22d2ed6dcfbb0c6c7519f1b822c2be20c6fde4cf9146b6",
+            "order": "46e8599320fa62d74f22d2ed6dcfbb0c6c7519f1b822c2be20c6fde4cf9146b6"
+          },
+          "generationSource": "ONE_CANONICAL_GENERATED_MANIFEST",
+          "instances": [
+            {
+              "instanceId": "qrtr_ns#1",
+              "role": "qrtr_ns"
+            },
+            {
+              "instanceId": "pd_mapper#1",
+              "role": "pd_mapper"
+            },
+            {
+              "instanceId": "rmt_storage#1",
+              "role": "rmt_storage"
+            },
+            {
+              "instanceId": "tftp_server#1",
+              "role": "tftp_server"
+            },
+            {
+              "instanceId": "servicemanager#2",
+              "role": "servicemanager"
+            },
+            {
+              "instanceId": "hwservicemanager#2",
+              "role": "hwservicemanager"
+            },
+            {
+              "instanceId": "vndservicemanager#1",
+              "role": "vndservicemanager"
+            },
+            {
+              "instanceId": "pm_proxy_helper#1",
+              "role": "pm_proxy_helper"
+            },
+            {
+              "instanceId": "per_mgr#1",
+              "role": "per_mgr"
+            },
+            {
+              "instanceId": "cnss_diag#1",
+              "role": "cnss_diag"
+            },
+            {
+              "instanceId": "cnss_daemon#1",
+              "role": "cnss_daemon"
+            },
+            {
+              "instanceId": "property-service-shim#1",
+              "role": "property-service-shim"
+            },
+            {
+              "instanceId": "modem-holder#1",
+              "role": "modem-holder"
+            },
+            {
+              "instanceId": "wifi-helper#1",
+              "role": "wifi-helper"
+            }
+          ],
+          "lineage": {
+            "ablationUnitId": null,
+            "kind": "CORRECTED_BASELINE_PLACEMENT",
+            "parentInstances": [
+              {
+                "instanceId": "servicemanager#1",
+                "role": "servicemanager"
+              },
+              {
+                "instanceId": "hwservicemanager#1",
+                "role": "hwservicemanager"
+              },
+              {
+                "instanceId": "qrtr_ns#1",
+                "role": "qrtr_ns"
+              },
+              {
+                "instanceId": "pd_mapper#1",
+                "role": "pd_mapper"
+              },
+              {
+                "instanceId": "rmt_storage#1",
+                "role": "rmt_storage"
+              },
+              {
+                "instanceId": "tftp_server#1",
+                "role": "tftp_server"
+              },
+              {
+                "instanceId": "servicemanager#2",
+                "role": "servicemanager"
+              },
+              {
+                "instanceId": "hwservicemanager#2",
+                "role": "hwservicemanager"
+              },
+              {
+                "instanceId": "vndservicemanager#1",
+                "role": "vndservicemanager"
+              },
+              {
+                "instanceId": "pm_proxy_helper#1",
+                "role": "pm_proxy_helper"
+              },
+              {
+                "instanceId": "per_mgr#1",
+                "role": "per_mgr"
+              },
+              {
+                "instanceId": "cnss_diag#1",
+                "role": "cnss_diag"
+              },
+              {
+                "instanceId": "cnss_daemon#1",
+                "role": "cnss_daemon"
+              },
+              {
+                "instanceId": "property-service-shim#1",
+                "role": "property-service-shim"
+              },
+              {
+                "instanceId": "modem-holder#1",
+                "role": "modem-holder"
+              },
+              {
+                "instanceId": "wifi-helper#1",
+                "role": "wifi-helper"
+              }
+            ],
+            "parentManifestSha256": "56721ee1fe2b9d9c1f5ca0cf40f19582781db2487893d4603fbb58c2b38e31a5",
+            "removedInstanceIds": [
+              "servicemanager#1",
+              "hwservicemanager#1"
+            ],
+            "removedRole": null
+          },
+          "manifestSha256": "46e8599320fa62d74f22d2ed6dcfbb0c6c7519f1b822c2be20c6fde4cf9146b6",
+          "variantId": "B0_PROVIDER_ADJACENT_PAIR"
+        },
+        "propertyInput": {
+          "finalTerminal": "UNPROVED_H0D04_H0D10",
+          "preExecutionTerminal": "UNPROVED_H0D10",
+          "privateSnapshotBytesUsed": false,
+          "sourceClass": "PUBLIC_DETERMINISTIC_BOOTSTRAP_SUPERSET_UNBUILT",
+          "sources": [],
+          "wholeSnapshotAccepted": false
+        },
+        "propertyService": {
+          "endpointMode": "ABSENT",
+          "endpoints": [],
+          "proofBindingSha256": null,
+          "proofTerminal": "NOT_APPLICABLE"
+        },
+        "schema": "a90-wlan-successor-surface-declaration-v1",
+        "scope": "H0_STRUCTURAL_REFERENCE_ONLY_NOT_CANDIDATE_INPUT",
+        "selinuxSurface": {
+          "operations": []
+        },
+        "target": "Samsung Galaxy A90 5G"
+      },
+      "validation": {
+        "authorityGranted": false,
+        "candidateEligible": false,
+        "executionEligible": false,
+        "findingCodes": [],
+        "outcome": "STATIC_REINTRODUCTION_GUARDS_PASS_H0_ONLY",
+        "pendingProofs": [
+          "FUTURE_BYTE_DERIVED_DECLARATION_CONSUMER_ABSENT",
+          "H0D04_PROPERTY_TERMINAL_UNPROVED",
+          "H0D10_PUBLIC_BOOTSTRAP_SUPERSET_UNPROVED"
+        ],
+        "surfacePolicySatisfied": true
+      },
+      "variantId": "B0_PROVIDER_ADJACENT_PAIR"
+    }
+  ],
+  "remainingGates": {
+    "H0D01ThroughH0D10": "ALL_UNPROVED",
+    "optionCImplementation": "BLOCKED",
+    "wp2_3": "NOT_STARTED",
+    "wp2_4": "NOT_STARTED",
+    "wp2_5b": "ABSENT_UNAUTHORIZED"
+  },
+  "schema": "a90-h24-wlan-forbidden-surface-policy-v1",
+  "sourcePins": [
+    {
+      "bytes": 42264,
+      "path": "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json",
+      "sha256": "d4ac9b47de9674995b891e888937969cb34b74d27b1c59e35cb7172fbd3370cb"
+    },
+    {
+      "bytes": 105900,
+      "path": "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/design/a90-h24-wlan-one-factor-ablation-design-v1.json",
+      "sha256": "0eddec9ba9d637590c82499709179bd6b56a79d646d7967d3049a0bf36136b85"
+    },
+    {
+      "bytes": 3253399,
+      "path": "workspace/public/src/native-init/helpers/a90_android_execns_probe.c",
+      "sha256": "4e68735fa2acc06fa4c101d8dbab6380d7785c4d9c7edfe47448ab26031b57e2"
+    },
+    {
+      "bytes": 277766,
+      "path": "workspace/public/src/native-init/v724/90_main.inc.c",
+      "sha256": "2a6863c0fd5f1dc2559ccee45031e389c956d6e094d8602364fd1875b919128f"
+    },
+    {
+      "bytes": 7801,
+      "path": "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h24/manifest.toml",
+      "sha256": "40c26c5878db21737600bc29864db9123cc4650ec39d7f0d7395209c2df70a8f"
+    }
+  ],
+  "status": {
+    "correctedHealthyBaseline": "ABSENT_UNPROVED",
+    "currentH24": "REJECTED_AS_CORRECTED_BASELINE_BY_STATIC_SOURCE_EVIDENCE",
+    "dependencyGatesRetired": [],
+    "executionImplementation": "ABSENT",
+    "executionQualification": "ABSENT",
+    "futureByteDerivationConsumer": "ABSENT",
+    "independentExecutionReview": "ABSENT",
+    "optionC": "BLOCKED_RESEARCH_ONLY",
+    "wp2_2": "COMPLETE_H0_STATIC_POLICY_AND_NEGATIVE_CORPUS_ONLY"
+  }
+}

@@ -4,7 +4,7 @@
 
 This H0 review binds 24 public artifacts from baseline revision
 `fda348a072eba8a53c2de7c9904c52429a7dddaf` with collection SHA256
-`d1e9ae368d697b4556584e264d523de72eb7c991d6cf9a3fb742528f3b3a62f6`.
+`8b00d72b2ff1621351374dda081fbd4e9c3c376a5687a6bf8d04b32e67cde691`.
 
 The strongest result is not a successful ablation. It is a correction to the
 baseline: H24's selected helper builds thirteen composite children representing
@@ -77,6 +77,23 @@ See [`context.md`](context.md) for exact anchors and the observed/inferred split
   Its state is `COMPLETE_H0_DESIGN_ONLY`: no corrected healthy baseline,
   execution implementation, qualification, independent execution review, or
   live authority exists.
+- The generated
+  [`WP2-2` policy](policy/a90-h24-wlan-forbidden-surface-policy-v1.json)
+  now rejects duplicate manager construction/consumer drift, global SELinux
+  mutation, native-global Binder endpoints even when renamed, SD or relocated
+  whole-property inputs, private-snapshot provenance, and global/inherited
+  property-service endpoints. Its sixteen negative cases pass only a static
+  H0 boundary. Private binderfs and a private property socket remain
+  `H0D05`/`H0D04` proof obligations, and no future byte-derived consumer or
+  execution implementation exists. B0 accepts only one exact ordered
+  fourteen-instance graph per placement; non-B0 declarations require explicit
+  parent/removal or integration lineage and still remain non-executable.
+- The same policy records a thirty-logical-unit one-to-one serial projection
+  (`2 + 13 + 13 + 2`). Exact attended sessions and the ordinal budget remain
+  unset until `WP2-5b`; operator acceptance is an execution-qualification
+  prerequisite. The output is an order-conditioned reduced generation, not a
+  global or terminal one-minimal set.
+  `WP2-2` itself is H0 and consumes zero device ordinals.
 
 ## Property Terminal
 
@@ -93,7 +110,9 @@ binaries' read set. Moving the complete SD snapshot to cache is rejected.
 
 1. Correct the executable graph: one generated manifest, no duplicate role,
    exact child count, exact identity/capability/FD/readiness/cleanup contract.
-2. Remove all global SELinux load/enforce writes and reject them statically.
+2. Apply the generated WP2-2 policy to reject global SELinux mutation,
+   native-global Binder, SD/whole/private-snapshot inputs, manager duplicates,
+   and graph-consumer drift. This static pass retires no `H0D` gate.
 3. Use the frozen source-derived graph and `H0D01-H0D10` registry to generate
    the one-factor `WP-H0-2` design. This H0 design is complete; do not treat
    historical observations or inferred edges as current H24 facts.
@@ -111,6 +130,11 @@ binaries' read set. Moving the complete SD snapshot to cache is rejected.
    topology models and select the smaller proved boundary. Until the capsule
    passes every switch gate, reduced native supervision remains the reference
    design.
+
+Before any live qualification, derive and obtain operator acceptance of the
+exact attended-session and ordinal budget. The current H0 projection is thirty
+serial logical units if each maps one-to-one to a session, excludes any final
+retest sweep, and must not be represented as a live cap or authority.
 
 ## Deliverables Before A Topology Change
 
