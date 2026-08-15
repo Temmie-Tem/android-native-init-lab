@@ -3,8 +3,8 @@
 ## Evidence Basis
 
 This H0 review binds 24 public artifacts from baseline revision
-`dd8d0d8a59f84419ec830e0798718dc14edbd3b7` with collection SHA256
-`adc7127d7a7fe7960d28e26267f096c30ec56ddc649a3b3ed961c8d3e4a05368`.
+`fda348a072eba8a53c2de7c9904c52429a7dddaf` with collection SHA256
+`d1e9ae368d697b4556584e264d523de72eb7c991d6cf9a3fb742528f3b3a62f6`.
 
 The strongest result is not a successful ablation. It is a correction to the
 baseline: H24's selected helper builds thirteen composite children representing
@@ -69,6 +69,14 @@ See [`context.md`](context.md) for exact anchors and the observed/inferred split
   `PARTIAL_RUNTIME_CLOSURE_BLOCKED`. Its ten opaque runtime gates remain
   `UNPROVED`, so Option C is still research-only. `WP-H0-2` design may proceed
   in H0; execution and Option C implementation may not.
+- The generated
+  [`WP-H0-2` design](design/a90-h24-wlan-one-factor-ablation-design-v1.json)
+  now fixes the corrected-baseline variants, exact-one-role generation model,
+  scoped terminals, result/metric vocabulary, measured-budget rule, SD-free
+  public bootstrap prerequisite, no-replay boundary, and promotion/stop rules.
+  Its state is `COMPLETE_H0_DESIGN_ONLY`: no corrected healthy baseline,
+  execution implementation, qualification, independent execution review, or
+  live authority exists.
 
 ## Property Terminal
 
@@ -86,10 +94,11 @@ binaries' read set. Moving the complete SD snapshot to cache is rejected.
 1. Correct the executable graph: one generated manifest, no duplicate role,
    exact child count, exact identity/capability/FD/readiness/cleanup contract.
 2. Remove all global SELinux load/enforce writes and reject them statically.
-3. Use the frozen source-derived graph and `H0D01-H0D10` registry to design
-   one-factor `WP-H0-2` observations and ablations. Do not treat historical
-   observations or inferred edges as current H24 facts.
-4. Before executing a row, retire its offline/static prerequisites, review the
+3. Use the frozen source-derived graph and `H0D01-H0D10` registry to generate
+   the one-factor `WP-H0-2` design. This H0 design is complete; do not treat
+   historical observations or inferred edges as current H24 facts.
+4. Before executing a row, prove the H0D10 public deterministic SD-free
+   bootstrap superset, retire its offline/static prerequisites, review the
    exact bounded instrumentation independently, and obtain separate live
    authority. Runtime gates retire only from their declared observations or
    ablations; one offline generation cannot retire them.

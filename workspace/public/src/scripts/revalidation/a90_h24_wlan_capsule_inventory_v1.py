@@ -444,7 +444,7 @@ def dependency_gates() -> list[dict[str, Any]]:
         ("H0D07", "device-kernel", "HYBRID_STATIC_AND_OBSERVATION", "Every device node, ioctl, sysfs/proc read/write, socket family/type/protocol, and kernel-object lifetime is not closed.", "Static syscall/path inventory plus bounded runtime observation, lifetime accounting, and forbidden-surface negatives."),
         ("H0D08", "firmware-rfs", "RUNTIME_OBSERVATION_AND_ABLATION", "Every firmware/RFS/persist path, served object, read/write direction, ownership, and cleanup rule is not closed.", "Bounded request/object trace plus one-factor RFS role ablation and exact residue cleanup proof."),
         ("H0D09", "writable-output", "RUNTIME_OBSERVATION", "All files, sockets, logs, caches, rename/fsync activity, bounds, and no-residue cleanup are not closed.", "Bounded runtime output trace with byte/rate limits and exact post-stop residue negatives."),
-        ("H0D10", "sd-free-provenance", "POST_ABLATION_STATIC_FREEZE", "Every retained binary, library, config, property seed, firmware/RFS input, and public metadata source lacks one deterministic SD-free compatibility-root manifest.", "After the retained set is known, one deterministic no-SD compatibility-root manifest and provenance review."),
+        ("H0D10", "sd-free-provenance", "SPLIT_PREEXECUTION_AND_POST_ABLATION_STATIC_FREEZE", "No public deterministic SD-free bootstrap superset is yet bound for a future corrected baseline, and the final retained binary, library, config, property seed, firmware/RFS input, and public metadata set lacks one deterministic SD-free compatibility-root manifest.", "Before any execution, prove one public deterministic no-SD bootstrap superset without copying the private whole snapshot; after the retained set is known, freeze one minimal no-SD compatibility-root manifest and provenance review."),
     )
     return [
         {
@@ -465,7 +465,26 @@ def dependency_gates() -> list[dict[str, Any]]:
                     "RUNTIME_OBSERVATION_AND_ABLATION",
                     "RUNTIME_OBSERVATION",
                 }
-                else "NOT_A_PRECONDITION_TO_ABLATION_FREEZE_AFTER_RETAINED_SET"
+                else "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION_THEN_FREEZE_RETAINED_SET_AFTER_ABLATION"
+            ),
+            **(
+                {
+                    "preExecutionHalf": {
+                        "status": "UNPROVED",
+                        "requiredTerminal": "SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_PROVED",
+                        "rule": "No future baseline or ablation identity may read the SD property snapshot or a copied private whole snapshot.",
+                    },
+                    "postAblationHalf": {
+                        "status": "UNPROVED",
+                        "acceptedTerminals": [
+                            "PROPERTY_ABSENT_PROVED",
+                            "PROPERTY_FINITE_SEED_PROVED",
+                        ],
+                        "rule": "Freeze only the retained-set minimum after one-factor evidence; the bootstrap superset is not production-minimality proof.",
+                    },
+                }
+                if gate_id == "H0D10"
+                else {}
             ),
             "liveExecutionAuthorized": False,
             "optionCImplementationBlocking": True,

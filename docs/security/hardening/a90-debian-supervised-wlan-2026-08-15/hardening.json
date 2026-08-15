@@ -5,9 +5,9 @@
   "sourceEvidence": {
     "kind": "document_collection",
     "label": "A90 WSTA ownership evidence, current contracts, H24 native source, and isolated-Debian design",
-    "collectionSha256": "f2f26a6afd630cba1d23e3d44fb426b90f487d243bb816ed65ae446263c4d1c8",
+    "collectionSha256": "90a4c704e282749c48da023833614a30d3312f58b99ce4d1b5ee7d5df5a0cb78",
     "artifactCount": 28,
-    "targetRevision": "dc65c5797d820f20afcbbb13fe9f30d3c8d6c82b",
+    "targetRevision": "fda348a072eba8a53c2de7c9904c52429a7dddaf",
     "sourceDrift": "none"
   },
   "assessment": {

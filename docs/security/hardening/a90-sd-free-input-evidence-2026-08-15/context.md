@@ -2,7 +2,7 @@
 
 Date: 2026-08-15
 Repository: `android-native-init-lab` (all listed paths are repository-relative)
-Baseline revision: `dd8d0d8a59f84419ec830e0798718dc14edbd3b7`; the collection
+Baseline revision: `fda348a072eba8a53c2de7c9904c52429a7dddaf`; the collection
 below was rebound after the later H24 13-entry/11-role and `WP-H0-1` status
 corrections to its Debian-supervised-WLAN input
 Target: operator-owned Samsung Galaxy A90 5G only
@@ -46,14 +46,14 @@ security index entry.
 The collection digest is computed over the listed files in this exact order as
 the concatenation of `relative_path NUL size NUL sha256 NUL`:
 
-`68549ffb7c26ff6a79185a3397ee7d392fc175654a812c71d795d5bcb7a6339b`
+`6bd63492c56ac099936d2594d38cec36095138cd93cd2214746f895a09a4e62f`
 
 Artifact count: `22`. Source drift at analysis time: `none`.
 
 | SHA256 | Bytes | Repository-relative path |
 | --- | ---: | --- |
 | `a90560db2985b588a1aa53c0a2078bb6d930865895167a5b71e5bba2acec076b` | 11157 | `AGENTS.md` |
-| `9cf34ea25062c6280254b67e0a62de48f6b477de1ce6ab779aa532d38d066d5e` | 24893 | `GOAL_A90.md` |
+| `fca649759d6275267f71fc303d978c31220bbcf9bb95c24c47283fd813566b88` | 26900 | `GOAL_A90.md` |
 | `ed9f51212db33bd822dc96ecf12feeda05ce255d088c402c4742851d173fad51` | 89405 | `docs/operations/targets/A90_TARGET_CONTRACT.md` |
 | `356c599afac5600126cd03ab2c27ed1b209f1edae74513881ffe08a925302867` | 18735 | `docs/operations/NATIVE_INIT_WIFI_LIFECYCLE_COMMANDS.md` |
 | `84511114e43da3b44a42cdd2778e514c7e081633296657a9ef01a4a1b4ea6f41` | 29521 | `docs/plans/A90_HEADLESS_HANDOFF_MINIMUM_AND_WIFI_OWNERSHIP_DECISION_2026-08-13.md` |
@@ -104,7 +104,7 @@ Artifact count: `22`. Source drift at analysis time: `none`.
 | Public cache staging code performs live mutation | `workspace/public/src/scripts/revalidation/a90_wifi_profile_stage.py:170-315`; overwrite mechanics are in `native_wifi_connect_carrier_handoff_v2174.py:641-792` and `:1039-1059` |
 | Existing public-key boot input | `workspace/public/src/scripts/revalidation/a90_flat_builder/build.py:197-246` and `:1124-1135` |
 | Selected native-only receipt and per-boot host-key split | `docs/plans/A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md:879-954` |
-| No successor before Gate 3 | `GOAL_A90.md:285-306` and `:334-344` |
+| No successor before Gate 3 | `GOAL_A90.md:319-340` and `:368-378` |
 | No current UFS-content authority | `docs/operations/targets/A90_TARGET_CONTRACT.md:1049-1059` |
 
 ## Observed, Inferred, Proposed

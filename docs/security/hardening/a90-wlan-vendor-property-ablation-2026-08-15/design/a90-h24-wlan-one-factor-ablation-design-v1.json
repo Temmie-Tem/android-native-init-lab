@@ -1,0 +1,2497 @@
+{
+  "ablationUnits": [
+    {
+      "deltaCardinality": 1,
+      "dependencyGateProjection": [
+        {
+          "executionEvidenceRole": "NO_RUNTIME_RETIREMENT_CREDIT",
+          "gateId": "H0D01",
+          "parentPreExecutionRequirement": "RETIRE_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_COMPLETE_RETAINED_SET_CLOSURE_BEFORE_EXECUTION",
+          "retirementClass": "OFFLINE_STATIC",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D02",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D03",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D07",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D09",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_POST_ABLATION_MINIMIZATION_EVIDENCE",
+          "gateId": "H0D10",
+          "parentPreExecutionRequirement": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION_THEN_FREEZE_RETAINED_SET_AFTER_ABLATION",
+          "preExecutionAction": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION",
+          "retirementClass": "SPLIT_PREEXECUTION_AND_POST_ABLATION_STATIC_FREEZE",
+          "status": "UNPROVED"
+        }
+      ],
+      "effect": "DISABLE_EXACTLY_ONE_ROLE_AT_CONSTRUCTION",
+      "failureChaining": "FORBIDDEN",
+      "globalNecessityClaimAllowed": false,
+      "order": 1,
+      "parentGeneration": "EXACT_HEALTHY_G_N",
+      "removedRole": "cnss_diag",
+      "replayPolicy": "NEVER_REDISPATCH_AFTER_DURABLE_EFFECT_INTENT",
+      "requiredUnchangedBindings": [
+        "component-manifest-except-removed-role",
+        "executables-and-transitive-inputs",
+        "identities-capabilities-fds-namespaces-cgroups-scheduler",
+        "property-and-ipc-input-generation",
+        "firmware-rfs-and-device-inputs",
+        "observer-metrics-and-budget-receipt",
+        "boot-candidate-rollback-target-and-recovery-bindings"
+      ],
+      "roleSpecificRelevantGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D07",
+        "H0D09"
+      ],
+      "successPromotion": "ELIGIBLE_ONLY_AFTER_COMPLETE_TERMINAL_AND_FRESH_G_N_PLUS_1_BASELINE_QUALIFICATION",
+      "unitId": "WP-H0-2-A4"
+    },
+    {
+      "deltaCardinality": 1,
+      "dependencyGateProjection": [
+        {
+          "executionEvidenceRole": "NO_RUNTIME_RETIREMENT_CREDIT",
+          "gateId": "H0D01",
+          "parentPreExecutionRequirement": "RETIRE_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_COMPLETE_RETAINED_SET_CLOSURE_BEFORE_EXECUTION",
+          "retirementClass": "OFFLINE_STATIC",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D02",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D03",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D05",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D07",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_POST_ABLATION_MINIMIZATION_EVIDENCE",
+          "gateId": "H0D10",
+          "parentPreExecutionRequirement": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION_THEN_FREEZE_RETAINED_SET_AFTER_ABLATION",
+          "preExecutionAction": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION",
+          "retirementClass": "SPLIT_PREEXECUTION_AND_POST_ABLATION_STATIC_FREEZE",
+          "status": "UNPROVED"
+        }
+      ],
+      "effect": "DISABLE_EXACTLY_ONE_ROLE_AT_CONSTRUCTION",
+      "failureChaining": "FORBIDDEN",
+      "globalNecessityClaimAllowed": false,
+      "order": 2,
+      "parentGeneration": "EXACT_HEALTHY_G_N",
+      "removedRole": "servicemanager",
+      "replayPolicy": "NEVER_REDISPATCH_AFTER_DURABLE_EFFECT_INTENT",
+      "requiredUnchangedBindings": [
+        "component-manifest-except-removed-role",
+        "executables-and-transitive-inputs",
+        "identities-capabilities-fds-namespaces-cgroups-scheduler",
+        "property-and-ipc-input-generation",
+        "firmware-rfs-and-device-inputs",
+        "observer-metrics-and-budget-receipt",
+        "boot-candidate-rollback-target-and-recovery-bindings"
+      ],
+      "roleSpecificRelevantGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D05"
+      ],
+      "successPromotion": "ELIGIBLE_ONLY_AFTER_COMPLETE_TERMINAL_AND_FRESH_G_N_PLUS_1_BASELINE_QUALIFICATION",
+      "unitId": "WP-H0-2-A5a"
+    },
+    {
+      "deltaCardinality": 1,
+      "dependencyGateProjection": [
+        {
+          "executionEvidenceRole": "NO_RUNTIME_RETIREMENT_CREDIT",
+          "gateId": "H0D01",
+          "parentPreExecutionRequirement": "RETIRE_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_COMPLETE_RETAINED_SET_CLOSURE_BEFORE_EXECUTION",
+          "retirementClass": "OFFLINE_STATIC",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D02",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D03",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D05",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D07",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_POST_ABLATION_MINIMIZATION_EVIDENCE",
+          "gateId": "H0D10",
+          "parentPreExecutionRequirement": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION_THEN_FREEZE_RETAINED_SET_AFTER_ABLATION",
+          "preExecutionAction": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION",
+          "retirementClass": "SPLIT_PREEXECUTION_AND_POST_ABLATION_STATIC_FREEZE",
+          "status": "UNPROVED"
+        }
+      ],
+      "effect": "DISABLE_EXACTLY_ONE_ROLE_AT_CONSTRUCTION",
+      "failureChaining": "FORBIDDEN",
+      "globalNecessityClaimAllowed": false,
+      "order": 3,
+      "parentGeneration": "EXACT_HEALTHY_G_N",
+      "removedRole": "hwservicemanager",
+      "replayPolicy": "NEVER_REDISPATCH_AFTER_DURABLE_EFFECT_INTENT",
+      "requiredUnchangedBindings": [
+        "component-manifest-except-removed-role",
+        "executables-and-transitive-inputs",
+        "identities-capabilities-fds-namespaces-cgroups-scheduler",
+        "property-and-ipc-input-generation",
+        "firmware-rfs-and-device-inputs",
+        "observer-metrics-and-budget-receipt",
+        "boot-candidate-rollback-target-and-recovery-bindings"
+      ],
+      "roleSpecificRelevantGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D05"
+      ],
+      "successPromotion": "ELIGIBLE_ONLY_AFTER_COMPLETE_TERMINAL_AND_FRESH_G_N_PLUS_1_BASELINE_QUALIFICATION",
+      "unitId": "WP-H0-2-A5b"
+    },
+    {
+      "deltaCardinality": 1,
+      "dependencyGateProjection": [
+        {
+          "executionEvidenceRole": "NO_RUNTIME_RETIREMENT_CREDIT",
+          "gateId": "H0D01",
+          "parentPreExecutionRequirement": "RETIRE_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_COMPLETE_RETAINED_SET_CLOSURE_BEFORE_EXECUTION",
+          "retirementClass": "OFFLINE_STATIC",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D02",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D03",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D05",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D07",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_POST_ABLATION_MINIMIZATION_EVIDENCE",
+          "gateId": "H0D10",
+          "parentPreExecutionRequirement": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION_THEN_FREEZE_RETAINED_SET_AFTER_ABLATION",
+          "preExecutionAction": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION",
+          "retirementClass": "SPLIT_PREEXECUTION_AND_POST_ABLATION_STATIC_FREEZE",
+          "status": "UNPROVED"
+        }
+      ],
+      "effect": "DISABLE_EXACTLY_ONE_ROLE_AT_CONSTRUCTION",
+      "failureChaining": "FORBIDDEN",
+      "globalNecessityClaimAllowed": false,
+      "order": 4,
+      "parentGeneration": "EXACT_HEALTHY_G_N",
+      "removedRole": "vndservicemanager",
+      "replayPolicy": "NEVER_REDISPATCH_AFTER_DURABLE_EFFECT_INTENT",
+      "requiredUnchangedBindings": [
+        "component-manifest-except-removed-role",
+        "executables-and-transitive-inputs",
+        "identities-capabilities-fds-namespaces-cgroups-scheduler",
+        "property-and-ipc-input-generation",
+        "firmware-rfs-and-device-inputs",
+        "observer-metrics-and-budget-receipt",
+        "boot-candidate-rollback-target-and-recovery-bindings"
+      ],
+      "roleSpecificRelevantGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D05"
+      ],
+      "successPromotion": "ELIGIBLE_ONLY_AFTER_COMPLETE_TERMINAL_AND_FRESH_G_N_PLUS_1_BASELINE_QUALIFICATION",
+      "unitId": "WP-H0-2-A6a"
+    },
+    {
+      "deltaCardinality": 1,
+      "dependencyGateProjection": [
+        {
+          "executionEvidenceRole": "NO_RUNTIME_RETIREMENT_CREDIT",
+          "gateId": "H0D01",
+          "parentPreExecutionRequirement": "RETIRE_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_COMPLETE_RETAINED_SET_CLOSURE_BEFORE_EXECUTION",
+          "retirementClass": "OFFLINE_STATIC",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D02",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D03",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D05",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D07",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D09",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_POST_ABLATION_MINIMIZATION_EVIDENCE",
+          "gateId": "H0D10",
+          "parentPreExecutionRequirement": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION_THEN_FREEZE_RETAINED_SET_AFTER_ABLATION",
+          "preExecutionAction": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION",
+          "retirementClass": "SPLIT_PREEXECUTION_AND_POST_ABLATION_STATIC_FREEZE",
+          "status": "UNPROVED"
+        }
+      ],
+      "effect": "DISABLE_EXACTLY_ONE_ROLE_AT_CONSTRUCTION",
+      "failureChaining": "FORBIDDEN",
+      "globalNecessityClaimAllowed": false,
+      "order": 5,
+      "parentGeneration": "EXACT_HEALTHY_G_N",
+      "removedRole": "pm_proxy_helper",
+      "replayPolicy": "NEVER_REDISPATCH_AFTER_DURABLE_EFFECT_INTENT",
+      "requiredUnchangedBindings": [
+        "component-manifest-except-removed-role",
+        "executables-and-transitive-inputs",
+        "identities-capabilities-fds-namespaces-cgroups-scheduler",
+        "property-and-ipc-input-generation",
+        "firmware-rfs-and-device-inputs",
+        "observer-metrics-and-budget-receipt",
+        "boot-candidate-rollback-target-and-recovery-bindings"
+      ],
+      "roleSpecificRelevantGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D05",
+        "H0D09"
+      ],
+      "successPromotion": "ELIGIBLE_ONLY_AFTER_COMPLETE_TERMINAL_AND_FRESH_G_N_PLUS_1_BASELINE_QUALIFICATION",
+      "unitId": "WP-H0-2-A6b"
+    },
+    {
+      "deltaCardinality": 1,
+      "dependencyGateProjection": [
+        {
+          "executionEvidenceRole": "NO_RUNTIME_RETIREMENT_CREDIT",
+          "gateId": "H0D01",
+          "parentPreExecutionRequirement": "RETIRE_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_COMPLETE_RETAINED_SET_CLOSURE_BEFORE_EXECUTION",
+          "retirementClass": "OFFLINE_STATIC",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D02",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D03",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D05",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D07",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D09",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_POST_ABLATION_MINIMIZATION_EVIDENCE",
+          "gateId": "H0D10",
+          "parentPreExecutionRequirement": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION_THEN_FREEZE_RETAINED_SET_AFTER_ABLATION",
+          "preExecutionAction": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION",
+          "retirementClass": "SPLIT_PREEXECUTION_AND_POST_ABLATION_STATIC_FREEZE",
+          "status": "UNPROVED"
+        }
+      ],
+      "effect": "DISABLE_EXACTLY_ONE_ROLE_AT_CONSTRUCTION",
+      "failureChaining": "FORBIDDEN",
+      "globalNecessityClaimAllowed": false,
+      "order": 6,
+      "parentGeneration": "EXACT_HEALTHY_G_N",
+      "removedRole": "per_mgr",
+      "replayPolicy": "NEVER_REDISPATCH_AFTER_DURABLE_EFFECT_INTENT",
+      "requiredUnchangedBindings": [
+        "component-manifest-except-removed-role",
+        "executables-and-transitive-inputs",
+        "identities-capabilities-fds-namespaces-cgroups-scheduler",
+        "property-and-ipc-input-generation",
+        "firmware-rfs-and-device-inputs",
+        "observer-metrics-and-budget-receipt",
+        "boot-candidate-rollback-target-and-recovery-bindings"
+      ],
+      "roleSpecificRelevantGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D05",
+        "H0D07",
+        "H0D09"
+      ],
+      "successPromotion": "ELIGIBLE_ONLY_AFTER_COMPLETE_TERMINAL_AND_FRESH_G_N_PLUS_1_BASELINE_QUALIFICATION",
+      "unitId": "WP-H0-2-A6c"
+    },
+    {
+      "deltaCardinality": 1,
+      "dependencyGateProjection": [
+        {
+          "executionEvidenceRole": "NO_RUNTIME_RETIREMENT_CREDIT",
+          "gateId": "H0D01",
+          "parentPreExecutionRequirement": "RETIRE_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_COMPLETE_RETAINED_SET_CLOSURE_BEFORE_EXECUTION",
+          "retirementClass": "OFFLINE_STATIC",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D02",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D03",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D06",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D07",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_POST_ABLATION_MINIMIZATION_EVIDENCE",
+          "gateId": "H0D10",
+          "parentPreExecutionRequirement": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION_THEN_FREEZE_RETAINED_SET_AFTER_ABLATION",
+          "preExecutionAction": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION",
+          "retirementClass": "SPLIT_PREEXECUTION_AND_POST_ABLATION_STATIC_FREEZE",
+          "status": "UNPROVED"
+        }
+      ],
+      "effect": "DISABLE_EXACTLY_ONE_ROLE_AT_CONSTRUCTION",
+      "failureChaining": "FORBIDDEN",
+      "globalNecessityClaimAllowed": false,
+      "order": 7,
+      "parentGeneration": "EXACT_HEALTHY_G_N",
+      "removedRole": "qrtr_ns",
+      "replayPolicy": "NEVER_REDISPATCH_AFTER_DURABLE_EFFECT_INTENT",
+      "requiredUnchangedBindings": [
+        "component-manifest-except-removed-role",
+        "executables-and-transitive-inputs",
+        "identities-capabilities-fds-namespaces-cgroups-scheduler",
+        "property-and-ipc-input-generation",
+        "firmware-rfs-and-device-inputs",
+        "observer-metrics-and-budget-receipt",
+        "boot-candidate-rollback-target-and-recovery-bindings"
+      ],
+      "roleSpecificRelevantGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D06",
+        "H0D07"
+      ],
+      "successPromotion": "ELIGIBLE_ONLY_AFTER_COMPLETE_TERMINAL_AND_FRESH_G_N_PLUS_1_BASELINE_QUALIFICATION",
+      "unitId": "WP-H0-2-A7a"
+    },
+    {
+      "deltaCardinality": 1,
+      "dependencyGateProjection": [
+        {
+          "executionEvidenceRole": "NO_RUNTIME_RETIREMENT_CREDIT",
+          "gateId": "H0D01",
+          "parentPreExecutionRequirement": "RETIRE_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_COMPLETE_RETAINED_SET_CLOSURE_BEFORE_EXECUTION",
+          "retirementClass": "OFFLINE_STATIC",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D02",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D03",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D06",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D07",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_POST_ABLATION_MINIMIZATION_EVIDENCE",
+          "gateId": "H0D10",
+          "parentPreExecutionRequirement": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION_THEN_FREEZE_RETAINED_SET_AFTER_ABLATION",
+          "preExecutionAction": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION",
+          "retirementClass": "SPLIT_PREEXECUTION_AND_POST_ABLATION_STATIC_FREEZE",
+          "status": "UNPROVED"
+        }
+      ],
+      "effect": "DISABLE_EXACTLY_ONE_ROLE_AT_CONSTRUCTION",
+      "failureChaining": "FORBIDDEN",
+      "globalNecessityClaimAllowed": false,
+      "order": 8,
+      "parentGeneration": "EXACT_HEALTHY_G_N",
+      "removedRole": "pd_mapper",
+      "replayPolicy": "NEVER_REDISPATCH_AFTER_DURABLE_EFFECT_INTENT",
+      "requiredUnchangedBindings": [
+        "component-manifest-except-removed-role",
+        "executables-and-transitive-inputs",
+        "identities-capabilities-fds-namespaces-cgroups-scheduler",
+        "property-and-ipc-input-generation",
+        "firmware-rfs-and-device-inputs",
+        "observer-metrics-and-budget-receipt",
+        "boot-candidate-rollback-target-and-recovery-bindings"
+      ],
+      "roleSpecificRelevantGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D06",
+        "H0D07"
+      ],
+      "successPromotion": "ELIGIBLE_ONLY_AFTER_COMPLETE_TERMINAL_AND_FRESH_G_N_PLUS_1_BASELINE_QUALIFICATION",
+      "unitId": "WP-H0-2-A7b"
+    },
+    {
+      "deltaCardinality": 1,
+      "dependencyGateProjection": [
+        {
+          "executionEvidenceRole": "NO_RUNTIME_RETIREMENT_CREDIT",
+          "gateId": "H0D01",
+          "parentPreExecutionRequirement": "RETIRE_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_COMPLETE_RETAINED_SET_CLOSURE_BEFORE_EXECUTION",
+          "retirementClass": "OFFLINE_STATIC",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D02",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D03",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D06",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D07",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D08",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D09",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_POST_ABLATION_MINIMIZATION_EVIDENCE",
+          "gateId": "H0D10",
+          "parentPreExecutionRequirement": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION_THEN_FREEZE_RETAINED_SET_AFTER_ABLATION",
+          "preExecutionAction": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION",
+          "retirementClass": "SPLIT_PREEXECUTION_AND_POST_ABLATION_STATIC_FREEZE",
+          "status": "UNPROVED"
+        }
+      ],
+      "effect": "DISABLE_EXACTLY_ONE_ROLE_AT_CONSTRUCTION",
+      "failureChaining": "FORBIDDEN",
+      "globalNecessityClaimAllowed": false,
+      "order": 9,
+      "parentGeneration": "EXACT_HEALTHY_G_N",
+      "removedRole": "rmt_storage",
+      "replayPolicy": "NEVER_REDISPATCH_AFTER_DURABLE_EFFECT_INTENT",
+      "requiredUnchangedBindings": [
+        "component-manifest-except-removed-role",
+        "executables-and-transitive-inputs",
+        "identities-capabilities-fds-namespaces-cgroups-scheduler",
+        "property-and-ipc-input-generation",
+        "firmware-rfs-and-device-inputs",
+        "observer-metrics-and-budget-receipt",
+        "boot-candidate-rollback-target-and-recovery-bindings"
+      ],
+      "roleSpecificRelevantGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D06",
+        "H0D07",
+        "H0D08",
+        "H0D09"
+      ],
+      "successPromotion": "ELIGIBLE_ONLY_AFTER_COMPLETE_TERMINAL_AND_FRESH_G_N_PLUS_1_BASELINE_QUALIFICATION",
+      "unitId": "WP-H0-2-A7c"
+    },
+    {
+      "deltaCardinality": 1,
+      "dependencyGateProjection": [
+        {
+          "executionEvidenceRole": "NO_RUNTIME_RETIREMENT_CREDIT",
+          "gateId": "H0D01",
+          "parentPreExecutionRequirement": "RETIRE_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_COMPLETE_RETAINED_SET_CLOSURE_BEFORE_EXECUTION",
+          "retirementClass": "OFFLINE_STATIC",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D02",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D03",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D07",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D08",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D09",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_POST_ABLATION_MINIMIZATION_EVIDENCE",
+          "gateId": "H0D10",
+          "parentPreExecutionRequirement": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION_THEN_FREEZE_RETAINED_SET_AFTER_ABLATION",
+          "preExecutionAction": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION",
+          "retirementClass": "SPLIT_PREEXECUTION_AND_POST_ABLATION_STATIC_FREEZE",
+          "status": "UNPROVED"
+        }
+      ],
+      "effect": "DISABLE_EXACTLY_ONE_ROLE_AT_CONSTRUCTION",
+      "failureChaining": "FORBIDDEN",
+      "globalNecessityClaimAllowed": false,
+      "order": 10,
+      "parentGeneration": "EXACT_HEALTHY_G_N",
+      "removedRole": "tftp_server",
+      "replayPolicy": "NEVER_REDISPATCH_AFTER_DURABLE_EFFECT_INTENT",
+      "requiredUnchangedBindings": [
+        "component-manifest-except-removed-role",
+        "executables-and-transitive-inputs",
+        "identities-capabilities-fds-namespaces-cgroups-scheduler",
+        "property-and-ipc-input-generation",
+        "firmware-rfs-and-device-inputs",
+        "observer-metrics-and-budget-receipt",
+        "boot-candidate-rollback-target-and-recovery-bindings"
+      ],
+      "roleSpecificRelevantGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D07",
+        "H0D08",
+        "H0D09"
+      ],
+      "successPromotion": "ELIGIBLE_ONLY_AFTER_COMPLETE_TERMINAL_AND_FRESH_G_N_PLUS_1_BASELINE_QUALIFICATION",
+      "unitId": "WP-H0-2-A7d"
+    },
+    {
+      "deltaCardinality": 1,
+      "dependencyGateProjection": [
+        {
+          "executionEvidenceRole": "NO_RUNTIME_RETIREMENT_CREDIT",
+          "gateId": "H0D01",
+          "parentPreExecutionRequirement": "RETIRE_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_COMPLETE_RETAINED_SET_CLOSURE_BEFORE_EXECUTION",
+          "retirementClass": "OFFLINE_STATIC",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D02",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D03",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D04",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D06",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D07",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D09",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_POST_ABLATION_MINIMIZATION_EVIDENCE",
+          "gateId": "H0D10",
+          "parentPreExecutionRequirement": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION_THEN_FREEZE_RETAINED_SET_AFTER_ABLATION",
+          "preExecutionAction": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION",
+          "retirementClass": "SPLIT_PREEXECUTION_AND_POST_ABLATION_STATIC_FREEZE",
+          "status": "UNPROVED"
+        }
+      ],
+      "effect": "DISABLE_EXACTLY_ONE_ROLE_AT_CONSTRUCTION",
+      "failureChaining": "FORBIDDEN",
+      "globalNecessityClaimAllowed": false,
+      "order": 11,
+      "parentGeneration": "EXACT_HEALTHY_G_N",
+      "removedRole": "cnss_daemon",
+      "replayPolicy": "NEVER_REDISPATCH_AFTER_DURABLE_EFFECT_INTENT",
+      "requiredUnchangedBindings": [
+        "component-manifest-except-removed-role",
+        "executables-and-transitive-inputs",
+        "identities-capabilities-fds-namespaces-cgroups-scheduler",
+        "property-and-ipc-input-generation",
+        "firmware-rfs-and-device-inputs",
+        "observer-metrics-and-budget-receipt",
+        "boot-candidate-rollback-target-and-recovery-bindings"
+      ],
+      "roleSpecificRelevantGateIds": [
+        "H0D01",
+        "H0D02",
+        "H0D03",
+        "H0D04",
+        "H0D06",
+        "H0D07",
+        "H0D09"
+      ],
+      "successPromotion": "ELIGIBLE_ONLY_AFTER_COMPLETE_TERMINAL_AND_FRESH_G_N_PLUS_1_BASELINE_QUALIFICATION",
+      "unitId": "WP-H0-2-A8"
+    },
+    {
+      "deltaCardinality": 1,
+      "dependencyGateProjection": [
+        {
+          "executionEvidenceRole": "NO_RUNTIME_RETIREMENT_CREDIT",
+          "gateId": "H0D01",
+          "parentPreExecutionRequirement": "RETIRE_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_COMPLETE_RETAINED_SET_CLOSURE_BEFORE_EXECUTION",
+          "retirementClass": "OFFLINE_STATIC",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D02",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D03",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D07",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D09",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_POST_ABLATION_MINIMIZATION_EVIDENCE",
+          "gateId": "H0D10",
+          "parentPreExecutionRequirement": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION_THEN_FREEZE_RETAINED_SET_AFTER_ABLATION",
+          "preExecutionAction": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION",
+          "retirementClass": "SPLIT_PREEXECUTION_AND_POST_ABLATION_STATIC_FREEZE",
+          "status": "UNPROVED"
+        }
+      ],
+      "effect": "DISABLE_EXACTLY_ONE_ROLE_AT_CONSTRUCTION",
+      "failureChaining": "FORBIDDEN",
+      "globalNecessityClaimAllowed": false,
+      "order": 12,
+      "parentGeneration": "EXACT_HEALTHY_G_N",
+      "removedRole": "modem-holder",
+      "replayPolicy": "NEVER_REDISPATCH_AFTER_DURABLE_EFFECT_INTENT",
+      "requiredUnchangedBindings": [
+        "component-manifest-except-removed-role",
+        "executables-and-transitive-inputs",
+        "identities-capabilities-fds-namespaces-cgroups-scheduler",
+        "property-and-ipc-input-generation",
+        "firmware-rfs-and-device-inputs",
+        "observer-metrics-and-budget-receipt",
+        "boot-candidate-rollback-target-and-recovery-bindings"
+      ],
+      "roleSpecificRelevantGateIds": [
+        "H0D07",
+        "H0D09"
+      ],
+      "successPromotion": "ELIGIBLE_ONLY_AFTER_COMPLETE_TERMINAL_AND_FRESH_G_N_PLUS_1_BASELINE_QUALIFICATION",
+      "unitId": "WP-H0-2-A9"
+    },
+    {
+      "deltaCardinality": 1,
+      "dependencyGateProjection": [
+        {
+          "executionEvidenceRole": "NO_RUNTIME_RETIREMENT_CREDIT",
+          "gateId": "H0D01",
+          "parentPreExecutionRequirement": "RETIRE_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_COMPLETE_RETAINED_SET_CLOSURE_BEFORE_EXECUTION",
+          "retirementClass": "OFFLINE_STATIC",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D02",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D03",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D04",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+          "gateId": "H0D07",
+          "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+          "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+          "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+          "gateId": "H0D09",
+          "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+          "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+          "retirementClass": "RUNTIME_OBSERVATION",
+          "status": "UNPROVED"
+        },
+        {
+          "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_POST_ABLATION_MINIMIZATION_EVIDENCE",
+          "gateId": "H0D10",
+          "parentPreExecutionRequirement": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION_THEN_FREEZE_RETAINED_SET_AFTER_ABLATION",
+          "preExecutionAction": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION",
+          "retirementClass": "SPLIT_PREEXECUTION_AND_POST_ABLATION_STATIC_FREEZE",
+          "status": "UNPROVED"
+        }
+      ],
+      "effect": "DISABLE_EXACTLY_ONE_ROLE_AT_CONSTRUCTION",
+      "failureChaining": "FORBIDDEN",
+      "globalNecessityClaimAllowed": false,
+      "order": 13,
+      "parentGeneration": "EXACT_HEALTHY_G_N",
+      "removedRole": "property-service-shim",
+      "replayPolicy": "NEVER_REDISPATCH_AFTER_DURABLE_EFFECT_INTENT",
+      "requiredUnchangedBindings": [
+        "component-manifest-except-removed-role",
+        "executables-and-transitive-inputs",
+        "identities-capabilities-fds-namespaces-cgroups-scheduler",
+        "property-and-ipc-input-generation",
+        "firmware-rfs-and-device-inputs",
+        "observer-metrics-and-budget-receipt",
+        "boot-candidate-rollback-target-and-recovery-bindings"
+      ],
+      "roleSpecificRelevantGateIds": [
+        "H0D04",
+        "H0D07",
+        "H0D09"
+      ],
+      "successPromotion": "ELIGIBLE_ONLY_AFTER_COMPLETE_TERMINAL_AND_FRESH_G_N_PLUS_1_BASELINE_QUALIFICATION",
+      "unitId": "WP-H0-2-A10"
+    }
+  ],
+  "authority": {
+    "candidateEligible": false,
+    "d0Authorized": false,
+    "d1Authorized": false,
+    "deviceContact": false,
+    "deviceInstallAuthorized": false,
+    "f1Authorized": false,
+    "handoffAuthorized": false,
+    "liveExecutionAuthorized": false,
+    "privateInputRead": false,
+    "propertyProvisionAuthorized": false,
+    "tier": "H0",
+    "ufsMutationAuthorized": false
+  },
+  "baselineFormation": {
+    "aggregateDecisionModel": {
+      "decisionTable": [
+        {
+          "attemptOrderDecisions": [
+            {
+              "aggregateOutcome": "BASELINE_VARIANTS_NOT_STARTED",
+              "attemptOrder": [],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": false
+            }
+          ],
+          "variantResults": {
+            "B0_EARLY_PAIR": "NOT_RUN",
+            "B0_PROVIDER_ADJACENT_PAIR": "NOT_RUN"
+          }
+        },
+        {
+          "attemptOrderDecisions": [
+            {
+              "aggregateOutcome": "G0_SELECTED_PROVIDER_ADJACENT_PAIR",
+              "attemptOrder": [
+                "B0_PROVIDER_ADJACENT_PAIR"
+              ],
+              "g0VariantId": "B0_PROVIDER_ADJACENT_PAIR",
+              "otherVariantProofSequenceCandidate": false
+            }
+          ],
+          "variantResults": {
+            "B0_EARLY_PAIR": "NOT_RUN",
+            "B0_PROVIDER_ADJACENT_PAIR": "BASELINE_ADMITTED_G0"
+          }
+        },
+        {
+          "attemptOrderDecisions": [
+            {
+              "aggregateOutcome": "OTHER_VARIANT_PROOF_SEQUENCE_CANDIDATE",
+              "attemptOrder": [
+                "B0_PROVIDER_ADJACENT_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": true
+            }
+          ],
+          "variantResults": {
+            "B0_EARLY_PAIR": "NOT_RUN",
+            "B0_PROVIDER_ADJACENT_PAIR": "BASELINE_REJECTED"
+          }
+        },
+        {
+          "attemptOrderDecisions": [
+            {
+              "aggregateOutcome": "BASELINE_AGGREGATE_PENDING_NO_SELECTION",
+              "attemptOrder": [
+                "B0_PROVIDER_ADJACENT_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": false
+            }
+          ],
+          "variantResults": {
+            "B0_EARLY_PAIR": "NOT_RUN",
+            "B0_PROVIDER_ADJACENT_PAIR": "BASELINE_NON_ADMITTING"
+          }
+        },
+        {
+          "attemptOrderDecisions": [
+            {
+              "aggregateOutcome": "G0_SELECTED_EARLY_PAIR",
+              "attemptOrder": [
+                "B0_EARLY_PAIR"
+              ],
+              "g0VariantId": "B0_EARLY_PAIR",
+              "otherVariantProofSequenceCandidate": false
+            }
+          ],
+          "variantResults": {
+            "B0_EARLY_PAIR": "BASELINE_ADMITTED_G0",
+            "B0_PROVIDER_ADJACENT_PAIR": "NOT_RUN"
+          }
+        },
+        {
+          "attemptOrderDecisions": [
+            {
+              "aggregateOutcome": "INVALID_EFFECT_AFTER_G0_ADMISSION_NO_SELECTION",
+              "attemptOrder": [
+                "B0_EARLY_PAIR",
+                "B0_PROVIDER_ADJACENT_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": false
+            },
+            {
+              "aggregateOutcome": "INVALID_EFFECT_AFTER_G0_ADMISSION_NO_SELECTION",
+              "attemptOrder": [
+                "B0_PROVIDER_ADJACENT_PAIR",
+                "B0_EARLY_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": false
+            }
+          ],
+          "variantResults": {
+            "B0_EARLY_PAIR": "BASELINE_ADMITTED_G0",
+            "B0_PROVIDER_ADJACENT_PAIR": "BASELINE_ADMITTED_G0"
+          }
+        },
+        {
+          "attemptOrderDecisions": [
+            {
+              "aggregateOutcome": "INVALID_EFFECT_AFTER_G0_ADMISSION_NO_SELECTION",
+              "attemptOrder": [
+                "B0_EARLY_PAIR",
+                "B0_PROVIDER_ADJACENT_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": false
+            },
+            {
+              "aggregateOutcome": "G0_SELECTED_EARLY_PAIR",
+              "attemptOrder": [
+                "B0_PROVIDER_ADJACENT_PAIR",
+                "B0_EARLY_PAIR"
+              ],
+              "g0VariantId": "B0_EARLY_PAIR",
+              "otherVariantProofSequenceCandidate": false
+            }
+          ],
+          "variantResults": {
+            "B0_EARLY_PAIR": "BASELINE_ADMITTED_G0",
+            "B0_PROVIDER_ADJACENT_PAIR": "BASELINE_REJECTED"
+          }
+        },
+        {
+          "attemptOrderDecisions": [
+            {
+              "aggregateOutcome": "INVALID_EFFECT_AFTER_G0_ADMISSION_NO_SELECTION",
+              "attemptOrder": [
+                "B0_EARLY_PAIR",
+                "B0_PROVIDER_ADJACENT_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": false
+            },
+            {
+              "aggregateOutcome": "INVALID_EFFECT_AFTER_NON_ADMITTING_RESULT_NO_SELECTION",
+              "attemptOrder": [
+                "B0_PROVIDER_ADJACENT_PAIR",
+                "B0_EARLY_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": false
+            }
+          ],
+          "variantResults": {
+            "B0_EARLY_PAIR": "BASELINE_ADMITTED_G0",
+            "B0_PROVIDER_ADJACENT_PAIR": "BASELINE_NON_ADMITTING"
+          }
+        },
+        {
+          "attemptOrderDecisions": [
+            {
+              "aggregateOutcome": "OTHER_VARIANT_PROOF_SEQUENCE_CANDIDATE",
+              "attemptOrder": [
+                "B0_EARLY_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": true
+            }
+          ],
+          "variantResults": {
+            "B0_EARLY_PAIR": "BASELINE_REJECTED",
+            "B0_PROVIDER_ADJACENT_PAIR": "NOT_RUN"
+          }
+        },
+        {
+          "attemptOrderDecisions": [
+            {
+              "aggregateOutcome": "G0_SELECTED_PROVIDER_ADJACENT_PAIR",
+              "attemptOrder": [
+                "B0_EARLY_PAIR",
+                "B0_PROVIDER_ADJACENT_PAIR"
+              ],
+              "g0VariantId": "B0_PROVIDER_ADJACENT_PAIR",
+              "otherVariantProofSequenceCandidate": false
+            },
+            {
+              "aggregateOutcome": "INVALID_EFFECT_AFTER_G0_ADMISSION_NO_SELECTION",
+              "attemptOrder": [
+                "B0_PROVIDER_ADJACENT_PAIR",
+                "B0_EARLY_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": false
+            }
+          ],
+          "variantResults": {
+            "B0_EARLY_PAIR": "BASELINE_REJECTED",
+            "B0_PROVIDER_ADJACENT_PAIR": "BASELINE_ADMITTED_G0"
+          }
+        },
+        {
+          "attemptOrderDecisions": [
+            {
+              "aggregateOutcome": "NO_GO_ABLATION_BASELINE",
+              "attemptOrder": [
+                "B0_EARLY_PAIR",
+                "B0_PROVIDER_ADJACENT_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": false
+            },
+            {
+              "aggregateOutcome": "NO_GO_ABLATION_BASELINE",
+              "attemptOrder": [
+                "B0_PROVIDER_ADJACENT_PAIR",
+                "B0_EARLY_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": false
+            }
+          ],
+          "variantResults": {
+            "B0_EARLY_PAIR": "BASELINE_REJECTED",
+            "B0_PROVIDER_ADJACENT_PAIR": "BASELINE_REJECTED"
+          }
+        },
+        {
+          "attemptOrderDecisions": [
+            {
+              "aggregateOutcome": "BASELINE_AGGREGATE_PENDING_NO_SELECTION",
+              "attemptOrder": [
+                "B0_EARLY_PAIR",
+                "B0_PROVIDER_ADJACENT_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": false
+            },
+            {
+              "aggregateOutcome": "INVALID_EFFECT_AFTER_NON_ADMITTING_RESULT_NO_SELECTION",
+              "attemptOrder": [
+                "B0_PROVIDER_ADJACENT_PAIR",
+                "B0_EARLY_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": false
+            }
+          ],
+          "variantResults": {
+            "B0_EARLY_PAIR": "BASELINE_REJECTED",
+            "B0_PROVIDER_ADJACENT_PAIR": "BASELINE_NON_ADMITTING"
+          }
+        },
+        {
+          "attemptOrderDecisions": [
+            {
+              "aggregateOutcome": "BASELINE_AGGREGATE_PENDING_NO_SELECTION",
+              "attemptOrder": [
+                "B0_EARLY_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": false
+            }
+          ],
+          "variantResults": {
+            "B0_EARLY_PAIR": "BASELINE_NON_ADMITTING",
+            "B0_PROVIDER_ADJACENT_PAIR": "NOT_RUN"
+          }
+        },
+        {
+          "attemptOrderDecisions": [
+            {
+              "aggregateOutcome": "INVALID_EFFECT_AFTER_NON_ADMITTING_RESULT_NO_SELECTION",
+              "attemptOrder": [
+                "B0_EARLY_PAIR",
+                "B0_PROVIDER_ADJACENT_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": false
+            },
+            {
+              "aggregateOutcome": "INVALID_EFFECT_AFTER_G0_ADMISSION_NO_SELECTION",
+              "attemptOrder": [
+                "B0_PROVIDER_ADJACENT_PAIR",
+                "B0_EARLY_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": false
+            }
+          ],
+          "variantResults": {
+            "B0_EARLY_PAIR": "BASELINE_NON_ADMITTING",
+            "B0_PROVIDER_ADJACENT_PAIR": "BASELINE_ADMITTED_G0"
+          }
+        },
+        {
+          "attemptOrderDecisions": [
+            {
+              "aggregateOutcome": "INVALID_EFFECT_AFTER_NON_ADMITTING_RESULT_NO_SELECTION",
+              "attemptOrder": [
+                "B0_EARLY_PAIR",
+                "B0_PROVIDER_ADJACENT_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": false
+            },
+            {
+              "aggregateOutcome": "BASELINE_AGGREGATE_PENDING_NO_SELECTION",
+              "attemptOrder": [
+                "B0_PROVIDER_ADJACENT_PAIR",
+                "B0_EARLY_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": false
+            }
+          ],
+          "variantResults": {
+            "B0_EARLY_PAIR": "BASELINE_NON_ADMITTING",
+            "B0_PROVIDER_ADJACENT_PAIR": "BASELINE_REJECTED"
+          }
+        },
+        {
+          "attemptOrderDecisions": [
+            {
+              "aggregateOutcome": "INVALID_EFFECT_AFTER_NON_ADMITTING_RESULT_NO_SELECTION",
+              "attemptOrder": [
+                "B0_EARLY_PAIR",
+                "B0_PROVIDER_ADJACENT_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": false
+            },
+            {
+              "aggregateOutcome": "INVALID_EFFECT_AFTER_NON_ADMITTING_RESULT_NO_SELECTION",
+              "attemptOrder": [
+                "B0_PROVIDER_ADJACENT_PAIR",
+                "B0_EARLY_PAIR"
+              ],
+              "g0VariantId": null,
+              "otherVariantProofSequenceCandidate": false
+            }
+          ],
+          "variantResults": {
+            "B0_EARLY_PAIR": "BASELINE_NON_ADMITTING",
+            "B0_PROVIDER_ADJACENT_PAIR": "BASELINE_NON_ADMITTING"
+          }
+        }
+      ],
+      "freshOtherVariantRule": "The other variant may begin fresh qualification only when the rejected variant's deviceSafetyState is RESIDENT_HEALTHY. Even then this H0 design grants no UNIT_PREPARED transition, execution review, or live authority; every ordinary prerequisite and fresh binding remains mandatory.",
+      "inputRule": "Bind exactly the two distinct required variant IDs. One result per ID is allowed. Duplicate ID, unknown ID/result, missing device-safety/proof fields for a present result, or attempt-order mismatch is INVALID_BASELINE_AGGREGATE_NO_SELECTION.",
+      "invalidInputOutcome": "INVALID_BASELINE_AGGREGATE_NO_SELECTION",
+      "noGoRule": "Exactly one normalized result tuple produces NO_GO_ABLATION_BASELINE: both distinct required variant IDs equal BASELINE_REJECTED; either distinct attempt order reaches the same terminal. Every NOT_RUN or BASELINE_NON_ADMITTING tuple is non-NO_GO.",
+      "normalizedVariantResults": {
+        "BASELINE_ADMITTED_G0": "The variant result is BASELINE+PROVED+RESIDENT_HEALTHY and g0AdmissionEligible=true.",
+        "BASELINE_NON_ADMITTING": "The variant is NO_PROOF_OBSERVER, final-health pending, recovery-parked, malformed, or otherwise non-admitting and non-refuted.",
+        "BASELINE_REJECTED": "The variant experimentProof is exact REFUTED; its independent device-safety state remains separately recorded.",
+        "NOT_RUN": "No result exists for this exact variant."
+      },
+      "rejectedVariantSafetyGate": [
+        {
+          "freshOtherVariantQualificationMayBegin": false,
+          "gateOutcome": "FINAL_RESIDENT_HEALTH_REQUIRED",
+          "reason": "Pre-effect safety is not final resident health.",
+          "rejectedVariantDeviceSafetyState": "BASELINE_HEALTHY"
+        },
+        {
+          "freshOtherVariantQualificationMayBegin": true,
+          "gateOutcome": "MAY_ENTER_FRESH_OTHER_VARIANT_QUALIFICATION",
+          "reason": "Proof sequence may proceed only to fresh qualification; independent review and separate authority remain required before UNIT_PREPARED.",
+          "rejectedVariantDeviceSafetyState": "RESIDENT_HEALTHY"
+        },
+        {
+          "freshOtherVariantQualificationMayBegin": false,
+          "gateOutcome": "RECOVERY_PARKED",
+          "reason": "Exact recovery and final resident health must close before any new non-recovery effect.",
+          "rejectedVariantDeviceSafetyState": "RECOVERY_REQUIRED"
+        }
+      ],
+      "requiredVariantIds": [
+        "B0_EARLY_PAIR",
+        "B0_PROVIDER_ADJACENT_PAIR"
+      ],
+      "resultAxesRule": "The normalized variant result is proof-sequence state only and never authorizes execution. Every present result retains its independent experimentProof, deviceSafetyState, and workflowState.",
+      "sequenceRule": "Every normalized result pair enumerates each possible order of its distinct present variant IDs. A rejected result names only the other variant as a proof-sequence candidate. Admission stops variant execution. A non-admitting result freezes new effects. Any later attempt is an explicit INVALID effect-order outcome."
+    },
+    "dependencyGateProjection": [
+      {
+        "executionEvidenceRole": "NO_RUNTIME_RETIREMENT_CREDIT",
+        "gateId": "H0D01",
+        "parentPreExecutionRequirement": "RETIRE_RELEVANT_ROW_BEFORE_EXECUTION",
+        "preExecutionAction": "RETIRE_COMPLETE_RETAINED_SET_CLOSURE_BEFORE_EXECUTION",
+        "retirementClass": "OFFLINE_STATIC",
+        "status": "UNPROVED"
+      },
+      {
+        "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+        "gateId": "H0D02",
+        "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+        "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+        "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+        "status": "UNPROVED"
+      },
+      {
+        "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+        "gateId": "H0D03",
+        "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+        "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+        "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+        "status": "UNPROVED"
+      },
+      {
+        "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+        "gateId": "H0D04",
+        "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+        "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+        "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+        "status": "UNPROVED"
+      },
+      {
+        "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+        "gateId": "H0D05",
+        "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+        "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+        "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+        "status": "UNPROVED"
+      },
+      {
+        "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+        "gateId": "H0D06",
+        "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+        "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+        "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+        "status": "UNPROVED"
+      },
+      {
+        "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_ONLY_THE_RUNTIME_HALF",
+        "gateId": "H0D07",
+        "parentPreExecutionRequirement": "RETIRE_STATIC_HALF_FOR_RELEVANT_ROW_BEFORE_EXECUTION",
+        "preExecutionAction": "RETIRE_STATIC_HALF_FOR_COMPLETE_RETAINED_SET_BEFORE_EXECUTION",
+        "retirementClass": "HYBRID_STATIC_AND_OBSERVATION",
+        "status": "UNPROVED"
+      },
+      {
+        "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+        "gateId": "H0D08",
+        "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+        "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+        "retirementClass": "RUNTIME_OBSERVATION_AND_ABLATION",
+        "status": "UNPROVED"
+      },
+      {
+        "executionEvidenceRole": "EXECUTION_PRODUCES_RETIREMENT_EVIDENCE",
+        "gateId": "H0D09",
+        "parentPreExecutionRequirement": "BOUNDED_EXECUTION_PRODUCES_RETIREMENT_EVIDENCE_NOT_A_PRECONDITION",
+        "preExecutionAction": "NO_RETIREMENT_PRECONDITION_OBSERVER_MUST_BE_BOUND",
+        "retirementClass": "RUNTIME_OBSERVATION",
+        "status": "UNPROVED"
+      },
+      {
+        "executionEvidenceRole": "EXECUTION_MAY_PRODUCE_POST_ABLATION_MINIMIZATION_EVIDENCE",
+        "gateId": "H0D10",
+        "parentPreExecutionRequirement": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION_THEN_FREEZE_RETAINED_SET_AFTER_ABLATION",
+        "preExecutionAction": "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION",
+        "retirementClass": "SPLIT_PREEXECUTION_AND_POST_ABLATION_STATIC_FREEZE",
+        "status": "UNPROVED"
+      }
+    ],
+    "failureRule": "NO_GO_ABLATION_BASELINE requires exact REFUTED proof for both separately bound variants. NO_PROOF_OBSERVER, BASELINE_HEALTHY without final resident health, or RECOVERY_REQUIRED remains non-admitting and must not be collapsed into NO_GO.",
+    "h24IsHealthyAblationBaseline": false,
+    "mandatoryCorrectionsBeforeAnyBaseline": [
+      {
+        "correctionId": "A1_DEDUPLICATE_SM_HSM",
+        "necessityEvidence": false,
+        "rule": "Exactly one servicemanager and one hwservicemanager instance; construction, order, health, and cleanup derive from one generated manifest."
+      },
+      {
+        "correctionId": "A2_ZERO_GLOBAL_SELINUX_MUTATION",
+        "necessityEvidence": false,
+        "rule": "Zero load-policy or enforce writes and zero read-write bind of global SELinuxFS."
+      },
+      {
+        "correctionId": "A3_BOUND_OBSERVER_AND_SD_FREE_BOOTSTRAP",
+        "necessityEvidence": false,
+        "rule": "Bound non-mutating metrics plus SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_PROVED before execution."
+      }
+    ],
+    "reasons": [
+      "H24 never reached the selected helper route live.",
+      "The selected source graph contains duplicate servicemanager and hwservicemanager instances.",
+      "The selected source route can write global SELinux load and enforce interfaces.",
+      "Its SD property snapshot is forbidden for a successor baseline."
+    ],
+    "selectionRule": "The first independently qualified variant with experimentProof=PROVED, deviceSafetyState=RESIDENT_HEALTHY, complete functional/metric/cleanup/recovery evidence, and generationOutcome=BASELINE_ADMITTED_G0 may become G0; BASELINE_HEALTHY alone is pre-effect safety and never admits G0.",
+    "serviceManagerPlacementVariants": [
+      {
+        "removedDuplicateInstances": [
+          "servicemanager#2",
+          "hwservicemanager#2"
+        ],
+        "retainedInstances": [
+          "servicemanager#1",
+          "hwservicemanager#1"
+        ],
+        "status": "UNPROVED_SEPARATE_FUTURE_BASELINE_UNIT",
+        "variantId": "B0_EARLY_PAIR"
+      },
+      {
+        "removedDuplicateInstances": [
+          "servicemanager#1",
+          "hwservicemanager#1"
+        ],
+        "retainedInstances": [
+          "servicemanager#2",
+          "hwservicemanager#2"
+        ],
+        "status": "UNPROVED_SEPARATE_FUTURE_BASELINE_UNIT",
+        "variantId": "B0_PROVIDER_ADJACENT_PAIR"
+      }
+    ],
+    "variantRule": "Variants are mutually exclusive fresh units; never switch placement inside one unit or call duplicate correction a necessity result."
+  },
+  "generationModel": {
+    "failedUnitRule": "Every outcome other than REMOVAL_SUPPORTED_FOR_GENERATION with an independently qualified fresh baseline is non-promotable; REFUTED, NO_PROOF_OBSERVER, health-pending, and recovery-parked outcomes never chain another removal.",
+    "initialGeneration": "G0_IS_FIRST_COMPLETE_CORRECTED_HEALTHY_BASELINE_NOT_H24",
+    "interactionRule": "Never promote a multi-removal batch; interactions are tested only by later units derived from a newly qualified generation.",
+    "promotionRule": "One REMOVAL_SUPPORTED_FOR_GENERATION result may define proposed G_N_PLUS_1 only after a fresh full baseline qualification of those exact bytes and bindings.",
+    "unitRule": "Every removal unit derives from one exact healthy G_N and changes exactly one role."
+  },
+  "necessityArguments": [
+    {
+      "ablationStage": "A4",
+      "conclusionScope": "FROZEN_H24_SELECTED_SOURCE_GRAPH_ONLY",
+      "currentConclusion": "INDIVIDUAL_NECESSITY_UNPROVED",
+      "dependencyGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D07",
+        "H0D09"
+      ],
+      "positiveEvidenceRequirement": "Healthy firmware, Root PD, WMI, station policy, and cleanup with the role absent.",
+      "role": "cnss_diag",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58753-58757",
+        "a90_android_execns_probe.c:6699-6753"
+      ],
+      "sourceExecutables": [
+        "/vendor/bin/cnss_diag"
+      ],
+      "sourceInstances": [
+        "cnss_diag#1"
+      ],
+      "sourceKinds": [
+        "composite-child"
+      ],
+      "staticHypothesis": "Diagnostic candidate; no current evidence proves it participates in WCNSS/WMI readiness."
+    },
+    {
+      "ablationStage": "A5a",
+      "conclusionScope": "FROZEN_H24_SELECTED_SOURCE_GRAPH_ONLY",
+      "currentConclusion": "INDIVIDUAL_NECESSITY_UNPROVED",
+      "dependencyGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D05"
+      ],
+      "positiveEvidenceRequirement": "All retained Binder transactions and hardware terminals pass without this manager.",
+      "role": "servicemanager",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58654-58666",
+        "a90_android_execns_probe.c:58722-58735",
+        "a90_android_execns_probe.c:7139-7175"
+      ],
+      "sourceExecutables": [
+        "/system/bin/servicemanager"
+      ],
+      "sourceInstances": [
+        "servicemanager#1",
+        "servicemanager#2"
+      ],
+      "sourceKinds": [
+        "composite-child"
+      ],
+      "staticHypothesis": "Compatibility context-manager route; hardware necessity is unproved."
+    },
+    {
+      "ablationStage": "A5b",
+      "conclusionScope": "FROZEN_H24_SELECTED_SOURCE_GRAPH_ONLY",
+      "currentConclusion": "INDIVIDUAL_NECESSITY_UNPROVED",
+      "dependencyGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D05"
+      ],
+      "positiveEvidenceRequirement": "All retained hwBinder transactions and hardware terminals pass without this manager.",
+      "role": "hwservicemanager",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58654-58666",
+        "a90_android_execns_probe.c:58722-58735",
+        "a90_android_execns_probe.c:7139-7175"
+      ],
+      "sourceExecutables": [
+        "/system/bin/hwservicemanager"
+      ],
+      "sourceInstances": [
+        "hwservicemanager#1",
+        "hwservicemanager#2"
+      ],
+      "sourceKinds": [
+        "composite-child"
+      ],
+      "staticHypothesis": "Compatibility context-manager route; hardware necessity is unproved."
+    },
+    {
+      "ablationStage": "A6a",
+      "conclusionScope": "FROZEN_H24_SELECTED_SOURCE_GRAPH_ONLY",
+      "currentConclusion": "INDIVIDUAL_NECESSITY_UNPROVED",
+      "dependencyGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D05"
+      ],
+      "positiveEvidenceRequirement": "All retained vendor Binder transactions and hardware terminals pass without this manager.",
+      "role": "vndservicemanager",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:43674-43677",
+        "a90_android_execns_probe.c:58722-58735"
+      ],
+      "sourceExecutables": [
+        "/vendor/bin/vndservicemanager"
+      ],
+      "sourceInstances": [
+        "vndservicemanager#1"
+      ],
+      "sourceKinds": [
+        "composite-child"
+      ],
+      "staticHypothesis": "Vendor compatibility registry; current selected-source reachability is not individual necessity."
+    },
+    {
+      "ablationStage": "A6b",
+      "conclusionScope": "FROZEN_H24_SELECTED_SOURCE_GRAPH_ONLY",
+      "currentConclusion": "INDIVIDUAL_NECESSITY_UNPROVED",
+      "dependencyGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D05",
+        "H0D09"
+      ],
+      "positiveEvidenceRequirement": "Provider/readiness semantics and all hardware terminals pass without this helper.",
+      "role": "pm_proxy_helper",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58737-58745",
+        "a90_android_execns_probe.c:6972-6981"
+      ],
+      "sourceExecutables": [
+        "/vendor/bin/pm_proxy_helper"
+      ],
+      "sourceInstances": [
+        "pm_proxy_helper#1"
+      ],
+      "sourceKinds": [
+        "composite-child"
+      ],
+      "staticHypothesis": "Provider visibility helper; a direct readiness signal may replace it, but that is unproved."
+    },
+    {
+      "ablationStage": "A6c",
+      "conclusionScope": "FROZEN_H24_SELECTED_SOURCE_GRAPH_ONLY",
+      "currentConclusion": "INDIVIDUAL_NECESSITY_UNPROVED",
+      "dependencyGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D05",
+        "H0D07",
+        "H0D09"
+      ],
+      "positiveEvidenceRequirement": "Provider/readiness semantics and all hardware terminals pass without per_mgr.",
+      "role": "per_mgr",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58737-58745",
+        "a90_android_execns_probe.c:6972-7005"
+      ],
+      "sourceExecutables": [
+        "/vendor/bin/pm-service"
+      ],
+      "sourceInstances": [
+        "per_mgr#1"
+      ],
+      "sourceKinds": [
+        "composite-child"
+      ],
+      "staticHypothesis": "Peripheral-manager compatibility role; exact producer-consumer edges are unproved."
+    },
+    {
+      "ablationStage": "A7a",
+      "conclusionScope": "FROZEN_H24_SELECTED_SOURCE_GRAPH_ONLY",
+      "currentConclusion": "INDIVIDUAL_NECESSITY_UNPROVED",
+      "dependencyGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D06",
+        "H0D07"
+      ],
+      "positiveEvidenceRequirement": "Bound QRTR services, Root PD, WMI, and cleanup pass without qrtr_ns.",
+      "role": "qrtr_ns",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:43679-43682",
+        "a90_android_execns_probe.c:58674-58679",
+        "a90_android_execns_probe.c:6834-6845"
+      ],
+      "sourceExecutables": [
+        "/vendor/bin/qrtr-ns"
+      ],
+      "sourceInstances": [
+        "qrtr_ns#1"
+      ],
+      "sourceKinds": [
+        "composite-child"
+      ],
+      "staticHypothesis": "Plausible QRTR name-service dependency; the exact selected-route necessity is unproved."
+    },
+    {
+      "ablationStage": "A7b",
+      "conclusionScope": "FROZEN_H24_SELECTED_SOURCE_GRAPH_ONLY",
+      "currentConclusion": "INDIVIDUAL_NECESSITY_UNPROVED",
+      "dependencyGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D06",
+        "H0D07"
+      ],
+      "positiveEvidenceRequirement": "Bound PD service and WMI terminals pass without pd_mapper.",
+      "role": "pd_mapper",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58680-58693",
+        "a90_android_execns_probe.c:6929-6940"
+      ],
+      "sourceExecutables": [
+        "/vendor/bin/pd-mapper"
+      ],
+      "sourceInstances": [
+        "pd_mapper#1"
+      ],
+      "sourceKinds": [
+        "composite-child"
+      ],
+      "staticHypothesis": "Plausible protection-domain mapping dependency; individual necessity is unproved."
+    },
+    {
+      "ablationStage": "A7c",
+      "conclusionScope": "FROZEN_H24_SELECTED_SOURCE_GRAPH_ONLY",
+      "currentConclusion": "INDIVIDUAL_NECESSITY_UNPROVED",
+      "dependencyGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D06",
+        "H0D07",
+        "H0D08",
+        "H0D09"
+      ],
+      "positiveEvidenceRequirement": "All observed RFS/QMI requests and hardware terminals pass without rmt_storage.",
+      "role": "rmt_storage",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58680-58693",
+        "a90_android_execns_probe.c:6848-6902"
+      ],
+      "sourceExecutables": [
+        "/vendor/bin/rmt_storage"
+      ],
+      "sourceInstances": [
+        "rmt_storage#1"
+      ],
+      "sourceKinds": [
+        "composite-child"
+      ],
+      "staticHypothesis": "Plausible RFS/QMI storage role; it is not renamed to rmtfs and its H24 identity remains conflicted."
+    },
+    {
+      "ablationStage": "A7d",
+      "conclusionScope": "FROZEN_H24_SELECTED_SOURCE_GRAPH_ONLY",
+      "currentConclusion": "INDIVIDUAL_NECESSITY_UNPROVED",
+      "dependencyGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D07",
+        "H0D08",
+        "H0D09"
+      ],
+      "positiveEvidenceRequirement": "Every bound firmware/RFS request and hardware terminal passes without tftp_server.",
+      "role": "tftp_server",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:58680-58693",
+        "a90_android_execns_probe.c:6905-6926"
+      ],
+      "sourceExecutables": [
+        "/vendor/bin/tftp_server"
+      ],
+      "sourceInstances": [
+        "tftp_server#1"
+      ],
+      "sourceKinds": [
+        "composite-child"
+      ],
+      "staticHypothesis": "Plausible firmware/RFS object server; exact served-object necessity is unproved."
+    },
+    {
+      "ablationStage": "A8",
+      "conclusionScope": "FROZEN_H24_SELECTED_SOURCE_GRAPH_ONLY",
+      "currentConclusion": "INDIVIDUAL_NECESSITY_UNPROVED",
+      "dependencyGateIds": [
+        "H0D01",
+        "H0D02",
+        "H0D03",
+        "H0D04",
+        "H0D06",
+        "H0D07",
+        "H0D09"
+      ],
+      "positiveEvidenceRequirement": "Firmware, Root PD, WMI, station policy, and cold relaunch pass without cnss_daemon.",
+      "role": "cnss_daemon",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:43660-43664",
+        "a90_android_execns_probe.c:58753-58769",
+        "a90_android_execns_probe.c:6630-6697"
+      ],
+      "sourceExecutables": [
+        "/vendor/bin/cnss-daemon"
+      ],
+      "sourceInstances": [
+        "cnss_daemon#1"
+      ],
+      "sourceKinds": [
+        "composite-child"
+      ],
+      "staticHypothesis": "Strongest WCNSS/WLFW control-plane candidate, but historical QMI flow is not current H24 necessity proof."
+    },
+    {
+      "ablationStage": "A9",
+      "conclusionScope": "FROZEN_H24_SELECTED_SOURCE_GRAPH_ONLY",
+      "currentConclusion": "INDIVIDUAL_NECESSITY_UNPROVED",
+      "dependencyGateIds": [
+        "H0D07",
+        "H0D09"
+      ],
+      "positiveEvidenceRequirement": "Root PD, WMI, lifetime accounting, and cleanup pass with no holder or holder FD.",
+      "role": "modem-holder",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:29011-29266",
+        "a90_android_execns_probe.c:58077-58099",
+        "a90_android_execns_probe.c:59754-59767"
+      ],
+      "sourceExecutables": [
+        "forked helper body"
+      ],
+      "sourceInstances": [
+        "modem-holder#1"
+      ],
+      "sourceKinds": [
+        "helper-managed-child"
+      ],
+      "staticHypothesis": "Current /dev/subsys_modem lifetime coupling is source-visible; minimum hardware necessity is unproved."
+    },
+    {
+      "ablationStage": "A10",
+      "conclusionScope": "FROZEN_H24_SELECTED_SOURCE_GRAPH_ONLY",
+      "currentConclusion": "INDIVIDUAL_NECESSITY_UNPROVED",
+      "dependencyGateIds": [
+        "H0D04",
+        "H0D07",
+        "H0D09"
+      ],
+      "positiveEvidenceRequirement": "The full lifecycle has zero required writes/ACKs and passes all hardware and cleanup terminals.",
+      "role": "property-service-shim",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:60957-60986",
+        "a90_android_execns_probe.c:61126-61262",
+        "a90_android_execns_probe.c:61264-61500"
+      ],
+      "sourceExecutables": [
+        "forked helper body"
+      ],
+      "sourceInstances": [
+        "property-service-shim#1"
+      ],
+      "sourceKinds": [
+        "helper-managed-child"
+      ],
+      "staticHypothesis": "Write-ack compatibility shim; it does not prove the property-area read set or required write semantics."
+    },
+    {
+      "ablationStage": null,
+      "conclusionScope": "FROZEN_H24_SELECTED_SOURCE_GRAPH_ONLY",
+      "currentConclusion": "INDIVIDUAL_NECESSITY_UNPROVED",
+      "dependencyGateIds": [
+        "H0D02",
+        "H0D03",
+        "H0D07",
+        "H0D09"
+      ],
+      "positiveEvidenceRequirement": "Replacement belongs to the later reduced-native or Debian-capsule integration, not this ablation program.",
+      "role": "wifi-helper",
+      "sourceAnchors": [
+        "a90_android_execns_probe.c:3540-3605",
+        "a90_android_execns_probe.c:58048-58099",
+        "a90_android_execns_probe.c:58460-59800",
+        "v724/90_main.inc.c:5106-5301",
+        "v724/90_main.inc.c:5660-5765"
+      ],
+      "sourceExecutables": [
+        "/bin/a90_android_execns_probe"
+      ],
+      "sourceInstances": [
+        "wifi-helper#1"
+      ],
+      "sourceKinds": [
+        "topology-owner"
+      ],
+      "staticHypothesis": "Topology owner and accumulated supervisor, not a component-removal variable in WP-H0-2."
+    }
+  ],
+  "outcomeVocabulary": {
+    "deviceSafetyState": {
+      "BASELINE_HEALTHY": "The exact pre-effect baseline remains controlled and recoverable.",
+      "RECOVERY_REQUIRED": "Safety closure is missing, ambiguous, or requires exact recovery.",
+      "RESIDENT_HEALTHY": "Attended return or recovery closed exact native resident health."
+    },
+    "experimentProof": {
+      "NO_PROOF_OBSERVER": "The host could not reach, parse, decide, or attribute the proof; new effects freeze and candidate replay remains forbidden.",
+      "PROVED": "The exact proof subject passed with complete same-run evidence.",
+      "REFUTED": "Exact same-run device evidence contradicts the proof subject."
+    },
+    "generationOutcome": {
+      "BASELINE_ADMITTED_G0": "A corrected baseline proof passed and exact final resident health closed; this is the sole G0-admitting outcome.",
+      "BASELINE_PROVED_FINAL_HEALTH_PENDING_NO_ADMISSION": "The baseline proof passed and pre-effect baseline health remains controlled, but final resident health is not closed; no G0 admission.",
+      "BASELINE_PROVED_RECOVERY_PARKED_NO_ADMISSION": "The baseline proof passed but safety requires recovery; no G0 admission.",
+      "BASELINE_REJECTED": "Exact device evidence refuted the baseline subject.",
+      "NO_GO_ABLATION_BASELINE": "Both corrected placement variants were separately refuted; ablation stops.",
+      "NO_PROOF_OBSERVER": "Experiment proof is unresolved; no promotion.",
+      "REMOVAL_PROVED_FINAL_HEALTH_PENDING_NO_PROMOTION": "The removal proof passed but final resident health is not closed; no promotion.",
+      "REMOVAL_PROVED_RECOVERY_PARKED_NO_PROMOTION": "The removal proof passed but safety requires recovery; no promotion.",
+      "REMOVAL_REFUTED_FOR_GENERATION": "Exact device evidence refuted this one-role removal for this generation only.",
+      "REMOVAL_SUPPORTED_FOR_GENERATION": "The role-removal proof passed and final resident health closed for this generation only."
+    },
+    "workflowState": {
+      "RECOVERY_PARKED": "Exact recovery is the only device effect allowed; experiment proof remains independently recorded.",
+      "TERMINAL": "The device-safety axis is closed."
+    }
+  },
+  "parentInventory": {
+    "bytes": 42264,
+    "path": "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json",
+    "schema": "a90-h24-wlan-capsule-dependency-inventory-v1",
+    "sha256": "d4ac9b47de9674995b891e888937969cb34b74d27b1c59e35cb7172fbd3370cb"
+  },
+  "promotionAndStopRules": {
+    "optionCPromotionRequires": [
+      "H0D01-through-H0D10-retired-by-declared-evidence-class",
+      "one-property-terminal",
+      "finite-retained-component-contract",
+      "cold-relaunch-and-complete-shutdown",
+      "Debian-owned-scan-association-and-dhcp",
+      "capsule-containment-and-remote-workload-separation",
+      "measured-budget-pass",
+      "independent-security-and-execution-review"
+    ],
+    "permanentBoundaries": [
+      "boot-only-transfer",
+      "exact-rollback-and-physical-recovery",
+      "target-isolation",
+      "durable-no-replay",
+      "private-evidence",
+      "attended-fresh-authority",
+      "final-native-health-after-return-or-recovery"
+    ],
+    "stop": "Any authority, input, target, graph, baseline, observer, budget, cleanup, rollback, recovery, or health ambiguity remains H0/NO_GO."
+  },
+  "propertyExperiments": [
+    {
+      "acceptedSuccess": "PROPERTY_ABSENT_PROVED",
+      "mutuallyExclusiveWith": "WP-H0-2-A11b",
+      "singleVariable": "Remove the complete property read area.",
+      "unitId": "WP-H0-2-A11a"
+    },
+    {
+      "acceptedSuccess": "PROPERTY_FINITE_SEED_PROVED",
+      "mutuallyExclusiveWith": "WP-H0-2-A11a",
+      "singleVariable": "Replace the bootstrap superset with one candidate finite seed.",
+      "unitId": "WP-H0-2-A11b"
+    }
+  ],
+  "resultContract": {
+    "budgetRule": "No numeric pass budget exists. Derive and independently bind budgets from a measured corrected BASELINE_HEALTHY result before execution qualification.",
+    "classificationModel": {
+      "coexistenceRule": "deviceSafetyState and experimentProof are never collapsed. REFUTED may coexist with RECOVERY_REQUIRED and workflow RECOVERY_PARKED; recovery uncertainty never erases or downgrades the exact device contradiction.",
+      "generationDecisionTable": [
+        {
+          "deviceSafetyState": "BASELINE_HEALTHY",
+          "experimentProof": "PROVED",
+          "g0AdmissionEligible": false,
+          "generationOutcome": "BASELINE_PROVED_FINAL_HEALTH_PENDING_NO_ADMISSION",
+          "promotionEligible": false,
+          "proofSubject": "BASELINE"
+        },
+        {
+          "deviceSafetyState": "RESIDENT_HEALTHY",
+          "experimentProof": "PROVED",
+          "g0AdmissionEligible": true,
+          "generationOutcome": "BASELINE_ADMITTED_G0",
+          "promotionEligible": false,
+          "proofSubject": "BASELINE"
+        },
+        {
+          "deviceSafetyState": "RECOVERY_REQUIRED",
+          "experimentProof": "PROVED",
+          "g0AdmissionEligible": false,
+          "generationOutcome": "BASELINE_PROVED_RECOVERY_PARKED_NO_ADMISSION",
+          "promotionEligible": false,
+          "proofSubject": "BASELINE"
+        },
+        {
+          "deviceSafetyState": "BASELINE_HEALTHY",
+          "experimentProof": "REFUTED",
+          "g0AdmissionEligible": false,
+          "generationOutcome": "BASELINE_REJECTED",
+          "promotionEligible": false,
+          "proofSubject": "BASELINE"
+        },
+        {
+          "deviceSafetyState": "RESIDENT_HEALTHY",
+          "experimentProof": "REFUTED",
+          "g0AdmissionEligible": false,
+          "generationOutcome": "BASELINE_REJECTED",
+          "promotionEligible": false,
+          "proofSubject": "BASELINE"
+        },
+        {
+          "deviceSafetyState": "RECOVERY_REQUIRED",
+          "experimentProof": "REFUTED",
+          "g0AdmissionEligible": false,
+          "generationOutcome": "BASELINE_REJECTED",
+          "promotionEligible": false,
+          "proofSubject": "BASELINE"
+        },
+        {
+          "deviceSafetyState": "BASELINE_HEALTHY",
+          "experimentProof": "NO_PROOF_OBSERVER",
+          "g0AdmissionEligible": false,
+          "generationOutcome": "NO_PROOF_OBSERVER",
+          "promotionEligible": false,
+          "proofSubject": "BASELINE"
+        },
+        {
+          "deviceSafetyState": "RESIDENT_HEALTHY",
+          "experimentProof": "NO_PROOF_OBSERVER",
+          "g0AdmissionEligible": false,
+          "generationOutcome": "NO_PROOF_OBSERVER",
+          "promotionEligible": false,
+          "proofSubject": "BASELINE"
+        },
+        {
+          "deviceSafetyState": "RECOVERY_REQUIRED",
+          "experimentProof": "NO_PROOF_OBSERVER",
+          "g0AdmissionEligible": false,
+          "generationOutcome": "NO_PROOF_OBSERVER",
+          "promotionEligible": false,
+          "proofSubject": "BASELINE"
+        },
+        {
+          "deviceSafetyState": "BASELINE_HEALTHY",
+          "experimentProof": "PROVED",
+          "g0AdmissionEligible": false,
+          "generationOutcome": "REMOVAL_PROVED_FINAL_HEALTH_PENDING_NO_PROMOTION",
+          "promotionEligible": false,
+          "proofSubject": "ROLE_REMOVAL"
+        },
+        {
+          "deviceSafetyState": "RESIDENT_HEALTHY",
+          "experimentProof": "PROVED",
+          "g0AdmissionEligible": false,
+          "generationOutcome": "REMOVAL_SUPPORTED_FOR_GENERATION",
+          "promotionEligible": true,
+          "proofSubject": "ROLE_REMOVAL"
+        },
+        {
+          "deviceSafetyState": "RECOVERY_REQUIRED",
+          "experimentProof": "PROVED",
+          "g0AdmissionEligible": false,
+          "generationOutcome": "REMOVAL_PROVED_RECOVERY_PARKED_NO_PROMOTION",
+          "promotionEligible": false,
+          "proofSubject": "ROLE_REMOVAL"
+        },
+        {
+          "deviceSafetyState": "BASELINE_HEALTHY",
+          "experimentProof": "REFUTED",
+          "g0AdmissionEligible": false,
+          "generationOutcome": "REMOVAL_REFUTED_FOR_GENERATION",
+          "promotionEligible": false,
+          "proofSubject": "ROLE_REMOVAL"
+        },
+        {
+          "deviceSafetyState": "RESIDENT_HEALTHY",
+          "experimentProof": "REFUTED",
+          "g0AdmissionEligible": false,
+          "generationOutcome": "REMOVAL_REFUTED_FOR_GENERATION",
+          "promotionEligible": false,
+          "proofSubject": "ROLE_REMOVAL"
+        },
+        {
+          "deviceSafetyState": "RECOVERY_REQUIRED",
+          "experimentProof": "REFUTED",
+          "g0AdmissionEligible": false,
+          "generationOutcome": "REMOVAL_REFUTED_FOR_GENERATION",
+          "promotionEligible": false,
+          "proofSubject": "ROLE_REMOVAL"
+        },
+        {
+          "deviceSafetyState": "BASELINE_HEALTHY",
+          "experimentProof": "NO_PROOF_OBSERVER",
+          "g0AdmissionEligible": false,
+          "generationOutcome": "NO_PROOF_OBSERVER",
+          "promotionEligible": false,
+          "proofSubject": "ROLE_REMOVAL"
+        },
+        {
+          "deviceSafetyState": "RESIDENT_HEALTHY",
+          "experimentProof": "NO_PROOF_OBSERVER",
+          "g0AdmissionEligible": false,
+          "generationOutcome": "NO_PROOF_OBSERVER",
+          "promotionEligible": false,
+          "proofSubject": "ROLE_REMOVAL"
+        },
+        {
+          "deviceSafetyState": "RECOVERY_REQUIRED",
+          "experimentProof": "NO_PROOF_OBSERVER",
+          "g0AdmissionEligible": false,
+          "generationOutcome": "NO_PROOF_OBSERVER",
+          "promotionEligible": false,
+          "proofSubject": "ROLE_REMOVAL"
+        }
+      ],
+      "invalidInputRule": "Unknown enum, missing field, duplicate row, impossible normalization, or unmatched table row is schema failure and closes experimentProof as NO_PROOF_OBSERVER, deviceSafetyState as RECOVERY_REQUIRED, workflowState as RECOVERY_PARKED, with no new effect or replay.",
+      "normalizationRules": [
+        "VALID_COMPLETE remains VALID_COMPLETE; every other observerOutcome normalizes to INVALID_OR_UNRESOLVED.",
+        "REQUIRED_TERMINAL_OR_BUDGET_FAILED normalizes to ATTRIBUTABLE_CONTRADICTION only when exact same-run device evidence and attribution match the proof subject; otherwise it normalizes to NOT_OBSERVED_OR_AMBIGUOUS.",
+        "Attribution matches only BASELINE for proofSubject BASELINE or REMOVED_ROLE for proofSubject ROLE_REMOVAL; every other pair is DOES_NOT_MATCH_OR_UNRESOLVED."
+      ],
+      "proofDecisionOrder": [
+        "First: matched ATTRIBUTABLE_CONTRADICTION -> REFUTED, regardless of observer defect.",
+        "Second: VALID_COMPLETE plus ALL_REQUIRED_PASSED plus matched attribution -> PROVED.",
+        "Else: NO_PROOF_OBSERVER."
+      ],
+      "proofDecisionTable": [
+        {
+          "attributionRelation": "MATCHES_PROOF_SUBJECT",
+          "decisionReason": "COMPLETE_MATCHED_SUCCESS",
+          "experimentEvidenceClass": "ALL_REQUIRED_PASSED",
+          "experimentProof": "PROVED",
+          "observerClass": "VALID_COMPLETE"
+        },
+        {
+          "attributionRelation": "DOES_NOT_MATCH_OR_UNRESOLVED",
+          "decisionReason": "FAIL_CLOSED_UNRESOLVED_OR_OBSERVER_INVALID",
+          "experimentEvidenceClass": "ALL_REQUIRED_PASSED",
+          "experimentProof": "NO_PROOF_OBSERVER",
+          "observerClass": "VALID_COMPLETE"
+        },
+        {
+          "attributionRelation": "MATCHES_PROOF_SUBJECT",
+          "decisionReason": "DEVICE_CONTRADICTION_WINS_EVEN_WITH_OBSERVER_DEFECT",
+          "experimentEvidenceClass": "ATTRIBUTABLE_CONTRADICTION",
+          "experimentProof": "REFUTED",
+          "observerClass": "VALID_COMPLETE"
+        },
+        {
+          "attributionRelation": "DOES_NOT_MATCH_OR_UNRESOLVED",
+          "decisionReason": "FAIL_CLOSED_UNRESOLVED_OR_OBSERVER_INVALID",
+          "experimentEvidenceClass": "ATTRIBUTABLE_CONTRADICTION",
+          "experimentProof": "NO_PROOF_OBSERVER",
+          "observerClass": "VALID_COMPLETE"
+        },
+        {
+          "attributionRelation": "MATCHES_PROOF_SUBJECT",
+          "decisionReason": "FAIL_CLOSED_UNRESOLVED_OR_OBSERVER_INVALID",
+          "experimentEvidenceClass": "NOT_OBSERVED_OR_AMBIGUOUS",
+          "experimentProof": "NO_PROOF_OBSERVER",
+          "observerClass": "VALID_COMPLETE"
+        },
+        {
+          "attributionRelation": "DOES_NOT_MATCH_OR_UNRESOLVED",
+          "decisionReason": "FAIL_CLOSED_UNRESOLVED_OR_OBSERVER_INVALID",
+          "experimentEvidenceClass": "NOT_OBSERVED_OR_AMBIGUOUS",
+          "experimentProof": "NO_PROOF_OBSERVER",
+          "observerClass": "VALID_COMPLETE"
+        },
+        {
+          "attributionRelation": "MATCHES_PROOF_SUBJECT",
+          "decisionReason": "FAIL_CLOSED_UNRESOLVED_OR_OBSERVER_INVALID",
+          "experimentEvidenceClass": "ALL_REQUIRED_PASSED",
+          "experimentProof": "NO_PROOF_OBSERVER",
+          "observerClass": "INVALID_OR_UNRESOLVED"
+        },
+        {
+          "attributionRelation": "DOES_NOT_MATCH_OR_UNRESOLVED",
+          "decisionReason": "FAIL_CLOSED_UNRESOLVED_OR_OBSERVER_INVALID",
+          "experimentEvidenceClass": "ALL_REQUIRED_PASSED",
+          "experimentProof": "NO_PROOF_OBSERVER",
+          "observerClass": "INVALID_OR_UNRESOLVED"
+        },
+        {
+          "attributionRelation": "MATCHES_PROOF_SUBJECT",
+          "decisionReason": "DEVICE_CONTRADICTION_WINS_EVEN_WITH_OBSERVER_DEFECT",
+          "experimentEvidenceClass": "ATTRIBUTABLE_CONTRADICTION",
+          "experimentProof": "REFUTED",
+          "observerClass": "INVALID_OR_UNRESOLVED"
+        },
+        {
+          "attributionRelation": "DOES_NOT_MATCH_OR_UNRESOLVED",
+          "decisionReason": "FAIL_CLOSED_UNRESOLVED_OR_OBSERVER_INVALID",
+          "experimentEvidenceClass": "ATTRIBUTABLE_CONTRADICTION",
+          "experimentProof": "NO_PROOF_OBSERVER",
+          "observerClass": "INVALID_OR_UNRESOLVED"
+        },
+        {
+          "attributionRelation": "MATCHES_PROOF_SUBJECT",
+          "decisionReason": "FAIL_CLOSED_UNRESOLVED_OR_OBSERVER_INVALID",
+          "experimentEvidenceClass": "NOT_OBSERVED_OR_AMBIGUOUS",
+          "experimentProof": "NO_PROOF_OBSERVER",
+          "observerClass": "INVALID_OR_UNRESOLVED"
+        },
+        {
+          "attributionRelation": "DOES_NOT_MATCH_OR_UNRESOLVED",
+          "decisionReason": "FAIL_CLOSED_UNRESOLVED_OR_OBSERVER_INVALID",
+          "experimentEvidenceClass": "NOT_OBSERVED_OR_AMBIGUOUS",
+          "experimentProof": "NO_PROOF_OBSERVER",
+          "observerClass": "INVALID_OR_UNRESOLVED"
+        }
+      ],
+      "requiredRawFields": {
+        "attribution": [
+          "BASELINE",
+          "REMOVED_ROLE",
+          "UNRESOLVED"
+        ],
+        "experimentEvidence": [
+          "ALL_REQUIRED_PASSED",
+          "REQUIRED_TERMINAL_OR_BUDGET_FAILED",
+          "NOT_OBSERVED_OR_AMBIGUOUS"
+        ],
+        "observerOutcome": [
+          "VALID_COMPLETE",
+          "UNREACHABLE",
+          "MISSING",
+          "MALFORMED",
+          "STALE",
+          "MIXED_RUN",
+          "AMBIGUOUS"
+        ],
+        "proofSubject": [
+          "BASELINE",
+          "ROLE_REMOVAL"
+        ],
+        "safetyClosureEvidence": [
+          "EXACT_BASELINE_HEALTHY",
+          "EXACT_RESIDENT_HEALTHY_AFTER_RETURN_OR_RECOVERY",
+          "MISSING_AMBIGUOUS_OR_RECOVERY_REQUIRED"
+        ]
+      },
+      "safetyDecisionTable": [
+        {
+          "deviceSafetyState": "BASELINE_HEALTHY",
+          "safetyClosureEvidence": "EXACT_BASELINE_HEALTHY",
+          "workflowState": "TERMINAL"
+        },
+        {
+          "deviceSafetyState": "RESIDENT_HEALTHY",
+          "safetyClosureEvidence": "EXACT_RESIDENT_HEALTHY_AFTER_RETURN_OR_RECOVERY",
+          "workflowState": "TERMINAL"
+        },
+        {
+          "deviceSafetyState": "RECOVERY_REQUIRED",
+          "safetyClosureEvidence": "MISSING_AMBIGUOUS_OR_RECOVERY_REQUIRED",
+          "workflowState": "RECOVERY_PARKED"
+        }
+      ]
+    },
+    "functionalProof": [
+      "firmware-ready",
+      "root-pd-ready",
+      "wmi-ready",
+      "wlan0-exact-driver",
+      "bounded-scan",
+      "association",
+      "dhcp-and-route",
+      "authenticated-service-when-in-scope"
+    ],
+    "metrics": {
+      "cleanup": [
+        "pid",
+        "pgid",
+        "cgroup",
+        "namespace-fd",
+        "device-fd",
+        "socket",
+        "property",
+        "binder",
+        "qrtr",
+        "residue"
+      ],
+      "dependency": [
+        "property-read-write",
+        "binder-transaction",
+        "qrtr-qmi-event",
+        "firmware-rfs-request"
+      ],
+      "footprint": [
+        "process",
+        "thread",
+        "fd",
+        "rss",
+        "pss",
+        "cgroup-memory",
+        "binder-object",
+        "qrtr-endpoint"
+      ],
+      "latency": [
+        "component-ready",
+        "backend-ready",
+        "scan",
+        "association",
+        "dhcp",
+        "cleanup",
+        "recovery"
+      ],
+      "network": [
+        "throughput",
+        "latency",
+        "loss",
+        "retransmit",
+        "packet",
+        "flow",
+        "final-wifi-state"
+      ],
+      "runtime": [
+        "cpu-time",
+        "wakeups",
+        "context-switches",
+        "io-bytes",
+        "cache-write",
+        "fsync",
+        "rename"
+      ]
+    },
+    "noProofRule": "Observer validity, experiment proof, device safety, and workflow are independent required fields; attributable device contradiction has proof precedence while safety uncertainty independently parks recovery.",
+    "requiredBindings": [
+      "schema-and-unit-id",
+      "target-resident-candidate-rollback-and-recovery",
+      "parent-generation-and-component-manifest-digests",
+      "removed-role-and-exact-one-delta-digest",
+      "boot-run-nonce-and-durable-journal-chain",
+      "observer-and-budget-receipt-digests",
+      "original-stage-result-errno-and-separate-cleanup-result",
+      "device-safety-experiment-proof-workflow-and-generation-outcome-scope"
+    ]
+  },
+  "schema": "a90-h24-wlan-one-factor-ablation-design-v1",
+  "sdFreeBootstrap": {
+    "afterAblation": {
+      "acceptedTerminals": [
+        "PROPERTY_ABSENT_PROVED",
+        "PROPERTY_FINITE_SEED_PROVED"
+      ],
+      "rule": "Freeze the retained-set minimum; a bootstrap superset is never production-minimality evidence."
+    },
+    "beforeAnyExecution": [
+      "Derive the superset only from exact public binaries, public defaults/config, and reviewed deterministic generators.",
+      "Never read, copy, relocate, or bless the private whole property snapshot.",
+      "Bind every bootstrap key, context, value source, generator byte, file identity, digest, and read-only lifetime.",
+      "If a required value cannot be derived without the private snapshot, baseline formation is NO_GO."
+    ],
+    "notSelectedAlternative": "A temporary SD-backed diagnostic would require a separate design, independent review, identity, and live authority; this design grants none.",
+    "selectedRule": "PUBLIC_DETERMINISTIC_BOOTSTRAP_SUPERSET_OR_NO_GO"
+  },
+  "stateMachine": {
+    "currentReachableTransitions": [],
+    "currentState": "H0_DESIGN_ONLY",
+    "futureStates": [
+      "STATIC_PREREQUISITES_READY",
+      "INDEPENDENTLY_REVIEWED",
+      "SEPARATELY_AUTHORIZED",
+      "UNIT_PREPARED",
+      "EFFECT_INTENT_DURABLE",
+      "EFFECT_DISPATCHED_ONCE",
+      "OBSERVING",
+      "TERMINAL"
+    ],
+    "futureTransitionRules": [
+      "No future live state is reachable from this document alone.",
+      "UNIT_PREPARED requires exact target, healthy parent generation, candidate, rollback, recovery, observer, budget, and row-static bindings.",
+      "Durably publish one exact effect intent before the first removal effect.",
+      "After effect intent, never resend or replay the removal; reconciliation is observation, cleanup, rollback, recovery, and reporting only.",
+      "Missing, mixed-run, malformed, stale, or ambiguous observation sets experimentProof=NO_PROOF_OBSERVER; independent safety uncertainty sets deviceSafetyState=RECOVERY_REQUIRED and workflowState=RECOVERY_PARKED."
+    ]
+  },
+  "status": {
+    "budgetStatus": "UNSET_REQUIRES_MEASURED_HEALTHY_BASELINE",
+    "correctedHealthyBaseline": "ABSENT_UNPROVED",
+    "currentState": "H0_DESIGN_ONLY",
+    "executionQualification": "ABSENT",
+    "independentExecutionReview": "ABSENT",
+    "liveAuthority": false,
+    "optionC": "BLOCKED_RESEARCH_ONLY",
+    "wpH02Design": "COMPLETE_H0_DESIGN_ONLY"
+  }
+}

@@ -11,7 +11,7 @@ ANALYSIS = (
     / "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15"
 )
 EXPECTED_COLLECTION_SHA256 = (
-    "adc7127d7a7fe7960d28e26267f096c30ec56ddc649a3b3ed961c8d3e4a05368"
+    "d1e9ae368d697b4556584e264d523de72eb7c991d6cf9a3fb742528f3b3a62f6"
 )
 
 EVIDENCE_RELS = (
@@ -62,6 +62,12 @@ class A90WlanVendorPropertyAblationHardeningDocsTest(unittest.TestCase):
         self.proposal = (
             ANALYSIS / "proposals/wlan-vendor-property-ablation.md"
         ).read_text()
+        self.design = json.loads(
+            (
+                ANALYSIS
+                / "design/a90-h24-wlan-one-factor-ablation-design-v1.json"
+            ).read_text()
+        )
         self.helper = (
             ROOT
             / "workspace/public/src/native-init/helpers/a90_android_execns_probe.c"
@@ -350,9 +356,53 @@ class A90WlanVendorPropertyAblationHardeningDocsTest(unittest.TestCase):
             all(gate["status"] == "UNPROVED" for gate in inventory["dependencyGates"])
         )
         self.assertIn("H0D01-H0D10", self.proposal)
-        self.assertIn("`WP-H0-2` **design** may now proceed as H0", self.proposal)
+        self.assertIn("`WP-H0-2` **design** is now complete as H0", self.proposal)
         self.assertIn("cannot be retired by\none offline generation", self.proposal)
         self.assertIn("Option C is still research-only", (ANALYSIS / "hardening.md").read_text())
+
+    def test_wp_h0_2_design_boundary_is_complete_but_not_executable(self) -> None:
+        assessment = self.data["assessment"]
+        self.assertEqual(assessment["wpH02Design"], "COMPLETE_H0_DESIGN_ONLY")
+        self.assertEqual(
+            assessment["wpH02DesignPath"],
+            "design/a90-h24-wlan-one-factor-ablation-design-v1.json",
+        )
+        self.assertEqual(assessment["wpH02CorrectedHealthyBaseline"], "ABSENT_UNPROVED")
+        self.assertEqual(assessment["wpH02ExecutionQualification"], "ABSENT")
+        self.assertIs(assessment["wpH02LiveAuthority"], False)
+        self.assertEqual(self.design["status"]["wpH02Design"], "COMPLETE_H0_DESIGN_ONLY")
+        self.assertEqual(self.design["stateMachine"]["currentReachableTransitions"], [])
+        self.assertIs(self.design["authority"]["liveExecutionAuthorized"], False)
+        self.assertIn("H24 is **not** an ablation baseline", self.proposal)
+        self.assertIn("SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_PROVED", self.proposal)
+        self.assertIn("REMOVAL_SUPPORTED_FOR_GENERATION", self.proposal)
+        self.assertIn("NO_PROOF_OBSERVER", self.proposal)
+        self.assertNotIn("with identical remaining\nbytes", self.proposal)
+        self.assertIn("Observer/parser failure and device functional failure", self.proposal)
+        diagram = (
+            ANALYSIS / "diagrams/wlan-vendor-property-ablation-state-machine.mmd"
+        ).read_text()
+        self.assertTrue(diagram.startswith("flowchart LR\n"))
+        self.assertIn("H0 design only", diagram)
+        self.assertIn("never replay", diagram)
+        self.assertIn("Permanent boundary retained", diagram)
+        self.assertIn("One exact variant failed", diagram)
+        self.assertIn("only after the other separately bound variant also fails", diagram)
+        self.assertIn("Both exact variant failures bound", diagram)
+        self.assertIn("pre-effect health only; never admits G0", diagram)
+        self.assertIn("BASELINE_ADMITTED_G0", diagram)
+        aggregate = self.design["baselineFormation"]["aggregateDecisionModel"]
+        self.assertEqual(len(aggregate["decisionTable"]), 16)
+        self.assertEqual(
+            sum(
+                any(
+                    decision["aggregateOutcome"] == "NO_GO_ABLATION_BASELINE"
+                    for decision in row["attemptOrderDecisions"]
+                )
+                for row in aggregate["decisionTable"]
+            ),
+            1,
+        )
 
     def test_prior_portfolio_correction_is_locked(self) -> None:
         prior = (
@@ -383,6 +433,7 @@ class A90WlanVendorPropertyAblationHardeningDocsTest(unittest.TestCase):
             "## Comparison",
             "## Recommendation",
             "## Ablation Matrix",
+            "## WP-H0-2 One-Factor Design Boundary",
             "## Evidence Coverage And Residual Risk",
             "## Migration And Rollout",
             "## Validation Plan",

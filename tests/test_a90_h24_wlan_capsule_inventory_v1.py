@@ -196,8 +196,17 @@ class A90H24WlanCapsuleInventoryV1Test(unittest.TestCase):
         )
         self.assertEqual(
             by_id["H0D10"]["preExecutionRequirement"],
-            "NOT_A_PRECONDITION_TO_ABLATION_FREEZE_AFTER_RETAINED_SET",
+            "PROVE_SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_BEFORE_EXECUTION_THEN_FREEZE_RETAINED_SET_AFTER_ABLATION",
         )
+        self.assertEqual(
+            by_id["H0D10"]["preExecutionHalf"]["requiredTerminal"],
+            "SD_FREE_PUBLIC_BOOTSTRAP_SUPERSET_PROVED",
+        )
+        self.assertEqual(
+            by_id["H0D10"]["postAblationHalf"]["acceptedTerminals"],
+            ["PROPERTY_ABSENT_PROVED", "PROPERTY_FINITE_SEED_PROVED"],
+        )
+        self.assertIn("No future baseline", by_id["H0D10"]["preExecutionHalf"]["rule"])
         self.assertEqual(
             {gate["retirementClass"] for gate in gates},
             {
@@ -205,7 +214,7 @@ class A90H24WlanCapsuleInventoryV1Test(unittest.TestCase):
                 "HYBRID_STATIC_AND_OBSERVATION",
                 "RUNTIME_OBSERVATION_AND_ABLATION",
                 "RUNTIME_OBSERVATION",
-                "POST_ABLATION_STATIC_FREEZE",
+                "SPLIT_PREEXECUTION_AND_POST_ABLATION_STATIC_FREEZE",
             },
         )
         self.assertEqual(

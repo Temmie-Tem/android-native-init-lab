@@ -5,10 +5,10 @@
   "sourceEvidence": {
     "kind": "document_collection",
     "label": "A90 contracts, WSTA control-plane evidence, H24 selected manifests/source, incidents, and preceding ownership/input hardening decisions",
-    "collectionSha256": "adc7127d7a7fe7960d28e26267f096c30ec56ddc649a3b3ed961c8d3e4a05368",
+    "collectionSha256": "d1e9ae368d697b4556584e264d523de72eb7c991d6cf9a3fb742528f3b3a62f6",
     "artifactCount": 24,
-    "baselineRevision": "dd8d0d8a59f84419ec830e0798718dc14edbd3b7",
-    "sourceRefreeze": "Exact working-tree bytes after the WP-H0-1 public historical dependency evidence and prior-portfolio status correction",
+    "baselineRevision": "fda348a072eba8a53c2de7c9904c52429a7dddaf",
+    "sourceRefreeze": "Exact working-tree bytes after WP-H0-1 and the GOAL_A90 WP-H0-2 H0-only status update",
     "sourceDrift": "none"
   },
   "authority": {
@@ -30,7 +30,7 @@
     "s20plusContactCount": 0
   },
   "assessment": {
-    "verdict": "H0_ABLATION_PROGRAM_SELECTED_NO_CANDIDATE_AUTHORITY",
+    "verdict": "H0_WP_H0_2_DESIGN_COMPLETE_NO_CANDIDATE_AUTHORITY",
     "strongestFinding": "The H24-selected control flow constructs thirteen composite children representing eleven unique roles because servicemanager and hwservicemanager are each enqueued twice, while the published order hides the duplicate pair.",
     "propertyVerdict": "UNPROVED",
     "globalPolicyVerdict": "REJECT_SELECTED_GLOBAL_SELINUX_LOAD_AND_PERMISSIVE_WRITE_FROM_ANY_SUCCESSOR",
@@ -39,6 +39,11 @@
     "wpH01Overall": "PARTIAL_RUNTIME_CLOSURE_BLOCKED",
     "wpH01OpaqueRuntimeClosure": "BLOCKED_UNPROVED_H0D01_THROUGH_H0D10",
     "inventoryPath": "inventory/a90-h24-wlan-capsule-dependency-inventory-v1.json",
+    "wpH02Design": "COMPLETE_H0_DESIGN_ONLY",
+    "wpH02DesignPath": "design/a90-h24-wlan-one-factor-ablation-design-v1.json",
+    "wpH02CorrectedHealthyBaseline": "ABSENT_UNPROVED",
+    "wpH02ExecutionQualification": "ABSENT",
+    "wpH02LiveAuthority": false,
     "observed": [
       "H24 selected source contains thirteen composite entries, a property shim, a modem holder, and the helper itself before station policy.",
       "H24 never reached this helper route live; its consumed D1 stopped at persistent HUD.",
@@ -54,7 +59,7 @@
       "Use one generated duplicate-rejecting component manifest for construction, logs, health, cleanup, and evidence.",
       "Accept only PROPERTY_ABSENT_PROVED or PROPERTY_FINITE_SEED_PROVED.",
       "Run the same one-factor ablation and measurement contract before selecting either ownership topology.",
-      "Proceed with WP-H0-2 design as H0, retire each row's static prerequisites before separately authorized observation or ablation, and retire all ten H0D gates by their declared evidence classes before Option C implementation."
+      "Use the completed WP-H0-2 H0 design for corrected-baseline and exact-one-role planning; prove the public SD-free bootstrap superset and each row's static prerequisites before separately reviewed and authorized execution, then retire all ten H0D gates by their declared evidence classes before Option C implementation."
     ]
   },
   "constraints": {
@@ -63,6 +68,8 @@
       "No successor inherits an SD path, global SELinux policy write, hidden duplicate, or hand-maintained process/order mismatch.",
       "The proc capability-exposure incident is closed under either topology.",
       "One ablation changes one variable and a failed unit is never the next baseline.",
+      "H24 is not the ablation baseline; the first complete corrected healthy variant becomes G0.",
+      "No future baseline reads the SD property snapshot or a copied private whole snapshot.",
       "Host fixtures do not substitute for future hardware necessity evidence.",
       "Rollback, physical recovery, durable no-replay, target isolation, and final health remain mandatory."
     ],

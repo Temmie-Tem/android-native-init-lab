@@ -237,6 +237,41 @@ not fallbacks. While Debian is live the state remains
 - final Debian PID 1, authenticated SSH, final Wi-Fi, minimal-device-tree, and
   same-run evidence.
 
+### WLAN backend minimization pre-candidate gate
+
+The isolated-Debian topology remains the reference boundary, but it does not
+make the accumulated H24 vendor backend minimal. The H0 portfolio at
+`docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/`
+therefore freezes a topology-neutral minimization gate before any successor
+identity:
+
+- `WP-H0-1` source-parses the exact H24-selected graph as thirteen composite
+  instances / eleven unique roles plus property shim, modem holder, and helper.
+  It proves no individual role necessary or unnecessary; `H0D01-H0D10` remain
+  `UNPROVED`.
+- `WP-H0-2` now fixes the H0-only corrected-baseline and one-factor state
+  machine in
+  `design/a90-h24-wlan-one-factor-ablation-design-v1.json`. H24 is not the
+  baseline: its helper route was not reached live, it contains duplicate
+  service-manager pairs and global SELinux mutation, and it consumes the
+  forbidden SD property snapshot.
+- Two mutually exclusive corrected service-manager placements remain
+  unproved. Only the first separately qualified variant with `PROVED` baseline
+  proof and final `RESIDENT_HEALTHY` may become `G0`; `BASELINE_HEALTHY` alone
+  never admits it. Every later unit removes exactly one role from an exact
+  healthy generation; failed, refuted, ambiguous, or recovery-parked units
+  never chain or become a baseline.
+- Before any future execution, H0D10 requires a public deterministic SD-free
+  bootstrap superset. It may not copy or bless the private whole snapshot.
+  After ablation, the retained set must close as `PROPERTY_ABSENT_PROVED` or
+  `PROPERTY_FINITE_SEED_PROVED`.
+- Numeric budgets remain unset until measured from a corrected healthy
+  baseline. The design has no execution implementation, qualification,
+  independent execution review, identity, candidate, D0, D1, F1, handoff, UFS
+  mutation, property provisioning, or live authority. Option C remains
+  research-only until all ten dependency gates and its containment/switch
+  conditions close.
+
 ## What Leaves or Moves Out
 
 Remove from the next headless critical path now:

@@ -5,9 +5,9 @@
 This H0 review asks whether we can replace the selected dual-supervisor steady
 state with Debian PID 1 as the sole administrative owner. The source collection
 is bound by SHA256
-`f2f26a6afd630cba1d23e3d44fb426b90f487d243bb816ed65ae446263c4d1c8`
+`90a4c704e282749c48da023833614a30d3312f58b99ce4d1b5ee7d5df5a0cb78`
 across 28 public artifacts at revision
-`dc65c5797d820f20afcbbb13fe9f30d3c8d6c82b`.
+`fda348a072eba8a53c2de7c9904c52429a7dddaf`.
 
 The record is stronger than either simple conclusion. WSTA18 proves that
 letting Android/vendor userspace disappear while Debian merely inherits

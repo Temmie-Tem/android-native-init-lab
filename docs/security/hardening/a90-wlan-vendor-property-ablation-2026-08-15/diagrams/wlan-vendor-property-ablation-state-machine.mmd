@@ -1,0 +1,51 @@
+flowchart LR
+    H0["H0 design only<br/>no live authority"] --> P["Row static prerequisites<br/>plus SD-free public bootstrap superset"]
+    P -. "future independent review and separate authority" .-> B["Corrected baseline unit<br/>A1 dedupe + A2 zero global SELinux mutation"]
+
+    subgraph baseline_boundary["Corrected-baseline boundary"]
+        E["Early SM/HSM pair"]
+        A["Provider-adjacent SM/HSM pair"]
+        GC["First variant with PROVED<br/>plus RESIDENT_HEALTHY"]
+        G0["BASELINE_ADMITTED_G0"]
+        E --> GC
+        A --> GC
+        GC --> G0
+    end
+
+    B --> E
+    B --> A
+    E -. "failure" .-> VF["One exact variant failed<br/>the other remains UNPROVED"]
+    A -. "failure" .-> VF
+    VF -. "only after the other separately bound variant also fails" .-> BF["Both exact variant failures bound"]
+    BF --> NG["NO_GO_ABLATION_BASELINE"]
+
+    G0 --> U["One exact role removal<br/>from exact healthy G(n)"]
+    U --> I["Durable effect intent"]
+    I --> D["Dispatch once<br/>never replay"]
+    D --> O["Same-run observation<br/>metrics + cleanup + recovery"]
+
+    O --> EP["Experiment-proof axis"]
+    O --> DS["Device-safety axis"]
+    EP --> PR["PROVED"]
+    EP --> R["REFUTED"]
+    EP --> N["NO_PROOF_OBSERVER"]
+    DS --> BH["BASELINE_HEALTHY"]
+    DS --> RH["RESIDENT_HEALTHY"]
+    DS --> RR["RECOVERY_REQUIRED"]
+    RR --> K["RECOVERY_PARKED"]
+    PR --> S["For ROLE_REMOVAL: requires both PROVED and RESIDENT_HEALTHY<br/>REMOVAL_SUPPORTED_FOR_GENERATION"]
+    RH --> S
+    BH -. "pre-effect health only; never admits G0" .-> HP["Final resident health pending<br/>no G0 admission"]
+    S -. "fresh full baseline qualification" .-> GN["G(n+1)"]
+    GN --> U
+
+    R -. "may coexist with RECOVERY_PARKED; never chain" .-> X["Stop this unit"]
+    N -. "never chain" .-> X
+    K -. "no replay" .-> X
+
+    subgraph permanent_boundary["Permanent boundary retained"]
+        PB["Boot-only transfer<br/>exact rollback and recovery<br/>target isolation<br/>private evidence<br/>final native health"]
+    end
+
+    PB --- B
+    PB --- U

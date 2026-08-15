@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ANALYSIS = ROOT / "docs/security/hardening/a90-sd-free-input-evidence-2026-08-15"
 EXPECTED_COLLECTION_SHA256 = (
-    "68549ffb7c26ff6a79185a3397ee7d392fc175654a812c71d795d5bcb7a6339b"
+    "6bd63492c56ac099936d2594d38cec36095138cd93cd2214746f895a09a4e62f"
 )
 
 EVIDENCE_RELS = (

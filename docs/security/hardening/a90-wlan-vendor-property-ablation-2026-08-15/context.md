@@ -2,7 +2,7 @@
 
 Date: 2026-08-15
 Repository: `android-native-init-lab` (all paths below are repository-relative)
-Baseline revision: `dd8d0d8a59f84419ec830e0798718dc14edbd3b7`; the exact
+Baseline revision: `fda348a072eba8a53c2de7c9904c52429a7dddaf`; the exact
 collection below was refrozen after adding the public historical dependency
 evidence and correcting the prior portfolio's `WP-H0-1` status
 Target: operator-owned Samsung Galaxy A90 5G only
@@ -48,14 +48,14 @@ security index entry, and corrections to the prior portfolio's inaccurate
 The collection digest is computed over the following files in the listed
 order as `relative_path NUL size NUL sha256 NUL`:
 
-`adc7127d7a7fe7960d28e26267f096c30ec56ddc649a3b3ed961c8d3e4a05368`
+`d1e9ae368d697b4556584e264d523de72eb7c991d6cf9a3fb742528f3b3a62f6`
 
 Artifact count: `24`. Source drift at analysis time: `none`.
 
 | SHA256 | Bytes | Repository-relative path |
 | --- | ---: | --- |
 | `a90560db2985b588a1aa53c0a2078bb6d930865895167a5b71e5bba2acec076b` | 11157 | `AGENTS.md` |
-| `9cf34ea25062c6280254b67e0a62de48f6b477de1ce6ab779aa532d38d066d5e` | 24893 | `GOAL_A90.md` |
+| `fca649759d6275267f71fc303d978c31220bbcf9bb95c24c47283fd813566b88` | 26900 | `GOAL_A90.md` |
 | `ed9f51212db33bd822dc96ecf12feeda05ce255d088c402c4742851d173fad51` | 89405 | `docs/operations/targets/A90_TARGET_CONTRACT.md` |
 | `edd64a434330f79a3b1ec542c12822e5b201362c212484c7b67d67b4ffbb61a9` | 97237 | `docs/operations/CAMPAIGN_LEDGER_A90.md` |
 | `1c7984a85af3cb059244d7f3e7ed5b21516a60657bd947a275a4ed7e4faa5b71` | 4991 | `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA18_CONTROL_PLANE_BLOCKED_2026-07-04.md` |
