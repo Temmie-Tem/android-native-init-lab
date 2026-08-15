@@ -7,6 +7,12 @@ Device or live effect: none
 Disposition: shifts the prior on which vendor roles are load-bearing; settles
 that a same-tree kernel rebuild does not shorten the ablation program
 
+Follow-up (2026-08-16):
+[`A90_WLAN_KERNEL_SOURCE_CONFIRMATION_H0_2026-08-16.md`](A90_WLAN_KERNEL_SOURCE_CONFIRMATION_H0_2026-08-16.md)
+preserves this pre-source prior and records what the matching source confirms,
+corrects, or leaves unproved. This report remains the historical prior, not the
+current source-backed conclusion.
+
 Scope of the claim, stated once so nothing below is read past it: a kernel
 configuration proves what is **compiled in**, never what **executes**. Every
 statement here about which component performs a runtime step is a **prior**, to
