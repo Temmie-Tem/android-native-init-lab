@@ -873,6 +873,11 @@ rebuildability; another output path requires a new identity and full qualificati
 Detailed report:
 `docs/reports/S22PLUS_FYG8_P317_CDC_ACM_ENDPOINT_SELECTOR_CORRECTION_H0_2026-08-14.md`.
 
+The first P3.18 live-prerequisite D0 stopped on three residual P3.17 records;
+its ledger row records that the unnormalized decoder left no result receipt.
+The typed non-reusable stop-result successor has independent H0 `PASS_GO`, but
+ready verification remains fail closed until downstream Process-v2 requalification.
+
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden
 archive member, an unreviewed common receipt/schema change, an observer result
 that cannot distinguish the declared branches, or any unexplained post-session

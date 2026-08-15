@@ -1,10 +1,14 @@
 import copy
 import hashlib
 import importlib.util
+import io
 import json
+import os
+import stat
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
@@ -17,6 +21,11 @@ MANIFEST = (
     ROOT
     / "workspace/public/src/device-action/manifests/"
     "s22plus_fyg8_r4w1c_process_v2_draft.json"
+)
+P318_MANIFEST = (
+    ROOT
+    / "workspace/public/src/device-action/manifests/"
+    "s22plus_fyg8_p318_process_v2_ready_1.json"
 )
 
 sys.path.insert(0, str(REVALIDATION))
@@ -114,6 +123,7 @@ class DeviceActionD0V2Test(unittest.TestCase):
         cls.module = load_module()
         cls.profile = json.loads(PROFILE.read_text(encoding="utf-8"))
         cls.manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        cls.p318_manifest = json.loads(P318_MANIFEST.read_text(encoding="utf-8"))
 
     def bundle(self, profile=None, manifest=None):
         return self.module.f1.Bundle(
@@ -299,11 +309,143 @@ class DeviceActionD0V2Test(unittest.TestCase):
                     usb = self.usb_root(root)
                     client = FakeClient(self.profile, marker=payload)
                     with self.assertRaisesRegex(
-                        self.module.D0Error, "candidate marker family"
+                        self.module.D0Error, "durable D0 stop result"
                     ):
                         self.module.collect_connected(
                             bundle, run_dir, client, usb
                         )
+                    stop = json.loads((run_dir / "result.json").read_bytes())
+                    self.assertEqual(
+                        stop["stop"]["reason"], "retained-evidence-present"
+                    )
+                    self.assertFalse(stop["stop"]["final_health_observed"])
+                    self.module.validate_stop_result(stop, bundle, run_dir)
+
+    def test_p318_decoder_rejection_is_normalized_into_durable_stop_result(self):
+        acceptance = self.p318_manifest["observation"]["acceptance"]
+        model = self.module.f1.typed_evidence.p318_max77705_decoder.model
+        payload = model.initialize_record(
+            acceptance["profile"], bytes.fromhex(acceptance["run_id"])
+        )
+        bundle = self.bundle(manifest=copy.deepcopy(self.p318_manifest))
+        client = FakeClient(self.profile, marker=payload)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            run_dir = root / "run"
+            run_dir.mkdir()
+            with self.assertRaisesRegex(
+                self.module.D0Error, "durable D0 stop result"
+            ):
+                self.module.collect_connected(
+                    bundle, run_dir, client, self.usb_root(root)
+                )
+            stop_path = run_dir / "result.json"
+            self.assertEqual(stop_path.stat().st_mode & 0o777, 0o400)
+            stop = json.loads(stop_path.read_bytes())
+            self.assertEqual(stop["schema"], self.module.D0_STOP_RESULT_SCHEMA)
+            self.assertEqual(stop["version"], self.module.D0_STOP_VERSION)
+            self.assertEqual(stop["verdict"], self.module.D0_STOP_VERDICT)
+            self.assertEqual(stop["stop"]["reason"], "baseline-decoder-rejected")
+            self.assertFalse(stop["usb"]["final_observed"])
+            self.assertFalse(stop["stop"]["final_target_continuity_observed"])
+            self.assertFalse(stop["stop"]["final_health_observed"])
+            self.assertFalse(stop["stop"]["result_reusable"])
+            self.assertEqual(stop["observer"]["bytes"], len(payload))
+            self.assertEqual(
+                stop["observer"]["sha256"], hashlib.sha256(payload).hexdigest()
+            )
+            self.module.validate_stop_result(stop, bundle, run_dir)
+            self.assertEqual(client.calls.count("one_serial"), 1)
+            self.assertEqual(client.calls.count("properties"), 1)
+
+            changed = copy.deepcopy(stop)
+            changed["stop"]["reason"] = "retained-evidence-present"
+            with self.assertRaises(self.module.D0Error):
+                self.module.validate_stop_result(changed, bundle, run_dir)
+            changed = copy.deepcopy(stop)
+            changed["stop"]["final_health_observed"] = True
+            with self.assertRaises(self.module.D0Error):
+                self.module.validate_stop_result(changed, bundle, run_dir)
+            for section, key, value in (
+                ("observer", "stderr_bytes", False),
+                ("observer", "path", 1),
+                ("initial_usb", "download_endpoint_count", False),
+            ):
+                with self.subTest(section=section, key=key):
+                    changed = copy.deepcopy(stop)
+                    if section == "initial_usb":
+                        changed["usb"]["initial"][key] = value
+                    else:
+                        changed[section][key] = value
+                    with self.assertRaises(self.module.D0Error):
+                        self.module.validate_stop_result(changed, bundle, run_dir)
+            (run_dir / "baseline-observer.bin").write_bytes(b"changed")
+            with self.assertRaises(self.module.D0Error):
+                self.module.validate_stop_result(stop, bundle, run_dir)
+
+    def test_durable_result_publication_forces_exact_mode_under_hostile_umask(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            result_path = Path(temporary) / "result.json"
+            previous = os.umask(0o777)
+            try:
+                self.module.durable_create(result_path, {"fixture": "readable"})
+            finally:
+                os.umask(previous)
+            metadata = result_path.stat()
+            self.assertTrue(stat.S_ISREG(metadata.st_mode))
+            self.assertEqual(metadata.st_mode & 0o777, 0o400)
+            self.assertEqual(metadata.st_nlink, 1)
+            self.assertEqual(
+                json.loads(result_path.read_bytes()), {"fixture": "readable"}
+            )
+
+    def test_connected_cli_returns_clean_error_after_publishing_stop_result(self):
+        acceptance = self.p318_manifest["observation"]["acceptance"]
+        model = self.module.f1.typed_evidence.p318_max77705_decoder.model
+        payload = model.initialize_record(
+            acceptance["profile"], bytes.fromhex(acceptance["run_id"])
+        )
+        bundle = self.bundle(manifest=copy.deepcopy(self.p318_manifest))
+        client = FakeClient(self.profile, marker=payload)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            run_dir = root / "run"
+            run_dir.mkdir()
+            adb = root / "adb"
+            adb.write_bytes(b"fixture-adb")
+            adb.chmod(0o700)
+            usb_root = self.usb_root(root)
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            with (
+                mock.patch.object(
+                    self.module.f1, "verify_bundle", return_value=bundle
+                ),
+                mock.patch.object(
+                    self.module, "allocate_run_dir", return_value=run_dir
+                ),
+                mock.patch.object(
+                    self.module, "adb_client_for_bundle", return_value=client
+                ),
+                mock.patch.object(self.module, "DEFAULT_USB_ROOT", usb_root),
+                redirect_stdout(stdout),
+                redirect_stderr(stderr),
+            ):
+                rc = self.module.main(
+                    [
+                        "--connected-read-only",
+                        "--manifest",
+                        str(root / "manifest.json"),
+                        "--adb",
+                        str(adb),
+                    ]
+                )
+            self.assertEqual(rc, 2)
+            self.assertEqual(stdout.getvalue(), "")
+            self.assertIn("durable D0 stop result was preserved", stderr.getvalue())
+            self.assertNotIn("Traceback", stderr.getvalue())
+            stop = json.loads((run_dir / "result.json").read_bytes())
+            self.module.validate_stop_result(stop, bundle, run_dir)
 
     def test_result_validator_rejects_authority_and_evidence_tamper(self):
         temporary, result, _client = self.run_connected()

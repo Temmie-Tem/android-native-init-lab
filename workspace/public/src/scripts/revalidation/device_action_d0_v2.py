@@ -25,6 +25,13 @@ import device_action_f1_v2 as f1
 D0_VERSION = "device-action-d0-v2-2"
 D0_RESULT_SCHEMA = "device_action_d0_result_v2"
 D0_VERDICT = "PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY"
+D0_STOP_RESULT_SCHEMA = "device_action_d0_stop_result_v1"
+D0_STOP_VERSION = "device-action-d0-stop-v1"
+D0_STOP_VERDICT = "STOP_DEVICE_ACTION_D0_V2_BASELINE_REJECTED"
+D0_BASELINE_STOP_REASONS = {
+    "baseline-decoder-rejected",
+    "retained-evidence-present",
+}
 DEFAULT_RUN_ROOT = Path("workspace/private/runs/device-action-d0-v2")
 DEFAULT_USB_ROOT = Path("/sys/bus/usb/devices")
 MAX_TEXT_OUTPUT = 64 * 1024
@@ -396,6 +403,15 @@ def durable_create(path: Path, value: dict[str, Any]) -> None:
     try:
         if os.write(descriptor, payload) != len(payload):
             raise D0Error("short D0 result write")
+        os.fchmod(descriptor, 0o400)
+        metadata = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or stat.S_IMODE(metadata.st_mode) != 0o400
+            or metadata.st_nlink != 1
+            or metadata.st_size != len(payload)
+        ):
+            raise D0Error("D0 result publication metadata is invalid")
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
@@ -476,6 +492,202 @@ def _exact(value: Any, keys: set[str], label: str) -> dict[str, Any]:
     return value
 
 
+def _target_evidence(
+    bundle: f1.Bundle,
+    properties: dict[str, str],
+    serial: str,
+    topology: str,
+) -> dict[str, Any]:
+    value = {
+        "schema": f1.TARGET_EVIDENCE_SCHEMA,
+        "targets": [
+            {
+                "model": properties["model"],
+                "device": properties["device"],
+                "firmware_incremental": properties["incremental"],
+                "android_transport": "adb",
+                "adb_serial_sha256": hashlib.sha256(serial.encode()).hexdigest(),
+                "usb_topology_sha256": hashlib.sha256(topology.encode()).hexdigest(),
+            }
+        ],
+        "odin_endpoint_absent": True,
+    }
+    f1.validate_target_evidence(bundle.profile, value)
+    return value
+
+
+def _inspect_clean_baseline(
+    payload: bytes, acceptance: dict[str, Any]
+) -> tuple[dict[str, Any] | None, str | None]:
+    try:
+        baseline = f1.typed_evidence.classify_clean_baseline(payload, acceptance)
+    except (ValueError, TypeError, KeyError):
+        return None, "baseline-decoder-rejected"
+    if (
+        not isinstance(baseline, dict)
+        or not isinstance(baseline.get("baseline_clean"), bool)
+        or not isinstance(baseline.get("family_count"), int)
+        or isinstance(baseline.get("family_count"), bool)
+        or baseline["family_count"] < 0
+        or not isinstance(baseline.get("exact_record_count"), int)
+        or isinstance(baseline.get("exact_record_count"), bool)
+        or baseline["exact_record_count"] < 0
+        or not isinstance(baseline.get("integrity_issue"), bool)
+    ):
+        return None, "baseline-decoder-rejected"
+    if baseline["baseline_clean"] is not True:
+        return baseline, "retained-evidence-present"
+    return baseline, None
+
+
+def _validate_health_receipt(
+    value: Any, bundle: f1.Bundle, label: str
+) -> dict[str, Any]:
+    health = _exact(
+        value,
+        {
+            "android_boot_completed",
+            "boot_animation_stopped",
+            "verified_boot_state",
+            "root_verified",
+            "boot_sha256",
+            "supporting_partition_sha256",
+            "odin_endpoint_absent",
+            "kernel_release",
+            "boot_id_sha256",
+        },
+        label,
+    )
+    expected_health = bundle.profile["start_health"]
+    for key in (
+        "android_boot_completed",
+        "boot_animation_stopped",
+        "root_verified",
+        "odin_endpoint_absent",
+    ):
+        if health[key] is not True:
+            raise D0Error(f"{label} is false: {key}")
+    if (
+        health["verified_boot_state"] != expected_health["verified_boot_state"]
+        or health["boot_sha256"] != expected_health["boot_sha256"]
+        or health["supporting_partition_sha256"]
+        != expected_health["supporting_partition_sha256"]
+        or not isinstance(health["boot_id_sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", health["boot_id_sha256"]) is None
+        or not isinstance(health["kernel_release"], str)
+        or not health["kernel_release"]
+    ):
+        raise D0Error(f"{label} identity is invalid")
+    return health
+
+
+def _validate_usb_snapshot(value: Any, label: str) -> dict[str, Any]:
+    snapshot = _exact(
+        value,
+        {"enumerated_devices", "download_endpoint_count", "snapshot_sha256"},
+        label,
+    )
+    if (
+        not isinstance(snapshot["enumerated_devices"], int)
+        or isinstance(snapshot["enumerated_devices"], bool)
+        or snapshot["enumerated_devices"] <= 0
+        or not isinstance(snapshot["download_endpoint_count"], int)
+        or isinstance(snapshot["download_endpoint_count"], bool)
+        or snapshot["download_endpoint_count"] != 0
+        or not isinstance(snapshot["snapshot_sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", snapshot["snapshot_sha256"]) is None
+    ):
+        raise D0Error(f"{label} is invalid")
+    return snapshot
+
+
+def _validate_host_tool(value: Any) -> dict[str, Any]:
+    host_tool = _exact(
+        value,
+        {"path", "size", "sha256", "version_output_sha256"},
+        "D0 host-tool receipt",
+    )
+    if (
+        not isinstance(host_tool["path"], str)
+        or not host_tool["path"]
+        or not isinstance(host_tool["size"], int)
+        or isinstance(host_tool["size"], bool)
+        or host_tool["size"] <= 0
+        or not isinstance(host_tool["sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", host_tool["sha256"]) is None
+        or not isinstance(host_tool["version_output_sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", host_tool["version_output_sha256"])
+        is None
+    ):
+        raise D0Error("D0 host-tool receipt is invalid")
+    return host_tool
+
+
+def _validate_observer_file(
+    observer: Any,
+    *,
+    keys: set[str],
+    source: str,
+    run_dir: Path,
+    label: str,
+) -> bytes:
+    value = _exact(observer, keys, label)
+    if (
+        not isinstance(value["path"], str)
+        or not value["path"]
+        or value["source"] != source
+        or not isinstance(value["bytes"], int)
+        or isinstance(value["bytes"], bool)
+        or not 1 <= value["bytes"] <= MAX_OBSERVER_BYTES
+        or not isinstance(value["sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", value["sha256"]) is None
+        or value["read_to_eof"] is not True
+        or not isinstance(value["stderr_bytes"], int)
+        or isinstance(value["stderr_bytes"], bool)
+        or value["stderr_bytes"] != 0
+        or not isinstance(value["elapsed_sec"], (int, float))
+        or isinstance(value["elapsed_sec"], bool)
+        or not 0 < value["elapsed_sec"] <= 185
+    ):
+        raise D0Error(f"{label} evidence is invalid")
+    observer_path = Path(value["path"])
+    expected_path = (run_dir / "baseline-observer.bin").absolute()
+    if not observer_path.is_absolute() or observer_path != expected_path:
+        raise D0Error(f"{label} path is outside its run directory")
+    payload = _read_stable(observer_path, MAX_OBSERVER_BYTES)
+    if (
+        len(payload) != value["bytes"]
+        or hashlib.sha256(payload).hexdigest() != value["sha256"]
+    ):
+        raise D0Error(f"{label} raw evidence does not match its receipt")
+    try:
+        stderr_payload = _read_stable(
+            observer_path.with_suffix(observer_path.suffix + ".stderr"),
+            MAX_TEXT_OUTPUT,
+        )
+    except OSError as exc:
+        raise D0Error(f"{label} stderr evidence is unavailable") from exc
+    if stderr_payload:
+        raise D0Error(f"{label} stderr evidence is not empty")
+    return payload
+
+
+def _validate_no_effects(result: dict[str, Any], label: str) -> None:
+    if result["device_contact"] is not True:
+        raise D0Error(f"{label} does not prove connected collection")
+    for key in (
+        "device_writes",
+        "reboot_requested",
+        "download_transition_requested",
+        "odin_invoked",
+        "partition_transfer",
+        "f1_authorized",
+        "live_authorized",
+    ):
+        if result[key] is not False:
+            raise D0Error(f"{label} contains forbidden authority: {key}")
+
+
 def validate_result(
     result: dict[str, Any], bundle: f1.Bundle, run_dir: Path
 ) -> dict[str, Any]:
@@ -517,54 +729,9 @@ def validate_result(
     for key, expected in expected_header.items():
         if result[key] != expected:
             raise D0Error(f"D0 result header mismatch: {key}")
-    if result["device_contact"] is not True:
-        raise D0Error("D0 result does not prove connected collection")
-    for key in (
-        "device_writes",
-        "reboot_requested",
-        "download_transition_requested",
-        "odin_invoked",
-        "partition_transfer",
-        "f1_authorized",
-        "live_authorized",
-    ):
-        if result[key] is not False:
-            raise D0Error(f"D0 result contains forbidden authority: {key}")
+    _validate_no_effects(result, "D0 result")
     f1.validate_target_evidence(bundle.profile, result["target_evidence"])
-    health = _exact(
-        result["health"],
-        {
-            "android_boot_completed",
-            "boot_animation_stopped",
-            "verified_boot_state",
-            "root_verified",
-            "boot_sha256",
-            "supporting_partition_sha256",
-            "odin_endpoint_absent",
-            "kernel_release",
-            "boot_id_sha256",
-        },
-        "D0 health",
-    )
-    expected_health = bundle.profile["start_health"]
-    for key in (
-        "android_boot_completed",
-        "boot_animation_stopped",
-        "root_verified",
-        "odin_endpoint_absent",
-    ):
-        if health[key] is not True:
-            raise D0Error(f"D0 health is false: {key}")
-    if (
-        health["verified_boot_state"] != expected_health["verified_boot_state"]
-        or health["boot_sha256"] != expected_health["boot_sha256"]
-        or health["supporting_partition_sha256"]
-        != expected_health["supporting_partition_sha256"]
-        or re.fullmatch(r"[0-9a-f]{64}", health["boot_id_sha256"]) is None
-        or not isinstance(health["kernel_release"], str)
-        or not health["kernel_release"]
-    ):
-        raise D0Error("D0 health identity is invalid")
+    _validate_health_receipt(result["health"], bundle, "D0 health")
     observer = result["observer"]
     required_observer = {
         "path",
@@ -578,84 +745,175 @@ def validate_result(
         "exact_marker_count",
         "baseline_clean",
     }
-    _exact(observer, required_observer, "D0 observer")
+    observer_payload = _validate_observer_file(
+        observer,
+        keys=required_observer,
+        source=bundle.manifest["observation"]["acceptance"]["source"],
+        run_dir=run_dir,
+        label="D0 observer",
+    )
     if (
-        observer["source"] != bundle.manifest["observation"]["acceptance"]["source"]
-        or not isinstance(observer["bytes"], int)
-        or isinstance(observer["bytes"], bool)
-        or not 1 <= observer["bytes"] <= MAX_OBSERVER_BYTES
-        or re.fullmatch(r"[0-9a-f]{64}", observer["sha256"]) is None
-        or observer["read_to_eof"] is not True
-        or observer["stderr_bytes"] != 0
-        or not isinstance(observer["elapsed_sec"], (int, float))
-        or isinstance(observer["elapsed_sec"], bool)
-        or not 0 < observer["elapsed_sec"] <= 185
-        or observer["marker_family_count"] != 0
+        observer["marker_family_count"] != 0
         or observer["exact_marker_count"] != 0
         or observer["baseline_clean"] is not True
     ):
         raise D0Error("D0 observer evidence is invalid")
-    observer_path = Path(observer["path"])
-    expected_observer_path = (run_dir / "baseline-observer.bin").absolute()
-    if not observer_path.is_absolute() or observer_path != expected_observer_path:
-        raise D0Error("D0 observer path is outside its run directory")
-    observer_payload = _read_stable(observer_path, MAX_OBSERVER_BYTES)
-    try:
-        baseline = f1.typed_evidence.classify_clean_baseline(
-            observer_payload,
-            bundle.manifest["observation"]["acceptance"],
-        )
-    except f1.typed_evidence.EvidenceError as exc:
-        raise D0Error(str(exc)) from exc
+    baseline, stop_reason = _inspect_clean_baseline(
+        observer_payload, bundle.manifest["observation"]["acceptance"]
+    )
+    if stop_reason is not None or baseline is None:
+        raise D0Error("D0 success result contains a rejected baseline")
     if (
-        len(observer_payload) != observer["bytes"]
-        or hashlib.sha256(observer_payload).hexdigest() != observer["sha256"]
-        or observer["marker_family_count"] != baseline["family_count"]
+        observer["marker_family_count"] != baseline["family_count"]
         or observer["exact_marker_count"] != baseline["exact_record_count"]
         or observer["baseline_clean"] is not baseline["baseline_clean"]
     ):
         raise D0Error("D0 observer raw evidence does not match its receipt")
-    try:
-        stderr_payload = _read_stable(
-            observer_path.with_suffix(observer_path.suffix + ".stderr"),
-            MAX_TEXT_OUTPUT,
-        )
-    except OSError as exc:
-        raise D0Error("D0 observer stderr evidence is unavailable") from exc
-    if stderr_payload:
-        raise D0Error("D0 observer stderr evidence is not empty")
     usb = _exact(result["usb"], {"initial", "final"}, "D0 USB evidence")
     for name in ("initial", "final"):
-        snapshot = _exact(
-            usb[name],
-            {"enumerated_devices", "download_endpoint_count", "snapshot_sha256"},
-            f"D0 USB {name}",
-        )
-        if (
-            not isinstance(snapshot["enumerated_devices"], int)
-            or isinstance(snapshot["enumerated_devices"], bool)
-            or snapshot["enumerated_devices"] <= 0
-            or snapshot["download_endpoint_count"] != 0
-            or re.fullmatch(r"[0-9a-f]{64}", snapshot["snapshot_sha256"]) is None
-        ):
-            raise D0Error(f"D0 USB {name} evidence is invalid")
-    host_tool = _exact(
-        result["host_tool"],
-        {"path", "size", "sha256", "version_output_sha256"},
-        "D0 host-tool receipt",
+        _validate_usb_snapshot(usb[name], f"D0 USB {name}")
+    _validate_host_tool(result["host_tool"])
+    return result
+
+
+def validate_stop_result(
+    result: dict[str, Any], bundle: f1.Bundle, run_dir: Path
+) -> dict[str, Any]:
+    _exact(
+        result,
+        {
+            "schema",
+            "version",
+            "mode",
+            "profile_id",
+            "manifest_id",
+            "bundle_sha256",
+            "target_evidence",
+            "initial_health",
+            "observer",
+            "usb",
+            "host_tool",
+            "stop",
+            "verdict",
+            "device_contact",
+            "device_writes",
+            "reboot_requested",
+            "download_transition_requested",
+            "odin_invoked",
+            "partition_transfer",
+            "f1_authorized",
+            "live_authorized",
+        },
+        "D0 stop result",
+    )
+    expected_header = {
+        "schema": D0_STOP_RESULT_SCHEMA,
+        "version": D0_STOP_VERSION,
+        "mode": "connected-read-only-stop",
+        "profile_id": bundle.profile["profile_id"],
+        "manifest_id": bundle.manifest["manifest_id"],
+        "bundle_sha256": bundle.sha256,
+        "verdict": D0_STOP_VERDICT,
+    }
+    for key, expected in expected_header.items():
+        if result[key] != expected:
+            raise D0Error(f"D0 stop result header mismatch: {key}")
+    _validate_no_effects(result, "D0 stop result")
+    f1.validate_target_evidence(bundle.profile, result["target_evidence"])
+    _validate_health_receipt(result["initial_health"], bundle, "D0 initial health")
+    usb = _exact(
+        result["usb"], {"initial", "final_observed"}, "D0 stop USB evidence"
+    )
+    _validate_usb_snapshot(usb["initial"], "D0 stop initial USB")
+    if usb["final_observed"] is not False:
+        raise D0Error("D0 stop result overclaims a final USB observation")
+    stop = _exact(
+        result["stop"],
+        {
+            "stage",
+            "reason",
+            "result_reusable",
+            "final_target_continuity_observed",
+            "final_health_observed",
+        },
+        "D0 stop state",
     )
     if (
-        not isinstance(host_tool["path"], str)
-        or not host_tool["path"]
-        or not isinstance(host_tool["size"], int)
-        or isinstance(host_tool["size"], bool)
-        or host_tool["size"] <= 0
-        or re.fullmatch(r"[0-9a-f]{64}", host_tool["sha256"]) is None
-        or re.fullmatch(r"[0-9a-f]{64}", host_tool["version_output_sha256"])
-        is None
+        stop["stage"] != "baseline-classification"
+        or stop["reason"] not in D0_BASELINE_STOP_REASONS
+        or stop["result_reusable"] is not False
+        or stop["final_target_continuity_observed"] is not False
+        or stop["final_health_observed"] is not False
     ):
-        raise D0Error("D0 host-tool receipt is invalid")
+        raise D0Error("D0 stop state is invalid")
+    observer_keys = {
+        "path",
+        "bytes",
+        "sha256",
+        "read_to_eof",
+        "stderr_bytes",
+        "elapsed_sec",
+        "source",
+    }
+    payload = _validate_observer_file(
+        result["observer"],
+        keys=observer_keys,
+        source=bundle.manifest["observation"]["acceptance"]["source"],
+        run_dir=run_dir,
+        label="D0 stop observer",
+    )
+    _baseline, observed_reason = _inspect_clean_baseline(
+        payload, bundle.manifest["observation"]["acceptance"]
+    )
+    if observed_reason != stop["reason"]:
+        raise D0Error("D0 stop reason does not match the retained raw evidence")
+    _validate_host_tool(result["host_tool"])
     return result
+
+
+def _publish_baseline_stop(
+    *,
+    bundle: f1.Bundle,
+    run_dir: Path,
+    host_tool: dict[str, Any],
+    initial_usb: dict[str, Any],
+    target_evidence: dict[str, Any],
+    health: dict[str, Any],
+    observer: dict[str, Any],
+    source: str,
+    reason: str,
+) -> None:
+    result = {
+        "schema": D0_STOP_RESULT_SCHEMA,
+        "version": D0_STOP_VERSION,
+        "mode": "connected-read-only-stop",
+        "profile_id": bundle.profile["profile_id"],
+        "manifest_id": bundle.manifest["manifest_id"],
+        "bundle_sha256": bundle.sha256,
+        "target_evidence": target_evidence,
+        "initial_health": health,
+        "observer": {**observer, "source": source},
+        "usb": {"initial": initial_usb, "final_observed": False},
+        "host_tool": host_tool,
+        "stop": {
+            "stage": "baseline-classification",
+            "reason": reason,
+            "result_reusable": False,
+            "final_target_continuity_observed": False,
+            "final_health_observed": False,
+        },
+        "verdict": D0_STOP_VERDICT,
+        "device_contact": True,
+        "device_writes": False,
+        "reboot_requested": False,
+        "download_transition_requested": False,
+        "odin_invoked": False,
+        "partition_transfer": False,
+        "f1_authorized": False,
+        "live_authorized": False,
+    }
+    validate_stop_result(result, bundle, run_dir)
+    durable_create(run_dir / "result.json", result)
 
 
 def collect_connected(
@@ -676,18 +934,29 @@ def collect_connected(
     first = client.properties(serial)
     root_health = client.root_health(serial)
     health = validate_health(bundle, first, root_health, True)
+    target_evidence = _target_evidence(bundle, first, serial, topology)
     acceptance = bundle.manifest["observation"]["acceptance"]
     source = acceptance["source"]
     if REMOTE_PATH_RE.fullmatch(source) is None or ".." in Path(source).parts:
         raise D0Error("observer source is not a bounded procfs/sysfs path")
     receipt = client.capture(serial, source, run_dir / "baseline-observer.bin")
     payload = _read_stable(run_dir / "baseline-observer.bin", MAX_OBSERVER_BYTES)
-    try:
-        baseline = f1.typed_evidence.classify_clean_baseline(payload, acceptance)
-    except f1.typed_evidence.EvidenceError as exc:
-        raise D0Error(str(exc)) from exc
-    if baseline["baseline_clean"] is not True:
-        raise D0Error("baseline observer contains the candidate marker family")
+    baseline, stop_reason = _inspect_clean_baseline(payload, acceptance)
+    if stop_reason is not None:
+        _publish_baseline_stop(
+            bundle=bundle,
+            run_dir=run_dir,
+            host_tool=host_tool,
+            initial_usb=initial_usb,
+            target_evidence=target_evidence,
+            health=health,
+            observer=receipt,
+            source=source,
+            reason=stop_reason,
+        )
+        raise D0Error("baseline rejected; durable D0 stop result was preserved")
+    if baseline is None:
+        raise D0Error("baseline inspection returned no result")
     final_serial = client.one_serial()
     final_topology = client.topology(final_serial)
     final = client.properties(final_serial)
@@ -698,21 +967,6 @@ def collect_connected(
         raise D0Error("Download endpoint appeared during Android collection")
     if final_serial != serial or final_topology != topology or final != first:
         raise D0Error("connected target changed during D0 collection")
-    target_evidence = {
-        "schema": f1.TARGET_EVIDENCE_SCHEMA,
-        "targets": [
-            {
-                "model": first["model"],
-                "device": first["device"],
-                "firmware_incremental": first["incremental"],
-                "android_transport": "adb",
-                "adb_serial_sha256": hashlib.sha256(serial.encode()).hexdigest(),
-                "usb_topology_sha256": hashlib.sha256(topology.encode()).hexdigest(),
-            }
-        ],
-        "odin_endpoint_absent": True,
-    }
-    f1.validate_target_evidence(bundle.profile, target_evidence)
     result = {
         "schema": D0_RESULT_SCHEMA,
         "version": D0_VERSION,

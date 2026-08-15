@@ -436,8 +436,12 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         ):
             self.auditor.audit_ledger_bytes(regressed, self.script_data)
 
+        last_timestamp = (
+            self.ledger_data.rstrip(b"\n").rsplit(b"\n", 1)[-1].split(b" | ", 1)[0]
+        )
         tied = self.ledger_data + (
-            b"2026-08-15T17:03:56Z | s22plus-fyg8-p319 | "
+            last_timestamp
+            + b" | s22plus-fyg8-p319 | "
             b"h0-synthetic-review-1 | H0 | "
             b"PASS_GO_P319_SYNTHETIC_TAXONOMY_H0_CAPABILITY_V1 | "
             b"HEALTHY | PROVED | 0/0 | Valid equal-time append.\n"
@@ -614,25 +618,21 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         current = self.auditor.audit_review_obligations(all_rows)
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (12, 12, 0),
+            (13, 13, 0),
         )
-        self.assertEqual(
-            current["unresolved"],
-            [],
-        )
+        self.assertEqual(current["unresolved"], [])
         self.assertEqual(
             current["resolved"][-1],
             {
                 "campaign": "s22plus-fyg8-p318",
-                "review_topic": "ledger-taxonomy",
-                "pending_ordinal": "h0-ledger-taxonomy-followup-8",
+                "review_topic": "d0-stop-receipt",
+                "pending_ordinal": "h0-d0-stop-receipt-9",
                 "pending_action": (
-                    "P318_CAMPAIGN_LEDGER_TAXONOMY_DERIVATION_"
-                    "FOLLOWUP_IMPLEMENTED_REVIEW_PENDING"
+                    "P318_D0_FAIL_CLOSED_RECEIPT_IMPLEMENTED_REVIEW_PENDING"
                 ),
-                "resolution_ordinal": "h0-ledger-taxonomy-review-8",
+                "resolution_ordinal": "h0-d0-stop-receipt-review-9",
                 "resolution_action": (
-                    "PASS_GO_P318_CAMPAIGN_LEDGER_TAXONOMY_H0_CAPABILITY_V2"
+                    "PASS_GO_P318_D0_FAIL_CLOSED_RECEIPT_H0_CAPABILITY_V1"
                 ),
             },
         )
@@ -758,7 +758,8 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         obligations = self.auditor.audit_review_obligations(rows)
         self.assertEqual(obligations["unresolved_count"], 1)
         self.assertEqual(
-            obligations["unresolved"][0]["review_topic"], "taxonomy-guard"
+            {item["review_topic"] for item in obligations["unresolved"]},
+            {"taxonomy-guard"},
         )
         self.assertEqual(
             obligations["pass_go_resolving_no_obligation_count"], 11
@@ -779,7 +780,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             appended.split(marker, 1)[1].splitlines(keepends=True)
         )
         obligations = self.auditor.audit_review_obligations(rows)
-        self.assertEqual(obligations["resolved_count"], 13)
+        self.assertEqual(obligations["resolved_count"], 14)
         self.assertEqual(obligations["unresolved_count"], 0)
         self.assertEqual(obligations["unresolved"], [])
 

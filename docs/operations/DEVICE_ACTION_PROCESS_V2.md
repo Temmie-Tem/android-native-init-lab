@@ -70,6 +70,13 @@ adapter is
 `workspace/public/src/scripts/revalidation/device_action_d0_v2.py`. It reuses
 the H0 bundle validator and exposes only validation, plan rendering, and one
 connected read-only mode. Neither component exposes a live F1 transfer mode.
+After a complete bounded baseline capture, a retained-family or decoder
+rejection must publish one typed, no-replace `result.json` before returning the
+stop. That stop receipt binds the raw bytes, initial target/health/USB evidence,
+and all zero-effect flags, explicitly records that final continuity and final
+health were not observed, is non-reusable, and can never satisfy D0 success or
+prepared-run validation. A failure before a complete bounded capture makes no
+such raw-evidence claim.
 The reusable F1 adapter is
 `workspace/public/src/scripts/revalidation/device_action_f1_live_v2.py`. It
 reuses these cores and exposes separated `--prepare`, `--execute`, and
