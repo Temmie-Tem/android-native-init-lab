@@ -19,6 +19,7 @@ GOAL = ROOT / "GOAL.md"
 LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 TARGET_CONTRACT = ROOT / "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md"
 PRIVATE = ROOT / "workspace/private/outputs/s22plus_fyg8_p318_endpoint_selector"
+QEMU_E2E = ROOT / "workspace/private/outputs/s22plus_fyg8_p318_cdc_acm_qemu_e2e"
 PREPARED = ROOT / (
     "workspace/private/runs/device-action-f1-live-v2/"
     "f1-2026-08-12T165954582328Z-1786553994582372233/prepared.json"
@@ -53,6 +54,30 @@ class P318DocumentationTest(unittest.TestCase):
             self.assertIn(f"size    {len(payload)}", report)
             self.assertIn(f"sha256  {hashlib.sha256(payload).hexdigest()}", report)
 
+        qemu_result = (QEMU_E2E / "result.json").read_bytes()
+        self.assertEqual(
+            json.loads(qemu_result)["verdict"],
+            "PASS_P318_CDC_ACM_QEMU_REAL_OBSERVER_H0",
+        )
+        for name in (
+            "result.json",
+            "qemu-console.log",
+            "qemu-proc-maps.log",
+            "bwrap-proc-maps.log",
+            "qemu-mountinfo.log",
+            "p318-cdc-acm-qemu-e2e.cpio",
+            "rootfs/init",
+            "input-snapshots/guest-package/Packages.xz",
+            (
+                "input-snapshots/guest-package/debs/"
+                "linux-image-6.12.94+deb13-arm64_6.12.94-1_arm64.deb"
+            ),
+        ):
+            payload = (QEMU_E2E / name).read_bytes()
+            self.assertIn(name, report)
+            self.assertIn(f"size    {len(payload)}", report)
+            self.assertIn(f"sha256  {hashlib.sha256(payload).hexdigest()}", report)
+
     def test_scope_and_offline_ready_do_not_grant_live_authority(self):
         combined = " ".join(
             (
@@ -68,6 +93,7 @@ class P318DocumentationTest(unittest.TestCase):
             "PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V2",
             "PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V3",
             "PASS_GO — S22PLUS_FYG8_P318_SELECTOR_NEGATIVE_CONTROL_H0_CAPABILITY_V1",
+            "PASS_GO — S22PLUS_FYG8_P318_CDC_ACM_QEMU_REAL_OBSERVER_H0_CAPABILITY_V1",
             "grants no D0, D1, F1, recovery, replay, or live authority",
             "Fresh connected prerequisites",
             "42 `SOURCE_KEYS`",
@@ -101,6 +127,17 @@ class P318DocumentationTest(unittest.TestCase):
             "0xabcd3040",
             "8 raw bytes",
             "9 bytes for each record",
+            "Full dummy_hcd-to-observer successor control",
+            "queues the source-derived 49-byte banner before the observer child is forked",
+            "one complete LF-terminated terminal line",
+            "cryptographically verified Debian trixie `InRelease`",
+            "The same signed `Packages` authority now also binds the guest kernel",
+            "built from those extracted package bytes rather than trusting the loose tree",
+            "separately snapshotted Bubblewrap launcher",
+            "Bubblewrap's info descriptor identifies the inner QEMU PID",
+            "host_kernel_runtime_interfaces_byte_frozen: false",
+            "root udev/ModemManager guard remains an explicitly synthetic healthy fixture",
+            "do not qualify or waive Envelope-v4's unrelated 47/48-byte PackBits boundary",
         )
         for clause in required:
             self.assertIn(clause, combined)
@@ -156,6 +193,14 @@ class P318DocumentationTest(unittest.TestCase):
             "s22plus-fyg8-p318 | h0-selector-negative-control-review-5 | H0 | "
             "PASS_GO_P318_SELECTOR_NEGATIVE_CONTROL_H0_CAPABILITY_V1"
         )
+        qemu_e2e_6 = (
+            "s22plus-fyg8-p318 | h0-cdc-acm-qemu-e2e-6 | H0 | "
+            "P318_CDC_ACM_QEMU_REAL_OBSERVER_IMPLEMENTED_REVIEW_PENDING"
+        )
+        qemu_e2e_review_6 = (
+            "s22plus-fyg8-p318 | h0-cdc-acm-qemu-e2e-review-6 | H0 | "
+            "PASS_GO_P318_CDC_ACM_QEMU_REAL_OBSERVER_H0_CAPABILITY_V1"
+        )
         self.assertEqual(ledger.count(original), 1)
         self.assertEqual(ledger.count(superseded_correction), 1)
         self.assertEqual(ledger.count(correction), 1)
@@ -168,6 +213,8 @@ class P318DocumentationTest(unittest.TestCase):
         self.assertEqual(ledger.count(path_provenance_4), 1)
         self.assertEqual(ledger.count(selector_negative_5), 1)
         self.assertEqual(ledger.count(selector_negative_review_5), 1)
+        self.assertEqual(ledger.count(qemu_e2e_6), 1)
+        self.assertEqual(ledger.count(qemu_e2e_review_6), 1)
         self.assertLess(ledger.index(original), ledger.index(superseded_correction))
         self.assertLess(ledger.index(superseded_correction), ledger.index(correction))
         self.assertLess(ledger.index(correction), ledger.index(design))
@@ -182,6 +229,8 @@ class P318DocumentationTest(unittest.TestCase):
             ledger.index(selector_negative_5),
             ledger.index(selector_negative_review_5),
         )
+        self.assertLess(ledger.index(selector_negative_review_5), ledger.index(qemu_e2e_6))
+        self.assertLess(ledger.index(qemu_e2e_6), ledger.index(qemu_e2e_review_6))
 
     def test_incident_report_carries_explicit_post_close_correction(self):
         incident = INCIDENT.read_text(encoding="utf-8")
@@ -217,6 +266,16 @@ class P318DocumentationTest(unittest.TestCase):
             ROOT
             / "workspace/public/src/scripts/revalidation/"
             "s22plus_fyg8_p318_poll_budget_measurement.py",
+            ROOT
+            / "workspace/public/src/scripts/revalidation/"
+            "s22plus_fyg8_p318_cdc_acm_qemu_e2e.py",
+            ROOT
+            / "workspace/public/src/scripts/revalidation/"
+            "s22plus_fyg8_p318_cdc_acm_qemu_guest.py",
+            ROOT
+            / "workspace/public/src/native-init/"
+            "s22plus_fyg8_p318_cdc_acm_qemu_init.c",
+            ROOT / "tests/test_s22plus_fyg8_p318_cdc_acm_qemu_e2e.py",
         ]
         for path in tracked:
             self.assertNotIn(serial, path.read_text(encoding="utf-8"), path)

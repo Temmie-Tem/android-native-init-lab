@@ -183,6 +183,135 @@ sha256  3911bd72177e32be10a78b50553436f96adcb418b69ed19a2cb88b350d0a280e
 verdict PASS_P318_CDC_ACM_TWO_SEAM_POSITIVE_CONTROL_H0
 ```
 
+### Full dummy_hcd-to-observer successor control
+
+The former two-seam limitation is now closed by a separate successor H0
+control. A minimal arm64 PID 1 loads the exact nine required Debian kernel
+modules and starts the current real Python observer inside the same QEMU guest.
+The guest creates one exact `04e8:6861` ACM gadget, opens `ttyGS0`, queues the
+source-derived 49-byte banner before the observer child is forked, and only
+then binds `dummy_udc.0`. The current observer discovers `usb:1-1` and
+`ttyACM0`, performs its real exact selector, character-device open,
+`TIOCEXCL`, raw read, exclusive evidence writes, and receipt reopen, and
+accepts exactly those 49 bytes.
+
+The immutable raw console carries one complete LF-terminated terminal line;
+an earlier otherwise-successful control was retained as non-authoritative
+because the host stopped QEMU after seeing the terminal substring but before
+its line ending. The current parser rejects that incomplete framing, any
+trailing incomplete control fragment, and any other complete terminal line.
+It also requires the exact ordered nine-module PASS sequence. PID 1 parks after
+the terminal until bounded host termination;
+the accepted console contains no post-terminal kernel panic, and a panic
+mutation rejects.
+
+Its controller, guest, init, current observer, P2.60 runtime, and harness bytes
+are retained together with the exact kernel and module identities. The arm64
+Python subset is tied to a cryptographically verified Debian trixie
+`InRelease`, its signed arm64 `Packages` index, and all eight exact deb records
+rather than trusting a narrative download log. Those package and release
+inputs and the guest kernel are copied no-clobber to private execution
+snapshots before use; module decompression consumes the same stable bytes that
+are hashed, the init compiler consumes the retained C bytes on stdin, and the
+whole closure is revalidated after QEMU exits.
+
+The same signed `Packages` authority now also binds the guest kernel and all
+nine modules. The generic guest's `Packages.xz` decompresses byte-for-byte to
+that gpgv-verified index, whose unique arm64 record binds
+`linux-image-6.12.94+deb13-arm64` version `6.12.94-1` and the exact 92,732,600
+byte deb. Execution consumes a no-clobber snapshot of that deb: its extracted
+kernel and nine compressed module members equal the loose guest tree, and the
+kernel snapshot and initramfs modules are built from those extracted package
+bytes rather than trusting the loose tree as provenance. Missing index or deb
+evidence therefore fails even when identical loose kernel/module files remain.
+
+The QEMU child executes a private snapshot of the pinned binary and its 47
+resolved dynamic-loader inputs. A separately snapshotted Bubblewrap launcher
+and its five loader inputs create a new mount, PID, and network namespace with
+a `tmpfs` root, a read-only `/execution` bind, a new procfs, a minimal `/dev`,
+a `tmpfs` `/tmp`, and empty `/etc`, `/sys`, `/var`, and `/run`. The launcher
+clears the inherited environment and gives the child only `LANG`, `LC_ALL`,
+`TZ`, `LD_LIBRARY_PATH`, `PATH`, and `QEMU_MODULE_DIR`; QEMU also uses an empty
+module directory, `-no-user-config`, `-nodefaults`, no external data directory,
+and no network or interactive monitor. Bubblewrap's info descriptor identifies
+the inner QEMU PID rather than treating the launcher PID as the guest process.
+
+The two retained process-map receipts are intentionally distinct: the
+launcher maps exactly its snapshotted binary plus five libraries, and the QEMU
+child maps exactly its snapshotted binary plus 47 libraries. The retained
+mount receipt and namespace readback prove that ambient host configuration
+files and the host `/usr` tree are absent from the child view. This is a closed
+regular-file and configuration-input claim, not a byte freeze of host-kernel
+runtime semantics; the result explicitly records
+`host_kernel_runtime_interfaces_byte_frozen: false`. The result parser rejects
+duplicate JSON keys, boolean/integer aliases, stale snapshots, omitted or extra
+mapped files, sandbox or mount drift, and terminal or module-line drift.
+
+Canonical private evidence:
+
+```text
+workspace/private/outputs/s22plus_fyg8_p318_cdc_acm_qemu_e2e/result.json
+size    63934
+sha256  5d30955049a0ee0711d6839992367d99bd9017a8c74436daf2fd4c8cc5e2abbe
+verdict PASS_P318_CDC_ACM_QEMU_REAL_OBSERVER_H0
+
+qemu-console.log
+size    1959
+sha256  5f7b54363a5538567327f5090cebe20a52a4e086755acee0fd1b866493d339a3
+
+qemu-proc-maps.log
+size    39354
+sha256  45b2991049badee2aff3febd9c9ca52982a59f85697a75850b4175802520ffef
+
+bwrap-proc-maps.log
+size    7687
+sha256  3828207a2d9f49e9643f363fb63cd205eca03f06c211cc08345929ce35c6e576
+
+qemu-mountinfo.log
+size    1409
+sha256  c10aea81a130267e9dfc516a9a31ff9174f013c2b2be988d06aa3ae6e0738958
+
+p318-cdc-acm-qemu-e2e.cpio
+size    57298432
+sha256  9d59ea7f3fe237aa3c609504450884d64685b9d85ca7c5729e26ce5608823e8e
+
+rootfs/init
+size    707120
+sha256  6dff485829baf4fc6effce550a4e65971d4184ae8778baed252dd17e3207cab4
+
+input-snapshots/guest-package/Packages.xz
+size    9607412
+sha256  753da751bbc7a679f48bd1b623ffd4479cb6861c426118284c76eb82909e4908
+
+input-snapshots/guest-package/debs/linux-image-6.12.94+deb13-arm64_6.12.94-1_arm64.deb
+size    92732600
+sha256  72db7fcfb443a4b03448bda98f4e7c1a1fa0d6c21fc57f0b119d704442f8ad49
+```
+
+This closes only the 49-byte `dummy_hcd -> current Python observer` channel.
+The root udev/ModemManager guard remains an explicitly synthetic healthy
+fixture, no physical S22+ USB path is exercised, and 49 banner bytes do not
+qualify or waive Envelope-v4's unrelated 47/48-byte PackBits boundary. The
+existing V3 candidate and its 42 `SOURCE_KEYS` are unchanged.
+
+Independent changed-closure review returned
+`PASS_GO — S22PLUS_FYG8_P318_CDC_ACM_QEMU_REAL_OBSERVER_H0_CAPABILITY_V1`.
+A separate `/tmp` build regenerated the full control and matched 1,158 paths,
+file modes, and stable artifacts. The initramfs, init, kernel, guest
+`Packages.xz`, signed kernel deb, nine module inputs, observer, guest source,
+QEMU, Bubblewrap, and loader snapshots are byte-identical. The five run-local
+console/map/mount/result files have expected runtime-specific identities, but
+their decoded transport, sandbox, signed supply chains, and 48-child/6-launcher
+mapped sets are identical. Both preserved-output audits pass; provenance-free
+loose kernel inputs and three incomplete control tails fail closed. Independent
+focused plus documentation tests pass 22/22, and the current local closure also
+passes P3.18 136/136 and common Process-v2 120/120.
+
+This scoped PASS_GO grants no D0, D1, F1, recovery, replay, or live authority.
+It does not qualify the synthetic root guard, physical S22+ USB, PackBits
+47/48, QEMU/Bubblewrap distribution-package provenance, or byte-frozen host
+kernel runtime semantics.
+
 The DTR explanation is rejected. Fixed `f_acm.c` stores the handshake bits but
 does not enforce DTR before data flow, and fixed `u_serial.c` queues bytes and
 starts TX whenever the USB port is present. DTR must not be carried forward as
