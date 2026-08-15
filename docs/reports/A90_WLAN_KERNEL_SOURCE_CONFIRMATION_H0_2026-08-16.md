@@ -7,6 +7,15 @@ Device, `/dev`, USB, or network contact: none
 Private input mutation: none
 Disposition: source-backed partial closure; Option C remains research-only
 
+Follow-up (2026-08-16):
+[`A90_WLAN_MAC_PROVISIONING_EXISTING_EVIDENCE_H0_2026-08-16.md`](A90_WLAN_MAC_PROVISIONING_EXISTING_EVIDENCE_H0_2026-08-16.md)
+combines the matching source with the exact V3342 build and live records. It
+shows a strong same-generation false-value prior without acquiring the INI
+bytes, but a shared-PID proc-root path and opaque root children leave an
+alternative platform-MAC writer unexcluded. The effective V3342 value, literal
+key, and current H24 byte identity remain unproved. The source-only statements
+below remain preserved in their original scope.
+
 ## Result in one paragraph
 
 The matching Samsung 4.14.190 source materially narrows the Option C WLAN
@@ -369,8 +378,11 @@ authority model:
    not merely first scan or association.
 3. `cnss_diag` remains the best first deletion candidate, with stronger static
    support.
-4. `macloader` cannot be classified until the exact deployed
-   `WCNSS_qcom_cfg.ini` is known. If it enables MAC provisioning, neither
+4. Source alone cannot classify `macloader`. The follow-up same-generation
+   V3342 audit proves that the helper did not select macloader and records a
+   working `wlan0`, but does not exclude a proc-root-reachable opaque writer.
+   The effective boolean, literal INI key, and current H24 byte identity remain
+   unproved. If a future configuration enables MAC provisioning, neither
    shipped kernel input parser is reusable unchanged; the future design needs
    the bounded trusted-writer contract above.
 5. RFS and proprietary-daemon necessity cannot be settled from this kernel
@@ -381,25 +393,29 @@ authority model:
 is retired, no generation is qualified, and no candidate or execution consumer
 is created by this report.
 
-## Next bounded H0 unit
+## Corrected next-unit sequence
 
-The highest-value next input is the exact matching vendor firmware/config
-content, acquired and staged host-only from an operator-provided matching
-artifact. Read only:
+This report originally proposed acquiring exact vendor/config content next.
+The linked follow-up performs the cheaper existing-evidence audit first and
+finds a strong prior but correctly leaves the effective V3342 gate unproved. A
+stock firmware download is nevertheless not a prerequisite for the next H0
+documentation unit: `WP2-4` property observation-schema work may proceed from
+the already pinned H24/source inventory because macloader is not a current H24
+graph role.
 
-- `/mnt/vendor/firmware/wlan/qca_cld/WCNSS_qcom_cfg.ini`, the current H24
-  source root plus the exact firmware request name, or its independently bound
-  matching-artifact equivalent;
-- `wlan_mac.bin`, if present;
-- the board-data/regulatory files selected by the current H24 helper;
-- the init/service declarations that launch `qrtr-ns`, PD/RFS roles,
-  `cnss-daemon`, `cnss_diag`, and macloader.
+Exact current `WCNSS_qcom_cfg.ini` bytes remain useful only as a later
+qualification input if a future candidate must prove current-generation byte
+identity or audit other regulatory/tuning keys. The order is now:
 
-The immediate question is the exact `enable_mac_provision` value and whether
-any other configuration key turns an auxiliary kernel interface into a fatal
-requirement. This can save an attended ablation only after the exact artifact
-is pinned and its consumer semantics are reviewed. No device read or live
-session is authorized by this next-unit description.
+1. committed-evidence and source co-occurrence audit — complete, with the
+   alternative-writer gap explicit in the linked follow-up;
+2. one separately authorized bounded current-generation file read when exact
+   MAC-gate closure is required;
+3. matching stock firmware extraction only if neither prior route is
+   sufficient.
+
+Reading never implies replacing the Samsung INI. No device read, download,
+candidate, or live session is authorized by this sequence.
 
 ## Source anchors
 
