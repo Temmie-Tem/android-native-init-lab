@@ -16,6 +16,9 @@ import unittest
 REPO = Path(__file__).resolve().parents[1]
 REPORT = REPO / "docs/reports/A90_WLAN_KERNEL_SOURCE_CONFIRMATION_H0_2026-08-16.md"
 PRIOR = REPO / "docs/reports/A90_WLAN_KERNEL_SIDE_COMPOSITION_H0_2026-08-15.md"
+ISOLATED_DESIGN = REPO / (
+    "docs/plans/A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md"
+)
 PACKAGE = REPO / (
     "workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource_13272"
 )
@@ -76,8 +79,14 @@ class KernelSourceConfirmationDocsTests(unittest.TestCase):
         self.assertIn("some correct QRTR userspace name-service implementation is a hard dependency", self.report)
         self.assertIn("does not prove that this exact executable is the only possible implementation", self.report)
         self.assertIn("not a proved QRTR isolation boundary", self.report)
-        self.assertIn("remotely reachable Debian workload must be denied `AF_QIPCRTR`", self.report)
+        self.assertIn("It does not gate ephemeral client transmission", self.report)
+        self.assertIn("denied the entire `AF_QIPCRTR` socket family", self.report)
+        self.assertIn("the remote workload must inherit the same whole-family deny", self.report)
         self.assertIn("this report alone does not do it", self.report)
+
+        design = flatten(ISOLATED_DESIGN.read_text(encoding="utf-8"))
+        self.assertIn("AF_QIPCRTR/QRTR", design)
+        self.assertIn("AF_INET-only direct-socket allowlist", self.report)
 
     def test_report_keeps_h0_and_grants_no_authority(self) -> None:
         self.assertIn("This is H0 research evidence only", self.report)
@@ -156,6 +165,27 @@ class KernelSourceConfirmationDocsTests(unittest.TestCase):
         self.assertIn("#define AID_VENDOR_QRTR\tKGIDT_INIT(2906)", qrtr)
         self.assertIn("in_egroup_p(AID_VENDOR_QRTR)", qrtr)
 
+        create = qrtr[qrtr.index("static int qrtr_create") :]
+        create = create[: create.index("static const struct nla_policy")]
+        self.assertIn("sk_alloc(net, AF_QIPCRTR", create)
+        self.assertIn("ipc->us.sq_node = qrtr_local_nid;", create)
+        self.assertNotIn("capable(", create)
+        self.assertNotIn("ns_capable(", create)
+
+        send = qrtr[qrtr.index("static int qrtr_sendmsg") :]
+        send = send[: send.index("static int qrtr_resume_tx")]
+        self.assertIn("qrtr_autobind(sock)", send)
+        self.assertIn("qrtr_node_lookup(addr->sq_node)", send)
+        self.assertIn("qrtr_node_enqueue", send)
+        self.assertNotIn("capable(", send)
+
+        assign = qrtr[qrtr.index("static int qrtr_port_assign") :]
+        assign = assign[: assign.index("/* Reset all non-control ports */")]
+        self.assertLess(assign.index("if (!*port)"), assign.index("capable(CAP_NET_ADMIN)"))
+        ephemeral = assign[assign.index("if (!*port)") : assign.index("} else if")]
+        self.assertNotIn("capable(", ephemeral)
+        self.assertIn("idr_alloc_cyclic", ephemeral)
+
     def test_qmi_server_correction_matches_selected_config(self) -> None:
         self.require_source()
         call_sites = (
@@ -231,14 +261,39 @@ class KernelSourceConfirmationDocsTests(unittest.TestCase):
         self.assertEqual(parser.count("(unsigned int*)&mac_from_macloader["), 6)
         self.assertIn("return 0;", parser)
         self.assertIn("must not copy this parser", self.report)
+        self.assertIn('kobject_create_and_add("wifi", NULL)', icnss)
+        self.assertIn("exact object corrupted by those three out-of-bounds bytes", self.report)
+        self.assertIn("remotely reachable workload still receives no `/sys/wifi/mac_addr`", self.report)
+
+        design = flatten(ISOLATED_DESIGN.read_text(encoding="utf-8"))
+        self.assertIn("empty read-only synthetic tmpfs at `/sys`", design)
+        self.assertIn("already gives the workload an empty read-only synthetic `/sys`", self.report)
 
         utils = (KERNEL / "drivers/net/wireless/cnss_utils/cnss_utils.c").read_text(
             errors="replace"
         )
         debugfs_parser = utils[utils.index("static ssize_t cnss_utils_mac_write") :]
         debugfs_parser = debugfs_parser[: debugfs_parser.index("static int cnss_utils_mac_show")]
+        self.assertIn("#define MAX_NO_OF_MAC_ADDR 4", utils)
+        self.assertIn("u8 mac_addr[MAX_NO_OF_MAC_ADDR][ETH_ALEN];", utils)
+        self.assertIn('char temp[3] = "";', debugfs_parser)
+        self.assertIn("len = strlen(mac_address);", debugfs_parser)
+        self.assertIn("len -= MAC_PREFIX_LEN;", debugfs_parser)
         self.assertIn("while (len--)", debugfs_parser)
-        self.assertIn("attempts 12 byte conversions instead of six", self.report)
+        self.assertIn("temp[0] = *mac_address++;", debugfs_parser)
+        self.assertIn("temp[1] = *mac_address++;", debugfs_parser)
+        self.assertLess(
+            debugfs_parser.index("no_of_mac_addr_set = len / (ETH_ALEN * 2)"),
+            debugfs_parser.index("while (len--)"),
+        )
+        self.assertLess(
+            debugfs_parser.index("if (kstrtou8(temp, 16, &val))"),
+            debugfs_parser.index("*dest_mac++ = val"),
+        )
+        self.assertIn("The first `6N` iterations", self.report)
+        self.assertIn("`kstrtou8()` deterministically fails", self.report)
+        self.assertIn("every syntactically valid provisioned or derived token mutates", self.report)
+        self.assertIn("No destination overflow is claimed for this debugfs path", self.report)
 
     def test_cnss_daemon_named_kernel_interactions_are_not_base_lookup(self) -> None:
         self.require_source()

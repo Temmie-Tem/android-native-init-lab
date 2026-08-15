@@ -113,21 +113,38 @@ dependency of the selected 4.14 path**. The current H24 graph supplies it as
 the only possible implementation; replacing it would require a separately
 bound equivalent, not mere deletion.
 
-This source also closes an Option C containment assumption. Kernel QMI sockets
-are created with `sock_create_kern(&init_net, AF_QIPCRTR, ...)`
-(`qmi_interface.c:604-627`), while `qrtr.c` keeps one global `qrtr_ports` IDR
-and one global endpoint list (`:142-147`) and does not key lookup or assignment
-by network namespace (`:1292-1309,1381-1417`). A fresh network namespace alone
-is therefore **not a proved QRTR isolation boundary**. The trusted WLAN backend
-needs the QRTR plane, but a remotely reachable Debian workload must be denied
-`AF_QIPCRTR` rather than being assumed isolated from it by `CLONE_NEWNET`.
+This source also closes an Option C containment assumption more strongly than
+network-namespace non-isolation alone. Kernel QMI sockets are created with
+`sock_create_kern(&init_net, AF_QIPCRTR, ...)` (`qmi_interface.c:604-627`),
+while `qrtr.c` keeps one global `qrtr_ports` IDR and one global endpoint list
+(`:142-147`). `qrtr_create()` accepts a datagram socket in any supplied network
+namespace, calls `sk_alloc(net, ...)`, assigns the global `qrtr_local_nid`, and
+contains no QRTR capability check (`:2008-2032`). On the first addressed send,
+`qrtr_sendmsg()` calls `qrtr_autobind()`, whose zero-port branch allocates an
+ephemeral port without a capability check, then resolves the destination
+through the global node table and enqueues to that node (`:1381-1421,
+1596-1717`). The `net` argument accounts/associates the socket; it does not key
+the QRTR node, endpoint, or port registries.
 
-The privileged-port predicate is also exact in this source: a low QRTR port is
-allowed by `CAP_NET_ADMIN`, group `AID_VENDOR_QRTR` (`2906`), or the global root
-group (`qrtr.c:55,1381-1406`). H24's `2906:2906` QRTR identity satisfies the
-kernel group branch. The separately retained `CAP_NET_BIND_SERVICE` is not this
-kernel check; whether the proprietary executable needs that capability for
-some other operation remains unproved.
+Therefore, absent a separate LSM or syscall filter, an unprivileged process
+that can call `socket(AF_QIPCRTR, SOCK_DGRAM, 0)` can obtain an ephemeral QRTR
+port and address a reachable globally registered QRTR node/port. A fresh
+network namespace, `pivot_root`, or mount isolation is **not a proved QRTR
+isolation boundary**. The low-port predicate applies only when selecting a
+specified port below `QRTR_MIN_EPH_SOCKET`: it allows `CAP_NET_ADMIN`, group
+`AID_VENDOR_QRTR` (`2906`), or the global root group
+(`qrtr.c:55,1381-1406`). It does not gate ephemeral client transmission.
+H24's `2906:2906` QRTR identity satisfies that low-port group branch; the
+separately retained `CAP_NET_BIND_SERVICE` is not this kernel check, and any
+other need for it remains unproved.
+
+The containment requirement is consequently an address-family boundary, not
+a low-port permission tweak: a remotely reachable Debian workload must be
+denied the entire `AF_QIPCRTR` socket family by the all-ABI seccomp policy or an
+equivalent LSM rule. The selected isolated-Debian design already imposes that
+deny and an AF_INET-only direct-socket allowlist. A future Option C capsule may
+retain QRTR only inside its separately trusted boundary; the remote workload
+must inherit the same whole-family deny.
 
 ### PD locator/notifier is a recovery path, not a fatal probe prerequisite
 
@@ -265,6 +282,12 @@ writes an `unsigned int`, so the writes overlap and the final conversions write
 beyond the array. The code also ignores the conversion count and returns `0`
 instead of the consumed sysfs byte count.
 
+`pm_from_macloader` is declared immediately after the six-byte array in this
+translation unit, so it is a plausible recipient of the last overlapping
+write. C object placement is compiler/linker-owned, however; the exact object
+corrupted by those three out-of-bounds bytes and its runtime impact remain
+unproved.
+
 This is a static correctness and hardening defect in the source path. No live
 trigger, installed-byte identity, or exploit impact is claimed here. A future
 Option C implementation must not copy this parser: it should parse into six
@@ -274,11 +297,32 @@ octets, and return `count` only on success.
 The alternative debugfs parser has a separate defect
 (`cnss_utils.c:477-540`). After validating that the string contains a multiple
 of 12 hexadecimal characters, it executes `while (len--)` but consumes **two**
-characters and emits one byte per iteration. A one-MAC input therefore attempts
-12 byte conversions instead of six, reads beyond the terminated MAC string,
-and can partially mutate the destination before returning an error. The
-debugfs path is not a sound replacement for the Samsung sysfs path without its
-own fix and validation.
+characters and emits one byte per iteration. For a valid `N`-MAC token,
+`len=12N` and the parser stores `no_of_mac_addr_set=N` before the loop. The
+first `6N` iterations consume the exact `12N` hexadecimal characters and write
+the intended `6N` bytes. Iteration `6N+1` then places the token's terminating
+NUL in `temp[0]`; `kstrtou8()` deterministically fails before another
+destination write, and the function returns `-EINVAL` instead of `count`.
+Thus every syntactically valid provisioned or derived token mutates the
+intended bytes and count but reports failure. No destination overflow is
+claimed for this debugfs path: for the accepted maximum, the intended `6N`
+bytes fit the four-MAC destination and the failing iteration does not write.
+It is nevertheless nonfunctional as a successful provisioning interface and
+cannot replace the Samsung sysfs path without repair and validation.
+
+Samsung creates this input as a top-level `/sys/wifi/mac_addr` node through
+`kobject_create_and_add("wifi", NULL)` and mode `0220`, not under a private
+vendor filesystem. Option C must therefore bind this surface explicitly. If
+the exact deployed INI proves `enable_mac_provision=0` and no separate product
+requirement is established, the minimal capsule must omit the MAC writer and
+the remote workload must not see native sysfs. If provisioning is required,
+only an exact trusted capsule-side writer may receive a bounded boot-private
+MAC input through a repaired parser; its node identity, owner, mode, lifetime,
+write count, and resulting kernel MAC state must be bound, while the remotely
+reachable workload still receives no `/sys/wifi/mac_addr`.
+The selected isolated-Debian design already gives the workload an empty
+read-only synthetic `/sys`, so this source finding supports rather than changes
+that boundary.
 
 ## Consequence for Option C and WP-H0-2
 
@@ -295,7 +339,9 @@ authority model:
 3. `cnss_diag` remains the best first deletion candidate, with stronger static
    support.
 4. `macloader` cannot be classified until the exact deployed
-   `WCNSS_qcom_cfg.ini` is known.
+   `WCNSS_qcom_cfg.ini` is known. If it enables MAC provisioning, neither
+   shipped kernel input parser is reusable unchanged; the future design needs
+   the bounded trusted-writer contract above.
 5. RFS and proprietary-daemon necessity cannot be settled from this kernel
    tree; their upstream remote-subsystem and userspace evidence is still
    missing.
@@ -336,8 +382,8 @@ Private source root (not tracked):
 - `drivers/soc/qcom/service-notifier.c:536-548`
 - `net/qrtr/Kconfig:4-25`
 - `net/qrtr/Makefile:1-22`
-- `net/qrtr/qrtr.c:55,142-147,1292-1309,1381-1417`
-- `drivers/net/wireless/cnss_utils/cnss_utils.c:477-603`
+- `net/qrtr/qrtr.c:55,142-147,1292-1309,1381-1421,1596-1717,2008-2078`
+- `drivers/net/wireless/cnss_utils/cnss_utils.c:45-49,477-603`
 - `drivers/net/wireless/qualcomm/wcn39xx/qcacld-3.0/core/pld/inc/pld_common.h:452-575`
 - `drivers/net/wireless/qualcomm/wcn39xx/qcacld-3.0/core/hdd/inc/hdd_config.h:702-720`
 - `drivers/net/wireless/qualcomm/wcn39xx/qcacld-3.0/core/hdd/inc/wlan_hdd_misc.h:44-50`
