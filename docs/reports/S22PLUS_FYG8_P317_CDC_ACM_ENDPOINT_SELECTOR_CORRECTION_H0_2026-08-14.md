@@ -480,6 +480,30 @@ absent. The latch module is 423,232 bytes, SHA-256 `27be8abfe121`; the timed
 diagnostic is 303,112 bytes, SHA-256 `d7dac722a11b`. Both A/B module builds and
 both full userspace/boot-only builds are byte-identical.
 
+That latch identity is source-and-path frozen, not source-only reproducible.
+The allocated `.rodata` contains the absolute `__FILE__` string emitted by
+`WARN_ON_ONCE`, while DWARF and the build ID also carry the build path. The
+qualified `27be8abfe121` bytes therefore bind the exact canonical output path
+`workspace/private/outputs/s22plus_fyg8_p318/dwc3-event-latch-build-20260814-01`.
+The source-identical 423,232-byte `5f8bab654c41` module was a normal build under
+the embedded path `dwc3-event-latch-build-followup-v3`; it was invalidated only
+because its path-dependent bytes are not the exact qualified artifact. Its
+later `dwc3-event-latch-build-stale-path-20260815-01` archive name is not its
+embedded origin, so a private provenance marker records both names and forbids
+reuse. Until a separately reviewed prefix-map successor is qualified, any
+other output path creates a new module identity and requires full requalification.
+
+One source-level tightening is deliberately deferred to that next latch
+rebuild. `snapshot_get` currently reads `exposure_state` before `event_ready`,
+so an arbitrary reader concurrent with gate publication could format the
+otherwise inconsistent `gate_v=0,event_v=1` pair. The qualified runtime cannot
+take that interleaving: it completes the gate write, readback, and baseline
+snapshot before its sole UDC bind, and terminal capture occurs later. At the
+next latch rebuild, read `event_ready` with acquire first, then read
+`exposure_state` with acquire, update the ordered-source audit, and rerun the
+complete source freeze and qualification. This deferred hardening does not
+invalidate the exact V3 execution path or authorize reuse of its candidate.
+
 The changed host-only closure is:
 
 - intent `d760c54dc01e`, prepack `594b02effd24`, userspace `a5bccc6edadd`,
@@ -501,7 +525,8 @@ which a nonzero pre-gate count cannot become host silence. Focused P3.18 tests
 pass 114/114, the common Process-v2 set passes 120/120, and standalone live
 integration passes 5/5. Final independent review regenerated and matched the
 canonical intent-to-ready path byte-for-byte, verified all 42 source receipts,
-and kept the discarded temporary-path closure invalid.
+and kept the source-identical but path-divergent `5f8bab654c41` closure
+ineligible for exact-artifact use.
 
 The prior implementation verdicts
 `PASS_GO — S22PLUS_FYG8_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V1`

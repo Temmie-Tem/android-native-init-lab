@@ -863,6 +863,13 @@ the canonical path byte-for-byte and returned:
 V3 qualifies only this exact H0 offline implementation and packaging closure.
 It grants no D0, D1, F1, recovery, replay, or live authority; fresh connected
 prerequisites and exact approval remain mandatory.
+
+The latch identity is source-and-canonical-path frozen: qualified module
+`27be8abfe121` embeds `dwc3-event-latch-build-20260814-01`, which is therefore
+an execution-critical input. The source-identical `5f8bab654c41` build completed
+normally under `dwc3-event-latch-build-followup-v3` but is ineligible only
+because that embedded path changes its bytes. V3 does not claim path-independent
+rebuildability; another output path requires a new identity and full qualification.
 Detailed report:
 `docs/reports/S22PLUS_FYG8_P317_CDC_ACM_ENDPOINT_SELECTOR_CORRECTION_H0_2026-08-14.md`.
 

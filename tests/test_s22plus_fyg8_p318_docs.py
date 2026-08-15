@@ -72,6 +72,11 @@ class P318DocumentationTest(unittest.TestCase):
             "129ad86b934c",
             "without a shadow ready flag",
             "Python snapshots require an explicit pre-gate count",
+            "source-and-canonical-path frozen",
+            "dwc3-event-latch-build-followup-v3",
+            "V3 does not claim path-independent rebuildability",
+            "reads `exposure_state` before `event_ready`",
+            "qualified runtime cannot take that interleaving",
             "NO_PROOF_EXPERIMENT_PRECONDITION",
             "first actual host-caused device event",
             "lossless PackBits poll capacity falls from 76 to 47 bytes",
@@ -131,6 +136,10 @@ class P318DocumentationTest(unittest.TestCase):
             "s22plus-fyg8-p318 | h0-gate-state-single-authority-review-3 | H0 | "
             "PASS_GO_P318_CUSTOM71_PROCESS_V2_OFFLINE_READY_CAPABILITY_V3"
         )
+        path_provenance_4 = (
+            "s22plus-fyg8-p318 | h0-build-path-provenance-4 | H0 | "
+            "P318_LATCH_SOURCE_AND_PATH_FREEZE_PROVENANCE_RECORDED"
+        )
         self.assertEqual(ledger.count(original), 1)
         self.assertEqual(ledger.count(superseded_correction), 1)
         self.assertEqual(ledger.count(correction), 1)
@@ -140,6 +149,7 @@ class P318DocumentationTest(unittest.TestCase):
         self.assertEqual(ledger.count(final_review), 1)
         self.assertEqual(ledger.count(followup_3), 1)
         self.assertEqual(ledger.count(final_review_3), 1)
+        self.assertEqual(ledger.count(path_provenance_4), 1)
         self.assertLess(ledger.index(original), ledger.index(superseded_correction))
         self.assertLess(ledger.index(superseded_correction), ledger.index(correction))
         self.assertLess(ledger.index(correction), ledger.index(design))
@@ -148,6 +158,7 @@ class P318DocumentationTest(unittest.TestCase):
         self.assertLess(ledger.index(followup), ledger.index(final_review))
         self.assertLess(ledger.index(final_review), ledger.index(followup_3))
         self.assertLess(ledger.index(followup_3), ledger.index(final_review_3))
+        self.assertLess(ledger.index(final_review_3), ledger.index(path_provenance_4))
 
     def test_incident_report_carries_explicit_post_close_correction(self):
         incident = INCIDENT.read_text(encoding="utf-8")
