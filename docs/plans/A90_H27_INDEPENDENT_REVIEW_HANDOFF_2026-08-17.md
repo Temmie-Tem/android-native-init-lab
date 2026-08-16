@@ -39,10 +39,30 @@ should return no-go on the capability, not on the artifact.
 | builder version | `workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h27/manifest.toml` |
 | design | `docs/plans/A90_SELF_BUILT_KERNEL_F1_DESIGN_2026-08-16.md` |
 | build report | `docs/reports/A90_SELF_BUILT_KERNEL_H0_2026-08-16.md` |
-| candidate (private) | `workspace/private/outputs/a90-h27-selfbuilt-kernel-ab-20260817-01/` |
+| candidate — **named, not to be opened** | `workspace/private/outputs/a90-h27-selfbuilt-kernel-ab-20260817-01/` |
 
-Exact bytes under review, so the reviewer can verify rather than take the
-runner's word:
+### Declared digests, and who checks them
+
+**Do not open the private artifacts.** This review is public-scope: the runner
+requires every review report to declare `workspace_private: 0`, alongside zero
+device, `/dev`, USB, network, S22+, S20+, and file-modification contacts. The
+H24 capability review reported exactly those zeros. `AGENTS.md:83` keeps private
+inputs and run evidence under `workspace/private/`, and
+`A90_TARGET_CONTRACT.md:43` keeps serials and topology identifiers private, so a
+reviewer reading them would breach the boundary and produce a report this runner
+must reject.
+
+The digests below are therefore **declarations to cross-check, not bytes to
+open**. What is in review scope is whether they agree across the runner
+constants, this handoff, and the design, and whether the tests that do read the
+bytes actually assert what they claim.
+
+Byte verification is delegated, not skipped. It runs on the operator's host
+where the artifacts exist: `test_the_candidate_binding_matches_the_built_artifact`,
+`test_the_bound_predecessor_evidence_matches_the_staged_run`, and
+`test_the_predecessor_is_bound_to_the_actual_h24_resident` hash the real files
+and compare them to the runner's constants, and skip rather than pass when the
+artifacts are absent.
 
 | artifact | size | sha256 |
 |---|---|---|

@@ -40,6 +40,7 @@ RESIDENT = REPO / (
     "/a90-h24-minimal-debian-dev-ab-20260812-01/A/boot.img"
 )
 HANDOFF = REPO / "docs/plans/A90_H27_INDEPENDENT_REVIEW_HANDOFF_2026-08-17.md"
+RUNNER_TESTS = Path(__file__).resolve()
 
 
 def load_h24():
@@ -263,8 +264,26 @@ class H27ReviewHandoffTests(unittest.TestCase):
         ):
             self.assertIn(value, self.doc, value)
 
-    def test_it_gives_the_reviewer_the_bytes_to_check(self) -> None:
-        """A reviewer must be able to verify, not take the runner's word."""
+    def test_it_does_not_ask_the_reviewer_to_open_private_artifacts(self) -> None:
+        """The runner requires workspace_private == 0; the handoff must agree.
+
+        A handoff that asked for independent byte verification would only be
+        satisfiable by a report the runner then rejects, so an honest reviewer
+        could never pass and a passing report would be one that did not look.
+        """
+        self.assertIn("Do not open the private artifacts", self.doc)
+        self.assertIn("named, not to be opened", self.doc)
+        self.assertIn("`workspace_private: 0`", self.doc)
+        self.assertIn("declarations to cross-check, not bytes to", self.doc)
+        self.assertIn("Byte verification is delegated, not skipped", self.doc)
+        for name in (
+            "test_the_candidate_binding_matches_the_built_artifact",
+            "test_the_bound_predecessor_evidence_matches_the_staged_run",
+        ):
+            self.assertIn(name, self.doc, name)
+            self.assertIn(f"def {name}", RUNNER_TESTS.read_text(encoding="utf-8"), name)
+
+    def test_the_declared_digests_agree_with_the_runner(self) -> None:
         for digest in (
             self.mod.CANDIDATE_BOOT_SHA256,
             self.mod.CURRENT_BOOT_SHA256,
