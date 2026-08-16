@@ -188,8 +188,15 @@ The build completed with `BUILD_EXIT=0`, 4015 compiled objects, and no errors.
 ```
 Image        48,826,384  sha256 6cab67938d2d235ad5ad965abaefe7e3ebda6d13b57251705c91f5f333ab1b6d
 kernel blob  49,823,517  = "UNCOMPRESSED_IMG" + u32 image size + Image + stock DTB region
-boot image   58,368,000  sha256 7c293af9c0fd6bfea5247cd5c3415956c452c67a79e8269c967860d2a2c0cead
 ```
+
+The `Image` is the durable product of this report. The boot image first packed
+around it — pairing this kernel with the resident's own ramdisk, sha256
+`7c293af9...` — was **later deleted**; see the superseding note below. The
+surviving packaging of this kernel is
+`boot_a90_base_selfbuilt_kernel_20260816.img`, size 66,375,680, sha256
+`2d0be40158d56b6b053bc1aff6c6e149beb904da43a303b812e8ca6c4d583a9e`, which pairs
+it with the v3403 base ramdisk and serves as the flat builder's `base_boot`.
 
 `file` reports `Linux kernel ARM64 boot executable Image, little-endian, 4K
 pages`, and the ARM64 magic is present at offset 56. This is the check the S22+
@@ -254,6 +261,21 @@ bytes — one page — smaller than stock.
 A one-page delta is **not** evidence of equivalence. Compiler, linker, and the
 three disabled symbols all differ from Samsung's build; the small size
 difference is an observation, not a similarity proof.
+
+### The packed image was superseded and deleted
+
+Pairing this kernel with the resident's ramdisk produced an image that is
+byte-parity-correct but **contract-invalid as a candidate**:
+`A90_TARGET_CONTRACT.md:320-324` requires every replacement candidate to carry a
+new build identity with fresh versioned enable/latch paths, and that image
+reused H24's. It also could not serve as the flat builder's `base_boot`, because
+the builder overlays onto a base ramdisk and rejects an already-built one.
+
+Having no remaining role, it was deleted rather than left staged where it could
+be mistaken for a candidate. The kernel it carried is unchanged and is preserved
+in the base image named above. The actual candidate is the flat-builder output
+`phase3-minimal-h24k`, recorded in
+`docs/plans/A90_SELF_BUILT_KERNEL_F1_DESIGN_2026-08-16.md`.
 
 ### Bound rollback
 
@@ -325,7 +347,7 @@ authorized by this report.
 ## Sources
 
 - private: `workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource_13272/`
-- private: `workspace/private/inputs/boot_images/boot_a90_h24_selfbuilt_nocfp_20260816.img`
+- private: `workspace/private/inputs/boot_images/boot_a90_base_selfbuilt_kernel_20260816.img`
 - private: `workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img`
 - private: `workspace/private/outputs/a90-h24-minimal-debian-dev-ab-20260812-01/`
 - `GOAL_A90.md`

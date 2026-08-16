@@ -269,18 +269,38 @@ Each is independent; none is satisfied by this document.
 1. independent review of this draft;
 2. the new flat-builder candidate version built, A/B reproducible, and
    qualified — see "Required candidate construction";
-3. `GOAL_A90.md` updated to authorize exactly one successor candidate, since it
-   authorizes none today;
+3. `GOAL_A90.md` updated to **record** the successor objective. The goal cannot
+   grant it: `AGENTS.md:47` states "The goal cannot grant or extend live
+   authority", and `GOAL_A90.md` itself says it "grants no device authority".
+   Authority comes from the common and target contracts plus current live
+   inputs;
 4. one fresh `A90_F1_RESIDENT_INSTALL_V1` binding for that candidate plus its
    exact rollback (`A90_TARGET_CONTRACT.md:1268-1270`);
-5. first-use execution qualification: runner schema update, focused tests,
-   execution review, connected preflight, and compatibility binding
-   (`:1284-1289`);
-6. a fresh connected D0;
-7. an empty durable journal, checked flash and bridge closures, and proven
+5. **a new reviewed H24K F1 runner.** `a90_h24_ufs_f1_runner_v1.py` hardcodes
+   the H24 version, build, candidate hash, enable/latch paths, builder manifest,
+   capability qualification, review report, reviewer, and scope. It cannot bind
+   `0.11.193` or `2c4ca811...`. "Runner schema update" understates this: either a
+   new runner or a genuinely parameterized equivalent is required, and it must
+   also reject caller-supplied `--remote-image` and `--boot-block` values so the
+   boot-only boundary in `AGENTS.md:54-65` is enforced rather than assumed;
+6. first-use execution qualification: focused tests, connected preflight, and
+   compatibility binding (`:1284-1289`);
+7. an **independent H24K capability review** and an **independent H24K execution
+   review**. Neither transfers from H24: `AGENTS.md:187-191` requires independent
+   review when the runner, hazard, or closure changes, and H24K changes the
+   kernel, the manifest, the candidate hash, and the security posture. The
+   existing report is H24-scoped and its reviewer path is H24-specific;
+8. an **H24K F1 manifest** — distinct from the flat-builder `manifest.toml` and
+   the build receipt — binding exact target, candidate, rollback, runner,
+   observation, and final health with absolute paths
+   (`DEVICE_ACTION_PROCESS_V2.md:42-62`; `A90_TARGET_CONTRACT.md:374-383`).
+   The builder manifest's `base_boot` is repository-relative, which is fine for
+   an H0 build but is not the F1 binding;
+9. a fresh connected D0;
+10. an empty durable journal, checked flash and bridge closures, and proven
    physical recovery availability (`:1262-1265`);
-8. exact attended F1 approval referencing the final manifest;
-9. the operator physically present — the A90 v1 runner is attended-only and
+11. exact attended F1 approval referencing the final manifest;
+12. the operator physically present — the A90 v1 runner is attended-only and
    `--operator-attended` must never be asserted in the operator's absence.
 
 ## Open risks

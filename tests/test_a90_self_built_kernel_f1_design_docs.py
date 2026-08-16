@@ -29,7 +29,7 @@ PROCESS = REPO / "docs/operations/DEVICE_ACTION_PROCESS_V2.md"
 RUNNER = REPO / "workspace/public/src/scripts/revalidation/native_init_flash.py"
 
 BOOT_IMAGES = REPO / "workspace/private/inputs/boot_images"
-KERNEL_INPUT = BOOT_IMAGES / "boot_a90_h24_selfbuilt_nocfp_20260816.img"
+DELETED_INTERMEDIATE = BOOT_IMAGES / "boot_a90_h24_selfbuilt_nocfp_20260816.img"
 BASE_BOOT = BOOT_IMAGES / "boot_a90_base_selfbuilt_kernel_20260816.img"
 CANDIDATE = REPO / (
     "workspace/private/outputs"
@@ -172,7 +172,7 @@ class SelfBuiltKernelF1DesignTests(unittest.TestCase):
         self.assertIn("a prior enable/latch pair is never reused", self.design)
         self.assertIn("not itself a candidate", self.design)
         self.assertIn("then deleted", self.design)
-        self.assertFalse(KERNEL_INPUT.exists(), "the dead-end image must not remain staged")
+        self.assertFalse(DELETED_INTERMEDIATE.exists(), "the dead-end image must not remain staged")
 
     def test_the_required_candidate_construction_is_specified(self) -> None:
         for token in (

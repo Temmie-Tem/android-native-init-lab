@@ -26,7 +26,8 @@ REPORT = REPO / "docs/reports/A90_SELF_BUILT_KERNEL_H0_2026-08-16.md"
 COMPOSITION = REPO / "docs/reports/A90_WLAN_KERNEL_SIDE_COMPOSITION_H0_2026-08-15.md"
 CONFIRMATION = REPO / "docs/reports/A90_WLAN_KERNEL_SOURCE_CONFIRMATION_H0_2026-08-16.md"
 BOOT_IMAGES = REPO / "workspace/private/inputs/boot_images"
-CANDIDATE = BOOT_IMAGES / "boot_a90_h24_selfbuilt_nocfp_20260816.img"
+BASE_IMAGE = BOOT_IMAGES / "boot_a90_base_selfbuilt_kernel_20260816.img"
+DELETED = BOOT_IMAGES / "boot_a90_h24_selfbuilt_nocfp_20260816.img"
 RESIDENT = REPO / (
     "workspace/private/outputs"
     "/a90-h24-minimal-debian-dev-ab-20260812-01/A/boot.img"
@@ -41,8 +42,8 @@ SOURCE_TARBALL = REPO / (
     "/SM-A908N_KOR_12_Opensource_13272/Kernel.tar.gz"
 )
 
-CANDIDATE_SHA = "7c293af9c0fd6bfea5247cd5c3415956c452c67a79e8269c967860d2a2c0cead"
-CANDIDATE_SIZE = 58368000
+BASE_SHA = "2d0be40158d56b6b053bc1aff6c6e149beb904da43a303b812e8ca6c4d583a9e"
+BASE_SIZE = 66375680
 RESIDENT_SHA = "d8c280e4acee5d17d13270fdf25535b4ce05304e786bc22efa84ab16f6b82782"
 ROLLBACK_SHA = "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb"
 TARBALL_SHA = "403fdc49f086d238c01a796c390083c3c47c1754c218e228f29b55cc7c35d554"
@@ -77,8 +78,8 @@ class SelfBuiltKernelDocsTests(unittest.TestCase):
         self.report = flatten(self.raw)
 
     def require_candidate(self) -> None:
-        if not CANDIDATE.is_file():
-            self.skipTest(f"private artifact not staged on this host: {CANDIDATE}")
+        if not BASE_IMAGE.is_file():
+            self.skipTest(f"private artifact not staged on this host: {BASE_IMAGE}")
 
     def test_the_build_versus_boot_limit_is_stated_before_anything_else(self) -> None:
         """The likeliest way this report becomes wrong is drifting into a boot claim."""
@@ -175,31 +176,35 @@ class SelfBuiltKernelDocsTests(unittest.TestCase):
     def test_the_candidate_image_matches_its_recorded_digest(self) -> None:
         """The one test that catches the report describing a different artifact."""
         self.require_candidate()
-        raw = CANDIDATE.read_bytes()
-        self.assertEqual(len(raw), CANDIDATE_SIZE)
-        self.assertEqual(hashlib.sha256(raw).hexdigest(), CANDIDATE_SHA)
-        self.assertIn(CANDIDATE_SHA, self.raw)
+        raw = BASE_IMAGE.read_bytes()
+        self.assertEqual(len(raw), BASE_SIZE)
+        self.assertEqual(hashlib.sha256(raw).hexdigest(), BASE_SHA)
+        self.assertIn(BASE_SHA, self.raw)
         self.assertIn(IMAGE_SHA, self.raw)
 
-    def test_the_boot_header_parity_claim_holds_against_the_resident(self) -> None:
-        """Every header field but kernel_size must match the installed resident."""
+    def test_the_base_image_pairs_our_kernel_with_the_v3403_ramdisk(self) -> None:
+        """The base image is a builder input, not a candidate.
+
+        Its ramdisk is deliberately the v3403 base, not the resident's, because
+        the flat builder overlays onto a base ramdisk and rejects a built one.
+        """
         self.require_candidate()
-        if not RESIDENT.is_file():
-            self.skipTest(f"private artifact not staged on this host: {RESIDENT}")
-        new = boot_header(CANDIDATE)
-        ref = boot_header(RESIDENT)
-        differing = [k for k in ref if new[k] != ref[k]]
-        self.assertEqual(differing, ["kernel_size"], differing)
-        self.assertEqual(ref["kernel_size"], 49827613)
-        self.assertEqual(new["kernel_size"], 49823517)
-        self.assertIn(b"service_locator.enable=1", ref["cmdline"])
-        self.assertIn(b"service_locator.enable=1", new["cmdline"])
+        head = boot_header(BASE_IMAGE)
+        self.assertEqual(head["kernel_size"], 49823517)
+        self.assertEqual(head["ramdisk_size"], 16545280)
+        self.assertIn(b"service_locator.enable=1", head["cmdline"])
+        if RESIDENT.is_file():
+            self.assertNotEqual(
+                head["ramdisk_size"],
+                boot_header(RESIDENT)["ramdisk_size"],
+                "base image must not carry the resident ramdisk",
+            )
 
     def test_the_candidate_kernel_is_arm64_with_the_stock_dtb_region(self) -> None:
         """The S22+ silent boot loop is why the format check is a test, not prose."""
         self.require_candidate()
-        raw = CANDIDATE.read_bytes()
-        page = boot_header(CANDIDATE)["page_size"]
+        raw = BASE_IMAGE.read_bytes()
+        page = boot_header(BASE_IMAGE)["page_size"]
         assert isinstance(page, int)
         blob = raw[page : page + 49823517]
         self.assertEqual(blob[:16], b"UNCOMPRESSED_IMG")
@@ -210,31 +215,6 @@ class SelfBuiltKernelDocsTests(unittest.TestCase):
         dtb = blob[20 + size :]
         self.assertEqual(len(dtb), 997113)
         self.assertEqual(dtb[:4].hex(), "d00dfeed")
-
-    def test_the_candidate_ramdisk_is_the_residents_own(self) -> None:
-        """The whole point of the repack: one variable, not two.
-
-        A candidate carrying a different userspace lineage cannot attribute a
-        boot failure to the kernel, which is the only thing under test.
-        """
-        self.require_candidate()
-        if not RESIDENT.is_file():
-            self.skipTest(f"private artifact not staged on this host: {RESIDENT}")
-        page = boot_header(RESIDENT)["page_size"]
-        assert isinstance(page, int)
-
-        def ramdisk(path: Path) -> bytes:
-            head = boot_header(path)
-            ksize, rsize = head["kernel_size"], head["ramdisk_size"]
-            assert isinstance(ksize, int) and isinstance(rsize, int)
-            pages = -(-ksize // page)
-            start = page + pages * page
-            return path.read_bytes()[start : start + rsize]
-
-        self.assertEqual(ramdisk(CANDIDATE), ramdisk(RESIDENT))
-        self.assertIn("byte-identical to the resident**", self.raw)
-        self.assertIn("It was discarded", self.report)
-        self.assertIn("would have changed **two** things at once", self.raw)
 
     def test_the_resident_ab_build_is_deterministic_and_pinned(self) -> None:
         if not (RESIDENT.is_file() and RESIDENT_B.is_file()):
@@ -272,6 +252,18 @@ class SelfBuiltKernelDocsTests(unittest.TestCase):
             "No successor candidate, approval, transfer, reboot, or D1 effect",
             flatten(goal),
         )
+
+    def test_the_superseded_image_is_declared_and_absent(self) -> None:
+        """A report must not cite an artifact that no longer exists."""
+        self.assertIn("was superseded and deleted", self.raw)
+        self.assertIn("contract-invalid as a candidate", self.report)
+        self.assertIn("could be mistaken for a candidate", self.report)
+        self.assertNotIn(
+            "boot_a90_h24_selfbuilt_nocfp_20260816.img",
+            self.raw,
+            "the report must not cite the deleted artifact",
+        )
+        self.assertFalse(DELETED.exists(), "the superseded image must not be staged")
 
     def test_the_locator_cross_reference_still_exists(self) -> None:
         self.assertTrue(CONFIRMATION.is_file(), str(CONFIRMATION))
