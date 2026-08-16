@@ -188,7 +188,7 @@ The build completed with `BUILD_EXIT=0`, 4015 compiled objects, and no errors.
 ```
 Image        48,826,384  sha256 6cab67938d2d235ad5ad965abaefe7e3ebda6d13b57251705c91f5f333ab1b6d
 kernel blob  49,823,517  = "UNCOMPRESSED_IMG" + u32 image size + Image + stock DTB region
-boot image   66,375,680  sha256 f0f218f31584658ccdf6c98bbfe2cb5dc0e9e44b9e35b5093bf37e56024980a1
+boot image   58,368,000  sha256 7c293af9c0fd6bfea5247cd5c3415956c452c67a79e8269c967860d2a2c0cead
 ```
 
 `file` reports `Linux kernel ARM64 boot executable Image, little-endian, 4K
@@ -219,24 +219,51 @@ The stock 997,113-byte DTB region was therefore carried over unmodified. No
 device tree source was changed, so reusing the stock device tree is correct and
 also keeps the experiment to one variable: kernel code.
 
-### Boot image parity
+### Boot image parity against the actual resident
 
-The image was packed with the in-tree AOSP `mkbootimg` against the header of
-the retained `boot_linux_v3404_d3_resolved_owner_timeout.img`. Re-unpacking and
-diffing the two headers yields exactly one differing field:
+The reference must be the installed resident, not a convenient staged image.
+`GOAL_A90.md` names H24 `0.11.192` as the exact installed resident, and its
+deterministic A/B build output
+(`workspace/private/outputs/a90-h24-minimal-debian-dev-ab-20260812-01/`)
+carries byte-identical `A/boot.img` and `B/boot.img` at SHA256
+`d8c280e4acee5d17d13270fdf25535b4ce05304e786bc22efa84ab16f6b82782`.
+
+A first attempt at this candidate was packed against the retained
+`boot_linux_v3404_d3_resolved_owner_timeout.img` instead. That was wrong. The
+resident's ramdisk is 8,537,600 bytes and v3404's is 16,545,280, so that image
+would have changed **two** things at once — the kernel and the userspace
+lineage — and a boot failure could not have been attributed. It was discarded
+and is not staged.
+
+The kernel inside both images is the same stock 49,827,613-byte blob, so the
+reused DTB region is the resident's own device tree.
+
+The candidate was repacked with the in-tree AOSP `mkbootimg` using the
+resident's ramdisk. Re-unpacking and diffing the two headers yields exactly one
+differing field:
 
 ```
 kernel_size: 49827613   →   49823517
 ```
 
-Load addresses, tags offset, page size, header version, OS version, patch
-level `2023-01`, product name, and the full command line are identical, and the
-ramdisk is byte-identical to the reference. The `Image` itself is 4,096 bytes —
-one page — smaller than stock.
+Load addresses, tags offset, page size, header version, OS version, patch level
+`2023-01`, product name, and the full command line are identical, and the
+ramdisk is **byte-identical to the resident**. The `Image` itself is 4,096
+bytes — one page — smaller than stock.
 
 A one-page delta is **not** evidence of equivalence. Compiler, linker, and the
 three disabled symbols all differ from Samsung's build; the small size
 difference is an observation, not a similarity proof.
+
+### Bound rollback
+
+`GOAL_A90.md` states that "V2321 remains the exact bound rollback for a future,
+freshly qualified successor". The staged
+`boot_linux_v2321_usb_clean_identity_rodata.img` is byte-identical to the
+`rollback-boot-v2321.img` consumed by prior A90 F1 runs, SHA256
+`ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb`. No other
+staged image is the bound rollback, and none of the `v33xx`/`v34xx` images
+substitutes for it.
 
 ## What this does not settle
 
@@ -260,16 +287,37 @@ kernel command line contains `service_locator.enable=1`, so the protection
 domain service locator is enabled at boot rather than left at its source
 default. That report was updated and its pinned digests regenerated.
 
+## This is not an F1-ready candidate
+
+The artifact is format-valid and now differs from the resident in one field.
+That is necessary and nowhere near sufficient. The following preconditions are
+**unmet**, and each is independent of the others:
+
+- **No successor candidate is authorized.** `GOAL_A90.md` states plainly: "No
+  successor candidate, approval, transfer, reboot, or D1 effect is authorized
+  by this goal."
+- **No fresh connected D0.** The goal requires "fresh connected D0 and exact
+  attended F1 approval before one" candidate. Neither exists.
+- **No candidate qualification.** This image has no identity, no approval, no
+  transfer plan, and no execution review. It is a build product, not a
+  qualified candidate.
+- **Attended-only.** The A90 v1 runner is attended-only, and
+  `--operator-attended` must never be asserted while the operator is absent.
+
+A separate, reviewed F1 design is required, and it must treat the disabled
+RKP CFP as part of what is being accepted, not as a build detail.
+
 ## Next bounded units
 
 Host-only work that remains available without new authority:
 
 1. compare the built `System.map` against the device-derived symbol evidence
    already staged for this campaign;
-2. record the exact rollback artifact and its digest alongside the candidate;
-3. decide whether a stock-configuration build (CFP disabled only) or a
+2. decide whether a resident-configuration build (CFP disabled only) or a
    `BINDERFS` build is the first flash candidate — the disciplined order is the
-   former, so a boot failure has one fewer explanation.
+   former, so a boot failure has one fewer explanation;
+3. draft the F1 design and its predeclared recovery for separate review,
+   including the exact V2321 rollback transfer and the CFP acceptance.
 
 The first flash is an attended F1 with an exact predeclared rollback. It is not
 authorized by this report.
@@ -277,8 +325,10 @@ authorized by this report.
 ## Sources
 
 - private: `workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource_13272/`
-- private: `workspace/private/inputs/boot_images/boot_a90_selfbuilt_nocfp_20260816.img`
-- private: `workspace/private/inputs/boot_images/boot_linux_v3404_d3_resolved_owner_timeout.img`
+- private: `workspace/private/inputs/boot_images/boot_a90_h24_selfbuilt_nocfp_20260816.img`
+- private: `workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img`
+- private: `workspace/private/outputs/a90-h24-minimal-debian-dev-ab-20260812-01/`
+- `GOAL_A90.md`
 - private: `workspace/private/outputs/a90-phase2a-kernel.tBOMsQ/v3404.config`
 - `docs/reports/A90_WLAN_KERNEL_SIDE_COMPOSITION_H0_2026-08-15.md`
 - `docs/reports/A90_WLAN_KERNEL_SOURCE_CONFIRMATION_H0_2026-08-16.md`

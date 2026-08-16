@@ -26,15 +26,25 @@ REPORT = REPO / "docs/reports/A90_SELF_BUILT_KERNEL_H0_2026-08-16.md"
 COMPOSITION = REPO / "docs/reports/A90_WLAN_KERNEL_SIDE_COMPOSITION_H0_2026-08-15.md"
 CONFIRMATION = REPO / "docs/reports/A90_WLAN_KERNEL_SOURCE_CONFIRMATION_H0_2026-08-16.md"
 BOOT_IMAGES = REPO / "workspace/private/inputs/boot_images"
-CANDIDATE = BOOT_IMAGES / "boot_a90_selfbuilt_nocfp_20260816.img"
-REFERENCE = BOOT_IMAGES / "boot_linux_v3404_d3_resolved_owner_timeout.img"
+CANDIDATE = BOOT_IMAGES / "boot_a90_h24_selfbuilt_nocfp_20260816.img"
+RESIDENT = REPO / (
+    "workspace/private/outputs"
+    "/a90-h24-minimal-debian-dev-ab-20260812-01/A/boot.img"
+)
+RESIDENT_B = REPO / (
+    "workspace/private/outputs"
+    "/a90-h24-minimal-debian-dev-ab-20260812-01/B/boot.img"
+)
+ROLLBACK = BOOT_IMAGES / "boot_linux_v2321_usb_clean_identity_rodata.img"
 SOURCE_TARBALL = REPO / (
     "workspace/private/inputs/kernel_source"
     "/SM-A908N_KOR_12_Opensource_13272/Kernel.tar.gz"
 )
 
-CANDIDATE_SHA = "f0f218f31584658ccdf6c98bbfe2cb5dc0e9e44b9e35b5093bf37e56024980a1"
-CANDIDATE_SIZE = 66375680
+CANDIDATE_SHA = "7c293af9c0fd6bfea5247cd5c3415956c452c67a79e8269c967860d2a2c0cead"
+CANDIDATE_SIZE = 58368000
+RESIDENT_SHA = "d8c280e4acee5d17d13270fdf25535b4ce05304e786bc22efa84ab16f6b82782"
+ROLLBACK_SHA = "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb"
 TARBALL_SHA = "403fdc49f086d238c01a796c390083c3c47c1754c218e228f29b55cc7c35d554"
 IMAGE_SHA = "6cab67938d2d235ad5ad965abaefe7e3ebda6d13b57251705c91f5f333ab1b6d"
 
@@ -171,13 +181,13 @@ class SelfBuiltKernelDocsTests(unittest.TestCase):
         self.assertIn(CANDIDATE_SHA, self.raw)
         self.assertIn(IMAGE_SHA, self.raw)
 
-    def test_the_boot_header_parity_claim_holds_against_both_images(self) -> None:
-        """Every header field but kernel_size must match the reference image."""
+    def test_the_boot_header_parity_claim_holds_against_the_resident(self) -> None:
+        """Every header field but kernel_size must match the installed resident."""
         self.require_candidate()
-        if not REFERENCE.is_file():
-            self.skipTest(f"private artifact not staged on this host: {REFERENCE}")
+        if not RESIDENT.is_file():
+            self.skipTest(f"private artifact not staged on this host: {RESIDENT}")
         new = boot_header(CANDIDATE)
-        ref = boot_header(REFERENCE)
+        ref = boot_header(RESIDENT)
         differing = [k for k in ref if new[k] != ref[k]]
         self.assertEqual(differing, ["kernel_size"], differing)
         self.assertEqual(ref["kernel_size"], 49827613)
@@ -200,6 +210,68 @@ class SelfBuiltKernelDocsTests(unittest.TestCase):
         dtb = blob[20 + size :]
         self.assertEqual(len(dtb), 997113)
         self.assertEqual(dtb[:4].hex(), "d00dfeed")
+
+    def test_the_candidate_ramdisk_is_the_residents_own(self) -> None:
+        """The whole point of the repack: one variable, not two.
+
+        A candidate carrying a different userspace lineage cannot attribute a
+        boot failure to the kernel, which is the only thing under test.
+        """
+        self.require_candidate()
+        if not RESIDENT.is_file():
+            self.skipTest(f"private artifact not staged on this host: {RESIDENT}")
+        page = boot_header(RESIDENT)["page_size"]
+        assert isinstance(page, int)
+
+        def ramdisk(path: Path) -> bytes:
+            head = boot_header(path)
+            ksize, rsize = head["kernel_size"], head["ramdisk_size"]
+            assert isinstance(ksize, int) and isinstance(rsize, int)
+            pages = -(-ksize // page)
+            start = page + pages * page
+            return path.read_bytes()[start : start + rsize]
+
+        self.assertEqual(ramdisk(CANDIDATE), ramdisk(RESIDENT))
+        self.assertIn("byte-identical to the resident**", self.raw)
+        self.assertIn("It was discarded", self.report)
+        self.assertIn("would have changed **two** things at once", self.raw)
+
+    def test_the_resident_ab_build_is_deterministic_and_pinned(self) -> None:
+        if not (RESIDENT.is_file() and RESIDENT_B.is_file()):
+            self.skipTest(f"private artifact not staged on this host: {RESIDENT}")
+        a = hashlib.sha256(RESIDENT.read_bytes()).hexdigest()
+        b = hashlib.sha256(RESIDENT_B.read_bytes()).hexdigest()
+        self.assertEqual(a, b, "resident A/B build is not reproducible")
+        self.assertEqual(a, RESIDENT_SHA)
+        self.assertIn(RESIDENT_SHA, self.raw)
+
+    def test_the_bound_rollback_is_v2321_and_not_a_convenient_substitute(self) -> None:
+        """The report previously named the wrong rollback; the contract names V2321."""
+        self.assertIn("V2321 remains the exact bound rollback", self.report)
+        self.assertIn("none of the `v33xx`/`v34xx` images", self.report)
+        if not ROLLBACK.is_file():
+            self.skipTest(f"private artifact not staged on this host: {ROLLBACK}")
+        self.assertEqual(
+            hashlib.sha256(ROLLBACK.read_bytes()).hexdigest(), ROLLBACK_SHA
+        )
+        self.assertIn(ROLLBACK_SHA, self.raw)
+
+    def test_the_report_denies_f1_readiness_with_named_preconditions(self) -> None:
+        """Asked whether this can be flashed now, the report must answer no."""
+        self.assertIn("This is not an F1-ready candidate", self.report)
+        for token in (
+            "No successor candidate is authorized",
+            "No fresh connected D0",
+            "No candidate qualification",
+            "Attended-only",
+            "It is a build product, not a qualified candidate",
+        ):
+            self.assertIn(token, self.report, token)
+        goal = (REPO / "GOAL_A90.md").read_text(encoding="utf-8")
+        self.assertIn(
+            "No successor candidate, approval, transfer, reboot, or D1 effect",
+            flatten(goal),
+        )
 
     def test_the_locator_cross_reference_still_exists(self) -> None:
         self.assertTrue(CONFIRMATION.is_file(), str(CONFIRMATION))
