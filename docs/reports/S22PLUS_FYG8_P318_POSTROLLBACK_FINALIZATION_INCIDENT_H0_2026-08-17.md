@@ -1,6 +1,6 @@
 # S22+ FYG8 P3.18 Post-Rollback Finalization Incident H0
 
-Status: **LIVE_CLOSED_HEALTHY; CLOSE_AUDIT_PASS_GO_H0; NO LIVE AUTHORITY**
+Status: **LIVE_CLOSED_HEALTHY; CLOSE_AUDIT_PASS_GO_H0; POSTLIVE_EUD_INDEX_RECOVERY_PASS_GO_H0; NO LIVE AUTHORITY**
 
 Date: 2026-08-17 KST
 
@@ -27,16 +27,22 @@ The ordinary final-health path obtained two post-rollback reads before a local
 correlation exception. Each read is 2,097,136 bytes, has empty stderr, and is
 byte-identical at SHA-256
 `4a0d9db45040fca213c9d2a6c730e28217d360809ed8c19c4748d682509cdd5e`.
-The retained ring is integrity-clean but contains one E2 progress record, not
-a P3.18 terminal:
+Carrier framing, the header CRC, and both slot CRCs are clean. The frozen
+decoder accepted the first slot but rejected the second slot's semantics, so
+its exposed view contained one E2 progress record and did not prove terminal
+absence:
 
 - active generation: 46;
-- stage: 101 (`S22_P313_POSITION_FINAL_WINDOW`);
+- stage/item: `0x65` / 37;
 - outcome/detail: 0/0;
 - slot status: `valid`, `bad-body`;
 - fallback used: true;
-- Max77705 terminal count: zero; and
+- exposed Max77705 terminal count: zero; and
 - classification: `E2_PROGRESS_OBSERVED`.
+
+Stage byte `0x65` (decimal 101) is the module-plan checkpoint for item 37. It
+is not the unrelated P3.13 position ordinal named
+`S22_P313_POSITION_FINAL_WINDOW`.
 
 The fixed P3.18 candidate-end topology record is complete, has no endpoint,
 and retains `causal_terminal_ready=false`. Its phase classifier therefore says
@@ -51,8 +57,8 @@ The actual ordinary sequence is:
    `ROLLBACK_FLASHED`;
 2. the ordinary backend obtains fresh rooted FYG8 final-health reads;
 3. it reopens the two identical retained raw reads;
-4. `s22plus_fyg8_p318_max77705_telemetry_decoder.py` exposes no Max77705
-   terminal row for the exact stage-101 record; and
+4. `s22plus_fyg8_p318_max77705_telemetry_decoder.py` falls back from the
+   semantically rejected second slot to the exact stage-`0x65` record; and
 5. `correlate_p318_candidate_receipt()` rejects the missing unique terminal
    before Process-v2 publishes `final_evidence`, `HEALTH_VERIFIED`, `CLOSED`,
    or `live-result.json`.
@@ -61,6 +67,10 @@ The error is after both transfers, not authority for either transfer again.
 The 15-record append-only journal remains at `ROLLBACK_FLASHED`; candidate and
 rollback replay are forbidden. The operator observation of normal boot is not
 a substitute for the missing durable final-health receipt.
+
+The later host-only recovery changes neither that historical stop nor the
+durable close. It corrects only the effective interpretation of the already
+preserved raw bytes.
 
 ## Incident-specific finalizer
 
@@ -224,3 +234,16 @@ closed attempt.
 No device command, ADB command, reboot, Download request, Odin invocation,
 partition transfer, candidate replay, rollback replay, A90 action, or S20+
 action occurred during this H0 unit.
+
+## Post-live retained-slot correction
+
+A later bounded H0 pass reopens the same two raw reads and the exact candidate
+source closure. It proves that the frozen P3.18 decoder inherited P3.10
+Carrier/P3.08 slot semantics and semantically rejected a CRC-valid second
+slot. The corrected tuple is generation 47, stage `0x66`, item 38, failure
+`0x6010`: latch insertion shifted `eud.ko` from module index 37 to 38 while the
+runtime EUD-cache trigger remained 37. The Max77705 diagnostic was not reached,
+so the effective proof is `NO_PROOF_EXPERIMENT_PRECONDITION`, not terminal
+absence. The historical close and all device-effect accounting remain
+unchanged. See
+`S22PLUS_FYG8_P318_POSTLIVE_EUD_INDEX_RECOVERY_H0_2026-08-17.md`.

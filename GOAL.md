@@ -12,19 +12,20 @@ authority, evidence, transports, and commands remain separate.
 
 ## Current Frontier
 
-P3.18 is the current closed live unit. Candidate and exact rollback each
-transferred once; the operator saw a normal candidate boot without a loop and
-ACM closed `endpoint-timeout`. Two byte-identical final reads contain one
-integrity-clean generation-46 stage-101 E2 progress record and no Max77705
-terminal, so the final proof remains `NO_PROOF_OBSERVER`. A separately reviewed
-incident finalizer used one fresh exact approval only for rooted FYG8 health,
-performed no Download/Odin/transfer/replay, and advanced the original journal
-from 15 records at `ROLLBACK_FLASHED` to 19 records at `CLOSED`. The durable
-terminal is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, exact transfers remain 1/1,
-attempt 2 is absent, and `recovery_required=false`. A host-only post-close audit
-now validates that terminal because the frozen generic `--validate` orders the
-common correlation before the incident patch. Its exact changed closure passed
-independent H0 review and grants no live authority. See
+P3.18 is the current closed live unit. Candidate and exact rollback transferred
+once; the operator saw a normal boot without a loop and ACM `endpoint-timeout`.
+Two byte-identical final reads have clean Carrier framing and slot CRCs, but the
+frozen decoder exposed `[valid, bad-body]` and did not prove terminal absence.
+Reviewed post-live H0 recovers generation 47/stage `0x66`/item 38/failure `0x6010`: the
+latch insertion shifted `eud.ko` from index 37 to 38 while its cache-read trigger
+stayed 37. Max77705 was never reached; effective proof is
+`NO_PROOF_EXPERIMENT_PRECONDITION`, while the historical close stays
+`NO_PROOF_OBSERVER`. A reviewed finalizer used one fresh approval only for FYG8
+health, performed no Download/Odin/transfer/replay, and advanced the journal
+from 15 at `ROLLBACK_FLASHED` to 19 records at `CLOSED`. The durable terminal is
+`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; exact transfers remain 1/1, attempt 2 is absent,
+and `recovery_required=false`. A reviewed H0 audit validates that terminal despite
+the frozen generic validation ordering gap and grants no live authority. See
 `docs/reports/S22PLUS_FYG8_P318_POSTROLLBACK_FINALIZATION_INCIDENT_H0_2026-08-17.md`.
 
 P3.16 is the preceding closed live unit. Its distinct boot-only candidate and

@@ -9,6 +9,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+REVALIDATION = ROOT / "workspace/public/src/scripts/revalidation"
+if str(REVALIDATION) not in sys.path:
+    sys.path.insert(0, str(REVALIDATION))
 REPORT = ROOT / (
     "docs/reports/"
     "S22PLUS_FYG8_P317_CDC_ACM_ENDPOINT_SELECTOR_CORRECTION_H0_2026-08-14.md"
@@ -37,6 +40,22 @@ POSTROLLBACK_CLOSE_AUDIT_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p318/"
     "postrollback-close-audit-20260817-01.json"
 )
+POSTLIVE_EUD_REPORT = ROOT / (
+    "docs/reports/"
+    "S22PLUS_FYG8_P318_POSTLIVE_EUD_INDEX_RECOVERY_H0_2026-08-17.md"
+)
+POSTLIVE_EUD_AUDIT = ROOT / (
+    "workspace/public/src/scripts/revalidation/"
+    "s22plus_fyg8_p318_postlive_eud_index_audit.py"
+)
+POSTLIVE_EUD_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p318/"
+    "postlive-eud-index-recovery-20260817-01.json"
+)
+LEDGER_TAXONOMY_V3_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p318_ledger_taxonomy/"
+    "ledger-taxonomy-20260817-p318-correction-v3.json"
+)
 GOAL = ROOT / "GOAL.md"
 LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 TARGET_CONTRACT = ROOT / "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md"
@@ -49,13 +68,97 @@ PREPARED = ROOT / (
 
 
 class P318DocumentationTest(unittest.TestCase):
+    def test_postlive_eud_index_recovery_is_exact_and_noncausal(self):
+        report = POSTLIVE_EUD_REPORT.read_text(encoding="utf-8")
+        goal = GOAL.read_text(encoding="utf-8")
+        incident = POSTROLLBACK.read_text(encoding="utf-8")
+        ledger = LEDGER.read_text(encoding="utf-8")
+        normalized = " ".join(report.split())
+        spec = importlib.util.spec_from_file_location(
+            "p318_postlive_eud_index_docs", POSTLIVE_EUD_AUDIT
+        )
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        module = module.load_bound_auditor()
+        receipt_bytes = POSTLIVE_EUD_RECEIPT.read_bytes()
+        self.assertEqual(receipt_bytes, module.encode_receipt(module.build_receipt()))
+        self.assertEqual(len(receipt_bytes), 12705)
+        self.assertEqual(
+            hashlib.sha256(receipt_bytes).hexdigest(),
+            "8a9d92201713eb4fb0c27c5200c2f8fd6cd21bc295acc14567243d67978f5256",
+        )
+        receipt = json.loads(receipt_bytes)
+        self.assertEqual(
+            receipt["conclusion"]["effective_campaign_proof"],
+            "NO_PROOF_EXPERIMENT_PRECONDITION",
+        )
+        self.assertEqual(receipt["recovered_record"]["detail"], "0x6010")
+        self.assertFalse(receipt["conclusion"]["max77705_diagnostic_reached"])
+        self.assertFalse(receipt["conclusion"]["causal_result_allowed"])
+        self.assertIn("[valid, bad-body]", normalized)
+        self.assertIn("did not prove terminal absence", normalized)
+        self.assertIn("5,007 bytes", report)
+        self.assertIn(
+            "fe06d1491d7cd119489a9cb4633a53f9f03e16c12ec6a8b0c5737d7557f74e89",
+            report,
+        )
+        self.assertIn(
+            "509a08dd8d24e293425a9e24da518416895605532cd90a0a8aced7bbf508bfac",
+            report,
+        )
+        self.assertIn(
+            "774bf1bfdd7ef81582fc325d635c852264e7b3532366aea8eef09542e414e225",
+            report,
+        )
+        self.assertIn("None of the superseded receipts is current authority", report)
+        self.assertIn(
+            "P3.10 Carrier/P3.08 slot semantics", " ".join(incident.split())
+        )
+        self.assertIn("effective proof is", goal)
+        self.assertIn("`NO_PROOF_EXPERIMENT_PRECONDITION`", goal)
+        pending = (
+            "s22plus-fyg8-p318 | h0-postlive-eud-index-14 | H0 | "
+            "P318_POSTLIVE_EUD_INDEX_RECOVERY_IMPLEMENTED_REVIEW_PENDING"
+        )
+        self.assertEqual(ledger.count(pending), 1)
+        review = (
+            "s22plus-fyg8-p318 | h0-postlive-eud-index-review-14 | H0 | "
+            "PASS_GO_P318_POSTLIVE_EUD_INDEX_RECOVERY_H0_CAPABILITY_V1"
+        )
+        self.assertEqual(ledger.count(review), 1)
+        self.assertLess(ledger.index(pending), ledger.index(review))
+        taxonomy_bytes = LEDGER_TAXONOMY_V3_RECEIPT.read_bytes()
+        self.assertEqual(len(taxonomy_bytes), 28383)
+        self.assertEqual(
+            hashlib.sha256(taxonomy_bytes).hexdigest(),
+            "a3ff5130179e7a0713d29d0f5200f7b49b1160f7a2ba647f4ca8ec65ab4c4166",
+        )
+        taxonomy = json.loads(taxonomy_bytes)
+        self.assertEqual(
+            taxonomy["correction_registry"][-1],
+            {
+                "original_campaign": "s22plus-fyg8-p318",
+                "original_ordinal": "1",
+                "correction_campaign": "s22plus-fyg8-p318",
+                "correction_ordinal": "h0-postlive-eud-index-14",
+                "scope": "CAMPAIGN_PROOF",
+                "subject": "pre-max77705-eud-index",
+                "effective_class": "NO_PROOF_EXPERIMENT_PRECONDITION",
+                "metric_effect": "APPLY_TO_METRICS",
+            },
+        )
+        self.assertIn("H0 ONLY; NO LIVE AUTHORITY", report)
+
     def test_postrollback_finalizer_closed_healthy_and_audit_is_transfer_free(self):
         report = POSTROLLBACK.read_text(encoding="utf-8")
         normalized = " ".join(report.split())
         authority = json.loads(POSTROLLBACK_AUTHORITY.read_text())
         self.assertIn(
             "LIVE_CLOSED_HEALTHY; CLOSE_AUDIT_PASS_GO_H0; "
-            "NO LIVE AUTHORITY",
+            "POSTLIVE_EUD_INDEX_RECOVERY_PASS_GO_H0; NO LIVE AUTHORITY",
             report,
         )
         self.assertIn("no Download request", normalized)
@@ -367,6 +470,14 @@ class P318DocumentationTest(unittest.TestCase):
             LEDGER,
             POSTROLLBACK_SCRIPT,
             POSTROLLBACK_AUTHORITY,
+            POSTLIVE_EUD_REPORT,
+            POSTLIVE_EUD_AUDIT,
+            ROOT
+            / "workspace/public/src/scripts/revalidation/"
+            "s22plus_fyg8_p318_postlive_carrier_model.py",
+            ROOT
+            / "workspace/public/src/scripts/revalidation/"
+            "s22plus_fyg8_p318_postlive_decoder.py",
             ROOT
             / "workspace/public/src/scripts/revalidation/"
             "s22plus_fyg8_p318_cdc_acm_endpoint_transition.py",

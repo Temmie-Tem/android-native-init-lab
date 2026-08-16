@@ -19,9 +19,13 @@ REPORT = ROOT / (
 )
 RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p318_ledger_taxonomy/"
+    "ledger-taxonomy-20260817-p318-correction-v3.json"
+)
+V2_PREDECESSOR_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p318_ledger_taxonomy/"
     "ledger-taxonomy-20260815-01.json"
 )
-PREDECESSOR_RECEIPT = ROOT / (
+V1_PREDECESSOR_RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p318_ledger_taxonomy/"
     "ledger-taxonomy-20260815-01-v1-approved.json"
 )
@@ -60,21 +64,21 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         self.assertEqual(self.auditor.encode_receipt(regenerated), self.receipt_data)
         self.assertEqual(
             hashlib.sha256(self.receipt_data).hexdigest(),
-            "6541ed535aec06337094cae98f9b07a91c37e13528a619bdeb4811fc870da026",
+            "a3ff5130179e7a0713d29d0f5200f7b49b1160f7a2ba647f4ca8ec65ab4c4166",
         )
-        self.assertEqual(len(self.receipt_data), 23314)
+        self.assertEqual(len(self.receipt_data), 28383)
         self.assertEqual(
             self.receipt["verdict"],
-            "PASS_P318_CAMPAIGN_LEDGER_TAXONOMY_H0_V2",
+            "PASS_P318_CAMPAIGN_LEDGER_TAXONOMY_H0_V3",
         )
         self.assertEqual(
-            self.receipt["schema"], "s22plus-fyg8-campaign-ledger-taxonomy-v2"
+            self.receipt["schema"], "s22plus-fyg8-campaign-ledger-taxonomy-v3"
         )
-        self.assertEqual(self.receipt["derivation_version"], 2)
+        self.assertEqual(self.receipt["derivation_version"], 3)
         self.assertEqual(self.receipt["status"], "IMPLEMENTED_REVIEW_PENDING")
 
     def test_approved_v1_predecessor_receipt_and_marker_are_preserved(self):
-        predecessor = PREDECESSOR_RECEIPT.read_bytes()
+        predecessor = V1_PREDECESSOR_RECEIPT.read_bytes()
         self.assertEqual(len(predecessor), 10118)
         self.assertEqual(
             hashlib.sha256(predecessor).hexdigest(),
@@ -93,7 +97,15 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         )
         self.assertEqual(
             marker["current_successor"]["receipt"]["sha256"],
-            hashlib.sha256(self.receipt_data).hexdigest(),
+            hashlib.sha256(V2_PREDECESSOR_RECEIPT.read_bytes()).hexdigest(),
+        )
+
+    def test_approved_v2_predecessor_receipt_is_preserved(self):
+        predecessor = V2_PREDECESSOR_RECEIPT.read_bytes()
+        self.assertEqual(len(predecessor), 23314)
+        self.assertEqual(
+            hashlib.sha256(predecessor).hexdigest(),
+            "6541ed535aec06337094cae98f9b07a91c37e13528a619bdeb4811fc870da026",
         )
 
     def test_historical_prefix_is_byte_pinned(self):
@@ -118,15 +130,18 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         ):
             self.auditor.audit_ledger_bytes(mutated, self.script_data)
 
-    def test_only_p316_campaign_correction_changes_metrics(self):
+    def test_only_campaign_proof_corrections_change_metrics(self):
         corrections = self.receipt["correction_registry"]
-        self.assertEqual(len(corrections), 2)
+        self.assertEqual(len(corrections), 3)
         self.assertEqual(corrections[0]["scope"], "CAMPAIGN_PROOF")
         self.assertEqual(corrections[0]["metric_effect"], "APPLY_TO_METRICS")
         self.assertEqual(corrections[1]["scope"], "SUBRESULT_ONLY")
         self.assertEqual(
             corrections[1]["metric_effect"], "EXCLUDE_FROM_CAMPAIGN_METRICS"
         )
+        self.assertEqual(corrections[2]["scope"], "CAMPAIGN_PROOF")
+        self.assertEqual(corrections[2]["original_campaign"], "s22plus-fyg8-p318")
+        self.assertEqual(corrections[2]["metric_effect"], "APPLY_TO_METRICS")
         mutated = replace_once(
             self.ledger_data,
             (
@@ -163,12 +178,12 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         ):
             self.auditor.audit_ledger_bytes(mutated, self.script_data)
 
-    def test_p310_through_p317_effective_attempt_accounting(self):
+    def test_p310_through_p318_effective_attempt_accounting(self):
         attempts = self.receipt["attempts"]
-        self.assertEqual(len(attempts), 8)
+        self.assertEqual(len(attempts), 9)
         self.assertEqual(
             [item["campaign"] for item in attempts],
-            [f"s22plus-fyg8-p{number}" for number in range(310, 318)],
+            [f"s22plus-fyg8-p{number}" for number in range(310, 319)],
         )
         by_campaign = {item["campaign"]: item for item in attempts}
         self.assertEqual(
@@ -188,6 +203,18 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             "1-recovery-close",
         )
         self.assertEqual(
+            by_campaign["s22plus-fyg8-p318"]["raw_experiment_proof"],
+            "NO_PROOF_OBSERVER",
+        )
+        self.assertEqual(
+            by_campaign["s22plus-fyg8-p318"]["effective_experiment_proof"],
+            "NO_PROOF_EXPERIMENT_PRECONDITION",
+        )
+        self.assertEqual(
+            by_campaign["s22plus-fyg8-p318"]["campaign_correction"],
+            "s22plus-fyg8-p318/h0-postlive-eud-index-14",
+        )
+        self.assertEqual(
             self.receipt["cohorts"]["p310_through_p316"]["effective_class_counts"],
             {
                 "PROVED": 0,
@@ -202,6 +229,15 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "PROVED": 0,
                 "REFUTED": 2,
                 "NO_PROOF_EXPERIMENT_PRECONDITION": 1,
+                "NO_PROOF_OBSERVER": 5,
+            },
+        )
+        self.assertEqual(
+            self.receipt["cohorts"]["p310_through_p318"]["effective_class_counts"],
+            {
+                "PROVED": 0,
+                "REFUTED": 2,
+                "NO_PROOF_EXPERIMENT_PRECONDITION": 2,
                 "NO_PROOF_OBSERVER": 5,
             },
         )
@@ -618,39 +654,39 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         current = self.auditor.audit_review_obligations(all_rows)
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (17, 17, 0),
+            (18, 18, 0),
         )
         self.assertEqual(current["unresolved"], [])
         self.assertEqual(
             current["resolved"][-1],
             {
                 "campaign": "s22plus-fyg8-p318",
-                "review_topic": "postrollback-close-audit",
-                "pending_ordinal": "h0-postrollback-close-audit-13",
+                "review_topic": "postlive-eud-index",
+                "pending_ordinal": "h0-postlive-eud-index-14",
                 "pending_action": (
-                    "P318_POSTROLLBACK_CLOSE_AUDIT_"
+                    "P318_POSTLIVE_EUD_INDEX_RECOVERY_"
                     "IMPLEMENTED_REVIEW_PENDING"
                 ),
-                "resolution_ordinal": "h0-postrollback-close-audit-review-13",
+                "resolution_ordinal": "h0-postlive-eud-index-review-14",
                 "resolution_action": (
-                    "PASS_GO_P318_POSTROLLBACK_CLOSE_AUDIT_H0_CAPABILITY_V1"
+                    "PASS_GO_P318_POSTLIVE_EUD_INDEX_RECOVERY_H0_CAPABILITY_V1"
                 ),
             },
         )
         scoped = self.receipt["scoped_review_obligations"]
         self.assertEqual(
             (scoped["total"], scoped["resolved_count"], scoped["unresolved_count"]),
-            (11, 10, 1),
+            (18, 17, 1),
         )
         self.assertEqual(
             scoped["unresolved"],
             [
                 {
                     "campaign": "s22plus-fyg8-p318",
-                    "review_topic": "ledger-taxonomy",
-                    "pending_ordinal": "h0-ledger-taxonomy-7",
+                    "review_topic": "postlive-eud-index",
+                    "pending_ordinal": "h0-postlive-eud-index-14",
                     "pending_action": (
-                        "P318_CAMPAIGN_LEDGER_TAXONOMY_"
+                        "P318_POSTLIVE_EUD_INDEX_RECOVERY_"
                         "IMPLEMENTED_REVIEW_PENDING"
                     ),
                 }
@@ -781,7 +817,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             appended.split(marker, 1)[1].splitlines(keepends=True)
         )
         obligations = self.auditor.audit_review_obligations(rows)
-        self.assertEqual(obligations["resolved_count"], 18)
+        self.assertEqual(obligations["resolved_count"], 19)
         self.assertEqual(obligations["unresolved_count"], 0)
         self.assertEqual(obligations["unresolved"], [])
 
@@ -815,7 +851,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             {"numerator": 0, "denominator": 1},
         )
         self.assertEqual(
-            self.receipt["attempt_inventory"]["state_counts"], {"CLOSED": 19}
+            self.receipt["attempt_inventory"]["state_counts"], {"CLOSED": 20}
         )
 
     def test_h0_row_kind_does_not_consume_review_state(self):

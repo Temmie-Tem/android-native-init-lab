@@ -15,21 +15,25 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
-SCHEMA = "s22plus-fyg8-campaign-ledger-taxonomy-v2"
-DERIVATION_VERSION = 2
-VERDICT = "PASS_P318_CAMPAIGN_LEDGER_TAXONOMY_H0_V2"
+SCHEMA = "s22plus-fyg8-campaign-ledger-taxonomy-v3"
+DERIVATION_VERSION = 3
+VERDICT = "PASS_P318_CAMPAIGN_LEDGER_TAXONOMY_H0_V3"
 STATUS = "IMPLEMENTED_REVIEW_PENDING"
 MARKER = b"<!-- append below; never edit or remove an earlier line -->\n"
 TAXONOMY_ACTION = "P318_CAMPAIGN_LEDGER_TAXONOMY_IMPLEMENTED_REVIEW_PENDING"
+V3_SCOPE_ACTION = "P318_POSTLIVE_EUD_INDEX_RECOVERY_IMPLEMENTED_REVIEW_PENDING"
 HISTORICAL_ROW_COUNT = 181
 HISTORICAL_BYTE_COUNT = 103274
 HISTORICAL_SHA256 = "3c0cca0feea9259a0107cc9c9bfa021579707595afa15b6bf9371529f1fe06e1"
+V3_SCOPED_ROW_COUNT = 202
+V3_SCOPED_BYTE_COUNT = 129789
+V3_SCOPED_SHA256 = "ae7d95f958042c6c625646ce2fbbad2dfe032ea83ec8b83de5e0f07ae61c7abd"
 
 ROOT = Path(__file__).resolve().parents[5]
 DEFAULT_LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 DEFAULT_OUTPUT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p318_ledger_taxonomy/"
-    "ledger-taxonomy-20260815-01.json"
+    "ledger-taxonomy-20260817-p318-correction-v3.json"
 )
 
 HEALTH_STATES = {
@@ -223,6 +227,19 @@ EXPECTED_CORRECTIONS = (
             "P317_PHYSICAL_TOPOLOGY_PRECONDITION_POSTCLOSE_CORRECTION"
         ),
     },
+    {
+        "original_campaign": "s22plus-fyg8-p318",
+        "original_ordinal": "1",
+        "correction_campaign": "s22plus-fyg8-p318",
+        "correction_ordinal": "h0-postlive-eud-index-14",
+        "scope": "CAMPAIGN_PROOF",
+        "subject": "pre-max77705-eud-index",
+        "effective_class": "NO_PROOF_EXPERIMENT_PRECONDITION",
+        "metric_effect": "APPLY_TO_METRICS",
+        "correction_action": (
+            "P318_POSTLIVE_EUD_INDEX_RECOVERY_IMPLEMENTED_REVIEW_PENDING"
+        ),
+    },
 )
 CORRECTION_ROW_IDENTITIES = {
     (
@@ -242,6 +259,7 @@ EXPECTED_ATTEMPTS = {
     "s22plus-fyg8-p315": "REFUTED",
     "s22plus-fyg8-p316": "NO_PROOF_EXPERIMENT_PRECONDITION",
     "s22plus-fyg8-p317": "NO_PROOF_OBSERVER",
+    "s22plus-fyg8-p318": "NO_PROOF_EXPERIMENT_PRECONDITION",
 }
 
 LOCALIZATION_REQUIREMENTS = (
@@ -274,6 +292,11 @@ LOCALIZATION_REQUIREMENTS = (
         "s22plus-fyg8-p317",
         "CAMPAIGN_CLOSED",
         "MAX77705_RESULT_MULTIPLICITY",
+    ),
+    (
+        "s22plus-fyg8-p318",
+        "P318_POSTLIVE_EUD_INDEX_RECOVERY_IMPLEMENTED_REVIEW_PENDING",
+        "frozen P3.10/P3.08 semantics rejected",
     ),
 )
 
@@ -746,7 +769,7 @@ def parse_corrections(header: str, rows: list[dict[str, Any]]) -> list[dict[str,
         for item in EXPECTED_CORRECTIONS
     ]
     if parsed != expected_public:
-        raise TaxonomyError("correction registry differs from the reviewed two-row authority")
+        raise TaxonomyError("correction registry differs from the reviewed authority")
     for correction, expected in zip(parsed, EXPECTED_CORRECTIONS, strict=True):
         matches = [
             row
@@ -904,7 +927,7 @@ def audit_attempts(
         item for item in all_outcomes if item["campaign"] in EXPECTED_ATTEMPTS
     ]
     if len(attempts) != len(EXPECTED_ATTEMPTS):
-        raise TaxonomyError("P3.10-P3.17 does not contain exactly eight attempts")
+        raise TaxonomyError("P3.10-P3.18 does not contain exactly nine attempts")
     for item in attempts:
         if item["effective_experiment_proof"] != EXPECTED_ATTEMPTS[item["campaign"]]:
             raise TaxonomyError(f"effective proof drift for {item['campaign']}")
@@ -979,14 +1002,26 @@ def audit_ledger_bytes(ledger_data: bytes, script_data: bytes) -> dict[str, Any]
     if len(taxonomy_indexes) != 1:
         raise TaxonomyError("taxonomy implementation row is absent or duplicated")
     taxonomy_index = taxonomy_indexes[0]
+    scope_indexes = [
+        index
+        for index, line in enumerate(lines)
+        if b" | " + V3_SCOPE_ACTION.encode() + b" | " in line
+    ]
+    if len(scope_indexes) != 1:
+        raise TaxonomyError("V3 correction scope row is absent or duplicated")
+    scope_index = scope_indexes[0]
+    if scope_index + 1 != V3_SCOPED_ROW_COUNT:
+        raise TaxonomyError("V3 correction scope row count changed")
+    if scope_index < taxonomy_index:
+        raise TaxonomyError("V3 correction scope predates the taxonomy origin")
     historical_bytes = b"".join(lines[:taxonomy_index])
-    scoped_lines = lines[: taxonomy_index + 1]
+    scoped_lines = lines[: scope_index + 1]
     all_rows, legacy_transfers, legacy_evidence = parse_log_rows(lines)
     for row in all_rows:
         row_kind(row)
     audit_review_obligations(all_rows)
     audit_attempt_inventory(all_rows)
-    rows = all_rows[: taxonomy_index + 1]
+    rows = all_rows[: scope_index + 1]
     historical_identity = identity(historical_bytes)
     if taxonomy_index != HISTORICAL_ROW_COUNT:
         raise TaxonomyError("historical log row count changed")
@@ -995,7 +1030,7 @@ def audit_ledger_bytes(ledger_data: bytes, script_data: bytes) -> dict[str, Any]
         "sha256": HISTORICAL_SHA256,
     }:
         raise TaxonomyError("historical append-only log bytes changed")
-    taxonomy_row = rows[-1]
+    taxonomy_row = all_rows[taxonomy_index]
     if (
         taxonomy_row["campaign"] != "s22plus-fyg8-p318"
         or taxonomy_row["ordinal"] != "h0-ledger-taxonomy-7"
@@ -1007,6 +1042,19 @@ def audit_ledger_bytes(ledger_data: bytes, script_data: bytes) -> dict[str, Any]
         or taxonomy_row["rollback_transfers"] != 0
     ):
         raise TaxonomyError("taxonomy implementation row changed")
+    scope_row = rows[-1]
+    if (
+        scope_row["campaign"] != "s22plus-fyg8-p318"
+        or scope_row["ordinal"] != "h0-postlive-eud-index-14"
+        or scope_row["tier"] != "H0"
+        or scope_row["action"] != V3_SCOPE_ACTION
+        or scope_row["health"] != "HEALTHY"
+        or scope_row["raw_evidence_outcome"]
+        != "NO_PROOF_EXPERIMENT_PRECONDITION"
+        or scope_row["candidate_transfers"] != 0
+        or scope_row["rollback_transfers"] != 0
+    ):
+        raise TaxonomyError("V3 correction scope row changed")
 
     corrections = parse_corrections(header, rows)
     attempt_inventory = audit_attempt_inventory(rows)
@@ -1016,6 +1064,9 @@ def audit_ledger_bytes(ledger_data: bytes, script_data: bytes) -> dict[str, Any]
     )
     p310_p317 = cohort(
         attempts, [f"s22plus-fyg8-p{number}" for number in range(310, 318)]
+    )
+    p310_p318 = cohort(
+        attempts, [f"s22plus-fyg8-p{number}" for number in range(310, 319)]
     )
     if p310_p316["effective_class_counts"] != {
         "PROVED": 0,
@@ -1031,6 +1082,13 @@ def audit_ledger_bytes(ledger_data: bytes, script_data: bytes) -> dict[str, Any]
         "NO_PROOF_OBSERVER": 5,
     }:
         raise TaxonomyError("P3.10-P3.17 audited 5:1:2 accounting changed")
+    if p310_p318["effective_class_counts"] != {
+        "PROVED": 0,
+        "REFUTED": 2,
+        "NO_PROOF_EXPERIMENT_PRECONDITION": 2,
+        "NO_PROOF_OBSERVER": 5,
+    }:
+        raise TaxonomyError("P3.10-P3.18 audited 5:2:2 accounting changed")
 
     row_kinds = Counter(row_kind(row) for row in rows)
     review_states = Counter(
@@ -1041,6 +1099,11 @@ def audit_ledger_bytes(ledger_data: bytes, script_data: bytes) -> dict[str, Any]
         correction for correction in corrections if correction["scope"] == "SUBRESULT_ONLY"
     ]
     scope_bytes = header_bytes + MARKER + b"".join(scoped_lines)
+    if identity(scope_bytes) != {
+        "size": V3_SCOPED_BYTE_COUNT,
+        "sha256": V3_SCOPED_SHA256,
+    }:
+        raise TaxonomyError("V3 correction scope bytes changed")
     return {
         "schema": SCHEMA,
         "derivation_version": DERIVATION_VERSION,
@@ -1054,10 +1117,10 @@ def audit_ledger_bytes(ledger_data: bytes, script_data: bytes) -> dict[str, Any]
             },
             "script": identity(script_data),
             "scope_ends_at": {
-                "timestamp": taxonomy_row["timestamp"],
-                "campaign": taxonomy_row["campaign"],
-                "ordinal": taxonomy_row["ordinal"],
-                "action": taxonomy_row["action"],
+                "timestamp": scope_row["timestamp"],
+                "campaign": scope_row["campaign"],
+                "ordinal": scope_row["ordinal"],
+                "action": scope_row["action"],
             },
         },
         "axes": {
@@ -1090,6 +1153,7 @@ def audit_ledger_bytes(ledger_data: bytes, script_data: bytes) -> dict[str, Any]
         "cohorts": {
             "p310_through_p316": p310_p316,
             "p310_through_p317": p310_p317,
+            "p310_through_p318": p310_p318,
         },
         "localization_audit": audit_localizations(rows),
         "legacy_missing_transfer_rows": legacy_transfers,
@@ -1100,19 +1164,23 @@ def audit_ledger_bytes(ledger_data: bytes, script_data: bytes) -> dict[str, Any]
         ),
         "scoped_review_obligations": scoped_review_obligations,
         "predecessor": {
-            "derivation_version": 1,
+            "derivation_version": 2,
             "approved_receipt": {
-                "size": 10118,
+                "size": 23314,
                 "sha256": (
-                    "4214ea5393ed2ec9f1bdef2357e711494050d483cf39b18c46fc9324bf94a153"
+                    "6541ed535aec06337094cae98f9b07a91c37e13528a619bdeb4811fc870da026"
                 ),
             },
             "approved_auditor": {
-                "size": 34654,
+                "size": 44782,
                 "sha256": (
-                    "80faa898e23f96d95437bd13c1c87fe8906b1b12802123db53f44fed61c1c06c"
+                    "524519b643301938563a2bf424bc55c91614ea5cede266eaee2826279d88cb4d"
                 ),
             },
+            "approved_receipt_path": (
+                "workspace/private/outputs/s22plus_fyg8_p318_ledger_taxonomy/"
+                "ledger-taxonomy-20260815-01.json"
+            ),
             "reproducible_from_current_header_and_auditor": False,
         },
         "scoped_row_counts": {
