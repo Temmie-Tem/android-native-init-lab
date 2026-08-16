@@ -4,10 +4,10 @@ Date: 2026-08-17
 Target: operator-owned Samsung Galaxy A90 5G only
 Tier of this document: H0 structural design
 Device or live effect of this document: none
-Status: **H0 IMPLEMENTATION CORE PRESENT — live execution is hard-disabled.
-Runtime qualification, device preflight/final observer, crash-prefix resume,
-and the required independent full review remain absent. This qualifies nothing
-and grants no authority.**
+Status: **H0 IMPLEMENTATION CORE PLUS HOST RUNTIME QUALIFICATION PRESENT — live
+execution is hard-disabled. Device preflight/final observer, crash-prefix
+resume, and the required independent full review remain absent. This qualifies
+nothing and grants no authority.**
 
 This design exists to stop a loop, not to add a feature. Six independent
 reviews of the per-candidate H27 runner each found real defects, and the
@@ -68,6 +68,8 @@ contract/journal module, and focused hostile tests:
 
 - `workspace/public/src/scripts/server-distro/a90_boot_only_f1_owner_v1.py`;
 - `workspace/public/src/scripts/server-distro/a90_boot_only_f1_contract_v1.py`;
+- `workspace/public/src/scripts/server-distro/a90_boot_only_f1_runtime_v1.py`;
+- `workspace/public/src/device-action/a90_boot_only_f1_runtime_qualification_v1.json`;
 - `tests/test_a90_boot_only_f1_owner_v1.py`.
 
 The implemented H0 core rejects noncanonical or authority-bearing manifests,
@@ -77,11 +79,13 @@ inputs, journals candidate and rollback as separate one-shot attempts, and
 validates the candidate-neutral success terminal. The CLI `execute` action
 unconditionally returns `NO_GO` even with `--operator-attended`.
 
-This is deliberately not a half-enabled F1 runner. No live path exists until
-the external Python/ADB runtime qualification is generated and bound to a
-`PASS_GO` capability review, the exact A90 preflight/final-health producer and
-crash-prefix reconciler are implemented, and the resulting execution-critical
-closure receives a fresh independent full review.
+This is deliberately not a half-enabled F1 runner. The host-specific Python/ADB
+qualification is now generated from and rechecked against the current isolated
+Python `sys.path` trees and resolved ELF dependency files. It has not received
+a `PASS_GO` capability review. No live path exists until the exact A90
+preflight/final-health producer and crash-prefix reconciler are implemented and
+the resulting execution-critical closure receives a fresh independent full
+review.
 
 ## The owner
 
@@ -612,9 +616,9 @@ The owner is only as good as what it refuses. At minimum:
 ## What this design does not do
 
 - It does not provide a live-capable owner. The H0 contract/state-machine core
-  exists, but production target preflight, final observation, runtime
-  qualification, and crash-prefix resume remain deliberately absent and the
-  live CLI is hard-disabled.
+  and current-host runtime qualification exist, but production target
+  preflight, final observation, and crash-prefix resume remain deliberately
+  absent and the live CLI is hard-disabled.
 - It does not qualify anything, and creates no approval, manifest, or hazard
   qualification.
 - It does not authorize an F1. `GOAL_A90.md` still records that no successor

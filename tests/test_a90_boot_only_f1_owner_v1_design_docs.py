@@ -434,7 +434,10 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
     def test_it_is_an_h0_implementation_that_authorizes_nothing(self) -> None:
         head = flatten(self.raw[: self.raw.index("## The loop being removed")])
         self.assertIn("grants no authority", head)
-        self.assertIn("H0 IMPLEMENTATION CORE PRESENT", head)
+        self.assertIn(
+            "H0 IMPLEMENTATION CORE PLUS HOST RUNTIME QUALIFICATION PRESENT",
+            head,
+        )
         self.assertIn("live execution is hard-disabled", head)
         self.assertIn("Device or live effect of this document: none", head)
 

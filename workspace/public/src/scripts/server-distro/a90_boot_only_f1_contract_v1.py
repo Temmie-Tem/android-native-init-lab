@@ -68,10 +68,18 @@ RUNTIME_MEMBER_KEYS = frozenset(
         "path",
         "size",
         "sha256",
+        "versionReceipt",
         "versionReceiptSha256",
+        "runtimeRoots",
+        "externalFiles",
+        "dynamicLibraries",
         "runtimeClosureSha256",
     }
 )
+RUNTIME_ROOT_KEYS = frozenset(
+    {"path", "state", "fileCount", "totalBytes", "treeSha256"}
+)
+RUNTIME_FILE_KEYS = frozenset({"path", "size", "sha256"})
 
 STATES = frozenset(
     {
@@ -351,6 +359,77 @@ def validate_runtime_qualification(
         )
         for field in ("sha256", "versionReceiptSha256", "runtimeClosureSha256"):
             require_sha(member[field], f"runtime {role}.{field}")
+        if type(member["versionReceipt"]) is not dict:
+            raise ContractError(f"runtime {role} version receipt is not an object")
+        if sha256_bytes(canonical_json(member["versionReceipt"])) != member["versionReceiptSha256"]:
+            raise ContractError(f"runtime {role} version receipt digest mismatch")
+        roots = member["runtimeRoots"]
+        libraries = member["dynamicLibraries"]
+        external_files = member["externalFiles"]
+        if (
+            type(roots) is not list
+            or type(external_files) is not list
+            or type(libraries) is not list
+        ):
+            raise ContractError(f"runtime {role} closure inventories are not lists")
+        root_paths: list[str] = []
+        for index, value in enumerate(roots):
+            root = require_object(value, RUNTIME_ROOT_KEYS, f"runtime {role} root {index}")
+            path = validate_absolute_path(root["path"], f"runtime {role} root path")
+            root_paths.append(path)
+            if root["state"] not in {
+                "PRESENT_DIRECTORY",
+                "PRESENT_REGULAR",
+                "ABSENT",
+            }:
+                raise ContractError(f"runtime {role} root state mismatch")
+            file_count = require_int(
+                root["fileCount"], f"runtime {role} root fileCount", minimum=0, maximum=100_000
+            )
+            total_bytes = require_int(
+                root["totalBytes"], f"runtime {role} root totalBytes", minimum=0, maximum=4 << 30
+            )
+            require_sha(root["treeSha256"], f"runtime {role} root treeSha256")
+            if root["state"] == "ABSENT" and (file_count != 0 or total_bytes != 0):
+                raise ContractError(f"runtime {role} absent root has content")
+            if root["state"] == "PRESENT_REGULAR" and file_count != 1:
+                raise ContractError(f"runtime {role} regular root count mismatch")
+        for inventory_name, inventory in (
+            ("external file", external_files),
+            ("library", libraries),
+        ):
+            inventory_paths: list[str] = []
+            for index, value in enumerate(inventory):
+                item = require_object(
+                    value, RUNTIME_FILE_KEYS, f"runtime {role} {inventory_name} {index}"
+                )
+                path = validate_absolute_path(
+                    item["path"], f"runtime {role} {inventory_name} path"
+                )
+                inventory_paths.append(path)
+                require_int(
+                    item["size"],
+                    f"runtime {role} {inventory_name} size",
+                    minimum=1,
+                    maximum=1 << 30,
+                )
+                require_sha(
+                    item["sha256"], f"runtime {role} {inventory_name} sha256"
+                )
+            if inventory_paths != sorted(set(inventory_paths)):
+                raise ContractError(
+                    f"runtime {role} {inventory_name} inventory is not unique/sorted"
+                )
+        if root_paths != sorted(set(root_paths)):
+            raise ContractError(f"runtime {role} closure inventory is not unique/sorted")
+        closure = {
+            "versionReceiptSha256": member["versionReceiptSha256"],
+            "runtimeRoots": roots,
+            "externalFiles": external_files,
+            "dynamicLibraries": libraries,
+        }
+        if sha256_bytes(canonical_json(closure)) != member["runtimeClosureSha256"]:
+            raise ContractError(f"runtime {role} closure digest mismatch")
     return qualification
 
 

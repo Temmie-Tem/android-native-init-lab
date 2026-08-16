@@ -45,13 +45,13 @@ from a90_boot_only_f1_contract_v1 import (
     sha256_bytes,
     utc_now,
     validate_manifest,
-    validate_runtime_qualification,
     validate_result,
     validate_terminal_payload,
 )
+from a90_boot_only_f1_runtime_v1 import verify_runtime_qualification_current
 
 
-IMPLEMENTATION_STATUS = "H0_RECOVERY_RESUME_AND_RUNTIME_QUALIFICATION_ABSENT"
+IMPLEMENTATION_STATUS = "H0_RUNTIME_QUALIFIED_DEVICE_OBSERVER_AND_RESUME_ABSENT"
 LIVE_EXECUTION_ENABLED = False
 PYTHON_EXECUTABLE = Path("/usr/bin/python3.14")
 ADB_EXECUTABLE = Path("/usr/lib/android-sdk/platform-tools/adb")
@@ -60,6 +60,10 @@ REVALIDATION = REPO_ROOT / "workspace/public/src/scripts/revalidation"
 FD_EXEC_PATH = REVALIDATION / "a90_boot_only_f1_fd_exec.py"
 BOOTSTRAP_PATH = REVALIDATION / "a90_boot_only_f1_helper_bootstrap.py"
 HELPER_PATH = REVALIDATION / "native_init_flash.py"
+RUNTIME_QUALIFICATION_PATH = (
+    REPO_ROOT
+    / "workspace/public/src/device-action/a90_boot_only_f1_runtime_qualification_v1.json"
+)
 HELPER_RUNTIME_CLOSURE_SHA256 = (
     "9907a2864988817a41f5133dd390a387c362fa81c1fff4dd81f4f100ca229f10"
 )
@@ -206,6 +210,7 @@ def owner_source_closure() -> dict[str, dict[str, Any]]:
     members = {
         Path(__file__).resolve(),
         Path(__file__).with_name("a90_boot_only_f1_contract_v1.py").resolve(),
+        Path(__file__).with_name("a90_boot_only_f1_runtime_v1.py").resolve(),
         REPO_ROOT / "tests/test_a90_boot_only_f1_owner_v1.py",
     }
     result: dict[str, dict[str, Any]] = {}
@@ -277,7 +282,7 @@ def _bound_artifacts(
 ) -> ExecutionBindings:
     invoking_uid = os.getuid()
     invoking_gid = os.getgid()
-    runtime = validate_runtime_qualification(
+    runtime = verify_runtime_qualification_current(
         runtime_qualification, manifest["ownerClosureSha256"]
     )
     artifacts: dict[str, BoundArtifact] = {}
@@ -1020,7 +1025,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.operator_attended is not True:
             raise ContractError("A90 F1 is attended-only")
         raise ContractError(
-            "live execution remains blocked: recovery/resume and runtime qualification absent"
+            "live execution remains blocked: device observer and crash-prefix resume absent"
         )
     raise ContractError("unknown owner action")
 

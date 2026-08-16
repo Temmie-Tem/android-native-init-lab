@@ -338,11 +338,12 @@ identity:
   per-candidate runner self-reference: manifests are data, candidate and
   rollback are separately one-shot, and the success terminal remains
   candidate-neutral. Live `execute` is unconditionally disabled. Python/ADB
-  runtime qualification, exact A90 device preflight/final observation,
-  crash-prefix resume, and an independent full execution-closure review remain
-  open; therefore no H27 manifest, approval, ordinal, D0, D1, or F1 authority
-  exists. The next owner unit is H0 completion of those four gates, followed by
-  one fresh full review of the resulting frozen closure.
+  runtime qualification is now generated and current-host reverified, while
+  exact A90 device preflight/final observation, crash-prefix resume, and an
+  independent full execution-closure review remain open. Therefore no H27
+  manifest, approval, ordinal, D0, D1, or F1 authority exists. The next owner
+  unit is H0 completion of the two runtime components, followed by one fresh
+  full review of the resulting frozen closure.
 
 ## What Leaves or Moves Out
 

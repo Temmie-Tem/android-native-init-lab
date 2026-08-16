@@ -20,10 +20,46 @@ if str(SERVER) not in sys.path:
 
 import a90_boot_only_f1_contract_v1 as contract  # noqa: E402
 import a90_boot_only_f1_owner_v1 as owner  # noqa: E402
+import a90_boot_only_f1_runtime_v1 as runtime_v1  # noqa: E402
 
 
 def sha(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
+
+
+def runtime_member(path: Path, file_sha: str) -> dict[str, Any]:
+    receipt = {"exact": str(path), "isolated": True}
+    receipt_sha = sha(contract.canonical_json(receipt))
+    roots = [
+        {
+            "path": "/fixed/runtime-root",
+            "state": "PRESENT_DIRECTORY",
+            "fileCount": 1,
+            "totalBytes": 7,
+            "treeSha256": "a" * 64,
+        }
+    ]
+    libraries = [{"path": "/fixed/lib.so", "size": 7, "sha256": "b" * 64}]
+    external_files = [
+        {"path": "/fixed/sitecustomize.py", "size": 7, "sha256": "c" * 64}
+    ]
+    closure = {
+        "versionReceiptSha256": receipt_sha,
+        "runtimeRoots": roots,
+        "externalFiles": external_files,
+        "dynamicLibraries": libraries,
+    }
+    return {
+        "path": str(path),
+        "size": 1,
+        "sha256": file_sha,
+        "versionReceipt": receipt,
+        "versionReceiptSha256": receipt_sha,
+        "runtimeRoots": roots,
+        "externalFiles": external_files,
+        "dynamicLibraries": libraries,
+        "runtimeClosureSha256": sha(contract.canonical_json(closure)),
+    }
 
 
 def manifest() -> dict[str, Any]:
@@ -244,22 +280,20 @@ class ContractTests(unittest.TestCase):
             "schema": contract.RUNTIME_QUALIFICATION_SCHEMA,
             "capability": contract.CAPABILITY,
             "ownerClosureSha256": closure,
-            "python": {
-                "path": str(owner.PYTHON_EXECUTABLE),
-                "size": 1,
-                "sha256": "1" * 64,
-                "versionReceiptSha256": "2" * 64,
-                "runtimeClosureSha256": "3" * 64,
-            },
-            "adb": {
-                "path": str(owner.ADB_EXECUTABLE),
-                "size": 1,
-                "sha256": "4" * 64,
-                "versionReceiptSha256": "5" * 64,
-                "runtimeClosureSha256": "6" * 64,
-            },
+            "python": runtime_member(owner.PYTHON_EXECUTABLE, "1" * 64),
+            "adb": runtime_member(owner.ADB_EXECUTABLE, "4" * 64),
         }
         contract.validate_runtime_qualification(runtime, closure)
+        for mutation in (
+            lambda value: value["python"]["versionReceipt"].update(exact="/wrong"),
+            lambda value: value["python"]["runtimeRoots"][0].update(fileCount=False),
+            lambda value: value["python"]["dynamicLibraries"][0].update(sha256="f" * 64),
+            lambda value: value["python"].update(runtimeClosureSha256="f" * 64),
+        ):
+            hostile = copy.deepcopy(runtime)
+            mutation(hostile)
+            with self.assertRaises(contract.ContractError):
+                contract.validate_runtime_qualification(hostile, closure)
         runtime_sha = sha(contract.canonical_file_bytes(runtime))
         review = {
             "schema": contract.REVIEW_SCHEMA,
@@ -283,6 +317,25 @@ class ContractTests(unittest.TestCase):
             hostile[field] = "f" * 64
             with self.assertRaises(contract.ContractError):
                 contract.validate_review(hostile, closure, runtime_sha)
+
+    def test_runtime_generator_reverifies_the_current_host_closure(self) -> None:
+        closure = owner.owner_closure_sha256()
+        generated = runtime_v1.build_runtime_qualification(closure)
+        raw, stored = contract.load_canonical(
+            owner.RUNTIME_QUALIFICATION_PATH, "runtime qualification"
+        )
+        self.assertGreater(len(raw), 1)
+        self.assertEqual(stored, generated)
+        self.assertEqual(
+            runtime_v1.verify_runtime_qualification_current(generated, closure),
+            generated,
+        )
+        self.assertEqual(generated["python"]["path"], str(owner.PYTHON_EXECUTABLE))
+        self.assertEqual(generated["adb"]["path"], str(owner.ADB_EXECUTABLE))
+        self.assertEqual(generated["python"]["versionReceipt"]["isolated"], 1)
+        self.assertIs(generated["python"]["versionReceipt"]["safePath"], True)
+        self.assertGreater(len(generated["python"]["dynamicLibraries"]), 0)
+        self.assertGreater(len(generated["adb"]["dynamicLibraries"]), 0)
 
     def test_bound_artifact_rejects_indirection_links_mode_and_swap(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
