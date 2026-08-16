@@ -30,6 +30,8 @@ FLASH = REPO / "workspace/public/src/scripts/revalidation/native_init_flash.py"
 REVALIDATION = FLASH.parent
 ORCHESTRATOR = SERVER / "a90_v3403_f1_orchestrator.py"
 GOAL = REPO / "GOAL_A90.md"
+PROCESS = REPO / "docs/operations/DEVICE_ACTION_PROCESS_V2.md"
+TARGET = REPO / "docs/operations/targets/A90_TARGET_CONTRACT.md"
 
 FLASH_SHA = "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
 RUNTIME_CLOSURE_SHA = "4dd44f10cae4ebe872a047391fe7e1e81f4f8cff2e703df3085252f298ccbe13"
@@ -192,6 +194,10 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "PREPARED",
             "APPROVED",
             "CANDIDATE_INTENT",
+            "ROLLBACK_INTENT",
+            "ROLLBACK_LAUNCHED",
+            "ROLLBACK_RESULT",
+            "ROLLBACK_RELEASE_UNCERTAIN",
             "PASS_A90_H27_RESIDENT_INSTALLED",
             "NO_PROOF_ROLLED_BACK",
             "RECOVERY_REQUIRED",
@@ -199,6 +205,67 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             self.assertIn(state, self.raw, state)
         self.assertIn("There is no `REFUTED`", self.design)
         self.assertIn("does not adjudicate why a kernel failed to boot", self.design)
+        self.assertIn(
+            """PREPARED
+  -> APPROVED
+  -> CANDIDATE_INTENT
+       -> PASS_A90_H27_RESIDENT_INSTALLED
+       -> ROLLBACK_INTENT
+            -> ROLLBACK_LAUNCHED
+                 -> ROLLBACK_RESULT
+                      -> NO_PROOF_ROLLED_BACK
+                      -> RECOVERY_REQUIRED
+                 -> ROLLBACK_RELEASE_UNCERTAIN
+                      -> RECOVERY_REQUIRED""",
+            self.raw,
+        )
+
+    def test_rollback_has_durable_one_shot_crash_prefixes(self) -> None:
+        """Only intent-without-launch may resume; release uncertainty never replays."""
+        for token in (
+            "file and directory `fsync`",
+            "target identity",
+            "run ID",
+            "rollback SHA256",
+            "helper SHA256",
+            "process-group identity",
+            "release-gate identity",
+            "log identity",
+            "transport generation",
+            "attempt `1`",
+            "cannot exec the flash helper or open the transport",
+            "EOF or any byte other than the exact release byte",
+            "one release write",
+            "intent exists without `ROLLBACK_LAUNCHED`",
+            "same bound rollback",
+            "observation and health reconciliation only",
+            "must never start a second helper",
+        ):
+            self.assertIn(token, self.design, token)
+        self.assertIn(
+            "`ROLLBACK_LAUNCHED` is the one-shot consumption point",
+            self.design,
+        )
+        self.assertIn(
+            "`ROLLBACK_RESULT` never reconstructs a missing helper return",
+            self.design,
+        )
+
+    def test_rollback_prefixes_preserve_the_binding_contract(self) -> None:
+        target = flatten(TARGET.read_text(encoding="utf-8"))
+        process = flatten(PROCESS.read_text(encoding="utf-8"))
+        self.assertIn(
+            "A rollback intent without a launch resumes only that same bound rollback",
+            target,
+        )
+        self.assertIn(
+            "An uncertain released rollback is never replayed",
+            target,
+        )
+        self.assertIn("`rollback_transfer_started`", process)
+        self.assertIn("`rollback_transfer_completed`", process)
+        self.assertIn("intent-only prefix may still launch its same bound attempt", self.design)
+        self.assertIn("launched prefix with no complete result permits observation", self.design)
 
     def test_the_closure_excludes_the_orchestrator(self) -> None:
         self.assertIn("must not import `a90_v3403_f1_orchestrator.py`", self.design)
@@ -256,6 +323,12 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "missing the hazard ID",
             "crash after `CANDIDATE_INTENT`",
             "without\n  candidate replay",
+            "crash before `ROLLBACK_INTENT`",
+            "crash after `ROLLBACK_INTENT` and before `ROLLBACK_LAUNCHED`",
+            "crash after `ROLLBACK_LAUNCHED` and before release",
+            "lost helper return after rollback dispatch",
+            "crash while publishing `ROLLBACK_RESULT`",
+            "duplicate or mismatched rollback intent or result",
             "colliding with a retired runner's namespace",
         ):
             self.assertIn(token, self.raw, token)

@@ -77,8 +77,13 @@ It does exactly this and nothing else:
 6. transfer the candidate exactly once;
 7. verify exact candidate version, build, self-test, and a bounded control
    response;
-8. on failure, timeout, or ambiguity: roll back without retrying the candidate;
-9. record the final health of whichever image is resident.
+8. on failure, timeout, or ambiguity: prove the candidate helper process group
+   and every descendant quiescent, then publish `ROLLBACK_INTENT`, launch the
+   exact rollback helper behind a release gate, publish `ROLLBACK_LAUNCHED`,
+   and release that helper exactly once;
+9. publish the exact helper receipt as `ROLLBACK_RESULT`, or park an uncertain
+   released rollback without reconstructing or replaying it; and
+10. record the final health of whichever image is resident.
 
 Removed relative to the per-candidate runners: rootfs staging, UFS inventory
 and mount, Debian handoff, display, SSH, benchmark, observer, and every D1
@@ -194,6 +199,41 @@ An unknown or unqualified hazard ID stops the owner before any effect.
 reduced kernel exploit-mitigation posture for as long as the self-built kernel
 is resident, rather than proving the boot and returning to V2321.
 
+## Rollback is a separate one-shot transaction
+
+`CANDIDATE_INTENT` does not account for a later rollback dispatch. Before the
+owner can prepare rollback, it proves the candidate helper process group and
+every descendant quiescent. It then publishes each rollback transition as a
+separate no-replace journal record with file and directory `fsync`:
+
+1. `ROLLBACK_INTENT` binds the exact target identity, run ID, rollback SHA256,
+   helper SHA256, transport generation, and attempt `1`. If this intent exists
+   without `ROLLBACK_LAUNCHED`, a restart may resume only the same bound
+   rollback. It cannot substitute bytes, target, helper, transport generation,
+   run, or attempt.
+2. The owner starts that helper in its own process group behind a one-byte
+   release gate. Before releasing it, `ROLLBACK_LAUNCHED` binds the exact
+   process-group identity, release-gate identity, log identity, and all fields
+   from `ROLLBACK_INTENT`. `ROLLBACK_LAUNCHED` is the one-shot consumption
+   point. The child cannot exec the flash helper or open the transport until it
+   reads the exact release byte; EOF or any byte other than the exact release
+   byte makes it exit without the helper. After the launched record is durable,
+   the parent performs one release write. From then on a restart may reconcile
+   only that process group, gate, and log; it must never start a second helper.
+3. One complete helper return and transport receipt may publish
+   `ROLLBACK_RESULT`. It binds the same identities, the exact return class,
+   transfer/session evidence, output digests, and whether release was proved.
+   `ROLLBACK_RESULT` never reconstructs a missing helper return and final
+   resident health never substitutes for transfer provenance.
+
+An intent-only prefix may still launch its same bound attempt because no launch
+or release is proven. A launched prefix with no complete result permits
+observation and health reconciliation only. A lost helper return, torn or
+missing result, uncertain release, missing process/log evidence, or identity
+mismatch becomes `ROLLBACK_RELEASE_UNCERTAIN`; it never admits another helper
+or rollback transfer and closes only as `RECOVERY_REQUIRED`. Even an apparently
+healthy V2321 resident cannot relabel that transfer as completed.
+
 ## States
 
 ```text
@@ -201,15 +241,22 @@ PREPARED
   -> APPROVED
   -> CANDIDATE_INTENT
        -> PASS_A90_H27_RESIDENT_INSTALLED
-       -> NO_PROOF_ROLLED_BACK
-       -> RECOVERY_REQUIRED
+       -> ROLLBACK_INTENT
+            -> ROLLBACK_LAUNCHED
+                 -> ROLLBACK_RESULT
+                      -> NO_PROOF_ROLLED_BACK
+                      -> RECOVERY_REQUIRED
+                 -> ROLLBACK_RELEASE_UNCERTAIN
+                      -> RECOVERY_REQUIRED
 ```
 
 - `PASS_A90_H27_RESIDENT_INSTALLED` — exact candidate identity and health
   verified.
 - `NO_PROOF_ROLLED_BACK` — boot failure, timeout, observation failure, or
-  ambiguity, followed by verified rollback health.
-- `RECOVERY_REQUIRED` — rollback health could not be verified.
+  ambiguity, followed by one complete bound rollback result and verified V2321
+  health.
+- `RECOVERY_REQUIRED` — rollback health could not be verified, or rollback was
+  released but its exact result or provenance is uncertain.
 
 There is no `REFUTED`. Two review rounds went into its semantics and the
 attribution receipt it would need, for a terminal this question does not
@@ -258,6 +305,17 @@ The owner is only as good as what it refuses. At minimum:
   candidate replay;
 - candidate retry attempted after a failure;
 - rollback attempted before candidate intent;
+- crash before `ROLLBACK_INTENT` — no rollback helper or effect exists;
+- crash after `ROLLBACK_INTENT` and before `ROLLBACK_LAUNCHED` — only the same
+  bound rollback may proceed;
+- crash after `ROLLBACK_LAUNCHED` and before release — reconcile only the bound
+  process group, gate, and log; never start another helper;
+- lost helper return after rollback dispatch — observation and recovery only,
+  with no rollback replay and no completed-transfer inference;
+- crash while publishing `ROLLBACK_RESULT` — only a complete no-replace record
+  with file and directory `fsync` is recognized;
+- duplicate or mismatched rollback intent or result, wrong process group,
+  wrong release gate, wrong log, or wrong transport generation;
 - terminal missing the hazard acceptance record;
 - run directory colliding with a retired runner's namespace.
 
