@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import json
 import sys
 import tempfile
 import unittest
@@ -71,6 +72,162 @@ RETIRED = (
     "a90_h24_ufs_d1_runner_v1.py",
     "a90_h27_ufs_f1_runner_v1.py",
 )
+
+SUCCESS_TERMINAL = "PASS_A90_RESIDENT_INSTALLED"
+SUCCESS_SCHEMA = "resident-install-terminal-v1"
+MANIFEST_KEYS = frozenset(
+    {"candidateSha256", "expectedVersion", "expectedBuild", "hazards"}
+)
+SUCCESS_PAYLOAD_KEYS = frozenset(
+    {
+        "schema",
+        "terminal",
+        "targetEvidenceSha256",
+        "runId",
+        "journalNamespace",
+        "manifestSha256",
+        "candidateSha256",
+        "expectedVersion",
+        "expectedBuild",
+        "observedVersion",
+        "observedBuild",
+        "ownerClosureSha256",
+        "approvalBindingSha256",
+        "observationResult",
+        "acceptanceRuleSha256",
+        "hazards",
+        "finalHealth",
+        "finalHealthReceiptSha256",
+    }
+)
+
+
+def canonical_json(value: object) -> bytes:
+    return json.dumps(
+        value,
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("ascii")
+
+
+def canonical_manifest(**overrides: object) -> bytes:
+    manifest: dict[str, object] = {
+        "candidateSha256": "3" * 64,
+        "expectedVersion": "0.11.194",
+        "expectedBuild": "h27-build",
+        "hazards": [
+            {
+                "id": "RKP_CFP_DISABLED_RESIDENT",
+                "qualificationSha256": "7" * 64,
+                "accepted": True,
+            }
+        ],
+    }
+    manifest.update(overrides)
+    return canonical_json(manifest)
+
+
+def strict_canonical_object(raw: bytes, keys: frozenset[str]) -> dict[str, object]:
+    def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        result: dict[str, object] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError("duplicate key")
+            result[key] = value
+        return result
+
+    value = json.loads(raw.decode("ascii"), object_pairs_hook=reject_duplicate_keys)
+    if type(value) is not dict or frozenset(value) != keys:
+        raise ValueError("schema mismatch")
+    if raw != canonical_json(value):
+        raise ValueError("non-canonical JSON")
+    return value
+
+
+def canonical_success_payload(
+    manifest_raw: bytes | None = None,
+    **overrides: object,
+) -> bytes:
+    """Reference fixture for the candidate-neutral terminal schema."""
+    manifest_raw = manifest_raw if manifest_raw is not None else canonical_manifest()
+    manifest = strict_canonical_object(manifest_raw, MANIFEST_KEYS)
+    payload: dict[str, object] = {
+        "schema": SUCCESS_SCHEMA,
+        "terminal": SUCCESS_TERMINAL,
+        "targetEvidenceSha256": "1" * 64,
+        "runId": "run-01",
+        "journalNamespace": "a90-boot-only-owner-v1",
+        "manifestSha256": hashlib.sha256(manifest_raw).hexdigest(),
+        "candidateSha256": manifest["candidateSha256"],
+        "expectedVersion": manifest["expectedVersion"],
+        "expectedBuild": manifest["expectedBuild"],
+        "observedVersion": manifest["expectedVersion"],
+        "observedBuild": manifest["expectedBuild"],
+        "ownerClosureSha256": "4" * 64,
+        "approvalBindingSha256": "5" * 64,
+        "observationResult": "ACCEPTED",
+        "acceptanceRuleSha256": "6" * 64,
+        "hazards": manifest["hazards"],
+        "finalHealth": "RESIDENT_HEALTHY",
+        "finalHealthReceiptSha256": "8" * 64,
+    }
+    payload.update(overrides)
+    return canonical_json(payload)
+
+
+def validate_success_payload(
+    terminal: str,
+    raw: bytes,
+    *,
+    manifest_raw: bytes,
+) -> dict[str, object]:
+    """Minimal consumer model that prevents terminal/candidate substitution."""
+    if terminal != SUCCESS_TERMINAL:
+        raise ValueError("candidate-specific or unknown success terminal")
+
+    manifest = strict_canonical_object(manifest_raw, MANIFEST_KEYS)
+    payload = strict_canonical_object(raw, SUCCESS_PAYLOAD_KEYS)
+    for key in SUCCESS_PAYLOAD_KEYS - {"hazards"}:
+        if type(payload[key]) is not str:
+            raise ValueError(f"terminal field type mismatch: {key}")
+    if payload["schema"] != SUCCESS_SCHEMA or payload["terminal"] != terminal:
+        raise ValueError("terminal vocabulary mismatch")
+    if payload["manifestSha256"] != hashlib.sha256(manifest_raw).hexdigest():
+        raise ValueError("cross-manifest terminal")
+    if payload["candidateSha256"] != manifest["candidateSha256"]:
+        raise ValueError("candidate digest substitution")
+    if (payload["expectedVersion"], payload["expectedBuild"]) != (
+        manifest["expectedVersion"],
+        manifest["expectedBuild"],
+    ):
+        raise ValueError("manifest identity substitution")
+    if (payload["observedVersion"], payload["observedBuild"]) != (
+        manifest["expectedVersion"],
+        manifest["expectedBuild"],
+    ):
+        raise ValueError("candidate identity mismatch")
+    if payload["observationResult"] != "ACCEPTED":
+        raise ValueError("observation not accepted")
+    if payload["finalHealth"] != "RESIDENT_HEALTHY":
+        raise ValueError("resident not healthy")
+    hazards = payload["hazards"]
+    if type(hazards) is not list or not hazards:
+        raise ValueError("hazard binding missing")
+    if hazards != manifest["hazards"]:
+        raise ValueError("manifest hazard substitution")
+    for hazard in hazards:
+        if type(hazard) is not dict or set(hazard) != {
+            "id",
+            "qualificationSha256",
+            "accepted",
+        }:
+            raise ValueError("hazard schema mismatch")
+        if type(hazard["id"]) is not str or type(hazard["qualificationSha256"]) is not str:
+            raise ValueError("hazard type mismatch")
+        if hazard["accepted"] is not True:
+            raise ValueError("hazard not accepted")
+    return payload
 
 
 def generated_runtime_closure(root: Path) -> set[str]:
@@ -241,7 +398,7 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "ROLLBACK_LAUNCHED",
             "ROLLBACK_RESULT",
             "ROLLBACK_RELEASE_UNCERTAIN",
-            "PASS_A90_H27_RESIDENT_INSTALLED",
+            SUCCESS_TERMINAL,
             "NO_PROOF_ROLLED_BACK",
             "RECOVERY_REQUIRED",
         ):
@@ -252,7 +409,7 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             """PREPARED
   -> APPROVED
   -> CANDIDATE_INTENT
-       -> PASS_A90_H27_RESIDENT_INSTALLED
+       -> PASS_A90_RESIDENT_INSTALLED
        -> ROLLBACK_INTENT
             -> ROLLBACK_LAUNCHED
                  -> ROLLBACK_RESULT
@@ -262,6 +419,90 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
                       -> RECOVERY_REQUIRED""",
             self.raw,
         )
+
+    def test_success_terminal_is_candidate_neutral_and_contract_aligned(self) -> None:
+        target = flatten(TARGET.read_text(encoding="utf-8"))
+        self.assertIn(f"successful install terminal is `{SUCCESS_TERMINAL}`", target)
+        self.assertIn(f"`{SUCCESS_SCHEMA}`", self.design)
+        self.assertNotIn("PASS_A90_H27_RESIDENT_INSTALLED", self.raw)
+        self.assertIn("never infers a candidate generation from the terminal name", self.design)
+
+    def test_h27_and_h28_share_owner_schema_but_not_candidate_payload(self) -> None:
+        h27_manifest = canonical_manifest()
+        h28_manifest = canonical_manifest(
+            candidateSha256="a" * 64,
+            expectedVersion="0.11.195",
+            expectedBuild="h28-build",
+            hazards=[
+                {
+                    "id": "RKP_CFP_DISABLED_RESIDENT",
+                    "qualificationSha256": "b" * 64,
+                    "accepted": True,
+                },
+                {
+                    "id": "ANDROID_BINDERFS_ENABLED",
+                    "qualificationSha256": "c" * 64,
+                    "accepted": True,
+                },
+            ],
+        )
+        h27 = canonical_success_payload(h27_manifest)
+        h28 = canonical_success_payload(h28_manifest)
+        h27_result = validate_success_payload(
+            SUCCESS_TERMINAL,
+            h27,
+            manifest_raw=h27_manifest,
+        )
+        h28_result = validate_success_payload(
+            SUCCESS_TERMINAL,
+            h28,
+            manifest_raw=h28_manifest,
+        )
+        self.assertEqual(h27_result["ownerClosureSha256"], h28_result["ownerClosureSha256"])
+        self.assertEqual(h27_result["schema"], h28_result["schema"])
+        self.assertNotEqual(h27, h28)
+        self.assertNotEqual(hashlib.sha256(h27).digest(), hashlib.sha256(h28).digest())
+
+    def test_success_consumer_rejects_candidate_and_manifest_substitution(self) -> None:
+        h27_manifest = canonical_manifest()
+        h28_manifest = canonical_manifest(
+            candidateSha256="a" * 64,
+            expectedVersion="0.11.195",
+            expectedBuild="h28-build",
+        )
+        h27 = canonical_success_payload(h27_manifest)
+        with self.assertRaisesRegex(ValueError, "candidate-specific"):
+            validate_success_payload(
+                "PASS_A90_H27_RESIDENT_INSTALLED",
+                h27,
+                manifest_raw=h27_manifest,
+            )
+        with self.assertRaisesRegex(ValueError, "cross-manifest"):
+            validate_success_payload(
+                SUCCESS_TERMINAL,
+                h27,
+                manifest_raw=h28_manifest,
+            )
+        substituted_candidate = canonical_success_payload(
+            h27_manifest,
+            candidateSha256="a" * 64,
+        )
+        with self.assertRaisesRegex(ValueError, "candidate digest"):
+            validate_success_payload(
+                SUCCESS_TERMINAL,
+                substituted_candidate,
+                manifest_raw=h27_manifest,
+            )
+        mismatched_identity = canonical_success_payload(
+            h27_manifest,
+            observedBuild="different-build",
+        )
+        with self.assertRaisesRegex(ValueError, "candidate identity"):
+            validate_success_payload(
+                SUCCESS_TERMINAL,
+                mismatched_identity,
+                manifest_raw=h27_manifest,
+            )
 
     def test_rollback_has_durable_one_shot_crash_prefixes(self) -> None:
         """Only intent-without-launch may resume; release uncertainty never replays."""
@@ -377,6 +618,9 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "lost helper return after rollback dispatch",
             "crash while publishing `ROLLBACK_RESULT`",
             "duplicate or mismatched rollback intent or result",
+            "candidate-specific success terminal name",
+            "terminal payload from another manifest",
+            "expected and observed candidate version/build mismatch",
             "colliding with a retired runner's namespace",
         ):
             self.assertIn(token, self.raw, token)

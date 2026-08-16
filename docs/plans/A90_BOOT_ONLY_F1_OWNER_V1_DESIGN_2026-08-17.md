@@ -220,6 +220,44 @@ the same approval-binding SHA256. A terminal cannot substitute a later binding,
 and a token for the same manifest on another A90, boot, run, or journal is
 invalid even when its resident version and build happen to match.
 
+## The success terminal is candidate-neutral
+
+The reusable owner emits the target-contract terminal
+`PASS_A90_RESIDENT_INSTALLED`; a candidate generation never appears in the
+terminal name or in an owner-code constant. Candidate identity lives only in
+one canonical typed `resident-install-terminal-v1` payload containing exactly:
+
+| field | bound value |
+|---|---|
+| schema and terminal | `resident-install-terminal-v1` and `PASS_A90_RESIDENT_INSTALLED` |
+| target/run | live target evidence SHA256, run ID, and journal namespace |
+| candidate data | manifest SHA256 and the runtime-revalidated candidate SHA256 |
+| expected identity | candidate version and build from the exact manifest |
+| observed identity | post-transfer candidate version and build |
+| reviewed execution | owner closure SHA256 and approval-binding SHA256 |
+| observation | exact observation result and acceptance-rule digest |
+| hazards | the exact manifest hazard IDs and qualification digests, each with `accepted: true` |
+| health | exact `RESIDENT_HEALTHY` final-health receipt digest |
+
+The producer uses the same duplicate-key rejecting, unknown/missing-field
+rejecting, strict-type canonical JSON rules as `approval-binding-v1`. The
+terminal record binds the SHA256 of those canonical payload bytes and is
+published no-replace with file and directory `fsync`.
+
+A consumer takes the exact manifest bytes as an input, recomputes their SHA256,
+and requires the payload's manifest and candidate hashes, expected identity,
+hazard set, owner closure, and approval binding to match that manifest and run.
+It separately requires observed identity to equal expected identity, the
+observation result to satisfy the bound acceptance rule, and final health to be
+`RESIDENT_HEALTHY`. It never infers a candidate generation from the terminal
+name. A candidate-specific terminal name, cross-manifest payload, changed
+candidate hash, or expected/observed identity mismatch is invalid rather than
+an alternate spelling of success.
+
+Consequently H27 and H28 use identical owner bytes, schema, and terminal name
+while their manifest, candidate, version/build, hazard, and canonical payload
+digests remain distinct. Adding H28 data cannot alter the owner closure.
+
 ## Hazard binding
 
 A boolean in data that nothing enforces is decoration. This session produced
@@ -281,7 +319,7 @@ healthy V2321 resident cannot relabel that transfer as completed.
 PREPARED
   -> APPROVED
   -> CANDIDATE_INTENT
-       -> PASS_A90_H27_RESIDENT_INSTALLED
+       -> PASS_A90_RESIDENT_INSTALLED
        -> ROLLBACK_INTENT
             -> ROLLBACK_LAUNCHED
                  -> ROLLBACK_RESULT
@@ -291,8 +329,8 @@ PREPARED
                       -> RECOVERY_REQUIRED
 ```
 
-- `PASS_A90_H27_RESIDENT_INSTALLED` — exact candidate identity and health
-  verified.
+- `PASS_A90_RESIDENT_INSTALLED` — the candidate-neutral record type whose exact
+  payload proves the manifest-bound candidate identity and health.
 - `NO_PROOF_ROLLED_BACK` — boot failure, timeout, observation failure, or
   ambiguity, followed by one complete bound rollback result and verified V2321
   health.
@@ -363,6 +401,10 @@ The owner is only as good as what it refuses. At minimum:
   with file and directory `fsync` is recognized;
 - duplicate or mismatched rollback intent or result, wrong process group,
   wrong release gate, wrong log, or wrong transport generation;
+- candidate-specific success terminal name instead of
+  `PASS_A90_RESIDENT_INSTALLED`;
+- terminal payload from another manifest or carrying another candidate SHA256;
+- expected and observed candidate version/build mismatch;
 - terminal missing the hazard acceptance record;
 - run directory colliding with a retired runner's namespace.
 
