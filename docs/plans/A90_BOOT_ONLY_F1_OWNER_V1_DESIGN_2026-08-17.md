@@ -4,11 +4,12 @@ Date: 2026-08-17
 Target: operator-owned Samsung Galaxy A90 5G only
 Tier of this document: H0 structural design
 Device or live effect of this document: none
-Status: **H0 IMPLEMENTATION CORE, HOST RUNTIME QUALIFICATION, AND THE PURE
-DEVICE-OBSERVATION CONTRACT ARE PRESENT — live execution is hard-disabled.
-The owner-controlled exact bridge/command producer, crash-prefix resume, and
-the required independent full review remain absent. This qualifies nothing
-and grants no authority.**
+Status: **H0 IMPLEMENTATION CORE, HOST RUNTIME QUALIFICATION, THE PURE
+DEVICE-OBSERVATION CONTRACT, AND THE OWNER-CONTROLLED BRIDGE LIFECYCLE CORE
+ARE PRESENT — live execution is hard-disabled. Fixed private runtime-source
+deployment, the four command producers, crash-prefix resume, and the required
+independent full review remain absent. This qualifies nothing and grants no
+authority.**
 
 This design exists to stop a loop, not to add a feature. Six independent
 reviews of the per-candidate H27 runner each found real defects, and the
@@ -84,10 +85,11 @@ unconditionally returns `NO_GO` even with `--operator-attended`.
 This is deliberately not a half-enabled F1 runner. The host-specific Python/ADB
 qualification is now generated from and rechecked against the current isolated
 Python `sys.path` trees and resolved ELF dependency files. It has not received
-a `PASS_GO` capability review. No live path exists until the exact A90
-preflight/final-health producer and crash-prefix reconciler are implemented and
-the resulting execution-critical closure receives a fresh independent full
-review.
+a `PASS_GO` capability review. No live path exists until fixed private
+runtime-source deployment, the four exact A90 preflight/final-health command
+producers and their bridge integration, and the crash-prefix reconciler are
+implemented and the resulting execution-critical closure receives a fresh
+independent full review.
 
 ## The owner
 
@@ -377,7 +379,7 @@ fresh health/boot observations are distinct required inputs.
 An H27 manifest presented against any resident other than H24 `0.11.192` stops
 before any effect.
 
-### Observation contract and its remaining producer boundary
+### Observation contract and owned bridge boundary
 
 `a90_boot_only_f1_observer_v1.py` fixes the receipt grammar without contacting
 a device during H0. It accepts exactly one A90 by-id endpoint resolving to one
@@ -389,14 +391,29 @@ target. It then binds four strict cmdv1 receipts: `version`, `selftest`,
 `fail=0`, `pstore ... entries=0`, one canonical kernel boot UUID, and a bound
 physical-recovery qualification are all mandatory.
 
-The module includes a read-only host probe for those facts, but that probe is
-not a live-capability producer yet. A pathname and `/proc/<pid>/cmdline` do not
-prove which Python source bytes a pre-existing bridge executed. Activation
-therefore still requires the owner to launch and reap its own bridge from the
-held `serial_tcp_bridge.py` bytes, bind its PID/start time/listener/TTY FDs, run
-the four fixed commands from held `a90ctl` dependency bytes, and close the
-bridge on every prefix. Until that owner-controlled lifecycle and its hostile
-tests exist, `SubprocessBackend` and CLI `execute` remain hard-disabled.
+The module includes read-only endpoint, process, listener, and FD probes. A
+pathname and `/proc/<pid>/cmdline` do not prove which Python source bytes a
+pre-existing bridge executed, so the owner never adopts one. The implemented
+H0 lifecycle instead proves the listener absent, opens the fixed bridge source
+once, starts Python's reviewed inherited-FD loader with only that source FD,
+and accepts readiness only when one exact child PID, full NUL-framed command,
+start tick, loopback listener inode, and TTY FD are mutually bound. It keeps
+the source FD held and rehashed, captures exclusive mode-`0600` stdout/stderr,
+and on every start failure or close performs one bounded TERM/KILL reap and
+proves the PID, listener, socket holder, and TTY holder absent. Readiness never
+relaunches the bridge, teardown uncertainty is terminal, and duplicate start
+or close is rejected.
+
+That is the bridge lifecycle core, not a live-capability producer. The current
+repository source ancestors are mode `0775`, while the binding contract
+requires every source ancestor to be owner-only and not group/world writable.
+The owner therefore fails closed on the current repository path. Activation
+requires a separately generated fixed private runtime-source directory with
+mode `0700`, exact no-clobber member names and hashes, and owner-side held-FD
+verification; weakening the ancestor rule is not an alternative. The four
+fixed held-`a90ctl` command producers, their bridge integration, crash-prefix
+resume, and a fresh independent full-closure review also remain absent.
+`SubprocessBackend` and CLI `execute` remain hard-disabled.
 
 ## Approval is exact live authority
 
@@ -617,8 +634,12 @@ The owner is only as good as what it refuses. At minimum:
   bootstrap pathname execution, or a launch omitting the fixed inherited-FD
   loader, its one-FD `pass_fds` binding, or isolated Python mode;
 - bootstrap pathname swap before Python startup, swap-execute-restore, wrong
-  inherited descriptor/type/link-count/size/digest, extra inherited FD, or
-  loader argument supplied by a caller/manifest;
+  inherited descriptor/type/link-count/size/digest, extra inherited FD, loader
+  argument supplied by a caller/manifest, or
+- pre-existing bridge listener, wrong bridge PID/start tick/cmdline/source FD,
+  foreign listener-socket or TTY holder, readiness timeout, early bridge exit,
+  TERM timeout requiring one KILL, teardown-proof failure, duplicate bridge
+  start/close, or a group/world-writable runtime-source ancestor;
 - bootstrap source directory added to `sys.path`, preloaded local module,
   reordered/missing/extra local dependency, or source outside the exact held
   helper closure;
@@ -654,10 +675,12 @@ The owner is only as good as what it refuses. At minimum:
 
 ## What this design does not do
 
-- It does not provide a live-capable owner. The H0 contract/state-machine core
-  and current-host runtime qualification and pure observation contract exist,
-  but the owner-controlled bridge/command producer and crash-prefix resume
-  remain deliberately absent and the live CLI is hard-disabled.
+- It does not provide a live-capable owner. The H0 contract/state-machine core,
+  current-host runtime qualification, pure observation contract, and
+  owner-controlled held-source bridge lifecycle core exist. The fixed private
+  runtime-source deployment, four command producers and their bridge
+  integration, and crash-prefix resume remain deliberately absent; the live
+  CLI is hard-disabled.
 - It does not qualify anything, and creates no approval, manifest, or hazard
   qualification.
 - It does not authorize an F1. `GOAL_A90.md` still records that no successor

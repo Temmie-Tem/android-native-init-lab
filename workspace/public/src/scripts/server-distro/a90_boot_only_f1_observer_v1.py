@@ -37,6 +37,7 @@ BRIDGE_KEYS = frozenset(
         "selectedRealpath",
         "usbVendor",
         "usbProduct",
+        "bridgeProcessPid",
         "bridgeProcessStartTicks",
         "listenerSocketInode",
         "otherTargetsPresent",
@@ -126,6 +127,12 @@ def _validate_bridge(value: Any) -> dict[str, Any]:
     ):
         raise ContractError("observer bridge identity mismatch")
     require_int(
+        bridge["bridgeProcessPid"],
+        "observer bridge process PID",
+        minimum=1,
+        maximum=(1 << 31) - 1,
+    )
+    require_int(
         bridge["bridgeProcessStartTicks"],
         "observer bridge process start ticks",
         minimum=1,
@@ -169,7 +176,7 @@ def _process_start_ticks(stat_text: str) -> int:
         raise ContractError("observer bridge process start ticks are malformed") from exc
 
 
-def _listener_inode(proc_net_tcp: Path) -> int:
+def _listener_inodes(proc_net_tcp: Path) -> list[int]:
     matches: list[int] = []
     for line in _read_ascii(proc_net_tcp).splitlines()[1:]:
         fields = line.split()
@@ -178,9 +185,21 @@ def _listener_inode(proc_net_tcp: Path) -> int:
                 matches.append(int(fields[9], 10))
             except ValueError as exc:
                 raise ContractError("observer listener inode is malformed") from exc
-    if len(matches) != 1 or matches[0] <= 0:
+    if any(inode <= 0 for inode in matches):
+        raise ContractError("observer listener inode is invalid")
+    return matches
+
+
+def _listener_inode(proc_net_tcp: Path) -> int:
+    matches = _listener_inodes(proc_net_tcp)
+    if len(matches) != 1:
         raise ContractError("observer requires one exact loopback listener")
     return matches[0]
+
+
+def prove_listener_absent(proc_root: Path = Path("/proc")) -> None:
+    if _listener_inodes(proc_root / "net/tcp"):
+        raise ContractError("A90 bridge listener already exists")
 
 
 def _adb_target_count(adb_devices_output: str) -> int:
@@ -193,15 +212,14 @@ def _adb_target_count(adb_devices_output: str) -> int:
     return len(entries)
 
 
-def probe_bridge_identity(
+def probe_endpoint_identity(
     adb_devices_output: str,
     *,
     serial_root: Path = Path("/dev/serial/by-id"),
     sys_class_tty: Path = Path("/sys/class/tty"),
     sys_usb_devices: Path = Path("/sys/bus/usb/devices"),
-    proc_root: Path = Path("/proc"),
 ) -> dict[str, Any]:
-    """Bind the sole A90 ACM endpoint, its bridge process, and listener.
+    """Bind the sole A90 ACM endpoint before an owner starts its bridge.
 
     The function is read-only.  It is not called by any H0 CLI path.
     """
@@ -232,62 +250,124 @@ def probe_bridge_identity(
         if (entry / "idVendor").is_file() and _read_ascii(entry / "idVendor").lower() == "04e8":
             samsung_parents.add(entry.resolve(strict=True))
     other_usb = sum(parent != usb_parent for parent in samsung_parents)
-
-    listener_inode = _listener_inode(proc_root / "net/tcp")
-    process_matches: list[tuple[int, int]] = []
-    for entry in proc_root.iterdir():
-        if not entry.name.isdigit():
-            continue
-        try:
-            raw_cmdline = (entry / "cmdline").read_bytes()
-            if not raw_cmdline.endswith(b"\0"):
-                continue
-            parts = [part.decode("ascii") for part in raw_cmdline.split(b"\0") if part]
-            executable = (entry / "exe").resolve(strict=True)
-        except (OSError, UnicodeError):
-            continue
-        exact_argv = [
-            str(PYTHON_EXECUTABLE),
-            str(BRIDGE_SCRIPT),
-            "--host",
-            "127.0.0.1",
-            "--port",
-            "54321",
-            "--device",
-            FIXED_BRIDGE_DEVICE,
-            "--expect-realpath",
-            str(realpath),
-        ]
-        if executable != PYTHON_EXECUTABLE or parts != exact_argv:
-            continue
-        fd_targets: list[str] = []
-        try:
-            for fd in (entry / "fd").iterdir():
-                try:
-                    fd_targets.append(os.readlink(fd))
-                except OSError:
-                    continue
-        except OSError:
-            continue
-        if f"socket:[{listener_inode}]" not in fd_targets or str(realpath) not in fd_targets:
-            continue
-        process_matches.append(
-            (int(entry.name, 10), _process_start_ticks(_read_ascii(entry / "stat")))
-        )
-    if len(process_matches) != 1:
-        raise ContractError("observer requires one exact bound bridge process")
-    _pid, start_ticks = process_matches[0]
-    value = {
+    other_targets = other_serial + other_usb + _adb_target_count(adb_devices_output)
+    if other_targets != 0:
+        raise ContractError("observer endpoint inventory is ambiguous")
+    return {
         "selectedDevice": FIXED_BRIDGE_DEVICE,
         "selectedRealpath": str(realpath),
         "usbVendor": vendor,
         "usbProduct": product,
+        "otherTargetsPresent": other_targets,
+    }
+
+
+def _fd_holders(proc_root: Path, targets: set[str]) -> dict[str, set[int]]:
+    holders = {target: set() for target in targets}
+    for entry in proc_root.iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            descriptors = list((entry / "fd").iterdir())
+        except OSError:
+            continue
+        for descriptor in descriptors:
+            try:
+                target = os.readlink(descriptor)
+            except OSError:
+                continue
+            if target in holders:
+                holders[target].add(int(entry.name, 10))
+    return holders
+
+
+def probe_bridge_identity(
+    endpoint: Any,
+    *,
+    expected_pid: int,
+    expected_command: tuple[str, ...],
+    proc_root: Path = Path("/proc"),
+) -> dict[str, Any]:
+    """Bind an owner-created exact-FD bridge process after it becomes ready."""
+
+    require_int(
+        expected_pid,
+        "expected bridge PID",
+        minimum=1,
+        maximum=(1 << 31) - 1,
+    )
+    if (
+        type(endpoint) is not dict
+        or set(endpoint)
+        != {
+            "selectedDevice",
+            "selectedRealpath",
+            "usbVendor",
+            "usbProduct",
+            "otherTargetsPresent",
+        }
+        or type(expected_command) is not tuple
+        or not expected_command
+        or any(type(part) is not str or not part for part in expected_command)
+    ):
+        raise ContractError("owned bridge probe inputs are malformed")
+    if endpoint["otherTargetsPresent"] != 0 or type(endpoint["otherTargetsPresent"]) is not int:
+        raise ContractError("owned bridge endpoint is ambiguous")
+
+    entry = proc_root / str(expected_pid)
+    try:
+        raw_cmdline = (entry / "cmdline").read_bytes()
+        if not raw_cmdline.endswith(b"\0"):
+            raise ContractError("owned bridge cmdline framing mismatch")
+        command = tuple(
+            part.decode("ascii") for part in raw_cmdline.split(b"\0") if part
+        )
+        executable = (entry / "exe").resolve(strict=True)
+        start_ticks = _process_start_ticks(_read_ascii(entry / "stat"))
+    except (OSError, UnicodeError) as exc:
+        raise ContractError("owned bridge process identity is unavailable") from exc
+    if command != expected_command or executable != PYTHON_EXECUTABLE:
+        raise ContractError("owned bridge process execution identity mismatch")
+
+    listener_inode = _listener_inode(proc_root / "net/tcp")
+    socket_target = f"socket:[{listener_inode}]"
+    tty_target = endpoint["selectedRealpath"]
+    holders = _fd_holders(proc_root, {socket_target, tty_target})
+    if holders != {socket_target: {expected_pid}, tty_target: {expected_pid}}:
+        raise ContractError("owned bridge listener or TTY ownership mismatch")
+    value = {
+        **endpoint,
+        "bridgeProcessPid": expected_pid,
         "bridgeProcessStartTicks": start_ticks,
         "listenerSocketInode": listener_inode,
-        "otherTargetsPresent": other_serial + other_usb + _adb_target_count(adb_devices_output),
     }
     value["receiptSha256"] = _receipt_sha(value)
     return _validate_bridge(value)
+
+
+def prove_bridge_absent(
+    *,
+    pid: int,
+    listener_inode: int,
+    selected_realpath: str,
+    proc_root: Path = Path("/proc"),
+) -> None:
+    """Require process, listener, and TTY ownership to be absent after reap."""
+
+    require_int(pid, "retired bridge PID", minimum=1, maximum=(1 << 31) - 1)
+    require_int(
+        listener_inode,
+        "retired bridge listener inode",
+        minimum=1,
+        maximum=(1 << 63) - 1,
+    )
+    if (proc_root / str(pid)).exists():
+        raise ContractError("owned bridge process survived reap")
+    if listener_inode in _listener_inodes(proc_root / "net/tcp"):
+        raise ContractError("owned bridge listener survived reap")
+    targets = {f"socket:[{listener_inode}]", selected_realpath}
+    if any(_fd_holders(proc_root, targets).values()):
+        raise ContractError("owned bridge FD survived reap")
 
 
 def _unique_matching_line(text: str, pattern: re.Pattern[str], label: str) -> re.Match[str]:

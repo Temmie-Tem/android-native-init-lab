@@ -339,15 +339,21 @@ identity:
   rollback are separately one-shot, and the success terminal remains
   candidate-neutral. Live `execute` is unconditionally disabled. Python/ADB
   runtime qualification is now generated and current-host reverified. The
-  pure observation contract and a read-only bridge-identity probe now bind the
-  exact resident version/build, selftest, pstore, kernel boot ID, target
-  endpoint, and recovery qualification. The probe intentionally does not turn
-  a pre-existing Python bridge pathname into executed-source proof; the exact
-  owner-started bridge/command lifecycle, crash-prefix resume, and independent
-  full execution-closure review remain open. Therefore no H27 manifest,
-  approval, ordinal, D0, D1, or F1 authority exists. The next owner unit is H0
-  implementation of that held-source bridge/command lifecycle, followed by the
-  crash reconciler and one fresh full review of the frozen closure.
+  pure observation contract now binds the exact resident version/build,
+  selftest, pstore, kernel boot ID, target endpoint, and recovery
+  qualification. The owner-controlled bridge lifecycle core now refuses a
+  pre-existing listener, executes only the held bridge source through the
+  reviewed FD loader, binds its exact PID/cmdline/start tick/listener/TTY
+  ownership, and performs one bounded reap plus absence proof on every prefix.
+  It never relaunches and treats teardown uncertainty as terminal. The current
+  repository's mode-`0775` source ancestors deliberately fail the strict source
+  binding; a fixed private mode-`0700` no-clobber runtime-source deployment is
+  an open integration gate, not grounds to relax it. The four fixed command
+  producers, crash-prefix resume, and independent full execution-closure
+  review remain open. Therefore no H27 manifest, approval, ordinal, D0, D1, or
+  F1 authority exists. The next owner unit is H0 fixed runtime-source staging
+  plus held-`a90ctl` command integration, followed by the crash reconciler and
+  one fresh full review of the frozen closure.
 
 ## What Leaves or Moves Out
 

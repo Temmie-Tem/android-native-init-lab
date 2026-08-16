@@ -76,6 +76,7 @@ def observed_input() -> dict[str, Any]:
         "selectedRealpath": "/dev/ttyACM0",
         "usbVendor": "04e8",
         "usbProduct": "6861",
+        "bridgeProcessPid": 99,
         "bridgeProcessStartTicks": 100,
         "listenerSocketInode": 200,
         "otherTargetsPresent": 0,
@@ -196,6 +197,117 @@ class FakeArtifact:
 
     def close(self) -> None:
         return None
+
+
+class FakeHeldSource:
+    def __init__(self, path: Path, role: str) -> None:
+        self.path = path
+        self.fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        raw = path.read_bytes()
+        self.identity = {
+            "role": role,
+            "path": str(path),
+            "size": len(raw),
+            "sha256": sha(raw),
+        }
+
+    def checkpoint(self) -> dict[str, Any]:
+        metadata = os.fstat(self.fd)
+        if metadata.st_size != self.identity["size"]:
+            raise contract.ContractError("fake held source size drift")
+        if contract.BoundArtifact._hash_fd(self.fd, metadata.st_size) != self.identity["sha256"]:
+            raise contract.ContractError("fake held source digest drift")
+        return dict(self.identity)
+
+    def close(self) -> None:
+        if self.fd >= 0:
+            os.close(self.fd)
+            self.fd = -1
+
+
+class FakeFdExec:
+    PROGRAM = "bound-fd-program"
+
+    @classmethod
+    def bootstrap_command(
+        cls,
+        python_executable: Path,
+        source_fd: int,
+        source_path: Path,
+        source_size: int,
+        source_sha256: str,
+        arguments: tuple[str, ...],
+    ) -> tuple[str, ...]:
+        return (
+            str(python_executable),
+            "-I",
+            "-c",
+            cls.PROGRAM,
+            str(source_fd),
+            str(source_path),
+            str(source_size),
+            source_sha256,
+            *arguments,
+        )
+
+    @staticmethod
+    def bootstrap_pass_fds(source_fd: int) -> tuple[int]:
+        return (source_fd,)
+
+
+class FakeBridgeProcess:
+    def __init__(
+        self,
+        pid: int = 4242,
+        *,
+        wait_timeout_once: bool = False,
+        wait_timeout_always: bool = False,
+    ) -> None:
+        self.pid = pid
+        self.returncode: int | None = None
+        self.terminated = 0
+        self.killed = 0
+        self.wait_timeout_once = wait_timeout_once
+        self.wait_timeout_always = wait_timeout_always
+
+    def poll(self) -> int | None:
+        return self.returncode
+
+    def terminate(self) -> None:
+        self.terminated += 1
+
+    def kill(self) -> None:
+        self.killed += 1
+        self.returncode = -9
+
+    def wait(self, timeout: float) -> int:
+        if self.wait_timeout_always or self.wait_timeout_once:
+            self.wait_timeout_once = False
+            raise subprocess.TimeoutExpired("bridge", timeout)
+        if self.returncode is None:
+            self.returncode = 0
+        return self.returncode
+
+
+def bridge_endpoint() -> dict[str, Any]:
+    return {
+        "selectedDevice": observer_v1.FIXED_BRIDGE_DEVICE,
+        "selectedRealpath": "/dev/ttyACM0",
+        "usbVendor": "04e8",
+        "usbProduct": "6861",
+        "otherTargetsPresent": 0,
+    }
+
+
+def bridge_receipt(pid: int = 4242) -> dict[str, Any]:
+    value = {
+        **bridge_endpoint(),
+        "bridgeProcessPid": pid,
+        "bridgeProcessStartTicks": 987654,
+        "listenerSocketInode": 12345,
+    }
+    value["receiptSha256"] = observer_v1._receipt_sha(value)
+    return value
 
 
 def fake_bindings() -> owner.ExecutionBindings:
@@ -490,12 +602,315 @@ class ContractTests(unittest.TestCase):
         with self.assertRaises(contract.ContractError):
             observer_v1._process_start_ticks("123 malformed")
 
+    def test_owned_bridge_probe_binds_exact_pid_command_listener_and_tty(self) -> None:
+        command = (str(observer_v1.PYTHON_EXECUTABLE), "-I", "-c", "bound")
+        endpoint = bridge_endpoint()
+        with tempfile.TemporaryDirectory() as raw_root:
+            proc = Path(raw_root)
+            (proc / "net").mkdir()
+            tcp_header = (
+                "sl local_address rem_address st tx_queue rx_queue tr tm->when "
+                "retrnsmt uid timeout inode\n"
+            )
+            (proc / "net/tcp").write_text(
+                tcp_header
+                + "0: 0100007F:D431 00000000:0000 0A 0:0 0:0 0 1000 0 12345\n",
+                encoding="ascii",
+            )
+            process = proc / "4242"
+            (process / "fd").mkdir(parents=True)
+            (process / "cmdline").write_bytes(b"\0".join(part.encode() for part in command) + b"\0")
+            (process / "exe").symlink_to(observer_v1.PYTHON_EXECUTABLE)
+            fields = ["S", *[str(index) for index in range(4, 23)]]
+            fields[19] = "987654"
+            (process / "stat").write_text(
+                "4242 (owned bridge) " + " ".join(fields) + "\n",
+                encoding="ascii",
+            )
+            (process / "fd/3").symlink_to("socket:[12345]")
+            (process / "fd/4").symlink_to("/dev/ttyACM0")
+            receipt = observer_v1.probe_bridge_identity(
+                endpoint,
+                expected_pid=4242,
+                expected_command=command,
+                proc_root=proc,
+            )
+            self.assertEqual(receipt["bridgeProcessPid"], 4242)
+            self.assertEqual(receipt["bridgeProcessStartTicks"], 987654)
+            self.assertEqual(receipt["listenerSocketInode"], 12345)
+
+            foreign = proc / "5000/fd"
+            foreign.mkdir(parents=True)
+            (foreign / "3").symlink_to("socket:[12345]")
+            with self.assertRaisesRegex(contract.ContractError, "ownership"):
+                observer_v1.probe_bridge_identity(
+                    endpoint,
+                    expected_pid=4242,
+                    expected_command=command,
+                    proc_root=proc,
+                )
+            (foreign / "3").unlink()
+            foreign.rmdir()
+            (proc / "5000").rmdir()
+            for child in (process / "fd").iterdir():
+                child.unlink()
+            (process / "fd").rmdir()
+            (process / "cmdline").unlink()
+            (process / "exe").unlink()
+            (process / "stat").unlink()
+            process.rmdir()
+            (proc / "net/tcp").write_text(tcp_header, encoding="ascii")
+            observer_v1.prove_bridge_absent(
+                pid=4242,
+                listener_inode=12345,
+                selected_realpath="/dev/ttyACM0",
+                proc_root=proc,
+            )
+
     def test_bridge_source_is_inside_the_held_helper_closure(self) -> None:
         size, digest = owner.HELPER_SPECS["serial_tcp_bridge.py"]
         raw = observer_v1.BRIDGE_SCRIPT.read_bytes()
         self.assertEqual(observer_v1.BRIDGE_SCRIPT, owner.REVALIDATION / "serial_tcp_bridge.py")
         self.assertEqual((len(raw), sha(raw)), (size, digest))
         self.assertEqual(owner.helper_runtime_digest(), owner.HELPER_RUNTIME_CLOSURE_SHA256)
+
+    def test_owned_bridge_uses_held_source_and_proves_bounded_teardown(self) -> None:
+        _size, digest = owner.HELPER_SPECS["serial_tcp_bridge.py"]
+        artifact = FakeHeldSource(
+            observer_v1.BRIDGE_SCRIPT, "helper:serial_tcp_bridge.py"
+        )
+        bindings = owner.ExecutionBindings({"helper:serial_tcp_bridge.py": artifact})
+        process = FakeBridgeProcess()
+        launch: dict[str, Any] = {}
+        teardown: dict[str, Any] = {}
+
+        def popen(command: tuple[str, ...], **kwargs: Any) -> FakeBridgeProcess:
+            launch.update(command=command, kwargs=kwargs)
+            return process
+
+        def process_probe(
+            endpoint: dict[str, Any], *, expected_pid: int, expected_command: tuple[str, ...]
+        ) -> dict[str, Any]:
+            self.assertEqual(endpoint, bridge_endpoint())
+            self.assertEqual(expected_pid, process.pid)
+            self.assertEqual(expected_command, launch["command"])
+            return bridge_receipt(process.pid)
+
+        def teardown_probe(**kwargs: Any) -> None:
+            teardown.update(kwargs)
+
+        try:
+            with tempfile.TemporaryDirectory() as raw_root:
+                lifecycle = owner.OwnedBridgeLifecycle(
+                    bindings,
+                    Path(raw_root),
+                    FakeFdExec,
+                    popen_factory=popen,
+                    endpoint_probe=lambda _output: bridge_endpoint(),
+                    listener_absence_probe=lambda: None,
+                    process_probe=process_probe,
+                    teardown_probe=teardown_probe,
+                )
+                receipt = lifecycle.start(
+                    "List of devices attached\n\n", readiness_timeout_sec=1
+                )
+                command = launch["command"]
+                self.assertEqual(command[0:4], (str(owner.PYTHON_EXECUTABLE), "-I", "-c", FakeFdExec.PROGRAM))
+                self.assertEqual(command[4], str(artifact.fd))
+                self.assertIn(digest, command)
+                self.assertEqual(launch["kwargs"]["pass_fds"], (artifact.fd,))
+                self.assertIs(launch["kwargs"]["close_fds"], True)
+                self.assertEqual(receipt["bridgeProcessPid"], process.pid)
+                closed = lifecycle.close()
+                self.assertEqual(process.terminated, 1)
+                self.assertEqual(process.killed, 0)
+                self.assertIs(closed["forced"], False)
+                self.assertEqual(
+                    teardown,
+                    {
+                        "pid": process.pid,
+                        "listener_inode": 12345,
+                        "selected_realpath": "/dev/ttyACM0",
+                    },
+                )
+                self.assertRegex(closed["stdoutSha256"], r"^[0-9a-f]{64}$")
+                self.assertRegex(closed["stderrSha256"], r"^[0-9a-f]{64}$")
+        finally:
+            bindings.close()
+
+    def test_owned_bridge_readiness_failure_reaps_and_never_retries_launch(self) -> None:
+        _size, digest = owner.HELPER_SPECS["serial_tcp_bridge.py"]
+        artifact = FakeHeldSource(
+            observer_v1.BRIDGE_SCRIPT, "helper:serial_tcp_bridge.py"
+        )
+        bindings = owner.ExecutionBindings({"helper:serial_tcp_bridge.py": artifact})
+        process = FakeBridgeProcess()
+        launches = 0
+        absence_checks = 0
+        moments = iter((0.0, 0.0, 2.0))
+
+        def popen(_command: tuple[str, ...], **_kwargs: Any) -> FakeBridgeProcess:
+            nonlocal launches
+            launches += 1
+            return process
+
+        def no_listener() -> None:
+            nonlocal absence_checks
+            absence_checks += 1
+
+        try:
+            with tempfile.TemporaryDirectory() as raw_root:
+                lifecycle = owner.OwnedBridgeLifecycle(
+                    bindings,
+                    Path(raw_root),
+                    FakeFdExec,
+                    popen_factory=popen,
+                    endpoint_probe=lambda _output: bridge_endpoint(),
+                    listener_absence_probe=no_listener,
+                    process_probe=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                        contract.ContractError("not ready")
+                    ),
+                    monotonic=lambda: next(moments),
+                    sleep=lambda _seconds: None,
+                )
+                with self.assertRaisesRegex(contract.ContractError, "timed out"):
+                    lifecycle.start(
+                        "List of devices attached\n\n", readiness_timeout_sec=1
+                    )
+                self.assertEqual(launches, 1)
+                self.assertEqual(process.terminated, 1)
+                self.assertTrue(lifecycle.closed)
+                self.assertEqual(absence_checks, 2)
+        finally:
+            bindings.close()
+
+    def test_owned_bridge_forces_reap_but_never_claims_graceful_close(self) -> None:
+        artifact = FakeHeldSource(
+            observer_v1.BRIDGE_SCRIPT, "helper:serial_tcp_bridge.py"
+        )
+        bindings = owner.ExecutionBindings({"helper:serial_tcp_bridge.py": artifact})
+        process = FakeBridgeProcess(wait_timeout_once=True)
+        try:
+            with tempfile.TemporaryDirectory() as raw_root:
+                lifecycle = owner.OwnedBridgeLifecycle(
+                    bindings,
+                    Path(raw_root),
+                    FakeFdExec,
+                    popen_factory=lambda *_args, **_kwargs: process,
+                    endpoint_probe=lambda _output: bridge_endpoint(),
+                    listener_absence_probe=lambda: None,
+                    process_probe=lambda *_args, **_kwargs: bridge_receipt(process.pid),
+                    teardown_probe=lambda **_kwargs: None,
+                )
+                lifecycle.start(
+                    "List of devices attached\n\n", readiness_timeout_sec=1
+                )
+                closed = lifecycle.close(timeout_sec=0.1)
+                self.assertIs(closed["forced"], True)
+                self.assertEqual(process.terminated, 1)
+                self.assertEqual(process.killed, 1)
+                self.assertEqual(closed["returncode"], -9)
+        finally:
+            bindings.close()
+
+    def test_owned_bridge_teardown_uncertainty_is_terminal_and_closes_logs(self) -> None:
+        artifact = FakeHeldSource(
+            observer_v1.BRIDGE_SCRIPT, "helper:serial_tcp_bridge.py"
+        )
+        bindings = owner.ExecutionBindings({"helper:serial_tcp_bridge.py": artifact})
+        process = FakeBridgeProcess()
+        try:
+            with tempfile.TemporaryDirectory() as raw_root:
+                lifecycle = owner.OwnedBridgeLifecycle(
+                    bindings,
+                    Path(raw_root),
+                    FakeFdExec,
+                    popen_factory=lambda *_args, **_kwargs: process,
+                    endpoint_probe=lambda _output: bridge_endpoint(),
+                    listener_absence_probe=lambda: None,
+                    process_probe=lambda *_args, **_kwargs: bridge_receipt(process.pid),
+                    teardown_probe=lambda **_kwargs: (_ for _ in ()).throw(
+                        contract.ContractError("bridge teardown is unproved")
+                    ),
+                )
+                lifecycle.start(
+                    "List of devices attached\n\n", readiness_timeout_sec=1
+                )
+                with self.assertRaisesRegex(contract.ContractError, "unproved"):
+                    lifecycle.close()
+                self.assertTrue(lifecycle.closed)
+                self.assertEqual(lifecycle.stdout_fd, -1)
+                self.assertEqual(lifecycle.stderr_fd, -1)
+                with self.assertRaisesRegex(contract.ContractError, "cannot be closed"):
+                    lifecycle.close()
+        finally:
+            bindings.close()
+
+    def test_owned_bridge_unreaped_after_kill_is_terminal_and_closes_logs(self) -> None:
+        artifact = FakeHeldSource(
+            observer_v1.BRIDGE_SCRIPT, "helper:serial_tcp_bridge.py"
+        )
+        bindings = owner.ExecutionBindings({"helper:serial_tcp_bridge.py": artifact})
+        process = FakeBridgeProcess(wait_timeout_always=True)
+        try:
+            with tempfile.TemporaryDirectory() as raw_root:
+                lifecycle = owner.OwnedBridgeLifecycle(
+                    bindings,
+                    Path(raw_root),
+                    FakeFdExec,
+                    popen_factory=lambda *_args, **_kwargs: process,
+                    endpoint_probe=lambda _output: bridge_endpoint(),
+                    listener_absence_probe=lambda: None,
+                    process_probe=lambda *_args, **_kwargs: bridge_receipt(process.pid),
+                    teardown_probe=lambda **_kwargs: self.fail(
+                        "unreaped process must not enter absence proof"
+                    ),
+                )
+                lifecycle.start(
+                    "List of devices attached\n\n", readiness_timeout_sec=1
+                )
+                with self.assertRaises(subprocess.TimeoutExpired):
+                    lifecycle.close(timeout_sec=0.1)
+                self.assertTrue(lifecycle.closed)
+                self.assertEqual(process.terminated, 1)
+                self.assertEqual(process.killed, 1)
+                self.assertEqual(lifecycle.stdout_fd, -1)
+                self.assertEqual(lifecycle.stderr_fd, -1)
+                with self.assertRaisesRegex(contract.ContractError, "cannot be closed"):
+                    lifecycle.close()
+        finally:
+            bindings.close()
+
+    def test_owned_bridge_rejects_duplicate_start_and_duplicate_close(self) -> None:
+        artifact = FakeHeldSource(
+            observer_v1.BRIDGE_SCRIPT, "helper:serial_tcp_bridge.py"
+        )
+        bindings = owner.ExecutionBindings({"helper:serial_tcp_bridge.py": artifact})
+        process = FakeBridgeProcess()
+        try:
+            with tempfile.TemporaryDirectory() as raw_root:
+                lifecycle = owner.OwnedBridgeLifecycle(
+                    bindings,
+                    Path(raw_root),
+                    FakeFdExec,
+                    popen_factory=lambda *_args, **_kwargs: process,
+                    endpoint_probe=lambda _output: bridge_endpoint(),
+                    listener_absence_probe=lambda: None,
+                    process_probe=lambda *_args, **_kwargs: bridge_receipt(process.pid),
+                    teardown_probe=lambda **_kwargs: None,
+                )
+                lifecycle.start(
+                    "List of devices attached\n\n", readiness_timeout_sec=1
+                )
+                with self.assertRaisesRegex(contract.ContractError, "not fresh"):
+                    lifecycle.start(
+                        "List of devices attached\n\n", readiness_timeout_sec=1
+                    )
+                lifecycle.close()
+                with self.assertRaisesRegex(contract.ContractError, "cannot be closed"):
+                    lifecycle.close()
+        finally:
+            bindings.close()
 
     def test_resident_qualification_is_external_and_exact(self) -> None:
         expected = manifest()["expectedStart"]
@@ -871,7 +1286,8 @@ class OwnerStateMachineTests(unittest.TestCase):
         source = OWNER_PATH.read_text(encoding="utf-8")
         self.assertNotIn("a90_v3403_f1_orchestrator", source)
         self.assertFalse(owner.LIVE_EXECUTION_ENABLED)
-        self.assertIn("OWNER_BRIDGE_AND_RESUME_ABSENT", owner.IMPLEMENTATION_STATUS)
+        self.assertIn("OWNED_BRIDGE_CORE_PRESENT", owner.IMPLEMENTATION_STATUS)
+        self.assertIn("COMMAND_OBSERVER_AND_RESUME_ABSENT", owner.IMPLEMENTATION_STATUS)
         with tempfile.TemporaryDirectory() as raw_root:
             with self.assertRaisesRegex(contract.ContractError, "H0-disabled"):
                 owner.SubprocessBackend(fake_bindings(), Path(raw_root))

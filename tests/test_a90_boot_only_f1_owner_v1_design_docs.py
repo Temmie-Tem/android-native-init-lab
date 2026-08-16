@@ -440,7 +440,7 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         head = flatten(self.raw[: self.raw.index("## The loop being removed")])
         self.assertIn("grants no authority", head)
         self.assertIn(
-            "H0 IMPLEMENTATION CORE, HOST RUNTIME QUALIFICATION, AND THE PURE DEVICE-OBSERVATION CONTRACT ARE PRESENT",
+            "H0 IMPLEMENTATION CORE, HOST RUNTIME QUALIFICATION, THE PURE DEVICE-OBSERVATION CONTRACT, AND THE OWNER-CONTROLLED BRIDGE LIFECYCLE CORE ARE PRESENT",
             head,
         )
         self.assertIn("live execution is hard-disabled", head)
@@ -484,8 +484,17 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
 
     def test_observer_contract_does_not_launder_a_preexisting_bridge(self) -> None:
         self.assertIn("pathname and `/proc/<pid>/cmdline` do not", self.design)
-        self.assertIn("owner to launch and reap its own bridge", self.design)
+        self.assertIn("owner never adopts one", self.design)
+        self.assertIn("starts Python's reviewed inherited-FD loader", self.design)
+        self.assertIn("Readiness never\nrelaunches the bridge", self.raw)
+        self.assertIn("teardown uncertainty is terminal", self.design)
         self.assertIn("SubprocessBackend` and CLI `execute` remain hard-disabled", self.design)
+
+    def test_bridge_source_permissions_remain_a_fail_closed_open_gate(self) -> None:
+        self.assertIn("repository source ancestors are mode `0775`", self.design)
+        self.assertIn("fixed private runtime-source directory with\nmode `0700`", self.raw)
+        self.assertIn("weakening the ancestor rule is not an alternative", self.design)
+        self.assertIn("fixed runtime-source staging", GOAL.read_text(encoding="utf-8"))
 
     def test_runtime_rehash_replaces_delegated_verification(self) -> None:
         self.assertIn("at execution time", self.design)
@@ -1083,6 +1092,14 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "bootstrap source directory added to `sys.path`",
             "source pathname swapped between validation and read",
             "same Python/ADB version string with different executable bytes",
+            "pre-existing bridge listener",
+            "wrong bridge PID/start tick/cmdline/source FD",
+            "foreign listener-socket or TTY holder",
+            "readiness timeout",
+            "TERM timeout requiring one KILL",
+            "teardown-proof failure",
+            "duplicate bridge\n  start/close",
+            "group/world-writable runtime-source ancestor",
             "crash after `CANDIDATE_INTENT`",
             "without\n  candidate replay",
             "post-candidate artifact drift followed by candidate retry",

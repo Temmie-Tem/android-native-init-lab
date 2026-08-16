@@ -16,6 +16,7 @@ import os
 import resource
 import signal
 import stat
+import subprocess
 import sys
 import time
 from dataclasses import dataclass
@@ -52,11 +53,12 @@ from a90_boot_only_f1_contract_v1 import (
     validate_terminal_payload,
 )
 from a90_boot_only_f1_runtime_v1 import verify_runtime_qualification_current
+import a90_boot_only_f1_observer_v1 as observer_v1
 
 
 IMPLEMENTATION_STATUS = (
-    "H0_RUNTIME_QUALIFIED_OBSERVER_CONTRACT_PRESENT_"
-    "OWNER_BRIDGE_AND_RESUME_ABSENT"
+    "H0_RUNTIME_QUALIFIED_OWNED_BRIDGE_CORE_PRESENT_"
+    "COMMAND_OBSERVER_AND_RESUME_ABSENT"
 )
 LIVE_EXECUTION_ENABLED = False
 PYTHON_EXECUTABLE = Path("/usr/bin/python3.14")
@@ -197,6 +199,191 @@ class ExecutionBindings:
 
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         self.close()
+
+
+class OwnedBridgeLifecycle:
+    """One owner-created bridge from held source bytes, with bounded teardown."""
+
+    def __init__(
+        self,
+        bindings: ExecutionBindings,
+        run_directory: Path,
+        fd_exec: Any,
+        *,
+        popen_factory: Any = subprocess.Popen,
+        endpoint_probe: Any = observer_v1.probe_endpoint_identity,
+        listener_absence_probe: Any = observer_v1.prove_listener_absent,
+        process_probe: Any = observer_v1.probe_bridge_identity,
+        teardown_probe: Any = observer_v1.prove_bridge_absent,
+        monotonic: Any = time.monotonic,
+        sleep: Any = time.sleep,
+    ) -> None:
+        self.bindings = bindings
+        self.run_directory = run_directory
+        self.fd_exec = fd_exec
+        self.popen_factory = popen_factory
+        self.endpoint_probe = endpoint_probe
+        self.listener_absence_probe = listener_absence_probe
+        self.process_probe = process_probe
+        self.teardown_probe = teardown_probe
+        self.monotonic = monotonic
+        self.sleep = sleep
+        self.process: Any | None = None
+        self.command: tuple[str, ...] | None = None
+        self.endpoint: dict[str, Any] | None = None
+        self.receipt: dict[str, Any] | None = None
+        self.stdout_fd = -1
+        self.stderr_fd = -1
+        self.stdout_path = run_directory / "bridge.stdout"
+        self.stderr_path = run_directory / "bridge.stderr"
+        self.closed = False
+
+    def _open_logs(self) -> None:
+        flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC
+        self.stdout_fd = os.open(self.stdout_path, flags, 0o600)
+        try:
+            self.stderr_fd = os.open(self.stderr_path, flags, 0o600)
+        except BaseException:
+            os.close(self.stdout_fd)
+            self.stdout_fd = -1
+            raise
+
+    def _reap(self, timeout_sec: float) -> tuple[int, bool]:
+        assert self.process is not None
+        forced = False
+        if self.process.poll() is None:
+            self.process.terminate()
+        try:
+            returncode = self.process.wait(timeout=timeout_sec)
+        except subprocess.TimeoutExpired:
+            forced = True
+            self.process.kill()
+            returncode = self.process.wait(timeout=timeout_sec)
+        return returncode, forced
+
+    def _close_logs(self) -> dict[str, str]:
+        result: dict[str, str] = {}
+        for name, descriptor, path in (
+            ("stdoutSha256", self.stdout_fd, self.stdout_path),
+            ("stderrSha256", self.stderr_fd, self.stderr_path),
+        ):
+            if descriptor < 0:
+                continue
+            try:
+                result[name] = _finalize_log(descriptor, path)
+            finally:
+                os.close(descriptor)
+                if name == "stdoutSha256":
+                    self.stdout_fd = -1
+                else:
+                    self.stderr_fd = -1
+        return result
+
+    def start(
+        self,
+        adb_devices_output: str,
+        *,
+        readiness_timeout_sec: float,
+    ) -> dict[str, Any]:
+        if self.process is not None or self.closed:
+            raise ContractError("owned bridge lifecycle is not fresh")
+        if type(readiness_timeout_sec) not in {int, float} or not (
+            0 < readiness_timeout_sec <= 300
+        ):
+            raise ContractError("owned bridge readiness timeout is invalid")
+        self.bindings.checkpoint()
+        self.listener_absence_probe()
+        self.endpoint = self.endpoint_probe(adb_devices_output)
+        bridge = self.bindings.artifacts["helper:serial_tcp_bridge.py"]
+        arguments = (
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "54321",
+            "--device",
+            observer_v1.FIXED_BRIDGE_DEVICE,
+            "--expect-realpath",
+            self.endpoint["selectedRealpath"],
+        )
+        self.command = self.fd_exec.bootstrap_command(
+            PYTHON_EXECUTABLE,
+            bridge.fd,
+            observer_v1.BRIDGE_SCRIPT,
+            bridge.identity["size"],
+            bridge.identity["sha256"],
+            arguments,
+        )
+        self._open_logs()
+        try:
+            self.process = self.popen_factory(
+                self.command,
+                cwd="/",
+                env={
+                    "PATH": "/usr/bin:/bin",
+                    "LANG": "C",
+                    "LC_ALL": "C",
+                    "PYTHONHASHSEED": "0",
+                },
+                stdin=subprocess.DEVNULL,
+                stdout=self.stdout_fd,
+                stderr=self.stderr_fd,
+                close_fds=True,
+                pass_fds=self.fd_exec.bootstrap_pass_fds(bridge.fd),
+                start_new_session=True,
+            )
+            deadline = self.monotonic() + float(readiness_timeout_sec)
+            last_error: ContractError | None = None
+            while self.monotonic() < deadline:
+                if self.process.poll() is not None:
+                    raise ContractError("owned bridge exited before readiness")
+                try:
+                    self.receipt = self.process_probe(
+                        self.endpoint,
+                        expected_pid=self.process.pid,
+                        expected_command=self.command,
+                    )
+                    self.bindings.checkpoint()
+                    return self.receipt
+                except ContractError as exc:
+                    last_error = exc
+                    self.sleep(0.05)
+            raise ContractError("owned bridge readiness timed out") from last_error
+        except BaseException:
+            try:
+                if self.process is not None:
+                    self._reap(2.0)
+                    self.listener_absence_probe()
+            finally:
+                self._close_logs()
+                self.closed = True
+            raise
+
+    def close(self, *, timeout_sec: float = 5.0) -> dict[str, Any]:
+        if self.closed or self.process is None or self.receipt is None:
+            raise ContractError("owned bridge cannot be closed from this state")
+        if type(timeout_sec) not in {int, float} or not 0 < timeout_sec <= 30:
+            raise ContractError("owned bridge close timeout is invalid")
+        returncode: int | None = None
+        forced = False
+        logs: dict[str, str] = {}
+        try:
+            returncode, forced = self._reap(timeout_sec)
+            self.teardown_probe(
+                pid=self.receipt["bridgeProcessPid"],
+                listener_inode=self.receipt["listenerSocketInode"],
+                selected_realpath=self.receipt["selectedRealpath"],
+            )
+            self.bindings.checkpoint()
+        finally:
+            logs = self._close_logs()
+            self.closed = True
+        assert returncode is not None
+        return {
+            "bridgeReceiptSha256": self.receipt["receiptSha256"],
+            "returncode": returncode,
+            "forced": forced,
+            **logs,
+        }
 
 
 def _load_exact_python_module(bound: BoundArtifact, module_name: str) -> Any:
@@ -790,6 +977,11 @@ class SubprocessBackend:
         self.fd_exec = _load_exact_python_module(
             bindings.artifacts["helper:a90_boot_only_f1_fd_exec.py"],
             "a90_boot_only_f1_fd_exec_bound",
+        )
+        self.bridge = OwnedBridgeLifecycle(
+            bindings,
+            run_directory,
+            self.fd_exec,
         )
 
     def preflight(self, manifest: dict[str, Any]) -> LiveSnapshot:
