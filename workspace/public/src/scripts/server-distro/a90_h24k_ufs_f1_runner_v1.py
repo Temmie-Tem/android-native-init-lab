@@ -42,21 +42,25 @@ import a90_v3403_f1_orchestrator as base  # noqa: E402
 import buildlib as flat_buildlib  # noqa: E402
 
 
-SCHEMA = "a90-h24-ufs-f1-manifest-v1"
-RESULT_SCHEMA = "a90-h24-ufs-f1-result-v1"
-JOURNAL_SCHEMA = "a90-h24-ufs-f1-journal-v1"
-QUALIFICATION_SCHEMA = "a90-h24-ufs-execution-qualification-v1"
+# Every schema, approval prefix, capability name, and run-id shape below is
+# H24K's own. Sharing H24's namespace would let two runners write into one
+# journal and approval space, and no-replay accounting depends on those being
+# disjoint.
+SCHEMA = "a90-h24k-ufs-f1-manifest-v1"
+RESULT_SCHEMA = "a90-h24k-ufs-f1-result-v1"
+JOURNAL_SCHEMA = "a90-h24k-ufs-f1-journal-v1"
+QUALIFICATION_SCHEMA = "a90-h24k-ufs-execution-qualification-v1"
 EXECUTION_REVIEW_SCHEMA = (
-    "a90-h24-ufs-f1-d1-execution-independent-review-v1"
+    "a90-h24k-ufs-f1-execution-independent-review-v1"
 )
-INVENTORY_SCHEMA = "a90-h24-ufs-readonly-inventory-v1"
-APPROVAL_SCHEMA = "a90-h24-ufs-f1-approval-prepared-v1"
-APPROVAL_BINDING_SCHEMA = "a90-h24-ufs-f1-approval-binding-v1"
-APPROVAL_PREFIX = "A90-H24-F1-APPROVE:"
+INVENTORY_SCHEMA = "a90-h24k-ufs-readonly-inventory-v1"
+APPROVAL_SCHEMA = "a90-h24k-ufs-f1-approval-prepared-v1"
+APPROVAL_BINDING_SCHEMA = "a90-h24k-ufs-f1-approval-binding-v1"
+APPROVAL_PREFIX = "A90-H24K-F1-APPROVE:"
 APPROVAL_TTL_SEC = 1800
 D0_MAX_AGE_SEC = 900
-CAPABILITY = "A90_H24_PRIVATE_CARD_ROOT_PERSISTENT_UFS_SERVER_V1"
-RUN_ID_RE = re.compile(r"^a90-h24-ufs-f1-[0-9]{8}-[0-9]{2}$")
+CAPABILITY = "A90_H24K_SELFBUILT_KERNEL_NOCFP_V1"
+RUN_ID_RE = re.compile(r"^a90-h24k-ufs-f1-[0-9]{8}-[0-9]{2}$")
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 H24_AUTO_STATUS_RE = re.compile(
     r"^A90AUTO_STATUS binding=(?P<binding>[01]) "
@@ -664,9 +668,9 @@ def validate_host_capability_qualification() -> dict[str, Any]:
     if (
         not isinstance(value, dict)
         or value.get("schema")
-        != "a90-h24-minimal-debian-dev-capability-qualification-v1"
+        != "a90-h24k-selfbuilt-kernel-capability-qualification-v1"
         or value.get("capability")
-        != "A90_H24_PRIVATE_CARD_ROOT_MINIMAL_DEBIAN_DEV_V1"
+        != "A90_H24K_SELFBUILT_KERNEL_NOCFP_V1"
         or value.get("verdict") != "PASS_GO"
         or value.get("execution_closure_sha256")
         != HOST_CAPABILITY_CLOSURE_SHA256
@@ -686,12 +690,12 @@ def validate_host_capability_qualification() -> dict[str, Any]:
         or value.get("live_authority") is not False
         or not isinstance(report, dict)
         or report.get("schema")
-        != "a90-h24-minimal-debian-dev-independent-review-v1"
+        != "a90-h24k-selfbuilt-kernel-independent-review-v1"
         or report.get("status") != "PASS_GO"
         or report.get("review_date") != "2026-08-12"
         or report.get("reviewer") != HOST_CAPABILITY_REVIEWER
         or report.get("capability")
-        != "A90_H24_PRIVATE_CARD_ROOT_MINIMAL_DEBIAN_DEV_V1"
+        != "A90_H24K_SELFBUILT_KERNEL_NOCFP_V1"
         or report.get("incident_class") != HOST_CAPABILITY_INCIDENT
         or report.get("validated_invariants")
         != list(HOST_CAPABILITY_REQUIRED_INVARIANTS)
@@ -1440,7 +1444,7 @@ def _approval_path(manifest: dict[str, Any]) -> Path:
     run_dir = (PRIVATE_RUN_BASE / manifest["run_id"]).resolve()
     if run_dir.parent != PRIVATE_RUN_BASE:
         raise ContractError("H24 approval path escapes private run base")
-    return run_dir / "h24-f1-approval-prepared.json"
+    return run_dir / "h24k-f1-approval-prepared.json"
 
 
 def approval_binding(
@@ -1697,7 +1701,7 @@ def _journal_dir(manifest: dict[str, Any]) -> Path:
     run_dir = (PRIVATE_RUN_BASE / manifest["run_id"]).resolve()
     if run_dir.parent != PRIVATE_RUN_BASE:
         raise ContractError("transaction directory escapes private run base")
-    return run_dir / "h24-f1-live" / "journal"
+    return run_dir / "h24k-f1-live" / "journal"
 
 
 def read_journal(path: Path, manifest: dict[str, Any], manifest_sha: str) -> list[dict[str, Any]]:
@@ -1768,7 +1772,7 @@ def _validate_closed_result(
             candidate_health.get("health"), manifest
         )
         valid = (
-            result.get("status") == "PASS_A90_H24_UFS_RESIDENT_INSTALLED"
+            result.get("status") == "PASS_A90_H24K_UFS_RESIDENT_INSTALLED"
             and result.get("device_safety_state") == "RESIDENT_HEALTHY"
             and result.get("candidate_transfer_count") == 1
             and result.get("rollback_transfer_count") == 0
@@ -1891,7 +1895,7 @@ def _validate_f1_journal(
             launch_item.get("candidate_replay") is not False
             or launch_item.get("rollback_replay") is not False
             or not isinstance(launch, dict)
-            or launch.get("schema") != "a90-h24-flash-process-group-v1"
+            or launch.get("schema") != "a90-h24k-flash-process-group-v1"
             or launch.get("kind") != "candidate"
             or launch.get("manifest_sha256") != manifest_sha
             or launch.get("artifact_sha256")
@@ -2000,7 +2004,7 @@ def _validate_f1_journal(
             launch_item.get("candidate_replay") is not False
             or launch_item.get("rollback_replay") is not False
             or not isinstance(launch, dict)
-            or launch.get("schema") != "a90-h24-flash-process-group-v1"
+            or launch.get("schema") != "a90-h24k-flash-process-group-v1"
             or launch.get("kind") != "rollback"
             or launch.get("manifest_sha256") != manifest_sha
             or launch.get("artifact_sha256")
@@ -2365,7 +2369,7 @@ def _require_launch_quiesced(
             "release_count_max",
             "descendant_quiescence_required_before_recovery",
         }
-        or value.get("schema") != "a90-h24-flash-process-group-v1"
+        or value.get("schema") != "a90-h24k-flash-process-group-v1"
         or value.get("kind") != kind
         or type(value.get("leader_pid")) is not int
         or value.get("leader_pid") <= 0
@@ -2516,7 +2520,7 @@ def _flash_record(
         if pgid != pid:
             raise ContractError("flash child process group is not isolated")
         launch = {
-            "schema": "a90-h24-flash-process-group-v1",
+            "schema": "a90-h24k-flash-process-group-v1",
             "kind": kind,
             "leader_pid": pid,
             "pgid": pgid,
@@ -3367,7 +3371,7 @@ def reconcile_health(
             )
         result = {
             "schema": RESULT_SCHEMA,
-            "status": "PASS_A90_H24_UFS_RESIDENT_INSTALLED",
+            "status": "PASS_A90_H24K_UFS_RESIDENT_INSTALLED",
             "run_id": manifest["run_id"],
             "manifest_sha256": manifest_sha,
             "device_safety_state": "RESIDENT_HEALTHY",
@@ -3639,7 +3643,7 @@ def execute(manifest_path: Path, manifest_sha: str, args: argparse.Namespace) ->
                 )
                 result = {
                     "schema": RESULT_SCHEMA,
-                    "status": "PASS_A90_H24_UFS_RESIDENT_INSTALLED",
+                    "status": "PASS_A90_H24K_UFS_RESIDENT_INSTALLED",
                     "run_id": manifest["run_id"],
                     "manifest_sha256": manifest_sha,
                     "device_safety_state": "RESIDENT_HEALTHY",
@@ -3669,7 +3673,7 @@ def execute(manifest_path: Path, manifest_sha: str, args: argparse.Namespace) ->
 def audit(manifest_path: Path, manifest_sha: str) -> dict[str, Any]:
     manifest = load_manifest(manifest_path, manifest_sha)
     return {
-        "schema": "a90-h24-ufs-f1-audit-v1",
+        "schema": "a90-h24k-ufs-f1-audit-v1",
         "status": "PASS_HOST_CLOSURE",
         "run_id": manifest["run_id"],
         "manifest_sha256": manifest_sha,

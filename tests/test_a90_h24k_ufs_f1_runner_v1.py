@@ -37,6 +37,15 @@ RECEIPT = REPO / (
 CANDIDATE = RECEIPT.parent / "A/boot.img"
 
 
+def load_h24():
+    spec = importlib.util.spec_from_file_location("a90_h24_runner_ref", H24_RUNNER)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["a90_h24_runner_ref"] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def load_runner():
     spec = importlib.util.spec_from_file_location("a90_h24k_runner_under_test", RUNNER)
     assert spec and spec.loader
@@ -170,6 +179,38 @@ class H24KRunnerUnqualifiedTests(unittest.TestCase):
             "workspace/public/src/scripts/server-distro/a90_h24_ufs_f1_runner_v1.py",
             self.mod.EXECUTION_SOURCE_RELS,
         )
+
+    def test_no_namespace_collides_with_the_h24_runner(self) -> None:
+        """Two runners sharing a journal or approval space would break no-replay."""
+        h24 = load_h24()
+        for attr in (
+            "SCHEMA",
+            "RESULT_SCHEMA",
+            "JOURNAL_SCHEMA",
+            "QUALIFICATION_SCHEMA",
+            "EXECUTION_REVIEW_SCHEMA",
+            "INVENTORY_SCHEMA",
+            "APPROVAL_SCHEMA",
+            "APPROVAL_BINDING_SCHEMA",
+            "APPROVAL_PREFIX",
+            "CAPABILITY",
+        ):
+            self.assertNotEqual(
+                getattr(self.mod, attr), getattr(h24, attr), attr
+            )
+        self.assertNotEqual(self.mod.RUN_ID_RE.pattern, h24.RUN_ID_RE.pattern)
+        self.assertRegex("a90-h24k-ufs-f1-20260817-01", self.mod.RUN_ID_RE)
+        self.assertNotRegex("a90-h24-ufs-f1-20260817-01", self.mod.RUN_ID_RE)
+
+    def test_the_journal_and_approval_paths_are_h24k_specific(self) -> None:
+        for token in ("h24k-f1-live", "h24k-f1-approval-prepared.json"):
+            self.assertIn(token, self.text, token)
+        for token in ('"h24-f1-live"', '"h24-f1-approval-prepared.json"'):
+            self.assertNotIn(token, self.text, token)
+
+    def test_the_terminal_status_is_h24k_scoped(self) -> None:
+        self.assertIn("PASS_A90_H24K_UFS_RESIDENT_INSTALLED", self.text)
+        self.assertNotIn("PASS_A90_H24_UFS_RESIDENT_INSTALLED", self.text)
 
     def test_the_h24_runner_was_not_modified(self) -> None:
         """Adapting H24 must not disturb the resident's own qualified runner."""
