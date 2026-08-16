@@ -48,6 +48,9 @@ class P318BaselineRotationD1DocsTest(unittest.TestCase):
             "No device, USB, ADB, reboot, Download, Odin, payload,\npartition",
             "Focused adapter tests pass 16/16",
             "P3.18 164/164, and common Process-v2 120/120",
+            "`PASS_P318_D1_EXACT_NORMAL_REBOOT_RETURN_HEALTH`",
+            "result 5,647 bytes at SHA-256\n`ec20fb6b46e8`",
+            "The arm and fixed run path are consumed and cannot be replayed",
         ):
             self.assertIn(token, self.report)
 
@@ -159,19 +162,26 @@ class P318BaselineRotationD1DocsTest(unittest.TestCase):
             "PASS_GO_P318_D1_BASELINE_ROTATION_H0_CAPABILITY_V1 | "
             "HEALTHY | PROVED | 0/0"
         )
+        live = (
+            "2026-08-16T07:24:34Z | s22plus-fyg8-p318 | baseline-rotation-1 | "
+            "D1 | NORMAL_REBOOT_BASELINE_ROTATION | "
+            "HEALTHY | PROVED | 0/0"
+        )
         self.assertEqual(self.ledger.count(pending), 1)
         self.assertEqual(self.ledger.count(prior), 1)
         self.assertEqual(self.ledger.count(review), 1)
+        self.assertEqual(self.ledger.count(live), 1)
         self.assertLess(self.ledger.index(prior), self.ledger.index(pending))
         self.assertLess(self.ledger.index(pending), self.ledger.index(review))
+        self.assertLess(self.ledger.index(review), self.ledger.index(live))
 
     def test_goal_and_contract_keep_current_limits_and_authority_boundary(self):
         self.assertIn(
-            "verified-runtime, fixed-run P3.18 D1 adapter is H0-reviewed and offline ready",
+            "approved P3.18 D1 baseline rotation completed once",
             self.goal,
         )
-        self.assertIn("no D0/D1/F1/live authority", self.goal)
-        self.assertIn("fresh exact D1 approval", self.goal)
+        self.assertIn("arm/run are consumed", self.goal)
+        self.assertIn("fresh D0 authority is still absent", self.goal)
         self.assertLessEqual(len(self.goal.splitlines()), 900)
         self.assertLessEqual(len(self.target.splitlines()), 260)
         for token in (

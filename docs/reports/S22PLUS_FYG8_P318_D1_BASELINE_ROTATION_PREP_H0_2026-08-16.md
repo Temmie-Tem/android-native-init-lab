@@ -176,3 +176,24 @@ manifest records `PASS_GO_P318_D1_BASELINE_ROTATION_H0_CAPABILITY_V1`. This
 qualifies only the H0 capability. It does not authorize a run. A new exact
 approval must bind the post-review manifest digest and be supplied while the
 operator is attended.
+
+## Subsequent D1 Result
+
+The operator subsequently supplied the exact reviewed approval while attended.
+The adapter published the fixed durable arm, selected only the exact S22+ from
+the two-device inventory, and sent one normal Android reboot. The durable result
+is `PASS_P318_D1_EXACT_NORMAL_REBOOT_RETURN_HEALTH`: the boot ID changed, rooted
+boot-completed Android and stopped boot animation returned, boot, vendor_boot,
+DTBO, and recovery identities remained unchanged, and Download stayed absent.
+No command was sent to S20+.
+
+The private evidence is arm 700 bytes at SHA-256 `a19e710d6da2`, start 5,097
+bytes at SHA-256 `82c75e33c14b`, and result 5,647 bytes at SHA-256
+`ec20fb6b46e8`. All are direct, single-link mode-0400 files. A strict reopen
+confirmed the reviewed manifest binding, one reboot, changed boot ID, unchanged
+boot and supporting partitions, and false candidate, partition, Odin, Download,
+F1, device-write, and other-target-command fields.
+
+The arm and fixed run path are consumed and cannot be replayed. This successful
+D1 creates no D0, F1, recovery, replay, or live authority. Any subsequent
+connected read requires its own current authority.

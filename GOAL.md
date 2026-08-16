@@ -877,8 +877,8 @@ The first P3.18 live-prerequisite D0 stopped on three residual P3.17 records;
 its ledger row records that the unnormalized decoder left no result receipt.
 The typed stop-result successor and downstream requalification now have
 independent H0 `PASS_GO`; boot/AP are unchanged and ready is `082c046f9091`.
-A verified-runtime, fixed-run P3.18 D1 adapter is H0-reviewed and offline ready;
-it creates no D0/D1/F1/live authority and requires fresh exact D1 approval.
+One approved P3.18 D1 baseline rotation completed once and returned exact
+rooted FYG8 health; arm/run are consumed, and fresh D0 authority is still absent.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden
 archive member, an unreviewed common receipt/schema change, an observer result

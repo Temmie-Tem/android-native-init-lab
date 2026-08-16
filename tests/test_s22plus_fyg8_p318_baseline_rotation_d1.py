@@ -440,6 +440,7 @@ class P318BaselineRotationD1Test(unittest.TestCase):
             root = Path(temporary)
             changed = root / "binding.json"
             changed.write_text(json.dumps(value), encoding="utf-8")
+            run_dir_existed_before = self.module.RUN_DIR.exists()
             with mock.patch.object(self.module, "BINDING_MANIFEST", changed):
                 *_inputs, authority, _adb = self.module._validate_inputs()
                 for arguments, message in (
@@ -480,7 +481,9 @@ class P318BaselineRotationD1Test(unittest.TestCase):
                         self.assertEqual(rc, 2)
                         self.assertEqual(stdout.getvalue(), "")
                         self.assertIn(message, stderr.getvalue())
-                self.assertFalse(self.module.RUN_DIR.exists())
+                self.assertEqual(
+                    self.module.RUN_DIR.exists(), run_dir_existed_before
+                )
 
     def test_duplicate_json_key_is_rejected(self):
         with self.assertRaisesRegex(self.module.AdapterError, "duplicate key"):

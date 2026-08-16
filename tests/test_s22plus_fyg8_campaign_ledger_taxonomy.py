@@ -275,7 +275,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
 
     def test_valid_post_scope_review_is_validated_without_changing_receipt(self):
         appended = self.ledger_data + (
-            b"2026-08-16T00:00:00Z | s22plus-fyg8-p319 | "
+            b"2026-08-17T00:00:00Z | s22plus-fyg8-p319 | "
             b"h0-synthetic-review-1 | H0 | "
             b"PASS_GO_P319_SYNTHETIC_TAXONOMY_H0_CAPABILITY_V1 | "
             b"HEALTHY | PROVED | 0/0 | Synthetic valid post-scope review row.\n"
@@ -288,7 +288,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
 
     def test_malformed_post_scope_row_is_rejected(self):
         appended = self.ledger_data + (
-            b"2026-08-16T00:00:00Z | s22plus-fyg8-p319 | "
+            b"2026-08-17T00:00:00Z | s22plus-fyg8-p319 | "
             b"h0-synthetic-review-1 | H0 | "
             b"PASS_GO_P319_SYNTHETIC_TAXONOMY_H0_CAPABILITY_V1 | "
             b"HEALTHY | PROVED | Missing transfer field.\n"
@@ -300,7 +300,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
 
     def test_post_scope_row_cannot_reuse_legacy_proof_spelling(self):
         appended = self.ledger_data + (
-            b"2026-08-16T00:00:00Z | s22plus-fyg8-p319 | "
+            b"2026-08-17T00:00:00Z | s22plus-fyg8-p319 | "
             b"h0-synthetic-review-1 | H0 | "
             b"PASS_GO_P319_SYNTHETIC_TAXONOMY_H0_CAPABILITY_V1 | "
             b"HEALTHY | NO_PROOF | 0/0 | Invalid legacy spelling reuse.\n"
@@ -373,7 +373,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         for tier, action, proof, transfers, error in attacks:
             with self.subTest(tier=tier, action=action, transfers=transfers):
                 appended = self.ledger_data + (
-                    "2026-08-16T00:00:00Z | s22plus-fyg8-p319 | 1 | "
+                    "2026-08-17T00:00:00Z | s22plus-fyg8-p319 | 1 | "
                     f"{tier} | {action} | HEALTHY | {proof} | {transfers} | "
                     "Invalid tier and transfer combination.\n"
                 ).encode("ascii")
@@ -390,7 +390,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         for health, transfers, error in attacks:
             with self.subTest(health=health, transfers=transfers):
                 appended = self.ledger_data + (
-                    "2026-08-16T00:00:00Z | s22plus-fyg8-p319 | 1 | F1 | "
+                    "2026-08-17T00:00:00Z | s22plus-fyg8-p319 | 1 | F1 | "
                     f"CAMPAIGN_CLOSED | {health} | NO_PROOF_OBSERVER | "
                     f"{transfers} | Invalid campaign close state.\n"
                 ).encode("ascii")
@@ -398,7 +398,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                     self.auditor.audit_ledger_bytes(appended, self.script_data)
 
         recovery_required = self.ledger_data + (
-            b"2026-08-16T00:00:00Z | s22plus-fyg8-p319 | 1 | F1 | "
+            b"2026-08-17T00:00:00Z | s22plus-fyg8-p319 | 1 | F1 | "
             b"CAMPAIGN_CLOSED | RECOVERY_REQUIRED | NO_PROOF_OBSERVER | 1/0 | "
             b"Recovery exhausted after one candidate transfer.\n"
         )
@@ -412,7 +412,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
 
     def test_post_scope_action_key_is_unique(self):
         row = (
-            b"2026-08-16T00:00:00Z | s22plus-fyg8-p319 | "
+            b"2026-08-17T00:00:00Z | s22plus-fyg8-p319 | "
             b"h0-synthetic-review-1 | H0 | "
             b"PASS_GO_P319_SYNTHETIC_TAXONOMY_H0_CAPABILITY_V1 | "
             b"HEALTHY | PROVED | 0/0 | Duplicate-key attack row.\n"
@@ -461,7 +461,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         for tier, action, proof in attacks:
             with self.subTest(tier=tier, action=action):
                 appended = self.ledger_data + (
-                    "2026-08-16T00:00:00Z | s22plus-fyg8-p319 | review-1 | "
+                    "2026-08-17T00:00:00Z | s22plus-fyg8-p319 | review-1 | "
                     f"{tier} | {action} | HEALTHY | {proof} | 0/0 | "
                     "Review-label tier attack.\n"
                 ).encode("ascii")
@@ -480,7 +480,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         for campaign, ordinal, action, error in attacks:
             with self.subTest(campaign=campaign, ordinal=ordinal, action=action):
                 appended = self.ledger_data + (
-                    "2026-08-16T00:00:00Z | "
+                    "2026-08-17T00:00:00Z | "
                     f"{campaign} | {ordinal} | H0 | {action} | HEALTHY | "
                     "PROVED | 0/0 | Invalid token attack.\n"
                 ).encode("ascii")
@@ -491,7 +491,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         for ordinal in ("banana", "0", "00", "01"):
             with self.subTest(ordinal=ordinal):
                 appended = self.ledger_data + (
-                    "2026-08-16T00:00:00Z | s22plus-fyg8-p319 | "
+                    "2026-08-17T00:00:00Z | s22plus-fyg8-p319 | "
                     f"{ordinal} | F1 | ROLLBACK_DOWNLOAD_WAIT | "
                     "RECOVERY_PENDING_PARKED | NO_PROOF_OBSERVER | 1/0 | "
                     "Invalid candidate-bearing attempt ordinal.\n"
@@ -553,7 +553,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                 "resumes a closed F1 attempt",
             ),
         )
-        prefix = "2026-08-16T00:00:00Z | s22plus-fyg8-p319 | "
+        prefix = "2026-08-17T00:00:00Z | s22plus-fyg8-p319 | "
         for first, second, error in attacks:
             with self.subTest(error=error):
                 appended = self.ledger_data + (prefix + first + prefix + second).encode(
@@ -563,7 +563,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
                     self.auditor.audit_ledger_bytes(appended, self.script_data)
 
     def test_recovery_close_may_advance_one_existing_attempt(self):
-        prefix = "2026-08-16T00:00:00Z | s22plus-fyg8-p319 | "
+        prefix = "2026-08-17T00:00:00Z | s22plus-fyg8-p319 | "
         appended = self.ledger_data + (
             prefix
             + "1 | F1 | ROLLBACK_DOWNLOAD_WAIT | RECOVERY_PENDING_PARKED | "
@@ -581,7 +581,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
 
     def test_recovery_close_requires_prior_attempt_state(self):
         appended = self.ledger_data + (
-            b"2026-08-16T00:00:00Z | s22plus-fyg8-p319 | "
+            b"2026-08-17T00:00:00Z | s22plus-fyg8-p319 | "
             b"1-recovery-close | F1 | CAMPAIGN_CLOSED | HEALTHY | "
             b"NO_PROOF_OBSERVER | 1/1 | Orphan recovery close.\n"
         )
@@ -676,10 +676,10 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
 
     def test_one_topic_cannot_open_two_review_obligations(self):
         appended = self.ledger_data + (
-            b"2026-08-16T00:00:00Z | s22plus-fyg8-p319 | h0-pending-1 | H0 | "
+            b"2026-08-17T00:00:00Z | s22plus-fyg8-p319 | h0-pending-1 | H0 | "
             b"FIRST_IMPLEMENTED_REVIEW_PENDING | HEALTHY | PROVED | 0/0 | "
             b"First synthetic obligation.\n"
-            b"2026-08-16T00:00:00Z | s22plus-fyg8-p319 | h0-pending-2 | H0 | "
+            b"2026-08-17T00:00:00Z | s22plus-fyg8-p319 | h0-pending-2 | H0 | "
             b"SECOND_IMPLEMENTED_REVIEW_PENDING | HEALTHY | PROVED | 0/0 | "
             b"Second synthetic obligation before review.\n"
         )
@@ -699,7 +699,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         ):
             with self.subTest(ordinal=ordinal):
                 appended = self.ledger_data + (
-                    "2026-08-16T00:00:00Z | s22plus-fyg8-p319 | "
+                    "2026-08-17T00:00:00Z | s22plus-fyg8-p319 | "
                     f"{ordinal} | H0 | SYNTHETIC_IMPLEMENTED_REVIEW_PENDING | "
                     "HEALTHY | PROVED | 0/0 | Invalid pending ordinal.\n"
                 ).encode("ascii")
@@ -720,7 +720,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
 
     def test_unrelated_pending_topics_can_coexist(self):
         appended = self.ledger_data + (
-            b"2026-08-16T00:00:00Z | s22plus-fyg8-p318 | h0-unrelated-9 | H0 | "
+            b"2026-08-17T00:00:00Z | s22plus-fyg8-p318 | h0-unrelated-9 | H0 | "
             b"UNRELATED_IMPLEMENTED_REVIEW_PENDING | HEALTHY | PROVED | 0/0 | "
             b"Independent pending topic.\n"
         )
@@ -743,11 +743,11 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
 
     def test_unrelated_pass_go_cannot_resolve_open_topic(self):
         appended = self.ledger_data + (
-            b"2026-08-16T00:00:00Z | s22plus-fyg8-p318 | "
+            b"2026-08-17T00:00:00Z | s22plus-fyg8-p318 | "
             b"h0-taxonomy-guard-9 | H0 | "
             b"TAXONOMY_GUARD_IMPLEMENTED_REVIEW_PENDING | HEALTHY | PROVED | "
             b"0/0 | Synthetic open topic.\n"
-            b"2026-08-16T00:00:00Z | s22plus-fyg8-p318 | "
+            b"2026-08-17T00:00:00Z | s22plus-fyg8-p318 | "
             b"h0-unrelated-implementation-ready-9 | H0 | "
             b"PASS_GO_P318_UNRELATED_OFFLINE_READY_CAPABILITY_V1 | HEALTHY | "
             b"PROVED | 0/0 | Unrelated PASS must not resolve taxonomy.\n"
@@ -768,10 +768,10 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
 
     def test_matching_review_resolves_only_its_topic(self):
         appended = self.ledger_data + (
-            b"2026-08-16T00:00:00Z | s22plus-fyg8-p318 | h0-unrelated-9 | H0 | "
+            b"2026-08-17T00:00:00Z | s22plus-fyg8-p318 | h0-unrelated-9 | H0 | "
             b"UNRELATED_IMPLEMENTED_REVIEW_PENDING | HEALTHY | PROVED | 0/0 | "
             b"Independent pending topic.\n"
-            b"2026-08-16T00:00:00Z | s22plus-fyg8-p318 | "
+            b"2026-08-17T00:00:00Z | s22plus-fyg8-p318 | "
             b"h0-unrelated-review-9 | H0 | "
             b"PASS_GO_P318_UNRELATED_H0_CAPABILITY_V1 | HEALTHY | PROVED | "
             b"0/0 | Exact unrelated-topic review.\n"
@@ -788,7 +788,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
     def test_candidate_bearing_open_attempt_enters_inventory(self):
         marker = self.auditor.MARKER
         appended = self.ledger_data + (
-            b"2026-08-16T00:00:00Z | s22plus-fyg8-p319 | 1 | F1 | "
+            b"2026-08-17T00:00:00Z | s22plus-fyg8-p319 | 1 | F1 | "
             b"ROLLBACK_DOWNLOAD_WAIT | RECOVERY_PENDING_PARKED | "
             b"NO_PROOF_OBSERVER | 1/0 | Synthetic open attempt.\n"
         )
