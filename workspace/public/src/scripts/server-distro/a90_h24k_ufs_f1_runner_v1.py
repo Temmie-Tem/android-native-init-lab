@@ -209,6 +209,7 @@ NATIVE_CLOSURE_SHA256 = (
 # The closure digest, reviewer, and invariant list must come from that review's
 # own report. They are deliberately left unfilled: writing plausible values here
 # would forge the gate that exists to catch authoring errors.
+H24K_REVIEW_DATE = "UNSET_PENDING_H24K_CAPABILITY_REVIEW"
 HOST_CAPABILITY_CLOSURE_SHA256 = "UNSET_PENDING_H24K_CAPABILITY_REVIEW"
 HOST_QUALIFICATION_REL = (
     "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/"
@@ -555,7 +556,7 @@ def validate_qualification(
         or report.get("schema") != EXECUTION_REVIEW_SCHEMA
         or report.get("capability") != CAPABILITY
         or report.get("verdict") != "PASS_GO"
-        or report.get("review_date") != "2026-08-12"
+        or report.get("review_date") != H24K_REVIEW_DATE
         or report.get("reviewer") != EXECUTION_REVIEWER
         or report.get("execution_closure_sha256") != closure["sha256"]
         or report.get("execution_file_count") != len(closure["files"])
@@ -602,6 +603,7 @@ def require_h24k_reviews_exist() -> None:
     unset = [
         name
         for name, value in (
+            ("H24K_REVIEW_DATE", H24K_REVIEW_DATE),
             ("HOST_CAPABILITY_CLOSURE_SHA256", HOST_CAPABILITY_CLOSURE_SHA256),
             ("HOST_CAPABILITY_REVIEWER", HOST_CAPABILITY_REVIEWER),
             ("HOST_CAPABILITY_INCIDENT", HOST_CAPABILITY_INCIDENT),
@@ -692,7 +694,7 @@ def validate_host_capability_qualification() -> dict[str, Any]:
         or report.get("schema")
         != "a90-h24k-selfbuilt-kernel-independent-review-v1"
         or report.get("status") != "PASS_GO"
-        or report.get("review_date") != "2026-08-12"
+        or report.get("review_date") != H24K_REVIEW_DATE
         or report.get("reviewer") != HOST_CAPABILITY_REVIEWER
         or report.get("capability")
         != "A90_H24K_SELFBUILT_KERNEL_NOCFP_V1"

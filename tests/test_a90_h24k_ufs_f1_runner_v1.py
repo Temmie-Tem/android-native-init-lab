@@ -35,6 +35,7 @@ RECEIPT = REPO / (
     "/a90-h24k-selfbuilt-kernel-ab-20260816-01/ab-receipt.json"
 )
 CANDIDATE = RECEIPT.parent / "A/boot.img"
+HANDOFF = REPO / "docs/plans/A90_H24K_INDEPENDENT_REVIEW_HANDOFF_2026-08-17.md"
 
 
 def load_h24():
@@ -67,6 +68,7 @@ class H24KRunnerUnqualifiedTests(unittest.TestCase):
         message = str(caught.exception)
         self.assertIn("not qualified for any device effect", message)
         for name in (
+            "H24K_REVIEW_DATE",
             "HOST_CAPABILITY_CLOSURE_SHA256",
             "HOST_CAPABILITY_REVIEWER",
             "HOST_CAPABILITY_INCIDENT",
@@ -87,6 +89,13 @@ class H24KRunnerUnqualifiedTests(unittest.TestCase):
         self.assertEqual(self.mod.HOST_CAPABILITY_REQUIRED_INVARIANTS, ())
         self.assertEqual(self.mod.EXECUTION_REVIEW_REQUIRED_INVARIANTS, ())
         self.assertIn("must never read as", self.text)
+
+    def test_the_h24_review_date_was_not_inherited(self) -> None:
+        """A stale date would let an H24-dated report satisfy an H24K check."""
+        self.assertEqual(
+            self.mod.H24K_REVIEW_DATE, "UNSET_PENDING_H24K_CAPABILITY_REVIEW"
+        )
+        self.assertNotIn('"2026-08-12"', self.text)
 
     def test_no_h24_review_binding_was_inherited(self) -> None:
         """The most dangerous edit would be quietly reusing H24's signed review."""
@@ -225,3 +234,52 @@ class H24KRunnerUnqualifiedTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class H24KReviewHandoffTests(unittest.TestCase):
+    """The handoff must match the runner, and must not pre-write the review."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.mod = load_runner()
+        cls.doc = HANDOFF.read_text(encoding="utf-8")
+
+    def test_every_schema_it_promises_matches_the_runner(self) -> None:
+        for value in (
+            self.mod.CAPABILITY,
+            self.mod.HOST_CAPABILITY_SCOPE,
+            self.mod.EXECUTION_REVIEW_SCOPE,
+            self.mod.EXECUTION_REVIEW_SCHEMA,
+            self.mod.QUALIFICATION_SCHEMA,
+            self.mod.HOST_REVIEW_REPORT_REL.split("/")[-1],
+            self.mod.EXECUTION_REVIEW_REPORT_REL.split("/")[-1],
+        ):
+            self.assertIn(value, self.doc, value)
+
+    def test_it_supplies_shape_but_not_findings(self) -> None:
+        """A handoff that dictated the findings would defeat the review."""
+        self.assertIn("It specifies **shape only**", self.doc)
+        self.assertIn("does not supply findings", self.doc)
+        self.assertIn("the reviewer's own words and judgement", self.doc)
+        self.assertIn("**the reviewer's findings**", self.doc)
+
+    def test_it_surfaces_the_security_reduction_to_the_reviewer(self) -> None:
+        self.assertIn("real reduction in kernel exploit mitigation", self.doc)
+        self.assertIn("should return no-go on the capability", self.doc)
+
+    def test_it_discloses_the_prior_no_go_history(self) -> None:
+        self.assertIn("no-go", self.doc)
+        self.assertIn("Draft 1 was written without reading", self.doc)
+
+    def test_it_leaves_the_scoping_questions_open(self) -> None:
+        for token in (
+            "Execution closure scope",
+            "`d1_runner_qualified`",
+            "acceptable at all",
+            "Terminal semantics",
+        ):
+            self.assertIn(token, self.doc, token)
+
+    def test_it_says_a_pass_go_is_not_a_flash_authorization(self) -> None:
+        self.assertIn("does not authorize a flash", self.doc)
+        self.assertIn("it cannot grant authority", self.doc)
