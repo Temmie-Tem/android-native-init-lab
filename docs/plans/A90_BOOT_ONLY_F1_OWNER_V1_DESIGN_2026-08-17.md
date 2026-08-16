@@ -169,7 +169,8 @@ path. Neither path may come from the manifest, an approval, a CLI argument,
 `PATH`, `PYTHONPATH`, `shutil.which`, `/usr/bin/env`, a shell, or another
 runtime lookup. A bare or relative executable name is `NO_GO`.
 
-Before approval, the owner opens both executable paths with
+Before approval, the owner opens both executable paths, the fixed
+`a90_boot_only_f1_helper_bootstrap.py`, and every helper source with
 `O_RDONLY|O_CLOEXEC|O_NOFOLLOW` and applies the same ancestor, ownership,
 mode, link-count, held-FD, and content rules as `artifact-identity-v1`. It
 records an `executable-identity-v1` tuple containing the complete artifact
@@ -195,13 +196,24 @@ runtime-closure drift is `NO_GO`. The capability review signs both aggregate
 digests; no claim treats an executable hash or version string as its complete
 runtime.
 
+Python `-I` deliberately removes the script directory from `sys.path`, so the
+owner does not execute `native_init_flash.py` directly and does not re-add its
+directory. The fixed bootstrap runs under isolated safe-path mode, reads only
+the exact owner-bound direct regular source files, compiles them from those
+bytes in one fixed dependency order, and installs only their fixed module names
+in `sys.modules`. It rejects a preloaded local name, non-canonical bootstrap
+path, non-regular or hardlinked source, source-directory `sys.path` entry, or
+any `sys.path` change. The generated import inventory must equal that fixed
+order; a new dependency requires a new owner capability review.
+
 The sole helper launch vector is structurally fixed as
-`[PYTHON_EXECUTABLE, -I, FLASH_HELPER, fixed owner arguments, --adb,
+`[PYTHON_EXECUTABLE, -I, HELPER_BOOTSTRAP, fixed owner arguments, --adb,
 ADB_EXECUTABLE]`, with `shell=False`, a fixed minimal environment, and no
 caller-supplied executable field. Thus `native_init_flash.py` never uses its
-bare `adb` default in this owner lane. A fake executable earlier in `PATH`
-cannot affect the launch. The owner passes the same absolute ADB path to every
-candidate, rollback, observation, and recovery helper invocation.
+bare `adb` default in this owner lane. A fake executable earlier in `PATH` or
+an unreviewed Python file beside the helper cannot affect the launch. The owner
+passes the same absolute ADB path to every candidate, rollback, observation,
+and recovery helper invocation.
 
 The approval binding and every launch/result record carry the exact
 `pythonExecutableIdentity`, `pythonRuntimeClosureSha256`,
@@ -218,6 +230,8 @@ Deliberately small:
 - a small shared module for canonical JSON and the append-only journal;
 - the generated exact non-stdlib import closure rooted at
   `workspace/public/src/scripts/revalidation/native_init_flash.py`;
+- `a90_boot_only_f1_helper_bootstrap.py`, whose fixed module order must equal
+  that generated import closure;
 - the generated `python-runtime-closure-v1` and `adb-runtime-closure-v1`;
 - the manifest schema;
 - the hostile state-machine tests.
@@ -235,6 +249,7 @@ The current generated closure is exactly:
 
 | file under `workspace/public/src/scripts/revalidation/` | size | sha256 |
 |---|---:|---|
+| `a90_boot_only_f1_helper_bootstrap.py` | 2,801 | `c1fadd1aa6b84707cdb813c96c681a0067c826a695fbf9ca4559fac8be7b8b9c` |
 | `_workspace_bootstrap.py` | 1,255 | `7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe` |
 | `a90_observation_pipeline.py` | 24,478 | `6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb` |
 | `a90_serial_lock.py` | 2,860 | `663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7` |
@@ -244,7 +259,7 @@ The current generated closure is exactly:
 
 The canonical aggregate is SHA256 over the lexically sorted records
 `relative-name NUL decimal-size NUL lowercase-sha256 LF`. Its current value is
-`4dd44f10cae4ebe872a047391fe7e1e81f4f8cff2e703df3085252f298ccbe13`.
+`ec8b55608d37028abf286061738edd54cbe7470165f7a40c42f1ff5821d62cbf`.
 The capability review signs this generated aggregate, not a hand-maintained
 subset. Any member-byte change, added or removed local dependency, unresolved
 external dependency, or import-graph change expires the capability binding.
@@ -503,7 +518,11 @@ The owner is only as good as what it refuses. At minimum:
 - changed owner closure, helper, Python/ADB executable identity, version
   receipt, or runtime closure after approval;
 - bare or relative Python/ADB executable, caller-selected `--adb`, PATH lookup,
-  fake ADB earlier in `PATH`, or a launch omitting isolated Python mode;
+  fake ADB earlier in `PATH`, direct `python -I native_init_flash.py`, or a
+  launch omitting the fixed bootstrap or isolated Python mode;
+- bootstrap source directory added to `sys.path`, preloaded local module,
+  reordered/missing/extra local dependency, or source outside the exact held
+  helper closure;
 - same Python/ADB version string with different executable bytes, inode,
   dependency, stdlib/extension module, or runtime-closure digest;
 - reused or expired approval;

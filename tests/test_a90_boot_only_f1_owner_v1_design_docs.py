@@ -13,6 +13,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -29,13 +30,14 @@ DESIGN = REPO / "docs/plans/A90_BOOT_ONLY_F1_OWNER_V1_DESIGN_2026-08-17.md"
 SERVER = REPO / "workspace/public/src/scripts/server-distro"
 FLASH = REPO / "workspace/public/src/scripts/revalidation/native_init_flash.py"
 REVALIDATION = FLASH.parent
+BOOTSTRAP = REVALIDATION / "a90_boot_only_f1_helper_bootstrap.py"
 ORCHESTRATOR = SERVER / "a90_v3403_f1_orchestrator.py"
 GOAL = REPO / "GOAL_A90.md"
 PROCESS = REPO / "docs/operations/DEVICE_ACTION_PROCESS_V2.md"
 TARGET = REPO / "docs/operations/targets/A90_TARGET_CONTRACT.md"
 
 FLASH_SHA = "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
-RUNTIME_CLOSURE_SHA = "4dd44f10cae4ebe872a047391fe7e1e81f4f8cff2e703df3085252f298ccbe13"
+RUNTIME_CLOSURE_SHA = "ec8b55608d37028abf286061738edd54cbe7470165f7a40c42f1ff5821d62cbf"
 RUNTIME_CLOSURE = {
     "_workspace_bootstrap.py": (
         1_255,
@@ -44,6 +46,10 @@ RUNTIME_CLOSURE = {
     "a90_observation_pipeline.py": (
         24_478,
         "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb",
+    ),
+    "a90_boot_only_f1_helper_bootstrap.py": (
+        2_801,
+        "c1fadd1aa6b84707cdb813c96c681a0067c826a695fbf9ca4559fac8be7b8b9c",
     ),
     "a90_serial_lock.py": (
         2_860,
@@ -522,6 +528,9 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "`shell=False`",
             "fake executable earlier in `PATH`",
             "never uses its\nbare `adb` default",
+            "Python `-I` deliberately removes the script directory from `sys.path`",
+            "does not execute `native_init_flash.py` directly",
+            "installs only their fixed module names\nin `sys.modules`",
         ):
             self.assertIn(token, self.raw, token)
 
@@ -553,11 +562,69 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "Neither path may come from the manifest, an approval, a CLI argument",
             "`PATH`, `PYTHONPATH`, `shutil.which`, `/usr/bin/env`, a shell",
             "A bare or relative executable name is `NO_GO`",
-            "[PYTHON_EXECUTABLE, -I, FLASH_HELPER, fixed owner arguments, --adb,\nADB_EXECUTABLE]",
+            "[PYTHON_EXECUTABLE, -I, HELPER_BOOTSTRAP, fixed owner arguments, --adb,\nADB_EXECUTABLE]",
             "no\ncaller-supplied executable field",
-            "same absolute ADB path to every\ncandidate, rollback, observation, and recovery helper invocation",
+            "same absolute ADB path to every candidate, rollback, observation,\nand recovery helper invocation",
         ):
             self.assertIn(token, self.raw, token)
+
+    def test_real_isolated_bootstrap_launch_reaches_helper_cli(self) -> None:
+        completed = subprocess.run(
+            [sys.executable, "-I", str(BOOTSTRAP), "--help"],
+            cwd=REPO,
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("Flash a native init boot image", completed.stdout)
+
+    def test_direct_isolated_helper_launch_remains_rejected(self) -> None:
+        completed = subprocess.run(
+            [sys.executable, "-I", str(FLASH), "--help"],
+            cwd=REPO,
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("No module named 'a90ctl'", completed.stderr)
+
+    def test_bootstrap_rejects_launch_without_isolated_mode(self) -> None:
+        completed = subprocess.run(
+            [sys.executable, str(BOOTSTRAP), "--help"],
+            cwd=REPO,
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("requires Python isolated safe-path mode", completed.stderr)
+
+    def test_bootstrap_is_exact_and_never_opens_sys_path(self) -> None:
+        source = BOOTSTRAP.read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=str(BOOTSTRAP))
+        assigned = next(
+            node.value
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "LOCAL_MODULE_ORDER"
+                for target in node.targets
+            )
+        )
+        order = tuple(name for name, _path in ast.literal_eval(assigned))
+        expected = tuple(
+            Path(name).stem
+            for name in sorted(generated_runtime_closure(FLASH) - {FLASH.name})
+        )
+        self.assertEqual(set(order), set(expected))
+        self.assertNotIn("sys.path.insert", source)
+        self.assertNotIn("sys.path.append", source)
+        self.assertIn("tuple(sys.path) != original_path", source)
 
     def test_the_hazard_is_bound_at_three_points(self) -> None:
         """A field nothing enforces is decoration; this session shipped two."""
@@ -786,7 +853,7 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(FLASH.read_bytes()).hexdigest(), FLASH_SHA)
 
     def test_flash_helper_runtime_closure_is_generated_and_exact(self) -> None:
-        derived = generated_runtime_closure(FLASH)
+        derived = generated_runtime_closure(FLASH) | {BOOTSTRAP.name}
         self.assertEqual(derived, set(RUNTIME_CLOSURE))
         self.assertEqual(runtime_closure_digest(derived), RUNTIME_CLOSURE_SHA)
         self.assertIn("generated exact non-stdlib import closure", self.design)
@@ -840,6 +907,8 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "changed owner closure, helper, Python/ADB executable identity",
             "bare or relative Python/ADB executable",
             "fake ADB earlier in `PATH`",
+            "direct `python -I native_init_flash.py`",
+            "bootstrap source directory added to `sys.path`",
             "same Python/ADB version string with different executable bytes",
             "crash after `CANDIDATE_INTENT`",
             "without\n  candidate replay",
