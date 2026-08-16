@@ -14,6 +14,8 @@ import ast
 import hashlib
 import importlib.util
 import json
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -33,25 +35,30 @@ SERVER = REPO / "workspace/public/src/scripts/server-distro"
 FLASH = REPO / "workspace/public/src/scripts/revalidation/native_init_flash.py"
 REVALIDATION = FLASH.parent
 BOOTSTRAP = REVALIDATION / "a90_boot_only_f1_helper_bootstrap.py"
+FD_EXEC = REVALIDATION / "a90_boot_only_f1_fd_exec.py"
 ORCHESTRATOR = SERVER / "a90_v3403_f1_orchestrator.py"
 GOAL = REPO / "GOAL_A90.md"
 PROCESS = REPO / "docs/operations/DEVICE_ACTION_PROCESS_V2.md"
 TARGET = REPO / "docs/operations/targets/A90_TARGET_CONTRACT.md"
 
 FLASH_SHA = "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
-RUNTIME_CLOSURE_SHA = "8941acc1513aaa3f15a37cfcd42efd2632e2cc1cc0320bdd9be1a5598c495f98"
+RUNTIME_CLOSURE_SHA = "9907a2864988817a41f5133dd390a387c362fa81c1fff4dd81f4f100ca229f10"
 RUNTIME_CLOSURE = {
     "_workspace_bootstrap.py": (
         1_255,
         "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe",
+    ),
+    "a90_boot_only_f1_fd_exec.py": (
+        3_493,
+        "b55959a4362d459df0058a7b6bca7630a27978e0b1246868cb993ef1380abf57",
     ),
     "a90_observation_pipeline.py": (
         24_478,
         "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb",
     ),
     "a90_boot_only_f1_helper_bootstrap.py": (
-        4_617,
-        "ba506aeb30a318e4083c381ecd086e15f9c0a887ae997af1fbb650dc70f3826a",
+        4_767,
+        "26b98c3714ea5f8865cb552abb191fbbb6cb5eb3472ddfbb6a03bc308d8e9233",
     ),
     "a90_serial_lock.py": (
         2_860,
@@ -529,9 +536,11 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "isolated-mode `-I`",
             "`shell=False`",
             "fake executable earlier in `PATH`",
-            "never uses its\nbare `adb` default",
+            "never uses its bare\n`adb` default",
             "Python `-I` deliberately removes the script directory from `sys.path`",
             "does not execute `native_init_flash.py` directly",
+            "does not ask Python to reopen the bootstrap pathname",
+            "exact\n`pass_fds=(bootstrap_fd,)`",
             "installs only their fixed module names in `sys.modules`",
         ):
             self.assertIn(token, self.raw, token)
@@ -564,13 +573,44 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "Neither path may come from the manifest, an approval, a CLI argument",
             "`PATH`, `PYTHONPATH`, `shutil.which`, `/usr/bin/env`, a shell",
             "A bare or relative executable name is `NO_GO`",
-            "[PYTHON_EXECUTABLE, -I, HELPER_BOOTSTRAP, fixed owner arguments, --adb,\nADB_EXECUTABLE]",
-            "no\ncaller-supplied executable field",
-            "same absolute ADB path to every candidate, rollback, observation,\nand recovery helper invocation",
+            "[PYTHON_EXECUTABLE, -I, -c, FD_EXEC_PROGRAM, BOOTSTRAP_FD,\nHELPER_BOOTSTRAP, BOOTSTRAP_SIZE, BOOTSTRAP_SHA256, fixed owner arguments,\n--adb, ADB_EXECUTABLE]",
+            "no caller-supplied\nexecutable or FD field",
+            "exact one-FD\n`pass_fds` tuple",
+            "same absolute ADB path to every\ncandidate, rollback, observation, and recovery helper invocation",
         ):
             self.assertIn(token, self.raw, token)
 
     def test_real_isolated_bootstrap_launch_reaches_helper_cli(self) -> None:
+        spec = importlib.util.spec_from_file_location("a90_f1_fd_exec_test", FD_EXEC)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        descriptor = os.open(BOOTSTRAP, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+        try:
+            completed = subprocess.run(
+                module.bootstrap_command(
+                    Path(sys.executable),
+                    descriptor,
+                    BOOTSTRAP,
+                    RUNTIME_CLOSURE[BOOTSTRAP.name][0],
+                    RUNTIME_CLOSURE[BOOTSTRAP.name][1],
+                    ("--help",),
+                ),
+                cwd=REPO,
+                check=False,
+                close_fds=True,
+                pass_fds=module.bootstrap_pass_fds(descriptor),
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        finally:
+            os.close(descriptor)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("Flash a native init boot image", completed.stdout)
+
+    def test_direct_isolated_bootstrap_path_launch_is_rejected(self) -> None:
         completed = subprocess.run(
             [sys.executable, "-I", str(BOOTSTRAP), "--help"],
             cwd=REPO,
@@ -579,8 +619,8 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertIn("Flash a native init boot image", completed.stdout)
+        self.assertNotEqual(completed.returncode, 0)
+        self.assertIn("requires inherited-FD execution", completed.stderr)
 
     def test_direct_isolated_helper_launch_remains_rejected(self) -> None:
         completed = subprocess.run(
@@ -605,6 +645,54 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         )
         self.assertNotEqual(completed.returncode, 0)
         self.assertIn("requires Python isolated safe-path mode", completed.stderr)
+
+    def test_bootstrap_path_swap_cannot_select_executed_bytes(self) -> None:
+        spec = importlib.util.spec_from_file_location("a90_f1_fd_swap_test", FD_EXEC)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            for name in RUNTIME_CLOSURE:
+                if name != FD_EXEC.name:
+                    shutil.copy2(REVALIDATION / name, root / name)
+            selected = root / BOOTSTRAP.name
+            held_name = root / f"{BOOTSTRAP.name}.opened"
+            descriptor = os.open(
+                selected,
+                os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW,
+            )
+            selected.rename(held_name)
+            selected.write_text(
+                'print("SUBSTITUTED_BOOTSTRAP_EXECUTED")\n',
+                encoding="utf-8",
+            )
+            try:
+                completed = subprocess.run(
+                    module.bootstrap_command(
+                        Path(sys.executable),
+                        descriptor,
+                        selected,
+                        RUNTIME_CLOSURE[BOOTSTRAP.name][0],
+                        RUNTIME_CLOSURE[BOOTSTRAP.name][1],
+                        ("--help",),
+                    ),
+                    cwd=REPO,
+                    check=False,
+                    close_fds=True,
+                    pass_fds=module.bootstrap_pass_fds(descriptor),
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+            finally:
+                os.close(descriptor)
+                selected.unlink()
+                held_name.rename(selected)
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertNotIn("SUBSTITUTED_BOOTSTRAP_EXECUTED", completed.stdout)
+            self.assertIn("Flash a native init boot image", completed.stdout)
 
     def test_bootstrap_is_exact_and_never_opens_sys_path(self) -> None:
         source = BOOTSTRAP.read_text(encoding="utf-8")
@@ -892,7 +980,7 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(FLASH.read_bytes()).hexdigest(), FLASH_SHA)
 
     def test_flash_helper_runtime_closure_is_generated_and_exact(self) -> None:
-        derived = generated_runtime_closure(FLASH) | {BOOTSTRAP.name}
+        derived = generated_runtime_closure(FLASH) | {BOOTSTRAP.name, FD_EXEC.name}
         self.assertEqual(derived, set(RUNTIME_CLOSURE))
         self.assertEqual(runtime_closure_digest(derived), RUNTIME_CLOSURE_SHA)
         self.assertIn("generated exact non-stdlib import closure", self.design)

@@ -113,6 +113,8 @@ def _load_local_module(
 def main() -> None:
     if not sys.flags.isolated or not sys.flags.safe_path:
         raise RuntimeError("A90 F1 helper bootstrap requires Python isolated safe-path mode")
+    if globals().get("__a90_bootstrap_fd_bound__") is not True:
+        raise RuntimeError("A90 F1 helper bootstrap requires inherited-FD execution")
 
     invoked = Path(__file__)
     if not invoked.is_absolute() or invoked.resolve(strict=True) != invoked:

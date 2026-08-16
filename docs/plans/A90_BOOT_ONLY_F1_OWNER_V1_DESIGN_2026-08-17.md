@@ -198,8 +198,18 @@ runtime.
 
 Python `-I` deliberately removes the script directory from `sys.path`, so the
 owner does not execute `native_init_flash.py` directly and does not re-add its
-directory. The fixed bootstrap runs under isolated safe-path mode and opens
-each exact owner-bound source once with `O_RDONLY|O_CLOEXEC|O_NOFOLLOW`. It
+directory. It also does not ask Python to reopen the bootstrap pathname. The
+owner passes its already validated bootstrap FD as the sole inherited FD to a
+capability-bound `-c` loader, with `close_fds=True` and exact
+`pass_fds=(bootstrap_fd,)`. That loader `fstat`s, rewinds, reads, size-checks,
+and SHA256-checks the same inherited FD, closes it, and compiles only those
+bytes. The bootstrap pathname is diagnostic metadata and the lexical anchor
+for the downstream fixed source set; it is never opened by the loader. A
+pathname swap and restoration therefore cannot select executed bootstrap
+bytes, and direct pathname execution is rejected.
+
+The fixed bootstrap runs under isolated safe-path mode and opens each exact
+owner-bound downstream source once with `O_RDONLY|O_CLOEXEC|O_NOFOLLOW`. It
 requires `fstat` regular-file type, link count one, exact size, and the
 capability-bound SHA256; reads and compiles only the bytes from that same FD;
 and installs only their fixed module names in `sys.modules`, in one fixed
@@ -210,13 +220,17 @@ import inventory and source digests must equal that fixed table; a new
 dependency or source byte requires a new owner capability review.
 
 The sole helper launch vector is structurally fixed as
-`[PYTHON_EXECUTABLE, -I, HELPER_BOOTSTRAP, fixed owner arguments, --adb,
-ADB_EXECUTABLE]`, with `shell=False`, a fixed minimal environment, and no
-caller-supplied executable field. Thus `native_init_flash.py` never uses its
-bare `adb` default in this owner lane. A fake executable earlier in `PATH` or
-an unreviewed Python file beside the helper cannot affect the launch. The owner
-passes the same absolute ADB path to every candidate, rollback, observation,
-and recovery helper invocation.
+`[PYTHON_EXECUTABLE, -I, -c, FD_EXEC_PROGRAM, BOOTSTRAP_FD,
+HELPER_BOOTSTRAP, BOOTSTRAP_SIZE, BOOTSTRAP_SHA256, fixed owner arguments,
+--adb, ADB_EXECUTABLE]`, with `shell=False`, `close_fds=True`, the exact one-FD
+`pass_fds` tuple, a fixed minimal environment, and no caller-supplied
+executable or FD field. `FD_EXEC_PROGRAM` and its command builder are pinned in
+`a90_boot_only_f1_fd_exec.py`; that file is part of the owner capability
+closure, not a manifest input. Thus `native_init_flash.py` never uses its bare
+`adb` default in this owner lane. A fake executable earlier in `PATH`, a
+substituted bootstrap pathname, or an unreviewed Python file beside the helper
+cannot affect the launch. The owner passes the same absolute ADB path to every
+candidate, rollback, observation, and recovery helper invocation.
 
 The approval binding and every launch/result record carry the exact
 `pythonExecutableIdentity`, `pythonRuntimeClosureSha256`,
@@ -233,6 +247,8 @@ Deliberately small:
 - a small shared module for canonical JSON and the append-only journal;
 - the generated exact non-stdlib import closure rooted at
   `workspace/public/src/scripts/revalidation/native_init_flash.py`;
+- `a90_boot_only_f1_fd_exec.py`, containing the fixed inherited-FD loader and
+  command builder used by the owner;
 - `a90_boot_only_f1_helper_bootstrap.py`, whose fixed module order must equal
   that generated import closure;
 - the generated `python-runtime-closure-v1` and `adb-runtime-closure-v1`;
@@ -252,7 +268,8 @@ The current generated closure is exactly:
 
 | file under `workspace/public/src/scripts/revalidation/` | size | sha256 |
 |---|---:|---|
-| `a90_boot_only_f1_helper_bootstrap.py` | 4,617 | `ba506aeb30a318e4083c381ecd086e15f9c0a887ae997af1fbb650dc70f3826a` |
+| `a90_boot_only_f1_fd_exec.py` | 3,493 | `b55959a4362d459df0058a7b6bca7630a27978e0b1246868cb993ef1380abf57` |
+| `a90_boot_only_f1_helper_bootstrap.py` | 4,767 | `26b98c3714ea5f8865cb552abb191fbbb6cb5eb3472ddfbb6a03bc308d8e9233` |
 | `_workspace_bootstrap.py` | 1,255 | `7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe` |
 | `a90_observation_pipeline.py` | 24,478 | `6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb` |
 | `a90_serial_lock.py` | 2,860 | `663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7` |
@@ -262,7 +279,7 @@ The current generated closure is exactly:
 
 The canonical aggregate is SHA256 over the lexically sorted records
 `relative-name NUL decimal-size NUL lowercase-sha256 LF`. Its current value is
-`8941acc1513aaa3f15a37cfcd42efd2632e2cc1cc0320bdd9be1a5598c495f98`.
+`9907a2864988817a41f5133dd390a387c362fa81c1fff4dd81f4f100ca229f10`.
 The capability review signs this generated aggregate, not a hand-maintained
 subset. Any member-byte change, added or removed local dependency, unresolved
 external dependency, or import-graph change expires the capability binding.
@@ -521,8 +538,12 @@ The owner is only as good as what it refuses. At minimum:
 - changed owner closure, helper, Python/ADB executable identity, version
   receipt, or runtime closure after approval;
 - bare or relative Python/ADB executable, caller-selected `--adb`, PATH lookup,
-  fake ADB earlier in `PATH`, direct `python -I native_init_flash.py`, or a
-  launch omitting the fixed bootstrap or isolated Python mode;
+  fake ADB earlier in `PATH`, direct `python -I native_init_flash.py`, direct
+  bootstrap pathname execution, or a launch omitting the fixed inherited-FD
+  loader, its one-FD `pass_fds` binding, or isolated Python mode;
+- bootstrap pathname swap before Python startup, swap-execute-restore, wrong
+  inherited descriptor/type/link-count/size/digest, extra inherited FD, or
+  loader argument supplied by a caller/manifest;
 - bootstrap source directory added to `sys.path`, preloaded local module,
   reordered/missing/extra local dependency, or source outside the exact held
   helper closure;
