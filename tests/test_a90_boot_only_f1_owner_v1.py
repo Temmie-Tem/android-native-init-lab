@@ -4,6 +4,8 @@ import copy
 import datetime as dt
 import hashlib
 import os
+import signal
+import stat
 import subprocess
 import sys
 import tempfile
@@ -286,6 +288,29 @@ class FakeBridgeProcess:
             raise subprocess.TimeoutExpired("bridge", timeout)
         if self.returncode is None:
             self.returncode = 0
+        return self.returncode
+
+
+class FakeCommandProcess:
+    def __init__(
+        self,
+        stdout_fd: int,
+        payload: dict[str, Any],
+        *,
+        pid: int = 5252,
+        returncode: int = 0,
+        timeout: bool = False,
+    ) -> None:
+        self.pid = pid
+        self.returncode = returncode
+        self.timeout = timeout
+        self.wait_calls = 0
+        os.write(stdout_fd, contract.canonical_file_bytes(payload))
+
+    def wait(self, timeout: float) -> int:
+        self.wait_calls += 1
+        if self.timeout and self.wait_calls == 1:
+            raise subprocess.TimeoutExpired("observe", timeout)
         return self.returncode
 
 
@@ -912,6 +937,264 @@ class ContractTests(unittest.TestCase):
         finally:
             bindings.close()
 
+    def test_runtime_source_staging_is_no_clobber_complete_and_private(self) -> None:
+        self.assertEqual(
+            owner.RUNTIME_SOURCE_ROOT.name,
+            f"runtime-sources-v1-{owner.HELPER_RUNTIME_CLOSURE_SHA256}",
+        )
+        with tempfile.TemporaryDirectory() as raw_root:
+            parent = Path(raw_root) / "private"
+            parent.mkdir(mode=0o700)
+            os.chmod(parent, 0o700)
+            destination = parent / "runtime-sources-v1"
+            receipt = owner.stage_runtime_sources(destination=destination)
+            self.assertEqual(receipt, owner.runtime_source_receipt())
+            self.assertEqual(stat.S_IMODE(destination.stat().st_mode), 0o700)
+            self.assertEqual(
+                {entry.name for entry in destination.iterdir()},
+                set(owner.HELPER_SPECS) | {owner.RUNTIME_SOURCE_RECEIPT},
+            )
+            for name in owner.HELPER_SPECS:
+                self.assertEqual(
+                    stat.S_IMODE((destination / name).stat().st_mode), 0o600
+                )
+            artifacts, verified = owner.bind_runtime_sources(destination)
+            try:
+                self.assertEqual(verified, receipt)
+                self.assertEqual(
+                    set(artifacts),
+                    {f"helper:{name}" for name in owner.HELPER_SPECS}
+                    | {"runtime-source-receipt"},
+                )
+            finally:
+                for artifact in artifacts.values():
+                    artifact.close()
+            with self.assertRaisesRegex(contract.ContractError, "already exists"):
+                owner.stage_runtime_sources(destination=destination)
+
+    def test_runtime_source_tree_rejects_extra_tampered_and_loose_nodes(self) -> None:
+        mutations = ("extra", "tamper", "mode", "parent")
+        for mutation in mutations:
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory() as raw_root:
+                parent = Path(raw_root) / "private"
+                parent.mkdir(mode=0o700)
+                os.chmod(parent, 0o700)
+                destination = parent / "runtime-sources-v1"
+                owner.stage_runtime_sources(destination=destination)
+                if mutation == "extra":
+                    (destination / "extra.py").write_bytes(b"pass\n")
+                elif mutation == "tamper":
+                    target = destination / "a90ctl.py"
+                    target.write_bytes(target.read_bytes()[:-1] + b"X")
+                else:
+                    if mutation == "mode":
+                        os.chmod(destination / "a90ctl.py", 0o660)
+                    else:
+                        os.chmod(parent, 0o755)
+                with self.assertRaises(contract.ContractError):
+                    owner.bind_runtime_sources(destination)
+
+    def test_owned_command_producer_executes_only_fixed_fd_bound_commands(self) -> None:
+        artifact = FakeHeldSource(
+            owner.REVALIDATION / "a90_boot_only_f1_command_bootstrap.py",
+            "helper:a90_boot_only_f1_command_bootstrap.py",
+        )
+        bindings = owner.ExecutionBindings(
+            {"helper:a90_boot_only_f1_command_bootstrap.py": artifact}
+        )
+        launches: list[tuple[tuple[str, ...], dict[str, Any]]] = []
+
+        def popen(command: tuple[str, ...], **kwargs: Any) -> FakeCommandProcess:
+            label = command[-2]
+            expected = dict(owner.OBSERVATION_COMMANDS)[label]
+            launches.append((command, kwargs))
+            return FakeCommandProcess(
+                kwargs["stdout"],
+                {
+                    "command": list(expected),
+                    "rc": 0,
+                    "status": "ok",
+                    "text": "bounded-result\n",
+                },
+            )
+
+        try:
+            with tempfile.TemporaryDirectory() as raw_root:
+                producer = owner.OwnedCommandProducer(
+                    bindings,
+                    Path(raw_root),
+                    FakeFdExec,
+                    popen_factory=popen,
+                    process_group_exists=lambda _pid: False,
+                )
+                for label, expected in owner.OBSERVATION_COMMANDS:
+                    receipt = producer.run(label, timeout_sec=5)
+                    self.assertEqual(receipt["command"], list(expected))
+                    self.assertEqual(receipt["rc"], 0)
+                self.assertEqual(len(launches), 4)
+                for command, kwargs in launches:
+                    self.assertEqual(command[0:4], (
+                        str(owner.PYTHON_EXECUTABLE), "-I", "-c", FakeFdExec.PROGRAM
+                    ))
+                    self.assertEqual(kwargs["pass_fds"], (artifact.fd,))
+                    self.assertIs(kwargs["close_fds"], True)
+                with self.assertRaisesRegex(contract.ContractError, "consumed"):
+                    producer.run("version", timeout_sec=5)
+                with self.assertRaisesRegex(contract.ContractError, "unknown"):
+                    producer.run("arbitrary", timeout_sec=5)
+        finally:
+            bindings.close()
+
+    def test_command_bootstrap_requires_fd_execution_and_rejects_unknown_command(self) -> None:
+        bootstrap = owner.REVALIDATION / "a90_boot_only_f1_command_bootstrap.py"
+        direct = subprocess.run(
+            [str(owner.PYTHON_EXECUTABLE), "-I", str(bootstrap), "unknown", "5"],
+            cwd="/",
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        self.assertNotEqual(direct.returncode, 0)
+        self.assertIn("inherited-FD execution", direct.stderr)
+
+        artifact = FakeHeldSource(
+            bootstrap, "helper:a90_boot_only_f1_command_bootstrap.py"
+        )
+        try:
+            # Use the real reviewed loader for this integration check.
+            fd_artifact = FakeHeldSource(
+                owner.REVALIDATION / "a90_boot_only_f1_fd_exec.py",
+                "helper:a90_boot_only_f1_fd_exec.py",
+            )
+            try:
+                fd_exec = owner._load_exact_python_module(fd_artifact, "fd_exec_test")
+                command = fd_exec.bootstrap_command(
+                    owner.PYTHON_EXECUTABLE,
+                    artifact.fd,
+                    bootstrap,
+                    artifact.identity["size"],
+                    artifact.identity["sha256"],
+                    ("unknown", "5"),
+                )
+                completed = subprocess.run(
+                    command,
+                    cwd="/",
+                    env={"PATH": "/usr/bin:/bin", "LANG": "C", "LC_ALL": "C"},
+                    pass_fds=(artifact.fd,),
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    check=False,
+                )
+            finally:
+                fd_artifact.close()
+            self.assertNotEqual(completed.returncode, 0)
+            self.assertIn("unknown command", completed.stderr)
+        finally:
+            artifact.close()
+
+    def test_owned_command_producer_rejects_mismatched_or_timed_out_result(self) -> None:
+        for scenario in ("mismatch", "timeout"):
+            with self.subTest(scenario=scenario):
+                artifact = FakeHeldSource(
+                    owner.REVALIDATION / "a90_boot_only_f1_command_bootstrap.py",
+                    "helper:a90_boot_only_f1_command_bootstrap.py",
+                )
+                bindings = owner.ExecutionBindings(
+                    {"helper:a90_boot_only_f1_command_bootstrap.py": artifact}
+                )
+                killed: list[tuple[int, int]] = []
+
+                def popen(_command: tuple[str, ...], **kwargs: Any) -> FakeCommandProcess:
+                    return FakeCommandProcess(
+                        kwargs["stdout"],
+                        {
+                            "command": ["status"],
+                            "rc": 0,
+                            "status": "ok",
+                            "text": "wrong\n",
+                        },
+                        timeout=scenario == "timeout",
+                    )
+
+                try:
+                    with tempfile.TemporaryDirectory() as raw_root:
+                        producer = owner.OwnedCommandProducer(
+                            bindings,
+                            Path(raw_root),
+                            FakeFdExec,
+                            popen_factory=popen,
+                            process_group_exists=lambda _pid: False,
+                            kill_group=lambda pid, sig: killed.append((pid, sig)),
+                        )
+                        with self.assertRaises(contract.ContractError):
+                            producer.run("version", timeout_sec=5)
+                        if scenario == "timeout":
+                            self.assertEqual(killed, [(5252, signal.SIGKILL)])
+                finally:
+                    bindings.close()
+
+    def test_observation_session_requires_four_receipts_and_always_closes_bridge(self) -> None:
+        source = observed_input()
+
+        class Bridge:
+            def __init__(self) -> None:
+                self.closed = 0
+
+            def start(self, _adb: str, *, readiness_timeout_sec: int) -> dict[str, Any]:
+                self.readiness_timeout_sec = readiness_timeout_sec
+                return source["bridge"]
+
+            def close(self, *, timeout_sec: float) -> dict[str, Any]:
+                self.closed += 1
+                self.close_timeout_sec = timeout_sec
+                return {}
+
+        class Commands:
+            def __init__(self, *, fail_on: str | None = None) -> None:
+                self.labels: list[str] = []
+                self.fail_on = fail_on
+
+            def run(self, label: str, *, timeout_sec: int) -> dict[str, Any]:
+                self.labels.append(label)
+                if label == self.fail_on:
+                    raise contract.ContractError("command failed")
+                key = "bootId" if label == "boot-id" else label
+                return source[key]
+
+        bridge = Bridge()
+        commands = Commands()
+        session = owner.OwnedObservationSession(bridge, commands)
+        health = session.observe(
+            manifest()["expectedStart"],
+            adb_devices_output="List of devices attached\n\n",
+            recovery_available=True,
+            bridge_timeout_sec=7,
+            command_timeout_sec=8,
+        )
+        self.assertEqual(health.version, "0.11.192")
+        self.assertEqual(
+            commands.labels, [label for label, _command in owner.OBSERVATION_COMMANDS]
+        )
+        self.assertEqual(bridge.closed, 1)
+        self.assertEqual(bridge.readiness_timeout_sec, 7)
+        self.assertEqual(bridge.close_timeout_sec, 5.0)
+
+        failing_bridge = Bridge()
+        failing = owner.OwnedObservationSession(
+            failing_bridge, Commands(fail_on="status")
+        )
+        with self.assertRaisesRegex(contract.ContractError, "command failed"):
+            failing.observe(
+                manifest()["expectedStart"],
+                adb_devices_output="List of devices attached\n\n",
+                recovery_available=True,
+                bridge_timeout_sec=7,
+                command_timeout_sec=8,
+            )
+        self.assertEqual(failing_bridge.closed, 1)
+
     def test_resident_qualification_is_external_and_exact(self) -> None:
         expected = manifest()["expectedStart"]
         qualification = {
@@ -1286,8 +1569,8 @@ class OwnerStateMachineTests(unittest.TestCase):
         source = OWNER_PATH.read_text(encoding="utf-8")
         self.assertNotIn("a90_v3403_f1_orchestrator", source)
         self.assertFalse(owner.LIVE_EXECUTION_ENABLED)
-        self.assertIn("OWNED_BRIDGE_CORE_PRESENT", owner.IMPLEMENTATION_STATUS)
-        self.assertIn("COMMAND_OBSERVER_AND_RESUME_ABSENT", owner.IMPLEMENTATION_STATUS)
+        self.assertIn("PRIVATE_SOURCE_BRIDGE_COMMAND_CORE_PRESENT", owner.IMPLEMENTATION_STATUS)
+        self.assertIn("ADB_SERVER_AND_RESUME_ABSENT", owner.IMPLEMENTATION_STATUS)
         with tempfile.TemporaryDirectory() as raw_root:
             with self.assertRaisesRegex(contract.ContractError, "H0-disabled"):
                 owner.SubprocessBackend(fake_bindings(), Path(raw_root))

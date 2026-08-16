@@ -57,23 +57,32 @@ import a90_boot_only_f1_observer_v1 as observer_v1
 
 
 IMPLEMENTATION_STATUS = (
-    "H0_RUNTIME_QUALIFIED_OWNED_BRIDGE_CORE_PRESENT_"
-    "COMMAND_OBSERVER_AND_RESUME_ABSENT"
+    "H0_RUNTIME_QUALIFIED_PRIVATE_SOURCE_BRIDGE_COMMAND_CORE_PRESENT_"
+    "ADB_SERVER_AND_RESUME_ABSENT"
 )
 LIVE_EXECUTION_ENABLED = False
 PYTHON_EXECUTABLE = Path("/usr/bin/python3.14")
 ADB_EXECUTABLE = Path("/usr/lib/android-sdk/platform-tools/adb")
 REPO_ROOT = Path(__file__).resolve().parents[5]
 REVALIDATION = REPO_ROOT / "workspace/public/src/scripts/revalidation"
-FD_EXEC_PATH = REVALIDATION / "a90_boot_only_f1_fd_exec.py"
-BOOTSTRAP_PATH = REVALIDATION / "a90_boot_only_f1_helper_bootstrap.py"
-HELPER_PATH = REVALIDATION / "native_init_flash.py"
+RUNTIME_SOURCE_PARENT = Path("/home/temmie/.a90-boot-only-f1-owner-v1")
+RUNTIME_SOURCE_ROOT = RUNTIME_SOURCE_PARENT / (
+    "runtime-sources-v1-"
+    "23f861a64130ff1475a7b86fc6c8ae633021ad93a54877a574aead8165197757"
+)
+RUNTIME_SOURCE_RECEIPT = "runtime-source-receipt-v1.json"
+FD_EXEC_PATH = RUNTIME_SOURCE_ROOT / "a90_boot_only_f1_fd_exec.py"
+BOOTSTRAP_PATH = RUNTIME_SOURCE_ROOT / "a90_boot_only_f1_helper_bootstrap.py"
+COMMAND_BOOTSTRAP_PATH = (
+    RUNTIME_SOURCE_ROOT / "a90_boot_only_f1_command_bootstrap.py"
+)
+HELPER_PATH = RUNTIME_SOURCE_ROOT / "native_init_flash.py"
 RUNTIME_QUALIFICATION_PATH = (
     REPO_ROOT
     / "workspace/public/src/device-action/a90_boot_only_f1_runtime_qualification_v1.json"
 )
 HELPER_RUNTIME_CLOSURE_SHA256 = (
-    "99d12e14168c05134c17a09a643e90e6a3733738383c5e24ae4ce633de34ce5f"
+    "23f861a64130ff1475a7b86fc6c8ae633021ad93a54877a574aead8165197757"
 )
 HELPER_SPECS = {
     "_workspace_bootstrap.py": (
@@ -87,6 +96,10 @@ HELPER_SPECS = {
     "a90_boot_only_f1_helper_bootstrap.py": (
         4_767,
         "26b98c3714ea5f8865cb552abb191fbbb6cb5eb3472ddfbb6a03bc308d8e9233",
+    ),
+    "a90_boot_only_f1_command_bootstrap.py": (
+        6_283,
+        "8234a2589c75cf466a359fbd9738d5b1c27c8ccdf700a8ed1822904dba45c590",
     ),
     "a90_observation_pipeline.py": (
         24_478,
@@ -153,6 +166,14 @@ class EffectResult:
         }
 
 
+@dataclass(frozen=True)
+class CommandOutcome:
+    command: list[str]
+    rc: int
+    status: str
+    text: str
+
+
 class Backend(Protocol):
     def preflight(self, manifest: dict[str, Any]) -> LiveSnapshot: ...
 
@@ -199,6 +220,198 @@ class ExecutionBindings:
 
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         self.close()
+
+
+def _require_private_directory(path: Path, label: str) -> None:
+    if not path.is_absolute():
+        raise ContractError(f"{label} is not absolute")
+    try:
+        metadata = path.lstat()
+    except OSError as exc:
+        raise ContractError(f"{label} is absent") from exc
+    if (
+        not stat.S_ISDIR(metadata.st_mode)
+        or path.is_symlink()
+        or stat.S_IMODE(metadata.st_mode) != 0o700
+        or metadata.st_uid != os.getuid()
+        or metadata.st_gid != os.getgid()
+    ):
+        raise ContractError(f"{label} is not one private owner directory")
+
+
+def _open_pinned_source(
+    source_root: Path,
+    name: str,
+    expected_size: int,
+    expected_sha256: str,
+) -> int:
+    """Open unexecuted repository bytes by exact final-file identity.
+
+    Repository ancestors are not an execution boundary here.  Only bytes read
+    from this held FD are copied into the private runtime tree; no source path
+    or sibling import is executed during staging.
+    """
+
+    path = source_root / name
+    descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    try:
+        metadata = os.fstat(descriptor)
+        path_metadata = path.lstat()
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or not stat.S_ISREG(path_metadata.st_mode)
+            or metadata.st_nlink != 1
+            or path_metadata.st_nlink != 1
+            or metadata.st_uid != os.getuid()
+            or metadata.st_gid != os.getgid()
+            or (metadata.st_dev, metadata.st_ino)
+            != (path_metadata.st_dev, path_metadata.st_ino)
+            or metadata.st_size != expected_size
+            or BoundArtifact._hash_fd(descriptor, expected_size) != expected_sha256
+        ):
+            raise ContractError(f"runtime source input mismatch: {name}")
+        return descriptor
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
+def _copy_pinned_source(source_fd: int, destination: Path, size: int) -> None:
+    destination_fd = os.open(
+        destination,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW,
+        0o600,
+    )
+    try:
+        os.fchmod(destination_fd, 0o600)
+        offset = 0
+        while offset < size:
+            chunk = os.pread(source_fd, min(1 << 20, size - offset), offset)
+            if not chunk:
+                raise ContractError("runtime source input ended during copy")
+            written_offset = 0
+            while written_offset < len(chunk):
+                written = os.write(destination_fd, chunk[written_offset:])
+                if written <= 0:
+                    raise ContractError("runtime source destination short write")
+                written_offset += written
+            offset += len(chunk)
+        if os.pread(source_fd, 1, size):
+            raise ContractError("runtime source input grew during copy")
+        os.fsync(destination_fd)
+    finally:
+        os.close(destination_fd)
+
+
+def runtime_source_receipt() -> dict[str, Any]:
+    return {
+        "schema": "a90-boot-only-f1-runtime-source-receipt-v1",
+        "helperRuntimeClosureSha256": helper_runtime_digest(),
+        "members": [
+            {"name": name, "size": size, "sha256": digest}
+            for name, (size, digest) in sorted(HELPER_SPECS.items())
+        ],
+    }
+
+
+def stage_runtime_sources(
+    *,
+    destination: Path = RUNTIME_SOURCE_ROOT,
+    source_root: Path = REVALIDATION,
+) -> dict[str, Any]:
+    """Create one no-clobber private source tree; never repair or replace it."""
+
+    _require_private_directory(destination.parent, "runtime source parent")
+    try:
+        os.mkdir(destination, 0o700)
+    except FileExistsError as exc:
+        raise ContractError("runtime source destination already exists") from exc
+    parent_fd = os.open(
+        destination.parent, os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY
+    )
+    try:
+        os.fsync(parent_fd)
+    finally:
+        os.close(parent_fd)
+    _require_private_directory(destination, "runtime source destination")
+    for name, (size, digest) in sorted(HELPER_SPECS.items()):
+        source_fd = _open_pinned_source(source_root, name, size, digest)
+        try:
+            _copy_pinned_source(source_fd, destination / name, size)
+        finally:
+            os.close(source_fd)
+    receipt = runtime_source_receipt()
+    publish_exclusive(destination / RUNTIME_SOURCE_RECEIPT, receipt)
+    directory_fd = os.open(destination, os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY)
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
+    parent_fd = os.open(
+        destination.parent, os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY
+    )
+    try:
+        os.fsync(parent_fd)
+    finally:
+        os.close(parent_fd)
+    artifacts, verified = bind_runtime_sources(destination)
+    try:
+        if verified != receipt:
+            raise ContractError("runtime source receipt changed after publication")
+    finally:
+        for artifact in artifacts.values():
+            artifact.close()
+    return receipt
+
+
+def bind_runtime_sources(
+    root: Path = RUNTIME_SOURCE_ROOT,
+) -> tuple[dict[str, BoundArtifact], dict[str, Any]]:
+    """Bind the exact complete private source tree and reject every extra node."""
+
+    _require_private_directory(root.parent, "runtime source parent")
+    _require_private_directory(root, "runtime source root")
+    expected_names = set(HELPER_SPECS) | {RUNTIME_SOURCE_RECEIPT}
+    try:
+        actual_names = {entry.name for entry in root.iterdir()}
+    except OSError as exc:
+        raise ContractError("runtime source tree cannot be enumerated") from exc
+    if actual_names != expected_names:
+        raise ContractError("runtime source tree child set mismatch")
+    raw, receipt = load_canonical(
+        root / RUNTIME_SOURCE_RECEIPT, "runtime source receipt"
+    )
+    if receipt != runtime_source_receipt():
+        raise ContractError("runtime source receipt mismatch")
+    artifacts: dict[str, BoundArtifact] = {}
+    try:
+        artifacts["runtime-source-receipt"] = BoundArtifact.open(
+            role="runtime-source-receipt",
+            path=root / RUNTIME_SOURCE_RECEIPT,
+            expected_size=len(raw),
+            expected_sha256=sha256_bytes(raw),
+            anchor=root,
+            expected_uid=os.getuid(),
+            expected_gid=os.getgid(),
+        )
+        for name, (size, digest) in sorted(HELPER_SPECS.items()):
+            artifact = BoundArtifact.open(
+                role=f"helper:{name}",
+                path=root / name,
+                expected_size=size,
+                expected_sha256=digest,
+                anchor=root,
+                expected_uid=os.getuid(),
+                expected_gid=os.getgid(),
+            )
+            if stat.S_IMODE(artifact.identity["mode"]) != 0o600:
+                raise ContractError("runtime source member mode is not 0600")
+            artifacts[f"helper:{name}"] = artifact
+        return artifacts, receipt
+    except BaseException:
+        for artifact in artifacts.values():
+            artifact.close()
+        raise
 
 
 class OwnedBridgeLifecycle:
@@ -308,7 +521,7 @@ class OwnedBridgeLifecycle:
         self.command = self.fd_exec.bootstrap_command(
             PYTHON_EXECUTABLE,
             bridge.fd,
-            observer_v1.BRIDGE_SCRIPT,
+            bridge.path,
             bridge.identity["size"],
             bridge.identity["sha256"],
             arguments,
@@ -384,6 +597,181 @@ class OwnedBridgeLifecycle:
             "forced": forced,
             **logs,
         }
+
+
+OBSERVATION_COMMANDS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("version", ("version",)),
+    ("selftest", ("selftest",)),
+    ("status", ("status",)),
+    ("boot-id", ("cat", "/proc/sys/kernel/random/boot_id")),
+)
+
+
+class OwnedCommandProducer:
+    """Run each fixed read-only command once through the held FD bootstrap."""
+
+    def __init__(
+        self,
+        bindings: ExecutionBindings,
+        run_directory: Path,
+        fd_exec: Any,
+        *,
+        popen_factory: Any = subprocess.Popen,
+        process_group_exists: Any = lambda process_group: _process_group_exists(
+            process_group
+        ),
+        kill_group: Any = os.killpg,
+    ) -> None:
+        self.bindings = bindings
+        self.run_directory = run_directory
+        self.fd_exec = fd_exec
+        self.popen_factory = popen_factory
+        self.process_group_exists = process_group_exists
+        self.kill_group = kill_group
+        self.completed: set[str] = set()
+
+    def run(self, label: str, *, timeout_sec: int) -> dict[str, Any]:
+        command_map = dict(OBSERVATION_COMMANDS)
+        if label not in command_map or label in self.completed:
+            raise ContractError("observation command is unknown or already consumed")
+        if type(timeout_sec) is not int or not 1 <= timeout_sec <= 300:
+            raise ContractError("observation command timeout is invalid")
+        self.bindings.checkpoint()
+        bootstrap = self.bindings.artifacts[
+            "helper:a90_boot_only_f1_command_bootstrap.py"
+        ]
+        argv = self.fd_exec.bootstrap_command(
+            PYTHON_EXECUTABLE,
+            bootstrap.fd,
+            bootstrap.path,
+            bootstrap.identity["size"],
+            bootstrap.identity["sha256"],
+            (label, str(timeout_sec)),
+        )
+        stdout_path = self.run_directory / f"observe-{len(self.completed)}-{label}.stdout"
+        stderr_path = self.run_directory / f"observe-{len(self.completed)}-{label}.stderr"
+        flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC
+        stdout_fd = os.open(stdout_path, flags, 0o600)
+        try:
+            stderr_fd = os.open(stderr_path, flags, 0o600)
+        except BaseException:
+            os.close(stdout_fd)
+            raise
+        process: Any | None = None
+        try:
+            process = self.popen_factory(
+                argv,
+                cwd="/",
+                env={
+                    "HOME": str(REPO_ROOT),
+                    "PATH": "/usr/bin:/bin",
+                    "LANG": "C",
+                    "LC_ALL": "C",
+                    "PYTHONHASHSEED": "0",
+                },
+                stdin=subprocess.DEVNULL,
+                stdout=stdout_fd,
+                stderr=stderr_fd,
+                close_fds=True,
+                pass_fds=self.fd_exec.bootstrap_pass_fds(bootstrap.fd),
+                start_new_session=True,
+            )
+            try:
+                returncode = process.wait(timeout=float(timeout_sec + 2))
+            except subprocess.TimeoutExpired as exc:
+                try:
+                    self.kill_group(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait(timeout=2.0)
+                raise ContractError("observation command exceeded its bound") from exc
+            if self.process_group_exists(process.pid):
+                try:
+                    self.kill_group(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                raise ContractError("observation command left a surviving process group")
+            self.bindings.checkpoint()
+            stdout_sha256 = _finalize_log(stdout_fd, stdout_path)
+            _stderr_sha256 = _finalize_log(stderr_fd, stderr_path)
+            stdout_metadata = os.fstat(stdout_fd)
+            raw = os.pread(stdout_fd, stdout_metadata.st_size, 0)
+            if sha256_bytes(raw) != stdout_sha256:
+                raise ContractError("observation command stdout changed after fsync")
+            value = parse_canonical_bytes(raw, f"observation command {label}")
+            result = require_object(
+                value,
+                frozenset({"command", "rc", "status", "text"}),
+                f"observation command {label}",
+            )
+            expected_command = list(command_map[label])
+            if (
+                result["command"] != expected_command
+                or type(result["rc"]) is not int
+                or result["rc"] != returncode
+                or returncode != 0
+                or result["status"] != "ok"
+                or type(result["text"]) is not str
+                or not result["text"]
+            ):
+                raise ContractError("observation command result mismatch")
+            self.completed.add(label)
+            outcome = CommandOutcome(
+                command=expected_command,
+                rc=result["rc"],
+                status=result["status"],
+                text=result["text"],
+            )
+            return observer_v1.command_receipt(expected_command, outcome)
+        finally:
+            os.close(stdout_fd)
+            os.close(stderr_fd)
+
+
+class OwnedObservationSession:
+    """One bridge plus exactly four fixed commands and mandatory teardown."""
+
+    def __init__(
+        self,
+        bridge: OwnedBridgeLifecycle,
+        commands: OwnedCommandProducer,
+    ) -> None:
+        self.bridge = bridge
+        self.commands = commands
+
+    def observe(
+        self,
+        expected: dict[str, Any],
+        *,
+        adb_devices_output: str,
+        recovery_available: bool,
+        bridge_timeout_sec: int,
+        command_timeout_sec: int,
+    ) -> observer_v1.ObservedHealth:
+        bridge_receipt = self.bridge.start(
+            adb_devices_output,
+            readiness_timeout_sec=bridge_timeout_sec,
+        )
+        try:
+            receipts = {
+                label: self.commands.run(label, timeout_sec=command_timeout_sec)
+                for label, _command in OBSERVATION_COMMANDS
+            }
+            value = {
+                "schema": observer_v1.OBSERVER_SCHEMA,
+                "bridge": bridge_receipt,
+                "version": receipts["version"],
+                "selftest": receipts["selftest"],
+                "status": receipts["status"],
+                "bootId": receipts["boot-id"],
+            }
+            return observer_v1.validate_observation_input(
+                value,
+                expected,
+                recovery_available=recovery_available,
+            )
+        finally:
+            self.bridge.close(timeout_sec=5.0)
 
 
 def _load_exact_python_module(bound: BoundArtifact, module_name: str) -> Any:
@@ -567,16 +955,9 @@ def _bound_artifacts(
         helper = manifest["flashHelper"]
         if Path(helper["path"]) != HELPER_PATH:
             raise ContractError("manifest selected another flash helper")
-        for name, (size, sha256) in sorted(HELPER_SPECS.items()):
-            artifacts[f"helper:{name}"] = BoundArtifact.open(
-                role=f"helper:{name}",
-                path=REVALIDATION / name,
-                expected_size=size,
-                expected_sha256=sha256,
-                anchor=REPO_ROOT,
-                expected_uid=invoking_uid,
-                expected_gid=invoking_gid,
-            )
+        runtime_sources, source_receipt = bind_runtime_sources()
+        artifacts.update(runtime_sources)
+        qualifications["runtime-sources"] = source_receipt
         for role, path, qualified in (
             ("python-interpreter", PYTHON_EXECUTABLE, runtime["python"]),
             ("adb-transport", ADB_EXECUTABLE, runtime["adb"]),
@@ -983,6 +1364,15 @@ class SubprocessBackend:
             run_directory,
             self.fd_exec,
         )
+        self.commands = OwnedCommandProducer(
+            bindings,
+            run_directory,
+            self.fd_exec,
+        )
+        self.observation_session = OwnedObservationSession(
+            self.bridge,
+            self.commands,
+        )
 
     def preflight(self, manifest: dict[str, Any]) -> LiveSnapshot:
         raise ContractError("production target preflight is not implemented")
@@ -1264,6 +1654,7 @@ def parser() -> argparse.ArgumentParser:
     audit_parser = subparsers.add_parser("audit")
     audit_parser.add_argument("manifest", type=Path)
     audit_parser.add_argument("run_directory", type=Path)
+    subparsers.add_parser("stage-runtime-sources")
     execute = subparsers.add_parser("execute")
     execute.add_argument("manifest", type=Path)
     execute.add_argument("--operator-attended", action="store_true")
@@ -1291,11 +1682,25 @@ def main(argv: list[str] | None = None) -> int:
     if args.action == "audit":
         print(json.dumps(audit(args.manifest, args.run_directory), sort_keys=True))
         return 0
+    if args.action == "stage-runtime-sources":
+        receipt = stage_runtime_sources()
+        print(
+            json.dumps(
+                {
+                    "status": "STAGED_H0_RUNTIME_SOURCES",
+                    "path": str(RUNTIME_SOURCE_ROOT),
+                    "receiptSha256": sha256_bytes(canonical_json(receipt)),
+                    "liveExecutionEnabled": LIVE_EXECUTION_ENABLED,
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
     if args.action == "execute":
         if args.operator_attended is not True:
             raise ContractError("A90 F1 is attended-only")
         raise ContractError(
-            "live execution remains blocked: device observer and crash-prefix resume absent"
+            "live execution remains blocked: owned ADB server and crash-prefix resume absent"
         )
     raise ContractError("unknown owner action")
 

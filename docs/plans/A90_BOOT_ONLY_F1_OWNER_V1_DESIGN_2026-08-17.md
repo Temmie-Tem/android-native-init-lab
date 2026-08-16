@@ -6,10 +6,11 @@ Tier of this document: H0 structural design
 Device or live effect of this document: none
 Status: **H0 IMPLEMENTATION CORE, HOST RUNTIME QUALIFICATION, THE PURE
 DEVICE-OBSERVATION CONTRACT, AND THE OWNER-CONTROLLED BRIDGE LIFECYCLE CORE
-ARE PRESENT — live execution is hard-disabled. Fixed private runtime-source
-deployment, the four command producers, crash-prefix resume, and the required
-independent full review remain absent. This qualifies nothing and grants no
-authority.**
+ARE PRESENT — live execution is hard-disabled. The fixed private runtime-source
+stager and four held-source command producer core are also present. The exact
+owner-controlled ADB-server inventory producer, crash-prefix resume, and the
+required independent full review remain absent. This qualifies nothing and
+grants no authority.**
 
 This design exists to stop a loop, not to add a feature. Six independent
 reviews of the per-candidate H27 runner each found real defects, and the
@@ -85,11 +86,9 @@ unconditionally returns `NO_GO` even with `--operator-attended`.
 This is deliberately not a half-enabled F1 runner. The host-specific Python/ADB
 qualification is now generated from and rechecked against the current isolated
 Python `sys.path` trees and resolved ELF dependency files. It has not received
-a `PASS_GO` capability review. No live path exists until fixed private
-runtime-source deployment, the four exact A90 preflight/final-health command
-producers and their bridge integration, and the crash-prefix reconciler are
-implemented and the resulting execution-critical closure receives a fresh
-independent full review.
+a `PASS_GO` capability review. No live path exists until the exact owned ADB
+server/inventory producer and crash-prefix reconciler are implemented and the
+resulting execution-critical closure receives a fresh independent full review.
 
 ## The owner
 
@@ -194,6 +193,35 @@ durable `artifact-identity-v1` tuple, directory identities, size, and SHA256
 before observation or the already-authorized rollback path. A mismatch keeps
 the candidate consumed and parks without candidate or rollback replay.
 
+### Fixed private runtime-source tree
+
+The repository source hierarchy is mode `0775`, so it is never used as a
+path-open execution root. The H0 `stage-runtime-sources` action instead reads
+each reviewed public source through one `O_NOFOLLOW` held FD, proves its direct
+regular-file identity and pinned size/SHA256, and copies only those bytes into
+the helper-digest-qualified
+`/home/temmie/.a90-boot-only-f1-owner-v1/runtime-sources-v1-23f861a64130ff1475a7b86fc6c8ae633021ad93a54877a574aead8165197757`
+tree.
+The fixed parent must already be a direct owner `0700` directory. The action
+creates the child directory once as `0700`, each member once as `0600`, fsyncs
+every member, publishes `runtime-source-receipt-v1.json` last with no-clobber
+semantics, then fsyncs and rebinds the complete tree. It never repairs,
+replaces, merges, or deletes a present tree. A crash leaves a non-authoritative
+partial tree that all later staging and execution refuse.
+
+The receipt binds the helper-runtime closure and the exact lexically sorted
+name/size/SHA256 member set. It deliberately does not bind the owner closure:
+owner code already binds the helper digest, and coupling it here would recreate
+the review self-reference this design removes. A helper-byte change selects a
+new digest-qualified no-clobber root, while an owner-only change may reuse the
+same exact source tree. Execution rejects a missing,
+extra, indirect, hardlinked, loose-mode, wrong-owner, changed, or receipt-
+mismatched node and keeps every source FD held. This source-specific staging
+rule does not relax artifact or path-executed helper ancestry: untrusted
+repository bytes are never executed while being copied, and all subsequent
+Python entrypoints execute the staged bootstrap through the inherited-FD
+loader.
+
 ### Interpreter and transport executable identity
 
 Source hashes do not identify the programs that interpret or transport those
@@ -294,6 +322,8 @@ Deliberately small:
   command builder used by the owner;
 - `a90_boot_only_f1_helper_bootstrap.py`, whose fixed module order must equal
   that generated import closure;
+- `a90_boot_only_f1_command_bootstrap.py`, whose command vocabulary is exactly
+  `version`, `selftest`, `status`, and `cat /proc/sys/kernel/random/boot_id`;
 - the generated `python-runtime-closure-v1` and `adb-runtime-closure-v1`;
 - the manifest schema;
 - the hostile state-machine tests.
@@ -313,6 +343,7 @@ The current generated closure is exactly:
 |---|---:|---|
 | `a90_boot_only_f1_fd_exec.py` | 3,493 | `b55959a4362d459df0058a7b6bca7630a27978e0b1246868cb993ef1380abf57` |
 | `a90_boot_only_f1_helper_bootstrap.py` | 4,767 | `26b98c3714ea5f8865cb552abb191fbbb6cb5eb3472ddfbb6a03bc308d8e9233` |
+| `a90_boot_only_f1_command_bootstrap.py` | 6,283 | `8234a2589c75cf466a359fbd9738d5b1c27c8ccdf700a8ed1822904dba45c590` |
 | `_workspace_bootstrap.py` | 1,255 | `7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe` |
 | `a90_observation_pipeline.py` | 24,478 | `6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb` |
 | `a90_serial_lock.py` | 2,860 | `663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7` |
@@ -323,7 +354,7 @@ The current generated closure is exactly:
 
 The canonical aggregate is SHA256 over the lexically sorted records
 `relative-name NUL decimal-size NUL lowercase-sha256 LF`. Its current value is
-`99d12e14168c05134c17a09a643e90e6a3733738383c5e24ae4ce633de34ce5f`.
+`23f861a64130ff1475a7b86fc6c8ae633021ad93a54877a574aead8165197757`.
 The capability review signs this generated aggregate, not a hand-maintained
 subset. Any member-byte change, added or removed local dependency, unresolved
 external dependency, or import-graph change expires the capability binding.
@@ -404,15 +435,26 @@ proves the PID, listener, socket holder, and TTY holder absent. Readiness never
 relaunches the bridge, teardown uncertainty is terminal, and duplicate start
 or close is rejected.
 
-That is the bridge lifecycle core, not a live-capability producer. The current
-repository source ancestors are mode `0775`, while the binding contract
-requires every source ancestor to be owner-only and not group/world writable.
-The owner therefore fails closed on the current repository path. Activation
-requires a separately generated fixed private runtime-source directory with
-mode `0700`, exact no-clobber member names and hashes, and owner-side held-FD
-verification; weakening the ancestor rule is not an alternative. The four
-fixed held-`a90ctl` command producers, their bridge integration, crash-prefix
-resume, and a fresh independent full-closure review also remain absent.
+The bridge and command cores are still not live-capability producers. The
+implemented H0 stager supplies the fixed private tree described above. For
+each of the four commands, the owner starts a fresh isolated Python through
+the held command-bootstrap FD, inherits exactly that FD, loads the pinned
+`a90ctl` dependency set from the private tree without adding it to `sys.path`,
+and permits no caller- or manifest-selected command. Each subprocess has a
+bounded timeout and output size, a new process group, exclusive `0600` logs,
+exact canonical output parsing, post-return source checkpoints, and no repeat
+after success. A timeout kills the group and cannot yield a receipt; a
+surviving group, malformed output, command mismatch, nonzero rc/status, or
+duplicate command is terminal. The observation session runs the fixed order
+once and always tears down the bridge before returning health.
+
+The exact ADB inventory producer that supplies the pre-bridge empty ADB fact,
+crash-prefix resume, and a fresh independent full-closure review remain
+absent. A plain `adb devices -l` is not admissible: it may reuse a foreign
+server or auto-start a daemon outside the subprocess lifetime. The future
+producer must bind one private loopback server endpoint, start ADB in
+`nodaemon` mode, inventory through only that server, and reap/prove the server
+absent without killing or trusting a pre-existing shared server.
 `SubprocessBackend` and CLI `execute` remain hard-disabled.
 
 ## Approval is exact live authority
@@ -640,6 +682,11 @@ The owner is only as good as what it refuses. At minimum:
   foreign listener-socket or TTY holder, readiness timeout, early bridge exit,
   TERM timeout requiring one KILL, teardown-proof failure, duplicate bridge
   start/close, or a group/world-writable runtime-source ancestor;
+- partial runtime-source tree, extra runtime-source node, missing receipt,
+  changed member, loose mode, indirect node, or second staging attempt;
+- unknown or duplicate observation command, command/result mismatch,
+  observation command timeout, oversized/malformed output, or surviving
+  observation process group;
 - bootstrap source directory added to `sys.path`, preloaded local module,
   reordered/missing/extra local dependency, or source outside the exact held
   helper closure;
@@ -676,11 +723,11 @@ The owner is only as good as what it refuses. At minimum:
 ## What this design does not do
 
 - It does not provide a live-capable owner. The H0 contract/state-machine core,
-  current-host runtime qualification, pure observation contract, and
-  owner-controlled held-source bridge lifecycle core exist. The fixed private
-  runtime-source deployment, four command producers and their bridge
-  integration, and crash-prefix resume remain deliberately absent; the live
-  CLI is hard-disabled.
+  current-host runtime qualification, pure observation contract, fixed private
+  source stager, and owner-controlled bridge plus four-command producer cores
+  exist. The exact owner-controlled ADB-server inventory producer and
+  crash-prefix resume remain
+  deliberately absent; the live CLI is hard-disabled.
 - It does not qualify anything, and creates no approval, manifest, or hazard
   qualification.
 - It does not authorize an F1. `GOAL_A90.md` still records that no successor

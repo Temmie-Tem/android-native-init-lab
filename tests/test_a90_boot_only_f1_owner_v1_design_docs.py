@@ -35,6 +35,7 @@ SERVER = REPO / "workspace/public/src/scripts/server-distro"
 FLASH = REPO / "workspace/public/src/scripts/revalidation/native_init_flash.py"
 REVALIDATION = FLASH.parent
 BOOTSTRAP = REVALIDATION / "a90_boot_only_f1_helper_bootstrap.py"
+COMMAND_BOOTSTRAP = REVALIDATION / "a90_boot_only_f1_command_bootstrap.py"
 FD_EXEC = REVALIDATION / "a90_boot_only_f1_fd_exec.py"
 PYTHON_EXECUTABLE = Path("/usr/bin/python3.14")
 ADB_EXECUTABLE = Path("/usr/lib/android-sdk/platform-tools/adb")
@@ -44,7 +45,7 @@ PROCESS = REPO / "docs/operations/DEVICE_ACTION_PROCESS_V2.md"
 TARGET = REPO / "docs/operations/targets/A90_TARGET_CONTRACT.md"
 
 FLASH_SHA = "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
-RUNTIME_CLOSURE_SHA = "99d12e14168c05134c17a09a643e90e6a3733738383c5e24ae4ce633de34ce5f"
+RUNTIME_CLOSURE_SHA = "23f861a64130ff1475a7b86fc6c8ae633021ad93a54877a574aead8165197757"
 RUNTIME_CLOSURE = {
     "_workspace_bootstrap.py": (
         1_255,
@@ -80,7 +81,15 @@ BRIDGE_SPEC = (
     17_944,
     "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98",
 )
-HELD_RUNTIME_CLOSURE = {**RUNTIME_CLOSURE, "serial_tcp_bridge.py": BRIDGE_SPEC}
+COMMAND_BOOTSTRAP_SPEC = (
+    6_283,
+    "8234a2589c75cf466a359fbd9738d5b1c27c8ccdf700a8ed1822904dba45c590",
+)
+HELD_RUNTIME_CLOSURE = {
+    **RUNTIME_CLOSURE,
+    "a90_boot_only_f1_command_bootstrap.py": COMMAND_BOOTSTRAP_SPEC,
+    "serial_tcp_bridge.py": BRIDGE_SPEC,
+}
 RETIRED = (
     "a90_h15_ufs_f1_runner_v1.py",
     "a90_h15_ufs_d1_runner_v1.py",
@@ -443,6 +452,7 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "H0 IMPLEMENTATION CORE, HOST RUNTIME QUALIFICATION, THE PURE DEVICE-OBSERVATION CONTRACT, AND THE OWNER-CONTROLLED BRIDGE LIFECYCLE CORE ARE PRESENT",
             head,
         )
+        self.assertIn("four held-source command producer core are also present", head)
         self.assertIn("live execution is hard-disabled", head)
         self.assertIn("Device or live effect of this document: none", head)
 
@@ -491,10 +501,34 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         self.assertIn("SubprocessBackend` and CLI `execute` remain hard-disabled", self.design)
 
     def test_bridge_source_permissions_remain_a_fail_closed_open_gate(self) -> None:
-        self.assertIn("repository source ancestors are mode `0775`", self.design)
-        self.assertIn("fixed private runtime-source directory with\nmode `0700`", self.raw)
-        self.assertIn("weakening the ancestor rule is not an alternative", self.design)
-        self.assertIn("fixed runtime-source staging", GOAL.read_text(encoding="utf-8"))
+        self.assertIn("repository source hierarchy is mode `0775`", self.design)
+        self.assertIn("/home/temmie/.a90-boot-only-f1-owner-v1/runtime-sources-v1-23f861", self.design)
+        self.assertIn("direct owner `0700` directory", self.design)
+        self.assertIn("never repairs, replaces, merges, or deletes", self.design)
+        self.assertIn("does not bind the owner closure", self.design)
+        self.assertIn("owner-only change may reuse", self.design)
+        self.assertIn("no-clobber stager", GOAL.read_text(encoding="utf-8"))
+
+    def test_four_commands_are_fixed_and_isolated(self) -> None:
+        for token in (
+            "`version`, `selftest`, `status`, and `cat /proc/sys/kernel/random/boot_id`",
+            "inherits exactly that FD",
+            "without adding it to `sys.path`",
+            "permits no caller- or manifest-selected command",
+            "duplicate command is terminal",
+            "always tears down the bridge before returning health",
+        ):
+            self.assertIn(token, self.design, token)
+
+    def test_adb_inventory_cannot_adopt_or_autostart_a_shared_server(self) -> None:
+        for token in (
+            "plain `adb devices -l` is not admissible",
+            "reuse a foreign server or auto-start a daemon",
+            "one private loopback server endpoint",
+            "`nodaemon` mode",
+            "without killing or trusting a pre-existing shared server",
+        ):
+            self.assertIn(token, self.design, token)
 
     def test_runtime_rehash_replaces_delegated_verification(self) -> None:
         self.assertIn("at execution time", self.design)
@@ -1100,6 +1134,11 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "teardown-proof failure",
             "duplicate bridge\n  start/close",
             "group/world-writable runtime-source ancestor",
+            "partial runtime-source tree",
+            "extra runtime-source node",
+            "unknown or duplicate observation command",
+            "observation command timeout",
+            "surviving\n  observation process group",
             "crash after `CANDIDATE_INTENT`",
             "without\n  candidate replay",
             "post-candidate artifact drift followed by candidate retry",

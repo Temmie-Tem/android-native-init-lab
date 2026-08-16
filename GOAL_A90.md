@@ -345,15 +345,23 @@ identity:
   pre-existing listener, executes only the held bridge source through the
   reviewed FD loader, binds its exact PID/cmdline/start tick/listener/TTY
   ownership, and performs one bounded reap plus absence proof on every prefix.
-  It never relaunches and treats teardown uncertainty as terminal. The current
-  repository's mode-`0775` source ancestors deliberately fail the strict source
-  binding; a fixed private mode-`0700` no-clobber runtime-source deployment is
-  an open integration gate, not grounds to relax it. The four fixed command
-  producers, crash-prefix resume, and independent full execution-closure
-  review remain open. Therefore no H27 manifest, approval, ordinal, D0, D1, or
-  F1 authority exists. The next owner unit is H0 fixed runtime-source staging
-  plus held-`a90ctl` command integration, followed by the crash reconciler and
-  one fresh full review of the frozen closure.
+  It never relaunches and treats teardown uncertainty as terminal. The H0
+  no-clobber stager now copies only exact held public source bytes into the
+  helper-digest-qualified `/home/temmie/.a90-boot-only-f1-owner-v1/` source
+  tree under a pre-existing owner-`0700` parent, publishes the source receipt
+  last, and
+  rejects every partial, extra, loose, indirect, or changed tree. Four fresh
+  isolated command subprocesses then load only that held closure and can issue
+  only `version`, `selftest`, `status`, and the kernel boot-ID read in fixed
+  order; timeout, malformed output, surviving descendants, or duplication
+  yields no observation receipt, and the bridge always closes. A plain
+  `adb devices -l` is rejected because it may reuse or auto-start an unowned
+  server; an exact private-loopback `nodaemon` ADB-server lifecycle, crash-
+  prefix resume, and independent full execution-closure review remain open.
+  Therefore no H27 manifest, approval, ordinal,
+  D0, D1, or F1 authority exists. The next owner unit is the H0 exact ADB
+  inventory producer plus crash reconciler, followed by one fresh full review
+  of the frozen closure.
 
 ## What Leaves or Moves Out
 
