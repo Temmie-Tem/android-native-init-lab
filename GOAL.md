@@ -12,18 +12,19 @@ authority, evidence, transports, and commands remain separate.
 
 ## Current Frontier
 
-P3.18 is the current consumed live unit. Candidate and exact rollback each
-transferred once, and the operator saw a normal candidate boot without a loop;
-ACM closed `endpoint-timeout`. The unchanged-path rollback completed, but two
-byte-identical final reads contain one integrity-clean generation-46 stage-101
-E2 progress record and no Max77705 terminal. Exact candidate-end classification
-is `NO_PROOF_OBSERVER_and_park`. Correlation stopped before durable final-health
-publication, so the 15-record journal remains `ROLLBACK_FLASHED`; neither
-transfer may replay. An incident-specific H0 finalizer now binds the exact raw,
-journal, topology, source and private ADB bytes and has no
-Download/Odin/transfer path. Its exact H0 changed closure passed independent
-review, but it grants no live authority; connected finalization still requires
-one fresh exact attended approval for binding `131c6d13ee7710b22b75cfe55381a612d1403c5e0013528e0e49d5ec38633751`. See
+P3.18 is the current closed live unit. Candidate and exact rollback each
+transferred once; the operator saw a normal candidate boot without a loop and
+ACM closed `endpoint-timeout`. Two byte-identical final reads contain one
+integrity-clean generation-46 stage-101 E2 progress record and no Max77705
+terminal, so the final proof remains `NO_PROOF_OBSERVER`. A separately reviewed
+incident finalizer used one fresh exact approval only for rooted FYG8 health,
+performed no Download/Odin/transfer/replay, and advanced the original journal
+from 15 records at `ROLLBACK_FLASHED` to 19 records at `CLOSED`. The durable
+terminal is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`, exact transfers remain 1/1,
+attempt 2 is absent, and `recovery_required=false`. A host-only post-close audit
+now validates that terminal because the frozen generic `--validate` orders the
+common correlation before the incident patch. Its exact changed closure passed
+independent H0 review and grants no live authority. See
 `docs/reports/S22PLUS_FYG8_P318_POSTROLLBACK_FINALIZATION_INCIDENT_H0_2026-08-17.md`.
 
 P3.16 is the preceding closed live unit. Its distinct boot-only candidate and

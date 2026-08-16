@@ -85,19 +85,12 @@ class P318PostrollbackFinalizeTest(unittest.TestCase):
         )
         self.assertEqual(authority["binding"]["target"], self.module.TARGET)
 
-    def test_current_incident_plan_is_host_only_and_one_shot(self):
-        plan = self.module.render_plan()
-        self.assertEqual(
-            plan["verdict"],
-            "PASS_P318_POSTROLLBACK_FINALIZE_HOST_READY_REVIEW_REQUIRED",
-        )
-        self.assertEqual(plan["journal_state"], "ROLLBACK_FLASHED")
-        self.assertEqual(plan["candidate_transfers"], 1)
-        self.assertEqual(plan["rollback_transfers"], 1)
-        self.assertFalse(plan["candidate_transfer_allowed"])
-        self.assertFalse(plan["rollback_transfer_allowed"])
-        self.assertFalse(plan["device_contact"])
-        self.assertFalse(plan["live_authorized"])
+    def test_consumed_generic_plan_exposes_the_known_closed_correlation_gap(self):
+        with self.assertRaisesRegex(
+            (self.module.FinalizeError, self.module.live.F1LiveError),
+            "candidate correlation lacks one clean record",
+        ):
+            self.module.render_plan()
         run = self.module.DEFAULT_RUN_DIR
         self.assertFalse((run / "candidate-attempt-02.start.json").exists())
         self.assertFalse((run / "rollback-attempt-02.start.json").exists())

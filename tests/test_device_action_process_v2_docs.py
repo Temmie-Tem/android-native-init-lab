@@ -684,8 +684,10 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         normalized_p314 = " ".join(
             (self.p314_design + self.p314_incident).split()
         )
-        self.assertIn("P3.18 is the current consumed live unit", normalized_goal)
-        self.assertIn("journal remains `ROLLBACK_FLASHED`", normalized_goal)
+        self.assertIn("P3.18 is the current closed live unit", normalized_goal)
+        self.assertIn("19 records at `CLOSED`", normalized_goal)
+        self.assertIn("exact transfers remain 1/1", normalized_goal)
+        self.assertIn("`recovery_required=false`", normalized_goal)
         self.assertIn("P3.16 is the preceding closed live unit", normalized_goal)
         self.assertIn("P3.15 is the preceding closed cycle unit", normalized_goal)
         self.assertIn("A=`0x0d3f`", normalized_goal)

@@ -1,6 +1,6 @@
 # S22+ FYG8 P3.18 Post-Rollback Finalization Incident H0
 
-Status: **PASS_GO_H0_CAPABILITY; RECOVERY_PENDING_PARKED; NO LIVE AUTHORITY**
+Status: **LIVE_CLOSED_HEALTHY; CLOSE_AUDIT_PASS_GO_H0; NO LIVE AUTHORITY**
 
 Date: 2026-08-17 KST
 
@@ -125,7 +125,8 @@ Independently approved identities:
   `a23eafbd2f7be73fe2ac1ef20ed9a079683b047cd038c23749f6bf92cc3a3596`;
 - authority: 12,635 bytes,
   `fc8556fb61601a575b95be17a20d57f5ba5677f909280be2220e961519e257c7`;
-- tests: 19,216 bytes,
+- pre-effect reviewed tests, preserved by commit
+  `4e6026eb978458466b5fd87898a7ae3e533378eb`: 19,216 bytes,
   `35926ce79b6a7696ee1cfc0a457d50569803b15a66c1e0ca0f428ba7b8ccda7b`;
 - finalizer approval binding:
   `131c6d13ee7710b22b75cfe55381a612d1403c5e0013528e0e49d5ec38633751`;
@@ -165,6 +166,60 @@ changed closure required and received an independent safety review. That
 `PASS_GO` qualifies only this H0 capability. Connected use still requires a
 new, separate exact operator approval for binding `131c6d13ee7710b22b75cfe55381a612d1403c5e0013528e0e49d5ec38633751`.
 The earlier F1 approval is consumed and cannot authorize this finalizer.
+
+## Live finalization result
+
+The operator supplied the fresh exact approval for binding `131c6d13...` once.
+The finalizer obtained only current rooted, boot-completed FYG8 Android health
+through the reviewed private ADB. It invoked no Download transition, Odin,
+candidate transfer, rollback transfer, device write, retry, or replay.
+
+The existing journal advanced from 15 records at `ROLLBACK_FLASHED` to 19
+records at `CLOSED`. The retained terminal is:
+
+- verdict `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`;
+- outcome `candidate_not_proven_rollback_verified`;
+- proof class `NO_PROOF_OBSERVER`;
+- recovery required false;
+- candidate/rollback transfers exactly 1/1;
+- candidate and rollback attempt 2 absent; and
+- final rooted FYG8 health and exact rollback boot/supporting identities valid.
+
+The arm, final-health receipt, live result, and journal head are direct
+mode-0400, single-link files. The live result is 14,365 bytes at SHA-256
+`0af93d923086e0cc8f37615efca19ba6696b930f9ccaa68d529c41be13edaca9`.
+
+## Post-close audit boundary
+
+Post-effect host-only validation exposed one reporting-only ordering gap: the
+frozen finalizer's generic `--validate` reaches the common final-observer
+correlation before installing the already-reviewed stage-101 incident patch.
+It therefore rejects the closed retained result even though the live path and
+an explicit read-only replay of the correct ordering validate it. The consumed
+finalizer and authority are not modified.
+
+The separate H0 close-audit applies that patch only around CLOSED validation,
+then reopens the exact arm, health receipt, 19-record journal, private ADB, and
+live result. It has no ADB command, USB, Odin, subprocess, transfer, replay, or
+device-action path. Current identities are:
+
+- auditor: 10,593 bytes,
+  `060b8d20691148a213a8b4f189814319ab649e35a814e63951de10bb83a4efb6`;
+- tests: 5,773 bytes,
+  `4cd48708b2a0a1aee6a97d2c96ef66d8aa56b5b5a2365ccfe11e3f13c0e81555`;
+- private receipt: 2,856 bytes, mode 0400, link count one,
+  `890c97300832c5ff63e9aa0a9e61f48098a7a251607fe6ebc89cd3aa26fc7f65`;
+  and
+- focused tests: 7/7, including rejection of exact receipt bytes reopened at
+  any mode other than 0400.
+
+Independent read-only review returned
+`PASS_GO_P318_POSTROLLBACK_CLOSE_AUDIT_H0_CAPABILITY_V1` for only that exact
+changed closure. It reproduced the frozen generic validation gap, regenerated
+the receipt byte-for-byte, verified its exact mode and link count, and passed
+close-audit/docs/taxonomy 54/54 plus predecessor finalizer 21/21. The review
+creates no device, recovery, replay, or live authority and does not reopen the
+closed attempt.
 
 No device command, ADB command, reboot, Download request, Odin invocation,
 partition transfer, candidate replay, rollback replay, A90 action, or S20+

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
+import sys
 import unittest
 from pathlib import Path
 
@@ -27,6 +29,14 @@ POSTROLLBACK_AUTHORITY = ROOT / (
     "workspace/public/src/device-action/recovery/"
     "s22plus_fyg8_p318_postrollback_finalize_v1.json"
 )
+POSTROLLBACK_CLOSE_AUDIT = ROOT / (
+    "workspace/public/src/scripts/revalidation/"
+    "s22plus_fyg8_p318_postrollback_close_audit.py"
+)
+POSTROLLBACK_CLOSE_AUDIT_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p318/"
+    "postrollback-close-audit-20260817-01.json"
+)
 GOAL = ROOT / "GOAL.md"
 LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 TARGET_CONTRACT = ROOT / "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md"
@@ -39,12 +49,13 @@ PREPARED = ROOT / (
 
 
 class P318DocumentationTest(unittest.TestCase):
-    def test_postrollback_finalizer_is_reviewed_and_transfer_free(self):
+    def test_postrollback_finalizer_closed_healthy_and_audit_is_transfer_free(self):
         report = POSTROLLBACK.read_text(encoding="utf-8")
         normalized = " ".join(report.split())
         authority = json.loads(POSTROLLBACK_AUTHORITY.read_text())
         self.assertIn(
-            "PASS_GO_H0_CAPABILITY; RECOVERY_PENDING_PARKED; NO LIVE AUTHORITY",
+            "LIVE_CLOSED_HEALTHY; CLOSE_AUDIT_PASS_GO_H0; "
+            "NO LIVE AUTHORITY",
             report,
         )
         self.assertIn("no Download request", normalized)
@@ -54,6 +65,9 @@ class P318DocumentationTest(unittest.TestCase):
         self.assertIn("candidate_not_proven_rollback_verified", report)
         self.assertIn("received an independent safety review", normalized)
         self.assertIn("qualifies only this H0 capability", normalized)
+        self.assertIn("journal advanced from 15 records", normalized)
+        self.assertIn("exact transfers remain 1/1", GOAL.read_text(encoding="utf-8"))
+        self.assertIn("It has no ADB command, USB, Odin, subprocess", normalized)
         self.assertEqual(
             authority["binding"]["constraints"],
             {
@@ -67,7 +81,7 @@ class P318DocumentationTest(unittest.TestCase):
             },
         )
 
-    def test_postrollback_ledger_preserves_open_attempt_pending_and_review(self):
+    def test_postrollback_ledger_preserves_attempt_review_close_and_audit_pending(self):
         ledger = LEDGER.read_text(encoding="utf-8")
         attempt = "s22plus-fyg8-p318 | 1 | F1 | P318_POSTROLLBACK_CORRELATION_STOP"
         pending = (
@@ -78,11 +92,54 @@ class P318DocumentationTest(unittest.TestCase):
             "s22plus-fyg8-p318 | h0-postrollback-finalizer-review-12 | H0 | "
             "PASS_GO_P318_POSTROLLBACK_FINALIZER_H0_CAPABILITY_V1"
         )
+        close = (
+            "s22plus-fyg8-p318 | 1-recovery-close | F1 | "
+            "CAMPAIGN_CLOSED | HEALTHY | NO_PROOF_OBSERVER | 1/1"
+        )
+        close_audit = (
+            "s22plus-fyg8-p318 | h0-postrollback-close-audit-13 | H0 | "
+            "P318_POSTROLLBACK_CLOSE_AUDIT_IMPLEMENTED_REVIEW_PENDING"
+        )
+        close_audit_review = (
+            "s22plus-fyg8-p318 | h0-postrollback-close-audit-review-13 | H0 | "
+            "PASS_GO_P318_POSTROLLBACK_CLOSE_AUDIT_H0_CAPABILITY_V1"
+        )
         self.assertEqual(ledger.count(attempt), 1)
         self.assertEqual(ledger.count(pending), 1)
         self.assertEqual(ledger.count(review), 1)
+        self.assertEqual(ledger.count(close), 1)
+        self.assertEqual(ledger.count(close_audit), 1)
+        self.assertEqual(ledger.count(close_audit_review), 1)
         self.assertLess(ledger.index(attempt), ledger.index(pending))
         self.assertLess(ledger.index(pending), ledger.index(review))
+        self.assertLess(ledger.index(review), ledger.index(close))
+        self.assertLess(ledger.index(close), ledger.index(close_audit))
+        self.assertLess(ledger.index(close_audit), ledger.index(close_audit_review))
+
+    def test_postrollback_close_audit_private_receipt_is_exact_and_host_only(self):
+        spec = importlib.util.spec_from_file_location(
+            "p318_postrollback_close_audit_docs", POSTROLLBACK_CLOSE_AUDIT
+        )
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        receipt_bytes = POSTROLLBACK_CLOSE_AUDIT_RECEIPT.read_bytes()
+        self.assertEqual(receipt_bytes, module.encode_receipt(module.build_receipt()))
+        self.assertEqual(len(receipt_bytes), 2856)
+        self.assertEqual(
+            hashlib.sha256(receipt_bytes).hexdigest(),
+            "890c97300832c5ff63e9aa0a9e61f48098a7a251607fe6ebc89cd3aa26fc7f65",
+        )
+        receipt = json.loads(receipt_bytes)
+        self.assertEqual(receipt["terminal"]["journal_state"], "CLOSED")
+        self.assertEqual(receipt["terminal"]["journal_record_count"], 19)
+        self.assertEqual(receipt["terminal"]["candidate_transfers"], 1)
+        self.assertEqual(receipt["terminal"]["rollback_transfers"], 1)
+        self.assertFalse(receipt["scope"]["device_actions"])
+        self.assertFalse(receipt["scope"]["device_contact"])
+        self.assertFalse(receipt["scope"]["live_authority_created"])
 
     def test_report_binds_current_private_receipts(self):
         report = REPORT.read_text(encoding="utf-8")
