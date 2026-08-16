@@ -184,10 +184,53 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         """A field nothing enforces is decoration; this session shipped two."""
         self.assertIn("RKP_CFP_DISABLED_RESIDENT", self.design)
         self.assertIn("binds it by digest", self.design)
-        self.assertIn("over the manifest SHA **and** the hazard ID", self.design)
+        self.assertIn("inside the complete approval binding", self.design)
         self.assertIn("`accepted: true`", self.design)
         self.assertIn("unknown or unqualified hazard ID stops the owner", self.design)
         self.assertIn("empty invariant tuple", self.design)
+
+    def test_approval_binding_is_exact_to_the_live_target_and_run(self) -> None:
+        """Manifest equality must not transfer authority to another target/run."""
+        for token in (
+            "`approval-binding-v1`",
+            "canonical typed JSON",
+            "duplicate keys",
+            "exact target profile",
+            "live target evidence digest",
+            "current boot ID",
+            "run ID",
+            "journal namespace",
+            "manifest SHA256",
+            "candidate SHA256",
+            "rollback SHA256",
+            "helper SHA256",
+            "owner closure SHA256",
+            "helper and transport versions",
+            "observation timeout and acceptance rule",
+            "mandatory recovery plan",
+            "hazard IDs and qualification digests",
+            "expiry",
+            "nonce",
+            "immediately before `CANDIDATE_INTENT`",
+            "atomically consumed",
+            "same approval-binding SHA256",
+        ):
+            self.assertIn(token, self.design, token)
+
+    def test_approval_binding_preserves_process_v2_inputs(self) -> None:
+        process = flatten(PROCESS.read_text(encoding="utf-8"))
+        target = flatten(TARGET.read_text(encoding="utf-8"))
+        for token in (
+            "exact target profile and live target evidence digest",
+            "candidate and rollback AP SHA256",
+            "manifest SHA256",
+            "runner and Odin versions",
+            "observation timeout and acceptance rule",
+            "mandatory recovery plan",
+        ):
+            self.assertIn(token, process, token)
+        self.assertIn("exact target, candidate, rollback, recovery evidence", target)
+        self.assertIn("complete execution closure", target)
 
     def test_the_state_machine_has_three_terminals_and_no_refuted(self) -> None:
         for state in (
@@ -319,8 +362,13 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "more than one candidate or rollback attempt",
             "resident other than `expected_start`",
             "runtime hash differs from the manifest",
-            "approval token that does not derive from this manifest SHA",
+            "approval token that does not derive from the complete approval-binding",
             "missing the hazard ID",
+            "approval from another A90 with the same resident",
+            "approval from an earlier boot ID",
+            "approval from another run or journal namespace",
+            "changed observation rule or recovery plan",
+            "changed owner closure, helper, or transport version",
             "crash after `CANDIDATE_INTENT`",
             "without\n  candidate replay",
             "crash before `ROLLBACK_INTENT`",

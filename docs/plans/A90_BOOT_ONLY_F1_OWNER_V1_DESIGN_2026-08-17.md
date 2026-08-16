@@ -72,7 +72,8 @@ It does exactly this and nothing else:
    equal the manifest's `expected_start`;
 3. re-hash the candidate and rollback files **at execution time**, immediately
    before use;
-4. require an empty durable journal and a fresh approval token;
+4. require an empty durable journal, construct the exact live
+   `approval-binding-v1`, and consume one fresh token for that binding;
 5. `fsync` a `CANDIDATE_INTENT` record before any transfer;
 6. transfer the candidate exactly once;
 7. verify exact candidate version, build, self-test, and a bounded control
@@ -179,6 +180,46 @@ predecessor survived 32 bindings in the H27 runner:
 An H27 manifest presented against any resident other than H24 `0.11.192` stops
 before any effect.
 
+## Approval is exact live authority
+
+The manifest remains data. After fresh preflight, the owner constructs one
+`approval-binding-v1` as canonical typed JSON. Its parser rejects duplicate
+keys, unknown or missing fields, bool/integer substitution, non-canonical
+numbers or strings, and any byte encoding other than the one exact schema. The
+binding contains:
+
+| field | bound value |
+|---|---|
+| target | exact target profile and live target evidence digest |
+| boot/run | current boot ID, run ID, and journal namespace |
+| manifest | manifest SHA256 |
+| transfer bytes | candidate SHA256, rollback SHA256, and helper SHA256 |
+| closure | owner closure SHA256 |
+| implementation | helper and transport versions |
+| observation | observation timeout and acceptance rule |
+| recovery | mandatory recovery plan |
+| hazards | hazard IDs and qualification digests |
+| freshness | expiry and nonce |
+
+The private live-target evidence is created by the fresh preflight for this
+physical A90 and current boot; the approval carries its digest, never the
+private identifiers. The owner creates the run directory and empty journal
+before approval, so the run ID and journal namespace already exist and cannot
+be chosen after authorization.
+
+The owner repeats target continuity, current boot, run/journal, artifact,
+closure, implementation, observation, recovery, and hazard checks immediately
+before `CANDIDATE_INTENT` and recomputes the binding bytes. The
+operator-visible token derives from the whole approval-binding SHA256, not from
+the manifest alone. A no-replace approval record is file- and directory-fsynced
+and atomically consumed for that exact run before intent; reuse, expiry, a
+foreign consumption marker, or any changed field stops before an effect.
+
+`APPROVED`, `CANDIDATE_INTENT`, every rollback record, and every terminal carry
+the same approval-binding SHA256. A terminal cannot substitute a later binding,
+and a token for the same manifest on another A90, boot, run, or journal is
+invalid even when its resident version and build happen to match.
+
 ## Hazard binding
 
 A boolean in data that nothing enforces is decoration. This session produced
@@ -188,8 +229,8 @@ at three points:
 
 1. a reviewed hazard-qualification artifact exists for
    `RKP_CFP_DISABLED_RESIDENT`, and the manifest binds it by digest;
-2. the fresh approval token derives from a binding over the manifest SHA **and**
-   the hazard ID, so approval cannot be given without the hazard in view;
+2. its ID and qualification digest appear inside the complete approval binding,
+   so approval cannot be given without the hazard in view;
 3. the terminal records the same hazard ID with `accepted: true`, so what was
    accepted stays durable after the run.
 
@@ -297,8 +338,14 @@ The owner is only as good as what it refuses. At minimum:
 - candidate or rollback whose runtime hash differs from the manifest;
 - absent, symlinked, or non-regular candidate, rollback, or helper;
 - flash helper whose hash differs from the pinned value;
-- approval token that does not derive from this manifest SHA;
+- approval token that does not derive from the complete approval-binding
+  SHA256;
 - approval token missing the hazard ID, or naming an unqualified hazard;
+- approval from another A90 with the same resident;
+- approval from an earlier boot ID;
+- approval from another run or journal namespace;
+- changed observation rule or recovery plan after approval;
+- changed owner closure, helper, or transport version after approval;
 - reused or expired approval;
 - non-empty journal at start;
 - crash after `CANDIDATE_INTENT` and before result — must resume without
