@@ -103,6 +103,63 @@ disappear when the executing owner does the hashing. No reviewer reads private
 bytes, and no receipt needs binding, because the check happens where and when
 it matters.
 
+### File lifetime and post-helper revalidation
+
+An immediate pre-use hash is not a lease. For the candidate, rollback, flash
+helper, and every generated non-stdlib helper-closure member, the owner opens
+the ordinary absolute path with `O_RDONLY|O_CLOEXEC|O_NOFOLLOW` before approval.
+It rejects a missing, symlinked, non-regular, group/world-writable, or hardlinked
+object, or an object not owned by the invoking host identity, and records one
+`artifact-identity-v1` tuple:
+
+`role, absolute path, st_dev, st_ino, st_mode, st_uid, st_gid, st_nlink=1,
+exact size, SHA256`.
+
+Every path ancestor below the configured artifact root and the containing
+directory must be a real, non-symlink directory with a fixed `st_dev:st_ino`, be
+owned by the invoking host identity, and not be group/world writable. Any
+concurrent writer with that identity is outside this lane and is an immediate
+stop. This explicit precondition closes the interval in which Python must open
+the helper and its imports by ordinary path; the owner never turns an FD or
+temporary alias into a transfer-tool pathname.
+
+The owner keeps each opened FD until the corresponding helper has exited and
+been reaped. A signal, timeout, or lost return first requires the exact helper
+process group and every descendant quiescent; it does not skip the artifact
+check. At approval, immediately before a candidate or rollback helper release,
+and after every normal or abnormal helper exit, it:
+
+1. `fstat`s the held FD and requires the exact recorded tuple;
+2. hashes the complete held regular file from offset zero and requires the
+   recorded size and SHA256; and
+3. `lstat`s the ordinary pathname and requires the same regular-file
+   `st_dev:st_ino`, mode, owner, link count, and size as the held FD.
+
+The helper receives only that ordinary absolute candidate or rollback path plus
+the exact expected size and SHA256. The reviewed `native_init_flash.py` then
+independently opens it with `O_NOFOLLOW`, copies only those exact bytes to its
+private mode-`0600` sealed image, verifies the sealed size and SHA256, and uses
+only that sealed image for transfer. A pathname swap, truncation, content
+change, inode replacement, symlink, hardlink, or helper/import drift therefore
+cannot become an accepted transfer input.
+
+The post-return checks happen before the owner interprets helper success,
+publishes a transfer result, observes candidate health, or publishes a
+terminal. Their exact tuples and pass/fail result are bound into the helper
+result record. A mismatch before a device session is a host rejection. A
+mismatch after `CANDIDATE_INTENT` consumes the candidate attempt and never
+permits candidate replay. Candidate-source drift may enter the already bound
+rollback path only when the rollback plus the complete helper closure still
+pass fresh exact checks; rollback or helper-closure drift parks as
+`RECOVERY_REQUIRED` without launching changed bytes. A mismatch after rollback
+release likewise never permits another rollback.
+
+After an owner crash, no vanished FD is reconstructed as proof. Recovery
+reopens every still-needed path with the same flags and requires the complete
+durable `artifact-identity-v1` tuple, directory identities, size, and SHA256
+before observation or the already-authorized rollback path. A mismatch keeps
+the candidate consumed and parks without candidate or rollback replay.
+
 ### Execution closure
 
 Deliberately small:
@@ -375,6 +432,14 @@ The owner is only as good as what it refuses. At minimum:
 - manifest presented against a resident other than `expected_start`;
 - candidate or rollback whose runtime hash differs from the manifest;
 - absent, symlinked, or non-regular candidate, rollback, or helper;
+- hardlinked, group/world-writable, or wrong-owner artifact or containing
+  directory;
+- pathname `st_dev:st_ino` different from the held FD before release;
+- candidate, rollback, helper, or helper-import size/SHA256 drift while the
+  helper runs or after it returns;
+- candidate artifact restored after a transient different-byte substitution —
+  the helper's independently verified sealed copy must still match the bound
+  size and SHA256;
 - flash helper whose hash differs from the pinned value;
 - approval token that does not derive from the complete approval-binding
   SHA256;
@@ -389,6 +454,8 @@ The owner is only as good as what it refuses. At minimum:
 - crash after `CANDIDATE_INTENT` and before result — must resume without
   candidate replay;
 - candidate retry attempted after a failure;
+- post-candidate artifact drift followed by candidate retry;
+- rollback or helper-closure drift followed by rollback launch;
 - rollback attempted before candidate intent;
 - crash before `ROLLBACK_INTENT` — no rollback helper or effect exists;
 - crash after `ROLLBACK_INTENT` and before `ROLLBACK_LAUNCHED` — only the same

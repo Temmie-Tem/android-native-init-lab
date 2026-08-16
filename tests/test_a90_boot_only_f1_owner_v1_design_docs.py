@@ -100,6 +100,69 @@ SUCCESS_PAYLOAD_KEYS = frozenset(
         "finalHealthReceiptSha256",
     }
 )
+ARTIFACT_IDENTITY_KEYS = frozenset(
+    {
+        "role",
+        "path",
+        "pathType",
+        "fdType",
+        "pathDev",
+        "pathIno",
+        "fdDev",
+        "fdIno",
+        "mode",
+        "uid",
+        "gid",
+        "nlink",
+        "size",
+        "sha256",
+    }
+)
+
+
+def artifact_identity(**overrides: object) -> dict[str, object]:
+    identity: dict[str, object] = {
+        "role": "candidate",
+        "path": "/stable/a90/candidate.img",
+        "pathType": "regular",
+        "fdType": "regular",
+        "pathDev": 10,
+        "pathIno": 20,
+        "fdDev": 10,
+        "fdIno": 20,
+        "mode": 0o100600,
+        "uid": 1000,
+        "gid": 1000,
+        "nlink": 1,
+        "size": 4096,
+        "sha256": "d" * 64,
+    }
+    identity.update(overrides)
+    return identity
+
+
+def validate_artifact_checkpoint(
+    bound: dict[str, object],
+    current: dict[str, object],
+) -> None:
+    """Reference model for the held-FD plus pathname lifetime check."""
+    if frozenset(bound) != ARTIFACT_IDENTITY_KEYS or frozenset(current) != ARTIFACT_IDENTITY_KEYS:
+        raise ValueError("artifact identity schema mismatch")
+    if current["pathType"] != "regular" or current["fdType"] != "regular":
+        raise ValueError("artifact is not regular")
+    if current["nlink"] != 1:
+        raise ValueError("artifact link count drift")
+    if bound["uid"] != 1000 or current["uid"] != 1000:
+        raise ValueError("artifact owner mismatch")
+    if type(current["mode"]) is not int or current["mode"] & 0o022:
+        raise ValueError("artifact mode drift")
+    if (current["pathDev"], current["pathIno"]) != (
+        current["fdDev"],
+        current["fdIno"],
+    ):
+        raise ValueError("pathname and held FD differ")
+    if current != bound:
+        raise ValueError("artifact identity or content drift")
 
 
 def canonical_json(value: object) -> bytes:
@@ -336,6 +399,65 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         self.assertIn("That is the authoritative check", self.design)
         self.assertIn("No reviewer reads private bytes", self.design)
         self.assertIn("no receipt needs binding", self.design)
+
+    def test_artifact_lifetime_matches_process_v2(self) -> None:
+        process = flatten(PROCESS.read_text(encoding="utf-8"))
+        self.assertIn(
+            "Recheck file descriptor identity and content after subprocess return",
+            process,
+        )
+        for token in (
+            "File lifetime and post-helper revalidation",
+            "`O_RDONLY|O_CLOEXEC|O_NOFOLLOW`",
+            "`artifact-identity-v1`",
+            "st_dev",
+            "st_ino",
+            "st_nlink=1",
+            "Every path ancestor below the configured artifact root",
+            "real, non-symlink directory",
+            "keeps each opened FD until the corresponding helper has exited",
+            "signal, timeout, or lost return",
+            "immediately before a candidate or rollback helper release",
+            "after every normal or abnormal helper exit",
+            "uses\nonly that sealed image for transfer",
+            "before the owner interprets helper success",
+            "After an owner crash, no vanished FD is reconstructed as proof",
+            "requires the complete\ndurable `artifact-identity-v1` tuple",
+        ):
+            self.assertIn(token, self.raw, token)
+
+    def test_artifact_checkpoint_rejects_path_content_and_link_drift(self) -> None:
+        bound = artifact_identity()
+        validate_artifact_checkpoint(bound, dict(bound))
+        hostile = (
+            {"pathType": "symlink"},
+            {"pathIno": 21, "fdIno": 21},
+            {"pathIno": 21},
+            {"size": 2048},
+            {"sha256": "e" * 64},
+            {"mode": 0o100620},
+            {"uid": 0},
+            {"nlink": 2},
+        )
+        for mutation in hostile:
+            with self.subTest(mutation=mutation):
+                current = dict(bound)
+                current.update(mutation)
+                with self.assertRaisesRegex(ValueError, "artifact|pathname"):
+                    validate_artifact_checkpoint(bound, current)
+        wrong_owner = artifact_identity(uid=0)
+        with self.assertRaisesRegex(ValueError, "owner"):
+            validate_artifact_checkpoint(wrong_owner, dict(wrong_owner))
+
+    def test_post_effect_drift_never_reopens_an_attempt(self) -> None:
+        for token in (
+            "mismatch after `CANDIDATE_INTENT` consumes the candidate attempt",
+            "never\npermits candidate replay",
+            "complete helper closure still\npass fresh exact checks",
+            "parks as\n`RECOVERY_REQUIRED` without launching changed bytes",
+            "mismatch after rollback\nrelease likewise never permits another rollback",
+        ):
+            self.assertIn(token, self.raw, token)
 
     def test_the_hazard_is_bound_at_three_points(self) -> None:
         """A field nothing enforces is decoration; this session shipped two."""
@@ -603,6 +725,10 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "more than one candidate or rollback attempt",
             "resident other than `expected_start`",
             "runtime hash differs from the manifest",
+            "hardlinked, group/world-writable, or wrong-owner artifact",
+            "pathname `st_dev:st_ino` different from the held FD",
+            "helper runs or after it returns",
+            "transient different-byte substitution",
             "approval token that does not derive from the complete approval-binding",
             "missing the hazard ID",
             "approval from another A90 with the same resident",
@@ -612,6 +738,8 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "changed owner closure, helper, or transport version",
             "crash after `CANDIDATE_INTENT`",
             "without\n  candidate replay",
+            "post-candidate artifact drift followed by candidate retry",
+            "rollback or helper-closure drift followed by rollback launch",
             "crash before `ROLLBACK_INTENT`",
             "crash after `ROLLBACK_INTENT` and before `ROLLBACK_LAUNCHED`",
             "crash after `ROLLBACK_LAUNCHED` and before release",
