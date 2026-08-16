@@ -140,6 +140,16 @@ EXECUTION_REVIEW_INCIDENT
 EXECUTION_REVIEW_REQUIRED_INVARIANTS
 ```
 
+The predecessor bindings are **already filled** and are not waiting on this
+review. They were derived rather than chosen: `CURRENT_VERSION`,
+`CURRENT_BUILD`, `CURRENT_BOOT_SIZE`, and `CURRENT_BOOT_SHA256` come from the
+staged H24 resident, and `CURRENT_INSTALL_EXECUTION_CLOSURE_SHA256` is
+`phase3-minimal-h24/execution-qualification.json`'s own
+`execution_closure_sha256`. That derivation rule was checked against the
+predecessor it replaces: the H24 runner bound `dcb507f5...`, which is exactly
+`phase3-minimal-h18/execution-qualification.json`'s value. Filling them changed
+the execution closure, so the closure must be re-frozen and re-reviewed.
+
 `tests/test_a90_h27_ufs_f1_runner_v1.py` asserts these stay unset and that the
 named reports are absent. Those tests must be updated in the same change that
 fills them, with the reports present.
@@ -148,8 +158,8 @@ fills them, with the reports present.
 
 These are scoping decisions the author deliberately did not settle.
 
-1. **Predecessor terminal.** The runner's `CURRENT_*` and D1-evidence bindings
-   are unset. H27's predecessor is H24 `0.11.192` (boot.img 58,372,096,
+1. **Predecessor terminal.** Now bound, and the review should confirm the
+   binding rather than only the values. H27's predecessor is H24 `0.11.192` (boot.img 58,372,096,
    `d8c280e4acee5d17d13270fdf25535b4ce05304e786bc22efa84ab16f6b82782`), whose D1
    evidence is at `workspace/private/runs/server-distro/a90-h24-ufs-f1-20260812-01`
    and closed `REFUTED_H24_POST_ROOT_FAILURE_ATTRIBUTED_NATIVE_FALLBACK_HEALTHY`.

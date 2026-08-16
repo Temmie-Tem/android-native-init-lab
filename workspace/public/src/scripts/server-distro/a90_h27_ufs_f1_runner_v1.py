@@ -84,11 +84,21 @@ H24_AUTO_STATUS_RE = re.compile(
 #
 # The measured H24 values are recorded in the handoff so the reviewer does not
 # have to rediscover them; they are deliberately not installed as bindings.
-CURRENT_VERSION = "UNSET_PENDING_H27_PREDECESSOR_REBIND"
-CURRENT_BUILD = "UNSET_PENDING_H27_PREDECESSOR_REBIND"
-CURRENT_BOOT_SIZE = 0
-CURRENT_BOOT_SHA256 = "UNSET_PENDING_H27_PREDECESSOR_REBIND"
-CURRENT_INSTALL_EXECUTION_CLOSURE_SHA256 = "UNSET_PENDING_H27_PREDECESSOR_REBIND"
+CURRENT_VERSION = "0.11.192"
+CURRENT_BUILD = (
+    "phase3-minimal-h24-ufs-auth-native-hud-private-card-root-minimal-debian-dev"
+)
+CURRENT_BOOT_SIZE = 58372096
+CURRENT_BOOT_SHA256 = (
+    "d8c280e4acee5d17d13270fdf25535b4ce05304e786bc22efa84ab16f6b82782"
+)
+# Derived from H24's own execution qualification rather than recomputed here.
+# The rule was verified against the predecessor it replaces: the H24 runner bound
+# dcb507f5..., which is exactly phase3-minimal-h18/execution-qualification.json's
+# execution_closure_sha256. This is phase3-minimal-h24's.
+CURRENT_INSTALL_EXECUTION_CLOSURE_SHA256 = (
+    "c0b8f2e31aff1bcb552e6e708c353ebffdd0cb1237e9dc460cc791ec80a76ae4"
+)
 # The independent review settled that H24 is an acceptable predecessor: a D1
 # refutation does not retroactively fail an installation
 # (A90_TARGET_CONTRACT.md:1276-1279). It also required the two terminals be

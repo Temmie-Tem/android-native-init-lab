@@ -35,6 +35,10 @@ RECEIPT = REPO / (
     "/a90-h27-selfbuilt-kernel-ab-20260817-01/ab-receipt.json"
 )
 CANDIDATE = RECEIPT.parent / "A/boot.img"
+RESIDENT = REPO / (
+    "workspace/private/outputs"
+    "/a90-h24-minimal-debian-dev-ab-20260812-01/A/boot.img"
+)
 HANDOFF = REPO / "docs/plans/A90_H27_INDEPENDENT_REVIEW_HANDOFF_2026-08-17.md"
 
 
@@ -62,22 +66,26 @@ class H27RunnerUnqualifiedTests(unittest.TestCase):
         cls.mod = load_runner()
         cls.text = RUNNER.read_text(encoding="utf-8")
 
-    def test_the_guard_refuses_and_names_every_unset_binding(self) -> None:
+    def test_the_guard_names_exactly_the_review_bindings(self) -> None:
+        """Only review artifacts remain unset; the predecessor is derivable."""
         with self.assertRaises(self.mod.ContractError) as caught:
             self.mod.require_h27_reviews_exist()
         message = str(caught.exception)
         self.assertIn("not qualified for any device effect", message)
-        for name in (
-            "H27_REVIEW_DATE",
-            "HOST_CAPABILITY_CLOSURE_SHA256",
-            "HOST_CAPABILITY_REVIEWER",
-            "HOST_CAPABILITY_INCIDENT",
-            "HOST_CAPABILITY_REQUIRED_INVARIANTS",
-            "EXECUTION_REVIEWER",
-            "EXECUTION_REVIEW_INCIDENT",
-            "EXECUTION_REVIEW_REQUIRED_INVARIANTS",
-        ):
-            self.assertIn(name, message, name)
+        unset = sorted(message.split("bindings: ")[-1].split(", "))
+        self.assertEqual(
+            unset,
+            [
+                "EXECUTION_REVIEWER",
+                "EXECUTION_REVIEW_INCIDENT",
+                "EXECUTION_REVIEW_REQUIRED_INVARIANTS",
+                "H27_REVIEW_DATE",
+                "HOST_CAPABILITY_CLOSURE_SHA256",
+                "HOST_CAPABILITY_INCIDENT",
+                "HOST_CAPABILITY_REQUIRED_INVARIANTS",
+                "HOST_CAPABILITY_REVIEWER",
+            ],
+        )
 
     def test_capability_validation_refuses_before_touching_the_filesystem(self) -> None:
         """The guard must fire ahead of the missing-file error, not behind it."""
@@ -301,16 +309,49 @@ class H27RebindTests(unittest.TestCase):
         self.assertIn("H25 `0.11.193`", goal)
         self.assertIn("NO_GO_RETIRED", goal)
 
-    def test_the_h18_predecessor_binding_was_unbound_not_guessed(self) -> None:
-        self.assertTrue(
-            self.mod.CURRENT_VERSION.startswith("UNSET_PENDING_"), self.mod.CURRENT_VERSION
-        )
-        self.assertEqual(self.mod.CURRENT_BOOT_SIZE, 0)
+    def test_the_predecessor_is_bound_to_the_actual_h24_resident(self) -> None:
+        """Derived from H24's evidence, not from the H18 values it replaced."""
+        self.assertEqual(self.mod.CURRENT_VERSION, "0.11.192")
+        self.assertIn("phase3-minimal-h24-ufs-auth", self.mod.CURRENT_BUILD)
+        self.assertEqual(self.mod.CURRENT_BOOT_SIZE, 58372096)
         self.assertFalse(hasattr(self.mod, "H18_D1_RECORDS"))
         self.assertNotIn("0.11.186", self.text)
-        self.assertNotIn("phase3-minimal-h18", self.text)
+        self.assertEqual(self.text.count("phase3-minimal-h18"), 1)  # provenance note only
+        if not RESIDENT.is_file():
+            self.skipTest(f"private artifact not staged on this host: {RESIDENT}")
+        raw = RESIDENT.read_bytes()
+        self.assertEqual(len(raw), self.mod.CURRENT_BOOT_SIZE)
+        self.assertEqual(
+            hashlib.sha256(raw).hexdigest(), self.mod.CURRENT_BOOT_SHA256
+        )
 
-    def test_the_guard_covers_the_predecessor_bindings(self) -> None:
+    def test_the_predecessor_closure_digest_is_derived_not_invented(self) -> None:
+        """It must equal H24's own execution qualification, as H18's did for H24."""
+        import json
+
+        h24 = json.loads(
+            (
+                REPO
+                / "workspace/public/src/scripts/revalidation/a90_flat_builder"
+                / "versions/phase3-minimal-h24/execution-qualification.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            self.mod.CURRENT_INSTALL_EXECUTION_CLOSURE_SHA256,
+            h24["execution_closure_sha256"],
+        )
+        h18 = json.loads(
+            (
+                REPO
+                / "workspace/public/src/scripts/revalidation/a90_flat_builder"
+                / "versions/phase3-minimal-h18/execution-qualification.json"
+            ).read_text(encoding="utf-8")
+        )
+        h24_runner = (SERVER / "a90_h24_ufs_f1_runner_v1.py").read_text(encoding="utf-8")
+        self.assertIn(h18["execution_closure_sha256"], h24_runner)
+
+    def test_the_guard_no_longer_lists_the_bound_predecessor(self) -> None:
+        """Filling the predecessor must shrink the guard, not silence it."""
         with self.assertRaises(self.mod.ContractError) as caught:
             self.mod.require_h27_reviews_exist()
         message = str(caught.exception)
@@ -320,8 +361,9 @@ class H27RebindTests(unittest.TestCase):
             "CURRENT_BOOT_SHA256",
             "CURRENT_BOOT_SIZE",
             "CURRENT_INSTALL_EXECUTION_CLOSURE_SHA256",
+            "H24_D1_RECORDS",
         ):
-            self.assertIn(name, message, name)
+            self.assertNotIn(name, message, name)
 
     def test_the_d1_scope_was_removed(self) -> None:
         for rel in self.mod.EXECUTION_SOURCE_RELS:
