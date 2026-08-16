@@ -1,11 +1,11 @@
-"""Hold the H24K F1 runner unqualified until real reviews exist.
+"""Hold the H27 F1 runner unqualified until real reviews exist.
 
 This runner can flash the A90. It was authored by adapting the reviewed H24
 runner, and the constants that matter most are not code the author gets to
 choose: they restate findings an independent reviewer signed, which the runner
 then cross-checks against that reviewer's report.
 
-No such review exists for H24K. These tests exist to keep that true and
+No such review exists for H27. These tests exist to keep that true and
 visible: that the placeholders stay placeholders, that an empty invariant list
 never reads as "nothing required", and that every device-effect entry point
 refuses. A future change that fills the bindings must come with the report, and
@@ -24,18 +24,18 @@ import unittest
 
 REPO = Path(__file__).resolve().parents[1]
 SERVER = REPO / "workspace/public/src/scripts/server-distro"
-RUNNER = SERVER / "a90_h24k_ufs_f1_runner_v1.py"
+RUNNER = SERVER / "a90_h27_ufs_f1_runner_v1.py"
 H24_RUNNER = SERVER / "a90_h24_ufs_f1_runner_v1.py"
 MANIFEST = REPO / (
     "workspace/public/src/scripts/revalidation/a90_flat_builder"
-    "/versions/phase3-minimal-h24k/manifest.toml"
+    "/versions/phase3-minimal-h27/manifest.toml"
 )
 RECEIPT = REPO / (
     "workspace/private/outputs"
-    "/a90-h24k-selfbuilt-kernel-ab-20260816-01/ab-receipt.json"
+    "/a90-h27-selfbuilt-kernel-ab-20260817-01/ab-receipt.json"
 )
 CANDIDATE = RECEIPT.parent / "A/boot.img"
-HANDOFF = REPO / "docs/plans/A90_H24K_INDEPENDENT_REVIEW_HANDOFF_2026-08-17.md"
+HANDOFF = REPO / "docs/plans/A90_H27_INDEPENDENT_REVIEW_HANDOFF_2026-08-17.md"
 
 
 def load_h24():
@@ -48,15 +48,15 @@ def load_h24():
 
 
 def load_runner():
-    spec = importlib.util.spec_from_file_location("a90_h24k_runner_under_test", RUNNER)
+    spec = importlib.util.spec_from_file_location("a90_h27_runner_under_test", RUNNER)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
-    sys.modules["a90_h24k_runner_under_test"] = module
+    sys.modules["a90_h27_runner_under_test"] = module
     spec.loader.exec_module(module)
     return module
 
 
-class H24KRunnerUnqualifiedTests(unittest.TestCase):
+class H27RunnerUnqualifiedTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.mod = load_runner()
@@ -64,11 +64,11 @@ class H24KRunnerUnqualifiedTests(unittest.TestCase):
 
     def test_the_guard_refuses_and_names_every_unset_binding(self) -> None:
         with self.assertRaises(self.mod.ContractError) as caught:
-            self.mod.require_h24k_reviews_exist()
+            self.mod.require_h27_reviews_exist()
         message = str(caught.exception)
         self.assertIn("not qualified for any device effect", message)
         for name in (
-            "H24K_REVIEW_DATE",
+            "H27_REVIEW_DATE",
             "HOST_CAPABILITY_CLOSURE_SHA256",
             "HOST_CAPABILITY_REVIEWER",
             "HOST_CAPABILITY_INCIDENT",
@@ -91,9 +91,9 @@ class H24KRunnerUnqualifiedTests(unittest.TestCase):
         self.assertIn("must never read as", self.text)
 
     def test_the_h24_review_date_was_not_inherited(self) -> None:
-        """A stale date would let an H24-dated report satisfy an H24K check."""
+        """A stale date would let an H24-dated report satisfy an H27 check."""
         self.assertEqual(
-            self.mod.H24K_REVIEW_DATE, "UNSET_PENDING_H24K_CAPABILITY_REVIEW"
+            self.mod.H27_REVIEW_DATE, "UNSET_PENDING_H27_CAPABILITY_REVIEW"
         )
         self.assertNotIn('"2026-08-12"', self.text)
 
@@ -119,9 +119,9 @@ class H24KRunnerUnqualifiedTests(unittest.TestCase):
             )
 
     def test_the_candidate_binding_matches_the_built_artifact(self) -> None:
-        self.assertEqual(self.mod.CANDIDATE_VERSION, "0.11.193")
+        self.assertEqual(self.mod.CANDIDATE_VERSION, "0.11.194")
         self.assertEqual(
-            self.mod.CANDIDATE_BUILD, "phase3-minimal-h24k-selfbuilt-kernel-nocfp"
+            self.mod.CANDIDATE_BUILD, "phase3-minimal-h27-selfbuilt-kernel-nocfp"
         )
         if not CANDIDATE.is_file():
             self.skipTest(f"private artifact not staged on this host: {CANDIDATE}")
@@ -153,16 +153,16 @@ class H24KRunnerUnqualifiedTests(unittest.TestCase):
             hashlib.sha256(MANIFEST.read_bytes()).hexdigest(),
             self.mod.CANDIDATE_MANIFEST_SHA256,
         )
-        self.assertIn("phase3-minimal-h24k/manifest.toml", self.mod.VERSION_MANIFEST_REL)
+        self.assertIn("phase3-minimal-h27/manifest.toml", self.mod.VERSION_MANIFEST_REL)
 
     def test_the_fresh_state_paths_replace_the_h24_pair(self) -> None:
         """A90_TARGET_CONTRACT.md:320-324 -- a prior enable/latch pair is never reused."""
         self.assertEqual(
             self.mod.ENABLE_PATH,
-            "/cache/a90-auto-handoff-phase3-minimal-h24k.enable",
+            "/cache/a90-auto-handoff-phase3-minimal-h27.enable",
         )
         self.assertEqual(
-            self.mod.LATCH_PATH, "/cache/a90-auto-handoff-phase3-minimal-h24k.done"
+            self.mod.LATCH_PATH, "/cache/a90-auto-handoff-phase3-minimal-h27.done"
         )
         self.assertEqual(
             self.mod.FORBIDDEN_PRIOR_STATE_PATHS,
@@ -181,7 +181,7 @@ class H24KRunnerUnqualifiedTests(unittest.TestCase):
 
     def test_it_binds_its_own_source_not_the_h24_runner(self) -> None:
         self.assertIn(
-            "workspace/public/src/scripts/server-distro/a90_h24k_ufs_f1_runner_v1.py",
+            "workspace/public/src/scripts/server-distro/a90_h27_ufs_f1_runner_v1.py",
             self.mod.EXECUTION_SOURCE_RELS,
         )
         self.assertNotIn(
@@ -208,17 +208,17 @@ class H24KRunnerUnqualifiedTests(unittest.TestCase):
                 getattr(self.mod, attr), getattr(h24, attr), attr
             )
         self.assertNotEqual(self.mod.RUN_ID_RE.pattern, h24.RUN_ID_RE.pattern)
-        self.assertRegex("a90-h24k-ufs-f1-20260817-01", self.mod.RUN_ID_RE)
+        self.assertRegex("a90-h27-ufs-f1-20260817-01", self.mod.RUN_ID_RE)
         self.assertNotRegex("a90-h24-ufs-f1-20260817-01", self.mod.RUN_ID_RE)
 
-    def test_the_journal_and_approval_paths_are_h24k_specific(self) -> None:
-        for token in ("h24k-f1-live", "h24k-f1-approval-prepared.json"):
+    def test_the_journal_and_approval_paths_are_h27_specific(self) -> None:
+        for token in ("h27-f1-live", "h27-f1-approval-prepared.json"):
             self.assertIn(token, self.text, token)
         for token in ('"h24-f1-live"', '"h24-f1-approval-prepared.json"'):
             self.assertNotIn(token, self.text, token)
 
-    def test_the_terminal_status_is_h24k_scoped(self) -> None:
-        self.assertIn("PASS_A90_H24K_UFS_RESIDENT_INSTALLED", self.text)
+    def test_the_terminal_status_is_h27_scoped(self) -> None:
+        self.assertIn("PASS_A90_H27_UFS_RESIDENT_INSTALLED", self.text)
         self.assertNotIn("PASS_A90_H24_UFS_RESIDENT_INSTALLED", self.text)
 
     def test_the_h24_runner_was_not_modified(self) -> None:
@@ -236,7 +236,7 @@ if __name__ == "__main__":
     unittest.main()
 
 
-class H24KReviewHandoffTests(unittest.TestCase):
+class H27ReviewHandoffTests(unittest.TestCase):
     """The handoff must match the runner, and must not pre-write the review."""
 
     @classmethod
@@ -269,12 +269,14 @@ class H24KReviewHandoffTests(unittest.TestCase):
 
     def test_it_discloses_the_prior_no_go_history(self) -> None:
         self.assertIn("no-go", self.doc)
-        self.assertIn("Draft 1 was written without reading", self.doc)
+        self.assertIn("three times", self.doc)
+        self.assertIn("retired H25's identity", self.doc)
+        self.assertIn("validated H18 as its starting resident", self.doc)
 
     def test_it_leaves_the_scoping_questions_open(self) -> None:
         for token in (
-            "Execution closure scope",
-            "`d1_runner_qualified`",
+            "Predecessor terminal",
+            "Proof axis semantics",
             "acceptable at all",
             "Terminal semantics",
         ):
@@ -283,3 +285,80 @@ class H24KReviewHandoffTests(unittest.TestCase):
     def test_it_says_a_pass_go_is_not_a_flash_authorization(self) -> None:
         self.assertIn("does not authorize a flash", self.doc)
         self.assertIn("it cannot grant authority", self.doc)
+
+
+class H27RebindTests(unittest.TestCase):
+    """The third no-go found a wrong identity and a wrong predecessor."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.mod = load_runner()
+        cls.text = RUNNER.read_text(encoding="utf-8")
+
+    def test_the_retired_h25_identity_is_gone(self) -> None:
+        self.assertEqual(self.mod.CANDIDATE_VERSION, "0.11.194")
+        self.assertNotIn("0.11.193", self.text)
+        goal = (REPO / "GOAL_A90.md").read_text(encoding="utf-8")
+        self.assertIn("H25 `0.11.193`", goal)
+        self.assertIn("NO_GO_RETIRED", goal)
+
+    def test_the_h18_predecessor_binding_was_unbound_not_guessed(self) -> None:
+        self.assertTrue(
+            self.mod.CURRENT_VERSION.startswith("UNSET_PENDING_"), self.mod.CURRENT_VERSION
+        )
+        self.assertEqual(self.mod.CURRENT_BOOT_SIZE, 0)
+        self.assertEqual(self.mod.H18_D1_RECORDS, ())
+        self.assertEqual(self.mod.H18_D1_TERMINAL_RESULT_SHA256, "")
+        self.assertNotIn("0.11.186", self.text)
+        self.assertNotIn("phase3-minimal-h18", self.text)
+
+    def test_the_guard_covers_the_predecessor_bindings(self) -> None:
+        with self.assertRaises(self.mod.ContractError) as caught:
+            self.mod.require_h27_reviews_exist()
+        message = str(caught.exception)
+        for name in (
+            "CURRENT_VERSION",
+            "CURRENT_BUILD",
+            "CURRENT_BOOT_SHA256",
+            "CURRENT_BOOT_SIZE",
+            "CURRENT_INSTALL_EXECUTION_CLOSURE_SHA256",
+        ):
+            self.assertIn(name, message, name)
+
+    def test_the_d1_scope_was_removed(self) -> None:
+        for rel in self.mod.EXECUTION_SOURCE_RELS:
+            self.assertNotIn("d1_runner", rel, rel)
+            self.assertNotIn("persistent_server_observer", rel, rel)
+        self.assertIn('or value.get("d1_runner_qualified") is not False', self.text)
+        self.assertNotIn('or value.get("d1_runner_qualified") is not True', self.text)
+
+    def test_the_proof_axis_exists_and_is_total(self) -> None:
+        """The design's third axis must be in the result, not only in prose."""
+        import re
+
+        emitted = {
+            status
+            for status in re.findall(r'"status": "([A-Z_0-9]+)"', self.text)
+            if status.startswith(("PASS_A90", "FAILED_", "ABORTED_"))
+        }
+        self.assertTrue(emitted)
+        for status in emitted:
+            self.assertIn(status, self.mod.EXPERIMENT_PROOF_BY_STATUS, status)
+        self.assertEqual(
+            self.mod.experiment_proof("PASS_A90_H27_UFS_RESIDENT_INSTALLED"), "PROVED"
+        )
+        self.assertEqual(
+            self.mod.experiment_proof("FAILED_INITIAL_HEALTH_ROLLED_BACK"), "REFUTED"
+        )
+        self.assertEqual(
+            self.mod.experiment_proof("ABORTED_BEFORE_CANDIDATE_SESSION"),
+            "NO_PROOF_OBSERVER",
+        )
+        with self.assertRaises(self.mod.ContractError):
+            self.mod.experiment_proof("A_STATUS_NOBODY_MAPPED")
+
+    def test_every_result_emission_carries_the_proof_axis(self) -> None:
+        self.assertEqual(
+            self.text.count('"schema": RESULT_SCHEMA'),
+            self.text.count('"experiment_proof": experiment_proof('),
+        )

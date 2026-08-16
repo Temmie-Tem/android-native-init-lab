@@ -33,11 +33,11 @@ DELETED_INTERMEDIATE = BOOT_IMAGES / "boot_a90_h24_selfbuilt_nocfp_20260816.img"
 BASE_BOOT = BOOT_IMAGES / "boot_a90_base_selfbuilt_kernel_20260816.img"
 CANDIDATE = REPO / (
     "workspace/private/outputs"
-    "/a90-h24k-selfbuilt-kernel-ab-20260816-01/A/boot.img"
+    "/a90-h27-selfbuilt-kernel-ab-20260817-01/A/boot.img"
 )
 CANDIDATE_B = REPO / (
     "workspace/private/outputs"
-    "/a90-h24k-selfbuilt-kernel-ab-20260816-01/B/boot.img"
+    "/a90-h27-selfbuilt-kernel-ab-20260817-01/B/boot.img"
 )
 ROLLBACK = BOOT_IMAGES / "boot_linux_v2321_usb_clean_identity_rodata.img"
 RESIDENT = REPO / (
@@ -47,7 +47,7 @@ RESIDENT = REPO / (
 
 DIGESTS = {
     "resident": "d8c280e4acee5d17d13270fdf25535b4ce05304e786bc22efa84ab16f6b82782",
-    "candidate": "2c4ca81152987dc484d5b147f7a09a77f16f8fad0b7236cf3c67f4a562c6ceba",
+    "candidate": "fa7ab8af8cec027c433653da92eb6cb4ca6f3a02d7624a4f292f61906e8ce500",
     "rollback": "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb",
 }
 RUNNER_SHA = "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
@@ -108,9 +108,20 @@ class SelfBuiltKernelF1DesignTests(unittest.TestCase):
         )
         self.assertIn("should reject this design rather than the artifact", self.design)
 
+    def test_the_third_no_go_is_recorded_too(self) -> None:
+        """The retired identity and wrong predecessor must stay visible."""
+        self.assertIn("retired H25's\nidentity", self.raw)
+        self.assertIn("validated H18 `0.11.186` as its", self.design)
+        self.assertIn("the axis is implemented", self.design)
+
+    def test_the_resident_acceptance_decision_is_recorded(self) -> None:
+        self.assertIn("chose resident on 2026-08-17", self.design)
+        self.assertIn("persists for as long as H27 is resident", self.design)
+        self.assertIn("not a session-scoped exposure", self.design)
+
     def test_the_review_corrections_are_recorded_not_absorbed(self) -> None:
         """Draft 1 was returned no-go; the errors stay visible, not smoothed over."""
-        self.assertIn("Supersedes draft 1", self.design)
+        self.assertIn("Supersedes drafts 1 and 2", self.design)
         self.assertIn("returned **no-go**", self.raw)
         self.assertIn("What draft 1 got wrong", self.design)
         for token in (
@@ -131,7 +142,7 @@ class SelfBuiltKernelF1DesignTests(unittest.TestCase):
     def test_the_candidate_was_built_with_a_new_identity(self) -> None:
         """The contract's core requirement, checked against the built artifact."""
         self.assertIn("Built on 2026-08-16", self.design)
-        self.assertIn("`phase3-minimal-h24k`, version `0.11.193`", self.design)
+        self.assertIn("`phase3-minimal-h27`, version `0.11.194`", self.design)
         self.assertIn("qualification records are **still absent**", self.raw)
         if not (CANDIDATE.is_file() and CANDIDATE_B.is_file()):
             self.skipTest(f"private artifact not staged on this host: {CANDIDATE}")

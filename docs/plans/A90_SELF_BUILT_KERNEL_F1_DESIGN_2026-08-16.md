@@ -1,4 +1,4 @@
-# A90 self-built kernel F1 design (draft 2, for independent review)
+# A90 self-built kernel F1 design (draft 3, for independent review)
 
 Date: 2026-08-16
 Target: operator-owned Samsung Galaxy A90 5G only
@@ -7,7 +7,15 @@ Device or live effect of this document: none
 Status: **DRAFT — grants no authority, creates no candidate, and is not an
 approval request**
 
-Supersedes draft 1 of the same date, which was reviewed and returned **no-go**.
+Supersedes drafts 1 and 2, both returned **no-go**. Draft 3 also records the
+third review's findings: the candidate carried `0.11.193`, which is retired H25's
+identity and forbidden to reuse (`GOAL_A90.md:86`,
+`A90_TARGET_CONTRACT.md:590`); the runner still validated H18 `0.11.186` as its
+starting resident rather than H24; and the proof axis existed only in this
+document. The candidate is rebuilt as H27 `0.11.194`, the predecessor bindings
+are unbound rather than guessed, and the axis is implemented.
+
+Draft 1 was reviewed and returned **no-go**.
 Draft 1 was written without reading `docs/operations/targets/A90_TARGET_CONTRACT.md`,
 the binding target contract, and it contradicted that contract on the point its
 central design choice rested on. The corrections are recorded in
@@ -116,11 +124,11 @@ That build is a separate H0 unit with its own capability and execution
 qualification, matching the `capability-qualification.json` and
 `execution-qualification.json` that accompany every existing version.
 
-**Built on 2026-08-16** as `phase3-minimal-h24k`, version `0.11.193`, build
-`phase3-minimal-h24k-selfbuilt-kernel-nocfp`. A/B output is byte-identical, the
+**Built on 2026-08-16** as `phase3-minimal-h27`, version `0.11.194`, build
+`phase3-minimal-h27-selfbuilt-kernel-nocfp`. A/B output is byte-identical, the
 candidate's embedded `Image` hashes to the self-built kernel, only `kernel_size`
 differs from the resident header, and the ramdisk carries the fresh
-`/cache/a90-auto-handoff-phase3-minimal-h24k.{enable,done}` paths with zero
+`/cache/a90-auto-handoff-phase3-minimal-h27.{enable,done}` paths with zero
 occurrences of the H24 pair. The version's capability and execution
 qualification records are **still absent** and remain a precondition.
 
@@ -134,7 +142,7 @@ Absolute paths, as the process requires. All are private and none is committed.
 | rollback | `/home/temmie/dev/android-native-init-lab/workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img` | 60,882,944 | `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb` |
 | builder `base_boot` | `/home/temmie/dev/android-native-init-lab/workspace/private/inputs/boot_images/boot_a90_base_selfbuilt_kernel_20260816.img` | 66,375,680 | `2d0be40158d56b6b053bc1aff6c6e149beb904da43a303b812e8ca6c4d583a9e` |
 | self-built `Image` (inside both) | — | 48,826,384 | `6cab67938d2d235ad5ad965abaefe7e3ebda6d13b57251705c91f5f333ab1b6d` |
-| **candidate** | `/home/temmie/dev/android-native-init-lab/workspace/private/outputs/a90-h24k-selfbuilt-kernel-ab-20260816-01/A/boot.img` | 58,368,000 | `2c4ca81152987dc484d5b147f7a09a77f16f8fad0b7236cf3c67f4a562c6ceba` |
+| **candidate** | `/home/temmie/dev/android-native-init-lab/workspace/private/outputs/a90-h27-selfbuilt-kernel-ab-20260816-01/A/boot.img` | 58,368,000 | `fa7ab8af8cec027c433653da92eb6cb4ca6f3a02d7624a4f292f61906e8ce500` |
 
 The resident is H24 `0.11.192`, build
 `phase3-minimal-h24-ufs-auth-native-hud-private-card-root-minimal-debian-dev`,
@@ -276,21 +284,21 @@ Each is independent; none is satisfied by this document.
    inputs;
 4. one fresh `A90_F1_RESIDENT_INSTALL_V1` binding for that candidate plus its
    exact rollback (`A90_TARGET_CONTRACT.md:1268-1270`);
-5. **a new reviewed H24K F1 runner.** `a90_h24_ufs_f1_runner_v1.py` hardcodes
+5. **a new reviewed H27 F1 runner.** `a90_h24_ufs_f1_runner_v1.py` hardcodes
    the H24 version, build, candidate hash, enable/latch paths, builder manifest,
    capability qualification, review report, reviewer, and scope. It cannot bind
-   `0.11.193` or `2c4ca811...`. "Runner schema update" understates this: either a
+   `0.11.194` or `2c4ca811...`. "Runner schema update" understates this: either a
    new runner or a genuinely parameterized equivalent is required, and it must
    also reject caller-supplied `--remote-image` and `--boot-block` values so the
    boot-only boundary in `AGENTS.md:54-65` is enforced rather than assumed;
 6. first-use execution qualification: focused tests, connected preflight, and
    compatibility binding (`:1284-1289`);
-7. an **independent H24K capability review** and an **independent H24K execution
+7. an **independent H27 capability review** and an **independent H27 execution
    review**. Neither transfers from H24: `AGENTS.md:187-191` requires independent
-   review when the runner, hazard, or closure changes, and H24K changes the
+   review when the runner, hazard, or closure changes, and H27 changes the
    kernel, the manifest, the candidate hash, and the security posture. The
    existing report is H24-scoped and its reviewer path is H24-specific;
-8. an **H24K F1 manifest** — distinct from the flat-builder `manifest.toml` and
+8. an **H27 F1 manifest** — distinct from the flat-builder `manifest.toml` and
    the build receipt — binding exact target, candidate, rollback, runner,
    observation, and final health with absolute paths
    (`DEVICE_ACTION_PROCESS_V2.md:42-62`; `A90_TARGET_CONTRACT.md:374-383`).
@@ -319,6 +327,13 @@ Each is independent; none is satisfied by this document.
 - **CFP removal is not reversible by rebuilding.** Restoring it requires
   Samsung's compiler. The remedy, if the posture proves unacceptable, is
   returning to the stock kernel blob.
+- **The operator chose resident acceptance over a temporary proof.** Asked
+  whether to prove the boot and then return to V2321, or to let the candidate
+  remain resident, the operator chose resident on 2026-08-17, so that a proved
+  boot opens ongoing kernel modification rather than requiring a reflash each
+  time. The reduced CFP posture therefore persists for as long as H27 is
+  resident. The review is being asked to accept that, not a session-scoped
+  exposure.
 - **Two things change at once, unavoidably.** The candidate necessarily carries
   a new userspace build identity alongside the new kernel. The userspace delta
   is confined to version/build strings and fresh enable/latch paths, is

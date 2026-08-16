@@ -43,24 +43,24 @@ import buildlib as flat_buildlib  # noqa: E402
 
 
 # Every schema, approval prefix, capability name, and run-id shape below is
-# H24K's own. Sharing H24's namespace would let two runners write into one
+# H27's own. Sharing H24's namespace would let two runners write into one
 # journal and approval space, and no-replay accounting depends on those being
 # disjoint.
-SCHEMA = "a90-h24k-ufs-f1-manifest-v1"
-RESULT_SCHEMA = "a90-h24k-ufs-f1-result-v1"
-JOURNAL_SCHEMA = "a90-h24k-ufs-f1-journal-v1"
-QUALIFICATION_SCHEMA = "a90-h24k-ufs-execution-qualification-v1"
+SCHEMA = "a90-h27-ufs-f1-manifest-v1"
+RESULT_SCHEMA = "a90-h27-ufs-f1-result-v1"
+JOURNAL_SCHEMA = "a90-h27-ufs-f1-journal-v1"
+QUALIFICATION_SCHEMA = "a90-h27-ufs-execution-qualification-v1"
 EXECUTION_REVIEW_SCHEMA = (
-    "a90-h24k-ufs-f1-execution-independent-review-v1"
+    "a90-h27-ufs-f1-execution-independent-review-v1"
 )
-INVENTORY_SCHEMA = "a90-h24k-ufs-readonly-inventory-v1"
-APPROVAL_SCHEMA = "a90-h24k-ufs-f1-approval-prepared-v1"
-APPROVAL_BINDING_SCHEMA = "a90-h24k-ufs-f1-approval-binding-v1"
-APPROVAL_PREFIX = "A90-H24K-F1-APPROVE:"
+INVENTORY_SCHEMA = "a90-h27-ufs-readonly-inventory-v1"
+APPROVAL_SCHEMA = "a90-h27-ufs-f1-approval-prepared-v1"
+APPROVAL_BINDING_SCHEMA = "a90-h27-ufs-f1-approval-binding-v1"
+APPROVAL_PREFIX = "A90-H27-F1-APPROVE:"
 APPROVAL_TTL_SEC = 1800
 D0_MAX_AGE_SEC = 900
-CAPABILITY = "A90_H24K_SELFBUILT_KERNEL_NOCFP_V1"
-RUN_ID_RE = re.compile(r"^a90-h24k-ufs-f1-[0-9]{8}-[0-9]{2}$")
+CAPABILITY = "A90_H27_SELFBUILT_KERNEL_NOCFP_V1"
+RUN_ID_RE = re.compile(r"^a90-h27-ufs-f1-[0-9]{8}-[0-9]{2}$")
 HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
 H24_AUTO_STATUS_RE = re.compile(
     r"^A90AUTO_STATUS binding=(?P<binding>[01]) "
@@ -68,82 +68,62 @@ H24_AUTO_STATUS_RE = re.compile(
     r"build=(?P<build>[a-z0-9._-]+)$"
 )
 
-CURRENT_VERSION = "0.11.186"
-CURRENT_BUILD = "phase3-minimal-h18-post-root-failure-attribution"
-CURRENT_BOOT_SIZE = 58384384
-CURRENT_BOOT_SHA256 = (
-    "692da1eae8a3e5547e7747cd553f38ea64bfbac14cb854b4bd40a11bfe47ec78"
-)
-CURRENT_INSTALL_EXECUTION_CLOSURE_SHA256 = (
-    "dcb507f5191f48831ca185fb114afc41db29aae4b3bb9af4c064cfbc9256ced8"
-)
-H18_D1_TERMINAL_RESULT_SHA256 = (
-    "8b77eed3937fb975b034572b070d7f7146ea800822b0254aa28570b71a79b2c4"
-)
-H18_D1_RECORDS = (
-    (
-        "0000-open.json",
-        30174,
-        "138789fb408847475812ca3c6aab13fc3964815fdbb7e15d192bf61aaab1e9f9",
-    ),
-    (
-        "0001-arm-reboot-intent.json",
-        1579,
-        "1be00f1d05f2b8d8a72192577f79cbb25caa7eef8dce7c81ea2a537f50b9dd81",
-    ),
-    (
-        "0002-dispatch-result.json",
-        4844,
-        "cfbf0cff2c5385d249ba855ec159746afed9018d9f78ded77c69dbec4344f8d4",
-    ),
-    (
-        "0003-persistent-observation.json",
-        9141,
-        "b399d88011fa6efd208ec2edfbf71e2640b272b259fd9ac4b7cce02c42b443fb",
-    ),
-    (
-        "0004-current-state.json",
-        10258,
-        "9721047c162e09596310ccfbaaa9180c9adf9f87b25e1f0de59e13fd0d9b24c8",
-    ),
-    (
-        "0005-final-health.json",
-        49437,
-        "548146b11b1c7905ff6e8cf6d00795f40e4e90a3ff8531640087f805904520dd",
-    ),
-    (
-        "0006-closed.json",
-        49431,
-        "ab605132ccd5ce57f93cd8d58345db16433720a625a5ccfe72237b204fd7bd0f",
-    ),
-)
-CANDIDATE_VERSION = "0.11.193"
-CANDIDATE_BUILD = "phase3-minimal-h24k-selfbuilt-kernel-nocfp"
+# NOT YET BOUND. These describe the resident this runner may install over, and
+# they were inherited from the H24 runner, where the predecessor was H18. That
+# is wrong for H27: GOAL_A90.md names H24 `0.11.192` as the exact installed
+# resident. Flashing while the runner validates a predecessor that is not the
+# one present is precisely the failure the check exists to prevent.
+#
+# Rebinding is not a constant swap. The H24 predecessor differs in kind: its D1
+# closed `REFUTED_H24_POST_ROOT_FAILURE_ATTRIBUTED_NATIVE_FALLBACK_HEALTHY`,
+# whereas the inherited check requires a D1 HEALTHY predecessor. Whether a
+# refuted-but-healthy D1 satisfies this precondition is a contract reading --
+# A90_TARGET_CONTRACT.md:1276-1279 says a later refutation does not retroactively
+# fail an installation -- and it is left to the independent review rather than
+# decided here.
+#
+# The measured H24 values are recorded in the handoff so the reviewer does not
+# have to rediscover them; they are deliberately not installed as bindings.
+CURRENT_VERSION = "UNSET_PENDING_H27_PREDECESSOR_REBIND"
+CURRENT_BUILD = "UNSET_PENDING_H27_PREDECESSOR_REBIND"
+CURRENT_BOOT_SIZE = 0
+CURRENT_BOOT_SHA256 = "UNSET_PENDING_H27_PREDECESSOR_REBIND"
+CURRENT_INSTALL_EXECUTION_CLOSURE_SHA256 = "UNSET_PENDING_H27_PREDECESSOR_REBIND"
+# NOT YET BOUND, for the same reason as the predecessor constants above. These
+# pinned the H18 D1 terminal journal record-by-record. H27's predecessor is
+# H24, whose D1 evidence lives at
+# workspace/private/runs/server-distro/a90-h24-ufs-f1-20260812-01 and closed
+# REFUTED-but-healthy. Rebinding requires the review to first settle whether
+# that terminal is an acceptable predecessor at all.
+H18_D1_TERMINAL_RESULT_SHA256 = ""
+H18_D1_RECORDS: tuple[tuple[str, int, str], ...] = ()
+CANDIDATE_VERSION = "0.11.194"
+CANDIDATE_BUILD = "phase3-minimal-h27-selfbuilt-kernel-nocfp"
 CANDIDATE_BOOT_SIZE = 58368000
 CANDIDATE_BOOT_SHA256 = (
-    "2c4ca81152987dc484d5b147f7a09a77f16f8fad0b7236cf3c67f4a562c6ceba"
+    "fa7ab8af8cec027c433653da92eb6cb4ca6f3a02d7624a4f292f61906e8ce500"
 )
 CANDIDATE_INIT_SIZE = 1723376
 CANDIDATE_INIT_SHA256 = (
-    "6d46d4a2539836d6b4979c14d0f2cd3ac97b5c5188bfd365e452eaa464ad407d"
+    "7dd00ee2d02e9dfce3ccf9fe5d42e1fb3b0821bcde65978f987d8e1aed62c199"
 )
 CANDIDATE_RAMDISK_SIZE = 8537600
 CANDIDATE_RAMDISK_SHA256 = (
-    "3ec18c5b01430b5df5fa5ab81ef2f413e2819fd405d44064699acb36e9009d02"
+    "3782548f01f19f54ca45e6e23f7673cb7b31160d22f828e9c15e55382dd05c4c"
 )
 CANDIDATE_HELPER_SIZE = 1649904
 CANDIDATE_HELPER_SHA256 = (
     "fcb005b0454aceb08aa6f8f81d83aa303e37199a56e018eb2501e4225f08e00e"
 )
 CANDIDATE_AB_RECEIPT_SHA256 = (
-    "247eab0ec82c2dc7b26042a61c133b1845420fb59b58dc5d392d0b589007f604"
+    "3a3f12534543f9481f8a30571cab067714ec45fd12099c4ee1e6111311f24045"
 )
-CANDIDATE_AB_RECEIPT_SIZE = 5431
+CANDIDATE_AB_RECEIPT_SIZE = 5426
 CANDIDATE_MANIFEST_SHA256 = (
-    "55e5eea87c7aa8c2bbd9bb1a5216daf8035aa0a771deba8fea43464e510974d6"
+    "b4cfa428da868724450f1db617143626417c2880452f3f8d0485839bb5b8fd3c"
 )
 CANDIDATE_EFFECTIVE_MANIFEST_SHA256 = (
-    "e7928c02af2f27515dc2e70207185b6563ed3b123f6de32927f485b39a3105d4"
+    "6516f3ea3fd09878695c9ca957840afe30ac3e570095d891692acea9e86848c7"
 )
 # The self-built kernel is what this candidate exists to test. It is pinned
 # here so the runner refuses any boot image that does not carry it, and so the
@@ -169,8 +149,8 @@ UFS_IDENTITY = {
     "marker": "userdata=appliance-root",
     "mount_policy": "ro,noload,nosuid,nodev",
 }
-ENABLE_PATH = "/cache/a90-auto-handoff-phase3-minimal-h24k.enable"
-LATCH_PATH = "/cache/a90-auto-handoff-phase3-minimal-h24k.done"
+ENABLE_PATH = "/cache/a90-auto-handoff-phase3-minimal-h27.enable"
+LATCH_PATH = "/cache/a90-auto-handoff-phase3-minimal-h27.done"
 # A90_TARGET_CONTRACT.md:320-324,394-396 -- a replacement candidate never reuses
 # a prior enable/latch pair. The H24 pair must stay absent for this candidate,
 # and is listed so the runner can prove absence rather than assume it.
@@ -184,7 +164,7 @@ CONTENT_REL = (
 )
 VERSION_MANIFEST_REL = (
     "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/"
-    "phase3-minimal-h24k/manifest.toml"
+    "phase3-minimal-h27/manifest.toml"
 )
 TARGET_CONTRACT_REL = "docs/operations/targets/A90_TARGET_CONTRACT.md"
 NATIVE_FLASH = (REVAL_DIR / "native_init_flash.py").resolve()
@@ -198,29 +178,29 @@ NATIVE_CLOSURE_SHA256 = (
     "3d1514e3f266e5b77886bf4511a396c9328b487b0c614c3c79fd3df16d26ca52"
 )
 # NOT YET PRODUCED. The four constants below bind an independent capability
-# review that does not exist for H24K. They are declared so this runner fails
+# review that does not exist for H27. They are declared so this runner fails
 # closed at `resolve(strict=True)` rather than silently inheriting H24's review.
 #
 # H24's review does not transfer. AGENTS.md:187-191 requires an independent
-# review when the runner, hazard, or closure changes, and H24K changes the
+# review when the runner, hazard, or closure changes, and H27 changes the
 # kernel, the builder manifest, the candidate hash, and -- through the disabled
 # RKP CFP -- the device's exploit-mitigation posture.
 #
 # The closure digest, reviewer, and invariant list must come from that review's
 # own report. They are deliberately left unfilled: writing plausible values here
 # would forge the gate that exists to catch authoring errors.
-H24K_REVIEW_DATE = "UNSET_PENDING_H24K_CAPABILITY_REVIEW"
-HOST_CAPABILITY_CLOSURE_SHA256 = "UNSET_PENDING_H24K_CAPABILITY_REVIEW"
+H27_REVIEW_DATE = "UNSET_PENDING_H27_CAPABILITY_REVIEW"
+HOST_CAPABILITY_CLOSURE_SHA256 = "UNSET_PENDING_H27_CAPABILITY_REVIEW"
 HOST_QUALIFICATION_REL = (
     "workspace/public/src/scripts/revalidation/a90_flat_builder/versions/"
-    "phase3-minimal-h24k/capability-qualification.json"
+    "phase3-minimal-h27/capability-qualification.json"
 )
 HOST_REVIEW_REPORT_REL = (
-    "docs/reports/A90_H24K_SELFBUILT_KERNEL_CAPABILITY_INDEPENDENT_REVIEW.json"
+    "docs/reports/A90_H27_SELFBUILT_KERNEL_CAPABILITY_INDEPENDENT_REVIEW.json"
 )
-HOST_CAPABILITY_REVIEWER = "UNSET_PENDING_H24K_CAPABILITY_REVIEW"
-HOST_CAPABILITY_SCOPE = "h24k-selfbuilt-kernel-nocfp-capability"
-HOST_CAPABILITY_INCIDENT = "UNSET_PENDING_H24K_CAPABILITY_REVIEW"
+HOST_CAPABILITY_REVIEWER = "UNSET_PENDING_H27_CAPABILITY_REVIEW"
+HOST_CAPABILITY_SCOPE = "h27-selfbuilt-kernel-nocfp-capability"
+HOST_CAPABILITY_INCIDENT = "UNSET_PENDING_H27_CAPABILITY_REVIEW"
 # Each string here is a finding an independent reviewer signed, which this
 # runner then cross-checks against the review report. They are the reviewer's
 # words, not the author's, so the tuple stays empty until that review exists.
@@ -230,21 +210,19 @@ HOST_CAPABILITY_REQUIRED_INVARIANTS: tuple[str, ...] = ()
 # NOT YET PRODUCED, for the same reason as the capability review above. The
 # H24 execution review is scoped to the H24 runner and cannot cover this one.
 EXECUTION_REVIEW_REPORT_REL = (
-    "docs/reports/A90_H24K_SELFBUILT_KERNEL_EXECUTION_INDEPENDENT_REVIEW.json"
+    "docs/reports/A90_H27_SELFBUILT_KERNEL_EXECUTION_INDEPENDENT_REVIEW.json"
 )
-EXECUTION_REVIEWER = "UNSET_PENDING_H24K_EXECUTION_REVIEW"
+EXECUTION_REVIEWER = "UNSET_PENDING_H27_EXECUTION_REVIEW"
 EXECUTION_REVIEW_SCOPE = (
-    "h24k-selfbuilt-kernel-nocfp-boot-only-f1-execution-critical-closure"
+    "h27-selfbuilt-kernel-nocfp-boot-only-f1-execution-critical-closure"
 )
-EXECUTION_REVIEW_INCIDENT = "UNSET_PENDING_H24K_EXECUTION_REVIEW"
+EXECUTION_REVIEW_INCIDENT = "UNSET_PENDING_H27_EXECUTION_REVIEW"
 EXECUTION_REVIEW_REQUIRED_INVARIANTS: tuple[str, ...] = ()
 FIRSTBOOT_REL = "workspace/public/src/scripts/server-distro/a90_dpublic_firstboot.sh"
 
 EXECUTION_SOURCE_RELS = (
     "AGENTS.md",
-    "workspace/public/src/scripts/server-distro/a90_h24k_ufs_f1_runner_v1.py",
-    "workspace/public/src/scripts/server-distro/a90_h24_ufs_d1_runner_v1.py",
-    "workspace/public/src/scripts/server-distro/a90_h24_persistent_server_observer_v1.py",
+    "workspace/public/src/scripts/server-distro/a90_h27_ufs_f1_runner_v1.py",
     FIRSTBOOT_REL,
     "workspace/public/src/scripts/server-distro/a90_auto_handoff_benchmark_runner_v1.py",
     "workspace/public/src/scripts/server-distro/a90_boot_benchmark_v1.py",
@@ -556,7 +534,7 @@ def validate_qualification(
         or report.get("schema") != EXECUTION_REVIEW_SCHEMA
         or report.get("capability") != CAPABILITY
         or report.get("verdict") != "PASS_GO"
-        or report.get("review_date") != H24K_REVIEW_DATE
+        or report.get("review_date") != H27_REVIEW_DATE
         or report.get("reviewer") != EXECUTION_REVIEWER
         or report.get("execution_closure_sha256") != closure["sha256"]
         or report.get("execution_file_count") != len(closure["files"])
@@ -583,7 +561,7 @@ def validate_qualification(
         or value.get("new_hazard_or_incident") is not True
         or value.get("ordinal_requalification_required") is not False
         or value.get("f1_runner_qualified") is not True
-        or value.get("d1_runner_qualified") is not True
+        or value.get("d1_runner_qualified") is not False
         or value.get("review_report") != EXECUTION_REVIEW_REPORT_REL
         or value.get("review_report_sha256") != sha256_file(report_path)
         or value.get("live_authority") is not False
@@ -592,18 +570,49 @@ def validate_qualification(
     return value
 
 
-def require_h24k_reviews_exist() -> None:
-    """Refuse to run while the independent H24K reviews are unwritten.
+EXPERIMENT_PROOF_BY_STATUS = {
+    # A90_TARGET_CONTRACT.md:62-71 keeps device safety and experiment proof on
+    # separate axes. The H24 runner recorded only device safety because its
+    # experiment lived in the later D1 session. H27's whole question is answered
+    # by the F1 itself -- the candidate image contains only the self-built
+    # kernel, so reaching exact candidate health is the proof -- so the result
+    # must carry that axis or the run buys an ordinal and records no answer.
+    "PASS_A90_H27_UFS_RESIDENT_INSTALLED": "PROVED",
+    "FAILED_INITIAL_HEALTH_ROLLED_BACK": "REFUTED",
+    "FAILED_CANDIDATE_ROLLED_BACK": "REFUTED",
+    # Recovery-path and pre-release aborts are instrument outcomes, not device
+    # contradictions. :102-121 -- only device-attributable evidence may burn an
+    # ordinal or force a no-replay conclusion.
+    "FAILED_CANDIDATE_RECOVERY_ROLLBACK_COMPLETE": "NO_PROOF_OBSERVER",
+    "ABORTED_BEFORE_CANDIDATE_SESSION": "NO_PROOF_OBSERVER",
+    "ABORTED_BEFORE_CANDIDATE_RELEASE": "NO_PROOF_OBSERVER",
+}
+
+
+def experiment_proof(status: str) -> str:
+    """Map a terminal status onto the separate experiment-proof axis."""
+    proof = EXPERIMENT_PROOF_BY_STATUS.get(status)
+    if proof is None:
+        raise ContractError(f"no experiment proof axis defined for status {status!r}")
+    return proof
+
+
+def require_h27_reviews_exist() -> None:
+    """Refuse to run while the independent H27 reviews are unwritten.
 
     A missing qualification file already stops this runner, but absence of a
     file is a weak gate: it disappears the moment somebody creates one. These
-    placeholders are the positive statement that no reviewer has signed H24K,
+    placeholders are the positive statement that no reviewer has signed H27,
     and an empty invariant tuple must never read as "no invariants required".
     """
     unset = [
         name
         for name, value in (
-            ("H24K_REVIEW_DATE", H24K_REVIEW_DATE),
+            ("CURRENT_VERSION", CURRENT_VERSION),
+            ("CURRENT_BUILD", CURRENT_BUILD),
+            ("CURRENT_BOOT_SHA256", CURRENT_BOOT_SHA256),
+            ("CURRENT_INSTALL_EXECUTION_CLOSURE_SHA256", CURRENT_INSTALL_EXECUTION_CLOSURE_SHA256),
+            ("H27_REVIEW_DATE", H27_REVIEW_DATE),
             ("HOST_CAPABILITY_CLOSURE_SHA256", HOST_CAPABILITY_CLOSURE_SHA256),
             ("HOST_CAPABILITY_REVIEWER", HOST_CAPABILITY_REVIEWER),
             ("HOST_CAPABILITY_INCIDENT", HOST_CAPABILITY_INCIDENT),
@@ -616,16 +625,20 @@ def require_h24k_reviews_exist() -> None:
         unset.append("HOST_CAPABILITY_REQUIRED_INVARIANTS")
     if not EXECUTION_REVIEW_REQUIRED_INVARIANTS:
         unset.append("EXECUTION_REVIEW_REQUIRED_INVARIANTS")
+    if not CURRENT_BOOT_SIZE:
+        unset.append("CURRENT_BOOT_SIZE")
+    if H18_D1_TERMINAL_RESULT_SHA256 or H18_D1_RECORDS:
+        unset.append("H18_D1_PREDECESSOR_EVIDENCE_STILL_BOUND")
     if unset:
         raise ContractError(
-            "H24K independent capability and execution reviews are not written; "
+            "H27 is not qualified: its independent reviews are unwritten and its "
             "this runner is not qualified for any device effect. Unset bindings: "
             + ", ".join(sorted(unset))
         )
 
 
 def validate_host_capability_qualification() -> dict[str, Any]:
-    require_h24k_reviews_exist()
+    require_h27_reviews_exist()
     path = (REPO_ROOT / HOST_QUALIFICATION_REL).resolve(strict=True)
     value = json.loads(path.read_text(encoding="utf-8"))
     execution_hashes = value.get("execution_hashes")
@@ -670,9 +683,9 @@ def validate_host_capability_qualification() -> dict[str, Any]:
     if (
         not isinstance(value, dict)
         or value.get("schema")
-        != "a90-h24k-selfbuilt-kernel-capability-qualification-v1"
+        != "a90-h27-selfbuilt-kernel-capability-qualification-v1"
         or value.get("capability")
-        != "A90_H24K_SELFBUILT_KERNEL_NOCFP_V1"
+        != "A90_H27_SELFBUILT_KERNEL_NOCFP_V1"
         or value.get("verdict") != "PASS_GO"
         or value.get("execution_closure_sha256")
         != HOST_CAPABILITY_CLOSURE_SHA256
@@ -692,12 +705,12 @@ def validate_host_capability_qualification() -> dict[str, Any]:
         or value.get("live_authority") is not False
         or not isinstance(report, dict)
         or report.get("schema")
-        != "a90-h24k-selfbuilt-kernel-independent-review-v1"
+        != "a90-h27-selfbuilt-kernel-independent-review-v1"
         or report.get("status") != "PASS_GO"
-        or report.get("review_date") != H24K_REVIEW_DATE
+        or report.get("review_date") != H27_REVIEW_DATE
         or report.get("reviewer") != HOST_CAPABILITY_REVIEWER
         or report.get("capability")
-        != "A90_H24K_SELFBUILT_KERNEL_NOCFP_V1"
+        != "A90_H27_SELFBUILT_KERNEL_NOCFP_V1"
         or report.get("incident_class") != HOST_CAPABILITY_INCIDENT
         or report.get("validated_invariants")
         != list(HOST_CAPABILITY_REQUIRED_INVARIANTS)
@@ -1446,7 +1459,7 @@ def _approval_path(manifest: dict[str, Any]) -> Path:
     run_dir = (PRIVATE_RUN_BASE / manifest["run_id"]).resolve()
     if run_dir.parent != PRIVATE_RUN_BASE:
         raise ContractError("H24 approval path escapes private run base")
-    return run_dir / "h24k-f1-approval-prepared.json"
+    return run_dir / "h27-f1-approval-prepared.json"
 
 
 def approval_binding(
@@ -1703,7 +1716,7 @@ def _journal_dir(manifest: dict[str, Any]) -> Path:
     run_dir = (PRIVATE_RUN_BASE / manifest["run_id"]).resolve()
     if run_dir.parent != PRIVATE_RUN_BASE:
         raise ContractError("transaction directory escapes private run base")
-    return run_dir / "h24k-f1-live" / "journal"
+    return run_dir / "h27-f1-live" / "journal"
 
 
 def read_journal(path: Path, manifest: dict[str, Any], manifest_sha: str) -> list[dict[str, Any]]:
@@ -1774,7 +1787,7 @@ def _validate_closed_result(
             candidate_health.get("health"), manifest
         )
         valid = (
-            result.get("status") == "PASS_A90_H24K_UFS_RESIDENT_INSTALLED"
+            result.get("status") == "PASS_A90_H27_UFS_RESIDENT_INSTALLED"
             and result.get("device_safety_state") == "RESIDENT_HEALTHY"
             and result.get("candidate_transfer_count") == 1
             and result.get("rollback_transfer_count") == 0
@@ -1897,7 +1910,7 @@ def _validate_f1_journal(
             launch_item.get("candidate_replay") is not False
             or launch_item.get("rollback_replay") is not False
             or not isinstance(launch, dict)
-            or launch.get("schema") != "a90-h24k-flash-process-group-v1"
+            or launch.get("schema") != "a90-h27-flash-process-group-v1"
             or launch.get("kind") != "candidate"
             or launch.get("manifest_sha256") != manifest_sha
             or launch.get("artifact_sha256")
@@ -2006,7 +2019,7 @@ def _validate_f1_journal(
             launch_item.get("candidate_replay") is not False
             or launch_item.get("rollback_replay") is not False
             or not isinstance(launch, dict)
-            or launch.get("schema") != "a90-h24k-flash-process-group-v1"
+            or launch.get("schema") != "a90-h27-flash-process-group-v1"
             or launch.get("kind") != "rollback"
             or launch.get("manifest_sha256") != manifest_sha
             or launch.get("artifact_sha256")
@@ -2371,7 +2384,7 @@ def _require_launch_quiesced(
             "release_count_max",
             "descendant_quiescence_required_before_recovery",
         }
-        or value.get("schema") != "a90-h24k-flash-process-group-v1"
+        or value.get("schema") != "a90-h27-flash-process-group-v1"
         or value.get("kind") != kind
         or type(value.get("leader_pid")) is not int
         or value.get("leader_pid") <= 0
@@ -2522,7 +2535,7 @@ def _flash_record(
         if pgid != pid:
             raise ContractError("flash child process group is not isolated")
         launch = {
-            "schema": "a90-h24k-flash-process-group-v1",
+            "schema": "a90-h27-flash-process-group-v1",
             "kind": kind,
             "leader_pid": pid,
             "pgid": pgid,
@@ -2886,6 +2899,7 @@ def recover(
         result = {
             "schema": RESULT_SCHEMA,
             "status": "FAILED_CANDIDATE_RECOVERY_ROLLBACK_COMPLETE",
+            "experiment_proof": experiment_proof("FAILED_CANDIDATE_RECOVERY_ROLLBACK_COMPLETE"),
             "run_id": manifest["run_id"],
             "manifest_sha256": manifest_sha,
             "device_safety_state": "BASELINE_HEALTHY",
@@ -3136,6 +3150,7 @@ def reconcile_health(
         result = {
             "schema": RESULT_SCHEMA,
             "status": "FAILED_CANDIDATE_RECOVERY_ROLLBACK_COMPLETE",
+            "experiment_proof": experiment_proof("FAILED_CANDIDATE_RECOVERY_ROLLBACK_COMPLETE"),
             "run_id": manifest["run_id"],
             "manifest_sha256": manifest_sha,
             "device_safety_state": "BASELINE_HEALTHY",
@@ -3181,6 +3196,7 @@ def reconcile_health(
             result = {
                 "schema": RESULT_SCHEMA,
                 "status": "ABORTED_BEFORE_CANDIDATE_RELEASE",
+                "experiment_proof": experiment_proof("ABORTED_BEFORE_CANDIDATE_RELEASE"),
                 "run_id": manifest["run_id"],
                 "manifest_sha256": manifest_sha,
                 "device_safety_state": "RESIDENT_HEALTHY",
@@ -3270,6 +3286,7 @@ def reconcile_health(
             result = {
                 "schema": RESULT_SCHEMA,
                 "status": "ABORTED_BEFORE_CANDIDATE_SESSION",
+                "experiment_proof": experiment_proof("ABORTED_BEFORE_CANDIDATE_SESSION"),
                 "run_id": manifest["run_id"],
                 "manifest_sha256": manifest_sha,
                 "device_safety_state": "RESIDENT_HEALTHY",
@@ -3373,7 +3390,8 @@ def reconcile_health(
             )
         result = {
             "schema": RESULT_SCHEMA,
-            "status": "PASS_A90_H24K_UFS_RESIDENT_INSTALLED",
+            "status": "PASS_A90_H27_UFS_RESIDENT_INSTALLED",
+            "experiment_proof": experiment_proof("PASS_A90_H27_UFS_RESIDENT_INSTALLED"),
             "run_id": manifest["run_id"],
             "manifest_sha256": manifest_sha,
             "device_safety_state": "RESIDENT_HEALTHY",
@@ -3394,6 +3412,7 @@ def reconcile_health(
         result = {
             "schema": RESULT_SCHEMA,
             "status": "ABORTED_BEFORE_CANDIDATE_SESSION",
+            "experiment_proof": experiment_proof("ABORTED_BEFORE_CANDIDATE_SESSION"),
             "run_id": manifest["run_id"],
             "manifest_sha256": manifest_sha,
             "device_safety_state": "RESIDENT_HEALTHY",
@@ -3539,6 +3558,7 @@ def execute(manifest_path: Path, manifest_sha: str, args: argparse.Namespace) ->
                 result = {
                     "schema": RESULT_SCHEMA,
                     "status": "ABORTED_BEFORE_CANDIDATE_SESSION",
+                    "experiment_proof": experiment_proof("ABORTED_BEFORE_CANDIDATE_SESSION"),
                     "run_id": manifest["run_id"],
                     "manifest_sha256": manifest_sha,
                     "device_safety_state": "RESIDENT_HEALTHY",
@@ -3575,6 +3595,7 @@ def execute(manifest_path: Path, manifest_sha: str, args: argparse.Namespace) ->
                 result = {
                     "schema": RESULT_SCHEMA,
                     "status": "FAILED_CANDIDATE_ROLLED_BACK",
+                    "experiment_proof": experiment_proof("FAILED_CANDIDATE_ROLLED_BACK"),
                     "run_id": manifest["run_id"],
                     "manifest_sha256": manifest_sha,
                     "device_safety_state": "BASELINE_HEALTHY",
@@ -3620,6 +3641,7 @@ def execute(manifest_path: Path, manifest_sha: str, args: argparse.Namespace) ->
                 result = {
                     "schema": RESULT_SCHEMA,
                     "status": "FAILED_INITIAL_HEALTH_ROLLED_BACK",
+                    "experiment_proof": experiment_proof("FAILED_INITIAL_HEALTH_ROLLED_BACK"),
                     "run_id": manifest["run_id"],
                     "manifest_sha256": manifest_sha,
                     "device_safety_state": "BASELINE_HEALTHY",
@@ -3645,7 +3667,8 @@ def execute(manifest_path: Path, manifest_sha: str, args: argparse.Namespace) ->
                 )
                 result = {
                     "schema": RESULT_SCHEMA,
-                    "status": "PASS_A90_H24K_UFS_RESIDENT_INSTALLED",
+                    "status": "PASS_A90_H27_UFS_RESIDENT_INSTALLED",
+                    "experiment_proof": experiment_proof("PASS_A90_H27_UFS_RESIDENT_INSTALLED"),
                     "run_id": manifest["run_id"],
                     "manifest_sha256": manifest_sha,
                     "device_safety_state": "RESIDENT_HEALTHY",
@@ -3675,7 +3698,7 @@ def execute(manifest_path: Path, manifest_sha: str, args: argparse.Namespace) ->
 def audit(manifest_path: Path, manifest_sha: str) -> dict[str, Any]:
     manifest = load_manifest(manifest_path, manifest_sha)
     return {
-        "schema": "a90-h24k-ufs-f1-audit-v1",
+        "schema": "a90-h27-ufs-f1-audit-v1",
         "status": "PASS_HOST_CLOSURE",
         "run_id": manifest["run_id"],
         "manifest_sha256": manifest_sha,

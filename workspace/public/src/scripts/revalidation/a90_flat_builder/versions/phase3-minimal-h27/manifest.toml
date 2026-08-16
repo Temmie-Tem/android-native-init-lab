@@ -1,10 +1,10 @@
 schema = "a90-flat-builder-v1"
 extends = "phase3-minimal-h16"
-profile = "phase3-minimal-h24k-selfbuilt-kernel-nocfp"
-cycle = "H0-PHASE3H24K"
-decision = "phase3-minimal-h24k-selfbuilt-kernel-rkp-cfp-disabled"
+profile = "phase3-minimal-h27-selfbuilt-kernel-nocfp"
+cycle = "H0-PHASE3H27"
+decision = "phase3-minimal-h27-selfbuilt-kernel-rkp-cfp-disabled-resident"
 candidate_authority = false
-random_seed = "a90-phase3-minimal-h24k-selfbuilt-kernel-nocfp"
+random_seed = "a90-phase3-minimal-h27-selfbuilt-kernel-nocfp"
 
 [inputs]
 base_boot = "workspace/private/inputs/boot_images/boot_a90_base_selfbuilt_kernel_20260816.img"
@@ -42,8 +42,8 @@ cflags = [
   "-DA90_UFS_PERSISTENT_NATIVE_HUD_V1=1",
   "-DA90_UFS_PERSISTENT_NATIVE_HUD_DELAYED_DRM_V1=1",
   "-DA90_UFS_PERSISTENT_NATIVE_HUD_PRIVATE_CARD_ROOT_V1=1",
-  '-DINIT_VERSION="0.11.193"',
-  '-DINIT_BUILD="phase3-minimal-h24k-selfbuilt-kernel-nocfp"',
+  '-DINIT_VERSION="0.11.194"',
+  '-DINIT_BUILD="phase3-minimal-h27-selfbuilt-kernel-nocfp"',
   '-DINIT_CREATOR="made by device owner"',
   '-DA90_AUTO_HANDOFF_USERDATA_DEVNAME="sda33"',
   '-DA90_AUTO_HANDOFF_USERDATA_DEVT_POLICY="runtime-resolved-same-session"',
@@ -54,8 +54,8 @@ cflags = [
   '-DA90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_SHA256="e1950058627446d6bbd487d6a17b80f5766be4956b54cb56659b541dab09f8f6"',
   '-DA90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_PATH="workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h14/userdata-content-manifest.json"',
   '-DA90_AUTO_HANDOFF_USERDATA_CONTENT_MANIFEST_FILE_SHA256="a878f6dec82bf799c3d2cd43beeda3c5494a8882ce116327f497d822b707d5ce"',
-  '-DA90_AUTO_HANDOFF_ENABLE_PATH="/cache/a90-auto-handoff-phase3-minimal-h24k.enable"',
-  '-DA90_AUTO_HANDOFF_LATCH_PATH="/cache/a90-auto-handoff-phase3-minimal-h24k.done"',
+  '-DA90_AUTO_HANDOFF_ENABLE_PATH="/cache/a90-auto-handoff-phase3-minimal-h27.enable"',
+  '-DA90_AUTO_HANDOFF_LATCH_PATH="/cache/a90-auto-handoff-phase3-minimal-h27.done"',
   '-DA90_WIFI_TEST_BOOT_LABEL="v2812"',
   '-DA90_WIFI_TEST_BOOT_KLOG_PREFIX="A90v2812"',
   '-DA90_WIFI_TEST_BOOT_DISABLE="/cache/native-init-wifi-test-boot-v2812.disable"',
@@ -88,7 +88,7 @@ cflags = [
 
 [validation]
 init_strings = [
-  "A90 Linux init 0.11.193 (phase3-minimal-h24k-selfbuilt-kernel-nocfp)",
+  "A90 Linux init 0.11.194 (phase3-minimal-h27-selfbuilt-kernel-nocfp)",
   "video.status.doom_surface=removed",
   "video.demo.doom=removed",
   "safety.boot_write_flash_surface=removed",

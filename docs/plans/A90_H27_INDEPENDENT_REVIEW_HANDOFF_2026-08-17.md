@@ -1,11 +1,11 @@
-# A90 H24K independent review handoff
+# A90 H27 independent review handoff
 
 Date: 2026-08-17
 Target: operator-owned Samsung Galaxy A90 5G only
 Tier: H0 handoff specification
 Device or live effect: none
 
-This document tells an independent reviewer exactly what the H24K F1 runner will
+This document tells an independent reviewer exactly what the H27 F1 runner will
 accept, so a completed review produces artifacts the runner can actually
 validate. It specifies **shape only**.
 
@@ -18,11 +18,11 @@ of the thing under review, which is the failure this gate exists to prevent.
 
 Two separate reviews are required, and neither transfers from H24
 (`AGENTS.md:187-191` requires independent review when the runner, hazard, or
-closure changes; H24K changes the kernel, the builder manifest, the candidate
+closure changes; H27 changes the kernel, the builder manifest, the candidate
 hash, and the device's exploit-mitigation posture).
 
-1. **Capability review** — is the H24K capability sound?
-2. **Execution review** — is the H24K F1 runner sound for one attended flash?
+1. **Capability review** — is the H27 capability sound?
+2. **Execution review** — is the H27 F1 runner sound for one attended flash?
 
 Both must confront one fact that the H24 capability never had to: **the
 candidate kernel has `CONFIG_RKP_CFP`, `CONFIG_RKP_CFP_JOPP`, and
@@ -35,14 +35,18 @@ should return no-go on the capability, not on the artifact.
 
 | item | path |
 |---|---|
-| runner | `workspace/public/src/scripts/server-distro/a90_h24k_ufs_f1_runner_v1.py` |
-| builder version | `workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h24k/manifest.toml` |
+| runner | `workspace/public/src/scripts/server-distro/a90_h27_ufs_f1_runner_v1.py` |
+| builder version | `workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h27/manifest.toml` |
 | design | `docs/plans/A90_SELF_BUILT_KERNEL_F1_DESIGN_2026-08-16.md` |
 | build report | `docs/reports/A90_SELF_BUILT_KERNEL_H0_2026-08-16.md` |
-| candidate (private) | `workspace/private/outputs/a90-h24k-selfbuilt-kernel-ab-20260816-01/` |
+| candidate (private) | `workspace/private/outputs/a90-h27-selfbuilt-kernel-ab-20260816-01/` |
 
 Prior review history worth reading first: this design was returned **no-go
-twice**. Draft 1 was written without reading the binding target contract and
+three times**. The third found that the candidate carried `0.11.193`, which is
+retired H25's identity (`GOAL_A90.md:86`, `A90_TARGET_CONTRACT.md:590`), and that
+the runner still validated H18 as its starting resident rather than H24. The
+candidate was rebuilt as H27 `0.11.194` and the predecessor bindings were
+unbound rather than guessed. Earlier, Draft 1 was written without reading the binding target contract and
 proposed a candidate that reused the resident's identity, which
 `A90_TARGET_CONTRACT.md:320-324` forbids. Draft 2 fixed that but understated the
 runner, review, and manifest gaps. Both reviews are in the session record.
@@ -51,14 +55,14 @@ runner, review, and manifest gaps. Both reviews are in the session record.
 
 ### Capability review report
 
-Path: `docs/reports/A90_H24K_SELFBUILT_KERNEL_CAPABILITY_INDEPENDENT_REVIEW.json`
+Path: `docs/reports/A90_H27_SELFBUILT_KERNEL_CAPABILITY_INDEPENDENT_REVIEW.json`
 
 Fields the runner compares (`validate_host_capability_qualification`):
 
 | field | required value |
 |---|---|
-| `schema` | `a90-h24k-selfbuilt-kernel-independent-review-v1` |
-| `capability` | `A90_H24K_SELFBUILT_KERNEL_NOCFP_V1` |
+| `schema` | `a90-h27-selfbuilt-kernel-independent-review-v1` |
+| `capability` | `A90_H27_SELFBUILT_KERNEL_NOCFP_V1` |
 | `status` | `PASS_GO` |
 | `review_date` | the review's own date |
 | `reviewer` | the reviewer's own identifier |
@@ -67,18 +71,18 @@ Fields the runner compares (`validate_host_capability_qualification`):
 
 ### Capability qualification
 
-Path: `workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h24k/capability-qualification.json`
+Path: `workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h27/capability-qualification.json`
 
 | field | required value |
 |---|---|
-| `schema` | `a90-h24k-selfbuilt-kernel-capability-qualification-v1` |
-| `capability` | `A90_H24K_SELFBUILT_KERNEL_NOCFP_V1` |
+| `schema` | `a90-h27-selfbuilt-kernel-capability-qualification-v1` |
+| `capability` | `A90_H27_SELFBUILT_KERNEL_NOCFP_V1` |
 | `verdict` | `PASS_GO` |
 | `execution_closure_sha256` | SHA256 over the `execution_hashes` set |
 | `execution_hashes` | exactly **24** repository-relative files, each `{size, sha256}` |
 | `native_init_closure_sha256` | `3d1514e3f266e5b77886bf4511a396c9328b487b0c614c3c79fd3df16d26ca52` |
 | `native_init_closure_members` | `142` |
-| `review_scope` | `h24k-selfbuilt-kernel-nocfp-capability` |
+| `review_scope` | `h27-selfbuilt-kernel-nocfp-capability` |
 | `incident_class` | the reviewer's classification |
 | `new_hazard_or_incident` | `true` |
 | `ordinal_requalification_required` | `false` |
@@ -89,22 +93,22 @@ Path: `workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase
 | `live_authority` | `false` |
 
 The native-init closure values are given because they are **measured, not
-judged**: H24K's 142-member source closure is byte-identical to H24's, since
+judged**: H27's 142-member source closure is byte-identical to H24's, since
 only build constants and the kernel changed.
 
 ### Execution review report
 
-Path: `docs/reports/A90_H24K_SELFBUILT_KERNEL_EXECUTION_INDEPENDENT_REVIEW.json`
+Path: `docs/reports/A90_H27_SELFBUILT_KERNEL_EXECUTION_INDEPENDENT_REVIEW.json`
 
 | field | required value |
 |---|---|
-| `schema` | `a90-h24k-ufs-f1-execution-independent-review-v1` |
-| `capability` | `A90_H24K_SELFBUILT_KERNEL_NOCFP_V1` |
+| `schema` | `a90-h27-ufs-f1-execution-independent-review-v1` |
+| `capability` | `A90_H27_SELFBUILT_KERNEL_NOCFP_V1` |
 | `verdict` | `PASS_GO` |
 | `review_date` | same date as the capability review |
 | `reviewer` | same reviewer identifier |
 | `execution_closure_sha256` / `execution_file_count` | over `EXECUTION_SOURCE_RELS` |
-| `review_scope` | `h24k-selfbuilt-kernel-nocfp-boot-only-f1-execution-critical-closure` |
+| `review_scope` | `h27-selfbuilt-kernel-nocfp-boot-only-f1-execution-critical-closure` |
 | `incident` | same as `incident_class` above |
 | `findings` | `{"high": [], "medium": [], "low": []}` |
 | `validated_invariants` | **the reviewer's findings** |
@@ -114,8 +118,8 @@ Path: `docs/reports/A90_H24K_SELFBUILT_KERNEL_EXECUTION_INDEPENDENT_REVIEW.json`
 ### Execution qualification
 
 Path: alongside the manifest, schema
-`a90-h24k-ufs-execution-qualification-v1`, capability
-`A90_H24K_SELFBUILT_KERNEL_NOCFP_V1`, `verdict` `PASS_GO`,
+`a90-h27-ufs-execution-qualification-v1`, capability
+`A90_H27_SELFBUILT_KERNEL_NOCFP_V1`, `verdict` `PASS_GO`,
 `predecessor_capability_closure_sha256` equal to the capability closure,
 `f1_runner_qualified` `true`, `live_authority` `false`.
 
@@ -126,7 +130,7 @@ placeholder, and an empty invariant tuple is rejected rather than treated as
 "nothing required". Filling these is a separate reviewed edit:
 
 ```
-H24K_REVIEW_DATE
+H27_REVIEW_DATE
 HOST_CAPABILITY_CLOSURE_SHA256
 HOST_CAPABILITY_REVIEWER
 HOST_CAPABILITY_INCIDENT
@@ -136,7 +140,7 @@ EXECUTION_REVIEW_INCIDENT
 EXECUTION_REVIEW_REQUIRED_INVARIANTS
 ```
 
-`tests/test_a90_h24k_ufs_f1_runner_v1.py` asserts these stay unset and that the
+`tests/test_a90_h27_ufs_f1_runner_v1.py` asserts these stay unset and that the
 named reports are absent. Those tests must be updated in the same change that
 fills them, with the reports present.
 
@@ -144,14 +148,19 @@ fills them, with the reports present.
 
 These are scoping decisions the author deliberately did not settle.
 
-1. **Execution closure scope.** `EXECUTION_SOURCE_RELS` still lists
-   `a90_h24_ufs_d1_runner_v1.py` and `a90_h24_persistent_server_observer_v1.py`,
-   inherited from H24. Neither is called by this F1 path, which performs no D1
-   effect. Should H24K's execution closure include them?
-2. **`d1_runner_qualified`.** The execution qualification check expects `true`,
-   inherited from H24 where an F1 and a D1 runner were qualified together. H24K
-   has no D1 runner. Should that expectation change, or should a D1 runner be in
-   scope?
+1. **Predecessor terminal.** The runner's `CURRENT_*` and D1-evidence bindings
+   are unset. H27's predecessor is H24 `0.11.192` (boot.img 58,372,096,
+   `d8c280e4acee5d17d13270fdf25535b4ce05304e786bc22efa84ab16f6b82782`), whose D1
+   evidence is at `workspace/private/runs/server-distro/a90-h24-ufs-f1-20260812-01`
+   and closed `REFUTED_H24_POST_ROOT_FAILURE_ATTRIBUTED_NATIVE_FALLBACK_HEALTHY`.
+   The inherited check required a **D1 HEALTHY** predecessor.
+   `A90_TARGET_CONTRACT.md:1276-1279` says a later refutation does not
+   retroactively fail an installation. Does a refuted-but-healthy D1 satisfy this
+   precondition, and what exactly should the rebound check require?
+2. **Proof axis semantics.** `EXPERIMENT_PROOF_BY_STATUS` is new, unreviewed
+   code. It maps recovery-path and pre-release aborts to `NO_PROOF_OBSERVER` and
+   health failures to `REFUTED`, on the reading that only device-attributable
+   evidence may burn an ordinal (`:102-121`). Is that mapping right?
 3. **Is the kernel deviation acceptable at all?** Disabling RKP CFP cannot be
    undone by rebuilding; it requires Samsung's compiler. The remedy, if the
    posture proves unacceptable later, is returning to the stock kernel blob.
@@ -164,7 +173,7 @@ These are scoping decisions the author deliberately did not settle.
 
 A passing review does not authorize a flash. Still required: `GOAL_A90.md`
 recording the successor objective (it cannot grant authority —
-`AGENTS.md:47`), one fresh `A90_F1_RESIDENT_INSTALL_V1` binding, an H24K F1
+`AGENTS.md:47`), one fresh `A90_F1_RESIDENT_INSTALL_V1` binding, an H27 F1
 manifest, a fresh connected D0, an empty durable journal, proven physical
 recovery, exact attended F1 approval, and the operator physically present.
 
