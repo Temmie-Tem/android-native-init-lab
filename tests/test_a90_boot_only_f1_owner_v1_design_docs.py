@@ -36,6 +36,8 @@ FLASH = REPO / "workspace/public/src/scripts/revalidation/native_init_flash.py"
 REVALIDATION = FLASH.parent
 BOOTSTRAP = REVALIDATION / "a90_boot_only_f1_helper_bootstrap.py"
 FD_EXEC = REVALIDATION / "a90_boot_only_f1_fd_exec.py"
+PYTHON_EXECUTABLE = Path("/usr/bin/python3.14")
+ADB_EXECUTABLE = Path("/usr/lib/android-sdk/platform-tools/adb")
 ORCHESTRATOR = SERVER / "a90_v3403_f1_orchestrator.py"
 GOAL = REPO / "GOAL_A90.md"
 PROCESS = REPO / "docs/operations/DEVICE_ACTION_PROCESS_V2.md"
@@ -190,7 +192,13 @@ def executable_identity(
     path: str,
     **overrides: object,
 ) -> dict[str, object]:
-    identity = artifact_identity(role=role, path=path)
+    identity = artifact_identity(
+        role=role,
+        path=path,
+        mode=0o100755,
+        uid=0,
+        gid=0,
+    )
     identity.update(
         versionReceiptSha256="a" * 64,
         runtimeClosureSha256="b" * 64,
@@ -220,11 +228,19 @@ def validate_executable_checkpoint(
                 raise ValueError("executable digest malformed")
             if any(char not in "0123456789abcdef" for char in value):
                 raise ValueError("executable digest malformed")
-    artifact_keys = ARTIFACT_IDENTITY_KEYS
-    validate_artifact_checkpoint(
-        {key: bound[key] for key in artifact_keys},
-        {key: current[key] for key in artifact_keys},
-    )
+    if current["pathType"] != "regular" or current["fdType"] != "regular":
+        raise ValueError("executable is not regular")
+    if current["nlink"] != 1:
+        raise ValueError("executable link count drift")
+    if bound["uid"] != 0 or current["uid"] != 0 or bound["gid"] != 0 or current["gid"] != 0:
+        raise ValueError("executable owner mismatch")
+    if type(current["mode"]) is not int or current["mode"] & 0o022:
+        raise ValueError("executable mode drift")
+    if (current["pathDev"], current["pathIno"]) != (
+        current["fdDev"],
+        current["fdIno"],
+    ):
+        raise ValueError("executable pathname and held FD differ")
     if current != bound:
         raise ValueError("executable identity or runtime closure drift")
 
@@ -415,11 +431,11 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         self.raw = DESIGN.read_text(encoding="utf-8")
         self.design = flatten(self.raw)
 
-    def test_it_is_a_structural_draft_that_authorizes_nothing(self) -> None:
+    def test_it_is_an_h0_implementation_that_authorizes_nothing(self) -> None:
         head = flatten(self.raw[: self.raw.index("## The loop being removed")])
-        self.assertIn("DRAFT", head)
         self.assertIn("grants no authority", head)
-        self.assertIn("implements nothing", head)
+        self.assertIn("H0 IMPLEMENTATION CORE PRESENT", head)
+        self.assertIn("live execution is hard-disabled", head)
         self.assertIn("Device or live effect of this document: none", head)
 
     def test_the_cycle_breaking_rule_is_stated_as_a_rule(self) -> None:
@@ -528,6 +544,9 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "Interpreter and transport executable identity",
             "exactly one ordinary\nabsolute `PYTHON_EXECUTABLE` path",
             "one ordinary absolute `ADB_EXECUTABLE`\npath",
+            "both executable **canonical realpaths**",
+            "`/usr/bin/python3.14` and `/usr/lib/android-sdk/platform-tools/adb`",
+            "symlink spellings `/usr/bin/python3` and `/usr/bin/adb` are rejected",
             "`executable-identity-v1`",
             "version-receipt\nSHA256",
             "exact runtime-closure SHA256",
@@ -547,8 +566,8 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
 
     def test_executable_checkpoint_rejects_path_byte_and_runtime_drift(self) -> None:
         for role, path in (
-            ("python-interpreter", "/usr/bin/python3"),
-            ("adb-transport", "/usr/bin/adb"),
+            ("python-interpreter", str(PYTHON_EXECUTABLE)),
+            ("adb-transport", str(ADB_EXECUTABLE)),
         ):
             with self.subTest(role=role):
                 bound = executable_identity(role, path)
@@ -565,6 +584,17 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
                     current.update(mutation)
                     with self.assertRaisesRegex(ValueError, "executable|artifact"):
                         validate_executable_checkpoint(bound, current)
+
+    def test_fixed_system_executables_are_direct_root_owned_files(self) -> None:
+        for path in (PYTHON_EXECUTABLE, ADB_EXECUTABLE):
+            with self.subTest(path=path):
+                self.assertTrue(path.is_absolute())
+                self.assertFalse(path.is_symlink())
+                metadata = path.stat()
+                self.assertEqual(metadata.st_uid, 0)
+                self.assertEqual(metadata.st_gid, 0)
+                self.assertEqual(metadata.st_nlink, 1)
+                self.assertEqual(metadata.st_mode & 0o022, 0)
 
     def test_owner_launch_vector_cannot_use_path_or_caller_adb(self) -> None:
         flash_source = FLASH.read_text(encoding="utf-8")
@@ -1058,7 +1088,7 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
     def test_it_does_not_overclaim_what_it_saves(self) -> None:
         self.assertIn("does not remove the one-time cost", self.design)
         self.assertIn("needs a full capability review before first use", self.design)
-        self.assertIn("It does not implement the owner", self.design)
+        self.assertIn("does not provide a live-capable owner", self.design)
         self.assertIn("It does not authorize an F1", self.design)
 
     def test_the_goal_still_forbids_a_successor(self) -> None:

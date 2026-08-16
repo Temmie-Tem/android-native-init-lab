@@ -332,6 +332,17 @@ identity:
   research-only until all ten dependency gates and its containment/switch
   conditions close. The exact next unit is H0 WP2-5b.3b: strict raw canonical
   writer/parser, selected storage-reservation backend, and crash-prefix fixture.
+- The reusable boot-only F1 owner now has an H0 implementation core at
+  `workspace/public/src/scripts/server-distro/a90_boot_only_f1_owner_v1.py`
+  with its strict contract/journal module and hostile tests. It removes the
+  per-candidate runner self-reference: manifests are data, candidate and
+  rollback are separately one-shot, and the success terminal remains
+  candidate-neutral. Live `execute` is unconditionally disabled. Python/ADB
+  runtime qualification, exact A90 device preflight/final observation,
+  crash-prefix resume, and an independent full execution-closure review remain
+  open; therefore no H27 manifest, approval, ordinal, D0, D1, or F1 authority
+  exists. The next owner unit is H0 completion of those four gates, followed by
+  one fresh full review of the resulting frozen closure.
 
 ## What Leaves or Moves Out
 

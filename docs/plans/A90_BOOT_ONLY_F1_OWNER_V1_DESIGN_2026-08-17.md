@@ -4,8 +4,10 @@ Date: 2026-08-17
 Target: operator-owned Samsung Galaxy A90 5G only
 Tier of this document: H0 structural design
 Device or live effect of this document: none
-Status: **DRAFT — closes structure only. It implements nothing, qualifies
-nothing, and grants no authority.**
+Status: **H0 IMPLEMENTATION CORE PRESENT — live execution is hard-disabled.
+Runtime qualification, device preflight/final observer, crash-prefix resume,
+and the required independent full review remain absent. This qualifies nothing
+and grants no authority.**
 
 This design exists to stop a loop, not to add a feature. Six independent
 reviews of the per-candidate H27 runner each found real defects, and the
@@ -58,6 +60,28 @@ list.
 H28 (`CONFIG_ANDROID_BINDERFS=y`) and later candidates add a manifest and a
 hazard qualification. They do not touch owner code, so they do not re-open the
 owner capability review.
+
+## Current implementation checkpoint
+
+The current tree now contains the reusable stdlib-only owner, its strict
+contract/journal module, and focused hostile tests:
+
+- `workspace/public/src/scripts/server-distro/a90_boot_only_f1_owner_v1.py`;
+- `workspace/public/src/scripts/server-distro/a90_boot_only_f1_contract_v1.py`;
+- `tests/test_a90_boot_only_f1_owner_v1.py`.
+
+The implemented H0 core rejects noncanonical or authority-bearing manifests,
+binds direct regular artifact FDs, derives approval from the exact target,
+boot, run, manifest, artifact, executable, observation, recovery, and hazard
+inputs, journals candidate and rollback as separate one-shot attempts, and
+validates the candidate-neutral success terminal. The CLI `execute` action
+unconditionally returns `NO_GO` even with `--operator-attended`.
+
+This is deliberately not a half-enabled F1 runner. No live path exists until
+the external Python/ADB runtime qualification is generated and bound to a
+`PASS_GO` capability review, the exact A90 preflight/final-health producer and
+crash-prefix reconciler are implemented, and the resulting execution-critical
+closure receives a fresh independent full review.
 
 ## The owner
 
@@ -169,10 +193,17 @@ path. Neither path may come from the manifest, an approval, a CLI argument,
 `PATH`, `PYTHONPATH`, `shutil.which`, `/usr/bin/env`, a shell, or another
 runtime lookup. A bare or relative executable name is `NO_GO`.
 
-Before approval, the owner opens both executable paths, the fixed
+Before approval, the owner opens both executable **canonical realpaths**, the fixed
 `a90_boot_only_f1_helper_bootstrap.py`, and every helper source with
-`O_RDONLY|O_CLOEXEC|O_NOFOLLOW` and applies the same ancestor, ownership,
-mode, link-count, held-FD, and content rules as `artifact-identity-v1`. It
+`O_RDONLY|O_CLOEXEC|O_NOFOLLOW`. Candidate, rollback, and repository source
+objects retain the invoking-host-identity ownership rule. System executables
+instead require one direct root-owned (`uid=gid=0`) regular file, link count
+one, no group/world write bit, and a complete realpath ancestor chain that is
+root-owned and not group/world writable. The current fixed paths are
+`/usr/bin/python3.14` and `/usr/lib/android-sdk/platform-tools/adb`; the
+symlink spellings `/usr/bin/python3` and `/usr/bin/adb` are rejected rather
+than followed. The owner otherwise applies the same held-FD, size, digest, and
+pathname-identity rules as `artifact-identity-v1`. It
 records an `executable-identity-v1` tuple containing the complete artifact
 identity plus the executable role, exact capability-qualified version-receipt
 SHA256, and exact runtime-closure SHA256. These FDs remain held until the
@@ -537,7 +568,8 @@ The owner is only as good as what it refuses. At minimum:
 - changed observation rule or recovery plan after approval;
 - changed owner closure, helper, Python/ADB executable identity, version
   receipt, or runtime closure after approval;
-- bare or relative Python/ADB executable, caller-selected `--adb`, PATH lookup,
+- bare or relative Python/ADB executable, either canonical path replaced by a
+  symlink, caller-selected `--adb`, PATH lookup,
   fake ADB earlier in `PATH`, direct `python -I native_init_flash.py`, direct
   bootstrap pathname execution, or a launch omitting the fixed inherited-FD
   loader, its one-FD `pass_fds` binding, or isolated Python mode;
@@ -579,7 +611,10 @@ The owner is only as good as what it refuses. At minimum:
 
 ## What this design does not do
 
-- It does not implement the owner.
+- It does not provide a live-capable owner. The H0 contract/state-machine core
+  exists, but production target preflight, final observation, runtime
+  qualification, and crash-prefix resume remain deliberately absent and the
+  live CLI is hard-disabled.
 - It does not qualify anything, and creates no approval, manifest, or hazard
   qualification.
 - It does not authorize an F1. `GOAL_A90.md` still records that no successor
