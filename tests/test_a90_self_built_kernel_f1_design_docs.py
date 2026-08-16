@@ -29,7 +29,16 @@ PROCESS = REPO / "docs/operations/DEVICE_ACTION_PROCESS_V2.md"
 RUNNER = REPO / "workspace/public/src/scripts/revalidation/native_init_flash.py"
 
 BOOT_IMAGES = REPO / "workspace/private/inputs/boot_images"
-CANDIDATE = BOOT_IMAGES / "boot_a90_h24_selfbuilt_nocfp_20260816.img"
+KERNEL_INPUT = BOOT_IMAGES / "boot_a90_h24_selfbuilt_nocfp_20260816.img"
+BASE_BOOT = BOOT_IMAGES / "boot_a90_base_selfbuilt_kernel_20260816.img"
+CANDIDATE = REPO / (
+    "workspace/private/outputs"
+    "/a90-h24k-selfbuilt-kernel-ab-20260816-01/A/boot.img"
+)
+CANDIDATE_B = REPO / (
+    "workspace/private/outputs"
+    "/a90-h24k-selfbuilt-kernel-ab-20260816-01/B/boot.img"
+)
 ROLLBACK = BOOT_IMAGES / "boot_linux_v2321_usb_clean_identity_rodata.img"
 RESIDENT = REPO / (
     "workspace/private/outputs"
@@ -38,7 +47,7 @@ RESIDENT = REPO / (
 
 DIGESTS = {
     "resident": "d8c280e4acee5d17d13270fdf25535b4ce05304e786bc22efa84ab16f6b82782",
-    "candidate": "7c293af9c0fd6bfea5247cd5c3415956c452c67a79e8269c967860d2a2c0cead",
+    "candidate": "2c4ca81152987dc484d5b147f7a09a77f16f8fad0b7236cf3c67f4a562c6ceba",
     "rollback": "ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb",
 }
 RUNNER_SHA = "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
@@ -119,14 +128,51 @@ class SelfBuiltKernelF1DesignTests(unittest.TestCase):
             self.design,
         )
 
+    def test_the_candidate_was_built_with_a_new_identity(self) -> None:
+        """The contract's core requirement, checked against the built artifact."""
+        self.assertIn("Built on 2026-08-16", self.design)
+        self.assertIn("`phase3-minimal-h24k`, version `0.11.193`", self.design)
+        self.assertIn("qualification records are **still absent**", self.raw)
+        if not (CANDIDATE.is_file() and CANDIDATE_B.is_file()):
+            self.skipTest(f"private artifact not staged on this host: {CANDIDATE}")
+        a = hashlib.sha256(CANDIDATE.read_bytes()).hexdigest()
+        b = hashlib.sha256(CANDIDATE_B.read_bytes()).hexdigest()
+        self.assertEqual(a, b, "candidate A/B build is not reproducible")
+        self.assertEqual(a, DIGESTS["candidate"])
+
+    def test_the_candidate_carries_the_self_built_kernel(self) -> None:
+        if not CANDIDATE.is_file():
+            self.skipTest(f"private artifact not staged on this host: {CANDIDATE}")
+        raw = CANDIDATE.read_bytes()
+        page = struct.unpack("<I", raw[36:40])[0]
+        blob = raw[page : page + struct.unpack("<I", raw[8:12])[0]]
+        size = struct.unpack("<I", blob[16:20])[0]
+        image = blob[20 : 20 + size]
+        self.assertEqual(
+            hashlib.sha256(image).hexdigest(),
+            "6cab67938d2d235ad5ad965abaefe7e3ebda6d13b57251705c91f5f333ab1b6d",
+        )
+        self.assertNotIn("4.14.190-25818860", kernel_banner(CANDIDATE))
+
+    def test_the_builder_base_boot_requirement_is_recorded(self) -> None:
+        """An already-built image is rejected; the design must say why."""
+        self.assertIn("base ramdisk already contains the H17 observer key path", self.design)
+        self.assertIn("caps\n`extends` depth at 2", self.raw)
+        if BASE_BOOT.is_file():
+            self.assertEqual(
+                hashlib.sha256(BASE_BOOT.read_bytes()).hexdigest(),
+                "2d0be40158d56b6b053bc1aff6c6e149beb904da43a303b812e8ca6c4d583a9e",
+            )
+
     def test_the_staged_image_is_declared_not_a_candidate(self) -> None:
         """The contract forbids reusing the resident's identity and latch paths."""
-        self.assertIn("build input, not the candidate", self.design)
+        self.assertIn("not itself a candidate", self.design)
         self.assertIn("not usable as a candidate", self.design)
         self.assertIn("Every replacement candidate uses a new build identity", self.design)
         self.assertIn("a prior enable/latch pair is never reused", self.design)
-        self.assertIn("| **candidate** | **not yet built** | — | — |", self.raw)
-        self.assertIn("this design has no candidate", self.design)
+        self.assertIn("not itself a candidate", self.design)
+        self.assertIn("then deleted", self.design)
+        self.assertFalse(KERNEL_INPUT.exists(), "the dead-end image must not remain staged")
 
     def test_the_required_candidate_construction_is_specified(self) -> None:
         for token in (

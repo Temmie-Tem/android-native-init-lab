@@ -88,14 +88,22 @@ must repeat the same statement and must not let boot success stand in for it.
 
 ## Required candidate construction
 
-The staged self-built boot image is a **build input, not the candidate**.
+A self-built boot image is **not itself a candidate**. An intermediate image
+pairing the self-built kernel with the resident's ramdisk was produced first and
+then deleted: it reused the H24 identity and latch paths, so the contract
+forbids it as a candidate, and it also cannot serve as `base_boot` because its
+ramdisk is already built. Only the base image below survives.
 
 The candidate must be produced by the reviewed flat builder as a new version
-extending `phase3-minimal-h24`, with:
+carrying the full `phase3-minimal-h24` definition. It extends
+`phase3-minimal-h16` rather than `phase3-minimal-h24` because the builder caps
+`extends` depth at 2; the h24 body is therefore copied, not inherited. It sets:
 
-- `[inputs] base_boot` and `base_boot_sha256` pointing at the self-built image
-  (this is how the builder sources the kernel; it rebuilds the ramdisk from
-  source);
+- `[inputs] base_boot` and `base_boot_sha256` pointing at a **base** image that
+  pairs the self-built kernel with the v3403 base ramdisk. The builder unpacks
+  `base_boot` for the kernel and header arguments and then overlays its own
+  init/helper/engine onto that ramdisk, so an already-built image is rejected
+  with `base ramdisk already contains the H17 observer key path`;
 - a new `profile`, `cycle`, `decision`, and `random_seed`;
 - a new `INIT_VERSION` and `INIT_BUILD`;
 - **fresh `A90_AUTO_HANDOFF_ENABLE_PATH` and `A90_AUTO_HANDOFF_LATCH_PATH`**
@@ -106,9 +114,15 @@ extending `phase3-minimal-h24`, with:
 
 That build is a separate H0 unit with its own capability and execution
 qualification, matching the `capability-qualification.json` and
-`execution-qualification.json` that accompany every existing version. **Until it
-exists, this design has no candidate and the identity table below is
-incomplete.**
+`execution-qualification.json` that accompany every existing version.
+
+**Built on 2026-08-16** as `phase3-minimal-h24k`, version `0.11.193`, build
+`phase3-minimal-h24k-selfbuilt-kernel-nocfp`. A/B output is byte-identical, the
+candidate's embedded `Image` hashes to the self-built kernel, only `kernel_size`
+differs from the resident header, and the ramdisk carries the fresh
+`/cache/a90-auto-handoff-phase3-minimal-h24k.{enable,done}` paths with zero
+occurrences of the H24 pair. The version's capability and execution
+qualification records are **still absent** and remain a precondition.
 
 ## Identities
 
@@ -118,8 +132,9 @@ Absolute paths, as the process requires. All are private and none is committed.
 |---|---|---|---|
 | resident | `/home/temmie/dev/android-native-init-lab/workspace/private/outputs/a90-h24-minimal-debian-dev-ab-20260812-01/A/boot.img` | 58,372,096 | `d8c280e4acee5d17d13270fdf25535b4ce05304e786bc22efa84ab16f6b82782` |
 | rollback | `/home/temmie/dev/android-native-init-lab/workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img` | 60,882,944 | `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb` |
-| kernel build input | `/home/temmie/dev/android-native-init-lab/workspace/private/inputs/boot_images/boot_a90_h24_selfbuilt_nocfp_20260816.img` | 58,368,000 | `7c293af9c0fd6bfea5247cd5c3415956c452c67a79e8269c967860d2a2c0cead` |
-| **candidate** | **not yet built** | — | — |
+| builder `base_boot` | `/home/temmie/dev/android-native-init-lab/workspace/private/inputs/boot_images/boot_a90_base_selfbuilt_kernel_20260816.img` | 66,375,680 | `2d0be40158d56b6b053bc1aff6c6e149beb904da43a303b812e8ca6c4d583a9e` |
+| self-built `Image` (inside both) | — | 48,826,384 | `6cab67938d2d235ad5ad965abaefe7e3ebda6d13b57251705c91f5f333ab1b6d` |
+| **candidate** | `/home/temmie/dev/android-native-init-lab/workspace/private/outputs/a90-h24k-selfbuilt-kernel-ab-20260816-01/A/boot.img` | 58,368,000 | `2c4ca81152987dc484d5b147f7a09a77f16f8fad0b7236cf3c67f4a562c6ceba` |
 
 The resident is H24 `0.11.192`, build
 `phase3-minimal-h24-ufs-auth-native-hud-private-card-root-minimal-debian-dev`,
