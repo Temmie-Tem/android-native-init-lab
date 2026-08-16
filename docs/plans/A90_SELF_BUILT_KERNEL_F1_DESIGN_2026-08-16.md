@@ -8,14 +8,17 @@ Status: **DRAFT — grants no authority, creates no candidate, and is not an
 approval request**
 
 Supersedes drafts 1 and 2, both returned **no-go**. Draft 3 also records the
-third review's findings: the candidate carried `0.11.193`, which is retired H25's
-identity and forbidden to reuse (`GOAL_A90.md:86`,
-`A90_TARGET_CONTRACT.md:590`); the runner still validated H18 `0.11.186` as its
-starting resident rather than H24; and the proof axis existed only in this
-document. The candidate is rebuilt as H27 `0.11.194`, the predecessor bindings
-are unbound rather than guessed, and the axis is implemented.
+third and fourth reviews' findings. The third: the candidate carried
+`0.11.193`, which is retired H25's identity and forbidden to reuse
+(`GOAL_A90.md:86`, `A90_TARGET_CONTRACT.md:590`); the runner still validated H18
+`0.11.186` as its starting resident rather than H24; and the proof axis existed
+only in this document. The fourth: the proof axis was derived from the terminal
+status, so host-side observation failures were recorded as device refutations,
+and no consumer validated the axis at all, so a durable result pairing a passing
+install with `REFUTED` was accepted. The candidate is rebuilt as H27
+`0.11.194`, the proof axis is derived from attribution and validated on
+consumption, and the H24 predecessor is bound from its own F1 and D1 terminals.
 
-Draft 1 was reviewed and returned **no-go**.
 Draft 1 was written without reading `docs/operations/targets/A90_TARGET_CONTRACT.md`,
 the binding target contract, and it contradicted that contract on the point its
 central design choice rested on. The corrections are recorded in
@@ -142,7 +145,7 @@ Absolute paths, as the process requires. All are private and none is committed.
 | rollback | `/home/temmie/dev/android-native-init-lab/workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img` | 60,882,944 | `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb` |
 | builder `base_boot` | `/home/temmie/dev/android-native-init-lab/workspace/private/inputs/boot_images/boot_a90_base_selfbuilt_kernel_20260816.img` | 66,375,680 | `2d0be40158d56b6b053bc1aff6c6e149beb904da43a303b812e8ca6c4d583a9e` |
 | self-built `Image` (inside both) | — | 48,826,384 | `6cab67938d2d235ad5ad965abaefe7e3ebda6d13b57251705c91f5f333ab1b6d` |
-| **candidate** | `/home/temmie/dev/android-native-init-lab/workspace/private/outputs/a90-h27-selfbuilt-kernel-ab-20260816-01/A/boot.img` | 58,368,000 | `fa7ab8af8cec027c433653da92eb6cb4ca6f3a02d7624a4f292f61906e8ce500` |
+| **candidate** | `/home/temmie/dev/android-native-init-lab/workspace/private/outputs/a90-h27-selfbuilt-kernel-ab-20260817-01/A/boot.img` | 58,368,000 | `fa7ab8af8cec027c433653da92eb6cb4ca6f3a02d7624a4f292f61906e8ce500` |
 
 The resident is H24 `0.11.192`, build
 `phase3-minimal-h24-ufs-auth-native-hud-private-card-root-minimal-debian-dev`,
@@ -284,13 +287,14 @@ Each is independent; none is satisfied by this document.
    inputs;
 4. one fresh `A90_F1_RESIDENT_INSTALL_V1` binding for that candidate plus its
    exact rollback (`A90_TARGET_CONTRACT.md:1268-1270`);
-5. **a new reviewed H27 F1 runner.** `a90_h24_ufs_f1_runner_v1.py` hardcodes
-   the H24 version, build, candidate hash, enable/latch paths, builder manifest,
-   capability qualification, review report, reviewer, and scope. It cannot bind
-   `0.11.194` or `2c4ca811...`. "Runner schema update" understates this: either a
-   new runner or a genuinely parameterized equivalent is required, and it must
-   also reject caller-supplied `--remote-image` and `--boot-block` values so the
-   boot-only boundary in `AGENTS.md:54-65` is enforced rather than assumed;
+5. **review of the H27 F1 runner.** `a90_h27_ufs_f1_runner_v1.py` now exists,
+   adapted from the H24 runner, which could not bind `0.11.194` or
+   `fa7ab8af...` because it hardcodes H24's version, build, candidate hash,
+   enable/latch paths, builder manifest, qualification, review report, reviewer,
+   and scope. The H27 runner is unreviewed and refuses to start while its
+   bindings are unset. It must also reject caller-supplied `--remote-image` and
+   `--boot-block` values so the boot-only boundary in `AGENTS.md:54-65` is
+   enforced rather than assumed;
 6. first-use execution qualification: focused tests, connected preflight, and
    compatibility binding (`:1284-1289`);
 7. an **independent H27 capability review** and an **independent H27 execution

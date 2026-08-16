@@ -39,7 +39,7 @@ should return no-go on the capability, not on the artifact.
 | builder version | `workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h27/manifest.toml` |
 | design | `docs/plans/A90_SELF_BUILT_KERNEL_F1_DESIGN_2026-08-16.md` |
 | build report | `docs/reports/A90_SELF_BUILT_KERNEL_H0_2026-08-16.md` |
-| candidate (private) | `workspace/private/outputs/a90-h27-selfbuilt-kernel-ab-20260816-01/` |
+| candidate (private) | `workspace/private/outputs/a90-h27-selfbuilt-kernel-ab-20260817-01/` |
 
 Prior review history worth reading first: this design was returned **no-go
 three times**. The third found that the candidate carried `0.11.193`, which is

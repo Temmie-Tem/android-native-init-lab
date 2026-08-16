@@ -108,11 +108,17 @@ class SelfBuiltKernelF1DesignTests(unittest.TestCase):
         )
         self.assertIn("should reject this design rather than the artifact", self.design)
 
-    def test_the_third_no_go_is_recorded_too(self) -> None:
-        """The retired identity and wrong predecessor must stay visible."""
-        self.assertIn("retired H25's\nidentity", self.raw)
+    def test_the_later_no_gos_are_recorded_too(self) -> None:
+        """Four reviews found defects; none may be quietly absorbed."""
+        self.assertIn("third and fourth reviews' findings", self.design)
+        self.assertIn("retired H25's identity", self.design)
         self.assertIn("validated H18 `0.11.186` as its", self.design)
-        self.assertIn("the axis is implemented", self.design)
+        self.assertIn(
+            "host-side observation failures were recorded as device refutations",
+            self.design,
+        )
+        self.assertIn("a passing install with `REFUTED` was accepted", self.design)
+        self.assertIn("derived from attribution and validated on", self.design)
 
     def test_the_resident_acceptance_decision_is_recorded(self) -> None:
         self.assertIn("chose resident on 2026-08-17", self.design)

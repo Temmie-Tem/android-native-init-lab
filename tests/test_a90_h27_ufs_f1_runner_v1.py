@@ -219,7 +219,6 @@ class H27RunnerUnqualifiedTests(unittest.TestCase):
 
     def test_the_terminal_status_is_h27_scoped(self) -> None:
         self.assertIn("PASS_A90_H27_UFS_RESIDENT_INSTALLED", self.text)
-        self.assertNotIn("PASS_A90_H24_UFS_RESIDENT_INSTALLED", self.text)
 
     def test_the_h24_runner_was_not_modified(self) -> None:
         """Adapting H24 must not disturb the resident's own qualified runner."""
@@ -307,8 +306,7 @@ class H27RebindTests(unittest.TestCase):
             self.mod.CURRENT_VERSION.startswith("UNSET_PENDING_"), self.mod.CURRENT_VERSION
         )
         self.assertEqual(self.mod.CURRENT_BOOT_SIZE, 0)
-        self.assertEqual(self.mod.H18_D1_RECORDS, ())
-        self.assertEqual(self.mod.H18_D1_TERMINAL_RESULT_SHA256, "")
+        self.assertFalse(hasattr(self.mod, "H18_D1_RECORDS"))
         self.assertNotIn("0.11.186", self.text)
         self.assertNotIn("phase3-minimal-h18", self.text)
 
@@ -332,6 +330,89 @@ class H27RebindTests(unittest.TestCase):
         self.assertIn('or value.get("d1_runner_qualified") is not False', self.text)
         self.assertNotIn('or value.get("d1_runner_qualified") is not True', self.text)
 
+    def test_the_proof_axis_comes_from_attribution_not_status(self) -> None:
+        """Both FAILED terminals are raised from `except Exception` handlers that
+        also catch host parse, timeout, and transfer-uncertainty defects, so a
+        status lookup cannot tell a device contradiction from an observer defect.
+        """
+        self.assertEqual(self.mod.experiment_proof(self.mod.PASS_STATUS), "PROVED")
+        for status in ("FAILED_INITIAL_HEALTH_ROLLED_BACK", "FAILED_CANDIDATE_ROLLED_BACK"):
+            self.assertEqual(
+                self.mod.experiment_proof(status), "NO_PROOF_OBSERVER", status
+            )
+            self.assertEqual(
+                self.mod.experiment_proof(status, device_contradiction=True),
+                "REFUTED",
+                status,
+            )
+        with self.assertRaises(self.mod.ContractError):
+            self.mod.experiment_proof(self.mod.PASS_STATUS, device_contradiction=True)
+        self.assertNotIn("EXPERIMENT_PROOF_BY_STATUS", self.text)
+
+    def test_a_consumer_refuses_a_mismatched_proof_axis(self) -> None:
+        """A field nothing checks is decoration; this is the check."""
+        bad = [
+            {"status": self.mod.PASS_STATUS, "experiment_proof": "REFUTED",
+             "device_safety_state": "RESIDENT_HEALTHY"},
+            {"status": self.mod.PASS_STATUS, "experiment_proof": "NO_PROOF_OBSERVER",
+             "device_safety_state": "RESIDENT_HEALTHY"},
+            {"status": self.mod.PASS_STATUS, "experiment_proof": "PROVED",
+             "device_safety_state": "BASELINE_HEALTHY"},
+            {"status": "FAILED_CANDIDATE_ROLLED_BACK", "experiment_proof": "PROVED"},
+            {"status": self.mod.PASS_STATUS, "device_safety_state": "RESIDENT_HEALTHY"},
+        ]
+        for result in bad:
+            with self.assertRaises(self.mod.ContractError, msg=str(result)):
+                self.mod.validate_experiment_proof(result)
+        self.assertEqual(
+            self.mod.validate_experiment_proof(
+                {"status": self.mod.PASS_STATUS, "experiment_proof": "PROVED",
+                 "device_safety_state": "RESIDENT_HEALTHY"}
+            ),
+            "PROVED",
+        )
+
+    def test_the_durable_result_consumer_calls_the_validator(self) -> None:
+        import inspect
+
+        source = inspect.getsource(self.mod._validate_closed_result)
+        self.assertIn("validate_experiment_proof(result)", source)
+
+    def test_the_predecessor_is_h24_not_h18(self) -> None:
+        self.assertEqual(
+            self.mod.H24_F1_CLOSED_STATUS, "PASS_A90_H24_UFS_RESIDENT_INSTALLED"
+        )
+        self.assertIn("REFUTED_H24_", self.mod.H24_D1_CLOSED_STATUS)
+        self.assertEqual(len(self.mod.H24_D1_RECORDS), 7)
+        for name, size, sha in self.mod.H24_D1_RECORDS:
+            self.assertTrue(name.endswith(".json"), name)
+            self.assertGreater(size, 0, name)
+            self.assertRegex(sha, r"^[0-9a-f]{64}$")
+        self.assertNotIn("H18_D1_RECORDS", self.text)
+        self.assertNotIn("A90_H18_POST_ROOT_FAILURE_ATTRIBUTION_V1", self.text)
+        self.assertNotIn("PASS_A90_H18_UFS_RESIDENT_INSTALLED", self.text)
+        self.assertTrue(hasattr(self.mod, "validate_h24_predecessor_terminal"))
+        self.assertFalse(hasattr(self.mod, "validate_h18_d1_terminal"))
+
+    def test_the_bound_predecessor_evidence_matches_the_staged_run(self) -> None:
+        run = REPO / self.mod.H24_PREDECESSOR_RUN_REL
+        if not run.is_dir():
+            self.skipTest(f"private artifact not staged on this host: {run}")
+        for rel, size, sha in (
+            (self.mod.H24_F1_CLOSED_REL, self.mod.H24_F1_CLOSED_SIZE,
+             self.mod.H24_F1_CLOSED_SHA256),
+            (self.mod.H24_D1_CLOSED_REL, self.mod.H24_D1_CLOSED_SIZE,
+             self.mod.H24_D1_CLOSED_SHA256),
+        ):
+            raw = (run / rel).read_bytes()
+            self.assertEqual(len(raw), size, rel)
+            self.assertEqual(hashlib.sha256(raw).hexdigest(), sha, rel)
+        d1 = run / "h24-d1/run01"
+        for name, size, sha in self.mod.H24_D1_RECORDS:
+            raw = (d1 / name).read_bytes()
+            self.assertEqual(len(raw), size, name)
+            self.assertEqual(hashlib.sha256(raw).hexdigest(), sha, name)
+
     def test_the_proof_axis_exists_and_is_total(self) -> None:
         """The design's third axis must be in the result, not only in prose."""
         import re
@@ -343,19 +424,8 @@ class H27RebindTests(unittest.TestCase):
         }
         self.assertTrue(emitted)
         for status in emitted:
-            self.assertIn(status, self.mod.EXPERIMENT_PROOF_BY_STATUS, status)
-        self.assertEqual(
-            self.mod.experiment_proof("PASS_A90_H27_UFS_RESIDENT_INSTALLED"), "PROVED"
-        )
-        self.assertEqual(
-            self.mod.experiment_proof("FAILED_INITIAL_HEALTH_ROLLED_BACK"), "REFUTED"
-        )
-        self.assertEqual(
-            self.mod.experiment_proof("ABORTED_BEFORE_CANDIDATE_SESSION"),
-            "NO_PROOF_OBSERVER",
-        )
-        with self.assertRaises(self.mod.ContractError):
-            self.mod.experiment_proof("A_STATUS_NOBODY_MAPPED")
+            proof = self.mod.experiment_proof(status)
+            self.assertIn(proof, ("PROVED", "NO_PROOF_OBSERVER"), status)
 
     def test_every_result_emission_carries_the_proof_axis(self) -> None:
         self.assertEqual(

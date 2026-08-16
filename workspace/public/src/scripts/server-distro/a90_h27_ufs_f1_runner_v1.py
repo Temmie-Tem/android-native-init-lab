@@ -89,14 +89,68 @@ CURRENT_BUILD = "UNSET_PENDING_H27_PREDECESSOR_REBIND"
 CURRENT_BOOT_SIZE = 0
 CURRENT_BOOT_SHA256 = "UNSET_PENDING_H27_PREDECESSOR_REBIND"
 CURRENT_INSTALL_EXECUTION_CLOSURE_SHA256 = "UNSET_PENDING_H27_PREDECESSOR_REBIND"
-# NOT YET BOUND, for the same reason as the predecessor constants above. These
-# pinned the H18 D1 terminal journal record-by-record. H27's predecessor is
-# H24, whose D1 evidence lives at
-# workspace/private/runs/server-distro/a90-h24-ufs-f1-20260812-01 and closed
-# REFUTED-but-healthy. Rebinding requires the review to first settle whether
-# that terminal is an acceptable predecessor at all.
-H18_D1_TERMINAL_RESULT_SHA256 = ""
-H18_D1_RECORDS: tuple[tuple[str, int, str], ...] = ()
+# The independent review settled that H24 is an acceptable predecessor: a D1
+# refutation does not retroactively fail an installation
+# (A90_TARGET_CONTRACT.md:1276-1279). It also required the two terminals be
+# combined rather than one substituted for the other, so this binds both.
+#
+# The F1 terminal proves the resident was installed and is healthy. The D1
+# terminal proves the later experiment was refuted, consumed, and left the
+# device healthy with no replay and no userdata write.
+H24_PREDECESSOR_RUN_REL = (
+    "workspace/private/runs/server-distro/a90-h24-ufs-f1-20260812-01"
+)
+H24_F1_CLOSED_REL = "h24-f1-live/journal/0006-closed.json"
+H24_F1_CLOSED_SIZE = 56968
+H24_F1_CLOSED_SHA256 = (
+    "b35bf31954d523462b073191bdb167d51bb65d9772e7f140ec101366044341f5"
+)
+H24_F1_CLOSED_STATUS = "PASS_A90_H24_UFS_RESIDENT_INSTALLED"
+H24_D1_CLOSED_REL = "h24-d1/run01/0006-closed.json"
+H24_D1_CLOSED_SIZE = 83023
+H24_D1_CLOSED_SHA256 = (
+    "325b3d22c07a1d4d597e43e1f7be590352c5391d6dc7138ce93ba7da0b421c45"
+)
+H24_D1_CLOSED_STATUS = (
+    "REFUTED_H24_POST_ROOT_FAILURE_ATTRIBUTED_NATIVE_FALLBACK_HEALTHY"
+)
+H24_D1_RECORDS = (
+    (
+        "0000-open.json",
+        115212,
+        "d7ece305f1a485649bbdb35b92116a02236deac28524155647314446a1153a6d",
+    ),
+    (
+        "0001-arm-reboot-intent.json",
+        1581,
+        "ad7926ee5f718d7e1b2f48ca6b0da5e16fd554b51f13f82202d1c3f35a612fdf",
+    ),
+    (
+        "0002-dispatch-result.json",
+        4898,
+        "f44a21f25917706cd35ac2a44db3748dc3858bf384210e4e22c8c90ecf0477a8",
+    ),
+    (
+        "0003-persistent-observation.json",
+        6162,
+        "45412849deeb7482e7bb9c4e31945ed348ec3d7473c2716a3246440aaf9da048",
+    ),
+    (
+        "0004-current-state.json",
+        7041,
+        "6c4ae04eeccc8eb2f4da3f3a7b8fe042d7478422ede5da8c9cf3167206545a47",
+    ),
+    (
+        "0005-final-health.json",
+        83029,
+        "3e045b9ec203abc29e1113f07ddfe40e79d391177dda0f4657da03ef1298047c",
+    ),
+    (
+        "0006-closed.json",
+        83023,
+        "325b3d22c07a1d4d597e43e1f7be590352c5391d6dc7138ce93ba7da0b421c45",
+    ),
+)
 CANDIDATE_VERSION = "0.11.194"
 CANDIDATE_BUILD = "phase3-minimal-h27-selfbuilt-kernel-nocfp"
 CANDIDATE_BOOT_SIZE = 58368000
@@ -570,30 +624,64 @@ def validate_qualification(
     return value
 
 
-EXPERIMENT_PROOF_BY_STATUS = {
-    # A90_TARGET_CONTRACT.md:62-71 keeps device safety and experiment proof on
-    # separate axes. The H24 runner recorded only device safety because its
-    # experiment lived in the later D1 session. H27's whole question is answered
-    # by the F1 itself -- the candidate image contains only the self-built
-    # kernel, so reaching exact candidate health is the proof -- so the result
-    # must carry that axis or the run buys an ordinal and records no answer.
-    "PASS_A90_H27_UFS_RESIDENT_INSTALLED": "PROVED",
-    "FAILED_INITIAL_HEALTH_ROLLED_BACK": "REFUTED",
-    "FAILED_CANDIDATE_ROLLED_BACK": "REFUTED",
-    # Recovery-path and pre-release aborts are instrument outcomes, not device
-    # contradictions. :102-121 -- only device-attributable evidence may burn an
-    # ordinal or force a no-replay conclusion.
-    "FAILED_CANDIDATE_RECOVERY_ROLLBACK_COMPLETE": "NO_PROOF_OBSERVER",
-    "ABORTED_BEFORE_CANDIDATE_SESSION": "NO_PROOF_OBSERVER",
-    "ABORTED_BEFORE_CANDIDATE_RELEASE": "NO_PROOF_OBSERVER",
-}
+# A90_TARGET_CONTRACT.md:62-71 keeps device safety and experiment proof on
+# separate axes, and :102-121 governs which failures may occupy the proof axis:
+# only device-attributable evidence may burn an ordinal, a missing, late, or
+# malformed observation is NO_PROOF_OBSERVER, and when attribution remains
+# unresolved NO_PROOF_OBSERVER is the answer.
+#
+# A previous version of this file derived the axis from the terminal status
+# alone, mapping FAILED_* to REFUTED. That was wrong. Both failure terminals are
+# emitted from `except Exception` handlers that also catch host-side parse,
+# timeout, and transfer-uncertainty defects, so a status lookup cannot tell a
+# device contradiction from an observer defect and would have burned ordinals on
+# instrument failures.
+#
+# Attribution is therefore an input, not an inference. REFUTED requires a caller
+# that positively proved a well-formed device response contradicting the health
+# predicate. No site in this runner can do that yet -- the handlers discard the
+# distinction -- so REFUTED is currently unreachable by construction, and that
+# is stated rather than hidden.
+PROOF_PROVED = "PROVED"
+PROOF_REFUTED = "REFUTED"
+PROOF_NO_PROOF_OBSERVER = "NO_PROOF_OBSERVER"
+PASS_STATUS = "PASS_A90_H27_UFS_RESIDENT_INSTALLED"
 
 
-def experiment_proof(status: str) -> str:
-    """Map a terminal status onto the separate experiment-proof axis."""
-    proof = EXPERIMENT_PROOF_BY_STATUS.get(status)
-    if proof is None:
-        raise ContractError(f"no experiment proof axis defined for status {status!r}")
+def experiment_proof(status: str, *, device_contradiction: bool = False) -> str:
+    """Place a terminal on the experiment-proof axis.
+
+    `device_contradiction` must be True only where the caller proved the device
+    reported a well-formed state contradicting the health predicate. Anything
+    unresolved stays NO_PROOF_OBSERVER, which freezes new non-recovery device
+    effects and never permits candidate replay.
+    """
+    if status == PASS_STATUS:
+        if device_contradiction:
+            raise ContractError("a passing install cannot carry a device contradiction")
+        return PROOF_PROVED
+    if device_contradiction:
+        return PROOF_REFUTED
+    return PROOF_NO_PROOF_OBSERVER
+
+
+def validate_experiment_proof(result: dict[str, Any]) -> str:
+    """Reject a durable result whose proof axis disagrees with its terminal.
+
+    The axis is only worth recording if a consumer refuses a tampered or
+    mismatched pairing; a field nothing checks is decoration.
+    """
+    status = result.get("status")
+    proof = result.get("experiment_proof")
+    if proof not in (PROOF_PROVED, PROOF_REFUTED, PROOF_NO_PROOF_OBSERVER):
+        raise ContractError(f"result carries no valid experiment proof axis: {proof!r}")
+    if status == PASS_STATUS:
+        if proof != PROOF_PROVED:
+            raise ContractError("a passing install must record PROVED")
+        if result.get("device_safety_state") != "RESIDENT_HEALTHY":
+            raise ContractError("a passing install must record RESIDENT_HEALTHY")
+    elif proof == PROOF_PROVED:
+        raise ContractError("only a passing install may record PROVED")
     return proof
 
 
@@ -627,8 +715,8 @@ def require_h27_reviews_exist() -> None:
         unset.append("EXECUTION_REVIEW_REQUIRED_INVARIANTS")
     if not CURRENT_BOOT_SIZE:
         unset.append("CURRENT_BOOT_SIZE")
-    if H18_D1_TERMINAL_RESULT_SHA256 or H18_D1_RECORDS:
-        unset.append("H18_D1_PREDECESSOR_EVIDENCE_STILL_BOUND")
+    if not H24_D1_RECORDS or len(H24_D1_RECORDS) != 7:
+        unset.append("H24_D1_RECORDS")
     if unset:
         raise ContractError(
             "H27 is not qualified: its independent reviews are unwritten and its "
@@ -961,7 +1049,7 @@ def _baseline_inputs(manifest: dict[str, Any], result: dict[str, Any]) -> None:
     )
     if (
         manifest.get("schema") != "a90-h18-ufs-f1-manifest-v1"
-        or manifest.get("capability") != "A90_H18_POST_ROOT_FAILURE_ATTRIBUTION_V1"
+        or manifest.get("capability") != "A90_H24_PRIVATE_CARD_ROOT_PERSISTENT_UFS_SERVER_V1"
         or not isinstance(execution_closure, dict)
         or execution_closure.get("sha256")
         != CURRENT_INSTALL_EXECUTION_CLOSURE_SHA256
@@ -977,7 +1065,7 @@ def _baseline_inputs(manifest: dict[str, Any], result: dict[str, Any]) -> None:
         or rollback.get("size") != ROLLBACK_SIZE
         or rollback.get("sha256") != ROLLBACK_SHA256
         or result.get("schema") != "a90-h18-ufs-f1-result-v1"
-        or result.get("status") != "PASS_A90_H18_UFS_RESIDENT_INSTALLED"
+        or result.get("status") != H24_F1_CLOSED_STATUS
         or result.get("device_safety_state") != "RESIDENT_HEALTHY"
         or result.get("candidate_attempt_count") != 1
         or result.get("candidate_transfer_count") != 1
@@ -1008,10 +1096,10 @@ def _baseline_inputs(manifest: dict[str, Any], result: dict[str, Any]) -> None:
             first_status.get("text") or ""
         )
     ):
-        raise ContractError("H18 resident predecessor is not exact healthy 0,0")
+        raise ContractError("H24 predecessor resident predecessor is not exact healthy 0,0")
 
 
-def validate_h18_d1_terminal(
+def validate_h24_predecessor_terminal(
     value: Any,
     predecessor_manifest: Any,
     predecessor_result: Any,
@@ -1021,11 +1109,11 @@ def validate_h18_d1_terminal(
         or set(value) != {"run", "records", "terminal_result_sha256"}
         or value.get("run") != "run01"
         or value.get("terminal_result_sha256")
-        != H18_D1_TERMINAL_RESULT_SHA256
+        != H24_D1_CLOSED_SHA256
         or not isinstance(value.get("records"), list)
-        or len(value["records"]) != len(H18_D1_RECORDS)
+        or len(value["records"]) != len(H24_D1_RECORDS)
     ):
-        raise ContractError("H18 D1 terminal binding is not exact")
+        raise ContractError("H24 predecessor D1 terminal binding is not exact")
     actions = (
         "open-native-healthy-unarmed",
         "arm-reboot-intent",
@@ -1037,24 +1125,24 @@ def validate_h18_d1_terminal(
     )
     records: list[dict[str, Any]] = []
     parent: Path | None = None
-    for sequence, (filename, size, sha) in enumerate(H18_D1_RECORDS):
+    for sequence, (filename, size, sha) in enumerate(H24_D1_RECORDS):
         binding = value["records"][sequence]
         if (
             not isinstance(binding, dict)
             or binding.get("size") != size
             or binding.get("sha256") != sha
         ):
-            raise ContractError("H18 D1 journal artifact changed")
+            raise ContractError("H24 predecessor D1 journal artifact changed")
         path, record = load_json_bound(binding, f"predecessor_d1.records[{sequence}]")
         if path.name != filename or (parent is not None and path.parent != parent):
-            raise ContractError("H18 D1 journal path set changed")
+            raise ContractError("H24 predecessor D1 journal path set changed")
         parent = path.parent
         if (
             record.get("schema") != "a90-h18-ufs-d1-journal-v1"
             or record.get("sequence") != sequence
             or record.get("action") != actions[sequence]
         ):
-            raise ContractError("H18 D1 journal sequence changed")
+            raise ContractError("H24 predecessor D1 journal sequence changed")
         records.append(record)
     final = records[5]
     closed = records[6]
@@ -1070,13 +1158,13 @@ def validate_h18_d1_terminal(
         or opening.get("execution_closure_sha256")
         != CURRENT_INSTALL_EXECUTION_CLOSURE_SHA256
         or not isinstance(result, dict)
-        or final.get("result_sha256") != H18_D1_TERMINAL_RESULT_SHA256
-        or json_sha256(result) != H18_D1_TERMINAL_RESULT_SHA256
-        or closed.get("result_sha256") != H18_D1_TERMINAL_RESULT_SHA256
+        or final.get("result_sha256") != H24_D1_CLOSED_SHA256
+        or json_sha256(result) != H24_D1_CLOSED_SHA256
+        or closed.get("result_sha256") != H24_D1_CLOSED_SHA256
         or closed.get("result") != result
         or result.get("schema") != "a90-h18-ufs-d1-result-v1"
         or result.get("status")
-        != "REFUTED_H18_POST_ROOT_FAILURE_ATTRIBUTED_NATIVE_FALLBACK_HEALTHY"
+        != H24_D1_CLOSED_STATUS
         or result.get("device_safety_state") != "RESIDENT_HEALTHY"
         or result.get("resident_healthy") is not True
         or result.get("ordinal_closed") is not True
@@ -1097,7 +1185,7 @@ def validate_h18_d1_terminal(
             )
         )
     ):
-        raise ContractError("H18 D1 terminal HEALTHY barrier changed")
+        raise ContractError("H24 predecessor D1 terminal HEALTHY barrier changed")
     return value
 
 
@@ -1116,18 +1204,18 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     baseline_manifest = json.loads(baseline_manifest_path.read_text(encoding="utf-8"))
     baseline_result = json.loads(baseline_result_path.read_text(encoding="utf-8"))
     if not isinstance(baseline_manifest, dict) or not isinstance(baseline_result, dict):
-        raise ContractError("H18 resident predecessor JSON shape changed")
+        raise ContractError("H24 predecessor resident predecessor JSON shape changed")
     _baseline_inputs(baseline_manifest, baseline_result)
     if baseline_result.get("manifest_sha256") != sha256_file(
         baseline_manifest_path
     ):
-        raise ContractError("H18 resident predecessor manifest binding changed")
+        raise ContractError("H24 predecessor resident predecessor manifest binding changed")
     d1_dir_lexical = Path(args.baseline_d1_transaction).absolute()
     if d1_dir_lexical.is_symlink():
-        raise ContractError("H18 D1 transaction directory is a symlink")
+        raise ContractError("H24 predecessor D1 transaction directory is a symlink")
     d1_dir = d1_dir_lexical.resolve(strict=True)
     if not d1_dir.is_dir() or d1_dir.name != "run01":
-        raise ContractError("H18 D1 transaction directory is not exact run01")
+        raise ContractError("H24 predecessor D1 transaction directory is not exact run01")
     predecessor = {
         "manifest": bound_file(baseline_manifest_path),
         "result": bound_file(baseline_result_path),
@@ -1136,11 +1224,11 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         "run": "run01",
         "records": [
             bound_file(d1_dir / filename)
-            for filename, _, _ in H18_D1_RECORDS
+            for filename, _, _ in H24_D1_RECORDS
         ],
-        "terminal_result_sha256": H18_D1_TERMINAL_RESULT_SHA256,
+        "terminal_result_sha256": H24_D1_CLOSED_SHA256,
     }
-    validate_h18_d1_terminal(
+    validate_h24_predecessor_terminal(
         predecessor_d1,
         predecessor["manifest"],
         predecessor["result"],
@@ -1149,12 +1237,12 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
     target = baseline_manifest.get("target")
     rollback_value = baseline_manifest.get("rollback_boot")
     if not isinstance(target, dict) or not isinstance(rollback_value, dict):
-        raise ContractError("H18 target/rollback binding is absent")
+        raise ContractError("H24 predecessor target/rollback binding is absent")
     rollback_path = Path(str(rollback_value.get("path") or ""))
     require_regular(rollback_path, size=ROLLBACK_SIZE, sha256=ROLLBACK_SHA256)
     bridge_device = target.get("bridge_device")
     if bridge_device != EXACT_BRIDGE_DEVICE:
-        raise ContractError("H18 exact A90 bridge path is absent")
+        raise ContractError("H24 predecessor exact A90 bridge path is absent")
     bridge_path = Path(bridge_device)
     bridge_realpath = str(bridge_path.resolve(strict=True))
     if re.fullmatch(r"/dev/ttyACM[0-9]+", bridge_realpath) is None:
@@ -1162,7 +1250,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
 
     observer = baseline_manifest.get("observer")
     if not isinstance(observer, dict):
-        raise ContractError("H18 observer binding is absent")
+        raise ContractError("H24 predecessor observer binding is absent")
     observer_key = reopen_bound(observer.get("private_key"), "observer.private_key")
     observer_public_key = reopen_bound(
         observer.get("public_key"), "observer.public_key"
@@ -1176,7 +1264,7 @@ def build_manifest(args: argparse.Namespace) -> dict[str, Any]:
         != observer_key.with_suffix(observer_key.suffix + ".pub")
         or sha256_file(observer_public_key) != observer_public_key_sha256
     ):
-        raise ContractError("H18 observer keypair changed")
+        raise ContractError("H24 predecessor observer keypair changed")
 
     candidate = resolve_regular_input(Path(args.candidate), "candidate boot")
     receipt_path, receipt = load_reviewed_ab_receipt(Path(args.ab_receipt))
@@ -1340,7 +1428,7 @@ def load_manifest(path: Path, expected_sha256: str) -> dict[str, Any]:
 
     predecessor = value.get("predecessor")
     if not isinstance(predecessor, dict):
-        raise ContractError("H18 resident predecessor binding is absent")
+        raise ContractError("H24 predecessor resident predecessor binding is absent")
     predecessor_manifest_path, predecessor_manifest = load_json_bound(
         predecessor.get("manifest"), "predecessor.manifest"
     )
@@ -1351,8 +1439,8 @@ def load_manifest(path: Path, expected_sha256: str) -> dict[str, Any]:
     if predecessor_result.get("manifest_sha256") != sha256_file(
         predecessor_manifest_path
     ):
-        raise ContractError("H18 resident predecessor manifest binding changed")
-    validate_h18_d1_terminal(
+        raise ContractError("H24 predecessor resident predecessor manifest binding changed")
+    validate_h24_predecessor_terminal(
         value.get("predecessor_d1"),
         predecessor.get("manifest"),
         predecessor.get("result"),
@@ -1763,7 +1851,11 @@ def _validate_closed_result(
         or result.get("sd_stage_count") != 0
         or result.get("userdata_write_count") != 0
     ):
-        raise ContractError("durable H24 closed result is invalid")
+        raise ContractError("durable H27 closed result is invalid")
+    # The proof axis is only a control if a consumer refuses a mismatched
+    # pairing. Without this, a durable result claiming a passing install while
+    # carrying REFUTED would be accepted.
+    validate_experiment_proof(result)
     actions = [item["action"] for item in records]
     candidate = next(
         (item for item in records if item["action"] == "candidate-result"), None
@@ -2110,7 +2202,7 @@ def validate_live_args(args: argparse.Namespace) -> None:
 
 
 def require_current_native_health(args: argparse.Namespace) -> dict[str, Any]:
-    """Read and validate the exact H18 predecessor without a legacy allowlist."""
+    """Read and validate the exact H24 predecessor without a legacy allowlist."""
     health = {
         command: base.run_f1_cmd(args, [command])
         for command in ("version", "status", "selftest")
