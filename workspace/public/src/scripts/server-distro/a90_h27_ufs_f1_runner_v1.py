@@ -670,6 +670,18 @@ def validate_experiment_proof(result: dict[str, Any]) -> str:
 
     The axis is only worth recording if a consumer refuses a tampered or
     mismatched pairing; a field nothing checks is decoration.
+
+    A consumer must not trust the producer's discipline. `REFUTED` is the
+    terminal that burns an ordinal and forces a no-replay conclusion
+    (A90_TARGET_CONTRACT.md:102-121), so a tampered or corrupted result claiming
+    it would consume an ordinal on evidence that was never attributed. The
+    producer can only emit `REFUTED` with proved device attribution, and today
+    no site can prove it, so the consumer rejects it outright rather than
+    accepting it on the producer's word.
+
+    When attribution is implemented, this must not simply relax: `REFUTED`
+    becomes admissible only once an exact device-attribution receipt is
+    persisted in the result and validated here.
     """
     status = result.get("status")
     proof = result.get("experiment_proof")
@@ -680,8 +692,15 @@ def validate_experiment_proof(result: dict[str, Any]) -> str:
             raise ContractError("a passing install must record PROVED")
         if result.get("device_safety_state") != "RESIDENT_HEALTHY":
             raise ContractError("a passing install must record RESIDENT_HEALTHY")
-    elif proof == PROOF_PROVED:
+        return proof
+    if proof == PROOF_PROVED:
         raise ContractError("only a passing install may record PROVED")
+    if proof == PROOF_REFUTED:
+        raise ContractError(
+            "REFUTED requires an exact device-attribution receipt that this "
+            "runner cannot yet produce or validate; a durable result may not "
+            "claim it"
+        )
     return proof
 
 

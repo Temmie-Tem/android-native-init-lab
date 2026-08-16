@@ -372,6 +372,52 @@ class H27RebindTests(unittest.TestCase):
             "PROVED",
         )
 
+    def test_the_consumer_refuses_unattributed_refuted(self) -> None:
+        """The three combinations the fourth review reproduced as fail-open.
+
+        REFUTED burns an ordinal and forces a no-replay conclusion, so a
+        tampered or corrupted durable result claiming it must be refused rather
+        than trusted on the producer's discipline.
+        """
+        for status in (
+            "FAILED_CANDIDATE_ROLLED_BACK",
+            "FAILED_INITIAL_HEALTH_ROLLED_BACK",
+            "FAILED_CANDIDATE_RECOVERY_ROLLBACK_COMPLETE",
+        ):
+            with self.assertRaises(self.mod.ContractError, msg=status) as caught:
+                self.mod.validate_experiment_proof(
+                    {"status": status, "experiment_proof": "REFUTED"}
+                )
+            self.assertIn("device-attribution receipt", str(caught.exception))
+
+    def test_no_non_pass_status_accepts_anything_but_no_proof(self) -> None:
+        """Total over every terminal this runner can emit, not a sample."""
+        import re
+
+        statuses = {
+            status
+            for status in re.findall(r'"status": "([A-Z_0-9]+)"', self.text)
+            if status != self.mod.PASS_STATUS
+            and status.startswith(("FAILED_", "ABORTED_"))
+        }
+        self.assertGreaterEqual(len(statuses), 5)
+        for status in statuses:
+            accepted = []
+            for proof in ("PROVED", "REFUTED", "NO_PROOF_OBSERVER"):
+                try:
+                    self.mod.validate_experiment_proof(
+                        {"status": status, "experiment_proof": proof}
+                    )
+                except self.mod.ContractError:
+                    continue
+                accepted.append(proof)
+            self.assertEqual(accepted, ["NO_PROOF_OBSERVER"], status)
+
+    def test_relaxing_refuted_requires_an_attribution_receipt(self) -> None:
+        """Guard the comment so a later change cannot just delete the check."""
+        self.assertIn("device-attribution receipt", self.text)
+        self.assertIn("this must not simply relax", self.text)
+
     def test_the_durable_result_consumer_calls_the_validator(self) -> None:
         import inspect
 
