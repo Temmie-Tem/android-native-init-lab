@@ -1,0 +1,72 @@
+{
+  "action": "one exact normal Android adb reboot",
+  "authority_prefix": "DEVICE-ACTION-D1-P318-BASELINE-ROTATE-V1-APPROVE:",
+  "binding_id": "s22plus-fyg8-p318-d1-baseline-rotation-v1",
+  "candidate_transfer": false,
+  "command_count": 1,
+  "f1_authorized": false,
+  "historical_topology_is_current_authority": false,
+  "independent_review": {
+    "status": "pass-go",
+    "verdict": "PASS_GO_P318_D1_BASELINE_ROTATION_H0_CAPABILITY_V1"
+  },
+  "initiation_bound_sec": 60,
+  "inputs": {
+    "adapter": {
+      "path": "workspace/public/src/scripts/revalidation/s22plus_fyg8_p318_baseline_rotation_d1.py",
+      "sha256": "2b798b4ab73ee0ac9cc5c40c007e470f54083e460171852e844276413a95a706",
+      "size": 30648
+    },
+    "host_adb": {
+      "path": "/usr/lib/android-sdk/platform-tools/adb",
+      "sha256": "05a1a4435e436230931acd8737fd68f31542d652731d3ca8c464cab7a42be226",
+      "size": 716968
+    },
+    "historical_d0_identity_health": {
+      "path": "workspace/private/runs/device-action-d0-v2/p308-post-rotation-health-20260807-1/result.json",
+      "sha256": "e75d62206d0aee6f88e0759e0248a6a8937fd9888340e00d21001bcdd6a8522f",
+      "size": 2934
+    },
+    "pinned_reboot_primitive": {
+      "path": "workspace/private/outputs/s22plus_fyg8_p296/d1-baseline-rotation/s22plus_fyg8_p296_baseline_rotation_d1.py",
+      "sha256": "bfec4bc9c947e098b6a18134a805524aa8fe8103edd5ddc4bc3b398895cad8ea",
+      "size": 18578
+    },
+    "pinned_d0_runtime_source": {
+      "path": "workspace/public/src/scripts/revalidation/device_action_d0_v2.py",
+      "sha256": "fc4849381bfc40629cb27752fd87b0a24143bf69cd21914188bcb0b491fcf3de",
+      "size": 40024
+    },
+    "ready_manifest": {
+      "path": "workspace/public/src/device-action/manifests/s22plus_fyg8_p318_process_v2_ready_1.json",
+      "sha256": "082c046f90914730172426c16222981039027d9384d3912fb09ee99d081a73d3",
+      "size": 2778
+    },
+    "target_profile": {
+      "path": "workspace/public/src/device-action/profiles/s22plus_fyg8.json",
+      "sha256": "7afa7b690b71eabca14c99e83efc55bdb453256bcd40f7ccdf5d41bed78d6c28",
+      "size": 2285
+    }
+  },
+  "host_adb_execution_snapshot": {
+    "mode": "0500",
+    "path": "workspace/private/outputs/s22plus_fyg8_p318/d1-baseline-rotation-v1/adb-05a1a4435e436230931acd8737fd68f31542d652731d3ca8c464cab7a42be226",
+    "publication": "file-fsync-link-no-replace-directory-fsync",
+    "sha256": "05a1a4435e436230931acd8737fd68f31542d652731d3ca8c464cab7a42be226",
+    "size": 716968
+  },
+  "live_exact_serial_identity_required": true,
+  "live_topology_continuity_required": true,
+  "odin": false,
+  "partition_payload": false,
+  "return_bound_sec": 240,
+  "run_directory": {
+    "path": "workspace/private/runs/device-action-d1-p318-baseline-rotation/p318-baseline-rotation-1",
+    "publication": "directory-no-replace-then-durable-start-no-replace"
+  },
+  "run_approval_arm": {
+    "path": "workspace/private/runs/device-action-d1-p318-baseline-rotation/p318-baseline-rotation-1.arm.json",
+    "publication": "file-no-replace-fsync-then-directory-fsync"
+  },
+  "schema": "s22plus_fyg8_p318_d1_baseline_rotation_binding_v1"
+}

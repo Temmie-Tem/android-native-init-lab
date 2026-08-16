@@ -94,8 +94,9 @@ class P318D0StopReceiptDocsTest(unittest.TestCase):
             "independent H0 `PASS_GO`",
             "ready is `082c046f9091`",
             "downstream requalification now have\nindependent H0 `PASS_GO`",
-            "create no D0, D1, F1, recovery, replay, or live authority",
-            "fresh exact\nD1 baseline-rotation approval is required",
+            "verified-runtime, fixed-run P3.18 D1 adapter is H0-reviewed and offline ready",
+            "no D0/D1/F1/live authority",
+            "fresh exact D1 approval",
         ):
             self.assertIn(token, self.goal)
         self.assertLessEqual(len(self.goal.splitlines()), 900)
