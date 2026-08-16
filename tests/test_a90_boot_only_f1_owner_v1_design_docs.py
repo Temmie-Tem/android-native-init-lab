@@ -118,6 +118,11 @@ ARTIFACT_IDENTITY_KEYS = frozenset(
         "sha256",
     }
 )
+EXECUTABLE_IDENTITY_KEYS = ARTIFACT_IDENTITY_KEYS | {
+    "versionReceiptSha256",
+    "runtimeClosureSha256",
+}
+EXECUTABLE_ROLES = frozenset({"python-interpreter", "adb-transport"})
 
 
 def artifact_identity(**overrides: object) -> dict[str, object]:
@@ -163,6 +168,50 @@ def validate_artifact_checkpoint(
         raise ValueError("pathname and held FD differ")
     if current != bound:
         raise ValueError("artifact identity or content drift")
+
+
+def executable_identity(
+    role: str,
+    path: str,
+    **overrides: object,
+) -> dict[str, object]:
+    identity = artifact_identity(role=role, path=path)
+    identity.update(
+        versionReceiptSha256="a" * 64,
+        runtimeClosureSha256="b" * 64,
+    )
+    identity.update(overrides)
+    return identity
+
+
+def validate_executable_checkpoint(
+    bound: dict[str, object],
+    current: dict[str, object],
+) -> None:
+    """Reference model for the owner-fixed Python/ADB executable boundary."""
+    if (
+        frozenset(bound) != EXECUTABLE_IDENTITY_KEYS
+        or frozenset(current) != EXECUTABLE_IDENTITY_KEYS
+    ):
+        raise ValueError("executable identity schema mismatch")
+    if bound["role"] not in EXECUTABLE_ROLES or current["role"] != bound["role"]:
+        raise ValueError("executable role mismatch")
+    for value in (bound["path"], current["path"]):
+        if type(value) is not str or not Path(value).is_absolute():
+            raise ValueError("executable path is not absolute")
+    for key in ("versionReceiptSha256", "runtimeClosureSha256"):
+        for value in (bound[key], current[key]):
+            if type(value) is not str or len(value) != 64:
+                raise ValueError("executable digest malformed")
+            if any(char not in "0123456789abcdef" for char in value):
+                raise ValueError("executable digest malformed")
+    artifact_keys = ARTIFACT_IDENTITY_KEYS
+    validate_artifact_checkpoint(
+        {key: bound[key] for key in artifact_keys},
+        {key: current[key] for key in artifact_keys},
+    )
+    if current != bound:
+        raise ValueError("executable identity or runtime closure drift")
 
 
 def canonical_json(value: object) -> bytes:
@@ -459,6 +508,57 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         ):
             self.assertIn(token, self.raw, token)
 
+    def test_interpreter_and_transport_are_exact_executable_identities(self) -> None:
+        for token in (
+            "Interpreter and transport executable identity",
+            "exactly one ordinary\nabsolute `PYTHON_EXECUTABLE` path",
+            "one ordinary absolute `ADB_EXECUTABLE`\npath",
+            "`executable-identity-v1`",
+            "version-receipt\nSHA256",
+            "exact runtime-closure SHA256",
+            "python-runtime-closure-v1",
+            "adb-runtime-closure-v1",
+            "isolated-mode `-I`",
+            "`shell=False`",
+            "fake executable earlier in `PATH`",
+            "never uses its\nbare `adb` default",
+        ):
+            self.assertIn(token, self.raw, token)
+
+    def test_executable_checkpoint_rejects_path_byte_and_runtime_drift(self) -> None:
+        for role, path in (
+            ("python-interpreter", "/usr/bin/python3"),
+            ("adb-transport", "/usr/bin/adb"),
+        ):
+            with self.subTest(role=role):
+                bound = executable_identity(role, path)
+                validate_executable_checkpoint(bound, dict(bound))
+                for mutation in (
+                    {"path": "adb"},
+                    {"path": "relative/adb"},
+                    {"pathIno": 21, "fdIno": 21},
+                    {"sha256": "c" * 64},
+                    {"versionReceiptSha256": "c" * 64},
+                    {"runtimeClosureSha256": "c" * 64},
+                ):
+                    current = dict(bound)
+                    current.update(mutation)
+                    with self.assertRaisesRegex(ValueError, "executable|artifact"):
+                        validate_executable_checkpoint(bound, current)
+
+    def test_owner_launch_vector_cannot_use_path_or_caller_adb(self) -> None:
+        flash_source = FLASH.read_text(encoding="utf-8")
+        self.assertIn('default="adb"', flash_source)
+        for token in (
+            "Neither path may come from the manifest, an approval, a CLI argument",
+            "`PATH`, `PYTHONPATH`, `shutil.which`, `/usr/bin/env`, a shell",
+            "A bare or relative executable name is `NO_GO`",
+            "[PYTHON_EXECUTABLE, -I, FLASH_HELPER, fixed owner arguments, --adb,\nADB_EXECUTABLE]",
+            "no\ncaller-supplied executable field",
+            "same absolute ADB path to every\ncandidate, rollback, observation, and recovery helper invocation",
+        ):
+            self.assertIn(token, self.raw, token)
+
     def test_the_hazard_is_bound_at_three_points(self) -> None:
         """A field nothing enforces is decoration; this session shipped two."""
         self.assertIn("RKP_CFP_DISABLED_RESIDENT", self.design)
@@ -484,7 +584,9 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "rollback SHA256",
             "helper SHA256",
             "owner closure SHA256",
-            "helper and transport versions",
+            "helper version",
+            "exact Python/ADB executable identities",
+            "both runtime-closure SHA256 values",
             "observation timeout and acceptance rule",
             "mandatory recovery plan",
             "hazard IDs and qualification digests",
@@ -735,7 +837,10 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "approval from an earlier boot ID",
             "approval from another run or journal namespace",
             "changed observation rule or recovery plan",
-            "changed owner closure, helper, or transport version",
+            "changed owner closure, helper, Python/ADB executable identity",
+            "bare or relative Python/ADB executable",
+            "fake ADB earlier in `PATH`",
+            "same Python/ADB version string with different executable bytes",
             "crash after `CANDIDATE_INTENT`",
             "without\n  candidate replay",
             "post-candidate artifact drift followed by candidate retry",

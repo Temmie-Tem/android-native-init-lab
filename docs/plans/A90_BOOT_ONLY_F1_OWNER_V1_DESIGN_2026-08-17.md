@@ -160,6 +160,56 @@ durable `artifact-identity-v1` tuple, directory identities, size, and SHA256
 before observation or the already-authorized rollback path. A mismatch keeps
 the candidate consumed and parks without candidate or rollback replay.
 
+### Interpreter and transport executable identity
+
+Source hashes do not identify the programs that interpret or transport those
+sources. The owner capability therefore hardcodes exactly one ordinary
+absolute `PYTHON_EXECUTABLE` path and one ordinary absolute `ADB_EXECUTABLE`
+path. Neither path may come from the manifest, an approval, a CLI argument,
+`PATH`, `PYTHONPATH`, `shutil.which`, `/usr/bin/env`, a shell, or another
+runtime lookup. A bare or relative executable name is `NO_GO`.
+
+Before approval, the owner opens both executable paths with
+`O_RDONLY|O_CLOEXEC|O_NOFOLLOW` and applies the same ancestor, ownership,
+mode, link-count, held-FD, and content rules as `artifact-identity-v1`. It
+records an `executable-identity-v1` tuple containing the complete artifact
+identity plus the executable role, exact capability-qualified version-receipt
+SHA256, and exact runtime-closure SHA256. These FDs remain held until the
+helper process group and every descendant have exited and been reaped. The
+owner repeats FD hash and pathname identity checks at approval, immediately
+before each release, and after every normal or abnormal return. Crash recovery
+reopens both absolute paths and requires the complete durable tuples; it never
+reconstructs executable identity from a version string.
+
+The Python trust boundary is explicit. `PYTHON_EXECUTABLE` is not considered
+closed merely because its main executable bytes match. Capability
+qualification generates and pins `python-runtime-closure-v1`: the interpreter
+identity and implementation/version/cache-tag receipt, isolated-mode `-I`
+launch contract, exact stdlib roots and `sys.path`, every imported stdlib or
+extension-module file needed by the owner and generated helper import closure,
+and their ELF interpreter/library dependencies where applicable. Likewise,
+`adb-runtime-closure-v1` pins the ADB executable and its ELF
+interpreter/library dependency closure. An unresolved file, user site,
+environment-injected module, dynamic dependency outside the generated set, or
+runtime-closure drift is `NO_GO`. The capability review signs both aggregate
+digests; no claim treats an executable hash or version string as its complete
+runtime.
+
+The sole helper launch vector is structurally fixed as
+`[PYTHON_EXECUTABLE, -I, FLASH_HELPER, fixed owner arguments, --adb,
+ADB_EXECUTABLE]`, with `shell=False`, a fixed minimal environment, and no
+caller-supplied executable field. Thus `native_init_flash.py` never uses its
+bare `adb` default in this owner lane. A fake executable earlier in `PATH`
+cannot affect the launch. The owner passes the same absolute ADB path to every
+candidate, rollback, observation, and recovery helper invocation.
+
+The approval binding and every launch/result record carry the exact
+`pythonExecutableIdentity`, `pythonRuntimeClosureSha256`,
+`adbExecutableIdentity`, and `adbRuntimeClosureSha256`. A path, inode, content,
+version receipt, dependency, or aggregate mismatch before intent is a host
+rejection. After candidate or rollback intent it follows the existing
+consumed/no-replay branch and cannot authorize another dispatch.
+
 ### Execution closure
 
 Deliberately small:
@@ -168,6 +218,7 @@ Deliberately small:
 - a small shared module for canonical JSON and the append-only journal;
 - the generated exact non-stdlib import closure rooted at
   `workspace/public/src/scripts/revalidation/native_init_flash.py`;
+- the generated `python-runtime-closure-v1` and `adb-runtime-closure-v1`;
 - the manifest schema;
 - the hostile state-machine tests.
 
@@ -212,7 +263,8 @@ The owner hardcodes, and the manifest cannot express:
 - exactly one candidate attempt;
 - exactly one rollback attempt;
 - `--boot-block` and `--remote-image` at their defaults, so a caller-supplied
-  path cannot widen the payload surface.
+  path cannot widen the payload surface; and
+- the Python interpreter or ADB transport path, version, or runtime closure.
 
 A manifest cannot name a command, a partition, or a retry count. It carries:
 
@@ -252,7 +304,7 @@ binding contains:
 | manifest | manifest SHA256 |
 | transfer bytes | candidate SHA256, rollback SHA256, and helper SHA256 |
 | closure | owner closure SHA256 |
-| implementation | helper and transport versions |
+| implementation | helper version, exact Python/ADB executable identities and version receipts, and both runtime-closure SHA256 values |
 | observation | observation timeout and acceptance rule |
 | recovery | mandatory recovery plan |
 | hazards | hazard IDs and qualification digests |
@@ -448,7 +500,12 @@ The owner is only as good as what it refuses. At minimum:
 - approval from an earlier boot ID;
 - approval from another run or journal namespace;
 - changed observation rule or recovery plan after approval;
-- changed owner closure, helper, or transport version after approval;
+- changed owner closure, helper, Python/ADB executable identity, version
+  receipt, or runtime closure after approval;
+- bare or relative Python/ADB executable, caller-selected `--adb`, PATH lookup,
+  fake ADB earlier in `PATH`, or a launch omitting isolated Python mode;
+- same Python/ADB version string with different executable bytes, inode,
+  dependency, stdlib/extension module, or runtime-closure digest;
 - reused or expired approval;
 - non-empty journal at start;
 - crash after `CANDIDATE_INTENT` and before result — must resume without
