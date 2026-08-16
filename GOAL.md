@@ -12,21 +12,19 @@ authority, evidence, transports, and commands remain separate.
 
 ## Current Frontier
 
-P3.17 is the latest closed live unit. The candidate transferred once and the
-operator saw one normal boot, but ACM returned `endpoint-timeout`. After the
-historical two-endpoint recovery blocker was repaired under binding
-`8ca5bd43dde4f85c466c741f8be465adee861abd472cf66247970866df007870`,
-the exact rollback transferred once; the 19-record journal is `CLOSED`, rooted
-FYG8 health passed, and `recovery_required=false`. Candidate replay is forbidden.
-The official verdict remains `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`: the two
-byte-identical final reads contain two identical P3.17 records and classify as
-`MAX77705_RESULT_MULTIPLICITY`. Each record reports a causal-ready provider and
-gadget prefix, diagnostic probe entry, CONTROL1 `0x3f -> 0x09 -> 0x09`, and
-successful command responses, but multiplicity blocks a single-run causal
-claim and neither register readback nor host silence proves physical MUX
-conduction. An independently reviewed host-only close audit reopens the 1/1
-transaction and exact sequence-17 barrier plus three unambiguous receipts. See
-`docs/reports/S22PLUS_FYG8_P317_HISTORICAL_ENDPOINT_REPLAY_RECOVERY_INCIDENT_2026-08-14.md`.
+P3.18 is the current consumed live unit. Candidate and exact rollback each
+transferred once, and the operator saw a normal candidate boot without a loop;
+ACM closed `endpoint-timeout`. The unchanged-path rollback completed, but two
+byte-identical final reads contain one integrity-clean generation-46 stage-101
+E2 progress record and no Max77705 terminal. Exact candidate-end classification
+is `NO_PROOF_OBSERVER_and_park`. Correlation stopped before durable final-health
+publication, so the 15-record journal remains `ROLLBACK_FLASHED`; neither
+transfer may replay. An incident-specific H0 finalizer now binds the exact raw,
+journal, topology, source and private ADB bytes and has no
+Download/Odin/transfer path. Its exact H0 changed closure passed independent
+review, but it grants no live authority; connected finalization still requires
+one fresh exact attended approval for binding `131c6d13ee7710b22b75cfe55381a612d1403c5e0013528e0e49d5ec38633751`. See
+`docs/reports/S22PLUS_FYG8_P318_POSTROLLBACK_FINALIZATION_INCIDENT_H0_2026-08-17.md`.
 
 P3.16 is the preceding closed live unit. Its distinct boot-only candidate and
 exact Magisk rollback each transferred once, the journal closed, and rooted

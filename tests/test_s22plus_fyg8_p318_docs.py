@@ -15,6 +15,18 @@ INCIDENT = ROOT / (
     "docs/reports/"
     "S22PLUS_FYG8_P317_HISTORICAL_ENDPOINT_REPLAY_RECOVERY_INCIDENT_2026-08-14.md"
 )
+POSTROLLBACK = ROOT / (
+    "docs/reports/"
+    "S22PLUS_FYG8_P318_POSTROLLBACK_FINALIZATION_INCIDENT_H0_2026-08-17.md"
+)
+POSTROLLBACK_SCRIPT = ROOT / (
+    "workspace/public/src/scripts/revalidation/"
+    "s22plus_fyg8_p318_postrollback_finalize.py"
+)
+POSTROLLBACK_AUTHORITY = ROOT / (
+    "workspace/public/src/device-action/recovery/"
+    "s22plus_fyg8_p318_postrollback_finalize_v1.json"
+)
 GOAL = ROOT / "GOAL.md"
 LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 TARGET_CONTRACT = ROOT / "docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md"
@@ -27,6 +39,51 @@ PREPARED = ROOT / (
 
 
 class P318DocumentationTest(unittest.TestCase):
+    def test_postrollback_finalizer_is_reviewed_and_transfer_free(self):
+        report = POSTROLLBACK.read_text(encoding="utf-8")
+        normalized = " ".join(report.split())
+        authority = json.loads(POSTROLLBACK_AUTHORITY.read_text())
+        self.assertIn(
+            "PASS_GO_H0_CAPABILITY; RECOVERY_PENDING_PARKED; NO LIVE AUTHORITY",
+            report,
+        )
+        self.assertIn("no Download request", normalized)
+        self.assertIn("no Odin invocation", normalized)
+        self.assertIn("no candidate or rollback transfer", normalized)
+        self.assertIn("NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK", report)
+        self.assertIn("candidate_not_proven_rollback_verified", report)
+        self.assertIn("received an independent safety review", normalized)
+        self.assertIn("qualifies only this H0 capability", normalized)
+        self.assertEqual(
+            authority["binding"]["constraints"],
+            {
+                "candidate_transfer_allowed": False,
+                "rollback_transfer_allowed": False,
+                "download_request_allowed": False,
+                "odin_invocation_allowed": False,
+                "device_writes": False,
+                "fresh_health_reads_only": True,
+                "existing_observer_bytes_only": True,
+            },
+        )
+
+    def test_postrollback_ledger_preserves_open_attempt_pending_and_review(self):
+        ledger = LEDGER.read_text(encoding="utf-8")
+        attempt = "s22plus-fyg8-p318 | 1 | F1 | P318_POSTROLLBACK_CORRELATION_STOP"
+        pending = (
+            "s22plus-fyg8-p318 | h0-postrollback-finalizer-12 | H0 | "
+            "P318_POSTROLLBACK_FINALIZER_IMPLEMENTED_REVIEW_PENDING"
+        )
+        review = (
+            "s22plus-fyg8-p318 | h0-postrollback-finalizer-review-12 | H0 | "
+            "PASS_GO_P318_POSTROLLBACK_FINALIZER_H0_CAPABILITY_V1"
+        )
+        self.assertEqual(ledger.count(attempt), 1)
+        self.assertEqual(ledger.count(pending), 1)
+        self.assertEqual(ledger.count(review), 1)
+        self.assertLess(ledger.index(attempt), ledger.index(pending))
+        self.assertLess(ledger.index(pending), ledger.index(review))
+
     def test_report_binds_current_private_receipts(self):
         report = REPORT.read_text(encoding="utf-8")
         expected = {
@@ -248,8 +305,11 @@ class P318DocumentationTest(unittest.TestCase):
         tracked = [
             REPORT,
             INCIDENT,
+            POSTROLLBACK,
             GOAL,
             LEDGER,
+            POSTROLLBACK_SCRIPT,
+            POSTROLLBACK_AUTHORITY,
             ROOT
             / "workspace/public/src/scripts/revalidation/"
             "s22plus_fyg8_p318_cdc_acm_endpoint_transition.py",
