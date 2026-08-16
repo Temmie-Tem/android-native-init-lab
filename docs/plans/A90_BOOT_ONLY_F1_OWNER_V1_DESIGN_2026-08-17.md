@@ -198,13 +198,16 @@ runtime.
 
 Python `-I` deliberately removes the script directory from `sys.path`, so the
 owner does not execute `native_init_flash.py` directly and does not re-add its
-directory. The fixed bootstrap runs under isolated safe-path mode, reads only
-the exact owner-bound direct regular source files, compiles them from those
-bytes in one fixed dependency order, and installs only their fixed module names
-in `sys.modules`. It rejects a preloaded local name, non-canonical bootstrap
-path, non-regular or hardlinked source, source-directory `sys.path` entry, or
-any `sys.path` change. The generated import inventory must equal that fixed
-order; a new dependency requires a new owner capability review.
+directory. The fixed bootstrap runs under isolated safe-path mode and opens
+each exact owner-bound source once with `O_RDONLY|O_CLOEXEC|O_NOFOLLOW`. It
+requires `fstat` regular-file type, link count one, exact size, and the
+capability-bound SHA256; reads and compiles only the bytes from that same FD;
+and installs only their fixed module names in `sys.modules`, in one fixed
+dependency order. A pathname is never reopened after validation. It rejects a
+preloaded local name, non-canonical bootstrap path, identity or digest mismatch,
+source-directory `sys.path` entry, or any `sys.path` change. The generated
+import inventory and source digests must equal that fixed table; a new
+dependency or source byte requires a new owner capability review.
 
 The sole helper launch vector is structurally fixed as
 `[PYTHON_EXECUTABLE, -I, HELPER_BOOTSTRAP, fixed owner arguments, --adb,
@@ -249,7 +252,7 @@ The current generated closure is exactly:
 
 | file under `workspace/public/src/scripts/revalidation/` | size | sha256 |
 |---|---:|---|
-| `a90_boot_only_f1_helper_bootstrap.py` | 2,801 | `c1fadd1aa6b84707cdb813c96c681a0067c826a695fbf9ca4559fac8be7b8b9c` |
+| `a90_boot_only_f1_helper_bootstrap.py` | 4,617 | `ba506aeb30a318e4083c381ecd086e15f9c0a887ae997af1fbb650dc70f3826a` |
 | `_workspace_bootstrap.py` | 1,255 | `7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe` |
 | `a90_observation_pipeline.py` | 24,478 | `6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb` |
 | `a90_serial_lock.py` | 2,860 | `663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7` |
@@ -259,7 +262,7 @@ The current generated closure is exactly:
 
 The canonical aggregate is SHA256 over the lexically sorted records
 `relative-name NUL decimal-size NUL lowercase-sha256 LF`. Its current value is
-`ec8b55608d37028abf286061738edd54cbe7470165f7a40c42f1ff5821d62cbf`.
+`8941acc1513aaa3f15a37cfcd42efd2632e2cc1cc0320bdd9be1a5598c495f98`.
 The capability review signs this generated aggregate, not a hand-maintained
 subset. Any member-byte change, added or removed local dependency, unresolved
 external dependency, or import-graph change expires the capability binding.
@@ -523,6 +526,8 @@ The owner is only as good as what it refuses. At minimum:
 - bootstrap source directory added to `sys.path`, preloaded local module,
   reordered/missing/extra local dependency, or source outside the exact held
   helper closure;
+- source pathname swapped between validation and read, initial symlink,
+  wrong-size/digest source, short read, or trailing source bytes;
 - same Python/ADB version string with different executable bytes, inode,
   dependency, stdlib/extension module, or runtime-closure digest;
 - reused or expired approval;

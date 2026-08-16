@@ -12,11 +12,13 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import importlib.util
 import json
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -37,7 +39,7 @@ PROCESS = REPO / "docs/operations/DEVICE_ACTION_PROCESS_V2.md"
 TARGET = REPO / "docs/operations/targets/A90_TARGET_CONTRACT.md"
 
 FLASH_SHA = "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
-RUNTIME_CLOSURE_SHA = "ec8b55608d37028abf286061738edd54cbe7470165f7a40c42f1ff5821d62cbf"
+RUNTIME_CLOSURE_SHA = "8941acc1513aaa3f15a37cfcd42efd2632e2cc1cc0320bdd9be1a5598c495f98"
 RUNTIME_CLOSURE = {
     "_workspace_bootstrap.py": (
         1_255,
@@ -48,8 +50,8 @@ RUNTIME_CLOSURE = {
         "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb",
     ),
     "a90_boot_only_f1_helper_bootstrap.py": (
-        2_801,
-        "c1fadd1aa6b84707cdb813c96c681a0067c826a695fbf9ca4559fac8be7b8b9c",
+        4_617,
+        "ba506aeb30a318e4083c381ecd086e15f9c0a887ae997af1fbb650dc70f3826a",
     ),
     "a90_serial_lock.py": (
         2_860,
@@ -530,7 +532,7 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "never uses its\nbare `adb` default",
             "Python `-I` deliberately removes the script directory from `sys.path`",
             "does not execute `native_init_flash.py` directly",
-            "installs only their fixed module names\nin `sys.modules`",
+            "installs only their fixed module names in `sys.modules`",
         ):
             self.assertIn(token, self.raw, token)
 
@@ -616,7 +618,8 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
                 for target in node.targets
             )
         )
-        order = tuple(name for name, _path in ast.literal_eval(assigned))
+        specs = ast.literal_eval(assigned)
+        order = tuple(name for name, _path, _size, _sha256 in specs)
         expected = tuple(
             Path(name).stem
             for name in sorted(generated_runtime_closure(FLASH) - {FLASH.name})
@@ -624,7 +627,43 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         self.assertEqual(set(order), set(expected))
         self.assertNotIn("sys.path.insert", source)
         self.assertNotIn("sys.path.append", source)
+        self.assertNotIn("read_bytes", source)
+        self.assertIn("os.O_NOFOLLOW", source)
+        self.assertIn("os.fstat(descriptor)", source)
+        self.assertIn("hashlib.sha256(source).hexdigest()", source)
         self.assertIn("tuple(sys.path) != original_path", source)
+
+    def test_bootstrap_reads_same_fd_across_path_swap(self) -> None:
+        spec = importlib.util.spec_from_file_location("a90_f1_bootstrap_test", BOOTSTRAP)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            selected = root / "selected.py"
+            held_name = root / "selected.opened.py"
+            substituted = root / "substituted.py"
+            selected.write_bytes(b"APPROVED")
+            substituted.write_bytes(b"SUBSTITUTED")
+            real_open = module.os.open
+
+            def open_then_swap(path: Path, flags: int) -> int:
+                descriptor = real_open(path, flags)
+                selected.rename(held_name)
+                selected.symlink_to(substituted)
+                return descriptor
+
+            with mock.patch.object(module.os, "open", side_effect=open_then_swap):
+                _path, source = module._exact_source(
+                    root,
+                    selected.name,
+                    len(b"APPROVED"),
+                    hashlib.sha256(b"APPROVED").hexdigest(),
+                )
+            self.assertEqual(source, b"APPROVED")
+            self.assertTrue(selected.is_symlink())
 
     def test_the_hazard_is_bound_at_three_points(self) -> None:
         """A field nothing enforces is decoration; this session shipped two."""
@@ -909,6 +948,7 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
             "fake ADB earlier in `PATH`",
             "direct `python -I native_init_flash.py`",
             "bootstrap source directory added to `sys.path`",
+            "source pathname swapped between validation and read",
             "same Python/ADB version string with different executable bytes",
             "crash after `CANDIDATE_INTENT`",
             "without\n  candidate replay",
