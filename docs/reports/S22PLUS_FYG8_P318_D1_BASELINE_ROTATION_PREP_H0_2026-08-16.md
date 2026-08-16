@@ -197,3 +197,19 @@ F1, device-write, and other-target-command fields.
 The arm and fixed run path are consumed and cannot be replayed. This successful
 D1 creates no D0, F1, recovery, replay, or live authority. Any subsequent
 connected read requires its own current authority.
+
+## Subsequent Fresh D0
+
+A separately requested bounded D0 then selected the exact S22+ from the
+two-device inventory and sent no command to S20+. Rooted boot-completed FYG8
+health, stopped boot animation, boot, vendor_boot, DTBO, recovery, and
+no-Download state passed. The observer read `/proc/last_kmsg` to EOF at exactly
+2,097,136 bytes with empty stderr, SHA-256 `31cd48ab631f`, and zero marker-family
+and exact-marker matches. The baseline is clean.
+
+The strict durable reopen validated `result.json`, 2,941 bytes at SHA-256
+`d14074c29673`, against the current 2,778-byte P3.18 ready manifest and the raw
+observer. Device writes, reboot, Download transition, Odin, partition transfer,
+F1 authorization, and live authorization are all false. This D0 creates no
+prepared Process-v2 binding; preparation and any later F1 approval remain
+separate steps.

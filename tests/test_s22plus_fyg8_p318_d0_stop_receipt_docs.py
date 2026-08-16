@@ -94,9 +94,9 @@ class P318D0StopReceiptDocsTest(unittest.TestCase):
             "independent H0 `PASS_GO`",
             "ready is `082c046f9091`",
             "downstream requalification now have\nindependent H0 `PASS_GO`",
-            "approved P3.18 D1 baseline rotation completed once",
-            "arm/run are consumed",
-            "fresh D0 authority is still absent",
+            "Fresh post-rotation P3.18 D0 passed",
+            "2,097,136-byte marker-free baseline",
+            "no prepared/F1/live authority exists",
         ):
             self.assertIn(token, self.goal)
         self.assertLessEqual(len(self.goal.splitlines()), 900)
