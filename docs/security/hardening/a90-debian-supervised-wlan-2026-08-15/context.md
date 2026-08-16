@@ -36,14 +36,14 @@ target or transport contact.
 The collection digest is computed over the listed files in this exact order as
 the concatenation of `relative_path NUL size NUL sha256 NUL`:
 
-`b2d61c52455603583f19fc8f005e16597523ef82cb7e474e843e6df13828bcdf`
+`d34f4d88fa2509305f15f6863ae65923eef72c69a1b297fe3a037e67933357de`
 
 Artifact count: `28`. Source drift at analysis time: `none`.
 
 | SHA256 | Bytes | Repository-relative path |
 | --- | ---: | --- |
 | `6cd7e24235396089baab844b0e568a93fb82528bf7fc6cb6c5cfc62d83ef0793` | 17014 | `AGENTS.md` |
-| `18f6087c6f7f62193d4112271bb4f0be1a44b3fc9277c4fdc1d99c56d0c374d1` | 29160 | `GOAL_A90.md` |
+| `e1b361b525f7d731ef69c766f050c177f6ba1bf2d958b092f685393dc27a9ae1` | 31302 | `GOAL_A90.md` |
 | `ed9f51212db33bd822dc96ecf12feeda05ce255d088c402c4742851d173fad51` | 89405 | `docs/operations/targets/A90_TARGET_CONTRACT.md` |
 | `edd64a434330f79a3b1ec542c12822e5b201362c212484c7b67d67b4ffbb61a9` | 97237 | `docs/operations/CAMPAIGN_LEDGER_A90.md` |
 | `5c4c669f058bb003519dc04813158d2e408901c05eb9354a7a082d728a56a01b` | 12667 | `docs/reports/A90_NATIVE_WIFI_OWNERSHIP_PERMANENCE_EVIDENCE_H0_2026-08-15.md` |

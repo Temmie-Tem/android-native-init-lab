@@ -5,7 +5,8 @@ Repository: `android-native-init-lab` (all paths below are repository-relative)
 Baseline revision: `fda348a072eba8a53c2de7c9904c52429a7dddaf`; the exact
 collection below was refrozen after adding the public historical dependency
 evidence, correcting the prior portfolio's `WP-H0-1` status, and recording the
-WP2-5b.2 H0 runtime-owner design boundary
+WP2-5b.2 H0 runtime-owner design plus WP2-5b.3a effect-free observer component
+boundaries
 Target: operator-owned Samsung Galaxy A90 5G only
 Tier: H0, host-only source investigation and design
 
@@ -49,14 +50,14 @@ security index entry, and corrections to the prior portfolio's inaccurate
 The collection digest is computed over the following files in the listed
 order as `relative_path NUL size NUL sha256 NUL`:
 
-`db6f305889b88759af8927ba4062890519de43031393bccc64819f6334c21171`
+`ddd2856ac76084ad03d6e90987fc2aea8eb569de917200b66cad74620fd62db8`
 
 Artifact count: `24`. Source drift at analysis time: `none`.
 
 | SHA256 | Bytes | Repository-relative path |
 | --- | ---: | --- |
 | `6cd7e24235396089baab844b0e568a93fb82528bf7fc6cb6c5cfc62d83ef0793` | 17014 | `AGENTS.md` |
-| `fe9c298f9761410f95f92649dd3c7f01504beacd10d10667dbc5b2dc9af95599` | 30442 | `GOAL_A90.md` |
+| `e1b361b525f7d731ef69c766f050c177f6ba1bf2d958b092f685393dc27a9ae1` | 31302 | `GOAL_A90.md` |
 | `ed9f51212db33bd822dc96ecf12feeda05ce255d088c402c4742851d173fad51` | 89405 | `docs/operations/targets/A90_TARGET_CONTRACT.md` |
 | `edd64a434330f79a3b1ec542c12822e5b201362c212484c7b67d67b4ffbb61a9` | 97237 | `docs/operations/CAMPAIGN_LEDGER_A90.md` |
 | `1c7984a85af3cb059244d7f3e7ed5b21516a60657bd947a275a4ed7e4faa5b71` | 4991 | `docs/reports/SERVER_DISTRO_WIFI_STA_UPSTREAM_WSTA18_CONTROL_PLANE_BLOCKED_2026-07-04.md` |
@@ -311,8 +312,16 @@ are forbidden. The implementation gate
 generated H0 binary trace contract, C encoder core, raw consumer, WP2-4 result
 binder, and no-replay prefix validator at
 `schema/a90-wp2-5b-kmsg-trace-v1.json`; none opens `/dev/kmsg` or grants a
-dispatch. The runtime observer, durable writer, measured qualification,
-execution review, and full WP2-5b remain unimplemented and unauthorized.
+dispatch. WP2-5b.3a now adds the generated scalar-pipe/header contract,
+effect-free observer source, exact-file exec transition, exclusive-waiter
+core, launch-readback validation core, dynamic-FD confinement source, and injected host
+fault corpus at
+`docs/reports/A90_WLAN_WP2_5B_OBSERVER_RUNTIME_COMPONENT_H0_2026-08-16.md`.
+It exposes no production alternate-ops/effect/journal/receipt API and has no
+selected numeric profile or parent integration. The durable final-name
+publication/storage writer and parser, receipt producers, qualified static
+target binary, measured qualification, execution review, and full WP2-5b
+remain unimplemented and unauthorized.
 WP2-5b.2 additionally fixes their execution-boundary design: one sole reader,
 no effect authority in the observer, no-retry terminal handling for consumed
 `EINVAL`/`EFAULT` records, atomic no-replace trace/journal publication,

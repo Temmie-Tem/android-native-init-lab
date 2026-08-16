@@ -672,13 +672,20 @@ anchors are in
 `docs/reports/A90_WLAN_WP2_5B_STREAMING_KMSG_OBSERVER_H0_2026-08-16.md`.
 The permanent runtime invariant is `WP2_5B_KMSG_STREAM_COMPLETENESS`; the
 temporary `WP2_5B_STREAMING_KMSG_OBSERVER_ABSENT` gate remains until the exact
-runtime owner, durable raw/journal writer, integrated consumer, qualification,
-hostile execution tests, and independent execution review exist. The later
-WP2-5b.1 H0 framing/consumer core alone does not retire it. WP2-5b.2 now fixes
+runtime owner integration, durable final-name raw/journal publication writer,
+integrated consumer,
+qualification, hostile live execution tests, and independent execution review
+exist. WP2-5b.1 H0 framing/consumer core alone does not retire it. WP2-5b.2 now fixes
 the separate sole-reader, durable no-replace publication, receipt, and
 crash-reconciliation design in
 `docs/reports/A90_WLAN_WP2_5B_RUNTIME_OWNER_DURABLE_EVIDENCE_DESIGN_H0_2026-08-16.md`;
-it remains H0 design and implements none of those runtime roles.
+it remains H0 design. WP2-5b.3a separately implements only the effect-free
+observer child source, generated scalar-pipe/header contract, exact-file exec
+and exclusive-waiter cores, launch-readback validation core, dynamic-FD
+post-open confinement, and injected host fault corpus at
+`docs/reports/A90_WLAN_WP2_5B_OBSERVER_RUNTIME_COMPONENT_H0_2026-08-16.md`.
+It exposes no effect/journal/receipt API, has no selected runtime profile or
+parent integration, and does not retire the gate.
 
 ### Result and budget contract
 
@@ -913,9 +920,15 @@ qualification; this document does not invent pass numbers.
   journal-prefix validator — complete only as host code; it opens no device,
   writes no durable journal, returns no dispatch permission, and grants no
   authority;
+- `WP2-5b.3a`: effect-free observer source and generated pipe/header contract,
+  exact-file exec and waiter cores, launch-readback validation core, dynamic-FD post-open
+  confinement, and syscall-injected host corpus — complete only as an H0
+  component; durable final-name publication/storage writer and parser, receipts,
+  parent integration, measured profile,
+  target qualification, and authority remain absent;
 - `WP2-5b`: runtime execution implementation, journal/observer encoders with
-  durable publication, qualification, and live result validator — absent and
-  unauthorized; any future version must
+  durable publication, receipts, parent integration, qualification, and live
+  result validator — incomplete and unauthorized; any future version must
   satisfy `WP2_5B_KMSG_STREAM_COMPLETENESS` and may not use a post-result log
   snapshot or `/proc/kmsg` fallback for proof;
 - `WP2-6`: common metric/benchmark collector and failure attribution;
@@ -923,8 +936,8 @@ qualification; this document does not invent pass numbers.
 - `WP2-8`: clean Debian capsule feasibility implementation;
 - `WP2-9`: independent security/execution review and topology decision.
 
-`WP2-1`, `WP2-2`, `WP2-3`, `WP2-4`, `WP2-5a`, and `WP2-5b.1` are complete only
-at their stated H0 boundaries. `WP2-4` and WP2-5b.1 remain host preparation.
+`WP2-1`, `WP2-2`, `WP2-3`, `WP2-4`, `WP2-5a`, `WP2-5b.1`, and WP2-5b.3a are complete only
+at their stated H0 boundaries. `WP2-4`, WP2-5b.1, and WP2-5b.3a remain host preparation.
 Runtime `WP2-5b` and every later live package require their own implementation,
 review, and authority and must not be inferred from this proposal.
 

@@ -11,7 +11,7 @@ ANALYSIS = (
     / "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15"
 )
 EXPECTED_COLLECTION_SHA256 = (
-    "db6f305889b88759af8927ba4062890519de43031393bccc64819f6334c21171"
+    "ddd2856ac76084ad03d6e90987fc2aea8eb569de917200b66cad74620fd62db8"
 )
 
 EVIDENCE_RELS = (

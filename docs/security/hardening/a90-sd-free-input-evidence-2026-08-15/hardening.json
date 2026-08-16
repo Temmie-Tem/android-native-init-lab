@@ -5,10 +5,10 @@
   "sourceEvidence": {
     "kind": "document_collection",
     "label": "A90 current contracts, selected SD-free design, H24 SD consumers, Wi-Fi profile producer, property consumer, and evidence path",
-    "collectionSha256": "89606178bd9a1753a4baa40a26d8a44bd7b34feed177449795925cf17911a474",
+    "collectionSha256": "0f6384d8ace48754dbb14e9d349eb00b09892ddfdce1f573fd819daa9dc67e6c",
     "artifactCount": 22,
     "baselineRevision": "fda348a072eba8a53c2de7c9904c52429a7dddaf",
-    "sourceRefreeze": "Rebound after WP-H0-1 and the GOAL_A90 WP-H0-2 H0-only status update",
+    "sourceRefreeze": "Rebound after WP-H0-1, WP-H0-2, and the GOAL_A90 WP2-5b.3a H0-only status update",
     "sourceDrift": "none"
   },
   "assessment": {

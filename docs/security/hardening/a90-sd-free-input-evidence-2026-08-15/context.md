@@ -46,14 +46,14 @@ security index entry.
 The collection digest is computed over the listed files in this exact order as
 the concatenation of `relative_path NUL size NUL sha256 NUL`:
 
-`89606178bd9a1753a4baa40a26d8a44bd7b34feed177449795925cf17911a474`
+`0f6384d8ace48754dbb14e9d349eb00b09892ddfdce1f573fd819daa9dc67e6c`
 
 Artifact count: `22`. Source drift at analysis time: `none`.
 
 | SHA256 | Bytes | Repository-relative path |
 | --- | ---: | --- |
 | `6cd7e24235396089baab844b0e568a93fb82528bf7fc6cb6c5cfc62d83ef0793` | 17014 | `AGENTS.md` |
-| `18f6087c6f7f62193d4112271bb4f0be1a44b3fc9277c4fdc1d99c56d0c374d1` | 29160 | `GOAL_A90.md` |
+| `e1b361b525f7d731ef69c766f050c177f6ba1bf2d958b092f685393dc27a9ae1` | 31302 | `GOAL_A90.md` |
 | `ed9f51212db33bd822dc96ecf12feeda05ce255d088c402c4742851d173fad51` | 89405 | `docs/operations/targets/A90_TARGET_CONTRACT.md` |
 | `356c599afac5600126cd03ab2c27ed1b209f1edae74513881ffe08a925302867` | 18735 | `docs/operations/NATIVE_INIT_WIFI_LIFECYCLE_COMMANDS.md` |
 | `84511114e43da3b44a42cdd2778e514c7e081633296657a9ef01a4a1b4ea6f41` | 29521 | `docs/plans/A90_HEADLESS_HANDOFF_MINIMUM_AND_WIFI_OWNERSHIP_DECISION_2026-08-13.md` |

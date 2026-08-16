@@ -39,6 +39,11 @@ CONTRACT = BASE / "schema/a90-wp2-5b-kmsg-trace-v1.json"
 HEADER = ROOT / "workspace/public/src/native-init/helpers/a90_wp2_5b_kmsg_contract.h"
 CORE = ROOT / "workspace/public/src/native-init/helpers/a90_wp2_5b_kmsg_stream.c"
 OWNER = ROOT / "workspace/public/src/native-init/helpers/a90_wp2_5b_kmsg_owner.c"
+OWNER_REPORT = (
+    ROOT
+    / "docs/reports/"
+    "A90_WLAN_WP2_5B_OBSERVER_RUNTIME_COMPONENT_H0_2026-08-16.md"
+)
 GOAL = ROOT / "GOAL_A90.md"
 
 
@@ -358,8 +363,8 @@ class A90Wp25bRuntimeOwnerDesignH0Tests(unittest.TestCase):
         )
         self.assertFalse(self.contract["authority"]["liveExecutionAuthorized"])
 
-    def test_design_is_not_a_runtime_implementation_or_authority(self) -> None:
-        self.assertFalse(OWNER.exists())
+    def test_design_freeze_remains_h0_after_separate_component_implementation(self) -> None:
+        self.assertTrue(OWNER.is_file())
         for claim in (
             "runtime implementation remains absent",
             "does not implement the owner, writer, receipt producers",
@@ -369,6 +374,11 @@ class A90Wp25bRuntimeOwnerDesignH0Tests(unittest.TestCase):
             "device authority",
         ):
             self.assertIn(claim, self.design)
+        owner_report = OWNER_REPORT.read_text()
+        self.assertIn("WP2-5b.3a", owner_report)
+        self.assertIn("no live authority", owner_report)
+        self.assertIn("durable final-name publication writer", owner_report)
+        self.assertIn("WP2_5B_STREAMING_KMSG_OBSERVER_ABSENT", owner_report)
 
 
 if __name__ == "__main__":

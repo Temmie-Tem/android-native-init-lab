@@ -136,12 +136,20 @@ rotation does not relabel either derived follow-up as original evidence.
   require the selected fresh PID/proc boundary. This is H0 schema completion
   only: runtime observer and byte-derived consumer are absent, H0D04 and H0D10
   remain `UNPROVED`, and WP2-4 grants no D0 or live authority.
-- For authority purposes, `WP2-5b` remains absent and unauthorized. WP2-5b.1
+- For authority purposes, complete `WP2-5b` remains absent and unauthorized. WP2-5b.1
   now has a generated H0 trace contract/header, C encoder core, raw consumer,
   WP2-4 result binder, strict combined-result rederivation, and no-replay
   journal-prefix validator. The core opens no device and returns no dispatch
-  or promotion authority. The runtime observer, durable writer, measured
-  qualification, and execution integration remain absent. Its permanent
+  or promotion authority. WP2-5b.3a now adds only the H0 effect-free observer
+  source, generated pipe/header contract, exact-file exec and waiter cores,
+  launch-readback validation core, dynamic-FD post-open confinement, and injected
+  host fault corpus documented in
+  `docs/reports/A90_WLAN_WP2_5B_OBSERVER_RUNTIME_COMPONENT_H0_2026-08-16.md`.
+  It exposes no production alternate-ops/effect/journal/receipt API. The
+  durable final-name publication/storage writer and parser, receipt producers,
+  selected runtime profile, qualified static
+  target binary, measured qualification, and execution integration remain
+  absent. Its permanent
   `WP2_5B_KMSG_STREAM_COMPLETENESS` invariant now forbids post-result `dmesg`,
   `/proc/kmsg` fallback, pstore/last-kmsg absence, or a larger ring from proving
   a kernel-log-dependent terminal. A trusted exact `/dev/kmsg` reader must be
@@ -154,11 +162,13 @@ rotation does not relabel either derived follow-up as original evidence.
   `LOG_BUF_SHIFT=17` is only the 128-KiB minimum, while the eight-CPU
   source-default calculation is 1 MiB absent an early override. The temporary
   `WP2_5B_STREAMING_KMSG_OBSERVER_ABSENT` gate retires only with the exact
-  runtime implementation, durable writer, qualification, hostile execution
-  tests, and independent execution review; this H0 core does not retire it.
+  complete runtime integration, durable final-name publication/storage writer,
+  qualification, hostile live
+  execution tests, and independent execution review; neither the H0 core nor
+  the 3a component retires it.
   WP2-5b.2 now fixes the sole-reader, durable-publication, receipt, and
-  crash-reconciliation design, but implements none of those runtime roles and
-  likewise does not retire the gate.
+  crash-reconciliation design. The separate 3a observer component implements
+  only its effect-free child role and likewise does not retire the gate.
 
 ## Property Terminal
 

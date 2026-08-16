@@ -313,14 +313,25 @@ identity:
   now fixes the H0 runtime-owner/durable-evidence design: one sole reader with
   no effect authority, consumed-record `EINVAL`/`EFAULT` terminal faults with
   no retry, atomic no-replace trace/journal publication, separate
-  driver/interface receipts, and observation-only crash reconciliation. No
-  owner, writer, receipt producer, integration binary, or qualification exists.
+  driver/interface receipts, and observation-only crash reconciliation.
+- `WP2-5b.3a` now implements the effect-free observer component and generated
+  pipe/header contract at
+  `docs/reports/A90_WLAN_WP2_5B_OBSERVER_RUNTIME_COMPONENT_H0_2026-08-16.md`.
+  The source covers the exact-file clean-exec transition, null/fixed-FD
+  bootstrap, exclusive waiter core, launch-readback validation core, dynamic-FD
+  post-open confinement, sole `/dev/kmsg` state machine, and injected host
+  fault corpus. It has no effect/journal/receipt API, no selected numeric
+  runtime profile, and no parent integration. The durable final-name
+  publication/storage writer and parser, receipt producers, qualified static
+  target binary, and live execution review remain absent; the observer gate
+  remains open.
 - Numeric budgets remain unset until measured from a corrected healthy
-  baseline. The design has no execution implementation, qualification,
-  independent execution review, identity, candidate, D0, D1, F1, handoff, UFS
-  mutation, property provisioning, or live authority. Option C remains
+  baseline. The design has no complete execution integration, qualification,
+  independent execution review, identity, candidate, D0, D1, F1, handoff,
+  UFS mutation, property provisioning, or live authority. Option C remains
   research-only until all ten dependency gates and its containment/switch
-  conditions close.
+  conditions close. The exact next unit is H0 WP2-5b.3b: strict raw canonical
+  writer/parser, selected storage-reservation backend, and crash-prefix fixture.
 
 ## What Leaves or Moves Out
 
@@ -457,6 +468,7 @@ Canonical public records include:
   recovers the WSTA18/WSTA19 live evidence that native Wi-Fi ownership is a
   structural requirement of this device, not the residue of a retired
   experiment. Read it before reopening the isolated-Debian premise.
+- `docs/reports/A90_WLAN_WP2_5B_OBSERVER_RUNTIME_COMPONENT_H0_2026-08-16.md`
 - `docs/plans/A90_H16_H24_ISOLATED_DEBIAN_COMPARISON_BASELINE_2026-08-14.md`
 - `docs/plans/A90_UFS_HANDOFF_ARCHITECTURE_AND_PRODUCTION_REDUCTION_PLAN_2026-08-12.md`
 - `docs/plans/A90_HEADLESS_HANDOFF_MINIMUM_AND_WIFI_OWNERSHIP_DECISION_2026-08-13.md`

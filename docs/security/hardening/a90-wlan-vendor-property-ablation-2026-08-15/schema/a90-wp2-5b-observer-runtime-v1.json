@@ -1,0 +1,313 @@
+{
+  "authority": {
+    "candidateEligible": false,
+    "d0Authorized": false,
+    "d1Authorized": false,
+    "deviceContact": false,
+    "effectDispatchApiExposed": false,
+    "f1Authorized": false,
+    "generationPromotionAuthorized": false,
+    "liveExecutionAuthorized": false,
+    "propertyProvisionAuthorized": false,
+    "tier": "H0",
+    "ufsMutationAuthorized": false
+  },
+  "confinement": {
+    "allCapabilitySetsAndBoundingSetDropped": true,
+    "bootstrapOnlyKmsgOpenPrivilege": true,
+    "dumpable": false,
+    "emptySupplementaryGroupsRequired": true,
+    "forbidden": [
+      "path open after seal",
+      "socket or ioctl",
+      "exec or namespace/mount/root transition",
+      "ptrace, process-vm, pidfd-getfd, keyring, BPF, or perf",
+      "FD duplication or fcntl mutation",
+      "unknown architecture or syscall"
+    ],
+    "liveKernelQualificationComplete": false,
+    "maximumFilterInstructions": 192,
+    "noNewPrivileges": true,
+    "rlimitCore": 0,
+    "seccomp": "STATIC_ARCH_CHECKED_DEFAULT_KILL_FIXED_FD_ALLOWLIST"
+  },
+  "execBoundary": {
+    "execFdRemainsCloexec": true,
+    "interpreterOrDynamicLoaderForbidden": true,
+    "parentIntegrationImplemented": false,
+    "pathExecForbidden": true,
+    "primitive": "execveat(EXEC_FD, empty-path, fixed-argv, empty-env, AT_EMPTY_PATH)",
+    "procSelfFdFallbackForbidden": true,
+    "rearmOnExecFailure": true,
+    "temporarilyClearedCloexec": [
+      3,
+      4,
+      5
+    ]
+  },
+  "fixedDescriptors": {
+    "bootstrapFlags": {
+      "controlRead": [
+        "O_RDONLY",
+        "O_NONBLOCK",
+        "FD_CLOEXEC_AT_ENTRY"
+      ],
+      "runDirectory": [
+        "O_RDONLY",
+        "FD_CLOEXEC_AT_ENTRY"
+      ],
+      "statusWrite": [
+        "O_WRONLY",
+        "O_NONBLOCK",
+        "FD_CLOEXEC_AT_ENTRY"
+      ]
+    },
+    "controlRead": 3,
+    "execBeforeTransitionOnly": 6,
+    "postOpenDynamicFdNumbersBoundBeforeSeal": true,
+    "postOpenLiveSet": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      "trace.pending",
+      "/dev/kmsg"
+    ],
+    "runDirectory": 5,
+    "statusWrite": 4,
+    "stderr": 2,
+    "stdin": 0,
+    "stdout": 1
+  },
+  "generatedDeterministically": true,
+  "implementation": {
+    "durablePublicationWriterImplemented": false,
+    "exclusiveWaiterCoreImplemented": true,
+    "fdExecTransitionCoreImplemented": true,
+    "filterBytecodeBuilderExposedForHostTests": true,
+    "generatedPipeContractImplemented": true,
+    "independentExecutionReviewComplete": false,
+    "injectedOpsApiProductionExposed": false,
+    "launchReadbackValidationCoreImplemented": true,
+    "measuredQualificationImplemented": false,
+    "observerSourceImplemented": true,
+    "parentIntegrationImplemented": false,
+    "postOpenConfinementSourceImplemented": true,
+    "receiptProducersImplemented": false,
+    "syscallInjectedHostTestsImplemented": true,
+    "syscallInjectedHostTestsRequired": true
+  },
+  "launchReadback": {
+    "cgroupBackendSelected": false,
+    "numericProfileSelected": false,
+    "required": [
+      "SCHED_OTHER priority zero reset-on-fork",
+      "nonnegative qualified nice with exact profile digest",
+      "bounded affinity/cpuset, ioprio, and uclamp digests",
+      "dedicated aggregate cgroup and native reserve digests",
+      "RLIMIT_RTPRIO zero and bounded nonzero RLIMIT_RTTIME",
+      "CAP_SYS_NICE and CAP_SYS_RESOURCE absent",
+      "SIGCHLD default/no-auto-reap and blocked through reservation",
+      "exact static ELF FD, clean maps, exact inherited FD set",
+      "fixed argv, empty environment, null stdio, root/cwd/umask",
+      "credentials/groups/rlimits/capabilities/signals/parent identity"
+    ],
+    "runtimeNormalizationImplemented": false,
+    "schemaValidatorImplemented": true
+  },
+  "observerBoundary": {
+    "consumedReadFaults": [
+      "EINVAL_CURSOR_ADVANCED",
+      "EFAULT_CURSOR_ADVANCED"
+    ],
+    "durableLengthSource": "LAST_SUCCESSFUL_FSYNC_ONLY",
+    "effectApi": null,
+    "faultCloseWait": {
+      "budgetExhaustion": "EXIT_BOUNDED_PARTIAL_WITHOUT_CLOSED",
+      "descriptor": 3,
+      "pollCallBudget": "START_BOUND_NONZERO",
+      "timeoutPerCallMs": "START_BOUND_NONZERO"
+    },
+    "faultPublicationFailure": "NO_CONTROL_WAIT_NO_END_NO_CLOSED_IMMEDIATE_PROCESS_EXIT",
+    "finalPublicationFailure": "END_WRITE_OR_FINAL_FSYNC_OR_TRACE_CLOSE_OR_CLOSED_WRITE_FAILURE_NO_CLOSED_NO_UNFSYNCED_DURABLE_LENGTH",
+    "initialSeek": "SEEK_END_OFFSET_ZERO_EXACTLY_ONCE",
+    "kmsgOpen": [
+      "O_RDONLY",
+      "O_NONBLOCK",
+      "O_NOFOLLOW",
+      "O_CLOEXEC"
+    ],
+    "kmsgPath": "/dev/kmsg",
+    "kmsgRdev": {
+      "major": 1,
+      "minor": 11
+    },
+    "noProcKmsgFallback": true,
+    "noReadAfterTerminalFault": true,
+    "noRetryClose": true,
+    "readerCloseFailure": "ALL_CLOSE_PATHS_NO_FAULTED_NO_END_NO_CLOSED_NO_CONTROL_WAIT_IMMEDIATE_PROCESS_EXIT",
+    "runDirectoryClosedBeforeKmsgOpen": true,
+    "streamCoreFaultDurability": "FSYNC_EMITTED_FAULT_PREFIX_ADVANCE_DURABLE_LENGTH_BEFORE_FAULTED",
+    "terminalFaultReaderClose": "AFTER_DURABLE_FAULT_PREFIX_BEFORE_FAULTED_STATUS_EXACT_ONCE_NO_RETRY",
+    "traceLeaf": "trace.pending",
+    "traceOpen": [
+      "O_WRONLY",
+      "O_APPEND",
+      "O_CREAT",
+      "O_EXCL",
+      "O_NOFOLLOW",
+      "O_CLOEXEC",
+      "0600"
+    ]
+  },
+  "pipeContract": {
+    "atomicMinimumBytes": 512,
+    "byteOrder": "BIG_ENDIAN",
+    "closeCauseStateCorrelation": "NORMAL_WITHOUT_FAULTED_FAULT_WITH_FAULTED_PARENT_EOF_WITH_FAULTED",
+    "closeCauses": {
+      "FAULT_AFTER_TERMINAL_INPUT": 2,
+      "NORMAL_AFTER_DRIVER_OUTCOME": 1,
+      "PARENT_CONTROL_EOF": 3
+    },
+    "closeFrameRequiresControlWriterEof": true,
+    "closedStatusSuccess": "NO_FAULTED_REQUIRES_ZERO_FAULT_TUPLE_FAULTED_REQUIRES_EXACT_MATCH",
+    "controlFrames": [
+      {
+        "cardinality": "EXACTLY_ONE_FIRST",
+        "id": 1,
+        "name": "START",
+        "payload": ">32s32s32s32s32sIQIIIIIIII",
+        "payloadBytes": 204
+      },
+      {
+        "cardinality": "ZERO_OR_ONE_AFTER_ARM_OR_FAULT",
+        "id": 2,
+        "name": "CLOSE",
+        "payload": ">II",
+        "payloadBytes": 8
+      }
+    ],
+    "header": ">8sHBBQHH",
+    "headerBytes": 24,
+    "invalidClosePoisonsSession": "ANY_FRAME_HEADER_PAYLOAD_SEMANTIC_OR_DUPLICATE_FAILURE_NO_RESYNC_NO_EOF_AUTHORITY",
+    "magicHex": "4139304f33413100",
+    "maximumFrameBytes": 228,
+    "oneWriterOneReaderPerDirection": true,
+    "partialAtEof": "TERMINAL_BOUNDARY_FAULT",
+    "rejections": [
+      "wrong magic/version/direction/kind/reserved/length",
+      "initial sequence not zero",
+      "forward gap, duplicate, regression, or wrap",
+      "short write, partial EOF, trailing bytes, or extra frame",
+      "EPIPE or bounded EAGAIN/EINTR exhaustion",
+      "close before start, duplicate close, or status after closed",
+      "close cause and observer fault-state mismatch"
+    ],
+    "reserved": 0,
+    "sequence": "UINT64_STARTS_ZERO_EXACT_PLUS_ONE_NO_WRAP",
+    "statusDurableProgression": "STRICTLY_INCREASES_ARMED_TO_OPTIONAL_FAULTED_TO_CLOSED",
+    "statusFrames": [
+      {
+        "cardinality": "ZERO_OR_ONE_BEFORE_FAULT_OR_CLOSED",
+        "id": 1,
+        "name": "ARMED",
+        "payload": ">IiIIQQQQQQQ",
+        "payloadBytes": 72
+      },
+      {
+        "cardinality": "ZERO_OR_ONE_BEFORE_CLOSED",
+        "id": 2,
+        "name": "FAULTED",
+        "payload": ">IiIIQQQQQQQ",
+        "payloadBytes": 72
+      },
+      {
+        "cardinality": "EXACTLY_ONE_LAST_WHEN_STATUS_CHANNEL_SURVIVES",
+        "id": 3,
+        "name": "CLOSED",
+        "payload": ">IiIIQQQQQQQ",
+        "payloadBytes": 72
+      }
+    ],
+    "statusPayloadFields": [
+      "faultReason",
+      "osErrno",
+      "pollRevents",
+      "reservedZero",
+      "traceDev",
+      "traceIno",
+      "kmsgDev",
+      "kmsgIno",
+      "kmsgRdev",
+      "durableTraceBytes",
+      "auxiliary"
+    ],
+    "successfulFrameWrite": "ONE_DIRECT_WRITE_AFTER_BOUNDED_POLLOUT",
+    "version": 1
+  },
+  "schema": "a90-wp2-5b-observer-runtime-contract-v1",
+  "scope": {
+    "openGate": "WP2_5B_STREAMING_KMSG_OBSERVER_ABSENT",
+    "permanentInvariant": "WP2_5B_KMSG_STREAM_COMPLETENESS",
+    "statement": "This component implements only the effect-free static observer, generated scalar-pipe grammar, exact-file exec transition core, exclusive waiter reservation core, launch readback gate, and post-open confinement source. Parent integration, durable final-name publication/storage writer, receipt producers, measured profiles, qualification, and authority remain absent.",
+    "target": "Samsung Galaxy A90 5G only",
+    "workPackage": "WP2-5b.3a"
+  },
+  "sequencingConstraint": {
+    "current": "WP2-5b.3a effect-free observer component H0 implementation",
+    "deviceOrdinalsConsumed": 0,
+    "gateRetiredByThisUnit": false,
+    "next": "WP2-5b.3b strict raw writer/parser, storage reservation, and crash-prefix fixture"
+  },
+  "sourcePins": [
+    {
+      "bytes": 38356,
+      "path": "docs/reports/A90_WLAN_WP2_5B_RUNTIME_OWNER_DURABLE_EVIDENCE_DESIGN_H0_2026-08-16.md",
+      "sha256": "4863299453e8b54c91513e65354e107264a6f85df17aa76feec870bdae4ba2a7"
+    },
+    {
+      "bytes": 8798,
+      "path": "docs/security/hardening/a90-wlan-vendor-property-ablation-2026-08-15/schema/a90-wp2-5b-kmsg-trace-v1.json",
+      "sha256": "26536cb17938d207d6ecfc0553ac80678c6f0bdff7152dc6c24a42233a5b2c7f"
+    },
+    {
+      "bytes": 61710,
+      "path": "tests/a90_wp2_5b_kmsg_owner_test.c",
+      "sha256": "5ab281025cc6244063be8cd562580485aee9f229936f53964bdd0e10b0f82fb9"
+    },
+    {
+      "bytes": 3125,
+      "path": "workspace/public/src/native-init/helpers/a90_wp2_5b_kmsg_contract.h",
+      "sha256": "0f83bb40c4a23f9c7f0374d472ab78974fff66cff717c4ad7d16346aaaf0fd77"
+    },
+    {
+      "bytes": 66782,
+      "path": "workspace/public/src/native-init/helpers/a90_wp2_5b_kmsg_owner.c",
+      "sha256": "cc0cede60df6c5d2c4b6e9755fe9ef37e262427dbcfd52ca2aa601f4229ad91d"
+    },
+    {
+      "bytes": 16389,
+      "path": "workspace/public/src/native-init/helpers/a90_wp2_5b_kmsg_stream.c",
+      "sha256": "4d7a2ca24a5b9ebe5ca2ef67742a3c9c2219604799a77c0f0ee5089a58954b62"
+    },
+    {
+      "bytes": 53287,
+      "path": "workspace/public/src/scripts/revalidation/a90_wp2_5b_kmsg_trace_v1.py",
+      "sha256": "56af5f5ee6082288a35d13476d309d1d12e0effe6c935f0c24a78caedf15357a"
+    }
+  ],
+  "status": "H0_COMPONENT_IMPLEMENTED_EXECUTION_QUALIFICATION_ABSENT",
+  "waiterBoundary": {
+    "directChildOnly": true,
+    "genericReaperMustSkipReserved": true,
+    "onlyExactWaiterMayReap": true,
+    "reservationKey": [
+      "pid",
+      "starttime"
+    ],
+    "residentReaperIntegrationImplemented": false,
+    "sigchldDisposition": "SIG_DFL_NO_SIG_IGN_NO_SA_NOCLDWAIT",
+    "sigchldMustBeBlocked": true
+  }
+}
