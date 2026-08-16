@@ -25,6 +25,10 @@ PACKAGE = REPO / (
 KERNEL = PACKAGE / "Kernel"
 DEFCONFIG = KERNEL / "arch/arm64/configs/r3q_kor_single_defconfig"
 RUNTIME_CONFIG = REPO / "workspace/private/outputs/a90-phase2a-kernel.tBOMsQ/v3404.config"
+BOOT_IMAGE = REPO / (
+    "workspace/private/inputs/boot_images"
+    "/boot_linux_v3404_d3_resolved_owner_timeout.img"
+)
 
 
 def flatten(text: str) -> str:
@@ -163,6 +167,27 @@ class KernelSourceConfirmationDocsTests(unittest.TestCase):
         self.assertIn("static u32 locator_status = LOCATOR_NOT_PRESENT;", locator)
         self.assertIn("schedule_work(&pqw->pd_loc_work);", locator)
         self.assertIn("defaults to `LOCATOR_NOT_PRESENT`", self.report)
+
+    def test_the_locator_boot_parameter_claim_matches_the_staged_image(self) -> None:
+        """The report claims a boot cmdline value; check the image, not the prose.
+
+        The finding must also stay honest about what it does *not* prove, and the
+        conclusion must not be left resting on the superseded default argument.
+        """
+        self.assertIn("The boot parameter is no longer unproved", self.report)
+        self.assertIn("`service_locator.enable=1` in its kernel command line", self.report)
+        self.assertIn("enabled at boot", self.report)
+        self.assertIn("The source default is now irrelevant", self.report)
+        self.assertIn(
+            "not the current device state or any future image", self.report
+        )
+
+        if not BOOT_IMAGE.is_file():
+            self.skipTest(f"private artifact not staged on this host: {BOOT_IMAGE}")
+        header = BOOT_IMAGE.read_bytes()[:1632]
+        self.assertEqual(header[:8], b"ANDROID!", "not an Android boot image")
+        cmdline = header[64:576].split(b"\x00", 1)[0].decode("ascii", "replace")
+        self.assertIn("service_locator.enable=1", cmdline)
 
     def test_qrtr_userspace_name_service_requirement_matches_source(self) -> None:
         self.require_source()

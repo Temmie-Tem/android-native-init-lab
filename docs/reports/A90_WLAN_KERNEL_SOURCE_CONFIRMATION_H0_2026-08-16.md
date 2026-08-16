@@ -199,9 +199,20 @@ The locator itself defaults to `LOCATOR_NOT_PRESENT` and exposes an `enable`
 module parameter (`service-locator.c:39-45,245-257`). `get_service_location()`
 schedules asynchronous work and normally returns before the service lookup
 result is known (`:306-345`); a later locator failure calls the ICNSS notifier
-with `LOCATOR_DOWN`, which ICNSS ignores at `icnss.c:1981-1982`. The exact boot
-parameter remains unproved, but the source default and error flow reinforce
-that this is not the fatal base-lookup gate.
+with `LOCATOR_DOWN`, which ICNSS ignores at `icnss.c:1981-1982`.
+
+The boot parameter is no longer unproved. The staged A90 boot image of the
+`v3404` lineage carries `service_locator.enable=1` in its kernel command line,
+read host-only from the private image header on 2026-08-16. The locator is
+therefore **enabled at boot**, not left at its source default.
+
+That resolution removes an argument this report previously leaned on and does
+not weaken the conclusion, because the conclusion never needed it. The source
+default is now irrelevant: the locator runs, and the probe still does not
+depend on it. The structural facts carry the finding alone — probe ignores the
+`icnss_enable_recovery()` return at `icnss.c:4115`, and ICNSS ignores
+`LOCATOR_DOWN` at `:1981-1982`. Scope: this proves the command line of that
+exact staged image, not the current device state or any future image.
 
 This refutes the narrow prior that successful PD lookup is required for the
 initial ICNSS probe. It does **not** prove the PD roles removable from a 24/7

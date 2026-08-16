@@ -40,8 +40,8 @@ PINNED_INPUTS = {
         "0eddec9ba9d637590c82499709179bd6b56a79d646d7967d3049a0bf36136b85",
     ),
     SOURCE_REPORT_REL: (
-        27687,
-        "a9d80e2134e985dd15c01b4dc9b3ca573f402884c21e75f8ab1febd5a905155f",
+        28372,
+        "9414541bf79d9f59facccb0554d5e7226656f2f7c49c204130e79213beaf5403",
     ),
     MAC_REPORT_REL: (
         15385,

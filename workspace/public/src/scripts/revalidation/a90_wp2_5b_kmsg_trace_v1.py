@@ -40,15 +40,15 @@ MAC_REPORT_REL = "docs/reports/A90_WLAN_MAC_PROVISIONING_EXISTING_EVIDENCE_H0_20
 PINNED_INPUTS = {
     WP2_GENERATOR_REL: (
         60728,
-        "6e58e4e25b5c20cef6c39a0310e8a2fa621093d0b28a273b7e7bbcea28912cc3",
+        "afdab4bbfc5c25b9be62433e3cecc0265c9d106bfc8da7d27e76594a5672f935",
     ),
     WP2_SCHEMA_REL: (
         25818,
-        "ce8428a2f85183c206a3d4e224a59ea55b63749afb8be248e7b9f92e31344f10",
+        "fa31a4845d48baeedba81bda1a7cad29e83e7328ab7450f836079756d05d9248",
     ),
     SOURCE_REPORT_REL: (
-        27687,
-        "a9d80e2134e985dd15c01b4dc9b3ca573f402884c21e75f8ab1febd5a905155f",
+        28372,
+        "9414541bf79d9f59facccb0554d5e7226656f2f7c49c204130e79213beaf5403",
     ),
     MAC_REPORT_REL: (
         15385,
