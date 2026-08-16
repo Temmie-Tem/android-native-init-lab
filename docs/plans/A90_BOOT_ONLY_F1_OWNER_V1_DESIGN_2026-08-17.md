@@ -103,16 +103,43 @@ Deliberately small:
 
 - `a90_boot_only_f1_owner_v1.py`;
 - a small shared module for canonical JSON and the append-only journal;
-- the exact hash of the already-reviewed
-  `workspace/public/src/scripts/revalidation/native_init_flash.py`, size 43,118,
-  sha256 `366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53`;
+- the generated exact non-stdlib import closure rooted at
+  `workspace/public/src/scripts/revalidation/native_init_flash.py`;
 - the manifest schema;
 - the hostile state-machine tests.
+
+The helper is not treated as a closed executable merely because its own bytes
+are pinned. Its source imports `a90ctl`, which imports the observation parser
+and serial lock, and those modules have further local imports. Before a
+capability review, an AST walk recursively resolves every same-directory Python
+import. A top-level import is admissible only when it is in Python's declared
+stdlib set or resolves to an exact file in this generated closure. An unresolved
+non-stdlib import, a local package, or a dynamic import is `NO_GO`; it is never
+silently omitted.
+
+The current generated closure is exactly:
+
+| file under `workspace/public/src/scripts/revalidation/` | size | sha256 |
+|---|---:|---|
+| `_workspace_bootstrap.py` | 1,255 | `7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe` |
+| `a90_observation_pipeline.py` | 24,478 | `6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb` |
+| `a90_serial_lock.py` | 2,860 | `663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7` |
+| `a90_transition_contract_v2.py` | 13,734 | `64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e` |
+| `a90ctl.py` | 16,380 | `4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c` |
+| `native_init_flash.py` | 43,118 | `366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53` |
+
+The canonical aggregate is SHA256 over the lexically sorted records
+`relative-name NUL decimal-size NUL lowercase-sha256 LF`. Its current value is
+`4dd44f10cae4ebe872a047391fe7e1e81f4f8cff2e703df3085252f298ccbe13`.
+The capability review signs this generated aggregate, not a hand-maintained
+subset. Any member-byte change, added or removed local dependency, unresolved
+external dependency, or import-graph change expires the capability binding.
 
 **The owner must not import `a90_v3403_f1_orchestrator.py`.** That would pull
 ~7,900 lines back into the closure. The per-candidate runners are stdlib-only
 today and the owner keeps that property; it is a closure constraint, not a
-style preference.
+style preference. This applies to the owner module itself; it does not erase the
+invoked helper's generated transitive closure above.
 
 ## Manifest is data, never authority
 

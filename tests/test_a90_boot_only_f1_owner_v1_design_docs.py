@@ -10,9 +10,12 @@ session twice shipped a field that nothing enforced.
 
 from __future__ import annotations
 
+import ast
 import hashlib
-from pathlib import Path
+import sys
+import tempfile
 import unittest
+from pathlib import Path
 
 
 def flatten(text: str) -> str:
@@ -24,10 +27,35 @@ REPO = Path(__file__).resolve().parents[1]
 DESIGN = REPO / "docs/plans/A90_BOOT_ONLY_F1_OWNER_V1_DESIGN_2026-08-17.md"
 SERVER = REPO / "workspace/public/src/scripts/server-distro"
 FLASH = REPO / "workspace/public/src/scripts/revalidation/native_init_flash.py"
+REVALIDATION = FLASH.parent
 ORCHESTRATOR = SERVER / "a90_v3403_f1_orchestrator.py"
 GOAL = REPO / "GOAL_A90.md"
 
 FLASH_SHA = "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
+RUNTIME_CLOSURE_SHA = "4dd44f10cae4ebe872a047391fe7e1e81f4f8cff2e703df3085252f298ccbe13"
+RUNTIME_CLOSURE = {
+    "_workspace_bootstrap.py": (
+        1_255,
+        "7a8322f9760c8aa3672e094b01df0231fb5b0a85ceaeb5ad73042fcd3f3a6ffe",
+    ),
+    "a90_observation_pipeline.py": (
+        24_478,
+        "6fa353b4e28ad26e76ec98d0e2c30089b493356fb314b36b962ce97e34a00adb",
+    ),
+    "a90_serial_lock.py": (
+        2_860,
+        "663dd16f5121e35fc1047d563bdbe55148695224cf0c6ca5ab59c0433b6191c7",
+    ),
+    "a90_transition_contract_v2.py": (
+        13_734,
+        "64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e",
+    ),
+    "a90ctl.py": (
+        16_380,
+        "4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c",
+    ),
+    "native_init_flash.py": (43_118, FLASH_SHA),
+}
 RETIRED = (
     "a90_h15_ufs_f1_runner_v1.py",
     "a90_h15_ufs_d1_runner_v1.py",
@@ -41,6 +69,59 @@ RETIRED = (
     "a90_h24_ufs_d1_runner_v1.py",
     "a90_h27_ufs_f1_runner_v1.py",
 )
+
+
+def generated_runtime_closure(root: Path) -> set[str]:
+    """Derive the exact same-directory non-stdlib import closure."""
+    available = {path.stem: path for path in root.parent.glob("*.py")}
+    pending = [root.stem]
+    resolved: set[str] = set()
+    while pending:
+        module = pending.pop()
+        if module in resolved:
+            continue
+        path = available.get(module)
+        if path is None:
+            raise AssertionError(f"unresolved local module: {module}")
+        resolved.add(module)
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                dynamic = (
+                    isinstance(node.func, ast.Name) and node.func.id == "__import__"
+                ) or (
+                    isinstance(node.func, ast.Attribute)
+                    and isinstance(node.func.value, ast.Name)
+                    and node.func.value.id == "importlib"
+                    and node.func.attr == "import_module"
+                )
+                if dynamic:
+                    raise AssertionError(f"dynamic import is not admissible: {path}")
+            names: list[str] = []
+            if isinstance(node, ast.Import):
+                names = [item.name.split(".", 1)[0] for item in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                names = [node.module.split(".", 1)[0]]
+            for name in names:
+                if name == "__future__" or name in sys.stdlib_module_names:
+                    continue
+                if name not in available:
+                    raise AssertionError(
+                        f"unresolved non-stdlib import {name!r} in {path.name}"
+                    )
+                if name not in resolved:
+                    pending.append(name)
+    return {f"{module}.py" for module in resolved}
+
+
+def runtime_closure_digest(names: set[str]) -> str:
+    digest = hashlib.sha256()
+    for name in sorted(names):
+        path = REVALIDATION / name
+        data = path.read_bytes()
+        file_sha = hashlib.sha256(data).hexdigest()
+        digest.update(f"{name}\0{len(data)}\0{file_sha}\n".encode("ascii"))
+    return digest.hexdigest()
 
 
 class BootOnlyF1OwnerDesignTests(unittest.TestCase):
@@ -128,6 +209,33 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         self.assertIn(FLASH_SHA, self.raw)
         self.assertTrue(FLASH.is_file(), str(FLASH))
         self.assertEqual(hashlib.sha256(FLASH.read_bytes()).hexdigest(), FLASH_SHA)
+
+    def test_flash_helper_runtime_closure_is_generated_and_exact(self) -> None:
+        derived = generated_runtime_closure(FLASH)
+        self.assertEqual(derived, set(RUNTIME_CLOSURE))
+        self.assertEqual(runtime_closure_digest(derived), RUNTIME_CLOSURE_SHA)
+        self.assertIn("generated exact non-stdlib import closure", self.design)
+        self.assertIn("dynamic import is `NO_GO`", self.design)
+
+    def test_every_runtime_closure_member_is_pinned_by_size_and_hash(self) -> None:
+        for name, (expected_size, expected_sha) in RUNTIME_CLOSURE.items():
+            path = REVALIDATION / name
+            data = path.read_bytes()
+            self.assertEqual(len(data), expected_size, name)
+            self.assertEqual(hashlib.sha256(data).hexdigest(), expected_sha, name)
+            self.assertIn(f"`{name}`", self.raw, name)
+            self.assertIn(expected_sha, self.raw, name)
+        self.assertIn(RUNTIME_CLOSURE_SHA, self.raw)
+
+    def test_runtime_closure_rejects_unresolved_and_dynamic_imports(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "root.py"
+            root.write_text("import not_in_stdlib_or_closure\n", encoding="utf-8")
+            with self.assertRaisesRegex(AssertionError, "unresolved non-stdlib"):
+                generated_runtime_closure(root)
+            root.write_text("__import__('json')\n", encoding="utf-8")
+            with self.assertRaisesRegex(AssertionError, "dynamic import"):
+                generated_runtime_closure(root)
 
     def test_every_named_retired_runner_exists_and_is_listed(self) -> None:
         for name in RETIRED:
