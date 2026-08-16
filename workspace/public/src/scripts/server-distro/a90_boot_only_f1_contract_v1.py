@@ -22,6 +22,8 @@ CAPABILITY = "A90_BOOT_ONLY_F1_OWNER_V1"
 MANIFEST_SCHEMA = "a90-boot-only-f1-manifest-v1"
 REVIEW_SCHEMA = "a90-boot-only-f1-capability-review-v1"
 RUNTIME_QUALIFICATION_SCHEMA = "a90-boot-only-f1-runtime-qualification-v1"
+RESIDENT_QUALIFICATION_SCHEMA = "a90-boot-only-f1-resident-qualification-v1"
+RECOVERY_QUALIFICATION_SCHEMA = "a90-boot-only-f1-recovery-qualification-v1"
 QUALIFICATION_SCHEMA = "a90-boot-only-f1-hazard-qualification-v1"
 APPROVAL_BINDING_SCHEMA = "a90-boot-only-f1-approval-binding-v1"
 APPROVAL_SCHEMA = "a90-boot-only-f1-approval-v1"
@@ -58,10 +60,19 @@ MANIFEST_KEYS = frozenset(
 )
 IMAGE_KEYS = frozenset({"path", "size", "sha256", "version", "build"})
 HELPER_KEYS = frozenset({"path", "size", "sha256"})
-EXPECTED_KEYS = frozenset({"version", "build", "bootIdentitySha256"})
+EXPECTED_KEYS = frozenset(
+    {
+        "version",
+        "build",
+        "residentQualificationPath",
+        "residentQualificationSha256",
+    }
+)
 TIMEOUT_KEYS = frozenset({"recoverySec", "bridgeSec", "healthSec"})
 OBSERVATION_KEYS = frozenset({"acceptanceRuleSha256"})
-RECOVERY_KEYS = frozenset({"plan", "version", "build"})
+RECOVERY_KEYS = frozenset(
+    {"plan", "version", "build", "qualificationPath", "qualificationSha256"}
+)
 HAZARD_KEYS = frozenset({"id", "qualificationPath", "qualificationSha256"})
 RUNTIME_MEMBER_KEYS = frozenset(
     {
@@ -285,7 +296,14 @@ def validate_manifest(value: Any) -> dict[str, Any]:
     expected = require_object(manifest["expectedStart"], EXPECTED_KEYS, "expectedStart")
     require_string(expected["version"], "expectedStart.version")
     require_string(expected["build"], "expectedStart.build")
-    require_sha(expected["bootIdentitySha256"], "expectedStart.bootIdentitySha256")
+    validate_absolute_path(
+        expected["residentQualificationPath"],
+        "expectedStart.residentQualificationPath",
+    )
+    require_sha(
+        expected["residentQualificationSha256"],
+        "expectedStart.residentQualificationSha256",
+    )
     candidate = _validate_image(manifest["candidate"], "candidate")
     rollback = _validate_image(manifest["rollback"], "rollback")
     if candidate["path"] == rollback["path"] or candidate["sha256"] == rollback["sha256"]:
@@ -308,6 +326,8 @@ def validate_manifest(value: Any) -> dict[str, Any]:
         rollback["build"],
     ):
         raise ContractError("rollback and recovery identities differ")
+    validate_absolute_path(recovery["qualificationPath"], "recovery.qualificationPath")
+    require_sha(recovery["qualificationSha256"], "recovery.qualificationSha256")
     hazards = manifest["hazards"]
     if type(hazards) is not list or not hazards:
         raise ContractError("manifest hazards are absent")
@@ -324,6 +344,76 @@ def validate_manifest(value: Any) -> dict[str, Any]:
         require_sha(hazard["qualificationSha256"], f"hazards[{index}].qualificationSha256")
     require_sha(manifest["ownerClosureSha256"], "ownerClosureSha256")
     return manifest
+
+
+def validate_resident_qualification(
+    value: Any,
+    expected: dict[str, Any],
+    owner_closure_sha256: str,
+) -> dict[str, Any]:
+    qualification = require_object(
+        value,
+        frozenset(
+            {
+                "schema",
+                "capability",
+                "ownerClosureSha256",
+                "version",
+                "build",
+                "installTerminalSha256",
+                "deviceSafetyState",
+                "disposition",
+            }
+        ),
+        "resident qualification",
+    )
+    if (
+        qualification["schema"] != RESIDENT_QUALIFICATION_SCHEMA
+        or qualification["capability"] != CAPABILITY
+        or qualification["ownerClosureSha256"] != owner_closure_sha256
+        or qualification["version"] != expected["version"]
+        or qualification["build"] != expected["build"]
+        or qualification["deviceSafetyState"] != "RESIDENT_HEALTHY"
+        or qualification["disposition"] != "QUALIFIED_INSTALLED_RESIDENT"
+    ):
+        raise ContractError("resident qualification mismatch")
+    require_sha(
+        qualification["installTerminalSha256"],
+        "resident qualification install terminal SHA256",
+    )
+    return qualification
+
+
+def validate_recovery_qualification(
+    value: Any,
+    manifest: dict[str, Any],
+) -> dict[str, Any]:
+    qualification = require_object(
+        value,
+        frozenset(
+            {
+                "schema",
+                "capability",
+                "ownerClosureSha256",
+                "plan",
+                "rollbackSha256",
+                "physicalRecoveryDemonstrated",
+                "disposition",
+            }
+        ),
+        "recovery qualification",
+    )
+    if (
+        qualification["schema"] != RECOVERY_QUALIFICATION_SCHEMA
+        or qualification["capability"] != CAPABILITY
+        or qualification["ownerClosureSha256"] != manifest["ownerClosureSha256"]
+        or qualification["plan"] != manifest["recovery"]["plan"]
+        or qualification["rollbackSha256"] != manifest["rollback"]["sha256"]
+        or qualification["physicalRecoveryDemonstrated"] is not True
+        or qualification["disposition"] != "QUALIFIED_PHYSICAL_RECOVERY"
+    ):
+        raise ContractError("recovery qualification mismatch")
+    return qualification
 
 
 def validate_runtime_qualification(

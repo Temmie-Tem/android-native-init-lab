@@ -44,7 +44,7 @@ PROCESS = REPO / "docs/operations/DEVICE_ACTION_PROCESS_V2.md"
 TARGET = REPO / "docs/operations/targets/A90_TARGET_CONTRACT.md"
 
 FLASH_SHA = "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53"
-RUNTIME_CLOSURE_SHA = "9907a2864988817a41f5133dd390a387c362fa81c1fff4dd81f4f100ca229f10"
+RUNTIME_CLOSURE_SHA = "99d12e14168c05134c17a09a643e90e6a3733738383c5e24ae4ce633de34ce5f"
 RUNTIME_CLOSURE = {
     "_workspace_bootstrap.py": (
         1_255,
@@ -76,6 +76,11 @@ RUNTIME_CLOSURE = {
     ),
     "native_init_flash.py": (43_118, FLASH_SHA),
 }
+BRIDGE_SPEC = (
+    17_944,
+    "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98",
+)
+HELD_RUNTIME_CLOSURE = {**RUNTIME_CLOSURE, "serial_tcp_bridge.py": BRIDGE_SPEC}
 RETIRED = (
     "a90_h15_ufs_f1_runner_v1.py",
     "a90_h15_ufs_d1_runner_v1.py",
@@ -435,7 +440,7 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         head = flatten(self.raw[: self.raw.index("## The loop being removed")])
         self.assertIn("grants no authority", head)
         self.assertIn(
-            "H0 IMPLEMENTATION CORE PLUS HOST RUNTIME QUALIFICATION PRESENT",
+            "H0 IMPLEMENTATION CORE, HOST RUNTIME QUALIFICATION, AND THE PURE DEVICE-OBSERVATION CONTRACT ARE PRESENT",
             head,
         )
         self.assertIn("live execution is hard-disabled", head)
@@ -476,6 +481,11 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
         self.assertIn("the device is healthy", self.design)
         self.assertIn("is the resident this manifest expects", self.design)
         self.assertIn("stops before any effect", self.design)
+
+    def test_observer_contract_does_not_launder_a_preexisting_bridge(self) -> None:
+        self.assertIn("pathname and `/proc/<pid>/cmdline` do not", self.design)
+        self.assertIn("owner to launch and reap its own bridge", self.design)
+        self.assertIn("SubprocessBackend` and CLI `execute` remain hard-disabled", self.design)
 
     def test_runtime_rehash_replaces_delegated_verification(self) -> None:
         self.assertIn("at execution time", self.design)
@@ -1015,12 +1025,14 @@ class BootOnlyF1OwnerDesignTests(unittest.TestCase):
     def test_flash_helper_runtime_closure_is_generated_and_exact(self) -> None:
         derived = generated_runtime_closure(FLASH) | {BOOTSTRAP.name, FD_EXEC.name}
         self.assertEqual(derived, set(RUNTIME_CLOSURE))
-        self.assertEqual(runtime_closure_digest(derived), RUNTIME_CLOSURE_SHA)
+        self.assertEqual(
+            runtime_closure_digest(set(HELD_RUNTIME_CLOSURE)), RUNTIME_CLOSURE_SHA
+        )
         self.assertIn("generated exact non-stdlib import closure", self.design)
         self.assertIn("dynamic import is `NO_GO`", self.design)
 
     def test_every_runtime_closure_member_is_pinned_by_size_and_hash(self) -> None:
-        for name, (expected_size, expected_sha) in RUNTIME_CLOSURE.items():
+        for name, (expected_size, expected_sha) in HELD_RUNTIME_CLOSURE.items():
             path = REVALIDATION / name
             data = path.read_bytes()
             self.assertEqual(len(data), expected_size, name)

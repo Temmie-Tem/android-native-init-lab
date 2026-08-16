@@ -4,10 +4,11 @@ Date: 2026-08-17
 Target: operator-owned Samsung Galaxy A90 5G only
 Tier of this document: H0 structural design
 Device or live effect of this document: none
-Status: **H0 IMPLEMENTATION CORE PLUS HOST RUNTIME QUALIFICATION PRESENT — live
-execution is hard-disabled. Device preflight/final observer, crash-prefix
-resume, and the required independent full review remain absent. This qualifies
-nothing and grants no authority.**
+Status: **H0 IMPLEMENTATION CORE, HOST RUNTIME QUALIFICATION, AND THE PURE
+DEVICE-OBSERVATION CONTRACT ARE PRESENT — live execution is hard-disabled.
+The owner-controlled exact bridge/command producer, crash-prefix resume, and
+the required independent full review remain absent. This qualifies nothing
+and grants no authority.**
 
 This design exists to stop a loop, not to add a feature. Six independent
 reviews of the per-candidate H27 runner each found real defects, and the
@@ -69,6 +70,7 @@ contract/journal module, and focused hostile tests:
 - `workspace/public/src/scripts/server-distro/a90_boot_only_f1_owner_v1.py`;
 - `workspace/public/src/scripts/server-distro/a90_boot_only_f1_contract_v1.py`;
 - `workspace/public/src/scripts/server-distro/a90_boot_only_f1_runtime_v1.py`;
+- `workspace/public/src/scripts/server-distro/a90_boot_only_f1_observer_v1.py`;
 - `workspace/public/src/device-action/a90_boot_only_f1_runtime_qualification_v1.json`;
 - `tests/test_a90_boot_only_f1_owner_v1.py`.
 
@@ -96,8 +98,10 @@ It does exactly this and nothing else:
 
 1. resolve exactly one A90 target, inventory attached devices, and report S22+
    and S20+ untouched;
-2. fresh preflight: the actual resident version, build, and boot identity must
-   equal the manifest's `expected_start`;
+2. fresh preflight: one external installed-resident qualification must bind
+   the manifest's expected version/build, while the current device must
+   independently return that version/build, an exact self-test, zero pstore
+   entries, and a fresh kernel boot ID;
 3. re-hash the candidate and rollback files **at execution time**, immediately
    before use;
 4. require an empty durable journal, construct the exact live
@@ -282,6 +286,8 @@ Deliberately small:
 - a small shared module for canonical JSON and the append-only journal;
 - the generated exact non-stdlib import closure rooted at
   `workspace/public/src/scripts/revalidation/native_init_flash.py`;
+- the separately fixed read-only bridge source
+  `workspace/public/src/scripts/revalidation/serial_tcp_bridge.py`;
 - `a90_boot_only_f1_fd_exec.py`, containing the fixed inherited-FD loader and
   command builder used by the owner;
 - `a90_boot_only_f1_helper_bootstrap.py`, whose fixed module order must equal
@@ -311,10 +317,11 @@ The current generated closure is exactly:
 | `a90_transition_contract_v2.py` | 13,734 | `64e640dfb54d016f8e5548aea0da167e7f6917bf40c02fbc971773ef181b1c7e` |
 | `a90ctl.py` | 16,380 | `4d72b87b42ef49c5997ddcd24d0c6bb4fe94766c2c7fddaa21b07ff218009f8c` |
 | `native_init_flash.py` | 43,118 | `366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53` |
+| `serial_tcp_bridge.py` | 17,944 | `deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98` |
 
 The canonical aggregate is SHA256 over the lexically sorted records
 `relative-name NUL decimal-size NUL lowercase-sha256 LF`. Its current value is
-`9907a2864988817a41f5133dd390a387c362fa81c1fff4dd81f4f100ca229f10`.
+`99d12e14168c05134c17a09a643e90e6a3733738383c5e24ae4ce633de34ce5f`.
 The capability review signs this generated aggregate, not a hand-maintained
 subset. Any member-byte change, added or removed local dependency, unresolved
 external dependency, or import-graph change expires the capability binding.
@@ -340,7 +347,7 @@ A manifest cannot name a command, a partition, or a retry count. It carries:
 
 | field | for H27 |
 |---|---|
-| `expected_start` | H24 `0.11.192` + build + boot identity |
+| `expected_start` | H24 `0.11.192` + build + exact installed-resident qualification digest |
 | `candidate` | path, size, sha256, expected H27 `0.11.194` version/build |
 | `rollback` | path, size, sha256, expected V2321 identity |
 | `flash_helper` | size and sha256 |
@@ -353,11 +360,43 @@ A manifest cannot name a command, a partition, or a retry count. It carries:
 Preflight proves two separate things, and conflating them is how the H18
 predecessor survived 32 bindings in the H27 runner:
 
-- the device is healthy;
-- the device **is the resident this manifest expects**.
+- **the device is healthy** now;
+- it **is the resident this manifest expects**.
+
+- a reduced external qualification proves the named H24 resident was installed
+  and ended `RESIDENT_HEALTHY`, without importing its seven-record D1 lineage;
+- current fixed native commands prove the attached device is healthy, is on a
+  new identifiable boot, and reports the exact version/build named by that
+  qualification.
+
+The current resident does not expose a fresh full-boot SHA command. The owner
+therefore does not invent one, copy the manifest hash into an observation, or
+call version text a partition hash. The installed-resident qualification and
+fresh health/boot observations are distinct required inputs.
 
 An H27 manifest presented against any resident other than H24 `0.11.192` stops
 before any effect.
+
+### Observation contract and its remaining producer boundary
+
+`a90_boot_only_f1_observer_v1.py` fixes the receipt grammar without contacting
+a device during H0. It accepts exactly one A90 by-id endpoint resolving to one
+`/dev/ttyACM<N>` character device under USB `04e8:6861`, one loopback listener
+on `127.0.0.1:54321`, one bridge process with exact Python/script/host/port/
+device/realpath argv, no other serial or Samsung USB endpoint, and no ADB
+target. It then binds four strict cmdv1 receipts: `version`, `selftest`,
+`status`, and `cat /proc/sys/kernel/random/boot_id`. Exact version/build,
+`fail=0`, `pstore ... entries=0`, one canonical kernel boot UUID, and a bound
+physical-recovery qualification are all mandatory.
+
+The module includes a read-only host probe for those facts, but that probe is
+not a live-capability producer yet. A pathname and `/proc/<pid>/cmdline` do not
+prove which Python source bytes a pre-existing bridge executed. Activation
+therefore still requires the owner to launch and reap its own bridge from the
+held `serial_tcp_bridge.py` bytes, bind its PID/start time/listener/TTY FDs, run
+the four fixed commands from held `a90ctl` dependency bytes, and close the
+bridge on every prefix. Until that owner-controlled lifecycle and its hostile
+tests exist, `SubprocessBackend` and CLI `execute` remain hard-disabled.
 
 ## Approval is exact live authority
 
@@ -616,9 +655,9 @@ The owner is only as good as what it refuses. At minimum:
 ## What this design does not do
 
 - It does not provide a live-capable owner. The H0 contract/state-machine core
-  and current-host runtime qualification exist, but production target
-  preflight, final observation, and crash-prefix resume remain deliberately
-  absent and the live CLI is hard-disabled.
+  and current-host runtime qualification and pure observation contract exist,
+  but the owner-controlled bridge/command producer and crash-prefix resume
+  remain deliberately absent and the live CLI is hard-disabled.
 - It does not qualify anything, and creates no approval, manifest, or hazard
   qualification.
 - It does not authorize an F1. `GOAL_A90.md` still records that no successor

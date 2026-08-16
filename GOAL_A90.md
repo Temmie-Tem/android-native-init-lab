@@ -338,12 +338,16 @@ identity:
   per-candidate runner self-reference: manifests are data, candidate and
   rollback are separately one-shot, and the success terminal remains
   candidate-neutral. Live `execute` is unconditionally disabled. Python/ADB
-  runtime qualification is now generated and current-host reverified, while
-  exact A90 device preflight/final observation, crash-prefix resume, and an
-  independent full execution-closure review remain open. Therefore no H27
-  manifest, approval, ordinal, D0, D1, or F1 authority exists. The next owner
-  unit is H0 completion of the two runtime components, followed by one fresh
-  full review of the resulting frozen closure.
+  runtime qualification is now generated and current-host reverified. The
+  pure observation contract and a read-only bridge-identity probe now bind the
+  exact resident version/build, selftest, pstore, kernel boot ID, target
+  endpoint, and recovery qualification. The probe intentionally does not turn
+  a pre-existing Python bridge pathname into executed-source proof; the exact
+  owner-started bridge/command lifecycle, crash-prefix resume, and independent
+  full execution-closure review remain open. Therefore no H27 manifest,
+  approval, ordinal, D0, D1, or F1 authority exists. The next owner unit is H0
+  implementation of that held-source bridge/command lifecycle, followed by the
+  crash reconciler and one fresh full review of the frozen closure.
 
 ## What Leaves or Moves Out
 

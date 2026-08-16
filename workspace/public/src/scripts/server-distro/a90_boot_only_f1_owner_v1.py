@@ -45,13 +45,19 @@ from a90_boot_only_f1_contract_v1 import (
     sha256_bytes,
     utc_now,
     validate_manifest,
+    validate_hazard_qualification,
+    validate_recovery_qualification,
+    validate_resident_qualification,
     validate_result,
     validate_terminal_payload,
 )
 from a90_boot_only_f1_runtime_v1 import verify_runtime_qualification_current
 
 
-IMPLEMENTATION_STATUS = "H0_RUNTIME_QUALIFIED_DEVICE_OBSERVER_AND_RESUME_ABSENT"
+IMPLEMENTATION_STATUS = (
+    "H0_RUNTIME_QUALIFIED_OBSERVER_CONTRACT_PRESENT_"
+    "OWNER_BRIDGE_AND_RESUME_ABSENT"
+)
 LIVE_EXECUTION_ENABLED = False
 PYTHON_EXECUTABLE = Path("/usr/bin/python3.14")
 ADB_EXECUTABLE = Path("/usr/lib/android-sdk/platform-tools/adb")
@@ -65,7 +71,7 @@ RUNTIME_QUALIFICATION_PATH = (
     / "workspace/public/src/device-action/a90_boot_only_f1_runtime_qualification_v1.json"
 )
 HELPER_RUNTIME_CLOSURE_SHA256 = (
-    "9907a2864988817a41f5133dd390a387c362fa81c1fff4dd81f4f100ca229f10"
+    "99d12e14168c05134c17a09a643e90e6a3733738383c5e24ae4ce633de34ce5f"
 )
 HELPER_SPECS = {
     "_workspace_bootstrap.py": (
@@ -99,6 +105,10 @@ HELPER_SPECS = {
     "native_init_flash.py": (
         43_118,
         "366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53",
+    ),
+    "serial_tcp_bridge.py": (
+        17_944,
+        "deb8bf896b93df19f39d594c74c86575cd5e89c89795091ec9564b6809f65b98",
     ),
 }
 MAX_LOG_BYTES = 16 * 1024 * 1024
@@ -164,8 +174,13 @@ class Backend(Protocol):
 
 
 class ExecutionBindings:
-    def __init__(self, artifacts: dict[str, BoundArtifact]) -> None:
+    def __init__(
+        self,
+        artifacts: dict[str, BoundArtifact],
+        qualifications: dict[str, dict[str, Any]] | None = None,
+    ) -> None:
         self.artifacts = artifacts
+        self.qualifications = qualifications or {}
 
     def checkpoint(self) -> dict[str, Any]:
         return {
@@ -198,6 +213,15 @@ def _load_exact_python_module(bound: BoundArtifact, module_name: str) -> Any:
     return type("ExactModule", (), namespace)
 
 
+def _read_bound_canonical(bound: BoundArtifact, label: str) -> tuple[bytes, Any]:
+    raw = os.pread(bound.fd, bound.identity["size"], 0)
+    if len(raw) != bound.identity["size"] or os.pread(
+        bound.fd, 1, bound.identity["size"]
+    ):
+        raise ContractError(f"{label} exact read mismatch")
+    return raw, parse_canonical_bytes(raw, label)
+
+
 def helper_runtime_digest() -> str:
     digest = hashlib.sha256()
     for name in sorted(HELPER_SPECS):
@@ -211,6 +235,7 @@ def owner_source_closure() -> dict[str, dict[str, Any]]:
         Path(__file__).resolve(),
         Path(__file__).with_name("a90_boot_only_f1_contract_v1.py").resolve(),
         Path(__file__).with_name("a90_boot_only_f1_runtime_v1.py").resolve(),
+        Path(__file__).with_name("a90_boot_only_f1_observer_v1.py").resolve(),
         REPO_ROOT / "tests/test_a90_boot_only_f1_owner_v1.py",
     }
     result: dict[str, dict[str, Any]] = {}
@@ -262,10 +287,9 @@ def validate_snapshot(
     ):
         require_sha(value, label)
     require_string(snapshot.boot_id, "boot ID")
-    if (snapshot.version, snapshot.build, snapshot.boot_identity_sha256) != (
+    if (snapshot.version, snapshot.build) != (
         expected["version"],
         expected["build"],
-        expected.get("bootIdentitySha256", snapshot.boot_identity_sha256),
     ):
         raise ContractError("live resident does not equal the expected identity")
     if require_healthy and snapshot.device_safety_state != "RESIDENT_HEALTHY":
@@ -286,6 +310,7 @@ def _bound_artifacts(
         runtime_qualification, manifest["ownerClosureSha256"]
     )
     artifacts: dict[str, BoundArtifact] = {}
+    qualifications: dict[str, dict[str, Any]] = {}
     try:
         for role in ("candidate", "rollback"):
             item = manifest[role]
@@ -299,6 +324,59 @@ def _bound_artifacts(
                 expected_uid=invoking_uid,
                 expected_gid=invoking_gid,
             )
+        expected = manifest["expectedStart"]
+        resident_path = Path(expected["residentQualificationPath"])
+        artifacts["resident-qualification"] = BoundArtifact.open(
+            role="resident-qualification",
+            path=resident_path,
+            expected_size=resident_path.lstat().st_size,
+            expected_sha256=expected["residentQualificationSha256"],
+            anchor=REPO_ROOT,
+            expected_uid=invoking_uid,
+            expected_gid=invoking_gid,
+        )
+        _resident_raw, resident_value = _read_bound_canonical(
+            artifacts["resident-qualification"], "resident qualification"
+        )
+        validate_resident_qualification(
+            resident_value, expected, manifest["ownerClosureSha256"]
+        )
+        qualifications["resident"] = resident_value
+        recovery = manifest["recovery"]
+        recovery_path = Path(recovery["qualificationPath"])
+        artifacts["recovery-qualification"] = BoundArtifact.open(
+            role="recovery-qualification",
+            path=recovery_path,
+            expected_size=recovery_path.lstat().st_size,
+            expected_sha256=recovery["qualificationSha256"],
+            anchor=REPO_ROOT,
+            expected_uid=invoking_uid,
+            expected_gid=invoking_gid,
+        )
+        _recovery_raw, recovery_value = _read_bound_canonical(
+            artifacts["recovery-qualification"], "recovery qualification"
+        )
+        validate_recovery_qualification(recovery_value, manifest)
+        qualifications["recovery"] = recovery_value
+        for index, hazard in enumerate(manifest["hazards"]):
+            hazard_path = Path(hazard["qualificationPath"])
+            role = f"hazard-qualification:{hazard['id']}"
+            artifacts[role] = BoundArtifact.open(
+                role=role,
+                path=hazard_path,
+                expected_size=hazard_path.lstat().st_size,
+                expected_sha256=hazard["qualificationSha256"],
+                anchor=REPO_ROOT,
+                expected_uid=invoking_uid,
+                expected_gid=invoking_gid,
+            )
+            _hazard_raw, hazard_value = _read_bound_canonical(
+                artifacts[role], f"hazard qualification {index}"
+            )
+            validate_hazard_qualification(
+                hazard_value, hazard["id"], manifest["ownerClosureSha256"]
+            )
+            qualifications[role] = hazard_value
         helper = manifest["flashHelper"]
         if Path(helper["path"]) != HELPER_PATH:
             raise ContractError("manifest selected another flash helper")
@@ -334,7 +412,7 @@ def _bound_artifacts(
                     "runtimeClosureSha256": qualified["runtimeClosureSha256"],
                 }
             )
-        return ExecutionBindings(artifacts)
+        return ExecutionBindings(artifacts, qualifications)
     except BaseException:
         for artifact in artifacts.values():
             artifact.close()

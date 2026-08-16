@@ -19,6 +19,7 @@ if str(SERVER) not in sys.path:
     sys.path.insert(0, str(SERVER))
 
 import a90_boot_only_f1_contract_v1 as contract  # noqa: E402
+import a90_boot_only_f1_observer_v1 as observer_v1  # noqa: E402
 import a90_boot_only_f1_owner_v1 as owner  # noqa: E402
 import a90_boot_only_f1_runtime_v1 as runtime_v1  # noqa: E402
 
@@ -62,6 +63,44 @@ def runtime_member(path: Path, file_sha: str) -> dict[str, Any]:
     }
 
 
+class ProtocolReceipt:
+    def __init__(self, text: str, *, rc: int = 0, status: str = "ok") -> None:
+        self.text = text
+        self.rc = rc
+        self.status = status
+
+
+def observed_input() -> dict[str, Any]:
+    bridge = {
+        "selectedDevice": observer_v1.FIXED_BRIDGE_DEVICE,
+        "selectedRealpath": "/dev/ttyACM0",
+        "usbVendor": "04e8",
+        "usbProduct": "6861",
+        "bridgeProcessStartTicks": 100,
+        "listenerSocketInode": 200,
+        "otherTargetsPresent": 0,
+    }
+    bridge["receiptSha256"] = observer_v1._receipt_sha(bridge)
+    return {
+        "schema": observer_v1.OBSERVER_SCHEMA,
+        "bridge": bridge,
+        "version": observer_v1.command_receipt(
+            ["version"], ProtocolReceipt("version: 0.11.192 build=phase3-minimal-h24\n")
+        ),
+        "selftest": observer_v1.command_receipt(
+            ["selftest"],
+            ProtocolReceipt("selftest: pass=41 warn=0 fail=0 duration=9ms entries=41\n"),
+        ),
+        "status": observer_v1.command_receipt(
+            ["status"], ProtocolReceipt("pstore=mounted entries=0\n")
+        ),
+        "bootId": observer_v1.command_receipt(
+            ["cat", "/proc/sys/kernel/random/boot_id"],
+            ProtocolReceipt("12345678-1234-1234-1234-123456789abc\n"),
+        ),
+    }
+
+
 def manifest() -> dict[str, Any]:
     return {
         "schema": contract.MANIFEST_SCHEMA,
@@ -70,7 +109,10 @@ def manifest() -> dict[str, Any]:
         "expectedStart": {
             "version": "0.11.192",
             "build": "phase3-minimal-h24",
-            "bootIdentitySha256": "1" * 64,
+            "residentQualificationPath": str(
+                REPO / "workspace/public/a90/h24-resident-qualification.json"
+            ),
+            "residentQualificationSha256": "1" * 64,
         },
         "candidate": {
             "path": str(REPO / "workspace/private/candidate/boot.img"),
@@ -97,6 +139,10 @@ def manifest() -> dict[str, Any]:
             "plan": "V2321_BOOT_ONLY",
             "version": "V2321",
             "build": "native-init-v2321",
+            "qualificationPath": str(
+                REPO / "workspace/public/a90/v2321-recovery-qualification.json"
+            ),
+            "qualificationSha256": "e" * 64,
         },
         "hazards": [
             {
@@ -337,6 +383,178 @@ class ContractTests(unittest.TestCase):
         self.assertGreater(len(generated["python"]["dynamicLibraries"]), 0)
         self.assertGreater(len(generated["adb"]["dynamicLibraries"]), 0)
 
+    def test_observer_separates_installed_resident_from_fresh_boot_health(self) -> None:
+        expected = manifest()["expectedStart"]
+        health = observer_v1.validate_observation_input(
+            observed_input(), expected, recovery_available=True
+        )
+        self.assertEqual((health.version, health.build), ("0.11.192", "phase3-minimal-h24"))
+        self.assertEqual(health.device_safety_state, "RESIDENT_HEALTHY")
+        self.assertTrue(health.recovery_available)
+        self.assertTrue(health.other_targets_untouched)
+        self.assertRegex(health.boot_identity_sha256, r"^[0-9a-f]{64}$")
+        candidate_health = observer_v1.validate_observation_input(
+            observed_input(),
+            {
+                "version": "0.11.192",
+                "build": "phase3-minimal-h24",
+                "sha256": "a" * 64,
+            },
+            recovery_available=True,
+        )
+        self.assertRegex(candidate_health.receipt_sha256, r"^[0-9a-f]{64}$")
+
+    def test_observer_rejects_attribution_health_and_framing_drift(self) -> None:
+        expected = manifest()["expectedStart"]
+        mutations = (
+            lambda value: value["bridge"].update(otherTargetsPresent=1),
+            lambda value: value["bridge"].update(selectedRealpath="/dev/ttyUSB0"),
+            lambda value: value["version"].update(
+                text="version: 0.11.194 build=phase3-minimal-h27\n"
+            ),
+            lambda value: value["selftest"].update(
+                text="selftest: pass=40 warn=0 fail=1 duration=9ms entries=41\n"
+            ),
+            lambda value: value["status"].update(text="pstore=mounted entries=1\n"),
+            lambda value: value["status"].update(
+                text="pstore=mounted entries=0 entries=9\n"
+            ),
+            lambda value: value["bootId"].update(
+                text=(
+                    "12345678-1234-1234-1234-123456789abc\n"
+                    "87654321-4321-4321-4321-cba987654321\n"
+                )
+            ),
+            lambda value: value["bootId"].update(rc=False),
+        )
+        for mutation in mutations:
+            hostile = copy.deepcopy(observed_input())
+            mutation(hostile)
+            hostile["bridge"]["receiptSha256"] = observer_v1._receipt_sha(
+                hostile["bridge"]
+            )
+            for name in ("version", "selftest", "status", "bootId"):
+                hostile[name]["receiptSha256"] = observer_v1._receipt_sha(
+                    hostile[name]
+                )
+            with self.subTest(mutation=mutation), self.assertRaises(contract.ContractError):
+                observer_v1.validate_observation_input(
+                    hostile, expected, recovery_available=True
+                )
+        with self.assertRaisesRegex(contract.ContractError, "recovery"):
+            observer_v1.validate_observation_input(
+                observed_input(), expected, recovery_available=False
+            )
+
+    def test_bridge_probe_parsers_are_exact_and_fail_closed(self) -> None:
+        self.assertEqual(
+            observer_v1._adb_target_count("List of devices attached\n\n"), 0
+        )
+        self.assertEqual(
+            observer_v1._adb_target_count(
+                "List of devices attached\nserial\tdevice product:x\n"
+            ),
+            1,
+        )
+        for hostile in ("", "wrong header\n", "List of devices attached\nmalformed\n"):
+            with self.subTest(hostile=hostile), self.assertRaises(
+                contract.ContractError
+            ):
+                observer_v1._adb_target_count(hostile)
+
+        with tempfile.TemporaryDirectory() as raw_root:
+            tcp = Path(raw_root) / "tcp"
+            tcp.write_text(
+                "sl local_address rem_address st tx_queue rx_queue tr tm->when "
+                "retrnsmt uid timeout inode\n"
+                "0: 0100007F:D431 00000000:0000 0A 0:0 0:0 0 1000 0 12345\n",
+                encoding="ascii",
+            )
+            self.assertEqual(observer_v1._listener_inode(tcp), 12345)
+            tcp.write_text(
+                "sl local_address rem_address st tx_queue rx_queue tr tm->when "
+                "retrnsmt uid timeout inode\n"
+                "0: 0100007F:D431 00000000:0000 0A 0:0 0:0 0 1000 0 12345\n"
+                "1: 0100007F:D431 00000000:0000 0A 0:0 0:0 0 1000 0 12346\n",
+                encoding="ascii",
+            )
+            with self.assertRaises(contract.ContractError):
+                observer_v1._listener_inode(tcp)
+
+        fields = ["S", *[str(index) for index in range(4, 23)]]
+        fields[19] = "987654"
+        self.assertEqual(
+            observer_v1._process_start_ticks("123 (bridge worker) " + " ".join(fields)),
+            987654,
+        )
+        with self.assertRaises(contract.ContractError):
+            observer_v1._process_start_ticks("123 malformed")
+
+    def test_bridge_source_is_inside_the_held_helper_closure(self) -> None:
+        size, digest = owner.HELPER_SPECS["serial_tcp_bridge.py"]
+        raw = observer_v1.BRIDGE_SCRIPT.read_bytes()
+        self.assertEqual(observer_v1.BRIDGE_SCRIPT, owner.REVALIDATION / "serial_tcp_bridge.py")
+        self.assertEqual((len(raw), sha(raw)), (size, digest))
+        self.assertEqual(owner.helper_runtime_digest(), owner.HELPER_RUNTIME_CLOSURE_SHA256)
+
+    def test_resident_qualification_is_external_and_exact(self) -> None:
+        expected = manifest()["expectedStart"]
+        qualification = {
+            "schema": contract.RESIDENT_QUALIFICATION_SCHEMA,
+            "capability": contract.CAPABILITY,
+            "ownerClosureSha256": owner.owner_closure_sha256(),
+            "version": expected["version"],
+            "build": expected["build"],
+            "installTerminalSha256": "d" * 64,
+            "deviceSafetyState": "RESIDENT_HEALTHY",
+            "disposition": "QUALIFIED_INSTALLED_RESIDENT",
+        }
+        self.assertEqual(
+            contract.validate_resident_qualification(
+                qualification, expected, owner.owner_closure_sha256()
+            ),
+            qualification,
+        )
+        for field, value in (
+            ("version", "0.11.191"),
+            ("ownerClosureSha256", "f" * 64),
+            ("installTerminalSha256", False),
+            ("deviceSafetyState", "HEALTH_PENDING"),
+        ):
+            hostile = copy.deepcopy(qualification)
+            hostile[field] = value
+            with self.assertRaises(contract.ContractError):
+                contract.validate_resident_qualification(
+                    hostile, expected, owner.owner_closure_sha256()
+                )
+
+    def test_recovery_qualification_is_external_and_exact(self) -> None:
+        item = manifest()
+        qualification = {
+            "schema": contract.RECOVERY_QUALIFICATION_SCHEMA,
+            "capability": contract.CAPABILITY,
+            "ownerClosureSha256": item["ownerClosureSha256"],
+            "plan": item["recovery"]["plan"],
+            "rollbackSha256": item["rollback"]["sha256"],
+            "physicalRecoveryDemonstrated": True,
+            "disposition": "QUALIFIED_PHYSICAL_RECOVERY",
+        }
+        self.assertEqual(
+            contract.validate_recovery_qualification(qualification, item),
+            qualification,
+        )
+        for field, value in (
+            ("ownerClosureSha256", "f" * 64),
+            ("plan", "OTHER"),
+            ("rollbackSha256", "f" * 64),
+            ("physicalRecoveryDemonstrated", 1),
+            ("disposition", "PENDING"),
+        ):
+            hostile = copy.deepcopy(qualification)
+            hostile[field] = value
+            with self.subTest(field=field), self.assertRaises(contract.ContractError):
+                contract.validate_recovery_qualification(hostile, item)
+
     def test_bound_artifact_rejects_indirection_links_mode_and_swap(self) -> None:
         with tempfile.TemporaryDirectory() as raw_root:
             root = Path(raw_root)
@@ -536,7 +754,7 @@ class OwnerStateMachineTests(unittest.TestCase):
         source = snapshot(
             item["expectedStart"]["version"],
             item["expectedStart"]["build"],
-            item["expectedStart"]["bootIdentitySha256"],
+            item["expectedStart"]["residentQualificationSha256"],
         )
         final = snapshot(
             item["candidate"]["version"],
@@ -569,7 +787,7 @@ class OwnerStateMachineTests(unittest.TestCase):
         source = snapshot(
             item["expectedStart"]["version"],
             item["expectedStart"]["build"],
-            item["expectedStart"]["bootIdentitySha256"],
+            item["expectedStart"]["residentQualificationSha256"],
         )
         final = snapshot(
             item["rollback"]["version"],
@@ -595,7 +813,7 @@ class OwnerStateMachineTests(unittest.TestCase):
         source = snapshot(
             item["expectedStart"]["version"],
             item["expectedStart"]["build"],
-            item["expectedStart"]["bootIdentitySha256"],
+            item["expectedStart"]["residentQualificationSha256"],
         )
         backend = FakeBackend(source, source, candidate_quiescent=False)
         with tempfile.TemporaryDirectory() as raw_root:
@@ -616,7 +834,7 @@ class OwnerStateMachineTests(unittest.TestCase):
         first = snapshot(
             item["expectedStart"]["version"],
             item["expectedStart"]["build"],
-            item["expectedStart"]["bootIdentitySha256"],
+            item["expectedStart"]["residentQualificationSha256"],
         )
 
         class DriftBackend(FakeBackend):
@@ -653,6 +871,7 @@ class OwnerStateMachineTests(unittest.TestCase):
         source = OWNER_PATH.read_text(encoding="utf-8")
         self.assertNotIn("a90_v3403_f1_orchestrator", source)
         self.assertFalse(owner.LIVE_EXECUTION_ENABLED)
+        self.assertIn("OWNER_BRIDGE_AND_RESUME_ABSENT", owner.IMPLEMENTATION_STATUS)
         with tempfile.TemporaryDirectory() as raw_root:
             with self.assertRaisesRegex(contract.ContractError, "H0-disabled"):
                 owner.SubprocessBackend(fake_bindings(), Path(raw_root))
