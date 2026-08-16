@@ -263,6 +263,15 @@ class H27ReviewHandoffTests(unittest.TestCase):
         ):
             self.assertIn(value, self.doc, value)
 
+    def test_it_gives_the_reviewer_the_bytes_to_check(self) -> None:
+        """A reviewer must be able to verify, not take the runner's word."""
+        for digest in (
+            self.mod.CANDIDATE_BOOT_SHA256,
+            self.mod.CURRENT_BOOT_SHA256,
+            self.mod.CANDIDATE_MANIFEST_SHA256,
+        ):
+            self.assertIn(digest, self.doc, digest)
+
     def test_it_supplies_shape_but_not_findings(self) -> None:
         """A handoff that dictated the findings would defeat the review."""
         self.assertIn("It specifies **shape only**", self.doc)

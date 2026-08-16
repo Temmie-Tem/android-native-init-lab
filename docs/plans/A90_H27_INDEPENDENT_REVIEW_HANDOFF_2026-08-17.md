@@ -41,6 +41,18 @@ should return no-go on the capability, not on the artifact.
 | build report | `docs/reports/A90_SELF_BUILT_KERNEL_H0_2026-08-16.md` |
 | candidate (private) | `workspace/private/outputs/a90-h27-selfbuilt-kernel-ab-20260817-01/` |
 
+Exact bytes under review, so the reviewer can verify rather than take the
+runner's word:
+
+| artifact | size | sha256 |
+|---|---|---|
+| candidate `A/boot.img` (= `B/boot.img`) | 58,368,000 | `fa7ab8af8cec027c433653da92eb6cb4ca6f3a02d7624a4f292f61906e8ce500` |
+| self-built `Image` inside it | 48,826,384 | `6cab67938d2d235ad5ad965abaefe7e3ebda6d13b57251705c91f5f333ab1b6d` |
+| builder `base_boot` | 66,375,680 | `2d0be40158d56b6b053bc1aff6c6e149beb904da43a303b812e8ca6c4d583a9e` |
+| rollback V2321 | 60,882,944 | `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb` |
+| predecessor H24 `A/boot.img` | 58,372,096 | `d8c280e4acee5d17d13270fdf25535b4ce05304e786bc22efa84ab16f6b82782` |
+| h27 `manifest.toml` | — | `b4cfa428da868724450f1db617143626417c2880452f3f8d0485839bb5b8fd3c` |
+
 Prior review history worth reading first: this design was returned **no-go
 three times**. The third found that the candidate carried `0.11.193`, which is
 retired H25's identity (`GOAL_A90.md:86`, `A90_TARGET_CONTRACT.md:590`), and that
