@@ -54,6 +54,13 @@ class P318BaselineRotationD1DocsTest(unittest.TestCase):
             "The baseline is clean",
             "`result.json`, 2,941 bytes at SHA-256\n`d14074c29673`",
             "This D0 creates no\nprepared Process-v2 binding",
+            "## Subsequent Process-v2 Preparation",
+            "rejected by the direct-child path grammar before directory creation or\ndevice contact",
+            "`prepared.json`, 9,611 bytes, SHA-256 `c6f36504430c`",
+            "approval binding\nSHA-256\n`fd68d3b4713d13afceaabdc5f97240f76808a5be2d09fc59b8853bcfd6e39136`",
+            "no transaction directory, journal, observer guard arm, terminal result, candidate\ntransfer, or rollback transfer",
+            "`f1_authorized=false`, and\n`live_authorized=false`",
+            "Preparation does not activate it",
         ):
             self.assertIn(token, self.report)
 
@@ -175,15 +182,21 @@ class P318BaselineRotationD1DocsTest(unittest.TestCase):
             "live-prerequisites-d0-2 | D0 | "
             "CONNECTED_READ_ONLY_RECOVERY_HEALTH | HEALTHY | PROVED | 0/0"
         )
+        prepared = (
+            "2026-08-16T07:46:02Z | s22plus-fyg8-p318 | live-prepare-1 | "
+            "D0 | PROCESS_V2_PREPARED | HEALTHY | PROVED | 0/0"
+        )
         self.assertEqual(self.ledger.count(pending), 1)
         self.assertEqual(self.ledger.count(prior), 1)
         self.assertEqual(self.ledger.count(review), 1)
         self.assertEqual(self.ledger.count(live), 1)
         self.assertEqual(self.ledger.count(d0), 1)
+        self.assertEqual(self.ledger.count(prepared), 1)
         self.assertLess(self.ledger.index(prior), self.ledger.index(pending))
         self.assertLess(self.ledger.index(pending), self.ledger.index(review))
         self.assertLess(self.ledger.index(review), self.ledger.index(live))
         self.assertLess(self.ledger.index(live), self.ledger.index(d0))
+        self.assertLess(self.ledger.index(d0), self.ledger.index(prepared))
 
     def test_goal_and_contract_keep_current_limits_and_authority_boundary(self):
         self.assertIn(
@@ -191,7 +204,8 @@ class P318BaselineRotationD1DocsTest(unittest.TestCase):
             self.goal,
         )
         self.assertIn("2,097,136-byte marker-free baseline", self.goal)
-        self.assertIn("no prepared/F1/live authority exists", self.goal)
+        self.assertIn("binding `fd68d3b4713d` is prepared", self.goal)
+        self.assertIn("F1/live remain unauthorized", self.goal)
         self.assertLessEqual(len(self.goal.splitlines()), 900)
         self.assertLessEqual(len(self.target.splitlines()), 260)
         for token in (

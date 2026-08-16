@@ -213,3 +213,43 @@ observer. Device writes, reboot, Download transition, Odin, partition transfer,
 F1 authorization, and live authorization are all false. This D0 creates no
 prepared Process-v2 binding; preparation and any later F1 approval remain
 separate steps.
+
+## Subsequent Process-v2 Preparation
+
+A separately requested D0-only Process-v2 preparation first revalidated the
+current ready manifest and execution closure without device contact. An initial
+invocation named the F1 core run root instead of the live-adapter run root and
+was rejected by the direct-child path grammar before directory creation or
+device contact. The corrected invocation used the fresh fixed direct child
+`s22plus-fyg8-p318-live-1`, selected only the exact S22+ from the two-device
+inventory, and repeated the clean connected read without sending a command to
+S20+.
+
+The preparation binds bundle SHA-256 `a48572090de9`, execution-closure SHA-256
+`fb4805c68285`, the current candidate and exact rollback, the clean 2,097,136-
+byte `31cd48ab631f` baseline, and the exact private target into approval binding
+SHA-256
+`fd68d3b4713d13afceaabdc5f97240f76808a5be2d09fc59b8853bcfd6e39136`.
+The private evidence is:
+
+- `prepared.json`, 9,611 bytes, SHA-256 `c6f36504430c`, mode 0400, link count 1;
+- preflight `result.json`, 2,945 bytes, SHA-256 `dc5460f9cfa1`, mode 0400,
+  link count 1;
+- P3.00 USB trace binding, 1,712 bytes, SHA-256 `f7e3624a0660`, mode 0400,
+  link count 1; and
+- private target, 107 bytes, SHA-256 `94a7c1e84513`, mode 0400, link count 1.
+
+Production `load_prepared()` reopened those bytes against the current manifest,
+current source closure, D0 result, private target, and P3.00 binding. The run has
+no transaction directory, journal, observer guard arm, terminal result, candidate
+transfer, or rollback transfer. Its recorded flags remain
+`device_writes=false`, `reboot_requested=false`, `odin_invoked=false`,
+`partition_transfer=false`, `f1_authorized=false`, and
+`live_authorized=false`.
+
+The exact approval string eligible for a later, separate attended operator
+decision is
+`DEVICE-ACTION-F1-V2-APPROVE:fd68d3b4713d13afceaabdc5f97240f76808a5be2d09fc59b8853bcfd6e39136`.
+Preparation does not activate it. No F1 execution, reboot, Download transition,
+Odin invocation, payload, partition transfer, candidate, rollback, recovery,
+replay, A90, or S20+ action or authority follows from this record.

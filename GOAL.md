@@ -878,7 +878,7 @@ its ledger row records that the unnormalized decoder left no result receipt.
 The typed stop-result successor and downstream requalification now have
 independent H0 `PASS_GO`; boot/AP are unchanged and ready is `082c046f9091`.
 Fresh post-rotation P3.18 D0 passed: exact rooted FYG8 health and a clean
-2,097,136-byte marker-free baseline; no prepared/F1/live authority exists.
+2,097,136-byte marker-free baseline; binding `fd68d3b4713d` is prepared, but F1/live remain unauthorized.
 
 Stop on target ambiguity, missing rollback, a changed `SOURCE_KEY`, a forbidden
 archive member, an unreviewed common receipt/schema change, an observer result
