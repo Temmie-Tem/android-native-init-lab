@@ -1,180 +1,271 @@
-# A90 self-built kernel F1 design (draft for independent review)
+# A90 self-built kernel F1 design (draft 2, for independent review)
 
 Date: 2026-08-16
 Target: operator-owned Samsung Galaxy A90 5G only
 Tier of this document: H0 design draft
 Device or live effect of this document: none
 Status: **DRAFT — grants no authority, creates no candidate, and is not an
-approval request until it has passed independent review**
+approval request**
 
-This design proposes one attended F1 that answers a single question. It does
-not authorize that F1, does not qualify a candidate, and does not create an
-identity, ordinal, or approval. `GOAL_A90.md` currently states that "No
-successor candidate, approval, transfer, reboot, or D1 effect is authorized by
-this goal", and nothing here changes that.
+Supersedes draft 1 of the same date, which was reviewed and returned **no-go**.
+Draft 1 was written without reading `docs/operations/targets/A90_TARGET_CONTRACT.md`,
+the binding target contract, and it contradicted that contract on the point its
+central design choice rested on. The corrections are recorded in
+"What draft 1 got wrong" below rather than silently absorbed.
+
+`GOAL_A90.md` states: "No successor candidate, approval, transfer, reboot, or
+D1 effect is authorized by this goal." This draft does not authorize that F1
+and nothing here changes that.
 
 ## The single question
 
 **Does the A90 boot a kernel this project compiled?**
 
-That is the whole scope. The A90 has flashed many custom boot images and every
-one of them reused the stock kernel blob; only ramdisks changed. No self-built
-`Image` has ever been resident on this target. Until that is answered, every
-downstream kernel-side option — including the private `binderfs` instance the
-isolated-Debian design needs — rests on an untested assumption.
+Every prior A90 custom boot image reused the stock kernel blob and changed only
+the ramdisk. No self-built `Image` has ever been resident on this target, so
+every kernel-side option downstream — including the private `binderfs` instance
+the isolated-Debian design needs — rests on an untested assumption.
+
+## What draft 1 got wrong
+
+Recording these plainly is cheaper than rediscovering them.
+
+1. **The candidate identity was contract-violating.** Draft 1 reused the
+   resident's ramdisk byte for byte so that the kernel would be the only
+   variable. `A90_TARGET_CONTRACT.md:320-324` forbids exactly that: "Every
+   replacement candidate uses a new build identity, absent rootfs destination,
+   and absent versioned state paths; a prior enable/latch pair is never reused,
+   cleared, or reinterpreted to authorize the replacement." `:394-396` adds
+   that F1 success requires "its fresh versioned enable/latch paths absent".
+   The staged image reuses H24's `/cache/a90-auto-handoff-phase3-minimal-h24.
+   enable` and `.done` paths and is therefore **not usable as a candidate**.
+2. **The runner invocation did not exist.** Draft 1 specified
+   `--from-native --image <path>`. `native_init_flash.py` takes the boot image
+   as a positional argument and has no `--image` option.
+3. **The transaction owner was wrong.** Draft 1 named `native_init_flash.py` as
+   the transport. That helper writes and verifies; it does not own the durable
+   journal, approval consumption, rollback state, or terminal result. The
+   reviewed owner is `a90_v3403_f1_orchestrator.py`, which invokes the helper.
+4. **Paths were relative** where the process requires stable absolute names.
+5. **The health predicate was incomplete** against `A90_TARGET_CONTRACT.md:1272-1279`.
+6. **Recovery was ambiguous** exactly where the contract is not: "Once candidate
+   execution begins, rollback never waits" (`:1268`).
+7. **First-use execution qualification was missing** from the preconditions
+   (`:1284-1289`).
+
+The review also corrected a framing error: the design's own claim that it kept
+"one variable" was the thing that broke the contract. One variable is a good
+instinct and it is not a licence to reuse an identity.
 
 ## What this F1 does not do
 
-- It does not enable `CONFIG_ANDROID_BINDERFS`. That symbol stays off. Testing
-  the build path and testing the feature in one flash would confuse two
-  results.
-- It does not change userspace. The candidate carries the resident's own
-  ramdisk, byte for byte.
-- It does not change the device tree. The candidate reuses the resident's own
+- It does not enable `CONFIG_ANDROID_BINDERFS`. That symbol stays off.
+- It does not change the device tree; the candidate reuses the resident's own
   appended DTB region.
-- It does not attempt `switch_root`, Debian PID 1, WLAN handoff, or any H24 D1
-  effect. Those are separate, already-bounded work.
+- It does not attempt `switch_root`, Debian PID 1, WLAN handoff, or any D1
+  effect.
 - It does not retire any WLAN gate. `H0D01` through `H0D10` are untouched.
+- It does not treat boot success as functional equivalence. Booting proves
+  booting, not that WLAN, display, GPU, audio, or USB behave as before.
 
 ## What is being accepted, stated before the identities
 
 The candidate kernel has `CONFIG_RKP_CFP`, `CONFIG_RKP_CFP_JOPP`, and
 `CONFIG_RKP_CFP_ROPP` disabled. Samsung's JOPP/ROPP control-flow protection
-cannot be reproduced because it requires a patched LLVM that the OSRC package
-does not ship and AOSP clang does not implement. The operator authorized the
-removal on 2026-08-16.
+requires a patched LLVM that the OSRC package does not ship and AOSP clang does
+not implement. The operator authorized the removal on 2026-08-16.
 
-`docs/reports/A90_SELF_BUILT_KERNEL_H0_2026-08-16.md` records the mechanism and
-the bounded scope: the RKP hypervisor layer, `CONFIG_UH_RKP`, `CONFIG_RKP_KDP`,
-`CONFIG_RKP_NS_PROT`, and `CONFIG_RKP_DMAP_PROT` are untouched, and `System.map`
-shows zero `rkp_cfp`, `jopp_springboard`, and `ropp_` symbols against retained
-`rkp_init` and `uh_call`.
+`docs/reports/A90_SELF_BUILT_KERNEL_H0_2026-08-16.md` records the bounded scope:
+the RKP hypervisor layer, `CONFIG_UH_RKP`, `CONFIG_RKP_KDP`, `CONFIG_RKP_NS_PROT`,
+and `CONFIG_RKP_DMAP_PROT` are untouched, and `System.map` shows zero `rkp_cfp`,
+`jopp_springboard`, and `ropp_` symbols against retained `rkp_init` and
+`uh_call`.
 
 **Approving this F1 accepts a reduced kernel exploit-mitigation posture on this
-unit for as long as the candidate is resident.** A reviewer who is not willing
-to accept that should reject this design rather than the artifact.
+unit for as long as the candidate is resident.** A reviewer unwilling to accept
+that should reject this design rather than the artifact. The terminal report
+must repeat the same statement and must not let boot success stand in for it.
 
-## Exact identities
+## Required candidate construction
 
-All paths are private and none is committed.
+The staged self-built boot image is a **build input, not the candidate**.
 
-| role | artifact | size | sha256 |
+The candidate must be produced by the reviewed flat builder as a new version
+extending `phase3-minimal-h24`, with:
+
+- `[inputs] base_boot` and `base_boot_sha256` pointing at the self-built image
+  (this is how the builder sources the kernel; it rebuilds the ramdisk from
+  source);
+- a new `profile`, `cycle`, `decision`, and `random_seed`;
+- a new `INIT_VERSION` and `INIT_BUILD`;
+- **fresh `A90_AUTO_HANDOFF_ENABLE_PATH` and `A90_AUTO_HANDOFF_LATCH_PATH`**
+  that have never been used, satisfying `A90_TARGET_CONTRACT.md:320-324,394-396`;
+- `validation.init_strings` updated to the new version banner;
+- deterministic A/B output, byte-identical across the two builds, as the H24
+  lineage already demonstrates.
+
+That build is a separate H0 unit with its own capability and execution
+qualification, matching the `capability-qualification.json` and
+`execution-qualification.json` that accompany every existing version. **Until it
+exists, this design has no candidate and the identity table below is
+incomplete.**
+
+## Identities
+
+Absolute paths, as the process requires. All are private and none is committed.
+
+| role | absolute path | size | sha256 |
 |---|---|---|---|
-| resident | `workspace/private/outputs/a90-h24-minimal-debian-dev-ab-20260812-01/A/boot.img` | 58,372,096 | `d8c280e4acee5d17d13270fdf25535b4ce05304e786bc22efa84ab16f6b82782` |
-| candidate | `workspace/private/inputs/boot_images/boot_a90_h24_selfbuilt_nocfp_20260816.img` | 58,368,000 | `7c293af9c0fd6bfea5247cd5c3415956c452c67a79e8269c967860d2a2c0cead` |
-| rollback | `workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img` | 60,882,944 | `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb` |
+| resident | `/home/temmie/dev/android-native-init-lab/workspace/private/outputs/a90-h24-minimal-debian-dev-ab-20260812-01/A/boot.img` | 58,372,096 | `d8c280e4acee5d17d13270fdf25535b4ce05304e786bc22efa84ab16f6b82782` |
+| rollback | `/home/temmie/dev/android-native-init-lab/workspace/private/inputs/boot_images/boot_linux_v2321_usb_clean_identity_rodata.img` | 60,882,944 | `ca978551aabe4b39563abaf529ccf2522054952d8b2ad852e632d26da88168cb` |
+| kernel build input | `/home/temmie/dev/android-native-init-lab/workspace/private/inputs/boot_images/boot_a90_h24_selfbuilt_nocfp_20260816.img` | 58,368,000 | `7c293af9c0fd6bfea5247cd5c3415956c452c67a79e8269c967860d2a2c0cead` |
+| **candidate** | **not yet built** | — | — |
 
 The resident is H24 `0.11.192`, build
 `phase3-minimal-h24-ufs-auth-native-hud-private-card-root-minimal-debian-dev`,
-named by `GOAL_A90.md` as the exact installed resident. Its A/B build output is
-reproducible: `A/boot.img` and `B/boot.img` are byte-identical.
+named by `GOAL_A90.md` as the exact installed resident; its A/B build output is
+reproducible. The rollback is V2321, which `GOAL_A90.md` names as "the exact
+bound rollback for a future, freshly qualified successor", and its digest
+matches the `rollback-boot-v2321.img` consumed by prior A90 F1 runs.
 
-The rollback is V2321, which `GOAL_A90.md` names as "the exact bound rollback
-for a future, freshly qualified successor". Its digest matches the
-`rollback-boot-v2321.img` consumed by prior A90 F1 runs.
+## Transport
 
-Candidate against resident, the only differing boot header field is
-`kernel_size` (49,827,613 → 49,823,517). Ramdisk bytes are identical. Load
-addresses, tags offset, page size, header version, OS version, patch level,
-product name, and the full command line are identical.
+Owner: `a90_v3403_f1_orchestrator.py`, which owns the durable append-only
+journal, approval consumption, rollback state, and terminal result. The
+orchestrator invokes the flash helper; the helper is not the transaction.
 
-Proposed transport is the unchanged runner
-`workspace/public/src/scripts/revalidation/native_init_flash.py`, size 43,118,
-sha256 `366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53` —
-byte-identical to the runner used by the prior A90 F1 run, invoked
-`--from-native --image <path> --expect-sha256 <digest>` with `boot` as the only
-partition payload.
+Helper: `workspace/public/src/scripts/revalidation/native_init_flash.py`, size
+43,118, sha256
+`366dd38304625d37607916e92ea98a95271bbc4d9dfdc7eea106a5437b6dfe53`,
+byte-identical to the helper used by the prior A90 F1 run.
 
-## The discriminator problem
-
-**A version check cannot tell the candidate from the rollback here.**
-
-Every prior A90 F1 distinguished states by userspace version, because each
-candidate shipped a new native-init build. This candidate deliberately ships
-the resident's ramdisk, so it reports the same `0.11.192` and the same build
-string whether the self-built kernel booted or not. An acceptance predicate
-written the usual way would pass on a silent fallback.
-
-The kernel banner is the discriminator and it is unambiguous:
+The invocation is the orchestrator's checked form, with the boot image
+**positional**:
 
 ```
-resident   Linux version 4.14.190-25818860-abA908NKSU5EWA3 (dpi@SWDK6110)
-           (clang version 10.0.7 for Android NDK, GNU ld (binutils-2.27-bd24d23f) ...)
-           #2 SMP PREEMPT Thu Jan 12 18:53:40 KST 2023
-
-candidate  Linux version 4.14.190 (temmie@debian)
-           (Android (7284624, based on r416183b) clang version 12.0.5 ...,
-           GNU ld (binutils-2.27-bd24d23f) 2.27.0.20170315)
-           #5 SMP PREEMPT Sun Aug 16 20:25:50 KST 2026
+<python> <helper> <boot image path>
+  --bridge-host <host> --bridge-port <port> --bridge-timeout <sec>
+  --reboot-timeout <sec>
+  --expect-sha256 <digest> --expect-version <version>
+  --verify-protocol selftest
+  --serial <recovery serial, private>
+  [--from-native]
 ```
 
-Both strings are extractable host-side from the respective `Image` before any
-device contact, and the exact expected candidate banner must be pinned in the
-manifest before approval.
-
-Note the release suffix: stock is `4.14.190-25818860-abA908NKSU5EWA3` and ours
-is a bare `4.14.190`. `CONFIG_LOCALVERSION=""` in **both** configurations, so
-the suffix comes from Samsung's build environment rather than a configuration
-difference we could restore. See the open risks.
+`--verify-protocol selftest` is pinned rather than left at the helper's `auto`
+default. `--boot-block` and `--remote-image` stay at their defaults so a
+caller-supplied path cannot widen the payload surface. `boot` is the only
+partition written.
 
 ## Acceptance predicate
 
-`PASS` requires **all** of the following, in one attended window:
+Because the candidate carries a **new** build identity, `--expect-version`
+discriminates candidate from rollback on its own, and the candidate image
+contains only the self-built kernel — so reaching candidate health *is* proof
+that the self-built kernel booted. Draft 1 needed `/proc/version` because it
+had reused the resident's identity; that requirement disappears with the
+correct construction.
 
-1. the candidate transfer completes and the read-back digest equals
-   `7c293af9c0fd6bfea5247cd5c3415956c452c67a79e8269c967860d2a2c0cead`;
-2. the device reaches the resident's exact native health predicate, unchanged
-   from the H24 close — the same `binding=1 enable=1 latch=1` shape and the
-   same userspace version `0.11.192`;
-3. `/proc/version` matches the pinned candidate banner **exactly**;
-4. one distinct returned USB epoch reproduces 2 and 3;
-5. zero rollback transfers occur before the terminal.
+`/proc/version` is retained as a **supplementary** positive record, not as the
+load-bearing discriminator, and is not a blocking prerequisite:
 
-Condition 3 is what makes this experiment mean anything. Conditions 2 and 4
-are the existing resident-health and return semantics and are not relaxed.
+```
+resident kernel   4.14.190-25818860-abA908NKSU5EWA3 (dpi@SWDK6110), clang 10.0.7, #2 SMP
+candidate kernel  4.14.190 (built by this project), clang 12.0.5, #5 SMP
+```
 
-`REFUTED` is a legitimate terminal. If the device does not boot the candidate,
-that is a real answer to the single question and the rollback restores service.
+Both banners are extractable host-side before any device contact.
 
-## Stop conditions
+Install `PASS_A90_RESIDENT_INSTALLED` requires all of:
 
-New device effects freeze immediately, and the terminal is a health
-classification rather than a retry, on any of:
+1. candidate transfer completes and read-back digest equals the pinned value;
+2. exact candidate version/build reported — the new identity, not `0.11.192`;
+3. the bound native self-test and health predicates pass;
+4. a working bounded control response;
+5. physical recovery preserved;
+6. the candidate's fresh versioned enable/latch paths **absent**
+   (`A90_TARGET_CONTRACT.md:394-396`);
+7. zero rollback transfers before the terminal.
 
-- candidate transfer read-back digest mismatch;
-- boot timeout at the candidate boot timeout;
-- health predicate reached but `/proc/version` **not** matching the pinned
-  banner — this is the dangerous case, because it means something booted and it
-  is not what we flashed;
-- any missing, late, timed-out, or malformed observation;
-- any observed write outside `boot`.
+## Terminals
 
-No uncertain action is ever replayed. A transfer whose completion is uncertain
-consumes its ordinal.
+Device safety and experiment proof are separate axes
+(`A90_TARGET_CONTRACT.md:62-71`):
 
-## Recovery
+| axis | value | meaning here |
+|---|---|---|
+| device safety | `RESIDENT_HEALTHY` | candidate installed and the unit is controlled and recoverable |
+| device safety | `RECOVERY_REQUIRED` | rollback itself failed |
+| experiment proof | `PROVED` | the A90 booted a kernel this project compiled |
+| experiment proof | `REFUTED` | it did not, and the device reported state contradicting health |
+| experiment proof | `NO_PROOF_OBSERVER` | the host could not reach, parse, or decide |
 
-Rollback is the exact V2321 transfer, authorized only after candidate transfer
-start, with the same runner and `--expect-sha256 ca978551...`. It is a
-predeclared recovery, not a retry of the candidate.
+`REFUTED` is a legitimate answer to the single question. Per `:102-121`, only
+device-attributable evidence may burn an ordinal; a missing, late, or malformed
+observation is `NO_PROOF_OBSERVER`, which freezes new non-recovery device
+effects without closing the campaign and never permits candidate replay.
 
-Physical recovery follows the existing A90 target profile and is unchanged by
-this design. Download-mode entry and Odin transport semantics are not modified
-here; if any change to them turns out to be required, this design must return
-for review rather than proceed.
+Observation is not attribution (`:123-128`). A responding endpoint proves only
+that the observation occurred; the returned USB epoch must be bound by
+same-intent evidence — endpoint identity, boot generation, stale-node
+rejection, and same-target attribution — not by a port answering.
 
-## Preconditions that must hold before approval
+## State machine and recovery
 
-Each is independent and none is satisfied by this document:
+Before candidate execution begins, a stop is a stop: new device effects freeze
+and the run closes without a transfer.
 
-1. independent review of this design;
-2. `GOAL_A90.md` updated to authorize exactly one successor candidate, since
-   it currently authorizes none;
-3. a fresh connected D0 qualification;
-4. a prepared manifest pinning the identities above **and** the exact expected
-   candidate `/proc/version` banner;
-5. exact attended F1 approval referencing that final manifest;
-6. the operator physically present — the A90 v1 runner is attended-only and
+**Once candidate execution begins, rollback never waits** (`:1268`). There is no
+second acknowledgement and no candidate retry. Exact rollback is required on:
+
+- candidate transfer ambiguity;
+- wrong identity;
+- explicit initial-health failure;
+- inability to establish initial control;
+- lost recovery.
+
+Rollback is the one bound V2321 transfer through the same helper with
+`--expect-sha256 ca978551...`. The run closes only after V2321 health is
+verified. A rollback failure is `RECOVERY_REQUIRED`. An uncertain released
+rollback is never replayed or closed from running baseline health; it remains
+explicitly recovery-pending.
+
+If native control is unavailable, recovery proceeds through the existing
+physical Download/recovery path in the target contract, which this design does
+not modify. Any required change to Download-mode entry or Odin transport
+returns this design for review rather than proceeding.
+
+Once `RESIDENT_HEALTHY` is durably recorded, a later refutation or
+observer-only no-proof does not retroactively fail installation and does not
+require rollback (`:1276-1279`).
+
+## Target isolation
+
+Resolve exactly one A90 target and its private profile before every action.
+Inventory all attached devices first, select the A90 explicitly, and report
+that S22+ and S20+ were untouched with zero commands. Serials and topology
+identifiers stay private. Any target ambiguity, unexpected identity change, or
+lost physical recovery path ends the session (`A90_TARGET_CONTRACT.md:40-49`).
+
+## Preconditions
+
+Each is independent; none is satisfied by this document.
+
+1. independent review of this draft;
+2. the new flat-builder candidate version built, A/B reproducible, and
+   qualified — see "Required candidate construction";
+3. `GOAL_A90.md` updated to authorize exactly one successor candidate, since it
+   authorizes none today;
+4. one fresh `A90_F1_RESIDENT_INSTALL_V1` binding for that candidate plus its
+   exact rollback (`A90_TARGET_CONTRACT.md:1268-1270`);
+5. first-use execution qualification: runner schema update, focused tests,
+   execution review, connected preflight, and compatibility binding
+   (`:1284-1289`);
+6. a fresh connected D0;
+7. an empty durable journal, checked flash and bridge closures, and proven
+   physical recovery availability (`:1262-1265`);
+8. exact attended F1 approval referencing the final manifest;
+9. the operator physically present — the A90 v1 runner is attended-only and
    `--operator-attended` must never be asserted in the operator's absence.
 
 ## Open risks
@@ -182,40 +273,41 @@ Each is independent and none is satisfied by this document:
 - **`uname -r` changes** from `4.14.190-25818860-abA908NKSU5EWA3` to
   `4.14.190`. No A90 native-init path loads kernel modules — every
   `/lib/modules` and `.ko` reference in the tree belongs to S22+ sources — so
-  the expected impact is low. It is not zero: any future component that
-  resolves a module or firmware path by release string would break, and Debian
-  userspace under a later `switch_root` is exactly such a component. This
-  should be checked before Option C work depends on the self-built kernel.
+  expected impact is low but not zero. Debian userspace under a later
+  `switch_root` resolves module paths by release string and is exactly the
+  component that would break. Check before Option C depends on this kernel.
 - **Functional equivalence is unproved.** A different compiler and linker
-  produce a different kernel even where configuration matches. Booting proves
-  booting; it does not prove the WLAN, display, GPU, audio, or USB paths behave
-  as before. A separate observation set would be needed for that, and this F1
-  does not attempt it.
-- **The one-page size delta is not evidence of equivalence** and must not be
-  cited as reassurance.
+  produce a different kernel even where configuration matches. A separate
+  observation set would be needed, and this F1 does not attempt it.
+- **The one-page `Image` size delta is not evidence of equivalence** and must
+  not be cited as reassurance.
 - **CFP removal is not reversible by rebuilding.** Restoring it requires
-  Samsung's compiler, which is unavailable. If the reduced posture proves
-  unacceptable later, the remedy is returning to the stock kernel blob, not
-  rebuilding with CFP.
+  Samsung's compiler. The remedy, if the posture proves unacceptable, is
+  returning to the stock kernel blob.
+- **Two things change at once, unavoidably.** The candidate necessarily carries
+  a new userspace build identity alongside the new kernel. The userspace delta
+  is confined to version/build strings and fresh enable/latch paths, is
+  deterministic, and is A/B verifiable — but it is not zero, and a boot failure
+  must be attributed rather than assumed kernel-side.
 
 ## Why this ordering
 
-The disciplined sequence is: prove the build path boots with the resident's own
-userspace and device tree, and only then change a kernel feature. If
-`binderfs` were enabled in the same flash and the device failed to boot, the
-failure would have two explanations and the attended ordinal would buy one
-ambiguous bit. Keeping the change to one variable is the entire reason the
-candidate was repacked against the resident.
+Prove the build path boots before changing a kernel feature. If `binderfs` were
+enabled in the same flash and the device failed to boot, the failure would have
+two explanations and the attended ordinal would buy one ambiguous bit.
 
 ## Sources
 
-- `GOAL_A90.md`
+- `AGENTS.md`
+- `docs/operations/targets/A90_TARGET_CONTRACT.md`
 - `docs/operations/DEVICE_ACTION_PROCESS_V2.md`
+- `docs/operations/DEVICE_ACTION_RISK_TIERS.md`
+- `GOAL_A90.md`
 - `docs/reports/A90_SELF_BUILT_KERNEL_H0_2026-08-16.md`
-- `docs/plans/A90_HEADLESS_NATIVE_WIFI_ISOLATED_DEBIAN_DESIGN_2026-08-14.md`
-- private: the three artifacts tabulated above
-- private: `workspace/private/runs/server-distro/a90-v3406-debian-display-f1-20260801-01/prepared-manifest.json`
-  (prior-run transport and observation shape)
+- `workspace/public/src/scripts/server-distro/a90_v3403_f1_orchestrator.py`
+- `workspace/public/src/scripts/revalidation/native_init_flash.py`
+- `workspace/public/src/scripts/revalidation/a90_flat_builder/versions/phase3-minimal-h24/manifest.toml`
+- private: the artifacts tabulated above
 
 ## Boundary
 

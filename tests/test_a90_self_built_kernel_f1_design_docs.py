@@ -83,7 +83,6 @@ class SelfBuiltKernelF1DesignTests(unittest.TestCase):
         self.assertIn("Does the A90 boot a kernel this project compiled?", self.design)
         for token in (
             "It does not enable `CONFIG_ANDROID_BINDERFS`",
-            "It does not change userspace",
             "It does not change the device tree",
             "It does not retire any WLAN gate",
         ):
@@ -92,7 +91,7 @@ class SelfBuiltKernelF1DesignTests(unittest.TestCase):
     def test_the_cfp_acceptance_is_stated_before_the_identities(self) -> None:
         """A reviewer must meet the security cost before the artifact table."""
         accepted = self.raw.index("What is being accepted")
-        identities = self.raw.index("## Exact identities")
+        identities = self.raw.index("## Identities")
         self.assertLess(accepted, identities)
         self.assertIn(
             "**Approving this F1 accepts a reduced kernel exploit-mitigation posture",
@@ -100,37 +99,108 @@ class SelfBuiltKernelF1DesignTests(unittest.TestCase):
         )
         self.assertIn("should reject this design rather than the artifact", self.design)
 
-    def test_the_discriminator_problem_is_named_not_glossed(self) -> None:
-        """Same ramdisk means the usual version check would pass on a fallback."""
+    def test_the_review_corrections_are_recorded_not_absorbed(self) -> None:
+        """Draft 1 was returned no-go; the errors stay visible, not smoothed over."""
+        self.assertIn("Supersedes draft 1", self.design)
+        self.assertIn("returned **no-go**", self.raw)
+        self.assertIn("What draft 1 got wrong", self.design)
+        for token in (
+            "The candidate identity was contract-violating",
+            "The runner invocation did not exist",
+            "The transaction owner was wrong",
+            "Paths were relative",
+            "The health predicate was incomplete",
+            "Recovery was ambiguous",
+            "First-use execution qualification was missing",
+        ):
+            self.assertIn(token, self.raw, token)
         self.assertIn(
-            "**A version check cannot tell the candidate from the rollback here.**",
-            self.raw,
+            "One variable is a good instinct and it is not a licence to reuse an identity",
+            self.design,
         )
-        self.assertIn("would pass on a silent fallback", self.design)
-        self.assertIn("`/proc/version` matches the pinned candidate banner", self.design)
-        self.assertIn("Condition 3 is what makes this experiment mean anything", self.design)
 
-    def test_the_dangerous_stop_condition_is_present(self) -> None:
-        self.assertIn("this is the dangerous case", self.design)
-        self.assertIn("something booted and it is not what we flashed", self.design)
+    def test_the_staged_image_is_declared_not_a_candidate(self) -> None:
+        """The contract forbids reusing the resident's identity and latch paths."""
+        self.assertIn("build input, not the candidate", self.design)
+        self.assertIn("not usable as a candidate", self.design)
+        self.assertIn("Every replacement candidate uses a new build identity", self.design)
+        self.assertIn("a prior enable/latch pair is never reused", self.design)
+        self.assertIn("| **candidate** | **not yet built** | — | — |", self.raw)
+        self.assertIn("this design has no candidate", self.design)
+
+    def test_the_required_candidate_construction_is_specified(self) -> None:
+        for token in (
+            "`[inputs] base_boot`",
+            "fresh `A90_AUTO_HANDOFF_ENABLE_PATH` and `A90_AUTO_HANDOFF_LATCH_PATH`",
+            "deterministic A/B output",
+            "capability-qualification.json",
+            "execution-qualification.json",
+        ):
+            self.assertIn(token, self.design, token)
+
+    def test_the_discriminator_reasoning_is_corrected(self) -> None:
+        """With a new identity, --expect-version discriminates; /proc/version is extra."""
+        self.assertIn("`--expect-version` discriminates candidate from rollback", self.design)
+        self.assertIn("that requirement disappears with the correct construction", self.design)
+        self.assertIn("supplementary", self.design)
+        self.assertIn("not as the load-bearing discriminator", self.design)
 
     def test_refuted_is_allowed_as_a_real_terminal(self) -> None:
-        self.assertIn("`REFUTED` is a legitimate terminal", self.design)
+        self.assertIn("`REFUTED` is a legitimate answer to the single question", self.design)
 
     def test_every_precondition_is_listed_as_unmet(self) -> None:
         self.assertIn("none is satisfied by this document", self.design)
         for token in (
-            "independent review of this design",
-            "a fresh connected D0 qualification",
+            "independent review of this draft",
+            "a fresh connected D0",
             "exact attended F1 approval",
             "the operator physically present",
             "`--operator-attended` must never be asserted",
+            "first-use execution qualification",
+            "`A90_F1_RESIDENT_INSTALL_V1` binding",
+            "an empty durable journal",
         ):
             self.assertIn(token, self.design, token)
 
+    def test_the_rollback_never_waits_rule_is_exact(self) -> None:
+        self.assertIn("**Once candidate execution begins, rollback never waits**", self.raw)
+        self.assertIn("no second acknowledgement and no candidate retry", self.design)
+        self.assertIn("closes only after V2321 health is verified", self.design)
+        self.assertIn("`RECOVERY_REQUIRED`", self.design)
+        self.assertIn("remains explicitly recovery-pending", self.design)
+
+    def test_the_two_terminal_axes_are_separated(self) -> None:
+        for token in (
+            "RESIDENT_HEALTHY",
+            "RECOVERY_REQUIRED",
+            "PROVED",
+            "REFUTED",
+            "NO_PROOF_OBSERVER",
+        ):
+            self.assertIn(token, self.design, token)
+        self.assertIn("Observation is not attribution", self.design)
+        self.assertIn("not by a port answering", self.design)
+
+    def test_target_isolation_is_bound(self) -> None:
+        self.assertIn("Inventory all attached devices first", self.design)
+        self.assertIn("S22+ and S20+ were untouched", self.design)
+        self.assertIn("Serials and topology identifiers stay private", self.design)
+
+    def test_the_orchestrator_owns_the_transaction_not_the_helper(self) -> None:
+        self.assertIn("a90_v3403_f1_orchestrator.py", self.design)
+        self.assertIn("the helper is not the transaction", self.design)
+        self.assertIn("--verify-protocol selftest", self.design)
+        self.assertIn("the boot image **positional**", self.design)
+        transport = self.raw[self.raw.index("## Transport") : self.raw.index("## Acceptance predicate")]
+        self.assertNotIn("--image", transport, "the nonexistent option must not reappear")
+
+    def test_the_unavoidable_second_variable_is_disclosed(self) -> None:
+        self.assertIn("Two things change at once, unavoidably", self.design)
+        self.assertIn("it is not zero, and a boot failure", self.design)
+
     def test_the_open_risks_include_the_release_string_change(self) -> None:
         self.assertIn("**`uname -r` changes**", self.raw)
-        self.assertIn("It is not zero", self.design)
+        self.assertIn("expected impact is low but not zero", self.design)
         self.assertIn("Functional equivalence is unproved", self.design)
         self.assertIn("Booting proves booting", self.design)
         self.assertIn("not evidence of equivalence", self.design)
@@ -157,7 +227,7 @@ class SelfBuiltKernelF1DesignTests(unittest.TestCase):
         self.assertTrue(RUNNER.is_file(), str(RUNNER))
         self.assertEqual(hashlib.sha256(RUNNER.read_bytes()).hexdigest(), RUNNER_SHA)
         self.assertIn(RUNNER_SHA, self.raw)
-        self.assertIn("byte-identical to the runner used by the prior A90 F1 run", self.design)
+        self.assertIn("byte-identical to the helper used by the prior A90 F1 run", self.design)
 
     def test_the_quoted_banners_match_the_real_images(self) -> None:
         """The discriminator is only sound if both banners are what we claim."""
@@ -170,9 +240,9 @@ class SelfBuiltKernelF1DesignTests(unittest.TestCase):
         self.assertIn("4.14.190-25818860-abA908NKSU5EWA3", resident)
         self.assertIn("4.14.190-25818860-abA908NKSU5EWA3", self.raw)
         self.assertIn("dpi@SWDK6110", self.raw)
-        self.assertIn("temmie@debian", candidate)
-        self.assertIn("temmie@debian", self.raw)
         self.assertNotIn("4.14.190-25818860", candidate)
+        self.assertIn("built by this project", self.raw)
+        self.assertNotIn("temmie@debian", self.raw, "build host user must not be recorded")
 
     def test_the_candidate_differs_from_the_resident_in_kernel_size_only(self) -> None:
         for path in (CANDIDATE, RESIDENT):
