@@ -654,22 +654,22 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         current = self.auditor.audit_review_obligations(all_rows)
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (19, 19, 0),
+            (20, 20, 0),
         )
         self.assertEqual(current["unresolved"], [])
         self.assertEqual(
             current["resolved"][-1],
             {
                 "campaign": "s22plus-fyg8-p318",
-                "review_topic": "historical-eud-sweep",
-                "pending_ordinal": "h0-historical-eud-sweep-15",
+                "review_topic": "carrier-version-crosscheck",
+                "pending_ordinal": "h0-carrier-version-crosscheck-16",
                 "pending_action": (
-                    "P310_P318_HISTORICAL_EUD_INDEX_SWEEP_"
+                    "P310_P314_P317_CARRIER_VERSION_CROSSCHECK_"
                     "IMPLEMENTED_REVIEW_PENDING"
                 ),
-                "resolution_ordinal": "h0-historical-eud-sweep-review-15",
+                "resolution_ordinal": "h0-carrier-version-crosscheck-review-16",
                 "resolution_action": (
-                    "PASS_GO_P318_HISTORICAL_EUD_INDEX_SWEEP_H0_CAPABILITY_V2"
+                    "PASS_GO_P318_CARRIER_VERSION_CROSSCHECK_H0_CAPABILITY_V2"
                 ),
             },
         )
@@ -817,7 +817,7 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             appended.split(marker, 1)[1].splitlines(keepends=True)
         )
         obligations = self.auditor.audit_review_obligations(rows)
-        self.assertEqual(obligations["resolved_count"], 20)
+        self.assertEqual(obligations["resolved_count"], 21)
         self.assertEqual(obligations["unresolved_count"], 0)
         self.assertEqual(obligations["unresolved"], [])
 

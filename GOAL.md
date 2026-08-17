@@ -18,7 +18,7 @@ Two final reads have clean Carrier framing/CRCs; the frozen decoder exposed `[va
 recovers generation 47/stage `0x66`/item 38/failure `0x6010`: the latch shifted
 `eud.ko` from 37 to 38 while its trigger stayed 37. Historical sweep proves
 P3.10/11/13/14/17 kept both at 37; it adds no older reclassification, while
-P3.10/14/17 frozen-Carrier agreement remains a separate H0 question. Max77705
+P3.10/14/17 frozen-Carrier agreement is now host-audited. Max77705
 was never reached, so effective proof is `NO_PROOF_EXPERIMENT_PRECONDITION` and
 historical close is `NO_PROOF_OBSERVER`. A reviewed finalizer used one fresh FYG8-health approval, no Download/Odin/transfer/replay, and advanced the journal from 15 at `ROLLBACK_FLASHED` to 19 records at `CLOSED`.
 Terminal is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; exact transfers remain 1/1,

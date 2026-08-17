@@ -346,7 +346,7 @@ class HistoricalEudIndexSweepTests(unittest.TestCase):
         self.assertIn("receipt is not current review authority", report)
         self.assertIn("P3.13 needs no `CAMPAIGN_PROOF` correction", report)
         self.assertIn("Historical sweep proves\nP3.10/11/13/14/17", goal)
-        self.assertIn("frozen-Carrier agreement remains a separate H0 question", goal)
+        self.assertIn("frozen-Carrier agreement is now host-audited", goal)
         self.assertIn("keep ACM supplemental", goal)
         self.assertEqual(len(goal.splitlines()), 900)
         self.assertEqual(len(target.splitlines()), 260)
