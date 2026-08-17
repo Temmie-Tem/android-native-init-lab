@@ -18,6 +18,13 @@ LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 GOAL = ROOT / "GOAL.md"
 RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260817-02-behavioral-device-detection.json"
+)
+# The approved 10,040-byte `7f9e6f6c` predecessor stays on disk as historical
+# evidence.  It is no longer the deterministic regeneration of the current
+# auditor, which now detects device acquisition by behavior instead of filename.
+PREDECESSOR_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260817-01.json"
 )
 
@@ -51,11 +58,24 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertTrue(stat.S_ISREG(info.st_mode))
         self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
         self.assertEqual(info.st_nlink, 1)
-        self.assertEqual(len(expected), 10040)
+        self.assertEqual(len(expected), 10330)
         self.assertEqual(
             hashlib.sha256(expected).hexdigest(),
+            "1f0751d090729f1ece2c1c290f1306db1abe411957fcf053ba11ae7ce40edd4d",
+        )
+
+    def test_predecessor_receipt_is_preserved_and_no_longer_authority(self):
+        info = PREDECESSOR_RECEIPT.stat()
+        self.assertTrue(stat.S_ISREG(info.st_mode))
+        self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
+        self.assertEqual(info.st_nlink, 1)
+        payload = PREDECESSOR_RECEIPT.read_bytes()
+        self.assertEqual(len(payload), 10040)
+        self.assertEqual(
+            hashlib.sha256(payload).hexdigest(),
             "7f9e6f6c2048b55748532177e1af978b43a23828197f754d587a12eb73351011",
         )
+        self.assertNotEqual(payload, RECEIPT.read_bytes())
 
     def test_report_has_scoped_pass_and_does_not_grant_live_authority(self):
         for token in (

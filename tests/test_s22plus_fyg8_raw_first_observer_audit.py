@@ -193,7 +193,9 @@ def collect():
             with self.subTest(sha256=hashlib.sha256(unsafe.encode()).hexdigest()):
                 with self.assertRaisesRegex(
                     self.module.RawFirstAuditError,
-                    "bypasses common raw capture|closed observer source inventory differs",
+                    "bypasses common raw capture"
+                    "|bypasses the raw-first boundary"
+                    "|closed observer source inventory differs",
                 ):
                     self.module.audit_sources(
                         REVALIDATION,
@@ -201,7 +203,9 @@ def collect():
                     )
                 with self.assertRaisesRegex(
                     self.module.RawFirstAuditError,
-                    "legacy observer inventory differs|closed observer source inventory differs",
+                    "bypasses the raw-first boundary"
+                    "|legacy observer inventory differs"
+                    "|closed observer source inventory differs",
                 ):
                     self.module.audit_sources(
                         REVALIDATION,
@@ -227,7 +231,9 @@ def collect():
                 with self.subTest(existing=existing):
                     with self.assertRaisesRegex(
                         self.module.RawFirstAuditError,
-                        "closed observer source inventory differs",
+                        "bypasses the raw-first boundary"
+                        "|pre-boundary device source inventory differs"
+                        "|closed observer source inventory differs",
                     ):
                         self.module.audit_sources(
                             REVALIDATION, {existing: unsafe}
@@ -301,6 +307,103 @@ def collect():
             path.chmod(0o600)
             with self.assertRaises(self.module.RawFirstAuditError):
                 self.module.write_receipt(path, payload)
+
+    # The P3.19 Stage A observer carried no `d0` in its name, so the filename
+    # rules never covered the source whose loss motivated this boundary.  These
+    # cases pin detection to behavior instead: a successor cannot escape by
+    # being named outside a pattern.
+    UNMIGRATED_DEVICE_OBSERVER = """\
+import subprocess
+def read_control1(adb, serial):
+    result = subprocess.run(
+        [adb, '-s', serial, 'shell', 'cat', '/sys/x/control1'],
+        capture_output=True, text=True, timeout=30,
+    )
+    return int(result.stdout.strip(), 16)
+"""
+
+    def test_new_device_acquiring_source_rejects_under_any_filename(self):
+        for name in (
+            "s22plus_fyg8_p319_max77705_control1_stage_b.py",
+            "max77705_stage_b_probe.py",
+            "totally_unrelated_name.py",
+        ):
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(
+                    self.module.RawFirstAuditError,
+                    "device-acquiring source bypasses the raw-first boundary",
+                ):
+                    self.module.audit_sources(
+                        REVALIDATION,
+                        {name: self.UNMIGRATED_DEVICE_OBSERVER},
+                    )
+
+    def test_host_only_build_source_is_not_a_device_observer(self):
+        value = self.module.audit_sources(
+            REVALIDATION,
+            {
+                "build_something_new_v9999.py": (
+                    "import subprocess\n"
+                    "def build():\n"
+                    "    result = subprocess.run(['gcc', 'x.c'], capture_output=True)\n"
+                    "    return result.stdout\n"
+                )
+            },
+        )
+        self.assertEqual(value["verdict"], self.module.VERDICT)
+
+    def test_s22_pre_boundary_device_source_is_byte_frozen(self):
+        name = "s22plus_p0_recon_collect.py"
+        self.assertIn(name, self.module.PRE_BOUNDARY_DEVICE_SOURCES)
+        with self.assertRaisesRegex(
+            self.module.RawFirstAuditError,
+            "pre-boundary device source inventory differs",
+        ):
+            self.module.audit_sources(
+                REVALIDATION,
+                {name: self.source(name) + "\n# changed device source\n"},
+            )
+
+    def test_other_target_edit_does_not_break_the_s22_boundary(self):
+        # Target isolation: A90 and S20+ own those bytes.  Membership still
+        # blocks a new unmigrated source, but an ordinary edit must not fail
+        # this S22+ contract and stall the parallel targets.
+        for name in (
+            "a90_repl_resident_session.py",
+            "s20plus_g986n_d0_inventory.py",
+        ):
+            with self.subTest(name=name):
+                self.assertIn(name, self.module.PRE_BOUNDARY_DEVICE_SOURCES)
+                value = self.module.audit_sources(
+                    REVALIDATION,
+                    {name: self.source(name) + "\n# harmless edit\n"},
+                )
+                self.assertEqual(value["verdict"], self.module.VERDICT)
+
+    def test_device_transport_detection_ignores_incidental_substrings(self):
+        self.assertFalse(
+            self.module._touches_device_transport("readback = 1\n")
+        )
+        for text in ("adb", "adb_path = 1", "ADB", "/platform-tools/adb", "'adb'"):
+            with self.subTest(text=text):
+                self.assertTrue(self.module._touches_device_transport(text))
+
+    def test_receipt_records_the_behavioral_device_boundary(self):
+        value = self.module.audit_sources(REVALIDATION)
+        self.assertEqual(
+            value["pre_boundary_device_source_count"],
+            self.module.PRE_BOUNDARY_DEVICE_SOURCE_COUNT,
+        )
+        self.assertEqual(
+            value["pre_boundary_device_source_inventory_sha256"],
+            self.module.PRE_BOUNDARY_DEVICE_SOURCE_SHA256,
+        )
+        self.assertTrue(
+            value["device_acquisition_detected_by_behavior_not_filename"]
+        )
+        self.assertTrue(
+            value["new_device_acquiring_source_rejected_under_any_filename"]
+        )
 
 
 if __name__ == "__main__":

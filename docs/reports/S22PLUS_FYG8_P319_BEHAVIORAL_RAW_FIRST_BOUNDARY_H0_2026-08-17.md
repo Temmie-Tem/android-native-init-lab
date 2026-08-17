@@ -1,0 +1,258 @@
+# S22+ FYG8 P3.19 behavioral raw-first boundary H0
+
+Date: 2026-08-17 KST
+Target: Samsung Galaxy S22+ FYG8 (`SM-S906N` / `g0q`) only. A90 and S20+
+inputs, authority, endpoints, artifacts, and device actions are out of scope.
+Status: **IMPLEMENTED_REVIEW_PENDING; H0 ONLY; NO DEVICE OR LIVE AUTHORITY**
+
+## Result first
+
+Commit `c41fd1ddf7` installed the raw-first observer boundary and a source
+auditor. The auditor's enforcement was keyed on the literal substring `d0`
+in a filename, so it did not cover the source whose loss motivated the
+boundary and could not stop a successor.
+
+Demonstrated against the shipped auditor, with a synthetic observer that parses
+`result.stdout` before persisting raw:
+
+| Injected source name | `c41fd1ddf7` | this unit |
+|---|---|---|
+| `s22plus_fyg8_p319_max77705_control1_stage_b.py` | PASS | **REJECTED** |
+| `s22plus_fyg8_p320_mux_read.py` | PASS | **REJECTED** |
+| `max77705_stage_b_probe.py` | PASS | **REJECTED** |
+| `totally_unrelated_name.py` | PASS | **REJECTED** |
+| `s22plus_fyg8_p320_mux_d0_read.py` | REJECTED | REJECTED |
+
+The P3.19 Stage A observer is `s22plus_fyg8_p319_max77705_attribute_stage_a.py`.
+It contains no `d0`, so neither `_candidate_d0_sources` nor `OBSERVER_FILE_RE`
+matched it. It was covered only because a person hand-listed it in
+`ACTIVE_FILES`. A successor named `..._stage_b.py` would have been outside
+every enforcement path.
+
+## What replaced the filename rule
+
+`_device_acquisition_sources` now enforces the boundary by behavior:
+
+1. a cheap identifier-boundary transport match, then
+2. the existing AST acquisition test, then
+3. either active-and-raw-first, or explicitly frozen pre-boundary, or reject.
+
+Transport detection uses identifier boundaries rather than quoted literals,
+because a real observer passes the transport in as a variable far more often
+than as the bare string. `(?<![A-Za-z0-9])adb(?![A-Za-z0-9])` matches `adb`,
+`adb_path`, `ADB`, and `/platform-tools/adb`, and does not match `readback`.
+The earlier quoted-literal marker set missed the synthetic observer entirely.
+
+Populations under the current tree:
+
+| Set | Count |
+|---|---:|
+| revalidation `*.py` scanned | 1,717 |
+| acquiring **and** device-facing | 130 + 15 active |
+| S22+-scoped, byte-frozen | 79 |
+| other-target, membership-only | 51 |
+
+Ordering matters for cost as well as meaning: the substring test runs before the
+AST parse, which keeps a full audit at about 7 seconds instead of parsing all
+1,717 files.
+
+## Target isolation
+
+Membership is checked for every target so a new acquiring source always stops
+the audit. Only S22+-scoped bytes are frozen. A90 and S20+ sources appear in the
+membership set but not in the byte-frozen inventory, so an ordinary edit on
+either parallel target does not fail this S22+ contract. Regression tests pin
+both directions:
+
+- `a90_repl_resident_session.py` and `s20plus_g986n_d0_inventory.py` accept a
+  harmless edit;
+- `s22plus_p0_recon_collect.py` rejects one;
+- a new `build_*` source that runs `gcc` and parses stdout is not treated as a
+  device observer.
+
+## Stated limit
+
+One residual hole is accepted deliberately. Other-target members are held by
+name only, so deleting such a file is invisible to this audit and its name stays
+pre-authorized; a new unmigrated observer created under exactly that recycled
+name would pass. Closing it would require freezing A90 and S20+ bytes here,
+which is the cross-target coupling this unit exists to avoid. S22+-scoped
+members are byte-frozen, so their deletion or edit does stop the audit.
+
+## Correction to an earlier objection
+
+An earlier review of `c41fd1ddf7` asserted that the fail-closed
+`s22plus_fyg8_p318_baseline_rotation_d1.py` blocked the next D0, on the evidence
+that it is the only `*rotation*` adapter in the tree. That conclusion was wrong.
+
+The campaign ledger records `2026-08-16T07:24:34Z | s22plus-fyg8-p318 |
+baseline-rotation-1 | D1 | NORMAL_REBOOT_BASELINE_ROTATION | HEALTHY`, and the
+run directory and its mode-0400 arm are present. That adapter is consumed and
+cannot be replayed. The ledger further shows one fresh wrapper per campaign
+(P2.96, P2.98, P3.00, P3.01, P3.03 twice, P3.04 through P3.08, P3.10, P3.12
+through P3.16, P3.18); the reusable primitive is the private P2.96 base, not the
+public wrapper. Its twelve failing tests are designed rejects, not a blocker.
+
+## Proven forward defect for the next rotation wrapper
+
+The observation underneath that objection does survive, in a different form.
+`_load_base` injects a stub for `device_action_f1_v2` and execs the pinned D0
+bytes, but does not make `device_action_raw_capture_v1` importable. The migrated
+`device_action_d0_v2.py` imports it at module scope (line 23). Reproducing the
+exact injection sequence against the current bytes gives:
+
+```
+ModuleNotFoundError: No module named 'device_action_raw_capture_v1'
+```
+
+So the next campaign's rotation wrapper must pin and inject the raw-capture
+source alongside the D0 runtime. A hash bump alone will not work. This is a
+forward design boundary; it reclassifies no historical campaign and creates no
+authority.
+
+## Consumed-suite expected failures
+
+`c41fd1ddf7` left the P3.18 discovery set permanently red and recorded the count
+only in its commit message. A future "P3.18 N/N" report would lose meaning and a
+new regression would hide inside the designed rejects.
+
+`s22plus_fyg8_consumed_suite_expected_failures.py` freezes the expected set by
+exact test identity and stated reason, and fails closed in both directions: an
+unexpected failure is a regression, and an expected failure that starts passing
+must leave the manifest. Current state:
+
+- tests run: 209;
+- distinct expected failures: 20;
+- unaccounted failures: 0;
+- stale manifest entries: 0.
+
+The 21 raw `FAIL`/`ERROR` lines collapse to 20 identities because two subTest
+parameters of one method fail; identities collapse to the owning test method so
+a new parameter cannot look unaccounted.
+
+Reasons, all four designed:
+
+| Reason | Count |
+|---|---:|
+| consumed P3.18 D1 rotation adapter pins the pre-migration D0 runtime | 12 |
+| consumed P3.18 post-rollback finalizer and close audit pin the pre-migration D0 adapter | 6 |
+| documentation pins `D0_STOP_VERSION` v1; the migration deliberately bumped it to v2 | 1 |
+| P3.18 QEMU control preserved the pre-migration observer bytes | 1 |
+
+The `D0_STOP_VERSION` entry was checked rather than assumed: the constant went
+from `device-action-d0-stop-v1` to `device-action-d0-stop-v2`, and the migrated
+adapter added a version equality check. The bump is correct; the documentation
+pin is the stale side.
+
+## Blocked: the ACM channel has no current positive control
+
+`device_action_cdc_acm_observer_v1.py` is a common forward primitive and was
+rewritten by the migration. Its only qualification was the host-only QEMU
+control `PASS_GO_P318_CDC_ACM_QEMU_REAL_OBSERVER_H0_CAPABILITY_V1`
+(2026-08-15T09:15:50Z), which preserved the pre-migration observer bytes and now
+stops with `preserved source differs: observer`. Physical ACM remains 0/16, so
+the migrated observer currently has no positive control at all.
+
+A fresh control run was attempted three times and could not complete here:
+
+```
+bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted
+ControlError: QEMU sandbox root did not become ready
+```
+
+All private inputs are present and exact, `bubblewrap 0.11.1` matches, and
+`qemu-system-aarch64` is present in the pinned tools root. The failure is
+environmental: this host has `kernel.apparmor_restrict_unprivileged_userns = 1`,
+and the control's sandbox never becomes ready. Host load was ruled out by
+retrying at load average 0.26. No system policy was changed and the historical
+2026-08-15 output directory was not modified; the partial run directory was
+removed.
+
+To re-establish the control:
+
+```
+python3 workspace/public/src/scripts/revalidation/s22plus_fyg8_p318_cdc_acm_qemu_e2e.py \
+  --output workspace/private/outputs/s22plus_fyg8_p319_cdc_acm_qemu_e2e_rawfirst
+```
+
+The result should bind the migrated observer bytes and be published as the
+current control, leaving the 2026-08-15 output as historical evidence. Until
+then the ACM channel must stay supplemental and must not gate any campaign
+result.
+
+## Unresolved observation outside this unit
+
+A 354-test batch also surfaced four `test_s22plus_fyg8_p300_contract` errors.
+They are not caused by this unit, on the following evidence rather than on a
+reproduction: that test module and both implementations it exercises contain
+zero references to this unit's auditor or to the campaign ledger, and both
+implementations were rewritten by `c41fd1ddf7`. A reverted-file reproduction was
+attempted and is not available, because the module cannot be imported on its own
+(below), so the attribution rests on the absence of any dependency path.
+
+- `reused S22 policy receipt changed: AGENTS.md` — `AGENTS.md` is unmodified in
+  the working tree and was last changed by commit `52149ec34d`
+  (`feat(s20plus): activate native canary R1`). The current 17,014-byte
+  `6cd7e242` bytes are what the A90 hardening records carry, so the S22+ P3.00
+  pre-LTO qualification is holding an older private policy receipt. This is a
+  cross-target coupling: an S20+ commit stops an S22+ qualification gate.
+- `sidecar result safety fields differ` at
+  `s22plus_fyg8_p300_usb_trace_binding.py:349`, plus the sidecar rollback case —
+  both files were rewritten by `c41fd1ddf7`, and unlike the consumed P3.18
+  machinery these are common forward primitives.
+
+This is reported rather than fixed. `test_s22plus_fyg8_p300_contract` cannot be
+imported standalone (`ModuleNotFoundError: No module named
+'device_action_f1_evidence_v2'`), so its result depends on batch composition and
+needs confirming in a properly ordered full run before anyone acts on it. It is
+deliberately not entered in the expected-failure manifest, because that manifest
+must contain only designed rejects and these are not yet classified.
+
+## Machine evidence
+
+Implementation:
+
+- `workspace/public/src/scripts/revalidation/s22plus_fyg8_raw_first_observer_audit.py`
+  — 43,742 bytes,
+  `2929a5f9d908fdc334dcc30b829f3b3a99f2d48a69ee4c67053f1888a2cbc4ca`
+- `workspace/public/src/scripts/revalidation/s22plus_fyg8_consumed_suite_expected_failures.py`
+  — 10,174 bytes,
+  `8f56b7e9eeebfb4f863f3e12c1bc84cc978d11da8fd5f1391760402b40104b97`
+
+Focused regression:
+
+- `tests/test_s22plus_fyg8_raw_first_observer_audit.py` — 16,526 bytes,
+  `59f7fd0c689454cf7d721a4900860e2e9009d32dd5bd8be15dd9291395457d1f`, 14/14
+- `tests/test_s22plus_fyg8_consumed_suite_expected_failures.py` — 5,852 bytes,
+  `da8f71dd077d52d8b69ac1891382c1858093c046425a6db55914aead5e20b8d0`, 6/6
+
+Private deterministic receipts, each mode 0400 with link count one:
+
+- `workspace/private/outputs/s22plus_fyg8_p319/raw-first-observer-audit-20260817-02-behavioral-device-detection.json`
+  — 10,330 bytes,
+  `1f0751d090729f1ece2c1c290f1306db1abe411957fcf053ba11ae7ce40edd4d`
+- `workspace/private/outputs/s22plus_fyg8_p319/consumed-suite-expected-failures-20260817-01.json`
+  — 3,778 bytes,
+  `410b3e8f3d2de81b05e01b074f0785223b6a2dcf50c0b35da482a9a37550f76c`
+
+The predecessor receipt `raw-first-observer-audit-20260817-01.json` is preserved
+unmodified as historical evidence and is not current review authority.
+
+The auditor's self binding was recomputed over its own normalized source after
+the last edit, and the audit reopens its own stable bytes before reporting.
+
+## Authority boundary
+
+This is host-only source and test-inventory analysis. It changes no candidate,
+live result, transfer count, correction registry entry, journal, or health state.
+It creates no D0, D1, F1, recovery, replay, device, or live authority. No device
+command, ADB command, reboot, Download request, Odin invocation, partition
+transfer, candidate replay, rollback replay, A90 action, or S20+ action occurred.
+The uncommitted S20+ files present in the working tree were not touched.
+
+P3.19 Stage A remains open: attribute names under the Max77705 client, exact
+`regmap` entry presence, and any Stage B target are still unproved, and a fresh
+direct D0 request is still required. This unit changes the host side only.
+
+An independent review of this exact changed closure is required before the
+boundary is treated as qualified.

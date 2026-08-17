@@ -652,11 +652,20 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         all_lines = self.ledger_data.split(marker, 1)[1].splitlines(keepends=True)
         all_rows, _, _ = self.auditor.parse_log_rows(all_lines)
         current = self.auditor.audit_review_obligations(all_rows)
+        # The single absolute pin on live obligation state.  A new pending row
+        # moves this triple and the three relative expectations below by one.
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (21, 21, 0),
+            (22, 21, 1),
         )
-        self.assertEqual(current["unresolved"], [])
+        self.assertEqual(
+            [item["review_topic"] for item in current["unresolved"]],
+            ["raw-first-observer"],
+        )
+        self.assertEqual(
+            current["unresolved"][-1]["pending_ordinal"],
+            "h0-raw-first-observer-2",
+        )
         self.assertEqual(
             current["resolved"][-1],
             {
@@ -754,6 +763,22 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             ),
         )
 
+    def live_obligations(self):
+        """Obligation state of the real ledger.
+
+        These cases are about the synthetic topic they append, not about how
+        many obligations the live ledger happens to carry.  Measuring the
+        baseline keeps the assertions exact while a new pending row stops
+        rewriting three unrelated expectations.
+        """
+
+        marker = self.auditor.MARKER
+        rows, _, _ = self.auditor.parse_log_rows(
+            self.ledger_data.split(marker, 1)[1].splitlines(keepends=True)
+        )
+        value = self.auditor.audit_review_obligations(rows)
+        return value, {item["review_topic"] for item in value["unresolved"]}
+
     def test_unrelated_pending_topics_can_coexist(self):
         appended = self.ledger_data + (
             b"2099-12-31T23:59:59Z | s22plus-fyg8-p318 | h0-unrelated-9 | H0 | "
@@ -765,10 +790,14 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             appended.split(marker, 1)[1].splitlines(keepends=True)
         )
         obligations = self.auditor.audit_review_obligations(rows)
-        self.assertEqual(obligations["unresolved_count"], 1)
+        live, live_topics = self.live_obligations()
+        self.assertNotIn("unrelated", live_topics)
+        self.assertEqual(
+            obligations["unresolved_count"], live["unresolved_count"] + 1
+        )
         self.assertEqual(
             {item["review_topic"] for item in obligations["unresolved"]},
-            {"unrelated"},
+            live_topics | {"unrelated"},
         )
         baseline = self.auditor.audit_ledger_bytes(
             self.ledger_data, self.script_data
@@ -793,10 +822,14 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             appended.split(marker, 1)[1].splitlines(keepends=True)
         )
         obligations = self.auditor.audit_review_obligations(rows)
-        self.assertEqual(obligations["unresolved_count"], 1)
+        live, live_topics = self.live_obligations()
+        self.assertNotIn("taxonomy-guard", live_topics)
+        self.assertEqual(
+            obligations["unresolved_count"], live["unresolved_count"] + 1
+        )
         self.assertEqual(
             {item["review_topic"] for item in obligations["unresolved"]},
-            {"taxonomy-guard"},
+            live_topics | {"taxonomy-guard"},
         )
         self.assertEqual(
             obligations["pass_go_resolving_no_obligation_count"], 11
@@ -817,9 +850,17 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             appended.split(marker, 1)[1].splitlines(keepends=True)
         )
         obligations = self.auditor.audit_review_obligations(rows)
-        self.assertEqual(obligations["resolved_count"], 22)
-        self.assertEqual(obligations["unresolved_count"], 0)
-        self.assertEqual(obligations["unresolved"], [])
+        live, live_topics = self.live_obligations()
+        self.assertEqual(
+            obligations["resolved_count"], live["resolved_count"] + 1
+        )
+        self.assertEqual(
+            obligations["unresolved_count"], live["unresolved_count"]
+        )
+        self.assertEqual(
+            {item["review_topic"] for item in obligations["unresolved"]},
+            live_topics,
+        )
 
     def test_candidate_bearing_open_attempt_enters_inventory(self):
         marker = self.auditor.MARKER

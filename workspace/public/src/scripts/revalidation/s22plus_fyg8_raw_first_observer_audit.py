@@ -18,7 +18,7 @@ from typing import Any, Mapping
 SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
-AUDITOR_NORMALIZED_SHA256 = "0be37ddd13b364ffc2532356f919bca979b05d7f3891b8e2c316d06f0928953a"
+AUDITOR_NORMALIZED_SHA256 = "6c3b89ad7cd5cb3e7585b7d58c7e80cc76f3e5af6661cd73819da4d52b4a2385"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
@@ -32,6 +32,161 @@ LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
 CLOSED_OBSERVER_SOURCE_COUNT = 121
 CLOSED_OBSERVER_SOURCE_SHA256 = (
     "e0fde5ae9afb7b39579ed41ad09e70d9f4ef82c9e316a9eb5c3ff68bba8456af"
+)
+DEVICE_TRANSPORT_PATTERNS = tuple(
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        # Identifier boundaries, not quoted literals: a real observer passes the
+        # transport in as a variable (adb, adb_path, ADB) far more often than as
+        # the bare string "adb".  The boundary keeps ordinary words such as
+        # "readback" from matching.
+        r"(?<![A-Za-z0-9])adb(?![A-Za-z0-9])",
+        r"(?<![A-Za-z0-9])odin(?![A-Za-z0-9])",
+        r"(?<![A-Za-z0-9])fastboot(?![A-Za-z0-9])",
+        r"heimdall",
+        r"ttyACM",
+        r"bounded_command\(",
+        r"device_action_d0_v2",
+    )
+)
+S22_SCOPED_SOURCE_RE = re.compile(r"(?:s22plus|device_action)[A-Za-z0-9_]*\.py")
+PRE_BOUNDARY_DEVICE_SOURCE_COUNT = 79
+PRE_BOUNDARY_DEVICE_SOURCE_SHA256 = (
+    "82b85108cc2705a165ce43f7abdb0fb3a21cd953e2b033d1c84806edcd814dcd"
+)
+PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
+    {
+        "a90_repl_resident_session.py",
+        "build_s20plus_g986n_native_canary_n1.py",
+        "build_s20plus_n3u0_magisk_overlay.py",
+        "build_s22plus_direct_p3_boot.py",
+        "build_s22plus_fyg8_p221_candidate.py",
+        "build_s22plus_fyg8_p234_candidate.py",
+        "build_s22plus_fyg8_p286_candidate.py",
+        "build_s22plus_fyg8_r3c0_control.py",
+        "build_s22plus_fyg8_r3c1_candidate.py",
+        "build_s22plus_fyg8_r4w1a_candidate.py",
+        "build_s22plus_fyg8_r4w1b_candidate.py",
+        "build_s22plus_fyg8_r4w1c_watchdog_carrier.py",
+        "build_s22plus_fyg8_r4w1d_candidate.py",
+        "build_s22plus_fyg8_r4w1e_e1_candidate.py",
+        "build_s22plus_observable_m3_boot.py",
+        "build_s22plus_ramoops_dtbo_enable.py",
+        "build_s22plus_ramoops_vendor_boot_direct_enable.py",
+        "build_s22plus_ramoops_vendor_boot_enable.py",
+        "build_s22plus_v3435_ramoops_console_dtbo.py",
+        "native_audio_acdb_clone_follow_planner_v2421.py",
+        "native_audio_acdb_m1_diag_observer_planner_v2449.py",
+        "native_audio_acdb_payload_capture_planner_v2415.py",
+        "native_audio_acdb_threadset_clone_follow_planner_v2423.py",
+        "native_audio_acdbtap_wrapper_exec_planner_v2487.py",
+        "native_audio_adsp_kick_no_wait_live_handoff_v2804.py",
+        "native_audio_android_route_delta_handoff_v2365.py",
+        "native_audio_dmabuf_msync_nonfatal_live_handoff_v2797.py",
+        "native_audio_foreground_adsp_prime_live_handoff_v2803.py",
+        "native_audio_integrated_play_live_handoff_v2791.py",
+        "native_audio_integrated_play_live_handoff_v2792.py",
+        "native_audio_ion_devnode_live_handoff_v2796.py",
+        "native_audio_manifest_allowlist_live_handoff_v2794.py",
+        "native_audio_msm_audio_cal_devnode_live_handoff_v2798.py",
+        "native_audio_native_ioctl_width_live_handoff_v2799.py",
+        "native_audio_play_worker_live_handoff_v2793.py",
+        "native_audio_route_api_device_validation_handoff_v2784.py",
+        "native_audio_route_core_apply_device_validation_handoff_v2786.py",
+        "native_audio_setcal_direct_execute_live_handoff_v2795.py",
+        "native_audio_sound_control_diagnostic_live_handoff_v2800.py",
+        "native_audio_speaker_descriptor_api_device_validation_handoff_v2788.py",
+        "native_audio_speaker_pilot_live_handoff_v2379.py",
+        "native_audio_stage_module_device_validation_handoff_v2781.py",
+        "native_audio_stage_module_device_validation_handoff_v2782.py",
+        "native_audio_v2798_readiness_replay_live_handoff_v2801.py",
+        "native_init_flash.py",
+        "s20plus_g986n_boot_only_odin_prep.py",
+        "s20plus_g986n_d0_inventory.py",
+        "s20plus_g986n_download_exit_d1.py",
+        "s20plus_g986n_magisk_bootstrap_f1.py",
+        "s20plus_g986n_routine_actions.py",
+        "s22_debloat_pass4_rescue.py",
+        "s22plus_active_dtb_provenance_audit.py",
+        "s22plus_boot_slice.py",
+        "s22plus_eud_openocd_host_audit.py",
+        "s22plus_eud_phase_a_readonly_probe.py",
+        "s22plus_eud_phase_b_enable_live_gate.py",
+        "s22plus_eud_phase_b_enable_readiness_audit.py",
+        "s22plus_fyg8_module_map.py",
+        "s22plus_fyg8_p221_candidate_static_checker.py",
+        "s22plus_fyg8_p233_e1_static_checker.py",
+        "s22plus_fyg8_p234_build_repro_check.py",
+        "s22plus_fyg8_p234_candidate_intent.py",
+        "s22plus_fyg8_p234_candidate_static_checker.py",
+        "s22plus_fyg8_p234_userspace_build.py",
+        "s22plus_fyg8_p241_e2_static_checker.py",
+        "s22plus_fyg8_p244_e2_static_checker.py",
+        "s22plus_fyg8_p248_source_contract.py",
+        "s22plus_fyg8_p252_source_contract.py",
+        "s22plus_fyg8_p254_source_contract.py",
+        "s22plus_fyg8_p257_source_contract.py",
+        "s22plus_fyg8_p258_source_contract.py",
+        "s22plus_fyg8_p260_qemu_harness.py",
+        "s22plus_fyg8_p260_source_contract.py",
+        "s22plus_fyg8_p280_pre_lto_qualification.py",
+        "s22plus_fyg8_p280_source_contract.py",
+        "s22plus_fyg8_p282_pre_lto_qualification.py",
+        "s22plus_fyg8_p282_source_contract.py",
+        "s22plus_fyg8_p284_pre_lto_qualification.py",
+        "s22plus_fyg8_p286_build_repro_check.py",
+        "s22plus_fyg8_p286_candidate_intent.py",
+        "s22plus_fyg8_p286_candidate_static_checker.py",
+        "s22plus_fyg8_p286_pre_lto_qualification.py",
+        "s22plus_fyg8_p286_source_contract.py",
+        "s22plus_fyg8_p286_userspace_build.py",
+        "s22plus_fyg8_p288_source_contract.py",
+        "s22plus_fyg8_p290_source_contract.py",
+        "s22plus_fyg8_p292_source_contract.py",
+        "s22plus_fyg8_p294_tier2_reentry.py",
+        "s22plus_fyg8_p316_candidate_static_checker.py",
+        "s22plus_fyg8_p318_candidate_static_checker.py",
+        "s22plus_fyg8_p318_selector_negative_control.py",
+        "s22plus_fyg8_r3_static_checker.py",
+        "s22plus_fyg8_r3c0_live_gate.py",
+        "s22plus_fyg8_r3c1_live_gate.py",
+        "s22plus_fyg8_r4w1a_live_gate.py",
+        "s22plus_fyg8_r4w1a_static_checker.py",
+        "s22plus_fyg8_r4w1a_stream_candidate_live_gate.py",
+        "s22plus_fyg8_r4w1b_live_gate.py",
+        "s22plus_fyg8_r4w1c2_measured_live_gate.py",
+        "s22plus_fyg8_r4w1c3_regular_ap_live_gate.py",
+        "s22plus_fyg8_r4w1c_connected_gate.py",
+        "s22plus_fyg8_r4w1c_live_gate.py",
+        "s22plus_fyg8_r4w1c_odin_enumeration_diff_observer.py",
+        "s22plus_fyg8_r4w1c_watchdog_carrier_static_checker.py",
+        "s22plus_fyg8_r4w1e_e1_candidate_static_checker.py",
+        "s22plus_fyg8_usb_role_static_re.py",
+        "s22plus_m3_observable_live_gate.py",
+        "s22plus_magisk_boot_baseline_restore_gate.py",
+        "s22plus_magisk_boot_capture_collect.py",
+        "s22plus_magisk_boot_time_capture_m1.py",
+        "s22plus_native_init_observability_frontier_audit.py",
+        "s22plus_o0_stock_usb_control.py",
+        "s22plus_p0_recon_collect.py",
+        "s22plus_p2_stock_boot_rollback_guard.py",
+        "s22plus_p3_collect_and_rollback.py",
+        "s22plus_ramoops_android_baseline_preflight.py",
+        "s22plus_ramoops_dtbo_m22_sysrq_panic_readiness_audit.py",
+        "s22plus_reset_reason_readonly_probe.py",
+        "s22plus_retained_evidence_probe.py",
+        "s22plus_sec_debug_mid_sysrq_gate.py",
+        "s22plus_stock_usb_topology_readonly.py",
+        "s22plus_twrp_magisk_restore_window.py",
+        "s22plus_v3427_transition_selection.py",
+        "s22plus_v3428_stock_transition_positive_control.py",
+        "s22plus_v3437_ramoops_positive_control_live_gate.py",
+        "s22plus_v3439_ramoops_positive_control_live_gate.py",
+        "s22plus_v3440_rdx_usb_viability_gate.py",
+        "s22plus_v3441_debug_mid_rescue_live_gate.py",
+        "s22plus_v3442_high_set_only_live_gate.py",
+        "s22plus_v3443_high_panic_compare_live_gate.py",
+    }
 )
 OBSERVER_FILE_RE = re.compile(
     r"(?:s22plus|device_action)[A-Za-z0-9_]*"
@@ -531,6 +686,71 @@ def _candidate_d0_sources(
     return values
 
 
+def _touches_device_transport(text: str) -> bool:
+    return any(pattern.search(text) for pattern in DEVICE_TRANSPORT_PATTERNS)
+
+
+def _device_acquisition_sources(
+    root: Path, overrides: Mapping[str, str]
+) -> tuple[list[dict[str, Any]], str]:
+    """Require the raw-first boundary from every target-acquiring source.
+
+    Filename shape is not evidence.  Any source that both acquires output and
+    reaches the device transport must be an active raw-first observer or an
+    explicitly frozen pre-boundary source.  A new acquiring source is rejected
+    under any filename until it is migrated or frozen, so a successor observer
+    cannot reintroduce write-after-parse by being named outside a pattern.
+
+    Membership is checked for every target so a new source always stops here.
+    Only S22+-scoped bytes are frozen, because this contract must not fail on
+    an ordinary A90 or S20+ edit.
+    """
+
+    paths = {path.name: path for path in root.glob("*.py")}
+    for name in overrides:
+        paths.setdefault(name, root / name)
+    frozen: list[dict[str, Any]] = []
+    for name, path in sorted(paths.items()):
+        text = _source(path, overrides)
+        # Cheap transport substring first: the AST parse is the expensive half
+        # and only device-facing sources can ever reach the boundary rule.
+        if not _touches_device_transport(text):
+            continue
+        if not _uses_legacy_acquisition(text):
+            continue
+        if name in ACTIVE_FILES:
+            if RAW_MODULE not in text:
+                raise RawFirstAuditError(
+                    f"active device source lacks common raw capture: {name}"
+                )
+            continue
+        if name not in PRE_BOUNDARY_DEVICE_SOURCES:
+            raise RawFirstAuditError(
+                f"device-acquiring source bypasses the raw-first boundary: {name}"
+            )
+        if S22_SCOPED_SOURCE_RE.fullmatch(name) is None:
+            # Another target owns these bytes.  Membership still blocks a new
+            # unmigrated source, but this S22+ contract must not freeze A90 or
+            # S20+ sources and break their parallel work.
+            continue
+        payload = text.encode("utf-8")
+        frozen.append(
+            {
+                "name": name,
+                "size": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            }
+        )
+    encoded = json.dumps(
+        frozen,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("ascii")
+    return frozen, hashlib.sha256(encoded).hexdigest()
+
+
 def _legacy_unmigrated_observers(
     root: Path, overrides: Mapping[str, str]
 ) -> tuple[list[dict[str, Any]], str]:
@@ -629,6 +849,9 @@ def audit_sources(
     legacy_observers, legacy_sha256 = _legacy_unmigrated_observers(
         root, overrides
     )
+    device_sources, device_sources_sha256 = _device_acquisition_sources(
+        root, overrides
+    )
     closed_sources, closed_sources_sha256 = _closed_observer_sources(
         root, overrides
     )
@@ -639,6 +862,14 @@ def audit_sources(
         raise RawFirstAuditError(
             "legacy observer inventory differs: "
             f"count={len(legacy_observers)} sha256={legacy_sha256}"
+        )
+    if (
+        len(device_sources) != PRE_BOUNDARY_DEVICE_SOURCE_COUNT
+        or device_sources_sha256 != PRE_BOUNDARY_DEVICE_SOURCE_SHA256
+    ):
+        raise RawFirstAuditError(
+            "pre-boundary device source inventory differs: "
+            f"count={len(device_sources)} sha256={device_sources_sha256}"
         )
     if (
         len(closed_sources) != CLOSED_OBSERVER_SOURCE_COUNT
@@ -724,6 +955,10 @@ def audit_sources(
         "closed_observer_source_count": len(closed_sources),
         "closed_observer_source_inventory_sha256": closed_sources_sha256,
         "closed_observer_sources_are_byte_frozen": True,
+        "pre_boundary_device_source_count": len(device_sources),
+        "pre_boundary_device_source_inventory_sha256": device_sources_sha256,
+        "device_acquisition_detected_by_behavior_not_filename": True,
+        "new_device_acquiring_source_rejected_under_any_filename": True,
         "new_or_changed_observer_source_requires_review": True,
         "audited_active_observer_modules": audited_observer_modules,
         "d0_subprocess_candidates": d0_candidates,
