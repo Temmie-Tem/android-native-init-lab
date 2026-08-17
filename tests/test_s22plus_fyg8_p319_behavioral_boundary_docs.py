@@ -1,7 +1,20 @@
 import importlib.util
+import re
 import sys
 import unittest
 from pathlib import Path
+
+
+COUNT_WORDS = {
+    "One": 1,
+    "Two": 2,
+    "Three": 3,
+    "Four": 4,
+    "Five": 5,
+    "Six": 6,
+    "Seven": 7,
+    "Eight": 8,
+}
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -96,13 +109,97 @@ class P319BehavioralBoundaryDocsTest(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
-    def test_report_counts_the_broken_consumers_of_one_migration(self):
-        self.assertIn("## Three consumers, one cause", self.report)
+    def consumers_section(self):
+        """Return the section's heading count word and its table rows."""
+        section = re.search(
+            r"^## (\w+) consumers, one cause$(.*?)(?=^## )",
+            self.report,
+            re.MULTILINE | re.DOTALL,
+        )
+        self.assertIsNotNone(section, "consumers section missing")
+        table = re.search(
+            r"^\| Consumer \| Failure \|\n\|---\|---\|\n((?:\|.*\n)+)",
+            section.group(2),
+            re.MULTILINE,
+        )
+        self.assertIsNotNone(table, "consumers table missing")
+        return section.group(1), table.group(1).splitlines()
+
+    def test_report_states_what_the_passing_identity_gate_masked(self):
         self.assertIn(
             "A passing source-identity gate masked a functional\nbreak in the "
             "primitive it was gating.",
             self.report,
         )
+
+    def test_report_consumer_count_matches_its_own_table(self):
+        # The heading claimed three while the real set was four, so derive the
+        # count from the table instead of restating it in prose.
+        word, rows = self.consumers_section()
+        self.assertIn(word, COUNT_WORDS)
+        self.assertEqual(COUNT_WORDS[word], len(rows))
+
+    def test_report_records_the_fourth_consumer_and_its_causal_proof(self):
+        for token in (
+            "This section first said three. That was an undercount.",
+            "s22plus_fyg8_p313_guard_lifetime_fixture.py",
+            "P3.13 lifetime receipts did not reopen",
+            "PASS_P313_GUARD_LIFETIME_AND_V2_COMPATIBILITY_HOST_ONLY",
+            "proved by substitution, not inferred",
+            "The file was restored and its\ndigest reverified afterwards.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_states_how_the_consumer_count_was_bounded(self):
+        # A bound a reviewer can recheck, and an explicit limit on it.
+        for token in (
+            "The count is bounded rather than asserted",
+            "s22plus_fyg8_p318_selector_negative_control.py",
+            "not a proof that no fifth consumer exists",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_explains_why_the_fourth_consumer_stayed_invisible(self):
+        for token in (
+            "`Ran 0 tests ...\nerrors=1`",
+            "discovers `*p318*`",
+            "expected invalidations after the common\nlive-observer SOURCE_KEY change",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_requires_one_shared_guard_fixture_not_two_repairs(self):
+        for token in (
+            "they must not\nbe repaired separately",
+            "write the same synthetic receipt twice",
+            "a single shared guard-arming fixture",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_ledger_records_the_guard_fixture_invalidation_finding(self):
+        rows = [
+            line
+            for line in LEDGER.read_text(encoding="utf-8").splitlines()
+            if "h0-guard-fixture-invalidation-1 " in line
+        ]
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertIn("s22plus-fyg8-p319", row)
+        self.assertIn(
+            "P319_P313_GUARD_FIXTURE_INVALIDATION_UNRECORDED_REVIEW_PENDING", row
+        )
+        self.assertIn("| 0/0 |", row)
+        # The finding is only useful if the row carries its causal proof.
+        for token in (
+            "PASS_P313_GUARD_LIFETIME_AND_V2_COMPATIBILITY_HOST_ONLY",
+            "c41fd1ddf7^",
+            "proved by substitution",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, row)
 
     def test_ledger_records_one_pending_row_for_this_topic(self):
         rows = [

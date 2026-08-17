@@ -217,22 +217,79 @@ The guest now also prints `detail=` alongside the exception type. Without it the
 guard mismatch was indistinguishable from a missing guest module, which cost a
 full control cycle to separate.
 
-## Three consumers, one cause
+## Four consumers, one cause
 
-Counting the rotation wrapper, the raw-first migration broke three independent
-consumers of the migrated sources, and no consumer was updated with it:
+This section first said three. That was an undercount. The fourth was found by a
+machine sweep of the two migrated interfaces, not by eye, which is the only
+reason the count can now be stated at all. No consumer was updated with the
+migration:
 
 | Consumer | Failure |
 |---|---|
 | `s22plus_fyg8_p318_baseline_rotation_d1.py::_load_base` | `ModuleNotFoundError: No module named 'device_action_raw_capture_v1'` |
 | `s22plus_fyg8_p318_cdc_acm_qemu_e2e.py` rootfs and `-I` guest | same import, twice, for two different reasons |
 | the same control's guard fixture | `candidate observer guard semantics mismatch` |
+| `s22plus_fyg8_p313_guard_lifetime_fixture.py` | `FAIL_CLOSED`, `P3.13 lifetime receipts did not reopen` |
+
+The fourth is the third's defect in a different campaign. Lines 89-98 of
+`s22plus_fyg8_p313_guard_lifetime_fixture.py` build the same eight-key guard
+(`schema`, `status`, `spec_sha256`, `topology_sha256`, `rule_sha256`,
+`instance_sha256`, `output_sha256`, `child_alive`) with
+`"output_sha256": "4" * 64` and no `raw_capture_receipt`, and line 169 persists
+it as `candidate-observer-guard.json`.
+
+Its cause is proved by substitution, not inferred. With only
+`device_action_cdc_acm_observer_v1.py` replaced by its `c41fd1ddf7^` bytes and
+the rest of the tree unchanged, the fixture returns
+`PASS_P313_GUARD_LIFETIME_AND_V2_COMPATIBILITY_HOST_ONLY`. With the current
+observer it returns `FAIL_CLOSED` and exits 1. The file was restored and its
+digest reverified afterwards.
+
+The count is bounded rather than asserted, and a reviewer can recheck the bound.
+The sweep enumerated both migrated interfaces: the sources importing
+`device_action_raw_capture_v1`, and the sources that build or validate the
+observer's guard receipt. Every guard consumer was then executed.
+`s22plus_fyg8_p318_cdc_acm_positive_control.py` and
+`s22plus_fyg8_p318_selector_negative_control.py` already carry
+`raw_capture_receipt` and both still pass, and `device_action_f1_live_v2.py`
+validates that key without building a guard. A search for consumers that
+materialize observer source into another filesystem found only the QEMU rootfs,
+so no path stages it onto a device. That is a search result over the current
+tree, not a proof that no fifth consumer exists.
+
+This one is worse than the ACM control in two respects. It fails in a clean tree
+with no lowered host boundary, so observing it required nothing but running it.
+And it regressed a campaign the ledger already carries as `PROVED | HEALTHY`
+(`s22plus-fyg8-p313`, `postlive-h0-2` and `postlive-h0-3`).
+
+It stayed invisible for a reason worth recording separately from the defect
+itself. `tests/test_s22plus_fyg8_p313_process_v2.py` does fail on it, but the
+fixture raises during import, so the failure reports as `Ran 0 tests ...
+errors=1` rather than as a failing test. A suite summary that counts tests
+absorbs it. The consumed-suite manifest does not cover it either: that manifest
+discovers `*p318*`. It should not be added there, because it is a regression
+rather than a designed reject, and the manifest's contract is that anything it
+lists is accounted for.
+
+This class of event already has a correct procedure in this repository. The P3.16
+row of `docs/operations/CAMPAIGN_LEDGER_S22PLUS.md` records that "historical
+P3.13/P3.14 intents remain immutable expected invalidations after the common
+live-observer SOURCE_KEY change". A common observer change that invalidates a
+closed campaign gets recorded as an expected invalidation. This migration
+produced the invalidation and skipped the record.
 
 The migration introduced a first-party module dependency and a guard-schema
 change into sources that other environments materialize by bytes. The previous
 review could not see any of it, because the control's stale-source check fired
 before the guest ever ran. A passing source-identity gate masked a functional
 break in the primitive it was gating.
+
+Two of the four are repaired. The two guard fixtures are not, and they must not
+be repaired separately: fitting each one until the observer accepts it would
+write the same synthetic receipt twice, which is the failure mode this unit
+already refused once. The correct repair is a single shared guard-arming fixture
+that publishes a real raw capture under `RUN_DIR` and sets `output_sha256` to the
+digest of those captured bytes. It is specified and reviewed as its own unit.
 
 ## Unresolved observation outside this unit
 
