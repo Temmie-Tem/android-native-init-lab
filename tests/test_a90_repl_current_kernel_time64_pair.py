@@ -19,7 +19,7 @@ PAIR_IMAGE_PATH = (
     REPO_ROOT / "workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_call_pair.img"
 )
 KERNEL_SOURCE_ROOT = (
-    REPO_ROOT / "workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel"
+    REPO_ROOT / "workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource_13272/Kernel"
 )
 
 

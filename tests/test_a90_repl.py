@@ -29,7 +29,7 @@ C2B_PADDING_MAP_PATH = (
     REPO_ROOT / "workspace/private/runs/kernel/v2c-c2b-kallsyms-padding-fix/System.map"
 )
 KERNEL_SOURCE_ROOT = (
-    REPO_ROOT / "workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel"
+    REPO_ROOT / "workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource_13272/Kernel"
 )
 
 

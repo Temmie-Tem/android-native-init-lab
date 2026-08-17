@@ -88,12 +88,12 @@ DEFAULT_IMAGE = "workspace/private/inputs/boot_images/boot_linux_tier2_repl_v1_r
 DEFAULT_DMESG_TAIL = 16
 DEFAULT_GFP_HEADER = (
     REPO_ROOT
-    / "workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource"
+    / "workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource_13272"
     / "Kernel/include/linux/gfp.h"
 )
 DEFAULT_KERNEL_SOURCE_ROOT = (
     REPO_ROOT
-    / "workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource/Kernel"
+    / "workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource_13272/Kernel"
 )
 
 KMALLOC_ROUNDTRIP_SIZE = 0x1000
@@ -1790,6 +1790,11 @@ def derive_gfp_kernel_value(header: Path = DEFAULT_GFP_HEADER) -> tuple[int, dic
     The public source currently uses widened reclaim bits, so deriving beats
     copying an expected value from notes.
     """
+    if not header.is_file():
+        raise FileNotFoundError(
+            f"kernel header is not readable: {header}; the OSRC tree lives on the "
+            "removable ANDROIDLABSD volume, so confirm it is mounted before deriving"
+        )
     text = header.read_text()
     components = {
         "___GFP_IO": parse_define_u32(text, "___GFP_IO"),
@@ -2712,7 +2717,7 @@ def run_ksymtab_abi_audit(symbols: dict[str, Symbol],
         "source_abi_record_size": 16,
         "source_reference": (
             "workspace/private/inputs/kernel_source/"
-            "SM-A908N_KOR_12_Opensource/Kernel/include/linux/export.h"
+            "SM-A908N_KOR_12_Opensource_13272/Kernel/include/linux/export.h"
         ),
         "focus_rows": rows,
         "noisy_403_table_runs": runs_403[:8],
