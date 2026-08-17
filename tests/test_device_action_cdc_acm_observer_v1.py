@@ -23,14 +23,19 @@ SCRIPT = (
 
 
 def load_module():
-    spec = importlib.util.spec_from_file_location(
-        "device_action_cdc_acm_observer_v1_tested", SCRIPT
-    )
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    script_dir = str(SCRIPT.parent.resolve())
+    sys.path.insert(0, script_dir)
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "device_action_cdc_acm_observer_v1_tested", SCRIPT
+        )
+        module = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path.remove(script_dir)
 
 
 class HealthyGuard:
@@ -141,6 +146,15 @@ class CdcAcmObserverV1Test(unittest.TestCase):
         baseline_receipt = self.module.persist_json(
             run_dir / "candidate-observer-baseline.json", baseline
         )
+        guard_capture_dir = self.module.raw_capture.prepare_capture_dir(
+            run_dir, "raw-cdc-guard"
+        )
+        guard_payload = b"fixture guard armed\n"
+        guard_handle = self.module.raw_capture.publish_captured_bytes(
+            guard_capture_dir,
+            "guard-arm",
+            stdout=guard_payload,
+        )
         guard_receipt = self.module.persist_json(
             run_dir / "candidate-observer-guard.json",
             {
@@ -152,7 +166,14 @@ class CdcAcmObserverV1Test(unittest.TestCase):
                     self.module._guard_rule(self.spec(), "usb:1-1")
                 ).hexdigest(),
                 "instance_sha256": "5" * 64,
-                "output_sha256": "4" * 64,
+                "output_sha256": hashlib.sha256(guard_payload).hexdigest(),
+                "raw_capture_receipt": {
+                    "path": str(guard_handle.receipt_path),
+                    "size": guard_handle.receipt_path.stat().st_size,
+                    "sha256": hashlib.sha256(
+                        guard_handle.receipt_path.read_bytes()
+                    ).hexdigest(),
+                },
                 "child_alive": True,
             },
         )
@@ -314,16 +335,25 @@ class CdcAcmObserverV1Test(unittest.TestCase):
         session = self.session(class_tty, dev_root, run_dir)
         session.guard = MismatchedGuard()
         endpoint = self.module.scan_endpoints(class_tty)[0][1]
+        writer = self.module.raw_capture.RawCaptureWriter(
+            run_dir,
+            "uid-mismatch",
+            stdout_maximum=64,
+            stderr_maximum=1,
+        )
         with mock.patch.object(
             self.module.os,
             "open",
             side_effect=AssertionError("TTY open must not occur"),
         ):
-            classification, payload = session._read_endpoint(
-                endpoint, self.module.time.monotonic() + 1
+            classification = session._read_endpoint(
+                endpoint, self.module.time.monotonic() + 1, writer
             )
+        handle = writer.finalize(returncode=0)
         self.assertEqual(classification, "identity-mismatch")
-        self.assertEqual(payload, b"")
+        self.assertEqual(
+            self.module.raw_capture.read_stdout(handle, maximum=64), b""
+        )
 
     def test_unrelated_and_malformed_acm_entries_do_not_block_selection(self):
         temporary, master, slave, class_tty, dev_root, run_dir = self.fixture()
@@ -401,6 +431,28 @@ class CdcAcmObserverV1Test(unittest.TestCase):
         with self.assertRaises(self.module.ObserverError):
             self.module.validate_receipt(
                 run_dir / "candidate-observer.json",
+                spec=self.spec(),
+                binding=session.binding,
+                topology="usb:1-1",
+            )
+
+    def test_receipt_cannot_downgrade_away_raw_capture(self):
+        temporary, master, slave, class_tty, dev_root, run_dir = self.fixture()
+        self.addCleanup(temporary.cleanup)
+        self.addCleanup(os.close, master)
+        self.addCleanup(os.close, slave)
+        os.write(master, bytes.fromhex(self.spec()["banner_hex"]))
+        session = self.session(class_tty, dev_root, run_dir)
+        session.observe(timeout_sec=2, download_departure=self.departure())
+        path = run_dir / "candidate-observer.json"
+        value = json.loads(path.read_text(encoding="utf-8"))
+        value["schema"] = "device_action_cdc_acm_receipt_v1"
+        value["raw"].pop("capture_receipt")
+        path.chmod(0o600)
+        path.write_text(json.dumps(value), encoding="utf-8")
+        with self.assertRaises(self.module.ObserverError):
+            self.module.validate_receipt(
+                path,
                 spec=self.spec(),
                 binding=session.binding,
                 topology="usb:1-1",
@@ -503,6 +555,9 @@ class CdcAcmObserverV1Test(unittest.TestCase):
                     self.module.subprocess, "Popen", return_value=process
                 ) as popen,
                 mock.patch.object(
+                    self.module.select, "select", return_value=([], [], [])
+                ),
+                mock.patch.object(
                     self.module.ModemManagerGuard, "release", return_value={}
                 ),
             ):
@@ -518,11 +573,12 @@ class CdcAcmObserverV1Test(unittest.TestCase):
             )
             self.assertEqual(failure["status"], "guard-arm-failed")
             self.assertEqual(failure["returncode"], 1)
-            self.assertFalse(failure["truncated"])
+            raw_receipt = failure["raw_capture_receipt"]
+            handle = self.module.raw_capture.load_handle(
+                Path(raw_receipt["path"])
+            )
             self.assertEqual(
-                (
-                    evidence_dir / "candidate-observer-guard-arm.raw"
-                ).read_bytes(),
+                self.module.raw_capture.read_stdout(handle, maximum=16 * 1024),
                 b"",
             )
         command = popen.call_args.args[0]
@@ -587,16 +643,62 @@ class CdcAcmObserverV1Test(unittest.TestCase):
         process.stdout = stream
         process.poll.return_value = None
         process.pid = 123
-        with mock.patch.object(
+        with tempfile.TemporaryDirectory() as temporary, mock.patch.object(
             self.module.subprocess, "Popen", return_value=process
         ):
             guard = self.module.ModemManagerGuard.arm(
-                self.spec(), "usb:1-1"
+                self.spec(), "usb:1-1", evidence_dir=Path(temporary)
             )
         self.assertEqual(guard.arm_receipt["status"], "armed")
         self.assertEqual(guard.arm_receipt["rule_sha256"], rule_sha256)
         self.assertTrue(guard.arm_receipt["child_alive"])
         self.assertTrue(guard.healthy())
+
+    def test_active_modemmanager_wrong_fixed_frame_is_preserved_before_reject(self):
+        read_fd, write_fd = os.pipe()
+        self.addCleanup(os.close, write_fd)
+        stream = os.fdopen(read_fd, "rb", buffering=0)
+        self.addCleanup(stream.close)
+        payload = (self.module.GUARD_ARM_PREFIX + "0" * 64 + "\n").encode()
+        os.write(write_fd, payload)
+        process = mock.Mock()
+        process.stdin = mock.Mock()
+        process.stdout = stream
+        process.poll.return_value = None
+        process.pid = 123
+        with (
+            tempfile.TemporaryDirectory() as temporary,
+            mock.patch.object(
+                self.module.subprocess, "Popen", return_value=process
+            ),
+            mock.patch.object(
+                self.module.ModemManagerGuard,
+                "release",
+                return_value={"released": True},
+            ),
+        ):
+            evidence = Path(temporary)
+            with self.assertRaisesRegex(
+                self.module.ObserverError, "udev guard failed"
+            ):
+                self.module.ModemManagerGuard.arm(
+                    self.spec(), "usb:1-1", evidence_dir=evidence
+                )
+            failure = json.loads(
+                (
+                    evidence
+                    / "candidate-observer-guard-arm-failure.json"
+                ).read_text(encoding="utf-8")
+            )
+            handle = self.module.raw_capture.load_handle(
+                Path(failure["raw_capture_receipt"]["path"])
+            )
+            self.assertEqual(
+                self.module.raw_capture.read_stdout(
+                    handle, maximum=len(payload)
+                ),
+                payload,
+            )
 
     def test_modemmanager_release_uses_control_pipe(self):
         process = mock.Mock()
@@ -1059,22 +1161,25 @@ class CdcAcmObserverV1Test(unittest.TestCase):
             )
 
     def test_active_guard_requires_udev_ignore_properties_on_tty(self):
-        guard = self.module.ModemManagerGuard(self.spec(), "usb:1-1")
-        with mock.patch.object(
-            self.module,
-            "_udev_properties",
-            return_value={
-                "ID_MM_DEVICE_IGNORE": "1",
-                "ID_MM_PORT_IGNORE": "1",
-            },
-        ):
-            self.assertTrue(guard.matches_node(Path("/")))
-        with mock.patch.object(
-            self.module,
-            "_udev_properties",
-            return_value={"ID_MM_DEVICE_IGNORE": "1"},
-        ):
-            self.assertFalse(guard.matches_node(Path("/")))
+        with tempfile.TemporaryDirectory() as temporary:
+            guard = self.module.ModemManagerGuard(
+                self.spec(), "usb:1-1", evidence_dir=Path(temporary)
+            )
+            with mock.patch.object(
+                self.module,
+                "_udev_properties",
+                return_value={
+                    "ID_MM_DEVICE_IGNORE": "1",
+                    "ID_MM_PORT_IGNORE": "1",
+                },
+            ):
+                self.assertTrue(guard.matches_node(Path("/")))
+            with mock.patch.object(
+                self.module,
+                "_udev_properties",
+                return_value={"ID_MM_DEVICE_IGNORE": "1"},
+            ):
+                self.assertFalse(guard.matches_node(Path("/")))
 
     def test_modemmanager_launch_failure_is_durable(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -1146,6 +1251,7 @@ class CdcAcmObserverV1Test(unittest.TestCase):
         process.poll.return_value = None
         process.pid = 123
         with (
+            tempfile.TemporaryDirectory() as temporary,
             mock.patch.object(
                 self.module.subprocess, "Popen", return_value=process
             ),
@@ -1160,7 +1266,7 @@ class CdcAcmObserverV1Test(unittest.TestCase):
         ):
             with self.assertRaises(OSError):
                 self.module.ModemManagerGuard.arm(
-                    self.spec(), "usb:1-1"
+                    self.spec(), "usb:1-1", evidence_dir=Path(temporary)
                 )
         release.assert_called_once()
 
@@ -1206,6 +1312,11 @@ class CdcAcmObserverV1Test(unittest.TestCase):
                         "rule_sha256": "3" * 64,
                         "instance_sha256": "5" * 64,
                         "output_sha256": "4" * 64,
+                        "raw_capture_receipt": {
+                            "path": "unused",
+                            "size": 1,
+                            "sha256": "4" * 64,
+                        },
                         "child_alive": True,
                     },
                     sort_keys=True,
@@ -1250,6 +1361,11 @@ class CdcAcmObserverV1Test(unittest.TestCase):
             "rule_sha256": "3" * 64,
             "instance_sha256": "5" * 64,
             "output_sha256": "4" * 64,
+            "raw_capture_receipt": {
+                "path": "unused",
+                "size": 1,
+                "sha256": "4" * 64,
+            },
             "child_alive": True,
         }
         with tempfile.TemporaryDirectory() as temporary:
@@ -1291,6 +1407,11 @@ class CdcAcmObserverV1Test(unittest.TestCase):
             "rule_sha256": "3" * 64,
             "instance_sha256": "5" * 64,
             "output_sha256": "4" * 64,
+            "raw_capture_receipt": {
+                "path": "unused",
+                "size": 1,
+                "sha256": "4" * 64,
+            },
             "child_alive": True,
         }
         with tempfile.TemporaryDirectory() as temporary:

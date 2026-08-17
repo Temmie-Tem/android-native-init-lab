@@ -20,13 +20,14 @@ from pathlib import Path
 from typing import Any, Protocol
 
 import device_action_f1_v2 as f1
+import device_action_raw_capture_v1 as raw_capture
 
 
-D0_VERSION = "device-action-d0-v2-2"
+D0_VERSION = "device-action-d0-v2-3"
 D0_RESULT_SCHEMA = "device_action_d0_result_v2"
 D0_VERDICT = "PASS_DEVICE_ACTION_D0_V2_CONNECTED_READ_ONLY"
 D0_STOP_RESULT_SCHEMA = "device_action_d0_stop_result_v1"
-D0_STOP_VERSION = "device-action-d0-stop-v1"
+D0_STOP_VERSION = "device-action-d0-stop-v2"
 D0_STOP_VERDICT = "STOP_DEVICE_ACTION_D0_V2_BASELINE_REJECTED"
 D0_BASELINE_STOP_REASONS = {
     "baseline-decoder-rejected",
@@ -171,13 +172,21 @@ def _parse_key_values(text: str, required: set[str], label: str) -> dict[str, st
     return values
 
 
+@dataclass(frozen=True)
+class ObserverCapture:
+    receipt: dict[str, Any]
+    handle: raw_capture.RawCaptureHandle
+
+
 class ReadOnlyClient(Protocol):
     def receipt(self) -> dict[str, Any]: ...
     def one_serial(self) -> str: ...
     def topology(self, serial: str) -> str: ...
     def properties(self, serial: str) -> dict[str, str]: ...
     def root_health(self, serial: str) -> dict[str, str]: ...
-    def capture(self, serial: str, source: str, destination: Path) -> dict[str, Any]: ...
+    def capture(
+        self, serial: str, source: str, destination: Path
+    ) -> ObserverCapture: ...
 
 
 class AdbReadOnlyClient:
@@ -219,11 +228,63 @@ class AdbReadOnlyClient:
                 "device:" + re.sub(r"[^A-Za-z0-9._]", "_", expected_device),
             }
         self._selection: tuple[str, int] | None = None
+        self._raw_capture_dir: Path | None = None
+        self._raw_capture_sequence = 0
+
+    def bind_raw_capture_dir(self, run_dir: Path) -> None:
+        capture_dir = raw_capture.prepare_capture_dir(run_dir, "raw-adb")
+        if self._raw_capture_dir is None:
+            self._raw_capture_dir = capture_dir
+        elif self._raw_capture_dir != capture_dir:
+            raise D0Error("ADB raw-capture directory changed")
+
+    def _capture_name(self, label: str) -> str:
+        if self._raw_capture_dir is None:
+            raise D0Error("ADB raw-first capture is not bound")
+        slug = re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-")
+        if not slug:
+            raise D0Error("ADB raw-capture label is invalid")
+        name = f"{self._raw_capture_sequence:04d}-{slug[:72]}"
+        self._raw_capture_sequence += 1
+        return name
 
     def _run(self, arguments: list[str], label: str, timeout: float = 20) -> str:
-        return _decode(
-            bounded_command([str(self.adb), *arguments], timeout=timeout), label
-        )
+        if self._raw_capture_dir is None:
+            raise D0Error("ADB raw-first capture is not bound")
+        try:
+            handle = self.capture_command(
+                arguments,
+                label,
+                timeout=timeout,
+                maximum=MAX_TEXT_OUTPUT,
+            )
+            return raw_capture.decode_success_stdout(
+                handle, maximum=MAX_TEXT_OUTPUT
+            )
+        except raw_capture.RawCaptureError as exc:
+            raise D0Error(f"{label} raw capture failed: {exc}") from exc
+
+    def capture_command(
+        self,
+        arguments: list[str],
+        label: str,
+        *,
+        timeout: float,
+        maximum: int,
+    ) -> raw_capture.RawCaptureHandle:
+        if self._raw_capture_dir is None:
+            raise D0Error("ADB raw-first capture is not bound")
+        try:
+            return raw_capture.acquire_command(
+                [str(self.adb), *arguments],
+                self._raw_capture_dir,
+                self._capture_name(label),
+                timeout=timeout,
+                stdout_maximum=maximum,
+                stderr_maximum=maximum,
+            )
+        except raw_capture.RawCaptureError as exc:
+            raise D0Error(f"{label} raw acquisition failed: {exc}") from exc
 
     def receipt(self) -> dict[str, Any]:
         version = self._run(["version"], "adb version", 10)
@@ -306,48 +367,55 @@ printf 'recovery='; sha256sum /dev/block/by-name/recovery | cut -d' ' -f1"""
             "root health",
         )
 
-    def capture(self, serial: str, source: str, destination: Path) -> dict[str, Any]:
+    def capture(
+        self, serial: str, source: str, destination: Path
+    ) -> ObserverCapture:
         if REMOTE_PATH_RE.fullmatch(source) is None or ".." in Path(source).parts:
             raise D0Error("observer source is not a bounded procfs/sysfs path")
         remote = f"su -c {shlex.quote('cat ' + shlex.quote(source))}"
-        stderr_path = destination.with_suffix(destination.suffix + ".stderr")
+        if self._raw_capture_dir is None:
+            raise D0Error("ADB raw-first capture is not bound")
+        if destination.parent.absolute() != self._raw_capture_dir.parent:
+            raise D0Error("observer destination is outside the bound run directory")
         started = time.monotonic()
-        with destination.open("xb") as output, stderr_path.open("xb") as error:
-            process = subprocess.Popen(
+        name = self._capture_name("observer-eof")
+        try:
+            handle = raw_capture.acquire_command(
                 [str(self.adb), "-s", serial, "exec-out", remote],
-                stdin=subprocess.DEVNULL,
-                stdout=output,
-                stderr=error,
-                close_fds=True,
+                destination.parent,
+                name,
+                timeout=180,
+                stdout_maximum=MAX_OBSERVER_BYTES,
+                stderr_maximum=MAX_TEXT_OUTPUT,
+                stdout_name=destination.name,
+                stderr_name=destination.name + ".stderr",
             )
-            deadline = started + 180
-            while process.poll() is None:
-                if output.tell() > MAX_OBSERVER_BYTES or error.tell() > MAX_TEXT_OUTPUT:
-                    _terminate(process)
-                    raise D0Error("observer output exceeded its bound")
-                if time.monotonic() >= deadline:
-                    _terminate(process)
-                    raise D0Error("observer timed out before EOF")
-                time.sleep(0.05)
-            output.flush()
-            error.flush()
-            os.fsync(output.fileno())
-            os.fsync(error.fileno())
-            returncode = process.returncode
-        _fsync_dir(destination.parent)
-        if returncode != 0 or stderr_path.stat().st_size:
-            raise D0Error("observer capture failed or produced stderr")
-        payload = _read_stable(destination, MAX_OBSERVER_BYTES)
+            raw_capture.require_success(handle)
+            payload = raw_capture.read_stdout(
+                handle, maximum=MAX_OBSERVER_BYTES
+            )
+        except raw_capture.RawCaptureError as exc:
+            raise D0Error(f"observer raw capture failed: {exc}") from exc
         if not payload or len(payload) > MAX_OBSERVER_BYTES:
             raise D0Error("observer output is empty or oversized")
-        return {
-            "path": str(destination),
-            "bytes": len(payload),
-            "sha256": hashlib.sha256(payload).hexdigest(),
-            "read_to_eof": True,
-            "stderr_bytes": 0,
-            "elapsed_sec": round(time.monotonic() - started, 6),
-        }
+        return ObserverCapture(
+            receipt={
+                "path": str(destination),
+                "bytes": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+                "raw_capture": {
+                    "path": str(handle.receipt_path),
+                    "size": handle.receipt_path.stat().st_size,
+                    "sha256": hashlib.sha256(
+                        handle.receipt_path.read_bytes()
+                    ).hexdigest(),
+                },
+                "read_to_eof": True,
+                "stderr_bytes": 0,
+                "elapsed_sec": round(time.monotonic() - started, 6),
+            },
+            handle=handle,
+        )
 
 
 def _read_small(path: Path) -> str | None:
@@ -669,6 +737,40 @@ def _validate_observer_file(
         raise D0Error(f"{label} stderr evidence is unavailable") from exc
     if stderr_payload:
         raise D0Error(f"{label} stderr evidence is not empty")
+    if "raw_capture" in value:
+        raw_value = _exact(
+            value["raw_capture"],
+            {"path", "sha256", "size"},
+            f"{label} raw-capture receipt",
+        )
+        raw_path = Path(raw_value["path"])
+        if (
+            not raw_path.is_absolute()
+            or raw_path.parent != run_dir.absolute()
+            or not isinstance(raw_value["size"], int)
+            or isinstance(raw_value["size"], bool)
+            or not 1 <= raw_value["size"] <= 64 * 1024
+            or not isinstance(raw_value["sha256"], str)
+            or re.fullmatch(r"[0-9a-f]{64}", raw_value["sha256"]) is None
+        ):
+            raise D0Error(f"{label} raw-capture receipt is invalid")
+        try:
+            handle = raw_capture.load_handle(raw_path)
+            raw_capture.require_success(handle)
+        except raw_capture.RawCaptureError as exc:
+            raise D0Error(f"{label} raw-capture receipt is invalid") from exc
+        encoded = _read_stable(raw_path, 64 * 1024)
+        if (
+            len(encoded) != raw_value["size"]
+            or hashlib.sha256(encoded).hexdigest() != raw_value["sha256"]
+            or handle.stdout_path != observer_path
+            or handle.stderr_path
+            != observer_path.with_suffix(observer_path.suffix + ".stderr")
+            or int(handle.stdout["size"]) != value["bytes"]
+            or handle.stdout["sha256"] != value["sha256"]
+            or int(handle.stderr["size"]) != 0
+        ):
+            raise D0Error(f"{label} raw-capture binding differs")
     return payload
 
 
@@ -719,7 +821,6 @@ def validate_result(
     )
     expected_header = {
         "schema": D0_RESULT_SCHEMA,
-        "version": D0_VERSION,
         "mode": "connected-read-only",
         "profile_id": bundle.profile["profile_id"],
         "manifest_id": bundle.manifest["manifest_id"],
@@ -729,6 +830,9 @@ def validate_result(
     for key, expected in expected_header.items():
         if result[key] != expected:
             raise D0Error(f"D0 result header mismatch: {key}")
+    version = result["version"]
+    if version != D0_VERSION:
+        raise D0Error("D0 result version is invalid")
     _validate_no_effects(result, "D0 result")
     f1.validate_target_evidence(bundle.profile, result["target_evidence"])
     _validate_health_receipt(result["health"], bundle, "D0 health")
@@ -745,6 +849,7 @@ def validate_result(
         "exact_marker_count",
         "baseline_clean",
     }
+    required_observer.add("raw_capture")
     observer_payload = _validate_observer_file(
         observer,
         keys=required_observer,
@@ -808,7 +913,6 @@ def validate_stop_result(
     )
     expected_header = {
         "schema": D0_STOP_RESULT_SCHEMA,
-        "version": D0_STOP_VERSION,
         "mode": "connected-read-only-stop",
         "profile_id": bundle.profile["profile_id"],
         "manifest_id": bundle.manifest["manifest_id"],
@@ -818,6 +922,9 @@ def validate_stop_result(
     for key, expected in expected_header.items():
         if result[key] != expected:
             raise D0Error(f"D0 stop result header mismatch: {key}")
+    version = result["version"]
+    if version != D0_STOP_VERSION:
+        raise D0Error("D0 stop result version is invalid")
     _validate_no_effects(result, "D0 stop result")
     f1.validate_target_evidence(bundle.profile, result["target_evidence"])
     _validate_health_receipt(result["initial_health"], bundle, "D0 initial health")
@@ -855,6 +962,7 @@ def validate_stop_result(
         "elapsed_sec",
         "source",
     }
+    observer_keys.add("raw_capture")
     payload = _validate_observer_file(
         result["observer"],
         keys=observer_keys,
@@ -922,6 +1030,8 @@ def collect_connected(
     client: ReadOnlyClient,
     usb_root: Path,
 ) -> dict[str, Any]:
+    if isinstance(client, AdbReadOnlyClient):
+        client.bind_raw_capture_dir(run_dir)
     host_tool = client.receipt()
     download = bundle.profile["target"]["download"]
     initial_usb = usb_snapshot(usb_root, download)
@@ -939,8 +1049,16 @@ def collect_connected(
     source = acceptance["source"]
     if REMOTE_PATH_RE.fullmatch(source) is None or ".." in Path(source).parts:
         raise D0Error("observer source is not a bounded procfs/sysfs path")
-    receipt = client.capture(serial, source, run_dir / "baseline-observer.bin")
-    payload = _read_stable(run_dir / "baseline-observer.bin", MAX_OBSERVER_BYTES)
+    capture = client.capture(serial, source, run_dir / "baseline-observer.bin")
+    if not isinstance(capture, ObserverCapture):
+        raise D0Error("observer did not return an immutable raw handle")
+    receipt = capture.receipt
+    try:
+        payload = raw_capture.read_stdout(
+            capture.handle, maximum=MAX_OBSERVER_BYTES
+        )
+    except raw_capture.RawCaptureError as exc:
+        raise D0Error("observer raw handle cannot be parsed") from exc
     baseline, stop_reason = _inspect_clean_baseline(payload, acceptance)
     if stop_reason is not None:
         _publish_baseline_stop(

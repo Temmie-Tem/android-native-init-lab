@@ -25,6 +25,9 @@ DEFAULT_OBSERVER = Path(
     "workspace/public/src/scripts/revalidation/"
     "device_action_cdc_acm_observer_v1.py"
 )
+DEFAULT_RAW_CAPTURE = Path(
+    "workspace/public/src/scripts/revalidation/device_action_raw_capture_v1.py"
+)
 DEFAULT_LATCH = Path(
     "workspace/public/src/kernel-modules/s22plus_dwc3_event_latch/"
     "s22plus_dwc3_event_latch.c"
@@ -80,7 +83,12 @@ def _load_observer(path: Path):
         raise NegativeControlError("real CDC ACM observer cannot be imported")
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
-    spec.loader.exec_module(module)
+    dependency_root = (repo_root() / DEFAULT_RAW_CAPTURE).parent
+    sys.path.insert(0, str(dependency_root))
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(str(dependency_root))
     return module
 
 
@@ -203,6 +211,13 @@ class _SelectorFixture:
         baseline_receipt = self.observer.persist_json(
             self.run_dir / "candidate-observer-baseline.json", baseline
         )
+        guard_payload = b"selector fixture guard armed\n"
+        guard_capture_dir = self.observer.raw_capture.prepare_capture_dir(
+            self.run_dir, "raw-cdc-guard"
+        )
+        guard_handle = self.observer.raw_capture.publish_captured_bytes(
+            guard_capture_dir, "guard-arm", stdout=guard_payload
+        )
         guard_value = {
             "schema": self.observer.GUARD_SCHEMA,
             "status": "armed",
@@ -212,7 +227,14 @@ class _SelectorFixture:
                 self.observer._guard_rule(spec_value, APPROVED_TOPOLOGY)
             ).hexdigest(),
             "instance_sha256": "5" * 64,
-            "output_sha256": "4" * 64,
+            "output_sha256": hashlib.sha256(guard_payload).hexdigest(),
+            "raw_capture_receipt": {
+                "path": str(guard_handle.receipt_path),
+                "size": guard_handle.receipt_path.stat().st_size,
+                "sha256": hashlib.sha256(
+                    guard_handle.receipt_path.read_bytes()
+                ).hexdigest(),
+            },
             "child_alive": True,
         }
         guard_receipt = self.observer.persist_json(
@@ -497,7 +519,15 @@ def build_contract(
     return {
         "schema": SCHEMA,
         "verdict": VERDICT,
-        "inputs": {"extractor": receipt(extractor_data)},
+        "inputs": {
+            "extractor": receipt(extractor_data),
+            "raw_capture": receipt(
+                stable_read(
+                    repo_root() / DEFAULT_RAW_CAPTURE,
+                    "raw capture dependency",
+                )
+            ),
+        },
         "real_cdc_acm_selector": selector,
         "actual_latch_udc_filter": udc_filter,
         "scope": {

@@ -291,6 +291,13 @@ S22SERIAL device product:g0q model:SM_S906N device:g0q transport_id:2
         ) as run_name:
             raw = fixture.run()
             run_dir = Path(run_name)
+            raw_handle = module.raw_capture.publish_captured_bytes(
+                run_dir,
+                "max77705-sysfs-snapshot",
+                stdout=raw,
+                stdout_name="sysfs-snapshot.tsv",
+                stderr_name="sysfs-snapshot.tsv.stderr",
+            )
             profile = {"profile_id": "s22plus-fyg8", "target": {"download": {}}}
             usb = {
                 "enumerated_devices": 1,
@@ -312,7 +319,9 @@ S22SERIAL device product:g0q model:SM_S906N device:g0q transport_id:2
                 mock.patch.object(
                     module,
                     "_root_snapshot",
-                    side_effect=lambda _adb, serial: calls.append(("snapshot", serial)) or raw,
+                    side_effect=lambda _adb, serial, _run: (
+                        calls.append(("snapshot", serial)) or raw_handle
+                    ),
                 ),
             ):
                 result = module.collect(

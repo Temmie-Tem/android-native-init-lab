@@ -130,18 +130,17 @@ class S22PlusBootOnlyLiveCoreTest(unittest.TestCase):
     def test_capture_exec_out_records_eof_and_empty_stderr(self):
         module = self.module
 
-        class FakeProcess:
-            def __init__(self, _argv, stdout, stderr):
-                stdout.write(b"observer")
-                stdout.flush()
-                stderr.flush()
-                self.returncode = 0
-
-            def poll(self):
-                return self.returncode
+        def fake_acquire(_argv, capture_dir, name, **kwargs):
+            return module.raw_capture.publish_captured_bytes(
+                capture_dir,
+                name,
+                stdout=b"observer",
+                stdout_name=kwargs.get("stdout_name"),
+                stderr_name=kwargs.get("stderr_name"),
+            )
 
         with tempfile.TemporaryDirectory() as temporary, mock.patch.object(
-            module.subprocess, "Popen", side_effect=FakeProcess
+            module.raw_capture, "acquire_command", side_effect=fake_acquire
         ):
             receipt = module.capture_adb_exec_out(
                 "serial",

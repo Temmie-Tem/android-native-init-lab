@@ -18,6 +18,7 @@ from typing import Any
 
 import device_action_d0_v2 as d0
 import device_action_f1_v2 as f1
+import device_action_raw_capture_v1 as raw_capture
 
 
 VERSION = "s22plus-fyg8-max77705-sysfs-d0-v1"
@@ -132,16 +133,23 @@ def select_exact_s22(text: str) -> Selection:
     )
 
 
-def read_adb_inventory(adb: Path) -> tuple[str, Selection]:
-    result = d0.bounded_command(
-        [str(adb), "devices", "-l"], timeout=10, maximum=d0.MAX_TEXT_OUTPUT
-    )
-    if result.returncode != 0 or result.stderr:
-        raise InventoryError("ADB inventory failed or produced stderr")
+def read_adb_inventory(
+    adb: Path, capture_dir: Path, name: str
+) -> tuple[str, Selection]:
     try:
-        text = result.stdout.decode("utf-8", "strict")
-    except UnicodeDecodeError as exc:
-        raise InventoryError("ADB inventory is not UTF-8") from exc
+        handle = raw_capture.acquire_command(
+            [str(adb), "devices", "-l"],
+            capture_dir,
+            name,
+            timeout=10,
+            stdout_maximum=d0.MAX_TEXT_OUTPUT,
+            stderr_maximum=d0.MAX_TEXT_OUTPUT,
+        )
+        text = raw_capture.decode_success_stdout(
+            handle, maximum=d0.MAX_TEXT_OUTPUT, strip=False
+        )
+    except raw_capture.RawCaptureError as exc:
+        raise InventoryError(f"ADB inventory raw capture failed: {exc}") from exc
     return text, select_exact_s22(text)
 
 
@@ -530,15 +538,36 @@ def snapshot_safety_contract(script: str = SNAPSHOT_SCRIPT) -> dict[str, Any]:
     }
 
 
-def _root_snapshot(adb: Path, serial: str) -> bytes:
-    result = d0.bounded_command(
-        [str(adb), "-s", serial, "exec-out", "su", "-c", SNAPSHOT_SCRIPT],
-        timeout=45,
-        maximum=MAX_SNAPSHOT_BYTES,
-    )
-    if result.returncode != 0 or result.stderr:
-        raise InventoryError("read-only sysfs snapshot failed or produced stderr")
-    return result.stdout
+def _root_snapshot(
+    adb: Path, serial: str, run_dir: Path
+) -> raw_capture.RawCaptureHandle:
+    try:
+        handle = raw_capture.acquire_command(
+            [str(adb), "-s", serial, "exec-out", "su", "-c", SNAPSHOT_SCRIPT],
+            run_dir,
+            "max77705-sysfs-snapshot",
+            timeout=45,
+            stdout_maximum=MAX_SNAPSHOT_BYTES,
+            stderr_maximum=d0.MAX_TEXT_OUTPUT,
+            stdout_name="sysfs-snapshot.tsv",
+            stderr_name="sysfs-snapshot.tsv.stderr",
+        )
+        raw_capture.require_success(handle)
+        return handle
+    except raw_capture.RawCaptureError as exc:
+        raise InventoryError(f"read-only sysfs raw capture failed: {exc}") from exc
+
+
+def parse_snapshot_handle(
+    handle: raw_capture.RawCaptureHandle,
+) -> tuple[bytes, dict[str, Any]]:
+    if not isinstance(handle, raw_capture.RawCaptureHandle):
+        raise InventoryError("sysfs parser input is not a raw capture handle")
+    try:
+        raw = raw_capture.read_stdout(handle, maximum=MAX_SNAPSHOT_BYTES)
+    except raw_capture.RawCaptureError as exc:
+        raise InventoryError("sysfs raw handle cannot be parsed") from exc
+    return raw, parse_snapshot(raw)
 
 
 def _host_android_usb_count(root: Path = d0.DEFAULT_USB_ROOT) -> int:
@@ -632,6 +661,9 @@ def collect(
     client = d0.AdbReadOnlyClient(
         adb, expected_model=EXPECTED_MODEL, expected_device=EXPECTED_DEVICE
     )
+    if hasattr(client, "bind_raw_capture_dir"):
+        client.bind_raw_capture_dir(run_dir)
+    capture_dir = raw_capture.prepare_capture_dir(run_dir, "raw-sysfs-d0")
     host_tool = client.receipt()
     initial_usb = d0.usb_snapshot(d0.DEFAULT_USB_ROOT, profile["target"]["download"])
     if (
@@ -641,16 +673,20 @@ def collect(
     ):
         raise InventoryError("initial host USB state is not one exact Android endpoint")
 
-    initial_text, selection = read_adb_inventory(adb)
+    initial_text, selection = read_adb_inventory(
+        adb, capture_dir, "0000-adb-inventory-initial"
+    )
     topology = client.topology(selection.serial)
     properties = client.properties(selection.serial)
     _exact_identity(properties)
     root_health = client.root_health(selection.serial)
     health = d0.validate_health(_ProfileView(profile), properties, root_health, True)
-    raw = _root_snapshot(adb, selection.serial)
-    inventory = parse_snapshot(raw)
+    raw_handle = _root_snapshot(adb, selection.serial, run_dir)
+    raw, inventory = parse_snapshot_handle(raw_handle)
 
-    final_text, final_selection = read_adb_inventory(adb)
+    final_text, final_selection = read_adb_inventory(
+        adb, capture_dir, "0001-adb-inventory-final"
+    )
     final_topology = client.topology(final_selection.serial)
     final_properties = client.properties(final_selection.serial)
     final_usb = d0.usb_snapshot(d0.DEFAULT_USB_ROOT, profile["target"]["download"])
@@ -666,8 +702,7 @@ def collect(
     ):
         raise InventoryError("exact target, inventory, health, or USB state changed during D0")
 
-    raw_path = run_dir / "sysfs-snapshot.tsv"
-    durable_create(raw_path, raw)
+    raw_path = raw_handle.stdout_path
     result = {
         "schema": SCHEMA,
         "version": VERSION,
@@ -699,6 +734,13 @@ def collect(
             "path": raw_path.relative_to(root).as_posix(),
             "bytes": len(raw),
             "sha256": hashlib.sha256(raw).hexdigest(),
+            "capture_receipt": {
+                "path": raw_handle.receipt_path.relative_to(root).as_posix(),
+                "bytes": raw_handle.receipt_path.stat().st_size,
+                "sha256": hashlib.sha256(
+                    raw_handle.receipt_path.read_bytes()
+                ).hexdigest(),
+            },
         },
         "host_tool": host_tool,
         "safety": safety,

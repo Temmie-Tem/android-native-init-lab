@@ -7,6 +7,7 @@ import argparse
 import contextlib
 import hashlib
 import json
+import math
 import os
 import re
 import signal
@@ -18,6 +19,7 @@ from pathlib import Path
 from typing import Any, ContextManager, Protocol
 
 import device_action_d0_v2 as d0
+import device_action_raw_capture_v1 as raw_capture
 import device_action_cdc_acm_observer_v1 as cdc_acm_observer
 import device_action_f1_evidence_v2 as typed_evidence
 import device_action_f1_v2 as core
@@ -31,7 +33,7 @@ import s22plus_odin_transition_core as odin_core
 import s22plus_odin_usbfs_identity as usbfs_identity
 
 
-ADAPTER_VERSION = "device-action-f1-live-v2-5"
+ADAPTER_VERSION = "device-action-f1-live-v2-6"
 PREPARED_SCHEMA = "device_action_f1_prepared_v2"
 PRIVATE_TARGET_SCHEMA = "device_action_f1_private_target_v2"
 LIVE_STATE_SCHEMA = "device_action_f1_live_state_v2"
@@ -182,6 +184,9 @@ def _closure(root: Path) -> dict[str, Any]:
     paths = {
         "adapter": Path(__file__).resolve(),
         "cdc_acm_observer": Path(cdc_acm_observer.__file__).resolve(),
+        "raw_capture": scripts / "device_action_raw_capture_v1.py",
+        "usb_trace_sidecar": Path(usb_trace_sidecar.__file__).resolve(),
+        "p300_usb_trace_binding": Path(p300_usb_trace.__file__).resolve(),
         "f1_core": scripts / "device_action_f1_v2.py",
         "typed_evidence": scripts / "device_action_f1_evidence_v2.py",
         "checkpoint_decoder": scripts / "s22plus_fyg8_r4w1e_checkpoint_contract.py",
@@ -1362,6 +1367,29 @@ def _next_execute_preflight(run_dir: Path) -> Path:
     return run_dir / f"execute-preflight-{len(paths) + 1:02d}"
 
 
+def _classify_odin_capture(
+    handle: raw_capture.RawCaptureHandle,
+) -> tuple[str, bytes, bytes]:
+    if not isinstance(handle, raw_capture.RawCaptureHandle):
+        raise F1LiveError("Odin parser input is not a raw capture handle")
+    try:
+        stdout = raw_capture.read_stdout(handle, maximum=MAX_ODIN_OUTPUT)
+        stderr = raw_capture.read_stderr(handle, maximum=MAX_ODIN_OUTPUT)
+    except raw_capture.RawCaptureError as exc:
+        raise F1LiveError("Odin raw capture cannot be reopened") from exc
+    classification = (
+        "odin_device_session_failure_or_unknown"
+        if (
+            handle.producer_error_type is not None
+            or handle.timed_out
+            or handle.output_exceeded
+            or type(handle.returncode) is not int
+        )
+        else core.classify_odin_output(handle.returncode, stdout, stderr)
+    )
+    return classification, stdout, stderr
+
+
 class SamsungOdinBackend:
     def __init__(
         self,
@@ -1372,6 +1400,7 @@ class SamsungOdinBackend:
     ):
         self.root = root.resolve()
         self.bundle = bundle
+        self.adb = adb.resolve(strict=True)
         self.client = d0.adb_client_for_bundle(adb, bundle)
         self.usb_root = usb_root
         self.odin = core._artifact_path(
@@ -1405,18 +1434,21 @@ class SamsungOdinBackend:
         }
 
     def request_download(self, prepared: PreparedRun) -> None:
-        result = d0.bounded_command(
-            [
-                str(self.client.adb),
-                "-s",
+        try:
+            handle = self.client.capture_command(
+                [
+                    "-s",
                 prepared.private_target["serial"],
                 "reboot",
                 "download",
-            ],
-            timeout=DOWNLOAD_REQUEST_TIMEOUT_SEC,
-        )
-        if result.returncode != 0 or result.stderr:
-            raise F1LiveError("Android Download request failed")
+                ],
+                "download-request",
+                timeout=DOWNLOAD_REQUEST_TIMEOUT_SEC,
+                maximum=d0.MAX_TEXT_OUTPUT,
+            )
+            raw_capture.require_success(handle)
+        except (d0.D0Error, raw_capture.RawCaptureError) as exc:
+            raise F1LiveError("Android Download request raw capture failed") from exc
 
     def endpoint_session(self, run_dir: Path) -> ContextManager[Any]:
         return odin_core.transaction_session(run_dir)
@@ -1578,7 +1610,7 @@ class SamsungOdinBackend:
         ap = core._artifact_path(self.root, item, f"{kind}_ap")
         odin = prepared.bundle.profile["transport"]["odin"]
         try:
-            receipt, stdout, stderr = transport.execute_odin_boot_only(
+            receipt, raw_handle = transport.execute_odin_boot_only(
                 self.odin,
                 ap,
                 endpoint.device,
@@ -1590,6 +1622,10 @@ class SamsungOdinBackend:
                 require_deterministic_metadata=kind == "candidate",
                 timeout=ODIN_TIMEOUT_SEC,
                 maximum_output=MAX_ODIN_OUTPUT,
+                capture_dir=destination,
+                capture_name=f"{prefix}-odin",
+                stdout_name=f"{prefix}.stdout",
+                stderr_name=f"{prefix}.stderr",
             )
         except (transport.F1TransportError, subprocess.SubprocessError, OSError) as exc:
             failure = {
@@ -1604,11 +1640,17 @@ class SamsungOdinBackend:
             return TransferOutcome(
                 "odin_device_session_failure_or_unknown", False, True, failure
             )
-        stdout_receipt = _persist_bytes(destination / f"{prefix}.stdout", stdout)
-        stderr_receipt = _persist_bytes(destination / f"{prefix}.stderr", stderr)
-        classification = core.classify_odin_output(
-            int(receipt["returncode"]), stdout, stderr
-        )
+        classification, stdout, stderr = _classify_odin_capture(raw_handle)
+        stdout_receipt = {
+            "path": str(raw_handle.stdout_path),
+            "size": len(stdout),
+            "sha256": hashlib.sha256(stdout).hexdigest(),
+        }
+        stderr_receipt = {
+            "path": str(raw_handle.stderr_path),
+            "size": len(stderr),
+            "sha256": hashlib.sha256(stderr).hexdigest(),
+        }
         value = {
             "schema": "device_action_f1_transfer_receipt_v2",
             "kind": kind,
@@ -1707,7 +1749,11 @@ class SamsungOdinBackend:
             "candidate_execution_proven": False,
         }
 
-    def _wait_final_health(self, prepared: PreparedRun) -> tuple[str, dict[str, Any]]:
+    def _wait_final_health(
+        self,
+        prepared: PreparedRun,
+        client: d0.AdbReadOnlyClient,
+    ) -> tuple[str, dict[str, Any]]:
         deadline = time.monotonic() + ANDROID_WAIT_SEC
         last_error = "final Android not observed"
         while time.monotonic() < deadline:
@@ -1717,15 +1763,15 @@ class SamsungOdinBackend:
                 )
                 if snapshot["download_endpoint_count"]:
                     raise F1LiveError("Download endpoint remains during final health")
-                serial = self.client.one_serial()
-                topology = self.client.topology(serial)
+                serial = client.one_serial()
+                topology = client.topology(serial)
                 if (
                     serial != prepared.private_target["serial"]
                     or topology != prepared.private_target["topology"]
                 ):
                     raise F1LiveError("final target continuity mismatch")
-                properties = self.client.properties(serial)
-                root_health = self.client.root_health(serial)
+                properties = client.properties(serial)
+                root_health = client.root_health(serial)
                 health = d0.validate_health(
                     prepared.bundle,
                     properties,
@@ -1759,26 +1805,37 @@ class SamsungOdinBackend:
         )
         if not absent.absent:
             raise F1LiveError("rollback Odin endpoint did not disappear")
-        serial, health = self._wait_final_health(prepared)
+        final_client = d0.adb_client_for_bundle(self.adb, prepared.bundle)
+        final_client.bind_raw_capture_dir(destination)
+        serial, health = self._wait_final_health(prepared, final_client)
         acceptance = prepared.bundle.manifest["observation"]["acceptance"]
         payloads: list[bytes] = []
         receipts: list[dict[str, Any]] = []
         for index in (1, 2):
             path = destination / f"rollback-observer-{index}.bin"
-            receipt = self.client.capture(serial, acceptance["source"], path)
-            payload = d0._read_stable(path, MAX_OBSERVER_BYTES)
-            stderr = d0._read_stable(
-                path.with_suffix(path.suffix + ".stderr"), d0.MAX_TEXT_OUTPUT
+            capture = final_client.capture(
+                serial, acceptance["source"], path
             )
+            try:
+                payload = raw_capture.read_stdout(
+                    capture.handle, maximum=MAX_OBSERVER_BYTES
+                )
+                stderr = raw_capture.read_stderr(
+                    capture.handle, maximum=d0.MAX_TEXT_OUTPUT
+                )
+            except raw_capture.RawCaptureError as exc:
+                raise F1LiveError(
+                    "rollback observer raw handle cannot be reopened"
+                ) from exc
             if stderr:
                 raise F1LiveError("rollback observer produced stderr")
             payloads.append(payload)
-            receipts.append(receipt)
+            receipts.append(capture.receipt)
             time.sleep(0.25)
         if not payloads[0] or payloads[0] != payloads[1]:
             raise F1LiveError("rollback observer reads are not stable and identical")
-        final_serial = self.client.one_serial()
-        final_topology = self.client.topology(final_serial)
+        final_serial = final_client.one_serial()
+        final_topology = final_client.topology(final_serial)
         if (
             final_serial != serial
             or final_serial != prepared.private_target["serial"]
@@ -2172,8 +2229,62 @@ def _validate_transfer_result(
         }
         or not isinstance(value.get("stdout"), dict)
         or not isinstance(value.get("stderr"), dict)
+        or not isinstance(value.get("transport"), dict)
     ):
         raise F1LiveError(f"{kind} transfer evidence is malformed")
+    transport_value = value["transport"]
+    transport_keys = {
+        "label",
+        "returncode",
+        "timed_out",
+        "output_exceeded",
+        "producer_error_type",
+        "command_shape",
+        "regular_path_inputs",
+        "anonymous_proc_fd_inputs",
+        "odin",
+        "ap",
+        "stdout_bytes",
+        "stderr_bytes",
+        "stdout_sha256",
+        "stderr_sha256",
+        "raw_capture_receipt",
+    }
+    item = (
+        prepared.bundle.manifest["candidate_ap"]
+        if kind == "candidate"
+        else prepared.bundle.manifest["rollback_ap"]
+    )
+    expected_odin = prepared.bundle.profile["transport"]["odin"]
+    expected_ap = {
+        "path": str(core._artifact_path(prepared.root, item, f"{kind}_ap")),
+        "size": item["size"],
+        "sha256": item["sha256"],
+    }
+    raw_value = transport_value.get("raw_capture_receipt")
+    if (
+        set(transport_value) != transport_keys
+        or transport_value["label"] != kind
+        or (
+            transport_value["returncode"] is not None
+            and type(transport_value["returncode"]) is not int
+        )
+        or type(transport_value["timed_out"]) is not bool
+        or type(transport_value["output_exceeded"]) is not bool
+        or (
+            transport_value["producer_error_type"] is not None
+            and not isinstance(transport_value["producer_error_type"], str)
+        )
+        or transport_value["command_shape"]
+        != ["odin4", "--reboot", "-a", "AP.tar.md5", "-d", "USBFS"]
+        or transport_value["regular_path_inputs"] is not True
+        or transport_value["anonymous_proc_fd_inputs"] is not False
+        or transport_value["odin"] != expected_odin
+        or transport_value["ap"] != expected_ap
+        or not isinstance(raw_value, dict)
+        or set(raw_value) != {"path", "sha256", "size"}
+    ):
+        raise F1LiveError(f"{kind} transport receipt is malformed")
     for stream in ("stdout", "stderr"):
         path = prepared.run_dir / f"{prefix}.{stream}"
         if value[stream] != _receipt(
@@ -2182,6 +2293,34 @@ def _validate_transfer_result(
             MAX_ODIN_OUTPUT,
         ):
             raise F1LiveError(f"{kind} {stream} evidence changed")
+    raw_path = prepared.run_dir / f"{prefix}-odin.capture.json"
+    try:
+        handle = raw_capture.load_handle(raw_path)
+        raw_payload = raw_path.read_bytes()
+        expected_classification, stdout, stderr = _classify_odin_capture(handle)
+    except (OSError, raw_capture.RawCaptureError, F1LiveError) as exc:
+        raise F1LiveError(f"{kind} raw transport evidence changed") from exc
+    if (
+        raw_value
+        != {
+            "path": str(raw_path),
+            "size": len(raw_payload),
+            "sha256": hashlib.sha256(raw_payload).hexdigest(),
+        }
+        or handle.stdout_path != prepared.run_dir / f"{prefix}.stdout"
+        or handle.stderr_path != prepared.run_dir / f"{prefix}.stderr"
+        or handle.returncode != transport_value["returncode"]
+        or handle.timed_out is not transport_value["timed_out"]
+        or handle.output_exceeded is not transport_value["output_exceeded"]
+        or handle.producer_error_type != transport_value["producer_error_type"]
+        or transport_value["stdout_bytes"] != len(stdout)
+        or transport_value["stderr_bytes"] != len(stderr)
+        or transport_value["stdout_sha256"] != hashlib.sha256(stdout).hexdigest()
+        or transport_value["stderr_sha256"] != hashlib.sha256(stderr).hexdigest()
+    ):
+        raise F1LiveError(f"{kind} raw transport binding differs")
+    if value["classification"] != expected_classification:
+        raise F1LiveError(f"{kind} transfer classification differs from raw")
     return value
 
 
@@ -2266,12 +2405,68 @@ def _validate_final_observer(prepared: PreparedRun, state: dict[str, Any]) -> No
         if index > 2 or not isinstance(receipt, dict):
             raise F1LiveError("final observer receipt count is invalid")
         path = prepared.run_dir / f"rollback-observer-{index}.bin"
-        payload = d0._read_stable(path, MAX_OBSERVER_BYTES)
-        stderr = d0._read_stable(
-            path.with_suffix(path.suffix + ".stderr"), d0.MAX_TEXT_OUTPUT
+        raw_value = receipt.get("raw_capture")
+        if (
+            set(receipt)
+            != {
+                "path",
+                "bytes",
+                "sha256",
+                "raw_capture",
+                "read_to_eof",
+                "stderr_bytes",
+                "elapsed_sec",
+            }
+            or not isinstance(raw_value, dict)
+            or set(raw_value) != {"path", "size", "sha256"}
+            or not isinstance(raw_value.get("path"), str)
+            or not isinstance(raw_value.get("sha256"), str)
+            or re.fullmatch(r"[0-9a-f]{64}", raw_value["sha256"]) is None
+            or type(raw_value.get("size")) is not int
+            or not 0 < raw_value["size"] <= 64 * 1024
+            or isinstance(receipt.get("elapsed_sec"), bool)
+            or not isinstance(receipt.get("elapsed_sec"), (int, float))
+            or not math.isfinite(float(receipt["elapsed_sec"]))
+            or not 0 < receipt["elapsed_sec"] <= 185
+        ):
+            raise F1LiveError("final observer raw receipt shape differs")
+        raw_path = Path(raw_value["path"])
+        if (
+            raw_path.parent != prepared.run_dir
+            or re.fullmatch(
+                r"[0-9]{4}-observer-eof\.capture\.json", raw_path.name
+            )
+            is None
+        ):
+            raise F1LiveError("final observer raw receipt path differs")
+        raw_receipt_payload, _raw_receipt_identity = core._stable_read(
+            raw_path, "final observer raw receipt", 64 * 1024
         )
         if (
+            len(raw_receipt_payload) != raw_value["size"]
+            or hashlib.sha256(raw_receipt_payload).hexdigest()
+            != raw_value["sha256"]
+        ):
+            raise F1LiveError("final observer raw receipt changed")
+        try:
+            handle = raw_capture.load_handle(raw_path)
+            payload = raw_capture.read_stdout(
+                handle, maximum=MAX_OBSERVER_BYTES
+            )
+            stderr = raw_capture.read_stderr(
+                handle, maximum=d0.MAX_TEXT_OUTPUT
+            )
+        except raw_capture.RawCaptureError as exc:
+            raise F1LiveError("final observer raw handle differs") from exc
+        if (
             stderr
+            or handle.stdout_path != path
+            or handle.stderr_path
+            != path.with_suffix(path.suffix + ".stderr")
+            or handle.returncode != 0
+            or handle.timed_out
+            or handle.output_exceeded
+            or handle.producer_error_type is not None
             or receipt.get("path") != str(path)
             or receipt.get("bytes") != len(payload)
             or receipt.get("sha256") != hashlib.sha256(payload).hexdigest()

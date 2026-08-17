@@ -8,10 +8,12 @@ import contextlib
 import hashlib
 import json
 import os
+import signal
 import subprocess
 import sys
 import tempfile
 import textwrap
+import threading
 import time
 import unittest
 from unittest import mock
@@ -459,6 +461,28 @@ class P300ContractTests(unittest.TestCase):
                     "sha256": hashlib.sha256(payload).hexdigest(),
                 }
 
+            def raw_pointer(
+                name: str,
+                payload: bytes,
+                *,
+                stdout_name: str | None = None,
+                stderr_name: str | None = None,
+            ) -> dict[str, object]:
+                handle = usb_binding.raw_capture.publish_captured_bytes(
+                    output,
+                    name,
+                    stdout=payload,
+                    stdout_name=stdout_name,
+                    stderr_name=stderr_name,
+                )
+                return {
+                    "path": str(handle.receipt_path),
+                    "size": handle.receipt_path.stat().st_size,
+                    "sha256": hashlib.sha256(
+                        handle.receipt_path.read_bytes()
+                    ).hexdigest(),
+                }
+
             binding = usb_binding.create_binding(
                 campaign_id="p300-campaign-1",
                 attempt_id="attempt-1",
@@ -504,21 +528,43 @@ class P300ContractTests(unittest.TestCase):
                     for index, name in enumerate(sidecar.SOURCE_COMMANDS)
                 },
             }
-            supporting = {
+            supporting: dict[str, dict[str, object]] = {
                 "start": write("start.json", json.dumps(start).encode()),
                 "armed": write("armed.json", json.dumps(armed).encode()),
-                "lsusb_start": write("lsusb-start.json", b"{}\n"),
-                "lsusb_end": write("lsusb-end.json", b"{}\n"),
             }
+            for phase in ("start", "end"):
+                snapshot_payload = f"lsusb-{phase}\n".encode()
+                capture_name = f"lsusb-{phase}-raw"
+                snapshot = {
+                    "available": True,
+                    "command": [str(sidecar.LSUSB)],
+                    "returncode": 0,
+                    "stdout_text": snapshot_payload.decode(),
+                    "stderr_text": "",
+                    "stdout_truncated": False,
+                    "stderr_truncated": False,
+                    "raw_capture_receipt": raw_pointer(
+                        capture_name, snapshot_payload
+                    ),
+                }
+                supporting[f"lsusb_{phase}"] = write(
+                    f"lsusb-{phase}.json",
+                    json.dumps(snapshot).encode(),
+                )
             sources = {}
             for name, command in sidecar.SOURCE_COMMANDS.items():
                 payload = f"source={name}\n".encode()
-                receipt = write(f"{name}.log", payload)
+                raw_receipt = raw_pointer(
+                    f"{name}-stream",
+                    payload,
+                    stdout_name=f"{name}.log",
+                    stderr_name=f"{name}.log.stderr",
+                )
                 sources[name] = {
                     "command": list(command),
                     "returncode": 0,
-                    "bytes": receipt["size"],
-                    "sha256": receipt["sha256"],
+                    "bytes": len(payload),
+                    "sha256": hashlib.sha256(payload).hexdigest(),
                     "truncated": False,
                     "error_type": None,
                     "started_utc": started,
@@ -526,6 +572,7 @@ class P300ContractTests(unittest.TestCase):
                     "alive_at_arm": True,
                     "alive_before_stop": True,
                     "stop_requested_utc": "2026-08-04T00:00:05.500000Z",
+                    "raw_capture_receipt": raw_receipt,
                 }
             result = {
                 "schema": sidecar.SCHEMA,
@@ -551,6 +598,40 @@ class P300ContractTests(unittest.TestCase):
                 binding, result, root=root, output_dir=output
             )
             self.assertTrue(proof["integrity_clean"])
+            missing_raw = json.loads(json.dumps(result))
+            del missing_raw["sources"]["kernel"]["raw_capture_receipt"]
+            (output / "result.json").write_text(json.dumps(missing_raw))
+            with self.assertRaises(usb_binding.BindingError):
+                usb_binding.verify_capture_directory(
+                    binding, missing_raw, root=root, output_dir=output
+                )
+            (output / "result.json").write_text(json.dumps(result))
+            changed_snapshot_raw = json.loads(json.dumps(result))
+            snapshot_path = output / "lsusb-start.json"
+            snapshot_original = snapshot_path.read_bytes()
+            snapshot_value = json.loads(snapshot_original)
+            snapshot_value["raw_capture_receipt"]["sha256"] = "0" * 64
+            snapshot_changed = json.dumps(snapshot_value).encode()
+            snapshot_path.write_bytes(snapshot_changed)
+            changed_snapshot_raw["supporting"]["lsusb_start"].update(
+                {
+                    "size": len(snapshot_changed),
+                    "sha256": hashlib.sha256(snapshot_changed).hexdigest(),
+                }
+            )
+            (output / "result.json").write_text(
+                json.dumps(changed_snapshot_raw)
+            )
+            with self.assertRaises(usb_binding.BindingError):
+                usb_binding.verify_capture_directory(
+                    binding,
+                    changed_snapshot_raw,
+                    root=root,
+                    output_dir=output,
+                )
+            snapshot_path.write_bytes(snapshot_original)
+            (output / "result.json").write_text(json.dumps(result))
+            (output / "kernel.log").chmod(0o600)
             (output / "kernel.log").write_bytes(b"changed")
             with self.assertRaises(usb_binding.BindingError):
                 usb_binding.verify_capture_directory(
@@ -560,9 +641,12 @@ class P300ContractTests(unittest.TestCase):
     def test_live_sidecar_session_covers_the_candidate_window(self) -> None:
         script_source = textwrap.dedent(
             """
-            import argparse, hashlib, json, os, signal, time
+            import argparse, hashlib, json, os, signal, sys, time
             from datetime import datetime, timezone
             from pathlib import Path
+
+            sys.path.insert(0, __REVALIDATION__)
+            import device_action_raw_capture_v1 as raw_capture
 
             def now():
                 return datetime.now(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
@@ -578,6 +662,21 @@ class P300ContractTests(unittest.TestCase):
                 path.write_bytes(payload)
                 return {"name": name, "size": len(payload), "sha256": hashlib.sha256(payload).hexdigest()}
 
+            def raw(name, payload, stdout_name=None, stderr_name=None):
+                handle = raw_capture.publish_captured_bytes(
+                    args.output_dir,
+                    name,
+                    stdout=payload,
+                    stdout_name=stdout_name,
+                    stderr_name=stderr_name,
+                )
+                return {"path": str(handle.receipt_path), "size": handle.receipt_path.stat().st_size, "sha256": hashlib.sha256(handle.receipt_path.read_bytes()).hexdigest()}
+
+            def snapshot(phase):
+                payload = f"lsusb-{phase}\\n".encode()
+                value = {"available": True, "command": ["/synthetic/lsusb"], "returncode": 0, "stdout_text": payload.decode(), "stderr_text": "", "stdout_truncated": False, "stderr_truncated": False, "raw_capture_receipt": raw(f"lsusb-{phase}-raw", payload)}
+                return write(f"lsusb-{phase}.json", json.dumps(value).encode())
+
             started = now()
             owner = os.environ["S22PLUS_P300_USB_TRACE_OWNER"]
             owner_sha256 = hashlib.sha256(owner.encode()).hexdigest()
@@ -592,11 +691,15 @@ class P300ContractTests(unittest.TestCase):
             supporting = {
                 "start": write("start.json", json.dumps(start).encode()),
                 "armed": write("armed.json", json.dumps(armed).encode()),
-                "lsusb_start": write("lsusb-start.json", b"{}\\n"),
+                "lsusb_start": snapshot("start"),
+            }
+            log_payloads = {
+                "kernel": b"synthetic kernel usb\\n",
+                "udev": b"synthetic udev usb\\n",
             }
             logs = {
-                "kernel": write("kernel.log", b"synthetic kernel usb\\n"),
-                "udev": write("udev.log", b"synthetic udev usb\\n"),
+                name: raw(f"{name}-stream", payload, stdout_name=f"{name}.log", stderr_name=f"{name}.log.stderr")
+                for name, payload in log_payloads.items()
             }
             stopped = False
             def stop(_signum, _frame):
@@ -606,10 +709,10 @@ class P300ContractTests(unittest.TestCase):
             while not stopped:
                 time.sleep(0.01)
             stop_requested = now()
-            supporting["lsusb_end"] = write("lsusb-end.json", b"{}\\n")
+            supporting["lsusb_end"] = snapshot("end")
             source_ended = now()
             sources = {
-                name: {"command": [f"/synthetic/{name}"], "returncode": -15, "bytes": item["size"], "sha256": item["sha256"], "truncated": False, "error_type": None, "started_utc": started, "ended_utc": source_ended, "alive_at_arm": True, "alive_before_stop": True, "stop_requested_utc": stop_requested}
+                name: {"command": [f"/synthetic/{name}"], "returncode": 0, "bytes": len(log_payloads[name]), "sha256": hashlib.sha256(log_payloads[name]).hexdigest(), "truncated": False, "error_type": None, "started_utc": started, "ended_utc": source_ended, "alive_at_arm": True, "alive_before_stop": True, "stop_requested_utc": stop_requested, "raw_capture_receipt": item}
                 for name, item in logs.items()
             }
             result = {
@@ -633,6 +736,14 @@ class P300ContractTests(unittest.TestCase):
             }
             write("result.json", json.dumps(result).encode())
             """
+        ).replace(
+            "__REVALIDATION__",
+            repr(
+                str(
+                    ROOT
+                    / "workspace/public/src/scripts/revalidation"
+                )
+            ),
         )
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -706,7 +817,7 @@ class P300ContractTests(unittest.TestCase):
                 session.finalize()
                 state = live._state(prepared)  # noqa: SLF001
                 self.assertEqual(
-                    state["p300_usb_trace"]["status"], "verified"
+                    state["p300_usb_trace"]["status"], "verified", state
                 )
                 live._validate_p300_usb_trace_state(  # noqa: SLF001
                     prepared, state, journal.records()
@@ -714,6 +825,87 @@ class P300ContractTests(unittest.TestCase):
             finally:
                 sidecar.__file__ = original_file
                 sidecar.SOURCE_COMMANDS = original_commands
+
+    def test_actual_source_capture_receipts_pass_downstream_raw_verifier(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            private = root / "workspace/private"
+            output = private / "runs/p300/host-usb-trace"
+            output.parent.mkdir(parents=True)
+            commands = {
+                "kernel": (
+                    sys.executable,
+                    "-c",
+                    "import time; print('kernel', flush=True); time.sleep(30)",
+                ),
+                "udev": (
+                    sys.executable,
+                    "-c",
+                    "import time; print('udev', flush=True); time.sleep(30)",
+                ),
+            }
+            binding = usb_binding.create_binding(
+                campaign_id="p300-campaign-1",
+                attempt_id="attempt-1",
+                candidate_ap={"sha256": "2" * 64, "size": 4096},
+                approval_binding_sha256="1" * 64,
+                transaction_path="workspace/private/runs/p300/transaction",
+                sidecar_result_path=(
+                    "workspace/private/runs/p300/host-usb-trace/result.json"
+                ),
+                observation_witness_path=(
+                    "workspace/private/runs/p300/observation-durable.json"
+                ),
+            )
+            original_commands = sidecar.SOURCE_COMMANDS
+            sidecar.SOURCE_COMMANDS = commands
+
+            def request_stop() -> None:
+                deadline = time.monotonic() + 5
+                while time.monotonic() < deadline:
+                    if (output / "armed.json").is_file():
+                        os.kill(os.getpid(), signal.SIGTERM)
+                        return
+                    time.sleep(0.01)
+                raise AssertionError("sidecar did not arm")
+
+            stopper = threading.Thread(target=request_stop)
+            try:
+                stopper.start()
+                with mock.patch.dict(
+                    os.environ,
+                    {
+                        "S22PLUS_P300_USB_TRACE_OWNER": (
+                            usb_binding.owner_token(binding)
+                        )
+                    },
+                ):
+                    result = sidecar.capture(
+                        output,
+                        duration_sec=5,
+                        private_root=private,
+                        source_commands=commands,
+                        snapshot_command=(
+                            sys.executable,
+                            "-c",
+                            "print('snapshot')",
+                        ),
+                        install_signal_handlers=True,
+                    )
+                stopper.join(timeout=5)
+                self.assertFalse(stopper.is_alive())
+                proof = usb_binding.verify_capture_directory(
+                    binding, result, root=root, output_dir=output
+                )
+                self.assertTrue(proof["integrity_clean"])
+                for name in commands:
+                    self.assertIn(
+                        "raw_capture_receipt", result["sources"][name]
+                    )
+            finally:
+                sidecar.SOURCE_COMMANDS = original_commands
+                if stopper.is_alive():
+                    stopper.join(timeout=5)
 
     def test_interrupted_sidecar_process_group_is_reaped(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

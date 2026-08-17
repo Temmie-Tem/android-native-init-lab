@@ -157,8 +157,30 @@ class S22PlusFyg8P257StockPivotD0Test(unittest.TestCase):
 
     def test_remote_reader_is_allowlisted_and_bounded(self):
         module = self.module
-        with self.assertRaises(module.PivotError):
-            module.read_remote_exact(Path("/fixture/adb"), "serial", "/proc/version")
+        with tempfile.TemporaryDirectory() as temporary, self.assertRaises(
+            module.PivotError
+        ):
+            module.read_remote_exact(
+                Path("/fixture/adb"),
+                "serial",
+                "/proc/version",
+                Path(temporary),
+                "invalid",
+            )
+
+    def _raw_reader(self, reads):
+        module = self.module
+
+        def read(_serial, _source, capture_dir, name):
+            return module.raw_capture.publish_captured_bytes(
+                capture_dir,
+                name,
+                stdout=next(reads),
+                stdout_name=f"{name}.bin",
+                stderr_name=f"{name}.bin.stderr",
+            )
+
+        return read
 
     def _usb_root(self, root):
         device = root / "1-1"
@@ -181,7 +203,7 @@ class S22PlusFyg8P257StockPivotD0Test(unittest.TestCase):
                 run_dir,
                 FakeClient(self.profile),
                 usb_root,
-                lambda _serial, _source: next(reads),
+                self._raw_reader(reads),
             )
             self.assertEqual(result["verdict"], module.ENABLED_VERDICT)
             self.assertTrue(result["measurement"]["promotion_eligible"])
@@ -211,7 +233,7 @@ class S22PlusFyg8P257StockPivotD0Test(unittest.TestCase):
                 run_dir,
                 FakeClient(self.profile),
                 self._usb_root(root / "usb"),
-                lambda _serial, _source: next(reads),
+                self._raw_reader(reads),
             )
         self.assertEqual(result["verdict"], module.CONTRADICTION_VERDICT)
         self.assertFalse(result["measurement"]["promotion_eligible"])
@@ -232,7 +254,7 @@ class S22PlusFyg8P257StockPivotD0Test(unittest.TestCase):
                     run_dir,
                     client,
                     self._usb_root(root / "usb"),
-                    lambda _serial, _source: next(reads),
+                    self._raw_reader(reads),
                 )
             self.assertFalse((run_dir / "result.json").exists())
 

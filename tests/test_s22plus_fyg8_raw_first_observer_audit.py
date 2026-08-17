@@ -1,0 +1,307 @@
+import importlib.util
+import hashlib
+import os
+from pathlib import Path
+import sys
+import unittest
+import tempfile
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPT = ROOT / (
+    "workspace/public/src/scripts/revalidation/"
+    "s22plus_fyg8_raw_first_observer_audit.py"
+)
+REVALIDATION = SCRIPT.parent
+
+
+def load_module():
+    spec = importlib.util.spec_from_file_location(
+        "s22plus_fyg8_raw_first_observer_audit_tested", SCRIPT
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.module = load_module()
+
+    def source(self, name: str) -> str:
+        return (REVALIDATION / name).read_text(encoding="utf-8")
+
+    def test_current_tree_scans_full_directory_and_passes_d0_f1(self):
+        value = self.module.audit_sources(REVALIDATION)
+        self.assertEqual(value["verdict"], self.module.VERDICT)
+        self.assertGreater(value["all_revalidation_python_files_scanned"], 1700)
+        self.assertGreater(value["subprocess_modules_scanned"], 390)
+        self.assertEqual(
+            value["legacy_unmigrated_observer_sources"],
+            self.module.LEGACY_UNMIGRATED_OBSERVER_COUNT,
+        )
+        self.assertEqual(
+            value["legacy_unmigrated_observer_inventory_sha256"],
+            self.module.LEGACY_UNMIGRATED_OBSERVER_SHA256,
+        )
+        self.assertTrue(
+            value["legacy_unmigrated_observers_are_inactive_and_byte_frozen"]
+        )
+        self.assertEqual(value["closed_observer_source_count"], 121)
+        self.assertEqual(
+            value["closed_observer_source_inventory_sha256"],
+            self.module.CLOSED_OBSERVER_SOURCE_SHA256,
+        )
+        self.assertTrue(value["closed_observer_sources_are_byte_frozen"])
+        self.assertTrue(
+            value["new_or_changed_observer_source_requires_review"]
+        )
+        self.assertTrue(value["d0_covered"])
+        self.assertTrue(value["f1_covered"])
+        self.assertFalse(value["device_observation_parser_accepts_live_stream"])
+        self.assertTrue(
+            value[
+                "guard_readiness_marker_is_acquisition_control_not_result_classification"
+            ]
+        )
+        self.assertTrue(
+            value["guard_arm_marker_parsed_only_from_finalized_handle"]
+        )
+        self.assertTrue(value["p300_sidecar_nested_raw_receipts_reopened"])
+        self.assertTrue(value["f1_final_observer_phase_capture_bound"])
+        self.assertTrue(value["auditor_bound_source_execution"])
+        self.assertTrue(value["permanent"])
+        self.assertIsNone(value["expiry"])
+
+    def test_d0_direct_stdout_and_nonhandle_parser_mutations_reject(self):
+        raw_name = "device_action_raw_capture_v1.py"
+        raw_source = self.source(raw_name).replace(
+            "                os.fsync(descriptor)\n                metadata =",
+            "                metadata =",
+            1,
+        )
+        with self.assertRaises(self.module.RawFirstAuditError):
+            self.module.audit_sources(REVALIDATION, {raw_name: raw_source})
+
+        d0_name = "device_action_d0_v2.py"
+        d0_source = self.source(d0_name).replace(
+            "return raw_capture.acquire_command(",
+            "return forbidden_direct_command(",
+            1,
+        )
+        with self.assertRaises(self.module.RawFirstAuditError):
+            self.module.audit_sources(REVALIDATION, {d0_name: d0_source})
+
+        stage_name = "s22plus_fyg8_p319_max77705_attribute_stage_a.py"
+        stage_source = self.source(stage_name).replace(
+            "handle: raw_capture.RawCaptureHandle",
+            "payload: bytes",
+            1,
+        )
+        with self.assertRaises(self.module.RawFirstAuditError):
+            self.module.audit_sources(REVALIDATION, {stage_name: stage_source})
+
+    def test_f1_enumeration_and_cdc_preparse_mutations_reject(self):
+        odin_name = "s22plus_odin_transition_core.py"
+        odin_source = self.source(odin_name).replace(
+            "effective_runner, raw_handles = _raw_first_runner(run_dir, sequence)",
+            "effective_runner = runner",
+            1,
+        )
+        with self.assertRaises(self.module.RawFirstAuditError):
+            self.module.audit_sources(REVALIDATION, {odin_name: odin_source})
+
+        cdc_name = "device_action_cdc_acm_observer_v1.py"
+        cdc_source = self.source(cdc_name).replace(
+            "writer.write_stdout(chunk)", "pass  # lost raw", 1
+        )
+        with self.assertRaises(self.module.RawFirstAuditError):
+            self.module.audit_sources(REVALIDATION, {cdc_name: cdc_source})
+        prefinalize_marker = self.source(cdc_name).replace(
+            "                    writer.write_stdout(chunk)\n",
+            "                    writer.write_stdout(chunk)\n"
+            "                    if expected in chunk:\n"
+            "                        break\n",
+            1,
+        )
+        with self.assertRaises(self.module.RawFirstAuditError):
+            self.module.audit_sources(
+                REVALIDATION, {cdc_name: prefinalize_marker}
+            )
+
+        live_name = "device_action_f1_live_v2.py"
+        stale_client = self.source(live_name).replace(
+            "capture = final_client.capture(",
+            "capture = self.client.capture(",
+            1,
+        )
+        with self.assertRaises(self.module.RawFirstAuditError):
+            self.module.audit_sources(REVALIDATION, {live_name: stale_client})
+
+        binding_name = "s22plus_fyg8_p300_usb_trace_binding.py"
+        bypassed_nested_receipt = self.source(binding_name).replace(
+            "handle = raw_capture.load_handle(path)",
+            "handle = foreign_unbound_handle(path)",
+            1,
+        )
+        with self.assertRaises(self.module.RawFirstAuditError):
+            self.module.audit_sources(
+                REVALIDATION,
+                {binding_name: bypassed_nested_receipt},
+            )
+
+    def test_new_s22_d0_subprocess_parser_without_helper_rejects(self):
+        unsafe_sources = (
+            """\
+import subprocess
+def collect():
+    result = subprocess.run(['adb'], stdout=subprocess.PIPE)
+    return result.stdout.decode()
+""",
+            """\
+from subprocess import run
+def collect():
+    result = run(['adb', 'shell', 'id'], capture_output=True)
+    return result.stdout.decode()
+""",
+            """\
+import subprocess as sp
+def collect():
+    result = sp.run(['adb', 'shell', 'id'], capture_output=True)
+    return result.stdout.decode()
+""",
+            """\
+from os import popen as pp
+def collect():
+    return pp('adb shell id').read()
+""",
+            """\
+from device_action_d0_v2 import bounded_command as bc
+def collect():
+    return bc(['adb', 'shell', 'id'], timeout=1).stdout
+""",
+            """\
+def collect():
+    sp = __import__('subprocess')
+    return sp.run(['adb', 'shell', 'id'], capture_output=True).stdout
+""",
+        )
+        for unsafe in unsafe_sources:
+            with self.subTest(sha256=hashlib.sha256(unsafe.encode()).hexdigest()):
+                with self.assertRaisesRegex(
+                    self.module.RawFirstAuditError,
+                    "bypasses common raw capture|closed observer source inventory differs",
+                ):
+                    self.module.audit_sources(
+                        REVALIDATION,
+                        {"s22plus_fyg8_future_d0.py": unsafe},
+                    )
+                with self.assertRaisesRegex(
+                    self.module.RawFirstAuditError,
+                    "legacy observer inventory differs|closed observer source inventory differs",
+                ):
+                    self.module.audit_sources(
+                        REVALIDATION,
+                        {"s22plus_fyg8_future_f1_observer.py": unsafe},
+                    )
+        with self.assertRaisesRegex(
+            self.module.RawFirstAuditError,
+            "closed observer source inventory differs",
+        ):
+            self.module.audit_sources(
+                REVALIDATION,
+                {
+                    "s22plus_fyg8_future_observer.py": (
+                        "def parse(handle):\n    return handle\n"
+                    )
+                },
+            )
+        for existing in (
+            "device_action_f1_v2.py",
+            "s22plus_m10a1_stat_dev_reboot_live_gate.py",
+        ):
+            for unsafe in unsafe_sources[-3:]:
+                with self.subTest(existing=existing):
+                    with self.assertRaisesRegex(
+                        self.module.RawFirstAuditError,
+                        "closed observer source inventory differs",
+                    ):
+                        self.module.audit_sources(
+                            REVALIDATION, {existing: unsafe}
+                        )
+
+    def test_inactive_legacy_observer_inventory_is_exactly_byte_frozen(self):
+        name = "s22plus_reset_reason_readonly_probe.py"
+        mutation = self.source(name) + "\n# changed legacy observer\n"
+        with self.assertRaisesRegex(
+            self.module.RawFirstAuditError, "legacy observer inventory differs"
+        ):
+            self.module.audit_sources(REVALIDATION, {name: mutation})
+
+    def test_loaded_auditor_cannot_receipt_different_source_bytes(self):
+        name = SCRIPT.name
+        source = self.source(name)
+        mutations = (
+            source + "\n# post-import replacement\n",
+            source.replace(
+                self.module.AUDITOR_NORMALIZED_SHA256,
+                "0" * 64,
+                1,
+            ),
+        )
+        for mutation in mutations:
+            with self.subTest(mutation_sha256=hashlib.sha256(mutation.encode()).hexdigest()):
+                with self.assertRaises(self.module.RawFirstAuditError):
+                    self.module.audit_sources(REVALIDATION, {name: mutation})
+
+    def test_preimport_semantic_mutation_is_replaced_by_bound_source(self):
+        source = self.source(SCRIPT.name)
+        mutation = source.replace(
+            'raise RawFirstAuditError(f"active raw-first source changed: {name}")',
+            "continue  # malicious pre-import bypass",
+            1,
+        )
+        self.assertNotEqual(source, mutation)
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / SCRIPT.name
+            path.write_text(mutation, encoding="utf-8")
+            spec = importlib.util.spec_from_file_location(
+                "raw_first_preimport_mutation", path
+            )
+            loaded = importlib.util.module_from_spec(spec)
+            assert spec.loader is not None
+            sys.modules[spec.name] = loaded
+            spec.loader.exec_module(loaded)
+            path.write_text(source, encoding="utf-8")
+            value = loaded.audit_sources(REVALIDATION)
+        self.assertEqual(value["verdict"], self.module.VERDICT)
+
+    def test_private_receipt_is_deterministic_mode0400_and_no_clobber(self):
+        value = self.module.audit_sources(REVALIDATION)
+        payload = self.module.encode_receipt(value)
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "receipt.json"
+            self.module.write_receipt(path, payload)
+            self.module.write_receipt(path, payload)
+            self.assertEqual(path.read_bytes(), payload)
+            self.assertEqual(path.stat().st_mode & 0o777, 0o400)
+            self.assertEqual(path.stat().st_nlink, 1)
+            self.assertEqual(
+                hashlib.sha256(path.read_bytes()).hexdigest(),
+                hashlib.sha256(payload).hexdigest(),
+            )
+            alias = Path(temporary) / "receipt-alias.json"
+            alias.hardlink_to(path)
+            with self.assertRaises(self.module.RawFirstAuditError):
+                self.module.write_receipt(path, payload)
+            alias.unlink()
+            path.chmod(0o600)
+            with self.assertRaises(self.module.RawFirstAuditError):
+                self.module.write_receipt(path, payload)
+
+
+if __name__ == "__main__":
+    unittest.main()

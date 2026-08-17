@@ -11,13 +11,15 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shlex
 import stat
-import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+import device_action_raw_capture_v1 as raw_capture
 
 
 TIMELINE_NAMES = (
@@ -227,52 +229,39 @@ def capture_adb_exec_out(
     remote = f"su -c {shlex.quote(command)}" if root else f"sh -c {shlex.quote(command)}"
     argv = ["adb", "-s", serial, "exec-out", remote]
     started = time.monotonic()
-    with output_path.open("xb") as output, stderr_path.open("xb") as error:
-        process = subprocess.Popen(argv, stdout=output, stderr=error)
-        exceeded = False
-        timed_out = False
-        while process.poll() is None:
-            output.flush()
-            if output_path.stat().st_size > maximum:
-                exceeded = True
-                process.terminate()
-                break
-            if time.monotonic() - started > timeout:
-                timed_out = True
-                process.terminate()
-                break
-            time.sleep(0.05)
-        if process.poll() is None:
-            try:
-                process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait(timeout=2)
-        output.flush()
-        os.fsync(output.fileno())
-        error.flush()
-        os.fsync(error.fileno())
-        returncode = process.returncode
-    _fsync_directory(output_path.parent)
-    size = output_path.stat().st_size
-    stderr_size = stderr_path.stat().st_size
-    if timed_out:
-        raise LiveCoreError(f"observer timed out before EOF: {command}")
-    if exceeded or size > maximum:
-        raise LiveCoreError(f"observer exceeded bound before EOF: {size} > {maximum}")
-    if returncode != 0:
-        raise LiveCoreError(f"observer returned rc={returncode}: {command}")
-    if stderr_size != 0:
-        raise LiveCoreError(f"observer produced stderr: {command}")
-    payload = read_stable_file(output_path, maximum=maximum)
+    name = re.sub(r"[^a-z0-9]+", "-", output_path.stem.lower()).strip("-")
+    if not name:
+        raise LiveCoreError("observer output name is invalid")
+    try:
+        handle = raw_capture.acquire_command(
+            argv,
+            output_path.parent,
+            name[:96],
+            timeout=timeout,
+            stdout_maximum=maximum,
+            stderr_maximum=64 * 1024,
+            stdout_name=output_path.name,
+            stderr_name=stderr_path.name,
+        )
+        raw_capture.require_success(handle)
+        payload = raw_capture.read_stdout(handle, maximum=maximum)
+    except raw_capture.RawCaptureError as exc:
+        raise LiveCoreError(f"observer raw capture failed: {command}: {exc}") from exc
+    size = len(payload)
+    stderr_size = int(handle.stderr["size"])
     return {
         "path": str(output_path),
         "bytes": len(payload),
         "sha256": sha256_bytes(payload),
-        "returncode": returncode,
+        "returncode": handle.returncode,
         "stderr_bytes": stderr_size,
         "read_to_eof": True,
         "elapsed_sec": round(time.monotonic() - started, 6),
+        "raw_capture_receipt": {
+            "path": str(handle.receipt_path),
+            "size": handle.receipt_path.stat().st_size,
+            "sha256": sha256_bytes(handle.receipt_path.read_bytes()),
+        },
     }
 
 

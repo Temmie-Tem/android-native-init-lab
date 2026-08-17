@@ -100,8 +100,8 @@ claims causality from it; it is not a prerequisite for an independent path
 that does not inherit that cycle.
 
 The forward frontier remains the connector-side Max77705 USB2 MUX discriminator.
-Its first directory-only Stage A D0 requested zero attribute/I2C reads but the host parser discarded raw stdout before reporting a shape mismatch, so regmap presence and the Stage B target remain unproved pending raw-first observer repair and a fresh D0 request.
-The current D0 result is `docs/reports/S22PLUS_FYG8_P319_MAX77705_ATTRIBUTE_STAGE_A_D0_OBSERVER_STOP_2026-08-17.md`; the source authority remains
+Its first directory-only Stage A D0 requested zero attribute/I2C reads but the host parser discarded raw stdout before reporting a shape mismatch. The permanent D0/F1 raw-first handle boundary and granular Stage A parser now have independent H0 PASS_GO; a fresh direct D0 request remains required, so regmap presence and the Stage B target are still unproved.
+The stopped D0 is `docs/reports/S22PLUS_FYG8_P319_MAX77705_ATTRIBUTE_STAGE_A_D0_OBSERVER_STOP_2026-08-17.md`; the raw-first H0 closure is `docs/reports/S22PLUS_FYG8_P319_RAW_FIRST_OBSERVER_BOUNDARY_H0_2026-08-17.md`; the source authority remains
 `docs/reports/S22PLUS_FYG8_MAX77705_CONTROL_PLANE_SUCCESSOR_FEASIBILITY_H0_2026-08-11.md`.
 It preserves the MUX as a source-real but causally unproven residual mechanism:
 P3.15 omitted the exact GENI-I2C/MFD/PDIC producer closure that contains the

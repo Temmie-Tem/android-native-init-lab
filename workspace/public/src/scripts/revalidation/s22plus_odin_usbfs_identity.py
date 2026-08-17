@@ -15,11 +15,12 @@ import json
 import os
 import re
 import stat
-import subprocess
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
+
+import device_action_raw_capture_v1 as raw_capture
 
 
 EVIDENCE_SCHEMA = "s22plus_odin_usbfs_node_transition_v1"
@@ -179,7 +180,26 @@ def parse_birth_time_ns(value: str) -> int | None:
     return int(instant.timestamp()) * 1_000_000_000 + int(fraction.ljust(9, "0"))
 
 
-def read_birth_time_ns(path: str) -> int | None:
+def _next_birth_capture_name(capture_dir: Path, path: str) -> str:
+    bus, device = _validated_usbfs_coordinates(path)
+    prefix = f"usbfs-birth-{bus:03d}-{device:03d}-"
+    used: set[int] = set()
+    for entry in capture_dir.iterdir():
+        match = re.fullmatch(
+            re.escape(prefix) + r"([0-9]{4})\.(?:stdout\.bin|stderr\.bin|capture\.json)",
+            entry.name,
+        )
+        if match is not None:
+            used.add(int(match.group(1)))
+    ordinal = 0
+    while ordinal in used:
+        ordinal += 1
+    if ordinal > 9999:
+        raise UsbfsIdentityError("usbfs birth-time capture capacity is exhausted")
+    return prefix + f"{ordinal:04d}"
+
+
+def read_birth_time_ns(path: str, capture_dir: Path | None = None) -> int | None:
     _validated_usbfs_coordinates(path)
     try:
         resolved_stat = STAT_BINARY.resolve(strict=True)
@@ -193,32 +213,42 @@ def read_birth_time_ns(path: str) -> int | None:
         before = os.fstat(descriptor)
         if not stat.S_ISREG(before.st_mode):
             raise UsbfsIdentityError("birth-time reader is not a regular file")
+        if capture_dir is None:
+            raise UsbfsIdentityError("usbfs birth-time raw capture is not bound")
         try:
-            result = subprocess.run(
+            handle = raw_capture.acquire_command(
                 ["stat", "--printf=%w", "--", path],
+                capture_dir,
+                _next_birth_capture_name(capture_dir, path),
                 executable=f"/proc/self/fd/{descriptor}",
                 pass_fds=(descriptor,),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
                 timeout=5.0,
-                check=False,
+                stdout_maximum=MAX_BIRTH_OUTPUT_BYTES,
+                stderr_maximum=MAX_BIRTH_OUTPUT_BYTES,
             )
-        except (OSError, subprocess.SubprocessError) as exc:
-            raise UsbfsIdentityError(f"usbfs birth-time read failed: {path}") from exc
+        except raw_capture.RawCaptureError as exc:
+            raise UsbfsIdentityError(f"usbfs birth-time raw capture failed: {path}") from exc
         after = os.fstat(descriptor)
         if _stat_identity_for_executable(before) != _stat_identity_for_executable(after):
             raise UsbfsIdentityError("birth-time reader changed during execution")
     finally:
         os.close(descriptor)
     if (
-        result.returncode != 0
-        or result.stderr
-        or len(result.stdout) > MAX_BIRTH_OUTPUT_BYTES
+        handle.returncode != 0
+        or handle.timed_out
+        or handle.output_exceeded
+        or handle.producer_error_type is not None
+        or int(handle.stderr["size"]) != 0
     ):
         raise UsbfsIdentityError(f"usbfs birth-time read failed: {path}")
     try:
-        value = result.stdout.decode("ascii")
-    except UnicodeDecodeError as exc:
+        value = raw_capture.decode_success_stdout(
+            handle,
+            maximum=MAX_BIRTH_OUTPUT_BYTES,
+            encoding="ascii",
+            strip=False,
+        )
+    except raw_capture.RawCaptureError as exc:
         raise UsbfsIdentityError("usbfs birth-time output is not ASCII") from exc
     return parse_birth_time_ns(value)
 
@@ -527,9 +557,31 @@ class MeasuredUsbfsIdentityObserver:
     def __init__(
         self,
         *,
-        inventory_reader: InventoryReader = capture_inventory,
+        inventory_reader: InventoryReader | None = None,
+        capture_dir: Path | None = None,
     ) -> None:
-        self._inventory_reader = inventory_reader
+        if inventory_reader is None:
+            if capture_dir is None:
+                raise UsbfsIdentityError(
+                    "measured usbfs observer raw capture is not bound"
+                )
+            direct = raw_capture.prepare_capture_dir(
+                capture_dir.parent, capture_dir.name
+            )
+
+            def reader() -> dict[str, UsbfsNodeSnapshot]:
+                return capture_inventory(
+                    snapshotter=lambda path: snapshot_node(
+                        path,
+                        birth_reader=lambda current: read_birth_time_ns(
+                            current, direct
+                        ),
+                    )
+                )
+
+            self._inventory_reader = reader
+        else:
+            self._inventory_reader = inventory_reader
         self._baseline: dict[str, UsbfsNodeSnapshot] | None = None
         self._after: dict[str, UsbfsNodeSnapshot] | None = None
 

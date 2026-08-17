@@ -43,6 +43,9 @@ DEFAULT_OBSERVER = Path(
     "workspace/public/src/scripts/revalidation/"
     "device_action_cdc_acm_observer_v1.py"
 )
+DEFAULT_RAW_CAPTURE = Path(
+    "workspace/public/src/scripts/revalidation/device_action_raw_capture_v1.py"
+)
 DEFAULT_SELECTOR = Path(
     "workspace/public/src/scripts/revalidation/"
     "s22plus_fyg8_p318_cdc_acm_endpoint_transition.py"
@@ -194,7 +197,12 @@ def _load_observer(path: Path):
         raise PositiveControlError("real CDC ACM observer cannot be imported")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
+    dependency_root = (repo_root() / DEFAULT_RAW_CAPTURE).parent
+    sys.path.insert(0, str(dependency_root))
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(str(dependency_root))
     return module
 
 
@@ -265,6 +273,13 @@ def run_real_observer_positive(
         baseline_receipt = observer.persist_json(
             run_dir / "candidate-observer-baseline.json", baseline
         )
+        guard_payload = b"positive fixture guard armed\n"
+        guard_capture_dir = observer.raw_capture.prepare_capture_dir(
+            run_dir, "raw-cdc-guard"
+        )
+        guard_handle = observer.raw_capture.publish_captured_bytes(
+            guard_capture_dir, "guard-arm", stdout=guard_payload
+        )
         guard_value = {
             "schema": observer.GUARD_SCHEMA,
             "status": "armed",
@@ -274,7 +289,14 @@ def run_real_observer_positive(
                 observer._guard_rule(spec_value, "usb:3-1.3")
             ).hexdigest(),
             "instance_sha256": "5" * 64,
-            "output_sha256": "4" * 64,
+            "output_sha256": hashlib.sha256(guard_payload).hexdigest(),
+            "raw_capture_receipt": {
+                "path": str(guard_handle.receipt_path),
+                "size": guard_handle.receipt_path.stat().st_size,
+                "sha256": hashlib.sha256(
+                    guard_handle.receipt_path.read_bytes()
+                ).hexdigest(),
+            },
             "child_alive": True,
         }
         guard_receipt = observer.persist_json(
@@ -371,6 +393,13 @@ def build_contract(
         "inputs": {
             "extractor": receipt(extractor_data),
             "selector": receipt(selector_data),
+            "raw_capture": receipt(
+                stable_read(
+                    repo_root() / DEFAULT_RAW_CAPTURE,
+                    "raw capture dependency",
+                    2**20,
+                )
+            ),
         },
         "qemu_dummy_hcd": qemu,
         "real_observer": observed,

@@ -236,15 +236,15 @@ remains forbidden.
 
 ## Evidence
 
-Routine D0/D1 evidence is proportional to the action. F1 uses one structured
-result, one append-only journal, private raw logs, and the Process-v2 canonical
-event order:
+Routine D0/D1 evidence is proportional; F1 retains a structured result, journal,
+private raw logs, exact transfers/no-replay, rollback, canonical order, and health:
+`live_session_start -> candidate_flash_start -> candidate_flash_done -> candidate_boot_ready -> rollback_flash_start -> rollback_flash_done -> rollback_boot_ready -> live_session_end`.
 
-`live_session_start -> candidate_flash_start -> candidate_flash_done -> candidate_boot_ready -> rollback_flash_start -> rollback_flash_done -> rollback_boot_ready -> live_session_end`
-
-Normal Android boot and absence of a boot loop are operator observations, not
-formal proof by themselves. Preserve bounded observer evidence, exact transfer
-counts, no-replay status, rollback result, and target-specific health closure.
+**Raw-first observer preservation.** Every S22+ D0/F1 device-observation
+subprocess output or endpoint byte stream used by a parser or classifier is bounded, no-clobber, mode-0400 and
+file/directory-fsynced before parsing; parsers accept only its immutable handle, and an active-closure source audit rejects bypasses. The permanent
+`S22PLUS_D0_F1_RAW_FIRST_OBSERVER_PRESERVATION` boundary blocks the P3.03/P3.19
+`WRITE_AFTER_PARSE_DEVICE_EVIDENCE_LOSS` hazard, has no expiry, and requires review when acquisition, handle ABI, parser signature, or active observer reachability changes. Normal boot remains operator observation, not formal proof.
 
 ## Review and Change Control
 

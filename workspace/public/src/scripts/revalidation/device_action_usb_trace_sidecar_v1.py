@@ -16,6 +16,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence
 
+import device_action_raw_capture_v1 as raw_capture
+
 
 SCHEMA = "device_action_usb_trace_sidecar_v1"
 DEFAULT_DURATION_SEC = 45 * 60
@@ -149,33 +151,62 @@ def create_output_dir(output_dir: Path, private_root: Path) -> Path:
 def bounded_snapshot(
     command: Sequence[str],
     *,
+    capture_dir: Path,
+    name: str,
     timeout_sec: float = 5.0,
     maximum: int = MAX_SNAPSHOT_BYTES,
 ) -> dict[str, Any]:
     if not command or maximum <= 0:
         raise SidecarError("snapshot command is invalid")
     try:
-        completed = subprocess.run(
+        handle = raw_capture.acquire_command(
             list(command),
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_dir,
+            name,
             timeout=timeout_sec,
-            check=False,
+            stdout_maximum=maximum,
+            stderr_maximum=maximum,
             env=child_environment(),
         )
-        stdout = completed.stdout[:maximum]
-        stderr = completed.stderr[:maximum]
-        return {
-            "available": True,
+        stdout = raw_capture.read_stdout(handle, maximum=maximum)
+        stderr = raw_capture.read_stderr(handle, maximum=maximum)
+        available = (
+            handle.returncode == 0
+            and handle.producer_error_type is None
+            and not handle.timed_out
+            and not handle.output_exceeded
+        )
+        value = {
+            "available": available,
             "command": list(command),
-            "returncode": completed.returncode,
+            "returncode": handle.returncode,
             "stdout_text": stdout.decode("utf-8", "backslashreplace"),
             "stderr_text": stderr.decode("utf-8", "backslashreplace"),
-            "stdout_truncated": len(completed.stdout) > maximum,
-            "stderr_truncated": len(completed.stderr) > maximum,
+            "stdout_truncated": handle.output_exceeded,
+            "stderr_truncated": handle.output_exceeded,
+            "raw_capture_receipt": {
+                "path": str(handle.receipt_path),
+                "size": handle.receipt_path.stat().st_size,
+                "sha256": hashlib.sha256(
+                    handle.receipt_path.read_bytes()
+                ).hexdigest(),
+            },
         }
-    except (OSError, subprocess.SubprocessError) as exc:
+        if not available:
+            value["error_type"] = (
+                handle.producer_error_type
+                or (
+                    "TimeoutExpired"
+                    if handle.timed_out
+                    else (
+                        "OutputLimit"
+                        if handle.output_exceeded
+                        else "CommandFailed"
+                    )
+                )
+            )
+        return value
+    except (OSError, raw_capture.RawCaptureError) as exc:
         return {
             "available": False,
             "command": list(command),
@@ -198,12 +229,18 @@ class SourceCapture:
     alive_at_arm: bool = False
     alive_before_stop: bool = False
     stop_requested_utc: str | None = None
+    writer: raw_capture.RawCaptureWriter | None = None
+    raw_handle: raw_capture.RawCaptureHandle | None = None
 
     def start(self) -> None:
-        descriptor = os.open(
-            self.path,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
-            0o600,
+        self.writer = raw_capture.RawCaptureWriter(
+            self.path.parent,
+            f"{self.name}-stream",
+            stdout_maximum=MAX_LOG_BYTES,
+            stderr_maximum=1,
+            argv0_name=Path(self.command[0]).name,
+            stdout_name=self.path.name,
+            stderr_name=self.path.name + ".stderr",
         )
         try:
             self.started_utc = utc_now()
@@ -215,11 +252,13 @@ class SourceCapture:
                 env=child_environment(),
             )
         except Exception:
-            os.close(descriptor)
+            if self.writer is not None and not self.writer.finished:
+                self.writer.finalize(
+                    returncode=None, producer_error_type="LaunchFailed"
+                )
             raise
         self.thread = threading.Thread(
             target=self._drain,
-            args=(descriptor,),
             name=f"usb-trace-{self.name}",
             daemon=False,
         )
@@ -245,33 +284,26 @@ class SourceCapture:
             "started_utc": self.started_utc,
         }
 
-    def _drain(self, descriptor: int) -> None:
+    def _drain(self) -> None:
         try:
             assert self.process is not None
             assert self.process.stdout is not None
+            assert self.writer is not None
             while True:
-                line = self.process.stdout.readline()
-                if not line:
+                record = os.read(self.process.stdout.fileno(), 8192)
+                if not record:
                     break
-                prefix = f"{utc_now()} source={self.name} ".encode("ascii")
-                record = prefix + line
-                if not record.endswith(b"\n"):
-                    record += b"\n"
                 remaining = MAX_LOG_BYTES - self.bytes_written
                 if remaining > 0:
                     chunk = record[:remaining]
-                    written = os.write(descriptor, chunk)
-                    if written != len(chunk):
-                        raise SidecarError(f"short {self.name} log write")
-                    self.bytes_written += written
+                    self.writer.write_stdout(chunk)
+                    self.bytes_written += len(chunk)
                 if len(record) > remaining:
                     self.truncated = True
-            os.fsync(descriptor)
         except Exception as exc:
             self.error_type = type(exc).__name__
         finally:
             self.ended_utc = utc_now()
-            os.close(descriptor)
 
     def stop(self) -> None:
         if self.process is None:
@@ -291,9 +323,19 @@ class SourceCapture:
                 raise SidecarError(f"{self.name} capture thread did not stop")
         if self.process.stdout is not None:
             self.process.stdout.close()
+        if self.writer is not None and not self.writer.finished:
+            self.raw_handle = self.writer.finalize(
+                returncode=self.process.returncode,
+                output_exceeded=self.truncated,
+                producer_error_type=self.error_type,
+            )
 
     def receipt(self) -> dict[str, Any]:
-        payload = self.path.read_bytes()
+        if self.raw_handle is None:
+            raise SidecarError(f"{self.name} raw capture is not finalized")
+        payload = raw_capture.read_stdout(
+            self.raw_handle, maximum=MAX_LOG_BYTES
+        )
         return {
             "command": list(self.command),
             "returncode": self.process.returncode if self.process else None,
@@ -306,6 +348,13 @@ class SourceCapture:
             "alive_at_arm": self.alive_at_arm,
             "alive_before_stop": self.alive_before_stop,
             "stop_requested_utc": self.stop_requested_utc,
+            "raw_capture_receipt": {
+                "path": str(self.raw_handle.receipt_path),
+                "size": self.raw_handle.receipt_path.stat().st_size,
+                "sha256": hashlib.sha256(
+                    self.raw_handle.receipt_path.read_bytes()
+                ).hexdigest(),
+            },
         }
 
 
@@ -352,7 +401,13 @@ def capture(
     )
     start_snapshot_receipt = write_exclusive(
         destination / "lsusb-start.json",
-        canonical_json(bounded_snapshot(snapshot_command)),
+        canonical_json(
+            bounded_snapshot(
+                snapshot_command,
+                capture_dir=destination,
+                name="lsusb-start-raw",
+            )
+        ),
     )
 
     captures = [
@@ -401,7 +456,13 @@ def capture(
 
     end_snapshot_receipt = write_exclusive(
         destination / "lsusb-end.json",
-        canonical_json(bounded_snapshot(snapshot_command)),
+        canonical_json(
+            bounded_snapshot(
+                snapshot_command,
+                capture_dir=destination,
+                name="lsusb-end-raw",
+            )
+        ),
     )
     ended_utc = utc_now()
     result = {

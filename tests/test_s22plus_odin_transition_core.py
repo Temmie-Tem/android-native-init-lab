@@ -1307,9 +1307,17 @@ class S22PlusOdinTransitionCoreTest(unittest.TestCase):
                     )
         self.assertFalse(called["runner"])
 
-    def test_default_runner_kills_oversized_output(self):
-        with self.assertRaises(subprocess.SubprocessError):
-            self.module._default_runner(
+    def test_default_runner_is_only_a_nonexecuting_raw_binding_sentinel(self):
+        with self.assertRaisesRegex(
+            self.module.OdinTransitionError, "raw-first runner is not bound"
+        ):
+            self.module._default_runner(["odin4", "-l"], 2)
+
+    def test_bound_raw_runner_preserves_oversized_partial_output(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            runner, handles = self.module._raw_first_runner(run_dir, 0)
+            result = runner(
                 [
                     sys.executable,
                     "-c",
@@ -1317,25 +1325,13 @@ class S22PlusOdinTransitionCoreTest(unittest.TestCase):
                 ],
                 2,
             )
-
-    def test_default_runner_reaps_child_when_selector_setup_fails(self):
-        process = mock.Mock()
-        process.poll.return_value = None
-        process.stdout = mock.Mock()
-        process.stderr = mock.Mock()
-        with mock.patch.object(
-            self.module.subprocess, "Popen", return_value=process
-        ), mock.patch.object(
-            self.module.selectors,
-            "DefaultSelector",
-            side_effect=RuntimeError("selector unavailable"),
-        ):
-            with self.assertRaisesRegex(RuntimeError, "selector unavailable"):
-                self.module._default_runner(["odin4", "-l"], 2)
-        process.kill.assert_called_once_with()
-        process.wait.assert_called_once_with()
-        process.stdout.close.assert_called_once_with()
-        process.stderr.close.assert_called_once_with()
+            self.assertIsInstance(result, self.module.RawRunResult)
+            self.assertEqual(len(handles), 1)
+            self.assertTrue(handles[0].output_exceeded)
+            self.assertEqual(
+                handles[0].stdout_path.stat().st_size,
+                self.module.MAX_ENUM_OUTPUT_BYTES,
+            )
 
     def test_index_segment_count_is_bounded(self):
         module = self.module

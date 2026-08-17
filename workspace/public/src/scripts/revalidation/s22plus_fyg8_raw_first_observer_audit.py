@@ -1,0 +1,891 @@
+#!/usr/bin/env python3
+"""Audit the permanent S22+ D0/F1 raw-before-parse observer boundary."""
+
+from __future__ import annotations
+
+import argparse
+import ast
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import types
+from typing import Any, Mapping
+
+
+SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
+VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
+RAW_MODULE = "device_action_raw_capture_v1"
+AUDITOR_NORMALIZED_SHA256 = "0be37ddd13b364ffc2532356f919bca979b05d7f3891b8e2c316d06f0928953a"
+SCRIPT_DIR = Path(__file__).resolve().parent
+_BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
+DEFAULT_OUTPUT = Path(
+    "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260817-01.json"
+)
+LEGACY_UNMIGRATED_OBSERVER_COUNT = 31
+LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
+    "850e87ac23c849faafdf2847ab6b5ba47892e8cc37578846d7c0f34ee0c53798"
+)
+CLOSED_OBSERVER_SOURCE_COUNT = 121
+CLOSED_OBSERVER_SOURCE_SHA256 = (
+    "e0fde5ae9afb7b39579ed41ad09e70d9f4ef82c9e316a9eb5c3ff68bba8456af"
+)
+OBSERVER_FILE_RE = re.compile(
+    r"(?:s22plus|device_action)[A-Za-z0-9_]*"
+    r"(?:d0|f1|live|observer|probe|capture|transition|recovery|readonly)"
+    r"[A-Za-z0-9_]*\.py"
+)
+LIVE_ACQUISITION_MARKERS = (
+    "subprocess.",
+    "bounded_command(",
+    "os.popen(",
+)
+LIVE_PARSE_MARKERS = (
+    ".stdout",
+    ".stderr",
+    ".communicate(",
+    "check_output(",
+)
+
+ACTIVE_FILES = {
+    "s22plus_fyg8_raw_first_observer_audit.py",
+    "device_action_raw_capture_v1.py",
+    "device_action_d0_v2.py",
+    "s22plus_fyg8_p319_max77705_attribute_stage_a.py",
+    "s22plus_fyg8_max77705_sysfs_d0.py",
+    "s22plus_fyg8_p257_stock_pivot_d0.py",
+    "s22plus_fyg8_p303_stock_log_d0.py",
+    "s22plus_boot_only_live_core.py",
+    "s22plus_odin_transition_core.py",
+    "s22plus_odin_usbfs_identity.py",
+    "device_action_cdc_acm_observer_v1.py",
+    "device_action_usb_trace_sidecar_v1.py",
+    "s22plus_fyg8_p300_usb_trace_binding.py",
+    "s22plus_boot_only_f1_transport.py",
+    "device_action_f1_live_v2.py",
+}
+EXPECTED_ACTIVE_SOURCE_SHA256 = {
+    "device_action_cdc_acm_observer_v1.py": "a1fa4dc117fcd9b1f755f50a7d105a86f7b8ddf43ef30a48d34c0b1f0dcf0da1",
+    "device_action_d0_v2.py": "e71894396ca0c9ba0657a1c83d45883b99f53887c1fb87076ea0a38bbee5c37a",
+    "device_action_f1_live_v2.py": "1acb93802479ed6061cb7dd0f97859b7dfbc232cc25f28c210d6a0482d6823f1",
+    "device_action_raw_capture_v1.py": "410e260129c0c50dca29b008dc7cf1051ee007816ab18bea76aeae62505ca0e4",
+    "device_action_usb_trace_sidecar_v1.py": "f4a87987c0feddf00e89235070ccfaebf6f29353d06f3aa0c887dc3da6dc12ab",
+    "s22plus_boot_only_f1_transport.py": "f18e2e453e33078a184653722d4579a184c59b1c3ac10f9eb54d4a4ba437ffea",
+    "s22plus_boot_only_live_core.py": "f5411d39e11e1f5e2b4ff63c0fe6c3a1874ef0dd5c33c91cbab4f736f4521af1",
+    "s22plus_fyg8_max77705_sysfs_d0.py": "8fc0eb11ec25822823a0fbce95090822908fa4742b95ffa500fcf5637cf41a4d",
+    "s22plus_fyg8_p257_stock_pivot_d0.py": "143821a4ebda2e04992ad36c4acbd5b73fe09a47174eb56c79c5526a5513dbae",
+    "s22plus_fyg8_p300_usb_trace_binding.py": "d987d6732132eea3adddf27ed42336486d914706b6555ba279cd98c4987e613f",
+    "s22plus_fyg8_p303_stock_log_d0.py": "7e963b5144705c2f27fa8f91f4e139e92608732efc401910049cd5ff88868a4d",
+    "s22plus_fyg8_p319_max77705_attribute_stage_a.py": "c28097ef576f971ff427c97bdf62d839047c1c4ec1a861c8bf39592dc352fc38",
+    "s22plus_odin_transition_core.py": "a44e5ce43eebc3d254c1cc428b986484f244d47ae13a4125399c26c4b3e4014c",
+    "s22plus_odin_usbfs_identity.py": "e337026d70f4c231468bfddab4a28e9ae65ab142f82859370c926332fb7bb9b5",
+}
+
+FUNCTION_CONTRACTS: dict[str, dict[str, tuple[tuple[str, ...], tuple[str, ...]]]] = {
+    "device_action_raw_capture_v1.py": {
+        "RawCaptureWriter.finalize": (
+            ("os.fchmod(", "os.fsync(", "_durable_create(", "return load_handle("),
+            (),
+        ),
+        "acquire_command": (
+            ("RawCaptureWriter(", "subprocess.Popen(", "writer.finalize("),
+            ("subprocess.run(", "subprocess.check_output("),
+        ),
+        "read_stdout": (
+            ("RawCaptureHandle", "load_handle(", "_stable_bytes("),
+            ("subprocess.",),
+        ),
+    },
+    "device_action_d0_v2.py": {
+        "AdbReadOnlyClient._run": (
+            ("capture_command(", "decode_success_stdout("),
+            ("bounded_command(", ".stdout", ".stderr"),
+        ),
+        "AdbReadOnlyClient.capture_command": (
+            ("raw_capture.acquire_command(",),
+            ("bounded_command(",),
+        ),
+        "AdbReadOnlyClient.capture": (
+            ("raw_capture.acquire_command(", "raw_capture.require_success(", "raw_capture.read_stdout(", "ObserverCapture("),
+            ("subprocess.Popen(", "result.stdout", "result.stderr"),
+        ),
+        "collect_connected": (
+            ("isinstance(capture, ObserverCapture)", "raw_capture.read_stdout("),
+            ("_read_stable(run_dir / \"baseline-observer.bin\"",),
+        ),
+    },
+    "s22plus_fyg8_p319_max77705_attribute_stage_a.py": {
+        "parse_stage_a": (
+            ("RawCaptureHandle", "raw_capture.read_stdout(", "raw_capture.require_success("),
+            ("payload: bytes", "subprocess."),
+        ),
+        "collect": (
+            ("raw_capture.acquire_command(", "parse_stage_a(stage_handle)"),
+            ("parse_stage_a(command.stdout", "d0.bounded_command("),
+        ),
+    },
+    "s22plus_fyg8_max77705_sysfs_d0.py": {
+        "read_adb_inventory": (
+            ("raw_capture.acquire_command(", "decode_success_stdout("),
+            ("d0.bounded_command(", ".stdout.decode("),
+        ),
+        "_root_snapshot": (
+            ("raw_capture.acquire_command(", "return handle"),
+            ("d0.bounded_command(",),
+        ),
+        "parse_snapshot_handle": (
+            ("RawCaptureHandle", "raw_capture.read_stdout(", "parse_snapshot(raw)"),
+            ("subprocess.",),
+        ),
+    },
+    "s22plus_fyg8_p257_stock_pivot_d0.py": {
+        "read_remote_exact": (
+            ("raw_capture.acquire_command(", "RawCaptureHandle"),
+            ("d0.bounded_command(", ".stdout"),
+        ),
+        "collect_connected": (
+            ("handle = remote_reader(", "evaluate_capture_handles("),
+            ("evaluate_reads((result.stdout",),
+        ),
+        "evaluate_capture_handles": (
+            ("RawCaptureHandle", "raw_capture.read_stdout(", "evaluate_reads("),
+            ("subprocess.",),
+        ),
+    },
+    "s22plus_fyg8_p303_stock_log_d0.py": {
+        "_root_command": (
+            ("raw_capture.acquire_command(", "return handle"),
+            ("d0.bounded_command(",),
+        ),
+        "_read_root_capture": (
+            ("RawCaptureHandle", "raw_capture.read_stdout("),
+            ("subprocess.",),
+        ),
+        "_select_exact_serial": (
+            ("raw_capture.acquire_command(", "decode_success_stdout("),
+            ("d0.bounded_command(",),
+        ),
+    },
+    "s22plus_boot_only_live_core.py": {
+        "capture_adb_exec_out": (
+            ("raw_capture.acquire_command(", "raw_capture.require_success(", "raw_capture.read_stdout("),
+            ("subprocess.Popen(",),
+        ),
+    },
+    "s22plus_odin_transition_core.py": {
+        "_default_runner": (
+            ("raw-first runner is not bound",),
+            ("subprocess.Popen(", "subprocess.run("),
+        ),
+        "_raw_first_runner": (
+            ("raw_capture.acquire_command(", "RawRunResult(handle)"),
+            (),
+        ),
+        "enumerate_odin": (
+            ("isinstance(result, RawRunResult)", "raw_capture.read_stdout(", "raw_capture.read_stderr("),
+            (),
+        ),
+        "_snapshot_and_record": (
+            ("runner is _default_runner", "_raw_first_runner(run_dir, sequence)", "raw_capture_receipt="),
+            ("runner=runner,",),
+        ),
+    },
+    "s22plus_odin_usbfs_identity.py": {
+        "read_birth_time_ns": (
+            ("capture_dir", "raw_capture.acquire_command(", "decode_success_stdout("),
+            ("subprocess.run(",),
+        ),
+    },
+    "device_action_cdc_acm_observer_v1.py": {
+        "_udev_properties": (
+            ("raw_capture.acquire_command(", "raw_capture.read_stdout("),
+            ("subprocess.run(", "completed.stdout"),
+        ),
+        "ModemManagerGuard.arm": (
+            (
+                "RawCaptureWriter(",
+                "writer.write_stdout(chunk)",
+                "arm_handle = writer.finalize(",
+                "retained = raw_capture.read_stdout(",
+                'retained == expected + b"\\n"',
+            ),
+            ("expected in output", "output.extend("),
+        ),
+        "ObserverSession._read_endpoint": (
+            ("RawCaptureWriter", "writer.write_stdout(chunk)"),
+            ("return \"accepted\"", "bytes(payload) == expected"),
+        ),
+        "ObserverSession._classify_raw": (
+            ("RawCaptureHandle", "raw_capture.read_stdout("),
+            ("descriptor", "os.read("),
+        ),
+        "ObserverSession.observe": (
+            ("RawCaptureWriter(", "raw_writer.finalize(", "_classify_raw(raw_handle"),
+            ("_write_exclusive(raw_path, payload)",),
+        ),
+    },
+    "s22plus_fyg8_p300_usb_trace_binding.py": {
+        "_load_bound_raw_capture": (
+            (
+                "raw_capture.load_handle(",
+                "raw_capture.read_stdout(",
+                "raw_capture.read_stderr(",
+            ),
+            ("subprocess.",),
+        ),
+        "verify_capture_directory": (
+            (
+                "_load_bound_raw_capture(",
+                'expected["raw_capture_receipt"]',
+            ),
+            ("result.stdout", "result.stderr"),
+        ),
+    },
+    "device_action_usb_trace_sidecar_v1.py": {
+        "bounded_snapshot": (
+            ("raw_capture.acquire_command(", "raw_capture.read_stdout("),
+            ("subprocess.run(", "completed.stdout"),
+        ),
+        "SourceCapture._drain": (
+            ("os.read(", "self.writer.write_stdout(chunk)"),
+            (".readline(", "records.append("),
+        ),
+        "SourceCapture.stop": (
+            ("self.writer.finalize(",),
+            (),
+        ),
+    },
+    "s22plus_boot_only_f1_transport.py": {
+        "execute_odin_boot_only": (
+            ("raw_capture.acquire_command(", "raw_capture.read_stdout(", "raw_capture_receipt"),
+            ("subprocess.run(", "completed.stdout"),
+        ),
+    },
+    "device_action_f1_live_v2.py": {
+        "_classify_odin_capture": (
+            ("RawCaptureHandle", "raw_capture.read_stdout(", "raw_capture.read_stderr(", "classify_odin_output("),
+            ("subprocess.",),
+        ),
+        "SamsungOdinBackend.request_download": (
+            ("self.client.capture_command(", "raw_capture.require_success("),
+            ("d0.bounded_command(",),
+        ),
+        "SamsungOdinBackend.transfer": (
+            ("receipt, raw_handle = transport.execute_odin_boot_only(", "_classify_odin_capture(raw_handle)"),
+            ("_persist_bytes(destination / f\"{prefix}.stdout\"",),
+        ),
+        "SamsungOdinBackend.verify_final": (
+            (
+                "final_client = d0.adb_client_for_bundle(",
+                "final_client.bind_raw_capture_dir(destination)",
+                "capture = final_client.capture(",
+                "raw_capture.read_stdout(",
+                "raw_capture.read_stderr(",
+            ),
+            ("d0._read_stable(path", "self.client.capture("),
+        ),
+        "_validate_final_observer": (
+            (
+                "raw_capture.load_handle(raw_path)",
+                "raw_capture.read_stdout(",
+                "raw_capture.read_stderr(",
+            ),
+            ("d0._read_stable(path",),
+        ),
+    },
+}
+
+ORDERED_FUNCTION_TOKENS = {
+    (
+        "device_action_cdc_acm_observer_v1.py",
+        "ModemManagerGuard.arm",
+    ): (
+        "writer.write_stdout(chunk)",
+        "arm_handle = writer.finalize(",
+        "retained = raw_capture.read_stdout(",
+        'retained == expected + b"\\n"',
+    ),
+}
+
+
+class RawFirstAuditError(RuntimeError):
+    pass
+
+
+def _auditor_normalized_sha256(text: str) -> str:
+    pattern = r'AUDITOR_NORMALIZED_SHA256 = "[0-9a-f]{64}"'
+    matches = re.findall(pattern, text)
+    if len(matches) != 1:
+        raise RawFirstAuditError("auditor normalized-source seam differs")
+    if matches[0] != (
+        'AUDITOR_NORMALIZED_SHA256 = "'
+        + AUDITOR_NORMALIZED_SHA256
+        + '"'
+    ):
+        raise RawFirstAuditError("auditor source embeds a different self binding")
+    normalized = re.sub(
+        pattern,
+        'AUDITOR_NORMALIZED_SHA256 = "' + "0" * 64 + '"',
+        text,
+        count=1,
+    ).encode("utf-8")
+    return hashlib.sha256(normalized).hexdigest()
+
+
+def _source(path: Path, overrides: Mapping[str, str]) -> str:
+    if path.name in overrides:
+        return overrides[path.name]
+    return path.read_text(encoding="utf-8")
+
+
+def _stable_source(path: Path, maximum: int = 16 * 1024 * 1024) -> str:
+    descriptor = os.open(
+        path,
+        os.O_RDONLY | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0),
+    )
+    try:
+        before = os.fstat(descriptor)
+        if not stat.S_ISREG(before.st_mode) or not 0 <= before.st_size <= maximum:
+            raise RawFirstAuditError(f"observer source identity differs: {path.name}")
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = os.read(descriptor, min(1024 * 1024, maximum + 1 - total))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            total += len(chunk)
+            if total > maximum:
+                raise RawFirstAuditError(f"observer source exceeds bound: {path.name}")
+        after = os.fstat(descriptor)
+    finally:
+        os.close(descriptor)
+    current = os.lstat(path)
+    identity = lambda item: (
+        item.st_dev,
+        item.st_ino,
+        item.st_mode,
+        item.st_nlink,
+        item.st_uid,
+        item.st_gid,
+        item.st_size,
+        item.st_mtime_ns,
+        item.st_ctime_ns,
+    )
+    if identity(before) != identity(after) or identity(after) != identity(current):
+        raise RawFirstAuditError(f"observer source changed while reading: {path.name}")
+    try:
+        return b"".join(chunks).decode("utf-8", "strict")
+    except UnicodeDecodeError as exc:
+        raise RawFirstAuditError(f"observer source is not UTF-8: {path.name}") from exc
+
+
+def load_bound_auditor() -> Any:
+    source = _stable_source(Path(__file__).resolve())
+    payload = source.encode("utf-8")
+    module = types.ModuleType("s22plus_fyg8_raw_first_observer_audit_bound")
+    module.__file__ = str(Path(__file__).resolve())
+    module.__package__ = ""
+    module.__dict__["_RAW_FIRST_BOUND_AUDITOR_SOURCE"] = payload
+    try:
+        code = compile(
+            source,
+            str(Path(__file__).resolve()),
+            "exec",
+            dont_inherit=True,
+        )
+        exec(code, module.__dict__)  # noqa: S102
+    except Exception as exc:
+        raise RawFirstAuditError(
+            "raw-first bound-source execution failed"
+        ) from exc
+    return module
+
+
+def _function_sources(text: str) -> dict[str, str]:
+    try:
+        tree = ast.parse(text)
+    except SyntaxError as exc:
+        raise RawFirstAuditError("observer source is not valid Python") from exc
+    values: dict[str, str] = {}
+
+    def visit(body: list[ast.stmt], prefix: str = "") -> None:
+        for node in body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                name = prefix + node.name
+                segment = ast.get_source_segment(text, node)
+                if segment is None or name in values:
+                    raise RawFirstAuditError(f"cannot isolate observer function: {name}")
+                values[name] = segment
+            elif isinstance(node, ast.ClassDef):
+                visit(node.body, prefix + node.name + ".")
+
+    visit(tree.body)
+    return values
+
+
+def _imports_subprocess(text: str) -> bool:
+    try:
+        tree = ast.parse(text)
+    except SyntaxError as exc:
+        raise RawFirstAuditError("revalidation source is not valid Python") from exc
+    return any(
+        (
+            isinstance(node, ast.Import)
+            and any(alias.name == "subprocess" for alias in node.names)
+        )
+        or (
+            isinstance(node, ast.ImportFrom)
+            and node.module == "subprocess"
+        )
+        for node in ast.walk(tree)
+    )
+
+
+def _uses_legacy_acquisition(text: str) -> bool:
+    try:
+        tree = ast.parse(text)
+    except SyntaxError as exc:
+        raise RawFirstAuditError("revalidation source is not valid Python") from exc
+    if _imports_subprocess(text):
+        return True
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if isinstance(node.func, ast.Name) and node.func.id in {
+            "bounded_command",
+            "popen",
+        }:
+            return True
+        if isinstance(node.func, ast.Attribute) and node.func.attr in {
+            "bounded_command",
+            "popen",
+        }:
+            return True
+    return False
+
+
+def _audit_function_contracts(
+    root: Path, overrides: Mapping[str, str]
+) -> dict[str, str]:
+    identities: dict[str, str] = {}
+    for filename, contracts in FUNCTION_CONTRACTS.items():
+        path = root / filename
+        text = _source(path, overrides)
+        functions = _function_sources(text)
+        for name, (required, forbidden) in contracts.items():
+            body = functions.get(name)
+            if body is None:
+                raise RawFirstAuditError(f"raw-first function is absent: {filename}:{name}")
+            for token in required:
+                if body.count(token) < 1:
+                    raise RawFirstAuditError(
+                        f"raw-first seam differs: {filename}:{name}:{token}"
+                    )
+            for token in forbidden:
+                if token in body:
+                    raise RawFirstAuditError(
+                        f"write-after-parse seam is present: {filename}:{name}:{token}"
+                    )
+            ordered = ORDERED_FUNCTION_TOKENS.get((filename, name), ())
+            positions = [body.find(token) for token in ordered]
+            if positions and (
+                any(position < 0 for position in positions)
+                or positions != sorted(positions)
+                or len(set(positions)) != len(positions)
+            ):
+                raise RawFirstAuditError(
+                    f"raw-first operation order differs: {filename}:{name}"
+                )
+            identities[f"{filename}:{name}"] = hashlib.sha256(
+                body.encode("utf-8")
+            ).hexdigest()
+    return identities
+
+
+def _candidate_d0_sources(
+    root: Path, overrides: Mapping[str, str]
+) -> list[str]:
+    values: list[str] = []
+    paths = {path.name: path for path in root.glob("*.py")}
+    for name in overrides:
+        paths.setdefault(name, root / name)
+    for name, path in sorted(paths.items()):
+        if re.fullmatch(r"(?:device_action|s22plus)[A-Za-z0-9_]*d0[A-Za-z0-9_]*\.py", name) is None:
+            continue
+        text = _source(path, overrides)
+        if not _uses_legacy_acquisition(text):
+            continue
+        values.append(name)
+        if name not in ACTIVE_FILES:
+            raise RawFirstAuditError(
+                f"S22 D0 source bypasses common raw capture: {name}"
+            )
+        if RAW_MODULE not in text:
+            raise RawFirstAuditError(
+                f"S22 D0 source lacks common raw capture: {name}"
+            )
+    return values
+
+
+def _legacy_unmigrated_observers(
+    root: Path, overrides: Mapping[str, str]
+) -> tuple[list[dict[str, Any]], str]:
+    """Freeze pre-boundary inactive observers while scanning the whole tree."""
+
+    paths = {path.name: path for path in root.glob("*.py")}
+    for name in overrides:
+        paths.setdefault(name, root / name)
+    values: list[dict[str, Any]] = []
+    for name, path in sorted(paths.items()):
+        if name in ACTIVE_FILES or OBSERVER_FILE_RE.fullmatch(name) is None:
+            continue
+        text = _source(path, overrides)
+        if not _uses_legacy_acquisition(text):
+            continue
+        payload = text.encode("utf-8")
+        values.append(
+            {
+                "name": name,
+                "size": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            }
+        )
+    encoded = json.dumps(
+        values,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("ascii")
+    return values, hashlib.sha256(encoded).hexdigest()
+
+
+def _closed_observer_sources(
+    root: Path, overrides: Mapping[str, str]
+) -> tuple[list[dict[str, Any]], str]:
+    paths = {path.name: path for path in root.glob("*.py")}
+    for name in overrides:
+        paths.setdefault(name, root / name)
+    names = sorted(
+        name
+        for name in paths
+        if name not in ACTIVE_FILES and OBSERVER_FILE_RE.fullmatch(name)
+    )
+    values = []
+    for name in names:
+        payload = _source(paths[name], overrides).encode("utf-8")
+        values.append(
+            {
+                "name": name,
+                "size": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            }
+        )
+    encoded = json.dumps(
+        values,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("ascii")
+    return values, hashlib.sha256(encoded).hexdigest()
+
+
+def audit_sources(
+    root: Path = SCRIPT_DIR,
+    overrides: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    if type(_BOUND_AUDITOR_SOURCE) is not bytes:
+        bound = load_bound_auditor()
+        try:
+            return bound.audit_sources(root, overrides)
+        except bound.RawFirstAuditError as exc:
+            raise RawFirstAuditError(str(exc)) from exc
+    if (
+        _stable_source(Path(__file__).resolve()).encode("utf-8")
+        != _BOUND_AUDITOR_SOURCE
+    ):
+        raise RawFirstAuditError("executed auditor bytes differ before audit")
+    supplied = overrides or {}
+    paths = sorted(root.glob("*.py"), key=lambda path: path.name)
+    overrides = {path.name: _stable_source(path) for path in paths}
+    overrides.update(supplied)
+    names = {path.name for path in paths}
+    if not ACTIVE_FILES <= names | set(supplied):
+        raise RawFirstAuditError("raw-first active source inventory is incomplete")
+    auditor_source = overrides.get(Path(__file__).name)
+    if (
+        auditor_source is None
+        or _auditor_normalized_sha256(auditor_source)
+        != AUDITOR_NORMALIZED_SHA256
+    ):
+        raise RawFirstAuditError("loaded auditor differs from its stable source")
+    function_sha256 = _audit_function_contracts(root, overrides)
+    d0_candidates = _candidate_d0_sources(root, overrides)
+    legacy_observers, legacy_sha256 = _legacy_unmigrated_observers(
+        root, overrides
+    )
+    closed_sources, closed_sources_sha256 = _closed_observer_sources(
+        root, overrides
+    )
+    if (
+        len(legacy_observers) != LEGACY_UNMIGRATED_OBSERVER_COUNT
+        or legacy_sha256 != LEGACY_UNMIGRATED_OBSERVER_SHA256
+    ):
+        raise RawFirstAuditError(
+            "legacy observer inventory differs: "
+            f"count={len(legacy_observers)} sha256={legacy_sha256}"
+        )
+    if (
+        len(closed_sources) != CLOSED_OBSERVER_SOURCE_COUNT
+        or closed_sources_sha256 != CLOSED_OBSERVER_SOURCE_SHA256
+    ):
+        raise RawFirstAuditError(
+            "closed observer source inventory differs: "
+            f"count={len(closed_sources)} sha256={closed_sources_sha256}"
+        )
+
+    adapter = _source(root / "device_action_f1_live_v2.py", overrides)
+    closure_body = _function_sources(adapter).get("_closure", "")
+    if (
+        closure_body.count('"raw_capture": scripts / "device_action_raw_capture_v1.py"')
+        != 1
+        or closure_body.count('"usb_trace_sidecar": Path(usb_trace_sidecar.__file__).resolve()')
+        != 1
+        or closure_body.count('"p300_usb_trace_binding": Path(p300_usb_trace.__file__).resolve()')
+        != 1
+    ):
+        raise RawFirstAuditError("F1 execution closure omits raw observer sources")
+
+    all_sources = dict(overrides)
+    subprocess_modules = sorted(
+        name for name, text in all_sources.items() if _imports_subprocess(text)
+    )
+    observer_named_modules = sorted(
+        name
+        for name, text in all_sources.items()
+        if (
+            ("observer" in name or "_d0" in name)
+            and _imports_subprocess(text)
+            and (name.startswith("device_action") or name.startswith("s22plus"))
+            and name != Path(__file__).name
+        )
+    )
+    audited_observer_modules = sorted(FUNCTION_CONTRACTS)
+    unaudited_current = sorted(
+        name
+        for name in observer_named_modules
+        if name in ACTIVE_FILES and name not in FUNCTION_CONTRACTS
+    )
+    if unaudited_current:
+        raise RawFirstAuditError(
+            "active observer subprocess source is unaudited: "
+            + ",".join(unaudited_current)
+        )
+
+    source_identities = {
+        name: {
+            "size": len(_source(root / name, overrides).encode("utf-8")),
+            "sha256": hashlib.sha256(
+                _source(root / name, overrides).encode("utf-8")
+            ).hexdigest(),
+        }
+        for name in sorted(ACTIVE_FILES)
+    }
+    expected_names = ACTIVE_FILES - {Path(__file__).name}
+    if set(EXPECTED_ACTIVE_SOURCE_SHA256) != expected_names:
+        raise RawFirstAuditError("active source freeze inventory differs")
+    for name, expected in EXPECTED_ACTIVE_SOURCE_SHA256.items():
+        if source_identities[name]["sha256"] != expected:
+            raise RawFirstAuditError(f"active raw-first source changed: {name}")
+
+    result = {
+        "schema": SCHEMA,
+        "verdict": VERDICT,
+        "hazard": "WRITE_AFTER_PARSE_DEVICE_EVIDENCE_LOSS",
+        "boundary": "S22PLUS_D0_F1_RAW_FIRST_OBSERVER_PRESERVATION",
+        "permanent": True,
+        "expiry": None,
+        "review_triggers": [
+            "raw acquisition implementation changes",
+            "parser handle signature changes",
+            "S22 D0 or F1 observer execution closure changes",
+        ],
+        "all_revalidation_python_files_scanned": len(paths),
+        "subprocess_modules_scanned": len(subprocess_modules),
+        "observer_named_subprocess_modules": len(observer_named_modules),
+        "legacy_unmigrated_observer_sources": len(legacy_observers),
+        "legacy_unmigrated_observer_inventory_sha256": legacy_sha256,
+        "legacy_unmigrated_observers_are_inactive_and_byte_frozen": True,
+        "closed_observer_source_count": len(closed_sources),
+        "closed_observer_source_inventory_sha256": closed_sources_sha256,
+        "closed_observer_sources_are_byte_frozen": True,
+        "new_or_changed_observer_source_requires_review": True,
+        "audited_active_observer_modules": audited_observer_modules,
+        "d0_subprocess_candidates": d0_candidates,
+        "function_sha256": function_sha256,
+        "source_identities": source_identities,
+        "auditor_normalized_sha256": AUDITOR_NORMALIZED_SHA256,
+        "auditor_bound_source_execution": True,
+        "active_execution_sources_byte_frozen": True,
+        "device_observation_parser_accepts_live_stream": False,
+        "guard_readiness_marker_is_acquisition_control_not_result_classification": True,
+        "guard_arm_marker_parsed_only_from_finalized_handle": True,
+        "p300_sidecar_nested_raw_receipts_reopened": True,
+        "f1_final_observer_phase_capture_bound": True,
+        "raw_mode": "0400",
+        "raw_no_clobber": True,
+        "raw_file_fsync_before_parse": True,
+        "raw_directory_fsync_before_parse": True,
+        "d0_covered": True,
+        "f1_covered": True,
+        "device_contact": False,
+        "live_authorized": False,
+    }
+    if (
+        _stable_source(Path(__file__).resolve()).encode("utf-8")
+        != _BOUND_AUDITOR_SOURCE
+    ):
+        raise RawFirstAuditError("executed auditor bytes differ after audit")
+    return result
+
+
+def encode_receipt(value: dict[str, Any]) -> bytes:
+    return (
+        json.dumps(
+            value,
+            indent=2,
+            sort_keys=True,
+            ensure_ascii=True,
+            allow_nan=False,
+        )
+        + "\n"
+    ).encode("ascii")
+
+
+def _stable_receipt(path: Path, maximum: int) -> bytes:
+    descriptor = os.open(
+        path,
+        os.O_RDONLY | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0),
+    )
+    try:
+        before = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or stat.S_IMODE(before.st_mode) != 0o400
+            or before.st_nlink != 1
+            or not 0 <= before.st_size <= maximum
+        ):
+            raise RawFirstAuditError("raw-first receipt identity differs")
+        chunks: list[bytes] = []
+        total = 0
+        while True:
+            chunk = os.read(descriptor, min(1024 * 1024, maximum + 1 - total))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            total += len(chunk)
+            if total > maximum:
+                raise RawFirstAuditError("raw-first receipt exceeds its bound")
+        after = os.fstat(descriptor)
+    finally:
+        os.close(descriptor)
+    current = os.lstat(path)
+    identity = lambda item: (
+        item.st_dev,
+        item.st_ino,
+        item.st_mode,
+        item.st_nlink,
+        item.st_uid,
+        item.st_gid,
+        item.st_size,
+        item.st_mtime_ns,
+        item.st_ctime_ns,
+    )
+    if identity(before) != identity(after) or identity(after) != identity(current):
+        raise RawFirstAuditError("raw-first receipt changed while reading")
+    return b"".join(chunks)
+
+
+def write_receipt(path: Path, payload: bytes) -> None:
+    path = path.absolute()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    parent_info = os.lstat(path.parent)
+    if (
+        not stat.S_ISDIR(parent_info.st_mode)
+        or stat.S_ISLNK(parent_info.st_mode)
+        or path.parent.resolve(strict=True) != path.parent
+    ):
+        raise RawFirstAuditError("raw-first receipt directory is indirect")
+    if path.exists() or path.is_symlink():
+        if _stable_receipt(path, max(len(payload), 1)) != payload:
+            raise RawFirstAuditError("existing raw-first receipt differs")
+        return
+    descriptor = os.open(
+        path,
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_EXCL
+        | os.O_CLOEXEC
+        | getattr(os, "O_NOFOLLOW", 0),
+        0o400,
+    )
+    try:
+        os.fchmod(descriptor, 0o400)
+        offset = 0
+        while offset < len(payload):
+            try:
+                written = os.write(descriptor, payload[offset:])
+            except InterruptedError:
+                continue
+            if written <= 0:
+                raise RawFirstAuditError("short raw-first receipt write")
+            offset += written
+        os.fsync(descriptor)
+        info = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(info.st_mode)
+            or stat.S_IMODE(info.st_mode) != 0o400
+            or info.st_nlink != 1
+            or info.st_size != len(payload)
+        ):
+            raise RawFirstAuditError("raw-first receipt identity differs")
+    finally:
+        os.close(descriptor)
+    directory = os.open(
+        path.parent,
+        os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0),
+    )
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
+    if _stable_receipt(path, max(len(payload), 1)) != payload:
+        raise RawFirstAuditError("published raw-first receipt differs")
+
+
+def main() -> int:
+    if type(_BOUND_AUDITOR_SOURCE) is not bytes:
+        return load_bound_auditor().main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--audit", action="store_true", required=True)
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
+    try:
+        value = audit_sources()
+        payload = encode_receipt(value)
+        if args.output is not None:
+            write_receipt(args.output, payload)
+    except (OSError, RawFirstAuditError) as exc:
+        print(f"S22+ raw-first observer audit error: {exc}")
+        return 2
+    print(payload.decode("ascii"), end="")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

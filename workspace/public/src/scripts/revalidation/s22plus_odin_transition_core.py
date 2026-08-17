@@ -15,22 +15,23 @@ import json
 import math
 import os
 import re
-import selectors
 import stat
 import subprocess
 import threading
 import time
 from contextlib import contextmanager
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
 import s22plus_boot_only_live_core as live_core
+import device_action_raw_capture_v1 as raw_capture
 import s22plus_odin_usbfs_identity as usbfs_identity
 
 
 SNAPSHOT_SCHEMA_V1 = "s22plus_odin_endpoint_snapshot_v1"
-SNAPSHOT_SCHEMA = "s22plus_odin_endpoint_snapshot_v2"
+SNAPSHOT_SCHEMA_V2 = "s22plus_odin_endpoint_snapshot_v2"
+SNAPSHOT_SCHEMA = "s22plus_odin_endpoint_snapshot_v3"
 INDEX_SCHEMA = "s22plus_odin_transaction_index_v1"
 PHASE_SCHEMA = "s22plus_odin_phase_receipt_v1"
 ODIN_DEVICE_RE = re.compile(
@@ -119,7 +120,12 @@ class RunResult(Protocol):
     stderr: str | bytes | None
 
 
-Runner = Callable[[list[str], float], RunResult]
+@dataclass(frozen=True)
+class RawRunResult:
+    handle: raw_capture.RawCaptureHandle
+
+
+Runner = Callable[[list[str], float], RunResult | RawRunResult]
 DeviceIdentity = Callable[[str], str | None]
 DeviceInventory = Callable[[], dict[str, str]]
 
@@ -154,6 +160,7 @@ class OdinSnapshot:
     stdout: str
     stderr: str
     endpoint_transition_evidence: dict[str, Any] | None = None
+    raw_capture_receipt: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -220,73 +227,69 @@ class _EnumerationOutputLimit(subprocess.SubprocessError):
 
 
 def _default_runner(argv: list[str], timeout: float) -> subprocess.CompletedProcess[bytes]:
-    """Capture both pipes with a live aggregate byte and wall-clock bound."""
+    """Sentinel: production callers must replace it with a bound raw runner."""
 
-    if not math.isfinite(timeout) or timeout <= 0:
-        raise subprocess.TimeoutExpired(argv, timeout)
-    process: subprocess.Popen[bytes] | None = None
-    selector: selectors.BaseSelector | None = None
-    streams = {"stdout": [], "stderr": []}
-    total = 0
-    started = time.monotonic()
-    deadline = started + timeout
-    if not math.isfinite(deadline):
-        raise subprocess.TimeoutExpired(argv, timeout)
-    try:
-        process = subprocess.Popen(
-            argv,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            close_fds=True,
-        )
-        selector = selectors.DefaultSelector()
-        assert process.stdout is not None
-        assert process.stderr is not None
-        selector.register(process.stdout, selectors.EVENT_READ, "stdout")
-        selector.register(process.stderr, selectors.EVENT_READ, "stderr")
-        while selector.get_map():
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise subprocess.TimeoutExpired(argv, timeout)
-            events = selector.select(remaining)
-            if not events:
-                raise subprocess.TimeoutExpired(argv, timeout)
-            for key, _mask in events:
-                chunk = os.read(key.fd, 8192)
-                if not chunk:
-                    selector.unregister(key.fileobj)
-                    continue
-                total += len(chunk)
-                if total > MAX_ENUM_OUTPUT_BYTES:
-                    raise _EnumerationOutputLimit(
-                        f"Odin enumeration output exceeds {MAX_ENUM_OUTPUT_BYTES} bytes"
-                    )
-                streams[key.data].append(chunk)
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            raise subprocess.TimeoutExpired(argv, timeout)
-        returncode = process.wait(timeout=remaining)
-    except BaseException:
-        if process is not None:
-            if process.poll() is None:
-                process.kill()
-            process.wait()
-        raise
-    finally:
-        if selector is not None:
-            selector.close()
-        if process is not None:
-            if process.stdout is not None:
-                process.stdout.close()
-            if process.stderr is not None:
-                process.stderr.close()
-    assert process is not None
-    return subprocess.CompletedProcess(
-        argv,
-        returncode,
-        stdout=b"".join(streams["stdout"]),
-        stderr=b"".join(streams["stderr"]),
+    del argv, timeout
+    raise OdinTransitionError(
+        "Odin enumeration raw-first runner is not bound to a run directory"
     )
+
+
+def _raw_capture_identity(handle: raw_capture.RawCaptureHandle) -> dict[str, Any]:
+    payload = handle.receipt_path.read_bytes()
+    return {
+        "path": str(handle.receipt_path),
+        "size": len(payload),
+        "sha256": live_core.sha256_bytes(payload),
+    }
+
+
+def _next_enumeration_capture_name(run_dir: Path, sequence: int) -> tuple[Path, str]:
+    capture_dir = raw_capture.prepare_capture_dir(
+        run_dir, "raw-odin-enumeration"
+    )
+    prefix = f"sequence-{sequence:06d}-attempt-"
+    used: set[int] = set()
+    for path in capture_dir.iterdir():
+        match = re.fullmatch(
+            re.escape(prefix) + r"([0-9]{4})\.(?:stdout\.bin|stderr\.bin|capture\.json)",
+            path.name,
+        )
+        if match is not None:
+            used.add(int(match.group(1)))
+    attempt = 0
+    while attempt in used:
+        attempt += 1
+    if attempt > 9999:
+        raise OdinTransitionError("Odin raw-capture attempt capacity is exhausted")
+    return capture_dir, prefix + f"{attempt:04d}"
+
+
+def _raw_first_runner(
+    run_dir: Path,
+    sequence: int,
+) -> tuple[Runner, list[raw_capture.RawCaptureHandle]]:
+    handles: list[raw_capture.RawCaptureHandle] = []
+
+    def run(argv: list[str], timeout: float) -> RawRunResult:
+        capture_dir, name = _next_enumeration_capture_name(run_dir, sequence)
+        try:
+            handle = raw_capture.acquire_command(
+                argv,
+                capture_dir,
+                name,
+                timeout=timeout,
+                stdout_maximum=MAX_ENUM_OUTPUT_BYTES,
+                stderr_maximum=MAX_ENUM_OUTPUT_BYTES,
+            )
+            handles.append(handle)
+            return RawRunResult(handle)
+        except raw_capture.RawCaptureError as exc:
+            raise _EnumerationOutputLimit(
+                f"Odin raw-first enumeration capture failed: {exc}"
+            ) from exc
+
+    return run, handles
 
 
 def _as_text(value: str | bytes | None) -> str:
@@ -368,10 +371,12 @@ def _validated_device_inventory(device_inventory: DeviceInventory) -> dict[str, 
     return inventory
 
 
-def measured_usbfs_observer() -> EndpointIdentityObserver:
+def measured_usbfs_observer(
+    capture_dir: Path | None = None,
+) -> EndpointIdentityObserver:
     """Return the opt-in R4W1-C-derived timestamp-aware identity observer."""
 
-    return usbfs_identity.MeasuredUsbfsIdentityObserver()
+    return usbfs_identity.MeasuredUsbfsIdentityObserver(capture_dir=capture_dir)
 
 
 def _new_endpoint_observer(
@@ -439,13 +444,36 @@ def enumerate_odin(
         result = runner([str(odin), "-l"], timeout_sec)
     except (OSError, subprocess.SubprocessError) as exc:
         raise OdinTransitionError("Odin enumeration did not complete") from exc
-    stdout = _as_text(result.stdout)
-    stderr = _as_text(result.stderr)
+    if isinstance(result, RawRunResult):
+        try:
+            if (
+                result.handle.producer_error_type is not None
+                or result.handle.timed_out
+                or result.handle.output_exceeded
+            ):
+                raise raw_capture.RawCaptureError(
+                    "Odin raw enumeration acquisition failed"
+                )
+            stdout = raw_capture.read_stdout(
+                result.handle, maximum=MAX_ENUM_OUTPUT_BYTES
+            ).decode("utf-8", "replace")
+            stderr = raw_capture.read_stderr(
+                result.handle, maximum=MAX_ENUM_OUTPUT_BYTES
+            ).decode("utf-8", "replace")
+        except (UnicodeError, raw_capture.RawCaptureError) as exc:
+            raise OdinTransitionError(
+                "Odin raw enumeration cannot be parsed"
+            ) from exc
+        returncode = result.handle.returncode
+    else:
+        stdout = _as_text(result.stdout)
+        stderr = _as_text(result.stderr)
+        returncode = result.returncode
     if len(stdout.encode("utf-8")) + len(stderr.encode("utf-8")) > MAX_ENUM_OUTPUT_BYTES:
         raise OdinTransitionError("Odin enumeration output exceeds bound")
-    if result.returncode != 0:
+    if returncode != 0:
         raise OdinTransitionError(
-            f"Odin enumeration failed rc={result.returncode}"
+            f"Odin enumeration failed rc={returncode}"
         )
     raw_devices = tuple(
         sorted(set(ODIN_DEVICE_RE.findall(stdout)) | set(ODIN_DEVICE_RE.findall(stderr)))
@@ -485,7 +513,7 @@ def enumerate_odin(
                     ) from exc
                 return OdinSnapshot(
                     timestamp_utc=timestamp(),
-                    returncode=result.returncode,
+                    returncode=returncode,
                     raw_devices=raw_devices,
                     live_devices=(),
                     stale_devices=raw_devices,
@@ -546,7 +574,7 @@ def enumerate_odin(
         ) from exc
     return OdinSnapshot(
         timestamp_utc=timestamp(),
-        returncode=result.returncode,
+        returncode=returncode,
         raw_devices=raw_devices,
         live_devices=live_devices,
         stale_devices=stale_devices,
@@ -983,6 +1011,7 @@ def _validate_snapshot_for_persistence(snapshot: OdinSnapshot) -> None:
     stale = snapshot.stale_devices
     identities = snapshot.live_device_identities
     evidence = snapshot.endpoint_transition_evidence
+    raw_capture_receipt = snapshot.raw_capture_receipt
     if any(
         not isinstance(values, tuple)
         or any(not isinstance(value, str) for value in values)
@@ -1008,6 +1037,19 @@ def _validate_snapshot_for_persistence(snapshot: OdinSnapshot) -> None:
         raise OdinTransitionError("snapshot endpoint identities are invalid")
     if evidence is not None and not isinstance(evidence, dict):
         raise OdinTransitionError("snapshot endpoint transition evidence is invalid")
+    if raw_capture_receipt is not None:
+        if (
+            not isinstance(raw_capture_receipt, dict)
+            or set(raw_capture_receipt) != {"path", "sha256", "size"}
+            or not isinstance(raw_capture_receipt["path"], str)
+            or not raw_capture_receipt["path"]
+            or type(raw_capture_receipt["size"]) is not int
+            or not 1 <= raw_capture_receipt["size"] <= 64 * 1024
+            or not isinstance(raw_capture_receipt["sha256"], str)
+            or re.fullmatch(r"[0-9a-f]{64}", raw_capture_receipt["sha256"])
+            is None
+        ):
+            raise OdinTransitionError("snapshot raw-capture receipt is invalid")
     try:
         if evidence is not None:
             usbfs_identity.validate_enumeration_evidence(evidence)
@@ -1043,6 +1085,31 @@ def _persist_snapshot_unlocked(
         raise OdinTransitionError(
             f"snapshot sequence append mismatch: expected {len(existing)}, received {sequence}"
         )
+    if snapshot.raw_capture_receipt is not None:
+        raw_value = snapshot.raw_capture_receipt
+        raw_path = Path(raw_value["path"]).absolute()
+        raw_root = (run_dir / "raw-odin-enumeration").absolute()
+        if raw_path.parent != raw_root:
+            raise OdinTransitionError("snapshot raw capture escaped its run directory")
+        try:
+            handle = raw_capture.load_handle(raw_path)
+        except raw_capture.RawCaptureError as exc:
+            raise OdinTransitionError("snapshot raw capture cannot be reopened") from exc
+        raw_bytes = raw_path.read_bytes()
+        if (
+            len(raw_bytes) != raw_value["size"]
+            or live_core.sha256_bytes(raw_bytes) != raw_value["sha256"]
+            or handle.returncode != snapshot.returncode
+            or raw_capture.read_stdout(
+                handle, maximum=MAX_ENUM_OUTPUT_BYTES
+            ).decode("utf-8", errors="replace")
+            != snapshot.stdout
+            or raw_capture.read_stderr(
+                handle, maximum=MAX_ENUM_OUTPUT_BYTES
+            ).decode("utf-8", errors="replace")
+            != snapshot.stderr
+        ):
+            raise OdinTransitionError("snapshot raw capture differs from parsed output")
     receipt_path = run_dir / "receipts" / f"odin-snapshot-{sequence:06d}.json"
     receipt_value = _receipt_payload(snapshot, sequence)
     receipt_bytes = _json_receipt_bytes(receipt_value)
@@ -1202,7 +1269,7 @@ def list_snapshot_receipts(run_dir: Path) -> list[dict[str, Any]]:
             )
         payload, identity = _read_sealed_receipt(path)
         schema = payload.get("schema")
-        if schema not in {SNAPSHOT_SCHEMA_V1, SNAPSHOT_SCHEMA}:
+        if schema not in {SNAPSHOT_SCHEMA_V1, SNAPSHOT_SCHEMA_V2, SNAPSHOT_SCHEMA}:
             raise OdinTransitionError(f"invalid snapshot receipt schema: {path}")
         sequence = payload.get("sequence")
         if not isinstance(sequence, int) or path.name != f"odin-snapshot-{sequence:06d}.json":
@@ -1212,6 +1279,7 @@ def list_snapshot_receipts(run_dir: Path) -> list[dict[str, Any]]:
         stale = payload.get("stale_devices")
         identities = payload.get("live_device_identities")
         evidence = payload.get("endpoint_transition_evidence")
+        raw_capture_receipt = payload.get("raw_capture_receipt")
         if any(
             not isinstance(values, list)
             or any(not isinstance(value, str) for value in values)
@@ -1237,6 +1305,49 @@ def list_snapshot_receipts(run_dir: Path) -> list[dict[str, Any]]:
             raise OdinTransitionError(
                 f"legacy snapshot receipt has transition evidence: {path}"
             )
+        if schema in {SNAPSHOT_SCHEMA_V1, SNAPSHOT_SCHEMA_V2} and (
+            "raw_capture_receipt" in payload
+        ):
+            raise OdinTransitionError(
+                f"legacy snapshot receipt has raw-capture evidence: {path}"
+            )
+        if schema == SNAPSHOT_SCHEMA and raw_capture_receipt is not None:
+            if (
+                not isinstance(raw_capture_receipt, dict)
+                or set(raw_capture_receipt) != {"path", "sha256", "size"}
+            ):
+                raise OdinTransitionError(
+                    f"snapshot raw-capture receipt invalid: {path}"
+                )
+            raw_path = Path(raw_capture_receipt.get("path", "")).absolute()
+            if raw_path.parent != (run_dir / "raw-odin-enumeration").absolute():
+                raise OdinTransitionError(
+                    f"snapshot raw capture escaped run directory: {path}"
+                )
+            try:
+                handle = raw_capture.load_handle(raw_path)
+            except raw_capture.RawCaptureError as exc:
+                raise OdinTransitionError(
+                    f"snapshot raw capture cannot be reopened: {path}"
+                ) from exc
+            raw_bytes = raw_path.read_bytes()
+            if (
+                len(raw_bytes) != raw_capture_receipt.get("size")
+                or live_core.sha256_bytes(raw_bytes)
+                != raw_capture_receipt.get("sha256")
+                or handle.returncode != payload.get("returncode")
+                or raw_capture.read_stdout(
+                    handle, maximum=MAX_ENUM_OUTPUT_BYTES
+                ).decode("utf-8", errors="replace")
+                != payload.get("stdout")
+                or raw_capture.read_stderr(
+                    handle, maximum=MAX_ENUM_OUTPUT_BYTES
+                ).decode("utf-8", errors="replace")
+                != payload.get("stderr")
+            ):
+                raise OdinTransitionError(
+                    f"snapshot raw capture differs from receipt: {path}"
+                )
         if (
             evidence is not None and not isinstance(evidence, dict)
         ):
@@ -1273,8 +1384,10 @@ def list_snapshot_receipts(run_dir: Path) -> list[dict[str, Any]]:
         }
         # Preserve the exact historical v1 summary shape so evidence collected
         # before measured endpoint support still reopens byte-for-byte.
-        if schema == SNAPSHOT_SCHEMA:
+        if schema in {SNAPSHOT_SCHEMA_V2, SNAPSHOT_SCHEMA}:
             record["endpoint_transition_evidence"] = evidence
+        if schema == SNAPSHOT_SCHEMA:
+            record["raw_capture_receipt"] = raw_capture_receipt
         records.append(record)
     sequences = [record["sequence"] for record in records]
     if sequences != sorted(set(sequences)):
@@ -1467,13 +1580,25 @@ def _snapshot_and_record(
 ) -> tuple[OdinSnapshot, dict[str, Any]]:
     if allow_empty_post_receipt_change and allow_live_departure:
         raise OdinTransitionError("snapshot transition policy is ambiguous")
+    effective_runner = runner
+    effective_observer_factory = endpoint_observer_factory
+    raw_handles: list[raw_capture.RawCaptureHandle] = []
+    if runner is _default_runner:
+        effective_runner, raw_handles = _raw_first_runner(run_dir, sequence)
+    if endpoint_observer_factory is measured_usbfs_observer:
+        usbfs_capture_dir = raw_capture.prepare_capture_dir(
+            run_dir, f"raw-usbfs-identity-{sequence:06d}"
+        )
+        effective_observer_factory = lambda: measured_usbfs_observer(
+            usbfs_capture_dir
+        )
     try:
         snapshot = enumerate_odin(
             odin,
-            runner=runner,
+            runner=effective_runner,
             device_identity=device_identity,
             device_inventory=device_inventory,
-            endpoint_observer_factory=endpoint_observer_factory,
+            endpoint_observer_factory=effective_observer_factory,
             allow_live_departure_race=allow_live_departure,
             allow_live_arrival_race=allow_empty_post_receipt_change,
             timeout_sec=enumeration_timeout_sec,
@@ -1491,8 +1616,17 @@ def _snapshot_and_record(
         except Exception:
             pass
         raise
+    if runner is _default_runner:
+        if len(raw_handles) != 1:
+            raise OdinTransitionError(
+                "Odin enumeration did not produce one durable raw capture"
+            )
+        snapshot = replace(
+            snapshot,
+            raw_capture_receipt=_raw_capture_identity(raw_handles[0]),
+        )
     record = persist_snapshot(run_dir, sequence, snapshot, lease=lease)
-    if endpoint_observer_factory is None:
+    if effective_observer_factory is None:
         for device, expected_identity in snapshot.live_device_identities:
             if device_identity(device) != expected_identity:
                 raise OdinTransitionError(
@@ -1507,7 +1641,7 @@ def _snapshot_and_record(
                 )
             # Only endpoint-arrival polling may carry an empty receipt forward.
             # Tickets and terminal absence checks remain strictly revalidated.
-            revalidator = _new_endpoint_observer(endpoint_observer_factory)
+            revalidator = _new_endpoint_observer(effective_observer_factory)
             if snapshot.live_devices and allow_live_departure:
                 revalidator.revalidate_or_departure(evidence)
             elif snapshot.live_devices or not allow_empty_post_receipt_change:

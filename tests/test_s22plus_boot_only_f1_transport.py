@@ -254,13 +254,21 @@ class S22PlusBootOnlyF1TransportTest(unittest.TestCase):
             ap_size, ap_digest = make_ap(ap)
             seen = {}
 
-            def fake_run(command, **kwargs):
+            def fake_run(command, capture_dir, name, **kwargs):
                 seen["command"] = command
                 self.assertNotIn("pass_fds", kwargs)
-                return mock.Mock(returncode=0, stdout=b"ok", stderr=b"")
+                return module.raw_capture.publish_captured_bytes(
+                    capture_dir,
+                    name,
+                    stdout=b"ok",
+                    stdout_name=kwargs.get("stdout_name"),
+                    stderr_name=kwargs.get("stderr_name"),
+                )
 
-            with mock.patch.object(module.subprocess, "run", side_effect=fake_run):
-                receipt, stdout, stderr = module.execute_odin_boot_only(
+            with mock.patch.object(
+                module.raw_capture, "acquire_command", side_effect=fake_run
+            ):
+                receipt, handle = module.execute_odin_boot_only(
                     odin,
                     ap,
                     "/dev/bus/usb/001/002",
@@ -269,7 +277,13 @@ class S22PlusBootOnlyF1TransportTest(unittest.TestCase):
                     ap_size=ap_size,
                     ap_sha256=ap_digest,
                     label="candidate",
+                    capture_dir=root,
+                    capture_name="candidate-odin",
+                    stdout_name="candidate.stdout",
+                    stderr_name="candidate.stderr",
                 )
+            stdout = module.raw_capture.read_stdout(handle, maximum=1024)
+            stderr = module.raw_capture.read_stderr(handle, maximum=1024)
             self.assertEqual(seen["command"][0], str(odin.absolute()))
             self.assertEqual(seen["command"][3], str(ap.absolute()))
             self.assertNotIn("/proc/", " ".join(seen["command"]))

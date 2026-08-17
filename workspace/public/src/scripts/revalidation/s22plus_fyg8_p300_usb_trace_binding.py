@@ -10,6 +10,7 @@ from pathlib import Path, PurePosixPath
 import re
 from typing import Any, Mapping, Sequence
 
+import device_action_raw_capture_v1 as raw_capture
 import device_action_usb_trace_sidecar_v1 as sidecar
 import s22plus_fyg8_p300_source_contract as contract
 
@@ -249,6 +250,34 @@ def _read_bound_file(
     return payload, actual
 
 
+def _load_bound_raw_capture(
+    destination: Path,
+    value: Any,
+    name: str,
+    *,
+    maximum: int,
+) -> tuple[raw_capture.RawCaptureHandle, bytes, bytes, dict[str, Any]]:
+    path = destination / f"{name}.capture.json"
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"path", "size", "sha256"}
+        or value.get("path") != str(path)
+    ):
+        raise BindingError(f"sidecar {name} raw receipt shape differs")
+    _payload, receipt = _read_bound_file(
+        path, value, f"sidecar {name} raw receipt", 64 * 1024
+    )
+    try:
+        handle = raw_capture.load_handle(path)
+        stdout = raw_capture.read_stdout(handle, maximum=maximum)
+        stderr = raw_capture.read_stderr(handle, maximum=maximum)
+    except raw_capture.RawCaptureError as exc:
+        raise BindingError(f"sidecar {name} raw capture differs") from exc
+    if handle.name != name:
+        raise BindingError(f"sidecar {name} raw capture name differs")
+    return handle, stdout, stderr, receipt
+
+
 def verify_capture_directory(
     binding: Mapping[str, Any],
     sidecar_result: Mapping[str, Any],
@@ -411,6 +440,82 @@ def verify_capture_directory(
                     or not isinstance(source_arm.get("started_utc"), str)
                 ):
                     raise BindingError("sidecar source did not arm alive")
+        else:
+            try:
+                snapshot = json.loads(payload.decode("utf-8"))
+            except (UnicodeError, json.JSONDecodeError) as exc:
+                raise BindingError(f"sidecar {name} snapshot is not JSON") from exc
+            capture_name = name.replace("_", "-") + "-raw"
+            raw_value = snapshot.get("raw_capture_receipt")
+            if raw_value is None:
+                if (
+                    set(snapshot) != {"available", "command", "error_type"}
+                    or snapshot.get("available") is not False
+                    or not isinstance(snapshot.get("command"), list)
+                    or not isinstance(snapshot.get("error_type"), str)
+                ):
+                    raise BindingError(
+                        f"sidecar {name} unavailable snapshot differs"
+                    )
+            else:
+                handle, stdout, stderr, raw_receipt = _load_bound_raw_capture(
+                    destination,
+                    raw_value,
+                    capture_name,
+                    maximum=sidecar.MAX_SNAPSHOT_BYTES,
+                )
+                expected_snapshot_keys = {
+                    "available",
+                    "command",
+                    "returncode",
+                    "stdout_text",
+                    "stderr_text",
+                    "stdout_truncated",
+                    "stderr_truncated",
+                    "raw_capture_receipt",
+                }
+                if snapshot.get("available") is False:
+                    expected_snapshot_keys.add("error_type")
+                expected_available = (
+                    handle.returncode == 0
+                    and handle.producer_error_type is None
+                    and not handle.timed_out
+                    and not handle.output_exceeded
+                )
+                expected_error_type = None
+                if not expected_available:
+                    expected_error_type = (
+                        handle.producer_error_type
+                        or (
+                            "TimeoutExpired"
+                            if handle.timed_out
+                            else (
+                                "OutputLimit"
+                                if handle.output_exceeded
+                                else "CommandFailed"
+                            )
+                        )
+                    )
+                if (
+                    set(snapshot) != expected_snapshot_keys
+                    or not isinstance(snapshot.get("command"), list)
+                    or snapshot.get("available") is not expected_available
+                    or handle.returncode != snapshot.get("returncode")
+                    or snapshot.get("error_type") != expected_error_type
+                    or handle.output_exceeded
+                    is not snapshot.get("stdout_truncated")
+                    or snapshot.get("stderr_truncated")
+                    is not handle.output_exceeded
+                    or snapshot.get("stdout_text")
+                    != stdout.decode("utf-8", "backslashreplace")
+                    or snapshot.get("stderr_text")
+                    != stderr.decode("utf-8", "backslashreplace")
+                ):
+                    raise BindingError(f"sidecar {name} snapshot semantics differ")
+                supporting_receipts[name] = {
+                    "outer": actual,
+                    "raw_capture_receipt": raw_receipt,
+                }
 
     sources = reopened.get("sources")
     if not isinstance(sources, dict) or set(sources) != set(sidecar.SOURCE_COMMANDS):
@@ -433,6 +538,7 @@ def verify_capture_directory(
                 "alive_at_arm",
                 "alive_before_stop",
                 "stop_requested_utc",
+                "raw_capture_receipt",
             }
             or expected.get("command") != list(command)
             or expected.get("truncated") is not False
@@ -452,13 +558,36 @@ def verify_capture_directory(
             )
         ):
             raise BindingError(f"sidecar {name} capture is not integrity-clean")
+        handle, raw_payload, raw_stderr, raw_receipt = _load_bound_raw_capture(
+            destination,
+            expected["raw_capture_receipt"],
+            f"{name}-stream",
+            maximum=sidecar.MAX_LOG_BYTES,
+        )
+        if (
+            handle.name != f"{name}-stream"
+            or handle.stdout_path != destination / f"{name}.log"
+            or handle.stderr_path != destination / f"{name}.log.stderr"
+            or handle.returncode != expected.get("returncode")
+            or handle.timed_out is not False
+            or handle.output_exceeded is not expected.get("truncated")
+            or handle.producer_error_type != expected.get("error_type")
+            or raw_stderr != b""
+            or len(raw_payload) != expected.get("bytes")
+            or hashlib.sha256(raw_payload).hexdigest()
+            != expected.get("sha256")
+        ):
+            raise BindingError(f"sidecar {name} raw capture semantics differ")
         _payload, actual = _read_bound_file(
             destination / f"{name}.log",
             {"size": expected.get("bytes"), "sha256": expected.get("sha256")},
             f"sidecar {name} log",
             sidecar.MAX_LOG_BYTES,
         )
-        source_receipts[name] = actual
+        source_receipts[name] = {
+            "log": actual,
+            "raw_capture_receipt": raw_receipt,
+        }
     return {
         "schema": "s22plus_fyg8_p300_usb_trace_capture_integrity_v1",
         "result": result_receipt,

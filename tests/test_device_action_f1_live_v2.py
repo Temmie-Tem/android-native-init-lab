@@ -1,4 +1,5 @@
 import contextlib
+import copy
 import hashlib
 import importlib.util
 import io
@@ -55,9 +56,25 @@ class FakeCandidateObserver:
             if self.classification == "accepted"
             else b""
         )
-        raw = self.module.cdc_acm_observer._write_exclusive(
-            self.prepared.run_dir / "candidate-observer.raw", payload
+        raw_handle = self.module.cdc_acm_observer.raw_capture.publish_captured_bytes(
+            self.prepared.run_dir,
+            "candidate-observer",
+            stdout=payload,
+            stdout_name="candidate-observer.raw",
+            stderr_name="candidate-observer.raw.stderr",
         )
+        raw = {
+            "path": str(raw_handle.stdout_path),
+            "size": len(payload),
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "capture_receipt": {
+                "path": str(raw_handle.receipt_path),
+                "size": raw_handle.receipt_path.stat().st_size,
+                "sha256": hashlib.sha256(
+                    raw_handle.receipt_path.read_bytes()
+                ).hexdigest(),
+            },
+        }
         baseline = self.module.cdc_acm_observer.persist_json(
             self.prepared.run_dir / "candidate-observer-baseline.json",
             {
@@ -80,6 +97,13 @@ class FakeCandidateObserver:
             / "candidate-observer-download-departure.json",
             download_departure,
         )
+        guard_dir = self.module.cdc_acm_observer.raw_capture.prepare_capture_dir(
+            self.prepared.run_dir, "raw-cdc-guard"
+        )
+        guard_payload = b"fixture guard armed\n"
+        guard_handle = self.module.cdc_acm_observer.raw_capture.publish_captured_bytes(
+            guard_dir, "guard-arm", stdout=guard_payload
+        )
         guard = self.module.cdc_acm_observer.persist_json(
             self.prepared.run_dir / "candidate-observer-guard.json",
             {
@@ -93,7 +117,14 @@ class FakeCandidateObserver:
                     )
                 ).hexdigest(),
                 "instance_sha256": "5" * 64,
-                "output_sha256": "4" * 64,
+                "output_sha256": hashlib.sha256(guard_payload).hexdigest(),
+                "raw_capture_receipt": {
+                    "path": str(guard_handle.receipt_path),
+                    "size": guard_handle.receipt_path.stat().st_size,
+                    "sha256": hashlib.sha256(
+                        guard_handle.receipt_path.read_bytes()
+                    ).hexdigest(),
+                },
                 "child_alive": True,
             },
         )
@@ -241,21 +272,87 @@ class FakeBackend:
         return self.module.Endpoint("/dev/bus/usb/001/002", 1, "2" * 64)
 
     def _write_transfer(self, prepared, kind, classification, attempt, prefix):
-        stdout = f"{kind}:{classification}:stdout".encode()
+        if classification == "odin_transfer_completed":
+            stdout = (
+                b"Setup Connection\nUpload Binaries\nboot.img.lz4\n"
+                b"100%\nClose Connection\n"
+            )
+            returncode = 0
+        elif classification == "odin_local_parse_failure":
+            stdout = b"Fail parse\n"
+            returncode = 1
+        else:
+            stdout = f"{kind}:device-session-unknown\n".encode()
+            returncode = 1
         stderr = b""
-        stdout_receipt = self.module._persist_bytes(
-            prepared.run_dir / f"{prefix}.stdout", stdout
+        handle = self.module.raw_capture.publish_captured_bytes(
+            prepared.run_dir,
+            f"{prefix}-odin",
+            stdout=stdout,
+            stderr=stderr,
+            returncode=returncode,
+            argv0_name="odin4",
+            stdout_name=f"{prefix}.stdout",
+            stderr_name=f"{prefix}.stderr",
         )
-        stderr_receipt = self.module._persist_bytes(
-            prepared.run_dir / f"{prefix}.stderr", stderr
+        stdout_receipt = {
+            "path": str(handle.stdout_path),
+            "size": len(stdout),
+            "sha256": hashlib.sha256(stdout).hexdigest(),
+        }
+        stderr_receipt = {
+            "path": str(handle.stderr_path),
+            "size": len(stderr),
+            "sha256": hashlib.sha256(stderr).hexdigest(),
+        }
+        item = (
+            prepared.bundle.manifest["candidate_ap"]
+            if kind == "candidate"
+            else prepared.bundle.manifest["rollback_ap"]
         )
+        raw_payload = handle.receipt_path.read_bytes()
         value = {
             "schema": "device_action_f1_transfer_receipt_v2",
             "kind": kind,
             "attempt": attempt,
             "prefix": prefix,
             "classification": classification,
-            "transport": {"returncode": 0 if classification.endswith("completed") else 1},
+            "transport": {
+                "label": kind,
+                "returncode": handle.returncode,
+                "timed_out": False,
+                "output_exceeded": False,
+                "producer_error_type": None,
+                "command_shape": [
+                    "odin4",
+                    "--reboot",
+                    "-a",
+                    "AP.tar.md5",
+                    "-d",
+                    "USBFS",
+                ],
+                "regular_path_inputs": True,
+                "anonymous_proc_fd_inputs": False,
+                "odin": prepared.bundle.profile["transport"]["odin"],
+                "ap": {
+                    "path": str(
+                        self.module.core._artifact_path(
+                            prepared.root, item, f"{kind}_ap"
+                        )
+                    ),
+                    "size": item["size"],
+                    "sha256": item["sha256"],
+                },
+                "stdout_bytes": len(stdout),
+                "stderr_bytes": len(stderr),
+                "stdout_sha256": hashlib.sha256(stdout).hexdigest(),
+                "stderr_sha256": hashlib.sha256(stderr).hexdigest(),
+                "raw_capture_receipt": {
+                    "path": str(handle.receipt_path),
+                    "size": len(raw_payload),
+                    "sha256": hashlib.sha256(raw_payload).hexdigest(),
+                },
+            },
             "stdout": stdout_receipt,
             "stderr": stderr_receipt,
         }
@@ -336,13 +433,25 @@ class FakeBackend:
         reads = []
         for index in (1, 2):
             path = destination / f"rollback-observer-{index}.bin"
-            path.write_bytes(payload)
-            path.with_suffix(path.suffix + ".stderr").write_bytes(b"")
+            handle = self.module.raw_capture.publish_captured_bytes(
+                destination,
+                f"900{index}-observer-eof",
+                stdout=payload,
+                stdout_name=path.name,
+                stderr_name=path.name + ".stderr",
+            )
             reads.append(
                 {
                     "path": str(path),
                     "bytes": len(payload),
                     "sha256": hashlib.sha256(payload).hexdigest(),
+                    "raw_capture": {
+                        "path": str(handle.receipt_path),
+                        "size": handle.receipt_path.stat().st_size,
+                        "sha256": hashlib.sha256(
+                            handle.receipt_path.read_bytes()
+                        ).hexdigest(),
+                    },
                     "read_to_eof": True,
                     "stderr_bytes": 0,
                     "elapsed_sec": 0.01,
@@ -431,11 +540,27 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
             },
             "start_health": health,
             "final_health": health,
+            "transport": {
+                "odin": {
+                    "path": "/fixture/odin4",
+                    "size": 1,
+                    "sha256": "8" * 64,
+                }
+            },
         }
         manifest = {
             "manifest_id": "fixture-manifest",
             "status": "ready-for-f1-approval",
-            "candidate_ap": {"sha256": "9" * 64},
+            "candidate_ap": {
+                "path": "fixture-candidate.tar.md5",
+                "size": 1,
+                "sha256": "9" * 64,
+            },
+            "rollback_ap": {
+                "path": "fixture-rollback.tar.md5",
+                "size": 1,
+                "sha256": "7" * 64,
+            },
             "observation": {
                 "timeout_sec": 1,
                 "acceptance": {
@@ -681,6 +806,136 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
             "interrupted-before-receipt",
         )
         self.assertFalse(result["candidate_observer_accepted"])
+
+    def test_real_adb_client_recheck_and_final_observer_use_separate_raw_phases(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        adb = prepared.root / "fixture-adb"
+        counter = prepared.root / "observer-count"
+        marker = prepared.bundle.manifest["observation"]["acceptance"]["marker"]
+        adb.write_text(
+            f"""#!{sys.executable}
+import pathlib
+import sys
+
+args = sys.argv[1:]
+joined = " ".join(args)
+counter = pathlib.Path({str(counter)!r})
+if args == ["version"]:
+    print("Android Debug Bridge version 1.0.41")
+elif args == ["devices", "-l"]:
+    print("List of devices attached")
+    print("s device model:SM_S906N device:g0q transport_id:2")
+elif args[-1:] == ["get-devpath"]:
+    print("usb:1-1")
+elif "getprop ro.product.model" in joined:
+    print("model=SM-S906N")
+    print("device=g0q")
+    print("bootloader=S906NKSS7FYG8")
+    print("incremental=S906NKSS7FYG8")
+    print("boot_completed=1")
+    print("bootanim=stopped")
+    print("verified_boot_state=orange")
+    print("boot_id=12345678-1234-1234-1234-123456789abc")
+    print("kernel_release=fixture-kernel")
+elif "sha256sum /dev/block/by-name/boot" in joined:
+    print("root=uid=0(root) gid=0(root)")
+    print("boot={'a' * 64}")
+    print("vendor_boot={'b' * 64}")
+    print("dtbo={'c' * 64}")
+    print("recovery={'d' * 64}")
+elif "exec-out" in args:
+    count = int(counter.read_text()) if counter.exists() else 0
+    counter.write_text(str(count + 1))
+    if count == 0:
+        print("clean retained log")
+    else:
+        print("prefix")
+        print({marker!r})
+        print("suffix")
+else:
+    raise SystemExit(2)
+""",
+            encoding="utf-8",
+        )
+        adb.chmod(0o500)
+        backend = object.__new__(self.module.SamsungOdinBackend)
+        backend.root = prepared.root
+        backend.bundle = prepared.bundle
+        backend.adb = adb.resolve(strict=True)
+        backend.client = self.module.d0.adb_client_for_bundle(
+            backend.adb, prepared.bundle
+        )
+        backend.usb_root = prepared.root / "unused-usb"
+        backend.odin = prepared.root / "unused-odin"
+        properties = {
+            "model": "SM-S906N",
+            "device": "g0q",
+            "incremental": "S906NKSS7FYG8",
+        }
+        target = self.module.d0._target_evidence(
+            prepared.bundle, properties, "s", "usb:1-1"
+        )
+        prepared_preflight = prepared.run_dir / "preflight"
+        prepared_preflight.mkdir()
+        (prepared_preflight / "result.json").write_text(
+            json.dumps({"target_evidence": target}), encoding="utf-8"
+        )
+        usb = {
+            "enumerated_devices": 1,
+            "download_endpoint_count": 0,
+            "snapshot_sha256": "0" * 64,
+        }
+        absence = types.SimpleNamespace(absent=True, timed_out=False)
+        with (
+            mock.patch.object(self.module.d0, "usb_snapshot", return_value=usb),
+            mock.patch.object(
+                self.module.d0,
+                "_inspect_clean_baseline",
+                return_value=(
+                    {
+                        "baseline_clean": True,
+                        "family_count": 0,
+                        "exact_record_count": 0,
+                        "integrity_issue": False,
+                    },
+                    None,
+                ),
+            ),
+            mock.patch.object(
+                self.module.odin_core, "list_snapshot_receipts", return_value=[]
+            ),
+            mock.patch.object(
+                self.module.odin_core,
+                "wait_for_no_live_endpoint",
+                return_value=absence,
+            ),
+            mock.patch.object(self.module.time, "sleep", return_value=None),
+        ):
+            recheck = backend.recheck_android(
+                prepared, prepared.run_dir / "execute-preflight-01"
+            )
+            final = backend.verify_final(
+                prepared, prepared.run_dir / "odin-endpoints", object(), prepared.run_dir
+            )
+        self.assertTrue(recheck["healthy"])
+        self.assertTrue(final["observer"]["accepted"], final)
+        self.module._validate_final_observer(
+            prepared,
+            {
+                "final_evidence": final,
+                "marker_accepted": True,
+            },
+        )
+        self.assertTrue(
+            (prepared.run_dir / "execute-preflight-01/raw-adb").is_dir()
+        )
+        self.assertTrue((prepared.run_dir / "raw-adb").is_dir())
+        for receipt in final["observer"]["reads"]:
+            handle = self.module.raw_capture.load_handle(
+                Path(receipt["raw_capture"]["path"])
+            )
+            self.assertEqual(handle.receipt_path.parent, prepared.run_dir)
 
     def test_e3_observer_fault_closes_after_verified_rollback(self):
         temporary, prepared = self.prepared(e3=True)
@@ -1481,7 +1736,17 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
             prepared, prepared.approval_token, FakeBackend(self.module)
         )
         self.module.validate_live_result(result, prepared)
-        (prepared.run_dir / "rollback-observer-1.bin").write_bytes(b"tampered")
+        for invalid in (True, float("nan"), float("inf")):
+            with self.subTest(elapsed_sec=invalid):
+                changed = copy.deepcopy(result)
+                changed["live_state"]["final_evidence"]["observer"][
+                    "reads"
+                ][0]["elapsed_sec"] = invalid
+                with self.assertRaises(self.module.F1LiveError):
+                    self.module.validate_live_result(changed, prepared)
+        raw_path = prepared.run_dir / "rollback-observer-1.bin"
+        raw_path.chmod(0o600)
+        raw_path.write_bytes(b"tampered")
         with self.assertRaises(self.module.F1LiveError):
             self.module.validate_live_result(result, prepared)
 
@@ -1496,6 +1761,20 @@ class DeviceActionF1LiveV2Test(unittest.TestCase):
         value = json.loads(start.read_text(encoding="utf-8"))
         value["attempt"] = 2
         start.write_text(json.dumps(value), encoding="utf-8")
+        with self.assertRaises(self.module.F1LiveError):
+            self.module.validate_live_result(result, prepared)
+
+    def test_result_validator_requires_exact_raw_transport_binding(self):
+        temporary, prepared = self.prepared()
+        self.addCleanup(temporary.cleanup)
+        result = self.module.execute_prepared(
+            prepared, prepared.approval_token, FakeBackend(self.module)
+        )
+        path = prepared.run_dir / "candidate-attempt-01.result.json"
+        path.chmod(0o600)
+        value = json.loads(path.read_text(encoding="utf-8"))
+        value["transport"]["raw_capture_receipt"]["sha256"] = "0" * 64
+        path.write_text(json.dumps(value), encoding="utf-8")
         with self.assertRaises(self.module.F1LiveError):
             self.module.validate_live_result(result, prepared)
 

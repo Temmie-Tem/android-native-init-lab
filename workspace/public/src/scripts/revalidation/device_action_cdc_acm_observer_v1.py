@@ -20,11 +20,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterator
 
+import device_action_raw_capture_v1 as raw_capture
+
 
 SCHEMA = "device_action_cdc_acm_observer_v1"
 BASELINE_SCHEMA = "device_action_cdc_acm_baseline_v1"
-GUARD_SCHEMA = "device_action_modemmanager_guard_v2"
-RECEIPT_SCHEMA = "device_action_cdc_acm_receipt_v1"
+GUARD_SCHEMA = "device_action_modemmanager_guard_v3"
+RECEIPT_SCHEMA = "device_action_cdc_acm_receipt_v2"
 KIND = "exact_cdc_acm_banner_v1"
 SPEC_KEYS = {
     "kind",
@@ -619,28 +621,30 @@ def _try_persist_guard_arm_failure(
     return True
 
 
-def _udev_properties(sysfs_path: Path) -> dict[str, str]:
+def _udev_properties(
+    sysfs_path: Path, capture_dir: Path, name: str
+) -> dict[str, str]:
     try:
-        completed = subprocess.run(
+        handle = raw_capture.acquire_command(
             [
                 UDEVADM,
                 "info",
                 "--query=property",
                 f"--path={sysfs_path}",
             ],
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_dir,
+            name,
             timeout=5,
-            check=False,
+            stdout_maximum=16 * 1024,
+            stderr_maximum=16 * 1024,
             env={"LC_ALL": "C", "PATH": "/usr/bin:/bin"},
         )
-    except (OSError, subprocess.SubprocessError) as exc:
-        raise ObserverError("udev property query failed") from exc
-    if completed.returncode != 0 or completed.stderr:
-        raise ObserverError("udev property query was rejected")
+        raw_capture.require_success(handle)
+        payload = raw_capture.read_stdout(handle, maximum=16 * 1024)
+    except raw_capture.RawCaptureError as exc:
+        raise ObserverError("udev property raw capture failed") from exc
     values: dict[str, str] = {}
-    for raw in completed.stdout.splitlines():
+    for raw in payload.splitlines():
         key, separator, value = raw.partition(b"=")
         if not separator:
             continue
@@ -657,11 +661,19 @@ class ModemManagerGuard:
         spec: dict[str, str],
         topology: str,
         *,
+        evidence_dir: Path | None = None,
         max_sec: int = GUARD_DEFAULT_MAX_SEC,
     ):
         self.spec = dict(spec)
         self.topology = topology
         self.max_sec = _validate_guard_max_sec(max_sec)
+        self.evidence_dir = evidence_dir
+        self.capture_dir = (
+            raw_capture.prepare_capture_dir(evidence_dir, "raw-cdc-guard")
+            if evidence_dir is not None
+            else None
+        )
+        self.property_capture_sequence = 0
         self.instance_sha256 = hashlib.sha256(os.urandom(32)).hexdigest()
         self.process: subprocess.Popen[bytes] | None = None
         self.arm_receipt: dict[str, Any] | None = None
@@ -679,7 +691,9 @@ class ModemManagerGuard:
         topology_match = TOPOLOGY_RE.fullmatch(topology)
         if topology_match is None:
             raise ObserverError("prepared physical topology is invalid")
-        guard = cls(spec, topology, max_sec=max_sec)
+        if evidence_dir is None:
+            raise ObserverError("ModemManager guard raw-capture directory is absent")
+        guard = cls(spec, topology, evidence_dir=evidence_dir, max_sec=max_sec)
         spec_sha256 = digest(spec)
         topology_sha256 = hashlib.sha256(
             topology_match.group(1).encode()
@@ -702,42 +716,93 @@ class ModemManagerGuard:
         guard.process = process
         assert process.stdout is not None
         expected = (GUARD_ARM_PREFIX + rule_sha256).encode()
+        expected_frame_size = len(expected) + 1
         deadline = time.monotonic() + GUARD_ARM_SEC
-        output = bytearray()
+        captured_bytes = 0
         armed = False
+        writer = raw_capture.RawCaptureWriter(
+            guard.capture_dir,
+            "guard-arm",
+            stdout_maximum=16 * 1024,
+            stderr_maximum=1,
+            argv0_name=Path(_guard_command(spec, topology, max_sec=guard.max_sec)[0]).name,
+        )
+        arm_handle: raw_capture.RawCaptureHandle | None = None
         try:
-            while time.monotonic() < deadline:
-                if process.poll() is not None:
-                    break
+            while (
+                time.monotonic() < deadline
+                and captured_bytes < expected_frame_size
+            ):
                 readable, _, _ = select.select([process.stdout], [], [], 0.1)
                 if readable:
-                    chunk = os.read(process.stdout.fileno(), 4096)
-                    output.extend(chunk)
-                    if len(output) > 16 * 1024:
+                    chunk = os.read(
+                        process.stdout.fileno(),
+                        min(4096, expected_frame_size - captured_bytes),
+                    )
+                    if not chunk:
                         break
-                    if expected in output:
-                        guard.arm_receipt = {
-                            "schema": GUARD_SCHEMA,
-                            "status": "armed",
-                            "spec_sha256": spec_sha256,
-                            "topology_sha256": topology_sha256,
-                            "rule_sha256": rule_sha256,
-                            "instance_sha256": guard.instance_sha256,
-                            "output_sha256": hashlib.sha256(output).hexdigest(),
-                            "child_alive": process.poll() is None,
-                        }
-                        if process.poll() is None:
-                            armed = True
-                            return guard
-                        break
-            _try_persist_guard_arm_failure(
-                evidence_dir,
-                bytes(output),
-                process.poll(),
-                "guard-arm-failed",
+                    writer.write_stdout(chunk)
+                    captured_bytes += len(chunk)
+                    continue
+                if process.poll() is not None:
+                    break
+            arm_handle = writer.finalize(returncode=process.poll())
+            retained = raw_capture.read_stdout(
+                arm_handle, maximum=expected_frame_size
+            )
+            if (
+                retained == expected + b"\n"
+                and process.poll() is None
+            ):
+                guard.arm_receipt = {
+                    "schema": GUARD_SCHEMA,
+                    "status": "armed",
+                    "spec_sha256": spec_sha256,
+                    "topology_sha256": topology_sha256,
+                    "rule_sha256": rule_sha256,
+                    "instance_sha256": guard.instance_sha256,
+                    "output_sha256": hashlib.sha256(retained).hexdigest(),
+                    "raw_capture_receipt": {
+                        "path": str(arm_handle.receipt_path),
+                        "size": arm_handle.receipt_path.stat().st_size,
+                        "sha256": hashlib.sha256(
+                            arm_handle.receipt_path.read_bytes()
+                        ).hexdigest(),
+                    },
+                    "child_alive": True,
+                }
+                armed = True
+                return guard
+            if arm_handle is None:
+                arm_handle = writer.finalize(
+                    returncode=process.poll(),
+                    producer_error_type="GuardArmFailed",
+                )
+            persist_json(
+                evidence_dir / "candidate-observer-guard-arm-failure.json",
+                {
+                    "schema": GUARD_SCHEMA,
+                    "status": "guard-arm-failed",
+                    "returncode": process.poll(),
+                    "raw_capture_receipt": {
+                        "path": str(arm_handle.receipt_path),
+                        "size": arm_handle.receipt_path.stat().st_size,
+                        "sha256": hashlib.sha256(
+                            arm_handle.receipt_path.read_bytes()
+                        ).hexdigest(),
+                    },
+                },
             )
             raise ObserverError("ModemManager udev guard failed")
         finally:
+            if arm_handle is None and not writer.finished:
+                try:
+                    writer.finalize(
+                        returncode=process.poll(),
+                        producer_error_type="GuardArmInterrupted",
+                    )
+                except (OSError, raw_capture.RawCaptureError):
+                    pass
             if not armed:
                 try:
                     guard.release()
@@ -749,7 +814,13 @@ class ModemManagerGuard:
 
     def matches_node(self, node: Path) -> bool:
         try:
-            properties = _udev_properties(node.resolve(strict=True))
+            if self.capture_dir is None:
+                raise ObserverError("udev property raw capture is not bound")
+            name = f"udev-properties-{self.property_capture_sequence:04d}"
+            self.property_capture_sequence += 1
+            properties = _udev_properties(
+                node.resolve(strict=True), self.capture_dir, name
+            )
             return (
                 properties.get("ID_MM_DEVICE_IGNORE") == "1"
                 and properties.get("ID_MM_PORT_IGNORE") == "1"
@@ -869,13 +940,16 @@ class ObserverSession:
         tty.setraw(descriptor, termios.TCSANOW)
 
     def _read_endpoint(
-        self, endpoint: Endpoint, deadline: float
-    ) -> tuple[str, bytes]:
+        self,
+        endpoint: Endpoint,
+        deadline: float,
+        writer: raw_capture.RawCaptureWriter,
+    ) -> str:
         path = self.dev_root / endpoint.tty_name
         if not self.guard.healthy(recheck=True):
-            return "guard-lost", b""
+            return "guard-lost"
         if not self.guard.matches_node(endpoint.device_path):
-            return "identity-mismatch", b""
+            return "identity-mismatch"
         try:
             info = path.stat()
             if (
@@ -883,24 +957,24 @@ class ObserverSession:
                 or os.major(info.st_rdev) != endpoint.major
                 or os.minor(info.st_rdev) != endpoint.minor
             ):
-                return "identity-mismatch", b""
+                return "identity-mismatch"
             descriptor = os.open(
                 path,
                 os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK | os.O_CLOEXEC,
             )
         except OSError:
-            return "open-failed", b""
+            return "open-failed"
         try:
             try:
                 fcntl.ioctl(descriptor, termios.TIOCEXCL)
             except OSError:
-                return "exclusive-failed", b""
+                return "exclusive-failed"
             if not self.guard.healthy(recheck=True):
-                return "guard-lost", b""
+                return "guard-lost"
             try:
                 self._raw_tty(descriptor)
             except (OSError, termios.error):
-                return "open-failed", b""
+                return "open-failed"
             expected = expected_banner(self.spec)
             payload = bytearray()
             while len(payload) <= len(expected) and time.monotonic() < deadline:
@@ -915,9 +989,10 @@ class ObserverSession:
                     continue
                 if chunk:
                     payload.extend(chunk)
+                    writer.write_stdout(chunk)
                 if len(payload) > len(expected):
                     break
-                if bytes(payload) == expected:
+                if len(payload) == len(expected):
                     settle_deadline = time.monotonic() + SETTLE_SEC
                     while time.monotonic() < settle_deadline:
                         readable, _, _ = select.select(
@@ -931,6 +1006,7 @@ class ObserverSession:
                             continue
                         if extra:
                             payload.extend(extra)
+                            writer.write_stdout(extra)
                             break
                     break
             guard_healthy = self.guard.healthy(recheck=True)
@@ -947,20 +1023,40 @@ class ObserverSession:
                 or not _matches(self.spec, topology.group(1), identity, repeated)
                 or os.fstat(descriptor).st_rdev != info.st_rdev
             ):
-                return "identity-mismatch", bytes(payload)
-            if len(payload) > len(expected):
-                return "extra-byte", bytes(payload)
-            if bytes(payload) == expected:
-                return "accepted", bytes(payload)
+                return "identity-mismatch"
             if guard_healthy and not guard_matches:
-                return "identity-mismatch", bytes(payload)
+                return "captured-identity-mismatch"
             if not guard_healthy:
-                return "guard-lost", bytes(payload)
-            if time.monotonic() >= deadline and not payload:
-                return "read-timeout", bytes(payload)
-            return "byte-mismatch", bytes(payload)
+                return "captured-guard-lost"
+            return "captured"
         finally:
             os.close(descriptor)
+
+    def _classify_raw(
+        self,
+        handle: raw_capture.RawCaptureHandle,
+        acquisition: str,
+    ) -> tuple[str, bytes]:
+        try:
+            payload = raw_capture.read_stdout(
+                handle, maximum=len(expected_banner(self.spec)) + 1
+            )
+        except raw_capture.RawCaptureError as exc:
+            raise ObserverError("candidate observer raw handle is invalid") from exc
+        if not acquisition.startswith("captured"):
+            return acquisition, payload
+        expected = expected_banner(self.spec)
+        if len(payload) > len(expected):
+            return "extra-byte", payload
+        if payload == expected:
+            return "accepted", payload
+        if acquisition == "captured-identity-mismatch":
+            return "identity-mismatch", payload
+        if acquisition == "captured-guard-lost":
+            return "guard-lost", payload
+        if not payload:
+            return "read-timeout", payload
+        return "byte-mismatch", payload
 
     def observe(
         self,
@@ -1007,11 +1103,44 @@ class ObserverSession:
                 time.sleep(0.05)
             if endpoint is None and classification == "endpoint-timeout" and mismatch_seen:
                 classification = "identity-mismatch"
-        payload = b""
-        if endpoint is not None:
-            classification, payload = self._read_endpoint(endpoint, deadline)
-        raw_path = self.run_dir / "candidate-observer.raw"
-        raw_receipt = _write_exclusive(raw_path, payload)
+        raw_writer = raw_capture.RawCaptureWriter(
+            self.run_dir,
+            "candidate-observer",
+            stdout_maximum=len(expected_banner(self.spec)) + 1,
+            stderr_maximum=1,
+            argv0_name="tty-cdc-acm",
+            stdout_name="candidate-observer.raw",
+            stderr_name="candidate-observer.raw.stderr",
+        )
+        acquisition = classification
+        try:
+            if endpoint is not None:
+                acquisition = self._read_endpoint(endpoint, deadline, raw_writer)
+            raw_handle = raw_writer.finalize(returncode=0)
+        except BaseException as exc:
+            if not raw_writer.finished:
+                try:
+                    raw_writer.finalize(
+                        returncode=None,
+                        producer_error_type=type(exc).__name__,
+                    )
+                except (OSError, raw_capture.RawCaptureError):
+                    pass
+            raise
+        classification, payload = self._classify_raw(raw_handle, acquisition)
+        raw_path = raw_handle.stdout_path
+        raw_receipt = {
+            "path": str(raw_path),
+            "size": len(payload),
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "capture_receipt": {
+                "path": str(raw_handle.receipt_path),
+                "size": raw_handle.receipt_path.stat().st_size,
+                "sha256": hashlib.sha256(
+                    raw_handle.receipt_path.read_bytes()
+                ).hexdigest(),
+            },
+        }
         value = {
             "schema": RECEIPT_SCHEMA,
             "kind": KIND,
@@ -1273,19 +1402,20 @@ def validate_receipt(
     expected_rule_sha256 = hashlib.sha256(
         _guard_rule(spec, topology)
     ).hexdigest()
+    current_guard_keys = {
+        "schema",
+        "status",
+        "spec_sha256",
+        "topology_sha256",
+        "rule_sha256",
+        "instance_sha256",
+        "output_sha256",
+        "raw_capture_receipt",
+        "child_alive",
+    }
     armed = (
         isinstance(guard, dict)
-        and set(guard)
-        == {
-            "schema",
-            "status",
-            "spec_sha256",
-            "topology_sha256",
-            "rule_sha256",
-            "instance_sha256",
-            "output_sha256",
-            "child_alive",
-        }
+        and set(guard) == current_guard_keys
         and guard["schema"] == GUARD_SCHEMA
         and guard["status"] == "armed"
         and guard["child_alive"] is True
@@ -1306,10 +1436,32 @@ def validate_receipt(
     )
     if not armed:
         raise ObserverError("candidate observer guard semantics mismatch")
+    arm_raw = guard["raw_capture_receipt"]
+    if (
+        not isinstance(arm_raw, dict)
+        or set(arm_raw) != {"path", "sha256", "size"}
+    ):
+        raise ObserverError("candidate observer guard raw receipt is invalid")
+    try:
+        arm_raw_path = Path(arm_raw["path"])
+        arm_handle = raw_capture.load_handle(arm_raw_path)
+        arm_payload = raw_capture.read_stdout(arm_handle, maximum=16 * 1024)
+    except (OSError, raw_capture.RawCaptureError, TypeError) as exc:
+        raise ObserverError("candidate observer guard raw receipt is invalid") from exc
+    arm_encoded = arm_raw_path.read_bytes()
+    if (
+        arm_raw_path.parent.parent.resolve(strict=True)
+        != path.parent.resolve(strict=True)
+        or len(arm_encoded) != arm_raw.get("size")
+        or hashlib.sha256(arm_encoded).hexdigest() != arm_raw.get("sha256")
+        or hashlib.sha256(arm_payload).hexdigest() != guard["output_sha256"]
+    ):
+        raise ObserverError("candidate observer guard raw binding differs")
     if value["topology_sha256"] != topology_sha256:
         raise ObserverError("candidate observer topology binding mismatch")
     raw = value["raw"]
-    if not isinstance(raw, dict) or set(raw) != {"path", "size", "sha256"}:
+    expected_raw_keys = {"path", "size", "sha256", "capture_receipt"}
+    if not isinstance(raw, dict) or set(raw) != expected_raw_keys:
         raise ObserverError("candidate observer raw receipt is malformed")
     if (
         not isinstance(raw["path"], str)
@@ -1322,6 +1474,12 @@ def validate_receipt(
     ):
         raise ObserverError("candidate observer raw receipt is malformed")
     raw_path = Path(raw["path"])
+    capture_receipt = raw.get("capture_receipt")
+    if (
+        not isinstance(capture_receipt, dict)
+        or set(capture_receipt) != {"path", "sha256", "size"}
+    ):
+        raise ObserverError("candidate observer raw-capture receipt is malformed")
     try:
         expected_parent = path.parent.resolve(strict=True)
         actual_parent = raw_path.parent.resolve(strict=True)
@@ -1345,6 +1503,24 @@ def validate_receipt(
         )
     ):
         raise ObserverError("candidate observer raw evidence changed")
+    assert isinstance(capture_receipt, dict)
+    try:
+        capture_path = Path(capture_receipt["path"])
+        capture_handle = raw_capture.load_handle(capture_path)
+        capture_bytes = capture_path.read_bytes()
+    except (OSError, raw_capture.RawCaptureError, TypeError) as exc:
+        raise ObserverError("candidate observer raw-capture receipt changed") from exc
+    if (
+        capture_path.parent.resolve(strict=True) != expected_parent
+        or len(capture_bytes) != capture_receipt.get("size")
+        or hashlib.sha256(capture_bytes).hexdigest()
+        != capture_receipt.get("sha256")
+        or capture_handle.stdout_path != raw_path
+        or int(capture_handle.stdout["size"]) != raw["size"]
+        or capture_handle.stdout["sha256"] != raw["sha256"]
+        or int(capture_handle.stderr["size"]) != 0
+    ):
+        raise ObserverError("candidate observer raw-capture binding differs")
     return value
 
 
@@ -1370,20 +1546,21 @@ def read_guard_release(path: Path, arm_path: Path) -> dict[str, Any]:
         value = json.loads(path.read_bytes(), object_pairs_hook=unique_object)
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ObserverError("candidate observer guard release is unreadable") from exc
+    current_arm_keys = {
+        "schema",
+        "status",
+        "spec_sha256",
+        "topology_sha256",
+        "rule_sha256",
+        "instance_sha256",
+        "output_sha256",
+        "raw_capture_receipt",
+        "child_alive",
+    }
     if (
         not isinstance(arm, dict)
-        or set(arm)
-        != {
-            "schema",
-            "status",
-            "spec_sha256",
-            "topology_sha256",
-            "rule_sha256",
-            "instance_sha256",
-            "output_sha256",
-            "child_alive",
-        }
-        or arm["schema"] != GUARD_SCHEMA
+        or set(arm) != current_arm_keys
+        or arm.get("schema") != GUARD_SCHEMA
         or arm["status"] != "armed"
         or arm["child_alive"] is not True
         or not isinstance(arm["instance_sha256"], str)

@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,14 +19,18 @@ SCRIPT = (
 
 
 def load_module():
-    spec = importlib.util.spec_from_file_location(
-        "device_action_usb_trace_sidecar_v1_tested", SCRIPT
-    )
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    sys.path.insert(0, str(SCRIPT.parent))
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "device_action_usb_trace_sidecar_v1_tested", SCRIPT
+        )
+        module = importlib.util.module_from_spec(spec)
+        assert spec.loader is not None
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path.remove(str(SCRIPT.parent))
 
 
 class UsbTraceSidecarV1Test(unittest.TestCase):
@@ -113,7 +118,12 @@ class UsbTraceSidecarV1Test(unittest.TestCase):
             self.module.create_output_dir(outside, private)
 
     def test_snapshot_failure_is_diagnostic_only(self):
-        value = self.module.bounded_snapshot(("/definitely/missing/lsusb",))
+        with tempfile.TemporaryDirectory() as temporary:
+            value = self.module.bounded_snapshot(
+                ("/definitely/missing/lsusb",),
+                capture_dir=Path(temporary),
+                name="missing-lsusb",
+            )
         self.assertFalse(value["available"])
         self.assertEqual(value["error_type"], "FileNotFoundError")
 
@@ -152,6 +162,34 @@ class UsbTraceSidecarV1Test(unittest.TestCase):
                 self.module.clean_requested_stop_returncode(value),
                 value,
             )
+
+    def test_newline_free_oversize_stream_preserves_bounded_prefix(self):
+        temporary, _private, parent = self.fixture()
+        self.addCleanup(temporary.cleanup)
+        maximum = 4096
+        source = self.module.SourceCapture(
+            "kernel",
+            (
+                sys.executable,
+                "-c",
+                "import os; os.write(1, b'x' * 8192)",
+            ),
+            parent / "kernel.log",
+        )
+        with mock.patch.object(self.module, "MAX_LOG_BYTES", maximum):
+            source.start()
+            assert source.thread is not None
+            source.thread.join(timeout=5)
+            self.assertFalse(source.thread.is_alive())
+            source.stop()
+            receipt = source.receipt()
+        self.assertEqual(receipt["bytes"], maximum)
+        self.assertTrue(receipt["truncated"])
+        self.assertEqual((parent / "kernel.log").read_bytes(), b"x" * maximum)
+        handle = self.module.raw_capture.load_handle(
+            Path(receipt["raw_capture_receipt"]["path"])
+        )
+        self.assertTrue(handle.output_exceeded)
 
 
 def stat_mode(path: Path) -> int:

@@ -18,6 +18,7 @@ from typing import Any, Callable
 
 import device_action_d0_v2 as d0
 import device_action_f1_v2 as f1
+import device_action_raw_capture_v1 as raw_capture
 
 
 VERSION = "s22plus-fyg8-p257-stock-pivot-d0-v1"
@@ -50,7 +51,7 @@ class _ProfileView:
     profile: dict[str, Any]
 
 
-RemoteReader = Callable[[str, str], bytes]
+RemoteReader = Callable[[str, str, Path, str], raw_capture.RawCaptureHandle]
 
 
 def repo_root() -> Path:
@@ -168,19 +169,32 @@ def _evaluation(
     }
 
 
-def read_remote_exact(adb: Path, serial: str, source: str) -> bytes:
+def read_remote_exact(
+    adb: Path,
+    serial: str,
+    source: str,
+    capture_dir: Path,
+    name: str,
+) -> raw_capture.RawCaptureHandle:
     if source not in {DISPLAY_PATH, SUBSET_PARTS_PATH}:
         raise PivotError("remote pivot path is not allowlisted")
-    result = d0.bounded_command(
-        [str(adb), "-s", serial, "exec-out", "cat", source],
-        timeout=10,
-        maximum=MAX_REMOTE_BYTES,
-    )
-    if result.returncode != 0 or result.stderr:
-        raise PivotError(f"remote pivot read failed: {Path(source).name}")
-    if not result.stdout:
-        raise PivotError(f"remote pivot read is empty: {Path(source).name}")
-    return result.stdout
+    try:
+        handle = raw_capture.acquire_command(
+            [str(adb), "-s", serial, "exec-out", "cat", source],
+            capture_dir,
+            name,
+            timeout=10,
+            stdout_maximum=MAX_REMOTE_BYTES,
+            stderr_maximum=d0.MAX_TEXT_OUTPUT,
+            stdout_name=f"{name}.bin",
+            stderr_name=f"{name}.bin.stderr",
+        )
+        raw_capture.require_success(handle)
+    except raw_capture.RawCaptureError as exc:
+        raise PivotError(
+            f"remote pivot raw capture failed: {Path(source).name}: {exc}"
+        ) from exc
+    return handle
 
 
 def _fsync_dir(path: Path) -> None:
@@ -192,6 +206,32 @@ def _fsync_dir(path: Path) -> None:
         os.fsync(descriptor)
     finally:
         os.close(descriptor)
+
+
+def evaluate_capture_handles(
+    display: tuple[raw_capture.RawCaptureHandle, raw_capture.RawCaptureHandle],
+    subset_parts: tuple[
+        raw_capture.RawCaptureHandle, raw_capture.RawCaptureHandle
+    ],
+) -> tuple[dict[str, Any], tuple[tuple[bytes, bytes], tuple[bytes, bytes]]]:
+    handles = (*display, *subset_parts)
+    if any(not isinstance(handle, raw_capture.RawCaptureHandle) for handle in handles):
+        raise PivotError("pivot parser input is not a raw capture handle")
+    try:
+        payloads = tuple(
+            raw_capture.read_stdout(handle, maximum=MAX_REMOTE_BYTES)
+            for handle in handles
+        )
+    except raw_capture.RawCaptureError as exc:
+        raise PivotError("pivot raw handle cannot be parsed") from exc
+    if any(not payload for payload in payloads):
+        raise PivotError("remote pivot read is empty")
+    display_payloads = (payloads[0], payloads[1])
+    subset_payloads = (payloads[2], payloads[3])
+    return (
+        evaluate_reads(display_payloads, subset_payloads),
+        (display_payloads, subset_payloads),
+    )
 
 
 def durable_create_bytes(path: Path, payload: bytes) -> dict[str, Any]:
@@ -278,6 +318,9 @@ def collect_connected(
     usb_root: Path,
     remote_reader: RemoteReader,
 ) -> dict[str, Any]:
+    if isinstance(client, d0.AdbReadOnlyClient):
+        client.bind_raw_capture_dir(run_dir)
+    capture_dir = raw_capture.prepare_capture_dir(run_dir, "raw-pivot-d0")
     host_tool = client.receipt()
     download = profile["target"]["download"]
     initial_usb = d0.usb_snapshot(usb_root, download)
@@ -295,25 +338,34 @@ def collect_connected(
     )
 
     raw: dict[str, list[dict[str, Any]]] = {"display": [], "subset_parts": []}
-    display_reads: list[bytes] = []
-    subset_reads: list[bytes] = []
+    display_reads: list[raw_capture.RawCaptureHandle] = []
+    subset_reads: list[raw_capture.RawCaptureHandle] = []
     for name, source, destination in (
         ("display", DISPLAY_PATH, display_reads),
         ("display", DISPLAY_PATH, display_reads),
         ("subset_parts", SUBSET_PARTS_PATH, subset_reads),
         ("subset_parts", SUBSET_PARTS_PATH, subset_reads),
     ):
-        payload = remote_reader(serial, source)
-        destination.append(payload)
         ordinal = len(raw[name]) + 1
+        capture_name = f"{name}-read-{ordinal}"
+        handle = remote_reader(serial, source, capture_dir, capture_name)
+        destination.append(handle)
         raw[name].append(
-            durable_create_bytes(
-                run_dir / f"{name}-read-{ordinal}.bin",
-                payload,
-            )
+            {
+                "path": str(handle.stdout_path),
+                "bytes": int(handle.stdout["size"]),
+                "sha256": str(handle.stdout["sha256"]),
+                "capture_receipt": {
+                    "path": str(handle.receipt_path),
+                    "bytes": handle.receipt_path.stat().st_size,
+                    "sha256": hashlib.sha256(
+                        handle.receipt_path.read_bytes()
+                    ).hexdigest(),
+                },
+            }
         )
 
-    evaluation = evaluate_reads(
+    evaluation, _payloads = evaluate_capture_handles(
         (display_reads[0], display_reads[1]),
         (subset_reads[0], subset_reads[1]),
     )
@@ -471,8 +523,8 @@ def main(argv: list[str] | None = None) -> int:
                 run_dir,
                 d0.AdbReadOnlyClient(resolved_adb),
                 d0.DEFAULT_USB_ROOT,
-                lambda serial, source: read_remote_exact(
-                    resolved_adb, serial, source
+                lambda serial, source, capture_dir, name: read_remote_exact(
+                    resolved_adb, serial, source, capture_dir, name
                 ),
             )
         print(json.dumps(result, indent=2, sort_keys=True))

@@ -14,12 +14,12 @@ import hashlib
 import os
 import re
 import stat
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
 import s22plus_boot_verify as boot_verify
+import device_action_raw_capture_v1 as raw_capture
 
 
 ODIN_DEVICE_RE = re.compile(r"/dev/bus/usb/[0-9]{3}/[0-9]{3}")
@@ -241,7 +241,11 @@ def execute_odin_boot_only(
     require_deterministic_metadata: bool = True,
     timeout: float = 240.0,
     maximum_output: int = 8 * 1024 * 1024,
-) -> tuple[dict[str, object], bytes, bytes]:
+    capture_dir: Path,
+    capture_name: str,
+    stdout_name: str,
+    stderr_name: str,
+) -> tuple[dict[str, object], raw_capture.RawCaptureHandle]:
     if not 1 <= timeout <= 600 or not 1 <= maximum_output <= 64 * 1024 * 1024:
         raise F1TransportError("invalid Odin execution bound")
     with pin_regular_file(
@@ -261,22 +265,35 @@ def execute_odin_boot_only(
         command = build_odin_boot_only_command(odin.path, ap.path, device)
         revalidate_pinned_path(odin)
         revalidate_pinned_path(ap)
-        completed = subprocess.run(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=timeout,
-            check=False,
-        )
-        stdout = completed.stdout or b""
-        stderr = completed.stderr or b""
+        try:
+            handle = raw_capture.acquire_command(
+                command,
+                capture_dir,
+                capture_name,
+                timeout=timeout,
+                stdout_maximum=maximum_output,
+                stderr_maximum=maximum_output,
+                stdout_name=stdout_name,
+                stderr_name=stderr_name,
+            )
+            stdout = raw_capture.read_stdout(
+                handle, maximum=maximum_output
+            )
+            stderr = raw_capture.read_stderr(
+                handle, maximum=maximum_output
+            )
+        except raw_capture.RawCaptureError as exc:
+            raise F1TransportError("Odin raw-first capture failed") from exc
         if len(stdout) + len(stderr) > maximum_output:
             raise F1TransportError("Odin output exceeded its bound")
         revalidate_pinned_path(odin)
         revalidate_pinned_path(ap)
         receipt: dict[str, object] = {
             "label": label,
-            "returncode": completed.returncode,
+            "returncode": handle.returncode,
+            "timed_out": handle.timed_out,
+            "output_exceeded": handle.output_exceeded,
+            "producer_error_type": handle.producer_error_type,
             "command_shape": ["odin4", "--reboot", "-a", "AP.tar.md5", "-d", "USBFS"],
             "regular_path_inputs": True,
             "anonymous_proc_fd_inputs": False,
@@ -286,5 +303,12 @@ def execute_odin_boot_only(
             "stderr_bytes": len(stderr),
             "stdout_sha256": hashlib.sha256(stdout).hexdigest(),
             "stderr_sha256": hashlib.sha256(stderr).hexdigest(),
+            "raw_capture_receipt": {
+                "path": str(handle.receipt_path),
+                "size": handle.receipt_path.stat().st_size,
+                "sha256": hashlib.sha256(
+                    handle.receipt_path.read_bytes()
+                ).hexdigest(),
+            },
         }
-        return receipt, stdout, stderr
+        return receipt, handle

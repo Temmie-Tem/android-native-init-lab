@@ -79,11 +79,6 @@ class S22PlusOdinUsbfsIdentityTest(unittest.TestCase):
 
     def test_birth_time_reader_invokes_only_exact_bounded_stat(self):
         module = self.module
-        completed = SimpleNamespace(
-            returncode=0,
-            stdout=b"2026-07-20 14:52:39.123456789 +0000",
-            stderr=b"",
-        )
         metadata = SimpleNamespace(
             st_dev=1,
             st_ino=2,
@@ -95,22 +90,34 @@ class S22PlusOdinUsbfsIdentityTest(unittest.TestCase):
             st_mtime_ns=10,
             st_ctime_ns=20,
         )
-        with mock.patch.object(module.os, "open", return_value=42), mock.patch.object(
-            module.os, "fstat", return_value=metadata
-        ), mock.patch.object(module.os, "close") as close, mock.patch.object(
-            module.subprocess, "run", return_value=completed
-        ) as run:
-            result = module.read_birth_time_ns(USB_008)
+        seen = []
+        with tempfile.TemporaryDirectory() as temporary:
+            capture_dir = Path(temporary)
+            fixture_handle = module.raw_capture.publish_captured_bytes(
+                capture_dir,
+                "birth-fixture",
+                stdout=b"2026-07-20 14:52:39.123456789 +0000",
+            )
+
+            def acquire(argv, current_dir, name, **kwargs):
+                seen.append((argv, current_dir, name, kwargs))
+                return fixture_handle
+
+            with mock.patch.object(module.os, "open", return_value=42), mock.patch.object(
+                module.os, "fstat", return_value=metadata
+            ), mock.patch.object(module.os, "close") as close, mock.patch.object(
+                module.raw_capture, "acquire_command", side_effect=acquire
+            ), mock.patch.object(
+                module.raw_capture,
+                "decode_success_stdout",
+                return_value="2026-07-20 14:52:39.123456789 +0000",
+            ):
+                result = module.read_birth_time_ns(USB_008, capture_dir)
         self.assertEqual(result % 1_000_000_000, 123_456_789)
-        run.assert_called_once_with(
-            ["stat", "--printf=%w", "--", USB_008],
-            executable="/proc/self/fd/42",
-            pass_fds=(42,),
-            stdout=module.subprocess.PIPE,
-            stderr=module.subprocess.PIPE,
-            timeout=5.0,
-            check=False,
-        )
+        self.assertEqual(seen[0][0], ["stat", "--printf=%w", "--", USB_008])
+        self.assertEqual(seen[0][3]["executable"], "/proc/self/fd/42")
+        self.assertEqual(seen[0][3]["pass_fds"], (42,))
+        self.assertEqual(seen[0][3]["timeout"], 5.0)
         close.assert_called_once_with(42)
 
     def test_source_has_no_device_mutation_or_transfer_surface(self):

@@ -17,6 +17,7 @@ from typing import Any
 
 import device_action_d0_v2 as d0
 import device_action_f1_v2 as f1
+import device_action_raw_capture_v1 as raw_capture
 import s22plus_fyg8_p303_stock_log_baseline_binding as binding
 
 
@@ -133,17 +134,45 @@ def _exact_identity(profile: dict[str, Any], properties: dict[str, str]) -> None
         raise CaptureError("exact S22+ Android boot is not complete")
 
 
-def _root_command(adb: Path, serial: str, command: str, maximum: int) -> bytes:
-    result = d0.bounded_command(
-        [str(adb), "-s", serial, "exec-out", "su", "-c", command],
-        timeout=60,
-        maximum=maximum,
-    )
-    if result.returncode != 0 or result.stderr:
-        raise CaptureError("P3.03 stock-log root read failed or produced stderr")
-    if not result.stdout:
+def _root_command(
+    adb: Path,
+    serial: str,
+    command: str,
+    capture_dir: Path,
+    name: str,
+    maximum: int,
+    *,
+    stdout_name: str | None = None,
+) -> raw_capture.RawCaptureHandle:
+    try:
+        handle = raw_capture.acquire_command(
+            [str(adb), "-s", serial, "exec-out", "su", "-c", command],
+            capture_dir,
+            name,
+            timeout=60,
+            stdout_maximum=maximum,
+            stderr_maximum=d0.MAX_TEXT_OUTPUT,
+            stdout_name=stdout_name,
+            stderr_name=(stdout_name + ".stderr") if stdout_name else None,
+        )
+        raw_capture.require_success(handle)
+    except raw_capture.RawCaptureError as exc:
+        raise CaptureError(f"P3.03 stock-log raw capture failed: {exc}") from exc
+    return handle
+
+
+def _read_root_capture(
+    handle: raw_capture.RawCaptureHandle, maximum: int
+) -> bytes:
+    if not isinstance(handle, raw_capture.RawCaptureHandle):
+        raise CaptureError("P3.03 parser input is not a raw capture handle")
+    try:
+        payload = raw_capture.read_stdout(handle, maximum=maximum)
+    except raw_capture.RawCaptureError as exc:
+        raise CaptureError("P3.03 raw handle cannot be parsed") from exc
+    if not payload:
         raise CaptureError("P3.03 stock-log root read is empty")
-    return result.stdout
+    return payload
 
 
 def _exact_serial_from_inventory(text: str) -> tuple[str, int]:
@@ -169,26 +198,36 @@ def _exact_serial_from_inventory(text: str) -> tuple[str, int]:
     return matches[0], len(rows)
 
 
-def _select_exact_serial(adb: Path) -> tuple[str, int]:
-    result = d0.bounded_command(
-        [str(adb), "devices", "-l"], timeout=10, maximum=d0.MAX_TEXT_OUTPUT
-    )
-    if result.returncode != 0 or result.stderr:
-        raise CaptureError("ADB inventory failed or produced stderr")
+def _select_exact_serial(
+    adb: Path, capture_dir: Path, name: str
+) -> tuple[str, int]:
     try:
-        text = result.stdout.decode("utf-8", "strict")
-    except UnicodeDecodeError as exc:
-        raise CaptureError("ADB inventory is not UTF-8") from exc
+        handle = raw_capture.acquire_command(
+            [str(adb), "devices", "-l"],
+            capture_dir,
+            name,
+            timeout=10,
+            stdout_maximum=d0.MAX_TEXT_OUTPUT,
+            stderr_maximum=d0.MAX_TEXT_OUTPUT,
+        )
+        text = raw_capture.decode_success_stdout(
+            handle, maximum=d0.MAX_TEXT_OUTPUT, strip=False
+        )
+    except raw_capture.RawCaptureError as exc:
+        raise CaptureError(f"ADB inventory raw capture failed: {exc}") from exc
     return _exact_serial_from_inventory(text)
 
 
 def _final_target_snapshot(
     client: d0.AdbReadOnlyClient,
     adb: Path,
+    capture_dir: Path,
     initial_serial: str,
     initial_inventory_count: int,
 ) -> tuple[str, str, dict[str, str]]:
-    final_serial, final_inventory_count = _select_exact_serial(adb)
+    final_serial, final_inventory_count = _select_exact_serial(
+        adb, capture_dir, "0002-adb-inventory-final"
+    )
     if (
         final_serial != initial_serial
         or final_inventory_count != initial_inventory_count
@@ -207,26 +246,41 @@ def collect(root: Path, profile_path: Path, adb_path: Path, run_dir: Path) -> di
     if profile.get("profile_id") != binding.PROFILE_ID:
         raise CaptureError("P3.03 requires the S22+ FYG8 profile")
     client = d0.AdbReadOnlyClient(adb_path)
+    client.bind_raw_capture_dir(run_dir)
+    capture_dir = raw_capture.prepare_capture_dir(run_dir, "raw-stock-log-d0")
     host_tool = client.receipt()
     initial_usb = d0.usb_snapshot(d0.DEFAULT_USB_ROOT, profile["target"]["download"])
     if not initial_usb["enumerated_devices"] or initial_usb["download_endpoint_count"]:
         raise CaptureError("initial USB inventory is not stable Android")
-    serial, inventory_count = _select_exact_serial(adb_path)
+    serial, inventory_count = _select_exact_serial(
+        adb_path, capture_dir, "0000-adb-inventory-initial"
+    )
     topology = client.topology(serial)
     first = client.properties(serial)
     _exact_identity(profile, first)
 
-    raw = _root_command(adb_path, serial, "dmesg", binding.MAX_RAW)
-    raw_path = run_dir / RAW_NAME
-    _durable_bytes(raw_path, raw)
+    raw_handle = _root_command(
+        adb_path,
+        serial,
+        "dmesg",
+        run_dir,
+        "stock-dmesg",
+        binding.MAX_RAW,
+        stdout_name=RAW_NAME,
+    )
+    raw = _read_root_capture(raw_handle, binding.MAX_RAW)
+    raw_path = raw_handle.stdout_path
     binding.summarize_raw(raw)
 
-    module_output = _root_command(
+    module_handle = _root_command(
         adb_path,
         serial,
         f"sha256sum {binding.MODULE_PATH}",
+        capture_dir,
+        "0001-module-sha256",
         d0.MAX_TEXT_OUTPUT,
     )
+    module_output = _read_root_capture(module_handle, d0.MAX_TEXT_OUTPUT)
     module_fields = module_output.decode("ascii", "strict").strip().split()
     if (
         len(module_fields) < 2
@@ -238,7 +292,7 @@ def collect(root: Path, profile_path: Path, adb_path: Path, run_dir: Path) -> di
     root_health = client.root_health(serial)
     health = d0.validate_health(_ProfileView(profile), first, root_health, True)
     final_serial, final_topology, final = _final_target_snapshot(
-        client, adb_path, serial, inventory_count
+        client, adb_path, capture_dir, serial, inventory_count
     )
     final_usb = d0.usb_snapshot(d0.DEFAULT_USB_ROOT, profile["target"]["download"])
     if (

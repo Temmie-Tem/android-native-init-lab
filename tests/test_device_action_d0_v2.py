@@ -31,6 +31,7 @@ P318_MANIFEST = (
 sys.path.insert(0, str(REVALIDATION))
 try:
     import prepare_s22plus_fyg8_p292_ready_manifest as p292_builder
+    import device_action_raw_capture_v1 as raw_capture
     import s22plus_fyg8_p292_repair_decoder as p292_decoder
     import s22plus_fyg8_p292_repair_model as p292_model
 finally:
@@ -51,6 +52,8 @@ def load_module():
 
 
 class FakeClient:
+    observer_capture_type = None
+
     def __init__(self, profile, marker=b"clean retained log\n"):
         target = profile["target"]
         health = profile["start_health"]
@@ -105,22 +108,39 @@ class FakeClient:
 
     def capture(self, _serial, source, destination):
         self.calls.append(("capture", source))
-        destination.write_bytes(self.payload)
-        destination.with_suffix(destination.suffix + ".stderr").write_bytes(b"")
-        return {
-            "path": str(destination),
-            "bytes": len(self.payload),
-            "sha256": hashlib.sha256(self.payload).hexdigest(),
-            "read_to_eof": True,
-            "stderr_bytes": 0,
-            "elapsed_sec": 0.01,
-        }
+        handle = raw_capture.publish_captured_bytes(
+            destination.parent,
+            "baseline-observer-fixture",
+            stdout=self.payload,
+            stdout_name=destination.name,
+            stderr_name=destination.name + ".stderr",
+        )
+        assert self.observer_capture_type is not None
+        return self.observer_capture_type(
+            receipt={
+                "path": str(destination),
+                "bytes": len(self.payload),
+                "sha256": hashlib.sha256(self.payload).hexdigest(),
+                "read_to_eof": True,
+                "stderr_bytes": 0,
+                "elapsed_sec": 0.01,
+                "raw_capture": {
+                    "path": str(handle.receipt_path),
+                    "size": handle.receipt_path.stat().st_size,
+                    "sha256": hashlib.sha256(
+                        handle.receipt_path.read_bytes()
+                    ).hexdigest(),
+                },
+            },
+            handle=handle,
+        )
 
 
 class DeviceActionD0V2Test(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.module = load_module()
+        FakeClient.observer_capture_type = cls.module.ObserverCapture
         cls.profile = json.loads(PROFILE.read_text(encoding="utf-8"))
         cls.manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
         cls.p318_manifest = json.loads(P318_MANIFEST.read_text(encoding="utf-8"))
@@ -366,6 +386,11 @@ class DeviceActionD0V2Test(unittest.TestCase):
             changed["stop"]["final_health_observed"] = True
             with self.assertRaises(self.module.D0Error):
                 self.module.validate_stop_result(changed, bundle, run_dir)
+            changed = copy.deepcopy(stop)
+            changed["version"] = "device-action-d0-stop-v1"
+            changed["observer"].pop("raw_capture")
+            with self.assertRaises(self.module.D0Error):
+                self.module.validate_stop_result(changed, bundle, run_dir)
             for section, key, value in (
                 ("observer", "stderr_bytes", False),
                 ("observer", "path", 1),
@@ -379,6 +404,7 @@ class DeviceActionD0V2Test(unittest.TestCase):
                         changed[section][key] = value
                     with self.assertRaises(self.module.D0Error):
                         self.module.validate_stop_result(changed, bundle, run_dir)
+            (run_dir / "baseline-observer.bin").chmod(0o600)
             (run_dir / "baseline-observer.bin").write_bytes(b"changed")
             with self.assertRaises(self.module.D0Error):
                 self.module.validate_stop_result(stop, bundle, run_dir)
@@ -479,11 +505,18 @@ class DeviceActionD0V2Test(unittest.TestCase):
         changed["host_tool"]["raw_serial"] = "must-not-be-accepted"
         with self.assertRaises(self.module.D0Error):
             self.module.validate_result(changed, self.bundle(), run_dir)
+        changed = copy.deepcopy(result)
+        changed["version"] = "device-action-d0-v2-2"
+        changed["observer"].pop("raw_capture")
+        with self.assertRaises(self.module.D0Error):
+            self.module.validate_result(changed, self.bundle(), run_dir)
         stderr_path = run_dir / "baseline-observer.bin.stderr"
+        stderr_path.chmod(0o600)
         stderr_path.write_bytes(b"unexpected stderr")
         with self.assertRaises(self.module.D0Error):
             self.module.validate_result(result, self.bundle(), run_dir)
         stderr_path.write_bytes(b"")
+        (run_dir / "baseline-observer.bin").chmod(0o600)
         (run_dir / "baseline-observer.bin").write_bytes(b"changed")
         with self.assertRaises(self.module.D0Error):
             self.module.validate_result(result, self.bundle(), run_dir)
@@ -623,7 +656,7 @@ class DeviceActionD0V2Test(unittest.TestCase):
             adb.chmod(0o700)
             seen = []
 
-            def fake_run(argv, **_kwargs):
+            def fake_run(argv, capture_dir, name, **_kwargs):
                 seen.append(argv)
                 remote = argv[-1]
                 if remote.startswith("sh -c "):
@@ -632,10 +665,17 @@ class DeviceActionD0V2Test(unittest.TestCase):
                 else:
                     values = FakeClient(self.profile).root_values
                     payload = "".join(f"{key}={value}\n" for key, value in values.items())
-                return self.module.CommandResult(0, payload.encode(), b"")
+                return raw_capture.publish_captured_bytes(
+                    capture_dir, name, stdout=payload.encode()
+                )
 
             client = self.module.AdbReadOnlyClient(adb)
-            with mock.patch.object(self.module, "bounded_command", side_effect=fake_run):
+            run = Path(temporary) / "run"
+            run.mkdir()
+            client.bind_raw_capture_dir(run)
+            with mock.patch.object(
+                self.module.raw_capture, "acquire_command", side_effect=fake_run
+            ):
                 client.properties("fixture-serial")
                 client.root_health("fixture-serial")
             self.assertEqual(seen[0][1:4], ["-s", "fixture-serial", "shell"])
@@ -657,15 +697,20 @@ class DeviceActionD0V2Test(unittest.TestCase):
             adb.chmod(0o700)
             seen = []
 
-            def fake_run(argv, **_kwargs):
+            def fake_run(argv, capture_dir, name, **_kwargs):
                 seen.append(argv)
-                return self.module.CommandResult(0, inventory.encode(), b"")
+                return raw_capture.publish_captured_bytes(
+                    capture_dir, name, stdout=inventory.encode()
+                )
 
             client = self.module.AdbReadOnlyClient(
                 adb, expected_model="SM-S906N", expected_device="g0q"
             )
+            run = Path(temporary) / "run"
+            run.mkdir()
+            client.bind_raw_capture_dir(run)
             with mock.patch.object(
-                self.module, "bounded_command", side_effect=fake_run
+                self.module.raw_capture, "acquire_command", side_effect=fake_run
             ):
                 self.assertEqual(client.one_serial(), "S22SERIAL")
                 self.assertEqual(client.one_serial(), "S22SERIAL")
@@ -688,13 +733,20 @@ class DeviceActionD0V2Test(unittest.TestCase):
             client = self.module.AdbReadOnlyClient(
                 adb, expected_model="SM-S906N", expected_device="g0q"
             )
+            run = Path(temporary) / "run"
+            run.mkdir()
+            client.bind_raw_capture_dir(run)
             inventories = iter((initial, replaced))
+
+            def next_inventory(_argv, capture_dir, name, **_kwargs):
+                return raw_capture.publish_captured_bytes(
+                    capture_dir, name, stdout=next(inventories).encode()
+                )
+
             with mock.patch.object(
-                self.module,
-                "bounded_command",
-                side_effect=lambda _argv, **_kwargs: self.module.CommandResult(
-                    0, next(inventories).encode(), b""
-                ),
+                self.module.raw_capture,
+                "acquire_command",
+                side_effect=next_inventory,
             ):
                 self.assertEqual(client.one_serial(), "S22SERIAL")
                 with self.assertRaisesRegex(
@@ -705,10 +757,19 @@ class DeviceActionD0V2Test(unittest.TestCase):
             duplicate_client = self.module.AdbReadOnlyClient(
                 adb, expected_model="SM-S906N", expected_device="g0q"
             )
+            duplicate_run = Path(temporary) / "duplicate-run"
+            duplicate_run.mkdir()
+            duplicate_client.bind_raw_capture_dir(duplicate_run)
+
+            def duplicate_inventory(_argv, capture_dir, name, **_kwargs):
+                return raw_capture.publish_captured_bytes(
+                    capture_dir, name, stdout=duplicate.encode()
+                )
+
             with mock.patch.object(
-                self.module,
-                "bounded_command",
-                return_value=self.module.CommandResult(0, duplicate.encode(), b""),
+                self.module.raw_capture,
+                "acquire_command",
+                side_effect=duplicate_inventory,
             ), self.assertRaisesRegex(
                 self.module.D0Error, "matching ADB target, found 2"
             ):
