@@ -14,19 +14,19 @@ authority, evidence, transports, and commands remain separate.
 
 P3.18 is the current closed live unit. Candidate and exact rollback transferred
 once; the operator saw a normal boot without a loop and ACM `endpoint-timeout`.
-Two byte-identical final reads have clean Carrier framing and slot CRCs, but the
-frozen decoder exposed `[valid, bad-body]` and did not prove terminal absence.
-Reviewed post-live H0 recovers generation 47/stage `0x66`/item 38/failure `0x6010`: the
-latch insertion shifted `eud.ko` from index 37 to 38 while its cache-read trigger
-stayed 37. Max77705 was never reached; effective proof is
-`NO_PROOF_EXPERIMENT_PRECONDITION`, while the historical close stays
-`NO_PROOF_OBSERVER`. A reviewed finalizer used one fresh approval only for FYG8
-health, performed no Download/Odin/transfer/replay, and advanced the journal
-from 15 at `ROLLBACK_FLASHED` to 19 records at `CLOSED`. The durable terminal is
-`NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; exact transfers remain 1/1, attempt 2 is absent,
-and `recovery_required=false`. A reviewed H0 audit validates that terminal despite
-the frozen generic validation ordering gap and grants no live authority. See
-`docs/reports/S22PLUS_FYG8_P318_POSTROLLBACK_FINALIZATION_INCIDENT_H0_2026-08-17.md`.
+Two final reads have clean Carrier framing/CRCs; the frozen decoder exposed `[valid, bad-body]` without proving terminal absence. Reviewed H0
+recovers generation 47/stage `0x66`/item 38/failure `0x6010`: the latch shifted
+`eud.ko` from 37 to 38 while its trigger stayed 37. Historical sweep proves
+P3.10/11/13/14/17 kept both at 37; it adds no older reclassification, while
+P3.10/14/17 frozen-Carrier agreement remains a separate H0 question. Max77705
+was never reached, so effective proof is `NO_PROOF_EXPERIMENT_PRECONDITION` and
+historical close is `NO_PROOF_OBSERVER`. A reviewed finalizer used one fresh FYG8-health approval, no Download/Odin/transfer/replay, and advanced the journal from 15 at `ROLLBACK_FLASHED` to 19 records at `CLOSED`.
+Terminal is `NO_PROOF_F1_V2_CANDIDATE_ROLLED_BACK`; exact transfers remain 1/1,
+attempt 2 is absent, and `recovery_required=false`. A successor must derive the
+EUD trigger from its effective plan, retain the decisive witness in the ring,
+and keep ACM supplemental until a physical-device positive control qualifies it.
+Reports: `docs/reports/S22PLUS_FYG8_P318_POSTROLLBACK_FINALIZATION_INCIDENT_H0_2026-08-17.md`
+and `docs/reports/S22PLUS_FYG8_P310_P318_HISTORICAL_EUD_INDEX_SWEEP_H0_2026-08-17.md`.
 
 P3.16 is the preceding closed live unit. Its distinct boot-only candidate and
 exact Magisk rollback each transferred once, the journal closed, and rooted
