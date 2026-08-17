@@ -153,32 +153,86 @@ control `PASS_GO_P318_CDC_ACM_QEMU_REAL_OBSERVER_H0_CAPABILITY_V1`
 stops with `preserved source differs: observer`. Physical ACM remains 0/16, so
 the migrated observer currently has no positive control at all.
 
-A fresh control run was attempted three times and could not complete here:
+Three fresh control runs first stopped before QEMU with
+`bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted` and
+`ControlError: QEMU sandbox root did not become ready`, under
+`kernel.apparmor_restrict_unprivileged_userns = 1`. Host load was ruled out by
+retrying at load average 0.26. The operator then lifted that restriction, which
+let the control run for the first time since the migration. The historical
+2026-08-15 output directory was never modified; every run wrote to a separate
+path.
 
+What the control then found is worse than a stale pin, and is the real state of
+this channel. The guest boots, loads all nine USB and ACM kernel modules `PASS`,
+writes the 49-byte pre-bind banner, and reaches `dummy-configured`. The migrated
+observer then fails, in three distinct ways found in sequence:
+
+1. `P318_QEMU result=FAIL error=ModuleNotFoundError` — the observer now imports
+   `device_action_raw_capture_v1` at module scope, and the control shipped only
+   six sources into the rootfs. The dependency was not among them.
+2. After shipping it, still `ModuleNotFoundError` — `init` runs the interpreter
+   with `-I`, which implies `-P`, so the rootfs root is absent from `sys.path`.
+   The guest loads the observer by absolute path, but the observer's own import
+   resolves through `sys.path`.
+3. After making that one import resolvable:
+   `error=ObserverError detail=candidate observer guard semantics mismatch`.
+
+The third failure is semantic, not plumbing. The migration added a
+`raw_capture_receipt` key to the required guard-receipt key set and redefined
+`output_sha256` as the digest of really captured bytes:
+
+```python
+current_guard_keys = {..., "raw_capture_receipt", "child_alive"}
+...
+hashlib.sha256(arm_payload).hexdigest() != guard["output_sha256"]
 ```
-bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted
-ControlError: QEMU sandbox root did not become ready
-```
 
-All private inputs are present and exact, `bubblewrap 0.11.1` matches, and
-`qemu-system-aarch64` is present in the pinned tools root. The failure is
-environmental: this host has `kernel.apparmor_restrict_unprivileged_userns = 1`,
-and the control's sandbox never becomes ready. Host load was ruled out by
-retrying at load average 0.26. No system policy was changed and the historical
-2026-08-15 output directory was not modified; the partial run directory was
-removed.
+The control's guest fixture still builds an eight-key guard with a synthetic
+`output_sha256 = "4" * 64`, so the observer correctly rejects it.
 
-To re-establish the control:
+So the migrated common CDC-ACM observer has no passing positive control, and the
+reason is a real interface change, not an environment problem. Physical ACM
+remains 0/16.
+
+This unit repaired the two plumbing failures and deliberately stopped at the
+third. Shipping the pinned dependency and making exactly one import resolvable
+are forced, with no semantic choice in them. Re-deriving the fixture's guard
+arming is a different kind of change: a positive control earns its value by being
+able to fail, and hand-fitting the fixture until the observer passes would
+produce green by construction rather than by evidence. That redesign should be
+specified and independently reviewed, not tuned by whoever wants the control to
+pass.
+
+Until it passes, the ACM channel must stay supplemental and must not gate any
+campaign result.
+
+Reproduce with:
 
 ```
 python3 workspace/public/src/scripts/revalidation/s22plus_fyg8_p318_cdc_acm_qemu_e2e.py \
   --output workspace/private/outputs/s22plus_fyg8_p319_cdc_acm_qemu_e2e_rawfirst
 ```
 
-The result should bind the migrated observer bytes and be published as the
-current control, leaving the 2026-08-15 output as historical evidence. Until
-then the ACM channel must stay supplemental and must not gate any campaign
-result.
+The guest now also prints `detail=` alongside the exception type. Without it the
+guard mismatch was indistinguishable from a missing guest module, which cost a
+full control cycle to separate.
+
+## Three consumers, one cause
+
+Counting the rotation wrapper, the raw-first migration broke three independent
+consumers of the migrated sources, and no consumer was updated with it:
+
+| Consumer | Failure |
+|---|---|
+| `s22plus_fyg8_p318_baseline_rotation_d1.py::_load_base` | `ModuleNotFoundError: No module named 'device_action_raw_capture_v1'` |
+| `s22plus_fyg8_p318_cdc_acm_qemu_e2e.py` rootfs and `-I` guest | same import, twice, for two different reasons |
+| the same control's guard fixture | `candidate observer guard semantics mismatch` |
+
+The migration introduced a first-party module dependency and a guard-schema
+change into sources that other environments materialize by bytes. The previous
+review could not see any of it, because the control's stale-source check fired
+before the guest ever ran. A passing source-identity gate masked a functional
+break in the primitive it was gating.
 
 ## Unresolved observation outside this unit
 

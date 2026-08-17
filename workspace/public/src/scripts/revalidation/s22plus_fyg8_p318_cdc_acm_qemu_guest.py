@@ -19,6 +19,7 @@ from typing import Any
 
 CONFIG = Path("/p318-qemu-config.json")
 OBSERVER = Path("/device_action_cdc_acm_observer_v1.py")
+RAW_CAPTURE = Path("/device_action_raw_capture_v1.py")
 RUN_DIR = Path("/run/p318-observer")
 UDC = "dummy_udc.0"
 UDC_ROOT = Path("/sys/class/udc") / UDC
@@ -42,6 +43,14 @@ class HealthyFixtureGuard:
 
 
 def load_observer():
+    # init runs the interpreter with -I, so the script directory is not on
+    # sys.path.  The observer is loaded by absolute path, but its own
+    # module-scope import of the common raw-capture module is resolved through
+    # sys.path, so the rootfs root has to be reachable for exactly that import.
+    if str(RAW_CAPTURE.parent) not in sys.path:
+        sys.path.insert(0, str(RAW_CAPTURE.parent))
+    if not RAW_CAPTURE.is_file():
+        raise GuestError("observer raw-capture dependency is absent")
     spec = importlib.util.spec_from_file_location("p318_qemu_real_observer", OBSERVER)
     if spec is None or spec.loader is None:
         raise GuestError("observer import spec unavailable")
@@ -317,7 +326,13 @@ def run() -> None:
                 tty_descriptor,
             )
         except BaseException as exc:
-            print(f"P318_QEMU observer=FAIL error={type(exc).__name__}", flush=True)
+            # The type alone cannot distinguish a missing guest tool from a real
+            # classification failure, which cost one full control cycle to find.
+            detail = str(exc).replace("\n", " ")[:200] or "(no detail)"
+            print(
+                f"P318_QEMU observer=FAIL error={type(exc).__name__} detail={detail}",
+                flush=True,
+            )
             os._exit(1)
         os._exit(0)
 
@@ -344,5 +359,9 @@ if __name__ == "__main__":
     try:
         run()
     except BaseException as exc:
-        print(f"P318_QEMU result=FAIL error={type(exc).__name__}", flush=True)
+        detail = str(exc).replace("\n", " ")[:200] or "(no detail)"
+        print(
+            f"P318_QEMU result=FAIL error={type(exc).__name__} detail={detail}",
+            flush=True,
+        )
         raise SystemExit(1)

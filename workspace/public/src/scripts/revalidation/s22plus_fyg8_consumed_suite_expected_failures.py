@@ -53,9 +53,10 @@ SUPERSEDED_STOP_VERSION = (
     "deliberately bumped the stop-receipt version to v2"
 )
 SUPERSEDED_QEMU_CONTROL = (
-    "P3.18 QEMU control preserved the pre-migration observer bytes; the "
-    "migrated common observer needs a fresh control run, which is blocked in "
-    "this environment"
+    "P3.18 QEMU control preserved the pre-migration observer bytes; a fresh run "
+    "now reaches the guest and the migrated observer fails it on guard "
+    "semantics, so the control stays red until its fixture is redesigned and "
+    "reviewed"
 )
 
 # Exact test identities.  Every entry states why the reject is designed.

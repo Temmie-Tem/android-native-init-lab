@@ -51,6 +51,12 @@ GUEST_SOURCE = Path(
 OBSERVER_SOURCE = Path(
     "workspace/public/src/scripts/revalidation/device_action_cdc_acm_observer_v1.py"
 )
+# The observer imports the common raw-capture module at module scope, so the
+# guest cannot load it unless these bytes travel into the rootfs too.  Pinning
+# the dependency keeps every executed guest byte receipted.
+RAW_CAPTURE_SOURCE = Path(
+    "workspace/public/src/scripts/revalidation/device_action_raw_capture_v1.py"
+)
 SOURCE_PATHS = {
     "controller": CONTROLLER_SOURCE,
     "runtime": RUNTIME,
@@ -58,6 +64,7 @@ SOURCE_PATHS = {
     "init": INIT_SOURCE,
     "guest": GUEST_SOURCE,
     "observer": OBSERVER_SOURCE,
+    "raw_capture": RAW_CAPTURE_SOURCE,
 }
 DEFAULT_GUEST_ROOT = Path("workspace/private/tools/generic-arm64-guest/root")
 DEFAULT_QEMU_ROOT = Path("workspace/private/tools/qemu-arm64-10.2.1/root")
@@ -996,6 +1003,11 @@ def build_initramfs(
     write_snapshot(
         rootfs / "device_action_cdc_acm_observer_v1.py",
         source_data["observer"],
+    )
+    # Sibling of the guest script, so sys.path[0] resolves the import.
+    write_snapshot(
+        rootfs / "device_action_raw_capture_v1.py",
+        source_data["raw_capture"],
     )
     (rootfs / "modules").mkdir()
 

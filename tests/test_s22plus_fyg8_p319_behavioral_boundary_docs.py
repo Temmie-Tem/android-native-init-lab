@@ -74,15 +74,35 @@ class P319BehavioralBoundaryDocsTest(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
-    def test_report_records_the_blocked_acm_control_without_claiming_a_control(
-        self,
-    ):
+    def test_report_records_the_red_acm_control_without_claiming_a_control(self):
         self.assertIn(
-            "the migrated observer currently has no positive control at all",
+            "has no passing positive control, and the\nreason is a real "
+            "interface change, not an environment problem",
             self.report,
         )
         self.assertIn("kernel.apparmor_restrict_unprivileged_userns = 1", self.report)
+        # A control that was hand-fitted until it passed would be worthless.
+        self.assertIn("green by construction rather than by evidence", self.report)
         self.assertNotIn("PASS_P318_CDC_ACM_QEMU_REAL_OBSERVER_H0\n", self.report)
+
+    def test_report_separates_the_plumbing_repairs_from_the_semantic_stop(self):
+        for token in (
+            "candidate observer guard semantics mismatch",
+            "ModuleNotFoundError",
+            "`-I`, which implies `-P`",
+            "This unit repaired the two plumbing failures and deliberately "
+            "stopped at the\nthird.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_counts_the_broken_consumers_of_one_migration(self):
+        self.assertIn("## Three consumers, one cause", self.report)
+        self.assertIn(
+            "A passing source-identity gate masked a functional\nbreak in the "
+            "primitive it was gating.",
+            self.report,
+        )
 
     def test_ledger_records_one_pending_row_for_this_topic(self):
         rows = [

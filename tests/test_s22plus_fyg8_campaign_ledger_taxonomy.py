@@ -656,15 +656,15 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         # moves this triple and the three relative expectations below by one.
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (22, 21, 1),
+            (23, 21, 2),
         )
         self.assertEqual(
-            [item["review_topic"] for item in current["unresolved"]],
-            ["raw-first-observer"],
+            sorted(item["review_topic"] for item in current["unresolved"]),
+            ["acm-control-requalification", "raw-first-observer"],
         )
         self.assertEqual(
-            current["unresolved"][-1]["pending_ordinal"],
-            "h0-raw-first-observer-2",
+            sorted(item["pending_ordinal"] for item in current["unresolved"]),
+            ["h0-acm-control-requalification-1", "h0-raw-first-observer-2"],
         )
         self.assertEqual(
             current["resolved"][-1],
