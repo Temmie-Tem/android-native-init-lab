@@ -1,0 +1,101 @@
+{
+  "action": "workspace-private-sd-input-migration",
+  "generated_at": "2026-08-17 20:13:41 +0900",
+  "moved_at": "2026-08-17 19:31:00 +0900/2026-08-17 19:48:47 +0900",
+  "note": "Bulk vendor inputs relocated from the root filesystem to a removable ext4 volume; logical repository paths are preserved by per-child symlinks so no consumer path changed. Public summary contains only top-level counts/bytes, the destination volume label, and digests already published in target reports. The volume UUID and the full private move list are deliberately omitted.",
+  "destination": {
+    "volume_label": "ANDROIDLABSD",
+    "mount_point": "/mnt/android-lab-sd",
+    "filesystem": "ext4",
+    "root": "/mnt/android-lab-sd/inputs",
+    "removable": true
+  },
+  "records": [
+    {
+      "name": "firmware",
+      "source": "workspace/private/inputs/firmware",
+      "dest": "/mnt/android-lab-sd/inputs/firmware",
+      "mode": "preserve-root-readme-create-child-symlinks",
+      "bytes": 9799894224,
+      "moved_entry_count": 3,
+      "file_count": 6,
+      "retained_local": ["README.md"]
+    },
+    {
+      "name": "kernel_source",
+      "source": "workspace/private/inputs/kernel_source",
+      "dest": "/mnt/android-lab-sd/inputs/kernel_source",
+      "mode": "preserve-root-readme-create-child-symlinks",
+      "bytes": 1633508276,
+      "moved_entry_count": 1,
+      "file_count": 72209,
+      "retained_local": [
+        "README.md",
+        "SM-A908N_KOR_12_Opensource",
+        "s22plus-fyg8"
+      ]
+    },
+    {
+      "name": "s20plus_g986n",
+      "source": "workspace/private/inputs/s20plus_g986n",
+      "dest": "/mnt/android-lab-sd/inputs/s20plus_g986n",
+      "mode": "preserve-root-create-child-symlinks",
+      "bytes": 15292562829,
+      "moved_entry_count": 1,
+      "file_count": 11,
+      "retained_local": []
+    },
+    {
+      "name": "s22plus_firmware",
+      "source": "workspace/private/inputs/s22plus_firmware",
+      "dest": "/mnt/android-lab-sd/inputs/s22plus_firmware",
+      "mode": "preserve-root-create-child-symlinks",
+      "bytes": 453783675,
+      "moved_entry_count": 1,
+      "file_count": 33,
+      "retained_local": []
+    },
+    {
+      "name": "s22plus_kernel_source",
+      "source": "workspace/private/inputs/s22plus_kernel_source",
+      "dest": "/mnt/android-lab-sd/inputs/s22plus_kernel_source",
+      "mode": "preserve-root-create-child-symlinks",
+      "bytes": 600764567,
+      "moved_entry_count": 1,
+      "file_count": 3,
+      "retained_local": ["S906NKSS7FYG8_osrc"]
+    }
+  ],
+  "total_bytes": 27780513571,
+  "symlink_count": 7,
+  "verification": {
+    "checked_at": "2026-08-17 20:13:41 +0900",
+    "dangling_symlinks": 0,
+    "resolved_symlinks": 7,
+    "git_visibility": "ignored by workspace/.gitignore rule /private/**",
+    "receipts": [
+      {
+        "path": "workspace/private/inputs/kernel_source/SM-A908N_KOR_12_Opensource_13272/MANIFEST.sha256",
+        "entries_checked": 5,
+        "entries_ok": 5,
+        "note": "A90 OSRC package verified through the symlink after relocation; digests match the values recorded in docs/reports/A90_SELF_BUILT_KERNEL_H0_2026-08-16.md"
+      },
+      {
+        "path": "workspace/private/inputs/boot_images/MANIFEST.sha256",
+        "entries_checked": 2,
+        "entries_ok": 2,
+        "note": "not relocated; verified to confirm the F1 base and rollback images remained on the root filesystem"
+      }
+    ]
+  },
+  "not_relocated": [
+    "workspace/private/inputs/boot_images",
+    "workspace/private/outputs",
+    "workspace/private/runs",
+    "workspace/private/work"
+  ],
+  "operational_notes": [
+    "The destination is a removable volume. Every consumer of these inputs now depends on it being mounted; an unmounted volume presents as a dangling symlink, not as a silently empty directory.",
+    "The fstab entry for this volume must carry nofail so a missing or failed card cannot hold up host boot."
+  ]
+}
