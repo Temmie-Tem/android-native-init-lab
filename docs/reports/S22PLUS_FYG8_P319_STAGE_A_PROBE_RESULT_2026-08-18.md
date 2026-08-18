@@ -164,3 +164,103 @@ Read-only D0. `device_writes` false, `reboot_requested` false,
 `partition_transfer` false, `candidate_used` false, `f1_authorized` false,
 `live_authorized` false. The A90 attached in recovery on the same host received no
 command. No S20+ action occurred. Full regmap dumps remain forbidden.
+
+## The mxim question, answered on the running unit
+
+The extended probe (digest `956854d8`, 1307 bytes) re-ran with the existence
+questions the previous version could not ask. Both surfaces exist:
+
+| Question | Answer |
+|---|---|
+| `/dev/mxim_dev` | present |
+| `/sys/class/mxim` | present |
+| `/sys/class/mxim/debug0` | present |
+| `debug0` entries | `opcode`, `power`, `reg`, `subsystem`, `uevent` |
+
+`reached_end` true, `lsa_rc` 0, `regmap_present` no, `uevent_present` yes,
+`timed_out` false, `output_exceeded` false, `producer_error_type` null, 486
+stdout bytes. The source-and-config claim of the previous section is therefore
+confirmed by observation: the shipped kernel exposes the MAX77705 command
+protocol to userspace, and it is reachable on this unit.
+
+## What a `reg` read actually costs, from the table rather than the name
+
+`mxim_debug_reg_show` is not a regmap dump. It walks a fixed 17-entry table
+(`max77705_debug.c:32-117`) and skips every entry marked `.ignore`, which is
+exactly the three read-to-clear interrupt registers `USBC_IRQ` `0x02`, `CC_IRQ`
+`0x03` and `PD_IRQ` `0x04`. A read therefore performs 14 single-byte
+`i2c_smbus_read_byte_data` calls over `0x00`-`0x10`: `UIC_HW_REV`, `UIC_FW_REV`,
+`RSVD1`, `USBC_STATUS1`, `USBC_STATUS2`, `BC_STATUS`, `RSVD2`, `CC_STATUS1`,
+`CC_STATUS2`, `PD_STATUS1`, `PD_STATUS2`, and the three interrupt *masks*
+`USBC_IRQM`, `CC_IRQM`, `PD_IRQM`.
+
+This matters because the standing Max77705 hazard in this repository is that a
+failed firmware-major or charger-detail read can leave zero values that classify
+as old firmware or battery-only, and that a full dump can reach the charger
+firmware updater branch. **Neither register is in this table.** The table stops
+at `0x10` and the charger and fuelgauge blocks are separate I2C children. The
+hazard that motivated the full-dump prohibition is not on this path. The
+prohibition on full regmap dumps still stands; this is not one.
+
+The output buffer was checked rather than assumed: `dump[12 * (MXIM_REG_MAX + 1)]`
+is 216 bytes, the header writes 10 and each of 14 rows writes 11, totalling 164,
+so `strcat` does not overflow.
+
+## Stage B revives, but not as a CONTROL1 read
+
+Stating this carefully, because two previous Stage B claims in this report were
+wrong.
+
+**What `reg` does answer.** `CC_STATUS1`/`CC_STATUS2`, `PD_STATUS1`/`PD_STATUS2`
+and `BC_STATUS` are not exposed anywhere in the MUIC sysfs group, so this is real
+new state — CC attach and orientation, PD contract state, and BC1.2
+classification — obtained by a bounded read. That is strictly more than the
+closed sysfs branch could offer.
+
+**What `reg` does not answer.** `CONTROL1` is not in the table and is not at any
+address it covers. The `COMN1SW`/`COMP2SW` mux fields remain unreachable by
+reading. Reaching them requires issuing opcode `CONTROL1_R` `0x05`, which means
+*writing* `AP_DATAOUT` — through `opcode` store, or the `MXIM_DEBUG_OPCODE_WRITE`
+ioctl. A read opcode delivered by a mailbox write is still a command to the PD
+controller, and it is not a D0.
+
+**New hazard, from source, not exercised.** Both `debug0` attributes are mode
+`0664` (`:232`, `:286`), so root may write either. `mxim_debug_reg_store` performs
+an arbitrary single-register I2C write with no address validation at all
+(`:209-230`), and `mxim_debug_opcode_store` writes 33 bytes to `0x21`-`0x41`,
+i.e. issues an arbitrary opcode command (`:255-284`). The `/dev/mxim_dev` ioctls
+`MXIM_DEBUG_REG_WRITE` and `MXIM_DEBUG_OPCODE_WRITE` are the same primitives with
+the same absence of bounds (`:350-360`, `:314-333`). These join `fw_update` as
+surfaces that must not be written without F1-class authority. Nothing in this
+campaign has written any of them.
+
+**A concurrency hazard that is separate from the write hazard.** The ioctl
+handler takes `mxim_pdev->lock`, but neither sysfs `show` nor sysfs `store` takes
+any lock, and none of the three participates in the opcode queue that
+`max77705_usbc.c` maintains for the driver's own traffic. A debug opcode write
+therefore races the driver's in-flight opcode with no arbitration on either side.
+This is a reason to treat even the `opcode` *read* as deferred rather than
+merely to forbid the write.
+
+## A defect in this probe, found in its own output
+
+`ls -a` on the two mxim directories came back column-collapsed, so
+`mxim_class_nodes` is the single element `".  ..  debug0"` and
+`mxim_debug0_entries` the single element `".  ..  opcode  power  reg  subsystem
+uevent"`, while the `57-0066` listing in the same run came back one entry per
+line. The difference is entry-name width, not anything about the directories.
+
+The conclusion is unaffected: the entries are legible, and the `[ -e ]` and
+`[ -d ]` scalar rows answer the existence questions independently of the listing
+shape. But the parser is width-dependent, which is the same class of defect as
+the Stage A truncation this probe was built to diagnose — a listing whose shape
+depends on the environment, parsed as though it were stable. Any successor must
+use `ls -a1` and must not derive a count from a row that could be a column.
+
+## Authority boundary for this section
+
+Read-only D0 under the same approval. `device_writes` false, `reboot_requested`
+false, `partition_transfer` false, `candidate_used` false, `f1_authorized` false,
+`live_authorized` false. `fw_update`, `reg` and `opcode` were neither read nor
+written; only their names were listed. The A90 attached in recovery on the same
+host received no command. No S20+ action occurred.

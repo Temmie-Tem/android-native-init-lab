@@ -1,5 +1,6 @@
 import hashlib
 import importlib.util
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -138,6 +139,141 @@ class P319StageAProbeDocsTest(unittest.TestCase):
         self.assertIn("s22plus-fyg8-p319", row)
         self.assertIn("| D0 |", row)
         self.assertIn("regmap", row)
+
+
+    def test_report_records_the_mxim_surfaces_as_present_on_the_unit(self):
+        for token in (
+            "| `/dev/mxim_dev` | present |",
+            "| `/sys/class/mxim/debug0` | present |",
+            "| `debug0` entries | `opcode`, `power`, `reg`, `subsystem`, `uevent` |",
+            "reachable on this unit",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def reg_read_registers(self):
+        """Return the stated call count and the register names it enumerates."""
+        window = re.search(
+            r"A read therefore performs\s+(\d+) single-byte(.*?)This matters because",
+            self.report,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(window, "reg-read paragraph missing")
+        names = [
+            name
+            for name in re.findall(r"`([^`]+)`", window.group(2))
+            if re.fullmatch(r"[A-Z][A-Z0-9_]+", name)
+        ]
+        return int(window.group(1)), names
+
+    def test_report_bounds_the_reg_read_by_enumerating_every_register(self):
+        # A cost claim that is only a number can drift; make it derive from the
+        # list, and make the list match the driver table minus the ignored rows.
+        stated, names = self.reg_read_registers()
+        self.assertEqual(stated, len(names))
+        self.assertEqual(
+            names,
+            [
+                "UIC_HW_REV",
+                "UIC_FW_REV",
+                "RSVD1",
+                "USBC_STATUS1",
+                "USBC_STATUS2",
+                "BC_STATUS",
+                "RSVD2",
+                "CC_STATUS1",
+                "CC_STATUS2",
+                "PD_STATUS1",
+                "PD_STATUS2",
+                "USBC_IRQM",
+                "CC_IRQM",
+                "PD_IRQM",
+            ],
+        )
+        # 17-entry table, three read-to-clear rows skipped by the driver.
+        self.assertIn("fixed 17-entry table", self.report)
+        for skipped in ("`USBC_IRQ` `0x02`", "`CC_IRQ`\n`0x03`", "`PD_IRQ` `0x04`"):
+            with self.subTest(skipped=skipped):
+                self.assertIn(skipped, self.report)
+        self.assertEqual(stated + 3, 17)
+
+    def test_report_keeps_the_full_dump_prohibition_while_clearing_this_path(self):
+        for token in (
+            "**Neither register is in this table.**",
+            "prohibition on full regmap dumps still stands; this is not one.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_refuses_to_call_the_reg_read_a_control1_read(self):
+        # Two Stage B claims in this report were already wrong; this one states
+        # its own limit in the same breath as its result.
+        for token in (
+            "Stage B revives, but not as a CONTROL1 read",
+            "`CONTROL1` is not in the table and is not at any\naddress it covers",
+            "mux fields remain unreachable by\nreading",
+            "A read opcode delivered by a mailbox write is still a command to the PD\ncontroller, and it is not a D0.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_records_the_mxim_write_and_concurrency_hazards(self):
+        for token in (
+            "Both `debug0` attributes are mode\n`0664`",
+            "arbitrary single-register I2C write with no address validation",
+            "issues an arbitrary opcode command",
+            "`MXIM_DEBUG_REG_WRITE` and `MXIM_DEBUG_OPCODE_WRITE`",
+            "These join `fw_update` as\nsurfaces that must not be written without F1-class authority",
+            "Nothing in this\ncampaign has written any of them.",
+            "neither sysfs `show` nor sysfs `store` takes\nany lock",
+            "treat even the `opcode` *read* as deferred",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_admits_its_own_width_dependent_parser_defect(self):
+        for token in (
+            "A defect in this probe, found in its own output",
+            "column-collapsed",
+            "The difference is entry-name width, not anything about the directories.",
+            "same class of defect as\nthe Stage A truncation",
+            "use `ls -a1` and must not derive a count",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_probe_never_names_a_write_or_body_read_target(self):
+        # The listing shows fw_update, reg and opcode; the probe must not touch
+        # them.  Checked against the script bytes, not against the prose.
+        script = self.probe.PROBE_SCRIPT
+        for forbidden in ("fw_update", "cat ", "debug0/reg", "debug0/opcode", ">"):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, script)
+        self.assertIn("/sys/class/mxim/debug0", script)
+
+    def test_ledger_records_the_mxim_probe_row(self):
+        rows = [
+            line
+            for line in LEDGER.read_text(encoding="utf-8").splitlines()
+            if " stage-a-probe-2 " in line
+        ]
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertIn("s22plus-fyg8-p319", row)
+        self.assertIn("| D0 |", row)
+        self.assertIn("P319_MXIM_DEBUG_SURFACE_PRESENT_READ_ONLY", row)
+        # A D0 row may not carry an H0 review label.
+        self.assertNotIn("REVIEW_PENDING", row)
+        for token in (
+            "956854d8",
+            "/dev/mxim_dev",
+            "fourteen single-byte",
+            "not as a CONTROL1 read",
+            "must not be written without F1-class authority",
+            "device_writes false",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, row)
 
 
 if __name__ == "__main__":
