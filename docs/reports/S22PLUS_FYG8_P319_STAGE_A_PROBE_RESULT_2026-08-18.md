@@ -809,3 +809,79 @@ all. That is the correct next unit, and it is the one July asked for.
 - The mechanism was wrong: `sec_log_buf`, not ramoops/pstore.
 - The claim that a candidate "can still be read from the previous boot's console"
   is downgraded from stated capability to untested hypothesis.
+
+## The 2 MiB analysis July asked for, done
+
+`S22PLUS_RAMOOPS_DTBO_M18_CAPTURE_LIVE_RESULT_2026-07-08.md:88` instructed that
+next work analyse the private 2 MiB `last_kmsg`. It never happened. It is done
+here, host-only, against the two captures already on disk. Their digests match
+the July summaries byte for byte — `d6a7bc92…` and `4e706127…` — so these are the
+same files that produced the original conclusions.
+
+```
+                                candidate-last_kmsg   first-stock-boot-last_kmsg
+boot_kind                       stock_android_boot    stock_android_boot
+pid1_comms                      ['init']              ['init']
+span_seconds                    29.8                  24.406
+head_overwritten                true                  true
+banner_present                  false                 false
+backward_timestamp_steps        0                     0
+xbl_lines                       1107                  1110
+panic_lines                     0                     1
+panic_is_userspace_echo_only    n/a                   true
+run id aa96a1cf…                0                     0
+```
+
+### Neither capture holds a candidate boot
+
+**PID 1's comm is `init` in both.** A native-init candidate *is* PID 1, so a
+capture of a candidate boot cannot show `init` there. That single field settles
+it without trusting a filename, and it is corroborated by ~2,400-2,600 `init:`
+messages, ~290 `apexd`, and zygote traffic in each.
+
+So `candidate-last_kmsg.bin` is a stock Android boot. The July conclusion that
+the marker was missing did not need either of the explanations offered at the
+time — that M18 reset before emitting it, or that the DTBO ramoops node made no
+retained path. **The buffer was simply not the candidate's boot.**
+
+### `panic_text_present=true` was a false positive
+
+The stock capture's only `PANIC` occurrence is inside a userspace line:
+
+```
+[    6.379502] [7:  apexd: 1166] apexd: panic_message : "RWC":"0",
+                                 PANIC:sysrq triggered crash PC:rcu_read_unloc…
+```
+
+That is `apexd` reading the previous boot's reset reason and printing it during
+the *next* boot. It is not a retained kernel panic record. The July report read
+this as "confirming Samsung's retained panic path"; the file does not support
+that. The analyser now separates the two, and refuses to count an `apexd:
+panic_message :` echo as a retained panic.
+
+### What the buffer actually is, measured
+
+2,097,136 bytes holds roughly **25 to 30 seconds** of this device's boot logging.
+Both captures start mid-message around 3.4 s with no `Linux version` banner and
+run forward with zero backward steps, so the head was overwritten rather than
+reordered. The last ~1,110 lines are XBL/UEFI bootloader output with its own
+`{ n }[ XBL ]` counter — July's "looks more like ABL/download-mode retention" was
+literally right about the tail, though the head is an ordinary kernel log.
+
+### The consequence is a procedure, not a dead end
+
+The mechanism is not disproven; the sampling was wrong. Since an early-failing
+candidate emits far less than 25 seconds of log, its console **would** fit
+without wrapping. To capture it, `/proc/last_kmsg` must be read on the **first**
+boot after the candidate, before any further reboot overwrites the region. The
+July runs read it after a recovery sequence that had already booted at least once
+more.
+
+### A defect this analyser found in itself
+
+Its first version counted markers across whole lines, which also counts the comm
+column — `[7: apexd: 1166]` matched `apexd`. That inflated every figure:
+`init:` 3595 to 2589, `apexd` 462 to 297, `binder` 731 to 47. Markers are now
+scoped to the message body, and PID 1's comm is extracted separately as the
+discriminator that does not depend on counting at all. The suite exercises the
+inflation case directly.
