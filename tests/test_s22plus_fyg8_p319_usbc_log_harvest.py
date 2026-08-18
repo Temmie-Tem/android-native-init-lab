@@ -185,5 +185,77 @@ class P319LogHarvestTest(unittest.TestCase):
         self.assertTrue(commanded["mux_evidence_conclusive"])
 
 
+    # --- /proc/usblog ------------------------------------------------------
+
+    USBLOG = [
+        "time sync: [08-18 20:31:24][179813.278371]",
+        "usblog CC IC version:",
+        "hw version = 0  0  0 1a",
+        "sw version = 0 40 6e  0",
+        "bin version =15 40 6e  0",
+        "",
+        "usblog CCIC EVENT: count=3 maxline=512",
+        "[    3.605282] manager notify: id=ID_CONNECT src=MUIC cable=0 DETACHED",
+        "[    4.193690] manager notify: id=ID_CONNECT src=MUIC cable=2 ATTACHED",
+        "[179807.771036] manager notify: id=ID_CONNECT src=CCIC ATTACHED",
+        "",
+        "usblog USB STATE: count=2 maxline=256",
+        "[   18.411892] CONNDONE SS",
+        "[   18.630784] SET_CON",
+        "",
+        "usblog EXTRA: count=2 maxline=128",
+        "[    4.215202] PDIC HARDRESET_SENT",
+        "[179808.319417] PDIC HARDRESET_SENT",
+    ]
+
+    def test_usblog_rings_are_count_bounded_and_reach_back_to_boot(self):
+        # This is why usblog beats the kernel ring here: dmesg spanned tens of
+        # seconds, these rings span the whole uptime because they are bounded by
+        # entry count and the counts stay far below their caps.
+        u = self.runner.parse_usblog(self.USBLOG)
+        self.assertTrue(u["spans_boot"])
+        self.assertEqual(u["earliest"], 3.605282)
+        self.assertEqual(u["latest"], 179808.319417)
+        for name in ("CCIC EVENT", "USB STATE", "EXTRA"):
+            with self.subTest(section=name):
+                section = u["sections"][name]
+                # Every declared entry must actually parse, or history is lost.
+                self.assertEqual(section["count"], section["parsed"])
+                self.assertFalse(section["wrapped"])
+
+    def test_usblog_flags_a_wrapped_ring_as_untrustworthy_history(self):
+        lines = ["usblog CCIC EVENT: count=512 maxline=512", "[ 1.0] x ATTACHED"]
+        self.assertTrue(
+            self.runner.parse_usblog(lines)["sections"]["CCIC EVENT"]["wrapped"]
+        )
+
+    def test_usblog_extracts_versions_attach_counts_and_hardresets(self):
+        u = self.runner.parse_usblog(self.USBLOG)
+        self.assertEqual(
+            u["versions"], {"hw": "0 0 0 1a", "sw": "0 40 6e 0", "bin": "15 40 6e 0"}
+        )
+        self.assertEqual(u["time_sync"]["monotonic"], 179813.278371)
+        self.assertEqual((u["attach_events"], u["detach_events"]), (2, 1))
+        # One hard reset per attach, at boot and at the replug.
+        self.assertEqual(u["hardreset_sent"], [4.215202, 179808.319417])
+        self.assertEqual(u["enumeration"]["CONNDONE"], 1)
+        self.assertEqual(u["enumeration"]["SET_CON"], 1)
+
+    def test_usblog_parses_to_empty_without_crashing(self):
+        u = self.runner.parse_usblog([])
+        self.assertEqual(u["sections"], {})
+        self.assertIsNone(u["earliest"])
+        self.assertFalse(u["spans_boot"])
+        self.assertEqual(u["hardreset_sent"], [])
+
+    def test_harvest_carries_the_parsed_usblog(self):
+        text = self.harvest(["x"]).replace(
+            "usblog\tbegin\nusblog\tend",
+            "usblog\tbegin\n" + "\n".join(self.USBLOG) + "\nusblog\tend",
+        )
+        observation = self.runner.parse_harvest(text)
+        self.assertTrue(observation["usblog"]["spans_boot"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -61,7 +61,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(len(expected), 10296)
         self.assertEqual(
             hashlib.sha256(expected).hexdigest(),
-            "fc700d3cfb5934806db7352b68be7bd7db0d9e4c3c7db1ea4a969a043033774e",
+            "0763e7404c9215e8929008aba35c5106ee1e28da25f2e974dbdef39b8aeff6f9",
         )
 
     def test_predecessor_receipt_is_preserved_and_no_longer_authority(self):

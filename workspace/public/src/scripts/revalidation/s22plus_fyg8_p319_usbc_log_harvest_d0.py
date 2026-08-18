@@ -211,6 +211,92 @@ OPCODE_WRITE_RE = re.compile(r"max77705: opcode_write:\s*([0-9a-f ]+)")
 OPCODE_MSG_RE = re.compile(r"opcode 0x([0-9a-fA-F]+), (write|read)_length (\d+)")
 
 
+USBLOG_SECTION_RE = re.compile(r"^usblog (.+?): count=(\d+) maxline=(\d+)$")
+USBLOG_VERSION_RE = re.compile(r"^(hw|sw|bin) version =\s*(.+)$")
+USBLOG_ENTRY_RE = re.compile(r"^\[\s*(\d+\.\d+)\]\s*(.*)$")
+USBLOG_TIMESYNC_RE = re.compile(r"^time sync: \[([^\]]+)\]\[\s*(\d+\.\d+)\]")
+# Gadget enumeration reaching SET_CON means the host set a configuration.
+ENUMERATION_MARKERS = ("CONNDONE", "GET_DES", "SET_CON", "RESET : SUPER")
+
+
+def parse_usblog(lines: list[str]) -> dict[str, Any]:
+    """Parse /proc/usblog into its named count-bounded rings.
+
+    These rings are bounded by entry count, not by time, and the counts are
+    small enough that they reach back to boot.  That is what makes usblog a
+    better surface than the kernel ring for anything that happened at attach:
+    dmesg here spans tens of seconds, usblog spans the whole uptime.
+    """
+    sections: dict[str, dict[str, Any]] = {}
+    versions: dict[str, str] = {}
+    time_sync: dict[str, Any] | None = None
+    current: str | None = None
+    for line in lines:
+        stripped = line.strip()
+        match = USBLOG_TIMESYNC_RE.match(stripped)
+        if match:
+            time_sync = {
+                "wall": match.group(1),
+                "monotonic": float(match.group(2)),
+            }
+            continue
+        match = USBLOG_SECTION_RE.match(stripped)
+        if match:
+            current = match.group(1)
+            sections[current] = {
+                "count": int(match.group(2)),
+                "maxline": int(match.group(3)),
+                "entries": [],
+            }
+            continue
+        match = USBLOG_VERSION_RE.match(stripped)
+        if match:
+            versions[match.group(1)] = " ".join(match.group(2).split())
+            continue
+        match = USBLOG_ENTRY_RE.match(stripped)
+        if match and current is not None:
+            sections[current]["entries"].append(
+                {"t": float(match.group(1)), "text": match.group(2).strip()}
+            )
+    stamps = [
+        entry["t"] for value in sections.values() for entry in value["entries"]
+    ]
+    everything = [
+        entry["text"] for value in sections.values() for entry in value["entries"]
+    ]
+    ccic = sections.get("CCIC EVENT", {}).get("entries", [])
+    return {
+        "time_sync": time_sync,
+        "versions": versions,
+        "sections": {
+            name: {
+                "count": value["count"],
+                "maxline": value["maxline"],
+                "parsed": len(value["entries"]),
+                # A ring is only trustworthy as history if it is not yet full.
+                "wrapped": value["count"] >= value["maxline"],
+            }
+            for name, value in sections.items()
+        },
+        "earliest": min(stamps) if stamps else None,
+        "latest": max(stamps) if stamps else None,
+        # The property that matters: does this reach back to boot?
+        "spans_boot": bool(stamps) and min(stamps) < 60.0,
+        "attach_events": sum(1 for entry in ccic if "ATTACHED" in entry["text"]),
+        "detach_events": sum(1 for entry in ccic if "DETACHED" in entry["text"]),
+        "hardreset_sent": [
+            entry["t"]
+            for value in sections.values()
+            for entry in value["entries"]
+            if "HARDRESET_SENT" in entry["text"]
+        ],
+        "enumeration": {
+            marker: sum(1 for text in everything if marker in text)
+            for marker in ENUMERATION_MARKERS
+        },
+    }
+
+
 def parse_harvest(text: str) -> dict[str, Any]:
     rows = [line.split("\t") for line in text.splitlines()]
     sections: dict[str, list[str]] = {}
@@ -257,6 +343,7 @@ def parse_harvest(text: str) -> dict[str, Any]:
         "driver_log_rc": scalars.get("driver_log_rc"),
         "driver_log_lines": len(driver_log),
         "usblog_lines": len(sections.get("usblog", [])),
+        "usblog": parse_usblog(sections.get("usblog", [])),
         "typec": {
             name: scalars[name] for name in TYPEC_ATTRIBUTES if name in scalars
         },

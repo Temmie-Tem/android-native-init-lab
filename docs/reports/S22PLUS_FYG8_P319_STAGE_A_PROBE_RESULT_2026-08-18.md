@@ -642,3 +642,94 @@ than softened by this capture. `max77705_usbc_opcode_write: !!!current_cmd.opcod
 queue-contention branch at `max77705_usbc.c:2499` firing during entirely normal
 operation. An unsynchronised debug write would be injected into exactly that
 contention.
+
+## /proc/usblog parsed: a ring that actually reaches back to boot
+
+The kernel ring here spans tens of seconds. `/proc/usblog` does not: it is a set
+of named rings bounded by **entry count, not time**, and the counts are far below
+their caps, so it holds the whole uptime.
+
+| Ring | count | maxline | wrapped |
+|---|---|---|---|
+| CCIC EVENT | 40 | 512 | no |
+| USB STATE | 55 | 256 | no |
+| USB EVENT | 10 | 64 | no |
+| USB_MODE | 5 | 64 | no |
+| EXTRA | 4 | 128 | no |
+| PORT | 0 | 128 | no |
+| PCM | 0 | 64 | no |
+
+Earliest entry `3.605282`, latest `179808.320553`. Every ring's declared `count`
+equals the number of entries that actually parsed, so nothing was dropped by the
+parser, and no ring is full, so nothing has been overwritten. `spans_boot` is
+true. The header also carries `time sync: [08-18 20:31:24][179813.278371]`, which
+maps monotonic time to wall clock.
+
+### It explains the value Stage B flagged
+
+Stage B read `PDMsg = HARDRESET_SENT` and this report recorded it as a
+last-event register whose timing could not be recovered. The `EXTRA` ring
+recovers it:
+
+```
+[     4.215202] PDIC HARDRESET_SENT
+[179808.319417] PDIC HARDRESET_SENT
+```
+
+Two entries, at the boot attach and at this replug's attach. **A PD hard reset is
+sent on every attach here**, so Stage B's reading was routine behaviour and not
+an anomaly. The earlier note that it "needed care" is discharged by evidence
+rather than left open. It also supports the inference offered for `VSAFE0V`: a
+hard reset drives VBUS to vSafe0V, and the attach hard reset is 0.5 s before the
+window Stage B sampled.
+
+### It cross-checks the attach against the kernel log
+
+```
+[179807.771036] manager notify: id=ID_CONNECT src=CCIC dest=MUIC ... ATTACHED
+[179807.774297] ccic notify:    id=ID_USB src=CCIC dest=USB status=ATTACH_UFP
+                -> kernel log: [179807.846] com_to_usb_ap, switch_path value(0x9)
+```
+
+Two independent rings agree on the same attach within 75 ms, which is what makes
+the mux-command evidence more than a single log line.
+
+### Controller identity, and a version comparison stated raw
+
+```
+hw  version = 0  0  0 1a
+sw  version = 0 40 6e  0
+bin version =15 40 6e  0
+```
+
+`hw` matches Stage B's `UIC_HW_REV` `0x1a`; `sw` matches `UIC_FW_REV` `0x6e` and
+`UIC_FW_MINOR` `0x40`. `bin` is the image carried by the kernel. Two of the four
+fields are identical between `sw` and `bin` and the first differs. No claim is
+made here about whether an update is pending: the field semantics are not
+established from source, so the three strings are recorded as read.
+
+### Gadget enumeration is recorded too
+
+`CONNDONE` 17, `RESET : SUPER` 15, `GET_DES` 6, `SET_CON` 5 across the uptime,
+with the replug producing `VBUS_SESSION_EN` -> `CONNDONE SS` -> `RESET : SUPER`
+-> `GET_DES` -> `SET_CON`. `SET_CON` means the host set a configuration, so this
+ring records whether enumeration completed — persistently, and without a write.
+
+### Why this matters more than the mux line itself
+
+For a candidate boot the interesting events happen at boot, and the kernel ring
+will have rotated long before anyone can read it. These rings will not have.
+`CONFIG_PSTORE_CONSOLE=y` and `CONFIG_PSTORE_RAM=y` are also set
+(`waipio-gki_defconfig:581-584`), so a candidate that never brings up ADB can
+still be read after rebooting to stock, from the previous boot's console.
+Together they mean the candidate comparison needs no live capture and no write.
+
+### An error of mine, recorded
+
+While re-registering the changed harvester an unanchored `sed` was run with an
+empty capture variable, which rewrote the first empty string literal in the
+auditor and left it syntactically invalid, and a second one blanked a digest pin
+in a test. Both were restored — the auditor from `HEAD`, the pin by hand — and the
+full diff was reviewed to confirm only the intended line changed. Registration
+edits are byte-pinned digests, so they must be applied with anchored patterns and
+a non-empty check, not with a variable that can come back empty.
