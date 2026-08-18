@@ -18,20 +18,20 @@ from typing import Any, Mapping
 SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
-AUDITOR_NORMALIZED_SHA256 = "0e4a17f2004404cc7f01bc52d1a01221254d5497448277a94eabd67cf55c386c"
+AUDITOR_NORMALIZED_SHA256 = "84df4dad4c4d1268aa52ae795d1e7b5f5a527edf2c92d3d9d90476c86b3cb68a"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
     "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260817-01.json"
 )
-LEGACY_UNMIGRATED_OBSERVER_COUNT = 31
+LEGACY_UNMIGRATED_OBSERVER_COUNT = 47
 LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
-    "850e87ac23c849faafdf2847ab6b5ba47892e8cc37578846d7c0f34ee0c53798"
+    "088d6a19e69378e9072edb203caa482fb7ea4f47aa90821b2d43ecfdcc57c51a"
 )
 CLOSED_OBSERVER_SOURCE_COUNT = 122
 CLOSED_OBSERVER_SOURCE_SHA256 = (
-    "00887b918711b532c42bad63500f7c5a2f38176db37466554dd1d61579cb4a46"
+    "087187a5b55ae8bb059b2379c81e69e67576a9cf883b1d2ac5fdb961e51d155c"
 )
 DEVICE_TRANSPORT_PATTERNS = tuple(
     re.compile(pattern, re.IGNORECASE)
@@ -49,14 +49,24 @@ DEVICE_TRANSPORT_PATTERNS = tuple(
         r"device_action_d0_v2",
     )
 )
-S22_SCOPED_SOURCE_RE = re.compile(r"(?:s22plus|device_action)[A-Za-z0-9_]*\.py")
-PRE_BOUNDARY_DEVICE_SOURCE_COUNT = 79
+S22_SCOPED_SOURCE_RE = re.compile(
+    # Anchored prefixes left build_s22plus_* and s22_* -- including the sources
+    # that write partitions -- held by name only, so an edit adding new device
+    # acquisition to them passed. Byte-freeze those too.
+    r"(?:build_)?(?:s22plus|s22_|device_action)[A-Za-z0-9_]*\.py"
+)
+PRE_BOUNDARY_DEVICE_SOURCE_COUNT = 127
 PRE_BOUNDARY_DEVICE_SOURCE_SHA256 = (
-    "82b85108cc2705a165ce43f7abdb0fb3a21cd953e2b033d1c84806edcd814dcd"
+    "c7029746710d2f83d710a3abbecbba5a6bbc3367c7a5f20a559b63a92f1677db"
 )
 PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
     {
         "a90_repl_resident_session.py",
+        "build_native_init_boot_v2317_usb_product_rodata.py",
+        "build_native_init_boot_v2318_usb_full_identity_rodata.py",
+        "build_native_init_boot_v2319_usb_product_overrun1_rodata.py",
+        "build_native_init_boot_v2320_usb_product_overrun2_rodata.py",
+        "build_native_init_boot_v2321_usb_clean_identity_rodata.py",
         "build_s20plus_g986n_native_canary_n1.py",
         "build_s20plus_n3u0_magisk_overlay.py",
         "build_s22plus_direct_p3_boot.py",
@@ -70,15 +80,26 @@ PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
         "build_s22plus_fyg8_r4w1c_watchdog_carrier.py",
         "build_s22plus_fyg8_r4w1d_candidate.py",
         "build_s22plus_fyg8_r4w1e_e1_candidate.py",
+        "build_s22plus_inplace_m24_pmsg_steps_park.py",
+        "build_s22plus_m25_hs_only_usb2_acm.py",
+        "build_s22plus_o1_magisk_overlay.py",
         "build_s22plus_observable_m3_boot.py",
         "build_s22plus_ramoops_dtbo_enable.py",
         "build_s22plus_ramoops_vendor_boot_direct_enable.py",
         "build_s22plus_ramoops_vendor_boot_enable.py",
         "build_s22plus_v3435_ramoops_console_dtbo.py",
+        "device_action_f1_evidence_v2.py",
+        "device_action_f1_v2.py",
+        "native_audio_acdb_android_measurement_planner_v2396.py",
         "native_audio_acdb_clone_follow_planner_v2421.py",
         "native_audio_acdb_m1_diag_observer_planner_v2449.py",
+        "native_audio_acdb_m1_hybrid_late_observer_live_handoff_v2451.py",
+        "native_audio_acdb_ownprocess_get_live_handoff_v2490.py",
         "native_audio_acdb_payload_capture_planner_v2415.py",
         "native_audio_acdb_threadset_clone_follow_planner_v2423.py",
+        "native_audio_acdb_topology_replay_live_handoff_v2550.py",
+        "native_audio_acdbtap_service_env_live_handoff_v2485.py",
+        "native_audio_acdbtap_vendor_preload_live_handoff_v2481.py",
         "native_audio_acdbtap_wrapper_exec_planner_v2487.py",
         "native_audio_adsp_kick_no_wait_live_handoff_v2804.py",
         "native_audio_android_route_delta_handoff_v2365.py",
@@ -105,7 +126,12 @@ PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
         "s20plus_g986n_d0_inventory.py",
         "s20plus_g986n_download_exit_d1.py",
         "s20plus_g986n_magisk_bootstrap_f1.py",
+        "s20plus_g986n_native_canary_r1.py",
         "s20plus_g986n_routine_actions.py",
+        "s20plus_g986n_routine_d0.py",
+        "s20plus_n3u0_attended_f1.py",
+        "s20plus_n3u0_attended_f1_backend_h0.py",
+        "s20plus_n3u0_attended_f1_integration_h0.py",
         "s22_debloat_pass4_rescue.py",
         "s22plus_active_dtb_provenance_audit.py",
         "s22plus_boot_slice.py",
@@ -113,10 +139,12 @@ PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
         "s22plus_eud_phase_a_readonly_probe.py",
         "s22plus_eud_phase_b_enable_live_gate.py",
         "s22plus_eud_phase_b_enable_readiness_audit.py",
+        "s22plus_fyg8_consumed_suite_expected_failures.py",
         "s22plus_fyg8_module_map.py",
         "s22plus_fyg8_p221_candidate_static_checker.py",
         "s22plus_fyg8_p233_e1_static_checker.py",
         "s22plus_fyg8_p234_build_repro_check.py",
+        "s22plus_fyg8_p234_candidate_contract.py",
         "s22plus_fyg8_p234_candidate_intent.py",
         "s22plus_fyg8_p234_candidate_static_checker.py",
         "s22plus_fyg8_p234_userspace_build.py",
@@ -134,18 +162,30 @@ PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
         "s22plus_fyg8_p282_pre_lto_qualification.py",
         "s22plus_fyg8_p282_source_contract.py",
         "s22plus_fyg8_p284_pre_lto_qualification.py",
+        "s22plus_fyg8_p286_boot_only_packager.py",
         "s22plus_fyg8_p286_build_repro_check.py",
+        "s22plus_fyg8_p286_candidate_contract.py",
         "s22plus_fyg8_p286_candidate_intent.py",
         "s22plus_fyg8_p286_candidate_static_checker.py",
         "s22plus_fyg8_p286_pre_lto_qualification.py",
         "s22plus_fyg8_p286_source_contract.py",
         "s22plus_fyg8_p286_userspace_build.py",
+        "s22plus_fyg8_p288_build_repro_check.py",
         "s22plus_fyg8_p288_source_contract.py",
+        "s22plus_fyg8_p290_build_repro_check.py",
         "s22plus_fyg8_p290_source_contract.py",
         "s22plus_fyg8_p292_source_contract.py",
         "s22plus_fyg8_p294_tier2_reentry.py",
+        "s22plus_fyg8_p296_pre_lto_qualification.py",
+        "s22plus_fyg8_p298_pre_lto_qualification.py",
+        "s22plus_fyg8_p300_pre_lto_qualification.py",
         "s22plus_fyg8_p316_candidate_static_checker.py",
+        "s22plus_fyg8_p318_baseline_rotation_d1.py",
         "s22plus_fyg8_p318_candidate_static_checker.py",
+        "s22plus_fyg8_p318_carrier_version_crosscheck.py",
+        "s22plus_fyg8_p318_cdc_acm_positive_control.py",
+        "s22plus_fyg8_p318_historical_eud_index_sweep.py",
+        "s22plus_fyg8_p318_postlive_eud_index_audit.py",
         "s22plus_fyg8_p318_selector_negative_control.py",
         "s22plus_fyg8_r3_static_checker.py",
         "s22plus_fyg8_r3c0_live_gate.py",
@@ -154,20 +194,30 @@ PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
         "s22plus_fyg8_r4w1a_static_checker.py",
         "s22plus_fyg8_r4w1a_stream_candidate_live_gate.py",
         "s22plus_fyg8_r4w1b_live_gate.py",
+        "s22plus_fyg8_r4w1c2_measured_live_binding_packet.py",
         "s22plus_fyg8_r4w1c2_measured_live_gate.py",
         "s22plus_fyg8_r4w1c3_regular_ap_live_gate.py",
         "s22plus_fyg8_r4w1c_connected_gate.py",
+        "s22plus_fyg8_r4w1c_live_binding_packet.py",
         "s22plus_fyg8_r4w1c_live_gate.py",
         "s22plus_fyg8_r4w1c_odin_enumeration_diff_observer.py",
+        "s22plus_fyg8_r4w1c_odin_enumeration_diff_observer_binding_packet.py",
         "s22plus_fyg8_r4w1c_watchdog_carrier_static_checker.py",
+        "s22plus_fyg8_r4w1d_candidate_static_checker.py",
         "s22plus_fyg8_r4w1e_e1_candidate_static_checker.py",
         "s22plus_fyg8_usb_role_static_re.py",
+        "s22plus_m34_s8b1_beacon_probe_live_gate.py",
+        "s22plus_m34_s8b1a_wide_i2c_beacon_live_gate.py",
+        "s22plus_m34_s9_devlink_substrate_beacon_live_gate.py",
         "s22plus_m3_observable_live_gate.py",
         "s22plus_magisk_boot_baseline_restore_gate.py",
         "s22plus_magisk_boot_capture_collect.py",
         "s22plus_magisk_boot_time_capture_m1.py",
         "s22plus_native_init_observability_frontier_audit.py",
         "s22plus_o0_stock_usb_control.py",
+        "s22plus_o11_stock_first_stage_control_live_gate.py",
+        "s22plus_o1_stock_first_stage_control_live_gate.py",
+        "s22plus_observable_init_recipe.py",
         "s22plus_p0_recon_collect.py",
         "s22plus_p2_stock_boot_rollback_guard.py",
         "s22plus_p3_collect_and_rollback.py",
@@ -180,6 +230,8 @@ PRE_BOUNDARY_DEVICE_SOURCES = frozenset(
         "s22plus_twrp_magisk_restore_window.py",
         "s22plus_v3427_transition_selection.py",
         "s22plus_v3428_stock_transition_positive_control.py",
+        "s22plus_v3430_phase_observer_live_gate.py",
+        "s22plus_v3433_pid1_keystone_live_gate.py",
         "s22plus_v3437_ramoops_positive_control_live_gate.py",
         "s22plus_v3439_ramoops_positive_control_live_gate.py",
         "s22plus_v3440_rdx_usb_viability_gate.py",
@@ -600,6 +652,28 @@ def _imports_subprocess(text: str) -> bool:
     )
 
 
+# Process-spawn capability, not a list of three known-bad idioms.  An adversarial
+# review defeated the previous rule with os.system, os.posix_spawn, pty.spawn,
+# asyncio.create_subprocess_exec, importlib.import_module("sub"+"process"),
+# ctypes.CDLL("libc").system, getattr indirection, and exec of embedded source --
+# ten bypasses, each a device-acquiring source the audit passed.  The rule now
+# fails closed on anything that can start a process, and on source it cannot
+# parse, because an enumeration of bad idioms is open by construction.
+SPAWN_MODULES = frozenset({"subprocess", "pty", "ctypes", "asyncio", "multiprocessing"})
+SPAWN_ATTRIBUTES = frozenset({
+    "system", "popen", "fork", "forkpty", "spawn",
+    "execv", "execve", "execvp", "execvpe", "execl", "execle", "execlp",
+    "spawnv", "spawnve", "spawnvp", "spawnl", "spawnle", "spawnlp",
+    "posix_spawn", "posix_spawnp",
+    "run", "call", "check_call", "check_output", "Popen",
+    "create_subprocess_exec", "create_subprocess_shell",
+    "bounded_command", "import_module",
+})
+SPAWN_NAMES = frozenset({
+    "bounded_command", "popen", "exec", "eval", "__import__", "getattr",
+})
+
+
 def _uses_legacy_acquisition(text: str) -> bool:
     try:
         tree = ast.parse(text)
@@ -608,17 +682,22 @@ def _uses_legacy_acquisition(text: str) -> bool:
     if _imports_subprocess(text):
         return True
     for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            if any(
+                (alias.name or "").split(".")[0] in SPAWN_MODULES
+                for alias in node.names
+            ):
+                return True
+            continue
+        if isinstance(node, ast.ImportFrom):
+            if (node.module or "").split(".")[0] in SPAWN_MODULES:
+                return True
+            continue
         if not isinstance(node, ast.Call):
             continue
-        if isinstance(node.func, ast.Name) and node.func.id in {
-            "bounded_command",
-            "popen",
-        }:
+        if isinstance(node.func, ast.Name) and node.func.id in SPAWN_NAMES:
             return True
-        if isinstance(node.func, ast.Attribute) and node.func.attr in {
-            "bounded_command",
-            "popen",
-        }:
+        if isinstance(node.func, ast.Attribute) and node.func.attr in SPAWN_ATTRIBUTES:
             return True
     return False
 
@@ -686,8 +765,43 @@ def _candidate_d0_sources(
     return values
 
 
+# Text markers that a source can start a process at all.  Only these files are
+# worth the AST pass below, which keeps a full audit bounded instead of parsing
+# every file in the tree.
+SPAWN_TEXT_MARKERS = (
+    "subprocess", "os.system", "os.exec", "os.spawn", "posix_spawn",
+    "pty.", "ctypes", "asyncio", "import_module", "__import__",
+    "bounded_command", "popen",
+)
+
+
+def _folded_string_constants(text: str) -> list[str]:
+    """String literals as the parser folds them, not as they are typed."""
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return []
+    return [
+        node.value
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    ]
+
+
 def _touches_device_transport(text: str) -> bool:
-    return any(pattern.search(text) for pattern in DEVICE_TRANSPORT_PATTERNS)
+    if any(pattern.search(text) for pattern in DEVICE_TRANSPORT_PATTERNS):
+        return True
+    # A regex over source text cannot see `"a" "d" "b"`, which the parser folds
+    # to the real transport name before anything runs.  A review defeated the
+    # text-only gate with exactly that, so spawn-capable sources are re-checked
+    # against their folded literals.
+    if not any(marker in text for marker in SPAWN_TEXT_MARKERS):
+        return False
+    return any(
+        pattern.search(value)
+        for value in _folded_string_constants(text)
+        for pattern in DEVICE_TRANSPORT_PATTERNS
+    )
 
 
 def _device_acquisition_sources(
@@ -957,8 +1071,12 @@ def audit_sources(
         "closed_observer_sources_are_byte_frozen": True,
         "pre_boundary_device_source_count": len(device_sources),
         "pre_boundary_device_source_inventory_sha256": device_sources_sha256,
-        "device_acquisition_detected_by_behavior_not_filename": True,
-        "new_device_acquiring_source_rejected_under_any_filename": True,
+        # Two hardcoded True literals stood here and were published as evidence.
+        # An adversarial review refuted the second with ten working bypasses, so
+        # both are removed rather than restated. What the rule actually does is
+        # stated in the report; it is a process-spawn-capability test, not a
+        # soundness proof, and it is not self-certifying.
+        "acquisition_rule": "process_spawn_capability_v2",
         "new_or_changed_observer_source_requires_review": True,
         "audited_active_observer_modules": audited_observer_modules,
         "d0_subprocess_candidates": d0_candidates,

@@ -76,6 +76,18 @@ if [ -n "$client" ]; then
 else
     printf 'client\tabsent\n'
 fi
+printf 'mxim_dev\t%s\n' "$([ -e /dev/mxim_dev ] && echo present || echo absent)"
+printf 'mxim_class\t%s\n' "$([ -d /sys/class/mxim ] && echo present || echo absent)"
+if [ -d /sys/class/mxim ]; then
+    printf 'mxim_nodes\tbegin\n'
+    ls -a /sys/class/mxim
+    printf 'mxim_nodes\tend\n'
+fi
+if [ -d /sys/class/mxim/debug0 ]; then
+    printf 'mxim_debug0\tbegin\n'
+    ls -a /sys/class/mxim/debug0
+    printf 'mxim_debug0\tend\n'
+fi
 printf 'probe\tend\n'
 """
 
@@ -141,17 +153,19 @@ def parse_probe(text: str) -> dict[str, Any]:
         tuple(line.split("\t")) for line in text.splitlines()
     ]
     tagged = {row[0] for row in rows if row}
-    listing: list[str] = []
-    inside = False
+    sections: dict[str, list[str]] = {}
+    current: str | None = None
     for row in rows:
-        if row[:2] == ("lsa", "begin"):
-            inside = True
+        if len(row) == 2 and row[1] == "begin":
+            current = row[0]
+            sections.setdefault(current, [])
             continue
-        if row[:2] == ("lsa", "end"):
-            inside = False
+        if len(row) == 2 and row[1] == "end":
+            current = None
             continue
-        if inside and len(row) == 1:
-            listing.append(row[0])
+        if current is not None and len(row) == 1:
+            sections[current].append(row[0])
+    listing = sections.get("lsa", [])
     return {
         "reached_begin": ("probe", "begin") in {tuple(r[:2]) for r in rows},
         # The single decisive bit: a missing end sentinel is transport loss.
@@ -161,6 +175,8 @@ def parse_probe(text: str) -> dict[str, Any]:
         "listing_count": len(listing),
         "uevent_in_listing": "uevent" in listing,
         "regmap_in_listing": "regmap" in listing,
+        "mxim_class_nodes": sections.get("mxim_nodes", []),
+        "mxim_debug0_entries": sections.get("mxim_debug0", []),
         "scalar_rows": {
             row[0]: row[1] for row in rows if len(row) == 2 and row[0] != "probe"
         },
@@ -201,10 +217,22 @@ def collect(root: Path) -> dict[str, Any]:
     payload = raw_capture.read_stdout(handle, maximum=MAX_PROBE_BYTES)
     stderr = raw_capture.read_stderr(handle, maximum=d0.MAX_TEXT_OUTPUT)
     observation = parse_probe(payload.decode("utf-8", "replace"))
+    # A probe that cannot fail is not evidence.  Reaching the end sentinel proves
+    # the remote script completed; the three handle flags prove the capture layer
+    # did not silently truncate or time out.  Without this gate a timed-out run
+    # renders as PASS with an empty listing, which is exactly the false negative
+    # this probe exists to prevent.
+    complete = (
+        observation["reached_end"]
+        and not handle.output_exceeded
+        and not handle.timed_out
+        and handle.producer_error_type is None
+    )
     value = {
         "schema": SCHEMA,
         "version": VERSION,
-        "verdict": VERDICT,
+        "verdict": VERDICT if complete else STOP_VERDICT,
+        "complete": complete,
         "captured_at_utc": datetime.now(timezone.utc).isoformat(),
         "safety": probe_safety_contract(),
         "device_writes": False,
@@ -216,6 +244,9 @@ def collect(root: Path) -> dict[str, Any]:
         "observation": observation,
         "raw": {
             "returncode": handle.returncode,
+            "timed_out": handle.timed_out,
+            "output_exceeded": handle.output_exceeded,
+            "producer_error_type": handle.producer_error_type,
             "stdout_bytes": len(payload),
             "stderr_bytes": len(stderr),
             "stderr_text": stderr.decode("utf-8", "replace")[:400],
@@ -249,7 +280,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"P3.19 Stage A probe error: {exc}", file=sys.stderr)
         return 2
     print(json.dumps(value, indent=2, sort_keys=True))
-    return 0
+    return 0 if value["complete"] else 2
 
 
 if __name__ == "__main__":

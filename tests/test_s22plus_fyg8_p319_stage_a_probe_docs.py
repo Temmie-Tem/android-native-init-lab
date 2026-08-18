@@ -86,14 +86,33 @@ class P319StageAProbeDocsTest(unittest.TestCase):
 
     def test_report_blocks_stage_b_until_the_target_is_rederived(self):
         for token in (
-            # The corrected claim: CONTROL1 is an opcode, not an attribute.
-            'said Stage B "was scoped as a single-attribute\nCONTROL1 read". That was wrong',
-            "`CONTROL1_R`/`CONTROL1_W` are opcodes",
-            "as `COMMAND_CONTROL1_WRITE`. There is no read\nopcode issued anywhere in it",
-            "created on\n`switch_device->kobj`",
-            "Stage B cannot be a sysfs read.",
-            "establishes no Stage B authority",
+            "`CONTROL1_R`/`CONTROL1_W` as opcodes",
+            "The first was wrong and the second was also wrong.",
+            # The path exists, and it was in this report's own table.
+            "`57-0066` was the correct directory.",
+            "only userspace `CONTROL1` entry point",
+            "is **false**",
+            "grants no authority for anything beyond it",
             "Full regmap dumps remain forbidden.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_records_the_fw_update_write_hazard(self):
+        for token in (
+            "**New hazard, recorded not exercised.**",
+            "runs *before*\nthe `start_fw_update` switch",
+            "must not be written\nwithout F1-class authority",
+            "Nothing in this campaign has written it.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_admits_the_safety_contract_is_a_lint(self):
+        for token in (
+            "**That contract is a lint, not a proof.**",
+            "ten dangerous scripts through it and nine passed",
+            "*filename* net did the work",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)

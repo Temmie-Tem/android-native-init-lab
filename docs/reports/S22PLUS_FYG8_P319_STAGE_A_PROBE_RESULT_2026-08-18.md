@@ -78,57 +78,85 @@ independent check that the listing is whole.
 ## The probe
 
 `s22plus_fyg8_p319_stage_a_truncation_probe.py`, script digest
-`c63bb17db51b42598535a7746217d0a4741c635da4a6233b1775df7343193177`, 875 bytes.
-Machine-checked safety: zero sysfs writes, zero attribute-body reads, zero debugfs
-access, zero `/dev/i2c` access, zero module actions, zero reboots; listing and
-inode tests only.
+`956854d8825f939de49cd2342339e993d1b3e0fae4966a59238ea411f01dc278`, 1307 bytes.
+The listing that produced the result above was taken with the 875-byte
+`c63bb17d` predecessor; this revision adds the mxim existence question and the
+verdict gate below, and changes nothing about how the client is enumerated.
 
-Registering it moved the auditor's closed-observer population from 121 to 122. The
-raw-first auditor stopped on `closed observer source inventory differs: count=122`
-and forced the registration rather than admitting a new device-touching source
-silently, which is the boundary behaving as designed.
+Its safety contract counts zero sysfs writes, zero attribute-body reads, zero
+debugfs access, zero `/dev/i2c` access, zero module actions and zero reboots over
+the exact script text that is sent. **That contract is a lint, not a proof.** An
+adversarial review put ten dangerous scripts through it and nine passed, including
+a sysfs write addressed through a shell variable — the idiom this very probe uses
+for every path it touches. What is actually machine-checked is the script digest.
+The probe is read-only because its operations are `[ -d ]`, `[ -e ]`, glob and
+`ls -a`, verified by reading it line by line, not because the contract proved it.
 
-## Stage B re-derived: there is no sysfs read path to the mux
+Two corrections to the first draft of this section. It said registering the probe
+"forced the registration rather than admitting a new device-touching source
+silently, which is the boundary behaving as designed". Measured, the probe's
+`_uses_legacy_acquisition` was **False**, so the behavior rule never examined it;
+what stopped the audit was `OBSERVER_FILE_RE`, a filename rule matching the
+substring `probe`. The *filename* net did the work the behavior net was introduced
+to replace, and under a name like `..._mux_reader.py` no registration would have
+been required at all. And the probe originally had no stop path: `STOP_VERDICT`
+was defined and never used, so a timed-out or truncated capture would have
+rendered as `PASS` with an empty listing. Both are fixed — the acquisition rule is
+now a process-spawn-capability test, and the verdict is gated on `reached_end`
+together with the capture handle's `timed_out`, `output_exceeded` and
+`producer_error_type`, which are now recorded rather than dropped.
+
+## Stage B re-derived, then corrected: the path exists and was in the table
 
 An earlier draft of this report said Stage B "was scoped as a single-attribute
-CONTROL1 read". That was wrong and is corrected here. `CONTROL1` is not a sysfs
-attribute at all: it is an I2C register reached through the MUIC command protocol,
-where `CONTROL1_R`/`CONTROL1_W` are opcodes `0x05`/`0x06`. The predecessor stop
-report of 2026-08-17 states the real position, that "whether Stage B has one exact
-regular attribute target" was itself unproved.
+CONTROL1 read", then replaced that with a closure claiming no userspace path to
+`CONTROL1` exists at all. The first was wrong and the second was also wrong. Both
+are corrected here rather than dropped.
 
-Re-deriving it from the candidate's own materialized sources
-(`kernel_platform/msm-kernel`) gives a negative answer, and closes the branch.
+What holds. `CONTROL1` is not a sysfs attribute: it is an I2C register reached
+through the MUIC command protocol, with `CONTROL1_R`/`CONTROL1_W` as opcodes
+`0x05`/`0x06` (`include/linux/usb/typec/maxim/max77705-muic.h:70-71`). Within
+`drivers/usb/typec/maxim/max77705-muic.c`, `CONTROL1` occurs once, at `:343`, as
+`COMMAND_CONTROL1_WRITE`, with no read opcode. The MUIC attribute group is created
+on `switch_device->kobj` (`:2553`), i.e. `/sys/class/sec/switch/`, not on the I2C
+client. `usb_sel` returns `pdata->usb_path` and `usb_state`/`attached_dev` return
+`muic_data->attached_dev`, all software caches; `adc`, `vbus_value` and
+`vbus_value_pd` perform a real single-register read of `USBC_STATUS1` (`:591`,
+`:608`), whose eight bits are entirely UIADC and VBADC
+(`max77705-muic.h:242-245`), so it genuinely cannot carry the COMN1SW/COMP2SW mux
+fields that live only in `CONTROL1` (`:294-299`).
 
-**The search location was wrong.** The MUIC attribute group is created on
-`switch_device->kobj` (`drivers/usb/typec/maxim/max77705-muic.c:2553`), not on the
-I2C client. Nothing the MUIC driver exposes was ever going to appear under
-`57-0066`, so the absent `regmap` entry was not the loss of an assumed path.
+**What was wrong: the conclusion, and the claim that the search location was
+wrong.** `57-0066` was the correct directory. `fw_update` — listed in this
+report's own table as "device-specific", and never opened — is the driver set's
+only userspace `CONTROL1` entry point. `drivers/usb/typec/maxim/max77705_usbc.c`
+builds `read_data.opcode = OPCODE_CTRL1_R` and `write_data.opcode = OPCODE_CTRL1_W`
+with `write_data.write_data[0] = 0x09` (`:1571-1576`) and calls
+`max77705_usbc_opcode_rw()` at `:1587`, and its group is created on
+`&max77705->dev->kobj` at `:3711`, which is that client directory. The dead end
+was one row below the live path in the same table.
 
-**No exposed attribute reads `CONTROL1`.** In the whole MUIC driver `CONTROL1`
-occurs exactly once, at `:343`, as `COMMAND_CONTROL1_WRITE`. There is no read
-opcode issued anywhere in it, and therefore none reachable from sysfs.
+**New hazard, recorded not exercised.** `fw_update` is writable
+(`S_IWUSR | S_IWGRP`), and the unconditional `opcode_rw` at `:1587` runs *before*
+the `start_fw_update` switch. Any write to it therefore issues a `CONTROL1` write
+of `0x09` and enters the firmware-update opcode path. It must not be written
+without F1-class authority. Nothing in this campaign has written it.
 
-What the group does expose, classified by what a read would actually prove:
+**A second userspace surface also exists.** `max77705_debug.c` is compiled in
+(`CONFIG_CCIC_MAX77705_DEBUG=y` at `arch/arm64/configs/vendor/waipio-gki_defconfig:1202`
+and `lego.config:121`; linked at `Makefile:7`) and is initialised at probe
+(`max77705_usbc.c:3707-3708`). It registers a misc device and a class
+(`max77705_debug.c:476`, `:493`), giving `/dev/mxim_dev` with opcode and register
+ioctls, plus `/sys/class/mxim/debug0/{reg,opcode}`.
 
-| Attribute | Mode | What a read returns |
-|---|---|---|
-| `usb_sel` | 0664 | `pdata->usb_path`, a software cache (`:669-677`) |
-| `usb_state`, `attached_dev` | 0444 | `muic_data->attached_dev`, a software cache (`:790-799`, `:817`) |
-| `adc`, `vbus_value`, `vbus_value_pd` | 0444 | a real single-register I2C read of `USBC_STATUS1` (`:591`, `:608`) |
-| `uart_sel`, `uart_en`, `otg_test`, `apo_factory`, `afc_disable`, `hiccup` | writable | out of scope |
-
-So the three software-cached attributes cannot distinguish "the mux was set" from
-"the driver believes it set the mux", which is precisely the question P3.15 left
-open. The three genuine reads return `USBC_STATUS1`, a different register from
-`CONTROL1`; they are safe and real, but they do not answer the mux question.
-
-**Consequence.** Stage B cannot be a sysfs read. Reaching `CONTROL1` requires the
-bound-diagnostic path already described in
-`S22PLUS_FYG8_MAX77705_CONTROL_PLANE_SUCCESSOR_FEASIBILITY_H0_2026-08-11.md`,
-which drives the command protocol directly. That is a materially larger step than
-a read and is not authorized here. This report establishes no Stage B authority
-and requests no device action.
+So the closure's stated consequence — that reaching `CONTROL1` requires a bound
+diagnostic module, "a materially larger step than a read" — is **false**. The
+command protocol is already exposed to userspace by the shipped kernel through two
+independent interfaces. Whether either exists and is reachable on the running unit
+is unverified: this is source and config evidence only, SELinux permissiveness is
+unknown, and whether reading the response mailbox is side-effect-free cannot be
+proved from source. A read-only existence check is the next step, and this report
+grants no authority for anything beyond it.
 
 ## Authority boundary
 

@@ -239,7 +239,8 @@ def collect():
                         self.module.RawFirstAuditError,
                         "bypasses the raw-first boundary"
                         "|pre-boundary device source inventory differs"
-                        "|closed observer source inventory differs",
+                        "|closed observer source inventory differs"
+                        "|legacy observer inventory differs",
                     ):
                         self.module.audit_sources(
                             REVALIDATION, {existing: unsafe}
@@ -394,6 +395,30 @@ def read_control1(adb, serial):
             with self.subTest(text=text):
                 self.assertTrue(self.module._touches_device_transport(text))
 
+    def test_process_spawn_bypasses_are_all_rejected(self):
+        """The corpus that refuted the previous rule. Each must now be rejected."""
+        cases = {
+            "os_system": 'import os\nA="/usr/bin/adb"\ndef r(s):\n    os.system(f"{A} -s {s} shell cat /sys/x")\n',
+            "posix_spawn": 'import os\ndef r(s):\n    os.posix_spawn("/usr/bin/adb",["adb","-s",s,"shell"],{})\n',
+            "pty_spawn": 'import pty\ndef r(s):\n    pty.spawn(["adb","-s",s,"shell"])\n',
+            "asyncio": 'import asyncio\nasync def r(s):\n    await asyncio.create_subprocess_exec("adb","-s",s,"shell")\n',
+            "importlib": 'import importlib\ndef r(s):\n    return importlib.import_module("sub"+"process").check_output(["adb"])\n',
+            "getattr_indirect": 'import device_action_d0_v2 as d0\ndef r(s):\n    return getattr(d0,"bounded_command")(["adb","-s",s]).stdout\n',
+            "exec_embedded": 'SRC="import subprocess\\nsubprocess.run([\'adb\'])"\ndef r():\n    exec(SRC)\n',
+            "ctypes": 'import ctypes\ndef r(s):\n    ctypes.CDLL("libc.so.6").system(b"adb shell cat /sys/x")\n',
+            "split_literal": 'import subprocess\nT="a" "d" "b"\ndef r(s):\n    return subprocess.run([T,"-s",s],capture_output=True).stdout\n',
+        }
+        for label, source in cases.items():
+            for name in (
+                "s22plus_fyg8_p320_mux_reader.py",
+                "totally_unrelated_name.py",
+            ):
+                with self.subTest(bypass=label, name=name):
+                    with self.assertRaises(self.module.RawFirstAuditError):
+                        self.module.audit_sources(
+                            REVALIDATION, overrides={name: source}
+                        )
+
     def test_receipt_records_the_behavioral_device_boundary(self):
         value = self.module.audit_sources(REVALIDATION)
         self.assertEqual(
@@ -404,12 +429,17 @@ def read_control1(adb, serial):
             value["pre_boundary_device_source_inventory_sha256"],
             self.module.PRE_BOUNDARY_DEVICE_SOURCE_SHA256,
         )
-        self.assertTrue(
-            value["device_acquisition_detected_by_behavior_not_filename"]
+        # These two fields used to be hardcoded True in the receipt and were
+        # published as evidence; an adversarial review refuted the second with
+        # ten working bypasses. The receipt now names the rule instead of
+        # certifying itself, and the bypass corpus below does the proving.
+        self.assertNotIn(
+            "new_device_acquiring_source_rejected_under_any_filename", value
         )
-        self.assertTrue(
-            value["new_device_acquiring_source_rejected_under_any_filename"]
+        self.assertNotIn(
+            "device_acquisition_detected_by_behavior_not_filename", value
         )
+        self.assertEqual(value["acquisition_rule"], "process_spawn_capability_v2")
 
 
 if __name__ == "__main__":

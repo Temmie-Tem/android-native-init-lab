@@ -48,9 +48,9 @@ Populations under the current tree:
 | Set | Count |
 |---|---:|
 | revalidation `*.py` scanned | 1,718 |
-| acquiring **and** device-facing | 130 + 15 active |
-| S22+-scoped, byte-frozen | 79 |
-| other-target, membership-only | 51 |
+| acquiring **and** device-facing | 177 + 15 active |
+| S22+-scoped, byte-frozen | 127 |
+| other-target, membership-only | 50 |
 
 Ordering matters for cost as well as meaning: the substring test runs before the
 AST parse, which keeps a full audit at about 7 seconds instead of parsing all
