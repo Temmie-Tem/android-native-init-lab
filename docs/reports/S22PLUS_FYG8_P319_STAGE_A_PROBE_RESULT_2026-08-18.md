@@ -1113,3 +1113,123 @@ So Gate 0 closes from two independent sources that agree byte for byte: the
 running unit's `/vendor/lib/modules/modules.load`, and the firmware's
 `vendor_dlkm` extracted from the 9.68 GB ZIP without ever writing the raw super
 partition to disk.
+
+## The hand-written readers, checked against reference tools
+
+`lz4`, `f2fs-tools`, `python3-pyelftools` and `device-tree-compiler` were
+installed after the extraction, through a GUI polkit prompt. Nothing above
+depended on them — every step was done without them — so installing them turned
+into an independent check of the readers this campaign wrote, which is more
+useful than the convenience.
+
+**The streaming LZ4 decoder matches the reference implementation exactly.**
+Decoding each already-extracted image again with `lz4 -d -c` gives the same
+SHA-256:
+
+| image | this campaign's decoder | `lz4` 1.10.0 |
+|---|---|---|
+| `dtbo.img` | `97a4864fee4e6189…` | `97a4864fee4e6189…` |
+| `boot.img` | `4150b962314e6136…` | `4150b962314e6136…` |
+| `vendor_boot.img` | `096e433e049fb088…` | `096e433e049fb088…` |
+
+**The sparse reader and the LP extent arithmetic check out too.**
+`fsck.f2fs --dry-run` on the extracted `vendor_dlkm.img` reports a fully
+consistent filesystem — unreachable NAT entries `0x0`, SIT bitmap OK, hard-link
+check OK, `valid_block_count` `0x25a1`, `valid_node_count` `0x178` by both
+lookups, `valid_inode_count` `0x171`, no corrupted structures. A partition
+extracted with the extent maths off by a single block would not check out clean,
+so this validates the sparse chunk indexing, the LP metadata parse and the
+extent offsets together.
+
+`f2fs-tools` does not provide a file extractor, so the byte-verbatim match at
+offset 33,624,064 remains the file-level proof; `fsck` is the image-level one.
+
+**One documented gap is now closed.** The streaming decoder skips the LZ4 frame
+content checksum by design, because verifying it needs the whole 10 GB output
+resident, which is the thing being avoided; the report recorded that as an
+explicit non-verification. Native `lz4 -t` verifies exactly that checksum
+without keeping the output, so the stream was re-run through it.
+
+## Step 3: a candidate does not have to mount anything
+
+The question was whether a native-init PID 1 can reach `/vendor/lib/modules`.
+Framed that way it looks hard: that path is on `vendor_dlkm`, a **logical**
+partition inside `super`, so mounting it means reading LP metadata on the device,
+building dm-linear maps through `/dev/mapper/control`, then mounting F2FS.
+
+It does not have to. The `vendor_boot` ramdisk carries **441 `.ko` files** in its
+own `lib/modules`, and the candidate already has that ramdisk as its rootfs.
+
+`pdic_max77705.ko`'s closure there is 23 modules, 24 with itself, and **all 24 are
+present in the vendor_boot ramdisk**. Every one carries the same vermagic:
+
+```
+5.10.226-android12-9-gki-30958166-abS906NKSS7FYG8 SMP preempt mod_unload modversions aarch64
+```
+
+which is the stock kernel the candidate boots, and none of them is signed.
+
+### The marginal set is 14, derived twice and agreeing
+
+The ramdisk's first-stage `modules.load` is 140 lines and already contains 10 of
+the 24. The remaining **14** are what a candidate must load itself:
+
+```
+usb_notify_layer  mfd_max77705  switch_class  common_muic  pdic_notifier_module
+vbus_notifier  usb_typec_manager  usb_f_ss_mon_gadget  redriver  if_cb_manager
+qc_usb_audio  dwc3-msm  spu_verify  pdic_max77705
+```
+
+That is exactly the device's `modules.dep` closure of 13 plus `pdic_max77705.ko`
+itself — two independent derivations, one from the running unit and one from the
+ramdisk minus the first-stage list, landing on the same fourteen.
+
+### `modules.load.recovery` is not an insmod order
+
+This is the part that would have broken a candidate quietly. The 446-line
+recovery list is a **`modprobe` input**; `modprobe` resolves order from
+`modules.dep` itself. Read as a sequence for `finit_module`, it violates
+dependencies **ten times** for this set alone:
+
+```
+dwc3-msm needs usb_notify_layer, usb_f_ss_mon_gadget, redriver,
+               if_cb_manager, qc_usb_audio, usb_typec_manager  — all later
+usb_f_ss_mon_gadget needs usb_typec_manager, usb_notify_layer  — both later
+usb_typec_manager needs pdic_notifier_module                   — later
+pdic_max77705 needs spu_verify                                 — later
+```
+
+A freestanding PID 1 inserting in list order fails at the first of those with an
+unknown-symbol error. The computed topological order does not:
+
+```
+ 1 usb_notify_layer     6 vbus_notifier         11 qc_usb_audio
+ 2 mfd_max77705         7 usb_typec_manager     12 dwc3-msm
+ 3 switch_class         8 usb_f_ss_mon_gadget   13 spu_verify
+ 4 common_muic          9 redriver              14 pdic_max77705
+ 5 pdic_notifier_module 10 if_cb_manager
+```
+
+`s22plus_fyg8_p319_module_closure_plan.py` computes all of this from the images,
+reading `depends=` out of each `.modinfo` with a minimal ELF section reader so it
+adds no dependency of its own, and it checks a proposed order rather than
+assuming one. The suite exercises the violating-order case, a cycle, a missing
+`.modinfo`, and the first-stage subtraction against synthetic ELF fixtures.
+
+### One difference between the two module sets, stated as unresolved
+
+The ramdisk's `modules.dep` closure for `pdic_max77705.ko` is 23; the device's is
+13. Every member of the device's 13 is in the ramdisk's 23, and the extra ten —
+`abc`, `clk-qcom`, `debug-regulator`, `gdsc-regulator`, `minidump`,
+`proxy-consumer`, `qcom_ipc_logging`, `sec_class`, `sec_debug`, `smem` — are all
+in the first-stage list, which is consistent with `vendor_dlkm`'s list not
+needing to re-declare what the first stage already loaded.
+
+Whether the two `pdic_max77705.ko` files are the same build is **not settled**.
+The ramdisk copy is 423,456 bytes and does not appear verbatim in
+`vendor_dlkm.img`, but that image has F2FS compression enabled, so a byte search
+proves nothing either way. `.modinfo depends=` differs between what the ramdisk
+copy declares and what the device's `modules.dep` lists, which is expected from
+the first-stage subtraction but has not been checked against the device copy's
+own `.modinfo`. A candidate loads the ramdisk copy, so this does not block the
+plan; it is recorded because "same name" is not "same module".
