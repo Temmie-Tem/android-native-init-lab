@@ -567,3 +567,78 @@ This is worth stating plainly because the failure mode is quiet and general: any
 byte-pinned constant that is rotated in place, at the same length, within one
 second, can leave a Python process auditing under constants its own file no
 longer contains.
+
+## Conclusive: the driver commands the mux, and the command reaches the wire
+
+A replug put an attach inside the window. `mux_evidence_conclusive` is now true:
+39.8-second ring span, 733 driver lines, 9 attach markers, 2 `switch_path` calls,
+6 opcode write dumps.
+
+```
+[179797.899] max77705_ccpinstat_irq: CCPINSTAT (NO_DETERMINATION)
+[179797.902] max77705_ccstat_irq_handler: PLUG_DETACHED ---
+[179797.906] pdic_max77705: com_to_open
+[179797.906] pdic_max77705: max77705_switch_path value(0x3f)
+[179797.931] max77705_i2c_opcode_write: opcode 0x6, write_length 2
+[179797.931] max77705: opcode_write: 00000000: 06 3f
+...
+[179807.767] max77705_ccpinstat_irq: CCPINSTAT (CC2_ACTIVE)
+[179807.768] max77705_ccstat_irq_handler: PLUG_ATTACHED +++
+[179807.768] max77705_ccstat_irq_handler: ccstat : cc_SINK, keep awake for a second.
+[179807.846] pdic_max77705: max77705_muic_attach_usb_path usb_path=0
+[179807.846] pdic_max77705: com_to_usb_ap
+[179807.846] pdic_max77705: max77705_switch_path value(0x9)
+[179807.846] max77705_i2c_opcode_write: opcode 0x6, write_length 2
+[179807.846] max77705: opcode_write: 00000000: 06 09
+```
+
+Both logged values decode exactly, from `max77705-muic.h:384-393` rather than by
+inspection:
+
+| Logged | Constant | `NOBCCOMP` | `RCPS` | `COMP2SW` | `COMN1SW` |
+|---|---|---|---|---|---|
+| `0x3f` | `COM_OPEN` | 0 | 0 | `0x7` open | `0x7` open |
+| `0x09` | `COM_USB` | 0 | 0 | `0x1` USB | `0x1` USB |
+
+The arithmetic was recomputed from the header's shifts rather than assumed:
+`(0<<7)|(0<<6)|(7<<3)|(7<<0)` is `0x3f` and `(0<<7)|(0<<6)|(1<<3)|(1<<0)` is
+`0x09`.
+
+Opcode `0x06` is `COMMAND_CONTROL1_WRITE`. The window contains **exactly one
+`06 3f` and exactly one `06 09`** and no other CONTROL1 write, so the command was
+not merely computed in software: it was serialised and handed to I2C.
+
+### What this settles, and what it does not
+
+Settled: on the stock running unit the driver **does** command the D+/D- mux to
+USB on attach, and the command reaches the wire. The question "did the driver
+even try?" is answered yes, with byte-level evidence.
+
+Not settled: whether the MUIC silicon **applied** it. What is observed is the
+write leaving the AP, not the resulting switch position. Reading back the
+position still means issuing `CONTROL1_R`, which is a write, which is F1-class.
+The gap has narrowed from "was it commanded" to "was it applied", and it has not
+closed.
+
+**This is a positive control, not a refutation of the campaign hypothesis.** That
+hypothesis concerns candidate boot images; this run is the stock unit. Its value
+is that it now supplies exact expectations a candidate run can be compared
+against: `com_to_usb_ap`, `max77705_switch_path value(0x9)`, and a wire dump of
+`06 09` within roughly a second of `PLUG_ATTACHED`. If a candidate attach lacks
+`06 09`, the hypothesis is confirmed with wire-level evidence and still without a
+single write.
+
+### Two earlier notes this refines
+
+The `fw_update` hazard recorded above said a write issues "a `CONTROL1` write of
+`0x09`". That remains true, and `0x09` is now identified: it is `COM_USB`, not an
+arbitrary value — the path routes D+/D- to USB before the update. The hazard is
+unchanged, since entering the firmware-update opcode path is the danger, not the
+mux value.
+
+The concurrency hazard recorded for debug opcode writes is strengthened rather
+than softened by this capture. `max77705_usbc_opcode_write: !!!current_cmd.opcode
+[0xff][0x70], read_op->opcode[0x06]` appears twice in 40 seconds, which is the
+queue-contention branch at `max77705_usbc.c:2499` firing during entirely normal
+operation. An unsynchronised debug write would be injected into exactly that
+contention.
