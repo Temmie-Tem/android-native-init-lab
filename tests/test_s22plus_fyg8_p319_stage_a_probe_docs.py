@@ -86,8 +86,13 @@ class P319StageAProbeDocsTest(unittest.TestCase):
 
     def test_report_blocks_stage_b_until_the_target_is_rederived(self):
         for token in (
-            "removes the assumed access path",
-            "establishes no\nStage B authority",
+            # The corrected claim: CONTROL1 is an opcode, not an attribute.
+            'said Stage B "was scoped as a single-attribute\nCONTROL1 read". That was wrong',
+            "`CONTROL1_R`/`CONTROL1_W` are opcodes",
+            "as `COMMAND_CONTROL1_WRITE`. There is no read\nopcode issued anywhere in it",
+            "created on\n`switch_device->kobj`",
+            "Stage B cannot be a sysfs read.",
+            "establishes no Stage B authority",
             "Full regmap dumps remain forbidden.",
         ):
             with self.subTest(token=token):

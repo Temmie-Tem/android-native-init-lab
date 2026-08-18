@@ -88,12 +88,47 @@ raw-first auditor stopped on `closed observer source inventory differs: count=12
 and forced the registration rather than admitting a new device-touching source
 silently, which is the boundary behaving as designed.
 
-## Consequence for Stage B
+## Stage B re-derived: there is no sysfs read path to the mux
 
-Stage B was scoped as a single-attribute CONTROL1 read. The absent `regmap` entry
-removes the assumed access path, so the Stage B target must be re-derived from the
-three MFD children before any further device request. This report establishes no
-Stage B authority.
+An earlier draft of this report said Stage B "was scoped as a single-attribute
+CONTROL1 read". That was wrong and is corrected here. `CONTROL1` is not a sysfs
+attribute at all: it is an I2C register reached through the MUIC command protocol,
+where `CONTROL1_R`/`CONTROL1_W` are opcodes `0x05`/`0x06`. The predecessor stop
+report of 2026-08-17 states the real position, that "whether Stage B has one exact
+regular attribute target" was itself unproved.
+
+Re-deriving it from the candidate's own materialized sources
+(`kernel_platform/msm-kernel`) gives a negative answer, and closes the branch.
+
+**The search location was wrong.** The MUIC attribute group is created on
+`switch_device->kobj` (`drivers/usb/typec/maxim/max77705-muic.c:2553`), not on the
+I2C client. Nothing the MUIC driver exposes was ever going to appear under
+`57-0066`, so the absent `regmap` entry was not the loss of an assumed path.
+
+**No exposed attribute reads `CONTROL1`.** In the whole MUIC driver `CONTROL1`
+occurs exactly once, at `:343`, as `COMMAND_CONTROL1_WRITE`. There is no read
+opcode issued anywhere in it, and therefore none reachable from sysfs.
+
+What the group does expose, classified by what a read would actually prove:
+
+| Attribute | Mode | What a read returns |
+|---|---|---|
+| `usb_sel` | 0664 | `pdata->usb_path`, a software cache (`:669-677`) |
+| `usb_state`, `attached_dev` | 0444 | `muic_data->attached_dev`, a software cache (`:790-799`, `:817`) |
+| `adc`, `vbus_value`, `vbus_value_pd` | 0444 | a real single-register I2C read of `USBC_STATUS1` (`:591`, `:608`) |
+| `uart_sel`, `uart_en`, `otg_test`, `apo_factory`, `afc_disable`, `hiccup` | writable | out of scope |
+
+So the three software-cached attributes cannot distinguish "the mux was set" from
+"the driver believes it set the mux", which is precisely the question P3.15 left
+open. The three genuine reads return `USBC_STATUS1`, a different register from
+`CONTROL1`; they are safe and real, but they do not answer the mux question.
+
+**Consequence.** Stage B cannot be a sysfs read. Reaching `CONTROL1` requires the
+bound-diagnostic path already described in
+`S22PLUS_FYG8_MAX77705_CONTROL_PLANE_SUCCESSOR_FEASIBILITY_H0_2026-08-11.md`,
+which drives the command protocol directly. That is a materially larger step than
+a read and is not authorized here. This report establishes no Stage B authority
+and requests no device action.
 
 ## Authority boundary
 
