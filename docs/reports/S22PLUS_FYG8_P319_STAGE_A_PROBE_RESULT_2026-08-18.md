@@ -733,3 +733,79 @@ in a test. Both were restored — the auditor from `HEAD`, the pin by hand — a
 full diff was reviewed to confirm only the intended line changed. Registration
 edits are byte-pinned digests, so they must be applied with anchored patterns and
 a non-empty check, not with a variable that can come back empty.
+
+## Checklist item 3 was wrong, and the repository already knew
+
+The previous section recommended pstore as the read-only fallback for a
+candidate that never brings up ADB, on the strength of `CONFIG_PSTORE_CONSOLE=y`
+and `CONFIG_PSTORE_RAM=y`. Measured on the running unit:
+
+```
+pstore_dir                 : present
+pstore entry_count         : 0
+last_kmsg_present          : yes
+last_kmsg_bytes            : 2097136
+```
+
+**`/sys/fs/pstore` is mounted and empty.** A config symbol being set is not a
+retained log. Worse, this was already recorded here: the 2026-07-07 M10A3 live
+result states `pstore files none` and `/proc/last_kmsg bytes 2097136` — the same
+two facts, the same byte count, six weeks earlier. The recommendation was made
+without checking the repository's own live evidence.
+
+### What the surface actually is
+
+Not ramoops. `/proc/last_kmsg` on this unit is Samsung's `sec_log_buf`
+(`drivers/samsung/debug/log_buf/sec_log_buf_last_kmsg.c`).
+`__last_kmsg_pull_last_log` copies the previous boot's log region into a vmalloc
+buffer of `___log_buf_get_buf_size()` at probe, optionally compressed, and serves
+that through `/proc`. So it is the **previous boot's kernel log ring**, snapshot
+at this boot, not a pstore file.
+
+That model predicts what the bounded head read found:
+
+```
+last_kmsg_head.lines               : 36
+last_kmsg_head.banner              : null
+last_kmsg_head.earliest_timestamp  : 39393.729171
+last_kmsg_head.starts_at_a_boot    : false
+```
+
+It is a circular buffer, so its head sits wherever the ring wrapped — here about
+10.9 hours into the previous session — and there is no boot banner. The 2,097,136
+figure is the buffer size and reads identically whatever the buffer holds, which
+is why size alone was not accepted as evidence and the head was read.
+
+The consequence cuts both ways. A long session wraps and loses its own early
+boot. **A candidate that fails early emits little, so its whole console would fit
+without wrapping** — which is the case that matters, and it is the case this
+measurement cannot confirm from stock.
+
+### The July result that bears directly on it
+
+`S22PLUS_RAMOOPS_DTBO_M18_CAPTURE_LIVE_RESULT_2026-07-08.md:79-89` already tried
+this path against a real candidate: the capture "did not find the expected marker
+in pstore or retained last-kmsg", and "the retained log looks more like
+ABL/download-mode retention than the M18 native-init printk stream". It left two
+open questions and one instruction — "next work should analyze the private 2 MiB
+`last_kmsg`" — and that analysis was never done.
+
+So checklist item 3 is **not proven usable** for the candidate failure mode. It is
+not refuted either; it is untested in the only way that would settle it.
+
+### What is free to do next
+
+`workspace/private/runs/s22plus_v3437_ramoops_20260710T230320Z/postrun/candidate-last_kmsg.bin`
+already exists, 2,097,136 bytes, captured after a candidate boot on 2026-07-10,
+alongside `first-stock-boot-last_kmsg.bin` from v3439 as a comparison. Deciding
+whether the retained-console path can carry a candidate's early boot is therefore
+a **host-only analysis of evidence already on disk**, costing no device action at
+all. That is the correct next unit, and it is the one July asked for.
+
+### Corrections carried by this section
+
+- Item 3's named path was wrong: `/sys/fs/pstore` is empty here; the surface is
+  `/proc/last_kmsg`.
+- The mechanism was wrong: `sec_log_buf`, not ramoops/pstore.
+- The claim that a candidate "can still be read from the previous boot's console"
+  is downgraded from stated capability to untested hypothesis.

@@ -257,5 +257,97 @@ class P319LogHarvestTest(unittest.TestCase):
         self.assertTrue(observation["usblog"]["spans_boot"])
 
 
+    # --- pstore ------------------------------------------------------------
+
+    PSTORE_LS = [
+        "total 128",
+        "drwxr-x---  2 root log     0 2026-08-18 20:45 .",
+        "drwxr-xr-x 14 root root    0 2026-08-16 19:02 ..",
+        "-r--r--r--  1 root log 65536 2026-08-16 19:02 console-ramoops-0",
+        "-r--r--r--  1 root log  4084 2026-08-16 19:02 pmsg-ramoops-0",
+    ]
+
+    def test_pstore_listing_reports_entries_and_sizes(self):
+        p = self.runner.parse_pstore(self.PSTORE_LS)
+        self.assertEqual(
+            p["entries"], {"console-ramoops-0": 65536, "pmsg-ramoops-0": 4084}
+        )
+        self.assertEqual(p["entry_count"], 2)
+        self.assertEqual(p["console_entries"], ["console-ramoops-0"])
+        self.assertTrue(p["previous_boot_console_available"])
+
+    def test_pstore_absent_or_empty_is_not_a_usable_fallback(self):
+        self.assertFalse(
+            self.runner.parse_pstore([])["previous_boot_console_available"]
+        )
+        # Present but zero-length is not a retained console either.
+        empty = [
+            "-r--r--r--  1 root log     0 2026-08-16 19:02 console-ramoops-0",
+        ]
+        parsed = self.runner.parse_pstore(empty)
+        self.assertEqual(parsed["console_entries"], ["console-ramoops-0"])
+        self.assertFalse(parsed["previous_boot_console_available"])
+
+    def test_retained_console_prefers_whichever_surface_has_content(self):
+        # pstore was named first and is empty on this unit; the 2026-07-07 live
+        # result recorded /proc/last_kmsg at 2,097,136 bytes instead.
+        empty = self.runner.parse_harvest(self.harvest(["x"]))
+        self.assertFalse(empty["retained_console_available"])
+        text = self.harvest(["x"]).replace(
+            "kmsg_lines\t900",
+            "kmsg_lines\t900\nlast_kmsg_present\tyes\nlast_kmsg_bytes\t2097136",
+        )
+        found = self.runner.parse_harvest(text)
+        self.assertTrue(found["retained_console_available"])
+        self.assertEqual(found["last_kmsg_bytes"], "2097136")
+        zero = self.harvest(["x"]).replace(
+            "kmsg_lines\t900",
+            "kmsg_lines\t900\nlast_kmsg_present\tyes\nlast_kmsg_bytes\t0",
+        )
+        self.assertFalse(
+            self.runner.parse_harvest(zero)["retained_console_available"]
+        )
+
+    def test_last_kmsg_head_identifies_which_boot_the_buffer_holds(self):
+        # Size cannot: the buffer is a fixed 2,097,136 bytes either way.
+        head = [
+            "[    0.000000] Booting Linux on physical CPU 0x0000000000 [0x411fd050]",
+            "[    0.000000] Linux version 5.10.209-qgki-g0000000 (build@host)",
+            "[    3.605282] max77705 something",
+        ]
+        parsed = self.runner.parse_last_kmsg_head(head)
+        self.assertEqual(parsed["banner"], "Linux version 5.10.209-qgki-g0000000")
+        self.assertEqual(parsed["earliest_timestamp"], 0.0)
+        self.assertTrue(parsed["starts_at_a_boot"])
+
+    def test_last_kmsg_head_without_a_banner_is_not_a_boot_start(self):
+        midstream = ["[179807.846] com_to_usb_ap", "[179807.900] more"]
+        parsed = self.runner.parse_last_kmsg_head(midstream)
+        self.assertIsNone(parsed["banner"])
+        self.assertFalse(parsed["starts_at_a_boot"])
+        self.assertFalse(self.runner.parse_last_kmsg_head([])["starts_at_a_boot"])
+
+    def test_last_kmsg_is_sized_and_only_boundedly_read(self):
+        script = self.runner.HARVEST_SCRIPT
+        self.assertIn("wc -c < /proc/last_kmsg", script)
+        self.assertIn("head -c 4096 /proc/last_kmsg", script)
+        # Never the whole 2 MiB buffer.
+        self.assertNotIn("cat /proc/last_kmsg", script)
+        self.assertEqual(
+            self.runner.harvest_safety_contract(script)["result"], "pass"
+        )
+
+    def test_pstore_probe_lists_without_reading_any_body(self):
+        script = self.runner.HARVEST_SCRIPT
+        self.assertIn("ls -la /sys/fs/pstore", script)
+        # No body read of a console log: that is a separate question with its
+        # own redaction burden, and it is not asked here.
+        self.assertNotIn("cat /sys/fs/pstore", script)
+        self.assertNotIn("console-ramoops", script)
+        self.assertEqual(
+            self.runner.harvest_safety_contract(script)["result"], "pass"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

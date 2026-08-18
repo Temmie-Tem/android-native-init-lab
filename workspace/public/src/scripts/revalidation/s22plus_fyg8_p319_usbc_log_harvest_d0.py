@@ -104,6 +104,29 @@ HARVEST_SCRIPT = (
     "    printf 'usblog_rc\\t%s\\n' \"$?\"\n"
     "fi\n"
     "printf 'usblog\\tend\\n'\n"
+    "printf 'pstore_dir\\t%s\\n' \"$([ -d /sys/fs/pstore ] && echo present || echo absent)\"\n"
+    "printf 'pstore\\tbegin\\n'\n"
+    # Listing and sizes only.  console-ramoops carries a whole previous boot,
+    # so whether it exists is answered before anything that large is read.
+    "if [ -d /sys/fs/pstore ]; then\n"
+    "    ls -la /sys/fs/pstore\n"
+    "    printf 'pstore_rc\\t%s\\n' \"$?\"\n"
+    "fi\n"
+    "printf 'pstore\\tend\\n'\n"
+    # pstore is empty on this unit; Samsung exposes the retained previous-boot
+    # console at /proc/last_kmsg instead.  Size only -- the 2 MiB body is a
+    # separate question with its own redaction burden.
+    "printf 'last_kmsg_present\\t%s\\n' \"$([ -e /proc/last_kmsg ] && echo yes || echo no)\"\n"
+    "if [ -e /proc/last_kmsg ]; then\n"
+    "    printf 'last_kmsg_bytes\\t%s\\n' \"$(wc -c < /proc/last_kmsg)\"\n"
+    # 2,097,136 is the ramoops buffer size, not a content measurement: it reads
+    # the same whether the buffer holds the previous boot or something stale.
+    # A bounded head is what tells the two apart.
+    "    printf 'last_kmsg_head\\tbegin\\n'\n"
+    "    head -c 4096 /proc/last_kmsg\n"
+    "    printf '\\n'\n"
+    "    printf 'last_kmsg_head\\tend\\n'\n"
+    "fi\n"
     "printf 'typec\\tbegin\\n'\n"
     + "".join(
         f"[ -f /sys/class/typec/port0/{name} ] && "
@@ -297,6 +320,65 @@ def parse_usblog(lines: list[str]) -> dict[str, Any]:
     }
 
 
+PSTORE_ENTRY_RE = re.compile(
+    r"^[-dlrwxst]{10}\S*\s+\d+\s+\S+\s+\S+\s+(\d+)\s+.*?\s(\S+)$"
+)
+
+
+def parse_pstore(lines: list[str]) -> dict[str, Any]:
+    """List what pstore holds, without reading any of it.
+
+    console-ramoops carries an entire previous boot, so its existence and size
+    are established first; reading it is a separate question with its own
+    redaction burden.
+    """
+    entries: dict[str, int] = {}
+    for line in lines:
+        match = PSTORE_ENTRY_RE.match(line.strip())
+        if match is None:
+            continue
+        name = match.group(2)
+        if name in {".", ".."}:
+            continue
+        entries[name] = int(match.group(1))
+    console = sorted(name for name in entries if name.startswith("console-"))
+    return {
+        "entries": dict(sorted(entries.items())),
+        "entry_count": len(entries),
+        "console_entries": console,
+        # The fallback for a candidate that never brings up ADB is only real if
+        # a previous boot's console is actually retained here.
+        "previous_boot_console_available": bool(console)
+        and any(entries[name] > 0 for name in console),
+    }
+
+
+BANNER_RE = re.compile(r"Linux version \S+")
+KMSG_TS_RE = re.compile(r"\[\s*(\d+\.\d+)\]")
+
+
+def parse_last_kmsg_head(lines: list[str]) -> dict[str, Any]:
+    """Identify which boot the retained buffer holds, from a bounded head.
+
+    Size alone cannot do this: /proc/last_kmsg is a fixed 2,097,136-byte ramoops
+    buffer and reads the same length whatever it contains.
+    """
+    text = "\n".join(lines)
+    banner = BANNER_RE.search(text)
+    stamps = [float(value) for value in KMSG_TS_RE.findall(text)]
+    return {
+        "lines": len(lines),
+        "banner": banner.group(0) if banner else None,
+        "earliest_timestamp": min(stamps) if stamps else None,
+        "latest_timestamp": max(stamps) if stamps else None,
+        # A banner plus timestamps starting near zero means the buffer begins at
+        # a boot rather than mid-stream.
+        "starts_at_a_boot": banner is not None
+        and bool(stamps)
+        and min(stamps) < 60.0,
+    }
+
+
 def parse_harvest(text: str) -> dict[str, Any]:
     rows = [line.split("\t") for line in text.splitlines()]
     sections: dict[str, list[str]] = {}
@@ -344,6 +426,21 @@ def parse_harvest(text: str) -> dict[str, Any]:
         "driver_log_lines": len(driver_log),
         "usblog_lines": len(sections.get("usblog", [])),
         "usblog": parse_usblog(sections.get("usblog", [])),
+        "pstore_dir": scalars.get("pstore_dir"),
+        "pstore_rc": scalars.get("pstore_rc"),
+        "pstore": parse_pstore(sections.get("pstore", [])),
+        "last_kmsg_present": scalars.get("last_kmsg_present"),
+        "last_kmsg_head": parse_last_kmsg_head(
+            sections.get("last_kmsg_head", [])
+        ),
+        "last_kmsg_bytes": scalars.get("last_kmsg_bytes"),
+        # The retained-console fallback is real if either surface has content.
+        # pstore was named first and is empty here; last_kmsg is the one that
+        # carried 2,097,136 bytes on 2026-07-07.
+        "retained_console_available": (
+            scalars.get("last_kmsg_present") == "yes"
+            and int(scalars.get("last_kmsg_bytes") or 0) > 0
+        ),
         "typec": {
             name: scalars[name] for name in TYPEC_ATTRIBUTES if name in scalars
         },
