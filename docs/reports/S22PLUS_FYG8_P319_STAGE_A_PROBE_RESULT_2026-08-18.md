@@ -947,3 +947,67 @@ first, none of which touches the device:
 
 The F1 approval is therefore recorded and **not consumed**. No candidate was
 armed, no transfer occurred, and nothing was flashed.
+
+## Correction: the module-load chain is not the diagnosis
+
+The section above concluded that a native-init candidate loads none of the 333
+vendor modules, therefore never issues the `CONTROL1` write, therefore never
+routes D+/D-, and called that "this campaign's live hypothesis, now with a
+complete mechanical chain". **That overreaches, and the campaign's own record
+refutes it.**
+
+Two facts already held here contradict it:
+
+- **Candidates have loaded `pdic_max77705` and still failed.** M7, M11, M12, M18
+  and in particular S7A2 (2026-07-09) included it, with the GENI-I2C transport
+  closure and the dep-safe order `i2c-msm-geni` before `pdic_max77705`, and
+  host-visible enumeration failed anyway. A candidate is not obliged to inherit
+  Android's `modprobe`; this campaign has been loading modules deliberately for
+  months, and the module plan is explicitly designed (custom-65 / stock-67).
+- **P3.17 read `CONTROL1` as `0x3f -> 0x09 -> 0x09` on two complete candidate
+  boots.** The mux has been observed in the USB position on a candidate. So "the
+  mux is never switched on a candidate" is false as stated.
+
+There is also a standing reason it could be switched without any module at all:
+Download mode enumerates with no kernel modules, so S-Boot can leave the mux in
+the USB position, and a candidate may simply inherit it. That premise is recorded
+as open, not closed.
+
+### What the finding actually is
+
+Narrower, and still worth having. The campaign's record states that in the
+earlier attempts that did load the module, "load/bind, initial detect, and the
+COM_USB command/response were never preserved as evidence", so those runs neither
+support nor refute the mux hypothesis. **That is exactly the gap this measurement
+fills.** The stock captures now supply the complete signature of a successful
+sequence, preserved and reproducible:
+
+```
+modprobe: Loading module /vendor/lib/modules/pdic_max77705.ko
+pdic_max77705: max77705_muic_probe
+pdic_max77705: com_to_usb_ap
+pdic_max77705: max77705_switch_path value(0x9)
+max77705: opcode_write: 00000000: 06 09
+modprobe: Loaded kernel module /vendor/lib/modules/pdic_max77705.ko
+```
+
+Six lines, in order, within ~130 ms, all inside the retained-log window and all
+recoverable on the next boot. "Module in the list" is not "driver bound and
+commanded COM_USB", and this is what the difference looks like in evidence.
+
+So the contribution is a **positive control and a comparison procedure**, not a
+diagnosis. A candidate run that carries the module and preserves these six lines
+would settle whether it bound and commanded; the earlier runs could not.
+
+### Why this keeps happening
+
+This is the third time in this session that the repository's own record corrected
+a conclusion of mine, and this one was specifically warned about in prior
+guidance — do not claim the module was never loaded, because that error was made
+before and is false. The evidence I gathered was sound; the inference from stock
+behaviour to candidate behaviour was not, and it was made without reading what the
+campaign already knew about candidates that did load it.
+
+The F1 remains approved and unconsumed, and its target is unchanged by this
+correction: a candidate whose module load, bind, and COM_USB command are
+preserved as evidence.
