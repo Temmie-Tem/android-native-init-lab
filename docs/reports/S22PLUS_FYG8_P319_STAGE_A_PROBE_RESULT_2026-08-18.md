@@ -353,3 +353,85 @@ H0 as written: no device contact has occurred through this runner. The read it
 performs is a D0 and requires the flag above plus operator approval. `opcode`,
 `fw_update` and `/dev/mxim_dev` remain F1-class and untouched. Full regmap dumps
 remain forbidden.
+
+## Stage B result: fourteen registers, read once
+
+`PASS_S22PLUS_FYG8_P319_MAX77705_REG_STAGE_B_D0`, complete. Address set exactly
+the fourteen expected, `body_rc` 0, 239 stdout bytes, no unparsed row, not
+all-zero, both identity registers non-zero, and no timeout, truncation or
+producer error.
+
+```
+0x00  0x1a  REG_UIC_HW_REV
+0x01  0x6e  REG_UIC_FW_REV
+0x05  0x00  REG_VDM_INT          <- read-to-clear
+0x06  0x27  REG_USBC_STATUS1     VBADC=4.5-5.5V(2) UIDADC=UIADC_OPEN(7)
+0x07  0x05  REG_USBC_STATUS2     SYSMsg=SYSMSG_BOOT_POR(5)
+0x08  0x82  REG_BC_STATUS        VBUSDet=1 PrChgTyp=UNKNOWN(0) DCDTmo=0 ChgTyp=CHGTYP_CDP(2)
+0x09  0x40  REG_UIC_FW_MINOR
+0x0a  0xa1  REG_CC_STATUS0       CCPinStat=CC2_ACTIVE(2) CCIStat=CCI_1_5A(2) CCVcnStat=0 CCStat=cc_SINK(1)
+0x0b  0x09  REG_CC_STATUS1       VSAFE0V=1 Altmode=1 ConnStat=0 AttachSrcErr=0
+0x0c  0x19  REG_PD_STATUS0       PDMsg=HARDRESET_SENT(0x19)
+0x0d  0x47  REG_PD_STATUS1       DataRole=0 EnterMode=0 PSRDY=0 FCT_ID=7
+0x0e  0x04  REG_UIC_INT_M
+0x0f  0x20  REG_CC_INT_M
+0x10  0x00  REG_PD_INT_M
+```
+
+**The side effect cost nothing this time.** `REG_VDM_INT` read back `0x00`, so no
+alternate-mode interrupt was latched and none was consumed. That is a fact about
+this run, not a reason to drop the gate: the same read at a different moment
+would have taken whatever was pending.
+
+### What this establishes
+
+The controller is alive and normally initialised. All three interrupt masks sit
+at their compiled-in initial values — `REG_UIC_INT_M_INIT` `0x04`,
+`REG_CC_INT_M_INIT` `0x20`, `REG_PD_INT_M_INIT` `0x00` (`max77705.h:95-98`) — so
+the driver's `probe` path ran and nothing has since rewritten them.
+
+The port state is unambiguous: the cable is on **CC2**, the port is a **sink**,
+the source advertises **1.5 A** through Rp, VBUS is present at 4.5-5.5 V, the ID
+line reads **open** so there is no factory jig and no OTG ground, and BC1.2
+classified the far end as a **CDP** — a host port that also charges. There is **no
+PD contract**: `PSRDY` is 0 and the data role is UFP.
+
+### Three values that need care rather than a headline
+
+`PDMsg` and `SYSMsg` are *last-event* registers, not live state. `SYSMsg` reads
+`SYSMSG_BOOT_POR`, so the USBC MCU has not been reset since power-on, and
+`PDMsg` reads `HARDRESET_SENT` — at some point since that power-on the controller
+sent a PD hard reset. When is not recoverable from this read.
+
+`VSAFE0V` is 1 while `VBUSDet` is 1 and VBADC reports 4.5-5.5 V. As live levels
+those contradict. The reading most consistent with `HARDRESET_SENT` is that the
+bit is latched from the hard-reset sequence, which drives VBUS to vSafe0V, and
+has not been cleared since. **That is inference, not measurement** — the driver
+only ever samples this bit inside an interrupt handler
+(`max77705_cc.c:342`), and nothing in the sources states its clear semantics.
+
+`Altmode` is 1 while `PD_ENTER_MODE` is 0 and `REG_VDM_INT` is 0. This report does
+not claim an alternate mode is active; it records the bit.
+
+### What it does not answer, and the one thing it constrains
+
+It does not answer the mux question. `CONTROL1` is at no address in this table,
+so `COMN1SW`/`COMP2SW` are unread, exactly as the preceding section said they
+would be.
+
+One constraint does follow. BC1.2 returning `CHGTYP_CDP` rather than
+`CHGTYP_NO_VOLTAGE` means the D+/D- handshake completed, so those lines reach the
+charger-detection block electrically. Whether that block sits before or after the
+MUIC switch matrix is not established by anything read here, so this **constrains
+the "D+/D- never got connected at all" reading without resolving where the
+switch sits.** No stronger claim is made from it.
+
+### Boundary
+
+Read-only D0 under explicit approval plus `--accept-vdm-int-clear`. Remote script
+digest `17755bf5`, 290 bytes, unchanged by the decoding tables added afterwards,
+which are host-side only. `device_writes` false, `reboot_requested` false,
+`partition_transfer` false, `candidate_used` false, `f1_authorized` false,
+`live_authorized` false. `opcode`, `fw_update` and `/dev/mxim_dev` were neither
+read nor written. The A90 attached in recovery received no command and no S20+
+action occurred.

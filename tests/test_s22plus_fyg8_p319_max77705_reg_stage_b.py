@@ -79,14 +79,14 @@ class P319StageBRegTest(unittest.TestCase):
     def test_collect_refuses_until_the_vdm_int_clear_is_acknowledged(self):
         # Executed, not asserted in prose: the gate must return before any
         # device contact and before a run directory exists.
+        run_root = ROOT / self.runner.DEFAULT_RUN_ROOT
+        before = sorted(run_root.glob("d0-*")) if run_root.exists() else []
         stream = io.StringIO()
         with redirect_stderr(stream):
             code = self.runner.main(["--collect"])
         self.assertEqual(code, 3)
         self.assertIn("REG_VDM_INT", stream.getvalue())
-        run_root = ROOT / self.runner.DEFAULT_RUN_ROOT
-        if run_root.exists():
-            self.assertEqual(sorted(run_root.glob("d0-*")), [])
+        self.assertEqual(sorted(run_root.glob("d0-*")), before)
 
     def test_read_to_clear_address_is_the_mislabelled_vdm_int(self):
         self.assertEqual(self.runner.READ_TO_CLEAR_ADDRESSES, (0x05,))
@@ -124,17 +124,19 @@ class P319StageBRegTest(unittest.TestCase):
     def test_decode_matches_the_driver_bitfields(self):
         cc0 = self.runner.decode(0x0A, 0x41)["fields"]
         self.assertEqual(cc0["CCPinStat"], {"value": 1, "name": "CC1_ACTIVE"})
-        self.assertEqual(cc0["CCIStat"], 0)
+        self.assertEqual(cc0["CCIStat"], {"value": 0, "name": "NOT_IN_UFP_MODE"})
         self.assertEqual(cc0["CCVcnStat"], 0)
         self.assertEqual(cc0["CCStat"], {"value": 1, "name": "cc_SINK"})
         status1 = self.runner.decode(0x06, 0x25)["fields"]
         self.assertEqual(status1["VBADC"], {"value": 2, "name": "4.5-5.5V"})
-        self.assertEqual(status1["UIDADC"], 5)
+        self.assertEqual(status1["UIDADC"], {"value": 5, "name": "UIADC_523K"})
         bc = self.runner.decode(0x08, 0x83)["fields"]
         self.assertEqual(bc["VBUSDet"], 1)
         self.assertEqual(bc["PrChgTyp"], {"value": 0, "name": "PRCHGTYP_UNKNOWN"})
         self.assertEqual(bc["DCDTmo"], 0)
-        self.assertEqual(bc["ChgTyp"], 3)
+        self.assertEqual(
+            bc["ChgTyp"], {"value": 3, "name": "CHGTYP_DEDICATED_CHARGER"}
+        )
 
     # --- parser refusals -------------------------------------------------
 
@@ -217,6 +219,49 @@ class P319StageBRegTest(unittest.TestCase):
         for token in ("REG_VDM_INT", "no device", "123"):
             with self.subTest(token=token):
                 self.assertIn(token, row)
+
+
+    def test_enum_tables_decode_the_observed_dump(self):
+        # Pins the one real measurement against decoder drift.  Values are the
+        # d0-20260818T194353Z run; names come from max77705.h and
+        # max77705-muic.h, not from the mislabelled debug header.
+        observed = {
+            0x06: ("VBADC", "4.5-5.5V"),
+            0x07: ("SYSMsg", "SYSMSG_BOOT_POR"),
+            0x08: ("ChgTyp", "CHGTYP_CDP"),
+            0x0A: ("CCPinStat", "CC2_ACTIVE"),
+            0x0C: ("PDMsg", "HARDRESET_SENT"),
+        }
+        values = {0x06: 0x27, 0x07: 0x05, 0x08: 0x82, 0x0A: 0xA1, 0x0C: 0x19}
+        for address, (field, name) in observed.items():
+            with self.subTest(address=address):
+                fields = self.runner.decode(address, values[address])["fields"]
+                self.assertEqual(fields[field]["name"], name)
+        status1 = self.runner.decode(0x06, 0x27)["fields"]
+        self.assertEqual(status1["UIDADC"]["name"], "UIADC_OPEN")
+        cc0 = self.runner.decode(0x0A, 0xA1)["fields"]
+        self.assertEqual(cc0["CCIStat"]["name"], "CCI_1_5A")
+        self.assertEqual(cc0["CCStat"]["name"], "cc_SINK")
+        pd1 = self.runner.decode(0x0D, 0x47)["fields"]
+        self.assertEqual((pd1["PD_PSRDY"], pd1["PD_DataRole"]), (0, 0))
+
+    def test_unknown_enum_values_are_named_reserved_not_dropped(self):
+        # 0x01 and 0x02 have no vendor UIDADC name; the field must still report.
+        self.assertEqual(
+            self.runner.decode(0x06, 0x01)["fields"]["UIDADC"],
+            {"value": 1, "name": "reserved"},
+        )
+
+    def test_report_states_the_stage_b_result_and_its_limits(self):
+        for token in (
+            "PASS_S22PLUS_FYG8_P319_MAX77705_REG_STAGE_B_D0",
+            "The side effect cost nothing this time.",
+            "That is inference, not measurement",
+            "It does not answer the mux question.",
+            "constrains\nthe \"D+/D- never got connected at all\" reading without resolving where the\nswitch sits.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
 
 
 if __name__ == "__main__":

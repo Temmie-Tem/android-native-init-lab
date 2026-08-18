@@ -98,6 +98,45 @@ PRCHGTYP = {
     0x4: "PRCHGTYP_APPLE_2A", 0x5: "PRCHGTYP_APPLE_12W",
     0x6: "PRCHGTYP_3A_DCP", 0x7: "PRCHGTYP_RFU",
 }
+# max77705-muic.h:317-323.  BC1.2 result, two bits.
+CHGTYP = {
+    0x0: "CHGTYP_NO_VOLTAGE", 0x1: "CHGTYP_USB",
+    0x2: "CHGTYP_CDP", 0x3: "CHGTYP_DEDICATED_CHARGER",
+}
+# max77705-muic.h:39-48.  0x1 and 0x2 are not defined by the vendor enum.
+UIDADC = {
+    0x0: "UIADC_GND", 0x3: "UIADC_255K", 0x4: "UIADC_301K",
+    0x5: "UIADC_523K", 0x6: "UIADC_619K", 0x7: "UIADC_OPEN",
+}
+# max77705.h:277-283.  Rp advertisement seen by the sink.
+CCISTAT = {
+    0: "NOT_IN_UFP_MODE", 1: "CCI_500mA", 2: "CCI_1_5A",
+    3: "CCI_3_0A", 4: "CCI_SHORT",
+}
+# max77705.h:376-426 and :428-470.  Both are last-event registers, not live
+# state: they report the most recent message, not a current condition.
+SYSMSG = {
+    0x00: "SYSERROR_NONE", 0x03: "SYSERROR_BOOT_WDT",
+    0x04: "SYSERROR_BOOT_SWRSTREQ", 0x05: "SYSMSG_BOOT_POR",
+    0x10: "SYSERROR_HV_NOVBUS", 0x20: "SYSMsg_AFC_Done",
+    0x30: "SYSERROR_SYSPOS", 0x31: "SYSERROR_APCMD_UNKNOWN",
+    0x32: "SYSERROR_APCMD_INPROGRESS", 0x33: "SYSERROR_APCMD_FAIL",
+    0x61: "SYSMSG_CCx_5V_SHORT", 0x62: "SYSMSG_SBUx_GND_SHORT",
+    0x63: "SYSMSG_SBUx_5V_SHORT", 0x67: "SYSMSG_PD_SHORT_NONE",
+    0x70: "SYSERROR_FACTORY_RID0", 0x80: "SYSERROR_POWER_NEGO",
+    0xC1: "SYSMSG_ABNORMAL_TA",
+}
+PDMSG = {
+    0x00: "Nothing_happened", 0x01: "Sink_PD_PSRdy_received",
+    0x02: "Sink_PD_Error_Recovery", 0x04: "Source_PD_PSRdy_Sent",
+    0x07: "PD_DR_Swap_Request_Received", 0x08: "PD_PR_Swap_Request_Received",
+    0x0B: "SRC_CAP_RECEIVED", 0x10: "Samsung_Accessory_is_attached",
+    0x11: "VDM_Attention_message_Received", 0x12: "Rejcet_Received",
+    0x13: "Not_Supported_Received", 0x16: "HARDRESET_RECEIVED",
+    0x17: "Get_Vbus_turn_on", 0x18: "Get_Vbus_turn_off",
+    0x19: "HARDRESET_SENT", 0x20: "Sink_PD_Disabled",
+    0x21: "Source_PD_Disabled", 0x22: "Current_Cable_Connected",
+}
 
 REGISTERS: dict[int, tuple[str, tuple[tuple[str, int, int, dict[int, str] | None], ...]]] = {
     0x00: ("REG_UIC_HW_REV", ()),
@@ -105,19 +144,19 @@ REGISTERS: dict[int, tuple[str, tuple[tuple[str, int, int, dict[int, str] | None
     0x05: ("REG_VDM_INT", ()),
     0x06: ("REG_USBC_STATUS1", (
         ("VBADC", 7, 4, VBADC),
-        ("UIDADC", 2, 0, None),
+        ("UIDADC", 2, 0, UIDADC),
     )),
-    0x07: ("REG_USBC_STATUS2", (("SYSMsg", 7, 0, None),)),
+    0x07: ("REG_USBC_STATUS2", (("SYSMsg", 7, 0, SYSMSG),)),
     0x08: ("REG_BC_STATUS", (
         ("VBUSDet", 7, 7, None),
         ("PrChgTyp", 5, 3, PRCHGTYP),
         ("DCDTmo", 2, 2, None),
-        ("ChgTyp", 1, 0, None),
+        ("ChgTyp", 1, 0, CHGTYP),
     )),
     0x09: ("REG_UIC_FW_MINOR", ()),
     0x0A: ("REG_CC_STATUS0", (
         ("CCPinStat", 7, 6, CCPINSTAT),
-        ("CCIStat", 5, 4, None),
+        ("CCIStat", 5, 4, CCISTAT),
         ("CCVcnStat", 3, 3, None),
         ("CCStat", 2, 0, CCSTAT),
     )),
@@ -130,7 +169,7 @@ REGISTERS: dict[int, tuple[str, tuple[tuple[str, int, int, dict[int, str] | None
         ("ConnStat", 1, 1, None),
         ("Altmode", 0, 0, None),
     )),
-    0x0C: ("REG_PD_STATUS0", (("PDMsg", 7, 0, None),)),
+    0x0C: ("REG_PD_STATUS0", (("PDMsg", 7, 0, PDMSG),)),
     0x0D: ("REG_PD_STATUS1", (
         ("PD_DataRole", 7, 7, None),
         ("PD_ENTER_MODE", 5, 5, None),
