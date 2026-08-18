@@ -18,7 +18,7 @@ from typing import Any, Mapping
 SCHEMA = "s22plus_fyg8_raw_first_observer_audit_v1"
 VERDICT = "PASS_S22PLUS_FYG8_RAW_FIRST_OBSERVER_BOUNDARY_H0"
 RAW_MODULE = "device_action_raw_capture_v1"
-AUDITOR_NORMALIZED_SHA256 = "4e3d4632a64a209ebb598ec36974a04e3b92f308029910c1e35c95e6891ff47a"
+AUDITOR_NORMALIZED_SHA256 = "3c2aec9d526a68d915a4689b2f84c0857cea9ebb67139db3a99b1ffbe706b46b"
 SCRIPT_DIR = Path(__file__).resolve().parent
 _BOUND_AUDITOR_SOURCE = globals().get("_RAW_FIRST_BOUND_AUDITOR_SOURCE")
 DEFAULT_OUTPUT = Path(
@@ -29,9 +29,9 @@ LEGACY_UNMIGRATED_OBSERVER_COUNT = 47
 LEGACY_UNMIGRATED_OBSERVER_SHA256 = (
     "088d6a19e69378e9072edb203caa482fb7ea4f47aa90821b2d43ecfdcc57c51a"
 )
-CLOSED_OBSERVER_SOURCE_COUNT = 123
+CLOSED_OBSERVER_SOURCE_COUNT = 124
 CLOSED_OBSERVER_SOURCE_SHA256 = (
-    "01c375cb5dd0cac4bc3e3bdb6b9ead39413821cbf0ea9a743ade5957a8e73b86"
+    "b241ec88fb7fe43550ceff67eae5c1a8d41552e53064326fad0a288b7796f85b"
 )
 DEVICE_TRANSPORT_PATTERNS = tuple(
     re.compile(pattern, re.IGNORECASE)
@@ -934,6 +934,21 @@ def audit_sources(
     overrides: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     if type(_BOUND_AUDITOR_SOURCE) is not bytes:
+        # Executing module and on-disk source can disagree.  Swapping one pinned
+        # 64-hex digest for another leaves the file the same size, and when both
+        # edits land in one mtime second the .pyc invalidation check does not
+        # trip, so this module's constants can come from stale bytecode while
+        # the audit itself compiles from the file.  Refuse rather than audit
+        # under two different sets of constants.
+        embedded = re.search(
+            r'AUDITOR_NORMALIZED_SHA256 = "([0-9a-f]{64})"',
+            _stable_source(Path(__file__).resolve()),
+        )
+        if embedded is None or embedded.group(1) != AUDITOR_NORMALIZED_SHA256:
+            raise RawFirstAuditError(
+                "executing auditor constants differ from its source; "
+                "stale bytecode is the usual cause"
+            )
         bound = load_bound_auditor()
         try:
             return bound.audit_sources(root, overrides)

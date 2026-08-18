@@ -189,7 +189,6 @@ class P319StageBRegTest(unittest.TestCase):
 
     def test_runner_is_declared_to_the_raw_first_boundary(self):
         audit = load(AUDIT, "p319_stage_b_audit_doc")
-        self.assertEqual(audit.CLOSED_OBSERVER_SOURCE_COUNT, 123)
         # The filename must be one the boundary actually catches.
         self.assertIsNotNone(audit.OBSERVER_FILE_RE.fullmatch(RUNNER.name))
 

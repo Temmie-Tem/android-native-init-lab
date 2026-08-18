@@ -270,6 +270,27 @@ def collect():
                 with self.assertRaises(self.module.RawFirstAuditError):
                     self.module.audit_sources(REVALIDATION, {name: mutation})
 
+    def test_stale_bytecode_constants_are_refused_not_audited(self):
+        """A .pyc can outlive its source when an edit keeps the file size.
+
+        Swapping one pinned 64-hex digest for another leaves the file exactly as
+        long, and when both edits land inside one mtime second the invalidation
+        check does not trip.  The module then audits with one set of constants
+        while compiling the bound source from another.
+        """
+        original = self.module.AUDITOR_NORMALIZED_SHA256
+        self.module.AUDITOR_NORMALIZED_SHA256 = "0" * 64
+        try:
+            with self.assertRaisesRegex(
+                self.module.RawFirstAuditError,
+                "executing auditor constants differ from its source",
+            ):
+                self.module.audit_sources(REVALIDATION)
+        finally:
+            self.module.AUDITOR_NORMALIZED_SHA256 = original
+        # And the unmutated module still audits.
+        self.assertIn("verdict", self.module.audit_sources(REVALIDATION))
+
     def test_preimport_semantic_mutation_is_replaced_by_bound_source(self):
         source = self.source(SCRIPT.name)
         mutation = source.replace(

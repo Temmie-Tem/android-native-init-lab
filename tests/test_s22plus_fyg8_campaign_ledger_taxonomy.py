@@ -656,14 +656,16 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
         # moves this triple and the three relative expectations below by one.
         self.assertEqual(
             (current["total"], current["resolved_count"], current["unresolved_count"]),
-            (27, 21, 6),
+            (29, 21, 8),
         )
         self.assertEqual(
             sorted(item["review_topic"] for item in current["unresolved"]),
             [
                 "acm-control-requalification",
+                "auditor-stale-bytecode",
                 "boundary-failclosed",
                 "guard-fixture-invalidation",
+                "log-harvest-runner",
                 "raw-first-observer",
                 "stage-b-rederivation",
                 "stage-b-reg-runner",
@@ -673,8 +675,10 @@ class CampaignLedgerTaxonomyTest(unittest.TestCase):
             sorted(item["pending_ordinal"] for item in current["unresolved"]),
             [
                 "h0-acm-control-requalification-1",
+                "h0-auditor-stale-bytecode-1",
                 "h0-boundary-failclosed-1",
                 "h0-guard-fixture-invalidation-1",
+                "h0-log-harvest-runner-1",
                 "h0-raw-first-observer-2",
                 "h0-stage-b-rederivation-1",
                 "h0-stage-b-reg-runner-1",

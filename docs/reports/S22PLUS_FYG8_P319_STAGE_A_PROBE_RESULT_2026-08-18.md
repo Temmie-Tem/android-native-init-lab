@@ -435,3 +435,135 @@ which are host-side only. `device_writes` false, `reboot_requested` false,
 `live_authorized` false. `opcode`, `fw_update` and `/dev/mxim_dev` were neither
 read nor written. The A90 attached in recovery received no command and no S20+
 action occurred.
+
+## The read-only route to the mux question, and why it did not close it yet
+
+Reaching `CONTROL1` by opcode needs a write, which is F1-class. It is not the
+only route. The driver already publishes what it commands:
+
+- `max77705-muic.c:331` — `max77705_switch_path()` does
+  `pr_info("%s value(0x%x)")` with the exact `CONTROL1` byte it is about to
+  write, then issues `COMMAND_CONTROL1_WRITE`.
+- `max77705_usbc.c:1897` and `:1959` — every opcode write and every opcode read
+  response is `print_hex_dump`'d at `KERN_INFO`.
+
+Both dumps sit on the `#else` side of an `#if 0`, so they are **unconditionally
+compiled**; there is no CONFIG to check. `com_to_open`, `com_to_usb_ap` and
+`com_to_usb_cp` each log their own name as well.
+
+That settles half of the open question — whether the driver ever *commanded* the
+mux — with no write and no state change. It does not give the mux's actual bits.
+
+`s22plus_fyg8_p319_usbc_log_harvest_d0.py` collects that log plus two more
+read-only surfaces: `/proc/usblog`, which is `0444` and backed by
+`single_open`/`single_release` (`usblog_proc_notify.c:1737`, `:1260-1266`) so a
+read is a snapshot and not a drain, and the standard Type-C class port
+registered at `max77705_usbc.c:3775`. Type-C attributes are read from a **pinned
+list of ten names, not a glob**, so what is read stays reviewable.
+
+The one destructive thing a log reader can do is clear the ring it reads.
+`dmesg -c`, `-C`, `--clear` and `--read-clear` are refused by the safety
+contract. A token list alone was not enough — a bare `-c ` token nearly
+false-matched `wc -c`, and `dmesg  -c` with two spaces would have slipped past —
+so the contract additionally requires every `dmesg` occurrence to be immediately
+followed by a pipe or a closing paren. Eight mutations are executed against it in
+the suite, including the two-space form, and all eight are rejected.
+
+### Result, and the control that stops it being over-read
+
+`PASS`, complete. 3,334 kernel lines scanned, 481 driver lines matched,
+`/proc/usblog` present with 104 entries, Type-C port present.
+
+```
+switch_path_count        : 0
+com_to_calls             : []
+opcode_write_dumps       : 0
+attach_markers_in_window : 0
+ring_span_seconds        : 129.364
+mux_evidence_conclusive  : False
+```
+
+**Zero `switch_path` lines is not evidence that the driver never commanded the
+mux.** The ring buffer spans `[178515.036853]` to `[178644.400764]` — about 129
+seconds — at roughly 49.6 hours of uptime. The attach happened long before that
+and has rotated out. An absent log line and a log line that scrolled away are
+indistinguishable without the span.
+
+The first version of this runner did not capture the span at all, and its
+`switch_path_count: 0` was therefore uninterpretable. That was caught by reading
+the artifact rather than by the runner, so the span is now captured and the
+result carries `mux_evidence_conclusive`, which is true only when a
+`switch_path` line is present or an attach marker falls inside the window. The
+suite executes all three cases.
+
+To make it conclusive the window must contain an attach. That needs a cable
+replug immediately before the harvest — a physical action, not a write.
+
+### A live finding from the window that was captured
+
+Within those 129 seconds the source's Rp advertisement is oscillating:
+
+```
+rp_currentlvl(2)  x20      Vbus Current is 1.5A  x10
+rp_currentlvl(3)  x20      Vbus Current is 3.0A  x10
+```
+
+Ten full 1.5 A / 3.0 A cycles in 129 seconds, with transitions as close together
+as one second. `usb_typec_handle_notification: CMD[NONE], CABLE_TYPE[1]` repeats
+72 times in the same window, and `ic_alt_mode=1` matches the `Altmode` bit Stage
+B read. `is_empty_usbc_cmd_queue: usbc_cmd_queue Empty(T)` appears throughout,
+which is consistent with — though not proof of — the opcode queue being idle.
+
+This is recorded as an observation. It is **not** claimed to be a fault, a cause,
+or related to the mux question: an unstable Rp level can come from the host port
+or the cable. It is noted because Stage B separately read `PDMsg =
+HARDRESET_SENT`, and a repeatedly renegotiating CC state is the kind of thing
+that produces one.
+
+### Redaction
+
+The unredacted capture stays under the gitignored run root. What may be quoted
+is passed through a redactor for MAC, IPv4, UUID, kernel pointer and long digit
+runs first; this run reported zero redactions, meaning the matched driver lines
+contained none of those. The redactor is tested to remove all five while leaving
+`max77705_switch_path value(0x01)` intact.
+
+### Boundary
+
+Read-only D0. No writes, no opcodes, no ring clearing, no interrupt consumed —
+this runner touches neither `reg` nor `opcode` nor `fw_update` nor
+`/dev/mxim_dev`. `device_writes` false, `ring_buffer_cleared` false,
+`reboot_requested` false, `partition_transfer` false, `candidate_used` false,
+`f1_authorized` false, `live_authorized` false. The A90 attached in recovery
+received no command and no S20+ action occurred.
+
+## The boundary caught a stale-bytecode hole in itself
+
+Registering the harvester tripped the byte freeze twice, once per runner edit,
+which is the boundary working. The third trip was not.
+
+`test_loaded_auditor_cannot_receipt_different_source_bytes` failed: a mutation
+that replaces the auditor's pinned self-binding digest with zeros was **not**
+rejected. The cause is not a hole in the rule. Registration replaces one 64-hex
+digest with another, so the file keeps **exactly the same size**, and when both
+edits land inside a single mtime second CPython's `.pyc` invalidation check —
+mtime plus size — does not trip. The imported module therefore carried
+`AUDITOR_NORMALIZED_SHA256` from stale bytecode while the file on disk held a
+different value. The test built its mutation from the stale constant, found no
+occurrence of it in the source, and mutated nothing.
+
+The audits themselves were not wrong: `audit_sources` delegates to
+`load_bound_auditor()`, which compiles from the file, so every receipt in this
+campaign was produced from the on-disk source. What was wrong is that the module
+could report one set of constants while auditing under another.
+
+Deleting the stale `.pyc` fixes the symptom. It is closed instead: `audit_sources`
+now parses the digest literal out of its own source and refuses when it differs
+from the executing constant, with the message `executing auditor constants differ
+from its source`. A test sets the module constant to zeros, asserts the refusal,
+and then asserts the unmutated module still audits.
+
+This is worth stating plainly because the failure mode is quiet and general: any
+byte-pinned constant that is rotated in place, at the same length, within one
+second, can leave a Python process auditing under constants its own file no
+longer contains.

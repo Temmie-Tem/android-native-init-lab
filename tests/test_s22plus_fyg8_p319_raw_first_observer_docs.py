@@ -18,7 +18,7 @@ LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 GOAL = ROOT / "GOAL.md"
 RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260818-05-stage-b-reg.json"
+    "raw-first-observer-audit-20260818-06-log-harvest.json"
 )
 # The approved 10,040-byte `7f9e6f6c` predecessor stays on disk as historical
 # evidence.  It is no longer the deterministic regeneration of the current
@@ -61,7 +61,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(len(expected), 10296)
         self.assertEqual(
             hashlib.sha256(expected).hexdigest(),
-            "bb47f6da127c3d1b48af580c119aa328a6d425ee38f3a27cc1d2ae15204c0c1f",
+            "fc700d3cfb5934806db7352b68be7bd7db0d9e4c3c7db1ea4a969a043033774e",
         )
 
     def test_predecessor_receipt_is_preserved_and_no_longer_authority(self):
