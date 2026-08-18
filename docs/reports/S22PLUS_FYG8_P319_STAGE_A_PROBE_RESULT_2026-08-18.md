@@ -1011,3 +1011,105 @@ campaign already knew about candidates that did load it.
 The F1 remains approved and unconsumed, and its target is unchanged by this
 correction: a candidate whose module load, bind, and COM_USB command are
 preserved as evidence.
+
+## Gate 0 is closed
+
+The normal-boot second-stage module list has never been recovered. `vendor_boot`
+carries the first-stage list (140 lines) and the recovery order (446 lines);
+neither is the order that runs at normal boot. That order lives in
+`vendor_dlkm/lib/modules/modules.load` inside `super.img`, 5,843 bytes, SHA-256
+`8411620a0384d0…` — a digest recorded from firmware metadata while the bytes
+themselves stayed unread.
+
+They are read now, from the running unit, and they match:
+
+```
+load_present : yes
+load_rc      : 0
+load_bytes   : 5843
+load_sha256  : 8411620a0384d07fed491a2f8f7c146e354d022c8446940fc59f49cb2d98d360
+load_entries : 356
+ko_count     : 356
+```
+
+The read is self-verifying by construction: the digest was known before the
+bytes were, so a match proves the device's list and the firmware's list are the
+same 5,843 bytes, and a mismatch would itself have been the finding. Every one
+of the 356 listed modules is present in the directory.
+
+The digest is of the file, not of the transcript. `cat` output is framed by
+`printf` sentinels, and the parser slices between them and strips the trailing
+`load_rc` line before hashing; the suite checks that a leaked frame line would
+change the digest.
+
+### The mux stack's place in the normal-boot order
+
+```
+218  max77705_charger.ko
+221  common_muic.ko
+238  usb_typec_manager.ko
+240  pdic_notifier_module.ko
+250  max77705-fuelgauge.ko
+260  mfd_max77705.ko
+264  pdic_max77705.ko
+```
+
+This is a different order from the recovery list, which is why the recovery list
+could not stand in for it: there the same five sit at 362, 379, 381, 401 and 405
+of 446.
+
+### The dependency closure, which is the other half
+
+`modules.dep` was read in the same pass. `pdic_max77705.ko` closes over
+**thirteen** modules:
+
+```
+mfd_max77705.ko        usb_typec_manager.ko    switch_class.ko
+dwc3-msm.ko            common_muic.ko          usb_notify_layer.ko
+usb_f_ss_mon_gadget.ko vbus_notifier.ko
+qc_usb_audio.ko        pdic_notifier_module.ko
+redriver.ko            if_cb_manager.ko
+spu_verify.ko
+```
+
+and `mfd_max77705.ko` closes over `usb_notify_layer.ko` alone. So a candidate
+that wants to load the mux driver itself needs fourteen modules, not one, and
+the set reaches into the USB stack — `dwc3-msm.ko` and
+`usb_f_ss_mon_gadget.ko` are in it. `spu_verify.ko` is in the closure too,
+which is worth noting against the custom-65 design that drops it.
+
+Both facts came from one read-only D0. No writes, two body reads of pinned
+paths, `device_writes` false, `reboot_requested` false, `partition_transfer`
+false, `candidate_used` false, `f1_authorized` false, `live_authorized` false.
+
+### The firmware path was taken too, and agrees
+
+`super.img` is being extracted from the 9.68 GB firmware ZIP to the SD card in
+parallel, streaming so that neither the 8.87 GB `super.img.lz4` nor the result
+has to be resident: `unzip -p` into `tar -xO super.img.lz4` into a streaming LZ4
+decoder. It reuses `s22plus_boot_verify`'s block decoder and header rules rather
+than reimplementing them, and was checked against that module by decoding
+`dtbo.img.lz4` both ways to the same SHA-256. `boot.img`, `vendor_boot.img`,
+`dtbo.img`, `recovery.img` and both `vbmeta` images are already extracted.
+
+It finished: `super.img` decoded to 10,352,130,812 bytes, exactly the size the
+LZ4 frame declared, which verifies the decode without holding the output in
+memory to checksum it.
+
+The image is Android-sparse, and the raw super partition does not fit in the
+remaining space, so it was never materialised. The reader indexes the sparse
+chunk table — headers only — and serves random reads by seeking into the
+covering chunk, which is enough to parse LP metadata directly out of the sparse
+file. That gives the logical partition table: `system` 6.67 GB, `vendor`
+2.18 GB, `product` 1.31 GB, `system_ext` 183 MB, `odm` 21 MB, and
+**`vendor_dlkm` 57,610,240 bytes**.
+
+`vendor_dlkm` was extracted to 57,610,240 bytes, SHA-256 `e5386d68…`, and is
+**F2FS** — no ext4 or EROFS reader applies, and no F2FS tooling is installed. It
+did not need one. The 5,843 bytes read from the device appear **verbatim** in
+that image at offset 33,624,064.
+
+So Gate 0 closes from two independent sources that agree byte for byte: the
+running unit's `/vendor/lib/modules/modules.load`, and the firmware's
+`vendor_dlkm` extracted from the 9.68 GB ZIP without ever writing the raw super
+partition to disk.
