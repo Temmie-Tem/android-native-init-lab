@@ -264,3 +264,92 @@ false, `partition_transfer` false, `candidate_used` false, `f1_authorized` false
 `live_authorized` false. `fw_update`, `reg` and `opcode` were neither read nor
 written; only their names were listed. The A90 attached in recovery on the same
 host received no command. No S20+ action occurred.
+
+## Correction: the `reg` read is not side-effect-free
+
+A fourth interrupt register is read, and the report above said otherwise. The
+section "What a `reg` read actually costs" is right that the driver skips three
+read-to-clear interrupt registers, and wrong to leave the impression that all of
+them are skipped.
+
+The debug driver's own header is mislabelled. `max77705_debug.h:31-42` names the
+table entries `MXIM_REG_RSVD1` at `0x05` and `MXIM_REG_RSVD2` at `0x09`, and
+`MXIM_REG_RSVD1` carries `.ignore = 0`, so it is read. But `max77705.h:65`
+defines `0x05` as `REG_VDM_INT`, and `max77705_usbc.c:170-172` clears the
+interrupt block by bulk-reading four registers from `0x02` under the comment
+`clear all interrpts`. `0x05` is therefore the fourth member of that block, and
+reading it consumes any latched VDM — alternate-mode, Discover ID, Discover
+SVIDs, Discover Modes, Enter Mode, DP Status — interrupt before the driver's own
+handler can see it.
+
+The same mislabelling runs through the rest of the table, which matters for any
+decoder built from the debug header rather than from the driver:
+
+| Debug header name | Address | Real name (`max77705.h`, confirmed by driver reads) |
+|---|---|---|
+| `MXIM_REG_RSVD1` | `0x05` | `REG_VDM_INT` — read-to-clear |
+| `MXIM_REG_RSVD2` | `0x09` | `REG_UIC_FW_MINOR` |
+| `MXIM_REG_CC_STATUS1` | `0x0A` | `REG_CC_STATUS0` |
+| `MXIM_REG_CC_STATUS2` | `0x0B` | `REG_CC_STATUS1` |
+| `MXIM_REG_PD_STATUS1` | `0x0C` | `REG_PD_STATUS0` |
+| `MXIM_REG_PD_STATUS2` | `0x0D` | `REG_PD_STATUS1` |
+| `MXIM_REG_USBC_IRQM` | `0x0E` | `REG_UIC_INT_M` |
+
+`max77705.h` is itself inconsistent — its CC bitfield comment blocks are labelled
+`REG_CC_STATUS1`/`REG_CC_STATUS2` while its address defines say
+`REG_CC_STATUS0`/`REG_CC_STATUS1` — so the layout was taken from what the driver
+actually reads, not from either comment: `max77705_cc.c:340` reads `CCPinStat`
+out of `cc_status0`, `:473` `CCIStat`, `:535` `CCVcnStat`, `:584` `CCStat`, and
+`:342`/`:344` read `VSAFE0V` and `ConnStat` out of `cc_status1`. The PD side needs
+no such correction: `max77705_pd.c:1483` reads `PDMsg` from `pd_status0` and
+`:1503`/`:1579`/`:1688` read `PSRDY`, `DataRole` and `FCT_ID` from `pd_status1`,
+matching the header labels.
+
+**Severity, stated plainly.** This is not a partition, not firmware, not a brick.
+It is one dropped alternate-mode interrupt in the worst case, recoverable by
+replug. But it is a state change on a path this report called a read, so it is
+recorded as one, and it is gated behind an explicit flag rather than assumed
+away.
+
+## Stage B runner: one attribute body, one register set
+
+`s22plus_fyg8_p319_max77705_reg_stage_b_d0.py` reads exactly
+`/sys/class/mxim/debug0/reg` and nothing else. It never reads or writes `opcode`,
+never writes `reg`, and never names `fw_update` or `/dev/mxim_dev`.
+
+Its safety contract is **structural rather than a token lint**, because the
+probe's token contract was reviewed and found to pass nine of ten dangerous
+scripts. It asserts the shape of the script: exactly one body-read line, that
+line being literally `cat "$target"`, exactly one `target=` assignment, that
+assignment being literally `target=/sys/class/mxim/debug0/reg`, zero redirects,
+and no occurrence of any forbidden path. Six mutations are executed against it in
+the suite — a second body read, an added `opcode` read, a retargeted variable, a
+sysfs write, a mention of `fw_update`, and `head` substituted for `cat` — and all
+six are rejected.
+
+The verdict is gated, not asserted. A run is complete only if the end sentinel
+arrived, the target existed, `cat` returned 0, the header row was seen, the
+address set is exactly the fourteen expected, no row failed to parse, the dump is
+not all-zero, at least one of the two identity registers is non-zero, and the
+capture handle reports no timeout, no truncation and no producer error. The
+all-zero refusal exists because `mxim_debug_i2c_read` assigns its `int` return
+into an `unsigned char`, so a failed read is not distinguishable from a real
+zero by value alone.
+
+The `--collect` path refuses with exit 3 and touches nothing — no run directory,
+no ADB — until `--accept-vdm-int-clear` is passed. That refusal is executed in
+the suite rather than described.
+
+Registering the runner moved the raw-first boundary's closed-observer population
+from 122 to 123 and the auditor stopped until it was declared. Unlike the probe,
+this file was deliberately named so the boundary would catch it: `..._d0.py`
+matches `OBSERVER_FILE_RE`, whereas a name like `..._reg_reader.py` would not
+have. That is a workaround for the residual the boundary review already recorded,
+not a fix for it.
+
+## Authority boundary for the Stage B runner
+
+H0 as written: no device contact has occurred through this runner. The read it
+performs is a D0 and requires the flag above plus operator approval. `opcode`,
+`fw_update` and `/dev/mxim_dev` remain F1-class and untouched. Full regmap dumps
+remain forbidden.
