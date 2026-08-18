@@ -885,3 +885,65 @@ column — `[7: apexd: 1166]` matched `apexd`. That inflated every figure:
 scoped to the message body, and PID 1's comm is extracted separately as the
 discriminator that does not depend on counting at all. The suite exercises the
 inflation case directly.
+
+## The mux is switched by a vendor module that Android's modprobe loads
+
+The F1 was approved. Before arming it, the same two captures were searched for the
+mux sequence, and it is there — in both, from 2026-07-10, at boot:
+
+```
+[4.088544] [2: modprobe:  758] modprobe: Loading module /vendor/lib/modules/pdic_max77705.ko
+[4.164515] [6: modprobe:  769] pdic_max77705: max77705_muic_probe
+[4.190293] [6: modprobe:  769] pdic_max77705: com_to_usb_ap
+[4.190297] [6: modprobe:  769] pdic_max77705: max77705_switch_path value(0x9)
+[4.191075] [6: modprobe:  769] max77705: opcode_write: 00000000: 06 09
+[4.219691] [7: modprobe:  769] modprobe: Loaded kernel module /vendor/lib/modules/pdic_max77705.ko
+```
+
+**The process that writes `CONTROL1` is `modprobe`.** Not the kernel's own boot
+path — Android userspace, loading a vendor module.
+
+The build confirms it. `CONFIG_CCIC_MAX77705=m` and `CONFIG_MFD_MAX77705=m`
+(`waipio-gki_defconfig:1165`, `:1201`), and
+`drivers/usb/typec/maxim/Makefile:5-11` links `max77705_cc.o`, `max77705_pd.o`,
+`max77705_usbc.o`, `max77705_alternate.o`, `max77705_debug.o` **and
+`max77705-muic.o`** into one object: `pdic_max77705.ko`. The mux code is inside a
+loadable module. Android's boot loads 333 distinct `.ko` files from
+`/vendor/lib/modules` this way.
+
+### What that means for the campaign
+
+A native-init candidate replaces PID 1. It does not run Android's `init`, so it
+does not run `modprobe`, so **none of those 333 vendor modules load** —
+`pdic_max77705.ko` among them. Without it there is no `max77705_muic_probe`, no
+`com_to_usb_ap`, no `CONTROL1` write, and the D+/D- pair is never routed to USB.
+
+That is this campaign's live hypothesis, and it now has a complete mechanical
+chain established **entirely from stock evidence already on disk, at zero device
+cost**. It also explains the whole symptom the campaign has been chasing: a
+candidate cannot expose ACM or ADB because the data pair was never switched.
+
+The earlier reading in this report — that `switch_path` is kernel-driven because
+`pdata->usb_path` has a non-userspace default — was too narrow. The default does
+come from platform data rather than `usb_sel`, but the code holding that default
+only exists once the module is loaded, and loading it is a userspace act.
+
+### What this does to the approved F1
+
+It changes the target. An F1 that boots an existing candidate and looks for
+`06 09` would now confirm something already strongly evidenced, and would consume
+a candidate to do it. The F1 worth spending is a candidate that **loads
+`pdic_max77705.ko` itself**, because that tests the repair rather than the
+diagnosis.
+
+That is not the same experiment and it is not ready. It needs host-only work
+first, none of which touches the device:
+
+- the module's dependency order — `pdic_max77705.ko` sits on `CONFIG_MFD_MAX77705=m`
+  and the notifier modules, and `modules.dep` on the device names the exact chain
+- whether a native-init PID 1 can reach `/vendor/lib/modules` at all, which means
+  mounting the vendor partition before `insmod`
+- what else in those 333 modules the USB path depends on
+
+The F1 approval is therefore recorded and **not consumed**. No candidate was
+armed, no transfer occurred, and nothing was flashed.
