@@ -50,7 +50,13 @@ class S22PlusRawFirstObserverAuditTest(unittest.TestCase):
         self.assertTrue(
             value["legacy_unmigrated_observers_are_inactive_and_byte_frozen"]
         )
-        self.assertEqual(value["closed_observer_source_count"], 121)
+        # Derived, not restated: the auditor already fails closed when the
+        # real population differs from its constant, so a second literal
+        # here only drifts.  Registering the Stage A probe moved it to 122.
+        self.assertEqual(
+            value["closed_observer_source_count"],
+            self.module.CLOSED_OBSERVER_SOURCE_COUNT,
+        )
         self.assertEqual(
             value["closed_observer_source_inventory_sha256"],
             self.module.CLOSED_OBSERVER_SOURCE_SHA256,

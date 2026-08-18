@@ -18,7 +18,7 @@ LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 GOAL = ROOT / "GOAL.md"
 RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
-    "raw-first-observer-audit-20260817-02-behavioral-device-detection.json"
+    "raw-first-observer-audit-20260818-03-stage-a-probe.json"
 )
 # The approved 10,040-byte `7f9e6f6c` predecessor stays on disk as historical
 # evidence.  It is no longer the deterministic regeneration of the current
@@ -61,7 +61,7 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(len(expected), 10330)
         self.assertEqual(
             hashlib.sha256(expected).hexdigest(),
-            "1f0751d090729f1ece2c1c290f1306db1abe411957fcf053ba11ae7ce40edd4d",
+            "d807ffac3eec504b82773d1a6a0aa8aaed9afc36b3687a31f49a6b8da20deaff",
         )
 
     def test_predecessor_receipt_is_preserved_and_no_longer_authority(self):
@@ -74,6 +74,23 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(
             hashlib.sha256(payload).hexdigest(),
             "7f9e6f6c2048b55748532177e1af978b43a23828197f754d587a12eb73351011",
+        )
+        self.assertNotEqual(payload, RECEIPT.read_bytes())
+
+    def test_behavioral_receipt_is_preserved_after_the_probe_registration(self):
+        # Registering the Stage A truncation probe moved the scanned population
+        # from 1,717 to 1,718, so this receipt stopped being the regeneration.
+        superseded = RECEIPT.parent / (
+            "raw-first-observer-audit-20260817-02-behavioral-device-detection.json"
+        )
+        info = superseded.stat()
+        self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
+        self.assertEqual(info.st_nlink, 1)
+        payload = superseded.read_bytes()
+        self.assertEqual(len(payload), 10330)
+        self.assertEqual(
+            hashlib.sha256(payload).hexdigest(),
+            "1f0751d090729f1ece2c1c290f1306db1abe411957fcf053ba11ae7ce40edd4d",
         )
         self.assertNotEqual(payload, RECEIPT.read_bytes())
 

@@ -47,14 +47,14 @@ Populations under the current tree:
 
 | Set | Count |
 |---|---:|
-| revalidation `*.py` scanned | 1,717 |
+| revalidation `*.py` scanned | 1,718 |
 | acquiring **and** device-facing | 130 + 15 active |
 | S22+-scoped, byte-frozen | 79 |
 | other-target, membership-only | 51 |
 
 Ordering matters for cost as well as meaning: the substring test runs before the
 AST parse, which keeps a full audit at about 7 seconds instead of parsing all
-1,717 files.
+1,718 files.
 
 ## Target isolation
 
@@ -264,7 +264,7 @@ And it regressed a campaign the ledger already carries as `PROVED | HEALTHY`
 
 It stayed invisible for a reason worth recording separately from the defect
 itself. `tests/test_s22plus_fyg8_p313_process_v2.py` does fail on it, but the
-fixture raises during import, so the failure reports as `Ran 0 tests ...
+fixture raises in `setUpClass`, so the failure reports as `Ran 0 tests ...
 errors=1` rather than as a failing test. A suite summary that counts tests
 absorbs it. The consumed-suite manifest does not cover it either: that manifest
 discovers `*p318*`. It should not be added there, because it is a regression
@@ -339,15 +339,21 @@ Focused regression:
 
 Private deterministic receipts, each mode 0400 with link count one:
 
-- `workspace/private/outputs/s22plus_fyg8_p319/raw-first-observer-audit-20260817-02-behavioral-device-detection.json`
+- `workspace/private/outputs/s22plus_fyg8_p319/raw-first-observer-audit-20260818-03-stage-a-probe.json`
   — 10,330 bytes,
-  `1f0751d090729f1ece2c1c290f1306db1abe411957fcf053ba11ae7ce40edd4d`
+  `d807ffac3eec504b82773d1a6a0aa8aaed9afc36b3687a31f49a6b8da20deaff`
 - `workspace/private/outputs/s22plus_fyg8_p319/consumed-suite-expected-failures-20260817-01.json`
   — 3,778 bytes,
   `410b3e8f3d2de81b05e01b074f0785223b6a2dcf50c0b35da482a9a37550f76c`
 
-The predecessor receipt `raw-first-observer-audit-20260817-01.json` is preserved
-unmodified as historical evidence and is not current review authority.
+The predecessor receipts `raw-first-observer-audit-20260817-01.json` and
+`raw-first-observer-audit-20260817-02-behavioral-device-detection.json` are
+preserved unmodified as historical evidence and are not current review
+authority. The second was superseded when registering the Stage A truncation
+probe moved the scanned population from 1,717 to 1,718; that registration was
+forced by this auditor, which stopped on `closed observer source inventory
+differs: count=122` rather than letting a new device-touching source in
+unannounced.
 
 The auditor's self binding was recomputed over its own normalized source after
 the last edit, and the audit reopens its own stable bytes before reporting.
