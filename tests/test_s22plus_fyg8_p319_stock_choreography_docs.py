@@ -40,6 +40,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "Can the candidate bring UCSI up? No, and the missing piece is one module",
         "The CCIC half: the bootloader parks the connector",
         "The bootloader enumerates without any of the kernel's role machinery",
+        "Three bootloader modes, and only one leaves the mux open",
         "What remains open",
         "Evidence",
     )
@@ -875,6 +876,17 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "**not a precondition for device-mode enumeration on this SoC**",
             "**the candidate does not need to reach it.**",
             "not from disassembling `InitDevice`",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_completes_the_three_bootloader_modes(self):
+        for token in (
+            "`--adjust-vma=0xa7d00000`",
+            "**`init_device_for_rdx`**",
+            "| **normal boot** | nobody after XBL's `muic_init` | **`0x3f` COM_OPEN** |",
+            "**Every bootloader mode that needs USB routes the mux explicitly, and the normal\nboot is the only one that does not.**",
+            "it must route the analog path itself",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)

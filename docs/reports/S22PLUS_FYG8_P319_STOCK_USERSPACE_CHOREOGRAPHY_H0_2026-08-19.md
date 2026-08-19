@@ -1503,6 +1503,53 @@ not from disassembling `InitDevice`. What the bootloader programs inside the
 core, and whether any of it differs from what the kernel programs, is not
 established here.
 
+## Three bootloader modes, and only one leaves the mux open
+
+`XblRamdump.elf` carried `%s : muic_set_path to USB` from the start, and this
+unit twice noted that the string never appears in any capture without
+establishing what would make it run. Disassembling it settles that and completes
+the picture.
+
+The image has no section headers, so its first LOAD segment was extracted at
+file offset `0x1000` for `0xbf000` bytes and disassembled as raw AArch64 with
+`--adjust-vma=0xa7d00000`. The string block maps exactly: file offset 1073840 is
+`0x1062b0`, which lies in the second LOAD segment and resolves to VA
+`0xa7e262b0`, page `0xa7e26000` plus `0x2b0`. Reading the code at `0xa7d14ac4`:
+
+```
+adrp x19, 0xa7e26000 ; add x19, x19, #0x281   ; x19 = "init_device_for_rdx"
+adrp x1,  … + #0x271 ; bl log                 ; "%s : muic_init"
+bl 0xa7d308e0                                  ; muic_init()
+adrp x1,  … + #0x295 ; bl log                 ; "%s : muic_init_hv_control"
+bl 0xa7d30998                                  ; muic_init_hv_control()
+adrp x1,  … + #0x2b0 ; bl log                 ; "%s : muic_set_path to USB"
+mov  w0, #0x1                                  ; path id 1
+bl 0xa7d30974                                  ; muic_set_path(1) → COM_USB
+adrp x1,  … + #0x2cb ; bl log                 ; "%s : ccic_init"
+```
+
+`x19` is the `%s` passed to every log call, so the enclosing function names
+itself: **`init_device_for_rdx`** — device initialisation for RAM dump. It
+routes the mux to USB, which is what a ramdump upload needs.
+
+That gives all three bootloader modes, each established from its own code:
+
+| mode | who routes the mux | CONTROL1 left |
+|---|---|---|
+| **normal boot** | nobody after XBL's `muic_init` | **`0x3f` COM_OPEN** |
+| **download (Odin)** | `LinuxLoader` download branch, `MuicSetPath(1)` | `0x09` COM_USB |
+| **ramdump (RDX)** | `XblRamdump`'s `init_device_for_rdx`, `muic_set_path(1)` | `0x09` COM_USB |
+
+**Every bootloader mode that needs USB routes the mux explicitly, and the normal
+boot is the only one that does not.** Nothing here is incidental: the two modes
+that talk to a host both contain an unconditional, logged call, and the mode that
+hands off to Linux contains none on any captured path.
+
+For a candidate that is the whole instruction. It boots through the one mode
+that leaves `COM_OPEN`, so it must route the analog path itself — exactly as
+Odin and RDX do, and exactly as the stock kernel's `pdic_max77705` does at
+4.19 s with `com_to_usb_ap`.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
