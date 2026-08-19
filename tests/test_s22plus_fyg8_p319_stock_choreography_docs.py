@@ -43,6 +43,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "Three bootloader modes, and only one leaves the mux open",
         "The RDX bring-up is five calls, and only half of them can fail loudly",
         "Resolving the vtable slots to register writes",
+        "The download branch does not repeat the RDX sequence; it adds one call",
         "What remains open",
         "Evidence",
     )
@@ -560,6 +561,18 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
         self.assertNotIn("recoverable from this host by any means identified here", self.report)
+
+    def test_report_reduces_the_candidate_instruction_to_one_action(self):
+        for token in (
+            "the value **0 in all 103 captures**",
+            "| `[ ABL ] SetPath` | **62 / 62** | **0 / 41** |",
+            "what the download branch adds is `muic_set_path(1)` **alone**",
+            "**Setting the sink is therefore not a precondition for enumeration**",
+            "**The instruction to a candidate reduces to one action: write `COM_USB` to\n`CONTROL1`.**",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+        self.assertNotIn("the one\n  remaining gap in the five-call sequence", self.report)
 
     def test_report_bounds_the_static_bootloader_conclusion(self):
         for token in (

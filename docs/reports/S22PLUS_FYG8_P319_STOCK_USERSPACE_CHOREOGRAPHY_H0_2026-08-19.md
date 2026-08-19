@@ -1767,6 +1767,65 @@ reproduce the sequence can reach the mux through the kernel's own vocabulary;
 the sink step has no such route, and whatever the stock kernel does to reach the
 same state, it is not this command.
 
+## The download branch does not repeat the RDX sequence; it adds one call
+
+Reading `init_device_for_rdx` produced a five-call bring-up and this unit then
+asked whether LinuxLoader's download branch runs the same five. The closed
+capture manifest answers it empirically rather than statically, by counting
+which MUIC and CCIC lines appear in each class of boot. The answer is that the
+question was framed wrongly.
+
+Every bring-up line appears in **all 103** ABL-bearing captures — 62 download and
+41 normal alike — and every one of them is tagged `[ XBL ]`:
+
+```
+[ XBL ] muic_init            [ XBL ] ccic_init
+[ XBL ] [MUIC] Max77705 HW i2c init   [ XBL ] [CCIC] Max77705 HW i2c init
+[ XBL ] [MUIC] BC_CTRL1_READ : 0x..   [ XBL ] ccic_is_max77705 : 0x..
+[ XBL ] muic_command_polling: OP 0x.. [ XBL ] ccic_command_polling : OP 0x..
+[ XBL ] max77705_ccic_set_sink: set to 0!!
+```
+
+`ccic_set_sink` is logged with the value **0 in all 103 captures** and with `1`
+in none of them. No `muic_` or `ccic_` bring-up line is tagged `[ ABL ]` on any
+capture.
+
+The ABL stage does touch the chip on both classes, but only to read it:
+`MuicGetDeviceType`, `MuicGetJigType`, `MuicGetVbusStatus`,
+`MuicGetAdcOrientedDevice` and `CcicReadAdc` each appear in 62 of 62 download
+captures and 41 of 41 normal ones. **Across the entire MUIC and CCIC surface,
+exactly one line separates a download boot from a normal boot:**
+
+| | download | normal |
+|---|---|---|
+| XBL bring-up, including `ccic_set_sink: set to 0` | 62 / 62 | 41 / 41 |
+| ABL read-only queries | 62 / 62 | 41 / 41 |
+| `[ ABL ] SetPath` | **62 / 62** | **0 / 41** |
+
+### What this corrects
+
+The five-call sequence is real, but it is **RDX's**, not the general bring-up.
+XBL performs four of those five on every boot that has ever been captured here.
+What `init_device_for_rdx` adds is `muic_set_path(1)` *and* `ccic_set_sink(1)`;
+what the download branch adds is `muic_set_path(1)` **alone**.
+
+That difference resolves the campaign's open question about opcode `0x5E` in a
+direction this unit did not expect. Download mode is the one path known to
+enumerate to a host, and it does so with the sink value left at `0` — the value
+XBL wrote. **Setting the sink is therefore not a precondition for enumeration**,
+and `0x5E`'s unknown payload semantics sit off the critical path rather than on
+it. The earlier framing, which called `0x5E` the one remaining gap in the
+sequence a candidate must reproduce, is withdrawn.
+
+It also narrows the earlier reading of the bootloader "parking the connector".
+The sink clear is not a decision the bootloader takes about a particular boot;
+it is unconditional, and it happens identically on the boots that go on to
+enumerate.
+
+**The instruction to a candidate reduces to one action: write `COM_USB` to
+`CONTROL1`.** Everything else in the five-call sequence has already been done by
+XBL before Linux starts, on every boot, in both classes.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
@@ -1782,9 +1841,9 @@ which is the reason this section is restated rather than appended to.
 
 - What `ccic_set_sink`'s opcode `0x5E` actually programs. The command is
   identified, reaches the chip, and is answered, but it is named nowhere the
-  kernel can see, so its payload semantics are unknown. This is the one
-  remaining gap in the five-call sequence; the other four are resolved to
-  kernel-named opcodes.
+  kernel can see. This is no longer on the critical path: download mode
+  enumerates with the sink left at the value XBL wrote, so the gap is a gap in
+  understanding rather than a blocker.
 - What `UsbCoreIfc->InitDevice` programs inside the DWC3 core, and whether any of
   it differs from what the kernel programs. The bootloader's enumeration is
   established from strings and assert messages, not from disassembling that
