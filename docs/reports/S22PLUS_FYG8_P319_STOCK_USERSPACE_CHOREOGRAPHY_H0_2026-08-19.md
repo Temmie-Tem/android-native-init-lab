@@ -1550,6 +1550,79 @@ that leaves `COM_OPEN`, so it must route the analog path itself — exactly as
 Odin and RDX do, and exactly as the stock kernel's `pdic_max77705` does at
 4.19 s with `com_to_usb_ap`.
 
+## The RDX bring-up is five calls, and only half of them can fail loudly
+
+`init_device_for_rdx` was read for its `muic_set_path` call. Reading the whole
+function instead of the one call shows it is a straight line with no branch in
+it, and that the mux switch is one of five steps:
+
+```
+"pdic init.. "
+"%s : muic_init"             bl 0xa7d308e0
+"%s : muic_init_hv_control"  bl 0xa7d30998
+"%s : muic_set_path to USB"  mov w0,#1 ; bl 0xa7d30974
+"%s : ccic_init"             bl 0xa7d96edc
+"%s : ccic_set_sink"         mov w0,#1 ; bl 0xa7d96f90  → w20
+"Done for RDX"
+"%s : ccic_set_sink finish: %d"   (w3 = w20)
+```
+
+Two drivers, not one: the MUIC entries live around `0xa7d30…` and the CCIC
+entries around `0xa7d96…`. The first log line is `pdic init..`, which is the
+Samsung rename of CCIC, so the CCIC half of this sequence is the same block the
+kernel drives as `pdic_max77705`.
+
+### They are protocol thunks, so this is a calling convention, not register writes
+
+None of the five is an implementation. Each is a UEFI protocol thunk over a
+ready flag and an interface pointer:
+
+| | ready flag | interface pointer | vtable slots used |
+|---|---|---|---|
+| MUIC | `0xa7f34000` + 476 | `0xa7fd9000` + 3488 | `+0` probe, `+8` init, `+16` set_path, `+24` init_hv_control |
+| CCIC | `0xa7f7e000` + 1976 | `0xa7fad000` + 1896 | `+0` poll, `+24` set_sink |
+
+`muic_init` publishes the interface, calls `[iface+0]`, and treats the probe as
+successful only when the returned byte is `0x1a` or `0x10`
+(`cmp w8,#0x1a ; ccmp w8,#0x10,#0x4,ne ; b.eq`). Otherwise it retries, capped at
+ten attempts (`cmp w8,#0xa`). Only on success does it store `1` into the ready
+flag and tail-call `[iface+8]`. `ccic_init` has the same shape with its own
+budget of ten and a readiness test of "the returned byte is not `0xff`".
+
+The function called between retries, `0xa7d94c0c`, contains exactly one
+instruction — `ret` — and sits in a run of stubs (`mov w0,wzr ; ret`). Whatever
+it is named, in this image the retry loop waits for nothing.
+
+### The asymmetry, and the trap in it
+
+The two halves report failure completely differently:
+
+- `muic_set_path` and `muic_init_hv_control` check the ready flag and, when it is
+  clear, **execute a bare `ret`**. They return nothing. A MUIC that never probed
+  makes both calls silent no-ops.
+- `ccic_set_sink` checks its flag and returns **`-2`** when clear, then loads
+  `[iface+24]` and returns **`-3`** if that slot is null. The caller captures
+  that value in `w20` and prints it as `ccic_set_sink finish: %d`.
+
+So `ccic_set_sink finish: -2` in a capture would be diagnostic. Nothing
+equivalent exists on the MUIC side.
+
+**And the log line is emitted before the call, unconditionally.** `%s :
+muic_set_path to USB` is printed by the caller and then the thunk decides whether
+to do anything. The string's presence in a log is therefore evidence that the
+sequence was *entered*, not that the mux was *switched*. This unit has already
+mistaken a narrow sample for a whole medium six times; recording the distinction
+here is what keeps that string from being read later as proof of a routed mux.
+
+### What this does not give
+
+The register writes are still one level down. The thunks name vtable slots; the
+implementations behind them are in `Muic.efi` and `Ccic.efi`. `Muic.efi`'s
+`+16` is the already-disassembled `MuicSetPath` with its `0x3f/0x09/0x9b/0xa4/
+0xad` jump table, so that slot is resolved. `+24` (`init_hv_control`) is not,
+and `Ccic.efi` has not been opened at all. Until those are read, what
+`ccic_set_sink(1)` actually programs is unknown.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
@@ -1563,6 +1636,10 @@ CONTROL1 vocabulary read off the jump table, and the normal boot shown to leave
 `0x3f` COM_OPEN. Leaving it listed would have understated the unit's own result,
 which is the reason this section is restated rather than appended to.
 
+- What `Muic.efi`'s `+24` (`init_hv_control`) and `Ccic.efi`'s `+24`
+  (`set_sink`) actually program. The thunks give the calling convention and the
+  failure codes; the register writes behind those two vtable slots are not read.
+  `Ccic.efi` has not been opened at all.
 - What `UsbCoreIfc->InitDevice` programs inside the DWC3 core, and whether any of
   it differs from what the kernel programs. The bootloader's enumeration is
   established from strings and assert messages, not from disassembling that

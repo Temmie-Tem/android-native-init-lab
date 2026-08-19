@@ -41,6 +41,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The CCIC half: the bootloader parks the connector",
         "The bootloader enumerates without any of the kernel's role machinery",
         "Three bootloader modes, and only one leaves the mux open",
+        "The RDX bring-up is five calls, and only half of them can fail loudly",
         "What remains open",
         "Evidence",
     )
@@ -75,7 +76,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         # Five: the bootloader OP 0x06 entry was closed and removed, and two
         # narrower ones (InitDevice's register writes, the unopened images)
         # replaced it.  The count is pinned so the list cannot drift silently.
-        self.assertEqual(len(items), 5)
+        self.assertEqual(len(items), 6)
         self.assertNotIn("holds no analysable BL", section.group(1))
 
     def test_report_states_the_h0_only_authority_boundary(self):
@@ -558,6 +559,19 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
         self.assertNotIn("recoverable from this host by any means identified here", self.report)
+
+    def test_report_separates_entering_the_sequence_from_switching_the_mux(self):
+        for token in (
+            "`+0` probe, `+8` init, `+16` set_path, `+24` init_hv_control",
+            "`cmp w8,#0x1a ; ccmp w8,#0x10,#0x4,ne ; b.eq`",
+            "**execute a bare `ret`**",
+            "returns **`-2`** when clear",
+            "**And the log line is emitted before the call, unconditionally.**",
+            "evidence that the\nsequence was *entered*, not that the mux was *switched*",
+            "in this image the retry loop waits for nothing",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
 
     def test_open_list_does_not_relist_what_the_unit_closed(self):
         # The bootloader OP 0x06 bullet was closed by the Muic.efi disassembly;
