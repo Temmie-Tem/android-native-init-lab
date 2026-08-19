@@ -1407,6 +1407,52 @@ opcode with no public documentation, and its effect is inferred from the calling
 function's name, `max77705_ccic_set_sink`, and its argument of 0 — not from any
 specification.
 
+## The bootloader enumerates without any of the kernel's role machinery
+
+The UEFI volume that holds `Muic` and `Ccic` holds 84 files in all, and among
+them is a complete USB stack: `UsbfnDwc3Dxe`, `UsbInitDxe`, `UsbConfigDxe`,
+`UsbPwrCtrlDxe`, `UsbDeviceDxe`, `UsbBusDxe`, `UsbMsdDxe`, `UsbMassStorageDxe`
+and `UsbKbDxe`. `UsbfnDwc3Dxe` at 102400 bytes is a full DWC3 **function**
+driver — TRB rings, physical endpoints, `StartXfer`/`EndXfer`/`UpdateXfer`, a
+control state machine handling reset and disconnect, and charger-port detection
+through `PmicSmbchgProtocol->ChargerPort()`.
+
+The structurally important part is how the mode is chosen. `UsbConfigDxe`
+exposes a core interface whose members its asserts name outright:
+
+```
+UsbCoreIfc->InitCommon      UsbCoreIfc->Reset
+UsbCoreIfc->InitDevice      UsbCoreIfc->EnableVbus
+UsbCoreIfc->InitHost        UsbCoreIfc->GetVbusStatus
+UsbCoreIfc->PollSSPhyTraining
+UsbCoreIfc->AdvanceSSCmplPattern
+```
+
+with errors including `Cannot Get Connection Mode for Core %d` and
+`Cannot simulate host and device at the same time`. **The bootloader selects
+peripheral mode by calling `InitDevice` on the core directly.** There is no role
+switch, no UCSI, no extcon and no PDIC anywhere in that path — and Odin
+enumerates to a host on this exact hardware every time the campaign flashes.
+
+That changes the weight of this unit's UCSI finding rather than contradicting it.
+UCSI over GLINK is how the **stock kernel** chooses to initiate the role; it is
+**not a precondition for device-mode enumeration on this SoC**, and the
+bootloader is the existence proof. A candidate that writes `peripheral` to
+`a600000.ssusb/mode` is doing the kernel-side equivalent of `InitDevice` — it
+sets `vbus_active` and drives the DRD state machine directly, bypassing UCSI
+exactly as the bootloader bypasses it.
+
+So "the candidate cannot reach UCSI" is true and much less consequential than it
+first appeared: **the candidate does not need to reach it.** What the bootloader
+does that a candidate on a normal boot does not is narrower and already
+identified — Odin routes the analog path with `MuicSetPath(1)` before bringing
+the controller up, and a normal boot leaves `COM_OPEN`.
+
+The limit: this is read from strings and the interface's own assert messages,
+not from disassembling `InitDevice`. What the bootloader programs inside the
+core, and whether any of it differs from what the kernel programs, is not
+established here.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections

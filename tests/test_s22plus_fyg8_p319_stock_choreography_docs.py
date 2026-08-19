@@ -39,6 +39,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The failure vocabulary, measured on the candidate that actually ran",
         "Can the candidate bring UCSI up? No, and the missing piece is one module",
         "The CCIC half: the bootloader parks the connector",
+        "The bootloader enumerates without any of the kernel's role machinery",
         "What remains open",
         "Evidence",
     )
@@ -849,6 +850,25 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
         self.assertNotIn("There is **no capture of a normal boot's ABL stage**", self.report)
+
+    def test_report_records_the_bootloader_usb_stack(self):
+        for token in (
+            "`UsbfnDwc3Dxe` at 102400 bytes is a full DWC3 **function**",
+            "UsbCoreIfc->InitDevice",
+            "`Cannot simulate host and device at the same time`",
+            "There is no role\nswitch, no UCSI, no extcon and no PDIC anywhere in that path",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_reweights_the_ucsi_finding(self):
+        for token in (
+            "**not a precondition for device-mode enumeration on this SoC**",
+            "**the candidate does not need to reach it.**",
+            "not from disassembling `InitDevice`",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
 
     def test_ledger_records_one_row_for_this_topic(self):
         rows = [
