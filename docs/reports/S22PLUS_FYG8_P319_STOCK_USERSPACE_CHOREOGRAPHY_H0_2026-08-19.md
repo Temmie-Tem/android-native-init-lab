@@ -813,6 +813,68 @@ path silent for 28 runs, most of what is believed about candidate runtime
 behaviour still rests on the candidate's design or on inference from stock, and
 the discipline that matters is labelling an inference as one.
 
+## Why the P3.18 carrier decoded as bad-body
+
+With the carrier established as a working channel, the useful question is why
+its P3.18 payload was `[valid, bad-body]`. The frame is on this host and the
+decoder is in this repository, so the question is answerable by running one
+against the other.
+
+The record sits at offset **1,649,274** in `rollback-observer-1.bin`, immediately
+after XBL bootloader output, and is 192 bytes: a 32-byte header plus two 80-byte
+slots. The header decodes cleanly — family `S22E1L2|`, format version 2, profile
+`E2`, run id `b9cc424d0d184f5accbce94a844e817d`, `header_crc_valid: true`.
+
+Running the campaign's own `decode_record` gives
+`slot_status: ['valid', 'bad-body']`, which is exactly the pair `GOAL.md`
+records:
+
+- **slot 0 is valid**: generation 46, stage `0x65`, outcome PROGRESS, item 37.
+  Clean, fully decoded candidate telemetry.
+- **slot 1 is `bad-body`**: generation 47, stage `0x66`, outcome FAILURE, item 38,
+  detail `0x6010`.
+
+The important part is *which* of the three `bad-body` causes fired, because
+`_decode_slot` uses one label for three very different situations. It was not
+the structural check — `reserved` is 0, `length` is 0, and the padding tail is
+all zero. It was not the canonical-encoding check either: re-encoding the slot
+reproduces the raw 80 bytes exactly. And the CRC had already validated before
+any of this.
+
+**So slot 1 is authentic and undamaged.** It is refused by
+`_validate_semantics` alone, and the message names the rule:
+`s22plus_fyg8_p294_telemetry_spec.py:417`, "P2.94 exact detail is outside its
+declared route". Reading that function, the path taken is the blanket guard —
+`detail >= 0xC00` with `(ordinal 46, outcome FAILURE, detail 0x6010)` absent from
+the exact rule set. `0x6010` is 24592, far above `0xC00`.
+
+That is a **policy refusal of a real datum**, not a corrupted payload.
+
+Two things follow, and one of them is a caution about this section rather than
+about the campaign.
+
+The caution first: an earlier run of this decode reported *both* slots as
+`bad-body`, because the profile string was guessed as `"p318"` instead of the
+`E2` the header declares. With the wrong profile even slot 0 fails semantic
+validation. The corrected run is the one above.
+
+The campaign already knew the slot was `bad-body` and reads the value anyway:
+`s22plus_fyg8_p318_historical_eud_index_sweep.py:411-412` records the same
+offset 1,649,274, the same two slot tuples including `24592`, and labels it
+`valid-bad-body-recovered-0x6010`, with
+`frozen_decoder_exposed_bad_body_successes: 2`. So this is a deliberate,
+recorded practice and not an unnoticed integrity gap. What was missing — absent
+from every report, from `GOAL.md`, and from the sweep — is the *reason* the
+decoder refused it, which is now named.
+
+The consequence for evidence design is a reframing. The retained-log carrier is
+not lossy, and payload integrity is not the problem: two slots arrived, both
+byte-perfect. The gap is that the emitter can produce failure detail codes the
+spec's route table does not declare, and the decoder then refuses an authentic
+record rather than surfacing it. Improving candidate evidence therefore means
+reconciling the emitter's failure-code space with the declared routes — an
+edit to a table on this host — and not building a new channel.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections

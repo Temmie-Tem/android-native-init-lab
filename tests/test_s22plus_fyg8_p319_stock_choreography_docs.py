@@ -34,6 +34,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "system and product init contributes nothing to the data path",
         "What actually initiates the role on stock",
         "The candidate channel that works, and the one that never has",
+        "Why the P3.18 carrier decoded as bad-body",
         "What remains open",
         "Evidence",
     )
@@ -621,6 +622,46 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "they no longer need a *new* channel",
             "`[valid, bad-body]`",
             "payload integrity on a working\ncarrier, not the absence of a carrier",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_decodes_the_carrier_frame_at_its_offset(self):
+        for token in (
+            "offset **1,649,274**",
+            "a 32-byte header plus two 80-byte\nslots",
+            "`header_crc_valid: true`",
+            "`slot_status: ['valid', 'bad-body']`",
+            "**slot 0 is valid**: generation 46, stage `0x65`",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_isolates_which_bad_body_cause_fired(self):
+        for token in (
+            "one label for three very different situations",
+            "**So slot 1 is authentic and undamaged.**",
+            "`s22plus_fyg8_p294_telemetry_spec.py:417`",
+            "`detail >= 0xC00`",
+            "**policy refusal of a real datum**, not a corrupted payload",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_records_the_wrong_profile_self_correction(self):
+        for token in (
+            "an earlier run of this decode reported *both* slots as\n`bad-body`",
+            'the profile string was guessed as `"p318"`',
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_credits_the_campaign_and_names_what_was_missing(self):
+        for token in (
+            "`valid-bad-body-recovered-0x6010`",
+            "deliberate,\nrecorded practice and not an unnoticed integrity gap",
+            "is the *reason* the\ndecoder refused it, which is now named",
+            "not building a new channel",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
