@@ -177,6 +177,42 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
+    def test_report_closes_the_module_identity_question_with_a_digest(self):
+        for token in (
+            "27e988788242888dc0c3acaf835a66585c024b034b07741e619b674ee77db3db  ramdisk",
+            "27e988788242888dc0c3acaf835a66585c024b034b07741e619b674ee77db3db  vendor_dlkm",
+            "here they\nare the same file",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_states_the_whole_tree_comparison_not_just_the_one_module(self):
+        for token in (
+            "441 `.ko` files",
+            "`vendor_dlkm` holds 356",
+            "**all 306 are byte\nidentical, with zero differences**",
+            "every one of the 135 is in the ramdisk's\n  own 140-entry first-stage",
+            "Not one of them matches `usb`, `typec`, `muic`, `pdic`, `dwc`, `phy`, or\n  `redriver`",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_states_the_consequence_for_a_candidate(self):
+        for token in (
+            "no difference between the two copies can explain any candidate\nfailure",
+            "no candidate needs to mount a logical partition to reach the USB\npath",
+            "strictly stronger statement than the matching\nvermagic",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_no_longer_lists_the_identity_question_as_open(self):
+        self.assertNotIn(
+            "- The ramdisk versus `vendor_dlkm` `pdic_max77705.ko` identity, "
+            "still unresolved.",
+            self.report,
+        )
+
     def test_ledger_records_one_row_for_this_topic(self):
         rows = [
             line

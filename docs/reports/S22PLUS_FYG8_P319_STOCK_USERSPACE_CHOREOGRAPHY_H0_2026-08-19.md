@@ -205,7 +205,8 @@ register read that has already been run.
 ## What remains open
 
 - Whether `ss_mon.etc` participates in the pull-up, or is only telemetry.
-- The ramdisk versus `vendor_dlkm` `pdic_max77705.ko` identity, still unresolved.
+- ~~The ramdisk versus `vendor_dlkm` `pdic_max77705.ko` identity.~~ Closed
+  below.
 - The 69-entry P3.17 plan against the 140-entry first-stage list.
 - The static CONTROL1 writer graph, of which `max77705-muic.c:1825` is now
   located: water handling can issue `com_to_open` and, under
@@ -280,3 +281,46 @@ rely on the controller's default. Searching the campaign's records finds no run
 in which stage `0x8f` produced `EPROTO`; the recorded `0x8f` outcome is
 `ETIMEDOUT` before `configured`. The high-speed pin has therefore never been the
 observed failure, which bounds it rather than clearing it.
+
+## The module identity question is closed, and it closes wider than asked
+
+The module-closure-plan unit left one thing unresolved and said why: the
+ramdisk's 423456-byte `pdic_max77705.ko` did not appear verbatim inside
+`vendor_dlkm.img`, and because that image has F2FS compression enabled a byte
+search proved nothing either way. Mounting the filesystem removes the obstacle
+entirely, since the host kernel decompresses on read. The two files are not
+merely the same build:
+
+    27e988788242888dc0c3acaf835a66585c024b034b07741e619b674ee77db3db  ramdisk
+    27e988788242888dc0c3acaf835a66585c024b034b07741e619b674ee77db3db  vendor_dlkm
+
+Identical bytes, identical 423456-byte size. The earlier caution that "same name
+is not same module" was the right caution and the answer to it is that here they
+are the same file.
+
+Comparing every module rather than the one that was asked about turns this from
+a fact into a structural property. The vendor_boot ramdisk holds 441 `.ko` files
+and `vendor_dlkm` holds 356; 306 names appear in both, and **all 306 are byte
+identical, with zero differences**. The two disjoint sets are not arbitrary:
+
+- 135 modules are ramdisk-only, and every one of the 135 is in the ramdisk's
+  own 140-entry first-stage `modules.load`. The first stage's exclusive modules
+  are exactly the ones `vendor_dlkm` does not re-ship.
+- 50 modules are `vendor_dlkm`-only, and they are entirely late-boot media and
+  data: the `lpass_cdc`, `wcd`, `swr` and `q6` audio stack, `msm_video`,
+  `msm-eva`, `camera`, `hdmi`, and the `rmnet_*` and `ipa*` networking modules.
+  Not one of them matches `usb`, `typec`, `muic`, `pdic`, `dwc`, `phy`, or
+  `redriver`.
+
+All fourteen members of the `pdic_max77705` closure — `usb_notify_layer`,
+`mfd_max77705`, `switch_class`, `common_muic`, `pdic_notifier_module`,
+`vbus_notifier`, `usb_typec_manager`, `usb_f_ss_mon_gadget`, `redriver`,
+`if_cb_manager`, `qc_usb_audio`, `dwc3-msm`, `spu_verify` and `pdic_max77705` —
+are present in both trees and byte identical in both.
+
+The consequence is stronger than the question. A candidate that loads the mux
+and USB stack from the ramdisk is loading the same bytes stock loads from
+`vendor_dlkm`, so no difference between the two copies can explain any candidate
+failure, and no candidate needs to mount a logical partition to reach the USB
+path. Byte identity is also a strictly stronger statement than the matching
+vermagic the closure-plan unit recorded.
