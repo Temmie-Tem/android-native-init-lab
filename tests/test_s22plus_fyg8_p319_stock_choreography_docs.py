@@ -31,7 +31,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The role-to-pull-up chain, traced",
         "The module identity question is closed, and it closes wider than asked",
         "The bootloader, which was available all along",
-        "system and product init contributes nothing to the data path",
+        "system and product, swept in full",
         "What actually initiates the role on stock",
         "The candidate channel that works, and the one that never has",
         "Why the P3.18 carrier decoded as bad-body",
@@ -67,7 +67,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         self.assertIsNotNone(section)
         self.assertNotIn("~~", section.group(1))
         items = re.findall(r"^- ", section.group(1), re.MULTILINE)
-        self.assertEqual(len(items), 4)
+        self.assertEqual(len(items), 3)
         self.assertNotIn("holds no analysable BL", section.group(1))
 
     def test_report_states_the_h0_only_authority_boundary(self):
@@ -541,6 +541,20 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         self.assertIn("`muic_set_path` is still absent from both captures", self.report)
         self.assertIn("That narrower negative\nsurvives; the broad one did not.", self.report)
 
+    def test_report_closes_the_written_value_route_as_unrecoverable(self):
+        for token in (
+            "**The code that did run is in none of the extracted images.**",
+            "appear as readable strings in\n**zero** of the 30 extracted bootloader images",
+            "would therefore\ndisassemble the wrong code",
+            "recoverable from this host by any means identified here",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+        self.assertNotIn(
+            "- What value the bootloader's `OP 0x06` CONTROL1 write carries. The write is",
+            self.report,
+        )
+
     def test_report_withdraws_the_two_candidate_boots_claim(self):
         for token in (
             "**that is withdrawn**",
@@ -553,13 +567,25 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
                 self.assertIn(token, self.report)
         self.assertNotIn("on two complete candidate boots, before writing", self.report)
 
-    def test_report_bounds_the_system_product_negative_to_init(self):
+    def test_report_widens_the_system_product_negative_with_the_full_sweep(self):
         for token in (
             "`system/etc/init` holds 108 files and exactly two of them name any USB path",
-            "`product/etc/init` holds two files and names none.",
-            "no\n`disabled` flag",
             "and no\n`android.hardware.usb.gadget` / `IUsbGadget` entry at all",
-            "the negative is about init, not about the whole partition",
+            "The privileged\nsweep has since run and the bound can be lifted",
+            "**from `product`: nothing at all**",
+            "`usbd` is an `IUsbGadget` **client**",
+            "`IUsbGadgetCallback`",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+        self.assertNotIn("the negative is about init, not about the whole partition", self.report)
+
+    def test_report_states_what_the_sweep_does_not_establish(self):
+        for token in (
+            "named rather than characterised",
+            "the jars\nand the APK were not decompiled",
+            "establishes **which** artifacts\nreference those surfaces and not what they do with them",
+            "they are requirements documents and not\nevidence that one exists",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)

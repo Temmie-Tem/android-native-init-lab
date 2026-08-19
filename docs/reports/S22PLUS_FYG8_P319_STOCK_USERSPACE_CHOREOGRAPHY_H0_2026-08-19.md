@@ -592,7 +592,7 @@ It is now extracted: 30 images including `uefi.elf`, `abl.elf`, `xbl_s.melf`,
 
 ### One image is readable and it programs the MUIC
 
-`XblRamdump.elf` is plaintext. It carries Samsung MUIC bring-up as format
+`XblRamdump.elf` is plaintext. It carries *a* Samsung MUIC bring-up as format
 strings — `%s : muic_init`, `%s : muic_init_hv_control` and
 `%s : muic_set_path to USB` — and EUD control alongside it:
 `usb_eud_is_active, status`, `usb_eud_is_active, enable failed`,
@@ -660,6 +660,16 @@ The specific string `muic_set_path` is still absent from both captures, so the
 `XblRamdump.elf` function that logs it did not run. That narrower negative
 survives; the broad one did not.
 
+**The code that did run is in none of the extracted images.** The lines the
+captures actually carry — `muic_command_polling`, `ccic_is_max77705`,
+`MUIC Device : Max77705`, `max77705_read_adc` — appear as readable strings in
+**zero** of the 30 extracted bootloader images, `XblRamdump.elf` included. So
+`XblRamdump.elf` holds a MUIC path that did not execute, while the one that
+issued `OP 0x06` lives in one of the opaque images. An attempt to recover the
+written CONTROL1 value by disassembling `XblRamdump.elf` would therefore
+disassemble the wrong code, and that route is closed: the value is not
+recoverable from this host by any means identified here.
+
 ### What this means for the inheritance premise
 
 The premise this unit set out to test was that a candidate might inherit a
@@ -686,7 +696,7 @@ twice on every normal boot, and `usb_eud_is_active` never appears, so no enable
 or disable failure was logged. That does not settle whether EUD is enabled in
 hardware, and `/sys/module/eud/parameters/enable` remains the settling read.
 
-## system and product init contributes nothing to the data path
+## system and product, swept in full
 
 The remaining unread userspace was `system` and `product`. Their init is now
 swept and the result is a bounded negative.
@@ -707,10 +717,41 @@ VINTF under `vendor/etc/vintf/manifest/` declares only
 no gadget HAL, and exits. The gadget is still built by init rc, and the reason is
 now the absence of the HAL rather than only the property.
 
-What stays unread is `system/bin` and `system/framework`, which are not
-world-readable on the mounted image. The sweep above covers init only, so a
-system binary or framework service that touches the data path would not have
-been seen; the negative is about init, not about the whole partition.
+That negative was first bounded to init, because `system/bin` and
+`system/framework` are not world-readable on the mounted image. The privileged
+sweep has since run and the bound can be lifted, with the results stated as what
+they are.
+
+Across `bin`, `lib64`, `framework`, `priv-app`, `app` and `etc` in both
+partitions, the artifacts naming any of `a600000.ssusb`, `/sys/class/udc/`,
+`/config/usb_gadget`, `/sys/class/typec/port0`, `usb_notify/usb_control`,
+`usb_role` or `IUsbGadget` are:
+
+- `system/bin/usbd` and `system/bin/lpm`
+- `system/lib64/android.hardware.usb.gadget-V1-ndk.so` and
+  `android.hardware.usb.gadget@1.0.so`
+- `system/framework/{framework,services,telephony-common}.jar`
+- `system/priv-app/SecSettings/SecSettings.apk`
+- under `system/etc`, the two init rc files already read, `preloaded-classes`,
+  two sepolicy context files, and five `compatibility_matrix.*.xml`
+- **from `product`: nothing at all**, in any of the six directories
+
+Two of those resolve immediately. `usbd` is an `IUsbGadget` **client** — it links
+both gadget HAL client libraries and its symbol table carries the AIDL
+descriptors `aidl::android::hardware::usb::gadget::IUsbGadget` and
+`IUsbGadgetCallback` — and the vendor VINTF declares no `IUsbGadget` at all, so
+the client has no service to reach. That is the same conclusion the init sweep
+reached, now with the binary rather than the manifest as its evidence. The
+`compatibility_matrix.*.xml` hits are AOSP framework matrices listing
+`IUsbGadget` as a permitted HAL; they are requirements documents and not
+evidence that one exists.
+
+The rest is named rather than characterised, and the limit is stated: the jars
+and the APK were not decompiled, so this sweep establishes **which** artifacts
+reference those surfaces and not what they do with them. What it does support is
+that no `system` or `product` native binary or library other than `usbd` and its
+client libraries names the USB data path at all, and that `product` names none of
+it anywhere.
 
 ## What actually initiates the role on stock
 
@@ -932,10 +973,6 @@ and the ledger carries the order they were closed in. What is still open:
 - Whether the water branch ever fired on the candidates that did load
   `pdic_max77705`. Those runs did not preserve the MUIC sequence, so the test
   cannot be run retrospectively and only a new run can answer it.
-- What value the bootloader's `OP 0x06` CONTROL1 write carries. The write is
-  now proven to happen on every normal boot; the value is not logged, and
-  `uefi.elf`, `abl.elf` and `xbl_s.melf` are encrypted, so neither the log nor a
-  string search settles it.
 
 ## Evidence
 
