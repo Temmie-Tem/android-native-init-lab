@@ -1182,11 +1182,55 @@ ramdisk and **neither is in the candidate's 70-entry plan.** What the plan does
 carry is `rproc_qcom_common.ko`, which is the shared helper and not the driver
 that binds `3000000.remoteproc-adsp`.
 
-So the chain breaks at its first link: no ADSP driver, so no ADSP remoteproc, so
-no `glink-edge`, so no `PMIC_RTR_ADSP_APPS` channel, so `pmic_glink` has nothing
-to attach to, so its `qcom,ucsi` child never appears, so nothing calls
-`usb_role_switch_set_role`. A candidate reaching `mode_store` by writing sysfs is
-not reproducing the stock path; it is substituting for a path that cannot run.
+**An independent review attacked this conclusion and four of its objections were
+verified as correct.** The conclusion survives, but its mechanism, its wording
+and its status all change.
+
+*Wrong as written:* an earlier version said no ADSP driver means `pmic_glink`
+has nothing to attach to, so its `qcom,ucsi` child never appears, and described
+that as a permanent block. `pmic_glink` does not fail permanently. Its client
+registration returns `-EPROBE_DEFER` while the device is down
+(`pmic_glink.c:311-312`), and `pmic_glink_rpmsg_probe` sets `state` to 1 and
+schedules initialisation whenever the channel later appears (`:479-494`). A late
+bring-up recovers.
+
+*Also wrong:* this report speculated that the `msm/adsp/charger_pd` protection
+domain might need a userspace registrar. It does not gate child creation —
+`pmic_glink_init_work` calls `of_platform_populate` guarded only by
+`child_probed`, with the PDR check above it deciding merely whether to notify
+clients (`:545-566`).
+
+*What actually supports the conclusion* is narrower and was not the reason
+given. `schedule_work(&pgdev->init_work)` occurs **exactly once** in the driver,
+at `pmic_glink.c:494`, inside the rpmsg probe, and the driver says so itself in
+two comments: *"pmic_glink_init_work which will be run only after rpmsg"*
+(`:158`, `:186`). No rpmsg edge therefore means no `of_platform_populate` and no
+`qcom,ucsi` child — not because anything is blocked, but because the only thing
+that creates the children is never scheduled.
+
+*The elimination of other role-switch callers holds on this device.* The review
+correctly noted that `qcom-pmic-typec.c`, `tcpm.c` and `usb-conn-gpio.c` also
+call `usb_role_switch_set_role`. None can run here: no `qcom-pmic-typec`,
+`tcpm`, `usb-conn-gpio`, `hd3ss3220` or `tps6598x` module is shipped in either
+`vendor_dlkm` or the ramdisk, and none of `qcom,pmic-typec`, `usb-c-connector`,
+`ti,hd3ss3220` or `ti,tps6598x` appears in the vendor_boot DTB. Built-in or not,
+a driver with no device tree node cannot bind.
+
+*The log ordering was overstated.* This report said the edge appears after the
+subsystem "has been booted with firmware". The retained log shows
+`powering up 3000000.remoteproc-adsp` and `Booting fw image adsp.mdt, size 5104`
+at 6.897 s and the GLINK edge 86 ms later at 6.983 s — after boot **initiation**,
+not after completion. Worth noting from the same lines: the ADSP powerup runs on
+a **kworker**, while the CDSP's is driven by `init.qti.write.` from userspace, so
+the ADSP side does not need userspace to start it. That strengthens rather than
+weakens the point about the missing driver.
+
+*Status, corrected.* This is **conditional**, not proved. Without
+`qcom_q6v5_pas` there is no ADSP remoteproc and therefore no
+`PMIC_RTR_ADSP_APPS` rpmsg edge, so the UCSI child is never created and nothing
+calls `usb_role_switch_set_role`. Whether some other producer could create that
+rpmsg channel without the Q6 driver is **not established either way**, and the
+ledger row that marked the absolute form `PROVED` overreached.
 
 ### The methodological point is worth more than the fact
 

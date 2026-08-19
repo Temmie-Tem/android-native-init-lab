@@ -745,7 +745,11 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "And it still cannot work.",
             'qcom,pmic-glink-channel  = "PMIC_RTR_ADSP_APPS"',
             "**neither is in the candidate's 70-entry plan.**",
-            "so nothing calls\n`usb_role_switch_set_role`",
+            "four of its objections were\nverified as correct.**",
+            "`schedule_work(&pgdev->init_work)` occurs **exactly once**",
+            "a driver with no device tree node cannot bind",
+            "after boot **initiation**,\nnot after completion",
+            "This is **conditional**, not proved.",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
