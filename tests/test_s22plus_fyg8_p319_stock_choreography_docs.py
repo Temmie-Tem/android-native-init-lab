@@ -35,8 +35,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "What actually initiates the role on stock",
         "The candidate channel that works, and the one that never has",
         "Why the P3.18 carrier decoded as bad-body",
-        "The refusal is systemic, not specific to one code",
-        "The unrouted codes are legacy, and the fix is not a bigger table",
+        "The failure vocabulary, measured on the candidate that actually ran",
         "What remains open",
         "Evidence",
     )
@@ -694,70 +693,48 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
-    def test_report_censuses_the_emitter_vocabulary(self):
+    def test_report_measures_the_real_candidate_population(self):
         for token in (
-            "**111** distinct codes",
-            "**108 are at or above `0xC00`**",
-            "**exactly one** of those 108 is routed",
-            "`P282_DETAIL_CYCLE_TRACE_CONTROL_UNAVAILABLE` at `0xc01`",
-            "**107 appear\nin no declared route at all**",
+            "the third of its kind in this unit",
+            "Neither number was about a candidate.",
+            "holds **256** detail constants",
+            "**176 are referenced**",
+            "**163 of those are at or above `0xC00`**",
+            "**52 are routed**",
+            "**79 are covered by neither**",
+            "48 percent of the reachable vocabulary rather than 99 percent",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+        self.assertNotIn("**exactly one** of those 108 is routed", self.report)
+        self.assertNotIn("The split is generational and total.", self.report)
+
+    def test_report_describes_the_gap_between_two_models(self):
+        for token in (
+            "two islands with a gap between them",
+            "| P3.07 | 0 | 0 | 9 | 9 |",
+            "sits in the middle of that gap",
+            "validated by a model that brackets it on both sides",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
-    def test_report_bounds_the_census(self):
+    def test_report_keeps_the_frozen_spec_refusal_and_the_design(self):
         for token in (
-            "The P3.13 and P3.14 specs are structured\ndifferently",
-            "nothing here says whether they route more",
-            "not of what any particular candidate build links",
+            "**The frozen specs must not be edited**",
+            "**Emitter-side.**",
+            "**Decoder-side, diagnostic only.**",
+            "now a measured size for that work rather than an estimate",
+            "This unit stops at the\nmeasurement and the design.",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
-    def test_report_credits_the_prior_semantic_record(self):
+    def test_report_still_credits_the_prior_semantic_record(self):
         for token in (
             "What is **not** new here is the meaning of `0x6010`",
             "S22PLUS_FYG8_P318_POSTLIVE_EUD_INDEX_RECOVERY_H0_2026-08-17.md:62",
-            "This unit adds the census and the rule, not\nthe name.",
-        ):
-            with self.subTest(token=token):
-                self.assertIn(token, self.report)
-
-    def test_report_retires_the_proposed_eud_device_read(self):
-        self.assertIn(
-            "**the candidate already reads the very file this report has twice proposed as a\nsettling D0**",
-            self.report,
-        )
-        self.assertIn(
-            "A host D0 read\n  of the same file would not answer it.", self.report
-        )
-
-    def test_report_shows_the_generational_split(self):
-        for token in (
-            "| **P3.13** | **32** | **31** |",
-            "The split is generational and total.",
-            "**73 in all**, is covered by\nnothing",
-            "`b_outputs()` spanning\n`0x4801`-`0x6fff`",
-            "a\nP3.07 hand-assignment that predates the scheme",
-        ):
-            with self.subTest(token=token):
-                self.assertIn(token, self.report)
-
-    def test_report_refuses_to_edit_the_frozen_specs(self):
-        for token in (
-            "**The frozen specs must not be edited**",
-            "changing\na route table retroactively would change what past evidence means",
-            "Adding 107\nroutes to a frozen allowlist is exactly that.",
-        ):
-            with self.subTest(token=token):
-                self.assertIn(token, self.report)
-
-    def test_report_offers_two_changes_and_stops_at_design(self):
-        for token in (
-            "**Emitter-side.**",
-            "**Decoder-side, diagnostic only.**",
-            "without changing whether any slot is accepted",
-            "This unit stops at the measurement and the design.",
+            "makes the\nproposed read a duplicate",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)

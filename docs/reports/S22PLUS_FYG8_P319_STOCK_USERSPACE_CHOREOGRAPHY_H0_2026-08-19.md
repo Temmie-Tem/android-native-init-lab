@@ -916,104 +916,86 @@ record rather than surfacing it. Improving candidate evidence therefore means
 reconciling the emitter's failure-code space with the declared routes — an
 edit to a table on this host — and not building a new channel.
 
-## The refusal is systemic, not specific to one code
+## The failure vocabulary, measured on the candidate that actually ran
 
-Naming the rule that refused `0x6010` invites the obvious follow-up: how much of
-what a candidate can report does that rule refuse? The answer is nearly all of
-it.
+This section replaces two earlier ones that measured the wrong population, and
+the correction is the third of its kind in this unit, so the method error is
+stated first.
 
-The emitter's vocabulary was collected from the `#define P<NNN>_DETAIL_<NAME>`
-constants across the runtime transforms: **111** distinct codes. Three are below
-`0xC00` and are stage masks rather than failure details
-(`P282_..._STAGE_MASK` at `0x0e`, `P288_..._STAGE_MASK` at `0x08` and `0x7f`).
-The remaining **108 are at or above `0xC00`**, which is the threshold of the
-blanket guard.
+Both earlier versions collected detail constants by scanning the runtime
+*transform scripts* — 111 constants — and concluded that 108 were at or above
+`0xC00` with **exactly one** routed, and then that coverage split cleanly at
+P3.13. Neither number was about a candidate. The authoritative population is the
+materialized source set the candidate is actually built from, at
+`workspace/private/outputs/s22plus_fyg8_p318/intent/materialized-sources`, and it
+holds **256** detail constants, of which **176 are referenced** somewhere other
+than their own `#define` and **163 of those are at or above `0xC00`**.
 
-Against the two spec generations that expose a route table —
-`s22plus_fyg8_p294_telemetry_spec` and `s22plus_fyg8_p296_telemetry_spec`, with
-254 and 246 declared detail values — **exactly one** of those 108 is routed:
-`P282_DETAIL_CYCLE_TRACE_CONTROL_UNAVAILABLE` at `0xc01`. The other **107 appear
-in no declared route at all**, so a slot carrying any of them is refused as
-`bad-body` wherever it is emitted.
+Measured against that population:
 
-`0x6010` is one of the 107. Its `bad-body` was therefore not an unlucky code: on
-the validator that ran, almost the entire failure vocabulary is unroutable, and
-nearly any failure the candidate could have reported would have been refused the
-same way.
+| Minting generation | routed by the P2.94 allowlist | covered by the P3.14 families | covered by neither | total |
+|---|---|---|---|---|
+| P2.82 | 50 | 0 | 3 | 53 |
+| P2.88 | 2 | 0 | 0 | 2 |
+| P2.98 | 0 | 0 | 19 | 19 |
+| P3.00 | 0 | 0 | 13 | 13 |
+| P3.01 | 0 | 0 | 8 | 8 |
+| P3.03 | 0 | 0 | 15 | 15 |
+| P3.07 | 0 | 0 | 9 | 9 |
+| P3.11 | 0 | 0 | 12 | 12 |
+| P3.13 | 0 | 29 | 0 | 29 |
+| P3.15 | 0 | 3 | 0 | 3 |
 
-Two limits on that census, both real. The P3.13 and P3.14 specs are structured
-differently and expose no comparable `exact_detail_rules()`, so they were not
-compared and nothing here says whether they route more. And the count is of what
-the emitter *can* produce, not of what any particular candidate build links.
+So **52 are routed** by the very allowlist the earlier version said routed one,
+**32** are covered by the computed families, and **79 are covered by neither** —
+48 percent of the reachable vocabulary rather than 99 percent.
+
+The shape is two islands with a gap between them. The P2.94 allowlist covers the
+generation it was written alongside, P2.82 and P2.88. The P3.14 families cover
+P3.13 and P3.15. Everything minted **between** them — P2.98, P3.00, P3.01,
+P3.03, P3.07 and P3.11, 76 codes, plus three P2.82 stragglers — is covered by
+neither model. `0x6010`, a P3.07 constant, sits in the middle of that gap.
+
+The mechanism behind the gap is unchanged and is the useful part. The early
+specs enumerate an allowlist of exact `(ordinal, outcome, detail)` routes and
+their constants were hand-assigned in blocks; from P3.13 the spec switched to
+computed families, `a_outputs()` at `0xd00` upward and `b_outputs()` spanning
+`0x4801`-`0x6fff`. Constants minted while the allowlist was no longer being
+extended and the family scheme did not yet exist belong to neither, which is why
+`0x6010` falls numerically inside the family B range and is still not a family B
+value.
+
+So `bad-body` on `0x6010` is neither a bug nor bad luck: it is a mid-era
+constant validated by a model that brackets it on both sides.
+
+That still rules out the obvious fix. **The frozen specs must not be edited**,
+because the P3.18 decode and every earlier one were performed against them and
+changing a route table retroactively would change what past evidence means.
+
+Two changes remain available and neither touches a frozen spec:
+
+- **Emitter-side.** A candidate that must report one of the 79 uncovered
+  conditions should map it into the current family space rather than emit the
+  mid-era constant. This is the fix that makes future failures legible, and it
+  is a change to the runtime transforms rather than to any decoder. The 79 is
+  now a measured size for that work rather than an estimate.
+- **Decoder-side, diagnostic only.** `_decode_slot` returns `bad-body` for three
+  unrelated situations — structural violation, semantic refusal and canonical
+  mismatch — which is what made this cost an afternoon to diagnose. Reporting an
+  unrouted detail under its own status would surface these as out-of-model
+  rather than as damage, without changing whether any slot is accepted.
+
+Both are machinery changes and carry a review obligation. This unit stops at the
+measurement and the design.
 
 What is **not** new here is the meaning of `0x6010`. The campaign already has it:
 `docs/reports/S22PLUS_FYG8_P318_POSTLIVE_EUD_INDEX_RECOVERY_H0_2026-08-17.md:62`
 records that an open, read, or close failure returns
-`P307_DETAIL_EUD_CACHE_READ_FAILED`. This unit adds the census and the rule, not
-the name.
-
-One thing that census surfaced is worth carrying forward on its own. The same
-audit pins `#define P307_EUD_CACHE_PATH "/sys/module/eud/parameters/enable"` —
-**the candidate already reads the very file this report has twice proposed as a
-settling D0**, and P3.18's reported failure is that read failing. The proposed
-device read would therefore duplicate something the candidate performs itself,
-and the more interesting question is why it failed on a candidate, which is a
-candidate-side question and not a host-side one.
-
-## The unrouted codes are legacy, and the fix is not a bigger table
-
-The census said 107 of 108 emitter codes have no declared route, which invites
-authoring 107 routes. That would be the wrong move, and breaking the number down
-by the generation that minted each constant shows why.
-
-| Emitter generation | codes at or above `0xC00` | covered by the P3.14 families |
-|---|---|---|
-| P2.82 | 1 | 0 |
-| P2.98 | 19 | 0 |
-| P3.00 | 13 | 0 |
-| P3.01 | 9 | 0 |
-| P3.03 | 15 | 0 |
-| P3.06 | 6 | 0 |
-| P3.07 | 10 | 0 |
-| **P3.13** | **32** | **31** |
-| **P3.15** | **3** | **3** |
-
-The split is generational and total. Every constant minted from P3.13 onward is
-covered — 34 of 35. Every constant minted before it, **73 in all**, is covered by
-nothing.
-
-The reason is a change of model rather than an omission. The early specs
-enumerate an allowlist of exact `(ordinal, outcome, detail)` routes, and detail
-constants were hand-assigned in blocks — `0x0f60` upward for P2.98, `0x6001`
-upward for P3.01 through P3.07. From P3.13 the spec switched to **computed
-families**: `a_outputs()` at `0xd00` upward and `b_outputs()` spanning
-`0x4801`-`0x6fff`, derived from a matrix rather than listed. `0x6010` sits
-numerically inside the family B range and is still not a family B value, because
-that range is a computed subset with declared exclusions, and `0x6010` is a
-P3.07 hand-assignment that predates the scheme.
-
-So `bad-body` on `0x6010` is neither a bug nor bad luck: it is a legacy constant
-being validated by a spec generation that no longer mints constants that way.
-
-That rules out the obvious fix. **The frozen specs must not be edited**, because
-the P3.18 decode and every earlier one were performed against them and changing
-a route table retroactively would change what past evidence means. Adding 107
-routes to a frozen allowlist is exactly that.
-
-Two changes are available and neither touches a frozen spec:
-
-- **Emitter-side.** A candidate that must report one of the 73 legacy
-  conditions should map it into the current family space rather than emit the
-  legacy constant. This is the fix that actually makes future failures legible,
-  and it is a change to the runtime transforms, not to any decoder.
-- **Decoder-side, diagnostic only.** `_decode_slot` returns `bad-body` for three
-  unrelated situations — structural violation, semantic refusal, and canonical
-  mismatch — which is what made this cost an afternoon to diagnose. Reporting an
-  unrouted detail under its own status would surface legacy codes as legacy
-  rather than as damage, without changing whether any slot is accepted.
-
-Both are machinery changes and therefore carry a review obligation before they
-are made. This unit stops at the measurement and the design.
+`P307_DETAIL_EUD_CACHE_READ_FAILED`. The same audit pins
+`#define P307_EUD_CACHE_PATH "/sys/module/eud/parameters/enable"`, so the
+candidate already reads the file this report twice proposed as a settling device
+read, and P3.18's reported failure is that read failing — which makes the
+proposed read a duplicate and moves the question to why it failed on a candidate.
 
 ## What remains open
 
