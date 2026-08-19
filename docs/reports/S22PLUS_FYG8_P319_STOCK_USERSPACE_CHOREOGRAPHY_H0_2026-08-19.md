@@ -875,6 +875,50 @@ record rather than surfacing it. Improving candidate evidence therefore means
 reconciling the emitter's failure-code space with the declared routes — an
 edit to a table on this host — and not building a new channel.
 
+## The refusal is systemic, not specific to one code
+
+Naming the rule that refused `0x6010` invites the obvious follow-up: how much of
+what a candidate can report does that rule refuse? The answer is nearly all of
+it.
+
+The emitter's vocabulary was collected from the `#define P<NNN>_DETAIL_<NAME>`
+constants across the runtime transforms: **111** distinct codes. Three are below
+`0xC00` and are stage masks rather than failure details
+(`P282_..._STAGE_MASK` at `0x0e`, `P288_..._STAGE_MASK` at `0x08` and `0x7f`).
+The remaining **108 are at or above `0xC00`**, which is the threshold of the
+blanket guard.
+
+Against the two spec generations that expose a route table —
+`s22plus_fyg8_p294_telemetry_spec` and `s22plus_fyg8_p296_telemetry_spec`, with
+254 and 246 declared detail values — **exactly one** of those 108 is routed:
+`P282_DETAIL_CYCLE_TRACE_CONTROL_UNAVAILABLE` at `0xc01`. The other **107 appear
+in no declared route at all**, so a slot carrying any of them is refused as
+`bad-body` wherever it is emitted.
+
+`0x6010` is one of the 107. Its `bad-body` was therefore not an unlucky code: on
+the validator that ran, almost the entire failure vocabulary is unroutable, and
+nearly any failure the candidate could have reported would have been refused the
+same way.
+
+Two limits on that census, both real. The P3.13 and P3.14 specs are structured
+differently and expose no comparable `exact_detail_rules()`, so they were not
+compared and nothing here says whether they route more. And the count is of what
+the emitter *can* produce, not of what any particular candidate build links.
+
+What is **not** new here is the meaning of `0x6010`. The campaign already has it:
+`docs/reports/S22PLUS_FYG8_P318_POSTLIVE_EUD_INDEX_RECOVERY_H0_2026-08-17.md:62`
+records that an open, read, or close failure returns
+`P307_DETAIL_EUD_CACHE_READ_FAILED`. This unit adds the census and the rule, not
+the name.
+
+One thing that census surfaced is worth carrying forward on its own. The same
+audit pins `#define P307_EUD_CACHE_PATH "/sys/module/eud/parameters/enable"` —
+**the candidate already reads the very file this report has twice proposed as a
+settling D0**, and P3.18's reported failure is that read failing. The proposed
+device read would therefore duplicate something the candidate performs itself,
+and the more interesting question is why it failed on a candidate, which is a
+candidate-side question and not a host-side one.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
@@ -882,9 +926,9 @@ and the ledger carries the order they were closed in. What is still open:
 
 - Whether UCSI and GLINK come up on a candidate, which the section above shows
   cannot be asked from existing evidence.
-- Whether EUD is enabled in hardware, which is now a smaller question than it
-  looked because dwc3-msm subscribes to no extcon on this build. The settling
-  read is `/sys/module/eud/parameters/enable`.
+- Why the candidate's own read of `/sys/module/eud/parameters/enable` failed,
+  which is what `0x6010` reports and is a candidate-side question. A host D0 read
+  of the same file would not answer it.
 - Whether the water branch ever fired on the candidates that did load
   `pdic_max77705`. Those runs did not preserve the MUIC sequence, so the test
   cannot be run retrospectively and only a new run can answer it.

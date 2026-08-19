@@ -35,6 +35,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "What actually initiates the role on stock",
         "The candidate channel that works, and the one that never has",
         "Why the P3.18 carrier decoded as bad-body",
+        "The refusal is systemic, not specific to one code",
         "What remains open",
         "Evidence",
     )
@@ -665,6 +666,44 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
+
+    def test_report_censuses_the_emitter_vocabulary(self):
+        for token in (
+            "**111** distinct codes",
+            "**108 are at or above `0xC00`**",
+            "**exactly one** of those 108 is routed",
+            "`P282_DETAIL_CYCLE_TRACE_CONTROL_UNAVAILABLE` at `0xc01`",
+            "**107 appear\nin no declared route at all**",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_bounds_the_census(self):
+        for token in (
+            "The P3.13 and P3.14 specs are structured\ndifferently",
+            "nothing here says whether they route more",
+            "not of what any particular candidate build links",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_credits_the_prior_semantic_record(self):
+        for token in (
+            "What is **not** new here is the meaning of `0x6010`",
+            "S22PLUS_FYG8_P318_POSTLIVE_EUD_INDEX_RECOVERY_H0_2026-08-17.md:62",
+            "This unit adds the census and the rule, not\nthe name.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_retires_the_proposed_eud_device_read(self):
+        self.assertIn(
+            "**the candidate already reads the very file this report has twice proposed as a\nsettling D0**",
+            self.report,
+        )
+        self.assertIn(
+            "A host D0 read\n  of the same file would not answer it.", self.report
+        )
 
     def test_ledger_records_one_row_for_this_topic(self):
         rows = [
