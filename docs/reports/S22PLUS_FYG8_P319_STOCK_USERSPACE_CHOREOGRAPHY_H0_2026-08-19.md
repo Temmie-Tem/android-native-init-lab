@@ -1420,12 +1420,31 @@ The `SetPath: 1` line therefore belongs to **LinuxLoader's download-mode
 branch**, issued before Odin is launched, rather than to Odin itself as this
 report first said.
 
-None of that changes the conclusion, which rests on logs: across 80 ABL stages,
-77 download-mode boots log `SetPath: 1` and the three normal-boot stages log no
-`SetPath` at all. LinuxLoader has the call and does not take it on a normal
-boot. What is withdrawn is only the code-side "dead library" corroboration,
-which was an artifact of a hex conversion error — the sixth instance in this
-unit of concluding absence from an incomplete search.
+What is withdrawn is only the code-side "dead library" corroboration, which was
+an artifact of a hex conversion error — the sixth instance in this unit of
+concluding absence from an incomplete search. Enumerating the wrapper's callers
+properly replaces it with a real one. The wrapper begins at `0x401f8` and has
+**exactly three** callers, each with its argument in view:
+
+| site | guard | argument | effect |
+|---|---|---|---|
+| `0x1464` | immediately after logging `Launching odin` | `#0x1` | `COM_USB` |
+| `0x45a24` | `and w9, w11, #~1` then `cmp w9, #0x6` | `#0x1` | `COM_USB` |
+| `0x45a98` | `ldr w8, [x8, #1888]` then `cmp w8, #0x1` | `#0x6` | clears bit 6 only |
+
+The third is not a path switch: path id 6 lands in the `Muic` driver's
+read-modify branch at `0x2314`, which does `and w8, w19, #0xffffffbf` — it
+clears `RCPS`, bit 6, and leaves `COMN1SW`/`COMP2SW` untouched.
+
+So **no call site in LinuxLoader passes 0**; it never writes `COM_OPEN`, which
+leaves XBL's `muic_init` as the only writer of that value. Both real path
+switches pass `1`, and both sit behind conditions — one explicitly the
+download-mode branch, the other a mode test.
+
+That matches the log evidence exactly rather than merely being consistent with
+it: across 80 ABL stages, 77 download-mode boots log `SetPath: 1` and the three
+normal-boot stages log none, which is what a code path taken only under those
+two guards produces.
 
 One bound from the CCIC half survives, now with the search behind it. Opcode
 `0x5E` is not named anywhere reachable: the S22+ kernel's enum skips `0x5D` to

@@ -850,7 +850,11 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "987509 is `0xf1175`, not\n`0xf1195`",
             "finds **three** call sites",
             "belongs to **LinuxLoader's download-mode\nbranch**",
-            "the sixth instance in this\nunit of concluding absence from an incomplete search",
+            "**exactly three** callers",
+            "| `0x45a98` |",
+            "**no call site in LinuxLoader passes 0**",
+            "it never writes `COM_OPEN`",
+            "sixth instance in this unit of\nconcluding absence from an incomplete search",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
