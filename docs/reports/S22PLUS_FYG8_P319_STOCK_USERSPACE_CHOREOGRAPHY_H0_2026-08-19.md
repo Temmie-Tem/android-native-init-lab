@@ -209,10 +209,7 @@ register read that has already been run.
   below.
 - ~~The 69-entry P3.17 plan against the 140-entry first-stage list.~~ Closed
   below.
-- The static CONTROL1 writer graph, of which `max77705-muic.c:1825` is now
-  located: water handling can issue `com_to_open` and, under
-  `CONFIG_HICCUP_CHARGER`, `com_to_usb_cp`, both gated behind
-  `!is_lpcharge_pdic_param() && !muic_data->is_factory_start`.
+- ~~The static CONTROL1 writer graph.~~ Closed below.
 - Bootloader behaviour remains undecidable from the extracted AP set.
 
 ## Evidence
@@ -392,3 +389,88 @@ Finally, the plan omits 96 of the 140 stock first-stage modules. That number is
 recorded as a fact about scope, not as a defect: the candidate is a different
 first stage with different goals, and nothing here establishes that any of the
 96 is needed for USB.
+
+## The complete CONTROL1 writer graph
+
+Every CONTROL1 write in the MUIC driver funnels through `max77705_switch_path`,
+so enumerating its callers enumerates the writers. There are eleven enclosing
+functions in `max77705-muic.c`:
+
+| Enclosing function | Writes | Trigger |
+|---|---|---|
+| `max77705_muic_attach_usb_path` | `COM_USB` or `COM_USB_CP` | attach, selected by `pdata->usb_path` |
+| `max77705_muic_handle_attach` | `COM_USB` or `COM_USB_CP` | attach dispatch |
+| `max77705_muic_handle_detach` | `COM_OPEN` ×2 | JIG and NONE unconditionally; USB, CDP, OTG and TIMEOUT_OPEN only when `ccic_evt_attached == MUIC_PDIC_NOTI_DETACH` |
+| `max77705_muic_logically_detach` | `COM_OPEN` | only when `force_path_open` |
+| `max77705_muic_detect_dev` | `COM_OPEN`, `COM_USB_CP`, `COM_OPEN` | water branch |
+| `hiccup_store` | `COM_OPEN` | a userspace sysfs write |
+| `switch_to_ap_uart` | `COM_UART_AP` | JIG UART to AP |
+| `switch_to_cp_uart` | `COM_UART_CP` | JIG UART to CP |
+| `max77705_muic_shutdown` | `COM_OPEN` | shutdown |
+| `max77705_muic_set_pogo_adc` | `COM_OPEN` | pogo keyboard ADC |
+| `write_vps_regs` | — | — |
+
+Two of those eleven are not writers on this device, and establishing that
+required the right instrument.
+
+**A method correction first.** The obvious test — look for the function in the
+shipped module's symbol table — is wrong for this code, because every one of
+these is `static` and the compiler inlines them. `readelf` reports
+`com_to_usb_ap`, `com_to_open` and `max77705_switch_path` as absent from
+`pdic_max77705.ko`, and the stock boot log nonetheless prints
+`max77705_switch_path value(0x9)`. The instrument that does work is the
+`__func__` string literal each `pr_info` carries: an inlined static function
+still leaves its name in `.rodata`. On that test `com_to_open`, `com_to_usb_ap`,
+`com_to_usb_cp`, `max77705_switch_path`, `max77705_muic_handle_detach`,
+`max77705_muic_logically_detach`, `max77705_muic_attach_usb_path`,
+`write_vps_regs`, `hiccup_store` and `max77705_muic_shutdown` are all present.
+
+**`write_vps_regs` is dead as a writer.** It computes a previous switch value
+and its only `max77705_switch_path` call sits inside an `#if 0`. The function
+still runs and still logs; it never writes CONTROL1. There is no
+restore-previous-path behaviour.
+
+**The pogo writer is not compiled.** `max77705_muic_set_pogo_adc` is guarded by
+`CONFIG_MUIC_SM5504_POGO`, and its `__func__` string is absent from the shipped
+module, as is `max77705_muic_disable_chgdet` from the nested
+`CONFIG_MUIC_DISABLE_CHGDET` block. On this device pogo cannot open the path.
+
+**The water branch is compiled, including its reroute to CP.** The branch is
+gated behind `!is_lpcharge_pdic_param() && !muic_data->is_factory_start`, and
+its `com_to_usb_cp` call is additionally behind `CONFIG_HICCUP_CHARGER`. That
+config is enabled here: the exact string
+`pdic_max77705: %s water hiccup mode, Aux USB path` is present in the shipped
+module, along with `initialize hiccup state and device type(%d) at hiccup
+booting`. So on water with VBUS present the driver actively moves the mux to the
+**CP** path, not merely open. `afc_water_disable`, which arms that branch, is
+initialised `false` at probe and set `true` only by the PDIC water notification.
+
+### The answer to the question that was asked
+
+Yes: after a successful `COM_USB`, the path can be reopened or moved, and four
+of the mechanisms need no userspace at all — detach handling, logical detach
+with `force_path_open`, the water branch, and shutdown. Only `hiccup_store`
+requires a userspace write, which no candidate performs.
+
+### What stock actually does
+
+Both retained 2026-07-10 captures agree and are unusually clean. In each,
+`com_to_usb_ap` appears once, `max77705_switch_path` appears once,
+and `com_to_open`, `com_to_usb_cp`, `WATER DETECT`, `water hiccup mode` and
+`PDIC_NOTIFY_ID_WATER` each appear **zero** times. A healthy stock boot writes
+CONTROL1 exactly once, to the AP USB path, and nothing reopens it. This is
+bounded by the retained window, which the last_kmsg unit measured at roughly 25
+to 30 seconds of this device's boot logging, so it is a statement about boot and
+early runtime rather than about the whole session.
+
+### Scope
+
+None of this graph runs on a P3.17 candidate, because that plan omits the stock
+driver in favour of the diagnostic, as the section above establishes. It matters
+for the candidates that did load `pdic_max77705` — S7A2, M7, M11, M12 and M18 —
+where the water branch is the one mechanism in the graph that could both fire
+without userspace and leave the mux pointing somewhere other than the AP. That
+is a hypothesis with a cheap test rather than a finding: those runs would carry
+`== WATER DETECT ==` or `water hiccup mode, Aux USB path` in their logs, and the
+campaign's record states those runs did not preserve the MUIC sequence at all,
+so the test cannot be run on them retrospectively.

@@ -266,6 +266,85 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             self.report,
         )
 
+    def writer_graph_rows(self):
+        section = re.search(
+            r"^## The complete CONTROL1 writer graph$(.*?)(?=^### )",
+            self.report,
+            re.MULTILINE | re.DOTALL,
+        )
+        self.assertIsNotNone(section, "writer graph section missing")
+        table = re.search(
+            r"^\| Enclosing function \| Writes \| Trigger \|\n\|---\|---\|---\|\n((?:\|.*\n)+)",
+            section.group(1),
+            re.MULTILINE,
+        )
+        self.assertIsNotNone(table, "writer graph table missing")
+        return table.group(1).splitlines()
+
+    def test_writer_graph_count_matches_its_own_table(self):
+        self.assertIn("eleven enclosing\nfunctions", self.report)
+        self.assertEqual(len(self.writer_graph_rows()), 11)
+
+    def test_report_records_the_symbol_table_method_correction(self):
+        # Symbol absence for a static function is inlining, not absence; the
+        # __func__ literal is the instrument that works.
+        for token in (
+            "**A method correction first.**",
+            "the compiler inlines them",
+            "`__func__` string literal each `pr_info` carries",
+            "still leaves its name in `.rodata`",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_excludes_two_writers_with_their_evidence(self):
+        for token in (
+            "**`write_vps_regs` is dead as a writer.**",
+            "sits inside an `#if 0`",
+            "There is no\nrestore-previous-path behaviour.",
+            "**The pogo writer is not compiled.**",
+            "`CONFIG_MUIC_SM5504_POGO`",
+            "On this device pogo cannot open the path.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_proves_the_water_reroute_is_compiled_in(self):
+        for token in (
+            "pdic_max77705: %s water hiccup mode, Aux USB path",
+            "`CONFIG_HICCUP_CHARGER`",
+            "actively moves the mux to the\n**CP** path, not merely open",
+            "initialised `false` at probe",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_answers_the_reopen_question_and_counts_the_mechanisms(self):
+        for token in (
+            "the path can be reopened or moved, and four\nof the mechanisms need no userspace",
+            "Only `hiccup_store`\nrequires a userspace write",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_gives_the_stock_baseline_and_bounds_it(self):
+        for token in (
+            "`com_to_usb_ap` appears once",
+            "each appear **zero** times",
+            "writes\nCONTROL1 exactly once, to the AP USB path, and nothing reopens it",
+            "bounded by the retained window",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_marks_the_water_branch_as_untestable_retrospectively(self):
+        for token in (
+            "a hypothesis with a cheap test rather than a finding",
+            "the test cannot be run on them retrospectively",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
     def test_ledger_records_one_row_for_this_topic(self):
         rows = [
             line
