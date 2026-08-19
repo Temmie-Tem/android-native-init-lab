@@ -72,7 +72,10 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         self.assertIsNotNone(section)
         self.assertNotIn("~~", section.group(1))
         items = re.findall(r"^- ", section.group(1), re.MULTILINE)
-        self.assertEqual(len(items), 4)
+        # Five: the bootloader OP 0x06 entry was closed and removed, and two
+        # narrower ones (InitDevice's register writes, the unopened images)
+        # replaced it.  The count is pinned so the list cannot drift silently.
+        self.assertEqual(len(items), 5)
         self.assertNotIn("holds no analysable BL", section.group(1))
 
     def test_report_states_the_h0_only_authority_boundary(self):
@@ -551,11 +554,18 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         for token in (
             "**The code that did run is in none of the extracted images as plaintext.**",
             "has not been\nattempted",
-            "The outer volumes are now\n  unpacked",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
         self.assertNotIn("recoverable from this host by any means identified here", self.report)
+
+    def test_open_list_does_not_relist_what_the_unit_closed(self):
+        # The bootloader OP 0x06 bullet was closed by the Muic.efi disassembly;
+        # the section states the removal rather than silently dropping it.
+        self.assertIn("That\nentry is **closed**", self.report)
+        self.assertIn("which is the reason this section is restated rather than appended to.", self.report)
+        self.assertNotIn("whose Qualcomm-specific file\n  layout is not yet decoded", self.report)
+        self.assertIn("`xbl_s.melf` (three LZMA candidates inside)", self.report)
 
     def test_report_withdraws_the_two_candidate_boots_claim(self):
         for token in (

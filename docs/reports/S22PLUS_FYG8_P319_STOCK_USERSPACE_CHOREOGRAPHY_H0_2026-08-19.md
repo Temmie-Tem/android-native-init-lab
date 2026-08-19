@@ -1555,9 +1555,23 @@ Odin and RDX do, and exactly as the stock kernel's `pdic_max77705` does at
 Four items this unit closed are not listed here; they have their own sections
 and the ledger carries the order they were closed in. What is still open:
 
-- What the bootloader's `OP 0x06` writes to CONTROL1. The outer volumes are now
-  unpacked; the MUIC driver sits in an inner volume whose Qualcomm-specific file
-  layout is not yet decoded.
+This list was rewritten after the bootloader work landed. Its first entry used
+to be *what the bootloader's `OP 0x06` writes to CONTROL1*, on the ground that
+the MUIC driver sat in an inner volume whose layout was not yet decoded. That
+entry is **closed**: the volume was decoded, `Muic.efi` disassembled, its whole
+CONTROL1 vocabulary read off the jump table, and the normal boot shown to leave
+`0x3f` COM_OPEN. Leaving it listed would have understated the unit's own result,
+which is the reason this section is restated rather than appended to.
+
+- What `UsbCoreIfc->InitDevice` programs inside the DWC3 core, and whether any of
+  it differs from what the kernel programs. The bootloader's enumeration is
+  established from strings and assert messages, not from disassembling that
+  entry point, so the claim that it needs no role machinery is a claim about the
+  *call graph*, not about the register writes underneath it.
+- Images never opened: `xbl_s.melf` (three LZMA candidates inside),
+  `devcfg.mbn`, `tz.mbn`, `hypvm.mbn`, and the CP (68 MB) and CSC (24 MB)
+  volumes. Nothing here suggests they carry MUIC code; they are listed so that
+  "the bootloader was enumerated" is not read as "every image was opened".
 - Whether adding the ADSP remoteproc driver to the plan is sufficient, or
   whether the protection domain `msm/adsp/charger_pd` also needs a userspace
   registrar that a candidate cannot provide.
