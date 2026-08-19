@@ -561,6 +561,40 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
                 self.assertIn(token, self.report)
         self.assertNotIn("recoverable from this host by any means identified here", self.report)
 
+    def test_report_bounds_the_static_bootloader_conclusion(self):
+        for token in (
+            "everything above is **static**",
+            "not code observed executing on a\nparticular boot",
+            "does not establish that the write landed",
+            "follows from that, not from a proven execution",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+        self.assertNotIn("exactly as\nOdin and RDX do", self.report)
+
+    def test_report_does_not_claim_linux_cannot_issue_the_opcode(self):
+        for token in (
+            "**An earlier version of this sentence said Linux never issues it. That is\nwithdrawn as a capability claim.**",
+            "`MXIM_DEBUG_OPCODE_WRITE` ioctl copies a user buffer",
+            "**no Samsung enum entry, constant, or named helper for\n`0x5E` exists**",
+            "F1-class for this campaign and no write through it has been made",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+        self.assertNotIn("Linux never issues and does not name", self.report)
+
+    def test_report_bounds_its_scan_and_container_claims(self):
+        for token in (
+            "`0x22a4 + table_byte * 4`",
+            "path id 1 selects `0x0d` and lands at `0x22d8`, not at `0x22a8`",
+            "2168:  mov w0, #0x1 ; 216c: bl 0x27cc",
+            "Read the count as *three direct callers*, not as a\nproof that no other call site exists",
+            "which is a statement about the four container\nlayers actually opened",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+        self.assertNotIn("Nothing here was encrypted or Qualcomm-proprietary", self.report)
+
     def test_report_withdraws_the_rcps_reading_of_path_id_six(self):
         for token in (
             "**This row previously said it clears `RCPS` and leaves `COMN1SW`/`COMP2SW`\nuntouched. That was wrong and is withdrawn.**",
@@ -869,7 +903,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         for token in (
             "**`{ <us> }[ ABL ]`** — 1179, 1188 and 786 lines",
             "Launching odin -927639495",
-            "it is **Odin's**, issued after `Launching odin`",
+            "**This report first attributed the line to Odin; that attribution is\nsuperseded below and is wrong.**",
             "the bootloader tail in every\nretained capture is a **download-mode session**, not a normal boot",
         ):
             with self.subTest(token=token):
@@ -898,7 +932,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "987509 is `0xf1175`, not\n`0xf1195`",
             "finds **three** call sites",
             "belongs to **LinuxLoader's download-mode\nbranch**",
-            "**exactly three** callers",
+            "**three** callers, each with its argument in view",
             "| `0x45a98` |",
             "**no call site in LinuxLoader passes 0**",
             "it never writes `COM_OPEN`",

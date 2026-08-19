@@ -789,7 +789,10 @@ are the providers.
 
 So the container chain is four layers — `uefi.elf` → FV → type-`0x0b` file →
 GUID-defined **gzip** section → nested FV → the `Muic` DXE driver — and it is
-fully decoded. Nothing here was encrypted or Qualcomm-proprietary; the two
+fully decoded. Nothing *on this chain* was encrypted or needed a
+Qualcomm-proprietary decoder — which is a statement about the four container
+layers actually opened, not about the images left unopened or about the code
+inside, which includes vendor Samsung DXE drivers. The two
 blockers were a pad-file bug and an assumption that the compression was LZMA
 because the sibling volume used LZMA.
 
@@ -807,7 +810,9 @@ tail is the exact sequence the captures show:
 ```
 
 Its argument is a path id, dispatched through a seven-entry byte table at
-`0x5881` (`0b 0d 0f 11 13 00 00`) with targets `0x22a4 + entry * 4`. Decoding it
+`0x5881` (`0b 0d 0f 11 13 00 00`) with targets `0x22a4 + table_byte * 4`,
+where `table_byte` is the byte the path id indexes rather than the path id
+itself: path id 1 selects `0x0d` and lands at `0x22d8`, not at `0x22a8`. Decoding it
 gives the driver's whole CONTROL1 vocabulary, and every value is named by the
 kernel's own bitfields — `NOBCCOMP[7] | RCPS[6] | COMP2SW[5:3] | COMN1SW[2:0]`
 with `MAX77705_MUIC_RCPS_VAL = 0`, from `max77705-muic.h:294-301` and `:376-381`:
@@ -853,7 +858,7 @@ The caller at `0x21a4` sits inside `muic_init`, identified by the string at
 reads:
 
 ```
-2164:  mov w0, #0x1 ; bl 0x27cc      ; opcode 0x01 read
+2168:  mov w0, #0x1 ; 216c: bl 0x27cc ; opcode 0x01 read
 2174:  … adrp 0x5000 + 0xaec         ; "[MUIC] BC_CTRL1_READ : 0x%04x"
 2188:  tbnz w8, #0, 0x21a0           ; if bit 0 is already set, skip the next write
 218c:  orr  w8, w8, #0x1
@@ -1311,7 +1316,18 @@ next line, so the command reaches the chip and is answered.
 **Opcode `0x5E` does not exist in the kernel.** `max77705.h`'s opcode enum runs
 `OPCODE_SAMSUNG_READ_MESSAGE = 0x5D` straight to `OPCODE_SAMSUNG_SHIPMODE_EN =
 0x61`, and no `0x5e` appears anywhere in the Maxim driver or headers. It is a
-bootloader-only command that Linux never issues and does not name.
+command the kernel does not name.
+
+**An earlier version of this sentence said Linux never issues it. That is
+withdrawn as a capability claim.** The shipped tree carries a generic opcode
+writer: `max77705_debug.c` defines `mxim_debug_opcode_store`, and its
+`MXIM_DEBUG_OPCODE_WRITE` ioctl copies a user buffer and sends
+`opcode_wdata[0]` as the opcode through `mxim_debug_i2c_write`, with the
+character device registered by `mxim_debug_init`. Any opcode, `0x5E` included,
+can therefore be issued from Linux through that path. The defensible statement
+is the narrower one: **no Samsung enum entry, constant, or named helper for
+`0x5E` exists**, and no normal boot path reaches it. That interface is also
+F1-class for this campaign and no write through it has been made.
 
 Its caller runs inside CCIC init, gated on a check at `0x2538` immediately after
 chip identification, which matches the captured order exactly: `ccic_init`, then
@@ -1343,8 +1359,12 @@ the rest of the connector sequence:
 ```
 
 `SetPath: 1` is `MuicSetPath(1)`, which the decoded jump table maps to **`0x09`,
-COM_USB** — and it is **Odin's**, issued after `Launching odin` and before Odin
-starts USB enumeration. All three captures show `Launching odin` once,
+COM_USB**. **This report first attributed the line to Odin; that attribution is
+superseded below and is wrong.** Disassembling `LinuxLoader.efi` shows the
+`SetPath` wrapper and all of its callers live there, so the line is issued by
+LinuxLoader's download-mode branch *before* Odin is launched. What survives from
+the original reading is only that it is emitted after `Launching odin` is
+logged, which is what made Odin the obvious but incorrect owner. All three captures show `Launching odin` once,
 `SetPath: 1`, and `Saving bootloader mode: [1]`, so the bootloader tail in every
 retained capture is a **download-mode session**, not a normal boot. That is what
 this campaign's own flow produces: capture, then reboot to Download to flash.
@@ -1424,7 +1444,12 @@ What is withdrawn is only the code-side "dead library" corroboration, which was
 an artifact of a hex conversion error — the sixth instance in this unit of
 concluding absence from an incomplete search. Enumerating the wrapper's callers
 properly replaces it with a real one. The wrapper begins at `0x401f8` and has
-**exactly three** callers, each with its argument in view:
+**three** callers, each with its argument in view. This is a scan for direct
+`BL` encodings only: an indirect call through a function pointer or a vtable
+would not appear in it, and this unit has since found that the bootloader's own
+MUIC and CCIC access is vtable-dispatched, so the possibility is a live one
+rather than a formality. Read the count as *three direct callers*, not as a
+proof that no other call site exists:
 
 | site | guard | argument | effect |
 |---|---|---|---|
@@ -1560,9 +1585,19 @@ that talk to a host both contain an unconditional, logged call, and the mode tha
 hands off to Linux contains none on any captured path.
 
 For a candidate that is the whole instruction. It boots through the one mode
-that leaves `COM_OPEN`, so it must route the analog path itself — exactly as
-Odin and RDX do, and exactly as the stock kernel's `pdic_max77705` does at
-4.19 s with `com_to_usb_ap`.
+that leaves `COM_OPEN`, so it must route the analog path itself.
+
+Two bounds on that sentence, both from later sections of this report. First,
+everything above is **static**: the download and RDX sequences are code that
+exists and is unconditional where it sits, not code observed executing on a
+particular boot. Second, both sequences run through thunks that no-op when the
+chip never probed, and the log line is emitted *before* the thunk, so even a
+capture containing the string does not establish that the write landed. What is
+established is the shape of the code, and it is one-sided enough to act on: no
+normal-boot path in any image read here writes anything but `COM_OPEN`. The
+instruction to a candidate follows from that, not from a proven execution —
+and the stock kernel's own `pdic_max77705` reaching `com_to_usb_ap` at 4.19 s is
+the independent evidence that something must do this after the bootloader.
 
 ## The RDX bring-up is five calls, and only half of them can fail loudly
 
