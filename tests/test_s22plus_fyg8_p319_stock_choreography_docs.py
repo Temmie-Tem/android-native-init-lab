@@ -924,8 +924,8 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         for token in (
             "### Checked against every capture, not three",
             "the same shape as\nfive other errors in this unit",
-            "| → Odin (download mode) | **77** |",
-            "| → normal handoff to Linux | **3** | **none at all** |",
+            "| → Odin (download mode) | **62** |",
+            "| → normal handoff to Linux | **41** | **none at all, in all 41** |",
             "`SetPath: 0` never appears",
             "from *not evidenced* to **evidenced absent**",
             "**corrects a claim\nthis report briefly carried**",

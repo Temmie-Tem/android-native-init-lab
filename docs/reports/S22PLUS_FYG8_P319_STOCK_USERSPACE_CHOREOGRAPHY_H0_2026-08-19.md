@@ -1397,22 +1397,42 @@ sample, and the sample was three because three were to hand — the same shape a
 five other errors in this unit. Enumerating **every** retained capture with an
 ABL stage settles it:
 
-| ABL path | captures | `SetPath` |
+**The numbers below replace an earlier `80 / 77 / 3` table.** That table was
+challenged by an independent review for having no bounded population — no
+inclusion criterion, no paths, no hashes — and the challenge was correct. It was
+also, separately, wrong in both directions: it undercounted the corpus and it
+counted files rather than captures.
+
+The population is now closed by
+`scripts/analysis/s22plus_fyg8_p319_abl_log_census.py`, which states one mechanical
+criterion — every regular file under `workspace/private` of exactly 2097136
+bytes, the `last_kmsg` region size this campaign measured — and selects nothing
+by name or by run. It finds **293 matching files**, and then does the step the
+earlier census omitted: it deduplicates by SHA-256 before counting. **172 of
+those files are byte-identical copies of another**, because the retained tree
+copies the same `baseline-observer.bin` into many run directories. Counting
+files would have inflated the corpus by more than a factor of two.
+
+| ABL path | distinct captures | `SetPath` |
 |---|---|---|
-| → Odin (download mode) | **77** | `SetPath: 1` → `0x09` COM_USB |
-| → normal handoff to Linux | **3** | **none at all** |
-| any | 80 | `SetPath: 0` never appears |
+| → Odin (download mode) | **62** | `SetPath: 1` in **62 of 62**, none without |
+| → normal handoff to Linux | **41** | **none at all, in all 41** |
+| any | 103 | `SetPath: 0` never appears; the only value ever observed is `1` |
 
-The three are `v3440_rdx/post_recovery`, `v3443_high_panic/post_recovery` and
-`o3r1/postrollback`, each with a full ABL stage of 668, 677 and 668 lines,
-`Launching odin` **zero** times, and no `SetPath` line. One of them was read
-through: its XBL half runs the same `muic_init`, `BC_CTRL1_READ : 0x00C5`,
-`OP 0x06` sequence, and its ABL half ends at `SamsungLogFlush` and
-`LogFlush:SecDebugLog Flushing` — the ordinary handoff, not a download session.
+Eighteen further distinct captures carry no ABL stage and are excluded from the
+table but not from the manifest.
 
-So the claim strengthens from *not evidenced* to **evidenced absent**: on the
-three captured normal boots the ABL stage issues no `SetPath`, and across all 80
-ABL stages `SetPath: 0` never occurs. `LinuxLoader.efi` still contains
+All **41** normal-handoff captures carry `Booting Into Mission Mode`. That
+matters because the earlier reading rested on three captures, two of them
+`post_recovery`, where the review fairly objected that a recovery flush is not
+an ordinary handoff. Mission Mode is the ordinary handoff, and it is now the
+whole of the normal population rather than an inference from one example.
+
+So the claim strengthens from *not evidenced* to **evidenced absent**, on a
+sample thirteen times larger than the one that first supported it: across 41
+distinct normal boots the ABL stage issues no `SetPath`, across 62 distinct
+download boots it always issues `SetPath: 1`, and across all 103 the value `0`
+never occurs. `LinuxLoader.efi` still contains
 `Error MuicSetPath()` and so retains the capability; what is now established is
 that it did not exercise it on any captured normal boot.
 
@@ -1481,9 +1501,9 @@ switches pass `1`, and both sit behind conditions — one explicitly the
 download-mode branch, the other a mode test.
 
 That matches the log evidence exactly rather than merely being consistent with
-it: across 80 ABL stages, 77 download-mode boots log `SetPath: 1` and the three
-normal-boot stages log none, which is what a code path taken only under those
-two guards produces.
+it: across 103 distinct ABL stages, all 62 download-mode boots log `SetPath: 1`
+and all 41 normal-boot stages log none, which is what a code path taken only
+under those two guards produces.
 
 One bound from the CCIC half survives, now with the search behind it. Opcode
 `0x5E` is not named anywhere reachable: the S22+ kernel's enum skips `0x5D` to
