@@ -795,6 +795,12 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "`1f 8b 08 00` — **gzip**",
             "**`Ccic`** and **`Muic`**, 36946 bytes",
             "blockers were a pad-file bug and an assumption that the compression was LZMA",
+            "### The value the bootloader writes is `0x3f`, COM_OPEN",
+            "`0b 0d 0f 11 13 00 00`",
+            "| 0 | **`0x3f` — COM_OPEN** |",
+            "**So the bootloader's initialisation path writes `0x3f`, COM_OPEN.**",
+            "A candidate inherits\n**COM_OPEN**",
+            "which\nexecutes on a given boot was not proven from the binary",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)

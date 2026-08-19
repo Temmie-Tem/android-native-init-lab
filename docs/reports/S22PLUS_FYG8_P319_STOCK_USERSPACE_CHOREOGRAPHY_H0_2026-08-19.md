@@ -780,10 +780,54 @@ fully decoded. Nothing here was encrypted or Qualcomm-proprietary; the two
 blockers were a pad-file bug and an assumption that the compression was LZMA
 because the sibling volume used LZMA.
 
-The value written by `OP 0x06` is still not read: that needs disassembly of a
-36946-byte AArch64 PE, which is ordinary work this unit did not do. But the
-route is now **open end to end**, and the earlier framings of it as opaque,
-unrecoverable, and Qualcomm-specific were each wrong in turn.
+### The value the bootloader writes is `0x3f`, COM_OPEN
+
+The `Muic` PE extracts as `PE32+ executable for EFI (boot service driver),
+ARM64, 3 sections`, and `aarch64-linux-gnu-objdump` disassembles it as
+`pei-aarch64-little`. One function at `0x2268` is the CONTROL1 writer, and its
+tail is the exact sequence the captures show:
+
+```
+22f8:  add  x1, sp, #0x8
+22fc:  mov  w0, #0x6        ; bl 0x2778     ← OPCODE 0x06, CONTROL1 write
+2304:  mov  w0, #0x5        ; bl 0x27cc     ← OPCODE 0x05, CONTROL1 read-back
+```
+
+Its argument is a path id, dispatched through a seven-entry byte table at
+`0x5881` (`0b 0d 0f 11 13 00 00`) with targets `0x22a4 + entry * 4`. Decoding it
+gives the driver's whole CONTROL1 vocabulary:
+
+| path id | value written |
+|---|---|
+| 0 | **`0x3f` — COM_OPEN** |
+| 1 | **`0x09` — COM_USB** |
+| 2 | `0x9b` |
+| 3 | `0xa4` |
+| 4 | `0xad` |
+| 5, 6 | read, then set or clear bit 6 |
+
+Three callers exist. Two pass `#0x2`, inside a device-type dispatch. The third,
+at `0x21a4`, passes `wzr`:
+
+```
+219c:  bl   0x2778          ; a preceding opcode-2 write
+21a0:  mov  w0, wzr         ← path id 0
+21a4:  bl   0x2268          ← MuicSetPath(0)
+```
+
+**So the bootloader's initialisation path writes `0x3f`, COM_OPEN.** The mux is
+left open, not in the USB position.
+
+That closes a question this campaign has carried for months, and it closes from
+two independent directions: the bootloader's own code writes `0x3f`, and P3.17's
+diagnostic read CONTROL1 as `0x3f` before writing anything. A candidate inherits
+**COM_OPEN**, and the premise that it might inherit a USB-position mux is
+refuted rather than merely unsupported.
+
+The scope is stated: three callers were found and only one passes 0; which
+executes on a given boot was not proven from the binary. What supports the
+conclusion is that the captured boots show exactly one `OP 0x06`, and the value
+candidates read back is `0x3f`.
 
 ## system and product, swept in full
 
