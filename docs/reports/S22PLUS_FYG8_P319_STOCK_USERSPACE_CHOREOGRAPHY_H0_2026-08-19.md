@@ -580,37 +580,69 @@ analysis of the UEFI and ABL stages is blocked by that, not answered by it.
 
 ### What the bootloader actually did on a normal boot
 
-The retained captures settle more than the images do, because both carry the
-bootloader's own log. In each, `muic_set_path` appears **zero** times.
+**This subsection first concluded the opposite of what is written here, and the
+first version was wrong.** It said the bootloader logs no MUIC activity on a
+normal boot. It does, on every boot, and the error was a search that looked at
+one log format and generalised to the log.
 
-A false positive was caught on the way to that. Searching for `muic_init`
-returned eight hits per capture, which looked like the bootloader running MUIC
-init; reading the lines showed all eight are kernel lines,
-`pdic_max77705: max77705_muic_init_regs` and `max77705_muic_init_detect`, in
-which the search term is a substring. The bootloader logged none of them.
+The bootloader writes two formats into this buffer. The `B - <microseconds> -
+<tag>:` format holds 159 lines whose tags are `PM` 30 times, `usb` 12, `DTB` 8,
+`Debug Policy` 4, `DDR` 4, the several `UFS` tags, `INFO`,
+`Find DTB for chipinfo`, `ufs_error_log` and `Init logs to media`, with no MUIC
+tag — which is true, and was mistaken for the whole log. The second format,
+`{ <microseconds> }[ XBL ] …`, holds a further **1168 lines** spanning 1,347,459
+to 11,701,965 microseconds, and **297 of them are Max77705 MUIC, CCIC or charger
+lines**. The count is identical in both retained captures.
 
-Enumerating the bootloader's own log confirms it from the other direction. It
-holds 159 `B - <microseconds> - <tag>:` lines whose tags are `PM` 30 times, `usb`
-12, `DTB` 8, `Debug Policy` 4, `DDR` 4, the several `UFS` tags, `INFO`,
-`Find DTB for chipinfo`, `ufs_error_log` and `Init logs to media`. There is no
-MUIC tag at all, and the twelve `usb` lines are only
-`usb_shared_xbl_dtb_node_init`, `usb_hs_phy_cfg size`, `eud_ser_upd`,
-`UFS Serial` and `ldr`.
+The sequence, in XBL time, is:
 
-### The bound on that negative
+```
+{ 1668106 } ccic_init / [CCIC] Max77705 HW i2c init
+{ 1671613 } ccic_is_max77705 : 0x1A
+{ 1671613 } max77705_ccic_set_sink: set to 0!!
+{ 1673809 } ccic_command_polling : OP 0x5E ...
+{ 1674694 } muic_init / [MUIC] Max77705 HW i2c init
+{ 1675670 } MUIC Device : Max77705! count: 0
+{ 1677866 } muic_command_polling: OP 0x01 ...  → [MUIC] BC_CTRL1_READ : 0x00C5
+{ 1680275 } muic_command_polling: OP 0x06 ...
+{ 1682471 } muic_command_polling: OP 0x05 ...
+{ 1683508 } max77705_read_adc: RID = 7 → [MUIC] ADC Value : 0x07, BC_STATUS: 0x82
+```
 
-The retained bootloader log spans 130,784 to 762,378 microseconds. It does not
-start at zero, so roughly the first 131 ms of bootloader execution is not in
-this evidence, and a MUIC action taken before that — or taken without logging —
-is not excluded. The honest statement is that the long-standing premise that a
-candidate may inherit a USB-position mux left by the bootloader is
-**unsupported within the retained window**, not refuted.
+`OP 0x06` is the CONTROL1 **write**. That is not inferred from the XBL, it is
+pinned by the kernel header that the campaign already relies on:
+`max77705.h:525` defines `OPCODE_BCCTRL1_R = 0x01`, `:529` `OPCODE_CTRL1_R =
+0x05` and `:530` `OPCODE_CTRL1_W`, which is `0x06`. The XBL's own label for
+`OP 0x01` is `BC_CTRL1_READ`, matching `OPCODE_BCCTRL1_R` exactly, which is
+independent evidence that the bootloader uses the same opcode numbering as the
+kernel.
 
-On EUD the same evidence gives a partial answer: the bootloader runs
-`eud_ser_upd` twice on every normal boot, and `usb_eud_is_active` never appears,
-so no enable or disable failure was logged. That does not settle whether EUD is
-enabled in hardware, and `/sys/module/eud/parameters/enable` remains the
-settling read.
+**So the bootloader issues a CONTROL1 write on every normal boot, roughly 1.68
+seconds into XBL and long before the kernel exists.** The value it writes is not
+printed, so what CONTROL1 held afterwards is not established by this log.
+
+The specific string `muic_set_path` is still absent from both captures, so the
+`XblRamdump.elf` function that logs it did not run. That narrower negative
+survives; the broad one did not.
+
+### What this means for the inheritance premise
+
+The premise this unit set out to test was that a candidate might inherit a
+USB-position mux left by the bootloader. The bootloader half is now positive:
+it does write CONTROL1. The candidate half comes from the campaign's own record
+and points the other way — P3.17's diagnostic read CONTROL1 as **`0x3f`**, which
+is `COM_OPEN`, as the pre value on two complete candidate boots, before writing
+`0x09`.
+
+Both ends together say the mux is **not** in the USB position when a candidate
+starts, even though the bootloader touched CONTROL1. Whether the bootloader
+wrote `COM_OPEN` itself, or wrote something else that was reset before the
+candidate read it, is not decided by this evidence.
+
+On EUD the same log gives a partial answer: the bootloader runs `eud_ser_upd`
+twice on every normal boot, and `usb_eud_is_active` never appears, so no enable
+or disable failure was logged. That does not settle whether EUD is enabled in
+hardware, and `/sys/module/eud/parameters/enable` remains the settling read.
 
 ## What remains open
 
@@ -626,9 +658,10 @@ and the ledger carries the order they were closed in. What is still open:
 - Whether the water branch ever fired on the candidates that did load
   `pdic_max77705`. Those runs did not preserve the MUIC sequence, so the test
   cannot be run retrospectively and only a new run can answer it.
-- Whether the bootloader programs the mux outside the retained log window, or
-  without logging. The BL images are now extracted and the question is narrowed
-  rather than closed; see the section on the bootloader.
+- What value the bootloader's `OP 0x06` CONTROL1 write carries. The write is
+  now proven to happen on every normal boot; the value is not logged, and
+  `uefi.elf`, `abl.elf` and `xbl_s.melf` are encrypted, so neither the log nor a
+  string search settles it.
 
 ## Evidence
 

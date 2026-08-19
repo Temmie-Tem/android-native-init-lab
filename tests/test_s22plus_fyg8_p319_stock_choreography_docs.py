@@ -490,22 +490,49 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
-    def test_report_records_the_muic_init_false_positive(self):
+    def test_report_marks_its_own_bootloader_conclusion_as_reversed(self):
+        # The first version of this subsection concluded the bootloader logs no
+        # MUIC activity on a normal boot.  It does, on every boot.
         for token in (
-            "A false positive was caught on the way to that.",
-            "all eight are kernel lines",
-            "in\nwhich the search term is a substring",
+            "**This subsection first concluded the opposite of what is written here, and the\nfirst version was wrong.**",
+            "a search that looked at\none log format and generalised to the log",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+        self.assertNotIn("all eight are kernel lines", self.report)
+        self.assertNotIn("**unsupported within the retained window**, not refuted", self.report)
+
+    def test_report_quantifies_the_second_log_format_it_had_missed(self):
+        for token in (
+            "a further **1168 lines**",
+            "1,347,459\nto 11,701,965 microseconds",
+            "**297 of them are Max77705 MUIC, CCIC or charger\nlines**",
+            "The count is identical in both retained captures.",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
-    def test_report_bounds_the_bootloader_negative_rather_than_refuting(self):
+    def test_report_pins_the_control1_write_opcode_to_the_kernel_header(self):
         for token in (
-            "`muic_set_path` appears **zero** times",
-            "There is no\nMUIC tag at all",
-            "130,784 to 762,378 microseconds",
-            "It does not\nstart at zero",
-            "**unsupported within the retained window**, not refuted",
+            "`OP 0x06` is the CONTROL1 **write**",
+            "`max77705.h:525` defines `OPCODE_BCCTRL1_R = 0x01`",
+            "`OPCODE_CTRL1_W`, which is `0x06`",
+            "independent evidence that the bootloader uses the same opcode numbering as the\nkernel",
+            "**So the bootloader issues a CONTROL1 write on every normal boot",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_keeps_the_narrow_negative_that_survived(self):
+        self.assertIn("`muic_set_path` is still absent from both captures", self.report)
+        self.assertIn("That narrower negative\nsurvives; the broad one did not.", self.report)
+
+    def test_report_resolves_the_inheritance_premise_from_both_ends(self):
+        for token in (
+            "The bootloader half is now positive",
+            "read CONTROL1 as **`0x3f`**",
+            "Both ends together say the mux is **not** in the USB position when a candidate\nstarts",
+            "is not decided by this evidence",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
