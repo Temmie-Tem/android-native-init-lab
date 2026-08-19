@@ -656,6 +656,32 @@ twice on every normal boot, and `usb_eud_is_active` never appears, so no enable
 or disable failure was logged. That does not settle whether EUD is enabled in
 hardware, and `/sys/module/eud/parameters/enable` remains the settling read.
 
+## system and product contribute nothing to the data path
+
+The remaining unread userspace was `system` and `product`. Their init is now
+swept and the result is a bounded negative.
+
+`system/etc/init` holds 108 files and exactly two of them name any USB path:
+`hw/init.usb.rc` and `hw/init.usb.configfs.rc`, both already established above as
+inert on this device — the first gated entirely on `sys.usb.configfs=0` and the
+second stripped to a single `on property:init.svc.adbd=stopped` action.
+`product/etc/init` holds two files and names none.
+
+One claim made loosely elsewhere is tightened here. `usbd` is not simply absent:
+`system/etc/init/usbd.rc` declares it `class late_start` and `oneshot` with **no
+`disabled` flag**, so init starts it when the class starts, whatever
+`vendor.usb.use_gadget_hal` says. What it cannot do is act, because the vendor
+VINTF under `vendor/etc/vintf/manifest/` declares only
+`android.hardware.usb` `IUsb` version 1.3 — the port HAL — and no
+`android.hardware.usb.gadget` / `IUsbGadget` entry at all. So `usbd` runs, finds
+no gadget HAL, and exits. The gadget is still built by init rc, and the reason is
+now the absence of the HAL rather than only the property.
+
+What stays unread is `system/bin` and `system/framework`, which are not
+world-readable on the mounted image. The sweep above covers init only, so a
+system binary or framework service that touches the data path would not have
+been seen; the negative is about init, not about the whole partition.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections

@@ -31,6 +31,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The role-to-pull-up chain, traced",
         "The module identity question is closed, and it closes wider than asked",
         "The bootloader, which was available all along",
+        "system and product contribute nothing to the data path",
         "What remains open",
         "Evidence",
     )
@@ -537,6 +538,17 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "read CONTROL1 as **`0x3f`**",
             "Both ends together say the mux is **not** in the USB position when a candidate\nstarts",
             "is not decided by this evidence",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_bounds_the_system_product_negative_to_init(self):
+        for token in (
+            "`system/etc/init` holds 108 files and exactly two of them name any USB path",
+            "`product/etc/init` holds two files and names none.",
+            "no\n`disabled` flag",
+            "and no\n`android.hardware.usb.gadget` / `IUsbGadget` entry at all",
+            "the negative is about init, not about the whole partition",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
