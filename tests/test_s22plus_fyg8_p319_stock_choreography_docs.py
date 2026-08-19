@@ -834,15 +834,18 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
-    def test_report_states_the_missing_normal_boot_abl_capture(self):
+    def test_report_checks_the_abl_claim_against_every_capture(self):
         for token in (
-            "There is **no capture of a normal boot's ABL stage**",
-            "`LinuxLoader.efi` does contain `Error MuicSetPath()`",
-            "no normal-boot `SetPath` is *evidenced*, not that none\noccurs",
-            "what `0x5E` means to the chip\nis not established",
+            "### Checked against every capture, not three",
+            "the same shape as\nfive other errors in this unit",
+            "| → Odin (download mode) | **77** |",
+            "| → normal handoff to Linux | **3** | **none at all** |",
+            "`SetPath: 0` never appears",
+            "from *not evidenced* to **evidenced absent**",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
+        self.assertNotIn("There is **no capture of a normal boot's ABL stage**", self.report)
 
     def test_ledger_records_one_row_for_this_topic(self):
         rows = [

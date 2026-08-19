@@ -1362,13 +1362,32 @@ mode does not merely happen to work: Odin explicitly routes the analog path to
 USB before bringing up its USB stack. The normal boot path does not, and a
 candidate inherits an open mux.
 
-### What this does not establish
+### Checked against every capture, not three
 
-There is **no capture of a normal boot's ABL stage** — all three tails are Odin.
-`LinuxLoader.efi` does contain `Error MuicSetPath()`, so it *can* call the same
-routine; whether it does, and with which argument, is unevidenced. The claim
-above is therefore that no normal-boot `SetPath` is *evidenced*, not that none
-occurs.
+The paragraph above was first written as a limit: three captures, all Odin, so
+no normal-boot ABL stage to compare against. That limit was an artifact of the
+sample, and the sample was three because three were to hand — the same shape as
+five other errors in this unit. Enumerating **every** retained capture with an
+ABL stage settles it:
+
+| ABL path | captures | `SetPath` |
+|---|---|---|
+| → Odin (download mode) | **77** | `SetPath: 1` → `0x09` COM_USB |
+| → normal handoff to Linux | **3** | **none at all** |
+| any | 80 | `SetPath: 0` never appears |
+
+The three are `v3440_rdx/post_recovery`, `v3443_high_panic/post_recovery` and
+`o3r1/postrollback`, each with a full ABL stage of 668, 677 and 668 lines,
+`Launching odin` **zero** times, and no `SetPath` line. One of them was read
+through: its XBL half runs the same `muic_init`, `BC_CTRL1_READ : 0x00C5`,
+`OP 0x06` sequence, and its ABL half ends at `SamsungLogFlush` and
+`LogFlush:SecDebugLog Flushing` — the ordinary handoff, not a download session.
+
+So the claim strengthens from *not evidenced* to **evidenced absent**: on the
+three captured normal boots the ABL stage issues no `SetPath`, and across all 80
+ABL stages `SetPath: 0` never occurs. `LinuxLoader.efi` still contains
+`Error MuicSetPath()` and so retains the capability; what is now established is
+that it did not exercise it on any captured normal boot.
 
 One bound from the CCIC half survives unchanged: what `0x5E` means to the chip
 is not established, only that Linux never sends it.
