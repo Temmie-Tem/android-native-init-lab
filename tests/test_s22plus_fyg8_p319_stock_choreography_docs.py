@@ -803,7 +803,11 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "| 0 | **`0x3f` — COM_OPEN** |",
             "**So the bootloader's initialisation path writes `0x3f`, COM_OPEN.**",
             "A candidate inherits\n**COM_OPEN**",
-            "which\nexecutes on a given boot was not proven from the binary",
+            "### The captured boots executed that path, opcode for opcode",
+            "`\"muic_init: Error locating the CCIC protocol\"`",
+            "including what is **missing** from\nit",
+            "`0xC5` has bit 0 set",
+            "is not a coincidence, and it\npins the executed path rather than inferring it",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)

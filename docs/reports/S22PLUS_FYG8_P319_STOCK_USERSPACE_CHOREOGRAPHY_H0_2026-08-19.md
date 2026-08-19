@@ -837,10 +837,43 @@ diagnostic read CONTROL1 as `0x3f` before writing anything. A candidate inherits
 **COM_OPEN**, and the premise that it might inherit a USB-position mux is
 refuted rather than merely unsupported.
 
-The scope is stated: three callers were found and only one passes 0; which
-executes on a given boot was not proven from the binary. What supports the
-conclusion is that the captured boots show exactly one `OP 0x06`, and the value
-candidates read back is `0x3f`.
+### The captured boots executed that path, opcode for opcode
+
+The scope was first stated as a limit — three callers, only one passing 0, and
+no proof of which ran. Disassembling the enclosing function removes the limit.
+The caller at `0x21a4` sits inside `muic_init`, identified by the string at
+`0x5abf`, `"muic_init: Error locating the CCIC protocol"`, and the function
+reads:
+
+```
+2164:  mov w0, #0x1 ; bl 0x27cc      ; opcode 0x01 read
+2174:  … adrp 0x5000 + 0xaec         ; "[MUIC] BC_CTRL1_READ : 0x%04x"
+2188:  tbnz w8, #0, 0x21a0           ; if bit 0 is already set, skip the next write
+218c:  orr  w8, w8, #0x1
+2194:  mov w0, #0x2 ; bl 0x2778      ; opcode 0x02 write
+21a0:  mov w0, wzr                   ; path id 0
+21a4:  bl  0x2268                    ; MuicSetPath(0) → opcode 0x06 write, then 0x05
+```
+
+The captured boot log is the same sequence, including what is **missing** from
+it:
+
+```
+OP 0x01  →  [MUIC] BC_CTRL1_READ : 0x00C5
+            (no OP 0x02)
+OP 0x06
+OP 0x05
+```
+
+`0xC5` has bit 0 set, so `tbnz` takes the branch and the opcode-2 write is
+skipped — which is exactly why no `OP 0x02` appears. An absent instruction
+predicted by a value printed two lines earlier is not a coincidence, and it
+pins the executed path rather than inferring it.
+
+So on the captured boots the bootloader ran `MuicSetPath(0)` and wrote
+**`0x3f`, COM_OPEN**. The other two callers pass `#0x2`, which writes `0x9b`,
+and they sit inside a device-type dispatch; a later attach event can therefore
+move the mux, but the initialisation path leaves it open.
 
 ## system and product, swept in full
 
