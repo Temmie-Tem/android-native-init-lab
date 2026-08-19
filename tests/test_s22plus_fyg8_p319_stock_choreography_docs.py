@@ -68,7 +68,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         self.assertIsNotNone(section)
         self.assertNotIn("~~", section.group(1))
         items = re.findall(r"^- ", section.group(1), re.MULTILINE)
-        self.assertEqual(len(items), 3)
+        self.assertEqual(len(items), 4)
         self.assertNotIn("holds no analysable BL", section.group(1))
 
     def test_report_states_the_h0_only_authority_boundary(self):
@@ -492,14 +492,14 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
-    def test_report_separates_readable_from_encrypted_bootloader_images(self):
+    def test_report_identifies_the_images_as_uefi_volumes(self):
         for token in (
-            "`%s : muic_set_path to USB`",
-            "`0x88E0000`",
-            "that must not be read as\nabsence",
-            "`uefi.elf` has 7.97 bits per byte",
-            "static analysis of the UEFI and ABL stages is blocked by that rather than\nanswered by it",
-            "Entropy alone does not\ndistinguish encryption from compression",
+            "### Three images are compressed containers, and that route is open",
+            "Both were\nwrong, and the error was declaring impossibility without trying the standard\nthing.**",
+            "`78e58c8c-3d8a-4f1c-9935-896185c32dd3`, which is `EFI_FIRMWARE_FILE_SYSTEM2`",
+            "`9e21fd93-9c72-4c15-8c4b-e77f1db2d792`",
+            "entropy **6.13**, not high at all",
+            "The\ncorrect status is *untried*, not *impossible*",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
@@ -542,19 +542,17 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         self.assertIn("`muic_set_path` is still absent from both captures", self.report)
         self.assertIn("That narrower negative\nsurvives; the broad one did not.", self.report)
 
-    def test_report_closes_the_written_value_route_as_unrecoverable(self):
+    def test_report_reopens_the_written_value_route(self):
+        # An earlier version called the UEFI/ABL images opaque and the written
+        # CONTROL1 value unrecoverable.  Both were premature.
         for token in (
-            "**The code that did run is in none of the extracted images.**",
-            "appear as readable strings in\n**zero** of the 30 extracted bootloader images",
-            "would therefore\ndisassemble the wrong code",
-            "recoverable from this host by any means identified here",
+            "**The code that did run is in none of the extracted images as plaintext.**",
+            "has not been\nattempted",
+            "**untried rather\n  than impossible**",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
-        self.assertNotIn(
-            "- What value the bootloader's `OP 0x06` CONTROL1 write carries. The write is",
-            self.report,
-        )
+        self.assertNotIn("recoverable from this host by any means identified here", self.report)
 
     def test_report_withdraws_the_two_candidate_boots_claim(self):
         for token in (

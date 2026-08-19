@@ -601,15 +601,37 @@ strings — `%s : muic_init`, `%s : muic_init_hv_control` and
 base the device tree also names. So a bootloader stage does program the mux path
 to USB, and a bootloader stage does manage EUD.
 
-### Three images are opaque, so their silence proves nothing
+### Three images are compressed containers, and that route is open
 
 `muic_set_path` appears in no other BL image, and that must not be read as
 absence. Measured over non-padding bytes, `uefi.elf` has 7.97 bits per byte,
-`abl.elf` 7.99 and `xbl_s.melf` 7.32 — effectively random. Entropy alone does not
-distinguish encryption from compression or any other high-entropy packaging, and
-it does not need to: whatever the format, a string search cannot see into them,
-so static analysis of the UEFI and ABL stages is blocked by that rather than
-answered by it.
+`abl.elf` 7.99 and `xbl_s.melf` 7.32 — effectively random, so a string search
+cannot see into them.
+
+**An earlier version of this section stopped there and called the images opaque,
+and a later one called the written CONTROL1 value unrecoverable. Both were
+wrong, and the error was declaring impossibility without trying the standard
+thing.** Entropy does not distinguish encryption from compression, and these are
+compressed:
+
+- `uefi.elf` LOAD segment 1 and `abl.elf` LOAD segment 1 both begin with the
+  `_FVH` signature. Parsing the header gives file-system GUID
+  `78e58c8c-3d8a-4f1c-9935-896185c32dd3`, which is `EFI_FIRMWARE_FILE_SYSTEM2`,
+  header length 72, revision 2, and an `FvLength` of `0x300000` and `0x252000`
+  that matches each LOAD segment's size exactly. These are **UEFI firmware
+  volumes**, a documented container.
+- Walking `abl.elf`'s FFS file list yields a real entry: type `0x0b`
+  (`FIRMWARE_VOLUME_IMAGE`), 755037 bytes, GUID
+  `9e21fd93-9c72-4c15-8c4b-e77f1db2d792`, which is the LZMA-compressed section
+  GUID. A nested, compressed volume.
+- `xbl_s.melf`'s first LOAD segment has entropy **6.13**, not high at all; the
+  7.32 figure was an average over the whole padded file.
+
+So the UEFI and ABL stages are **not** closed to analysis. Unpacking the volumes
+and decompressing their sections is standard work that this unit did not do. The
+correct status is *untried*, not *impossible*, and the written CONTROL1 value is
+correspondingly **not** established as unrecoverable — only as not recovered
+here.
 
 ### What the bootloader actually did on a normal boot
 
@@ -660,15 +682,15 @@ The specific string `muic_set_path` is still absent from both captures, so the
 `XblRamdump.elf` function that logs it did not run. That narrower negative
 survives; the broad one did not.
 
-**The code that did run is in none of the extracted images.** The lines the
-captures actually carry — `muic_command_polling`, `ccic_is_max77705`,
+**The code that did run is in none of the extracted images as plaintext.** The
+lines the captures actually carry — `muic_command_polling`, `ccic_is_max77705`,
 `MUIC Device : Max77705`, `max77705_read_adc` — appear as readable strings in
 **zero** of the 30 extracted bootloader images, `XblRamdump.elf` included. So
 `XblRamdump.elf` holds a MUIC path that did not execute, while the one that
-issued `OP 0x06` lives in one of the opaque images. An attempt to recover the
-written CONTROL1 value by disassembling `XblRamdump.elf` would therefore
-disassemble the wrong code, and that route is closed: the value is not
-recoverable from this host by any means identified here.
+issued `OP 0x06` lives inside one of the compressed volumes. Disassembling
+`XblRamdump.elf` would therefore disassemble the wrong code — but unpacking the
+UEFI volumes, which the firmware-volume finding shows is ordinary work, has not been
+attempted.
 
 ### What this means for the inheritance premise
 
@@ -1061,6 +1083,9 @@ cannot work, not that a run was seen failing this way.
 Four items this unit closed are not listed here; they have their own sections
 and the ledger carries the order they were closed in. What is still open:
 
+- What the bootloader's `OP 0x06` writes to CONTROL1, which is **untried rather
+  than impossible**: `uefi.elf` and `abl.elf` are UEFI firmware volumes with
+  LZMA-compressed contents and were never unpacked.
 - Whether adding the ADSP remoteproc driver to the plan is sufficient, or
   whether the protection domain `msm/adsp/charger_pd` also needs a userspace
   registrar that a candidate cannot provide.
