@@ -846,6 +846,9 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "| → normal handoff to Linux | **3** | **none at all** |",
             "`SetPath: 0` never appears",
             "from *not evidenced* to **evidenced absent**",
+            "are **byte-identical** to the same block in `Odin.efi`",
+            "**no `adrp`/`add` pair in the whole\ndisassembly targets it**",
+            "proved linkage, not a call",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)

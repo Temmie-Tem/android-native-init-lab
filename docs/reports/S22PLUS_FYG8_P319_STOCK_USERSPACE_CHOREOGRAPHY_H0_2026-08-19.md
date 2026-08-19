@@ -1396,6 +1396,21 @@ ABL stages `SetPath: 0` never occurs. `LinuxLoader.efi` still contains
 `Error MuicSetPath()` and so retains the capability; what is now established is
 that it did not exercise it on any captured normal boot.
 
+Disassembling `LinuxLoader.efi` corroborates that from the code side. The MUIC
+helper strings are present — `Error MuicSetPath()`, ` SetPath: %d`,
+`Error MuicGetVbusStatus()` and the rest — and the first 100 bytes of that block
+are **byte-identical** to the same block in `Odin.efi`, which is the signature of
+one shared static helper linked into both applications. But the format string
+` SetPath: %d` sits at `0xf1195`, and **no `adrp`/`add` pair in the whole
+disassembly targets it**: the four `adrp` sites reaching page `0xf1000` pair
+with `+0x4de`, `+0xdae`, `+0xc` and `+0x21`, none with `+0x195`. So the string is
+linked in rather than reached, which is what dead library code looks like.
+
+Both sides therefore agree, and the caution was the right one to have: the
+presence of `Error MuicSetPath()` proved linkage, not a call. The residual
+limit is that a reference could still exist through a literal pool or a data
+table, which this pass did not enumerate.
+
 One bound from the CCIC half survives, now with the search behind it. Opcode
 `0x5E` is not named anywhere reachable: the S22+ kernel's enum skips `0x5D` to
 `0x61`, and the same gap is present in the Note 10 and Tab S6 Samsung trees,
