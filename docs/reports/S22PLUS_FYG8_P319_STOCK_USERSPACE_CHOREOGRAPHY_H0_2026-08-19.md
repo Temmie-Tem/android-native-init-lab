@@ -112,9 +112,12 @@ muic_param_afc_mode=0x30`, visible in both retained 2026-07-10 captures. There
 is no `modules.options` anywhere in `vendor_dlkm`, `vendor`, or the vendor_boot
 ramdisk; the source is the kernel command line, which carries
 `common_muic.muic_param_pmic_info=3` and its siblings, and Android's libmodprobe
-converts `<module>.<param>` cmdline entries into module arguments. `insmod` does
-not do this, and the kernel applies `modname.param=` only to built-in code, so a
-candidate that inserts modules directly supplies none of them.
+converts `<module>.<param>` cmdline entries into module arguments. The kernel applies `modname.param=` only to built-in code, and nothing in the
+candidate's path reads the command line for module options, so a candidate that
+inserts modules directly supplies none of them. An earlier version said
+"`insmod` does not do this", which is overbroad — `insmod` can pass parameters;
+the relevant fact is that the candidate's plan supplies empty parameter strings
+for every entry, which the P3.17 plan diff verifies.
 
 That looked decisive, because `get_switch_sel()` returns
 `pmic_info & 0xfff` and bit 0 selects `MUIC_PATH_USB_AP` against
@@ -142,12 +145,18 @@ pointer is always NULL and both calls are skipped.
 `/sys/class/usb_notify/usb_control/usb_data_enabled` does not need userspace to
 turn it on.
 
-**4. `usb_notify`'s peripheral block fails open.** `mode_store` refuses
-`peripheral` when `is_blocked(get_otg_notify(), NOTIFY_BLOCK_TYPE_CLIENT)` is
-true, which would be a silent, userspace-shaped veto on the role request.
-`is_blocked` returns false on a NULL `otg_notify` and again on a NULL
-`u_notify`, so a candidate that has not brought up the notifier is not blocked
-by it.
+**4. `usb_notify`'s peripheral block is not compiled into this module.** This
+refutation was first written as "`is_blocked` fails open", which is true of the
+function — it returns false on a NULL `otg_notify` and again on a NULL
+`u_notify` — but wrong about this build. `mode_store` places that call under
+`#ifdef CONFIG_USB_NOTIFIER`, and `#ifdef` is false when the option is `=m`,
+because the defined macro is then `CONFIG_USB_NOTIFIER_MODULE`. The shipped
+`dwc3-msm.ko` confirms it: neither `is_blocked` nor `get_otg_notify` appears
+among its undefined symbols. So the veto does not exist here at all, which is a
+stronger refutation than the one first written and reached by a different
+route. Note the asymmetry that produced the earlier error: the same option is
+tested with `IS_ENABLED` in `dwc3_msm_extcon_register` and with `#ifdef` in
+`mode_store`, and `=m` satisfies the first and not the second.
 
 ## A stale path in the stock HAL, and the real role knob
 
@@ -200,7 +209,10 @@ was wrong. On a candidate it separates
 "the role never became peripheral" from "the role is peripheral and nothing
 reaches the host", which are the two halves the frontier is currently one
 undivided question about. It is a strictly weaker action than the Stage B
-register read that has already been run.
+register read that has already been run — and weaker in an absolute sense too,
+because that read was not side-effect free: it walks 0x00-0x10 and consumes a
+latched `REG_VDM_INT`, which is why it carried an acknowledgement flag and this
+one does not.
 
 ## The measurement was taken, and two claims above need correcting
 
@@ -306,10 +318,15 @@ gap until the custom module is accounted for:
 `workspace/public/src/kernel-modules/s22plus_max77705_mux_diag/` builds
 `s22plus_max77705_mux_diag.ko`, which the P3.17 executability fixed point names
 as `CUSTOM_LATE_MODULE` against `CUSTOM_LATE_COMPAT = "maxim,max77705"`, and
-whose `of_device_id` table matches that same parent compatible. Two drivers
-cannot bind one device, so omitting `pdic_max77705.ko` is not an oversight but a
-precondition for the diagnostic to bind at all; `mfd_max77705.ko` and
-`spu_verify.ko` follow because nothing else needs them. The generators enforce
+whose `of_device_id` table matches that same parent compatible. The binding argument was first written as "two drivers cannot bind one device,
+so omitting `pdic_max77705.ko` is a precondition", and that is wrong as stated.
+`pdic_max77705` is not a second driver on the `maxim,max77705` parent
+compatible; it is an MFD child. The driver that does compete with the
+diagnostic on that compatible is `mfd_max77705`, so the direct substitution is
+there, and `pdic_max77705.ko` falls out transitively because the MFD parent no
+longer instantiates its child, with `spu_verify.ko` following because nothing
+else needs it. The 69-entry plan is unchanged by this correction; only the
+explanation was wrong. The generators enforce
 the separation in the other direction too, asserting the plan header contains
 zero occurrences of the diagnostic's name.
 
@@ -359,9 +376,12 @@ shipped module's symbol table — is wrong for this code, because every one of
 these is `static` and the compiler inlines them. `readelf` reports
 `com_to_usb_ap`, `com_to_open` and `max77705_switch_path` as absent from
 `pdic_max77705.ko`, and the stock boot log nonetheless prints
-`max77705_switch_path value(0x9)`. The instrument that does work is the
-`__func__` string literal each `pr_info` carries: an inlined static function
-still leaves its name in `.rodata`. On that test `com_to_open`, `com_to_usb_ap`,
+`max77705_switch_path value(0x9)`. The instrument used instead is the
+`__func__` string literal each `pr_info` carries, since an inlined static
+function still leaves its name in `.rodata`. That is weaker than it was first
+described: a present string proves a logging literal survived into the object,
+not that the function is called or that its write is reachable, and an absent
+string is evidence of non-compilation only under the configurations examined. On that test `com_to_open`, `com_to_usb_ap`,
 `com_to_usb_cp`, `max77705_switch_path`, `max77705_muic_handle_detach`,
 `max77705_muic_logically_detach`, `max77705_muic_attach_usb_path`,
 `write_vps_regs`, `hiccup_store` and `max77705_muic_shutdown` are all present.
@@ -452,43 +472,42 @@ readback and the gadget state can disagree, and only reading both catches it.
 That is the reason the runner reads `mode` together with the UDC's `state`
 rather than `mode` alone, stated now as a mechanism instead of a preference.
 
-### The only extcon on this device is EUD
+### The extcon path is declared in DT and not registered in this build
 
-`a600000.ssusb` in the vendor_boot DTB carries `extcon = <0x139>`, a single
-phandle, and phandle `0x139` is `qcom,msm-eud@88e0000`. dwc3-msm registers its
-`EXTCON_USB` and `EXTCON_USB_HOST` notifiers from that list, so **every extcon
-event dwc3-msm can receive on this device is an EUD event**, and the notifier's
-`eud_str` branch always applies. The plain `mdwc->vbus_active = event`
-else-branch is unreachable here; `vbus_active` is instead driven by the role
-switch, which is what `mode_store` and the Type-C manager both use.
+**This subsection and the one that followed it were wrong, and an independent
+review found it.** They said dwc3-msm registers `EXTCON_USB` and
+`EXTCON_USB_HOST` notifiers from the device tree, so every extcon event it
+receives is an EUD event, and then built a sticky-`EUD_SPOOF_DISCONNECT` hazard
+on top of that. The device-tree half is right and the runtime half is not.
 
-### What can and cannot arm the sticky disconnect
+The DT fact stands: `a600000.ssusb` in the vendor_boot DTB carries
+`extcon = <0x139>`, a single phandle, and `0x139` is `qcom,msm-eud@88e0000`.
 
-A first reading of `disable_eud` stopped short of its end and concluded that
-disabling EUD leaves the extcon disconnected. That was wrong: `disable_eud`
-performs its spoof disconnect and then, after the CSR write and a
-`usleep_range`, issues `extcon_set_state_sync(EXTCON_USB, true)`. `enable_eud`
-likewise ends connected. Both therefore settle with `eud_active` at 1, and their
-transient 1-to-0 is followed by a connect that sets `EUD_SPOOF_CONNECT` and
-restores `B_SESS_VLD`. Neither is the hazard.
+The registration does not happen. `dwc3_msm_extcon_register()` opens with
+`#if IS_ENABLED(CONFIG_USB_NOTIFIER)` / `return 0;`, and `IS_ENABLED` is true
+for `=m` as well as `=y`. The shipped binary settles it without needing the
+defconfig: `dwc3-msm.ko` imports `extcon_get_property` and `extcon_get_state`
+and **does not import `extcon_register_notifier` or
+`extcon_get_edev_by_phandle` at all**. So no DT extcon notifier is registered,
+`dwc3_msm_vbus_notifier` is not reached from that path, and since
+`check_eud_state` is assigned nowhere else, `EUD_SPOOF_DISCONNECT` is not
+armed by the sequence described. The hazard is a real source path in a build
+that enables it, and this is not that build.
 
-The hazard is `eud_event_notifier`, which runs from the EUD hardware interrupt.
-On `EUD_INT_VBUS` it sets `EXTCON_JIG` **true** and then publishes
-`chip->usb_attach`. In dwc3-msm's notifier the `spoof` variable is that JIG
-state, and the early return that would otherwise divert a disconnect into
-`dwc3_override_vbus_status` is guarded by `!spoof`. With `spoof` true the code
-falls through to `check_eud_state = true` while `eud_active` is 0, and the next
-notify sets `EUD_SPOOF_DISCONNECT` and clears `B_SESS_VLD` with nothing to undo
-it. That path requires the EUD hardware interrupt, which requires EUD to be
-enabled in hardware.
+What the same evidence shows instead is that dwc3-msm imports
+`enable_usb_notify`, so Samsung's usb_notify layer replaces extcon as the event
+source here, which is coherent with `vbus_active` being driven by the role
+switch that `mode_store` and the Type-C manager use.
 
-Whether it is enabled on this unit cannot be settled statically:
-`msm_eud_hw_is_enabled` reads a register, and the probe path only publishes an
-extcon connect when the bootloader left EUD on. The retained stock captures show
-`eud.ko` loaded with empty args and `eud` in the module list, and the one
-`usb: eud_ser_upd` line belongs to the bootloader tail rather than the kernel.
-The cheap settling read is `/sys/module/eud/parameters/enable`, which is mode
-0644 and carries the driver's own view of the enable state.
+Two smaller readings from that work survive and are kept: `disable_eud` does end
+connected — it issues `extcon_set_state_sync(EXTCON_USB, true)` after the CSR
+write, as does `enable_eud` — and `eud_event_notifier` does set `EXTCON_JIG`
+true before publishing `chip->usb_attach`. Neither matters here, because nothing
+subscribes.
+
+The consequence for the frontier is that `B_SESS_VLD` remains the gate — that
+part is confirmed at `dwc3-msm-core.c:6856-6878` and `:6882-6888` — but this
+unit no longer offers a mechanism by which it gets cleared on this build.
 
 ### One open question narrows
 
@@ -582,13 +601,15 @@ strings — `%s : muic_init`, `%s : muic_init_hv_control` and
 base the device tree also names. So a bootloader stage does program the mux path
 to USB, and a bootloader stage does manage EUD.
 
-### Three images are encrypted, so their silence proves nothing
+### Three images are opaque, so their silence proves nothing
 
 `muic_set_path` appears in no other BL image, and that must not be read as
 absence. Measured over non-padding bytes, `uefi.elf` has 7.97 bits per byte,
-`abl.elf` 7.99 and `xbl_s.melf` 7.32 — effectively random, so those images are
-encrypted or compressed and a string search cannot see into them. Static
-analysis of the UEFI and ABL stages is blocked by that, not answered by it.
+`abl.elf` 7.99 and `xbl_s.melf` 7.32 — effectively random. Entropy alone does not
+distinguish encryption from compression or any other high-entropy packaging, and
+it does not need to: whatever the format, a string search cannot see into them,
+so static analysis of the UEFI and ABL stages is blocked by that rather than
+answered by it.
 
 ### What the bootloader actually did on a normal boot
 
@@ -629,8 +650,10 @@ pinned by the kernel header that the campaign already relies on:
 independent evidence that the bootloader uses the same opcode numbering as the
 kernel.
 
-**So the bootloader issues a CONTROL1 write on every normal boot, roughly 1.68
-seconds into XBL and long before the kernel exists.** The value it writes is not
+**So the bootloader issues a CONTROL1 write roughly 1.68 seconds into XBL, long
+before the kernel exists, on both boots that were captured.** Two captures do
+not establish "every boot", and the earlier wording claiming that is corrected
+here. The value it writes is not
 printed, so what CONTROL1 held afterwards is not established by this log.
 
 The specific string `muic_set_path` is still absent from both captures, so the
@@ -640,23 +663,30 @@ survives; the broad one did not.
 ### What this means for the inheritance premise
 
 The premise this unit set out to test was that a candidate might inherit a
-USB-position mux left by the bootloader. The bootloader half is now positive:
-it does write CONTROL1. The candidate half comes from the campaign's own record
-and points the other way — P3.17's diagnostic read CONTROL1 as **`0x3f`**, which
-is `COM_OPEN`, as the pre value on two complete candidate boots, before writing
-`0x09`.
+USB-position mux left by the bootloader. The bootloader half is positive: it
+does write CONTROL1.
 
-Both ends together say the mux is **not** in the USB position when a candidate
-starts, even though the bootloader touched CONTROL1. Whether the bootloader
-wrote `COM_OPEN` itself, or wrote something else that was reset before the
-candidate read it, is not decided by this evidence.
+The candidate half was first written as "P3.17's diagnostic read CONTROL1 as
+`0x3f` on two complete candidate boots", and **that is withdrawn**. The phrase
+was inherited from an earlier ledger row and not checked. On this host the runs
+carrying that telemetry record `candidate_observer_accepted` as **false** with
+the classification `endpoint-timeout`, and the two retained observer files are
+named `rollback-observer-1.bin` and `rollback-observer-2.bin` — the rollback
+side, not two candidate boots. The `0x3f` value exists in a retained record; its
+per-boot identity does not.
+
+So the two-ended conclusion is withdrawn with it. What survives is one half: the
+bootloader writes CONTROL1 on the boots that were captured. What a candidate
+finds at its own start is **not established** by anything on this host, and a
+fresh candidate boot that preserves an accepted observer is the only thing that
+would establish it.
 
 On EUD the same log gives a partial answer: the bootloader runs `eud_ser_upd`
 twice on every normal boot, and `usb_eud_is_active` never appears, so no enable
 or disable failure was logged. That does not settle whether EUD is enabled in
 hardware, and `/sys/module/eud/parameters/enable` remains the settling read.
 
-## system and product contribute nothing to the data path
+## system and product init contributes nothing to the data path
 
 The remaining unread userspace was `system` and `product`. Their init is now
 swept and the result is a bounded negative.

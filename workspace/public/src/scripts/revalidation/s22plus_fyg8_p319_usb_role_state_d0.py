@@ -30,10 +30,22 @@ which separates "no gadget bound" from "gadget bound, host silent".
 `mdwc->orientation_override`, a debug override, and not the CC orientation, so
 it would answer a question nobody asked.
 
-Every attribute read here is a `DEVICE_ATTR_RO` whose show function is a plain
-struct-field read.  No I2C is issued, no latched interrupt is consumed, and
-nothing is written, which makes this a strictly weaker action than the Stage B
-register read that has already been run and needs no acknowledgement flag.
+Every read here is side-effect free, but not for the reason first written.  The
+docstring claimed every target is a `DEVICE_ATTR_RO` whose show is a plain
+struct-field read, and that is false for two of them: `mode` is `DEVICE_ATTR_RW`
+(`dwc3-msm-core.c:4868`), and `/config/usb_gadget/g1/UDC` is a configfs
+attribute rather than a `DEVICE_ATTR` at all.  What holds is narrower and is
+what the safety property actually rests on: each target is read through its
+*show* path, and every one of those shows only takes a lock and copies state.
+`mode_show` calls `dwc3_msm_get_role`, which reads two struct fields; the
+configfs UDC show copies `gi->udc_name`, while the bind and unbind effects live
+in its separate store function which this runner never reaches.  So no I2C is
+issued, no latched interrupt is consumed, and nothing is written.
+
+That also makes this weaker than the Stage B register read, which was not
+side-effect free: reading `/sys/class/mxim/debug0/reg` walks 0x00-0x10 and
+consumes a latched `REG_VDM_INT`.  This runner needs no acknowledgement flag
+because it consumes nothing.
 
 The UDC device carries two write-only attributes, `srp` and `soft_connect`.
 `soft_connect` drives the pull-up directly.  Neither is read, neither is

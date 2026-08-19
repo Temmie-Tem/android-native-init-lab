@@ -31,7 +31,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The role-to-pull-up chain, traced",
         "The module identity question is closed, and it closes wider than asked",
         "The bootloader, which was available all along",
-        "system and product contribute nothing to the data path",
+        "system and product init contributes nothing to the data path",
         "What remains open",
         "Evidence",
     )
@@ -129,7 +129,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "carries no bare `lpcharge` or\n`factory_mode` symbol",
             "`set_gpio_usb_sel` is never assigned anywhere in the tree",
             "`usb_notify_sysfs.c:1260` sets\n`udev->usb_data_enabled = 1`",
-            "`is_blocked` returns false on a NULL `otg_notify`",
+            "neither `is_blocked` nor `get_otg_notify` appears\namong its undefined symbols",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
@@ -138,7 +138,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         for token in (
             "muic_param_pmic_info=3",
             "There\nis no `modules.options` anywhere",
-            "`insmod` does\nnot do this",
+            "which is overbroad — `insmod` can pass parameters",
             "-1 & 0xfff = 0xfff",
             "the same result as the stock value\nof 3",
         ):
@@ -287,8 +287,9 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "**The plan omits the stock mux driver, and the omission is a substitution.**",
             "`mfd_max77705.ko`, `spu_verify.ko` and `pdic_max77705.ko`",
             'CUSTOM_LATE_COMPAT = "maxim,max77705"',
-            "Two drivers\ncannot bind one device",
-            "not an oversight but a\nprecondition",
+            "and that is wrong as stated",
+            "`pdic_max77705` is not a second driver on the `maxim,max77705` parent",
+            "The 69-entry plan is unchanged by this correction; only the\nexplanation was wrong.",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
@@ -432,35 +433,37 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
-    def test_report_pins_the_single_extcon_to_eud_from_the_dtb(self):
+    def test_report_keeps_the_dt_fact_and_drops_the_runtime_inference(self):
         for token in (
-            "`extcon = <0x139>`, a single\nphandle",
-            "`qcom,msm-eud@88e0000`",
-            "The plain `mdwc->vbus_active = event`\nelse-branch is unreachable here",
+            "`extcon = <0x139>`, a single phandle, and `0x139` is `qcom,msm-eud@88e0000`",
+            "The DT fact stands",
+            "The registration does not happen.",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
-    def test_report_records_the_truncated_read_correction(self):
-        # A first pass stopped short of disable_eud's end and drew the wrong
-        # conclusion from it.
+    def test_report_keeps_the_eud_readings_that_survived(self):
         for token in (
-            "A first reading of `disable_eud` stopped short of its end",
-            "That was wrong",
-            "Neither is the hazard.",
+            "`disable_eud` does end\nconnected",
+            "`eud_event_notifier` does set `EXTCON_JIG`\ntrue",
+            "Neither matters here, because nothing\nsubscribes.",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
-    def test_report_localises_the_hazard_and_admits_it_is_undecided(self):
+    def test_report_reverses_the_eud_extcon_runtime_claim(self):
+        # dwc3-msm registers no DT extcon notifier in this build; the sticky
+        # EUD_SPOOF_DISCONNECT hazard is a source path that is not armed here.
         for token in (
-            "The hazard is `eud_event_notifier`",
-            "sets `EXTCON_JIG` **true**",
-            "cannot be settled statically",
-            "/sys/module/eud/parameters/enable",
+            "**This subsection and the one that followed it were wrong, and an independent\nreview found it.**",
+            "The device-tree half is right and the runtime half is not.",
+            "does not import `extcon_register_notifier` or\n`extcon_get_edev_by_phandle` at all**",
+            "The hazard is a real source path in a build\nthat enables it, and this is not that build.",
+            "`enable_usb_notify`",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
+        self.assertNotIn("every extcon\nevent dwc3-msm can receive on this device is an EUD event", self.report)
 
     def test_report_closes_the_ss_mon_instance_question(self):
         for token in (
@@ -490,7 +493,8 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "`0x88E0000`",
             "that must not be read as\nabsence",
             "`uefi.elf` has 7.97 bits per byte",
-            "Static\nanalysis of the UEFI and ABL stages is blocked by that, not answered by it.",
+            "static analysis of the UEFI and ABL stages is blocked by that rather than\nanswered by it",
+            "Entropy alone does not\ndistinguish encryption from compression",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
@@ -523,7 +527,8 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "`max77705.h:525` defines `OPCODE_BCCTRL1_R = 0x01`",
             "`OPCODE_CTRL1_W`, which is `0x06`",
             "independent evidence that the bootloader uses the same opcode numbering as the\nkernel",
-            "**So the bootloader issues a CONTROL1 write on every normal boot",
+            "**So the bootloader issues a CONTROL1 write roughly 1.68 seconds into XBL",
+            "Two captures do\nnot establish \"every boot\"",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
@@ -532,15 +537,17 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         self.assertIn("`muic_set_path` is still absent from both captures", self.report)
         self.assertIn("That narrower negative\nsurvives; the broad one did not.", self.report)
 
-    def test_report_resolves_the_inheritance_premise_from_both_ends(self):
+    def test_report_withdraws_the_two_candidate_boots_claim(self):
         for token in (
-            "The bootloader half is now positive",
-            "read CONTROL1 as **`0x3f`**",
-            "Both ends together say the mux is **not** in the USB position when a candidate\nstarts",
-            "is not decided by this evidence",
+            "**that is withdrawn**",
+            "inherited from an earlier ledger row and not checked",
+            "`candidate_observer_accepted` as **false**",
+            "`rollback-observer-1.bin` and `rollback-observer-2.bin` — the rollback\nside, not two candidate boots",
+            "is **not established** by anything on this host",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
+        self.assertNotIn("on two complete candidate boots, before writing", self.report)
 
     def test_report_bounds_the_system_product_negative_to_init(self):
         for token in (

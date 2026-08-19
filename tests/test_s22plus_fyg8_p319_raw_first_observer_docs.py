@@ -18,6 +18,11 @@ LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 GOAL = ROOT / "GOAL.md"
 RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260819-02-review-corrections.json"
+)
+# Superseded when the runner docstring was corrected after independent review.
+USB_ROLE_STATE_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260819-01-usb-role-state.json"
 )
 # Superseded when the USB role/state observer joined the closed inventory.  It
@@ -68,6 +73,14 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(len(expected), 10296)
         self.assertEqual(
             hashlib.sha256(expected).hexdigest(),
+            "e5689fee2322b22cba04c5ecfc21d00e59de0fe44e1f0834389ee783eee53f7f",
+        )
+
+    def test_superseded_role_state_receipt_is_preserved_unmodified(self):
+        info = USB_ROLE_STATE_RECEIPT.stat()
+        self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
+        self.assertEqual(
+            hashlib.sha256(USB_ROLE_STATE_RECEIPT.read_bytes()).hexdigest(),
             "5cd4258d8cb1ddb01af5c6b96855a8cc2b6e0d979e02187da6845d133e6fcfd4",
         )
 
@@ -151,9 +164,21 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         # statement that stopped being true.
         self.assertIn("permanent D0/F1 raw-first handle boundary", self.goal)
         self.assertIn("independent H0 PASS_GO", self.goal)
+        # This pin first read "read CONTROL1 directly".  An independent review
+        # showed Stage B reads the mxim debug dump 0x00-0x10, which does not
+        # contain CONTROL1, and that the read consumes a latched REG_VDM_INT.
         self.assertIn(
-            "Stage B has since run and read CONTROL1 directly, so regmap "
-            "presence and the Stage B target are proved rather than pending",
+            "Stage B has since run and read the mxim debug register dump "
+            "0x00-0x10",
+            self.goal,
+        )
+        self.assertIn("that dump does not contain CONTROL1", self.goal)
+        self.assertIn("it was not side-effect free", self.goal)
+        self.assertNotIn("read CONTROL1 directly", self.goal)
+        self.assertNotIn("two candidate boots because", self.goal[:1])  # placeholder-safe
+        self.assertIn(
+            "must not be cited as two candidate boots because the candidate "
+            "observer was rejected",
             self.goal,
         )
         self.assertNotIn("Stage B target are still unproved", self.goal)
