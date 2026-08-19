@@ -144,11 +144,35 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
             self.assertIn(token, self.target)
         self.assertEqual(len(self.target.splitlines()), 260)
 
-    def test_goal_keeps_stage_a_and_stage_b_unproved(self):
+    def test_goal_records_stage_b_proved_and_the_frontier_moved(self):
+        # This test previously pinned "Stage B target are still unproved" and
+        # "a fresh direct D0 request remains required".  Stage B has since run
+        # and read CONTROL1, so the pin follows the fact rather than freezing a
+        # statement that stopped being true.
         self.assertIn("permanent D0/F1 raw-first handle boundary", self.goal)
-        self.assertIn("Stage B target are still unproved", self.goal)
         self.assertIn("independent H0 PASS_GO", self.goal)
-        self.assertIn("a fresh direct D0 request remains required", self.goal)
+        self.assertIn(
+            "Stage B has since run and read CONTROL1 directly, so regmap "
+            "presence and the Stage B target are proved rather than pending",
+            self.goal,
+        )
+        self.assertNotIn("Stage B target are still unproved", self.goal)
+        self.assertNotIn("a fresh direct D0 request remains required", self.goal)
+        self.assertIn(
+            "The forward frontier has moved off the connector-side Max77705 "
+            "USB2 MUX discriminator to the role chain",
+            self.goal,
+        )
+        # The MUX is demoted, not deleted; the residual-mechanism sentence stays.
+        self.assertIn(
+            "It preserves the MUX as a source-real but causally unproven "
+            "residual mechanism",
+            self.goal,
+        )
+        self.assertIn(
+            "S22PLUS_FYG8_P319_STOCK_USERSPACE_CHOREOGRAPHY_H0_2026-08-19.md",
+            self.goal,
+        )
         self.assertEqual(len(self.goal.splitlines()), 900)
 
     def test_append_only_pending_row_is_preserved_before_review_row(self):

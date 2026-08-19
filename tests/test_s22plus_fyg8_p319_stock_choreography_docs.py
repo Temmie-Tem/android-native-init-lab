@@ -16,6 +16,53 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
     def setUpClass(cls):
         cls.report = REPORT.read_text(encoding="utf-8")
 
+    SECTION_ORDER = (
+        "Why this unit exists",
+        "What was read",
+        "The stock chain, resolved to this unit's actual values",
+        "Stock gadget versus the candidate's",
+        "Four candidate causes this unit refutes",
+        "A stale path in the stock HAL, and the real role knob",
+        "The second MUIC interface",
+        "What this changes about the frontier",
+        "The measurement was taken, and two claims above need correcting",
+        "The P3.17 plan against the first stage, and what it omits on purpose",
+        "The complete CONTROL1 writer graph",
+        "The role-to-pull-up chain, traced",
+        "The module identity question is closed, and it closes wider than asked",
+        "What remains open",
+        "Evidence",
+    )
+
+    def test_report_reads_in_order_rather_than_in_discovery_order(self):
+        # This report was first written by appending each unit's findings, which
+        # left "What remains open" mid-document with five closing sections after
+        # it and put conclusions ahead of the corrections that withdrew them.
+        # Pinning the order stops that shape from coming back.
+        found = re.findall(r"^## (.+)$", self.report, re.MULTILINE)
+        self.assertEqual(tuple(found), self.SECTION_ORDER)
+
+    def test_open_and_evidence_are_the_last_two_sections(self):
+        found = re.findall(r"^## (.+)$", self.report, re.MULTILINE)
+        self.assertEqual(found[-2:], ["What remains open", "Evidence"])
+
+    def test_no_section_points_forward(self):
+        # A backward reference survives reordering; a forward one does not.
+        for phrase in ("section below", "Closed below", "the trace below", "see below"):
+            with self.subTest(phrase=phrase):
+                self.assertNotIn(phrase, self.report)
+
+    def test_open_list_carries_no_struck_through_backlog(self):
+        section = re.search(
+            r"^## What remains open$(.*?)(?=^## )",
+            self.report,
+            re.MULTILINE | re.DOTALL,
+        )
+        self.assertIsNotNone(section)
+        self.assertNotIn("~~", section.group(1))
+        items = re.findall(r"^- ", section.group(1), re.MULTILINE)
+        self.assertEqual(len(items), 4)
+
     def test_report_states_the_h0_only_authority_boundary(self):
         for token in (
             "IMPLEMENTED_REVIEW_PENDING",

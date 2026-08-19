@@ -202,23 +202,6 @@ reaches the host", which are the two halves the frontier is currently one
 undivided question about. It is a strictly weaker action than the Stage B
 register read that has already been run.
 
-## What remains open
-
-- Whether the `ss_mon.etc` **function instance** matters, as distinct from the
-  module, which the trace below shows is mandatory.
-- ~~The ramdisk versus `vendor_dlkm` `pdic_max77705.ko` identity.~~ Closed
-  below.
-- ~~The 69-entry P3.17 plan against the 140-entry first-stage list.~~ Closed
-  below.
-- ~~The static CONTROL1 writer graph.~~ Closed below.
-- Bootloader behaviour remains undecidable from the extracted AP set.
-
-## Evidence
-
-Staged surfaces are under `workspace/private/p319_stock_userspace/`, which is
-gitignored and holds firmware-derived material that must not be committed.
-Mount points are read-only loop mounts under `/mnt/android-lab-logical/`.
-
 ## The measurement was taken, and two claims above need correcting
 
 The runner was built and collected once against the running stock unit. Every
@@ -281,49 +264,6 @@ in which stage `0x8f` produced `EPROTO`; the recorded `0x8f` outcome is
 `ETIMEDOUT` before `configured`. The high-speed pin has therefore never been the
 observed failure, which bounds it rather than clearing it.
 
-## The module identity question is closed, and it closes wider than asked
-
-The module-closure-plan unit left one thing unresolved and said why: the
-ramdisk's 423456-byte `pdic_max77705.ko` did not appear verbatim inside
-`vendor_dlkm.img`, and because that image has F2FS compression enabled a byte
-search proved nothing either way. Mounting the filesystem removes the obstacle
-entirely, since the host kernel decompresses on read. The two files are not
-merely the same build:
-
-    27e988788242888dc0c3acaf835a66585c024b034b07741e619b674ee77db3db  ramdisk
-    27e988788242888dc0c3acaf835a66585c024b034b07741e619b674ee77db3db  vendor_dlkm
-
-Identical bytes, identical 423456-byte size. The earlier caution that "same name
-is not same module" was the right caution and the answer to it is that here they
-are the same file.
-
-Comparing every module rather than the one that was asked about turns this from
-a fact into a structural property. The vendor_boot ramdisk holds 441 `.ko` files
-and `vendor_dlkm` holds 356; 306 names appear in both, and **all 306 are byte
-identical, with zero differences**. The two disjoint sets are not arbitrary:
-
-- 135 modules are ramdisk-only, and every one of the 135 is in the ramdisk's
-  own 140-entry first-stage `modules.load`. The first stage's exclusive modules
-  are exactly the ones `vendor_dlkm` does not re-ship.
-- 50 modules are `vendor_dlkm`-only, and they are entirely late-boot media and
-  data: the `lpass_cdc`, `wcd`, `swr` and `q6` audio stack, `msm_video`,
-  `msm-eva`, `camera`, `hdmi`, and the `rmnet_*` and `ipa*` networking modules.
-  Not one of them matches `usb`, `typec`, `muic`, `pdic`, `dwc`, `phy`, or
-  `redriver`.
-
-All fourteen members of the `pdic_max77705` closure — `usb_notify_layer`,
-`mfd_max77705`, `switch_class`, `common_muic`, `pdic_notifier_module`,
-`vbus_notifier`, `usb_typec_manager`, `usb_f_ss_mon_gadget`, `redriver`,
-`if_cb_manager`, `qc_usb_audio`, `dwc3-msm`, `spu_verify` and `pdic_max77705` —
-are present in both trees and byte identical in both.
-
-The consequence is stronger than the question. A candidate that loads the mux
-and USB stack from the ramdisk is loading the same bytes stock loads from
-`vendor_dlkm`, so no difference between the two copies can explain any candidate
-failure, and no candidate needs to mount a logical partition to reach the USB
-path. Byte identity is also a strictly stronger statement than the matching
-vermagic the closure-plan unit recorded.
-
 ## The P3.17 plan against the first stage, and what it omits on purpose
 
 The review's second ranked item was this diff, and the review supplied its own
@@ -351,8 +291,8 @@ are present in the vendor_boot ramdisk. The 27 are, in plan order:
 Two things fall out of the diff that the counts alone do not show.
 
 **The candidate passes no module parameters at all.** Every plan entry carries a
-`params` field, and it is the empty string for all 59 base entries. The section
-above established that stock supplies `muic_param_pmic_info=3` and its siblings
+`params` field, and it is the empty string for all 59 base entries. The
+refutations section above established that stock supplies `muic_param_pmic_info=3` and its siblings
 through the kernel command line and libmodprobe, and that `insmod` does not read
 those. This is the other half of that statement, verified in the plan rather
 than inferred: there is nowhere in the plan for a parameter to be passed, and
@@ -560,3 +500,69 @@ telemetry, which is why `modules.dep` lists it and why the closure carries it.
 This does not answer whether the `ss_mon.etc` **function instance** that every
 stock composition links as `f2` matters; the notify happens on the gadget
 regardless of which functions are linked. That narrower question stays open.
+
+## The module identity question is closed, and it closes wider than asked
+
+The module-closure-plan unit left one thing unresolved and said why: the
+ramdisk's 423456-byte `pdic_max77705.ko` did not appear verbatim inside
+`vendor_dlkm.img`, and because that image has F2FS compression enabled a byte
+search proved nothing either way. Mounting the filesystem removes the obstacle
+entirely, since the host kernel decompresses on read. The two files are not
+merely the same build:
+
+    27e988788242888dc0c3acaf835a66585c024b034b07741e619b674ee77db3db  ramdisk
+    27e988788242888dc0c3acaf835a66585c024b034b07741e619b674ee77db3db  vendor_dlkm
+
+Identical bytes, identical 423456-byte size. The earlier caution that "same name
+is not same module" was the right caution and the answer to it is that here they
+are the same file.
+
+Comparing every module rather than the one that was asked about turns this from
+a fact into a structural property. The vendor_boot ramdisk holds 441 `.ko` files
+and `vendor_dlkm` holds 356; 306 names appear in both, and **all 306 are byte
+identical, with zero differences**. The two disjoint sets are not arbitrary:
+
+- 135 modules are ramdisk-only, and every one of the 135 is in the ramdisk's
+  own 140-entry first-stage `modules.load`. The first stage's exclusive modules
+  are exactly the ones `vendor_dlkm` does not re-ship.
+- 50 modules are `vendor_dlkm`-only, and they are entirely late-boot media and
+  data: the `lpass_cdc`, `wcd`, `swr` and `q6` audio stack, `msm_video`,
+  `msm-eva`, `camera`, `hdmi`, and the `rmnet_*` and `ipa*` networking modules.
+  Not one of them matches `usb`, `typec`, `muic`, `pdic`, `dwc`, `phy`, or
+  `redriver`.
+
+All fourteen members of the `pdic_max77705` closure — `usb_notify_layer`,
+`mfd_max77705`, `switch_class`, `common_muic`, `pdic_notifier_module`,
+`vbus_notifier`, `usb_typec_manager`, `usb_f_ss_mon_gadget`, `redriver`,
+`if_cb_manager`, `qc_usb_audio`, `dwc3-msm`, `spu_verify` and `pdic_max77705` —
+are present in both trees and byte identical in both.
+
+The consequence is stronger than the question. A candidate that loads the mux
+and USB stack from the ramdisk is loading the same bytes stock loads from
+`vendor_dlkm`, so no difference between the two copies can explain any candidate
+failure, and no candidate needs to mount a logical partition to reach the USB
+path. Byte identity is also a strictly stronger statement than the matching
+vermagic the closure-plan unit recorded.
+
+## What remains open
+
+Four items this unit closed are not listed here; they have their own sections
+and the ledger carries the order they were closed in. What is still open:
+
+- Whether the `ss_mon.etc` **function instance** matters, as distinct from the
+  module, which the role-to-pull-up trace shows is a hard dependency.
+- Whether EUD is enabled in hardware on this unit, which decides whether the
+  sticky `EUD_SPOOF_DISCONNECT` path is reachable at all. `msm_eud_hw_is_enabled`
+  reads a register, so this is not decidable statically; the cheap settling read
+  is `/sys/module/eud/parameters/enable`.
+- Whether the water branch ever fired on the candidates that did load
+  `pdic_max77705`. Those runs did not preserve the MUIC sequence, so the test
+  cannot be run retrospectively and only a new run can answer it.
+- Bootloader behaviour remains undecidable from the extracted AP set, which
+  holds no analysable BL, S-Boot, ABL or XBL image.
+
+## Evidence
+
+Staged surfaces are under `workspace/private/p319_stock_userspace/`, which is
+gitignored and holds firmware-derived material that must not be committed.
+Mount points are read-only loop mounts under `/mnt/android-lab-logical/`.
