@@ -33,7 +33,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The bootloader, which was available all along",
         "system and product init contributes nothing to the data path",
         "What actually initiates the role on stock",
-        "The UCSI question cannot be asked yet, and the reason matters",
+        "The candidate channel that works, and the one that never has",
         "What remains open",
         "Evidence",
     )
@@ -593,31 +593,34 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
-    def test_report_records_the_empty_candidate_observation_record(self):
+    def test_report_records_the_silent_acm_channel(self):
         for token in (
             "There are **28**",
             "**all 28 are zero bytes**",
-            "`classification: endpoint-timeout` and `accepted: false` — 28 of 28",
+            "`classification: endpoint-timeout` with `accepted: false` — 28 of 28",
             "`300.026865` seconds",
-            "**This campaign has never captured a single byte of runtime evidence from a\n> candidate.**",
+            "**The CDC-ACM observer has never\nreturned a byte.**",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
-    def test_report_explains_the_generalisation_pattern_without_excusing_it(self):
+    def test_report_corrects_the_no_evidence_overreach(self):
         for token in (
-            "it explains a pattern rather than just adding a\nfact",
-            "it is that there is nothing else to reason\nfrom",
-            "the discipline that matters is labelling it as\none",
+            "**That was wrong**",
+            "one channel was checked and the conclusion was generalised to all channels",
+            "contains the marker **`S22E1L2|`**",
+            "generation 47, stage `0x66`, item 38, failure\n`0x6010`",
+            "the correct statement is a split, not an absence",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
+        self.assertNotIn("never captured a single byte of runtime evidence", self.report)
 
-    def test_report_names_the_shared_precondition(self):
+    def test_report_names_the_real_evidence_frontier(self):
         for token in (
-            "none of these is answerable by more reading",
-            "**one candidate boot that preserves evidence**",
-            "the host-only work has reached what it can reach on\nthese questions",
+            "they no longer need a *new* channel",
+            "`[valid, bad-body]`",
+            "payload integrity on a working\ncarrier, not the absence of a carrier",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)

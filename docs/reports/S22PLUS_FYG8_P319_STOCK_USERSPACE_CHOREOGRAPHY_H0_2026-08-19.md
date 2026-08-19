@@ -767,45 +767,51 @@ MAX77705 owns the **analog** D+/D- path through CONTROL1. UCSI over GLINK owns
 the **role** that starts the gadget. A candidate needs both, and this campaign
 has spent its effort on the first while the second was never mapped.
 
-## The UCSI question cannot be asked yet, and the reason matters
+## The candidate channel that works, and the one that never has
 
-The natural next step was to check whether UCSI and GLINK actually came up on a
-candidate, since the P3.17 plan carries all seven of those modules. That check
-cannot be run, and finding out why produced the most consequential fact in this
-unit.
+The natural next step was to check whether UCSI and GLINK come up on a
+candidate. Answering that led first to a wrong conclusion, which is corrected
+here before the useful part.
 
-Every candidate run on this host recorded the same thing. There are **28**
-`candidate-observer.raw` files under `workspace/private/runs/device-action-f1-live-v2/`,
-and **all 28 are zero bytes**. Every corresponding `candidate-observer.json`
-carries `classification: endpoint-timeout` and `accepted: false` — 28 of 28, with
-no exceptions. The most recent, P3.18, waited `300.026865` seconds for an
-`expected_size` of 49 and received nothing.
+The checkable half stands. There are **28** `candidate-observer.raw` files under
+`workspace/private/runs/device-action-f1-live-v2/`, **all 28 are zero bytes**,
+and every corresponding `candidate-observer.json` carries
+`classification: endpoint-timeout` with `accepted: false` — 28 of 28, no
+exceptions. The most recent, P3.18, waited `300.026865` seconds for an
+`expected_size` of 49 and received nothing. **The CDC-ACM observer has never
+returned a byte.**
 
-Put beside the last_kmsg unit's result — that both retained 2 MiB captures are
-stock boots, identified by PID 1's comm being `init` — the position is:
+From that this section first concluded that the campaign has never captured any
+runtime evidence from a candidate. **That was wrong**, and the error was the
+same shape as one made earlier in this same unit against the bootloader log:
+one channel was checked and the conclusion was generalised to all channels.
 
-> **This campaign has never captured a single byte of runtime evidence from a
-> candidate.** Not one observer byte, and not one candidate kernel log.
+The other channel works. The campaign's retained-log Carrier writes frames into
+the region `/proc/last_kmsg` exposes, and `rollback-observer-1.bin` — a
+2,097,136-byte retained read, the exact `last_kmsg` size this campaign measured
+— contains the marker **`S22E1L2|`**, a V2 long frame, exactly once. `GOAL.md`
+records what it decoded to: generation 47, stage `0x66`, item 38, failure
+`0x6010`, which is what the campaign used to identify the `eud.ko` index shift.
 
-Everything the campaign believes about candidate runtime behaviour therefore
-rests on one of two things: the candidate's own design, or inference from stock.
-There is no third source, and there never has been.
+So the correct statement is a split, not an absence:
 
-That is worth stating because it explains a pattern rather than just adding a
-fact. The independent reviews kept finding stock-to-candidate generalisations in
-this work, and this unit corrected two of them today. The reason they keep
-appearing is not carelessness alone — it is that there is nothing else to reason
-from. When the only observations are of stock, every candidate claim is
-necessarily an inference, and the discipline that matters is labelling it as
-one.
+| Channel | Record |
+|---|---|
+| CDC-ACM observer | 28 runs, 0 bytes, `endpoint-timeout` every time |
+| Retained-log Carrier | delivers candidate frames; P3.18's decoded |
 
-It also re-ranks the open questions. Whether UCSI comes up on a candidate,
-whether the water branch ever fired, what a candidate finds in CONTROL1 at its
-own start — none of these is answerable by more reading. They share a single
-precondition: **one candidate boot that preserves evidence**. Until an observer
-returns more than zero bytes, or a candidate's `/proc/last_kmsg` is read on the
-first boot after it runs, the host-only work has reached what it can reach on
-these questions.
+That changes what the open questions need. Whether UCSI comes up on a candidate,
+whether the water branch fired, what a candidate finds in CONTROL1 — none is
+answerable by more host reading, but they no longer need a *new* channel. They
+need the channel that already works to carry more, and the campaign's own record
+says its P3.18 read was `[valid, bad-body]`: clean framing, unusable payload.
+The frontier for evidence design is therefore payload integrity on a working
+carrier, not the absence of a carrier.
+
+The standing caution survives the correction and is worth keeping: with the ACM
+path silent for 28 runs, most of what is believed about candidate runtime
+behaviour still rests on the candidate's design or on inference from stock, and
+the discipline that matters is labelling an inference as one.
 
 ## What remains open
 
