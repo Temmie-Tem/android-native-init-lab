@@ -808,16 +808,23 @@ tail is the exact sequence the captures show:
 
 Its argument is a path id, dispatched through a seven-entry byte table at
 `0x5881` (`0b 0d 0f 11 13 00 00`) with targets `0x22a4 + entry * 4`. Decoding it
-gives the driver's whole CONTROL1 vocabulary:
+gives the driver's whole CONTROL1 vocabulary, and every value is named by the
+kernel's own bitfields — `NOBCCOMP[7] | RCPS[6] | COMP2SW[5:3] | COMN1SW[2:0]`
+with `MAX77705_MUIC_RCPS_VAL = 0`, from `max77705-muic.h:294-301` and `:376-381`:
 
-| path id | value written |
-|---|---|
-| 0 | **`0x3f` — COM_OPEN** |
-| 1 | **`0x09` — COM_USB** |
-| 2 | `0x9b` |
-| 3 | `0xa4` |
-| 4 | `0xad` |
-| 5, 6 | read, then set or clear bit 6 |
+| path id | value written | kernel constant | check |
+|---|---|---|---|
+| 0 | `0x3f` | **`COM_OPEN`** | `(7<<3)｜7` |
+| 1 | `0x09` | **`COM_USB`** | `(1<<3)｜1` |
+| 2 | `0x9b` | **`COM_UART`** | `0x80｜(3<<3)｜3` |
+| 3 | `0xa4` | **`COM_USB_CP`** | `0x80｜(4<<3)｜4` |
+| 4 | `0xad` | **`COM_UART_CP`** | `0x80｜(5<<3)｜5` |
+| 5, 6 | — | read, then set or clear bit 6 | — |
+
+All five arithmetic checks match exactly, so the bootloader and the kernel share
+one CONTROL1 encoding. That also settles what the other two callers do: they
+pass `#0x2`, which is **`COM_UART`**, consistent with their position inside a
+device-type dispatch that queries `MuicGetJigType`.
 
 Three callers exist. Two pass `#0x2`, inside a device-type dispatch. The third,
 at `0x21a4`, passes `wzr`:
@@ -1389,8 +1396,16 @@ ABL stages `SetPath: 0` never occurs. `LinuxLoader.efi` still contains
 `Error MuicSetPath()` and so retains the capability; what is now established is
 that it did not exercise it on any captured normal boot.
 
-One bound from the CCIC half survives unchanged: what `0x5E` means to the chip
-is not established, only that Linux never sends it.
+One bound from the CCIC half survives, now with the search behind it. Opcode
+`0x5E` is not named anywhere reachable: the S22+ kernel's enum skips `0x5D` to
+`0x61`, and the same gap is present in the Note 10 and Tab S6 Samsung trees,
+so it is absent from Samsung's Linux drivers generally rather than trimmed for
+this device. The public sibling chip does not help either — the MAX77958 opcode
+guide uses a different map, with SNK PDO commands at `0x3E` and `0x3F`, so its
+numbering cannot be carried across. `0x5E` is therefore a bootloader-only
+opcode with no public documentation, and its effect is inferred from the calling
+function's name, `max77705_ccic_set_sink`, and its argument of 0 — not from any
+specification.
 
 ## What remains open
 
