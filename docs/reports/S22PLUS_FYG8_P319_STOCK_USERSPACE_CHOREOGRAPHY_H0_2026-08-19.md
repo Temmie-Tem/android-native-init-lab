@@ -191,8 +191,12 @@ unit supplies the first cheap measurement on that frontier, and it is a read:
 
     cat /sys/bus/platform/devices/a600000.ssusb/mode
 
-`mode_show` has no side effect, issues no I²C, consumes no latched interrupt,
-and returns the controller's actual current role. On a candidate it separates
+`mode_show` has no side effect, issues no I²C, and consumes no latched
+interrupt. It returns the role the driver has been told to take, not the
+controller's negotiated state: `dwc3_msm_get_role` reads `mdwc->vbus_active` and
+`mdwc->id_state`, which are the same two fields `dwc3_msm_set_role` assigns.
+This sentence first said it returns the controller's actual current role, which
+was wrong. On a candidate it separates
 "the role never became peripheral" from "the role is peripheral and nothing
 reaches the host", which are the two halves the frontier is currently one
 undivided question about. It is a strictly weaker action than the Stage B
@@ -214,3 +218,65 @@ register read that has already been run.
 Staged surfaces are under `workspace/private/p319_stock_userspace/`, which is
 gitignored and holds firmware-derived material that must not be committed.
 Mount points are read-only loop mounts under `/mnt/android-lab-logical/`.
+
+## The measurement was taken, and two claims above need correcting
+
+The runner was built and collected once against the running stock unit. Every
+declared attribute was present, every read returned zero, and the classification
+is `configured`:
+
+| Attribute | Value |
+|---|---|
+| `a600000.ssusb/mode` | `peripheral` |
+| `udc/state` | `configured` |
+| `udc/function` | `g1` |
+| `udc/current_speed` | `super-speed` |
+| `udc/maximum_speed` | `super-speed` |
+| `udc/is_a_peripheral` | `0` |
+| `udc/is_selfpowered` | `0` |
+| `configfs g1/UDC` | `a600000.dwc3` |
+| `/sys/class/udc` entries | `a600000.dwc3`, `dummy_udc.0` |
+
+**First correction: this is not a new control.** The section above presented the
+read as the first cheap measurement on the frontier. The campaign already had
+five of these nine values: `S22PLUS_FYG8_P278_..._2026-07-26` records the exact
+stock recipe as `vendor.usb.use_gadget_hal=0`, `UDC=a600000.dwc3`, `parent
+mode=peripheral`, `UDC state=configured`, `UDC speed=super-speed`. What this
+unit adds is that the tuple is unchanged three and a half weeks and several
+boots later, that it now comes from a contract-bound raw-first runner rather
+than an ad-hoc capture, and four values the older recipe did not carry:
+`function`, `maximum_speed`, `is_a_peripheral` and `is_selfpowered`.
+
+**Second correction: the runner is not a new instrument for the candidate.**
+The section above said the read separates "the role never became peripheral"
+from "the role is peripheral and nothing reaches the host". The P2.60/E3
+runtime already does both halves itself: `p260_wait_role_and_udc` writes
+`peripheral` to `/sys/devices/platform/soc/a600000.ssusb/mode` and then polls
+until it reads back, and `p260_wait_configured` polls
+`/sys/class/udc/a600000.dwc3/state` and `current_speed`. So a candidate that
+reaches the UDC bind has already proven `mode` was `peripheral`. The runner's
+real contribution is narrower and should be stated as such: a reproducible stock
+control tuple, and a post-hoc reader usable on any boot rather than only at the
+candidate's own stages.
+
+`dummy_udc.0` is worth one line. It is not shipped as a module — there is no
+`dummy_hcd.ko` in `vendor_dlkm`, in `vendor`, or in the vendor_boot ramdisk — so
+it is built into the kernel and is present even on a candidate that loads no
+modules at all. A gadget setup that picked a UDC by globbing `/sys/class/udc`
+could bind to it and look healthy with nothing on the wire, particularly before
+`dwc3-msm` has probed, when it would be the only entry. That trap is already
+closed: `p260_udc_name` is the literal `"a600000.dwc3"`.
+
+One further thing was looked at and found already known. `p260_wait_configured`
+returns `-P260_EPROTO` when the state is `configured` but `current_speed` is not
+exactly `high-speed`, and this unit measured the stock link at `super-speed`,
+which looks like a predicate that could turn a successful enumeration into a
+failure. It is not a defect and not a discovery:
+`S22PLUS_FYG8_P274_..._2026-07-26` already tabulates `stage 0x8f, EPROTO` as
+"configured but `current_speed` was not exact `high-speed`" with its own
+diagnostic path, so the strictness is deliberate. The candidate also writes
+`max_speed high-speed` to the gadget and verifies the readback, so it does not
+rely on the controller's default. Searching the campaign's records finds no run
+in which stage `0x8f` produced `EPROTO`; the recorded `0x8f` outcome is
+`ETIMEDOUT` before `configured`. The high-speed pin has therefore never been the
+observed failure, which bounds it rather than clearing it.

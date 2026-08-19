@@ -118,12 +118,64 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         self.assertIn(
             "strictly weaker action than the Stage B\nregister read", self.report
         )
+        # The body first described mode as the controller's actual current role.
+        self.assertIn(
+            "It returns the role the driver has been told to take, not the\n"
+            "controller's negotiated state",
+            self.report,
+        )
+        self.assertNotIn("returns the controller's actual current role.", self.report)
 
     def test_report_keeps_the_ss_mon_question_open_rather_than_answering_it(self):
         self.assertIn(
             "Whether it is required for the pull-up is not\nestablished here",
             self.report,
         )
+
+    def test_report_records_the_measured_control_tuple(self):
+        for token in (
+            "| `a600000.ssusb/mode` | `peripheral` |",
+            "| `udc/state` | `configured` |",
+            "| `udc/current_speed` | `super-speed` |",
+            "| `configfs g1/UDC` | `a600000.dwc3` |",
+            "`a600000.dwc3`, `dummy_udc.0`",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_withdraws_its_own_novelty_claims(self):
+        # Both claims were checked against the campaign's own record after the
+        # measurement, and both were too strong.
+        for token in (
+            "**First correction: this is not a new control.**",
+            "S22PLUS_FYG8_P278_..._2026-07-26",
+            "**Second correction: the runner is not a new instrument for the candidate.**",
+            "p260_wait_role_and_udc",
+            "p260_wait_configured",
+            "a reproducible stock\ncontrol tuple",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_bounds_the_high_speed_predicate_without_calling_it_a_defect(self):
+        for token in (
+            "It is not a defect and not a discovery",
+            "S22PLUS_FYG8_P274_..._2026-07-26",
+            "finds no run\nin which stage `0x8f` produced `EPROTO`",
+            "bounds it rather than clearing it",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_records_the_dummy_udc_trap_as_already_closed(self):
+        for token in (
+            "there is no\n`dummy_hcd.ko`",
+            "built into the kernel",
+            "That trap is already\nclosed",
+            '`p260_udc_name` is the literal `"a600000.dwc3"`',
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
 
     def test_ledger_records_one_row_for_this_topic(self):
         rows = [
