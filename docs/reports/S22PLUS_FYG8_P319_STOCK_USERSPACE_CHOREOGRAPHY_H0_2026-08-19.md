@@ -767,15 +767,56 @@ MAX77705 owns the **analog** D+/D- path through CONTROL1. UCSI over GLINK owns
 the **role** that starts the gadget. A candidate needs both, and this campaign
 has spent its effort on the first while the second was never mapped.
 
+## The UCSI question cannot be asked yet, and the reason matters
+
+The natural next step was to check whether UCSI and GLINK actually came up on a
+candidate, since the P3.17 plan carries all seven of those modules. That check
+cannot be run, and finding out why produced the most consequential fact in this
+unit.
+
+Every candidate run on this host recorded the same thing. There are **28**
+`candidate-observer.raw` files under `workspace/private/runs/device-action-f1-live-v2/`,
+and **all 28 are zero bytes**. Every corresponding `candidate-observer.json`
+carries `classification: endpoint-timeout` and `accepted: false` — 28 of 28, with
+no exceptions. The most recent, P3.18, waited `300.026865` seconds for an
+`expected_size` of 49 and received nothing.
+
+Put beside the last_kmsg unit's result — that both retained 2 MiB captures are
+stock boots, identified by PID 1's comm being `init` — the position is:
+
+> **This campaign has never captured a single byte of runtime evidence from a
+> candidate.** Not one observer byte, and not one candidate kernel log.
+
+Everything the campaign believes about candidate runtime behaviour therefore
+rests on one of two things: the candidate's own design, or inference from stock.
+There is no third source, and there never has been.
+
+That is worth stating because it explains a pattern rather than just adding a
+fact. The independent reviews kept finding stock-to-candidate generalisations in
+this work, and this unit corrected two of them today. The reason they keep
+appearing is not carelessness alone — it is that there is nothing else to reason
+from. When the only observations are of stock, every candidate claim is
+necessarily an inference, and the discipline that matters is labelling it as
+one.
+
+It also re-ranks the open questions. Whether UCSI comes up on a candidate,
+whether the water branch ever fired, what a candidate finds in CONTROL1 at its
+own start — none of these is answerable by more reading. They share a single
+precondition: **one candidate boot that preserves evidence**. Until an observer
+returns more than zero bytes, or a candidate's `/proc/last_kmsg` is read on the
+first boot after it runs, the host-only work has reached what it can reach on
+these questions.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
 and the ledger carries the order they were closed in. What is still open:
 
-- Whether EUD is enabled in hardware on this unit, which decides whether the
-  sticky `EUD_SPOOF_DISCONNECT` path is reachable at all. `msm_eud_hw_is_enabled`
-  reads a register, so this is not decidable statically; the cheap settling read
-  is `/sys/module/eud/parameters/enable`.
+- Whether UCSI and GLINK come up on a candidate, which the section above shows
+  cannot be asked from existing evidence.
+- Whether EUD is enabled in hardware, which is now a smaller question than it
+  looked because dwc3-msm subscribes to no extcon on this build. The settling
+  read is `/sys/module/eud/parameters/enable`.
 - Whether the water branch ever fired on the candidates that did load
   `pdic_max77705`. Those runs did not preserve the MUIC sequence, so the test
   cannot be run retrospectively and only a new run can answer it.

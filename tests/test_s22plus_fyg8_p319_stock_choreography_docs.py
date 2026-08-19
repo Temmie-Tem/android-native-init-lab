@@ -33,6 +33,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The bootloader, which was available all along",
         "system and product init contributes nothing to the data path",
         "What actually initiates the role on stock",
+        "The UCSI question cannot be asked yet, and the reason matters",
         "What remains open",
         "Evidence",
     )
@@ -64,7 +65,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         self.assertIsNotNone(section)
         self.assertNotIn("~~", section.group(1))
         items = re.findall(r"^- ", section.group(1), re.MULTILINE)
-        self.assertEqual(len(items), 3)
+        self.assertEqual(len(items), 4)
         self.assertNotIn("holds no analysable BL", section.group(1))
 
     def test_report_states_the_h0_only_authority_boundary(self):
@@ -588,6 +589,35 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "They are\nthere because they carry the role",
             "owns the **analog** D+/D- path through CONTROL1",
             "UCSI over GLINK owns\nthe **role** that starts the gadget",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_records_the_empty_candidate_observation_record(self):
+        for token in (
+            "There are **28**",
+            "**all 28 are zero bytes**",
+            "`classification: endpoint-timeout` and `accepted: false` — 28 of 28",
+            "`300.026865` seconds",
+            "**This campaign has never captured a single byte of runtime evidence from a\n> candidate.**",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_explains_the_generalisation_pattern_without_excusing_it(self):
+        for token in (
+            "it explains a pattern rather than just adding a\nfact",
+            "it is that there is nothing else to reason\nfrom",
+            "the discipline that matters is labelling it as\none",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_names_the_shared_precondition(self):
+        for token in (
+            "none of these is answerable by more reading",
+            "**one candidate boot that preserves evidence**",
+            "the host-only work has reached what it can reach on\nthese questions",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
