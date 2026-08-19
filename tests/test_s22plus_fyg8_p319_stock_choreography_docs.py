@@ -786,12 +786,15 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
-    def test_report_states_the_partial_status_plainly(self):
+    def test_report_records_locating_the_muic_driver(self):
         for token in (
             "**What ABL does not contain is the MUIC driver.**",
             "ABL **consumes** UEFI protocols",
-            "a Qualcomm-specific layout this unit did not decode",
-            "The honest status is **partial**",
+            "**The MUIC driver was then located, and the obstacle was mine.**",
+            "are a textbook pad file",
+            "`1f 8b 08 00` — **gzip**",
+            "**`Ccic`** and **`Muic`**, 36946 bytes",
+            "the two blockers were a pad-file bug and an assumption\nthat the compression was LZMA",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)

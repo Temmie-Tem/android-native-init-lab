@@ -747,17 +747,43 @@ other DXE driver publishes. None of the executed log strings
 (`muic_command_polling`, `ccic_is_max77705`, `MUIC Device : Max77705`,
 `max77705_read_adc`) appears in either decompressed volume.
 
-The driver is therefore one nesting level further in. Both decompressed blobs
-are themselves firmware volumes — `_FVH` at offset `0x30`, base `0x8`, with
-`FvLength` matching the blob size exactly — but their file area does not parse
-with a standard FFS walker: the first entry's name GUID reads as all-`0xFF`,
-followed by a repeating `f0 00 … f8` pattern that is not an FFS header. That is
-a Qualcomm-specific layout this unit did not decode.
+**The MUIC driver was then located, and the obstacle was mine.** Two mistakes
+had stopped the walk. The first: an FFS **pad file** has an all-`0xFF` name GUID
+and type `0xf0`, and the walker treated that as end-of-list — the `f0 00 … f8`
+bytes that looked like a Qualcomm-specific layout are a textbook pad file
+carrying the FV extended header at `extoff = 96`. Skipping pad files instead of
+stopping on them made `abl_inner` yield four type-9 applications named
+**`LinuxLoader`, `Odin`, `Cryptest`, `QuestSOD`**, and `imagefv_inner` yield 26
+freeform files that are all download-mode `.jpg` artwork.
 
-The honest status is **partial**: the outer containers are open and their format
-is understood, one genuine finding came out of ABL, and the MUIC driver has not
-been reached. The remaining step is decoding the inner file layout, which is
-bounded work on files already on this host.
+The second: `uefi.elf` then yielded four files including **two** of type `0x0b`,
+whose GUID-defined sections use GUID `1d301fe9-be79-4353-91c2-d23bc959ae0c` and
+are **not** LZMA. Their payloads begin `1f 8b 08 00` — **gzip**. Decompressing
+gives 3854344 and 3170312 bytes, and the second contains every string the
+captures showed:
+
+```
+muic_command_polling      2      MUIC Device : Max77705   1
+ccic_is_max77705          1      max77705_read_adc        1
+BC_CTRL1_READ             1
+```
+
+Walking that volume names the drivers: **`Ccic`** and **`Muic`**, 36946 bytes
+each, with `CcicDxe.c` visible among the source-file strings, alongside
+`ccic_init`, `ccic_command_polling`, `[CCIC] Max77705 HW i2c init` and
+`Error locating the MUIC protocol` — confirming ABL is the consumer and these
+are the providers.
+
+So the container chain is four layers — `uefi.elf` → FV → type-`0x0b` file →
+GUID-defined **gzip** section → nested FV → the `Muic` DXE driver — and it is
+fully decoded. Nothing here was encrypted or Qualcomm-proprietary; the two
+blockers were a pad-file bug and an assumption that the compression was LZMA
+because the sibling volume used LZMA.
+
+The value written by `OP 0x06` is still not read: that needs disassembly of a
+36946-byte AArch64 PE, which is ordinary work this unit did not do. But the
+route is now **open end to end**, and the earlier framings of it as opaque,
+unrecoverable, and Qualcomm-specific were each wrong in turn.
 
 ## system and product, swept in full
 
