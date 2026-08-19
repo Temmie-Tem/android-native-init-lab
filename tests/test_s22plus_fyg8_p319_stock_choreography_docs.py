@@ -38,6 +38,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "Why the P3.18 carrier decoded as bad-body",
         "The failure vocabulary, measured on the candidate that actually ran",
         "Can the candidate bring UCSI up? No, and the missing piece is one module",
+        "The CCIC half: the bootloader parks the connector",
         "What remains open",
         "Evidence",
     )
@@ -808,6 +809,25 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "including what is **missing** from\nit",
             "`0xC5` has bit 0 set",
             "is not a coincidence, and it\npins the executed path rather than inferring it",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_analyses_the_ccic_driver(self):
+        for token in (
+            "`QcomPkg/Drivers/SamsungDxe/CcicDxe/…/Ccic.dll`",
+            "mov w0, #0x5e",
+            "**Opcode `0x5E` does not exist in the kernel.**",
+            "`OPCODE_SAMSUNG_READ_MESSAGE = 0x5D` straight to `OPCODE_SAMSUNG_SHIPMODE_EN =\n0x61`",
+            "**On every captured boot the bootloader parks the connector**",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_bounds_the_ccic_finding(self):
+        for token in (
+            "What `0x5E` means to the\nchip is not established",
+            "only that Linux never sends it",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)

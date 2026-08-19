@@ -1279,6 +1279,49 @@ This is a static plan and device-tree analysis with stock-log corroboration. It
 is not a candidate observation, and there are none to be had; it says the plan
 cannot work, not that a run was seen failing this way.
 
+## The CCIC half: the bootloader parks the connector
+
+`Ccic.efi`, the sibling of `Muic.efi` in the same volume, was extracted at the
+same time and is analysed here. Its build path names its origin outright:
+`QcomPkg/Drivers/SamsungDxe/CcicDxe/…/Ccic.dll` — a Samsung DXE driver, not a
+Qualcomm one.
+
+The log line the captures carry, `max77705_ccic_set_sink: set to 0!!`, resolves
+to a function at `0x21f8`. Its `__func__` string is `max77705_ccic_set_sink` at
+`0x5626` and its format is `%a: set to %d!!`. What it does after logging is the
+interesting part:
+
+```
+2224:  mov w1, w19          ; the value, 0 on the captured boots
+222c:  mov w0, #0x5e        ; CCIC opcode 0x5E
+2230:  mov x2, xzr
+2234:  mov w3, #0x1
+```
+
+and the captures show `ccic_command_polling : OP 0x5E Response OP 0x5E` on the
+next line, so the command reaches the chip and is answered.
+
+**Opcode `0x5E` does not exist in the kernel.** `max77705.h`'s opcode enum runs
+`OPCODE_SAMSUNG_READ_MESSAGE = 0x5D` straight to `OPCODE_SAMSUNG_SHIPMODE_EN =
+0x61`, and no `0x5e` appears anywhere in the Maxim driver or headers. It is a
+bootloader-only command that Linux never issues and does not name.
+
+Its caller runs inside CCIC init, gated on a check at `0x2538` immediately after
+chip identification, which matches the captured order exactly: `ccic_init`, then
+`[CCIC] Max77705 HW i2c init`, then `ccic_is_max77705 : 0x1A`, then
+`max77705_ccic_set_sink: set to 0!!`, then `OP 0x5E`, then
+`ccic is found!! count : 0`.
+
+Put beside the MUIC result, a picture forms that neither half gives alone.
+**On every captured boot the bootloader parks the connector**: it clears sink on
+the CCIC through a private opcode, and it writes `COM_OPEN` to the MUIC's
+CONTROL1. Both halves are deliberate initialisation, not leftovers, and both
+leave the connector quiescent rather than in any USB-carrying state.
+
+The limit is the same as for the MUIC half: this is what the two retained
+captures show and what the code does on that path. What `0x5E` means to the
+chip is not established — only that Linux never sends it.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
