@@ -1396,20 +1396,36 @@ ABL stages `SetPath: 0` never occurs. `LinuxLoader.efi` still contains
 `Error MuicSetPath()` and so retains the capability; what is now established is
 that it did not exercise it on any captured normal boot.
 
-Disassembling `LinuxLoader.efi` corroborates that from the code side. The MUIC
-helper strings are present — `Error MuicSetPath()`, ` SetPath: %d`,
-`Error MuicGetVbusStatus()` and the rest — and the first 100 bytes of that block
-are **byte-identical** to the same block in `Odin.efi`, which is the signature of
-one shared static helper linked into both applications. But the format string
-` SetPath: %d` sits at `0xf1195`, and **no `adrp`/`add` pair in the whole
-disassembly targets it**: the four `adrp` sites reaching page `0xf1000` pair
-with `+0x4de`, `+0xdae`, `+0xc` and `+0x21`, none with `+0x195`. So the string is
-linked in rather than reached, which is what dead library code looks like.
+Disassembling `LinuxLoader.efi` refines the attribution and **corrects a claim
+this report briefly carried**. That claim was that the string ` SetPath: %d` is
+linked in but never referenced, so LinuxLoader contains dead library code. It
+was produced by searching for the immediate `#0x195` after converting the
+string's decimal offset 987509 to hex **incorrectly** — 987509 is `0xf1175`, not
+`0xf1195`. Searching the right immediate finds **three** call sites, and the one
+at `0x402d0` is a textbook wrapper:
 
-Both sides therefore agree, and the caution was the right one to have: the
-presence of `Error MuicSetPath()` proved linkage, not a call. The residual
-limit is that a reference could still exist through a literal pool or a data
-table, which this pass did not enumerate.
+```
+40208:  … locate the MUIC protocol via the protocol table
+4020c:  mov  w20, w0                  ; the wrapper's own path argument
+40258:  adrp x1, 0xf0000 + 0xde4      ; "Error locating the MUIC protocol"
+40270:  mov  w0, w20                  ; pass the argument through
+402a8:  adrp x1, 0xf1000 + 0x160      ; "Error MuicSetPath()"   — failure branch
+402d0:  adrp x1, 0xf1000 + 0x175      ; " SetPath: %d"          — success branch
+402d4:  mov  w2, w20                  ; log the value
+```
+
+So `LinuxLoader` is the ABL core — it also carries `Launching odin` and
+`SetDdiBootMode`, which `Odin.efi` does not — and it owns the `SetPath` wrapper.
+The `SetPath: 1` line therefore belongs to **LinuxLoader's download-mode
+branch**, issued before Odin is launched, rather than to Odin itself as this
+report first said.
+
+None of that changes the conclusion, which rests on logs: across 80 ABL stages,
+77 download-mode boots log `SetPath: 1` and the three normal-boot stages log no
+`SetPath` at all. LinuxLoader has the call and does not take it on a normal
+boot. What is withdrawn is only the code-side "dead library" corroboration,
+which was an artifact of a hex conversion error — the sixth instance in this
+unit of concluding absence from an incomplete search.
 
 One bound from the CCIC half survives, now with the search behind it. Opcode
 `0x5E` is not named anywhere reachable: the S22+ kernel's enum skips `0x5D` to

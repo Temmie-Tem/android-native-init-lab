@@ -846,9 +846,11 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "| → normal handoff to Linux | **3** | **none at all** |",
             "`SetPath: 0` never appears",
             "from *not evidenced* to **evidenced absent**",
-            "are **byte-identical** to the same block in `Odin.efi`",
-            "**no `adrp`/`add` pair in the whole\ndisassembly targets it**",
-            "proved linkage, not a call",
+            "**corrects a claim\nthis report briefly carried**",
+            "987509 is `0xf1175`, not\n`0xf1195`",
+            "finds **three** call sites",
+            "belongs to **LinuxLoader's download-mode\nbranch**",
+            "the sixth instance in this\nunit of concluding absence from an incomplete search",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
