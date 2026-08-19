@@ -517,20 +517,33 @@ shipped `dwc3-msm.ko` and defined in `usb_f_ss_mon_gadget.ko`. So the ss_mon
 **module** is a hard load-time dependency of dwc3-msm rather than optional
 telemetry, which is why `modules.dep` lists it and why the closure carries it.
 That left open whether the `ss_mon.etc` **function instance** matters, as
-distinct from the module. It does not, and the driver settles it in two lines.
-`vbus_session_notify` opens with `if (!g_ss_monitor) return;`, and
-`usb_reset_notify` opens with the same guard. `g_ss_monitor` is assigned once,
-in `ss_monitor_alloc_inst`, which configfs calls when a `ss_mon.*` function
-directory is created — so with no instance both entry points are no-ops. With an
-instance they do exactly one thing: call `store_usblog_notify` with strings like
-`USB_STATE=VBUS:EN:SUCCESS` and `USB_STATE=RESET:SUPER`.
+distinct from the module.
 
-So the split is clean. The **module** is mandatory, because `dwc3-msm.ko` carries
+**An earlier version of this section answered "no, it is telemetry only", and an
+independent review found that wrong.** The error was reading the first branch of
+`vbus_session_notify` and generalising to both entry points — the same
+narrow-sample shape this unit made four other times.
+
+What is correct: both `vbus_session_notify` and `usb_reset_notify` open with
+`if (!g_ss_monitor) return;`, and `g_ss_monitor` is assigned once in
+`ss_monitor_alloc_inst`, which configfs calls when a `ss_mon.*` function
+directory is created. So with no instance both entry points are no-ops, and the
+**module** is mandatory regardless, because `dwc3-msm.ko` carries
 `vbus_session_notify`, `usb_reset_notify` and `store_usblog_notify` as undefined
-symbols and will not load without their providers. The **instance** is Samsung
-telemetry into usblog and has no functional part in the pull-up. A candidate
-that omits `ss_mon.etc` loses log entries and nothing else, which removes this
-from the list of differences worth chasing.
+symbols.
+
+What is **not** correct is that the instance only logs. `usb_reset_notify` also
+sets `vbus_current = USB_CURRENT_UNCONFIGURED` and calls
+`schedule_work(&…->set_vbus_current_work)`, which changes the current actually
+drawn, and it maintains the AOA reset counters and can schedule
+`usb_reset_event_work` and raise `rst_err_noti`. The instance is a real gadget
+function besides: it copies descriptors, installs setup and bind callbacks and
+calls `set_usb_enable_state()`, and allocating it registers a misc device and a
+GUID attribute.
+
+So the honest split is narrower than claimed. The module is mandatory; the
+instance is **not** telemetry-only, and what a candidate loses by omitting
+`ss_mon.etc` is not established here.
 
 ## The module identity question is closed, and it closes wider than asked
 

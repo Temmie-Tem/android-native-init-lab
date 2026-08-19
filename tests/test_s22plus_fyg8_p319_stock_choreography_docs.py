@@ -471,18 +471,17 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
                 self.assertIn(token, self.report)
         self.assertNotIn("every extcon\nevent dwc3-msm can receive on this device is an EUD event", self.report)
 
-    def test_report_closes_the_ss_mon_instance_question(self):
+    def test_report_withdraws_the_ss_mon_telemetry_only_claim(self):
         for token in (
-            "`vbus_session_notify(dwc->gadget, on, EAGAIN)`",
             "hard load-time dependency of dwc3-msm rather than optional\ntelemetry",
-            "It does not, and the driver settles it in two lines.",
-            "`if (!g_ss_monitor) return;`",
-            "in `ss_monitor_alloc_inst`",
-            "The **instance** is Samsung\ntelemetry into usblog and has no functional part in the pull-up.",
+            "an\nindependent review found that wrong.**",
+            "the same\nnarrow-sample shape this unit made four other times",
+            "`schedule_work(&…->set_vbus_current_work)`",
+            "the\ninstance is **not** telemetry-only",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
-        self.assertNotIn("That narrower question stays open.", self.report)
+        self.assertNotIn("has no functional part in the pull-up", self.report)
 
     def test_report_withdraws_the_bootloader_unavailable_claim(self):
         for token in (
