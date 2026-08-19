@@ -36,6 +36,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The candidate channel that works, and the one that never has",
         "Why the P3.18 carrier decoded as bad-body",
         "The refusal is systemic, not specific to one code",
+        "The unrouted codes are legacy, and the fix is not a bigger table",
         "What remains open",
         "Evidence",
     )
@@ -730,6 +731,36 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         self.assertIn(
             "A host D0 read\n  of the same file would not answer it.", self.report
         )
+
+    def test_report_shows_the_generational_split(self):
+        for token in (
+            "| **P3.13** | **32** | **31** |",
+            "The split is generational and total.",
+            "**73 in all**, is covered by\nnothing",
+            "`b_outputs()` spanning\n`0x4801`-`0x6fff`",
+            "a\nP3.07 hand-assignment that predates the scheme",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_refuses_to_edit_the_frozen_specs(self):
+        for token in (
+            "**The frozen specs must not be edited**",
+            "changing\na route table retroactively would change what past evidence means",
+            "Adding 107\nroutes to a frozen allowlist is exactly that.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_offers_two_changes_and_stops_at_design(self):
+        for token in (
+            "**Emitter-side.**",
+            "**Decoder-side, diagnostic only.**",
+            "without changing whether any slot is accepted",
+            "This unit stops at the measurement and the design.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
 
     def test_ledger_records_one_row_for_this_topic(self):
         rows = [

@@ -960,6 +960,61 @@ device read would therefore duplicate something the candidate performs itself,
 and the more interesting question is why it failed on a candidate, which is a
 candidate-side question and not a host-side one.
 
+## The unrouted codes are legacy, and the fix is not a bigger table
+
+The census said 107 of 108 emitter codes have no declared route, which invites
+authoring 107 routes. That would be the wrong move, and breaking the number down
+by the generation that minted each constant shows why.
+
+| Emitter generation | codes at or above `0xC00` | covered by the P3.14 families |
+|---|---|---|
+| P2.82 | 1 | 0 |
+| P2.98 | 19 | 0 |
+| P3.00 | 13 | 0 |
+| P3.01 | 9 | 0 |
+| P3.03 | 15 | 0 |
+| P3.06 | 6 | 0 |
+| P3.07 | 10 | 0 |
+| **P3.13** | **32** | **31** |
+| **P3.15** | **3** | **3** |
+
+The split is generational and total. Every constant minted from P3.13 onward is
+covered — 34 of 35. Every constant minted before it, **73 in all**, is covered by
+nothing.
+
+The reason is a change of model rather than an omission. The early specs
+enumerate an allowlist of exact `(ordinal, outcome, detail)` routes, and detail
+constants were hand-assigned in blocks — `0x0f60` upward for P2.98, `0x6001`
+upward for P3.01 through P3.07. From P3.13 the spec switched to **computed
+families**: `a_outputs()` at `0xd00` upward and `b_outputs()` spanning
+`0x4801`-`0x6fff`, derived from a matrix rather than listed. `0x6010` sits
+numerically inside the family B range and is still not a family B value, because
+that range is a computed subset with declared exclusions, and `0x6010` is a
+P3.07 hand-assignment that predates the scheme.
+
+So `bad-body` on `0x6010` is neither a bug nor bad luck: it is a legacy constant
+being validated by a spec generation that no longer mints constants that way.
+
+That rules out the obvious fix. **The frozen specs must not be edited**, because
+the P3.18 decode and every earlier one were performed against them and changing
+a route table retroactively would change what past evidence means. Adding 107
+routes to a frozen allowlist is exactly that.
+
+Two changes are available and neither touches a frozen spec:
+
+- **Emitter-side.** A candidate that must report one of the 73 legacy
+  conditions should map it into the current family space rather than emit the
+  legacy constant. This is the fix that actually makes future failures legible,
+  and it is a change to the runtime transforms, not to any decoder.
+- **Decoder-side, diagnostic only.** `_decode_slot` returns `bad-body` for three
+  unrelated situations — structural violation, semantic refusal, and canonical
+  mismatch — which is what made this cost an afternoon to diagnose. Reporting an
+  unrouted detail under its own status would surface legacy codes as legacy
+  rather than as damage, without changing whether any slot is accepted.
+
+Both are machinery changes and therefore carry a review obligation before they
+are made. This unit stops at the measurement and the design.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
