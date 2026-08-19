@@ -18,6 +18,13 @@ LEDGER = ROOT / "docs/operations/CAMPAIGN_LEDGER_S22PLUS.md"
 GOAL = ROOT / "GOAL.md"
 RECEIPT = ROOT / (
     "workspace/private/outputs/s22plus_fyg8_p319/"
+    "raw-first-observer-audit-20260819-01-usb-role-state.json"
+)
+# Superseded when the USB role/state observer joined the closed inventory.  It
+# is kept rather than regenerated: its filename names the log-harvest unit, and
+# rewriting it would falsify that unit's evidence instead of recording this one.
+LOG_HARVEST_RECEIPT = ROOT / (
+    "workspace/private/outputs/s22plus_fyg8_p319/"
     "raw-first-observer-audit-20260818-06-log-harvest.json"
 )
 # The approved 10,040-byte `7f9e6f6c` predecessor stays on disk as historical
@@ -61,6 +68,16 @@ class P319RawFirstObserverDocsTest(unittest.TestCase):
         self.assertEqual(len(expected), 10296)
         self.assertEqual(
             hashlib.sha256(expected).hexdigest(),
+            "5cd4258d8cb1ddb01af5c6b96855a8cc2b6e0d979e02187da6845d133e6fcfd4",
+        )
+
+    def test_superseded_log_harvest_receipt_is_preserved_unmodified(self):
+        info = LOG_HARVEST_RECEIPT.stat()
+        self.assertTrue(stat.S_ISREG(info.st_mode))
+        self.assertEqual(stat.S_IMODE(info.st_mode), 0o400)
+        self.assertEqual(info.st_nlink, 1)
+        self.assertEqual(
+            hashlib.sha256(LOG_HARVEST_RECEIPT.read_bytes()).hexdigest(),
             "de30f2c861cad89313bed936c967c9fac379a8713faaffb494ef60fd02e50169",
         )
 
