@@ -562,6 +562,18 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
                 self.assertIn(token, self.report)
         self.assertNotIn("recoverable from this host by any means identified here", self.report)
 
+    def test_report_reads_the_role_selection_from_registers(self):
+        for token in (
+            "and w8, w0, #0xffffcfff  ; clear PRTCAPDIR, bits [13:12]",
+            "orr w1, w8, #0x2000      ; PRTCAPDIR = 0b10 = device",
+            "**the image\ncontains no `orr` of `#0x1000` or `#0x3000` at all**",
+            "not a role decision",
+            "not\ndownward from a slot literally named `InitDevice`",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+        self.assertNotIn("not from disassembling `InitDevice`", self.report)
+
     def test_report_reduces_the_candidate_instruction_to_one_action(self):
         for token in (
             "the value **0 in all 103 captures**",
@@ -969,7 +981,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         for token in (
             "**not a precondition for device-mode enumeration on this SoC**",
             "**the candidate does not need to reach it.**",
-            "not from disassembling `InitDevice`",
+            "the register evidence is\nattached to the Usbfn DWC3 driver's init path rather than to that name",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)

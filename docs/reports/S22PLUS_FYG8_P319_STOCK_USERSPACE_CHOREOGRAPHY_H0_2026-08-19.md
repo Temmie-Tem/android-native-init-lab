@@ -1557,10 +1557,41 @@ does that a candidate on a normal boot does not is narrower and already
 identified — Odin routes the analog path with `MuicSetPath(1)` before bringing
 the controller up, and a normal boot leaves `COM_OPEN`.
 
-The limit: this is read from strings and the interface's own assert messages,
-not from disassembling `InitDevice`. What the bootloader programs inside the
-core, and whether any of it differs from what the kernel programs, is not
-established here.
+That was first read from strings and the interface's own assert messages, which
+an independent review correctly called an inference from names. It is now read
+from the registers.
+
+`UsbfnDwc3Dxe.efi` is AArch64 PE32+ with `.text` at RVA `0x1000`. Its
+`MmioRead32` and `MmioWrite32` helpers are identifiable at `0xc018` and `0xc050`
+— both open with `tst x0, #0x3` and branch to an assert on a misaligned address
+— and the DWC3 register offsets appear as immediates throughout: `0xc100`,
+`0xc110`, `0xc200`, `0xc2c0`, `0xc700`, `0xc704`, `0xc708`.
+
+The role is decided at `0x3ba0`:
+
+```
+bl 0xc018                ; MmioRead32(base + 0xC110)   GCTL
+and w8, w0, #0xffffcfff  ; clear PRTCAPDIR, bits [13:12]
+orr w1, w8, #0x2000      ; PRTCAPDIR = 0b10 = device
+bl 0xc050                ; MmioWrite32(base + 0xC110)
+```
+
+Two things make this decisive rather than suggestive. First, **the image
+contains no `orr` of `#0x1000` or `#0x3000` at all** — no site anywhere selects
+host or OTG, so the driver has exactly one role and writes it. Second, the write
+sits on the straight-line success path of the function entered at `0x37b4`,
+which is reached from the driver's own entry point (`DriverEntryPoint.c` at
+`0x114c` through `0x1454`) and again from `UsbfnExitBootService` at `0x1be0`.
+The only branches before it are `tbnz w0, #31` tests, which are `EFI_ERROR`
+checks on the preceding calls, not a role decision. The instruction immediately
+before clears GCTL bit 16.
+
+So the bootloader does not negotiate a role, read an ID pin, or consult a
+connector state to become a peripheral. It writes `PRTCAPDIR = device` into
+`GCTL` and proceeds. What remains unproven is the narrower naming question:
+this was traced from the register write upward to the driver entry, not
+downward from a slot literally named `InitDevice`, so the register evidence is
+attached to the Usbfn DWC3 driver's init path rather than to that name.
 
 ## Three bootloader modes, and only one leaves the mux open
 
@@ -1844,11 +1875,10 @@ which is the reason this section is restated rather than appended to.
   kernel can see. This is no longer on the critical path: download mode
   enumerates with the sink left at the value XBL wrote, so the gap is a gap in
   understanding rather than a blocker.
-- What `UsbCoreIfc->InitDevice` programs inside the DWC3 core, and whether any of
-  it differs from what the kernel programs. The bootloader's enumeration is
-  established from strings and assert messages, not from disassembling that
-  entry point, so the claim that it needs no role machinery is a claim about the
-  *call graph*, not about the register writes underneath it.
+- Whether what the bootloader programs into the DWC3 core differs elsewhere from
+  what the kernel programs. The role selection itself is now read from the
+  registers, but the rest of the init sequence — the `0xc100`, `0xc200` and
+  `0xc700` block writes around it — has not been compared against the kernel's.
 - Images never opened: `xbl_s.melf` (three LZMA candidates inside),
   `devcfg.mbn`, `tz.mbn`, `hypvm.mbn`, and the CP (68 MB) and CSC (24 MB)
   volumes. Nothing here suggests they carry MUIC code; they are listed so that
