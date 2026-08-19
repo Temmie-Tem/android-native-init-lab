@@ -1430,11 +1430,25 @@ properly replaces it with a real one. The wrapper begins at `0x401f8` and has
 |---|---|---|---|
 | `0x1464` | immediately after logging `Launching odin` | `#0x1` | `COM_USB` |
 | `0x45a24` | `and w9, w11, #~1` then `cmp w9, #0x6` | `#0x1` | `COM_USB` |
-| `0x45a98` | `ldr w8, [x8, #1888]` then `cmp w8, #0x1` | `#0x6` | clears bit 6 only |
+| `0x45a98` | `ldr w8, [x8, #1888]` then `cmp w8, #0x1` | `#0x6` | clears BCCTRL1 bit 6 |
 
 The third is not a path switch: path id 6 lands in the `Muic` driver's
-read-modify branch at `0x2314`, which does `and w8, w19, #0xffffffbf` — it
-clears `RCPS`, bit 6, and leaves `COMN1SW`/`COMP2SW` untouched.
+read-modify branch at `0x2314`, which does `and w8, w19, #0xffffffbf`.
+
+**This row previously said it clears `RCPS` and leaves `COMN1SW`/`COMP2SW`
+untouched. That was wrong and is withdrawn.** Those are `CONTROL1` fields, and
+this branch never touches `CONTROL1`. Reading the surrounding instructions
+rather than the mask alone shows the register: the value is fetched at `0x22a8`
+with `mov w0,#0x1 ; bl 0x27cc` and stored back at `0x2320` with `mov w0,#0x2` —
+`OPCODE_BCCTRL1_R` and `OPCODE_BCCTRL1_W`. The `CONTROL1` pair `0x05`/`0x06` is
+used only by the constant-writing branches. So path id 6 is a read-modify-write
+of **`BCCTRL1` bit 6**, and `CONTROL1` is left exactly as it was.
+
+What that bit means is not established here. `max77705.h` names the opcodes
+`OPCODE_BCCTRL1_R = 0x01` and `OPCODE_BCCTRL1_W`, but no `BCCTRL1` bitfield
+appears in the header or the Maxim driver, so nothing on this host licenses a
+name for it. Naming it `RCPS` was carrying a `CONTROL1` field across to a
+different register because the bit index matched.
 
 So **no call site in LinuxLoader passes 0**; it never writes `COM_OPEN`, which
 leaves XBL's `muic_init` as the only writer of that value. Both real path
@@ -1623,6 +1637,81 @@ implementations behind them are in `Muic.efi` and `Ccic.efi`. `Muic.efi`'s
 and `Ccic.efi` has not been opened at all. Until those are read, what
 `ccic_set_sink(1)` actually programs is unknown.
 
+## Resolving the vtable slots to register writes
+
+The thunks named slots. This resolves them, and the resolution has to start by
+correcting an assumption: `XblRamdump` does not call the `Muic`/`Ccic` DXE
+drivers. `muic_init` publishes an interface it carries itself, at
+`0xa7e9cf60`, and `ccic_init` publishes one at `0xa7ea3fe0`. Both are four
+pointers followed by a null, and every pointer lands back inside `XblRamdump`'s
+own code segment:
+
+| slot | MUIC `0xa7e9cf60` | CCIC `0xa7ea3fe0` |
+|---|---|---|
+| `+0` | `0xa7d309bc` | `0xa7d96fc4` |
+| `+8` | `0xa7d30a00` | `0xa7d97014` |
+| `+16` | `0xa7d30a8c` | `0xa7d97044` |
+| `+24` | `0xa7d30b58` | `0xa7d970b8` |
+
+A ramdump image cannot depend on DXE drivers that may not be loaded, so it ships
+its own copy. That makes the DXE drivers an *independent* witness rather than
+the implementation: `Muic.efi`'s `.data` holds a vtable at `0x7110` of
+`{0x20c8, 0x210c, 0x2268, 0x2350}` and `Ccic.efi`'s at `0x70d0` of
+`{0x2070, 0x20c0, 0x2144, 0x21f8}`. Slot `+16` of the first is `0x2268`, the
+`MuicSetPath` already disassembled here, and slot `+24` of the second is
+`0x21f8`, the `max77705_ccic_set_sink` already disassembled here. Both were
+originally found by chasing log strings; finding them again at the slot offsets
+the thunks use, in a separately built image, is what ties them to the call path.
+
+### `init_hv_control` is a single opcode
+
+`Muic.efi`'s `+24` at `0x2350` is four instructions of work:
+
+```
+235c:  mov w0, #0x12          ; OPCODE_HVCTRL_W
+2360:  sub x1, x29, #0x4
+2364:  sturb wzr, [x29, #-4]  ; payload = 0x00
+2368:  bl 0x2778              ; the opcode-write helper
+```
+
+`max77705.h` names it: `OPCODE_HVCTRL_R = 0x11`, `OPCODE_HVCTRL_W` next. The
+step between `muic_init` and `muic_set_path` clears high-voltage control.
+
+### The path-id map is wider than five constants
+
+The executed `set_path` at `0xa7d30a8c` indexes a byte table at `0xa7e3fbbb`
+holding `0b 0d 0f 11 13 00 00`, which resolves to:
+
+| id | effect | opcodes |
+|---|---|---|
+| 0 | `CONTROL1` = `0x3f` `COM_OPEN` | `0x06` write, `0x05` read-back |
+| 1 | `CONTROL1` = `0x09` `COM_USB` | `0x06`, `0x05` |
+| 2 | `CONTROL1` = `0x9b` `COM_UART` | `0x06`, `0x05` |
+| 3 | `CONTROL1` = `0xa4` `COM_USB_CP` | `0x06`, `0x05` |
+| 4 | `CONTROL1` = `0xad` `COM_UART_CP` | `0x06`, `0x05` |
+| 5 | `BCCTRL1` bit 6 **set** | `0x01` read, `0x02` write |
+| 6 | `BCCTRL1` bit 6 **clear** | `0x01`, `0x02` |
+| >6 | `CONTROL1` = `0x00` | `0x06`, `0x05` |
+
+Ids 5 and 6 reach `CONTROL1` not at all, which is what makes the withdrawn
+`RCPS` reading above a mistake rather than a wording problem.
+
+### Where the opcodes come from
+
+Laying the five calls beside `max77705.h` splits them cleanly:
+
+- `muic_set_path` uses `OPCODE_CTRL1_W` `0x06` and `OPCODE_CTRL1_R` `0x05`, or
+  `OPCODE_BCCTRL1_R/W` `0x01`/`0x02`. All four are kernel-named.
+- `muic_init_hv_control` uses `OPCODE_HVCTRL_W` `0x12`. Kernel-named.
+- `ccic_set_sink` uses `0x5E`, which the kernel enum skips entirely, jumping
+  `OPCODE_SAMSUNG_READ_MESSAGE = 0x5D` to `OPCODE_SAMSUNG_SHIPMODE_EN = 0x61`.
+
+So the MUIC half of the bring-up is expressible in commands Linux already has
+names and helpers for, and the CCIC half is not. A candidate that wants to
+reproduce the sequence can reach the mux through the kernel's own vocabulary;
+the sink step has no such route, and whatever the stock kernel does to reach the
+same state, it is not this command.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
@@ -1636,10 +1725,11 @@ CONTROL1 vocabulary read off the jump table, and the normal boot shown to leave
 `0x3f` COM_OPEN. Leaving it listed would have understated the unit's own result,
 which is the reason this section is restated rather than appended to.
 
-- What `Muic.efi`'s `+24` (`init_hv_control`) and `Ccic.efi`'s `+24`
-  (`set_sink`) actually program. The thunks give the calling convention and the
-  failure codes; the register writes behind those two vtable slots are not read.
-  `Ccic.efi` has not been opened at all.
+- What `ccic_set_sink`'s opcode `0x5E` actually programs. The command is
+  identified, reaches the chip, and is answered, but it is named nowhere the
+  kernel can see, so its payload semantics are unknown. This is the one
+  remaining gap in the five-call sequence; the other four are resolved to
+  kernel-named opcodes.
 - What `UsbCoreIfc->InitDevice` programs inside the DWC3 core, and whether any of
   it differs from what the kernel programs. The bootloader's enumeration is
   established from strings and assert messages, not from disassembling that

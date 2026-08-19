@@ -42,6 +42,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The bootloader enumerates without any of the kernel's role machinery",
         "Three bootloader modes, and only one leaves the mux open",
         "The RDX bring-up is five calls, and only half of them can fail loudly",
+        "Resolving the vtable slots to register writes",
         "What remains open",
         "Evidence",
     )
@@ -559,6 +560,28 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
         self.assertNotIn("recoverable from this host by any means identified here", self.report)
+
+    def test_report_withdraws_the_rcps_reading_of_path_id_six(self):
+        for token in (
+            "**This row previously said it clears `RCPS` and leaves `COMN1SW`/`COMP2SW`\nuntouched. That was wrong and is withdrawn.**",
+            "read-modify-write\nof **`BCCTRL1` bit 6**",
+            "nothing on this host licenses a\nname for it",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+        self.assertNotIn("clears `RCPS`, bit 6, and leaves", self.report)
+
+    def test_report_resolves_the_slots_and_splits_the_opcode_provenance(self):
+        for token in (
+            "`{0x20c8, 0x210c, 0x2268, 0x2350}`",
+            "`{0x2070, 0x20c0, 0x2144, 0x21f8}`",
+            "`OPCODE_HVCTRL_R = 0x11`",
+            "`0b 0d 0f 11 13 00 00`",
+            "| 5 | `BCCTRL1` bit 6 **set** | `0x01` read, `0x02` write |",
+            "the CCIC half is not",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
 
     def test_report_separates_entering_the_sequence_from_switching_the_mux(self):
         for token in (
