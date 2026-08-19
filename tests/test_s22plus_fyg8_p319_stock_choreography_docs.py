@@ -213,6 +213,59 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             self.report,
         )
 
+    def test_report_reproduces_the_review_counts_rather_than_repeating_them(self):
+        for token in (
+            "They were checked rather than repeated.",
+            "**42\noverlapping and 27 genuinely late**, exactly the review's figures",
+            "69 entries with 69 unique names, which is the\nself-check",
+            "`EXPECTED_MODULE_PLAN_COUNT = 69`",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_verifies_the_candidate_passes_no_module_parameters(self):
+        for token in (
+            "**The candidate passes no module parameters at all.**",
+            "it is the empty string for all 59 base entries",
+            "verified in the plan rather\nthan inferred",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_reads_the_omission_as_a_substitution(self):
+        for token in (
+            "**The plan omits the stock mux driver, and the omission is a substitution.**",
+            "`mfd_max77705.ko`, `spu_verify.ko` and `pdic_max77705.ko`",
+            'CUSTOM_LATE_COMPAT = "maxim,max77705"',
+            "Two drivers\ncannot bind one device",
+            "not an oversight but a\nprecondition",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_scopes_the_consequence_to_p317_only(self):
+        # The campaign has already corrected one generalisation from stock or
+        # from one candidate to candidates at large; this must not repeat it.
+        for token in (
+            "The consequence is specific to P3.17 and must not be generalised.",
+            "This says nothing about\nother candidates.",
+            "S7A2, M7, M11, M12 and M18 did load `pdic_max77705` and failed\nanyway",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_does_not_read_the_96_omissions_as_a_defect(self):
+        self.assertIn("omits 96 of the 140 stock first-stage modules", self.report)
+        self.assertIn(
+            "recorded as a fact about scope, not as a defect", self.report
+        )
+
+    def test_report_no_longer_lists_the_plan_diff_as_open(self):
+        self.assertNotIn(
+            "- The 69-entry P3.17 plan against the 140-entry first-stage list.\n",
+            self.report,
+        )
+
     def test_ledger_records_one_row_for_this_topic(self):
         rows = [
             line

@@ -207,7 +207,8 @@ register read that has already been run.
 - Whether `ss_mon.etc` participates in the pull-up, or is only telemetry.
 - ~~The ramdisk versus `vendor_dlkm` `pdic_max77705.ko` identity.~~ Closed
   below.
-- The 69-entry P3.17 plan against the 140-entry first-stage list.
+- ~~The 69-entry P3.17 plan against the 140-entry first-stage list.~~ Closed
+  below.
 - The static CONTROL1 writer graph, of which `max77705-muic.c:1825` is now
   located: water handling can issue `com_to_open` and, under
   `CONFIG_HICCUP_CHARGER`, `com_to_usb_cp`, both gated behind
@@ -324,3 +325,70 @@ and USB stack from the ramdisk is loading the same bytes stock loads from
 failure, and no candidate needs to mount a logical partition to reach the USB
 path. Byte identity is also a strictly stronger statement than the matching
 vermagic the closure-plan unit recorded.
+
+## The P3.17 plan against the first stage, and what it omits on purpose
+
+The review's second ranked item was this diff, and the review supplied its own
+numbers. They were checked rather than repeated. The plan is not a file: it is
+the 59-entry `s22plus_fyg8_p241_e2_plan.h` table grown by a chain of pinned
+transforms, 59 to 60 by `dispcc-waipio.ko`, 60 to 61 by `usb_notifier_qcom.ko`,
+61 to 64 by `msm-geni-se.ko`, `gpi.ko` and `i2c-msm-geni.ko`, and 64 to 69 by
+`spmi-pmic-arb.ko`, `pinctrl-spmi-gpio.ko`, `qti-regmap-debugfs.ko`,
+`regmap-spmi.ko` and `qcom-spmi-pmic.ko`. Reconstructing it from the header and
+those insertions lands on 69 entries with 69 unique names, which is the
+self-check, and matches `EXPECTED_MODULE_PLAN_COUNT = 69` in both the P3.17
+static checker and its qualification closure.
+
+Against the ramdisk's 140-entry first-stage `modules.load`, the split is **42
+overlapping and 27 genuinely late**, exactly the review's figures, and all 69
+are present in the vendor_boot ramdisk. The 27 are, in plan order:
+`qmi_helpers`, `eud`, `phy-msm-ssusb-qmp`, `repeater`, `redriver`,
+`usb_notify_layer`, `qcom_glink`, `qcom_glink_smem`, `qcom_smd`,
+`rproc_qcom_common`, `pdr_interface`, `pmic_glink`, `switch_class`,
+`common_muic`, `vbus_notifier`, `if_cb_manager`, `pdic_notifier_module`,
+`usb_typec_manager`, `usb_f_ss_mon_gadget`, `phy-msm-snps-hs`,
+`phy-msm-snps-eusb2`, `qc_usb_audio`, `dwc3-msm`, `ucsi_glink`, `gpi`,
+`i2c-msm-geni` and `usb_notifier_qcom`.
+
+Two things fall out of the diff that the counts alone do not show.
+
+**The candidate passes no module parameters at all.** Every plan entry carries a
+`params` field, and it is the empty string for all 59 base entries. The section
+above established that stock supplies `muic_param_pmic_info=3` and its siblings
+through the kernel command line and libmodprobe, and that `insmod` does not read
+those. This is the other half of that statement, verified in the plan rather
+than inferred: there is nowhere in the plan for a parameter to be passed, and
+none is.
+
+**The plan omits the stock mux driver, and the omission is a substitution.**
+Three of the fourteen `pdic_max77705` closure members are absent from the 69:
+`mfd_max77705.ko`, `spu_verify.ko` and `pdic_max77705.ko`. None of the three is
+in the first-stage list either, so nothing else loads them. That reads like a
+gap until the custom module is accounted for:
+`workspace/public/src/kernel-modules/s22plus_max77705_mux_diag/` builds
+`s22plus_max77705_mux_diag.ko`, which the P3.17 executability fixed point names
+as `CUSTOM_LATE_MODULE` against `CUSTOM_LATE_COMPAT = "maxim,max77705"`, and
+whose `of_device_id` table matches that same parent compatible. Two drivers
+cannot bind one device, so omitting `pdic_max77705.ko` is not an oversight but a
+precondition for the diagnostic to bind at all; `mfd_max77705.ko` and
+`spu_verify.ko` follow because nothing else needs them. The generators enforce
+the separation in the other direction too, asserting the plan header contains
+zero occurrences of the diagnostic's name.
+
+The consequence is specific to P3.17 and must not be generalised. On a P3.17
+candidate the stock MUIC driver is not loaded, so
+`max77705_muic_attach_usb_path` — the function that turns an attach event into
+`com_to_usb_ap` — cannot run, and CONTROL1 is instead written by the
+diagnostic's direct SMBus opcode sequence, reading with opcode `0x05` and
+writing with `0x06`. That is the structural ground under the review's demotion
+of the mux hypothesis: P3.17's `0x3f` then `0x09` then `0x09` shows the command
+protocol reached and CONTROL1 retaining COM_USB, and it says nothing about the
+stock attach path because that path was not present. This says nothing about
+other candidates. S7A2, M7, M11, M12 and M18 did load `pdic_max77705` and failed
+anyway, which the campaign has already recorded and which this diff does not
+revisit.
+
+Finally, the plan omits 96 of the 140 stock first-stage modules. That number is
+recorded as a fact about scope, not as a defect: the candidate is a different
+first stage with different goals, and nothing here establishes that any of the
+96 is needed for USB.
