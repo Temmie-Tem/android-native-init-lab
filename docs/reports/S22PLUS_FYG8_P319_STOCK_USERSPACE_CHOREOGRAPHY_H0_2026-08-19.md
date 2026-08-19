@@ -204,7 +204,8 @@ register read that has already been run.
 
 ## What remains open
 
-- Whether `ss_mon.etc` participates in the pull-up, or is only telemetry.
+- Whether the `ss_mon.etc` **function instance** matters, as distinct from the
+  module, which the trace below shows is mandatory.
 - ~~The ramdisk versus `vendor_dlkm` `pdic_max77705.ko` identity.~~ Closed
   below.
 - ~~The 69-entry P3.17 plan against the 140-entry first-stage list.~~ Closed
@@ -474,3 +475,88 @@ is a hypothesis with a cheap test rather than a finding: those runs would carry
 `== WATER DETECT ==` or `water hiccup mode, Aux USB path` in their logs, and the
 campaign's record states those runs did not preserve the MUIC sequence at all,
 so the test cannot be run on them retrospectively.
+
+## The role-to-pull-up chain, traced
+
+The review's fifth item. The chain from a `mode` write to a pull-up is:
+
+1. `mode_store` maps `peripheral` to `USB_ROLE_DEVICE` and calls
+   `dwc3_msm_set_role`.
+2. `dwc3_msm_set_role` sets `mdwc->vbus_active = true` and
+   `mdwc->id_state = DWC3_ID_FLOAT`, then calls `dwc3_ext_event_notify`.
+3. `dwc3_ext_event_notify` translates those fields into the `mdwc->inputs`
+   bitmap — `ID` from `id_state`, `B_SESS_VLD` from `vbus_active`, `B_SUSPEND`
+   from `suspend` — and queues `sm_work`.
+4. `dwc3_otg_sm_work` in `DRD_STATE_IDLE` takes the peripheral branch only when
+   `ID` is set and `B_SESS_VLD` is set; it then calls
+   `dwc3_otg_start_peripheral(mdwc, 1)` and moves to `DRD_STATE_PERIPHERAL`.
+5. `dwc3_otg_start_peripheral` notifies the redriver and both PHYs of connect
+   and starts the gadget, from which the core reaches `usb_gadget_connect` and
+   `dwc3_gadget_pullup`.
+
+**`B_SESS_VLD` is the gate, and it is not simply `vbus_active`.** In
+`dwc3_ext_event_notify` the bit is set from `vbus_active` only when
+`mdwc->hs_phy->flags & EUD_SPOOF_DISCONNECT` is clear; when that flag is set the
+bit is cleared instead. That flag is sticky: once set, every later notify with
+`vbus_active` true takes the clearing branch, and only a transition to
+`vbus_active` false or an EUD connect event removes it.
+
+### Why reading `mode` alone would have been a mistake
+
+`mode_show` calls `dwc3_msm_get_role`, which reports `USB_ROLE_DEVICE` whenever
+`mdwc->vbus_active` is set — and `dwc3_msm_set_role` sets that field
+unconditionally, before `dwc3_ext_event_notify` decides anything. So if
+`EUD_SPOOF_DISCONNECT` is set, a `mode` write succeeds, `mode` reads back
+`peripheral`, and the state machine never leaves `DRD_STATE_IDLE`. The role
+readback and the gadget state can disagree, and only reading both catches it.
+That is the reason the runner reads `mode` together with the UDC's `state`
+rather than `mode` alone, stated now as a mechanism instead of a preference.
+
+### The only extcon on this device is EUD
+
+`a600000.ssusb` in the vendor_boot DTB carries `extcon = <0x139>`, a single
+phandle, and phandle `0x139` is `qcom,msm-eud@88e0000`. dwc3-msm registers its
+`EXTCON_USB` and `EXTCON_USB_HOST` notifiers from that list, so **every extcon
+event dwc3-msm can receive on this device is an EUD event**, and the notifier's
+`eud_str` branch always applies. The plain `mdwc->vbus_active = event`
+else-branch is unreachable here; `vbus_active` is instead driven by the role
+switch, which is what `mode_store` and the Type-C manager both use.
+
+### What can and cannot arm the sticky disconnect
+
+A first reading of `disable_eud` stopped short of its end and concluded that
+disabling EUD leaves the extcon disconnected. That was wrong: `disable_eud`
+performs its spoof disconnect and then, after the CSR write and a
+`usleep_range`, issues `extcon_set_state_sync(EXTCON_USB, true)`. `enable_eud`
+likewise ends connected. Both therefore settle with `eud_active` at 1, and their
+transient 1-to-0 is followed by a connect that sets `EUD_SPOOF_CONNECT` and
+restores `B_SESS_VLD`. Neither is the hazard.
+
+The hazard is `eud_event_notifier`, which runs from the EUD hardware interrupt.
+On `EUD_INT_VBUS` it sets `EXTCON_JIG` **true** and then publishes
+`chip->usb_attach`. In dwc3-msm's notifier the `spoof` variable is that JIG
+state, and the early return that would otherwise divert a disconnect into
+`dwc3_override_vbus_status` is guarded by `!spoof`. With `spoof` true the code
+falls through to `check_eud_state = true` while `eud_active` is 0, and the next
+notify sets `EUD_SPOOF_DISCONNECT` and clears `B_SESS_VLD` with nothing to undo
+it. That path requires the EUD hardware interrupt, which requires EUD to be
+enabled in hardware.
+
+Whether it is enabled on this unit cannot be settled statically:
+`msm_eud_hw_is_enabled` reads a register, and the probe path only publishes an
+extcon connect when the bootloader left EUD on. The retained stock captures show
+`eud.ko` loaded with empty args and `eud` in the module list, and the one
+`usb: eud_ser_upd` line belongs to the bootloader tail rather than the kernel.
+The cheap settling read is `/sys/module/eud/parameters/enable`, which is mode
+0644 and carries the driver's own view of the enable state.
+
+### One open question narrows
+
+`dwc3_otg_start_peripheral` calls `vbus_session_notify(dwc->gadget, on, EAGAIN)`
+under `CONFIG_USB_CONFIGFS_F_SS_MON_GADGET`, and that symbol is undefined in the
+shipped `dwc3-msm.ko` and defined in `usb_f_ss_mon_gadget.ko`. So the ss_mon
+**module** is a hard load-time dependency of dwc3-msm rather than optional
+telemetry, which is why `modules.dep` lists it and why the closure carries it.
+This does not answer whether the `ss_mon.etc` **function instance** that every
+stock composition links as `f2` matters; the notify happens on the gadget
+regardless of which functions are linked. That narrower question stays open.

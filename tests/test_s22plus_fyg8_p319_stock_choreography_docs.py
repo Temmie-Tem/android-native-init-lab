@@ -345,6 +345,82 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
+    def test_report_traces_the_chain_in_five_ordered_steps(self):
+        section = re.search(
+            r"^## The role-to-pull-up chain, traced$(.*?)(?=^### )",
+            self.report,
+            re.MULTILINE | re.DOTALL,
+        )
+        self.assertIsNotNone(section, "chain section missing")
+        steps = re.findall(r"^\d\. ", section.group(1), re.MULTILINE)
+        self.assertEqual(len(steps), 5)
+        for token in (
+            "`dwc3_msm_set_role`",
+            "`dwc3_ext_event_notify`",
+            "`dwc3_otg_sm_work`",
+            "`dwc3_otg_start_peripheral`",
+            "`dwc3_gadget_pullup`",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, section.group(1))
+
+    def test_report_names_b_sess_vld_as_the_gate_and_the_flag_as_sticky(self):
+        for token in (
+            "**`B_SESS_VLD` is the gate, and it is not simply `vbus_active`.**",
+            "That flag is sticky",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_justifies_the_runner_pair_as_a_mechanism(self):
+        for token in (
+            "### Why reading `mode` alone would have been a mistake",
+            "sets that field\nunconditionally",
+            "the state machine never leaves `DRD_STATE_IDLE`",
+            "stated now as a mechanism instead of a preference",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_pins_the_single_extcon_to_eud_from_the_dtb(self):
+        for token in (
+            "`extcon = <0x139>`, a single\nphandle",
+            "`qcom,msm-eud@88e0000`",
+            "The plain `mdwc->vbus_active = event`\nelse-branch is unreachable here",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_records_the_truncated_read_correction(self):
+        # A first pass stopped short of disable_eud's end and drew the wrong
+        # conclusion from it.
+        for token in (
+            "A first reading of `disable_eud` stopped short of its end",
+            "That was wrong",
+            "Neither is the hazard.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_localises_the_hazard_and_admits_it_is_undecided(self):
+        for token in (
+            "The hazard is `eud_event_notifier`",
+            "sets `EXTCON_JIG` **true**",
+            "cannot be settled statically",
+            "/sys/module/eud/parameters/enable",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_narrows_rather_than_closes_the_ss_mon_question(self):
+        for token in (
+            "`vbus_session_notify(dwc->gadget, on, EAGAIN)`",
+            "hard load-time dependency of dwc3-msm rather than optional\ntelemetry",
+            "That narrower question stays open.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
     def test_ledger_records_one_row_for_this_topic(self):
         rows = [
             line
