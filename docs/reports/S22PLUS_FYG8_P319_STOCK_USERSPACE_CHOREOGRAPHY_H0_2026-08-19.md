@@ -712,6 +712,61 @@ world-readable on the mounted image. The sweep above covers init only, so a
 system binary or framework service that touches the data path would not have
 been seen; the negative is about init, not about the whole partition.
 
+## What actually initiates the role on stock
+
+Correcting the extcon claim left a hole: if dwc3-msm subscribes to no extcon,
+what sets `vbus_active` on a stock boot? The answer is a subsystem this campaign
+has not been looking at.
+
+Four facts close it off one route at a time.
+
+- dwc3-msm **registers** a USB role switch: `usb_role_switch_register` at
+  `dwc3-msm-core.c:6091` with `.set = dwc3_msm_usb_role_switch_set_role` at
+  `:6084`, which calls `dwc3_msm_set_role` at `:4786`.
+- The device-tree default-mode fallback that would set `vbus_active = true` by
+  itself is guarded at `:5564` by `if (!mdwc->role_switch && !mdwc->extcon)`.
+  Because the role switch is registered, **that fallback does not run**.
+- No DT extcon notifier is registered, as established above.
+- Among the shipped `vendor_dlkm` modules, the only importer of
+  `usb_role_switch_set_role` is `dwc3-msm.ko` itself, and the whole Samsung
+  Type-C stack — `usb/typec/manager/`, `usb/typec/common/`, `usb/typec/maxim/` —
+  contains no `usb_role_switch` reference at all. The Samsung stack does not
+  drive the role switch.
+
+What remains is UCSI. `drivers/usb/typec/ucsi/ucsi.c` is a caller of
+`usb_role_switch_set_role`, and the core is not a shipped module:
+`ucsi_glink.ko` imports `ucsi_register`, `ucsi_create`, `ucsi_connector_change`,
+`ucsi_destroy`, `ucsi_unregister`, `ucsi_set_drvdata` and `ucsi_get_drvdata` as
+undefined symbols, and **no module in `vendor_dlkm` defines any of them**, so
+the UCSI core is built into the kernel image.
+
+So the stock role path is:
+
+```
+PMIC firmware → pmic_glink / qcom_glink / qcom_smd → ucsi_glink.ko
+  → UCSI core (in vmlinux) → usb_role_switch_set_role
+  → dwc3_msm_usb_role_switch_set_role → dwc3_msm_set_role
+  → dwc3_ext_event_notify → sm_work → dwc3_otg_start_peripheral → pull-up
+```
+
+The retained captures corroborate the ordering without proving the call:
+`pmic_glink.ko` and `ucsi_glink.ko` load at about 3.42 and 3.45 seconds, ahead
+of `pdic_max77705` at 4.09 seconds. The role-switch call sites log at `dev_dbg`
+and are therefore absent from the captures, so this is a structural derivation
+with a load-order corroboration, **not a traced call**.
+
+Two consequences are worth stating plainly.
+
+First, it explains a cluster in the P3.17 plan that had no explanation. Of the 27
+genuinely late modules, seven are `qcom_glink`, `qcom_glink_smem`, `qcom_smd`,
+`rproc_qcom_common`, `pdr_interface`, `pmic_glink` and `ucsi_glink`. They are
+there because they carry the role, not as incidental platform plumbing.
+
+Second, it separates two things the campaign has been treating as one. The
+MAX77705 owns the **analog** D+/D- path through CONTROL1. UCSI over GLINK owns
+the **role** that starts the gadget. A candidate needs both, and this campaign
+has spent its effort on the first while the second was never mapped.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections

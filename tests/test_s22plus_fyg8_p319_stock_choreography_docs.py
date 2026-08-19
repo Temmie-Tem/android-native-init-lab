@@ -32,6 +32,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The module identity question is closed, and it closes wider than asked",
         "The bootloader, which was available all along",
         "system and product init contributes nothing to the data path",
+        "What actually initiates the role on stock",
         "What remains open",
         "Evidence",
     )
@@ -556,6 +557,37 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "no\n`disabled` flag",
             "and no\n`android.hardware.usb.gadget` / `IUsbGadget` entry at all",
             "the negative is about init, not about the whole partition",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_identifies_the_stock_role_initiator(self):
+        for token in (
+            "`usb_role_switch_register` at\n  `dwc3-msm-core.c:6091`",
+            "`:5564` by `if (!mdwc->role_switch && !mdwc->extcon)`",
+            "**that fallback does not run**",
+            "contains no `usb_role_switch` reference at all",
+            "**no module in `vendor_dlkm` defines any of them**",
+            "the UCSI core is built into the kernel image",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_marks_the_role_chain_as_derived_not_traced(self):
+        for token in (
+            "corroborate the ordering without proving the call",
+            "log at `dev_dbg`",
+            "**not a traced call**",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_separates_the_analog_path_from_the_role(self):
+        for token in (
+            "seven are `qcom_glink`, `qcom_glink_smem`, `qcom_smd`,",
+            "They are\nthere because they carry the role",
+            "owns the **analog** D+/D- path through CONTROL1",
+            "UCSI over GLINK owns\nthe **role** that starts the gadget",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
