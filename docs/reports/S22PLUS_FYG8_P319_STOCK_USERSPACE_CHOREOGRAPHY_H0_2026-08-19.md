@@ -1312,15 +1312,51 @@ chip identification, which matches the captured order exactly: `ccic_init`, then
 `max77705_ccic_set_sink: set to 0!!`, then `OP 0x5E`, then
 `ccic is found!! count : 0`.
 
-Put beside the MUIC result, a picture forms that neither half gives alone.
-**On every captured boot the bootloader parks the connector**: it clears sink on
-the CCIC through a private opcode, and it writes `COM_OPEN` to the MUIC's
-CONTROL1. Both halves are deliberate initialisation, not leftovers, and both
-leave the connector quiescent rather than in any USB-carrying state.
+Put beside the MUIC result, this looked like the bootloader parking the
+connector: sink cleared on the CCIC through a private opcode, `COM_OPEN` written
+to the MUIC. **That reading was wrong, and it was wrong for the fourth time in
+the same way — a log format I had not enumerated.**
 
-The limit is the same as for the MUIC half: this is what the two retained
-captures show and what the code does on that path. What `0x5E` means to the
-chip is not established — only that Linux never sends it.
+The retained captures carry a third bootloader format beyond `B - <us> - <tag>:`
+and `{ <us> }[ XBL ]`: **`{ <us> }[ ABL ]`, 1179 lines** in one capture and 1188
+and 786 in the others. Enumerating it produces the rest of the sequence:
+
+```
+{ 2746677 }[ ABL ] MuicGetDeviceType: 2
+{ 2793983 }[ ABL ]  MuicGetAdcOrientedDevice: 0
+{ 2794166 }[ ABL ]  MuicGetVbusStatus: 1
+{ 2825215 }[ ABL ]  MuicGetJigType: 0
+{ 3256546 }[ ABL ]  SetPath: 1
+{ 3266062 }[ ABL ] Samsung USB Driver enumeration start!
+```
+
+`SetPath: 1` is `MuicSetPath(1)`, and the jump table decoded above maps path id 1
+to **`0x09`, COM_USB**. Ten milliseconds later ABL starts USB enumeration. All
+three captures examined show it, at 3.2565, 3.2607 and 3.2606 seconds — this is
+the ordinary boot path, not a special case.
+
+So the corrected sequence, all before the kernel exists, is:
+
+| stage | action | CONTROL1 |
+|---|---|---|
+| XBL `muic_init`, ~1.68 s | `MuicSetPath(0)` | `0x3f` COM_OPEN |
+| ABL, ~3.26 s | `SetPath: 1` | `0x09` COM_USB |
+| ABL, ~3.27 s | `Samsung USB Driver enumeration start!` | — |
+
+**The bootloader does not park the connector. It opens the mux early and then
+routes it to USB before handing off.** `COM_OPEN` is an intermediate state, not
+the handoff state, and the CCIC `set_sink(0)` sits in that early phase rather
+than describing the final one.
+
+That leaves a real tension rather than a tidy answer. If the bootloader hands
+off at COM_USB, a candidate should inherit COM_USB — yet P3.17's diagnostic read
+CONTROL1 as `0x3f` before writing. Something between ABL's `SetPath: 1` and a
+candidate's own first read either resets CONTROL1 or takes a different path.
+Which of those is happening is **not** established here, and it is now the
+sharpest open question the bootloader work produced.
+
+One bound from the CCIC half survives unchanged: what `0x5E` means to the
+chip is not established, only that Linux never sends it.
 
 ## What remains open
 

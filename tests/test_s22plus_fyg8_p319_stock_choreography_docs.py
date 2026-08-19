@@ -819,15 +819,18 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "mov w0, #0x5e",
             "**Opcode `0x5E` does not exist in the kernel.**",
             "`OPCODE_SAMSUNG_READ_MESSAGE = 0x5D` straight to `OPCODE_SAMSUNG_SHIPMODE_EN =\n0x61`",
-            "**On every captured boot the bootloader parks the connector**",
+            "**That reading was wrong, and it was wrong for the fourth time in\nthe same way",
+            "**`{ <us> }[ ABL ]`, 1179 lines**",
+            "`SetPath: 1` is `MuicSetPath(1)`",
+            "**The bootloader does not park the connector.",
+            "it is now the\nsharpest open question the bootloader work produced",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
     def test_report_bounds_the_ccic_finding(self):
         for token in (
-            "What `0x5E` means to the\nchip is not established",
-            "only that Linux never sends it",
+            "what `0x5E` means to the\nchip is not established, only that Linux never sends it",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
