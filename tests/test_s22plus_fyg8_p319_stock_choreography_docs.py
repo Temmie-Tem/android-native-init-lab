@@ -813,24 +813,33 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
-    def test_report_analyses_the_ccic_driver(self):
+    def test_report_attributes_setpath_to_odin(self):
         for token in (
-            "`QcomPkg/Drivers/SamsungDxe/CcicDxe/…/Ccic.dll`",
-            "mov w0, #0x5e",
-            "**Opcode `0x5E` does not exist in the kernel.**",
-            "`OPCODE_SAMSUNG_READ_MESSAGE = 0x5D` straight to `OPCODE_SAMSUNG_SHIPMODE_EN =\n0x61`",
-            "**That reading was wrong, and it was wrong for the fourth time in\nthe same way",
-            "**`{ <us> }[ ABL ]`, 1179 lines**",
-            "`SetPath: 1` is `MuicSetPath(1)`",
-            "**The bootloader does not park the connector.",
-            "it is now the\nsharpest open question the bootloader work produced",
+            "**`{ <us> }[ ABL ]`** — 1179, 1188 and 786 lines",
+            "Launching odin -927639495",
+            "it is **Odin's**, issued after `Launching odin`",
+            "the bootloader tail in every\nretained capture is a **download-mode session**, not a normal boot",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
-    def test_report_bounds_the_ccic_finding(self):
+    def test_report_resolves_the_candidate_0x3f_reading(self):
         for token in (
-            "what `0x5E` means to the\nchip is not established, only that Linux never sends it",
+            "| **Download** | ABL → Odin |",
+            "| **Normal** | ABL → LinuxLoader | no `SetPath` evidenced |",
+            "a candidate reads `0x3f` because its boot is a normal boot",
+            "**why Download mode enumerates to a host while a candidate never has.**",
+            "candidate inherits an open mux",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_states_the_missing_normal_boot_abl_capture(self):
+        for token in (
+            "There is **no capture of a normal boot's ABL stage**",
+            "`LinuxLoader.efi` does contain `Error MuicSetPath()`",
+            "no normal-boot `SetPath` is *evidenced*, not that none\noccurs",
+            "what `0x5E` means to the chip\nis not established",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
