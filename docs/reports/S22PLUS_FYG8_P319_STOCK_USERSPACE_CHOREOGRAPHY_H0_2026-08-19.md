@@ -544,6 +544,74 @@ failure, and no candidate needs to mount a logical partition to reach the USB
 path. Byte identity is also a strictly stronger statement than the matching
 vermagic the closure-plan unit recorded.
 
+## The bootloader, which was available all along
+
+This unit's earlier text, and the independent review it came from, said
+bootloader behaviour was undecidable because the extracted AP material holds no
+analysable BL, S-Boot, ABL or XBL image. That is true of the AP material and
+misleading as a conclusion. The firmware ZIP on this host has five members, and
+one of them is
+`BL_S906NKSS7FYG8_S906NKSS7FYG8_MQB99315260_REV00_user_low_ship_MULTI_CERT.tar.md5`
+at 114,319,472 bytes. It was never extracted. The bootloader was not missing; it
+was unread.
+
+It is now extracted: 30 images including `uefi.elf`, `abl.elf`, `xbl_s.melf`,
+`xbl_config.elf`, `XblRamdump.elf`, `engmode.mbn`, `tz.mbn`, `devcfg.mbn` and
+`aop.mbn`, with only `NON-HLOS.bin` and `dspso.bin` skipped as irrelevant bulk.
+
+### One image is readable and it programs the MUIC
+
+`XblRamdump.elf` is plaintext. It carries Samsung MUIC bring-up as format
+strings — `%s : muic_init`, `%s : muic_init_hv_control` and
+`%s : muic_set_path to USB` — and EUD control alongside it:
+`usb_eud_is_active, status`, `usb_eud_is_active, enable failed`,
+`usb_eud_is_active, disable failed`, `qusb_dci_eud_init`,
+`qusb_dci_eud_recovery`, and the literal `0x88E0000`, which is the EUD register
+base the device tree also names. So a bootloader stage does program the mux path
+to USB, and a bootloader stage does manage EUD.
+
+### Three images are encrypted, so their silence proves nothing
+
+`muic_set_path` appears in no other BL image, and that must not be read as
+absence. Measured over non-padding bytes, `uefi.elf` has 7.97 bits per byte,
+`abl.elf` 7.99 and `xbl_s.melf` 7.32 — effectively random, so those images are
+encrypted or compressed and a string search cannot see into them. Static
+analysis of the UEFI and ABL stages is blocked by that, not answered by it.
+
+### What the bootloader actually did on a normal boot
+
+The retained captures settle more than the images do, because both carry the
+bootloader's own log. In each, `muic_set_path` appears **zero** times.
+
+A false positive was caught on the way to that. Searching for `muic_init`
+returned eight hits per capture, which looked like the bootloader running MUIC
+init; reading the lines showed all eight are kernel lines,
+`pdic_max77705: max77705_muic_init_regs` and `max77705_muic_init_detect`, in
+which the search term is a substring. The bootloader logged none of them.
+
+Enumerating the bootloader's own log confirms it from the other direction. It
+holds 159 `B - <microseconds> - <tag>:` lines whose tags are `PM` 30 times, `usb`
+12, `DTB` 8, `Debug Policy` 4, `DDR` 4, the several `UFS` tags, `INFO`,
+`Find DTB for chipinfo`, `ufs_error_log` and `Init logs to media`. There is no
+MUIC tag at all, and the twelve `usb` lines are only
+`usb_shared_xbl_dtb_node_init`, `usb_hs_phy_cfg size`, `eud_ser_upd`,
+`UFS Serial` and `ldr`.
+
+### The bound on that negative
+
+The retained bootloader log spans 130,784 to 762,378 microseconds. It does not
+start at zero, so roughly the first 131 ms of bootloader execution is not in
+this evidence, and a MUIC action taken before that — or taken without logging —
+is not excluded. The honest statement is that the long-standing premise that a
+candidate may inherit a USB-position mux left by the bootloader is
+**unsupported within the retained window**, not refuted.
+
+On EUD the same evidence gives a partial answer: the bootloader runs
+`eud_ser_upd` twice on every normal boot, and `usb_eud_is_active` never appears,
+so no enable or disable failure was logged. That does not settle whether EUD is
+enabled in hardware, and `/sys/module/eud/parameters/enable` remains the
+settling read.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
@@ -558,8 +626,9 @@ and the ledger carries the order they were closed in. What is still open:
 - Whether the water branch ever fired on the candidates that did load
   `pdic_max77705`. Those runs did not preserve the MUIC sequence, so the test
   cannot be run retrospectively and only a new run can answer it.
-- Bootloader behaviour remains undecidable from the extracted AP set, which
-  holds no analysable BL, S-Boot, ABL or XBL image.
+- Whether the bootloader programs the mux outside the retained log window, or
+  without logging. The BL images are now extracted and the question is narrowed
+  rather than closed; see the section on the bootloader.
 
 ## Evidence
 

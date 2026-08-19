@@ -30,6 +30,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The complete CONTROL1 writer graph",
         "The role-to-pull-up chain, traced",
         "The module identity question is closed, and it closes wider than asked",
+        "The bootloader, which was available all along",
         "What remains open",
         "Evidence",
     )
@@ -62,6 +63,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         self.assertNotIn("~~", section.group(1))
         items = re.findall(r"^- ", section.group(1), re.MULTILINE)
         self.assertEqual(len(items), 4)
+        self.assertNotIn("holds no analysable BL", section.group(1))
 
     def test_report_states_the_h0_only_authority_boundary(self):
         for token in (
@@ -464,6 +466,46 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "`vbus_session_notify(dwc->gadget, on, EAGAIN)`",
             "hard load-time dependency of dwc3-msm rather than optional\ntelemetry",
             "That narrower question stays open.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_withdraws_the_bootloader_unavailable_claim(self):
+        for token in (
+            "That is true of the AP material and\nmisleading as a conclusion.",
+            "BL_S906NKSS7FYG8_S906NKSS7FYG8_MQB99315260_REV00_user_low_ship_MULTI_CERT.tar.md5",
+            "It was never extracted. The bootloader was not missing; it\nwas unread.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_separates_readable_from_encrypted_bootloader_images(self):
+        for token in (
+            "`%s : muic_set_path to USB`",
+            "`0x88E0000`",
+            "that must not be read as\nabsence",
+            "`uefi.elf` has 7.97 bits per byte",
+            "Static\nanalysis of the UEFI and ABL stages is blocked by that, not answered by it.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_records_the_muic_init_false_positive(self):
+        for token in (
+            "A false positive was caught on the way to that.",
+            "all eight are kernel lines",
+            "in\nwhich the search term is a substring",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_bounds_the_bootloader_negative_rather_than_refuting(self):
+        for token in (
+            "`muic_set_path` appears **zero** times",
+            "There is no\nMUIC tag at all",
+            "130,784 to 762,378 microseconds",
+            "It does not\nstart at zero",
+            "**unsupported within the retained window**, not refuted",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
