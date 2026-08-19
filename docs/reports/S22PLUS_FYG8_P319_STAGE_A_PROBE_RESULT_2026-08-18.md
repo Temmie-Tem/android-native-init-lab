@@ -1233,3 +1233,94 @@ copy declares and what the device's `modules.dep` lists, which is expected from
 the first-stage subtraction but has not been checked against the device copy's
 own `.modinfo`. A candidate loads the ramdisk copy, so this does not block the
 plan; it is recorded because "same name" is not "same module".
+
+## Independent review (Codex GPT-5.6-Luna, reasoning max, read-only sandbox)
+
+The review was run with `codex exec -s read-only`, so the no-device and no-write
+constraints were enforced by the sandbox rather than by prompt text. A parallel
+Claude reviewer was also started and died on a session limit before reporting;
+its stub carried no checkable claim, so nothing from it is recorded here.
+
+Two of its findings are corrections to text this report already published. Both
+were verified against the source before being accepted.
+
+### Correction: "reached the wire" is overstated
+
+This report said the CONTROL1 write "was serialised and handed to I2C" and the
+commit said "proved at the wire". The hex dump does not prove that:
+
+```
+max77705_usbc.c:1903   print_hex_dump("max77705: opcode_write: ", write_values, …)
+max77705_usbc.c:1909   ret = max77705_bulk_write(usbc_data->muic, OPCODE_WRITE, …)
+```
+
+The dump prints the **buffer about to be sent**, before the transfer. And the
+caller discards the result: `max77705_switch_path` is `static void`
+(`max77705-muic.c:326`), so no MUIC-level code observes whether the write
+succeeded.
+
+What the trace actually proves is that the kernel constructed a `CONTROL1` write
+carrying `0x09` and called the bulk write. What it does not prove is I2C
+acknowledgement, or that D+/D- conducts.
+
+One piece of corroboration is available and was checked rather than assumed:
+`max77705_usbc_cmd_run` logs `i2c write fail. dequeue opcode` when the write
+returns negative (`max77705_usbc.c:2451`). That string appears **zero** times in
+the capture. Absence of the failure log is evidence the write returned success;
+it is still not a bus trace.
+
+### Correction: the 14-module set is not the candidate's plan
+
+The review warns against conflating two different sets, and it is right. The 14
+modules derived here are specifically the `pdic_max77705` closure after
+first-stage subtraction. The **active P3.17 candidate plan is 69 entries**, of
+which 42 overlap first-stage names and **27 are genuinely late** — DWC3, EUD,
+both PHYs, GLINK, GENI/I2C, Type-C/MUIC, redriver and the USB notifier modules.
+The 14 is a subset of a different question, and this report should not be read as
+specifying what a candidate must load.
+
+### What the review says about the frontier
+
+It does not reject the mux; it demotes it. `0x09` is the encoded `COM_USB`
+protocol value, and P3.17's diagnostic issues SMBus commands directly rather than
+exercising `max77705_muic_attach_usb_path`, so P3.17 shows that **the command
+protocol can be reached and CONTROL1 can retain COM_USB** — not that the analog
+path conducts. It proposes the stronger current frontier is
+`role request → UDC bind → DWC3 pull-up/connect → physical host attach`, and
+notes a successful UDC bind reaches `usb_gadget_connect()` and
+`dwc3_gadget_pullup(true)` while still not proving host attach.
+
+It also states P3.17 enumerated CDC-ACM at high speed after a topology change, so
+"nothing ever enumerated" is literally false, and that P3.18 must not be used as
+mux evidence at all: inserting the latch shifted `eud.ko` from index 37 to 38
+while the runtime still read index 37, so the diagnostic was never reached.
+
+### Where it agrees with the DTBO work done here
+
+Independently of this session's DTBO analysis, the review confirms the overlays
+do carry USB/MUIC topology — role-switch `dr_mode=otg`, `maximum-speed`, the
+Max77705/PDIC nodes and the Samsung USB notifier — and corrects an older campaign
+claim: the DWC3 `usb-phy` array lives in the **base vendor DTB**, not the
+overlay, so a plan to "edit DTBO to remove the SS PHY phandle" would not target
+the real property. That is consistent with what was found here: `fragment@63`
+supplies `max77705@66` onto `qupv3_se5_i2c`, and `ramoops_region` is in the
+vendor_boot DTB rather than the DTBO.
+
+### Its ranked host-only work, none of which needs a device
+
+1. Extract `system`, `vendor`, `product`, `system_ext`, `odm` from the `super.img`
+   already on disk and search stock init/HAL for `sys.usb.*`, `usb_role`,
+   `a600000.ssusb/mode`, `UDC`, `configfs`, `typec`, `pdic` — to find the Android
+   choreography PID 1 omits. A prior report's "system/vendor unavailable" is now
+   stale because `super.img` is present.
+2. Diff the 69-entry P3.17 plan against the 140-entry first-stage list.
+3. Compare `.modinfo`, `__versions` and ELF identity of the ramdisk vs
+   `vendor_dlkm` `pdic_max77705.ko` — the identity this report left unresolved.
+4. Complete the static `CONTROL1` writer graph, including whether a later MUIC
+   event (water handling can issue `COM_OPEN` or `COM_USB_CP`,
+   `max77705-muic.c:1824`) can reopen the path after `COM_USB`.
+5. Trace `dwc3_msm_probe`, `dwc3_msm_set_role`, `mode_store`,
+   `usb_gadget_connect`, `dwc3_gadget_pullup` and the `dwc3_event` tracepoint.
+6. Bootloader analysis is **not** possible from the extracted set — the AP
+   material contains no analyzable BL/S-Boot/ABL/XBL image, so "Download-only mux
+   programming" versus "all-boots inheritance" stays undecidable.
