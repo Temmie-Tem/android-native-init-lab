@@ -31,6 +31,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The role-to-pull-up chain, traced",
         "The module identity question is closed, and it closes wider than asked",
         "The bootloader, which was available all along",
+        "Unpacking the volumes: two opened, the MUIC driver one level deeper",
         "system and product, swept in full",
         "What actually initiates the role on stock",
         "The candidate channel that works, and the one that never has",
@@ -548,7 +549,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         for token in (
             "**The code that did run is in none of the extracted images as plaintext.**",
             "has not been\nattempted",
-            "**untried rather\n  than impossible**",
+            "The outer volumes are now\n  unpacked",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
@@ -765,6 +766,35 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "It\nis not a candidate observation, and there are none to be had; it says the plan\ncannot work, not that a run was seen failing this way.",
             self.report,
         )
+
+    def test_report_reports_an_attempt_not_a_plan(self):
+        for token in (
+            "reports an actual attempt rather than a plan",
+            "`ee4e5898-3914-4259-9d6e-dc7bd79403cf`",
+            "expands 754989 bytes to **3592584**",
+            "expands to **3166216**",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_credits_abl_with_the_cmdline_composition(self):
+        for token in (
+            "**ABL is where the kernel command\nline carrying those module parameters is composed**",
+            "`common_muic.muic_param_pmic_info=3`",
+            "rather than through a `modules.options` file",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_states_the_partial_status_plainly(self):
+        for token in (
+            "**What ABL does not contain is the MUIC driver.**",
+            "ABL **consumes** UEFI protocols",
+            "a Qualcomm-specific layout this unit did not decode",
+            "The honest status is **partial**",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
 
     def test_ledger_records_one_row_for_this_topic(self):
         rows = [

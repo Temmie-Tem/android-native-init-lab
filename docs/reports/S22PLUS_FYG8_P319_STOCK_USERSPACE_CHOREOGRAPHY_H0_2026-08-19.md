@@ -718,6 +718,47 @@ twice on every normal boot, and `usb_eud_is_active` never appears, so no enable
 or disable failure was logged. That does not settle whether EUD is enabled in
 hardware, and `/sys/module/eud/parameters/enable` remains the settling read.
 
+## Unpacking the volumes: two opened, the MUIC driver one level deeper
+
+Having established that `uefi.elf` and `abl.elf` are UEFI firmware volumes rather
+than opaque blobs, this section reports an actual attempt rather than a plan.
+Two volumes were decompressed with a minimal reader and no external dependency,
+in the same style as this campaign's sparse and LP readers.
+
+`abl.elf` holds one FFS file of type `0x0b` at 755037 bytes, containing a single
+GUID-defined section with GUID `ee4e5898-3914-4259-9d6e-dc7bd79403cf`, which is
+`EFI_LZMA_CUSTOM_DECOMPRESS`, and a data offset of 24. The payload is a raw
+LZMA-alone stream beginning `5d 00 00 00 01`, and Python's `lzma` with
+`FORMAT_ALONE` expands 754989 bytes to **3592584**. `imagefv.elf` yields the same
+shape — one type-`0x0b` file of 2707112 bytes — and expands to **3166216**.
+
+**What ABL contains changes one thing already established.** Its strings include
+`common_muic.muic_param_pmic_info=3`, `common_muic.muic_param_afc_mode=0x%02x`
+and `common_muic.muic_param_pdic_info=%d`. So **ABL is where the kernel command
+line carrying those module parameters is composed**, which closes the loop on the
+earlier finding that the parameters reach `common_muic.ko` through the command
+line and libmodprobe rather than through a `modules.options` file.
+
+**What ABL does not contain is the MUIC driver.** Its strings are
+`Error locating the MUIC protocol`, `Error locating the CCIC protocol`,
+`MuicGetDeviceType()`, `MuicGetJigType()`, `MuicGetAdcOrientedDevice()`,
+`CcicReadAdc` and `CcicCheckActive` — ABL **consumes** UEFI protocols that some
+other DXE driver publishes. None of the executed log strings
+(`muic_command_polling`, `ccic_is_max77705`, `MUIC Device : Max77705`,
+`max77705_read_adc`) appears in either decompressed volume.
+
+The driver is therefore one nesting level further in. Both decompressed blobs
+are themselves firmware volumes — `_FVH` at offset `0x30`, base `0x8`, with
+`FvLength` matching the blob size exactly — but their file area does not parse
+with a standard FFS walker: the first entry's name GUID reads as all-`0xFF`,
+followed by a repeating `f0 00 … f8` pattern that is not an FFS header. That is
+a Qualcomm-specific layout this unit did not decode.
+
+The honest status is **partial**: the outer containers are open and their format
+is understood, one genuine finding came out of ABL, and the MUIC driver has not
+been reached. The remaining step is decoding the inner file layout, which is
+bounded work on files already on this host.
+
 ## system and product, swept in full
 
 The remaining unread userspace was `system` and `product`. Their init is now
@@ -1083,9 +1124,9 @@ cannot work, not that a run was seen failing this way.
 Four items this unit closed are not listed here; they have their own sections
 and the ledger carries the order they were closed in. What is still open:
 
-- What the bootloader's `OP 0x06` writes to CONTROL1, which is **untried rather
-  than impossible**: `uefi.elf` and `abl.elf` are UEFI firmware volumes with
-  LZMA-compressed contents and were never unpacked.
+- What the bootloader's `OP 0x06` writes to CONTROL1. The outer volumes are now
+  unpacked; the MUIC driver sits in an inner volume whose Qualcomm-specific file
+  layout is not yet decoded.
 - Whether adding the ADSP remoteproc driver to the plan is sufficient, or
   whether the protection domain `msm/adsp/charger_pd` also needs a userspace
   registrar that a candidate cannot provide.
