@@ -997,13 +997,73 @@ candidate already reads the file this report twice proposed as a settling device
 read, and P3.18's reported failure is that read failing — which makes the
 proposed read a duplicate and moves the question to why it failed on a candidate.
 
+## Can the candidate bring UCSI up? No, and the missing piece is one module
+
+Having identified UCSI over GLINK as the stock role initiator, the question is
+whether the candidate's plan can reproduce it. The plan used here is the
+materialized one the candidate is built from,
+`s22plus_fyg8_p286_e3_plan.h` at 70 entries, not a reconstruction.
+
+The GLINK cluster is present and correctly ordered. `qcom_glink` at 44,
+`qcom_glink_smem` 45, `qcom_smd` 46, `rproc_qcom_common` 47, `pdr_interface` 48,
+`pmic_glink` 49, and `ucsi_glink` at 62. Checked against the ramdisk
+`modules.dep`, every declared dependency of all seven is both in the plan and
+loaded before its dependent: **zero violations**.
+
+And it still cannot work.
+
+The device tree says what `pmic_glink` needs:
+
+```
+qcom,pmic_glink {
+    compatible               = "qcom,pmic-glink";
+    qcom,pmic-glink-channel  = "PMIC_RTR_ADSP_APPS";
+    qcom,subsys-name         = "lpass";
+    qcom,protection-domain   = "tms/servreg", "msm/adsp/charger_pd";
+    qcom,ucsi { ... };
+};
+```
+
+UCSI is a **child of pmic_glink**, and pmic_glink's channel lives on the
+**ADSP**. On stock that channel appears in two steps: `modprobe` loads
+`qcom_q6v5_pas` at 3.508 s and the kernel reports
+`remoteproc remoteproc1: 3000000.remoteproc-adsp is available` at 3.511 s, and
+the edge itself, `3000000.remoteproc-adsp:glink-edge`, only comes up at
+**7.47 s**, after the subsystem has been booted with firmware.
+
+`qcom_q6v5_pas.ko` and `qcom_q6v5.ko` are both present in the vendor_boot
+ramdisk and **neither is in the candidate's 70-entry plan.** What the plan does
+carry is `rproc_qcom_common.ko`, which is the shared helper and not the driver
+that binds `3000000.remoteproc-adsp`.
+
+So the chain breaks at its first link: no ADSP driver, so no ADSP remoteproc, so
+no `glink-edge`, so no `PMIC_RTR_ADSP_APPS` channel, so `pmic_glink` has nothing
+to attach to, so its `qcom,ucsi` child never appears, so nothing calls
+`usb_role_switch_set_role`. A candidate reaching `mode_store` by writing sysfs is
+not reproducing the stock path; it is substituting for a path that cannot run.
+
+### The methodological point is worth more than the fact
+
+`modules.dep` reported zero violations for the whole cluster, and the cluster is
+still non-functional. That is not a contradiction: `modules.dep` records
+**symbol** dependencies, and `pmic_glink` does not link against `qcom_q6v5_pas`.
+What it needs is a **device** — a GLINK edge that exists only once another
+driver has booted a remote subsystem. Dependency-safe is not the same as
+functional, and this campaign's module planning has been validated against the
+former.
+
+This is a static plan and device-tree analysis with stock-log corroboration. It
+is not a candidate observation, and there are none to be had; it says the plan
+cannot work, not that a run was seen failing this way.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
 and the ledger carries the order they were closed in. What is still open:
 
-- Whether UCSI and GLINK come up on a candidate, which the section above shows
-  cannot be asked from existing evidence.
+- Whether adding the ADSP remoteproc driver to the plan is sufficient, or
+  whether the protection domain `msm/adsp/charger_pd` also needs a userspace
+  registrar that a candidate cannot provide.
 - Why the candidate's own read of `/sys/module/eud/parameters/enable` failed,
   which is what `0x6010` reports and is a candidate-side question. A host D0 read
   of the same file would not answer it.

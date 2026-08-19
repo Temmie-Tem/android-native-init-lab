@@ -36,6 +36,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The candidate channel that works, and the one that never has",
         "Why the P3.18 carrier decoded as bad-body",
         "The failure vocabulary, measured on the candidate that actually ran",
+        "Can the candidate bring UCSI up? No, and the missing piece is one module",
         "What remains open",
         "Evidence",
     )
@@ -738,6 +739,34 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
+
+    def test_report_answers_the_ucsi_question_from_the_materialized_plan(self):
+        for token in (
+            "`s22plus_fyg8_p286_e3_plan.h` at 70 entries, not a reconstruction",
+            "**zero violations**",
+            "And it still cannot work.",
+            'qcom,pmic-glink-channel  = "PMIC_RTR_ADSP_APPS"',
+            "**neither is in the candidate's 70-entry plan.**",
+            "so nothing calls\n`usb_role_switch_set_role`",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_states_the_dependency_versus_device_lesson(self):
+        for token in (
+            "The methodological point is worth more than the fact",
+            "`modules.dep` records\n**symbol** dependencies",
+            "What it needs is a **device**",
+            "Dependency-safe is not the same as\nfunctional",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+
+    def test_report_scopes_the_ucsi_finding_as_static(self):
+        self.assertIn(
+            "It\nis not a candidate observation, and there are none to be had; it says the plan\ncannot work, not that a run was seen failing this way.",
+            self.report,
+        )
 
     def test_ledger_records_one_row_for_this_topic(self):
         rows = [
