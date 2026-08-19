@@ -794,7 +794,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "are a textbook pad file",
             "`1f 8b 08 00` — **gzip**",
             "**`Ccic`** and **`Muic`**, 36946 bytes",
-            "the two blockers were a pad-file bug and an assumption\nthat the compression was LZMA",
+            "blockers were a pad-file bug and an assumption that the compression was LZMA",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
