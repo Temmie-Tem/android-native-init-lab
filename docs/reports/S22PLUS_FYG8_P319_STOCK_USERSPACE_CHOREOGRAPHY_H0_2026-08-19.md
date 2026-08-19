@@ -497,9 +497,21 @@ under `CONFIG_USB_CONFIGFS_F_SS_MON_GADGET`, and that symbol is undefined in the
 shipped `dwc3-msm.ko` and defined in `usb_f_ss_mon_gadget.ko`. So the ss_mon
 **module** is a hard load-time dependency of dwc3-msm rather than optional
 telemetry, which is why `modules.dep` lists it and why the closure carries it.
-This does not answer whether the `ss_mon.etc` **function instance** that every
-stock composition links as `f2` matters; the notify happens on the gadget
-regardless of which functions are linked. That narrower question stays open.
+That left open whether the `ss_mon.etc` **function instance** matters, as
+distinct from the module. It does not, and the driver settles it in two lines.
+`vbus_session_notify` opens with `if (!g_ss_monitor) return;`, and
+`usb_reset_notify` opens with the same guard. `g_ss_monitor` is assigned once,
+in `ss_monitor_alloc_inst`, which configfs calls when a `ss_mon.*` function
+directory is created — so with no instance both entry points are no-ops. With an
+instance they do exactly one thing: call `store_usblog_notify` with strings like
+`USB_STATE=VBUS:EN:SUCCESS` and `USB_STATE=RESET:SUPER`.
+
+So the split is clean. The **module** is mandatory, because `dwc3-msm.ko` carries
+`vbus_session_notify`, `usb_reset_notify` and `store_usblog_notify` as undefined
+symbols and will not load without their providers. The **instance** is Samsung
+telemetry into usblog and has no functional part in the pull-up. A candidate
+that omits `ss_mon.etc` loses log entries and nothing else, which removes this
+from the list of differences worth chasing.
 
 ## The module identity question is closed, and it closes wider than asked
 
@@ -649,8 +661,6 @@ hardware, and `/sys/module/eud/parameters/enable` remains the settling read.
 Four items this unit closed are not listed here; they have their own sections
 and the ledger carries the order they were closed in. What is still open:
 
-- Whether the `ss_mon.etc` **function instance** matters, as distinct from the
-  module, which the role-to-pull-up trace shows is a hard dependency.
 - Whether EUD is enabled in hardware on this unit, which decides whether the
   sticky `EUD_SPOOF_DISCONNECT` path is reachable at all. `msm_eud_hw_is_enabled`
   reads a register, so this is not decidable statically; the cheap settling read

@@ -62,7 +62,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         self.assertIsNotNone(section)
         self.assertNotIn("~~", section.group(1))
         items = re.findall(r"^- ", section.group(1), re.MULTILINE)
-        self.assertEqual(len(items), 4)
+        self.assertEqual(len(items), 3)
         self.assertNotIn("holds no analysable BL", section.group(1))
 
     def test_report_states_the_h0_only_authority_boundary(self):
@@ -461,14 +461,18 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
 
-    def test_report_narrows_rather_than_closes_the_ss_mon_question(self):
+    def test_report_closes_the_ss_mon_instance_question(self):
         for token in (
             "`vbus_session_notify(dwc->gadget, on, EAGAIN)`",
             "hard load-time dependency of dwc3-msm rather than optional\ntelemetry",
-            "That narrower question stays open.",
+            "It does not, and the driver settles it in two lines.",
+            "`if (!g_ss_monitor) return;`",
+            "in `ss_monitor_alloc_inst`",
+            "The **instance** is Samsung\ntelemetry into usblog and has no functional part in the pull-up.",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
+        self.assertNotIn("That narrower question stays open.", self.report)
 
     def test_report_withdraws_the_bootloader_unavailable_claim(self):
         for token in (
