@@ -339,9 +339,11 @@ writing with `0x06`. That is the structural ground under the review's demotion
 of the mux hypothesis: P3.17's `0x3f` then `0x09` then `0x09` shows the command
 protocol reached and CONTROL1 retaining COM_USB, and it says nothing about the
 stock attach path because that path was not present. This says nothing about
-other candidates. S7A2, M7, M11, M12 and M18 did load `pdic_max77705` and failed
-anyway, which the campaign has already recorded and which this diff does not
-revisit.
+other candidates. The S7A2, M7, M11, M12 and M18 plans included
+`pdic_max77705`, but their retained evidence did not prove that their module
+loops reached it or preserve its `finit_module` result. Treating plan inclusion
+as a successful live load was an overstatement; the candidate-probe audit now
+corrects it.
 
 Finally, the plan omits 96 of the 140 stock first-stage modules. That number is
 recorded as a fact about scope, not as a defect: the candidate is a different
@@ -427,14 +429,14 @@ early runtime rather than about the whole session.
 ### Scope
 
 None of this graph runs on a P3.17 candidate, because that plan omits the stock
-driver in favour of the diagnostic, as the section above establishes. It matters
-for the candidates that did load `pdic_max77705` — S7A2, M7, M11, M12 and M18 —
-where the water branch is the one mechanism in the graph that could both fire
-without userspace and leave the mux pointing somewhere other than the AP. That
-is a hypothesis with a cheap test rather than a finding: those runs would carry
-`== WATER DETECT ==` or `water hiccup mode, Aux USB path` in their logs, and the
-campaign's record states those runs did not preserve the MUIC sequence at all,
-so the test cannot be run on them retrospectively.
+driver in favour of the diagnostic, as the section above establishes. It would
+matter on S7A2, M7, M11, M12 and M18 only if their planned `pdic_max77705` load
+actually succeeded, and that premise is not retained. The water branch is the
+one mechanism in the graph that could both fire without userspace and leave the
+mux pointing somewhere other than the AP. That remains a hypothesis with a
+cheap future test rather than a retrospective finding: a run that reached it
+would carry `== WATER DETECT ==` or `water hiccup mode, Aux USB path`, while
+those five runs preserved neither a module result nor the MUIC sequence.
 
 ## The role-to-pull-up chain, traced
 
@@ -1981,15 +1983,15 @@ this report shows that the bootloader never reads `CONTROL1` before writing it,
 so no capture in this corpus — stock or candidate — can show what a candidate starts
 from or what it would need to change.
 
-Second, the campaign already has counter-evidence against "one action is
-enough". Five candidates — `S7A2`, `M7`, `M11`, `M12`, `M18` — did load
-`pdic_max77705`, the driver that owns exactly this write, and **still failed**.
-Whatever those five were missing was not the presence of the code that writes
-`COM_USB`. So the honest form of the sentence is: this unit has closed the
-bootloader half and identified the one register action that distinguishes the
-two stock classes; it has **not** shown that performing that action is
-sufficient on a candidate, and the five-candidate result is direct evidence that
-something further is required.
+Second, the campaign does not have the counter-evidence this report previously
+claimed. Five candidate *plans* — `S7A2`, `M7`, `M11`, `M12`, `M18` — included
+`pdic_max77705`, the driver that owns this write, and all five failed to expose
+the intended endpoint. Their retained evidence did not prove that the module
+loop reached that entry, that `finit_module` succeeded, or that the platform
+child bound. The honest form of the sentence is therefore narrower: this unit
+has closed the bootloader half and identified the register action that
+distinguishes the two stock classes; it has **not** shown that a candidate ever
+reached the stock writer, much less that performing the write is sufficient.
 
 ## The register accounting closes, and it closes on a bit the census hid
 
@@ -2483,6 +2485,114 @@ the current 24 parent values without accepting only that set. The only nested
 arithmetic gate uses the directly logged base plus all three offsets and the
 two base-free pairwise differences.
 
+## Initial classification precedes unmask; the historical live-load claim did not survive
+
+The candidate-side boundary was split into four observables rather than being
+treated as one `pdic_max77705` event: module insertion, `max77705-usbc` platform
+bind, initial MUIC classification, and parent-USBC unmask. That split changes
+the priority of the next witness.
+
+### The stock initial attach is an IRQ-free probe action
+
+The complete 121-capture corpus contains ten captures with an AP mux path. Two
+contain a logged `muic-chgtyp` interrupt. The other **eight** are exactly the
+eight captures containing one boot-time `modprobe` sequence, and every one has
+the same ordered chain:
+
+```text
+max77705_muic_probe
+max77705_muic_init_detect
+USBC1 0x27 / USBC2 0x05 / BC 0x82
+ATTACHED
+com_to_usb_ap
+opcode 06 09
+notifier CDP (2)
+max77705_usbc_probe: probing Complete
+```
+
+This is set equality, not two independent counts that happen to be eight. The
+audit derives the set from the re-enumerated manifest corpus and requires
+`initial-probe captures == AP-path captures - chgtyp-IRQ captures`. All eight
+tokens occur once per capture in `modprobe` context, in order, with no initial
+status-read failure and no unmask-read failure.
+
+The source explains why. `max77705_muic_probe()` calls
+`max77705_muic_init_detect()`, which sets `is_muic_ready`, bulk-reads the five
+status bytes and classifies them with the synthetic `MUIC_IRQ_INIT_DETECT`.
+Only after that function returns does `max77705_usbc_probe()` publish
+`cc_booting_complete = 1` and call `max77705_usbc_umask_irq()`. The initial
+attach therefore does not wait for a physical CHGT interrupt and does not
+depend on parent bit 3 already being unmasked. If the cable state is present
+when the driver probes, classification can open the AP mux first.
+
+### Probe completion and unmask are not success receipts
+
+There are two independent fail-open status joins in the shipped driver. The
+source calls `max77705_muic_probe(usbc_data);` as a bare statement. The exact
+module agrees: the `bl max77705_muic_probe` at `.text+0xd4f0` is followed by
+`mov x0,x19`, discarding the return before CC initialization. A failed MUIC
+initialization therefore does not prevent the outer platform probe from
+continuing.
+
+The unmask helper is `void`. It reads parent register `0x23`, returns without
+clearing bit 3 if that read fails, and ignores the return from the following
+write. The caller still prints `probing Complete..` and returns zero. Thus none
+of these alone proves the preceding boundary:
+
+- `finit_module(pdic_max77705.ko) == 0` does not prove that a matching child
+  finished a successful MUIC initialization;
+- `probing Complete..` or `cc_booting_complete == 1` does not prove the initial
+  five-byte classification succeeded; and
+- either one does not prove register `0x23` was written with bit 3 clear.
+
+The four results need four witnesses. In particular, unmask is important for
+later interrupts but is downstream of the boot-time attach that matters here.
+
+### The surviving S7A2 artifact proves a plan, not a live load
+
+The exact 100669481-byte S7A2 AP was unpacked again rather than trusting its
+old manifest. It yields the exact 100663296-byte boot, 8904-byte PID 1 and
+1378-byte, 86-entry module list. The relevant one-based positions are
+`msm-geni-se` 30, `gpi` 31, `i2c-msm-geni` 62, `mfd_max77705` 82,
+`spu_verify` 83 and `pdic_max77705` 84. So the candidate artifact really does
+contain the transport, parent and child in the intended order.
+
+The exact historical loader source gives that fact its limit. It calls
+`finit_module`, emits `phase=module name=<name> rc=<value>`, increments
+`loaded` for every *attempt*, and proceeds regardless of a negative return.
+Its only evidence sink is `/dev/kmsg`; it does not fsync a durable receipt. The
+S7A2 live result retained zero S7A2 markers. M7, M11, M12 and M18 likewise state
+that their retained marker absence does not prove their module loop was
+reached. Consequently, the earlier sentence that all five candidates “did
+load `pdic_max77705`” confused planned inclusion with observed success. Their
+plans included it; their live `finit_module` results, platform binds, initial
+classifications and unmask write results are unknown.
+
+### The next witness is now exact
+
+A successor does not need another connector-side guard and should not put ACM
+on its proof-critical path. Its retained ring witness should close, in order:
+
+1. durable per-module `finit_module` results for `i2c-msm-geni`,
+   `mfd_max77705` and `pdic_max77705`;
+2. the exact `max77705-usbc` platform bind identity;
+3. the initial five-byte MUIC status and the classified device/path; and
+4. a readback of parent INTSRC mask register `0x23` with bit 3 clear.
+
+The first three decide whether the IRQ-free probe path opened the mux. The
+fourth separately decides whether later interrupts were enabled. This unit is
+H0 only and performs no device action.
+
+The retained auditor is
+`workspace/public/src/scripts/analysis/s22plus_fyg8_p319_candidate_pdic_probe_boundary.py`.
+Its current private receipt is 12719 bytes/SHA-256 `d4d40565...`, mode `0400`,
+link count one. It re-extracts the AP using exact tool snapshots, binds five
+historical live reports, exact source functions and exact PDIC machine-code
+instructions, and re-enumerates the complete current corpus before deriving
+the eight/two split. Fifteen focused real-input and mutation tests pass. The
+first 12719-byte `d2101f69...` receipt is preserved under `20260820-01`; it was
+generated before the focused mutation suite and is not current authority.
+
 ## What remains open
 
 Four items this unit closed are not listed here; they have their own sections
@@ -2520,21 +2630,22 @@ which is the reason this section is restated rather than appended to.
 - Why the candidate's own read of `/sys/module/eud/parameters/enable` failed,
   which is what `0x6010` reports and is a candidate-side question. A host D0 read
   of the same file would not answer it.
-- Whether the water branch ever fired on the candidates that did load
-  `pdic_max77705`. Those runs did not preserve the MUIC sequence, so the test
-  cannot be run retrospectively and only a new run can answer it.
+- Whether the water branch ever fired on candidates whose plans included
+  `pdic_max77705`. Those runs preserved neither a successful module result nor
+  the MUIC sequence, so the test cannot be run retrospectively and only a new
+  run with the four witnesses above can answer it.
 - **What sets `BC_CTRL1_NoAutoIBUS` and what it does.** The bit is retained
   across a reboot and no boot in the corpus writes `BCCTRL1`, so it is set by
   something outside these 268 segments — a download session or the kernel — and
   this unit did not identify which. Its effect on the analog path is also
   unread; the name is from the MUIC header, the semantics are not.
-- **The remaining candidate-side load and bind boundary.** The shipped DT,
-  parent GPIO, MFD child publication, PDIC nested offsets, parent unmask and
-  stock queue-to-I2C path are closed above. What remains unproved is whether a
-  candidate loaded the required controller/MFD/PDIC chain, bound
-  `max77705-usbc`, completed probe, published `cc_booting_complete`, unmasked
-  the parent USBC source and classified the initial host state. The stock
-  positive control cannot supply those candidate-side facts.
+- **The remaining candidate-side execution boundary.** The shipped DT, parent
+  GPIO, MFD child publication, PDIC nested offsets and stock queue-to-I2C path
+  are closed above. What remains unproved is whether a candidate obtained
+  successful controller/MFD/PDIC insertion results, bound `max77705-usbc`,
+  completed the initial five-byte classification and separately read back the
+  parent USBC source unmasked. The stock positive control defines those four
+  witnesses but cannot supply candidate-side facts.
 
 ## Evidence
 

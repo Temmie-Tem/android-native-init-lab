@@ -49,6 +49,7 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         "The shipped MUIC attach guards do not block the AP path",
         "The stock DT and nested IRQ chain close through the nonnegative I2C write path",
         "The IRQ numbers are not stock properties; the offsets are",
+        "Initial classification precedes unmask; the historical live-load claim did not survive",
         "What remains open",
         "Evidence",
     )
@@ -358,7 +359,8 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         for token in (
             "The consequence is specific to P3.17 and must not be generalised.",
             "This says nothing about\nother candidates.",
-            "S7A2, M7, M11, M12 and M18 did load `pdic_max77705` and failed\nanyway",
+            "The S7A2, M7, M11, M12 and M18 plans included\n`pdic_max77705`",
+            "Treating plan inclusion\nas a successful live load was an overstatement",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
@@ -448,8 +450,8 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
 
     def test_report_marks_the_water_branch_as_untestable_retrospectively(self):
         for token in (
-            "a hypothesis with a cheap test rather than a finding",
-            "the test cannot be run on them retrospectively",
+            "That remains a hypothesis with a\ncheap future test rather than a retrospective finding",
+            "the test cannot be run retrospectively",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
@@ -627,7 +629,8 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
             "**Setting the sink is therefore not a precondition for enumeration**",
             "**On the bootloader side, the difference between a boot that enumerates and one\nthat does not reduces to one action: write `COM_USB` to `CONTROL1`.**",
             "must not be read as an\ninstruction that would make a candidate work",
-            "`S7A2`, `M7`, `M11`, `M12`, `M18` — did load",
+            "Five candidate *plans* — `S7A2`, `M7`, `M11`, `M12`, `M18` — included",
+            "it has **not** shown that a candidate ever\nreached the stock writer",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
@@ -1046,6 +1049,26 @@ class P319StockChoreographyDocsTest(unittest.TestCase):
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.report)
+
+    def test_report_separates_candidate_load_probe_init_and_unmask(self):
+        for token in (
+            "## Initial classification precedes unmask; the historical live-load claim did not survive",
+            "`initial-probe captures == AP-path captures - chgtyp-IRQ captures`",
+            "The initial\nattach therefore does not wait for a physical CHGT interrupt",
+            "the `bl max77705_muic_probe` at `.text+0xd4f0` is followed by\n`mov x0,x19`",
+            "`probing Complete..` or `cc_booting_complete == 1` does not prove",
+            "The exact 100669481-byte S7A2 AP was unpacked again",
+            "`mfd_max77705` 82,\n`spu_verify` 83 and `pdic_max77705` 84",
+            "Their\nplans included it; their live `finit_module` results, platform binds, initial\nclassifications and unmask write results are unknown.",
+            "durable per-module `finit_module` results",
+            "a readback of parent INTSRC mask register `0x23` with bit 3 clear",
+            "12719 bytes/SHA-256 `d4d40565...`",
+            "Fifteen focused real-input and mutation tests pass.",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, self.report)
+        self.assertNotIn("did load `pdic_max77705` and failed", self.report)
+        self.assertNotIn("candidates that did load\n  `pdic_max77705`", self.report)
 
     def test_ledger_records_one_row_for_this_topic(self):
         rows = [
