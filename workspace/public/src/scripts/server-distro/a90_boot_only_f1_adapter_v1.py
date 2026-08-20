@@ -13,6 +13,7 @@ import json
 import os
 import re
 import resource
+import shlex
 import signal
 import stat
 import subprocess
@@ -39,6 +40,7 @@ LSUSB = Path("/usr/bin/lsusb")
 BRIDGE = REPO_ROOT / "workspace/public/src/scripts/revalidation/a90_bridge.py"
 A90CTL = REPO_ROOT / "workspace/public/src/scripts/revalidation/a90ctl.py"
 FLASH = REPO_ROOT / "workspace/public/src/scripts/revalidation/native_init_flash.py"
+SERIAL_BRIDGE = REPO_ROOT / "workspace/public/src/scripts/revalidation/serial_tcp_bridge.py"
 FIXED_SERIAL = "/dev/serial/by-id/usb-A90-LNX_A90_Linux_ARM64_A90NATIVE001-if00"
 MAX_OUTPUT_BYTES = 1 << 20
 VERSION_RE = re.compile(r"^version: (?P<version>\S+) build=(?P<build>\S+)$")
@@ -201,12 +203,29 @@ def _validate_bridge(value: dict[str, Any]) -> dict[str, Any]:
     candidates = value.get("serial_candidates")
     pids = value.get("port_pids")
     metadata, selected_realpath = value.get("metadata"), value.get("selected_realpath")
+    processes = value.get("processes")
     candidates_valid = type(candidates) is list and all(
         type(candidate) is dict for candidate in candidates
     )
     bound_candidates = [
         candidate for candidate in candidates if candidate.get("path") == FIXED_SERIAL
     ] if candidates_valid else []
+    command = metadata.get("command") if type(metadata) is dict else None
+    process = processes[0] if type(processes) is list and len(processes) == 1 else None
+    process_argv = (
+        shlex.split(process.get("cmdline"))
+        if type(process) is dict and type(process.get("cmdline")) is str
+        else None
+    )
+    command_options = (
+        dict(zip(command[2::2], command[3::2]))
+        if type(command) is list
+        and len(command) == 14
+        and all(type(item) is str for item in command)
+        and all(item.startswith("--") for item in command[2::2])
+        and len(set(command[2::2])) == 6
+        else None
+    )
     if (
         value.get("wrapper_contract") != 1
         or value.get("bridge_process") != "running"
@@ -221,12 +240,31 @@ def _validate_bridge(value: dict[str, Any]) -> dict[str, Any]:
         or TTY_RE.fullmatch(selected_realpath) is None
         or type(metadata) is not dict
         or metadata.get("device") != FIXED_SERIAL
+        or metadata.get("device_glob") != FIXED_SERIAL
         or metadata.get("effective_expect_realpath") != selected_realpath
         or metadata.get("pin_selected_realpath") is not True
+        or metadata.get("host") != "127.0.0.1"
+        or metadata.get("port") != 54321
+        or value.get("listen_host") != "127.0.0.1"
+        or value.get("listen_port") != 54321
         or type(pids) is not list
         or len(pids) != 1
         or type(pids[0]) is not int
         or pids[0] <= 0
+        or type(process) is not dict
+        or process.get("pid") != pids[0]
+        or process.get("pid") != metadata.get("pid")
+        or process.get("managed") is not True
+        or process.get("port_match") is not True
+        or process_argv != command
+        or command_options is None
+        or command[:2] != ["/usr/bin/python3", str(SERIAL_BRIDGE)]
+        or command_options.get("--host") != "127.0.0.1"
+        or command_options.get("--port") != "54321"
+        or command_options.get("--device") != FIXED_SERIAL
+        or command_options.get("--device-glob") != FIXED_SERIAL
+        or command_options.get("--expect-realpath") != selected_realpath
+        or type(command_options.get("--capture")) is not str
         or value.get("bridge_probe") not in {"connected-no-immediate-error", "data"}
     ):
         raise ContractError("A90 bridge preflight is not exact")

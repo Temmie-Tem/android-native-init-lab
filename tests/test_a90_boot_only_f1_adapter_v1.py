@@ -74,6 +74,12 @@ def absent_stat():
 
 
 def bridge(*, ambiguous=False):
+    command = [
+        "/usr/bin/python3", str(A.SERIAL_BRIDGE),
+        "--host", "127.0.0.1", "--port", "54321",
+        "--device", A.FIXED_SERIAL, "--device-glob", A.FIXED_SERIAL,
+        "--capture", "/tmp/a90.raw", "--expect-realpath", "/dev/ttyACM0",
+    ]
     return {
         "wrapper_contract": 1,
         "bridge_process": "running",
@@ -86,11 +92,24 @@ def bridge(*, ambiguous=False):
         "selected_device": A.FIXED_SERIAL,
         "selected_realpath": "/dev/ttyACM0",
         "metadata": {
+            "command": command,
             "device": A.FIXED_SERIAL,
+            "device_glob": A.FIXED_SERIAL,
             "effective_expect_realpath": "/dev/ttyACM0",
+            "host": "127.0.0.1",
+            "pid": 1234,
             "pin_selected_realpath": True,
+            "port": 54321,
         },
+        "listen_host": "127.0.0.1",
+        "listen_port": 54321,
         "port_pids": [1234],
+        "processes": [{
+            "cmdline": " ".join(command),
+            "managed": True,
+            "pid": 1234,
+            "port_match": True,
+        }],
     }
 
 
@@ -163,6 +182,27 @@ class FixedAdapterTest(unittest.TestCase):
             A.FixedA90Adapter(runner, qualification=QUALIFICATION).preflight(
                 {"expectedStart": self.expected, "qualification": QUALIFICATION}
             )
+
+    def test_bridge_rejects_listener_process_or_command_mismatch(self):
+        for mutate in (
+            lambda value: value["processes"][0].update(pid=9999),
+            lambda value: value["processes"][0].update(port_match=False),
+            lambda value: value["metadata"]["command"].__setitem__(
+                value["metadata"]["command"].index(A.FIXED_SERIAL),
+                "/dev/serial/by-id/other",
+            ),
+        ):
+            value = bridge()
+            mutate(value)
+            with self.subTest(value=value), self.assertRaisesRegex(
+                A.ContractError, "bridge preflight"
+            ):
+                A.FixedA90Adapter(
+                    FakeRunner([usb_inventory(), result(value)]),
+                    qualification=QUALIFICATION,
+                ).preflight(
+                    {"expectedStart": self.expected, "qualification": QUALIFICATION}
+                )
 
     def test_wrong_version_is_unhealthy_not_pass(self):
         runner = FakeRunner(healthy_results(version="other"))
@@ -311,7 +351,7 @@ class FixedAdapterTest(unittest.TestCase):
                 A.HostRunner(path)
 
     def test_adapter_surface_stays_small(self):
-        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 560)
+        self.assertLessEqual(len(SOURCE.read_text().splitlines()), 600)
 
 
 if __name__ == "__main__":
