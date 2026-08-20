@@ -22,10 +22,24 @@ ROOT = Path(__file__).resolve().parents[5]
 SCHEMA = "s20plus_g986n_n3u0_attended_f1_backend_h0_v1"
 STATUS = "H0_CONCRETE_BACKEND_PASS_GO_NOT_ACTIVE"
 BACKEND_ACTIVE = False
-EXPECTED_REVIEWED_RUNNER_NORMALIZED_SHA256 = "19b5dbbff6496d74ec730653699b6dbf131122a6a263088c44cc58c9114a6591"
+EXPECTED_REVIEWED_RUNNER_NORMALIZED_SHA256 = "8ac9dcac66196ec7a1585ae6e1e4ba9c2c3ed75f7d573aca0d90049bbb0bc8c6"
 MAX_SOURCE_BYTES = 2 * 1024 * 1024
 MAX_RAW_BYTES = 8 * 1024 * 1024
 DOWNLOAD_TIMEOUT_SEC = 180
+CAPTURE_OPERATIONS = frozenset(
+    {
+        "initial-download-reboot",
+        "initial-download-observation",
+        "candidate-transfer",
+        "candidate-observation",
+        "rollback-download-reboot",
+        "rollback-download-observation",
+        "physical-download-entry",
+        "physical-download-observation",
+        "rollback-transfer",
+        "final-resident-health",
+    }
+)
 
 TARGET = {
     "model": "SM-G986N",
@@ -438,11 +452,109 @@ class FixedBackend:
         self.bootstrap = sources["bootstrap"]
         self.observer = sources["observer"]
         self.owner = sources["owner"]
-        self.command = self.bootstrap.bounded_command
+        self._command_impl = self.bootstrap.bounded_command
+        self.command = self._captured_command
         self.adb = str(self.bootstrap.ADB)
         self.expected_usb_node: str | None = None
         self.candidate_baseline: dict[str, Any] | None = None
         self.last_full_receipt: dict[str, Any] | None = None
+        self._capture_operation: str | None = None
+        self._command_returns: list[dict[str, Any]] = []
+
+    def begin_operation_capture(self, operation: str) -> None:
+        require_active()
+        if operation not in CAPTURE_OPERATIONS:
+            raise BackendError("unknown evidence capture operation")
+        if self._capture_operation is not None or self._command_returns:
+            raise BackendError("another evidence capture is unresolved")
+        self.last_full_receipt = None
+        self._capture_operation = operation
+
+    def consume_operation_capture(self, operation: str) -> dict[str, Any]:
+        require_active()
+        if operation != self._capture_operation or operation not in CAPTURE_OPERATIONS:
+            raise BackendError("evidence capture operation differs")
+        result = {
+            "commands": list(self._command_returns),
+            "full_receipt": self.last_full_receipt,
+        }
+        self._command_returns.clear()
+        self._capture_operation = None
+        self.last_full_receipt = None
+        return result
+
+    def _captured_command(
+        self, argv: list[str], timeout: float, maximum: int
+    ) -> tuple[int, bytes, bytes]:
+        require_active()
+        result = self._command_impl(argv, timeout, maximum)
+        if self._capture_operation is not None:
+            returncode, stdout, stderr = result
+            if (
+                not isinstance(argv, list)
+                or any(not isinstance(item, str) for item in argv)
+                or type(returncode) is not int
+                or not isinstance(stdout, bytes)
+                or not isinstance(stderr, bytes)
+                or type(timeout) is not int
+                or not 0 < timeout <= 900
+                or type(maximum) is not int
+                or not 0 < maximum <= MAX_RAW_BYTES
+            ):
+                raise BackendError("captured command return is malformed")
+            self._command_returns.append(
+                {
+                    "argv": list(argv),
+                    "timeout_seconds": timeout,
+                    "output_limit": maximum,
+                    "returncode": returncode,
+                    "stdout": stdout,
+                    "stderr": stderr,
+                }
+            )
+        return result
+
+    @contextmanager
+    def _capture_odin_stream(self):
+        require_active()
+        previous = self.bootstrap.streaming_command
+
+        def capture_stream(
+            argv: list[str], timeout: int, maximum: int
+        ) -> tuple[int, bytes, bytes]:
+            require_active()
+            result = previous(argv, timeout, maximum)
+            if self._capture_operation is not None:
+                returncode, stdout, stderr = result
+                if (
+                    not isinstance(argv, list)
+                    or any(not isinstance(item, str) for item in argv)
+                    or type(timeout) is not int
+                    or not 0 < timeout <= 900
+                    or type(maximum) is not int
+                    or not 0 < maximum <= MAX_RAW_BYTES
+                    or type(returncode) is not int
+                    or not isinstance(stdout, bytes)
+                    or not isinstance(stderr, bytes)
+                ):
+                    raise BackendError("captured Odin return is malformed")
+                self._command_returns.append(
+                    {
+                        "argv": list(argv),
+                        "timeout_seconds": timeout,
+                        "output_limit": maximum,
+                        "returncode": returncode,
+                        "stdout": stdout,
+                        "stderr": stderr,
+                    }
+                )
+            return result
+
+        self.bootstrap.streaming_command = capture_stream
+        try:
+            yield
+        finally:
+            self.bootstrap.streaming_command = previous
 
     def preflight(self) -> dict[str, Any]:
         require_active()
@@ -524,11 +636,13 @@ class FixedBackend:
             raise BackendError("Download listing changed during observation")
         if endpoint["device"] != devices[0]:
             raise BackendError("Download endpoint differs from listing")
-        return {
+        result = {
             "phase": phase,
             "endpoint": _public_endpoint(self.integration, self.bootstrap, endpoint),
             "arrival_listing_sha256": listing_sha256,
         }
+        self.last_full_receipt = result
+        return result
 
     def transfer_boot(self, kind: str, endpoint: dict[str, str]) -> dict[str, Any]:
         require_active()
@@ -568,9 +682,10 @@ class FixedBackend:
                 expected_member_sha256=self.owner.ROLLBACK_MEMBER_SHA256,
                 label="N3-U0 resident rollback AP",
             )
-        receipt, stdout, stderr = self.bootstrap.execute_odin_exact(
-            path, size, sha256, kind, live
-        )
+        with self._capture_odin_stream():
+            receipt, stdout, stderr = self.bootstrap.execute_odin_exact(
+                path, size, sha256, kind, live
+            )
         classification = self.bootstrap.persisted_transfer_classification(
             receipt, stdout, stderr
         )
@@ -633,8 +748,20 @@ class FixedBackend:
             or receipt.get("exact") is not True
         ):
             raise BackendError("N3-U0 banner receipt is not exact")
-        self.last_full_receipt = receipt
-        return {"banner_accepted": True, "android_identity": None}
+        android = self.bootstrap.wait_android(
+            self.command, self.adb, self.bootstrap.ANDROID_TIMEOUT
+        )
+        if android is None:
+            raise BackendError("candidate Android did not return after N3-U0 banner")
+        _selected, values, identity = android
+        self.last_full_receipt = {
+            "usb_receipt": receipt,
+            "android_identity": identity,
+            "android_health_sha256": digest(
+                {"target": TARGET, "values": values, "identity": identity}
+            ),
+        }
+        return {"banner_accepted": True, "android_identity": identity}
 
     def physical_download_entry(self) -> None:
         require_active()

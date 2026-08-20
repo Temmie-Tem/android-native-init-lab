@@ -70,7 +70,7 @@ def fsync_dir(path: Path) -> None:
 
 def durable_create(path: Path, value: dict[str, Any]) -> None:
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    payload = json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    payload = json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | os.O_NOFOLLOW, 0o400)
     try:
         os.write(fd, payload)
@@ -93,7 +93,79 @@ def durable_bytes(path: Path, payload: bytes) -> None:
 
 
 def canonical(value: Any) -> str:
-    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()).hexdigest()
+
+
+def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    value: dict[str, Any] = {}
+    for key, item in pairs:
+        if key in value:
+            raise ExitError("exit JSON contains a duplicate key")
+        value[key] = item
+    return value
+
+
+def reject_constant(value: str) -> Any:
+    raise ExitError(f"exit JSON contains non-finite value {value}")
+
+
+def file_identity(metadata: os.stat_result) -> tuple[int, ...]:
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_mode,
+        metadata.st_nlink,
+        metadata.st_uid,
+        metadata.st_gid,
+        metadata.st_size,
+        metadata.st_mtime_ns,
+        metadata.st_ctime_ns,
+    )
+
+
+def read_json_payload(
+    descriptor: int, metadata: os.stat_result, label: str
+) -> bytes:
+    if (
+        not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_nlink != 1
+        or stat.S_IMODE(metadata.st_mode) != 0o400
+        or not 0 < metadata.st_size <= MAX_OUTPUT
+    ):
+        raise ExitError(f"{label} is not an exact regular file")
+    chunks: list[bytes] = []
+    total = 0
+    while total < metadata.st_size:
+        chunk = os.read(descriptor, metadata.st_size - total)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        total += len(chunk)
+    if total != metadata.st_size or os.read(descriptor, 1):
+        raise ExitError(f"{label} length changed while reading")
+    if file_identity(metadata) != file_identity(os.fstat(descriptor)):
+        raise ExitError(f"{label} changed while reading")
+    return b"".join(chunks)
+
+
+def decode_json_payload(payload: bytes, label: str) -> dict[str, Any]:
+    try:
+        value = json.loads(
+            payload.decode("utf-8", "strict"),
+            object_pairs_hook=unique_object,
+            parse_constant=reject_constant,
+        )
+    except (UnicodeError, ValueError, json.JSONDecodeError) as exc:
+        raise ExitError(f"{label} is malformed") from exc
+    if (
+        not isinstance(value, dict)
+        or payload
+        != json.dumps(
+            value, sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode()
+    ):
+        raise ExitError(f"{label} is malformed or noncanonical")
+    return value
 
 
 def sha256_file(path: Path) -> str:
@@ -286,28 +358,77 @@ def acquire_guard(run_dir: Path) -> None:
 
 
 def release_guard(run_dir: Path) -> None:
-    metadata = SHARED_GUARD.lstat()
-    if SHARED_GUARD.is_symlink() or not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
-        raise ExitError("shared guard is not exact")
-    value = json.loads(SHARED_GUARD.read_text())
-    if value != {"schema": "s20plus_g986n_download_exit_guard_v1", "version": VERSION, "run_dir": str(run_dir), "unresolved": True}:
-        raise ExitError("shared guard binding changed")
-    SHARED_GUARD.unlink()
-    fsync_dir(SHARED_GUARD.parent)
+    parent = open_guard_parent()
+    try:
+        _value, before = read_guard_at(parent, run_dir)
+        _value, after = read_guard_at(parent, run_dir)
+        current = os.stat(
+            SHARED_GUARD.name, dir_fd=parent, follow_symlinks=False
+        )
+        if guard_identity(before) != guard_identity(after) or guard_identity(
+            after
+        ) != guard_identity(current):
+            raise ExitError("shared guard changed before release")
+        os.unlink(SHARED_GUARD.name, dir_fd=parent)
+        os.fsync(parent)
+    finally:
+        os.close(parent)
 
 
 def read_guard(run_dir: Path) -> dict[str, Any]:
+    parent = open_guard_parent()
     try:
-        metadata = SHARED_GUARD.lstat()
-    except OSError as exc:
-        raise ExitError("shared guard is unavailable") from exc
-    if SHARED_GUARD.is_symlink() or not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
-        raise ExitError("shared guard is not exact")
-    value = json.loads(SHARED_GUARD.read_text())
-    expected = {"schema": "s20plus_g986n_download_exit_guard_v1", "version": VERSION, "run_dir": str(run_dir), "unresolved": True}
-    if value != expected:
-        raise ExitError("shared guard does not match this run")
+        value, _metadata = read_guard_at(parent, run_dir)
+    finally:
+        os.close(parent)
     return value
+
+
+def guard_identity(metadata: os.stat_result) -> tuple[int, ...]:
+    return file_identity(metadata)
+
+
+def open_guard_parent() -> int:
+    parent = SHARED_GUARD.parent
+    try:
+        metadata = parent.lstat()
+    except OSError as exc:
+        raise ExitError("shared guard parent is unavailable") from exc
+    if (
+        parent.is_symlink()
+        or not stat.S_ISDIR(metadata.st_mode)
+        or parent.resolve(strict=True) != parent.absolute()
+    ):
+        raise ExitError("shared guard parent is indirect")
+    descriptor = os.open(
+        parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC | os.O_NOFOLLOW
+    )
+    opened = os.fstat(descriptor)
+    if guard_identity(opened) != guard_identity(metadata):
+        os.close(descriptor)
+        raise ExitError("shared guard parent changed while opening")
+    return descriptor
+
+
+def read_guard_at(parent: int, run_dir: Path) -> tuple[dict[str, Any], os.stat_result]:
+    try:
+        descriptor = os.open(
+            SHARED_GUARD.name,
+            os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW,
+            dir_fd=parent,
+        )
+    except OSError as exc:
+        raise ExitError("shared action guard is missing or indirect") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        payload = read_json_payload(descriptor, metadata, "shared action guard")
+    finally:
+        os.close(descriptor)
+    value = decode_json_payload(payload, "shared action guard")
+    expected = {"schema": "s20plus_g986n_download_exit_guard_v1", "version": VERSION, "run_dir": str(run_dir), "unresolved": True}
+    if set(value) != set(expected) or value != expected:
+        raise ExitError("shared guard does not match this run")
+    return value, metadata
 
 
 def scan_exact_nodes(run_dir: Path, names: set[str]) -> None:
@@ -323,13 +444,16 @@ def scan_exact_nodes(run_dir: Path, names: set[str]) -> None:
 
 
 def read_json(path: Path, label: str) -> dict[str, Any]:
-    metadata = path.lstat()
-    if path.is_symlink() or not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
-        raise ExitError(f"{label} is not an exact regular file")
-    value = json.loads(path.read_text())
-    if not isinstance(value, dict):
-        raise ExitError(f"{label} is malformed")
-    return value
+    try:
+        descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW)
+    except OSError as exc:
+        raise ExitError(f"{label} is missing or indirect") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        payload = read_json_payload(descriptor, metadata, label)
+    finally:
+        os.close(descriptor)
+    return decode_json_payload(payload, label)
 
 
 def read_bytes_exact(path: Path, label: str, expected_sha256: str) -> bytes:
@@ -361,7 +485,13 @@ def arm(run_dir: Path, command: Command = bounded_command) -> Path:
         raise
 
 
-def android_health(command: Command = bounded_command, timeout: float = ANDROID_TIMEOUT) -> dict[str, Any]:
+def android_health(
+    command: Command = bounded_command,
+    timeout: float = ANDROID_TIMEOUT,
+    expected_topology_sha256: str = EXPECTED_ANDROID_TOPOLOGY_SHA256,
+) -> dict[str, Any]:
+    if expected_topology_sha256 not in EXPECTED_DOWNLOAD_TOPOLOGY_SHA256:
+        raise ExitError("Android topology binding is not allowlisted")
     deadline = time.monotonic() + timeout
     last: Exception | None = None
     while time.monotonic() < deadline:
@@ -370,7 +500,7 @@ def android_health(command: Command = bounded_command, timeout: float = ANDROID_
             selected = routine.select_exact_target(base.parse_inventory(text))
             serial = selected["serial"]
             devpath = decode(command([str(base.DEFAULT_ADB), "-s", serial, "get-devpath"], 10, MAX_OUTPUT), "Android devpath").strip()
-            if base.sha256_text(devpath) != EXPECTED_ANDROID_TOPOLOGY_SHA256:
+            if base.sha256_text(devpath) != expected_topology_sha256:
                 raise ExitError("Android topology mismatch")
             snapshot = decode(command([str(base.DEFAULT_ADB), "-s", serial, "exec-out", "sh", "-c", base.REMOTE_SNAPSHOT], 20, MAX_OUTPUT), "Android health")
             values = base.parse_snapshot(snapshot)
@@ -435,7 +565,10 @@ def confirm(run_dir: Path, confirmation: str, command: Command = bounded_command
         return result
     result = {"schema": "s20plus_g986n_download_exit_result_v1", "version": VERSION, "binding_sha256": binding_sha, "verdict": "RECOVERY_PENDING_S20PLUS_G986N_DOWNLOAD_EXIT_NORMAL_HEALTH", "returncode": rc, "post_state": post_state, "stdout_sha256": hashlib.sha256(stdout).hexdigest(), "stderr_sha256": hashlib.sha256(stderr).hexdigest(), "effect_command_count": 1, "no_replay": True, "replay_permitted": False, "at": now()}
     try:
-        result["android"] = android_health(command)
+        result["android"] = android_health(
+            command,
+            expected_topology_sha256=endpoint["topology_sha256"],
+        )
         result["verdict"] = "PASS_S20PLUS_G986N_DOWNLOAD_EXIT_NORMAL_HEALTHY"
     except Exception as exc:
         result["health_failure_class"] = type(exc).__name__
@@ -450,9 +583,114 @@ def finalize(run_dir: Path, command: Command = bounded_command) -> dict[str, Any
     run_dir = validate_run_dir(run_dir)
     read_guard(run_dir)
     arm_value = read_json(run_dir / "arm-intent.json", "arm intent")
+    baseline = read_json(run_dir / "baseline.json", "Download baseline")
     intent = read_json(run_dir / "exit-intent.json", "exit intent")
     result = read_json(run_dir / "result.json", "exit result")
-    if intent.get("schema") != "s20plus_g986n_download_exit_intent_v1" or intent.get("binding_sha256") != arm_value.get("binding_sha256") or intent.get("attempt") != 1 or intent.get("no_payload") is not True or intent.get("no_replay") is not True or intent.get("command_shape") != ["odin4", "--reboot", "-d", "USBFS"] or result.get("schema") != "s20plus_g986n_download_exit_result_v1" or result.get("version") != VERSION or result.get("binding_sha256") != arm_value.get("binding_sha256") or result.get("effect_command_count") != 1 or result.get("no_replay") is not True or result.get("replay_permitted") is not False or result.get("verdict") != "RECOVERY_PENDING_S20PLUS_G986N_DOWNLOAD_EXIT_NORMAL_HEALTH" or result.get("returncode") != 0 or result.get("post_state") != "absent" or not isinstance(intent.get("endpoint"), dict):
+    arm_keys = {
+        "schema",
+        "version",
+        "binding",
+        "binding_sha256",
+        "operator_confirmation_required",
+        "at",
+        "no_replay",
+    }
+    binding_keys = {
+        "schema",
+        "version",
+        "target",
+        "baseline_sha256",
+        "odin",
+        "action",
+        "no_payload",
+        "attempt",
+        "no_replay",
+    }
+    baseline_keys = {
+        "schema",
+        "version",
+        "endpoint_count",
+        "listing_sha256",
+        "at",
+    }
+    intent_keys = {
+        "schema",
+        "version",
+        "binding_sha256",
+        "action",
+        "endpoint",
+        "command_shape",
+        "attempt",
+        "no_payload",
+        "no_replay",
+        "at",
+    }
+    result_keys = {
+        "schema",
+        "version",
+        "binding_sha256",
+        "verdict",
+        "returncode",
+        "post_state",
+        "stdout_sha256",
+        "stderr_sha256",
+        "effect_command_count",
+        "no_replay",
+        "replay_permitted",
+        "at",
+    }
+    binding = arm_value.get("binding")
+    if (
+        set(arm_value) != arm_keys
+        or not isinstance(binding, dict)
+        or set(binding) != binding_keys
+        or set(baseline) != baseline_keys
+        or set(intent) != intent_keys
+        or set(result) not in (result_keys, result_keys | {"health_failure_class"})
+        or arm_value.get("schema") != "s20plus_g986n_download_exit_arm_v1"
+        or arm_value.get("version") != VERSION
+        or arm_value.get("operator_confirmation_required") != CONFIRM_TOKEN
+        or arm_value.get("no_replay") is not True
+        or not isinstance(arm_value.get("at"), str)
+        or not arm_value["at"]
+        or arm_value.get("binding_sha256") != canonical(binding)
+        or binding.get("schema") != "s20plus_g986n_download_exit_binding_v1"
+        or binding.get("version") != VERSION
+        or binding.get("target")
+        != {
+            "model": EXPECTED_MODEL,
+            "device": EXPECTED_DEVICE,
+            "product": EXPECTED_PRODUCT,
+            "incremental": EXPECTED_INCREMENTAL,
+        }
+        or binding.get("action") != "exit-download"
+        or binding.get("no_payload") is not True
+        or type(binding.get("attempt")) is not int
+        or binding.get("attempt") != 1
+        or binding.get("no_replay") is not True
+        or binding.get("odin")
+        != {"path": str(ODIN), "size": ODIN_SIZE, "sha256": ODIN_SHA256}
+        or baseline.get("schema") != "s20plus_g986n_download_exit_baseline_v1"
+        or baseline.get("version") != VERSION
+        or type(baseline.get("endpoint_count")) is not int
+        or baseline.get("endpoint_count") != 0
+        or baseline.get("listing_sha256") != hashlib.sha256(b"").hexdigest()
+        or not isinstance(baseline.get("at"), str)
+        or not baseline["at"]
+        or binding.get("baseline_sha256") != canonical(baseline)
+    ):
+        raise ExitError("arm or baseline evidence is malformed")
+    normal_pending = (
+        result.get("verdict")
+        == "RECOVERY_PENDING_S20PLUS_G986N_DOWNLOAD_EXIT_NORMAL_HEALTH"
+        and result.get("post_state") == "absent"
+    )
+    changed_unknown = (
+        result.get("verdict")
+        == "RECOVERY_PENDING_S20PLUS_G986N_DOWNLOAD_EXIT_UNKNOWN"
+        and result.get("post_state") == "changed"
+    )
+    if intent.get("schema") != "s20plus_g986n_download_exit_intent_v1" or intent.get("version") != VERSION or intent.get("binding_sha256") != arm_value.get("binding_sha256") or intent.get("action") != "exit-download" or type(intent.get("attempt")) is not int or intent.get("attempt") != 1 or intent.get("no_payload") is not True or intent.get("no_replay") is not True or intent.get("command_shape") != ["odin4", "--reboot", "-d", "USBFS"] or not isinstance(intent.get("at"), str) or not intent["at"] or result.get("schema") != "s20plus_g986n_download_exit_result_v1" or result.get("version") != VERSION or result.get("binding_sha256") != arm_value.get("binding_sha256") or type(result.get("effect_command_count")) is not int or result.get("effect_command_count") != 1 or result.get("no_replay") is not True or result.get("replay_permitted") is not False or type(result.get("returncode")) is not int or result.get("returncode") != 0 or not isinstance(result.get("at"), str) or not result["at"] or ("health_failure_class" in result and (not normal_pending or not isinstance(result["health_failure_class"], str) or not result["health_failure_class"])) or normal_pending == changed_unknown or not isinstance(intent.get("endpoint"), dict):
         raise ExitError("exit evidence is malformed")
     validate_endpoint(intent["endpoint"])
     stdout_sha256 = result.get("stdout_sha256")
@@ -464,8 +702,17 @@ def finalize(run_dir: Path, command: Command = bounded_command) -> dict[str, Any
     scan_exact_nodes(run_dir, {"baseline.json", "arm-intent.json", "exit-intent.json", "exit.stdout", "exit.stderr", "result.json"})
     if result.get("verdict") == "PASS_S20PLUS_G986N_DOWNLOAD_EXIT_NORMAL_HEALTHY":
         raise ExitError("exit result already finalized")
-    result["android"] = android_health(command)
-    result["verdict"] = "PASS_S20PLUS_G986N_DOWNLOAD_EXIT_NORMAL_HEALTHY"
+    result["android"] = android_health(
+        command,
+        expected_topology_sha256=intent["endpoint"]["topology_sha256"],
+    )
+    result["source_verdict"] = result["verdict"]
+    result["exit_dispatch_proven"] = normal_pending
+    result["verdict"] = (
+        "PASS_S20PLUS_G986N_DOWNLOAD_EXIT_NORMAL_HEALTHY"
+        if normal_pending
+        else "PASS_S20PLUS_G986N_DOWNLOAD_EXIT_NORMAL_HEALTHY_AFTER_UNCERTAIN_DISPATCH"
+    )
     result["finalized_at"] = now()
     read_guard(run_dir)
     durable_create(run_dir / "final-result.json", result)

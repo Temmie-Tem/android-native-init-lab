@@ -19,9 +19,9 @@ ROOT = Path(__file__).resolve().parents[5]
 SCHEMA = "s20plus_g986n_n3u0_attended_f1_evidence_h0_v1"
 STATUS = "H0_DURABLE_EVIDENCE_PASS_GO_NOT_ACTIVE"
 EVIDENCE_ACTIVE = False
-EXPECTED_REVIEWED_RUNNER_NORMALIZED_SHA256 = "2123482599650eaa54f75d9637a59c15df05199f5b7f7b6e2d343b29f154af71"
+EXPECTED_REVIEWED_RUNNER_NORMALIZED_SHA256 = "459c579cbefcb7916ccce7a00c595a772f3c0b23f679016a98be49ec85af9dbb"
 MAX_SOURCE_BYTES = 2 * 1024 * 1024
-MAX_RAW_BYTES = 1024 * 1024
+MAX_RAW_BYTES = 8 * 1024 * 1024
 MAX_COMMAND_ITEMS = 64
 MAX_COMMAND_TEXT = 4096
 
@@ -31,7 +31,7 @@ JOURNAL_BINDING_SHA256 = (
     "4695acca5c8d618eee7e16aaf665cbf66235a5a76aadc0a4322f490113cc2945"
 )
 BACKEND_BINDING_SHA256 = (
-    "d476cdc93b56296178def170fd80e8fe88d3eaf6b96693e577064ba77b02e15f"
+    "5561aabc35f20752702b8ef12ec6f8d4669bbef8b022ff5557c7925c34b9704b"
 )
 INTEGRATION_BINDING_SHA256 = (
     "2a037eb3cab5f068b0d534d034fcadce51b26c3ee9f5874ec583b90905a6d6a6"
@@ -48,8 +48,8 @@ SOURCES = {
         "path": ROOT
         / "workspace/public/src/scripts/revalidation/"
         "s20plus_n3u0_attended_f1_backend_h0.py",
-        "size": 25_924,
-        "sha256": "972afb5ed80da659d1b47026d789900e6a81fe789adaeb6a45ff3207344a05c5",
+        "size": 30_896,
+        "sha256": "0d8a752e94ea34f5130a53fe2747c7e949561db54ba661d55c4af2db0a19e27b",
     },
     "integration": {
         "path": ROOT
@@ -629,6 +629,23 @@ def inspect_operation(run_dir: Path, operation: str, ordinal: int) -> dict[str, 
         "ordinal": ordinal,
         "result": result,
         "replay_permitted": False,
+    }
+
+
+def read_complete_operation(
+    run_dir: Path, operation: str, ordinal: int
+) -> dict[str, Any]:
+    require_active()
+    inspection = inspect_operation(run_dir, operation, ordinal)
+    if inspection.get("state") != "complete":
+        raise EvidenceError("command evidence is not complete")
+    prepared = _load_journal().validate_legal_prefix(run_dir)
+    stem = f"{operation}-{ordinal:02d}"
+    evidence_run = EVIDENCE_ROOT / prepared["run_id"]
+    return {
+        "inspection": inspection,
+        "stdout": _read_blob(evidence_run / f"{stem}.stdout", f"{operation} stdout"),
+        "stderr": _read_blob(evidence_run / f"{stem}.stderr", f"{operation} stderr"),
     }
 
 

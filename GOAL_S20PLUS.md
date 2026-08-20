@@ -628,3 +628,44 @@ inactive. It now pins the rotated backend, whose exact dependency closure also
 received `PASS_GO`; the backend still does not yet call it, so
 integrated command-return capture, journal-result derivation, physical entry,
 contract amendment, and activation remain future gates.
+
+The next bounded dormant H0 unit is now implemented in
+`docs/reports/S20PLUS_G986N_N3U0_EVIDENCE_EXECUTION_INTEGRATION_H0_2026-08-20.md`.
+It exact-loads the journal, consumer model, concrete backend, and atomic
+evidence owner, constructs the fixed backend internally, captures actual
+subprocess returns after durable intent, publishes a full operation receipt,
+and derives a missing journal result with zero command replay. A restart cannot
+recreate the same-invocation effect marker. Host fixtures also found and closed
+the missing candidate Android-return attribution after the ACM banner. The new
+execution suite passes 14/14, the five-module aggregate passes 92/92, and the
+complete N3-U0 aggregate passes 130/130. The
+backend, evidence owner, and execution join received independent `PASS_GO` and
+are `PASS_GO_NOT_ACTIVE`; all activation booleans remain false. The two
+blocker-first review rounds first removed caller-backend/forged-evidence helper
+reachability and then corrected real-bootstrap Odin capture recursion.
+Physical-entry integration, target-contract amendment, mechanical
+activation, fresh preparation, and fresh attended approval remain future
+gates. No connected action or N3-U0 live authority was created.
+
+On 2026-08-20 a fresh attended routine `enter-download` succeeded after two
+effect-free inventory failures. The operator observed Download mode and the
+control guard closed. The reviewed payload-free exit then consumed exactly one
+`odin4 --reboot -d` with return code zero, but the USB character endpoint was
+observed as changed rather than absent. The phone nevertheless returned to
+normal Android by direct operator observation. The original finalizer rejected
+that truthful `RECOVERY_PENDING...UNKNOWN` result before health collection, so
+the exit guard remains held and no replay is permitted. A narrow recovery-only
+finalizer rotation now accepts only this exact rc0/changed one-shot shape,
+preserves dispatch as unproved, repeats fresh exact Android health, and can
+release the guard without Odin. Exact-byte independent review returned
+`PASS_GO`. The first retained-run invocation then failed closed with no terminal
+or guard release because the reconnected Android endpoint used the other
+already allowlisted paired-controller topology recorded by the Download
+intent, while the health helper still required the older Android-only hash.
+The next narrow rotation binds fresh Android health to that exact durable
+Download endpoint topology. Exact-byte independent review returned `PASS_GO`;
+the retained run then used this health-only continuation successfully. The
+terminal preserves the original UNKNOWN source verdict and
+`exit_dispatch_proven=false`, proves exact healthy S20+ Android, and records
+the single prior effect as non-replayable. The shared guard is released. No
+Odin, reboot, transfer, or payload command was sent by finalization.
